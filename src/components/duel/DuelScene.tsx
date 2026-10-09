@@ -364,7 +364,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           }));
         }
         setCrowdHype((prev) => Math.min(100, prev + 20));
-        addLog(`${attacker.name} flexes &amp; taunts! The arena roars (+20% Hype)!`, isActorPlayer ? 'player' : 'opponent');
+        addLog(`${attacker.name} flexes & taunts! The arena roars (+20% Hype)!`, isActorPlayer ? 'player' : 'opponent');
         spawnDamageText('TAUNT! +20% HYPE', 'hype', attacker.position);
       } else if (actionType === 'rest') {
         if (isActorPlayer) {
