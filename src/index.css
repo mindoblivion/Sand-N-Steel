@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Keep Tailwind's content scanner out of the binary game assets. Its automatic source
+   detection walks the whole project and only skips extensions it knows to be binary, so
+   the large .glb character models were being read as text — which ballooned the dev
+   server's memory until the process was killed. No utility classes live in here. */
+@source not "../public";
+
 @layer base {
   html, body, #root {
     width: 100%;

@@ -29,6 +29,22 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   a duplicated `Banner` import in `src/components/3d/city/IshtarGatehouse.tsx` (Vite "Identifier already declared"),
   and `React.lazy()` calls in `src/App.tsx` that expected a default export from `CityHubScene`/`DuelScene`,
   which only export named components. If a 3D screen ever goes blank after re-importing, check these first.
+- `public/models/arena_roman.glb` is the player's character model: a 66-joint UE-style skeleton (`root`,
+  `pelvis`, `spine_01`-`03`, `arm`/`hand_l`/`hand_r`/`leg`) with 178 animation clips. `GladiatorMesh` clones it
+  per fighter, attaches the procedural sword/shield to the `hand_r`/`hand_l` bones, and maps ~29 of the clips
+  (`Walk`, `Sword_Attack`, `Sword_Regular_C`, `Defend`, `Roll`, `Hit_Chest`, `Death_A`, `Fighting_Idle`, ...).
+  If the file is missing or not rigged it silently falls back to a procedural gladiator, so check the network
+  tab for `/models/arena_roman.glb` when the character looks blocky.
+- **Tailwind's content scanner walks `public/`.** Tailwind 4 auto-detects sources across the project and only
+  skips extensions it knows to be binary (`.ogg` is fine), so a multi-MB `.glb` was read as text — memory grew
+  ~100 MB/s until the dev process was killed and the container restart-looped (symptoms: `bun`/`vite` dying with
+  SIGKILL/segfault, and a huge untracked `core` dump appearing at the repo root — delete it before committing).
+  `src/index.css` now carries `@source not "../public";`. Add the same exclusion for any new large non-audio
+  asset folder under `public/`.
+- `scripts/gltf-transform-optimize.js` (`bun run compress:glb`) runs inside the `web` container and shrinks a
+  model with dedup/weld/resample/quantize — useful for load time. Pass `--no-draco`: Draco output needs
+  `useGLTF(url, true)` plus a decoder, which `GladiatorMesh` does not configure. KHR_mesh_quantization output
+  is fine. Note it writes a `.backup.glb` beside the file when input and output are the same path.
 
 ## Verifying
 
