@@ -252,6 +252,8 @@ const RomanWarriorGLB: React.FC<{
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const currentActionName = useRef<string>('');
+  const flashTimerRef = useRef(0);
+  const lastActionRef = useRef<string>('');
 
   const gltf = useGLTF('/models/arena_roman.glb');
 
@@ -362,9 +364,22 @@ const RomanWarriorGLB: React.FC<{
     currentActionName.current = targetClip;
   }, [targetClip, actions, activeAction]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!groupRef.current) return;
-    const isHit = fighter.hitFlashTimer > 0;
+
+    // Detect a new hit via action transition. hitFlashTimer is set to 0.3 by
+    // DuelScene on a hit but never decremented, so it alone can't signal a
+    // fresh hit — the action prop transitions to 'hit' and later to 'idle'.
+    if (fighter.action === 'hit' && lastActionRef.current !== 'hit') {
+      flashTimerRef.current = fighter.hitFlashTimer || 0.3;
+    }
+    lastActionRef.current = fighter.action;
+
+    if (flashTimerRef.current > 0) {
+      flashTimerRef.current = Math.max(0, flashTimerRef.current - delta);
+    }
+
+    const isHit = flashTimerRef.current > 0;
     clonedScene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
@@ -430,10 +445,14 @@ const ProceduralGladiator: React.FC<{
   const rightKneeRef = useRef<THREE.Group>(null);
   const crestRef = useRef<THREE.Group>(null);
 
+  const [flashActive, setFlashActive] = useState(false);
+  const flashTimerRef = useRef(0);
+  const lastActionRef = useRef(fighter.action);
+
   const activeAction = overrideAction || fighter.action;
   const isLefty = isLeftyMode || fighter.isLeftyMode || false;
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     const t = clock.getElapsedTime();
 
     if (!hipsRef.current || !torsoRef.current || !headRef.current) return;
@@ -539,10 +558,23 @@ const ProceduralGladiator: React.FC<{
         headRef.current.rotation.y = Math.sin(t * 0.8) * 0.05;
       }
     }
+
+    // Hit flash: detect new hit via action transition and auto-clear.
+    if (fighter.action === 'hit' && lastActionRef.current !== 'hit') {
+      flashTimerRef.current = fighter.hitFlashTimer || 0.3;
+      setFlashActive(true);
+    }
+    lastActionRef.current = fighter.action;
+    if (flashTimerRef.current > 0) {
+      flashTimerRef.current = Math.max(0, flashTimerRef.current - delta);
+      if (flashTimerRef.current <= 0) {
+        setFlashActive(false);
+      }
+    }
   });
 
   const scale = fighter.meshScale || 1.0;
-  const isHit = fighter.hitFlashTimer > 0;
+  const isHit = flashActive;
   const tunicColor = isHit ? '#ef4444' : fighter.tunicColor || '#991b1b';
   const bronzeColor = isHit ? '#f87171' : '#b45309';
   const goldColor = isHit ? '#fca5a5' : '#f59e0b';
