@@ -48,6 +48,13 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `useGLTF(url, true)` plus a decoder, which `GladiatorMesh` does not configure. KHR_mesh_quantization output
   is fine. Note it writes a `.backup.glb` beside the file when input and output are the same path.
 
+- **All player-acquirable items live in `src/data/itemsDB.ts`** (single source of truth): `ITEMS_DB`,
+  `ALL_WEAPONS`, `ALL_ARMORS`, `ITEMS_BY_CATEGORY` (`weapon` + one key per armor slot) and `getItemById()`.
+  `ALL_WEAPONS[2]` is the spare starter weapon (`STARTING_SPARE_WEAPON`, used by `services/storage.ts` and
+  `CharacterCreation.tsx`), so **keep the array order when appending** new entries. Weapons may carry an
+  optional `modelPath`; the five meshes in `public/models/weapons/` (gladius, spatha, dagger, dirk, shamshir)
+  are single static unrigged meshes ~1 unit long, currently referenced as data only — nothing renders them yet.
+
 ## Verifying
 
 - `curl -s localhost:3000/` should return the HTML shell (title: "Sand & Steel: 3D Gladiator Arena RPG").

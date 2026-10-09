@@ -1,5 +1,5 @@
 import { PlayerProfile, FighterStats } from '../types/game';
-import { DEFAULT_PLAYER_WEAPON, ALL_WEAPONS } from '../data/weapons';
+import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON } from '../data/itemsDB';
 
 const PROFILE_STORAGE_KEY = 'sand_and_steel_gladiator_save_v2';
 
@@ -83,7 +83,7 @@ export function createNewProfile(name: string, characterModel = 'roman_warrior' 
     equipped: {
       weapon: DEFAULT_PLAYER_WEAPON,
     },
-    inventory: [DEFAULT_PLAYER_WEAPON, ALL_WEAPONS[2]], // includes spear
+    inventory: [DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON], // includes spear
     fightsWon: 0,
     fightsLost: 0,
     peakCrowdHypeOverall: 0,

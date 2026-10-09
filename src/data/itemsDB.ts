@@ -1,5 +1,40 @@
 import { WeaponItem, ArmorItem } from '../types/game';
 
+/**
+ * ===========================================================================
+ * SAND & STEEL — ITEMS DB
+ * ===========================================================================
+ * The single source of truth for every item a player can acquire in the game:
+ * weapons and gladiator armor (helm / chest / arms / legs).
+ *
+ * Consumed by:
+ *   - components/hub/ShopTab.tsx          (Smith & Bazaar buy list)
+ *   - components/hub/CharacterCreation.tsx and services/storage.ts (starter kit)
+ *   - components/3d/GladiatorPreview.tsx and 3d/city/CityHubScene.tsx (default loadout)
+ *   - components/hub/GearTab.tsx          (equip / sell, from the saved profile)
+ *
+ * Item shapes live in `types/game.ts`. Weapons may reference a real mesh through
+ * the optional `modelPath`; armor is still rendered procedurally from its
+ * color / trimColor / style fields.
+ */
+
+export type GameItem = WeaponItem | ArmorItem;
+
+/**
+ * Weapon meshes shipped in `public/models/weapons/`.
+ * All five are single static meshes (no armature, no animation clips) and are
+ * ~1 unit long along their blade axis, so they scale into the ~1.6-2.6m range
+ * band of the weapons below.
+ */
+export const WEAPON_MODEL_PATHS = {
+  gladius: '/models/weapons/gladius.glb',
+  spatha: '/models/weapons/spatha.glb',
+  dagger: '/models/weapons/dagger.glb',
+  dirk: '/models/weapons/dirk.glb',
+  shamshir: '/models/weapons/shamshir.glb',
+} as const;
+
+/** The weapon every new gladiator starts equipped with. */
 export const DEFAULT_PLAYER_WEAPON: WeaponItem = {
   id: 'gladius_standard',
   name: 'Standard Gladius & Scutum',
@@ -18,10 +53,17 @@ export const DEFAULT_PLAYER_WEAPON: WeaponItem = {
   color: '#c59b27',
   metalColor: '#e2e8f0',
   icon: 'ShieldAlert',
+  modelPath: WEAPON_MODEL_PATHS.gladius,
   bonusStrength: 0,
   bonusDefense: 2,
 };
 
+/**
+ * EVERY ACQUIRABLE WEAPON.
+ *
+ * ORDER IS LOAD-BEARING: index 2 is the spare starter weapon handed to new
+ * gladiators (see STARTING_SPARE_WEAPON). Append new weapons at the end.
+ */
 export const ALL_WEAPONS: WeaponItem[] = [
   DEFAULT_PLAYER_WEAPON,
   {
@@ -42,6 +84,7 @@ export const ALL_WEAPONS: WeaponItem[] = [
     color: '#991b1b',
     metalColor: '#cbd5e1',
     icon: 'Shield',
+    modelPath: WEAPON_MODEL_PATHS.spatha,
     bonusStrength: 3,
     bonusDefense: 3,
   },
@@ -168,8 +211,77 @@ export const ALL_WEAPONS: WeaponItem[] = [
     bonusStrength: 14,
     bonusDefense: 6,
   },
+  {
+    id: 'dagger_pugio',
+    name: 'Legionary Pugio Dagger',
+    type: 'dual_blades',
+    rarity: 'common',
+    description: 'Short broad-bladed sidearm; blindingly fast in close quarters.',
+    damageLight: 11,
+    damageHeavy: 20,
+    staminaLight: 8,
+    staminaHeavy: 16,
+    range: 1.6,
+    speed: 0.22,
+    blockReduction: 0.35,
+    price: 90,
+    sellPrice: 40,
+    color: '#334155',
+    metalColor: '#cbd5e1',
+    icon: 'Swords',
+    modelPath: WEAPON_MODEL_PATHS.dagger,
+    bonusAgility: 4,
+  },
+  {
+    id: 'dirk_desert',
+    name: 'Desert Dirk',
+    type: 'dual_blades',
+    rarity: 'uncommon',
+    description: 'Slender straight dirk honed for quick, precise thrusts.',
+    damageLight: 15,
+    damageHeavy: 28,
+    staminaLight: 9,
+    staminaHeavy: 17,
+    range: 1.7,
+    speed: 0.24,
+    blockReduction: 0.38,
+    price: 170,
+    sellPrice: 75,
+    color: '#0f766e',
+    metalColor: '#e2e8f0',
+    icon: 'Swords',
+    modelPath: WEAPON_MODEL_PATHS.dirk,
+    bonusAgility: 5,
+    bonusStrength: 1,
+  },
+  {
+    id: 'shamshir_curved',
+    name: 'Shamshir Crescent Sabre',
+    type: 'sword_shield',
+    rarity: 'rare',
+    description: 'Deeply curved eastern sabre that slashes through any guard.',
+    damageLight: 21,
+    damageHeavy: 40,
+    staminaLight: 13,
+    staminaHeavy: 26,
+    range: 2.3,
+    speed: 0.36,
+    blockReduction: 0.80,
+    price: 340,
+    sellPrice: 150,
+    color: '#78350f',
+    metalColor: '#fcd34d',
+    icon: 'Sparkles',
+    modelPath: WEAPON_MODEL_PATHS.shamshir,
+    bonusStrength: 4,
+    bonusAgility: 3,
+  },
 ];
 
+/** Spare weapon granted to every new gladiator alongside the default gladius. */
+export const STARTING_SPARE_WEAPON: WeaponItem = ALL_WEAPONS[2];
+
+/** EVERY ACQUIRABLE ARMOR PIECE (helm / chest / arms / legs). */
 export const ALL_ARMORS: ArmorItem[] = [
   {
     id: 'helm_murmillo',
@@ -266,3 +378,27 @@ export const ALL_ARMORS: ArmorItem[] = [
     bonusAgility: 2,
   },
 ];
+
+/** The complete item database: every weapon and every armor piece. */
+export const ITEMS_DB: GameItem[] = [...ALL_WEAPONS, ...ALL_ARMORS];
+
+/** Typed views of the database: `weapon` plus one entry per armor slot. */
+export const ITEMS_BY_CATEGORY = {
+  weapon: ALL_WEAPONS,
+  helm: ALL_ARMORS.filter((armor) => armor.slot === 'helm'),
+  chest: ALL_ARMORS.filter((armor) => armor.slot === 'chest'),
+  arms: ALL_ARMORS.filter((armor) => armor.slot === 'arms'),
+  legs: ALL_ARMORS.filter((armor) => armor.slot === 'legs'),
+} as const;
+
+export type ItemCategory = keyof typeof ITEMS_BY_CATEGORY;
+
+const ITEMS_BY_ID: ReadonlyMap<string, GameItem> = new Map(
+  ITEMS_DB.map((item) => [item.id, item])
+);
+
+/** Look up any acquirable item by its stable id. */
+export const getItemById = (id: string): GameItem | undefined => ITEMS_BY_ID.get(id);
+
+/** Narrow a database entry to a weapon. */
+export const isWeapon = (item: GameItem): item is WeaponItem => 'damageLight' in item;

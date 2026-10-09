@@ -28,6 +28,8 @@ export interface WeaponItem {
   color: string;
   metalColor: string;
   icon: string;
+  /** Optional real mesh asset for this weapon (see data/itemsDB.ts). */
+  modelPath?: string;
   bonusStrength?: number;
   bonusAgility?: number;
   bonusStamina?: number;

@@ -41,7 +41,7 @@ import {
   HUB_LOCATIONS,
   InteractiveLocation,
 } from '../../../utils/cityCollisions';
-import { DEFAULT_PLAYER_WEAPON } from '../../../data/weapons';
+import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
 import { calculateTotalStats } from '../../../services/storage';
 import { sounds } from '../../../audio/soundEffects';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';

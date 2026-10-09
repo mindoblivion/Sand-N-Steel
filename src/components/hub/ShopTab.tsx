@@ -1,6 +1,6 @@
 import React from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
-import { ALL_WEAPONS, ALL_ARMORS } from '../../data/weapons';
+import { ALL_WEAPONS, ALL_ARMORS } from '../../data/itemsDB';
 import { ShoppingCart, Coins, Shield, Swords, Check } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 

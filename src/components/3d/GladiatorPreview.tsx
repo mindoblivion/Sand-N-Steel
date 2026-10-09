@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import { PlayerAppearance, FighterState } from '../../types/game';
-import { DEFAULT_PLAYER_WEAPON } from '../../data/weapons';
+import { DEFAULT_PLAYER_WEAPON } from '../../data/itemsDB';
 import { GladiatorMesh } from './GladiatorMesh';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';

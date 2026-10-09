@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PlayerProfile, PlayerAppearance } from '../../types/game';
 import { GladiatorPreview } from '../3d/GladiatorPreview';
 import { sounds } from '../../audio/soundEffects';
-import { DEFAULT_PLAYER_WEAPON, ALL_WEAPONS } from '../../data/weapons';
+import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON } from '../../data/itemsDB';
 import { Sparkles, Swords, Shield, Heart, Zap, Check, ArrowLeft } from 'lucide-react';
 
 interface CharacterCreationProps {
@@ -83,7 +83,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
       equipped: {
         weapon: DEFAULT_PLAYER_WEAPON,
       },
-      inventory: [DEFAULT_PLAYER_WEAPON, ALL_WEAPONS[2]], // includes spear
+      inventory: [DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON], // includes spear
       fightsWon: 0,
       fightsLost: 0,
       peakCrowdHypeOverall: 0,
