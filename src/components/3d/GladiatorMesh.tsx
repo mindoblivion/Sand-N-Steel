@@ -211,7 +211,7 @@ const GladiusWeaponRenderer: React.FC<{ weaponType: string; goldColor: string }>
 // Shared Shield Renderer Component
 const ShieldModel: React.FC<{ isLefty: boolean; goldColor: string }> = ({ isLefty, goldColor }) => {
   return (
-    <group position={[0, 0, 0]} rotation={[0, 0, 0]}>
+    <group position={[0, 0, 0]} rotation={[0, 0, isLefty ? -Math.PI / 2 : Math.PI / 2]}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[0.68, 1.15, 0.05]} />
         <meshStandardMaterial color="#881337" roughness={0.4} />
