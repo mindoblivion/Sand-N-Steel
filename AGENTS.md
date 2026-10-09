@@ -39,8 +39,10 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   skips extensions it knows to be binary (`.ogg` is fine), so a multi-MB `.glb` was read as text — memory grew
   ~100 MB/s until the dev process was killed and the container restart-looped (symptoms: `bun`/`vite` dying with
   SIGKILL/segfault, and a huge untracked `core` dump appearing at the repo root — delete it before committing).
-  `src/index.css` now carries `@source not "../public";`. Add the same exclusion for any new large non-audio
-  asset folder under `public/`.
+  `src/index.css` now carries `@source not "../public";` (the `not` form needs Tailwind >= 4.1; 4.3.3 is installed).
+  Verified after the fix: the CSS build takes ~1 s and the dev server holds steady around 190 MB, with no SIGKILLs.
+  `curl 'localhost:3000/src/index.css?direct'` forces a full scan if you need to re-check. Add the same exclusion
+  for any new large non-audio asset folder under `public/`.
 - `scripts/gltf-transform-optimize.js` (`bun run compress:glb`) runs inside the `web` container and shrinks a
   model with dedup/weld/resample/quantize — useful for load time. Pass `--no-draco`: Draco output needs
   `useGLTF(url, true)` plus a decoder, which `GladiatorMesh` does not configure. KHR_mesh_quantization output
