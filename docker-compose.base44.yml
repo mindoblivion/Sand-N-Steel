@@ -1,0 +1,31 @@
+# Base44 development environment for "Sand & Steel: 3D Gladiator Arena RPG".
+#
+# Runs the Vite dev server FROM THE CLONED SOURCE on host port 3000 (the preview
+# entry point), so edits are picked up by live reload without any image rebuild.
+#
+# No database, cache or external service is required: the game persists progress to
+# localStorage, and the Google Drive cloud-save is optional and user-initiated.
+
+services:
+  web:
+    image: oven/bun:1
+    working_dir: /app
+    # Install from the committed lockfile once mounts are available, then start the
+    # live-reload dev server. node_modules lives in a volume so it never lands in git.
+    command: ["sh", "-ec", "bun install --frozen-lockfile && exec bun run dev"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - web_node_modules:/app/node_modules
+    restart: on-failure
+    healthcheck:
+      # Bun ships in this image; probe the dev server over HTTP using it.
+      test: ["CMD", "bun", "-e", "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 120s
+
+volumes:
+  web_node_modules:
