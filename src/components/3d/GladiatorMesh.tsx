@@ -208,10 +208,21 @@ const GladiusWeaponRenderer: React.FC<{ weaponType: string; goldColor: string }>
   );
 };
 
+// Bone-local shield rotations for arena_roman.glb (Euler XYZ, radians).
+// The rig's hand_l / hand_r frames are not mirror images, and in Fighting_Idle
+// (the rest stance used by creation, city hub and duel) each hand's local +Z —
+// the shield's face normal — points 45-66° upward, so spinning about Z cannot
+// stand the board up. Each value is the inverse of that hand bone's mean
+// model-space rotation over Fighting_Idle, composed with a 45° outward yaw:
+// in the idle stance the board stands ~3° off vertical and faces
+// forward-outward on the shield side. Other clips move the hand freely.
+const SHIELD_ROTATION_LEFT_HAND: [number, number, number] = [-2.42, -0.67, 2.91]; // righty
+const SHIELD_ROTATION_RIGHT_HAND: [number, number, number] = [3.02, 1.28, -1.06]; // lefty
+
 // Shared Shield Renderer Component
 const ShieldModel: React.FC<{ isLefty: boolean; goldColor: string }> = ({ isLefty, goldColor }) => {
   return (
-    <group position={[0, 0, 0]} rotation={[0, 0, isLefty ? -Math.PI / 2 : Math.PI / 2]}>
+    <group position={[0, 0, 0]} rotation={isLefty ? SHIELD_ROTATION_RIGHT_HAND : SHIELD_ROTATION_LEFT_HAND}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[0.68, 1.15, 0.05]} />
         <meshStandardMaterial color="#881337" roughness={0.4} />
