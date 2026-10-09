@@ -219,10 +219,17 @@ const GladiusWeaponRenderer: React.FC<{ weaponType: string; goldColor: string }>
 const SHIELD_ROTATION_LEFT_HAND: [number, number, number] = [-2.42, -0.67, 2.91]; // righty
 const SHIELD_ROTATION_RIGHT_HAND: [number, number, number] = [3.02, 1.28, -1.06]; // lefty
 
+// The shield geometry (0.68 x 1.15) was sized for the procedural fallback
+// gladiator (~2.10 units tall, 0.55x its height). The rigged GLB character is
+// ~0.98 units tall, so the unscaled board is 1.17x the character. Scaling by
+// the GLB/procedural height ratio (~0.47) restores the same 0.55x proportion
+// and brings the shield top to head level instead of 0.3 units above.
+const SHIELD_SCALE_GLB = 0.47;
+
 // Shared Shield Renderer Component
 const ShieldModel: React.FC<{ isLefty: boolean; goldColor: string }> = ({ isLefty, goldColor }) => {
   return (
-    <group position={[0, 0, 0]} rotation={isLefty ? SHIELD_ROTATION_RIGHT_HAND : SHIELD_ROTATION_LEFT_HAND}>
+    <group position={[0, 0, 0]} rotation={isLefty ? SHIELD_ROTATION_RIGHT_HAND : SHIELD_ROTATION_LEFT_HAND} scale={SHIELD_SCALE_GLB}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[0.68, 1.15, 0.05]} />
         <meshStandardMaterial color="#881337" roughness={0.4} />
