@@ -4,7 +4,6 @@ import { BuildingFoundation } from './BuildingFoundation';
 import { ClassicalColumn, WallCornice } from './ClassicalArchitecture';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { Banner } from './EnvironmentalMotion';
-import { Banner } from './EnvironmentalMotion';
 
 export const IshtarGatehouse: React.FC = () => {
   return (

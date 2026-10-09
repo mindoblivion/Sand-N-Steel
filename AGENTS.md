@@ -25,9 +25,18 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   is accepted as-is and no host/origin override is needed.
 - The AI Studio ZIP contained `public/models/arena_roman.glb.backup.glb`, a throwaway backup produced by
   `scripts/gltf-transform-optimize.js` and referenced nowhere; it was excluded on import.
+- The AI Studio export shipped two import bugs that broke the 3D screens and were fixed on import:
+  a duplicated `Banner` import in `src/components/3d/city/IshtarGatehouse.tsx` (Vite "Identifier already declared"),
+  and `React.lazy()` calls in `src/App.tsx` that expected a default export from `CityHubScene`/`DuelScene`,
+  which only export named components. If a 3D screen ever goes blank after re-importing, check these first.
 
 ## Verifying
 
 - `curl -s localhost:3000/` should return the HTML shell (title: "Sand & Steel: 3D Gladiator Arena RPG").
-- Then open the preview: the title screen renders, and New Game → character creation → 3D city hub should work.
-- `bun run lint` (`tsc --noEmit`) type-checks the project.
+- Live flow that works: title screen → character creation → **3D city hub** → `Colosseum` tab →
+  `Enter Arena Duel` → `Step into Sand` → **3D duel arena**. The 3D scenes are heavy to build, so give them a
+  few seconds after navigating.
+- `bun run lint` (`tsc --noEmit`) reports several **pre-existing** type errors inherited from the AI Studio export
+  (e.g. `screen.orientation.lock` missing from the DOM lib, extra fields on `FighterStats`/`WeaponItem`,
+  `isBone` on `Object3D`). Vite's dev server does not type-check, so they do not block the app — don't chase
+  them as setup failures.
