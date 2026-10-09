@@ -142,6 +142,72 @@ const WeaponModel: React.FC<{ weaponType: string; goldColor: string }> = ({ weap
   );
 };
 
+// ---------------------------------------------------------------------------
+// Gladius GLB Mesh — renders the real weapon asset when the equipped item's
+// modelPath matches the gladius. Loaded on demand via useGLTF (drei's own
+// URL-keyed cache). The outer group mirrors the procedural WeaponModel's
+// [Math.PI / 2, 0, 0] rotation so the blade (local +Y) points forward from the
+// hand, matching the verified gladius convention.
+// ---------------------------------------------------------------------------
+const GLADIUS_MODEL_PATH = '/models/weapons/gladius.glb';
+
+const GladiusMesh: React.FC = () => {
+  const gltf = useGLTF(GLADIUS_MODEL_PATH);
+  const cloned = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
+
+  useEffect(() => {
+    cloned.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+  }, [cloned]);
+
+  return (
+    <group rotation={[Math.PI / 2, 0, 0]}>
+      <primitive object={cloned} />
+    </group>
+  );
+};
+
+// Narrow error boundary for the weapon GLB only — a load failure falls back to
+// the procedural WeaponModel without taking down the character or the duel.
+class WeaponGLBErrorBoundary extends React.Component<
+  { fallback: React.ReactNode; children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { fallback: React.ReactNode; children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(err: unknown) {
+    console.warn('[GladiatorMesh] Gladius GLB failed to load, falling back to procedural weapon:', err);
+  }
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+/** Renders the gladius GLB when available; procedural weapon on load/suspend. */
+const GladiusWeaponRenderer: React.FC<{ weaponType: string; goldColor: string }> = ({
+  weaponType,
+  goldColor,
+}) => {
+  const procedural = <WeaponModel weaponType={weaponType} goldColor={goldColor} />;
+  return (
+    <WeaponGLBErrorBoundary fallback={procedural}>
+      <React.Suspense fallback={procedural}>
+        <GladiusMesh />
+      </React.Suspense>
+    </WeaponGLBErrorBoundary>
+  );
+};
+
 // Shared Shield Renderer Component
 const ShieldModel: React.FC<{ isLefty: boolean; goldColor: string }> = ({ isLefty, goldColor }) => {
   return (
@@ -316,7 +382,10 @@ const RomanWarriorGLB: React.FC<{
   const weaponType = weaponItem?.type || 'sword_shield';
   const goldColor = '#f59e0b';
 
-  const weaponNode = <WeaponModel weaponType={weaponType} goldColor={goldColor} />;
+  const useGladiusGLB = weaponItem?.modelPath === GLADIUS_MODEL_PATH;
+  const weaponNode = useGladiusGLB
+    ? <GladiusWeaponRenderer weaponType={weaponType} goldColor={goldColor} />
+    : <WeaponModel weaponType={weaponType} goldColor={goldColor} />;
   const shieldNode = <ShieldModel isLefty={isLefty} goldColor={goldColor} />;
 
   // Anatomical assignment: Righty = Sword in Right Hand, Shield in Left Hand. Lefty = Reversed.
