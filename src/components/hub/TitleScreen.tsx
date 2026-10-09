@@ -27,13 +27,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   const handleStart = async () => {
     if (hasStarted) return;
     
-    // Attempt fullscreen and landscape
+    // Attempt fullscreen. Orientation is left to the device's own controls.
     try {
       if (document.documentElement.requestFullscreen) {
         await document.documentElement.requestFullscreen();
-      }
-      if (screen.orientation && screen.orientation.lock) {
-        await screen.orientation.lock("landscape");
       }
     } catch (e) {
       // Graceful fail
