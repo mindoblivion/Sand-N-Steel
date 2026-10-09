@@ -27,7 +27,6 @@ export function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isMuted, setIsMuted] = useState(sounds.isMuted);
   const [isLeftyMode, setIsLeftyMode] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(true);
 
   // Load saved profile on boot
   useEffect(() => {
@@ -59,15 +58,6 @@ export function App() {
       music.stop();
     }
   }, [currentScreen, duelResult, activeOpponent, activeHubTab]);
-
-  useEffect(() => {
-    const checkOrientation = () => {
-      setIsLandscape(window.innerWidth > window.innerHeight);
-    };
-    window.addEventListener('resize', checkOrientation);
-    checkOrientation();
-    return () => window.removeEventListener('resize', checkOrientation);
-  }, []);
 
   const handleToggleLeftyMode = () => {
     sounds.playClick();
@@ -256,18 +246,6 @@ export function App() {
 
   return (
     <div className="w-full h-full min-h-screen bg-neutral-950 text-amber-100 overflow-hidden select-none">
-        {/* Landscape rotation overlay */}
-        {!isLandscape && currentScreen !== 'title' && (
-            <div className="fixed inset-0 z-50 bg-neutral-950 flex flex-col items-center justify-center p-6 text-center">
-                <div className="text-amber-500 mb-6 animate-pulse">
-                   {/* Placeholder icon */}
-                   <span className="text-6xl">📱</span>
-                </div>
-                <h2 className="text-2xl font-serif font-black text-amber-100 uppercase mb-2">Rotate your device</h2>
-                <p className="text-neutral-400 font-sans">Landscape mode required for optimal experience.</p>
-            </div>
-        )}
-        
         {/* 3D ASSET LOADING OVERLAY WITH DUAL GOLD SPINNER & PERCENTAGE */}
         <AssetLoadingOverlay />
 
