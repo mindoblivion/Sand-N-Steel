@@ -14,6 +14,7 @@ import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
 import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
 import { calculateTotalStats } from '../../services/storage';
+import { getWeaponByType } from '../../data/itemsDB';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag } from '../../hooks/useCameraDrag';
@@ -120,7 +121,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   onOpenSettings,
 }) => {
   const pStats = calculateTotalStats(playerProfile);
-  const oppWeapon = playerProfile.equipped.weapon;
+
+  // D1 fix: the opponent fights with ITS OWN configured weapon, never the
+  // player's equipped gear. An explicit per-opponent loadout (if one is ever
+  // supplied) wins; otherwise the configured `weaponType` is resolved through
+  // the canonical weapon registry in data/itemsDB.ts. Either way the result is
+  // independent of `playerProfile.equipped`.
+  const opponentWeapon = opponent.loadout?.weapon ?? getWeaponByType(opponent.weaponType);
 
   const [player, setPlayer] = useState<FighterState>({
     id: 'player',
@@ -168,7 +175,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     isInvulnerable: false,
     hitFlashTimer: 0,
     stats: opponent.stats,
-    loadout: { weapon: oppWeapon },
+    loadout: { ...opponent.loadout, weapon: opponentWeapon },
     comboCount: 0,
     skinColor: opponent.skinColor,
     hairColor: opponent.hairColor,

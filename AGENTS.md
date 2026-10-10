@@ -80,6 +80,18 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   optional `modelPath`; the five meshes in `public/models/weapons/` (gladius, spatha, dagger, dirk, shamshir)
   are single static unrigged meshes ~1 unit long, currently referenced as data only — nothing renders them yet.
 
+- **Opponent weapons come from the opponent's own config (D1 fix).** `DuelScene` builds the
+  opponent's `loadout` as `opponent.loadout?.weapon ?? getWeaponByType(opponent.weaponType)` — never
+  from `playerProfile.equipped` — and that one resolved weapon drives the rendered mesh
+  (`GladiatorMesh` reads `fighter.loadout?.weapon` for `type`/`modelPath`), attack damage
+  (`attacker.loadout.weapon.damageLight|damageHeavy`) and reach (`weapon.type === 'spear' ? 3.8 : 2.5`).
+  `getWeaponByType` (`data/itemsDB.ts`) maps each `WeaponType` to the FIRST `ALL_WEAPONS` entry of that
+  type, so weapon stats stay single-sourced; an unknown type falls back to the canonical gladius. The
+  roster is not populated with per-opponent `loadout`s today, so every opponent resolves by `weaponType`.
+  In-game this is nearly invisible on a fresh save: the only unlocked tier-1 opponent (Marcus,
+  `sword_shield`) resolves to the same gladius the player starts with, so reaching a different type
+  needs a leveled profile (or a `loadout` on the config).
+
 ## Verifying
 
 - `curl -s localhost:3000/` should return the HTML shell (title: "Sand & Steel: 3D Gladiator Arena RPG").

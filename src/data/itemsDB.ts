@@ -1,4 +1,4 @@
-import { WeaponItem, ArmorItem } from '../types/game';
+import { WeaponItem, ArmorItem, WeaponType } from '../types/game';
 
 /**
  * ===========================================================================
@@ -399,6 +399,35 @@ const ITEMS_BY_ID: ReadonlyMap<string, GameItem> = new Map(
 
 /** Look up any acquirable item by its stable id. */
 export const getItemById = (id: string): GameItem | undefined => ITEMS_BY_ID.get(id);
+
+/**
+ * Canonical weapon for each weapon type, derived from ALL_WEAPONS so weapon
+ * stats stay single-sourced (no parallel stat table). The FIRST weapon of a
+ * type in registry order is that type's representative — registry order is
+ * load-bearing (see ALL_WEAPONS), so the choice is stable as long as entries
+ * are appended.
+ *
+ * Needed because an opponent may configure only a `weaponType` (see
+ * data/opponents.ts) and still needs a real `WeaponItem` to render, damage
+ * and reach from.
+ */
+const WEAPON_BY_TYPE: ReadonlyMap<WeaponType, WeaponItem> = new Map(
+  (['sword_shield', 'spear', 'dual_blades', 'mace'] as const).map(
+    (type): [WeaponType, WeaponItem] => [
+      type,
+      ALL_WEAPONS.find((weapon) => weapon.type === type) ?? DEFAULT_PLAYER_WEAPON,
+    ],
+  ),
+);
+
+/**
+ * Resolve the canonical weapon for a weapon type. Never returns undefined:
+ * an unknown runtime value falls back to the canonical sword & shield entry
+ * (`DEFAULT_PLAYER_WEAPON`), so a caller can never silently fall through to
+ * some other fighter's equipment.
+ */
+export const getWeaponByType = (type: WeaponType): WeaponItem =>
+  WEAPON_BY_TYPE.get(type) ?? DEFAULT_PLAYER_WEAPON;
 
 /** Narrow a database entry to a weapon. */
 export const isWeapon = (item: GameItem): item is WeaponItem => 'damageLight' in item;
