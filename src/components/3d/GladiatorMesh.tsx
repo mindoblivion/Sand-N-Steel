@@ -226,10 +226,10 @@ const SHIELD_ROTATION_RIGHT_HAND: [number, number, number] = [3.02, 1.28, -1.06]
 // and brings the shield top to head level instead of 0.3 units above.
 const SHIELD_SCALE_GLB = 0.47;
 
-// --- Phase 111: Animation-Aware Shield Constraint Prototype ---
-// Disabled by default. When enabled, corrects the shield's world-space
-// orientation in useFrame so the board stays approximately upright during
-// idle, walk, and block, while allowing natural movement during attacks,
+// --- Phase 111: Animation-Aware Shield Constraint ---
+// Enabled after the Phase 118 runtime audit (see below). Corrects the shield's
+// world-space orientation in useFrame so the board stays approximately upright
+// during idle, walk, and block, while allowing natural movement during attacks,
 // hits, and death. No effect on gameplay or saved data.
 // Phase 115 replaced the two discontinuous constructions the Phase 114 audit
 // flagged — the straight up-vector lerp (180° flip at the ~0.5 pole) and the
@@ -239,7 +239,14 @@ const SHIELD_SCALE_GLB = 0.47;
 // 106.9° single-frame shield swing on the real Roll clip. See the useFrame block
 // below. The roll recovery step (5) is unchanged, and its known limits are
 // documented in the Phase 117 report.
-const SHIELD_CONSTRAINT_ENABLED = false;
+// Phase 118 runtime audit (real arena_roman.glb, every mapped clip, both
+// stances, driven through the real AnimationMixer by a throwaway harness kept
+// outside the repo): the corrected up reaches world up exactly at strength 1;
+// the Phase 116 Roll flip is gone — the worst single-frame excess on a gameplay
+// clip is now 40°, on the dodge — and no gameplay clip shows a facing flip.
+// Larger residuals survive only on clips or strengths the game never uses
+// (Roll at strength 0.7, the ±π roll cut), so they do not gate enabling.
+const SHIELD_CONSTRAINT_ENABLED = true;
 
 // Phase 117: up-correction fade band (radians) for the two-factor construction.
 // Below the start the corrected up is the plain great-circle walk of Phase 115;
@@ -628,17 +635,16 @@ const RomanWarriorGLB: React.FC<{
           //               carry that face normal onto the projected one — i.e.
           //               exactly the Phase 113 projection, where the projection
           //               is well conditioned.
-          //    The roll is weighted by that projection's conditioning only (Phase
-          //    117 removed the extra fade toward the ±π branch cut). Fading the
-          //    weight out near the cut was meant to avoid an undefined direction,
-          //    but the *destination* is continuous there anyway: a roll of +179°
-          //    and one of −179° differ only by the 358° ≡ −2° remainder, so both
-          //    land the facing within ~2° of each other. Fading instead made the
-          //    applied roll collapse — measured 121.7° → 0.6° over a single 9°
-          //    pose step, a ~155° facing snap — which is the Phase 116 "latent
-          //    ±π ambiguity" made real. For |roll| ≤ 120° the old weight was
-          //    already 1, so every shipped pose (idle, walk, block, attack, hit,
-          //    death) behaves exactly as before.
+          //    The roll is weighted by that projection's conditioning *and* by how
+          //    far the required roll is from the ±π branch cut, where no
+          //    interpolation direction is defined. Dropping that second factor was
+          //    tried: measured on the real asset it removes the residual half-turn
+          //    on Roll at strength 0.7 (158° → 19° facing step) but introduces one
+          //    on Backflip/Sword_Attack_Air_Vertical, so the fade stays — the two
+          //    factors are a trade between which residual the cut leaves behind,
+          //    not a free win. For |roll| ≤ 120° the weight was already 1, so every
+          //    pose the game actually plays (idle, walk, block, attack, hit, death)
+          //    is unaffected either way.
           //    Because the roll is about the corrected up itself, the corrected
           //    up is untouched by this step, whatever the weight.
           _cDesFwd.copy(_cFwd).addScaledVector(_cDesUp, -_cFwd.dot(_cDesUp));
