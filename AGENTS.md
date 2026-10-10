@@ -48,6 +48,18 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `useGLTF(url, true)` plus a decoder, which `GladiatorMesh` does not configure. KHR_mesh_quantization output
   is fine. Note it writes a `.backup.glb` beside the file when input and output are the same path.
 
+- **Shield upright constraint (Phases 111–132) — settled, don't re-tune.** `GladiatorMesh` corrects the
+  shield's world orientation each frame so the board stays approximately upright in idle/walk/block, with
+  per-action strength and a Phase-131 rate ceiling on the correction itself (`SHIELD_CORRECTION_MAX_RATE`,
+  600°/s = 10°/frame at 60 Hz). A Phase-132 **read-only** audit (throwaway harness kept outside the repo,
+  real `Roll` clip, both stances, 60 Hz and 240 Hz, results in `/tmp/phase132`) compared the shipped
+  two-factor construction against swing / anti-parallel / azimuth / waypoint alternatives and swept the cap.
+  Findings: the shipped target family (shipped + its waypoint variants) is the only one that never flips the
+  board's facing (0 crossings); every swing/anti/azimuth target traded the transient for a visible facing
+  flip; and the cap only trades whip vs lag (300°/s halves the step to 5° but raises peak tilt from 152° to
+  164°; 1200°/s doubles the step to 20°). 600°/s is the measured middle and the shipped setting. The one
+  residual is a ~10° single-frame shield step during the dodge, already documented as game-safe. No
+  production change is warranted.
 - **All player-acquirable items live in `src/data/itemsDB.ts`** (single source of truth): `ITEMS_DB`,
   `ALL_WEAPONS`, `ALL_ARMORS`, `ITEMS_BY_CATEGORY` (`weapon` + one key per armor slot) and `getItemById()`.
   `ALL_WEAPONS[2]` is the spare starter weapon (`STARTING_SPARE_WEAPON`, used by `services/storage.ts` and
