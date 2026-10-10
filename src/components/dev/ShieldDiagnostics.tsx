@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { FighterState } from '../../types/game';
@@ -37,6 +37,10 @@ import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 // The board is centre-gripped, so the hand sits behind it and can only be seen
 // from the grip (inner) side; this preset stands there, beside the arm, and
 // aims at the palm using named rig joints instead of the board's colour.
+//
+// Phase 126 (dev-only, temporary, read-only): added IdleRotationProbe, a
+// per-frame measurement of the real board's world rotation. It writes nothing
+// to the shield, rig, camera or storage (see the probe's own header below).
 // ---------------------------------------------------------------------------
 
 // Grep target for the production-bundle exclusion check (Phase C.2).
@@ -345,6 +349,356 @@ const ShieldFramer: React.FC<{
   );
 };
 
+// ---------------------------------------------------------------------------
+// Phase 126 — READ-ONLY IDLE ROTATION PROBE (development only, temporary)
+//
+// Samples the real shield board's world rotation on every rendered frame and
+// reports angular statistics. Nothing is written to the shield, the rig, the
+// camera or storage; the only hook is the harness board mesh's own
+// onAfterRender callback, saved before the run and restored after it.
+//
+// Ordering: R3F runs every useFrame subscriber (drei's mixer update, then the
+// GladiatorMesh constraint) and only then renders; three.js recomputes world
+// matrices at the start of render() and calls onAfterRender after drawing the
+// mesh, so each sample is the final, displayed transform of that frame. The
+// probe's own useFrame (priority -1, ahead of both) snapshots the hand and
+// shield-group LOCAL rotations so each run also proves that the mixer and the
+// constraint actually wrote them before the sample was taken.
+// ---------------------------------------------------------------------------
+const PROBE_SETTLE_MS = 1500;
+const PROBE_SAMPLE_MS = 8500;
+// Mirror of GladiatorMesh's SHIELD_BASE_Q_RIGHTY / SHIELD_BASE_Q_LEFTY (Euler
+// XYZ). Used only for the constraint-off counterfactual: with the constraint
+// off, the board's world rotation is exactly hand world × this base.
+const PROBE_BASE_Q = {
+  righty: new THREE.Quaternion().setFromEuler(new THREE.Euler(-2.42, -0.67, 2.91, 'XYZ')),
+  lefty: new THREE.Quaternion().setFromEuler(new THREE.Euler(3.02, 1.28, -1.06, 'XYZ')),
+};
+
+const _probeRel = new THREE.Quaternion();
+/** Angle of the rotation taking a to b, in degrees. Sign-safe: q and −q are 0° apart. */
+const quatAngleDeg = (a: THREE.Quaternion, b: THREE.Quaternion) => {
+  _probeRel.copy(a).invert().multiply(b);
+  return (2 * Math.atan2(Math.hypot(_probeRel.x, _probeRel.y, _probeRel.z), Math.abs(_probeRel.w))) / DEG;
+};
+const vecAngleDeg = (a: THREE.Vector3, b: THREE.Vector3) =>
+  Math.acos(THREE.MathUtils.clamp(a.dot(b), -1, 1)) / DEG;
+const r3 = (x: number) => Math.round(x * 1000) / 1000;
+
+/** Frame-to-frame step and drift-from-start statistics for one rotation series. */
+const orientationStats = (
+  qs: THREE.Quaternion[],
+  ts: number[],
+  axes?: { normal: THREE.Vector3; up: THREE.Vector3 },
+) => {
+  let stepMin = Infinity;
+  let stepMax = 0;
+  let stepMaxAtMs = 0;
+  let devMax = 0;
+  for (let i = 0; i < qs.length; i++) {
+    devMax = Math.max(devMax, quatAngleDeg(qs[0], qs[i]));
+    if (i === 0) continue;
+    const step = quatAngleDeg(qs[i - 1], qs[i]);
+    stepMin = Math.min(stepMin, step);
+    if (step > stepMax) {
+      stepMax = step;
+      stepMaxAtMs = ts[i];
+    }
+  }
+  const rotation = {
+    stepMinDeg: r3(stepMin),
+    stepMaxDeg: r3(stepMax),
+    stepMaxAtMs: Math.round(stepMaxAtMs),
+    devFromStartMaxDeg: r3(devMax),
+  };
+  if (!axes) return rotation;
+
+  // Face normal / up drift, opposite-hemisphere crossings and tilt from world up.
+  const n0 = axes.normal.clone().applyQuaternion(qs[0]);
+  const u0 = axes.up.clone().applyQuaternion(qs[0]);
+  const n = new THREE.Vector3();
+  const u = new THREE.Vector3();
+  let normalDevMax = 0;
+  let upDevMax = 0;
+  let minNormalDot = 1;
+  let crossings = 0;
+  let side = 1;
+  let tiltMin = 180;
+  let tiltMax = 0;
+  for (const q of qs) {
+    n.copy(axes.normal).applyQuaternion(q);
+    u.copy(axes.up).applyQuaternion(q);
+    const d = n.dot(n0);
+    minNormalDot = Math.min(minNormalDot, d);
+    const s = d >= 0 ? 1 : -1;
+    if (s !== side) crossings++;
+    side = s;
+    normalDevMax = Math.max(normalDevMax, vecAngleDeg(n, n0));
+    upDevMax = Math.max(upDevMax, vecAngleDeg(u, u0));
+    const tilt = vecAngleDeg(u, WORLD_UP);
+    tiltMin = Math.min(tiltMin, tilt);
+    tiltMax = Math.max(tiltMax, tilt);
+  }
+  return {
+    ...rotation,
+    normalDevMaxDeg: r3(normalDevMax),
+    upDevMaxDeg: r3(upDevMax),
+    minNormalDotWithStart: r3(minNormalDot),
+    normalHemisphereCrossings: crossings,
+    upTiltFromWorldUpDeg: [r3(tiltMin), r3(tiltMax)],
+  };
+};
+
+type ProbeRun = {
+  hand: THREE.Object3D;
+  group: THREE.Object3D;
+  lefty: boolean;
+  invalid: string | null;
+  preHandQ: THREE.Quaternion;
+  preGroupQ: THREE.Quaternion;
+  preValid: boolean;
+  sampling: boolean;
+  ticks: number;
+};
+
+const IdleRotationProbe: React.FC<{
+  token: number;
+  lefty: boolean;
+  rolling: boolean;
+  resultRef: React.RefObject<HTMLDivElement | null>;
+}> = ({ token, lefty, rolling, resultRef }) => {
+  const scene = useThree((state) => state.scene);
+  const runRef = useRef<ProbeRun | null>(null);
+  const guardRef = useRef({ lefty, rolling });
+  useEffect(() => {
+    guardRef.current = { lefty, rolling };
+  }, [lefty, rolling]);
+
+  // priority -1: ahead of drei's mixer update and the GladiatorMesh constraint
+  // (both priority 0); R3F's automatic render still follows (only > 0 stops it).
+  useFrame(() => {
+    const run = runRef.current;
+    if (!run) return;
+    if (guardRef.current.rolling) run.invalid = 'Roll triggered during the run';
+    if (guardRef.current.lefty !== run.lefty) run.invalid = 'handedness changed during the run';
+    if (run.sampling) run.ticks++;
+    run.preHandQ.copy(run.hand.quaternion);
+    run.preGroupQ.copy(run.group.quaternion);
+    run.preValid = true;
+  }, -1);
+
+  useEffect(() => {
+    if (!token) return;
+    const report = (text: string, data?: object) => {
+      const el = resultRef.current;
+      if (!el) return;
+      el.textContent = text;
+      if (data) el.dataset.result = JSON.stringify(data);
+      else delete el.dataset.result;
+    };
+
+    // The real board: shield hand (by bone name) → portaled ShieldModel group →
+    // its largest box mesh. No colour lookup.
+    const handName = lefty ? 'hand_r' : 'hand_l';
+    const hand = scene.getObjectByName(handName);
+    const group = hand?.children.find((c) => !(c as THREE.Bone).isBone);
+    const boxes: THREE.Mesh[] = [];
+    group?.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && m.geometry instanceof THREE.BoxGeometry) boxes.push(m);
+    });
+    const volume = (m: THREE.Mesh) => {
+      const p = (m.geometry as THREE.BoxGeometry).parameters;
+      return p.width * p.height * p.depth;
+    };
+    const board = boxes.sort((a, b) => volume(b) - volume(a))[0];
+    if (!hand || !(hand as THREE.Bone).isBone || !group || !board) {
+      report(`measure · blocked: no ${handName} → shield board in the harness rig`);
+      return;
+    }
+
+    // Local axes from the geometry itself: thinnest box dimension = face
+    // normal, longest = up; the boss sphere marks the outward side.
+    const p = (board.geometry as THREE.BoxGeometry).parameters;
+    const dims = [p.width, p.height, p.depth];
+    const normalIdx = dims.indexOf(Math.min(...dims));
+    const upIdx = dims.indexOf(Math.max(...dims));
+    const normal = new THREE.Vector3().setComponent(normalIdx, 1);
+    const up = new THREE.Vector3().setComponent(upIdx, 1);
+    const boss = board.parent?.children.find(
+      (c) => (c as THREE.Mesh).isMesh && (c as THREE.Mesh).geometry instanceof THREE.SphereGeometry,
+    );
+    const bossSide = boss
+      ? Math.sign(boss.position.getComponent(normalIdx) - board.position.getComponent(normalIdx))
+      : 0;
+    if (bossSide < 0) normal.negate();
+    board.updateWorldMatrix(true, false);
+    const handInBoard = board.worldToLocal(new THREE.Vector3().setFromMatrixPosition(hand.matrixWorld));
+    const handSide = Math.sign(handInBoard.getComponent(normalIdx));
+    let sameBoxes = 0;
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || !(m.geometry instanceof THREE.BoxGeometry)) return;
+      const q = m.geometry.parameters;
+      if (q.width === p.width && q.height === p.height && q.depth === p.depth) sameBoxes++;
+    });
+
+    const run: ProbeRun = {
+      hand,
+      group,
+      lefty,
+      invalid: null,
+      preHandQ: new THREE.Quaternion(),
+      preGroupQ: new THREE.Quaternion(),
+      preValid: false,
+      sampling: false,
+      ticks: 0,
+    };
+    runRef.current = run;
+
+    const boardQ: THREE.Quaternion[] = [];
+    const handQ: THREE.Quaternion[] = [];
+    const ts: number[] = [];
+    let compared = 0;
+    let mixerBefore = 0;
+    let constraintBefore = 0;
+    let hierarchyResidual = 0;
+    let boardScaleSkew = 0;
+    let handScaleSkew = 0;
+    let maxGap = 0;
+    let lastFrame = -1;
+    let tStart = 0;
+    let done = false;
+    const t0 = performance.now();
+    const pos = new THREE.Vector3();
+    const scl = new THREE.Vector3();
+    const skew = (s: THREE.Vector3) => {
+      const hi = Math.max(Math.abs(s.x), Math.abs(s.y), Math.abs(s.z));
+      return hi > 0 ? (hi - Math.min(Math.abs(s.x), Math.abs(s.y), Math.abs(s.z))) / hi : 0;
+    };
+    const prevHook = board.onAfterRender;
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      board.onAfterRender = prevHook;
+      runRef.current = null;
+      if (run.invalid || ts.length < 2) {
+        report(`measure · invalid: ${run.invalid ?? 'fewer than two samples'}`);
+        return;
+      }
+      const base = PROBE_BASE_Q[lefty ? 'lefty' : 'righty'];
+      const axes = { normal, up };
+      const sampledMs = ts[ts.length - 1];
+      const data = {
+        handedness: lefty ? 'lefty' : 'righty',
+        clip: 'idle (overrideAction none)',
+        hierarchy: [
+          hand.parent?.name,
+          hand.name,
+          `${group.type} (portaled ShieldModel)`,
+          board.parent?.type,
+          `Mesh Box ${p.width}×${p.height}×${p.depth}`,
+        ].join(' > '),
+        boardMaterialHex: `#${((board.material as THREE.MeshStandardMaterial).color?.getHexString?.() ?? '?')}`,
+        sameBoardBoxesInScene: sameBoxes,
+        axes: {
+          normal: `${normal.getComponent(normalIdx) < 0 ? '-' : '+'}${'xyz'[normalIdx]}`,
+          up: `+${'xyz'[upIdx]}`,
+          bossSide,
+          handSideOfBoard: handSide,
+        },
+        timing: {
+          settleMs: PROBE_SETTLE_MS,
+          sampledMs: Math.round(sampledMs),
+          samples: ts.length,
+          probeFrames: run.ticks,
+          meanFps: r3(((ts.length - 1) * 1000) / sampledMs),
+          maxGapMs: r3(maxGap),
+        },
+        ordering: {
+          framesCompared: compared,
+          mixerWroteHandBeforeSample: mixerBefore,
+          constraintWroteShieldBeforeSample: constraintBefore,
+        },
+        scaleSkewMax: { board: r3(boardScaleSkew), hand: r3(handScaleSkew) },
+        hierarchyResidualMaxDeg: r3(hierarchyResidual),
+        board: orientationStats(boardQ, ts, axes),
+        hand: orientationStats(handQ, ts),
+        boardRelativeToHand: orientationStats(
+          boardQ.map((q, i) => handQ[i].clone().invert().multiply(q)),
+          ts,
+        ),
+        unconstrainedCounterfactual: orientationStats(
+          handQ.map((q) => q.clone().multiply(base)),
+          ts,
+          axes,
+        ),
+      };
+      const b = data.board as ReturnType<typeof orientationStats> & { normalHemisphereCrossings: number };
+      report(
+        `measure · ${ts.length} samples / ${r3(sampledMs / 1000)} s · board step ${b.stepMinDeg}–${b.stepMaxDeg}°` +
+          ` · drift ≤${b.devFromStartMaxDeg}° · normal crossings ${b.normalHemisphereCrossings}` +
+          ` · hand drift ≤${data.hand.devFromStartMaxDeg}°`,
+        data,
+      );
+    };
+
+    board.onAfterRender = (renderer) => {
+      const frame = renderer.info.render.frame;
+      if (frame === lastFrame) return;
+      lastFrame = frame;
+      const now = performance.now();
+      if (now - t0 < PROBE_SETTLE_MS) {
+        run.preValid = false;
+        return;
+      }
+      if (!run.sampling) {
+        run.sampling = true;
+        tStart = now;
+      }
+      const qb = new THREE.Quaternion();
+      board.matrixWorld.decompose(pos, qb, scl);
+      boardScaleSkew = Math.max(boardScaleSkew, skew(scl));
+      const qh = new THREE.Quaternion();
+      hand.matrixWorld.decompose(pos, qh, scl);
+      handScaleSkew = Math.max(handScaleSkew, skew(scl));
+      // Board rigidly under hand × group-local rotation (offset group and mesh are unrotated).
+      hierarchyResidual = Math.max(hierarchyResidual, quatAngleDeg(qh.clone().multiply(group.quaternion), qb));
+      const t = now - tStart;
+      if (ts.length) maxGap = Math.max(maxGap, t - ts[ts.length - 1]);
+      boardQ.push(qb);
+      handQ.push(qh);
+      ts.push(t);
+      if (run.preValid) {
+        compared++;
+        if (!hand.quaternion.equals(run.preHandQ)) mixerBefore++;
+        if (!group.quaternion.equals(run.preGroupQ)) constraintBefore++;
+      }
+      run.preValid = false;
+      if (t >= PROBE_SAMPLE_MS) finish();
+    };
+    report(`measure · ${handName} board · settling ${PROBE_SETTLE_MS} ms, then sampling ${PROBE_SAMPLE_MS} ms…`);
+
+    // A culled or unmounted board must never leave the hook installed.
+    const watchdog = window.setTimeout(() => {
+      if (!done && !run.invalid) run.invalid = 'board stopped rendering before the run completed';
+      finish();
+    }, PROBE_SETTLE_MS + PROBE_SAMPLE_MS + 4000);
+    return () => {
+      window.clearTimeout(watchdog);
+      if (!done) {
+        done = true;
+        board.onAfterRender = prevHook;
+        runRef.current = null;
+      }
+    };
+    // Each click (token) starts one run with the handedness of that moment.
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return null;
+};
+
 const ShieldDiagnosticsPanel: React.FC = () => {
   const [open, setOpen] = useState(false);
   // Diagnostic-local handedness: never read from, or written to, the profile.
@@ -361,6 +715,8 @@ const ShieldDiagnosticsPanel: React.FC = () => {
   const rearmRef = useRef<number | null>(null);
   const readoutRef = useRef<HTMLSpanElement>(null);
   const anchorsRef = useRef<HTMLDivElement>(null);
+  const [measureToken, setMeasureToken] = useState(0);
+  const measureRef = useRef<HTMLDivElement>(null);
 
   const fighter = useMemo<FighterState>(
     () => ({
@@ -508,6 +864,7 @@ const ShieldDiagnosticsPanel: React.FC = () => {
               />
             </Suspense>
             <ShieldFramer view={view} reframeToken={reframeToken} lefty={lefty} anchorsRef={anchorsRef} />
+            <IdleRotationProbe token={measureToken} lefty={lefty} rolling={rolling} resultRef={measureRef} />
           </Canvas>
         </ThreeComponentErrorBoundary>
       </div>
@@ -623,6 +980,18 @@ const ShieldDiagnosticsPanel: React.FC = () => {
         </button>
       </div>
       <div data-testid="diag-anchors" ref={anchorsRef} className="mt-1 font-mono text-[10px] text-neutral-400" />
+
+      <div className="mt-2 flex items-center gap-1.5">
+        <span className="w-16 text-neutral-400">Measure</span>
+        <button
+          data-testid="diag-measure"
+          onClick={() => setMeasureToken((t) => t + 1)}
+          className={btn(false)}
+        >
+          idle rotation · 1.5 s settle + 8.5 s
+        </button>
+      </div>
+      <div data-testid="diag-measure-result" ref={measureRef} className="mt-1 font-mono text-[10px] text-neutral-400" />
       <div className="mt-1 font-mono text-[10px] text-neutral-500">drag = orbit · wheel = zoom</div>
     </div>
   );
