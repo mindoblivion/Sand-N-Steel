@@ -226,10 +226,50 @@ const SHIELD_ROTATION_RIGHT_HAND: [number, number, number] = [3.02, 1.28, -1.06]
 // and brings the shield top to head level instead of 0.3 units above.
 const SHIELD_SCALE_GLB = 0.47;
 
+// --- Phase 111: Animation-Aware Shield Constraint Prototype ---
+// Disabled by default. When enabled, corrects the shield's world-space
+// orientation in useFrame so the board stays approximately upright during
+// idle, walk, and block, while allowing natural movement during attacks,
+// hits, and death. No effect on gameplay or saved data.
+const SHIELD_CONSTRAINT_ENABLED = false;
+
+// Pre-allocated objects — module-level to avoid per-frame GC pressure.
+const _cHandQ = new THREE.Quaternion();
+const _cInvHandQ = new THREE.Quaternion();
+const _cUp = new THREE.Vector3();
+const _cFwd = new THREE.Vector3();
+const _cRight = new THREE.Vector3();
+const _cDesUp = new THREE.Vector3();
+const _cDesFwd = new THREE.Vector3();
+const _cMat = new THREE.Matrix4();
+const _cDesiredQ = new THREE.Quaternion();
+const _cWorldUp = new THREE.Vector3(0, 1, 0);
+const _cWorldFwd = new THREE.Vector3(0, 0, 1);
+
+const SHIELD_BASE_Q_RIGHTY = new THREE.Quaternion().setFromEuler(
+  new THREE.Euler(-2.42, -0.67, 2.91, 'XYZ'),
+);
+const SHIELD_BASE_Q_LEFTY = new THREE.Quaternion().setFromEuler(
+  new THREE.Euler(3.02, 1.28, -1.06, 'XYZ'),
+);
+
+// Constraint strength by action: 0 = no correction (fully follows bone),
+// 1 = shield locked upright. Strength interpolates smoothly between values.
+const SHIELD_CONSTRAINT_STRENGTH: Record<string, number> = {
+  idle: 0.7,
+  walk: 0.7,
+  block: 0.7,
+  attack_light: 0.3,
+  attack_heavy: 0.2,
+  hit: 0.2,
+  dodge: 0.3,
+  death: 0.0,
+};
+
 // Shared Shield Renderer Component
-const ShieldModel: React.FC<{ isLefty: boolean; goldColor: string }> = ({ isLefty, goldColor }) => {
+const ShieldModel = React.forwardRef<THREE.Group, { isLefty: boolean; goldColor: string }>(({ isLefty, goldColor }, ref) => {
   return (
-    <group position={[0, 0, 0]} rotation={isLefty ? SHIELD_ROTATION_RIGHT_HAND : SHIELD_ROTATION_LEFT_HAND} scale={SHIELD_SCALE_GLB}>
+    <group ref={ref} position={[0, 0, 0]} rotation={isLefty ? SHIELD_ROTATION_RIGHT_HAND : SHIELD_ROTATION_LEFT_HAND} scale={SHIELD_SCALE_GLB}>
       {/* Offset the board along its own face-normal (+Z = outward) so the
           hand bone sits behind the board instead of passing through it.
           0.15 pre-scale × 0.47 ≈ 0.071 world units, clearing the forearm
@@ -258,7 +298,7 @@ const ShieldModel: React.FC<{ isLefty: boolean; goldColor: string }> = ({ isLeft
       </group>
     </group>
   );
-};
+});
 
 /**
  * 1. High-Detail Rigged GLB Model Loader with Bone-Attached Equipment
@@ -278,6 +318,8 @@ const RomanWarriorGLB: React.FC<{
   const currentActionName = useRef<string>('');
   const flashTimerRef = useRef(0);
   const lastActionRef = useRef<string>('');
+  const shieldGroupRef = useRef<THREE.Group>(null);
+  const shieldStrengthRef = useRef(0);
 
   const gltf = useGLTF('/models/arena_roman.glb');
 
@@ -413,6 +455,61 @@ const RomanWarriorGLB: React.FC<{
         }
       }
     });
+
+    // --- Phase 111: Shield orientation constraint (disabled by default) ---
+    // After the AnimationMixer has updated bone transforms (drei's
+    // useAnimations runs its own useFrame before this one), read the shield
+    // hand bone's current world quaternion and compute a corrected local
+    // rotation for the shield group that keeps the board approximately
+    // upright. Strength varies by action and interpolates smoothly.
+    if (SHIELD_CONSTRAINT_ENABLED && shieldGroupRef.current) {
+      const shieldBone = shieldGroupRef.current.parent;
+      if (shieldBone) {
+        // Interpolate strength toward target (matches 140ms crossfade rate)
+        const targetStrength = SHIELD_CONSTRAINT_STRENGTH[activeAction] ?? 0.5;
+        shieldStrengthRef.current = THREE.MathUtils.lerp(
+          shieldStrengthRef.current, targetStrength, Math.min(1, delta * 8),
+        );
+
+        if (shieldStrengthRef.current > 0.01) {
+          // 1. Get hand bone's current world quaternion (mixer already updated)
+          shieldBone.updateWorldMatrix(true, false);
+          shieldBone.getWorldQuaternion(_cHandQ);
+
+          // 2. Compute current shield world rotation: q_hand × q_base
+          const baseQ = isLefty ? SHIELD_BASE_Q_LEFTY : SHIELD_BASE_Q_RIGHTY;
+          _cDesiredQ.copy(_cHandQ).multiply(baseQ);
+
+          // 3. Extract current board up (+Y) and face normal (+Z) in world
+          _cUp.set(0, 1, 0).applyQuaternion(_cDesiredQ);
+          _cFwd.set(0, 0, 1).applyQuaternion(_cDesiredQ);
+
+          // 4. Desired up: lerp current up toward world up by strength
+          _cDesUp.copy(_cUp).lerp(_cWorldUp, shieldStrengthRef.current).normalize();
+
+          // 5. Recover forward: project current forward onto plane perp to new up
+          const dot = _cFwd.dot(_cDesUp);
+          _cDesFwd.copy(_cFwd).addScaledVector(_cDesUp, -dot);
+
+          // Degenerate: forward nearly parallel to up — fall back to world fwd
+          if (_cDesFwd.lengthSq() < 1e-6) {
+            _cDesFwd.copy(_cWorldFwd);
+            _cDesFwd.addScaledVector(_cDesUp, -_cDesFwd.dot(_cDesUp));
+            if (_cDesFwd.lengthSq() < 1e-6) _cDesFwd.set(1, 0, 0);
+          }
+          _cDesFwd.normalize();
+
+          // 6. Build desired world rotation (right-handed: X = up × forward)
+          _cRight.crossVectors(_cDesUp, _cDesFwd);
+          _cMat.makeBasis(_cRight, _cDesUp, _cDesFwd);
+          _cDesiredQ.setFromRotationMatrix(_cMat);
+
+          // 7. Convert to shield-local: q_local = q_hand⁻¹ × q_world_desired
+          _cInvHandQ.copy(_cHandQ).invert();
+          shieldGroupRef.current.quaternion.copy(_cInvHandQ).multiply(_cDesiredQ);
+        }
+      }
+    }
   });
 
   const scale = fighter.meshScale || 1.0;
@@ -425,7 +522,7 @@ const RomanWarriorGLB: React.FC<{
   const weaponNode = useGladiusGLB
     ? <GladiusWeaponRenderer weaponType={weaponType} goldColor={goldColor} />
     : <WeaponModel weaponType={weaponType} goldColor={goldColor} />;
-  const shieldNode = <ShieldModel isLefty={isLefty} goldColor={goldColor} />;
+  const shieldNode = <ShieldModel ref={shieldGroupRef} isLefty={isLefty} goldColor={goldColor} />;
 
   // Anatomical assignment: Righty = Sword in Right Hand, Shield in Left Hand. Lefty = Reversed.
   const rightHandEquipment = isLefty ? shieldNode : weaponNode;
