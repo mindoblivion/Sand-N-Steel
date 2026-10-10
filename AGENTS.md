@@ -61,6 +61,20 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - Live flow that works: title screen → character creation → **3D city hub** → `Colosseum` tab →
   `Enter Arena Duel` → `Step into Sand` → **3D duel arena**. The 3D scenes are heavy to build, so give them a
   few seconds after navigating.
+- Landing on the title screen with a save already in `localStorage`, the tap should go straight to the city
+  hub (the artwork's "CONTINUE" path), not to character creation. `TitleScreen` runs the tap handler from both
+  a React `onClick` and a `window` listener, guarded by a ref; if a future edit re-introduces a double-fire,
+  the symptom is a returning player dumped into character creation.
+- **Short-landscape duel HUD.** On a phone held sideways (or any window flatter than tall with a height of
+  520px or less) the duel HUD's stacked content (~400px) exceeded the viewport and pushed the bottom of the
+  tactic dashboard below the fold. `src/index.css` carries an `@media (orientation: landscape) and
+  (max-height: 520px)` block that compacts it, using the `.combat-hud` / `.combat-top` / `.vital-card` /
+  `.hype-meter` / `.combat-log-items` / `.tactic-desc` hooks added in `CombatHUD`/`TurnActionPanel` (the
+  tactic blurbs are hidden; name, cost, hit chance and damage stay). Those rules are unlayered, so they
+  outrank Tailwind's utilities layer without `!important`. **Verification caveat:** the sandbox's preview
+  browser only offers fixed viewport presets (no ~812x375), so the compacted layout was measured by replaying
+  those declarations unconditionally over the live duel HUD — content dropped from 403px to 347px against a
+  365px budget. A true 812x375 render is not reproducible here; check it on a real landscape phone.
 - `bun run lint` (`tsc --noEmit`) reports several **pre-existing** type errors inherited from the AI Studio export
   (e.g. `screen.orientation.lock` missing from the DOM lib, extra fields on `FighterStats`/`WeaponItem`,
   `isBone` on `Object3D`). Vite's dev server does not type-check, so they do not block the app — don't chase

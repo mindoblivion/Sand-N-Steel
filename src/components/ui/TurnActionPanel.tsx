@@ -86,7 +86,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
         </div>
 
         {/* LOG ITEMS FEED */}
-        <div className="flex flex-col gap-1 max-h-24 md:max-h-36 overflow-y-auto pr-1 text-[11px] font-mono">
+        <div className="combat-log-items flex flex-col gap-1 max-h-24 md:max-h-36 overflow-y-auto pr-1 text-[11px] font-mono">
           {combatLog.length === 0 ? (
             <div className="text-neutral-500 italic text-[10px] text-center py-2">
               The match has begun! Choose your tactic.
@@ -174,7 +174,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
               </span>
             </div>
 
-            <div className="text-[10px] text-neutral-300 font-sans leading-tight mb-1">
+            <div className="tactic-desc text-[10px] text-neutral-300 font-sans leading-tight mb-1">
               Fast, reliable attack with high precision.
             </div>
 
@@ -214,7 +214,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
               </span>
             </div>
 
-            <div className="text-[10px] text-neutral-300 font-sans leading-tight mb-1">
+            <div className="tactic-desc text-[10px] text-neutral-300 font-sans leading-tight mb-1">
               Brutal blow with high critical strike potential.
             </div>
 
@@ -252,7 +252,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
               </span>
             </div>
 
-            <div className="text-[10px] text-neutral-300 font-sans leading-tight mb-1">
+            <div className="tactic-desc text-[10px] text-neutral-300 font-sans leading-tight mb-1">
               Brace shield to reduce incoming hit damage by 75%.
             </div>
 
@@ -282,7 +282,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
               </span>
             </div>
 
-            <div className="text-[10px] text-neutral-300 font-sans leading-tight mb-1">
+            <div className="tactic-desc text-[10px] text-neutral-300 font-sans leading-tight mb-1">
               Rally the crowd! Restores stamina &amp; hype.
             </div>
 

@@ -79,6 +79,37 @@
   }
 }
 
+/* SHORT-LANDSCAPE COMBAT HUD (e.g. 812x375, or a desktop window squashed flat).
+   The duel HUD stacks a utility bar, the two vital cards, the crowd meter and the
+   tactic dashboard: ~400px of content in a ~375px-tall viewport, which pushes the
+   bottom of the tactic panel (and its movement buttons) below the fold. Compact it
+   instead: tighter chrome all round, a shorter chronicle feed, and the tactic
+   blurbs dropped — each card keeps its name, stamina cost, hit chance and damage.
+   Only (orientation: landscape) with a height of 520px or less is affected, so
+   desktop and portrait phones render exactly as before. These rules sit outside
+   Tailwind's layers, and unlayered CSS outranks the utilities layer, so the
+   overrides need no !important. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .combat-hud {
+    padding: 0.3rem 0.5rem;
+  }
+  .combat-top {
+    gap: 0.25rem;
+  }
+  .combat-hud .vital-card {
+    padding: 0.35rem 0.5rem;
+  }
+  .combat-hud .hype-meter {
+    padding: 0.2rem 0.5rem;
+  }
+  .combat-hud .tactic-desc {
+    display: none;
+  }
+  .combat-hud .combat-log-items {
+    max-height: 4rem;
+  }
+}
+
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }

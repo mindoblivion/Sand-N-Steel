@@ -57,9 +57,9 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   const hypeMultiplier = crowdHype > 75 ? '3.0x' : crowdHype > 40 ? '2.0x' : '1.0x';
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 sm:p-5 select-none z-10">
+    <div className="combat-hud absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 sm:p-5 select-none z-10">
       {/* TOP HEADER: HEALTH, STAMINA, HYPE & UTILITY BUTTONS */}
-      <div className="w-full flex flex-col gap-2">
+      <div className="combat-top w-full flex flex-col gap-2">
         {/* TOP UTILITY BAR */}
         <div className="w-full flex flex-wrap items-center justify-between gap-1.5 pointer-events-auto">
           {/* PLAYER WEAPON BADGE & ARMORY SHORTCUT */}
@@ -135,7 +135,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
         {/* GLADIATOR VITAL BARS (PLAYER vs OPPONENT) */}
         <div className="grid grid-cols-2 gap-2 sm:gap-6 mt-0.5 sm:mt-1">
           {/* PLAYER VITAL CARD */}
-          <div className="bg-gradient-to-r from-neutral-950/90 via-neutral-900/85 to-transparent border-l-2 sm:border-l-4 border-amber-500 rounded-r-xl p-2 sm:p-3 shadow-2xl backdrop-blur-md">
+          <div className="vital-card bg-gradient-to-r from-neutral-950/90 via-neutral-900/85 to-transparent border-l-2 sm:border-l-4 border-amber-500 rounded-r-xl p-2 sm:p-3 shadow-2xl backdrop-blur-md">
             <div className="flex justify-between items-center mb-1">
               <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                 <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50 shrink-0"></span>
@@ -166,7 +166,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
           </div>
 
           {/* OPPONENT VITAL CARD */}
-          <div className="bg-gradient-to-l from-neutral-950/90 via-neutral-900/85 to-transparent border-r-2 sm:border-r-4 border-red-600 rounded-l-xl p-2 sm:p-3 shadow-2xl backdrop-blur-md text-right">
+          <div className="vital-card bg-gradient-to-l from-neutral-950/90 via-neutral-900/85 to-transparent border-r-2 sm:border-r-4 border-red-600 rounded-l-xl p-2 sm:p-3 shadow-2xl backdrop-blur-md text-right">
             <div className="flex justify-between items-center mb-1 flex-row-reverse">
               <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                 <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-red-500 shadow-sm shadow-red-500/50 shrink-0"></span>
@@ -198,7 +198,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
         </div>
 
         {/* CROWD HYPE METER */}
-        <div className="w-full max-w-md mx-auto bg-neutral-950/80 border border-amber-600/40 rounded-xl p-1.5 px-3 shadow-xl backdrop-blur-md flex flex-col gap-0.5">
+        <div className="hype-meter w-full max-w-md mx-auto bg-neutral-950/80 border border-amber-600/40 rounded-xl p-1.5 px-3 shadow-xl backdrop-blur-md flex flex-col gap-0.5">
           <div className="flex justify-between items-center text-[11px] font-serif font-bold text-amber-300">
             <span className="flex items-center gap-1">
               <Flame className={`w-3.5 h-3.5 ${crowdHype > 50 ? 'text-orange-500 animate-bounce' : 'text-amber-500'}`} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PlayerProfile } from '../../types/game';
 import { sounds } from '../../audio/soundEffects';
 import { preloadCoreGameAssets } from '../../utils/preloadAssets';
@@ -24,8 +24,18 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 }) => {
   const [hasStarted, setHasStarted] = useState(false);
 
+  // One tap reaches this screen twice: React's onClick on the root element, then the
+  // window-level listener below (window is the last stop of the click's bubble). That
+  // listener is registered once, so it also closes over whatever `savedProfile` was at
+  // mount — null, since App loads the save in its own mount effect. A returning player's
+  // tap therefore continued the save *and* started a new character, the stale
+  // "new character" call landing last. The ref lets only the first (React, current
+  // props) call through.
+  const startedRef = useRef(false);
+
   const handleStart = async () => {
-    if (hasStarted) return;
+    if (startedRef.current) return;
+    startedRef.current = true;
     
     // Attempt fullscreen. Orientation is left to the device's own controls.
     try {
@@ -59,7 +69,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         window.removeEventListener('keydown', handleInput);
         window.removeEventListener('touchstart', handleInput);
     };
-  }, [hasStarted]);
+  }, [hasStarted, savedProfile]);
 
   return (
     <div
