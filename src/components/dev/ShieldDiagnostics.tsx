@@ -72,6 +72,16 @@ import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 // advance the mixer, record a step or overwrite a fresher status. Timers are
 // cleared on every one of those paths, and both facts are reported in the status
 // line. Nothing outside this file changed.
+//
+// Phase 140 (dev-only): the evidence got two readability upgrades, nothing more.
+// A world-up reference (a vertical stem with an arrowhead cone at its upper end)
+// is drawn in the harness scene, anchored beside the real board and aligned to
+// the scene's world +Y axis, so a frozen frame can be read against an absolute
+// vertical instead of only against the character. And each deterministic sample
+// now records, per board-facing hemisphere crossing, its step index, the clip
+// time that step reached, the signed-dot transition and both dot values. The
+// shield, its constraint, the gameplay cameras, the sampling sequence and the
+// saved profile are all untouched.
 // ---------------------------------------------------------------------------
 
 // Grep target for the production-bundle exclusion check (Phase C.2).
@@ -152,6 +162,26 @@ const detSampleTime = (fraction: number, duration: number) =>
 const describeError = (error: unknown) =>
   error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 
+/**
+ * Phase 140 — one detected board-facing hemisphere crossing inside a
+ * deterministic sample. Recorded at the step where the sign flips, from the
+ * sampler's own numbers: `stepIndex` is 0-based (step 0 is the sample's first
+ * `advance`), `clipTimeS` is the mixer clip time that step reached (the sum of
+ * the fixed 1/60 s step deltas, never wall-clock), `dotBefore` / `dotAfter` are
+ * the signed dots against the sample's own first board face normal (dotBefore is
+ * +1 for the sample's first step, by that definition) and the transition names
+ * which hemisphere the normal left and entered.
+ */
+type DetCrossing = {
+  stepIndex: number;
+  clipTimeS: number;
+  fromSign: -1 | 1;
+  toSign: -1 | 1;
+  direction: string;
+  dotBefore: number;
+  dotAfter: number;
+};
+
 /** One deterministic sample: the clip time asked for and the pose actually drawn. */
 type DetSample = {
   method: 'deterministic-step';
@@ -174,6 +204,8 @@ type DetSample = {
   perStepMaxDeg: number;
   perStepMeanDeg: number;
   normalHemisphereCrossings: number;
+  /** Phase 140 — one record per detected crossing; empty when the count is zero. */
+  normalCrossings: DetCrossing[];
   minNormalDotWithStart: number;
   framesDrawn: number;
 };
@@ -1147,6 +1179,8 @@ const DeterministicRollStepper: React.FC<{
     let tiltMax = 0;
     let crossings = 0;
     let side = 1;
+    let prevDot = 1;
+    const crossingList: DetCrossing[] = [];
     let minNormalDot = 1;
     let haveStart = false;
     const startNormal = new THREE.Vector3();
@@ -1178,12 +1212,28 @@ const DeterministicRollStepper: React.FC<{
       }
       prevWorld.copy(worldQ);
       // Board face normal against its own first sampled value: a hemisphere
-      // crossing is the facing flip the Phase 132 audit watched for.
+      // crossing is the facing flip the Phase 132 audit watched for. Count and
+      // min-dot behaviour are unchanged; Phase 140 additionally records the flip.
       const dot = normal.dot(startNormal);
       minNormalDot = Math.min(minNormalDot, dot);
       const sign = dot >= 0 ? 1 : -1;
-      if (sign !== side) crossings++;
+      if (sign !== side) {
+        crossings++;
+        // `steps` is already the 1-based step count for this iteration, so the
+        // recorded index is 0-based. `virtualS` is the clip time this step
+        // reached, accumulated from the fixed 1/60 s deltas alone.
+        crossingList.push({
+          stepIndex: steps - 1,
+          clipTimeS: r3(virtualS),
+          fromSign: side as -1 | 1,
+          toSign: sign as -1 | 1,
+          direction: `${side >= 0 ? 'positive' : 'negative'}→${sign >= 0 ? 'positive' : 'negative'}`,
+          dotBefore: r3(prevDot),
+          dotAfter: r3(dot),
+        });
+      }
       side = sign;
+      prevDot = dot;
     }
 
     const handQ = hand.getWorldQuaternion(new THREE.Quaternion());
@@ -1215,6 +1265,7 @@ const DeterministicRollStepper: React.FC<{
       perStepMaxDeg: r3(maxStepDeg),
       perStepMeanDeg: r3(steps > 1 ? stepSum / (steps - 1) : 0),
       normalHemisphereCrossings: crossings,
+      normalCrossings: crossingList,
       minNormalDotWithStart: r3(minNormalDot),
       framesDrawn: gl.info.render.frame - framesStart,
     };
@@ -1236,6 +1287,89 @@ const DeterministicRollStepper: React.FC<{
   }, [goToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return null;
+};
+
+// ---------------------------------------------------------------------------
+// Phase 140 — DEV-ONLY WORLD-UP REFERENCE
+//
+// A single high-contrast vertical stem with an arrowhead cone at its upper end,
+// drawn with unlit (`meshBasicMaterial`) geometry so it stays legible under the
+// harness's dark lighting and cannot be confused with the shield or the rig. The
+// group carries an identity rotation, so the stem is exactly the scene's world
+// +Y axis — the absolute vertical a frozen frame can be judged against.
+//
+// It is anchored beside the real board (found by colour, the same way ShieldFramer
+// and the probe locate it) on the board-plane side axis toward the shield arm —
+// the side both the grip and junction cameras stand on — and re-anchors when the
+// stance changes. It advances nothing, writes nothing to the shield, rig, camera
+// or storage, and takes no part in the deterministic sampling.
+// ---------------------------------------------------------------------------
+const UP_REF = {
+  name: 'base44-world-up-ref', // scene-graph name, so the reference can be measured, not guessed at
+  color: '#22d3ee', // bright cyan: contrasts the crimson board and the bronze rig
+  lateralOffset: 0.5, // metres beside the board, along the board-plane side axis
+  baseDrop: 0.42, // stem foot sits this far below the board centre
+  stemLen: 0.62,
+  stemR: 0.016,
+  coneR: 0.07,
+  coneH: 0.17,
+};
+
+const WorldUpReference: React.FC<{ lefty: boolean }> = ({ lefty }) => {
+  const scene = useThree((state) => state.scene);
+  const groupRef = useRef<THREE.Group>(null);
+
+  useEffect(() => {
+    const place = () => {
+      const group = groupRef.current;
+      const board = findBoard(scene);
+      if (!group || !board) return false;
+      board.updateWorldMatrix(true, false);
+      const center = board.getWorldPosition(new THREE.Vector3());
+      const quat = board.getWorldQuaternion(new THREE.Quaternion());
+      const outward = new THREE.Vector3(0, 0, 1).applyQuaternion(quat).normalize();
+      // Horizontal side axis inside the board's plane (world-up × outward is
+      // always horizontal, so the stem stays exactly vertical).
+      const side = new THREE.Vector3().crossVectors(WORLD_UP, outward);
+      if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
+      side.normalize();
+      const foot = center.clone().addScaledVector(side, UP_REF.lateralOffset);
+      foot.y = Math.max(0.05, center.y - UP_REF.baseDrop);
+      group.position.copy(foot);
+      group.rotation.set(0, 0, 0);
+      group.visible = true;
+      return true;
+    };
+    if (place()) return;
+    // The GLB clone (and its bone-attached board) mount asynchronously; poll like
+    // ShieldFramer does rather than trusting one fixed delay.
+    const started = performance.now();
+    const id = window.setInterval(() => {
+      if (place() || performance.now() - started > 8000) window.clearInterval(id);
+    }, 200);
+    return () => window.clearInterval(id);
+  }, [scene, lefty]);
+
+  const material = <meshBasicMaterial color={UP_REF.color} toneMapped={false} />;
+  return (
+    <group ref={groupRef} name={UP_REF.name} visible={false}>
+      {/* vertical stem → world +Y */}
+      <mesh position={[0, UP_REF.stemLen / 2, 0]}>
+        <cylinderGeometry args={[UP_REF.stemR, UP_REF.stemR, UP_REF.stemLen, 8]} />
+        {material}
+      </mesh>
+      {/* arrowhead at the upper end, pointing +Y */}
+      <mesh position={[0, UP_REF.stemLen + UP_REF.coneH / 2, 0]}>
+        <coneGeometry args={[UP_REF.coneR, UP_REF.coneH, 16]} />
+        {material}
+      </mesh>
+      {/* small foot marker so the stem's lower end reads on screen */}
+      <mesh>
+        <sphereGeometry args={[UP_REF.coneR * 0.6, 12, 8]} />
+        {material}
+      </mesh>
+    </group>
+  );
 };
 
 const ShieldDiagnosticsPanel: React.FC = () => {
@@ -1607,6 +1741,8 @@ const ShieldDiagnosticsPanel: React.FC = () => {
             <Suspense fallback={null}>
               <ClipNameReader onClips={setClipInfo} />
             </Suspense>
+            {/* Phase 140 — dev-only world-up reference (world +Y stem + arrowhead). */}
+            <WorldUpReference lefty={lefty} />
             <ShieldRotationProbe
               token={measureToken}
               mode={measureMode}
