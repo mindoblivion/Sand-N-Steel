@@ -231,9 +231,16 @@ const SHIELD_SCALE_GLB = 0.47;
 // orientation in useFrame so the board stays approximately upright during
 // idle, walk, and block, while allowing natural movement during attacks,
 // hits, and death. No effect on gameplay or saved data.
+// Phase 115 replaced the two discontinuous constructions the Phase 114 audit
+// flagged — the straight up-vector lerp (180° flip at the ~0.5 pole) and the
+// cardinal-axis forward fallback (48-101° jumps at axis-selection ties) — with
+// continuous ones. See the useFrame block below.
 const SHIELD_CONSTRAINT_ENABLED = false;
 
-// Pre-allocated objects — module-level to avoid per-frame GC pressure.
+// Pre-allocated scratch — module-level to avoid per-frame GC pressure, but none
+// of it holds state between frames or between component instances (Phase 115):
+// the constraint is a pure function of the current frame's bone transform, so
+// the player and the opponent cannot contaminate each other.
 const _cHandQ = new THREE.Quaternion();
 const _cInvHandQ = new THREE.Quaternion();
 const _cUp = new THREE.Vector3();
@@ -241,12 +248,14 @@ const _cFwd = new THREE.Vector3();
 const _cRight = new THREE.Vector3();
 const _cDesUp = new THREE.Vector3();
 const _cDesFwd = new THREE.Vector3();
-const _cMat = new THREE.Matrix4();
+const _cAxis = new THREE.Vector3(); // up-correction rotation axis (Phase 115)
+const _cTangent = new THREE.Vector3(); // great-circle tangent at the board up (Phase 115)
+const _cSwingFwd = new THREE.Vector3(); // face normal carried by the no-twist rotation (Phase 115)
+const _cBoardQ = new THREE.Quaternion(); // board's current world rotation (Phase 115)
+const _cSwingQ = new THREE.Quaternion(); // no-twist rotation candidate (Phase 115)
+const _cRollQ = new THREE.Quaternion(); // roll correction about the corrected up (Phase 115)
 const _cDesiredQ = new THREE.Quaternion();
 const _cWorldUp = new THREE.Vector3(0, 1, 0);
-const _cWorldFwd = new THREE.Vector3(0, 0, 1);
-const _cPrevDesUp = new THREE.Vector3(0, 1, 0); // last valid corrected up (Phase 113 / Issue A continuity)
-const _cSafeFwd = new THREE.Vector3(); // fallback forward reference (Phase 113 / Issue B)
 
 const SHIELD_BASE_Q_RIGHTY = new THREE.Quaternion().setFromEuler(
   new THREE.Euler(-2.42, -0.67, 2.91, 'XYZ'),
@@ -480,74 +489,105 @@ const RomanWarriorGLB: React.FC<{
 
           // 2. Compute current shield world rotation: q_hand × q_base
           const baseQ = isLefty ? SHIELD_BASE_Q_LEFTY : SHIELD_BASE_Q_RIGHTY;
-          _cDesiredQ.copy(_cHandQ).multiply(baseQ);
+          _cBoardQ.copy(_cHandQ).multiply(baseQ);
 
           // 3. Extract current board up (+Y) and face normal (+Z) in world
-          _cUp.set(0, 1, 0).applyQuaternion(_cDesiredQ);
-          _cFwd.set(0, 0, 1).applyQuaternion(_cDesiredQ);
+          _cUp.set(0, 1, 0).applyQuaternion(_cBoardQ);
+          _cFwd.set(0, 0, 1).applyQuaternion(_cBoardQ);
 
-          // 4. Desired up: lerp current up toward world up by strength.
-          //    Issue A: if the board up is exactly antiparallel to world up and
-          //    strength is 0.5, the lerp collapses to zero. Three.js normalize()
-          //    leaves a zero vector at zero, which would build a degenerate
-          //    basis, so guard the squared length and fall back to the previous
-          //    valid corrected up (minimizes discontinuity) before normalizing.
-          _cDesUp.copy(_cUp).lerp(_cWorldUp, shieldStrengthRef.current);
-          if (_cDesUp.lengthSq() < 1e-8) {
-            _cDesUp.copy(_cPrevDesUp);
-            if (_cDesUp.lengthSq() < 1e-8) _cDesUp.copy(_cWorldUp);
-          }
-          _cDesUp.normalize();
-          _cPrevDesUp.copy(_cDesUp);
+          // 4. Corrected up (Phase 115 / Issue A): walk the great circle from
+          //    the board's current up toward world up by theta * strength,
+          //    instead of lerping the two vectors. A straight lerp collapses to
+          //    (or nearly to) zero when the board up is inverted and strength is
+          //    ~0.5; Phase 114 measured a 180° single-frame flip there. Rotating
+          //    over the same angle keeps the up at unit length, passes through a
+          //    perpendicular up at 0.5, and still holds the current direction at
+          //    strength 0 and reaches world up at strength 1.
+          const theta = Math.acos(THREE.MathUtils.clamp(_cUp.dot(_cWorldUp), -1, 1));
+          const upStep = theta * shieldStrengthRef.current;
 
-          // 5. Recover forward: project the board face normal onto the plane
-          //    perpendicular to the corrected up. Issue B: when the face normal
-          //    runs nearly parallel to that up the projection collapses and its
-          //    direction is numerically unstable, so blend the reference toward
-          //    a stable cardinal axis (the one least aligned with up) instead of
-          //    snapping at a threshold — keeps the shield's facing continuous
-          //    through the degenerate band without normalizing a near-zero vector.
-          const dot = _cFwd.dot(_cDesUp);
-          _cDesFwd.copy(_cFwd).addScaledVector(_cDesUp, -dot);
+          //    Rotation axis = up × world up (magnitude sin theta). It is the
+          //    exact great-circle axis wherever it is defined and vanishes only
+          //    for parallel/antiparallel up. Its *direction* is what degrades
+          //    first: near the antipode a given board-up motion turns it by
+          //    (motion / sin θ), and that turn reaches the corrected up scaled by
+          //    sin(upStep) — so the amplification is sin(upStep) / sin θ, which
+          //    grows without bound only when the board is upside down *and* the
+          //    correction is strong. (Near the parallel pole the same ratio stays
+          //    ≤ strength, so nothing degrades there and no fade is wanted.)
+          //    Where it does degrade, blend in the board's own face normal — unit,
+          //    always perpendicular to the board up, so the rotation stays in the
+          //    up plane, and driven by the pose alone — with a weight that ramps
+          //    continuously from 0 once the amplification exceeds ~2x to 1 at
+          //    ~8x. No epsilon switch: the axis stays continuous, and the great
+          //    circle remains exact wherever the fade is 0, which includes every
+          //    board up better than ~20° off straight down.
+          const cosStep = Math.cos(upStep);
+          const sinStep = Math.sin(upStep);
+          _cAxis.crossVectors(_cUp, _cWorldUp);
+          const sinTheta = _cAxis.length();
+          const axisAmp = sinTheta > 1e-6 ? sinStep / sinTheta : 0;
+          const axisFade = THREE.MathUtils.clamp((axisAmp - 2) / 6, 0, 1);
+          if (axisFade > 0) _cAxis.addScaledVector(_cFwd, axisFade);
+          const axisLenSq = _cAxis.lengthSq();
+          if (axisLenSq > 1e-12) _cAxis.multiplyScalar(1 / Math.sqrt(axisLenSq));
+          else _cAxis.copy(_cFwd);
+          //    Rotate the board up about that axis (Rodrigues, axis ⟂ up):
+          //    the tangent of the resulting great-circle arc is axis × up, so
+          //    the corrected up stays on the unit sphere by construction.
+          _cTangent.crossVectors(_cAxis, _cUp);
+          _cDesUp.copy(_cUp).multiplyScalar(cosStep).addScaledVector(_cTangent, sinStep);
+          const desUpLenSq = _cDesUp.lengthSq();
+          if (desUpLenSq > 1e-12) _cDesUp.multiplyScalar(1 / Math.sqrt(desUpLenSq));
+          else _cDesUp.copy(_cWorldUp);
+
+          // 5. Roll recovery, as one continuous construction rather than a blend
+          //    of two references. Blending references is not safe: Phase 114's
+          //    two projected vectors are exactly antiparallel whenever the
+          //    correction angle is 90° (dot = -ab/|projF||projR| = -1 there), so
+          //    a 50/50 blend cancels and flips the facing 180°; and interpolating
+          //    two *rotations* instead is ambiguous when they are 180° apart,
+          //    which also flips. So:
+          //      base   = the shortest (no-twist) rotation carrying the board up
+          //               onto the corrected up — always well conditioned, since
+          //               its angle is the correction angle (≤ 0.7π for every
+          //               strength in the map) and never 180°;
+          //      roll   = the signed rotation about the corrected up that would
+          //               carry that face normal onto the projected one — i.e.
+          //               exactly the Phase 113 projection, where the projection
+          //               is well conditioned.
+          //    The roll is weighted by how long the projection is and by how far
+          //    the two references have turned away from each other, so the
+          //    180°-opposition case that has no defined answer carries no weight.
+          //    Because the roll is about the corrected up itself, the corrected
+          //    up is untouched by this step, whatever the weight.
+          _cDesFwd.copy(_cFwd).addScaledVector(_cDesUp, -_cFwd.dot(_cDesUp));
           const faceLenSq = _cDesFwd.lengthSq();
+          const faceProjLen = Math.sqrt(faceLenSq);
+          if (faceLenSq > 1e-12) _cDesFwd.multiplyScalar(1 / Math.sqrt(faceLenSq));
+          else _cDesFwd.set(0, 0, 0); // no direction to offer; its weight is 0 below
 
-          // Stable fallback reference: cardinal axis least aligned with up,
-          // projected onto the plane and validated before use.
-          const ax = Math.abs(_cDesUp.x);
-          const ay = Math.abs(_cDesUp.y);
-          const az = Math.abs(_cDesUp.z);
-          if (ax <= ay && ax <= az) _cSafeFwd.set(1, 0, 0);
-          else if (ay <= az) _cSafeFwd.set(0, 1, 0);
-          else _cSafeFwd.set(0, 0, 1);
-          _cSafeFwd.addScaledVector(_cDesUp, -_cSafeFwd.dot(_cDesUp));
-          let safeLenSq = _cSafeFwd.lengthSq();
-          if (safeLenSq > 1e-8) {
-            _cSafeFwd.multiplyScalar(1 / Math.sqrt(safeLenSq));
-          } else {
-            _cSafeFwd.copy(_cWorldFwd).addScaledVector(_cDesUp, -_cWorldFwd.dot(_cDesUp));
-            safeLenSq = _cSafeFwd.lengthSq();
-            if (safeLenSq > 1e-8) _cSafeFwd.multiplyScalar(1 / Math.sqrt(safeLenSq));
-            else _cSafeFwd.set(1, 0, 0);
+          _cSwingQ.setFromUnitVectors(_cUp, _cDesUp);
+          _cDesiredQ.copy(_cSwingQ).multiply(_cBoardQ);
+          _cSwingFwd.set(0, 0, 1).applyQuaternion(_cDesiredQ);
+
+          const rollCos = _cSwingFwd.dot(_cDesFwd);
+          const rollSin = _cRight.crossVectors(_cDesUp, _cSwingFwd).dot(_cDesFwd);
+          const rollAngle = Math.atan2(rollSin, rollCos); // (-π, π], 0 when equal
+
+          //    Conditioning: the projection's direction swings by (pose motion /
+          //    |projection|) per frame, so it only deserves full weight while it
+          //    is long; and drop it again as the two references approach
+          //    opposition, where no interpolation direction is defined.
+          const cond = THREE.MathUtils.clamp((faceProjLen - 0.2) / 0.3, 0, 1);
+          const align = THREE.MathUtils.clamp((Math.PI - Math.abs(rollAngle)) / (Math.PI / 3), 0, 1);
+          const rollWeight = (cond * cond * (3 - 2 * cond)) * (align * align * (3 - 2 * align));
+          if (rollWeight > 0) {
+            _cRollQ.setFromAxisAngle(_cDesUp, rollWeight * rollAngle);
+            _cDesiredQ.premultiply(_cRollQ);
           }
 
-          // Blend: full face normal while well-conditioned, fading to the
-          // fallback as the projection collapses (window |proj|² ∈ [0, 0.01]).
-          const faceBlend = Math.min(1, faceLenSq / 0.01);
-          if (faceLenSq > 1e-8) _cDesFwd.multiplyScalar(1 / Math.sqrt(faceLenSq));
-          else _cDesFwd.set(0, 0, 0);
-          _cDesFwd.multiplyScalar(faceBlend).addScaledVector(_cSafeFwd, 1 - faceBlend);
-
-          // Final validation: never normalize an (near) zero vector.
-          const fwdLenSq = _cDesFwd.lengthSq();
-          if (fwdLenSq > 1e-8) _cDesFwd.multiplyScalar(1 / Math.sqrt(fwdLenSq));
-          else _cDesFwd.copy(_cSafeFwd);
-
-          // 6. Build desired world rotation (right-handed: X = up × forward)
-          _cRight.crossVectors(_cDesUp, _cDesFwd);
-          _cMat.makeBasis(_cRight, _cDesUp, _cDesFwd);
-          _cDesiredQ.setFromRotationMatrix(_cMat);
-
-          // 7. Convert to shield-local: q_local = q_hand⁻¹ × q_world_desired
+          // 6. Convert to shield-local: q_local = q_hand⁻¹ × q_world_desired
           _cInvHandQ.copy(_cHandQ).invert();
           shieldGroupRef.current.quaternion.copy(_cInvHandQ).multiply(_cDesiredQ);
         } else {
