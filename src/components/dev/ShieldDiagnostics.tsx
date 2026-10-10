@@ -1,10 +1,10 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { FighterState } from '../../types/game';
 import { DEFAULT_PLAYER_WEAPON } from '../../data/itemsDB';
-import { GladiatorMesh } from '../3d/GladiatorMesh';
+import { GladiatorMesh, resolveActionClip } from '../3d/GladiatorMesh';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 
@@ -41,6 +41,14 @@ import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 // Phase 126 (dev-only, temporary, read-only): added IdleRotationProbe, a
 // per-frame measurement of the real board's world rotation. It writes nothing
 // to the shield, rig, camera or storage (see the probe's own header below).
+//
+// Phase 129 (dev-only, temporary): the probe gained an explicitly selected Roll
+// mode. Roll is the animation under investigation, so a Roll run must not
+// invalidate itself merely because the Roll override is active; instead it
+// asserts that the override is running, that the shipped picker resolves
+// 'dodge' to 'Roll' and that the board hangs from the correct anatomical hand,
+// then measures the real board through that override. The idle mode — including
+// its 'rolling' invalidation — is unchanged.
 // ---------------------------------------------------------------------------
 
 // Grep target for the production-bundle exclusion check (Phase C.2).
@@ -449,24 +457,103 @@ const orientationStats = (
   };
 };
 
+type ProbeMode = 'idle' | 'roll';
+
+/** One run's mode label, used in the report line and in the dataset. */
+const PROBE_CLIP_LABEL: Record<ProbeMode, string> = {
+  idle: 'idle (overrideAction none)',
+  roll: "dodge → Roll (overrideAction 'dodge')",
+};
+
+/**
+ * Phase 129 — sampling-interval statistics. A run can only report per-frame
+ * motion while frames are actually being sampled: a stalled preview leaves
+ * multi-hundred-millisecond gaps, and the board's "step" across such a gap is
+ * not a single-frame motion. `sparse` flags that case so sparse samples are
+ * never presented as per-frame data.
+ */
+const intervalStats = (ts: number[]) => {
+  if (ts.length < 2) {
+    return {
+      minMs: 0,
+      meanMs: 0,
+      maxMs: 0,
+      maxAtMs: 0,
+      outlierThresholdMs: 0,
+      maxGapOutlier: true,
+      lowFrameRate: true,
+      sparse: true,
+      sparseReason: 'fewer than two samples',
+    };
+  }
+  let min = Infinity;
+  let max = 0;
+  let maxAt = 0;
+  for (let i = 1; i < ts.length; i++) {
+    const gap = ts[i] - ts[i - 1];
+    if (gap < min) min = gap;
+    if (gap > max) {
+      max = gap;
+      maxAt = ts[i];
+    }
+  }
+  const mean = (ts[ts.length - 1] - ts[0]) / (ts.length - 1);
+  // Two distinct ways a step stops being "per-frame": one outlier gap, or a run
+  // whose frames are themselves so long (>100 ms, i.e. below 10 fps) that a
+  // single step spans a large slice of animation. Both are flagged by name.
+  const outlierThresholdMs = Math.max(100, 3 * mean);
+  const maxGapOutlier = max > outlierThresholdMs;
+  const lowFrameRate = mean > 100;
+  return {
+    minMs: r3(min),
+    meanMs: r3(mean),
+    maxMs: r3(max),
+    maxAtMs: Math.round(maxAt),
+    outlierThresholdMs: r3(outlierThresholdMs),
+    maxGapOutlier,
+    lowFrameRate,
+    sparse: maxGapOutlier || lowFrameRate,
+    sparseReason: maxGapOutlier
+      ? `large gap ${r3(max)} ms > ${r3(outlierThresholdMs)} ms`
+      : lowFrameRate
+        ? `low frame rate: mean sample interval ${r3(mean)} ms (~${r3(1000 / mean)} fps)`
+        : null,
+  };
+};
+
 type ProbeRun = {
   hand: THREE.Object3D;
   group: THREE.Object3D;
   lefty: boolean;
+  mode: ProbeMode;
   invalid: string | null;
   preHandQ: THREE.Quaternion;
   preGroupQ: THREE.Quaternion;
   preValid: boolean;
   sampling: boolean;
   ticks: number;
+  overrideSamples: number;
+  offOverrideSamples: number;
+  sawOverrideDuringSettle: boolean;
 };
 
-const IdleRotationProbe: React.FC<{
+/**
+ * Phase 126 (idle) / Phase 129 (roll) rotation probe. One component, two
+ * explicitly selected modes: `idle` reproduces the Phase 126 behaviour exactly
+ * (including its rejection of any sample taken while the Roll override is
+ * active), while `roll` expects that override and measures the board through
+ * it. The board, the mixer ordering and the statistics are identical; only the
+ * pre-flight expectations and the invalidation rules differ.
+ */
+const ShieldRotationProbe: React.FC<{
   token: number;
+  mode: ProbeMode;
   lefty: boolean;
   rolling: boolean;
+  /** Clip the shipped picker resolves for 'dodge' (null while clips load). */
+  expectedClip: string | null;
   resultRef: React.RefObject<HTMLDivElement | null>;
-}> = ({ token, lefty, rolling, resultRef }) => {
+}> = ({ token, mode, lefty, rolling, expectedClip, resultRef }) => {
   const scene = useThree((state) => state.scene);
   const runRef = useRef<ProbeRun | null>(null);
   const guardRef = useRef({ lefty, rolling });
@@ -479,8 +566,14 @@ const IdleRotationProbe: React.FC<{
   useFrame(() => {
     const run = runRef.current;
     if (!run) return;
-    if (guardRef.current.rolling) run.invalid = 'Roll triggered during the run';
+    // Roll mode EXPECTS the override — that is the animation under test — so
+    // only the idle mode rejects a sample taken while it is active, exactly as
+    // Phase 126 did.
+    if (run.mode === 'idle' && guardRef.current.rolling) run.invalid = 'Roll triggered during the run';
     if (guardRef.current.lefty !== run.lefty) run.invalid = 'handedness changed during the run';
+    // Roll mode: did the override run at any point during the settle window?
+    // (Checked before the first sample, see the sample hook below.)
+    if (run.mode === 'roll' && !run.sampling && guardRef.current.rolling) run.sawOverrideDuringSettle = true;
     if (run.sampling) run.ticks++;
     run.preHandQ.copy(run.hand.quaternion);
     run.preGroupQ.copy(run.group.quaternion);
@@ -517,6 +610,23 @@ const IdleRotationProbe: React.FC<{
       return;
     }
 
+    // Phase 129 — Roll mode pre-flight. Nothing is installed (no run created,
+    // no frame hook) unless the override that IS the subject of the run is
+    // already live and the shipped picker really resolves dodge to 'Roll'.
+    if (mode === 'roll') {
+      // Liveness of the Roll override is validated across the settle window
+      // (below), not at the instant of the click: loop mode re-arms on its own
+      // interval, so a click can legitimately land in the brief re-arm gap.
+      if (!expectedClip) {
+        report('measure · blocked: clip list not loaded yet');
+        return;
+      }
+      if (expectedClip !== 'Roll') {
+        report(`measure · blocked: shipped picker resolves dodge to '${expectedClip}', expected 'Roll'`);
+        return;
+      }
+    }
+
     // Local axes from the geometry itself: thinnest box dimension = face
     // normal, longest = up; the boss sphere marks the outward side.
     const p = (board.geometry as THREE.BoxGeometry).parameters;
@@ -547,12 +657,16 @@ const IdleRotationProbe: React.FC<{
       hand,
       group,
       lefty,
+      mode,
       invalid: null,
       preHandQ: new THREE.Quaternion(),
       preGroupQ: new THREE.Quaternion(),
       preValid: false,
       sampling: false,
       ticks: 0,
+      overrideSamples: 0,
+      offOverrideSamples: 0,
+      sawOverrideDuringSettle: false,
     };
     runRef.current = run;
 
@@ -587,12 +701,26 @@ const IdleRotationProbe: React.FC<{
         report(`measure · invalid: ${run.invalid ?? 'fewer than two samples'}`);
         return;
       }
+      // A Roll run that never sampled while the override was live measured the
+      // idle interlude, not the Roll: refuse it rather than mislabel it.
+      if (run.mode === 'roll' && run.overrideSamples === 0) {
+        report('measure · invalid: Roll override was not active during any sample');
+        return;
+      }
       const base = PROBE_BASE_Q[lefty ? 'lefty' : 'righty'];
       const axes = { normal, up };
       const sampledMs = ts[ts.length - 1];
+      const gaps = intervalStats(ts);
       const data = {
         handedness: lefty ? 'lefty' : 'righty',
-        clip: 'idle (overrideAction none)',
+        mode: run.mode,
+        clip: PROBE_CLIP_LABEL[run.mode],
+        // Which anatomical hand carries the board, and which hand the harness
+        // located it on (righty → hand_l, lefty → hand_r, per GladiatorMesh).
+        anatomicalStance: lefty ? 'lefty (shield in right hand)' : 'righty (shield in left hand)',
+        shieldHand: handName,
+        expectedClip: run.mode === 'roll' ? 'Roll' : null,
+        pickerResolvesDodge: run.mode === 'roll' ? expectedClip : null,
         hierarchy: [
           hand.parent?.name,
           hand.name,
@@ -610,11 +738,15 @@ const IdleRotationProbe: React.FC<{
         },
         timing: {
           settleMs: PROBE_SETTLE_MS,
+          sampleWindowMs: PROBE_SAMPLE_MS,
           sampledMs: Math.round(sampledMs),
           samples: ts.length,
           probeFrames: run.ticks,
           meanFps: r3(((ts.length - 1) * 1000) / sampledMs),
           maxGapMs: r3(maxGap),
+          intervals: gaps,
+          overrideSamples: run.mode === 'roll' ? run.overrideSamples : null,
+          offOverrideSamples: run.mode === 'roll' ? run.offOverrideSamples : null,
         },
         ordering: {
           framesCompared: compared,
@@ -635,11 +767,22 @@ const IdleRotationProbe: React.FC<{
           axes,
         ),
       };
-      const b = data.board as ReturnType<typeof orientationStats> & { normalHemisphereCrossings: number };
+      const b = data.board as ReturnType<typeof orientationStats> & {
+        normalHemisphereCrossings: number;
+        upTiltFromWorldUpDeg: [number, number];
+      };
+      const overrideNote =
+        run.mode === 'roll' ? ` · override live ${run.overrideSamples}/${ts.length} samples` : '';
+      const sparseNote = gaps.sparse ? ` · ⚠ ${gaps.sparseReason} — not per-frame motion` : '';
       report(
-        `measure · ${ts.length} samples / ${r3(sampledMs / 1000)} s · board step ${b.stepMinDeg}–${b.stepMaxDeg}°` +
-          ` · drift ≤${b.devFromStartMaxDeg}° · normal crossings ${b.normalHemisphereCrossings}` +
-          ` · hand drift ≤${data.hand.devFromStartMaxDeg}°`,
+        `measure · ${run.mode} · ${ts.length} samples / ${r3(sampledMs / 1000)} s` +
+          ` · gaps ${gaps.minMs}/${gaps.meanMs}/${gaps.maxMs} ms` +
+          overrideNote +
+          ` · board step ${b.stepMinDeg}–${b.stepMaxDeg}° · drift ≤${b.devFromStartMaxDeg}°` +
+          ` · up tilt ${b.upTiltFromWorldUpDeg[0]}–${b.upTiltFromWorldUpDeg[1]}°` +
+          ` · normal crossings ${b.normalHemisphereCrossings}` +
+          ` · hand drift ≤${data.hand.devFromStartMaxDeg}°` +
+          sparseNote,
         data,
       );
     };
@@ -654,6 +797,14 @@ const IdleRotationProbe: React.FC<{
         return;
       }
       if (!run.sampling) {
+        // Roll mode: refuse the run before a single sample is recorded unless
+        // the override was live during the settle window — otherwise this would
+        // silently measure the idle interlude and call it Roll.
+        if (run.mode === 'roll' && !run.sawOverrideDuringSettle) {
+          run.invalid = 'Roll override was not active during the settle window';
+          finish();
+          return;
+        }
         run.sampling = true;
         tStart = now;
       }
@@ -667,6 +818,9 @@ const IdleRotationProbe: React.FC<{
       hierarchyResidual = Math.max(hierarchyResidual, quatAngleDeg(qh.clone().multiply(group.quaternion), qb));
       const t = now - tStart;
       if (ts.length) maxGap = Math.max(maxGap, t - ts[ts.length - 1]);
+      // Roll mode: how much of the run the override was actually live for.
+      if (guardRef.current.rolling) run.overrideSamples++;
+      else run.offOverrideSamples++;
       boardQ.push(qb);
       handQ.push(qh);
       ts.push(t);
@@ -678,7 +832,13 @@ const IdleRotationProbe: React.FC<{
       run.preValid = false;
       if (t >= PROBE_SAMPLE_MS) finish();
     };
-    report(`measure · ${handName} board · settling ${PROBE_SETTLE_MS} ms, then sampling ${PROBE_SAMPLE_MS} ms…`);
+    report(
+      `measure · ${mode} · ${handName} board` +
+        (mode === 'roll'
+          ? ` · picker dodge → '${expectedClip}' · confirming the override in the settle window`
+          : '') +
+        ` · settling ${PROBE_SETTLE_MS} ms, then sampling ${PROBE_SAMPLE_MS} ms…`,
+    );
 
     // A culled or unmounted board must never leave the hook installed.
     const watchdog = window.setTimeout(() => {
@@ -699,6 +859,20 @@ const IdleRotationProbe: React.FC<{
   return null;
 };
 
+/**
+ * Phase 129 — reads the clip-name list the harness GLB actually ships and hands
+ * it to the panel, so the Roll mode can assert with the *shipped* picker that
+ * 'dodge' resolves to 'Roll'. drei's useGLTF is URL-cached, so this reuses the
+ * load GladiatorMesh already made — no extra request, nothing written.
+ */
+const ClipNameReader: React.FC<{ onNames: (names: string[]) => void }> = ({ onNames }) => {
+  const gltf = useGLTF('/models/arena_roman.glb');
+  useEffect(() => {
+    onNames(gltf.animations.map((clip) => clip.name));
+  }, [gltf, onNames]);
+  return null;
+};
+
 const ShieldDiagnosticsPanel: React.FC = () => {
   const [open, setOpen] = useState(false);
   // Diagnostic-local handedness: never read from, or written to, the profile.
@@ -716,7 +890,16 @@ const ShieldDiagnosticsPanel: React.FC = () => {
   const readoutRef = useRef<HTMLSpanElement>(null);
   const anchorsRef = useRef<HTMLDivElement>(null);
   const [measureToken, setMeasureToken] = useState(0);
+  const [measureMode, setMeasureMode] = useState<ProbeMode>('idle');
+  const [clipNames, setClipNames] = useState<string[] | null>(null);
   const measureRef = useRef<HTMLDivElement>(null);
+  // The shipped picker's own answer for the dodge action (Phase 129 check):
+  // computed with the exported resolveActionClip on the harness GLB's real
+  // clip-name list, so the Roll mode asserts against the real picker, not a copy.
+  const rollClip = useMemo(
+    () => (clipNames ? resolveActionClip('dodge', clipNames) : null),
+    [clipNames],
+  );
 
   const fighter = useMemo<FighterState>(
     () => ({
@@ -864,7 +1047,17 @@ const ShieldDiagnosticsPanel: React.FC = () => {
               />
             </Suspense>
             <ShieldFramer view={view} reframeToken={reframeToken} lefty={lefty} anchorsRef={anchorsRef} />
-            <IdleRotationProbe token={measureToken} lefty={lefty} rolling={rolling} resultRef={measureRef} />
+            <Suspense fallback={null}>
+              <ClipNameReader onNames={setClipNames} />
+            </Suspense>
+            <ShieldRotationProbe
+              token={measureToken}
+              mode={measureMode}
+              lefty={lefty}
+              rolling={rolling}
+              expectedClip={rollClip}
+              resultRef={measureRef}
+            />
           </Canvas>
         </ThreeComponentErrorBoundary>
       </div>
@@ -985,11 +1178,27 @@ const ShieldDiagnosticsPanel: React.FC = () => {
         <span className="w-16 text-neutral-400">Measure</span>
         <button
           data-testid="diag-measure"
-          onClick={() => setMeasureToken((t) => t + 1)}
-          className={btn(false)}
+          onClick={() => {
+            setMeasureMode('idle');
+            setMeasureToken((t) => t + 1);
+          }}
+          className={btn(measureMode === 'idle')}
         >
           idle rotation · 1.5 s settle + 8.5 s
         </button>
+        <button
+          data-testid="diag-roll-measure"
+          onClick={() => {
+            setMeasureMode('roll');
+            setMeasureToken((t) => t + 1);
+          }}
+          className={btn(measureMode === 'roll')}
+        >
+          roll rotation · dodge → Roll
+        </button>
+      </div>
+      <div data-testid="diag-picker-clip" className="mt-1 font-mono text-[10px] text-neutral-500">
+        picker dodge → {rollClip === null ? 'clip list loading…' : `'${rollClip}'`}
       </div>
       <div data-testid="diag-measure-result" ref={measureRef} className="mt-1 font-mono text-[10px] text-neutral-400" />
       <div className="mt-1 font-mono text-[10px] text-neutral-500">drag = orbit · wheel = zoom</div>
