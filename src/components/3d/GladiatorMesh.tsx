@@ -230,26 +230,32 @@ const SHIELD_SCALE_GLB = 0.47;
 const ShieldModel: React.FC<{ isLefty: boolean; goldColor: string }> = ({ isLefty, goldColor }) => {
   return (
     <group position={[0, 0, 0]} rotation={isLefty ? SHIELD_ROTATION_RIGHT_HAND : SHIELD_ROTATION_LEFT_HAND} scale={SHIELD_SCALE_GLB}>
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[0.68, 1.15, 0.05]} />
-        <meshStandardMaterial color="#881337" roughness={0.4} />
-      </mesh>
-      <mesh position={[0, 0, 0.028]}>
-        <boxGeometry args={[0.7, 1.17, 0.01]} />
-        <meshStandardMaterial color={goldColor} metalness={0.8} roughness={0.25} />
-      </mesh>
-      <mesh castShadow position={[0, 0, 0.06]}>
-        <sphereGeometry args={[0.14, 16, 16]} />
-        <meshStandardMaterial color={goldColor} metalness={0.9} roughness={0.15} />
-      </mesh>
-      <mesh position={[0, 0.25, 0.035]}>
-        <boxGeometry args={[0.35, 0.05, 0.01]} />
-        <meshStandardMaterial color="#fef08a" metalness={0.7} />
-      </mesh>
-      <mesh position={[0, -0.25, 0.035]}>
-        <boxGeometry args={[0.35, 0.05, 0.01]} />
-        <meshStandardMaterial color="#fef08a" metalness={0.7} />
-      </mesh>
+      {/* Offset the board along its own face-normal (+Z = outward) so the
+          hand bone sits behind the board instead of passing through it.
+          0.15 pre-scale × 0.47 ≈ 0.071 world units, clearing the forearm
+          radius (~0.04) without the shield floating away from the arm. */}
+      <group position={[0, 0, 0.15]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[0.68, 1.15, 0.05]} />
+          <meshStandardMaterial color="#881337" roughness={0.4} />
+        </mesh>
+        <mesh position={[0, 0, 0.028]}>
+          <boxGeometry args={[0.7, 1.17, 0.01]} />
+          <meshStandardMaterial color={goldColor} metalness={0.8} roughness={0.25} />
+        </mesh>
+        <mesh castShadow position={[0, 0, 0.06]}>
+          <sphereGeometry args={[0.14, 16, 16]} />
+          <meshStandardMaterial color={goldColor} metalness={0.9} roughness={0.15} />
+        </mesh>
+        <mesh position={[0, 0.25, 0.035]}>
+          <boxGeometry args={[0.35, 0.05, 0.01]} />
+          <meshStandardMaterial color="#fef08a" metalness={0.7} />
+        </mesh>
+        <mesh position={[0, -0.25, 0.035]}>
+          <boxGeometry args={[0.35, 0.05, 0.01]} />
+          <meshStandardMaterial color="#fef08a" metalness={0.7} />
+        </mesh>
+      </group>
     </group>
   );
 };
