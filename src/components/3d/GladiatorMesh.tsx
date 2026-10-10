@@ -257,6 +257,21 @@ const SHIELD_CONSTRAINT_ENABLED = true;
 const SHIELD_UPRIGHT_FADE_START = (30 * Math.PI) / 180;
 const SHIELD_UPRIGHT_FADE_END = Math.PI;
 
+// Phase 131: slew ceiling (radians/second) for the constraint's OWN correction —
+// the rotation that carries the hand-driven board onto its corrected orientation.
+// Because the shield's local rotation is base × correction, the per-frame change
+// of that local quaternion is exactly the correction's contribution (the hand's
+// motion cancels out of it). Measured on the real asset with the Phase 130
+// harness: idle 9°/s and walk 78°/s of correction, but the Roll clip demanded
+// 2525°/s (42°/frame at 60 Hz) for a hand that was itself turning 960°/s — the
+// two-factor construction re-derives the correction direction from the pose each
+// frame, and near θ ≈ 130° the fade-band waypoint sits ~90° away in azimuth, so a
+// small hand motion swings the correction axis hard. Cap at 600°/s = 10°/frame at
+// 60 Hz: ~66× above the fastest normal-play rate (so it never engages in idle,
+// walk or block) and ~4× below the Roll whip (so it only trims dodge/hit
+// transients). Strength still scales the correction; only its rate is bounded.
+const SHIELD_CORRECTION_MAX_RATE = (600 * Math.PI) / 180;
+
 // Pre-allocated scratch — module-level to avoid per-frame GC pressure, but none
 // of it holds state between frames or between component instances (Phase 115):
 // the constraint is a pure function of the current frame's bone transform, so
@@ -280,6 +295,8 @@ const _cBoardQ = new THREE.Quaternion(); // board's current world rotation (Phas
 const _cSwingQ = new THREE.Quaternion(); // no-twist rotation candidate (Phase 115)
 const _cRollQ = new THREE.Quaternion(); // roll correction about the corrected up (Phase 115)
 const _cDesiredQ = new THREE.Quaternion();
+const _cTargetQ = new THREE.Quaternion(); // target shield-local rotation (Phase 131)
+const _cDeltaQ = new THREE.Quaternion(); // previous-local → target delta (Phase 131)
 const _cWorldUp = new THREE.Vector3(0, 1, 0);
 
 const SHIELD_BASE_Q_RIGHTY = new THREE.Quaternion().setFromEuler(
@@ -703,9 +720,34 @@ const RomanWarriorGLB: React.FC<{
             _cDesiredQ.premultiply(_cRollQ);
           }
 
-          // 6. Convert to shield-local: q_local = q_hand⁻¹ × q_world_desired
+          // 6. Convert to shield-local: q_local = q_hand⁻¹ × q_world_desired, then
+          //    bound the correction's own angular rate (Phase 131).
+          //    q_local = base × correction, so the per-frame change of the local
+          //    quaternion is exactly the correction's contribution — the hand's
+          //    motion cancels out of it. The Phase 130 audit measured up to
+          //    42°/frame there on the real Roll clip (2520°/s) for a hand turning
+          //    16°/frame: the correction direction is re-derived from the pose each
+          //    frame, and near θ ≈ 130° the fade-band waypoint sits ~90° away in
+          //    azimuth, so a small hand motion swings the correction axis hard.
+          //    Capping the rate keeps the constraint a low-frequency bias instead of
+          //    a whip. The previous local rotation — per-instance state already
+          //    stored on this shield group — anchors the cap; at negligible strength
+          //    the branch below resets it to the base rotation, so the limit always
+          //    starts and resumes from base without a discontinuity, and the
+          //    endpoint behaviour at full strength is untouched (a slow pose is not
+          //    rate-limited at all). No allocation: all scratch is module-level.
           _cInvHandQ.copy(_cHandQ).invert();
-          shieldGroupRef.current.quaternion.copy(_cInvHandQ).multiply(_cDesiredQ);
+          _cTargetQ.copy(_cInvHandQ).multiply(_cDesiredQ);
+          _cDeltaQ.copy(shieldGroupRef.current.quaternion).invert().multiply(_cTargetQ);
+          const correctionStep = 2 * Math.atan2(
+            Math.hypot(_cDeltaQ.x, _cDeltaQ.y, _cDeltaQ.z), Math.abs(_cDeltaQ.w),
+          );
+          const maxCorrectionStep = SHIELD_CORRECTION_MAX_RATE * delta;
+          if (correctionStep > maxCorrectionStep) {
+            shieldGroupRef.current.quaternion.slerp(_cTargetQ, maxCorrectionStep / correctionStep);
+          } else {
+            shieldGroupRef.current.quaternion.copy(_cTargetQ);
+          }
         } else {
           // Issue C: at negligible strength (e.g. death/fall) the correction
           // stops, but the shield's local quaternion would otherwise stay at
