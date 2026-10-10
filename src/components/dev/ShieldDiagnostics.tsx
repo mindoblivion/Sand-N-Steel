@@ -60,6 +60,18 @@ import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 // clip can be posed at explicit timestamps and the drawn frame cannot drift with
 // the browser's frame rate. Everything still lives in this one file; the shield,
 // its constraint, the gameplay cameras and the saved profile are untouched.
+//
+// Phase 137 (dev-only): the deterministic handshake is hardened against the two
+// lifecycle risks Phase 136 left open. Both handshake waits now carry a finite
+// deadline and release the canvas when it expires, so a report that never arrives
+// (a canvas that failed to mount, an unmounted stepper, a wedged renderer) can no
+// longer hold the harness's own render loop forever. And every delayed
+// continuation of a run re-checks a generation token, so cancelling a sample with
+// the panel's own Live control — or starting another sample, changing the action,
+// changing handedness, or closing the panel mid-sample — leaves nothing able to
+// advance the mixer, record a step or overwrite a fresher status. Timers are
+// cleared on every one of those paths, and both facts are reported in the status
+// line. Nothing outside this file changed.
 // ---------------------------------------------------------------------------
 
 // Grep target for the production-bundle exclusion check (Phase C.2).
@@ -105,6 +117,32 @@ const DET_SAMPLES: ReadonlyArray<{ label: string; fraction: number }> = [
 const DET_MIN_TIME_S = 0.2;
 const DET_STEP_S = 1 / 60;
 const DET_MAX_STEPS = 300;
+
+// Phase 137 — bounded handshake waits. Both waits in the deterministic handshake
+// used to poll with no deadline, so a report that never arrived left this panel's
+// canvas held on its last frame with no way back. Each wait now has a finite one.
+//
+// Where the deadline comes from: one handshake step (freeze, then pivot) is a
+// single React commit plus one frame of this panel's canvas, so what it costs is
+// the sandbox's own commit latency. Measured here (2026-10-10, dev panel open on
+// the city route): freeze 2932 ms / pivot 1372 ms in the worst run of four, with
+// the same two steps as low as 486 ms / 46 ms minutes earlier — i.e. a step is
+// routinely sub-second but can reach ~3 s under load, because this sandbox has no
+// GPU. The deadline is therefore set well above the worst step observed rather
+// than close to the typical one: at 4 s a legitimate sample would have been
+// cancelled by a step that took 2.9 s, and a spurious timeout is a worse failure
+// than a slower release. 10 s is ~3.4x the worst step measured and still bounds a
+// wedged canvas. HANDSHAKE_POLL_MS only bounds how quickly an arrived report is
+// noticed (about one frame), so its extra timer load is negligible.
+const HANDSHAKE_STEP_TIMEOUT_MS = 10000;
+const HANDSHAKE_POLL_MS = 16;
+
+/**
+ * Phase 137 — one pending handshake wait: the timers it has scheduled and the
+ * resolver cancellation uses to release it with a 'report never arrived' answer,
+ * so a cancelled run never stays suspended holding its closure.
+ */
+type PendingWait = { timers: number[]; resolve: (reached: boolean) => void };
 
 /** One sample's requested clip time: a fraction of the real clip, past the crossfade. */
 const detSampleTime = (fraction: number, duration: number) =>
@@ -1025,13 +1063,16 @@ const DeterministicRollStepper: React.FC<{
     if (el) el.dataset.status = 'frozen';
   }, [freezeToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 2. Resume live playback.
+  // 2. Resume live playback. `freezeToken` is a dependency too, so a freeze commit
+  //    that ever lands while the panel already believes it is live still ends with
+  //    the loop running: the Live control — and a timed-out handshake's release —
+  //    must always be able to hand the canvas back.
   useEffect(() => {
     if (!live) return;
     setFrameloop('always');
     const el = resultRef.current;
     if (el) el.dataset.status = 'live';
-  }, [live, setFrameloop]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [live, freezeToken, setFrameloop]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 3. Handshake: report the action THIS canvas subtree was actually driven with,
   // so the panel can wait for a clip swap to land instead of assuming it did.
@@ -1046,26 +1087,40 @@ const DeterministicRollStepper: React.FC<{
     if (goToken === 0) return;
     const index = sampleIndex;
 
-    const report = (text: string, samples: DetSample[]) => {
+    // Phase 137 — a step only belongs to a sample whose handshake is still the
+    // active one: a commit that resumes live playback must never advance the mixer
+    // or record a sample. (The panel invalidates that run's continuations as well;
+    // this is the second, local guard.)
+    if (live) {
+      const out = resultRef.current;
+      if (out) out.dataset.handshake = 'cancelled';
+      return;
+    }
+
+    // `status` is the run's machine-readable terminal state — 'ok' (a sample was
+    // recorded), 'blocked' (a precondition failed), 'failed' (the step threw) — so
+    // a check never has to parse the line below.
+    const report = (text: string, samples: DetSample[], status: 'ok' | 'blocked' | 'failed') => {
       const el = resultRef.current;
       if (!el) return;
       el.textContent = text;
       el.dataset.series = JSON.stringify({ method: 'deterministic-step', samples });
+      el.dataset.handshake = status;
     };
-    const emit = (text: string) =>
-      report(text, seriesRef.current.filter((s): s is DetSample => s !== null));
+    const emit = (text: string, status: 'ok' | 'blocked' | 'failed') =>
+      report(text, seriesRef.current.filter((s): s is DetSample => s !== null), status);
 
     try {
     if (meshAction !== ROLL_ACTION) {
-      emit(`deterministic · blocked: mesh is driven with '${meshAction}', expected '${ROLL_ACTION}'`);
+      emit(`deterministic · blocked: mesh is driven with '${meshAction}', expected '${ROLL_ACTION}'`, 'blocked');
       return;
     }
     if (!rollClip || !rollDuration) {
-      emit('deterministic · blocked: Roll clip not loaded yet');
+      emit('deterministic · blocked: Roll clip not loaded yet', 'blocked');
       return;
     }
     if (rollClip !== 'Roll') {
-      emit(`deterministic · blocked: picker resolves dodge to '${rollClip}', expected 'Roll'`);
+      emit(`deterministic · blocked: picker resolves dodge to '${rollClip}', expected 'Roll'`, 'blocked');
       return;
     }
 
@@ -1078,7 +1133,7 @@ const DeterministicRollStepper: React.FC<{
     const group = hand?.children.find((child) => !(child as THREE.Bone).isBone);
     const board = findBoard(scene);
     if (!hand || !(hand as THREE.Bone).isBone || !group || !board) {
-      emit(`deterministic · blocked: no ${handName} → shield board in the harness rig`);
+      emit(`deterministic · blocked: no ${handName} → shield board in the harness rig`, 'blocked');
       return;
     }
 
@@ -1173,9 +1228,10 @@ const DeterministicRollStepper: React.FC<{
         ` · board on ${sample.boardAttachedTo ?? 'none'}${sample.attachMatchesHand ? ' ✓' : ` ✗ expected ${handName}`}` +
         ` · recorded ${samples.length}/${DET_SAMPLES.length}`,
       samples,
+      'ok',
     );
     } catch (error) {
-      emit(`deterministic · failed: ${describeError(error)}`);
+      emit(`deterministic · failed: ${describeError(error)}`, 'failed');
     }
   }, [goToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1272,6 +1328,9 @@ const ShieldDiagnosticsPanel: React.FC = () => {
   useEffect(
     () => () => {
       if (rearmRef.current !== null) window.clearTimeout(rearmRef.current);
+      // Phase 137 — unmounting must not leave the handshake's timers behind, nor
+      // any continuation of it able to write into a later panel.
+      invalidateHandshake();
     },
     [],
   );
@@ -1295,46 +1354,165 @@ const ShieldDiagnosticsPanel: React.FC = () => {
     }, 0);
   };
 
+  // Phase 137 — ownership of the in-flight deterministic handshake:
+  //   * `gen` is a generation token. Every delayed continuation of a run re-checks
+  //     it and returns without touching state, the mixer or the status output once
+  //     a newer run — or a cancellation — has taken over the canvas.
+  //   * `active` records whether a run is in flight at all, so a cancellation knows
+  //     whether there is anything to hand back to live playback.
+  //   * `waits` holds the timers of every pending wait, so cancellation can clear
+  //     them and release the wait instead of leaving it scheduled.
+  // All three are refs: the handshake must never re-render the canvas subtree, and
+  // these guarantees need no new state.
+  const handshakeGenRef = useRef(0);
+  const handshakeActiveRef = useRef(false);
+  const handshakeWaitsRef = useRef<Set<PendingWait>>(new Set());
+  // What the last completed handshake's two steps actually cost, reported in the
+  // panel's DOM so the handshake deadline can be checked against reality.
+  const handshakeMsRef = useRef({ freeze: 0, pivot: 0 });
+
+  /** Clear every pending handshake wait, answering it 'report never arrived'. */
+  const releasePendingWaits = () => {
+    const waits = Array.from(handshakeWaitsRef.current);
+    handshakeWaitsRef.current.clear();
+    for (const wait of waits) {
+      for (const id of wait.timers) window.clearTimeout(id);
+      wait.timers.length = 0;
+      wait.resolve(false);
+    }
+  };
+
+  /** Phase 137 — invalidate the handshake in flight, if any. True if one was active. */
+  const invalidateHandshake = () => {
+    const wasActive = handshakeActiveRef.current;
+    handshakeActiveRef.current = false;
+    handshakeGenRef.current += 1;
+    releasePendingWaits();
+    return wasActive;
+  };
+
+  /**
+   * Phase 137 — cancel the deterministic handshake in flight and hand the canvas
+   * back to live playback on the user's OWN selected action, never the temporary
+   * pivot clip, saying so in the status line. Safe to call when nothing is pending;
+   * returns true only when a run was actually cancelled.
+   */
+  const cancelPendingSample = (note: string) => {
+    if (!invalidateHandshake()) return false;
+    setDetLive(true);
+    armAction(selectedAction);
+    const out = stepRef.current;
+    if (out) {
+      out.textContent = note;
+      out.dataset.handshake = 'cancelled';
+    }
+    return true;
+  };
+
   // Phase 135 — deterministic sampling handshake. The freeze has to land BEFORE
   // the clip swap, so the Roll clip's reset to time 0 happens while the canvas is
   // already held and nothing can advance the mixer in between. Every step waits
   // on what the canvas subtree reported through its own dataset rather than on a
-  // guessed delay, and the polling uses timers (not rAF, which is paused in a
-  // backgrounded tab) so the handshake cannot stall.
+  // guessed delay, the polling uses timers (not rAF, which is paused in a
+  // backgrounded tab) so the handshake cannot stall, and since Phase 137 each such
+  // wait is bounded by HANDSHAKE_STEP_TIMEOUT_MS: if its report never arrives the
+  // wait expires, the canvas is handed back to live playback and the status line
+  // says which step timed out — a held canvas can no longer be permanent.
   useEffect(() => {
     if (sampleToken === 0) return;
     const el = stepRef.current;
-    let cancelled = false;
+    const gen = (handshakeGenRef.current += 1);
+    handshakeActiveRef.current = true;
+    const started = performance.now();
+
+    /** Wait until `read()` reports true, or until this step's deadline expires. */
     const settled = (read: () => boolean) =>
-      new Promise<void>((resolve) => {
-        const poll = () => {
-          if (cancelled || read()) resolve();
-          else window.setTimeout(poll, 16);
+      new Promise<boolean>((resolve) => {
+        const wait: PendingWait = { timers: [], resolve };
+        handshakeWaitsRef.current.add(wait);
+        const finish = (reached: boolean) => {
+          if (!handshakeWaitsRef.current.delete(wait)) return; // already released
+          for (const id of wait.timers) window.clearTimeout(id);
+          wait.timers.length = 0;
+          resolve(reached);
         };
+        const poll = () => {
+          if (read()) finish(true);
+          else wait.timers.push(window.setTimeout(poll, HANDSHAKE_POLL_MS));
+        };
+        wait.timers.push(window.setTimeout(() => finish(false), HANDSHAKE_STEP_TIMEOUT_MS));
         poll();
       });
+
+    // Phase 137 — every continuation below re-checks both facts: that this run
+    // still owns the handshake (`active()`), and that the report it waited for
+    // actually arrived rather than timing out.
+    const active = () => handshakeGenRef.current === gen;
+
+    /** A bounded wait that expired hands the canvas back and says why. */
+    const timedOut = (step: string) => {
+      handshakeActiveRef.current = false;
+      releasePendingWaits();
+      setDetLive(true); // releases the held render loop
+      armAction(selectedAction); // the user's action, not the temporary pivot clip
+      // Written to this run's own output node (captured when the run started), so a
+      // timeout that fires after the panel was closed still records its reason on
+      // that run's node, never on a later panel's.
+      if (el) {
+        el.textContent =
+          `deterministic · timeout: no ${step} report within ${HANDSHAKE_STEP_TIMEOUT_MS} ms` +
+          ' — canvas released, harness live again';
+        el.dataset.handshake = 'timeout';
+      }
+    };
 
     void (async () => {
       // 1. Hold the canvas.
       setFreezeToken((token) => token + 1);
-      await settled(() => el?.dataset.status === 'frozen');
-      if (cancelled) return;
+      const froze = await settled(() => el?.dataset.status === 'frozen');
+      if (!active()) return;
+      if (!froze) {
+        timedOut('freeze');
+        return;
+      }
+      handshakeMsRef.current.freeze = Math.round(performance.now() - started);
       // 2. Drive the mesh onto the pivot clip and wait until the mesh really was
       //    driven with it — React may otherwise coalesce the pair of updates.
+      const pivotStart = performance.now();
       setMeshAction(PIVOT_ACTION);
       setArmed(true);
-      await settled(() => el?.dataset.seenAction === PIVOT_ACTION);
-      if (cancelled) return;
+      const pivoted = await settled(() => el?.dataset.seenAction === PIVOT_ACTION);
+      if (!active()) return;
+      if (!pivoted) {
+        timedOut(`pivot clip '${PIVOT_ACTION}'`);
+        return;
+      }
+      handshakeMsRef.current.pivot = Math.round(performance.now() - pivotStart);
       // 3. Drive it back onto Roll: a genuine change, so GladiatorMesh resets the
       //    real Roll clip to time 0 while frozen. The go token rides that same
       //    commit, and the stepper renders after the mesh, so its step effect
       //    runs after the reset.
       setMeshAction(ROLL_ACTION);
       setGoToken((token) => token + 1);
+      // The handshake is over: this run owns nothing from here on, and no wait of
+      // it may stay scheduled. The wait costs go to this run's own output node — the
+      // one captured when the run started, never a later panel's — so the deadline
+      // can be checked against what the harness actually needed.
+      handshakeActiveRef.current = false;
+      releasePendingWaits();
+      if (el) {
+        el.dataset.handshakeMs =
+          `freeze ${handshakeMsRef.current.freeze} ms, pivot ${handshakeMsRef.current.pivot} ms` +
+          ` (deadline ${HANDSHAKE_STEP_TIMEOUT_MS} ms each)`;
+      }
     })();
 
     return () => {
-      cancelled = true;
+      // Another sample, a cancellation, or unmounting: this run no longer owns the
+      // canvas, and nothing it has queued may write to it.
+      handshakeActiveRef.current = false;
+      handshakeGenRef.current += 1;
+      releasePendingWaits();
     };
   }, [sampleToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1456,10 +1634,26 @@ const ShieldDiagnosticsPanel: React.FC = () => {
 
       <div className="mb-1 flex items-center gap-1.5">
         <span className="w-16 text-neutral-400">Hands</span>
-        <button data-testid="diag-righty" onClick={() => setLefty(false)} className={btn(!lefty)}>
+        <button
+          data-testid="diag-righty"
+          onClick={() => {
+            // Phase 137 — a handedness change cancels a sample still in flight, so
+            // a run can never step the hand it was not started on.
+            cancelPendingSample("cancelled the pending sample · handedness → righty");
+            setLefty(false);
+          }}
+          className={btn(!lefty)}
+        >
           righty · shield left hand
         </button>
-        <button data-testid="diag-lefty" onClick={() => setLefty(true)} className={btn(lefty)}>
+        <button
+          data-testid="diag-lefty"
+          onClick={() => {
+            cancelPendingSample("cancelled the pending sample · handedness → lefty");
+            setLefty(true);
+          }}
+          className={btn(lefty)}
+        >
           lefty · shield right hand
         </button>
       </div>
@@ -1474,6 +1668,9 @@ const ShieldDiagnosticsPanel: React.FC = () => {
             key={entry.key}
             data-testid={`diag-action-${entry.key}`}
             onClick={() => {
+              // Phase 137 — switching action cancels a sample still in flight first,
+              // so its pivot-clip handshake cannot land after the new action.
+              cancelPendingSample(`cancelled the pending sample · switching to '${entry.key}'`);
               setDetLive(true);
               armAction(entry.key);
             }}
@@ -1616,6 +1813,11 @@ const ShieldDiagnosticsPanel: React.FC = () => {
               data-testid={`diag-step-${index}`}
               disabled={blocked}
               onClick={() => {
+                // Phase 137 — a new sample invalidates whatever handshake is still
+                // in flight: its continuations are gen-gated and its timers cleared
+                // before this run starts (the effect's cleanup repeats the same
+                // invalidation for the unmount case).
+                invalidateHandshake();
                 setDetLive(false);
                 setSampleIndex(index);
                 setSampleToken((token) => token + 1);
@@ -1629,10 +1831,21 @@ const ShieldDiagnosticsPanel: React.FC = () => {
         <button
           data-testid="diag-step-live"
           onClick={() => {
-            // Hand the canvas back to live playback on the action the user picked,
-            // so it does not stay parked on the clamped Roll one-shot.
+            // Phase 137 — Live is also the cancel: a sample still in flight is
+            // invalidated (its delayed callbacks can neither advance the mixer nor
+            // record a step nor overwrite this status), and the canvas is handed
+            // back to live playback on the action the user picked, so it does not
+            // stay parked on the sampled Roll pose.
+            const cancelled = cancelPendingSample(
+              `live · cancelled the pending sample · resumed '${selectedAction}'`,
+            );
             setDetLive(true);
             armAction(selectedAction);
+            const out = stepRef.current;
+            if (out) {
+              if (!cancelled) out.textContent = `live · resumed '${selectedAction}'`;
+              out.dataset.handshake = cancelled ? 'cancelled' : 'live';
+            }
           }}
           className={btn(detLive)}
         >
