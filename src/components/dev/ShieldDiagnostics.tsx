@@ -27,6 +27,11 @@ import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 //
 // Removal path: delete this file and the two lines in App.tsx (the import and
 // the `{import.meta.env.DEV && <ShieldDiagnostics />}` element).
+//
+// Phase 123 (dev-only): the framing presets were reworked so the default view
+// shows the board face together with the gripping hand, wrist and forearm in
+// one frame, and the panel viewport is larger. The shield model, its
+// constraint, the gameplay cameras and the saved profile are all untouched.
 // ---------------------------------------------------------------------------
 
 // Grep target for the production-bundle exclusion check (Phase C.2).
@@ -37,7 +42,59 @@ const SHIELD_BOARD_COLOR = 0x881337;
 const IDLE_ACTION: FighterState['action'] = 'idle';
 const ROLL_ACTION: FighterState['action'] = 'dodge';
 
-type DiagView = 'macro' | 'wide';
+type DiagView = 'grip' | 'macro' | 'wide';
+
+// Phase 123 — explicit framing presets. Each preset is a deterministic camera
+// (distance in metres from the grip, azimuth in degrees off the board's
+// outward face normal, elevation in degrees) anchored on the rig's own bones,
+// so no preset has to guess which way the fighter faces, and none of them ends
+// up behind the fighter.
+const VIEW_SPECS: Record<
+  DiagView,
+  { dist: number; az: number; elev: number; anchor: 'grip' | 'board' }
+> = {
+  // default: three-quarter grip — board face, gripping hand, wrist and forearm
+  // read together, at a mid distance between the old macro and wide views.
+  grip: { dist: 1.6, az: 62, elev: 10, anchor: 'grip' },
+  // straight-on close-up of the board's outward face (face-orientation check).
+  macro: { dist: 0.95, az: 0, elev: 0, anchor: 'board' },
+  // same three-quarter angle, pulled back for whole-body context.
+  wide: { dist: 2.5, az: 64, elev: 10, anchor: 'grip' },
+};
+const DEG = Math.PI / 180;
+const WORLD_UP = new THREE.Vector3(0, 1, 0);
+// OrbitControls' initial target; hoisted so its identity is stable and drei
+// re-applies it only on mount — the framer owns the target afterwards.
+const INITIAL_TARGET: [number, number, number] = [0, 0.55, 0];
+
+/** The scutum board mesh rendered by ShieldModel (identified by its colour). */
+const findBoard = (scene: THREE.Object3D): THREE.Object3D | null => {
+  let found: THREE.Object3D | null = null;
+  scene.traverse((obj) => {
+    if (found) return;
+    const mesh = obj as THREE.Mesh;
+    const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
+    if (mesh.isMesh && mat && mat.color && mat.color.getHex() === SHIELD_BOARD_COLOR) found = obj;
+  });
+  return found;
+};
+
+/** Nearest bone ancestor — the board is portaled into the gripping hand bone. */
+const firstBoneAncestor = (obj: THREE.Object3D | null): THREE.Object3D | null => {
+  let cur = obj ? obj.parent : null;
+  while (cur) {
+    if ((cur as THREE.Bone).isBone) return cur;
+    cur = cur.parent;
+  }
+  return null;
+};
+
+/** Topmost bone of the chain — the rig root, used as the body anchor. */
+const topBoneAncestor = (bone: THREE.Object3D | null): THREE.Object3D | null => {
+  let cur = bone;
+  while (cur && firstBoneAncestor(cur)) cur = firstBoneAncestor(cur);
+  return cur;
+};
 
 const btn = (active: boolean) =>
   `rounded border px-1.5 py-0.5 font-mono text-[10px] ${
@@ -47,9 +104,14 @@ const btn = (active: boolean) =>
   }`;
 
 /**
- * Places the harness camera on the shield board itself: a 3/4 view of the
- * board's outward face, so the board, the gripping hand, the wrist and the
- * forearm all read together. OrbitControls then allows orbit/zoom from there.
+ * Frames the harness camera on the rig's own grip rather than on a guess about
+ * the fighter's facing: the board is located by colour, its gripping hand and
+ * forearm are read from the bone chain the shield is portaled into, and the
+ * selected preset (VIEW_SPECS) then places the camera deterministically. The
+ * default 'grip' preset sits on the board's outward side, swung off the face
+ * normal toward a side axis perpendicular to the forearm, so the board face,
+ * the gripping hand, the wrist and the forearm all read in one view.
+ * OrbitControls stays available for manual nudge/zoom.
  */
 const ShieldFramer: React.FC<{ view: DiagView; reframeToken: number; lefty: boolean }> = ({
   view,
@@ -61,43 +123,79 @@ const ShieldFramer: React.FC<{ view: DiagView; reframeToken: number; lefty: bool
   const controlsRef = useRef<React.ComponentRef<typeof OrbitControls>>(null);
   const [settled, setSettled] = useState(false);
 
-  // The GLB clone (and the bone-attached board) mount asynchronously.
+  // The GLB clone (and the bone-attached board) mount asynchronously. Poll
+  // until the board actually exists instead of trusting one fixed delay, so a
+  // preset always lands on the rig rather than on an empty scene.
   useEffect(() => {
-    const id = window.setTimeout(() => setSettled(true), 700);
-    return () => window.clearTimeout(id);
-  }, []);
+    const started = performance.now();
+    const id = window.setInterval(() => {
+      if (findBoard(scene) || performance.now() - started > 8000) {
+        window.clearInterval(id);
+        setSettled(true);
+      }
+    }, 200);
+    return () => window.clearInterval(id);
+  }, [scene]);
 
   useEffect(() => {
     if (!settled) return;
-
-    const boards: THREE.Object3D[] = [];
-    scene.traverse((obj) => {
-      const mesh = obj as THREE.Mesh;
-      const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
-      if (mesh.isMesh && mat && mat.color && mat.color.getHex() === SHIELD_BOARD_COLOR) {
-        boards.push(obj);
-      }
-    });
-    const board = boards[0];
+    const board = findBoard(scene);
     if (!board) return;
 
-    const center = new THREE.Vector3();
-    const quat = new THREE.Quaternion();
-    board.getWorldPosition(center);
-    board.getWorldQuaternion(quat);
-    const faceNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(quat).normalize();
-    const boardRight = new THREE.Vector3(1, 0, 0).applyQuaternion(quat).normalize();
+    // Fresh ancestor matrices (the mixer has already written this frame's pose).
+    board.updateWorldMatrix(true, false);
 
-    // 0.8 m at fov 30 shows the whole board plus the gripping hand, wrist and
-    // forearm; 'wide' pulls back for body context.
-    const distance = view === 'macro' ? 0.8 : 1.6;
-    const dir = faceNormal.multiplyScalar(0.72).addScaledVector(boardRight, 0.68).normalize();
-    camera.position.copy(center).addScaledVector(dir, distance).addScaledVector(new THREE.Vector3(0, 1, 0), 0.05);
-    camera.lookAt(center);
+    const boardCenter = new THREE.Vector3();
+    const boardQuat = new THREE.Quaternion();
+    board.getWorldPosition(boardCenter);
+    board.getWorldQuaternion(boardQuat);
+    const outward = new THREE.Vector3(0, 0, 1).applyQuaternion(boardQuat).normalize();
+
+    // Walk the same bone chain the shield is portaled into, so the framing
+    // follows the actual grip rather than a hard-coded position.
+    const handBone = firstBoneAncestor(board);
+    const handCenter = handBone
+      ? new THREE.Vector3().setFromMatrixPosition(handBone.matrixWorld)
+      : boardCenter.clone();
+    // The board's outer face must point away from the gripping hand.
+    if (outward.dot(handCenter.clone().sub(boardCenter)) > 0) outward.negate();
+
+    const spec = VIEW_SPECS[view];
+    const target =
+      spec.anchor === 'grip' ? boardCenter.clone().lerp(handCenter, 0.5) : boardCenter.clone();
+
+    // Start from the outward face normal and swing the azimuth toward a side
+    // axis perpendicular to the forearm, so the limb reads side-on beside the
+    // board instead of disappearing behind it.
+    const dir = outward.clone();
+    if (spec.az !== 0) {
+      const forearm = handBone ? firstBoneAncestor(handBone) : null;
+      const armAxis = forearm
+        ? new THREE.Vector3().setFromMatrixPosition(forearm.matrixWorld).sub(handCenter)
+        : new THREE.Vector3();
+      const side = new THREE.Vector3();
+      if (armAxis.lengthSq() > 1e-6) side.crossVectors(armAxis.normalize(), outward);
+      if (side.lengthSq() < 1e-8) side.crossVectors(WORLD_UP, outward);
+      if (side.lengthSq() < 1e-8) side.set(0, 0, 1);
+      side.normalize();
+      // Swing toward the side the shield hand actually sits on, so the camera
+      // clears the torso instead of looking through it.
+      const lateral = handCenter.clone().setY(0);
+      const rootBone = handBone ? topBoneAncestor(handBone) : null;
+      if (rootBone) lateral.sub(new THREE.Vector3().setFromMatrixPosition(rootBone.matrixWorld).setY(0));
+      if (lateral.lengthSq() < 1e-6) lateral.copy(handCenter).setY(0);
+      if (lateral.lengthSq() < 1e-6) lateral.copy(side);
+      if (side.dot(lateral) < 0) side.negate();
+      dir.multiplyScalar(Math.cos(spec.az * DEG)).addScaledVector(side, Math.sin(spec.az * DEG));
+    }
+    dir.addScaledVector(WORLD_UP, Math.tan(spec.elev * DEG)).normalize();
+
+    camera.position.copy(target).addScaledVector(dir, spec.dist);
+    camera.lookAt(target);
 
     const controls = controlsRef.current;
     if (controls) {
-      controls.target.copy(center);
+      controls.target.copy(target);
       controls.update();
     }
     // `lefty` re-aims the camera when the board moves to the other hand.
@@ -111,7 +209,7 @@ const ShieldFramer: React.FC<{ view: DiagView; reframeToken: number; lefty: bool
       enableZoom
       minDistance={0.1}
       maxDistance={4}
-      target={[0, 0.55, 0]}
+      target={INITIAL_TARGET}
     />
   );
 };
@@ -124,7 +222,7 @@ const ShieldDiagnosticsPanel: React.FC = () => {
   const [holdMs, setHoldMs] = useState(1200);
   const [loop, setLoop] = useState(false);
   const [loopMs, setLoopMs] = useState(1400);
-  const [view, setView] = useState<DiagView>('macro');
+  const [view, setView] = useState<DiagView>('grip');
   const [reframeToken, setReframeToken] = useState(0);
 
   const rollStartRef = useRef(0);
@@ -238,7 +336,7 @@ const ShieldDiagnosticsPanel: React.FC = () => {
   return (
     <div
       data-diag={DIAG_MARKER}
-      className="fixed bottom-3 left-3 z-[9999] w-[360px] rounded-lg border border-amber-500/50 bg-neutral-950/95 p-2 text-[11px] text-amber-100 shadow-xl"
+      className="fixed bottom-3 left-3 z-[9999] max-h-[calc(100dvh-1.5rem)] w-[min(92vw,560px)] overflow-y-auto rounded-lg border border-amber-500/50 bg-neutral-950/95 p-2 text-[11px] text-amber-100 shadow-xl"
     >
       <div className="mb-1 flex items-center justify-between">
         <span className="font-mono text-[10px] uppercase tracking-wide text-amber-400">
@@ -253,7 +351,7 @@ const ShieldDiagnosticsPanel: React.FC = () => {
         </button>
       </div>
 
-      <div className="mb-2 h-[230px] w-full overflow-hidden rounded border border-neutral-700 bg-black">
+      <div className="mb-2 h-[min(56vh,420px)] w-full overflow-hidden rounded border border-neutral-700 bg-black">
         <ThreeComponentErrorBoundary
           componentName="ShieldDiagnostics"
           fallback={
@@ -263,7 +361,7 @@ const ShieldDiagnosticsPanel: React.FC = () => {
           }
         >
           <Canvas
-            camera={{ position: [0.55, 0.6, 0.75], fov: 30, near: 0.01, far: 20 }}
+            camera={{ position: [0.55, 0.6, 0.75], fov: 34, near: 0.01, far: 20 }}
             gl={{ antialias: true }}
             frameloop="always"
           >
@@ -344,6 +442,16 @@ const ShieldDiagnosticsPanel: React.FC = () => {
 
       <div className="flex items-center gap-1.5">
         <span className="w-16 text-neutral-400">Camera</span>
+        <button
+          data-testid="diag-view-grip"
+          onClick={() => {
+            setView('grip');
+            setReframeToken((t) => t + 1);
+          }}
+          className={btn(view === 'grip')}
+        >
+          grip
+        </button>
         <button
           data-testid="diag-view-macro"
           onClick={() => {
