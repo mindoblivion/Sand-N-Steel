@@ -245,6 +245,8 @@ const _cMat = new THREE.Matrix4();
 const _cDesiredQ = new THREE.Quaternion();
 const _cWorldUp = new THREE.Vector3(0, 1, 0);
 const _cWorldFwd = new THREE.Vector3(0, 0, 1);
+const _cPrevDesUp = new THREE.Vector3(0, 1, 0); // last valid corrected up (Phase 113 / Issue A continuity)
+const _cSafeFwd = new THREE.Vector3(); // fallback forward reference (Phase 113 / Issue B)
 
 const SHIELD_BASE_Q_RIGHTY = new THREE.Quaternion().setFromEuler(
   new THREE.Euler(-2.42, -0.67, 2.91, 'XYZ'),
@@ -484,20 +486,61 @@ const RomanWarriorGLB: React.FC<{
           _cUp.set(0, 1, 0).applyQuaternion(_cDesiredQ);
           _cFwd.set(0, 0, 1).applyQuaternion(_cDesiredQ);
 
-          // 4. Desired up: lerp current up toward world up by strength
-          _cDesUp.copy(_cUp).lerp(_cWorldUp, shieldStrengthRef.current).normalize();
+          // 4. Desired up: lerp current up toward world up by strength.
+          //    Issue A: if the board up is exactly antiparallel to world up and
+          //    strength is 0.5, the lerp collapses to zero. Three.js normalize()
+          //    leaves a zero vector at zero, which would build a degenerate
+          //    basis, so guard the squared length and fall back to the previous
+          //    valid corrected up (minimizes discontinuity) before normalizing.
+          _cDesUp.copy(_cUp).lerp(_cWorldUp, shieldStrengthRef.current);
+          if (_cDesUp.lengthSq() < 1e-8) {
+            _cDesUp.copy(_cPrevDesUp);
+            if (_cDesUp.lengthSq() < 1e-8) _cDesUp.copy(_cWorldUp);
+          }
+          _cDesUp.normalize();
+          _cPrevDesUp.copy(_cDesUp);
 
-          // 5. Recover forward: project current forward onto plane perp to new up
+          // 5. Recover forward: project the board face normal onto the plane
+          //    perpendicular to the corrected up. Issue B: when the face normal
+          //    runs nearly parallel to that up the projection collapses and its
+          //    direction is numerically unstable, so blend the reference toward
+          //    a stable cardinal axis (the one least aligned with up) instead of
+          //    snapping at a threshold — keeps the shield's facing continuous
+          //    through the degenerate band without normalizing a near-zero vector.
           const dot = _cFwd.dot(_cDesUp);
           _cDesFwd.copy(_cFwd).addScaledVector(_cDesUp, -dot);
+          const faceLenSq = _cDesFwd.lengthSq();
 
-          // Degenerate: forward nearly parallel to up — fall back to world fwd
-          if (_cDesFwd.lengthSq() < 1e-6) {
-            _cDesFwd.copy(_cWorldFwd);
-            _cDesFwd.addScaledVector(_cDesUp, -_cDesFwd.dot(_cDesUp));
-            if (_cDesFwd.lengthSq() < 1e-6) _cDesFwd.set(1, 0, 0);
+          // Stable fallback reference: cardinal axis least aligned with up,
+          // projected onto the plane and validated before use.
+          const ax = Math.abs(_cDesUp.x);
+          const ay = Math.abs(_cDesUp.y);
+          const az = Math.abs(_cDesUp.z);
+          if (ax <= ay && ax <= az) _cSafeFwd.set(1, 0, 0);
+          else if (ay <= az) _cSafeFwd.set(0, 1, 0);
+          else _cSafeFwd.set(0, 0, 1);
+          _cSafeFwd.addScaledVector(_cDesUp, -_cSafeFwd.dot(_cDesUp));
+          let safeLenSq = _cSafeFwd.lengthSq();
+          if (safeLenSq > 1e-8) {
+            _cSafeFwd.multiplyScalar(1 / Math.sqrt(safeLenSq));
+          } else {
+            _cSafeFwd.copy(_cWorldFwd).addScaledVector(_cDesUp, -_cWorldFwd.dot(_cDesUp));
+            safeLenSq = _cSafeFwd.lengthSq();
+            if (safeLenSq > 1e-8) _cSafeFwd.multiplyScalar(1 / Math.sqrt(safeLenSq));
+            else _cSafeFwd.set(1, 0, 0);
           }
-          _cDesFwd.normalize();
+
+          // Blend: full face normal while well-conditioned, fading to the
+          // fallback as the projection collapses (window |proj|² ∈ [0, 0.01]).
+          const faceBlend = Math.min(1, faceLenSq / 0.01);
+          if (faceLenSq > 1e-8) _cDesFwd.multiplyScalar(1 / Math.sqrt(faceLenSq));
+          else _cDesFwd.set(0, 0, 0);
+          _cDesFwd.multiplyScalar(faceBlend).addScaledVector(_cSafeFwd, 1 - faceBlend);
+
+          // Final validation: never normalize an (near) zero vector.
+          const fwdLenSq = _cDesFwd.lengthSq();
+          if (fwdLenSq > 1e-8) _cDesFwd.multiplyScalar(1 / Math.sqrt(fwdLenSq));
+          else _cDesFwd.copy(_cSafeFwd);
 
           // 6. Build desired world rotation (right-handed: X = up × forward)
           _cRight.crossVectors(_cDesUp, _cDesFwd);
@@ -507,6 +550,19 @@ const RomanWarriorGLB: React.FC<{
           // 7. Convert to shield-local: q_local = q_hand⁻¹ × q_world_desired
           _cInvHandQ.copy(_cHandQ).invert();
           shieldGroupRef.current.quaternion.copy(_cInvHandQ).multiply(_cDesiredQ);
+        } else {
+          // Issue C: at negligible strength (e.g. death/fall) the correction
+          // stops, but the shield's local quaternion would otherwise stay at
+          // the last corrected value — frozen against the animated hand.
+          // Restore the normal animation-driven orientation by resetting the
+          // LOCAL rotation to the Phase 106 handedness base rotation. The hand
+          // bone remains the parent, so the shield keeps following the hand
+          // naturally; only the stale correction is removed. The correction at
+          // strength → 0 reconstructs this same base orientation
+          // (up = current up, forward = current forward), so the handoff across
+          // the 0.01 gate is continuous.
+          const baseQ = isLefty ? SHIELD_BASE_Q_LEFTY : SHIELD_BASE_Q_RIGHTY;
+          shieldGroupRef.current.quaternion.copy(baseQ);
         }
       }
     }
