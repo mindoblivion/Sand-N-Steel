@@ -60,6 +60,19 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   164°; 1200°/s doubles the step to 20°). 600°/s is the measured middle and the shipped setting. The one
   residual is a ~10° single-frame shield step during the dodge, already documented as game-safe. No
   production change is warranted.
+- **Dev-only shield diagnostic harness (Phases 129–135).** `src/components/dev/ShieldDiagnostics.tsx` is mounted
+  from `App.tsx` only when `import.meta.env.DEV` (`import.meta.env.DEV && <ShieldDiagnostics />`), and renders a
+  `shield diag (dev)` button bottom-left; it is a second `Canvas` with its own copy of the rig and writes nothing
+  outside its own DOM. Since Phase 135 it can hold its own canvas (`frameloop: 'never'`, which also zeroes the
+  r3f clock, so `advance(t)` uses `t` as the frame delta) and step the mixer in fixed 1/60 s increments, which
+  makes a chosen clip time reproducible regardless of the browser's frame rate. The panel drives an explicit
+  handshake — freeze → drive the mesh onto a pivot clip → swap back onto Roll — because GladiatorMesh only resets
+  a clip when the action it is driven with *changes*; each step waits on the `data-status` / `data-seen-action`
+  reports the canvas subtree writes, never on a guessed delay. Every step renders a frame, so the sampled pose is
+  exactly what the canvas shows (verified 2026-10-10 on the 1.833 s `Roll` clip: 0.275 s/17 steps, 0.733 s/44,
+  1.192 s/72, 1.65 s/99, four distinct board world quaternions, board on `hand_l` with `attachMatchesHand`). One
+  sample takes a few seconds because the sandbox has no GPU, so drive it with a generous budget. Nothing here
+  touches production rendering or combat logic.
 - **All player-acquirable items live in `src/data/itemsDB.ts`** (single source of truth): `ITEMS_DB`,
   `ALL_WEAPONS`, `ALL_ARMORS`, `ITEMS_BY_CATEGORY` (`weapon` + one key per armor slot) and `getItemById()`.
   `ALL_WEAPONS[2]` is the spare starter weapon (`STARTING_SPARE_WEAPON`, used by `services/storage.ts` and

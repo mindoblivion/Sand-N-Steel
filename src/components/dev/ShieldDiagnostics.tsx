@@ -84,6 +84,12 @@ const DIAG_ACTIONS: ReadonlyArray<{ key: DiagAction; label: string; expect: stri
   { key: 'dodge', label: 'Dodge / Roll', expect: 'Roll' },
 ];
 
+// The clip the deterministic handshake drives the mesh onto between two Roll
+// samples. It only has to differ from the Roll action: swapping back onto Roll is
+// then a genuine change, which is exactly what makes GladiatorMesh reset the real
+// Roll clip to time 0 while the canvas is held frozen.
+const PIVOT_ACTION: DiagAction = 'walk';
+
 // Phase 135 — deterministic Roll sampling. Sample times are fractions of the
 // loaded Roll clip's real duration, clamped past the 0.14 s crossfade so every
 // sample is the clip's own pose rather than a blend of two clips. Each sample is
@@ -1180,18 +1186,24 @@ const ShieldDiagnosticsPanel: React.FC = () => {
   const [open, setOpen] = useState(false);
   // Diagnostic-local handedness: never read from, or written to, the profile.
   const [lefty, setLefty] = useState(false);
-  // Phase 135 — the action the user picked, and the action the harness mesh is
-  // actually driven with. `meshAction` is GladiatorMesh's `overrideAction` and
-  // always holds a value (the pivot clip during a handshake), so the synthetic
-  // fighter's fixed action: 'idle' can never win.
+  // Phase 135 — the action the user picked, the clip the harness mesh is driven
+  // with, and whether that override is live at all. `meshAction` is what
+  // GladiatorMesh's `overrideAction` receives and always holds a value (the pivot
+  // clip during a handshake), so the synthetic fighter's fixed action: 'idle' can
+  // never win while sampling.
   const [selectedAction, setSelectedAction] = useState<DiagAction>(IDLE_ACTION);
   const [meshAction, setMeshAction] = useState<DiagAction>(IDLE_ACTION);
+  const [armed, setArmed] = useState(false);
   const [freezeToken, setFreezeToken] = useState(0);
   const [goToken, setGoToken] = useState(0);
   const [loop, setLoop] = useState(false);
   const [loopMs, setLoopMs] = useState(1400);
   const [view, setView] = useState<DiagView>('grip');
   const [reframeToken, setReframeToken] = useState(0);
+  // One place owns the re-arm timer, so an interval re-arm already in flight is
+  // always cancelled before the next one starts.
+  const rearmRef = useRef<number | null>(null);
+  const armStartRef = useRef(0);
 
   const readoutRef = useRef<HTMLSpanElement>(null);
   const anchorsRef = useRef<HTMLDivElement>(null);
@@ -1268,11 +1280,12 @@ const ShieldDiagnosticsPanel: React.FC = () => {
   // replays a clip only when the action it is driven with CHANGES, so a re-click
   // on the already-selected action has to bounce through the disarmed value once:
   // that is the replay path for the one-shot clips (light/heavy attack, dodge)
-  // and the restart path for the looping ones. The bounce is two commits inside
-  // one task, so no rendered frame can fall between them — but it IS a real,
-  // deliberate use of the fighter's idle value, never an accidental override.
+  // and the restart path for the looping ones. The disarmed commit is a real,
+  // deliberate hand-back to the fighter's own idle value — never an accidental
+  // override — and the re-arm lands one task later.
   const armAction = (action: DiagAction) => {
     setSelectedAction(action);
+    setMeshAction(action);
     setArmed(false);
     if (rearmRef.current !== null) window.clearTimeout(rearmRef.current);
     rearmRef.current = window.setTimeout(() => {
@@ -1282,10 +1295,48 @@ const ShieldDiagnosticsPanel: React.FC = () => {
     }, 0);
   };
 
-  // Deterministic sampling needs the freeze to happen BEFORE the re-arm, so the
-  // clip's reset to time 0 lands while the canvas is already held. Same re-arm
-  // ref as armAction, so an interval re-arm in flight is always cancelled first.
-  const onFrozen = () => armAction(ROLL_ACTION);
+  // Phase 135 — deterministic sampling handshake. The freeze has to land BEFORE
+  // the clip swap, so the Roll clip's reset to time 0 happens while the canvas is
+  // already held and nothing can advance the mixer in between. Every step waits
+  // on what the canvas subtree reported through its own dataset rather than on a
+  // guessed delay, and the polling uses timers (not rAF, which is paused in a
+  // backgrounded tab) so the handshake cannot stall.
+  useEffect(() => {
+    if (sampleToken === 0) return;
+    const el = stepRef.current;
+    let cancelled = false;
+    const settled = (read: () => boolean) =>
+      new Promise<void>((resolve) => {
+        const poll = () => {
+          if (cancelled || read()) resolve();
+          else window.setTimeout(poll, 16);
+        };
+        poll();
+      });
+
+    void (async () => {
+      // 1. Hold the canvas.
+      setFreezeToken((token) => token + 1);
+      await settled(() => el?.dataset.status === 'frozen');
+      if (cancelled) return;
+      // 2. Drive the mesh onto the pivot clip and wait until the mesh really was
+      //    driven with it — React may otherwise coalesce the pair of updates.
+      setMeshAction(PIVOT_ACTION);
+      setArmed(true);
+      await settled(() => el?.dataset.seenAction === PIVOT_ACTION);
+      if (cancelled) return;
+      // 3. Drive it back onto Roll: a genuine change, so GladiatorMesh resets the
+      //    real Roll clip to time 0 while frozen. The go token rides that same
+      //    commit, and the stepper renders after the mesh, so its step effect
+      //    runs after the reset.
+      setMeshAction(ROLL_ACTION);
+      setGoToken((token) => token + 1);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sampleToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Continuous playback: re-arm the selected action on an interval, so a one-shot
   // clip plays repeated cycles instead of ending after one. Looping clips
@@ -1371,7 +1422,7 @@ const ShieldDiagnosticsPanel: React.FC = () => {
               <GladiatorMesh
                 fighter={fighter}
                 isLeftyMode={lefty}
-                overrideAction={armed ? selectedAction : undefined}
+                overrideAction={armed ? meshAction : undefined}
               />
             </Suspense>
             <ShieldFramer view={view} reframeToken={reframeToken} lefty={lefty} anchorsRef={anchorsRef} />
@@ -1389,15 +1440,14 @@ const ShieldDiagnosticsPanel: React.FC = () => {
             {/* Rendered after GladiatorMesh, so its effects run after the mesh's
                 own clip-reset effect in the same commit. */}
             <DeterministicRollStepper
-              sampleToken={sampleToken}
+              freezeToken={freezeToken}
+              goToken={goToken}
               sampleIndex={sampleIndex}
+              meshAction={meshAction}
               live={detLive}
-              armed={armed}
-              selectedAction={selectedAction}
               lefty={lefty}
               rollClip={rollClip}
               rollDuration={rollDuration}
-              onFrozen={onFrozen}
               resultRef={stepRef}
             />
           </Canvas>
@@ -1576,7 +1626,16 @@ const ShieldDiagnosticsPanel: React.FC = () => {
             </button>
           );
         })}
-        <button data-testid="diag-step-live" onClick={() => setDetLive(true)} className={btn(detLive)}>
+        <button
+          data-testid="diag-step-live"
+          onClick={() => {
+            // Hand the canvas back to live playback on the action the user picked,
+            // so it does not stay parked on the clamped Roll one-shot.
+            setDetLive(true);
+            armAction(selectedAction);
+          }}
+          className={btn(detLive)}
+        >
           live
         </button>
       </div>
