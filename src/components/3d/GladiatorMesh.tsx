@@ -3,7 +3,7 @@ import { useFrame, createPortal } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
-import { FighterState } from '../../types/game';
+import { FighterAction, FighterState } from '../../types/game';
 
 interface GladiatorMeshProps {
   fighter: FighterState;
@@ -336,6 +336,61 @@ const ShieldModel = React.forwardRef<THREE.Group, { isLefty: boolean; goldColor:
   );
 });
 
+// ---------------------------------------------------------------------------
+// Animation clip picker (Phase 127).
+//
+// Clip availability is read from the clip-NAME list, never from drei's
+// `actions` map: `actions` entries are lazy getters that return undefined until
+// the mixer root (groupRef) is attached, i.e. for the whole first render. An
+// actions-based probe therefore missed every candidate on mount and fell
+// through to `names[0]` — the combat stance 'Angry' for arena_roman.glb — and
+// because neither `actions` nor `names` changes identity for a given clip set,
+// the memo never revisited that wrong choice. `names` is built straight from
+// the loaded clips, so it is already correct on the first render; the playback
+// effect then resolves the real AnimationAction from `actions`, which by then
+// is populated.
+//
+// Last resort when an action's candidates are all absent: `names[0]`, whichever
+// clip that happens to be. That is arbitrary, so it is warned once instead of
+// being silently assumed to be a valid idle. Before any clips are loaded (empty
+// list) the picker returns '' and the memo re-runs when the list arrives, so the
+// first arbitrary clip is never locked in.
+// ---------------------------------------------------------------------------
+const ACTION_CLIP_CANDIDATES: Record<FighterAction, readonly string[]> = {
+  idle: ['Fighting_Idle', 'Idle_Sword', 'Idle_Shield', 'Idle_A', 'Idle_Subtle'],
+  walk: ['Walk', 'Jog', 'Sprint', 'Crouch_Walk'],
+  attack_light: ['Sword_Attack', 'Sword_Regular_A', 'Sword_Regular_Combo', 'Fighting_Right_Jab'],
+  attack_heavy: ['Sword_Regular_C', 'Sword_Attack_Air_Vertical', 'Attack_Ground_Pound', 'Melee_Hook'],
+  block: ['Defend', 'Sword_Block', 'Idle_Shield', 'Shield_OneShot'],
+  dodge: ['Roll', 'Dodge_back', 'Dodge_left', 'Slide'],
+  hit: ['Hit_Chest', 'Hit_Head', 'Hit_Knockback'],
+  death: ['Death_A', 'Death_B', 'Death_C'],
+};
+
+let clipFallbackWarned = false;
+
+/**
+ * Pick the animation clip name for an action from the available clip names.
+ * Pure and independent of the mixer root, so it is correct on the very first
+ * render. Exported so the deterministic verification harness exercises this
+ * exact code.
+ */
+export function resolveActionClip(action: FighterAction, clipNames: readonly string[]): string {
+  const candidates = ACTION_CLIP_CANDIDATES[action] ?? ACTION_CLIP_CANDIDATES.idle;
+  for (const name of candidates) {
+    if (clipNames.includes(name)) return name;
+  }
+  const fallback = clipNames[0] || '';
+  if (fallback && !clipFallbackWarned) {
+    clipFallbackWarned = true;
+    console.warn(
+      `[GladiatorMesh] No mapped clip for action '${action}' (tried ${candidates.join(', ')}); ` +
+        `falling back to '${fallback}'.`,
+    );
+  }
+  return fallback;
+}
+
 /**
  * 1. High-Detail Rigged GLB Model Loader with Bone-Attached Equipment
  */
@@ -409,34 +464,9 @@ const RomanWarriorGLB: React.FC<{
   const { actions, names } = useAnimations(gltf.animations, groupRef);
   const activeAction = overrideAction || fighter.action;
 
-  const targetClip = useMemo(() => {
-    const findClip = (...candidates: string[]) => {
-      for (const name of candidates) {
-        if (actions && actions[name]) return name;
-      }
-      return names[0] || '';
-    };
-
-    switch (activeAction) {
-      case 'walk':
-        return findClip('Walk', 'Jog', 'Sprint', 'Crouch_Walk');
-      case 'attack_light':
-        return findClip('Sword_Attack', 'Sword_Regular_A', 'Sword_Regular_Combo', 'Fighting_Right_Jab');
-      case 'attack_heavy':
-        return findClip('Sword_Regular_C', 'Sword_Attack_Air_Vertical', 'Attack_Ground_Pound', 'Melee_Hook');
-      case 'block':
-        return findClip('Defend', 'Sword_Block', 'Idle_Shield', 'Shield_OneShot');
-      case 'dodge':
-        return findClip('Roll', 'Dodge_back', 'Dodge_left', 'Slide');
-      case 'hit':
-        return findClip('Hit_Chest', 'Hit_Head', 'Hit_Knockback');
-      case 'death':
-        return findClip('Death_A', 'Death_B', 'Death_C');
-      case 'idle':
-      default:
-        return findClip('Fighting_Idle', 'Idle_Sword', 'Idle_Shield', 'Idle_A', 'Idle_Subtle');
-    }
-  }, [activeAction, actions, names]);
+  // Selection is driven by the clip-name list (see resolveActionClip), which is
+  // ready on the first render; the effect below resolves the real action.
+  const targetClip = useMemo(() => resolveActionClip(activeAction, names), [activeAction, names]);
 
   useEffect(() => {
     if (!actions || !targetClip) return;
