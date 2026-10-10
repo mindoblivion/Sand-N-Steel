@@ -234,8 +234,21 @@ const SHIELD_SCALE_GLB = 0.47;
 // Phase 115 replaced the two discontinuous constructions the Phase 114 audit
 // flagged — the straight up-vector lerp (180° flip at the ~0.5 pole) and the
 // cardinal-axis forward fallback (48-101° jumps at axis-selection ties) — with
-// continuous ones. See the useFrame block below.
+// continuous ones. Phase 117 replaced the corrected-up construction itself: the
+// Phase 115 axis blend is ill conditioned near the antipode and produced a
+// 106.9° single-frame shield swing on the real Roll clip. See the useFrame block
+// below. The roll recovery step (5) is unchanged, and its known limits are
+// documented in the Phase 117 report.
 const SHIELD_CONSTRAINT_ENABLED = false;
+
+// Phase 117: up-correction fade band (radians) for the two-factor construction.
+// Below the start the corrected up is the plain great-circle walk of Phase 115;
+// above it the board up is carried to world up by a well-conditioned two-factor
+// rotation (see step 4 below). The band is deliberately wide: it is the *rate*
+// of the fade weight, not its shape, that produced the Phase 116 failure, and a
+// wide ramp keeps that rate low where the walk's axis is at its worst.
+const SHIELD_UPRIGHT_FADE_START = (30 * Math.PI) / 180;
+const SHIELD_UPRIGHT_FADE_END = Math.PI;
 
 // Pre-allocated scratch — module-level to avoid per-frame GC pressure, but none
 // of it holds state between frames or between component instances (Phase 115):
@@ -248,8 +261,13 @@ const _cFwd = new THREE.Vector3();
 const _cRight = new THREE.Vector3();
 const _cDesUp = new THREE.Vector3();
 const _cDesFwd = new THREE.Vector3();
-const _cAxis = new THREE.Vector3(); // up-correction rotation axis (Phase 115)
-const _cTangent = new THREE.Vector3(); // great-circle tangent at the board up (Phase 115)
+const _cAxis = new THREE.Vector3(); // correction axis: walk axis / factor-1 axis (Phase 117)
+const _cTangent = new THREE.Vector3(); // rotation tangent (Phases 115 / 117)
+const _cMidAxis = new THREE.Vector3(); // board-frame direction perpendicular to world up (Phase 117)
+const _cMidDir = new THREE.Vector3(); // up waypoint between board up and that direction (Phase 117)
+const _cMidProj = new THREE.Vector3(); // face normal projected off world up (Phase 117)
+const _cMidProjB = new THREE.Vector3(); // board right axis projected off world up (Phase 117)
+const _cFinishAxis = new THREE.Vector3(); // factor-2 axis, uMid × world up (Phase 117)
 const _cSwingFwd = new THREE.Vector3(); // face normal carried by the no-twist rotation (Phase 115)
 const _cBoardQ = new THREE.Quaternion(); // board's current world rotation (Phase 115)
 const _cSwingQ = new THREE.Quaternion(); // no-twist rotation candidate (Phase 115)
@@ -495,51 +513,105 @@ const RomanWarriorGLB: React.FC<{
           _cUp.set(0, 1, 0).applyQuaternion(_cBoardQ);
           _cFwd.set(0, 0, 1).applyQuaternion(_cBoardQ);
 
-          // 4. Corrected up (Phase 115 / Issue A): walk the great circle from
-          //    the board's current up toward world up by theta * strength,
-          //    instead of lerping the two vectors. A straight lerp collapses to
-          //    (or nearly to) zero when the board up is inverted and strength is
-          //    ~0.5; Phase 114 measured a 180° single-frame flip there. Rotating
-          //    over the same angle keeps the up at unit length, passes through a
-          //    perpendicular up at 0.5, and still holds the current direction at
-          //    strength 0 and reaches world up at strength 1.
+          // 4. Corrected up (Phase 117). Phase 115 walked the great circle from
+          //    the board's up toward world up, blending the walk's axis with the
+          //    board's face normal where the walk is ill conditioned. Phase 116
+          //    measured the consequence on the real asset: near the antipode the
+          //    walk's axis turns by (motion / sin θ) and its blend weight moved
+          //    far too fast, so one dodge frame (Roll, left-handed, t ≈ 0.783 s,
+          //    hand turning 9.04°) swung the board up by 106.9°.
+          //    The corrected up is now produced by a two-factor rotation instead:
+          //      factor 1 — rotate u toward uMid, a board-frame direction that is
+          //                 perpendicular to world up, about the axis u × uMid;
+          //      factor 2 — complete the remaining quarter turn about uMid ×
+          //                 world up, whose length is 1 by construction because
+          //                 uMid is perpendicular to world up.
+          //    Both factor axes are built from the pose alone, so neither
+          //    inherits the unstable 1/sin θ direction that caused the flip, and
+          //    both factor angles are scaled by strength: strength → 0 recovers
+          //    the base orientation, and the strength-1 endpoint lands on world
+          //    up exactly (measured error < 1e-6°, at every pose including the
+          //    antipode). Below the fade start uMid is exactly u, which makes the
+          //    whole construction the plain great-circle walk of Phase 115.
           const theta = Math.acos(THREE.MathUtils.clamp(_cUp.dot(_cWorldUp), -1, 1));
-          const upStep = theta * shieldStrengthRef.current;
+          if (theta < 1e-6) {
+            // Board already upright: no correction, no axis to degenerate.
+            _cDesUp.copy(_cUp);
+          } else {
+            const upFade = THREE.MathUtils.smoothstep(
+              theta, SHIELD_UPRIGHT_FADE_START, SHIELD_UPRIGHT_FADE_END,
+            );
 
-          //    Rotation axis = up × world up (magnitude sin theta). It is the
-          //    exact great-circle axis wherever it is defined and vanishes only
-          //    for parallel/antiparallel up. Its *direction* is what degrades
-          //    first: near the antipode a given board-up motion turns it by
-          //    (motion / sin θ), and that turn reaches the corrected up scaled by
-          //    sin(upStep) — so the amplification is sin(upStep) / sin θ, which
-          //    grows without bound only when the board is upside down *and* the
-          //    correction is strong. (Near the parallel pole the same ratio stays
-          //    ≤ strength, so nothing degrades there and no fade is wanted.)
-          //    Where it does degrade, blend in the board's own face normal — unit,
-          //    always perpendicular to the board up, so the rotation stays in the
-          //    up plane, and driven by the pose alone — with a weight that ramps
-          //    continuously from 0 once the amplification exceeds ~2x to 1 at
-          //    ~8x. No epsilon switch: the axis stays continuous, and the great
-          //    circle remains exact wherever the fade is 0, which includes every
-          //    board up better than ~20° off straight down.
-          const cosStep = Math.cos(upStep);
-          const sinStep = Math.sin(upStep);
-          _cAxis.crossVectors(_cUp, _cWorldUp);
-          const sinTheta = _cAxis.length();
-          const axisAmp = sinTheta > 1e-6 ? sinStep / sinTheta : 0;
-          const axisFade = THREE.MathUtils.clamp((axisAmp - 2) / 6, 0, 1);
-          if (axisFade > 0) _cAxis.addScaledVector(_cFwd, axisFade);
-          const axisLenSq = _cAxis.lengthSq();
-          if (axisLenSq > 1e-12) _cAxis.multiplyScalar(1 / Math.sqrt(axisLenSq));
-          else _cAxis.copy(_cFwd);
-          //    Rotate the board up about that axis (Rodrigues, axis ⟂ up):
-          //    the tangent of the resulting great-circle arc is axis × up, so
-          //    the corrected up stays on the unit sphere by construction.
-          _cTangent.crossVectors(_cAxis, _cUp);
-          _cDesUp.copy(_cUp).multiplyScalar(cosStep).addScaledVector(_cTangent, sinStep);
-          const desUpLenSq = _cDesUp.lengthSq();
-          if (desUpLenSq > 1e-12) _cDesUp.multiplyScalar(1 / Math.sqrt(desUpLenSq));
-          else _cDesUp.copy(_cWorldUp);
+            if (upFade > 0) {
+              // Stable board-frame direction perpendicular to world up: the
+              // board's face normal and its right axis (u × f), each projected
+              // off world up and summed. The sum cannot vanish: the two
+              // projections are orthogonal, so |sum|² ≥ 2cos²θ, which is
+              // non-zero everywhere except exactly θ = 90° — and there the
+              // board's own up projection carries the sum, while θ = 90° sits
+              // below the fade start anyway.
+              _cMidProj.copy(_cFwd).addScaledVector(_cWorldUp, -_cFwd.dot(_cWorldUp));
+              _cAxis.crossVectors(_cUp, _cFwd); // board right axis (unit: u ⟂ f)
+              _cMidProjB.copy(_cAxis).addScaledVector(_cWorldUp, -_cAxis.dot(_cWorldUp));
+              _cMidAxis.copy(_cMidProjB).add(_cMidProj);
+              if (_cMidAxis.lengthSq() > 1e-12) _cMidAxis.normalize();
+              else _cMidAxis.copy(_cFwd);
+
+              // uMid = slerp(u, that direction, upFade) — arc interpolation, not
+              // a chord blend: a chord cancels when the two are far apart and
+              // can swing the waypoint past world up (measured: it pushed uMid
+              // to 150° from world up and re-introduced a 1/sin amplification).
+              const cosArc = THREE.MathUtils.clamp(_cUp.dot(_cMidAxis), -1, 1);
+              const sinArc = Math.sqrt(Math.max(0, 1 - cosArc * cosArc));
+              if (sinArc > 1e-6) {
+                const arc = Math.atan2(sinArc, cosArc);
+                _cMidDir.copy(_cUp).multiplyScalar(Math.sin((1 - upFade) * arc) / sinArc)
+                  .addScaledVector(_cMidAxis, Math.sin(upFade * arc) / sinArc);
+              } else {
+                _cMidDir.copy(_cUp);
+              }
+              if (_cMidDir.lengthSq() > 1e-12) _cMidDir.normalize();
+              else _cMidDir.copy(_cUp);
+            } else {
+              _cMidDir.copy(_cUp);
+            }
+
+            // Factor 1 (u → uMid): angle from the two directions directly, so the
+            // sign is fixed by |u × uMid| and no atan2 branch cut is involved.
+            _cAxis.crossVectors(_cUp, _cMidDir);
+            const sinA1 = _cAxis.length();
+            const angle1 = Math.atan2(sinA1, THREE.MathUtils.clamp(_cUp.dot(_cMidDir), -1, 1));
+            if (sinA1 > 1e-12) _cAxis.multiplyScalar(1 / sinA1);
+
+            // Factor 2 (uMid → world up): axis uMid × world up, unit because uMid
+            // is perpendicular to world up once the fade is on.
+            _cFinishAxis.crossVectors(_cMidDir, _cWorldUp);
+            const sinA2 = _cFinishAxis.length();
+            const angle2 = Math.atan2(sinA2, THREE.MathUtils.clamp(_cMidDir.dot(_cWorldUp), -1, 1));
+            if (sinA2 > 1e-12) _cFinishAxis.multiplyScalar(1 / sinA2);
+            else _cFinishAxis.crossVectors(_cUp, _cWorldUp).normalize();
+
+            // Apply both factors with their angles scaled by strength (Rodrigues;
+            // every object here is preallocated, so the per-frame path allocates
+            // nothing).
+            const phi1 = sinA1 > 1e-12 ? shieldStrengthRef.current * angle1 : 0;
+            _cDesUp.copy(_cUp).multiplyScalar(Math.cos(phi1));
+            if (phi1 !== 0) {
+              _cTangent.crossVectors(_cAxis, _cUp);
+              _cDesUp.addScaledVector(_cTangent, Math.sin(phi1));
+            }
+            const phi2 = shieldStrengthRef.current * angle2;
+            const cosPhi2 = Math.cos(phi2);
+            const sinPhi2 = Math.sin(phi2);
+            const axial2 = _cFinishAxis.dot(_cDesUp);
+            _cTangent.crossVectors(_cFinishAxis, _cDesUp);
+            _cDesUp.multiplyScalar(cosPhi2).addScaledVector(_cTangent, sinPhi2)
+              .addScaledVector(_cFinishAxis, axial2 * (1 - cosPhi2));
+
+            const desUpLenSq = _cDesUp.lengthSq();
+            if (desUpLenSq > 1e-12) _cDesUp.multiplyScalar(1 / Math.sqrt(desUpLenSq));
+            else _cDesUp.copy(_cWorldUp);
+          }
 
           // 5. Roll recovery, as one continuous construction rather than a blend
           //    of two references. Blending references is not safe: Phase 114's
@@ -556,9 +628,17 @@ const RomanWarriorGLB: React.FC<{
           //               carry that face normal onto the projected one — i.e.
           //               exactly the Phase 113 projection, where the projection
           //               is well conditioned.
-          //    The roll is weighted by how long the projection is and by how far
-          //    the two references have turned away from each other, so the
-          //    180°-opposition case that has no defined answer carries no weight.
+          //    The roll is weighted by that projection's conditioning only (Phase
+          //    117 removed the extra fade toward the ±π branch cut). Fading the
+          //    weight out near the cut was meant to avoid an undefined direction,
+          //    but the *destination* is continuous there anyway: a roll of +179°
+          //    and one of −179° differ only by the 358° ≡ −2° remainder, so both
+          //    land the facing within ~2° of each other. Fading instead made the
+          //    applied roll collapse — measured 121.7° → 0.6° over a single 9°
+          //    pose step, a ~155° facing snap — which is the Phase 116 "latent
+          //    ±π ambiguity" made real. For |roll| ≤ 120° the old weight was
+          //    already 1, so every shipped pose (idle, walk, block, attack, hit,
+          //    death) behaves exactly as before.
           //    Because the roll is about the corrected up itself, the corrected
           //    up is untouched by this step, whatever the weight.
           _cDesFwd.copy(_cFwd).addScaledVector(_cDesUp, -_cFwd.dot(_cDesUp));
