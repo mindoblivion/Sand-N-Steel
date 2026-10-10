@@ -49,6 +49,17 @@ import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 // 'dodge' to 'Roll' and that the board hangs from the correct anatomical hand,
 // then measures the real board through that override. The idle mode — including
 // its 'rolling' invalidation — is unchanged.
+//
+// Phase 135 (dev-only, temporary): the idle-vs-Roll toggle became a typed
+// action selector (idle / walk / block / light attack / heavy attack / dodge)
+// driving GladiatorMesh's existing overrideAction → resolveActionClip path, and
+// a deterministic Roll stepper was added. The stepper never reaches into the
+// mixer (that lives in production code): instead it takes over THIS canvas's own
+// render loop — frameloop 'never' plus advance(timestamp), which makes r3f
+// derive each frame's delta from the timestamp it is handed — so the real Roll
+// clip can be posed at explicit timestamps and the drawn frame cannot drift with
+// the browser's frame rate. Everything still lives in this one file; the shield,
+// its constraint, the gameplay cameras and the saved profile are untouched.
 // ---------------------------------------------------------------------------
 
 // Grep target for the production-bundle exclusion check (Phase C.2).
@@ -58,6 +69,70 @@ const SHIELD_BOARD_COLOR = 0x881337;
 // The same two actions the duel uses; 'dodge' maps to the Roll clip.
 const IDLE_ACTION: FighterState['action'] = 'idle';
 const ROLL_ACTION: FighterState['action'] = 'dodge';
+
+// Phase 135 — typed diagnostic action selector. Each entry names the action the
+// harness drives through GladiatorMesh's `overrideAction` prop and the clip name
+// the shipped picker (resolveActionClip) is expected to resolve it to, so the
+// panel shows a resolved-vs-expected match instead of assuming one.
+type DiagAction = 'idle' | 'walk' | 'block' | 'attack_light' | 'attack_heavy' | 'dodge';
+const DIAG_ACTIONS: ReadonlyArray<{ key: DiagAction; label: string; expect: string }> = [
+  { key: 'idle', label: 'Idle', expect: 'Fighting_Idle' },
+  { key: 'walk', label: 'Walk', expect: 'Walk' },
+  { key: 'block', label: 'Block', expect: 'Defend' },
+  { key: 'attack_light', label: 'Light attack', expect: 'Sword_Attack' },
+  { key: 'attack_heavy', label: 'Heavy attack', expect: 'Sword_Regular_C' },
+  { key: 'dodge', label: 'Dodge / Roll', expect: 'Roll' },
+];
+
+// Phase 135 — deterministic Roll sampling. Sample times are fractions of the
+// loaded Roll clip's real duration, clamped past the 0.14 s crossfade so every
+// sample is the clip's own pose rather than a blend of two clips. Each sample is
+// reached in fixed 1/60 s steps of the harness canvas (see
+// DeterministicRollStepper), so the pose at a requested timestamp does not
+// depend on the browser's frame rate.
+const DET_SAMPLES: ReadonlyArray<{ label: string; fraction: number }> = [
+  { label: 'early', fraction: 0.15 },
+  { label: 'middle', fraction: 0.4 },
+  { label: 'late', fraction: 0.65 },
+  { label: 'recovery', fraction: 0.9 },
+];
+const DET_MIN_TIME_S = 0.2;
+const DET_STEP_S = 1 / 60;
+const DET_MAX_STEPS = 300;
+
+/** One sample's requested clip time: a fraction of the real clip, past the crossfade. */
+const detSampleTime = (fraction: number, duration: number) =>
+  r3(Math.max(DET_MIN_TIME_S, fraction * duration));
+
+/** Readable text for anything thrown inside the stepper's effects. */
+const describeError = (error: unknown) =>
+  error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+
+/** One deterministic sample: the clip time asked for and the pose actually drawn. */
+type DetSample = {
+  method: 'deterministic-step';
+  /** Monotonic per completed sample run — lets a check tell a fresh record from the previous one. */
+  run: number;
+  index: number;
+  label: string;
+  request: { clip: string; clipDurationS: number; requestedClipTimeS: number; mixerAdvancedS: number; steps: number; stepS: number };
+  handedness: 'lefty' | 'righty';
+  action: DiagAction;
+  shieldHand: string;
+  boardAttachedTo: string | null;
+  attachMatchesHand: boolean;
+  localFrame: string;
+  boardLocalQuaternion: number[];
+  boardWorldQuaternion: number[];
+  handWorldQuaternion: number[];
+  tiltFromWorldUpDeg: number;
+  tiltRangeDeg: [number, number];
+  perStepMaxDeg: number;
+  perStepMeanDeg: number;
+  normalHemisphereCrossings: number;
+  minNormalDotWithStart: number;
+  framesDrawn: number;
+};
 
 type DiagView = 'grip' | 'junction' | 'macro' | 'wide';
 type ViewSpec = { dist: number; az: number; elev: number; anchor: 'grip' | 'board' | 'junction' };
@@ -712,6 +787,9 @@ const ShieldRotationProbe: React.FC<{
       const sampledMs = ts[ts.length - 1];
       const gaps = intervalStats(ts);
       const data = {
+        // Phase 135: label the collection method, so a rendered-frame run is
+        // never confused with a deterministic-step sample series.
+        method: 'rendered-frames',
         handedness: lefty ? 'lefty' : 'righty',
         mode: run.mode,
         clip: PROBE_CLIP_LABEL[run.mode],
@@ -865,11 +943,236 @@ const ShieldRotationProbe: React.FC<{
  * 'dodge' resolves to 'Roll'. drei's useGLTF is URL-cached, so this reuses the
  * load GladiatorMesh already made — no extra request, nothing written.
  */
-const ClipNameReader: React.FC<{ onNames: (names: string[]) => void }> = ({ onNames }) => {
+const ClipNameReader: React.FC<{
+  onClips: (clips: ReadonlyArray<{ name: string; duration: number }>) => void;
+}> = ({ onClips }) => {
   const gltf = useGLTF('/models/arena_roman.glb');
   useEffect(() => {
-    onNames(gltf.animations.map((clip) => clip.name));
-  }, [gltf, onNames]);
+    // Phase 135: the real clip durations come along, so the deterministic stepper
+    // samples the actual Roll clip length rather than a hard-coded one.
+    onClips(gltf.animations.map((clip) => ({ name: clip.name, duration: clip.duration })));
+  }, [gltf, onClips]);
+  return null;
+};
+
+/**
+ * Phase 135 — deterministic Roll stepper (dev only, temporary).
+ *
+ * Why not seek the mixer directly: the mixer belongs to drei's useAnimations
+ * inside GladiatorMesh, which this phase may not touch. But the mixer is only
+ * ever advanced by a frame's delta, and this harness owns its own canvas — so
+ * the canvas's render loop is what gets taken over instead:
+ *
+ *   * r3f's frameloop 'never' stops the automatic loop for THIS root and makes
+ *     the store take a frame's delta from the timestamp handed to
+ *     advance(timestamp) (delta = timestamp − clock.elapsedTime), so the delta is
+ *     chosen here rather than by the browser's frame rate;
+ *   * GladiatorMesh's own effect runs `action.reset()` whenever the action it is
+ *     driven with changes — that is what puts the real Roll clip at exactly time
+ *     0 — and only a CHANGED action triggers it. Two React updates issued in the
+ *     same task can be coalesced into one render, which would silently drop the
+ *     intermediate value and reset nothing, so the panel never relies on a pair
+ *     of quick updates: it drives an explicit three-step handshake and waits for
+ *     this component to report what the canvas subtree was actually driven with:
+ *       1. freeze (status 'frozen'), so nothing can advance the mixer again;
+ *       2. swap the mesh onto a different clip ('pivot'), and wait until this
+ *          component reports it saw that swap (dataset.seenAction);
+ *       3. swap back onto Roll, which IS a genuine change from the pivot, so
+ *          GladiatorMesh resets the real Roll clip to time 0 while frozen; the
+ *          same commit carries the go token, and because this component is
+ *          rendered after GladiatorMesh its step effect runs after that reset.
+ *     The step effect then advances the canvas one fixed 1/60 s step at a time to
+ *     the requested clip time and records the pose that was actually drawn.
+ *
+ * The requested time is therefore the mixer's own clip time, the last drawn frame
+ * is the sampled pose (nothing repaints it afterwards in frameloop 'never'), and
+ * nothing is written anywhere outside this component.
+ */
+const DeterministicRollStepper: React.FC<{
+  /** Increments to ask for a freeze; 0 = never asked. */
+  freezeToken: number;
+  /** Increments on the commit that carries the Roll clip swap: step on it. */
+  goToken: number;
+  sampleIndex: number;
+  /** The action the harness mesh is currently driven with (its overrideAction). */
+  meshAction: DiagAction;
+  /** Panel is showing live playback (false while the canvas is held frozen). */
+  live: boolean;
+  lefty: boolean;
+  rollClip: string | null;
+  rollDuration: number | null;
+  resultRef: React.RefObject<HTMLDivElement | null>;
+}> = ({ freezeToken, goToken, sampleIndex, meshAction, live, lefty, rollClip, rollDuration, resultRef }) => {
+  const scene = useThree((state) => state.scene);
+  const gl = useThree((state) => state.gl);
+  const advance = useThree((state) => state.advance);
+  const setFrameloop = useThree((state) => state.setFrameloop);
+  const seriesRef = useRef<(DetSample | null)[]>([null, null, null, null]);
+  const runCountRef = useRef(0);
+
+  // 1. Freeze. The panel only swaps the action after this reports 'frozen', so
+  // the mixer cannot advance between the Roll reset and the first step.
+  useEffect(() => {
+    if (freezeToken === 0) return;
+    setFrameloop('never');
+    const el = resultRef.current;
+    if (el) el.dataset.status = 'frozen';
+  }, [freezeToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 2. Resume live playback.
+  useEffect(() => {
+    if (!live) return;
+    setFrameloop('always');
+    const el = resultRef.current;
+    if (el) el.dataset.status = 'live';
+  }, [live, setFrameloop]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 3. Handshake: report the action THIS canvas subtree was actually driven with,
+  // so the panel can wait for a clip swap to land instead of assuming it did.
+  useEffect(() => {
+    const el = resultRef.current;
+    if (el) el.dataset.seenAction = meshAction;
+  }, [meshAction]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 4. Step and record. Declared last and rendered after GladiatorMesh, so in the
+  // commit that swaps onto Roll this runs after the mesh's own clip reset.
+  useEffect(() => {
+    if (goToken === 0) return;
+    const index = sampleIndex;
+
+    const report = (text: string, samples: DetSample[]) => {
+      const el = resultRef.current;
+      if (!el) return;
+      el.textContent = text;
+      el.dataset.series = JSON.stringify({ method: 'deterministic-step', samples });
+    };
+    const emit = (text: string) =>
+      report(text, seriesRef.current.filter((s): s is DetSample => s !== null));
+
+    try {
+    if (meshAction !== ROLL_ACTION) {
+      emit(`deterministic · blocked: mesh is driven with '${meshAction}', expected '${ROLL_ACTION}'`);
+      return;
+    }
+    if (!rollClip || !rollDuration) {
+      emit('deterministic · blocked: Roll clip not loaded yet');
+      return;
+    }
+    if (rollClip !== 'Roll') {
+      emit(`deterministic · blocked: picker resolves dodge to '${rollClip}', expected 'Roll'`);
+      return;
+    }
+
+    // The real board: the gripping hand by bone name (righty → hand_l,
+    // lefty → hand_r, per GladiatorMesh), the ShieldModel group portaled into it
+    // (that group's local rotation is the value the constraint writes), and the
+    // board mesh itself (located by its colour) for the world pose.
+    const handName = lefty ? 'hand_r' : 'hand_l';
+    const hand = scene.getObjectByName(handName);
+    const group = hand?.children.find((child) => !(child as THREE.Bone).isBone);
+    const board = findBoard(scene);
+    if (!hand || !(hand as THREE.Bone).isBone || !group || !board) {
+      emit(`deterministic · blocked: no ${handName} → shield board in the harness rig`);
+      return;
+    }
+
+    const requestedS = detSampleTime(DET_SAMPLES[index].fraction, rollDuration);
+    const framesStart = gl.info.render.frame;
+    let virtualS = 0;
+    let steps = 0;
+    let stepSum = 0;
+    let maxStepDeg = 0;
+    let tiltMin = 180;
+    let tiltMax = 0;
+    let crossings = 0;
+    let side = 1;
+    let minNormalDot = 1;
+    let haveStart = false;
+    const startNormal = new THREE.Vector3();
+    const prevWorld = new THREE.Quaternion();
+    const worldQ = new THREE.Quaternion();
+    const normal = new THREE.Vector3();
+    const up = new THREE.Vector3();
+
+    while (virtualS < requestedS - 1e-6 && steps < DET_MAX_STEPS) {
+      const dt = Math.min(DET_STEP_S, requestedS - virtualS);
+      virtualS += dt;
+      // One deterministic frame: in frameloop 'never' this delta IS `dt`.
+      advance(virtualS);
+      steps++;
+      board.updateWorldMatrix(true, false);
+      board.getWorldQuaternion(worldQ);
+      normal.set(0, 0, 1).applyQuaternion(worldQ);
+      up.set(0, 1, 0).applyQuaternion(worldQ);
+      const tilt = vecAngleDeg(up, WORLD_UP);
+      tiltMin = Math.min(tiltMin, tilt);
+      tiltMax = Math.max(tiltMax, tilt);
+      if (!haveStart) {
+        startNormal.copy(normal);
+        haveStart = true;
+      } else {
+        const step = quatAngleDeg(prevWorld, worldQ);
+        maxStepDeg = Math.max(maxStepDeg, step);
+        stepSum += step;
+      }
+      prevWorld.copy(worldQ);
+      // Board face normal against its own first sampled value: a hemisphere
+      // crossing is the facing flip the Phase 132 audit watched for.
+      const dot = normal.dot(startNormal);
+      minNormalDot = Math.min(minNormalDot, dot);
+      const sign = dot >= 0 ? 1 : -1;
+      if (sign !== side) crossings++;
+      side = sign;
+    }
+
+    const handQ = hand.getWorldQuaternion(new THREE.Quaternion());
+    const boardBone = firstBoneAncestor(board);
+    const sample: DetSample = {
+      method: 'deterministic-step',
+      run: (runCountRef.current += 1),
+      index,
+      label: DET_SAMPLES[index].label,
+      request: {
+        clip: rollClip,
+        clipDurationS: r3(rollDuration),
+        requestedClipTimeS: requestedS,
+        mixerAdvancedS: r3(virtualS),
+        steps,
+        stepS: r3(DET_STEP_S),
+      },
+      handedness: lefty ? 'lefty' : 'righty',
+      action: meshAction,
+      shieldHand: handName,
+      boardAttachedTo: boardBone?.name ?? null,
+      attachMatchesHand: boardBone?.name === handName,
+      localFrame: 'shield group (board parent) relative to the gripping hand bone',
+      boardLocalQuaternion: [group.quaternion.x, group.quaternion.y, group.quaternion.z, group.quaternion.w].map(r3),
+      boardWorldQuaternion: [worldQ.x, worldQ.y, worldQ.z, worldQ.w].map(r3),
+      handWorldQuaternion: [handQ.x, handQ.y, handQ.z, handQ.w].map(r3),
+      tiltFromWorldUpDeg: r3(vecAngleDeg(up, WORLD_UP)),
+      tiltRangeDeg: [r3(tiltMin), r3(tiltMax)],
+      perStepMaxDeg: r3(maxStepDeg),
+      perStepMeanDeg: r3(steps > 1 ? stepSum / (steps - 1) : 0),
+      normalHemisphereCrossings: crossings,
+      minNormalDotWithStart: r3(minNormalDot),
+      framesDrawn: gl.info.render.frame - framesStart,
+    };
+    seriesRef.current[index] = sample;
+    const samples = seriesRef.current.filter((s): s is DetSample => s !== null);
+    report(
+      `deterministic · #${index + 1} ${sample.label} · '${rollClip}' held at ${requestedS} s of ${r3(rollDuration)} s` +
+        ` · ${steps} × 1/60 s steps, ${sample.framesDrawn} frames drawn` +
+        ` · board tilt ${sample.tiltFromWorldUpDeg}° (run range ${sample.tiltRangeDeg[0]}–${sample.tiltRangeDeg[1]}°)` +
+        ` · per-step ≤${sample.perStepMaxDeg}° · normal crossings ${sample.normalHemisphereCrossings}` +
+        ` · board on ${sample.boardAttachedTo ?? 'none'}${sample.attachMatchesHand ? ' ✓' : ` ✗ expected ${handName}`}` +
+        ` · recorded ${samples.length}/${DET_SAMPLES.length}`,
+      samples,
+    );
+    } catch (error) {
+      emit(`deterministic · failed: ${describeError(error)}`);
+    }
+  }, [goToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return null;
 };
 
@@ -877,29 +1180,50 @@ const ShieldDiagnosticsPanel: React.FC = () => {
   const [open, setOpen] = useState(false);
   // Diagnostic-local handedness: never read from, or written to, the profile.
   const [lefty, setLefty] = useState(false);
-  const [rolling, setRolling] = useState(false);
-  const [holdMs, setHoldMs] = useState(1200);
+  // Phase 135 — the action the user picked, and the action the harness mesh is
+  // actually driven with. `meshAction` is GladiatorMesh's `overrideAction` and
+  // always holds a value (the pivot clip during a handshake), so the synthetic
+  // fighter's fixed action: 'idle' can never win.
+  const [selectedAction, setSelectedAction] = useState<DiagAction>(IDLE_ACTION);
+  const [meshAction, setMeshAction] = useState<DiagAction>(IDLE_ACTION);
+  const [freezeToken, setFreezeToken] = useState(0);
+  const [goToken, setGoToken] = useState(0);
   const [loop, setLoop] = useState(false);
   const [loopMs, setLoopMs] = useState(1400);
   const [view, setView] = useState<DiagView>('grip');
   const [reframeToken, setReframeToken] = useState(0);
 
-  const rollStartRef = useRef(0);
-  const rollTimerRef = useRef<number | null>(null);
-  const rearmRef = useRef<number | null>(null);
   const readoutRef = useRef<HTMLSpanElement>(null);
   const anchorsRef = useRef<HTMLDivElement>(null);
   const [measureToken, setMeasureToken] = useState(0);
   const [measureMode, setMeasureMode] = useState<ProbeMode>('idle');
-  const [clipNames, setClipNames] = useState<string[] | null>(null);
+  const [clipInfo, setClipInfo] = useState<ReadonlyArray<{ name: string; duration: number }> | null>(null);
   const measureRef = useRef<HTMLDivElement>(null);
-  // The shipped picker's own answer for the dodge action (Phase 129 check):
-  // computed with the exported resolveActionClip on the harness GLB's real
-  // clip-name list, so the Roll mode asserts against the real picker, not a copy.
+  const stepRef = useRef<HTMLDivElement>(null);
+  const [sampleIndex, setSampleIndex] = useState(0);
+  const [sampleToken, setSampleToken] = useState(0);
+  // True = the harness canvas is running live; false = held frozen on a sampled pose.
+  const [detLive, setDetLive] = useState(true);
+
+  // The shipped picker's own answers, computed with the exported
+  // resolveActionClip on the harness GLB's real clip list, so the panel and the
+  // Roll probe assert against the real picker rather than a copy of it.
+  const clipNames = useMemo(() => (clipInfo ? clipInfo.map((clip) => clip.name) : null), [clipInfo]);
+  const resolvedClip = useMemo(
+    () => (clipNames ? resolveActionClip(selectedAction, clipNames) : null),
+    [clipNames, selectedAction],
+  );
   const rollClip = useMemo(
-    () => (clipNames ? resolveActionClip('dodge', clipNames) : null),
+    () => (clipNames ? resolveActionClip(ROLL_ACTION, clipNames) : null),
     [clipNames],
   );
+  const rollDuration = useMemo(
+    () => clipInfo?.find((clip) => clip.name === rollClip)?.duration ?? null,
+    [clipInfo, rollClip],
+  );
+  const expectedClip = DIAG_ACTIONS.find((entry) => entry.key === selectedAction)?.expect ?? '';
+  // The Roll probe's "override is live" signal — same meaning as before.
+  const rolling = armed && selectedAction === ROLL_ACTION;
 
   const fighter = useMemo<FighterState>(
     () => ({
@@ -935,46 +1259,46 @@ const ShieldDiagnosticsPanel: React.FC = () => {
 
   useEffect(
     () => () => {
-      if (rollTimerRef.current !== null) window.clearTimeout(rollTimerRef.current);
       if (rearmRef.current !== null) window.clearTimeout(rearmRef.current);
     },
     [],
   );
 
-  const triggerRoll = () => {
-    if (rollTimerRef.current !== null) window.clearTimeout(rollTimerRef.current);
-    rollStartRef.current = performance.now();
-    setRolling(true);
-    rollTimerRef.current = window.setTimeout(() => {
-      rollTimerRef.current = null;
-      setRolling(false);
-    }, holdMs);
+  // Phase 135 — arm (or re-arm) the selected action. GladiatorMesh resets and
+  // replays a clip only when the action it is driven with CHANGES, so a re-click
+  // on the already-selected action has to bounce through the disarmed value once:
+  // that is the replay path for the one-shot clips (light/heavy attack, dodge)
+  // and the restart path for the looping ones. The bounce is two commits inside
+  // one task, so no rendered frame can fall between them — but it IS a real,
+  // deliberate use of the fighter's idle value, never an accidental override.
+  const armAction = (action: DiagAction) => {
+    setSelectedAction(action);
+    setArmed(false);
+    if (rearmRef.current !== null) window.clearTimeout(rearmRef.current);
+    rearmRef.current = window.setTimeout(() => {
+      rearmRef.current = null;
+      armStartRef.current = performance.now();
+      setArmed(true);
+    }, 0);
   };
 
-  // Loop mode re-arms the Roll on an interval. A headless capture can lag the
-  // trigger by seconds, so a single one-shot Roll may already have finished
-  // before the frame is taken; re-arming keeps a playable Run inside every
-  // capture window while leaving the release (transition out) to unchecking.
+  // Deterministic sampling needs the freeze to happen BEFORE the re-arm, so the
+  // clip's reset to time 0 lands while the canvas is already held. Same re-arm
+  // ref as armAction, so an interval re-arm in flight is always cancelled first.
+  const onFrozen = () => armAction(ROLL_ACTION);
+
+  // Continuous playback: re-arm the selected action on an interval, so a one-shot
+  // clip plays repeated cycles instead of ending after one. Looping clips
+  // (idle/walk/block) repeat inside the mixer anyway; re-arming restarts the
+  // cycle. Held off while the deterministic stepper owns the canvas, so the two
+  // can never re-arm on top of each other.
   useEffect(() => {
-    if (!loop) return;
+    if (!loop || !detLive) return;
     const interval = window.setInterval(() => {
-      setRolling(false);
-      if (rearmRef.current !== null) window.clearTimeout(rearmRef.current);
-      rearmRef.current = window.setTimeout(() => {
-        rearmRef.current = null;
-        rollStartRef.current = performance.now();
-        setRolling(true);
-      }, 60);
+      armAction(selectedAction);
     }, Math.max(200, loopMs));
-    return () => {
-      window.clearInterval(interval);
-      if (rearmRef.current !== null) {
-        window.clearTimeout(rearmRef.current);
-        rearmRef.current = null;
-      }
-      setRolling(false);
-    };
-  }, [loop, loopMs]);
+    return () => window.clearInterval(interval);
+  }, [loop, loopMs, detLive, selectedAction]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live elapsed readout, written straight to the DOM so the canvas subtree is
   // never re-rendered by it.
@@ -982,21 +1306,25 @@ const ShieldDiagnosticsPanel: React.FC = () => {
     let raf = 0;
     const tick = () => {
       if (readoutRef.current) {
-        readoutRef.current.textContent = rolling
-          ? `roll +${Math.round(performance.now() - rollStartRef.current)}ms`
-          : 'idle';
+        readoutRef.current.textContent = armed
+          ? `${selectedAction} armed +${Math.round(performance.now() - armStartRef.current)}ms`
+          : `disarmed → fighter ${IDLE_ACTION}`;
       }
       raf = window.requestAnimationFrame(tick);
     };
     tick();
     return () => window.cancelAnimationFrame(raf);
-  }, [rolling]);
+  }, [armed, selectedAction]);
 
   if (!open) {
     return (
       <button
         data-testid="diag-open"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          // The panel's canvas is created fresh on open, so it starts live.
+          setDetLive(true);
+          setOpen(true);
+        }}
         className="fixed bottom-3 left-3 z-[9999] rounded border border-amber-500/60 bg-neutral-900/90 px-2 py-1 font-mono text-[10px] text-amber-300 hover:bg-neutral-800"
       >
         shield diag (dev)
@@ -1043,12 +1371,12 @@ const ShieldDiagnosticsPanel: React.FC = () => {
               <GladiatorMesh
                 fighter={fighter}
                 isLeftyMode={lefty}
-                overrideAction={rolling ? ROLL_ACTION : undefined}
+                overrideAction={armed ? selectedAction : undefined}
               />
             </Suspense>
             <ShieldFramer view={view} reframeToken={reframeToken} lefty={lefty} anchorsRef={anchorsRef} />
             <Suspense fallback={null}>
-              <ClipNameReader onNames={setClipNames} />
+              <ClipNameReader onClips={setClipInfo} />
             </Suspense>
             <ShieldRotationProbe
               token={measureToken}
@@ -1057,6 +1385,20 @@ const ShieldDiagnosticsPanel: React.FC = () => {
               rolling={rolling}
               expectedClip={rollClip}
               resultRef={measureRef}
+            />
+            {/* Rendered after GladiatorMesh, so its effects run after the mesh's
+                own clip-reset effect in the same commit. */}
+            <DeterministicRollStepper
+              sampleToken={sampleToken}
+              sampleIndex={sampleIndex}
+              live={detLive}
+              armed={armed}
+              selectedAction={selectedAction}
+              lefty={lefty}
+              rollClip={rollClip}
+              rollDuration={rollDuration}
+              onFrozen={onFrozen}
+              resultRef={stepRef}
             />
           </Canvas>
         </ThreeComponentErrorBoundary>
@@ -1075,24 +1417,40 @@ const ShieldDiagnosticsPanel: React.FC = () => {
         {lefty ? 'lefty' : 'righty'} · isLeftyMode prop only (no profile write)
       </div>
 
-      <div className="mb-1 flex items-center gap-1.5">
-        <span className="w-16 text-neutral-400">Roll</span>
-        <button data-testid="diag-roll" onClick={triggerRoll} className={btn(rolling)}>
-          trigger dodge
-        </button>
-        <label className="flex items-center gap-1 font-mono text-[10px] text-neutral-400">
-          hold
-          <input
-            data-testid="diag-hold-ms"
-            type="number"
-            min={100}
-            step={100}
-            value={holdMs}
-            onChange={(event) => setHoldMs(Math.max(100, Number(event.target.value) || 100))}
-            className="w-14 rounded border border-neutral-700 bg-neutral-900 px-1 font-mono text-[10px] text-amber-100"
-          />
-          ms
-        </label>
+      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+        <span className="w-16 text-neutral-400">Action</span>
+        {DIAG_ACTIONS.map((entry) => (
+          <button
+            key={entry.key}
+            data-testid={`diag-action-${entry.key}`}
+            onClick={() => {
+              setDetLive(true);
+              armAction(entry.key);
+            }}
+            className={btn(selectedAction === entry.key && armed)}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+      <div data-testid="diag-action-state" className="mb-1 font-mono text-[10px] text-neutral-400">
+        action{' '}
+        <span data-testid="diag-action" className="text-amber-200">
+          {selectedAction}
+        </span>{' '}
+        · clip{' '}
+        <span data-testid="diag-resolved-clip" className="text-amber-200">
+          {resolvedClip === null ? 'loading…' : resolvedClip}
+        </span>{' '}
+        {resolvedClip === null
+          ? ''
+          : resolvedClip === expectedClip
+            ? `✓ ${expectedClip}`
+            : `✗ expected ${expectedClip}`}
+        {' · overrideAction '}
+        {armed ? `'${selectedAction}' (beats fighter ${IDLE_ACTION})` : `none → fighter ${IDLE_ACTION}`}
+        {' · '}
+        <span data-testid="diag-roll-state" ref={readoutRef} />
       </div>
 
       <div className="mb-1 flex items-center gap-1.5">
@@ -1103,7 +1461,7 @@ const ShieldDiagnosticsPanel: React.FC = () => {
             checked={loop}
             onChange={(event) => setLoop(event.target.checked)}
           />
-          loop roll · re-arm every
+          repeat action · re-arm every
         </label>
         <input
           data-testid="diag-loop-ms"
@@ -1115,11 +1473,6 @@ const ShieldDiagnosticsPanel: React.FC = () => {
           className="w-14 rounded border border-neutral-700 bg-neutral-900 px-1 font-mono text-[10px] text-amber-100"
         />
         <span className="font-mono text-[10px] text-neutral-400">ms</span>
-      </div>
-
-      <div className="mb-2 font-mono text-[10px] text-neutral-400">
-        clip <span data-testid="diag-roll-state" ref={readoutRef} /> · overrideAction{' '}
-        {rolling ? "'dodge' → Roll" : 'none → fighter idle'}
       </div>
 
       <div className="flex items-center gap-1.5">
@@ -1201,6 +1554,37 @@ const ShieldDiagnosticsPanel: React.FC = () => {
         picker dodge → {rollClip === null ? 'clip list loading…' : `'${rollClip}'`}
       </div>
       <div data-testid="diag-measure-result" ref={measureRef} className="mt-1 font-mono text-[10px] text-neutral-400" />
+
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className="w-16 text-neutral-400">Det. Roll</span>
+        {DET_SAMPLES.map((entry, index) => {
+          const requestedS = rollDuration === null ? null : detSampleTime(entry.fraction, rollDuration);
+          const blocked = requestedS === null;
+          return (
+            <button
+              key={entry.label}
+              data-testid={`diag-step-${index}`}
+              disabled={blocked}
+              onClick={() => {
+                setDetLive(false);
+                setSampleIndex(index);
+                setSampleToken((token) => token + 1);
+              }}
+              className={btn(!detLive && sampleIndex === index) + (blocked ? ' cursor-not-allowed opacity-40' : '')}
+            >
+              {blocked ? entry.label : `${entry.label} ${requestedS}s`}
+            </button>
+          );
+        })}
+        <button data-testid="diag-step-live" onClick={() => setDetLive(true)} className={btn(detLive)}>
+          live
+        </button>
+      </div>
+      <div data-testid="diag-step-clip" className="mt-1 font-mono text-[10px] text-neutral-500">
+        clip '{rollClip ?? 'loading…'}' · duration {rollDuration === null ? '—' : `${r3(rollDuration)} s`} · fixed
+        1/60 s steps on a frozen canvas — no real-time drift
+      </div>
+      <div data-testid="diag-step-result" ref={stepRef} className="mt-1 font-mono text-[10px] text-neutral-400" />
       <div className="mt-1 font-mono text-[10px] text-neutral-500">drag = orbit · wheel = zoom</div>
     </div>
   );
