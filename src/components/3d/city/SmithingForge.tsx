@@ -12,7 +12,7 @@ import { TimberCrate, WineBarrel } from './CivicFurnishingProps';
 import { ForgeSmoke } from './EnvironmentalMotion';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const SmithingForge: React.FC = () => {
+export const SmithingForge = React.memo(() => {
   return (
     <group position={[18, 0, 2]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -154,4 +154,4 @@ export const SmithingForge: React.FC = () => {
       </group>
     </group>
   );
-};
+});
