@@ -90,6 +90,7 @@ try {
   useGLTF.preload('/models/arena_roman.glb');
   useGLTF.preload('/models/amazonian.glb');
   useGLTF.preload('/models/netfighter.glb');
+  useGLTF.preload('/models/minotaur.glb');
 } catch (e) {
   // Silent fallback
 }
@@ -1354,6 +1355,8 @@ export const GladiatorMesh: React.FC<GladiatorMeshProps> = ({
     ? '/models/amazonian.glb'
     : fighter.characterModel === 'retiarius'
     ? '/models/netfighter.glb'
+    : fighter.characterModel === 'minotaur'
+    ? '/models/minotaur.glb'
     : '/models/arena_roman.glb';
   const isGlbAvailable = useGlbAvailability(modelUrl);
   const [loadFailed, setLoadFailed] = useState(false);

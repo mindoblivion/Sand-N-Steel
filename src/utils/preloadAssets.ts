@@ -8,6 +8,7 @@ export const CORE_3D_ASSETS = [
   '/models/arena_roman.glb',
   '/models/amazonian.glb',
   '/models/netfighter.glb',
+  '/models/minotaur.glb',
 ] as const;
 
 export type Core3DAssetPath = typeof CORE_3D_ASSETS[number];
