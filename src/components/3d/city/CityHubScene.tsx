@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Sparkles as DreiSparkles, Sky, Environment, Lightformer, useGLTF } from '@react-three/drei';
 import { PlayerProfile, OpponentConfig, FighterState } from '../../../types/game';
@@ -97,6 +97,53 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   isLeftyMode,
   onOpenSettings,
 }) => {
+  // Stabilize the Environment cubemap's Lightformer children across player-movement re-renders.
+  // Without this, each setPlayerPos / setPlayerRotY / setIsMoving call creates a new children
+  // reference, which can re-trigger drei's Environment layout effect and recapture the cubemap.
+  const environmentLightformers = useMemo(
+    () => (
+      <>
+        {/* Warm Mediterranean sun — aligned with key directional light direction */}
+        <Lightformer
+          form="rect"
+          intensity={2.0}
+          color="#fffbeb"
+          position={[30, 42, 22]}
+          scale={[30, 30, 1]}
+          target={[0, 0, 0]}
+        />
+        {/* Warm sky dome — ambient sky reflections for upward-facing surfaces */}
+        <Lightformer
+          form="rect"
+          intensity={0.35}
+          color="#fef3c7"
+          position={[0, 60, 0]}
+          scale={[100, 100, 1]}
+          target={[0, 0, 0]}
+        />
+        {/* Warm earth ground bounce — ground reflections for downward-facing surfaces */}
+        <Lightformer
+          form="rect"
+          intensity={0.25}
+          color="#b08968"
+          position={[0, -30, 0]}
+          scale={[100, 100, 1]}
+          target={[0, 0, 0]}
+        />
+        {/* Subtle cool fill — matches secondary directional light direction */}
+        <Lightformer
+          form="rect"
+          intensity={0.2}
+          color="#7dd3fc"
+          position={[-25, 20, -25]}
+          scale={[20, 20, 1]}
+          target={[0, 0, 0]}
+        />
+      </>
+    ),
+    []
+  );
+
   // Spawn gracefully in front of the Monumental Town Gate on the open avenue
   const [playerPos, setPlayerPos] = useState<[number, number, number]>([0, 0, 16]);
   const [playerRotY, setPlayerRotY] = useState(Math.PI);
@@ -459,42 +506,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 and assigned to scene.environment. environmentIntensity=0.35 keeps reflections
                 subtle so warm Roman material colors remain readable. No external HDR files. */}
             <Environment resolution={256} frames={1} environmentIntensity={0.35}>
-              {/* Warm Mediterranean sun — aligned with key directional light direction */}
-              <Lightformer
-                form="rect"
-                intensity={2.0}
-                color="#fffbeb"
-                position={[30, 42, 22]}
-                scale={[30, 30, 1]}
-                target={[0, 0, 0]}
-              />
-              {/* Warm sky dome — ambient sky reflections for upward-facing surfaces */}
-              <Lightformer
-                form="rect"
-                intensity={0.35}
-                color="#fef3c7"
-                position={[0, 60, 0]}
-                scale={[100, 100, 1]}
-                target={[0, 0, 0]}
-              />
-              {/* Warm earth ground bounce — ground reflections for downward-facing surfaces */}
-              <Lightformer
-                form="rect"
-                intensity={0.25}
-                color="#b08968"
-                position={[0, -30, 0]}
-                scale={[100, 100, 1]}
-                target={[0, 0, 0]}
-              />
-              {/* Subtle cool fill — matches secondary directional light direction */}
-              <Lightformer
-                form="rect"
-                intensity={0.2}
-                color="#7dd3fc"
-                position={[-25, 20, -25]}
-                scale={[20, 20, 1]}
-                target={[0, 0, 0]}
-              />
+              {environmentLightformers}
             </Environment>
 
             {/* Distant Roman Hills & Aqueduct Backdrop */}
