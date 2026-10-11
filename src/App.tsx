@@ -12,6 +12,7 @@ import { SettingsModal } from './components/hub/SettingsModal';
 import { AssetLoadingOverlay } from './components/ui/AssetLoadingOverlay';
 import { googleSignIn } from './services/googleAuth';
 import { facebookSignIn } from './services/facebookAuth';
+import { appleSignIn } from './services/appleAuth';
 import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 // Phase 121: development-only shield diagnostic harness (dead code in `vite build`)
 import { ShieldDiagnostics } from './components/dev/ShieldDiagnostics';
@@ -34,6 +35,7 @@ export function App() {
   const [isLeftyMode, setIsLeftyMode] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
 
   // Load saved profile on boot
   useEffect(() => {
@@ -136,6 +138,24 @@ export function App() {
       console.error('[FacebookSignIn] failed:', e);
     } finally {
       setIsFacebookLoading(false);
+    }
+  };
+
+  // "Continue with Apple" — sign in via Firebase Sign in with Apple.
+  // Like Facebook, no Google Drive access; proceed with local save or new gladiator.
+  const handleAppleSignIn = async () => {
+    setIsAppleLoading(true);
+    try {
+      await appleSignIn();
+      if (profile) {
+        setCurrentScreen('city_3d');
+      } else {
+        setCurrentScreen('create_character');
+      }
+    } catch (e) {
+      console.error('[AppleSignIn] failed:', e);
+    } finally {
+      setIsAppleLoading(false);
     }
   };
 
@@ -318,6 +338,8 @@ export function App() {
                 isGoogleLoading={isGoogleLoading}
                 onFacebookSignIn={handleFacebookSignIn}
                 isFacebookLoading={isFacebookLoading}
+                onAppleSignIn={handleAppleSignIn}
+                isAppleLoading={isAppleLoading}
             />
         )}
 
@@ -329,6 +351,8 @@ export function App() {
             isGoogleLoading={isGoogleLoading}
             onFacebookSignIn={handleFacebookSignIn}
             isFacebookLoading={isFacebookLoading}
+            onAppleSignIn={handleAppleSignIn}
+            isAppleLoading={isAppleLoading}
             />
         )}
 

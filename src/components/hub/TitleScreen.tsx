@@ -4,6 +4,7 @@ import { sounds } from '../../audio/soundEffects';
 import { preloadCoreGameAssets } from '../../utils/preloadAssets';
 import { GoogleSignInButton } from '../ui/GoogleSignInButton';
 import { FacebookSignInButton } from '../ui/FacebookSignInButton';
+import { AppleSignInButton } from '../ui/AppleSignInButton';
 
 interface TitleScreenProps {
   savedProfile: PlayerProfile | null;
@@ -17,6 +18,8 @@ interface TitleScreenProps {
   isGoogleLoading: boolean;
   onFacebookSignIn: () => void;
   isFacebookLoading: boolean;
+  onAppleSignIn: () => void;
+  isAppleLoading: boolean;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
@@ -31,6 +34,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   isGoogleLoading,
   onFacebookSignIn,
   isFacebookLoading,
+  onAppleSignIn,
+  isAppleLoading,
 }) => {
   const [hasStarted, setHasStarted] = useState(false);
 
@@ -107,6 +112,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <FacebookSignInButton
             onClick={onFacebookSignIn}
             isLoading={isFacebookLoading}
+          />
+          <AppleSignInButton
+            onClick={onAppleSignIn}
+            isLoading={isAppleLoading}
           />
         </div>
     </div>
