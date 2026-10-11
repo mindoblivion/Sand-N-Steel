@@ -416,6 +416,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           <Canvas
             shadows
             frameloop={frameloopMode}
+            dpr={[1, 2]}
             camera={{ position: [0, 5, 24], fov: 58, near: 0.1, far: 180 }}
             gl={{ antialias: false, powerPreference: 'high-performance' }}
             onCreated={(state) => {
@@ -429,15 +430,25 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             {/* Atmospheric Mediterranean Horizon Fog */}
             <fog attach="fog" args={['#e0a96d', 35, 115]} />
 
-            <Sky sunPosition={[45, 30, 25]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
-            {/* Phase 24 — Calibrated Mediterranean Sunlight & Contrast */}
-            <ambientLight intensity={0.42} color="#fef3c7" />
+            <Sky sunPosition={[30, 42, 22]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
+            {/* Phase 24 — Calibrated Mediterranean Sunlight & Contrast.
+                Phase 2A: hemisphere replaces flat ambient; shadow camera bounds
+                expanded from default ±5 to cover full city; bias added; Sky aligned. */}
+            <hemisphereLight color="#fef3c7" groundColor="#b08968" intensity={0.45} />
             <directionalLight
               position={[30, 42, 22]}
               intensity={2.15}
               color="#fffbeb"
               castShadow
               shadow-mapSize={[2048, 2048]}
+              shadow-camera-left={-50}
+              shadow-camera-right={50}
+              shadow-camera-top={50}
+              shadow-camera-bottom={-40}
+              shadow-camera-near={1}
+              shadow-camera-far={120}
+              shadow-bias={-0.0004}
+              shadow-normalBias={0.4}
             />
             <directionalLight position={[-25, 20, -25]} intensity={0.28} color="#7dd3fc" />
 
