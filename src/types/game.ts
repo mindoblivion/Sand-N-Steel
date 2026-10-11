@@ -8,7 +8,7 @@ export type AIPersonality = 'Aggressive' | 'Defensive' | 'Tricky' | 'Berserker';
 
 export type BossMechanic = 'heavy_telegraph' | 'phase_weapon_switch' | 'counter_dodge' | 'rage_mode_colossus';
 
-export type CharacterModelType = 'roman_warrior' | 'procedural_gladiator' | 'amazonian';
+export type CharacterModelType = 'roman_warrior' | 'procedural_gladiator' | 'amazonian' | 'retiarius';
 
 export interface WeaponItem {
   id: string;
