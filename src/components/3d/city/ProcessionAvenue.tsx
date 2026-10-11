@@ -206,14 +206,14 @@ export const ProcessionAvenue: React.FC = () => {
       </mesh>
 
       {/* PHASE 27 — AUTHENTIC ROMAN TRIUMPHAL FLAGSTONE CARRIAGEWAYS */}
-      {/* Continuous Triumphal Carriageways (Colosseum approach → Gatehouse approach, z = -1 to 21) */}
-      {/* Replaces the split north/south segments: the former north span (z=-1 to -16.5) was
-          almost entirely inside the Colosseum (wall at z≈-1.6 for x=±4.7). A single continuous
-          segment from z=-1 (Colosseum outer wall) to z=21 (gatehouse foundation clearance)
-          eliminates both the intersection and the north/south length imbalance. */}
+      {/* Continuous Triumphal Carriageways (Colosseum approach → Gatehouse approach, z = -0.5 to 20.5) */}
+      {/* Phase 1A.2: span reduced from z=-1..21 (length 22) to z=-0.5..20.5 (length 21) to clear
+          the Colosseum foundation step (outer radius 19.5: at x=±2.5 reaches z≈-0.66, at x=±4.7
+          z≈-1.08) and to leave adequate Gatehouse clearance (tower foundation north face z=21.05,
+          main foundation z=21.35). Min clearance: 0.16m north inner edge, 0.55m south end. */}
       <RomanPavedStreet
         position={[-4.7, 0, 10.0]}
-        length={22.0}
+        length={21.0}
         width={4.4}
         district="triumphal"
         hasGutters={true}
@@ -222,7 +222,7 @@ export const ProcessionAvenue: React.FC = () => {
       />
       <RomanPavedStreet
         position={[4.7, 0, 10.0]}
-        length={22.0}
+        length={21.0}
         width={4.4}
         district="triumphal"
         hasGutters={true}
@@ -232,14 +232,14 @@ export const ProcessionAvenue: React.FC = () => {
 
       {/* Imperial Crimson & Gold Mosaic Central Runner */}
       <mesh receiveShadow position={[0, 0.01, 10]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[5, 22]} />
+        <planeGeometry args={[5, 21]} />
         <meshStandardMaterial color={ROMAN_PALETTE.imperialRunner.color} roughness={0.7} />
       </mesh>
 
       {/* Gold Trim Road Curbs */}
       {[-2.55, 2.55].map((rx, ri) => (
         <mesh key={`gold-trim-${ri}`} position={[rx, 0.02, 10]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.25, 22]} />
+          <planeGeometry args={[0.25, 21]} />
           <meshStandardMaterial
             color={ROMAN_PALETTE.goldAccent.color}
             metalness={0.75}
@@ -251,7 +251,7 @@ export const ProcessionAvenue: React.FC = () => {
       {/* Raised Travertine Sidewalk Curbs */}
       {[-7.2, 7.2].map((cx, ci) => (
         <mesh key={`curb-${ci}`} receiveShadow castShadow position={[cx, 0.1, 10]}>
-          <boxGeometry args={[0.6, 0.2, 22]} />
+          <boxGeometry args={[0.6, 0.2, 21]} />
           <meshStandardMaterial
             color={ROMAN_PALETTE.roadKerb.color}
             roughness={0.76}
@@ -310,10 +310,11 @@ export const ProcessionAvenue: React.FC = () => {
       )}
 
       {/* 5. ROMAN STREET BRAZIERS WITH WARM AMBER FLAMES */}
-      {/* North-side brazier at z=-1 lights the Colosseum approach (pedestal edge at
-          distance 19.50 from Colosseum center — outside the wall). */}
+      {/* North-side brazier at z=0 lights the Colosseum approach. Phase 1A.2: moved from
+          z=-1 (pedestal north edge clipped Colosseum foundation step by ~17mm at inner
+          edge x=±5.8) to z=0. Min clearance from foundation: 0.98m at inner pedestal edge. */}
       {[-6.2, 6.2].map((bx, bi) =>
-        [-1, 2, 12, 18].map((bz, zi) => (
+        [0, 2, 12, 18].map((bz, zi) => (
           <StreetBrazier key={`brazier-${bi}-${zi}`} position={[bx, 0, bz]} />
         ))
       )}
@@ -365,9 +366,12 @@ export const ProcessionAvenue: React.FC = () => {
       </group>
 
       {/* 7. CIVIC FORUM SEATING & PUBLIC GATHERING BENCHES (PHASE 26) */}
-      {/* Placed at comfortable radial distances (r ~ 6.5m) facing the central fountain without blocking 4 cardinal avenues */}
-      <RomanBench position={[-4.8, 0, -1.0]} rotationY={Math.PI / 4} />
-      <RomanBench position={[4.8, 0, -1.0]} rotationY={-Math.PI / 4} />
+      {/* Placed at comfortable radial distances (r ~ 6.5m) facing the central fountain without blocking 4 cardinal avenues.
+          Phase 1A.2: north pair moved from z=-1 to z=1. At z=-1 the 45°-rotated bench
+          (2.0×0.65m) clipped the Colosseum foundation by ~0.71m (north corner at z≈-1.94
+          vs foundation z≈-1.23 at that x). At z=1 the min clearance is 1.29m. */}
+      <RomanBench position={[-4.8, 0, 1.0]} rotationY={Math.PI / 4} />
+      <RomanBench position={[4.8, 0, 1.0]} rotationY={-Math.PI / 4} />
       <RomanBench position={[-4.8, 0, 4.8]} rotationY={(3 * Math.PI) / 4} />
       <RomanBench position={[4.8, 0, 4.8]} rotationY={(-3 * Math.PI) / 4} />
 
