@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { PlayerProfile } from '../../types/game';
 import { sounds } from '../../audio/soundEffects';
 import { preloadCoreGameAssets } from '../../utils/preloadAssets';
@@ -6,6 +6,7 @@ import { GoogleSignInButton } from '../ui/GoogleSignInButton';
 import { FacebookSignInButton } from '../ui/FacebookSignInButton';
 import { AppleSignInButton } from '../ui/AppleSignInButton';
 import { MicrosoftSignInButton } from '../ui/MicrosoftSignInButton';
+import { emailSignIn, emailRegister } from '../../services/emailAuth';
 
 interface TitleScreenProps {
   savedProfile: PlayerProfile | null;
@@ -82,6 +83,14 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   isMicrosoftLoading,
   onEmailSignIn,
 }) => {
+  // Email/password auth state (inline section above the guest button)
+  const [emailMode, setEmailMode] = useState<'signin' | 'register'>('signin');
+  const [emailVal, setEmailVal] = useState('');
+  const [passwordVal, setPasswordVal] = useState('');
+  const [confirmPasswordVal, setConfirmPasswordVal] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isEmailLoading, setIsEmailLoading] = useState(false);
+
   // Guards against double-fire if the user clicks multiple controls in quick succession.
   const startedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -104,6 +113,52 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
     if (savedProfile) onContinueAdventure();
     else onNewCharacter();
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailError(null);
+
+    if (!emailVal.trim() || !passwordVal) {
+      setEmailError('Please enter your email and password.');
+      return;
+    }
+    if (emailMode === 'register' && passwordVal !== confirmPasswordVal) {
+      setEmailError('Passwords do not match.');
+      return;
+    }
+    if (emailMode === 'register' && passwordVal.length < 6) {
+      setEmailError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setIsEmailLoading(true);
+    try {
+      if (emailMode === 'register') {
+        await emailRegister(emailVal.trim(), passwordVal);
+      } else {
+        await emailSignIn(emailVal.trim(), passwordVal);
+      }
+      sounds.playClick();
+      onEmailSignIn();
+    } catch (err: any) {
+      const code = err?.code ?? '';
+      if (code === 'auth/email-already-in-use') {
+        setEmailError('An account with this email already exists.');
+      } else if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
+        setEmailError('Incorrect email or password.');
+      } else if (code === 'auth/invalid-email') {
+        setEmailError('Invalid email address.');
+      } else if (code === 'auth/weak-password') {
+        setEmailError('Password is too weak. Use at least 6 characters.');
+      } else if (code === 'auth/network-request-failed') {
+        setEmailError('Network error. Check your connection.');
+      } else {
+        setEmailError(err?.message ?? 'Authentication failed. Please try again.');
+      }
+    } finally {
+      setIsEmailLoading(false);
+    }
   };
 
   // Pause CSS animations when the tab is hidden; resume when visible.
@@ -185,27 +240,79 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           ))}
         </div>
 
-        {/* "Sign In with Email" button — its own maroon panel */}
-        <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 flex items-center justify-center rounded-2xl bg-neutral-950/85 px-6 py-1 border border-[#8b2a2a]/20"
-          style={{ bottom: '17%' }}
+        {/* Email/password sign-in section — separate, above the guest button */}
+        <form
+          onSubmit={handleEmailSubmit}
+          className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1.5 w-[260px]"
+          style={{ bottom: '23%' }}
         >
-          <button
-            type="button"
-            onClick={() => {
-              sounds.playClick();
-              onEmailSignIn();
-            }}
-            className="px-8 py-3 rounded-full font-serif font-bold text-sm uppercase tracking-wider text-amber-50 bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] hover:from-[#5c1010] hover:to-[#7a2020] shadow-[0_0_20px_rgba(107,26,26,0.5)] border border-[#8b2a2a]/60 active:scale-95 transition-all cursor-pointer"
-          >
-            Sign In with Email
-          </button>
-        </div>
+          {/* Mode toggle */}
+          <div className="flex gap-3 mb-0.5 font-serif text-xs uppercase tracking-wider">
+            <button
+              type="button"
+              onClick={() => { sounds.playClick(); setEmailMode('signin'); setEmailError(null); setConfirmPasswordVal(''); }}
+              className={emailMode === 'signin' ? 'text-amber-300 underline' : 'text-amber-700/70'}
+            >
+              Sign In
+            </button>
+            <span className="text-amber-700/50">|</span>
+            <button
+              type="button"
+              onClick={() => { sounds.playClick(); setEmailMode('register'); setEmailError(null); }}
+              className={emailMode === 'register' ? 'text-amber-300 underline' : 'text-amber-700/70'}
+            >
+              Register
+            </button>
+          </div>
 
-        {/* "Play as Guest" button — standalone maroon pill, positioned over the baked "PRESS TO START" artwork */}
+          <input
+            type="email"
+            placeholder="Email"
+            value={emailVal}
+            onChange={(e) => setEmailVal(e.target.value)}
+            autoComplete="email"
+            className="w-full px-3 py-2 rounded-lg bg-black/55 border border-[#8b2a2a]/40 text-amber-50 placeholder-amber-700/60 text-xs focus:outline-none focus:border-amber-600/60 transition-colors"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={passwordVal}
+            onChange={(e) => setPasswordVal(e.target.value)}
+            autoComplete={emailMode === 'signin' ? 'current-password' : 'new-password'}
+            className="w-full px-3 py-2 rounded-lg bg-black/55 border border-[#8b2a2a]/40 text-amber-50 placeholder-amber-700/60 text-xs focus:outline-none focus:border-amber-600/60 transition-colors"
+          />
+          {emailMode === 'register' && (
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              value={confirmPasswordVal}
+              onChange={(e) => setConfirmPasswordVal(e.target.value)}
+              autoComplete="new-password"
+              className="w-full px-3 py-2 rounded-lg bg-black/55 border border-[#8b2a2a]/40 text-amber-50 placeholder-amber-700/60 text-xs focus:outline-none focus:border-amber-600/60 transition-colors"
+            />
+          )}
+
+          {emailError && (
+            <p className="text-red-400 text-[10px] text-center leading-tight">{emailError}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={isEmailLoading}
+            className="w-full px-5 py-2 rounded-full font-serif font-bold text-xs uppercase tracking-wider text-amber-50 bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] hover:from-[#5c1010] hover:to-[#7a2020] shadow-[0_0_15px_rgba(107,26,26,0.5)] border border-[#8b2a2a]/60 active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+          >
+            {isEmailLoading
+              ? 'Please wait…'
+              : emailMode === 'signin'
+                ? 'Sign In'
+                : 'Create Account'}
+          </button>
+        </form>
+
+        {/* "Play as Guest" button — positioned over the baked "PRESS TO START" artwork */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 flex items-center justify-center rounded-2xl bg-neutral-950/85 px-6 py-1 border border-[#8b2a2a]/20"
-          style={{ bottom: '9%' }}
+          className="absolute left-1/2 -translate-x-1/2 z-10"
+          style={{ bottom: '14%' }}
           onClick={(e) => {
             e.stopPropagation();
             startedRef.current = true;

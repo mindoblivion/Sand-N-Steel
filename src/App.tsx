@@ -14,7 +14,6 @@ import { googleSignIn } from './services/googleAuth';
 import { facebookSignIn } from './services/facebookAuth';
 import { appleSignIn } from './services/appleAuth';
 import { microsoftSignIn } from './services/microsoftAuth';
-import { EmailAuthScreen } from './components/hub/EmailAuthScreen';
 import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 // Phase 121: development-only shield diagnostic harness (dead code in `vite build`)
 import { ShieldDiagnostics } from './components/dev/ShieldDiagnostics';
@@ -23,7 +22,7 @@ import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
 import { preloadCoreGameAssets } from './utils/preloadAssets';
 
-type GameScreen = 'title' | 'email_auth' | 'create_character' | 'city_3d' | 'hub_2d' | 'duel';
+type GameScreen = 'title' | 'create_character' | 'city_3d' | 'hub_2d' | 'duel';
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
@@ -180,13 +179,8 @@ export function App() {
     }
   };
 
-  // "Sign In with Email" — opens the email/password auth screen.
+  // "Sign In with Email" — called after inline email/password auth succeeds on the title screen.
   const handleEmailSignIn = () => {
-    setCurrentScreen('email_auth');
-  };
-
-  // Called after a successful email sign-in or registration.
-  const handleEmailAuthSuccess = () => {
     if (profile) {
       setCurrentScreen('city_3d');
     } else {
@@ -378,13 +372,6 @@ export function App() {
                 onMicrosoftSignIn={handleMicrosoftSignIn}
                 isMicrosoftLoading={isMicrosoftLoading}
                 onEmailSignIn={handleEmailSignIn}
-            />
-        )}
-
-        {currentScreen === 'email_auth' && (
-            <EmailAuthScreen
-              onAuthSuccess={handleEmailAuthSuccess}
-              onBack={() => setCurrentScreen('title')}
             />
         )}
 
