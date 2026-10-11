@@ -12,7 +12,7 @@ interface CharacterCreationProps {
 
 export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel }) => {
   const [name, setName] = useState('Spartacus');
-  const [characterModel, setCharacterModel] = useState<'roman_warrior' | 'procedural_gladiator' | 'amazonian' | 'retiarius' | 'minotaur'>('roman_warrior');
+  const [characterModel, setCharacterModel] = useState<'roman_warrior' | 'procedural_gladiator' | 'amazonian' | 'retiarius' | 'minotaur' | 'dimachaerus'>('roman_warrior');
   const [skinColor, setSkinColor] = useState('#c68b59');
   const [tunicColor, setTunicColor] = useState('#854d0e');
   const [crestColor, setCrestColor] = useState('#dc2626');
@@ -114,7 +114,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[360px] shadow-2xl relative overflow-hidden">
           <GladiatorPreview appearance={appearance} isLeftyMode={isLeftyMode} />
           <div className="absolute bottom-4 left-4 bg-neutral-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-mono text-amber-300">
-            {characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : 'Custom Gladiator'} • {isLeftyMode ? 'Lefty Stance' : 'Righty Stance'}
+            {characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Custom Gladiator'} • {isLeftyMode ? 'Lefty Stance' : 'Righty Stance'}
           </div>
         </div>
 
@@ -223,6 +223,17 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
                 }`}
               >
                 🐂 Minotaur
+              </button>
+              <button
+                type="button"
+                onClick={() => setCharacterModel('dimachaerus')}
+                className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
+                  characterModel === 'dimachaerus'
+                    ? 'bg-purple-500/30 border-purple-400 text-purple-200 shadow-md'
+                    : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-purple-600/50'
+                }`}
+              >
+                ⚔️ Dimachaerus
               </button>
             </div>
           </div>

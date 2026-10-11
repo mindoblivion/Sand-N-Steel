@@ -9,6 +9,7 @@ export const CORE_3D_ASSETS = [
   '/models/amazonian.glb',
   '/models/netfighter.glb',
   '/models/minotaur.glb',
+  '/models/dimachaerus.glb',
 ] as const;
 
 export type Core3DAssetPath = typeof CORE_3D_ASSETS[number];
