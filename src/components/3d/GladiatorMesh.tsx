@@ -443,9 +443,10 @@ export function resolveActionClip(action: FighterAction, clipNames: readonly str
 }
 
 // Phase 2B.58: Pre-allocated hit-flash colors. Module-level so every
-// GladiatorMesh instance shares the same immutable Color objects instead
+// GladiatorMesh instance shares the same constant Color values instead
 // of allocating a new THREE.Color every frame per mesh. These are never
-// mutated — the hit-flash logic only assigns them to material.emissive.
+// mutated — the hit-flash logic copies their values into each material's
+// own emissive Color via .copy(), so no shared mutable references exist.
 const HIT_FLASH_COLOR = new THREE.Color('#ff0000');
 const HIT_FLASH_RESET_COLOR = new THREE.Color('#000000');
 
@@ -585,7 +586,7 @@ const RomanWarriorGLB: React.FC<{
         if ((child as THREE.Mesh).isMesh) {
           const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
           if (mat) {
-            mat.emissive = isHit ? HIT_FLASH_COLOR : HIT_FLASH_RESET_COLOR;
+            mat.emissive.copy(isHit ? HIT_FLASH_COLOR : HIT_FLASH_RESET_COLOR);
             mat.emissiveIntensity = isHit ? 0.8 : 0;
           }
         }
