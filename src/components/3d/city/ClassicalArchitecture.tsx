@@ -388,6 +388,12 @@ export const ClassicalDoorway: React.FC<ClassicalDoorwayProps> = ({
         <meshStandardMaterial color={recessColor} roughness={0.96} />
       </mesh>
 
+      {/* WARM INTERIOR BACK WALL — reads as a dimly lit room rather than a flat black void */}
+      <mesh position={[0, height / 2, -depth / 2 - 0.03]}>
+        <boxGeometry args={[width - 0.12, height - 0.12, 0.04]} />
+        <meshStandardMaterial color="#3d352a" roughness={0.92} />
+      </mesh>
+
       {/* RAISED STONE THRESHOLD */}
       <mesh position={[0, 0.06, 0.05]}>
         <boxGeometry args={[width + jambWidth * 2 + 0.1, 0.12, depth + 0.15]} />
@@ -493,6 +499,12 @@ export const ClassicalWindow: React.FC<ClassicalWindowProps> = ({
       <mesh position={[0, 0, -0.06]}>
         <boxGeometry args={[width, height, 0.14]} />
         <meshStandardMaterial color={recessColor} roughness={0.96} />
+      </mesh>
+
+      {/* WARM INTERIOR BACK WALL — suggests depth beyond the opening */}
+      <mesh position={[0, 0, -0.15]}>
+        <boxGeometry args={[width - 0.1, height - 0.1, 0.04]} />
+        <meshStandardMaterial color="#3d352a" roughness={0.92} />
       </mesh>
 
       {/* PROJECTING SILL */}

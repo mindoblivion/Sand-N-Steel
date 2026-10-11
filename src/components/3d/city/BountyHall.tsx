@@ -59,7 +59,7 @@ export const BountyHall: React.FC = () => {
 
       {/* Heavy Timber Recessed Doorway */}
       <ClassicalDoorway
-        position={[-1.2, 0.3, 2.52]}
+        position={[-1.2, 0.6, 2.52]}
         width={1.3}
         height={2.2}
         depth={0.35}

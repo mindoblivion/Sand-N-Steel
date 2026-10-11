@@ -220,7 +220,7 @@ export const GrandColosseum: React.FC = () => {
       {/* 4. VISIBLE INTERIOR ARENA COMBAT PIT (THROUGH ARCHWAY) */}
       <mesh receiveShadow position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[15, 32]} />
-        <meshStandardMaterial color="#eab308" roughness={0.9} />
+        <meshStandardMaterial color={ROMAN_PALETTE.arenaSand.color} roughness={ROMAN_PALETTE.arenaSand.roughness} />
       </mesh>
     </group>
   );

@@ -206,10 +206,10 @@ export const ProcessionAvenue: React.FC = () => {
       </mesh>
 
       {/* PHASE 27 — AUTHENTIC ROMAN TRIUMPHAL FLAGSTONE CARRIAGEWAYS */}
-      {/* North Avenue Carriageways (Forum -> Colosseum, z = -16.5 to -36) */}
+      {/* North Avenue Carriageways (Forum -> Colosseum, z = -16.5 to -1) */}
       <RomanPavedStreet
-        position={[-4.7, 0, -26.25]}
-        length={19.5}
+        position={[-4.7, 0, -8.75]}
+        length={15.5}
         width={4.4}
         district="triumphal"
         hasGutters={true}
@@ -217,8 +217,8 @@ export const ProcessionAvenue: React.FC = () => {
         stonePitch={1.1}
       />
       <RomanPavedStreet
-        position={[4.7, 0, -26.25]}
-        length={19.5}
+        position={[4.7, 0, -8.75]}
+        length={15.5}
         width={4.4}
         district="triumphal"
         hasGutters={true}
@@ -226,10 +226,10 @@ export const ProcessionAvenue: React.FC = () => {
         stonePitch={1.1}
       />
 
-      {/* South Avenue Carriageways (Forum -> Town Gate, z = 16.5 to 36) */}
+      {/* South Avenue Carriageways (Forum -> Town Gate, z = 16.5 to 21) */}
       <RomanPavedStreet
-        position={[-4.7, 0, 26.25]}
-        length={19.5}
+        position={[-4.7, 0, 18.75]}
+        length={4.5}
         width={4.4}
         district="triumphal"
         hasGutters={true}
@@ -237,8 +237,8 @@ export const ProcessionAvenue: React.FC = () => {
         stonePitch={1.1}
       />
       <RomanPavedStreet
-        position={[4.7, 0, 26.25]}
-        length={19.5}
+        position={[4.7, 0, 18.75]}
+        length={4.5}
         width={4.4}
         district="triumphal"
         hasGutters={true}
@@ -247,15 +247,15 @@ export const ProcessionAvenue: React.FC = () => {
       />
 
       {/* Imperial Crimson & Gold Mosaic Central Runner */}
-      <mesh receiveShadow position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[5, 70]} />
+      <mesh receiveShadow position={[0, 0.01, 10]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[5, 22]} />
         <meshStandardMaterial color={ROMAN_PALETTE.imperialRunner.color} roughness={0.7} />
       </mesh>
 
       {/* Gold Trim Road Curbs */}
       {[-2.55, 2.55].map((rx, ri) => (
-        <mesh key={`gold-trim-${ri}`} position={[rx, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.25, 70]} />
+        <mesh key={`gold-trim-${ri}`} position={[rx, 0.02, 10]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.25, 22]} />
           <meshStandardMaterial
             color={ROMAN_PALETTE.goldAccent.color}
             metalness={0.75}
@@ -266,8 +266,8 @@ export const ProcessionAvenue: React.FC = () => {
 
       {/* Raised Travertine Sidewalk Curbs */}
       {[-7.2, 7.2].map((cx, ci) => (
-        <mesh key={`curb-${ci}`} receiveShadow castShadow position={[cx, 0.1, 0]}>
-          <boxGeometry args={[0.6, 0.2, 72]} />
+        <mesh key={`curb-${ci}`} receiveShadow castShadow position={[cx, 0.1, 10]}>
+          <boxGeometry args={[0.6, 0.2, 22]} />
           <meshStandardMaterial
             color={ROMAN_PALETTE.roadKerb.color}
             roughness={0.76}
@@ -279,7 +279,7 @@ export const ProcessionAvenue: React.FC = () => {
 
       {/* 3. COLOSSAL FLUTED ROMAN COLONNADE ALONG BOULEVARD */}
       {[-8.5, 8.5].map((cx, ci) =>
-        [-24, -16, -8, 8, 16, 24].map((cz, zi) => (
+        [8, 16].map((cz, zi) => (
           <group key={`col-${ci}-${zi}`} position={[cx, 0, cz]}>
             {/* Square Plinth Base */}
             <mesh castShadow receiveShadow position={[0, 0.25, 0]}>
@@ -316,14 +316,14 @@ export const ProcessionAvenue: React.FC = () => {
 
       {/* 4. MEDITERRANEAN CYPRESS TREES (NATURAL ITALIAN FLORA) */}
       {[-11.5, 11.5].map((px, pi) =>
-        [-20, -10, 10, 20].map((pz, zi) => (
+        [10, 20].map((pz, zi) => (
           <ItalianCypress key={`cypress-${pi}-${zi}`} position={[px, 0, pz]} scale={1.05} />
         ))
       )}
 
       {/* 5. ROMAN STREET BRAZIERS WITH WARM AMBER FLAMES */}
       {[-6.2, 6.2].map((bx, bi) =>
-        [-22, -12, 12, 22].map((bz, zi) => (
+        [2, 12, 18].map((bz, zi) => (
           <StreetBrazier key={`brazier-${bi}-${zi}`} position={[bx, 0, bz]} />
         ))
       )}
@@ -376,20 +376,16 @@ export const ProcessionAvenue: React.FC = () => {
 
       {/* 7. CIVIC FORUM SEATING & PUBLIC GATHERING BENCHES (PHASE 26) */}
       {/* Placed at comfortable radial distances (r ~ 6.5m) facing the central fountain without blocking 4 cardinal avenues */}
-      <RomanBench position={[-4.8, 0, -4.8]} rotationY={Math.PI / 4} />
-      <RomanBench position={[4.8, 0, -4.8]} rotationY={-Math.PI / 4} />
+      <RomanBench position={[-4.8, 0, -1.0]} rotationY={Math.PI / 4} />
+      <RomanBench position={[4.8, 0, -1.0]} rotationY={-Math.PI / 4} />
       <RomanBench position={[-4.8, 0, 4.8]} rotationY={(3 * Math.PI) / 4} />
       <RomanBench position={[4.8, 0, 4.8]} rotationY={(-3 * Math.PI) / 4} />
 
       {/* Colonnade Resting Benches tucked between column bays */}
-      <RomanBench position={[-8.8, 0, -12]} rotationY={Math.PI / 2} />
-      <RomanBench position={[8.8, 0, -12]} rotationY={-Math.PI / 2} />
       <RomanBench position={[-8.8, 0, 12]} rotationY={Math.PI / 2} />
       <RomanBench position={[8.8, 0, 12]} rotationY={-Math.PI / 2} />
 
       {/* Restrained decorative amphorae nestled near column plinths */}
-      <RomanAmphora position={[-8.2, 0, -15.2]} scale={0.85} tone="terracotta" />
-      <RomanAmphora position={[8.2, 0, -15.2]} scale={0.85} tone="sand" />
       <RomanAmphora position={[-8.2, 0, 15.2]} scale={0.85} tone="dark" />
       <RomanAmphora position={[8.2, 0, 15.2]} scale={0.85} tone="terracotta" />
     </group>
