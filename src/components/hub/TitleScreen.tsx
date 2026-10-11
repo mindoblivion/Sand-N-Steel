@@ -23,6 +23,7 @@ interface TitleScreenProps {
   isAppleLoading: boolean;
   onMicrosoftSignIn: () => void;
   isMicrosoftLoading: boolean;
+  onEmailSignIn: () => void;
 }
 
 /** Small CSS-animated Roman vexillum banner for the title screen atmosphere. */
@@ -79,6 +80,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   isAppleLoading,
   onMicrosoftSignIn,
   isMicrosoftLoading,
+  onEmailSignIn,
 }) => {
   // Guards against double-fire if the user clicks multiple controls in quick succession.
   const startedRef = useRef(false);
@@ -183,15 +185,25 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           ))}
         </div>
 
-        {/* "Play as Guest" button — positioned over the baked "PRESS TO START" artwork */}
+        {/* Email/password sign-in button + "Play as Guest" button — stacked over the baked "PRESS TO START" artwork */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-10"
-          style={{ bottom: '14%' }}
+          className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 rounded-2xl bg-neutral-950/80 px-4 py-4 border border-[#8b2a2a]/20"
+          style={{ bottom: '10%' }}
           onClick={(e) => {
             e.stopPropagation();
             startedRef.current = true;
           }}
         >
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playClick();
+              onEmailSignIn();
+            }}
+            className="px-8 py-3 rounded-full font-serif font-bold text-sm uppercase tracking-wider text-amber-50 bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] hover:from-[#5c1010] hover:to-[#7a2020] shadow-[0_0_20px_rgba(107,26,26,0.5)] border border-[#8b2a2a]/60 active:scale-95 transition-all cursor-pointer"
+          >
+            Sign In with Email
+          </button>
           <button
             type="button"
             onClick={handlePlayAsGuest}
