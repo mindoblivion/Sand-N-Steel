@@ -262,7 +262,37 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             </div>
           </button>
 
-          {/* 4. TAUNT CROWD / REST */}
+          {/* 4. DODGE / EVASION STANCE */}
+          <button
+            onClick={() => onExecuteAction('dodge')}
+            disabled={!isPlayerTurn || isExecuting || player.stamina < 12}
+            className={`p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
+              !isPlayerTurn || isExecuting || player.stamina < 12
+                ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
+                : 'bg-gradient-to-br from-teal-950 via-neutral-900 to-emerald-950 border-teal-500 hover:border-teal-300 text-teal-100 shadow-lg'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-serif font-black text-xs sm:text-sm text-teal-200 flex items-center gap-1">
+                <Wind className="w-3.5 h-3.5 text-teal-400" />
+                <span>Dodge</span>
+              </span>
+              <span className="text-[9px] font-mono bg-teal-950/80 border border-teal-700/60 px-1 py-0.2 rounded text-teal-300">
+                12 SP
+              </span>
+            </div>
+
+            <div className="tactic-desc text-[10px] text-neutral-300 font-sans leading-tight mb-1">
+              Enter an evasion stance — 75% chance to evade the next strike.
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-teal-900/40">
+              <span className="text-teal-300 font-bold">75% Evade</span>
+              <span className="text-rose-300 font-bold">−12 SP</span>
+            </div>
+          </button>
+
+          {/* 5. TAUNT CROWD / REST */}
           <button
             onClick={() => onExecuteAction('taunt')}
             disabled={!isPlayerTurn || isExecuting}

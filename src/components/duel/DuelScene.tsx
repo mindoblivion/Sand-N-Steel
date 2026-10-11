@@ -266,6 +266,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       const attacker = isActorPlayer ? player : opp;
       const defender = isActorPlayer ? opp : player;
 
+      // Taking a new action ends any lingering dodge invulnerability from a
+      // previous turn. The dodge stance persists across the turn boundary
+      // (see the reset below) so the opposing attack can interact with it;
+      // it is consumed here when the fighter acts again. Returning the same
+      // reference when nothing changes lets React bail out of a re-render.
+      if (isActorPlayer) {
+        setPlayer((prev) => (prev.isInvulnerable ? { ...prev, isInvulnerable: false } : prev));
+      } else {
+        setOpp((prev) => (prev.isInvulnerable ? { ...prev, isInvulnerable: false } : prev));
+      }
+
       const dist = Math.abs(player.position[2] - opp.position[2]);
       const weaponType = attacker.loadout.weapon.type || 'sword_shield';
       const effectiveRange = weaponType === 'spear' ? 3.8 : 2.5;
@@ -421,7 +432,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             : Math.max(35, Math.min(80, Math.round(60 + attacker.stats.agility * 1.2 - defender.stats.agility * 1.2)));
 
           const roll = Math.random() * 100;
-          const isEvaded = defender.action === 'dodge' && Math.random() < 0.75;
+          // A dodge sets isInvulnerable; the stance persists across the turn
+          // boundary (it is NOT cleared in the end-of-turn reset) so the
+          // attacker's strike can be evaded. Reading action === 'dodge' here
+          // would always be false — the dodger's action is reset to 'idle'
+          // before the opposing turn begins.
+          const isEvaded = defender.isInvulnerable && Math.random() < 0.75;
 
           if (isEvaded) {
             sounds.playDodge();
@@ -507,14 +523,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             action: 'idle',
             isBlocking: false,
-            isInvulnerable: false,
+            // isInvulnerable is intentionally NOT cleared here: a dodge stance
+            // must survive into the opponent's turn so the incoming strike can
+            // be evaded. It is consumed when the fighter next acts (pre-clear
+            // at the top of executeCombatTurn). isBlocking is unchanged.
           }));
         } else {
           setOpp((prev) => ({
             ...prev,
             action: 'idle',
             isBlocking: false,
-            isInvulnerable: false,
           }));
         }
 
@@ -563,10 +581,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // Player low HP: Finish with Quick Attack
           chosenAction = Math.random() < 0.7 ? 'quick_attack' : 'power_attack';
         } else {
-          // Standard combat balance
+          // Standard combat balance. A small chance to take a preventive
+          // evasion stance against the player's likely next strike — only in
+          // strike range, with stamina to spare, and never against a blocking
+          // player (no incoming attack to evade). The alternating turn model
+          // means the AI cannot react to a specific player attack (the
+          // player's action is already reset to idle by the time the AI
+          // chooses), so this is a low-probability preventive dodge, not a
+          // reaction. 10% keeps it from becoming a repetitive loop.
           const r = Math.random();
-          if (r < 0.52) chosenAction = 'quick_attack';
-          else if (r < 0.80) chosenAction = 'power_attack';
+          if (r < 0.10) chosenAction = 'dodge';
+          else if (r < 0.56) chosenAction = 'quick_attack';
+          else if (r < 0.82) chosenAction = 'power_attack';
           else chosenAction = 'shield_block';
         }
       }
