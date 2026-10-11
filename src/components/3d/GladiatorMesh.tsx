@@ -474,7 +474,7 @@ const RomanWarriorGLB: React.FC<{
     let rHand: THREE.Object3D | null = null;
     let lHand: THREE.Object3D | null = null;
     clone.traverse((obj) => {
-      if (obj.isBone) {
+      if (obj.type === 'Bone') {
         const name = obj.name.toLowerCase();
         if ((name.includes('hand') || name.includes('wrist')) && (name.includes('r') || name.includes('right'))) {
           rHand = obj;
