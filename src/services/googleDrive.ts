@@ -101,6 +101,15 @@ export async function saveProfileToDrive(
         409
       );
     }
+  } else if (options?.confirmedReplaceFileId) {
+    // The user confirmed replacing a specific file, but the fresh lookup
+    // found no matching save. Don't silently create a new file — the user
+    // authorized a replacement, not a new save. Raise a conflict so the
+    // user can review the refreshed list and decide how to proceed.
+    throw new DriveApiError(
+      'The cloud save you confirmed to replace is no longer available on your Google Drive. Refresh your save list and try again.',
+      409
+    );
   }
 
   const metadata = {
