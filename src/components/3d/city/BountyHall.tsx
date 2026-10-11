@@ -9,6 +9,7 @@ import {
   WallCornice,
 } from './ClassicalArchitecture';
 import { TimberCrate, WineBarrel } from './CivicFurnishingProps';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
 export const BountyHall: React.FC = () => {
   return (
@@ -26,7 +27,7 @@ export const BountyHall: React.FC = () => {
       {/* Rough Pine Timber Walls */}
       <mesh castShadow receiveShadow position={[0, 2.1, 0]}>
         <boxGeometry args={[6.0, 3.0, 5.0]} />
-        <meshStandardMaterial color="#854d0e" roughness={0.7} />
+        <meshStandardMaterial color="#854d0e" roughness={0.7} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Heavy Timber Corner Quoins */}
