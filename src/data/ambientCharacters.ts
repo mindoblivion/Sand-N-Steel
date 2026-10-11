@@ -1,7 +1,7 @@
-import { FighterState } from '../types/game';
+import { CharacterModelType, FighterState } from '../types/game';
 
 // Minimal FighterState for ambient, static characters
-const createAmbientFighter = (id: string, name: string, model: string, pos: [number, number, number], rotY: number): FighterState => ({
+const createAmbientFighter = (id: string, name: string, model: CharacterModelType, pos: [number, number, number], rotY: number): FighterState => ({
   id,
   name,
   title: 'Ambient',
@@ -19,16 +19,11 @@ const createAmbientFighter = (id: string, name: string, model: string, pos: [num
     strength: 1,
     agility: 1,
     staminaMax: 1,
+    staminaRegen: 0,
+    defense: 0,
     healthMax: 1,
-    initiative: 1,
-    armorRating: 0,
-    meleeAttack: 0,
-    rangedAttack: 0,
-    dodgeChance: 0,
-    blockChance: 0,
-    critChance: 0,
   },
-  loadout: { weapon: { id: 'none', name: 'None', type: 'sword_shield', damageLight: 0, damageHeavy: 0, critChance: 0, critMultiplier: 1, range: 0, price: 0, description: '' } },
+  loadout: { weapon: { id: 'none', name: 'None', type: 'sword_shield', rarity: 'common', description: '', damageLight: 0, damageHeavy: 0, staminaLight: 0, staminaHeavy: 0, range: 0, speed: 0, blockReduction: 0, price: 0, sellPrice: 0, color: '#9ca3af', metalColor: '#d1d5db', icon: 'Circle' } },
   comboCount: 0,
   skinColor: '#d2b48c',
   hairColor: '#4b3621',
