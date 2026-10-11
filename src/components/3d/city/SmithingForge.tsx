@@ -10,6 +10,7 @@ import {
 } from './ClassicalArchitecture';
 import { TimberCrate, WineBarrel } from './CivicFurnishingProps';
 import { ForgeSmoke } from './EnvironmentalMotion';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
 export const SmithingForge: React.FC = () => {
   return (
@@ -20,7 +21,7 @@ export const SmithingForge: React.FC = () => {
       {/* 1. MAIN ROMAN BRICK FORGE WORKSHOP BUILDING */}
       <mesh castShadow receiveShadow position={[0, 2.8, 0]}>
         <boxGeometry args={[9.5, 5.6, 7.5]} />
-        <meshStandardMaterial color="#854d0e" roughness={0.75} />
+        <meshStandardMaterial color="#854d0e" roughness={0.75} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Heavy Rusticated Corner Quoins */}
