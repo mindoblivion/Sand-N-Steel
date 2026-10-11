@@ -63,7 +63,7 @@ export const PublicBathhouse: React.FC = () => {
         {/* Shimmering pool water */}
         <mesh position={[0, 0.42, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[2.2, 1.7]} />
-          <meshStandardMaterial color="#0ea5e9" metalness={0.7} roughness={0.1} opacity={0.8} />
+          <meshStandardMaterial color="#0ea5e9" metalness={0.7} roughness={0.1} opacity={0.8} transparent />
         </mesh>
         {/* Steam visual cues */}
         <SteamParticles position={[0, 0.8, 0]} />
