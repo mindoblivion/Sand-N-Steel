@@ -9,6 +9,7 @@ import {
   CornerQuoins,
   WallCornice,
 } from './ClassicalArchitecture';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
 export const MerchantHouse: React.FC = () => {
   return (
@@ -20,7 +21,7 @@ export const MerchantHouse: React.FC = () => {
       {/* Ground Floor (Travertine Stone) */}
       <mesh castShadow receiveShadow position={[0, 1.6, 0]}>
         <boxGeometry args={[7.2, 3.2, 6.5]} />
-        <meshStandardMaterial color="#ebdcb9" roughness={0.6} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.6} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Ground Floor Corner Quoins */}
@@ -32,7 +33,7 @@ export const MerchantHouse: React.FC = () => {
       {/* Second Floor (Lighter Stucco Plaster) */}
       <mesh castShadow receiveShadow position={[0, 4.3, 0]}>
         <boxGeometry args={[6.8, 2.2, 6.1]} />
-        <meshStandardMaterial color="#f5ede0" roughness={0.5} />
+        <meshStandardMaterial color="#f5ede0" roughness={0.5} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Upper Floor Windows */}
