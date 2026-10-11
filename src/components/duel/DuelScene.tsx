@@ -35,7 +35,6 @@ interface DuelSceneProps {
   onToggleMute: () => void;
   isMuted: boolean;
   isLeftyMode?: boolean;
-  onToggleLeftyMode?: () => void;
   onOpenSettings?: () => void;
 }
 
@@ -117,7 +116,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   onToggleMute,
   isMuted,
   isLeftyMode = false,
-  onToggleLeftyMode,
   onOpenSettings,
 }) => {
   const pStats = calculateTotalStats(playerProfile);
@@ -676,8 +674,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             prev === 'cinematic' ? 'over_shoulder' : prev === 'over_shoulder' ? 'isometric' : 'cinematic'
           )
         }
-        isLeftyMode={isLeftyMode}
-        onToggleLeftyMode={onToggleLeftyMode}
         onOpenSettings={onOpenSettings}
         distance={currentDistance}
         isPlayerTurn={isPlayerTurn}

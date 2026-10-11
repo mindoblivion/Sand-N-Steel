@@ -16,8 +16,6 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
   const [skinColor, setSkinColor] = useState('#c68b59');
   const [tunicColor, setTunicColor] = useState('#854d0e');
   const [crestColor, setCrestColor] = useState('#dc2626');
-  const [isLeftyMode, setIsLeftyMode] = useState(false);
-
   // 10 Starting Attribute Points
   const [pointsLeft, setPointsLeft] = useState(10);
   const [strength, setStrength] = useState(10);
@@ -87,7 +85,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
       fightsWon: 0,
       fightsLost: 0,
       peakCrowdHypeOverall: 0,
-      isLeftyMode: isLeftyMode,
+      isLeftyMode: false,
     };
     onComplete(newProf);
   };
@@ -112,9 +110,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto w-full my-auto">
         {/* 3D CHARACTER PREVIEW */}
         <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[360px] shadow-2xl relative overflow-hidden">
-          <GladiatorPreview appearance={appearance} isLeftyMode={isLeftyMode} />
+          <GladiatorPreview appearance={appearance} />
           <div className="absolute bottom-4 left-4 bg-neutral-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-mono text-amber-300">
-            {characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Custom Gladiator'} • {isLeftyMode ? 'Lefty Stance' : 'Righty Stance'}
+            {characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Custom Gladiator'}
           </div>
         </div>
 
@@ -134,36 +132,6 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
             />
           </div>
 
-          {/* COMBAT STANCE / HANDEDNESS */}
-          <div>
-            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-              Combat Handedness (Stance)
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setIsLeftyMode(false)}
-                className={`py-2 px-3 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  !isLeftyMode
-                    ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-md'
-                    : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-amber-600/50'
-                }`}
-              >
-                ⚔️ Righty (Default)
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsLeftyMode(true)}
-                className={`py-2 px-3 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  isLeftyMode
-                    ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-md'
-                    : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-amber-600/50'
-                }`}
-              >
-                🗡️ Lefty Mode
-              </button>
-            </div>
-          </div>
           <div>
             <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
               Character Archetype

@@ -58,7 +58,6 @@ import {
   BarChart2,
   Beer,
   Home,
-  Shield,
   Coins,
   Trophy,
   Volume2,
@@ -83,7 +82,6 @@ interface CityHubSceneProps {
   isMuted: boolean;
   onReturnToMainMenu: () => void;
   isLeftyMode: boolean;
-  onToggleLeftyMode: () => void;
   onOpenSettings?: () => void;
 }
 
@@ -97,7 +95,6 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   isMuted,
   onReturnToMainMenu,
   isLeftyMode,
-  onToggleLeftyMode,
   onOpenSettings,
 }) => {
   // Spawn gracefully in front of the Monumental Town Gate on the open avenue
@@ -552,21 +549,6 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             </div>
           </div>
 
-          {/* SWITCHABLE LEFTY MODE BUTTON */}
-          <button
-            onClick={onToggleLeftyMode}
-            className={`px-3 py-2 rounded-2xl border backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all flex items-center gap-1.5 text-xs font-serif font-bold ${
-              isLeftyMode
-                ? 'bg-amber-600/90 border-amber-300 text-neutral-950 shadow-[0_0_15px_rgba(245,158,11,0.5)]'
-                : 'bg-neutral-950/85 border-amber-600/50 text-amber-300 hover:text-amber-100'
-            }`}
-            title={isLeftyMode ? 'Lefty Mode: ON (Weapon in Left Hand, Shield in Right)' : 'Lefty Mode: OFF (Weapon in Right Hand, Shield in Left)'}
-          >
-            <Shield className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{isLeftyMode ? 'Lefty Mode: ON' : 'Lefty Mode: OFF'}</span>
-            <span className="sm:hidden">{isLeftyMode ? 'Lefty' : 'Righty'}</span>
-          </button>
-
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
@@ -753,31 +735,6 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 className="p-1 rounded-lg text-neutral-400 hover:text-amber-200 cursor-pointer"
               >
                 ✕
-              </button>
-            </div>
-
-            {/* HANDEDNESS SETTING (LEFTY MODE) */}
-            <div className="mb-3 p-3 rounded-2xl bg-neutral-950/90 border border-amber-600/40 flex items-center justify-between">
-              <div>
-                <div className="font-serif font-bold text-xs sm:text-sm text-amber-100 flex items-center gap-1.5">
-                  <Shield className="w-4 h-4 text-amber-400" />
-                  <span>Lefty Mode</span>
-                </div>
-                <div className="text-[10px] text-neutral-400 font-sans">
-                  {isLeftyMode
-                    ? 'Left Hand: Weapon • Right Hand: Shield'
-                    : 'Right Hand: Weapon • Left Hand: Shield (Default)'}
-                </div>
-              </div>
-              <button
-                onClick={onToggleLeftyMode}
-                className={`px-3 py-1.5 rounded-xl font-serif text-xs font-bold transition-all cursor-pointer ${
-                  isLeftyMode
-                    ? 'bg-amber-500 text-neutral-950 shadow-[0_0_12px_rgba(245,158,11,0.6)]'
-                    : 'bg-neutral-800 text-neutral-300 hover:text-amber-200 border border-neutral-700'
-                }`}
-              >
-                {isLeftyMode ? 'ON' : 'OFF'}
               </button>
             </div>
 

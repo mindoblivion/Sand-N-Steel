@@ -68,11 +68,6 @@ export const CharacterTestHarness: React.FC = () => {
     setIsMuted(muted);
   };
 
-  const handleToggleLeftyMode = () => {
-    sounds.playClick();
-    setIsLeftyMode((v) => !v);
-  };
-
   const handleCharacterCreated = (newProfile: PlayerProfile) => {
     sounds.playClick();
     setProfile(newProfile);
@@ -119,7 +114,6 @@ export const CharacterTestHarness: React.FC = () => {
             <div className="font-mono text-xs text-amber-100 flex flex-col gap-1.5">
               <Row label="Name" value={profile.name} />
               <Row label="Model" value={profile.appearance.characterModel ?? '—'} testId="harness-profile-model" />
-              <Row label="Stance" value={isLeftyMode ? 'Lefty' : 'Righty'} testId="harness-profile-stance" />
               <Row label="Strength" value={String(profile.baseStats.strength)} />
               <Row label="Agility" value={String(profile.baseStats.agility)} />
               <Row label="Stamina" value={String(profile.baseStats.stamina)} />
@@ -159,7 +153,6 @@ export const CharacterTestHarness: React.FC = () => {
               onToggleMute={handleToggleMute}
               isMuted={isMuted}
               isLeftyMode={isLeftyMode}
-              onToggleLeftyMode={handleToggleLeftyMode}
               onOpenSettings={() => {}}
             />
           </Suspense>

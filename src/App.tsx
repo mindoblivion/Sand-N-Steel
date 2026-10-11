@@ -286,7 +286,6 @@ export function App() {
             isMuted={isMuted}
             onReturnToMainMenu={() => setCurrentScreen('title')}
             isLeftyMode={isLeftyMode}
-            onToggleLeftyMode={handleToggleLeftyMode}
             onOpenSettings={() => setShowSettingsModal(true)}
             />
           </React.Suspense>
@@ -323,7 +322,6 @@ export function App() {
             onToggleMute={handleToggleMute}
             isMuted={isMuted}
             isLeftyMode={isLeftyMode}
-            onToggleLeftyMode={handleToggleLeftyMode}
             onOpenSettings={() => setShowSettingsModal(true)}
             />
           </React.Suspense>
