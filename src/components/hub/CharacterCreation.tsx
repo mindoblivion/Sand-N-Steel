@@ -4,25 +4,12 @@ import { GladiatorPreview } from '../3d/GladiatorPreview';
 import { sounds } from '../../audio/soundEffects';
 import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON } from '../../data/itemsDB';
 import { Sparkles, Swords, Shield, Heart, Zap, Check, ArrowLeft } from 'lucide-react';
-import { GoogleSignInButton } from '../ui/GoogleSignInButton';
-import { FacebookSignInButton } from '../ui/FacebookSignInButton';
-import { AppleSignInButton } from '../ui/AppleSignInButton';
-import { MicrosoftSignInButton } from '../ui/MicrosoftSignInButton';
-
 interface CharacterCreationProps {
   onComplete: (profile: PlayerProfile) => void;
   onCancel: () => void;
-  onGoogleSignIn: () => void;
-  isGoogleLoading: boolean;
-  onFacebookSignIn: () => void;
-  isFacebookLoading: boolean;
-  onAppleSignIn: () => void;
-  isAppleLoading: boolean;
-  onMicrosoftSignIn: () => void;
-  isMicrosoftLoading: boolean;
 }
 
-export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, onFacebookSignIn, isFacebookLoading, onAppleSignIn, isAppleLoading, onMicrosoftSignIn, isMicrosoftLoading }) => {
+export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel }) => {
   const [name, setName] = useState('Spartacus');
   const [characterModel, setCharacterModel] = useState<'roman_warrior' | 'procedural_gladiator' | 'amazonian' | 'retiarius' | 'minotaur' | 'dimachaerus'>('roman_warrior');
   const [skinColor, setSkinColor] = useState('#c68b59');
@@ -119,29 +106,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         <div className="w-12"></div>
       </div>
 
-      {/* Social sign-in — small icon row pinned near the bottom */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-row items-center gap-3 z-10">
-        <GoogleSignInButton
-          onClick={onGoogleSignIn}
-          isLoading={isGoogleLoading}
-          compact
-        />
-        <FacebookSignInButton
-          onClick={onFacebookSignIn}
-          isLoading={isFacebookLoading}
-          compact
-        />
-        <AppleSignInButton
-          onClick={onAppleSignIn}
-          isLoading={isAppleLoading}
-          compact
-        />
-        <MicrosoftSignInButton
-          onClick={onMicrosoftSignIn}
-          isLoading={isMicrosoftLoading}
-          compact
-        />
-      </div>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto w-full my-auto">
         {/* 3D CHARACTER PREVIEW */}

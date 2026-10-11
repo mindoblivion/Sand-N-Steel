@@ -369,14 +369,6 @@ export function App() {
             <CharacterCreation
             onComplete={handleCharacterCreated}
             onCancel={() => setCurrentScreen('title')}
-            onGoogleSignIn={handleGoogleSignIn}
-            isGoogleLoading={isGoogleLoading}
-            onFacebookSignIn={handleFacebookSignIn}
-            isFacebookLoading={isFacebookLoading}
-            onAppleSignIn={handleAppleSignIn}
-            isAppleLoading={isAppleLoading}
-            onMicrosoftSignIn={handleMicrosoftSignIn}
-            isMicrosoftLoading={isMicrosoftLoading}
             />
         )}
 

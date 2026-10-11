@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { PlayerProfile } from '../../types/game';
 import { sounds } from '../../audio/soundEffects';
 import { preloadCoreGameAssets } from '../../utils/preloadAssets';
@@ -80,22 +80,14 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onMicrosoftSignIn,
   isMicrosoftLoading,
 }) => {
-  const [hasStarted, setHasStarted] = useState(false);
-
-  // One tap reaches this screen twice: React's onClick on the root element, then the
-  // window-level listener below (window is the last stop of the click's bubble). That
-  // listener is registered once, so it also closes over whatever `savedProfile` was at
-  // mount — null, since App loads the save in its own mount effect. A returning player's
-  // tap therefore continued the save *and* started a new character, the stale
-  // "new character" call landing last. The ref lets only the first (React, current
-  // props) call through.
+  // Guards against double-fire if the user clicks multiple controls in quick succession.
   const startedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleStart = async () => {
+  const handlePlayAsGuest = async () => {
     if (startedRef.current) return;
     startedRef.current = true;
-    
+
     // Attempt fullscreen. Orientation is left to the device's own controls.
     try {
       if (document.documentElement.requestFullscreen) {
@@ -107,28 +99,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
     sounds.playClick();
     preloadCoreGameAssets();
-    setHasStarted(true);
-    
-    // Proceed into game
+
     if (savedProfile) onContinueAdventure();
     else onNewCharacter();
   };
-
-  useEffect(() => {
-    const handleInput = (e: KeyboardEvent | MouseEvent | TouchEvent) => {
-        if (!hasStarted && (e.type === 'click' || e.type === 'touchstart' || (e instanceof KeyboardEvent && (e.key === 'Enter' || e.key === ' ')))) {
-            handleStart();
-        }
-    };
-    window.addEventListener('click', handleInput);
-    window.addEventListener('keydown', handleInput);
-    window.addEventListener('touchstart', handleInput);
-    return () => {
-        window.removeEventListener('click', handleInput);
-        window.removeEventListener('keydown', handleInput);
-        window.removeEventListener('touchstart', handleInput);
-    };
-  }, [hasStarted, savedProfile]);
 
   // Pause CSS animations when the tab is hidden; resume when visible.
   useEffect(() => {
@@ -144,8 +118,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   return (
     <div
       ref={containerRef}
-      onClick={handleStart}
-      className="relative w-full h-full min-h-screen flex flex-col items-center justify-center overflow-hidden cursor-pointer"
+      className="relative w-full h-full min-h-screen flex flex-col items-center justify-center overflow-hidden"
       style={{
         backgroundImage: 'url(/title_screen.png)',
         backgroundSize: 'cover',
@@ -153,8 +126,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         backgroundRepeat: 'no-repeat',
       }}
     >
-        {/* The artwork contains "SAND & STEEL" and "PRESS TO START" */}
-        <div className="absolute inset-0 bg-black/20 hover:bg-black/10 transition-colors duration-500"></div>
+        {/* Subtle darkening for readability */}
+        <div className="absolute inset-0 bg-black/20"></div>
 
         {/* ── Path A atmospheric overlays (pointer-events: none, CSS-only) ── */}
 
@@ -210,31 +183,43 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           ))}
         </div>
 
-        {/* Social sign-in buttons — stopPropagation so they don't trigger the tap-to-start handler */}
+        {/* Bottom controls — "Play as Guest" button + social sign-in icons */}
         <div
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-row items-center gap-3"
-          onClick={(e) => e.stopPropagation()}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3"
+          onClick={(e) => {
+            e.stopPropagation();
+            startedRef.current = true;
+          }}
         >
-          <GoogleSignInButton
-            onClick={onGoogleSignIn}
-            isLoading={isGoogleLoading}
-            compact
-          />
-          <FacebookSignInButton
-            onClick={onFacebookSignIn}
-            isLoading={isFacebookLoading}
-            compact
-          />
-          <AppleSignInButton
-            onClick={onAppleSignIn}
-            isLoading={isAppleLoading}
-            compact
-          />
-          <MicrosoftSignInButton
-            onClick={onMicrosoftSignIn}
-            isLoading={isMicrosoftLoading}
-            compact
-          />
+          <button
+            type="button"
+            onClick={handlePlayAsGuest}
+            className="px-8 py-3 rounded-full font-serif font-bold text-sm uppercase tracking-wider text-neutral-950 bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 shadow-[0_0_20px_rgba(245,158,11,0.4)] border border-amber-300/50 active:scale-95 transition-all cursor-pointer"
+          >
+            Play as Guest
+          </button>
+          <div className="flex flex-row items-center gap-3">
+            <GoogleSignInButton
+              onClick={onGoogleSignIn}
+              isLoading={isGoogleLoading}
+              compact
+            />
+            <FacebookSignInButton
+              onClick={onFacebookSignIn}
+              isLoading={isFacebookLoading}
+              compact
+            />
+            <AppleSignInButton
+              onClick={onAppleSignIn}
+              isLoading={isAppleLoading}
+              compact
+            />
+            <MicrosoftSignInButton
+              onClick={onMicrosoftSignIn}
+              isLoading={isMicrosoftLoading}
+              compact
+            />
+          </div>
         </div>
     </div>
   );
