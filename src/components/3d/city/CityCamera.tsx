@@ -29,6 +29,10 @@ export const CityCamera: React.FC<CityCameraProps> = ({
   );
   const currentCamYaw = useRef<number>(targetRotationY);
 
+  // Phase 2B.60: Reusable vectors to avoid per-frame allocations inside useFrame.
+  const desiredCamPosRef = useRef(new THREE.Vector3());
+  const targetPointRef = useRef(new THREE.Vector3());
+
   useFrame((_, delta) => {
     const pX = targetPosition[0];
     const pY = targetPosition[1];
@@ -61,7 +65,7 @@ export const CityCamera: React.FC<CityCameraProps> = ({
     const desiredZ = pZ - Math.cos(currentCamYaw.current) * currentDistance;
     const desiredY = pY + currentHeight;
 
-    const desiredCamPos = new THREE.Vector3(desiredX, desiredY, desiredZ);
+    const desiredCamPos = desiredCamPosRef.current.set(desiredX, desiredY, desiredZ);
 
     // Smooth camera position lerp
     camera.position.lerp(desiredCamPos, Math.min(1, delta * 7.5));
@@ -69,7 +73,7 @@ export const CityCamera: React.FC<CityCameraProps> = ({
     // Target look-at: player chest and upper body with forward horizon focus
     const forwardOffsetX = Math.sin(currentCamYaw.current) * 2.2;
     const forwardOffsetZ = Math.cos(currentCamYaw.current) * 2.2;
-    const targetPoint = new THREE.Vector3(
+    const targetPoint = targetPointRef.current.set(
       pX + forwardOffsetX * 0.3,
       pY + 1.5,
       pZ + forwardOffsetZ * 0.3
