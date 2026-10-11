@@ -185,14 +185,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           ))}
         </div>
 
-        {/* Email/password sign-in button + "Play as Guest" button — stacked over the baked "PRESS TO START" artwork */}
+        {/* "Sign In with Email" button — its own maroon panel */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 rounded-2xl bg-neutral-950/80 px-4 py-4 border border-[#8b2a2a]/20"
-          style={{ bottom: '10%' }}
-          onClick={(e) => {
-            e.stopPropagation();
-            startedRef.current = true;
-          }}
+          className="absolute left-1/2 -translate-x-1/2 z-10 flex items-center justify-center rounded-2xl bg-neutral-950/85 px-6 py-1 border border-[#8b2a2a]/20"
+          style={{ bottom: '17%' }}
         >
           <button
             type="button"
@@ -204,6 +200,17 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           >
             Sign In with Email
           </button>
+        </div>
+
+        {/* "Play as Guest" button — standalone maroon pill, positioned over the baked "PRESS TO START" artwork */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-10 flex items-center justify-center rounded-2xl bg-neutral-950/85 px-6 py-1 border border-[#8b2a2a]/20"
+          style={{ bottom: '9%' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            startedRef.current = true;
+          }}
+        >
           <button
             type="button"
             onClick={handlePlayAsGuest}
