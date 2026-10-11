@@ -327,6 +327,11 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </button>
         </div>
 
+        {/* Version label */}
+        <div className="absolute bottom-2 left-2 z-10 font-serif text-[10px] text-amber-200/40 tracking-wider pointer-events-none select-none">
+          Alpha 1.0
+        </div>
+
         {/* Social sign-in icons — stay at bottom */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-row items-center gap-3">
           <GoogleSignInButton
