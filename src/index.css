@@ -137,3 +137,60 @@ canvas {
   touch-action: none;
   outline: none;
 }
+
+/* ── Title Screen Atmospheric Animations (Path A) ──
+   CSS-only overlays: fluttering flags, warm light pulse, drifting dust.
+   No WebGL, no external deps, no image assets. All layers are pointer-events:none
+   and visually secondary to the baked title artwork and sign-in controls. */
+
+/* Flag flutter — gentle skew + slight vertical scale, varied per-flag via --flag-dur */
+@keyframes title-flag-flutter {
+  0%, 100% { transform: skewX(0deg) scaleY(1); }
+  25%      { transform: skewX(1.5deg) scaleY(0.985); }
+  50%      { transform: skewX(-1deg) scaleY(1); }
+  75%      { transform: skewX(0.8deg) scaleY(0.99); }
+}
+
+.title-flag {
+  animation: title-flag-flutter var(--flag-dur, 6s) ease-in-out infinite;
+  transform-origin: top center;
+}
+
+/* Warm light pulse — subtle radial glow oscillation from the upper sky area */
+@keyframes title-warm-pulse {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 0.14; }
+}
+
+.title-warm-light {
+  animation: title-warm-pulse 8s ease-in-out infinite;
+}
+
+/* Dust drift — slow upward drift with crosswind and fade */
+@keyframes title-dust-drift {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  15%  { opacity: var(--dust-opacity, 0.3); }
+  85%  { opacity: var(--dust-opacity, 0.3); }
+  100% { transform: translate(var(--dx, 10px), var(--dy, -60px)); opacity: 0; }
+}
+
+.title-dust {
+  animation: title-dust-drift var(--dust-dur, 12s) linear infinite;
+  animation-delay: var(--dust-delay, 0s);
+}
+
+/* Pause all title animations when the tab is hidden */
+.title-anim-paused .title-flag,
+.title-anim-paused .title-warm-light,
+.title-anim-paused .title-dust {
+  animation-play-state: paused;
+}
+
+/* Respect reduced motion — disable nonessential animation entirely */
+@media (prefers-reduced-motion: reduce) {
+  .title-flag,
+  .title-warm-light,
+  .title-dust {
+    animation: none;
+  }
+}
