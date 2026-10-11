@@ -85,13 +85,11 @@ export function useGlbAvailability(url: string): boolean {
   return isAvailable;
 }
 
-// Preload the gladiator model assets safely
+// Preload the default gladiator model only. The four alternative character
+// models (amazonian, netfighter, minotaur, dimachaerus) load on demand via
+// useGLTF(modelUrl) inside RomanWarriorGLB when their archetype is selected.
 try {
   useGLTF.preload('/models/arena_roman.glb');
-  useGLTF.preload('/models/amazonian.glb');
-  useGLTF.preload('/models/netfighter.glb');
-  useGLTF.preload('/models/minotaur.glb');
-  useGLTF.preload('/models/dimachaerus.glb');
 } catch (e) {
   // Silent fallback
 }
@@ -1363,6 +1361,10 @@ export const GladiatorMesh: React.FC<GladiatorMeshProps> = ({
     : '/models/arena_roman.glb';
   const isGlbAvailable = useGlbAvailability(modelUrl);
   const [loadFailed, setLoadFailed] = useState(false);
+
+  // Reset the failure flag when the model URL changes so a failed model
+  // does not force a different valid model onto the procedural fallback.
+  useEffect(() => { setLoadFailed(false); }, [modelUrl]);
 
   const effectiveLefty = isLeftyMode !== undefined ? isLeftyMode : fighter.isLeftyMode;
 

@@ -4,12 +4,11 @@ import { useGLTF } from '@react-three/drei';
  * Core 3D Model Asset Registry
  * Central registry for all key 3D glTF/GLB models used across the Sand & Steel Gladiator RPG.
  */
+// Only the default character model is preloaded at startup. The four
+// alternative character models (amazonian, netfighter, minotaur, dimachaerus)
+// load on demand via useGLTF(modelUrl) when their archetype is selected.
 export const CORE_3D_ASSETS = [
   '/models/arena_roman.glb',
-  '/models/amazonian.glb',
-  '/models/netfighter.glb',
-  '/models/minotaur.glb',
-  '/models/dimachaerus.glb',
 ] as const;
 
 export type Core3DAssetPath = typeof CORE_3D_ASSETS[number];

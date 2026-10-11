@@ -100,7 +100,7 @@ export const CharacterTestHarness: React.FC = () => {
         <div className="pt-7 h-full">
           <CharacterCreation
             onComplete={handleCharacterCreated}
-            onCancel={() => { /* no title to return to; reset in-memory state */ setProfile(null); }}
+            onCancel={() => { /* Exit the dev harness by loading the normal app without the query param. */ window.location.href = '/'; }}
           />
         </div>
       )}
