@@ -442,6 +442,13 @@ export function resolveActionClip(action: FighterAction, clipNames: readonly str
   return fallback;
 }
 
+// Phase 2B.58: Pre-allocated hit-flash colors. Module-level so every
+// GladiatorMesh instance shares the same immutable Color objects instead
+// of allocating a new THREE.Color every frame per mesh. These are never
+// mutated — the hit-flash logic only assigns them to material.emissive.
+const HIT_FLASH_COLOR = new THREE.Color('#ff0000');
+const HIT_FLASH_RESET_COLOR = new THREE.Color('#000000');
+
 /**
  * 1. High-Detail Rigged GLB Model Loader with Bone-Attached Equipment
  */
@@ -461,6 +468,7 @@ const RomanWarriorGLB: React.FC<{
   const groupRef = useRef<THREE.Group>(null);
   const currentActionName = useRef<string>('');
   const flashTimerRef = useRef(0);
+  const wasFlashActiveRef = useRef<boolean | null>(null);
   const lastActionRef = useRef<string>('');
   const shieldGroupRef = useRef<THREE.Group>(null);
   const shieldStrengthRef = useRef(0);
@@ -565,15 +573,24 @@ const RomanWarriorGLB: React.FC<{
     }
 
     const isHit = flashTimerRef.current > 0;
-    clonedScene.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
-        if (mat) {
-          mat.emissive = isHit ? new THREE.Color('#ff0000') : new THREE.Color('#000000');
-          mat.emissiveIntensity = isHit ? 0.8 : 0;
+    // Phase 2B.58: only traverse and update emissive materials when the flash
+    // state *changes* (activates, expires, or first-frame init), not every
+    // frame. The emissive color is constant while the flash is active, so
+    // re-setting it each frame was wasted work; while inactive the materials
+    // are already at their resting values. Pre-allocated Color instances
+    // replace the per-frame new THREE.Color allocations.
+    if (isHit !== wasFlashActiveRef.current) {
+      wasFlashActiveRef.current = isHit;
+      clonedScene.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          if (mat) {
+            mat.emissive = isHit ? HIT_FLASH_COLOR : HIT_FLASH_RESET_COLOR;
+            mat.emissiveIntensity = isHit ? 0.8 : 0;
+          }
         }
-      }
-    });
+      });
+    }
 
     // --- Phase 111: Shield orientation constraint (disabled by default) ---
     // After the AnimationMixer has updated bone transforms (drei's
