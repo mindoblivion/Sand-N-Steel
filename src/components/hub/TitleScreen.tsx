@@ -183,9 +183,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           ))}
         </div>
 
-        {/* Bottom controls — "Play as Guest" button + social sign-in icons */}
+        {/* "Play as Guest" button — positioned over the baked "PRESS TO START" artwork */}
         <div
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3"
+          className="absolute left-1/2 -translate-x-1/2 z-10"
+          style={{ bottom: '14%' }}
           onClick={(e) => {
             e.stopPropagation();
             startedRef.current = true;
@@ -194,32 +195,34 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <button
             type="button"
             onClick={handlePlayAsGuest}
-            className="px-8 py-3 rounded-full font-serif font-bold text-sm uppercase tracking-wider text-neutral-950 bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 shadow-[0_0_20px_rgba(245,158,11,0.4)] border border-amber-300/50 active:scale-95 transition-all cursor-pointer"
+            className="px-8 py-3 rounded-full font-serif font-bold text-sm uppercase tracking-wider text-amber-50 bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] hover:from-[#5c1010] hover:to-[#7a2020] shadow-[0_0_20px_rgba(107,26,26,0.5)] border border-[#8b2a2a]/60 active:scale-95 transition-all cursor-pointer"
           >
             Play as Guest
           </button>
-          <div className="flex flex-row items-center gap-3">
-            <GoogleSignInButton
-              onClick={onGoogleSignIn}
-              isLoading={isGoogleLoading}
-              compact
-            />
-            <FacebookSignInButton
-              onClick={onFacebookSignIn}
-              isLoading={isFacebookLoading}
-              compact
-            />
-            <AppleSignInButton
-              onClick={onAppleSignIn}
-              isLoading={isAppleLoading}
-              compact
-            />
-            <MicrosoftSignInButton
-              onClick={onMicrosoftSignIn}
-              isLoading={isMicrosoftLoading}
-              compact
-            />
-          </div>
+        </div>
+
+        {/* Social sign-in icons — stay at bottom */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-row items-center gap-3">
+          <GoogleSignInButton
+            onClick={onGoogleSignIn}
+            isLoading={isGoogleLoading}
+            compact
+          />
+          <FacebookSignInButton
+            onClick={onFacebookSignIn}
+            isLoading={isFacebookLoading}
+            compact
+          />
+          <AppleSignInButton
+            onClick={onAppleSignIn}
+            isLoading={isAppleLoading}
+            compact
+          />
+          <MicrosoftSignInButton
+            onClick={onMicrosoftSignIn}
+            isLoading={isMicrosoftLoading}
+            compact
+          />
         </div>
     </div>
   );
