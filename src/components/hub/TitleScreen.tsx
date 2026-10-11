@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PlayerProfile } from '../../types/game';
 import { sounds } from '../../audio/soundEffects';
 import { preloadCoreGameAssets } from '../../utils/preloadAssets';
+import { GoogleSignInButton } from '../ui/GoogleSignInButton';
 
 interface TitleScreenProps {
   savedProfile: PlayerProfile | null;
@@ -11,6 +12,8 @@ interface TitleScreenProps {
   onToggleMute: () => void;
   isMuted: boolean;
   onOpenSettings?: () => void;
+  onGoogleSignIn: () => void;
+  isGoogleLoading: boolean;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
@@ -21,6 +24,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onToggleMute,
   isMuted,
   onOpenSettings,
+  onGoogleSignIn,
+  isGoogleLoading,
 }) => {
   const [hasStarted, setHasStarted] = useState(false);
 
@@ -84,6 +89,17 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
     >
         {/* The artwork contains "SAND & STEEL" and "PRESS TO START" */}
         <div className="absolute inset-0 bg-black/20 hover:bg-black/10 transition-colors duration-500"></div>
+
+        {/* Continue with Google — stopPropagation so it doesn't trigger the tap-to-start handler */}
+        <div
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GoogleSignInButton
+            onClick={onGoogleSignIn}
+            isLoading={isGoogleLoading}
+          />
+        </div>
     </div>
   );
 };

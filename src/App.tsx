@@ -10,6 +10,8 @@ import { DuelResultModal } from './components/hub/DuelResultModal';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
 import { AssetLoadingOverlay } from './components/ui/AssetLoadingOverlay';
+import { googleSignIn } from './services/googleAuth';
+import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 // Phase 121: development-only shield diagnostic harness (dead code in `vite build`)
 import { ShieldDiagnostics } from './components/dev/ShieldDiagnostics';
 import { ALL_OPPONENTS } from './data/opponents';
@@ -29,6 +31,7 @@ export function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isMuted, setIsMuted] = useState(sounds.isMuted);
   const [isLeftyMode, setIsLeftyMode] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Load saved profile on boot
   useEffect(() => {
@@ -87,6 +90,32 @@ export function App() {
   const handleNewCharacter = () => {
     sounds.playClick();
     setCurrentScreen('create_character');
+  };
+
+  // "Continue with Google" — sign in, then restore a cloud save if one exists.
+  // Used on both the title (sign-in) and character-creation (register) screens.
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const res = await googleSignIn();
+      if (!res) return;
+
+      const saves = await listDriveSaves();
+      if (saves.length > 0) {
+        const profile = await loadProfileFromDrive(saves[0].id);
+        setProfile(profile);
+        setIsLeftyMode(Boolean(profile.isLeftyMode));
+        saveProfile(profile);
+        setCurrentScreen('city_3d');
+      } else {
+        // No cloud save yet — send the player to create a new gladiator.
+        setCurrentScreen('create_character');
+      }
+    } catch (e) {
+      console.error('[GoogleSignIn] failed:', e);
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   const handleCharacterCreated = (newProfile: PlayerProfile) => {
@@ -264,6 +293,8 @@ export function App() {
                 onToggleMute={handleToggleMute}
                 isMuted={isMuted}
                 onOpenSettings={() => setShowSettingsModal(true)}
+                onGoogleSignIn={handleGoogleSignIn}
+                isGoogleLoading={isGoogleLoading}
             />
         )}
 
@@ -271,6 +302,8 @@ export function App() {
             <CharacterCreation
             onComplete={handleCharacterCreated}
             onCancel={() => setCurrentScreen('title')}
+            onGoogleSignIn={handleGoogleSignIn}
+            isGoogleLoading={isGoogleLoading}
             />
         )}
 
