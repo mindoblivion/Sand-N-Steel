@@ -9,6 +9,7 @@ import {
   WallCornice,
 } from './ClassicalArchitecture';
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
+import { NOISE_TEXTURE } from './RomanMaterials';
 import { SteamParticles } from './EnvironmentalMotion';
 
 export const PublicBathhouse: React.FC = () => {
@@ -21,7 +22,7 @@ export const PublicBathhouse: React.FC = () => {
       {/* Heavy Travertine Foundation and Main Bath Hall */}
       <mesh castShadow receiveShadow position={[0, 1.6, 0]}>
         <boxGeometry args={[7.5, 3.2, 6.5]} />
-        <meshStandardMaterial color="#ebdcb9" roughness={0.5} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.5} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Travertine Corner Quoins */}
