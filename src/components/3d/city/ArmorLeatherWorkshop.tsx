@@ -40,6 +40,8 @@ export const ArmorLeatherWorkshop: React.FC = () => {
             <meshStandardMaterial
               color={ROMAN_PALETTE.romanBrick.color}
               roughness={ROMAN_PALETTE.romanBrick.roughness}
+              bumpMap={NOISE_TEXTURE || undefined}
+              bumpScale={0.015}
             />
           </mesh>
           {/* Stone impost block cap */}
