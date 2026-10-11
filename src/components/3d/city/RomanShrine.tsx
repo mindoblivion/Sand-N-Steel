@@ -5,7 +5,7 @@ import { ClassicalPediment, ClassicalColumn, RomanGabledRoof } from './Classical
 import { NOISE_TEXTURE } from './RomanMaterials';
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 
-export const RomanShrine: React.FC = () => {
+export const RomanShrine = React.memo(() => {
   return (
     <group position={[-27, 0, 11]}>
       {/* 0. STEPPED MARBLE FOUNDATION PLINTH */}
@@ -104,4 +104,4 @@ export const RomanShrine: React.FC = () => {
       <RomanAmphora position={[1.2, 0.5, 0.4]} scale={0.75} tone="sand" />
     </group>
   );
-};
+});
