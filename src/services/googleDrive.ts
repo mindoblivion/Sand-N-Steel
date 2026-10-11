@@ -17,6 +17,15 @@ export interface DriveSaveFile {
 
 const SAVE_FILE_NAME = 'Sand_And_Steel_Gladiator_Save.json';
 
+export class DriveApiError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'DriveApiError';
+    this.status = status;
+  }
+}
+
 /**
  * Lists all game backup files from Google Drive
  */
@@ -35,7 +44,7 @@ export async function listDriveSaves(): Promise<DriveSaveFile[]> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to list Google Drive files: ${errorText}`);
+    throw new DriveApiError(`Failed to list Google Drive files: ${errorText}`, response.status);
   }
 
   const data = await response.json();
@@ -117,7 +126,7 @@ export async function saveProfileToDrive(profile: PlayerProfile): Promise<DriveS
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Google Drive upload failed: ${errText}`);
+    throw new DriveApiError(`Google Drive upload failed: ${errText}`, response.status);
   }
 
   const result = await response.json();
@@ -151,7 +160,7 @@ export async function loadProfileFromDrive(fileId: string): Promise<PlayerProfil
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Failed to download save from Google Drive: ${errText}`);
+    throw new DriveApiError(`Failed to download save from Google Drive: ${errText}`, response.status);
   }
 
   const profile: PlayerProfile = await response.json();
@@ -175,6 +184,6 @@ export async function deleteDriveSaveFile(fileId: string): Promise<void> {
 
   if (!response.ok && response.status !== 204) {
     const errText = await response.text();
-    throw new Error(`Failed to delete Google Drive save: ${errText}`);
+    throw new DriveApiError(`Failed to delete Google Drive save: ${errText}`, response.status);
   }
 }

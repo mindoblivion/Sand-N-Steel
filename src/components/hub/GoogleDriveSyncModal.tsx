@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PlayerProfile } from '../../types/game';
-import { googleSignIn, googleSignOut, initAuth } from '../../services/googleAuth';
+import { googleSignIn, googleSignOut, initAuth, clearCachedToken } from '../../services/googleAuth';
 import {
   listDriveSaves,
   saveProfileToDrive,
   loadProfileFromDrive,
   deleteDriveSaveFile,
   DriveSaveFile,
+  DriveApiError,
 } from '../../services/googleDrive';
 import { User } from 'firebase/auth';
 import {
@@ -40,17 +41,51 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const [saves, setSaves] = useState<DriveSaveFile[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const signOutRef = useRef(false);
 
   useEffect(() => {
-    const unsub = initAuth((currentUser, currentToken) => {
-      setUser(currentUser);
-      setToken(currentToken);
-      if (currentToken) {
-        fetchDriveSaves();
-      }
-    });
+    const unsub = initAuth(
+      (currentUser, currentToken) => {
+        setUser(currentUser);
+        setToken(currentToken);
+        if (currentToken) {
+          fetchDriveSaves();
+        }
+      },
+      () => {
+        // Firebase auth session ended (expired or revoked) — not a manual sign-out.
+        if (signOutRef.current) {
+          signOutRef.current = false;
+          return;
+        }
+        setUser(null);
+        setToken(null);
+        setSaves([]);
+        setIsLoading(false);
+        setStatusMessage({
+          type: 'error',
+          text: 'Your Google session has expired. Please sign in again.',
+        });
+      },
+    );
     return () => unsub();
   }, []);
+
+  // Detect Drive API 401 (expired access token) and reset to the sign-in view
+  // without clearing the Firebase user — the player just needs to re-authenticate.
+  const handleDriveError = (e: unknown): boolean => {
+    if (e instanceof DriveApiError && e.status === 401) {
+      clearCachedToken();
+      setToken(null);
+      setSaves([]);
+      setStatusMessage({
+        type: 'error',
+        text: 'Your Google Drive access has expired. Please sign in again to continue.',
+      });
+      return true;
+    }
+    return false;
+  };
 
   const fetchDriveSaves = async () => {
     try {
@@ -59,10 +94,12 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
       setSaves(list);
     } catch (e) {
       console.error(e);
-      setStatusMessage({
-        type: 'error',
-        text: e instanceof Error ? e.message : 'Could not fetch Drive files',
-      });
+      if (!handleDriveError(e)) {
+        setStatusMessage({
+          type: 'error',
+          text: e instanceof Error ? e.message : 'Could not fetch Drive files',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -94,6 +131,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
 
   const handleSignOut = async () => {
     sounds.playClick();
+    signOutRef.current = true;
     await googleSignOut();
     setUser(null);
     setToken(null);
@@ -112,10 +150,12 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
       await fetchDriveSaves();
     } catch (e) {
       console.error(e);
-      setStatusMessage({
-        type: 'error',
-        text: e instanceof Error ? e.message : 'Failed to save to Google Drive',
-      });
+      if (!handleDriveError(e)) {
+        setStatusMessage({
+          type: 'error',
+          text: e instanceof Error ? e.message : 'Failed to save to Google Drive',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -131,10 +171,12 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
       setStatusMessage({ type: 'success', text: `Loaded "${profile.name}" (LVL ${profile.level}) from Google Drive!` });
     } catch (e) {
       console.error(e);
-      setStatusMessage({
-        type: 'error',
-        text: e instanceof Error ? e.message : 'Failed to load save from Google Drive',
-      });
+      if (!handleDriveError(e)) {
+        setStatusMessage({
+          type: 'error',
+          text: e instanceof Error ? e.message : 'Failed to load save from Google Drive',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -151,10 +193,12 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
       await fetchDriveSaves();
     } catch (e) {
       console.error(e);
-      setStatusMessage({
-        type: 'error',
-        text: e instanceof Error ? e.message : 'Failed to delete file from Google Drive',
-      });
+      if (!handleDriveError(e)) {
+        setStatusMessage({
+          type: 'error',
+          text: e instanceof Error ? e.message : 'Failed to delete file from Google Drive',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
