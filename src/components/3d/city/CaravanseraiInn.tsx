@@ -9,6 +9,7 @@ import {
   CornerQuoins,
   WallCornice,
 } from './ClassicalArchitecture';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
 export const CaravanseraiInn: React.FC = () => {
   return (
@@ -19,7 +20,7 @@ export const CaravanseraiInn: React.FC = () => {
       {/* 1. ROMAN INN & REST QUARTERS (CARAVANSERAI) */}
       <mesh castShadow receiveShadow position={[0, 3.0, 0]}>
         <boxGeometry args={[8.6, 6.0, 7.6]} />
-        <meshStandardMaterial color="#854d0e" roughness={0.7} />
+        <meshStandardMaterial color="#854d0e" roughness={0.7} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Masonry Corner Quoins */}
