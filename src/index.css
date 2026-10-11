@@ -7,6 +7,13 @@
 @source not "../public";
 
 @layer base {
+  :root {
+    /* Height of the city hub's bottom district navigation bar (footer +
+       its inner padding). Used by both the footer and the touch-controls
+       overlay so the joystick and attack button always clear it. */
+    --hub-footer-h: 5rem;
+  }
+
   html, body, #root {
     width: 100%;
     height: 100%;

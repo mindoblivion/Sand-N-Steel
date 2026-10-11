@@ -624,7 +624,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   }, [opp.health, player.health, player.name, opp.name, addLog, onMatchComplete]);
 
   return (
-    <div className="relative w-full h-full min-h-screen bg-neutral-950 overflow-hidden select-none">
+    <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
       {/* 3D WEBGL DUEL CANVAS WRAPPED IN ERROR BOUNDARY & READY GUARD */}
       <WebGLReadyGuard
         sceneName="DuelArena"

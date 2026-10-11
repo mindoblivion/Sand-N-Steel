@@ -357,7 +357,7 @@ export function App() {
   };
 
   return (
-    <div className="w-full h-full min-h-screen bg-neutral-950 text-amber-100 overflow-hidden select-none">
+    <div className="w-full h-full min-h-[100dvh] bg-neutral-950 text-amber-100 overflow-hidden select-none">
         {/* 3D ASSET LOADING OVERLAY WITH DUAL GOLD SPINNER & PERCENTAGE */}
         <AssetLoadingOverlay />
 
