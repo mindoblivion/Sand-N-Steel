@@ -111,11 +111,25 @@ export const ProcessionAvenue: React.FC = () => {
     return tex;
   }, []);
 
+  // Phase 2B.10: Dedicated bump-map for the 140×140 m ground plane.
+  // NOISE_TEXTURE has a global repeat of (3, 3) calibrated for ~1m surfaces.
+  // On the 140 m plane that yields only ~0.02 tiles/m — functionally flat.
+  // Cloning shares the canvas image (zero memory cost) with an independent
+  // repeat of (32, 32) → ~4.4 m per tile, giving visible micro-relief.
+  const groundBumpMap = useMemo(() => {
+    if (!NOISE_TEXTURE) return undefined;
+    const tex = NOISE_TEXTURE.clone();
+    tex.repeat.set(32, 32);
+    tex.needsUpdate = true;
+    return tex;
+  }, []);
+
   useEffect(() => {
     return () => {
       plazaBumpMap?.dispose();
+      groundBumpMap?.dispose();
     };
-  }, [plazaBumpMap]);
+  }, [plazaBumpMap, groundBumpMap]);
 
   return (
     <group>
@@ -125,7 +139,7 @@ export const ProcessionAvenue: React.FC = () => {
         <meshStandardMaterial
           color={ROMAN_PALETTE.arenaSand.color}
           roughness={0.92}
-          bumpMap={NOISE_TEXTURE || undefined}
+          bumpMap={groundBumpMap}
           bumpScale={0.015}
         />
       </mesh>
