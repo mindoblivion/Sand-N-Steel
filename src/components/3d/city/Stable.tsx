@@ -2,6 +2,7 @@ import React from 'react';
 import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
 import { RomanGabledRoof, CornerQuoins, WallCornice } from './ClassicalArchitecture';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
 export const Stable: React.FC = () => {
   return (
@@ -19,16 +20,16 @@ export const Stable: React.FC = () => {
       {/* Rough Oak Wood Walls with Open Doorways */}
       <mesh castShadow receiveShadow position={[0, 2.1, 3.1]}>
         <boxGeometry args={[6.8, 2.6, 0.4]} />
-        <meshStandardMaterial color="#78350f" roughness={0.85} />
+        <meshStandardMaterial color="#78350f" roughness={0.85} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
       {/* Side walls */}
       <mesh castShadow receiveShadow position={[-3.2, 2.1, 0]}>
         <boxGeometry args={[0.4, 2.6, 6.6]} />
-        <meshStandardMaterial color="#78350f" roughness={0.85} />
+        <meshStandardMaterial color="#78350f" roughness={0.85} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
       <mesh castShadow receiveShadow position={[3.2, 2.1, 0]}>
         <boxGeometry args={[0.4, 2.6, 6.6]} />
-        <meshStandardMaterial color="#78350f" roughness={0.85} />
+        <meshStandardMaterial color="#78350f" roughness={0.85} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Heavy Timber Corner Posts */}

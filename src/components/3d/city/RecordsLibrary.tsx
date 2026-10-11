@@ -8,6 +8,7 @@ import {
   ClassicalDoorway,
   WallCornice,
 } from './ClassicalArchitecture';
+import { NOISE_TEXTURE } from './RomanMaterials';
 import { RomanBench } from './CivicFurnishingProps';
 
 export const RecordsLibrary: React.FC = () => {
@@ -26,7 +27,7 @@ export const RecordsLibrary: React.FC = () => {
       {/* Main Temple Stone Walls */}
       <mesh castShadow receiveShadow position={[0, 2.15, -0.6]}>
         <boxGeometry args={[5.2, 3.3, 3.6]} />
-        <meshStandardMaterial color="#f1f5f9" roughness={0.4} />
+        <meshStandardMaterial color="#f1f5f9" roughness={0.4} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.008} />
       </mesh>
 
       {/* Main Cella Eave Cornice */}

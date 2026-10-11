@@ -9,6 +9,7 @@ import {
   RomanGabledRoof,
   WallCornice,
 } from './ClassicalArchitecture';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
 export const ArenaMedicalHouse: React.FC = () => {
   return (
@@ -19,7 +20,7 @@ export const ArenaMedicalHouse: React.FC = () => {
       {/* Stucco Walls */}
       <mesh castShadow receiveShadow position={[0, 1.4, 0]}>
         <boxGeometry args={[4.9, 2.0, 4.9]} />
-        <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.7} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Travertine Corner Quoins */}
