@@ -15,8 +15,6 @@ import { facebookSignIn } from './services/facebookAuth';
 import { appleSignIn } from './services/appleAuth';
 import { microsoftSignIn } from './services/microsoftAuth';
 import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
-// Phase 121: development-only shield diagnostic harness (dead code in `vite build`)
-import { ShieldDiagnostics } from './components/dev/ShieldDiagnostics';
 import { ALL_OPPONENTS } from './data/opponents';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
@@ -349,9 +347,6 @@ export function App() {
     <div className="w-full h-full min-h-screen bg-neutral-950 text-amber-100 overflow-hidden select-none">
         {/* 3D ASSET LOADING OVERLAY WITH DUAL GOLD SPINNER & PERCENTAGE */}
         <AssetLoadingOverlay />
-
-        {/* PHASE 121 DEV-ONLY SHIELD DIAGNOSTICS — excluded from production builds */}
-        {import.meta.env.DEV && <ShieldDiagnostics />}
 
         {/* GAME SCREENS */}
         {currentScreen === 'title' && (
