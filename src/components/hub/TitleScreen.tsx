@@ -107,24 +107,28 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
         {/* Social sign-in buttons — stopPropagation so they don't trigger the tap-to-start handler */}
         <div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-row items-center gap-3"
           onClick={(e) => e.stopPropagation()}
         >
           <GoogleSignInButton
             onClick={onGoogleSignIn}
             isLoading={isGoogleLoading}
+            compact
           />
           <FacebookSignInButton
             onClick={onFacebookSignIn}
             isLoading={isFacebookLoading}
+            compact
           />
           <AppleSignInButton
             onClick={onAppleSignIn}
             isLoading={isAppleLoading}
+            compact
           />
           <MicrosoftSignInButton
             onClick={onMicrosoftSignIn}
             isLoading={isMicrosoftLoading}
+            compact
           />
         </div>
     </div>

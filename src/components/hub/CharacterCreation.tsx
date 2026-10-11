@@ -119,27 +119,27 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         <div className="w-12"></div>
       </div>
 
-      {/* Social sign-in — link account for cloud saves */}
-      <div className="flex flex-col items-center gap-3 mb-4">
+      {/* Social sign-in — small icon row pinned near the bottom */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-row items-center gap-3 z-10">
         <GoogleSignInButton
           onClick={onGoogleSignIn}
           isLoading={isGoogleLoading}
-          label="Continue with Google"
+          compact
         />
         <FacebookSignInButton
           onClick={onFacebookSignIn}
           isLoading={isFacebookLoading}
-          label="Continue with Facebook"
+          compact
         />
         <AppleSignInButton
           onClick={onAppleSignIn}
           isLoading={isAppleLoading}
-          label="Continue with Apple"
+          compact
         />
         <MicrosoftSignInButton
           onClick={onMicrosoftSignIn}
           isLoading={isMicrosoftLoading}
-          label="Continue with Microsoft"
+          compact
         />
       </div>
 
