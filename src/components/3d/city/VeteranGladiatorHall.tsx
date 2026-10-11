@@ -10,6 +10,7 @@ import {
   CornerQuoins,
   WallCornice,
 } from './ClassicalArchitecture';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
 export const VeteranGladiatorHall: React.FC = () => {
   const bannerLeftRef = useRef<THREE.Group>(null);
@@ -42,7 +43,7 @@ export const VeteranGladiatorHall: React.FC = () => {
       {/* 2. STUCCO WALLS (SAND/CREAM COLORED STUCCO WITH BRONZE TRIM) */}
       <mesh castShadow receiveShadow position={[0, 1.6, 0]}>
         <boxGeometry args={[5.7, 2.4, 5.2]} />
-        <meshStandardMaterial color="#ebdcb9" roughness={0.65} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.65} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Travertine Corner Quoins */}
