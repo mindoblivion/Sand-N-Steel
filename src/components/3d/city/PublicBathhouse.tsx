@@ -12,7 +12,7 @@ import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
 import { SteamParticles } from './EnvironmentalMotion';
 
-export const PublicBathhouse: React.FC = () => {
+export const PublicBathhouse = React.memo(() => {
   return (
     <group position={[-26, 0, 25]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -106,4 +106,4 @@ export const PublicBathhouse: React.FC = () => {
       <RomanAmphora position={[3.6, 0, 1.2]} scale={0.7} tone="terracotta" />
     </group>
   );
-};
+});
