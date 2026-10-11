@@ -106,11 +106,19 @@ export function App() {
 
       const saves = await listDriveSaves();
       if (saves.length > 0) {
-        const profile = await loadProfileFromDrive(saves[0].id);
-        setProfile(profile);
-        setIsLeftyMode(Boolean(profile.isLeftyMode));
-        saveProfile(profile);
-        setCurrentScreen('city_3d');
+        if (profile) {
+          // A local save already exists — don't silently overwrite it.
+          // Open the sync modal so the player explicitly chooses whether
+          // to load the cloud save or keep their local progress.
+          setShowDriveSync(true);
+        } else {
+          // No local save — safe to load the cloud save directly.
+          const cloudProfile = await loadProfileFromDrive(saves[0].id);
+          setProfile(cloudProfile);
+          setIsLeftyMode(Boolean(cloudProfile.isLeftyMode));
+          saveProfile(cloudProfile);
+          setCurrentScreen('city_3d');
+        }
       } else {
         // No cloud save yet — send the player to create a new gladiator.
         setCurrentScreen('create_character');
