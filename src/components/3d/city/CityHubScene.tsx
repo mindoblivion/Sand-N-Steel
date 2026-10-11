@@ -448,7 +448,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               shadow-camera-near={1}
               shadow-camera-far={120}
               shadow-bias={-0.0004}
-              shadow-normalBias={0.4}
+              shadow-normalBias={0.02}
             />
             <directionalLight position={[-25, 20, -25]} intensity={0.28} color="#7dd3fc" />
 
