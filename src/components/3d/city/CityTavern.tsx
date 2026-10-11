@@ -11,7 +11,7 @@ import {
 import { RomanAmphora, WineBarrel } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const CityTavern: React.FC = () => {
+export const CityTavern = React.memo(() => {
   return (
     <group position={[-16, 0, 14]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -123,4 +123,4 @@ export const CityTavern: React.FC = () => {
       ))}
     </group>
   );
-};
+});
