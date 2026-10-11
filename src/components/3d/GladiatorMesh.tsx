@@ -11,57 +11,61 @@ interface GladiatorMeshProps {
   isLeftyMode?: boolean;
 }
 
-// Global cache for GLB file presence & validity check
-let glbStatusCache: 'unknown' | 'valid' | 'invalid' = 'unknown';
-let glbCheckPromise: Promise<boolean> | null = null;
+// Per-URL cache for GLB file presence & validity check
+const glbStatusCacheMap = new Map<string, 'unknown' | 'valid' | 'invalid'>();
+const glbCheckPromiseMap = new Map<string, Promise<boolean> | null>();
 
 export async function isRealGlbFile(url: string): Promise<boolean> {
-  if (glbStatusCache !== 'unknown') {
-    return glbStatusCache === 'valid';
-  }
-  if (!glbCheckPromise) {
-    glbCheckPromise = (async () => {
+  const cached = glbStatusCacheMap.get(url);
+  if (cached === 'valid') return true;
+  if (cached === 'invalid') return false;
+
+  let promise = glbCheckPromiseMap.get(url) || null;
+  if (!promise) {
+    promise = (async () => {
       try {
         const res = await fetch(url, {
           headers: { Range: 'bytes=0-3' },
           cache: 'no-cache',
         });
         if (!res.ok) {
-          glbStatusCache = 'invalid';
+          glbStatusCacheMap.set(url, 'invalid');
           return false;
         }
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('text/html')) {
-          glbStatusCache = 'invalid';
+          glbStatusCacheMap.set(url, 'invalid');
           return false;
         }
         const buf = await res.arrayBuffer();
         if (buf.byteLength < 4) {
-          glbStatusCache = 'invalid';
+          glbStatusCacheMap.set(url, 'invalid');
           return false;
         }
         const view = new DataView(buf);
         const isGlb = view.getUint32(0, true) === 0x46546C67;
-        glbStatusCache = isGlb ? 'valid' : 'invalid';
+        glbStatusCacheMap.set(url, isGlb ? 'valid' : 'invalid');
         return isGlb;
       } catch {
-        glbStatusCache = 'invalid';
+        glbStatusCacheMap.set(url, 'invalid');
         return false;
       }
     })();
+    glbCheckPromiseMap.set(url, promise);
   }
-  return glbCheckPromise;
+  return promise;
 }
 
 export function useGlbAvailability(url: string): boolean {
-  const [isAvailable, setIsAvailable] = useState<boolean>(() => glbStatusCache === 'valid');
+  const [isAvailable, setIsAvailable] = useState<boolean>(() => glbStatusCacheMap.get(url) === 'valid');
 
   useEffect(() => {
-    if (glbStatusCache === 'valid') {
+    const cached = glbStatusCacheMap.get(url);
+    if (cached === 'valid') {
       setIsAvailable(true);
       return;
     }
-    if (glbStatusCache === 'invalid') {
+    if (cached === 'invalid') {
       setIsAvailable(false);
       return;
     }
@@ -81,9 +85,10 @@ export function useGlbAvailability(url: string): boolean {
   return isAvailable;
 }
 
-// Preload the gladiator model asset safely
+// Preload the gladiator model assets safely
 try {
   useGLTF.preload('/models/arena_roman.glb');
+  useGLTF.preload('/models/amazonian.glb');
 } catch (e) {
   // Silent fallback
 }
@@ -416,11 +421,13 @@ const RomanWarriorGLB: React.FC<{
   overrideAction?: FighterState['action'];
   isLeftyMode?: boolean;
   onInvalidModel?: () => void;
+  modelUrl?: string;
 }> = ({
   fighter,
   overrideAction,
   isLeftyMode,
   onInvalidModel,
+  modelUrl = '/models/arena_roman.glb',
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const currentActionName = useRef<string>('');
@@ -429,7 +436,7 @@ const RomanWarriorGLB: React.FC<{
   const shieldGroupRef = useRef<THREE.Group>(null);
   const shieldStrengthRef = useRef(0);
 
-  const gltf = useGLTF('/models/arena_roman.glb');
+  const gltf = useGLTF(modelUrl);
 
   const hasRiggedCharacter = useMemo(() => {
     if (!gltf || !gltf.scene) return false;
@@ -1324,7 +1331,6 @@ class GLTFErrorBoundary extends React.Component<
   }
   componentDidCatch(err: unknown) {
     console.warn('[GladiatorMesh] GLB model failed to load, falling back to procedural gladiator:', err);
-    glbStatusCache = 'invalid';
     if (this.props.onError) {
       this.props.onError();
     }
@@ -1343,7 +1349,10 @@ export const GladiatorMesh: React.FC<GladiatorMeshProps> = ({
   overrideAction,
   isLeftyMode,
 }) => {
-  const isGlbAvailable = useGlbAvailability('/models/arena_roman.glb');
+  const modelUrl = fighter.characterModel === 'amazonian'
+    ? '/models/amazonian.glb'
+    : '/models/arena_roman.glb';
+  const isGlbAvailable = useGlbAvailability(modelUrl);
   const [loadFailed, setLoadFailed] = useState(false);
 
   const effectiveLefty = isLeftyMode !== undefined ? isLeftyMode : fighter.isLeftyMode;
@@ -1374,6 +1383,7 @@ export const GladiatorMesh: React.FC<GladiatorMeshProps> = ({
         overrideAction={overrideAction}
         isLeftyMode={effectiveLefty}
         onInvalidModel={() => setLoadFailed(true)}
+        modelUrl={modelUrl}
       />
     </GLTFErrorBoundary>
   );
