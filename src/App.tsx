@@ -13,6 +13,7 @@ import { AssetLoadingOverlay } from './components/ui/AssetLoadingOverlay';
 import { googleSignIn } from './services/googleAuth';
 import { facebookSignIn } from './services/facebookAuth';
 import { appleSignIn } from './services/appleAuth';
+import { microsoftSignIn } from './services/microsoftAuth';
 import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 // Phase 121: development-only shield diagnostic harness (dead code in `vite build`)
 import { ShieldDiagnostics } from './components/dev/ShieldDiagnostics';
@@ -36,6 +37,7 @@ export function App() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
+  const [isMicrosoftLoading, setIsMicrosoftLoading] = useState(false);
 
   // Load saved profile on boot
   useEffect(() => {
@@ -156,6 +158,24 @@ export function App() {
       console.error('[AppleSignIn] failed:', e);
     } finally {
       setIsAppleLoading(false);
+    }
+  };
+
+  // "Continue with Microsoft" — sign in via Firebase Microsoft auth.
+  // Like Apple/Facebook, no Google Drive access; proceed with local save or new gladiator.
+  const handleMicrosoftSignIn = async () => {
+    setIsMicrosoftLoading(true);
+    try {
+      await microsoftSignIn();
+      if (profile) {
+        setCurrentScreen('city_3d');
+      } else {
+        setCurrentScreen('create_character');
+      }
+    } catch (e) {
+      console.error('[MicrosoftSignIn] failed:', e);
+    } finally {
+      setIsMicrosoftLoading(false);
     }
   };
 
@@ -340,6 +360,8 @@ export function App() {
                 isFacebookLoading={isFacebookLoading}
                 onAppleSignIn={handleAppleSignIn}
                 isAppleLoading={isAppleLoading}
+                onMicrosoftSignIn={handleMicrosoftSignIn}
+                isMicrosoftLoading={isMicrosoftLoading}
             />
         )}
 
@@ -353,6 +375,8 @@ export function App() {
             isFacebookLoading={isFacebookLoading}
             onAppleSignIn={handleAppleSignIn}
             isAppleLoading={isAppleLoading}
+            onMicrosoftSignIn={handleMicrosoftSignIn}
+            isMicrosoftLoading={isMicrosoftLoading}
             />
         )}
 

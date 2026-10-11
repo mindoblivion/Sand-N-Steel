@@ -5,6 +5,7 @@ import { preloadCoreGameAssets } from '../../utils/preloadAssets';
 import { GoogleSignInButton } from '../ui/GoogleSignInButton';
 import { FacebookSignInButton } from '../ui/FacebookSignInButton';
 import { AppleSignInButton } from '../ui/AppleSignInButton';
+import { MicrosoftSignInButton } from '../ui/MicrosoftSignInButton';
 
 interface TitleScreenProps {
   savedProfile: PlayerProfile | null;
@@ -20,6 +21,8 @@ interface TitleScreenProps {
   isFacebookLoading: boolean;
   onAppleSignIn: () => void;
   isAppleLoading: boolean;
+  onMicrosoftSignIn: () => void;
+  isMicrosoftLoading: boolean;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
@@ -36,6 +39,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   isFacebookLoading,
   onAppleSignIn,
   isAppleLoading,
+  onMicrosoftSignIn,
+  isMicrosoftLoading,
 }) => {
   const [hasStarted, setHasStarted] = useState(false);
 
@@ -116,6 +121,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <AppleSignInButton
             onClick={onAppleSignIn}
             isLoading={isAppleLoading}
+          />
+          <MicrosoftSignInButton
+            onClick={onMicrosoftSignIn}
+            isLoading={isMicrosoftLoading}
           />
         </div>
     </div>

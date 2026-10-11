@@ -7,6 +7,7 @@ import { Sparkles, Swords, Shield, Heart, Zap, Check, ArrowLeft } from 'lucide-r
 import { GoogleSignInButton } from '../ui/GoogleSignInButton';
 import { FacebookSignInButton } from '../ui/FacebookSignInButton';
 import { AppleSignInButton } from '../ui/AppleSignInButton';
+import { MicrosoftSignInButton } from '../ui/MicrosoftSignInButton';
 
 interface CharacterCreationProps {
   onComplete: (profile: PlayerProfile) => void;
@@ -17,9 +18,11 @@ interface CharacterCreationProps {
   isFacebookLoading: boolean;
   onAppleSignIn: () => void;
   isAppleLoading: boolean;
+  onMicrosoftSignIn: () => void;
+  isMicrosoftLoading: boolean;
 }
 
-export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, onFacebookSignIn, isFacebookLoading, onAppleSignIn, isAppleLoading }) => {
+export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, onFacebookSignIn, isFacebookLoading, onAppleSignIn, isAppleLoading, onMicrosoftSignIn, isMicrosoftLoading }) => {
   const [name, setName] = useState('Spartacus');
   const [characterModel, setCharacterModel] = useState<'roman_warrior' | 'procedural_gladiator' | 'amazonian' | 'retiarius' | 'minotaur' | 'dimachaerus'>('roman_warrior');
   const [skinColor, setSkinColor] = useState('#c68b59');
@@ -132,6 +135,11 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
           onClick={onAppleSignIn}
           isLoading={isAppleLoading}
           label="Continue with Apple"
+        />
+        <MicrosoftSignInButton
+          onClick={onMicrosoftSignIn}
+          isLoading={isMicrosoftLoading}
+          label="Continue with Microsoft"
         />
       </div>
 
