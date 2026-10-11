@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Sparkles as DreiSparkles, Sky, useGLTF } from '@react-three/drei';
+import { Sparkles as DreiSparkles, Sky, Environment, Lightformer, useGLTF } from '@react-three/drei';
 import { PlayerProfile, OpponentConfig, FighterState } from '../../../types/game';
 import { IshtarGatehouse } from './IshtarGatehouse';
 import { ProcessionAvenue } from './ProcessionAvenue';
@@ -451,6 +451,51 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               shadow-normalBias={0.02}
             />
             <directionalLight position={[-25, 20, -25]} intensity={0.28} color="#7dd3fc" />
+
+            {/* Phase 2B — Scene-level PBR environment for metallic/physical material reflections.
+                The visible <Sky> is a mesh, not an environment map; without this, materials with
+                metalness > 0 (darkIron, agedBronze, goldAccent) render flat black with no specular.
+                Procedural Lightformers are rendered ONCE into a 256px cubemap, PMREM-processed,
+                and assigned to scene.environment. environmentIntensity=0.35 keeps reflections
+                subtle so warm Roman material colors remain readable. No external HDR files. */}
+            <Environment resolution={256} frames={1} environmentIntensity={0.35}>
+              {/* Warm Mediterranean sun — aligned with key directional light direction */}
+              <Lightformer
+                form="rect"
+                intensity={2.0}
+                color="#fffbeb"
+                position={[30, 42, 22]}
+                scale={[30, 30, 1]}
+                target={[0, 0, 0]}
+              />
+              {/* Warm sky dome — ambient sky reflections for upward-facing surfaces */}
+              <Lightformer
+                form="rect"
+                intensity={0.35}
+                color="#fef3c7"
+                position={[0, 60, 0]}
+                scale={[100, 100, 1]}
+                target={[0, 0, 0]}
+              />
+              {/* Warm earth ground bounce — ground reflections for downward-facing surfaces */}
+              <Lightformer
+                form="rect"
+                intensity={0.25}
+                color="#b08968"
+                position={[0, -30, 0]}
+                scale={[100, 100, 1]}
+                target={[0, 0, 0]}
+              />
+              {/* Subtle cool fill — matches secondary directional light direction */}
+              <Lightformer
+                form="rect"
+                intensity={0.2}
+                color="#7dd3fc"
+                position={[-25, 20, -25]}
+                scale={[20, 20, 1]}
+                target={[0, 0, 0]}
+              />
+            </Environment>
 
             {/* Distant Roman Hills & Aqueduct Backdrop */}
             <ThreeComponentErrorBoundary componentName="CityBackdrop">
