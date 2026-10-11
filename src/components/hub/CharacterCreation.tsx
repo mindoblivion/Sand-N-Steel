@@ -5,15 +5,18 @@ import { sounds } from '../../audio/soundEffects';
 import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON } from '../../data/itemsDB';
 import { Sparkles, Swords, Shield, Heart, Zap, Check, ArrowLeft } from 'lucide-react';
 import { GoogleSignInButton } from '../ui/GoogleSignInButton';
+import { FacebookSignInButton } from '../ui/FacebookSignInButton';
 
 interface CharacterCreationProps {
   onComplete: (profile: PlayerProfile) => void;
   onCancel: () => void;
   onGoogleSignIn: () => void;
   isGoogleLoading: boolean;
+  onFacebookSignIn: () => void;
+  isFacebookLoading: boolean;
 }
 
-export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading }) => {
+export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, onFacebookSignIn, isFacebookLoading }) => {
   const [name, setName] = useState('Spartacus');
   const [characterModel, setCharacterModel] = useState<'roman_warrior' | 'procedural_gladiator' | 'amazonian' | 'retiarius' | 'minotaur' | 'dimachaerus'>('roman_warrior');
   const [skinColor, setSkinColor] = useState('#c68b59');
@@ -110,12 +113,17 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         <div className="w-12"></div>
       </div>
 
-      {/* Continue with Google — link account for cloud saves */}
-      <div className="flex justify-center mb-4">
+      {/* Social sign-in — link account for cloud saves */}
+      <div className="flex flex-col items-center gap-3 mb-4">
         <GoogleSignInButton
           onClick={onGoogleSignIn}
           isLoading={isGoogleLoading}
           label="Continue with Google"
+        />
+        <FacebookSignInButton
+          onClick={onFacebookSignIn}
+          isLoading={isFacebookLoading}
+          label="Continue with Facebook"
         />
       </div>
 

@@ -3,6 +3,7 @@ import { PlayerProfile } from '../../types/game';
 import { sounds } from '../../audio/soundEffects';
 import { preloadCoreGameAssets } from '../../utils/preloadAssets';
 import { GoogleSignInButton } from '../ui/GoogleSignInButton';
+import { FacebookSignInButton } from '../ui/FacebookSignInButton';
 
 interface TitleScreenProps {
   savedProfile: PlayerProfile | null;
@@ -14,6 +15,8 @@ interface TitleScreenProps {
   onOpenSettings?: () => void;
   onGoogleSignIn: () => void;
   isGoogleLoading: boolean;
+  onFacebookSignIn: () => void;
+  isFacebookLoading: boolean;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
@@ -26,6 +29,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onOpenSettings,
   onGoogleSignIn,
   isGoogleLoading,
+  onFacebookSignIn,
+  isFacebookLoading,
 }) => {
   const [hasStarted, setHasStarted] = useState(false);
 
@@ -90,14 +95,18 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         {/* The artwork contains "SAND & STEEL" and "PRESS TO START" */}
         <div className="absolute inset-0 bg-black/20 hover:bg-black/10 transition-colors duration-500"></div>
 
-        {/* Continue with Google — stopPropagation so it doesn't trigger the tap-to-start handler */}
+        {/* Social sign-in buttons — stopPropagation so they don't trigger the tap-to-start handler */}
         <div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3"
           onClick={(e) => e.stopPropagation()}
         >
           <GoogleSignInButton
             onClick={onGoogleSignIn}
             isLoading={isGoogleLoading}
+          />
+          <FacebookSignInButton
+            onClick={onFacebookSignIn}
+            isLoading={isFacebookLoading}
           />
         </div>
     </div>

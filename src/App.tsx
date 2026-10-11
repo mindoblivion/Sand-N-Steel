@@ -11,6 +11,7 @@ import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
 import { AssetLoadingOverlay } from './components/ui/AssetLoadingOverlay';
 import { googleSignIn } from './services/googleAuth';
+import { facebookSignIn } from './services/facebookAuth';
 import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 // Phase 121: development-only shield diagnostic harness (dead code in `vite build`)
 import { ShieldDiagnostics } from './components/dev/ShieldDiagnostics';
@@ -32,6 +33,7 @@ export function App() {
   const [isMuted, setIsMuted] = useState(sounds.isMuted);
   const [isLeftyMode, setIsLeftyMode] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
 
   // Load saved profile on boot
   useEffect(() => {
@@ -115,6 +117,25 @@ export function App() {
       console.error('[GoogleSignIn] failed:', e);
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  // "Continue with Facebook" — sign in via Firebase Facebook auth.
+  // Facebook doesn't provide Google Drive access, so after sign-in we proceed
+  // like the normal tap-to-start: continue a local save or start a new gladiator.
+  const handleFacebookSignIn = async () => {
+    setIsFacebookLoading(true);
+    try {
+      await facebookSignIn();
+      if (profile) {
+        setCurrentScreen('city_3d');
+      } else {
+        setCurrentScreen('create_character');
+      }
+    } catch (e) {
+      console.error('[FacebookSignIn] failed:', e);
+    } finally {
+      setIsFacebookLoading(false);
     }
   };
 
@@ -295,6 +316,8 @@ export function App() {
                 onOpenSettings={() => setShowSettingsModal(true)}
                 onGoogleSignIn={handleGoogleSignIn}
                 isGoogleLoading={isGoogleLoading}
+                onFacebookSignIn={handleFacebookSignIn}
+                isFacebookLoading={isFacebookLoading}
             />
         )}
 
@@ -304,6 +327,8 @@ export function App() {
             onCancel={() => setCurrentScreen('title')}
             onGoogleSignIn={handleGoogleSignIn}
             isGoogleLoading={isGoogleLoading}
+            onFacebookSignIn={handleFacebookSignIn}
+            isFacebookLoading={isFacebookLoading}
             />
         )}
 
