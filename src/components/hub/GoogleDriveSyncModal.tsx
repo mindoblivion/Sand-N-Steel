@@ -41,6 +41,8 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const [saves, setSaves] = useState<DriveSaveFile[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [savesLoaded, setSavesLoaded] = useState(false);
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const signOutRef = useRef(false);
 
   useEffect(() => {
@@ -61,6 +63,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
         setUser(null);
         setToken(null);
         setSaves([]);
+        setSavesLoaded(false);
         setIsLoading(false);
         setStatusMessage({
           type: 'error',
@@ -92,8 +95,10 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
       setIsLoading(true);
       const list = await listDriveSaves();
       setSaves(list);
+      setSavesLoaded(true);
     } catch (e) {
       console.error(e);
+      setSavesLoaded(false);
       if (!handleDriveError(e)) {
         setStatusMessage({
           type: 'error',
@@ -116,6 +121,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
         setToken(res.accessToken);
         const list = await listDriveSaves();
         setSaves(list);
+        setSavesLoaded(true);
         setStatusMessage({ type: 'success', text: `Connected as ${res.user.displayName || res.user.email}` });
       }
     } catch (e) {
@@ -136,16 +142,39 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
     setUser(null);
     setToken(null);
     setSaves([]);
+    setSavesLoaded(false);
     setStatusMessage({ type: 'success', text: 'Signed out of Google Account.' });
   };
 
   const handleSaveToDrive = async () => {
     if (!currentProfile) return;
     sounds.playClick();
+
+    // If we couldn't verify the saves list, do not risk an overwrite
+    if (!savesLoaded) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Could not verify existing cloud saves. Please refresh the list and try again.',
+      });
+      return;
+    }
+
+    // If existing cloud saves exist, ask for confirmation before overwriting
+    if (saves.length > 0) {
+      setShowOverwriteConfirm(true);
+      return;
+    }
+
+    // No existing saves — proceed directly
+    await performBackup();
+  };
+
+  const performBackup = async () => {
+    if (!currentProfile) return;
     setIsLoading(true);
     setStatusMessage(null);
     try {
-      const saved = await saveProfileToDrive(currentProfile);
+      await saveProfileToDrive(currentProfile);
       setStatusMessage({ type: 'success', text: `Saved "${currentProfile.name}" to Google Drive successfully!` });
       await fetchDriveSaves();
     } catch (e) {
@@ -159,6 +188,12 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleConfirmOverwrite = async () => {
+    sounds.playClick();
+    setShowOverwriteConfirm(false);
+    await performBackup();
   };
 
   const handleLoadFromDrive = async (fileId: string) => {
@@ -380,6 +415,41 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* OVERWRITE CONFIRMATION DIALOG */}
+        {showOverwriteConfirm && (
+          <div className="fixed inset-0 bg-neutral-950/90 z-50 flex items-center justify-center p-4">
+            <div className="bg-neutral-900 border-2 border-amber-500 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
+              <div className="w-12 h-12 rounded-full bg-amber-900/50 border border-amber-500 flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle className="w-6 h-6 text-amber-400" />
+              </div>
+              <h4 className="font-serif font-bold text-base text-amber-300 uppercase mb-2">
+                Replace Cloud Save?
+              </h4>
+              <p className="text-xs text-neutral-300 mb-5">
+                An existing cloud save
+                {saves[0]?.profilePreview
+                  ? ` (${saves[0].profilePreview.name}, LVL ${saves[0].profilePreview.level})`
+                  : ''}
+                {' '}was found on your Google Drive. Backing up will permanently replace it with your current local progress. This action cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowOverwriteConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-neutral-300 text-xs font-bold font-serif cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmOverwrite}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 text-xs font-bold font-serif cursor-pointer active:scale-95"
+                >
+                  Replace Cloud Save
+                </button>
+              </div>
             </div>
           </div>
         )}
