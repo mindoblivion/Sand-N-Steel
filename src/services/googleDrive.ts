@@ -72,12 +72,36 @@ export async function listDriveSaves(): Promise<DriveSaveFile[]> {
 /**
  * Uploads or overwrites game save in Google Drive
  */
-export async function saveProfileToDrive(profile: PlayerProfile): Promise<DriveSaveFile> {
+export async function saveProfileToDrive(
+  profile: PlayerProfile,
+  options?: { confirmedReplaceFileId?: string }
+): Promise<DriveSaveFile> {
   const token = await getAccessToken();
   if (!token) throw new Error('Not authenticated with Google Drive.');
 
   const existingFiles = await listDriveSaves();
   const existingFile = existingFiles.find((f) => f.name === SAVE_FILE_NAME);
+
+  // Conflict guard: an existing save may only be replaced when the caller
+  // provides the specific file ID the user explicitly confirmed to replace.
+  if (existingFile) {
+    const confirmedId = options?.confirmedReplaceFileId;
+    if (!confirmedId) {
+      // Ordinary backup discovered an unexpected save — refuse to overwrite.
+      throw new DriveApiError(
+        'A cloud save already exists on your Google Drive. Refresh your save list and confirm the replacement before backing up.',
+        409
+      );
+    }
+    if (existingFile.id !== confirmedId) {
+      // The save found by the fresh lookup differs from what the user confirmed
+      // (another device may have created or replaced it). Refuse to overwrite.
+      throw new DriveApiError(
+        'A different cloud save was found on your Google Drive since you last refreshed. Refresh your save list and confirm the replacement before backing up.',
+        409
+      );
+    }
+  }
 
   const metadata = {
     name: SAVE_FILE_NAME,

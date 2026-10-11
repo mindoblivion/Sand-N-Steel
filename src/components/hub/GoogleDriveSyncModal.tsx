@@ -169,16 +169,26 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
     await performBackup();
   };
 
-  const performBackup = async () => {
+  const performBackup = async (confirmedReplaceFileId?: string) => {
     if (!currentProfile) return;
     setIsLoading(true);
     setStatusMessage(null);
     try {
-      await saveProfileToDrive(currentProfile);
+      await saveProfileToDrive(
+        currentProfile,
+        confirmedReplaceFileId ? { confirmedReplaceFileId } : undefined
+      );
       setStatusMessage({ type: 'success', text: `Saved "${currentProfile.name}" to Google Drive successfully!` });
       await fetchDriveSaves();
     } catch (e) {
       console.error(e);
+      // 409 = an unexpected cloud save was found; do NOT retry automatically.
+      // Refresh the list so the user can review and explicitly confirm replacement.
+      if (e instanceof DriveApiError && e.status === 409) {
+        await fetchDriveSaves();
+        setStatusMessage({ type: 'error', text: e.message });
+        return;
+      }
       if (!handleDriveError(e)) {
         setStatusMessage({
           type: 'error',
@@ -193,7 +203,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const handleConfirmOverwrite = async () => {
     sounds.playClick();
     setShowOverwriteConfirm(false);
-    await performBackup();
+    await performBackup(saves[0]?.id);
   };
 
   const handleLoadFromDrive = async (fileId: string) => {
