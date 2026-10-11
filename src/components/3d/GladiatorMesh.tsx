@@ -226,11 +226,39 @@ const SHIELD_ROTATION_LEFT_HAND: [number, number, number] = [-2.42, -0.67, 2.91]
 const SHIELD_ROTATION_RIGHT_HAND: [number, number, number] = [3.02, 1.28, -1.06]; // lefty
 
 // The shield geometry (0.68 x 1.15) was sized for the procedural fallback
-// gladiator (~2.10 units tall, 0.55x its height). The rigged GLB character is
-// ~0.98 units tall, so the unscaled board is 1.17x the character. Scaling by
-// the GLB/procedural height ratio (~0.47) restores the same 0.55x proportion
-// and brings the shield top to head level instead of 0.3 units above.
-const SHIELD_SCALE_GLB = 0.47;
+// gladiator (~2.10 units tall, 0.55x its height). The default rigged GLB
+// character (arena_roman) has a visible height of ~1.10 units above the
+// ground (its mesh extends 0.75 units below Y=0, hidden by the arena floor).
+// To restore the same 0.55x proportion: 0.55 × 1.10 / 1.15 ≈ 0.53.
+// The previous value (0.47) was based on an assumed height of ~0.98 and
+// produced a shield at only 49% of visible height — slightly too small.
+const SHIELD_SCALE_GLB = 0.53;
+
+// Per-model root scale corrections for the four alternative character models.
+// The default arena_roman model has a different origin (0.75 units of mesh
+// below Y=0) making its visible height ~1.10, while the alternatives have their
+// feet at Y≈0 and visible heights of 1.70-1.83. These corrections bring the
+// alternatives' visible height into range with the default gladiator, and keep
+// the Minotaur deliberately larger (~1.30 visible, ~20% above the humans).
+//
+// Measured animated Fighting_Idle bounding-box heights (SkinnedMesh.
+// computeBoundingBox, which accounts for bone transforms):
+//   arena_roman  1.854  visible 1.102  → correction 1.00 (baseline)
+//   amazonian   1.817  visible 1.814  → correction 0.61 (target 1.10)
+//   dimachaerus 1.818  visible 1.818  → correction 0.60 (target 1.10)
+//   minotaur    1.699  visible 1.699  → correction 0.77 (target 1.30, larger)
+//   netfighter  1.827  visible 1.827  → correction 0.60 (target 1.10)
+//
+// Applied as a multiplier on the outer group scale alongside fighter.meshScale,
+// so it composes with boss scaling and any future per-fighter overrides without
+// overwriting them. The correction is NOT applied to the procedural fallback
+// (which is always the same generic gladiator regardless of characterModel).
+const MODEL_SCALE_CORRECTIONS: Record<string, number> = {
+  amazonian: 0.61,
+  dimachaerus: 0.60,
+  minotaur: 0.77,
+  retiarius: 0.60,
+};
 
 // --- Phase 111: Animation-Aware Shield Constraint ---
 // Enabled after the Phase 118 runtime audit (see below). Corrects the shield's
@@ -326,14 +354,14 @@ const SHIELD_CONSTRAINT_STRENGTH: Record<string, number> = {
 };
 
 // Shared Shield Renderer Component
-const ShieldModel = React.forwardRef<THREE.Group, { isLefty: boolean; goldColor: string }>(({ isLefty, goldColor }, ref) => {
+const ShieldModel = React.forwardRef<THREE.Group, { isLefty: boolean; goldColor: string; shieldScale?: number }>(({ isLefty, goldColor, shieldScale = SHIELD_SCALE_GLB }, ref) => {
   return (
-    <group ref={ref} position={[0, 0, 0]} rotation={isLefty ? SHIELD_ROTATION_RIGHT_HAND : SHIELD_ROTATION_LEFT_HAND} scale={SHIELD_SCALE_GLB}>
+    <group ref={ref} position={[0, 0, 0]} rotation={isLefty ? SHIELD_ROTATION_RIGHT_HAND : SHIELD_ROTATION_LEFT_HAND} scale={shieldScale}>
       {/* Offset the board along its own face-normal (+Z = outward) so the
           hand bone sits behind the board instead of passing through it.
-          0.15 pre-scale × 0.47 ≈ 0.071 world units, clearing the forearm
+          0.13 pre-scale × 0.53 ≈ 0.069 world units, clearing the forearm
           radius (~0.04) without the shield floating away from the arm. */}
-      <group position={[0, 0, 0.15]}>
+      <group position={[0, 0, 0.13]}>
         <mesh castShadow receiveShadow>
           <boxGeometry args={[0.68, 1.15, 0.05]} />
           <meshStandardMaterial color="#881337" roughness={0.4} />
@@ -774,17 +802,27 @@ const RomanWarriorGLB: React.FC<{
     }
   });
 
-  const scale = fighter.meshScale || 1.0;
+  const baseScale = fighter.meshScale || 1.0;
+  const modelCorrection = MODEL_SCALE_CORRECTIONS[fighter.characterModel ?? ''] ?? 1.0;
+  const scale = baseScale * modelCorrection;
   const isLefty = isLeftyMode !== undefined ? isLeftyMode : fighter.isLeftyMode || false;
   const weaponItem = fighter.loadout?.weapon;
   const weaponType = weaponItem?.type || 'sword_shield';
   const goldColor = '#f59e0b';
 
+  // The shield is bone-attached via createPortal, so it inherits the outer
+  // group's scale (baseScale × modelCorrection). To keep the shield at a
+  // constant world size across models (proportional to the corrected visible
+  // height), divide the shield scale by the model correction so it cancels
+  // out. The weapon is also bone-attached and inherits the same scale, which
+  // is correct — weapons should scale with the character.
+  const effectiveShieldScale = SHIELD_SCALE_GLB / modelCorrection;
+
   const useGladiusGLB = weaponItem?.modelPath === GLADIUS_MODEL_PATH;
   const weaponNode = useGladiusGLB
     ? <GladiusWeaponRenderer weaponType={weaponType} goldColor={goldColor} />
     : <WeaponModel weaponType={weaponType} goldColor={goldColor} />;
-  const shieldNode = <ShieldModel ref={shieldGroupRef} isLefty={isLefty} goldColor={goldColor} />;
+  const shieldNode = <ShieldModel ref={shieldGroupRef} isLefty={isLefty} goldColor={goldColor} shieldScale={effectiveShieldScale} />;
 
   // Anatomical assignment: Righty = Sword in Right Hand, Shield in Left Hand. Lefty = Reversed.
   const rightHandEquipment = isLefty ? shieldNode : weaponNode;
