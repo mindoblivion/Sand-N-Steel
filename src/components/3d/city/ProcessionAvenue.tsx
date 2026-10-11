@@ -206,10 +206,14 @@ export const ProcessionAvenue: React.FC = () => {
       </mesh>
 
       {/* PHASE 27 — AUTHENTIC ROMAN TRIUMPHAL FLAGSTONE CARRIAGEWAYS */}
-      {/* North Avenue Carriageways (Forum -> Colosseum, z = -16.5 to -1) */}
+      {/* Continuous Triumphal Carriageways (Colosseum approach → Gatehouse approach, z = -1 to 21) */}
+      {/* Replaces the split north/south segments: the former north span (z=-1 to -16.5) was
+          almost entirely inside the Colosseum (wall at z≈-1.6 for x=±4.7). A single continuous
+          segment from z=-1 (Colosseum outer wall) to z=21 (gatehouse foundation clearance)
+          eliminates both the intersection and the north/south length imbalance. */}
       <RomanPavedStreet
-        position={[-4.7, 0, -8.75]}
-        length={15.5}
+        position={[-4.7, 0, 10.0]}
+        length={22.0}
         width={4.4}
         district="triumphal"
         hasGutters={true}
@@ -217,28 +221,8 @@ export const ProcessionAvenue: React.FC = () => {
         stonePitch={1.1}
       />
       <RomanPavedStreet
-        position={[4.7, 0, -8.75]}
-        length={15.5}
-        width={4.4}
-        district="triumphal"
-        hasGutters={true}
-        gutterWidth={0.32}
-        stonePitch={1.1}
-      />
-
-      {/* South Avenue Carriageways (Forum -> Town Gate, z = 16.5 to 21) */}
-      <RomanPavedStreet
-        position={[-4.7, 0, 18.75]}
-        length={4.5}
-        width={4.4}
-        district="triumphal"
-        hasGutters={true}
-        gutterWidth={0.32}
-        stonePitch={1.1}
-      />
-      <RomanPavedStreet
-        position={[4.7, 0, 18.75]}
-        length={4.5}
+        position={[4.7, 0, 10.0]}
+        length={22.0}
         width={4.4}
         district="triumphal"
         hasGutters={true}
@@ -278,8 +262,10 @@ export const ProcessionAvenue: React.FC = () => {
       ))}
 
       {/* 3. COLOSSAL FLUTED ROMAN COLONNADE ALONG BOULEVARD */}
+      {/* North-side column at z=-1 frames the Colosseum approach (wall at z≈-3.0 for x=±8.5;
+          plinth 1.2×1.2 sits at distance 19.97 from Colosseum center — outside the wall). */}
       {[-8.5, 8.5].map((cx, ci) =>
-        [8, 16].map((cz, zi) => (
+        [-1, 8, 16].map((cz, zi) => (
           <group key={`col-${ci}-${zi}`} position={[cx, 0, cz]}>
             {/* Square Plinth Base */}
             <mesh castShadow receiveShadow position={[0, 0.25, 0]}>
@@ -315,15 +301,19 @@ export const ProcessionAvenue: React.FC = () => {
       )}
 
       {/* 4. MEDITERRANEAN CYPRESS TREES (NATURAL ITALIAN FLORA) */}
+      {/* North-side cypress at z=-3 flanks the avenue near the Colosseum (planter edge at
+          distance 19.35 from Colosseum center — outside the wall). */}
       {[-11.5, 11.5].map((px, pi) =>
-        [10, 20].map((pz, zi) => (
+        [-3, 10, 20].map((pz, zi) => (
           <ItalianCypress key={`cypress-${pi}-${zi}`} position={[px, 0, pz]} scale={1.05} />
         ))
       )}
 
       {/* 5. ROMAN STREET BRAZIERS WITH WARM AMBER FLAMES */}
+      {/* North-side brazier at z=-1 lights the Colosseum approach (pedestal edge at
+          distance 19.50 from Colosseum center — outside the wall). */}
       {[-6.2, 6.2].map((bx, bi) =>
-        [2, 12, 18].map((bz, zi) => (
+        [-1, 2, 12, 18].map((bz, zi) => (
           <StreetBrazier key={`brazier-${bi}-${zi}`} position={[bx, 0, bz]} />
         ))
       )}
@@ -382,10 +372,18 @@ export const ProcessionAvenue: React.FC = () => {
       <RomanBench position={[4.8, 0, 4.8]} rotationY={(-3 * Math.PI) / 4} />
 
       {/* Colonnade Resting Benches tucked between column bays */}
+      {/* North-side pair at z=4 (bay between z=-1 and z=8 columns; original z=-12 was inside
+          the Colosseum — z=4 is the closest safe bay midpoint) */}
+      <RomanBench position={[-8.8, 0, 4]} rotationY={Math.PI / 2} />
+      <RomanBench position={[8.8, 0, 4]} rotationY={-Math.PI / 2} />
       <RomanBench position={[-8.8, 0, 12]} rotationY={Math.PI / 2} />
       <RomanBench position={[8.8, 0, 12]} rotationY={-Math.PI / 2} />
 
       {/* Restrained decorative amphorae nestled near column plinths */}
+      {/* North-side pair at z=-2 (near the z=-1 column; amphora edge at distance 19.48
+          from Colosseum center — safely outside the wall) */}
+      <RomanAmphora position={[-8.2, 0, -2.0]} scale={0.85} tone="terracotta" />
+      <RomanAmphora position={[8.2, 0, -2.0]} scale={0.85} tone="sand" />
       <RomanAmphora position={[-8.2, 0, 15.2]} scale={0.85} tone="dark" />
       <RomanAmphora position={[8.2, 0, 15.2]} scale={0.85} tone="terracotta" />
     </group>
