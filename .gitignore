@@ -1,0 +1,11 @@
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# GLB optimization backups
+*.backup.glb
+
+# Core dumps
+core

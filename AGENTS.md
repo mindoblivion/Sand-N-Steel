@@ -116,3 +116,31 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   (e.g. `screen.orientation.lock` missing from the DOM lib, extra fields on `FighterStats`/`WeaponItem`,
   `isBone` on `Object3D`). Vite's dev server does not type-check, so they do not block the app — don't chase
   them as setup failures.
+
+## Development-only character test harness (Phase 4)
+
+- **What it is.** `src/components/dev/CharacterTestHarness.tsx` is a dev-only screen that mounts the real
+  `CharacterCreation` (3D model preview) and a live `DuelScene` with an **in-memory** profile, so a character
+  like Dimachaerus can be selected, previewed and dueled without passing through the GPU-heavy 3D city hub and
+  without touching the player's real save.
+- **How to enter it.** In the dev environment only, open the app with the exact query parameter
+  `?devHarness=character` (e.g. `https://3000-<host>/?devHarness=character`). `src/main.tsx` checks this in a
+  branch gated on `import.meta.env.DEV`; when active it mounts the harness **instead of** `<App />`.
+- **Development-only restriction.** `import.meta.env.DEV` is `true` only under `vite`/`bun run dev` and is
+  statically `false` in a production build (`bun run build`), so the harness branch is dead-code-eliminated
+  from the production bundle. Supplying `?devHarness=character` in production has no effect — normal `<App />`
+  startup runs unchanged. Verified by building into `/tmp` and grepping the output.
+- **Save isolation.** The harness imports no function that writes to localStorage, sessionStorage, IndexedDB,
+  or Google Drive. The profile from `CharacterCreation.onComplete` is held in React state only. `CharacterCreation`
+  itself only calls back (it never calls `saveProfile`); `DuelScene` imports only the pure `calculateTotalStats`
+  and reports results via callbacks. The harness's `onComplete`/`onMatchComplete`/etc. are local state setters,
+  NOT App's `handleCharacterCreated`/`handleMatchComplete` (which persist). A save fingerprint taken before and
+  after a full harness run must match.
+- **Sandbox GPU note (not a production defect).** The preview browser has no GPU and renders through SwiftShader
+  (CPU). The 3D city hub runs at ~2 fps there (median ~467 ms/frame, main thread busy ~84% of wall time) with no
+  console errors — the automation stall that blocked earlier Dimachaerus acceptance was a software-rendering
+  limit, not an app bug. The character-creation preview (one skinned mesh) is much lighter and is usable. The
+  duel arena is heavier; if it is too slow to exercise actions reliably, stop expensive retries and document
+  what was observed instead.
+- **Removal.** Delete `src/components/dev/CharacterTestHarness.tsx` and revert the `useCharacterHarness`
+  branch in `src/main.tsx` (the import + the conditional). No other file references the harness.

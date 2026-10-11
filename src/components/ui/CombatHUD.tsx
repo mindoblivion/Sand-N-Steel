@@ -1,7 +1,7 @@
 import React from 'react';
 import { FighterState } from '../../types/game';
 import { TurnActionPanel, CombatActionType, CombatLogEntry } from './TurnActionPanel';
-import { Swords, Shield, Flame, Sparkles, Volume2, VolumeX, HelpCircle, Camera, Settings } from 'lucide-react';
+import { Swords, Flame, Sparkles, Volume2, VolumeX, HelpCircle, Camera, Settings } from 'lucide-react';
 
 interface CombatHUDProps {
   player: FighterState;
@@ -15,8 +15,6 @@ interface CombatHUDProps {
   onOpenHelp: () => void;
   cameraMode: string;
   onCycleCameraMode: () => void;
-  isLeftyMode?: boolean;
-  onToggleLeftyMode?: () => void;
   onOpenSettings?: () => void;
   // Turn-Based Swords & Sandals Combat Props
   distance: number;
@@ -38,8 +36,6 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   onOpenHelp,
   cameraMode,
   onCycleCameraMode,
-  isLeftyMode,
-  onToggleLeftyMode,
   onOpenSettings,
   distance,
   isPlayerTurn,
@@ -78,24 +74,8 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             {formattedTime}
           </div>
 
-          {/* ACTION BUTTONS (LEFTY MODE, CAMERA, HELP, AUDIO) */}
+          {/* ACTION BUTTONS (CAMERA, HELP, AUDIO) */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {onToggleLeftyMode && (
-              <button
-                onClick={onToggleLeftyMode}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-all active:scale-95 cursor-pointer ${
-                  isLeftyMode
-                    ? 'bg-amber-600/90 border-amber-300 text-neutral-950 font-bold shadow-[0_0_10px_rgba(245,158,11,0.5)]'
-                    : 'bg-black/60 hover:bg-neutral-900 border-amber-600/40 text-amber-300 hover:text-amber-100'
-                }`}
-                title={isLeftyMode ? 'Lefty Mode: ON (Weapon in Left Hand)' : 'Lefty Mode: OFF (Weapon in Right Hand)'}
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{isLeftyMode ? 'Lefty: ON' : 'Lefty: OFF'}</span>
-                <span className="sm:hidden">{isLeftyMode ? 'L' : 'R'}</span>
-              </button>
-            )}
-
             <button
               onClick={onCycleCameraMode}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer text-xs font-mono"
