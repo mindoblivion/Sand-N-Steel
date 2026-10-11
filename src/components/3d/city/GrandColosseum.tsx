@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { ClassicalPediment, ClassicalColumn } from './ClassicalArchitecture';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
@@ -6,6 +6,27 @@ import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { Banner } from './EnvironmentalMotion';
 
 export const GrandColosseum: React.FC = () => {
+  // Phase 2B.12: Dedicated bump-map for the two curved Colosseum wall tiers.
+  // NOISE_TEXTURE has a global repeat of (3, 3) calibrated for ~1 m surfaces.
+  // The partial-cylinder UV maps the full arc (1.7π ≈ 306°) to u=[0,1], so
+  // repeat 3 stretches each noise tile across ~32 m horizontally — functionally
+  // flat. Cloning shares the canvas image (zero memory cost) with an independent
+  // repeat of (22, 3) → ~4.4 m per horizontal tile, ~29 px/m, visible micro-relief.
+  // The vertical repeat stays at 3 (unchanged from the source, already adequate).
+  const colosseumWallBumpMap = useMemo(() => {
+    if (!NOISE_TEXTURE) return undefined;
+    const tex = NOISE_TEXTURE.clone();
+    tex.repeat.set(22, 3);
+    tex.needsUpdate = true;
+    return tex;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      colosseumWallBumpMap?.dispose();
+    };
+  }, [colosseumWallBumpMap]);
+
   return (
     <group position={[0, 0, -20]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM PLINTH */}
@@ -37,7 +58,7 @@ export const GrandColosseum: React.FC = () => {
         <meshStandardMaterial
           color={ROMAN_PALETTE.travertineDark.color}
           roughness={0.82}
-          bumpMap={NOISE_TEXTURE || undefined}
+          bumpMap={colosseumWallBumpMap}
           bumpScale={0.015}
           side={THREE.DoubleSide}
         />
@@ -54,7 +75,7 @@ export const GrandColosseum: React.FC = () => {
         <meshStandardMaterial
           color={ROMAN_PALETTE.travertine.color}
           roughness={0.78}
-          bumpMap={NOISE_TEXTURE || undefined}
+          bumpMap={colosseumWallBumpMap}
           bumpScale={0.012}
           side={THREE.DoubleSide}
         />
