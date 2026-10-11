@@ -119,7 +119,7 @@ const MerchantPropsCluster: React.FC<{ position: [number, number, number] }> = (
  * CityStreets Component
  * Builds the Roman urban street network connecting the Central Plaza to all 4 cardinal districts.
  */
-export const CityStreets: React.FC = () => {
+export const CityStreets = React.memo(() => {
   return (
     <group>
       {/* 1. VIA DECUMANUS (EAST-WEST CROSS STREET) */}
@@ -561,4 +561,4 @@ export const CityStreets: React.FC = () => {
       <CornerSandDrift position={[-25.2, 0, -10.5]} size={[0.9, 0.9]} tone="dust" />
     </group>
   );
-};
+});
