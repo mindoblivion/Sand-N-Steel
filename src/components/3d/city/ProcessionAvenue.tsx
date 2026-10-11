@@ -301,10 +301,13 @@ export const ProcessionAvenue: React.FC = () => {
       )}
 
       {/* 4. MEDITERRANEAN CYPRESS TREES (NATURAL ITALIAN FLORA) */}
-      {/* North-side cypress at z=-3 flanks the avenue near the Colosseum (planter edge at
-          distance 19.35 from Colosseum center — outside the wall). */}
+      {/* Phase 1A.3: north-side cypress moved from z=-3 to z=-2.5. The planter is a cylinder
+          (ground radius 0.85 x scale 1.05 = 0.8925). At z=-3 circle-to-circle clearance
+          vs Colosseum foundation (r=19.5, center [0,-20]) was 0.132m, below 0.30m target.
+          No actual intersection; prior 0.154m was a bounding-box artifact. At z=-2.5:
+          d=20.94, clearance=0.548m. Crowns clear all columns/braziers by >1.4m. */}
       {[-11.5, 11.5].map((px, pi) =>
-        [-3, 10, 20].map((pz, zi) => (
+        [-2.5, 10, 20].map((pz, zi) => (
           <ItalianCypress key={`cypress-${pi}-${zi}`} position={[px, 0, pz]} scale={1.05} />
         ))
       )}
