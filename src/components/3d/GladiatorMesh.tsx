@@ -1401,11 +1401,7 @@ class GLTFErrorBoundary extends React.Component<
 }
 
 // 4. Main GladiatorMesh Component
-export const GladiatorMesh: React.FC<GladiatorMeshProps> = ({
-  fighter,
-  overrideAction,
-  isLeftyMode,
-}) => {
+export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode }: GladiatorMeshProps) => {
   const modelUrl = fighter.characterModel === 'amazonian'
     ? '/models/amazonian.glb'
     : fighter.characterModel === 'retiarius'
@@ -1454,4 +1450,4 @@ export const GladiatorMesh: React.FC<GladiatorMeshProps> = ({
       />
     </GLTFErrorBoundary>
   );
-};
+});
