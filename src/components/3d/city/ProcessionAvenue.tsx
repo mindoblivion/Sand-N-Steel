@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { CornerSandDrift } from './GroundWearSystem';
@@ -98,6 +98,25 @@ const StreetBrazier: React.FC<{ position: [number, number, number] }> = ({ posit
 };
 
 export const ProcessionAvenue: React.FC = () => {
+  // Phase 2B.8: Dedicated bump-map for the central forum plaza circle.
+  // NOISE_TEXTURE has a global repeat of (3, 3) calibrated for ~1m surfaces.
+  // On the 33m-diameter circle that yields only ~11px/m — functionally flat.
+  // Cloning shares the canvas image (zero memory cost) with an independent
+  // repeat of (16, 16) → ~2m per tile, ~62px/m — visible micro-relief.
+  const plazaBumpMap = useMemo(() => {
+    if (!NOISE_TEXTURE) return undefined;
+    const tex = NOISE_TEXTURE.clone();
+    tex.repeat.set(16, 16);
+    tex.needsUpdate = true;
+    return tex;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      plazaBumpMap?.dispose();
+    };
+  }, [plazaBumpMap]);
+
   return (
     <group>
       {/* 1. VAST MEDITERRANEAN SANDSTONE & TERRACOTTA PLAZA FLOOR (FLAT ON GROUND) */}
@@ -113,12 +132,14 @@ export const ProcessionAvenue: React.FC = () => {
 
       {/* 2. MAIN ROMAN BOULEVARD (VIA TRIUMPHALIS) & CENTRAL HUB PLAZA */}
       {/* Central Circular Marble Forum Plaza Hub Floor */}
+      {/* Phase 2B.8: Uses plazaBumpMap (cloned NOISE_TEXTURE, repeat 16×16) for
+          appropriate texel density on this 33m-diameter surface. */}
       <mesh receiveShadow position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[16.5, 36]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.forumPaving.color}
           roughness={0.68}
-          bumpMap={NOISE_TEXTURE || undefined}
+          bumpMap={plazaBumpMap}
           bumpScale={0.012}
         />
       </mesh>
