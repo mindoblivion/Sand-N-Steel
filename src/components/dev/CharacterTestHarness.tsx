@@ -118,7 +118,7 @@ export const CharacterTestHarness: React.FC = () => {
             </h2>
             <div className="font-mono text-xs text-amber-100 flex flex-col gap-1.5">
               <Row label="Name" value={profile.name} />
-              <Row label="Model" value={profile.appearance.characterModel} testId="harness-profile-model" />
+              <Row label="Model" value={profile.appearance.characterModel ?? '—'} testId="harness-profile-model" />
               <Row label="Stance" value={isLeftyMode ? 'Lefty' : 'Righty'} testId="harness-profile-stance" />
               <Row label="Strength" value={String(profile.baseStats.strength)} />
               <Row label="Agility" value={String(profile.baseStats.agility)} />
