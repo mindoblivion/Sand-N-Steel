@@ -374,6 +374,8 @@ export function App() {
             <CharacterCreation
             onComplete={handleCharacterCreated}
             onCancel={() => setCurrentScreen('title')}
+            onGoogleSignIn={handleGoogleSignIn}
+            isGoogleLoading={isGoogleLoading}
             />
         )}
 
