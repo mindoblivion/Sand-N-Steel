@@ -120,8 +120,13 @@ export function App() {
           setCurrentScreen('city_3d');
         }
       } else {
-        // No cloud save yet — send the player to create a new gladiator.
-        setCurrentScreen('create_character');
+        // No cloud save yet. If a local profile already exists, continue
+        // that gladiator — don't send a returning player to character creation.
+        if (profile) {
+          setCurrentScreen('city_3d');
+        } else {
+          setCurrentScreen('create_character');
+        }
       }
     } catch (e) {
       console.error('[GoogleSignIn] failed:', e);
