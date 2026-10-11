@@ -80,7 +80,7 @@ export const IshtarGatehouse: React.FC = () => {
           {/* Mid-level String Course Belt */}
           <WallCornice size={[4.2, 5.2]} y={6.2} color={ROMAN_PALETTE.travertine.color} height={0.25} projection={0.15} />
           {/* Upper Tower Cornice below battlements */}
-          <WallCornice size={[4.2, 5.2]} y={11.8} color={ROMAN_PALETTE.goldAccent.color} height={0.3} projection={0.2} />
+          <WallCornice size={[4.2, 5.2]} y={11.8} color={ROMAN_PALETTE.goldAccent.color} metalness={ROMAN_PALETTE.goldAccent.metalness} height={0.3} projection={0.2} />
           {/* Tower Crenellations (Merlons) */}
           {[-1.5, 0, 1.5].map((cx, ci) => (
             <mesh key={`cren-${ti}-${ci}`} castShadow position={[cx, 12.5, 2.2]}>
@@ -108,6 +108,7 @@ export const IshtarGatehouse: React.FC = () => {
           radius={0.36}
           stoneColor={ROMAN_PALETTE.marbleWhite.color}
           capitalColor={ROMAN_PALETTE.goldAccent.color}
+          metalness={ROMAN_PALETTE.goldAccent.metalness}
           order="corinthian"
         />
       ))}

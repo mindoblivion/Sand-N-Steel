@@ -184,6 +184,7 @@ export const GrandColosseum: React.FC = () => {
             radius={0.42}
             stoneColor={ROMAN_PALETTE.marbleWhite.color}
             capitalColor={ROMAN_PALETTE.goldAccent.color}
+            metalness={ROMAN_PALETTE.goldAccent.metalness}
             order="corinthian"
           />
         ))}
