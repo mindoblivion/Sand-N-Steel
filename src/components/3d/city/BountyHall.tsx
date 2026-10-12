@@ -11,7 +11,7 @@ import {
 import { TimberCrate, WineBarrel } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const BountyHall: React.FC = () => {
+export const BountyHall = React.memo(() => {
   return (
     <group position={[-15, 0, 26]}>
       {/* 0. STEPPED STONE FOUNDATION PODIUM */}
@@ -125,4 +125,4 @@ export const BountyHall: React.FC = () => {
       </group>
     </group>
   );
-};
+});
