@@ -97,7 +97,7 @@ const StreetBrazier: React.FC<{ position: [number, number, number] }> = ({ posit
   );
 };
 
-export const ProcessionAvenue: React.FC = () => {
+export const ProcessionAvenue = React.memo(() => {
   // Phase 2B.8: Dedicated bump-map for the central forum plaza circle.
   // NOISE_TEXTURE has a global repeat of (3, 3) calibrated for ~1m surfaces.
   // On the 33m-diameter circle that yields only ~11px/m — functionally flat.
@@ -430,4 +430,4 @@ export const ProcessionAvenue: React.FC = () => {
       <RomanAmphora position={[8.2, 0, 15.2]} scale={0.85} tone="terracotta" />
     </group>
   );
-};
+});
