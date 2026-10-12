@@ -75,9 +75,8 @@ export const SmithingForge = React.memo(() => {
       {/* 2. BLACKSMITH'S STONE SMELTING FURNACE & CHIMNEY */}
       {/* Phase 20.3: Chimney flue extended to clear the gabled roof surface
           (roof tile top at y≈6.5 local). Flue now spans 3.2→7.0, with a stone
-          cap at the termination and a lead flashing collar at the roof
-          intersection. Smoke emitter raised above the cap so particles are
-          visible above the roof line. */}
+          cap at the termination. Smoke emitter raised above the cap so
+          particles are visible above the roof line. */}
       <group position={[-2.5, 0, -2.2]}>
         {/* Stone Furnace Base */}
         <mesh castShadow receiveShadow position={[0, 1.8, 0]}>
@@ -88,11 +87,6 @@ export const SmithingForge = React.memo(() => {
         <mesh castShadow position={[0, 5.1, 0]}>
           <cylinderGeometry args={[0.6, 0.9, 3.8, 12]} />
           <meshStandardMaterial color="#44403c" roughness={0.8} />
-        </mesh>
-        {/* Lead Roof Flashing Collar at roof intersection (y≈6.5) */}
-        <mesh castShadow receiveShadow position={[0, 6.5, 0]}>
-          <cylinderGeometry args={[1.1, 1.1, 0.12, 8]} />
-          <meshStandardMaterial color="#3f3f46" metalness={0.6} roughness={0.5} />
         </mesh>
         {/* Stone Chimney Cap */}
         <mesh castShadow position={[0, 7.1, 0]}>
