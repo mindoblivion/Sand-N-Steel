@@ -216,6 +216,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
   const isMatchOver = useRef(false);
   const phaseSwitchedRef = useRef(false);
+  const pendingHeavyAttackRef = useRef(false);
 
   // Match timer
   useEffect(() => {
@@ -401,6 +402,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         spawnDamageText('+40 SP', 'hype', attacker.position);
       }
 
+      // 2b. BOSS TELEGRAPH ACTION (Goliath heavy_telegraph)
+      // The boss spends this turn announcing a devastating overhead
+      // smash. The player gets a full turn to respond (dodge, block,
+      // or reposition) before the attack resolves on the boss's next
+      // turn via the AI effect reading pendingHeavyAttackRef.
+      else if (actionType === 'telegraph') {
+        sounds.playHeavyImpact();
+        pendingHeavyAttackRef.current = true;
+        setOpp((prev) => ({ ...prev, telegraphText: 'HEAVY ATTACK INCOMING' }));
+        addLog(`${attacker.name} winds up a devastating overhead smash!`, 'opponent');
+        spawnDamageText('\u26A0 HEAVY!', 'crit', attacker.position);
+      }
+
       // 3. OFFENSIVE ATTACK ACTIONS
       else if (actionType === 'quick_attack' || actionType === 'power_attack') {
         const isQuick = actionType === 'quick_attack';
@@ -523,7 +537,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           setPlayer((prev) => ({
             ...prev,
             action: 'idle',
-            isBlocking: false,
+            // Preserve the player's block when a telegraphed heavy attack
+            // is pending so the block can absorb the announced strike on
+            // the boss's next turn. Without this, isBlocking is cleared at
+            // turn end and the telegraph response is dodge-only.
+            isBlocking: pendingHeavyAttackRef.current ? prev.isBlocking : false,
             // isInvulnerable is intentionally NOT cleared here: a dodge stance
             // must survive into the opponent's turn so the incoming strike can
             // be evaded. It is consumed when the fighter next acts (pre-clear
@@ -559,6 +577,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       const dist = Math.abs(player.position[2] - opp.position[2]);
       const oppWeaponType = opp.loadout.weapon.type || 'sword_shield';
       const effectiveRange = oppWeaponType === 'spear' ? 3.8 : 2.5;
+
+      // Resolve pending heavy-attack telegraph (Goliath). The attack
+      // was announced on the previous AI turn; the player has since
+      // taken their turn. Clear the telegraph state and the preserved
+      // block, then resolve through the standard power_attack pipeline
+      // so damage, dodge, and block all use existing code paths.
+      if (opponent.bossMechanic === 'heavy_telegraph' && pendingHeavyAttackRef.current) {
+        pendingHeavyAttackRef.current = false;
+        setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+        setPlayer((prev) => (prev.isBlocking ? { ...prev, isBlocking: false } : prev));
+        executeCombatTurn('opponent', 'power_attack');
+        return;
+      }
 
       let chosenAction: CombatActionType = 'quick_attack';
 
@@ -598,6 +629,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         }
       }
 
+      // Goliath heavy-attack telegraph: occasionally announce a heavy
+      // attack instead of the chosen action. Only when in strike range,
+      // with enough stamina for the follow-up power attack (22 SP), and
+      // no pending telegraph already queued. ~30% rate keeps the boss
+      // threatening without making every turn a telegraph.
+      if (
+        opponent.bossMechanic === 'heavy_telegraph' &&
+        !pendingHeavyAttackRef.current &&
+        dist <= effectiveRange &&
+        opp.stamina >= 22 &&
+        Math.random() < 0.30
+      ) {
+        chosenAction = 'telegraph';
+      }
+
       executeCombatTurn('opponent', chosenAction);
     }, 750);
 
@@ -610,6 +656,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
     if (opp.health <= 0) {
       isMatchOver.current = true;
+      pendingHeavyAttackRef.current = false;
+      setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       sounds.playVictory();
       addLog(`VICTORY! ${player.name} has vanquished ${opp.name}!`, 'crit');
       setTimeout(() => {
@@ -617,6 +665,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }, 1400);
     } else if (player.health <= 0) {
       isMatchOver.current = true;
+      pendingHeavyAttackRef.current = false;
+      setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       addLog(`DEFEAT! ${player.name} has fallen in the sand.`, 'opponent');
       setTimeout(() => {
         onMatchComplete(statsRef.current, false);
