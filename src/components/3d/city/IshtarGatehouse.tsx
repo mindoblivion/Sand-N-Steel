@@ -5,7 +5,7 @@ import { ClassicalColumn, WallCornice } from './ClassicalArchitecture';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { Banner } from './EnvironmentalMotion';
 
-export const IshtarGatehouse: React.FC = () => {
+export const IshtarGatehouse = React.memo(() => {
   // Phase 2B.22: Dedicated bump-map for the central arch facade.
   // NOISE_TEXTURE has a global repeat of (3, 3) calibrated for ~1 m surfaces.
   // The central arch is 14 m × 10 m, so repeat 3 stretches each noise tile across
@@ -149,4 +149,4 @@ export const IshtarGatehouse: React.FC = () => {
       ))}
     </group>
   );
-};
+});
