@@ -176,6 +176,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const lastTimeRef = useRef<number>(performance.now());
+  const isMovingRef = useRef<boolean>(false);
 
   // Interact with nearby landmark or update ambient audio
   useEffect(() => {
@@ -388,11 +389,20 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
         playerRotYRef.current += angleDiff * Math.min(1, delta * 11.0);
 
-        setPlayerPos([nextPos[0], nextPos[1], nextPos[2]]);
-        setPlayerRotY(playerRotYRef.current);
-        setIsMoving(true);
+        // Phase 26.1: Position/rotation are applied via refs in useFrame
+        // (GladiatorMesh, CityCamera), NOT through React state. This eliminates
+        // the per-frame re-render of the entire component tree that caused
+        // character vibration on mobile. setIsMoving is only called when the
+        // value actually changes (React skips if same).
+        if (!isMovingRef.current) {
+          isMovingRef.current = true;
+          setIsMoving(true);
+        }
       } else {
-        setIsMoving(false);
+        if (isMovingRef.current) {
+          isMovingRef.current = false;
+          setIsMoving(false);
+        }
       }
 
       // Check proximity to landmarks (only update state when changed)
@@ -421,7 +431,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
   const calculatedStats = useMemo(() => calculateTotalStats(playerProfile), [playerProfile]);
 
-  const cityPlayerFighter: FighterState = {
+  // Phase 26.1: Memoized so it doesn't change reference on unrelated
+  // re-renders (e.g. setKnobPos). Position/rotation are overridden by
+  // useFrame via refs, so their stale values here are harmless.
+  const cityPlayerFighter = useMemo<FighterState>(() => ({
     id: 'city_player',
     name: playerProfile.name,
     title: playerProfile.title,
@@ -445,7 +458,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     clothingStyle: playerProfile.appearance.clothingStyle,
     characterModel: playerProfile.appearance.characterModel || 'roman_warrior',
     isLeftyMode: isLeftyMode,
-  };
+  }), [playerProfile, playerPos, playerRotY, isMoving, isAttacking, isLeftyMode, calculatedStats]);
 
   return (
     <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
@@ -567,7 +580,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             {/* 3D Player Gladiator Model Wrapped in Error Boundary */}
             <ThreeComponentErrorBoundary componentName="CityPlayerGladiator">
               <Suspense fallback={<CanvasLoadingFallback />}>
-                <GladiatorMesh fighter={cityPlayerFighter} isLeftyMode={isLeftyMode} />
+                <GladiatorMesh fighter={cityPlayerFighter} isLeftyMode={isLeftyMode} positionRef={playerPosRef} rotationRef={playerRotYRef} />
                 {/* Ambient Characters */}
                 {AMBIENT_CHARACTERS.map(fighter => (
                     <GladiatorMesh key={fighter.id} fighter={fighter} />
@@ -576,7 +589,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             </ThreeComponentErrorBoundary>
 
           {/* ELEVATED 3RD-PERSON CHASE CAMERA WITH HOLD-AND-DRAG ORBIT & PITCH */}
-          <CityCamera targetPosition={playerPos} targetRotationY={playerRotY} isMoving={isMoving} cameraYawRef={cameraYawRef} />
+          <CityCamera targetPosition={playerPos} targetPositionRef={playerPosRef} targetRotationY={playerRotY} isMoving={isMoving} cameraYawRef={cameraYawRef} />
         </Canvas>
       </WebGLContextErrorBoundary>
     </WebGLReadyGuard>

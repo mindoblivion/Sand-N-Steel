@@ -5,6 +5,7 @@ import { useCameraDrag } from '../../../hooks/useCameraDrag';
 
 interface CityCameraProps {
   targetPosition: [number, number, number];
+  targetPositionRef?: React.MutableRefObject<[number, number, number]>;
   targetRotationY: number;
   isMoving?: boolean;
   cameraYawRef?: React.MutableRefObject<number>;
@@ -16,6 +17,7 @@ interface CityCameraProps {
  */
 export const CityCamera: React.FC<CityCameraProps> = ({
   targetPosition,
+  targetPositionRef,
   targetRotationY,
   isMoving = false,
   cameraYawRef,
@@ -39,9 +41,12 @@ export const CityCamera: React.FC<CityCameraProps> = ({
   const targetPointRef = useRef(new THREE.Vector3());
 
   useFrame((_, delta) => {
-    const pX = targetPosition[0];
-    const pY = targetPosition[1];
-    const pZ = targetPosition[2];
+    // Phase 26.1: Read position from ref when provided for smooth per-frame
+    // tracking without depending on React state re-renders.
+    const pos = targetPositionRef ? targetPositionRef.current : targetPosition;
+    const pX = pos[0];
+    const pY = pos[1];
+    const pZ = pos[2];
 
     const baseDistance = 5.5;
     const baseHeight = 2.8;

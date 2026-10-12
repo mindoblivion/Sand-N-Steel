@@ -9,6 +9,11 @@ interface GladiatorMeshProps {
   fighter: FighterState;
   overrideAction?: FighterState['action'];
   isLeftyMode?: boolean;
+  // Phase 26.1: When provided, position/rotation are applied directly in
+  // useFrame from these refs instead of through React state, eliminating the
+  // per-frame re-render that caused character vibration on mobile.
+  positionRef?: React.MutableRefObject<[number, number, number]>;
+  rotationRef?: React.MutableRefObject<number>;
 }
 
 // Per-URL cache for GLB file presence & validity check
@@ -485,12 +490,16 @@ const RomanWarriorGLB: React.FC<{
   isLeftyMode?: boolean;
   onInvalidModel?: () => void;
   modelUrl?: string;
+  positionRef?: React.MutableRefObject<[number, number, number]>;
+  rotationRef?: React.MutableRefObject<number>;
 }> = ({
   fighter,
   overrideAction,
   isLeftyMode,
   onInvalidModel,
   modelUrl = '/models/arena_roman.glb',
+  positionRef,
+  rotationRef,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const currentActionName = useRef<string>('');
@@ -586,6 +595,15 @@ const RomanWarriorGLB: React.FC<{
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
+
+    // Phase 26.1: Apply position/rotation from refs when provided, bypassing
+    // React state for smooth per-frame updates without re-rendering the tree.
+    if (positionRef) {
+      groupRef.current.position.set(positionRef.current[0], positionRef.current[1], positionRef.current[2]);
+    }
+    if (rotationRef) {
+      groupRef.current.rotation.y = rotationRef.current;
+    }
 
     // Detect a new hit via action transition. hitFlashTimer is set to 0.3 by
     // DuelScene on a hit but never decremented, so it alone can't signal a
@@ -898,7 +916,9 @@ const ProceduralGladiator: React.FC<{
   fighter: FighterState;
   overrideAction?: FighterState['action'];
   isLeftyMode?: boolean;
-}> = ({ fighter, overrideAction, isLeftyMode = false }) => {
+  positionRef?: React.MutableRefObject<[number, number, number]>;
+  rotationRef?: React.MutableRefObject<number>;
+}> = ({ fighter, overrideAction, isLeftyMode = false, positionRef, rotationRef }) => {
   const rootRef = useRef<THREE.Group>(null);
   const hipsRef = useRef<THREE.Group>(null);
   const torsoRef = useRef<THREE.Group>(null);
@@ -919,6 +939,16 @@ const ProceduralGladiator: React.FC<{
   const isLefty = isLeftyMode || fighter.isLeftyMode || false;
 
   useFrame(({ clock }, delta) => {
+    // Phase 26.1: Apply position/rotation from refs before any early return.
+    if (rootRef.current) {
+      if (positionRef) {
+        rootRef.current.position.set(positionRef.current[0], positionRef.current[1], positionRef.current[2]);
+      }
+      if (rotationRef) {
+        rootRef.current.rotation.y = rotationRef.current;
+      }
+    }
+
     const t = clock.getElapsedTime();
 
     if (!hipsRef.current || !torsoRef.current || !headRef.current) return;
@@ -1428,7 +1458,7 @@ class GLTFErrorBoundary extends React.Component<
 }
 
 // 4. Main GladiatorMesh Component
-export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode }: GladiatorMeshProps) => {
+export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef }: GladiatorMeshProps) => {
   const modelUrl = fighter.characterModel === 'amazonian'
     ? '/models/amazonian.glb'
     : fighter.characterModel === 'retiarius'
@@ -1453,6 +1483,8 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode 
         fighter={fighter}
         overrideAction={overrideAction}
         isLeftyMode={effectiveLefty}
+        positionRef={positionRef}
+        rotationRef={rotationRef}
       />
     );
   }
@@ -1465,6 +1497,8 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode 
           fighter={fighter}
           overrideAction={overrideAction}
           isLeftyMode={effectiveLefty}
+          positionRef={positionRef}
+          rotationRef={rotationRef}
         />
       }
     >
@@ -1474,6 +1508,8 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode 
         isLeftyMode={effectiveLefty}
         onInvalidModel={() => setLoadFailed(true)}
         modelUrl={modelUrl}
+        positionRef={positionRef}
+        rotationRef={rotationRef}
       />
     </GLTFErrorBoundary>
   );
