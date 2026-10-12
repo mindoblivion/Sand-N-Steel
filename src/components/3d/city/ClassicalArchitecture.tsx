@@ -79,7 +79,7 @@ export const RomanGabledRoof: React.FC<RomanGabledRoofProps> = ({
             castShadow
             receiveShadow
             position={[-halfSpan / 2, height / 2 + 0.04, 0]}
-            rotation={[0, 0, -slopeAngle]}
+            rotation={[0, 0, slopeAngle]}
           >
             <boxGeometry args={[rafterLength, tileThickness, fullLength]} />
             <meshStandardMaterial color={tileColor} roughness={0.75} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.015} />
@@ -90,7 +90,7 @@ export const RomanGabledRoof: React.FC<RomanGabledRoofProps> = ({
             castShadow
             receiveShadow
             position={[halfSpan / 2, height / 2 + 0.04, 0]}
-            rotation={[0, 0, slopeAngle]}
+            rotation={[0, 0, -slopeAngle]}
           >
             <boxGeometry args={[rafterLength, tileThickness, fullLength]} />
             <meshStandardMaterial color={tileColor} roughness={0.75} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.015} />
