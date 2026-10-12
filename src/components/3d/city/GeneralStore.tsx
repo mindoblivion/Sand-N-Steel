@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
 import { RomanGabledRoof, CornerQuoins, WallCornice } from './ClassicalArchitecture';
 import { TimberCrate, RomanAmphora, WineBarrel } from './CivicFurnishingProps';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const GeneralStore: React.FC = () => {
+export const GeneralStore = React.memo(() => {
   const canopyRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
@@ -25,7 +26,7 @@ export const GeneralStore: React.FC = () => {
       {/* 1. TIMBER MARKET PAVILION STRUCTURE */}
       <mesh castShadow receiveShadow position={[0, 2.4, 0]}>
         <boxGeometry args={[7.2, 4.8, 5.8]} />
-        <meshStandardMaterial color="#854d0e" roughness={0.7} />
+        <meshStandardMaterial color="#854d0e" roughness={0.7} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Rustic Corner Timber Quoins */}
@@ -111,4 +112,4 @@ export const GeneralStore: React.FC = () => {
       </group>
     </group>
   );
-};
+});

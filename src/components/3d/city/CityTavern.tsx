@@ -9,8 +9,9 @@ import {
   WallCornice,
 } from './ClassicalArchitecture';
 import { RomanAmphora, WineBarrel } from './CivicFurnishingProps';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const CityTavern: React.FC = () => {
+export const CityTavern = React.memo(() => {
   return (
     <group position={[-16, 0, 14]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -19,7 +20,7 @@ export const CityTavern: React.FC = () => {
       {/* 1. TWO-STORY ROMAN TABERNA STONE VILLA */}
       <mesh castShadow receiveShadow position={[0, 3.2, 0]}>
         <boxGeometry args={[8.4, 6.4, 7.2]} />
-        <meshStandardMaterial color="#78350f" roughness={0.75} />
+        <meshStandardMaterial color="#78350f" roughness={0.75} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Masonry Corner Quoins */}
@@ -122,4 +123,4 @@ export const CityTavern: React.FC = () => {
       ))}
     </group>
   );
-};
+});

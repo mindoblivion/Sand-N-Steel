@@ -1,30 +1,26 @@
 import React from 'react';
 import * as THREE from 'three';
+import { BuildingFoundation } from './BuildingFoundation';
 import {
   ClassicalColumn,
   ClassicalDoorway,
   ClassicalWindow,
   CornerQuoins,
+  RomanGabledRoof,
   WallCornice,
 } from './ClassicalArchitecture';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const ArenaMedicalHouse: React.FC = () => {
+export const ArenaMedicalHouse = React.memo(() => {
   return (
     <group position={[-29, 0, -5]}>
       {/* 1. MAIN INFIRMARY STONE & STUCCO HALL */}
-      {/* Travertine stepped foundation */}
-      <mesh castShadow receiveShadow position={[0, 0.08, 0]}>
-        <boxGeometry args={[5.7, 0.16, 5.7]} />
-        <meshStandardMaterial color="#d4a373" roughness={0.7} />
-      </mesh>
-      <mesh castShadow receiveShadow position={[0, 0.24, 0]}>
-        <boxGeometry args={[5.2, 0.32, 5.2]} />
-        <meshStandardMaterial color="#ebdcb9" roughness={0.65} />
-      </mesh>
+      {/* Travertine stepped foundation (shared BuildingFoundation component) */}
+      <BuildingFoundation size={[4.9, 4.9]} height={0.4} projection={0.3} color="#d4a373" capColor="#ebdcb9" wearTone="none" />
       {/* Stucco Walls */}
       <mesh castShadow receiveShadow position={[0, 1.4, 0]}>
         <boxGeometry args={[4.9, 2.0, 4.9]} />
-        <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.7} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Travertine Corner Quoins */}
@@ -42,11 +38,18 @@ export const ArenaMedicalHouse: React.FC = () => {
         stoneColor="#d4a373"
       />
 
-      {/* 2. TERRACOTTA PYRAMIDAL ROOF WITH EAVE OVERHANG */}
-      <mesh castShadow position={[0, 3.3, 0]} rotation={[0, Math.PI / 4, 0]}>
-        <coneGeometry args={[4.0, 1.8, 4]} />
-        <meshStandardMaterial color="#b45309" roughness={0.6} />
-      </mesh>
+      {/* 2. TERRACOTTA GABLED ROOF (shared RomanGabledRoof component) */}
+      <RomanGabledRoof
+        width={4.9}
+        depth={4.9}
+        height={1.8}
+        eaveOverhang={0.35}
+        ridgeAlong="z"
+        position={[0, 2.4, 0]}
+        tileColor="#b45309"
+        trimColor="#d4a373"
+        tympanumColor="#ebdcb9"
+      />
 
       {/* 3. FRONT RECESSED ALCOVE PORCH WITH CLASSICAL COLUMNS & FRAMED DOORWAY */}
       <group position={[0, 0, 2.4]}>
@@ -142,4 +145,4 @@ export const ArenaMedicalHouse: React.FC = () => {
       </group>
     </group>
   );
-};
+});

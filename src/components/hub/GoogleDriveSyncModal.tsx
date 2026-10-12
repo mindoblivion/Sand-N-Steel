@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PlayerProfile } from '../../types/game';
-import { googleSignIn, googleSignOut, initAuth } from '../../services/googleAuth';
+import { googleSignIn, googleSignOut, initAuth, clearCachedToken } from '../../services/googleAuth';
 import {
   listDriveSaves,
   saveProfileToDrive,
   loadProfileFromDrive,
   deleteDriveSaveFile,
   DriveSaveFile,
+  DriveApiError,
 } from '../../services/googleDrive';
 import { User } from 'firebase/auth';
 import {
@@ -40,29 +41,70 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const [saves, setSaves] = useState<DriveSaveFile[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [savesLoaded, setSavesLoaded] = useState(false);
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const signOutRef = useRef(false);
 
   useEffect(() => {
-    const unsub = initAuth((currentUser, currentToken) => {
-      setUser(currentUser);
-      setToken(currentToken);
-      if (currentToken) {
-        fetchDriveSaves();
-      }
-    });
+    const unsub = initAuth(
+      (currentUser, currentToken) => {
+        setUser(currentUser);
+        setToken(currentToken);
+        if (currentToken) {
+          fetchDriveSaves();
+        }
+      },
+      () => {
+        // Firebase auth session ended (expired or revoked) — not a manual sign-out.
+        if (signOutRef.current) {
+          signOutRef.current = false;
+          return;
+        }
+        setUser(null);
+        setToken(null);
+        setSaves([]);
+        setSavesLoaded(false);
+        setIsLoading(false);
+        setStatusMessage({
+          type: 'error',
+          text: 'Your Google session has expired. Please sign in again.',
+        });
+      },
+    );
     return () => unsub();
   }, []);
+
+  // Detect Drive API 401 (expired access token) and reset to the sign-in view
+  // without clearing the Firebase user — the player just needs to re-authenticate.
+  const handleDriveError = (e: unknown): boolean => {
+    if (e instanceof DriveApiError && e.status === 401) {
+      clearCachedToken();
+      setToken(null);
+      setSaves([]);
+      setStatusMessage({
+        type: 'error',
+        text: 'Your Google Drive access has expired. Please sign in again to continue.',
+      });
+      return true;
+    }
+    return false;
+  };
 
   const fetchDriveSaves = async () => {
     try {
       setIsLoading(true);
       const list = await listDriveSaves();
       setSaves(list);
+      setSavesLoaded(true);
     } catch (e) {
       console.error(e);
-      setStatusMessage({
-        type: 'error',
-        text: e instanceof Error ? e.message : 'Could not fetch Drive files',
-      });
+      setSavesLoaded(false);
+      if (!handleDriveError(e)) {
+        setStatusMessage({
+          type: 'error',
+          text: e instanceof Error ? e.message : 'Could not fetch Drive files',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -79,6 +121,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
         setToken(res.accessToken);
         const list = await listDriveSaves();
         setSaves(list);
+        setSavesLoaded(true);
         setStatusMessage({ type: 'success', text: `Connected as ${res.user.displayName || res.user.email}` });
       }
     } catch (e) {
@@ -94,31 +137,73 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
 
   const handleSignOut = async () => {
     sounds.playClick();
+    signOutRef.current = true;
     await googleSignOut();
     setUser(null);
     setToken(null);
     setSaves([]);
+    setSavesLoaded(false);
     setStatusMessage({ type: 'success', text: 'Signed out of Google Account.' });
   };
 
   const handleSaveToDrive = async () => {
     if (!currentProfile) return;
     sounds.playClick();
+
+    // If we couldn't verify the saves list, do not risk an overwrite
+    if (!savesLoaded) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Could not verify existing cloud saves. Please refresh the list and try again.',
+      });
+      return;
+    }
+
+    // If existing cloud saves exist, ask for confirmation before overwriting
+    if (saves.length > 0) {
+      setShowOverwriteConfirm(true);
+      return;
+    }
+
+    // No existing saves — proceed directly
+    await performBackup();
+  };
+
+  const performBackup = async (confirmedReplaceFileId?: string) => {
+    if (!currentProfile) return;
     setIsLoading(true);
     setStatusMessage(null);
     try {
-      const saved = await saveProfileToDrive(currentProfile);
+      await saveProfileToDrive(
+        currentProfile,
+        confirmedReplaceFileId ? { confirmedReplaceFileId } : undefined
+      );
       setStatusMessage({ type: 'success', text: `Saved "${currentProfile.name}" to Google Drive successfully!` });
       await fetchDriveSaves();
     } catch (e) {
       console.error(e);
-      setStatusMessage({
-        type: 'error',
-        text: e instanceof Error ? e.message : 'Failed to save to Google Drive',
-      });
+      // 409 = an unexpected cloud save was found; do NOT retry automatically.
+      // Refresh the list so the user can review and explicitly confirm replacement.
+      if (e instanceof DriveApiError && e.status === 409) {
+        await fetchDriveSaves();
+        setStatusMessage({ type: 'error', text: e.message });
+        return;
+      }
+      if (!handleDriveError(e)) {
+        setStatusMessage({
+          type: 'error',
+          text: e instanceof Error ? e.message : 'Failed to save to Google Drive',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleConfirmOverwrite = async () => {
+    sounds.playClick();
+    setShowOverwriteConfirm(false);
+    await performBackup(saves[0]?.id);
   };
 
   const handleLoadFromDrive = async (fileId: string) => {
@@ -131,10 +216,12 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
       setStatusMessage({ type: 'success', text: `Loaded "${profile.name}" (LVL ${profile.level}) from Google Drive!` });
     } catch (e) {
       console.error(e);
-      setStatusMessage({
-        type: 'error',
-        text: e instanceof Error ? e.message : 'Failed to load save from Google Drive',
-      });
+      if (!handleDriveError(e)) {
+        setStatusMessage({
+          type: 'error',
+          text: e instanceof Error ? e.message : 'Failed to load save from Google Drive',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -151,10 +238,12 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
       await fetchDriveSaves();
     } catch (e) {
       console.error(e);
-      setStatusMessage({
-        type: 'error',
-        text: e instanceof Error ? e.message : 'Failed to delete file from Google Drive',
-      });
+      if (!handleDriveError(e)) {
+        setStatusMessage({
+          type: 'error',
+          text: e instanceof Error ? e.message : 'Failed to delete file from Google Drive',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -336,6 +425,41 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* OVERWRITE CONFIRMATION DIALOG */}
+        {showOverwriteConfirm && (
+          <div className="fixed inset-0 bg-neutral-950/90 z-50 flex items-center justify-center p-4">
+            <div className="bg-neutral-900 border-2 border-amber-500 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
+              <div className="w-12 h-12 rounded-full bg-amber-900/50 border border-amber-500 flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle className="w-6 h-6 text-amber-400" />
+              </div>
+              <h4 className="font-serif font-bold text-base text-amber-300 uppercase mb-2">
+                Replace Cloud Save?
+              </h4>
+              <p className="text-xs text-neutral-300 mb-5">
+                An existing cloud save
+                {saves[0]?.profilePreview
+                  ? ` (${saves[0].profilePreview.name}, LVL ${saves[0].profilePreview.level})`
+                  : ''}
+                {' '}was found on your Google Drive. Backing up will permanently replace it with your current local progress. This action cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowOverwriteConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-neutral-300 text-xs font-bold font-serif cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmOverwrite}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 text-xs font-bold font-serif cursor-pointer active:scale-95"
+                >
+                  Replace Cloud Save
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -8,8 +8,9 @@ import {
   CornerQuoins,
   WallCornice,
 } from './ClassicalArchitecture';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const DoctoreHouse: React.FC = () => {
+export const DoctoreHouse = React.memo(() => {
   return (
     <group position={[28, 0, -17]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -19,7 +20,7 @@ export const DoctoreHouse: React.FC = () => {
       {/* Solid Stone Walls */}
       <mesh castShadow receiveShadow position={[0, 1.8, 0]}>
         <boxGeometry args={[5.5, 3.6, 5.0]} />
-        <meshStandardMaterial color="#78716c" roughness={0.7} />
+        <meshStandardMaterial color="#78716c" roughness={0.7} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Dark Stone Corner Quoins */}
@@ -105,4 +106,4 @@ export const DoctoreHouse: React.FC = () => {
       </group>
     </group>
   );
-};
+});

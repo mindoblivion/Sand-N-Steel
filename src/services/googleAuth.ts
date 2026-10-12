@@ -84,6 +84,14 @@ export const getAccessToken = async (): Promise<string | null> => {
 };
 
 /**
+ * Clear the cached Drive access token without signing out of Firebase.
+ * Used when the Drive API returns 401 but the Firebase session is still valid.
+ */
+export const clearCachedToken = () => {
+  cachedAccessToken = null;
+};
+
+/**
  * Sign out of Google Account
  */
 export const googleSignOut = async () => {

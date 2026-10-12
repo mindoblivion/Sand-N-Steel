@@ -215,6 +215,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   });
 
   const isMatchOver = useRef(false);
+  const phaseSwitchedRef = useRef(false);
+  const pendingHeavyAttackRef = useRef(false);
+  const pendingCounterRef = useRef(false);
 
   // Match timer
   useEffect(() => {
@@ -400,6 +403,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         spawnDamageText('+40 SP', 'hype', attacker.position);
       }
 
+      // 2b. BOSS TELEGRAPH ACTION (Goliath heavy_telegraph)
+      // The boss spends this turn announcing a devastating overhead
+      // smash. The player gets a full turn to respond (dodge, block,
+      // or reposition) before the attack resolves on the boss's next
+      // turn via the AI effect reading pendingHeavyAttackRef.
+      else if (actionType === 'telegraph') {
+        sounds.playHeavyImpact();
+        pendingHeavyAttackRef.current = true;
+        setOpp((prev) => ({ ...prev, telegraphText: 'HEAVY ATTACK INCOMING' }));
+        addLog(`${attacker.name} winds up a devastating overhead smash!`, 'opponent');
+        spawnDamageText('\u26A0 HEAVY!', 'crit', attacker.position);
+      }
+
       // 3. OFFENSIVE ATTACK ACTIONS
       else if (actionType === 'quick_attack' || actionType === 'power_attack') {
         const isQuick = actionType === 'quick_attack';
@@ -439,10 +455,29 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // before the opposing turn begins.
           const isEvaded = defender.isInvulnerable && Math.random() < 0.75;
 
-          if (isEvaded) {
+          // Passive evasion (Valéria counter_dodge): when the player
+          // attacks a counter_dodge boss who is NOT in an active
+          // dodge stance, roll against the boss's configured
+          // dodgeChance for a passive evade. Does not stack with
+          // the active-dodge evasion above.
+          const isPassiveEvaded =
+            !isEvaded &&
+            isActorPlayer &&
+            opponent.bossMechanic === 'counter_dodge' &&
+            !defender.isInvulnerable &&
+            Math.random() < opponent.dodgeChance;
+
+          if (isEvaded || isPassiveEvaded) {
             sounds.playDodge();
             addLog(`${defender.name} swiftly EVADED ${attacker.name}'s strike!`, 'system');
             spawnDamageText('EVADED!', 'dodge', defender.position);
+            // Queue a counterattack for Valéria's next AI turn.
+            // Only when the player is the attacker against a
+            // counter_dodge boss — a player evading Valéria's own
+            // counter must NOT chain into another counter.
+            if (isActorPlayer && opponent.bossMechanic === 'counter_dodge') {
+              pendingCounterRef.current = true;
+            }
           } else if (roll <= hitPct) {
             // HIT LANDED! Calculate damage & crits
             const baseDmg = isQuick
@@ -522,7 +557,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           setPlayer((prev) => ({
             ...prev,
             action: 'idle',
-            isBlocking: false,
+            // Preserve the player's block when a telegraphed heavy attack
+            // is pending so the block can absorb the announced strike on
+            // the boss's next turn. Without this, isBlocking is cleared at
+            // turn end and the telegraph response is dodge-only.
+            isBlocking: pendingHeavyAttackRef.current ? prev.isBlocking : false,
             // isInvulnerable is intentionally NOT cleared here: a dodge stance
             // must survive into the opponent's turn so the incoming strike can
             // be evaded. It is consumed when the fighter next acts (pre-clear
@@ -558,6 +597,39 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       const dist = Math.abs(player.position[2] - opp.position[2]);
       const oppWeaponType = opp.loadout.weapon.type || 'sword_shield';
       const effectiveRange = oppWeaponType === 'spear' ? 3.8 : 2.5;
+
+      // Resolve pending heavy-attack telegraph (Goliath). The attack
+      // was announced on the previous AI turn; the player has since
+      // taken their turn. Clear the telegraph warning and resolve
+      // through the standard power_attack pipeline so damage, dodge,
+      // and block all use existing code paths.
+      //
+      // The player's block (if they chose shield_block as their
+      // response) is intentionally left in place: executeCombatTurn
+      // reads fighter state from its render closure, so the preserved
+      // isBlocking flag is active during the power_attack and applies
+      // the existing 75% damage reduction. The block is then cleared
+      // by the 1100ms turn-end cleanup, which evaluates
+      // pendingHeavyAttackRef.current (now false) and sets
+      // isBlocking to false. No explicit pre-clear is needed here.
+      if (opponent.bossMechanic === 'heavy_telegraph' && pendingHeavyAttackRef.current) {
+        pendingHeavyAttackRef.current = false;
+        setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+        executeCombatTurn('opponent', 'power_attack');
+        return;
+      }
+
+      // Resolve pending counterattack (Valéria counter_dodge). The
+      // counter was queued when Valéria evaded a player attack on the
+      // previous turn. Clear the ref before resolving so it cannot fire
+      // twice, then resolve through the standard quick_attack pipeline
+      // — reusing all existing range, stamina, block, invulnerability,
+      // and damage logic.
+      if (opponent.bossMechanic === 'counter_dodge' && pendingCounterRef.current) {
+        pendingCounterRef.current = false;
+        executeCombatTurn('opponent', 'quick_attack');
+        return;
+      }
 
       let chosenAction: CombatActionType = 'quick_attack';
 
@@ -597,6 +669,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         }
       }
 
+      // Goliath heavy-attack telegraph: occasionally announce a heavy
+      // attack instead of the chosen action. Only when in strike range,
+      // with enough stamina for the follow-up power attack (22 SP), and
+      // no pending telegraph already queued. ~30% rate keeps the boss
+      // threatening without making every turn a telegraph.
+      if (
+        opponent.bossMechanic === 'heavy_telegraph' &&
+        !pendingHeavyAttackRef.current &&
+        dist <= effectiveRange &&
+        opp.stamina >= 22 &&
+        Math.random() < 0.30
+      ) {
+        chosenAction = 'telegraph';
+      }
+
       executeCombatTurn('opponent', chosenAction);
     }, 750);
 
@@ -609,6 +696,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
     if (opp.health <= 0) {
       isMatchOver.current = true;
+      pendingHeavyAttackRef.current = false;
+      pendingCounterRef.current = false;
+      setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       sounds.playVictory();
       addLog(`VICTORY! ${player.name} has vanquished ${opp.name}!`, 'crit');
       setTimeout(() => {
@@ -616,6 +706,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }, 1400);
     } else if (player.health <= 0) {
       isMatchOver.current = true;
+      pendingHeavyAttackRef.current = false;
+      pendingCounterRef.current = false;
+      setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       addLog(`DEFEAT! ${player.name} has fallen in the sand.`, 'opponent');
       setTimeout(() => {
         onMatchComplete(statsRef.current, false);
@@ -623,8 +716,29 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     }
   }, [opp.health, player.health, player.name, opp.name, addLog, onMatchComplete]);
 
+  // Boss phase-2 weapon switch (Ignis: dual_blades → mace at 50% health).
+  // One-time: guarded by phaseSwitchedRef so the effect cannot re-trigger
+  // even if React re-renders before the state update settles. Also guarded
+  // against post-match and zero-health states so a killing blow that crosses
+  // the threshold does not switch weapons. The guard resets naturally on a
+  // fresh DuelScene mount (new ref instance). No phase state is persisted.
+  useEffect(() => {
+    if (phaseSwitchedRef.current || isMatchOver.current) return;
+    if (opponent.bossMechanic !== 'phase_weapon_switch' || !opponent.phase2WeaponType) return;
+    const threshold = opp.stats.healthMax * 0.5;
+    if (opp.health > 0 && opp.health <= threshold) {
+      phaseSwitchedRef.current = true;
+      setOpp((prev) => ({
+        ...prev,
+        isPhase2: true,
+        loadout: { ...prev.loadout, weapon: getWeaponByType(opponent.phase2WeaponType!) },
+      }));
+      addLog(`${opp.name} discards their blades and draws a heavy war mace!`, 'system');
+    }
+  }, [opp.health, opp.stats.healthMax, opponent.bossMechanic, opponent.phase2WeaponType, opp.name, addLog]);
+
   return (
-    <div className="relative w-full h-full min-h-screen bg-neutral-950 overflow-hidden select-none">
+    <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
       {/* 3D WEBGL DUEL CANVAS WRAPPED IN ERROR BOUNDARY & READY GUARD */}
       <WebGLReadyGuard
         sceneName="DuelArena"

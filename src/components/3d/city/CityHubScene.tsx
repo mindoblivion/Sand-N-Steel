@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Sparkles as DreiSparkles, Sky, useGLTF } from '@react-three/drei';
+import { Sparkles as DreiSparkles, Sky, Environment, Lightformer, useGLTF } from '@react-three/drei';
 import { PlayerProfile, OpponentConfig, FighterState } from '../../../types/game';
 import { IshtarGatehouse } from './IshtarGatehouse';
 import { ProcessionAvenue } from './ProcessionAvenue';
@@ -97,6 +97,53 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   isLeftyMode,
   onOpenSettings,
 }) => {
+  // Stabilize the Environment cubemap's Lightformer children across player-movement re-renders.
+  // Without this, each setPlayerPos / setPlayerRotY / setIsMoving call creates a new children
+  // reference, which can re-trigger drei's Environment layout effect and recapture the cubemap.
+  const environmentLightformers = useMemo(
+    () => (
+      <>
+        {/* Warm Mediterranean sun — aligned with key directional light direction */}
+        <Lightformer
+          form="rect"
+          intensity={2.0}
+          color="#fffbeb"
+          position={[30, 42, 22]}
+          scale={[30, 30, 1]}
+          target={[0, 0, 0]}
+        />
+        {/* Warm sky dome — ambient sky reflections for upward-facing surfaces */}
+        <Lightformer
+          form="rect"
+          intensity={0.35}
+          color="#fef3c7"
+          position={[0, 60, 0]}
+          scale={[100, 100, 1]}
+          target={[0, 0, 0]}
+        />
+        {/* Warm earth ground bounce — ground reflections for downward-facing surfaces */}
+        <Lightformer
+          form="rect"
+          intensity={0.25}
+          color="#b08968"
+          position={[0, -30, 0]}
+          scale={[100, 100, 1]}
+          target={[0, 0, 0]}
+        />
+        {/* Subtle cool fill — matches secondary directional light direction */}
+        <Lightformer
+          form="rect"
+          intensity={0.2}
+          color="#7dd3fc"
+          position={[-25, 20, -25]}
+          scale={[20, 20, 1]}
+          target={[0, 0, 0]}
+        />
+      </>
+    ),
+    []
+  );
+
   // Spawn gracefully in front of the Monumental Town Gate on the open avenue
   const [playerPos, setPlayerPos] = useState<[number, number, number]>([0, 0, 16]);
   const [playerRotY, setPlayerRotY] = useState(Math.PI);
@@ -372,7 +419,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     setShowNavDrawer(false);
   };
 
-  const calculatedStats = calculateTotalStats(playerProfile);
+  const calculatedStats = useMemo(() => calculateTotalStats(playerProfile), [playerProfile]);
 
   const cityPlayerFighter: FighterState = {
     id: 'city_player',
@@ -401,7 +448,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full min-h-screen bg-neutral-950 overflow-hidden select-none">
+    <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
       {/* 3D WEBGL 3RD-PERSON CITY CANVAS WITH EXPANDED FOV */}
       <WebGLReadyGuard
         sceneName="CityHubMetropolis"
@@ -416,6 +463,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           <Canvas
             shadows
             frameloop={frameloopMode}
+            dpr={[1, 2]}
             camera={{ position: [0, 5, 24], fov: 58, near: 0.1, far: 180 }}
             gl={{ antialias: false, powerPreference: 'high-performance' }}
             onCreated={(state) => {
@@ -429,17 +477,37 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             {/* Atmospheric Mediterranean Horizon Fog */}
             <fog attach="fog" args={['#e0a96d', 35, 115]} />
 
-            <Sky sunPosition={[45, 30, 25]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
-            {/* Phase 24 — Calibrated Mediterranean Sunlight & Contrast */}
-            <ambientLight intensity={0.42} color="#fef3c7" />
+            <Sky sunPosition={[30, 42, 22]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
+            {/* Phase 24 — Calibrated Mediterranean Sunlight & Contrast.
+                Phase 2A: hemisphere replaces flat ambient; shadow camera bounds
+                expanded from default ±5 to cover full city; bias added; Sky aligned. */}
+            <hemisphereLight color="#fef3c7" groundColor="#b08968" intensity={0.45} />
             <directionalLight
               position={[30, 42, 22]}
               intensity={2.15}
               color="#fffbeb"
               castShadow
               shadow-mapSize={[2048, 2048]}
+              shadow-camera-left={-50}
+              shadow-camera-right={50}
+              shadow-camera-top={50}
+              shadow-camera-bottom={-40}
+              shadow-camera-near={1}
+              shadow-camera-far={120}
+              shadow-bias={-0.0004}
+              shadow-normalBias={0.02}
             />
             <directionalLight position={[-25, 20, -25]} intensity={0.28} color="#7dd3fc" />
+
+            {/* Phase 2B — Scene-level PBR environment for metallic/physical material reflections.
+                The visible <Sky> is a mesh, not an environment map; without this, materials with
+                metalness > 0 (darkIron, agedBronze, goldAccent) render flat black with no specular.
+                Procedural Lightformers are rendered ONCE into a 256px cubemap, PMREM-processed,
+                and assigned to scene.environment. environmentIntensity=0.35 keeps reflections
+                subtle so warm Roman material colors remain readable. No external HDR files. */}
+            <Environment resolution={256} frames={1} environmentIntensity={0.35}>
+              {environmentLightformers}
+            </Environment>
 
             {/* Distant Roman Hills & Aqueduct Backdrop */}
             <ThreeComponentErrorBoundary componentName="CityBackdrop">
@@ -585,7 +653,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       </header>
 
         {/* MOBILE & PC TOUCH CONTROLS OVERLAY */}
-        <div className="absolute inset-0 pointer-events-none z-20 flex justify-between items-end p-4 sm:p-6 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pb-[calc(env(safe-area-inset-bottom)+1.5rem)] flex-row">
+        <div className="absolute inset-0 pointer-events-none z-20 flex justify-between items-end p-4 sm:p-6 pb-[calc(env(safe-area-inset-bottom)+var(--hub-footer-h)+1rem)] sm:pb-[calc(env(safe-area-inset-bottom)+var(--hub-footer-h)+1.5rem)] flex-row">
           {/* MOBILE VIRTUAL JOYSTICK */}
           <div className="pointer-events-auto touch-none flex flex-col items-center ml-[env(safe-area-inset-left)] mr-[env(safe-area-inset-right)]">
             <div
@@ -686,14 +754,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       )}
 
       {/* DESKTOP CONTROLS HELPER BAR */}
-      <div className="absolute bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-amber-200/85 bg-neutral-950/80 py-1.5 px-4 rounded-xl border border-amber-800/60 backdrop-blur-sm z-10 shadow-lg">
+      <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] sm:bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] left-1/2 -translate-x-1/2 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-amber-200/85 bg-neutral-950/80 py-1.5 px-4 rounded-xl border border-amber-800/60 backdrop-blur-sm z-10 shadow-lg">
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">W A S D / Arrows</kbd> Move</span>
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">Space / E</kbd> 2-in-1 Attack &amp; Interact</span>
       </div>
 
       {/* BOTTOM DISTRICT FAST-TRAVEL & TAB SHORTCUT BAR */}
-      <footer className="absolute bottom-2 left-2 right-2 sm:bottom-4 sm:left-6 sm:right-6 pointer-events-auto z-10">
-        <div className="max-w-3xl mx-auto bg-neutral-950/90 border border-amber-600/50 rounded-2xl p-1.5 sm:p-2 backdrop-blur-md shadow-2xl flex flex-wrap items-center justify-between gap-1">
+      <footer className="absolute bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-2 right-2 sm:bottom-[calc(env(safe-area-inset-bottom)+1rem)] sm:left-6 sm:right-6 pointer-events-auto z-10">
+        <div className="max-w-3xl mx-auto bg-neutral-950/90 border border-amber-600/50 rounded-2xl p-1.5 sm:p-2 backdrop-blur-md shadow-2xl flex flex-nowrap items-center justify-between gap-1 overflow-hidden">
           {[
             { id: 'tournament', label: 'Colosseum', icon: Swords, color: 'text-red-400' },
             { id: 'training', label: 'Training Yard', icon: Dumbbell, color: 'text-orange-400' },

@@ -79,7 +79,7 @@ export const RomanGabledRoof: React.FC<RomanGabledRoofProps> = ({
             castShadow
             receiveShadow
             position={[-halfSpan / 2, height / 2 + 0.04, 0]}
-            rotation={[0, 0, -slopeAngle]}
+            rotation={[0, 0, slopeAngle]}
           >
             <boxGeometry args={[rafterLength, tileThickness, fullLength]} />
             <meshStandardMaterial color={tileColor} roughness={0.75} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.015} />
@@ -90,7 +90,7 @@ export const RomanGabledRoof: React.FC<RomanGabledRoofProps> = ({
             castShadow
             receiveShadow
             position={[halfSpan / 2, height / 2 + 0.04, 0]}
-            rotation={[0, 0, slopeAngle]}
+            rotation={[0, 0, -slopeAngle]}
           >
             <boxGeometry args={[rafterLength, tileThickness, fullLength]} />
             <meshStandardMaterial color={tileColor} roughness={0.75} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.015} />
@@ -280,6 +280,7 @@ interface ClassicalColumnProps {
   stoneColor?: string;
   capitalColor?: string;
   order?: 'tuscan' | 'corinthian' | 'doric';
+  metalness?: number;
 }
 
 export const ClassicalColumn: React.FC<ClassicalColumnProps> = ({
@@ -289,6 +290,7 @@ export const ClassicalColumn: React.FC<ClassicalColumnProps> = ({
   stoneColor = ROMAN_PALETTE.marbleWhite.color,
   capitalColor = ROMAN_PALETTE.travertine.color,
   order = 'tuscan',
+  metalness = 0,
 }) => {
   const plinthHeight = Math.min(0.25, height * 0.07);
   const capitalHeight = Math.min(0.32, height * 0.09);
@@ -300,12 +302,12 @@ export const ClassicalColumn: React.FC<ClassicalColumnProps> = ({
       {/* 1. SQUARE PLINTH BASE */}
       <mesh castShadow receiveShadow position={[0, plinthHeight / 2, 0]}>
         <boxGeometry args={[radius * 2.6, plinthHeight, radius * 2.6]} />
-        <meshStandardMaterial color={capitalColor} roughness={0.78} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
+        <meshStandardMaterial color={capitalColor} roughness={0.78} metalness={metalness} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
       {/* Torus base ring */}
       <mesh position={[0, plinthHeight + 0.04, 0]}>
         <cylinderGeometry args={[radius * 1.25, radius * 1.35, 0.08, 12]} />
-        <meshStandardMaterial color={capitalColor} roughness={0.74} />
+        <meshStandardMaterial color={capitalColor} roughness={0.74} metalness={metalness} />
       </mesh>
 
       {/* 2. TAPERED SHAFT */}
@@ -321,7 +323,7 @@ export const ClassicalColumn: React.FC<ClassicalColumnProps> = ({
       {/* 3. ASTRAGAL / NECKING RING */}
       <mesh position={[0, height - capitalHeight - 0.02, 0]}>
         <cylinderGeometry args={[shaftRadiusTop * 1.15, shaftRadiusTop * 1.15, 0.06, 12]} />
-        <meshStandardMaterial color={capitalColor} roughness={0.65} />
+        <meshStandardMaterial color={capitalColor} roughness={0.65} metalness={metalness} />
       </mesh>
 
       {/* 4. CAPITAL & ABACUS BLOCK */}
@@ -331,12 +333,12 @@ export const ClassicalColumn: React.FC<ClassicalColumnProps> = ({
         ) : (
           <cylinderGeometry args={[radius * 1.3, shaftRadiusTop, capitalHeight, 12]} />
         )}
-        <meshStandardMaterial color={capitalColor} roughness={0.65} />
+        <meshStandardMaterial color={capitalColor} roughness={0.65} metalness={metalness} />
       </mesh>
       {/* Square abacus block atop capital */}
       <mesh castShadow position={[0, height - 0.04, 0]}>
         <boxGeometry args={[radius * 2.5, 0.08, radius * 2.5]} />
-        <meshStandardMaterial color={capitalColor} roughness={0.72} />
+        <meshStandardMaterial color={capitalColor} roughness={0.72} metalness={metalness} />
       </mesh>
     </group>
   );
@@ -386,6 +388,12 @@ export const ClassicalDoorway: React.FC<ClassicalDoorwayProps> = ({
       <mesh position={[0, height / 2, -depth / 4]}>
         <boxGeometry args={[width, height, depth / 2]} />
         <meshStandardMaterial color={recessColor} roughness={0.96} />
+      </mesh>
+
+      {/* WARM INTERIOR BACK WALL — reads as a dimly lit room rather than a flat black void */}
+      <mesh position={[0, height / 2, -depth / 2 - 0.03]}>
+        <boxGeometry args={[width - 0.12, height - 0.12, 0.04]} />
+        <meshStandardMaterial color="#3d352a" roughness={0.92} />
       </mesh>
 
       {/* RAISED STONE THRESHOLD */}
@@ -495,6 +503,12 @@ export const ClassicalWindow: React.FC<ClassicalWindowProps> = ({
         <meshStandardMaterial color={recessColor} roughness={0.96} />
       </mesh>
 
+      {/* WARM INTERIOR BACK WALL — suggests depth beyond the opening */}
+      <mesh position={[0, 0, -0.15]}>
+        <boxGeometry args={[width - 0.1, height - 0.1, 0.04]} />
+        <meshStandardMaterial color="#3d352a" roughness={0.92} />
+      </mesh>
+
       {/* PROJECTING SILL */}
       <mesh castShadow position={[0, -height / 2 - 0.04, 0.06]}>
         <boxGeometry args={[width + frameThickness * 2 + 0.16, 0.09, 0.22]} />
@@ -581,6 +595,7 @@ interface WallCorniceProps {
   color?: string;
   height?: number;
   projection?: number;
+  metalness?: number;
 }
 
 export const WallCornice: React.FC<WallCorniceProps> = ({
@@ -589,6 +604,7 @@ export const WallCornice: React.FC<WallCorniceProps> = ({
   color = ROMAN_PALETTE.travertine.color,
   height = 0.18,
   projection = 0.14,
+  metalness = 0,
 }) => {
   const [w, d] = size;
   return (
@@ -596,20 +612,20 @@ export const WallCornice: React.FC<WallCorniceProps> = ({
       {/* Front & Rear cornice strips */}
       <mesh castShadow receiveShadow position={[0, 0, d / 2 + projection / 2]}>
         <boxGeometry args={[w + projection * 2, height, projection]} />
-        <meshStandardMaterial color={color} roughness={0.78} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
+        <meshStandardMaterial color={color} roughness={0.78} metalness={metalness} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
       <mesh castShadow receiveShadow position={[0, 0, -d / 2 - projection / 2]}>
         <boxGeometry args={[w + projection * 2, height, projection]} />
-        <meshStandardMaterial color={color} roughness={0.78} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
+        <meshStandardMaterial color={color} roughness={0.78} metalness={metalness} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
       {/* Left & Right cornice strips */}
       <mesh castShadow receiveShadow position={[-w / 2 - projection / 2, 0, 0]}>
         <boxGeometry args={[projection, height, d]} />
-        <meshStandardMaterial color={color} roughness={0.78} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
+        <meshStandardMaterial color={color} roughness={0.78} metalness={metalness} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
       <mesh castShadow receiveShadow position={[w / 2 + projection / 2, 0, 0]}>
         <boxGeometry args={[projection, height, d]} />
-        <meshStandardMaterial color={color} roughness={0.78} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
+        <meshStandardMaterial color={color} roughness={0.78} metalness={metalness} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
     </group>
   );

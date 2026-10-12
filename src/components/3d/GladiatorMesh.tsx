@@ -149,16 +149,39 @@ const WeaponModel: React.FC<{ weaponType: string; goldColor: string }> = ({ weap
 };
 
 // ---------------------------------------------------------------------------
-// Gladius GLB Mesh — renders the real weapon asset when the equipped item's
-// modelPath matches the gladius. Loaded on demand via useGLTF (drei's own
-// URL-keyed cache). The outer group mirrors the procedural WeaponModel's
+// Weapon GLB Mesh — renders a real weapon asset when the equipped item's
+// modelPath is in the allowlist below. Loaded on demand via useGLTF (drei's
+// own URL-keyed cache). The outer group mirrors the procedural WeaponModel's
 // [Math.PI / 2, 0, 0] rotation so the blade (local +Y) points forward from the
 // hand, matching the verified gladius convention.
+//
+// Phase 21.1: generalized from gladius-only to all five shipped weapon meshes.
+// The allowlist prevents arbitrary modelPath values from triggering a fetch.
+// Orientation and scale are provisional defaults inherited from the gladius;
+// each non-gladius model still requires visual verification on a real GPU.
 // ---------------------------------------------------------------------------
-const GLADIUS_MODEL_PATH = '/models/weapons/gladius.glb';
+const SUPPORTED_WEAPON_MODEL_PATHS = new Set<string>([
+  '/models/weapons/gladius.glb',
+  '/models/weapons/spatha.glb',
+  '/models/weapons/dagger.glb',
+  '/models/weapons/dirk.glb',
+  '/models/weapons/shamshir.glb',
+]);
 
-const GladiusMesh: React.FC = () => {
-  const gltf = useGLTF(GLADIUS_MODEL_PATH);
+// Per-model orientation correction. The four +Y-axis models (gladius, spatha,
+// dagger, dirk) share the [π/2, 0, 0] rotation that maps local +Y → +Z, pointing
+// the blade forward from the hand. The shamshir's blade is along local +Z
+// (Phase 21.2 audit: Z bounds −0.50 → +0.50, longest axis), so identity [0, 0, 0]
+// already points +Z forward — no rotation needed. The shamshir's Z extent is
+// symmetric about the origin, so its grip placement relative to the hand is not
+// yet established and still requires visual verification on a real device.
+const WEAPON_MODEL_ROTATIONS: Record<string, [number, number, number]> = {
+  '/models/weapons/shamshir.glb': [0, 0, 0],
+};
+const DEFAULT_WEAPON_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0];
+
+const WeaponGLBMesh: React.FC<{ modelUrl: string }> = ({ modelUrl }) => {
+  const gltf = useGLTF(modelUrl);
   const cloned = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
 
   useEffect(() => {
@@ -170,8 +193,10 @@ const GladiusMesh: React.FC = () => {
     });
   }, [cloned]);
 
+  const rotation = WEAPON_MODEL_ROTATIONS[modelUrl] ?? DEFAULT_WEAPON_ROTATION;
+
   return (
-    <group rotation={[Math.PI / 2, 0, 0]}>
+    <group rotation={rotation}>
       <primitive object={cloned} />
     </group>
   );
@@ -191,7 +216,7 @@ class WeaponGLBErrorBoundary extends React.Component<
     return { hasError: true };
   }
   componentDidCatch(err: unknown) {
-    console.warn('[GladiatorMesh] Gladius GLB failed to load, falling back to procedural weapon:', err);
+    console.warn('[GladiatorMesh] Weapon GLB failed to load, falling back to procedural weapon:', err);
   }
   render() {
     if (this.state.hasError) return this.props.fallback;
@@ -199,8 +224,9 @@ class WeaponGLBErrorBoundary extends React.Component<
   }
 }
 
-/** Renders the gladius GLB when available; procedural weapon on load/suspend. */
-const GladiusWeaponRenderer: React.FC<{ weaponType: string; goldColor: string }> = ({
+/** Renders the weapon GLB when available; procedural weapon on load/suspend. */
+const WeaponGLBRenderer: React.FC<{ modelUrl: string; weaponType: string; goldColor: string }> = ({
+  modelUrl,
   weaponType,
   goldColor,
 }) => {
@@ -208,7 +234,7 @@ const GladiusWeaponRenderer: React.FC<{ weaponType: string; goldColor: string }>
   return (
     <WeaponGLBErrorBoundary fallback={procedural}>
       <React.Suspense fallback={procedural}>
-        <GladiusMesh />
+        <WeaponGLBMesh modelUrl={modelUrl} />
       </React.Suspense>
     </WeaponGLBErrorBoundary>
   );
@@ -226,11 +252,39 @@ const SHIELD_ROTATION_LEFT_HAND: [number, number, number] = [-2.42, -0.67, 2.91]
 const SHIELD_ROTATION_RIGHT_HAND: [number, number, number] = [3.02, 1.28, -1.06]; // lefty
 
 // The shield geometry (0.68 x 1.15) was sized for the procedural fallback
-// gladiator (~2.10 units tall, 0.55x its height). The rigged GLB character is
-// ~0.98 units tall, so the unscaled board is 1.17x the character. Scaling by
-// the GLB/procedural height ratio (~0.47) restores the same 0.55x proportion
-// and brings the shield top to head level instead of 0.3 units above.
-const SHIELD_SCALE_GLB = 0.47;
+// gladiator (~2.10 units tall, 0.55x its height). The default rigged GLB
+// character (arena_roman) has a visible height of ~1.10 units above the
+// ground (its mesh extends 0.75 units below Y=0, hidden by the arena floor).
+// To restore the same 0.55x proportion: 0.55 × 1.10 / 1.15 ≈ 0.53.
+// The previous value (0.47) was based on an assumed height of ~0.98 and
+// produced a shield at only 49% of visible height — slightly too small.
+const SHIELD_SCALE_GLB = 0.53;
+
+// Per-model root scale corrections for the four alternative character models.
+// The default arena_roman model has a different origin (0.75 units of mesh
+// below Y=0) making its visible height ~1.10, while the alternatives have their
+// feet at Y≈0 and visible heights of 1.70-1.83. These corrections bring the
+// alternatives' visible height into range with the default gladiator, and keep
+// the Minotaur deliberately larger (~1.30 visible, ~20% above the humans).
+//
+// Measured animated Fighting_Idle bounding-box heights (SkinnedMesh.
+// computeBoundingBox, which accounts for bone transforms):
+//   arena_roman  1.854  visible 1.102  → correction 1.00 (baseline)
+//   amazonian   1.817  visible 1.814  → correction 0.61 (target 1.10)
+//   dimachaerus 1.818  visible 1.818  → correction 0.60 (target 1.10)
+//   minotaur    1.699  visible 1.699  → correction 0.77 (target 1.30, larger)
+//   netfighter  1.827  visible 1.827  → correction 0.60 (target 1.10)
+//
+// Applied as a multiplier on the outer group scale alongside fighter.meshScale,
+// so it composes with boss scaling and any future per-fighter overrides without
+// overwriting them. The correction is NOT applied to the procedural fallback
+// (which is always the same generic gladiator regardless of characterModel).
+const MODEL_SCALE_CORRECTIONS: Record<string, number> = {
+  amazonian: 0.61,
+  dimachaerus: 0.60,
+  minotaur: 0.77,
+  retiarius: 0.60,
+};
 
 // --- Phase 111: Animation-Aware Shield Constraint ---
 // Enabled after the Phase 118 runtime audit (see below). Corrects the shield's
@@ -326,14 +380,14 @@ const SHIELD_CONSTRAINT_STRENGTH: Record<string, number> = {
 };
 
 // Shared Shield Renderer Component
-const ShieldModel = React.forwardRef<THREE.Group, { isLefty: boolean; goldColor: string }>(({ isLefty, goldColor }, ref) => {
+const ShieldModel = React.forwardRef<THREE.Group, { isLefty: boolean; goldColor: string; shieldScale?: number }>(({ isLefty, goldColor, shieldScale = SHIELD_SCALE_GLB }, ref) => {
   return (
-    <group ref={ref} position={[0, 0, 0]} rotation={isLefty ? SHIELD_ROTATION_RIGHT_HAND : SHIELD_ROTATION_LEFT_HAND} scale={SHIELD_SCALE_GLB}>
+    <group ref={ref} position={[0, 0, 0]} rotation={isLefty ? SHIELD_ROTATION_RIGHT_HAND : SHIELD_ROTATION_LEFT_HAND} scale={shieldScale}>
       {/* Offset the board along its own face-normal (+Z = outward) so the
           hand bone sits behind the board instead of passing through it.
-          0.15 pre-scale × 0.47 ≈ 0.071 world units, clearing the forearm
+          0.13 pre-scale × 0.53 ≈ 0.069 world units, clearing the forearm
           radius (~0.04) without the shield floating away from the arm. */}
-      <group position={[0, 0, 0.15]}>
+      <group position={[0, 0, 0.13]}>
         <mesh castShadow receiveShadow>
           <boxGeometry args={[0.68, 1.15, 0.05]} />
           <meshStandardMaterial color="#881337" roughness={0.4} />
@@ -414,6 +468,14 @@ export function resolveActionClip(action: FighterAction, clipNames: readonly str
   return fallback;
 }
 
+// Phase 2B.58: Pre-allocated hit-flash colors. Module-level so every
+// GladiatorMesh instance shares the same constant Color values instead
+// of allocating a new THREE.Color every frame per mesh. These are never
+// mutated — the hit-flash logic copies their values into each material's
+// own emissive Color via .copy(), so no shared mutable references exist.
+const HIT_FLASH_COLOR = new THREE.Color('#ff0000');
+const HIT_FLASH_RESET_COLOR = new THREE.Color('#000000');
+
 /**
  * 1. High-Detail Rigged GLB Model Loader with Bone-Attached Equipment
  */
@@ -433,6 +495,7 @@ const RomanWarriorGLB: React.FC<{
   const groupRef = useRef<THREE.Group>(null);
   const currentActionName = useRef<string>('');
   const flashTimerRef = useRef(0);
+  const wasFlashActiveRef = useRef<boolean | null>(null);
   const lastActionRef = useRef<string>('');
   const shieldGroupRef = useRef<THREE.Group>(null);
   const shieldStrengthRef = useRef(0);
@@ -537,15 +600,24 @@ const RomanWarriorGLB: React.FC<{
     }
 
     const isHit = flashTimerRef.current > 0;
-    clonedScene.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
-        if (mat) {
-          mat.emissive = isHit ? new THREE.Color('#ff0000') : new THREE.Color('#000000');
-          mat.emissiveIntensity = isHit ? 0.8 : 0;
+    // Phase 2B.58: only traverse and update emissive materials when the flash
+    // state *changes* (activates, expires, or first-frame init), not every
+    // frame. The emissive color is constant while the flash is active, so
+    // re-setting it each frame was wasted work; while inactive the materials
+    // are already at their resting values. Pre-allocated Color instances
+    // replace the per-frame new THREE.Color allocations.
+    if (isHit !== wasFlashActiveRef.current) {
+      wasFlashActiveRef.current = isHit;
+      clonedScene.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          if (mat) {
+            mat.emissive.copy(isHit ? HIT_FLASH_COLOR : HIT_FLASH_RESET_COLOR);
+            mat.emissiveIntensity = isHit ? 0.8 : 0;
+          }
         }
-      }
-    });
+      });
+    }
 
     // --- Phase 111: Shield orientation constraint (disabled by default) ---
     // After the AnimationMixer has updated bone transforms (drei's
@@ -774,17 +846,28 @@ const RomanWarriorGLB: React.FC<{
     }
   });
 
-  const scale = fighter.meshScale || 1.0;
+  const baseScale = fighter.meshScale || 1.0;
+  const modelCorrection = MODEL_SCALE_CORRECTIONS[fighter.characterModel ?? ''] ?? 1.0;
+  const scale = baseScale * modelCorrection;
   const isLefty = isLeftyMode !== undefined ? isLeftyMode : fighter.isLeftyMode || false;
   const weaponItem = fighter.loadout?.weapon;
   const weaponType = weaponItem?.type || 'sword_shield';
   const goldColor = '#f59e0b';
 
-  const useGladiusGLB = weaponItem?.modelPath === GLADIUS_MODEL_PATH;
-  const weaponNode = useGladiusGLB
-    ? <GladiusWeaponRenderer weaponType={weaponType} goldColor={goldColor} />
+  // The shield is bone-attached via createPortal, so it inherits the outer
+  // group's scale (baseScale × modelCorrection). To keep the shield at a
+  // constant world size across models (proportional to the corrected visible
+  // height), divide the shield scale by the model correction so it cancels
+  // out. The weapon is also bone-attached and inherits the same scale, which
+  // is correct — weapons should scale with the character.
+  const effectiveShieldScale = SHIELD_SCALE_GLB / modelCorrection;
+
+  const weaponModelPath = weaponItem?.modelPath;
+  const useWeaponGLB = weaponModelPath != null && SUPPORTED_WEAPON_MODEL_PATHS.has(weaponModelPath);
+  const weaponNode = useWeaponGLB
+    ? <WeaponGLBRenderer modelUrl={weaponModelPath} weaponType={weaponType} goldColor={goldColor} />
     : <WeaponModel weaponType={weaponType} goldColor={goldColor} />;
-  const shieldNode = <ShieldModel ref={shieldGroupRef} isLefty={isLefty} goldColor={goldColor} />;
+  const shieldNode = <ShieldModel ref={shieldGroupRef} isLefty={isLefty} goldColor={goldColor} shieldScale={effectiveShieldScale} />;
 
   // Anatomical assignment: Righty = Sword in Right Hand, Shield in Left Hand. Lefty = Reversed.
   const rightHandEquipment = isLefty ? shieldNode : weaponNode;
@@ -1345,11 +1428,7 @@ class GLTFErrorBoundary extends React.Component<
 }
 
 // 4. Main GladiatorMesh Component
-export const GladiatorMesh: React.FC<GladiatorMeshProps> = ({
-  fighter,
-  overrideAction,
-  isLeftyMode,
-}) => {
+export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode }: GladiatorMeshProps) => {
   const modelUrl = fighter.characterModel === 'amazonian'
     ? '/models/amazonian.glb'
     : fighter.characterModel === 'retiarius'
@@ -1398,4 +1477,4 @@ export const GladiatorMesh: React.FC<GladiatorMeshProps> = ({
       />
     </GLTFErrorBoundary>
   );
-};
+});

@@ -1,7 +1,7 @@
 import React from 'react';
 import { FighterState } from '../../types/game';
 import { TurnActionPanel, CombatActionType, CombatLogEntry } from './TurnActionPanel';
-import { Swords, Flame, Sparkles, Volume2, VolumeX, HelpCircle, Camera, Settings } from 'lucide-react';
+import { Swords, Flame, Sparkles, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle } from 'lucide-react';
 
 interface CombatHUDProps {
   player: FighterState;
@@ -199,6 +199,18 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
           </div>
         </div>
       </div>
+
+      {/* BOSS TELEGRAPH WARNING BANNER */}
+      {opponent.telegraphText && (
+        <div className="w-full flex justify-center mt-1 sm:mt-2 pointer-events-none z-10">
+          <div className="bg-red-950/90 border-2 border-red-500 rounded-xl px-4 py-2 shadow-2xl backdrop-blur-md animate-pulse flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+            <span className="font-serif font-black text-sm sm:text-base text-red-200 tracking-wider uppercase">
+              {opponent.telegraphText}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* SWORDS & SANDALS TURN ACTION DASHBOARD (BOTTOM) */}
       <TurnActionPanel

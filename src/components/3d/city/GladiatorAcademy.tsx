@@ -10,8 +10,9 @@ import {
   CornerQuoins,
   WallCornice,
 } from './ClassicalArchitecture';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const GladiatorAcademy: React.FC = () => {
+export const GladiatorAcademy = React.memo(() => {
   const bannerRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
@@ -32,7 +33,7 @@ export const GladiatorAcademy: React.FC = () => {
       {/* Ground Floor (Polished Travertine Stucco) */}
       <mesh castShadow receiveShadow position={[0, 1.45, 0]}>
         <boxGeometry args={[7.2, 2.9, 6.8]} />
-        <meshStandardMaterial color="#f5ede0" roughness={0.5} />
+        <meshStandardMaterial color="#f5ede0" roughness={0.5} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
       {/* Corner Stone Quoins for Ground Floor */}
       <CornerQuoins height={2.9} buildingSize={[7.2, 6.8]} color="#d4a373" />
@@ -43,7 +44,7 @@ export const GladiatorAcademy: React.FC = () => {
       {/* Second Floor (Stately Roman Plaster) */}
       <mesh castShadow receiveShadow position={[0, 4.05, 0]}>
         <boxGeometry args={[6.8, 2.3, 6.4]} />
-        <meshStandardMaterial color="#ebdcb9" roughness={0.6} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.6} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Upper Floor Windows */}
@@ -130,4 +131,4 @@ export const GladiatorAcademy: React.FC = () => {
       </group>
     </group>
   );
-};
+});

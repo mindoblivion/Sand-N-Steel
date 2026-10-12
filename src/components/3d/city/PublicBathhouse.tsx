@@ -9,9 +9,10 @@ import {
   WallCornice,
 } from './ClassicalArchitecture';
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
+import { NOISE_TEXTURE } from './RomanMaterials';
 import { SteamParticles } from './EnvironmentalMotion';
 
-export const PublicBathhouse: React.FC = () => {
+export const PublicBathhouse = React.memo(() => {
   return (
     <group position={[-26, 0, 25]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -21,7 +22,7 @@ export const PublicBathhouse: React.FC = () => {
       {/* Heavy Travertine Foundation and Main Bath Hall */}
       <mesh castShadow receiveShadow position={[0, 1.6, 0]}>
         <boxGeometry args={[7.5, 3.2, 6.5]} />
-        <meshStandardMaterial color="#ebdcb9" roughness={0.5} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.5} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Travertine Corner Quoins */}
@@ -62,7 +63,7 @@ export const PublicBathhouse: React.FC = () => {
         {/* Shimmering pool water */}
         <mesh position={[0, 0.42, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[2.2, 1.7]} />
-          <meshStandardMaterial color="#0ea5e9" metalness={0.7} roughness={0.1} opacity={0.8} />
+          <meshStandardMaterial color="#0ea5e9" metalness={0.7} roughness={0.1} opacity={0.8} transparent />
         </mesh>
         {/* Steam visual cues */}
         <SteamParticles position={[0, 0.8, 0]} />
@@ -105,4 +106,4 @@ export const PublicBathhouse: React.FC = () => {
       <RomanAmphora position={[3.6, 0, 1.2]} scale={0.7} tone="terracotta" />
     </group>
   );
-};
+});

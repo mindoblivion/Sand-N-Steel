@@ -10,8 +10,9 @@ import {
 } from './ClassicalArchitecture';
 import { TimberCrate, WineBarrel } from './CivicFurnishingProps';
 import { ForgeSmoke } from './EnvironmentalMotion';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const SmithingForge: React.FC = () => {
+export const SmithingForge = React.memo(() => {
   return (
     <group position={[18, 0, 2]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -20,7 +21,7 @@ export const SmithingForge: React.FC = () => {
       {/* 1. MAIN ROMAN BRICK FORGE WORKSHOP BUILDING */}
       <mesh castShadow receiveShadow position={[0, 2.8, 0]}>
         <boxGeometry args={[9.5, 5.6, 7.5]} />
-        <meshStandardMaterial color="#854d0e" roughness={0.75} />
+        <meshStandardMaterial color="#854d0e" roughness={0.75} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Heavy Rusticated Corner Quoins */}
@@ -72,18 +73,39 @@ export const SmithingForge: React.FC = () => {
       />
 
       {/* 2. BLACKSMITH'S STONE SMELTING FURNACE & CHIMNEY */}
+      {/* Phase 20.3–20.4: Chimney flue extended to clear the gabled roof surface
+          (roof tile top at y≈6.5 local). Flue spans 3.2→7.0 with a stone cap at
+          the termination. A sloped stone flashing apron (20.4) follows the left
+          gable pitch (atan2(1.6, 5.15) ≈ 17.3°) at the roof penetration to seal
+          the intersection. Smoke emitter raised above the cap so particles are
+          visible above the roof line. */}
       <group position={[-2.5, 0, -2.2]}>
         {/* Stone Furnace Base */}
         <mesh castShadow receiveShadow position={[0, 1.8, 0]}>
           <cylinderGeometry args={[1.4, 1.7, 3.6, 12]} />
           <meshStandardMaterial color="#57534e" roughness={0.8} />
         </mesh>
-        {/* Furnace Chimney Flue */}
-        <mesh castShadow position={[0, 4.8, 0]}>
-          <cylinderGeometry args={[0.6, 0.9, 3.2, 12]} />
+        {/* Furnace Chimney Flue — extended through the roof */}
+        <mesh castShadow position={[0, 5.1, 0]}>
+          <cylinderGeometry args={[0.6, 0.9, 3.8, 12]} />
           <meshStandardMaterial color="#44403c" roughness={0.8} />
         </mesh>
-        <ForgeSmoke position={[0, 6.4, 0]} />
+        {/* Sloped Stone Roof Flashing Apron at chimney–roof penetration
+            (tilted to match the left gable pitch; wider than the flue to
+            overlap the roof tile and seal the intersection) */}
+        <mesh castShadow receiveShadow
+          position={[0, 6.5, 0]}
+          rotation={[0, 0, Math.atan2(1.6, 5.15)]}
+        >
+          <cylinderGeometry args={[1.05, 1.05, 0.12, 16]} />
+          <meshStandardMaterial color="#57534e" roughness={0.8} />
+        </mesh>
+        {/* Stone Chimney Cap */}
+        <mesh castShadow position={[0, 7.1, 0]}>
+          <cylinderGeometry args={[0.7, 0.7, 0.2, 12]} />
+          <meshStandardMaterial color="#57534e" roughness={0.8} />
+        </mesh>
+        <ForgeSmoke position={[0, 7.3, 0]} />
         {/* Glowing Molten Hearth Opening */}
         <mesh position={[0.8, 1.2, 0]}>
           <boxGeometry args={[0.6, 0.9, 1.1]} />
@@ -153,4 +175,4 @@ export const SmithingForge: React.FC = () => {
       </group>
     </group>
   );
-};
+});

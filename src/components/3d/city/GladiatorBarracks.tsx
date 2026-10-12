@@ -9,8 +9,9 @@ import {
   CornerQuoins,
   WallCornice,
 } from './ClassicalArchitecture';
+import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const GladiatorBarracks: React.FC = () => {
+export const GladiatorBarracks = React.memo(() => {
   const bannerRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
@@ -30,7 +31,7 @@ export const GladiatorBarracks: React.FC = () => {
       {/* 1. LOWER STONE STRUCTURE (TRAVERTINE) */}
       <mesh castShadow receiveShadow position={[0, 1.0, 0]}>
         <boxGeometry args={[6.6, 2.0, 5.6]} />
-        <meshStandardMaterial color="#ebdcb9" roughness={0.65} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.65} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Lower Stone Corner Quoins */}
@@ -42,7 +43,7 @@ export const GladiatorBarracks: React.FC = () => {
       {/* 2. UPPER STUCCO STRUCTURE (WARM TERRACOTTA/YELLOW STUCCO) */}
       <mesh castShadow receiveShadow position={[0, 3.0, 0]}>
         <boxGeometry args={[6.4, 2.0, 5.4]} />
-        <meshStandardMaterial color="#d97706" roughness={0.7} />
+        <meshStandardMaterial color="#d97706" roughness={0.7} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
       {/* Upper Floor Windows */}
@@ -180,4 +181,4 @@ export const GladiatorBarracks: React.FC = () => {
       </group>
     </group>
   );
-};
+});

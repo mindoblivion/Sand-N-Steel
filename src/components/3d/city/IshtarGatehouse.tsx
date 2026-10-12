@@ -1,11 +1,31 @@
-import React from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
 import { ClassicalColumn, WallCornice } from './ClassicalArchitecture';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { Banner } from './EnvironmentalMotion';
 
-export const IshtarGatehouse: React.FC = () => {
+export const IshtarGatehouse = React.memo(() => {
+  // Phase 2B.22: Dedicated bump-map for the central arch facade.
+  // NOISE_TEXTURE has a global repeat of (3, 3) calibrated for ~1 m surfaces.
+  // The central arch is 14 m × 10 m, so repeat 3 stretches each noise tile across
+  // ~4.7 m horizontally — functionally flat. Cloning shares the canvas image
+  // (zero memory cost) with an independent repeat of (12, 4) → ~1.17 m per
+  // horizontal tile (~110 px/m), ~2.5 m per vertical tile (~51 px/m).
+  const gatehouseBumpMap = useMemo(() => {
+    if (!NOISE_TEXTURE) return undefined;
+    const tex = NOISE_TEXTURE.clone();
+    tex.repeat.set(12, 4);
+    tex.needsUpdate = true;
+    return tex;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      gatehouseBumpMap?.dispose();
+    };
+  }, [gatehouseBumpMap]);
+
   return (
     <group position={[0, 0, 24]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -22,7 +42,7 @@ export const IshtarGatehouse: React.FC = () => {
           color={ROMAN_PALETTE.glazedLapis.color}
           roughness={0.44}
           metalness={0.16}
-          bumpMap={NOISE_TEXTURE || undefined}
+          bumpMap={gatehouseBumpMap || NOISE_TEXTURE || undefined}
           bumpScale={0.008}
         />
       </mesh>
@@ -80,7 +100,7 @@ export const IshtarGatehouse: React.FC = () => {
           {/* Mid-level String Course Belt */}
           <WallCornice size={[4.2, 5.2]} y={6.2} color={ROMAN_PALETTE.travertine.color} height={0.25} projection={0.15} />
           {/* Upper Tower Cornice below battlements */}
-          <WallCornice size={[4.2, 5.2]} y={11.8} color={ROMAN_PALETTE.goldAccent.color} height={0.3} projection={0.2} />
+          <WallCornice size={[4.2, 5.2]} y={11.8} color={ROMAN_PALETTE.goldAccent.color} metalness={ROMAN_PALETTE.goldAccent.metalness} height={0.3} projection={0.2} />
           {/* Tower Crenellations (Merlons) */}
           {[-1.5, 0, 1.5].map((cx, ci) => (
             <mesh key={`cren-${ti}-${ci}`} castShadow position={[cx, 12.5, 2.2]}>
@@ -108,6 +128,7 @@ export const IshtarGatehouse: React.FC = () => {
           radius={0.36}
           stoneColor={ROMAN_PALETTE.marbleWhite.color}
           capitalColor={ROMAN_PALETTE.goldAccent.color}
+          metalness={ROMAN_PALETTE.goldAccent.metalness}
           order="corinthian"
         />
       ))}
@@ -128,4 +149,4 @@ export const IshtarGatehouse: React.FC = () => {
       ))}
     </group>
   );
-};
+});

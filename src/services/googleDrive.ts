@@ -17,6 +17,15 @@ export interface DriveSaveFile {
 
 const SAVE_FILE_NAME = 'Sand_And_Steel_Gladiator_Save.json';
 
+export class DriveApiError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'DriveApiError';
+    this.status = status;
+  }
+}
+
 /**
  * Lists all game backup files from Google Drive
  */
@@ -35,7 +44,7 @@ export async function listDriveSaves(): Promise<DriveSaveFile[]> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to list Google Drive files: ${errorText}`);
+    throw new DriveApiError(`Failed to list Google Drive files: ${errorText}`, response.status);
   }
 
   const data = await response.json();
@@ -63,12 +72,45 @@ export async function listDriveSaves(): Promise<DriveSaveFile[]> {
 /**
  * Uploads or overwrites game save in Google Drive
  */
-export async function saveProfileToDrive(profile: PlayerProfile): Promise<DriveSaveFile> {
+export async function saveProfileToDrive(
+  profile: PlayerProfile,
+  options?: { confirmedReplaceFileId?: string }
+): Promise<DriveSaveFile> {
   const token = await getAccessToken();
   if (!token) throw new Error('Not authenticated with Google Drive.');
 
   const existingFiles = await listDriveSaves();
   const existingFile = existingFiles.find((f) => f.name === SAVE_FILE_NAME);
+
+  // Conflict guard: an existing save may only be replaced when the caller
+  // provides the specific file ID the user explicitly confirmed to replace.
+  if (existingFile) {
+    const confirmedId = options?.confirmedReplaceFileId;
+    if (!confirmedId) {
+      // Ordinary backup discovered an unexpected save — refuse to overwrite.
+      throw new DriveApiError(
+        'A cloud save already exists on your Google Drive. Refresh your save list and confirm the replacement before backing up.',
+        409
+      );
+    }
+    if (existingFile.id !== confirmedId) {
+      // The save found by the fresh lookup differs from what the user confirmed
+      // (another device may have created or replaced it). Refuse to overwrite.
+      throw new DriveApiError(
+        'A different cloud save was found on your Google Drive since you last refreshed. Refresh your save list and confirm the replacement before backing up.',
+        409
+      );
+    }
+  } else if (options?.confirmedReplaceFileId) {
+    // The user confirmed replacing a specific file, but the fresh lookup
+    // found no matching save. Don't silently create a new file — the user
+    // authorized a replacement, not a new save. Raise a conflict so the
+    // user can review the refreshed list and decide how to proceed.
+    throw new DriveApiError(
+      'The cloud save you confirmed to replace is no longer available on your Google Drive. Refresh your save list and try again.',
+      409
+    );
+  }
 
   const metadata = {
     name: SAVE_FILE_NAME,
@@ -117,7 +159,7 @@ export async function saveProfileToDrive(profile: PlayerProfile): Promise<DriveS
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Google Drive upload failed: ${errText}`);
+    throw new DriveApiError(`Google Drive upload failed: ${errText}`, response.status);
   }
 
   const result = await response.json();
@@ -151,7 +193,7 @@ export async function loadProfileFromDrive(fileId: string): Promise<PlayerProfil
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Failed to download save from Google Drive: ${errText}`);
+    throw new DriveApiError(`Failed to download save from Google Drive: ${errText}`, response.status);
   }
 
   const profile: PlayerProfile = await response.json();
@@ -175,6 +217,6 @@ export async function deleteDriveSaveFile(fileId: string): Promise<void> {
 
   if (!response.ok && response.status !== 204) {
     const errText = await response.text();
-    throw new Error(`Failed to delete Google Drive save: ${errText}`);
+    throw new DriveApiError(`Failed to delete Google Drive save: ${errText}`, response.status);
   }
 }

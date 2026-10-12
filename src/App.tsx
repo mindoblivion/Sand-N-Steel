@@ -10,8 +10,11 @@ import { DuelResultModal } from './components/hub/DuelResultModal';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
 import { AssetLoadingOverlay } from './components/ui/AssetLoadingOverlay';
-// Phase 121: development-only shield diagnostic harness (dead code in `vite build`)
-import { ShieldDiagnostics } from './components/dev/ShieldDiagnostics';
+import { googleSignIn } from './services/googleAuth';
+import { facebookSignIn } from './services/facebookAuth';
+import { appleSignIn } from './services/appleAuth';
+import { microsoftSignIn } from './services/microsoftAuth';
+import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 import { ALL_OPPONENTS } from './data/opponents';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
@@ -29,6 +32,10 @@ export function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isMuted, setIsMuted] = useState(sounds.isMuted);
   const [isLeftyMode, setIsLeftyMode] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
+  const [isMicrosoftLoading, setIsMicrosoftLoading] = useState(false);
 
   // Load saved profile on boot
   useEffect(() => {
@@ -87,6 +94,109 @@ export function App() {
   const handleNewCharacter = () => {
     sounds.playClick();
     setCurrentScreen('create_character');
+  };
+
+  // "Continue with Google" — sign in, then restore a cloud save if one exists.
+  // Used on both the title (sign-in) and character-creation (register) screens.
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const res = await googleSignIn();
+      if (!res) return;
+
+      const saves = await listDriveSaves();
+      if (saves.length > 0) {
+        if (profile) {
+          // A local save already exists — don't silently overwrite it.
+          // Open the sync modal so the player explicitly chooses whether
+          // to load the cloud save or keep their local progress.
+          setShowDriveSync(true);
+        } else {
+          // No local save — safe to load the cloud save directly.
+          const cloudProfile = await loadProfileFromDrive(saves[0].id);
+          setProfile(cloudProfile);
+          setIsLeftyMode(Boolean(cloudProfile.isLeftyMode));
+          saveProfile(cloudProfile);
+          setCurrentScreen('city_3d');
+        }
+      } else {
+        // No cloud save yet. If a local profile already exists, continue
+        // that gladiator — don't send a returning player to character creation.
+        if (profile) {
+          setCurrentScreen('city_3d');
+        } else {
+          setCurrentScreen('create_character');
+        }
+      }
+    } catch (e) {
+      console.error('[GoogleSignIn] failed:', e);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  // "Continue with Facebook" — sign in via Firebase Facebook auth.
+  // Facebook doesn't provide Google Drive access, so after sign-in we proceed
+  // like the normal tap-to-start: continue a local save or start a new gladiator.
+  const handleFacebookSignIn = async () => {
+    setIsFacebookLoading(true);
+    try {
+      await facebookSignIn();
+      if (profile) {
+        setCurrentScreen('city_3d');
+      } else {
+        setCurrentScreen('create_character');
+      }
+    } catch (e) {
+      console.error('[FacebookSignIn] failed:', e);
+    } finally {
+      setIsFacebookLoading(false);
+    }
+  };
+
+  // "Continue with Apple" — sign in via Firebase Sign in with Apple.
+  // Like Facebook, no Google Drive access; proceed with local save or new gladiator.
+  const handleAppleSignIn = async () => {
+    setIsAppleLoading(true);
+    try {
+      await appleSignIn();
+      if (profile) {
+        setCurrentScreen('city_3d');
+      } else {
+        setCurrentScreen('create_character');
+      }
+    } catch (e) {
+      console.error('[AppleSignIn] failed:', e);
+    } finally {
+      setIsAppleLoading(false);
+    }
+  };
+
+  // "Continue with Microsoft" — sign in via Firebase Microsoft auth.
+  // Like Apple/Facebook, no Google Drive access; proceed with local save or new gladiator.
+  const handleMicrosoftSignIn = async () => {
+    setIsMicrosoftLoading(true);
+    try {
+      await microsoftSignIn();
+      if (profile) {
+        setCurrentScreen('city_3d');
+      } else {
+        setCurrentScreen('create_character');
+      }
+    } catch (e) {
+      console.error('[MicrosoftSignIn] failed:', e);
+    } finally {
+      setIsMicrosoftLoading(false);
+    }
+  };
+
+  // "Sign In with Email" — called after inline email/password auth succeeds on the title screen.
+  const handleEmailSignIn = () => {
+    if (profile) {
+      setCurrentScreen('city_3d');
+    } else {
+      setCurrentScreen('create_character');
+    }
   };
 
   const handleCharacterCreated = (newProfile: PlayerProfile) => {
@@ -247,12 +357,9 @@ export function App() {
   };
 
   return (
-    <div className="w-full h-full min-h-screen bg-neutral-950 text-amber-100 overflow-hidden select-none">
+    <div className="w-full h-full min-h-[100dvh] bg-neutral-950 text-amber-100 overflow-hidden select-none">
         {/* 3D ASSET LOADING OVERLAY WITH DUAL GOLD SPINNER & PERCENTAGE */}
         <AssetLoadingOverlay />
-
-        {/* PHASE 121 DEV-ONLY SHIELD DIAGNOSTICS — excluded from production builds */}
-        {import.meta.env.DEV && <ShieldDiagnostics />}
 
         {/* GAME SCREENS */}
         {currentScreen === 'title' && (
@@ -264,6 +371,15 @@ export function App() {
                 onToggleMute={handleToggleMute}
                 isMuted={isMuted}
                 onOpenSettings={() => setShowSettingsModal(true)}
+                onGoogleSignIn={handleGoogleSignIn}
+                isGoogleLoading={isGoogleLoading}
+                onFacebookSignIn={handleFacebookSignIn}
+                isFacebookLoading={isFacebookLoading}
+                onAppleSignIn={handleAppleSignIn}
+                isAppleLoading={isAppleLoading}
+                onMicrosoftSignIn={handleMicrosoftSignIn}
+                isMicrosoftLoading={isMicrosoftLoading}
+                onEmailSignIn={handleEmailSignIn}
             />
         )}
 
@@ -271,6 +387,8 @@ export function App() {
             <CharacterCreation
             onComplete={handleCharacterCreated}
             onCancel={() => setCurrentScreen('title')}
+            onGoogleSignIn={handleGoogleSignIn}
+            isGoogleLoading={isGoogleLoading}
             />
         )}
 

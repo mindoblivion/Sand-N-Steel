@@ -1,17 +1,145 @@
-import React from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { ClassicalPediment, ClassicalColumn } from './ClassicalArchitecture';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { Banner } from './EnvironmentalMotion';
 
-export const GrandColosseum: React.FC = () => {
+// ---------------------------------------------------------------------------
+// Phase 25.2 — Arc & facade constants
+//
+// The Colosseum exterior is a 306° partial cylinder (thetaStart = -0.85π,
+// thetaLength = 1.7π).  The 54° gap is on the far (−X) side, invisible from
+// the player's normal viewing position.  The monumental portal sits at
+// angle π/2 (+Z) and spans roughly 70°–110°; we skip arch bays whose centre
+// falls inside [ENTRANCE_MIN, ENTRANCE_MAX] so the entrance stays unobstructed.
+//
+// Facade construction (not flat stickers):
+//   • Outer facade ring  (piers, sill, spandrel, arch tops)  at R_FACADE  = 19.3
+//   • Inner dark liner   (backdrop visible through openings) at R_LINER   = 18.0
+//   • Wall depth = R_FACADE − R_LINER = 1.3 units  → genuine recessed depth.
+//   • The existing smooth wall cylinders are removed; the liner replaces
+//     them as the inner surface, and the pier/spandrel rings replace the
+//     outer surface.  Through each opening the viewer sees the dark liner
+//     set back 1.3 units, not a flat dark panel on a solid surface.
+// ---------------------------------------------------------------------------
+
+const ARC_THETA_START = -Math.PI * 0.85;
+const ARC_THETA_LENGTH = Math.PI * 1.7;
+const ARC_END = ARC_THETA_START + ARC_THETA_LENGTH; // 0.85π ≈ 2.670
+
+// Entrance skip zone — covers the portal pediment/step width with margin.
+const ENTRANCE_MIN = 1.12; // ≈ 64°
+const ENTRANCE_MAX = 1.98; // ≈ 113°
+
+// Tier 1 — Lower arched arcade
+const R_FACADE = 19.3;
+const R_LINER = 18.0;
+const SILL_TOP = 2.5; // top of solid sill band = bottom of opening
+const ARCH_SPRING = 6.0; // arch spring line
+const ARCH_R = 1.35; // arch radius = half opening width
+const SPANDREL_TOP = 8.0; // top of spandrel band = tier top
+const JAMB_W = 1.8;
+const JAMB_H = ARCH_SPRING - SILL_TOP; // 3.5
+const JAMB_OFFSET = (ARCH_R + JAMB_W / 2) / R_FACADE; // angular offset for jambs
+
+// Tier 2 — Upper pilaster arcade
+const R_FACADE_T2 = 17.8;
+const R_LINER_T2 = 17.0;
+const T2_BOTTOM = 8.5;
+const T2_SILL_TOP = 9.5;
+const T2_TOP = 14.5;
+const PILASTER_H = T2_TOP - T2_SILL_TOP; // 5.0
+
+// Interior seating
+const R_ARENA_WALL = 15.3;
+const SEATING_T1_R_OUT = 16.8;
+const SEATING_T2_R_OUT = 17.8; // 0.2 inside R_LINER — no z-fight
+
+export const GrandColosseum = React.memo(() => {
+  // Phase 2B.12: Dedicated bump-map for Colosseum wall surfaces.
+  const colosseumWallBumpMap = useMemo(() => {
+    if (!NOISE_TEXTURE) return undefined;
+    const tex = NOISE_TEXTURE.clone();
+    tex.repeat.set(22, 3);
+    tex.needsUpdate = true;
+    return tex;
+  }, []);
+
+  // Phase 25.1: Local warm recess tone — replaces near-black #131110.
+  const colosseumRecessColor = '#3d352a';
+
+  // Phase 25.2: Shared material instances (created once, reused across meshes).
+  const facadeMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: ROMAN_PALETTE.travertineDark.color,
+    roughness: 0.82,
+    bumpMap: colosseumWallBumpMap || undefined,
+    bumpScale: 0.015,
+    side: THREE.DoubleSide,
+  }), [colosseumWallBumpMap]);
+
+  const recessMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: colosseumRecessColor,
+    roughness: 0.92,
+    side: THREE.DoubleSide,
+  }), []);
+
+  const interiorMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: ROMAN_PALETTE.travertineDark.color,
+    roughness: 0.80,
+    side: THREE.DoubleSide,
+  }), []);
+
+  // Phase 25.2: Shared geometries for repeated facade elements.
+  const jambGeo = useMemo(() => new THREE.BoxGeometry(JAMB_W, JAMB_H, 1.0), []);
+  const archTopGeo = useMemo(
+    () => new THREE.CylinderGeometry(ARCH_R, ARCH_R, 1.0, 16, 1, false, 0, Math.PI),
+    [],
+  );
+  const pilasterGeo = useMemo(
+    () => new THREE.BoxGeometry(JAMB_W, PILASTER_H, 0.8),
+    [],
+  );
+
+  // Phase 25.2: Regularly spaced arch positions around the 306° arc.
+  // 18° spacing → ~16 bays (2 skipped at the entrance).
+  const archAngles = useMemo(() => {
+    const angles: number[] = [];
+    const spacing = 18 * Math.PI / 180;
+    for (let a = ARC_THETA_START; a <= ARC_END + 0.001; a += spacing) {
+      if (a < ENTRANCE_MIN || a > ENTRANCE_MAX) {
+        angles.push(a);
+      }
+    }
+    return angles;
+  }, []);
+
+  // Cleanup all shared GPU resources.
+  useEffect(() => {
+    return () => {
+      colosseumWallBumpMap?.dispose();
+      facadeMat.dispose();
+      recessMat.dispose();
+      interiorMat.dispose();
+      jambGeo.dispose();
+      archTopGeo.dispose();
+      pilasterGeo.dispose();
+    };
+  }, [colosseumWallBumpMap, facadeMat, recessMat, interiorMat, jambGeo, archTopGeo, pilasterGeo]);
+
+  // Helper: angular length of the left arc segment (arc start → entrance).
+  const seg1Len = ENTRANCE_MIN - ARC_THETA_START;
+  // Helper: angular start and length of the right arc segment (entrance → arc end).
+  const seg2Start = ENTRANCE_MAX;
+  const seg2Len = ARC_END - ENTRANCE_MAX;
+
   return (
     <group position={[0, 0, -20]}>
-      {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM PLINTH */}
-      {/* Lower ground step along amphitheater curve */}
+      {/* ===================================================================
+          0. STEPPED TRAVERTINE FOUNDATION PODIUM PLINTH
+          =================================================================== */}
       <mesh castShadow receiveShadow position={[0, 0.08, 0]}>
-        <cylinderGeometry args={[19.3, 19.5, 0.16, 36, 1, true, -Math.PI * 0.85, Math.PI * 1.7]} />
+        <cylinderGeometry args={[19.3, 19.5, 0.16, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.travertineDark.color}
           roughness={0.84}
@@ -20,9 +148,8 @@ export const GrandColosseum: React.FC = () => {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Upper plinth curb along amphitheater curve */}
       <mesh castShadow receiveShadow position={[0, 0.22, 0]}>
-        <cylinderGeometry args={[19.0, 19.2, 0.16, 36, 1, true, -Math.PI * 0.85, Math.PI * 1.7]} />
+        <cylinderGeometry args={[19.0, 19.2, 0.16, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.travertine.color}
           roughness={0.78}
@@ -30,38 +157,116 @@ export const GrandColosseum: React.FC = () => {
         />
       </mesh>
 
-      {/* 1. OUTER THREE-TIERED COLOSSEUM CURVED AMPHITHEATER WALL */}
-      {/* Tier 1 - Lower Arched Arcade Ring (Heavy Weathered Travertine) */}
-      <mesh castShadow receiveShadow position={[0, 4.0, 0]}>
-        <cylinderGeometry args={[18, 19, 8, 36, 1, true, -Math.PI * 0.85, Math.PI * 1.7]} />
-        <meshStandardMaterial
-          color={ROMAN_PALETTE.travertineDark.color}
-          roughness={0.82}
-          bumpMap={NOISE_TEXTURE || undefined}
-          bumpScale={0.015}
-          side={THREE.DoubleSide}
-        />
+      {/* ===================================================================
+          1. TIER 1 — LOWER ARCHED ARCADE
+          =================================================================== */}
+
+      {/* 1a. Inner dark liner — backdrop visible through arch openings.
+            Two segments leave the entrance gap unobstructed so the portal
+            structure is visible through the facade opening. */}
+      <mesh material={recessMat} position={[0, (SILL_TOP + ARCH_SPRING + ARCH_R) / 2, 0]}>
+        <cylinderGeometry args={[R_LINER, R_LINER, (ARCH_SPRING + ARCH_R) - SILL_TOP, 36, 1, true, ARC_THETA_START, seg1Len]} />
       </mesh>
-      {/* Tier 1 Entablature Cornice */}
+      <mesh material={recessMat} position={[0, (SILL_TOP + ARCH_SPRING + ARCH_R) / 2, 0]}>
+        <cylinderGeometry args={[R_LINER, R_LINER, (ARCH_SPRING + ARCH_R) - SILL_TOP, 36, 1, true, seg2Start, seg2Len]} />
+      </mesh>
+
+      {/* 1b. Sill band — solid wall below the arches. */}
+      <mesh material={facadeMat} receiveShadow position={[0, (0.3 + SILL_TOP) / 2, 0]}>
+        <cylinderGeometry args={[R_FACADE, R_FACADE, SILL_TOP - 0.3, 36, 1, true, ARC_THETA_START, seg1Len]} />
+      </mesh>
+      <mesh material={facadeMat} receiveShadow position={[0, (0.3 + SILL_TOP) / 2, 0]}>
+        <cylinderGeometry args={[R_FACADE, R_FACADE, SILL_TOP - 0.3, 36, 1, true, seg2Start, seg2Len]} />
+      </mesh>
+
+      {/* 1c. Spandrel band — solid wall above the arches. */}
+      <mesh material={facadeMat} receiveShadow position={[0, (ARCH_SPRING + ARCH_R + SPANDREL_TOP) / 2, 0]}>
+        <cylinderGeometry args={[R_FACADE, R_FACADE, SPANDREL_TOP - (ARCH_SPRING + ARCH_R), 36, 1, true, ARC_THETA_START, seg1Len]} />
+      </mesh>
+      <mesh material={facadeMat} receiveShadow position={[0, (ARCH_SPRING + ARCH_R + SPANDREL_TOP) / 2, 0]}>
+        <cylinderGeometry args={[R_FACADE, R_FACADE, SPANDREL_TOP - (ARCH_SPRING + ARCH_R), 36, 1, true, seg2Start, seg2Len]} />
+      </mesh>
+
+      {/* 1d. Arch bays — jambs (piers) and arch tops at each position.
+            Jambs: shared BoxGeometry, positioned at the opening edges.
+            Arch tops: shared half-cylinder, rotated −π/2 about X so the
+            semicircular profile sits in the XY plane (curve on top, axis
+            along the wall depth), then rotated about Y to face outward. */}
+      {archAngles.map((angle, i) => {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const rotY = -angle + Math.PI / 2;
+        const lA = angle - JAMB_OFFSET;
+        const rA = angle + JAMB_OFFSET;
+        const jY = (SILL_TOP + ARCH_SPRING) / 2;
+        return (
+          <group key={`t1-bay-${i}`}>
+            {/* Left jamb */}
+            <mesh geometry={jambGeo} material={facadeMat} castShadow
+              position={[Math.cos(lA) * R_FACADE, jY, Math.sin(lA) * R_FACADE]}
+              rotation={[0, -lA + Math.PI / 2, 0]}
+            />
+            {/* Right jamb */}
+            <mesh geometry={jambGeo} material={facadeMat} castShadow
+              position={[Math.cos(rA) * R_FACADE, jY, Math.sin(rA) * R_FACADE]}
+              rotation={[0, -rA + Math.PI / 2, 0]}
+            />
+            {/* Arch top — half-cylinder, flat side at spring line, curve rising
+                ARCH_R above.  Rotation: [−π/2 X, rotY Y, 0].  The X rotation maps
+                the cylinder axis from Y to Z (wall depth) and puts the semicircle
+                on top; the Y rotation orients it radially. */}
+            <mesh geometry={archTopGeo} material={facadeMat} castShadow
+              position={[cos * R_FACADE, ARCH_SPRING, sin * R_FACADE]}
+              rotation={[-Math.PI / 2, rotY, 0]}
+            />
+          </group>
+        );
+      })}
+
+      {/* 1e. Tier 1 cornice — horizontal stone band separating tiers.
+            Radius adjusted to protrude beyond the facade (was 18.4, now 19.5). */}
       <mesh position={[0, 8.2, 0]}>
-        <cylinderGeometry args={[18.4, 18.4, 0.6, 36, 1, true, -Math.PI * 0.85, Math.PI * 1.7]} />
+        <cylinderGeometry args={[19.5, 19.5, 0.6, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
         <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.76} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* Tier 2 - Upper Column Arcade Ring */}
-      <mesh castShadow receiveShadow position={[0, 11.5, 0]}>
-        <cylinderGeometry args={[17.5, 18, 6.5, 36, 1, true, -Math.PI * 0.85, Math.PI * 1.7]} />
-        <meshStandardMaterial
-          color={ROMAN_PALETTE.travertine.color}
-          roughness={0.78}
-          bumpMap={NOISE_TEXTURE || undefined}
-          bumpScale={0.012}
-          side={THREE.DoubleSide}
-        />
+      {/* ===================================================================
+          2. TIER 2 — UPPER PILASTER ARCADE
+          =================================================================== */}
+
+      {/* 2a. Inner dark liner — window-depth backdrop (2 segments). */}
+      <mesh material={recessMat} position={[0, (T2_SILL_TOP + T2_TOP) / 2, 0]}>
+        <cylinderGeometry args={[R_LINER_T2, R_LINER_T2, T2_TOP - T2_SILL_TOP, 36, 1, true, ARC_THETA_START, seg1Len]} />
       </mesh>
-      {/* Tier 2 Golden Attic Cornice */}
+      <mesh material={recessMat} position={[0, (T2_SILL_TOP + T2_TOP) / 2, 0]}>
+        <cylinderGeometry args={[R_LINER_T2, R_LINER_T2, T2_TOP - T2_SILL_TOP, 36, 1, true, seg2Start, seg2Len]} />
+      </mesh>
+
+      {/* 2b. Sill band between cornice and pilasters (2 segments). */}
+      <mesh material={facadeMat} receiveShadow position={[0, (T2_BOTTOM + T2_SILL_TOP) / 2, 0]}>
+        <cylinderGeometry args={[R_FACADE_T2, R_FACADE_T2, T2_SILL_TOP - T2_BOTTOM, 36, 1, true, ARC_THETA_START, seg1Len]} />
+      </mesh>
+      <mesh material={facadeMat} receiveShadow position={[0, (T2_BOTTOM + T2_SILL_TOP) / 2, 0]}>
+        <cylinderGeometry args={[R_FACADE_T2, R_FACADE_T2, T2_SILL_TOP - T2_BOTTOM, 36, 1, true, seg2Start, seg2Len]} />
+      </mesh>
+
+      {/* 2c. Pilasters — vertical stone strips at each arch position.
+            Gaps between pilasters reveal the dark liner, reading as windows. */}
+      {archAngles.map((angle, i) => {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const rotY = -angle + Math.PI / 2;
+        return (
+          <mesh key={`t2-pilaster-${i}`} geometry={pilasterGeo} material={facadeMat} castShadow
+            position={[cos * R_FACADE_T2, (T2_SILL_TOP + T2_TOP) / 2, sin * R_FACADE_T2]}
+            rotation={[0, rotY, 0]}
+          />
+        );
+      })}
+
+      {/* 2d. Tier 2 cornice — golden attic cornice (radius adjusted to 18.1). */}
       <mesh position={[0, 15.0, 0]}>
-        <cylinderGeometry args={[17.8, 17.8, 0.8, 36, 1, true, -Math.PI * 0.85, Math.PI * 1.7]} />
+        <cylinderGeometry args={[18.1, 18.1, 0.8, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.goldAccent.color}
           metalness={0.75}
@@ -70,28 +275,9 @@ export const GrandColosseum: React.FC = () => {
         />
       </mesh>
 
-      {/* 2. ARCADE ARCH RECESSES (CLASSIC COLOSSEUM ARCHWAYS) */}
-      {[-0.6, -0.4, -0.2, 0.2, 0.4, 0.6].map((radOffset, i) => {
-        const angle = Math.PI / 2 + radOffset * 1.2;
-        const radius = 18.3;
-        const ax = Math.cos(angle) * radius;
-        const az = Math.sin(angle) * radius;
-        return (
-          <group key={`arch-${i}`} position={[ax, 3.8, az]} rotation={[0, -angle + Math.PI / 2, 0]}>
-            <mesh castShadow>
-              <boxGeometry args={[2.2, 4.4, 0.4]} />
-              <meshStandardMaterial color={ROMAN_PALETTE.recessDark.color} roughness={0.96} />
-            </mesh>
-            {/* Arch Keystone Framing */}
-            <mesh position={[0, 2.4, 0.1]}>
-              <cylinderGeometry args={[1.2, 1.2, 0.35, 12, 1, false, 0, Math.PI]} />
-              <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.75} />
-            </mesh>
-          </group>
-        );
-      })}
-
-      {/* 3. MONUMENTAL ARENA PORTAL ENTRANCE (PORTA LIBITINENSIS / TRIUMPHALIS) */}
+      {/* ===================================================================
+          3. MONUMENTAL ARENA PORTAL ENTRANCE (PORTA LIBITINENSIS)
+          =================================================================== */}
       <group position={[0, 0, 15.2]}>
         {/* Broader Marble Ceremonial Entrance Steps */}
         <group position={[0, 0, 2.2]}>
@@ -132,7 +318,7 @@ export const GrandColosseum: React.FC = () => {
         {/* Portal Arch Hollow Passage */}
         <mesh position={[0, 3.2, 0.2]}>
           <boxGeometry args={[5.2, 6.4, 3.6]} />
-          <meshStandardMaterial color={ROMAN_PALETTE.recessDark.color} roughness={0.96} />
+          <meshStandardMaterial color={colosseumRecessColor} roughness={0.96} />
         </mesh>
 
         {/* Heavy Iron Portcullis Gate Grille */}
@@ -180,10 +366,11 @@ export const GrandColosseum: React.FC = () => {
           <ClassicalColumn
             key={`col-portal-${ci}`}
             position={[cx, 0, 1.8]}
-            height={8.6}
+            height={8.8}
             radius={0.42}
             stoneColor={ROMAN_PALETTE.marbleWhite.color}
             capitalColor={ROMAN_PALETTE.goldAccent.color}
+            metalness={ROMAN_PALETTE.goldAccent.metalness}
             order="corinthian"
           />
         ))}
@@ -217,11 +404,41 @@ export const GrandColosseum: React.FC = () => {
         <RomanAmphora position={[4.8, 0, 2.8]} scale={0.9} tone="terracotta" />
       </group>
 
-      {/* 4. VISIBLE INTERIOR ARENA COMBAT PIT (THROUGH ARCHWAY) */}
-      <mesh receiveShadow position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      {/* ===================================================================
+          4. INTERIOR SEATING BOWL
+          Lightweight amphitheatre interior: low arena boundary wall, two
+          sloped seating frustums (truncated-cone ring segments).  All use the
+          same 306° arc as the exterior.  No new lights — relies on existing
+          scene lighting and DoubleSide rendering.
+          =================================================================== */}
+
+      {/* 4a. Arena boundary wall (podium) — separates sand from seating. */}
+      <mesh material={interiorMat} receiveShadow position={[0, (0.05 + 1.25) / 2, 0]}>
+        <cylinderGeometry args={[R_ARENA_WALL, R_ARENA_WALL, 1.2, 32, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
+      </mesh>
+
+      {/* 4b. Seating tier 1 (ima cavea) — slopes from r=15.3 at y=1.25
+            to r=16.8 at y=3.75.  radiusTop > radiusBottom creates the
+            outward-and-upward slope of amphitheatre seating. */}
+      <mesh material={interiorMat} receiveShadow position={[0, (1.25 + 3.75) / 2, 0]}>
+        <cylinderGeometry args={[SEATING_T1_R_OUT, R_ARENA_WALL, 2.5, 32, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
+      </mesh>
+
+      {/* 4c. Seating tier 2 (media cavea) — slopes from r=16.8 at y=3.75
+            to r=17.8 at y=6.25.  Outer edge (17.8) is 0.2 inside the
+            Tier 1 dark liner (18.0) — no z-fighting. */}
+      <mesh material={interiorMat} receiveShadow position={[0, (3.75 + 6.25) / 2, 0]}>
+        <cylinderGeometry args={[SEATING_T2_R_OUT, SEATING_T1_R_OUT, 2.5, 32, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
+      </mesh>
+
+      {/* ===================================================================
+          5. ARENA FLOOR
+          Phase 25.1: Raised to y=0.05 for ground-plane clearance.
+          =================================================================== */}
+      <mesh receiveShadow position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[15, 32]} />
-        <meshStandardMaterial color="#eab308" roughness={0.9} />
+        <meshStandardMaterial color={ROMAN_PALETTE.arenaSand.color} roughness={ROMAN_PALETTE.arenaSand.roughness} />
       </mesh>
     </group>
   );
-};
+});

@@ -2,9 +2,10 @@ import React from 'react';
 import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
 import { ClassicalPediment, ClassicalColumn, RomanGabledRoof } from './ClassicalArchitecture';
+import { NOISE_TEXTURE } from './RomanMaterials';
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 
-export const RomanShrine: React.FC = () => {
+export const RomanShrine = React.memo(() => {
   return (
     <group position={[-27, 0, 11]}>
       {/* 0. STEPPED MARBLE FOUNDATION PLINTH */}
@@ -26,7 +27,7 @@ export const RomanShrine: React.FC = () => {
       {/* Main Back Cell/Altar Wall */}
       <mesh castShadow position={[0, 2.15, -1.0]}>
         <boxGeometry args={[4.2, 3.0, 1.8]} />
-        <meshStandardMaterial color="#f1f5f9" roughness={0.4} />
+        <meshStandardMaterial color="#f1f5f9" roughness={0.4} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.008} />
       </mesh>
 
       {/* Roman Gabled Roof over Shrine Cella */}
@@ -103,4 +104,4 @@ export const RomanShrine: React.FC = () => {
       <RomanAmphora position={[1.2, 0.5, 0.4]} scale={0.75} tone="sand" />
     </group>
   );
-};
+});

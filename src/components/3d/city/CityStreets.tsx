@@ -119,7 +119,7 @@ const MerchantPropsCluster: React.FC<{ position: [number, number, number] }> = (
  * CityStreets Component
  * Builds the Roman urban street network connecting the Central Plaza to all 4 cardinal districts.
  */
-export const CityStreets: React.FC = () => {
+export const CityStreets = React.memo(() => {
   return (
     <group>
       {/* 1. VIA DECUMANUS (EAST-WEST CROSS STREET) */}
@@ -431,11 +431,10 @@ export const CityStreets: React.FC = () => {
       <StreetLamp position={[5.8, 0, 6.0]} />
 
       {/* 7. FUTURE EXPANSION WAY ROUTE INDICATORS (OPEN STREET ENDS) */}
-      {/* North Way (toward Z = -32 Future Royal/Palace District) */}
-      <mesh receiveShadow position={[0, -0.015, -28]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[8, 10]} />
-        <meshStandardMaterial color="#a88960" roughness={0.8} />
-      </mesh>
+      {/* Phase 25.1: Removed redundant North Way ground plane at [0, -0.015, -28].
+          It was entirely hidden under the Colosseum arena floor (r=15 circle at
+          world [0, -20]) and foundation podium (r=19.3 partial cylinder), causing
+          a coplanar overlap / z-fighting risk. No other roads or surfaces moved. */}
 
       {/* 8. VIA SCHOLARIS & MINERVA ACADEMY COURTYARD (PHASE 4 NORTHERN ACADEMY) */}
       {/* Minerva Courtyard Floor (Circular Travertine) */}
@@ -561,4 +560,4 @@ export const CityStreets: React.FC = () => {
       <CornerSandDrift position={[-25.2, 0, -10.5]} size={[0.9, 0.9]} tone="dust" />
     </group>
   );
-};
+});

@@ -22,7 +22,8 @@ export type CombatActionType =
   | 'advance'
   | 'retreat'
   | 'taunt'
-  | 'rest';
+  | 'rest'
+  | 'telegraph';
 
 export interface CombatLogEntry {
   id: string;
