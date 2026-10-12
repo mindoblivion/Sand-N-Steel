@@ -28,6 +28,11 @@ export const CityCamera: React.FC<CityCameraProps> = ({
     new THREE.Vector3(targetPosition[0], targetPosition[1] + 1.2, targetPosition[2])
   );
   const currentCamYaw = useRef<number>(targetRotationY);
+  // Phase 26.0: Fixed base yaw captured from the initial player facing.
+  // The camera yaw must NOT follow the player's rotation — only the user's drag
+  // offset changes it. Following the player's facing creates a positive feedback
+  // loop (move right → face right → camera follows → "right" shifts → spiral).
+  const baseYawRef = useRef<number>(targetRotationY);
 
   // Phase 2B.60: Reusable vectors to avoid per-frame allocations inside useFrame.
   const desiredCamPosRef = useRef(new THREE.Vector3());
@@ -46,8 +51,11 @@ export const CityCamera: React.FC<CityCameraProps> = ({
     const currentHeight = Math.max(0.8, Math.min(7.5, baseHeight + dragPitch));
     const currentDistance = Math.max(2.8, Math.min(10.5, baseDistance + dragPitch * 0.35));
 
-    // Combine player facing yaw with manual drag orbit yaw offset
-    const effectiveTargetYaw = targetRotationY + yawOffsetRef.current;
+    // Phase 26.0: Camera yaw is decoupled from the player's facing rotation.
+    // Only the user's drag offset changes the camera orientation (auto-recentering
+    // to baseYaw via useCameraDrag's decay when moving). This keeps joystick
+    // movement direction stable relative to the screen — no spiral feedback.
+    const effectiveTargetYaw = baseYawRef.current + yawOffsetRef.current;
 
     // Smoothly damp camera yaw towards effective target yaw
     let yawDiff = effectiveTargetYaw - currentCamYaw.current;
