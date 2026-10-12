@@ -11,7 +11,7 @@ import {
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const ArenaMedicalHouse: React.FC = () => {
+export const ArenaMedicalHouse = React.memo(() => {
   return (
     <group position={[-29, 0, -5]}>
       {/* 1. MAIN INFIRMARY STONE & STUCCO HALL */}
@@ -145,4 +145,4 @@ export const ArenaMedicalHouse: React.FC = () => {
       </group>
     </group>
   );
-};
+});
