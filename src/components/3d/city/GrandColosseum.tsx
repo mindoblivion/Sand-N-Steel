@@ -27,6 +27,12 @@ export const GrandColosseum = React.memo(() => {
     };
   }, [colosseumWallBumpMap]);
 
+  // Phase 25.1: Local warm recess tone for Colosseum openings only.
+  // Replaces the near-black #131110 (ROMAN_PALETTE.recessDark) so the recesses
+  // read as shaded stone depth rather than flat black rectangles. Local change —
+  // does not modify ROMAN_PALETTE or shared materials.
+  const colosseumRecessColor = '#3d352a';
+
   return (
     <group position={[0, 0, -20]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM PLINTH */}
@@ -101,10 +107,13 @@ export const GrandColosseum = React.memo(() => {
           <group key={`arch-${i}`} position={[ax, 3.8, az]} rotation={[0, -angle + Math.PI / 2, 0]}>
             <mesh castShadow>
               <boxGeometry args={[2.2, 4.4, 0.4]} />
-              <meshStandardMaterial color={ROMAN_PALETTE.recessDark.color} roughness={0.96} />
+              <meshStandardMaterial color={colosseumRecessColor} roughness={0.96} />
             </mesh>
-            {/* Arch Keystone Framing */}
-            <mesh position={[0, 2.4, 0.1]}>
+            {/* Arch Keystone Framing — half-cylinder rotated so its axis runs
+                along Z (depth), placing the semicircular profile in the XY plane
+                to form an arch above the recess. Default cylinder axis is Y;
+                rotation -π/2 about X maps Y→Z and puts the curve on top. */}
+            <mesh position={[0, 2.2, 0.1]} rotation={[-Math.PI / 2, 0, 0]}>
               <cylinderGeometry args={[1.2, 1.2, 0.35, 12, 1, false, 0, Math.PI]} />
               <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.75} />
             </mesh>
@@ -153,7 +162,7 @@ export const GrandColosseum = React.memo(() => {
         {/* Portal Arch Hollow Passage */}
         <mesh position={[0, 3.2, 0.2]}>
           <boxGeometry args={[5.2, 6.4, 3.6]} />
-          <meshStandardMaterial color={ROMAN_PALETTE.recessDark.color} roughness={0.96} />
+          <meshStandardMaterial color={colosseumRecessColor} roughness={0.96} />
         </mesh>
 
         {/* Heavy Iron Portcullis Gate Grille */}
@@ -201,7 +210,7 @@ export const GrandColosseum = React.memo(() => {
           <ClassicalColumn
             key={`col-portal-${ci}`}
             position={[cx, 0, 1.8]}
-            height={8.6}
+            height={8.8}
             radius={0.42}
             stoneColor={ROMAN_PALETTE.marbleWhite.color}
             capitalColor={ROMAN_PALETTE.goldAccent.color}
@@ -240,7 +249,10 @@ export const GrandColosseum = React.memo(() => {
       </group>
 
       {/* 4. VISIBLE INTERIOR ARENA COMBAT PIT (THROUGH ARCHWAY) */}
-      <mesh receiveShadow position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      {/* Phase 25.1: Raised from y=0.02 to y=0.05 for clearance from any nearby
+          ground planes. The floor (r=15) is fully enclosed by the Tier 1 wall
+          (inner r=18) and foundation podium (r=19.3, top y=0.08), so no seam. */}
+      <mesh receiveShadow position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[15, 32]} />
         <meshStandardMaterial color={ROMAN_PALETTE.arenaSand.color} roughness={ROMAN_PALETTE.arenaSand.roughness} />
       </mesh>
