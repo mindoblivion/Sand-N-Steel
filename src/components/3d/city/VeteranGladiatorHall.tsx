@@ -29,7 +29,7 @@ export const VeteranGladiatorHall = React.memo(() => {
   });
 
   return (
-    <group position={[-16, 0, -16]}>
+    <group position={[-24, 0, -25]}>
       {/* 1. TRAVERTINE PLINTH BASE WITH STEPPED GROUND CONTACT */}
       <mesh castShadow receiveShadow position={[0, 0.08, 0]}>
         <boxGeometry args={[6.6, 0.16, 6.1]} />

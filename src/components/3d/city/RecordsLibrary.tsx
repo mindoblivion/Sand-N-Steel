@@ -13,7 +13,7 @@ import { RomanBench } from './CivicFurnishingProps';
 
 export const RecordsLibrary = React.memo(() => {
   return (
-    <group position={[20.5, 0, -28]}>
+    <group position={[24, 0, -30]}>
       {/* 0. STEPPED MARBLE FOUNDATION PLINTH */}
       <BuildingFoundation size={[6.0, 5.2]} height={0.25} projection={0.25} color="#cbd5e1" capColor="#e2e8f0" />
 

@@ -213,10 +213,13 @@ export const CityStreets = React.memo(() => {
       <CornerSandDrift position={[17.5, 0, 3.9]} size={[1.0, 0.8]} tone="forge" />
       <CornerSandDrift position={[26.5, 0, 4.2]} size={[1.1, 0.8]} tone="dust" />
 
-      {/* 3. VIA MERCATORIA (NORTHEAST BAZAAR DIAGONAL CONNECTOR) */}
-      {/* Connects Central Plaza / East Street to General Store [16, 0, -14] */}
-      <mesh receiveShadow position={[12, -0.015, -8]} rotation={[-Math.PI / 2, 0, Math.PI / 5]}>
-        <planeGeometry args={[8, 14]} />
+      {/* 3. VIA MERCATORIA — Phase 25.9: Re-routed from diagonal (which crossed the
+            Colosseum footprint) to a north-south connector from the East Street
+            Extension down to the relocated General Store [22, 0, -5], then south
+            toward the Merchant House [26, 0, -12] entrance on its west face. */}
+      {/* Connector: East Extension [22.5, 0, 1] → General Store [22, 0, -5] */}
+      <mesh receiveShadow position={[22, -0.015, -2]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[4, 6]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.roadFlagstone.color}
           roughness={0.82}
@@ -225,18 +228,17 @@ export const CityStreets = React.memo(() => {
         />
       </mesh>
       <RomanPavedStreet
-        position={[12, 0, -8]}
-        rotation={[0, -Math.PI / 5, 0]}
-        length={14}
-        width={8}
+        position={[22, 0, -2]}
+        axis="z"
+        length={6}
+        width={4}
         district="commercial"
-        hasWheelRuts={true}
         hasGutters={true}
       />
 
-      {/* Via Mercatoria Extension (General Store -> Merchant House [26, 0, -12]) */}
-      <mesh receiveShadow position={[21, -0.015, -13]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[10, 6.5]} />
+      {/* Path: General Store [22, 0, -5] → Merchant House west entrance [22.4, 0, -12] */}
+      <mesh receiveShadow position={[22, -0.015, -7.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[3, 5]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.roadFlagstone.color}
           roughness={0.82}
@@ -245,10 +247,10 @@ export const CityStreets = React.memo(() => {
         />
       </mesh>
       <RomanPavedStreet
-        position={[21, 0, -13]}
-        axis="x"
-        length={10}
-        width={6.5}
+        position={[22, 0, -7.5]}
+        axis="z"
+        length={5}
+        width={3}
         district="commercial"
         hasGutters={true}
       />
@@ -393,11 +395,13 @@ export const CityStreets = React.memo(() => {
       <MerchantPropsCluster position={[13.2, 0, 3.8]} />
       <RomanBench position={[12.5, 0, -3.8]} rotationY={-Math.PI / 2} />
 
-      {/* NORTHEAST: General Store Market Table & Benches */}
-      <MerchantPropsCluster position={[13.5, 0, -12.2]} />
-      <MerchantCart position={[10.5, 0, -10.5]} rotationY={Math.PI / 4} />
-      <TimberCrate position={[14.2, 0, -13.2]} size={[0.8, 0.7, 0.8]} />
-      <RomanAmphora position={[14.2, 0, -11.4]} scale={0.8} tone="sand" />
+      {/* NORTHEAST: General Store Market Table & Benches — Phase 25.9: relocated
+            from inside the Colosseum footprint to the new General Store [22, 0, -5]
+            entrance area on its west side. */}
+      <MerchantPropsCluster position={[17, 0, -4]} />
+      <MerchantCart position={[18, 0, -2]} rotationY={Math.PI / 4} />
+      <TimberCrate position={[17.5, 0, -6]} size={[0.8, 0.7, 0.8]} />
+      <RomanAmphora position={[18, 0, -3.5]} scale={0.8} tone="sand" />
 
       {/* SOUTHWEST: Golden Palm Tavern Outdoor Terrace Benches */}
       <RomanBench position={[-13.0, 0, 11.2]} rotationY={Math.PI / 4} />
@@ -425,8 +429,12 @@ export const CityStreets = React.memo(() => {
       <WineBarrel position={[-25.5, 0, -9.2]} isLyingDown={true} rotationY={0.8} />
 
       {/* 6. ILLUMINATING STREET LAMPS ALONG MAJOR JUNCTIONS */}
-      <StreetLamp position={[-5.8, 0, -6.0]} />
-      <StreetLamp position={[5.8, 0, -6.0]} />
+      {/* Phase 25.9: North-side lamps moved from z=-6 (inside the Colosseum
+           footprint, distance 15.1 from Colosseum center) to z=2 (outside
+           the Colosseum, distance 22.8). They still light the north side of
+           the cross-street junction and the Colosseum approach. */}
+      <StreetLamp position={[-5.8, 0, 2.0]} />
+      <StreetLamp position={[5.8, 0, 2.0]} />
       <StreetLamp position={[-5.8, 0, 6.0]} />
       <StreetLamp position={[5.8, 0, 6.0]} />
 
@@ -460,9 +468,10 @@ export const CityStreets = React.memo(() => {
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
-      {/* Path to Records Library [20.5, 0, -28] */}
-      <mesh receiveShadow position={[22.5, -0.01, -24.8]} rotation={[-Math.PI / 2, 0, -Math.PI * 0.15]}>
-        <planeGeometry args={[3.6, 6.5]} />
+      {/* Phase 25.9: Path to Records Library [24, 0, -30] — shifted south to
+           reach the relocated library, clearing the Colosseum footprint. */}
+      <mesh receiveShadow position={[24, -0.01, -25.5]} rotation={[-Math.PI / 2, 0, -Math.PI * 0.15]}>
+        <planeGeometry args={[3.6, 7.0]} />
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
@@ -543,9 +552,13 @@ export const CityStreets = React.memo(() => {
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
-      {/* Paved Path: Courtyard -> Veteran Gladiator Hall */}
-      <mesh receiveShadow position={[-19.5, -0.008, -13.0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[7.0, 4.0]} />
+      {/* Phase 25.9: Paved Path: Courtyard [-23, -10] → Veteran Gladiator Hall
+           [-24, -25]. Re-routed south along the east side of the Gladiator
+           Barracks (x=-21.5, clear of barracks east edge x=-23.45) to the
+           relocated VGH. Min clearance from Colosseum: 1.1 m at path's
+           northeast corner. */}
+      <mesh receiveShadow position={[-21.5, -0.008, -17.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[3.0, 15.0]} />
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 

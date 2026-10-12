@@ -19,7 +19,7 @@ export const GeneralStore = React.memo(() => {
   });
 
   return (
-    <group position={[16, 0, -14]}>
+    <group position={[22, 0, -5]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
       <BuildingFoundation size={[7.2, 5.8]} height={0.3} projection={0.25} />
 
