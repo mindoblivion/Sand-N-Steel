@@ -217,6 +217,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const isMatchOver = useRef(false);
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
+  const pendingCounterRef = useRef(false);
 
   // Match timer
   useEffect(() => {
@@ -454,10 +455,29 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // before the opposing turn begins.
           const isEvaded = defender.isInvulnerable && Math.random() < 0.75;
 
-          if (isEvaded) {
+          // Passive evasion (Valéria counter_dodge): when the player
+          // attacks a counter_dodge boss who is NOT in an active
+          // dodge stance, roll against the boss's configured
+          // dodgeChance for a passive evade. Does not stack with
+          // the active-dodge evasion above.
+          const isPassiveEvaded =
+            !isEvaded &&
+            isActorPlayer &&
+            opponent.bossMechanic === 'counter_dodge' &&
+            !defender.isInvulnerable &&
+            Math.random() < opponent.dodgeChance;
+
+          if (isEvaded || isPassiveEvaded) {
             sounds.playDodge();
             addLog(`${defender.name} swiftly EVADED ${attacker.name}'s strike!`, 'system');
             spawnDamageText('EVADED!', 'dodge', defender.position);
+            // Queue a counterattack for Valéria's next AI turn.
+            // Only when the player is the attacker against a
+            // counter_dodge boss — a player evading Valéria's own
+            // counter must NOT chain into another counter.
+            if (isActorPlayer && opponent.bossMechanic === 'counter_dodge') {
+              pendingCounterRef.current = true;
+            }
           } else if (roll <= hitPct) {
             // HIT LANDED! Calculate damage & crits
             const baseDmg = isQuick
@@ -599,6 +619,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         return;
       }
 
+      // Resolve pending counterattack (Valéria counter_dodge). The
+      // counter was queued when Valéria evaded a player attack on the
+      // previous turn. Clear the ref before resolving so it cannot fire
+      // twice, then resolve through the standard quick_attack pipeline
+      // — reusing all existing range, stamina, block, invulnerability,
+      // and damage logic.
+      if (opponent.bossMechanic === 'counter_dodge' && pendingCounterRef.current) {
+        pendingCounterRef.current = false;
+        executeCombatTurn('opponent', 'quick_attack');
+        return;
+      }
+
       let chosenAction: CombatActionType = 'quick_attack';
 
       if (dist > effectiveRange) {
@@ -665,6 +697,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     if (opp.health <= 0) {
       isMatchOver.current = true;
       pendingHeavyAttackRef.current = false;
+      pendingCounterRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       sounds.playVictory();
       addLog(`VICTORY! ${player.name} has vanquished ${opp.name}!`, 'crit');
@@ -674,6 +707,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     } else if (player.health <= 0) {
       isMatchOver.current = true;
       pendingHeavyAttackRef.current = false;
+      pendingCounterRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       addLog(`DEFEAT! ${player.name} has fallen in the sand.`, 'opponent');
       setTimeout(() => {
