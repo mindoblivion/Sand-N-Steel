@@ -20,12 +20,18 @@ import { Banner } from './EnvironmentalMotion';
 // inside [ENTRANCE_MIN, ENTRANCE_MAX] so the entrance stays unobstructed.
 //
 // Facade construction (not flat stickers):
-//   • Outer facade ring  (piers, sill, spandrel, arch tops)  at R_FACADE  = 19.3
-//   • Wall depth = 1.3 units  → genuine recessed depth.
+//   • Tier 1 wall occupies R_LINER (18.0) → R_FACADE (19.3), depth 1.3.
+//     Sill band, spandrel band, piers and arch heads share ONE outer plane
+//     at R_FACADE; piers and arch heads fill the wall thickness behind it
+//     (Phase 25.8 — they were previously centred on R_FACADE and poked 0.65
+//     through both faces of the bands).
+//   • 8 bays tile each facade segment exactly (gap edge → arc end), so no
+//     pier or arch head ever hangs over the entrance gap or the rear gap.
+//   • Arch heads are open (semicircular intrados with solid corner
+//     spandrels), and the piers rise to the spandrel band — no see-through
+//     slots between the arches.
 //   • Tier 1 liner was removed (Phase 25.4) — arch openings are genuine
-//     through-apertures revealing the interior seating bowl behind the
-//     facade framing.  Natural shadow from the WALL_DEPTH recess replaces
-//     the former dark liner panel.
+//     through-apertures revealing the interior seating bowl.
 // ---------------------------------------------------------------------------
 
 const ARC_THETA_START = -Math.PI * 0.85;
@@ -38,16 +44,27 @@ const ENTRANCE_MIN = -0.43; // ≈ −24.6°
 const ENTRANCE_MAX = 0.43;  // ≈ +24.6°
 
 // Tier 1 — Lower arched arcade
-const R_FACADE = 19.3;
-const R_LINER = 18.0;
+const R_FACADE = 19.3; // outer face of the tier-1 wall
+const R_LINER = 18.0; // inner face of the tier-1 wall
 const WALL_DEPTH = R_FACADE - R_LINER; // 1.3 — radial depth of facade wall
+const R_WALL_MID = (R_FACADE + R_LINER) / 2; // 18.65 — centre of the wall thickness
 const SILL_TOP = 2.5; // top of solid sill band = bottom of opening
 const ARCH_SPRING = 6.0; // arch spring line
 const ARCH_R = 1.35; // arch radius = half opening width
+const SPANDREL_BOTTOM = ARCH_SPRING + ARCH_R; // 7.35 — arch crown = spandrel band bottom
 const SPANDREL_TOP = 8.0; // top of spandrel band = tier top
-const JAMB_W = 1.8;
-const JAMB_H = ARCH_SPRING - SILL_TOP; // 3.5
-const JAMB_OFFSET = (ARCH_R + JAMB_W / 2) / R_FACADE; // angular offset for jambs
+const T1_CORNICE_R = 19.5;
+const T1_CORNICE_Y = 8.2;
+const T1_CORNICE_H = 0.8;
+const T1_CORNICE_TOP = T1_CORNICE_Y + T1_CORNICE_H / 2; // 8.6
+
+// Bays tile each facade segment exactly; each bay = arch opening + two
+// half-piers, so neighbouring jambs meet at the pier centre without overlap.
+const BAYS_PER_SIDE = 8;
+const BAY_PITCH = (ENTRANCE_MIN - ARC_THETA_START) / BAYS_PER_SIDE; // ≈ 16.05°
+const JAMB_W = (BAY_PITCH * R_WALL_MID - 2 * ARCH_R) / 2; // ≈ 1.26 (half-pier)
+const JAMB_H = SPANDREL_BOTTOM - SILL_TOP; // 4.85 — pier rises to the spandrel band
+const JAMB_OFFSET = (ARCH_R + JAMB_W / 2) / R_WALL_MID; // angular offset for jambs
 
 // Tier 2 — Upper pilaster arcade
 const R_FACADE_T2 = 17.8;
@@ -56,11 +73,30 @@ const T2_BOTTOM = 8.5;
 const T2_SILL_TOP = 9.5;
 const T2_TOP = 14.5;
 const PILASTER_H = T2_TOP - T2_SILL_TOP; // 5.0
+const T2_CORNICE_R = 18.1;
+const T2_CORNICE_TOP = 15.4; // = attic base
 
 // Interior seating
 const R_ARENA_WALL = 15.3;
 const SEATING_T1_R_OUT = 16.8;
 const SEATING_T2_R_OUT = 17.8; // 0.2 inside R_LINER — no z-fight
+
+// Phase 25.8: Flat horizontal annulus over [thetaStart, thetaStart + thetaLength]
+// in the cylinder convention.  RingGeometry measures φ from +X in its XY
+// plane; after the −π/2 X-rotation a ring point lands at (r·cos φ, 0, −r·sin φ),
+// which equals (r·sin θ, 0, r·cos θ) for φ = θ − π/2.
+const FlatArcRing: React.FC<{
+  y: number;
+  innerRadius: number;
+  outerRadius: number;
+  thetaStart: number;
+  thetaLength: number;
+  material: THREE.Material;
+}> = ({ y, innerRadius, outerRadius, thetaStart, thetaLength, material }) => (
+  <mesh material={material} receiveShadow position={[0, y, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+    <ringGeometry args={[innerRadius, outerRadius, 36, 1, thetaStart - Math.PI / 2, thetaLength]} />
+  </mesh>
+);
 
 export const GrandColosseum = React.memo(() => {
   // Phase 2B.12: Dedicated bump-map for Colosseum wall surfaces.
@@ -108,10 +144,31 @@ export const GrandColosseum = React.memo(() => {
 
   // Phase 25.2: Shared geometries for repeated facade elements.
   const jambGeo = useMemo(() => new THREE.BoxGeometry(JAMB_W, JAMB_H, WALL_DEPTH), []);
-  const archTopGeo = useMemo(
-    () => new THREE.CylinderGeometry(ARCH_R, ARCH_R, WALL_DEPTH, 16, 1, false, 0, Math.PI),
-    [],
-  );
+  // Phase 25.8: Open arch head — the two corner spandrels between the
+  // semicircular intrados and the square bay head, extruded through the wall
+  // depth.  Their curved side walls form the arch soffit, so the opening reads
+  // as a true arch (the former closed half-cylinder filled the arch head with
+  // solid stone and left the spandrels open).  Local X = tangential,
+  // Y = up from the spring line, Z = radial (centred on the wall thickness).
+  const archHeadGeo = useMemo(() => {
+    const left = new THREE.Shape();
+    left.moveTo(-ARCH_R, 0);
+    left.lineTo(-ARCH_R, ARCH_R);
+    left.lineTo(0, ARCH_R);
+    left.absarc(0, 0, ARCH_R, Math.PI / 2, Math.PI, false);
+    const right = new THREE.Shape();
+    right.moveTo(ARCH_R, 0);
+    right.absarc(0, 0, ARCH_R, 0, Math.PI / 2, false);
+    right.lineTo(ARCH_R, ARCH_R);
+    right.lineTo(ARCH_R, 0);
+    const geo = new THREE.ExtrudeGeometry([left, right], {
+      depth: WALL_DEPTH,
+      bevelEnabled: false,
+      curveSegments: 8,
+    });
+    geo.translate(0, 0, -WALL_DEPTH / 2);
+    return geo;
+  }, []);
   const pilasterGeo = useMemo(
     () => new THREE.BoxGeometry(JAMB_W, PILASTER_H, 0.8),
     [],
@@ -136,16 +193,16 @@ export const GrandColosseum = React.memo(() => {
   const portcullisBarVGeo = useMemo(() => new THREE.BoxGeometry(0.12, 6.0, 0.08), []);
   const portcullisBarHGeo = useMemo(() => new THREE.BoxGeometry(4.8, 0.12, 0.08), []);
 
-  // Phase 25.2: Regularly spaced arch positions around the 306° arc.
-  // 18° spacing → ~16 bays (2 skipped at the entrance).
+  // Phase 25.8: 16 bays, 8 per facade segment, each centred in its own
+  // BAY_PITCH slot.  The first and last slot edges coincide with the band
+  // ends (entrance gap edge and rear arc end), so every jamb and arch head
+  // sits on the sill band and under the spandrel band.  The former 18° grid
+  // started on the arc end, which left half a bay hanging past each rear arc
+  // end and put the inner jamb of each entrance-adjacent bay in the gap.
   const archAngles = useMemo(() => {
     const angles: number[] = [];
-    const spacing = 18 * Math.PI / 180;
-    for (let a = ARC_THETA_START; a <= ARC_END + 0.001; a += spacing) {
-      if (a < ENTRANCE_MIN || a > ENTRANCE_MAX) {
-        angles.push(a);
-      }
-    }
+    for (let i = 0; i < BAYS_PER_SIDE; i++) angles.push(ARC_THETA_START + (i + 0.5) * BAY_PITCH);
+    for (let i = 0; i < BAYS_PER_SIDE; i++) angles.push(ENTRANCE_MAX + (i + 0.5) * BAY_PITCH);
     return angles;
   }, []);
 
@@ -175,12 +232,12 @@ export const GrandColosseum = React.memo(() => {
       portalStoneMat.dispose();
       portcullisMat.dispose();
       jambGeo.dispose();
-      archTopGeo.dispose();
+      archHeadGeo.dispose();
       pilasterGeo.dispose();
       portcullisBarVGeo.dispose();
       portcullisBarHGeo.dispose();
     };
-  }, [colosseumWallBumpMap, facadeMat, recessMat, interiorMat, corniceMat, portalStoneMat, portcullisMat, jambGeo, archTopGeo, pilasterGeo, portcullisBarVGeo, portcullisBarHGeo]);
+  }, [colosseumWallBumpMap, facadeMat, recessMat, interiorMat, corniceMat, portalStoneMat, portcullisMat, jambGeo, archHeadGeo, pilasterGeo, portcullisBarVGeo, portcullisBarHGeo]);
 
   // Helper: angular length of the left arc segment (arc start → entrance).
   const seg1Len = ENTRANCE_MIN - ARC_THETA_START;
@@ -203,14 +260,19 @@ export const GrandColosseum = React.memo(() => {
           side={THREE.DoubleSide}
         />
       </mesh>
-      <mesh castShadow receiveShadow position={[0, 0.22, 0]}>
-        <cylinderGeometry args={[19.0, 19.2, 0.16, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
-        <meshStandardMaterial
-          color={ROMAN_PALETTE.travertine.color}
-          roughness={0.78}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+      {/* Phase 25.8: Upper plinth stops at the entrance gap like the sill band;
+          running across it, its 0.14–0.30 shell rose 0.1 through the tread of
+          the bottom entrance step (y 0–0.2). */}
+      {[[ARC_THETA_START, seg1Len], [seg2Start, seg2Len]].map(([start, len], i) => (
+        <mesh key={`plinth-upper-${i}`} castShadow receiveShadow position={[0, 0.22, 0]}>
+          <cylinderGeometry args={[19.0, 19.2, 0.16, 36, 1, true, start, len]} />
+          <meshStandardMaterial
+            color={ROMAN_PALETTE.travertine.color}
+            roughness={0.78}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ))}
 
       {/* ===================================================================
           1. TIER 1 — LOWER ARCHED ARCADE
@@ -232,54 +294,68 @@ export const GrandColosseum = React.memo(() => {
       </mesh>
 
       {/* 1c. Spandrel band — solid wall above the arches. */}
-      <mesh material={facadeMat} receiveShadow position={[0, (ARCH_SPRING + ARCH_R + SPANDREL_TOP) / 2, 0]}>
-        <cylinderGeometry args={[R_FACADE, R_FACADE, SPANDREL_TOP - (ARCH_SPRING + ARCH_R), 36, 1, true, ARC_THETA_START, seg1Len]} />
+      <mesh material={facadeMat} receiveShadow position={[0, (SPANDREL_BOTTOM + SPANDREL_TOP) / 2, 0]}>
+        <cylinderGeometry args={[R_FACADE, R_FACADE, SPANDREL_TOP - SPANDREL_BOTTOM, 36, 1, true, ARC_THETA_START, seg1Len]} />
       </mesh>
-      <mesh material={facadeMat} receiveShadow position={[0, (ARCH_SPRING + ARCH_R + SPANDREL_TOP) / 2, 0]}>
-        <cylinderGeometry args={[R_FACADE, R_FACADE, SPANDREL_TOP - (ARCH_SPRING + ARCH_R), 36, 1, true, seg2Start, seg2Len]} />
+      <mesh material={facadeMat} receiveShadow position={[0, (SPANDREL_BOTTOM + SPANDREL_TOP) / 2, 0]}>
+        <cylinderGeometry args={[R_FACADE, R_FACADE, SPANDREL_TOP - SPANDREL_BOTTOM, 36, 1, true, seg2Start, seg2Len]} />
       </mesh>
 
-      {/* 1d. Arch bays — jambs (piers) and arch tops at each position.
-            All positions use the cylinder convention: X = R·sin(θ), Z = R·cos(θ).
-            Jambs: shared BoxGeometry, Y-rotation = θ orients width tangentially
-            and depth radially.
-            Arch tops: shared half-cylinder.  Rotation [0, π/2+θ, π/2]: the Z
-            rotation maps the bulge from +X to +Y (upward); the Y rotation
-            orients the flat side tangentially and the wall-depth axis radially. */}
+      {/* 1d. Arch bays — jambs (half-piers) and open arch heads.
+            All positions use the cylinder convention: X = R·sin(θ), Z = R·cos(θ),
+            with Y-rotation = θ (local X tangential, local Z radial).
+            Phase 25.8: both are centred on R_WALL_MID so their outer faces sit
+            flush with the sill/spandrel bands at R_FACADE and their inner faces
+            at R_LINER.  Jambs rise from the sill to the spandrel band, closing
+            the former open slot above each pier (y 6.0–7.35). */}
       {archAngles.map((angle, i) => {
         const sin = Math.sin(angle);
         const cos = Math.cos(angle);
         const lA = angle - JAMB_OFFSET;
         const rA = angle + JAMB_OFFSET;
-        const jY = (SILL_TOP + ARCH_SPRING) / 2;
+        const jY = (SILL_TOP + SPANDREL_BOTTOM) / 2;
         return (
           <group key={`t1-bay-${i}`}>
             {/* Left jamb */}
             <mesh geometry={jambGeo} material={facadeMat} castShadow
-              position={[Math.sin(lA) * R_FACADE, jY, Math.cos(lA) * R_FACADE]}
+              position={[Math.sin(lA) * R_WALL_MID, jY, Math.cos(lA) * R_WALL_MID]}
               rotation={[0, lA, 0]}
             />
             {/* Right jamb */}
             <mesh geometry={jambGeo} material={facadeMat} castShadow
-              position={[Math.sin(rA) * R_FACADE, jY, Math.cos(rA) * R_FACADE]}
+              position={[Math.sin(rA) * R_WALL_MID, jY, Math.cos(rA) * R_WALL_MID]}
               rotation={[0, rA, 0]}
             />
-            {/* Arch top — half-cylinder, flat side at spring line, curve rising
-                ARCH_R above.  The Z rotation puts the semicircle bulge on top
-                (+Y); the Y rotation (π/2+θ) orients it radially. */}
-            <mesh geometry={archTopGeo} material={facadeMat} castShadow
-              position={[sin * R_FACADE, ARCH_SPRING, cos * R_FACADE]}
-              rotation={[0, Math.PI / 2 + angle, Math.PI / 2]}
+            {/* Arch head — corner spandrels from the spring line to the crown. */}
+            <mesh geometry={archHeadGeo} material={facadeMat} castShadow
+              position={[sin * R_WALL_MID, ARCH_SPRING, cos * R_WALL_MID]}
+              rotation={[0, angle, 0]}
             />
           </group>
         );
       })}
 
       {/* 1e. Tier 1 cornice — bright stone band separating tiers.
-            Radius protrudes beyond the facade (19.5) for a shadow-casting lip. */}
-      <mesh material={corniceMat} position={[0, 8.2, 0]}>
-        <cylinderGeometry args={[19.5, 19.5, 0.8, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
+            Radius protrudes beyond the facade (19.5) for a shadow-casting lip.
+            Phase 25.8: split at the entrance gap like the bands below it; the
+            full-arc ribbon floated unsupported 2.6 units in front of the portal
+            and crossed its lintel/pediment line from the approach. */}
+      <mesh material={corniceMat} position={[0, T1_CORNICE_Y, 0]}>
+        <cylinderGeometry args={[T1_CORNICE_R, T1_CORNICE_R, T1_CORNICE_H, 36, 1, true, ARC_THETA_START, seg1Len]} />
       </mesh>
+      <mesh material={corniceMat} position={[0, T1_CORNICE_Y, 0]}>
+        <cylinderGeometry args={[T1_CORNICE_R, T1_CORNICE_R, T1_CORNICE_H, 36, 1, true, seg2Start, seg2Len]} />
+      </mesh>
+
+      {/* 1f. Phase 25.8: Tier-transition ledge — the cornice's top surface,
+            closing the open 17.8–19.5 annulus between the tier-1 wall and the
+            set-back tier-2 wall so tier 2 reads as resting on tier 1 rather
+            than as a separate inner drum (and no sky shows through from the
+            arena). */}
+      <FlatArcRing y={T1_CORNICE_TOP} innerRadius={R_FACADE_T2} outerRadius={T1_CORNICE_R}
+        thetaStart={ARC_THETA_START} thetaLength={seg1Len} material={corniceMat} />
+      <FlatArcRing y={T1_CORNICE_TOP} innerRadius={R_FACADE_T2} outerRadius={T1_CORNICE_R}
+        thetaStart={seg2Start} thetaLength={seg2Len} material={corniceMat} />
 
       {/* ===================================================================
           2. TIER 2 — UPPER PILASTER ARCADE
@@ -316,9 +392,19 @@ export const GrandColosseum = React.memo(() => {
         );
       })}
 
-      {/* 2d. Tier 2 cornice — golden attic cornice (radius adjusted to 18.1). */}
-      <mesh position={[0, 15.0, 0]}>
-        <cylinderGeometry args={[18.1, 18.1, 0.8, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
+      {/* 2c-bis. Phase 25.8: Window-recess ceiling at the pilaster/liner top.
+            Without it the 17.0–18.1 recess was open above y 14.5, showing a
+            band of sky between the pilasters just under the golden cornice. */}
+      <FlatArcRing y={T2_TOP} innerRadius={R_LINER_T2} outerRadius={T2_CORNICE_R}
+        thetaStart={ARC_THETA_START} thetaLength={seg1Len} material={recessMat} />
+      <FlatArcRing y={T2_TOP} innerRadius={R_LINER_T2} outerRadius={T2_CORNICE_R}
+        thetaStart={seg2Start} thetaLength={seg2Len} material={recessMat} />
+
+      {/* 2d. Tier 2 cornice — golden attic cornice (radius adjusted to 18.1).
+            Phase 25.8: spans T2_TOP → attic base (was 14.6–15.4, leaving a
+            0.1 gap above the pilasters). */}
+      <mesh position={[0, (T2_TOP + T2_CORNICE_TOP) / 2, 0]}>
+        <cylinderGeometry args={[T2_CORNICE_R, T2_CORNICE_R, T2_CORNICE_TOP - T2_TOP, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.goldAccent.color}
           metalness={0.75}
