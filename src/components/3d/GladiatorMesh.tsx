@@ -168,6 +168,18 @@ const SUPPORTED_WEAPON_MODEL_PATHS = new Set<string>([
   '/models/weapons/shamshir.glb',
 ]);
 
+// Per-model orientation correction. The four +Y-axis models (gladius, spatha,
+// dagger, dirk) share the [π/2, 0, 0] rotation that maps local +Y → +Z, pointing
+// the blade forward from the hand. The shamshir's blade is along local +Z
+// (Phase 21.2 audit: Z bounds −0.50 → +0.50, longest axis), so identity [0, 0, 0]
+// already points +Z forward — no rotation needed. The shamshir's Z extent is
+// symmetric about the origin, so its grip placement relative to the hand is not
+// yet established and still requires visual verification on a real device.
+const WEAPON_MODEL_ROTATIONS: Record<string, [number, number, number]> = {
+  '/models/weapons/shamshir.glb': [0, 0, 0],
+};
+const DEFAULT_WEAPON_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0];
+
 const WeaponGLBMesh: React.FC<{ modelUrl: string }> = ({ modelUrl }) => {
   const gltf = useGLTF(modelUrl);
   const cloned = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
@@ -181,8 +193,10 @@ const WeaponGLBMesh: React.FC<{ modelUrl: string }> = ({ modelUrl }) => {
     });
   }, [cloned]);
 
+  const rotation = WEAPON_MODEL_ROTATIONS[modelUrl] ?? DEFAULT_WEAPON_ROTATION;
+
   return (
-    <group rotation={[Math.PI / 2, 0, 0]}>
+    <group rotation={rotation}>
       <primitive object={cloned} />
     </group>
   );
