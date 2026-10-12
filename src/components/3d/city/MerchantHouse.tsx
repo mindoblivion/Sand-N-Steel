@@ -11,7 +11,7 @@ import {
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const MerchantHouse: React.FC = () => {
+export const MerchantHouse = React.memo(() => {
   return (
     <group position={[26, 0, -12]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -145,4 +145,4 @@ export const MerchantHouse: React.FC = () => {
       </group>
     </group>
   );
-};
+});
