@@ -10,7 +10,7 @@ import {
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const DoctoreHouse: React.FC = () => {
+export const DoctoreHouse = React.memo(() => {
   return (
     <group position={[28, 0, -17]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -106,4 +106,4 @@ export const DoctoreHouse: React.FC = () => {
       </group>
     </group>
   );
-};
+});
