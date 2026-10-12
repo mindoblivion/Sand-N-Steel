@@ -215,6 +215,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   });
 
   const isMatchOver = useRef(false);
+  const phaseSwitchedRef = useRef(false);
 
   // Match timer
   useEffect(() => {
@@ -622,6 +623,27 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }, 1400);
     }
   }, [opp.health, player.health, player.name, opp.name, addLog, onMatchComplete]);
+
+  // Boss phase-2 weapon switch (Ignis: dual_blades → mace at 50% health).
+  // One-time: guarded by phaseSwitchedRef so the effect cannot re-trigger
+  // even if React re-renders before the state update settles. Also guarded
+  // against post-match and zero-health states so a killing blow that crosses
+  // the threshold does not switch weapons. The guard resets naturally on a
+  // fresh DuelScene mount (new ref instance). No phase state is persisted.
+  useEffect(() => {
+    if (phaseSwitchedRef.current || isMatchOver.current) return;
+    if (opponent.bossMechanic !== 'phase_weapon_switch' || !opponent.phase2WeaponType) return;
+    const threshold = opp.stats.healthMax * 0.5;
+    if (opp.health > 0 && opp.health <= threshold) {
+      phaseSwitchedRef.current = true;
+      setOpp((prev) => ({
+        ...prev,
+        isPhase2: true,
+        loadout: { ...prev.loadout, weapon: getWeaponByType(opponent.phase2WeaponType!) },
+      }));
+      addLog(`${opp.name} discards their blades and draws a heavy war mace!`, 'system');
+    }
+  }, [opp.health, opp.stats.healthMax, opponent.bossMechanic, opponent.phase2WeaponType, opp.name, addLog]);
 
   return (
     <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">

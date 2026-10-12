@@ -188,6 +188,7 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardXp: 220,
     meshScale: 1.08,
     bossMechanic: 'phase_weapon_switch',
+    phase2WeaponType: 'mace',
     characterModel: 'roman_warrior',
   },
 
