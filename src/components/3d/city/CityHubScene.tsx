@@ -419,7 +419,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     setShowNavDrawer(false);
   };
 
-  const calculatedStats = calculateTotalStats(playerProfile);
+  const calculatedStats = useMemo(() => calculateTotalStats(playerProfile), [playerProfile]);
 
   const cityPlayerFighter: FighterState = {
     id: 'city_player',
