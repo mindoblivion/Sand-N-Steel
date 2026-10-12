@@ -580,13 +580,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       // Resolve pending heavy-attack telegraph (Goliath). The attack
       // was announced on the previous AI turn; the player has since
-      // taken their turn. Clear the telegraph state and the preserved
-      // block, then resolve through the standard power_attack pipeline
-      // so damage, dodge, and block all use existing code paths.
+      // taken their turn. Clear the telegraph warning and resolve
+      // through the standard power_attack pipeline so damage, dodge,
+      // and block all use existing code paths.
+      //
+      // The player's block (if they chose shield_block as their
+      // response) is intentionally left in place: executeCombatTurn
+      // reads fighter state from its render closure, so the preserved
+      // isBlocking flag is active during the power_attack and applies
+      // the existing 75% damage reduction. The block is then cleared
+      // by the 1100ms turn-end cleanup, which evaluates
+      // pendingHeavyAttackRef.current (now false) and sets
+      // isBlocking to false. No explicit pre-clear is needed here.
       if (opponent.bossMechanic === 'heavy_telegraph' && pendingHeavyAttackRef.current) {
         pendingHeavyAttackRef.current = false;
         setOpp((prev) => ({ ...prev, telegraphText: undefined }));
-        setPlayer((prev) => (prev.isBlocking ? { ...prev, isBlocking: false } : prev));
         executeCombatTurn('opponent', 'power_attack');
         return;
       }
