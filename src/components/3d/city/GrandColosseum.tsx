@@ -6,31 +6,36 @@ import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { Banner } from './EnvironmentalMotion';
 
 // ---------------------------------------------------------------------------
-// Phase 25.2 — Arc & facade constants
+// Phase 25.7 — Unified angular convention
 //
-// The Colosseum exterior is a 306° partial cylinder (thetaStart = -0.85π,
-// thetaLength = 1.7π).  The 54° gap is on the far (−X) side, invisible from
-// the player's normal viewing position.  The monumental portal sits at
-// angle π/2 (+Z) and spans roughly 70°–110°; we skip arch bays whose centre
-// falls inside [ENTRANCE_MIN, ENTRANCE_MAX] so the entrance stays unobstructed.
+// ALL Colosseum geometry uses the Three.js cylinder convention:
+//   X = R · sin(θ),  Z = R · cos(θ)
+//   θ = 0   → local +Z  (front entrance, player approach)
+//   θ = π   → local −Z  (rear, 54° facade gap)
+//
+// The Colosseum exterior is a 306° partial cylinder (thetaStart = −0.85π,
+// thetaLength = 1.7π).  The 54° rear gap is centered on θ = π (−Z), invisible
+// from the player's normal viewing position.  The monumental portal sits at
+// θ = 0 (+Z) and spans roughly ±25°; we skip arch bays whose centre falls
+// inside [ENTRANCE_MIN, ENTRANCE_MAX] so the entrance stays unobstructed.
 //
 // Facade construction (not flat stickers):
 //   • Outer facade ring  (piers, sill, spandrel, arch tops)  at R_FACADE  = 19.3
-//   • Inner dark liner   (backdrop visible through openings) at R_LINER   = 18.0
-//   • Wall depth = R_FACADE − R_LINER = 1.3 units  → genuine recessed depth.
-//   • The existing smooth wall cylinders are removed; the liner replaces
-//     them as the inner surface, and the pier/spandrel rings replace the
-//     outer surface.  Through each opening the viewer sees the dark liner
-//     set back 1.3 units, not a flat dark panel on a solid surface.
+//   • Wall depth = 1.3 units  → genuine recessed depth.
+//   • Tier 1 liner was removed (Phase 25.4) — arch openings are genuine
+//     through-apertures revealing the interior seating bowl behind the
+//     facade framing.  Natural shadow from the WALL_DEPTH recess replaces
+//     the former dark liner panel.
 // ---------------------------------------------------------------------------
 
 const ARC_THETA_START = -Math.PI * 0.85;
 const ARC_THETA_LENGTH = Math.PI * 1.7;
 const ARC_END = ARC_THETA_START + ARC_THETA_LENGTH; // 0.85π ≈ 2.670
 
-// Entrance skip zone — covers the portal pediment/step width with margin.
-const ENTRANCE_MIN = 1.12; // ≈ 64°
-const ENTRANCE_MAX = 1.98; // ≈ 113°
+// Entrance skip zone — centered on θ = 0 (+Z, player approach).
+// Width ≈ 49° matches the original; now aligned with the portal at +Z.
+const ENTRANCE_MIN = -0.43; // ≈ −24.6°
+const ENTRANCE_MAX = 0.43;  // ≈ +24.6°
 
 // Tier 1 — Lower arched arcade
 const R_FACADE = 19.3;
@@ -235,14 +240,15 @@ export const GrandColosseum = React.memo(() => {
       </mesh>
 
       {/* 1d. Arch bays — jambs (piers) and arch tops at each position.
-            Jambs: shared BoxGeometry, positioned at the opening edges.
-            Arch tops: shared half-cylinder, rotated −π/2 about X so the
-            semicircular profile sits in the XY plane (curve on top, axis
-            along the wall depth), then rotated about Y to face outward. */}
+            All positions use the cylinder convention: X = R·sin(θ), Z = R·cos(θ).
+            Jambs: shared BoxGeometry, Y-rotation = θ orients width tangentially
+            and depth radially.
+            Arch tops: shared half-cylinder.  Rotation [0, π/2+θ, π/2]: the Z
+            rotation maps the bulge from +X to +Y (upward); the Y rotation
+            orients the flat side tangentially and the wall-depth axis radially. */}
       {archAngles.map((angle, i) => {
-        const cos = Math.cos(angle);
         const sin = Math.sin(angle);
-        const rotY = -angle + Math.PI / 2;
+        const cos = Math.cos(angle);
         const lA = angle - JAMB_OFFSET;
         const rA = angle + JAMB_OFFSET;
         const jY = (SILL_TOP + ARCH_SPRING) / 2;
@@ -250,21 +256,20 @@ export const GrandColosseum = React.memo(() => {
           <group key={`t1-bay-${i}`}>
             {/* Left jamb */}
             <mesh geometry={jambGeo} material={facadeMat} castShadow
-              position={[Math.cos(lA) * R_FACADE, jY, Math.sin(lA) * R_FACADE]}
-              rotation={[0, -lA + Math.PI / 2, 0]}
+              position={[Math.sin(lA) * R_FACADE, jY, Math.cos(lA) * R_FACADE]}
+              rotation={[0, lA, 0]}
             />
             {/* Right jamb */}
             <mesh geometry={jambGeo} material={facadeMat} castShadow
-              position={[Math.cos(rA) * R_FACADE, jY, Math.sin(rA) * R_FACADE]}
-              rotation={[0, -rA + Math.PI / 2, 0]}
+              position={[Math.sin(rA) * R_FACADE, jY, Math.cos(rA) * R_FACADE]}
+              rotation={[0, rA, 0]}
             />
             {/* Arch top — half-cylinder, flat side at spring line, curve rising
-                ARCH_R above.  Rotation: [−π/2 X, rotY Y, 0].  The X rotation maps
-                the cylinder axis from Y to Z (wall depth) and puts the semicircle
-                on top; the Y rotation orients it radially. */}
+                ARCH_R above.  The Z rotation puts the semicircle bulge on top
+                (+Y); the Y rotation (π/2+θ) orients it radially. */}
             <mesh geometry={archTopGeo} material={facadeMat} castShadow
-              position={[cos * R_FACADE, ARCH_SPRING, sin * R_FACADE]}
-              rotation={[-Math.PI / 2, rotY, 0]}
+              position={[sin * R_FACADE, ARCH_SPRING, cos * R_FACADE]}
+              rotation={[0, Math.PI / 2 + angle, Math.PI / 2]}
             />
           </group>
         );
@@ -300,12 +305,12 @@ export const GrandColosseum = React.memo(() => {
             (between adjacent arches), not above arch centres.  Gaps between
             pilasters reveal the dark liner, reading as windows. */}
       {pilasterAngles.map((angle, i) => {
-        const cos = Math.cos(angle);
         const sin = Math.sin(angle);
-        const rotY = -angle + Math.PI / 2;
+        const cos = Math.cos(angle);
+        const rotY = angle;
         return (
           <mesh key={`t2-pilaster-${i}`} geometry={pilasterGeo} material={facadeMat} castShadow
-            position={[cos * R_FACADE_T2, (T2_SILL_TOP + T2_TOP) / 2, sin * R_FACADE_T2]}
+            position={[sin * R_FACADE_T2, (T2_SILL_TOP + T2_TOP) / 2, cos * R_FACADE_T2]}
             rotation={[0, rotY, 0]}
           />
         );
