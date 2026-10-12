@@ -2,7 +2,7 @@ import React from 'react';
 import * as THREE from 'three';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 
-export const TrainingYard: React.FC = () => {
+export const TrainingYard = React.memo(() => {
   return (
     <group position={[-18, 0, 0]}>
       {/* 0. STEPPED TRAVERTINE RETAINING FOUNDATION PLINTH */}
@@ -172,4 +172,4 @@ export const TrainingYard: React.FC = () => {
       </group>
     </group>
   );
-};
+});
