@@ -6,7 +6,7 @@ import { RomanGabledRoof, CornerQuoins, WallCornice } from './ClassicalArchitect
 import { TimberCrate, RomanAmphora, WineBarrel } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const GeneralStore: React.FC = () => {
+export const GeneralStore = React.memo(() => {
   const canopyRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
@@ -112,4 +112,4 @@ export const GeneralStore: React.FC = () => {
       </group>
     </group>
   );
-};
+});
