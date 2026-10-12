@@ -118,7 +118,7 @@ export const ForgeSmoke: React.FC<{ position: [number, number, number] }> = ({ p
 };
 
 // Particle pool for drifting sand
-export const SandDrift: React.FC = () => {
+export const SandDrift = React.memo(() => {
   const particles = useMemo(() => {
     return Array.from({ length: 12 }).map(() => ({
       mesh: new THREE.Mesh(
@@ -145,4 +145,4 @@ export const SandDrift: React.FC = () => {
       {particles.map((p, i) => <primitive key={i} object={p.mesh} />)}
     </group>
   );
-};
+});
