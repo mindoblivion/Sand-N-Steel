@@ -84,9 +84,19 @@ export const GrandColosseum = React.memo(() => {
     side: THREE.DoubleSide,
   }), []);
 
+  // Phase 25.2: Lighter travertine for interior so seating is visible through
+  // the entrance and facade openings against the darker liner.
   const interiorMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: ROMAN_PALETTE.travertineDark.color,
+    color: ROMAN_PALETTE.travertine.color,
     roughness: 0.80,
+    side: THREE.DoubleSide,
+  }), []);
+
+  // Phase 25.2: Bright cornice material — marbleWhite for clear tier separation.
+  const corniceMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: ROMAN_PALETTE.marbleWhite.color,
+    roughness: 0.62,
+    metalness: 0.06,
     side: THREE.DoubleSide,
   }), []);
 
@@ -121,11 +131,12 @@ export const GrandColosseum = React.memo(() => {
       facadeMat.dispose();
       recessMat.dispose();
       interiorMat.dispose();
+      corniceMat.dispose();
       jambGeo.dispose();
       archTopGeo.dispose();
       pilasterGeo.dispose();
     };
-  }, [colosseumWallBumpMap, facadeMat, recessMat, interiorMat, jambGeo, archTopGeo, pilasterGeo]);
+  }, [colosseumWallBumpMap, facadeMat, recessMat, interiorMat, corniceMat, jambGeo, archTopGeo, pilasterGeo]);
 
   // Helper: angular length of the left arc segment (arc start → entrance).
   const seg1Len = ENTRANCE_MIN - ARC_THETA_START;
@@ -223,11 +234,10 @@ export const GrandColosseum = React.memo(() => {
         );
       })}
 
-      {/* 1e. Tier 1 cornice — horizontal stone band separating tiers.
-            Radius adjusted to protrude beyond the facade (was 18.4, now 19.5). */}
-      <mesh position={[0, 8.2, 0]}>
-        <cylinderGeometry args={[19.5, 19.5, 0.6, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
-        <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.76} side={THREE.DoubleSide} />
+      {/* 1e. Tier 1 cornice — bright stone band separating tiers.
+            Radius protrudes beyond the facade (19.5) for a shadow-casting lip. */}
+      <mesh material={corniceMat} position={[0, 8.2, 0]}>
+        <cylinderGeometry args={[19.5, 19.5, 0.8, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
       </mesh>
 
       {/* ===================================================================
@@ -273,6 +283,19 @@ export const GrandColosseum = React.memo(() => {
           roughness={0.34}
           side={THREE.DoubleSide}
         />
+      </mesh>
+
+      {/* 2e. Attic wall — solid upper wall above the golden cornice.
+            Gives the building a finished top, matching the real Colosseum's
+            tall attic storey.  R=17.5 tapers inward from the tier-2 facade
+            (17.8); height 1.6 brings the crest to y=17.0. */}
+      <mesh material={facadeMat} receiveShadow position={[0, 16.2, 0]}>
+        <cylinderGeometry args={[17.5, 17.8, 1.6, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
+      </mesh>
+
+      {/* 2f. Attic crest cornice — bright stone cap on the attic wall. */}
+      <mesh material={corniceMat} position={[0, 17.1, 0]}>
+        <cylinderGeometry args={[17.8, 17.8, 0.5, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
       </mesh>
 
       {/* ===================================================================
@@ -412,8 +435,10 @@ export const GrandColosseum = React.memo(() => {
           scene lighting and DoubleSide rendering.
           =================================================================== */}
 
-      {/* 4a. Arena boundary wall (podium) — separates sand from seating. */}
-      <mesh material={interiorMat} receiveShadow position={[0, (0.05 + 1.25) / 2, 0]}>
+      {/* 4a. Arena boundary wall (podium) — separates sand from seating.
+            Uses facadeMat (travertine + bump) so it reads as solid exterior-
+            quality stone, visually distinct from the lighter seating surfaces. */}
+      <mesh material={facadeMat} receiveShadow position={[0, (0.05 + 1.25) / 2, 0]}>
         <cylinderGeometry args={[R_ARENA_WALL, R_ARENA_WALL, 1.2, 32, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
       </mesh>
 
