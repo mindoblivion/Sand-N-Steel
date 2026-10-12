@@ -35,6 +35,7 @@ const ENTRANCE_MAX = 1.98; // ≈ 113°
 // Tier 1 — Lower arched arcade
 const R_FACADE = 19.3;
 const R_LINER = 18.0;
+const WALL_DEPTH = R_FACADE - R_LINER; // 1.3 — radial depth of facade wall
 const SILL_TOP = 2.5; // top of solid sill band = bottom of opening
 const ARCH_SPRING = 6.0; // arch spring line
 const ARCH_R = 1.35; // arch radius = half opening width
@@ -101,15 +102,34 @@ export const GrandColosseum = React.memo(() => {
   }), []);
 
   // Phase 25.2: Shared geometries for repeated facade elements.
-  const jambGeo = useMemo(() => new THREE.BoxGeometry(JAMB_W, JAMB_H, 1.0), []);
+  const jambGeo = useMemo(() => new THREE.BoxGeometry(JAMB_W, JAMB_H, WALL_DEPTH), []);
   const archTopGeo = useMemo(
-    () => new THREE.CylinderGeometry(ARCH_R, ARCH_R, 1.0, 16, 1, false, 0, Math.PI),
+    () => new THREE.CylinderGeometry(ARCH_R, ARCH_R, WALL_DEPTH, 16, 1, false, 0, Math.PI),
     [],
   );
   const pilasterGeo = useMemo(
     () => new THREE.BoxGeometry(JAMB_W, PILASTER_H, 0.8),
     [],
   );
+
+  // Phase 25.4: Portal stone material (travertine, matching original portal finish).
+  const portalStoneMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: ROMAN_PALETTE.travertine.color,
+    roughness: 0.78,
+    bumpMap: colosseumWallBumpMap || undefined,
+    bumpScale: 0.012,
+    side: THREE.DoubleSide,
+  }), [colosseumWallBumpMap]);
+
+  // Phase 25.4: Open-bar portcullis — lightweight iron grille replacing the
+  // opaque panel.  Shared material and bar geometries keep draw calls minimal.
+  const portcullisMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: ROMAN_PALETTE.darkIron.color,
+    metalness: 0.82,
+    roughness: 0.48,
+  }), []);
+  const portcullisBarVGeo = useMemo(() => new THREE.BoxGeometry(0.12, 6.0, 0.08), []);
+  const portcullisBarHGeo = useMemo(() => new THREE.BoxGeometry(4.8, 0.12, 0.08), []);
 
   // Phase 25.2: Regularly spaced arch positions around the 306° arc.
   // 18° spacing → ~16 bays (2 skipped at the entrance).
@@ -124,6 +144,21 @@ export const GrandColosseum = React.memo(() => {
     return angles;
   }, []);
 
+  // Phase 25.4: Pilaster angles — positioned at the midpoints between adjacent
+  // arch bays, aligning each pilaster above the structural pier between arches
+  // rather than above the arch centre.  The entrance-adjacent midpoint falls
+  // inside the skip zone and is excluded so no pilaster sits in the entrance gap.
+  const pilasterAngles = useMemo(() => {
+    const angles: number[] = [];
+    for (let i = 0; i < archAngles.length - 1; i++) {
+      const pierAngle = (archAngles[i] + archAngles[i + 1]) / 2;
+      if (pierAngle < ENTRANCE_MIN || pierAngle > ENTRANCE_MAX) {
+        angles.push(pierAngle);
+      }
+    }
+    return angles;
+  }, [archAngles]);
+
   // Cleanup all shared GPU resources.
   useEffect(() => {
     return () => {
@@ -132,11 +167,15 @@ export const GrandColosseum = React.memo(() => {
       recessMat.dispose();
       interiorMat.dispose();
       corniceMat.dispose();
+      portalStoneMat.dispose();
+      portcullisMat.dispose();
       jambGeo.dispose();
       archTopGeo.dispose();
       pilasterGeo.dispose();
+      portcullisBarVGeo.dispose();
+      portcullisBarHGeo.dispose();
     };
-  }, [colosseumWallBumpMap, facadeMat, recessMat, interiorMat, corniceMat, jambGeo, archTopGeo, pilasterGeo]);
+  }, [colosseumWallBumpMap, facadeMat, recessMat, interiorMat, corniceMat, portalStoneMat, portcullisMat, jambGeo, archTopGeo, pilasterGeo, portcullisBarVGeo, portcullisBarHGeo]);
 
   // Helper: angular length of the left arc segment (arc start → entrance).
   const seg1Len = ENTRANCE_MIN - ARC_THETA_START;
@@ -172,15 +211,12 @@ export const GrandColosseum = React.memo(() => {
           1. TIER 1 — LOWER ARCHED ARCADE
           =================================================================== */}
 
-      {/* 1a. Inner dark liner — backdrop visible through arch openings.
-            Two segments leave the entrance gap unobstructed so the portal
-            structure is visible through the facade opening. */}
-      <mesh material={recessMat} position={[0, (SILL_TOP + ARCH_SPRING + ARCH_R) / 2, 0]}>
-        <cylinderGeometry args={[R_LINER, R_LINER, (ARCH_SPRING + ARCH_R) - SILL_TOP, 36, 1, true, ARC_THETA_START, seg1Len]} />
-      </mesh>
-      <mesh material={recessMat} position={[0, (SILL_TOP + ARCH_SPRING + ARCH_R) / 2, 0]}>
-        <cylinderGeometry args={[R_LINER, R_LINER, (ARCH_SPRING + ARCH_R) - SILL_TOP, 36, 1, true, seg2Start, seg2Len]} />
-      </mesh>
+      {/* 1a. Phase 25.4: Tier 1 liner removed — arch openings are now genuine
+            through-apertures revealing the interior seating bowl (sections 4a–4c)
+            behind the facade framing.  The sill band (1b), spandrel band (1c),
+            jambs (1d), and arch tops (1d) provide the solid wall surfaces; the
+            WALL_DEPTH (1.3) recess creates natural shadow without a sealing
+            dark panel. */}
 
       {/* 1b. Sill band — solid wall below the arches. */}
       <mesh material={facadeMat} receiveShadow position={[0, (0.3 + SILL_TOP) / 2, 0]}>
@@ -260,9 +296,10 @@ export const GrandColosseum = React.memo(() => {
         <cylinderGeometry args={[R_FACADE_T2, R_FACADE_T2, T2_SILL_TOP - T2_BOTTOM, 36, 1, true, seg2Start, seg2Len]} />
       </mesh>
 
-      {/* 2c. Pilasters — vertical stone strips at each arch position.
-            Gaps between pilasters reveal the dark liner, reading as windows. */}
-      {archAngles.map((angle, i) => {
+      {/* 2c. Pilasters — vertical stone strips aligned above the Tier 1 piers
+            (between adjacent arches), not above arch centres.  Gaps between
+            pilasters reveal the dark liner, reading as windows. */}
+      {pilasterAngles.map((angle, i) => {
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
         const rotY = -angle + Math.PI / 2;
@@ -327,32 +364,35 @@ export const GrandColosseum = React.memo(() => {
           </mesh>
         </group>
 
-        {/* Massive Marble Keystone Archway Structure */}
-        <mesh castShadow receiveShadow position={[0, 4.4, 0]}>
-          <boxGeometry args={[10.5, 8.8, 3.4]} />
-          <meshStandardMaterial
-            color={ROMAN_PALETTE.travertine.color}
-            roughness={0.78}
-            bumpMap={NOISE_TEXTURE || undefined}
-            bumpScale={0.012}
-          />
+        {/* Phase 25.4: Portal side piers — structural stone at the passage
+            edges, leaving the centre physically open.  Replaces the former
+            solid box that filled the entire aperture.  Pier width 2.65 =
+            (10.5 − 5.2) / 2, height 8.8, depth 3.4 — same envelope as the
+            original archway block, but the passage is now void. */}
+        <mesh material={portalStoneMat} castShadow receiveShadow position={[-3.925, 4.4, 0]}>
+          <boxGeometry args={[2.65, 8.8, 3.4]} />
+        </mesh>
+        <mesh material={portalStoneMat} castShadow receiveShadow position={[3.925, 4.4, 0]}>
+          <boxGeometry args={[2.65, 8.8, 3.4]} />
         </mesh>
 
-        {/* Portal Arch Hollow Passage */}
-        <mesh position={[0, 3.2, 0.2]}>
-          <boxGeometry args={[5.2, 6.4, 3.6]} />
-          <meshStandardMaterial color={colosseumRecessColor} roughness={0.96} />
+        {/* Phase 25.4: Lintel — stone beam spanning the passage above the
+            6.4-unit-high opening, resting on the side piers. */}
+        <mesh material={portalStoneMat} castShadow receiveShadow position={[0, 7.6, 0]}>
+          <boxGeometry args={[5.2, 2.4, 3.4]} />
         </mesh>
 
-        {/* Heavy Iron Portcullis Gate Grille */}
-        <mesh position={[0, 3.4, 0.6]}>
-          <boxGeometry args={[4.8, 6.0, 0.1]} />
-          <meshStandardMaterial
-            color={ROMAN_PALETTE.darkIron.color}
-            metalness={0.82}
-            roughness={0.48}
-          />
-        </mesh>
+        {/* Phase 25.4: Open-bar portcullis — vertical and horizontal iron bars
+            forming a grille, not an opaque panel.  The passage behind remains
+            visible through the bar gaps. */}
+        {[-1.92, -0.96, 0, 0.96, 1.92].map((bx, bi) => (
+          <mesh key={`pcv-${bi}`} geometry={portcullisBarVGeo} material={portcullisMat}
+            position={[bx, 3.4, 0.6]} />
+        ))}
+        {[1.9, 4.9].map((by, bi) => (
+          <mesh key={`pch-${bi}`} geometry={portcullisBarHGeo} material={portcullisMat}
+            position={[0, by, 0.6]} />
+        ))}
 
         {/* Classical Roman Triumphal Pediment Roof */}
         <ClassicalPediment
