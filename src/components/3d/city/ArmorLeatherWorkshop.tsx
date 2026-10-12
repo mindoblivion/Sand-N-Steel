@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 
-export const ArmorLeatherWorkshop: React.FC = () => {
+export const ArmorLeatherWorkshop = React.memo(() => {
   return (
     <group position={[27, 0, 1]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -159,4 +159,4 @@ export const ArmorLeatherWorkshop: React.FC = () => {
       </group>
     </group>
   );
-};
+});
