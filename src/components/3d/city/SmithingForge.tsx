@@ -73,10 +73,12 @@ export const SmithingForge = React.memo(() => {
       />
 
       {/* 2. BLACKSMITH'S STONE SMELTING FURNACE & CHIMNEY */}
-      {/* Phase 20.3: Chimney flue extended to clear the gabled roof surface
-          (roof tile top at y≈6.5 local). Flue now spans 3.2→7.0, with a stone
-          cap at the termination. Smoke emitter raised above the cap so
-          particles are visible above the roof line. */}
+      {/* Phase 20.3–20.4: Chimney flue extended to clear the gabled roof surface
+          (roof tile top at y≈6.5 local). Flue spans 3.2→7.0 with a stone cap at
+          the termination. A sloped stone flashing apron (20.4) follows the left
+          gable pitch (atan2(1.6, 5.15) ≈ 17.3°) at the roof penetration to seal
+          the intersection. Smoke emitter raised above the cap so particles are
+          visible above the roof line. */}
       <group position={[-2.5, 0, -2.2]}>
         {/* Stone Furnace Base */}
         <mesh castShadow receiveShadow position={[0, 1.8, 0]}>
@@ -87,6 +89,16 @@ export const SmithingForge = React.memo(() => {
         <mesh castShadow position={[0, 5.1, 0]}>
           <cylinderGeometry args={[0.6, 0.9, 3.8, 12]} />
           <meshStandardMaterial color="#44403c" roughness={0.8} />
+        </mesh>
+        {/* Sloped Stone Roof Flashing Apron at chimney–roof penetration
+            (tilted to match the left gable pitch; wider than the flue to
+            overlap the roof tile and seal the intersection) */}
+        <mesh castShadow receiveShadow
+          position={[0, 6.5, 0]}
+          rotation={[0, 0, Math.atan2(1.6, 5.15)]}
+        >
+          <cylinderGeometry args={[1.05, 1.05, 0.12, 16]} />
+          <meshStandardMaterial color="#57534e" roughness={0.8} />
         </mesh>
         {/* Stone Chimney Cap */}
         <mesh castShadow position={[0, 7.1, 0]}>
