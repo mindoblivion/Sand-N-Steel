@@ -4,7 +4,7 @@ import { BuildingFoundation } from './BuildingFoundation';
 import { RomanGabledRoof, CornerQuoins, WallCornice } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const Stable: React.FC = () => {
+export const Stable = React.memo(() => {
   return (
     <group position={[26, 0, 15]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
@@ -113,4 +113,4 @@ export const Stable: React.FC = () => {
       </mesh>
     </group>
   );
-};
+});
