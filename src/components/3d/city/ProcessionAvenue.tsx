@@ -21,28 +21,53 @@ const ItalianCypress: React.FC<{ position: [number, number, number]; scale?: num
   seed = 0,
 }) => {
   // Deterministic per-instance variation derived from a stable seed.
+  // heightMul, widthMul and tilt are preserved from Phase 20.2.
+  // Phase 20.3: Extended with independent per-tier radius multipliers (±10%),
+  // each derived from a separate deterministic hash of the same seed — no
+  // randomness during rendering.  Multipliers are clamped so no upper tier
+  // becomes wider than the tier below it, preserving a plausible cypress taper.
   const variation = useMemo(() => {
     const v1 = Math.sin(seed * 12.9898) * 43758.5453;
     const v2 = Math.sin(seed * 78.233) * 43758.5453;
     const v3 = Math.sin(seed * 37.719) * 43758.5453;
+    // Independent per-tier radius hashes (±10% each)
+    const r1 = Math.sin(seed * 53.121 + 1.7) * 43758.5453;
+    const r2 = Math.sin(seed * 97.837 + 3.3) * 43758.5453;
+    const r3 = Math.sin(seed * 61.451 + 5.1) * 43758.5453;
+    const r4 = Math.sin(seed * 83.693 + 7.7) * 43758.5453;
     return {
       heightMul: 0.94 + (v1 - Math.floor(v1)) * 0.12, // 0.94–1.06
       widthMul: 0.95 + (v2 - Math.floor(v2)) * 0.10,  // 0.95–1.05
       tilt: ((v3 - Math.floor(v3)) - 0.5) * 0.05,     // ±0.025 rad (~1.4°)
+      tierMuls: [
+        0.90 + (r1 - Math.floor(r1)) * 0.20,
+        0.90 + (r2 - Math.floor(r2)) * 0.20,
+        0.90 + (r3 - Math.floor(r3)) * 0.20,
+        0.90 + (r4 - Math.floor(r4)) * 0.20,
+      ] as [number, number, number, number],
     };
   }, [seed]);
 
   const h = variation.heightMul;
   const w = variation.widthMul;
+  const tm = variation.tierMuls;
 
-  // Softened radius taper (0.95 → 0.80 → 0.62 → 0.38) and modest vertical
-  // overlap between tiers for a smoother, more natural cypress silhouette.
-  const tiers = useMemo(() => [
-    { radius: 0.95 * w, height: 2.5 * h, y: 2.7, seg: 10 },
-    { radius: 0.80 * w, height: 2.6 * h, y: 4.0, seg: 10 },
-    { radius: 0.62 * w, height: 2.4 * h, y: 5.4, seg: 10 },
-    { radius: 0.38 * w, height: 1.8 * h, y: 6.7, seg: 8 },
-  ], [w, h]);
+  // Softened radius taper (0.95 → 0.80 → 0.62 → 0.38) with per-tier multipliers
+  // and modest vertical overlap for a smoother, more natural cypress silhouette.
+  // Taper clamp ensures no upper tier exceeds the tier below it.
+  const tiers = useMemo(() => {
+    const baseRadii = [0.95, 0.80, 0.62, 0.38];
+    const radii = baseRadii.map((base, i) => base * w * tm[i]);
+    for (let i = 1; i < radii.length; i++) {
+      if (radii[i] > radii[i - 1]) radii[i] = radii[i - 1];
+    }
+    return [
+      { radius: radii[0], height: 2.5 * h, y: 2.7, seg: 10 },
+      { radius: radii[1], height: 2.6 * h, y: 4.0, seg: 10 },
+      { radius: radii[2], height: 2.4 * h, y: 5.4, seg: 10 },
+      { radius: radii[3], height: 1.8 * h, y: 6.7, seg: 8 },
+    ];
+  }, [w, h, tm]);
 
   return (
     <group position={position} scale={[scale, scale, scale]} rotation={[0, 0, variation.tilt]}>
