@@ -12,7 +12,7 @@ import {
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const GladiatorAcademy: React.FC = () => {
+export const GladiatorAcademy = React.memo(() => {
   const bannerRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
@@ -131,4 +131,4 @@ export const GladiatorAcademy: React.FC = () => {
       </group>
     </group>
   );
-};
+});
