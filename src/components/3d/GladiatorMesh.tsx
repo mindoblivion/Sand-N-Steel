@@ -149,16 +149,27 @@ const WeaponModel: React.FC<{ weaponType: string; goldColor: string }> = ({ weap
 };
 
 // ---------------------------------------------------------------------------
-// Gladius GLB Mesh — renders the real weapon asset when the equipped item's
-// modelPath matches the gladius. Loaded on demand via useGLTF (drei's own
-// URL-keyed cache). The outer group mirrors the procedural WeaponModel's
+// Weapon GLB Mesh — renders a real weapon asset when the equipped item's
+// modelPath is in the allowlist below. Loaded on demand via useGLTF (drei's
+// own URL-keyed cache). The outer group mirrors the procedural WeaponModel's
 // [Math.PI / 2, 0, 0] rotation so the blade (local +Y) points forward from the
 // hand, matching the verified gladius convention.
+//
+// Phase 21.1: generalized from gladius-only to all five shipped weapon meshes.
+// The allowlist prevents arbitrary modelPath values from triggering a fetch.
+// Orientation and scale are provisional defaults inherited from the gladius;
+// each non-gladius model still requires visual verification on a real GPU.
 // ---------------------------------------------------------------------------
-const GLADIUS_MODEL_PATH = '/models/weapons/gladius.glb';
+const SUPPORTED_WEAPON_MODEL_PATHS = new Set<string>([
+  '/models/weapons/gladius.glb',
+  '/models/weapons/spatha.glb',
+  '/models/weapons/dagger.glb',
+  '/models/weapons/dirk.glb',
+  '/models/weapons/shamshir.glb',
+]);
 
-const GladiusMesh: React.FC = () => {
-  const gltf = useGLTF(GLADIUS_MODEL_PATH);
+const WeaponGLBMesh: React.FC<{ modelUrl: string }> = ({ modelUrl }) => {
+  const gltf = useGLTF(modelUrl);
   const cloned = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
 
   useEffect(() => {
@@ -191,7 +202,7 @@ class WeaponGLBErrorBoundary extends React.Component<
     return { hasError: true };
   }
   componentDidCatch(err: unknown) {
-    console.warn('[GladiatorMesh] Gladius GLB failed to load, falling back to procedural weapon:', err);
+    console.warn('[GladiatorMesh] Weapon GLB failed to load, falling back to procedural weapon:', err);
   }
   render() {
     if (this.state.hasError) return this.props.fallback;
@@ -199,8 +210,9 @@ class WeaponGLBErrorBoundary extends React.Component<
   }
 }
 
-/** Renders the gladius GLB when available; procedural weapon on load/suspend. */
-const GladiusWeaponRenderer: React.FC<{ weaponType: string; goldColor: string }> = ({
+/** Renders the weapon GLB when available; procedural weapon on load/suspend. */
+const WeaponGLBRenderer: React.FC<{ modelUrl: string; weaponType: string; goldColor: string }> = ({
+  modelUrl,
   weaponType,
   goldColor,
 }) => {
@@ -208,7 +220,7 @@ const GladiusWeaponRenderer: React.FC<{ weaponType: string; goldColor: string }>
   return (
     <WeaponGLBErrorBoundary fallback={procedural}>
       <React.Suspense fallback={procedural}>
-        <GladiusMesh />
+        <WeaponGLBMesh modelUrl={modelUrl} />
       </React.Suspense>
     </WeaponGLBErrorBoundary>
   );
@@ -836,9 +848,10 @@ const RomanWarriorGLB: React.FC<{
   // is correct — weapons should scale with the character.
   const effectiveShieldScale = SHIELD_SCALE_GLB / modelCorrection;
 
-  const useGladiusGLB = weaponItem?.modelPath === GLADIUS_MODEL_PATH;
-  const weaponNode = useGladiusGLB
-    ? <GladiusWeaponRenderer weaponType={weaponType} goldColor={goldColor} />
+  const weaponModelPath = weaponItem?.modelPath;
+  const useWeaponGLB = weaponModelPath != null && SUPPORTED_WEAPON_MODEL_PATHS.has(weaponModelPath);
+  const weaponNode = useWeaponGLB
+    ? <WeaponGLBRenderer modelUrl={weaponModelPath} weaponType={weaponType} goldColor={goldColor} />
     : <WeaponModel weaponType={weaponType} goldColor={goldColor} />;
   const shieldNode = <ShieldModel ref={shieldGroupRef} isLefty={isLefty} goldColor={goldColor} shieldScale={effectiveShieldScale} />;
 
