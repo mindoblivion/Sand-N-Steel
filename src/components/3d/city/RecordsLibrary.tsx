@@ -11,7 +11,7 @@ import {
 import { NOISE_TEXTURE } from './RomanMaterials';
 import { RomanBench } from './CivicFurnishingProps';
 
-export const RecordsLibrary: React.FC = () => {
+export const RecordsLibrary = React.memo(() => {
   return (
     <group position={[20.5, 0, -28]}>
       {/* 0. STEPPED MARBLE FOUNDATION PLINTH */}
@@ -120,4 +120,4 @@ export const RecordsLibrary: React.FC = () => {
       <RomanBench position={[0, 0, 3.2]} rotationY={0} stoneColor="#e2e8f0" />
     </group>
   );
-};
+});
