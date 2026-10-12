@@ -11,7 +11,7 @@ import {
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const GladiatorBarracks: React.FC = () => {
+export const GladiatorBarracks = React.memo(() => {
   const bannerRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
@@ -181,4 +181,4 @@ export const GladiatorBarracks: React.FC = () => {
       </group>
     </group>
   );
-};
+});
