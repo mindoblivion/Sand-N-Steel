@@ -5,7 +5,7 @@ import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { Banner } from './EnvironmentalMotion';
 
-export const GrandColosseum: React.FC = () => {
+export const GrandColosseum = React.memo(() => {
   // Phase 2B.12: Dedicated bump-map for the two curved Colosseum wall tiers.
   // NOISE_TEXTURE has a global repeat of (3, 3) calibrated for ~1 m surfaces.
   // The partial-cylinder UV maps the full arc (1.7π ≈ 306°) to u=[0,1], so
@@ -246,4 +246,4 @@ export const GrandColosseum: React.FC = () => {
       </mesh>
     </group>
   );
-};
+});
