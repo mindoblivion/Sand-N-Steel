@@ -5,16 +5,47 @@ import { CornerSandDrift } from './GroundWearSystem';
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { RomanPavedStreet } from './RomanStreetPavement';
 
+/** Static foliage palette per tier (dark base → bright tip) */
+const CYPRESS_FOLIAGE_COLORS = ['#14532d', '#166534', '#15803d', '#16a34a'] as const;
+const CYPRESS_FOLIAGE_ROUGHNESS = [0.75, 0.7, 0.65, 0.6] as const;
+
 /**
  * Mediterranean Cypress Tree Component
  * Replaces crude geometric cone-hat poles with authentic, elegant Italian cypresses.
+ * Phase 20.2: Softened radius taper and added deterministic per-instance variation
+ * in height, width, and lean for a more natural avenue appearance.
  */
-const ItalianCypress: React.FC<{ position: [number, number, number]; scale?: number }> = ({
+const ItalianCypress: React.FC<{ position: [number, number, number]; scale?: number; seed?: number }> = ({
   position,
   scale = 1.0,
+  seed = 0,
 }) => {
+  // Deterministic per-instance variation derived from a stable seed.
+  const variation = useMemo(() => {
+    const v1 = Math.sin(seed * 12.9898) * 43758.5453;
+    const v2 = Math.sin(seed * 78.233) * 43758.5453;
+    const v3 = Math.sin(seed * 37.719) * 43758.5453;
+    return {
+      heightMul: 0.94 + (v1 - Math.floor(v1)) * 0.12, // 0.94–1.06
+      widthMul: 0.95 + (v2 - Math.floor(v2)) * 0.10,  // 0.95–1.05
+      tilt: ((v3 - Math.floor(v3)) - 0.5) * 0.05,     // ±0.025 rad (~1.4°)
+    };
+  }, [seed]);
+
+  const h = variation.heightMul;
+  const w = variation.widthMul;
+
+  // Softened radius taper (0.95 → 0.80 → 0.62 → 0.38) and modest vertical
+  // overlap between tiers for a smoother, more natural cypress silhouette.
+  const tiers = useMemo(() => [
+    { radius: 0.95 * w, height: 2.5 * h, y: 2.7, seg: 10 },
+    { radius: 0.80 * w, height: 2.6 * h, y: 4.0, seg: 10 },
+    { radius: 0.62 * w, height: 2.4 * h, y: 5.4, seg: 10 },
+    { radius: 0.38 * w, height: 1.8 * h, y: 6.7, seg: 8 },
+  ], [w, h]);
+
   return (
-    <group position={position} scale={[scale, scale, scale]}>
+    <group position={position} scale={[scale, scale, scale]} rotation={[0, 0, variation.tilt]}>
       {/* Stone Planter Base */}
       <mesh castShadow receiveShadow position={[0, 0.25, 0]}>
         <cylinderGeometry args={[0.7, 0.85, 0.5, 12]} />
@@ -37,22 +68,12 @@ const ItalianCypress: React.FC<{ position: [number, number, number]; scale?: num
       </mesh>
 
       {/* Textured Mediterranean Cypress Foliage Tiers */}
-      <mesh castShadow position={[0, 2.6, 0]}>
-        <coneGeometry args={[0.95, 2.4, 10]} />
-        <meshStandardMaterial color="#14532d" roughness={0.75} />
-      </mesh>
-      <mesh castShadow position={[0, 4.0, 0]}>
-        <coneGeometry args={[0.8, 2.6, 10]} />
-        <meshStandardMaterial color="#166534" roughness={0.7} />
-      </mesh>
-      <mesh castShadow position={[0, 5.4, 0]}>
-        <coneGeometry args={[0.55, 2.4, 10]} />
-        <meshStandardMaterial color="#15803d" roughness={0.65} />
-      </mesh>
-      <mesh castShadow position={[0, 6.6, 0]}>
-        <coneGeometry args={[0.3, 1.8, 8]} />
-        <meshStandardMaterial color="#16a34a" roughness={0.6} />
-      </mesh>
+      {tiers.map((t, i) => (
+        <mesh key={`foliage-${i}`} castShadow position={[0, t.y, 0]}>
+          <coneGeometry args={[t.radius, t.height, t.seg]} />
+          <meshStandardMaterial color={CYPRESS_FOLIAGE_COLORS[i]} roughness={CYPRESS_FOLIAGE_ROUGHNESS[i]} />
+        </mesh>
+      ))}
     </group>
   );
 };
@@ -343,7 +364,7 @@ export const ProcessionAvenue = React.memo(() => {
           d=20.94, clearance=0.548m. Crowns clear all columns/braziers by >1.4m. */}
       {[-11.5, 11.5].map((px, pi) =>
         [-2.5, 10, 20].map((pz, zi) => (
-          <ItalianCypress key={`cypress-${pi}-${zi}`} position={[px, 0, pz]} scale={1.05} />
+          <ItalianCypress key={`cypress-${pi}-${zi}`} position={[px, 0, pz]} scale={1.05} seed={pi * 3 + zi + 1} />
         ))
       )}
 
