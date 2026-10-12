@@ -12,7 +12,7 @@ import {
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
-export const VeteranGladiatorHall: React.FC = () => {
+export const VeteranGladiatorHall = React.memo(() => {
   const bannerLeftRef = useRef<THREE.Group>(null);
   const bannerRightRef = useRef<THREE.Group>(null);
 
@@ -190,4 +190,4 @@ export const VeteranGladiatorHall: React.FC = () => {
       </group>
     </group>
   );
-};
+});
