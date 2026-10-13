@@ -12,14 +12,23 @@ import {
 import { NOISE_TEXTURE, ROMAN_PALETTE } from './RomanMaterials';
 
 // ── Training Hall dimensions (local to TrainingYard parent at [-18,0,0]) ──
-// Centre: local (-3, 0, -8.4)  →  world (-21, 0, -8.4)
-// Width X: 7   Depth Z: 2.6   Wall height: 3.0
-// South face at local z = -7.1 (0.1 behind the Phase 27.2 perimeter wall)
-// Colosseum clearance: NE corner dist 20.31 > 19.5  ✓ (margin 0.81)
-// Barracks clearance: roof Z-gap 0.85   ✓ (was 0.45 at depth 3.0 / z -8.6)
+// Centre: local (-3.2, 0, -8.20)  →  world (-21.2, 0, -8.20)
+// Width X: 7   Depth Z: 2.2   Wall height: 3.0
+// South face at local z = -7.10 (0.10 behind the Phase 27.2 perimeter wall)
+//
+// Phase 27.3.2 clearance audit (full geometry incl. roof overhang & foundation):
+//   Barracks front  (world Z) = -10.91  (roof ridge-cap, depth 5.4 + eave 0.35)
+//   Hall rear       (world Z) = -9.55   (roof eave, depth/2 1.1 + eave 0.25)
+//   → Barracks Z-gap = 1.36  ✓ (was 0.81; X-overlap 1.54 persists but Z-gap is
+//     now wide enough for visual separation from the south camera)
+//   Colosseum foundation radius 19.5; nearest hall roof corner at
+//     (-17.41, -9.55), dist 20.31 → clearance 0.81  ✓ (was 0.22 — old comment
+//     measured the wall-body corner, not the roof overhang)
+//   Perimeter wall (radius 7): wall-body south face at local z = -7.10,
+//     clearance 0.10  ✓ (unchanged)
 
 const HALL_W = 7;
-const HALL_D = 2.6;
+const HALL_D = 2.2;
 const WALL_H = 3.0;
 
 // Material instances (shared across the hall)
@@ -82,12 +91,12 @@ export const TrainingHall: React.FC = React.memo(() => {
 
   // Veranda dimensions (in component-local coords, hall centred at [0,0,0])
   const VERANDA_HALF_W = 1.5;            // 3 units wide
-  const VERANDA_SOUTH_Z = 4.0;           // courtyard-side post z (local z=-5.0 in yard)
+  const VERANDA_SOUTH_Z = 4.0;           // courtyard-side post z (yard-local z ≈ -4.2)
   const CANOPY_Y = WALL_H;               // canopy at wall-top height
   const POST_R = 0.09;
 
   return (
-    <group position={[-3, 0, -8.4]}>
+    <group position={[-3.2, 0, -8.20]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION */}
       <BuildingFoundation
         size={[HALL_W, HALL_D]}
@@ -115,7 +124,7 @@ export const TrainingHall: React.FC = React.memo(() => {
         width={HALL_W}
         depth={HALL_D}
         height={1.4}
-        eaveOverhang={0.4}
+        eaveOverhang={0.25}
         ridgeAlong="x"
         position={[0, 0.3 + WALL_H + 0.16, 0]}
         tileColor="#9e492f"
