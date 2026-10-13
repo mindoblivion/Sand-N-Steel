@@ -2,6 +2,217 @@ import React from 'react';
 import * as THREE from 'three';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 
+// ── Shared timber materials (created once, reused across all equipment) ──
+const timberPost = new THREE.MeshStandardMaterial({
+  color: '#6b4a2e',       // warm aged pine — visible grain tone
+  roughness: 0.88,
+  metalness: 0.02,
+  bumpMap: NOISE_TEXTURE || null,
+  bumpScale: 0.03,
+});
+const timberDark = new THREE.MeshStandardMaterial({
+  color: '#4a3220',       // darker timber for crossbars / rack frame
+  roughness: 0.9,
+  metalness: 0.02,
+  bumpMap: NOISE_TEXTURE || null,
+  bumpScale: 0.025,
+});
+const ropeWrap = new THREE.MeshStandardMaterial({
+  color: '#a07b4e',       // hemp-rope tone
+  roughness: 0.95,
+  metalness: 0.0,
+  bumpMap: NOISE_TEXTURE || null,
+  bumpScale: 0.04,
+});
+const strawMat = new THREE.MeshStandardMaterial({
+  color: '#b89255',       // dried straw / reed — muted, not bright yellow
+  roughness: 0.96,
+  metalness: 0.0,
+  bumpMap: NOISE_TEXTURE || null,
+  bumpScale: 0.05,
+});
+const leatherWrap = new THREE.MeshStandardMaterial({
+  color: '#5c3d28',       // worn leather for head coverings
+  roughness: 0.82,
+  metalness: 0.03,
+  bumpMap: NOISE_TEXTURE || null,
+  bumpScale: 0.02,
+});
+const shieldWood = new THREE.MeshStandardMaterial({
+  color: '#7a5c3a',       // practice shield wood
+  roughness: 0.85,
+  metalness: 0.03,
+  bumpMap: NOISE_TEXTURE || null,
+  bumpScale: 0.02,
+});
+const shieldRim = new THREE.MeshStandardMaterial({
+  color: '#3d2b1a',
+  roughness: 0.8,
+  metalness: 0.05,
+});
+const rudisBlade = new THREE.MeshStandardMaterial({
+  color: '#9a7b52',       // wooden training sword blade
+  roughness: 0.78,
+  metalness: 0.02,
+  bumpMap: NOISE_TEXTURE || null,
+  bumpScale: 0.015,
+});
+const rudisHandle = new THREE.MeshStandardMaterial({
+  color: '#4a3220',
+  roughness: 0.85,
+  metalness: 0.02,
+});
+
+// ── A single gladiator pell dummy (palus) ──
+// Stone base → tapered timber post → rope-wrapped strike zone → crossbar arms → leather-wrapped head.
+// Proportioned to ~1.25 units tall (matching the ~1.10-unit-tall player).
+const PellDummy: React.FC<{ position: [number, number, number]; rotationY?: number }> = React.memo(
+  ({ position, rotationY = 0 }) => (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      {/* Stone base anchor — flat disc, sits on ground */}
+      <mesh castShadow receiveShadow position={[0, 0.06, 0]}>
+        <cylinderGeometry args={[0.42, 0.5, 0.12, 12]} />
+        <meshStandardMaterial
+          color={ROMAN_PALETTE.ashlarLight.color}
+          roughness={ROMAN_PALETTE.ashlarLight.roughness}
+          bumpMap={NOISE_TEXTURE || undefined}
+          bumpScale={0.012}
+        />
+      </mesh>
+
+      {/* Tapered timber post — wider at base, narrower at top */}
+      <mesh castShadow position={[0, 0.62, 0]}>
+        <cylinderGeometry args={[0.12, 0.18, 1.0, 8]} />
+        <primitive object={timberPost} attach="material" />
+      </mesh>
+
+      {/* Rope-wrapped strike zone — slightly fatter cylinder with visible rope rings */}
+      <mesh castShadow position={[0, 0.62, 0]}>
+        <cylinderGeometry args={[0.18, 0.2, 0.65, 10]} />
+        <primitive object={ropeWrap} attach="material" />
+      </mesh>
+      {/* Rope binding rings (3 torus rings spaced along the strike zone) */}
+      {[0.38, 0.62, 0.86].map((ry) => (
+        <mesh key={`rope-ring-${ry}`} position={[0, ry, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.19, 0.025, 6, 12]} />
+          <primitive object={ropeWrap} attach="material" />
+        </mesh>
+      ))}
+
+      {/* Crossbar arms — represents a raised guard, at shoulder height */}
+      <mesh castShadow position={[0, 0.95, 0]}>
+        <boxGeometry args={[0.95, 0.1, 0.1]} />
+        <primitive object={timberDark} attach="material" />
+      </mesh>
+      {/* Cap blocks on crossbar ends */}
+      <mesh castShadow position={[0.5, 0.95, 0]}>
+        <boxGeometry args={[0.1, 0.14, 0.14]} />
+        <primitive object={timberDark} attach="material" />
+      </mesh>
+      <mesh castShadow position={[-0.5, 0.95, 0]}>
+        <boxGeometry args={[0.1, 0.14, 0.14]} />
+        <primitive object={timberDark} attach="material" />
+      </mesh>
+
+      {/* Head — slightly flattened sphere wrapped in leather, not bright yellow */}
+      <mesh castShadow position={[0, 1.2, 0]} scale={[1, 1.15, 1]}>
+        <sphereGeometry args={[0.14, 10, 8]} />
+        <primitive object={leatherWrap} attach="material" />
+      </mesh>
+    </group>
+  ),
+);
+PellDummy.displayName = 'PellDummy';
+
+// ── A wooden rudis (training sword) on the rack ──
+const Rudis: React.FC<{ position: [number, number, number] }> = React.memo(({ position }) => (
+  <group position={position} rotation={[0.18, 0, 0]}>
+    {/* Blade — flat wooden lath */}
+    <mesh castShadow position={[0, 0.45, 0]}>
+      <boxGeometry args={[0.07, 0.8, 0.025]} />
+      <primitive object={rudisBlade} attach="material" />
+    </mesh>
+    {/* Guard */}
+    <mesh castShadow position={[0, 0.05, 0]}>
+      <boxGeometry args={[0.16, 0.04, 0.04]} />
+      <primitive object={rudisHandle} attach="material" />
+    </mesh>
+    {/* Handle */}
+    <mesh castShadow position={[0, -0.12, 0]}>
+      <cylinderGeometry args={[0.025, 0.025, 0.22, 6]} />
+      <primitive object={rudisHandle} attach="material" />
+    </mesh>
+    {/* Pommel */}
+    <mesh castShadow position={[0, -0.25, 0]}>
+      <sphereGeometry args={[0.03, 6, 6]} />
+      <primitive object={rudisHandle} attach="material" />
+    </mesh>
+  </group>
+));
+Rudis.displayName = 'Rudis';
+
+// ── A practice shield leaning against the rack ──
+const PracticeShield: React.FC<{ position: [number, number, number]; rotationY: number }> = React.memo(
+  ({ position, rotationY }) => (
+    <group position={position} rotation={[0.15, rotationY, 0]}>
+      {/* Shield board — convex disk */}
+      <mesh castShadow position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.35, 0.35, 0.04, 14]} />
+        <primitive object={shieldWood} attach="material" />
+      </mesh>
+      {/* Rim band */}
+      <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.35, 0.025, 6, 16]} />
+        <primitive object={shieldRim} attach="material" />
+      </mesh>
+      {/* Center boss */}
+      <mesh castShadow position={[0, 0.04, 0]}>
+        <sphereGeometry args={[0.07, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <primitive object={shieldRim} attach="material" />
+      </mesh>
+    </group>
+  ),
+);
+PracticeShield.displayName = 'PracticeShield';
+
+// ── Weapon rack — A-frame timber stand with crossbar ──
+const WeaponRack: React.FC<{ position: [number, number, number]; rotationY: number }> = React.memo(
+  ({ position, rotationY }) => (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      {/* Left A-frame post */}
+      <mesh castShadow position={[-0.9, 0.5, 0]} rotation={[0, 0, 0.12]}>
+        <cylinderGeometry args={[0.06, 0.08, 1.0, 6]} />
+        <primitive object={timberDark} attach="material" />
+      </mesh>
+      {/* Right A-frame post */}
+      <mesh castShadow position={[0.9, 0.5, 0]} rotation={[0, 0, -0.12]}>
+        <cylinderGeometry args={[0.06, 0.08, 1.0, 6]} />
+        <primitive object={timberDark} attach="material" />
+      </mesh>
+      {/* Lower crossbar (sword rests) */}
+      <mesh castShadow position={[0, 0.6, 0.12]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.04, 0.04, 1.85, 6]} />
+        <primitive object={timberDark} attach="material" />
+      </mesh>
+      {/* Upper crossbar (structural) */}
+      <mesh castShadow position={[0, 0.88, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.04, 0.04, 1.85, 6]} />
+        <primitive object={timberDark} attach="material" />
+      </mesh>
+
+      {/* Rudis training swords hanging on the lower crossbar */}
+      {[-0.55, -0.2, 0.15, 0.5].map((sx, i) => (
+        <Rudis key={`rudis-${i}`} position={[sx, 0.62, 0.12]} />
+      ))}
+
+      {/* Practice shields leaning against the rack base */}
+      <PracticeShield position={[-1.2, 0.18, 0.15]} rotationY={0.3} />
+      <PracticeShield position={[1.15, 0.18, 0.15]} rotationY={-0.3} />
+    </group>
+  ),
+);
+WeaponRack.displayName = 'WeaponRack';
+
 export const TrainingYard = React.memo(() => {
   return (
     <group position={[-18, 0, 0]}>
@@ -73,68 +284,18 @@ export const TrainingYard = React.memo(() => {
         <meshStandardMaterial color="#78350f" roughness={0.9} />
       </mesh>
 
-      {/* 3. WOODEN TRAINING PELL DUMMIES (PALLUS) */}
+      {/* 3. WOODEN PELL TRAINING DUMMIES (PALLUS) — redesigned with proper proportions */}
+      {/* Positions kept identical to preserve spatial layout for movement/camera */}
       {[
-        [-2.4, 0, -1.8],
-        [1.8, 0, -2.2],
-        [-1.6, 0, 2.4],
-      ].map((pos, di) => (
-        <group key={`dummy-${di}`} position={pos as [number, number, number]}>
-          {/* Stone Base Anchor */}
-          <mesh castShadow position={[0, 0.2, 0]}>
-            <cylinderGeometry args={[0.6, 0.7, 0.4, 10]} />
-            <meshStandardMaterial
-              color={ROMAN_PALETTE.ashlarLight.color}
-              roughness={ROMAN_PALETTE.ashlarLight.roughness}
-            />
-          </mesh>
-          {/* Heavy Wooden Post Trunk */}
-          <mesh castShadow position={[0, 1.3, 0]}>
-            <cylinderGeometry args={[0.22, 0.24, 2.2, 8]} />
-            <meshStandardMaterial
-              color={ROMAN_PALETTE.darkStructuralTimber.color}
-              roughness={ROMAN_PALETTE.darkStructuralTimber.roughness}
-            />
-          </mesh>
-          {/* Straw / Rope Wrapping Strike Zone */}
-          <mesh castShadow position={[0, 1.4, 0]}>
-            <cylinderGeometry args={[0.34, 0.34, 1.1, 10]} />
-            <meshStandardMaterial color="#ca8a04" roughness={0.9} />
-          </mesh>
-          {/* Crossbar Arms for Sword Deflection */}
-          <mesh castShadow position={[0, 1.6, 0]} rotation={[0, di * 0.8, 0]}>
-            <boxGeometry args={[1.5, 0.16, 0.16]} />
-            <meshStandardMaterial
-              color={ROMAN_PALETTE.darkStructuralTimber.color}
-              roughness={ROMAN_PALETTE.darkStructuralTimber.roughness}
-            />
-          </mesh>
-          {/* Training Straw Head */}
-          <mesh castShadow position={[0, 2.4, 0]}>
-            <sphereGeometry args={[0.25, 8, 8]} />
-            <meshStandardMaterial color="#ca8a04" roughness={0.9} />
-          </mesh>
-        </group>
+        [-2.4, 0, -1.8, 0.4],
+        [1.8, 0, -2.2, -0.6],
+        [-1.6, 0, 2.4, 1.2],
+      ].map(([x, y, z, rot], di) => (
+        <PellDummy key={`dummy-${di}`} position={[x, y, z]} rotationY={rot} />
       ))}
 
-      {/* 4. WEAPON PRACTICE STORAGE RACK WITH WOODEN RUDIS SWORDS */}
-      <group position={[3.6, 0, 1.2]} rotation={[0, -Math.PI / 3, 0]}>
-        {/* Timber Rack Frame */}
-        <mesh castShadow position={[0, 1.0, 0]}>
-          <boxGeometry args={[2.4, 2.0, 0.4]} />
-          <meshStandardMaterial
-            color={ROMAN_PALETTE.weatheredTimber.color}
-            roughness={ROMAN_PALETTE.weatheredTimber.roughness}
-          />
-        </mesh>
-        {/* Wooden Rudis Training Swords on Rack */}
-        {[-0.6, -0.2, 0.2, 0.6].map((sx, si) => (
-          <mesh key={`rudis-${si}`} position={[sx, 1.1, 0.25]}>
-            <boxGeometry args={[0.08, 1.1, 0.04]} />
-            <meshStandardMaterial color="#ca8a04" roughness={0.7} />
-          </mesh>
-        ))}
-      </group>
+      {/* 4. WEAPON RACK WITH WOODEN RUDIS SWORDS & PRACTICE SHIELDS */}
+      <WeaponRack position={[3.6, 0, 1.2]} rotationY={-Math.PI / 3} />
 
       {/* 5. STONE LIFTING WEIGHTS & HALTERES */}
       <group position={[-3.8, 0, 0]}>
@@ -143,6 +304,8 @@ export const TrainingYard = React.memo(() => {
           <meshStandardMaterial
             color={ROMAN_PALETTE.ashlarStone.color}
             roughness={ROMAN_PALETTE.ashlarStone.roughness}
+            bumpMap={NOISE_TEXTURE || undefined}
+            bumpScale={0.015}
           />
         </mesh>
         <mesh castShadow position={[0.6, 0.25, 0.3]}>
@@ -150,6 +313,8 @@ export const TrainingYard = React.memo(() => {
           <meshStandardMaterial
             color={ROMAN_PALETTE.ashlarStone.color}
             roughness={ROMAN_PALETTE.ashlarStone.roughness}
+            bumpMap={NOISE_TEXTURE || undefined}
+            bumpScale={0.015}
           />
         </mesh>
       </group>
