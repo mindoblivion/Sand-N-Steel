@@ -2,6 +2,7 @@ import React from 'react';
 import * as THREE from 'three';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { Banner } from './EnvironmentalMotion';
+import { TrainingHall } from './TrainingHall';
 
 // ── Shared timber materials (created once, reused across all equipment) ──
 const timberPost = new THREE.MeshStandardMaterial({
@@ -372,21 +373,23 @@ export const TrainingYard = React.memo(() => {
         />
       </mesh>
 
-      {/* 3. WOODEN PELL TRAINING DUMMIES (PALLUS) — redesigned with proper proportions */}
-      {/* Positions kept identical to preserve spatial layout for movement/camera */}
+      {/* 3. TRAINING HALL — Roman gladiator training school (ludus) on north side */}
+      <TrainingHall />
+
+      {/* 4. PELL TRAINING DUMMIES — grouped in centre-south for clear visibility */}
       {[
-        [-2.4, 0, -1.8, 0.4],
-        [1.8, 0, -2.2, -0.6],
-        [-1.6, 0, 2.4, 1.2],
+        [-2.2, 0, 0.8, 0.4],
+        [0.5, 0, -0.5, -0.3],
+        [2.5, 0, 0.8, -0.6],
       ].map(([x, y, z, rot], di) => (
         <PellDummy key={`dummy-${di}`} position={[x, y, z]} rotationY={rot} />
       ))}
 
-      {/* 4. WEAPON RACK WITH WOODEN RUDIS SWORDS & PRACTICE SHIELDS */}
-      <WeaponRack position={[3.6, 0, 1.2]} rotationY={-Math.PI / 3} />
+      {/* 5. WEAPON RACK — east side, clearly visible from courtyard entrance */}
+      <WeaponRack position={[3.5, 0, 2.5]} rotationY={-Math.PI / 3} />
 
-      {/* 5. STONE LIFTING WEIGHTS & HALTERES */}
-      <group position={[-3.8, 0, 0]}>
+      {/* 6. STONE LIFTING WEIGHTS — west side, secondary props */}
+      <group position={[-3.5, 0, 1.5]}>
         <mesh castShadow position={[0, 0.3, 0]}>
           <sphereGeometry args={[0.35, 10, 10]} />
           <meshStandardMaterial
@@ -407,8 +410,8 @@ export const TrainingYard = React.memo(() => {
         </mesh>
       </group>
 
-      {/* 6. TRAINING YARD FIRE BRAZIER */}
-      <group position={[4.5, 0, -3.2]}>
+      {/* 7. BRAZIER — south side, away from the training hall */}
+      <group position={[0, 0, 4.5]}>
         <mesh castShadow position={[0, 0.7, 0]}>
           <cylinderGeometry args={[0.45, 0.35, 1.4, 10]} />
           <meshStandardMaterial
