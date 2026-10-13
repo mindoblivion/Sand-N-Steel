@@ -1,6 +1,7 @@
 import React from 'react';
 import * as THREE from 'three';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
+import { Banner } from './EnvironmentalMotion';
 
 // ── Shared timber materials (created once, reused across all equipment) ──
 const timberPost = new THREE.MeshStandardMaterial({
@@ -62,6 +63,45 @@ const rudisHandle = new THREE.MeshStandardMaterial({
   roughness: 0.85,
   metalness: 0.02,
 });
+
+// ── Stone enclosure wall materials (shared, reused across all segments) ──
+const wallStone = new THREE.MeshStandardMaterial({
+  color: ROMAN_PALETTE.travertineDark.color,
+  roughness: 0.82,
+  metalness: 0.04,
+  bumpMap: NOISE_TEXTURE || null,
+  bumpScale: 0.02,
+});
+const copingStone = new THREE.MeshStandardMaterial({
+  color: ROMAN_PALETTE.travertine.color,
+  roughness: 0.78,
+  metalness: 0.04,
+  bumpMap: NOISE_TEXTURE || null,
+  bumpScale: 0.015,
+});
+const pierStone = new THREE.MeshStandardMaterial({
+  color: ROMAN_PALETTE.ashlarLight.color,
+  roughness: 0.82,
+  metalness: 0.04,
+  bumpMap: NOISE_TEXTURE || null,
+  bumpScale: 0.016,
+});
+
+// ── Stone enclosure wall geometry constants ──
+// Entrance faces +X (local), confirmed to align with the Via Decumanus street
+// approach at world [-11, 0, 0] (street boundary walls at world x=-13.5, z=±4.5
+// create a corridor leading to this entrance).
+const WALL_RADIUS = 7.0;
+const WALL_HEIGHT = 0.9;
+const WALL_THICKNESS = 0.35;
+const ENTRANCE_CHORD = 2.5;
+const ENTRANCE_HALF_ANGLE = Math.asin(ENTRANCE_CHORD / (2 * WALL_RADIUS));
+const NUM_SEGMENTS = 14;
+const WALL_ARC = Math.PI * 2 - 2 * ENTRANCE_HALF_ANGLE;
+const SEGMENT_ANGLE = WALL_ARC / NUM_SEGMENTS;
+// Use outer-edge chord so adjacent segments overlap slightly (no visible gaps)
+const SEGMENT_WIDTH = 2 * (WALL_RADIUS + WALL_THICKNESS / 2) * Math.sin(SEGMENT_ANGLE / 2);
+const GATE_X = WALL_RADIUS * Math.cos(ENTRANCE_HALF_ANGLE);
 
 // ── A single gladiator pell dummy (palus) ──
 // Stone base → tapered timber post → rope-wrapped strike zone → crossbar arms → leather-wrapped head.
@@ -213,6 +253,51 @@ const WeaponRack: React.FC<{ position: [number, number, number]; rotationY: numb
 );
 WeaponRack.displayName = 'WeaponRack';
 
+// ── Stone wall segment with coping stones ──
+const StoneWallSegment: React.FC<{ angle: number }> = React.memo(({ angle }) => {
+  const px = Math.cos(angle) * WALL_RADIUS;
+  const pz = Math.sin(angle) * WALL_RADIUS;
+  return (
+    <group position={[px, 0, pz]} rotation={[0, -angle - Math.PI / 2, 0]}>
+      {/* Wall body */}
+      <mesh castShadow receiveShadow position={[0, WALL_HEIGHT / 2, 0]}>
+        <boxGeometry args={[SEGMENT_WIDTH, WALL_HEIGHT, WALL_THICKNESS]} />
+        <primitive object={wallStone} attach="material" />
+      </mesh>
+      {/* Coping stone cap */}
+      <mesh castShadow position={[0, WALL_HEIGHT + 0.04, 0]}>
+        <boxGeometry args={[SEGMENT_WIDTH + 0.04, 0.08, WALL_THICKNESS + 0.06]} />
+        <primitive object={copingStone} attach="material" />
+      </mesh>
+    </group>
+  );
+});
+StoneWallSegment.displayName = 'StoneWallSegment';
+
+// ── Stone pier with cap (also used for gateposts via props) ──
+const StonePier: React.FC<{
+  angle: number;
+  height?: number;
+  width?: number;
+  capWidth?: number;
+}> = React.memo(({ angle, height = 1.1, width = 0.5, capWidth = 0.56 }) => {
+  const px = Math.cos(angle) * WALL_RADIUS;
+  const pz = Math.sin(angle) * WALL_RADIUS;
+  return (
+    <group position={[px, 0, pz]} rotation={[0, -angle - Math.PI / 2, 0]}>
+      <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
+        <boxGeometry args={[width, height, width]} />
+        <primitive object={pierStone} attach="material" />
+      </mesh>
+      <mesh castShadow position={[0, height + 0.03, 0]}>
+        <boxGeometry args={[capWidth, 0.08, capWidth]} />
+        <primitive object={copingStone} attach="material" />
+      </mesh>
+    </group>
+  );
+});
+StonePier.displayName = 'StonePier';
+
 export const TrainingYard = React.memo(() => {
   return (
     <group position={[-18, 0, 0]}>
@@ -248,40 +333,43 @@ export const TrainingYard = React.memo(() => {
         />
       </mesh>
 
-      {/* 2. TIMBER PALISADE FENCE AROUND RING */}
-      {Array.from({ length: 14 }).map((_, i) => {
-        const angle = (i / 14) * Math.PI * 2;
-        // Leave a gap for entrance
-        if (angle > -0.3 && angle < 0.6) return null;
-        const radius = 6.9;
-        const px = Math.cos(angle) * radius;
-        const pz = Math.sin(angle) * radius;
-        return (
-          <group key={`fence-post-${i}`} position={[px, 0, pz]}>
-            {/* Heavy Timber Post */}
-            <mesh castShadow position={[0, 1.1, 0]}>
-              <cylinderGeometry args={[0.18, 0.22, 2.2, 8]} />
-              <meshStandardMaterial
-                color={ROMAN_PALETTE.weatheredTimber.color}
-                roughness={ROMAN_PALETTE.weatheredTimber.roughness}
-              />
-            </mesh>
-            {/* Pointed Post Top */}
-            <mesh castShadow position={[0, 2.3, 0]}>
-              <coneGeometry args={[0.18, 0.4, 8]} />
-              <meshStandardMaterial
-                color={ROMAN_PALETTE.weatheredTimber.color}
-                roughness={ROMAN_PALETTE.weatheredTimber.roughness}
-              />
-            </mesh>
-          </group>
-        );
+      {/* 2. STONE PERIMETER WALL ENCLOSURE (LUDUS) */}
+      {/* Low Roman stone wall with entrance gate, replacing timber palisade */}
+
+      {/* Wall segments around the circle, skipping the entrance gap */}
+      {Array.from({ length: NUM_SEGMENTS }).map((_, i) => {
+        const angle = ENTRANCE_HALF_ANGLE + (i + 0.5) * SEGMENT_ANGLE;
+        return <StoneWallSegment key={`wall-seg-${i}`} angle={angle} />;
       })}
 
-      {/* Horizontal Heavy Rope Barrier */}
-      <mesh position={[0, 1.1, 0]}>
-        <torusGeometry args={[6.9, 0.06, 8, 32]} />
-        <meshStandardMaterial color="#78350f" roughness={0.9} />
+      {/* Intermediate piers at every 3rd segment boundary */}
+      {[3, 6, 9, 12].map((k) => {
+        const angle = ENTRANCE_HALF_ANGLE + k * SEGMENT_ANGLE;
+        return <StonePier key={`pier-${k}`} angle={angle} />;
+      })}
+
+      {/* Entrance gateposts (taller and wider than wall piers) */}
+      <StonePier angle={ENTRANCE_HALF_ANGLE} height={1.5} width={0.6} capWidth={0.66} />
+      <StonePier angle={-ENTRANCE_HALF_ANGLE} height={1.5} width={0.6} capWidth={0.66} />
+
+      {/* Timber lintel across the entrance */}
+      <mesh castShadow position={[GATE_X, 1.5, 0]}>
+        <boxGeometry args={[0.22, 0.2, 2.7]} />
+        <primitive object={timberDark} attach="material" />
+      </mesh>
+
+      {/* Crimson banner hanging from the lintel */}
+      <Banner position={[GATE_X, 0.95, 0]} rotation={[0, Math.PI / 2, 0]} size={[0.9, 0.7]} color="#b91c1c" />
+
+      {/* Travertine paved threshold at the entrance */}
+      <mesh receiveShadow position={[WALL_RADIUS, 0.02, 0]}>
+        <boxGeometry args={[2.5, 0.03, 2.5]} />
+        <meshStandardMaterial
+          color={ROMAN_PALETTE.forumPaving.color}
+          roughness={ROMAN_PALETTE.forumPaving.roughness}
+          bumpMap={NOISE_TEXTURE || undefined}
+          bumpScale={0.012}
+        />
       </mesh>
 
       {/* 3. WOODEN PELL TRAINING DUMMIES (PALLUS) — redesigned with proper proportions */}
