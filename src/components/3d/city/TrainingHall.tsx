@@ -12,14 +12,14 @@ import {
 import { NOISE_TEXTURE, ROMAN_PALETTE } from './RomanMaterials';
 
 // ── Training Hall dimensions (local to TrainingYard parent at [-18,0,0]) ──
-// Centre: local (-3, 0, -8.6)  →  world (-21, 0, -8.6)
-// Width X: 7   Depth Z: 3.0   Wall height: 3.0
+// Centre: local (-3, 0, -8.4)  →  world (-21, 0, -8.4)
+// Width X: 7   Depth Z: 2.6   Wall height: 3.0
 // South face at local z = -7.1 (0.1 behind the Phase 27.2 perimeter wall)
-// Colosseum clearance: NE corner dist 20.11 > 19.5  ✓ (margin 0.61)
-// Barracks clearance: foundation Z-gap 0.60   ✓
+// Colosseum clearance: NE corner dist 20.31 > 19.5  ✓ (margin 0.81)
+// Barracks clearance: roof Z-gap 0.85   ✓ (was 0.45 at depth 3.0 / z -8.6)
 
 const HALL_W = 7;
-const HALL_D = 3.0;
+const HALL_D = 2.6;
 const WALL_H = 3.0;
 
 // Material instances (shared across the hall)
@@ -87,7 +87,7 @@ export const TrainingHall: React.FC = React.memo(() => {
   const POST_R = 0.09;
 
   return (
-    <group position={[-3, 0, -8.6]}>
+    <group position={[-3, 0, -8.4]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION */}
       <BuildingFoundation
         size={[HALL_W, HALL_D]}
@@ -118,7 +118,7 @@ export const TrainingHall: React.FC = React.memo(() => {
         eaveOverhang={0.4}
         ridgeAlong="x"
         position={[0, 0.3 + WALL_H + 0.16, 0]}
-        tileColor="#b45309"
+        tileColor="#9e492f"
         trimColor="#ebdcb9"
         tympanumColor="#d97706"
       />

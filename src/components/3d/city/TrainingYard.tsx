@@ -93,7 +93,7 @@ const pierStone = new THREE.MeshStandardMaterial({
 // approach at world [-11, 0, 0] (street boundary walls at world x=-13.5, z=±4.5
 // create a corridor leading to this entrance).
 const WALL_RADIUS = 7.0;
-const WALL_HEIGHT = 0.9;
+const WALL_HEIGHT = 0.5;
 const WALL_THICKNESS = 0.35;
 const ENTRANCE_CHORD = 2.5;
 const ENTRANCE_HALF_ANGLE = Math.asin(ENTRANCE_CHORD / (2 * WALL_RADIUS));
@@ -314,8 +314,10 @@ export const TrainingYard = React.memo(() => {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Upper retaining stone curb */}
-      <mesh position={[0, 0.16, 0]}>
+      {/* Upper retaining stone curb (flat ring on ground — rotation required
+          because TorusGeometry defaults to the XY plane; without it the ring
+          stands vertically as a 14-unit hoop through the yard) */}
+      <mesh position={[0, 0.16, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <torusGeometry args={[7.0, 0.12, 8, 32]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.travertine.color}
@@ -346,21 +348,21 @@ export const TrainingYard = React.memo(() => {
       {/* Intermediate piers at every 3rd segment boundary */}
       {[3, 6, 9, 12].map((k) => {
         const angle = ENTRANCE_HALF_ANGLE + k * SEGMENT_ANGLE;
-        return <StonePier key={`pier-${k}`} angle={angle} />;
+        return <StonePier key={`pier-${k}`} angle={angle} height={0.65} />;
       })}
 
       {/* Entrance gateposts (taller and wider than wall piers) */}
-      <StonePier angle={ENTRANCE_HALF_ANGLE} height={1.5} width={0.6} capWidth={0.66} />
-      <StonePier angle={-ENTRANCE_HALF_ANGLE} height={1.5} width={0.6} capWidth={0.66} />
+      <StonePier angle={ENTRANCE_HALF_ANGLE} height={1.0} width={0.6} capWidth={0.66} />
+      <StonePier angle={-ENTRANCE_HALF_ANGLE} height={1.0} width={0.6} capWidth={0.66} />
 
       {/* Timber lintel across the entrance */}
-      <mesh castShadow position={[GATE_X, 1.5, 0]}>
+      <mesh castShadow position={[GATE_X, 1.0, 0]}>
         <boxGeometry args={[0.22, 0.2, 2.7]} />
         <primitive object={timberDark} attach="material" />
       </mesh>
 
       {/* Crimson banner hanging from the lintel */}
-      <Banner position={[GATE_X, 0.95, 0]} rotation={[0, Math.PI / 2, 0]} size={[0.9, 0.7]} color="#b91c1c" />
+      <Banner position={[GATE_X, 0.65, 0]} rotation={[0, Math.PI / 2, 0]} size={[0.7, 0.5]} color="#b91c1c" />
 
       {/* Travertine paved threshold at the entrance */}
       <mesh receiveShadow position={[WALL_RADIUS, 0.02, 0]}>
