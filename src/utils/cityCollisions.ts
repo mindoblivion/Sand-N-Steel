@@ -8,6 +8,21 @@ import {
   maxPenetration,
 } from './collisionShapes';
 
+// ── Phase 31H: Recovery history for oscillation detection ───────────────
+// Tracks the last N source positions of fallback calls.  Candidates that
+// would reverse to a recently visited position are rejected, breaking
+// oscillation cycles.  The history is cleared whenever the normal resolver
+// makes progress, so it only accumulates while the player is stuck.
+const RECOVERY_HISTORY_SIZE = 8;
+const _recoveryHistory: Array<[number, number]> = [];
+
+function isInRecoveryHistory(x: number, z: number): boolean {
+  for (const [hx, hz] of _recoveryHistory) {
+    if (Math.abs(hx - x) < 1e-6 && Math.abs(hz - z) < 1e-6) return true;
+  }
+  return false;
+}
+
 export type CityDistrictType = 'CENTER' | 'NORTH' | 'SOUTH' | 'EAST' | 'WEST' | string;
 
 export interface InteractiveLocation {
@@ -316,6 +331,10 @@ function recoveryEscape(
     const nz = Math.max(-35, Math.min(35, z + cdz * step));
     if (nx === x && nz === z) continue;
 
+    // Phase 31H: reject candidates that would reverse to a recently
+    // visited position, preventing oscillation between two positions.
+    if (isInRecoveryHistory(nx, nz)) continue;
+
     // Reject if entering any new collider
     const candidateIds = overlappingColliderIds(nx, nz, r, CITY_COLLIDERS);
     let entersNew = false;
@@ -373,11 +392,24 @@ export function resolveCityMovement(
   } else if (!collidesWith(x, z, r, CITY_COLLIDERS)) {
     // Current clear, target blocked — wall, don't move
   } else {
-    // Both overlap — allow only if reducing penetration
+    // Both overlap — Phase 31H: allow only if reducing total penetration
+    // AND not entering a new collider AND not increasing max penetration.
     const currentPen = totalPenetration(x, z, r, CITY_COLLIDERS);
     const targetPen = totalPenetration(testX, z, r, CITY_COLLIDERS);
     if (targetPen < currentPen) {
-      x = testX;
+      const currentIds = overlappingColliderIds(x, z, r, CITY_COLLIDERS);
+      const targetIds = overlappingColliderIds(testX, z, r, CITY_COLLIDERS);
+      let entersNew = false;
+      for (const id of targetIds) {
+        if (!currentIds.has(id)) { entersNew = true; break; }
+      }
+      if (!entersNew) {
+        const currentMax = maxPenetration(x, z, r, CITY_COLLIDERS);
+        const targetMax = maxPenetration(testX, z, r, CITY_COLLIDERS);
+        if (targetMax <= currentMax + 1e-9) {
+          x = testX;
+        }
+      }
     }
   }
 
@@ -388,22 +420,46 @@ export function resolveCityMovement(
   } else if (!collidesWith(x, z, r, CITY_COLLIDERS)) {
     // blocked
   } else {
+    // Both overlap — Phase 31H: same checks as X axis.
     const currentPen = totalPenetration(x, z, r, CITY_COLLIDERS);
     const targetPen = totalPenetration(x, testZ, r, CITY_COLLIDERS);
     if (targetPen < currentPen) {
-      z = testZ;
+      const currentIds = overlappingColliderIds(x, z, r, CITY_COLLIDERS);
+      const targetIds = overlappingColliderIds(x, testZ, r, CITY_COLLIDERS);
+      let entersNew = false;
+      for (const id of targetIds) {
+        if (!currentIds.has(id)) { entersNew = true; break; }
+      }
+      if (!entersNew) {
+        const currentMax = maxPenetration(x, z, r, CITY_COLLIDERS);
+        const targetMax = maxPenetration(x, testZ, r, CITY_COLLIDERS);
+        if (targetMax <= currentMax + 1e-9) {
+          z = testZ;
+        }
+      }
     }
   }
 
-  // ── Phase 31F: Recovery fallback for saddle-point traps ──
+  // ── Phase 31F/31H: Recovery fallback for saddle-point traps ──
   // Activates only when the normal axis-independent resolution made zero
   // progress AND the player is still overlapping one or more colliders.
-  if (x === origX && z === origZ) {
+  const normalProgress = x !== origX || z !== origZ;
+  if (!normalProgress) {
     const step = speed * delta;
     if (step > 1e-6 && collidesWith(x, z, r, CITY_COLLIDERS)) {
+      // Phase 31H: record source position in recovery history before
+      // calling the fallback, so candidates that would reverse to a
+      // recently visited position are rejected.
+      _recoveryHistory.push([x, z]);
+      if (_recoveryHistory.length > RECOVERY_HISTORY_SIZE) {
+        _recoveryHistory.shift();
+      }
       const esc = recoveryEscape(x, z, r, step, dx, dz);
       if (esc) { x = esc[0]; z = esc[1]; }
     }
+  } else {
+    // Normal movement made progress — clear oscillation history.
+    _recoveryHistory.length = 0;
   }
 
   return [x, currentPos[1], z];

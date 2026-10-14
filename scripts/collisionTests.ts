@@ -1217,6 +1217,203 @@ test('recovery fallback: maxPenetration and overlappingColliderIds helpers', () 
 });
 
 // ════════════════════════════════════════════════════════════════════════════
+// 22. PHASE 31H — RECOVERY COLLIDER LEAKAGE AND FALLBACK OSCILLATION
+// ════════════════════════════════════════════════════════════════════════════
+
+const ALL_DIRS: Array<[number, number]> = [
+  [1, 0], [-1, 0], [0, 1], [0, -1],
+  [1, 1], [1, -1], [-1, 1], [-1, -1],
+];
+
+// ── Defect 1: prevent entry into new colliders during recovery ──
+
+test('31H D1: forge escape toward workshop never enters armor-workshop', () => {
+  // Start inside the forge near the east edge.  Moving +X toward the
+  // armor workshop, the normal resolver previously allowed a step that
+  // entered armor-workshop because totalPen decreased even though a NEW
+  // collider was entered.
+  let pos: [number, number, number] = [22, 0, 1];
+  const initialIds = overlappingColliderIds(22, 1, R, CITY_COLLIDERS);
+  assert.ok(initialIds.has('smithing-forge'), 'Should start inside forge');
+  assert.ok(!initialIds.has('armor-workshop'), 'Should NOT start in workshop');
+  for (let i = 0; i < 100; i++) {
+    pos = resolveCityMovement(pos, 1, 0, 3.8, 0.1);
+    const ids = overlappingColliderIds(pos[0], pos[2], R, CITY_COLLIDERS);
+    for (const id of ids) {
+      assert.ok(initialIds.has(id),
+        `Step ${i}: entered new collider '${id}' at [${pos[0].toFixed(3)}, ${pos[2].toFixed(3)}]`);
+    }
+    if (!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS)) break;
+  }
+  assert.ok(!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS), 'Should have escaped');
+});
+
+test('31H D1: forge-store escape never enters armor-workshop', () => {
+  // Start at the forge-store overlap.  Pressing +X (saddle point) causes
+  // the fallback to redirect.  Verify no new collider is entered at any
+  // intermediate position, particularly not the armor-workshop.
+  let pos: [number, number, number] = [20, 0, -1.925];
+  const initialIds = overlappingColliderIds(20, -1.925, R, CITY_COLLIDERS);
+  assert.ok(initialIds.has('smithing-forge'));
+  assert.ok(initialIds.has('general-store'));
+  assert.ok(!initialIds.has('armor-workshop'));
+  for (let i = 0; i < 200; i++) {
+    pos = resolveCityMovement(pos, 1, 0, 3.8, 0.1);
+    const ids = overlappingColliderIds(pos[0], pos[2], R, CITY_COLLIDERS);
+    for (const id of ids) {
+      assert.ok(initialIds.has(id),
+        `Step ${i}: entered new collider '${id}' at [${pos[0].toFixed(3)}, ${pos[2].toFixed(3)}]`);
+    }
+    if (!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS)) break;
+  }
+  assert.ok(!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS), 'Should have escaped');
+});
+
+test('31H D1: recovery steps never increase maximum penetration', () => {
+  // From any overlap position, every intermediate step must not increase
+  // the maximum individual penetration depth.
+  for (const [sx, sz] of [[22, 1], [20, -1.925], [23.375, 1], [27, -15]] as const) {
+    let pos: [number, number, number] = [sx, 0, sz];
+    let prevMax = maxPenetration(sx, sz, R, CITY_COLLIDERS);
+    for (let i = 0; i < 100; i++) {
+      pos = resolveCityMovement(pos, 1, 0, 3.8, 0.1);
+      const curMax = maxPenetration(pos[0], pos[2], R, CITY_COLLIDERS);
+      assert.ok(curMax <= prevMax + 1e-6,
+        `[${sx},${sz}] step ${i}: max pen increased ${prevMax.toFixed(4)} → ${curMax.toFixed(4)}`);
+      prevMax = curMax;
+      if (!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS)) break;
+    }
+  }
+});
+
+// ── Defect 2: prevent fallback oscillation ──
+//
+// For each of the three audited overlap positions and all eight input
+// directions, simulate repeated calls to the production resolver and
+// verify the player escapes within 200 steps (no indefinite oscillation).
+
+function simulateEscape(
+  startX: number, startZ: number,
+  dx: number, dz: number,
+  maxSteps: number,
+): { escaped: boolean; steps: number; positions: Array<[number, number]> } {
+  let pos: [number, number, number] = [startX, 0, startZ];
+  const positions: Array<[number, number]> = [];
+  for (let i = 0; i < maxSteps; i++) {
+    pos = resolveCityMovement(pos, dx, dz, 3.8, 0.1);
+    positions.push([pos[0], pos[2]]);
+    if (!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS)) {
+      return { escaped: true, steps: i + 1, positions };
+    }
+  }
+  return { escaped: false, steps: maxSteps, positions };
+}
+
+function hasOscillation(positions: Array<[number, number]>): boolean {
+  // Strip consecutive duplicates (player staying put is not oscillation).
+  const distinct: Array<[number, number]> = [];
+  for (const p of positions) {
+    const last = distinct[distinct.length - 1];
+    if (!last || Math.abs(last[0] - p[0]) > 1e-6 || Math.abs(last[1] - p[1]) > 1e-6) {
+      distinct.push(p);
+    }
+  }
+  // A position visited 3+ times in the distinct list indicates a true
+  // cycle (A→B→A→B→A).  Retracing a path once (A→B→C→B→A→D→…) visits
+  // each position at most twice, which is legitimate escape behaviour.
+  const counts = new Map<string, number>();
+  for (const p of distinct) {
+    const key = `${p[0].toFixed(4)},${p[1].toFixed(4)}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  for (const count of counts.values()) {
+    if (count >= 3) return true;
+  }
+  return false;
+}
+
+test('31H D2: forge-workshop gap [23.375, 1] escapes for all 8 directions', () => {
+  for (const [dx, dz] of ALL_DIRS) {
+    const result = simulateEscape(23.375, 1, dx, dz, 200);
+    assert.ok(result.escaped,
+      `[${dx},${dz}]: did not escape in 200 steps (last: [${result.positions[result.positions.length-1]}])`);
+  }
+});
+
+test('31H D2: forge-workshop gap [23.375, 1] no oscillation for all 8 directions', () => {
+  for (const [dx, dz] of ALL_DIRS) {
+    const result = simulateEscape(23.375, 1, dx, dz, 200);
+    assert.ok(result.escaped, `[${dx},${dz}]: should escape`);
+    assert.ok(!hasOscillation(result.positions),
+      `[${dx},${dz}]: oscillation detected in ${result.steps} steps`);
+  }
+});
+
+test('31H D2: saddle-point [27, -15] escapes for all 8 directions', () => {
+  for (const [dx, dz] of ALL_DIRS) {
+    const result = simulateEscape(27, -15, dx, dz, 200);
+    assert.ok(result.escaped,
+      `[${dx},${dz}]: did not escape in 200 steps`);
+  }
+});
+
+test('31H D2: saddle-point [27, -15] no oscillation for all 8 directions', () => {
+  for (const [dx, dz] of ALL_DIRS) {
+    const result = simulateEscape(27, -15, dx, dz, 200);
+    assert.ok(result.escaped, `[${dx},${dz}]: should escape`);
+    assert.ok(!hasOscillation(result.positions),
+      `[${dx},${dz}]: oscillation detected in ${result.steps} steps`);
+  }
+});
+
+test('31H D2: forge-store overlap [20, -1.925] escapes for all 8 directions', () => {
+  for (const [dx, dz] of ALL_DIRS) {
+    const result = simulateEscape(20, -1.925, dx, dz, 200);
+    assert.ok(result.escaped,
+      `[${dx},${dz}]: did not escape in 200 steps`);
+  }
+});
+
+test('31H D2: forge-store overlap [20, -1.925] no oscillation for all 8 directions', () => {
+  for (const [dx, dz] of ALL_DIRS) {
+    const result = simulateEscape(20, -1.925, dx, dz, 200);
+    assert.ok(result.escaped, `[${dx},${dz}]: should escape`);
+    assert.ok(!hasOscillation(result.positions),
+      `[${dx},${dz}]: oscillation detected in ${result.steps} steps`);
+  }
+});
+
+test('31H D2: forge-workshop gap [23.375, 1] [0,-1] escapes via north route', () => {
+  // The specific oscillation case: input [0,-1] previously oscillated
+  // between [23.375, -0.9] and [23.375, -1.28].  Verify the player now
+  // escapes and the final position is collision-free.
+  let pos: [number, number, number] = [23.375, 0, 1];
+  let escaped = false;
+  for (let i = 0; i < 200; i++) {
+    pos = resolveCityMovement(pos, 0, -1, 3.8, 0.1);
+    if (!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS)) { escaped = true; break; }
+  }
+  assert.ok(escaped, 'Should escape within 200 steps');
+  assert.ok(!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS), 'Final position collision-free');
+});
+
+test('31H D2: recovery at [23.375, 1] never enters new colliders for all 8 dirs', () => {
+  for (const [dx, dz] of ALL_DIRS) {
+    let pos: [number, number, number] = [23.375, 0, 1];
+    const initialIds = overlappingColliderIds(23.375, 1, R, CITY_COLLIDERS);
+    for (let i = 0; i < 200; i++) {
+      pos = resolveCityMovement(pos, dx, dz, 3.8, 0.1);
+      const ids = overlappingColliderIds(pos[0], pos[2], R, CITY_COLLIDERS);
+      for (const id of ids) {
+        assert.ok(initialIds.has(id),
+          `[${dx},${dz}] step ${i}: entered new collider '${id}'`);
+      }
+      if (!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS)) break;
+    }
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════════════════
 
