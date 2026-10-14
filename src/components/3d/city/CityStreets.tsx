@@ -387,12 +387,33 @@ export const CityStreets = React.memo(() => {
 
       {/* 5. DISTRICT LANDMARK SURROUNDINGS & CONTEXTUAL ELEMENTS */}
       {/* WEST: Training Yard Boundary Wall & Benches */}
-      {/* Phase 28.6: Shortened from Z=±7.5 to Z=±4.60 to resolve S-01
-           intersection with Training Yard wall ring segments i=1/i=12.
-           Inner endpoints (Z=±1.5) preserved to frame the entrance corridor.
-           Min SAT clearance: 0.0844 (coping vs seg coping). */}
+      {/* Phase 28.6: Straight wall sections (unchanged). Shortened from
+           Z=±7.5 to Z=±4.60 to resolve S-01 intersection with Training
+           Yard wall ring segments i=1/i=12. Inner endpoints (Z=±1.5)
+           preserved to frame the entrance corridor. */}
+      {/* Phase 29.0: Added 45° mitred inward returns (Candidate A) at the
+           outer ends. The return body extends past the corner centerline
+           by (T/2)·tan(π/8) ≈ 0.124 on each end, overlapping with the
+           straight wall body to form a clean mitre line. Straight wall
+           geometry is unchanged. Return visible length L_r = 1.0.
+           Min 3D SAT clearance: 0.0286 (return body vs yard seg 1/12
+           coping). South pier k=12 clearance: 0.133. Coping Y-range
+           [0.9, 1.0] has no overlap with any yard object Y-range, so
+           coping length is unconstrained by clearance. */}
       <StreetWall position={[-13.5, 0, -3.05]} size={[0.6, 0.9, 3.1]} />
       <StreetWall position={[-13.5, 0, 3.05]} size={[0.6, 0.9, 3.1]} />
+      {/* North return: 45° turn to the northwest, mitred joint at Z=4.6 */}
+      <StreetWall
+        position={[-13.5 - Math.SQRT1_2 / 2, 0, 4.6 + Math.SQRT1_2 / 2]}
+        size={[0.6, 0.9, 1.0 + 0.6 * Math.tan(Math.PI / 8)]}
+        rotationY={-Math.PI / 4}
+      />
+      {/* South return: 45° turn to the southwest, mitred joint at Z=-4.6 */}
+      <StreetWall
+        position={[-13.5 - Math.SQRT1_2 / 2, 0, -4.6 - Math.SQRT1_2 / 2]}
+        size={[0.6, 0.9, 1.0 + 0.6 * Math.tan(Math.PI / 8)]}
+        rotationY={-3 * Math.PI / 4}
+      />
       <RomanBench position={[-11.0, 0, -4.8]} rotationY={Math.PI / 2} />
 
       {/* EAST: Imperial Smithing Forge Courtyard Props */}
