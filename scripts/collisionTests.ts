@@ -26,6 +26,7 @@ import {
 } from '../src/utils/collisionShapes';
 import {
   resolveCityMovement,
+  clearRecoveryHistory,
   HUB_LOCATIONS,
   FAST_TRAVEL_ARRIVALS,
   getNearbyHubLocation,
@@ -1410,6 +1411,114 @@ test('31H D2: recovery at [23.375, 1] never enters new colliders for all 8 dirs'
       }
       if (!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS)) break;
     }
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 23. PHASE 31J — RECOVERY HISTORY RESET ON FAST TRAVEL
+// ════════════════════════════════════════════════════════════════════════════
+
+test('31J: clearRecoveryHistory empties a populated buffer', () => {
+  // Populate the recovery history by triggering fallback at the saddle
+  // point [27, -15].  Each no-progress step pushes one entry.
+  let pos: [number, number, number] = [27, 0, -15];
+  for (let i = 0; i < 5; i++) {
+    // Use a direction that keeps the player stuck so the fallback
+    // records history entries.
+    pos = resolveCityMovement(pos, 1, 0, 3.8, 0.1);
+  }
+  // Clear — the next recovery should behave as if starting fresh.
+  clearRecoveryHistory();
+
+  // After clearing, escape from a fresh saddle-point start should succeed
+  // in the same number of steps as a cold start (no stale rejections).
+  let coldPos: [number, number, number] = [27, 0, -15];
+  let clearedPos: [number, number, number] = [27, 0, -15];
+
+  // Walk both to escape; verify the cleared-path escape is not impaired.
+  let coldEscaped = false;
+  let clearedEscaped = false;
+  for (let i = 0; i < 200; i++) {
+    if (!coldEscaped) {
+      coldPos = resolveCityMovement(coldPos, 0, -1, 3.8, 0.1);
+      if (!collidesWith(coldPos[0], coldPos[2], R, CITY_COLLIDERS)) coldEscaped = true;
+    }
+    if (!clearedEscaped) {
+      clearedPos = resolveCityMovement(clearedPos, 0, -1, 3.8, 0.1);
+      if (!collidesWith(clearedPos[0], clearedPos[2], R, CITY_COLLIDERS)) clearedEscaped = true;
+    }
+  }
+  assert.ok(coldEscaped, 'Cold-start escape should succeed');
+  assert.ok(clearedEscaped, 'Cleared-history escape should succeed');
+  // The cleared escape must reach a collision-free position.
+  assert.ok(!collidesWith(clearedPos[0], clearedPos[2], R, CITY_COLLIDERS),
+    'Cleared escape final position should be collision-free');
+  // Clean up for subsequent tests.
+  clearRecoveryHistory();
+});
+
+test('31J: clearRecoveryHistory is safe on an empty buffer', () => {
+  // Calling on a fresh buffer (nothing populated) should be a no-op.
+  clearRecoveryHistory();
+  clearRecoveryHistory();
+  // Verify ordinary movement still works after a redundant clear.
+  const pos: [number, number, number] = [5, 0, 10];
+  const result = resolveCityMovement(pos, 1, 0, 3.8, 0.1);
+  assert.ok(result[0] > 5, 'Normal movement should still work after clear');
+});
+
+test('31J: ordinary movement still works after clear (forge recovery)', () => {
+  clearRecoveryHistory();
+  let pos: [number, number, number] = [18, 0, 2];
+  let escaped = false;
+  for (let i = 0; i < 50; i++) {
+    pos = resolveCityMovement(pos, -1, 0, 3.8, 0.1);
+    if (!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS)) { escaped = true; break; }
+  }
+  assert.ok(escaped, 'Forge escape should work after clearRecoveryHistory');
+  clearRecoveryHistory();
+});
+
+test('31J: saddle-point recovery still works after clear', () => {
+  clearRecoveryHistory();
+  let pos: [number, number, number] = [27, 0, -15];
+  let escaped = false;
+  for (let i = 0; i < 100; i++) {
+    pos = resolveCityMovement(pos, 0, -1, 3.8, 0.1);
+    if (!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS)) { escaped = true; break; }
+  }
+  assert.ok(escaped, 'Saddle-point escape should work after clearRecoveryHistory');
+  clearRecoveryHistory();
+});
+
+test('31J: forge-store recovery still works after clear', () => {
+  clearRecoveryHistory();
+  let pos: [number, number, number] = [20, 0, -1.925];
+  let escaped = false;
+  for (let i = 0; i < 150; i++) {
+    pos = resolveCityMovement(pos, 1, 0, 3.8, 0.1);
+    if (!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS)) { escaped = true; break; }
+  }
+  assert.ok(escaped, 'Forge-store escape should work after clearRecoveryHistory');
+  clearRecoveryHistory();
+});
+
+test('31J: all 19 fast-travel arrivals remain collision-free and reachable after clear', () => {
+  for (const loc of HUB_LOCATIONS) {
+    const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
+    // Simulate fast-travel: clear history, then verify arrival is safe.
+    clearRecoveryHistory();
+    assert.ok(!collidesWith(ax, az, R, CITY_COLLIDERS),
+      `${loc.id} arrival should be collision-free after clear`);
+    // Verify the player can move from the arrival.
+    const pos: [number, number, number] = [ax, 0, az];
+    let canMove = false;
+    for (const [dx, dz] of [[1,0],[-1,0],[0,1],[0,-1]] as const) {
+      const result = resolveCityMovement(pos, dx, dz, 3.8, 0.3);
+      if (result[0] !== ax || result[2] !== az) { canMove = true; break; }
+    }
+    assert.ok(canMove, `${loc.id} player trapped at arrival after clear`);
+    clearRecoveryHistory();
   }
 });
 

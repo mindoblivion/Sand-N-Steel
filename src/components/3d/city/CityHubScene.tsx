@@ -37,6 +37,7 @@ try {
 }
 import {
   resolveCityMovement,
+  clearRecoveryHistory,
   getNearbyHubLocation,
   HUB_LOCATIONS,
   FAST_TRAVEL_ARRIVALS,
@@ -430,6 +431,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       : [loc.position[0], 0, loc.position[2] + 2];
     playerPosRef.current = newPos;
     setPlayerPos(newPos);
+    // Phase 31J: clear stale recovery history so oscillation-prevention
+    // entries from the previous location don't block escape at the new one.
+    clearRecoveryHistory();
     setShowNavDrawer(false);
   };
 

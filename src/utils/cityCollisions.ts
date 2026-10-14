@@ -16,6 +16,18 @@ import {
 const RECOVERY_HISTORY_SIZE = 8;
 const _recoveryHistory: Array<[number, number]> = [];
 
+/**
+ * Phase 31J — Reset the recovery-history buffer.
+ *
+ * Called after a fast-travel teleport so stale oscillation-prevention
+ * entries from a prior location don't cause the fallback to reject valid
+ * escape candidates at the new position.  Safe to call at any time —
+ * clearing an already-empty buffer is a no-op.
+ */
+export function clearRecoveryHistory(): void {
+  _recoveryHistory.length = 0;
+}
+
 function isInRecoveryHistory(x: number, z: number): boolean {
   for (const [hx, hz] of _recoveryHistory) {
     if (Math.abs(hx - x) < 1e-6 && Math.abs(hz - z) < 1e-6) return true;
