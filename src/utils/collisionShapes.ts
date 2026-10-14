@@ -200,6 +200,49 @@ export function penetrationDepth(
 }
 
 /**
+ * Returns the IDs of all colliders that the circle overlaps at (px, pz).
+ * Used by the recovery fallback to detect when a candidate move would enter
+ * a NEW collider that the player was not previously overlapping.
+ */
+export function overlappingColliderIds(
+  px: number, pz: number, r: number,
+  colliders: readonly Collider[],
+): Set<string> {
+  const ids = new Set<string>();
+  for (let i = 0; i < colliders.length; i++) {
+    const c = colliders[i];
+    if (c.type === 'rect') {
+      if (collidesRect(px, pz, r, c)) ids.add(c.id);
+    } else if (c.type === 'circle') {
+      if (collidesCircle(px, pz, r, c)) ids.add(c.id);
+    } else {
+      if (collidesSegment(px, pz, r, c)) ids.add(c.id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Maximum individual penetration depth across all colliders.
+ * Lower = closer to being free from the deepest collider.
+ *
+ * Used as a secondary score in the recovery fallback: even when total
+ * penetration is constant (a saddle point), reducing the max penetration
+ * makes progress toward exiting at least one collider.
+ */
+export function maxPenetration(
+  px: number, pz: number, r: number,
+  colliders: readonly Collider[],
+): number {
+  let max = 0;
+  for (let i = 0; i < colliders.length; i++) {
+    const d = penetrationDepth(px, pz, r, colliders[i]);
+    if (d > max) max = d;
+  }
+  return max;
+}
+
+/**
  * Total penetration score — sum of penetration depths against all colliders
  * that the circle overlaps.  Lower = closer to being free.  0 = no collision.
  *

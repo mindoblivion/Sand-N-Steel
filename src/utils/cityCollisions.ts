@@ -4,6 +4,8 @@ import {
   CITY_COLLIDERS,
   collidesWith,
   totalPenetration,
+  overlappingColliderIds,
+  maxPenetration,
 } from './collisionShapes';
 
 export type CityDistrictType = 'CENTER' | 'NORTH' | 'SOUTH' | 'EAST' | 'WEST' | string;
@@ -99,7 +101,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     name: 'Caravanserai Inn',
     subtitle: 'Rest & Quarters',
     position: [16, 0, 14],
-    radius: 4.5,
+    radius: 4.75,
     icon: 'Home',
     tabKey: 'gear',
     actionPrompt: 'Equip Loadout',
@@ -264,6 +266,93 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
  * inside a collider (e.g. after a buggy fast-travel), while still allowing
  * them to move toward the nearest edge to escape.
  */
+/**
+ * Phase 31F — Deterministic recovery fallback for saddle-point traps.
+ *
+ * Activates only when resolveCityMovement's normal axis-independent resolution
+ * made zero progress and the player is still overlapping one or more
+ * colliders.  Tries 8 candidate directions with a bounded step equal to the
+ * normal movement delta (speed * delta).
+ *
+ * A candidate is rejected if it enters a NEW collider (one not overlapping at
+ * the current position) or worsens any collision metric: overlap count,
+ * maximum individual penetration, or total penetration.
+ *
+ * Among accepted candidates, prefers those that improve the lexicographic
+ * score (count → max penetration → total penetration).  If no candidate
+ * improves the score, accepts a lateral candidate (all metrics unchanged)
+ * to allow sliding along a wall or narrow gap.  If no candidate qualifies,
+ * returns null — the player stays put.
+ *
+ * This does NOT restore the old global "already colliding = free movement"
+ * exemption: every candidate is checked against all colliders, no new
+ * collider may be entered, and no metric may worsen.
+ */
+function recoveryEscape(
+  x: number, z: number, r: number, step: number,
+  inputDx: number, inputDz: number,
+): [number, number] | null {
+  const currentIds = overlappingColliderIds(x, z, r, CITY_COLLIDERS);
+  const curCount = currentIds.size;
+  const curMax = maxPenetration(x, z, r, CITY_COLLIDERS);
+  const curTotal = totalPenetration(x, z, r, CITY_COLLIDERS);
+
+  // 8 candidate directions, reordered to prioritize player's input direction
+  // so that equally-scored candidates align with the player's intent.
+  const baseDirs: Array<[number, number]> = [
+    [1, 0], [-1, 0], [0, 1], [0, -1],
+    [1, 1], [1, -1], [-1, 1], [-1, -1],
+  ];
+  const dirs = baseDirs
+    .map(d => ({ dir: d, align: d[0] * inputDx + d[1] * inputDz }))
+    .sort((a, b) => b.align - a.align)
+    .map(d => d.dir);
+
+  let best: [number, number] | null = null;
+  let bestScore = Infinity;
+
+  for (const [cdx, cdz] of dirs) {
+    const nx = Math.max(-35, Math.min(35, x + cdx * step));
+    const nz = Math.max(-35, Math.min(35, z + cdz * step));
+    if (nx === x && nz === z) continue;
+
+    // Reject if entering any new collider
+    const candidateIds = overlappingColliderIds(nx, nz, r, CITY_COLLIDERS);
+    let entersNew = false;
+    for (const id of candidateIds) {
+      if (!currentIds.has(id)) { entersNew = true; break; }
+    }
+    if (entersNew) continue;
+
+    const cCount = candidateIds.size;
+    const cMax = maxPenetration(nx, nz, r, CITY_COLLIDERS);
+    const cTotal = totalPenetration(nx, nz, r, CITY_COLLIDERS);
+
+    // Must not worsen on ANY metric — even if count improves, a worse max
+    // means the candidate crosses deeper into a building wall, which is
+    // explicitly forbidden.  This prevents the fallback from being exploited
+    // to cross through a building by reducing overlap count.
+    if (cCount > curCount) continue;
+    if (cMax > curMax + 1e-9) continue;
+    if (Math.abs(cMax - curMax) <= 1e-9 && cTotal > curTotal + 1e-9) continue;
+
+    const isLateral =
+      cCount === curCount &&
+      Math.abs(cMax - curMax) <= 1e-9 &&
+      Math.abs(cTotal - curTotal) <= 1e-9
+        ? 1 : 0;
+
+    // Lexicographic score: lateral flag → count → max → total (lower = better)
+    const score = isLateral * 1e9 + cCount * 1e6 + cMax * 1e3 + cTotal;
+    if (score < bestScore) {
+      bestScore = score;
+      best = [nx, nz];
+    }
+  }
+
+  return best;
+}
+
 export function resolveCityMovement(
   currentPos: [number, number, number],
   dx: number,
@@ -274,6 +363,8 @@ export function resolveCityMovement(
   const r = PLAYER_RADIUS;
   let x = currentPos[0];
   let z = currentPos[2];
+  const origX = x;
+  const origZ = z;
 
   // ── X axis ──
   const testX = Math.max(-35, Math.min(35, x + dx * speed * delta));
@@ -301,6 +392,17 @@ export function resolveCityMovement(
     const targetPen = totalPenetration(x, testZ, r, CITY_COLLIDERS);
     if (targetPen < currentPen) {
       z = testZ;
+    }
+  }
+
+  // ── Phase 31F: Recovery fallback for saddle-point traps ──
+  // Activates only when the normal axis-independent resolution made zero
+  // progress AND the player is still overlapping one or more colliders.
+  if (x === origX && z === origZ) {
+    const step = speed * delta;
+    if (step > 1e-6 && collidesWith(x, z, r, CITY_COLLIDERS)) {
+      const esc = recoveryEscape(x, z, r, step, dx, dz);
+      if (esc) { x = esc[0]; z = esc[1]; }
     }
   }
 
