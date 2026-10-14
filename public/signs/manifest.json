@@ -1,0 +1,92 @@
+[
+  {
+    "id": "grand_colosseum",
+    "title": "GRAND COLOSSEUM",
+    "latin": "COLOSSEVM MAGNVM",
+    "metal": "gold",
+    "icon": "colosseum",
+    "glb": "grand_colosseum/grand_colosseum.glb",
+    "obj": "grand_colosseum/grand_colosseum.obj"
+  },
+  {
+    "id": "gladiator_barracks",
+    "title": "GLADIATOR BARRACKS",
+    "latin": "CASTRA GLADIATORVM",
+    "metal": "iron",
+    "icon": "helmet",
+    "glb": "gladiator_barracks/gladiator_barracks.glb",
+    "obj": "gladiator_barracks/gladiator_barracks.obj"
+  },
+  {
+    "id": "arena_medical",
+    "title": "ARENA MEDICAL HOUSE",
+    "latin": "DOMVS MEDICA",
+    "metal": "silver",
+    "icon": "caduceus",
+    "glb": "arena_medical/arena_medical.glb",
+    "obj": "arena_medical/arena_medical.obj"
+  },
+  {
+    "id": "city_tavern",
+    "title": "CITY TAVERN",
+    "latin": "TABERNA VRBANA",
+    "metal": "brass",
+    "icon": "mugs",
+    "glb": "city_tavern/city_tavern.glb",
+    "obj": "city_tavern/city_tavern.obj"
+  },
+  {
+    "id": "veteran_hall",
+    "title": "VETERAN GLADIATOR HALL",
+    "latin": "AVLA VETERANORVM",
+    "metal": "gold",
+    "icon": "swords_laurel",
+    "glb": "veteran_hall/veteran_hall.glb",
+    "obj": "veteran_hall/veteran_hall.obj"
+  },
+  {
+    "id": "gladiator_academy",
+    "title": "GLADIATOR ACADEMY",
+    "latin": "ACADEMIA GLADIATORIA",
+    "metal": "brass",
+    "icon": "scroll_seal",
+    "glb": "gladiator_academy/gladiator_academy.glb",
+    "obj": "gladiator_academy/gladiator_academy.obj"
+  },
+  {
+    "id": "smithing_forge",
+    "title": "SMITHING FORGE",
+    "latin": "FABRICA FERRI",
+    "metal": "iron",
+    "icon": "forge",
+    "glb": "smithing_forge/smithing_forge.glb",
+    "obj": "smithing_forge/smithing_forge.obj"
+  },
+  {
+    "id": "general_store",
+    "title": "GENERAL STORE",
+    "latin": "MERCATVS",
+    "metal": "brass",
+    "icon": "sack",
+    "glb": "general_store/general_store.glb",
+    "obj": "general_store/general_store.obj"
+  },
+  {
+    "id": "records_library",
+    "title": "RECORDS LIBRARY",
+    "latin": "BIBLIOTHECA",
+    "metal": "gold",
+    "icon": "book_scroll",
+    "glb": "records_library/records_library.glb",
+    "obj": "records_library/records_library.obj"
+  },
+  {
+    "id": "training_hall",
+    "title": "TRAINING HALL",
+    "latin": "PALAESTRA",
+    "metal": "silver",
+    "icon": "shield_swords",
+    "glb": "training_hall/training_hall.glb",
+    "obj": "training_hall/training_hall.obj"
+  }
+]
