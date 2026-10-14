@@ -246,10 +246,11 @@ export const ProcessionAvenue = React.memo(() => {
       ))}
 
       {/* 3. COLOSSAL FLUTED ROMAN COLONNADE ALONG BOULEVARD */}
-      {/* North-side column at z=-1 frames the Colosseum approach (wall at z≈-3.0 for x=±8.5;
-          plinth 1.2×1.2 sits at distance 19.97 from Colosseum center — outside the wall). */}
+      {/* North-side column at z=-6 frames the Colosseum approach (Phase 29.4A: moved 5m north
+          with the Colosseum root from z=-20 to z=-25; plinth 1.2×1.2 sits at distance 19.97
+          from the new Colosseum center — outside the wall). */}
       {[-8.5, 8.5].map((cx, ci) =>
-        [-1, 8, 16].map((cz, zi) => (
+        [-6, 8, 16].map((cz, zi) => (
           <group key={`col-${ci}-${zi}`} position={[cx, 0, cz]}>
             {/* Square Plinth Base */}
             <mesh castShadow receiveShadow position={[0, 0.25, 0]}>
@@ -285,23 +286,21 @@ export const ProcessionAvenue = React.memo(() => {
       )}
 
       {/* 4. MEDITERRANEAN CYPRESS TREES (NATURAL ITALIAN FLORA) */}
-      {/* Phase 1A.3: north-side cypress moved from z=-3 to z=-2.5. The planter is a cylinder
-          (ground radius 0.85 x scale 1.05 = 0.8925). At z=-3 circle-to-circle clearance
-          vs Colosseum foundation (r=19.5, center [0,-20]) was 0.132m, below 0.30m target.
-          No actual intersection; prior 0.154m was a bounding-box artifact. At z=-2.5:
-          d=20.94, clearance=0.548m. Crowns clear all columns/braziers by >1.4m. */}
+      {/* Phase 29.4A: north-side cypress moved 5m north (z=-7.5) with the Colosseum root.
+          The planter (ground radius 0.8925) clearance vs foundation (r=19.5, center [0,-25]):
+          d=20.94, clearance=0.548m — same relative spacing as before. */}
       {[-11.5, 11.5].map((px, pi) =>
-        [-2.5, 10, 20].map((pz, zi) => (
+        [-7.5, 10, 20].map((pz, zi) => (
           <ItalianCypress key={`cypress-${pi}-${zi}`} position={[px, 0, pz]} scale={1.05} seed={pi * 3 + zi + 1} />
         ))
       )}
 
       {/* 5. ROMAN STREET BRAZIERS WITH WARM AMBER FLAMES */}
-      {/* North-side brazier at z=0 lights the Colosseum approach. Phase 1A.2: moved from
-          z=-1 (pedestal north edge clipped Colosseum foundation step by ~17mm at inner
-          edge x=±5.8) to z=0. Min clearance from foundation: 0.98m at inner pedestal edge. */}
+      {/* North-side brazier at z=-5 lights the Colosseum approach. Phase 29.4A: moved 5m north
+          with the Colosseum root. Min clearance from foundation (now at z=-5.5): 0.98m at
+          inner pedestal edge, same relative spacing as before. */}
       {[-6.2, 6.2].map((bx, bi) =>
-        [0, 2, 12, 18].map((bz, zi) => (
+        [-5, 2, 12, 18].map((bz, zi) => (
           <StreetBrazier key={`brazier-${bi}-${zi}`} position={[bx, 0, bz]} />
         ))
       )}

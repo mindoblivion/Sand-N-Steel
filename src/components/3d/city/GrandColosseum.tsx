@@ -247,7 +247,7 @@ export const GrandColosseum = React.memo(() => {
   const seg2Len = ARC_END - ENTRANCE_MAX;
 
   return (
-    <group position={[0, 0, -20]}>
+    <group position={[0, 0, -25]}>
       {/* ===================================================================
           0. STEPPED TRAVERTINE FOUNDATION PODIUM PLINTH
           =================================================================== */}

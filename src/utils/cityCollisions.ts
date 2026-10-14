@@ -30,7 +30,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'colosseum',
     name: 'The Grand Colosseum',
     subtitle: 'Enter Tournament Arena',
-    position: [0, 0, -20],
+    position: [0, 0, -25],
     radius: 5.5,
     icon: 'Swords',
     tabKey: 'tournament',
