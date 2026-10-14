@@ -15,6 +15,13 @@ import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
 import { calculateTotalStats } from '../../services/storage';
 import { getWeaponByType } from '../../data/itemsDB';
+import {
+  getWeaponRange,
+  getStaminaCost,
+  calculateHitChance,
+  calculateAttackDamage,
+  applyStaminaRegen,
+} from '../../utils/combatCalculations';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag } from '../../hooks/useCameraDrag';
@@ -281,8 +288,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }
 
       const dist = Math.abs(player.position[2] - opp.position[2]);
-      const weaponType = attacker.loadout.weapon.type || 'sword_shield';
-      const effectiveRange = weaponType === 'spear' ? 3.8 : 2.5;
+      const effectiveRange = getWeaponRange(attacker.loadout.weapon);
 
       // 1. MOVEMENT ACTIONS
       if (actionType === 'advance') {
@@ -293,7 +299,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             position: [0, 0, targetZ],
             action: 'walk',
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 10),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         } else {
           const targetZ = Math.min(player.position[2] - 1.2, opp.position[2] + 1.8);
@@ -301,7 +307,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             position: [0, 0, targetZ],
             action: 'walk',
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 10),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
         addLog(`${attacker.name} advances 1.8m toward their opponent.`, isActorPlayer ? 'player' : 'opponent');
@@ -313,7 +319,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             position: [0, 0, targetZ],
             action: 'walk',
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 10),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         } else {
           const targetZ = Math.max(-7.5, opp.position[2] - 1.8);
@@ -321,7 +327,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             position: [0, 0, targetZ],
             action: 'walk',
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 10),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
         addLog(`${attacker.name} retreats back 1.8m.`, isActorPlayer ? 'player' : 'opponent');
@@ -335,17 +341,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             action: 'block',
             isBlocking: true,
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 12),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         } else {
           setOpp((prev) => ({
             ...prev,
             action: 'block',
             isBlocking: true,
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 12),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
-        addLog(`${attacker.name} braces behind their shield (+75% Def).`, isActorPlayer ? 'player' : 'opponent');
+        addLog(`${attacker.name} braces behind their shield.`, isActorPlayer ? 'player' : 'opponent');
         spawnDamageText('BRACED!', 'blocked', attacker.position);
       } else if (actionType === 'dodge') {
         sounds.playDodge();
@@ -419,7 +425,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // 3. OFFENSIVE ATTACK ACTIONS
       else if (actionType === 'quick_attack' || actionType === 'power_attack') {
         const isQuick = actionType === 'quick_attack';
-        const staminaCost = isQuick ? 10 : 22;
+        const staminaCost = getStaminaCost(attacker.loadout.weapon, isQuick);
 
         // Deduct stamina & set attack animation
         if (isActorPlayer) {
@@ -443,9 +449,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           spawnDamageText('OUT OF RANGE!', 'blocked', defender.position);
         } else {
           // Check Evasion / Hit Probability
-          const hitPct = isQuick
-            ? Math.max(50, Math.min(95, Math.round(80 + attacker.stats.agility * 1.5 - defender.stats.agility * 1.2)))
-            : Math.max(35, Math.min(80, Math.round(60 + attacker.stats.agility * 1.2 - defender.stats.agility * 1.2)));
+          const hitPct = calculateHitChance(isQuick, attacker.stats.agility, defender.stats.agility);
 
           const roll = Math.random() * 100;
           // A dodge sets isInvulnerable; the stance persists across the turn
@@ -483,19 +487,23 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             const baseDmg = isQuick
               ? attacker.loadout.weapon.damageLight
               : attacker.loadout.weapon.damageHeavy;
-            const strBonus = 1 + attacker.stats.strength * 0.05;
             const isCrit = !isQuick && Math.random() < 0.25;
-            let rawDamage = Math.round(baseDmg * strBonus * (isCrit ? 1.5 : 1.0));
-
-            // Check defender block status
             const isBlocked = defender.isBlocking;
+            const rawDamage = calculateAttackDamage(
+              baseDmg,
+              attacker.stats.strength,
+              isCrit,
+              defender.stats.defense,
+              isBlocked,
+              defender.loadout.weapon.blockReduction,
+            );
+
             if (isBlocked) {
-              rawDamage = Math.max(1, Math.round(rawDamage * 0.25));
               sounds.playBlock();
               if (!isActorPlayer) statsRef.current.perfectBlocks += 1;
               addLog(
                 `${attacker.name}'s strike was BLOCKED by ${defender.name}'s shield (-${rawDamage} HP)!`,
-                isBlocked ? 'system' : isActorPlayer ? 'player' : 'opponent'
+                'system'
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
             } else {
@@ -595,8 +603,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
     const aiTimer = setTimeout(() => {
       const dist = Math.abs(player.position[2] - opp.position[2]);
-      const oppWeaponType = opp.loadout.weapon.type || 'sword_shield';
-      const effectiveRange = oppWeaponType === 'spear' ? 3.8 : 2.5;
+      const effectiveRange = getWeaponRange(opp.loadout.weapon);
+      const oppLightCost = getStaminaCost(opp.loadout.weapon, true);
+      const oppHeavyCost = getStaminaCost(opp.loadout.weapon, false);
 
       // Resolve pending heavy-attack telegraph (Goliath). The attack
       // was announced on the previous AI turn; the player has since
@@ -635,7 +644,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       if (dist > effectiveRange) {
         // Distance is large: Advance or Taunt
-        if (oppWeaponType === 'spear' && dist <= 3.8) {
+        if (dist <= effectiveRange) {
           chosenAction = 'quick_attack';
         } else {
           chosenAction = Math.random() < 0.82 ? 'advance' : 'taunt';
@@ -646,7 +655,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // Player is guarding: AI uses Power Attack or Taunt
           const r = Math.random();
           chosenAction = r < 0.45 ? 'power_attack' : r < 0.75 ? 'taunt' : 'shield_block';
-        } else if (opp.stamina < 15) {
+        } else if (opp.stamina < oppLightCost) {
           // Low AI stamina: Rest or Shield Block
           chosenAction = Math.random() < 0.6 ? 'shield_block' : 'rest';
         } else if (player.health < 25) {
@@ -678,7 +687,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         opponent.bossMechanic === 'heavy_telegraph' &&
         !pendingHeavyAttackRef.current &&
         dist <= effectiveRange &&
-        opp.stamina >= 22 &&
+        opp.stamina >= oppHeavyCost &&
         Math.random() < 0.30
       ) {
         chosenAction = 'telegraph';
