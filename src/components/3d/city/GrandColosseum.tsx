@@ -506,8 +506,11 @@ export const GrandColosseum = React.memo(() => {
           />
         </mesh>
 
-        {/* Gilded Roman Eagle Medallion Relief over Portal */}
-        <mesh position={[0, 6.5, 1.78]}>
+        {/* Gilded Roman Eagle Medallion Relief over Portal
+            Phase 29.5B: rotation [π/2, 0, 0] turns the cylinder axis from Y to Z
+            so the gold circular face points toward the approaching player (+Z)
+            instead of lying flat and showing only its thin edge. */}
+        <mesh position={[0, 6.5, 1.78]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[0.75, 0.75, 0.1, 16]} />
           <meshStandardMaterial
             color={ROMAN_PALETTE.goldAccent.color}
