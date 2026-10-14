@@ -171,7 +171,7 @@ export const CityStreets = React.memo(() => {
       {/* Pompeian Pedestrian Stepping Crossing Stones at Eastern Forum Exit */}
       <RomanPedestrianCrossing position={[5.8, 0, 0]} rotationY={Math.PI / 2} width={7.2} />
 
-      {/* Via Decumanus East Extension (Forge -> Armor Workshop [27, 0, 1]) */}
+      {/* Via Decumanus East Extension (Forge -> Armor Workshop [28.2, 0, 1]) */}
       <mesh receiveShadow position={[22.5, -0.015, 1]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[9, 7]} />
         <meshStandardMaterial

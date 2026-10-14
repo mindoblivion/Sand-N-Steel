@@ -114,7 +114,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'armor_workshop',
     name: 'Armor & Leather Workshop',
     subtitle: 'Tannery & Shieldsmith',
-    position: [27, 0, 1],
+    position: [28.2, 0, 1],
     radius: 4.5,
     icon: 'Shield',
     tabKey: 'gear',

@@ -5,7 +5,7 @@ import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 
 export const ArmorLeatherWorkshop = React.memo(() => {
   return (
-    <group position={[27, 0, 1]}>
+    <group position={[28.2, 0, 1]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
       <BuildingFoundation size={[8.4, 5.2]} height={0.3} projection={0.25} position={[0, 0, 0.15]} />
 
