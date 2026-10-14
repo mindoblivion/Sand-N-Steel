@@ -1,9 +1,10 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, Suspense } from 'react';
 import * as THREE from 'three';
 import { ClassicalPediment, ClassicalColumn } from './ClassicalArchitecture';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { Banner } from './EnvironmentalMotion';
+import { ColosseumSignPrototype } from './ColosseumSignPrototype';
 
 // ---------------------------------------------------------------------------
 // Phase 25.7 — Unified angular convention
@@ -556,6 +557,16 @@ export const GrandColosseum = React.memo(() => {
         {/* Ceremonial / Arena Oil Amphorae flanking column plinths */}
         <RomanAmphora position={[-4.8, 0, 2.8]} scale={0.9} tone="terracotta" />
         <RomanAmphora position={[4.8, 0, 2.8]} scale={0.9} tone="terracotta" />
+
+        {/* Phase 29.3D — Grand Colosseum sign prototype with wooden backing.
+            Placed to the right of the entrance steps, facing approaching
+            players (sign face toward local +Z = world +Z).  Wrapped in
+            Suspense because useGLTF suspends until the GLB is parsed. */}
+        <Suspense fallback={null}>
+          <group position={[8.5, 0, 3.0]}>
+            <ColosseumSignPrototype />
+          </group>
+        </Suspense>
       </group>
 
       {/* ===================================================================
