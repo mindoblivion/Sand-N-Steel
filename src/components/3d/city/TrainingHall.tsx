@@ -11,21 +11,17 @@ import {
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE, ROMAN_PALETTE } from './RomanMaterials';
 
-// ── Training Hall dimensions (local to TrainingYard parent at [-18,0,0]) ──
-// Centre: local (-3.2, 0, -8.20)  →  world (-21.2, 0, -8.20)
-// Width X: 7   Depth Z: 2.2   Wall height: 3.0
-// South face at local z = -7.10 (0.10 behind the Phase 27.2 perimeter wall)
-//
-// Phase 27.3.2 clearance audit (full geometry incl. roof overhang & foundation):
-//   Barracks front  (world Z) = -10.91  (roof ridge-cap, depth 5.4 + eave 0.35)
-//   Hall rear       (world Z) = -9.55   (roof eave, depth/2 1.1 + eave 0.25)
-//   → Barracks Z-gap = 1.36  ✓ (was 0.81; X-overlap 1.54 persists but Z-gap is
-//     now wide enough for visual separation from the south camera)
-//   Colosseum foundation radius 19.5; nearest hall roof corner at
-//     (-17.41, -9.55), dist 20.31 → clearance 0.81  ✓ (was 0.22 — old comment
-//     measured the wall-body corner, not the roof overhang)
-//   Perimeter wall (radius 7): wall-body south face at local z = -7.10,
-//     clearance 0.10  ✓ (unchanged)
+// ── Phase 27.3.4 — western annex (TrainingYard parent at [-18,0,0]) ──
+// Centre: yard-local [-12.35,0,3] → world [-30.35,0,3]; yaw +π/2.
+// Unchanged component-local dimensions: width X 7, depth Z 2.2, wall height 3.
+// Local +Z doorway/veranda → world +X (toward yard); local X ridge → world −Z.
+// Gable ends face world ±Z, not the doorway: preserve the existing roof design.
+// Full world XZ envelope incl. eaves, ridge, canopy, posts and decorations:
+//   solid X [-31.754,-26.260], Z [-0.790,6.790]; foundation dust extends
+//   the visual envelope to X [-31.788,-26.260], Z [-0.838,6.838].
+// Minimum projected clearances: wall/coping 1.175, apron 1.102, medical 1.322,
+// shrine 1.212 (incl. dust); western movement boundary x=-35 is 3.212 away.
+// Entire veranda stays outside the enclosure; the east gate remains unchanged.
 
 const HALL_W = 7;
 const HALL_D = 2.2;
@@ -72,12 +68,12 @@ const ironMat = new THREE.MeshStandardMaterial({
 
 /**
  * TrainingHall — a single-storey Roman gladiator training school (ludus)
- * with a gabled terracotta roof, shaded south veranda, crimson banner, and
+ * with a gabled terracotta roof, shaded veranda, crimson banner, and
  * crossed-swords emblem.  Designed to be unmistakably a training facility
  * from the third-person mobile camera.
  *
- * Rendered inside the TrainingYard group; the hall sits just behind the
- * north perimeter wall and is visible above the low (0.9-unit) wall.
+ * Rendered inside the TrainingYard group in the western annex, outside the
+ * enclosure. Component-local "south" (+Z) now faces world east (+X).
  */
 export const TrainingHall: React.FC = React.memo(() => {
   const bannerRef = useRef<THREE.Group>(null);
@@ -91,12 +87,12 @@ export const TrainingHall: React.FC = React.memo(() => {
 
   // Veranda dimensions (in component-local coords, hall centred at [0,0,0])
   const VERANDA_HALF_W = 1.5;            // 3 units wide
-  const VERANDA_SOUTH_Z = 4.0;           // courtyard-side post z (yard-local z ≈ -4.2)
+  const VERANDA_SOUTH_Z = 4.0;           // component-local +Z; world +X after hall yaw
   const CANOPY_Y = WALL_H;               // canopy at wall-top height
   const POST_R = 0.09;
 
   return (
-    <group position={[-3.2, 0, -8.20]}>
+    <group position={[-12.35, 0, 3.00]} rotation={[0, Math.PI / 2, 0]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION */}
       <BuildingFoundation
         size={[HALL_W, HALL_D]}
@@ -119,7 +115,7 @@ export const TrainingHall: React.FC = React.memo(() => {
       {/* Eave cornice below roof */}
       <WallCornice size={[HALL_W, HALL_D]} y={0.3 + WALL_H} color="#ebdcb9" height={0.16} projection={0.12} />
 
-      {/* 2. TERRACOTTA GABLED ROOF (ridge along X → gable faces south toward courtyard) */}
+      {/* 2. TERRACOTTA GABLED ROOF (local X ridge → world Z; gables at world ±Z) */}
       <RomanGabledRoof
         width={HALL_W}
         depth={HALL_D}
