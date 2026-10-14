@@ -194,6 +194,44 @@ export const GrandColosseum = React.memo(() => {
   const portcullisBarVGeo = useMemo(() => new THREE.BoxGeometry(0.12, 6.0, 0.08), []);
   const portcullisBarHGeo = useMemo(() => new THREE.BoxGeometry(4.8, 0.12, 0.08), []);
 
+  // Phase 29.5D: Frieze inscription — "COLOSSEVM" rendered as a canvas texture
+  // (gold background, dark bronze engraved lettering) using the existing
+  // CanvasTexture pattern from RomanMaterials.tsx.  No new dependencies,
+  // external fonts, or network requests.  System serif font only.
+  const friezeInscriptionTex = useMemo(() => {
+    if (typeof document === 'undefined') return undefined;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 140;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return undefined;
+
+    // Gold background matching ROMAN_PALETTE.goldAccent (#b89547)
+    ctx.fillStyle = '#b89547';
+    ctx.fillRect(0, 0, 1024, 140);
+
+    // Subtle vertical gradient for metallic depth
+    const grad = ctx.createLinearGradient(0, 0, 0, 140);
+    grad.addColorStop(0, 'rgba(0,0,0,0.10)');
+    grad.addColorStop(0.5, 'rgba(255,220,150,0.06)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.12)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1024, 140);
+
+    // Engraved inscription — dark bronze lettering
+    ctx.fillStyle = '#3a2e1a';
+    ctx.font = 'bold 76px Georgia, "Times New Roman", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('COLOSSEVM', 512, 70);
+
+    // Thin highlight along top edge of letters (engraved depth illusion)
+    ctx.fillStyle = 'rgba(200,175,120,0.35)';
+    ctx.fillText('COLOSSEVM', 512, 68);
+
+    return new THREE.CanvasTexture(canvas);
+  }, []);
+
   // Phase 25.8: 16 bays, 8 per facade segment, each centred in its own
   // BAY_PITCH slot.  The first and last slot edges coincide with the band
   // ends (entrance gap edge and rear arc end), so every jamb and arch head
@@ -237,8 +275,9 @@ export const GrandColosseum = React.memo(() => {
       pilasterGeo.dispose();
       portcullisBarVGeo.dispose();
       portcullisBarHGeo.dispose();
+      friezeInscriptionTex?.dispose();
     };
-  }, [colosseumWallBumpMap, facadeMat, recessMat, interiorMat, corniceMat, portalStoneMat, portcullisMat, jambGeo, archHeadGeo, pilasterGeo, portcullisBarVGeo, portcullisBarHGeo]);
+  }, [colosseumWallBumpMap, facadeMat, recessMat, interiorMat, corniceMat, portalStoneMat, portcullisMat, jambGeo, archHeadGeo, pilasterGeo, portcullisBarVGeo, portcullisBarHGeo, friezeInscriptionTex]);
 
   // Helper: angular length of the left arc segment (arc start → entrance).
   const seg1Len = ENTRANCE_MIN - ARC_THETA_START;
@@ -496,11 +535,17 @@ export const GrandColosseum = React.memo(() => {
           trimColor={ROMAN_PALETTE.terracottaTileDark.color}
         />
 
-        {/* Golden Roman Inscription Arch Frieze: "COLOSSEVM ROMANVM" */}
+        {/* Golden Roman Inscription Frieze: "COLOSSEVM"
+            Phase 29.5D: Canvas-texture inscription on the existing gold frieze
+            mesh.  Dark bronze lettering (#3a2e1a) on gold background (#b89547),
+            rendered via CanvasTexture — no new dependencies, fonts, or network
+            requests.  Material color set to white so the texture's baked-in gold
+            background and dark text show through; metalness/roughness preserved. */}
         <mesh position={[0, 7.8, 1.75]}>
           <boxGeometry args={[8.8, 1.2, 0.2]} />
           <meshStandardMaterial
-            color={ROMAN_PALETTE.goldAccent.color}
+            map={friezeInscriptionTex || undefined}
+            color={friezeInscriptionTex ? '#ffffff' : ROMAN_PALETTE.goldAccent.color}
             metalness={0.75}
             roughness={0.34}
           />
