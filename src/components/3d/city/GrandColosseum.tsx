@@ -558,9 +558,9 @@ export const GrandColosseum = React.memo(() => {
         <mesh position={[0, 6.5, 1.78]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[0.75, 0.75, 0.1, 16]} />
           <meshStandardMaterial
-            color={ROMAN_PALETTE.goldAccent.color}
-            metalness={0.75}
-            roughness={0.34}
+            color="#493522"
+            metalness={0.85}
+            roughness={0.42}
           />
         </mesh>
 
