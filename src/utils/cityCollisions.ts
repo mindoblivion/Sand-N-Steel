@@ -1,3 +1,10 @@
+// Phase 31B — Centralized collision system
+import {
+  PLAYER_RADIUS,
+  CITY_COLLIDERS,
+  collidesWith,
+} from './collisionShapes';
+
 export type CityDistrictType = 'CENTER' | 'NORTH' | 'SOUTH' | 'EAST' | 'WEST' | string;
 
 export interface InteractiveLocation {
@@ -245,14 +252,26 @@ export function resolveCityMovement(
   speed: number,
   delta: number
 ): [number, number, number] {
-  let newX = currentPos[0] + dx * speed * delta;
-  let newZ = currentPos[2] + dz * speed * delta;
+  const r = PLAYER_RADIUS;
+  let x = currentPos[0];
+  let z = currentPos[2];
 
-  // City outer boundaries expanded for multi-district growth
-  newX = Math.max(-35, Math.min(35, newX));
-  newZ = Math.max(-35, Math.min(35, newZ));
+  // ── X axis ──
+  const testX = Math.max(-35, Math.min(35, x + dx * speed * delta));
+  // Block if the target collides AND the player is not already colliding
+  // (the "already colliding" exemption prevents trapping after fast travel,
+  // which bypasses this function and may place the player inside a collider).
+  if (!collidesWith(testX, z, r, CITY_COLLIDERS) || collidesWith(x, z, r, CITY_COLLIDERS)) {
+    x = testX;
+  }
 
-  return [newX, currentPos[1], newZ];
+  // ── Z axis (tested at the resolved X to enable wall sliding) ──
+  const testZ = Math.max(-35, Math.min(35, z + dz * speed * delta));
+  if (!collidesWith(x, testZ, r, CITY_COLLIDERS) || collidesWith(x, z, r, CITY_COLLIDERS)) {
+    z = testZ;
+  }
+
+  return [x, currentPos[1], z];
 }
 
 export function getNearbyHubLocation(
