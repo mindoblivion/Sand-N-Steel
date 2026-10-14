@@ -387,8 +387,12 @@ export const CityStreets = React.memo(() => {
 
       {/* 5. DISTRICT LANDMARK SURROUNDINGS & CONTEXTUAL ELEMENTS */}
       {/* WEST: Training Yard Boundary Wall & Benches */}
-      <StreetWall position={[-13.5, 0, -4.5]} size={[0.6, 0.9, 6.0]} />
-      <StreetWall position={[-13.5, 0, 4.5]} size={[0.6, 0.9, 6.0]} />
+      {/* Phase 28.6: Shortened from Z=±7.5 to Z=±4.60 to resolve S-01
+           intersection with Training Yard wall ring segments i=1/i=12.
+           Inner endpoints (Z=±1.5) preserved to frame the entrance corridor.
+           Min SAT clearance: 0.0844 (coping vs seg coping). */}
+      <StreetWall position={[-13.5, 0, -3.05]} size={[0.6, 0.9, 3.1]} />
+      <StreetWall position={[-13.5, 0, 3.05]} size={[0.6, 0.9, 3.1]} />
       <RomanBench position={[-11.0, 0, -4.8]} rotationY={Math.PI / 2} />
 
       {/* EAST: Imperial Smithing Forge Courtyard Props */}
