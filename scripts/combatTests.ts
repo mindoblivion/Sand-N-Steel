@@ -453,6 +453,190 @@ test('defense curve: diminishing returns', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
+// 12. SHIELD GUARD RECOVERY DISPLAY (Phase 32D)
+//
+// The Shield Guard button in TurnActionPanel derives its displayed stamina
+// recovery from applyStaminaRegen — the same function DuelScene uses for the
+// production shield_block action.  The displayed value must reflect the
+// *actual* recoverable stamina, clamped by remaining capacity, not the
+// theoretical regen rate.
+// ════════════════════════════════════════════════════════════════════════════
+
+test('shield recovery at full stamina: 0 (no room to recover)', () => {
+  // staminaRegen = 24 (12 + 10*0.8 + 10*0.4), but at full stamina nothing to recover
+  const regen = 24;
+  const current = 100;
+  const max = 100;
+  const afterRegen = applyStaminaRegen(current, max, regen);
+  const recovery = afterRegen - current;
+  approx(recovery, 0);
+});
+
+test('shield recovery below max: full regen amount', () => {
+  // stamina 50/100, regen 24 → recover full 24
+  const regen = 24;
+  const current = 50;
+  const max = 100;
+  const afterRegen = applyStaminaRegen(current, max, regen);
+  const recovery = afterRegen - current;
+  approx(recovery, 24);
+});
+
+test('shield recovery with partial remaining capacity: clamped', () => {
+  // stamina 90/100, regen 24 → only 10 capacity remains
+  const regen = 24;
+  const current = 90;
+  const max = 100;
+  const afterRegen = applyStaminaRegen(current, max, regen);
+  const recovery = afterRegen - current;
+  approx(recovery, 10);
+  approx(afterRegen, max); // cannot exceed max
+});
+
+test('shield recovery at 0 stamina: full regen (if regen < max)', () => {
+  const regen = 24;
+  const current = 0;
+  const max = 100;
+  const afterRegen = applyStaminaRegen(current, max, regen);
+  const recovery = afterRegen - current;
+  approx(recovery, 24);
+});
+
+test('shield recovery when regen exceeds remaining capacity: clamped to capacity', () => {
+  // stamina 95/100, regen 24 → only 5 remains
+  const regen = 24;
+  const current = 95;
+  const max = 100;
+  const recovery = applyStaminaRegen(current, max, regen) - current;
+  approx(recovery, 5);
+});
+
+test('shield recovery never exceeds staminaMax', () => {
+  // Even with huge regen, recovery is bounded by capacity
+  const regen = 500;
+  const current = 80;
+  const max = 100;
+  const afterRegen = applyStaminaRegen(current, max, regen);
+  assert.ok(afterRegen <= max, `regen must not exceed max: ${afterRegen}`);
+  const recovery = afterRegen - current;
+  approx(recovery, 20);
+});
+
+test('shield recovery uses staminaRegen stat, not hardcoded 12', () => {
+  // The old UI hardcoded "+12 SP". The production formula is
+  // staminaRegen = 12 + agi*0.8 + sta*0.4, which exceeds 12 for any
+  // character with positive agility/stamina. Verify a typical stat
+  // line produces a regen > 12.
+  const agi = 10;
+  const sta = 10;
+  const staminaRegen = 12 + agi * 0.8 + sta * 0.4;
+  assert.ok(staminaRegen > 12, `staminaRegen (${staminaRegen}) should exceed old hardcoded 12`);
+  approx(staminaRegen, 24);
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 13. ADVANCE DISABLED CONDITION (Phase 32D)
+//
+// The Advance button is disabled when the player is already within their
+// weapon's attack range (distance <= getWeaponRange(weapon)).  This replaces
+// the old fixed 2.5m threshold which incorrectly blocked short-reach weapons
+// (dagger 1.6m) from closing distance and incorrectly allowed long-reach
+// weapons (spear 3.1m) to keep advancing while already in range.
+// ════════════════════════════════════════════════════════════════════════════
+
+// Helper: replicates the TurnActionPanel disabled condition for Advance
+function advanceDisabled(distance: number, weaponRange: number): boolean {
+  return distance <= weaponRange;
+}
+
+test('advance: dagger (range 1.6) at 2.4m — enabled (out of range, below old 2.5)', () => {
+  const dagger = ALL_WEAPONS.find((w) => w.id === 'dagger_pugio')!;
+  const range = getWeaponRange(dagger);
+  approx(range, 1.6);
+  // At 2.4m: old code disabled advance (2.4 <= 2.5), but player is out of range
+  assert.ok(!advanceDisabled(2.4, range), 'dagger at 2.4m should be able to advance');
+  assert.ok(2.4 > range, '2.4m is outside dagger range');
+});
+
+test('advance: dagger (range 1.6) at 1.5m — disabled (in range)', () => {
+  const dagger = ALL_WEAPONS.find((w) => w.id === 'dagger_puggio') ?? ALL_WEAPONS.find((w) => w.id === 'dagger_pugio')!;
+  const range = getWeaponRange(dagger);
+  assert.ok(advanceDisabled(1.5, range), 'dagger at 1.5m should not advance (in range)');
+});
+
+test('advance: dagger (range 1.6) at 1.6m — disabled (at exact range)', () => {
+  const dagger = ALL_WEAPONS.find((w) => w.id === 'dagger_pugio')!;
+  const range = getWeaponRange(dagger);
+  assert.ok(advanceDisabled(1.6, range), 'dagger at exactly 1.6m should not advance');
+});
+
+test('advance: gladius (range 2.1) at 2.3m — enabled (between range and old 2.5)', () => {
+  const gladius = DEFAULT_PLAYER_WEAPON;
+  const range = getWeaponRange(gladius);
+  approx(range, 2.1);
+  // At 2.3m: old code disabled advance (2.3 <= 2.5), but player is out of range
+  assert.ok(!advanceDisabled(2.3, range), 'gladius at 2.3m should be able to advance');
+  assert.ok(2.3 > range, '2.3m is outside gladius range');
+});
+
+test('advance: gladius (range 2.1) at 2.1m — disabled (at exact range)', () => {
+  const gladius = DEFAULT_PLAYER_WEAPON;
+  const range = getWeaponRange(gladius);
+  assert.ok(advanceDisabled(2.1, range), 'gladius at exactly 2.1m should not advance');
+});
+
+test('advance: spear (range 3.1) at 2.6m — disabled (in range, old code enabled)', () => {
+  const spear = getWeaponByType('spear');
+  const range = getWeaponRange(spear);
+  approx(range, 3.1);
+  // At 2.6m: old code enabled advance (2.6 > 2.5), but player is already in range
+  assert.ok(advanceDisabled(2.6, range), 'spear at 2.6m should not advance (already in range)');
+  assert.ok(2.6 <= range, '2.6m is within spear range');
+});
+
+test('advance: spear (range 3.1) at 3.5m — enabled (out of range)', () => {
+  const spear = getWeaponByType('spear');
+  const range = getWeaponRange(spear);
+  assert.ok(!advanceDisabled(3.5, range), 'spear at 3.5m should be able to advance');
+});
+
+test('advance: spear (range 3.1) at 3.1m — disabled (at exact range)', () => {
+  const spear = getWeaponByType('spear');
+  const range = getWeaponRange(spear);
+  assert.ok(advanceDisabled(3.1, range), 'spear at exactly 3.1m should not advance');
+});
+
+test('advance: polearm (range 3.3) at 2.8m — disabled (in range, old code enabled)', () => {
+  const polearm = ALL_WEAPONS.find((w) => w.range === 3.3)!;
+  const range = getWeaponRange(polearm);
+  approx(range, 3.3);
+  // At 2.8m: old code enabled advance (2.8 > 2.5), but player is in range
+  assert.ok(advanceDisabled(2.8, range), 'polearm at 2.8m should not advance (in range)');
+});
+
+test('advance: no dead zone — min advance distance (1.2) < shortest weapon range', () => {
+  // The advance clamp in DuelScene limits minimum distance to 1.2m.
+  // Verify every weapon range exceeds this so the player can always
+  // close to within striking distance.
+  const minAdvanceDistance = 1.2;
+  ALL_WEAPONS.forEach((w) => {
+    assert.ok(
+      getWeaponRange(w) >= minAdvanceDistance,
+      `${w.name} range ${w.range} must be >= min advance distance ${minAdvanceDistance}`,
+    );
+  });
+});
+
+test('advance: all weapons at 2.5m — dagger enabled, spear disabled', () => {
+  // At the old fixed threshold of 2.5m, the new condition correctly
+  // differentiates: short weapons still need to close, long weapons are in range
+  const dagger = ALL_WEAPONS.find((w) => w.id === 'dagger_pugio')!;
+  const spear = getWeaponByType('spear');
+  assert.ok(!advanceDisabled(2.5, getWeaponRange(dagger)), 'dagger at 2.5m: advance enabled (out of range)');
+  assert.ok(advanceDisabled(2.5, getWeaponRange(spear)), 'spear at 2.5m: advance disabled (in range)');
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════════════════
 

@@ -18,6 +18,7 @@ import {
   getStaminaCost,
   calculateHitChance,
   calculateAttackDamage,
+  applyStaminaRegen,
 } from '../../utils/combatCalculations';
 
 export type CombatActionType =
@@ -59,7 +60,16 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 }) => {
   const effectiveRange = getWeaponRange(player.loadout.weapon);
   const isInWeaponRange = distance <= effectiveRange;
-  const isMeleeRange = distance <= 2.5;
+
+  // Shield Guard stamina recovery — mirrors the production shield_block
+  // action in DuelScene which calls applyStaminaRegen. The displayed value
+  // is the *actual* recoverable stamina (clamped by remaining capacity),
+  // not the theoretical regen rate.
+  const shieldRecovery = applyStaminaRegen(
+    player.stamina,
+    player.stats.staminaMax,
+    player.stats.staminaRegen,
+  ) - player.stamina;
 
   // Calculate hit probability percentages (shared with combat resolution)
   const playerAgi = player.stats.agility;
@@ -262,7 +272,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
                 <span>Shield Guard</span>
               </span>
               <span className="text-[9px] font-mono bg-cyan-950/80 border border-cyan-700/60 px-1 py-0.2 rounded text-cyan-300">
-                +12 SP
+                +{shieldRecovery} SP
               </span>
             </div>
 
@@ -272,7 +282,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
             <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-cyan-900/40">
               <span className="text-cyan-300 font-bold">{Math.round(weapon.blockReduction * 100)}% Absorb</span>
-              <span className="text-emerald-300 font-bold">+Stamina</span>
+              <span className="text-emerald-300 font-bold">+{shieldRecovery} SP</span>
             </div>
           </button>
 
@@ -343,9 +353,9 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             {/* ADVANCE */}
             <button
               onClick={() => onExecuteAction('advance')}
-              disabled={!isPlayerTurn || isExecuting || isMeleeRange}
+              disabled={!isPlayerTurn || isExecuting || isInWeaponRange}
               className={`px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
-                !isPlayerTurn || isExecuting || isMeleeRange
+                !isPlayerTurn || isExecuting || isInWeaponRange
                   ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
                   : 'bg-amber-950/80 hover:bg-amber-900 border-amber-600 text-amber-200'
               }`}
