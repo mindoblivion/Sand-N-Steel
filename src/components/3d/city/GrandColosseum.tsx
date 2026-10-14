@@ -563,7 +563,7 @@ export const GrandColosseum = React.memo(() => {
             players (sign face toward local +Z = world +Z).  Wrapped in
             Suspense because useGLTF suspends until the GLB is parsed. */}
         <Suspense fallback={null}>
-          <group position={[5.0, 0, 4.0]}>
+          <group position={[6.5, 0, 1.0]}>
             <ColosseumSignPrototype />
           </group>
         </Suspense>
