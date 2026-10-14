@@ -492,6 +492,36 @@ const streetWallSegments: SegmentCollider[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Northern Fortress Walls — NorthernFortress.tsx, root [0, 0, -52]
+//
+// The fortress model (Z-up, 70×70 ground footprint) is rotated [-π/2, 0, 0]
+// (Z-up → Y-up) and scaled 0.15, giving a 10.5×10.5 world footprint centered
+// at [0, -52].  After rotation, the model's Y axis maps to world -Z, so:
+//   South face (model Y = -35) → world Z = -52 + 5.25 = -46.75 (toward city)
+//   North face (model Y = +35) → world Z = -52 - 5.25 = -57.25
+//   East face  (model X = +35)  → world X = +5.25
+//   West face  (model X = -35)  → world X = -5.25
+//
+// The visual gate (model X ±2.25, Y ≈ -28.5) is only 0.675 units wide at this
+// scale — too narrow for the player (diameter 0.8).  The collision gap is
+// widened to ±1.0 world units (2.0 total) so the player can pass through.
+//
+// Wall thickness 0.6 world units (≈ 4 model units).  Corner overlaps between
+// adjacent wall rects are intentional and harmless to the collision resolver.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const fortressWallRects: RectCollider[] = [
+  // South wall — split at gate gap X ∈ [-1.0, 1.0]
+  RECT('fortress-south-l', -3.125, -46.75, 4.25, 0.6),
+  RECT('fortress-south-r', 3.125, -46.75, 4.25, 0.6),
+  // North wall — full width
+  RECT('fortress-north', 0, -57.25, 10.5, 0.6),
+  // East / West walls — full depth
+  RECT('fortress-east', 5.25, -52, 0.6, 10.5),
+  RECT('fortress-west', -5.25, -52, 0.6, 10.5),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Master Registry
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -503,4 +533,5 @@ export const CITY_COLLIDERS: Collider[] = [
   ...yardWallSegments,
   ...streetWallRects,
   ...streetWallSegments,
+  ...fortressWallRects,
 ];

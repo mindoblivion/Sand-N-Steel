@@ -23,6 +23,7 @@ import { RecordsLibrary } from './RecordsLibrary';
 import { GladiatorBarracks } from './GladiatorBarracks';
 import { VeteranGladiatorHall } from './VeteranGladiatorHall';
 import { ArenaMedicalHouse } from './ArenaMedicalHouse';
+import { NorthernFortress } from './NorthernFortress';
 import { CityCamera } from './CityCamera';
 import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
@@ -532,7 +533,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
             {/* Distant Roman Hills & Aqueduct Backdrop */}
             <ThreeComponentErrorBoundary componentName="CityBackdrop">
-              <group position={[0, 0, -65]}>
+              <group position={[0, 0, -82]}>
                 {/* Distant Rolling Tuscan Hills */}
                 {[-45, -15, 15, 45].map((hx, hi) => (
                   <mesh key={`hill-${hi}`} position={[hx, 8 + (hi % 2) * 4, 0]}>
@@ -583,6 +584,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <GladiatorBarracks />
               <VeteranGladiatorHall />
               <ArenaMedicalHouse />
+              <NorthernFortress />
             </ThreeComponentErrorBoundary>
 
             {/* 3D Player Gladiator Model Wrapped in Error Boundary */}

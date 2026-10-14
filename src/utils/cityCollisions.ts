@@ -8,6 +8,13 @@ import {
   maxPenetration,
 } from './collisionShapes';
 
+// ── World movement boundaries ────────────────────────────────────────────
+// X axis is symmetric ±35.  Z axis extends further north (-60) to reach
+// the Northern Fortress landmark; the southern limit remains +35.
+export const BOUNDARY_X = 35;
+export const BOUNDARY_Z_MIN = -60;
+export const BOUNDARY_Z_MAX = 35;
+
 // ── Phase 31H: Recovery history for oscillation detection ───────────────
 // Tracks the last N source positions of fallback calls.  Candidates that
 // would reverse to a recently visited position are rejected, breaking
@@ -273,6 +280,17 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     color: '#dc2626',
     district: 'WEST',
   },
+  {
+    id: 'northern_fortress',
+    name: 'Northern Roman Fortress',
+    subtitle: 'Imperial Garrison Outpost',
+    position: [0, 0, -52],
+    radius: 5.0,
+    icon: 'Shield',
+    actionPrompt: 'Approach the Fortress Gate',
+    color: '#78716c',
+    district: 'NORTH',
+  },
 ];
 
 /**
@@ -339,8 +357,8 @@ function recoveryEscape(
   let bestScore = Infinity;
 
   for (const [cdx, cdz] of dirs) {
-    const nx = Math.max(-35, Math.min(35, x + cdx * step));
-    const nz = Math.max(-35, Math.min(35, z + cdz * step));
+    const nx = Math.max(-BOUNDARY_X, Math.min(BOUNDARY_X, x + cdx * step));
+    const nz = Math.max(BOUNDARY_Z_MIN, Math.min(BOUNDARY_Z_MAX, z + cdz * step));
     if (nx === x && nz === z) continue;
 
     // Phase 31H: reject candidates that would reverse to a recently
@@ -398,7 +416,7 @@ export function resolveCityMovement(
   const origZ = z;
 
   // ── X axis ──
-  const testX = Math.max(-35, Math.min(35, x + dx * speed * delta));
+  const testX = Math.max(-BOUNDARY_X, Math.min(BOUNDARY_X, x + dx * speed * delta));
   if (!collidesWith(testX, z, r, CITY_COLLIDERS)) {
     x = testX;
   } else if (!collidesWith(x, z, r, CITY_COLLIDERS)) {
@@ -426,7 +444,7 @@ export function resolveCityMovement(
   }
 
   // ── Z axis (tested at the resolved X to enable wall sliding) ──
-  const testZ = Math.max(-35, Math.min(35, z + dz * speed * delta));
+  const testZ = Math.max(BOUNDARY_Z_MIN, Math.min(BOUNDARY_Z_MAX, z + dz * speed * delta));
   if (!collidesWith(x, testZ, r, CITY_COLLIDERS)) {
     z = testZ;
   } else if (!collidesWith(x, z, r, CITY_COLLIDERS)) {
@@ -535,6 +553,9 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   gladiator_barracks: [-22, -14],
   veteran_gladiator_hall: [-24, -29],
   arena_medical_house:[-29, -9],
+  // Fortress arrival: 1.25 units south of the gate (Z=-46.75), collision-free
+  // and within the extended northern boundary (-60).
+  northern_fortress:   [0, -45],
 };
 
 export function getNearbyHubLocation(
