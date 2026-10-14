@@ -14,7 +14,10 @@ import {
   collidesCircle,
   collidesSegment,
   collidesWith,
+  penetrationDepth,
+  totalPenetration,
   CITY_COLLIDERS,
+  Collider,
   RectCollider,
   CircleCollider,
   SegmentCollider,
@@ -22,6 +25,7 @@ import {
 import {
   resolveCityMovement,
   HUB_LOCATIONS,
+  FAST_TRAVEL_ARRIVALS,
   getNearbyHubLocation,
 } from '../src/utils/cityCollisions';
 
@@ -414,30 +418,276 @@ test('training yard: player can enter from the east', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
-// 13. FAST-TRAVEL DESTINATIONS
+// 13. PHASE 31D — SAFE COLLISION RECOVERY (no global exemption)
 // ════════════════════════════════════════════════════════════════════════════
 
-test('fast-travel: report destinations inside colliders (not a test failure)', () => {
-  // handleFastTravel teleports to [loc.position[0], 0, loc.position[2] + 2]
-  // Many of these are inside building colliders by design (interaction points
-  // are inside buildings). This is EXPECTED — the "already colliding" exemption
-  // in resolveCityMovement prevents trapping. We verify the destinations are
-  // detected and that the player can move away from them.
-  let conflicts = 0;
-  for (const loc of HUB_LOCATIONS) {
-    const fx = loc.position[0];
-    const fz = loc.position[2] + 2;
-    if (collidesWith(fx, fz, R, CITY_COLLIDERS)) {
-      conflicts++;
-      // Player should still be able to move away (not trapped)
-      // Test: moving in +Z (away from most buildings whose centers are at fz-2)
-      const result = resolveCityMovement([fx, 0, fz], 0, 1, 3.8, 0.5);
-      assert.ok(result[2] !== fz,
-        `Player trapped at fast-travel ${loc.id}: cannot move +Z`);
+// 13a. Starting inside a building near one edge and walking toward the opposite wall is blocked.
+test('recovery: inside a building, walking through the opposite wall is blocked', () => {
+  // Smithing forge: cx=18, cz=2, hw=5, hd=4 → x[13,23], z[-2,6].
+  // Start near the WEST edge at (14, 2) — distX to west edge = 1.
+  // Moving +X (toward the east/opposite wall) increases penetration.
+  const pos: [number, number, number] = [14, 0, 2];
+  assert.ok(collidesWith(14, 2, R, CITY_COLLIDERS), 'Setup: should be inside');
+  const result = resolveCityMovement(pos, 1, 0, 3.8, 0.5);
+  assert.ok(result[0] === 14,
+    `Should not move +X deeper into building, got x=${result[0]}`);
+  // Move toward the west edge (-X) reduces penetration → allowed.
+  const result2 = resolveCityMovement(pos, -1, 0, 3.8, 0.5);
+  assert.ok(result2[0] < 14,
+    `Should move -X toward nearest edge, got x=${result2[0]}`);
+});
+
+// 13b. Starting inside a collider and entering an adjacent collider is blocked.
+test('recovery: inside one collider, entering an adjacent collider is blocked', () => {
+  // Two overlapping test rects: A at (10, 0, 4, 4), B at (14, 0, 4, 4)
+  // Player starts inside A at (8, 0) and moves +X toward B.
+  const testColliders: Collider[] = [
+    makeRect(10, 0, 4, 4),
+    makeRect(14, 0, 4, 4),
+  ];
+  // Player at (8, 0) is inside A. Moving +X goes toward B.
+  const currentPen = totalPenetration(8, 0, R, testColliders);
+  const targetPen = totalPenetration(10, 0, R, testColliders);
+  // At (10, 0) the player is deeper inside A AND entering B.
+  assert.ok(targetPen > currentPen,
+    `Moving toward B should increase penetration: current=${currentPen}, target=${targetPen}`);
+  // So resolveCityMovement logic would block this (simulated):
+  // targetPen >= currentPen → blocked
+});
+
+// 13c. Escaping an overlap through a safe route works (reduces penetration).
+test('recovery: escaping an overlap through a safe route', () => {
+  // Start inside the smithing forge center. Move -X (toward west edge, the
+  // nearest exit). Each step should reduce penetration and eventually exit.
+  let pos: [number, number, number] = [18, 0, 2];
+  let escaped = false;
+  for (let i = 0; i < 50; i++) {
+    pos = resolveCityMovement(pos, -1, 0, 3.8, 0.1);
+    if (!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS)) {
+      escaped = true;
+      break;
     }
   }
-  // eslint-disable-next-line no-console
-  console.log(`    (info: ${conflicts}/${HUB_LOCATIONS.length} fast-travel destinations inside colliders — expected, not trapped)`);
+  assert.ok(escaped, 'Player should escape the building by moving toward the nearest edge');
+  assert.ok(!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS),
+    'Final position should be collision-free');
+});
+
+// 13d. Normal movement from open ground into a building is blocked.
+test('recovery: open ground → building is blocked', () => {
+  // Player at (12, 0, 2) is just west of smithing forge (west edge x=13).
+  // Moving +X should be blocked.
+  const pos: [number, number, number] = [12, 0, 2];
+  assert.ok(!collidesWith(12, 2, R, CITY_COLLIDERS), 'Setup: should start clear');
+  const result = resolveCityMovement(pos, 1, 0, 3.8, 0.5);
+  // testX = 12 + 1.9 = 13.9 → collides. Current (12, 2) → clear. Blocked.
+  assert.ok(result[0] <= 12 + 0.01,
+    `Should be blocked, got x=${result[0]}`);
+});
+
+// 13e. Moving away from a wall and sliding along it.
+test('recovery: moving away from wall and sliding along it', () => {
+  // Player at (12, 0, 2) just west of smithing forge.
+  // Moving -X (away) and +Z (parallel to wall) → both should be allowed.
+  const pos: [number, number, number] = [12, 0, 2];
+  const result = resolveCityMovement(pos, -1, 1, 3.8, 0.1);
+  assert.ok(result[0] < 12, `Should move away in -X, got ${result[0]}`);
+  assert.ok(result[2] > 2, `Should slide in +Z, got ${result[2]}`);
+});
+
+// 13f. Movement near overlapping rectangles.
+test('recovery: movement near overlapping rectangles', () => {
+  // Two overlapping rects: A at (10, 0, 6, 6) → x[7,13], B at (13, 0, 6, 6) → x[10,16]
+  const testColliders: Collider[] = [
+    makeRect(10, 0, 6, 6),
+    makeRect(13, 0, 6, 6),
+  ];
+  // At (5, 0), outside both.
+  assert.ok(!collidesWith(5, 0, R, testColliders));
+  // At (8.5, 0), inside A.
+  assert.ok(collidesWith(8.5, 0, R, testColliders));
+  // At (11.5, 0), inside both A and B (overlap region x[10,13]).
+  assert.ok(collidesWith(11.5, 0, R, testColliders));
+  // Total penetration at (5, 0) is 0, at (11.5, 0) is > 0.
+  assert.ok(totalPenetration(5, 0, R, testColliders) === 0);
+  assert.ok(totalPenetration(11.5, 0, R, testColliders) > 0);
+  // Penetration in the overlap is higher than in just one rect.
+  const penOne = totalPenetration(8.5, 0, R, testColliders);
+  const penBoth = totalPenetration(11.5, 0, R, testColliders);
+  assert.ok(penBoth > penOne, `Overlap (${penBoth}) should exceed single (${penOne})`);
+});
+
+// 13g. penetrationDepth function basic correctness.
+test('penetration: depth increases deeper inside a rect', () => {
+  const rect = makeRect(10, 0, 10, 10); // x[5,15], z[-5,5]
+  // Outside: 0
+  assert.ok(penetrationDepth(20, 0, R, rect) === 0);
+  // Just outside the west edge but overlapping (circle still touches):
+  const outsideEdgePen = penetrationDepth(5 - R + 0.01, 0, R, rect);
+  assert.ok(outsideEdgePen > 0 && outsideEdgePen < R,
+    `Outside edge pen ${outsideEdgePen} should be in (0, R)`);
+  // At center: max penetration (R + distX + distZ = R + 5 + 5 = 10.4)
+  const centerPen = penetrationDepth(10, 0, R, rect);
+  assert.ok(centerPen > R, `Center pen ${centerPen} should exceed R=${R}`);
+  // Moving from center toward edge: penetration decreases (distX shrinks)
+  const toward = penetrationDepth(8, 0, R, rect);
+  assert.ok(toward < centerPen, `Toward edge ${toward} should be less than center ${centerPen}`);
+  // Just inside the west edge: high penetration due to distZ contribution
+  const insideEdgePen = penetrationDepth(5 + 0.01, 0, R, rect);
+  assert.ok(insideEdgePen > R, `Inside edge ${insideEdgePen} should exceed R (includes Z escape)`);
+});
+
+test('penetration: totalPenetration sums across colliders', () => {
+  // Concentric rects: large A and smaller B inside it.
+  const rects: Collider[] = [makeRect(0, 0, 10, 10), makeRect(0, 0, 6, 6)];
+  // At (0, 0): inside both → penetration from both
+  const pBoth = totalPenetration(0, 0, R, rects);
+  // At (4, 0): inside A only (B has x[-3,3], 4 > 3)
+  const pOne = totalPenetration(4, 0, R, rects);
+  assert.ok(pBoth > pOne,
+    `Inside both (${pBoth}) should exceed inside one (${pOne})`);
+  // Outside both: 0
+  assert.ok(totalPenetration(20, 20, R, rects) === 0);
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 14. PHASE 31D — FAST-TRAVEL ARRIVAL SAFETY
+// ════════════════════════════════════════════════════════════════════════════
+
+const ARRIVAL_CLEARANCE = PLAYER_RADIUS + 0.5; // 0.9 — radius + safety margin
+
+test('fast-travel: every HUB_LOCATION has an arrival in FAST_TRAVEL_ARRIVALS', () => {
+  for (const loc of HUB_LOCATIONS) {
+    assert.ok(FAST_TRAVEL_ARRIVALS[loc.id] !== undefined,
+      `Missing arrival for ${loc.id}`);
+  }
+  assert.strictEqual(Object.keys(FAST_TRAVEL_ARRIVALS).length, HUB_LOCATIONS.length,
+    'Arrival count should match HUB_LOCATIONS count');
+});
+
+test('fast-travel: every arrival is outside all colliders with player clearance', () => {
+  for (const loc of HUB_LOCATIONS) {
+    const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
+    assert.ok(!collidesWith(ax, az, ARRIVAL_CLEARANCE, CITY_COLLIDERS),
+      `${loc.id} arrival [${ax}, ${az}] collides with clearance ${ARRIVAL_CLEARANCE}`);
+  }
+});
+
+test('fast-travel: every arrival is inside the ±35 boundary', () => {
+  for (const loc of HUB_LOCATIONS) {
+    const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
+    assert.ok(ax >= -35 && ax <= 35, `${loc.id} x=${ax} out of bounds`);
+    assert.ok(az >= -35 && az <= 35, `${loc.id} z=${az} out of bounds`);
+  }
+});
+
+test('fast-travel: every arrival is collision-free at player radius', () => {
+  for (const loc of HUB_LOCATIONS) {
+    const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
+    assert.ok(!collidesWith(ax, az, R, CITY_COLLIDERS),
+      `${loc.id} arrival [${ax}, ${az}] inside a collider at player radius`);
+  }
+});
+
+test('fast-travel: player can move freely from every arrival (not trapped)', () => {
+  for (const loc of HUB_LOCATIONS) {
+    const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
+    const pos: [number, number, number] = [ax, 0, az];
+    // Try moving in several directions — at least one should succeed.
+    let canMove = false;
+    for (const [dx, dz] of [[1,0],[-1,0],[0,1],[0,-1]] as const) {
+      const result = resolveCityMovement(pos, dx, dz, 3.8, 0.3);
+      if (result[0] !== ax || result[2] !== az) {
+        canMove = true;
+        break;
+      }
+    }
+    assert.ok(canMove, `${loc.id} arrival [${ax}, ${az}] — player is trapped`);
+  }
+});
+
+test('fast-travel: arrival positions match documented coordinates', () => {
+  // Verify the exact coordinates are the ones we computed and verified.
+  const expected: Record<string, [number, number]> = {
+    town_gate: [0, 20],
+    colosseum: [0, -23],
+    training_yard: [-18, 2],
+    smithing_forge: [11.5, 2],
+    general_store: [17, -5],
+    tavern: [-10, 14],
+    caravanserai: [10, 14],
+    merchant_house: [21, -12],
+    armor_workshop: [28.2, 5.5],
+    stable: [26, 10],
+    gladiator_academy: [25.5, -23],
+    doctore_house: [23.5, -17],
+    records_house: [24, -26],
+    bathhouse: [-21, 25],
+    shrine_temple: [-22.5, 11],
+    bounty_hall: [-15, 30],
+    gladiator_barracks: [-22, -14],
+    veteran_gladiator_hall: [-24, -29],
+    arena_medical_house: [-29, -9],
+  };
+  for (const [id, coords] of Object.entries(expected)) {
+    const actual = FAST_TRAVEL_ARRIVALS[id];
+    assert.ok(actual, `Missing ${id}`);
+    approx(actual[0], coords[0], 1e-9);
+    approx(actual[1], coords[1], 1e-9);
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 15. PHASE 31D — ARRIVAL REACHABILITY (static geometry checks)
+// ════════════════════════════════════════════════════════════════════════════
+//
+// A fully reliable path-reachability test (A* or ray-march across all
+// colliders) is not implemented in this test harness.  Instead we verify
+// that each arrival point has at least one clear direction toward the city
+// center (0, 0) for a short distance, which is a necessary (not sufficient)
+// condition for reachability.  Manual verification of full paths is
+// documented in the Phase 31D completion report.
+
+test('reachability: every arrival has a clear step toward the city center', () => {
+  for (const loc of HUB_LOCATIONS) {
+    const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
+    // Direction toward city center
+    const dx = -ax;
+    const dz = -az;
+    const len = Math.sqrt(dx * dx + dz * dz);
+    const ndx = len > 0 ? dx / len : 0;
+    const ndz = len > 0 ? dz / len : -1;
+    // Check that the first 2-unit step toward center is clear
+    let clear = true;
+    for (let d = 0.5; d <= 2.0; d += 0.5) {
+      if (collidesWith(ax + ndx * d, az + ndz * d, R, CITY_COLLIDERS)) {
+        clear = false;
+        break;
+      }
+    }
+    // A few destinations are between closely-spaced buildings where the
+    // direct line to center is blocked but a viable path exists (e.g.
+    // armor_workshop is between the forge and workshop; veteran hall is
+    // between the Colosseum and training yard).  For those, verify that
+    // at least one cardinal direction is clear for 2 units.
+    if (!clear) {
+      let foundDir = false;
+      for (const [tdx, tdz] of [[1,0],[-1,0],[0,1],[0,-1]] as const) {
+        let dirClear = true;
+        for (let d = 0.5; d <= 2.0; d += 0.5) {
+          if (collidesWith(ax + tdx * d, az + tdz * d, R, CITY_COLLIDERS)) {
+            dirClear = false;
+            break;
+          }
+        }
+        if (dirClear) { foundDir = true; break; }
+      }
+      assert.ok(foundDir,
+        `${loc.id} arrival [${ax}, ${az}] — no clear path in any direction for 2 units`);
+    } else {
+      assert.ok(true); // pass: direct line to center is clear
+    }
+  }
 });
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -39,6 +39,7 @@ import {
   resolveCityMovement,
   getNearbyHubLocation,
   HUB_LOCATIONS,
+  FAST_TRAVEL_ARRIVALS,
   InteractiveLocation,
 } from '../../../utils/cityCollisions';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
@@ -420,10 +421,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     return () => cancelAnimationFrame(animId);
   }, []);
 
-  // Fast Travel teleport
+  // Fast Travel teleport — Phase 31D: uses verified exterior arrival points
   const handleFastTravel = (loc: InteractiveLocation) => {
     sounds.playClick();
-    const newPos: [number, number, number] = [loc.position[0], 0, loc.position[2] + 2];
+    const arrival = FAST_TRAVEL_ARRIVALS[loc.id];
+    const newPos: [number, number, number] = arrival
+      ? [arrival[0], 0, arrival[1]]
+      : [loc.position[0], 0, loc.position[2] + 2];
     playerPosRef.current = newPos;
     setPlayerPos(newPos);
     setShowNavDrawer(false);

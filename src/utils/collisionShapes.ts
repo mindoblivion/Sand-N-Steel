@@ -124,6 +124,102 @@ export function collidesWith(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Penetration Depth — how deep a circle penetrates a single collider.
+//
+// Returns 0 when there is no overlap.  Higher values = deeper penetration.
+// The score is continuous: it increases as the circle center moves deeper
+// into the obstacle and decreases as it moves toward the boundary, reaching
+// 0 when the circle just separates.
+//
+// For rects, when the center is *inside* the rect the closest-point
+// distance is 0, which would always give penetration = r regardless of how
+// deep the center is.  To distinguish depth we add the distance from the
+// center to the nearest rect edge (the "escape distance"), so a center at
+// the middle of a large rect scores higher than one near the edge.
+//
+// This function is the foundation of safe collision recovery: when the
+// player is already inside a collider, resolveCityMovement only permits
+// movement that *reduces* the total penetration score, guiding the player
+// out without allowing them to walk through the opposite wall.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function penetrationDepth(
+  px: number, pz: number, r: number, c: Collider,
+): number {
+  if (c.type === 'rect') {
+    const closestX = Math.max(c.cx - c.hw, Math.min(px, c.cx + c.hw));
+    const closestZ = Math.max(c.cz - c.hd, Math.min(pz, c.cz + c.hd));
+    const dx = px - closestX;
+    const dz = pz - closestZ;
+    const distSq = dx * dx + dz * dz;
+    if (distSq >= r * r) return 0;
+    const dist = Math.sqrt(distSq);
+    if (dist < 1e-10) {
+      // Center is inside the rect — sum the distance to the nearest edge on
+      // each axis independently.  This ensures movement on EITHER axis
+      // changes the score: when the nearest edge is on the Z axis, moving in
+      // X still reduces the X-axis contribution, so the player can always
+      // make progress toward the nearest exit instead of being locked to one
+      // axis by a global minimum.
+      const distX = Math.min(
+        px - (c.cx - c.hw),
+        (c.cx + c.hw) - px,
+      );
+      const distZ = Math.min(
+        pz - (c.cz - c.hd),
+        (c.cz + c.hd) - pz,
+      );
+      return r + Math.max(0, distX) + Math.max(0, distZ);
+    }
+    return r - dist;
+  }
+  if (c.type === 'circle') {
+    const dx = px - c.cx;
+    const dz = pz - c.cz;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    const combined = r + c.r;
+    if (dist >= combined) return 0;
+    return combined - dist;
+  }
+  // segment
+  const sdx = c.x2 - c.x1;
+  const sdz = c.z2 - c.z1;
+  const lenSq = sdx * sdx + sdz * sdz;
+  let t = 0;
+  if (lenSq > 1e-10) {
+    t = ((px - c.x1) * sdx + (pz - c.z1) * sdz) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+  }
+  const cx = c.x1 + t * sdx;
+  const cz = c.z1 + t * sdz;
+  const ddx = px - cx;
+  const ddz = pz - cz;
+  const distSq = ddx * ddx + ddz * ddz;
+  if (distSq >= r * r) return 0;
+  return r - Math.sqrt(distSq);
+}
+
+/**
+ * Total penetration score — sum of penetration depths against all colliders
+ * that the circle overlaps.  Lower = closer to being free.  0 = no collision.
+ *
+ * Used by resolveCityMovement to decide whether a proposed move from an
+ * already-overlapping position is reducing penetration (allowed) or not
+ * (blocked, fail safe).
+ */
+export function totalPenetration(
+  px: number, pz: number, r: number,
+  colliders: readonly Collider[],
+): number {
+  let total = 0;
+  for (let i = 0; i < colliders.length; i++) {
+    const d = penetrationDepth(px, pz, r, colliders[i]);
+    if (d > 0) total += d;
+  }
+  return total;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Arc Segment Generation
 // ─────────────────────────────────────────────────────────────────────────────
 

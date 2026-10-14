@@ -1,8 +1,9 @@
-// Phase 31B — Centralized collision system
+// Phase 31D — Safe collision recovery and exterior fast travel
 import {
   PLAYER_RADIUS,
   CITY_COLLIDERS,
   collidesWith,
+  totalPenetration,
 } from './collisionShapes';
 
 export type CityDistrictType = 'CENTER' | 'NORTH' | 'SOUTH' | 'EAST' | 'WEST' | string;
@@ -245,6 +246,24 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
   },
 ];
 
+/**
+ * Phase 31D — Safe collision recovery resolver.
+ *
+ * Resolves X and Z axes independently (enabling wall sliding) using a
+ * penetration-score approach instead of the former global "already
+ * colliding" exemption.
+ *
+ * For each axis:
+ *  1. Target clear  → move (normal movement).
+ *  2. Target blocked, current clear → block (wall).
+ *  3. Both blocked → allow only if the target's total penetration score
+ *     is strictly less than the current's (reducing penetration / escaping).
+ *     Otherwise block (fail safe — player stays rather than walking through).
+ *
+ * This prevents the player from walking through buildings when they start
+ * inside a collider (e.g. after a buggy fast-travel), while still allowing
+ * them to move toward the nearest edge to escape.
+ */
 export function resolveCityMovement(
   currentPos: [number, number, number],
   dx: number,
@@ -258,21 +277,95 @@ export function resolveCityMovement(
 
   // ── X axis ──
   const testX = Math.max(-35, Math.min(35, x + dx * speed * delta));
-  // Block if the target collides AND the player is not already colliding
-  // (the "already colliding" exemption prevents trapping after fast travel,
-  // which bypasses this function and may place the player inside a collider).
-  if (!collidesWith(testX, z, r, CITY_COLLIDERS) || collidesWith(x, z, r, CITY_COLLIDERS)) {
+  if (!collidesWith(testX, z, r, CITY_COLLIDERS)) {
     x = testX;
+  } else if (!collidesWith(x, z, r, CITY_COLLIDERS)) {
+    // Current clear, target blocked — wall, don't move
+  } else {
+    // Both overlap — allow only if reducing penetration
+    const currentPen = totalPenetration(x, z, r, CITY_COLLIDERS);
+    const targetPen = totalPenetration(testX, z, r, CITY_COLLIDERS);
+    if (targetPen < currentPen) {
+      x = testX;
+    }
   }
 
   // ── Z axis (tested at the resolved X to enable wall sliding) ──
   const testZ = Math.max(-35, Math.min(35, z + dz * speed * delta));
-  if (!collidesWith(x, testZ, r, CITY_COLLIDERS) || collidesWith(x, z, r, CITY_COLLIDERS)) {
+  if (!collidesWith(x, testZ, r, CITY_COLLIDERS)) {
     z = testZ;
+  } else if (!collidesWith(x, z, r, CITY_COLLIDERS)) {
+    // blocked
+  } else {
+    const currentPen = totalPenetration(x, z, r, CITY_COLLIDERS);
+    const targetPen = totalPenetration(x, testZ, r, CITY_COLLIDERS);
+    if (targetPen < currentPen) {
+      z = testZ;
+    }
   }
 
   return [x, currentPos[1], z];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 31D — Verified exterior fast-travel arrival points.
+//
+// Each coordinate is hand-computed to be:
+//   • Outside every collider with ≥ 0.9-unit clearance (player radius 0.4
+//     + 0.5 safety margin).
+//   • Within the ±35 world boundary.
+//   • On the side of the building that faces the city center or an
+//     accessible path, so the player can walk to the interaction point
+//     without crossing a collider.
+//
+// The Colosseum and Training Yard already-safe destinations are preserved
+// unchanged.  All other destinations were inside building footprints under
+// the old "[lx, 0, lz+2]" formula and are now replaced with verified
+// exterior positions.
+//
+// Per-point safety rationale:
+//   town_gate         [0, 20]    — 1.35 S of ishtar-central front edge (z=21.35)
+//   colosseum         [0, -23]   — preserved (already safe, inside Colosseum ring)
+//   training_yard     [-18, 2]   — preserved (already safe, inside yard ring)
+//   smithing_forge    [11.5, 2]  — 1.5 W of forge west edge (x=13.0)
+//   general_store     [17, -5]   — 1.15 W of store west edge (x=18.15)
+//   tavern            [-10, 14]  — 1.3 E of tavern east edge (x=-11.3)
+//   caravanserai      [10, 14]   — 1.2 W of caravanserai west edge (x=11.2)
+//   merchant_house    [21, -12]  — 1.15 W of merchant west edge (x=22.15)
+//   armor_workshop    [28.2, 5.5]— 1.5 N of workshop north edge (z=4.0)
+//   stable            [26, 10]   — 1.15 S of stable south edge (z=11.15)
+//   gladiator_academy [25.5, -23]— 1.15 NW of academy NW corner (x=26.65,z=-23.35)
+//   doctore_house     [23.5, -17]— 1.5 W of doctore west edge (x=25.0)
+//   records_house     [24, -26]  — 1.15 N of records north edge (z=-27.15)
+//   bathhouse         [-21, 25]  — 1.0 E of bathhouse east edge (x=-22.0)
+//   shrine_temple     [-22.5, 11]— 1.35 E of shrine east edge (x=-23.85)
+//   bounty_hall       [-15, 30]  — 1.0 S of bounty south edge (z=29.0)
+//   gladiator_barracks[-22, -14] — 1.45 E of barracks east edge (x=-23.45)
+//   veteran_gladiator_hall [-24, -29] — 0.95 N of veteran north edge (z=-28.05)
+//   arena_medical_house[-29, -9] — 1.25 N of medical north edge (z=-7.75)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
+  town_gate:          [0, 20],
+  colosseum:          [0, -23],
+  training_yard:      [-18, 2],
+  smithing_forge:     [11.5, 2],
+  general_store:      [17, -5],
+  tavern:             [-10, 14],
+  caravanserai:       [10, 14],
+  merchant_house:     [21, -12],
+  armor_workshop:     [28.2, 5.5],
+  stable:             [26, 10],
+  gladiator_academy:  [25.5, -23],
+  doctore_house:      [23.5, -17],
+  records_house:      [24, -26],
+  bathhouse:          [-21, 25],
+  shrine_temple:      [-22.5, 11],
+  bounty_hall:        [-15, 30],
+  gladiator_barracks: [-22, -14],
+  veteran_gladiator_hall: [-24, -29],
+  arena_medical_house:[-29, -9],
+};
 
 export function getNearbyHubLocation(
   pos: [number, number, number]
