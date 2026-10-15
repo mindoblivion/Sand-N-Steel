@@ -46,18 +46,36 @@ export const DoctoreHouse = React.memo(() => {
         tympanumColor="#78716c"
       />
 
-      {/* Doctore Instructor Windows */}
+      {/* Phase C-8.16: Doctore Instructor Window moved from the west face to the
+          EAST face (local +X) so the west wall is free for the new entrance.
+          +Math.PI / 2 rotates the primitive's local +Z outward normal onto
+          world +X (east), mirroring the -Math.PI / 2 west-face convention used
+          by SmithingForge. Local X 2.76 keeps the original 0.01 outward offset
+          from the 2.75 wall face. */}
       <ClassicalWindow
-        position={[-2.76, 2.2, 0]}
-        rotation={[0, -Math.PI / 2, 0]}
+        position={[2.76, 2.2, 0]}
+        rotation={[0, Math.PI / 2, 0]}
         width={0.7}
         height={0.9}
         stoneColor="#57534e"
       />
 
-      {/* Framed Heavy Oak Entrance Doorway */}
+      {/* Phase C-8.16: WEST-FACING ENTRANCE.
+          The C-8.15 audit found the south doorway (local Z 2.52 → world
+          [28, -15.48]) buried inside the MerchantHouse collider
+          (x[22.15,29.85] z[-16.5,-9.5]), so an approach there is unreachable
+          and getNearbyHubLocation selects the Merchant House instead of the
+          Doctore House. The doorway moves to the WEST face (local -X) using the
+          established west-door convention (SmithingForge), where rotation
+          [0, -Math.PI / 2, 0] turns the primitive's local +Z outward normal
+          onto world -X. Local X 2.77 = wall half-width 2.75 + the same 0.02
+          outward offset the old south doorway used on Z. Recess, leaf-less
+          opening, jambs, lintel, cap and threshold all carry through the same
+          group transform. Collider, hub, arrival, foundation and street
+          geometry are unchanged. */}
       <ClassicalDoorway
-        position={[0, 0, 2.52]}
+        position={[-2.77, 0, 0]}
+        rotation={[0, -Math.PI / 2, 0]}
         width={1.4}
         height={2.2}
         depth={0.35}
