@@ -308,15 +308,24 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       const attacker = isActorPlayer ? player : opp;
       const defender = isActorPlayer ? opp : player;
 
-      // Taking a new action ends any lingering dodge invulnerability from a
-      // previous turn. The dodge stance persists across the turn boundary
-      // (see the reset below) so the opposing attack can interact with it;
-      // it is consumed here when the fighter acts again. Returning the same
-      // reference when nothing changes lets React bail out of a re-render.
+      // Taking a new action ends any lingering defensive stance (block or
+      // dodge invulnerability) from a previous turn. Both stances persist
+      // across the turn boundary (see the turn-end reset below) so the
+      // opposing attack can interact with them; they are consumed here
+      // when the fighter acts again. Returning the same reference when
+      // nothing changes lets React bail out of a re-render.
       if (isActorPlayer) {
-        setPlayer((prev) => (prev.isInvulnerable ? { ...prev, isInvulnerable: false } : prev));
+        setPlayer((prev) =>
+          prev.isInvulnerable || prev.isBlocking
+            ? { ...prev, isInvulnerable: false, isBlocking: false }
+            : prev,
+        );
       } else {
-        setOpp((prev) => (prev.isInvulnerable ? { ...prev, isInvulnerable: false } : prev));
+        setOpp((prev) =>
+          prev.isInvulnerable || prev.isBlocking
+            ? { ...prev, isInvulnerable: false, isBlocking: false }
+            : prev,
+        );
       }
 
       const dist = Math.abs(player.position[2] - opp.position[2]);
@@ -614,21 +623,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           setPlayer((prev) => ({
             ...prev,
             action: 'idle',
-            // Preserve the player's block when a telegraphed heavy attack
-            // is pending so the block can absorb the announced strike on
-            // the boss's next turn. Without this, isBlocking is cleared at
-            // turn end and the telegraph response is dodge-only.
-            isBlocking: pendingHeavyAttackRef.current ? prev.isBlocking : false,
-            // isInvulnerable is intentionally NOT cleared here: a dodge stance
-            // must survive into the opponent's turn so the incoming strike can
-            // be evaded. It is consumed when the fighter next acts (pre-clear
-            // at the top of executeCombatTurn). isBlocking is unchanged.
+            // Both isBlocking and isInvulnerable are intentionally NOT cleared
+            // here: a block or dodge stance must survive into the opponent's
+            // turn so the incoming attack can interact with it. Each is
+            // consumed when the fighter next acts (pre-clear at the top of
+            // executeCombatTurn). This mirrors the isInvulnerable lifecycle
+            // and fixes the C-8.5 defect where shield_block was always
+            // cleared before the opponent's attack could be blocked.
           }));
         } else {
           setOpp((prev) => ({
             ...prev,
             action: 'idle',
-            isBlocking: false,
+            // isBlocking intentionally NOT cleared here — same lifecycle as
+            // the player's block. Consumed via pre-clear at the top of
+            // executeCombatTurn when the opponent next acts.
           }));
         }
 
@@ -663,13 +672,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // and block all use existing code paths.
       //
       // The player's block (if they chose shield_block as their
-      // response) is intentionally left in place: executeCombatTurn
-      // reads fighter state from its render closure, so the preserved
-      // isBlocking flag is active during the power_attack and applies
-      // the existing 75% damage reduction. The block is then cleared
-      // by the 1100ms turn-end cleanup, which evaluates
-      // pendingHeavyAttackRef.current (now false) and sets
-      // isBlocking to false. No explicit pre-clear is needed here.
+      // response) persists through the turn-end cleanup (C-8.5 fix):
+      // isBlocking is no longer cleared at turn end, so it is active
+      // during this power_attack and applies the existing block
+      // reduction via calculateAttackDamage. The block is consumed by
+      // the pre-clear at the top of executeCombatTurn when the player
+      // next acts — no explicit clear is needed here.
       if (opponent.bossMechanic === 'heavy_telegraph' && pendingHeavyAttackRef.current) {
         pendingHeavyAttackRef.current = false;
         setOpp((prev) => ({ ...prev, telegraphText: undefined }));

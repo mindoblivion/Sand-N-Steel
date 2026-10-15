@@ -239,6 +239,77 @@ export function updateHypePeak(currentPeak: number, newHype: number): number {
 }
 
 /**
+ * A fighter's transient defensive flags that persist across the turn
+ * boundary so the opponent's incoming attack can interact with them.
+ *
+ *   isBlocking      — set by `shield_block`, consumed on next action
+ *   isInvulnerable  — set by `dodge`, consumed on next action
+ *
+ * Both follow the same lifecycle: set during the fighter's turn, preserved
+ * through the turn-end cleanup, and cleared via `clearDefensiveStance` when
+ * the fighter takes their next action (pre-clear at the top of
+ * `executeCombatTurn`).
+ */
+export interface DefensiveStance {
+  isBlocking: boolean;
+  isInvulnerable: boolean;
+}
+
+/**
+ * The defensive action a fighter can take during their turn.
+ *
+ *   'shield_block' — raises the shield (sets isBlocking)
+ *   'dodge'        — enters evasion stance (sets isInvulnerable)
+ *   'other'        — any non-defensive action (advance, attack, taunt, …)
+ */
+export type DefensiveAction = 'shield_block' | 'dodge' | 'other';
+
+/**
+ * Apply a defensive action to the fighter's stance, returning the new
+ * stance. Pure and side-effect-free — the caller owns the React state.
+ *
+ * `shield_block` sets `isBlocking = true` (and does not touch
+ * `isInvulnerable`). `dodge` sets `isInvulnerable = true` (and does not
+ * touch `isBlocking`). `other` leaves both unchanged.
+ *
+ * Note: the caller is expected to pre-clear the stance via
+ * `clearDefensiveStance` before applying a new action, so a fighter who
+ * blocked last turn and dodges this turn ends up with only
+ * `isInvulnerable = true`, not both flags.
+ */
+export function applyDefensiveAction(
+  state: DefensiveStance,
+  action: DefensiveAction,
+): DefensiveStance {
+  if (action === 'shield_block') return { ...state, isBlocking: true };
+  if (action === 'dodge') return { ...state, isInvulnerable: true };
+  return state;
+}
+
+/**
+ * Resolve the fighter's stance at turn-end. Both `isBlocking` and
+ * `isInvulnerable` are **preserved** — they must survive into the
+ * opponent's turn so the incoming attack can interact with them. They are
+ * consumed (cleared) when the fighter next acts via `clearDefensiveStance`.
+ *
+ * Pure and side-effect-free.
+ */
+export function resolveTurnEndDefensive(state: DefensiveStance): DefensiveStance {
+  return { ...state };
+}
+
+/**
+ * Clear both defensive flags. Called as a pre-clear at the top of
+ * `executeCombatTurn` when a fighter takes their next action, consuming
+ * any lingering block or dodge stance from the previous turn.
+ *
+ * Pure and side-effect-free.
+ */
+export function clearDefensiveStance(state: DefensiveStance): DefensiveStance {
+  return { isBlocking: false, isInvulnerable: false };
+}
+
+/**
  * Choose the AI's out-of-range movement action.
  *
  * When the opponent is beyond strike range, it either advances (82 %) or
