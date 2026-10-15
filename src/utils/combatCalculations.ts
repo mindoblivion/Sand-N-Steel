@@ -38,6 +38,12 @@ export const STRENGTH_BONUS_PER_POINT = 0.05;
 export const CRIT_MULTIPLIER = 1.5;
 
 /**
+ * Rage mode damage multiplier for the `rage_mode_colossus` boss mechanic
+ * (Phase 38B). Applied to the raged opponent's outgoing attack damage.
+ */
+export const RAGE_DAMAGE_MULTIPLIER = 1.25;
+
+/**
  * Weapon-specific effective attack range in arena meters.
  *
  * Replaces the old binary `spear ? 3.8 : 2.5` check.  Every weapon in
@@ -84,8 +90,9 @@ export function calculateHitChance(
  *
  *   1. Strength bonus  (× 1 + str × 0.05)
  *   2. Critical multiplier (× 1.5 for power-attack crits, × 1 otherwise)
- *   3. Defense mitigation (multiplicative, diminishing returns)
- *   4. Block reduction (defender's weapon blockReduction, if actively blocking)
+ *   3. Rage multiplier  (× RAGE_DAMAGE_MULTIPLIER when attacker is raged, × 1 otherwise)
+ *   4. Defense mitigation (multiplicative, diminishing returns)
+ *   5. Block reduction (defender's weapon blockReduction, if actively blocking)
  *
  * The result is rounded and floored at 1 so a hit always deals at least
  * 1 damage — even against a maxed-out defender who is blocking.
@@ -96,6 +103,7 @@ export function calculateHitChance(
  * @param defenderDefense  defender's total Defense stat
  * @param isBlocked    true when the defender chose Shield Guard this turn
  * @param blockReduction   defender's weapon.blockReduction (0–1 fraction absorbed)
+ * @param rageMultiplier  damage multiplier for rage mode (default 1.0 = no rage)
  */
 export function calculateAttackDamage(
   baseDamage: number,
@@ -104,10 +112,11 @@ export function calculateAttackDamage(
   defenderDefense: number,
   isBlocked: boolean,
   blockReduction: number,
+  rageMultiplier: number = 1.0,
 ): number {
   const strBonus = 1 + attackerStrength * STRENGTH_BONUS_PER_POINT;
   const critMult = isCrit ? CRIT_MULTIPLIER : 1.0;
-  const rawDamage = baseDamage * strBonus * critMult;
+  const rawDamage = baseDamage * strBonus * critMult * rageMultiplier;
 
   // Defense mitigation — diminishing returns, never reaches 100 %
   const defenseMultiplier = 100 / (100 + defenderDefense * DEFENSE_MITIGATION_FACTOR);
@@ -136,6 +145,31 @@ export function applyStaminaRegen(
   regen: number,
 ): number {
   return Math.max(0, Math.min(staminaMax, current + regen));
+}
+
+/**
+ * Determine whether the `rage_mode_colossus` boss mechanic should activate.
+ *
+ * Pure, side-effect-free — the caller (DuelScene) owns the ref that prevents
+ * re-activation and the React state that stores `isRaged`.
+ *
+ * @param bossMechanic     the opponent's configured boss mechanic
+ * @param currentHealth    the opponent's current HP
+ * @param healthMax        the opponent's maximum HP
+ * @param alreadyActivated whether rage has already activated this fight
+ * @returns true if rage should activate now (caller sets isRaged + ref)
+ */
+export function shouldActivateRage(
+  bossMechanic: string | undefined,
+  currentHealth: number,
+  healthMax: number,
+  alreadyActivated: boolean,
+): boolean {
+  if (alreadyActivated) return false;
+  if (bossMechanic !== 'rage_mode_colossus') return false;
+  if (!Number.isFinite(currentHealth) || currentHealth <= 0) return false;
+  if (!Number.isFinite(healthMax) || healthMax <= 0) return false;
+  return currentHealth <= healthMax * 0.5;
 }
 
 /**

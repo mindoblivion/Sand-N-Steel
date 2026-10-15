@@ -22,6 +22,8 @@ import {
   calculateAttackDamage,
   applyStaminaRegen,
   chooseAIStandardAction,
+  RAGE_DAMAGE_MULTIPLIER,
+  shouldActivateRage,
 } from '../../utils/combatCalculations';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
@@ -226,6 +228,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
   const pendingCounterRef = useRef(false);
+  const rageActivatedRef = useRef(false);
 
   // Match timer
   useEffect(() => {
@@ -490,6 +493,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               : attacker.loadout.weapon.damageHeavy;
             const isCrit = !isQuick && Math.random() < 0.25;
             const isBlocked = defender.isBlocking;
+            const rageMult = (!isActorPlayer && attacker.isRaged) ? RAGE_DAMAGE_MULTIPLIER : 1.0;
             const rawDamage = calculateAttackDamage(
               baseDmg,
               attacker.stats.strength,
@@ -497,6 +501,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               defender.stats.defense,
               isBlocked,
               defender.loadout.weapon.blockReduction,
+              rageMult,
             );
 
             if (isBlocked) {
@@ -740,6 +745,22 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       addLog(`${opp.name} discards their blades and draws a heavy war mace!`, 'system');
     }
   }, [opp.health, opp.stats.healthMax, opponent.bossMechanic, opponent.phase2WeaponType, opp.name, addLog]);
+
+  // Aurelius rage_mode_colossus: activate rage once when health drops to 50%.
+  // Guarded by rageActivatedRef so it fires exactly once per duel. The ref
+  // resets naturally on a fresh DuelScene mount. Rage state persists on
+  // FighterState.isRaged for the rest of the fight — no save persistence.
+  // The 750 ms AI delay ensures rage is active before the opponent's next
+  // outgoing attack: setOpp triggers a re-render that recreates
+  // executeCombatTurn (which has opp in its deps) before the AI timer fires.
+  useEffect(() => {
+    if (isMatchOver.current) return;
+    if (!shouldActivateRage(opponent.bossMechanic, opp.health, opp.stats.healthMax, rageActivatedRef.current)) return;
+    rageActivatedRef.current = true;
+    setOpp((prev) => ({ ...prev, isRaged: true }));
+    addLog(`${opp.name} enters a devastating RAGE! Attack power surged!`, 'system');
+    spawnDamageText('RAGE MODE!', 'crit', opp.position);
+  }, [opp.health, opp.stats.healthMax, opponent.bossMechanic, opp.name, addLog, spawnDamageText]);
 
   return (
     <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
