@@ -314,7 +314,9 @@ const buildingRects: RectCollider[] = [
   RECT('ishtar-tower-r', 8.5, 24, 4.9, 5.9),
 
   // SmithingForge — root [18, 0, 2], foundation [9.5, 7.5], proj 0.25 → 10.0 × 8.0
-  RECT('smithing-forge', 18, 2, 10.0, 8.0),
+  // Phase C-8.10: width narrowed 10.0 → 9.5 to align east edge with wall face
+  // at X≈22.75, opening the intended passage to the ArmorLeatherWorkshop.
+  RECT('smithing-forge', 18, 2, 9.5, 8.0),
 
   // CityTavern — root [-16, 0, 14], foundation [8.4, 7.2], proj 0.25 → 9.4 × 7.7
   RECT('city-tavern', -16, 14, 9.4, 7.7),
