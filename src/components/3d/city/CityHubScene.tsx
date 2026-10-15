@@ -556,7 +556,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 {[-45, -15, 15, 45].map((hx, hi) => (
                   <mesh key={`hill-${hi}`} position={[hx, 8 + (hi % 2) * 4, hi === 1 || hi === 2 ? -7 : 0]}>
                     <sphereGeometry args={[26, 16, 12]} />
-                    <meshStandardMaterial color="#b45309" roughness={0.9} />
+                    <meshStandardMaterial color="#8a8b7a" roughness={0.9} />
                   </mesh>
                 ))}
                 {/* Distant Roman Aqueduct Arches on Horizon */}
@@ -564,11 +564,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                   <group key={`aq-${ai}`} position={[-50 + ai * 9, 7, 12]}>
                     <mesh position={[0, 3, 0]}>
                       <boxGeometry args={[1.4, 7.5, 1.4]} />
-                      <meshStandardMaterial color="#ca8a04" roughness={0.8} />
+                      <meshStandardMaterial color="#d6c4aa" roughness={0.8} />
                     </mesh>
                     <mesh position={[4.5, 7.2, 0]}>
                       <boxGeometry args={[9.5, 1.4, 1.6]} />
-                      <meshStandardMaterial color="#d97706" roughness={0.8} />
+                      <meshStandardMaterial color="#c4a878" roughness={0.8} />
                     </mesh>
                   </group>
                 ))}
