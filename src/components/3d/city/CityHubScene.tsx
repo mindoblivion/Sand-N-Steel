@@ -543,11 +543,18 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             {/* Distant Roman Hills & Aqueduct Backdrop */}
             <ThreeComponentErrorBoundary componentName="CityBackdrop">
               {/* Phase 34G: Moved north from Z=-98 to Z=-115 to avoid
-                  intersection with the motte (moat ring north at Z=-90). */}
+                  intersection with the motte (moat ring north at Z=-90).
+                  Phase 34I: Inner hills (X=±15) moved further north to
+                  local Z=-7 (world Z=-122) to clear the motte mesh's
+                  visible outer boundary (northmost at Z≈-93.16).  Outer
+                  hills (X=±45) and aqueduct (local Z=12, world Z=-103)
+                  remain at their original positions — only the inner
+                  hills' spheres (radius 26) intersected the motte at
+                  Y=0.  Clearance at Z=-122: ~6 units (inner hills). */}
               <group position={[0, 0, -115]}>
                 {/* Distant Rolling Tuscan Hills */}
                 {[-45, -15, 15, 45].map((hx, hi) => (
-                  <mesh key={`hill-${hi}`} position={[hx, 8 + (hi % 2) * 4, 0]}>
+                  <mesh key={`hill-${hi}`} position={[hx, 8 + (hi % 2) * 4, hi === 1 || hi === 2 ? -7 : 0]}>
                     <sphereGeometry args={[26, 16, 12]} />
                     <meshStandardMaterial color="#b45309" roughness={0.9} />
                   </mesh>

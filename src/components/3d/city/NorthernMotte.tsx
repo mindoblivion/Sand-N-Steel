@@ -6,13 +6,25 @@ import { SkeletonUtils } from 'three-stdlib';
 /**
  * NorthernMotte.tsx — Motte-and-bailey earth mound north of the Colosseum.
  *
- * Loads the normals-corrected GLB asset
- * (public/_workspace_motte_normals.glb) through the existing useGLTF
- * pipeline.  The original GLB (trimesh-generated) had no NORMAL attributes
- * on any mesh, causing invisible rendering on SwiftShader.  The corrected
- * asset was produced with smooth per-vertex normals computed from the
- * indexed geometry, preserving all vertex counts, indices, materials,
- * transforms, and bounds.
+ * Loads the corrected GLB asset (public/_workspace_motte_normals.glb)
+ * through the existing useGLTF pipeline.
+ *
+ * Asset correction history:
+ *   1. The original GLB (trimesh-generated) had no NORMAL attributes on any
+ *      mesh, causing invisible rendering on SwiftShader.
+ *   2. The corrected asset was produced with TWO modifications:
+ *      a. Smooth per-vertex normals computed from the indexed geometry,
+ *         preserving all vertex counts, indices, materials, and bounds.
+ *      b. Node-level Z-up→Y-up rotation baked into the GLB node hierarchy,
+ *         so the model renders correctly in Three.js (Y-up) without any
+ *         component-level rotation.
+ *
+ * IMPORTANT: Because the GLB nodes already carry the Z-up→Y-up rotation,
+ * this component must NOT apply a duplicate rotation.  The outer group
+ * uses rotation [0, 0, 0].  (Contrast with NorthernFortress, whose GLB
+ * nodes carry NO rotation and which applies [-π/2, 0, 0] at the component
+ * level.)  Applying a duplicate rotation would misalign the motte and
+ * break the terrain height calculations in terrainHeight.ts.
  *
  * Approved configuration (Phase 34G, C2 south-facing):
  *   Position: [0, 0, -68]

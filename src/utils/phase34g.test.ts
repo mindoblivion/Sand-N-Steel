@@ -35,13 +35,17 @@ import {
 } from './cityCollisions';
 import {
   getTerrainY,
+  isInsideSummit,
+  summitEdgeRadius,
   MOTTE_CENTER_Z,
   MOTTE_SCALE,
   RAMP_HALF_WIDTH,
   RAMP_Z_OUTER,
   RAMP_Z_INNER,
   SUMMIT_Y,
-  SUMMIT_RADIUS,
+  SUMMIT_CARDINAL_RADIUS,
+  SUMMIT_DIAGONAL_RADIUS,
+  SUMMIT_SUPERELLIPSE_N,
   MOTTE_PERIMETER_RADIUS,
 } from './terrainHeight';
 
@@ -120,15 +124,31 @@ describe('Terrain height — summit', () => {
     expect(Math.abs(y - SUMMIT_Y)).toBeLessThan(EPS);
   });
 
-  test('summit edge is at summit height', () => {
-    // At the summit radius, along the X axis
-    const y = getTerrainY(SUMMIT_RADIUS, MOTTE_CENTER_Z);
+  test('summit edge at cardinal direction is at summit height', () => {
+    // At the cardinal summit radius (12.58), along the X axis
+    const y = getTerrainY(SUMMIT_CARDINAL_RADIUS, MOTTE_CENTER_Z);
     expect(Math.abs(y - SUMMIT_Y)).toBeLessThan(HALF_MM);
   });
 
-  test('just beyond summit edge starts sloping down', () => {
-    const yInside = getTerrainY(SUMMIT_RADIUS, MOTTE_CENTER_Z);
-    const yOutside = getTerrainY(SUMMIT_RADIUS + 0.1, MOTTE_CENTER_Z);
+  test('just beyond cardinal summit edge starts sloping down', () => {
+    const yInside = getTerrainY(SUMMIT_CARDINAL_RADIUS, MOTTE_CENTER_Z);
+    const yOutside = getTerrainY(SUMMIT_CARDINAL_RADIUS + 0.1, MOTTE_CENTER_Z);
+    expect(yOutside).toBeLessThan(yInside);
+  });
+
+  test('summit edge at diagonal direction is at summit height', () => {
+    // Diagonal summit radius ≈ 15.87 at 45°
+    const dx = SUMMIT_DIAGONAL_RADIUS * Math.SQRT1_2;
+    const dz = SUMMIT_DIAGONAL_RADIUS * Math.SQRT1_2;
+    const y = getTerrainY(dx, MOTTE_CENTER_Z + dz);
+    expect(Math.abs(y - SUMMIT_Y)).toBeLessThan(0.01);
+  });
+
+  test('just beyond diagonal summit edge starts sloping down', () => {
+    const dx = SUMMIT_DIAGONAL_RADIUS * Math.SQRT1_2;
+    const dz = SUMMIT_DIAGONAL_RADIUS * Math.SQRT1_2;
+    const yInside = getTerrainY(dx, MOTTE_CENTER_Z + dz);
+    const yOutside = getTerrainY(dx + 0.1, MOTTE_CENTER_Z + dz + 0.1);
     expect(yOutside).toBeLessThan(yInside);
   });
 });
@@ -158,28 +178,152 @@ describe('Terrain height — outside motte', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 3b. Phase 34I — Superellipse Summit Regression Tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Superellipse summit regression (Phase 34I)', () => {
+  test('cardinal summit radius is 40 * scale', () => {
+    expect(SUMMIT_CARDINAL_RADIUS).toBeCloseTo(40 * MOTTE_SCALE, 4);
+  });
+
+  test('diagonal summit radius is ~50.4 * scale', () => {
+    expect(SUMMIT_DIAGONAL_RADIUS).toBeCloseTo(50.4 * MOTTE_SCALE, 2);
+  });
+
+  test('superellipse exponent is 6', () => {
+    expect(SUMMIT_SUPERELLIPSE_N).toBe(6);
+  });
+
+  test('no floating region between cardinal and old circular radius', () => {
+    // The old circular approximation used 50 * scale = 15.725 as the summit
+    // radius.  At cardinal direction, the actual summit edge is 12.58.
+    // Points between 12.58 and 15.725 should NOT be at summit height —
+    // they should be on the mound slope (Y < SUMMIT_Y).
+    const oldRadius = 50 * MOTTE_SCALE; // 15.725
+    for (let r = SUMMIT_CARDINAL_RADIUS + 0.1; r < oldRadius; r += 0.5) {
+      const y = getTerrainY(r, MOTTE_CENTER_Z);
+      expect(y).toBeLessThan(SUMMIT_Y - 0.01,
+        `Floating region at cardinal r=${r.toFixed(2)}: Y=${y.toFixed(4)} should be below summit`);
+    }
+  });
+
+  test('no floating region at cardinal between summit edge and perimeter', () => {
+    // All points between the cardinal summit edge (12.58) and the
+    // perimeter (22.0) at cardinal direction should be on the mound
+    // slope, not at summit height.
+    for (let r = SUMMIT_CARDINAL_RADIUS + 0.01; r < MOTTE_PERIMETER_RADIUS; r += 1.0) {
+      const y = getTerrainY(r, MOTTE_CENTER_Z);
+      expect(y).toBeLessThan(SUMMIT_Y,
+        `Cardinal r=${r.toFixed(2)}: Y=${y.toFixed(4)} should be below summit`);
+      expect(y).toBeGreaterThanOrEqual(0,
+        `Cardinal r=${r.toFixed(2)}: Y=${y.toFixed(4)} should be >= 0`);
+    }
+  });
+
+  test('summit is NOT circular: cardinal and diagonal edges differ', () => {
+    const cardinalEdge = summitEdgeRadius(0);
+    const diagonalEdge = summitEdgeRadius(Math.PI / 4);
+    expect(cardinalEdge).toBeCloseTo(SUMMIT_CARDINAL_RADIUS, 4);
+    expect(diagonalEdge).toBeCloseTo(SUMMIT_DIAGONAL_RADIUS, 1);
+    expect(diagonalEdge).toBeGreaterThan(cardinalEdge);
+  });
+
+  test('isInsideSummit: center is inside', () => {
+    expect(isInsideSummit(0, 0)).toBe(true);
+  });
+
+  test('isInsideSummit: cardinal edge is inside', () => {
+    expect(isInsideSummit(SUMMIT_CARDINAL_RADIUS - 0.01, 0)).toBe(true);
+  });
+
+  test('isInsideSummit: beyond cardinal edge is outside', () => {
+    expect(isInsideSummit(SUMMIT_CARDINAL_RADIUS + 0.01, 0)).toBe(false);
+  });
+
+  test('isInsideSummit: diagonal point inside superellipse', () => {
+    // At 45°, the summit extends to ~15.87.  A point at radius 14 should be inside.
+    const r = 14;
+    expect(isInsideSummit(r * Math.SQRT1_2, r * Math.SQRT1_2)).toBe(true);
+  });
+
+  test('isInsideSummit: old circular radius at cardinal is outside summit', () => {
+    // 15.725 at cardinal should be outside the superellipse (cardinal edge is 12.58)
+    expect(isInsideSummit(50 * MOTTE_SCALE, 0)).toBe(false);
+  });
+
+  test('terrain at old circular radius (cardinal) is on mound slope', () => {
+    const oldRadius = 50 * MOTTE_SCALE; // 15.725
+    const y = getTerrainY(oldRadius, MOTTE_CENTER_Z);
+    // Should be on the slope, not at summit and not at ground
+    expect(y).toBeGreaterThan(0);
+    expect(y).toBeLessThan(SUMMIT_Y);
+  });
+
+  test('terrain at old circular radius (diagonal) is at summit', () => {
+    // At 45°, the old circular radius (15.725) is close to the diagonal
+    // summit edge (15.87), so it should still be at summit height.
+    const oldRadius = 50 * MOTTE_SCALE;
+    const dx = oldRadius * Math.SQRT1_2;
+    const dz = oldRadius * Math.SQRT1_2;
+    const y = getTerrainY(dx, MOTTE_CENTER_Z + dz);
+    expect(y).toBeCloseTo(SUMMIT_Y, 1);
+  });
+
+  test('fortress footprint corners are inside summit at all 4 corners', () => {
+    const corners: [number, number][] = [
+      [FORTRESS_HALF_W, FORTRESS_HALF_W],
+      [-FORTRESS_HALF_W, FORTRESS_HALF_W],
+      [FORTRESS_HALF_W, -FORTRESS_HALF_W],
+      [-FORTRESS_HALF_W, -FORTRESS_HALF_W],
+    ];
+    for (const [cx, cz] of corners) {
+      expect(isInsideSummit(cx, cz)).toBe(true);
+    }
+  });
+
+  test('mound slope is continuous: no jump at summit boundary', () => {
+    // Just inside and just outside the cardinal summit edge should have
+    // nearly the same height (continuous transition).
+    const yInside = getTerrainY(SUMMIT_CARDINAL_RADIUS - 0.01, MOTTE_CENTER_Z);
+    const yOutside = getTerrainY(SUMMIT_CARDINAL_RADIUS + 0.01, MOTTE_CENTER_Z);
+    expect(Math.abs(yInside - yOutside)).toBeLessThan(0.1);
+  });
+
+  test('mound slope reaches zero at perimeter', () => {
+    // At the perimeter radius, the mound slope should be at or near Y=0
+    const y = getTerrainY(MOTTE_PERIMETER_RADIUS - 0.01, MOTTE_CENTER_Z);
+    expect(y).toBeLessThan(0.1);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 4. Fortress Footprint Inside the Flat Summit
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Fortress footprint inside flat summit', () => {
-  test('fortress south wall is inside summit radius', () => {
+  test('fortress south wall is inside summit cardinal radius', () => {
     const dist = Math.abs(FORTRESS_SOUTH_Z - MOTTE_CENTER_Z);
-    expect(dist).toBeLessThan(SUMMIT_RADIUS);
+    expect(dist).toBeLessThan(SUMMIT_CARDINAL_RADIUS);
   });
 
-  test('fortress north wall is inside summit radius', () => {
+  test('fortress north wall is inside summit cardinal radius', () => {
     const dist = Math.abs(FORTRESS_NORTH_Z - MOTTE_CENTER_Z);
-    expect(dist).toBeLessThan(SUMMIT_RADIUS);
+    expect(dist).toBeLessThan(SUMMIT_CARDINAL_RADIUS);
   });
 
-  test('fortress corner is inside summit radius', () => {
-    const cornerDist = Math.sqrt(FORTRESS_HALF_W ** 2 + (FORTRESS_HALF_W) ** 2);
-    expect(cornerDist).toBeLessThan(SUMMIT_RADIUS);
+  test('fortress corner is inside summit superellipse', () => {
+    // Corner at (10.5, -57.5): dx=10.5, dz=10.5 from motte center [0, -68]
+    const dx = FORTRESS_HALF_W;
+    const dz = FORTRESS_HALF_W;
+    expect(isInsideSummit(dx, dz)).toBe(true);
   });
 
-  test('fortress corner clearance > 0.5 units', () => {
+  test('fortress corner clearance > 0.5 units from diagonal summit edge', () => {
+    // Corner distance from center
     const cornerDist = Math.sqrt(FORTRESS_HALF_W ** 2 + FORTRESS_HALF_W ** 2);
-    const clearance = SUMMIT_RADIUS - cornerDist;
+    // Summit edge at 45° (diagonal)
+    const diagonalEdge = summitEdgeRadius(Math.PI / 4);
+    const clearance = diagonalEdge - cornerDist;
     expect(clearance).toBeGreaterThan(0.5);
   });
 
@@ -443,7 +587,7 @@ describe('Boundary and Colosseum clearance', () => {
   });
 
   test('summit north edge is within boundary', () => {
-    const northZ = MOTTE_CENTER_Z - SUMMIT_RADIUS; // -83.73
+    const northZ = MOTTE_CENTER_Z - SUMMIT_CARDINAL_RADIUS; // -80.58
     expect(northZ).toBeGreaterThanOrEqual(BOUNDARY_Z_MIN);
   });
 
