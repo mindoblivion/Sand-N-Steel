@@ -81,6 +81,60 @@ const MotteModel: React.FC = () => {
   return <primitive object={cloned} />;
 };
 
+// ── Moat water ring (Phase 35C) ─────────────────────────────────────────────
+//
+// The GLB's own Moat_Water mesh sits at world Y≈-0.60 (model Z=-1.9 × scale
+// 0.3145), entirely below the city ground plane at Y=0, and is hidden.  This
+// lightweight ring restores visible water at ground level.
+//
+// Verified dimensions (from GLB accessor bounds):
+//   Motte_Grass base: model X/Y ±80 → world radius 25.16
+//   Original GLB moat: model radius ~69.93 → world radius ~21.99 (buried)
+//   Perimeter collision: world radius 22.0
+//   Ramp: south-facing, world X ±2.83, Z[-55.42, -44.73]
+//   Ramp opening half-angle (collision): atan((2.83+0.4)/22) ≈ 0.146 rad
+//
+// Water ring placement:
+//   Inner radius: 25.8  — just outside the motte base (25.16) with 0.64 clearance
+//   Outer radius: 31.0 — 5.2-unit-wide moat
+//   Elevation: Y=0.06  — above ground (0) to avoid z-fighting, below motte
+//   Gap half-angle: 0.18 rad — centered at south, wider than collision opening
+
+export const MOAT_INNER_RADIUS = 25.8;
+export const MOAT_OUTER_RADIUS = 31.0;
+export const MOAT_WATER_Y = 0.06;
+export const MOAT_GAP_HALF_ANGLE = 0.18; // radians
+
+const MOTTE_MOAT_CENTER: [number, number, number] = [0, 0, -68];
+
+const MoatWater: React.FC = () => {
+  // RingGeometry is in the XY plane. After rotation [-π/2, 0, 0]:
+  //   θ_ring=0 → +X (east), θ_ring=3π/2 → +Z (south from motte center).
+  // Gap centered at south: thetaStart = 3π/2 + GAP_HALF, thetaLength = 2π - 2*GAP_HALF.
+  const thetaStart = (3 * Math.PI) / 2 + MOAT_GAP_HALF_ANGLE;
+  const thetaLength = 2 * Math.PI - 2 * MOAT_GAP_HALF_ANGLE;
+
+  return (
+    <mesh
+      position={[MOTTE_MOAT_CENTER[0], MOAT_WATER_Y, MOTTE_MOAT_CENTER[2]]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      receiveShadow={false}
+    >
+      <ringGeometry
+        args={[MOAT_INNER_RADIUS, MOAT_OUTER_RADIUS, 48, 1, thetaStart, thetaLength]}
+      />
+      <meshStandardMaterial
+        color="#4a7a8a"
+        roughness={0.35}
+        metalness={0.1}
+        transparent
+        opacity={0.82}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  );
+};
+
 /**
  * Error boundary wrapper — a load failure renders nothing rather than
  * crashing the city hub, consistent with ThreeComponentErrorBoundary usage
@@ -113,6 +167,7 @@ export const NorthernMotte: React.FC = () => {
         <group position={[0, 0, -68]} scale={0.3145}>
           <MotteModel />
         </group>
+        <MoatWater />
       </React.Suspense>
     </MotteErrorBoundary>
   );
