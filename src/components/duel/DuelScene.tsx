@@ -22,6 +22,7 @@ import {
   calculateAttackDamage,
   applyStaminaRegen,
   chooseAIStandardAction,
+  chooseAIOutOfRangeAction,
   RAGE_DAMAGE_MULTIPLIER,
   shouldActivateRage,
   applyComboEvent,
@@ -692,11 +693,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       if (dist > effectiveRange) {
         // Distance is large: Advance or Taunt
-        if (dist <= effectiveRange) {
-          chosenAction = 'quick_attack';
-        } else {
-          chosenAction = Math.random() < 0.82 ? 'advance' : 'taunt';
-        }
+        chosenAction = chooseAIOutOfRangeAction();
       } else {
         // Inside strike range: Evaluate tactical options
         if (player.isBlocking) {

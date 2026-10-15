@@ -239,6 +239,25 @@ export function updateHypePeak(currentPeak: number, newHype: number): number {
 }
 
 /**
+ * Choose the AI's out-of-range movement action.
+ *
+ * When the opponent is beyond strike range, it either advances (82 %) or
+ * taunts (18 %) to close distance or build hype. This is a pure,
+ * side-effect-free function that accepts an injectable random value so it
+ * can be tested deterministically without touching `Math.random`.
+ *
+ * @param rngOrValue  A random value in [0, 1) or a () => number callback.
+ *                   Defaults to Math.random for production use.
+ * @returns 'advance' or 'taunt' — never an attack action
+ */
+export function chooseAIOutOfRangeAction(
+  rngOrValue: number | (() => number) = Math.random,
+): 'advance' | 'taunt' {
+  const r = typeof rngOrValue === 'function' ? rngOrValue() : rngOrValue;
+  return r < 0.82 ? 'advance' : 'taunt';
+}
+
+/**
  * The four actions the standard AI combat branch can choose from.
  */
 export type AIStandardAction = 'quick_attack' | 'power_attack' | 'shield_block' | 'dodge';
