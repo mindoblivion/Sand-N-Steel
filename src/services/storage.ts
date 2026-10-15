@@ -18,12 +18,15 @@ export function calculateTotalStats(profile: PlayerProfile): FighterStats {
     sta += weapon.bonusStamina || 0;
     def += weapon.bonusDefense || 0;
   }
+  let regenBonus = 0;
   [helm, chest, arms, legs].forEach((armor) => {
     if (armor) {
       str += armor.bonusStrength || 0;
       agi += armor.bonusAgility || 0;
       sta += armor.bonusStamina || 0;
       def += armor.defense || 0;
+      def += armor.bonusDefense || 0;
+      regenBonus += armor.staminaRegenBonus || 0;
     }
   });
 
@@ -35,7 +38,7 @@ export function calculateTotalStats(profile: PlayerProfile): FighterStats {
 
   const healthMax = 80 + str * 4 + def * 3;
   const staminaMax = 70 + sta * 5;
-  const staminaRegen = 12 + agi * 0.8 + sta * 0.4;
+  const staminaRegen = 12 + agi * 0.8 + sta * 0.4 + regenBonus;
 
   return {
     strength: str,
