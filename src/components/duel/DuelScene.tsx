@@ -25,6 +25,7 @@ import {
   RAGE_DAMAGE_MULTIPLIER,
   shouldActivateRage,
   applyComboEvent,
+  updateHypePeak,
 } from '../../utils/combatCalculations';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
@@ -200,6 +201,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
 
   const [crowdHype, setCrowdHype] = useState(25);
+
+  // C-8 (Phase 39C): update crowd hype and synchronously track the per-duel
+  // peak inside the state updater. The peak only increases (via updateHypePeak,
+  // which is Math.max) — it never decreases when hype stays flat or drops.
+  // Updating inside the updater (not a delayed effect) ensures the peak
+  // captures the final value even if the match ends on the same render cycle.
+  const updateCrowdHype = useCallback((updater: (prev: number) => number) => {
+    setCrowdHype((prev) => {
+      const next = updater(prev);
+      statsRef.current.crowdHypePeak = updateHypePeak(statsRef.current.crowdHypePeak, next);
+      return next;
+    });
+  }, []);
+
   const [matchTimer, setMatchTimer] = useState(0);
   const [cameraMode, setCameraMode] = useState<'cinematic' | 'over_shoulder' | 'isometric'>('cinematic');
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
@@ -400,7 +415,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: Math.min(prev.stats.staminaMax, prev.stamina + 25),
           }));
         }
-        setCrowdHype((prev) => Math.min(100, prev + 20));
+        updateCrowdHype((prev) => Math.min(100, prev + 20));
         addLog(`${attacker.name} flexes & taunts! The arena roars (+20% Hype)!`, isActorPlayer ? 'player' : 'opponent');
         spawnDamageText('TAUNT! +20% HYPE', 'hype', attacker.position);
       } else if (actionType === 'rest') {
@@ -536,7 +551,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             if (isActorPlayer) {
               statsRef.current.hitsLanded += 1;
               statsRef.current.damageDealt += rawDamage;
-              setCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 : 8)));
+              updateCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 : 8)));
             } else {
               statsRef.current.damageTaken += rawDamage;
             }
@@ -623,7 +638,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         setIsPlayerTurn(!isActorPlayer);
       }, 1100);
     },
-    [isExecuting, player, opp, addLog, spawnDamageText]
+    [isExecuting, player, opp, addLog, spawnDamageText, updateCrowdHype]
   );
 
   // OPPONENT AI TURN STRATEGY ENGINE

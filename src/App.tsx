@@ -258,6 +258,7 @@ export function App() {
         currentTier: nextTier,
         defeatedOpponentIds: defeated,
         fightsWon: profile.fightsWon + 1,
+        peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
 
       setProfile(updatedProfile);
@@ -266,6 +267,7 @@ export function App() {
       const updatedProfile: PlayerProfile = {
         ...profile,
         fightsLost: profile.fightsLost + 1,
+        peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
       setProfile(updatedProfile);
       saveProfile(updatedProfile);

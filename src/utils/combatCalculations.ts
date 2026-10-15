@@ -220,6 +220,25 @@ export function applyComboEvent(currentCombo: number, event: ComboEvent): number
 }
 
 /**
+ * Update the per-duel crowd-hype peak after a hype change.
+ *
+ * Returns the new peak — the maximum of the current peak and the new hype
+ * value.  The peak only ever increases; it never decreases when hype remains
+ * unchanged or drops back down.
+ *
+ * Pure and side-effect-free — the caller (DuelScene) owns the ref that stores
+ * the peak (`statsRef.current.crowdHypePeak`) and the React state that stores
+ * the current hype (`crowdHype`).
+ *
+ * @param currentPeak  the highest hype reached so far this duel
+ * @param newHype      the hype value after the latest increment
+ * @returns the updated peak (≥ currentPeak, never lower)
+ */
+export function updateHypePeak(currentPeak: number, newHype: number): number {
+  return Math.max(currentPeak, newHype);
+}
+
+/**
  * The four actions the standard AI combat branch can choose from.
  */
 export type AIStandardAction = 'quick_attack' | 'power_attack' | 'shield_block' | 'dodge';
