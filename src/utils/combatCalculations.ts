@@ -173,6 +173,53 @@ export function shouldActivateRage(
 }
 
 /**
+ * Combat events that can affect the player's combo counter.
+ *
+ * Used by `applyComboEvent` to compute the new combo count after each
+ * combat resolution branch in `DuelScene.executeCombatTurn`.
+ */
+export type ComboEvent =
+  | 'landed'          // player attack hit and was not blocked → +1
+  | 'miss'            // player attack missed → reset to 0
+  | 'blocked'         // player attack blocked but dealt chip damage → no change
+  | 'fully_blocked'   // player attack blocked, 0 damage → reset to 0
+  | 'player_damaged'  // opponent attack damaged the player → reset to 0
+  | 'none';           // evaded, out of range, non-attack → no change
+
+/**
+ * Compute the new player combo count after a combat event.
+ *
+ * Pure and side-effect-free — the caller (`DuelScene`) owns the React
+ * state (`player.comboCount`) and the ref (`statsRef.current.maxCombo`).
+ *
+ * Semantics (Phase 39B, defect C-9):
+ *   - 'landed':         the player's attack hit and was not blocked → +1
+ *   - 'miss':           the player's attack missed → reset to 0
+ *   - 'fully_blocked':  the player's attack was blocked and dealt 0 damage → reset to 0
+ *   - 'player_damaged': an opponent attack successfully damaged the player → reset to 0
+ *   - 'blocked':        the player's attack was blocked but dealt chip damage (≥1) → no change
+ *   - 'none':           evaded, out of range, or non-attack action → no change
+ *
+ * A critical hit counts as one successful hit, not multiple.
+ * Non-attack actions (taunt, rest, advance, retreat, block, dodge) never
+ * increment or reset the combo.
+ *
+ * @param currentCombo  the player's current combo count
+ * @param event         the combat event affecting the combo
+ * @returns the new combo count
+ */
+export function applyComboEvent(currentCombo: number, event: ComboEvent): number {
+  switch (event) {
+    case 'landed':         return currentCombo + 1;
+    case 'miss':            return 0;
+    case 'fully_blocked':   return 0;
+    case 'player_damaged':  return 0;
+    case 'blocked':         return currentCombo;
+    case 'none':            return currentCombo;
+  }
+}
+
+/**
  * The four actions the standard AI combat branch can choose from.
  */
 export type AIStandardAction = 'quick_attack' | 'power_attack' | 'shield_block' | 'dodge';

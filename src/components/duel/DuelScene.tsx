@@ -24,6 +24,7 @@ import {
   chooseAIStandardAction,
   RAGE_DAMAGE_MULTIPLIER,
   shouldActivateRage,
+  applyComboEvent,
 } from '../../utils/combatCalculations';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
@@ -240,6 +241,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Update maxCombo from the actual player combo count (C-9).
+  // Uses Math.max so maxCombo only ever increases, never decreases when
+  // the current combo resets. Runs after every comboCount change.
+  useEffect(() => {
+    statsRef.current.maxCombo = Math.max(statsRef.current.maxCombo, player.comboCount);
+  }, [player.comboCount]);
 
   // Distance in 3D arena
   const currentDistance = Math.abs(player.position[2] - opp.position[2]);
@@ -533,7 +541,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               statsRef.current.damageTaken += rawDamage;
             }
 
-            // Apply HP damage to defender
+            // Apply HP damage to defender + combo tracking (C-9)
             if (isActorPlayer) {
               setOpp((prev) => {
                 const nextHp = Math.max(0, prev.health - rawDamage);
@@ -544,7 +552,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   hitFlashTimer: 0.3,
                 };
               });
+              // Player's attack resolved: update combo based on outcome.
+              // Not blocked → increment; blocked with chip damage → no change;
+              // fully blocked (0 damage, never occurs due to Math.max(1,...))
+              // → reset.
+              if (!isBlocked) {
+                setPlayer((prev) => ({ ...prev, comboCount: applyComboEvent(prev.comboCount, 'landed') }));
+              } else if (rawDamage <= 0) {
+                setPlayer((prev) => ({ ...prev, comboCount: applyComboEvent(prev.comboCount, 'fully_blocked') }));
+              }
             } else {
+              // Opponent damaged the player → reset player's combo.
               setPlayer((prev) => {
                 const nextHp = Math.max(0, prev.health - rawDamage);
                 return {
@@ -552,6 +570,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   health: nextHp,
                   action: nextHp <= 0 ? 'death' : 'hit',
                   hitFlashTimer: 0.3,
+                  comboCount: applyComboEvent(prev.comboCount, 'player_damaged'),
                 };
               });
             }
@@ -560,6 +579,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             sounds.playSlash();
             addLog(`${attacker.name}'s attack MISSED!`, 'system');
             spawnDamageText('MISSED!', 'dodge', defender.position);
+            // Player missed: reset combo (opponent miss does not affect player combo)
+            if (isActorPlayer) {
+              setPlayer((prev) => ({ ...prev, comboCount: applyComboEvent(prev.comboCount, 'miss') }));
+            }
           }
         }
       }
@@ -827,7 +850,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         player={player}
         opponent={opp}
         crowdHype={crowdHype}
-        comboCount={0}
+        comboCount={player.comboCount}
         matchTimer={matchTimer}
         isMuted={isMuted}
         onToggleMute={onToggleMute}

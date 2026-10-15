@@ -122,6 +122,11 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                 <span className="font-serif font-black tracking-wider text-[11px] sm:text-sm text-amber-100 uppercase truncate">
                   {player.name}
                 </span>
+                {comboCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-orange-500/20 border border-orange-500/50 text-orange-300 text-[10px] sm:text-xs font-mono font-bold shrink-0 animate-pulse">
+                    COMBO ×{comboCount}
+                  </span>
+                )}
               </div>
               <span className="text-xs font-mono font-bold text-amber-300">
                 {Math.round(player.health)} / {player.stats.healthMax}
