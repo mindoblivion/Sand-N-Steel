@@ -12,7 +12,11 @@ import { NOISE_TEXTURE } from './RomanMaterials';
 
 export const DoctoreHouse = React.memo(() => {
   return (
-    <group position={[28, 0, -17]}>
+    // Phase C-8.13: moved south 1.0 (Z: -17 → -18) to undo the C-8.12 side
+    // effect — the Merchant House shift had doubled the two footprints' Z
+    // overlap (1.25 → 2.25) and cut this house's fast-travel arrival clearance
+    // to the Merchant House south edge from 1.5 to 0.5.
+    <group position={[28, 0, -18]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
       <BuildingFoundation size={[5.5, 5.0]} height={0.3} projection={0.25} color="#57534e" capColor="#78716c" />
 

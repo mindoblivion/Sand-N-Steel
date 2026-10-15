@@ -343,8 +343,11 @@ const buildingRects: RectCollider[] = [
   // GladiatorAcademy — root [30.5, 0, -27], foundation [7.2, 6.8], proj 0.25 → 7.7 × 7.3
   RECT('gladiator-academy', 30.5, -27, 7.7, 7.3),
 
-  // DoctoreHouse — root [28, 0, -17], foundation [5.5, 5.0], proj 0.25 → 6.0 × 5.5
-  RECT('doctore-house', 28, -17, 6.0, 5.5),
+  // DoctoreHouse — root [28, 0, -18], foundation [5.5, 5.0], proj 0.25 → 6.0 × 5.5
+  // Phase C-8.13: root shifted south 1.0 (Z: -17 → -18) to restore the
+  // pre-C-8.12 1.25-unit Z overlap with the MerchantHouse and the ≥0.9
+  // fast-travel arrival clearance its arrival had lost in C-8.12.
+  RECT('doctore-house', 28, -18, 6.0, 5.5),
 
   // RecordsLibrary — root [24, 0, -30], foundation [6.0, 5.2], proj 0.25 → 6.5 × 5.7
   RECT('records-library', 24, -30, 6.5, 5.7),

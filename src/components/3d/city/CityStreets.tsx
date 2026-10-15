@@ -511,7 +511,9 @@ export const CityStreets = React.memo(() => {
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
-      {/* Path to Doctore House [28, 0, -17] */}
+      {/* Path to Doctore House [28, 0, -18] — the paving patch itself is
+           decorative (no collision) and already spans the house's south and
+           west approach, so Phase C-8.13 left this mesh in place. */}
       <mesh receiveShadow position={[26.5, -0.01, -19.0]} rotation={[-Math.PI / 2, 0, Math.PI * 0.12]}>
         <planeGeometry args={[3.8, 4.5]} />
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />

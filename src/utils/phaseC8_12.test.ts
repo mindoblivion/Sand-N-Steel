@@ -368,10 +368,13 @@ describe('K. Merchant House shift side effects', () => {
   test('no walkable gap opens between the Merchant House and Doctore House', () => {
     const doctore = findRect('doctore-house');
     const { overlapX, overlapZ } = overlaps(merchantHouse, doctore);
-    // These two footprints already overlapped before the shift (Z overlap 1.25);
-    // the shift deepens it to 2.25, so no new passage can appear between them.
+    // These two footprints already overlapped before the shift (Z overlap 1.25),
+    // so no passage can appear between them. The C-8.12 shift deepened that
+    // overlap to 2.25 while the Doctore House still sat at Z = -17; Phase C-8.13
+    // moved the Doctore House south to Z = -18, restoring the pre-C-8.12 1.25.
+    // The overlap stays strictly positive, so the invariant holds either way.
     expect(overlapX).toBeGreaterThan(0);
-    expect(overlapZ).toBeCloseTo(2.25, 10);
+    expect(overlapZ).toBeCloseTo(1.25, 10);
   });
 
   test('the shifted Merchant House newly overlaps no other building footprint', () => {
