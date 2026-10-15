@@ -24,6 +24,7 @@ import { GladiatorBarracks } from './GladiatorBarracks';
 import { VeteranGladiatorHall } from './VeteranGladiatorHall';
 import { ArenaMedicalHouse } from './ArenaMedicalHouse';
 import { NorthernFortress } from './NorthernFortress';
+import { NorthernMotte } from './NorthernMotte';
 import { CityCamera } from './CityCamera';
 import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
@@ -44,6 +45,7 @@ import {
   FAST_TRAVEL_ARRIVALS,
   InteractiveLocation,
 } from '../../../utils/cityCollisions';
+import { getTerrainY } from '../../../utils/terrainHeight';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
 import { calculateTotalStats } from '../../../services/storage';
 import { sounds } from '../../../audio/soundEffects';
@@ -383,6 +385,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         // Grounded, controlled gladiator stride speed with analog control
         const speed = 3.8 * mag;
         const nextPos = resolveCityMovement(playerPosRef.current, worldDx, worldDz, speed, delta);
+        // Phase 34G: Apply terrain height from the motte ramp/summit.
+        // getTerrainY returns 0 on flat city ground, so existing
+        // movement is unaffected outside the motte area.
+        nextPos[1] = getTerrainY(nextPos[0], nextPos[2]);
         playerPosRef.current = nextPos;
 
         // Smooth angle rotation towards target movement direction
@@ -427,9 +433,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const handleFastTravel = (loc: InteractiveLocation) => {
     sounds.playClick();
     const arrival = FAST_TRAVEL_ARRIVALS[loc.id];
-    const newPos: [number, number, number] = arrival
-      ? [arrival[0], 0, arrival[1]]
-      : [loc.position[0], 0, loc.position[2] + 2];
+    const ax = arrival ? arrival[0] : loc.position[0];
+    const az = arrival ? arrival[1] : loc.position[2] + 2;
+    // Phase 34G: Calculate Y from terrain height instead of hardcoding 0.
+    // Most arrival points are on flat ground (Y=0), but the northern_fortress
+    // arrival is on the motte summit (Y≈4.72).
+    const newPos: [number, number, number] = [ax, getTerrainY(ax, az), az];
     playerPosRef.current = newPos;
     setPlayerPos(newPos);
     // Phase 31J: clear stale recovery history so oscillation-prevention
@@ -513,9 +522,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               shadow-camera-left={-70}
               shadow-camera-right={50}
               shadow-camera-top={50}
-              shadow-camera-bottom={-40}
+              shadow-camera-bottom={-50}
               shadow-camera-near={1}
-              shadow-camera-far={120}
+              shadow-camera-far={140}
               shadow-bias={-0.0004}
               shadow-normalBias={0.02}
             />
@@ -533,7 +542,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
             {/* Distant Roman Hills & Aqueduct Backdrop */}
             <ThreeComponentErrorBoundary componentName="CityBackdrop">
-              <group position={[0, 0, -98]}>
+              {/* Phase 34G: Moved north from Z=-98 to Z=-115 to avoid
+                  intersection with the motte (moat ring north at Z=-90). */}
+              <group position={[0, 0, -115]}>
                 {/* Distant Rolling Tuscan Hills */}
                 {[-45, -15, 15, 45].map((hx, hi) => (
                   <mesh key={`hill-${hi}`} position={[hx, 8 + (hi % 2) * 4, 0]}>
@@ -584,6 +595,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <GladiatorBarracks />
               <VeteranGladiatorHall />
               <ArenaMedicalHouse />
+              <NorthernMotte />
               <NorthernFortress />
             </ThreeComponentErrorBoundary>
 

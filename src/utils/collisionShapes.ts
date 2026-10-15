@@ -492,13 +492,14 @@ const streetWallSegments: SegmentCollider[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Northern Fortress Walls — NorthernFortress.tsx, root [0, 0, -59.5]
+// Northern Fortress Walls — NorthernFortress.tsx, root [0, 4.72, -68]
 //
 // The fortress model (Z-up, 70×70 ground footprint) is rotated [-π/2, 0, 0]
 // (Z-up → Y-up) and scaled 0.30, giving a 21×21 world footprint centered
-// at [0, -59.5].  After rotation, the model's Y axis maps to world -Z, so:
-//   South face (model Y = -35) → world Z = -59.5 + 10.5 = -49.0 (toward city)
-//   North face (model Y = +35) → world Z = -59.5 - 10.5 = -70.0
+// at [0, -68] on the motte summit (Y=4.72).  After rotation, the model's
+// Y axis maps to world -Z, so:
+//   South face (model Y = -35) → world Z = -68 + 10.5 = -57.5 (toward city)
+//   North face (model Y = +35) → world Z = -68 - 10.5 = -78.5
 //   East face  (model X = +35)  → world X = +10.5
 //   West face  (model X = -35)  → world X = -10.5
 //
@@ -508,18 +509,57 @@ const streetWallSegments: SegmentCollider[] = [
 //
 // Wall thickness 1.2 world units (≈ 4 model units at scale 0.30).  Corner
 // overlaps between adjacent wall rects are intentional and harmless.
+//
+// Phase 34G: colliders shifted north by 8.5 world units (Z: -59.5 → -68)
+// to match the new fortress position on the motte summit.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const fortressWallRects: RectCollider[] = [
   // South wall — split at gate gap X ∈ [-1.0, 1.0]
-  RECT('fortress-south-l', -5.75, -49.0, 9.5, 1.2),
-  RECT('fortress-south-r', 5.75, -49.0, 9.5, 1.2),
+  RECT('fortress-south-l', -5.75, -57.5, 9.5, 1.2),
+  RECT('fortress-south-r', 5.75, -57.5, 9.5, 1.2),
   // North wall — full width
-  RECT('fortress-north', 0, -70.0, 21.0, 1.2),
+  RECT('fortress-north', 0, -78.5, 21.0, 1.2),
   // East / West walls — full depth
-  RECT('fortress-east', 10.5, -59.5, 1.2, 21.0),
-  RECT('fortress-west', -10.5, -59.5, 1.2, 21.0),
+  RECT('fortress-east', 10.5, -68, 1.2, 21.0),
+  RECT('fortress-west', -10.5, -68, 1.2, 21.0),
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Northern Motte Perimeter — NorthernMotte.tsx, center [0, 0, -68]
+//
+// The motte is a raised earth mound with a moat ring at model radius ~70
+// (world radius ≈22).  Collision segments around this perimeter prevent
+// the player from walking onto the mound sides; the only access is the
+// south-facing ramp.
+//
+// Convention: X = R·sin(θ), Z = R·cos(θ) + centerZ
+// θ=0 → south (toward city +Z), θ=π → north
+// Opening at θ=0 aligned with the ramp (world X ±2.83, half-angle ≈0.15 rad).
+//
+// 20 segments over the full arc; sagitta per segment ≈ 0.25 < player radius
+// 0.4 → no squeeze-through.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MOTTE_R = 22.0;
+const MOTTE_CENTER_Z = -68;
+const RAMP_HALF_W = 9 * 0.3145; // 2.8305
+const MOTTE_OPENING_HALF = Math.atan((RAMP_HALF_W + 0.4) / MOTTE_R); // ≈ 0.146 rad
+
+function mottePoint(theta: number): [number, number] {
+  return [
+    MOTTE_R * Math.sin(theta),
+    MOTTE_R * Math.cos(theta) + MOTTE_CENTER_Z,
+  ];
+}
+
+const mottePerimeterSegments: SegmentCollider[] = arcSegments(
+  MOTTE_OPENING_HALF,
+  2 * Math.PI - MOTTE_OPENING_HALF,
+  20,
+  'motte-wall',
+  mottePoint,
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Master Registry
@@ -534,4 +574,5 @@ export const CITY_COLLIDERS: Collider[] = [
   ...streetWallRects,
   ...streetWallSegments,
   ...fortressWallRects,
+  ...mottePerimeterSegments,
 ];
