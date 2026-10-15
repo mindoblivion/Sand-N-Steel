@@ -48,7 +48,33 @@ export const MOTTE_CENTER_X = 0;
 export const MOTTE_CENTER_Z = -68;
 export const MOTTE_SCALE = 0.3145;
 
-// Ramp world-space bounds (derived from model Ramp_Dirt mesh)
+// ── Drawbridge (Phase 35E) ───────────────────────────────────────────────────
+//
+// The old dirt ramp (Ramp_Dirt mesh) is hidden and replaced by a wooden
+// drawbridge that spans the moat at the south opening.  The bridge deck
+// sits at Y=0 (ground level); the mound slope (perimeter → summit edge)
+// provides the upward path that the ramp formerly did.
+//
+// Bridge placement (world space, centered at X=0):
+//   Outer (south, city side): Z = -36.5  (0.5 beyond moat outer edge at -37.0)
+//   Inner (north, motte side): Z = -42.5  (at motte base ~-42.84)
+//   Half-width: 2.0  (4-unit deck, fits inside moat gap linear width ≈9.24)
+//   Deck Y: 0.1  (above moat water at 0.06, avoids z-fighting with ground)
+
+export const BRIDGE_HALF_WIDTH = 2.0;
+export const BRIDGE_Z_OUTER = -36.5;
+export const BRIDGE_Z_INNER = -42.5;
+export const BRIDGE_LENGTH = BRIDGE_Z_OUTER - BRIDGE_Z_INNER; // 6.0 (negative)
+
+/**
+ * Returns true when the world-space point (x, z) is on the bridge deck.
+ */
+export function isOnBridge(x: number, z: number): boolean {
+  return Math.abs(x) <= BRIDGE_HALF_WIDTH && z >= BRIDGE_Z_INNER && z <= BRIDGE_Z_OUTER;
+}
+
+// Legacy ramp bounds (kept for reference and test migration; the Ramp_Dirt
+// mesh is hidden and the ramp interpolation is no longer used in getTerrainY).
 export const RAMP_HALF_WIDTH = 9 * MOTTE_SCALE;       // 2.8305
 export const RAMP_Z_OUTER = 74 * MOTTE_SCALE - 68;    // -44.7273 (south, Y=0)
 export const RAMP_Z_INNER = 40 * MOTTE_SCALE - 68;    // -55.42   (north, Y=4.72)
@@ -102,22 +128,21 @@ export function summitEdgeRadius(theta: number): number {
  * Returns the world-space Y (feet) height at a given world XZ position.
  *
  * Priority:
- *   1. Ramp — linear interpolation from Y=0 (outer/south) to Y=4.72 (inner/north).
+ *   1. Bridge — flat at Y=0 across the drawbridge span.
  *   2. Flat summit (inside superellipse) — Y = 4.72.
  *   3. Mound slope (outside summit, inside perimeter) — linear descent
  *      from the angle-dependent summit edge to Y=0 at the perimeter.
  *   4. Outside the motte — Y = 0 (city ground).
  *
- * The ramp takes priority over the mound because the ramp mesh sits on top
- * of the mound surface (the ramp surface is above the mound everywhere
- * except at the inner edge where they match at Y=4.72).
+ * The old dirt ramp was removed (Phase 35E).  The mound slope now provides
+ * the continuous upward path from the perimeter (Y=0) to the summit edge
+ * (Y=4.72) at the south opening, replacing the former ramp interpolation.
+ * The wooden drawbridge spans the moat at ground level (Y=0).
  */
 export function getTerrainY(x: number, z: number): number {
-  // 1. Ramp — check XZ bounds first
-  if (Math.abs(x) <= RAMP_HALF_WIDTH && z >= RAMP_Z_INNER && z <= RAMP_Z_OUTER) {
-    // t goes 0 at outer (Y=0) → 1 at inner (Y=SUMMIT_Y)
-    const t = (RAMP_Z_OUTER - z) / RAMP_Z_RANGE;
-    return SUMMIT_Y * t;
+  // 1. Bridge — flat at Y=0 across the drawbridge deck
+  if (isOnBridge(x, z)) {
+    return 0;
   }
 
   // 2–4. Motte area by distance from center

@@ -61,51 +61,60 @@ const FORTRESS_CENTER_Z = -68;
 const GATE_HALF_GAP = 1.0;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 1. Terrain Height — Ramp
+// 1. Terrain Height — Former Ramp Area (now mound slope)
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// Phase 35E: The dirt ramp is hidden and replaced by a wooden drawbridge.
+// The mound slope now provides the upward path from the perimeter (Y=0)
+// to the summit edge (Y=4.72) at the south opening.
 
-describe('Terrain height — ramp', () => {
-  test('ramp bottom (outer edge) is at Y=0', () => {
+describe('Terrain height — former ramp area (mound slope)', () => {
+  test('former ramp outer edge is at Y=0 (ground/bridge level)', () => {
     const y = getTerrainY(0, RAMP_Z_OUTER);
     expect(Math.abs(y)).toBeLessThan(EPS);
   });
 
-  test('ramp top (inner edge) is at summit height', () => {
+  test('former ramp inner edge is at summit height', () => {
+    // At the summit boundary (cardinal radius 12.58), terrain is summit Y
     const y = getTerrainY(0, RAMP_Z_INNER);
-    expect(Math.abs(y - SUMMIT_Y)).toBeLessThan(EPS);
+    expect(Math.abs(y - SUMMIT_Y)).toBeLessThan(HALF_MM);
   });
 
-  test('ramp midpoint is at half summit height', () => {
+  test('midpoint of former ramp is on mound slope (not flat ground)', () => {
     const midZ = (RAMP_Z_OUTER + RAMP_Z_INNER) / 2;
     const y = getTerrainY(0, midZ);
-    expect(Math.abs(y - SUMMIT_Y / 2)).toBeLessThan(HALF_MM);
+    // Should be between 0 and summit — on the mound slope
+    expect(y).toBeGreaterThan(0);
+    expect(y).toBeLessThan(SUMMIT_Y);
   });
 
-  test('ramp at 25% is at quarter height', () => {
-    const z = RAMP_Z_OUTER + (RAMP_Z_INNER - RAMP_Z_OUTER) * 0.25;
-    const y = getTerrainY(0, z);
-    expect(Math.abs(y - SUMMIT_Y * 0.25)).toBeLessThan(HALF_MM);
+  test('mound slope is continuous from perimeter to summit', () => {
+    // Sample from just inside perimeter to near summit edge
+    for (let r = MOTTE_PERIMETER_RADIUS - 0.5; r > SUMMIT_CARDINAL_RADIUS + 0.1; r -= 0.5) {
+      const y = getTerrainY(0, MOTTE_CENTER_Z + r);
+      expect(y).toBeGreaterThan(0, `r=${r.toFixed(2)}: Y=${y.toFixed(4)} should be > 0`);
+      expect(y).toBeLessThan(SUMMIT_Y, `r=${r.toFixed(2)}: Y=${y.toFixed(4)} should be < SUMMIT_Y`);
+    }
   });
 
-  test('ramp at 75% is at three-quarter height', () => {
-    const z = RAMP_Z_OUTER + (RAMP_Z_INNER - RAMP_Z_OUTER) * 0.75;
-    const y = getTerrainY(0, z);
-    expect(Math.abs(y - SUMMIT_Y * 0.75)).toBeLessThan(HALF_MM);
+  test('mound slope increases monotonically toward summit', () => {
+    let prevY = 0;
+    for (let r = MOTTE_PERIMETER_RADIUS - 0.1; r > SUMMIT_CARDINAL_RADIUS; r -= 0.5) {
+      const y = getTerrainY(0, MOTTE_CENTER_Z + r);
+      expect(y).toBeGreaterThanOrEqual(prevY - 0.01,
+        `r=${r.toFixed(2)}: Y=${y.toFixed(4)} should be >= prev Y=${prevY.toFixed(4)}`);
+      prevY = y;
+    }
   });
 
-  test('ramp edge (X = half-width) is still on the ramp', () => {
-    const y = getTerrainY(RAMP_HALF_WIDTH, (RAMP_Z_OUTER + RAMP_Z_INNER) / 2);
-    expect(Math.abs(y - SUMMIT_Y / 2)).toBeLessThan(HALF_MM);
-  });
-
-  test('just outside ramp width returns to mound/ground height', () => {
-    // Just beyond ramp width, at midpoint Z — should be on mound slope or summit
+  test('terrain just outside ramp width is on mound slope', () => {
+    // Just beyond the former ramp width, at midpoint Z — should be on mound slope
     const x = RAMP_HALF_WIDTH + 0.01;
     const midZ = (RAMP_Z_OUTER + RAMP_Z_INNER) / 2;
-    const yOnRamp = getTerrainY(RAMP_HALF_WIDTH, midZ);
-    const yOffRamp = getTerrainY(x, midZ);
-    // Off-ramp should be different (mound height), not the ramp height
-    expect(yOffRamp).not.toEqual(yOnRamp);
+    const y = getTerrainY(x, midZ);
+    // Should be on the mound slope (between 0 and summit)
+    expect(y).toBeGreaterThan(0);
+    expect(y).toBeLessThan(SUMMIT_Y);
   });
 });
 
@@ -445,23 +454,23 @@ describe('Collision — motte perimeter', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 7. Entry and Exit at the Ramp Perimeter Opening
+// 7. Entry and Exit at the Bridge / Mound Perimeter Opening
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('Ramp entry and exit', () => {
-  test('can walk from ground onto ramp outer edge', () => {
-    // Just south of ramp outer edge — on flat ground
+describe('Bridge and mound entry/exit', () => {
+  test('can walk from ground onto bridge outer edge', () => {
+    // Just south of bridge — on flat ground
     const groundOk = !collidesWith(0, RAMP_Z_OUTER + 1, PLAYER_RADIUS, CITY_COLLIDERS);
-    // At ramp outer edge
+    // At bridge/mound area
     const rampOk = !collidesWith(0, RAMP_Z_OUTER, PLAYER_RADIUS, CITY_COLLIDERS);
     expect(groundOk).toBe(true);
     expect(rampOk).toBe(true);
   });
 
-  test('can traverse from ramp to summit', () => {
-    // At ramp inner edge
+  test('can traverse from mound slope to summit', () => {
+    // At the former ramp inner edge (now mound slope near summit)
     const rampTopOk = !collidesWith(0, RAMP_Z_INNER, PLAYER_RADIUS, CITY_COLLIDERS);
-    // Just past ramp inner edge, on summit
+    // Just past, on summit
     const summitOk = !collidesWith(0, RAMP_Z_INNER - 0.5, PLAYER_RADIUS, CITY_COLLIDERS);
     expect(rampTopOk).toBe(true);
     expect(summitOk).toBe(true);

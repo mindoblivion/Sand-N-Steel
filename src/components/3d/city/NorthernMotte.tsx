@@ -65,10 +65,18 @@ const MotteModel: React.FC = () => {
     cloned.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
+        const name = mesh.name || mesh.userData?.gltfAsset?.name;
         // Omit the buried moat mesh — it is entirely below the ground
         // plane at Y=0 (world Y ≈ -0.60) and would z-fight with the
         // city ground.  Skip rendering by making it invisible.
-        if (mesh.name === 'Moat_Water' || mesh.userData?.gltfAsset?.name === 'Moat_Water') {
+        if (name === 'Moat_Water') {
+          mesh.visible = false;
+          return;
+        }
+        // Phase 35E: Hide the dirt ramp — replaced by the wooden drawbridge.
+        // The mesh is set invisible (not removed) so the GLB asset is
+        // preserved byte-for-byte; only runtime visibility changes.
+        if (name === 'Ramp_Dirt') {
           mesh.visible = false;
           return;
         }

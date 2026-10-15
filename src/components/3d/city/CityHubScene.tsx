@@ -25,6 +25,7 @@ import { VeteranGladiatorHall } from './VeteranGladiatorHall';
 import { ArenaMedicalHouse } from './ArenaMedicalHouse';
 import { NorthernFortress } from './NorthernFortress';
 import { NorthernMotte } from './NorthernMotte';
+import { Drawbridge } from './Drawbridge';
 import { CityCamera } from './CityCamera';
 import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
@@ -603,6 +604,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <VeteranGladiatorHall />
               <ArenaMedicalHouse />
               <NorthernMotte />
+              <Drawbridge />
               <NorthernFortress />
             </ThreeComponentErrorBoundary>
 
