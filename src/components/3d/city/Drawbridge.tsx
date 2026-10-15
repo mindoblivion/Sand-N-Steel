@@ -34,8 +34,8 @@ const BEAM_HEIGHT = 0.28;
 const BEAM_WIDTH = 0.22;
 
 // Bridge center (midpoint of span)
-const BRIDGE_CENTER_Z = (BRIDGE_Z_OUTER + BRIDGE_Z_INNER) / 2; // -39.5
-const BRIDGE_LENGTH = BRIDGE_Z_OUTER - BRIDGE_Z_INNER; // 6.0
+const BRIDGE_CENTER_Z = (BRIDGE_Z_OUTER + BRIDGE_Z_INNER) / 2; // -43.25
+const BRIDGE_LENGTH = BRIDGE_Z_OUTER - BRIDGE_Z_INNER; // 5.5
 
 // Wood material (reused across deck + beams)
 const woodMaterial = new THREE.MeshStandardMaterial({

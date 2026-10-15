@@ -64,7 +64,7 @@ export const MOTTE_SCALE = 0.3145;
 export const BRIDGE_HALF_WIDTH = 2.0;
 export const BRIDGE_Z_OUTER = -40.5;
 export const BRIDGE_Z_INNER = -46.0;
-export const BRIDGE_LENGTH = BRIDGE_Z_OUTER - BRIDGE_Z_INNER; // 6.0 (negative)
+export const BRIDGE_LENGTH = BRIDGE_Z_OUTER - BRIDGE_Z_INNER; // 5.5 (negative)
 
 /**
  * Returns true when the world-space point (x, z) is on the bridge deck.
