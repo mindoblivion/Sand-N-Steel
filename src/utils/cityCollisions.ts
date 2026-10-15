@@ -9,10 +9,11 @@ import {
 } from './collisionShapes';
 
 // ── World movement boundaries ────────────────────────────────────────────
-// X axis is symmetric ±35.  Z axis extends further north (-60) to reach
-// the Northern Fortress landmark; the southern limit remains +35.
+// X axis is symmetric ±35.  Z axis extends further north (-72) to reach
+// the Northern Fortress landmark (north face at Z=-70, 2-unit margin);
+// the southern limit remains +35.
 export const BOUNDARY_X = 35;
-export const BOUNDARY_Z_MIN = -60;
+export const BOUNDARY_Z_MIN = -72;
 export const BOUNDARY_Z_MAX = 35;
 
 // ── Phase 31H: Recovery history for oscillation detection ───────────────
@@ -284,8 +285,8 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'northern_fortress',
     name: 'Northern Roman Fortress',
     subtitle: 'Imperial Garrison Outpost',
-    position: [0, 0, -52],
-    radius: 5.0,
+    position: [0, 0, -59.5],
+    radius: 10.0,
     icon: 'Shield',
     actionPrompt: 'Approach the Fortress Gate',
     color: '#78716c',
@@ -553,9 +554,10 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   gladiator_barracks: [-22, -14],
   veteran_gladiator_hall: [-24, -29],
   arena_medical_house:[-29, -9],
-  // Fortress arrival: 1.25 units south of the gate (Z=-46.75), collision-free
-  // and within the extended northern boundary (-60).
-  northern_fortress:   [0, -45],
+  // Fortress arrival: 1.5 units south of the south wall outer edge
+  // (Z=-49.6), in the gate gap corridor at X=0.  Collision-free with
+  // 0.9-unit clearance and within the extended northern boundary (-72).
+  northern_fortress:   [0, -50.5],
 };
 
 export function getNearbyHubLocation(

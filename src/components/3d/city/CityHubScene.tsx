@@ -510,7 +510,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               color="#fffbeb"
               castShadow
               shadow-mapSize={[2048, 2048]}
-              shadow-camera-left={-50}
+              shadow-camera-left={-70}
               shadow-camera-right={50}
               shadow-camera-top={50}
               shadow-camera-bottom={-40}
@@ -533,7 +533,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
             {/* Distant Roman Hills & Aqueduct Backdrop */}
             <ThreeComponentErrorBoundary componentName="CityBackdrop">
-              <group position={[0, 0, -82]}>
+              <group position={[0, 0, -98]}>
                 {/* Distant Rolling Tuscan Hills */}
                 {[-45, -15, 15, 45].map((hx, hi) => (
                   <mesh key={`hill-${hi}`} position={[hx, 8 + (hi % 2) * 4, 0]}>

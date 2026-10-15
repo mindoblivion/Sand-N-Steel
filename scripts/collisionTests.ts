@@ -276,8 +276,10 @@ test('boundary: +Z clamped to 35', () => {
   assert.ok(result[2] <= 35, `Expected z <= 35, got ${result[2]}`);
 });
 
-test('boundary: -Z clamped to -60 (extended north for fortress)', () => {
-  const pos: [number, number, number] = [0, 0, -59];
+test('boundary: -Z clamped to -72 (extended north for fortress)', () => {
+  // Start just inside the new boundary, outside the fortress walls
+  // (X=0 is in the gate gap corridor, so Z=-71 is collision-free).
+  const pos: [number, number, number] = [0, 0, -71];
   const result = resolveCityMovement(pos, 0, -1, 3.8, 1.0);
   assert.ok(result[2] >= BOUNDARY_Z_MIN, `Expected z >= ${BOUNDARY_Z_MIN}, got ${result[2]}`);
 });
@@ -636,7 +638,7 @@ test('fast-travel: arrival positions match documented coordinates', () => {
     gladiator_barracks: [-22, -14],
     veteran_gladiator_hall: [-24, -29],
     arena_medical_house: [-29, -9],
-    northern_fortress: [0, -45],
+    northern_fortress: [0, -50.5],
   };
   for (const [id, coords] of Object.entries(expected)) {
     const actual = FAST_TRAVEL_ARRIVALS[id];
@@ -1531,66 +1533,60 @@ test('31J: all 19 fast-travel arrivals remain collision-free and reachable after
 // ════════════════════════════════════════════════════════════════════════════
 
 test('fortress: south wall blocks approach from city', () => {
-  // South wall left: x[-5.25,-1.0] z[-47.05,-46.45]
-  // Player at (0, -45) moving -Z should be blocked by south wall pieces
-  const pos: [number, number, number] = [0, 0, -45];
+  // Scale 0.30: south wall right piece x[1.0,10.5] z[-49.6,-48.4]
+  // Player at (3, -47) moving -Z should be blocked by south wall pieces
+  const pos: [number, number, number] = [3, 0, -47];
   const result = resolveCityMovement(pos, 0, -1, 3.8, 0.5);
-  // testZ = -45 - 1.9 = -46.9 → inside south wall z-range [-47.05,-46.45]
-  // At X=0, gap is [-1.0, 1.0] → no collision → should pass through gate
-  // Wait — X=0 is in the gate gap, so this should NOT be blocked.
-  // Instead test at X=3 (outside gap, hits south-right wall)
-  const pos2: [number, number, number] = [3, 0, -45];
-  const result2 = resolveCityMovement(pos2, 0, -1, 3.8, 0.5);
-  assert.ok(result2[2] >= -46.45 - 0.01,
-    `Expected blocked by south wall at X=3, got z=${result2[2]}`);
+  assert.ok(result[2] >= -49.6 + R - 0.01,
+    `Expected blocked by south wall at X=3, got z=${result[2]}`);
 });
 
-test('fortress: north wall blocks at Z=-57.25', () => {
-  // North wall: center (0, -57.25), hw=5.25, hd=0.3 → z[-57.55,-56.95]
-  const pos: [number, number, number] = [0, 0, -56];
+test('fortress: north wall blocks at Z=-70', () => {
+  // North wall: center (0, -70), hw=10.5, hd=0.6 → z[-70.6,-69.4]
+  const pos: [number, number, number] = [0, 0, -68];
   const result = resolveCityMovement(pos, 0, -1, 3.8, 0.5);
-  assert.ok(result[2] >= -56.95 - R + 0.01,
+  assert.ok(result[2] >= -69.4 - R + 0.01,
     `Expected blocked by north wall, got z=${result[2]}`);
 });
 
-test('fortress: east wall blocks at X=5.25', () => {
-  // East wall: center (5.25, -52), hw=0.3, hd=5.25 → x[4.95,5.55]
-  const pos: [number, number, number] = [4, 0, -52];
+test('fortress: east wall blocks at X=10.5', () => {
+  // East wall: center (10.5, -59.5), hw=0.6, hd=10.5 → x[9.9,11.1]
+  const pos: [number, number, number] = [8, 0, -59.5];
   const result = resolveCityMovement(pos, 1, 0, 3.8, 0.5);
-  assert.ok(result[0] <= 4.95 - R + 0.01,
+  assert.ok(result[0] <= 9.9 - R + 0.01,
     `Expected blocked by east wall, got x=${result[0]}`);
 });
 
-test('fortress: west wall blocks at X=-5.25', () => {
-  // West wall: center (-5.25, -52), hw=0.3, hd=5.25 → x[-5.55,-4.95]
-  const pos: [number, number, number] = [-4, 0, -52];
+test('fortress: west wall blocks at X=-10.5', () => {
+  // West wall: center (-10.5, -59.5), hw=0.6, hd=10.5 → x[-11.1,-9.9]
+  const pos: [number, number, number] = [-8, 0, -59.5];
   const result = resolveCityMovement(pos, -1, 0, 3.8, 0.5);
-  assert.ok(result[0] >= -4.95 + R - 0.01,
+  assert.ok(result[0] >= -9.9 + R - 0.01,
     `Expected blocked by west wall, got x=${result[0]}`);
 });
 
 test('fortress: gate passage is collision-free at X=0', () => {
-  // Gate gap: X ∈ [-1.0, 1.0] at Z = -46.75
-  assert.ok(!collidesWith(0, -46.75, R, CITY_COLLIDERS),
+  // Gate gap: X ∈ [-1.0, 1.0] at Z = -49.0 (south wall center)
+  assert.ok(!collidesWith(0, -49.0, R, CITY_COLLIDERS),
     'Gate center should be collision-free');
-  assert.ok(!collidesWith(0.5, -46.75, R, CITY_COLLIDERS),
+  assert.ok(!collidesWith(0.5, -49.0, R, CITY_COLLIDERS),
     'Gate at X=0.5 should be collision-free');
-  assert.ok(!collidesWith(-0.5, -46.75, R, CITY_COLLIDERS),
+  assert.ok(!collidesWith(-0.5, -49.0, R, CITY_COLLIDERS),
     'Gate at X=-0.5 should be collision-free');
   // Just outside the gap should collide
-  assert.ok(collidesWith(1.5, -46.75, R, CITY_COLLIDERS),
+  assert.ok(collidesWith(1.5, -49.0, R, CITY_COLLIDERS),
     'Outside gate gap at X=1.5 should collide');
-  assert.ok(collidesWith(-1.5, -46.75, R, CITY_COLLIDERS),
+  assert.ok(collidesWith(-1.5, -49.0, R, CITY_COLLIDERS),
     'Outside gate gap at X=-1.5 should collide');
 });
 
 test('fortress: player can walk through gate from south to interior', () => {
   // Start south of fortress, walk north through the gate
-  let pos: [number, number, number] = [0, 0, -45];
+  let pos: [number, number, number] = [0, 0, -50.5];
   let reachedInterior = false;
   for (let i = 0; i < 100; i++) {
     pos = resolveCityMovement(pos, 0, -1, 3.8, 0.1);
-    if (pos[2] < -50) { reachedInterior = true; break; }
+    if (pos[2] < -53) { reachedInterior = true; break; }
   }
   assert.ok(reachedInterior, `Player should reach fortress interior, got z=${pos[2]}`);
   // Interior should be collision-free (open courtyard)
@@ -1600,63 +1596,76 @@ test('fortress: player can walk through gate from south to interior', () => {
 
 test('fortress: player can walk through gate from interior to south', () => {
   // Start inside fortress, walk south through the gate
-  let pos: [number, number, number] = [0, 0, -52];
-  assert.ok(!collidesWith(0, -52, R, CITY_COLLIDERS), 'Interior should be clear');
+  let pos: [number, number, number] = [0, 0, -59.5];
+  assert.ok(!collidesWith(0, -59.5, R, CITY_COLLIDERS), 'Interior should be clear');
   let escaped = false;
   for (let i = 0; i < 100; i++) {
     pos = resolveCityMovement(pos, 0, 1, 3.8, 0.1);
-    if (pos[2] > -45) { escaped = true; break; }
+    if (pos[2] > -50) { escaped = true; break; }
   }
   assert.ok(escaped, `Player should exit south through gate, got z=${pos[2]}`);
 });
 
 test('fortress: player can walk around the east side', () => {
-  // Walk east from the gate approach, then north along the east wall
-  let pos: [number, number, number] = [0, 0, -45];
-  // First go east past the fortress walls
+  // East/west walls span Z[-70, -49]; player at Z=-50.5 is inside that
+  // range and gets blocked.  Must first go south through the gate gap
+  // (X=0, no south wall) to clear the wall's south edge, then east, then north.
+  let pos: [number, number, number] = [0, 0, -50.5];
+  // Step 1: go south past the east wall's south edge (Z=-49+R=-48.6)
   for (let i = 0; i < 50; i++) {
+    pos = resolveCityMovement(pos, 0, 1, 3.8, 0.1);
+    if (pos[2] > -48) break;
+  }
+  assert.ok(pos[2] > -48, `Should clear south of fortress walls, got z=${pos[2]}`);
+  // Step 2: go east past the east wall (outer edge X=11.1+R)
+  for (let i = 0; i < 80; i++) {
     pos = resolveCityMovement(pos, 1, 0, 3.8, 0.1);
-    if (pos[0] > 6) break;
+    if (pos[0] > 12) break;
   }
-  assert.ok(pos[0] > 6, `Should clear east wall, got x=${pos[0]}`);
-  // Then walk north past the fortress
-  for (let i = 0; i < 100; i++) {
+  assert.ok(pos[0] > 12, `Should clear east wall, got x=${pos[0]}`);
+  // Step 3: walk north past the fortress (north wall outer edge Z=-70.6)
+  for (let i = 0; i < 200; i++) {
     pos = resolveCityMovement(pos, 0, -1, 3.8, 0.1);
-    if (pos[2] < -58) break;
+    if (pos[2] < -71) break;
   }
-  assert.ok(pos[2] < -58, `Should reach north of fortress, got z=${pos[2]}`);
+  assert.ok(pos[2] <= -71, `Should reach north of fortress, got z=${pos[2]}`);
   assert.ok(!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS),
     'North of fortress should be collision-free');
 });
 
 test('fortress: player can walk around the west side', () => {
-  // Walk west from the gate approach, then north along the west wall
-  let pos: [number, number, number] = [0, 0, -45];
+  // Same approach as east: go south first to clear the wall, then west, then north.
+  let pos: [number, number, number] = [0, 0, -50.5];
   for (let i = 0; i < 50; i++) {
+    pos = resolveCityMovement(pos, 0, 1, 3.8, 0.1);
+    if (pos[2] > -48) break;
+  }
+  assert.ok(pos[2] > -48, `Should clear south of fortress walls, got z=${pos[2]}`);
+  for (let i = 0; i < 80; i++) {
     pos = resolveCityMovement(pos, -1, 0, 3.8, 0.1);
-    if (pos[0] < -6) break;
+    if (pos[0] < -12) break;
   }
-  assert.ok(pos[0] < -6, `Should clear west wall, got x=${pos[0]}`);
-  for (let i = 0; i < 100; i++) {
+  assert.ok(pos[0] < -12, `Should clear west wall, got x=${pos[0]}`);
+  for (let i = 0; i < 200; i++) {
     pos = resolveCityMovement(pos, 0, -1, 3.8, 0.1);
-    if (pos[2] < -58) break;
+    if (pos[2] < -71) break;
   }
-  assert.ok(pos[2] < -58, `Should reach north of fortress, got z=${pos[2]}`);
+  assert.ok(pos[2] <= -71, `Should reach north of fortress, got z=${pos[2]}`);
 });
 
-test('fortress: arrival point [0, -45] is collision-free with clearance', () => {
+test('fortress: arrival point [0, -50.5] is collision-free with clearance', () => {
   const [ax, az] = FAST_TRAVEL_ARRIVALS['northern_fortress'];
-  assert.ok(ax === 0 && az === -45, `Expected [0, -45], got [${ax}, ${az}]`);
+  assert.ok(ax === 0 && az === -50.5, `Expected [0, -50.5], got [${ax}, ${az}]`);
   assert.ok(!collidesWith(ax, az, ARRIVAL_CLEARANCE, CITY_COLLIDERS),
     'Fortress arrival should be collision-free with clearance');
 });
 
 test('fortress: arrival point is not trapped (can move in multiple directions)', () => {
-  const pos: [number, number, number] = [0, 0, -45];
+  const pos: [number, number, number] = [0, 0, -50.5];
   let canMoveCount = 0;
   for (const [dx, dz] of [[1,0],[-1,0],[0,1],[0,-1]] as const) {
     const result = resolveCityMovement(pos, dx, dz, 3.8, 0.3);
-    if (result[0] !== 0 || result[2] !== -45) canMoveCount++;
+    if (result[0] !== 0 || result[2] !== -50.5) canMoveCount++;
   }
   assert.ok(canMoveCount >= 3,
     `Should be able to move in >=3 directions, got ${canMoveCount}`);
@@ -1664,7 +1673,7 @@ test('fortress: arrival point is not trapped (can move in multiple directions)',
 
 test('fortress: player can escape back toward city from arrival', () => {
   // From the fortress arrival, walk south (+Z) back toward the city
-  let pos: [number, number, number] = [0, 0, -45];
+  let pos: [number, number, number] = [0, 0, -50.5];
   let reachedCity = false;
   for (let i = 0; i < 200; i++) {
     pos = resolveCityMovement(pos, 0, 1, 3.8, 0.1);
@@ -1674,7 +1683,7 @@ test('fortress: player can escape back toward city from arrival', () => {
 });
 
 test('fortress: getNearbyHubLocation detects fortress at position', () => {
-  const loc = getNearbyHubLocation([0, 0, -52]);
+  const loc = getNearbyHubLocation([0, 0, -59.5]);
   assert.ok(loc !== null, 'Fortress should be detected');
   assert.strictEqual(loc!.id, 'northern_fortress');
 });
@@ -1687,15 +1696,17 @@ test('fortress: northern_fortress exists in HUB_LOCATIONS and FAST_TRAVEL_ARRIVA
 });
 
 test('fortress: does not overlap Colosseum colliders', () => {
-  // Colosseum back wall ends at Z ≈ -42.2 (at θ=0.85π)
-  // Fortress south wall starts at Z = -46.45 (outer edge)
-  // There should be a clear gap between them
-  assert.ok(!collidesWith(0, -44, R, CITY_COLLIDERS),
-    'Gap between Colosseum and fortress at (0, -44) should be clear');
-  assert.ok(!collidesWith(5, -44, R, CITY_COLLIDERS),
-    'Gap at (5, -44) should be clear');
-  assert.ok(!collidesWith(-5, -44, R, CITY_COLLIDERS),
-    'Gap at (-5, -44) should be clear');
+  // Colosseum back wall ends at Z ≈ -44.3 (at θ=0.85π)
+  // Fortress south wall outer edge at Z = -49.6
+  // Gap between them: 4.7 units — clear approach corridor
+  for (let z = -44; z >= -48; z -= 1) {
+    assert.ok(!collidesWith(0, z, R, CITY_COLLIDERS),
+      `Gap between Colosseum and fortress at (0, ${z}) should be clear`);
+  }
+  assert.ok(!collidesWith(5, -47, R, CITY_COLLIDERS),
+    'Gap at (5, -47) should be clear');
+  assert.ok(!collidesWith(-5, -47, R, CITY_COLLIDERS),
+    'Gap at (-5, -47) should be clear');
 });
 
 test('fortress: all 5 fortress wall colliders exist in CITY_COLLIDERS', () => {
