@@ -13,7 +13,7 @@ import { NOISE_TEXTURE } from './RomanMaterials';
 
 export const MerchantHouse = React.memo(() => {
   return (
-    <group position={[26, 0, -12]}>
+    <group position={[26, 0, -13]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
       <BuildingFoundation size={[7.2, 6.5]} height={0.3} projection={0.25} />
 

@@ -148,7 +148,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'merchant_house',
     name: 'Elite Merchant House',
     subtitle: 'Prestigious Trade Taberna',
-    position: [26, 0, -12],
+    position: [26, 0, -13],
     radius: 4.5,
     icon: 'ShoppingCart',
     tabKey: 'shop',
@@ -521,7 +521,7 @@ export function resolveCityMovement(
 //   general_store     [17, -5]   — 1.15 W of store west edge (x=18.15)
 //   tavern            [-10, 14]  — 1.3 E of tavern east edge (x=-11.3)
 //   caravanserai      [10, 14]   — 1.2 W of caravanserai west edge (x=11.2)
-//   merchant_house    [21, -12]  — 1.15 W of merchant west edge (x=22.15)
+//   merchant_house    [21, -13]  — 1.15 W of merchant west edge (x=22.15)
 //   armor_workshop    [28.2, 5.5]— 1.5 N of workshop north edge (z=4.0)
 //   stable            [26, 10]   — 1.15 S of stable south edge (z=11.15)
 //   gladiator_academy [25.5, -23]— 1.15 NW of academy NW corner (x=26.65,z=-23.35)
@@ -543,7 +543,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   general_store:      [17, -5],
   tavern:             [-10, 14],
   caravanserai:       [10, 14],
-  merchant_house:     [21, -12],
+  merchant_house:     [21, -13],
   armor_workshop:     [28.2, 5.5],
   stable:             [26, 10],
   gladiator_academy:  [25.5, -23],

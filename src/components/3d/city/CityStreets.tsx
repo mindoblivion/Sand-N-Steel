@@ -2,6 +2,7 @@ import React from 'react';
 import * as THREE from 'three';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { CornerSandDrift } from './GroundWearSystem';
+import { VIA_MERCATORIA_PATH } from '../../../utils/streetGeometry';
 import {
   RomanBench,
   TabulaNoticeBoard,
@@ -216,7 +217,7 @@ export const CityStreets = React.memo(() => {
       {/* 3. VIA MERCATORIA — Phase 25.9: Re-routed from diagonal (which crossed the
             Colosseum footprint) to a north-south connector from the East Street
             Extension down to the relocated General Store [22, 0, -5], then south
-            toward the Merchant House [26, 0, -12] entrance on its west face. */}
+            toward the Merchant House [26, 0, -13] entrance on its west face. */}
       {/* Connector: East Extension [22.5, 0, 1] → General Store [22, 0, -5] */}
       <mesh receiveShadow position={[22, -0.015, -2]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[4, 6]} />
@@ -236,9 +237,19 @@ export const CityStreets = React.memo(() => {
         hasGutters={true}
       />
 
-      {/* Path: General Store [22, 0, -5] → Merchant House west entrance [22.4, 0, -12] */}
-      <mesh receiveShadow position={[22, -0.015, -7.5]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[3, 5]} />
+      {/* Path: General Store south side → Merchant House west entrance.
+            Phase C-8.12: the Merchant House moved to [26, 0, -13] and its west
+            foundation edge sits at X = 22.15. The former segment (centre X = 22)
+            ran beneath BOTH foundations (9.45 sq under the General Store, 2.03 sq
+            under the Merchant House) rather than terminating at an approach point.
+            It is re-laid as an alley centred at X = 20.5 — entirely west of the
+            Merchant House foundation — spanning the General Store's south
+            foundation edge (Z = -8.15) down to the entrance approach (Z = -14),
+            covering the merchant_house fast-travel arrival [21, -13].
+            Mesh footprint X[19, 22] Z[-14, -8.2] keeps a 0.05 clearance to the
+            General Store foundation and overlaps no building collider. */}
+      <mesh receiveShadow position={[VIA_MERCATORIA_PATH.cx, -0.015, VIA_MERCATORIA_PATH.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[VIA_MERCATORIA_PATH.w, VIA_MERCATORIA_PATH.d]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.roadFlagstone.color}
           roughness={0.82}
@@ -247,10 +258,10 @@ export const CityStreets = React.memo(() => {
         />
       </mesh>
       <RomanPavedStreet
-        position={[22, 0, -7.5]}
+        position={[VIA_MERCATORIA_PATH.cx, 0, VIA_MERCATORIA_PATH.cz]}
         axis="z"
-        length={5}
-        width={3}
+        length={VIA_MERCATORIA_PATH.d}
+        width={VIA_MERCATORIA_PATH.w}
         district="commercial"
         hasGutters={true}
       />

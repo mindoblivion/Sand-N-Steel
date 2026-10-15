@@ -327,8 +327,11 @@ const buildingRects: RectCollider[] = [
   // CaravanseraiInn — root [16, 0, 14], foundation [8.6, 7.6], proj 0.25 → 9.6 × 8.1
   RECT('caravanserai', 16, 14, 9.6, 8.1),
 
-  // MerchantHouse — root [26, 0, -12], foundation [7.2, 6.5], proj 0.25 → 7.7 × 7.0
-  RECT('merchant-house', 26, -12, 7.7, 7.0),
+  // MerchantHouse — root [26, 0, -13], foundation [7.2, 6.5], proj 0.25 → 7.7 × 7.0
+  // Phase C-8.12: shifted south 1.0 (Z: -12 → -13) to open the Via Mercatoria
+  // route between the GeneralStore (south edge Z=-8.15) and the MerchantHouse
+  // north edge (Z=-9.5) — a 1.35 unit gap / 0.55 unit player-center corridor.
+  RECT('merchant-house', 26, -13, 7.7, 7.0),
 
   // ArmorLeatherWorkshop — root [28.2, 0, 1], foundation [8.4, 5.2] proj 0.25
   // offset [0, 0, 0.15] → center [28.2, 1.15], footprint 8.9 × 5.7
