@@ -137,3 +137,107 @@ export function applyStaminaRegen(
 ): number {
   return Math.max(0, Math.min(staminaMax, current + regen));
 }
+
+/**
+ * The four actions the standard AI combat branch can choose from.
+ */
+export type AIStandardAction = 'quick_attack' | 'power_attack' | 'shield_block' | 'dodge';
+
+/**
+ * Backward-compatible fallback thresholds for the standard combat branch.
+ *
+ * These are the original hardcoded values from DuelScene before Phase 37B
+ * (aggression/blockChance integration). Used when either configuration value
+ * is missing, NaN, or non-finite.
+ *
+ *   quick_attack:   0.46
+ *   power_attack:   0.26
+ *   shield_block:   0.18
+ *   dodge:          0.10
+ */
+export const AI_FALLBACK_THRESHOLDS = {
+  quick: 0.46,
+  power: 0.72,   // 0.46 + 0.26
+  block: 0.90,   // 0.46 + 0.26 + 0.18
+} as const;
+
+/**
+ * Relative weight of quick vs power attack within the offensive pool.
+ *
+ * Preserves the original 46:26 ratio from the pre-37B standard branch,
+ * normalized so the two shares sum to 1.
+ */
+const OFFENSIVE_QUICK_SHARE = 46 / (46 + 26); // ≈ 0.6389
+
+/**
+ * Choose an AI standard-combat action from the opponent's `aggression` and
+ * `blockChance` configuration.
+ *
+ * This is the fallback branch used when the opponent is in strike range,
+ * has stamina, the player is not blocking, and the player is not low on
+ * health. All other tactical branches (out-of-range, player-blocking,
+ * low-stamina, low-player-HP, boss telegraph / counter-dodge) are handled
+ * BEFORE this function is called and are completely unaffected.
+ *
+ * ── Probability model (single uniform draw) ────────────────────────────
+ *
+ *   aggression        = P(offensive action) = quick_attack + power_attack
+ *   1 − aggression    = P(defensive action) = shield_block + dodge
+ *
+ *   Within offensive:  quick : power = 46 : 26  (original ratio preserved)
+ *   Within defensive:  blockChance = P(shield_block), remainder = P(dodge)
+ *
+ *   Cumulative thresholds cover [0, 1) without gaps or overlaps:
+ *     [0,                       aggression × 46/72)                         → quick_attack
+ *     [aggression × 46/72,      aggression)                                → power_attack
+ *     [aggression,              aggression + (1−aggression) × blockChance)  → shield_block
+ *     [aggression + (1−aggression) × blockChance,  1)                       → dodge
+ *
+ * ── Fallback ───────────────────────────────────────────────────────────
+ *
+ * If `aggression` OR `blockChance` is missing, NaN, or non-finite, the
+ * original hardcoded probabilities are used:
+ *   46% quick_attack, 26% power_attack, 18% shield_block, 10% dodge
+ *
+ * Valid finite values outside [0, 1] are clamped to the nearest boundary
+ * rather than triggering the fallback.
+ *
+ * @param aggression   P(offensive) in [0,1], or invalid for fallback
+ * @param blockChance  P(block | defensive) in [0,1], or invalid for fallback
+ * @param rngOrValue   A random value in [0,1) or a () => number callback.
+ *                     Defaults to Math.random for production use.
+ * @returns One of: 'quick_attack', 'power_attack', 'shield_block', 'dodge'
+ */
+export function chooseAIStandardAction(
+  aggression: number | undefined,
+  blockChance: number | undefined,
+  rngOrValue: number | (() => number) = Math.random,
+): AIStandardAction {
+  const r = typeof rngOrValue === 'function' ? rngOrValue() : rngOrValue;
+
+  // Validate: both must be finite numbers. If either is invalid, use
+  // the backward-compatible fallback that preserves the original
+  // hardcoded probabilities.
+  const validAggression = typeof aggression === 'number' && Number.isFinite(aggression);
+  const validBlockChance = typeof blockChance === 'number' && Number.isFinite(blockChance);
+
+  if (!validAggression || !validBlockChance) {
+    if (r < AI_FALLBACK_THRESHOLDS.quick) return 'quick_attack';
+    if (r < AI_FALLBACK_THRESHOLDS.power) return 'power_attack';
+    if (r < AI_FALLBACK_THRESHOLDS.block) return 'shield_block';
+    return 'dodge';
+  }
+
+  // Clamp finite out-of-range values to [0, 1]
+  const agg = Math.max(0, Math.min(1, aggression));
+  const blk = Math.max(0, Math.min(1, blockChance));
+
+  const quickCutoff = agg * OFFENSIVE_QUICK_SHARE;
+  const powerCutoff = agg;
+  const blockCutoff = agg + (1 - agg) * blk;
+
+  if (r < quickCutoff) return 'quick_attack';
+  if (r < powerCutoff) return 'power_attack';
+  if (r < blockCutoff) return 'shield_block';
+  return 'dodge';
+}

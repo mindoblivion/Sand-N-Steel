@@ -21,6 +21,7 @@ import {
   calculateHitChance,
   calculateAttackDamage,
   applyStaminaRegen,
+  chooseAIStandardAction,
 } from '../../utils/combatCalculations';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
@@ -662,19 +663,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // Player low HP: Finish with Quick Attack
           chosenAction = Math.random() < 0.7 ? 'quick_attack' : 'power_attack';
         } else {
-          // Standard combat balance. A small chance to take a preventive
-          // evasion stance against the player's likely next strike — only in
-          // strike range, with stamina to spare, and never against a blocking
-          // player (no incoming attack to evade). The alternating turn model
-          // means the AI cannot react to a specific player attack (the
-          // player's action is already reset to idle by the time the AI
-          // chooses), so this is a low-probability preventive dodge, not a
-          // reaction. 10% keeps it from becoming a repetitive loop.
-          const r = Math.random();
-          if (r < 0.10) chosenAction = 'dodge';
-          else if (r < 0.56) chosenAction = 'quick_attack';
-          else if (r < 0.82) chosenAction = 'power_attack';
-          else chosenAction = 'shield_block';
+          // Standard combat: use the opponent's configured aggression and
+          // blockChance to determine the action. See chooseAIStandardAction
+          // in combatCalculations.ts for the full probability model. When
+          // either value is missing or invalid, the function falls back to
+          // the original hardcoded probabilities (46% quick, 26% power, 18%
+          // block, 10% dodge).
+          chosenAction = chooseAIStandardAction(opponent.aggression, opponent.blockChance);
         }
       }
 
