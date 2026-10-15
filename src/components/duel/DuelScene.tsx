@@ -202,17 +202,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
   const [crowdHype, setCrowdHype] = useState(25);
 
-  // C-8 (Phase 39C): update crowd hype and synchronously track the per-duel
-  // peak inside the state updater. The peak only increases (via updateHypePeak,
-  // which is Math.max) — it never decreases when hype stays flat or drops.
-  // Updating inside the updater (not a delayed effect) ensures the peak
-  // captures the final value even if the match ends on the same render cycle.
+  // C-8 (Phase 39C): a ref mirrors the committed hype value so the updater can
+  // compute the exact next value from an authoritative current value without
+  // reading stale React state. The ref is updated synchronously inside
+  // updateCrowdHype, so two calls batched in the same React render cycle each
+  // see the result of the previous one — no stale-closure bug. The peak is
+  // updated outside the state updater, keeping setCrowdHype pure. Under Strict
+  // Mode the updater is no longer a function, so double-invocation does not
+  // double-mutate the ref or peak.
+  const crowdHypeRef = useRef(25);
+
   const updateCrowdHype = useCallback((updater: (prev: number) => number) => {
-    setCrowdHype((prev) => {
-      const next = updater(prev);
-      statsRef.current.crowdHypePeak = updateHypePeak(statsRef.current.crowdHypePeak, next);
-      return next;
-    });
+    const next = updater(crowdHypeRef.current);
+    crowdHypeRef.current = next;
+    setCrowdHype(next);
+    statsRef.current.crowdHypePeak = updateHypePeak(statsRef.current.crowdHypePeak, next);
   }, []);
 
   const [matchTimer, setMatchTimer] = useState(0);

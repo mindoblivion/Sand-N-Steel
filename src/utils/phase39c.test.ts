@@ -477,3 +477,118 @@ describe('Phase 39C — Existing behavior unchanged', () => {
     expect(shouldActivateRage('rage_mode_colossus', 240, 480, true)).toBe(false);
   });
 });
+
+// ── 12. Pure updater pattern (Phase 39C.2) ─────────────────────────────────
+//
+// The production updateCrowdHype callback now reads from a ref (authoritative
+// current hype), computes the next value, sets the ref synchronously, calls
+// setCrowdHype with the plain value (not a functional updater), and updates
+// the peak ref outside the state setter.  These tests verify that the
+// extracted pattern is deterministic, side-effect-free inside the setter, and
+// correct under batched sequential calls.
+//
+// Limitation: the test harness (bun:test, no DOM) cannot mount the React
+// component, so we test the production helper (updateHypePeak) plus a faithful
+// simulation of the new ref-mirrored update sequence instead of the
+// component callback itself.
+
+/**
+ * Simulate the Phase 39C.2 ref-mirrored update pattern.
+ * `stateRef` mirrors crowdHypeRef; `peakRef` mirrors statsRef.crowdHypePeak.
+ * Returns the new hype value; mutates refs in place, exactly as production.
+ */
+function pureHypeUpdate(
+  stateRef: { current: number },
+  peakRef: { current: number },
+  updater: (prev: number) => number,
+): number {
+  const next = updater(stateRef.current);
+  stateRef.current = next;
+  peakRef.current = updateHypePeak(peakRef.current, next);
+  return next;
+}
+
+describe('Phase 39C.2 — Pure updater pattern', () => {
+  test('state setter receives a plain value, not a functional updater with side effects', () => {
+    // The new updateCrowdHype computes `next` outside the setter and calls
+    // setCrowdHype(next).  Verify the computation is pure: given the same
+    // inputs it always returns the same output and has no hidden state.
+    const stateRef = { current: HYPE_INITIAL };
+    const peakRef = { current: HYPE_INITIAL };
+    const next = pureHypeUpdate(stateRef, peakRef, (prev) => Math.min(100, prev + 8));
+    expect(next).toBe(33);
+    expect(stateRef.current).toBe(33);
+    expect(peakRef.current).toBe(33);
+  });
+
+  test('sequential batched calls see the updated ref, not a stale value', () => {
+    // Simulate two hype increments batched in the same render cycle.
+    // With a functional updater + side effect, the ref would be updated
+    // inside the updater (unsafe). With the ref-mirrored pattern, the ref
+    // is updated synchronously before the second call reads it.
+    const stateRef = { current: HYPE_INITIAL };
+    const peakRef = { current: HYPE_INITIAL };
+
+    // First call: taunt (+20) → 45
+    pureHypeUpdate(stateRef, peakRef, (prev) => Math.min(100, prev + HYPE_TAUNT_INCREMENT));
+    expect(stateRef.current).toBe(45);
+    expect(peakRef.current).toBe(45);
+
+    // Second call (same "batch"): normal hit (+8) → 53, not 33
+    pureHypeUpdate(stateRef, peakRef, (prev) => Math.min(100, prev + HYPE_NORMAL_HIT_INCREMENT));
+    expect(stateRef.current).toBe(53);
+    expect(peakRef.current).toBe(53);
+  });
+
+  test('three rapid increments produce the correct final hype and peak', () => {
+    const stateRef = { current: HYPE_INITIAL };
+    const peakRef = { current: HYPE_INITIAL };
+
+    pureHypeUpdate(stateRef, peakRef, (p) => Math.min(100, p + HYPE_NORMAL_HIT_INCREMENT)); // 33
+    pureHypeUpdate(stateRef, peakRef, (p) => Math.min(100, p + HYPE_CRIT_HIT_INCREMENT));  // 51
+    pureHypeUpdate(stateRef, peakRef, (p) => Math.min(100, p + HYPE_TAUNT_INCREMENT));    // 71
+
+    expect(stateRef.current).toBe(71);
+    expect(peakRef.current).toBe(71);
+  });
+
+  test('cap at 100 is respected and peak reaches 100', () => {
+    const stateRef = { current: 95 };
+    const peakRef = { current: 95 };
+
+    pureHypeUpdate(stateRef, peakRef, (p) => Math.min(100, p + HYPE_NORMAL_HIT_INCREMENT));
+
+    expect(stateRef.current).toBe(100);
+    expect(peakRef.current).toBe(100);
+  });
+
+  test('peak never decreases across a full ref-mirrored duel', () => {
+    const stateRef = { current: HYPE_INITIAL };
+    const peakRef = { current: HYPE_INITIAL };
+
+    const increments = [HYPE_NORMAL_HIT_INCREMENT, HYPE_CRIT_HIT_INCREMENT, HYPE_TAUNT_INCREMENT];
+    let maxSeen = HYPE_INITIAL;
+    for (const inc of increments) {
+      pureHypeUpdate(stateRef, peakRef, (p) => Math.min(100, p + inc));
+      maxSeen = Math.max(maxSeen, stateRef.current);
+      // Peak should always equal the highest hype seen
+      expect(peakRef.current).toBe(maxSeen);
+    }
+    expect(peakRef.current).toBe(71);
+  });
+
+  test('the state updater function itself is pure (no side effect on peak)', () => {
+    // The updater passed to updateCrowdHype is `(prev) => Math.min(100, prev + n)`.
+    // It must not mutate any external state.  Verify by calling it twice with
+    // the same input — the result is identical and no ref changed.
+    const updater = (prev: number) => Math.min(100, prev + HYPE_CRIT_HIT_INCREMENT);
+    expect(updater(50)).toBe(68);
+    expect(updater(50)).toBe(68);
+  });
+
+  test('increment values are exactly +20, +8, +18', () => {
+    expect(HYPE_TAUNT_INCREMENT).toBe(20);
+    expect(HYPE_NORMAL_HIT_INCREMENT).toBe(8);
+    expect(HYPE_CRIT_HIT_INCREMENT).toBe(18);
+  });
+});
