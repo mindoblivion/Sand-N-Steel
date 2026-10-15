@@ -9,12 +9,12 @@ import {
 } from './collisionShapes';
 
 // ── World movement boundaries ────────────────────────────────────────────
-// X axis is symmetric ±35.  Z axis extends further north (-88) to reach
-// the Northern Motte perimeter (moat ring north point at Z=-90, with
-// 2-unit margin for player movement inside the perimeter);
+// X axis is symmetric ±35.  Z axis extends further north (-91) to reach
+// the Northern Motte perimeter (moat ring north point at Z=-93.5, with
+// 2.5-unit margin for player movement inside the perimeter);
 // the southern limit remains +35.
 export const BOUNDARY_X = 35;
-export const BOUNDARY_Z_MIN = -88;
+export const BOUNDARY_Z_MIN = -91;
 export const BOUNDARY_Z_MAX = 35;
 
 // ── Phase 31H: Recovery history for oscillation detection ───────────────
@@ -286,7 +286,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'northern_fortress',
     name: 'Northern Roman Fortress',
     subtitle: 'Imperial Garrison Outpost',
-    position: [0, 0, -68],
+    position: [0, 0, -71.5],
     radius: 10.0,
     icon: 'Shield',
     actionPrompt: 'Approach the Fortress Gate',
@@ -556,12 +556,12 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   veteran_gladiator_hall: [-24, -29],
   arena_medical_house:[-29, -9],
   // Fortress arrival: on the motte summit just south of the gate, in the
-  // gate gap corridor at X=0.  Z=-55.5 is inside the summit (radius 12.5
-  // from motte center [0,-68]) and south of the fortress south wall
-  // (outer face Z=-56.3).  Terrain height at this point is Y≈4.72
+  // gate gap corridor at X=0.  Z=-59.0 is inside the summit (radius 12.5
+  // from motte center [0,-71.5]) and south of the fortress south wall
+  // (outer face Z=-61.0).  Terrain height at this point is Y≈4.72
   // (summit level).  Collision-free with the fortress wall gap (X=0)
   // and the motte perimeter opening.
-  northern_fortress:   [0, -55.5],
+  northern_fortress:   [0, -59.0],
 };
 
 export function getNearbyHubLocation(

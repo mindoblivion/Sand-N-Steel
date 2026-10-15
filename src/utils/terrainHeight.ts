@@ -1,7 +1,7 @@
 /**
  * terrainHeight.ts — Focused terrain-height utility for the Northern Motte.
  *
- * The motte is a raised earth mound at world center [0, 0, -68] with a
+ * The motte is a raised earth mound at world center [0, 0, -71.5] with a
  * south-facing ramp.  The player must walk naturally from city ground (Y=0)
  * up the ramp, onto the flat summit (Y≈4.72), through the fortress gate,
  * and back down.
@@ -45,7 +45,7 @@
 // ── Motte configuration ─────────────────────────────────────────────────────
 
 export const MOTTE_CENTER_X = 0;
-export const MOTTE_CENTER_Z = -68;
+export const MOTTE_CENTER_Z = -71.5;
 export const MOTTE_SCALE = 0.3145;
 
 // ── Drawbridge (Phase 35E) ───────────────────────────────────────────────────
@@ -56,14 +56,14 @@ export const MOTTE_SCALE = 0.3145;
 // provides the upward path that the ramp formerly did.
 //
 // Bridge placement (world space, centered at X=0):
-//   Outer (south, city side): Z = -36.5  (0.5 beyond moat outer edge at -37.0)
-//   Inner (north, motte side): Z = -42.5  (at motte base ~-42.84)
+//   Outer (south, city side): Z = -40.5  (at moat outer edge -40.5)
+//   Inner (north, motte side): Z = -46.0  (0.3 beyond moat inner edge -45.7)
 //   Half-width: 2.0  (4-unit deck, fits inside moat gap linear width ≈9.24)
 //   Deck Y: 0.1  (above moat water at 0.06, avoids z-fighting with ground)
 
 export const BRIDGE_HALF_WIDTH = 2.0;
-export const BRIDGE_Z_OUTER = -36.5;
-export const BRIDGE_Z_INNER = -42.5;
+export const BRIDGE_Z_OUTER = -40.5;
+export const BRIDGE_Z_INNER = -46.0;
 export const BRIDGE_LENGTH = BRIDGE_Z_OUTER - BRIDGE_Z_INNER; // 6.0 (negative)
 
 /**
@@ -76,8 +76,8 @@ export function isOnBridge(x: number, z: number): boolean {
 // Legacy ramp bounds (kept for reference and test migration; the Ramp_Dirt
 // mesh is hidden and the ramp interpolation is no longer used in getTerrainY).
 export const RAMP_HALF_WIDTH = 9 * MOTTE_SCALE;       // 2.8305
-export const RAMP_Z_OUTER = 74 * MOTTE_SCALE - 68;    // -44.7273 (south, Y=0)
-export const RAMP_Z_INNER = 40 * MOTTE_SCALE - 68;    // -55.42   (north, Y=4.72)
+export const RAMP_Z_OUTER = 74 * MOTTE_SCALE + MOTTE_CENTER_Z;  // -48.23 (south, Y=0)
+export const RAMP_Z_INNER = 40 * MOTTE_SCALE + MOTTE_CENTER_Z;  // -58.92 (north, Y=4.72)
 export const RAMP_Z_RANGE = RAMP_Z_OUTER - RAMP_Z_INNER; // 10.6927 (positive)
 
 // Summit — superellipse (NOT a circle)

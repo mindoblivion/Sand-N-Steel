@@ -551,8 +551,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                   hills (X=±45) and aqueduct (local Z=12, world Z=-103)
                   remain at their original positions — only the inner
                   hills' spheres (radius 26) intersected the motte at
-                  Y=0.  Clearance at Z=-122: ~6 units (inner hills). */}
-              <group position={[0, 0, -115]}>
+                  Y=0.  Clearance at Z=-122: ~6 units (inner hills).
+                  Phase 35F.5: Moved north from Z=-115 to Z=-119 to
+                  preserve visual spacing behind the shifted motte. */}
+              <group position={[0, 0, -119]}>
                 {/* Distant Rolling Tuscan Hills */}
                 {[-45, -15, 15, 45].map((hx, hi) => (
                   <mesh key={`hill-${hi}`} position={[hx, 8 + (hi % 2) * 4, hi === 1 || hi === 2 ? -7 : 0]}>

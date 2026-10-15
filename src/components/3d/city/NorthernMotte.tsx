@@ -27,7 +27,7 @@ import { SkeletonUtils } from 'three-stdlib';
  * break the terrain height calculations in terrainHeight.ts.
  *
  * Approved configuration (Phase 34G, C2 south-facing):
- *   Position: [0, 0, -68]
+ *   Position: [0, 0, -71.5]
  *   Scale:    0.3145
  *   Rotation: [0, 0, 0]  (the GLB nodes already carry the Z-up→Y-up rotation)
  *
@@ -38,10 +38,10 @@ import { SkeletonUtils } from 'three-stdlib';
  *                  below the city ground plane at Y=0.  Omitted from
  *                  rendering because it is always hidden underground.
  *
- * World-space bounds after transform (scale 0.3145, center [0, -68]):
- *   Motte: X[-25.16, 25.16], Z[-93.16, -42.84], Y[-0.88, 4.72]
- *   Ramp:  X[-2.83, 2.83],   Z[-55.42, -44.73], Y[0, 4.72]
- *   Summit (flat top at Y=4.72): radius ≈15.73 from [0, -68]
+ * World-space bounds after transform (scale 0.3145, center [0, -71.5]):
+ *   Motte: X[-25.16, 25.16], Z[-96.66, -46.34], Y[-0.88, 4.72]
+ *   Ramp:  X[-2.83, 2.83],   Z[-58.92, -48.23], Y[0, 4.72]
+ *   Summit (flat top at Y=4.72): radius ≈15.73 from [0, -71.5]
  *
  * The motte is mounted once in CityHubScene via this component.
  */
@@ -113,7 +113,7 @@ export const MOAT_OUTER_RADIUS = 31.0;
 export const MOAT_WATER_Y = 0.06;
 export const MOAT_GAP_HALF_ANGLE = 0.18; // radians
 
-const MOTTE_MOAT_CENTER: [number, number, number] = [0, 0, -68];
+const MOTTE_MOAT_CENTER: [number, number, number] = [0, 0, -71.5];
 
 const MoatWater: React.FC = () => {
   // RingGeometry is in the XY plane. After rotation [-π/2, 0, 0]:
@@ -172,7 +172,7 @@ export const NorthernMotte: React.FC = () => {
   return (
     <MotteErrorBoundary>
       <React.Suspense fallback={null}>
-        <group position={[0, 0, -68]} scale={0.3145}>
+        <group position={[0, 0, -71.5]} scale={0.3145}>
           <MotteModel />
         </group>
         <MoatWater />

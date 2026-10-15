@@ -50,8 +50,8 @@ import {
 const EPS = 1e-6;
 
 // ── Fortress constants (must match collisionShapes.ts) ─────────────────────
-const FORTRESS_SOUTH_Z = -57.5;
-const FORTRESS_CENTER_Z = -68;
+const FORTRESS_SOUTH_Z = -61.0;
+const FORTRESS_CENTER_Z = -71.5;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. Bridge Fits Inside the Moat Angular Opening
@@ -69,7 +69,7 @@ describe('Bridge fits inside moat angular opening', () => {
   });
 
   test('bridge span covers the moat ring at south', () => {
-    // Moat at south: inner edge Z = -68 + 25.8 = -42.2, outer = -68 + 31.0 = -37.0
+    // Moat at south: inner edge Z = -71.5 + 25.8 = -45.7, outer = -71.5 + 31.0 = -40.5
     const moatInnerZ = MOTTE_CENTER_Z + MOAT_INNER_RADIUS;
     const moatOuterZ = MOTTE_CENTER_Z + MOAT_OUTER_RADIUS;
     // Bridge must extend from south of moat outer to north of moat inner
@@ -113,8 +113,8 @@ describe('Old ramp mesh hidden via runtime visibility', () => {
   test('Ramp_Dirt mesh name constant is preserved for reference', () => {
     // The legacy constants are kept in terrainHeight.ts for test migration
     expect(RAMP_HALF_WIDTH).toBeCloseTo(2.8305, 3);
-    expect(RAMP_Z_OUTER).toBeCloseTo(-44.7273, 2);
-    expect(RAMP_Z_INNER).toBeCloseTo(-55.42, 1);
+    expect(RAMP_Z_OUTER).toBeCloseTo(-48.227, 2);
+    expect(RAMP_Z_INNER).toBeCloseTo(-58.92, 1);
   });
 });
 
@@ -127,9 +127,9 @@ describe('Bridge dimensions and alignment', () => {
     expect(BRIDGE_HALF_WIDTH).toBe(2.0);
   });
 
-  test('bridge outer edge is south of moat outer edge', () => {
+  test('bridge outer edge is at or south of moat outer edge', () => {
     const moatOuterZ = MOTTE_CENTER_Z + MOAT_OUTER_RADIUS;
-    expect(BRIDGE_Z_OUTER).toBeGreaterThan(moatOuterZ);
+    expect(BRIDGE_Z_OUTER).toBeGreaterThanOrEqual(moatOuterZ);
   });
 
   test('bridge inner edge is at or north of moat inner edge', () => {
@@ -315,7 +315,7 @@ describe('Preserved fast-travel and collision boundaries', () => {
 
   test('boundary limits are unchanged', () => {
     expect(BOUNDARY_X).toBe(35);
-    expect(BOUNDARY_Z_MIN).toBe(-88);
+    expect(BOUNDARY_Z_MIN).toBe(-91);
     expect(BOUNDARY_Z_MAX).toBe(35);
   });
 

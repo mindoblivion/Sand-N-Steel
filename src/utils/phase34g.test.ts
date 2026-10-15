@@ -55,9 +55,9 @@ const HALF_MM = 5e-4;
 
 // ── Fortress constants (must match collisionShapes.ts) ─────────────────────
 const FORTRESS_HALF_W = 10.5; // 21 * 0.30 / 2
-const FORTRESS_SOUTH_Z = -57.5; // -68 + 10.5
-const FORTRESS_NORTH_Z = -78.5; // -68 - 10.5
-const FORTRESS_CENTER_Z = -68;
+const FORTRESS_SOUTH_Z = -61.0; // -71.5 + 10.5
+const FORTRESS_NORTH_Z = -82.0; // -71.5 - 10.5
+const FORTRESS_CENTER_Z = -71.5;
 const GATE_HALF_GAP = 1.0;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -321,7 +321,7 @@ describe('Fortress footprint inside flat summit', () => {
   });
 
   test('fortress corner is inside summit superellipse', () => {
-    // Corner at (10.5, -57.5): dx=10.5, dz=10.5 from motte center [0, -68]
+    // Corner at (10.5, -61.0): dx=10.5, dz=10.5 from motte center [0, -71.5]
     const dx = FORTRESS_HALF_W;
     const dz = FORTRESS_HALF_W;
     expect(isInsideSummit(dx, dz)).toBe(true);
@@ -443,11 +443,12 @@ describe('Collision — motte perimeter', () => {
     expect(blocked).toBe(false);
   });
 
-  test('outside ramp opening (X=6.0, Z=-47) is blocked by perimeter', () => {
-    // At Z=-46 (exact south point) the arc curves away; at Z=-47 (further
-    // into the perimeter) the arc segment is close enough to block.
+  test('outside ramp opening (X=6.0, near perimeter) is blocked by perimeter', () => {
+    // At the perimeter south point the arc curves away; just inside
+    // (1 unit north of the south point) the arc segment is close enough
+    // to block at X=6.0.
     const x = 6.0;
-    const z = -47;
+    const z = MOTTE_CENTER_Z + MOTTE_PERIMETER_RADIUS - 1; // -50.5
     const blocked = collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS);
     expect(blocked).toBe(true);
   });
@@ -584,14 +585,14 @@ describe('Collision recovery', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Boundary and Colosseum clearance', () => {
-  test('BOUNDARY_Z_MIN is -88', () => {
-    expect(BOUNDARY_Z_MIN).toBe(-88);
+  test('BOUNDARY_Z_MIN is -91', () => {
+    expect(BOUNDARY_Z_MIN).toBe(-91);
   });
 
   test('motte perimeter north point is within boundary', () => {
     const northZ = MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS; // -90
-    // The perimeter itself is at Z=-90, but the player center can be at -88
-    // (boundary) and still be 2 units from the perimeter
+    // The perimeter itself is at Z=-93.5, but the player center can be at -91
+    // (boundary) and still be 2.5 units from the perimeter
     expect(northZ).toBeGreaterThanOrEqual(BOUNDARY_Z_MIN - 5);
   });
 
@@ -604,15 +605,15 @@ describe('Boundary and Colosseum clearance', () => {
     expect(FORTRESS_NORTH_Z).toBeGreaterThanOrEqual(BOUNDARY_Z_MIN);
   });
 
-  test('Colosseum north wall (Z≈-44.3) is clear of motte south edge (Z≈-42.84)', () => {
+  test('Colosseum north wall (Z≈-44.3) is clear of motte south edge (Z≈-46.34)', () => {
     // Colosseum outer wall north at Z = -25 - 19.3 = -44.3
     const colosseumNorthZ = -25 - 19.3;
-    // Motte south edge at ground level (rim) at Z ≈ -42.84
-    const motteSouthZ = MOTTE_CENTER_Z + 80 * MOTTE_SCALE; // -68 + 25.16 = -42.84
-    // Colosseum north should be north of motte south
-    expect(colosseumNorthZ).toBeLessThan(motteSouthZ);
+    // Motte south edge at ground level (rim) at Z ≈ -46.34
+    const motteSouthZ = MOTTE_CENTER_Z + 80 * MOTTE_SCALE; // -71.5 + 25.16 = -46.34
+    // After the 3.5-unit shift, motte south edge is north of Colosseum north wall
+    expect(motteSouthZ).toBeLessThan(colosseumNorthZ);
     // Clearance
-    const clearance = motteSouthZ - colosseumNorthZ;
+    const clearance = colosseumNorthZ - motteSouthZ;
     expect(clearance).toBeGreaterThan(1.0);
   });
 
@@ -627,9 +628,9 @@ describe('Boundary and Colosseum clearance', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Hub location', () => {
-  test('northern_fortress hub location Z is -68', () => {
+  test('northern_fortress hub location Z is -71.5', () => {
     const loc = HUB_LOCATIONS.find(l => l.id === 'northern_fortress');
     expect(loc).toBeDefined();
-    expect(loc!.position[2]).toBe(-68);
+    expect(loc!.position[2]).toBe(-71.5);
   });
 });

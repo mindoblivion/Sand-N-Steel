@@ -7,7 +7,7 @@
  * (terrainHeight.ts) provides the upward path from the bridge to the summit.
  *
  * Dimensions (world space, centered at X=0):
- *   Span:   Z = -36.5 (city side) → Z = -42.5 (motte side), 6 units long
+ *   Span:   Z = -40.5 (city side) → Z = -46.0 (motte side), 5.5 units long
  *   Width:  4 units (X ±2.0), fits inside moat gap linear width ≈ 9.24
  *   Deck:   Y = 0.10 (above moat water at Y=0.06, avoids ground z-fighting)
  *

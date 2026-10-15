@@ -22,12 +22,12 @@ import { SkeletonUtils } from 'three-stdlib';
  *   Gates_Wood     X±2.25 Y≈-28.5 Z 0.05–3.95 (south gate, 4.5 wide)
  *
  * At scale 0.30 the footprint becomes 21×21 world units, height ~7.92.
- * Position [0, 4.72, -68] places it on the motte's flat summit (summit
+ * Position [0, 4.72, -71.5] places it on the motte's flat summit (summit
  * height Y=4.72, summit radius ≈15.73, fortress half-width 10.5 — corners
  * at radius 14.85, clearance 0.88 from the summit edge).
  *
  * World-space bounds after transform:
- *   X: [-10.5, 10.5]   Y: [4.72, 12.64]   Z: [-78.5, -57.5]
+ *   X: [-10.5, 10.5]   Y: [4.72, 12.64]   Z: [-82.0, -61.0]
  *   Gate (model Y=-28.5) → world Z ≈ -59.05 (south face, facing city +Z)
  *
  * Collision is handled by rect colliders in collisionShapes.ts (fortress-*
@@ -91,7 +91,7 @@ export const NorthernFortress: React.FC = () => {
   return (
     <FortressErrorBoundary>
       <React.Suspense fallback={null}>
-        <group position={[0, 4.72, -68]} rotation={[-Math.PI / 2, 0, 0]} scale={0.30}>
+        <group position={[0, 4.72, -71.5]} rotation={[-Math.PI / 2, 0, 0]} scale={0.30}>
           <FortressModel />
         </group>
       </React.Suspense>
