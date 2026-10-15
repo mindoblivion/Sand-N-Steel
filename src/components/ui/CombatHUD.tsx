@@ -50,7 +50,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   const opponentStaminaPct = Math.max(0, Math.min(100, (opponent.stamina / opponent.stats.staminaMax) * 100));
 
   const formattedTime = `${Math.floor(matchTimer / 60)}:${(matchTimer % 60).toString().padStart(2, '0')}`;
-  const hypeMultiplier = crowdHype > 75 ? '3.0x' : crowdHype > 40 ? '2.0x' : '1.0x';
+  const crowdFavorTier = crowdHype > 75 ? 'MAX' : crowdHype > 40 ? 'HIGH' : 'LOW';
 
   return (
     <div className="combat-hud absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 sm:p-5 select-none z-10">
@@ -191,7 +191,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             </span>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-amber-400/80 uppercase font-mono">
-                Bonus: <strong className="text-yellow-300">{hypeMultiplier}</strong>
+                <strong className="text-yellow-300">{crowdFavorTier}</strong>
               </span>
               <span className="font-mono text-amber-100">{Math.round(crowdHype)}%</span>
             </div>
