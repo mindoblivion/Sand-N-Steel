@@ -1089,3 +1089,75 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   and no new Android item. The open device checklist is unchanged — the C-8.41 kerb, C-8.38 northern
   approach, C-8.28 bowl cut, C-8.29 junction and C-8.31/C-8.33 rear-gate inspections. Do not claim
   device acceptance.
+
+## Imperial Stable roof alignment (Phase C-8.49 — implemented)
+
+- **The defect was the one real geometric finding of the C-8.48 rooftop audit: the Stable's timber
+  box closed only 6.6 of the 7.0-unit depth its roof assembly already spanned**, so every timber face
+  stopped **0.20** short of the gable plane on all four sides — the rear wall's outer face at +3.3
+  against the roof's +3.5, the two front posts at −3.3 against −3.5, and both 6.6-deep side walls at
+  ±3.3. `Stable.tsx`'s travertine base ring (`[6.8, 0.8, 7.0]`), its eave cornice (`size=[6.8, 7.0]`)
+  and its corner quoins (`buildingSize=[6.8, 7.0]`) had always used the full 7.0, so the roof and the
+  stonework agreed and only the oak walls were short. The fix is the smallest correction that closes
+  it: the box grows 6.6 → 7.0 **about its existing Z = 0 centreline**, outward on each side.
+
+  | element | before | after |
+  |---|---|---|
+  | rear wall (0.4 thick, 6.8 wide) | faces Z [2.9, 3.3] | faces Z **[3.1, 3.5]** |
+  | front posts (0.4 square) | faces Z [−3.3, −2.9] | faces Z **[−3.5, −3.1]** |
+  | side walls (0.4 × 6.6 → 0.4 × **7.0**) | ±3.3 | **±3.5** |
+  | timber box depth / centreline | 6.6 / Z 0 | **7.0 / Z 0** |
+  | gap to the roof gable plane | 0.20 per side | **0.00** |
+
+- **What did not move: nothing else.** Each wall keeps its thickness, width, height, Y position,
+  material and X position; the roof keeps its `width` 6.8, `depth` 7.0, `height` 1.3,
+  `eaveOverhang` 0.35, `ridgeAlong="z"`, transform `[0, 3.4, 0]` and all three colours; the
+  foundation, cornice, quoins, base ring, paddock, props and the building's own position `[26, 0, 15]`
+  are untouched. The wall faces land **coplanar** with the gable line (±3.5) and 0.02 *inside* the
+  tympanum panels (placed `depth / 2 + 0.02`), so the roof — including its 0.35 eave overhang, which
+  still projects exactly 0.35 past every wall face — is unchanged; this closes the slit rather than
+  enlarging or redesigning anything. No shared primitive, neighbouring building, collision rectangle,
+  hub radius or fast-travel entry was edited.
+- **Collision, hub and neighbour figures, all re-measured rather than assumed.** `stable` is still
+  `7.5 × 7.7` at `[26, 15]` — exactly `BuildingFoundation`'s lower step `(7.0 + 2 × 0.25) ×
+  (7.2 + 2 × 0.25)` — and the deepest timber face now sits 0.35 *inside* it, so the walls stayed
+  strictly inside the collider the player is stopped by. The hub keeps `radius 5.25` at `[26, 0, 15]`
+  and the arrival keeps `[26, 10]` (C-8.47; 1.15 clear of the collider face, 0.80+ band at the door).
+  The **Caravanserai Inn clearance is 1.55** measured roof eave to roof eave across X (the Inn's eave
+  at 20.70 against the Stable's at 22.25 — 16 + 8.6/2 + 0.4 vs 26 − 6.8/2 − 0.35); the collider-to-
+  collider figure stays the C-8.43 **1.70**. This phase changes no X extent at all, so neither can
+  have moved — note the request quoted 1.55, which is the *rendered* roof-eave clearance, not the
+  collider gap; both are pinned in the suite.
+- **Regression suite: `src/utils/phaseC8_49.test.ts`** — 33 tests across 8 sections, every value
+  derived from the sources or the shipped tables (a structural parser reads the meshes' real box
+  args/positions, the post map's own geometry and each shared primitive's props): §A the fix itself
+  (side walls 7.0 deep at ±3.2 and Z 0, the rear wall's outer face at +3.5 with its inner face still
+  at 3.1, the posts at −3.5/−3.1, the 7.0 box centred on Z 0, no 6.6 box left anywhere in the file,
+  and X/height/thickness/root unchanged); §B alignment with the roof envelope (every wall face within
+  0.02 of ±`depth/2`, none past the tympanum panels, flush with the base ring and the quoin corner
+  planes, the overhang still exactly `eaveOverhang`, and the shared primitive's own eave/slope/tile
+  expressions still the live ones); §C the posts against the building faces and the mirrored 7.0 box;
+  §D the rendered footprint against the collider (the collider re-derived from the foundation
+  formula, every rendered X/Z extent inside it, its widest element exactly on the line, and ≥ 0.3 of
+  margin around the walls); §E the Caravanserai (the 1.55 rendered clearance, the 1.70 collider gap,
+  disjoint X bands, and the Inn's own root/foundation/cornice pinned); §F the C-8.47 radius, the
+  standoff rule, the arrival and the driven `getNearbyHubLocation([26, 0, 10]) === 'stable'`; §G the
+  scope guard (110 colliders / 31 rectangles with unique ids, `PLAYER_RADIUS`, the Workshop's root and
+  rectangle, the primitives still the live source, the paddock and props); §H the control — the
+  pre-fix 6.6 / +3.1 / −3.1 numbers are shown to miss the plane by 0.20, ten times the 0.02 tolerance,
+  while the shipped ones are exact.
+- **Verified 2026-10-18** in the dev container: focused
+  `bun test src/utils/phaseC8_{18,19,19b,21,22,29,49}.test.ts` → **197 pass / 0 fail (7 files)**;
+  `bun test` → **1173 pass / 0 fail (39 files)** (C-8.47 left 1140 / 38; the delta is this suite's
+  33); `bun run scripts/collisionTests.ts` → **122 passed, 0 failed**, exit 0; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0; `git diff --check` → clean. `Stable.tsx` is
+  the only production file this phase touched.
+- **Not automatically verified — the rendered gap, and it is a device question.** The sandbox has no
+  GPU (SwiftShader, ~2 fps in the city hub) and at the mobile preview width the building is a small
+  part of the frame, so a 0.20-unit slit — and its closure — is below the resolution this environment
+  can settle. The geometry above is measured and pinned, not seen. **Android visual acceptance of the
+  four closed wall-to-gable junctions (front, rear and both side walls) therefore remains pending
+  until the roof is checked in the device preview**, together with the still-open C-8.41 kerb, C-8.38
+  northern approach, C-8.28 bowl cut, C-8.29 junction and C-8.31/C-8.33 rear-gate checks. Do not
+  claim device acceptance. The second C-8.48 finding — the Armor & Leather Workshop's lean-to standing
+  0.41 above its support — was **not** touched by this phase.
