@@ -82,9 +82,16 @@ export const VeteranGladiatorHall = React.memo(() => {
         stoneColor="#d4a373"
       />
 
-      {/* Recessed Framed Hall Entrance Doorway */}
+      {/* Recessed Framed Hall Entrance Doorway
+          Phase C-8.60: the group stands 0.08 further back, Z 2.58 → 2.50. `ClassicalDoorway`
+          puts its projecting cornice cap at local Y 2.48 … 2.58, and the cap is `depth + 0.12`
+          (0.47) deep about local Z 0.06 — so at 2.58 the cap's front face (2.875) reached 0.05
+          into BOTH of the pediment's raking cornices, whose 1.15-deep band starts at Z 2.825.
+          At 2.50 the cap's front face stands at 2.795, 0.03 clear of them; the lintel clears by
+          0.055 and the jambs follow the group back, still proud of the wall's 2.60 face. The
+          doorway's size, its own transforms and its threshold on the step are untouched. */}
       <ClassicalDoorway
-        position={[0, 0.32, 2.58]}
+        position={[0, 0.32, 2.50]}
         width={1.6}
         height={2.2}
         depth={0.35}
@@ -163,9 +170,23 @@ export const VeteranGladiatorHall = React.memo(() => {
 
       {/* 6. SIMPLE TROPHY SHIELDS & CROSSED WEAPONS (EAST/FRONT WALL) */}
       <group position={[0, 1.6, 2.62]}>
-        {/* Golden Bronze Laurel Wreath on Pediment */}
-        <mesh position={[0, 1.1, 0.1]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.35, 0.06, 6, 12]} />
+        {/* Golden Bronze Laurel Wreath, hung in the pediment's tympanum
+            Phase C-8.60: the wreath was laid FLAT — `rotation={[Math.PI / 2, 0, 0]}` turns a
+            torus's own XY plane into the ground plane, so it read edge-on — and its 0.35 ring,
+            centred at Y 2.70 on the wall's face plane (Z 2.72), ran through the doorway's
+            lintel, the wall cornice, the eave plate and the wall itself, and reached into the
+            pediment's architrave and both of its raking cornices. It now hangs FACE-ON with no
+            rotation, seated on the tympanum's own face: a torus lies in the plane it is drawn
+            in, so the ring's back face lands on the tympanum panel at Z 3.75 (local Z 1.19 from
+            this group, whose own origin is Z 2.62) with the ring's 0.06 tube in front. Its band
+            keeps the weight it had — the tube is still 0.06, only the diameter comes in, 0.70 →
+            0.56 — and 0.28 is the largest ring that still holds the project's 0.02 clearance
+            from the V the two rakes describe on the axis (measured 0.033 at its nearest) while
+            its silhouette stays
+            0.0286 inside the tympanum triangle's raking edges, 0.20 above the architrave, 0.17
+            below the acroterion and 0.03 below the gable's apex. */}
+        <mesh position={[0, 1.81, 1.19]} rotation={[0, 0, 0]}>
+          <torusGeometry args={[0.28, 0.06, 6, 12]} />
           <meshStandardMaterial color="#ca8a04" metalness={0.7} roughness={0.3} />
         </mesh>
 

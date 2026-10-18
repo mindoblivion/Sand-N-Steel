@@ -1569,7 +1569,9 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   pediment forward.
 
 - **What did not move: everything else in the hall and everything around it.** The doorway
-  (`[0, 0.32, 2.58]`, 1.6 × 2.2), the window, the wall cornice, the quoins, the trophy-shield group
+  (`[0, 0.32, 2.58]`, 1.6 × 2.2 — **Phase C-8.60 later moved this group 0.08 back, 2.58 → 2.50** to
+  clear its projecting cornice cap from the pediment's raking cornices; its Y, its width/height/depth
+  and its threshold are as this phase left them), the window, the wall cornice, the quoins, the trophy-shield group
   (`[0, 1.6, 2.62]`), the lower step (`6.6 × 0.16 × 6.1` at `[0, 0.08, 0]`) and the hall's root
   `[-24, 0, -25]` are untouched, as are the banners' own transforms (X ±1.8, Y 1.0) and their wind
   animation. **The collider is untouched**, because the lower step — its own rendered geometry — is:
@@ -1631,3 +1633,165 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   earlier phases: the C-8.53 lean-to bearing, the C-8.52 veranda canopy, the C-8.49 wall-to-gable
   junctions, the C-8.51 awning, the C-8.41 kerb, the C-8.38 northern approach, the C-8.28 bowl cut,
   the C-8.29 junction and the C-8.31/C-8.33 rear-gate checks. Do not claim Android visual acceptance.
+
+## Veteran Gladiator Hall decoration clearance (Phase C-8.60 — implemented)
+
+- **The defect was C-8.59's read-only audit, re-derived here from the shipped transforms and the
+  primitives' own formulas rather than restated.** C-8.57 moved the hall's portico 0.12 forward and
+  0.20 up, and left the entrance's two decorations where they had been: the doorway group at local
+  Z 2.58, and the laurel wreath at `[0, 1.1, 0.1]` inside the trophy group at `[0, 1.6, 2.62]` —
+  local (0, 2.70, 2.72) — with `rotation={[Math.PI / 2, 0, 0]}`. Measured on the real solids (a
+  box/box separating-axis test, and a torus whose distance to a box is computed from the box's own
+  radial reach about the ring's axis), the pre-fix frame had:
+
+  | pre-fix conflict | measured |
+  |---|---|
+  | wreath ∩ pediment architrave | the ring's front arc reaches Z 3.13; the architrave's band is Z 2.90 … 3.90, and the ring's tube spans Y 2.64 … 2.76 against its 2.57 … 2.87 |
+  | wreath ∩ LEFT raking cornice | 0.0331 into the rake's own box |
+  | wreath ∩ RIGHT raking cornice | 0.0331, mirrored |
+  | doorway's projecting cornice cap ∩ BOTH raking cornices | **0.05** deep in Z, over a 1.334 × 0.10 share (the cap's Z 2.405 … 2.875 against the rakes' 2.825 … 3.975) |
+
+  **Four more solids the audit did not name — and the reason the wreath read wrong.** `[Math.PI / 2,
+  0, 0]` is a quarter turn about X, which turns a torus's own XY plane into the ground plane: the
+  ring lay FLAT, edge-on to the street, and its tube also passed through the doorway's lintel, the
+  wall cornice, the roof's eave plate and the wall box itself. Seven solids in total, not three.
+
+- **The correction is one transform and one literal, both inside the hall:**
+
+  | quantity | before | after |
+  |---|---|---|
+  | doorway group Z | 2.58 | **2.50** |
+  | wreath position (local to the trophy group) | `[0, 1.1, 0.1]` | **`[0, 1.81, 1.19]`** |
+  | wreath rotation | `[Math.PI / 2, 0, 0]` | **`[0, 0, 0]`** |
+  | wreath torus | `[0.35, 0.06, 6, 12]` | **`[0.28, 0.06, 6, 12]`** |
+
+  The doorway steps 0.08 back. `ClassicalDoorway` puts its projecting cornice cap at local
+  `Y height + lintelHeight + 0.05` and makes it `depth + 0.12` (0.47) deep about local Z 0.06, so
+  the cap's front face moves 2.875 → **2.795** and clears the rakes' 2.825 by **0.03**; the lintel
+  clears by **0.08**, and the jambs follow the group back, still proud of the wall's 2.60 face.
+  2.50 is the smallest 0.02-step that holds the tolerance — measured on the same predicate, 2.52
+  gives 0.01 and 2.54 gives −0.01.
+
+- **The wreath is re-hung face-on in the pediment's tympanum, and its readability is the point of
+  the change, not a side effect.** With no rotation a torus lies in the plane it is drawn in, so the
+  ring faces the street and its back face seats on the tympanum panel's own plane at Z 3.75 (local
+  Z 1.19 from the trophy group's 2.62 origin), reading as a wreath hung in the gable. **0.28 is the
+  largest major radius that satisfies both ends of the free band there:** the V the two rakes
+  describe on the axis (their bands cross the pediment's centre at Y 2.727 … 2.993) pushes the
+  centre UP, and the gable's apex (Y 3.82, half-base 1.95) pulls it back DOWN. Measured, and pinned
+  as failing in the suite: 0.30 needs the centre at Y 3.4176, where the rake clearance is 0.0198 —
+  under the 0.02 tolerance — and the silhouette crosses the triangle's raking edges by 0.0018; 0.35
+  needs Y 3.4714, whose top then stands **0.0614 proud of the apex**. At 0.28 with the centre at
+  hall Y 3.41 / Z 3.81: rake clearance **0.0330** to each, architrave **0.20**, acroterion
+  **0.17**, lunette 0.30+, keystone 0.9975, and the silhouette stays **0.0286** inside each raking
+  edge of the tympanum triangle, 0.20 above its base, 0.07 below its apex. The band keeps the weight
+  it had: the tube is still 0.06, only the diameter comes in, 0.70 → 0.56.
+
+- **The audit's own candidate was measured and rejected, not adopted.** C-8.59 proposed radius
+  0.35 → 0.10 with Y 1.10 → 1.047 and the rotation untouched. Rebuilt from the source, that ring
+  still sits **inside the doorway's lintel (−0.033) and the wall cornice (−0.06)** — the audit's
+  three pairs were clear, but the ring was still buried — and it is still FLAT, i.e. still edge-on,
+  which is the appearance the audit itself flagged. It is pinned as failing in §H through the same
+  predicates the shipped frame passes.
+
+- **What did not move: everything else in the hall and around it.** The doorway's own box
+  (1.6 × 2.2 × 0.35), its Y (0.32), its jamb/lintel/cap sizes, its threshold and its recess; the
+  window `[-2.86, 1.7, 0]`; the trophy group `[0, 1.6, 2.62]` with its two shields and crossed
+  weapons; the banners `[±1.8, 1.0, 2.97]`; both steps; the portico `[0, 0.32, 2.82]`, the order
+  (2.3) and the pediment (`[0, 2.25, 0.58]`, 4.2 × 0.8 × 1.05); every roof prop; the hall's root
+  `[-24, 0, -25]`. **The collider is untouched** — `veteran-hall` is still `cx -24, cz -25, hw 3.3,
+  hd 3.05`, the registry is still **110 colliders / 31 rectangles**, the hub keeps `radius 4.5` at
+  `[-24, 0, -25]` and the arrival `[-24, -29]`, and the doorway's own prompt still comes up from the
+  stand point outside the collider (driven in the suite). No movement constant, navigation route,
+  hub, neighbouring building, material or shared primitive was edited. The phase's files:
+  `VeteranGladiatorHall.tsx` (the transform, the literal and their comments),
+  `src/utils/phaseC8_60.test.ts` (new suite), `src/utils/phaseC8_57.test.ts` (one rebased pin) and
+  this record.
+
+- **Regression suite: `src/utils/phaseC8_60.test.ts`** — 39 tests / 291 assertions across 8
+  sections, every value parsed from the sources and then derived, and the solids real rather than
+  axis-aligned bounds: §A the frame as shipped (root, both steps, the doorway group and its box, the
+  trophy group and the wreath's position/rotation/torus, the portico, the order, the pediment);
+  §B the primitives applied as formulas (the cap's own drop, thickness and depth, the rakes' Z band
+  2.825 … 3.975, the architrave's 2.57 … 2.87 and 2.90 … 3.90, the wreath's centre derived from its
+  group, its back face exactly on the tympanum's plane); §C the three conflicts — the wreath against
+  the architrave (0.20) and against BOTH rakes (0.0330 each, shown mirror-symmetric), the cap
+  against BOTH rakes (0.03, plus the lintel's 0.08 and the cap's 0.105 to the architrave), the
+  doorway still framed into the wall and proud of its face; §D the appearance — the orientation
+  (identity ⇒ the ring's normal is +Z and it faces the street; the old quarter turn about X sends
+  that normal to −Y), the silhouette's margin inside the tympanum triangle on all three edges and
+  its clearance from the finial, the lunette and the keystone, and both rejected rings (0.30's
+  0.0198 and 0.35's 0.0614 over the apex); §E the C-8.57 arrangement intact (the 0.02 under the
+  fascia, the 0.05 seat, the 0.045 acroterion, the 0.025 rake-to-slope and 0.18 architrave-to-eave
+  clearances, every part of the order clear of the eave and the wall cornice, the plinths inside the
+  lower step); §F the collider, hub, arrival and the driven prompt; §G the scope guard plus THE
+  SWEEP — **no solid in the building holds wreath material except the tympanum panel it seats on**,
+  with the two rakes the nearest at 0.033; §H the control — the pre-fix frame replays the audit's
+  three intersections, the cap's 0.05 × 0.10 × 1.334 share with each rake, the four extra solids the
+  flat ring passed through (the sweep returns exactly
+  `['wall', 'cornF', 'fascia', 'doorLintel', 'architrave', 'rakeL', 'rakeR']`), and the audit's
+  candidate failing the same predicates.
+
+- **Mutation check — the suite is shown to be sensitive to the values it pins, not to agree with
+  itself.** Five single-literal mutations of the production file, each restored byte-for-byte
+  afterwards (`cmp` clean): wreath Z 1.19 → 0.90 (10 tests fail), wreath Y 1.81 → 1.70 (22), major
+  radius 0.28 → 0.35 (20), rotation back to `[Math.PI / 2, 0, 0]` (18), doorway Z 2.50 → 2.58 (14).
+  With the file restored the suite passes all 39.
+
+- **Rebased, not weakened: one site that pinned the doorway.** `phaseC8_57.test.ts`'s §G scope
+  guard pinned the doorway's group at `[0, 0.32, 2.58]`; it now pins `[0, 0.32, 2.50]` with a
+  comment naming this phase. Nothing else in that suite reads the doorway or the wreath, and its
+  other 41 tests — the portico, the pediment, the eave, the collider and its control frame — are
+  unchanged and still pass. `phaseC8_47.test.ts`'s approach table names the doorway's old Z in a
+  documentation string only (`veteran_gladiator_hall: { dir: [0, 1], collider: 'veteran-hall', … }`);
+  the resolver reads its `dir` and `collider` fields, both unchanged, so it needed no edit and none
+  was made. A repo-wide sweep finds no other test, script or document that pins the wreath's or the
+  doorway's old values.
+
+- **Verified 2026-10-18** in the dev container: focused `bun test src/utils/phaseC8_60.test.ts` →
+  **39 pass / 0 fail** (291 expect() calls); `bun test src/utils/phaseC8_57.test.ts` → **42 pass /
+  0 fail** (235 expect() calls); `bun test` → **1380 pass / 0 fail (45 files)** (C-8.57 left
+  1341 / 44; the delta is this suite's 39); `bun run scripts/collisionTests.ts` → **122 passed,
+  0 failed**, exit 0; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the
+  pre-existing >500 kB chunk warning only); `git diff --check` → clean. The diff is exactly three
+  files: the hall component, the C-8.57 suite's one pin, and the new suite.
+
+- **Preview evidence, and what could not be captured.** In the preview browser: the dev server
+  serves the corrected module (`/src/components/3d/city/VeteranGladiatorHall.tsx` carries
+  `position: [0, 0.32, 2.5]`, `position: [0, 1.81, 1.19]`, `rotation: [0, 0, 0]` and
+  `args: [0.28, 0.06, 6, 12]`, with no executable `0.35` / `[0, 1.1, 0.1]` / `[0, 0.32, 2.58]`
+  left); the app boots to its title screen and, from `Play as Guest`, enters the **3D city hub**
+  with **zero console errors** on either screen. **No frame of the hall itself was obtainable, and
+  that is an environment limit rather than a defect:** the player starts in the central plaza
+  facing the Colosseum, the hall is 24 units west of it, the hub renders through SwiftShader at
+  ~2 fps with the movement step clamped (≈0.6 units per second of wall time), and the hub's
+  `Main Menu` returns to the title screen rather than offering a travel list — so the walk and the
+  camera orbit needed to see the gable both exceed a script budget. **The rendered wreath, its
+  face-on reading and the cleared raking cornices therefore remain a device question and are NOT
+  automatically verified here.**
+
+- **Remaining shared-primitive issue, explicitly deferred: `ClassicalPediment`'s rake orientation.**
+  The primitive rotates its LEFT raking cornice by `−slopeAngle` and its right by `+slopeAngle`
+  about centres at `∓halfBase / 2`, so **both descend toward the axis** and meet low over the
+  pediment's centre as a V instead of rising to the apex along the gable's edges. Measured
+  consequences, all left alone: the rakes cross the axis at Y 2.727 … 2.993, i.e. below the
+  architrave's own top at 2.87, so they intersect the primitive's own entablature band near the
+  centre; they leave the gable's upper triangle as the only free area for a decoration, which is
+  what fixed the wreath's size; and the same V appears at every `ClassicalPediment` call site. The
+  suite states the orientation as an assumption (it is why 0.28 is the largest ring that fits)
+  rather than asserting it away. Repairing it means changing a shared primitive and every building
+  that mounts it — a different, explicitly authorized phase — so C-8.60 does not. One further
+  pre-existing, out-of-scope conflict was found while sweeping and is recorded, not fixed: the
+  hall's doorway lunette — drawn by `ClassicalDoorway` as a half-cylinder about a vertical axis —
+  overlaps the RIGHT raking cornice; the doorway's 0.08 setback shrank that share by 0.08 in Z but
+  did not remove it, and it is unchanged in kind by this phase.
+
+- **Android visual acceptance: PENDING.** The check to run on device: stand in front of the
+  Veteran Gladiator Hall and confirm a **face-on gold laurel wreath hangs in the pediment's
+  tympanum** — a ring, not a flat bar — centred on the entrance axis, its whole silhouette inside
+  the gable's triangle and clear of both raking cornices, with the doorway's projecting stone cap
+  no longer standing inside them and the doorway's jambs still proud of the stucco. Still open from
+  earlier phases: the C-8.57 pediment/order-under-the-eave reading, the C-8.53 lean-to bearing, the
+  C-8.52 veranda canopy, the C-8.49 wall-to-gable junctions, the C-8.51 awning, the C-8.41 kerb,
+  the C-8.38 northern approach, the C-8.28 bowl cut, the C-8.29 junction and the C-8.31/C-8.33
+  rear-gate checks. Do not claim Android visual acceptance.

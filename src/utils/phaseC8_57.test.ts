@@ -642,7 +642,10 @@ describe('C-8.57 §G — the collider, hub and fast travel are untouched', () =>
 
   test('nothing else in the hall component moved', () => {
     // the doorway, the window and the wall trophies are the ones they were
-    expect(nums(hallSrc, /<ClassicalDoorway\s*position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}/)).toEqual([0, 0.32, 2.58]);
+    // (Phase C-8.60 moved the doorway's group 0.08 back, 2.58 → 2.50, to clear its projecting
+    // cornice cap from the pediment's raking cornices; its Y and its own 1.6 × 2.2 × 0.35 box,
+    // and the window and trophy group below, are exactly what this phase left them)
+    expect(nums(hallSrc, /<ClassicalDoorway\s*position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}/)).toEqual([0, 0.32, 2.50]);
     expect(nums(hallSrc, /<ClassicalWindow\s*position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}/)).toEqual([-2.86, 1.7, 0]);
     expect(nums(hallSrc, /6\. SIMPLE TROPHY SHIELDS[\s\S]*?<group position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}/)).toEqual([0, 1.6, 2.62]);
     // the shared primitive was not edited by this phase
