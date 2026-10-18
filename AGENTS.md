@@ -1161,3 +1161,108 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   northern approach, C-8.28 bowl cut, C-8.29 junction and C-8.31/C-8.33 rear-gate checks. Do not
   claim device acceptance. The second C-8.48 finding — the Armor & Leather Workshop's lean-to standing
   0.41 above its support — was **not** touched by this phase.
+
+## General Store awning seat (Phase C-8.51 — implemented)
+
+- **The defect was the C-8.50 rooftop audit's second finding and it was measured, not assumed: the
+  bazaar's crimson canvas awning stood 0.4841 INSIDE both of its timber support posts.** The awning
+  group sits at local `[-2.8, 2.6, 0]` with `rotation={[0, 0, 0.2]}`, and the canopy box
+  `[2.8, 0.08, 5.2]` is mounted at the group's own origin — so the group's Y is *not* the canopy's
+  height: the 0.2-rad pitch about Z puts the canopy's **underside 0.2841 below the group origin at
+  the posts' own axis** (local X −4.0). Re-derived from the component's real transforms (not taken
+  from the audit's rounded figures):
+  `underside = groupY + (postX − groupX)·tan 0.2 − (0.04 / cos 0.2)` = **2.3159 at group Y 2.6**,
+  against post tops of **2.8** (`POST_Y` 1.4 + `POST_H` 2.8 / 2 — the posts stand from the ground
+  to 2.8).
+
+- **The fix is one number, in the awning group only: Y 2.6 → 3.0841** (= 2.8 + 0.2841), the lift
+  that puts the underside exactly on the post tops. Measured before → after, in world space (root
+  `[22, 0, −5]`):
+
+  | quantity | before | after |
+  |---|---|---|
+  | canopy underside at the posts' axis (world X 18.0) | 2.3159 | **2.800034** |
+  | post-top intersection | −0.4841 | **+0.000034** (a seat, 0.00003 of clearance) |
+  | canopy lowest corner (outer, bottom) | 2.2827 | **2.7668** |
+  | canopy highest corner (at the wall, top) | 2.9173 | **3.4014** |
+  | underside over the amphora stack's west edge (world X 18.166) | 2.3496 | **2.8337** |
+  | lantern bottom / top | 2.925 / 3.475 | **3.4091 / 3.9591** |
+  | lantern clearance above the canvas (its east rim) | 0.4423 | **0.4423** (unchanged) |
+
+- **The seat is at the post's own axis, which is the best a flat-topped post can do under a pitched
+  canopy.** The tilt runs `2 × 0.12 × tan 0.2` = **0.0487** across the post's 0.24-wide top face, so
+  the underside sits ±0.0243 at the top's two edges and exactly on it at the axis — equal and
+  opposite, and centred, because the axis is that face's own centre. The requested 0.02 tolerance is
+  therefore a statement about the post's axis, which is how the audit measured it. The canopy's own
+  wind flutter (unchanged: ±0.01 pitch about 0.2, ±0.015 roll about X) moves the seating ±0.0126 in
+  Y as the pitch trims — still inside the 0.02 — while its roll pivot at the group origin swings the
+  canvas at the post line by 2.4·sin(0.015) ≈ 0.036, a pre-existing animation property pinned in the
+  suite and not a seating figure.
+
+- **The bazaar lantern rides up with the awning, by the same 0.4841, and that is part of the same
+  repair.** The lantern sits directly over the canvas (`[-3.8, 3.2, 1.8]`, bottom disc radius 0.22):
+  at group Y 2.6 its bottom face cleared the canopy's top plane by 0.4423, but once the awning is
+  seated the un-moved lantern's south-east rim would be **0.0418 inside** the raised canvas. Moving
+  it by the awning's own lift keeps the 0.4423 clearance exactly (to machine precision, asserted in
+  the suite) and leaves it 0.70 below the eave cornice. Its X and Z transforms are untouched, as is
+  every other prop.
+
+- **What did not move: the awning itself, the posts, the wall, the collision registry and the hub.**
+  The canopy keeps its box `[2.8, 0.08, 5.2]`, its trim sheet `[2.7, 0.02, 5.1]` at local Y 0.05, its
+  `#991b1b` / `#fef08a` materials and its pitch (`rotation={[0, 0, 0.2]}`); the group's X (−2.8) and
+  Z (0) are unchanged, so the awning's horizontal footprint, its wall attachment and its outward
+  projection over the market are exactly what they were — it still runs 2.16 into the 4.8-high timber
+  wall (from X −1.44 back to the wall's east face at +3.6), juts 0.564 past the wall's west face, and
+  now sits 1.26 below the eave cornice's underside (4.66) where it was 1.74. The posts are the same
+  two tapered cylinders (X −4.0, Z ±2.4, 0.12/0.14 radii, 2.8 high, `#451a03`); the foundation, eave
+  cornice, quoins and roof are the ones they were; and `general-store` is still `7.7 × 6.3` at
+  `[22, −5]` — exactly `BuildingFoundation`'s lower step — with the hub at `radius 5.25` and the
+  arrival `[17, −5]` (the awning has no collider and is above the counter's own table top by more
+  than a metre). No shared primitive, neighbouring building, collider, hub radius or movement
+  constant changed.
+
+- **Regression suite: `src/utils/phaseC8_51.test.ts`** — 21 tests / 123 assertions across 6 sections,
+  all derived (the suite parses the awning group's own position and rotation, the canopy box and its
+  local origin, the post map's four literals, the lantern group, the wall box, the cornice/foundation
+  props, the counter and its four amphorae from both component sources, and both flutter amplitudes,
+  then transforms the canopy's own corners through the group's Z rotation): §A the frame the fix had
+  to work in (root, awning transform, canopy/trim, post map, flutter amplitudes and their base); §B
+  the seat itself — the underside as a real slope (`tan 0.2`), both post tops within 0.02 and never
+  below them, the axis-centred ±0.0243 spread, the posts inside the canopy's X and Z spans, and a
+  sweep over the flutter's own pitch trim; §C what was preserved (box, materials, pitch, the 2.16 of
+  wall embedment inside the wall's height band, the Z span inside the wall's band, the 0.5+ jutting
+  over the market, ≥ 1.0 under the eave cornice, the primitives still the live source); §D no new
+  interpenetration (the counter goods re-derived from both sources, the raised canopy's clearance over
+  them ≥ 0.4 and greater than before, and the lantern's 0.4423 clearance pinned identical
+  before/after plus its 0.5+ margin under the cornice); §E the scope guard (110 colliders / 31
+  rectangles with unique ids, the store's rectangle re-derived from the foundation formula,
+  `PLAYER_RADIUS`, the awning over the building's own Z band, the hub/arrival and a driven
+  `getNearbyHubLocation([17, 0, −5]) === 'general_store'`, the other props' transforms); §F the
+  control — the pre-fix 2.6 is shown to miss the post tops by 0.4841 (24× the 0.02 tolerance) while
+  the shipped geometry passes the identical check, and the lift is shown to be the minimum the seat
+  requires (within 1e-3) with X, Z and the pitch exactly as they were.
+- **Rebased, not weakened: one site that pinned the old transform.** `phaseC8_19b.test.ts`'s
+  "store-only street furniture is parsed with its real transform" scope guard, which pinned the
+  awning group at `[-2.8, 2.6, 0]`, now pins `[-2.8, 3.0841, 0]` with a comment naming this phase; its
+  `0.2` pitch, box, post X/Z and every Forge ↔ Store clearance it derives from those parsed values
+  are unchanged and still pass. The other suites that read the awning (`phaseC8_21`, `phaseC8_29`)
+  take the group's Y from the source and needed no change.
+- **Verified 2026-10-18** in the dev container: focused
+  `bun test src/utils/phaseC8_51.test.ts` → **21 pass / 0 fail** (123 expect() calls); `bun test` →
+  **1194 pass / 0 fail (40 files)** (C-8.49 left 1173 / 39; the delta is this suite's 21);
+  `bun run scripts/collisionTests.ts` → **122 passed, 0 failed**, exit 0; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only);
+  `git diff --check` → clean. `GeneralStore.tsx` is the only production file this phase touched.
+- **Not automatically verified — the rendered junction, and it is a device question.** A
+  source-geometry suite proves the canopy's underside now meets the post tops in the component's own
+  transforms; it does **not** establish visual acceptance. The sandbox has no GPU (SwiftShader, ~2 fps
+  in the city hub) and at the mobile preview width the bazaar is a small part of the frame, so a
+  0.48-unit seat correction is below the resolution this environment can settle. **Android preview
+  check: view the General Store awning from the front (from the Via Mercatoria side, looking east at
+  the bazaar's open front) and from the side (along the wall, so the pitch is visible) and confirm the
+  canopy meets both posts with no visible penetration through the post tops and no floating gap —
+  i.e. the two post tops read as carrying the canvas, with the stripes and the lantern unchanged.**
+  Still open from earlier phases: the C-8.49 wall-to-gable junctions, the C-8.41 kerb, the C-8.38
+  northern approach, the C-8.28 bowl cut, the C-8.29 junction and the C-8.31/C-8.33 rear-gate checks.
+  Do not claim device acceptance. The C-8.48 audit's third finding — the Armor & Leather Workshop's
+  lean-to standing 0.41 above its support — was **not** touched by this phase either.

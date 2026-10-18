@@ -520,7 +520,9 @@ describe('B. Piece model cross-checks the shared primitives', () => {
   });
 
   test('the store-only street furniture is parsed with its real transform', () => {
-    expect(STORE_AWNING.pos).toEqual([-2.8, 2.6, 0]);
+    // Y 2.6 → 3.0841 in Phase C-8.51 (the canopy was seated on the post tops);
+    // the awning's X and Z transforms are the ones C-8.29 measured.
+    expect(STORE_AWNING.pos).toEqual([-2.8, 3.0841, 0]);
     expect(STORE_AWNING.rot).toBe(0.2);
     expect(STORE_AWNING.box).toEqual([2.8, 0.08, 5.2]);
     // Rotation is about Z, so it changes the X and Y extents only.

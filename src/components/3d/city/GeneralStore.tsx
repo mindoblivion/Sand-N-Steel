@@ -49,7 +49,12 @@ export const GeneralStore = React.memo(() => {
       />
 
       {/* 2. STRIPED ROMAN CRIMSON & GOLD CANVAS AWNING */}
-      <group position={[-2.8, 2.6, 0]} rotation={[0, 0, 0.2]} ref={canopyRef}>
+      {/* Phase C-8.51: group Y 2.6 → 3.0841.  The canopy is pitched 0.2 rad about Z,
+          so its underside sits 0.2841 below this group's origin at the posts' own
+          axis (local X −4.0) — 2.8 + 0.2841 seats it on the 2.8-high post tops,
+          where 2.6 left it standing 0.4841 inside them.  Pitch, width, depth and
+          materials are untouched. */}
+      <group position={[-2.8, 3.0841, 0]} rotation={[0, 0, 0.2]} ref={canopyRef}>
         <mesh castShadow>
           <boxGeometry args={[2.8, 0.08, 5.2]} />
           <meshStandardMaterial color="#991b1b" roughness={0.7} />
@@ -102,8 +107,9 @@ export const GeneralStore = React.memo(() => {
         </group>
       </group>
 
-      {/* 5. WARM BAZAAR LANTERN */}
-      <group position={[-3.8, 3.2, 1.8]}>
+      {/* 5. WARM BAZAAR LANTERN — rides up with the awning above it (same +0.4841
+          as the canopy group), so its original clearance over the canvas is kept. */}
+      <group position={[-3.8, 3.6841, 1.8]}>
         <mesh castShadow>
           <cylinderGeometry args={[0.16, 0.22, 0.55, 8]} />
           <meshStandardMaterial color="#78350f" metalness={0.7} />
