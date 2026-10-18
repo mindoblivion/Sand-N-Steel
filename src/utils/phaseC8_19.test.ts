@@ -617,7 +617,9 @@ describe('F. Every arrival is safe, Via Mercatoria works, neighbours untouched',
     expect(findRect('general-store')).toMatchObject({ cx: 22, cz: -5, hw: 3.85, hd: 3.15 });
     expect(findRect('smithing-forge')).toMatchObject({ cx: 18, cz: 2, hw: 4.75, hd: 4.0 });
     expect(findRect('armor-workshop')).toMatchObject({ cx: 28.2, cz: 1.15, hw: 4.45, hd: 2.85 });
-    expect(findRect('records-library')).toMatchObject({ cx: 24, cz: -30, hw: 3.25, hd: 2.85 });
+    // Phase C-8.18 moved the Records Library 0.90 west (X 24 → 23.10); its
+    // footprint dimensions are unchanged.
+    expect(findRect('records-library')).toMatchObject({ cx: 23.1, cz: -30, hw: 3.25, hd: 2.85 });
     expect(FAST_TRAVEL_ARRIVALS.merchant_house).toEqual([21, -13]);
     expect(FAST_TRAVEL_ARRIVALS.gladiator_academy).toEqual([25.5, -23]);
     expect(VIA_MERCATORIA_PATH).toEqual({

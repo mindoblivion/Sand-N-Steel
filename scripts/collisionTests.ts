@@ -640,7 +640,7 @@ test('fast-travel: arrival positions match documented coordinates', () => {
     stable: [26, 10],
     gladiator_academy: [25.5, -23],
     doctore_house: [23.5, -18.875],
-    records_house: [24, -26],
+    records_house: [23.1, -26],
     bathhouse: [-21, 25],
     shrine_temple: [-22.5, 11],
     bounty_hall: [-15, 30],

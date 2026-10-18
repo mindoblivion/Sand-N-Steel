@@ -209,7 +209,9 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'records_house',
     name: 'Records & Lore Library',
     subtitle: 'Ancient Parchments & Achievements',
-    position: [24, 0, -30],
+    // Phase C-8.18: hub tracks the RecordsLibrary root, which moved 0.90 west
+    // (X 24 → 23.10) to clear the Gladiator Academy plinth.
+    position: [23.1, 0, -30],
     radius: 4.5,
     icon: 'BookOpen',
     tabKey: 'stats',
@@ -537,7 +539,10 @@ export function resolveCityMovement(
 //                                  MerchantHouse shift had left it only 0.5
 //                                  from that south edge (below the 0.9
 //                                  invariant).
-//   records_house     [24, -26]  — 1.15 N of records north edge (z=-27.15)
+//   records_house     [23.1, -26]— 1.15 S of the records plinth south face
+//                                  (z=-27.15), on the root's centre line.
+//                                  Phase C-8.18: X follows the root
+//                                  (24 → 23.10); the 1.15-offset is unchanged.
 //   bathhouse         [-21, 25]  — 1.0 E of bathhouse east edge (x=-22.0)
 //   shrine_temple     [-22.5, 11]— 1.35 E of shrine east edge (x=-23.85)
 //   bounty_hall       [-15, 30]  — 1.0 S of bounty south edge (z=29.0)
@@ -559,7 +564,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   stable:             [26, 10],
   gladiator_academy:  [25.5, -23],
   doctore_house:      [23.5, -18.875],
-  records_house:      [24, -26],
+  records_house:      [23.1, -26],
   bathhouse:          [-21, 25],
   shrine_temple:      [-22.5, 11],
   bounty_hall:        [-15, 30],

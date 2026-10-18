@@ -504,8 +504,11 @@ export const CityStreets = React.memo(() => {
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
-      {/* Phase 25.9: Path to Records Library [24, 0, -30] — shifted south to
-           reach the relocated library, clearing the Colosseum footprint. */}
+      {/* Phase 25.9: Path to Records Library [23.10, 0, -30] — shifted south to
+           reach the relocated library, clearing the Colosseum footprint.
+           Phase C-8.18: the library root moved 0.90 west; this paving patch is
+           decorative (no collision) and its 6.4 × 7.9 XZ span still covers the
+           library's front, so the mesh itself was left in place. */}
       <mesh receiveShadow position={[24, -0.01, -25.5]} rotation={[-Math.PI / 2, 0, -Math.PI * 0.15]}>
         <planeGeometry args={[3.6, 7.0]} />
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />

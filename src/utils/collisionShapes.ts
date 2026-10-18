@@ -352,8 +352,12 @@ const buildingRects: RectCollider[] = [
   // unchanged.
   RECT('doctore-house', 28, -18.875, 6.0, 3.75),
 
-  // RecordsLibrary — root [24, 0, -30], foundation [6.0, 5.2], proj 0.25 → 6.5 × 5.7
-  RECT('records-library', 24, -30, 6.5, 5.7),
+  // RecordsLibrary — root [23.10, 0, -30], foundation [6.0, 5.2], proj 0.25 → 6.5 × 5.7
+  // Phase C-8.18: root shifted 0.90 west (X 24 → 23.10).  The plinth's east
+  // face moves from X = 27.25 to X = 26.35, which clears the Gladiator Academy
+  // footprint (west face X = 26.65) by 0.30 and removes the plinth/marble
+  // platform interpenetration with the academy's west doorway and column bases.
+  RECT('records-library', 23.10, -30, 6.5, 5.7),
 
   // PublicBathhouse — root [-26, 0, 25], foundation [7.5, 6.5], proj 0.25 → 8.0 × 7.0
   RECT('bathhouse', -26, 25, 8.0, 7.0),
