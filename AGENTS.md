@@ -668,5 +668,106 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `Drawbridge.tsx`'s own comments still carry C-8.37-era figures — `DECK_Z_INNER … // -51.5` where
   the code derives **−56.5**, and `DECK_CENTER_Z … // -48.5` where it derives **−53.5**, plus the
   header's "Z = −51.0 → −51.5 since C-8.37" / "grass rim at Z = −51.34" narrative. Every exported
-  value is derived correctly; only the annotations are stale, and they are worth correcting before
-  the next phase reads them.
+  value is derived correctly; only the annotations are stale. **Phase C-8.40 corrected every one
+  of them**, plus two more inaccuracies in the same file — see its section below.
+
+## Moat shoreline definition (Phase C-8.40 — audit, no production geometry changed)
+
+- **Reported:** the Colosseum's rear gateway and the drawbridge still read as too connected on
+  device after C-8.38. C-8.39 explained the residual as composition and named a shoreline kerb as
+  one of three possible treatments; C-8.40 measures whether that kerb is justified. **Conclusion:
+  it is, and it is the only one of the three options that buys a boundary without spending the
+  C-8.38 apron** — but it remains a visual judgement call, so this phase changed no geometry. The
+  full proposal is recorded below for a future, explicitly authorized phase.
+- **Every figure below is the rendered geometry**, re-derived in a throwaway harness in the `web`
+  container (real imports of `terrainHeight` / `Drawbridge` / `NorthernMotte` + a source read of
+  `GrandColosseum`), not a group origin and not a collider:
+
+  | quantity | measured |
+  |---|---|
+  | Colosseum rear-most *rendered* stone — gate plinth cut edge (r 19.5 at ±`GATE_HALF`, X ±2.728) | Z = −44.308 |
+  | — gate lintel ring, on the deck's own axis (r 19.5, X = 0) | Z = −44.5 |
+  | — registered jamb line (collision only, r 19.3 at ±2.700) | Z = −44.110 |
+  | moat water, rendered ring (r 25.0 → 31.0 about −81.5, 48 segments, Y 0.06) | Z −56.5 → −50.5 |
+  | deck **and** both side beams, southern face (all three share one plane) | Z = −50.5 |
+  | water's outer shoreline vs the deck's south face | 0.000 — tangent |
+  | — vs the deck's widest corner (±2.11 → radius 31.072, 3.894°) | corner 0.072 *outside* the arc, i.e. resting on the bank |
+  | apron: sand between the waterline and the rear stone (plinth edge / lintel / jamb line) | **6.192 / 6.00 / 6.39** |
+  | flat bank behind the water (waterline −56.5 → visible slope foot −62.001) | 5.501 |
+  | sand / water / deck underside / deck top | −0.05 / 0.06 / 0.09 / 0.16 |
+  | water ring as a polygon — 48-gon chord sagitta at r 31 | 0.0664 |
+  | motte surface above the water plane (analytic level 1.543, diagonal) | 24.456 (asset-measured 24.456) |
+  | clearance, water's inner shoreline (25.0) → that surface / the 24.666 silhouette | 0.544 / 0.334 |
+  | `getTerrainY` and superellipse level across the whole kerb band (Z −50.15 … −50.6) | 0 / 2.46 — far outside the visible slope |
+  | nearest collider to the motte centre | `fortress-*` at 9.90 (summit, Y ≥ 4.72); then `motte-wall-*` at 21.75 |
+  | colliders inside the proposed band (r 29.4 … 32.85), 109 scanned | **none** |
+  | nearest city *structure* to the motte centre | the Colosseum's rear stone — 37.292 (min distance to the drum circle) |
+
+- **Why a kerb is justified, and what it cannot do.** The water is a transparent ring lying flat
+  on the sand, so its outer edge is a pure colour transition with **no form**: the measured level
+  run is sand −0.05 → water 0.06 → deck underside 0.09 → deck top 0.16, a 0.21 spread over 12
+  units. A raised, shadowed stone lip along that edge is the one thing the current composition
+  cannot produce. It **cannot** remove the collinearity or the width nesting (only another group
+  move, or a bridge redesign, could), so the gateway→bridge reading is improved, not eliminated.
+- **Proposed option B (NOT implemented — needs authorization).** A low travertine revetment along
+  the moat's **outer** (city-side) shoreline, cut for the bridge:
+  - Radial band **r 30.90 → 31.35** (0.45 wide). Its inner face stands 0.10 inside the water
+    ring's outer edge — 0.034 more than the 48-gon's 0.0664 chord sagitta — so the water's own
+    hard edge is always hidden under the stone and **no sand sliver can appear between water and
+    kerb at any segment alignment**.
+  - Vertical band **Y −0.10 → 0.14**: 0.05 buried below the sand plane (−0.05) so no gap or
+    z-fight is possible; 0.19 exposed above the sand; 0.08 of freeboard above the water; 0.02
+    below the deck top, so the bridge stays the highest walking plane. No face is coplanar with
+    the sand, the water or the deck.
+  - **Gap |X| ≤ `GATE_HALF_W` = 2.70** (±4.997° about the +Z axis) — the kerb's gap is exactly the
+    gate's own 5.40 clear width, the same module the drum is cut to. Clearance to the widest point
+    of the bridge (side beams ±2.11) is **0.598**, the same 0.59 the gate jambs leave. The gap is
+    mandatory: the deck's corners lie 0.072 *outside* the 31.0 arc, so any band on the waterline
+    would otherwise run through the deck's south end.
+  - Cost to the apron: 5.842 of clear sand remains between the kerb's south face (−50.15) and the
+    Colosseum's rear stone (−44.308), against 6.192 today — **0.35**, where C-8.39's option 2
+    (bridge abutment) would have cost 0.6+ and moved the bridge's silhouette.
+  - Geometry: three concentric arc bands (outer face + top slab + inner face) plus two end caps =
+    **5 meshes, ~312 triangles**, one shared travertine material, no new asset, no dependency, no
+    collider, and no change to `getTerrainY`, `MOAT_*`, `DECK_*` or `BRIDGE_*`.
+  - Legibility (eye 1.7, 60° vertical FOV, 800 px): the stone reads as a **~35 px band at the gate
+    (6.19 away), ~19 px at 10, ~13 px at 14** — the order of the 0.28-high bridge beams that
+    already read on device. The full ring minus the gap is 190.1 units of arc, ~98 of it inside
+    the ±45° window the apron approach sees.
+  - Do **not** revet the *inner* (motte-side) shoreline: its edge (25.0) is only 0.544 from the
+    motte's surface where it crosses the water plane (24.456), so a 0.45-wide kerb would run into
+    the mound.
+- **What the kerb must not be relied on for.** It adds no collider, so the player can still walk
+  north at |X| > 2.70 and pass *through* the lip onto the moat — the pre-existing off-bridge
+  wading, unchanged here. The natural route (|X| ≤ 2.6 through the gate, deck ±2.11) never touches
+  it. Bounding the moat with colliders is a movement change and must be argued on its own.
+- **Phase 4 documentation cleanup — the only production file this phase touched.**
+  `Drawbridge.tsx`'s comments were corrected against the values its own expressions derive:
+  `DECK_Z_INNER` is now annotated −56.5 (was −51.5) and `DECK_CENTER_Z` −53.5 (was −48.5); the
+  Alignment-2 narrative's "Z = −51.0 → −51.5 since C-8.37" / "grass rim at Z = −51.34" / "mound
+  slope (Z = −57.00)" became `BRIDGE_Z_INNER −56.0 → −56.5` / −56.34 / −62.00; and the "6.00 units
+  north of the Colosseum's rear-most stone (its gate lintel at Z = −44.5)" claim (it appeared
+  twice) now names the measured rear-most *rendered* stone — the plinth cut edge at −44.308
+  (6.192) — with the on-axis lintel (6.00) and the registered jamb line (6.39) stated separately.
+  The construction note's "4 meshes" is now 5 (deck + two beams + two hinges). **No exported value
+  changed; the diff is comment-only.**
+- **Verified 2026-10-18** in the dev container: `bun test` → **1033 pass / 0 fail (35 files)**,
+  `bun run scripts/collisionTests.ts` → **122 passed, 0 failed**, `bun run lint` (`tsc --noEmit`) →
+  exit 0, `bun run build` → exit 0, `git diff --check` → clean. No new regression suite was added,
+  because no geometry changed; the C-8.38 baseline is intact.
+- **Not automatically verified / not attempted:** no preview capture this phase — the sandbox city
+  hub runs at ~2 fps through SwiftShader (C-8.36 and C-8.37 could not reach the northern approach
+  at all; C-8.39's two legible frames remain the only successful ones), so the visual conclusion
+  rests on the measured geometry above plus the reported Android behaviour. If a future phase
+  implements option B, its suite must pin: the band radii and Y range, the 0.0664 < 0.10 water
+  overlap margin, the ±`GATE_HALF_W` gap and its 0.598 clearance to the beam corners, the 5.842
+  remaining apron, the absence of any collider in r 29.4 … 32.85, `getTerrainY`/`MOAT_*`/`DECK_*`
+  unchanged, and the driven X = 0 route through the gate and across the deck (still collision-free,
+  still continuous in elevation).
+- **Open device checklist for the northern approach (unchanged, plus this phase's question):**
+  (a) the 6.0 apron between the rear gateway and the moat's outer bank; (b) whether the drawbridge
+  reads as landing on the bank with no stone or water inside the gateway; (c) the fortress and
+  mound at their position; (d) **new:** whether the water's outer edge reads as a bare colour
+  transition (the condition a kerb would address). Still open from earlier phases: the C-8.28 bowl
+  cut, the C-8.29 Store ↔ Workshop junction, and the C-8.31/C-8.33 rear-gate stonework. Do not
+  claim visual acceptance without device evidence.

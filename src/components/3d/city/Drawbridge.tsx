@@ -23,17 +23,17 @@
  *   Deck:   top Y = 0.16 (unchanged walking surface), underside Y = 0.09 —
  *           0.03 above the moat water surface at Y = 0.06
  *
- * Phase C-8.38 — the deck's south end is now 6.00 units north of the
- * Colosseum's rear-most stone (its gate lintel at Z = -44.5), so the bridge
- * visibly begins outside the gateway on the outer bank instead of reading as
- * an extension of the gate's stonework.
+ * Phase C-8.38 — the deck's south end is now 6.19 units north of the
+ * Colosseum's rear-most rendered stone (the gate plinth's cut edge at
+ * Z = -44.308) and 6.00 north of the gate lintel on the deck's own axis
+ * (Z = -44.5), so the bridge visibly begins outside the gateway on the outer
+ * bank instead of reading as an extension of the gate's stonework.
  *
  * Phase Drawbridge Alignment 2 (deck alignment):
- *   - The north end was extended 0.5 units (Z = -51.0 → -51.5 since C-8.37)
- *     so the deck visibly overlaps the motte's southern grass rim at
- *     Z = -51.34 by 0.16, removing the 0.34-unit gap.  It stays 5.5 units
- *     south of the rising mound slope (Z = -57.00), so it does not clip into
- *     the mound.
+ *   - The north end was extended 0.5 units (BRIDGE_Z_INNER -56.0 → -56.5) so
+ *     the deck visibly overlaps the motte's southern grass rim at Z = -56.34
+ *     by 0.16, removing the 0.34-unit gap.  It stays 5.5 units south of the
+ *     rising mound slope (Z = -62.00), so it does not clip into the mound.
  *     The shared constants in terrainHeight.ts are deliberately untouched:
  *     terrain is flat at Y = 0 across this whole region, so the visible
  *     extension changes no gameplay height or collision behaviour.
@@ -42,7 +42,7 @@
  *     Y = 0.06 — while the deck top and therefore the walking surface stays
  *     exactly where Phase 35E put it.
  *
- * Construction (4 meshes — minimal for mobile performance):
+ * Construction (5 meshes — minimal for mobile performance):
  *   1. Plank deck  — single box, wood material, with cast/receive shadow
  *   2. Side beams  — two boxes flanking the deck (restrained railings)
  *   3. Iron hinges — two small cylinders at the motte end (drawbridge hardware)
@@ -80,18 +80,20 @@ export const HINGE_RAISE = 0.04;
 // moves wherever the motte, its moat and its fortress move (Phases C-8.37 /
 // C-8.38).
 // South end: the moat's outer shoreline / city approach (BRIDGE_Z_OUTER
-// = -50.5) — the bank the deck lands on, now 6.00 units north of the
-// Colosseum's rear-most stone (its gate lintel at Z = -44.5) and 6.39 north of
-// the gate's registered jamb line (-44.11), so the bridge begins on the bank
-// outside the gateway with a visible apron behind the gate.
+// = -50.5) — the bank the deck lands on, now 6.19 units north of the
+// Colosseum's rear-most rendered stone (the gate plinth's cut edge at
+// Z = -44.308), 6.00 north of the gate lintel on the deck's own axis
+// (Z = -44.5) and 6.39 north of the gate's registered jamb line (-44.11), so
+// the bridge begins on the bank outside the gateway with a visible apron
+// behind the gate.
 // North end: 0.5 units past the shared terrain constant so the deck overlaps
 // the motte grass rim (Z = -56.34) by 0.16 with no visible gap.
 export const DECK_Z_OUTER = BRIDGE_Z_OUTER;
-export const DECK_Z_INNER = BRIDGE_Z_INNER - 0.5; // -51.5
+export const DECK_Z_INNER = BRIDGE_Z_INNER - 0.5; // -56.5
 export const DECK_LENGTH = DECK_Z_OUTER - DECK_Z_INNER; // 6.0
 
 // Bridge center (midpoint of span)
-export const DECK_CENTER_Z = (DECK_Z_OUTER + DECK_Z_INNER) / 2; // -48.5
+export const DECK_CENTER_Z = (DECK_Z_OUTER + DECK_Z_INNER) / 2; // -53.5
 
 // Wood material (reused across deck + beams)
 const woodMaterial = new THREE.MeshStandardMaterial({
