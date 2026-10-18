@@ -46,6 +46,46 @@ const StreetBrazier: React.FC<{ position: [number, number, number] }> = ({ posit
   );
 };
 
+// ── City ground plane (single flat surface under the whole city) ────────────
+//
+// The mesh is rotated -π/2 about X, so its local +Y axis maps to world -Z:
+// GROUND_PLANE_WIDTH spans world X and GROUND_PLANE_DEPTH spans world Z.
+// Everything below is therefore in world axes.
+//
+// Ground Coverage phase: the plane previously measured 140×140 centred at
+// Z = 0, so the ground stopped at Z = -70 while the northern movement
+// envelope reaches Z = -91 (BOUNDARY_Z_MIN in cityCollisions), the motte mesh
+// ends at Z = -96.66 and the visible moat ring at Z = -102.5 — leaving a
+// reachable void where the player walked on nothing north of Z = -70.
+// The depth is extended north to Z = -104 by moving the plane's centre north
+// to Z = -17; the south edge stays at Z = +70 and the elevation stays at
+// Y = -0.05 (below the moat water surface at Y = 0.06). The correction is a
+// pure resize of the existing single plane — no extra mesh, no extra draw
+// call, and no change to its material, lighting or shadow behaviour.
+export const GROUND_PLANE_WIDTH = 140; // world X extent (unchanged)
+export const GROUND_PLANE_DEPTH = 174; // world Z extent (was 140)
+export const GROUND_PLANE_ELEVATION_Y = -0.05; // unchanged elevation
+export const GROUND_PLANE_CENTER: [number, number, number] = [
+  0,
+  GROUND_PLANE_ELEVATION_Y,
+  -17,
+];
+
+// Derived world-space bounds of that plane (centre ∓ half extent).
+export const GROUND_PLANE_NORTH_Z = GROUND_PLANE_CENTER[2] - GROUND_PLANE_DEPTH / 2; // -104
+export const GROUND_PLANE_SOUTH_Z = GROUND_PLANE_CENTER[2] + GROUND_PLANE_DEPTH / 2; // +70
+export const GROUND_PLANE_WEST_X = GROUND_PLANE_CENTER[0] - GROUND_PLANE_WIDTH / 2; // -70
+export const GROUND_PLANE_EAST_X = GROUND_PLANE_CENTER[0] + GROUND_PLANE_WIDTH / 2; // +70
+
+// Bump-map tiling. The 140 m plane tiled the clone at 32×32, i.e. 140 / 32 =
+// 4.375 m per tile. Tiling depth is kept at that density by raising the Z
+// repeat to 40 (174 / 40 = 4.35 m per tile, within 0.6 % of 4.375), so the
+// texture stays isotropic instead of stretching ~24 % along Z.
+export const GROUND_BUMP_REPEAT_X = 32; // 140 / 32 = 4.375 m per tile (unchanged)
+export const GROUND_BUMP_REPEAT_Z = 40; // 174 / 40 = 4.35  m per tile
+export const GROUND_BUMP_METERS_PER_TILE_X = GROUND_PLANE_WIDTH / GROUND_BUMP_REPEAT_X;
+export const GROUND_BUMP_METERS_PER_TILE_Z = GROUND_PLANE_DEPTH / GROUND_BUMP_REPEAT_Z;
+
 export const ProcessionAvenue = React.memo(() => {
   // Phase 2B.8: Dedicated bump-map for the central forum plaza circle.
   // NOISE_TEXTURE has a global repeat of (3, 3) calibrated for ~1m surfaces.
@@ -60,15 +100,17 @@ export const ProcessionAvenue = React.memo(() => {
     return tex;
   }, []);
 
-  // Phase 2B.10: Dedicated bump-map for the 140×140 m ground plane.
+  // Phase 2B.10 / Ground Coverage: Dedicated bump-map for the ground plane.
   // NOISE_TEXTURE has a global repeat of (3, 3) calibrated for ~1m surfaces.
-  // On the 140 m plane that yields only ~0.02 tiles/m — functionally flat.
+  // On a 140 m plane that yields only ~0.02 tiles/m — functionally flat.
   // Cloning shares the canvas image (zero memory cost) with an independent
-  // repeat of (32, 32) → ~4.4 m per tile, giving visible micro-relief.
+  // per-axis repeat (GROUND_BUMP_REPEAT_X / _Z) that keeps the plane's
+  // world-space texel density at the calibrated ~4.375 m per tile on both
+  // axes, so extending the plane north does not stretch the micro-relief.
   const groundBumpMap = useMemo(() => {
     if (!NOISE_TEXTURE) return undefined;
     const tex = NOISE_TEXTURE.clone();
-    tex.repeat.set(32, 32);
+    tex.repeat.set(GROUND_BUMP_REPEAT_X, GROUND_BUMP_REPEAT_Z);
     tex.needsUpdate = true;
     return tex;
   }, []);
@@ -83,8 +125,15 @@ export const ProcessionAvenue = React.memo(() => {
   return (
     <group>
       {/* 1. VAST MEDITERRANEAN SANDSTONE & TERRACOTTA PLAZA FLOOR (FLAT ON GROUND) */}
-      <mesh receiveShadow position={[0, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[140, 140]} />
+      {/* Ground Coverage phase: single plane extended north to Z = -104 (see the
+          GROUND_PLANE_* constants) so it underlies the full reachable northern
+          envelope, the motte footprint and the visible moat ring. */}
+      <mesh
+        receiveShadow
+        position={GROUND_PLANE_CENTER}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <planeGeometry args={[GROUND_PLANE_WIDTH, GROUND_PLANE_DEPTH]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.arenaSand.color}
           roughness={0.92}
