@@ -514,9 +514,29 @@ export const CityStreets = React.memo(() => {
       <RomanBench position={[27.5, 0, -22.0]} rotationY={-Math.PI / 2} stoneColor={ROMAN_PALETTE.travertine.color} />
 
       {/* Western Combat Services Courtyard Benches & Notice Board */}
-      <RomanBench position={[-23.0, 0, -7.5]} rotationY={0} />
+      {/* Phase C-8.25: two of these props sat on the C-8.23 trimmed border ring and
+          are re-seated clear of it.  The bench's east foot (the 0.34 × 0.16 × 0.58
+          base plinth the RomanBench puts at local x ±0.8) reached plan radius 2.954
+          about the ring's centre (-23, -10) — 0.046 inside the tube's 3.0 centreline
+          — so its inner corners clipped the 0.08 tube by 0.026 at azimuth ≈ 70.8° /
+          109.2°, the two feet grazing symmetrically.  The lying barrel at
+          [-25.5, 0, -9.2] was worse: its 0.9-long horizontal axis
+          (yaw 0.8) crossed radius 3.0, so the ring ran straight through the barrel
+          body (azimuth ≈ 154°–165°, deepest 0.106 inside the solid).
+          Each prop therefore steps a small, plausible distance inward, off the ring:
+          the bench 0.25 toward the courtyard centre (Z −7.5 → −7.75; both feet now
+          0.201 from the tube at azimuth 69.1° / 110.9°) and the barrel 0.5 east and
+          0.2 south ([-25.0, 0, -9.4]; clearance 0.324 at azimuth 163.9°).  Rotation,
+          parts, colour and pose are unchanged, and both keep their footing on the
+          courtyard's paving (bench max plan radius 2.762, barrel 2.918 against the
+          3.0 floor) while clearing the central obelisk, the notice board, the
+          Gladiator Barracks plinth and the Arena Medical House by ≥ 0.87.
+          The ring itself — centre, radius, tube, height and 292.55° arc — is
+          untouched, so the C-8.23 trim as the courtyard's border stands.
+          See src/utils/phaseC8_25.test.ts. */}
+      <RomanBench position={[-23.0, 0, -7.75]} rotationY={0} />
       <TabulaNoticeBoard position={[-23.0, 0, -12.5]} rotationY={0} />
-      <WineBarrel position={[-25.5, 0, -9.2]} isLyingDown={true} rotationY={0.8} />
+      <WineBarrel position={[-25.0, 0, -9.4]} isLyingDown={true} rotationY={0.8} />
 
       {/* 6. ILLUMINATING STREET LAMPS ALONG MAJOR JUNCTIONS */}
       {/* Phase 25.9: North-side lamps moved from z=-6 (inside the Colosseum
@@ -666,10 +686,11 @@ export const CityStreets = React.memo(() => {
           untouched: the central obelisk, the notice board (posts
           at plan radius 2.670, 0.25 clear of the tube), the walkways, the entrances
           and every fast-travel arrival. Two pre-existing grazes of that furniture on
-          the ring remain and are outside this phase's scope: the west bench's east
-          foot overlaps the tube by 0.026 at azimuth 71°, and the lying barrel at
-          [-25.5, 0, -9.2] encloses it (ring centreline inside the barrel for
-          azimuth 153.9°–163.5°).
+          the ring were measured here and left in place — both lie outside the removed
+          arc: the west bench's east foot overlapped the tube by 0.026 at azimuth 71°,
+          and the lying barrel at [-25.5, 0, -9.2] enclosed it (the ring ran through
+          the barrel body, azimuth ≈ 153.9°–163.5°).  Phase C-8.25 later re-seated
+          both props clear of the ring; the prop transforms below are C-8.23's.
           See src/utils/phaseC8_23.test.ts. */}
       <mesh position={[-23, 0.08, -10]} rotation={[-Math.PI / 2, 0, 2.8619]}>
         <torusGeometry args={[3.0, 0.08, 6, 24, 5.106]} />

@@ -554,6 +554,17 @@ const westFurniture = (tag: string, extra = '') =>
 const WEST_BENCH = westFurniture('RomanBench', ' rotationY=\\{0\\} \\/>');
 const WEST_BOARD = westFurniture('TabulaNoticeBoard', ' rotationY=\\{0\\} \\/>');
 const WEST_BARREL = westFurniture('WineBarrel', ' isLyingDown=\\{true\\} rotationY=\\{0\\.8\\} \\/>');
+/**
+ * The C-8.23 baseline for the courtyard's west bench and lying barrel.  That phase
+ * left both grazes of the trimmed ring in place and shipped these transforms;
+ * **C-8.25 later re-seated the two props** off the ring (the shipped transforms and
+ * the clearance proof live in phaseC8_25.test.ts), so the values below are frozen
+ * here as the record this suite's geometry was measured against — the same
+ * convention section E uses for the Tavern patio baseline.  The notice board was
+ * moved by neither phase and stays parsed from the source.
+ */
+const WEST_BENCH_C823 = [-23.0, 0, -7.5] as const;
+const WEST_BARREL_C823 = [-25.5, 0, -9.2] as const;
 /** RomanBench's two leg pedestals sit at local x ±0.8; the foot plinth is the first box. */
 const BENCH_LEG_X = pair(civicSrc, /\{\[\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\.map\(\(lx, li\)/);
 const BENCH_FOOT = (() => {
@@ -566,21 +577,45 @@ const BOARD_POST_X = pair(civicSrc, /Two Timber Support Posts[\s\S]*?\{\[\s*(-?[
 const BOARD_POST_SIZE = pair(civicSrc, /Two Timber Support Posts[\s\S]*?<boxGeometry args=\{\[\s*([\d.]+),\s*[\d.]+,\s*([\d.]+)\s*\]\} \/>/);
 
 describe('D. Furniture, walkways and arrivals are untouched', () => {
-  test('the west courtyard furniture keeps its transforms', () => {
-    expect(WEST_BENCH).toEqual([-23.0, 0, -7.5]);
+  test('the west courtyard furniture transforms — C-8.23 baseline, C-8.25 shipped', () => {
+    // The transforms this suite's geometry below is measured against.
+    expect(WEST_BENCH_C823).toEqual([-23.0, 0, -7.5]);
+    expect(WEST_BARREL_C823).toEqual([-25.5, 0, -9.2]);
+    // The notice board C-8.23 pinned here is untouched by C-8.25.
     expect(WEST_BOARD).toEqual([-23.0, 0, -12.5]);
-    expect(WEST_BARREL).toEqual([-25.5, 0, -9.2]);
-    expect(WEST_BARREL[1]).toBe(0);
     expect(BENCH_LEG_X).toEqual([-0.8, 0.8]);
     expect(BOARD_POST_X).toEqual([-0.7, 0.7]);
+    // C-8.25 re-seated the bench and the barrel off the ring (phaseC8_25.test.ts).
+    expect(WEST_BENCH).toEqual([-23.0, 0, -7.75]);
+    expect(WEST_BARREL).toEqual([-25.0, 0, -9.4]);
+    expect(WEST_BARREL[1]).toBe(0);
   });
 
-  test('none of them sits in the removed arc, so the trim cannot reach them', () => {
+  test('the C-8.23 baseline sat outside the removed arc, grazing the ring', () => {
+    // Neither C-8.23 transform lay in the removed arc, so the trim never reached
+    // them — which is why C-8.25, not the trim, had to clear these two props.
+    expect(inGap(azimuth(WEST_BENCH_C823[0], WEST_BENCH_C823[2]))).toBe(false);
+    expect(inGap(azimuth(WEST_BARREL_C823[0], WEST_BARREL_C823[2]))).toBe(false);
+    // The shipped C-8.25 transforms are outside the arc too.
     expect(inGap(azimuth(WEST_BENCH[0], WEST_BENCH[2]))).toBe(false);
     expect(inGap(azimuth(WEST_BARREL[0], WEST_BARREL[2]))).toBe(false);
-    // The bench's own graze of the tube (a 0.026 sliver on the inner foot corner) is
-    // therefore exactly as C-8.22 left it.
+    // The bench's own graze of the tube — a 0.026 sliver on the inner east foot
+    // corner — is the defect C-8.25 fixed; the baseline geometry that produced it is
+    // the record, exactly as C-8.22 left it.
     const footMaxRadius = Math.max(
+      ...BENCH_LEG_X.flatMap((lx) =>
+        [-1, 1].flatMap((sx) =>
+          [-1, 1].map((sz) =>
+            Math.hypot(WEST_BENCH_C823[0] + lx + (sx * BENCH_FOOT[0]) / 2 - RCX, WEST_BENCH_C823[2] + (sz * BENCH_FOOT[2]) / 2 - RCZ),
+          ),
+        ),
+      ),
+    );
+    expect(footMaxRadius).toBeCloseTo(2.954, 3);
+    expect(footMaxRadius).toBeGreaterThan(RING_TORUS.radius - RING_TORUS.tube);
+    // …and the shipped bench sits inside the tube's inner edge, so C-8.25's clearance
+    // proof (phaseC8_25.test.ts) is the one that governs the live geometry.
+    const shippedFootMaxRadius = Math.max(
       ...BENCH_LEG_X.flatMap((lx) =>
         [-1, 1].flatMap((sx) =>
           [-1, 1].map((sz) =>
@@ -589,8 +624,8 @@ describe('D. Furniture, walkways and arrivals are untouched', () => {
         ),
       ),
     );
-    expect(footMaxRadius).toBeCloseTo(2.954, 3);
-    expect(footMaxRadius).toBeGreaterThan(RING_TORUS.radius - RING_TORUS.tube);
+    expect(shippedFootMaxRadius).toBeCloseTo(2.719, 3);
+    expect(shippedFootMaxRadius).toBeLessThan(RING_TORUS.radius - RING_TORUS.tube);
     // The notice board stands inside the ring's inner edge (plan radius 2.670 against
     // the tube's inner 2.92), so its whole footprint is clear — including the west
     // post, whose azimuth does fall inside the gap.
