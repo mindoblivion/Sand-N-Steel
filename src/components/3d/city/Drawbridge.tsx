@@ -1,15 +1,39 @@
 /**
  * Drawbridge.tsx — Lightweight wooden drawbridge spanning the moat at the
- * south face of the Northern Motte (Phase 35E).
+ * south face of the Northern Motte (Phase 35E; aligned Phase Drawbridge
+ * Alignment 2).
  *
  * Replaces the hidden Ramp_Dirt mesh with a compact, static wooden bridge
- * in world space.  The deck sits at Y=0 (ground level); the mound slope
- * (terrainHeight.ts) provides the upward path from the bridge to the summit.
+ * in world space.  The deck sits just above ground level (Y=0); the mound
+ * slope (terrainHeight.ts) provides the upward path from the bridge to the
+ * summit.
+ *
+ * Measured targets (shipping asset public/_workspace_motte_normals.glb, world
+ * transform position [0,0,-71.5], scale 0.3145; sampled along X = 0):
+ *
+ *   Motte_Grass southern rim      Z = -46.34, surface Y = 0.00
+ *   Grass surface crosses Y = 0   Z = -52.00 (rising slope begins there)
+ *   Visible moat water surface    Y = 0.06   (ring, MOAT_WATER_Y)
+ *   Moat ring span at south       Z = -45.70 (inner) → -40.50 (outer)
  *
  * Dimensions (world space, centered at X=0):
- *   Span:   Z = -40.5 (city side) → Z = -46.0 (motte side), 5.5 units long
+ *   Span:   Z = -40.5 (city side) → Z = -46.5 (motte side), 6.0 units long
  *   Width:  4 units (X ±2.0), fits inside moat gap linear width ≈ 9.24
- *   Deck:   Y = 0.10 (above moat water at Y=0.06, avoids ground z-fighting)
+ *   Deck:   top Y = 0.16 (unchanged walking surface), underside Y = 0.09 —
+ *           0.03 above the moat water surface at Y = 0.06
+ *
+ * Phase Drawbridge Alignment 2 (deck alignment):
+ *   - The north end was extended 0.5 units (Z = -46.0 → -46.5) so the deck
+ *     visibly overlaps the motte's southern grass rim at Z = -46.34 by 0.16,
+ *     removing the 0.34-unit gap.  It stays 5.5 units south of the rising
+ *     mound slope (Z = -52.00), so it does not clip into the mound.
+ *     The shared constants in terrainHeight.ts are deliberately untouched:
+ *     terrain is flat at Y = 0 across this whole region, so the visible
+ *     extension changes no gameplay height or collision behaviour.
+ *   - The plank was thinned (0.12 → 0.07) so the whole structure's underside
+ *     rose from Y = 0.04 to Y = 0.09 — clear of the visible water surface at
+ *     Y = 0.06 — while the deck top and therefore the walking surface stays
+ *     exactly where Phase 35E put it.
  *
  * Construction (4 meshes — minimal for mobile performance):
  *   1. Plank deck  — single box, wood material, with cast/receive shadow
@@ -28,14 +52,32 @@ import {
   BRIDGE_Z_INNER,
 } from '../../../utils/terrainHeight';
 
-const DECK_Y = 0.10;
-const DECK_THICKNESS = 0.12;
-const BEAM_HEIGHT = 0.28;
-const BEAM_WIDTH = 0.22;
+// ── Deck vertical placement ─────────────────────────────────────────────────
+// The visible moat water ring sits at Y = 0.06 (MOAT_WATER_Y, NorthernMotte).
+// The walking surface keeps its Phase 35E height (top Y = 0.16); the thinner
+// plank lifts the structure's underside to Y = 0.09, clear of the water.
+export const DECK_TOP_Y = 0.16;
+export const DECK_THICKNESS = 0.07;
+export const DECK_Y = DECK_TOP_Y - DECK_THICKNESS / 2; // 0.125 (box center)
+export const DECK_UNDERSIDE_Y = DECK_TOP_Y - DECK_THICKNESS; // 0.09
+
+export const BEAM_HEIGHT = 0.28;
+export const BEAM_WIDTH = 0.22;
+
+// Iron hinges sit just above the deck's mid-height at the motte end.
+export const HINGE_RADIUS = 0.08;
+export const HINGE_RAISE = 0.04;
+
+// ── Deck span ───────────────────────────────────────────────────────────────
+// South end: the moat's outer edge / city approach (BRIDGE_Z_OUTER = -40.5).
+// North end: 0.5 units past the shared terrain constant so the deck overlaps
+// the motte grass rim (Z = -46.34) by 0.16 with no visible gap.
+export const DECK_Z_OUTER = BRIDGE_Z_OUTER;
+export const DECK_Z_INNER = BRIDGE_Z_INNER - 0.5; // -46.5
+export const DECK_LENGTH = DECK_Z_OUTER - DECK_Z_INNER; // 6.0
 
 // Bridge center (midpoint of span)
-const BRIDGE_CENTER_Z = (BRIDGE_Z_OUTER + BRIDGE_Z_INNER) / 2; // -43.25
-const BRIDGE_LENGTH = BRIDGE_Z_OUTER - BRIDGE_Z_INNER; // 5.5
+export const DECK_CENTER_Z = (DECK_Z_OUTER + DECK_Z_INNER) / 2; // -43.5
 
 // Wood material (reused across deck + beams)
 const woodMaterial = new THREE.MeshStandardMaterial({
@@ -53,44 +95,44 @@ const ironMaterial = new THREE.MeshStandardMaterial({
 
 export const Drawbridge: React.FC = () => {
   return (
-    <group position={[0, 0, BRIDGE_CENTER_Z]}>
+    <group position={[0, 0, DECK_CENTER_Z]}>
       {/* Plank deck */}
       <mesh position={[0, DECK_Y, 0]} castShadow receiveShadow>
         <boxGeometry
-          args={[BRIDGE_HALF_WIDTH * 2, DECK_THICKNESS, BRIDGE_LENGTH]}
+          args={[BRIDGE_HALF_WIDTH * 2, DECK_THICKNESS, DECK_LENGTH]}
         />
         <primitive object={woodMaterial} attach="material" />
       </mesh>
 
-      {/* Left side beam */}
+      {/* Left side beam (underside flush with the deck underside) */}
       <mesh
-        position={[-BRIDGE_HALF_WIDTH, DECK_Y + BEAM_HEIGHT / 2 - DECK_THICKNESS / 2, 0]}
+        position={[-BRIDGE_HALF_WIDTH, DECK_UNDERSIDE_Y + BEAM_HEIGHT / 2, 0]}
         castShadow
       >
-        <boxGeometry args={[BEAM_WIDTH, BEAM_HEIGHT, BRIDGE_LENGTH]} />
+        <boxGeometry args={[BEAM_WIDTH, BEAM_HEIGHT, DECK_LENGTH]} />
         <primitive object={woodMaterial} attach="material" />
       </mesh>
 
       {/* Right side beam */}
       <mesh
-        position={[BRIDGE_HALF_WIDTH, DECK_Y + BEAM_HEIGHT / 2 - DECK_THICKNESS / 2, 0]}
+        position={[BRIDGE_HALF_WIDTH, DECK_UNDERSIDE_Y + BEAM_HEIGHT / 2, 0]}
         castShadow
       >
-        <boxGeometry args={[BEAM_WIDTH, BEAM_HEIGHT, BRIDGE_LENGTH]} />
+        <boxGeometry args={[BEAM_WIDTH, BEAM_HEIGHT, DECK_LENGTH]} />
         <primitive object={woodMaterial} attach="material" />
       </mesh>
 
-      {/* Iron hinge — left (at motte end, Z = BRIDGE_Z_INNER relative) */}
+      {/* Iron hinge — left (at motte end) */}
       <mesh
         position={[
           -BRIDGE_HALF_WIDTH + BEAM_WIDTH / 2,
-          DECK_Y + 0.04,
-          BRIDGE_Z_INNER - BRIDGE_CENTER_Z, // north end of bridge
+          DECK_Y + HINGE_RAISE,
+          -DECK_LENGTH / 2, // north end of bridge
         ]}
         rotation={[0, 0, Math.PI / 2]}
         castShadow
       >
-        <cylinderGeometry args={[0.08, 0.08, BEAM_WIDTH * 1.4, 8]} />
+        <cylinderGeometry args={[HINGE_RADIUS, HINGE_RADIUS, BEAM_WIDTH * 1.4, 8]} />
         <primitive object={ironMaterial} attach="material" />
       </mesh>
 
@@ -98,13 +140,13 @@ export const Drawbridge: React.FC = () => {
       <mesh
         position={[
           BRIDGE_HALF_WIDTH - BEAM_WIDTH / 2,
-          DECK_Y + 0.04,
-          BRIDGE_Z_INNER - BRIDGE_CENTER_Z,
+          DECK_Y + HINGE_RAISE,
+          -DECK_LENGTH / 2,
         ]}
         rotation={[0, 0, Math.PI / 2]}
         castShadow
       >
-        <cylinderGeometry args={[0.08, 0.08, BEAM_WIDTH * 1.4, 8]} />
+        <cylinderGeometry args={[HINGE_RADIUS, HINGE_RADIUS, BEAM_WIDTH * 1.4, 8]} />
         <primitive object={ironMaterial} attach="material" />
       </mesh>
     </group>

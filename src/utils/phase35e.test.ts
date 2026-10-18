@@ -44,7 +44,9 @@ import {
   MOAT_INNER_RADIUS,
   MOAT_OUTER_RADIUS,
   MOAT_GAP_HALF_ANGLE,
+  MOAT_WATER_Y,
 } from '../components/3d/city/NorthernMotte';
+import { DECK_UNDERSIDE_Y } from '../components/3d/city/Drawbridge';
 
 // ── Tolerances ──────────────────────────────────────────────────────────────
 const EPS = 1e-6;
@@ -354,9 +356,14 @@ describe('Preserved moat visibility and opening', () => {
     expect(MOAT_GAP_HALF_ANGLE).toBe(0.18);
   });
 
-  test('moat water elevation is above bridge deck', () => {
-    // Bridge deck at Y=0.10, water at Y=0.06 — water is below the deck
-    expect(0.06).toBeLessThan(0.10);
+  test('moat water surface sits below the bridge deck and its beams', () => {
+    // Phase Drawbridge Alignment 2: the whole structure's underside is at
+    // DECK_UNDERSIDE_Y (deck top 0.16 − thickness 0.07), and the side beams
+    // are aligned flush to it.  The old assertion compared against the deck
+    // BOX CENTER (0.10), which hid that the underside reached 0.04 — below
+    // the water surface at 0.06.
+    expect(MOAT_WATER_Y).toBeLessThan(DECK_UNDERSIDE_Y);
+    expect(DECK_UNDERSIDE_Y - MOAT_WATER_Y).toBeGreaterThan(0.02);
   });
 
   test('bridge does not extend beyond moat outer edge by more than 1 unit', () => {
