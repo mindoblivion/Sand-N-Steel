@@ -82,6 +82,28 @@ const R_ARENA_WALL = 15.3;
 const SEATING_T1_R_OUT = 16.8;
 const SEATING_T2_R_OUT = 17.8; // 0.2 inside R_LINER — no z-fight
 
+// Phase C-8.28 — entrance passage through the interior bowl.
+//
+// The monumental portal's passage is 5.2 wide: the lintel spans [−2.6, +2.6]
+// and the piers' inner faces land on that same line (|X| = 3.925 − 2.65/2
+// = 2.6).  The podium ring and both seating frustums, however, ran over the
+// FULL 306° arc, so they crossed the doorway: a 1.2-high travertine wall
+// stood at Z = −9.7 in the middle of the entrance, with the cavea slope
+// rising directly behind it.  The walk-in path went straight through both
+// (collision only reached the facade at R_FACADE, nothing modelled the bowl).
+//
+// Like every other entrance band in this file — plinth, sill, spandrel, tier
+// cornices, tier ledge, window-recess ceiling — the bowl now stops at the
+// entrance instead of spanning it, so the doorway opens straight through onto
+// the sand.  The gap is cut on the portal's own passage width (a radial cut
+// at the podium radius), which also lines its edge up with the piers' inner
+// faces: the vestibule side wall runs unbroken from the pier into the podium.
+const PORTAL_PASSAGE_HALF_W = 2.6; // lintel half-width = pier inner face |X|
+const BOWL_GAP_HALF = Math.asin(PORTAL_PASSAGE_HALF_W / R_ARENA_WALL); // ≈ 0.1716 rad (9.83°)
+const BOWL_SEG1_LEN = -BOWL_GAP_HALF - ARC_THETA_START;
+const BOWL_SEG2_START = BOWL_GAP_HALF;
+const BOWL_SEG2_LEN = ARC_END - BOWL_GAP_HALF;
+
 // Phase 25.8: Flat horizontal annulus over [thetaStart, thetaStart + thetaLength]
 // in the cylinder convention.  RingGeometry measures φ from +X in its XY
 // plane; after the −π/2 X-rotation a ring point lands at (r·cos φ, 0, −r·sin φ),
@@ -627,24 +649,34 @@ export const GrandColosseum = React.memo(() => {
 
       {/* 4a. Arena boundary wall (podium) — separates sand from seating.
             Uses facadeMat (travertine + bump) so it reads as solid exterior-
-            quality stone, visually distinct from the lighter seating surfaces. */}
-      <mesh material={facadeMat} receiveShadow position={[0, (0.05 + 1.25) / 2, 0]}>
-        <cylinderGeometry args={[R_ARENA_WALL, R_ARENA_WALL, 1.2, 32, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
-      </mesh>
+            quality stone, visually distinct from the lighter seating surfaces.
+            Phase C-8.28: stops at the entrance passage (BOWL_GAP_HALF) so the
+            monumental doorway is not walled off at the arena edge. */}
+      {[[ARC_THETA_START, BOWL_SEG1_LEN], [BOWL_SEG2_START, BOWL_SEG2_LEN]].map(([start, len], i) => (
+        <mesh key={`podium-${i}`} material={facadeMat} receiveShadow position={[0, (0.05 + 1.25) / 2, 0]}>
+          <cylinderGeometry args={[R_ARENA_WALL, R_ARENA_WALL, 1.2, 32, 1, true, start, len]} />
+        </mesh>
+      ))}
 
       {/* 4b. Seating tier 1 (ima cavea) — slopes from r=15.3 at y=1.25
             to r=16.8 at y=3.75.  radiusTop > radiusBottom creates the
-            outward-and-upward slope of amphitheatre seating. */}
-      <mesh material={interiorMat} receiveShadow position={[0, (1.25 + 3.75) / 2, 0]}>
-        <cylinderGeometry args={[SEATING_T1_R_OUT, R_ARENA_WALL, 2.5, 32, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
-      </mesh>
+            outward-and-upward slope of amphitheatre seating.
+            Phase C-8.28: same entrance passage as the podium, so the cavea
+            does not slope across the doorway. */}
+      {[[ARC_THETA_START, BOWL_SEG1_LEN], [BOWL_SEG2_START, BOWL_SEG2_LEN]].map(([start, len], i) => (
+        <mesh key={`seating-t1-${i}`} material={interiorMat} receiveShadow position={[0, (1.25 + 3.75) / 2, 0]}>
+          <cylinderGeometry args={[SEATING_T1_R_OUT, R_ARENA_WALL, 2.5, 32, 1, true, start, len]} />
+        </mesh>
+      ))}
 
       {/* 4c. Seating tier 2 (media cavea) — slopes from r=16.8 at y=3.75
             to r=17.8 at y=6.25.  Outer edge (17.8) is 0.2 inside the
             Tier 1 dark liner (18.0) — no z-fighting. */}
-      <mesh material={interiorMat} receiveShadow position={[0, (3.75 + 6.25) / 2, 0]}>
-        <cylinderGeometry args={[SEATING_T2_R_OUT, SEATING_T1_R_OUT, 2.5, 32, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
-      </mesh>
+      {[[ARC_THETA_START, BOWL_SEG1_LEN], [BOWL_SEG2_START, BOWL_SEG2_LEN]].map(([start, len], i) => (
+        <mesh key={`seating-t2-${i}`} material={interiorMat} receiveShadow position={[0, (3.75 + 6.25) / 2, 0]}>
+          <cylinderGeometry args={[SEATING_T2_R_OUT, SEATING_T1_R_OUT, 2.5, 32, 1, true, start, len]} />
+        </mesh>
+      ))}
 
       {/* ===================================================================
           5. ARENA FLOOR

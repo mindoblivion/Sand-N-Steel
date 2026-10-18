@@ -201,8 +201,12 @@ const leftColosseum = (r: PushResult) => r.trail.some(([x, z]) => outsideColosse
 function withPreFixRegistry<T>(fn: () => T): T {
   const snapshot = CITY_COLLIDERS.slice();
   try {
+    // The registry this defect was reported against: it predates BOTH the two
+    // C-8.27 closures AND the C-8.28 arena podium, so both are spliced out and
+    // the replay below is the historical one, unchanged.
     for (let i = CITY_COLLIDERS.length - 1; i >= 0; i--) {
-      if (CITY_COLLIDERS[i].id.startsWith('colo-flank')) CITY_COLLIDERS.splice(i, 1);
+      const id = CITY_COLLIDERS[i].id;
+      if (id.startsWith('colo-flank') || id.startsWith('colo-podium')) CITY_COLLIDERS.splice(i, 1);
     }
     return fn();
   } finally {
@@ -235,13 +239,15 @@ const DOORWAY_CENTRES: number[] = [-2.0, -1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('A. The reported bypass reproduces without the flank closures', () => {
-  test('the pre-fix registry is the shipped one minus exactly the two closures', () => {
+  test('the pre-fix registry is the shipped one minus the later Colosseum colliders', () => {
     const preFix = withPreFixRegistry(() => CITY_COLLIDERS.slice());
-    expect(preFix.length).toBe(CITY_COLLIDERS.length - 2);
+    expect(preFix.length).toBe(CITY_COLLIDERS.length - 18); // 2 closures + 16 podium segments
     expect(preFix.filter((c) => c.id.startsWith('colo-flank'))).toEqual([]);
+    expect(preFix.filter((c) => c.id.startsWith('colo-podium'))).toEqual([]);
     // …and the registry the tests below run against is intact again.
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-flank')).length).toBe(2);
-    expect(CITY_COLLIDERS.length).toBe(preFix.length + 2);
+    expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-podium')).length).toBe(16);
+    expect(CITY_COLLIDERS.length).toBe(preFix.length + 18);
   });
 
   test('a north-bound push at X = 5.8 … 7.6 walked from the city onto the arena sand', () => {
@@ -552,6 +558,12 @@ describe('F. Nothing else about the Colosseum or the city moved', () => {
       'colo-pier-r',
       'colo-flank-l',
       'colo-flank-r',
+      // Phase C-8.28 added the arena podium polyline (GrandColosseum.tsx 4a,
+      // rendered radius 15.3, the arena-side boundary between sand and stone).
+      // Everything this suite pins — the piers, the two facade arcs and the two
+      // C-8.27 closures — is still asserted exactly as before, above and below.
+      ...Array.from({ length: 8 }, (_, i) => `colo-podium-l-${i}`),
+      ...Array.from({ length: 8 }, (_, i) => `colo-podium-r-${i}`),
     ].sort();
     expect(coloIds).toEqual(expected);
   });
@@ -579,10 +591,14 @@ describe('F. Nothing else about the Colosseum or the city moved', () => {
 
   test('the closures are the only colliders this phase adds', () => {
     const preFixIds = withPreFixRegistry(() => CITY_COLLIDERS.map((c) => c.id).sort());
-    const added = CITY_COLLIDERS.map((c) => c.id).sort().filter((id) => !preFixIds.includes(id));
+    // C-8.28 later added the podium polyline; this suite's own delta is still
+    // exactly the two closures.
+    const added = CITY_COLLIDERS.map((c) => c.id).sort()
+      .filter((id) => !preFixIds.includes(id) && !id.startsWith('colo-podium'));
     expect(added).toEqual(['colo-flank-l', 'colo-flank-r']);
     // No collider was removed or renamed either.
-    expect(CITY_COLLIDERS.map((c) => c.id).sort().filter((id) => !id.startsWith('colo-flank')))
+    expect(CITY_COLLIDERS.map((c) => c.id).sort()
+      .filter((id) => !id.startsWith('colo-flank') && !id.startsWith('colo-podium')))
       .toEqual(preFixIds);
   });
 

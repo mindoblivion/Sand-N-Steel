@@ -168,3 +168,26 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   what was observed instead.
 - **Removal.** Delete `src/components/dev/CharacterTestHarness.tsx` and revert the `useCharacterHarness`
   branch in `src/main.tsx` (the import + the conditional). No other file references the harness.
+
+## Colosseum interior boundary (Phase C-8.28)
+
+- **The arena bowl is cut at the doorway.** In `GrandColosseum.tsx` sections 4a–4c the podium ring and
+  both seating frustums used the full 306° arc, so they ran straight across the monumental entrance: a
+  1.2-unit-high travertine wall stood at Z = −9.7 in the doorway with the cavea slope rising behind it.
+  `collisionShapes.ts` modelled only the facade (radius 19.3) and the portal piers, so the real resolver
+  walked the player through both rendered surfaces and left them standing inside the facade wall band
+  (r = 18.62 east/west, 18.81 on the diagonals). The bowl now stops at the portal's own 5.2-unit passage
+  (`PORTAL_PASSAGE_HALF_W` = 2.6 — the lintel half-width and the piers' inner faces — taken as a radial
+  cut at the podium radius), matching the file's existing convention for every other entrance band, and
+  `colo-podium-l/r-0…7` (16 segments on the rendered radius 15.3, same 306° arc and the same gap) make it
+  physical. The cut edge lands on the pier's inner-face line, so the vestibule wall runs unbroken from the
+  pier into the podium. The arena now has exactly two ways in or out: the doorway and the rear gap below.
+- **The 54° rear Colosseum gap is an unguarded render opening — documented, deliberately not closed.**
+  `ARC_THETA_LENGTH = 1.7π` is a render-cost choice for the partial cylinder ("invisible from the player's
+  normal viewing position"), not architecture and not a designed route: walking around the north side
+  leads in and out through an opening with no stone in it at all. Closing it would take a ~10-unit
+  invisible collider on bare ground, so C-8.28 left the gap and its traversal unchanged — asserted, with
+  the reasoning, in `src/utils/phaseC8_28.test.ts` §G.
+- `phaseC8_27.test.ts`'s `withPreFixRegistry()` now splices out the C-8.28 podium polyline as well as the
+  two flank closures: that suite's frozen replay is the registry the bypass was reported against, which
+  predates both. Everything else in C-8.27's assertions is unchanged.

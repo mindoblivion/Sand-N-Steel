@@ -467,6 +467,45 @@ const colosseumFlanks: RectCollider[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase C-8.28 — Arena podium (the boundary wall between sand and seating)
+//
+// GrandColosseum.tsx section 4a renders the podium as a 1.2-unit-high
+// cylinder at R_ARENA_WALL = 15.3 about the root [0, −25] (world Y 0.05 …
+// 1.25), spanning the same 306° arc as the facade.  Nothing collided with it.
+// With the real resolver (C-8.28 audit, before this fix) a radial push from
+// the arena centre walked straight through the podium, through the rendered
+// cavea (seating radius 15.3 … 17.8) and came to rest inside the facade wall
+// band (radius 18.0 … 19.3): east/west ended at r = 18.62, the diagonals at
+// 18.81 — i.e. the player stood inside the rendered stone, having crossed two
+// rendered surfaces on the way.
+//
+// This polyline puts the podium on its rendered radius.  It stops at the
+// monumental entrance passage, exactly where the render now stops: the bowl
+// is cut over the portal's own 5.2-unit opening, |X| ≤ 2.6 at the podium
+// (GRANDCOLOSSEUM's PORTAL_PASSAGE_HALF_W — the lintel half-width and the
+// piers' inner faces).  The cut end (2.6, −9.925) therefore sits ON the
+// pier's inner-face line, so the passage has no corner to snag on.
+//
+// Sagitta per segment (8 per side, as on the facade) ≈ 0.186 < player radius
+// 0.4 → no squeeze-through; the entrance gap and the rear arc ends mirror the
+// rendered bowl, so the collider and the visible stone agree everywhere.
+const COLO_PODIUM_R = 15.3;                     // R_ARENA_WALL — rendered podium radius
+const COLO_PODIUM_PASSAGE_HALF_W = 2.6;         // portal lintel half-width = pier inner face |X|
+const COLO_PODIUM_GAP = Math.asin(COLO_PODIUM_PASSAGE_HALF_W / COLO_PODIUM_R); // ≈ 0.1716 rad
+
+function podiumPoint(theta: number): [number, number] {
+  return [
+    COLO_PODIUM_R * Math.sin(theta),
+    COLO_PODIUM_R * Math.cos(theta) + COLOSSEUM_ROOT_Z,
+  ];
+}
+
+const colosseumPodium: SegmentCollider[] = [
+  ...arcSegments(COLO_THETA_START, -COLO_PODIUM_GAP, 8, 'colo-podium-l', podiumPoint),
+  ...arcSegments(COLO_PODIUM_GAP, COLO_THETA_END, 8, 'colo-podium-r', podiumPoint),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Training Yard Curved Enclosure Wall — TrainingYard.tsx, root [-18, 0, 0]
 //
 // Convention: X = R·cos(θ) - 18, Z = R·sin(θ)
@@ -622,6 +661,7 @@ export const CITY_COLLIDERS: Collider[] = [
   ...buildingRects,
   ...colosseumPiers,
   ...colosseumFlanks,
+  ...colosseumPodium,
   fountainCircle,
   ...colosseumWallSegments,
   ...yardWallSegments,
