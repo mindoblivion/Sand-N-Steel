@@ -338,13 +338,15 @@ export const ProcessionAvenue = React.memo(() => {
       {/* Phase 29.4A: north-side cypress moved 5m north (z=-7.5) with the Colosseum root.
           The planter (ground radius 0.8925) clearance vs foundation (r=19.5, center [0,-25]):
           d=20.94, clearance=0.548m — same relative spacing as before. */}
-      {/* Phase C-8.21: the mid-row cypresses at z=10 stood in the north-west corner of
-          the Caravanserai Inn [16, 0, 14] and of the City Tavern [-16, 0, 14]: the planter
-          (0.8925 ground radius) cut 0.94 into the Inn's plinth and the crown 0.76 into the
-          Tavern's roof tiles. Both trees move 1.45 north along Z (10 → 8.55), keeping X,
-          scale and seed, so the avenue stays symmetric. Tightest clearances after the
-          move: Inn planter ↔ plinth 0.51, Inn crown ↔ roof tile 0.55, Tavern crown ↔ roof
-          tile 0.69. The planter also clears the avenue bench at [±13, 0, 11.2] by 0.82
+      {/* Phase C-8.21: the mid-row cypresses at z=10 stood at the north-west corner of
+          the Caravanserai Inn [16, 0, 14] and the north-east corner of the City Tavern
+          [-16, 0, 14]: at the Inn the planter (0.8925 ground radius) cut 0.94 into the
+          plinth and the widest crown band (0.9841) 0.96 into the quoin corner; at the
+          Tavern the crown cut 0.77 into the quoin corner and the planter 0.74 into the
+          plinth. Both trees move 1.45 north along Z (10 → 8.55), keeping X, scale and
+          seed, so the avenue stays symmetric. Tightest clearances after the move: Inn
+          crown ↔ quoin corner 0.49, Inn planter ↔ plinth 0.51, Tavern crown ↔ quoin
+          corner 0.68. The planter also clears the avenue bench at [±13, 0, 11.2] by 0.82
           (it previously overlapped it). See src/utils/phaseC8_21.test.ts. */}
       {[-11.5, 11.5].map((px, pi) =>
         [-7.5, 8.55, 20].map((pz, zi) => (

@@ -5,11 +5,15 @@
  * This phase moves exactly two things, and this suite verifies the moves and the
  * geometry behind them:
  *
- *   1. The mid-row Italian cypresses at [±11.5, 0, 10] stood in the north-west
- *      corner of the Caravanserai Inn [16, 0, 14] and of the City Tavern
- *      [-16, 0, 14]: the planter (0.8925 ground radius) cut 0.94 into the Inn's
- *      plinth and the crown reached 0.77 into the Tavern's roof tiles. Both trees
- *      move 1.45 north along Z (10 → 8.55) with X, scale and seed untouched.
+ *   1. The mid-row Italian cypresses at [±11.5, 0, 10] stood on the north side of
+ *      the Caravanserai Inn [16, 0, 14] and of the City Tavern [-16, 0, 14]: at
+ *      the Inn (whose tree is west of its axis) the planter (0.8925 ground radius)
+ *      cut 0.94 into the plinth and the widest crown band (r 0.9841) cut 0.96 into
+ *      the north-west quoin corner; at the Tavern (tree east of its axis) the crown
+ *      cut 0.77 into the north-east quoin corner and the planter 0.74 into the
+ *      plinth. Both trees move 1.45 north along Z (10 → 8.55) with X, scale and
+ *      seed untouched, which leaves the Inn's tightest pair at +0.49 and the
+ *      Tavern's at +0.68.
  *   2. The merchant handcart at [18, 0, -2] (yaw 45°) sat inside the General
  *      Store's plinth, quoins, wall, counter and goods stack (worst 0.59) and the
  *      Smithing Forge's wall (0.36). It is re-parked at [10.8, 0, -1.7] on the Via
@@ -20,8 +24,11 @@
  * profile, its per-band multipliers and its deterministic per-vertex radial
  * displacement, so each crown band carries a real radius rather than the whole
  * tree's bounding box; the handcart is modelled part by part (axle, wheels, bed,
- * slats, rest prop, cargo) rather than as one padded envelope.  No building root,
- * collider, arrival or street route is touched by this phase.
+ * slats, rest prop, cargo) rather than as one padded envelope.  Each building
+ * contributes both north-side quoin corner stacks and both rafter planes, because the
+ * Inn's tree approaches from the west and the Tavern's from the east; a piece the
+ * tree's X band never reaches is dropped rather than counted as clearance.  No
+ * building root, collider, arrival or street route is touched by this phase.
  *
  * Run with: bun test src/utils/phaseC8_21.test.ts
  */
@@ -366,15 +373,23 @@ function buildingPieces(spec: BuildingSpec): Piece[] {
     z: [rz - wd / 2, rz + wd / 2],
   });
 
-  // CornerQuoins: the north-west block (the corner a cypress at −X approaches),
-  // widest cross-section max(qx, qz) as in the primitive.
+  // CornerQuoins: both corners of the north face (the side the avenue approaches,
+  // −Z), each block stack taken as its widest cross-section max(qx, qz), as in the
+  // primitive.  A tree west of the building axis faces the north-west stack and one
+  // east of it the north-east stack — the Inn's tree is west, the Tavern's is east
+  // — so both are modelled and cypressClearance() skips the one it never reaches.
   const qHalf = Math.max(...QUOIN_QX, ...QUOIN_QZ) / 2;
-  out.push({
-    n: 'quoins',
-    x: [rx - spec.quoin.buildingSize[0] / 2 - qHalf, rx - spec.quoin.buildingSize[0] / 2 + qHalf],
-    y: [0, spec.quoin.height],
-    z: [rz - spec.quoin.buildingSize[1] / 2 - qHalf, rz - spec.quoin.buildingSize[1] / 2 + qHalf],
-  });
+  const quoinZ: [number, number] = [
+    rz - spec.quoin.buildingSize[1] / 2 - qHalf,
+    rz - spec.quoin.buildingSize[1] / 2 + qHalf,
+  ];
+  const quoinXs: Array<[string, number]> = [
+    ['quoins.west', rx - spec.quoin.buildingSize[0] / 2],
+    ['quoins.east', rx + spec.quoin.buildingSize[0] / 2],
+  ];
+  for (const [n, qcx] of quoinXs) {
+    out.push({ n, x: [qcx - qHalf, qcx + qHalf], y: [0, spec.quoin.height], z: quoinZ });
+  }
 
   // WallCornice: four strips, each `projection` deep beyond the wall face.
   for (const c of spec.cornices) {
@@ -405,12 +420,18 @@ function buildingPieces(spec: BuildingSpec): Piece[] {
   const slabAlong = (rafter / 2) * Math.cos(slope) + (TILE_THICKNESS / 2) * Math.sin(slope);
   const slabAcross = (rafter / 2) * Math.sin(slope) + (TILE_THICKNESS / 2) * Math.cos(slope);
   const tileY = baseY + r.height / 2 + 0.04;
-  out.push({
-    n: 'roof.tile',
-    x: [rx - halfSpan / 2 - slabAlong, rx - halfSpan / 2 + slabAlong],
-    y: [tileY - slabAcross, tileY + slabAcross],
-    z: [rz - fullLength / 2, rz + fullLength / 2],
-  });
+  // The two rafter planes are separate boxes with no tile above the ridge, so each
+  // carries its own X band: the west plane over the west eave (the one the Inn's
+  // tree sees) and the east plane over the east eave (the Tavern's tree).
+  const tileYBand: [number, number] = [tileY - slabAcross, tileY + slabAcross];
+  const tileZ: [number, number] = [rz - fullLength / 2, rz + fullLength / 2];
+  const tileXs: Array<[string, number]> = [
+    ['roof.tile.west', rx - halfSpan / 2],
+    ['roof.tile.east', rx + halfSpan / 2],
+  ];
+  for (const [n, tx] of tileXs) {
+    out.push({ n, x: [tx - slabAlong, tx + slabAlong], y: tileYBand, z: tileZ });
+  }
   out.push({
     n: 'roof.ridge',
     x: [rx - 0.16, rx + 0.16],
@@ -532,36 +553,28 @@ describe('B. The cypress model reproduces the foliage component', () => {
   });
 });
 
-describe('DEBUG', () => {
-  test('dump', () => {
-    console.log('BANDS-INN', JSON.stringify(cypressBands(SEED_INN_SIDE).map((b) => [b.n, +b.y[0].toFixed(3), +b.y[1].toFixed(3), +b.R.toFixed(4)])));
-    console.log('CONST', JSON.stringify({ PROFILE: CROWN_PROFILE, HEIGHT_MUL, WIDTH_MUL, TILT_RANGE, BAND_MUL, VAR_KEYS, HASH, BAND_KEYS, CROWN_Y, CROWN_HEIGHT_FACTOR, CROWN_SEGMENTS, CROWN_DISPLACEMENT, PLANTER, CAP, TRUNK }));
-    console.log('ROWS-INN', JSON.stringify(cypressReport(CYPRESS_X[1], CYPRESS_Z[1], SEED_INN_SIDE, INN_PIECES).slice(0, 6)));
-    console.log('ROWS-TAV', JSON.stringify(cypressReport(CYPRESS_X[0], CYPRESS_Z[1], SEED_TAVERN_SIDE, TAVERN_PIECES).slice(0, 6)));
-    console.log('ROWS-INN-OLD', JSON.stringify(cypressReport(CYPRESS_X[1], 10, SEED_INN_SIDE, INN_PIECES).slice(0, 4)));
-    console.log('ROWS-TAV-OLD', JSON.stringify(cypressReport(CYPRESS_X[0], 10, SEED_TAVERN_SIDE, TAVERN_PIECES).slice(0, 4)));
-    console.log('CART', JSON.stringify(cartParts(CART_POS).map((p) => [p.n, +p.c.x.toFixed(3), +p.c.z.toFixed(3), +p.h[0].toFixed(3), +p.h[2].toFixed(3)])));
-    console.log('CART-OLD', JSON.stringify(worstClearance(cartParts(CART_OLD), STORE_PIECES.map(asObb))), JSON.stringify(worstClearance(cartParts(CART_OLD), FORGE_PIECES.map(asObb))));
-    console.log('CART-NEW', JSON.stringify(worstClearance(cartParts(CART_POS), STORE_PIECES.map(asObb))), JSON.stringify(worstClearance(cartParts(CART_POS), FORGE_PIECES.map(asObb))), JSON.stringify(worstClearance(cartParts(CART_POS), FURNITURE)));
-    console.log('PLINTH-OLD', JSON.stringify(worstClearance(cartParts(CART_OLD), [asObb(STORE_PIECES.find((p) => p.n === 'plinth.lower')!)])));
-  });
-});
-
 describe('C. The audited cypress intersections are reproduced at z = 10', () => {
-  test('the Inn-side tree cuts its plinth, quoins and roof', () => {
+  test('the Inn-side tree cuts its north-west quoin corner and its plinth', () => {
     const rows = cypressReport(CYPRESS_X[1], 10, SEED_INN_SIDE, INN_PIECES);
-    expect(rows[0].pair).toBe('planter ↔ plinth.lower');
-    expect(rows[0].clearance).toBeCloseTo(-0.9425, 4);
-    expect(at(rows, 'crown[2] ↔ quoins')).toBeCloseTo(-0.9377, 4);
-    expect(at(rows, 'crown[7] ↔ roof.tile')).toBeLessThan(0);
+    // Tightest is the widest crown band (r 0.9841) reaching the quoin block face at
+    // z 10.025 = 14 − 7.6/2 − 0.175: 10.025 − (10 + 0.9841).  Next comes the planter
+    // against the plinth face at z 9.95 = 14 − 7.6/2 − 0.25: 9.95 − (10 + 0.8925).
+    expect(rows[0].pair).toBe('crown[3] ↔ quoins.west');
+    expect(rows[0].clearance).toBeCloseTo(-0.9591, 4);
+    expect(at(rows, 'planter ↔ plinth.lower')).toBeCloseTo(-0.9425, 4);
+    expect(at(rows, 'crown[2] ↔ quoins.west')).toBeCloseTo(-0.9385, 4);
+    expect(at(rows, 'crown[8] ↔ roof.tile.west')).toBeLessThan(-0.7);
     expect(rows.filter((r) => r.clearance < 0).length).toBeGreaterThanOrEqual(10);
   });
 
-  test('the Tavern-side tree reaches its roof tiles and plinth', () => {
+  test('the Tavern-side tree cuts its north-east quoin corner, plinth and east rafter plane', () => {
+    // The Tavern's tree stands east of the building axis (x −11.5 vs −16), so the
+    // corner and rafter plane it meets are the east ones.
     const rows = cypressReport(CYPRESS_X[0], 10, SEED_TAVERN_SIDE, TAVERN_PIECES);
-    expect(rows[0].pair).toBe('crown[8] ↔ roof.tile');
-    expect(rows[0].clearance).toBeCloseTo(-0.7687, 4);
-    expect(at(rows, 'planter ↔ plinth.lower')).toBeCloseTo(-0.7425, 4);
+    expect(rows[0].pair).toBe('crown[3] ↔ quoins.east');
+    expect(rows[0].clearance).toBeCloseTo(-0.7703, 4); // 10.225 − (10 + 0.9953)
+    expect(at(rows, 'planter ↔ plinth.lower')).toBeCloseTo(-0.7425, 4); // 10.15 − (10 + 0.8925)
+    expect(at(rows, 'crown[9] ↔ roof.tile.east')).toBeCloseTo(-0.3939, 4); // 10 − (10 + 0.3939)
     expect(rows.filter((r) => r.clearance < 0).length).toBeGreaterThanOrEqual(8);
   });
 });
@@ -570,20 +583,24 @@ describe('D. Both cypresses clear their building and the avenue benches after th
   test('the Inn-side tree clears every piece it shares a height with', () => {
     const rows = cypressReport(CYPRESS_X[1], CYPRESS_Z[1], SEED_INN_SIDE, INN_PIECES);
     expect(rows.filter((r) => r.clearance <= 0)).toEqual([]);
-    // Tightest is the plinth band the planter sits beside, at 0.51.
-    expect(rows[0].pair).toBe('planter ↔ plinth.lower');
-    expect(rows[0].clearance).toBeCloseTo(0.5075, 4);
-    expect(at(rows, 'crown[2] ↔ quoins')).toBeCloseTo(0.5123, 4);
-    expect(at(rows, 'crown[7] ↔ roof.tile')).toBeGreaterThan(0.53);
+    // Tightest is the widest crown band against the north-west quoin corner, at
+    // 0.49: 10.025 − (8.55 + 0.9841).  The planter beside the plinth is next, at
+    // 0.51: 9.95 − (8.55 + 0.8925).
+    expect(rows[0].pair).toBe('crown[3] ↔ quoins.west');
+    expect(rows[0].clearance).toBeCloseTo(0.4909, 4);
+    expect(at(rows, 'planter ↔ plinth.lower')).toBeCloseTo(0.5075, 4);
+    expect(at(rows, 'crown[2] ↔ quoins.west')).toBeCloseTo(0.5115, 4);
+    expect(at(rows, 'crown[8] ↔ roof.tile.west')).toBeGreaterThan(0.6);
   });
 
-  test('the Tavern-side tree clears its roof tile with 0.68 to spare', () => {
+  test('the Tavern-side tree clears its north-east quoin corner with 0.68 to spare', () => {
     const rows = cypressReport(CYPRESS_X[0], CYPRESS_Z[1], SEED_TAVERN_SIDE, TAVERN_PIECES);
     expect(rows.filter((r) => r.clearance <= 0)).toEqual([]);
-    expect(rows[0].pair).toBe('crown[8] ↔ roof.tile');
-    expect(rows[0].clearance).toBeCloseTo(0.6813, 4);
-    expect(at(rows, 'planter ↔ plinth.lower')).toBeCloseTo(0.7075, 4);
-    expect(at(rows, 'crown[8] ↔ cornice.y6.35.rear')).toBeGreaterThan(0.5);
+    expect(rows[0].pair).toBe('crown[3] ↔ quoins.east');
+    expect(rows[0].clearance).toBeCloseTo(0.6797, 4); // 10.225 − (8.55 + 0.9953)
+    expect(at(rows, 'planter ↔ plinth.lower')).toBeCloseTo(0.7075, 4); // 10.15 − (8.55 + 0.8925)
+    expect(at(rows, 'crown[9] ↔ roof.tile.east')).toBeCloseTo(1.0561, 4); // 10 − (8.55 + 0.3939)
+    expect(at(rows, 'crown[9] ↔ cornice.y6.35.rear')).toBeCloseTo(1.3161, 4);
   });
 
   test('the move is exactly the Z displacement — X, scale and seed are untouched', () => {
@@ -597,9 +614,9 @@ describe('D. Both cypresses clear their building and the avenue benches after th
   });
 
   test('the avenue bench at [±13, 0, 11.2] no longer overlaps the planters', () => {
-    // RomanBench seat slab 2.0 × 0.65 yawed ∓π/4 → AABB half 0.9368 on both axes.
+    // RomanBench seat slab 2.0 × 0.65 yawed ∓π/4 → AABB half 0.9369 on both axes.
     const benchHalf = 1.0 * Math.cos(Math.PI / 4) + 0.325 * Math.sin(Math.PI / 4);
-    expect(benchHalf).toBeCloseTo(0.9368, 4);
+    expect(benchHalf).toBeCloseTo(0.9369, 4);
     const planterR = 0.85 * CYPRESS_SCALE;
     for (const px of [CYPRESS_X[1], CYPRESS_X[0]]) {
       const benchCx = px > 0 ? 13.0 : -13.0;
@@ -612,11 +629,12 @@ describe('D. Both cypresses clear their building and the avenue benches after th
 
   test('the smallest safe Z for a 0.20 margin is documented, and 8.55 is north of it', () => {
     // Moving north by Δ raises every shared-height clearance by exactly Δ, so the
-    // largest Z that reaches a 0.20 margin is 10 − (0.20 + worst penetration).
-    expect(10 - (0.2 + 0.9425)).toBeCloseTo(8.8575, 4); // Inn side
-    expect(10 - (0.2 + 0.7687)).toBeCloseTo(9.0313, 4); // Tavern side
+    // largest Z that still reaches a 0.20 margin is 10 − (0.20 + worst penetration),
+    // where each side's worst pair is its quoin corner (see sections C/D).
+    expect(10 - (0.2 + 0.9591)).toBeCloseTo(8.8409, 4); // Inn: crown[3] ↔ quoins.west
+    expect(10 - (0.2 + 0.7703)).toBeCloseTo(9.0297, 4); // Tavern: crown[3] ↔ quoins.east
     // The shipped 8.55 lies north of both, i.e. strictly safer than the margin.
-    expect(CYPRESS_Z[1]).toBeLessThan(8.8575);
+    expect(CYPRESS_Z[1]).toBeLessThan(8.8409);
   });
 });
 
@@ -723,6 +741,14 @@ function sat(A: Obb, B: Obb): number {
   }
   return gap > -Infinity ? gap : -overlap;
 }
+
+/**
+ * World half-extent of an OBB's bounding box along a world axis — the local
+ * half-extents projected onto it.  The cart is yawed 45°, so a part's world X or
+ * Z reach is `(h_x + h_z) / √2`, not its local `h[0]` / `h[2]`.
+ */
+const halfAlong = (o: Obb, axis: 'x' | 'y' | 'z') =>
+  Math.abs(o.h[0] * o.ax[0][axis]) + Math.abs(o.h[1] * o.ax[1][axis]) + Math.abs(o.h[2] * o.ax[2][axis]);
 
 /** A building AABB as an OBB (its own axes are the world axes). */
 const asObb = (p: Piece): Obb => ({
@@ -896,7 +922,7 @@ describe('E. The handcart clears the General Store, the Forge and the street pro
     const store = worstClearance(cartParts(CART_OLD), STORE_PIECES.map(asObb));
     const forge = worstClearance(cartParts(CART_OLD), FORGE_PIECES.map(asObb));
     expect(store.pair).toBe('wheel1 ↔ wall');
-    expect(store.clearance).toBeCloseTo(-0.5903, 4);
+    expect(store.clearance).toBeCloseTo(-0.5758, 4);
     expect(forge.clearance).toBeCloseTo(-0.3592, 4);
     expect(forge.pair).toBe('slat0 ↔ wall');
     expect(worstClearance(cartParts(CART_OLD), [asObb(STORE_PIECES.find((p) => p.n === 'plinth.lower')!)])).toMatchObject({
@@ -914,7 +940,9 @@ describe('E. The handcart clears the General Store, the Forge and the street pro
     expect(store.pair).toBe('slat1 ↔ goods.barrel');
     expect(store.clearance).toBeGreaterThan(2.7);
     expect(forge.pair).toBe('slat1 ↔ plinth.lower');
-    expect(forge.clearance).toBeCloseTo(0.9911, 4);
+    // The plinth's west face is at x 13 = 18 − 9.5/2 − 0.25, and the slat's east
+    // edge at 10.8 + (0.68 + 0.1) / √2 + 0.06 / √2 = 12.0092.
+    expect(forge.clearance).toBeCloseTo(0.9908, 3);
     for (const p of [...STORE_PIECES, ...FORGE_PIECES]) {
       expect(parts.every((c) => sat(c, asObb(p)) > 0), `${p.n} overlaps the cart`).toBe(true);
     }
@@ -923,7 +951,7 @@ describe('E. The handcart clears the General Store, the Forge and the street pro
   test('the nearest street prop is the courtyard bench, still 0.79 clear', () => {
     const worst = worstClearance(cartParts(CART_POS), FURNITURE);
     expect(worst.pair).toBe('wheel1 ↔ bench.seat');
-    expect(worst.clearance).toBeCloseTo(0.7903, 3);
+    expect(worst.clearance).toBeCloseTo(0.7901, 3);
     expect(worst.clearance).toBeGreaterThan(0.5);
   });
 
@@ -932,8 +960,8 @@ describe('E. The handcart clears the General Store, the Forge and the street pro
     for (const part of parts) {
       for (const sx of [1, -1]) {
         for (const sz of [1, -1]) {
-          const cornerX = part.c.x + sx * part.h[0];
-          const cornerZ = part.c.z + sz * part.h[2];
+          const cornerX = part.c.x + sx * halfAlong(part, 'x');
+          const cornerZ = part.c.z + sz * halfAlong(part, 'z');
           expect(cornerX).toBeGreaterThanOrEqual(STREET_RECT.x[0]);
           expect(cornerX).toBeLessThanOrEqual(STREET_RECT.x[1]);
           expect(cornerZ).toBeGreaterThanOrEqual(STREET_RECT.z[0]);
@@ -941,20 +969,25 @@ describe('E. The handcart clears the General Store, the Forge and the street pro
         }
       }
     }
-    // The cart's rotated footprint spans 2.38 of the 8-wide carriageway, leaving
-    // 1.27 to the south kerb and 2.4+ to the north kerb.
+    // The 45° yaw turns every part's local (h_x, h_z) into a world reach of
+    // (h_x + h_z) / √2, so the cart's true footprint spans 2.2769 across the
+    // 8-wide carriageway, leaving 1.2323 to the north kerb (z −4) and 4.4908 to
+    // the south kerb (z +4).
     const span = parts.reduce(
-      (a, p) => [Math.min(a[0], p.c.z - p.h[2]), Math.max(a[1], p.c.z + p.h[2])] as [number, number],
-      [Infinity, -Infinity],
+      (a, p) => [Math.min(a[0], p.c.z - halfAlong(p, 'z')), Math.max(a[1], p.c.z + halfAlong(p, 'z'))] as [number, number],
+      [Infinity, -Infinity] as [number, number],
     );
-    expect(span[1] - span[0]).toBeCloseTo(2.377, 3);
-    expect(STREET_RECT.z[0] - span[0]).toBeCloseTo(1.269, 3);
-    expect(STREET_RECT.z[1] - span[1]).toBeGreaterThan(2.3);
+    expect(span[1] - span[0]).toBeCloseTo(2.277, 3);
+    expect(span[0] - STREET_RECT.z[0]).toBeCloseTo(1.2323, 3);
+    expect(STREET_RECT.z[1] - span[1]).toBeCloseTo(4.4908, 3);
   });
 
   test('neither the forge doorway nor the store frontage is obstructed', () => {
     const inside = (o: Obb, r: { x: readonly [number, number]; z: readonly [number, number] }) =>
-      o.c.x + o.h[0] > r.x[0] && o.c.x - o.h[0] < r.x[1] && o.c.z + o.h[2] > r.z[0] && o.c.z - o.h[2] < r.z[1];
+      o.c.x + halfAlong(o, 'x') > r.x[0] &&
+      o.c.x - halfAlong(o, 'x') < r.x[1] &&
+      o.c.z + halfAlong(o, 'z') > r.z[0] &&
+      o.c.z - halfAlong(o, 'z') < r.z[1];
     for (const part of cartParts(CART_POS)) {
       expect(inside(part, FORGE_DOOR_ZONE)).toBe(false);
       expect(inside(part, STORE_FRONT_ZONE)).toBe(false);
@@ -964,8 +997,8 @@ describe('E. The handcart clears the General Store, the Forge and the street pro
     const forgeArrival = FAST_TRAVEL_ARRIVALS.smithing_forge;
     for (const [ax, az] of [storeArrival, forgeArrival]) {
       for (const part of cartParts(CART_POS)) {
-        const dx = Math.max(0, Math.abs(ax - part.c.x) - part.h[0]);
-        const dz = Math.max(0, Math.abs(az - part.c.z) - part.h[2]);
+        const dx = Math.max(0, Math.abs(ax - part.c.x) - halfAlong(part, 'x'));
+        const dz = Math.max(0, Math.abs(az - part.c.z) - halfAlong(part, 'z'));
         expect(Math.hypot(dx, dz)).toBeGreaterThan(2 * PLAYER_RADIUS);
       }
     }
@@ -974,7 +1007,7 @@ describe('E. The handcart clears the General Store, the Forge and the street pro
   test('the cart is not left straddling the procession avenue kerbs', () => {
     // Avenue kerbs sit at x = ±7.2, Z[−0.5, 20.5]; the cart is far east of them.
     const parts = cartParts(CART_POS);
-    const minX = Math.min(...parts.map((p) => p.c.x - p.h[0]));
+    const minX = Math.min(...parts.map((p) => p.c.x - halfAlong(p, 'x')));
     expect(minX).toBeGreaterThan(7.5);
   });
 });
