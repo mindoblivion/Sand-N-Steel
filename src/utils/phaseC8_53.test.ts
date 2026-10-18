@@ -484,7 +484,8 @@ describe('E. Walkability, collision and navigation are untouched', () => {
   });
 
   test('the registry, the movement constant and the module’s imports are unchanged', () => {
-    expect(CITY_COLLIDERS.length).toBe(110);
+    // 110 before Phase C-8.64A; the +26 are its own `circus-*` segments.
+    expect(CITY_COLLIDERS.length).toBe(136);
     expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
     expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(CITY_COLLIDERS.length);
     expect(PLAYER_RADIUS).toBe(0.4);

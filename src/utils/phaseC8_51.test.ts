@@ -589,7 +589,8 @@ describe('D. The raised canopy and the lantern over it', () => {
 
 describe('E. Nothing else moved', () => {
   test('the collision registry is untouched and the store still owns its plinth rectangle', () => {
-    expect(CITY_COLLIDERS.length).toBe(110);
+    // 110 before Phase C-8.64A; the +26 are its own `circus-*` segments.
+    expect(CITY_COLLIDERS.length).toBe(136);
     expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
     const ids = CITY_COLLIDERS.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);

@@ -985,7 +985,10 @@ describe('C-8.62 §I — what did not move', () => {
   });
 
   test('no collider, hub or movement constant is touched by a mesh correction', () => {
-    expect(CITY_COLLIDERS.length).toBe(110);
+    // 110 stood until Phase C-8.64A appended its 26 `circus-*` perimeter
+    // segments (136); the 31 rectangles, the 46 `colo-*` ids and the movement
+    // constants are this phase's own scope guard and are unchanged.
+    expect(CITY_COLLIDERS.length).toBe(136);
     expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
     expect(PLAYER_RADIUS).toBe(0.4);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-')).length).toBe(46);

@@ -781,9 +781,10 @@ const mottePerimeterSegments: SegmentCollider[] = arcSegments(
 // ─────────────────────────────────────────────────────────────────────────────
 // East Circus Arena — EastCircusArena.tsx, group [52.34, -0.05, 43.80]
 //
-// Phase C-8.64A.  The asset `public/_workspace_arena.glb` carries no node
-// transforms of its own, so with the group's yaw π/2 and uniform scale 0.20 the
-// mapping into world space is exactly
+// Phase C-8.64A.  Every node of `public/_workspace_arena.glb` carries the same
+// Z-up → Y-up matrix (the loader applies it), so with the group's yaw π/2 and
+// uniform scale 0.20 the mapping into world space — from the asset's own
+// post-matrix frame — is exactly
 //     world X = 52.34 + 0.20 × z_local      world Z = 43.80 − 0.20 × x_local
 // and every figure below was measured from the shipping asset under that
 // transform (throwaway harness in /tmp, parsing the GLB directly).
@@ -810,8 +811,14 @@ const mottePerimeterSegments: SegmentCollider[] = arcSegments(
 //   • carceres end (south)       X 43.34 … 61.34  — 18.00, the arcade's span.
 //     The block's two cheeks (2.2 deep) carry the perimeter out to its front
 //     face, so the entrance reads as a portal rather than a gap in a line.
-//   • triumphal-arch end (north) X 49.84 … 54.84  — 5.00, the arch's own span,
-//     centred on the arena's axis, between the two sphendone chords.
+//   • north end                 X 48.38 … 56.30  — 7.92, the gap between the
+//     two sphendone chords, centred on the arena's axis.  It is NOT the
+//     triumphal arch's 5.00 span: the arch (Travertine_30, X 49.84 … 54.84,
+//     Z −23.90 … −22.50) stands INSIDE the arena, 4.6 south of the ring's end,
+//     and is the arena's interior monument rather than this mouth.  Between the
+//     ring's end (−30.08) and z ≈ −28.1 the rendered sphendone is solid stone at
+//     ground level, so this mouth is a collider feature with no rendered portal
+//     behind it — part of the same prototype mismatch as the carceres piers.
 //
 // This phase models the perimeter only: the seating banks, the carceres piers
 // and the spina deliberately have **no** colliders yet, so the player passes
@@ -853,7 +860,12 @@ export const CIRCUS_WEST_OUTLINE: ReadonlyArray<readonly [number, number]> = [
   [45.01, -28.5],
   [46.09, -29.25],
   [47.07, -29.75],
-  [CIRCUS_ARCH_WEST_X, -30.08], // 49.84 — the arch's west edge on the silhouette
+  // The ring's north end.  This is the measured ±0.6-window minimum at its own
+  // Z, like every point above — NOT the triumphal arch's west edge (49.84),
+  // which stands 4.6 units SOUTH of here, inside the arena, and is 1.460 inside
+  // the stone on this line.  The window minimum at this Z is the sphendone's
+  // shoulder at z −29.587 (Marble_01, X 48.380, Y −0.05 … 4.01).
+  [48.38, -30.08],
 ];
 
 /** Mirror a west-side point onto the east side (the asset is symmetric). */

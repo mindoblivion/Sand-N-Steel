@@ -16,7 +16,7 @@
  *   A. the placement and the footprint — parsed from the shipping asset with
  *      `@gltf-transform/core`, through the component's own transform literals,
  *      including the flush track surface and the untouched eight materials;
- *   B. the perimeter registry — 24 segments, unique ids, the ring closed except
+ *   B. the perimeter registry — 26 segments, unique ids, the ring closed except
  *      at exactly the two designed openings, each piece on (never inside) the
  *      measured silhouette, and the south face and cheeks on the rendered faces;
  *   C. both openings are player-usable — the real `collidesWith` channel sweep
@@ -86,10 +86,37 @@ const doc = await new NodeIO().registerExtensions(ALL_EXTENSIONS).readBinary(new
 
 const ARENA_POS: [number, number, number] = [52.34, -0.05, 43.8];
 const ARENA_SCALE = 0.2;
-/** Yaw π/2 maps local (lx, ly, lz) to world (lz, ly, −lx) × scale + position. */
+/**
+ * Yaw π/2 maps an ASSET-space point (lx, ly, lz) — i.e. one already carried
+ * through the node matrices below — to world (lz, ly, −lx) × scale + position.
+ */
 const toWorldX = (lx: number, lz: number) => ARENA_POS[0] + ARENA_SCALE * lz;
 const toWorldY = (ly: number) => ARENA_POS[1] + ARENA_SCALE * ly;
 const toWorldZ = (lx: number) => ARENA_POS[2] - ARENA_SCALE * lx;
+
+/**
+ * Node matrices, one per mesh.  This asset's 76 nodes EACH carry the same
+ * Z-up → Y-up matrix (see §A), and both three's GLTFLoader and gltf-transform
+ * resolve it into the mesh's world matrix — so a primitive's own POSITION
+ * attribute is in the authored Z-up frame and is NOT asset space.  Every
+ * measurement below multiplies this in first; skipping it silently reports the
+ * model in the wrong frame (the mistake this suite was committed with).
+ */
+const NODE_MATRIX = new Map<string, ArrayLike<number>>();
+for (const node of doc.getRoot().listNodes()) {
+  const mesh = node.getMesh();
+  if (mesh) NODE_MATRIX.set(mesh.getName(), node.getWorldMatrix());
+}
+
+/** Apply one node's column-major 4×4 to a point. */
+function applyNode(name: string, x: number, y: number, z: number): [number, number, number] {
+  const m = NODE_MATRIX.get(name)!;
+  return [
+    m[0] * x + m[4] * y + m[8] * z + m[12],
+    m[1] * x + m[5] * y + m[9] * z + m[13],
+    m[2] * x + m[6] * y + m[10] * z + m[14],
+  ];
+}
 
 interface Bounds {
   minX: number; maxX: number;
@@ -112,11 +139,13 @@ function meshBounds(name: string): Bounds {
     const pos = prim.getAttribute('POSITION');
     if (!pos) continue;
     const a = pos.getArray();
+    if (!a) continue;
     b.vertices += pos.getCount();
     for (let i = 0; i < pos.getCount(); i++) {
-      const wx = toWorldX(a[i * 3], a[i * 3 + 2]);
-      const wy = toWorldY(a[i * 3 + 1]);
-      const wz = toWorldZ(a[i * 3]);
+      const [qx, qy, qz] = applyNode(name, a[i * 3], a[i * 3 + 1], a[i * 3 + 2]);
+      const wx = toWorldX(qx, qz);
+      const wy = toWorldY(qy);
+      const wz = toWorldZ(qx);
       if (wx < b.minX) b.minX = wx;
       if (wx > b.maxX) b.maxX = wx;
       if (wy < b.minY) b.minY = wy;
@@ -140,12 +169,10 @@ for (const mesh of doc.getRoot().listMeshes()) {
     const pos = prim.getAttribute('POSITION');
     if (!pos) continue;
     const a = pos.getArray();
+    if (!a) continue;
     for (let i = 0; i < pos.getCount(); i++) {
-      CLOUD.push([
-        toWorldX(a[i * 3], a[i * 3 + 2]),
-        toWorldY(a[i * 3 + 1]),
-        toWorldZ(a[i * 3]),
-      ]);
+      const [qx, qy, qz] = applyNode(mesh.getName(), a[i * 3], a[i * 3 + 1], a[i * 3 + 2]);
+      CLOUD.push([toWorldX(qx, qz), toWorldY(qy), toWorldZ(qx)]);
     }
   }
 }
@@ -209,15 +236,29 @@ describe('A. Placement and footprint', () => {
     expect(ARENA_SCALE).toBe(0.2);
   });
 
-  test('the asset carries no node transforms of its own', () => {
+  test('every node carries the asset\u2019s own Z-up \u2192 Y-up matrix, which the loader applies', () => {
     const jsonLength = GLB_BYTES.readUInt32LE(12);
     const gltf = JSON.parse(GLB_BYTES.subarray(20, 20 + jsonLength).toString('utf8'));
-    expect(gltf.nodes.length).toBeGreaterThan(50);
+    expect(gltf.nodes.length).toBe(76);
+    // ONE matrix, carried identically by all 76 nodes — the Z-up → Y-up
+    // correction, column-major [1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1], which
+    // maps authored (x, y, z) to asset (x, z, −y).  It is NOT identity, so the
+    // POSITION attribute is not asset space and §A's figures are only reachable
+    // with it multiplied in.  (The suite was committed asserting the opposite —
+    // that every node was untransformed — and every measurement it made was
+    // consequently in the wrong frame.)
+    const expected = [1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 1];
+    const round = (v: number) => Number(v.toFixed(9));
     for (const node of gltf.nodes) {
-      expect(node.matrix).toBeUndefined();
       expect(node.translation).toBeUndefined();
       expect(node.rotation).toBeUndefined();
       expect(node.scale).toBeUndefined();
+      expect(node.matrix.map(round)).toEqual(expected);
+    }
+    // …and gltf-transform, like three, resolves it into each mesh's world matrix.
+    expect(NODE_MATRIX.size).toBe(76);
+    for (const mesh of doc.getRoot().listMeshes()) {
+      expect(Array.from(NODE_MATRIX.get(mesh.getName())!).map(round)).toEqual(expected);
     }
   });
 
@@ -274,11 +315,17 @@ describe('A. Placement and footprint', () => {
   });
 
   test('the component preserves the asset (no geometry, material or clone surgery)', () => {
-    expect(arenaSrc).not.toContain('clone(');
-    expect(arenaSrc).not.toContain('new THREE.MeshStandardMaterial');
-    expect(arenaSrc).not.toContain('.material =');
-    expect(arenaSrc).not.toContain('wrapS');
-    expect(arenaSrc).not.toContain('geometry.set');
+    // Comments are stripped first: the component's docstring discusses
+    // `clone()` and texture wrapping in prose, and a negative assertion has to
+    // be about the code rather than the words explaining it.
+    const code = arenaSrc
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+    expect(code).not.toContain('clone(');
+    expect(code).not.toContain('new THREE.MeshStandardMaterial');
+    expect(code).not.toContain('.material =');
+    expect(code).not.toContain('wrapS');
+    expect(code).not.toContain('geometry.set');
     // …and it documents why the authored UV tiling survives the loader: the GLB
     // carries no samplers, so GLTFLoader's own RepeatWrapping default applies.
     expect(arenaSrc).toContain('RepeatWrapping');
@@ -293,8 +340,11 @@ describe('A. Placement and footprint', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('B. The perimeter registry', () => {
-  test('24 segments, all unique, all inside the registry', () => {
-    expect(perimeter.length).toBe(24);
+  test('26 segments, all unique, all inside the registry', () => {
+    // Six straights (the two south-face halves, the two carceres cheeks and the
+    // two flanks) plus one chord per gap of the 11-point west outline, mirrored
+    // onto the east: 6 + 2 × 10 = 26.
+    expect(perimeter.length).toBe(26);
     const ids = perimeter.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(CITY_COLLIDERS.length).toBe(nonCircus.length + perimeter.length);
@@ -322,12 +372,20 @@ describe('B. The perimeter registry', () => {
       }
     }
     const dangling = [...ends.entries()].filter(([, n]) => n === 1).map(([k]) => k).sort();
+    // The four free ends are the two mouths: the carceres cheeks stop on the
+    // block's FRONT face (46.00), where the arcade's opening begins — not on the
+    // south face (43.80), where each cheek's other end meets the south-face
+    // half and is therefore shared, not dangling.  The suite was committed
+    // naming SOUTH_Z for those two, which are interior corners.
+    // The north mouth's jambs are the outline's own last point and its mirror
+    // (48.380 / 56.300) — the measured silhouette, not the arch's 5.00 span.
+    const [jambX, jambZ] = CIRCUS_WEST_OUTLINE[CIRCUS_WEST_OUTLINE.length - 1];
     expect(dangling).toEqual(
       [
-        `${CIRCUS_CARCERES_WEST_X.toFixed(3)}:${CIRCUS_SOUTH_Z.toFixed(3)}`,
-        `${CIRCUS_CARCERES_EAST_X.toFixed(3)}:${CIRCUS_SOUTH_Z.toFixed(3)}`,
-        `${CIRCUS_ARCH_WEST_X.toFixed(3)}:-30.080`,
-        `${CIRCUS_ARCH_EAST_X.toFixed(3)}:-30.080`,
+        `${CIRCUS_CARCERES_WEST_X.toFixed(3)}:${CIRCUS_CARCERES_FRONT_Z.toFixed(3)}`,
+        `${CIRCUS_CARCERES_EAST_X.toFixed(3)}:${CIRCUS_CARCERES_FRONT_Z.toFixed(3)}`,
+        `${jambX.toFixed(3)}:${jambZ.toFixed(3)}`,
+        `${(2 * CIRCUS_AXIS_X - jambX).toFixed(3)}:${jambZ.toFixed(3)}`,
       ].sort(),
     );
   });
@@ -374,11 +432,16 @@ describe('B. The perimeter registry', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('C. The two openings', () => {
-  test('the carceres opening is 18.00 clear, the arch opening 5.00', () => {
+  test('the carceres mouth is 18.00 clear and the north mouth 7.92', () => {
     expect(CIRCUS_CARCERES_EAST_X - CIRCUS_CARCERES_WEST_X).toBeCloseTo(18.0, 6);
-    expect(CIRCUS_ARCH_EAST_X - CIRCUS_ARCH_WEST_X).toBeCloseTo(5.0, 6);
     expect(CIRCUS_CARCERES_EAST_X - CIRCUS_CARCERES_WEST_X).toBeGreaterThan(2 * PLAYER_RADIUS);
-    expect(CIRCUS_ARCH_EAST_X - CIRCUS_ARCH_WEST_X).toBeGreaterThan(2 * PLAYER_RADIUS);
+    // The triumphal arch's OWN span is 5.00 — an interior monument, not this mouth.
+    expect(CIRCUS_ARCH_EAST_X - CIRCUS_ARCH_WEST_X).toBeCloseTo(5.0, 6);
+    // The north mouth is the gap between the ring's two free ends.
+    const [jambX] = CIRCUS_WEST_OUTLINE[CIRCUS_WEST_OUTLINE.length - 1];
+    const mouth = (2 * CIRCUS_AXIS_X - jambX) - jambX;
+    expect(mouth).toBeCloseTo(7.92, 6);
+    expect(mouth).toBeGreaterThan(2 * PLAYER_RADIUS);
   });
 
   test('no collider closes either mouth', () => {
@@ -458,10 +521,14 @@ describe('D. Driven routes with the real resolver', () => {
 
   test('the whole arena can be walked round on the outside', () => {
     // East along the southern apron, then north up the east flank to the tip.
-    const east = driven([36.0, 0, 45.0], [1, 0], 120);
+    // Both legs run south of the carceres block's FRONT face (46.00): inside the
+    // block's own Z band (43.80 … 46.00) the west cheek correctly blocks the
+    // walk, so the apron line is the one that goes round.
+    const east = driven([36.0, 0, CIRCUS_ENVELOPE_Z_MAX - 0.5], [1, 0], 120);
     expect(east[east.length - 1][0]).toBeGreaterThan(CIRCUS_EAST_X);
     clearOf(east);
-    const north = driven([CIRCUS_ENVELOPE_X_EAST - 0.45, 0, 45.0], [0, -1], 260);
+    const north = driven(
+      [CIRCUS_ENVELOPE_X_EAST - 0.45, 0, CIRCUS_ENVELOPE_Z_MAX - 0.5], [0, -1], 260);
     expect(north[north.length - 1][2]).toBeLessThan(CIRCUS_NORTH_END_Z + 1);
     clearOf(north);
   });
@@ -469,7 +536,18 @@ describe('D. Driven routes with the real resolver', () => {
   test('the west flank stops a straight walk east out of the city', () => {
     const path = driven([30.0, 0, 20.0], [1, 0], 200);
     const last = path[path.length - 1];
-    expect(near(last[0], CIRCUS_WEST_X - PLAYER_RADIUS, 0.02)).toBe(true);
+    // Z 20 is inside the district band, so the city's own +X clamp no longer
+    // applies on this line: the walk runs past BOUNDARY_X and is stopped by the
+    // flank itself.  The resolver accepts a step only where its landing point is
+    // a full radius clear, so a walk blocked by a wall stops within one 0.38
+    // step of the contact distance — never past it.  (The suite was committed
+    // expecting the landing point to equal the contact distance exactly, which
+    // a stepped walk cannot produce: 38.38 − 37.98 is 0.39999999999999858.)
+    const contact = CIRCUS_WEST_X - PLAYER_RADIUS;
+    expect(last[0]).toBeGreaterThan(BOUNDARY_X);
+    expect(last[0]).toBeLessThan(CIRCUS_WEST_X);
+    expect(last[0]).toBeGreaterThan(contact - 0.38);
+    expect(collidesWith(CIRCUS_WEST_X, 20, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
     clearOf(path);
   });
 
@@ -477,8 +555,11 @@ describe('D. Driven routes with the real resolver', () => {
     // West flank, from the city side outward: it stops on the flank.
     const east1 = driven([CIRCUS_WEST_X - 2.0, 0, 0.0], [1, 0], 40);
     expect(east1[east1.length - 1][0]).toBeLessThan(CIRCUS_WEST_X);
-    // South face west of the opening: it stops short of it.
-    const south1 = driven([40.0, 0, CIRCUS_SOUTH_Z + 4.0], [0, -1], 40);
+    // South face west of the opening: it stops short of it.  The start is on the
+    // apron INSIDE the district band (Z ≤ 47.5) — a start beyond it is outside
+    // the envelope, where the clamp snaps the player back to the city square
+    // (40, 47.8) → (35, 35) rather than walking at all.
+    const south1 = driven([40.0, 0, CIRCUS_ENVELOPE_Z_MAX - 0.5], [0, -1], 40);
     expect(south1[south1.length - 1][2]).toBeGreaterThan(CIRCUS_SOUTH_Z);
     clearOf([...east1, ...south1]);
   });
@@ -508,7 +589,11 @@ describe('E. The movement envelope', () => {
   });
 
   test('the clamps keep the city square outside the district band', () => {
-    expect(clampBoundaryX(34 + 3.8, BOUNDARY_Z_MAX + 5)).toBe(35);
+    // Outside the band means Z < −35.0 or Z > 47.5; 40.0 sits INSIDE it (the
+    // band contains the city's whole +Z extent), so the boundary to test the
+    // city square against is the band's own south edge.  The suite was committed
+    // using BOUNDARY_Z_MAX + 5 = 40.0, which the band covers.
+    expect(clampBoundaryX(34 + 3.8, CIRCUS_ENVELOPE_Z_MAX + 5)).toBe(35);
     expect(clampBoundaryX(34 + 3.8, CIRCUS_ENVELOPE_Z_MIN - 5)).toBe(35);
     expect(clampBoundaryX(34 + 3.8, 0)).toBeCloseTo(37.8, 6);
     expect(clampBoundaryZ(0, 34 + 3.8)).toBe(35);
@@ -546,9 +631,11 @@ describe('E. The movement envelope', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('F. Scope guard', () => {
-  test('the registry grew by exactly this phase\'s 24 segments', () => {
+  test('the registry grew by exactly this phase\'s 26 segments', () => {
+    // The 110 pre-existing colliders are byte-identical; this phase appended its
+    // 26 `circus-*` perimeter segments and nothing else.
     expect(nonCircus.length).toBe(110);
-    expect(CITY_COLLIDERS.length).toBe(134);
+    expect(CITY_COLLIDERS.length).toBe(136);
     expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-')).length).toBe(46);
     const ids = CITY_COLLIDERS.map((c) => c.id);
@@ -562,9 +649,13 @@ describe('F. Scope guard', () => {
     expect(byId.get('caravanserai')).toMatchObject({ cx: 16, cz: 14, hw: 4.55, hd: 4.05 });
     expect(byId.get('smithing-forge')).toMatchObject({ cx: 18, cz: 2.6, hw: 4.75, hd: 4.0 });
     expect(byId.get('fortress-south-l')).toMatchObject({ cx: -5.75, hw: 4.75, hd: 0.6 });
+    // The C-8.33 seal runs from podiumPoint(π − GAP) = (2.600, −40.077) to
+    // coloPoint(π − GATE_HALF) = (2.700, −44.110) — the EAST seal, both X
+    // positive.  The suite was committed with a sign error on the second
+    // endpoint, asserting a west-side value that does not exist.
     const seal = byId.get('colo-gateseal-r') as SegmentCollider;
     expect(seal.x1).toBeCloseTo(2.7, 3);
-    expect(seal.x2).toBeCloseTo(-2.6, 3);
+    expect(seal.x2).toBeCloseTo(2.6, 3);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('motte-wall-')).length).toBe(20);
   });
 

@@ -33,6 +33,8 @@ import {
   BOUNDARY_X,
   BOUNDARY_Z_MIN,
   BOUNDARY_Z_MAX,
+  CIRCUS_ENVELOPE_X_EAST,
+  CIRCUS_ENVELOPE_Z_MIN,
 } from '../src/utils/cityCollisions';
 import { MOTTE_CENTER_Z } from '../src/utils/terrainHeight';
 
@@ -259,10 +261,25 @@ test('movement: moving away from obstacle is always allowed', () => {
 // 8. BOUNDARY CLAMP (±35)
 // ════════════════════════════════════════════════════════════════════════════
 
-test('boundary: +X clamped to 35', () => {
-  const pos: [number, number, number] = [34, 0, 0];
+test('boundary: +X clamped to 35 outside the East Circus District band', () => {
+  // Phase C-8.64A widened the +X limit only inside the district-access band
+  // (Z -35.0 … 47.5, east of the city square).  The city square's own ±35 is
+  // unchanged, so this — the original assertion — is now taken at a Z the band
+  // does not cover.  Semantics preserved; nothing relaxed.
+  const pos: [number, number, number] = [34, 0, CIRCUS_ENVELOPE_Z_MIN - 5];
   const result = resolveCityMovement(pos, 1, 0, 3.8, 1.0);
   assert.ok(result[0] <= 35, `Expected x <= 35, got ${result[0]}`);
+});
+
+test('boundary: +X reaches the district envelope inside the band', () => {
+  // Inside the band the same +X push runs past the city square to the
+  // district's own hard limit — the extension that makes the district walkable.
+  const pos: [number, number, number] = [34, 0, 0];
+  const result = resolveCityMovement(pos, 1, 0, 3.8, 1.0);
+  assert.ok(result[0] <= CIRCUS_ENVELOPE_X_EAST,
+    `Expected x <= ${CIRCUS_ENVELOPE_X_EAST}, got ${result[0]}`);
+  assert.ok(result[0] > BOUNDARY_X,
+    `Expected the district to extend the city +X limit, got ${result[0]}`);
 });
 
 test('boundary: -X clamped to -35', () => {

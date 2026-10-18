@@ -13,9 +13,11 @@ import { useGLTF } from '@react-three/drei';
  *
  *   position [52.34, -0.05, 43.80]   yaw  Math.PI / 2   scale  0.20
  *
- * Measured world-space results of that transform (the asset carries no node
- * transforms of its own — every node's t/r/s is null — so these are exactly
- * scale × model extent, rotated about the group origin):
+ * Measured world-space results of that transform.  All 76 nodes carry the SAME
+ * matrix — the Z-up → Y-up correction, which three's GLTFLoader applies while
+ * building the scene graph — so the figures below are that matrix applied to
+ * each node's own POSITION data and then the group's uniform scale and yaw:
+ * they are NOT the raw vertex extents.
  *
  *   whole asset    X 37.600 … 66.344   Y -0.250 … 5.710   Z -30.157 … 46.000
  *   shell          X 38.380 … 66.300   Z -30.157 … 43.800  (Marble_01 — outer

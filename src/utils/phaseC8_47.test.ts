@@ -743,10 +743,13 @@ describe('F. Every trigger and every arrival', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('G. Nothing but the eight radii changed', () => {
-  test('the registry still holds 110 colliders, 31 of them rectangles', () => {
-    expect(CITY_COLLIDERS.length).toBe(110);
+  test('the registry still holds the same rectangles, plus C-8.64A\'s segments', () => {
+    // 110 colliders / 31 rectangles was the count this phase left; Phase C-8.64A
+    // appended its 26 `circus-*` perimeter segments, so 136 with the same 31
+    // rectangles and the same 110 pre-existing ids.
+    expect(CITY_COLLIDERS.length).toBe(136);
     expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
-    expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(110);
+    expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(136);
   });
 
   test('the movement constants are untouched', () => {
