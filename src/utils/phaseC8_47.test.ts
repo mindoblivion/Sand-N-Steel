@@ -31,7 +31,10 @@
  * comes later in `HUB_LOCATIONS` but is entered first along the walk.
  *
  * ── THE FIX ───────────────────────────────────────────────────────────────
- * Radius only — no centre moved, no collider touched, no movement constant
+ * Two changes, both in `cityCollisions.ts`: the eight radii, and the rule the
+ * prompt lookup answers with.
+ *
+ * (1) Radius only — no centre moved, no collider touched, no movement constant
  * changed.  Each radius is the smallest 0.25 step that leaves a usable band on
  * the entrance side at least the player's own 0.80 diameter deep:
  *
@@ -40,9 +43,14 @@
  *   Forge 6.00, General Store 5.25, Tavern 5.75, Caravanserai 5.75,
  *   Merchant House 5.25, Stable 5.25, Academy 5.25, Bathhouse 4.75.
  *
- * `getNearbyHubLocation`'s first-match-in-order rule is deliberately kept: see
- * §D, where a nearest-first rule is measured and shown to be *worse* on the
- * academy's own forecourt.
+ * (2) `getNearbyHubLocation` answers with the NEAREST hub whose disc contains
+ * the player, an exact tie going to the earlier `HUB_LOCATIONS` entry; it
+ * previously returned the first match in list order.  A radius large enough to
+ * reach a building's own doorway reaches just as far on every other side, so the
+ * eight corrected radii make nine pairs of discs overlap and the old rule let
+ * the earlier-listed hub answer across all nine lenses — measured, the walkable
+ * alley between the academy and the Doctore House said "Enter Ludus Academy"
+ * with the Doctore House 3.27 away and the academy 5.24.  See §D.
  *
  * ── WHAT THIS SUITE PINS ──────────────────────────────────────────────────
  *   A. the configuration: the eight new radii, the twelve unchanged ones, and
@@ -51,8 +59,9 @@
  *      standable point on that side is inside the disc with a usable band;
  *   C. the Smithing Forge's fast-travel arrival behaviour, explicitly, with a
  *      control that reproduces the pre-fix silence at 4.50;
- *   D. the three disc overlaps the new radii create, and hub selection at every
- *      arrival and entrance (including the academy forecourt tie);
+ *   D. the nine disc overlaps the new radii create, nearest-hub selection (with
+ *      its order-based tie-break) at every arrival and entrance, and the alley
+ *      the old first-match rule answered wrongly;
  *   E. the twelve unaffected hubs keep their radii, arrivals and selection;
  *   F. all 20 triggers are reachable and all 20 arrivals are collision-free and
  *      lead to their own prompt, driven with the shipped resolver;

@@ -987,3 +987,105 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   was verified by driving the shipped `resolveCityMovement`, not in the 3D hub (SwiftShader, ~2 fps).
   The C-8.41 kerb, C-8.38 northern approach, C-8.28 bowl cut, C-8.29 junction and C-8.31/C-8.33
   rear-gate device inspections remain open exactly as before. Do not claim device acceptance.
+
+## Hub interaction reachability (Phase C-8.46 audit / C-8.47 implemented)
+
+- **The defect was reachability, not selection alone: eight city buildings could not raise their own
+  interaction prompt from the entrance they are entered by.** A hub trigger is a disc of radius `r`
+  centred on its *building root*, and `getNearbyHubLocation` (called every frame by `CityHubScene`)
+  answers when the player's own centre is inside that disc — so the usable part of a trigger is the
+  ring outside the building's collider, and the closest a 0.4-radius player can stand on the entrance
+  side is `(collider half-extent along the approach axis) + 0.40`. For eight hubs that distance was at
+  or beyond `r`, so their own doorway produced no prompt at all.
+
+- **C-8.46 was the read-only audit that found it** (no production file changed): all 20 hubs' approach
+  standoffs re-derived from each building's own component source plus the shipped registry, all 20
+  fast-travel arrivals, and a walk out of each arrival driven with the real `resolveCityMovement` at
+  the shipped 3.8 u/s. Measured, the eight were:
+
+  | hub | collider | entrance face | closest standable | old r | old band |
+  |---|---|---|---|---|---|
+  | Smithing Forge | 9.5 × 8.0 | west (local −4.75) | 4.75 + 0.40 = 5.15 | 4.50 | −0.65 |
+  | Bazaar & General Store | 7.7 × 6.3 | west (awning −2.8) | 3.85 + 0.40 = 4.25 | 4.50 | +0.25 |
+  | Golden Palm Tavern | 8.9 × 7.7 | east (local +4.22) | 4.45 + 0.40 = 4.85 | 4.50 | −0.35 |
+  | Caravanserai Inn | 9.1 × 8.1 | west (portico −4.32) | 4.55 + 0.40 = 4.95 | 4.75 | −0.20 |
+  | Elite Merchant House | 7.7 × 7.0 | west (portico −3.62) | 3.85 + 0.40 = 4.25 | 4.50 | +0.25 |
+  | Imperial Stable | 7.5 × 7.7 | north (open front) | 3.85 + 0.40 = 4.25 | 4.50 | +0.25 |
+  | Gladiator Academy | 7.7 × 7.3 | west (portico −3.62) | 3.85 + 0.40 = 4.25 | 4.50 | +0.25 |
+  | Public Bathhouse | 8.0 × 7.0 | north (portico −3.4) | 3.50 + 0.40 = 3.90 | 4.50 | +0.60 |
+
+  The walks out of the Forge's, the Tavern's and the Caravanserai's arrivals raised **nothing** (the
+  Forge's stopped at 5.15 from its centre — just outside its disc), and the Academy's raised the
+  **Records Library's** prompt instead, because that disc is entered before the academy's along the
+  walk.
+
+- **The fix has two parts, both in `cityCollisions.ts`.**
+
+  (1) **The eight radii**, each the smallest 0.25 step that leaves a usable band on the entrance side
+  at least the player's own diameter deep — `radius ≥ standoff + 0.80`:
+
+  | hub | old → new | band at the doorway |
+  |---|---|---|
+  | Smithing Forge | 4.50 → **6.00** | 0.85 |
+  | Bazaar & General Store | 4.50 → **5.25** | 1.00 |
+  | Golden Palm Tavern | 4.50 → **5.75** | 0.90 |
+  | Caravanserai Inn | 4.75 → **5.75** | 0.80 |
+  | Elite Merchant House | 4.50 → **5.25** | 1.00 |
+  | Imperial Stable | 4.50 → **5.25** | 1.00 |
+  | Gladiator Academy | 4.50 → **5.25** | 1.00 |
+  | Public Bathhouse | 4.50 → **4.75** | 0.85 |
+
+  No centre moved, no collider was touched and no movement constant (`PLAYER_RADIUS`, `BOUNDARY_X`,
+  `BOUNDARY_Z_MAX`) changed. The Forge's arrival `[11.5, 2.6]` stays deliberately **0.50 outside** the
+  new disc, so the prompt appears on the walk in (8 steps) rather than on the teleport itself.
+
+  (2) **The lookup rule: nearest hub, not first match.** A radius large enough to reach a 9.5 × 8.0
+  forge's west doorway at 5.15 also reaches 6.0 out on every other side, so the eight corrected radii
+  make **nine pairs of discs overlap** — `smithing_forge` ↔ `general_store` 8.59, ↔ `caravanserai`
+  11.57, ↔ `armor_workshop` 10.32; `general_store` ↔ `merchant_house` 8.94, ↔ `armor_workshop` 8.63;
+  `caravanserai` ↔ `stable` 10.05; `merchant_house` ↔ `doctore_house` 6.21; `gladiator_academy` ↔
+  `doctore_house` 8.50, ↔ `records_house` 7.98. The previous first-match-in-list-order rule answered
+  with the *earlier* hub across every one of those lenses; `getNearbyHubLocation` now returns the
+  **nearest** containing hub, an exact tie going to the earlier `HUB_LOCATIONS` entry so the answer
+  stays deterministic. Measured: a walkable point in the alley between the Gladiator Academy and the
+  Doctore House — the Doctore House 3.27 away, the academy 5.24 — used to say "Enter Ludus Academy"
+  (297 cells of that one lens alone, 300+ across the city) and now answers the Doctore House. No lens
+  covers another hub's doorway or arrival, so every door and every fast-travel arrival still answers
+  its own building.
+
+- **What did not move:** every hub centre, every fast-travel arrival, every collider (still **110
+  colliders, 31 rectangles**), the two C-8.43 widths, the Forge's deliberate 9.5, the Training Hall
+  rectangle and its 1.5-wide passage, `MOTTE_CENTER_Z` (−81.5), the C-8.33 seals, the C-8.36 water and
+  the C-8.41 `KERB_*` values. Radii are interaction-only: they add no collision, and a point on each
+  new rim is collision-free exactly as the old rim was. The twelve unaffected hubs keep their radii
+  (`northern_fortress` 10.0 included) and still answer at their own entrance.
+
+- **Regression suite: `src/utils/phaseC8_47.test.ts`** — 36 tests across 7 sections: §A the
+  configuration (the eight new radii, the twelve unchanged ones, the untouched positions, and the
+  standoff rule itself shown to be tight — each radius the smallest 0.25 step over `standoff + 0.80`);
+  §B each affected hub enterable from its own entrance, driven from its arrival with the shipped
+  resolver; §C the Smithing Forge explicitly, with a control that reproduces the pre-fix silence at
+  4.50; §D the nine overlaps at their measured centre distances, nearest-hub selection at every
+  arrival and entrance, the order-based tie-break (the Store ↔ Merchant House midpoint, an exact float
+  tie) and the hijacked alley above; §E the twelve unaffected hubs; §F all 20 triggers reachable and
+  all 20 arrivals collision-free, with clearance, inside the boundary and free to step out; §G the
+  scope guard — registry count, movement constants, the C-8.45 hall and its passage, the C-8.43
+  widths, the Forge's 9.5, the C-8.33 seals, the C-8.38 motte centre, the C-8.41 kerb and the
+  drawbridge, all re-checked.
+
+- **Rebased, not weakened: two sites that pinned the old rules.** `phaseC8_12.test.ts`'s Merchant House
+  radius pin moved `4.5 (C-8.12) → 5.25 (C-8.47)`, and `scripts/collisionTests.ts`'s two Phase-31F
+  caravanserai assertions were re-derived from the C-8.47 radii.
+
+- **Verified 2026-10-18** in the dev container: `bun test` → **1140 pass / 0 fail (38 files)** (C-8.45
+  left 1104 / 37; the delta is this suite); `bun run scripts/collisionTests.ts` → **122 passed, 0
+  failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0; `git diff --check` →
+  clean. The dev server still serves the shell (`HTTP 200`).
+
+- **Not automatically verified — the prompt in the running hub.** Reachability and selection were
+  verified by driving the shipped `resolveCityMovement` and the shipped `getNearbyHubLocation` (the
+  method every movement phase here uses), not by standing in the 3D city: the sandbox has no GPU
+  (SwiftShader, ~2 fps), and the change moves no rendered pixel, so there is no appearance to accept
+  and no new Android item. The open device checklist is unchanged — the C-8.41 kerb, C-8.38 northern
+  approach, C-8.28 bowl cut, C-8.29 junction and C-8.31/C-8.33 rear-gate inspections. Do not claim
+  device acceptance.
