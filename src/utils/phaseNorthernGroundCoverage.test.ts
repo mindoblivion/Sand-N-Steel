@@ -9,21 +9,22 @@
  * district sits.  It measured 140 × 140 centred at Z = 0, so the ground stopped
  * at Z = -70 while:
  *
- *   - the walkable northern movement envelope reaches Z = -96 (BOUNDARY_Z_MIN;
- *     -91 before Phase C-8.37 moved the northern group north),
- *   - the motte mesh footprint ends at Z = -101.66 (-96.66 pre-shift),
- *   - the visible moat ring ends at Z = -107.5 (-102.5 pre-shift),
+ *   - the walkable northern movement envelope reaches Z = -101 (BOUNDARY_Z_MIN;
+ *     -91 before Phases C-8.37 / C-8.38 moved the northern group north),
+ *   - the motte mesh footprint ends at Z = -106.66 (-96.66 pre-shift),
+ *   - the visible moat ring ends at Z = -112.5 (-102.5 pre-shift),
  *
  * leaving a reachable northern area where the player walked on nothing.
  *
  * The shipped correction resizes that single plane — no second plane, no extra
  * draw call — to 140 × 179 centred at [0, -0.05, -19.5], i.e. world
- * X[-70, 70], Z[-109, 70] at Y = -0.05, keeping the south edge at Z = +70.
- * Phase C-8.37 moved the motte, its moat, the drawbridge and the fortress 5.0
- * units north, and the plane's north edge followed by exactly that: the
- * margins this phase measured (1.5 past the moat ring, 7.34 past the motte mesh
- * bound, 13 past the walkable limit) are unchanged, so every coverage rule
- * below holds at the new position exactly as it did at the old one.
+ * X[-70, 70], Z[-114, 70] at Y = -0.05, keeping the south edge at Z = +70.
+ * Phases C-8.37 / C-8.38 moved the motte, its moat, the drawbridge and the
+ * fortress 5.0 units north each time, and the plane's north edge followed by
+ * exactly that: the margins this phase measured (1.5 past the moat ring, 7.34
+ * past the motte mesh bound, 13 past the walkable limit) are unchanged, so
+ * every coverage rule below holds at the new position exactly as it did at the
+ * old one.
  *
  * How this suite validates the plane
  * ----------------------------------
@@ -100,9 +101,9 @@ import {
 const MOTTE_BASE_MODEL_RADIUS = 80;
 /** World half-extent of the motte mesh footprint: 80 × 0.3145 = 25.16. */
 const MOTTE_MESH_HALF_EXTENT = MOTTE_BASE_MODEL_RADIUS * MOTTE_SCALE;
-/** Recorded motte mesh footprint north edge (shipping GLB): Z = -101.66. */
+/** Recorded motte mesh footprint north edge (shipping GLB): Z = -106.66. */
 const MOTTE_MESH_NORTH_Z = MOTTE_CENTER_Z - MOTTE_MESH_HALF_EXTENT;
-/** Recorded motte mesh footprint south edge (shipping GLB): Z = -51.34. */
+/** Recorded motte mesh footprint south edge (shipping GLB): Z = -56.34. */
 const MOTTE_MESH_SOUTH_Z = MOTTE_CENTER_Z + MOTTE_MESH_HALF_EXTENT;
 
 /** Recorded pre-phase ground plane (140 × 140 centred at Z = 0). */
@@ -159,8 +160,8 @@ describe('Ground plane AABB matches its dimensions and position', () => {
     expect(GROUND_PLANE_CENTER[2] + GROUND_PLANE_DEPTH / 2).toBe(GROUND_PLANE_SOUTH_Z);
   });
 
-  test('the plane reaches Z = -109 after the C-8.37 extension', () => {
-    expect(GROUND_PLANE_NORTH_Z).toBe(-109);
+  test('the plane reaches Z = -114 after the C-8.38 extension', () => {
+    expect(GROUND_PLANE_NORTH_Z).toBe(-114);
     expect(GROUND_PLANE_DEPTH).toBe(GROUND_PLANE_SOUTH_Z - GROUND_PLANE_NORTH_Z);
   });
 
@@ -190,9 +191,10 @@ describe('Ground plane AABB matches its dimensions and position', () => {
 describe('Ground covers the walkable movement envelope with ≥3 units of margin', () => {
   test('the walkable envelope is the one the extension targeted', () => {
     expect(BOUNDARY_X).toBe(35);
-    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5; -91 before C-8.37 moved
-    // the motte (and with it the perimeter the limit is derived from) 5.0 north.
-    expect(BOUNDARY_Z_MIN).toBe(-96);
+    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5; -91 before C-8.37 and
+    // C-8.38 moved the motte (and with it the perimeter the limit derives from)
+    // 5.0 north each time.
+    expect(BOUNDARY_Z_MIN).toBe(-101);
     expect(BOUNDARY_Z_MAX).toBe(35);
   });
 
@@ -230,8 +232,8 @@ describe('Ground covers the walkable movement envelope with ≥3 units of margin
     // BOUNDARY_Z_MIN is north of the pre-phase north edge, so the player could
     // stand there with no ground beneath: 21 units of void.
     expect(BOUNDARY_Z_MIN).toBeLessThan(PHASE_PRE_NORTH_Z);
-    // 26 since C-8.37 (21 when the limit was -91).
-    expect(PHASE_PRE_NORTH_Z - BOUNDARY_Z_MIN).toBeCloseTo(26, 6);
+    // 31 since C-8.38 (26 after C-8.37, 21 when the limit was -91).
+    expect(PHASE_PRE_NORTH_Z - BOUNDARY_Z_MIN).toBeCloseTo(31, 6);
   });
 });
 
@@ -242,8 +244,8 @@ describe('Ground covers the walkable movement envelope with ≥3 units of margin
 describe('Ground covers the motte mesh footprint', () => {
   test('the recorded mesh footprint matches the transform-derived one', () => {
     expect(MOTTE_MESH_HALF_EXTENT).toBeCloseTo(25.16, 2);
-    expect(MOTTE_MESH_NORTH_Z).toBeCloseTo(-101.66, 2);
-    expect(MOTTE_MESH_SOUTH_Z).toBeCloseTo(-51.34, 2);
+    expect(MOTTE_MESH_NORTH_Z).toBeCloseTo(-106.66, 2);
+    expect(MOTTE_MESH_SOUTH_Z).toBeCloseTo(-56.34, 2);
   });
 
   test('the plane reaches past the motte mesh north edge', () => {
@@ -272,9 +274,9 @@ describe('Ground covers the motte mesh footprint', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Ground covers the visible moat ring', () => {
-  test('the moat ring north extent is derived as Z = -107.5', () => {
+  test('the moat ring north extent is derived as Z = -112.5', () => {
     expect(MOAT_OUTER_RADIUS).toBe(31.0);
-    expect(MOAT_NORTH_Z).toBeCloseTo(-107.5, 6);
+    expect(MOAT_NORTH_Z).toBeCloseTo(-112.5, 6);
   });
 
   test('the plane reaches past the moat ring north edge', () => {
@@ -359,7 +361,7 @@ describe('Bump-map tiling preserves world-space texture density', () => {
     expect(GROUND_BUMP_METERS_PER_TILE_X).toBe(GROUND_PLANE_WIDTH / GROUND_BUMP_REPEAT_X);
     expect(GROUND_BUMP_METERS_PER_TILE_Z).toBe(GROUND_PLANE_DEPTH / GROUND_BUMP_REPEAT_Z);
     expect(GROUND_BUMP_REPEAT_X).toBe(32); // unchanged from the pre-phase tiling
-    expect(GROUND_BUMP_REPEAT_Z).toBe(41); // 179 / 41 = 4.366 m per tile (C-8.37)
+    expect(GROUND_BUMP_REPEAT_Z).toBe(42); // 184 / 42 = 4.381 m per tile (C-8.38)
   });
 
   test('the Z repeat is the smallest integer that holds the density', () => {
@@ -425,10 +427,10 @@ describe('Terrain contracts are unchanged by the ground extension', () => {
     // Both ends are stated relative to the motte centre in terrainHeight, so
     // they moved with the group: +31.0 (the moat's outer shoreline, the bank
     // the deck lands on) and +25.5 (0.5 short of the deck's own north end).
-    expect(BRIDGE_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0); // -45.5
-    expect(BRIDGE_Z_INNER).toBe(MOTTE_CENTER_Z + 25.5); // -51.0
-    expect(DECK_Z_OUTER).toBe(BRIDGE_Z_OUTER);          // -45.5
-    expect(DECK_Z_INNER).toBe(BRIDGE_Z_INNER - 0.5);    // -51.5
+    expect(BRIDGE_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0); // -50.5
+    expect(BRIDGE_Z_INNER).toBe(MOTTE_CENTER_Z + 25.5); // -56.0
+    expect(DECK_Z_OUTER).toBe(BRIDGE_Z_OUTER);          // -50.5
+    expect(DECK_Z_INNER).toBe(BRIDGE_Z_INNER - 0.5);    // -56.5
     expect(BRIDGE_HALF_WIDTH).toBe(2.0);
     expect(DECK_TOP_Y).toBe(0.16);
     expect(DECK_UNDERSIDE_Y).toBe(0.09);
@@ -442,8 +444,8 @@ describe('Terrain contracts are unchanged by the ground extension', () => {
     const east = rect('fortress-east');
     // 10.5 = the fortress's own 21×21 world half-footprint at scale 0.30; both
     // walls ride at MOTTE_CENTER_Z ± 10.5 (C-8.37).
-    expect(south.cz).toBe(MOTTE_CENTER_Z + 10.5); // -66.0
-    expect(north.cz).toBe(MOTTE_CENTER_Z - 10.5); // -87.0
+    expect(south.cz).toBe(MOTTE_CENTER_Z + 10.5); // -71.0
+    expect(north.cz).toBe(MOTTE_CENTER_Z - 10.5); // -92.0
     expect(west.cx).toBe(-10.5);
     expect(east.cx).toBe(10.5);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('fortress-')).length).toBe(5);
@@ -451,7 +453,7 @@ describe('Terrain contracts are unchanged by the ground extension', () => {
 
   test('fast-travel arrival points are unchanged and inside the boundaries', () => {
     // 12.5 north of the motte centre = 2.0 south of the fortress south wall
-    // (outer face MOTTE_CENTER_Z + 10.5 = -66.0), inside the summit.
+    // (outer face MOTTE_CENTER_Z + 10.5 = -71.0), inside the summit.
     expect(FAST_TRAVEL_ARRIVALS.northern_fortress).toEqual([0, MOTTE_CENTER_Z + 12.5]);
     for (const [ax, az] of Object.values(FAST_TRAVEL_ARRIVALS)) {
       expect(ax).toBeGreaterThanOrEqual(-BOUNDARY_X);
@@ -469,10 +471,10 @@ describe('Terrain contracts are unchanged by the ground extension', () => {
 
   test('world boundaries keep their derivation from the motte perimeter', () => {
     expect(BOUNDARY_X).toBe(35);
-    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -96 (was -91 before the
-    // group moved 5.0 north; the 2.5-unit margin is unchanged).
+    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -101 (was -96 after
+    // C-8.37 and -91 before the group moved; the 2.5-unit margin is unchanged).
     expect(BOUNDARY_Z_MIN).toBe(MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5);
-    expect(BOUNDARY_Z_MIN).toBe(-96);
+    expect(BOUNDARY_Z_MIN).toBe(-101);
     expect(BOUNDARY_Z_MAX).toBe(35);
   });
 });
@@ -495,9 +497,9 @@ describe('Regression detection on the plane north edge', () => {
   test('shrinking the depth back toward the old size is caught', () => {
     // Any plane whose north edge stops short of the 3-unit margin — a revert
     // to the 140-deep plane, or a "partial" extension that stops at the motte
-    // rim (Z = -96.66) — must be rejected by the same rule.
+    // rim (Z = -106.66) — must be rejected by the same rule.
     const depthToCoverMotteRim =
-      2 * (GROUND_PLANE_CENTER[2] - MOTTE_MESH_NORTH_Z); // 159.32
+      2 * (GROUND_PLANE_CENTER[2] - MOTTE_MESH_NORTH_Z); // 169.32
     for (const depth of [PHASE_PRE_DEPTH, depthToCoverMotteRim - 12]) {
       expect(coversNorthernEnvelope(GROUND_PLANE_CENTER[2] - depth / 2)).toBe(false);
     }
@@ -505,19 +507,19 @@ describe('Regression detection on the plane north edge', () => {
 
   test('the rule flips exactly at the depth that buys the required margin', () => {
     // Centre ∓ half depth, so the north edge lands exactly on the minimum
-    // margin line: 2 × (-19.5 − (-96 − 3)) = 159 after the C-8.37 shift.
+    // margin line: 2 × (-22 − (-101 − 3)) = 164 after the C-8.38 shift.
     const requiredDepth =
-      2 * (GROUND_PLANE_CENTER[2] - (BOUNDARY_Z_MIN - REQUIRED_MARGIN)); // 159
-    expect(requiredDepth).toBe(159);
+      2 * (GROUND_PLANE_CENTER[2] - (BOUNDARY_Z_MIN - REQUIRED_MARGIN)); // 164
+    expect(requiredDepth).toBe(164);
     expect(coversNorthernEnvelope(GROUND_PLANE_CENTER[2] - requiredDepth / 2)).toBe(true);
     expect(coversNorthernEnvelope(GROUND_PLANE_CENTER[2] - (requiredDepth - 2) / 2)).toBe(false);
     expect(GROUND_PLANE_DEPTH).toBeGreaterThan(requiredDepth);
   });
 
   test('the margin rule sits between the defect and the fix', () => {
-    // Reverting to the pre-phase depth would expose 26 walkable units of void
-    // (BOUNDARY_Z_MIN -96 against the plane's old north edge at -70).
-    expect(GROUND_PLANE_DEPTH / 2 - PHASE_PRE_DEPTH / 2).toBeCloseTo(19.5, 6);
+    // Reverting to the pre-phase depth would expose 31 walkable units of void
+    // (BOUNDARY_Z_MIN -101 against the plane's old north edge at -70).
+    expect(GROUND_PLANE_DEPTH / 2 - PHASE_PRE_DEPTH / 2).toBeCloseTo(22, 6);
     expect(GROUND_PLANE_NORTH_Z).toBeLessThanOrEqual(BOUNDARY_Z_MIN - REQUIRED_MARGIN);
     expect(PHASE_PRE_NORTH_Z).toBeGreaterThan(BOUNDARY_Z_MIN - REQUIRED_MARGIN);
   });

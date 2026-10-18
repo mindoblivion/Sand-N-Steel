@@ -330,7 +330,7 @@ describe('C. The mound, the terrain contract and the route are untouched', () =>
     // Phase C-8.37 moved the northern group 5.0 north; the bridge kept its
     // offsets from the motte centre (+25.5 / +31.0).
     expect(BRIDGE_Z_INNER).toBe(MOTTE_CENTER_Z + 25.5);   // -51.0
-    expect(BRIDGE_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0);   // -45.5
+    expect(BRIDGE_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0);   // -50.5
     expect(DECK_TOP_Y).toBeCloseTo(0.16, 6);
     // The C-8.33 rear-gate seals are still in the registry, and the northern
     // structures it depends on are unchanged.

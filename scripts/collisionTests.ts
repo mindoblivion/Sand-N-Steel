@@ -632,8 +632,8 @@ test('fast-travel: arrival positions match documented coordinates', () => {
   // Z=-18.875 (depth cut 5.0 → 3.25 with the north face pinned at Z=-20.75),
   // the C-8.19 Forge–General Store correction moved smithing_forge to
   // Z = 2.6 (the forge root's (-6.5, 0) arrival offset is preserved),
-  // and Phase C-8.37 moved northern_fortress 5.0 north with the whole
-  // northern group, to Z=-64.0 (the motte summit gate corridor).
+  // and Phases C-8.37 / C-8.38 moved northern_fortress 5.0 north each time with
+  // the whole northern group, to Z=-69.0 (the motte summit gate corridor).
   const expected: Record<string, [number, number]> = {
     town_gate: [0, 20],
     colosseum: [0, -23],
@@ -654,7 +654,7 @@ test('fast-travel: arrival positions match documented coordinates', () => {
     gladiator_barracks: [-22, -14],
     veteran_gladiator_hall: [-24, -29],
     arena_medical_house: [-29, -9],
-    northern_fortress: [0, MOTTE_CENTER_Z + 12.5], // -64.0 since C-8.37
+    northern_fortress: [0, MOTTE_CENTER_Z + 12.5], // -69.0 since C-8.38
   };
   for (const [id, coords] of Object.entries(expected)) {
     const actual = FAST_TRAVEL_ARRIVALS[id];
@@ -1736,12 +1736,12 @@ test('31J: all 19 fast-travel arrivals remain collision-free and reachable after
 const FORTRESS_HALF = 10.5;
 /** Half thickness of each fortress wall rect (collisionShapes.ts). */
 const FORTRESS_WALL_HALF_D = 0.6;
-const FORTRESS_SOUTH_WALL_CZ = MOTTE_CENTER_Z + FORTRESS_HALF;             // -66.0
-const FORTRESS_SOUTH_WALL_OUTER_Z = FORTRESS_SOUTH_WALL_CZ + FORTRESS_WALL_HALF_D; // -65.4
-const FORTRESS_NORTH_WALL_CZ = MOTTE_CENTER_Z - FORTRESS_HALF;             // -87.0
-const FORTRESS_NORTH_WALL_INNER_Z = FORTRESS_NORTH_WALL_CZ + FORTRESS_WALL_HALF_D; // -86.4
+const FORTRESS_SOUTH_WALL_CZ = MOTTE_CENTER_Z + FORTRESS_HALF;             // -71.0
+const FORTRESS_SOUTH_WALL_OUTER_Z = FORTRESS_SOUTH_WALL_CZ + FORTRESS_WALL_HALF_D; // -70.4
+const FORTRESS_NORTH_WALL_CZ = MOTTE_CENTER_Z - FORTRESS_HALF;             // -92.0
+const FORTRESS_NORTH_WALL_INNER_Z = FORTRESS_NORTH_WALL_CZ + FORTRESS_WALL_HALF_D; // -91.4
 /** Motte-centre-relative arrival (cityCollisions FAST_TRAVEL_ARRIVALS). */
-const FORTRESS_ARRIVAL_Z = MOTTE_CENTER_Z + 12.5;                          // -64.0
+const FORTRESS_ARRIVAL_Z = MOTTE_CENTER_Z + 12.5;                          // -69.0
 
 // Helper: compute Motte perimeter point (mirrors collisionShapes.ts mottePoint)
 function mottePoint(theta: number): [number, number] {
@@ -1749,7 +1749,7 @@ function mottePoint(theta: number): [number, number] {
 }
 
 test('fortress: south wall blocks approach from city', () => {
-  // South wall right piece x[1.0,10.5] z[-66.6,-65.4] (C-8.37).  Player at the
+  // South wall right piece x[1.0,10.5] z[-71.6,-70.4] (C-8.38).  Player at the
   // live arrival Z (south of the wall) moving -Z must not end up inside the
   // wall band.
   const pos: [number, number, number] = [3, 0, FORTRESS_ARRIVAL_Z];
@@ -1758,9 +1758,9 @@ test('fortress: south wall blocks approach from city', () => {
     `Expected blocked by south wall at X=3, got z=${result[2]}`);
 });
 
-test('fortress: north wall blocks at Z=-87', () => {
-  // North wall center (0, MOTTE_CENTER_Z - 10.5 = -87.0), hw=10.5, hd=0.6 →
-  // z[-87.6,-86.4].  Player inside the fortress 3.5 north of the motte centre
+test('fortress: north wall blocks at Z=-92', () => {
+  // North wall center (0, MOTTE_CENTER_Z - 10.5 = -92.0), hw=10.5, hd=0.6 →
+  // z[-92.6,-91.4].  Player inside the fortress 3.5 north of the motte centre
   // (the same relative start this test always used) walking -Z must stop at
   // the inner face.  Walk in small steps (Δ = 0.1) so the 1.2-unit wall cannot
   // be stepped over in one frame.
@@ -1776,7 +1776,7 @@ test('fortress: north wall blocks at Z=-87', () => {
 
 test('fortress: east wall blocks at X=10.5', () => {
   // East wall: center (10.5, MOTTE_CENTER_Z), hw=0.6, hd=10.5 →
-  // x[9.9,11.1] z[-87,-66]
+  // x[9.9,11.1] z[-92,-71]
   const pos: [number, number, number] = [8, 0, MOTTE_CENTER_Z];
   const result = resolveCityMovement(pos, 1, 0, 3.8, 0.5);
   assert.ok(result[0] <= 9.9 - R + 0.01,
@@ -1785,7 +1785,7 @@ test('fortress: east wall blocks at X=10.5', () => {
 
 test('fortress: west wall blocks at X=-10.5', () => {
   // West wall: center (-10.5, MOTTE_CENTER_Z), hw=0.6, hd=10.5 →
-  // x[-11.1,-9.9] z[-87,-66]
+  // x[-11.1,-9.9] z[-92,-71]
   const pos: [number, number, number] = [-8, 0, MOTTE_CENTER_Z];
   const result = resolveCityMovement(pos, -1, 0, 3.8, 0.5);
   assert.ok(result[0] >= -9.9 + R - 0.01,
@@ -1794,7 +1794,7 @@ test('fortress: west wall blocks at X=-10.5', () => {
 
 test('fortress: gate passage is collision-free at X=0', () => {
   // Gate gap X ∈ [-1.0, 1.0] at the south wall center line (MOTTE_CENTER_Z +
-  // 10.5 = -66.0 since C-8.37).
+  // 10.5 = -71.0 since C-8.38).
   assert.ok(!collidesWith(0, FORTRESS_SOUTH_WALL_CZ, R, CITY_COLLIDERS),
     'Gate center should be collision-free');
   assert.ok(!collidesWith(0.5, FORTRESS_SOUTH_WALL_CZ, R, CITY_COLLIDERS),
@@ -1849,7 +1849,7 @@ test('fortress: player can walk around the east side', () => {
     if (pos[0] > 12) break;
   }
   assert.ok(pos[0] > 12, `Should clear east wall, got x=${pos[0]}`);
-  // Step 2: walk north past the fortress north wall (outer face -87.6)
+  // Step 2: walk north past the fortress north wall (outer face -92.6)
   for (let i = 0; i < 200; i++) {
     pos = resolveCityMovement(pos, 0, -1, 3.8, 0.1);
     if (pos[2] < FORTRESS_NORTH_WALL_CZ - FORTRESS_WALL_HALF_D) break;
@@ -1876,9 +1876,9 @@ test('fortress: player can walk around the west side', () => {
     `Should reach north of fortress, got z=${pos[2]}`);
 });
 
-test('fortress: arrival point [0, -64.0] is collision-free with clearance', () => {
+test('fortress: arrival point [0, -69.0] is collision-free with clearance', () => {
   // Live arrival: motte summit gate corridor, 1.4 south of the fortress south
-  // wall outer face (MOTTE_CENTER_Z + 11.1 = -65.4 since C-8.37) — clear of
+  // wall outer face (MOTTE_CENTER_Z + 11.1 = -70.4 since C-8.38) — clear of
   // the 0.9 invariant.
   const [ax, az] = FAST_TRAVEL_ARRIVALS['northern_fortress'];
   assert.ok(ax === 0 && az === FORTRESS_ARRIVAL_Z,
@@ -1951,7 +1951,7 @@ test('fortress: does not overlap Colosseum colliders', () => {
     'Motte perimeter east of the opening should be blocked');
   assert.ok(collidesWith(mottePoint(-0.3)[0], mottePoint(-0.3)[1], R, CITY_COLLIDERS),
     'Motte perimeter west of the opening should be blocked');
-  // The fortress south wall (outer face MOTTE_CENTER_Z + 11.1 = -65.4) sits
+  // The fortress south wall (outer face MOTTE_CENTER_Z + 11.1 = -70.4) sits
   // well north of the ramp opening, so no fortress collider reaches the
   // Colosseum side.
   assert.ok(!collidesWith(0, MOTTE_CENTER_Z + 16.5, R, CITY_COLLIDERS),

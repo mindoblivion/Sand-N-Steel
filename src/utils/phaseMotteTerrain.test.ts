@@ -79,8 +79,8 @@ const MESH_SOUTH_PROFILE: Array<[number, number]> = [
 
 // ── Fortress constants (must match collisionShapes.ts) ─────────────────────
 // Phase C-8.37: both follow the motte centre rather than a restated world Z.
-const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -66.0
-const FORTRESS_CENTER_Z = MOTTE_CENTER_Z; // -76.5
+const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -71.0
+const FORTRESS_CENTER_Z = MOTTE_CENTER_Z; // -81.5
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. Gameplay terrain matches the measured visible mesh profile

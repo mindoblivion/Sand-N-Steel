@@ -52,9 +52,10 @@ import { DECK_UNDERSIDE_Y, DECK_Z_INNER, DECK_Z_OUTER, BEAM_WIDTH } from '../com
 const EPS = 1e-6;
 
 // ── Fortress constants (must match collisionShapes.ts) ─────────────────────
-// Phase C-8.37: both follow the motte centre rather than a restated world Z.
-const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -66.0
-const FORTRESS_CENTER_Z = MOTTE_CENTER_Z; // -76.5
+// Phases C-8.37 / C-8.38: both follow the motte centre rather than a restated
+// world Z.
+const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -71.0
+const FORTRESS_CENTER_Z = MOTTE_CENTER_Z; // -81.5
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. Bridge Fits Inside the Moat Angular Opening
@@ -80,8 +81,8 @@ describe('Bridge fits inside moat angular opening', () => {
   });
 
   test('bridge span covers the moat ring at south', () => {
-    // Moat at south: inner edge Z = -76.5 + 25.0 = -51.5, outer edge
-    // Z = -76.5 + 31.0 = -45.5 (Phase C-8.37 moved the whole group 5.0 north).
+    // Moat at south: inner edge Z = -81.5 + 25.0 = -56.5, outer edge
+    // Z = -81.5 + 31.0 = -50.5 (C-8.37 and C-8.38 each moved the group 5.0 north).
     // The drawn deck (DECK_Z_OUTER … DECK_Z_INNER) spans the ring end to end,
     // so the water still runs beneath the whole crossing.
     const moatInnerZ = MOTTE_CENTER_Z + MOAT_INNER_RADIUS;
@@ -131,11 +132,11 @@ describe('Old ramp mesh hidden via runtime visibility', () => {
   test('Ramp_Dirt mesh name constant is preserved for reference', () => {
     // The legacy constants are kept in terrainHeight.ts for test migration
     expect(RAMP_HALF_WIDTH).toBeCloseTo(2.8305, 3);
-    // Phase C-8.37: the legacy ramp bounds are derived from MOTTE_CENTER_Z, so
-    // they moved 5.0 north with the mound (-48.227 → -53.227).
+    // Phases C-8.37 / C-8.38: the legacy ramp bounds are derived from
+    // MOTTE_CENTER_Z, so they moved with the mound (-48.227 → -58.227).
     expect(RAMP_Z_OUTER).toBeCloseTo(MOTTE_CENTER_Z + 23.273, 2);
-    expect(RAMP_Z_OUTER).toBeCloseTo(-53.227, 2);
-    expect(RAMP_Z_INNER).toBeCloseTo(-63.92, 1);
+    expect(RAMP_Z_OUTER).toBeCloseTo(-58.227, 2);
+    expect(RAMP_Z_INNER).toBeCloseTo(-68.92, 1);
   });
 });
 
@@ -338,10 +339,10 @@ describe('Preserved fast-travel and collision boundaries', () => {
     expect(() => clearRecoveryHistory()).not.toThrow();
   });
 
-  test('boundary limits keep their derivation (C-8.37 moved the north limit)', () => {
+  test('boundary limits keep their derivation (C-8.38 moved the north limit)', () => {
     expect(BOUNDARY_X).toBe(35);
-    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -96.
-    expect(BOUNDARY_Z_MIN).toBe(-96);
+    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -101.
+    expect(BOUNDARY_Z_MIN).toBe(-101);
     expect(BOUNDARY_Z_MAX).toBe(35);
   });
 

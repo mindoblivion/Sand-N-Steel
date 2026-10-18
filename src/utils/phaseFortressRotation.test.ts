@@ -208,12 +208,12 @@ describe('B. NorthernFortress applies no duplicate rotation', () => {
 
   test('the outer <group> transform is position [0, SUMMIT_Y, MOTTE_CENTER_Z] at scale 0.30', () => {
     // The group stands on the motte summit, at the motte centre — both read
-    // from terrainHeight (Phase C-8.37), so the fortress can never separate
-    // from the mound it stands on.
+    // from terrainHeight (Phases C-8.37 / C-8.38), so the fortress can never
+    // separate from the mound it stands on.
     expect(parentPosition).toEqual([0, SUMMIT_Y, MOTTE_CENTER_Z]);
     expect(parentPosition[0]).toBe(0);
     expect(parentPosition[1]).toBeCloseTo(4.7175, 6);
-    expect(parentPosition[2]).toBe(-76.5);
+    expect(parentPosition[2]).toBe(-81.5);
     expect(parentScale).toBe(0.3);
   });
 });
@@ -239,13 +239,14 @@ describe('C. Composed world-space bounds match the collision assumptions', () =>
     expect(Math.abs(bounds.min.y - SUMMIT_Y)).toBeLessThan(0.005);
   });
 
-  test('Z span is [-87.0, -66.0] (south face toward the city)', () => {
+  test('Z span is [-92.0, -71.0] (south face toward the city)', () => {
     // The fortress's own ∓10.5 world half-footprint about the motte centre the
-    // group transform now resolves to; C-8.37 moved the whole group 5.0 north.
-    expect(bounds.min.z).toBeCloseTo(MOTTE_CENTER_Z - 10.5, 6); // -87.0
-    expect(bounds.max.z).toBeCloseTo(MOTTE_CENTER_Z + 10.5, 6); // -66.0
-    expect(bounds.min.z).toBeCloseTo(-87.0, 6);
-    expect(bounds.max.z).toBeCloseTo(-66.0, 6);
+    // group transform now resolves to; C-8.37 and C-8.38 each moved the group
+    // 5.0 north.
+    expect(bounds.min.z).toBeCloseTo(MOTTE_CENTER_Z - 10.5, 6); // -92.0
+    expect(bounds.max.z).toBeCloseTo(MOTTE_CENTER_Z + 10.5, 6); // -71.0
+    expect(bounds.min.z).toBeCloseTo(-92.0, 6);
+    expect(bounds.max.z).toBeCloseTo(-71.0, 6);
   });
 
   test('wall collider centerlines sit on the visual faces', () => {

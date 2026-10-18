@@ -56,11 +56,11 @@ const HALF_MM = 5e-4;
 
 // ── Fortress constants (must match collisionShapes.ts) ─────────────────────
 const FORTRESS_HALF_W = 10.5; // 21 * 0.30 / 2
-// Phase C-8.37: the fortress moved with its motte, so these follow the module
-// constant rather than restating a world Z (-76.5 + 10.5 = -66.0).
-const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -66.0
-const FORTRESS_NORTH_Z = MOTTE_CENTER_Z - 10.5; // -87.0
-const FORTRESS_CENTER_Z = MOTTE_CENTER_Z; // -76.5
+// Phases C-8.37 / C-8.38: the fortress moved with its motte, so these follow
+// the module constant rather than restating a world Z (-81.5 + 10.5 = -71.0).
+const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -71.0
+const FORTRESS_NORTH_Z = MOTTE_CENTER_Z - 10.5; // -92.0
+const FORTRESS_CENTER_Z = MOTTE_CENTER_Z; // -81.5
 const GATE_HALF_GAP = 1.0;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -603,20 +603,20 @@ describe('Collision recovery', () => {
 
 describe('Boundary and Colosseum clearance', () => {
   test('BOUNDARY_Z_MIN tracks the motte perimeter it is derived from', () => {
-    // Phase C-8.37: MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -96.
+    // Phase C-8.38: MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -101.
     expect(BOUNDARY_Z_MIN).toBe(MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5);
-    expect(BOUNDARY_Z_MIN).toBe(-96);
+    expect(BOUNDARY_Z_MIN).toBe(-101);
   });
 
   test('motte perimeter north point is within boundary', () => {
-    const northZ = MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS; // -90
-    // The perimeter itself is at Z=-93.5, but the player center can be at -91
+    const northZ = MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS; // -103.5
+    // The perimeter itself is at Z=-103.5, but the player center can be at -101
     // (boundary) and still be 2.5 units from the perimeter
     expect(northZ).toBeGreaterThanOrEqual(BOUNDARY_Z_MIN - 5);
   });
 
   test('summit north edge is within boundary', () => {
-    const northZ = MOTTE_CENTER_Z - SUMMIT_CARDINAL_RADIUS; // -80.58
+    const northZ = MOTTE_CENTER_Z - SUMMIT_CARDINAL_RADIUS; // -94.08
     expect(northZ).toBeGreaterThanOrEqual(BOUNDARY_Z_MIN);
   });
 
@@ -624,11 +624,11 @@ describe('Boundary and Colosseum clearance', () => {
     expect(FORTRESS_NORTH_Z).toBeGreaterThanOrEqual(BOUNDARY_Z_MIN);
   });
 
-  test('Colosseum north wall (Z≈-44.3) is clear of motte south edge (Z≈-46.34)', () => {
+  test('Colosseum north wall (Z≈-44.3) is clear of motte south edge (Z≈-56.34)', () => {
     // Colosseum outer wall north at Z = -25 - 19.3 = -44.3
     const colosseumNorthZ = -25 - 19.3;
-    // Motte south edge at ground level (rim) at Z ≈ -46.34
-    const motteSouthZ = MOTTE_CENTER_Z + 80 * MOTTE_SCALE; // -71.5 + 25.16 = -46.34
+    // Motte south edge at ground level (rim) at Z ≈ -56.34
+    const motteSouthZ = MOTTE_CENTER_Z + 80 * MOTTE_SCALE; // -81.5 + 25.16 = -56.34
     // After the 3.5-unit shift, motte south edge is north of Colosseum north wall
     expect(motteSouthZ).toBeLessThan(colosseumNorthZ);
     // Clearance
@@ -651,6 +651,6 @@ describe('Hub location', () => {
     const loc = HUB_LOCATIONS.find(l => l.id === 'northern_fortress');
     expect(loc).toBeDefined();
     expect(loc!.position[2]).toBe(MOTTE_CENTER_Z);
-    expect(loc!.position[2]).toBe(-76.5); // Phase C-8.37: was -71.5
+    expect(loc!.position[2]).toBe(-81.5); // Phase C-8.38: was -76.5
   });
 });

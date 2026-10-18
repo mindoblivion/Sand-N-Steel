@@ -12,13 +12,15 @@
  * below the visible moat water surface at Y = 0.06.
  *
  * Measured targets, sampled from the shipping asset
- * public/_workspace_motte_normals.glb (world transform position [0,0,-71.5],
- * scale 0.3145, top surface ray-sampled along X = 0):
+ * public/_workspace_motte_normals.glb (world transform position
+ * [0, 0, MOTTE_CENTER_Z] = [0, 0, -81.5] since Phase C-8.38, scale 0.3145, top
+ * surface ray-sampled along X = 0).  The absolute Z below are the current
+ * values; the asset's own offsets from the motte centre are unchanged.
  *
- *   Motte_Grass southern rim       Z = -46.34, surface Y = 0.00
- *   Grass surface crosses Y = 0    Z = -52.00 (the rising slope starts there)
+ *   Motte_Grass southern rim       Z = -56.34, surface Y = 0.00
+ *   Grass surface crosses Y = 0    Z = -62.00 (the rising slope starts there)
  *   Visible moat water surface     Y = 0.06    (ring, MOAT_WATER_Y)
- *   Moat ring at south             Z = -45.70 (inner) → -40.50 (outer)
+ *   Moat ring at south             Z = -56.50 (inner) → -50.50 (outer)
  *
  * The deck's real geometry is validated through its exported transform and
  * dimension constants rather than by searching the source for numbers: the
@@ -73,20 +75,20 @@ import {
 const EPS = 1e-6;
 
 // ── Measured references (shipping asset, sampled along X = 0) ───────────────
-// Phase C-8.37: the mesh moved 5.0 north with the northern group, so both
-// measured landmarks are stated relative to the motte centre (the south rim is
-// the mesh's own 80 × 0.3145 = 25.16 base ring; the slope leaves Y = 0 at the
-// visible foot, 19.499 out).
-const MOTTE_GRASS_SOUTH_RIM_Z = MOTTE_CENTER_Z + 25.16; // -51.34
+// Phases C-8.37 / C-8.38: the mesh moved 5.0 north with the northern group
+// each time, so both measured landmarks are stated relative to the motte centre
+// (the south rim is the mesh's own 80 × 0.3145 = 25.16 base ring; the slope
+// leaves Y = 0 at the visible foot, 19.499 out).
+const MOTTE_GRASS_SOUTH_RIM_Z = MOTTE_CENTER_Z + 25.16; // -56.34
 const MOTTE_GRASS_RIM_Y = 0.0; // its surface height
-const MOTTE_SLOPE_ABOVE_GROUND_Z = MOTTE_CENTER_Z + 19.5; // -57.0
+const MOTTE_SLOPE_ABOVE_GROUND_Z = MOTTE_CENTER_Z + 19.5; // -62.0
 
 // ── Recorded pre-phase deck values (Phase 35E) ──────────────────────────────
 const PHASE_35E_DECK_TOP_Y = 0.16;
 const PHASE_35E_DECK_UNDERSIDE_Y = 0.04;
 
 // ── Fortress reference (must match collisionShapes.ts) ─────────────────────
-const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -66.0 (C-8.37)
+const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -71.0 (C-8.38)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. The deck reaches the motte approach with no geometric gap
@@ -253,13 +255,14 @@ describe('getTerrainY unchanged by the deck alignment', () => {
   });
 
   test('measured motte slope samples still match getTerrainY', () => {
-    // Mesh samples shifted 5.0 north with the mound (C-8.37); heights unchanged.
+    // Mesh samples shifted with the mound (C-8.37 and C-8.38); the same radii
+    // about the moved centre, the same measured heights.
     const samples: Array<[number, number]> = [
-      [-57.5, 0.3402],
-      [-58.0, 0.6811],
-      [-59.0, 1.3630],
-      [-60.0, 2.0448],
-      [-64.0, 4.7175],
+      [MOTTE_CENTER_Z + 19.0, 0.3402],
+      [MOTTE_CENTER_Z + 18.5, 0.6811],
+      [MOTTE_CENTER_Z + 17.5, 1.3630],
+      [MOTTE_CENTER_Z + 16.5, 2.0448],
+      [MOTTE_CENTER_Z + 12.5, 4.7175],
     ];
     for (const [z, meshY] of samples) {
       expect(Math.abs(getTerrainY(0, z) - meshY)).toBeLessThan(0.01,
@@ -303,8 +306,8 @@ describe('Collision, navigation and bounds unchanged', () => {
 
   test('world boundary constants keep their derivation (north limit moved)', () => {
     expect(BOUNDARY_X).toBe(35);
-    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -96 (C-8.37).
-    expect(BOUNDARY_Z_MIN).toBe(-96);
+    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -101 (C-8.38).
+    expect(BOUNDARY_Z_MIN).toBe(-101);
     expect(BOUNDARY_Z_MAX).toBe(35);
   });
 });
