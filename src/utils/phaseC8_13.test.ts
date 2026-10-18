@@ -507,7 +507,8 @@ describe('F. Merchant House alley traversal through the paved corridor', () => {
 describe('G. C-8.10 and C-8.12 regressions', () => {
   test('C-8.10: Smithing Forge is still narrowed to width 9.5 and the workshop untouched', () => {
     expect(forge.cx).toBe(18);
-    expect(forge.cz).toBe(2);
+    // Phase C-8.19 moved the forge Z centre 2 → 2.6; width/depth unchanged.
+    expect(forge.cz).toBe(2.6);
     expect(forge.hw).toBe(4.75);
     expect(forge.hd).toBe(4.0);
     expect(workshop.cx).toBe(28.2);

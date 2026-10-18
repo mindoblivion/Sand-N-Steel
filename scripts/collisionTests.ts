@@ -434,8 +434,10 @@ test('training yard: player can enter from the east', () => {
 
 // 13a. Starting inside a building near one edge and walking toward the opposite wall is blocked.
 test('recovery: inside a building, walking through the opposite wall is blocked', () => {
-  // Smithing forge: cx=18, cz=2, hw=5, hd=4 → x[13,23], z[-2,6].
-  // Start near the WEST edge at (14, 2) — distX to west edge = 1.
+  // Smithing forge: cx=18, cz=2.6, hw=4.75, hd=4 → x[13.25,22.75], z[-1.4,6.6].
+  // (Width narrowed 10.0 → 9.5 in Phase C-8.10; Z centre moved 2 → 2.6 in the
+  // Phase C-8.19 Forge–General Store correction.)
+  // Start near the WEST edge at (14, 2) — distX to west edge = 0.75.
   // Moving +X (toward the east/opposite wall) should NOT advance the player
   // in +X.  The Phase 31F fallback may redirect toward the nearest exit
   // (-X), which is correct escape behavior.
@@ -625,13 +627,15 @@ test('fast-travel: arrival positions match documented coordinates', () => {
   // geometry move is caught.  Phase C-8.12 moved merchant_house to Z=-13,
   // Phase C-8.13 moved doctore_house to Z=-18, Phase C-8.19 re-based it to
   // Z=-18.875 (depth cut 5.0 → 3.25 with the north face pinned at Z=-20.75),
+  // the C-8.19 Forge–General Store correction moved smithing_forge to
+  // Z = 2.6 (the forge root's (-6.5, 0) arrival offset is preserved),
   // and Phase 35F.5 moved northern_fortress to Z=-59.0 (the motte summit gate
   // corridor).
   const expected: Record<string, [number, number]> = {
     town_gate: [0, 20],
     colosseum: [0, -23],
     training_yard: [-18, 2],
-    smithing_forge: [11.5, 2],
+    smithing_forge: [11.5, 2.6],
     general_store: [17, -5],
     tavern: [-10, 14],
     caravanserai: [10, 14],
@@ -1031,11 +1035,14 @@ test('C-8.19: walking east from the arrival reaches the west doorway', () => {
 //
 // Two cases near the Smithing Forge:
 //
-//  A) Forge–Store overlap: The forge (x[13,23] z[-2,6]) and general store
-//     (x[18.15,25.85] z[-8.15,-1.85]) overlap in x[18.15,23] z[-2,-1.85].
-//     At [20, -1.925] the player center is inside both rects.  Moving ±Z
-//     exits one building (normal resolver handles this).  Moving ±X is a
-//     saddle point (total constant) — the fallback must redirect.
+//  A) Forge–Store junction: the forge (x[13.25,22.75] z[-1.4,6.6]) and general
+//     store (x[18.15,25.85] z[-8.15,-1.85]) overlapped in x[18.15,23]
+//     z[-2,-1.85] until the C-8.19 Forge–General Store correction moved the
+//     forge Z centre 2 → 2.6, turning that 0.15-unit interpenetration into a
+//     0.45-unit gap (still narrower than the 0.80 player diameter, so no
+//     walkable route opens between the two buildings).  The former two-collider
+//     saddle fixture [20, -1.925] therefore now sits inside the general store
+//     alone; the same point still exercises recovery out of a building footprint.
 //
 //  B) Forge–Workshop passage: Phase C-8.10 narrowed the forge to
 //     x[13.25,22.75] so its east edge aligns with the armor workshop west
@@ -1049,11 +1056,18 @@ test('C-8.19: walking east from the arrival reaches the west doorway', () => {
 //     building.
 // ════════════════════════════════════════════════════════════════════════════
 
-test('forge-store overlap [20, -1.925]: player is inside both colliders', () => {
-  assert.ok(collidesWith(20, -1.925, R, CITY_COLLIDERS), 'Should collide');
+test('forge-store junction [20, -1.925]: overlap resolved, store only (C-8.19)', () => {
+  assert.ok(collidesWith(20, -1.925, R, CITY_COLLIDERS), 'Should collide with the store');
   const ids = overlappingColliderIds(20, -1.925, R, CITY_COLLIDERS);
-  assert.ok(ids.has('smithing-forge'), 'Should overlap forge');
+  assert.ok(!ids.has('smithing-forge'), 'Forge must no longer overlap this point');
   assert.ok(ids.has('general-store'), 'Should overlap store');
+  // The two footprints are now strictly Z-separated, by less than the player diameter.
+  const forge = CITY_COLLIDERS.find((c) => c.id === 'smithing-forge') as RectCollider;
+  const store = CITY_COLLIDERS.find((c) => c.id === 'general-store') as RectCollider;
+  const gapZ = (forge.cz - forge.hd) - (store.cz + store.hd);
+  approx(gapZ, 0.45, 1e-9);
+  assert.ok(gapZ > 0 && gapZ < 2 * R,
+    `Gap ${gapZ} must be positive but narrower than the player diameter`);
 });
 
 test('forge-store overlap: player can escape by pressing +Z', () => {
@@ -1077,9 +1091,11 @@ test('forge-store overlap: player can escape by pressing -Z', () => {
   assert.ok(escaped, `Should escape forge-store overlap via -Z`);
 });
 
-test('forge-store overlap: saddle-point in +X is broken by fallback', () => {
-  // Pressing +X at [20, -1.925] is a saddle point for the normal resolver
-  // (total penetration constant).  The fallback should redirect.
+test('forge-store junction: pressing +X inside the store is broken by fallback', () => {
+  // [20, -1.925] lies in the general store's north band, where pressing +X
+  // cannot reduce the penetration (total constant) — a saddle point for the
+  // normal resolver.  The fallback must redirect.  Since C-8.19 the fixture
+  // overlaps the store alone.
   let pos: [number, number, number] = [20, 0, -1.925];
   let escaped = false;
   for (let i = 0; i < 150; i++) {
@@ -1362,11 +1378,15 @@ test('recovery fallback: respects world bounds', () => {
 });
 
 test('recovery fallback: maxPenetration and overlappingColliderIds helpers', () => {
-  // Multi-collider overlap fixture: the forge–store overlap (section 18).
-  const ids = overlappingColliderIds(20, -1.925, R, CITY_COLLIDERS);
-  assert.ok(ids.size >= 2, `Should overlap >= 2 colliders at [20, -1.925], got ${ids.size}`);
-  assert.ok(ids.has('smithing-forge'), 'Should overlap smithing-forge');
-  assert.ok(ids.has('general-store'), 'Should overlap general-store');
+  // Multi-collider overlap fixture.  The C-8.19 Forge–General Store correction
+  // resolved the forge–store interpenetration this case used to rely on, so the
+  // Ishtar Gatehouse's central block / left tower junction — overlapping by
+  // design, the gateway being built from overlapping parts — supplies the
+  // ≥ 2-collider case.
+  const ids = overlappingColliderIds(-6.7, 24, R, CITY_COLLIDERS);
+  assert.ok(ids.size >= 2, `Should overlap >= 2 colliders at [-6.7, 24], got ${ids.size}`);
+  assert.ok(ids.has('ishtar-central'), 'Should overlap ishtar-central');
+  assert.ok(ids.has('ishtar-tower-l'), 'Should overlap ishtar-tower-l');
 
   // Single-collider fixture: Phase C-8.19 removed the Merchant House ↔ Doctore
   // House footprint overlap, so the old saddle fixture [27, -15] now sits
@@ -1378,7 +1398,7 @@ test('recovery fallback: maxPenetration and overlappingColliderIds helpers', () 
   // maxPenetration is positive wherever the circle overlaps a rect, and zero at
   // a clear position.
   assert.ok(maxPenetration(18, 2, R, CITY_COLLIDERS) > 0, 'Max should be positive inside the forge');
-  assert.ok(maxPenetration(20, -1.925, R, CITY_COLLIDERS) > 0, 'Max should be positive in the overlap');
+  assert.ok(maxPenetration(20, -1.925, R, CITY_COLLIDERS) > 0, 'Max should be positive inside the store');
   assert.ok(maxPenetration(0, 16, R, CITY_COLLIDERS) === 0, 'Max should be 0 at clear position');
 });
 
@@ -1414,13 +1434,18 @@ test('31H D1: forge escape toward workshop never enters armor-workshop', () => {
   assert.ok(!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS), 'Should have escaped');
 });
 
-test('31H D1: forge-store escape never enters armor-workshop', () => {
-  // Start at the forge-store overlap.  Pressing +X (saddle point) causes
-  // the fallback to redirect.  Verify no new collider is entered at any
-  // intermediate position, particularly not the armor-workshop.
+test('31H D1: forge-store junction escape never enters a new collider', () => {
+  // Start inside the general store's north band.  Pressing +X (a saddle point)
+  // makes the fallback redirect — it walks the player out through the store's
+  // west side (traced: 5 steps, -X only).  Verify no new collider is entered at
+  // any intermediate position, particularly not the armor-workshop or the
+  // neighbouring forge.
+  // Since the C-8.19 Forge–General Store correction the fixture overlaps the
+  // store alone: the two footprints are Z-separated by 0.45, so the 0.15-unit
+  // interpenetration this case originally started inside no longer exists.
   let pos: [number, number, number] = [20, 0, -1.925];
   const initialIds = overlappingColliderIds(20, -1.925, R, CITY_COLLIDERS);
-  assert.ok(initialIds.has('smithing-forge'));
+  assert.ok(!initialIds.has('smithing-forge'), 'Forge no longer overlaps this point');
   assert.ok(initialIds.has('general-store'));
   assert.ok(!initialIds.has('armor-workshop'));
   for (let i = 0; i < 200; i++) {

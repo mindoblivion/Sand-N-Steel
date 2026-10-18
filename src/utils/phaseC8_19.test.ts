@@ -615,7 +615,9 @@ describe('F. Every arrival is safe, Via Mercatoria works, neighbours untouched',
     expect(findRect('merchant-house')).toMatchObject({ cx: 26, cz: -13, hw: 3.85, hd: 3.5 });
     expect(findRect('gladiator-academy')).toMatchObject({ cx: 30.5, cz: -27, hw: 3.85, hd: 3.65 });
     expect(findRect('general-store')).toMatchObject({ cx: 22, cz: -5, hw: 3.85, hd: 3.15 });
-    expect(findRect('smithing-forge')).toMatchObject({ cx: 18, cz: 2, hw: 4.75, hd: 4.0 });
+    // The C-8.19 Forge–General Store correction (a later phase sharing this
+    // label) moved the forge Z centre 2 → 2.6; footprint dimensions unchanged.
+    expect(findRect('smithing-forge')).toMatchObject({ cx: 18, cz: 2.6, hw: 4.75, hd: 4.0 });
     expect(findRect('armor-workshop')).toMatchObject({ cx: 28.2, cz: 1.15, hw: 4.45, hd: 2.85 });
     // Phase C-8.18 moved the Records Library 0.90 west (X 24 → 23.10); its
     // footprint dimensions are unchanged.

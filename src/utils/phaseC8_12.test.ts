@@ -334,7 +334,8 @@ describe('I. Via Mercatoria alley footprint', () => {
 describe('J. Phase C-8.10 Forge–Workshop passage regression', () => {
   test('SmithingForge collider is still narrowed to width 9.5', () => {
     expect(forge.cx).toBe(18);
-    expect(forge.cz).toBe(2);
+    // Phase C-8.19 moved the forge Z centre 2 → 2.6; width/depth unchanged.
+    expect(forge.cz).toBe(2.6);
     expect(forge.hw).toBe(4.75);
     expect(forge.hd).toBe(4.0);
   });

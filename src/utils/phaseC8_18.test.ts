@@ -1008,19 +1008,24 @@ describe('E. Colosseum clearance, academy geometry and phase scope hold', () => 
     }
   });
 
-  test('the Smithing Forge ↔ General Store overlap is untouched by this phase', () => {
+  test('the Smithing Forge ↔ General Store footprints are pinned', () => {
     const forge = findRect('smithing-forge');
     const store = findRect('general-store');
-    expect(forge).toMatchObject({ cx: 18, cz: 2, hw: 4.75, hd: 4.0 });
+    // C-8.18 moved neither building.  The General Store is still exactly where
+    // this phase left it; the Forge's X centre and dimensions are likewise
+    // unchanged by C-8.18 (its Z centre was moved 2 → 2.6 later, by the C-8.19
+    // Forge–General Store correction).
     expect(store).toMatchObject({ cx: 22, cz: -5, hw: 3.85, hd: 3.15 });
-    // The pre-existing (unchanged) interpenetration, pinned so this phase
-    // cannot silently widen or "fix" it.
+    expect(forge).toMatchObject({ cx: 18, cz: 2.6, hw: 4.75, hd: 4.0 });
+    // The 0.15-unit Z interpenetration C-8.18 recorded here as pre-existing was
+    // resolved by C-8.19: the footprints still share the X frontage, but are now
+    // separated in Z by 0.45.
     const overlapX = Math.min(forge.cx + forge.hw, store.cx + store.hw) -
       Math.max(forge.cx - forge.hw, store.cx - store.hw);
     const overlapZ = Math.min(forge.cz + forge.hd, store.cz + store.hd) -
       Math.max(forge.cz - forge.hd, store.cz - store.hd);
     expect(overlapX).toBeCloseTo(4.6, 10);
-    expect(overlapZ).toBeCloseTo(0.15, 10);
+    expect(overlapZ).toBeCloseTo(-0.45, 10);
   });
 
   test('unrelated neighbouring colliders and arrivals are unchanged', () => {

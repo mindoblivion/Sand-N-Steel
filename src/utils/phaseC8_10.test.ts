@@ -41,8 +41,9 @@ const workshop = findRectCollider('armor-workshop');
 
 const forgeEast  = forge.cx + forge.hw;   // 18 + 4.75 = 22.75
 const forgeWest  = forge.cx - forge.hw;   // 18 - 4.75 = 13.25
-const forgeNorth = forge.cz + forge.hd;   // 2 + 4.0  = 6.0
-const forgeSouth = forge.cz - forge.hd;  // 2 - 4.0  = -2.0
+// Phase C-8.19 moved the Forge root/collider Z centre 2 → 2.6 (same dimensions).
+const forgeNorth = forge.cz + forge.hd;   // 2.6 + 4.0 = 6.6
+const forgeSouth = forge.cz - forge.hd;   // 2.6 - 4.0 = -1.4
 
 const workshopWest  = workshop.cx - workshop.hw;  // 28.2 - 4.45 = 23.75
 const workshopEast  = workshop.cx + workshop.hw;  // 28.2 + 4.45 = 32.65
@@ -76,9 +77,9 @@ describe('A. Player radius', () => {
 // ── B. Forge boundary integrity ───────────────────────────────────────────
 
 describe('B. Forge collision boundaries after width narrowing', () => {
-  test('Forge center is unchanged at (18, 2)', () => {
+  test('Forge center is (18, 2.6) — C-8.19 shifted Z 2 → 2.6, X unchanged', () => {
     expect(forge.cx).toBe(18);
-    expect(forge.cz).toBe(2);
+    expect(forge.cz).toBe(2.6);
   });
 
   test('Forge half-width is 4.75 (width 9.5)', () => {
@@ -97,12 +98,12 @@ describe('B. Forge collision boundaries after width narrowing', () => {
     expect(forgeWest).toBeCloseTo(13.25, 10);
   });
 
-  test('Forge north edge is unchanged at Z = 6.0', () => {
-    expect(forgeNorth).toBe(6.0);
+  test('Forge north edge follows the C-8.19 shift to Z = 6.6', () => {
+    expect(forgeNorth).toBeCloseTo(6.6, 10);
   });
 
-  test('Forge south edge is unchanged at Z = -2.0', () => {
-    expect(forgeSouth).toBe(-2.0);
+  test('Forge south edge follows the C-8.19 shift to Z = -1.4', () => {
+    expect(forgeSouth).toBeCloseTo(-1.4, 10);
   });
 });
 

@@ -13,8 +13,15 @@ import { ForgeSmoke } from './EnvironmentalMotion';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
 export const SmithingForge = React.memo(() => {
+  // Phase C-8.19: root moved +0.60 in Z (2 → 2.6) to clear the General Store
+  // (root [22, 0, -5]), whose ridge cap reaches Z = -1.71 and tile plane
+  // Z = -1.75.  The forge's rear tile plane now starts at Z = -1.55, so the
+  // former roof interpenetration (worst pair −0.44) becomes positive clearance
+  // (tightest pair +0.16, tile-to-tile +0.20, plinth steps +0.45).  X is
+  // untouched, so the C-8.10 Forge–Armor Workshop passage (1.0-unit collider
+  // gap, east edge X = 22.75) is unaffected.
   return (
-    <group position={[18, 0, 2]}>
+    <group position={[18, 0, 2.6]}>
       {/* 0. STEPPED TRAVERTINE FOUNDATION PODIUM */}
       <BuildingFoundation size={[9.5, 7.5]} height={0.3} projection={0.25} wearTone="forge" />
 

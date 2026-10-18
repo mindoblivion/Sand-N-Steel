@@ -103,6 +103,19 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `MOTTE_PERIMETER_RADIUS` stays collision-only and unchanged. The reference samples in
   `phaseMotteTerrain.test.ts` come from a downward raycast onto the GLB, not from the formula.
 
+- **City-layout geometry suites parse sources and compare bands, not just footprints.**
+  Phase labels are reused across workstreams: `src/utils/phaseC8_19.test.ts` is the
+  *Doctore House depth reduction*, while the Smithing Forge ↔ General Store correction
+  (forge root Z 2 → 2.6, clearing the store's ridge cap by 0.16) lives in
+  `src/utils/phaseC8_19b.test.ts` under the repo's `phase39b`/`phase39c` letter suffix.
+  These suites read the 3D component sources and the shared primitives
+  (`BuildingFoundation`, `WallCornice`, `CornerQuoins`, `RomanGabledRoof`) by regex and
+  compare only pairs that share **both** an X and a Y band, so a pair whose vertical bands
+  never meet (the two eave cornices sit at 5.55 and 4.75) is not evaluated — a name-based
+  `clearanceOf()` assertion must name a same-band pair. Every rotation in these two
+  buildings is about Z, so each piece's Z extent equals its own box Z dimension exactly:
+  the reported Z clearances are exact rather than AABB approximations.
+
 ## Verifying
 
 - `curl -s localhost:3000/` should return the HTML shell (title: "Sand & Steel: 3D Gladiator Arena RPG").

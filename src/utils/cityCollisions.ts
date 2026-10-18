@@ -100,7 +100,8 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'smithing_forge',
     name: 'Imperial Smithing Forge',
     subtitle: 'Armory & Weaponsmith',
-    position: [18, 0, 2],
+    // Phase C-8.19: follows the SmithingForge root relocation (Z 2 → 2.6).
+    position: [18, 0, 2.6],
     radius: 4.5,
     icon: 'Hammer',
     tabKey: 'shop',
@@ -522,7 +523,10 @@ export function resolveCityMovement(
 //   town_gate         [0, 20]    — 1.35 S of ishtar-central front edge (z=21.35)
 //   colosseum         [0, -23]   — preserved (already safe, inside Colosseum ring)
 //   training_yard     [-18, 2]   — preserved (already safe, inside yard ring)
-//   smithing_forge    [11.5, 2]  — 1.5 W of forge west edge (x=13.0)
+//   smithing_forge    [11.5, 2.6] — 1.5 W of forge west edge (x=13.0), on the
+//                                  forge root's centre line.  Phase C-8.19 moved
+//                                  the forge root Z 2 → 2.6, so the arrival's
+//                                  (-6.5, 0) offset from the root is preserved.
 //   general_store     [17, -5]   — 1.15 W of store west edge (x=18.15)
 //   tavern            [-10, 14]  — 1.3 E of tavern east edge (x=-11.3)
 //   caravanserai      [10, 14]   — 1.2 W of caravanserai west edge (x=11.2)
@@ -555,7 +559,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   town_gate:          [0, 20],
   colosseum:          [0, -23],
   training_yard:      [-18, 2],
-  smithing_forge:     [11.5, 2],
+  smithing_forge:     [11.5, 2.6],
   general_store:      [17, -5],
   tavern:             [-10, 14],
   caravanserai:       [10, 14],
