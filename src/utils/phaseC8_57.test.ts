@@ -631,8 +631,8 @@ describe('C-8.57 §F — the portico stays symmetrical about the entrance axis',
 
 describe('C-8.57 §G — the collider, hub and fast travel are untouched', () => {
   test('the registry still holds the same colliders and the same hall rectangle', () => {
-    // 110 before Phase C-8.64A; the +26 are its own `circus-*` segments.
-    expect(CITY_COLLIDERS.length).toBe(136);
+    // 110 before Phase C-8.64A; the +31 are its own `circus-*` segments.
+    expect(CITY_COLLIDERS.length).toBe(141);
     expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
     expect(vetRect()).toMatchObject({ type: 'rect', id: 'veteran-hall', cx: -24, cz: -25, hw: 3.3, hd: 3.05 });
     expect(shapesSrc.includes("RECT('veteran-hall', -24, -25, 6.6, 6.1)")).toBe(true);

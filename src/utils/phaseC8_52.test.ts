@@ -573,9 +573,9 @@ describe('E. No new interpenetration, and the veranda is unchanged around the sl
 
 describe('F. Nothing else moved', () => {
   test('the collision registry is exactly the one C-8.45 left, plus C-8.64A\'s segments', () => {
-    // 110 was the C-8.45 count; Phase C-8.64A appended its 26 `circus-*`
+    // 110 was the C-8.45 count; Phase C-8.64A appended its 31 `circus-*`
     // perimeter segments.
-    expect(CITY_COLLIDERS.length).toBe(136);
+    expect(CITY_COLLIDERS.length).toBe(141);
     expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
     const ids = CITY_COLLIDERS.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);

@@ -187,8 +187,9 @@ describe('A. The registry carries exactly one training-hall rectangle', () => {
   test('the registry grew by exactly one collider and one rectangle', () => {
     // 109 colliders / 30 rectangles was the C-8.43 state (C-8.38 left 109).
     // This phase's own addition is the one rectangle below; Phase C-8.64A later
-    // appended 26 `circus-*` segments (110 → 136 colliders, rectangles 31).
-    expect(CITY_COLLIDERS.length).toBe(136);
+    // appended its `circus-*` segments — 31 after the entrance-alignment
+    // closure (110 → 141 colliders, rectangles 31).
+    expect(CITY_COLLIDERS.length).toBe(141);
     expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
   });
 
@@ -494,8 +495,8 @@ describe('H. Control: the C-8.44 defect reproduces without the collider', () => 
   });
 
   test('the shipped registry is intact again after the control', () => {
-    // 136 since Phase C-8.64A appended its 26 `circus-*` perimeter segments.
-    expect(CITY_COLLIDERS.length).toBe(136);
+    // 141 since Phase C-8.64A appended its 31 `circus-*` perimeter segments.
+    expect(CITY_COLLIDERS.length).toBe(141);
     expect(CITY_COLLIDERS.filter((c) => c.id === 'training-hall').length).toBe(1);
     expect(collidesWith(HALL_CX, HALL_CZ, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
   });

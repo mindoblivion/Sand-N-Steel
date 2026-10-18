@@ -856,9 +856,9 @@ describe('C-8.60 §E — the C-8.57 portico and eave arrangement is untouched', 
 
 describe('C-8.60 §F — no collider, hub or arrival moved', () => {
   test('the registry is the one C-8.57 left, plus C-8.64A\'s segments', () => {
-    // 110 was the C-8.57 count; Phase C-8.64A appended its 26 `circus-*`
+    // 110 was the C-8.57 count; Phase C-8.64A appended its 31 `circus-*`
     // perimeter segments.
-    expect(CITY_COLLIDERS.length).toBe(136);
+    expect(CITY_COLLIDERS.length).toBe(141);
     expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
     expect(vetRect()).toMatchObject({ type: 'rect', id: 'veteran-hall', cx: -24, cz: -25, hw: 3.3, hd: 3.05 });
     expect(shapesSrc.includes("RECT('veteran-hall', -24, -25, 6.6, 6.1)")).toBe(true);

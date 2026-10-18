@@ -559,9 +559,9 @@ describe('F. Hub interaction and fast travel (C-8.47 configuration)', () => {
 
 describe('G. Nothing else moved', () => {
   test('the collision registry is unchanged', () => {
-    // 110 before Phase C-8.64A; the +26 are its own `circus-*` segments, and
+    // 110 before Phase C-8.64A; the +31 are its own `circus-*` segments, and
     // every pre-existing collider and id is untouched.
-    expect(CITY_COLLIDERS.length).toBe(136);
+    expect(CITY_COLLIDERS.length).toBe(141);
     expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
     const ids = CITY_COLLIDERS.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);

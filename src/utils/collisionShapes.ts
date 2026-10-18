@@ -806,6 +806,41 @@ const mottePerimeterSegments: SegmentCollider[] = arcSegments(
 // there and never inside it.  Each straight flank is one segment: it is exactly
 // straight, so there is no sagitta to bound.
 //
+// NO OPENINGS — the ring is CLOSED (Phase C-8.64A entrance/collision alignment).
+// The C-8.64A ship left an opening at each axial end, sized from the structure
+// that forms the entrance (18.00 at the carceres, 7.92 at the north tip).  Both
+// were re-measured against the shipping asset with an exact body-cylinder sweep
+// — the real triangles against a 0.4-radius, 1.70-tall cylinder, at every height
+// in the player's band, over the whole entrance cross-section — and neither
+// corresponds to a rendered opening a player can enter:
+//
+//   • carceres end (south)   The arcade is TWELVE through-openings of 0.49–0.51
+//     (pitch 1.35, the first on X ≈ 44.66, the last ending X ≈ 60.02) pierced
+//     through the 1.85-high block, and every one narrows with height (0.280 at
+//     Y 1.30).  None is anywhere near the 0.80 player diameter at any height,
+//     and the sweep finds no player-sized column on the block's front line
+//     (Z 46.00) or through its 2.20 depth.
+//   • north end              The sphendone's tip is solid stone at ground level
+//     from the shell's north extreme (Z −30.157) south to Z ≈ −27.8 across the
+//     whole mouth; its only ground-level voids are slivers no wider than 0.45
+//     (0.09 at Z −29.72, X ≈ 50.3 and ≈ 54.4) that do not pass through.  The
+//     7.92 mouth was therefore a collider-only feature with nothing rendered
+//     behind it.
+//
+// So the ring is closed around the measured ground-level silhouette and every
+// collider opening is gone, because there is no real player-sized rendered
+// opening to align one with.  The GLB ships byte-identical: the arena simply
+// cannot be entered until an approved art/geometry change widens a gate past the
+// player's 0.80 diameter.  Walking in from the apron, the player is stopped at
+// Z 46.40 against the carceres' own front face and at the cap chords around the
+// tip, never inside rendered stone.
+//
+// This phase models the perimeter only: the seating banks, the carceres piers
+// and the spina still deliberately have **no** colliders.  They all now lie
+// inside the closed ring, which the player can no longer reach, so the interior
+// is documented as unreachable rather than collided.
+//
+// (Superseded narrative, kept for the record:)
 // TWO OPENINGS, one at each axial end, each sized from the structure that forms
 // the entrance, and neither closed by a collider:
 //   • carceres end (south)       X 43.34 … 61.34  — 18.00, the arcade's span.
@@ -837,7 +872,12 @@ export const CIRCUS_SOUTH_Z = 43.8;
 export const CIRCUS_CARCERES_WEST_X = 43.34;
 export const CIRCUS_CARCERES_EAST_X = 61.34;
 export const CIRCUS_CARCERES_FRONT_Z = 46.0;
-/** Triumphal arch (Travertine_30): the north opening's span. */
+/**
+ * Triumphal arch (Travertine_30) — the measured span of an INTERIOR monument
+ * standing on the arena floor 4.6 south of the ring's north cap, not a gate.
+ * Kept exported as the measured fact it is; it no longer bounds any mouth,
+ * because the ring is closed.  Its three passages are 0.700 / 1.380 / 0.700.
+ */
 export const CIRCUS_ARCH_WEST_X = 49.84;
 export const CIRCUS_ARCH_EAST_X = 54.84;
 /** Where the shell's straight flanks end and the sphendone begins. */
@@ -860,12 +900,27 @@ export const CIRCUS_WEST_OUTLINE: ReadonlyArray<readonly [number, number]> = [
   [45.01, -28.5],
   [46.09, -29.25],
   [47.07, -29.75],
-  // The ring's north end.  This is the measured ±0.6-window minimum at its own
-  // Z, like every point above — NOT the triumphal arch's west edge (49.84),
-  // which stands 4.6 units SOUTH of here, inside the arena, and is 1.460 inside
-  // the stone on this line.  The window minimum at this Z is the sphendone's
-  // shoulder at z −29.587 (Marble_01, X 48.380, Y −0.05 … 4.01).
+  // The west end of the north cap.  This is the measured ±0.6-window minimum at
+  // its own Z, like every point above — NOT the triumphal arch's west edge
+  // (49.84), which stands 4.6 units SOUTH of here, inside the arena, and is
+  // 1.460 inside the stone on this line.  The window minimum at this Z is the
+  // sphendone's shoulder at z −29.587 (Marble_01, X 48.380, Y −0.05 … 4.01).
   [48.38, -30.08],
+  // ── The north cap (Phase C-8.64A entrance/collision alignment) ──
+  // These two points close the ring across the old 7.92 mouth, which had no
+  // rendered opening behind it: the sphendone's tip is solid stone at ground
+  // level from Z −30.157 (the shell's own north extreme) south to Z ≈ −27.8
+  // across the whole mouth, and its only voids there are sub-0.5 slivers that
+  // do not pass through.  The cap does NOT follow the stone — it is laid in open
+  // air NORTH of it, so no rendered geometry is left outside the ring and the
+  // player is stopped before the stone rather than inside it.  Measured against
+  // the shipping asset with the body-cylinder sweep, the cap's chords clear the
+  // player-blocked boundary by 0.14–0.18 at every sample (the boundary reaching
+  // its northmost Z −30.45 on the axis), while the tip's own stone stops at
+  // Z −30.157.  The apex is on the arena axis, so it is its own mirror and the
+  // two halves of the ring meet there with no dangling end.
+  [50.0, -30.5],
+  [CIRCUS_AXIS_X, -30.65],
 ];
 
 /** Mirror a west-side point onto the east side (the asset is symmetric). */
@@ -882,12 +937,19 @@ function circusSegment(
 }
 
 const circusPerimeter: SegmentCollider[] = [
-  // South face, west and east of the carceres opening (18.00 clear between).
+  // South face, west and east of the carceres block.
   circusSegment('circus-south-w', CIRCUS_WEST_X, CIRCUS_SOUTH_Z, CIRCUS_CARCERES_WEST_X, CIRCUS_SOUTH_Z),
   circusSegment('circus-south-e', CIRCUS_EAST_X, CIRCUS_SOUTH_Z, CIRCUS_CARCERES_EAST_X, CIRCUS_SOUTH_Z),
-  // The carceres block's two cheeks, out to its front face.
+  // The carceres block's two cheeks, out to its front face…
   circusSegment('circus-carceres-w', CIRCUS_CARCERES_WEST_X, CIRCUS_SOUTH_Z, CIRCUS_CARCERES_WEST_X, CIRCUS_CARCERES_FRONT_Z),
   circusSegment('circus-carceres-e', CIRCUS_CARCERES_EAST_X, CIRCUS_SOUTH_Z, CIRCUS_CARCERES_EAST_X, CIRCUS_CARCERES_FRONT_Z),
+  // …and across it, which is the arcade's own face plane (Travertine_25's
+  // Z 46.00) and therefore exactly ON the silhouette.  The block's twelve
+  // through-openings are 0.49–0.51 wide and capped well below the player's
+  // height, so a 0.4-radius body cannot enter any of them: this segment is the
+  // ground-level continuation of the arcade across the whole block, and closes
+  // what used to be the 18.00 mouth.
+  circusSegment('circus-carceres-front', CIRCUS_CARCERES_WEST_X, CIRCUS_CARCERES_FRONT_Z, CIRCUS_CARCERES_EAST_X, CIRCUS_CARCERES_FRONT_Z),
   // The two straight flanks, one segment each.
   circusSegment('circus-flank-w', CIRCUS_WEST_X, CIRCUS_SOUTH_Z, CIRCUS_WEST_X, CIRCUS_OVAL_START_Z),
   circusSegment('circus-flank-e', CIRCUS_EAST_X, CIRCUS_SOUTH_Z, CIRCUS_EAST_X, CIRCUS_OVAL_START_Z),

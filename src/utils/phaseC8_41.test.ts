@@ -678,10 +678,11 @@ describe('H. The kerb adds no collision geometry', () => {
     }
     expect(inBand).toEqual([]);
     // 109 was the count C-8.38 left; Phase C-8.45 appended the single
-    // 'training-hall' building rectangle, and Phase C-8.64A appended its 26
-    // `circus-*` perimeter segments — unrelated registry additions the kerb
-    // itself did not make, and the 110 pre-existing colliders are unchanged.
-    expect(CITY_COLLIDERS.length).toBe(136);
+    // 'training-hall' building rectangle, and Phase C-8.64A appended its
+    // `circus-*` perimeter segments — 31 of them after the entrance-alignment
+    // closure, i.e. 141 — unrelated registry additions the kerb itself did not
+    // make, and the 110 pre-existing colliders are unchanged.
+    expect(CITY_COLLIDERS.length).toBe(141);
   });
 
   test('the kerb module imports nothing from the collision system', () => {
