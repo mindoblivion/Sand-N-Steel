@@ -52,8 +52,9 @@ import { DECK_UNDERSIDE_Y, DECK_Z_INNER, DECK_Z_OUTER, BEAM_WIDTH } from '../com
 const EPS = 1e-6;
 
 // ── Fortress constants (must match collisionShapes.ts) ─────────────────────
-const FORTRESS_SOUTH_Z = -61.0;
-const FORTRESS_CENTER_Z = -71.5;
+// Phase C-8.37: both follow the motte centre rather than a restated world Z.
+const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -66.0
+const FORTRESS_CENTER_Z = MOTTE_CENTER_Z; // -76.5
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. Bridge Fits Inside the Moat Angular Opening
@@ -79,17 +80,19 @@ describe('Bridge fits inside moat angular opening', () => {
   });
 
   test('bridge span covers the moat ring at south', () => {
-    // Moat at south: inner edge Z = -71.5 + 25.0 = -46.5 (C-8.36), outer edge
-    // Z = -71.5 + 31.0 = -40.5.  The drawn deck (DECK_Z_OUTER … DECK_Z_INNER)
-    // spans the ring end to end, so the water runs beneath the whole crossing.
+    // Moat at south: inner edge Z = -76.5 + 25.0 = -51.5, outer edge
+    // Z = -76.5 + 31.0 = -45.5 (Phase C-8.37 moved the whole group 5.0 north).
+    // The drawn deck (DECK_Z_OUTER … DECK_Z_INNER) spans the ring end to end,
+    // so the water still runs beneath the whole crossing.
     const moatInnerZ = MOTTE_CENTER_Z + MOAT_INNER_RADIUS;
     const moatOuterZ = MOTTE_CENTER_Z + MOAT_OUTER_RADIUS;
     expect(DECK_Z_OUTER).toBeGreaterThanOrEqual(moatOuterZ - 0.1);
     expect(DECK_Z_INNER).toBeLessThanOrEqual(moatInnerZ + 0.1);
-    // The shared terrain constants this suite pins are unchanged: the terrain
-    // stays flat at Y = 0 across the whole region either way.
-    expect(BRIDGE_Z_OUTER).toBe(-40.5);
-    expect(BRIDGE_Z_INNER).toBe(-46.0);
+    // The shared terrain constants moved with the group and keep their offsets
+    // from the motte centre: +31.0 (outer shoreline) and +25.5 (0.5 short of
+    // the deck's own north end).  The terrain stays flat at Y = 0 either way.
+    expect(BRIDGE_Z_OUTER).toBe(MOTTE_CENTER_Z + MOAT_OUTER_RADIUS);
+    expect(BRIDGE_Z_INNER).toBe(MOTTE_CENTER_Z + MOAT_INNER_RADIUS + 0.5);
   });
 
   test('bridge is centered at X=0 (aligned with south opening)', () => {
@@ -128,8 +131,11 @@ describe('Old ramp mesh hidden via runtime visibility', () => {
   test('Ramp_Dirt mesh name constant is preserved for reference', () => {
     // The legacy constants are kept in terrainHeight.ts for test migration
     expect(RAMP_HALF_WIDTH).toBeCloseTo(2.8305, 3);
-    expect(RAMP_Z_OUTER).toBeCloseTo(-48.227, 2);
-    expect(RAMP_Z_INNER).toBeCloseTo(-58.92, 1);
+    // Phase C-8.37: the legacy ramp bounds are derived from MOTTE_CENTER_Z, so
+    // they moved 5.0 north with the mound (-48.227 → -53.227).
+    expect(RAMP_Z_OUTER).toBeCloseTo(MOTTE_CENTER_Z + 23.273, 2);
+    expect(RAMP_Z_OUTER).toBeCloseTo(-53.227, 2);
+    expect(RAMP_Z_INNER).toBeCloseTo(-63.92, 1);
   });
 });
 
@@ -332,9 +338,10 @@ describe('Preserved fast-travel and collision boundaries', () => {
     expect(() => clearRecoveryHistory()).not.toThrow();
   });
 
-  test('boundary limits are unchanged', () => {
+  test('boundary limits keep their derivation (C-8.37 moved the north limit)', () => {
     expect(BOUNDARY_X).toBe(35);
-    expect(BOUNDARY_Z_MIN).toBe(-91);
+    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -96.
+    expect(BOUNDARY_Z_MIN).toBe(-96);
     expect(BOUNDARY_Z_MAX).toBe(35);
   });
 

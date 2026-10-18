@@ -9,15 +9,21 @@
  * district sits.  It measured 140 × 140 centred at Z = 0, so the ground stopped
  * at Z = -70 while:
  *
- *   - the walkable northern movement envelope reaches Z = -91 (BOUNDARY_Z_MIN),
- *   - the motte mesh footprint ends at Z = -96.66,
- *   - the visible moat ring ends at Z = -102.5,
+ *   - the walkable northern movement envelope reaches Z = -96 (BOUNDARY_Z_MIN;
+ *     -91 before Phase C-8.37 moved the northern group north),
+ *   - the motte mesh footprint ends at Z = -101.66 (-96.66 pre-shift),
+ *   - the visible moat ring ends at Z = -107.5 (-102.5 pre-shift),
  *
  * leaving a reachable northern area where the player walked on nothing.
  *
  * The shipped correction resizes that single plane — no second plane, no extra
- * draw call — to 140 × 174 centred at [0, -0.05, -17], i.e. world
- * X[-70, 70], Z[-104, 70] at Y = -0.05, keeping the south edge at Z = +70.
+ * draw call — to 140 × 179 centred at [0, -0.05, -19.5], i.e. world
+ * X[-70, 70], Z[-109, 70] at Y = -0.05, keeping the south edge at Z = +70.
+ * Phase C-8.37 moved the motte, its moat, the drawbridge and the fortress 5.0
+ * units north, and the plane's north edge followed by exactly that: the
+ * margins this phase measured (1.5 past the moat ring, 7.34 past the motte mesh
+ * bound, 13 past the walkable limit) are unchanged, so every coverage rule
+ * below holds at the new position exactly as it did at the old one.
  *
  * How this suite validates the plane
  * ----------------------------------
@@ -153,8 +159,8 @@ describe('Ground plane AABB matches its dimensions and position', () => {
     expect(GROUND_PLANE_CENTER[2] + GROUND_PLANE_DEPTH / 2).toBe(GROUND_PLANE_SOUTH_Z);
   });
 
-  test('the plane reaches Z = -104 after the extension', () => {
-    expect(GROUND_PLANE_NORTH_Z).toBe(-104);
+  test('the plane reaches Z = -109 after the C-8.37 extension', () => {
+    expect(GROUND_PLANE_NORTH_Z).toBe(-109);
     expect(GROUND_PLANE_DEPTH).toBe(GROUND_PLANE_SOUTH_Z - GROUND_PLANE_NORTH_Z);
   });
 
@@ -184,7 +190,9 @@ describe('Ground plane AABB matches its dimensions and position', () => {
 describe('Ground covers the walkable movement envelope with ≥3 units of margin', () => {
   test('the walkable envelope is the one the extension targeted', () => {
     expect(BOUNDARY_X).toBe(35);
-    expect(BOUNDARY_Z_MIN).toBe(-91);
+    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5; -91 before C-8.37 moved
+    // the motte (and with it the perimeter the limit is derived from) 5.0 north.
+    expect(BOUNDARY_Z_MIN).toBe(-96);
     expect(BOUNDARY_Z_MAX).toBe(35);
   });
 
@@ -222,7 +230,8 @@ describe('Ground covers the walkable movement envelope with ≥3 units of margin
     // BOUNDARY_Z_MIN is north of the pre-phase north edge, so the player could
     // stand there with no ground beneath: 21 units of void.
     expect(BOUNDARY_Z_MIN).toBeLessThan(PHASE_PRE_NORTH_Z);
-    expect(PHASE_PRE_NORTH_Z - BOUNDARY_Z_MIN).toBeCloseTo(21, 6);
+    // 26 since C-8.37 (21 when the limit was -91).
+    expect(PHASE_PRE_NORTH_Z - BOUNDARY_Z_MIN).toBeCloseTo(26, 6);
   });
 });
 

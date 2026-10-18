@@ -9,24 +9,26 @@
  * summit.
  *
  * Measured targets (shipping asset public/_workspace_motte_normals.glb, world
- * transform position [0,0,-71.5], scale 0.3145; sampled along X = 0):
+ * transform position [0,0,-76.5] since Phase C-8.37, scale 0.3145; sampled
+ * along X = 0):
  *
- *   Motte_Grass southern rim      Z = -46.34, surface Y = 0.00
- *   Grass surface crosses Y = 0   Z = -52.00 (rising slope begins there)
+ *   Motte_Grass southern rim      Z = -51.34, surface Y = 0.00
+ *   Grass surface crosses Y = 0   Z = -57.00 (rising slope begins there)
  *   Visible moat water surface    Y = 0.06   (ring, MOAT_WATER_Y)
- *   Moat ring span at south       Z = -45.70 (inner) → -40.50 (outer)
+ *   Moat ring span at south       Z = -51.50 (inner) → -45.50 (outer)
  *
  * Dimensions (world space, centered at X=0):
- *   Span:   Z = -40.5 (city side) → Z = -46.5 (motte side), 6.0 units long
- *   Width:  4 units (X ±2.0), fits inside moat gap linear width ≈ 9.24
+ *   Span:   Z = -45.5 (city side) → Z = -51.5 (motte side), 6.0 units long
+ *   Width:  4 units (X ±2.0), inside the rear gate's 5.40 clear width
  *   Deck:   top Y = 0.16 (unchanged walking surface), underside Y = 0.09 —
  *           0.03 above the moat water surface at Y = 0.06
  *
  * Phase Drawbridge Alignment 2 (deck alignment):
- *   - The north end was extended 0.5 units (Z = -46.0 → -46.5) so the deck
- *     visibly overlaps the motte's southern grass rim at Z = -46.34 by 0.16,
- *     removing the 0.34-unit gap.  It stays 5.5 units south of the rising
- *     mound slope (Z = -52.00), so it does not clip into the mound.
+ *   - The north end was extended 0.5 units (Z = -51.0 → -51.5 since C-8.37)
+ *     so the deck visibly overlaps the motte's southern grass rim at
+ *     Z = -51.34 by 0.16, removing the 0.34-unit gap.  It stays 5.5 units
+ *     south of the rising mound slope (Z = -57.00), so it does not clip into
+ *     the mound.
  *     The shared constants in terrainHeight.ts are deliberately untouched:
  *     terrain is flat at Y = 0 across this whole region, so the visible
  *     extension changes no gameplay height or collision behaviour.
@@ -69,15 +71,20 @@ export const HINGE_RADIUS = 0.08;
 export const HINGE_RAISE = 0.04;
 
 // ── Deck span ───────────────────────────────────────────────────────────────
-// South end: the moat's outer edge / city approach (BRIDGE_Z_OUTER = -40.5).
+// Both ends come from terrainHeight's northern-group constants, so the bridge
+// moves wherever the motte, its moat and its fortress move (Phase C-8.37).
+// South end: the moat's outer shoreline / city approach (BRIDGE_Z_OUTER
+// = -45.5) — the bank the deck lands on, now 1.2 units north of the rear gate
+// face (Z = -44.3): the 5.0-unit shift minus the 3.8 by which the deck used to
+// lie inside the gateway.
 // North end: 0.5 units past the shared terrain constant so the deck overlaps
-// the motte grass rim (Z = -46.34) by 0.16 with no visible gap.
+// the motte grass rim (Z = -51.34) by 0.16 with no visible gap.
 export const DECK_Z_OUTER = BRIDGE_Z_OUTER;
-export const DECK_Z_INNER = BRIDGE_Z_INNER - 0.5; // -46.5
+export const DECK_Z_INNER = BRIDGE_Z_INNER - 0.5; // -51.5
 export const DECK_LENGTH = DECK_Z_OUTER - DECK_Z_INNER; // 6.0
 
 // Bridge center (midpoint of span)
-export const DECK_CENTER_Z = (DECK_Z_OUTER + DECK_Z_INNER) / 2; // -43.5
+export const DECK_CENTER_Z = (DECK_Z_OUTER + DECK_Z_INNER) / 2; // -48.5
 
 // Wood material (reused across deck + beams)
 const woodMaterial = new THREE.MeshStandardMaterial({

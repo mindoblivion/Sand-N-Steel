@@ -241,12 +241,19 @@ describe('B. buryMotteFlange sinks the flange below the ground plane', () => {
 describe('C. The mound, the terrain contract and the route are untouched', () => {
   test('the south approach profile the player walks up is byte-identical', () => {
     // The cardinal-south line of the mesh, before and after, unchanged: summit
-    // edge at world Z = -58.92 (Y 4.7175) and the visible foot at -52.00 (Y 0).
-    // Keyed by the mesh's own cardinal-south vertices (model X ≈ 0, model
-    // Y < 0): summit edge, a mid-slope ring and the visible foot, with the
-    // world Z / world Y pairs measured from the shipping asset.
+    // edge 12.58 out from the motte centre (Y 4.7175) and the visible foot at
+    // 19.499 out (Y 0).  Keyed by the mesh's own cardinal-south vertices (model
+    // X ≈ 0, model Y < 0): summit edge, a mid-slope ring and the visible foot,
+    // with the world Z / world Y pairs measured from the shipping asset — the
+    // world Z is the centre plus that radius, so it follows MOTTE_CENTER_Z
+    // (Phase C-8.37 moved the whole group 5.0 north; the mesh itself, and every
+    // byte of it, is unchanged).
     const cardinal = MOUND_INDICES.filter((i) => Math.abs(modelX(i)) < 0.6 && modelY(i) < 0);
-    for (const [my, wZ, wY] of [[-40, -58.92, 4.7175], [-51, -55.46, 2.3588], [-62, -52.001, 0]] as const) {
+    for (const [my, wZ, wY] of [
+      [-40, MOTTE_CENTER_Z + 12.58, 4.7175],
+      [-51, MOTTE_CENTER_Z + 16.04, 2.3588],
+      [-62, MOTTE_CENTER_Z + 19.499, 0],
+    ] as const) {
       const verts = cardinal.filter((i) => Math.abs(modelY(i) - my) < 1e-3);
       expect(verts.length).toBeGreaterThan(0);
       for (const i of verts) {
@@ -261,9 +268,9 @@ describe('C. The mound, the terrain contract and the route are untouched', () =>
   });
 
   test('getTerrainY still mirrors the rendered mound at the foot and the summit', () => {
-    expect(getTerrainY(0, -52.001)).toBe(0);              // visible slope foot
+    expect(getTerrainY(0, MOTTE_CENTER_Z + SUMMIT_SLOPE_FOOT_RADIUS)).toBe(0); // visible slope foot
     expect(getTerrainY(0, MOTTE_CENTER_Z + SUMMIT_CARDINAL_RADIUS)).toBeCloseTo(SUMMIT_Y, 10);
-    expect(getTerrainY(0, -46)).toBe(0);                  // drawbridge inner end
+    expect(getTerrainY(0, BRIDGE_Z_INNER)).toBe(0);       // drawbridge inner end
     expect(isOnBridge(0, BRIDGE_Z_INNER)).toBe(true);
   });
 
@@ -320,8 +327,10 @@ describe('C. The mound, the terrain contract and the route are untouched', () =>
     expect(SUMMIT_SLOPE_FOOT_RADIUS).toBeCloseTo(19.499, 3);
     expect(MOTTE_PERIMETER_RADIUS).toBe(22.0);            // collision only
     expect(MOTTE_SCALE).toBe(0.3145);
-    expect(BRIDGE_Z_INNER).toBe(-46.0);
-    expect(BRIDGE_Z_OUTER).toBe(-40.5);
+    // Phase C-8.37 moved the northern group 5.0 north; the bridge kept its
+    // offsets from the motte centre (+25.5 / +31.0).
+    expect(BRIDGE_Z_INNER).toBe(MOTTE_CENTER_Z + 25.5);   // -51.0
+    expect(BRIDGE_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0);   // -45.5
     expect(DECK_TOP_Y).toBeCloseTo(0.16, 6);
     // The C-8.33 rear-gate seals are still in the registry, and the northern
     // structures it depends on are unchanged.

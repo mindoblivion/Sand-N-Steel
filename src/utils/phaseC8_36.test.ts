@@ -429,19 +429,23 @@ describe('F. Everything but the water mesh is untouched', () => {
     expect(isOnBridge(0, (BRIDGE_Z_OUTER + BRIDGE_Z_INNER) / 2)).toBe(true);
   });
 
-  test('bridge, terrain and bridge-span constants are unchanged', () => {
+  test('bridge, terrain and bridge-span constants keep their C-8.36 relationships', () => {
     expect(BRIDGE_HALF_WIDTH).toBe(2.0);
-    expect(BRIDGE_Z_OUTER).toBe(-40.5);
-    expect(BRIDGE_Z_INNER).toBe(-46.0);
-    expect(DECK_Z_OUTER).toBe(-40.5);
-    expect(DECK_Z_INNER).toBe(-46.5);
+    // Phase C-8.37 moved the whole northern group 5.0 north (MOTTE_CENTER_Z
+    // -71.5 → -76.5) to open separation from the Colosseum.  Every span below
+    // keeps the offset from the motte centre that C-8.36 pinned, so the water
+    // still meets the deck exactly end for end; only the group's Z moved.
+    expect(BRIDGE_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0); // -45.5, outer shoreline
+    expect(BRIDGE_Z_INNER).toBe(MOTTE_CENTER_Z + 25.5); // -51.0
+    expect(DECK_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0);   // -45.5
+    expect(DECK_Z_INNER).toBe(MOTTE_CENTER_Z + 25.0);   // -51.5, inner shoreline
+    expect(MOTTE_CENTER_Z).toBe(-76.5);
     expect(DECK_TOP_Y).toBeCloseTo(0.16, 6);
     expect(DECK_THICKNESS).toBeCloseTo(0.07, 6);
     expect(BEAM_WIDTH).toBeCloseTo(0.22, 6);
     expect(BEAM_HEIGHT).toBeCloseTo(0.28, 6);
     expect(SUMMIT_Y).toBeCloseTo(4.7175, 6);
     expect(MOTTE_SCALE).toBe(0.3145);
-    expect(MOTTE_CENTER_Z).toBe(-71.5);
     expect(MOTTE_PERIMETER_RADIUS).toBe(22.0);
   });
 

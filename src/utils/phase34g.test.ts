@@ -56,9 +56,11 @@ const HALF_MM = 5e-4;
 
 // ── Fortress constants (must match collisionShapes.ts) ─────────────────────
 const FORTRESS_HALF_W = 10.5; // 21 * 0.30 / 2
-const FORTRESS_SOUTH_Z = -61.0; // -71.5 + 10.5
-const FORTRESS_NORTH_Z = -82.0; // -71.5 - 10.5
-const FORTRESS_CENTER_Z = -71.5;
+// Phase C-8.37: the fortress moved with its motte, so these follow the module
+// constant rather than restating a world Z (-76.5 + 10.5 = -66.0).
+const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -66.0
+const FORTRESS_NORTH_Z = MOTTE_CENTER_Z - 10.5; // -87.0
+const FORTRESS_CENTER_Z = MOTTE_CENTER_Z; // -76.5
 const GATE_HALF_GAP = 1.0;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -600,8 +602,10 @@ describe('Collision recovery', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Boundary and Colosseum clearance', () => {
-  test('BOUNDARY_Z_MIN is -91', () => {
-    expect(BOUNDARY_Z_MIN).toBe(-91);
+  test('BOUNDARY_Z_MIN tracks the motte perimeter it is derived from', () => {
+    // Phase C-8.37: MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -96.
+    expect(BOUNDARY_Z_MIN).toBe(MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5);
+    expect(BOUNDARY_Z_MIN).toBe(-96);
   });
 
   test('motte perimeter north point is within boundary', () => {
@@ -643,9 +647,10 @@ describe('Boundary and Colosseum clearance', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Hub location', () => {
-  test('northern_fortress hub location Z is -71.5', () => {
+  test('northern_fortress hub location sits on the motte centre', () => {
     const loc = HUB_LOCATIONS.find(l => l.id === 'northern_fortress');
     expect(loc).toBeDefined();
-    expect(loc!.position[2]).toBe(-71.5);
+    expect(loc!.position[2]).toBe(MOTTE_CENTER_Z);
+    expect(loc!.position[2]).toBe(-76.5); // Phase C-8.37: was -71.5
   });
 });

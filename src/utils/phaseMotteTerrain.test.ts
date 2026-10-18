@@ -63,20 +63,23 @@ const EPS = 1e-6;
 const MESH_TOL = 0.01; // sampling/rounding tolerance against the GLB profile
 
 // ── Measured visible grass surface along the south approach (X = 0) ─────────
-// From a downward raycast onto the shipping Motte_Grass mesh.
+// From a downward raycast onto the shipping Motte_Grass mesh.  Phase C-8.37
+// moved the mesh 5.0 north with the northern group, so every world Z below is
+// the pre-shift sample − 5.0; the heights are the mesh's own and unchanged.
 const MESH_SOUTH_PROFILE: Array<[number, number]> = [
-  [-59, 4.7175],
-  [-58, 4.0902],
-  [-57, 3.4080],
-  [-56, 2.7266],
-  [-55, 2.0450],
-  [-54, 1.3630],
-  [-53, 0.6811],
+  [-64, 4.7175],
+  [-63, 4.0902],
+  [-62, 3.4080],
+  [-61, 2.7266],
+  [-60, 2.0450],
+  [-59, 1.3630],
+  [-58, 0.6811],
 ];
 
 // ── Fortress constants (must match collisionShapes.ts) ─────────────────────
-const FORTRESS_SOUTH_Z = -61.0;
-const FORTRESS_CENTER_Z = -71.5;
+// Phase C-8.37: both follow the motte centre rather than a restated world Z.
+const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -66.0
+const FORTRESS_CENTER_Z = MOTTE_CENTER_Z; // -76.5
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. Gameplay terrain matches the measured visible mesh profile
@@ -202,7 +205,7 @@ describe('Reported defect removed (false elevated terrain at Z=-52)', () => {
 
   test('terrain never exceeds the mesh by more than tolerance on the south approach', () => {
     // Sweep the whole approach at fine resolution against the measured law.
-    for (let z = -52.0; z >= -59.0; z -= 0.1) {
+    for (let z = MOTTE_CENTER_Z + SUMMIT_SLOPE_FOOT_RADIUS; z >= MOTTE_CENTER_Z + SUMMIT_CARDINAL_RADIUS; z -= 0.1) {
       const r = MOTTE_CENTER_Z + SUMMIT_SLOPE_FOOT_RADIUS - z; // distance inward from the foot
       const expected = Math.min(
         SUMMIT_Y,
@@ -256,9 +259,10 @@ describe('Collision perimeter and fortress navigation unchanged', () => {
     expect(getTerrainY(0, FORTRESS_CENTER_Z)).toBeCloseTo(SUMMIT_Y, 3);
   });
 
-  test('world boundary constants are unchanged', () => {
+  test('world boundary constants keep their derivation (north limit moved)', () => {
     expect(BOUNDARY_X).toBe(35);
-    expect(BOUNDARY_Z_MIN).toBe(-91);
+    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -96 (C-8.37).
+    expect(BOUNDARY_Z_MIN).toBe(-96);
     expect(BOUNDARY_Z_MAX).toBe(35);
   });
 });

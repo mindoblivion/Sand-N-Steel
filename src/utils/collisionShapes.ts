@@ -10,6 +10,8 @@
  * no three.js or React dependency, making them trivially unit-testable.
  */
 
+import { MOTTE_CENTER_Z } from './terrainHeight';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
@@ -672,14 +674,14 @@ const streetWallSegments: SegmentCollider[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Northern Fortress Walls — NorthernFortress.tsx, root [0, 4.72, -71.5]
+// Northern Fortress Walls — NorthernFortress.tsx, root [0, 4.72, -76.5]
 //
 // The fortress model (Z-up, 70×70 ground footprint) is rotated [-π/2, 0, 0]
 // (Z-up → Y-up) and scaled 0.30, giving a 21×21 world footprint centered
-// at [0, -71.5] on the motte summit (Y=4.72).  After rotation, the model's
-// Y axis maps to world -Z, so:
-//   South face (model Y = -35) → world Z = -71.5 + 10.5 = -61.0 (toward city)
-//   North face (model Y = +35) → world Z = -71.5 - 10.5 = -82.0
+// at [0, MOTTE_CENTER_Z] on the motte summit (Y=4.72).  After rotation, the
+// model's Y axis maps to world -Z, so:
+//   South face (model Y = -35) → world Z = MOTTE_CENTER_Z + 10.5 = -66.0 (city side)
+//   North face (model Y = +35) → world Z = MOTTE_CENTER_Z - 10.5 = -87.0
 //   East face  (model X = +35)  → world X = +10.5
 //   West face  (model X = -35)  → world X = -10.5
 //
@@ -693,21 +695,28 @@ const streetWallSegments: SegmentCollider[] = [
 // Phase 34G: colliders shifted north by 8.5 world units (Z: -59.5 → -68)
 // to match the new fortress position on the motte summit.
 // Phase 35F.5: complex shifted north by 3.5 units (Z: -68 → -71.5).
+// Phase C-8.37: the fortress moved with its motte (Z: -71.5 → -76.5).  Every
+// rect is now stated relative to terrainHeight's MOTTE_CENTER_Z — the fortress
+// stands on the summit centre, at the group transform NorthernFortress.tsx
+// itself declares — so the walls follow the mound automatically.
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Model half-footprint 35 × 0.30 — the fortress's 21×21 world footprint. */
+const FORTRESS_HALF_DEPTH = 10.5;
 
 const fortressWallRects: RectCollider[] = [
   // South wall — split at gate gap X ∈ [-1.0, 1.0]
-  RECT('fortress-south-l', -5.75, -61.0, 9.5, 1.2),
-  RECT('fortress-south-r', 5.75, -61.0, 9.5, 1.2),
+  RECT('fortress-south-l', -5.75, MOTTE_CENTER_Z + FORTRESS_HALF_DEPTH, 9.5, 1.2),
+  RECT('fortress-south-r', 5.75, MOTTE_CENTER_Z + FORTRESS_HALF_DEPTH, 9.5, 1.2),
   // North wall — full width
-  RECT('fortress-north', 0, -82.0, 21.0, 1.2),
+  RECT('fortress-north', 0, MOTTE_CENTER_Z - FORTRESS_HALF_DEPTH, 21.0, 1.2),
   // East / West walls — full depth
-  RECT('fortress-east', 10.5, -71.5, 1.2, 21.0),
-  RECT('fortress-west', -10.5, -71.5, 1.2, 21.0),
+  RECT('fortress-east', 10.5, MOTTE_CENTER_Z, 1.2, 21.0),
+  RECT('fortress-west', -10.5, MOTTE_CENTER_Z, 1.2, 21.0),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Northern Motte Perimeter — NorthernMotte.tsx, center [0, 0, -71.5]
+// Northern Motte Perimeter — NorthernMotte.tsx, center [0, 0, -76.5] (C-8.37)
 //
 // The motte is a raised earth mound with a moat ring at model radius ~70
 // (world radius ≈22).  Collision segments around this perimeter prevent
@@ -723,7 +732,8 @@ const fortressWallRects: RectCollider[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MOTTE_R = 22.0;
-const MOTTE_CENTER_Z = -71.5;
+// MOTTE_CENTER_Z comes from terrainHeight (Phase C-8.37) — the same constant
+// the mound, the moat ring, the drawbridge and the fortress are placed with.
 const RAMP_HALF_W = 9 * 0.3145; // 2.8305
 const MOTTE_OPENING_HALF = Math.atan((RAMP_HALF_W + 0.4) / MOTTE_R); // ≈ 0.146 rad
 

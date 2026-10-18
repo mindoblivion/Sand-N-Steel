@@ -54,35 +54,43 @@ const StreetBrazier: React.FC<{ position: [number, number, number] }> = ({ posit
 //
 // Ground Coverage phase: the plane previously measured 140×140 centred at
 // Z = 0, so the ground stopped at Z = -70 while the northern movement
-// envelope reaches Z = -91 (BOUNDARY_Z_MIN in cityCollisions), the motte mesh
-// ends at Z = -96.66 and the visible moat ring at Z = -102.5 — leaving a
-// reachable void where the player walked on nothing north of Z = -70.
-// The depth is extended north to Z = -104 by moving the plane's centre north
-// to Z = -17; the south edge stays at Z = +70 and the elevation stays at
-// Y = -0.05 (below the moat water surface at Y = 0.06). The correction is a
-// pure resize of the existing single plane — no extra mesh, no extra draw
-// call, and no change to its material, lighting or shadow behaviour.
+// envelope reaches beyond it, the motte mesh and the visible moat ring reach
+// further north still — leaving a reachable void where the player walked on
+// nothing north of Z = -70.  The depth was extended north by moving the
+// plane's centre north; the south edge stays at Z = +70 and the elevation
+// stays at Y = -0.05 (below the moat water surface at Y = 0.06). The
+// correction is a pure resize of the existing single plane — no extra mesh,
+// no extra draw call, and no change to its material, lighting or shadow
+// behaviour.
+//
+// Phase C-8.37: the northern group (motte, moat, drawbridge, fortress) moved
+// 5.0 units north (MOTTE_CENTER_Z -71.5 → -76.5), so the plane's north edge
+// followed it by the same 5.0 — from Z = -104 to Z = -109 — keeping exactly
+// the margins the Ground Coverage phase measured: 1.5 units past the moat
+// ring's north extent (-107.5), 7.34 past the motte mesh bound (-101.66) and
+// 13 past the walkable limit (BOUNDARY_Z_MIN, -96).  Only the north edge
+// moves: the south edge, the width and the elevation are untouched.
 export const GROUND_PLANE_WIDTH = 140; // world X extent (unchanged)
-export const GROUND_PLANE_DEPTH = 174; // world Z extent (was 140)
+export const GROUND_PLANE_DEPTH = 179; // world Z extent (was 174)
 export const GROUND_PLANE_ELEVATION_Y = -0.05; // unchanged elevation
 export const GROUND_PLANE_CENTER: [number, number, number] = [
   0,
   GROUND_PLANE_ELEVATION_Y,
-  -17,
+  -19.5,
 ];
 
 // Derived world-space bounds of that plane (centre ∓ half extent).
-export const GROUND_PLANE_NORTH_Z = GROUND_PLANE_CENTER[2] - GROUND_PLANE_DEPTH / 2; // -104
+export const GROUND_PLANE_NORTH_Z = GROUND_PLANE_CENTER[2] - GROUND_PLANE_DEPTH / 2; // -109
 export const GROUND_PLANE_SOUTH_Z = GROUND_PLANE_CENTER[2] + GROUND_PLANE_DEPTH / 2; // +70
 export const GROUND_PLANE_WEST_X = GROUND_PLANE_CENTER[0] - GROUND_PLANE_WIDTH / 2; // -70
 export const GROUND_PLANE_EAST_X = GROUND_PLANE_CENTER[0] + GROUND_PLANE_WIDTH / 2; // +70
 
 // Bump-map tiling. The 140 m plane tiled the clone at 32×32, i.e. 140 / 32 =
 // 4.375 m per tile. Tiling depth is kept at that density by raising the Z
-// repeat to 40 (174 / 40 = 4.35 m per tile, within 0.6 % of 4.375), so the
-// texture stays isotropic instead of stretching ~24 % along Z.
+// repeat with the depth (179 / 41 = 4.366 m per tile, within 0.3 % of 4.375),
+// so the texture stays isotropic instead of stretching along Z.
 export const GROUND_BUMP_REPEAT_X = 32; // 140 / 32 = 4.375 m per tile (unchanged)
-export const GROUND_BUMP_REPEAT_Z = 40; // 174 / 40 = 4.35  m per tile
+export const GROUND_BUMP_REPEAT_Z = 41; // 179 / 41 = 4.366 m per tile
 export const GROUND_BUMP_METERS_PER_TILE_X = GROUND_PLANE_WIDTH / GROUND_BUMP_REPEAT_X;
 export const GROUND_BUMP_METERS_PER_TILE_Z = GROUND_PLANE_DEPTH / GROUND_BUMP_REPEAT_Z;
 
@@ -125,9 +133,10 @@ export const ProcessionAvenue = React.memo(() => {
   return (
     <group>
       {/* 1. VAST MEDITERRANEAN SANDSTONE & TERRACOTTA PLAZA FLOOR (FLAT ON GROUND) */}
-      {/* Ground Coverage phase: single plane extended north to Z = -104 (see the
-          GROUND_PLANE_* constants) so it underlies the full reachable northern
-          envelope, the motte footprint and the visible moat ring. */}
+      {/* Ground Coverage phase: single plane extended north to Z = -109 since
+          Phase C-8.37 (see the GROUND_PLANE_* constants) so it underlies the
+          full reachable northern envelope, the motte footprint and the visible
+          moat ring at their shifted positions. */}
       <mesh
         receiveShadow
         position={GROUND_PLANE_CENTER}

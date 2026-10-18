@@ -73,16 +73,20 @@ import {
 const EPS = 1e-6;
 
 // ── Measured references (shipping asset, sampled along X = 0) ───────────────
-const MOTTE_GRASS_SOUTH_RIM_Z = -46.34; // southernmost Motte_Grass vertex
+// Phase C-8.37: the mesh moved 5.0 north with the northern group, so both
+// measured landmarks are stated relative to the motte centre (the south rim is
+// the mesh's own 80 × 0.3145 = 25.16 base ring; the slope leaves Y = 0 at the
+// visible foot, 19.499 out).
+const MOTTE_GRASS_SOUTH_RIM_Z = MOTTE_CENTER_Z + 25.16; // -51.34
 const MOTTE_GRASS_RIM_Y = 0.0; // its surface height
-const MOTTE_SLOPE_ABOVE_GROUND_Z = -52.0; // first Z where the surface rises
+const MOTTE_SLOPE_ABOVE_GROUND_Z = MOTTE_CENTER_Z + 19.5; // -57.0
 
 // ── Recorded pre-phase deck values (Phase 35E) ──────────────────────────────
 const PHASE_35E_DECK_TOP_Y = 0.16;
 const PHASE_35E_DECK_UNDERSIDE_Y = 0.04;
 
 // ── Fortress reference (must match collisionShapes.ts) ─────────────────────
-const FORTRESS_SOUTH_Z = -61.0;
+const FORTRESS_SOUTH_Z = MOTTE_CENTER_Z + 10.5; // -66.0 (C-8.37)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. The deck reaches the motte approach with no geometric gap
@@ -228,9 +232,13 @@ describe('Deck stays connected to the southern approach', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('getTerrainY unchanged by the deck alignment', () => {
-  test('shared bridge constants are untouched', () => {
-    expect(BRIDGE_Z_OUTER).toBe(-40.5);
-    expect(BRIDGE_Z_INNER).toBe(-46.0);
+  test('shared bridge constants keep their offsets from the motte centre', () => {
+    // Phase C-8.37 moved both ends with the group; the +31.0 (outer shoreline)
+    // and +25.5 (0.5 short of the deck's own north end) offsets are unchanged.
+    expect(BRIDGE_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0);
+    expect(BRIDGE_Z_INNER).toBe(MOTTE_CENTER_Z + 25.5);
+    expect(BRIDGE_Z_OUTER).toBe(-45.5);
+    expect(BRIDGE_Z_INNER).toBe(-51.0);
     expect(BRIDGE_HALF_WIDTH).toBe(2.0);
     expect(isOnBridge(0, (BRIDGE_Z_OUTER + BRIDGE_Z_INNER) / 2)).toBe(true);
   });
@@ -244,12 +252,13 @@ describe('getTerrainY unchanged by the deck alignment', () => {
   });
 
   test('measured motte slope samples still match getTerrainY', () => {
+    // Mesh samples shifted 5.0 north with the mound (C-8.37); heights unchanged.
     const samples: Array<[number, number]> = [
-      [-52.5, 0.3402],
-      [-53.0, 0.6811],
-      [-54.0, 1.3630],
-      [-55.0, 2.0448],
-      [-59.0, 4.7175],
+      [-57.5, 0.3402],
+      [-58.0, 0.6811],
+      [-59.0, 1.3630],
+      [-60.0, 2.0448],
+      [-64.0, 4.7175],
     ];
     for (const [z, meshY] of samples) {
       expect(Math.abs(getTerrainY(0, z) - meshY)).toBeLessThan(0.01,
@@ -291,9 +300,10 @@ describe('Collision, navigation and bounds unchanged', () => {
     expect(collidesWith(ax, az, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
   });
 
-  test('world boundary constants are unchanged', () => {
+  test('world boundary constants keep their derivation (north limit moved)', () => {
     expect(BOUNDARY_X).toBe(35);
-    expect(BOUNDARY_Z_MIN).toBe(-91);
+    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -96 (C-8.37).
+    expect(BOUNDARY_Z_MIN).toBe(-96);
     expect(BOUNDARY_Z_MAX).toBe(35);
   });
 });

@@ -549,27 +549,43 @@ describe('D. The gate is the arena\'s second way in and out', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('E. The drawbridge lines up with the gate', () => {
-  test('the deck spans the facade line on the gate axis', () => {
+  test('the deck lands on the outer bank, 1.2 north of the gate face (C-8.37)', () => {
     const facadeZ = COLO_ROOT_Z - R_FACADE; // −44.3
     expect(facadeZ).toBeCloseTo(-44.3, 10);
-    expect(BRIDGE_Z_OUTER).toBeGreaterThan(facadeZ); // −40.5, the city-side end
-    expect(DECK_Z_MOTTE).toBeLessThan(facadeZ);      // −46.5, the motte-side end
-    expect(BRIDGE_Z_INNER).toBeLessThan(facadeZ);
+    // Phase C-8.37 moved the northern group — motte, moat, drawbridge and
+    // fortress — 5.0 units north.  The deck used to lie inside the gateway by
+    // 3.8 (its southern end at Z = −40.5, radius 15.5 inside the bowl); since
+    // the group moved while its own 6.0-unit span did not, that southern end
+    // is now the moat's outer shoreline, 1.2 north of the gate face.  The 5.0
+    // units of extra separation appear exactly as this strip of open ground.
+    expect(facadeZ - BRIDGE_Z_OUTER).toBeCloseTo(1.2, 6);
+    expect(BRIDGE_Z_OUTER).toBe(-45.5);
+    expect(BRIDGE_Z_OUTER).toBeLessThan(facadeZ);      // north of the gate face
     expect(DECK_Z_MOTTE).toBeLessThan(BRIDGE_Z_OUTER); // the deck's own direction
+    // …and it still spans the moat exactly, as C-8.36 fixed it: south end on
+    // the outer shoreline, north end 0.5 past the inner one.
+    expect(bridgeSrc).toContain('DECK_Z_OUTER = BRIDGE_Z_OUTER');
+    expect(bridgeSrc).toContain('DECK_Z_INNER = BRIDGE_Z_INNER - 0.5');
     // Its width is inside the gate's clear width, with >0.5 either side.
     expect(BRIDGE_HALF_WIDTH).toBe(2.0);
     expect(GATE_HALF_W - (BRIDGE_HALF_WIDTH + BEAM_WIDTH)).toBeGreaterThan(0.45);
   });
 
-  test('its southern end sits inside the bowl, just beyond the podium', () => {
+  test('the route out of the gate onto the deck is clear end to end', () => {
+    const facadeZ = COLO_ROOT_Z - R_FACADE; // −44.3
+    // The whole threshold strip between the gate face and the deck's south end
+    // is open ground on the bridge axis — no collider of the gate seals, the
+    // rear drum, the podium or the motte perimeter reaches the X = 0 line.
+    for (let z = facadeZ; z >= BRIDGE_Z_OUTER - 0.001; z -= 0.1) {
+      expect(collidesWith(0, z, PLAYER_RADIUS, CITY_COLLIDERS), `threshold (0, ${z})`).toBe(false);
+    }
+    // The bowl cut is unchanged, so the arena-side passage the deck used to
+    // occupy is plain walkable sand — the cavea still never reaches the line.
     const deckSouth = [0, BRIDGE_Z_OUTER] as const;
     const r = coloRadius(...deckSouth);
-    expect(r).toBeCloseTo(15.5, 6);            // the C-8.30 audit's measurement
-    expect(r).toBeGreaterThan(R_ARENA_WALL);   // outside the podium ring
-    expect(r).toBeLessThan(R_LINER);           // …and still inside the bowl
-    // The bowl is cut wider than the deck there, so the deck lies inside the
-    // passage and nothing of the cavea reaches it.
-    for (const deckR of [R_ARENA_WALL + 0.1, r, SEATING_T1_R_OUT, SEATING_T2_R_OUT]) {
+    expect(r).toBeCloseTo(R_FACADE + 1.2, 6);  // 20.5 — 1.2 outside the wall band
+    expect(r).toBeGreaterThan(R_FACADE);
+    for (const deckR of [R_ARENA_WALL + 0.1, 15.5, SEATING_T1_R_OUT, SEATING_T2_R_OUT]) {
       expect(deckR * Math.sin(BOWL_GAP_HALF)).toBeGreaterThan(DECK_HALF_EXTENT);
     }
     // The deck's own walking surface is above the moat film and the sand.

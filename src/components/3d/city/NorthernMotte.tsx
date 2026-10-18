@@ -3,6 +3,7 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { buryMotteFlange } from '../../../utils/motteSurface';
+import { MOTTE_CENTER_Z, MOTTE_SCALE } from '../../../utils/terrainHeight';
 
 /**
  * NorthernMotte.tsx — Motte-and-bailey earth mound north of the Colosseum.
@@ -27,10 +28,15 @@ import { buryMotteFlange } from '../../../utils/motteSurface';
  * rotation either.)  Applying a duplicate rotation would misalign the
  * motte and break the terrain height calculations in terrainHeight.ts.
  *
- * Approved configuration (Phase 34G, C2 south-facing):
- *   Position: [0, 0, -71.5]
- *   Scale:    0.3145
+ * Approved configuration (Phase 34G, C2 south-facing; Z from Phase C-8.37):
+ *   Position: [0, 0, MOTTE_CENTER_Z] = [0, 0, -76.5]
+ *   Scale:    0.3145 (MOTTE_SCALE)
  *   Rotation: [0, 0, 0]  (the GLB nodes already carry the Z-up→Y-up rotation)
+ *
+ * Phase C-8.37 — the mountain, its moat and the fortress moved 5.0 units north
+ * as one group (see terrainHeight.ts).  The position and scale here now come
+ * from terrainHeight's constants, so the mound, the moat ring and the collision
+ * perimeter can never drift apart again.
  *
  * The GLB has three meshes:
  *   Motte_Grass  — the mound surface (grass), rendered with shadows.
@@ -49,10 +55,10 @@ import { buryMotteFlange } from '../../../utils/motteSurface';
  * the summit, the traversable slope, the collision registry and getTerrainY()
  * are untouched.
  *
- * World-space bounds after transform (scale 0.3145, center [0, -71.5]):
- *   Motte: X[-25.16, 25.16], Z[-96.66, -46.34], Y[-0.88, 4.72]
- *   Ramp:  X[-2.83, 2.83],   Z[-58.92, -48.23], Y[0, 4.72]
- *   Summit (flat top at Y=4.72): radius ≈15.73 from [0, -71.5]
+ * World-space bounds after transform (scale 0.3145, center [0, -76.5]):
+ *   Motte: X[-25.16, 25.16], Z[-101.66, -51.34], Y[-0.88, 4.72]
+ *   Ramp:  X[-2.83, 2.83],   Z[-63.92, -53.23], Y[0, 4.72]
+ *   Summit (flat top at Y=4.72): radius ≈15.73 from [0, -76.5]
  *
  * Phase C-8.36 — water beneath the drawbridge.  The water ring's south wedge
  * (MOAT_GAP_HALF_ANGLE either side of the +Z axis) removed the moat exactly
@@ -172,7 +178,7 @@ export const MOAT_OUTER_RADIUS = 31.0;
 export const MOAT_WATER_Y = 0.06;
 export const MOAT_GAP_HALF_ANGLE = 0; // radians — complete ring (Phase C-8.36)
 
-const MOTTE_MOAT_CENTER: [number, number, number] = [0, 0, -71.5];
+const MOTTE_MOAT_CENTER: [number, number, number] = [0, 0, MOTTE_CENTER_Z];
 
 const MoatWater: React.FC = () => {
   // RingGeometry is in the XY plane. After rotation [-π/2, 0, 0]:
@@ -233,7 +239,7 @@ export const NorthernMotte: React.FC = () => {
   return (
     <MotteErrorBoundary>
       <React.Suspense fallback={null}>
-        <group position={[0, 0, -71.5]} scale={0.3145}>
+        <group position={[0, 0, MOTTE_CENTER_Z]} scale={MOTTE_SCALE}>
           <MotteModel />
         </group>
         <MoatWater />

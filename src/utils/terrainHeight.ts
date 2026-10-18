@@ -1,7 +1,7 @@
 /**
  * terrainHeight.ts — Focused terrain-height utility for the Northern Motte.
  *
- * The motte is a raised earth mound at world center [0, 0, -71.5] with a
+ * The motte is a raised earth mound at world center [0, 0, -76.5] with a
  * south-facing ramp.  The player must walk naturally from city ground (Y=0)
  * up the ramp, onto the flat summit (Y≈4.72), through the fortress gate,
  * and back down.
@@ -34,7 +34,9 @@
  *     (cardinal radius 40 model units) multiplied by a constant level
  *     factor s.  Sampling the shipping asset
  *     (public/_workspace_motte_normals.glb, world transform position
- *     [0, 0, -71.5], scale 0.3145, no extra rotation) gives:
+ *     [0, 0, -71.5] — the pre-C-8.37 centre; every figure below is a radius
+ *     about the motte centre, so it is unchanged by the C-8.37 shift — scale
+ *     0.3145, no extra rotation) gives:
  *
  *       level s   model radius   world radius (cardinal)   Y
  *       1.000     40.0           12.580                     4.7175  (summit edge)
@@ -67,7 +69,18 @@
 // ── Motte configuration ─────────────────────────────────────────────────────
 
 export const MOTTE_CENTER_X = 0;
-export const MOTTE_CENTER_Z = -71.5;
+// Phase C-8.37 — landmark separation.  The whole northern group (motte, moat
+// ring, drawbridge, fortress) moved 5.0 world units north, from Z = -71.5 to
+// Z = -76.5, to open visible space between the Colosseum and the fortress.
+// The Colosseum, its rear gate and its bowl cut did not move.  Every dependent
+// transform — NorthernMotte, NorthernFortress, Drawbridge, collisionShapes.ts,
+// cityCollisions.ts — derives from this one constant, so the group can only
+// ever move as a group.  Measurements: the Colosseum's rear facade (Z = -44.3)
+// sat 7.7 units from the motte's south foot (Z = -52.0), with the moat's outer
+// shoreline (Z = -40.5) actually INSIDE the rear gateway; after the shift the
+// same pair reads 12.7, and 5.0 units of open, water-free ground sit between
+// the gateway threshold and the moat's outer bank.
+export const MOTTE_CENTER_Z = -76.5;
 export const MOTTE_SCALE = 0.3145;
 
 // ── Drawbridge (Phase 35E) ───────────────────────────────────────────────────
@@ -77,15 +90,19 @@ export const MOTTE_SCALE = 0.3145;
 // sits at Y=0 (ground level); the mound slope (perimeter → summit edge)
 // provides the upward path that the ramp formerly did.
 //
-// Bridge placement (world space, centered at X=0):
-//   Outer (south, city side): Z = -40.5  (at moat outer edge -40.5)
-//   Inner (north, motte side): Z = -46.0  (0.3 beyond moat inner edge -45.7)
-//   Half-width: 2.0  (4-unit deck, fits inside moat gap linear width ≈9.24)
-//   Deck Y: 0.1  (above moat water at 0.06, avoids z-fighting with ground)
+// Bridge placement (world space, centered at X=0).  The bridge belongs to the
+// northern group and moves with it (Phase C-8.37), so both ends are stated
+// relative to the motte centre rather than as absolute world Z:
+//   Outer (south, city side): MOTTE_CENTER_Z + 31.0 = -45.5 — the moat's outer
+//     shoreline, i.e. the bank the deck lands on.
+//   Inner (north, motte side): MOTTE_CENTER_Z + 25.5 = -51.0 — 0.5 short of the
+//     deck's own north end (-51.5) and of the moat's inner shoreline (-51.5).
+//   Half-width: 2.0  (4-unit deck, inside the rear gate's 5.40 clear width)
+//   Deck Y: 0.16 top / 0.09 underside (above moat water at 0.06)
 
 export const BRIDGE_HALF_WIDTH = 2.0;
-export const BRIDGE_Z_OUTER = -40.5;
-export const BRIDGE_Z_INNER = -46.0;
+export const BRIDGE_Z_OUTER = MOTTE_CENTER_Z + 31.0; // -45.5
+export const BRIDGE_Z_INNER = MOTTE_CENTER_Z + 25.5; // -51.0
 export const BRIDGE_LENGTH = BRIDGE_Z_OUTER - BRIDGE_Z_INNER; // 5.5 (negative)
 
 /**
