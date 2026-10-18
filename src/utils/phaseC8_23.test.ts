@@ -24,14 +24,16 @@
  *      plinth.  This suite rebuilds the *exact* TorusGeometry with the parsed torus
  *      arguments and the parsed mesh rotation and tests it against the plinth and
  *      wall boxes.
- *   3. The Tavern's internal patio group is deliberately *not* changed.  Its anchor
- *      [3.6, 0, 2.2] sits inside the solid 8.4 × 6.4 × 7.2 wall box, so the table,
- *      cups and barrel stack are buried (the table's east face protrudes 0.10 above
- *      the plinth) while the two amphorae stand just outside the wall.  No group
+ *   3. The Tavern's internal patio group is deliberately *not* changed by this phase.
+ *      Its anchor [3.6, 0, 2.2] sat inside the solid 8.4 × 6.4 × 7.2 wall box, so the
+ *      table, cups and barrel stack were buried (the table's east face protruded 0.10
+ *      above the plinth) while the two amphorae stood just outside the wall.  No group
  *      shift fixes that safely — west buries the amphorae in the façade, east leaves
  *      the buried props buried — so the re-seat is left as a documented follow-up and
  *      section E pins the measured baseline for it.  Nothing in this phase touches
- *      the group.
+ *      the group.  (Phase C-8.24 later performed that re-seat; section E keeps the
+ *      baseline as frozen literals and points at phaseC8_24.test.ts for the shipped
+ *      transforms.)
  *
  * Every number below is derived from the components' own sources (CityStreets.tsx,
  * GladiatorBarracks.tsx, DoctoreHouse.tsx, GladiatorAcademy.tsx, CityTavern.tsx,
@@ -627,7 +629,7 @@ describe('D. Furniture, walkways and arrivals are untouched', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-// E. The Tavern patio group — measured, deliberately not changed
+// E. The Tavern patio group — the baseline this phase measured (re-seated in C-8.24)
 // ══════════════════════════════════════════════════════════════════════════
 
 const TAVERN_WALL = (() => {
@@ -638,79 +640,88 @@ const TAVERN_WALL = (() => {
   if (!m) throw new Error('tavern wall not found');
   return { y: Number(m[1]), size: [Number(m[2]), Number(m[3]), Number(m[4])] as [number, number, number] };
 })();
-const PATIO = (() => {
-  const m = /OUTDOOR PATIO TAVERN BENCHES & WINE BARRELS[\s\S]*?<group position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}>/.exec(tavernSrc);
-  if (!m) throw new Error('patio group not found');
-  return [Number(m[1]), Number(m[2]), Number(m[3])] as [number, number, number];
-})();
-const PATIO_TABLE = (() => {
-  const m = /Rustic Oak Table[\s\S]*?<mesh castShadow position=\{\[0, ([\d.]+), 0\]\}>\s*<boxGeometry args=\{\[\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\]\}/.exec(tavernSrc);
-  if (!m) throw new Error('patio table not found');
-  return { y: Number(m[1]), size: [Number(m[2]), Number(m[3]), Number(m[4])] as [number, number, number] };
-})();
-const PATIO_AMPHORAE = all(tavernSrc, /<RomanAmphora position=\{\[\s*(-?[\d.]+),\s*0,\s*(-?[\d.]+)\s*\]\} scale=\{([\d.]+)\}/g).map((m) => ({
-  x: Number(m[1]),
-  z: Number(m[2]),
-  scale: Number(m[3]),
-}));
-const PATIO_BARRELS = all(tavernSrc, /<WineBarrel position=\{\[\s*(-?[\d.]+),\s*([\d.]+),\s*(-?[\d.]+)\s*\]\}( isLyingDown=\{true\})? rotationY=\{[^}]+\} \/>/g).map((m) => ({
-  x: Number(m[1]),
-  y: Number(m[2]),
-  z: Number(m[3]),
-  lying: Boolean(m[4]),
-}));
+/**
+ * The C-8.23 baseline.  That phase measured the group's anchor [3.6, 0, 2.2]
+ * inside the rendered wall box and left the re-seat as a documented follow-up;
+ * **C-8.24 performed it** (the shipped transforms live in phaseC8_24.test.ts), so
+ * the values below are frozen here as the record the re-seat was designed
+ * against.  They are literals rather than source parses precisely because the
+ * source no longer holds them — the defect arithmetic itself is unchanged.
+ */
+const PATIO_C823 = [3.6, 0, 2.2] as const;
+const PATIO_TABLE_C823 = { y: 0.5, size: [1.4, 0.9, 1.2] as const };
+const PATIO_AMPHORAE_C823 = [
+  { x: 0.9, z: 0.4, scale: 0.8 },
+  { x: 0.8, z: -0.2, scale: 0.75 },
+] as const;
+const PATIO_BARRELS_C823 = [
+  { x: -0.8, y: 0, z: -1.8, lying: false },
+  { x: -0.8, y: 0.72, z: -1.8, lying: true },
+] as const;
 const AMPHORA_BELLY_R = num(civicSrc, /export const RomanAmphora[\s\S]*?<sphereGeometry args=\{\[\s*([\d.]+),/);
 const BARREL_RADIUS = Math.max(
   ...pair(civicSrc, /Bulged Stave Oak Barrel Body[\s\S]*?<cylinderGeometry args=\{\[\s*([\d.]+),\s*([\d.]+),\s*[\d.]+,\s*\d+\s*\]\} \/>/),
 );
 const TAVERN_WALL_HALF_X = TAVERN_WALL.size[0] / 2;
 
-describe('E. The Tavern patio group is measured, and left exactly as it was', () => {
-  test('the patio group and its parts keep their current transforms', () => {
-    expect(PATIO).toEqual([3.6, 0, 2.2]);
-    expect(PATIO_TABLE.y).toBe(0.5);
-    expect(PATIO_TABLE.size).toEqual([1.4, 0.9, 1.2]);
-    expect(PATIO_AMPHORAE).toEqual([
-      { x: 0.9, z: 0.4, scale: 0.8 },
-      { x: 0.8, z: -0.2, scale: 0.75 },
-    ]);
-    expect(PATIO_BARRELS.map((b) => [b.x, b.y, b.z, b.lying])).toEqual([
-      [-0.8, 0, -1.8, false],
-      [-0.8, 0.72, -1.8, true],
-    ]);
-    expect(CITY_COLLIDERS.filter((c) => /patio|amphora|barrel|^table/.test(c.id))).toEqual([]);
-  });
-
-  test('the wall it sits in is the rendered box, not a conservative envelope', () => {
+describe('E. The Tavern patio baseline C-8.23 measured — re-seated by C-8.24', () => {
+  test('the wall the baseline sat in is the rendered box, not a conservative envelope', () => {
     expect(TAVERN_WALL.y).toBe(3.2);
     expect(TAVERN_WALL.size).toEqual([8.4, 6.4, 7.2]);
     expect(TAVERN_WALL_HALF_X).toBe(4.2);
-    // The group's anchor is inside it in plan, which is why the table, cups and
-    // barrels read as buried inside a solid rather than clipping a thin shell.
-    expect(Math.abs(PATIO[0])).toBeLessThan(TAVERN_WALL_HALF_X);
-    expect(Math.abs(PATIO[2])).toBeLessThan(TAVERN_WALL.size[2] / 2);
   });
 
-  test('the measured defect: the table leaves the façade, the amphorae stand outside', () => {
-    // Table: building-local X [2.9, 4.3] against the wall face at 4.2 → 0.10 through
-    // the façade, above the plinth, where it is not covered by the stepped base.
-    const tableEast = PATIO[0] + PATIO_TABLE.size[0] / 2;
+  test('the baseline itself: anchor, parts and the defects it measured', () => {
+    expect(PATIO_C823).toEqual([3.6, 0, 2.2]);
+    expect(PATIO_TABLE_C823.y).toBe(0.5);
+    expect(PATIO_TABLE_C823.size).toEqual([1.4, 0.9, 1.2]);
+    expect(PATIO_AMPHORAE_C823.map((a) => [a.x, a.z, a.scale])).toEqual([
+      [0.9, 0.4, 0.8],
+      [0.8, -0.2, 0.75],
+    ]);
+    expect(PATIO_BARRELS_C823.map((b) => [b.x, b.y, b.z, b.lying])).toEqual([
+      [-0.8, 0, -1.8, false],
+      [-0.8, 0.72, -1.8, true],
+    ]);
+    // The anchor sat inside the rendered box in plan — which is why the table, cups
+    // and barrels read as buried inside a solid rather than clipping a thin shell.
+    expect(Math.abs(PATIO_C823[0])).toBeLessThan(TAVERN_WALL_HALF_X);
+    expect(Math.abs(PATIO_C823[2])).toBeLessThan(TAVERN_WALL.size[2] / 2);
+    // Table: local X [2.9, 4.3] against the wall face at 4.2 → 0.10 through the
+    // façade, above the plinth, where the stepped base does not cover it.
+    const tableEast = PATIO_C823[0] + PATIO_TABLE_C823.size[0] / 2;
     expect(tableEast).toBeCloseTo(4.3, 10);
     expect(tableEast - TAVERN_WALL_HALF_X).toBeCloseTo(0.1, 10);
-    // Barrel stack: fully inside the wall box (local X [2.42, 3.18]).
-    for (const b of PATIO_BARRELS) {
-      expect(PATIO[0] + b.x - BARREL_RADIUS).toBeGreaterThan(-TAVERN_WALL_HALF_X);
-      expect(PATIO[0] + b.x + BARREL_RADIUS).toBeLessThan(TAVERN_WALL_HALF_X);
+    // Barrel stack: wholly inside the wall box (local X [2.42, 3.18]).
+    for (const b of PATIO_BARRELS_C823) {
+      expect(PATIO_C823[0] + b.x - BARREL_RADIUS).toBeGreaterThan(-TAVERN_WALL_HALF_X);
+      expect(PATIO_C823[0] + b.x + BARREL_RADIUS).toBeLessThan(TAVERN_WALL_HALF_X);
     }
     // Amphorae: outside the wall face, standing against the plinth step.
-    for (const a of PATIO_AMPHORAE) {
-      expect(PATIO[0] + a.x - AMPHORA_BELLY_R * a.scale).toBeGreaterThan(TAVERN_WALL_HALF_X);
+    for (const a of PATIO_AMPHORAE_C823) {
+      expect(PATIO_C823[0] + a.x - AMPHORA_BELLY_R * a.scale).toBeGreaterThan(TAVERN_WALL_HALF_X);
     }
-    // …and the smallest group shift that would hide the table (0.10 west) drives the
-    // second amphora 0.095 into the façade instead — why this phase leaves the group
-    // for a proper re-seat rather than nudging it.
-    const shifted = PATIO[0] - 0.1;
-    expect(shifted + PATIO_AMPHORAE[1].x - AMPHORA_BELLY_R * PATIO_AMPHORAE[1].scale).toBeLessThan(TAVERN_WALL_HALF_X);
+    // …and the smallest group shift that would hide the table (0.10 west) drove the
+    // second amphora 0.095 into the façade instead — why C-8.23 left the group for a
+    // proper re-seat rather than nudging it, and C-8.24 re-seated it.
+    const shifted = PATIO_C823[0] - 0.1;
+    expect(shifted + PATIO_AMPHORAE_C823[1].x - AMPHORA_BELLY_R * PATIO_AMPHORAE_C823[1].scale).toBeLessThan(TAVERN_WALL_HALF_X);
+  });
+
+  test('C-8.24 replaced that anchor, and it now sits outside the wall box', () => {
+    // The baseline anchor is gone, and the shipped one is north of the Z = 10.4 face.
+    expect(tavernSrc).not.toContain('<group position={[3.6, 0, 2.2]}>');
+    const patio = triple(
+      tavernSrc,
+      /OUTDOOR PATIO TAVERN BENCHES & WINE BARRELS[\s\S]*?<group position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}>/,
+    );
+    expect(patio).toEqual([-2.8, 0, -5.4]);
+    // Tavern root Z = 14, north wall face Z = 10.4: the group is 1.8 north of it.
+    expect(14 + patio[2] - 10.4).toBeCloseTo(-1.8, 10);
+  });
+
+  test('no patio prop ever gained a collider', () => {
+    expect(CITY_COLLIDERS.filter((c) => /patio|amphora|barrel|^table/.test(c.id))).toEqual([]);
   });
 });
 
