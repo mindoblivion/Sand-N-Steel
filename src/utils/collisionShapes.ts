@@ -435,6 +435,38 @@ const colosseumPiers: RectCollider[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase C-8.27 — Portal flank closures
+//
+// The facade-wall arc stops at the entrance-gap edge θ = COLO_ENTRANCE_MAX,
+// i.e. at (±8.0456, -7.4570) (radius 19.3 about the root [0, -25]); the portal
+// piers stop at their outer faces, X = ±5.25, and front (south, +Z) plane
+// Z = -8.1.  Nothing collidable bridged that 2.796-unit strip, so the player
+// could walk north from Z ≈ -7 to Z ≈ -16 at X ≈ 5.65 … 7.60 (and the mirror
+// on the west) and stand inside the arena without ever passing through the
+// portal doorway — the C-8.27 reproduction (see src/utils/phaseC8_27.test.ts).
+//
+// These two rects close exactly that strip, spanning the portal's own front
+// plane (Z = -8.1) through to the facade opening's edge line (Z = -7.457).
+// They are the ground-level continuation of the facade wall across the
+// entrance flanks: the strip they cover is the facade wall's own radial band
+// (radius 17.70 … 19.30) and is already occupied on the ground by the
+// ceremonial steps (steps 2 and 1, X ±6 / ±7) and the flanking spectator
+// bench (X 5.8 … 7.8, Z -7.925 … -7.275).  Neither rect reaches the doorway
+// corridor (player centres |X| ≤ 2.2), the pier approach or any other path.
+const COLO_GAP_EDGE = coloPoint(COLO_ENTRANCE_MAX);   // [8.0456, -7.4570]
+const COLO_PIER_FRONT_Z = -9.8 + 3.4 / 2;             // -8.10 — pier outer (+Z) face
+const COLO_FLANK_INNER_X = 3.925 + 2.65 / 2;          // 5.25 — pier outer face
+const COLO_FLANK_W = COLO_GAP_EDGE[0] - COLO_FLANK_INNER_X;        // 2.7956
+const COLO_FLANK_D = COLO_GAP_EDGE[1] - COLO_PIER_FRONT_Z;         // 0.6430
+const COLO_FLANK_CX = (COLO_FLANK_INNER_X + COLO_GAP_EDGE[0]) / 2; // 6.6478
+const COLO_FLANK_CZ = (COLO_PIER_FRONT_Z + COLO_GAP_EDGE[1]) / 2;  // -7.7785
+
+const colosseumFlanks: RectCollider[] = [
+  RECT('colo-flank-l', -COLO_FLANK_CX, COLO_FLANK_CZ, COLO_FLANK_W, COLO_FLANK_D),
+  RECT('colo-flank-r', COLO_FLANK_CX, COLO_FLANK_CZ, COLO_FLANK_W, COLO_FLANK_D),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Training Yard Curved Enclosure Wall — TrainingYard.tsx, root [-18, 0, 0]
 //
 // Convention: X = R·cos(θ) - 18, Z = R·sin(θ)
@@ -589,6 +621,7 @@ const mottePerimeterSegments: SegmentCollider[] = arcSegments(
 export const CITY_COLLIDERS: Collider[] = [
   ...buildingRects,
   ...colosseumPiers,
+  ...colosseumFlanks,
   fountainCircle,
   ...colosseumWallSegments,
   ...yardWallSegments,

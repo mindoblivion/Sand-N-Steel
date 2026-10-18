@@ -13,8 +13,9 @@
  *      and 0.70 into the lying barrel, plinth.lower (Z = 10.15) 0.43 into the
  *      upright barrel, and the two barrels also interpenetrated each other by 0.54.
  *      The audit's suggested Z = 9.2 does not work here: the C-8.21 cypress at
- *      [-11.5, 0, 8.55] has a 0.8925 planter, and the bench's 1.87-deep diagonal
- *      footprint overlaps it by 0.30 at Z 9.2 and by 0.39 at Z 8.4.  Each prop
+ *      [-11.5, 0, 8.55] has a 0.8925 planter, and the bench's diagonal footprint
+ *      overlaps it by 0.30 at Z 9.2 and — measured corner-to-axis, as corrected
+ *      in Phase C-8.27 — by 0.05 at Z 8.4.  Each prop
  *      therefore also steps outward in X: bench → [-13.8, 0, 8.4], barrels →
  *      [-15.5, 0, 9.1] (upright) and [-16.9, 0, 9.1] (lying).  Yaw, parts and cargo
  *      unchanged.
@@ -46,7 +47,25 @@
  * amphora / cluster / obelisk from their own primitives, and the cypress planter and
  * trunk from MediterraneanFoliage at the avenue's scale 1.05.  Rotated boxes are
  * compared with exact separating-axis tests; cylinders (planter, trunk, barrels,
- * pots) by the distance between their axis segments and the box, minus the radius.
+ * pots) by the distance between their axis segments and the box, minus the radius,
+ * measured in the box's own frame (`segObbClearance`).
+ *
+ * ── Phase C-8.27 — test-model correction only; no shipped transform changed ──
+ * That cylinder-vs-box measurement used to reuse the box's *local* half-extents
+ * as world-axis extents (the former `asBox`), which is only right for an
+ * axis-aligned box — and three of the seven props are yawed benches.  It now
+ * runs in the box's own frame, so a rotated seat is measured as the rotated box
+ * it is; the full rationale is on `segObbClearance`.
+ *
+ * Ten rotation-sensitive figures moved (four in the Tavern forecourt test, two
+ * in the Inn's, four in the section-F probes), plus that section's
+ * smallest-safe-X bound (−13.6 → −13.33) and the one figure quoted in the
+ * header above.  Changes run from +0.0008 to +0.34 upward and −0.0073 downward
+ * — the largest is the section-F Z-8.4 probe, a 0.3925 overlap that is really
+ * 0.0508.  Every building-pair number is bit-for-bit unchanged, no assertion
+ * was dropped, relaxed or reworded in intent, and no shipped prop transform was
+ * touched to accommodate the corrected model.  The moved figures are called out
+ * at their own assertions.
  *
  * Superseded since (Phase C-8.23): the obelisk group's X was stepped 0.10 west
  * (25 → 24.9) to lift the practice-rack gap from 0.15 to 0.25, and the west combat
@@ -297,22 +316,55 @@ function sat(A: Obb, B: Obb): number {
   return gap > -Infinity ? gap : -overlap;
 }
 
-/** Distance between a box and a cylinder axis segment, minus the radius. */
-function segBoxClearance(p0: Vec, p1: Vec, r: number, b: Piece): number {
-  const c = { x: (b.x[0] + b.x[1]) / 2, y: (b.y[0] + b.y[1]) / 2, z: (b.z[0] + b.z[1]) / 2 };
-  const h = { x: (b.x[1] - b.x[0]) / 2, y: (b.y[1] - b.y[0]) / 2, z: (b.z[1] - b.z[0]) / 2 };
+/**
+ * Distance between an OBB and a cylinder axis segment, minus the radius.
+ *
+ * Phase C-8.27 correction.  The previous version took the OBB's *local*
+ * half-extents and used them as world-axis half-extents (via `asBox`), which
+ * is only valid for an axis-aligned box.  The yawed benches are not
+ * axis-aligned: `RomanBench` yawed ±π/4 turns its 2.0 × 0.65 seat into a
+ * 1.873 × 1.873 world footprint, and the Doctore bench's −π/2 yaw swaps the
+ * extents outright (2.0 along Z, 0.65 along X).  The stand-in was therefore
+ * neither the true clearance nor a consistent bound of it — it understated
+ * the X-extent clearance and, where the nearest feature lies along local Z,
+ * could overstate it (exactly the direction that must never happen in a
+ * collision audit).
+ *
+ * Measuring the segment in the OBB's own frame fixes that: there the box is
+ * axis-aligned, and because a rigid transform preserves distances the same
+ * point-to-box test is exact.  For an axis-aligned OBB the local frame *is*
+ * the world frame, so every building-pair result below is bit-for-bit
+ * unchanged; only the rotated-bench pairs move.
+ *
+ * The cylinder is a world-vertical axis segment, so the value returned is
+ * `distance(segment, box) − r`.  Every point of the solid cylinder lies
+ * within `r` of some axis point, hence
+ * `distance(cylinder, box) ≥ distance(segment, box) − r`: this figure can
+ * understate a real gap but can never overstate one, and the sampling
+ * (N = 400 along the segment) is the same discretisation the original used.
+ */
+function segObbClearance(p0: Vec, p1: Vec, r: number, o: Obb): number {
+  // World point → the OBB's local frame (the box's own axes, centred on c).
+  const toLocal = (p: Vec): Vec => {
+    const d = { x: p.x - o.c.x, y: p.y - o.c.y, z: p.z - o.c.z };
+    return { x: dot(d, o.ax[0]), y: dot(d, o.ax[1]), z: dot(d, o.ax[2]) };
+  };
+  const a = toLocal(p0);
+  const b = toLocal(p1);
   let best = Infinity;
   const N = 400;
   for (let i = 0; i <= N; i++) {
     const t = i / N;
-    const p = { x: p0.x + (p1.x - p0.x) * t, y: p0.y + (p1.y - p0.y) * t, z: p0.z + (p1.z - p0.z) * t };
-    const inside = Math.abs(p.x - c.x) <= h.x && Math.abs(p.y - c.y) <= h.y && Math.abs(p.z - c.z) <= h.z;
+    const px = a.x + (b.x - a.x) * t;
+    const py = a.y + (b.y - a.y) * t;
+    const pz = a.z + (b.z - a.z) * t;
+    const inside = Math.abs(px) <= o.h[0] && Math.abs(py) <= o.h[1] && Math.abs(pz) <= o.h[2];
     const d = inside
-      ? -Math.min(h.x - Math.abs(p.x - c.x), h.y - Math.abs(p.y - c.y), h.z - Math.abs(p.z - c.z))
+      ? -Math.min(o.h[0] - Math.abs(px), o.h[1] - Math.abs(py), o.h[2] - Math.abs(pz))
       : Math.hypot(
-          Math.max(Math.abs(p.x - c.x) - h.x, 0),
-          Math.max(Math.abs(p.y - c.y) - h.y, 0),
-          Math.max(Math.abs(p.z - c.z) - h.z, 0),
+          Math.max(Math.abs(px) - o.h[0], 0),
+          Math.max(Math.abs(py) - o.h[1], 0),
+          Math.max(Math.abs(pz) - o.h[2], 0),
         );
     if (d < best) best = d;
   }
@@ -366,21 +418,14 @@ const asObb = (p: Piece): Obb => ({
   ],
   h: [(p.x[1] - p.x[0]) / 2, (p.y[1] - p.y[0]) / 2, (p.z[1] - p.z[0]) / 2],
 });
-const asBox = (o: Obb): Piece => ({
-  n: o.n,
-  x: [o.c.x - o.h[0], o.c.x + o.h[0]],
-  y: [o.c.y - o.h[1], o.c.y + o.h[1]],
-  z: [o.c.z - o.h[2], o.c.z + o.h[2]],
-});
-
 function clearance(a: Obj, b: Obj): number {
   if (a.kind === 'obb' && b.kind === 'obb') return sat(a.o, b.o);
   if (a.kind === 'cyl' && b.kind === 'obb') {
-    return segBoxClearance({ x: a.c.x, y: a.c.y - a.h / 2, z: a.c.z }, { x: a.c.x, y: a.c.y + a.h / 2, z: a.c.z }, a.r, asBox(b.o));
+    return segObbClearance({ x: a.c.x, y: a.c.y - a.h / 2, z: a.c.z }, { x: a.c.x, y: a.c.y + a.h / 2, z: a.c.z }, a.r, b.o);
   }
   if (a.kind === 'obb' && b.kind === 'cyl') return clearance(b, a);
   if (a.kind === 'cyl' && b.kind === 'cyl') return Math.hypot(a.c.x - b.c.x, a.c.y - b.c.y, a.c.z - b.c.z) - a.r - b.r;
-  if (a.kind === 'bar' && b.kind === 'obb') return segBoxClearance(a.p0, a.p1, a.r, asBox(b.o));
+  if (a.kind === 'bar' && b.kind === 'obb') return segObbClearance(a.p0, a.p1, a.r, b.o);
   if (a.kind === 'bar' && b.kind === 'cyl') {
     const d = segSegDist(a.p0, a.p1, { x: b.c.x, y: b.c.y - b.h / 2, z: b.c.z }, { x: b.c.x, y: b.c.y + b.h / 2, z: b.c.z });
     return d - a.r - b.r;
@@ -858,13 +903,17 @@ describe('C. The audited intersections reproduce at the old transforms', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('D. Every moved prop now clears building, cypress and neighbours', () => {
-  test('the Tavern forecourt: bench 0.41 from the planter, barrels 0.49 from the plinth', () => {
+  test('the Tavern forecourt: bench 0.61 from the planter, barrels 0.49 from the plinth', () => {
     const props = tavernProps();
     const rows = pairs(props, [...TAVERN_PIECES, cypress(0).planter, cypress(0).trunk]);
     const all = [...rows, ...pairs(props, props)];
     expect(rows.filter((r) => r.c < 0)).toEqual([]);
-    expect(at(rows, 'bench.seat ↔ cypress.planter')).toBeCloseTo(0.4075, 4);
-    expect(at(rows, 'bench.seat ↔ cypress.trunk')).toBeCloseTo(1.006, 4);
+    // The four bench↔cylinder figures below are corner-to-axis under the C-8.27
+    // model.  The former world-AABB stand-in reported 0.4075 / 1.006 / 0.4141 /
+    // 1.3349 for them: it treated the 2.0 × 0.65 seat as axis-aligned, which
+    // understated all four.  The building pairs are exact either way.
+    expect(at(rows, 'bench.seat ↔ cypress.planter')).toBeCloseTo(0.6080, 4);
+    expect(at(rows, 'bench.seat ↔ cypress.trunk')).toBeCloseTo(1.2065, 4);
     expect(at(rows, 'bench.seat ↔ plinth.lower')).toBeCloseTo(0.8131, 4);
     expect(at(rows, 'bench.seat ↔ wall')).toBeCloseTo(1.0631, 4);
     expect(at(rows, 'barrelUpright ↔ plinth.lower')).toBeCloseTo(0.67, 4);
@@ -872,8 +921,8 @@ describe('D. Every moved prop now clears building, cypress and neighbours', () =
     expect(at(rows, 'barrelLying ↔ plinth.upper')).toBeCloseTo(0.5577, 4);
     expect(at(rows, 'barrelLying ↔ wall')).toBeCloseTo(0.7043, 4);
     const inner = pairs(props, props);
-    expect(at(inner, 'bench.seat ↔ barrelUpright')).toBeCloseTo(0.4141, 4);
-    expect(at(inner, 'bench.seat ↔ barrelLying')).toBeCloseTo(1.3349, 4);
+    expect(at(inner, 'bench.seat ↔ barrelUpright')).toBeCloseTo(0.4149, 4);
+    expect(at(inner, 'bench.seat ↔ barrelLying')).toBeCloseTo(1.3905, 4);
     // The two barrels interpenetrated by 0.54 before; they are now the group's worst.
     expect(at(inner, 'barrelUpright ↔ barrelLying')).toBeCloseTo(0.268, 4);
     expect(worst(all).c).toBeGreaterThanOrEqual(0.25);
@@ -888,11 +937,13 @@ describe('D. Every moved prop now clears building, cypress and neighbours', () =
     expect(at(rows, 'crate ↔ wall')).toBeCloseTo(0.65, 4);
     expect(at(rows, 'amphora ↔ plinth.lower')).toBeCloseTo(0.629, 4);
     expect(at(rows, 'bench.seat ↔ plinth.lower')).toBeCloseTo(0.6131, 4);
-    expect(at(rows, 'bench.seat ↔ cypress.planter')).toBeCloseTo(0.4075, 4);
+    // C-8.27 model: 0.4075 → 0.6080 (the rotated seat's nearest corner).
+    expect(at(rows, 'bench.seat ↔ cypress.planter')).toBeCloseTo(0.6080, 4);
     const inner = pairs(props, props);
     expect(at(inner, 'bench.seat ↔ crate')).toBeCloseTo(0.3131, 4);
     expect(at(inner, 'crate ↔ amphora')).toBeCloseTo(0.729, 4);
-    expect(at(inner, 'bench.seat ↔ amphora')).toBeCloseTo(1.9122, 4);
+    // C-8.27 model: 1.9122 → 1.9535 (bench↔cylinder, corner-to-axis).
+    expect(at(inner, 'bench.seat ↔ amphora')).toBeCloseTo(1.9535, 4);
     expect(worst(inner).c).toBeGreaterThanOrEqual(0.3);
   });
 
@@ -1056,11 +1107,26 @@ describe('F. The audit candidates were verified against the real geometry', () =
   test('the suggested bench Z = 9.2 would have collided with the C-8.21 cypress', () => {
     const probe = (bx: number, bz: number) =>
       at(pairs(benchParts('bench', bx, bz, Math.PI / 4), [cypress(0).planter]), 'bench.seat ↔ cypress.planter');
-    expect(probe(-13.0, 9.2)).toBeCloseTo(-0.2962, 4); // the audit's candidate overlaps
-    expect(probe(-13.0, 8.4)).toBeCloseTo(-0.3925, 4); // moving north alone is worse
-    expect(probe(-13.6, 8.4)).toBeCloseTo(0.2075, 4); // smallest X for a 0.20 margin
-    expect(probe(-13.8, 8.4)).toBeCloseTo(0.4075, 4); // shipped, 0.41 to spare
-    expect(TAVERN_BENCH[0]).toBeLessThan(-13.6);
+    // Phase C-8.27: these four are now corner-to-axis figures.  The former
+    // world-AABB stand-in reported −0.2962 / −0.3925 / 0.2075 / 0.4075 for the
+    // same probes; the audit's conclusions are unchanged (the candidate still
+    // overlaps, moving north alone still does not clear the planter, and the
+    // shipped X still sits past the smallest safe one).
+    expect(probe(-13.0, 9.2)).toBeCloseTo(-0.3035, 4); // the audit's candidate overlaps
+    expect(probe(-13.0, 8.4)).toBeCloseTo(-0.0508, 4); // moving north alone still overlaps
+    expect(probe(-13.6, 8.4)).toBeCloseTo(0.4290, 4);
+    expect(probe(-13.8, 8.4)).toBeCloseTo(0.6080, 4); // shipped, 0.61 to spare
+    // The smallest X that keeps the 0.20 planter margin, scanned rather than
+    // assumed: the seat's nearest corner reaches the planter's axis at
+    // X = −13.3314.  (The uncorrected model put this bound at −13.6.)
+    let minSafeX = -13.0;
+    for (let bx = -13.0; bx >= -14.5; bx -= 0.001) {
+      if (probe(bx, 8.4) >= 0.2) { minSafeX = bx; break; }
+    }
+    expect(minSafeX).toBeCloseTo(-13.331, 2);
+    expect(probe(minSafeX, 8.4)).toBeGreaterThanOrEqual(0.2);
+    expect(probe(minSafeX + 0.002, 8.4)).toBeLessThan(0.2);
+    expect(TAVERN_BENCH[0]).toBeLessThan(minSafeX);
   });
 
   test('the suggested forge Z = 4.8 still clipped the kerb/doorway edge by 0.02', () => {
