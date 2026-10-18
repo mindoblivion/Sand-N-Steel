@@ -1414,3 +1414,100 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   changes and `src/utils/phaseC8_52.test.ts` (34 tests) documents them in its own header; and
   `ArmorLeatherWorkshop.tsx`'s C-8.53 comment still says the flashing "hung 0.48 behind the wall" —
   0.48 is its centre-line, its far face was 0.5649.
+
+## Ishtar Gatehouse facade order seating (Phase C-8.55 — implemented)
+
+- **The defect was the C-8.54 audit's Ishtar finding, re-derived here from the shared primitive's real
+  formulas rather than restated.** `ClassicalColumn` puts the **top of the order ON `height`**: the
+  capital drum is centred `height − capitalHeight / 2` with half-extent `capitalHeight / 2`, and the
+  square abacus is centred `height − 0.04` with half-extent `0.08 / 2` — so both end exactly at
+  `height`, and the shipped `height={10.4}` put them at **10.08 … 10.40**. The attic storey
+  (`[0, 10.6, 0]`, box `[15.2, 2.0, 5.0]`) has its underside at **9.60**, so the capital sat 0.48 …
+  **0.80 above** that soffit — entirely inside the attic's volume, its top plane and the attic's top
+  plane identical. The order read as running into the storey, not seating beneath it. The audit's
+  rounded figures were reproduced exactly (capital 10.08–10.40), so nothing about the finding was in
+  doubt; what the audit did not do was reconcile the numbers with the primitive's `Math.min` caps,
+  which the suite and this record now do.
+
+- **The correction is one source literal: `height` 10.4 → 9.62**, the value the seat derives to
+  (attic soffit 9.60 + the project's own 0.02 seating tolerance — the same 0.02 the architrave uses on
+  its piers, the C-8.52 canopy on its tie-beam and the C-8.53 wall on the lean-to's underside). Both
+  coefficients are capped at this height, so the order keeps its proportions and the whole 0.78 went
+  into the shaft:
+
+  | quantity | before (10.4) | after (9.62) |
+  |---|---|---|
+  | plinthHeight / capitalHeight (capped at 0.25 / 0.32) | 0.25 / 0.32 | 0.25 / 0.32 |
+  | shaft | 0.33 … 10.16 | 0.33 … **9.38** |
+  | astragal / necking ring | 10.01 … 10.07 | **9.25 … 9.31** |
+  | capital drum | 10.08 … 10.40 | **9.30 … 9.62** |
+  | square abacus | 10.32 … 10.40 | **9.54 … 9.62** |
+  | order's top vs the attic soffit (9.60) | **+0.80 embedded** | **+0.02 seated** |
+  | the capital's own engagement with the attic | the whole 0.32 drum | **0.02**, the rest 0.30 below |
+  | capital / abacus / shaft front face vs the attic's +Z face (2.50) | — | **+0.44 / +0.35 / +0.26 proud** |
+
+- **What did not move: everything else in the gatehouse and everything around it.** Four columns at
+  X ±6.2 / ±2.8, all at Z 2.4, radius 0.36, Corinthian, the same `marbleWhite` shaft and `goldAccent`
+  capital; the attic transform, box, materials, frieze and roof; the central block, the arch rhythm
+  (central 5.2 × 6.4 recess, the ±4.6 side arches, the keystones), the upper cornice, both towers
+  (their shaft, both `WallCornice` belts at 6.2 / 11.8, the merlons, the lanterns), the torches at
+  ±3.2 and the `BuildingFoundation` podiums are untouched. The two intentional composite
+  relationships C-8.54 recorded are **plan-only**, so the height change cannot have moved them and
+  the suite re-derives both: the shafts still engage the central block's facade by **0.21** and the
+  capitals by **0.39**, and the outer columns still engage the flanking towers by **0.16** in X and
+  **0.16** in Z. **No collider, hub, navigation route, fast-travel entry, movement constant, shared
+  primitive or neighbouring building was edited** — the registry is still 110 colliders / 31
+  rectangles with exactly the three `ishtar-*` rectangles, `town_gate` keeps `radius 4.5` at
+  `[0, 0, 24]` with the arrival `[0, 20]`, and the driven walk north from that arrival still stops
+  at 20.76 (the last 0.38 step that is clear) and reverses.
+
+- **Regression suite: `src/utils/phaseC8_55.test.ts`** — 42 tests / 186 assertions across 8 sections,
+  every value parsed and then derived, never copied: §A the column run (the four X offsets, Y 0 / Z
+  2.4, radius, order, materials, the 9.62 literal); §B the attic datum from source (soffit 9.60, +Z
+  face 2.50, all four columns under it in plan); §C the primitive's own coefficients (0.25 / 0.07,
+  0.32 / 0.09, the abacus's 0.04 drop, 0.08 thickness, 2.5·r width, the capital's 1.5·r top, the
+  0.92 shaft taper) applied as real formulas, showing the caps make the capital the same size in both
+  frames and that **both the capital and the abacus end on `height`**; §D the seat (exactly 0.02, a
+  contact and not a gap, only the top 0.02 of the drum crossing the soffit while 0.30 of it stays
+  below, every element below the capital clear of it, the 0.44 / 0.35 / 0.26 protrusions in front of
+  the attic's face, and the height shown to be the derived soffit + tolerance rather than a rounded
+  guess); §E the control — 10.4 through the **identical predicate** (capital 10.08–10.40, abacus
+  10.32–10.40, 0.80 of interpenetration, 40× the tolerance, the whole drum above the soffit);
+  §F the central-block and tower engagements, shown to be plan-only and therefore identical in both
+  frames; §G the registry (counts, unique ids, the three rectangles re-derived from
+  `BuildingFoundation`'s `size + 2 · projection`, no collider for the columns), the hub and its
+  arrival, and the driven walks; §H the scope guard — the arch rhythm, keystones, side arches,
+  cornices, merlons, lanterns and torches re-parsed, exactly one `<ClassicalColumn` usage in the
+  file, and the shared primitive's declarations still the live ones.
+
+- **Verified 2026-10-18** in the dev container: focused `bun test src/utils/phaseC8_55.test.ts` →
+  **42 pass / 0 fail** (186 expect() calls); `bun test` → **1299 pass / 0 fail (43 files)** (C-8.53
+  left 1257 / 42; the delta is this suite's 42); `bun run scripts/collisionTests.ts` → **122 passed,
+  0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing
+  >500 kB chunk warning only) — `dist/` is gitignored, so the build adds nothing to the diff;
+  `git diff --check` → clean. The only files changed are `IshtarGatehouse.tsx` (the literal plus a
+  phase comment), the new suite and this record. Two of the suite's own expectations were wrong on
+  first run and were corrected, not the geometry: the walk stops on the last clear 0.38 step
+  (20.76, not the 20.95 face line), and the tower-cornice / merlon parsers each matched only one
+  occurrence until a global scanner was used.
+
+- **Preview evidence, and what could not be captured.** Live checks in the preview browser: the dev
+  server serves the corrected module (`/src/components/3d/city/IshtarGatehouse.tsx` contains
+  `height: 9.62` and no `height: 10.4`); the app boots (title → `Play as Guest` → city hub renders)
+  with **zero console errors**; and fast travel to the Monumental Ishtar Town Gate lands at `[0, 20]`
+  and raises the gate's own `INSPECT CITY GATE` prompt, i.e. the arrival, prompt and navigation are
+  unchanged. **No legible frame of the four columns was obtainable, and this is an environment limit
+  rather than a defect:** the sandbox renders the hub through SwiftShader at ~2 fps with the movement
+  step clamped to 0.08 s (0.304 units per frame, ≈0.6 units per second of wall time), and the four
+  columns stand on the gatehouse's **+Z (outward, desert-facing) face** at world Z 26.4 — behind the
+  central block, whose Y reaches 10, as seen from the city side. Reaching that outer face means
+  walking around the building (~35 units, ~57 s of wall time) because `ishtar-central` registers the
+  whole footprint as one solid rectangle with no gate passage. **The rendered capital/attic reading
+  therefore remains a device question and is NOT automatically verified** — and note that from inside
+  the city the gatehouse presents its undecorated inner face, so the change is visible from the desert
+  approach rather than from the reachable plaza. No geometry change is implied by that observation;
+  it is recorded so a future phase does not spend a preview budget hunting for the same vantage.
+  Still open from earlier phases: the C-8.53 lean-to bearing, the C-8.52 veranda canopy, the C-8.49
+  wall-to-gable junctions, the C-8.51 awning, the C-8.41 kerb, the C-8.38 northern approach, the
+  C-8.28 bowl cut, the C-8.29 junction and the C-8.31/C-8.33 rear-gate checks. **Do not claim Android
+  visual acceptance** — no source measurement or suite result substitutes for it.

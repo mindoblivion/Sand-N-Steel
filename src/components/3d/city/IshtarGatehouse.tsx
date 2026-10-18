@@ -120,11 +120,14 @@ export const IshtarGatehouse = React.memo(() => {
       ))}
 
       {/* 4. FLUTED GOLD MARBLE CLASSICAL COLUMNS ON FACADE */}
+      {/* Phase C-8.55: 9.62 — not 10.4 — carries the order's top (capital drum and abacus
+          both end at `height`) to 9.62, i.e. 0.02 into the attic soffit (9.60) as its seat,
+          instead of burying the whole 0.80 of the capital inside the attic. */}
       {[-6.2, -2.8, 2.8, 6.2].map((cx, ci) => (
         <ClassicalColumn
           key={`gate-col-${ci}`}
           position={[cx, 0, 2.4]}
-          height={10.4}
+          height={9.62}
           radius={0.36}
           stoneColor={ROMAN_PALETTE.marbleWhite.color}
           capitalColor={ROMAN_PALETTE.goldAccent.color}
