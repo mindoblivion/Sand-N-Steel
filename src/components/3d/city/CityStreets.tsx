@@ -435,7 +435,17 @@ export const CityStreets = React.memo(() => {
             from inside the Colosseum footprint to the new General Store [22, 0, -5]
             entrance area on its west side. */}
       <MerchantPropsCluster position={[17, 0, -4]} />
-      <MerchantCart position={[18, 0, -2]} rotationY={Math.PI / 4} />
+      {/* Phase C-8.21: the handcart's 45°-rotated body and cargo used to sit inside the
+          General Store [22, 0, -5] (plinth, south-west quoins, wall, counter and goods
+          stack — worst penetration 0.59) and inside the Smithing Forge [18, 0, 2.6]
+          wall (0.36). It is re-parked 7.2 west on the Via Decumanus carriageway at
+          [10.8, 0, -1.7]; the full rotated cart (2.68 × 2.38 footprint) now clears the
+          Store by 2.81, the Forge plinth by 0.99 and the nearest street prop — the
+          bench at [12.5, 0, -3.8] — by 0.79. Rotation, parts and cargo are unchanged,
+          and the cart still stands on the paved street, leaving 2.4+ of the 8-wide
+          carriageway free either side of its 2.38-wide footprint.
+          See src/utils/phaseC8_21.test.ts. */}
+      <MerchantCart position={[10.8, 0, -1.7]} rotationY={Math.PI / 4} />
       <TimberCrate position={[17.5, 0, -6]} size={[0.8, 0.7, 0.8]} />
       <RomanAmphora position={[18, 0, -3.5]} scale={0.8} tone="sand" />
 
