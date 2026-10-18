@@ -1511,3 +1511,123 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   wall-to-gable junctions, the C-8.51 awning, the C-8.41 kerb, the C-8.38 northern approach, the
   C-8.28 bowl cut, the C-8.29 junction and the C-8.31/C-8.33 rear-gate checks. **Do not claim Android
   visual acceptance** — no source measurement or suite result substitutes for it.
+
+## Veteran Gladiator Hall entrance portico (Phase C-8.57 — implemented)
+
+- **The defect, re-derived here from the shipped primitives' own formulas rather than restated.** The
+  hall's two-column entrance portico stood *inside* the roof's eave plate. `RomanGabledRoof` builds
+  that plate as its `[width + 1.2·ov] × 0.16 × [depth + 1.2·ov]` bearing cornice at the group's own
+  `Y − 0.08`, and `ClassicalColumn` puts the top of the order **ON `height`** — the capital drum ends
+  at `height`, and the square abacus spans `height − 0.08 … height`. With the roof at `[0, 2.8, 0]`,
+  `eaveOverhang` 0.35, the portico group at `Z 2.7` and the order at `height` 2.5, the shipped frame
+  measurably had:
+
+  | pre-fix intersection | X | Y | Z |
+  |---|---|---|---|
+  | column capital ∩ eave fascia | 0.39 | 0.16 | 0.305 |
+  | column abacus ∩ eave fascia | 0.375 | 0.06 | 0.2975 |
+  | pediment architrave ∩ eave fascia | 4.6 | 0.03 | 0.61 |
+  | pediment architrave ∩ wall cornice (its projecting band) | 4.6 | 0.06 | 0.12 |
+
+  **No eave depth could have cleared it.** The capital's back face sat at **Z 2.505**, i.e. 0.095
+  *inside* the wall's own front face (2.60), so any fascia band wide enough to be an eave crossed it;
+  the order had either to end below the plate's underside (2.64) or to move clear of the plate's
+  front edge. Two further pre-fix conflicts were measured in the same frame: the pediment's raking
+  cornices buried in the roof's front slope, and the acroterion's Z back face **0.015 inside** the
+  ridge cap's front (2.975 against 2.99 — a 0.32 × 0.135 × 0.015 sliver).
+
+- **The correction is seven coordinated values, all inside the hall** (verified 2026-10-18 with a
+  throwaway harness in the `web` container that parses both sources and applies the primitives'
+  coefficients, and by the suite's own control frame):
+
+  | quantity | before | after |
+  |---|---|---|
+  | roof `eaveOverhang` | 0.35 | **0.20** |
+  | eave fascia (2.64 … 2.80 tall) front face | Z 2.81 | **Z 2.72** |
+  | roof's front slope face | Z 2.90 | **Z 2.80** |
+  | portico group Z | 2.7 | **2.82** |
+  | column `height` | 2.5 | **2.30** |
+  | order's top, against the fascia's underside (2.64) | 2.82 — **0.18 inside the plate's band** | **2.62 — 0.02 below it** |
+  | pediment `height` / `position` | 0.85 / `[0, 2.45, 0]` | **1.05 / `[0, 2.25, 0.58]`** |
+  | architrave underside (the seat's plane) | 2.77 | **2.57** |
+  | architrave / raking cornices' back faces | Z 2.20 / 2.525 | **Z 2.90 / 2.825** |
+  | acroterion's Z back face vs the ridge cap's front | 0.015 **inside** | **0.835 clear** |
+  | banner groups Z | 2.85 | **2.97** |
+  | upper plinth step | 5.6 deep at Z 0 (front 2.80) | **5.72 deep at Z 0.06 (front 2.92)** |
+
+  Every clearance the fix buys, measured: the order's top stands **0.02** under the plate's underside
+  — the project's own seating tolerance, the same 0.02 the architrave uses on its piers (C-8.55), the
+  C-8.52 canopy 0.01545 on its tie-beam and the C-8.53 wall 0.0114 on the lean-to's underside; the
+  architrave's back face (2.90) is **0.18** beyond the fascia's front (2.72) and **0.18** beyond the
+  wall cornice's own front (2.72); both raking cornices' back faces (2.825) stand **0.025** clear of
+  the roof's front slope (2.80); the plinth's front face (3.015) is **0.035 inside** the lower step's
+  front edge (3.05 — the collider's own line), the basering being the tightest element at **0.0275**
+  and the abacus 0.0425; and the order keeps the **same 0.095 cantilever** past its upper step that
+  the shipped plinth had. The column-to-architrave seat is preserved at **0.05** exactly. The
+  acroterion's *height* did not move at all — the pediment's base dropped 0.20 and its gable grew
+  0.20, so its top is still 4.24, still 0.045 below the ridge cap (4.285); only its Z followed the
+  pediment forward.
+
+- **What did not move: everything else in the hall and everything around it.** The doorway
+  (`[0, 0.32, 2.58]`, 1.6 × 2.2), the window, the wall cornice, the quoins, the trophy-shield group
+  (`[0, 1.6, 2.62]`), the lower step (`6.6 × 0.16 × 6.1` at `[0, 0.08, 0]`) and the hall's root
+  `[-24, 0, -25]` are untouched, as are the banners' own transforms (X ±1.8, Y 1.0) and their wind
+  animation. **The collider is untouched**, because the lower step — its own rendered geometry — is:
+  `veteran-hall` is still the rectangle `cx -24, cz -25, hw 3.3, hd 3.05`, i.e. the registry is still
+  **110 colliders / 31 rectangles** with unique ids, the hub keeps `radius 4.5` at `[-24, 0, -25]` and
+  the fast-travel arrival `[-24, -29]`, and the doorway's own prompt still comes up from the stand
+  point outside the collider (driven in the suite). No movement constant, navigation route, hub,
+  neighbouring building or shared primitive was edited — `ClassicalArchitecture.tsx` is exactly as
+  C-8.55 left it. The phase's files: `VeteranGladiatorHall.tsx` (the seven values plus comments),
+  `src/utils/phaseC8_57.test.ts` (new suite) and this record.
+
+- **Regression suite: `src/utils/phaseC8_57.test.ts`** — 42 tests / 235 assertions across 8 sections,
+  every value parsed from the sources and then derived (the hall's own literals, the primitives'
+  coefficients from `ClassicalArchitecture.tsx`, and the rotated pieces transformed through the
+  group's own rotation the way three.js composes them): §A the hall and its portico as shipped (root,
+  both steps, the roof/cornice props, the portico group, the order and the pediment, the banners);
+  §B the shared primitives applied as formulas (the fascia from `width + ov·1.2`, the slopes, the
+  ridge, the order topping out on `height`, the pediment's own boxes); §C the clearances — no
+  capital, abacus, shaft, necking ring or plinth against the fascia or the wall cornice, the
+  architrave clear of both, nothing else in the pediment reaching either, and the pediment still on
+  the entrance axis; §D the 0.05 column-to-architrave seat, shown to be a bearing and not a knife
+  edge, with the order's top exactly the tolerance below the plate; §E the acroterion's 0.045 under
+  the ridge cap and the taller gable that holds it there; §F the portico's symmetry about X = 0, the
+  pediment included; §G the collider, hub and arrival untouched, the registry/render invariant (the
+  rectangle still equals the rendered lower step), the driven prompt, and the scope guard on the
+  doorway, window and trophies; §H the control — the pre-fix frame replayed through the **identical
+  predicates**, reproducing all four intersection volumes exactly, the capital's 0.095 burial in the
+  wall, the rakes in the roof slope and the acroterion's 0.015 ridge sliver.
+
+- **Verified 2026-10-18** in the dev container: focused `bun test src/utils/phaseC8_57.test.ts` →
+  **42 pass / 0 fail** (235 expect() calls); `bun test` → **1341 pass / 0 fail (44 files)** (C-8.55
+  left 1299 / 43; the delta is this suite's 42); `bun run scripts/collisionTests.ts` → **122 passed,
+  0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing
+  >500 kB chunk warning only); `git diff --check` → clean. Live preview: the dev server serves the
+  corrected module (the transformed `/src/.../VeteranGladiatorHall.tsx` carries `eaveOverhang: 0.2`,
+  `height: 2.3` and `position: [0, 0.32, 2.82]`, and neither 0.35 nor 2.5), and the app boots to its
+  title screen with **zero console errors**.
+
+- **Two harness repairs this phase — no geometry changed in either.** (1) The suite as committed
+  **failed 1 of 42**: its hub-prompt test compared `getNearbyHubLocation(...)` — which returns the
+  hub **object** — against the id string. It now asserts `?.id`, the shape every other suite uses
+  (`phaseC8_19/31/33/37/51/53`); the geometry, the collider and the arrangement were never in doubt.
+  (2) `VeteranGladiatorHall.tsx`'s C-8.57 comment and this suite's header both said the plinths
+  "land 0.045 inside the lower step's front edge"; the measured inset is **0.035** (the plinth's front
+  face 3.015 against the step's 3.05 — the basering is the tightest element at 0.0275, the abacus
+  0.0425). Neither figure was ever an assertion; both statements are corrected, and the values above
+  are the measured ones.
+
+- **Not automatically verified — the rendered junction, and it is a device question.** A
+  source-geometry suite proves the arrangement in the component's own transforms; it does **not**
+  establish visual acceptance, and no preview capture can settle it here: the sandbox has no GPU
+  (SwiftShader, ~2 fps in the city hub) and every correction in this phase is 0.02–0.18 units on a
+  building that is a small part of the frame in the WEST district — the limit C-8.53 and C-8.55
+  recorded. **Android preview check: stand in front of the Veteran Gladiator Hall and confirm the
+  pediment and the two crimson columns read as standing UNDER the eave — neither capital nor the
+  architrave crossed by the roof plate, the gable's raking cornices clear of the roof slope, the
+  finial clear of the ridge cap, and the banner boards still hanging beside the shafts; then look
+  along the window wall to confirm the eave plate no longer cuts across the order.** Still open from
+  earlier phases: the C-8.53 lean-to bearing, the C-8.52 veranda canopy, the C-8.49 wall-to-gable
+  junctions, the C-8.51 awning, the C-8.41 kerb, the C-8.38 northern approach, the C-8.28 bowl cut,
+  the C-8.29 junction and the C-8.31/C-8.33 rear-gate checks. Do not claim Android visual acceptance.

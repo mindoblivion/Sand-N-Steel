@@ -39,7 +39,7 @@
  * clear of the fascia (front 2.72) and of the roof's front slope (2.80); the eave comes
  * in from 0.35 to 0.20 so those two planes stand where the pediment needs them. The
  * order moves 0.12 forward onto its own extended upper step, and its 0.39-wide plinths
- * land 0.045 INSIDE the lower step's front edge (3.05) — the collider's own edge — with
+ * land 0.035 INSIDE the lower step's front edge (3.05) — the collider's own edge — with
  * the same 0.095 cantilever the shipped plinth had.
  *
  * ── HOW THIS SUITE MEASURES IT ────────────────────────────────────────────
@@ -635,7 +635,7 @@ describe('C-8.57 §G — the collider, hub and fast travel are untouched', () =>
   test('the doorway still raises its own prompt, and the arrival is collision-free', () => {
     const stand = [-24, 0, vetRect().cz + vetRect().hd + PLAYER_RADIUS + 0.05];
     expect(collidesWith(stand[0], stand[2], PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
-    expect(getNearbyHubLocation(stand as [number, number, number])).toBe('veteran_gladiator_hall');
+    expect(getNearbyHubLocation(stand as [number, number, number])?.id).toBe('veteran_gladiator_hall');
     const arrival = FAST_TRAVEL_ARRIVALS.veteran_gladiator_hall;
     expect(collidesWith(arrival[0], arrival[1], PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
   });

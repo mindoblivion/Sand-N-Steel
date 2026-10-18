@@ -95,7 +95,8 @@ export const VeteranGladiatorHall = React.memo(() => {
 
       {/* 4. ENTRANCE PORTICO FACADE (CRIMSON COLUMNS & CLASSICAL PEDIMENT)
           Phase C-8.57: the order moves 0.12 forward, 2.7 → 2.82, so its plinths land on
-          the extended upper step and 0.045 inside the lower step's front edge (Z 3.05) —
+          the extended upper step and its plinth face 0.035 inside the lower step's front
+          edge (Z 3.05) —
           the collider, which stands for that lower step, is unchanged. */}
       <group position={[0, 0.32, 2.82]}>
         {/* Support Classical Columns with Stepped Bases & Capitals
