@@ -20,12 +20,15 @@
  *    18.81 — the player standing in the arch/wall stonework.
  *
  * 3. REAR FACADE GAP.  It is neither intended architecture nor an intended
- *    traversal route: the exterior is a 306° partial cylinder (ARC_THETA_LENGTH
+ *    traversal route: the exterior was a 306° partial cylinder (ARC_THETA_LENGTH
  *    = 1.7π, i.e. a 54° opening centred on θ = π) — a documented render-cost
  *    choice ("invisible from the player's normal viewing position").  Walking
- *    around the building therefore leads in and out through an opening with no
- *    stone in it at all.  Closing it would need a ~10-unit invisible blocker on
- *    bare ground, so this phase DOCUMENTS it and leaves it untouched (§G).
+ *    around the building therefore led in and out through an opening with no
+ *    stone in it at all.  Closing it as-is would have needed a ~10-unit
+ *    invisible blocker on bare ground, so this phase DOCUMENTED it and left it
+ *    untouched (§G).  It no longer exists: Phase C-8.31 completed the drum
+ *    around a designed 16° axial gate on the bridge axis, and §G now asserts
+ *    the closed drum and the gate in its place.
  *
  * ── THE FIX ────────────────────────────────────────────────────────────────
  *   • GrandColosseum.tsx: the interior bowl (podium + both seating frustums)
@@ -103,9 +106,15 @@ const SEATING_T1_R_OUT = num(coloSrc, /const SEATING_T1_R_OUT = ([\d.]+);/);
 const SEATING_T2_R_OUT = num(coloSrc, /const SEATING_T2_R_OUT = ([\d.]+);/);
 const ENTRANCE_MIN = num(coloSrc, /const ENTRANCE_MIN = (-?[\d.]+);/);
 const ENTRANCE_MAX = num(coloSrc, /const ENTRANCE_MAX = ([\d.]+);/);
-const ARC_THETA_START = -Math.PI * num(coloSrc, /const ARC_THETA_START = -Math\.PI \* ([\d.]+);/);
-const ARC_THETA_LENGTH = Math.PI * num(coloSrc, /const ARC_THETA_LENGTH = Math\.PI \* ([\d.]+);/);
-const ARC_END = ARC_THETA_START + ARC_THETA_LENGTH;
+/** Phase C-8.31 — the drum is complete; both openings sit on the arc seam. */
+const GATE_HALF_W = num(coloSrc, /const GATE_HALF_W = ([\d.]+);/);
+const GATE_HALF = Math.asin(GATE_HALF_W / R_FACADE);
+const DRUM_E_START = ENTRANCE_MAX;
+const DRUM_E_END = Math.PI - GATE_HALF;
+const DRUM_W_START = Math.PI + GATE_HALF;
+const DRUM_W_END = 2 * Math.PI + ENTRANCE_MIN;
+/** Where the pre-C-8.31 306° drum ended — the rear seam of both front arcs. */
+const REAR_SEAM = Math.PI * 0.85;
 const PORTAL_PASSAGE_HALF_W = num(coloSrc, /const PORTAL_PASSAGE_HALF_W = ([\d.]+);/);
 const BOWL_GAP_HALF = Math.asin(PORTAL_PASSAGE_HALF_W / R_ARENA_WALL);
 
@@ -130,7 +139,7 @@ const bowlPoint = (r: number, theta: number): [number, number] => [
   r * Math.sin(theta),
   r * Math.cos(theta) + COLO_ROOT_Z,
 ];
-const ARC_END_POINT = bowlPoint(R_FACADE, ARC_END);
+const ARC_END_POINT = bowlPoint(R_FACADE, REAR_SEAM);
 const PODIUM_GAP_EDGE = bowlPoint(R_ARENA_WALL, BOWL_GAP_HALF);
 
 // ── The runtime resolver, wrapped (same harness as the C-8.27 suite) ──────
@@ -166,8 +175,8 @@ const podiumPoint = (theta: number) => bowlPoint(R_ARENA_WALL, theta);
 const H = Math.SQRT1_2;
 /**
  * Radial directions out of the arena that the podium ring bounds.  The two
- * openings are the doorway at θ = 0 (asserted in D) and the rear render gap at
- * θ = π (documented and asserted in G) — neither is part of the ring.
+ * openings are the doorway at θ = 0 (asserted in D) and the rear gate at
+ * θ = π (asserted in G) — neither is part of the ring.
  */
 const RADIAL_DIRS: Array<[string, number, number]> = [
   ['NE', H, -H], ['E', 1, 0], ['SE', H, H],
@@ -180,19 +189,17 @@ const RADIAL_DIRS: Array<[string, number, number]> = [
 
 describe('A. The rendered bowl stops at the entrance', () => {
   test('the podium and both seating tiers are built as two arcs, not one full arc', () => {
-    // The full-arc interior geometry this phase replaced.
-    const fullArcArgs = [
-      '[R_ARENA_WALL, R_ARENA_WALL, 1.2, 32, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]',
-      '[SEATING_T1_R_OUT, R_ARENA_WALL, 2.5, 32, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]',
-      '[SEATING_T2_R_OUT, SEATING_T1_R_OUT, 2.5, 32, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]',
-    ];
-    for (const args of fullArcArgs) expect(coloSrc).not.toContain(args);
+    // No interior band spans the whole turn: all three are cut.
+    for (const args of [
+      '[R_ARENA_WALL, R_ARENA_WALL, 1.2, 32, 1, true, 0, FULL_TURN]',
+      '[SEATING_T1_R_OUT, R_ARENA_WALL, 2.5, 32, 1, true, 0, FULL_TURN]',
+      '[SEATING_T2_R_OUT, SEATING_T1_R_OUT, 2.5, 32, 1, true, 0, FULL_TURN]',
+    ]) {
+      expect(coloSrc).not.toContain(args);
+    }
 
-    // …and all three are now driven by the shared two-segment cut.
-    const cuts = all(
-      coloSrc,
-      /\[\[ARC_THETA_START, BOWL_SEG1_LEN\], \[BOWL_SEG2_START, BOWL_SEG2_LEN\]\]\.map/g,
-    );
+    // …and all three are driven by the shared two-entry cut (one per opening).
+    const cuts = all(coloSrc, /BOWL_ARCS\.map/g);
     expect(cuts.length).toBe(3);
     // One source occurrence each (the map produces both arcs at runtime).
     for (const args of [
@@ -203,13 +210,23 @@ describe('A. The rendered bowl stops at the entrance', () => {
       expect(all(coloSrc, new RegExp(args.replace(/[[\]()]/g, '\\$&'), 'g')).length, args).toBe(1);
     }
 
-    // The cut geometry itself: two arcs, mirrored, meeting the old arc ends.
+    // The cut geometry itself: the two arcs are mirror images, each opening a
+    // passage cut on the portal's own 5.2-unit line (C-8.31 mirrors the second
+    // one at the rear gate, on the drum's other seam).
     expect(coloSrc).toContain('const BOWL_GAP_HALF = Math.asin(PORTAL_PASSAGE_HALF_W / R_ARENA_WALL);');
     expect(BOWL_GAP_HALF).toBeCloseTo(Math.asin(2.6 / 15.3), 10);
-    expect(ARC_THETA_START).toBeCloseTo(-Math.PI * 0.85, 10);
-    expect(ARC_END).toBeCloseTo(Math.PI * 0.85, 10);
-    // seg1 = [ARC_THETA_START, −gap], seg2 = [+gap, ARC_END] — same length, mirrored.
-    expect(-BOWL_GAP_HALF - ARC_THETA_START).toBeCloseTo(ARC_END - BOWL_GAP_HALF, 10);
+    expect(REAR_SEAM).toBeCloseTo(Math.PI * 0.85, 10);
+    expect(ENTRANCE_MAX).toBe(0.43);
+    expect(ENTRANCE_MIN).toBe(-0.43);
+    // Each opening is cut on its own seam: θ = 0 for the entrance, π ± GATE_HALF
+    // for the gate, both over the same BOWL_GAP_HALF passage.
+    const bowlE = [BOWL_GAP_HALF, Math.PI - BOWL_GAP_HALF];
+    const bowlW = [Math.PI + BOWL_GAP_HALF, 2 * Math.PI - BOWL_GAP_HALF];
+    expect(bowlE[1] - bowlE[0]).toBeCloseTo(bowlW[1] - bowlW[0], 10);
+    expect(2 * Math.PI - bowlW[1]).toBeCloseTo(bowlE[0], 10);
+    // Each opening is a 2·BOWL_GAP_HALF wedge — the 5.2-unit passage line.
+    expect(bowlW[0] - bowlE[1]).toBeCloseTo(2 * BOWL_GAP_HALF, 10);
+    expect(2 * R_ARENA_WALL * Math.sin(BOWL_GAP_HALF)).toBeCloseTo(5.2, 10);
   });
 
   test('the cut is the portal’s own passage width, inside the facade entrance bay', () => {
@@ -250,34 +267,64 @@ describe('A. The rendered bowl stops at the entrance', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('B. Podium collision matches the rendered podium', () => {
-  test('16 segments on the rendered radius, 8 per side, meeting the facade arc ends', () => {
+  test('20 segments on the rendered radius, meeting both axial passages', () => {
     const right = findSegs('colo-podium-r');
     const left = findSegs('colo-podium-l');
+    const rearR = findSegs('colo-rearpodium-r');
+    const rearL = findSegs('colo-rearpodium-l');
     expect(right.length).toBe(8);
     expect(left.length).toBe(8);
-    for (const s of [...right, ...left]) {
+    expect(rearR.length).toBe(2);
+    expect(rearL.length).toBe(2);
+    for (const s of [...right, ...left, ...rearR, ...rearL]) {
       for (const [x, z] of [[s.x1, s.z1], [s.x2, s.z2]] as const) {
         expect(coloRadius(x, z), `segment ${s.id} endpoint off the rendered podium`).toBeCloseTo(R_ARENA_WALL, 6);
       }
     }
-    // The polyline spans the same 306° the render spans.
-    expect(left[0].x1).toBeCloseTo(podiumPoint(ARC_THETA_START)[0], 10);
-    expect(left[0].z1).toBeCloseTo(podiumPoint(ARC_THETA_START)[1], 10);
-    expect(right[right.length - 1].x2).toBeCloseTo(podiumPoint(ARC_END)[0], 10);
-    expect(right[right.length - 1].z2).toBeCloseTo(podiumPoint(ARC_END)[1], 10);
+    // The front arcs are the C-8.28 ones, untouched: from the old 306° arc's
+    // own end to the entrance cut, 8 segments each.
+    expect(left[0].x1).toBeCloseTo(podiumPoint(-Math.PI * 0.85)[0], 10);
+    expect(left[0].z1).toBeCloseTo(podiumPoint(-Math.PI * 0.85)[1], 10);
+    expect(right[right.length - 1].x2).toBeCloseTo(podiumPoint(REAR_SEAM)[0], 10);
+    expect(right[right.length - 1].z2).toBeCloseTo(podiumPoint(REAR_SEAM)[1], 10);
     // Its inner ends are the entrance cut, mirrored.
     expect(right[0].x1).toBeCloseTo(PODIUM_GAP_EDGE[0], 10);
     expect(right[0].z1).toBeCloseTo(PODIUM_GAP_EDGE[1], 10);
     expect(left[left.length - 1].x2).toBeCloseTo(-PODIUM_GAP_EDGE[0], 10);
     expect(left[left.length - 1].z2).toBeCloseTo(PODIUM_GAP_EDGE[1], 10);
+    // …and C-8.31's rear quadrants carry the ring on, each ending on the gate's
+    // own passage edge, mirroring the entrance cut.
+    expect(rearR[0].x1).toBeCloseTo(podiumPoint(REAR_SEAM)[0], 10);
+    expect(rearR[0].z1).toBeCloseTo(podiumPoint(REAR_SEAM)[1], 10);
+    expect(rearR[rearR.length - 1].x2).toBeCloseTo(podiumPoint(Math.PI - BOWL_GAP_HALF)[0], 10);
+    expect(rearR[rearR.length - 1].z2).toBeCloseTo(podiumPoint(Math.PI - BOWL_GAP_HALF)[1], 10);
+    expect(rearL[0].x1).toBeCloseTo(podiumPoint(Math.PI + BOWL_GAP_HALF)[0], 10);
+    expect(rearL[0].z1).toBeCloseTo(podiumPoint(Math.PI + BOWL_GAP_HALF)[1], 10);
+    expect(rearL[rearL.length - 1].x2).toBeCloseTo(podiumPoint(Math.PI * 1.15)[0], 10);
+    expect(rearL[rearL.length - 1].z2).toBeCloseTo(podiumPoint(Math.PI * 1.15)[1], 10);
+    // The two rear quadrants are mirror images about X = 0: each runs from its
+    // own outer seam to the gate, so one's first endpoint mirrors the other's
+    // last.
+    expect(rearR[0].x1).toBeCloseTo(-rearL[rearL.length - 1].x2, 10);
+    expect(rearR[0].z1).toBeCloseTo(rearL[rearL.length - 1].z2, 10);
+    expect(rearR[rearR.length - 1].x2).toBeCloseTo(-rearL[0].x1, 10);
+    expect(rearR[rearR.length - 1].z2).toBeCloseTo(rearL[0].z1, 10);
   });
 
   test('no segment lets the player squeeze through (sagitta < player radius)', () => {
-    const right = findSegs('colo-podium-r');
-    const dTheta = (ARC_END - BOWL_GAP_HALF) / right.length;
-    const sagitta = R_ARENA_WALL * (1 - Math.cos(dTheta / 2));
-    expect(sagitta).toBeLessThan(PLAYER_RADIUS);
-    expect(sagitta).toBeGreaterThan(0.1); // …and it is a real polyline, as on the facade
+    for (const [prefix, span] of [
+      ['colo-podium-r', REAR_SEAM - BOWL_GAP_HALF],
+      ['colo-rearpodium-r', Math.PI - BOWL_GAP_HALF - REAR_SEAM],
+    ] as const) {
+      const segs = findSegs(prefix);
+      const dTheta = span / segs.length;
+      const sagitta = R_ARENA_WALL * (1 - Math.cos(dTheta / 2));
+      expect(sagitta, prefix).toBeLessThan(PLAYER_RADIUS);
+    }
+    // …and the front arcs are a real polyline, as on the facade.
+    const front = findSegs('colo-podium-r');
+    const frontSagitta = R_ARENA_WALL * (1 - Math.cos((REAR_SEAM - BOWL_GAP_HALF) / front.length / 2));
+    expect(frontSagitta).toBeGreaterThan(0.1);
   });
 
   test('collision agrees with the rendered stone everywhere on the ring', () => {
@@ -303,12 +350,18 @@ describe('B. Podium collision matches the rendered podium', () => {
     }
   });
 
-  test('the podium does not reach into the rear render gap or past its own arc ends', () => {
-    // θ = π is the facade's 54° opening — the render has no stone there either.
-    expect(collidesWith(0, COLO_ROOT_Z - R_ARENA_WALL, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
-    for (const theta of [-Math.PI, Math.PI * 0.87, -Math.PI * 0.87]) {
-      const [x, z] = podiumPoint(theta);
-      expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), `stone implied at θ=${theta}`).toBe(false);
+  test('the podium stops at the rear gate’s passage, on the portal’s own line', () => {
+    // θ = π is the rear gate (Phase C-8.31): the ring is cut there over the
+    // same 5.2-unit passage the doorway uses, so the corridor inside the cut
+    // edges (|X| ≤ 2.6 at the podium radius) is open…
+    for (const x of [-2.0, 0, 2.0]) {
+      const z = COLO_ROOT_Z - Math.sqrt(R_ARENA_WALL * R_ARENA_WALL - x * x);
+      expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), `gate passage blocked at X = ${x}`).toBe(false);
+    }
+    // …and the ring stands immediately either side of it, outside the cut.
+    for (const x of [-3.4, 3.4]) {
+      const z = COLO_ROOT_Z - Math.sqrt(R_ARENA_WALL * R_ARENA_WALL - x * x);
+      expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), `podium missing at X = ${x}`).toBe(true);
     }
   });
 });
@@ -500,10 +553,10 @@ describe('F. The rendered facade wall band is no longer reachable from the sand'
     }
   });
 
-  test('the facade arc collider itself is untouched', () => {
+  test('the facade arc collider itself is untouched (C-8.31 appended to it)', () => {
     for (const [prefix, from, to] of [
-      ['colo-wall-l', ARC_THETA_START, ENTRANCE_MIN],
-      ['colo-wall-r', ENTRANCE_MAX, ARC_END],
+      ['colo-wall-l', -Math.PI * 0.85, ENTRANCE_MIN],
+      ['colo-wall-r', ENTRANCE_MAX, REAR_SEAM],
     ] as const) {
       const segs = findSegs(prefix);
       expect(segs.length).toBe(8);
@@ -513,43 +566,113 @@ describe('F. The rendered facade wall band is no longer reachable from the sand'
       expect(segs[segs.length - 1].z2).toBeCloseTo(bowlPoint(R_FACADE, to)[1], 10);
     }
     expect(ARC_END_POINT[0]).toBeCloseTo(8.762, 2);
+    // C-8.31's rear drum: appended, two segments per quadrant, from the old
+    // 306° arc's own ends to the gate's jamb faces.
+    for (const [prefix, from, to] of [
+      ['colo-rearwall-r', REAR_SEAM, Math.PI - GATE_HALF],
+      ['colo-rearwall-l', Math.PI + GATE_HALF, Math.PI * 1.15],
+    ] as const) {
+      const segs = findSegs(prefix);
+      expect(segs.length).toBe(2);
+      expect(segs[0].x1).toBeCloseTo(bowlPoint(R_FACADE, from)[0], 10);
+      expect(segs[0].z1).toBeCloseTo(bowlPoint(R_FACADE, from)[1], 10);
+      expect(segs[segs.length - 1].x2).toBeCloseTo(bowlPoint(R_FACADE, to)[0], 10);
+      expect(segs[segs.length - 1].z2).toBeCloseTo(bowlPoint(R_FACADE, to)[1], 10);
+      for (const [x, z] of [[segs[0].x1, segs[0].z1], [segs[0].x2, segs[0].z2]] as const) {
+        expect(coloRadius(x, z)).toBeCloseTo(R_FACADE, 6);
+      }
+    }
   });
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-// G. The rear render gap — documented, not closed
+// G. The rear opening — closed by C-8.31 around its axial gate
 // ══════════════════════════════════════════════════════════════════════════
+//
+// The C-8.28 report documented this opening as a bare render gap and left it
+// alone.  C-8.31 has since completed the drum around a designed rear gate, so
+// what this section used to assert as "unchanged" is now asserted the other
+// way round: the 54° void is gone, its 2 × 19° flanks are solid stone, and the
+// 16° middle is the gate on the bridge axis.
 
-describe('G. The 54° rear render gap is left exactly as it was', () => {
-  test('the opening is the render’s own 306° arc, mirrored by the collider', () => {
-    expect(ARC_THETA_LENGTH).toBeCloseTo(Math.PI * 1.7, 10);
-    const openingDeg = (2 * Math.PI - ARC_THETA_LENGTH) * (180 / Math.PI);
-    expect(openingDeg).toBeCloseTo(54, 6);
-    // No stone rendered and none collided, over the whole 54° span (sampled
-    // clear of the arc ends' own 0.4-radius influence).
-    for (let deg = 160; deg <= 200; deg += 2) {
+describe('G. The rear drum is closed around the axial gate', () => {
+  const GATE_ARC_HALF = GATE_HALF; // the gate's own half-angle at R_FACADE
+
+  test('the drum is complete and the gate is the only opening in it', () => {
+    // Rendered: the drum bands run the whole turn or stop at the gate.
+    expect(coloSrc).toContain('const FULL_TURN = 2 * Math.PI;');
+    expect(coloSrc).toContain('const GATE_HALF = Math.asin(GATE_HALF_W / R_FACADE);');
+    expect(GATE_HALF_W).toBeCloseTo(2.7, 10);
+    expect((2 * GATE_ARC_HALF * 180) / Math.PI).toBeCloseTo(16.08, 2);
+    // …and the 54° void that used to be here is stone now: every 2° of the old
+    // opening, except the gate's own 16°, collides on the facade radius.
+    for (let deg = 154; deg <= 206; deg += 2) {
       const theta = (deg * Math.PI) / 180;
-      const [x, z] = podiumPoint(theta);
-      expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), `invisible blocker at ${deg}°`).toBe(false);
+      if (Math.abs(theta - Math.PI) < GATE_ARC_HALF) continue; // the gate itself
+      const [x, z] = bowlPoint(R_FACADE, theta);
+      expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), `rear drum missing at ${deg}°`).toBe(true);
     }
-    // …and the facade arc still stands everywhere outside the entrance bay.
+    // …and the front facade still stands everywhere outside the entrance bay.
     for (let deg = -152; deg <= 152; deg += 2) {
       const theta = (deg * Math.PI) / 180;
       if (Math.abs(theta) < ENTRANCE_MAX) continue; // the facade's own 49° bay
       const [x, z] = bowlPoint(R_FACADE, theta);
       expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), `facade arc missing at ${deg}°`).toBe(true);
     }
+    // The arena-side ring is complete in the same way, on its own radius.
+    for (let deg = 154; deg <= 206; deg += 2) {
+      const theta = (deg * Math.PI) / 180;
+      if (Math.abs(theta - Math.PI) < GATE_ARC_HALF + BOWL_GAP_HALF) continue;
+      const [x, z] = podiumPoint(theta);
+      expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), `rear podium missing at ${deg}°`).toBe(true);
+    }
   });
 
-  test('DOCUMENTED: the opening is still walkable in both directions', () => {
-    // Out of the arena through the rear opening, and back in from the city
-    // north of the building.  Unchanged by this phase — closing it would take
-    // a ~10-unit invisible blocker on bare ground (see the C-8.28 report).
+  test('the gate is the bridge axis, traversable in both directions', () => {
+    // The corridor scripts/collisionTests.ts asserts is clear, from the city
+    // side up to the sand — and it is the only way through the rear wall.
+    for (let z = -43; z >= -49; z -= 1) {
+      expect(collidesWith(0, z, PLAYER_RADIUS, CITY_COLLIDERS), `bridge corridor (0, ${z}) blocked`).toBe(false);
+    }
     const out = push(0, -25, 0, -1, 90);
-    expect(out.trail.some(([x, z]) => outsideBuilding(x, z)), 'rear opening no longer lets the player out').toBe(true);
-    expect(collidesWith(0, -46, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false); // the open ground north of it
+    expect(out.trail.some(([x, z]) => outsideBuilding(x, z)), 'gate no longer lets the player out').toBe(true);
     const backIn = push(0, -46, 0, 1, 90);
-    expect(backIn.trail.some(([x, z]) => onSand(x, z)), 'rear opening no longer lets the player in').toBe(true);
+    expect(backIn.trail.some(([x, z]) => onSand(x, z)), 'gate no longer lets the player in').toBe(true);
+  });
+
+  test('the gate is wide enough for the deck and narrower than the void it replaces', () => {
+    const gateEdgeX = R_FACADE * Math.sin(GATE_ARC_HALF); // 2.7
+    expect(gateEdgeX).toBeCloseTo(2.7, 3);
+    expect(2 * gateEdgeX).toBeCloseTo(5.4, 2);
+    // The drawbridge deck (X ±2.0, ±2.22 across its beams) passes through.
+    for (const x of [-2.2, 0, 2.2]) {
+      expect(collidesWith(x, -44.3, PLAYER_RADIUS, CITY_COLLIDERS), `gate corridor (${x}, −44.3)`).toBe(false);
+    }
+    // Just outside the gate's clear width at the same Z, there is stone.
+    for (const x of [-3.2, 3.2]) {
+      expect(collidesWith(x, -44.3, PLAYER_RADIUS, CITY_COLLIDERS), `rear drum missing at X = ${x}`).toBe(true);
+    }
+  });
+
+  test('no push crosses the completed rear drum outside the gate', () => {
+    // "Crossed" = reached past the wall's inner face (R_LINER) at an angle the
+    // gate does not cover.  The wall itself is a shell, so a step-quantised
+    // push can come to rest a fraction inside its outer radius; what must not
+    // happen is walking through the 1.3-unit thickness and out the far side.
+    const crossedDrum = (trail: Array<[number, number]>) => trail.some(([x, z]) => {
+      const r = coloRadius(x, z);
+      if (r >= R_LINER) return false;
+      const theta = Math.atan2(x, z - COLO_ROOT_Z);
+      const offGate = Math.abs(Math.atan2(Math.sin(theta - Math.PI), Math.cos(theta - Math.PI)));
+      return offGate > GATE_ARC_HALF;
+    });
+    for (const x of [3.5, 5, 6.5, 8, 9, -3.5, -5, -6.5, -8, -9]) {
+      // City side → arena: stopped by the drum short of the sand.
+      const south = push(x, -46, 0, 1, 60);
+      expect(crossedDrum(south.trail), `crossed the rear drum at X = ${x}`).toBe(false);
+      expect(south.trail.some(([px, pz]) => onSand(px, pz)), `reached the sand at X = ${x}`).toBe(false);
+      expect(coloRadius(...south.end), `stopped short of the drum at X = ${x}`).toBeGreaterThan(R_FACADE);
+    }
   });
 });
 
@@ -566,6 +689,11 @@ describe('H. Nothing else about the Colosseum or the city moved', () => {
       ...Array.from({ length: 8 }, (_, i) => `colo-wall-r-${i}`),
       ...Array.from({ length: 8 }, (_, i) => `colo-podium-l-${i}`),
       ...Array.from({ length: 8 }, (_, i) => `colo-podium-r-${i}`),
+      // Phase C-8.31 completed the drum around the rear axial gate.
+      ...Array.from({ length: 2 }, (_, i) => `colo-rearwall-l-${i}`),
+      ...Array.from({ length: 2 }, (_, i) => `colo-rearwall-r-${i}`),
+      ...Array.from({ length: 2 }, (_, i) => `colo-rearpodium-l-${i}`),
+      ...Array.from({ length: 2 }, (_, i) => `colo-rearpodium-r-${i}`),
       'colo-pier-l',
       'colo-pier-r',
       'colo-flank-l',

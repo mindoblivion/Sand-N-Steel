@@ -401,17 +401,32 @@ const fountainCircle: CircleCollider = {
 //
 // Convention: X = R·sin(θ), Z = R·cos(θ) - 25
 // R_FACADE = 19.3 (outer wall face)
-// Arc spans θ ∈ [-0.85π, 0.85π] (306°), with entrance gap θ ∈ [-0.43, 0.43]
-// Two arc segments: left [-0.85π, -0.43] and right [0.43, 0.85π], 8 segs each.
-// Sagitta per segment ≈ 0.19 < player radius 0.4 → no squeeze-through.
+//
+// Phase C-8.31 — the drum is complete.  It ran over a 306° arc
+// (θ ∈ [-0.85π, 0.85π]) and was cut at exactly two places: the monumental
+// entrance, θ ∈ [-0.43, 0.43], and the rear axial gate, θ = π ± GATE_HALF —
+// the Northern Motte bridge axis, which until this phase had no stone in it at
+// all and let the player walk in and out of the arena around the building.
+// The registry is built exactly like the render: the two original 8-segment
+// arcs are UNCHANGED (same endpoints, same subdivision, so every measured
+// clearance in the other suites still holds), and the 0.331-radian rear flanks
+// are appended as two short polylines on the same radius.  The gate is left
+// clear between them.
+//
+// Sagitta per segment: 0.19 (front arcs, 8 segs each) and 0.07 (rear flanks,
+// 2 segs each) — both < player radius 0.4 → no squeeze-through.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const COLOSSEUM_R = 19.3;
 const COLOSSEUM_ROOT_Z = -25;
 const COLO_THETA_START = -Math.PI * 0.85;
-const COLO_THETA_END = Math.PI * 0.85; // -0.85π + 1.7π
+const COLO_THETA_END = Math.PI * 0.85; // -0.85π + 1.7π — the drum's rear seam
 const COLO_ENTRANCE_MIN = -0.43;
 const COLO_ENTRANCE_MAX = 0.43;
+
+/** Rear axial gate half-width at R_FACADE — GrandColosseum.tsx GATE_HALF_W. */
+const COLO_GATE_HALF_W = 2.7;
+const COLO_GATE_HALF = Math.asin(COLO_GATE_HALF_W / COLOSSEUM_R); // ≈ 0.1402 rad (8.03°)
 
 function coloPoint(theta: number): [number, number] {
   return [
@@ -421,8 +436,15 @@ function coloPoint(theta: number): [number, number] {
 }
 
 const colosseumWallSegments: SegmentCollider[] = [
+  // The original 306° drum (C-8.27), split at the monumental entrance.
   ...arcSegments(COLO_THETA_START, COLO_ENTRANCE_MIN, 8, 'colo-wall-l', coloPoint),
   ...arcSegments(COLO_ENTRANCE_MAX, COLO_THETA_END, 8, 'colo-wall-r', coloPoint),
+  // Phase C-8.31: the rear drum, east then west of the gate.
+  ...arcSegments(COLO_THETA_END, Math.PI - COLO_GATE_HALF, 2, 'colo-rearwall-r', coloPoint),
+  ...arcSegments(Math.PI + COLO_GATE_HALF, Math.PI * 1.15, 2, 'colo-rearwall-l', coloPoint),
+  // …and the gate's own jambs are the flanking bays' end piers, which the
+  // rendered arcade places flush with the opening (GrandColosseum.tsx
+  // DRUM_E_END / DRUM_W_START), so nothing further is needed at the mouth.
 ];
 
 // Colosseum Portal Piers — GrandColosseum.tsx
@@ -489,6 +511,15 @@ const colosseumFlanks: RectCollider[] = [
 // Sagitta per segment (8 per side, as on the facade) ≈ 0.186 < player radius
 // 0.4 → no squeeze-through; the entrance gap and the rear arc ends mirror the
 // rendered bowl, so the collider and the visible stone agree everywhere.
+//
+// Phase C-8.31: the drum is now complete, so the podium ring is too, and it is
+// cut at BOTH axial openings — each on that same 5.2-unit passage line (the
+// rear gate's cut is congruent with the doorway's, on its own π ± GAP seam).
+// The gate's clear width (COLO_GATE_HALF, 8.03°) is narrower than its own
+// passage, exactly as the monumental doorway is far wider than its own: the
+// passage is set by the structure the player walks through, not by the outer
+// opening.  The two original 8-segment front arcs are untouched; the rear
+// quadrants are appended as short polylines on the same radius.
 const COLO_PODIUM_R = 15.3;                     // R_ARENA_WALL — rendered podium radius
 const COLO_PODIUM_PASSAGE_HALF_W = 2.6;         // portal lintel half-width = pier inner face |X|
 const COLO_PODIUM_GAP = Math.asin(COLO_PODIUM_PASSAGE_HALF_W / COLO_PODIUM_R); // ≈ 0.1716 rad
@@ -503,6 +534,9 @@ function podiumPoint(theta: number): [number, number] {
 const colosseumPodium: SegmentCollider[] = [
   ...arcSegments(COLO_THETA_START, -COLO_PODIUM_GAP, 8, 'colo-podium-l', podiumPoint),
   ...arcSegments(COLO_PODIUM_GAP, COLO_THETA_END, 8, 'colo-podium-r', podiumPoint),
+  // Phase C-8.31: the two rear quadrants, east then west of the gate passage.
+  ...arcSegments(COLO_THETA_END, Math.PI - COLO_PODIUM_GAP, 2, 'colo-rearpodium-r', podiumPoint),
+  ...arcSegments(Math.PI + COLO_PODIUM_GAP, Math.PI * 1.15, 2, 'colo-rearpodium-l', podiumPoint),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

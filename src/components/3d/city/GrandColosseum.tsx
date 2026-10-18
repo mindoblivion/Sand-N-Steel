@@ -12,13 +12,14 @@ import { ColosseumSignPrototype } from './ColosseumSignPrototype';
 // ALL Colosseum geometry uses the Three.js cylinder convention:
 //   X = R · sin(θ),  Z = R · cos(θ)
 //   θ = 0   → local +Z  (front entrance, player approach)
-//   θ = π   → local −Z  (rear, 54° facade gap)
+//   θ = π   → local −Z  (rear axial gate, the bridge axis)
 //
-// The Colosseum exterior is a 306° partial cylinder (thetaStart = −0.85π,
-// thetaLength = 1.7π).  The 54° rear gap is centered on θ = π (−Z), invisible
-// from the player's normal viewing position.  The monumental portal sits at
-// θ = 0 (+Z) and spans roughly ±25°; we skip arch bays whose centre falls
-// inside [ENTRANCE_MIN, ENTRANCE_MAX] so the entrance stays unobstructed.
+// Phase C-8.31: the drum runs the FULL circle (it was a 306° partial cylinder,
+// thetaStart −0.85π, thetaLength 1.7π) and is cut at exactly two axial
+// openings — the monumental portal at θ = 0 (+Z, ±24.6°) and the rear gate at
+// θ = π (−Z, ±8.03°).  Both lie on the seam between the drum's two arcs, so
+// every band still draws as two meshes and the draw-call count is unchanged.
+// Arch bays tile each arc exactly, ending flush with each opening's jamb face.
 //
 // Facade construction (not flat stickers):
 //   • Tier 1 wall occupies R_LINER (18.0) → R_FACADE (19.3), depth 1.3.
@@ -26,18 +27,14 @@ import { ColosseumSignPrototype } from './ColosseumSignPrototype';
 //     at R_FACADE; piers and arch heads fill the wall thickness behind it
 //     (Phase 25.8 — they were previously centred on R_FACADE and poked 0.65
 //     through both faces of the bands).
-//   • 8 bays tile each facade segment exactly (gap edge → arc end), so no
-//     pier or arch head ever hangs over the entrance gap or the rear gap.
+//   • 9 bays tile each drum arc exactly (opening edge → opening edge), so no
+//     pier or arch head ever hangs over the entrance gap or the rear gate.
 //   • Arch heads are open (semicircular intrados with solid corner
 //     spandrels), and the piers rise to the spandrel band — no see-through
 //     slots between the arches.
 //   • Tier 1 liner was removed (Phase 25.4) — arch openings are genuine
 //     through-apertures revealing the interior seating bowl.
 // ---------------------------------------------------------------------------
-
-const ARC_THETA_START = -Math.PI * 0.85;
-const ARC_THETA_LENGTH = Math.PI * 1.7;
-const ARC_END = ARC_THETA_START + ARC_THETA_LENGTH; // 0.85π ≈ 2.670
 
 // Entrance skip zone — centered on θ = 0 (+Z, player approach).
 // Width ≈ 49° matches the original; now aligned with the portal at +Z.
@@ -59,11 +56,51 @@ const T1_CORNICE_Y = 8.2;
 const T1_CORNICE_H = 0.8;
 const T1_CORNICE_TOP = T1_CORNICE_Y + T1_CORNICE_H / 2; // 8.6
 
-// Bays tile each facade segment exactly; each bay = arch opening + two
-// half-piers, so neighbouring jambs meet at the pier centre without overlap.
-const BAYS_PER_SIDE = 8;
-const BAY_PITCH = (ENTRANCE_MIN - ARC_THETA_START) / BAYS_PER_SIDE; // ≈ 16.05°
-const JAMB_W = (BAY_PITCH * R_WALL_MID - 2 * ARCH_R) / 2; // ≈ 1.26 (half-pier)
+// Phase C-8.31 — rear axial gate.  Half-width 2.7 at the facade radius, i.e.
+// ±8.03°: a 16.08° opening, 5.39 units wide.  The drawbridge deck (X ±2.0,
+// ±2.22 across its side beams) passes through it with ~0.5 clear either side.
+// It spans tier 1 only (0.16 … 7.35): the spandrel band closes its head and
+// the tier-1 cornice forms its lintel, so the drum above stays continuous —
+// the real building's outer ring has no rear notch in its attic.
+const GATE_HALF_W = 2.7;
+const GATE_HALF = Math.asin(GATE_HALF_W / R_FACADE); // ≈ 0.1402 rad (8.03°)
+
+// The drum's two arcs.  Both openings sit on the seam between them — the
+// entrance between the west arc's end and the east arc's start, the gate
+// between the east arc's end and the west arc's start — so one two-entry array
+// drives every band and the mesh count is exactly what it was before.
+const DRUM_E_START = ENTRANCE_MAX;             //  0.43    ≈ 24.63°
+const DRUM_E_END = Math.PI - GATE_HALF;        //  π − 8.03° ≈ 171.97°
+const DRUM_W_START = Math.PI + GATE_HALF;      //  π + 8.03° ≈ 188.03°
+const DRUM_W_END = 2 * Math.PI + ENTRANCE_MIN; //  2π − 0.43 ≈ 335.37°
+const DRUM_ARCS: Array<[number, number]> = [
+  [DRUM_E_START, DRUM_E_END - DRUM_E_START],
+  [DRUM_W_START, DRUM_W_END - DRUM_W_START],
+];
+
+// Bands that stop at the front entrance only: they run straight over the rear
+// gate, whose head and lintel they are (or which they sit above).
+const FRONT_ARC_START = DRUM_E_START;
+const FRONT_ARC_LEN = DRUM_W_END - DRUM_E_START;
+const FRONT_CUT_ARCS: Array<[number, number]> = [[FRONT_ARC_START, FRONT_ARC_LEN]];
+
+// Bands that stop at the rear gate only.  The flared base ring still runs
+// under the front entrance steps as it always has, but the gate is a
+// walk-through opening, so the ring is cut there.
+const GATE_ARC_START = DRUM_W_START;
+const GATE_ARC_LEN = 2 * Math.PI - 2 * GATE_HALF;
+
+// Above the gate's lintel (the tier-1 cornice, 7.8 … 8.6) the drum is a
+// complete ring again, so these bands run the whole turn — still one mesh
+// each, exactly as they were when the drum was a 306° partial cylinder.
+const FULL_TURN = 2 * Math.PI;
+
+// Bays tile each drum arc exactly; each bay = arch opening + two half-piers,
+// so neighbouring jambs meet at the pier centre without overlap and the bays
+// flanking each opening end flush with it — the opening's own jamb face.
+const BAYS_PER_SIDE = 9;
+const BAY_PITCH = (DRUM_E_END - DRUM_E_START) / BAYS_PER_SIDE; // ≈ 16.37°
+const JAMB_W = (BAY_PITCH * R_WALL_MID - 2 * ARCH_R) / 2; // ≈ 1.31 (half-pier)
 const JAMB_H = SPANDREL_BOTTOM - SILL_TOP; // 4.85 — pier rises to the spandrel band
 const JAMB_OFFSET = (ARCH_R + JAMB_W / 2) / R_WALL_MID; // angular offset for jambs
 
@@ -100,9 +137,22 @@ const SEATING_T2_R_OUT = 17.8; // 0.2 inside R_LINER — no z-fight
 // faces: the vestibule side wall runs unbroken from the pier into the podium.
 const PORTAL_PASSAGE_HALF_W = 2.6; // lintel half-width = pier inner face |X|
 const BOWL_GAP_HALF = Math.asin(PORTAL_PASSAGE_HALF_W / R_ARENA_WALL); // ≈ 0.1716 rad (9.83°)
-const BOWL_SEG1_LEN = -BOWL_GAP_HALF - ARC_THETA_START;
-const BOWL_SEG2_START = BOWL_GAP_HALF;
-const BOWL_SEG2_LEN = ARC_END - BOWL_GAP_HALF;
+
+// Phase C-8.31: the rear gate cuts the bowl on that same 5.2-unit passage
+// line, so both openings open straight through onto the sand and the ring's
+// two cuts are congruent.  The gate's own clear width (GATE_HALF, 5.39 at the
+// facade) does not set it: the passage is set by the structure the player
+// walks through, just as the monumental doorway — 8.6 wide between its piers —
+// is cut to this same 5.2 line.  The cavea's cut is therefore a little wider
+// than the gate's jamb faces, so nothing of the seating projects into the
+// opening.
+const BOWL_E_END = Math.PI - BOWL_GAP_HALF;
+const BOWL_W_START = Math.PI + BOWL_GAP_HALF;
+const BOWL_W_END = 2 * Math.PI - BOWL_GAP_HALF;
+const BOWL_ARCS: Array<[number, number]> = [
+  [BOWL_GAP_HALF, BOWL_E_END - BOWL_GAP_HALF],
+  [BOWL_W_START, BOWL_W_END - BOWL_W_START],
+];
 
 // Phase 25.8: Flat horizontal annulus over [thetaStart, thetaStart + thetaLength]
 // in the cylinder convention.  RingGeometry measures φ from +X in its XY
@@ -262,21 +312,25 @@ export const GrandColosseum = React.memo(() => {
   // end and put the inner jamb of each entrance-adjacent bay in the gap.
   const archAngles = useMemo(() => {
     const angles: number[] = [];
-    for (let i = 0; i < BAYS_PER_SIDE; i++) angles.push(ARC_THETA_START + (i + 0.5) * BAY_PITCH);
-    for (let i = 0; i < BAYS_PER_SIDE; i++) angles.push(ENTRANCE_MAX + (i + 0.5) * BAY_PITCH);
+    for (let i = 0; i < BAYS_PER_SIDE; i++) angles.push(DRUM_E_START + (i + 0.5) * BAY_PITCH);
+    for (let i = 0; i < BAYS_PER_SIDE; i++) angles.push(DRUM_W_START + (i + 0.5) * BAY_PITCH);
     return angles;
   }, []);
 
   // Phase 25.4: Pilaster angles — positioned at the midpoints between adjacent
   // arch bays, aligning each pilaster above the structural pier between arches
   // rather than above the arch centre.  The entrance-adjacent midpoint falls
-  // inside the skip zone and is excluded so no pilaster sits in the entrance gap.
+  // inside the skip zone and is excluded so no pilaster sits in the entrance
+  // gap, and Phase C-8.31 excludes the one that falls across the rear gate —
+  // there is no pier under it either.
   const pilasterAngles = useMemo(() => {
     const angles: number[] = [];
     for (let i = 0; i < archAngles.length - 1; i++) {
       const pierAngle = (archAngles[i] + archAngles[i + 1]) / 2;
       if (pierAngle < ENTRANCE_MIN || pierAngle > ENTRANCE_MAX) {
-        angles.push(pierAngle);
+        if (pierAngle <= Math.PI - GATE_HALF || pierAngle >= Math.PI + GATE_HALF) {
+          angles.push(pierAngle);
+        }
       }
     }
     return angles;
@@ -301,19 +355,13 @@ export const GrandColosseum = React.memo(() => {
     };
   }, [colosseumWallBumpMap, facadeMat, recessMat, interiorMat, corniceMat, portalStoneMat, portcullisMat, jambGeo, archHeadGeo, pilasterGeo, portcullisBarVGeo, portcullisBarHGeo, friezeInscriptionTex]);
 
-  // Helper: angular length of the left arc segment (arc start → entrance).
-  const seg1Len = ENTRANCE_MIN - ARC_THETA_START;
-  // Helper: angular start and length of the right arc segment (entrance → arc end).
-  const seg2Start = ENTRANCE_MAX;
-  const seg2Len = ARC_END - ENTRANCE_MAX;
-
   return (
     <group position={[0, 0, -25]}>
       {/* ===================================================================
           0. STEPPED TRAVERTINE FOUNDATION PODIUM PLINTH
           =================================================================== */}
       <mesh castShadow receiveShadow position={[0, 0.08, 0]}>
-        <cylinderGeometry args={[19.3, 19.5, 0.16, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
+        <cylinderGeometry args={[19.3, 19.5, 0.16, 36, 1, true, GATE_ARC_START, GATE_ARC_LEN]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.travertineDark.color}
           roughness={0.84}
@@ -324,8 +372,9 @@ export const GrandColosseum = React.memo(() => {
       </mesh>
       {/* Phase 25.8: Upper plinth stops at the entrance gap like the sill band;
           running across it, its 0.14–0.30 shell rose 0.1 through the tread of
-          the bottom entrance step (y 0–0.2). */}
-      {[[ARC_THETA_START, seg1Len], [seg2Start, seg2Len]].map(([start, len], i) => (
+          the bottom entrance step (y 0–0.2).  Phase C-8.31: it stops at the
+          rear gate too — the gate's floor is the ground, not a step. */}
+      {DRUM_ARCS.map(([start, len], i) => (
         <mesh key={`plinth-upper-${i}`} castShadow receiveShadow position={[0, 0.22, 0]}>
           <cylinderGeometry args={[19.0, 19.2, 0.16, 36, 1, true, start, len]} />
           <meshStandardMaterial
@@ -347,21 +396,22 @@ export const GrandColosseum = React.memo(() => {
             WALL_DEPTH (1.3) recess creates natural shadow without a sealing
             dark panel. */}
 
-      {/* 1b. Sill band — solid wall below the arches. */}
-      <mesh material={facadeMat} receiveShadow position={[0, (0.3 + SILL_TOP) / 2, 0]}>
-        <cylinderGeometry args={[R_FACADE, R_FACADE, SILL_TOP - 0.3, 36, 1, true, ARC_THETA_START, seg1Len]} />
-      </mesh>
-      <mesh material={facadeMat} receiveShadow position={[0, (0.3 + SILL_TOP) / 2, 0]}>
-        <cylinderGeometry args={[R_FACADE, R_FACADE, SILL_TOP - 0.3, 36, 1, true, seg2Start, seg2Len]} />
-      </mesh>
+      {/* 1b. Sill band — solid wall below the arches, cut at both openings:
+            the sill's cut end is the jamb face of each opening's flanking bay. */}
+      {DRUM_ARCS.map(([start, len], i) => (
+        <mesh key={`sill-${i}`} material={facadeMat} receiveShadow position={[0, (0.3 + SILL_TOP) / 2, 0]}>
+          <cylinderGeometry args={[R_FACADE, R_FACADE, SILL_TOP - 0.3, 36, 1, true, start, len]} />
+        </mesh>
+      ))}
 
-      {/* 1c. Spandrel band — solid wall above the arches. */}
-      <mesh material={facadeMat} receiveShadow position={[0, (SPANDREL_BOTTOM + SPANDREL_TOP) / 2, 0]}>
-        <cylinderGeometry args={[R_FACADE, R_FACADE, SPANDREL_TOP - SPANDREL_BOTTOM, 36, 1, true, ARC_THETA_START, seg1Len]} />
-      </mesh>
-      <mesh material={facadeMat} receiveShadow position={[0, (SPANDREL_BOTTOM + SPANDREL_TOP) / 2, 0]}>
-        <cylinderGeometry args={[R_FACADE, R_FACADE, SPANDREL_TOP - SPANDREL_BOTTOM, 36, 1, true, seg2Start, seg2Len]} />
-      </mesh>
+      {/* 1c. Spandrel band — solid wall above the arches.  Phase C-8.31: it
+            runs straight over the rear gate, closing the head of the opening
+            at 7.35; the tier-1 cornice above it is the gate's lintel. */}
+      {FRONT_CUT_ARCS.map(([start, len], i) => (
+        <mesh key={`spandrel-${i}`} material={facadeMat} receiveShadow position={[0, (SPANDREL_BOTTOM + SPANDREL_TOP) / 2, 0]}>
+          <cylinderGeometry args={[R_FACADE, R_FACADE, SPANDREL_TOP - SPANDREL_BOTTOM, 36, 1, true, start, len]} />
+        </mesh>
+      ))}
 
       {/* 1d. Arch bays — jambs (half-piers) and open arch heads.
             All positions use the cylinder convention: X = R·sin(θ), Z = R·cos(θ),
@@ -401,43 +451,42 @@ export const GrandColosseum = React.memo(() => {
             Radius protrudes beyond the facade (19.5) for a shadow-casting lip.
             Phase 25.8: split at the entrance gap like the bands below it; the
             full-arc ribbon floated unsupported 2.6 units in front of the portal
-            and crossed its lintel/pediment line from the approach. */}
-      <mesh material={corniceMat} position={[0, T1_CORNICE_Y, 0]}>
-        <cylinderGeometry args={[T1_CORNICE_R, T1_CORNICE_R, T1_CORNICE_H, 36, 1, true, ARC_THETA_START, seg1Len]} />
-      </mesh>
-      <mesh material={corniceMat} position={[0, T1_CORNICE_Y, 0]}>
-        <cylinderGeometry args={[T1_CORNICE_R, T1_CORNICE_R, T1_CORNICE_H, 36, 1, true, seg2Start, seg2Len]} />
-      </mesh>
+            and crossed its lintel/pediment line from the approach.  Phase
+            C-8.31: it runs over the rear gate, spanning it as its lintel. */}
+      {FRONT_CUT_ARCS.map(([start, len], i) => (
+        <mesh key={`t1-cornice-${i}`} material={corniceMat} position={[0, T1_CORNICE_Y, 0]}>
+          <cylinderGeometry args={[T1_CORNICE_R, T1_CORNICE_R, T1_CORNICE_H, 36, 1, true, start, len]} />
+        </mesh>
+      ))}
 
       {/* 1f. Phase 25.8: Tier-transition ledge — the cornice's top surface,
             closing the open 17.8–19.5 annulus between the tier-1 wall and the
             set-back tier-2 wall so tier 2 reads as resting on tier 1 rather
             than as a separate inner drum (and no sky shows through from the
             arena). */}
-      <FlatArcRing y={T1_CORNICE_TOP} innerRadius={R_FACADE_T2} outerRadius={T1_CORNICE_R}
-        thetaStart={ARC_THETA_START} thetaLength={seg1Len} material={corniceMat} />
-      <FlatArcRing y={T1_CORNICE_TOP} innerRadius={R_FACADE_T2} outerRadius={T1_CORNICE_R}
-        thetaStart={seg2Start} thetaLength={seg2Len} material={corniceMat} />
+      {FRONT_CUT_ARCS.map(([start, len], i) => (
+        <FlatArcRing key={`t1-ledge-${i}`} y={T1_CORNICE_TOP} innerRadius={R_FACADE_T2} outerRadius={T1_CORNICE_R}
+          thetaStart={start} thetaLength={len} material={corniceMat} />
+      ))}
 
       {/* ===================================================================
           2. TIER 2 — UPPER PILASTER ARCADE
           =================================================================== */}
 
-      {/* 2a. Inner dark liner — window-depth backdrop (2 segments). */}
-      <mesh material={recessMat} position={[0, (T2_SILL_TOP + T2_TOP) / 2, 0]}>
-        <cylinderGeometry args={[R_LINER_T2, R_LINER_T2, T2_TOP - T2_SILL_TOP, 36, 1, true, ARC_THETA_START, seg1Len]} />
-      </mesh>
-      <mesh material={recessMat} position={[0, (T2_SILL_TOP + T2_TOP) / 2, 0]}>
-        <cylinderGeometry args={[R_LINER_T2, R_LINER_T2, T2_TOP - T2_SILL_TOP, 36, 1, true, seg2Start, seg2Len]} />
-      </mesh>
+      {/* 2a. Inner dark liner — window-depth backdrop, cut at the entrance and
+            continuous across the rear gate (tier 2 sits above it). */}
+      {FRONT_CUT_ARCS.map(([start, len], i) => (
+        <mesh key={`t2-liner-${i}`} material={recessMat} position={[0, (T2_SILL_TOP + T2_TOP) / 2, 0]}>
+          <cylinderGeometry args={[R_LINER_T2, R_LINER_T2, T2_TOP - T2_SILL_TOP, 36, 1, true, start, len]} />
+        </mesh>
+      ))}
 
-      {/* 2b. Sill band between cornice and pilasters (2 segments). */}
-      <mesh material={facadeMat} receiveShadow position={[0, (T2_BOTTOM + T2_SILL_TOP) / 2, 0]}>
-        <cylinderGeometry args={[R_FACADE_T2, R_FACADE_T2, T2_SILL_TOP - T2_BOTTOM, 36, 1, true, ARC_THETA_START, seg1Len]} />
-      </mesh>
-      <mesh material={facadeMat} receiveShadow position={[0, (T2_BOTTOM + T2_SILL_TOP) / 2, 0]}>
-        <cylinderGeometry args={[R_FACADE_T2, R_FACADE_T2, T2_SILL_TOP - T2_BOTTOM, 36, 1, true, seg2Start, seg2Len]} />
-      </mesh>
+      {/* 2b. Sill band between cornice and pilasters. */}
+      {FRONT_CUT_ARCS.map(([start, len], i) => (
+        <mesh key={`t2-sill-${i}`} material={facadeMat} receiveShadow position={[0, (T2_BOTTOM + T2_SILL_TOP) / 2, 0]}>
+          <cylinderGeometry args={[R_FACADE_T2, R_FACADE_T2, T2_SILL_TOP - T2_BOTTOM, 36, 1, true, start, len]} />
+        </mesh>
+      ))}
 
       {/* 2c. Pilasters — vertical stone strips aligned above the Tier 1 piers
             (between adjacent arches), not above arch centres.  Gaps between
@@ -457,16 +506,16 @@ export const GrandColosseum = React.memo(() => {
       {/* 2c-bis. Phase 25.8: Window-recess ceiling at the pilaster/liner top.
             Without it the 17.0–18.1 recess was open above y 14.5, showing a
             band of sky between the pilasters just under the golden cornice. */}
-      <FlatArcRing y={T2_TOP} innerRadius={R_LINER_T2} outerRadius={T2_CORNICE_R}
-        thetaStart={ARC_THETA_START} thetaLength={seg1Len} material={recessMat} />
-      <FlatArcRing y={T2_TOP} innerRadius={R_LINER_T2} outerRadius={T2_CORNICE_R}
-        thetaStart={seg2Start} thetaLength={seg2Len} material={recessMat} />
+      {FRONT_CUT_ARCS.map(([start, len], i) => (
+        <FlatArcRing key={`t2-window-ceiling-${i}`} y={T2_TOP} innerRadius={R_LINER_T2} outerRadius={T2_CORNICE_R}
+          thetaStart={start} thetaLength={len} material={recessMat} />
+      ))}
 
       {/* 2d. Tier 2 cornice — golden attic cornice (radius adjusted to 18.1).
             Phase 25.8: spans T2_TOP → attic base (was 14.6–15.4, leaving a
-            0.1 gap above the pilasters). */}
+            0.1 gap above the pilasters).  Phase C-8.31: complete ring. */}
       <mesh position={[0, (T2_TOP + T2_CORNICE_TOP) / 2, 0]}>
-        <cylinderGeometry args={[T2_CORNICE_R, T2_CORNICE_R, T2_CORNICE_TOP - T2_TOP, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
+        <cylinderGeometry args={[T2_CORNICE_R, T2_CORNICE_R, T2_CORNICE_TOP - T2_TOP, 36, 1, true, 0, FULL_TURN]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.goldAccent.color}
           metalness={0.75}
@@ -480,12 +529,12 @@ export const GrandColosseum = React.memo(() => {
             tall attic storey.  R=17.5 tapers inward from the tier-2 facade
             (17.8); height 1.6 brings the crest to y=17.0. */}
       <mesh material={facadeMat} receiveShadow position={[0, 16.2, 0]}>
-        <cylinderGeometry args={[17.5, 17.8, 1.6, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
+        <cylinderGeometry args={[17.5, 17.8, 1.6, 36, 1, true, 0, FULL_TURN]} />
       </mesh>
 
       {/* 2f. Attic crest cornice — bright stone cap on the attic wall. */}
       <mesh material={corniceMat} position={[0, 17.1, 0]}>
-        <cylinderGeometry args={[17.8, 17.8, 0.5, 36, 1, true, ARC_THETA_START, ARC_THETA_LENGTH]} />
+        <cylinderGeometry args={[17.8, 17.8, 0.5, 36, 1, true, 0, FULL_TURN]} />
       </mesh>
 
       {/* ===================================================================
@@ -642,17 +691,20 @@ export const GrandColosseum = React.memo(() => {
       {/* ===================================================================
           4. INTERIOR SEATING BOWL
           Lightweight amphitheatre interior: low arena boundary wall, two
-          sloped seating frustums (truncated-cone ring segments).  All use the
-          same 306° arc as the exterior.  No new lights — relies on existing
-          scene lighting and DoubleSide rendering.
+          sloped seating frustums (truncated-cone ring segments).  All stop at
+          the two axial passages (BOWL_ARCS) the way the exterior bands stop at
+          the same openings.  No new lights — relies on existing scene lighting
+          and DoubleSide rendering.
           =================================================================== */}
 
       {/* 4a. Arena boundary wall (podium) — separates sand from seating.
             Uses facadeMat (travertine + bump) so it reads as solid exterior-
             quality stone, visually distinct from the lighter seating surfaces.
             Phase C-8.28: stops at the entrance passage (BOWL_GAP_HALF) so the
-            monumental doorway is not walled off at the arena edge. */}
-      {[[ARC_THETA_START, BOWL_SEG1_LEN], [BOWL_SEG2_START, BOWL_SEG2_LEN]].map(([start, len], i) => (
+            monumental doorway is not walled off at the arena edge.  Phase
+            C-8.31: it stops at the rear gate's passage too, so the bridge axis
+            is the arena's second way in and out. */}
+      {BOWL_ARCS.map(([start, len], i) => (
         <mesh key={`podium-${i}`} material={facadeMat} receiveShadow position={[0, (0.05 + 1.25) / 2, 0]}>
           <cylinderGeometry args={[R_ARENA_WALL, R_ARENA_WALL, 1.2, 32, 1, true, start, len]} />
         </mesh>
@@ -662,8 +714,9 @@ export const GrandColosseum = React.memo(() => {
             to r=16.8 at y=3.75.  radiusTop > radiusBottom creates the
             outward-and-upward slope of amphitheatre seating.
             Phase C-8.28: same entrance passage as the podium, so the cavea
-            does not slope across the doorway. */}
-      {[[ARC_THETA_START, BOWL_SEG1_LEN], [BOWL_SEG2_START, BOWL_SEG2_LEN]].map(([start, len], i) => (
+            does not slope across the doorway.  Phase C-8.31: the rear gate's
+            passage is cut the same way. */}
+      {BOWL_ARCS.map(([start, len], i) => (
         <mesh key={`seating-t1-${i}`} material={interiorMat} receiveShadow position={[0, (1.25 + 3.75) / 2, 0]}>
           <cylinderGeometry args={[SEATING_T1_R_OUT, R_ARENA_WALL, 2.5, 32, 1, true, start, len]} />
         </mesh>
@@ -672,7 +725,7 @@ export const GrandColosseum = React.memo(() => {
       {/* 4c. Seating tier 2 (media cavea) — slopes from r=16.8 at y=3.75
             to r=17.8 at y=6.25.  Outer edge (17.8) is 0.2 inside the
             Tier 1 dark liner (18.0) — no z-fighting. */}
-      {[[ARC_THETA_START, BOWL_SEG1_LEN], [BOWL_SEG2_START, BOWL_SEG2_LEN]].map(([start, len], i) => (
+      {BOWL_ARCS.map(([start, len], i) => (
         <mesh key={`seating-t2-${i}`} material={interiorMat} receiveShadow position={[0, (3.75 + 6.25) / 2, 0]}>
           <cylinderGeometry args={[SEATING_T2_R_OUT, SEATING_T1_R_OUT, 2.5, 32, 1, true, start, len]} />
         </mesh>
