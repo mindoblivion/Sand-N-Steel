@@ -397,9 +397,16 @@ const PED_F = {
   entab: nums(colSrc, /<mesh castShadow receiveShadow position=\{\[0, ([\d.]+), 0\]\}>\s*<boxGeometry args=\{\[width \+ ([\d.]+), ([\d.]+), depth \+ ([\d.]+)\]\}/),
   frieze: nums(colSrc, /<mesh position=\{\[0, (-?[\d.]+), depth \/ 2 \+ ([\d.]+)\]\}>\s*<boxGeometry args=\{\[width \+ ([\d.]+), ([\d.]+), ([\d.]+)\]/),
   tymp: nums(colSrc, /<mesh position=\{\[0, ([\d.]+), depth \/ 2 - ([\d.]+)\]\}>\s*<shapeGeometry/),
-  rakeDrop: num(colSrc, /position=\{\[-halfBase \/ 2, ([\d.]+) \+ height \/ 2, 0\]\}\s*rotation=\{\[0, 0, -slopeAngle\]\}/),
-  rake: nums(colSrc, /<boxGeometry args=\{\[rafterLen \+ ([\d.]+), ([\d.]+), depth \+ ([\d.]+)\]\}/),
-  acro: nums(colSrc, /position=\{\[0, ([\d.]+) \+ height \+ ([\d.]+), depth \/ 2 \+ ([\d.]+)\]\}>\s*<boxGeometry args=\{\[([\d.]+),\s*([\d.]+),\s*([\d.]+)\]/),
+  // Phase C-8.62 corrected the rakes: `+slopeAngle` (left) / `−slopeAngle` (right), a run of
+  // `rafterLen` with no extra, the primitive's own `rakeThickness`, and the derived `crownLift`
+  // under the acroterion. All of it is parsed, so this suite builds what the primitive writes.
+  rakeDrop: num(colSrc, /position=\{\[-halfBase \/ 2, ([\d.]+) \+ height \/ 2, 0\]\}/),
+  rakeSignL: /position=\{\[-halfBase \/ 2, [\d.]+ \+ height \/ 2, 0\]\}\s*rotation=\{\[0, 0, (-?)slopeAngle\]\}/.exec(colSrc)?.[1] === '-' ? -1 : 1,
+  rakeSignR: /position=\{\[halfBase \/ 2, [\d.]+ \+ height \/ 2, 0\]\}\s*rotation=\{\[0, 0, (-?)slopeAngle\]\}/.exec(colSrc)?.[1] === '-' ? -1 : 1,
+  rakeThickness: num(colSrc, /const rakeThickness = ([\d.]+);/),
+  crownDivisor: num(colSrc, /const crownLift = Math\.cos\(slopeAngle\) \* \(rakeThickness \/ ([\d.]+)\);/),
+  rakeDepth: num(colSrc, /<boxGeometry args=\{\[rafterLen, rakeThickness, depth \+ ([\d.]+)\]\}/),
+  acro: nums(colSrc, /position=\{\[0, ([\d.]+) \+ height \+ ([\d.]+) \+ crownLift, depth \/ 2 \+ ([\d.]+)\]\}>\s*<boxGeometry args=\{\[([\d.]+),\s*([\d.]+),\s*([\d.]+)\]/),
 };
 const COL_F = {
   plinthCap: num(colSrc, /const plinthHeight = Math\.min\(([\d.]+), height \* 0\.07\);/),
@@ -492,9 +499,12 @@ function build(P: { doorZ?: number; wreathPos?: V3; wreathRot?: V3; wreathR?: nu
   o.architrave = box(p([0, PED_F.entab[0], 0]), [PED.width + PED_F.entab[1], PED_F.entab[2], PED.depth + PED_F.entab[3]]);
   o.frieze = box(p([0, PED_F.frieze[0], PED.depth / 2 + PED_F.frieze[1]]), [PED.width + PED_F.frieze[2], PED_F.frieze[3], PED_F.frieze[4]]);
   o.tympanumPlane = box(p([0, PED_F.tymp[0], PED.depth / 2 - PED_F.tymp[1]]), [PED.width - 0.3, PED.height - 0.1, 0]);
-  o.rakeL = box(p([-halfBase / 2, PED_F.rakeDrop + PED.height / 2, 0]), [pRafter + PED_F.rake[0], PED_F.rake[1], PED.depth + PED_F.rake[2]], -pSlope);
-  o.rakeR = box(p([halfBase / 2, PED_F.rakeDrop + PED.height / 2, 0]), [pRafter + PED_F.rake[0], PED_F.rake[1], PED.depth + PED_F.rake[2]], pSlope);
-  o.acro = box(p([0, PED_F.acro[0] + PED.height + PED_F.acro[1], PED.depth / 2 + PED_F.acro[2]]), [PED_F.acro[3], PED_F.acro[4], PED_F.acro[5]]);
+  // Phase C-8.62: the rakes rise to the apex over `rafterLen` and the acroterion seats on the
+  // crowns that meet there, lifted by the primitive's derived `crownLift`.
+  const crownLift = Math.cos(pSlope) * (PED_F.rakeThickness / PED_F.crownDivisor);
+  o.rakeL = box(p([-halfBase / 2, PED_F.rakeDrop + PED.height / 2, 0]), [pRafter, PED_F.rakeThickness, PED.depth + PED_F.rakeDepth], PED_F.rakeSignL * pSlope);
+  o.rakeR = box(p([halfBase / 2, PED_F.rakeDrop + PED.height / 2, 0]), [pRafter, PED_F.rakeThickness, PED.depth + PED_F.rakeDepth], PED_F.rakeSignR * pSlope);
+  o.acro = box(p([0, PED_F.acro[0] + PED.height + PED_F.acro[1] + crownLift, PED.depth / 2 + PED_F.acro[2]]), [PED_F.acro[3], PED_F.acro[4], PED_F.acro[5]]);
 
   const colR = COL.radius;
   const colH = COL.height;

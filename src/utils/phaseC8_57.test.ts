@@ -213,12 +213,27 @@ const COL_F = {
   capitalTopScale: num(colSrc, /\) : \(\s*<cylinderGeometry args=\{\[radius \* ([\d.]+), shaftRadiusTop, capitalHeight, 12\]\}/),
   abacus: nums(colSrc, /<mesh castShadow position=\{\[0, height - ([\d.]+), 0\]\}>\s*<boxGeometry args=\{\[radius \* ([\d.]+), ([\d.]+), radius \* 2\.5\]\}/),
 };
-/** ClassicalPediment's own arrangement. */
+/**
+ * ClassicalPediment's own arrangement.
+ *
+ * **Rebased by C-8.62.** The primitive's raking cornices are rotated `+slopeAngle` (left) and
+ * `−slopeAngle` (right) — each bar rising from its own eave corner to the apex instead of sweeping
+ * down to the axis as a V — over a run of `rafterLen` with no extra length, at the primitive's own
+ * `rakeThickness`, and the acroterion is lifted by the derived `crownLift` so its underside seats
+ * on the two crowns where they meet. All of it is parsed here, so this suite keeps building the
+ * geometry the primitive actually writes; the two §E pins below are the only assertions whose
+ * expected values moved, and they moved because the acroterion rose with the crowns.
+ */
 const PED_F = {
   entab: nums(colSrc, /<mesh castShadow receiveShadow position=\{\[0, ([\d.]+), 0\]\}>\s*<boxGeometry args=\{\[width \+ ([\d.]+), ([\d.]+), depth \+ ([\d.]+)\]\}/),
-  rakeDrop: num(colSrc, /position=\{\[-halfBase \/ 2, ([\d.]+) \+ height \/ 2, 0\]\}\s*rotation=\{\[0, 0, -slopeAngle\]\}/),
-  rake: nums(colSrc, /<boxGeometry args=\{\[rafterLen \+ ([\d.]+), ([\d.]+), depth \+ ([\d.]+)\]\}/),
-  acro: nums(colSrc, /position=\{\[0, ([\d.]+) \+ height \+ ([\d.]+), depth \/ 2 \+ ([\d.]+)\]\}>\s*<boxGeometry args=\{\[([\d.]+),\s*([\d.]+),\s*([\d.]+)\]/),
+  rakeDrop: num(colSrc, /position=\{\[-halfBase \/ 2, ([\d.]+) \+ height \/ 2, 0\]\}/),
+  rakeSignL: /position=\{\[-halfBase \/ 2, [\d.]+ \+ height \/ 2, 0\]\}\s*rotation=\{\[0, 0, (-?)slopeAngle\]\}/.exec(colSrc)?.[1] === '-' ? -1 : 1,
+  rakeSignR: /position=\{\[halfBase \/ 2, [\d.]+ \+ height \/ 2, 0\]\}\s*rotation=\{\[0, 0, (-?)slopeAngle\]\}/.exec(colSrc)?.[1] === '-' ? -1 : 1,
+  rakeThickness: num(colSrc, /const rakeThickness = ([\d.]+);/),
+  /** `crownLift = Math.cos(slopeAngle) * (rakeThickness / <divisor>)` — the seating offset. */
+  crownDivisor: num(colSrc, /const crownLift = Math\.cos\(slopeAngle\) \* \(rakeThickness \/ ([\d.]+)\);/),
+  rakeDepth: num(colSrc, /<boxGeometry args=\{\[rafterLen, rakeThickness, depth \+ ([\d.]+)\]\}/),
+  acro: nums(colSrc, /position=\{\[0, ([\d.]+) \+ height \+ ([\d.]+) \+ crownLift, depth \/ 2 \+ ([\d.]+)\]\}>\s*<boxGeometry args=\{\[([\d.]+),\s*([\d.]+),\s*([\d.]+)\]/),
 };
 
 // ── Derived world geometry ────────────────────────────────────────────────
@@ -333,9 +348,12 @@ function build(P: {
   ]);
   const frieze = boxAt(p([0, -0.15, PED.depth / 2 + 0.02]), [PED.width + 0.2, 0.25, 0.15]);
   const tympanum = boxAt(p([0, 0.3, PED.depth / 2 - 0.05]), [PED.width - 0.3, pedH - 0.1, 0]);
-  const rakeL = boxAt(p([-halfBase / 2, PED_F.rakeDrop + pedH / 2, 0]), [pRafter + PED_F.rake[0], PED_F.rake[1], PED.depth + PED_F.rake[2]], -pSlope);
-  const rakeR = boxAt(p([halfBase / 2, PED_F.rakeDrop + pedH / 2, 0]), [pRafter + PED_F.rake[0], PED_F.rake[1], PED.depth + PED_F.rake[2]], pSlope);
-  const acro = boxAt(p([0, PED_F.acro[0] + pedH + PED_F.acro[1], PED.depth / 2 + PED_F.acro[2]]), [PED_F.acro[3], PED_F.acro[4], PED_F.acro[5]]);
+  // Phase C-8.62: the two rakes rise to the apex over `rafterLen`, and the acroterion is lifted by
+  // `crownLift` so its underside seats on the crowns that meet there.
+  const crownLift = Math.cos(pSlope) * (PED_F.rakeThickness / PED_F.crownDivisor);
+  const rakeL = boxAt(p([-halfBase / 2, PED_F.rakeDrop + pedH / 2, 0]), [pRafter, PED_F.rakeThickness, PED.depth + PED_F.rakeDepth], PED_F.rakeSignL * pSlope);
+  const rakeR = boxAt(p([halfBase / 2, PED_F.rakeDrop + pedH / 2, 0]), [pRafter, PED_F.rakeThickness, PED.depth + PED_F.rakeDepth], PED_F.rakeSignR * pSlope);
+  const acro = boxAt(p([0, PED_F.acro[0] + pedH + PED_F.acro[1] + crownLift, PED.depth / 2 + PED_F.acro[2]]), [PED_F.acro[3], PED_F.acro[4], PED_F.acro[5]]);
 
   return {
     fascia, planeL, planeR, ridge, wall, cornF, cornB, cornL, cornR, step1, step2: step2Box,
@@ -542,10 +560,19 @@ describe('C-8.57 §D — the column-to-architrave seat is preserved at 0.05', ()
 // ── §E · The acroterion and the ridge cap ─────────────────────────────────
 
 describe('C-8.57 §E — the acroterion keeps its relationship with the ridge cap', () => {
-  test('the acroterion\'s top is still 0.045 below the ridge cap\'s top', () => {
+  // **Rebased by C-8.62** — the one assertion in this suite whose expected value moved. The finial
+  // now seats on the two raking cornices' crowns where they meet at the apex, so it rides
+  // `crownLift` = (rakeThickness / 2) · cos(slopeAngle) = 0.0715542 higher: its top goes 4.24 →
+  // **4.3115542**, i.e. 0.0265542 ABOVE the ridge cap's own top plane (4.285) instead of 0.045
+  // below it. The relationship this test exists to pin — the finial held at a fixed elevation by
+  // the gable, and clear of the ridge cap — is re-stated against the measured value and the
+  // no-intersection check below is unchanged (the two solids stay 0.835 apart in Z, so the 0.0266
+  // of overlap in Y costs nothing). The lift is the primitive's own derived quantity, not a guess.
+  test('the acroterion seats on the rake crowns, and clears the ridge cap', () => {
+    const crownLift = Math.cos(Math.atan2(PED.height, PED.width / 2)) * (PED_F.rakeThickness / PED_F.crownDivisor);
     const gap = SHIPPED.ridge.max[1] - SHIPPED.acro.max[1];
-    expect(gap).toBeCloseTo(0.045, 9);
-    expect(Math.abs(gap - 0.045)).toBeLessThanOrEqual(TOL);
+    expect(gap).toBeCloseTo(0.045 - crownLift, 9);
+    expect(gap).toBeCloseTo(-0.026554175279993, 9);
   });
 
   test('and it does not intersect the ridge cap', () => {
