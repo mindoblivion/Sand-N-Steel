@@ -46,6 +46,7 @@ import {
   SUMMIT_CARDINAL_RADIUS,
   SUMMIT_DIAGONAL_RADIUS,
   SUMMIT_SUPERELLIPSE_N,
+  SUMMIT_SLOPE_FOOT_RADIUS,
   MOTTE_PERIMETER_RADIUS,
 } from './terrainHeight';
 
@@ -88,12 +89,26 @@ describe('Terrain height — former ramp area (mound slope)', () => {
     expect(y).toBeLessThan(SUMMIT_Y);
   });
 
-  test('mound slope is continuous from perimeter to summit', () => {
-    // Sample from just inside perimeter to near summit edge
-    for (let r = MOTTE_PERIMETER_RADIUS - 0.5; r > SUMMIT_CARDINAL_RADIUS + 0.1; r -= 0.5) {
+  test('mound slope is continuous from the visible slope foot to the summit', () => {
+    // Phase Motte-Terrain Alignment 1: the visible mound reaches Y=0 at the
+    // slope foot (SUMMIT_SLOPE_FOOT_RADIUS, 19.499 cardinal), which is INSIDE
+    // the collision perimeter (22.0).  Sample from just inside the foot up to
+    // the summit edge; the band between the foot and the perimeter is flat
+    // city ground and is asserted separately below.
+    for (let r = SUMMIT_SLOPE_FOOT_RADIUS - 0.5; r > SUMMIT_CARDINAL_RADIUS + 0.1; r -= 0.5) {
       const y = getTerrainY(0, MOTTE_CENTER_Z + r);
       expect(y).toBeGreaterThan(0, `r=${r.toFixed(2)}: Y=${y.toFixed(4)} should be > 0`);
       expect(y).toBeLessThan(SUMMIT_Y, `r=${r.toFixed(2)}: Y=${y.toFixed(4)} should be < SUMMIT_Y`);
+    }
+  });
+
+  test('ground between the slope foot and the collision perimeter is flat', () => {
+    // The rendered mound is fully below the ground plane here (the ditch
+    // ring), so gameplay terrain is Y=0 all the way out to the perimeter.
+    for (let r = SUMMIT_SLOPE_FOOT_RADIUS; r <= MOTTE_PERIMETER_RADIUS; r += 0.5) {
+      const y = getTerrainY(0, MOTTE_CENTER_Z + r);
+      expect(y).toBeGreaterThanOrEqual(0, `r=${r.toFixed(2)}: Y=${y.toFixed(4)} should be >= 0`);
+      expect(y).toBeLessThan(0.02, `r=${r.toFixed(2)}: Y=${y.toFixed(4)} should be flat ground`);
     }
   });
 

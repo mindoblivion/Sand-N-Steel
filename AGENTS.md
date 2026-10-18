@@ -92,6 +92,17 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `sword_shield`) resolves to the same gladius the player starts with, so reaching a different type
   needs a leveled profile (or a `loadout` on the config).
 
+- **Northern motte terrain is mesh-aligned (Phase Motte-Terrain Alignment 1).** The rendered mound
+  (`public/_workspace_motte_normals.glb`, `Motte_Grass`) is a family of scaled superellipses (exponent 6)
+  built from the summit edge (cardinal 12.58 world): the summit is that shape at level 1, and the visible
+  slope reaches Y=0 at level **1.55** (model radius 62 of 40; world radius 19.499 cardinal / 24.554
+  diagonal — the foot is neither a circle nor the collision perimeter). `getTerrainY` interpolates linearly
+  in that level between `SUMMIT_Y` and 0, via `summitLevel()` in `src/utils/terrainHeight.ts`. Previously it
+  interpolated radially out to `MOTTE_PERIMETER_RADIUS` (22.0), floating the player up to 1.252 units above
+  the visible mound (worst at X=0, Z=-52) and up to 1.389 units below it on the diagonals.
+  `MOTTE_PERIMETER_RADIUS` stays collision-only and unchanged. The reference samples in
+  `phaseMotteTerrain.test.ts` come from a downward raycast onto the GLB, not from the formula.
+
 ## Verifying
 
 - `curl -s localhost:3000/` should return the HTML shell (title: "Sand & Steel: 3D Gladiator Arena RPG").

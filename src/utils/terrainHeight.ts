@@ -27,16 +27,38 @@
  *     world X and Z.
  *     Inside this boundary: flat at Y = SUMMIT_Y (4.7175).
  *
- *   Mound slope (between summit edge and moat ring):
- *     The summit edge radius varies with angle (cardinal 12.58, diagonal
- *     15.87).  The outer perimeter (moat ring) is approximately circular
- *     at world radius 22.0.  Between these, the surface descends from
- *     Y≈4.72 to Y≈0 via linear interpolation.
+ *   Mound slope (between summit edge and slope foot) — Phase Motte-Terrain
+ *   Alignment 1:
+ *     The rendered grass surface is a FAMILY OF SCALED SUPERELLIPSES of
+ *     exponent 6.  Every ring of the mesh is the summit superellipse
+ *     (cardinal radius 40 model units) multiplied by a constant level
+ *     factor s.  Sampling the shipping asset
+ *     (public/_workspace_motte_normals.glb, world transform position
+ *     [0, 0, -71.5], scale 0.3145, no extra rotation) gives:
+ *
+ *       level s   model radius   world radius (cardinal)   Y
+ *       1.000     40.0           12.580                     4.7175  (summit edge)
+ *       ~1.11     ~44.5          14.000                     3.7490
+ *       1.275     51.0           16.040                     2.3588
+ *       1.425     57.0           17.927                     1.1794
+ *       1.550     62.0           19.499                     0.0000  (slope foot)
+ *
+ *     The height descends LINEARLY in the level s, from SUMMIT_Y at the
+ *     summit edge (s = 1) to 0 at the visible slope foot (s = 1.55).
+ *     That reproduces the sampled mesh profile to within 0.001 world
+ *     units along the south approach (radius 14 → 3.749/3.749,
+ *     16 → 2.386/2.386, 19 → 0.340/0.340).
+ *
+ *     Because the foot is a superellipse (not a circle), the visible foot
+ *     radius is angle-dependent: 19.50 cardinal, 24.55 diagonal.  It is
+ *     therefore deliberately DISTINCT from the collision perimeter below.
  *
  *   Moat ring (perimeter collision boundary):
  *     World radius ≈22.0 from motte center.  Collision segments with
  *     a south-facing opening for the ramp prevent walking onto the
- *     mound sides.  Outside this radius the ground is flat at Y=0.
+ *     mound sides.  This radius is collision geometry only — it is NOT
+ *     the visible slope foot and is no longer used by getTerrainY.
+ *     Beyond the visible slope foot the ground is flat at Y=0.
  *
  * The player model origin is at the feet (Y=0 = ground level), so the
  * returned Y is applied directly as the player's world Y position.
@@ -86,8 +108,21 @@ export const SUMMIT_CARDINAL_RADIUS = 40 * MOTTE_SCALE;        // 12.58
 export const SUMMIT_DIAGONAL_RADIUS = 50.4 * MOTTE_SCALE;     // ~15.87
 export const SUMMIT_SUPERELLIPSE_N = 6;  // derived from cardinal/diagonal ratio
 
-// Mound perimeter (moat ring, used for collision)
+// Mound perimeter (moat ring, used for COLLISION only — unchanged by the
+// terrain alignment).  This is not the visible slope foot; see
+// SUMMIT_SLOPE_FOOT_SCALE below.
 export const MOTTE_PERIMETER_RADIUS = 22.0;           // ~69.93 model * scale
+
+// ── Visible mound slope (Phase Motte-Terrain Alignment 1) ───────────────────
+//
+// Measured from the shipping GLB: the outermost grass ring that still reaches
+// the city ground plane is the summit superellipse scaled by 1.55 (model
+// radius 62 of 40), i.e. world radius 19.499 cardinal / 24.554 diagonal.
+// The mound surface is interpolated linearly in this level factor between the
+// summit edge (s = 1, Y = SUMMIT_Y) and the foot (s = 1.55, Y = 0).
+export const SUMMIT_SLOPE_FOOT_SCALE = 1.55;          // model radius 62 / 40
+export const SUMMIT_SLOPE_FOOT_RADIUS =
+  SUMMIT_CARDINAL_RADIUS * SUMMIT_SLOPE_FOOT_SCALE;   // 19.499 (cardinal)
 
 // ── Summit boundary helpers ─────────────────────────────────────────────────
 
@@ -122,6 +157,31 @@ export function summitEdgeRadius(theta: number): number {
   return SUMMIT_CARDINAL_RADIUS / Math.pow(c + s, 1 / SUMMIT_SUPERELLIPSE_N);
 }
 
+/**
+ * Returns the superellipse LEVEL of a point relative to the motte center.
+ *
+ * The mound surface is a family of scaled copies of the summit superellipse,
+ * so this single number locates a point within that family:
+ *   level < 1        → inside the flat summit
+ *   level = 1        → on the summit edge
+ *   1 < level < 1.55 → on the mound slope
+ *   level ≥ 1.55     → outside the visible slope (city ground, Y = 0)
+ *
+ * For the superellipse (|dx|/a)^n + (|dz|/a)^n = s^n, the level of a point is
+ * s = ((|dx|/a)^n + (|dz|/a)^n)^(1/n).  This replaces the former radial
+ * interpolation, which assumed an angle-dependent edge interpolated to the
+ * collision perimeter and overstated the terrain by up to 1.252 world units
+ * on the south approach (e.g. 1.252 at X=0, Z=-52 vs 0.0 measured).
+ */
+export function summitLevel(dx: number, dz: number): number {
+  const ax = Math.abs(dx) / SUMMIT_CARDINAL_RADIUS;
+  const az = Math.abs(dz) / SUMMIT_CARDINAL_RADIUS;
+  return Math.pow(
+    Math.pow(ax, SUMMIT_SUPERELLIPSE_N) + Math.pow(az, SUMMIT_SUPERELLIPSE_N),
+    1 / SUMMIT_SUPERELLIPSE_N,
+  );
+}
+
 // ── Terrain height function ─────────────────────────────────────────────────
 
 /**
@@ -129,15 +189,22 @@ export function summitEdgeRadius(theta: number): number {
  *
  * Priority:
  *   1. Bridge — flat at Y=0 across the drawbridge span.
- *   2. Flat summit (inside superellipse) — Y = 4.72.
- *   3. Mound slope (outside summit, inside perimeter) — linear descent
- *      from the angle-dependent summit edge to Y=0 at the perimeter.
- *   4. Outside the motte — Y = 0 (city ground).
+ *   2. Flat summit (level < 1) — Y = 4.7175.
+ *   3. Mound slope (1 ≤ level < 1.55) — linear descent in the superellipse
+ *      level from the summit edge down to Y=0 at the visible slope foot.
+ *   4. Outside the visible slope (level ≥ 1.55, or any point off the motte)
+ *      — Y = 0 (city ground).
  *
  * The old dirt ramp was removed (Phase 35E).  The mound slope now provides
- * the continuous upward path from the perimeter (Y=0) to the summit edge
+ * the continuous upward path from the slope foot (Y=0) to the summit edge
  * (Y=4.72) at the south opening, replacing the former ramp interpolation.
  * The wooden drawbridge spans the moat at ground level (Y=0).
+ *
+ * Implementation note: the previous version interpolated over the radial
+ * distance to the COLLISION perimeter (22.0), which does not match the
+ * rendered mound — the visible slope reaches Y=0 at the foot (19.499
+ * cardinal), well inside the perimeter.  Interpolating in the superellipse
+ * level matches the asset at every sampled point.
  */
 export function getTerrainY(x: number, z: number): number {
   // 1. Bridge — flat at Y=0 across the drawbridge deck
@@ -145,29 +212,22 @@ export function getTerrainY(x: number, z: number): number {
     return 0;
   }
 
-  // 2–4. Motte area by distance from center
+  // 2–4. Motte area, located by its superellipse level
   const dx = x - MOTTE_CENTER_X;
   const dz = z - MOTTE_CENTER_Z;
-  const dist = Math.sqrt(dx * dx + dz * dz);
+  const level = summitLevel(dx, dz);
 
-  if (dist > MOTTE_PERIMETER_RADIUS) {
-    // Outside the motte — city ground
-    return 0;
-  }
-
-  // 2. Flat summit — superellipse test (NOT circular)
-  if (isInsideSummit(dx, dz)) {
+  if (level <= 1) {
+    // 2. Flat summit — superellipse test (NOT circular)
     return SUMMIT_Y;
   }
 
-  // 3. Mound slope — interpolate from the angle-dependent summit edge
-  //    to the perimeter.  The summit boundary varies with angle (cardinal
-  //    12.58, diagonal 15.87), so the slope distance also varies.
-  const theta = Math.atan2(dz, dx);
-  const rSummit = summitEdgeRadius(theta);
+  if (level >= SUMMIT_SLOPE_FOOT_SCALE) {
+    // 4. Beyond the visible slope foot — city ground
+    return 0;
+  }
 
-  const t = (dist - rSummit) / (MOTTE_PERIMETER_RADIUS - rSummit);
-  // Clamp to [0, 1] — t can be slightly negative if dist < rSummit (shouldn't
-  // happen since isInsideSummit already returned true, but guard for safety)
-  return SUMMIT_Y * Math.max(0, 1 - Math.min(1, t));
+  // 3. Mound slope — linear descent from the summit edge to the slope foot
+  const t = (level - 1) / (SUMMIT_SLOPE_FOOT_SCALE - 1);
+  return SUMMIT_Y * (1 - t);
 }
