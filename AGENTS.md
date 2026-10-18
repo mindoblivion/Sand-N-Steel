@@ -771,3 +771,100 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   transition (the condition a kerb would address). Still open from earlier phases: the C-8.28 bowl
   cut, the C-8.29 Store ↔ Workshop junction, and the C-8.31/C-8.33 rear-gate stonework. Do not
   claim visual acceptance without device evidence.
+
+## Moat shoreline kerb (Phase C-8.41 — implemented)
+
+- **What shipped.** C-8.40's option B, implemented: a low travertine revetment along the moat's
+  **outer (city-side) shoreline**, cut for the drawbridge. `NorthernMotte.tsx` gained
+  `MoatShorelineKerb` — 5 meshes (top slab + outer face + inner face + two end caps), 312
+  triangles, one shared double-sided `MeshStandardMaterial` built from `ROMAN_PALETTE.travertineDark`
+  with the shared `NOISE_TEXTURE` bump — mounted beside `<MoatWater />` inside the existing error
+  boundary. No new asset, no new dependency, no collider, and no change to `getTerrainY`, `MOAT_*`,
+  `DECK_*`, `BRIDGE_*` or the collision registry. The phase's files: `NorthernMotte.tsx` (the kerb),
+  `src/utils/phaseC8_41.test.ts` (new suite) and this document.
+- **Final geometry.** Radial band `KERB_INNER_RADIUS` **30.90** → `KERB_OUTER_RADIUS` **31.35**
+  (0.45 wide): the inner face stands 0.10 inside the water ring's 31.0 outer edge — 0.034 more than
+  the 48-gon's 0.0664 chord sagitta — so the water's hard edge is always hidden under the stone and
+  no sand sliver can open at any segment alignment; the stone's own chords dip only to
+  `KERB_INNER_RADIUS_TIGHT` = 30.8338, still 0.0998 inside the water's 30.9336 chord minimum.
+  Vertical band `KERB_BASE_Y` **−0.10** → `KERB_TOP_Y` **0.14** (0.24 tall): 0.05 buried below the
+  sand plane (−0.05), 0.19 exposed, 0.08 of freeboard over the water (0.06), 0.02 under the deck top
+  (0.16), so no face is coplanar with the sand, the water or the deck. Both cylinder faces and the
+  slab's rim share the water ring's own 48-segment module starting from the same edge, so they join
+  with no seam.
+- **The opening, and why its angle differs from the audit's ±4.997°.** The audit derived the gap at
+  the *shoreline* (`asin(2.7 / 31.0)` = 4.997°), which — measured at the band's inner face — pinches
+  the opening to **2.687**, i.e. 0.013 *narrower* than the 2.70 gate it copies. The shipped
+  derivation is taken at the band's tightest inner radius instead,
+  `KERB_GAP_HALF_ANGLE = asin(2.70 / 30.8338)` = **5.0236°**, which makes `|X| ≥ 2.70` a property of
+  every stone point rather than of the vertices alone: 5.4009 at the tightest point and 2.7452 at
+  the outer face's corner. The clearance to the widest rendered bridge footprint (the side beams'
+  outer faces, ±2.11) grows from the audit's 0.598 to **0.6127** measured perpendicular to the
+  gap's end plane — and is **0.59** in X against the beams themselves, the same margin the gate
+  jambs leave. Each end cap's face lies *on* that radial plane and runs back into the band by
+  `KERB_CAP_THICKNESS` (0.10), so the two cannot part at any segment alignment; the whole
+  revetment mirrors onto itself about X = 0 to floating-point precision.
+- **The bridge still fits through the opening, measured.** The worst point of the bridge's own
+  footprint is the side beam's outer face where it meets the band's inner edge —
+  `asin(2.11 / 30.9)` = **3.9155°**, the analytic bound over the whole footprint (the deck's corner
+  is 3.8938°, at the same X but further out radially, hence closer to the axis). Against the gap's
+  5.0236° that leaves **1.1081°** of angular margin, a 0.05 grid over the footprint (deck plus both
+  beams, |x| ≤ 2.11, Z −56.5 → −50.5) finds nothing worse, and no kerb vertex lies inside the
+  bridge's box.
+- **Cost, and what did not move.** 5.842 of clear sand remains between the kerb's south face
+  (−50.15) and the Colosseum's rear-most *rendered* stone (−44.308), against 6.192 before — **0.35**,
+  still above the 5.0 C-8.38 apron rule (6.0 against the on-axis lintel at −44.5). The deck's south
+  face stays 0.35 inside the kerb's outer face, so the stone reaches *under* the landing instead of
+  standing in front of it, and the bridge stays the highest walking plane. `MOTTE_CENTER_Z`
+  (−81.5), the moat's 25.0 / 31.0 radii, the water elevation 0.06, the deck's span and Y values, the
+  six-metre apron, `getTerrainY` and the entire collision registry (109 colliders, 46 `colo-*`, both
+  C-8.33 `colo-gateseal-l/r` seals) are exactly what C-8.38 left; the designed X = 0 walk through the
+  gate and across the deck is *driven* with the real resolver in the suite and still reaches the same
+  north wall at −90.82, collision-free at every step.
+- **Regression suite: `src/utils/phaseC8_41.test.ts`** — 39 tests across 11 sections: §A the band's
+  dimensions and the restated-not-imported 2.70; §B the *shipped* mesh rebuilt from the component's
+  own exported geometry arguments (5 meshes, 312 triangles, one shared double-sided travertine
+  material, the water ring's 48-segment module); §C the shoreline join (the water still the C-8.36
+  complete annulus, sagitta 0.0664 < the 0.10 overlap, the built inner face never reaching the
+  water's chord minimum); §D the opening — symmetry, `|X| ≥ 2.70` everywhere, and the whole bridge
+  footprint inside the gap; §E the clearance (0.6127 against the audit's 0.598, plus a full 3-D grid
+  sweep of the two rendered volumes); §F vertical clearances and the C-8.36 water still continuous
+  beneath the deck; §G the apron cost and the landing; §H no new collision geometry (nothing in
+  r 29.4 … 32.85, 109 colliders unchanged, the kerb module importing nothing from the collision
+  system, the driven route re-checked step by step); §I the C-8.38 baseline and its no-literal
+  guard; §J the C-8.33 seals, the fortress derivation and `getTerrainY`; §K controls — the audit's
+  shoreline derivation, a shallower inner face, a gap at the deck's own width and a coplanar Y band
+  all fail the rules above, so the checks are shown to be sensitive to the values they pin.
+- **Harness corrections this phase — no expected geometry changed.** (1) §C's built inner-face
+  radius was checked at precision 6 against positions held in a `Float32Array`, where a 30.9 radius
+  carries up to a float32 half-ulp of error (2⁻¹⁹/2 = 9.54e-7); the built face measures
+  30.90000072 (7.22e-7 over). It now uses the suite's own precision 5 for built radii **plus an
+  explicit `diff < 1e-6` bound**, which states the real tolerance instead of an arbitrary one.
+  (2) §D pinned the grid's worst footprint angle at 3.917° — a value nothing supports, since the
+  analytic bound for the footprint is 3.9155° and the grid's own worst sample is 3.9127° (±2.11,
+  z − c 30.85, r 30.9221) — and then compared the worst angle against `KERB_GAP_HALF_ANGLE` at
+  precision 2, a comparison that could not hold (0.0683 vs 0.0877 rad). Both were replaced by four
+  supported checks: the analytic bound (3.9155°), the measured sample (3.9127°),
+  `worstAngle ≤ beamCornerAngle`, and the 1.1081° margin to the gap's edge. No assertion was
+  removed or weakened — two replaced expectations became four. (3) The new suite also introduced a
+  type error: the triangle-count reduction concatenated `BoxGeometry` onto a
+  `(Ring | Cylinder)Geometry[]` array, so `bun run lint` (`tsc --noEmit`) failed with TS2769; the
+  array is now typed `THREE.BufferGeometry[]` and lint is back to exit 0. **No production geometry
+  was changed by any of these corrections** — the kerb implementation the C-8.40 audit proposed is
+  the one that shipped.
+- **Verified 2026-10-18** in the dev container: `bun test` → **1072 pass / 0 fail (36 files)**,
+  `bun run scripts/collisionTests.ts` → **122 passed, 0 failed**, `bun run lint` (`tsc --noEmit`) →
+  exit 0, `bun run build` → exit 0, `git diff --check` → clean. The validation's starting point was
+  37 pass / 2 fail in the new suite plus the lint failure above.
+- **Not automatically verified — the rendered look, and this is a device question.** The sandbox has
+  no GPU (SwiftShader, ~2 fps in the city hub; C-8.36, C-8.37 and C-8.38 could not capture the
+  northern approach at all, and C-8.39's two frames are the only legible ones), so the kerb's
+  appearance is **unconfirmed here**. Android checklist for the northern approach, now including the
+  kerb: (a) does the water's outer edge read as a **bounded moat** — a shadowed travertine lip
+  rather than a bare colour transition — from the gateway approach; (b) does the lip stay **below**
+  the bridge's silhouette and clear of the deck at the opening, with no stone or water inside the
+  gateway; (c) is the bridge still the highest plane at the landing (kerb top 0.14 vs deck top 0.16);
+  (d) does the lip hold at the 48-gon's chords — no sand sliver between water and stone at any
+  viewing angle; (e) does the 5.842 apron still read as land between the gateway and the kerb.
+  Still open from earlier phases: the C-8.28 bowl cut, the C-8.29 Store ↔ Workshop junction, and the
+  C-8.31/C-8.33 rear-gate stonework. Do not claim visual acceptance without device evidence.

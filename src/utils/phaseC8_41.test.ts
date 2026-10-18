@@ -199,7 +199,7 @@ const kerbWorld = kerbPieces.flatMap((p) => p.points);
 const radiusOf = (v: THREE.Vector3): number => Math.hypot(v.x, v.z - MOTTE_CENTER_Z);
 const angleOf = (v: THREE.Vector3): number => Math.atan2(v.x, v.z - MOTTE_CENTER_Z);
 
-const kerbTriangles = [slabGeometry, outerFaceGeometry, innerFaceGeometry]
+const kerbTriangles = ([slabGeometry, outerFaceGeometry, innerFaceGeometry] as THREE.BufferGeometry[])
   .concat(capGeometries.map((c) => c.geometry))
   .reduce((n, g) => n + g.getIndex()!.count / 3, 0);
 
@@ -408,7 +408,13 @@ describe('C. The water’s own edge is hidden under the stone', () => {
   test('the built inner face never rises above the water’s hard edge', () => {
     const innerFace = kerbPieces.find((p) => p.name === 'innerFace')!;
     const innerRadii = innerFace.points.map(radiusOf);
-    expect(Math.max(...innerRadii)).toBeCloseTo(KERB_INNER_RADIUS, 6);
+    // The positions live in a Float32Array, so a 30.9 radius carries up to a
+    // float32 half-ulp of error — 2^-19 / 2 = 9.54e-7 at this magnitude. The
+    // built face reads 30.90000072 (7.22e-7 over): inside that bound, and the
+    // precision the suite uses for every other built radius (B §).
+    expect(Math.max(...innerRadii) - KERB_INNER_RADIUS).toBeLessThan(1e-6);
+    expect(Math.max(...innerRadii)).toBeCloseTo(KERB_INNER_RADIUS, 5);
+    // …and still 0.0336 inside the water's 30.9336 chord minimum.
     expect(Math.max(...innerRadii)).toBeLessThan(waterEdgeMin);
   });
 });
@@ -488,10 +494,18 @@ describe('D. The bridge opening is symmetric and never narrower than the gate', 
       }
     }
     expect(worstAngle).toBeLessThan(KERB_GAP_HALF_ANGLE);
-    // The worst sample is the beam's outer face at the band's inner edge — not
-    // the deck's corner, which sits further out and therefore further off axis.
-    expect((worstAngle * 180) / Math.PI).toBeCloseTo(3.917, 3);
-    expect(worstAngle).toBeCloseTo(KERB_GAP_HALF_ANGLE, 2);
+    // The worst point of the footprint is the side beam's outer face (X ±2.11)
+    // where it meets the band's inner edge — asin(2.11 / 30.9) = 3.9155°, the
+    // analytic bound for the whole footprint — not the deck's corner, which sits
+    // at the same X but further out radially and so closer to the axis (3.8938°).
+    // The 0.05 grid samples that edge discretely, so the worst point it lands on
+    // is (±2.11, z − c 30.85), radius 30.9221 → 3.9127°.
+    const beamCornerAngle = Math.asin(FOOTPRINT_HALF_W / KERB_INNER_RADIUS);
+    expect((beamCornerAngle * 180) / Math.PI).toBeCloseTo(3.9155, 3);
+    expect((worstAngle * 180) / Math.PI).toBeCloseTo(3.9127, 3);
+    expect(worstAngle).toBeLessThanOrEqual(beamCornerAngle);
+    // The footprint keeps 1.1081° to the gap's own 5.0236° edge.
+    expect(((KERB_GAP_HALF_ANGLE - beamCornerAngle) * 180) / Math.PI).toBeCloseTo(1.1081, 3);
     expect(worstRadius).toBeGreaterThan(KERB_INNER_RADIUS);
     expect(worstRadius).toBeLessThan(KERB_OUTER_RADIUS);
 
