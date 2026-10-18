@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { buryMotteFlange } from '../../../utils/motteSurface';
 import { MOTTE_CENTER_Z, MOTTE_SCALE } from '../../../utils/terrainHeight';
+import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 
 /**
  * NorthernMotte.tsx — Motte-and-bailey earth mound north of the Colosseum.
@@ -69,6 +70,16 @@ import { MOTTE_CENTER_Z, MOTTE_SCALE } from '../../../utils/terrainHeight';
  * inward to 25.0, so the water runs continuously beneath the whole bridge
  * footprint; see the ring's own block below for the measured clearances.
  * Nothing but the water mesh changed.
+ *
+ * Phase C-8.41 — the travertine shoreline kerb.  The water ring is transparent
+ * and lies flat on the sand, so its outer edge was a pure colour transition
+ * with no form (sand -0.05 → water 0.06 → deck underside 0.09 → deck top 0.16:
+ * a 0.21 spread over 12 units).  A restrained travertine revetment now stands
+ * on that shoreline — the C-8.40 audit's option B, the only one of the three
+ * treatments that buys the moat a visible boundary without spending the
+ * six-metre apron C-8.38 opened.  It is a new mesh with no collider, cut for
+ * the bridge on the rear gate's own clear width; see its own block below for
+ * the measured clearances.  Nothing else moved.
  *
  * The motte is mounted once in CityHubScene via this component.
  */
@@ -211,6 +222,185 @@ const MoatWater: React.FC = () => {
   );
 };
 
+// ── Moat shoreline kerb (Phase C-8.41) ──────────────────────────────────────
+//
+// The audit that authorizes this geometry is AGENTS.md's "Moat shoreline
+// definition (Phase C-8.40)".  Every number below is the audited one, except
+// the gap angle's derivation point — see "the one measured correction" below.
+//
+// The band is a single arc cut for the bridge, in the cylinder convention used
+// everywhere in the city (X = r·sinθ, Z = r·cosθ, θ = 0 → +Z, the bridge axis),
+// so the gap is θ ∈ (−g, g) and the stone runs g → 2π − g, symmetric about
+// X = 0:
+//
+//   radial   30.90 → 31.35 — the inner face stands 0.10 inside the water ring's
+//                            outer edge (31.0), 0.034 more than the ring's own
+//                            48-gon chord sagitta (0.0664 at r = 31).  The
+//                            water's hard edge is therefore always hidden under
+//                            the stone and no sand sliver can appear between
+//                            water and kerb at any segment alignment.
+//   vertical −0.10 → 0.14  — 0.05 buried below the sand plane (−0.05), so no gap
+//                            and no z-fight is possible; 0.19 exposed above the
+//                            sand; 0.08 of freeboard above the water (0.06);
+//                            0.02 below the deck top (0.16), so the bridge stays
+//                            the highest walking plane.  No face is coplanar
+//                            with the sand, the water or the deck.
+//   gap      |X| ≤ 2.70    — the rear gate's own clear width (GrandColosseum.tsx
+//                            GATE_HALF_W, restated here exactly as
+//                            collisionShapes.ts already restates it, to avoid
+//                            coupling the motte module to the Colosseum module).
+//                            The gap is mandatory: the deck's outer corners sit
+//                            0.072 *outside* the 31.0 arc, so any band on the
+//                            waterline would otherwise run through the bridge's
+//                            landing.  Clearance from the widest rendered bridge
+//                            footprint (the side beams' outer faces, X ±2.11) to
+//                            the kerb's end face is 0.613, against the 0.598 the
+//                            audit measured.
+//
+// The one measured correction.  The audit stated the gap as ±4.997° — that is
+// asin(GATE_HALF_W / 31.0), i.e. derived at the shoreline, which pinches the
+// opening to 2.6913 at the band's inner face: 0.009 *narrower* than the gate it
+// copies.  Deriving it at the band's tightest inner radius instead — the chord
+// midpoint of the inner face's 48-gon, 30.8338 — guarantees the property the
+// audit intended: **no point of the kerb has |X| < GATE_HALF_W**, so the opening
+// is at least the gate's own 5.40 clear width everywhere (5.4009 at that
+// tightest point, 2.7567 at the outer face's corner).  The clearance to the
+// widest rendered bridge footprint grows from the audited 0.598 to 0.613.
+// Radius, Y band, gap and material are otherwise unchanged from the audit.
+//
+// Cost: 5 meshes (top slab + outer face + inner face + two end caps), 312
+// triangles, one shared double-sided travertine material, no new asset, no new
+// dependency, no collider, and no change to getTerrainY, MOAT_*, DECK_* or
+// BRIDGE_*.
+export const KERB_INNER_RADIUS = 30.9;
+export const KERB_OUTER_RADIUS = 31.35;
+export const KERB_BASE_Y = -0.1;
+export const KERB_TOP_Y = 0.14;
+export const KERB_HEIGHT = KERB_TOP_Y - KERB_BASE_Y; // 0.24
+/** The rear gate's clear half-width — GrandColosseum.tsx GATE_HALF_W. */
+export const KERB_GATE_HALF_W = 2.7;
+/** The water ring's own segment module. */
+export const KERB_SEGMENTS = 48;
+/** The shoreline module's half-step: the chord midpoint sits this far in. */
+export const KERB_ARC_HALF_STEP = Math.PI / KERB_SEGMENTS;
+/**
+ * The tightest radius any point of the inner face can reach — its chord
+ * midpoint.  Every stone point lies at radius ≥ this, so deriving the gap here
+ * makes |X| ≥ KERB_GATE_HALF_W a property of the whole revetment rather than of
+ * its vertices alone (the chords would otherwise dip 0.0055 inside ±2.70).
+ */
+export const KERB_INNER_RADIUS_TIGHT = KERB_INNER_RADIUS * Math.cos(KERB_ARC_HALF_STEP);
+/** The gap: no stone closer to the bridge axis than the gate's own clear width. */
+export const KERB_GAP_HALF_ANGLE = Math.asin(KERB_GATE_HALF_W / KERB_INNER_RADIUS_TIGHT);
+export const KERB_CAP_THICKNESS = 0.1;
+
+// Cylinder convention (above): the band runs g → 2π − g.
+const KERB_THETA_START = KERB_GAP_HALF_ANGLE;
+const KERB_THETA_LENGTH = 2 * Math.PI - 2 * KERB_GAP_HALF_ANGLE;
+
+// RingGeometry measures φ from +X in its own XY plane; after the −π/2
+// X-rotation a ring point lands at (r·cos φ, 0, −r·sin φ), which equals
+// (r·sin θ, 0, r·cos θ) for φ = θ + 3π/2 — the same convention the water ring
+// above uses.  Both geometries divide their arc into KERB_SEGMENTS equal parts
+// from the same edge, so the slab's rim and both faces share their vertices
+// exactly and join with no seam.
+const KERB_RING_START = (3 * Math.PI) / 2 + KERB_GAP_HALF_ANGLE;
+
+/** Kerb centre height — the vertical mid-point of the band. */
+export const KERB_MID_Y = (KERB_BASE_Y + KERB_TOP_Y) / 2;
+/** Kerb centre radius — the radial mid-point of the band. */
+export const KERB_MID_RADIUS = (KERB_INNER_RADIUS + KERB_OUTER_RADIUS) / 2;
+/** Where each end cap's outer face sits: on the gap plane, mid-band. */
+export const KERB_CAP_CENTER_RADIUS = KERB_MID_RADIUS;
+
+// The five geometry argument tuples, exported so the regression suite builds
+// exactly the shipped mesh instead of a re-typed copy of it.
+export const KERB_SLAB_ARGS: [number, number, number, number, number, number] = [
+  KERB_INNER_RADIUS, KERB_OUTER_RADIUS, KERB_SEGMENTS, 1, KERB_RING_START, KERB_THETA_LENGTH,
+];
+export const KERB_OUTER_FACE_ARGS: [number, number, number, number, number, boolean, number, number] = [
+  KERB_OUTER_RADIUS, KERB_OUTER_RADIUS, KERB_HEIGHT, KERB_SEGMENTS, 1, true, KERB_THETA_START, KERB_THETA_LENGTH,
+];
+export const KERB_INNER_FACE_ARGS: [number, number, number, number, number, boolean, number, number] = [
+  KERB_INNER_RADIUS, KERB_INNER_RADIUS, KERB_HEIGHT, KERB_SEGMENTS, 1, true, KERB_THETA_START, KERB_THETA_LENGTH,
+];
+export const KERB_CAP_ARGS: [number, number, number] = [
+  KERB_CAP_THICKNESS, KERB_HEIGHT, KERB_OUTER_RADIUS - KERB_INNER_RADIUS,
+];
+
+/** An end cap's centre and yaw, on `side` (+1 east / −1 west). */
+export const kerbCapTransform = (side: 1 | -1): { theta: number; cx: number; cz: number } => {
+  const theta = side * KERB_GAP_HALF_ANGLE;
+  return {
+    theta,
+    // The cap's own face lies ON the band's end — a radial plane through the
+    // motte centre — and the box then runs back into the band by its own
+    // thickness, so the two cannot part at any segment alignment and no sliver
+    // opens at the gap edge.
+    cx: KERB_CAP_CENTER_RADIUS * Math.sin(theta) + side * (KERB_CAP_THICKNESS / 2) * Math.cos(theta),
+    cz: KERB_CAP_CENTER_RADIUS * Math.cos(theta) - side * (KERB_CAP_THICKNESS / 2) * Math.sin(theta),
+  };
+};
+
+// One shared material instance for all five meshes (Phase 25.2's pattern in
+// GrandColosseum — created once, reused).  Double-sided because the revetment
+// is an open shell: the outer face's normals point away from the moat, the
+// inner face's point into it.
+const kerbMaterial = new THREE.MeshStandardMaterial({
+  color: ROMAN_PALETTE.travertineDark.color,
+  roughness: 0.82,
+  metalness: 0.04,
+  bumpMap: NOISE_TEXTURE || null,
+  bumpScale: 0.012,
+  side: THREE.DoubleSide,
+});
+
+const MoatShorelineKerb: React.FC = () => {
+  const endCap = (side: 1 | -1) => {
+    const { theta, cx, cz } = kerbCapTransform(side);
+    return (
+      <mesh
+        key={`kerb-cap-${side < 0 ? 'w' : 'e'}`}
+        position={[cx, KERB_MID_Y, cz]}
+        rotation={[0, theta, 0]}
+        material={kerbMaterial}
+        castShadow
+        receiveShadow
+      >
+        <boxGeometry args={KERB_CAP_ARGS} />
+      </mesh>
+    );
+  };
+
+  return (
+    <group position={[MOTTE_MOAT_CENTER[0], MOTTE_MOAT_CENTER[1], MOTTE_MOAT_CENTER[2]]}>
+      {/* Top slab — the kerb's visible cap, 0.19 above the sand. */}
+      <mesh
+        position={[0, KERB_TOP_Y, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        material={kerbMaterial}
+        castShadow
+        receiveShadow
+      >
+        <ringGeometry args={KERB_SLAB_ARGS} />
+      </mesh>
+
+      {/* Outer face — the city-side revetment, 0.35 outside the water's edge. */}
+      <mesh position={[0, KERB_MID_Y, 0]} material={kerbMaterial} castShadow receiveShadow>
+        <cylinderGeometry args={KERB_OUTER_FACE_ARGS} />
+      </mesh>
+
+      {/* Inner face — stands 0.10 inside the water's edge, hiding it. */}
+      <mesh position={[0, KERB_MID_Y, 0]} material={kerbMaterial} castShadow receiveShadow>
+        <cylinderGeometry args={KERB_INNER_FACE_ARGS} />
+      </mesh>
+
+      {endCap(1)}
+      {endCap(-1)}
+    </group>
+  );
+};
+
 /**
  * Error boundary wrapper — a load failure renders nothing rather than
  * crashing the city hub, consistent with ThreeComponentErrorBoundary usage
@@ -244,6 +434,7 @@ export const NorthernMotte: React.FC = () => {
           <MotteModel />
         </group>
         <MoatWater />
+        <MoatShorelineKerb />
       </React.Suspense>
     </MotteErrorBoundary>
   );
