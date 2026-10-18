@@ -395,6 +395,19 @@ const buildingRects: RectCollider[] = [
 
   // ArenaMedicalHouse — root [-29, 0, -5], foundation [4.9, 4.9], proj 0.3 → 5.5 × 5.5
   RECT('arena-medical', -29, -5, 5.5, 5.5),
+
+  // TrainingHall — TrainingYard.tsx mounts it at yard-local [-12.35, 0, 3.00]
+  // inside that file's root group [-18, 0, 0] with yaw +π/2, so its world root
+  // is [-30.35, 0, 3.00].  Its BuildingFoundation lower step is
+  // (HALL_W + 2 × projection) × (HALL_D + 2 × projection) = (7 + 0.5) × (2.2 + 0.5)
+  // = 7.5 (component-local X) × 2.7 (component-local Z); the π/2 yaw puts the
+  // 2.7 on world X and the 7.5 on world Z, i.e. X [-31.70, -29.00], Z [-0.75, 6.75].
+  // Phase C-8.45: the rendered building had no collider at all (C-8.44's only
+  // unregistered rendered building), so the player could walk straight through
+  // it.  This rectangle matches that rendered lower-step footprint only — the
+  // veranda/posts, like every other building's props, are not collidable.  No
+  // geometry, transform, neighbour or other collider moved.
+  RECT('training-hall', -30.35, 3.00, 2.7, 7.5),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

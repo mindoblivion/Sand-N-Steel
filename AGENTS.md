@@ -927,3 +927,63 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   changes no rendered pixel, so there is no appearance to accept here and no new Android item.
   The C-8.41 kerb, C-8.38 northern approach, C-8.28 bowl cut, C-8.29 junction and C-8.31/C-8.33
   rear-gate device inspections remain open exactly as before. Do not claim device acceptance.
+
+## Training Hall collider (Phase C-8.45 — implemented)
+
+- **The defect was the one confirmed omission from C-8.44's registry-vs-render audit: the Training
+  Hall had no collider at all,** so the player could walk straight through its walls. Every other
+  rendered city building was already registered; this was the only one missing.
+- **The measurement, re-derived from source (it matches the audit).** `TrainingYard.tsx` mounts
+  `<TrainingHall />` inside its root group `[-18, 0, 0]`; the hall's own group is
+  `[-12.35, 0, 3.00]` with yaw `+π/2`, so its **world root is `[-30.35, 0, 3.00]`**.
+  `BuildingFoundation`'s lower ground step is `(HALL_W + 2 × projection) × (HALL_D + 2 × projection)`
+  = `(7 + 0.5) × (2.2 + 0.5)` = **7.5 × 2.7** in component-local X × Z, and the π/2 yaw swaps the
+  axes, giving the world footprint **X `[-31.70, -29.00]`, Z `[-0.75, 6.75]`**. The veranda, its
+  posts and the equipment under it extend past that on world +X (to X ≈ −26.26), exactly as every
+  other building's props do — they are not collidable here either.
+- **The fix is one rectangle in `collisionShapes.ts`**, using the file's existing convention:
+  `RECT('training-hall', -30.35, 3.00, 2.7, 7.5)`. No rendered geometry, transform, orientation or
+  surrounding structure changed, and no other collider moved — the registry goes from **109 to 110
+  colliders (30 → 31 rectangles)**. Only `phaseC8_41.test.ts`'s absolute count pin (109, "the count
+  C-8.38 left") was rebased, with a comment naming this phase as the addition; every other count
+  assertion in the repo is relative (`phaseC8_27`'s delta constants, `phaseC8_33`'s per-prefix
+  counts, `scripts/collisionTests.ts`'s `> 50`).
+- **The hall is solid, measured with the real `resolveCityMovement`** (`phaseC8_45.test.ts` §B, a
+  3.8 u/s walk at 0.1 s steps = 0.38 per step): west-bound from the east stops at X ≥ −28.60
+  (east face −29.00 + the 0.40 player radius); east-bound from the west stops at X ≤ −32.10;
+  south-bound from the north stops at Z ≥ 7.15; north-bound out of the medical corridor stops at
+  Z ≤ −1.15. No step of any of those walks enters the footprint, so neither principal axis can be
+  crossed. §C confirms the hall is still walkable *around*: the west side runs from the corridor
+  past its north end, and the north side runs across to the −35 boundary.
+- **The Arena Medical House ↔ Training Hall passage stays traversable end to end.** The corridor's
+  plan gap is **1.5** (medical north face −2.25 → hall south face −0.75), so a 0.4-radius player
+  keeps 0.35 clear of each face and has a **0.70** band of usable centres — the resolver agrees
+  (clear at the centre line, blocked within a radius of either face). §D drives a *complete* route:
+  entering from the east at (−25.5, −1.5), holding the corridor centre line, crossing the narrowest
+  section (7 steps inside the hall's own X band) and exiting at the −35 boundary, **collision-free
+  at every step**. Nothing was widened, no building moved and no test was weakened to make it pass.
+- **Regression suite: `src/utils/phaseC8_45.test.ts`** — 32 tests across 8 sections: §A the
+  registry entry (the footprint re-derived from the two component sources and compared to the
+  rectangle, a unique id, 110 colliders / 31 rectangles, and a 25 × 25 interior sweep showing no
+  other collider covers the footprint); §B the four blocking walks plus the axis-crossing check;
+  §C the two go-around walks; §D the passage; §E the yard's 14 `yard-wall` segments, the two
+  `street-wall` rects, the two return segments, the east entrance gap and a walk in through it;
+  §F all 20 hub triggers reachable and all 20 arrivals collision-free with a clear step out;
+  §G preservation (the C-8.43 tavern 8.9 × 7.7 / caravanserai 9.1 × 8.1, the Forge's deliberate
+  9.5, `arena-medical`, the C-8.33 seal endpoints recomputed from the Colosseum constants, the 46
+  `colo-*` ids, `MOTTE_CENTER_Z` −81.5 with the 20 `motte-wall` chords and 5 `fortress-*` rects,
+  the C-8.41 `KERB_*` values, the C-8.36 water ring and the drawbridge deck); §H the control — with
+  `training-hall` spliced out the same walk runs clean through the building to the boundary, which
+  is the C-8.44 defect, and the registry restores intact.
+- **Verified 2026-10-18** in the dev container: focused
+  `bun test src/utils/phaseC8_45.test.ts src/utils/phaseC8_41.test.ts` → **71 pass / 0 fail**;
+  `bun test` → **1104 pass / 0 fail (37 files)** (C-8.43 left 1072 / 36; the delta is this suite);
+  `bun run scripts/collisionTests.ts` → **122 passed, 0 failed**, exit 0; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0; `git diff --check` → clean. The dev server
+  still serves the shell and the changed module (HTTP 200, the new `RECT` present in the
+  transformed output).
+- **Not automatically verified — nothing visible to verify.** A collider is invisible: this phase
+  changes no rendered pixel, so there is no appearance to accept and no new Android item. Movement
+  was verified by driving the shipped `resolveCityMovement`, not in the 3D hub (SwiftShader, ~2 fps).
+  The C-8.41 kerb, C-8.38 northern approach, C-8.28 bowl cut, C-8.29 junction and C-8.31/C-8.33
+  rear-gate device inspections remain open exactly as before. Do not claim device acceptance.

@@ -677,7 +677,10 @@ describe('H. The kerb adds no collision geometry', () => {
       }
     }
     expect(inBand).toEqual([]);
-    expect(CITY_COLLIDERS.length).toBe(109); // the count C-8.38 left
+    // 109 was the count C-8.38 left; Phase C-8.45 appended the single
+    // 'training-hall' building rectangle — an unrelated registry addition the
+    // kerb itself did not make.
+    expect(CITY_COLLIDERS.length).toBe(110);
   });
 
   test('the kerb module imports nothing from the collision system', () => {
