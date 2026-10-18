@@ -1266,3 +1266,151 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   northern approach, the C-8.28 bowl cut, the C-8.29 junction and the C-8.31/C-8.33 rear-gate checks.
   Do not claim device acceptance. The C-8.48 audit's third finding — the Armor & Leather Workshop's
   lean-to standing 0.41 above its support — was **not** touched by this phase either.
+
+## Armor & Leather Workshop lean-to bearing (Phase C-8.53 — implemented)
+
+- **The defect was the C-8.48/C-8.50 rooftop audit's third finding, re-measured here from the
+  shipped transforms rather than restated.** The lean-to roof matched neither of its two supports.
+  With the group at `[0, 4.25, 0.2] rotation={[0.16, 0, 0]}` its underside plane ran **4.4695 over
+  the timber architrave's front edge and 4.4332 over its centre-line against a beam top of 4.02** —
+  it floated 0.4132–0.4495 above the beam it exists to bear on — while at the rear brick wall it ran
+  **3.9975 at the wall's front face and 3.8038 at its rear face against a 4.0 wall top**, so the
+  brick wall drove *through* the slab: its top rear edge stood **0.0139 proud of the slab's top face
+  (3.9861)**. The 0.16 rad pitch pointed the wrong way as well — it shed water down the building's
+  own back wall.
+
+- **The arrangement shipped: the lean-to leans on the rear wall — HIGH at the wall, LOW at the open
+  front, draining to the street — seated on both *existing* supports at the author's own 0.16 rad.**
+  Three transforms changed, nothing else:
+
+  | quantity | before | after |
+  |---|---|---|
+  | roof group | `[0, 4.25, 0.2]`, `rotation 0.16` | **`[0, 4.4218, 0.2]`, `rotation −0.16`** |
+  | rear wall mesh | `[0, 2.0, 1.8]`, box 8.0 × **4.0** × 1.2 | `[0, 2.2517, 1.8]`, box 8.0 × **4.5034** × 1.2 |
+  | flashing mesh (in the roof group) | `[0, 0.1, 2.7]` | **`[0, −0.18, 2.1149]`** |
+  | underside at the beam's front edge (world Z −0.725) | 4.4695 (gap **+0.4495**) | **4.0200 (gap 0.0000)** |
+  | underside at the beam's centre-line (Z −0.5) | 4.4332 (+0.4132) | 4.0563 (+0.0363) |
+  | underside at the beam's rear edge (Z −0.275) | 4.3969 (+0.3769) | 4.0926 (+0.0726) |
+  | underside / top face at the wall's front face (Z 2.2) | 3.9975 / 4.1798 | **4.4920 / 4.6743** |
+  | underside / top face at the wall's rear face (Z 3.4) | 3.8038 / 3.9861 | **4.6857 / 4.8680** |
+  | wall top vs the slab | wall top **0.0139 proud of the slab's top face** | beds **0.0114** into the underside, **0.1709 below** the top face at the wall's front face and **0.3646 below** it at the rear face |
+  | flashing bottom-rear edge (world Y, Z) | (3.8186, **3.9362**) — behind the wall | (**4.5033**, **3.4000**) — on the wall's top at its rear face |
+  | flashing far face past the wall's rear face | **0.5649** (its centre-line 0.4814) | **0.0000** |
+  | roof's front-bottom edge (world Z) | −1.4799 | **−1.4512** (0.0287 further from the General Store) |
+  | eave fascia's front face (world Z) | −1.5471 | **−1.5279** (0.0192 rearward) |
+
+  The wall's world Z band [2.2, 3.4] and X band [24.2, 32.2] are unchanged, and so is the slab's own
+  8.6 × 0.18 × 5.4 box. One measurement trap worth recording: the slab's axis-aligned minimum Z is
+  **−1.4799 in both frames** — before, that extreme is attained by its front-*bottom* corner and
+  after by its front-*top* corner — so comparing AABB extrema would hide the 0.0287 move; the suite
+  compares the transformed corners instead.
+
+- **The 0.5034 wall increase is exactly the underside plane's height at the wall's front face**
+  (4.0 → 4.5034), i.e. the amount by which the old wall fell short of the plane it had to carry. The
+  arrangement was then re-derived end to end and is internally coherent — checked for gaps *and*
+  interpenetrations, not only the two the phase set out to fix:
+  - the front bearing is exact (0.0000) on the beam's down-slope edge, and the wedge the pitch leaves
+    behind that line — 0.0726 at the beam's rear edge — is **enclosed** by the beam and the slab: the
+    contact line itself is closed to 0, the pocket opens only inward/rearward, and the beam's top face
+    stays 0.2549 below the slab's top face there, so nothing pokes through;
+  - the wall's top beds 0.0114 into the underside at the wall's front face — inside the project's own
+    0.02 seat tolerance (the architrave uses 0.02 on the piers, the C-8.52 canopy 0.01545 on its
+    tie-beam) — its crossing line is Z 2.2706, inside the wall's own 1.2 depth, and the wall stands
+    0.1709/0.3646 below the slab's top face at its two faces;
+  - the flashing's bottom face beds **0.0224** into the wall's top at its outer end — its own
+    0.14 · tan 0.16 tilt run, hidden below the top plane it bears on — its bottom-rear corner lands
+    **1.5e-5 past** the wall's rear face (the 4 dp the group's Y literal is written to, two orders
+    below the tolerance), its rear face is flush with the wall's rear face (0.0000) and its top-rear
+    edge meets the underside exactly (0.0000);
+  - the eave fascia still clears the pier heads (its lowest face 3.8439 against the impost tops 3.8)
+    and stands 0.8029 ahead of the beam's front face.
+  **No unresolved geometric conflict remains** — the residuals are the three intended seats above,
+  each inside the project's stated tolerance.
+
+- **What did not move: everything else in the building and everything around it.** The slab, fascia
+  and flashing keep their boxes and materials; the architrave (`[0, 3.9, −1.5]`, 8.2 × 0.24 × 0.45),
+  both piers (stepped base, shaft and impost cap at ±3.6, Z −1.5), the `BuildingFoundation`, the three
+  prop groups (`[−2.4, 0, −1.0]`, `[2.6, 0, −1.2]`, `[0, 0, −1.2]`) and the building's root
+  `[28.2, 0, 1]` are untouched; `armor-workshop` is still 8.9 × 5.7 at `[28.2, 1.15]` — the plinth
+  `BuildingFoundation`'s formula derives — and its hub keeps `radius 4.5` at `[28.2, 0, 1]` with the
+  arrival `[28.2, 5.5]`. **No collider, navigation route, hub radius, movement constant, shared
+  primitive or neighbouring building was edited**, and the whole rendered change sits at or above the
+  architrave's underside (3.78), i.e. above the player's own plane.
+
+- **The General Store ↔ Workshop junction only improves, and it is re-pinned.** The closest approach
+  of the two buildings is still the measured 0.150 plinth gap (neither root, plinth, collider nor
+  registry entry moved); the *next* closest pair — the Store's west roof slab against this eave
+  fascia — widened from 0.203 to **0.748**, because the lean-to's eave dropped from Y 4.62 to 3.93
+  and its front edge moved 0.0287 away. `phaseC8_29.test.ts` was **rebased, not weakened**: it pins
+  the flipped rotation (−0.16) and the measured 0.748, and its "nothing anywhere comes closer than
+  the plinth gap" assertion is unchanged.
+
+- **Regression suite: `src/utils/phaseC8_53.test.ts`** — 29 tests across 6 sections, every value
+  parsed from the component's own literals and transformed through the group's own rotation and
+  position (the way three.js composes them): §A the frame (root, the kept 0.16 pitch, the three
+  boxes, the architrave and piers as the front bearing, the wall as the only raised element); §B the
+  load path (the underside as a real plane at `tan 0.16`, the exact front seat, the enclosed wedge,
+  the wall's bed and its clearance under the slab's top face, the eave over the beam and past the
+  pier heads, the building's new peak); §C the flashing (its bottom edge on the wall's top at the
+  wall's rear face, its top edge on the underside, no overhang, the wall's top shown to be the value
+  that makes that fit exact, and the bedded end inside the wall's own footprint); §D what was not
+  touched (the props' transforms, both roots and the neighbours, the C-8.49/8.51/8.52 landmarks, and
+  the roof edge moving *away* from the Store); §E collision and navigation (the collider re-derived
+  from the foundation formula, 110 colliders / 31 rectangles with unique ids, the hub and a driven
+  `getNearbyHubLocation`, and every moved face above the player's plane); §F the control, which
+  replays the pre-fix transform through the identical checks and shows the 0.4495/0.4132/0.3769
+  float, the 0.0139 poke-through, the wrong-way fall and the 0.5649 flashing overhang.
+
+- **Harness repairs this phase — no expected geometry changed and no assertion weakened.** The suite
+  as committed did not run at all, and three of its expectations were wrong:
+  1. §C's last test was missing the brace that closes its `for` loop, so the file failed to *parse*
+     — bun reported it as an unhandled error between tests, not as a failed assertion. Fixed.
+  2. the rack / display-rack / workbench parsers captured only two of the three coordinates, so
+     `triple()` handed §D an `undefined` Y and compared garbage against a three-number literal. They
+     now capture the literal `0` as well.
+  3. §D compared the shipped **fascia** against the pre-fix **slab's** front edge — two different
+     pieces, with the fascia standing 0.06 proud of that edge, so the comparison could never hold. It
+     now compares fascia against the pre-fix fascia (its own box): 0.0192 rearward.
+  4. §F's control keyed its expected gaps on `z === -1.5`, the architrave's **local** Z, which
+     matches no sample — the centre line (−0.5) and the rear edge (−0.275) were both silently
+     compared against the rear-edge value. The samples are now a table of the three **world** Z
+     values (−0.725 / −0.5 / −0.275) with the independently recomputed gaps 0.4495 / 0.4132 / 0.3769,
+     and both ends are asserted so the check cannot drift again.
+  5. §F's flashing figure **0.4814 is the beam's centre-line** overhang; the box's own far face stood
+     **0.5649** past the wall and its near face 0.3980. The test — and this document — now state all
+     three, and the shipped flashing is still pinned at 0.0000.
+  6. §C's "the bedded end is inside the wall's own footprint" bound is now the suite's own `EXACT`
+     (1e-4, the precision the component's literals are written to) rather than an unstated exact
+     inequality: the corner lands 1.5e-5 past the wall's rear face.
+  Every corrected number was independently recomputed in a throwaway harness in the `web` container
+  by composing the real roots, groups, rotations and box `args` with **three.js itself** and reading
+  its own world matrices (`Box3.setFromObject` / `localToWorld`), corner by corner — so the suite's
+  hand-rolled `rotX` model is cross-checked against the renderer's, not merely against itself.
+
+- **Verified 2026-10-18** in the dev container: focused
+  `bun test src/utils/phaseC8_53.test.ts src/utils/phaseC8_29.test.ts` → **45 pass / 0 fail**
+  (244 expect() calls: 29 + 16); `bun test` → **1257 pass / 0 fail (42 files)** (C-8.51 left 1194 /
+  40; the delta is the C-8.52 and C-8.53 suites); `bun run scripts/collisionTests.ts` → **122 passed,
+  0 failed**, exit 0; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the
+  pre-existing >500 kB chunk warning only); `git diff --check` → clean. The validation's starting
+  point was that syntax error (0 pass / 1 error), and no other suite needed a change.
+
+- **Not automatically verified — the rendered junction, and it is a device question.** A
+  source-geometry suite proves the arrangement in the component's own transforms; it does **not**
+  establish visual acceptance, and no preview capture can settle it here: the sandbox has no GPU
+  (SwiftShader, ~2 fps in the city hub) and at the mobile preview width this building is a small part
+  of the frame, so a 0.50-unit junction and a 0.0114 bed are below the resolution this environment can
+  resolve. **Android preview check: stand at the workshop's open front looking at the rear wall and
+  confirm the lean-to reads as leaning ON the wall — high edge carried by the brick, eave over the
+  timber beam with no floating gap above it, no brick poking through the tiles, and the stone flashing
+  capping the wall-plate junction on the roof's weather side; then view it from the via side to
+  confirm the fall is toward the street and that the General Store's roof still clears the eave.**
+  Still open from earlier phases: C-8.52's veranda canopy, C-8.49's wall-to-gable junctions, the
+  C-8.51 awning, the C-8.41 kerb, the C-8.38 northern approach, the C-8.28 bowl cut, the C-8.29
+  junction and the C-8.31/C-8.33 rear-gate checks. Do not claim device acceptance.
+
+- **Two documentation gaps found, deliberately not fixed** (this phase documents C-8.53 only): this
+  file has **no C-8.52 section**, although `TrainingHall.tsx` carries that phase's canopy and post
+  changes and `src/utils/phaseC8_52.test.ts` (34 tests) documents them in its own header; and
+  `ArmorLeatherWorkshop.tsx`'s C-8.53 comment still says the flashing "hung 0.48 behind the wall" —
+  0.48 is its centre-line, its far face was 0.5649.

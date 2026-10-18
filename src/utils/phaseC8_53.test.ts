@@ -31,16 +31,18 @@
  *      there — inside the project's own 0.02 seating tolerance (the architrave
  *      uses 0.02 on the piers, the C-8.52 canopy 0.01545 on its tie-beam) — and
  *      stays 0.1710 below the slab's top face, so nothing pokes through;
- *   3. the "top wall flashing beam" moves from the roof's rear edge (where it
- *      hung 0.4814 past the wall) onto the wall's own top at its rear face, where
+ *   3. the "top wall flashing beam" moves from the roof's rear edge (where its
+ *      centre-line lay 0.4814 past the wall's rear face and its own far face
+ *      0.5649 — the whole box behind the wall, not on it) onto the wall's own
+ *      top at its rear face, where
  *      it exactly spans that junction: its bottom edge rests on the wall's top
  *      (gap 0.000) and its top edge meets the roof's underside (gap 0.000).
  *      Its box, tilt and material are unchanged.
  *
  * Nothing else moved: the slab (8.6 × 0.18 × 5.4), the eave fascia, the architrave,
  * the piers, every prop, the building's root, its collider and its hub are exactly
- * what they were, and the roof's front edge in fact moved 0.029 AWAY from the
- * General Store's roof.
+ * what they were, and the roof's front edge in fact moved 0.0287 AWAY from the
+ * General Store's roof (the fascia, 0.06 proud of that edge, moved 0.0192).
  *
  * ── HOW THIS SUITE MEASURES IT ────────────────────────────────────────────
  * Nothing here is a copied constant.  The component's own numbers are parsed out
@@ -126,9 +128,11 @@ const FLASH_POS = triple(shopSrc, /Top wall flashing beam[\s\S]*?<mesh castShado
 const FLASH_BOX = triple(shopSrc, /Top wall flashing beam[\s\S]*?<boxGeometry args=\{\[\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\]\}/);
 
 // the props this phase must not disturb
-const RACK_GROUP = triple(shopSrc, /<group position=\{\[\s*(-?[\d.]+),\s*0,\s*(-?[\d.]+)\s*\]\}>\s*\{\/\* Dark Timber Frames/);
-const DISPLAY_GROUP = triple(shopSrc, /<group position=\{\[\s*(-?[\d.]+),\s*0,\s*(-?[\d.]+)\s*\]\}>\s*\{\/\* Display Rack Wooden Bench/);
-const BENCH_GROUP = triple(shopSrc, /<group position=\{\[\s*(-?[\d.]+),\s*0,\s*(-?[\d.]+)\s*\]\}>\s*\{\/\* Oak Workbench Table/);
+// the props' own groups: three numbers, the literal Y included — a two-number
+// capture would hand `triple` an undefined Y and silently compare garbage.
+const RACK_GROUP = triple(shopSrc, /<group position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}>\s*\{\/\* Dark Timber Frames/);
+const DISPLAY_GROUP = triple(shopSrc, /<group position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}>\s*\{\/\* Display Rack Wooden Bench/);
+const BENCH_GROUP = triple(shopSrc, /<group position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}>\s*\{\/\* Oak Workbench Table/);
 
 // ── Transforms (three.js conventions, as the other suites model them) ─────
 
@@ -400,10 +404,14 @@ describe('C. The flashing beam closes the junction at the wall', () => {
     expect(WALL_TOP - lowest).toBeGreaterThanOrEqual(0);
     expect(WALL_TOP - lowest).toBeLessThan(0.03);
     expect(WALL_TOP - lowest).toBeCloseTo(FLASH_BOX[2] * Math.tan(0.16), 2);
-    // and the bedded end is inside the wall's own footprint, not outside it
+    // and the bedded end is inside the wall's own footprint, not outside it.
+    // The rear corner lands 1.5e-5 past the wall's rear face — the 4 dp the
+    // group's Y literal is written to, two orders below the seating tolerance —
+    // so the bound is that written precision, not the face itself.
     for (const c of corners.filter((c) => c[1] < WALL_TOP)) {
-      expect(c[2]).toBeLessThanOrEqual(WALL_REAR_Z);
+      expect(c[2]).toBeLessThanOrEqual(WALL_REAR_Z + EXACT);
       expect(c[2]).toBeGreaterThan(WALL_FRONT_Z);
+    }
   });
 });
 
@@ -423,8 +431,15 @@ describe('D. Everything else in the building is the building it was', () => {
     const before = roofWorld(PRE_FIX, [0, -SLAB_BOX[1] / 2, -SLAB_BOX[2] / 2]);
     const after = roofWorld(SHIPPED, [0, -SLAB_BOX[1] / 2, -SLAB_BOX[2] / 2]);
     expect(after[2]).toBeGreaterThan(before[2]); // further from the Store, which is at Z -5
-    expect(after[2] - before[2]).toBeCloseTo(0.029, 3);
-    expect(fascia.min[2]).toBeGreaterThan(before[2]);
+    expect(after[2] - before[2]).toBeCloseTo(0.0287, 3);
+    // …and the FASCIA, the assembly's front-most piece, against the pre-fix
+    // FASCIA — its own box, which stands 0.06 proud of the slab's front edge —
+    // never against the slab's edge.  It moved rearward by 0.0192, a little less
+    // than the slab edge's 0.0287, because its own −0.06 local Y turns the other
+    // way once the pitch flips.
+    const preFascia = roofBox(PRE_FIX, FASCIA_POS, FASCIA_BOX);
+    expect(fascia.min[2]).toBeGreaterThan(preFascia.min[2]);
+    expect(fascia.min[2] - preFascia.min[2]).toBeCloseTo(0.0192, 3);
   });
 
   test('the Store, the Forge and the Stable roots are untouched', () => {
@@ -502,10 +517,24 @@ describe('E. Walkability, collision and navigation are untouched', () => {
 
 describe('F. Control: the shipped transform is what closes the junctions', () => {
   test('pre-fix, the roof floated 0.38–0.45 above the architrave’s top', () => {
-    for (const z of [ARCH_FRONT_Z, (ARCH_FRONT_Z + ARCH_REAR_Z) / 2, ARCH_REAR_Z]) {
+    // The samples are WORLD Z: the beam's own faces are at −0.725 and −0.275
+    // (root Z 1 + the mesh's −1.725 / −1.275) and its centre-line at −0.5, with
+    // the pre-fix plane 4.4695 / 4.4332 / 4.3969 — the audit's own figures minus
+    // the 4.02 beam top.  The old ternary keyed on −1.5, which is the beam's
+    // LOCAL Z and matches no sample at all: the centre line was silently
+    // compared against the rear-edge gap.  Both ends are stated, so the check
+    // cannot drift again.
+    const samples: Array<[number, number]> = [
+      [ARCH_FRONT_Z, 0.4495],
+      [(ARCH_FRONT_Z + ARCH_REAR_Z) / 2, 0.4132],
+      [ARCH_REAR_Z, 0.3769],
+    ];
+    expect(samples[0][0]).toBeCloseTo(-0.725, 10);
+    expect(samples[2][0]).toBeCloseTo(-0.275, 10);
+    for (const [z, expected] of samples) {
       const gap = undersideAt(PRE_FIX, z) - ARCH_TOP;
       expect(gap).toBeGreaterThan(18 * TOL);
-      expect(gap).toBeCloseTo(z === -1.5 ? 0.4132 : z === ARCH_FRONT_Z ? 0.4495 : 0.3769, 3);
+      expect(gap).toBeCloseTo(expected, 3);
     }
     // …and the shipped plane passes the very same check on all three
     for (const z of [ARCH_FRONT_Z, ARCH_REAR_Z]) {
@@ -521,10 +550,17 @@ describe('F. Control: the shipped transform is what closes the junctions', () =>
     expect(WALL_TOP).toBeLessThan(topsideAt(SHIPPED, WALL_REAR_Z));
   });
 
-  test('pre-fix, the flashing hung 0.48 past the wall — the shipped one does not', () => {
+  test('pre-fix, the flashing hung 0.48–0.56 past the wall — the shipped one does not', () => {
     const pre = roofBox(PRE_FIX, [0, 0.1, 2.7], FLASH_BOX);
-    expect(pre.max[2] - WALL_REAR_Z).toBeCloseTo(0.4814, 3);
-    expect(pre.max[2] - WALL_REAR_Z).toBeGreaterThan(20 * TOL);
+    // The recorded 0.48 is the CENTRE-line's overhang past the wall's rear face
+    // (3.8814 against 3.4000).  The beam's own far face stood 0.5649 past it and
+    // its near face 0.3980 — the whole box was behind the wall it is meant to
+    // weather, not seated on it.  All three come from the transformed corners.
+    const preCentre = roofWorld(PRE_FIX, [0, 0.1, 2.7]);
+    expect(preCentre[2] - WALL_REAR_Z).toBeCloseTo(0.4814, 3);
+    expect(pre.max[2] - WALL_REAR_Z).toBeCloseTo(0.5649, 3);
+    expect(pre.min[2] - WALL_REAR_Z).toBeCloseTo(0.3980, 3);
+    expect(pre.min[2] - WALL_REAR_Z).toBeGreaterThan(19 * TOL);
     expect(flashing.max[2] - WALL_REAR_Z).toBeLessThanOrEqual(TOL);
   });
 
