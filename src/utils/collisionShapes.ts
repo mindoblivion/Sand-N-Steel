@@ -540,6 +540,61 @@ const colosseumPodium: SegmentCollider[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase C-8.33 — Rear gate lateral seals
+//
+// C-8.31 gave the drum its rear axial gate (θ = π ± GATE_HALF on the facade,
+// the podium ring cut on the doorway's own 5.2-unit passage line), and the two
+// openings became the arena's only ways through the stone ring.  The gate's
+// *sides*, however, were never collidable.
+//
+// Walked with the real resolver (throwaway harness, `resolveCityMovement`,
+// 11 steps north from (0, −38) → (0, −42.18), r = 17.18, inside the passage)
+// a sideways push leaves the passage almost at once: +X for 8 steps reaches
+// (3.04, −42.18) — past the 9.784° bowl cut, |X| > 2.6 — and the same push
+// carries on to (7.60, −42.18), r = 18.79, where the player is standing inside
+// the rendered arcade pier.  A −12 … +12 X sweep at z = −40.5 is entirely
+// free, i.e. the whole rear band between the podium ring and the facade is
+// open ground to the resolver once the player is past the podium's cut edge.
+// It is a movement-boundary gap, not a mesh defect: the rendered gate is
+// exactly what C-8.31 built, and the registry simply models the facade
+// (r 19.3) and the podium (r 15.3) as thin polylines with nothing between.
+//
+// The C-8.27 remedy for the doorway's flank strip applies unchanged — bridge
+// the strip between the two structures that already end there.  Both endpoints
+// below ARE existing collider endpoints: the podium ring stops at
+// `podiumPoint(π ∓ COLO_PODIUM_GAP)` (2.610, −40.076) and the rear facade drum
+// at `coloPoint(π ∓ COLO_GATE_HALF)` (2.700, −44.110).  The seal therefore adds
+// no new corner and leaves no slit — it is the passage's own side wall, drawn
+// between the two cut faces the render already uses.
+//
+// The passage's clear width is 5.2 (|X| ≤ 2.6 at the podium; 5.40 at the
+// facade).  The player is a 0.4-radius circle, so a wall on that face leaves
+// |X| ≈ 2.2 of usable corridor — wider than the drawbridge deck and its side
+// beams together (±2.11, so the whole deck stays walkable) and as wide as the
+// corridor C-8.27 pins at the doorway.  No rendered geometry moves.
+const COLO_GATE_SEAL = {
+  /** Facade jamb — the point `colo-rearwall-*` ends on (r = R_FACADE). */
+  facade: coloPoint(Math.PI - COLO_GATE_HALF),
+  /** Bowl cut edge — the point `colo-rearpodium-*` ends on (r = R_ARENA_WALL). */
+  bowl: podiumPoint(Math.PI - COLO_PODIUM_GAP),
+};
+
+const colosseumGateSeals: SegmentCollider[] = [
+  {
+    type: 'segment',
+    id: 'colo-gateseal-l',
+    x1: -COLO_GATE_SEAL.facade[0], z1: COLO_GATE_SEAL.facade[1],
+    x2: -COLO_GATE_SEAL.bowl[0], z2: COLO_GATE_SEAL.bowl[1],
+  },
+  {
+    type: 'segment',
+    id: 'colo-gateseal-r',
+    x1: COLO_GATE_SEAL.facade[0], z1: COLO_GATE_SEAL.facade[1],
+    x2: COLO_GATE_SEAL.bowl[0], z2: COLO_GATE_SEAL.bowl[1],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Training Yard Curved Enclosure Wall — TrainingYard.tsx, root [-18, 0, 0]
 //
 // Convention: X = R·cos(θ) - 18, Z = R·sin(θ)
@@ -696,6 +751,7 @@ export const CITY_COLLIDERS: Collider[] = [
   ...colosseumPiers,
   ...colosseumFlanks,
   ...colosseumPodium,
+  ...colosseumGateSeals,
   fountainCircle,
   ...colosseumWallSegments,
   ...yardWallSegments,

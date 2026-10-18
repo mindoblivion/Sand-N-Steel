@@ -694,6 +694,11 @@ describe('H. Nothing else about the Colosseum or the city moved', () => {
       ...Array.from({ length: 2 }, (_, i) => `colo-rearwall-r-${i}`),
       ...Array.from({ length: 2 }, (_, i) => `colo-rearpodium-l-${i}`),
       ...Array.from({ length: 2 }, (_, i) => `colo-rearpodium-r-${i}`),
+      // Phase C-8.33 sealed the rear gate's lateral escape (one segment per
+      // jamb, on the θ = π axis).  The podium polyline this suite pins — its
+      // two front arcs, its cuts and its radii — is unchanged.
+      'colo-gateseal-l',
+      'colo-gateseal-r',
       'colo-pier-l',
       'colo-pier-r',
       'colo-flank-l',

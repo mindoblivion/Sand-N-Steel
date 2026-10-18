@@ -271,7 +271,8 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `colo-wall-l/r-0…7` and `colo-podium-l/r-0…7` keep their ids, endpoints, 306° arc and 8-way subdivision,
   so every measured clearance in the other suites still holds. Added: `colo-rearwall-l/r-0…1` on the facade
   radius (19.3) and `colo-rearpodium-l/r-0…1` on the podium radius (15.3), each ending on its own gate edge.
-  `colo-*` is now 44 colliders (was 36; the eight appended rear segments are the only addition).
+  `colo-*` is now 44 colliders (was 36; the eight appended rear segments are the only addition) —
+  **Phase C-8.33 later appended two more, the gate's lateral seals; see its section below.**
 - **Regression suite: `src/utils/phaseC8_31.test.ts`** (§A rend/arc, §B gate geometry, §C registry,
   §D traversal both ways + the fortress bridge corridor, §E drawbridge alignment, §F entrance/unrelated
   invariants). `phaseC8_28.test.ts` §G was inverted to assert the rear drum is stone, and `phaseC8_27`'s
@@ -281,3 +282,41 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   **Not automatically verified:** the gate's appearance (stonework, arch head, lintel) — the sandbox
   preview has no GPU and the city hub renders at ~2 fps through SwiftShader, so it needs an on-device look,
   together with the still-open C-8.28 bowl cut and C-8.29 junction checks.
+
+## Colosseum rear gate lateral seal (Phase C-8.33 — implemented)
+
+- **The defect was a movement-boundary gap, not a mesh defect.** C-8.31's rendered gate is exactly
+  what that phase built; the registry simply had nothing between the facade (r 19.3) and the podium
+  (r 15.3), so the 1.3-wide band the cavea and the arcade occupy was open ground to the resolver.
+  Measured with the real `resolveCityMovement` (throwaway harness, kept in `/tmp`): 11 steps north
+  from (0, −38) reach (0, −42.18) — r 17.18, mid-passage — and a `+X` push from there leaves the
+  passage on the eighth step, (3.04, −42.18), past the 9.784° bowl cut, and runs on to
+  (7.60, −42.18), r 18.79 — i.e. **standing inside the rendered arcade pier** (the r 18.0 … 19.3
+  tier-1 wall band). Everything mirrors on the west. A −12 … +12 X sweep at z = −40.5 is entirely
+  free, and the same sweep at every rear depth is free outside the passage.
+- **The seal is the C-8.27 remedy applied to the gate: bridge the strip between the two structures
+  that already end there.** `colo-gateseal-l` / `colo-gateseal-r` are single segments from
+  `podiumPoint(π ∓ COLO_PODIUM_GAP)` = (∓2.600, −40.077) to `coloPoint(π ∓ COLO_GATE_HALF)` =
+  (∓2.700, −44.110). **Both endpoints ARE existing endpoints** — the last point of the
+  `colo-rearpodium-r/l` polyline and the last point of the `colo-rearwall-r/l` polyline — so no new
+  corner and no slit appears. Two colliders total; `colo-*` is now 46 (was 44). No rendered geometry,
+  gate dimension, podium/cavea cut, material or unrelated collider changed, and the seals sit on the
+  θ = π axis, nowhere near the front portal.
+- **The passage stays wide enough.** The clear opening is 5.2 (|X| ≤ 2.6 at the podium, 5.40 at the
+  facade). With a 0.4-radius player, a wall on that face leaves |X| ≈ 2.21 … 2.33 of usable corridor
+  (measured per 0.25 of depth), which is wider than the drawbridge deck plus both side beams together
+  (±2.11) — the whole crossing stays walkable — and as wide as the corridor C-8.27 pins at the
+  doorway (|X| ≤ 2.2). The tightest approach between a seal and the deck's outer edge is 0.49.
+- **Regression suite: `src/utils/phaseC8_33.test.ts`** (§A registry and endpoint coincidence, §B the
+  frozen reproduction — the escape replays with the seals spliced out and is gone with them, §C gate
+  traversal both ways plus usable width, §D the drawbridge deck and its beams, §E the front portal
+  and the C-8.27 closures, §F arrivals and the Store ↔ Workshop junction). The three suites that
+  enumerate the Colosseum id set (`phaseC8_27`, `phaseC8_28`, `phaseC8_31`) were updated for the two
+  new ids; C-8.27's frozen pre-fix replay now splices the seals out too (its delta constant 26 → 28),
+  so its historical replay is unchanged. No assertion was weakened.
+- **Verified 2026-10-18** in the dev container: `bun test` → 906 pass / 0 fail (31 files),
+  `bun run scripts/collisionTests.ts` → 122 passed, 0 failed, `bun run lint` (`tsc --noEmit`) → exit 0,
+  `git diff --check` → clean. **Not automatically verified / not attempted:** any visual acceptance of
+  the gate or the seal — the sandbox renders the city hub at ~2 fps through SwiftShader, and C-8.32
+  already could not reach the rear gate there; the C-8.28 bowl cut and C-8.29 junction device checks
+  remain open too.

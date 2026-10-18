@@ -202,14 +202,15 @@ function withPreFixRegistry<T>(fn: () => T): T {
   const snapshot = CITY_COLLIDERS.slice();
   try {
     // The registry this defect was reported against: it predates the two C-8.27
-    // closures, the C-8.28 arena podium, and the C-8.31 rear drum (the rear
-    // wall and podium quadrants that closed the rear opening around the new
-    // axial gate), so all four are spliced out and the replay below is the
-    // historical one, unchanged.
+    // closures, the C-8.28 arena podium, the C-8.31 rear drum (the rear wall
+    // and podium quadrants that closed the rear opening around the new axial
+    // gate), and the C-8.33 rear gate lateral seals, so all five are spliced
+    // out and the replay below is the historical one, unchanged.
     for (let i = CITY_COLLIDERS.length - 1; i >= 0; i--) {
       const id = CITY_COLLIDERS[i].id;
       if (id.startsWith('colo-flank') || id.startsWith('colo-podium')
-        || id.startsWith('colo-rearwall') || id.startsWith('colo-rearpodium')) {
+        || id.startsWith('colo-rearwall') || id.startsWith('colo-rearpodium')
+        || id.startsWith('colo-gateseal')) {
         CITY_COLLIDERS.splice(i, 1);
       }
     }
@@ -246,8 +247,9 @@ const DOORWAY_CENTRES: number[] = [-2.0, -1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0
 describe('A. The reported bypass reproduces without the flank closures', () => {
   test('the pre-fix registry is the shipped one minus the later Colosseum colliders', () => {
     const preFix = withPreFixRegistry(() => CITY_COLLIDERS.slice());
-    // 2 closures + 16 front podium segments + 4 rear wall + 4 rear podium.
-    expect(preFix.length).toBe(CITY_COLLIDERS.length - 26);
+    // 2 closures + 16 front podium segments + 4 rear wall + 4 rear podium
+    // + 2 C-8.33 rear gate seals.
+    expect(preFix.length).toBe(CITY_COLLIDERS.length - 28);
     expect(preFix.filter((c) => c.id.startsWith('colo-flank'))).toEqual([]);
     expect(preFix.filter((c) => c.id.startsWith('colo-podium'))).toEqual([]);
     expect(preFix.filter((c) => c.id.startsWith('colo-rear'))).toEqual([]);
@@ -255,7 +257,7 @@ describe('A. The reported bypass reproduces without the flank closures', () => {
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-flank')).length).toBe(2);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-podium')).length).toBe(16);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-rear')).length).toBe(8);
-    expect(CITY_COLLIDERS.length).toBe(preFix.length + 26);
+    expect(CITY_COLLIDERS.length).toBe(preFix.length + 28);
   });
 
   test('a north-bound push at X = 5.8 … 7.6 walked from the city onto the arena sand', () => {
@@ -580,6 +582,12 @@ describe('F. Nothing else about the Colosseum or the city moved', () => {
       ...Array.from({ length: 2 }, (_, i) => `colo-rearwall-r-${i}`),
       ...Array.from({ length: 2 }, (_, i) => `colo-rearpodium-l-${i}`),
       ...Array.from({ length: 2 }, (_, i) => `colo-rearpodium-r-${i}`),
+      // Phase C-8.33 sealed the rear gate's lateral escape: one segment per
+      // jamb, from the bowl cut edge to the facade gate jamb.  Nothing this
+      // suite pins (the piers, the two facade arcs, the two closures and the
+      // doorway replay) is affected — the seals are on the θ = π axis.
+      'colo-gateseal-l',
+      'colo-gateseal-r',
     ].sort();
     expect(coloIds).toEqual(expected);
   });
@@ -607,16 +615,18 @@ describe('F. Nothing else about the Colosseum or the city moved', () => {
 
   test('the closures are the only colliders this phase adds', () => {
     const preFixIds = withPreFixRegistry(() => CITY_COLLIDERS.map((c) => c.id).sort());
-    // C-8.28's podium polyline and C-8.31's rear quadrants came later; this
-    // suite's own delta is still exactly the two closures.
+    // C-8.28's podium polyline, C-8.31's rear quadrants and C-8.33's rear gate
+    // seals came later; this suite's own delta is still exactly the two closures.
     const added = CITY_COLLIDERS.map((c) => c.id).sort()
       .filter((id) => !preFixIds.includes(id)
-        && !id.startsWith('colo-podium') && !id.startsWith('colo-rear'));
+        && !id.startsWith('colo-podium') && !id.startsWith('colo-rear')
+        && !id.startsWith('colo-gateseal'));
     expect(added).toEqual(['colo-flank-l', 'colo-flank-r']);
     // No collider was removed or renamed either.
     expect(CITY_COLLIDERS.map((c) => c.id).sort()
       .filter((id) => !id.startsWith('colo-flank') && !id.startsWith('colo-podium')
-        && !id.startsWith('colo-rearwall') && !id.startsWith('colo-rearpodium')))
+        && !id.startsWith('colo-rearwall') && !id.startsWith('colo-rearpodium')
+        && !id.startsWith('colo-gateseal')))
       .toEqual(preFixIds);
   });
 

@@ -454,7 +454,7 @@ describe('C. The collision registry matches the completed drum', () => {
     }
   });
 
-  test('the Colosseum holds its colliders — the front set plus eight new ones', () => {
+  test('the Colosseum holds its colliders — the front set, eight rear ones and two seals', () => {
     const coloIds = CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-')).map((c) => c.id).sort();
     const expected = [
       ...Array.from({ length: 8 }, (_, i) => `colo-wall-l-${i}`),
@@ -469,9 +469,14 @@ describe('C. The collision registry matches the completed drum', () => {
       'colo-pier-r',
       'colo-flank-l',
       'colo-flank-r',
+      // Phase C-8.33 appended one lateral seal per gate jamb (its own suite,
+      // phaseC8_33.test.ts, owns their geometry).  Everything above is the set
+      // this phase shipped, unchanged.
+      'colo-gateseal-l',
+      'colo-gateseal-r',
     ].sort();
     expect(coloIds).toEqual(expected);
-    expect(coloIds.length).toBe(44);
+    expect(coloIds.length).toBe(46);
   });
 });
 
