@@ -188,7 +188,9 @@ const SHOP_PIER_BOX = triple(shopSrc, /<mesh castShadow receiveShadow position=\
 const SHOP_PIER_TOP = num(shopSrc, /<mesh castShadow position=\{\[0,\s*([\d.]+),\s*0\]\}>\s*<boxGeometry args=\{\[\s*0\.95, 0\.2/);
 const SHOP_ARCHITRAVE_POS = triple(shopSrc, /<mesh castShadow position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}>\s*<boxGeometry args=\{\[\s*8\.2,/);
 const SHOP_ARCHITRAVE = triple(shopSrc, /<mesh castShadow position=\{\[\s*-?[\d.]+,\s*-?[\d.]+,\s*-?[\d.]+\s*\]\}>\s*<boxGeometry args=\{\[\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\]\}/);
-const SHOP_ROOF_GROUP = nums(shopSrc, /<group position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\} rotation=\{\[([\d.]+),/); // [x, y, z, theta]
+// Phase C-8.53 flipped the lean-to's pitch sign (rotation 0.16 → −0.16), so the
+// rotation capture accepts a sign; every value below is still parsed, not pinned.
+const SHOP_ROOF_GROUP = nums(shopSrc, /<group position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\} rotation=\{\[(-?[\d.]+),/); // [x, y, z, theta]
 const SHOP_ROOF_PLANE = triple(shopSrc, /LEAN-TO TERRACOTTA SHIELD ROOF[\s\S]*?<boxGeometry args=\{\[\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\]\}/);
 const SHOP_EAVE_POS = triple(shopSrc, /Front eave fascia board[\s\S]*?<mesh castShadow position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}>/);
 const SHOP_EAVE_BOX = triple(shopSrc, /Front eave fascia board[\s\S]*?<boxGeometry args=\{\[\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\]\}/);
@@ -358,7 +360,8 @@ describe('B. The full rendered extents (roofs, eaves, quoins included) do not in
     expect(GS_ROOF.pos).toEqual([0, 4.8, 0]);
     expect(SHOP_ROOF_PLANE).toEqual([8.6, 0.18, 5.4]);
     expect(SHOP_EAVE_BOX).toEqual([8.6, 0.16, 0.12]);
-    expect(shopRoofRot).toBe(0.16);
+    // C-8.53 — the lean-to now falls to the open front (still the author's 0.16).
+    expect(shopRoofRot).toBe(-0.16);
   });
 
   test('no Store solid intersects any Workshop solid', () => {
@@ -377,7 +380,10 @@ describe('B. The full rendered extents (roofs, eaves, quoins included) do not in
 
   test('the next closest pair clears in both Z and Y', () => {
     const next = separationOf('store.roof-plane-R', 'shop.roof-eave-fascia');
-    expect(next.d).toBeCloseTo(0.203, 3);
+    // C-8.53 — the lean-to's eave dropped from Y 4.62 to 3.93 and its front edge
+    // moved 0.03 clear of the Store, so this pair now clears by 0.748 rather than
+    // 0.203 (the Store's roof slab stayed exactly where C-8.29 measured it).
+    expect(next.d).toBeCloseTo(0.748, 3);
     expect(next.dz).toBeGreaterThan(0.2); // the Store roof stops short of the eave board…
     expect(next.dy).toBeGreaterThan(0.05); // …and the two sit in different height bands
     // Nothing anywhere in the pair comes closer than the plinth gap.
