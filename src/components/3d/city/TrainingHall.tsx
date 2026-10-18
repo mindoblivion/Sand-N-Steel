@@ -88,8 +88,33 @@ export const TrainingHall: React.FC = React.memo(() => {
   // Veranda dimensions (in component-local coords, hall centred at [0,0,0])
   const VERANDA_HALF_W = 1.5;            // 3 units wide
   const VERANDA_SOUTH_Z = 4.0;           // component-local +Z; world +X after hall yaw
-  const CANOPY_Y = WALL_H;               // canopy at wall-top height
+  const CANOPY_Y = WALL_H;               // courtyard posts: wall-top height
   const POST_R = 0.09;
+
+  // ── Phase C-8.52 — veranda canopy seating ──
+  // The canopy slab was the only element in this group measured WITHOUT the
+  // foundation's 0.30 top step (`0.3 + …`, which the walls, cornice, quoins, all four
+  // posts and every prop under the veranda use), so it hung 0.30 below the structure
+  // it shades: its underside crossed the four posts by 0.66513 at the building face
+  // and 0.31545 at the courtyard, and its top face floated 0.13487 clear of the front
+  // tie-beam instead of resting on it.  Restoring the offset — the author's own
+  // `CANOPY_Y - 0.15` drop, now measured from the top of the foundation like
+  // everything else — seats the underside on the tie-beam's own top face (0.01545
+  // inside the slab, inside the 0.02 seating tolerance) and leaves the two
+  // building-face posts 0.36513 through the canopy, so those two are trimmed to the
+  // underside's own height at their axis.  Pitch, slab, materials, wall attachment and
+  // the courtyard pair are untouched.
+  const CANOPY_PITCH = -0.12;            // rain slope about local X (unchanged)
+  const CANOPY_T = 0.08;                 // slab thickness (unchanged)
+  const CANOPY_Z = HALL_D / 2 + (VERANDA_SOUTH_Z - HALL_D / 2) / 2;
+  const CANOPY_POS_Y = 0.3 + CANOPY_Y - 0.15;   // the restored foundation offset
+  /** Vertical distance from the pitched slab's centre plane down to its underside. */
+  const CANOPY_HALF_T = CANOPY_T / 2 / Math.cos(CANOPY_PITCH);
+  /** The pitched slab's underside height at a component-local Z. */
+  const canopyUndersideAt = (z: number) =>
+    CANOPY_POS_Y - Math.tan(CANOPY_PITCH) * (z - CANOPY_Z) - CANOPY_HALF_T;
+  /** The building-face pair is cut back to the underside it now carries. */
+  const FACE_POST_H = canopyUndersideAt(HALL_D / 2) - 0.3;
 
   return (
     <group position={[-12.35, 0, 3.00]} rotation={[0, Math.PI / 2, 0]}>
@@ -155,25 +180,28 @@ export const TrainingHall: React.FC = React.memo(() => {
       />
 
       {/* 4. VERANDA — south-facing shaded canopy with timber posts */}
-      {/* 4a. Veranda canopy (sloped slightly for rain, extends south from hall face) */}
+      {/* 4a. Veranda canopy (sloped slightly for rain, extends south from hall face;
+          seated on the foundation datum and on the front tie-beam — C-8.52) */}
       <mesh
         castShadow
-        position={[0, CANOPY_Y - 0.15, HALL_D / 2 + (VERANDA_SOUTH_Z - HALL_D / 2) / 2]}
-        rotation={[-0.12, 0, 0]}
+        position={[0, CANOPY_POS_Y, CANOPY_Z]}
+        rotation={[CANOPY_PITCH, 0, 0]}
       >
-        <boxGeometry args={[VERANDA_HALF_W * 2 + 0.3, 0.08, VERANDA_SOUTH_Z - HALL_D / 2 + 0.15]} />
+        <boxGeometry args={[VERANDA_HALF_W * 2 + 0.3, CANOPY_T, VERANDA_SOUTH_Z - HALL_D / 2 + 0.15]} />
         <primitive object={canopyMat} attach="material" />
       </mesh>
 
-      {/* 4b. Veranda timber posts (4: 2 at building face, 2 in courtyard) */}
+      {/* 4b. Veranda timber posts (4: 2 at building face under the canopy's low edge,
+          2 in courtyard under its high edge — C-8.52 trimmed the face pair to the
+          underside they carry) */}
       {[
-        [-VERANDA_HALF_W, HALL_D / 2],
-        [VERANDA_HALF_W, HALL_D / 2],
-        [-VERANDA_HALF_W, VERANDA_SOUTH_Z],
-        [VERANDA_HALF_W, VERANDA_SOUTH_Z],
-      ].map(([px, pz], i) => (
-        <mesh key={`vpost-${i}`} castShadow position={[px, 0.3 + CANOPY_Y / 2, pz]}>
-          <cylinderGeometry args={[POST_R, POST_R, CANOPY_Y, 6]} />
+        [-VERANDA_HALF_W, HALL_D / 2, FACE_POST_H],
+        [VERANDA_HALF_W, HALL_D / 2, FACE_POST_H],
+        [-VERANDA_HALF_W, VERANDA_SOUTH_Z, CANOPY_Y],
+        [VERANDA_HALF_W, VERANDA_SOUTH_Z, CANOPY_Y],
+      ].map(([px, pz, postH], i) => (
+        <mesh key={`vpost-${i}`} castShadow position={[px, 0.3 + postH / 2, pz]}>
+          <cylinderGeometry args={[POST_R, POST_R, postH, 6]} />
           <primitive object={timberMat} attach="material" />
         </mesh>
       ))}
