@@ -33,10 +33,13 @@
  * wall's 2.60 face. The wreath is re-hung: with no rotation a torus lies in the plane it is drawn
  * in, so the ring faces the street and its back face seats on the pediment's tympanum panel at
  * Z 3.75 — the panel's own plane plus the 0.06 tube — reading as a wreath hung in the gable.
- * 0.28 is the largest major radius that holds the project's 0.02 tolerance against the V the two
- * rakes describe on the axis (§H's control shows why the audit's 0.35 → 0.10 candidate and a kept
- * 0.35 both fail). The band keeps the weight it had: the tube is still 0.06, only the diameter
- * comes in, 0.70 → 0.56.
+ * 0.28 is the largest major radius that held the project's 0.02 tolerance against the rakes of the
+ * day, the V they then described on the axis (§H's control shows why the audit's 0.35 → 0.10
+ * candidate and a kept 0.35 both fail). **Phase C-8.62 has since corrected the shared primitive** —
+ * each rake now follows its own gable edge to the apex — and the ring it left keeps a LARGER margin
+ * (rake clearance 0.0330 → 0.0361578674), so 0.28 is no longer the binding choice here even though
+ * nothing in this phase moved. The band keeps the weight it had: the tube is still 0.06, only the
+ * diameter comes in, 0.70 → 0.56.
  *
  * ── HOW THIS SUITE MEASURES IT ────────────────────────────────────────────
  * Nothing here is a copied constant. The hall's transforms and props are parsed from its source,
@@ -48,9 +51,16 @@
  * axis). §G sweeps every solid in the building against the re-hung wreath, and §H replays the
  * pre-fix transforms — and the audit's own candidate — through the identical predicates.
  *
- * ASSUMPTIONS, stated: `ClassicalPediment`'s rake orientation is NOT touched by this phase (its
- * rakes sweep down to the axis as a V rather than following the gable's edges, which is why the
- * wreath's usable area on the tympanum is the band above that V); the doorway's optional arched
+ * ASSUMPTIONS, stated: `ClassicalPediment`'s rake orientation was NOT touched by this phase — its
+ * rakes still swept down to the axis as a V rather than following the gable's edges, which is why
+ * the wreath's usable area on the tympanum was the band above that V. **Phase C-8.62 has since
+ * corrected the shared primitive** (each rake follows its own gable edge, the run is the
+ * corner-to-apex `rafterLen` with no extra length, the section is 0.16, and the acroterion rides the
+ * derived `crownLift`); every figure this suite measures on the primitive is therefore re-derived
+ * from the corrected source, and the pins the correction moved are marked "Rebased by C-8.62" in
+ * place — the two rake clearances 0.0330 → 0.0361578674, the finial gap 0.17 → 0.2415541753, the
+ * finial-vs-ridge-cap relationship 0.045 → −0.0265541753, and the pre-fix control's flat ring, which
+ * no longer reaches the corrected rakes. The doorway's optional arched
  * lunette is compared as its own bounding box, which is conservative for the half-cylinder it
  * draws; and no assertion here speaks about rendered appearance — a source-geometry suite pins
  * transforms, and the Android look remains a device question.
@@ -663,18 +673,24 @@ describe('C-8.60 §C — the wreath and the doorway head are clear of the pedime
     expect(lowest - intervalOn(SHIPPED.solids.architrave, Y)[1]).toBeCloseTo(0.2, 9);
   });
 
-  test('the wreath does not reach the LEFT raking cornice', () => {
+  // **Rebased by C-8.62** — the one figure in this section that moved. The shared primitive's rakes
+  // no longer sweep down to the axis as a V (that is what this phase's record deferred); each bar now
+  // follows its own gable edge from its eave corner to the apex. The ring is the one C-8.60 hung, so
+  // the clearance is re-measured on the corrected solid: 0.0330 → **0.0361578674**, a larger margin,
+  // because a rake that traces the gable stands further from a ring hung inside the tympanum than the
+  // V's arms did. The requirement (a real margin at or above the project's 0.02) is unchanged.
+  test('the wreath does not reach the LEFT raking cornice, on the corrected rake', () => {
     const g = wreathGapTo(SHIPPED.wreath, SHIPPED.solids.rakeL);
     expect(g).toBeGreaterThan(0);
     expect(g).toBeGreaterThanOrEqual(TOL - 1e-9);
-    expect(g).toBeCloseTo(0.033, 3);
+    expect(g).toBeCloseTo(0.0361578674, 6);
   });
 
-  test('the wreath does not reach the RIGHT raking cornice', () => {
+  test('the wreath does not reach the RIGHT raking cornice, on the corrected rake', () => {
     const g = wreathGapTo(SHIPPED.wreath, SHIPPED.solids.rakeR);
     expect(g).toBeGreaterThan(0);
     expect(g).toBeGreaterThanOrEqual(TOL - 1e-9);
-    expect(g).toBeCloseTo(0.033, 3);
+    expect(g).toBeCloseTo(0.0361578674, 6);
   });
 
   test('the two rakes are mirror-symmetric about the axis, so one clearance pins both', () => {
@@ -754,17 +770,24 @@ describe('C-8.60 §D — the wreath reads as a wreath, and hangs inside the gabl
 
   test('it is centred on the entrance axis and clear of the finial, the lunette and its keystone', () => {
     expect(SHIPPED.wreath.c[0]).toBe(0);
-    expect(wreathGapTo(SHIPPED.wreath, SHIPPED.solids.acro)).toBeCloseTo(0.17, 9);
+    // **Rebased by C-8.62**: the finial rides the primitive's derived `crownLift` (0.0715541753), so
+    // the gap this phase pinned at 0.17 is that 0.17 plus the lift — measured 0.2415541753.
+    const crownLift =
+      Math.cos(Math.atan2(PED.height, PED.width / 2)) * (PED_F.rakeThickness / PED_F.crownDivisor);
+    expect(wreathGapTo(SHIPPED.wreath, SHIPPED.solids.acro)).toBeCloseTo(0.17 + crownLift, 9);
+    expect(wreathGapTo(SHIPPED.wreath, SHIPPED.solids.acro)).toBeCloseTo(0.2415541753, 9);
     // the lunette is drawn as a half-cylinder; its own bounding box is conservative, and clear
     expect(wreathGapTo(SHIPPED.wreath, SHIPPED.solids.doorArch)).toBeGreaterThanOrEqual(0.3);
     expect(wreathGapTo(SHIPPED.wreath, SHIPPED.solids.doorKeystone)).toBeGreaterThanOrEqual(0.9);
   });
 
   test('the two rakes are what bounds it: a ring with the old diameter would not fit', () => {
-    // The V the rakes describe crosses the pediment's centre at Y 2.727 … 2.993, so the free band
-    // inside the gable is between that V and the apex — and the apex is only 0.95 above the base.
-    // Keeping 0.35 (outer 0.41) and holding the same 0.02 against the rakes needs the centre at
-    // Y 3.4714, whose top then stands 0.0614 PROUD of the gable's apex: measured, not guessed.
+    // The free band inside the gable is bounded below by the rakes' own clearance line and above by
+    // the apex — and the apex is only 0.95 above the base. (C-8.62 later made the rakes follow the
+    // gable's edges instead of the V they then described, which lifts the lower bound and loosens the
+    // margin; the bound above is the apex either way.) Keeping 0.35 (outer 0.41) and holding the same
+    // 0.02 against the rakes needs the centre at Y 3.4714, whose top then stands 0.0614 PROUD of the
+    // gable's apex: measured, not guessed, and unchanged by the correction.
     const kept = build({ wreathR: 0.35, wreathPos: [0, 3.4714 - TROPHY[1], 3.81 - TROPHY[2]] });
     const t = tympTriangle();
     const outerKept = 0.35 + WREATH_TORUS[1];
@@ -789,10 +812,17 @@ describe('C-8.60 §E — the C-8.57 portico and eave arrangement is untouched', 
     expect(top - intervalOn(SHIPPED.solids.architrave, Y)[0]).toBeCloseTo(0.05, 9);
   });
 
-  test('the acroterion is still 0.045 below the ridge cap, and clear of it', () => {
+  // **Rebased by C-8.62** — the finial now seats on the two raking cornices' crowns, `crownLift` =
+  // 0.0715541753 above where it sat, so the ridge cap's top stands 0.0265541753 BELOW the finial's
+  // top instead of 0.045 above it. The pair remains disjoint — they are 0.835 apart in Z — and that
+  // check is unchanged; only the vertical relationship moved, and it moved with the shared primitive.
+  test('the acroterion seats on the rake crowns, and is still clear of the ridge cap', () => {
     const ridge = SHIPPED.solids.ridge;
     const acro = SHIPPED.solids.acro;
-    expect(intervalOn(ridge, Y)[1] - intervalOn(acro, Y)[1]).toBeCloseTo(0.045, 9);
+    const crownLift =
+      Math.cos(Math.atan2(PED.height, PED.width / 2)) * (PED_F.rakeThickness / PED_F.crownDivisor);
+    expect(intervalOn(ridge, Y)[1] - intervalOn(acro, Y)[1]).toBeCloseTo(0.045 - crownLift, 9);
+    expect(intervalOn(ridge, Y)[1] - intervalOn(acro, Y)[1]).toBeCloseTo(-0.0265541753, 9);
     expect(boxesIntersect(acro, ridge)).toBe(false);
   });
 
@@ -898,7 +928,9 @@ describe('C-8.60 §G — everything else in the hall, and the whole sweep', () =
       .sort((a, b) => a[1] - b[1]);
     expect(sorted[0][0]).toBe('rakeL');
     expect(sorted[1][0]).toBe('rakeR');
-    expect(sorted[0][1]).toBeCloseTo(0.033, 3);
+    // **Rebased by C-8.62**: the corrected rake is still the nearest solid to the ring, by a larger
+    // margin — 0.0330 → 0.0361578674 (see §C).
+    expect(sorted[0][1]).toBeCloseTo(0.0361578674, 6);
     expect(sorted[2][1]).toBeGreaterThanOrEqual(0.16);
     // the seats: on the tympanum panel, and 0.20 above the architrave's top
     expect(g('tympanumPlane')).toBeCloseTo(0, 9);
@@ -918,17 +950,38 @@ describe('C-8.60 §H — the control: the pre-fix frame fails these same predica
     expect(PREFIX.wreath.flat).toBe(true);
   });
 
-  test('the three intersections the audit named reproduce, through the identical predicates', () => {
+  // **Rebased by C-8.62.** Of the four pairs the audit named, the ring's burial in the architrave
+  // still reproduces exactly. The two WREATH↔RAKE pairs no longer do: the primitive's rakes used to
+  // descend to the axis as a V and pass through this flat ring's band, and C-8.62 made each rake
+  // follow its own gable edge, so in this pre-fix frame the ring is now CLEAR of them by a measured
+  // 0.0384458247 each — the correction showing up in the control, pinned as clear rather than
+  // weakened. The cap↔rake pairs are the same story in two parts: their world Z bands still overlap
+  // by the 0.05 the audit measured (`gapOn` below), but the corrected rake stands clear of the cap's
+  // own Y band, so the real solids no longer meet — `phaseC8_62.test.ts` §H measures that separation
+  // (0.297895488) and reproduces the pre-C-8.62 intersection (−0.05) on the old rake, which is what
+  // C-8.60's 0.08 setback answered under the primitive of the day.
+  test('the intersections the audit named still reproduce — except the ones the rake correction cleared', () => {
     expect(wreathGapTo(PREFIX.wreath, PREFIX.solids.architrave)).toBeLessThan(0);
-    expect(wreathGapTo(PREFIX.wreath, PREFIX.solids.rakeL)).toBeLessThan(0);
-    expect(wreathGapTo(PREFIX.wreath, PREFIX.solids.rakeR)).toBeLessThan(0);
+    expect(wreathGapTo(PREFIX.wreath, PREFIX.solids.rakeL)).toBeGreaterThan(0);
+    expect(wreathGapTo(PREFIX.wreath, PREFIX.solids.rakeR)).toBeGreaterThan(0);
+    expect(wreathGapTo(PREFIX.wreath, PREFIX.solids.rakeL)).toBeCloseTo(0.0384458247, 6);
+    expect(wreathGapTo(PREFIX.wreath, PREFIX.solids.rakeR)).toBeCloseTo(0.0384458247, 6);
     for (const rake of ['rakeL', 'rakeR'] as const) {
-      expect(boxesIntersect(PREFIX.solids.doorCap, PREFIX.solids[rake])).toBe(true);
+      // the interval share the audit measured is intact...
       expect(gapOn(PREFIX.solids.doorCap, PREFIX.solids[rake], Z)).toBeCloseTo(-0.05, 9);
+      // ...but the real solids do not meet on the corrected rake
+      expect(boxesIntersect(PREFIX.solids.doorCap, PREFIX.solids[rake])).toBe(false);
     }
   });
 
-  test('the cap\'s share with each rake is a real volume, and it is the cap that reached in', () => {
+  // **Rebased by C-8.62** — the share below is an INTERVAL measurement along the three world axes,
+  // which is exactly what the audit reported, and it is unchanged: 0.05 in Z, 0.10 in Y, over a metre
+  // in X. It is no longer a volume the two solids really share, though: the corrected rake traces the
+  // gable's edge and stands away from the cap's own Y band, so the separating-axis test reports them
+  // clear (measured 0.297895488 in `phaseC8_62.test.ts` §H). The intervals are kept because they are
+  // this phase's own evidence for the C-8.60 fix — under the pre-C-8.62 V rake the same pair really
+  // did intersect, by 0.05, which is the conflict the 0.08 doorway setback answered.
+  test('the cap\'s share with each rake is the interval the audit measured', () => {
     for (const rake of ['rakeL', 'rakeR'] as const) {
       const b = PREFIX.solids[rake];
       const ov = [X, Y, Z].map((ax) => Math.min(intervalOn(PREFIX.solids.doorCap, ax)[1], intervalOn(b, ax)[1])
@@ -936,6 +989,7 @@ describe('C-8.60 §H — the control: the pre-fix frame fails these same predica
       expect(ov[2]).toBeCloseTo(0.05, 9);
       expect(ov[1]).toBeCloseTo(0.1, 9);
       expect(ov[0]).toBeGreaterThan(1.0);
+      expect(boxesIntersect(PREFIX.solids.doorCap, b)).toBe(false);
     }
   });
 
@@ -943,11 +997,14 @@ describe('C-8.60 §H — the control: the pre-fix frame fails these same predica
     for (const k of ['doorLintel', 'cornF', 'fascia', 'wall'] as const) {
       expect(wreathGapTo(PREFIX.wreath, PREFIX.solids[k])).toBeLessThan(0);
     }
-    // the same sweep that returns [] for the shipped frame finds seven offenders here
+    // the same sweep that returns [] for the shipped frame finds five offenders here. **Rebased by
+    // C-8.62**: the two rakes are no longer among them — a rake that follows the gable's edge does
+    // not descend to the axis through this ring's own band — so the flat ring's burial is the four
+    // solids below plus the architrave, which is what the audit's own finding named.
     const offenders = Object.keys(PREFIX.solids).filter(
       (k) => k !== 'tympanumPlane' && wreathGapTo(PREFIX.wreath, PREFIX.solids[k]) < -1e-9,
     );
-    expect(offenders).toEqual(['wall', 'cornF', 'fascia', 'doorLintel', 'architrave', 'rakeL', 'rakeR']);
+    expect(offenders).toEqual(['wall', 'cornF', 'fascia', 'doorLintel', 'architrave']);
   });
 
   test('the audit\'s own candidate fails too — which is why it was not adopted', () => {

@@ -1566,7 +1566,11 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the shipped plinth had. The column-to-architrave seat is preserved at **0.05** exactly. The
   acroterion's *height* did not move at all — the pediment's base dropped 0.20 and its gable grew
   0.20, so its top is still 4.24, still 0.045 below the ridge cap (4.285); only its Z followed the
-  pediment forward.
+  pediment forward. **Phase C-8.62 has since lifted the finial by the shared primitive's own
+  `crownLift` (0.0715541753) so it seats on the two raking cornices' crowns: its top is now
+  4.3115541753, i.e. 0.0265541753 ABOVE the ridge cap's own top, with the two solids still 0.835
+  apart in Z. The 4.24/0.045 pair above is this phase's own frame; the suite's §E pin was rebased in
+  place.**
 
 - **What did not move: everything else in the hall and everything around it.** The doorway
   (`[0, 0.32, 2.58]`, 1.6 × 2.2 — **Phase C-8.60 later moved this group 0.08 back, 2.58 → 2.50** to
@@ -1593,8 +1597,10 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   capital, abacus, shaft, necking ring or plinth against the fascia or the wall cornice, the
   architrave clear of both, nothing else in the pediment reaching either, and the pediment still on
   the entrance axis; §D the 0.05 column-to-architrave seat, shown to be a bearing and not a knife
-  edge, with the order's top exactly the tolerance below the plate; §E the acroterion's 0.045 under
-  the ridge cap and the taller gable that holds it there; §F the portico's symmetry about X = 0, the
+  edge, with the order's top exactly the tolerance below the plate; §E the acroterion's seating on
+  the rake crowns — **rebased by C-8.62**, which moved this pin from 0.045 to
+  `0.045 − crownLift` = −0.0265541753 (the finial's top now stands above the ridge cap's while the
+  two stay 0.835 apart in Z) and which the taller gable still holds; §F the portico's symmetry about X = 0, the
   pediment included; §G the collider, hub and arrival untouched, the registry/render invariant (the
   rectangle still equals the rendered lower step), the driven prompt, and the scope guard on the
   doorway, window and trophies; §H the control — the pre-fix frame replayed through the **identical
@@ -1685,7 +1691,11 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   hall Y 3.41 / Z 3.81: rake clearance **0.0330** to each, architrave **0.20**, acroterion
   **0.17**, lunette 0.30+, keystone 0.9975, and the silhouette stays **0.0286** inside each raking
   edge of the tympanum triangle, 0.20 above its base, 0.07 below its apex. The band keeps the weight
-  it had: the tube is still 0.06, only the diameter comes in, 0.70 → 0.56.
+  it had: the tube is still 0.06, only the diameter comes in, 0.70 → 0.56. **Superseded figures —
+  Phase C-8.62 corrected the shared primitive and lifted the finial by its own `crownLift`: the ring
+  now clears each rake by 0.0361578674 (was 0.0330) and the finial by 0.2415541753 (was 0.17), and
+  the finial's 0.045 below the ridge cap became 0.0265541753 above it. The suite's pins were rebased
+  in place; the C-8.62 section below is the record.**
 
 - **The audit's own candidate was measured and rejected, not adopted.** C-8.59 proposed radius
   0.35 → 0.10 with Y 1.10 → 1.047 and the rotation untouched. Rebuilt from the source, that ring
@@ -1726,7 +1736,8 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   clearances, every part of the order clear of the eave and the wall cornice, the plinths inside the
   lower step); §F the collider, hub, arrival and the driven prompt; §G the scope guard plus THE
   SWEEP — **no solid in the building holds wreath material except the tympanum panel it seats on**,
-  with the two rakes the nearest at 0.033; §H the control — the pre-fix frame replays the audit's
+  with the two rakes the nearest at **0.0361578674** (0.0330 before C-8.62 rebased this pin); §H the
+  control — the pre-fix frame replays the audit's
   three intersections, the cap's 0.05 × 0.10 × 1.334 share with each rake, the four extra solids the
   flat ring passed through (the sweep returns exactly
   `['wall', 'cornF', 'fascia', 'doorLintel', 'architrave', 'rakeL', 'rakeR']`), and the audit's
@@ -1770,7 +1781,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   face-on reading and the cleared raking cornices therefore remain a device question and are NOT
   automatically verified here.**
 
-- **Remaining shared-primitive issue, explicitly deferred: `ClassicalPediment`'s rake orientation.**
+- **Remaining shared-primitive issue — deferred HERE, IMPLEMENTED in Phase C-8.62 (next section).**
   The primitive rotates its LEFT raking cornice by `−slopeAngle` and its right by `+slopeAngle`
   about centres at `∓halfBase / 2`, so **both descend toward the axis** and meet low over the
   pediment's centre as a V instead of rising to the apex along the gable's edges. Measured
@@ -1780,7 +1791,9 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   what fixed the wreath's size; and the same V appears at every `ClassicalPediment` call site. The
   suite states the orientation as an assumption (it is why 0.28 is the largest ring that fits)
   rather than asserting it away. Repairing it means changing a shared primitive and every building
-  that mounts it — a different, explicitly authorized phase — so C-8.60 does not. One further
+  that mounts it — a different, explicitly authorized phase — so C-8.60 does not. **(Phase C-8.62
+  did exactly that — the signs, the run, the section and the finial lift, no call site moved. This
+  paragraph is history now: its measurement stands, its deferral does not.)** One further
   pre-existing, out-of-scope conflict was found while sweeping and is recorded, not fixed: the
   hall's doorway lunette — drawn by `ClassicalDoorway` as a half-cylinder about a vertical axis —
   overlaps the RIGHT raking cornice; the doorway's 0.08 setback shrank that share by 0.08 in Z but

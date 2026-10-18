@@ -34,7 +34,11 @@
  * The order now tops out at 2.62 — 0.02 (the project's own seating tolerance) under the
  * fascia's underside at 2.64 — so the capitals and abaci clear the plate by height. The
  * pediment's base drops with it to 2.57, keeping the 0.05 seat exactly, and the taller
- * gable holds the acroterion's top at 4.24, still 0.045 below the ridge cap. The 0.58
+ * gable holds the acroterion's top at 4.24 — 0.045 below the ridge cap in THIS phase's
+ * frame. **Phase C-8.62 later corrected the shared pediment's rakes and lifted the finial
+ * by the primitive's own `crownLift` (0.0715541753) so it seats on the crowns that meet at
+ * the apex: its top is now 4.3115541753, i.e. 0.0265541753 above the ridge cap's own top,
+ * while the two solids stay 0.835 apart in Z.** The 0.58
  * forward shift puts the architrave's back face (2.90) and both raking cornices' (2.825)
  * clear of the fascia (front 2.72) and of the roof's front slope (2.80); the eave comes
  * in from 0.35 to 0.20 so those two planes stand where the pediment needs them. The
@@ -581,8 +585,17 @@ describe('C-8.57 §E — the acroterion keeps its relationship with the ridge ca
 
   test('the taller gable is what keeps the acroterion\'s elevation', () => {
     // base 2.57 + 0.30 + height + 0.16 + half the finial = the shipped absolute top
-    const shippedTop = 2.77 + 0.3 + 0.85 + 0.16 + PED_F.acro[4] / 2;
+    // **Rebased by C-8.62**: the shared primitive now also lifts the finial by its own derived
+    // `crownLift` — `cos(slopeAngle) · (rakeThickness / 2)` — so its underside seats on the two
+    // raking cornices' crowns where they meet at the apex. The shipped top is that sum plus the
+    // lift: 4.24 → **4.3115541753**. The identity this test exists to pin — the taller gable, not
+    // a moved finial, is what holds the finial's elevation — is unchanged, and the lift is parsed
+    // and derived here rather than copied.
+    const crownLift =
+      Math.cos(Math.atan2(PED.height, PED.width / 2)) * (PED_F.rakeThickness / PED_F.crownDivisor);
+    const shippedTop = 2.77 + 0.3 + 0.85 + 0.16 + PED_F.acro[4] / 2 + crownLift;
     expect(SHIPPED.acro.max[1]).toBeCloseTo(shippedTop, 9);
+    expect(shippedTop).toBeCloseTo(4.3115541753, 9);
     expect(SHIPPED.ped[1] - (PREFIX.ped[1])).toBeCloseTo(-0.2, 9);
     expect(PED.height - 0.85).toBeCloseTo(0.2, 9);
   });
