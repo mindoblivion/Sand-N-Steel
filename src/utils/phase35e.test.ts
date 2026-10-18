@@ -46,7 +46,7 @@ import {
   MOAT_GAP_HALF_ANGLE,
   MOAT_WATER_Y,
 } from '../components/3d/city/NorthernMotte';
-import { DECK_UNDERSIDE_Y } from '../components/3d/city/Drawbridge';
+import { DECK_UNDERSIDE_Y, DECK_Z_INNER, DECK_Z_OUTER, BEAM_WIDTH } from '../components/3d/city/Drawbridge';
 
 // ── Tolerances ──────────────────────────────────────────────────────────────
 const EPS = 1e-6;
@@ -60,23 +60,36 @@ const FORTRESS_CENTER_Z = -71.5;
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Bridge fits inside moat angular opening', () => {
-  test('bridge width (4.0) is less than moat gap linear width at inner radius', () => {
-    const gapWidthAtInner = 2 * MOAT_INNER_RADIUS * Math.sin(MOAT_GAP_HALF_ANGLE);
-    expect(BRIDGE_HALF_WIDTH * 2).toBeLessThan(gapWidthAtInner);
+  // Phase C-8.36 inverted these two: they used to check that the bridge fitted
+  // inside a dry south gap in the ring.  That gap WAS the reported defect — a
+  // dry terrain channel under the drawbridge — so the ring is now complete and
+  // the water runs beneath the bridge instead.
+  test('the ring is complete — the moat passes under the drawbridge', () => {
+    expect(MOAT_GAP_HALF_ANGLE).toBe(0);
   });
 
-  test('bridge width (4.0) is less than moat gap linear width at outer radius', () => {
-    const gapWidthAtOuter = 2 * MOAT_OUTER_RADIUS * Math.sin(MOAT_GAP_HALF_ANGLE);
-    expect(BRIDGE_HALF_WIDTH * 2).toBeLessThan(gapWidthAtOuter);
+  test('the ring reaches under the bridge footprint, side beams included', () => {
+    // Inner corners of the bridge footprint: the outer face of each side beam
+    // at the deck's north end.  The ring must reach at least that far in, or a
+    // dry strip would show beneath the bridge's north end.
+    const beamOuterX = BRIDGE_HALF_WIDTH + BEAM_WIDTH / 2; // 2.11
+    const innerCornerRadius = Math.hypot(beamOuterX, DECK_Z_INNER - MOTTE_CENTER_Z);
+    expect(innerCornerRadius).toBeCloseTo(25.089, 3);
+    expect(innerCornerRadius).toBeGreaterThanOrEqual(MOAT_INNER_RADIUS);
   });
 
   test('bridge span covers the moat ring at south', () => {
-    // Moat at south: inner edge Z = -71.5 + 25.8 = -45.7, outer = -71.5 + 31.0 = -40.5
+    // Moat at south: inner edge Z = -71.5 + 25.0 = -46.5 (C-8.36), outer edge
+    // Z = -71.5 + 31.0 = -40.5.  The drawn deck (DECK_Z_OUTER … DECK_Z_INNER)
+    // spans the ring end to end, so the water runs beneath the whole crossing.
     const moatInnerZ = MOTTE_CENTER_Z + MOAT_INNER_RADIUS;
     const moatOuterZ = MOTTE_CENTER_Z + MOAT_OUTER_RADIUS;
-    // Bridge must extend from south of moat outer to north of moat inner
-    expect(BRIDGE_Z_OUTER).toBeGreaterThan(moatOuterZ - 0.1);
-    expect(BRIDGE_Z_INNER).toBeLessThan(moatInnerZ + 0.1);
+    expect(DECK_Z_OUTER).toBeGreaterThanOrEqual(moatOuterZ - 0.1);
+    expect(DECK_Z_INNER).toBeLessThanOrEqual(moatInnerZ + 0.1);
+    // The shared terrain constants this suite pins are unchanged: the terrain
+    // stays flat at Y = 0 across the whole region either way.
+    expect(BRIDGE_Z_OUTER).toBe(-40.5);
+    expect(BRIDGE_Z_INNER).toBe(-46.0);
   });
 
   test('bridge is centered at X=0 (aligned with south opening)', () => {
@@ -134,9 +147,13 @@ describe('Bridge dimensions and alignment', () => {
     expect(BRIDGE_Z_OUTER).toBeGreaterThanOrEqual(moatOuterZ);
   });
 
-  test('bridge inner edge is at or north of moat inner edge', () => {
+  test('bridge inner end reaches the moat inner edge', () => {
+    // Phase C-8.36 widened the ring in to radius 25.0, which puts its inner
+    // shoreline exactly at the deck's north end — so the deck's whole footprint
+    // has water beneath it and there is no dry strip at that end.
     const moatInnerZ = MOTTE_CENTER_Z + MOAT_INNER_RADIUS;
-    expect(BRIDGE_Z_INNER).toBeLessThanOrEqual(moatInnerZ);
+    expect(DECK_Z_INNER).toBeCloseTo(moatInnerZ, 6);
+    expect(DECK_Z_INNER).toBeLessThanOrEqual(moatInnerZ + 0.1);
   });
 
   test('bridge length is compact (≤ 8 units)', () => {
@@ -344,16 +361,19 @@ describe('Preserved fast-travel and collision boundaries', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Preserved moat visibility and opening', () => {
-  test('moat inner radius is unchanged', () => {
-    expect(MOAT_INNER_RADIUS).toBe(25.8);
+  test('moat inner radius still clears the mound (C-8.36 value)', () => {
+    // Phase C-8.36 moved this from 25.8 to 25.0 so the water reaches beneath
+    // the drawbridge's north end; the mound's own clearances are asserted in
+    // phaseC8_36.test.ts §D and phase35c.test.ts.
+    expect(MOAT_INNER_RADIUS).toBe(25.0);
   });
 
   test('moat outer radius is unchanged', () => {
     expect(MOAT_OUTER_RADIUS).toBe(31.0);
   });
 
-  test('moat gap half-angle is unchanged', () => {
-    expect(MOAT_GAP_HALF_ANGLE).toBe(0.18);
+  test('the south gap is gone — the ring is complete (C-8.36)', () => {
+    expect(MOAT_GAP_HALF_ANGLE).toBe(0);
   });
 
   test('moat water surface sits below the bridge deck and its beams', () => {

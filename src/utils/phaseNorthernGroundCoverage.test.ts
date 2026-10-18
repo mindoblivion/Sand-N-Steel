@@ -398,11 +398,15 @@ describe('Terrain contracts are unchanged by the ground extension', () => {
     expect(getTerrainY(SUMMIT_CARDINAL_RADIUS, MOTTE_CENTER_Z)).toBeCloseTo(SUMMIT_Y, 6);
   });
 
-  test('collision perimeter, moat radii and moat gap are unchanged', () => {
+  test('collision perimeter and the moat ring carry the C-8.36 values', () => {
     expect(MOTTE_PERIMETER_RADIUS).toBe(22.0);
-    expect(MOAT_INNER_RADIUS).toBe(25.8);
+    // Phase C-8.36 widened the ring in from 25.8 to 25.0 and removed its south
+    // gap, so the moat water now runs beneath the drawbridge; the ring stays
+    // outside the 22.0 collision perimeter and carries no colliders.  The
+    // coverage and clearance measurements live in phaseC8_36.test.ts.
+    expect(MOAT_INNER_RADIUS).toBe(25.0);
     expect(MOAT_OUTER_RADIUS).toBe(31.0);
-    expect(MOAT_GAP_HALF_ANGLE).toBe(0.18);
+    expect(MOAT_GAP_HALF_ANGLE).toBe(0);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('motte-wall')).length).toBe(20);
   });
 

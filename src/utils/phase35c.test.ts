@@ -28,12 +28,17 @@ import { CITY_COLLIDERS } from './collisionShapes';
 import { resolveCityMovement } from './cityCollisions';
 
 describe('Phase 35C — Moat water ring placement', () => {
-  test('inner radius is outside the motte base footprint', () => {
-    // Motte_Grass base extends to model ±80 → world radius 80 * 0.3145 = 25.16
-    const motteBaseRadius = 80 * MOTTE_SCALE;
-    expect(MOAT_INNER_RADIUS).toBeGreaterThan(motteBaseRadius);
-    // Clearance of at least 0.5 units to avoid z-fighting
-    expect(MOAT_INNER_RADIUS - motteBaseRadius).toBeGreaterThanOrEqual(0.5);
+  test('inner radius clears the rendered mound the water plane could cut', () => {
+    // Phase C-8.36 rebased this assertion.  It used to compare against the
+    // mesh's 25.16 flange footprint (80 model units x MOTTE_SCALE), which
+    // Phase C-8.35 sank below the ground plane; the mound's rendered surface
+    // now ends at its foot/skirt.  Measured on the shipping asset after that
+    // burial (phaseC8_36.test.ts §D): the motte's surface is above the water
+    // plane (Y = 0.06) out to radius 24.456 and its visible silhouette — where
+    // the buried skirt crosses the ground plane — reaches 24.666 on the
+    // diagonals.  The ring's inner edge must stay outside both, or the water
+    // would visibly cut the mound's base.
+    expect(MOAT_INNER_RADIUS).toBeGreaterThan(24.666);
   });
 
   test('inner radius is outside the collision perimeter', () => {
@@ -55,12 +60,19 @@ describe('Phase 35C — Moat water ring placement', () => {
     expect(MOAT_WATER_Y).toBeGreaterThanOrEqual(0.03);
   });
 
-  test('gap half-angle is wider than or equal to the collision ramp opening', () => {
-    // Collision opening half-angle: atan((RAMP_HALF_WIDTH + 0.4) / MOTTE_PERIMETER_RADIUS)
+  test('the complete ring still cannot obstruct the ramp opening', () => {
+    // Phase C-8.36 removed the south gap (the dry channel under the
+    // drawbridge), so the ring is a complete annulus.  It is still entirely
+    // outside the collision perimeter — the ramp opening's half-angle works out
+    // to atan((RAMP_HALF_WIDTH + 0.4) / MOTTE_PERIMETER_RADIUS) ≈ 0.146 rad —
+    // so the water plane never reaches the opening the player walks through,
+    // and it carries no colliders of its own (asserted below).
     const collisionOpeningHalf = Math.atan(
       (RAMP_HALF_WIDTH + 0.4) / MOTTE_PERIMETER_RADIUS
     );
-    expect(MOAT_GAP_HALF_ANGLE).toBeGreaterThanOrEqual(collisionOpeningHalf);
+    expect(collisionOpeningHalf).toBeGreaterThan(0);
+    expect(MOAT_INNER_RADIUS).toBeGreaterThan(MOTTE_PERIMETER_RADIUS);
+    expect(MOAT_GAP_HALF_ANGLE).toBe(0);
   });
 
   test('gap half-angle is not excessively wide', () => {

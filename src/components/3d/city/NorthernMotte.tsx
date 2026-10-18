@@ -54,6 +54,15 @@ import { buryMotteFlange } from '../../../utils/motteSurface';
  *   Ramp:  X[-2.83, 2.83],   Z[-58.92, -48.23], Y[0, 4.72]
  *   Summit (flat top at Y=4.72): radius ≈15.73 from [0, -71.5]
  *
+ * Phase C-8.36 — water beneath the drawbridge.  The water ring's south wedge
+ * (MOAT_GAP_HALF_ANGLE either side of the +Z axis) removed the moat exactly
+ * where the drawbridge crosses it, leaving a dry terrain channel ~9.8 wide
+ * under a 4.2-wide bridge, and its inner edge (25.8) stopped 0.8 short of the
+ * bridge's north end (radius 25.0).  The ring is now complete and reaches
+ * inward to 25.0, so the water runs continuously beneath the whole bridge
+ * footprint; see the ring's own block below for the measured clearances.
+ * Nothing but the water mesh changed.
+ *
  * The motte is mounted once in CityHubScene via this component.
  */
 
@@ -140,23 +149,37 @@ const MotteModel: React.FC = () => {
 //   Ramp: south-facing, world X ±2.83, Z[-55.42, -44.73]
 //   Ramp opening half-angle (collision): atan((2.83+0.4)/22) ≈ 0.146 rad
 //
-// Water ring placement:
-//   Inner radius: 25.8  — just outside the motte base (25.16) with 0.64 clearance
-//   Outer radius: 31.0 — 5.2-unit-wide moat
-//   Elevation: Y=0.06  — above ground (0) to avoid z-fighting, below motte
-//   Gap half-angle: 0.18 rad — centered at south, wider than collision opening
+// Water ring placement (Phase C-8.36 — see the measured clearances below):
+//   Inner radius: 25.0 — reaches under the drawbridge's north end.  The bridge
+//                 footprint's inner corners sit at radius 25.089, so the water
+//                 now runs beneath the whole deck and both side beams.  The
+//                 mound still clears it: measured on the shipping asset after
+//                 the C-8.35 flange burial, the motte's surface is above the
+//                 water plane only out to radius 24.456 and its visible
+//                 silhouette (where the buried skirt crosses the ground plane)
+//                 reaches 24.666, so the water never touches the motte.
+//   Outer radius: 31.0 — unchanged.  The moat's outer shoreline is exactly the
+//                 drawbridge's south end (radius 31.0); the bridge lands on the
+//                 outer bank there, so no water is pushed onto the approach.
+//   Elevation: Y=0.06 — above the city ground plane (-0.05) to avoid z-fighting,
+//                 below the bridge's underside (0.09) so it cannot clip the deck.
+//   Gap half-angle: 0 — the ring is complete since C-8.36.  The former 0.18 rad
+//                 south wedge removed the water exactly where the drawbridge
+//                 crosses the moat, which is the dry channel this phase sealed.
 
-export const MOAT_INNER_RADIUS = 25.8;
+export const MOAT_INNER_RADIUS = 25.0;
 export const MOAT_OUTER_RADIUS = 31.0;
 export const MOAT_WATER_Y = 0.06;
-export const MOAT_GAP_HALF_ANGLE = 0.18; // radians
+export const MOAT_GAP_HALF_ANGLE = 0; // radians — complete ring (Phase C-8.36)
 
 const MOTTE_MOAT_CENTER: [number, number, number] = [0, 0, -71.5];
 
 const MoatWater: React.FC = () => {
   // RingGeometry is in the XY plane. After rotation [-π/2, 0, 0]:
   //   θ_ring=0 → +X (east), θ_ring=3π/2 → +Z (south from motte center).
-  // Gap centered at south: thetaStart = 3π/2 + GAP_HALF, thetaLength = 2π - 2*GAP_HALF.
+  // Any gap would be centred at south: thetaStart = 3π/2 + GAP_HALF,
+  // thetaLength = 2π - 2*GAP_HALF.  Since Phase C-8.36 GAP_HALF is 0, so this
+  // is a complete ring — the water passes under the drawbridge.
   const thetaStart = (3 * Math.PI) / 2 + MOAT_GAP_HALF_ANGLE;
   const thetaLength = 2 * Math.PI - 2 * MOAT_GAP_HALF_ANGLE;
 

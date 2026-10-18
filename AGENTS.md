@@ -374,3 +374,70 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   city hub runs at ~2 fps through SwiftShader, so the removed bands still need the on-device
   (Android) look, together with the open C-8.28 bowl cut, C-8.29 junction and C-8.31/C-8.33
   rear-gate checks.
+
+## Northern moat: water beneath the drawbridge (Phase C-8.36 — implemented)
+
+- **The defect was the water ring's own south gap, plus an inner edge that stopped short of the
+  deck.** `NorthernMotte`'s `<MoatWater>` ring was drawn with `MOAT_GAP_HALF_ANGLE = 0.18 rad`
+  (±10.31° about the +Z axis) — a wedge far wider than the bridge it sheltered: 9.238 units across
+  at the ring's inner edge against a bridge footprint only 4.22 wide (deck ±2.0; the side beams
+  reach ±2.11). The gap therefore removed the water over the *entire* crossing, leaving a dry
+  terrain channel under the deck and along both sides of it — the reported "dry strip under the
+  drawbridge". Independently, the inner radius (25.8) left the deck's last 0.71–0.80 (at the
+  footprint's inner corners, radius 25.089, and at the centreline, radius 25.000) with no water
+  beneath it at all.
+- **The correction is water-mesh only: two constants.** `MOAT_GAP_HALF_ANGLE` 0.18 → **0** (the ring
+  is a complete annulus) and `MOAT_INNER_RADIUS` 25.8 → **25.0**, so the water reaches under the
+  bridge's north end. The moat is now 6.0 wide instead of 5.2 and its inner shoreline sits exactly
+  at the deck's north end. Nothing else moved: the outer shoreline (31.0), the water elevation
+  (0.06), the bridge's dimensions and transforms, the terrain contract, the motte/mound, the
+  Colosseum's geometry and the whole collision registry are untouched. The ring is still one mesh
+  with the same 48 segments / 98 vertices / 96 triangles, so the draw-call count is unchanged.
+- **The new inner edge was chosen from measured clearances, not by shrinking the ring as far as it
+  would go.** Measured on the shipping asset with the C-8.35 flange burial applied
+  (`phaseC8_36.test.ts` §D, per-azimuth interpolation of the rendered surface): the motte's surface
+  stands above the water plane (Y = 0.06) out to **radius 24.456** at the worst azimuth (the
+  diagonals), and its visible silhouette — where the buried skirt crosses the ground plane at
+  Y = −0.05 — reaches **24.666**. So 25.0 keeps 0.544 of clearance from the waterline and 0.334
+  from the silhouette: the water neither cuts nor climbs the mound. The 24.456 figure is
+  cross-checked analytically against `terrainHeight`'s own slope model (the water plane cuts the
+  slope at level 1.55 − 0.55·0.06/4.7175 = 1.543, widest on the diagonal at `summitEdgeRadius(45°)`).
+- **Coverage measured over the real footprint, before and after** (`phaseC8_36.test.ts` §A–§B, a
+  0.05 grid over the deck box plus both side beams, |x| ≤ 2.11, Z −46.5 … −40.5): before, **0** of
+  the samples inside the moat band had water beneath them (the whole crossing was dry); after,
+  every sample inside the outer shoreline (all 9,000+ of them) is covered, and no covered sample
+  lies inside the new inner edge. The only footprint the water does not reach is the approach-end
+  landing — the outer corners overshoot the 31.0 shoreline by at most **0.072**, i.e. the deck
+  rests on the outer bank there, which is where a bridge belongs. No water was pushed out over the
+  sand to cover it.
+- **Vertical clearances are unchanged and re-measured** (§C): water 0.06 sits 0.03 below the deck's
+  underside (0.09), below the side beams' bottom (flush at 0.09) and below the hinges (0.085), and
+  0.11 above the city ground plane (−0.05) so it cannot z-fight with the sand.
+- **Regression suite: `src/utils/phaseC8_36.test.ts`** — §A footprint coverage before/after, §B the
+  complete ring and its reach under the north end, §C vertical clearance, §D the asset-measured
+  mound clearances, §E the untouched outer shoreline, §F everything that did not move (terrain,
+  bridge/terrain constants, no water colliders, the C-8.33 `colo-gateseal-l/r` seals and the 46
+  `colo-*` colliders, the Colosseum's `GATE_HALF_W`/`R_FACADE`/`R_LINER`). Three suites pinned the
+  old ring and were **rebased, not weakened**: `phase35e` (the two "bridge fits inside the gap"
+  tests are inverted — the ring now covers the bridge instead of the bridge fitting inside a dry
+  hole — and the ring-vs-deck checks now use the drawn deck's `DECK_Z_*`), `phase35c` (its "outside
+  the motte base footprint" test now compares against the *rendered* mound, 24.666, since C-8.35
+  buried the 25.16 flange it was written against) and `phaseNorthernGroundCoverage` (constant
+  values).
+- **Verified 2026-10-18** in the dev container: `bun test` → 953 pass / 0 fail (33 files),
+  `bun run scripts/collisionTests.ts` → 122 passed, 0 failed, `bun run lint` (`tsc --noEmit`) → exit
+  0, `bun run build` → exit 0, `git diff --check` → clean. The ring geometry itself was validated
+  directly (a full 2π sweep yields 98 vertices / 96 triangles, radius 25.0 … 31.0, all coordinates
+  finite and no degenerate triangles).
+- **Not automatically verified — the rendered look.** The sandbox does render the city hub through
+  SwiftShader (~2 fps at the mobile viewport; frames are legible), fast-travel to the Northern Roman
+  Fortress works and the player can walk, but a legible frame of the moat/drawbridge could not be
+  captured: orienting the chase camera needs a hold-and-drag orbit of the camera (the yaw is
+  decoupled from the player's facing and recenters while moving) and that gesture plus the scene's
+  settle time exceeded the script budget. **So the appearance still needs the on-device (Android)
+  look**, together with the open C-8.28 bowl cut, C-8.29 junction and C-8.31/C-8.33 rear-gate
+  checks. Two things worth looking at specifically: (a) water is now visible right up to the deck at
+  both ends and along both sides; (b) because the ring fills the wedge the drawbridge crosses, the
+  water now also laps the Colosseum's rear-gate threshold beside the deck (inside the gateway the
+  deck spans 4.22 of the 5.2–5.4 opening), where the old gap deliberately kept water out of the
+  gateway.
