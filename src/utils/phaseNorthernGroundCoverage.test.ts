@@ -100,9 +100,9 @@ import {
 const MOTTE_BASE_MODEL_RADIUS = 80;
 /** World half-extent of the motte mesh footprint: 80 × 0.3145 = 25.16. */
 const MOTTE_MESH_HALF_EXTENT = MOTTE_BASE_MODEL_RADIUS * MOTTE_SCALE;
-/** Recorded motte mesh footprint north edge (shipping GLB): Z = -96.66. */
+/** Recorded motte mesh footprint north edge (shipping GLB): Z = -101.66. */
 const MOTTE_MESH_NORTH_Z = MOTTE_CENTER_Z - MOTTE_MESH_HALF_EXTENT;
-/** Recorded motte mesh footprint south edge (shipping GLB): Z = -46.34. */
+/** Recorded motte mesh footprint south edge (shipping GLB): Z = -51.34. */
 const MOTTE_MESH_SOUTH_Z = MOTTE_CENTER_Z + MOTTE_MESH_HALF_EXTENT;
 
 /** Recorded pre-phase ground plane (140 × 140 centred at Z = 0). */
@@ -242,8 +242,8 @@ describe('Ground covers the walkable movement envelope with ≥3 units of margin
 describe('Ground covers the motte mesh footprint', () => {
   test('the recorded mesh footprint matches the transform-derived one', () => {
     expect(MOTTE_MESH_HALF_EXTENT).toBeCloseTo(25.16, 2);
-    expect(MOTTE_MESH_NORTH_Z).toBeCloseTo(-96.66, 2);
-    expect(MOTTE_MESH_SOUTH_Z).toBeCloseTo(-46.34, 2);
+    expect(MOTTE_MESH_NORTH_Z).toBeCloseTo(-101.66, 2);
+    expect(MOTTE_MESH_SOUTH_Z).toBeCloseTo(-51.34, 2);
   });
 
   test('the plane reaches past the motte mesh north edge', () => {
@@ -272,9 +272,9 @@ describe('Ground covers the motte mesh footprint', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Ground covers the visible moat ring', () => {
-  test('the moat ring north extent is derived as Z = -102.5', () => {
+  test('the moat ring north extent is derived as Z = -107.5', () => {
     expect(MOAT_OUTER_RADIUS).toBe(31.0);
-    expect(MOAT_NORTH_Z).toBeCloseTo(-102.5, 6);
+    expect(MOAT_NORTH_Z).toBeCloseTo(-107.5, 6);
   });
 
   test('the plane reaches past the moat ring north edge', () => {
@@ -359,7 +359,7 @@ describe('Bump-map tiling preserves world-space texture density', () => {
     expect(GROUND_BUMP_METERS_PER_TILE_X).toBe(GROUND_PLANE_WIDTH / GROUND_BUMP_REPEAT_X);
     expect(GROUND_BUMP_METERS_PER_TILE_Z).toBe(GROUND_PLANE_DEPTH / GROUND_BUMP_REPEAT_Z);
     expect(GROUND_BUMP_REPEAT_X).toBe(32); // unchanged from the pre-phase tiling
-    expect(GROUND_BUMP_REPEAT_Z).toBe(40);
+    expect(GROUND_BUMP_REPEAT_Z).toBe(41); // 179 / 41 = 4.366 m per tile (C-8.37)
   });
 
   test('the Z repeat is the smallest integer that holds the density', () => {
@@ -388,12 +388,14 @@ describe('Terrain contracts are unchanged by the ground extension', () => {
   });
 
   test('the mound slope still matches the measured mesh samples', () => {
+    // Absolute world Z: the mesh moved 5.0 north with the group (C-8.37), so
+    // each sample keeps the same radius about the motte centre as before.
     const samples: Array<[number, number]> = [
-      [-52.5, 0.3402],
-      [-53.0, 0.6811],
-      [-54.0, 1.3630],
-      [-55.0, 2.0448],
-      [-59.0, 4.7175],
+      [MOTTE_CENTER_Z + 19.0, 0.3402],
+      [MOTTE_CENTER_Z + 18.5, 0.6811],
+      [MOTTE_CENTER_Z + 17.5, 1.3630],
+      [MOTTE_CENTER_Z + 16.5, 2.0448],
+      [MOTTE_CENTER_Z + 12.5, 4.7175],
     ];
     for (const [z, meshY] of samples) {
       expect(Math.abs(getTerrainY(0, z) - meshY)).toBeLessThan(0.01);
@@ -419,30 +421,38 @@ describe('Terrain contracts are unchanged by the ground extension', () => {
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('motte-wall')).length).toBe(20);
   });
 
-  test('drawbridge footprint and elevation are unchanged', () => {
-    expect(DECK_Z_INNER).toBe(-46.5);
-    expect(DECK_Z_OUTER).toBe(BRIDGE_Z_OUTER);
-    expect(BRIDGE_Z_INNER).toBe(-46.0);
+  test('drawbridge footprint and elevation carry the C-8.37 span', () => {
+    // Both ends are stated relative to the motte centre in terrainHeight, so
+    // they moved with the group: +31.0 (the moat's outer shoreline, the bank
+    // the deck lands on) and +25.5 (0.5 short of the deck's own north end).
+    expect(BRIDGE_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0); // -45.5
+    expect(BRIDGE_Z_INNER).toBe(MOTTE_CENTER_Z + 25.5); // -51.0
+    expect(DECK_Z_OUTER).toBe(BRIDGE_Z_OUTER);          // -45.5
+    expect(DECK_Z_INNER).toBe(BRIDGE_Z_INNER - 0.5);    // -51.5
     expect(BRIDGE_HALF_WIDTH).toBe(2.0);
     expect(DECK_TOP_Y).toBe(0.16);
     expect(DECK_UNDERSIDE_Y).toBe(0.09);
     expect(isOnBridge(0, (BRIDGE_Z_OUTER + BRIDGE_Z_INNER) / 2)).toBe(true);
   });
 
-  test('fortress transform and its collider rects are unchanged', () => {
+  test('fortress collider rects keep their offsets from the motte centre', () => {
     const south = rect('fortress-south-l');
     const north = rect('fortress-north');
     const west = rect('fortress-west');
     const east = rect('fortress-east');
-    expect(south.cz).toBe(-61.0);
-    expect(north.cz).toBe(-82.0);
+    // 10.5 = the fortress's own 21×21 world half-footprint at scale 0.30; both
+    // walls ride at MOTTE_CENTER_Z ± 10.5 (C-8.37).
+    expect(south.cz).toBe(MOTTE_CENTER_Z + 10.5); // -66.0
+    expect(north.cz).toBe(MOTTE_CENTER_Z - 10.5); // -87.0
     expect(west.cx).toBe(-10.5);
     expect(east.cx).toBe(10.5);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('fortress-')).length).toBe(5);
   });
 
   test('fast-travel arrival points are unchanged and inside the boundaries', () => {
-    expect(FAST_TRAVEL_ARRIVALS.northern_fortress).toEqual([0, -59.0]);
+    // 12.5 north of the motte centre = 2.0 south of the fortress south wall
+    // (outer face MOTTE_CENTER_Z + 10.5 = -66.0), inside the summit.
+    expect(FAST_TRAVEL_ARRIVALS.northern_fortress).toEqual([0, MOTTE_CENTER_Z + 12.5]);
     for (const [ax, az] of Object.values(FAST_TRAVEL_ARRIVALS)) {
       expect(ax).toBeGreaterThanOrEqual(-BOUNDARY_X);
       expect(ax).toBeLessThanOrEqual(BOUNDARY_X);
@@ -457,9 +467,12 @@ describe('Terrain contracts are unchanged by the ground extension', () => {
     expect(getTerrainY(ax, az)).toBeCloseTo(SUMMIT_Y, 2);
   });
 
-  test('world boundaries are unchanged', () => {
+  test('world boundaries keep their derivation from the motte perimeter', () => {
     expect(BOUNDARY_X).toBe(35);
-    expect(BOUNDARY_Z_MIN).toBe(-91);
+    // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5 = -96 (was -91 before the
+    // group moved 5.0 north; the 2.5-unit margin is unchanged).
+    expect(BOUNDARY_Z_MIN).toBe(MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5);
+    expect(BOUNDARY_Z_MIN).toBe(-96);
     expect(BOUNDARY_Z_MAX).toBe(35);
   });
 });
@@ -491,17 +504,20 @@ describe('Regression detection on the plane north edge', () => {
   });
 
   test('the rule flips exactly at the depth that buys the required margin', () => {
+    // Centre ∓ half depth, so the north edge lands exactly on the minimum
+    // margin line: 2 × (-19.5 − (-96 − 3)) = 159 after the C-8.37 shift.
     const requiredDepth =
-      2 * (GROUND_PLANE_CENTER[2] - (BOUNDARY_Z_MIN - REQUIRED_MARGIN)); // 154
-    expect(requiredDepth).toBe(154);
+      2 * (GROUND_PLANE_CENTER[2] - (BOUNDARY_Z_MIN - REQUIRED_MARGIN)); // 159
+    expect(requiredDepth).toBe(159);
     expect(coversNorthernEnvelope(GROUND_PLANE_CENTER[2] - requiredDepth / 2)).toBe(true);
     expect(coversNorthernEnvelope(GROUND_PLANE_CENTER[2] - (requiredDepth - 2) / 2)).toBe(false);
     expect(GROUND_PLANE_DEPTH).toBeGreaterThan(requiredDepth);
   });
 
   test('the margin rule sits between the defect and the fix', () => {
-    // Reverting to the pre-phase depth would expose ~21 walkable units of void.
-    expect(GROUND_PLANE_DEPTH / 2 - PHASE_PRE_DEPTH / 2).toBeCloseTo(17, 6);
+    // Reverting to the pre-phase depth would expose 26 walkable units of void
+    // (BOUNDARY_Z_MIN -96 against the plane's old north edge at -70).
+    expect(GROUND_PLANE_DEPTH / 2 - PHASE_PRE_DEPTH / 2).toBeCloseTo(19.5, 6);
     expect(GROUND_PLANE_NORTH_Z).toBeLessThanOrEqual(BOUNDARY_Z_MIN - REQUIRED_MARGIN);
     expect(PHASE_PRE_NORTH_Z).toBeGreaterThan(BOUNDARY_Z_MIN - REQUIRED_MARGIN);
   });

@@ -75,11 +75,15 @@ export const MOTTE_CENTER_X = 0;
 // The Colosseum, its rear gate and its bowl cut did not move.  Every dependent
 // transform — NorthernMotte, NorthernFortress, Drawbridge, collisionShapes.ts,
 // cityCollisions.ts — derives from this one constant, so the group can only
-// ever move as a group.  Measurements: the Colosseum's rear facade (Z = -44.3)
-// sat 7.7 units from the motte's south foot (Z = -52.0), with the moat's outer
-// shoreline (Z = -40.5) actually INSIDE the rear gateway; after the shift the
-// same pair reads 12.7, and 5.0 units of open, water-free ground sit between
-// the gateway threshold and the moat's outer bank.
+// ever move as a group.  Measured before → after (phaseC8_37.test.ts): the
+// Colosseum's rear facade (Z = -44.3) sat 7.7 units from the motte's south foot
+// (Z = -52.0) and now reads 12.7 (-57.0); the moat's outer shoreline lay 3.61
+// units INSIDE the Colosseum's rear stone (the gate jamb line at Z = -44.11)
+// at Z = -40.5 and now sits at -45.5, 1.39 units clear of it; and the
+// drawbridge's south end reached 3.61 units into the gateway and now lands
+// 1.39 north of the jamb line.  The nearest city structure to the group went
+// from 27.52 (inside the 31.0 moat ring — the collision this phase removed) to
+// 32.50, i.e. 1.50 of clearance from the outer shoreline.
 export const MOTTE_CENTER_Z = -76.5;
 export const MOTTE_SCALE = 0.3145;
 

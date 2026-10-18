@@ -441,3 +441,103 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   water now also laps the Colosseum's rear-gate threshold beside the deck (inside the gateway the
   deck spans 4.22 of the 5.2–5.4 opening), where the old gap deliberately kept water out of the
   gateway.
+
+## Northern landmark separation (Phase C-8.37 — implemented)
+
+- **The defect was the group standing too close to the Colosseum: the moat's outer shoreline and
+  the drawbridge's south end were inside the rear gateway.** Measured against the collision
+  registry (not the render): the Colosseum's rear-most stone is its gate jamb line at
+  **Z = −44.1102**; at the old centre (Z = −71.5) the moat's outer shoreline sat at **Z = −40.5**,
+  i.e. 3.61 units *inside* it, and the deck's south end (`DECK_Z_OUTER`) shared that line, which is
+  what the C-8.30/C-8.31 notes recorded as "the deck's southern 3.8 units enter the bowl". The
+  nearest city structure to the motte centre measured **27.52** — less than the 31.0 moat radius, so
+  the ring encircled the Colosseum's rear stone.
+- **The correction moved the whole northern group 5.0 units north, and it moved as one group.**
+  `terrainHeight.ts`'s `MOTTE_CENTER_Z` is now **−76.5** (was −71.5) and every dependent transform
+  is *derived* from it instead of repeating a literal: `NorthernMotte`'s mound group
+  (`position={[0, 0, MOTTE_CENTER_Z]}`) and its `MOTTE_MOAT_CENTER`, `NorthernFortress`'s group
+  (`position={[0, SUMMIT_Y, MOTTE_CENTER_Z]}`), `Drawbridge`'s span, `collisionShapes.ts`'s five
+  `fortress-*` rects and the 20 `motte-wall` chords, and `cityCollisions.ts`'s
+  `BOUNDARY_Z_MIN = MOTTE_CENTER_Z − MOTTE_PERIMETER_RADIUS + 2.5`, the fortress hub centre and the
+  fast-travel arrival (`MOTTE_CENTER_Z + 12.5`). `phaseC8_37.test.ts` §B fails if an absolute
+  `−76.5`/`−71.5` literal reappears in executable code in any of those five files.
+- **Before → after, measured** (`phaseC8_37.test.ts` §A and §F; "before" is the same registry
+  evaluated at the recorded pre-shift centre):
+  | landmark | before | after |
+  |---|---|---|
+  | motte centre Z | −71.5 | **−76.5** |
+  | motte south foot (visible slope foot, radius 19.499) | −52.0 | **−57.0** |
+  | moat outer shoreline on the X = 0 axis | −40.5 | **−45.5** |
+  | moat inner shoreline | −45.7 (25.8) | **−51.5** (25.0) |
+  | deck span `DECK_Z_OUTER` → `DECK_Z_INNER` | −40.5 → −46.5 | **−45.5 → −51.5** |
+  | drawbridge terrain constants `BRIDGE_Z_OUTER` / `BRIDGE_Z_INNER` | −40.5 / −46.0 | **−45.5 / −51.0** |
+  | fortress footprint Z | [−82.0, −61.0] | **[−87.0, −66.0]** |
+  | fortress hub centre / arrival Z | −71.5 / −59.0 | **−76.5 / −64.0** |
+  | motte mesh footprint Z (radius 25.16) | [−96.66, −46.34] | **[−101.66, −51.34]** |
+  | moat ring north extent | −102.5 | **−107.5** |
+  | ground-plane north edge | −104 | **−109** |
+  | `BOUNDARY_Z_MIN` | −91 | **−96** |
+  | ground bump-repeat Z | 40 | **41** (179 / 41 = 4.366 m per tile) |
+  Clearances that matter: Colosseum rear facade plane (−44.3) to the motte's south foot **7.7 →
+  12.7**; moat outer shoreline to the Colosseum's rear stone **−3.61 (overlapping) → +1.39**; the
+  nearest city structure to the motte centre **27.52 → 32.50**, i.e. 1.50 of clearance from the
+  31.0 ring and 7.34 from the 25.16 mesh footprint; the deck's south end **3.61 inside the gateway
+  → 1.39 clear of it**. The group's whole box (|X| ≤ 31, Z ∈ [−107.5, −45.5]) is now disjoint from
+  every city collider, and the Colosseum's rear gate remains the nearest at 1.39.
+- **Only the centre moved — no dimension, material or ratio changed.** X centre 0, scale 0.3145,
+  perimeter radius 22.0, summit 4.7175, the whole mound-slope model, both moat radii' 6.0 width, the
+  water elevation 0.06, the deck's 4.22 × 6.0 deck and its Y values, the ground plane's width,
+  south edge (+70) and elevation (−0.05) are untouched; the moat's outer shoreline is still exactly
+  the deck's south end (the bridge still lands on the outer bank). One sub-millimetre consequence:
+  `NorthernFortress`'s group now reads `SUMMIT_Y` (4.7175) instead of the rounded literal 4.72, so
+  the fortress base sits **0.0025 lower** and its composed top is 12.6375 (was 12.64) —
+  `phaseFortressRotation.test.ts` now asserts the exact summit value plus the cross-check against
+  `SUMMIT_Y`.
+- **`phaseFortressRotation.test.ts` was rebased, not weakened.** Its source parser evaluated the
+  outer `<group>` attributes with `Function(...)`, which threw `ReferenceError: SUMMIT_Y is not
+  defined` on the new derived position and took the file's whole module load with it (bun reported
+  it as a file-level *error*, not a failure). `evalComponent` now resolves the shared terrain
+  constants (`SUMMIT_Y`, `MOTTE_CENTER_X`, `MOTTE_CENTER_Z`, `MOTTE_SCALE`) through a named
+  parameter list and reports the unresolved identifier in its own error, so a numeric literal and a
+  `Math.PI` term still evaluate exactly as before and section C's composed bounds can be
+  re-derived (Z [−87.0, −66.0], base Y 4.7175, top 12.6375). Section D — the duplicate-rotation
+  guard — is unchanged and still passes.
+- **`scripts/collisionTests.ts` was part of the unfinished rebase and is now green too.** It carried
+  eight pre-shift literals (the −59.0 arrival, the −61.0 south-wall/gate line, the −82.0 north wall,
+  the −71.5 wall and motte centres, the "−Z clamped to −91" boundary and the Colosseum-overlap
+  corridor). They are now derived from `MOTTE_CENTER_Z` and the fortress's own 10.5 half-footprint,
+  with the wall faces stated explicitly (−65.4 outer / −66.6 inner on the south, −86.4 inner on the
+  north) and the motte-perimeter helper reading `MOTTE_CENTER_Z`. No assertion was relaxed: the
+  clamp test now starts from `BOUNDARY_Z_MIN + 1`, and the "walk around the fortress" tests reach
+  the north wall's outer face instead of a fixed −80.
+- **`phaseNorthernGroundCoverage.test.ts` was rebased from the transforms, not by text
+  substitution.** Mesh footprint bounds −101.66/−51.34, moat north extent −107.5, bump repeat 41,
+  the five mesh-slope samples re-stated as `MOTTE_CENTER_Z + {19.0, 18.5, 17.5, 16.5, 12.5}` (same
+  radii about the moved centre, same measured Y), the bridge span from `BRIDGE_Z_*`, the fortress
+  rects at `MOTTE_CENTER_Z ± 10.5`, the arrival at `+12.5`, the boundary as
+  `MOTTE_CENTER_Z − MOTTE_PERIMETER_RADIUS + 2.5`, and the two derived regression figures
+  (required depth 159, depth delta 19.5).
+- **Regression suite: `src/utils/phaseC8_37.test.ts`** — §A the move and the increased separation
+  (including the measured before/after clearances above), §B one derived transform per part plus the
+  no-literal guard, §C drawbridge-to-gate alignment and the *driven* route (one straight X = 0 walk
+  with the real `resolveCityMovement` from inside the arena at (0, −38) through the rear gate, the
+  deck, the mound and the fortress gate, stopping at the north wall at z = −85.88; plus the reverse
+  walk, the continuous ascent and a collision-free sweep of the whole deck footprint), §D ground
+  coverage and margins (1.5 past the moat, 7.34 past the mesh bound, 13 past the walkable limit),
+  boundaries, arrivals and hub detection, §E the C-8.33 seals (endpoints unchanged and still
+  coincident with the cut-face endpoints, 0.49 of corridor beside the deck) and the C-8.36 water
+  (grid re-run about the moved centre: 225 samples, 217 covered, the 8 uncovered ones exactly the
+  approach-end landing line), §F no city collider overlaps the group's box, and §G a
+  reversed-shift control that fails the same checks at −71.5.
+- **Verified 2026-10-18** in the dev container: `bun test` → **997 pass / 0 fail (34 files)**,
+  `bun run scripts/collisionTests.ts` → **122 passed, 0 failed**, `bun run lint` (`tsc --noEmit`) →
+  exit 0, `bun run build` → exit 0, `git diff --check` → clean. The starting point for the
+  validation was 931 pass / 11 fail / 1 error, all of it stale pre-shift geometry in
+  `phaseNorthernGroundCoverage`, `phaseFortressRotation` and `scripts/collisionTests.ts`.
+- **Not automatically verified — the rendered look.** The sandbox has no GPU (SwiftShader, ~2 fps
+  in the city hub), so **the northern approach still needs the on-device (Android) inspection**:
+  (a) the 5.0 of newly opened ground between the Colosseum's rear gateway and the moat's outer
+  bank, (b) whether the drawbridge's south end now reads as landing on the bank with no stone or
+  water left inside the gateway, and (c) the fortress and mound at their new position. Still open
+  from earlier phases: the C-8.28 bowl cut, the C-8.29 Store ↔ Workshop junction, and the
+  C-8.31/C-8.33 rear-gate stonework. Do not claim visual acceptance without device evidence.

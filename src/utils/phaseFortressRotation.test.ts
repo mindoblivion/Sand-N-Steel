@@ -25,7 +25,7 @@ import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { CITY_COLLIDERS, type RectCollider } from './collisionShapes';
-import { SUMMIT_Y } from './terrainHeight';
+import { SUMMIT_Y, MOTTE_CENTER_X, MOTTE_CENTER_Z, MOTTE_SCALE } from './terrainHeight';
 
 // ── Asset + component loading ───────────────────────────────────────────────
 
@@ -59,9 +59,34 @@ const positionAttr = /position=\{\[([^\]]*)\]\}/.exec(groupTag);
 const rotationAttr = /rotation=\{\[([^\]]*)\]\}/.exec(groupTag);
 const scaleAttr = /scale=\{([^}]*)\}/.exec(groupTag);
 
-/** Evaluate one component expression (numeric literal or `Math.PI` term). */
+/**
+ * The shared terrain constants the fortress component's transform is built
+ * from.  Since Phase C-8.37 the outer group's position is no longer a literal
+ * trio — it reads `[0, SUMMIT_Y, MOTTE_CENTER_Z]` straight out of
+ * terrainHeight, exactly as the motte and the drawbridge do — so the parser
+ * resolves those identifiers instead of failing on them.  A numeric literal or
+ * a `Math.PI` term still evaluates exactly as before.
+ */
+const SHARED_TRANSFORM_CONSTANTS: Record<string, number> = {
+  SUMMIT_Y,
+  MOTTE_CENTER_X,
+  MOTTE_CENTER_Z,
+  MOTTE_SCALE,
+};
+
+/** Evaluate one component expression against the shared constants. */
 function evalComponent(expr: string): number {
-  return Number(Function(`"use strict"; return (${expr.trim()});`)());
+  const trimmed = expr.trim();
+  const names = Object.keys(SHARED_TRANSFORM_CONSTANTS);
+  const values = names.map((name) => SHARED_TRANSFORM_CONSTANTS[name]);
+  try {
+    return Number(new Function(...names, `"use strict"; return (${trimmed});`)(...values));
+  } catch (cause) {
+    throw new Error(
+      `unresolved component expression "${trimmed}" ` +
+        `(known constants: ${names.join(', ')}): ${(cause as Error).message}`,
+    );
+  }
 }
 
 /** Evaluate a `[a, b, c]`-style attribute body into `size` numbers. */
@@ -181,8 +206,14 @@ describe('B. NorthernFortress applies no duplicate rotation', () => {
     expect(rotationAttr).toBeNull();
   });
 
-  test('the outer <group> transform is position [0, 4.72, -71.5] at scale 0.30', () => {
-    expect(parentPosition).toEqual([0, 4.72, -71.5]);
+  test('the outer <group> transform is position [0, SUMMIT_Y, MOTTE_CENTER_Z] at scale 0.30', () => {
+    // The group stands on the motte summit, at the motte centre — both read
+    // from terrainHeight (Phase C-8.37), so the fortress can never separate
+    // from the mound it stands on.
+    expect(parentPosition).toEqual([0, SUMMIT_Y, MOTTE_CENTER_Z]);
+    expect(parentPosition[0]).toBe(0);
+    expect(parentPosition[1]).toBeCloseTo(4.7175, 6);
+    expect(parentPosition[2]).toBe(-76.5);
     expect(parentScale).toBe(0.3);
   });
 });
@@ -197,16 +228,24 @@ describe('C. Composed world-space bounds match the collision assumptions', () =>
     expect(bounds.max.x).toBeCloseTo(10.5, 6);
   });
 
-  test('the base sits on the motte summit (Y ≈ 4.72) and the top is Y ≈ 12.64', () => {
-    expect(bounds.min.y).toBeCloseTo(4.72, 3);
-    expect(bounds.max.y).toBeCloseTo(12.64, 3);
+  test('the base sits on the motte summit (Y = 4.7175) and the top is Y ≈ 12.64', () => {
+    // The group's Y is resolved from terrainHeight's SUMMIT_Y (4.7175) rather
+    // than the rounded 4.72 literal this suite was written against, so the
+    // composed base is now exactly the summit height.
+    expect(bounds.min.y).toBeCloseTo(SUMMIT_Y, 6);
+    expect(bounds.max.y).toBeCloseTo(SUMMIT_Y + 7.92, 6); // 26.4 model × 0.30
+    expect(bounds.max.y).toBeCloseTo(12.6375, 6);
     // Cross-check against the terrain module rather than a second literal.
     expect(Math.abs(bounds.min.y - SUMMIT_Y)).toBeLessThan(0.005);
   });
 
-  test('Z span is [-82.0, -61.0] (south face toward the city)', () => {
-    expect(bounds.min.z).toBeCloseTo(-82.0, 6);
-    expect(bounds.max.z).toBeCloseTo(-61.0, 6);
+  test('Z span is [-87.0, -66.0] (south face toward the city)', () => {
+    // The fortress's own ∓10.5 world half-footprint about the motte centre the
+    // group transform now resolves to; C-8.37 moved the whole group 5.0 north.
+    expect(bounds.min.z).toBeCloseTo(MOTTE_CENTER_Z - 10.5, 6); // -87.0
+    expect(bounds.max.z).toBeCloseTo(MOTTE_CENTER_Z + 10.5, 6); // -66.0
+    expect(bounds.min.z).toBeCloseTo(-87.0, 6);
+    expect(bounds.max.z).toBeCloseTo(-66.0, 6);
   });
 
   test('wall collider centerlines sit on the visual faces', () => {
