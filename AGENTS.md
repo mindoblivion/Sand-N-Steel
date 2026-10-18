@@ -1808,3 +1808,128 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   C-8.52 veranda canopy, the C-8.49 wall-to-gable junctions, the C-8.51 awning, the C-8.41 kerb,
   the C-8.38 northern approach, the C-8.28 bowl cut, the C-8.29 junction and the C-8.31/C-8.33
   rear-gate checks. Do not claim Android visual acceptance.
+
+## Classical pediment raking cornices (Phase C-8.62 — implemented)
+
+- **The defect was in the shared primitive, at every `ClassicalPediment` call site.**
+  `ClassicalArchitecture.tsx` rotated its LEFT raking cornice by `−slopeAngle` and its RIGHT by
+  `+slopeAngle` about centres at `∓halfBase / 2`, so both bars descended from their own eave corner
+  toward the axis and met low over the pediment's centre as a **V** — the opposite of the gable they
+  exist to trace. Each bar was also `rafterLen + 0.2` (0.1 past its own eave corner and 0.1 past the
+  apex) and its section was 0.22. The V left the gable's upper triangle as the only free area a
+  decoration could use — measured at the Veteran Hall, its arms crossed the axis at Y 2.727 … 2.993 —
+  which is what bounded that hall's wreath in C-8.60 (that phase recorded the V and deferred it to an
+  explicitly authorized phase).
+
+- **The correction is four quantities inside the primitive; no call site, no collider, no hub and no
+  movement constant moved.**
+
+  | quantity | before | after |
+  |---|---|---|
+  | LEFT / RIGHT rake rotation | `−slopeAngle` / `+slopeAngle` | **`+slopeAngle` / `−slopeAngle`** |
+  | rake run (box X) | `rafterLen + 0.2` | **`rafterLen`** |
+  | rake section (box Y) | 0.22 | **`rakeThickness` = 0.16** |
+  | apex acroterion Y | `0.3 + height + 0.16` | **`0.3 + height + 0.16 + crownLift`** |
+
+  With the signs corrected, each bar's own axis runs exactly from its eave corner `(∓halfBase, 0.3)`
+  to the apex `(0, 0.3 + height)`; with the run reduced to that length the two bars **meet at the
+  apex** instead of crossing through it; and the thinner section keeps the bar clear of the tympanum
+  panel's edges and of the roof behind the gable. `crownLift` = `cos(slopeAngle) · (rakeThickness /
+  2)` is the one derived quantity the correction needs: where the two bars meet on the axis their
+  crowns stand that far above the apex, so the acroterion is lifted by exactly that much and its
+  underside seats on the joint instead of sinking into it.
+
+- **The four call sites, each re-measured after the correction** (props parsed from each component's
+  own source; world frames from each ancestor chain):
+
+  | site | width × depth × height | own position | ancestor chain | slope | `crownLift` |
+  |---|---|---|---|---|---|
+  | Veteran Gladiator Hall | 4.2 × 0.8 × 1.05 | `[0, 2.25, 0.58]` | `[-24,0,-25]` → `[0,0.32,2.82]` | 26.5651° | 0.0715541753 |
+  | Roman Shrine | 4.6 × 1.2 × 0.95 | `[0, 2.85, 1.4]` | `[-27,0,11]` | 22.4428° | 0.0739409138 |
+  | Records Library | 5.6 × 1.4 × 1.1 | `[0, 2.2, 0]` | `[23.10,0,-30]` → `[0,0.5,1.6]` | 21.4477° | 0.0744601195 |
+  | Grand Colosseum (portal) | 11.0 × 3.8 × 2.2 | `[0, 8.8, 0]` | `[0,0,15.2]` → `[0,0,2.2]` | 21.8014° | 0.0742781352 |
+
+  At every site each bar reaches its own eave corner and the apex (to the suite's 1e-9 precision), the
+  bar's length is exactly the corner-to-apex `rafterLen` (zero difference), both bars therefore
+  contain the apex, and the two bars share volume only in the joint within 0.15 of the apex — where
+  the V shared volume far below it. A repo sweep confirms these four components are the only ones
+  mounting the primitive.
+
+- **The Veteran Gladiator Hall wreath: the clearance grew, and this is the site the correction was
+  argued from.** The C-8.60 ring (major 0.28, tube 0.06, face-on, its back face seated on the
+  tympanum panel at Z 3.75) now clears each corrected rake by **0.0361578674** — up from the 0.0330
+  the V left, because a rake that traces the gable stands further from a ring hung inside the
+  tympanum than the V's arms did — and above the project's 0.02 tolerance. The ring shares the rakes'
+  own Z band, so the margin is a real 3-D clearance rather than an interval artefact. On the corrected
+  rake the pre-fix doorway cap (the C-8.60 frame at Z 2.58) is clear by **0.297895488**, where under
+  the old V it stood **0.05 inside** the rake — the pair no longer meets at all.
+
+- **Rebased, not weakened: only the pins that genuinely depended on the corrected rake.** Two existing
+  suites read the primitive's own coefficients and had pinned its old numbers:
+  - `phaseC8_57.test.ts` §E — the acroterion's absolute top, 4.24 → **4.3115541753**, i.e. the
+    derived lift (0.0715541753) added to the sum that phase pinned. The identity it exists to pin —
+    the taller gable, not a moved finial, holds the finial's elevation — is unchanged, and the
+    finial's top now stands 0.0265541753 *above* the ridge cap's top plane instead of 0.045 below
+    it; `phaseC8_60` §E's unchanged no-intersection check still shows the two solids 0.835 apart in
+    Z, so the vertical overlap costs nothing. 17 lines changed.
+  - `phaseC8_60.test.ts` — the two rake clearances 0.0330 → **0.0361578674**, the finial↔wreath gap
+    0.17 → **0.2415541753**, the finial-vs-ridge-cap relationship 0.045 → −0.0265541753, and §H's
+    pre-fix control, whose flat ring no longer reaches the corrected rakes. 109 lines changed, all of
+    them rake-dependent.
+  Every other C-8.57 / C-8.60 regression constraint — the portico and the eave, the doorway setback,
+  the column seats, the collider and its control frame, both scope guards — is untouched and still
+  passes. Nothing was weakened to make a test pass.
+
+- **Residual defect — Records Library only, measured and deliberately NOT fixed.** The Library mounts
+  a `RomanGabledRoof` on the same axis as its pediment, and its LEFT corrected rake still passes
+  clean through that roof's eave plate: X overlap **2.8092522**, Y overlap **0.16** (the plate's own
+  full thickness — a complete penetration), Z overlap **0.655**; the rake's Y band contains the
+  plate's, extending 0.3744601 above the plate's top and 0.7144601 below its bottom. This is a
+  **Library layout** question (the gable and the roof sit too close on Z — the plate's near face
+  reaches 1.38 while the rake's band begins at 0.725), not a rake-orientation one: the Hall's and the
+  Shrine's rakes stand clear of their own roofs by **0.105** and **0.575** in Z respectively, and the
+  Colosseum's portal has no roof on its axis at all. C-8.62 does **not** expand to fix it; the suite
+  pins the measurements so a future authorized phase starts from them.
+
+- **The controls (mutations), each shown to fail the predicate the shipped frame passes**
+  (`phaseC8_62` §H): reverting the signs puts the bars back on the axis as a V — their joint lands
+  0.8+ below the apex, where the shipped frame's joint is within 0.15 of it; restoring the `+0.2` run
+  overshoots both the apex and the bar's own eave corner by exactly 0.1; the 0.22 section costs the
+  wreath its tolerance (**0.0061578674**, below the 0.02 requirement, against the shipped
+  0.0361578674); and a mis-set finial — lift removed or doubled — leaves its underside off the crown
+  plane by the full lift, outside tolerance. A closing check confirms the corrected frame passes every
+  predicate the four mutations fail.
+
+- **Regression suite: `src/utils/phaseC8_62.test.ts`** — **93 tests** across 9 sections: §A the
+  primitive's corrected construction; §B gable-edge alignment at all four sites (each bar runs eave
+  corner → apex over `rafterLen`, reaches only its own corner, and meets the other bar only at the
+  apex joint); §C left/right symmetry about each pediment's axis; §D finial seating on the crowns
+  (seated, touching both rakes, not sunk, clear of the entablature); §E the real solids (bearing on
+  the entablature, the gable carried by the rakes alone, the primitive's three sections, the rakes'
+  own Z overhang); §F the Veteran Hall wreath's clearance and the C-8.60 doorway setback; §G the
+  Library's residual intersection, measured and left alone; §H the four mutation controls; §I the
+  scope guard (the four sites keep their props, every ancestor literal present, the repo sweep, the
+  collider/hub/player constants untouched at 110 colliders / 31 rectangles / 46 `colo-*`, and the
+  primitive's exports unchanged). Every figure is parsed from source and applied as the real formula,
+  and the solids are the real Z-rotated boxes tested with a separating-axis predicate (the wreath's
+  torus folded against a box's own radial reach, as in C-8.60).
+
+- **Verified 2026-10-18** in the dev container: focused
+  `bun test src/utils/phaseC8_62.test.ts src/utils/phaseC8_57.test.ts src/utils/phaseC8_60.test.ts` →
+  **174 pass / 0 fail** (93 + 42 + 39); `bun test` → **1473 pass / 0 fail (46 files)** (C-8.60 left
+  1380 / 45; the delta is this suite's 93); `bun run scripts/collisionTests.ts` → **122 passed,
+  0 failed**, exit 0; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the
+  pre-existing >500 kB chunk warning only); `git diff --check` → clean. The phase's files:
+  `ClassicalArchitecture.tsx` (the primitive), `src/utils/phaseC8_62.test.ts` (new), the two rebased
+  suites, and this document.
+
+- **Android visual acceptance: PENDING.** The check to run on device: stand in front of the Veteran
+  Gladiator Hall and confirm the gable's **raking cornices now rise from the eave corners to the
+  apex along the roof's own edges** — a gable, not a V — with the gold wreath hanging in the
+  tympanum below them and the acroterion seated on the joint where the two rakes meet. Then check the
+  Roman Shrine, the Records Library and the Colosseum's portal gable for the same reading (and the
+  Library's residual roof-plate/rake crossing, recorded above, which is knowingly left). Still open
+  from earlier phases: the C-8.57 pediment/order-under-the-eave reading, the C-8.53 lean-to bearing,
+  the C-8.52 veranda canopy, the C-8.49 wall-to-gable junctions, the C-8.51 awning, the C-8.41 kerb,
+  the C-8.38 northern approach, the C-8.28 bowl cut, the C-8.29 junction and the C-8.31/C-8.33
+  rear-gate checks. Do not claim Android visual acceptance.
