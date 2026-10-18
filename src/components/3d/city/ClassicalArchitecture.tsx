@@ -216,10 +216,11 @@ export const ClassicalPediment: React.FC<ClassicalPedimentProps> = ({
    * Phase C-8.62 — the raking cornices now FOLLOW the gable's own edges.
    *
    * The two raking cornices used to be rotated `∓slopeAngle`, i.e. each one DESCENDED from its
-   * eave corner toward the axis, so they met low over the pediment's centre as a V: at this
-   * component's own proportions the bars crossed the centre between `0.3 + 0.1569` and
-   * `0.3 + 0.4231` — under the architrave's own top at `0.6` — which left the gable's upper
-   * triangle as the only free area and made the V's arms the thing every decoration had to clear.
+   * eave corner toward the axis, so they met low over the pediment's centre as a V: at the Veteran
+   * Gladiator Hall's own proportions the two arms crossed the axis over the local Y band
+   * `0.1770 … 0.4230` — `(0.22 / 2) / cos(slope)` either side of the entablature's own top plane
+   * at `0.3` — which left the gable's upper triangle as the only free area and made the V's arms
+   * the thing every decoration had to clear.
    * They were also 0.2 longer than the corner-to-apex run (`rafterLen + 0.2`), which pushed each
    * bar 0.0894 past the axis and 0.0894 past its own eave corner.
    *
