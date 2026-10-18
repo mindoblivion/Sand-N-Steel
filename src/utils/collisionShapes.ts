@@ -779,6 +779,117 @@ const mottePerimeterSegments: SegmentCollider[] = arcSegments(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// East Circus Arena — EastCircusArena.tsx, group [52.34, -0.05, 43.80]
+//
+// Phase C-8.64A.  The asset `public/_workspace_arena.glb` carries no node
+// transforms of its own, so with the group's yaw π/2 and uniform scale 0.20 the
+// mapping into world space is exactly
+//     world X = 52.34 + 0.20 × z_local      world Z = 43.80 − 0.20 × x_local
+// and every figure below was measured from the shipping asset under that
+// transform (throwaway harness in /tmp, parsing the GLB directly).
+//
+//   shell (Marble_01)         X 38.38 … 66.30    Z −30.157 … 43.80
+//   sand track (Sand_00)      X 43.94 … 60.74    Z −24.600 … 43.80  top Y −0.05
+//   carceres (Travertine_25)  X 43.34 … 61.34    Z  43.800 … 46.000
+//   triumphal arch (Travertine_30) X 49.84 … 54.84   Z −23.900 … −22.500
+//
+// This is a *perimeter* — the arena's own outer silhouette and nothing else.
+// Two straight flanks on the shell's rendered radii carry it from the arena's
+// south face (Z 43.80) north to Z −17, where the asset's straight sides give way
+// to the sphendone; that end is closed by chords of its measured silhouette.
+// The silhouette was sampled from the vertex cloud in 0.1 steps of Z through a
+// ±0.6 window, and a minimum over such a window can only move an outline point
+// *outward*, so a chord is never inside the stone: the largest departure of any
+// chord from the sampled silhouette is 0.56, in the steepest part of the north
+// taper — i.e. the player is stopped at most half a unit short of the stone
+// there and never inside it.  Each straight flank is one segment: it is exactly
+// straight, so there is no sagitta to bound.
+//
+// TWO OPENINGS, one at each axial end, each sized from the structure that forms
+// the entrance, and neither closed by a collider:
+//   • carceres end (south)       X 43.34 … 61.34  — 18.00, the arcade's span.
+//     The block's two cheeks (2.2 deep) carry the perimeter out to its front
+//     face, so the entrance reads as a portal rather than a gap in a line.
+//   • triumphal-arch end (north) X 49.84 … 54.84  — 5.00, the arch's own span,
+//     centred on the arena's axis, between the two sphendone chords.
+//
+// This phase models the perimeter only: the seating banks, the carceres piers
+// and the spina deliberately have **no** colliders yet, so the player passes
+// through rendered stone there.  That is the prototype's one known
+// render/collider mismatch and it is recorded in AGENTS.md under C-8.64A.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Arena axis in world X — the centre of every axial measurement below. */
+export const CIRCUS_AXIS_X = 52.34;
+/** Outer wall faces (Marble_01) — the two straight flanks. */
+export const CIRCUS_WEST_X = 38.38;
+export const CIRCUS_EAST_X = 66.3;
+/** The arena's own south face, where the carceres block meets the shell. */
+export const CIRCUS_SOUTH_Z = 43.8;
+/** Carceres block (Travertine_25): the arcade's clear span and its front face. */
+export const CIRCUS_CARCERES_WEST_X = 43.34;
+export const CIRCUS_CARCERES_EAST_X = 61.34;
+export const CIRCUS_CARCERES_FRONT_Z = 46.0;
+/** Triumphal arch (Travertine_30): the north opening's span. */
+export const CIRCUS_ARCH_WEST_X = 49.84;
+export const CIRCUS_ARCH_EAST_X = 54.84;
+/** Where the shell's straight flanks end and the sphendone begins. */
+export const CIRCUS_OVAL_START_Z = -17.0;
+/** The shell's north extreme. */
+export const CIRCUS_NORTH_END_Z = -30.157;
+
+/**
+ * The sphendone's west half, from the flank's north end round to the triumphal
+ * arch's west edge — the measured silhouette, one point per chord.
+ */
+export const CIRCUS_WEST_OUTLINE: ReadonlyArray<readonly [number, number]> = [
+  [CIRCUS_WEST_X, CIRCUS_OVAL_START_Z], // 38.38, -17.00
+  [38.6, -19.0],
+  [39.04, -21.0],
+  [40.0, -23.0],
+  [41.06, -25.0],
+  [42.58, -26.5],
+  [43.5, -27.5],
+  [45.01, -28.5],
+  [46.09, -29.25],
+  [47.07, -29.75],
+  [CIRCUS_ARCH_WEST_X, -30.08], // 49.84 — the arch's west edge on the silhouette
+];
+
+/** Mirror a west-side point onto the east side (the asset is symmetric). */
+const circusMirrorX = (x: number): number => 2 * CIRCUS_AXIS_X - x;
+
+function circusSegment(
+  id: string,
+  x1: number,
+  z1: number,
+  x2: number,
+  z2: number,
+): SegmentCollider {
+  return { type: 'segment', id, x1, z1, x2, z2 };
+}
+
+const circusPerimeter: SegmentCollider[] = [
+  // South face, west and east of the carceres opening (18.00 clear between).
+  circusSegment('circus-south-w', CIRCUS_WEST_X, CIRCUS_SOUTH_Z, CIRCUS_CARCERES_WEST_X, CIRCUS_SOUTH_Z),
+  circusSegment('circus-south-e', CIRCUS_EAST_X, CIRCUS_SOUTH_Z, CIRCUS_CARCERES_EAST_X, CIRCUS_SOUTH_Z),
+  // The carceres block's two cheeks, out to its front face.
+  circusSegment('circus-carceres-w', CIRCUS_CARCERES_WEST_X, CIRCUS_SOUTH_Z, CIRCUS_CARCERES_WEST_X, CIRCUS_CARCERES_FRONT_Z),
+  circusSegment('circus-carceres-e', CIRCUS_CARCERES_EAST_X, CIRCUS_SOUTH_Z, CIRCUS_CARCERES_EAST_X, CIRCUS_CARCERES_FRONT_Z),
+  // The two straight flanks, one segment each.
+  circusSegment('circus-flank-w', CIRCUS_WEST_X, CIRCUS_SOUTH_Z, CIRCUS_WEST_X, CIRCUS_OVAL_START_Z),
+  circusSegment('circus-flank-e', CIRCUS_EAST_X, CIRCUS_SOUTH_Z, CIRCUS_EAST_X, CIRCUS_OVAL_START_Z),
+  // The sphendone, chord by chord: west, then its mirror on the east.
+  ...CIRCUS_WEST_OUTLINE.slice(0, -1).flatMap(([x1, z1], i) => {
+    const [x2, z2] = CIRCUS_WEST_OUTLINE[i + 1];
+    return [
+      circusSegment(`circus-oval-w-${i}`, x1, z1, x2, z2),
+      circusSegment(`circus-oval-e-${i}`, circusMirrorX(x1), z1, circusMirrorX(x2), z2),
+    ];
+  }),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Master Registry
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -795,4 +906,5 @@ export const CITY_COLLIDERS: Collider[] = [
   ...streetWallSegments,
   ...fortressWallRects,
   ...mottePerimeterSegments,
+  ...circusPerimeter,
 ];

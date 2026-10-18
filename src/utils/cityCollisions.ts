@@ -10,7 +10,8 @@ import {
 import { MOTTE_CENTER_Z, MOTTE_PERIMETER_RADIUS } from './terrainHeight';
 
 // ── World movement boundaries ────────────────────────────────────────────
-// X axis is symmetric ±35.  The Z axis extends north to reach the Northern
+// These four constants describe the CITY square: X is symmetric ±35, and the Z
+// axis extends north to reach the Northern
 // Motte perimeter: the perimeter's north point is
 // MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS (-103.5 since Phase C-8.38 moved the
 // motte north with its moat and fortress), and the boundary keeps the same
@@ -21,6 +22,48 @@ import { MOTTE_CENTER_Z, MOTTE_PERIMETER_RADIUS } from './terrainHeight';
 export const BOUNDARY_X = 35;
 export const BOUNDARY_Z_MIN = MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5; // -101
 export const BOUNDARY_Z_MAX = 35;
+
+// ── Phase C-8.64A — East Circus District envelope ────────────────────────
+// The city's own limits above are untouched: they still describe the square
+// every earlier phase measured (±35 in X, +35 south, the motte-derived north
+// limit).  The East Circus District lies entirely outside them — the arena's
+// footprint is X 37.60 … 66.34, Z −30.157 … 46.00, and its two entrances are at
+// (X 43.34 … 61.34, Z 43.80 … 46.00) and (X 49.84 … 54.84, Z −30.16 … −22.5) —
+// so without an envelope there the district could not be walked to at all and
+// neither entrance could be entered.
+//
+// The extension is the smallest rectangle that makes the district usable rather
+// than merely reachable:
+//   • east 67.5 = the arena's east wall (66.30) + 1.20, so the whole building is
+//     inside the walkable area and the player can walk round it instead of into
+//     an invisible wall inside its own track;
+//   • south 47.5 = the carceres' front face (46.00) + 1.50, the apron its
+//     entrance is approached from;
+//   • north −35.0 = the shell's north tip (−30.157) less 4.84, so the north
+//     entrance can be reached round the sphendone.
+// It is a *union* with the city square, not a replacement: the pair of bounds
+// below applies only east of BOUNDARY_X and only inside that Z band, so the
+// city's own envelope is bit-for-bit what it was.
+export const CIRCUS_ENVELOPE_X_EAST = 67.5;
+export const CIRCUS_ENVELOPE_Z_MIN = -35.0;
+export const CIRCUS_ENVELOPE_Z_MAX = 47.5;
+
+/** Phase C-8.64A — clamp an X move: the district's band is open east only. */
+export function clampBoundaryX(x: number, z: number): number {
+  const east =
+    z >= CIRCUS_ENVELOPE_Z_MIN && z <= CIRCUS_ENVELOPE_Z_MAX
+      ? CIRCUS_ENVELOPE_X_EAST
+      : BOUNDARY_X;
+  return Math.max(-BOUNDARY_X, Math.min(east, x));
+}
+
+/** Phase C-8.64A — clamp a Z move: east of the city the district's band applies. */
+export function clampBoundaryZ(x: number, z: number): number {
+  const inDistrict = x > BOUNDARY_X;
+  const zMin = inDistrict ? CIRCUS_ENVELOPE_Z_MIN : BOUNDARY_Z_MIN;
+  const zMax = inDistrict ? CIRCUS_ENVELOPE_Z_MAX : BOUNDARY_Z_MAX;
+  return Math.max(zMin, Math.min(zMax, z));
+}
 
 // ── Phase 31H: Recovery history for oscillation detection ───────────────
 // Tracks the last N source positions of fallback calls.  Candidates that
@@ -424,8 +467,8 @@ function recoveryEscape(
   let bestScore = Infinity;
 
   for (const [cdx, cdz] of dirs) {
-    const nx = Math.max(-BOUNDARY_X, Math.min(BOUNDARY_X, x + cdx * step));
-    const nz = Math.max(BOUNDARY_Z_MIN, Math.min(BOUNDARY_Z_MAX, z + cdz * step));
+    const nx = clampBoundaryX(x + cdx * step, z);
+    const nz = clampBoundaryZ(nx, z + cdz * step);
     if (nx === x && nz === z) continue;
 
     // Phase 31H: reject candidates that would reverse to a recently
@@ -483,7 +526,7 @@ export function resolveCityMovement(
   const origZ = z;
 
   // ── X axis ──
-  const testX = Math.max(-BOUNDARY_X, Math.min(BOUNDARY_X, x + dx * speed * delta));
+  const testX = clampBoundaryX(x + dx * speed * delta, z);
   if (!collidesWith(testX, z, r, CITY_COLLIDERS)) {
     x = testX;
   } else if (!collidesWith(x, z, r, CITY_COLLIDERS)) {
@@ -511,7 +554,7 @@ export function resolveCityMovement(
   }
 
   // ── Z axis (tested at the resolved X to enable wall sliding) ──
-  const testZ = Math.max(BOUNDARY_Z_MIN, Math.min(BOUNDARY_Z_MAX, z + dz * speed * delta));
+  const testZ = clampBoundaryZ(x, z + dz * speed * delta);
   if (!collidesWith(x, testZ, r, CITY_COLLIDERS)) {
     z = testZ;
   } else if (!collidesWith(x, z, r, CITY_COLLIDERS)) {

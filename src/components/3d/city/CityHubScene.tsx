@@ -26,6 +26,7 @@ import { ArenaMedicalHouse } from './ArenaMedicalHouse';
 import { NorthernFortress } from './NorthernFortress';
 import { NorthernMotte } from './NorthernMotte';
 import { Drawbridge } from './Drawbridge';
+import { EastCircusArena } from './EastCircusArena';
 import { CityCamera } from './CityCamera';
 import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
@@ -608,6 +609,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <NorthernMotte />
               <Drawbridge />
               <NorthernFortress />
+              {/* Phase C-8.64A — East Circus District: the chariot arena's
+                  placement prototype, east of the city (X 37.6 … 66.3).  Its own
+                  Suspense (the Colosseum sign's pattern) keeps the GLB's first
+                  parse from suspending the rest of the city. */}
+              <Suspense fallback={null}>
+                <EastCircusArena />
+              </Suspense>
             </ThreeComponentErrorBoundary>
 
             {/* 3D Player Gladiator Model Wrapped in Error Boundary */}
