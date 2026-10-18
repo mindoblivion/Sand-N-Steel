@@ -534,8 +534,10 @@ export function resolveCityMovement(
 //                                  the forge root Z 2 → 2.6, so the arrival's
 //                                  (-6.5, 0) offset from the root is preserved.
 //   general_store     [17, -5]   — 1.15 W of store west edge (x=18.15)
-//   tavern            [-10, 14]  — 1.3 E of tavern east edge (x=-11.3)
-//   caravanserai      [10, 14]   — 1.2 W of caravanserai west edge (x=11.2)
+//   tavern            [-10, 14]  — 1.55 E of tavern east edge (x=-11.55)
+//                                  (Phase C-8.43: collider width 9.4 → 8.9)
+//   caravanserai      [10, 14]   — 1.45 W of caravanserai west edge (x=11.45)
+//                                  (Phase C-8.43: collider width 9.6 → 9.1)
 //   merchant_house    [21, -13]  — 1.15 W of merchant west edge (x=22.15)
 //   armor_workshop    [28.2, 5.5]— 1.5 N of workshop north edge (z=4.0)
 //   stable            [26, 10]   — 1.15 S of stable south edge (z=11.15)

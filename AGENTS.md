@@ -868,3 +868,62 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   viewing angle; (e) does the 5.842 apron still read as land between the gateway and the kerb.
   Still open from earlier phases: the C-8.28 bowl cut, the C-8.29 Store ↔ Workshop junction, and the
   C-8.31/C-8.33 rear-gate stonework. Do not claim visual acceptance without device evidence.
+
+## Tavern & Caravanserai collider reconciliation (Phase C-8.43 — implemented)
+
+- **The defect was a registry/render mismatch on two building rectangles, nothing else.** C-8.42's
+  read-only audit flagged `city-tavern` and `caravanserai` as wider than the plinths they stand for.
+  Re-derived from the component sources: `BuildingFoundation` builds its lower ground step as
+  `size[0] + projection * 2` (`src/components/3d/city/BuildingFoundation.tsx`), and both buildings
+  are unrotated roots with `projection = 0.25` — CityTavern `size [8.4, 7.2]` at `[-16, 0, 14]` →
+  **8.9 × 7.7**; CaravanseraiInn `size [8.6, 7.6]` at `[16, 0, 14]` → **9.1 × 8.1**. The registry
+  carried 9.4 and 9.6, i.e. **0.5 wider than the rendered lower step on each**, and the tavern's
+  own registry comment (`foundation [8.4, 7.2], proj 0.25 → 9.4 × 7.7`) contradicted its arithmetic
+  by the same 0.5 — a transcription error, not a design decision.
+- **The fix is two widths in `collisionShapes.ts`.** `city-tavern` 9.4 → **8.9**, `caravanserai`
+  9.6 → **9.1**. Both centres (−16, 14) / (16, 14) and both depths (7.7 / 8.1) are untouched, so the
+  rectangles only lose the outer 0.25 on each X side. No building moved, no mesh changed, no
+  collider was added or removed and no other collider was touched — the registry still holds 109
+  colliders (30 rectangles) with unique ids, and the six pre-existing rect/rect overlaps are the
+  Ishtar composite and the fortress wall chain, unchanged.
+- **The Smithing Forge's 9.5 width is deliberately exempt and stays.** Its registered rectangle is
+  intentionally narrower than the 10.0 its C-8.19 dimensions derive, because C-8.10 narrowed it to
+  align with the wall face at X ≈ 22.75 and open the Forge ↔ Armor & Leather Workshop passage.
+  The C-8.43 comment now states this explicitly so a future audit does not "correct" it.
+- **Measured before → after, every neighbour of the two buildings (2-D rect separation in world
+  units; "walkable" = wider than the 0.80 player diameter):** tavern ↔ roman-shrine 3.150 → 3.400,
+  ↔ ishtar-tower-l 3.219 → 3.256, ↔ bathhouse 3.875 → 3.965, ↔ bounty-hall 5.150 (unchanged, no
+  X overlap), ↔ ishtar-central 5.278 → 5.467; caravanserai ↔ stable 1.450 → 1.700,
+  ↔ ishtar-tower-r 3.010 → 3.041, ↔ smithing-forge 3.350 (unchanged), ↔ ishtar-central
+  5.071 → 5.263, ↔ armor-workshop 6.641 → 6.756. **Every gap widened or held; no gap changed
+  across the 0.80 threshold in either direction**, so no route, corridor or dead pocket is created
+  or closed. The nearest-neighbour pairs were already walkable before the change (tavern ↔ shrine
+  3.150; caravanserai ↔ stable 1.450), so the reconciliation only widens existing passages.
+- **Arrival clearances improved, as expected, and no arrival conflicts appear.** The fast-travel
+  arrivals are unchanged (`tavern [-10, 14]`, `caravanserai [10, 14]`); their separation from the
+  building edge grows **1.300 → 1.550** and **1.200 → 1.450**, and both remain outside the collider
+  by more than the 0.4 player radius (collides@R: false → false). The `cityCollisions.ts` arrival
+  rationale comments, which quoted the old east/west edges (x = −11.3 / 11.2), now quote the new
+  ones (−11.55 / 11.45) and the derived offsets.
+- **Rebased, not weakened: five test sites that pinned the old widths.**
+  `phaseC8_19b.test.ts` (caravanserai `hw: 4.8` → `9.1 / 2`), `phaseC8_21.test.ts`,
+  `phaseC8_22.test.ts` (both buildings), `phaseC8_23.test.ts` and `phaseC8_24.test.ts`
+  (city-tavern). Each is a scope guard from its own phase ("these neighbours are unchanged"), so
+  the pinned value moved to the new canonical width and the depths stayed as literal divisors.
+  A repo-wide sweep of `src/`, `scripts/`, `README.md` and this file finds no remaining reference to
+  `9.4 × 7.7`, `9.6 × 8.1`, `hw: 4.8` or `9.4 / 2` / `9.6 / 2` — no test or doc still expects the
+  old geometry. The C-8.19b forge-north-face test is depth-based (3.35) and needed no change.
+- **Scope guard — everything else is untouched.** No movement formula, collision padding, terrain
+  value, fast-travel destination, building position or prop collider changed; the C-8.33
+  `colo-gateseal-l/r` seals, the C-8.36 water ring, the C-8.38 `MOTTE_CENTER_Z` (−81.5), the C-8.41
+  kerb constants and the C-8.31 rear gate are exactly as they were (their suites re-run green).
+- **Verified 2026-10-18** in the dev container: focused
+  `bun test src/utils/phaseC8_{19b,21,22,23,24,41}.test.ts` → **177 pass / 0 fail** (6 files);
+  `bun test` → **1072 pass / 0 fail (36 files)** (the C-8.41 count, unchanged);
+  `bun run scripts/collisionTests.ts` → **122 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0; `git diff --check` → clean. The before/after clearance table
+  above was produced by a throwaway harness kept in `/tmp`, importing the shipped registry.
+- **Not automatically verified — nothing visible to verify.** A collider is invisible; this phase
+  changes no rendered pixel, so there is no appearance to accept here and no new Android item.
+  The C-8.41 kerb, C-8.38 northern approach, C-8.28 bowl cut, C-8.29 junction and C-8.31/C-8.33
+  rear-gate device inspections remain open exactly as before. Do not claim device acceptance.

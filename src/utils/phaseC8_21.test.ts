@@ -1022,8 +1022,10 @@ describe('F. The phase moves two props and nothing else', () => {
     expect(specOf(tavernSrc).root).toEqual([-16, 0, 14]);
     expect(specOf(storeSrc).root).toEqual([22, 0, -5]);
     expect(specOf(forgeSrc).root).toEqual([18, 0, 2.6]);
-    expect(findRect('caravanserai')).toMatchObject({ cx: 16, cz: 14, hw: 9.6 / 2, hd: 8.1 / 2 });
-    expect(findRect('city-tavern')).toMatchObject({ cx: -16, cz: 14, hw: 9.4 / 2, hd: 7.7 / 2 });
+    // Phase C-8.43: widths corrected to the rendered lower-step footprints
+    // (caravanserai 9.6 → 9.1, city-tavern 9.4 → 8.9); both depths unchanged.
+    expect(findRect('caravanserai')).toMatchObject({ cx: 16, cz: 14, hw: 9.1 / 2, hd: 8.1 / 2 });
+    expect(findRect('city-tavern')).toMatchObject({ cx: -16, cz: 14, hw: 8.9 / 2, hd: 7.7 / 2 });
     expect(findRect('general-store')).toMatchObject({ cx: 22, cz: -5, hw: 7.7 / 2, hd: 6.3 / 2 });
     expect(findRect('smithing-forge')).toMatchObject({ cx: 18, cz: 2.6, hw: 9.5 / 2, hd: 8.0 / 2 });
   });

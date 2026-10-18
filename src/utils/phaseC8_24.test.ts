@@ -958,7 +958,8 @@ describe('E. The group stays clear of the terrace, the vegetation and the street
 describe('F. The phase re-seats the patio group and changes nothing else', () => {
   test('the Tavern keeps its entrance, openings, lighting and collider', () => {
     expect(TAVERN_ROOT).toEqual([-16, 0, 14]);
-    expect(findRect('city-tavern')).toMatchObject({ cx: -16, cz: 14, hw: 9.4 / 2, hd: 7.7 / 2 });
+    // Phase C-8.43: city-tavern width corrected 9.4 → 8.9; depth 7.7 unchanged.
+    expect(findRect('city-tavern')).toMatchObject({ cx: -16, cz: 14, hw: 8.9 / 2, hd: 7.7 / 2 });
     for (const preserved of [
       '<ClassicalDoorway\n        position={[4.22, 0, 0]}\n        rotation={[0, Math.PI / 2, 0]}\n        width={2.2}\n        height={3.0}\n        depth={0.45}',
       'position={[4.22, 4.8, -2.0]}',

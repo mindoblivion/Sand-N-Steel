@@ -773,7 +773,8 @@ describe('F. The phase moves two props and one ring, and nothing else', () => {
     expect(DOCTORE_FOUNDATION).toEqual([5.5, 3.25]);
     expect(triple(tavernSrc, /<group position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}>/)).toEqual([-16, 0, 14]);
     expect(triple(academySrc, /<group position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\}>/)).toEqual([30.5, 0, -27]);
-    expect(findRect('city-tavern')).toMatchObject({ cx: -16, cz: 14, hw: 9.4 / 2, hd: 7.7 / 2 });
+    // Phase C-8.43: city-tavern width corrected 9.4 → 8.9; depth 7.7 unchanged.
+    expect(findRect('city-tavern')).toMatchObject({ cx: -16, cz: 14, hw: 8.9 / 2, hd: 7.7 / 2 });
     expect(findRect('doctore-house')).toMatchObject({ cx: 28, cz: -18.875, hw: 6.0 / 2, hd: 3.75 / 2 });
     expect(findRect('gladiator-barracks')).toMatchObject({ cx: -27, cz: -14, hw: 7.1 / 2, hd: 6.1 / 2 });
   });

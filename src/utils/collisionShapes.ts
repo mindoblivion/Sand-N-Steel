@@ -319,20 +319,32 @@ const buildingRects: RectCollider[] = [
   // proj 0.25 → 10.0 × 8.0, centred at Z = 2.6.
   // Phase C-8.10: width narrowed 10.0 → 9.5 to align east edge with wall face
   // at X≈22.75, opening the intended passage to the ArmorLeatherWorkshop.
+  // Phase C-8.43: this 9.5 width is deliberately NOT the rendered lower-step
+  // footprint here — it stays below the 10.0 the C-8.19 dimensions derive, by the
+  // C-8.10 passage-clearance decision above.  Only city-tavern and caravanserai
+  // were reconciled in this phase.
   // Phase C-8.19: Z centre 2 → 2.6 (same dimensions).  The south edge follows
   // the rendered footprint to Z = 2.6 - 4.0 = -1.4, which turns the former
   // 0.15-unit overlap with the GeneralStore (north edge Z = -1.85) into a
   // 0.45-unit gap.  X is unchanged, so the C-8.10 passage is preserved.
   RECT('smithing-forge', 18, 2.6, 9.5, 8.0),
 
-  // CityTavern — root [-16, 0, 14], foundation [8.4, 7.2], proj 0.25 → 9.4 × 7.7
-  RECT('city-tavern', -16, 14, 9.4, 7.7),
+  // CityTavern — root [-16, 0, 14], foundation [8.4, 7.2], proj 0.25 → 8.9 × 7.7
+  // Phase C-8.43: width corrected 9.4 → 8.9 so the collider matches the rendered
+  // ground-level lower-step footprint (BuildingFoundation lowerWidth = 8.4 + 2 × 0.25
+  // = 8.9).  Depth 7.7 and centre (-16, 14) are unchanged; no mesh or building
+  // position moved.
+  RECT('city-tavern', -16, 14, 8.9, 7.7),
 
   // GeneralStore — root [22, 0, -5], foundation [7.2, 5.8], proj 0.25 → 7.7 × 6.3
   RECT('general-store', 22, -5, 7.7, 6.3),
 
-  // CaravanseraiInn — root [16, 0, 14], foundation [8.6, 7.6], proj 0.25 → 9.6 × 8.1
-  RECT('caravanserai', 16, 14, 9.6, 8.1),
+  // CaravanseraiInn — root [16, 0, 14], foundation [8.6, 7.6], proj 0.25 → 9.1 × 8.1
+  // Phase C-8.43: width corrected 9.6 → 9.1 so the collider matches the rendered
+  // ground-level lower-step footprint (BuildingFoundation lowerWidth = 8.6 + 2 × 0.25
+  // = 9.1).  Depth 8.1 and centre (16, 14) are unchanged; no mesh or building
+  // position moved.
+  RECT('caravanserai', 16, 14, 9.1, 8.1),
 
   // MerchantHouse — root [26, 0, -13], foundation [7.2, 6.5], proj 0.25 → 7.7 × 7.0
   // Phase C-8.12: shifted south 1.0 (Z: -12 → -13) to open the Via Mercatoria
