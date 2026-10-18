@@ -320,3 +320,57 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the gate or the seal — the sandbox renders the city hub at ~2 fps through SwiftShader, and C-8.32
   already could not reach the rear gate there; the C-8.28 bowl cut and C-8.29 junction device checks
   remain open too.
+
+## Northern motte flat ground apron (Phase C-8.35 — implemented)
+
+- **The oversized flat sage-green surface on the northern approach was the asset's own outer
+  flange — not the mound, and not any code-built mesh.** `public/_workspace_motte_normals.glb`'s
+  `Motte_Grass` is a family of scaled superellipse rings (exponent 6, cardinal radius 40 model units
+  at the summit edge) that does not stop at the mound's foot: it continues as an outer flange whose
+  rings oscillate around the city ground plane (`ProcessionAvenue`, Y = −0.05). Measured from the
+  asset with the motte transform ([0, 0, −71.5], scale 0.3145, no extra rotation — the GLB nodes
+  carry the Z-up→Y-up matrix): rings at levels 1.55 (Y 0), 1.625 (−0.472), 1.70 (−0.881),
+  1.775 (−0.472), 1.85 (0) and 2.00 (0 … −0.315), with cardinal/diagonal world radii up to
+  25.16 / 31.70. **The crest rings sit at exactly Y = 0, i.e. 0.05 ABOVE the sand, while the trough
+  rings sink below it where the opaque ground plane hides them** — so one flat, untextured material
+  rendered as concentric ground-level green bands out to a 63.4-unit width with sand showing through
+  between them. That is both the "oversized flat green surface" and the "abrupt horizontal colour
+  bands". The material is `Grass`, `baseColorFactor` [0.3608, 0.4510, 0.2392] (sage green #A2B386
+  after the linear→sRGB conversion), roughness 1, no texture and no UVs. No mesh anywhere else in
+  the city is green, so the colour identifies it unambiguously; the mound itself is not the offender,
+  since from its foot (Y = 0) it rises 4.7175 to the summit, exactly what `getTerrainY` mirrors.
+- **The correction sinks the flange and touches nothing else.** New `src/utils/motteSurface.ts`
+  exports `buryMotteFlange`, which lowers every vertex past the visible foot to at most
+  `MOTTE_FLANGE_BURIED_WORLD_Y` = ground elevation − 0.55 = −0.60, using `Math.min`, so it is
+  idempotent and never raises a vertex that is already deeper. The cutoff is `MOTTE_FLANGE_LEVEL`
+  = 1.5875, midway between the foot ring (1.55) and the next ring (1.625), because the foot ring's
+  own computed level spreads ~4e-8 either side of 1.55 and 68 of its 128 vertices land fractionally
+  above it — a strict `> 1.55` test would misfile part of the foot and bury the mound's own edge.
+  `NorthernMotte.tsx` applies it at mount time inside the same traverse that already hides
+  `Ramp_Dirt` and `Moat_Water`. **It must copy the positions out first: this asset interleaves
+  POSITION with NORMAL in one 24-byte-strided buffer view**, so three's GLTFLoader hands back an
+  `InterleavedBufferAttribute` whose array is shared with the normals and must not be edited in
+  place. The copy is read through `getX/getY/getZ`, which is correct for an interleaved attribute
+  and a plain one alike, so the wiring does not depend on the asset's layout.
+- **What did not move:** the mound's foot ring (Y = 0), its slope, the summit (4.7175), the fortress,
+  the moat ring, the drawbridge, `getTerrainY()`, `MOTTE_PERIMETER_RADIUS` and the entire collision
+  registry — so the traversable route stays exactly the one C-8.31 and C-8.33 verified. The rendered
+  green/sand junction shifts by ~0.02 world units, because the skirt between the foot and the next
+  ring already crossed the ground plane before this phase. The mesh keeps its 1410 vertices and 2816
+  triangles, so the shell stays closed (no holes, no exposed back faces) and no material, no GLB byte
+  and no other mesh changes.
+- **Regression suite: `src/utils/phaseC8_35.test.ts`** — §A measures the defect in the shipping
+  asset itself (1410 vertices = 642 mound + 768 flange; crests exactly 0.05 proud of the sand,
+  reaching 31.70 world units against the mound's 24.55 diagonal foot); §B drives the real
+  `buryMotteFlange` over the asset's real position buffer (no vertex above the ground plane outside
+  the mound, all 642 mound vertices byte-identical, the single interior apex vertex at model
+  (0, 0, −1) noted, idempotence, and the threshold slack shown to be load-bearing); §C pins the
+  mound's south approach profile, the terrain contract, the drawbridge corridor, the untouched Grass
+  material, the interleaved accessor layout and every gameplay constant including the C-8.33 seals.
+  The suite parses the GLB with `@gltf-transform/core`, the library the tooling scripts already use.
+- **Verified 2026-10-18** in the dev container: `bun test` → 925 pass / 0 fail (32 files),
+  `bun run scripts/collisionTests.ts` → 122 passed, 0 failed, `bun run lint` (`tsc --noEmit`) → exit 0,
+  `bun run build` → exit 0. **Not automatically verified:** the rendered appearance — the sandbox
+  city hub runs at ~2 fps through SwiftShader, so the removed bands still need the on-device
+  (Android) look, together with the open C-8.28 bowl cut, C-8.29 junction and C-8.31/C-8.33
+  rear-gate checks.

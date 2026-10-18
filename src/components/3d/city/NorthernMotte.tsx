@@ -2,6 +2,7 @@ import React, { useMemo, useEffect } from 'react';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
+import { buryMotteFlange } from '../../../utils/motteSurface';
 
 /**
  * NorthernMotte.tsx — Motte-and-bailey earth mound north of the Colosseum.
@@ -37,6 +38,16 @@ import { SkeletonUtils } from 'three-stdlib';
  *   Moat_Water   — a flat ring at model Z=-1.9 (world Y≈-0.60), entirely
  *                  below the city ground plane at Y=0.  Omitted from
  *                  rendering because it is always hidden underground.
+ *
+ * Phase C-8.35 — the outer flange.  `Motte_Grass` does not stop at the mound's
+ * foot: the superellipse family continues as an outer flange whose crest rings
+ * sit at exactly world Y = 0, i.e. 0.05 ABOVE the city ground plane, while its
+ * troughs sink below it and are hidden.  The flat sage-green material therefore
+ * rendered as concentric ground-level bands up to 63.4 units wide (the
+ * "oversized flat green surface" of the northern approach).  At mount time the
+ * flange is sunk below the ground plane by utils/motteSurface.ts; the mound,
+ * the summit, the traversable slope, the collision registry and getTerrainY()
+ * are untouched.
  *
  * World-space bounds after transform (scale 0.3145, center [0, -71.5]):
  *   Motte: X[-25.16, 25.16], Z[-96.66, -46.34], Y[-0.88, 4.72]
@@ -79,6 +90,33 @@ const MotteModel: React.FC = () => {
         if (name === 'Ramp_Dirt') {
           mesh.visible = false;
           return;
+        }
+        // Phase C-8.35: the trimesh conversion left an outer flange around the
+        // mound's foot.  Its crest rings sit at exactly world Y = 0 — 0.05 ABOVE
+        // the city ground plane at Y = -0.05 — so the flat sage-green material
+        // rendered as concentric ground-level bands out to a 63-unit width,
+        // with the sand showing through between them.  Sinking the flange under
+        // the ground plane removes those flat bands; the mound, the summit, the
+        // traversable slope and every gameplay number stay exactly as they were
+        // (see utils/motteSurface.ts).
+        if (name === 'Motte_Grass') {
+          // POSITION is interleaved with NORMAL in one 24-byte-strided buffer
+          // view, so its array is shared with the normals and must not be edited
+          // in place.  Read through the accessor API into a buffer this
+          // component owns — correct for an interleaved attribute and a plain
+          // one alike — then sink the flange.
+          const position = mesh.geometry.getAttribute('position');
+          if (position) {
+            const positions = new Float32Array(position.count * 3);
+            for (let i = 0; i < position.count; i++) {
+              positions[i * 3] = position.getX(i);
+              positions[i * 3 + 1] = position.getY(i);
+              positions[i * 3 + 2] = position.getZ(i);
+            }
+            buryMotteFlange(positions);
+            mesh.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            mesh.geometry.computeBoundingSphere();
+          }
         }
         mesh.castShadow = true;
         mesh.receiveShadow = true;
