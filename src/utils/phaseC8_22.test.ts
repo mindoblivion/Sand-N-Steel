@@ -48,6 +48,13 @@
  * compared with exact separating-axis tests; cylinders (planter, trunk, barrels,
  * pots) by the distance between their axis segments and the box, minus the radius.
  *
+ * Superseded since (Phase C-8.23): the obelisk group's X was stepped 0.10 west
+ * (25 → 24.9) to lift the practice-rack gap from 0.15 to 0.25, and the west combat
+ * courtyard's stone border ring — out of scope in this phase — was trimmed where it
+ * crossed the Gladiator Barracks plinth.  This suite now asserts the current
+ * transforms, keeping the C-8.22 values as historical coverage; the ring and the new
+ * obelisk clearances are covered by src/utils/phaseC8_23.test.ts.
+ *
  * Run with: bun test src/utils/phaseC8_22.test.ts
  */
 // @ts-ignore — bun:test is available at runtime via bun test
@@ -203,7 +210,9 @@ describe('A. The layout declares the seven moved props', () => {
     expect(CLUSTER_POS).toEqual([11.9, 0, 5.2]);
     expect(DOCTORE_BENCH).toEqual([27.5, 0, -22]);
     expect(DOCTORE_BENCH_YAW).toBeCloseTo(-Math.PI / 2, 10);
-    expect(OBELISK_POS).toEqual([25, 0, -21.6]);
+    // Phase C-8.23: X stepped a further 0.10 west (25 → 24.9); the Z of the C-8.22
+    // move is unchanged.
+    expect(OBELISK_POS).toEqual([24.9, 0, -21.6]);
     expect(streetsSrc).not.toContain('<MerchantPropsCluster position={[13.2, 0, 3.8]} />');
     expect(streetsSrc).not.toContain('<RomanBench position={[27.5, 0, -21.0]}');
     expect(streetsSrc).not.toContain('<group position={[25, 0, -21]}>');
@@ -921,12 +930,14 @@ describe('D. Every moved prop now clears building, cypress and neighbours', () =
     expect(worst(pairs(props, props)).c).toBeGreaterThan(1);
   });
 
-  test('the obelisk keeps its pre-existing 0.15 gap to the C-8.19 practice rack', () => {
-    // The rack's X band starts at 25.6, so the obelisk's Z move leaves this pair
-    // exactly as it was: the phase neither improves nor worsens it.
-    const base = (z: number): Prop => ({ n: 'obelisk.base', o: { kind: 'obb', o: asObb(OBELISK_BASE(25, z)) } });
-    expect(at(pairs([base(-21)], DOCTORE_NEIGHBOURS), 'obelisk.base ↔ rack')).toBeCloseTo(0.15, 4);
-    expect(at(pairs([base(OBELISK_POS[2])], DOCTORE_NEIGHBOURS), 'obelisk.base ↔ rack')).toBeCloseTo(0.15, 4);
+  test('the obelisk ↔ practice-rack gap: 0.15 at the C-8.22 X, 0.25 shipped since C-8.23', () => {
+    // The rack's X band starts at 25.6, so this pair is X-governed and the C-8.22 Z
+    // move left it exactly as it was.  Phase C-8.23 then stepped the group 0.10 west,
+    // which is the shipped X read back from the source by the third assertion.
+    const base = (x: number, z: number): Prop => ({ n: 'obelisk.base', o: { kind: 'obb', o: asObb(OBELISK_BASE(x, z)) } });
+    expect(at(pairs([base(25, -21)], DOCTORE_NEIGHBOURS), 'obelisk.base ↔ rack')).toBeCloseTo(0.15, 4);
+    expect(at(pairs([base(25, OBELISK_POS[2])], DOCTORE_NEIGHBOURS), 'obelisk.base ↔ rack')).toBeCloseTo(0.15, 4);
+    expect(at(pairs([base(OBELISK_POS[0], OBELISK_POS[2])], DOCTORE_NEIGHBOURS), 'obelisk.base ↔ rack')).toBeCloseTo(0.25, 4);
   });
 
   test('every moved prop keeps ≥ 0.2 from everything it shares a height with', () => {
@@ -937,9 +948,9 @@ describe('D. Every moved prop now clears building, cypress and neighbours', () =
       { what: 'Doctore', props: doctoreProps(), targets: [...DOCTORE_PIECES, ...DOCTORE_NEIGHBOURS] },
     ];
     for (const g of groups) {
-      // The Doctore obelisk ↔ practice-rack pair is the one documented exception
-      // (0.15, unchanged by this phase); every other pair clears 0.2.
-      const rows = pairs(g.props, g.targets).filter((r) => !/^obelisk\.(base|spire) ↔ rack$/.test(r.pair));
+      // Since C-8.23 stepped the obelisk group 0.10 west, every pair clears 0.2 —
+      // including the obelisk ↔ practice-rack pair (0.25) that used to be excepted.
+      const rows = pairs(g.props, g.targets);
       expect(worst(rows).c, `${g.what}: ${worst(rows).pair}`).toBeGreaterThanOrEqual(0.2);
       expect(worst(pairs(g.props, g.props)).c, `${g.what} self-pairs`).toBeGreaterThanOrEqual(0.2);
     }
@@ -1129,8 +1140,12 @@ describe('G. The phase moves props and nothing else', () => {
     expect(streetsSrc).toContain('position={[11, 0, 0]}\n        axis="x"\n        length={14}\n        width={8}');
     expect(streetsSrc).toContain('VIA_MERCATORIA_PATH.cx');
     expect(streetsSrc).toContain('<MerchantPropsCluster position={[17, 0, -4]} />');
-    // The west combat courtyard's stone border ring is explicitly out of scope.
-    expect(streetsSrc).toContain('<torusGeometry args={[3.0, 0.08, 6, 24]} />');
+    // The west combat courtyard's stone border ring was out of scope in this phase;
+    // C-8.23 has since trimmed its barracks-crossing arc (src/utils/phaseC8_23.test.ts),
+    // so this assertion follows the ring's current geometry rather than the pre-C-8.23
+    // full torus.  Its centre, radius and tube are still the ones asserted below.
+    expect(streetsSrc).toContain('<torusGeometry args={[3.0, 0.08, 6, 24, 5.106]} />');
+    expect(streetsSrc).toContain('rotation={[-Math.PI / 2, 0, 2.8619]}');
   });
 
   test('the C-8.21 suite is neither edited nor relaxed', () => {

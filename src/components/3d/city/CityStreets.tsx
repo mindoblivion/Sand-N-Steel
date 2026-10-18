@@ -589,8 +589,20 @@ export const CityStreets = React.memo(() => {
           courtyard floor, the doctore_house arrival [23.5, -18.875] and the west
           doorway's approach corridor are untouched. It keeps its 0.15 clearance to
           the C-8.19 practice rack (unchanged from before the move — the rack's X band
-          starts at 25.6). See src/utils/phaseC8_22.test.ts. */}
-      <group position={[25, 0, -21.6]}>
+          starts at 25.6); C-8.23 later steps the group a further 0.10 west, below.
+          See src/utils/phaseC8_22.test.ts. */}
+      {/* Phase C-8.23: that 0.15 rack gap was still the only pair in the city below
+          the 0.2 floor the neighbouring phases hold, so the group steps a further
+          0.10 west (X 25 → 24.9). The pair shares both its Y band (0–0.4 against
+          0–0.8) and its Z band (−22.05…−21.15 against −22.175…−20.975), so 0.15 was
+          the exact X separation and 0.25 is the new one (the spire clears by 0.42).
+          The move is X-only, so every Z-governed gap is unchanged: Doctore House
+          plinth.lower 0.40, plinth.upper 0.50, the west quoin stack 0.475, the wall
+          0.65, and the Gladiator Academy plinth 1.30. The group's internal
+          transform, its π/4 spire rotation, the 5.2 m paved courtyard circle and the
+          doctore_house arrival [23.5, −18.875] are untouched.
+          See src/utils/phaseC8_23.test.ts. */}
+      <group position={[24.9, 0, -21.6]}>
         {/* Square Marble base plinth */}
         <mesh castShadow receiveShadow position={[0, 0.2, 0]}>
           <boxGeometry args={[0.9, 0.4, 0.9]} />
@@ -629,8 +641,38 @@ export const CityStreets = React.memo(() => {
       </mesh>
 
       {/* Low Stone Border around Courtyard */}
-      <mesh position={[-23, 0.08, -10]} rotation={[-Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[3.0, 0.08, 6, 24]} />
+      {/* Phase C-8.23: the C-8.20 audit's ring-vs-barracks finding is real. The
+          Gladiator Barracks' plinth (root [-27, 0, -14]) puts its north-east corner
+          at (-23.45, -10.95) — only 1.051 from this courtyard's centre (-23, -10) —
+          and spans X ≤ -23.45 with Z ≤ -10.95, so the r = 3.0 border entered the
+          plinth's north face at (-25.85, -10.95) and left through its east face at
+          (-23.45, -12.97). That ~62° arc — about 31% of the ring's tube surface —
+          sat inside the plinth and inside the barracks wall behind it, leaving only
+          the two face crossings outside the solid, where the ring visually stabbed
+          through the corner. Neither alternative works: every boundary-scale radius
+          meets that corner (clearing it needs r < 0.97, which no longer borders the
+          3.0-radius paved circle) and re-centring needs 2.63 east or 2.13 north,
+          which would decouple the ring from the floor it edges.
+          The affected arc is therefore trimmed: centre, radius, tube, height,
+          segment count and material are unchanged, and the ring now runs 292.55°
+          (arc 5.106 rad) rotated 163.975° in-plane, removing the arc between
+          azimuth 196.03° and 263.47°. Both ends stop with the tube surface 0.10
+          clear of the plinth's north (Z = -10.95) and east (X = -23.45) faces, so
+          the border terminates at the barracks instead of passing through it.
+          Measured on the real TorusGeometry: 0 vertices inside the plinth or wall and
+          a minimum surface clearance of 0.0997, where about 31% of the untrimmed
+          ring's sampled surface points lie inside them.
+          The courtyard's own furniture lies outside the removed arc and is
+          untouched: the central obelisk, the notice board (posts
+          at plan radius 2.670, 0.25 clear of the tube), the walkways, the entrances
+          and every fast-travel arrival. Two pre-existing grazes of that furniture on
+          the ring remain and are outside this phase's scope: the west bench's east
+          foot overlaps the tube by 0.026 at azimuth 71°, and the lying barrel at
+          [-25.5, 0, -9.2] encloses it (ring centreline inside the barrel for
+          azimuth 153.9°–163.5°).
+          See src/utils/phaseC8_23.test.ts. */}
+      <mesh position={[-23, 0.08, -10]} rotation={[-Math.PI / 2, 0, 2.8619]}>
+        <torusGeometry args={[3.0, 0.08, 6, 24, 5.106]} />
         <meshStandardMaterial color="#cbd5e1" roughness={0.6} />
       </mesh>
 
