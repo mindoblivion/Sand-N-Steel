@@ -191,3 +191,30 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - `phaseC8_27.test.ts`'s `withPreFixRegistry()` now splices out the C-8.28 podium polyline as well as the
   two flank closures: that suite's frozen replay is the registry the bypass was reported against, which
   predates both. Everything else in C-8.27's assertions is unchanged.
+
+## General Store ↔ Armor & Leather Workshop junction (Phase C-8.29)
+
+- **The reported "0.15 clearance / 2.10 overlap" is a genuine gap, not a defect — and was measured, not
+  assumed.** Both buildings are unrotated, so their world-axis footprints are exact rather than
+  conservative bounds. General Store: root `[22, 0, −5]`, foundation `[7.2, 5.8]`, projection 0.25 → plinth
+  X `[18.15, 25.85]`, Z `[−8.15, −1.85]`. Armor & Leather Workshop: root `[28.2, 0, 1]`, foundation
+  `[8.4, 5.2]`, projection 0.25 **plus a `position={[0, 0, 0.15]}` plinth offset** → plinth X
+  `[23.75, 32.65]`, Z `[−1.70, 4.00]` — hence its collider centre Z is **1.15, not 1.0**. The two Z bands
+  are 0.150 apart and their X bands overlap by 2.10: diagonal neighbours, not an interpenetration.
+- **Every visible solid of both buildings was enumerated** (plinth steps, wall, quoins, cornice, both roof
+  assemblies, awning, posts, counter, crates, barrel, lantern, piers, architrave, tanning/display racks,
+  workbench): no Store solid intersects any Workshop solid. The closest approach in 3D is exactly the
+  0.150 plinth-to-plinth gap; the next closest is the Store roof slab against the Workshop eave fascia at
+  0.203, clear in both Z (0.203) and Y (0.060). The extreme overhangs — Store ridge cap at Z = −1.710 vs
+  Workshop plinth at Z = −1.700 — are 0.010 apart in Z but sit in disjoint vertical bands (≈6.2 m against
+  0.0–0.14 m). The registry rects equal the rendered plinth lower steps to machine precision, so this was
+  never a collider/render mismatch either.
+- **No production transform changed and no collider moved.** The phase rule holds: a collider is never
+  moved to solve a mesh problem, and there was no mesh problem. The 0.15 band is narrower than the 0.80
+  player diameter, so it is a dead pocket; `src/utils/phaseC8_29.test.ts` pins the measured geometry and
+  drives the real resolver to show no push enters it and a blocked push is immediately reversible.
+- **Transform-convention note for future audits of these two files.** three.js applies an object's own
+  rotation about its own origin, so the mesh *position* stays the centre and only the half-extents rotate —
+  that is the Store's two roof slabs (`rotation={[0, 0, ±slope]}` on the mesh). A PARENT group's rotation
+  instead turns each child's centre as well — that is the Workshop's lean-to (`rotation={[0.16, 0, 0]}` on
+  the group). Treating the two the same misplaces the Store roof by ~0.7 in Y.
