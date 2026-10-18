@@ -182,12 +182,13 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `colo-podium-l/r-0…7` (16 segments on the rendered radius 15.3, same 306° arc and the same gap) make it
   physical. The cut edge lands on the pier's inner-face line, so the vestibule wall runs unbroken from the
   pier into the podium. The arena now has exactly two ways in or out: the doorway and the rear gap below.
-- **The 54° rear Colosseum gap is an unguarded render opening — documented, deliberately not closed.**
-  `ARC_THETA_LENGTH = 1.7π` is a render-cost choice for the partial cylinder ("invisible from the player's
+- **The 54° rear Colosseum gap was an unguarded render opening — C-8.28 left it alone, C-8.31 closed it.**
+  `ARC_THETA_LENGTH = 1.7π` was a render-cost choice for the partial cylinder ("invisible from the player's
   normal viewing position"), not architecture and not a designed route: walking around the north side
-  leads in and out through an opening with no stone in it at all. Closing it would take a ~10-unit
-  invisible collider on bare ground, so C-8.28 left the gap and its traversal unchanged — asserted, with
-  the reasoning, in `src/utils/phaseC8_28.test.ts` §G.
+  led in and out through an opening with no stone in it at all. Closing it as-is would have taken a
+  ~10-unit invisible collider on bare ground, so C-8.28 left the gap and its traversal unchanged (the
+  reasoning is preserved in `src/utils/phaseC8_28.test.ts` §G, which now asserts the opposite: the drum
+  is stone there). Phase C-8.31 completed the drum around a designed rear gate — see below.
 - `phaseC8_27.test.ts`'s `withPreFixRegistry()` now splices out the C-8.28 podium polyline as well as the
   two flank closures: that suite's frozen replay is the registry the bypass was reported against, which
   predates both. Everything else in C-8.27's assertions is unchanged.
@@ -239,7 +240,44 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   ("fortress: does not overlap Colosseum colliders") already asserts the X = 0 corridor from the building to
   the ramp is clear, i.e. the suite depends on the opening.
 - **Consequence.** Completing the drum to 360° as-is would run the bridge through the new wall and stand the
-  wall base in the moat film, so "close" effectively means "close around a designed rear gate". The C-8.30
-  recommendation (awaiting approval, nothing implemented) is to complete the drum to 360° with a single
-  ≈16° rear gate on θ = π (≈5.4 wide at the facade; podium cut on the portal's 5.2-unit passage line) and
-  extend the colliders to match — draw-call neutral (≈ ±3 shell meshes out of ≈89).
+  wall base in the moat film, so "close" effectively means "close around a designed rear gate". That is
+  what Phase C-8.31 implemented (see below): a ≈16° rear gate on θ = π, 5.40 wide at the facade, with the
+  podium cut on the portal's 5.2-unit passage line and the colliders extended to match — draw-call neutral.
+
+## Colosseum rear axial gate (Phase C-8.31 — implemented)
+
+- **The drum runs the full circle and is cut at exactly two axial openings.** `GrandColosseum.tsx` no longer
+  has `ARC_THETA_START` / `ARC_THETA_LENGTH` / `ARC_END` / `BOWL_SEG1_LEN`. The two openings both sit on the
+  seam between the drum's two arcs (`DRUM_ARCS`), so **every band still draws as two meshes and the
+  draw-call count is exactly what it was for the 306° partial cylinder**:
+  - the monumental entrance, θ = 0 (+Z) — `ENTRANCE_MIN…MAX`, ±24.6°, untouched;
+  - the rear axial gate, θ = π (−Z) — ±`GATE_HALF` = ±8.03°, i.e. **16.08°, exactly 5.40 wide at the
+    facade** (`GATE_HALF_W = 2.7`; the chord is `2 × GATE_HALF_W` because `GATE_HALF = asin(GATE_HALF_W /
+    R_FACADE)`). An earlier note in this repo said 5.39 — that figure was simply wrong.
+  Three cut policies drive the bands: `DRUM_ARCS` (upper plinth + sill — cut at both openings),
+  `FRONT_CUT_ARCS` (six bands that stop at the entrance only, so they run straight over the gate as its
+  head/lintel/upper storeys), and one `GATE_ARC_START, GATE_ARC_LEN` band (the flared base ring, cut at
+  the gate only — the gate's floor is the ground, not a step). Above the tier-1 cornice (7.8…8.6, the
+  gate's lintel) three bands are complete rings (`FULL_TURN`), one mesh each as before.
+- **The gate spans tier 1 only** (clear opening 0.16…7.35): the spandrel band closes its head and the
+  tier-1 cornice spans it as its lintel — the real outer ring has no rear notch in its upper storeys. Its
+  floor is the arena's own ground; the drawbridge deck (X ±2.0, ±2.11 across the side beams, `DECK_TOP_Y`
+  0.16) passes through with ~0.59 clear either side, and its southern 3.8 units enter the bowl at r ≈ 15.5.
+- **Inside, the bowl is cut at the gate on the doorway's own 5.2-unit passage line** (`BOWL_ARCS`,
+  `PORTAL_PASSAGE_HALF_W`), not on the gate's jamb faces — the passage is set by the structure the player
+  walks through, exactly as the 8.6-wide doorway is cut to that same line. The cavea cut is therefore a
+  little wider than the gate, so no seating projects into the opening; the arena now has two ways in/out.
+- **Collision (`collisionShapes.ts`): the originals are untouched and the rear quadrants are appended.**
+  `colo-wall-l/r-0…7` and `colo-podium-l/r-0…7` keep their ids, endpoints, 306° arc and 8-way subdivision,
+  so every measured clearance in the other suites still holds. Added: `colo-rearwall-l/r-0…1` on the facade
+  radius (19.3) and `colo-rearpodium-l/r-0…1` on the podium radius (15.3), each ending on its own gate edge.
+  `colo-*` is now 44 colliders (was 36; the eight appended rear segments are the only addition).
+- **Regression suite: `src/utils/phaseC8_31.test.ts`** (§A rend/arc, §B gate geometry, §C registry,
+  §D traversal both ways + the fortress bridge corridor, §E drawbridge alignment, §F entrance/unrelated
+  invariants). `phaseC8_28.test.ts` §G was inverted to assert the rear drum is stone, and `phaseC8_27`'s
+  frozen replay is unchanged.
+- **Verified 2026-10-18** in the dev container: `bun test` → 881 pass / 0 fail (30 files),
+  `bun run scripts/collisionTests.ts` → 122 passed, 0 failed, `bun run lint` (`tsc --noEmit`) → exit 0.
+  **Not automatically verified:** the gate's appearance (stonework, arch head, lintel) — the sandbox
+  preview has no GPU and the city hub renders at ~2 fps through SwiftShader, so it needs an on-device look,
+  together with the still-open C-8.28 bowl cut and C-8.29 junction checks.

@@ -17,7 +17,7 @@
  *   • the monumental entrance, θ = 0   — ENTRANCE_MIN … ENTRANCE_MAX, 49.26°,
  *     the portal and its 5.2-wide passage, untouched by this phase;
  *   • the rear axial gate,   θ = π     — ±GATE_HALF = ±8.03°, i.e. 16.08°
- *     (5.39 units wide at the facade) on the drawbridge axis.
+ *     (5.40 units wide at the facade) on the drawbridge axis.
  *
  * Every band still draws as two meshes (`DRUM_ARCS`) or one (`FRONT_CUT_ARCS`,
  * `GATE_CUT_ARCS`, `FULL_TURN`), so the mesh — and draw-call — count is exactly
@@ -223,9 +223,11 @@ describe('A. The drum is complete and cut at exactly two openings', () => {
     expect(DRUM_E_END).toBeCloseTo(Math.PI - GATE_HALF, 10);
     expect(DRUM_W_START).toBeCloseTo(Math.PI + GATE_HALF, 10);
     expect(DRUM_W_END).toBeCloseTo(2 * Math.PI + ENTRANCE_MIN, 10);
-    // Equal length, so the two openings are mirror images about θ = π.
+    // Equal length, so the two openings are mirror images about θ = π: the
+    // west arc's own endpoints reflect onto the east arc's.
     expect(DRUM_E_END - DRUM_E_START).toBeCloseTo(DRUM_W_END - DRUM_W_START, 10);
-    expect(DRUM_E_START - ENTRANCE_MIN).toBeCloseTo(DRUM_W_END - 2 * Math.PI, 10);
+    expect(2 * Math.PI - DRUM_W_START).toBeCloseTo(DRUM_E_END, 10);
+    expect(2 * Math.PI - DRUM_W_END).toBeCloseTo(DRUM_E_START, 10);
     // The west arc wraps past 2π, so it ends back on the entrance's own edge.
     expect(DRUM_W_END - 2 * Math.PI).toBeCloseTo(ENTRANCE_MIN, 10);
     // Together they span the whole turn bar the two openings.
@@ -326,15 +328,20 @@ describe('A. The drum is complete and cut at exactly two openings', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('B. The rear gate is a designed opening, not a leftover void', () => {
-  test('16.08° wide — 5.39 units at the facade, on the bridge axis', () => {
+  test('16.08° wide — 5.40 units at the facade, on the bridge axis', () => {
     expect(deg(2 * GATE_HALF)).toBeCloseTo(16.08, 2);
-    expect(2 * R_FACADE * Math.sin(GATE_HALF)).toBeCloseTo(5.39, 2);
+    // The chord is exactly 2 × GATE_HALF_W by construction (sin ∘ asin).
+    expect(2 * R_FACADE * Math.sin(GATE_HALF)).toBeCloseTo(2 * GATE_HALF_W, 10);
+    expect(2 * GATE_HALF_W).toBeCloseTo(5.4, 10);
     // Its centre is θ = π, exactly the axis the portal faces down at θ = 0.
     expect(Math.cos(Math.PI - GATE_HALF)).toBeCloseTo(Math.cos(Math.PI + GATE_HALF), 10);
     // Much narrower than the 54° void it replaces: that was 18.19 of arc and
     // 17.52 of chord at this radius.
-    expect(deg(2 * (Math.PI / 2 - REAR_SEAM))).toBeCloseTo(54, 6);
-    expect(2 * R_FACADE * Math.sin(Math.PI / 2 - REAR_SEAM)).toBeCloseTo(17.52, 2);
+    // The old void was 2π − 2·REAR_SEAM (the 1.7π arc's complement).
+    const REAR_VOID = 2 * Math.PI - 2 * REAR_SEAM;
+    expect(deg(REAR_VOID)).toBeCloseTo(54, 6);
+    expect(R_FACADE * REAR_VOID).toBeCloseTo(18.19, 2);
+    expect(2 * R_FACADE * Math.sin(REAR_VOID / 2)).toBeCloseTo(17.52, 2);
   });
 
   test('it spans tier 1 only — head, lintel and a continuous drum above', () => {
@@ -447,7 +454,7 @@ describe('C. The collision registry matches the completed drum', () => {
     }
   });
 
-  test('the Colosseum holds its colliders — the front set plus six new ones', () => {
+  test('the Colosseum holds its colliders — the front set plus eight new ones', () => {
     const coloIds = CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-')).map((c) => c.id).sort();
     const expected = [
       ...Array.from({ length: 8 }, (_, i) => `colo-wall-l-${i}`),

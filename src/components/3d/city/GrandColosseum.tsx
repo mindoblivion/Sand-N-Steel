@@ -57,7 +57,7 @@ const T1_CORNICE_H = 0.8;
 const T1_CORNICE_TOP = T1_CORNICE_Y + T1_CORNICE_H / 2; // 8.6
 
 // Phase C-8.31 — rear axial gate.  Half-width 2.7 at the facade radius, i.e.
-// ±8.03°: a 16.08° opening, 5.39 units wide.  The drawbridge deck (X ±2.0,
+// ±8.03°: a 16.08° opening, 5.40 units wide.  The drawbridge deck (X ±2.0,
 // ±2.22 across its side beams) passes through it with ~0.5 clear either side.
 // It spans tier 1 only (0.16 … 7.35): the spandrel band closes its head and
 // the tier-1 cornice forms its lintel, so the drum above stays continuous —
@@ -140,7 +140,7 @@ const BOWL_GAP_HALF = Math.asin(PORTAL_PASSAGE_HALF_W / R_ARENA_WALL); // ≈ 0.
 
 // Phase C-8.31: the rear gate cuts the bowl on that same 5.2-unit passage
 // line, so both openings open straight through onto the sand and the ring's
-// two cuts are congruent.  The gate's own clear width (GATE_HALF, 5.39 at the
+// two cuts are congruent.  The gate's own clear width (5.40 at the facade)
 // facade) does not set it: the passage is set by the structure the player
 // walks through, just as the monumental doorway — 8.6 wide between its piers —
 // is cut to this same 5.2 line.  The cavea's cut is therefore a little wider
