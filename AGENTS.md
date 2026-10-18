@@ -596,3 +596,77 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   gateway, and (c) the fortress and mound at their new position. Still open from earlier phases:
   the C-8.28 bowl cut, the C-8.29 Store ↔ Workshop junction, and the C-8.31/C-8.33 rear-gate
   stonework. Do not claim visual acceptance without device evidence.
+
+## Rear gateway ↔ drawbridge separation (Phase C-8.39 — audit, no production code changed)
+
+- **Reported:** the Colosseum's rear gateway and the drawbridge "still look too connected" on
+  device after C-8.38. Audited against the shipped constants and against the running scene:
+  **there is no unintended mesh overlap, no interpenetration across the gap and no water at the
+  gateway threshold**, so no production geometry was changed. The residual is compositional — the
+  two structures are exactly collinear, width-nested, and separated by a *flat, featureless*
+  six-metre apron that sits at a single ground level.
+- **Measured values (throwaway harness run in the `web` container importing `/app/src` directly,
+  so every figure is the rendered value rather than a group origin):**
+
+  | quantity | measured |
+  |---|---|
+  | Colosseum rear-most rendered stone — gate plinth cut edge (r 19.5 at ±`GATE_HALF`) | Z = −44.308 |
+  | — tier-1 cornice / lintel ring spanning the gate (r 19.5, X = 0) | Z = −44.5 |
+  | — registered jamb face (r 19.3) | Z = −44.11 |
+  | bridge southern-most rendered point (deck **and** both side beams share one south face) | Z = −50.5 |
+  | horizontal sand gap — plinth edge → deck / lintel line → deck / jamb line → deck | **6.19 / 6.00 / 6.39** |
+  | moat water span on X = 0 (25.0 → 31.0 about −81.5) | Z = −50.5 → −56.5 |
+  | water outer shoreline vs the deck's south end | **0.000 — exactly tangent** |
+  | water inner shoreline vs the deck's north end | **0.000 — exactly tangent** |
+  | mound visible slope foot (X = 0) / flat bank behind the water | −62.001 / 5.50 |
+  | gateway floor (walk plane) Y at Z = −42, and deck top Y | 0.00 / 0.16 |
+  | sand Y / water Y / deck underside Y / deck top Y | −0.05 / 0.06 / 0.09 / 0.16 |
+  | gate clear width / deck width / bridge footprint | 5.40 / 4.00 / 4.22 (ratios 0.741 / 0.781) |
+
+- **Root cause — composition, not geometry.** Three measured properties, none of them a defect:
+  (a) the gateway, the drawbridge **and the front portal** are all on X = 0, so a player on the
+  axis looks along one line straight through the building; (b) the deck's 4.00 sits inside the
+  gate's 5.40 about the same centre, so the portal's rectangle frames the bridge's rectangle
+  almost concentrically (0.741 × 0.781); and (c) the whole run is flat — sand −0.05 → water 0.06 →
+  deck underside 0.09 → deck top 0.16, a 0.21 spread over 12 units — so the gate floor, the apron,
+  the water film and the deck read as one continuous level surface distinguished by colour alone,
+  and the six-metre apron foreshortens to a few pixels when viewed from the arena side.
+- **What is *not* the cause, measured.** No mesh of either structure reaches the other (closest
+  approach 6.19). The side beams and hinge blocks are 6.0–6.5 from the gateway stone — the hinges
+  are at the *motte* end (Z = −56.5). The gate's podium/cavea cut and the C-8.33 seals are interior
+  and unchanged. The water does **not** reach the threshold: its nearest edge is 6.0 north of the
+  gate, so the C-8.36 note about water lapping the gateway describes the pre-C-8.37 centre only.
+  One genuine but **invisible** interpenetration was found: each side beam (X ±[1.89, 2.11],
+  Y 0.09–0.37) is centred *on* the deck's edge, so it shares a 0.11 × 0.07 × 6.0 volume with the
+  deck slab and a coplanar underside at Y = 0.09. That volume is fully enclosed and sits above the
+  water, so it cannot produce the reported connection; its correction would widen the bridge
+  footprint from ±2.11 to ±2.22 and rebase the C-8.38 corridor sweep for no visual gain.
+- **Rendered inspection *was* possible this time** (C-8.36/C-8.37 could not capture it). The whole
+  chain runs in the preview browser at ~2 fps through SwiftShader: title → `Play as Guest` → city
+  map → fast travel to the Northern Roman Fortress, then walk south with `ArrowDown` and orbit the
+  chase camera with a synthetic pointer drag — the camera yaw is decoupled from the player's facing
+  and only the drag offset turns it, so the view must be orbited back by ≈π to face the gate. Two
+  frames were legible and read: sand → wooden deck spanning the teal water → the Colosseum's rear
+  gateway, with the front portal's pediment and portcullis visible *through* the gate. **No GPU
+  artifact, overlap or stray band appeared in either frame** — the single-line reading the report
+  describes, and still to be confirmed on device.
+- **Recommended treatment (NOT implemented — a visual judgement call, not a defect repair).**
+  Nothing about the apron, the moat, the group position or the bridge's span is wrong, so the
+  options are: (1) **leave it** — a level, collinear run is what a bridge level with the gateway it
+  serves actually looks like; (2) give the bridge a visible **abutment** — carry the two existing
+  side beams ~0.6 south past the deck's south face so the bridge visibly *lands on* the outer bank
+  instead of beginning exactly on the waterline (no new node, no walkability change, but it
+  *shortens* the sand gap to ≈5.6, trading against the apron separation C-8.38 bought); or
+  (3) revet the moat's outer shoreline with a low travertine kerb band so the water reads as a
+  bounded moat and the gate side reads as land (new geometry, must stay clear of the |X| ≤ 2.6
+  walking corridor).
+- **Verified 2026-10-18** in the dev container: `bun test` → **1033 pass / 0 fail (35 files)**,
+  `bun run scripts/collisionTests.ts` → **122 passed, 0 failed**, `bun run lint` (`tsc --noEmit`) →
+  exit 0, `bun run build` → exit 0, `git diff --check` → clean. The C-8.38 baseline is intact and
+  this note is the only change in the branch.
+- **Documentation debt found, deliberately not fixed (this phase changed no production file):**
+  `Drawbridge.tsx`'s own comments still carry C-8.37-era figures — `DECK_Z_INNER … // -51.5` where
+  the code derives **−56.5**, and `DECK_CENTER_Z … // -48.5` where it derives **−53.5**, plus the
+  header's "Z = −51.0 → −51.5 since C-8.37" / "grass rim at Z = −51.34" narrative. Every exported
+  value is derived correctly; only the annotations are stale, and they are worth correcting before
+  the next phase reads them.
