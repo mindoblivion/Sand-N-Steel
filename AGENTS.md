@@ -218,3 +218,28 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   that is the Store's two roof slabs (`rotation={[0, 0, ±slope]}` on the mesh). A PARENT group's rotation
   instead turns each child's centre as well — that is the Workshop's lean-to (`rotation={[0.16, 0, 0]}` on
   the group). Treating the two the same misplaces the Store roof by ~0.7 in Y.
+
+## Colosseum rear opening (Phase C-8.30 audit — measured, no production code changed)
+
+- **The opening is the complement of `ARC_THETA_LENGTH = 1.7π`**: θ ∈ (153.0°, 207.0°), 54.0° wide, centred
+  on θ = 180° (local −Z). The root group is world [0, 0, −25], so the two facade ends land on
+  **(±8.762, −42.196)** — chord **17.524**, subtended arc **18.190** — and the podium ends on
+  **(±6.946, −38.632)** (chord 13.892). The void runs the building's full height (y 0 → 17.35).
+- **Nothing renders and nothing collides inside it.** Every band in `GrandColosseum.tsx` stops at ±153°:
+  11 bands are split into seg1/seg2, and the four "full-arc" bands (lower plinth, golden cornice, attic wall,
+  attic crest) use the same 306° arc — so no geometry floats, and the visible artifact is just the raw
+  `openEnded` arc-end of each band. `colo-wall-*` and `colo-podium-*` stop on the same ±153°;
+  `phaseC8_28.test.ts` §G asserts that absence of any blocker.
+- **It is the on-axis north route, and the motte's moat + drawbridge occupy the same sector.** The portal
+  (θ = 0) and the gap (θ = π) are diametrically opposite on X = 0, and the drawbridge deck (Z −40.5 … −46.5,
+  X ±2.0) runs straight through it — its southern 3.8 units lie inside the Colosseum's footprint, entering at
+  r ≈ 15.5 (just outside the podium). The whole rear arc (motte-radius 27.0 … 30.6 about [0, −71.5]) sits
+  inside the moat band (25.8 … 31.0), and the moat's south gap (±10.31°) is narrower than the rear arc
+  (±16.65°), so ~44% of the would-be rear facade arc is over water. `scripts/collisionTests.ts`
+  ("fortress: does not overlap Colosseum colliders") already asserts the X = 0 corridor from the building to
+  the ramp is clear, i.e. the suite depends on the opening.
+- **Consequence.** Completing the drum to 360° as-is would run the bridge through the new wall and stand the
+  wall base in the moat film, so "close" effectively means "close around a designed rear gate". The C-8.30
+  recommendation (awaiting approval, nothing implemented) is to complete the drum to 360° with a single
+  ≈16° rear gate on θ = π (≈5.4 wide at the facade; podium cut on the portal's 5.2-unit passage line) and
+  extend the colliders to match — draw-call neutral (≈ ±3 shell meshes out of ≈89).
