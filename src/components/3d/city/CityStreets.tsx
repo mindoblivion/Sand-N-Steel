@@ -428,7 +428,18 @@ export const CityStreets = React.memo(() => {
       <RomanBench position={[-11.0, 0, -4.8]} rotationY={Math.PI / 2} />
 
       {/* EAST: Imperial Smithing Forge Courtyard Props */}
-      <MerchantPropsCluster position={[13.2, 0, 3.8]} />
+      {/* Phase C-8.22: the barrel/amphora cluster stood at [13.2, 0, 3.8], where the
+          full cluster (X 12.42–13.82, Z 3.28–4.32) reached inside the Forge plinth
+          (west face X = 13.0) and wall (X = 13.25) — worst pair barrelB ↔ wall −0.57,
+          plinth.lower −0.39 — straddled the north kerb of the Via Decumanus
+          (Z 3.9–4.3, −0.40) and also intruded into the west doorway corridor
+          (Z 0.9–4.3, −0.42). It moves 1.3 west and 1.4 north to [11.9, 0, 5.2]: the
+          complete cluster now clears the plinth by 0.48, and the kerb and the doorway
+          corridor — which share the Z = 4.3 edge — by 0.38, while the forge arrival
+          [11.5, 2.6] keeps 2.13 of room (2.4 × player radius). The Forge root, its
+          collider and the west portal itself are untouched.
+          See src/utils/phaseC8_22.test.ts. */}
+      <MerchantPropsCluster position={[11.9, 0, 5.2]} />
       <RomanBench position={[12.5, 0, -3.8]} rotationY={-Math.PI / 2} />
 
       {/* NORTHEAST: General Store Market Table & Benches — Phase 25.9: relocated
@@ -451,14 +462,39 @@ export const CityStreets = React.memo(() => {
       <RomanAmphora position={[18, 0, -3.5]} scale={0.8} tone="sand" />
 
       {/* SOUTHWEST: Golden Palm Tavern Outdoor Terrace Benches */}
-      <RomanBench position={[-13.0, 0, 11.2]} rotationY={Math.PI / 4} />
-      <WineBarrel position={[-13.8, 0, 10.2]} rotationY={0.3} />
-      <WineBarrel position={[-14.4, 0, 10.5]} isLyingDown={true} rotationY={0.5} />
+      {/* Phase C-8.22: all three props stood inside the Tavern — the bench at
+          [-13.0, 0, 11.2] reached 0.57 into the north wall and 0.15 into the plinth
+          step, the barrels at [-13.8, 0, 10.2] / [-14.4, 0, 10.5] reached 0.43 and
+          0.70 (they also interpenetrated each other by 0.54). The Tavern's north
+          plinth face is Z = 10.15 and the C-8.21 cypress stands at [-11.5, 0, 8.55]
+          (planter radius 0.8925), so the forecourt strip between them is only 0.71
+          deep at the cypress — too narrow for the 1.87-deep bench, and the audit's
+          Z = 9.2 candidate would have hit the planter (nearest approach 0.59 <
+          0.8925). Each prop therefore also steps 0.8 outward in X to clear the tree:
+          the bench to [-13.8, 0, 8.4] (nearest cypress approach 1.30, plinth 0.61),
+          the barrels to [-15.5, 0, 9.1] and [-16.9, 0, 9.1]. Rotation, parts and
+          cargo are unchanged; tightest pair of the whole group is the two barrels at
+          +0.27. See src/utils/phaseC8_22.test.ts. */}
+      <RomanBench position={[-13.8, 0, 8.4]} rotationY={Math.PI / 4} />
+      <WineBarrel position={[-15.5, 0, 9.1]} rotationY={0.3} />
+      <WineBarrel position={[-16.9, 0, 9.1]} isLyingDown={true} rotationY={0.5} />
 
       {/* SOUTHEAST: Caravanserai Inn Courtyard Benches */}
-      <RomanBench position={[13.0, 0, 11.2]} rotationY={-Math.PI / 4} />
-      <TimberCrate position={[14.0, 0, 12.0]} size={[0.9, 0.8, 0.9]} />
-      <RomanAmphora position={[13.6, 0, 10.2]} scale={0.85} tone="terracotta" />
+      {/* Phase C-8.22: the same audit finding on the Inn — the bench at
+          [13.0, 0, 11.2] reached 0.57 into the north wall, the crate at
+          [14.0, 0, 12.0] was buried 0.80 deep in it, and the amphora at
+          [13.6, 0, 10.2] reached 0.30 into the plinth step; the bench and the crate
+          also interpenetrated each other by 0.33. The Inn's north plinth face is
+          Z = 9.95 (0.20 further out than the Tavern's 10.15) and its C-8.21 cypress
+          is the mirrored [-11.5 → +11.5, 0, 8.55], so the props take the mirrored
+          move: bench to [13.8, 0, 8.4] (nearest cypress approach 1.30, plinth 0.61),
+          crate to [15.5, 0, 9.1] (plinth 0.40) and amphora to [16.9, 0, 9.1]
+          (plinth 0.63). Sizes, scales, tones and rotations are unchanged; tightest
+          pair of the group is bench ↔ crate at +0.31.
+          See src/utils/phaseC8_22.test.ts. */}
+      <RomanBench position={[13.8, 0, 8.4]} rotationY={-Math.PI / 4} />
+      <TimberCrate position={[15.5, 0, 9.1]} size={[0.9, 0.8, 0.9]} />
+      <RomanAmphora position={[16.9, 0, 9.1]} scale={0.85} tone="terracotta" />
 
       {/* CIVIC COURTYARD FURNISHINGS (PHASE 26) */}
       {/* Forum Socialis Civic Notice Board & Resting Benches */}
@@ -468,7 +504,14 @@ export const CityStreets = React.memo(() => {
 
       {/* Minerva Academy Courtyard Resting Benches & Scholar Stone Seat */}
       <RomanBench position={[22.5, 0, -21.0]} rotationY={Math.PI / 2} stoneColor={ROMAN_PALETTE.travertine.color} />
-      <RomanBench position={[27.5, 0, -21.0]} rotationY={-Math.PI / 2} stoneColor={ROMAN_PALETTE.travertine.color} />
+      {/* Phase C-8.22: this Doctore House bench reached 0.50 into the house's north
+          wall (Z = -20.5) and 0.14 into the plinth (Z = -20.75). It moves 1.0 north
+          to [27.5, 0, -22.0] — 0.28 clear of the plinth step, 0.35 clear of the
+          Gladiator Academy plinth at Z = -23.35 — and stays in the house's north
+          practice lane, 1.4 east of the C-8.19 practice rack and 2.0 west of the
+          straw dummy. Rotation, colour and size are unchanged.
+          See src/utils/phaseC8_22.test.ts. */}
+      <RomanBench position={[27.5, 0, -22.0]} rotationY={-Math.PI / 2} stoneColor={ROMAN_PALETTE.travertine.color} />
 
       {/* Western Combat Services Courtyard Benches & Notice Board */}
       <RomanBench position={[-23.0, 0, -7.5]} rotationY={0} />
@@ -534,7 +577,20 @@ export const CityStreets = React.memo(() => {
       </mesh>
 
       {/* Center Academy Monumental Obelisk */}
-      <group position={[25, 0, -21]}>
+      {/* Phase C-8.22: the obelisk base (0.9 × 0.9) at [25, 0, -21] overlapped the
+          Doctore House plinth — its Z −20.55 face is 0.20 inside the plinth's Z =
+          -20.75 face, and its X band 24.55–25.45 is 0.45 inside the plinth's west
+          face X = 25.0 — reaching 0.135 into plinth.lower and 0.125 into the north-
+          west quoin stack. The smallest safe move for a 0.20 Z-gap is 0.40 north
+          (Z = -21.40; 0.45 already buys 0.25); the shipped 0.6 north (Z = -21.6)
+          clears the plinth by 0.40, the plinth step by 0.50 and the quoin stack by
+          0.475. The whole group
+          (base + spire, with its π/4 spire rotation) moves together; X, the
+          courtyard floor, the doctore_house arrival [23.5, -18.875] and the west
+          doorway's approach corridor are untouched. It keeps its 0.15 clearance to
+          the C-8.19 practice rack (unchanged from before the move — the rack's X band
+          starts at 25.6). See src/utils/phaseC8_22.test.ts. */}
+      <group position={[25, 0, -21.6]}>
         {/* Square Marble base plinth */}
         <mesh castShadow receiveShadow position={[0, 0.2, 0]}>
           <boxGeometry args={[0.9, 0.4, 0.9]} />
