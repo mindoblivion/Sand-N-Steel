@@ -1273,10 +1273,16 @@ test('fast-travel-to-interaction: every arrival is outside all colliders (safety
 // 20. PHASE 31F — CARAVANSERAI INTERACTION APPROACH
 // ════════════════════════════════════════════════════════════════════════════
 
-test('caravanserai: interaction radius is 4.75 (expanded from 4.5)', () => {
+test('caravanserai: interaction radius is 5.75 (31F reached 4.75; C-8.47 rebased it)', () => {
+  // Phase 31F enlarged this hub for the SOUTH approach (4.5 → 4.75).  Phase C-8.47
+  // measured that the approach the inn actually uses is its WEST portico: the nearest
+  // standable point there is 4.95 from the hub centre (collider west face 11.45 + the
+  // 0.40 player radius), so the 4.75 disc raised no prompt from the doorway, and a
+  // walk out of the [10, 14] arrival reached nothing.  5.75 is the smallest quarter
+  // unit with a band at least the player's own 0.80 diameter deep (0.80 here).
   const loc = HUB_LOCATIONS.find(l => l.id === 'caravanserai');
   assert.ok(loc, 'caravanserai should exist');
-  assert.strictEqual(loc!.radius, 4.75, `Expected radius 4.75, got ${loc!.radius}`);
+  assert.strictEqual(loc!.radius, 5.75, `Expected radius 5.75, got ${loc!.radius}`);
 });
 
 test('caravanserai: practical interaction approach from south side', () => {
@@ -1293,17 +1299,53 @@ test('caravanserai: practical interaction approach from south side', () => {
     'Approach point [16, 9.55] should be collision-free');
 });
 
-test('caravanserai: expanded radius does not overlap neighboring hub locations', () => {
+// Phase C-8.47 rebased this assertion.  Phase 31F could hold the stronger "the
+// enlarged disc touches no neighbour" property because a 4.75 disc at (16, 14) cleared
+// the stable's 4.5 one by 10.05 − 9.25 = 0.80.  The C-8.47 radii are the measured
+// minimum each hub needs for its own entrance, so strict separation is no longer
+// attainable: 5.75 + the stable's 5.25 = 11.00 against the 10.05 between their centres,
+// and 5.75 + the forge's 6.00 = 11.75 against 11.57.  The invariants that still
+// matter — the overlaps are the two neighbours' alleys, no doorway is inside them, and
+// no arrival is served by the wrong hub — are asserted here and, in full (all nine
+// overlapping pairs), by `src/utils/phaseC8_47.test.ts` §D.
+test('caravanserai: the enlarged radius overlaps only its two neighbours, and no arrival is cross-served', () => {
   const carav = HUB_LOCATIONS.find(l => l.id === 'caravanserai')!;
-  for (const loc of HUB_LOCATIONS) {
-    if (loc.id === 'caravanserai') continue;
+  const overlapping = HUB_LOCATIONS.filter((loc) => {
+    if (loc.id === 'caravanserai') return false;
     const dist = Math.sqrt(
       (carav.position[0] - loc.position[0]) ** 2 +
       (carav.position[2] - loc.position[2]) ** 2,
     );
-    const combined = carav.radius + loc.radius;
-    assert.ok(dist > combined,
-      `${loc.id} overlaps caravanserai: dist=${dist.toFixed(2)} combined=${combined}`);
+    return dist < carav.radius + loc.radius;
+  }).map((loc) => loc.id);
+  assert.deepStrictEqual(overlapping, ['smithing_forge', 'stable'],
+    `the caravanserai disc should overlap only the forge (11.57 away) and the stable (10.05), got [${overlapping.join(', ')}]`);
+  // The stable lens is the back alley between the two buildings (x 20.55 … 22.25),
+  // behind both entrances: the caravanserai portal faces west and the stable front
+  // faces north, so neither doorway is inside it.  Its midpoint is walkable, both
+  // discs contain it, and it sits further from each hub centre than that hub's own
+  // entrance standoff (the caravanserai's west portal 4.95, the stable's front
+  // 4.25).
+  const stable = HUB_LOCATIONS.find(l => l.id === 'stable')!;
+  const lensMid: [number, number] = [
+    (carav.position[0] + stable.position[0]) / 2,
+    (carav.position[2] + stable.position[2]) / 2,
+  ];
+  assert.ok(!collidesWith(lensMid[0], lensMid[1], R, CITY_COLLIDERS),
+    'the lens midpoint should be walkable ground (the alley between the two buildings)');
+  const dCarav = Math.hypot(lensMid[0] - carav.position[0], lensMid[1] - carav.position[2]);
+  const dStable = Math.hypot(lensMid[0] - stable.position[0], lensMid[1] - stable.position[2]);
+  assert.ok(dCarav < carav.radius && dStable < stable.radius,
+    `both discs should contain the lens midpoint (caravanserai ${dCarav.toFixed(2)}, stable ${dStable.toFixed(2)})`);
+  assert.ok(dCarav > 4.95 && dStable > 4.25,
+    `the lens midpoint should lie beyond both entrance standoffs (caravanserai ${dCarav.toFixed(2)}, stable ${dStable.toFixed(2)})`);
+  // No hub's own fast-travel arrival resolves to a different hub.
+  for (const loc of HUB_LOCATIONS) {
+    const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
+    const hit = getNearbyHubLocation([ax, 0, az]);
+    if (hit) {
+      assert.strictEqual(hit.id, loc.id, `${loc.id} arrival resolves to ${hit.id}`);
+    }
   }
 });
 

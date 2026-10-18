@@ -107,7 +107,16 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     subtitle: 'Armory & Weaponsmith',
     // Phase C-8.19: follows the SmithingForge root relocation (Z 2 → 2.6).
     position: [18, 0, 2.6],
-    radius: 4.5,
+    // Phase C-8.47: 4.5 → 6.0.  The Forge's colonnade doorway is on its WEST face
+    // (local X −4.75), and the nearest point a 0.4-radius player can stand on that
+    // side is the collider's west face (18 − 4.75 = 13.25) plus the player radius =
+    // 5.15 from the hub centre.  A 4.5 disc therefore never reached the entrance
+    // from the west: the walk out of the fast-travel arrival [11.5, 2.6] (6.50 out)
+    // stopped at 5.15 and raised no prompt at all.  6.0 is the smallest 0.25 step
+    // that leaves a 0.85 band on the doorway side — deeper than the player's own
+    // 0.80 diameter — and puts the disc's west rim at X = 12.0, 0.50 east of the
+    // arrival, so eight walk steps bring the prompt up.
+    radius: 6.0,
     icon: 'Hammer',
     tabKey: 'shop',
     actionPrompt: 'Buy Weapons & Armor',
@@ -119,7 +128,14 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     name: 'Bazaar & General Store',
     subtitle: 'Potions & Trade Wares',
     position: [22, 0, -5],
-    radius: 4.5,
+    // Phase C-8.47: 4.5 → 5.25.  The bazaar's open front is its WEST side — the
+    // striped awning (local X −2.8), the display counter (−3.6) and both timber
+    // posts (−4.0) face the Via Mercatoria — and the nearest standable point there
+    // is the collider's west face (22 − 3.85 = 18.15) plus the 0.40 player radius =
+    // 4.25 from the hub centre, so the old 4.5 disc left a 0.25 band.  5.25 is the
+    // smallest 0.25 step with a band at least the player's own 0.80 diameter deep
+    // (1.00 here), and it puts the [17, −5] arrival (5.00) inside the disc.
+    radius: 5.25,
     icon: 'ShoppingCart',
     tabKey: 'shop',
     actionPrompt: 'Visit Bazaar Merchant',
@@ -131,7 +147,14 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     name: 'The Golden Palm Tavern',
     subtitle: 'Rumors & Gambling',
     position: [-16, 0, 14],
-    radius: 4.5,
+    // Phase C-8.47: 4.5 → 5.75.  The tavern's arched portal is on its EAST face
+    // (local X +4.22 — the side its [−10, 14] arrival stands off), where the nearest
+    // standable point is the 8.9-wide collider's east face (−11.55) plus the 0.40
+    // player radius = 4.85 from the centre.  That is outside the old 4.5 disc, so no
+    // prompt could be raised from the doorway or the arrival at all.  5.75 is the
+    // smallest 0.25 step with a band ≥ the player's 0.80 diameter (0.90 here); the
+    // arrival stays 0.25 outside it, one walk step.
+    radius: 5.75,
     icon: 'Beer',
     tabKey: 'stats',
     actionPrompt: 'Gather Intel & Rest',
@@ -143,7 +166,14 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     name: 'Caravanserai Inn',
     subtitle: 'Rest & Quarters',
     position: [16, 0, 14],
-    radius: 4.75,
+    // Phase 31F raised this 4.5 → 4.75 for the south approach; C-8.47 raises it
+    // 4.75 → 5.75 for the portico the inn actually uses.  That portico (local X
+    // −4.32) faces WEST toward the [10, 14] arrival, and the nearest standable point
+    // is the 9.1-wide collider's west face (11.45) plus the 0.40 player radius = 4.95
+    // from the centre, so the 4.75 disc left a 0.20 band and the walk from the
+    // arrival raised no prompt.  5.75 is the smallest 0.25 step with a band ≥ the
+    // player's 0.80 diameter (0.80 here); the arrival sits 0.25 outside, one step.
+    radius: 5.75,
     icon: 'Home',
     tabKey: 'gear',
     actionPrompt: 'Equip Loadout',
@@ -155,7 +185,12 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     name: 'Elite Merchant House',
     subtitle: 'Prestigious Trade Taberna',
     position: [26, 0, -13],
-    radius: 4.5,
+    // Phase C-8.47: 4.5 → 5.25.  The taberna's colonnade portal (local X −3.62)
+    // faces WEST, and the nearest standable point is the 7.7-wide collider's west
+    // face (22.15) plus the 0.40 player radius = 4.25 from the centre — a 0.25 band
+    // under the old 4.5.  5.25 leaves a 1.00 band and puts the [21, −13] arrival
+    // (5.00) inside the disc.
+    radius: 5.25,
     icon: 'ShoppingCart',
     tabKey: 'shop',
     actionPrompt: 'Inspect High-Tier Wares',
@@ -179,7 +214,13 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     name: 'Imperial Horse Stable',
     subtitle: 'Mounts & Caravans',
     position: [26, 0, 15],
-    radius: 4.5,
+    // Phase C-8.47: 4.5 → 5.25.  The stable's open front is its NORTH side — the
+    // solid box at local Z +3.1 is the rear wall and only the two cutout posts at
+    // −3.1 close the front — and the nearest standable point there is the 7.7-deep
+    // collider's north face (11.15) plus the 0.40 player radius = 4.25 from the
+    // centre, so the old 4.5 disc left a 0.25 band.  5.25 leaves a 1.00 band and puts
+    // the [26, 10] arrival (5.00) inside the disc.
+    radius: 5.25,
     icon: 'Compass',
     actionPrompt: 'Visit Stables',
     color: '#10b981',
@@ -190,7 +231,14 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     name: 'Gladiator Ludus Academy',
     subtitle: 'Advanced Gladiator Training',
     position: [30.5, 0, -27],
-    radius: 4.5,
+    // Phase C-8.47: 4.5 → 5.25.  The academy's recessed portal (local X −3.62) faces
+    // WEST onto its own forecourt, where the nearest standable point is the 7.7-wide
+    // collider's west face (26.65) plus the 0.40 player radius = 4.25 from the centre;
+    // the old 4.5 disc left a 0.25 band, and a walk out of the [25.5, −23] arrival
+    // entered the Records Library's disc first — that hub is listed later, so the
+    // wrong building answered.  5.25 leaves a 1.00 band on the portal side, and the
+    // same walk out of the arrival now raises the academy's own prompt.
+    radius: 5.25,
     icon: 'Dumbbell',
     tabKey: 'training',
     actionPrompt: 'Enter Ludus Academy',
@@ -230,7 +278,12 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     name: 'Imperial Public Bathhouse',
     subtitle: 'Thermae & Recuperation Pools',
     position: [-26, 0, 25],
-    radius: 4.5,
+    // Phase C-8.47: 4.5 → 4.75.  The thermae's colonnade portico (local Z −3.4) faces
+    // NORTH, and the nearest standable point is the 7.0-deep collider's north face
+    // (21.5) plus the 0.40 player radius = 3.90 from the centre, so the old 4.5 disc
+    // left a 0.60 band — below the player's own 0.80 diameter.  4.75 is the smallest
+    // 0.25 step with a band ≥ 0.80 (0.85 here).
+    radius: 4.75,
     icon: 'Home',
     tabKey: 'stats',
     actionPrompt: 'Rest in Bathhouse Thermae',
@@ -593,15 +646,41 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   northern_fortress:   [0, MOTTE_CENTER_Z + 12.5],
 };
 
+/**
+ * Nearest-hub lookup for the interaction prompt.
+ *
+ * Selection is the NEAREST hub whose disc contains `pos` (inclusive of the rim),
+ * with an exact tie broken by `HUB_LOCATIONS` order, so the answer is
+ * deterministic and independent of frame timing.
+ *
+ * Phase C-8.47 measured why the lookup has to be distance-based.  How far a hub
+ * centre is from the entrance it is entered by is fixed by the building's own
+ * footprint, so an interaction radius large enough to reach that entrance reaches
+ * just as far on every other side: the eight corrected radii below therefore
+ * overlap their neighbours' discs in nine pairs.  Under the previous
+ * first-match-in-order rule the *earlier* hub answered across all of those lenses,
+ * even where the player was standing beside the later one.  Measured at a walkable
+ * point in the alley between the Gladiator Academy and the Doctore House, the
+ * prompt said "Enter Ludus Academy" with the Doctore House 3.27 away and the
+ * academy 5.24 — a 1.97-unit error, alone affecting 297 cells of that one lens
+ * (300+ across the city).  Nearest-first answers the Doctore House there, and
+ * leaves every fast-travel arrival and every doorway answering the building it
+ * belongs to (`phaseC8_47.test.ts` §D).
+ */
 export function getNearbyHubLocation(
   pos: [number, number, number]
 ): InteractiveLocation | null {
+  let nearest: InteractiveLocation | null = null;
+  let nearestDistSq = Infinity;
   for (const loc of HUB_LOCATIONS) {
     const distSq =
       Math.pow(pos[0] - loc.position[0], 2) + Math.pow(pos[2] - loc.position[2], 2);
-    if (distSq <= loc.radius * loc.radius) {
-      return loc;
+    if (distSq > loc.radius * loc.radius) continue;
+    // Strictly nearer only: an exact tie keeps the earlier HUB_LOCATIONS entry.
+    if (distSq < nearestDistSq) {
+      nearest = loc;
+      nearestDistSq = distSq;
     }
   }
-  return null;
+  return nearest;
 }

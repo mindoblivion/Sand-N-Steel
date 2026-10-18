@@ -263,9 +263,15 @@ describe('G. merchant_house fast-travel arrival', () => {
 describe('H. Merchant House interaction zone', () => {
   const mhHub = HUB_LOCATIONS.find((l) => l.id === 'merchant_house');
 
-  test('hub location moved to [26, 0, -13] with radius 4.5', () => {
+  test('hub location moved to [26, 0, -13]; radius 4.5 (C-8.12) → 5.25 (C-8.47)', () => {
     expect(mhHub?.position).toEqual([26, 0, -13]);
-    expect(mhHub?.radius).toBe(4.5);
+    // Phase C-8.47 rebased this radius.  C-8.12 put the hub and its arrival here
+    // with a 4.5 disc; the taberna's own entrance is its west portal (local X
+    // −3.62), whose nearest standable point is 4.25 from the hub centre, so the
+    // 4.5 disc left a 0.25 band.  5.25 is the smallest 0.25 step with a band at
+    // least the player's own 0.80 diameter deep, and it puts the [21, -13]
+    // arrival at 5.00 inside the disc.
+    expect(mhHub?.radius).toBe(5.25);
   });
 
   test('is reachable on foot from the fast-travel arrival', () => {
