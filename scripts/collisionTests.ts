@@ -278,11 +278,11 @@ test('boundary: +Z clamped to 35', () => {
 });
 
 test('boundary: -Z clamped to the northern limit (extended north for the motte perimeter)', () => {
-  // Start one step short of the live north boundary (BOUNDARY_Z_MIN = -96,
+  // Start one step short of the live north boundary (BOUNDARY_Z_MIN = -101,
   // i.e. MOTTE_CENTER_Z - 22 + 2.5, extended north from -35 to reach the motte
-  // perimeter of the northern group).  [0, -95] is collision-free: the motte
-  // perimeter chords sit at radius ≈21.75 around [0, -76.5] since Phase
-  // C-8.37, so the start is 18.5 inside them, and the single 3.8-unit step
+  // perimeter of the northern group).  [0, -100] is collision-free: the motte
+  // perimeter chords sit at radius ≈21.75 around [0, -81.5] since Phase
+  // C-8.38, so the start is 18.5 inside them, and the single 3.8-unit step
   // north is clamped at the boundary rather than crossing the ring.
   const pos: [number, number, number] = [0, 0, BOUNDARY_Z_MIN + 1];
   const result = resolveCityMovement(pos, 0, -1, 3.8, 1.0);
@@ -1718,17 +1718,18 @@ test('31J: all 19 fast-travel arrivals remain collision-free and reachable after
 // ════════════════════════════════════════════════════════════════════════════
 // 23. PHASE 33B — NORTHERN FORTRESS COLLISION, GATE, AND ACCESS
 //
-// Live layout (Phase 34G shift north, Phase 35F.5 complex shift, then Phase
-// C-8.37, which moved the whole northern group — motte, moat, drawbridge and
-// fortress — 5.0 units north).  Every coordinate below is stated as an offset
-// from terrainHeight's MOTTE_CENTER_Z (-76.5), the single constant the mound,
-// the moat ring, the drawbridge and the collision registry are placed with:
-//   fortress root [0, 4.72, MOTTE_CENTER_Z] = [0, 4.72, -76.5], 21×21 footprint
-//   south wall pieces  x[±1.0,±10.5] z[-66.6,-65.4]  (gate gap X ∈ [-1, 1])
-//   north wall         x[-10.5,10.5] z[-87.6,-86.4]
-//   east / west walls  x[±9.9,±11.1] z[-87,-66]
-//   motte perimeter    center [0,-76.5], radius 22, ramp opening at θ=0
-//   fast-travel arrival [0, -64.0]
+// Live layout (Phase 34G shift north, Phase 35F.5 complex shift, then Phases
+// C-8.37 and C-8.38, which moved the whole northern group — motte, moat,
+// drawbridge and fortress — 5.0 units north each).  Every coordinate below is
+// stated as an offset from terrainHeight's MOTTE_CENTER_Z (-81.5), the single
+// constant the mound, the moat ring, the drawbridge and the collision registry
+// are placed with:
+//   fortress root [0, 4.72, MOTTE_CENTER_Z] = [0, 4.72, -81.5], 21×21 footprint
+//   south wall pieces  x[±1.0,±10.5] z[-71.6,-70.4]  (gate gap X ∈ [-1, 1])
+//   north wall         x[-10.5,10.5] z[-92.6,-91.4]
+//   east / west walls  x[±9.9,±11.1] z[-92,-71]
+//   motte perimeter    center [0,-81.5], radius 22, ramp opening at θ=0
+//   fast-travel arrival [0, -69.0]
 // ════════════════════════════════════════════════════════════════════════════
 
 /** The fortress's own 21×21 world half-footprint at scale 0.30. */
@@ -1837,10 +1838,10 @@ test('fortress: player can walk through gate from interior to south', () => {
 });
 
 test('fortress: player can walk around the east side', () => {
-  // Fortress centred at MOTTE_CENTER_Z (-76.5 since C-8.37), south wall face
-  // at -65.4, east wall at X=10.5.  Start at the live arrival (south of the
+  // Fortress centred at MOTTE_CENTER_Z (-81.5 since C-8.38), south wall face
+  // at -70.4, east wall at X=10.5.  Start at the live arrival (south of the
   // south wall).  The motte perimeter allows movement inside radius 22 from
-  // [0, -76.5].
+  // [0, -81.5].
   let pos: [number, number, number] = [0, 0, FORTRESS_ARRIVAL_Z];
   // Step 1: go east past the east wall (outer edge X=11.1+R)
   for (let i = 0; i < 80; i++) {
@@ -1911,7 +1912,7 @@ test('fortress: player can escape back toward city from arrival', () => {
 });
 
 test('fortress: getNearbyHubLocation detects fortress at position', () => {
-  // Live hub center is [0, 0, MOTTE_CENTER_Z] = [0, 0, -76.5] with radius
+  // Live hub center is [0, 0, MOTTE_CENTER_Z] = [0, 0, -81.5] with radius
   // 10.0.  The fast-travel arrival (12.5 away) is deliberately outside the
   // interaction radius — the player walks in through the gate to interact
   // (covered by the arrival-to-interaction test above).  Detection therefore
@@ -1933,12 +1934,12 @@ test('fortress: northern_fortress exists in HUB_LOCATIONS and FAST_TRAVEL_ARRIVA
 });
 
 test('fortress: does not overlap Colosseum colliders', () => {
-  // Colosseum: radius 19.3 around [0, -25], arc back wall reaching
-  // Z ≈ -44.1 at its rear gate jambs.  Motte perimeter: radius 22 around
-  // [0, -76.5] since C-8.37, south-facing ramp opening at θ=0 → (0, -54.5).
-  // The approach corridor at X=0 is clear from the Colosseum to the ramp
-  // opening — 5.0 units longer than before the northern group moved north.
-  for (let z = -45; z >= -54; z -= 1) {
+  // Colosseum: radius 19.3 around [0, -25], rear-most stone (the gate lintel)
+  // at Z = -44.5.  Motte perimeter: radius 22 around [0, -81.5] since C-8.38,
+  // south-facing ramp opening at θ=0 → (0, -59.5).  The approach corridor at
+  // X=0 is clear from the Colosseum to the ramp opening — 10.0 units longer
+  // than before the northern group's two 5.0 moves.
+  for (let z = -45; z >= -59; z -= 1) {
     assert.ok(!collidesWith(0, z, R, CITY_COLLIDERS),
       `Gap between Colosseum and motte at (0, ${z}) should be clear`);
   }

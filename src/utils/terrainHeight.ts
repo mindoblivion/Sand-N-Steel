@@ -1,8 +1,9 @@
 /**
  * terrainHeight.ts — Focused terrain-height utility for the Northern Motte.
  *
- * The motte is a raised earth mound at world center [0, 0, -76.5] with a
- * south-facing ramp.  The player must walk naturally from city ground (Y=0)
+ * The motte is a raised earth mound at world center [0, 0, MOTTE_CENTER_Z]
+ * (-81.5 since Phase C-8.38) with a south-facing ramp.  The player must walk
+ * naturally from city ground (Y=0)
  * up the ramp, onto the flat summit (Y≈4.72), through the fortress gate,
  * and back down.
  *
@@ -69,22 +70,33 @@
 // ── Motte configuration ─────────────────────────────────────────────────────
 
 export const MOTTE_CENTER_X = 0;
-// Phase C-8.37 — landmark separation.  The whole northern group (motte, moat
-// ring, drawbridge, fortress) moved 5.0 world units north, from Z = -71.5 to
-// Z = -76.5, to open visible space between the Colosseum and the fortress.
-// The Colosseum, its rear gate and its bowl cut did not move.  Every dependent
-// transform — NorthernMotte, NorthernFortress, Drawbridge, collisionShapes.ts,
-// cityCollisions.ts — derives from this one constant, so the group can only
-// ever move as a group.  Measured before → after (phaseC8_37.test.ts): the
-// Colosseum's rear facade (Z = -44.3) sat 7.7 units from the motte's south foot
-// (Z = -52.0) and now reads 12.7 (-57.0); the moat's outer shoreline lay 3.61
-// units INSIDE the Colosseum's rear stone (the gate jamb line at Z = -44.11)
-// at Z = -40.5 and now sits at -45.5, 1.39 units clear of it; and the
-// drawbridge's south end reached 3.61 units into the gateway and now lands
-// 1.39 north of the jamb line.  The nearest city structure to the group went
-// from 27.52 (inside the 31.0 moat ring — the collision this phase removed) to
-// 32.50, i.e. 1.50 of clearance from the outer shoreline.
-export const MOTTE_CENTER_Z = -76.5;
+// ── The one constant the whole northern group moves with ────────────────────
+//
+// Phase C-8.37 — landmark separation.  The group (motte, moat ring,
+// drawbridge, fortress) moved 5.0 world units north, from Z = -71.5 to
+// Z = -76.5, to lift the moat's outer shoreline + the drawbridge's south end
+// out of the Colosseum's rear gateway (they lay 3.61 units INSIDE its rear
+// stone at the old centre — a clearance defect).
+//
+// Phase C-8.38 — northern approach composition.  That first move removed the
+// overlap but left only a 1.00-unit apron between the Colosseum's rear-most
+// stone and the moat's outer bank: the water still lapped the gateway
+// threshold, the drawbridge began inside the gateway's own silhouette, and the
+// gate → water → mound → fortress sequence read as one continuous mass.  The
+// group moved a further 5.0 north, to Z = -81.5, so the apron between the
+// Colosseum's rear stone and the moat's outer bank equals the moat's own width
+// (6.0) — apron, moat and the 6.0-long deck then read as three same-scale
+// bands, with a 5.5-unit bank behind the water before the mound's visible foot
+// rises.  Measured (phaseC8_37/phaseC8_38 suites, and the source audit in
+// AGENTS.md): apron 1.00 → 6.00, the deck's outer corner 1.51 → 6.42 from the
+// nearest Colosseum stone, the nearest city collider 32.50 → 37.49 from the
+// centre, and the Colosseum's rear facade 12.7 → 17.7 from the motte's south
+// foot.  No dimension, material or ratio changed — only this centre.
+//
+// Every dependent transform — NorthernMotte, NorthernFortress, Drawbridge,
+// collisionShapes.ts, cityCollisions.ts — derives from this one constant, so
+// the group can only ever move as a group.
+export const MOTTE_CENTER_Z = -81.5;
 export const MOTTE_SCALE = 0.3145;
 
 // ── Drawbridge (Phase 35E) ───────────────────────────────────────────────────
@@ -95,18 +107,19 @@ export const MOTTE_SCALE = 0.3145;
 // provides the upward path that the ramp formerly did.
 //
 // Bridge placement (world space, centered at X=0).  The bridge belongs to the
-// northern group and moves with it (Phase C-8.37), so both ends are stated
-// relative to the motte centre rather than as absolute world Z:
-//   Outer (south, city side): MOTTE_CENTER_Z + 31.0 = -45.5 — the moat's outer
-//     shoreline, i.e. the bank the deck lands on.
-//   Inner (north, motte side): MOTTE_CENTER_Z + 25.5 = -51.0 — 0.5 short of the
-//     deck's own north end (-51.5) and of the moat's inner shoreline (-51.5).
+// northern group and moves with it (Phases C-8.37 / C-8.38), so both ends are
+// stated relative to the motte centre rather than as absolute world Z:
+//   Outer (south, city side): MOTTE_CENTER_Z + 31.0 = -50.5 — the moat's outer
+//     shoreline, i.e. the bank the deck lands on, now 6.00 north of the
+//     Colosseum's rear-most stone.
+//   Inner (north, motte side): MOTTE_CENTER_Z + 25.5 = -56.0 — 0.5 short of the
+//     deck's own north end (-56.5) and of the moat's inner shoreline (-56.5).
 //   Half-width: 2.0  (4-unit deck, inside the rear gate's 5.40 clear width)
 //   Deck Y: 0.16 top / 0.09 underside (above moat water at 0.06)
 
 export const BRIDGE_HALF_WIDTH = 2.0;
-export const BRIDGE_Z_OUTER = MOTTE_CENTER_Z + 31.0; // -45.5
-export const BRIDGE_Z_INNER = MOTTE_CENTER_Z + 25.5; // -51.0
+export const BRIDGE_Z_OUTER = MOTTE_CENTER_Z + 31.0; // -50.5
+export const BRIDGE_Z_INNER = MOTTE_CENTER_Z + 25.5; // -56.0
 export const BRIDGE_LENGTH = BRIDGE_Z_OUTER - BRIDGE_Z_INNER; // 5.5 (negative)
 
 /**

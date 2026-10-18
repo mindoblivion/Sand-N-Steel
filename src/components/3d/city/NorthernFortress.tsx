@@ -26,16 +26,16 @@ import { MOTTE_CENTER_Z, SUMMIT_Y } from '../../../utils/terrainHeight';
  *   Gates_Wood     X±2.25 Y≈-28.5 Z 0.05–3.95 (south gate, 4.5 wide)
  *
  * At scale 0.30 the footprint becomes 21×21 world units, height ~7.92.
- * Position [0, SUMMIT_Y, MOTTE_CENTER_Z] — [0, 4.7175, -76.5] — places it on
+ * Position [0, SUMMIT_Y, MOTTE_CENTER_Z] — [0, 4.7175, -81.5] — places it on
  * the motte's flat summit (summit height Y=4.72, summit radius ≈15.73,
  * fortress half-width 10.5 — corners at radius 14.85, clearance 0.88 from the
  * summit edge).  Both coordinates come from terrainHeight (Phase C-8.37), so
  * the fortress can never separate from the mound it stands on.
  *
  * World-space bounds after the node rotation combined with this group's
- * position/scale:
- *   X: [-10.5, 10.5]   Y: [4.72, 12.64]   Z: [-87.0, -66.0]
- *   Gate (model Y=-28.5) → world Z ≈ -67.95 (south side, facing city +Z)
+ * position/scale (Phases C-8.37 / C-8.38 moved the whole group; only Z shifts):
+ *   X: [-10.5, 10.5]   Y: [4.72, 12.64]   Z: [-92.0, -71.0]
+ *   Gate (model Y=-28.5) → world Z ≈ -72.95 (south side, facing city +Z)
  *
  * Collision is handled by rect colliders in collisionShapes.ts (fortress-*
  * IDs) with a 2.0-unit gap at the gate for player passage.  The visual gate

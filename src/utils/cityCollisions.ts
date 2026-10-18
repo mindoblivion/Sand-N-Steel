@@ -12,14 +12,14 @@ import { MOTTE_CENTER_Z, MOTTE_PERIMETER_RADIUS } from './terrainHeight';
 // ── World movement boundaries ────────────────────────────────────────────
 // X axis is symmetric ±35.  The Z axis extends north to reach the Northern
 // Motte perimeter: the perimeter's north point is
-// MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS (-98.5 since Phase C-8.37 moved the
+// MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS (-103.5 since Phase C-8.38 moved the
 // motte north with its moat and fortress), and the boundary keeps the same
-// documented 2.5-unit margin south of it (-96).  Stating it as that derivation
+// documented 2.5-unit margin south of it (-101).  Stating it as that derivation
 // rather than a literal means the walkable envelope follows the landmark
 // instead of silently shrinking when the landmark moves.  The southern limit
 // remains +35.
 export const BOUNDARY_X = 35;
-export const BOUNDARY_Z_MIN = MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5; // -96
+export const BOUNDARY_Z_MIN = MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5; // -101
 export const BOUNDARY_Z_MAX = 35;
 
 // ── Phase 31H: Recovery history for oscillation detection ───────────────
@@ -582,10 +582,10 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   veteran_gladiator_hall: [-24, -29],
   arena_medical_house:[-29, -9],
   // Fortress arrival: on the motte summit just south of the gate, in the
-  // gate gap corridor at X=0.  Z is 12.5 north of the motte centre (-64.0
-  // since Phase C-8.37), i.e. inside the summit (cardinal radius 12.58) and
+  // gate gap corridor at X=0.  Z is 12.5 north of the motte centre (-69.0
+  // since Phase C-8.38), i.e. inside the summit (cardinal radius 12.58) and
   // 2.0 south of the fortress south wall (outer face MOTTE_CENTER_Z + 10.5 =
-  // -66.0).  Terrain height at this point is Y≈4.72 (summit level).
+  // -71.0).  Terrain height at this point is Y≈4.72 (summit level).
   // Collision-free with the fortress wall gap (X=0) and the motte perimeter
   // opening.
   northern_fortress:   [0, MOTTE_CENTER_Z + 12.5],

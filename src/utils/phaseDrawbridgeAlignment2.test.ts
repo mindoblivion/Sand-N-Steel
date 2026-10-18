@@ -233,12 +233,13 @@ describe('Deck stays connected to the southern approach', () => {
 
 describe('getTerrainY unchanged by the deck alignment', () => {
   test('shared bridge constants keep their offsets from the motte centre', () => {
-    // Phase C-8.37 moved both ends with the group; the +31.0 (outer shoreline)
-    // and +25.5 (0.5 short of the deck's own north end) offsets are unchanged.
+    // Phases C-8.37 / C-8.38 moved both ends with the group; the +31.0 (outer
+    // shoreline) and +25.5 (0.5 short of the deck's own north end) offsets are
+    // unchanged — only the centre they are measured from moved.
     expect(BRIDGE_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0);
     expect(BRIDGE_Z_INNER).toBe(MOTTE_CENTER_Z + 25.5);
-    expect(BRIDGE_Z_OUTER).toBe(-45.5);
-    expect(BRIDGE_Z_INNER).toBe(-51.0);
+    expect(BRIDGE_Z_OUTER).toBe(-50.5);
+    expect(BRIDGE_Z_INNER).toBe(-56.0);
     expect(BRIDGE_HALF_WIDTH).toBe(2.0);
     expect(isOnBridge(0, (BRIDGE_Z_OUTER + BRIDGE_Z_INNER) / 2)).toBe(true);
   });

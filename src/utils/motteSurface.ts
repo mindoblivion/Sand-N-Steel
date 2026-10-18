@@ -7,7 +7,7 @@
  * (exponent 6, cardinal radius 40 model units = the summit edge), and the
  * family does not stop at the mound's own foot — it keeps going as an outer
  * flange.  Measured from the asset with the motte's world transform (group
- * position [0, 0, -76.5] (MOTTE_CENTER_Z since Phase C-8.37; the flange
+ * position [0, 0, -81.5] (MOTTE_CENTER_Z since Phase C-8.38; the flange
  * levels below are model-space and do not depend on it), scale 0.3145, no
  * extra rotation — the GLB's nodes
  * already carry the Z-up→Y-up matrix):

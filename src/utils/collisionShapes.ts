@@ -674,14 +674,14 @@ const streetWallSegments: SegmentCollider[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Northern Fortress Walls — NorthernFortress.tsx, root [0, 4.72, -76.5]
+// Northern Fortress Walls — NorthernFortress.tsx, root [0, 4.72, -81.5]
 //
 // The fortress model (Z-up, 70×70 ground footprint) is rotated [-π/2, 0, 0]
 // (Z-up → Y-up) and scaled 0.30, giving a 21×21 world footprint centered
 // at [0, MOTTE_CENTER_Z] on the motte summit (Y=4.72).  After rotation, the
 // model's Y axis maps to world -Z, so:
-//   South face (model Y = -35) → world Z = MOTTE_CENTER_Z + 10.5 = -66.0 (city side)
-//   North face (model Y = +35) → world Z = MOTTE_CENTER_Z - 10.5 = -87.0
+//   South face (model Y = -35) → world Z = MOTTE_CENTER_Z + 10.5 = -71.0 (city side)
+//   North face (model Y = +35) → world Z = MOTTE_CENTER_Z - 10.5 = -92.0
 //   East face  (model X = +35)  → world X = +10.5
 //   West face  (model X = -35)  → world X = -10.5
 //
@@ -695,8 +695,9 @@ const streetWallSegments: SegmentCollider[] = [
 // Phase 34G: colliders shifted north by 8.5 world units (Z: -59.5 → -68)
 // to match the new fortress position on the motte summit.
 // Phase 35F.5: complex shifted north by 3.5 units (Z: -68 → -71.5).
-// Phase C-8.37: the fortress moved with its motte (Z: -71.5 → -76.5).  Every
-// rect is now stated relative to terrainHeight's MOTTE_CENTER_Z — the fortress
+// Phases C-8.37 / C-8.38: the fortress moved with its motte (Z: -71.5 → -76.5
+// → -81.5).  Every rect is now stated relative to terrainHeight's
+// MOTTE_CENTER_Z — the fortress
 // stands on the summit centre, at the group transform NorthernFortress.tsx
 // itself declares — so the walls follow the mound automatically.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -716,7 +717,7 @@ const fortressWallRects: RectCollider[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Northern Motte Perimeter — NorthernMotte.tsx, center [0, 0, -76.5] (C-8.37)
+// Northern Motte Perimeter — NorthernMotte.tsx, center [0, 0, -81.5] (C-8.38)
 //
 // The motte is a raised earth mound with a moat ring at model radius ~70
 // (world radius ≈22).  Collision segments around this perimeter prevent
@@ -732,7 +733,7 @@ const fortressWallRects: RectCollider[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MOTTE_R = 22.0;
-// MOTTE_CENTER_Z comes from terrainHeight (Phase C-8.37) — the same constant
+// MOTTE_CENTER_Z comes from terrainHeight (Phases C-8.37 / C-8.38) — the same constant
 // the mound, the moat ring, the drawbridge and the fortress are placed with.
 const RAMP_HALF_W = 9 * 0.3145; // 2.8305
 const MOTTE_OPENING_HALF = Math.atan((RAMP_HALF_W + 0.4) / MOTTE_R); // ≈ 0.146 rad

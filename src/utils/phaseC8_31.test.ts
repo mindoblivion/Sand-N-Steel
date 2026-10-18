@@ -549,17 +549,21 @@ describe('D. The gate is the arena\'s second way in and out', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('E. The drawbridge lines up with the gate', () => {
-  test('the deck lands on the outer bank, 1.2 north of the gate face (C-8.37)', () => {
+  test('the deck lands on the outer bank, 6.2 north of the gate face (C-8.38)', () => {
     const facadeZ = COLO_ROOT_Z - R_FACADE; // −44.3
     expect(facadeZ).toBeCloseTo(-44.3, 10);
-    // Phase C-8.37 moved the northern group — motte, moat, drawbridge and
-    // fortress — 5.0 units north.  The deck used to lie inside the gateway by
-    // 3.8 (its southern end at Z = −40.5, radius 15.5 inside the bowl); since
-    // the group moved while its own 6.0-unit span did not, that southern end
-    // is now the moat's outer shoreline, 1.2 north of the gate face.  The 5.0
-    // units of extra separation appear exactly as this strip of open ground.
-    expect(facadeZ - BRIDGE_Z_OUTER).toBeCloseTo(1.2, 6);
-    expect(BRIDGE_Z_OUTER).toBe(-45.5);
+    // Phases C-8.37 and C-8.38 each moved the northern group — motte, moat,
+    // drawbridge and fortress — 5.0 units north.  The deck used to lie inside
+    // the gateway by 3.8 (its southern end at Z = −40.5, radius 15.5 inside the
+    // bowl); since the group moved while its own 6.0-unit span did not, that
+    // southern end is now the moat's outer shoreline, 6.2 north of the gate
+    // face (and 6.0 north of the Colosseum's rear-most stone, its gate lintel
+    // at −44.5).  The 10.0 units of extra separation appear exactly as this
+    // strip of open ground.
+    expect(facadeZ - BRIDGE_Z_OUTER).toBeCloseTo(6.2, 6);
+    expect(BRIDGE_Z_OUTER).toBe(-50.5);
+    // C-8.37's own step measured 1.2 against this same face.
+    expect((BRIDGE_Z_OUTER + 5.0) - facadeZ).toBeCloseTo(-1.2, 6);
     expect(BRIDGE_Z_OUTER).toBeLessThan(facadeZ);      // north of the gate face
     expect(DECK_Z_MOTTE).toBeLessThan(BRIDGE_Z_OUTER); // the deck's own direction
     // …and it still spans the moat exactly, as C-8.36 fixed it: south end on
@@ -583,7 +587,7 @@ describe('E. The drawbridge lines up with the gate', () => {
     // occupy is plain walkable sand — the cavea still never reaches the line.
     const deckSouth = [0, BRIDGE_Z_OUTER] as const;
     const r = coloRadius(...deckSouth);
-    expect(r).toBeCloseTo(R_FACADE + 1.2, 6);  // 20.5 — 1.2 outside the wall band
+    expect(r).toBeCloseTo(R_FACADE + 6.2, 6);  // 25.5 — 6.2 outside the wall band
     expect(r).toBeGreaterThan(R_FACADE);
     for (const deckR of [R_ARENA_WALL + 0.1, 15.5, SEATING_T1_R_OUT, SEATING_T2_R_OUT]) {
       expect(deckR * Math.sin(BOWL_GAP_HALF)).toBeGreaterThan(DECK_HALF_EXTENT);

@@ -63,34 +63,35 @@ const StreetBrazier: React.FC<{ position: [number, number, number] }> = ({ posit
 // no extra draw call, and no change to its material, lighting or shadow
 // behaviour.
 //
-// Phase C-8.37: the northern group (motte, moat, drawbridge, fortress) moved
-// 5.0 units north (MOTTE_CENTER_Z -71.5 → -76.5), so the plane's north edge
-// followed it by the same 5.0 — from Z = -104 to Z = -109 — keeping exactly
-// the margins the Ground Coverage phase measured: 1.5 units past the moat
-// ring's north extent (-107.5), 7.34 past the motte mesh bound (-101.66) and
-// 13 past the walkable limit (BOUNDARY_Z_MIN, -96).  Only the north edge
-// moves: the south edge, the width and the elevation are untouched.
+// Phases C-8.37 / C-8.38: the northern group (motte, moat, drawbridge,
+// fortress) moved 5.0 units north twice (MOTTE_CENTER_Z -71.5 → -76.5 →
+// -81.5), so the plane's north edge followed it by the same 10.0 — from
+// Z = -104 to Z = -114 — keeping exactly the margins the Ground Coverage phase
+// measured: 1.5 units past the moat ring's north extent (-112.5), 8.34 past
+// the motte mesh bound (-106.66) and 13 past the walkable limit
+// (BOUNDARY_Z_MIN, -101).  Only the north edge moves: the south edge, the
+// width and the elevation are untouched.
 export const GROUND_PLANE_WIDTH = 140; // world X extent (unchanged)
-export const GROUND_PLANE_DEPTH = 179; // world Z extent (was 174)
+export const GROUND_PLANE_DEPTH = 184; // world Z extent (was 179)
 export const GROUND_PLANE_ELEVATION_Y = -0.05; // unchanged elevation
 export const GROUND_PLANE_CENTER: [number, number, number] = [
   0,
   GROUND_PLANE_ELEVATION_Y,
-  -19.5,
+  -22.0,
 ];
 
 // Derived world-space bounds of that plane (centre ∓ half extent).
-export const GROUND_PLANE_NORTH_Z = GROUND_PLANE_CENTER[2] - GROUND_PLANE_DEPTH / 2; // -109
+export const GROUND_PLANE_NORTH_Z = GROUND_PLANE_CENTER[2] - GROUND_PLANE_DEPTH / 2; // -114
 export const GROUND_PLANE_SOUTH_Z = GROUND_PLANE_CENTER[2] + GROUND_PLANE_DEPTH / 2; // +70
 export const GROUND_PLANE_WEST_X = GROUND_PLANE_CENTER[0] - GROUND_PLANE_WIDTH / 2; // -70
 export const GROUND_PLANE_EAST_X = GROUND_PLANE_CENTER[0] + GROUND_PLANE_WIDTH / 2; // +70
 
 // Bump-map tiling. The 140 m plane tiled the clone at 32×32, i.e. 140 / 32 =
 // 4.375 m per tile. Tiling depth is kept at that density by raising the Z
-// repeat with the depth (179 / 41 = 4.366 m per tile, within 0.3 % of 4.375),
+// repeat with the depth (184 / 42 = 4.381 m per tile, within 0.14 % of 4.375),
 // so the texture stays isotropic instead of stretching along Z.
 export const GROUND_BUMP_REPEAT_X = 32; // 140 / 32 = 4.375 m per tile (unchanged)
-export const GROUND_BUMP_REPEAT_Z = 41; // 179 / 41 = 4.366 m per tile
+export const GROUND_BUMP_REPEAT_Z = 42; // 184 / 42 = 4.381 m per tile
 export const GROUND_BUMP_METERS_PER_TILE_X = GROUND_PLANE_WIDTH / GROUND_BUMP_REPEAT_X;
 export const GROUND_BUMP_METERS_PER_TILE_Z = GROUND_PLANE_DEPTH / GROUND_BUMP_REPEAT_Z;
 
@@ -133,8 +134,8 @@ export const ProcessionAvenue = React.memo(() => {
   return (
     <group>
       {/* 1. VAST MEDITERRANEAN SANDSTONE & TERRACOTTA PLAZA FLOOR (FLAT ON GROUND) */}
-      {/* Ground Coverage phase: single plane extended north to Z = -109 since
-          Phase C-8.37 (see the GROUND_PLANE_* constants) so it underlies the
+      {/* Ground Coverage phase: single plane extended north to Z = -114 since
+          Phase C-8.38 (see the GROUND_PLANE_* constants) so it underlies the
           full reachable northern envelope, the motte footprint and the visible
           moat ring at their shifted positions. */}
       <mesh

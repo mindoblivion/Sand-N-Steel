@@ -9,19 +9,24 @@
  * summit.
  *
  * Measured targets (shipping asset public/_workspace_motte_normals.glb, world
- * transform position [0,0,-76.5] since Phase C-8.37, scale 0.3145; sampled
+ * transform position [0,0,-81.5] since Phase C-8.38, scale 0.3145; sampled
  * along X = 0):
  *
- *   Motte_Grass southern rim      Z = -51.34, surface Y = 0.00
- *   Grass surface crosses Y = 0   Z = -57.00 (rising slope begins there)
+ *   Motte_Grass southern rim      Z = -56.34, surface Y = 0.00
+ *   Grass surface crosses Y = 0   Z = -62.00 (rising slope begins there)
  *   Visible moat water surface    Y = 0.06   (ring, MOAT_WATER_Y)
- *   Moat ring span at south       Z = -51.50 (inner) → -45.50 (outer)
+ *   Moat ring span at south       Z = -56.50 (inner) → -50.50 (outer)
  *
  * Dimensions (world space, centered at X=0):
- *   Span:   Z = -45.5 (city side) → Z = -51.5 (motte side), 6.0 units long
+ *   Span:   Z = -50.5 (city side) → Z = -56.5 (motte side), 6.0 units long
  *   Width:  4 units (X ±2.0), inside the rear gate's 5.40 clear width
  *   Deck:   top Y = 0.16 (unchanged walking surface), underside Y = 0.09 —
  *           0.03 above the moat water surface at Y = 0.06
+ *
+ * Phase C-8.38 — the deck's south end is now 6.00 units north of the
+ * Colosseum's rear-most stone (its gate lintel at Z = -44.5), so the bridge
+ * visibly begins outside the gateway on the outer bank instead of reading as
+ * an extension of the gate's stonework.
  *
  * Phase Drawbridge Alignment 2 (deck alignment):
  *   - The north end was extended 0.5 units (Z = -51.0 → -51.5 since C-8.37)
@@ -72,13 +77,15 @@ export const HINGE_RAISE = 0.04;
 
 // ── Deck span ───────────────────────────────────────────────────────────────
 // Both ends come from terrainHeight's northern-group constants, so the bridge
-// moves wherever the motte, its moat and its fortress move (Phase C-8.37).
+// moves wherever the motte, its moat and its fortress move (Phases C-8.37 /
+// C-8.38).
 // South end: the moat's outer shoreline / city approach (BRIDGE_Z_OUTER
-// = -45.5) — the bank the deck lands on, now 1.2 units north of the rear gate
-// face (Z = -44.3): the 5.0-unit shift minus the 3.8 by which the deck used to
-// lie inside the gateway.
+// = -50.5) — the bank the deck lands on, now 6.00 units north of the
+// Colosseum's rear-most stone (its gate lintel at Z = -44.5) and 6.39 north of
+// the gate's registered jamb line (-44.11), so the bridge begins on the bank
+// outside the gateway with a visible apron behind the gate.
 // North end: 0.5 units past the shared terrain constant so the deck overlaps
-// the motte grass rim (Z = -51.34) by 0.16 with no visible gap.
+// the motte grass rim (Z = -56.34) by 0.16 with no visible gap.
 export const DECK_Z_OUTER = BRIDGE_Z_OUTER;
 export const DECK_Z_INNER = BRIDGE_Z_INNER - 0.5; // -51.5
 export const DECK_LENGTH = DECK_Z_OUTER - DECK_Z_INNER; // 6.0

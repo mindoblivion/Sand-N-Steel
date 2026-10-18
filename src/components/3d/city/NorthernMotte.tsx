@@ -28,15 +28,16 @@ import { MOTTE_CENTER_Z, MOTTE_SCALE } from '../../../utils/terrainHeight';
  * rotation either.)  Applying a duplicate rotation would misalign the
  * motte and break the terrain height calculations in terrainHeight.ts.
  *
- * Approved configuration (Phase 34G, C2 south-facing; Z from Phase C-8.37):
- *   Position: [0, 0, MOTTE_CENTER_Z] = [0, 0, -76.5]
+ * Approved configuration (Phase 34G, C2 south-facing; Z from Phase C-8.38):
+ *   Position: [0, 0, MOTTE_CENTER_Z] = [0, 0, -81.5]
  *   Scale:    0.3145 (MOTTE_SCALE)
  *   Rotation: [0, 0, 0]  (the GLB nodes already carry the Z-up→Y-up rotation)
  *
- * Phase C-8.37 — the mountain, its moat and the fortress moved 5.0 units north
- * as one group (see terrainHeight.ts).  The position and scale here now come
- * from terrainHeight's constants, so the mound, the moat ring and the collision
- * perimeter can never drift apart again.
+ * Phases C-8.37 / C-8.38 — the mountain, its moat and the fortress moved 5.0
+ * units north twice as one group (see terrainHeight.ts), the second move to
+ * open the gate → apron → moat composition of the northern approach.  The
+ * position and scale here come from terrainHeight's constants, so the mound,
+ * the moat ring and the collision perimeter can never drift apart again.
  *
  * The GLB has three meshes:
  *   Motte_Grass  — the mound surface (grass), rendered with shadows.
@@ -55,10 +56,10 @@ import { MOTTE_CENTER_Z, MOTTE_SCALE } from '../../../utils/terrainHeight';
  * the summit, the traversable slope, the collision registry and getTerrainY()
  * are untouched.
  *
- * World-space bounds after transform (scale 0.3145, center [0, -76.5]):
- *   Motte: X[-25.16, 25.16], Z[-101.66, -51.34], Y[-0.88, 4.72]
- *   Ramp:  X[-2.83, 2.83],   Z[-63.92, -53.23], Y[0, 4.72]
- *   Summit (flat top at Y=4.72): radius ≈15.73 from [0, -76.5]
+ * World-space bounds after transform (scale 0.3145, center [0, -81.5]):
+ *   Motte: X[-25.16, 25.16], Z[-106.66, -56.34], Y[-0.88, 4.72]
+ *   Ramp:  X[-2.83, 2.83],   Z[-68.92, -58.23], Y[0, 4.72]
+ *   Summit (flat top at Y=4.72): radius ≈15.73 from [0, -81.5]
  *
  * Phase C-8.36 — water beneath the drawbridge.  The water ring's south wedge
  * (MOAT_GAP_HALF_ANGLE either side of the +Z axis) removed the moat exactly

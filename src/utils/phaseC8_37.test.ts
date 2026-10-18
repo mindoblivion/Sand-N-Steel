@@ -14,6 +14,16 @@
  * no longer enters the gateway at all.  The Colosseum, its rear gate, its bowl
  * cut and its C-8.33 seals did not move.
  *
+ * Phase C-8.38 moved the same group a further 5.0 north (MOTTE_CENTER_Z
+ * −76.5 → −81.5) to give the northern approach a readable composition: the
+ * 1.39-unit clearance this phase bought was still narrow enough that the water
+ * lapped the gateway threshold and the deck began inside the gateway's own
+ * silhouette.  This suite is rebased onto that centre — the *properties* it
+ * pins (the group is one constant, the route is walkable, the ground covers the
+ * envelope, no city collider overlaps the group, the shift is what makes the
+ * checks pass) are unchanged, and C-8.37's own intermediate values (−71.5 →
+ * −76.5) are kept below as recorded references rather than restated.
+ *
  * ── HOW IT WAS MOVED ──────────────────────────────────────────────────────
  * Every dependent transform is now *derived* from terrainHeight's
  * MOTTE_CENTER_Z rather than repeating a literal: NorthernMotte's group, the
@@ -103,10 +113,23 @@ import {
 
 /** The motte centre before this phase (Phase 35F.5 value). */
 const PRE_SHIFT_MOTTE_CENTER_Z = -71.5;
+/** The centre this phase produced, before Phase C-8.38's second 5.0 move. */
+const C8_37_MOTTE_CENTER_Z = -76.5;
+/** The centre both moves produced — what every live transform reads today. */
+const C8_38_MOTTE_CENTER_Z = -81.5;
 /** The plane's north edge before this phase (Ground Coverage phase value). */
 const PRE_SHIFT_GROUND_PLANE_NORTH_Z = -104;
 /** Post-shift deck's south end (Phase 35E + Drawbridge Alignment 2 value). */
 const PRE_SHIFT_DECK_Z_OUTER = -40.5;
+
+/**
+ * The Colosseum's rear-MOST rendered stone, not just its registered one: the
+ * tier-1 cornice / tier ledge ring (outer radius 19.5, GrandColosseum.tsx)
+ * runs straight over the rear gate as its lintel, so at the X = 0 axis it
+ * reaches Z = -25 - 19.5 = -44.5 — 0.2 north of the facade plane.  The moat's
+ * outer bank is measured against this stone.
+ */
+const COLO_LINTEL_Z = -44.5;
 
 /**
  * The Colosseum's rear facade plane: GrandColosseum's root [0, 0, −25] minus
@@ -240,10 +263,13 @@ function walkNorth(startZ: number, steps: number): [number, number] {
 // A. The 5-unit northward relocation and the increased separation
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('A. The northern group moved 5.0 north', () => {
+describe('A. The northern group moved north (5.0 in C-8.37, 5.0 more in C-8.38)', () => {
   test('the motte centre is exactly 5.0 north of the recorded pre-shift value', () => {
-    expect(MOTTE_CENTER_Z).toBe(-76.5);
-    expect(MOTTE_CENTER_Z - PRE_SHIFT_MOTTE_CENTER_Z).toBeCloseTo(-5.0, 10);
+    // C-8.37's own move, kept as a recorded step of the composed distance..
+    expect(MOTTE_CENTER_Z).toBe(C8_38_MOTTE_CENTER_Z);
+    expect(MOTTE_CENTER_Z - C8_37_MOTTE_CENTER_Z).toBeCloseTo(-5.0, 10);
+    // …and the composed distance from the layout this workstream started at.
+    expect(MOTTE_CENTER_Z - PRE_SHIFT_MOTTE_CENTER_Z).toBeCloseTo(-10.0, 10);
   });
 
   test('north is −Z (the ramp climbs that way), so the move is northward', () => {
@@ -266,40 +292,49 @@ describe('A. The northern group moved 5.0 north', () => {
     expect(SUMMIT_Y).toBeCloseTo(4.7175, 6);
   });
 
-  test('the moat’s outer shoreline is now clear of the Colosseum’s rear stone', () => {
-    // The Colosseum's rear-most registered stone is its gate jamb line; the
-    // moat's outer shoreline crossed it before the shift and does not now.
+  test('the moat’s outer shoreline is clear of the Colosseum’s rear stone', () => {
+    // The Colosseum's rear-most registered stone is its gate jamb line; its
+    // rear-most RENDERED stone is the gate lintel ring 0.39 further north.  The
+    // moat's outer shoreline crossed both before the first shift and now clears
+    // them by the moat's own width.
     expect(COLO_REAR_Z).toBeCloseTo(-44.11, 2);
-    const offshore = GROUP_SOUTH_Z; // −45.5, the shoreline on the X = 0 axis
-    expect(offshore).toBeLessThan(COLO_REAR_Z);
-    expect(COLO_REAR_Z - offshore).toBeCloseTo(1.39, 2);
+    const offshore = GROUP_SOUTH_Z; // -50.5, the shoreline on the X = 0 axis
+    expect(offshore).toBeLessThan(COLO_LINTEL_Z);
+    expect(COLO_LINTEL_Z - offshore).toBeCloseTo(6.0, 2);
+    expect(COLO_LINTEL_Z - offshore).toBeCloseTo(MOAT_OUTER_RADIUS - MOAT_INNER_RADIUS, 6);
+    expect(COLO_REAR_Z - offshore).toBeCloseTo(6.39, 2);
 
-    // Before the shift the same pair read 3.61 the wrong way: the shoreline lay
-    // inside the gateway.
-    const preShiftShoreline = PRE_SHIFT_MOTTE_CENTER_Z + MOAT_OUTER_RADIUS; // −40.5
+    // C-8.37's own step: 1.39 clear of the registered stone…
+    const c837Shoreline = C8_37_MOTTE_CENTER_Z + MOAT_OUTER_RADIUS; // -45.5
+    expect(COLO_REAR_Z - c837Shoreline).toBeCloseTo(1.39, 2);
+    // …after the shoreline had lain 3.61 INSIDE the gateway.
+    const preShiftShoreline = PRE_SHIFT_MOTTE_CENTER_Z + MOAT_OUTER_RADIUS; // -40.5
     expect(preShiftShoreline).toBeGreaterThan(COLO_REAR_Z);
     expect(preShiftShoreline - COLO_REAR_Z).toBeCloseTo(3.61, 2);
   });
 
-  test('the drawbridge no longer enters the rear gateway', () => {
-    expect(DECK_Z_OUTER).toBe(-45.5);
-    expect(DECK_Z_OUTER).toBeLessThan(COLO_REAR_Z); // north of the rear stone
-    expect(COLO_REAR_Z - DECK_Z_OUTER).toBeCloseTo(1.39, 2);
-    // Phase C-8.30/31 recorded the pre-shift deck reaching 3.8 units inside the
-    // opening; the measured figure against the registered stone is 3.61.
+  test('the drawbridge begins on the outer bank, clear of the rear gateway', () => {
+    expect(DECK_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0);     // -50.5
+    expect(DECK_Z_OUTER).toBeLessThan(COLO_LINTEL_Z);     // north of every rear stone
+    expect(COLO_LINTEL_Z - DECK_Z_OUTER).toBeCloseTo(6.0, 2);
+    expect(COLO_REAR_Z - DECK_Z_OUTER).toBeCloseTo(6.39, 2);
+    // C-8.37 left it 1.39 clear of the jamb line; Phase C-8.30/31 recorded the
+    // pre-shift deck reaching 3.8 units inside the opening, measured as 3.61
+    // against the registered stone.
+    expect(COLO_REAR_Z - (C8_37_MOTTE_CENTER_Z + 31.0)).toBeCloseTo(1.39, 2);
     expect(PRE_SHIFT_DECK_Z_OUTER).toBeGreaterThan(COLO_REAR_Z);
     expect(PRE_SHIFT_DECK_Z_OUTER - COLO_REAR_Z).toBeCloseTo(3.61, 2);
   });
 
-  test('the motte’s south foot gained 5.0 of separation from the Colosseum', () => {
-    const southFoot = MOTTE_CENTER_Z + SUMMIT_SLOPE_FOOT_RADIUS; // −57.001
-    expect(southFoot).toBeCloseTo(-57.001, 3);
-    expect(COLO_FACADE_PLANE_Z - southFoot).toBeCloseTo(12.7, 1);
+  test('the motte’s south foot gained the whole separation from the Colosseum', () => {
+    const southFoot = MOTTE_CENTER_Z + SUMMIT_SLOPE_FOOT_RADIUS; // -62.001
+    expect(southFoot).toBeCloseTo(-62.001, 3);
+    expect(COLO_FACADE_PLANE_Z - southFoot).toBeCloseTo(17.7, 1);
     const preShiftFoot = PRE_SHIFT_MOTTE_CENTER_Z + SUMMIT_SLOPE_FOOT_RADIUS;
     expect(COLO_FACADE_PLANE_Z - preShiftFoot).toBeCloseTo(7.7, 1);
     expect(
       (COLO_FACADE_PLANE_Z - southFoot) - (COLO_FACADE_PLANE_Z - preShiftFoot),
-    ).toBeCloseTo(5.0, 10);
+    ).toBeCloseTo(10.0, 10);
   });
 });
 
@@ -354,20 +389,21 @@ describe('B. Every part of the group derives from the one centre constant', () =
   test('no absolute pre- or post-shift centre literal survives in the five files', () => {
     for (const [name, src] of DERIVED_SOURCES) {
       const code = codeOf(src);
-      expect(`${name}:${/\b76\.5\b/.test(code)}`).toBe(`${name}:false`);
-      expect(`${name}:${/\b71\.5\b/.test(code)}`).toBe(`${name}:false`);
+      for (const literal of [/\b71\.5\b/, /\b76\.5\b/, /\b81\.5\b/]) {
+        expect(`${name}:${literal.test(code)}`).toBe(`${name}:false`);
+      }
     }
     // The control: the same pattern does find the literal in terrainHeight's
-    // declaration, so the check above is not vacuously true.
-    expect(/\b76\.5\b/.test(codeOf(load('./terrainHeight.ts')))).toBe(true);
+    // declaration, so the checks above are not vacuously true.
+    expect(/\b81\.5\b/.test(codeOf(load('./terrainHeight.ts')))).toBe(true);
   });
 
   test('the group is internally consistent at runtime', () => {
-    expect(DECK_Z_OUTER).toBe(BRIDGE_Z_OUTER);          // -45.5
-    expect(DECK_Z_INNER).toBe(BRIDGE_Z_INNER - 0.5);    // -51.5
+    expect(DECK_Z_OUTER).toBe(BRIDGE_Z_OUTER);          // -50.5
+    expect(DECK_Z_INNER).toBe(BRIDGE_Z_INNER - 0.5);    // -56.5
     expect(DECK_LENGTH).toBeCloseTo(6.0, 10);
     expect(DECK_CENTER_Z).toBeCloseTo((DECK_Z_OUTER + DECK_Z_INNER) / 2, 10);
-    expect(BOUNDARY_Z_MIN).toBe(MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5); // -96
+    expect(BOUNDARY_Z_MIN).toBe(MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5); // -101
 
     const south = CITY_COLLIDERS.find((c) => c.id === 'fortress-south-l');
     const north = CITY_COLLIDERS.find((c) => c.id === 'fortress-north');
@@ -407,7 +443,7 @@ describe('C. The drawbridge meets the gate and the crossing stays walkable', () 
   test('the deck spans the moat from the outer bank to the motte rim', () => {
     expect(DECK_Z_OUTER).toBe(MOTTE_CENTER_Z + 31.0);  // outer shoreline
     expect(DECK_Z_INNER).toBe(MOTTE_CENTER_Z + 25.0);  // 0.16 onto the rim
-    const rimZ = MOTTE_CENTER_Z + MOTTE_MESH_HALF_EXTENT; // -51.34
+    const rimZ = MOTTE_CENTER_Z + MOTTE_MESH_HALF_EXTENT; // -56.34
     expect(DECK_Z_INNER).toBeLessThan(rimZ);           // the deck reaches past it
     expect(rimZ - DECK_Z_INNER).toBeCloseTo(0.16, 2);
   });
@@ -477,27 +513,32 @@ describe('C. The drawbridge meets the gate and the crossing stays walkable', () 
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('D. The ground plane and the boundaries followed the group', () => {
-  test('the plane’s north edge moved north by exactly the group’s 5.0', () => {
-    expect(GROUND_PLANE_NORTH_Z).toBe(-109);
-    expect(GROUND_PLANE_NORTH_Z - PRE_SHIFT_GROUND_PLANE_NORTH_Z).toBeCloseTo(-5.0, 10);
+  test('the plane’s north edge moved north with the group, edge for edge', () => {
+    expect(GROUND_PLANE_NORTH_Z).toBe(-114);
+    expect(GROUND_PLANE_NORTH_Z - PRE_SHIFT_GROUND_PLANE_NORTH_Z).toBeCloseTo(-10.0, 10);
+    // The edge tracks the group's two 5.0 moves one for one.
+    expect(GROUND_PLANE_NORTH_Z - PRE_SHIFT_GROUND_PLANE_NORTH_Z).toBeCloseTo(
+      MOTTE_CENTER_Z - PRE_SHIFT_MOTTE_CENTER_Z, 10,
+    );
     expect(GROUND_PLANE_DEPTH).toBe(GROUND_PLANE_SOUTH_Z - GROUND_PLANE_NORTH_Z);
-    expect(GROUND_PLANE_DEPTH).toBe(179);
+    expect(GROUND_PLANE_DEPTH).toBe(184);
   });
 
   test('south edge, width and elevation are untouched', () => {
     expect(GROUND_PLANE_SOUTH_Z).toBe(70);
     expect(GROUND_PLANE_WIDTH).toBe(140);
     expect(GROUND_PLANE_ELEVATION_Y).toBe(-0.05);
-    expect(GROUND_PLANE_CENTER[2]).toBeCloseTo((70 + -109) / 2, 10);
+    expect(GROUND_PLANE_CENTER[2]).toBeCloseTo((70 + -114) / 2, 10);
     expect(GROUND_PLANE_WEST_X).toBe(-70);
     expect(GROUND_PLANE_EAST_X).toBe(70);
   });
 
   test('the plane still covers every northern target with its measured margins', () => {
     // 1.5 past the moat ring, 7.34 past the motte mesh bound, 13 past the
-    // walkable limit — the same margins the Ground Coverage phase measured.
+    // walkable limit — the same margins the Ground Coverage phase measured, and
+    // the same margins the group's first move kept.
     expect(GROUP_NORTH_Z - GROUND_PLANE_NORTH_Z).toBeCloseTo(1.5, 6);
-    const meshNorthZ = MOTTE_CENTER_Z - MOTTE_MESH_HALF_EXTENT; // -101.66
+    const meshNorthZ = MOTTE_CENTER_Z - MOTTE_MESH_HALF_EXTENT; // -106.66
     expect(meshNorthZ - GROUND_PLANE_NORTH_Z).toBeCloseTo(7.34, 2);
     expect(BOUNDARY_Z_MIN - GROUND_PLANE_NORTH_Z).toBeCloseTo(13, 6);
   });
@@ -505,8 +546,8 @@ describe('D. The ground plane and the boundaries followed the group', () => {
   test('the walkable envelope is derived from the moved perimeter', () => {
     expect(BOUNDARY_X).toBe(35);
     expect(BOUNDARY_Z_MAX).toBe(35);
-    expect(BOUNDARY_Z_MIN).toBe(-96); // was −91 before the shift
-    expect(MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS).toBeCloseTo(-98.5, 6);
+    expect(BOUNDARY_Z_MIN).toBe(-101); // -91 before the group's first 5.0 move
+    expect(MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS).toBeCloseTo(-103.5, 6);
     expect(BOUNDARY_Z_MIN).toBeGreaterThan(MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS);
   });
 
@@ -520,7 +561,7 @@ describe('D. The ground plane and the boundaries followed the group', () => {
 
   test('the fortress arrival moved with the group and stays on the summit', () => {
     const [ax, az] = FAST_TRAVEL_ARRIVALS.northern_fortress;
-    expect(az).toBeCloseTo(-64.0, 10);
+    expect(az).toBeCloseTo(-69.0, 10);
     expect(az).toBeCloseTo(MOTTE_CENTER_Z + 12.5, 10);
     expect(az).toBeCloseTo(FORTRESS_SOUTH_WALL_CZ + 2.0, 6); // 2.0 south of the wall
     expect(getTerrainY(ax, az)).toBeCloseTo(SUMMIT_Y, 2);
@@ -632,12 +673,14 @@ describe('E. The rear-gate seals and the water ring are untouched', () => {
 
   test('the water stayed in place relative to the group (coverage is radius-based)', () => {
     // Every uncovered/covered verdict is a function of the radius about the
-    // motte centre, so the 5.0 move cannot change it: the same grid at the
-    // pre-shift centre, shifted back by 5.0, gives identical verdicts.
+    // motte centre, so neither 5.0 move can change it: the same grid at either
+    // earlier centre, shifted back by the matching distance, gives identical
+    // verdicts — which is why the deck/water relationship needs no re-tuning.
     for (let x = -BRIDGE_HALF_WIDTH; x <= BRIDGE_HALF_WIDTH + 1e-9; x += 0.5) {
       for (let z = DECK_Z_INNER; z <= DECK_Z_OUTER + 1e-9; z += 0.25) {
-        const shifted = coveredByMoat(x, z + 5.0, PRE_SHIFT_MOTTE_CENTER_Z);
-        expect(shifted).toBe(coveredByMoat(x, z, MOTTE_CENTER_Z));
+        const verdict = coveredByMoat(x, z, MOTTE_CENTER_Z);
+        expect(coveredByMoat(x, z + 5.0, C8_37_MOTTE_CENTER_Z)).toBe(verdict);
+        expect(coveredByMoat(x, z + 10.0, PRE_SHIFT_MOTTE_CENTER_Z)).toBe(verdict);
       }
     }
   });
@@ -662,7 +705,7 @@ describe('F. The moved group intersects no nearby city structure', () => {
     const nearestCityMinZ = Math.min(...cityColliders.map((c) => aabb(c).minZ));
     expect(nearestCityMinZ).toBeCloseTo(COLO_REAR_Z, 9);
     expect(nearestCityMinZ).toBeGreaterThan(groupBox.maxZ);
-    expect(nearestCityMinZ - groupBox.maxZ).toBeCloseTo(1.39, 2);
+    expect(nearestCityMinZ - groupBox.maxZ).toBeCloseTo(6.39, 2);
   });
 
   test('no city collider’s bounds overlap the group’s bounds', () => {
@@ -677,13 +720,16 @@ describe('F. The moved group intersects no nearby city structure', () => {
     expect(overlapping).toEqual([]);
   });
 
-  test('the nearest structure has 1.5 of clearance from the moat’s outer ring', () => {
+  test('the nearest structure clears the moat’s outer ring by the apron’s own depth', () => {
     const nearest = nearestCityCollider(MOTTE_CENTER_Z);
-    expect(nearest.distance).toBeCloseTo(32.5021, 3);
+    expect(nearest.distance).toBeCloseTo(37.4872, 3);
     expect(nearest.id.startsWith('colo-')).toBe(true);
-    expect(nearest.distance - MOAT_OUTER_RADIUS).toBeCloseTo(1.5021, 3);
-    // …and 7.34 from the motte mesh's own footprint.
-    expect(nearest.distance - MOTTE_MESH_HALF_EXTENT).toBeCloseTo(7.3421, 3);
+    // The ring's clearance to the nearest Colosseum stone is the same 6.5 the
+    // apron measures against that stone (the 6.0 lintel figure plus its own
+    // rearward overhang), so the two independent readings agree.
+    expect(nearest.distance - MOAT_OUTER_RADIUS).toBeCloseTo(6.4872, 3);
+    // …and 12.33 from the motte mesh's own footprint.
+    expect(nearest.distance - MOTTE_MESH_HALF_EXTENT).toBeCloseTo(12.3272, 3);
   });
 
   test('the rendered motte footprint and moat both fit inside that clearance', () => {
@@ -754,13 +800,17 @@ describe('G. A reversed shift fails the same checks', () => {
     expect(pre.distance).toBeCloseTo(27.5226, 3);
     expect(pre.distance).toBeLessThan(MOAT_OUTER_RADIUS); // the ring covered it
     expect(MOAT_OUTER_RADIUS - pre.distance).toBeCloseTo(3.4774, 3);
-    // The shipped centre reverses that relationship.
+    // The shipped centre reverses that relationship, and each 5.0 move widens
+    // it by exactly 5.0 — the clearance is bought 1:1 by moving the group.
+    const mid = nearestCityCollider(C8_37_MOTTE_CENTER_Z);
     const now = nearestCityCollider(MOTTE_CENTER_Z);
     expect(now.distance).toBeGreaterThan(MOAT_OUTER_RADIUS);
-    expect(now.distance - pre.distance).toBeCloseTo(4.9795, 3);
+    expect(mid.distance - pre.distance).toBeCloseTo(4.9795, 3);
+    expect(now.distance - mid.distance).toBeCloseTo(4.9851, 3);
+    expect(now.distance - pre.distance).toBeCloseTo(9.9646, 3);
   });
 
-  test('the ground plane would have failed coverage without its own 5.0', () => {
+  test('the ground plane would have failed coverage without its own matching moves', () => {
     expect(PRE_SHIFT_GROUND_PLANE_NORTH_Z).toBeGreaterThan(GROUND_PLANE_NORTH_Z);
     // The pre-shift plane still covered the pre-shift group with the same 1.5
     // margin, so the two moves are a matched pair, not a coincidence.
@@ -776,6 +826,7 @@ describe('G. A reversed shift fails the same checks', () => {
     const derived = (centreZ: number): number =>
       centreZ - MOTTE_PERIMETER_RADIUS + 2.5;
     expect(derived(MOTTE_CENTER_Z)).toBe(BOUNDARY_Z_MIN);
+    expect(derived(C8_37_MOTTE_CENTER_Z)).toBe(-96); // C-8.37's own limit
     expect(derived(PRE_SHIFT_MOTTE_CENTER_Z)).toBe(-91); // the pre-shift limit
   });
 });
