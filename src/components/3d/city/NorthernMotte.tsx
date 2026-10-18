@@ -21,10 +21,10 @@ import { SkeletonUtils } from 'three-stdlib';
  *
  * IMPORTANT: Because the GLB nodes already carry the Z-up→Y-up rotation,
  * this component must NOT apply a duplicate rotation.  The outer group
- * uses rotation [0, 0, 0].  (Contrast with NorthernFortress, whose GLB
- * nodes carry NO rotation and which applies [-π/2, 0, 0] at the component
- * level.)  Applying a duplicate rotation would misalign the motte and
- * break the terrain height calculations in terrainHeight.ts.
+ * uses rotation [0, 0, 0].  (NorthernFortress works the same way: its GLB
+ * nodes also bake in the Z-up→Y-up rotation, so its group applies no
+ * rotation either.)  Applying a duplicate rotation would misalign the
+ * motte and break the terrain height calculations in terrainHeight.ts.
  *
  * Approved configuration (Phase 34G, C2 south-facing):
  *   Position: [0, 0, -71.5]
