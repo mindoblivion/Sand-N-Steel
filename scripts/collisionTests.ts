@@ -623,8 +623,10 @@ test('fast-travel: arrival positions match documented coordinates', () => {
   // Verify the exact coordinates are the ones we computed and verified.
   // Every row tracks the live FAST_TRAVEL_ARRIVALS table so an undocumented
   // geometry move is caught.  Phase C-8.12 moved merchant_house to Z=-13,
-  // Phase C-8.13 moved doctore_house to Z=-18, and Phase 35F.5 moved
-  // northern_fortress to Z=-59.0 (the motte summit gate corridor).
+  // Phase C-8.13 moved doctore_house to Z=-18, Phase C-8.19 re-based it to
+  // Z=-18.875 (depth cut 5.0 → 3.25 with the north face pinned at Z=-20.75),
+  // and Phase 35F.5 moved northern_fortress to Z=-59.0 (the motte summit gate
+  // corridor).
   const expected: Record<string, [number, number]> = {
     town_gate: [0, 20],
     colosseum: [0, -23],
@@ -637,7 +639,7 @@ test('fast-travel: arrival positions match documented coordinates', () => {
     armor_workshop: [28.2, 5.5],
     stable: [26, 10],
     gladiator_academy: [25.5, -23],
-    doctore_house: [23.5, -18],
+    doctore_house: [23.5, -18.875],
     records_house: [24, -26],
     bathhouse: [-21, 25],
     shrine_temple: [-22.5, 11],
@@ -810,23 +812,23 @@ test('registry: all colliders have valid geometry', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
-// 17. PHASE 31F — SADDLE-POINT RECOVERY AT [27, -15]
+// 17. PHASE 31F — RECOVERY FROM THE [27, -15] OVERLAP FIXTURE
 // ════════════════════════════════════════════════════════════════════════════
 //
-// The doctore-house (x[25,31] z[-20.75,-15.25], Phase C-8.13) and the
-// merchant-house (x[22.15,29.85] z[-16.5,-9.5], Phase C-8.12) overlap in
-// z[-16.5,-15.25].  At [27, -15] the player center is inside the
-// merchant-house and overlaps the doctore just north of its north face
-// (total penetration 4.90, max 4.75).
+// This fixture was introduced as a two-collider saddle point: the doctore-house
+// (then x[25,31] z[-20.75,-15.25]) and the merchant-house (x[22.15,29.85]
+// z[-16.5,-9.5]) overlapped in z[-16.5,-15.25].  Phase C-8.19 removed that
+// interpenetration by cutting the doctore depth (root Z = -18.875, south face
+// Z = -17.0, plinth gap 0.50), so [27, -15] now lies inside the merchant-house
+// alone — 1.5 north of its south edge and 2.0 north of the doctore south face.
 //
-// The 1.0-unit Z shift of the doctore in Phase C-8.13 means this fixture is
-// no longer the perfectly flat saddle point the Phase 31F tests were written
-// against: total penetration now varies by direction, so +X is resolved by
-// the ordinary resolver while -Z (deeper into the doctore, total 6.90) is
-// still blocked and needs the fallback.  The Phase 31F fallback is still
-// what breaks those directions by scoring max penetration as a tie-breaker;
-// the tests below keep covering escape from every input direction, bounded
-// recovery steps and no collider leakage.
+// What the fixture still exercises is the Phase 31F/31H recovery contract next
+// to the new 0.50-unit plinth gap: escape from a deep single-collider overlap
+// in every input direction, bounded recovery steps, and no leakage into a
+// collider that was not already overlapped (in particular not into the
+// doctore-house, whose plinth is only 0.5 south of this fixture's building).
+// 17B below then pins the C-8.19 layout itself: the gap is too narrow to walk
+// through, so no new route opens between the two buildings.
 // ════════════════════════════════════════════════════════════════════════════
 
 test('saddle-point [27, -15]: player can escape by pressing -Z', () => {
@@ -880,9 +882,10 @@ test('saddle-point [27, -15]: recovery never enters new colliders', () => {
 });
 
 test('saddle-point [27, -15]: player cannot pass through doctore house', () => {
-  // Doctore house: x[25,31], z[-20.75,-15.25] (Phase C-8.13).  The fixture is
-  // at z=-15, 0.25 north of the doctore north face.  Recovery should move the
-  // player OUT of the building, not through it to the opposite wall (z=-20.75).
+  // Doctore house: x[25,31], z[-20.75,-17.00] (Phase C-8.19).  The fixture is
+  // at z=-15, 2.0 north of the doctore south face, with the Merchant House
+  // between them.  Recovery must move the player OUT of the overlap, never
+  // through the doctore to its north wall (z=-20.75).
   let pos: [number, number, number] = [27, 0, -15];
   for (let i = 0; i < 100; i++) {
     pos = resolveCityMovement(pos, 0, -1, 3.8, 0.1);
@@ -896,10 +899,10 @@ test('saddle-point [27, -15]: player cannot pass through doctore house', () => {
 });
 
 test('saddle-point [27, -15]: player cannot pass through merchant house', () => {
-  // The saddle point is inside both doctore-house and merchant-house.
-  // Recovery should help the player EXIT, not cross through to the
-  // opposite side.  Verify the player escapes without entering any
-  // collider that wasn't in the initial overlap set.
+  // Since Phase C-8.19 the fixture is inside the merchant-house only (the
+  // doctore-house plinth now starts 0.5 further south).  Recovery should help
+  // the player EXIT that overlap without entering a collider that wasn't in the
+  // initial overlap set.
   let pos: [number, number, number] = [27, 0, -15];
   const initialIds = overlappingColliderIds(27, -15, R, CITY_COLLIDERS);
   let escaped = false;
@@ -913,6 +916,113 @@ test('saddle-point [27, -15]: player cannot pass through merchant house', () => 
   }
   assert.ok(escaped, 'Should escape');
   assert.ok(!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS), 'Should be collision-free');
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 17B. PHASE C-8.19 — DOCTORE HOUSE DEPTH REDUCTION
+// ════════════════════════════════════════════════════════════════════════════
+//
+// The doctore-house footprint was cut from 6.0 × 5.5 to 6.0 × 3.75 with its
+// north foundation face pinned at Z = -20.75 (root [28, 0, -18.875], south
+// face Z = -17.0).  The 1.25-unit Z interpenetration with the merchant-house
+// (x[22.15,29.85] z[-16.5,-9.5]) is gone, replaced by a 0.50-unit plinth gap —
+// 0.30 narrower than the 0.80 player diameter, so no route opens between the
+// two buildings.  The hub and the west fast-travel arrival follow the new root.
+// ════════════════════════════════════════════════════════════════════════════
+
+const doctoreRect = CITY_COLLIDERS.find(
+  (c): c is RectCollider => c.type === 'rect' && c.id === 'doctore-house',
+)!;
+const merchantRect = CITY_COLLIDERS.find(
+  (c): c is RectCollider => c.type === 'rect' && c.id === 'merchant-house',
+)!;
+
+test('C-8.19: doctore-house collider is 6.0 × 3.75 centred at [28, -18.875]', () => {
+  assert.ok(doctoreRect, 'doctore-house rect must exist');
+  approx(doctoreRect.cx, 28);
+  approx(doctoreRect.cz, -18.875);
+  approx(doctoreRect.hw, 3.0);
+  approx(doctoreRect.hd, 1.875);
+  approx(doctoreRect.cx - doctoreRect.hw, 25.0);
+  approx(doctoreRect.cx + doctoreRect.hw, 31.0);
+  approx(doctoreRect.cz - doctoreRect.hd, -20.75); // north face pinned
+  approx(doctoreRect.cz + doctoreRect.hd, -17.0);
+});
+
+test('C-8.19: doctore-house and merchant-house no longer overlap', () => {
+  const overlapX =
+    Math.min(doctoreRect.cx + doctoreRect.hw, merchantRect.cx + merchantRect.hw) -
+    Math.max(doctoreRect.cx - doctoreRect.hw, merchantRect.cx - merchantRect.hw);
+  const overlapZ =
+    Math.min(doctoreRect.cz + doctoreRect.hd, merchantRect.cz + merchantRect.hd) -
+    Math.max(doctoreRect.cz - doctoreRect.hd, merchantRect.cz - merchantRect.hd);
+  approx(overlapX, 4.85); // X bands still coincide — that is why they clashed
+  assert.ok(overlapZ < 0, `Expected a Z gap, got overlap ${overlapZ}`);
+  approx(-overlapZ, 0.5); // plinth-to-plinth gap
+});
+
+test('C-8.19: the 0.50 plinth gap is too narrow to walk through', () => {
+  const gap = (merchantRect.cz - merchantRect.hd) - (doctoreRect.cz + doctoreRect.hd);
+  approx(gap, 0.5);
+  assert.ok(gap < 2 * R, `Gap ${gap} must be narrower than the ${2 * R} player diameter`);
+  // Every point on the gap's centre line is blocked at player radius.
+  for (let z = -17.0; z <= -16.5 + 1e-9; z += 0.05) {
+    assert.ok(collidesWith(27, z, R, CITY_COLLIDERS),
+      `gap point (27, ${z.toFixed(2)}) should be blocked`);
+  }
+});
+
+test('C-8.19: pushing west into the gap is stopped at the doctore east face', () => {
+  let pos: [number, number, number] = [32, 0, -16.75];
+  const startZ = pos[2];
+  for (let i = 0; i < 60; i++) {
+    pos = resolveCityMovement(pos, -1, 0, 3.8, 1 / 60);
+    assert.ok(!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS), `step ${i} penetrated a collider`);
+  }
+  assert.ok(pos[0] > 31.0, `Player should be stopped east of x=31, got ${pos[0]}`);
+  assert.ok(pos[0] < 31.5, `Player should reach the east face, got ${pos[0]}`);
+  approx(pos[2], startZ);
+});
+
+test('C-8.19: no other collider overlaps the doctore house', () => {
+  for (const c of CITY_COLLIDERS) {
+    if (c.type !== 'rect' || c.id === 'doctore-house') continue;
+    const overlapX =
+      Math.min(doctoreRect.cx + doctoreRect.hw, c.cx + c.hw) -
+      Math.max(doctoreRect.cx - doctoreRect.hw, c.cx - c.hw);
+    const overlapZ =
+      Math.min(doctoreRect.cz + doctoreRect.hd, c.cz + c.hd) -
+      Math.max(doctoreRect.cz - doctoreRect.hd, c.cz - c.hd);
+    assert.ok(!(overlapX > 0 && overlapZ > 0), `doctore-house still overlaps ${c.id}`);
+  }
+});
+
+test('C-8.19: hub and west arrival follow the new root', () => {
+  const hub = HUB_LOCATIONS.find((l) => l.id === 'doctore_house');
+  assert.ok(hub, 'doctore_house hub must exist');
+  approx(hub!.position[0], 28);
+  approx(hub!.position[2], -18.875);
+  approx(hub!.radius, 4.5);
+  const arrival = FAST_TRAVEL_ARRIVALS.doctore_house;
+  approx(arrival[0], 23.5);
+  approx(arrival[1], -18.875);
+  approx(doctoreRect.cx - doctoreRect.hw - arrival[0], 1.5); // west offset kept
+  assert.ok(!collidesWith(arrival[0], arrival[1], R, CITY_COLLIDERS),
+    'arrival must be collision-free at player radius');
+});
+
+test('C-8.19: walking east from the arrival reaches the west doorway', () => {
+  let pos: [number, number, number] = [23.5, 0, -18.875];
+  for (let i = 0; i < 60; i++) {
+    pos = resolveCityMovement(pos, 1, 0, 3.8, 1 / 60);
+    assert.ok(!collidesWith(pos[0], pos[2], R, CITY_COLLIDERS), `step ${i} penetrated a collider`);
+  }
+  // Stops one movement step short of (collider face 25.0 − player radius 0.4).
+  assert.ok(pos[0] > 24.55 && pos[0] < 24.6, `Expected a 24.6 standoff, got ${pos[0]}`);
+  approx(pos[2], -18.875);
+  assert.equal(getNearbyHubLocation([pos[0], 0, pos[2]])?.id, 'doctore_house');
+  const dist = Math.hypot(pos[0] - 28, pos[2] + 18.875);
+  assert.ok(dist < 4.5, `Standoff ${dist.toFixed(3)} must be inside the 4.5 interaction radius`);
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1252,16 +1362,23 @@ test('recovery fallback: respects world bounds', () => {
 });
 
 test('recovery fallback: maxPenetration and overlappingColliderIds helpers', () => {
-  // Verify helper functions used by the fallback
-  const ids = overlappingColliderIds(27, -15, R, CITY_COLLIDERS);
-  assert.ok(ids.size >= 2, `Should overlap >= 2 colliders at [27, -15], got ${ids.size}`);
-  assert.ok(ids.has('doctore-house'), 'Should overlap doctore-house');
-  assert.ok(ids.has('merchant-house'), 'Should overlap merchant-house');
+  // Multi-collider overlap fixture: the forge–store overlap (section 18).
+  const ids = overlappingColliderIds(20, -1.925, R, CITY_COLLIDERS);
+  assert.ok(ids.size >= 2, `Should overlap >= 2 colliders at [20, -1.925], got ${ids.size}`);
+  assert.ok(ids.has('smithing-forge'), 'Should overlap smithing-forge');
+  assert.ok(ids.has('general-store'), 'Should overlap general-store');
 
-  // maxPenetration at center of a single rect
-  const singleMax = maxPenetration(18, 2, R, CITY_COLLIDERS);
-  const saddleMax = maxPenetration(27, -15, R, CITY_COLLIDERS);
-  assert.ok(saddleMax > singleMax || true, 'Max penetration is positive at saddle point');
+  // Single-collider fixture: Phase C-8.19 removed the Merchant House ↔ Doctore
+  // House footprint overlap, so the old saddle fixture [27, -15] now sits
+  // inside the Merchant House alone (and 0.25 north of the new 0.50 plinth gap).
+  const single = overlappingColliderIds(27, -15, R, CITY_COLLIDERS);
+  assert.ok(single.size === 1 && single.has('merchant-house'),
+    `[27, -15] should overlap merchant-house only, got [${[...single].join(',')}]`);
+
+  // maxPenetration is positive wherever the circle overlaps a rect, and zero at
+  // a clear position.
+  assert.ok(maxPenetration(18, 2, R, CITY_COLLIDERS) > 0, 'Max should be positive inside the forge');
+  assert.ok(maxPenetration(20, -1.925, R, CITY_COLLIDERS) > 0, 'Max should be positive in the overlap');
   assert.ok(maxPenetration(0, 16, R, CITY_COLLIDERS) === 0, 'Max should be 0 at clear position');
 });
 

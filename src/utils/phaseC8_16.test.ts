@@ -14,6 +14,13 @@
  * untouched, and the pre-existing MerchantHouse↔DoctoreHouse interpenetration
  * stays exactly as it was (no collider was narrowed to conceal it).
  *
+ * Phase C-8.19 re-based the world-space numbers in this file: the house depth
+ * was cut 5.0 → 3.25 with the north foundation face pinned at Z = -20.75, so
+ * the root moved from Z = -18 to Z = -18.875 and every world Z below shifted by
+ * -0.875. The doorway itself is unchanged — still centred on the west face
+ * (local Z 0) with the same orientation, offsets and assembly bounds — and the
+ * collider still matches the rendered plinth exactly.
+ *
  * Every case runs against the real registry (CITY_COLLIDERS), the real
  * movement resolver (resolveCityMovement), the real hub table and the real
  * street footprint module — no mocks. The transform cases read the rendered
@@ -309,7 +316,9 @@ describe('A. West doorway: transform, world plane and outward normal', () => {
     // world-space assertions below are derived from.
     expect(doorPlacement!.worldPosition.x).toBeCloseTo(25.23, 10); // west side
     expect(doorPlacement!.worldPosition.y).toBeCloseTo(0, 10);
-    expect(doorPlacement!.worldPosition.z).toBeCloseTo(-18, 10); // still mid-depth
+    // Still mid-depth: the C-8.19 root is -18.875 and the doorway sits at
+    // local Z 0, halfway between the wall faces (-20.5 … -17.25).
+    expect(doorPlacement!.worldPosition.z).toBeCloseTo(-18.875, 10);
   });
 
   test('the doorway faces west: outward normal ≈ (-1, 0, 0)', () => {
@@ -332,13 +341,18 @@ describe('A. West doorway: transform, world plane and outward normal', () => {
     expect(max.x).toBeCloseTo(25.455, 10);
     expect(min.x).toBeLessThan(ROOT[0] - 2.75);
     expect(max.x).toBeLessThan(ROOT[0] + 2.75);
-    // Opening + jambs stay inside the face's Z extent (wall is 5.0 deep).
-    expect(min.z).toBeGreaterThan(ROOT[2] - 2.5);
-    expect(max.z).toBeLessThan(ROOT[2] + 2.5);
-    expect(min.z).toBeCloseTo(-18.92, 10);
-    expect(max.z).toBeCloseTo(-17.08, 10);
-    // Nothing is left on the old south face.
-    expect(max.z).toBeLessThan(ROOT[2] + 2.0);
+    // Opening + jambs stay inside the face's Z extent (wall is 3.25 deep:
+    // local ±1.625, i.e. world -20.5 … -17.25, so 0.70 of wall is left on each
+    // side of the 1.84-wide opening).
+    const wallHalfDepth = 3.25 / 2;
+    expect(min.z).toBeGreaterThan(ROOT[2] - wallHalfDepth);
+    expect(max.z).toBeLessThan(ROOT[2] + wallHalfDepth);
+    expect(min.z).toBeCloseTo(-19.795, 10);
+    expect(max.z).toBeCloseTo(-17.955, 10);
+    expect(min.z - (ROOT[2] - wallHalfDepth)).toBeCloseTo(0.705, 10);
+    expect(max.z - (ROOT[2] + wallHalfDepth)).toBeCloseTo(-0.705, 10);
+    // Nothing is left on the south face (the C-8.16 defect).
+    expect(max.z).toBeLessThan(ROOT[2] + wallHalfDepth - 0.5);
   });
 
   test('the window moved west→east and faces east: normal ≈ (+1, 0, 0)', () => {
@@ -347,7 +361,7 @@ describe('A. West doorway: transform, world plane and outward normal', () => {
     const p = windowPlacement!.worldPosition;
     expect(p.x).toBeCloseTo(30.76, 10); // east wall face 30.75 + 0.01
     expect(p.y).toBeCloseTo(2.2, 10);
-    expect(p.z).toBeCloseTo(-18, 10);
+    expect(p.z).toBeCloseTo(-18.875, 10); // centred on the (narrower) east face
     const n = windowPlacement!.outwardNormal;
     expect(n.x).toBeCloseTo(1, 10);
     expect(n.y).toBeCloseTo(0, 10);
@@ -366,14 +380,25 @@ describe('A. West doorway: transform, world plane and outward normal', () => {
     expect(windowPlacement!.worldPosition.x).toBeGreaterThan(max.x);
   });
 
-  test('the doorway clears the courtyard props at its new position', () => {
-    // Weapon rack local [-2.2, 0, 1.8] and straw dummy local [-2.2, 0, -1.5]
-    // (both children of the root, unchanged). The dummy's target disc spans
-    // z ≈ -19.51 … -19.29, clear of the doorway's southernmost jamb face.
-    const dummyTargetZ = ROOT[2] - 1.5 - 0.11;
-    const rackZ = ROOT[2] + 1.8 - 0.6;
-    expect(dummyTargetZ).toBeLessThan(doorPlacement!.bounds!.min.z);
-    expect(rackZ).toBeGreaterThan(doorPlacement!.bounds!.max.z);
+  test('the doorway is clear of the C-8.19 re-seated courtyard props', () => {
+    // Phase C-8.19 re-seated the props that the shallower footprint had left
+    // inside a wall: rack local [-1.9, 0, -2.7] and straw dummy local
+    // [1.5, 0, -2.65] now stand in the north lane, and the class banner local
+    // [2.1, 0, 2.3] on the south wall's east end.
+    const doorMin = doorPlacement!.bounds!.min.z;
+    const doorMax = doorPlacement!.bounds!.max.z;
+    const wallHalfDepth = 3.25 / 2;
+    const rackZ: [number, number] = [ROOT[2] - 2.7 - 0.6, ROOT[2] - 2.7 + 0.6];
+    const dummyZ: [number, number] = [ROOT[2] - 2.65 - 0.21, ROOT[2] - 2.65 + 0.21];
+    const bannerZ: [number, number] = [ROOT[2] + 2.3 - 0.08, ROOT[2] + 2.3 + 0.08];
+    // Both training props sit entirely north of the doorway and of the wall.
+    expect(rackZ[1]).toBeLessThan(doorMin);
+    expect(dummyZ[1]).toBeLessThan(doorMin);
+    expect(rackZ[1]).toBeLessThan(ROOT[2] - wallHalfDepth);
+    expect(dummyZ[1]).toBeLessThan(ROOT[2] - wallHalfDepth);
+    // The banner sits entirely south of the doorway and of the wall.
+    expect(bannerZ[0]).toBeGreaterThan(doorMax);
+    expect(bannerZ[0]).toBeGreaterThan(ROOT[2] + wallHalfDepth);
   });
 });
 
@@ -382,7 +407,7 @@ describe('A. West doorway: transform, world plane and outward normal', () => {
 describe('B. Usable opening and approach zone are collider-free', () => {
   test('the outward threshold lip lies outside every collider', () => {
     for (const x of [24.81, 24.9, 24.95, 24.99]) {
-      for (const z of [-18, -18.7, -17.3]) {
+      for (const z of [-18.875, -19.6, -18.2]) {
         expect(
           containingFootprints(x, z),
           `lip point (${x}, ${z}) should be outside every collider footprint`,
@@ -392,7 +417,7 @@ describe('B. Usable opening and approach zone are collider-free', () => {
   });
 
   test('only the Doctore House itself contains the door plane', () => {
-    expect(containingFootprints(doorPlacement!.worldPosition.x, -18)).toEqual([
+    expect(containingFootprints(doorPlacement!.worldPosition.x, -18.875)).toEqual([
       'doctore-house',
     ]);
   });
@@ -401,7 +426,7 @@ describe('B. Usable opening and approach zone are collider-free', () => {
     // Straight-on band plus the jambs' Z span, stopping 0.05 short of the
     // geometric collider bound so tangency is not mistaken for penetration.
     for (let x = 24.55; x >= 23.7; x -= 0.05) {
-      for (let z = -18.8; z <= -17.2; z += 0.1) {
+      for (let z = -19.7; z <= -18.05; z += 0.1) {
         expect(
           collidesWith(x, z, R, CITY_COLLIDERS),
           `approach point (${x.toFixed(2)}, ${z.toFixed(2)}) should be walkable`,
@@ -411,10 +436,14 @@ describe('B. Usable opening and approach zone are collider-free', () => {
   });
 
   test('the Merchant House does not reach the new entrance', () => {
+    const doorZ = doorPlacement!.worldPosition.z;
     const dx = Math.max(merchantHouse.cx - merchantHouse.hw - 25.23, 0, 25.23 - (merchantHouse.cx + merchantHouse.hw));
-    const dz = Math.max(merchantHouse.cz - merchantHouse.hd - -18, 0, -18 - (merchantHouse.cz + merchantHouse.hd));
-    expect(Math.hypot(dx, dz)).toBeGreaterThan(R); // ≥ 1.5 south of its south edge
-    expect(distanceTo(merchantHouse, 24.0, -18)).toBeCloseTo(1.5, 10);
+    const dz = Math.max(merchantHouse.cz - merchantHouse.hd - doorZ, 0, doorZ - (merchantHouse.cz + merchantHouse.hd));
+    expect(Math.hypot(dx, dz)).toBeGreaterThan(R);
+    // C-8.19: with the house's south face at Z = -17.0 the entrance is 2.375
+    // north of the Merchant House south edge (it was 1.5 under C-8.13).
+    expect(dz).toBeCloseTo(2.375, 10);
+    expect(distanceTo(merchantHouse, 24.0, doorZ)).toBeCloseTo(2.375, 10);
   });
 });
 
@@ -456,7 +485,7 @@ describe('C. Movement resolver: arrival → west entrance', () => {
   });
 
   test('lateral approaches also land on the west wall and stay clear', () => {
-    for (const z of [-18.9, -18.5, -17.5]) {
+    for (const z of [-19.7, -18.875, -18.1]) {
       const traj = walk([DOCTORE_ARRIVAL[0], 0, z], 1, 0, 60);
       const end = traj[traj.length - 1];
       expect(end[0]).toBeCloseTo(approachEnd[0], 6);
@@ -541,25 +570,25 @@ describe('D. The standoff reaches the Doctore House hub, not the Merchant House'
 
 // ── E. Collider / foundation invariants unchanged ────────────────────────
 
-describe('E. Existing Doctore House and Merchant House invariants are unchanged', () => {
-  test('rendered root is still [28, 0, -18] and the collider still matches it', () => {
-    expect(ROOT).toEqual([28, 0, -18]);
+describe('E. Doctore House collider matches the C-8.19 layout', () => {
+  test('rendered root is [28, 0, -18.875] and the collider still matches it', () => {
+    expect(ROOT).toEqual([28, 0, -18.875]);
     expect(doctore.cx).toBe(28);
-    expect(doctore.cz).toBe(-18);
+    expect(doctore.cz).toBe(-18.875);
     expect(doctore.hw).toBe(3.0);
-    expect(doctore.hd).toBe(2.75);
+    expect(doctore.hd).toBe(1.875);
     expect(doctore.cx - doctore.hw).toBeCloseTo(25, 10);
     expect(doctore.cx + doctore.hw).toBeCloseTo(31, 10);
     expect(doctore.cz - doctore.hd).toBeCloseTo(-20.75, 10);
-    expect(doctore.cz + doctore.hd).toBeCloseTo(-15.25, 10);
+    expect(doctore.cz + doctore.hd).toBeCloseTo(-17.0, 10);
   });
 
   test('collider half-extents still derive from the rendered foundation', () => {
     const [fw, fd] = foundationMatch!.slice(1, 3).map(Number);
     const proj = Number(foundationMatch![3]);
-    expect([fw, fd, proj]).toEqual([5.5, 5.0, 0.25]);
+    expect([fw, fd, proj]).toEqual([5.5, 3.25, 0.25]);
     expect(doctore.hw * 2).toBeCloseTo(fw + 2 * proj, 10); // 6.0
-    expect(doctore.hd * 2).toBeCloseTo(fd + 2 * proj, 10); // 5.5
+    expect(doctore.hd * 2).toBeCloseTo(fd + 2 * proj, 10); // 3.75
   });
 
   test('the Merchant House is untouched', () => {
@@ -570,15 +599,17 @@ describe('E. Existing Doctore House and Merchant House invariants are unchanged'
     expect(MERCHANT_ARRIVAL).toEqual([21, -13]);
   });
 
-  test('the documented interpenetration is preserved, not narrowed away', () => {
+  test('the C-8.16 interpenetration is gone, not merely re-labelled', () => {
+    // This test used to *document* the 4.85 × 1.25 overlap this file was written
+    // around. Phase C-8.19 removes it: the X bands still coincide, but the
+    // shallower plinth leaves a 0.50 gap on Z.
     const o = overlap(merchantHouse, doctore);
     expect(o.overlapX).toBeCloseTo(4.85, 10);
-    expect(o.overlapZ).toBeCloseTo(1.25, 10);
-    expect(o.overlapX).toBeGreaterThan(0);
-    expect(o.overlapZ).toBeGreaterThan(0);
+    expect(o.overlapZ).toBeCloseTo(-0.5, 10);
+    expect(o.overlapZ).toBeLessThan(0);
   });
 
-  test('still only the Merchant House overlaps the Doctore House footprint', () => {
+  test('no collider overlaps the Doctore House footprint any more', () => {
     const overlapping = CITY_COLLIDERS.filter(
       (c): c is RectCollider => c.type === 'rect' && c.id !== 'doctore-house',
     )
@@ -587,18 +618,19 @@ describe('E. Existing Doctore House and Merchant House invariants are unchanged'
         return o.overlapX > 0 && o.overlapZ > 0;
       })
       .map((c) => c.id);
-    expect(overlapping).toEqual(['merchant-house']);
+    expect(overlapping).toEqual([]);
   });
 
-  test('hub position, radius and fast-travel arrival are unchanged', () => {
-    expect(DOCTORE_HUB?.position).toEqual([28, 0, -18]);
+  test('hub position tracks the C-8.19 root; radius and west arrival are unchanged', () => {
+    expect(DOCTORE_HUB?.position).toEqual([28, 0, -18.875]);
     expect(DOCTORE_HUB?.radius).toBe(4.5);
-    expect(DOCTORE_ARRIVAL).toEqual([23.5, -18]);
+    expect(DOCTORE_ARRIVAL).toEqual([23.5, -18.875]);
     expect(doctore.cx - doctore.hw - DOCTORE_ARRIVAL[0]).toBeCloseTo(1.5, 10);
     expect(nearestColliderDistance(DOCTORE_ARRIVAL[0], DOCTORE_ARRIVAL[1])).toBeCloseTo(1.5, 10);
   });
 
-  test('the nearest other rect footprint is still 2.6 clear', () => {
+  test('the Merchant House is 0.50 away and the nearest other footprint still 2.6', () => {
+    expect(rectGap(doctore, merchantHouse)).toBeCloseTo(0.5, 10);
     const gaps = CITY_COLLIDERS.filter(
       (c): c is RectCollider =>
         c.type === 'rect' && c.id !== 'doctore-house' && c.id !== 'merchant-house',
@@ -726,7 +758,7 @@ describe('G. Threshold step at the final approach position', () => {
     expect(overlapDepth).toBeLessThan(0.2);
     expect(THRESHOLD_LIP_TOP).toBeLessThanOrEqual(0.06);
     // No collider covers the lip: nothing there can block the player.
-    expect(containingFootprints(lipOuterX, -18)).toEqual([]);
-    expect(containingFootprints(25.0 - 0.001, -18)).toEqual([]);
+    expect(containingFootprints(lipOuterX, -18.875)).toEqual([]);
+    expect(containingFootprints(25.0 - 0.001, -18.875)).toEqual([]);
   });
 });

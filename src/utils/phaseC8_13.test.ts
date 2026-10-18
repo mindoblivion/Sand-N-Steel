@@ -1,6 +1,6 @@
 /**
  * Phase C-8.13 — Doctore House clearance restored after the C-8.12 Merchant
- * House relocation.
+ * House relocation.  (Geometry values re-based on Phase C-8.19.)
  *
  * Phase C-8.12 moved the Merchant House south (Z: -12 → -13) to open the Via
  * Mercatoria route. That shift had two unintended side effects on the Doctore
@@ -10,9 +10,16 @@
  *     the Merchant House south edge (z = -16.5), below the documented
  *     0.9-unit arrival-clearance invariant (player radius 0.4 + 0.5 safety).
  *
- * Phase C-8.13 moves the Doctore House south by 1.0 (root / collider / hub Z:
+ * Phase C-8.13 moved the Doctore House south by 1.0 (root / collider / hub Z:
  * -17 → -18) and its arrival to [23.5, -18], leaving the C-8.12 Merchant House
  * position, the Via Mercatoria alley and the C-8.10 Forge–Workshop fix in place.
+ *
+ * Phase C-8.19 then removed the 1.25-unit footprint interpenetration itself:
+ * the house depth was cut 5.0 → 3.25 (plinth 5.5 → 3.75) with the north
+ * foundation face pinned at Z = -20.75, moving the root to Z = -18.875 and its
+ * arrival to [23.5, -18.875].  Section B therefore now proves the *absence* of
+ * the old overlap: a 0.50-unit plinth gap, narrower than the 0.80 player
+ * diameter, so the two buildings still cannot be walked between.
  *
  * Every case below runs against the real registry (CITY_COLLIDERS), the real
  * movement resolver (resolveCityMovement), the real hub table and the real
@@ -167,11 +174,11 @@ describe('A. Doctore House transform matches the collision registry', () => {
     expect(foundationMatch).not.toBeNull();
   });
 
-  test('rendered root position is [28, 0, -18]', () => {
+  test('rendered root position is [28, 0, -18.875]', () => {
     const [x, y, z] = rootMatch!.slice(1, 4).map(Number);
     expect(x).toBe(28);
     expect(y).toBe(0);
-    expect(z).toBe(-18);
+    expect(z).toBe(-18.875);
   });
 
   test('collider centre equals the rendered root position', () => {
@@ -184,61 +191,82 @@ describe('A. Doctore House transform matches the collision registry', () => {
     const [fw, fd] = foundationMatch!.slice(1, 3).map(Number);
     const proj = Number(foundationMatch![3]);
     // BuildingFoundation lower step = size + 2 × projection.
+    expect([fw, fd]).toEqual([5.5, 3.25]);
     expect(doctore.hw * 2).toBeCloseTo(fw + 2 * proj, 10); // 5.5 + 0.5 = 6.0
-    expect(doctore.hd * 2).toBeCloseTo(fd + 2 * proj, 10); // 5.0 + 0.5 = 5.5
+    expect(doctore.hd * 2).toBeCloseTo(fd + 2 * proj, 10); // 3.25 + 0.5 = 3.75
   });
 
-  test('footprint edges are X[25, 31] Z[-20.75, -15.25]', () => {
+  test('footprint edges are X[25, 31] Z[-20.75, -17.00] (C-8.19 depth)', () => {
     expect(doctore.cx - doctore.hw).toBeCloseTo(25, 10);
     expect(doctore.cx + doctore.hw).toBeCloseTo(31, 10);
     expect(doctore.cz - doctore.hd).toBeCloseTo(-20.75, 10);
-    expect(doctore.cz + doctore.hd).toBeCloseTo(-15.25, 10);
+    expect(doctore.cz + doctore.hd).toBeCloseTo(-17.0, 10);
   });
 
   test('hub interaction position tracks the same root Z', () => {
-    expect(DOCTORE_HUB?.position).toEqual([28, 0, -18]);
+    expect(DOCTORE_HUB?.position).toEqual([28, 0, -18.875]);
     expect(DOCTORE_HUB?.radius).toBe(4.5);
     expect(DOCTORE_HUB!.position[0]).toBeCloseTo(doctore.cx, 10);
     expect(DOCTORE_HUB!.position[2]).toBeCloseTo(doctore.cz, 10);
   });
 
   test('fast-travel arrival moved with the house and keeps its west offset', () => {
-    expect(DOCTORE_ARRIVAL).toEqual([23.5, -18]);
+    expect(DOCTORE_ARRIVAL).toEqual([23.5, -18.875]);
     expect(doctore.cx - doctore.hw - DOCTORE_ARRIVAL[0]).toBeCloseTo(1.5, 10);
     expect(DOCTORE_ARRIVAL[1]).toBe(doctore.cz);
   });
 });
 
-// ── B. Merchant House ↔ Doctore House overlap restored ────────────────────
+// ── B. Merchant House ↔ Doctore House interpenetration removed (C-8.19) ──
 
-describe('B. Merchant House / Doctore House overlap is back to pre-C-8.12', () => {
+describe('B. Merchant House / Doctore House no longer interpenetrate', () => {
   const { overlapX, overlapZ } = overlap(merchantHouse, doctore);
 
-  test('Z overlap is 1.25 again (not the 2.25 the C-8.12 shift produced)', () => {
-    expect(overlapZ).toBeCloseTo(1.25, 10);
-  });
-
-  test('equals the pre-C-8.12 reference geometry', () => {
-    // Pre-C-8.12: the Merchant House centre was at Z = -12 while the Doctore
-    // House was at Z = -17. Re-derive that overlap from live rect dimensions.
-    const merchantPre: RectCollider = { ...merchantHouse, cz: -12 };
-    const doctorePre: RectCollider = { ...doctore, cz: -17 };
-    const pre = overlap(merchantPre, doctorePre);
-    expect(pre.overlapZ).toBeCloseTo(overlapZ, 10);
-    expect(pre.overlapX).toBeCloseTo(overlapX, 10);
+  test('the Z overlap is gone (was 1.25 before Phase C-8.19)', () => {
+    // The two houses still share the same X band (overlapX 4.85); the depth cut
+    // pulls the Doctore House plinth 0.50 clear on Z, so the signed overlap is
+    // -0.50, i.e. a gap rather than a penetration.
     expect(overlapX).toBeCloseTo(4.85, 10);
+    expect(overlapZ).toBeCloseTo(-0.5, 10);
+    expect(overlapZ).toBeLessThan(0);
   });
 
-  test('the overlap stays strictly positive (no new walkable gap between them)', () => {
-    expect(overlapX).toBeGreaterThan(0);
-    expect(overlapZ).toBeGreaterThan(0);
+  test('the plinth-to-plinth gap is 0.50 units', () => {
+    const gap = (merchantHouse.cz - merchantHouse.hd) - (doctore.cz + doctore.hd);
+    expect(gap).toBeCloseTo(0.5, 10);
+  });
+
+  test('the 0.50 gap is narrower than the player diameter, so no passage opens', () => {
+    const gap = (merchantHouse.cz - merchantHouse.hd) - (doctore.cz + doctore.hd);
+    expect(gap).toBeLessThan(2 * R);
+    expect(2 * R - gap).toBeCloseTo(0.3, 10);
+    // Every point on the gap's centre line is blocked at player radius.
+    for (let z = -17.0; z <= -16.5 + 1e-9; z += 0.05) {
+      expect(
+        collidesWith(27, z, R, CITY_COLLIDERS),
+        `gap point (27, ${z.toFixed(2)}) should be blocked`,
+      ).toBe(true);
+    }
+  });
+
+  test('the real resolver still cannot walk between the two buildings', () => {
+    // The strip between the plinths is only clear of both buildings east of
+    // X = 31.4, so push west into it from there: the Doctore House's east face
+    // stops the player and nothing is ever penetrated.
+    const traj = walk([32, 0, -16.75], -1, 0, 60);
+    const end = traj[traj.length - 1];
+    expect(end[0]).toBeGreaterThan(31.0);
+    expect(end[0]).toBeLessThan(31.5);
+    expect(end[2]).toBeCloseTo(-16.75, 10);
+    expect(everInside(traj, [merchantHouse, doctore])).toBe(false);
+    expect(collidesWith(end[0], end[2], R, CITY_COLLIDERS)).toBe(false);
   });
 });
 
 // ── C. The move introduces no overlap with any other collider ─────────────
 
 describe('C. No new overlap with other colliders', () => {
-  test('only the Merchant House overlaps the Doctore House footprint', () => {
+  test('no building footprint overlaps the Doctore House any more', () => {
     const overlapping = CITY_COLLIDERS.filter(
       (c): c is RectCollider => c.type === 'rect' && c.id !== 'doctore-house',
     )
@@ -247,18 +275,19 @@ describe('C. No new overlap with other colliders', () => {
         return o.overlapX > 0 && o.overlapZ > 0;
       })
       .map((c) => c.id);
-    expect(overlapping).toEqual(['merchant-house']);
+    expect(overlapping).toEqual([]);
   });
 
-  test('the nearest other rect footprint is 2.6 units clear (Gladiator Academy)', () => {
+  test('nearest neighbour: Merchant House 0.50 gap, Gladiator Academy still 2.60', () => {
     const gaps = CITY_COLLIDERS.filter(
-      (c): c is RectCollider =>
-        c.type === 'rect' && c.id !== 'doctore-house' && c.id !== 'merchant-house',
+      (c): c is RectCollider => c.type === 'rect' && c.id !== 'doctore-house',
     ).map((c) => ({ id: c.id, gap: rectGap(doctore, c) }));
     const nearest = gaps.reduce((m, g) => (g.gap < m.gap ? g : m));
-    expect(nearest.id).toBe('gladiator-academy');
-    expect(nearest.gap).toBeCloseTo(2.6, 10);
-    expect(nearest.gap).toBeGreaterThan(ARRIVAL_CLEARANCE);
+    expect(nearest.id).toBe('merchant-house');
+    expect(nearest.gap).toBeCloseTo(0.5, 10);
+    const academy = gaps.find((g) => g.id === 'gladiator-academy');
+    expect(academy!.gap).toBeCloseTo(2.6, 10);
+    expect(academy!.gap).toBeGreaterThan(ARRIVAL_CLEARANCE);
   });
 
   test('no curved wall or segment collider reaches the moved house', () => {
@@ -317,13 +346,15 @@ describe('D. Arrival clearance invariant (every fast-travel arrival)', () => {
   test('the Doctore House arrival itself clears by 1.5 (was 0.5 under C-8.12)', () => {
     const [ax, az] = DOCTORE_ARRIVAL;
     const { distance, id } = nearestCollider(ax, az);
+    // Since C-8.19 the nearest feature is the house it serves — the west plinth
+    // face at X = 25.0, on the west doorway's centre line.
     expect(distance).toBeCloseTo(1.5, 10);
-    expect(id).toBe('merchant-house');
+    expect(id).toBe('doctore-house');
     expect(distance).toBeGreaterThan(ARRIVAL_CLEARANCE);
-    // Both bounding features are 1.5 away: the house it serves and the
-    // Merchant House south edge that the C-8.12 shift crowded.
     expect(distanceTo(doctore, ax, az)).toBeCloseTo(1.5, 10);
-    expect(distanceTo(merchantHouse, ax, az)).toBeCloseTo(1.5, 10);
+    // The Merchant House south edge that the C-8.12 shift crowded is now
+    // 2.375 away (it was 0.5, then exactly 1.5 under C-8.13).
+    expect(distanceTo(merchantHouse, ax, az)).toBeCloseTo(2.375, 10);
   });
 });
 

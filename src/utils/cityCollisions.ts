@@ -195,8 +195,10 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'doctore_house',
     name: 'Doctore Tactical House',
     subtitle: 'Consult Chief Combat Instructor',
-    // Phase C-8.13: hub tracks the DoctoreHouse root, moved to Z = -18.
-    position: [28, 0, -18],
+    // Phase C-8.13: hub tracks the DoctoreHouse root (Z = -18).
+    // Phase C-8.19: root moved to Z = -18.875 with the shallower (3.25 deep)
+    // footprint, so the hub follows it.
+    position: [28, 0, -18.875],
     radius: 4.5,
     icon: 'Compass',
     actionPrompt: 'Consult Doctore',
@@ -526,8 +528,10 @@ export function resolveCityMovement(
 //   armor_workshop    [28.2, 5.5]— 1.5 N of workshop north edge (z=4.0)
 //   stable            [26, 10]   — 1.15 S of stable south edge (z=11.15)
 //   gladiator_academy [25.5, -23]— 1.15 NW of academy NW corner (x=26.65,z=-23.35)
-//   doctore_house     [23.5, -18]— 1.5 W of doctore west edge (x=25.0) and 1.5
-//                                  S of the MerchantHouse south edge
+//   doctore_house     [23.5, -18.875] — 1.5 W of the doctore west edge
+//                                  (x=25.0), on the west doorway's centre line
+//                                  (Phase C-8.19: house root Z = -18.875) and
+//                                  2.375 S of the MerchantHouse south edge
 //                                  (z=-16.5).  Phase C-8.13 moved this point
 //                                  from [23.5, -17], where the C-8.12
 //                                  MerchantHouse shift had left it only 0.5
@@ -554,7 +558,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   armor_workshop:     [28.2, 5.5],
   stable:             [26, 10],
   gladiator_academy:  [25.5, -23],
-  doctore_house:      [23.5, -18],
+  doctore_house:      [23.5, -18.875],
   records_house:      [24, -26],
   bathhouse:          [-21, 25],
   shrine_temple:      [-22.5, 11],
