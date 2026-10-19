@@ -99,7 +99,11 @@ const isSuiteOrModule = (file: string): boolean =>
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir)) {
-    const full = `${dir}/${entry}`;
+    // `SRC_ROOT` is a directory URL, so it already ends in a separator.  Joining
+    // without a second one keeps these paths slice-able back to repo-relative
+    // names in the consumer sweep below — the doubled slash used to survive the
+    // slice and leave a leading `/` on every comparison name.
+    const full = `${dir.replace(/\/+$/, '')}/${entry}`;
     if (statSync(full).isDirectory()) out.push(...sourceFiles(full));
     else if (/\.(ts|tsx)$/.test(entry)) out.push(full);
   }
