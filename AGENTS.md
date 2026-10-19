@@ -3276,3 +3276,187 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   horses are not loaded, posed or drawn by any code. The racing items that remain open are still the
   C-8.66B/C-8.66C/C-8.66D workshop and wheel-swap device checks; racing gameplay itself still does
   not exist (no arena entry, no horse, no loop).
+
+## Isolated horse ↔ chariot fit prototype (Phase C-8.68C — implemented, development-only, verified)
+
+- **What this phase is, and what it deliberately is not.** A **disposable, isolated** scale-and-
+  alignment viewer that puts the real `weak` horse and the real chariot in the renderer so the
+  C-8.68B proportion decision can be judged by eye: one horse in the plan's Biga station, one in a
+  diagnostic staging lane, reference guides for the wheel radius, the yoke height, the draught pole,
+  the ground plane and the horse's withers, and a slider for nearby scales. **No horse ships, no
+  racing exists, nothing is wired into the city, the arena or any hub, no gameplay hook, no collider,
+  no city mesh, no save read or write and no model change of any kind.** The three horse GLBs and
+  both chariot GLBs are byte-identical to the hashes C-8.68A/C-8.66B pinned, `chariotTeamFormation.ts`
+  is untouched, and the prototype is reachable only in a dev build. It renders a **pony-scale**
+  arrangement and says so in numbers rather than claiming it reads well.
+
+- **The phase's files are five — two new modules, one new suite, one gate, one rebased suite.**
+  `src/utils/horseFitPrototype.ts` (numbers only: the measured horse, the scale, the placement, the
+  live readout and the guide geometry), `src/components/dev/HorseChariotFitPrototype.tsx` (the
+  R3F screen), `src/utils/phaseC8_68c.test.ts` (33 tests), the `?devHarness=horsefit` branch in
+  `src/main.tsx`, and two **rebased, not weakened** guards in `src/utils/phaseC8_67d.test.ts`.
+
+- **How it is reached, and why that is the existing pattern.** `main.tsx` gains a fourth gate,
+  `import.meta.env.DEV && (…get('devHarness') === 'horsefit' || readDevHarnessFlag() === 'horsefit')`,
+  mounted in an `else if` chain whose final `else` is still `<App />`; the component is imported
+  **dynamically**, so Rollup's dead-code elimination removes the branch and its chunk together. The
+  suite pins the branch order, the single dynamic import, the absence of any static `components/dev`
+  import, the component's own `import.meta.env.DEV` self-guard, and the fact that `App.tsx`,
+  `CityHubScene.tsx`, `GearTab.tsx`, `DuelScene.tsx` and the three city/service modules name the
+  prototype nowhere. **Confirmed against a real production build**: the output holds five assets
+  (`index` ×2, `CityHubScene`, `DuelScene`, `useCameraDrag`) and **no harness chunk**, and contains
+  no occurrence of `horsefit`, `useHorseFitHarness`, `HorseChariotFitPrototype`, `horseFitPrototype`
+  or `HORSE_FIT`. *(One pre-existing property to keep in mind: Vite copies `public/` into `dist/`, so
+  the three 46 MB horse uploads land in any build's output — they are unreferenced by that build, and
+  that is C-8.68B's own unresolved item 7, not something this phase introduced.)*
+
+- **The asset, re-measured from its own buffer this phase** (`public/_workspace_dist_horse_weak.glb`,
+  15,248,136 bytes, sha256 `0a00300e…` — unchanged, byte-for-byte): one skin of **31 joints**, three
+  clips (`Gallop` 0.7083 s, `Idle` 4.0417 s, `Walk` 1.0417 s), materials `Coat_weak` / `Eye_weak` /
+  `Hair_weak`, **7 skinned meshes** (`Horse_weak`, `Mane`, `Tail`, `Forelock`, `Feathers`, `Eye_L`,
+  `Eye_R`). Every mesh-carrying node carries an **identity transform and no children**, which is why
+  the accessor bounds *are* the rendered bounds — the suite asserts that property rather than
+  assuming it. Re-derived figures: hoof plane minY −1.3e-7 (zero to float32), nose **+1.9946**, rump
+  **−1.0443**, tail tip **−1.2439**, ear tip **2.2447**, **withers 1.6907 at x 0.42599**, croup
+  1.6841, barrel half-width **0.34965**, mane half-width **0.45048** (the widest part of the animal,
+  and the lane rule's binding case). **The non-gait measurement is re-derived too, not restated:**
+  evaluated over every key of every leg-joint rotation channel, `Walk` and `Gallop` move no leg joint
+  at all (**< 0.5°**, the audited 0.000°/0.022°) while `Idle` — the only clip that touches them —
+  moves 1–5° (the audited 2.4°/2.0°/1.5°).
+
+- **The orientation conversion, derived rather than copied.** The horse faces **+X** in its own
+  frame; the chariot faces **−Z** (`CHARIOT_FORWARD_AXIS`), and a draught horse faces the direction
+  of travel, so one yaw does it: `Ry(θ)·(1,0,0) = (cos θ, 0, −sin θ) = (0,0,−1) ⇒ θ = +π/2`. The
+  suite evaluates the real rotation matrix and pins **`Ry(+π/2)·(1,0,0) = (0,0,−1)`**, that `−π/2`
+  would face the horse +Z (up the pole), that up stays up and the horse's lateral axis (Z) becomes
+  the world's **X**. **The placement** then follows from the anchor the plan uses: the ground point
+  directly beneath the withers sits at model `(withersX, 0, 0)`, which the yaw sends to
+  `(0, 0, −withersX·s)`, so the group's position is
+  `[laneX, CHARIOT_GROUND_Y, stationZ + withersX·s]` — withers **on the station line at the lane's
+  centre**, hooves on the chariot's own ground plane. At A's scale the Biga horse's station reads
+  `[0.5000, 0.0000, −1.7844]`, yaw **+90°**.
+
+- **The scale hypothesis, and every rule applied to the MEASURED animal** (not to the plan's
+  0.500-wide placeholder). `HORSE_FIT_SCALE = yokeUnderside / withersAboveHoof = 0.935 / 1.6907 =
+  **0.5530**` — the one scale at which the yoke rests on the withers and the hooves stay on the
+  ground. Read out live at that scale: withers **0.9350** against the yoke's underside **0.9350**
+  (seat **−0.0000**), ear tip **1.2414**, nose→rump **1.6806**, barrel ±**0.1934**, mane ±**0.2491**
+  (inside the envelope's 0.250), pole clearance **0.2576** (rule ≥ 0.100), lane air at the manes
+  **0.2217** (rule ≥ 0.150), lane air at the barrels 0.3333, rear clearance **0.4115** (rule
+  ≥ 0.100), Biga width **1.3867** against the plan's envelope-based 1.500. **The wheel-Z rule is
+  shown to be load-bearing rather than decorative:** the inner barrel's outer edge reaches **0.6934**
+  into the disc's own X band (rim inner 0.665), so it is the rear-clearance rule that keeps the horse
+  *beside* the wheel. *(One figure differs from the C-8.68B report's table by 5e-4: the pole
+  clearance derives to **0.2576** from the re-measured barrel, where that report printed 0.2571 —
+  the report's own A-table prints the same 0.1934 half-width this figure comes from. Recorded, not
+  smoothed over.)*
+
+- **The controls the suite is pinned against — the same readout at scales the hypothesis is not.**
+  At **1.00** (C-8.68B's Alternative B) the seat is **+0.7557**, the manes **interpenetrate**
+  (−0.1810, the report's −0.181), the rear clearance is **−0.3349**, and exactly three rules fail —
+  `yoke-seat`, `adjacent-lanes-manes`, `wheel-z-leading-edge` — while the pole rule still passes by
+  **0.00135**. At **0.80** (Alternative C) the tail tip sits **−0.0009** — on the wheel's leading
+  edge — with the seat +0.4176. The hypothesis scale is the only one of the three presets whose
+  every rule passes, so the readout is demonstrably sensitive to the value it is given rather than
+  constant. The scale is clamped to a diagnostic range (0.4 … 1.2) and a non-finite value falls back
+  to the hypothesis.
+
+- **The guides are LINES, and nothing here invents a harness.** Wheel radius (the wheel's own disc
+  edge drawn at both hubs, radius **0.685** = hub Y 0.65 − tyre bottom −0.035, whose top is the
+  model's own 1.335), tyre low point, yoke underside/top, both yoke pegs, the draught pole
+  (0.671 → 1.029 at the tip's own Z), the ground plane (Y = 0), and — in the rule colour — the
+  station line, the wheel's leading edge and the plan's rear limit; plus the horse's withers plane,
+  its ground post and its rearmost plane. Each is a thin `THREE.Line` with `depthTest` off, drawn
+  over the model, with six distinct colours and a legend in the panel. **The withers-plane guide and
+  the yoke-underside guide coincide exactly at A's scale** — the coincidence the prototype exists to
+  show — and differ by exactly the yoke seat at any other scale. There is **no yoke pad, no neck
+  strap, no girth, no hame, no trace and no staple marker**: the suite asserts the module carries no
+  such word and no guide carries mesh geometry, so no fitting can be mistaken for a real one.
+
+- **Animation integrity, kept explicit.** The screen plays the **supplied** clips only and labels
+  each one for what it does: `Idle` reads *"Idle — the supplied idle clip (4.0417 s)"*, and `Walk`
+  and `Gallop` read *"supplied clip; legs static (C-8.68A: 0.000° leg rotation) — NOT a gait"*. No
+  clip is authored, replaced, retimed or edited, no placeholder locomotion exists, each instance
+  clones the skeleton with its own mixer (`SkeletonUtils.clone`, so one instance's animation cannot
+  drive another's bones), and the default is the **rest pose** — the pose every measurement in this
+  record was taken in.
+
+- **Regression suite: `src/utils/phaseC8_68c.test.ts` — 33 tests across six sections**, every figure
+  derived and none restated. §A the asset (byte-for-byte, the rig/clips/materials, the identity
+  transform property, the proportions and the withers re-measured from the buffers, and the
+  non-gait measurement); §B the orientation matrix, the nose's own +X, and the anchor landing on the
+  station; §C the scale and every rule at it, against the plan's own report; §D the 1.00 / 0.80
+  controls, the presets and the clamp; §E the guides, the wheel's own radius, the pole's measured
+  ends, the withers/yoke coincidence and the no-harness property; §F scope (numbers-only module,
+  DEV-gated harness, main.tsx's branch order, no production consumer, every formation constant
+  unchanged, and no new file in `public/`).
+
+- **Two existing guards were rebased, not weakened, and both rebases were determined by evidence.**
+  1. `phaseC8_67d.test.ts` **§G** (`the only horse files are the three uploads, and nothing
+     references them`). The phase deliberately names one upload, so the sweep's two halves were
+     separated exactly: the *file-name* sweep now allows C-8.68C's own two prototype source files in
+     addition to the three assets, and the *reference* sweep now excludes suites (which never ship,
+     and this one must name the file in order to hash it) and asserts an **exact list** — the
+     numbers module is the **only** source file in `src/` that names a horse asset, because the
+     component reads the URL from it. That is a stronger statement than the emptiness it replaces.
+  2. `phaseC8_67d.test.ts` **§H** (`nothing consumes the module yet`). The plan now has exactly two
+     consumers, both dev-only; the guard's real property — no screen, no city file, no arena, no
+     gameplay — is restated as that exact list plus three new checks (the module knows no renderer,
+     the component is `DEV`-gated, the gate is in `main.tsx`). Every other assertion in the file
+     (§A–§F, §G's other four tests, §H's other four) is untouched and still passes.
+
+- **Verified 2026-10-19** in the dev container: focused
+  `bun test src/utils/phaseC8_68c.test.ts src/utils/phaseC8_67d.test.ts` → **67 pass / 0 fail**
+  (781 `expect()`); `bun test` → **1801 pass / 0 fail (56 files, 38,556 `expect()`)** (C-8.68B left
+  1768 / 55; the delta is this suite's 33 tests and its file); `bun run scripts/collisionTests.ts` →
+  **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the
+  pre-existing >500 kB chunk warning only); `git diff --check` → clean. The diff is exactly five
+  files: `src/main.tsx` and `src/utils/phaseC8_67d.test.ts` modified, and the three new files. The
+  dev server serves both new modules (HTTP 200), the shell, a transformed `main.tsx` carrying the
+  `horsefit` token, and the **15,248,136-byte** GLB (HTTP 200, byte count exact). *The suite's
+  starting point was 7 failures in its own new assertions and one in each rebased guard — three of
+  them mine (a 4-dp comparison that rounded a value sitting exactly on a boundary, a reversed
+  rear-limit inequality, and an assumed component reference the component does not contain) and the
+  rest the expected rebase churn. None was "fixed" by loosening a check: the comparisons were moved
+  to the precision the constants are written to, the inequality was corrected, and the guide
+  allowance was narrowed to the file that actually names the asset.*
+
+- **Live evidence, and its limits.** The harness was opened in the preview browser
+  (`/?devHarness=horsefit`) and driven. Read back from the DOM: **`loaded: horse=true (7 skinned
+  meshes, 31 joints, clips [Gallop, Idle, Walk]) chariot=true`** — the real GLB with its real
+  skeleton, in the renderer; **0 failed requests**; scale 0.5530 with every readout above and
+  *"EVERY MEASURED RULE PASSES AT THIS SCALE"*; the `B` preset reading scale 1.0000 with seat
+  +0.7557, manes −0.1810, rear −0.3349 and *"RULE(S) FAILING: YOKE-SEAT, ADJACENT-LANES-MANES,
+  WHEEL-Z-LEADING-EDGE"*; the inspection toggles hiding the chariot (**horse alone renders**),
+  hiding the horses (**chariot alone renders**) and hiding the guides; the clip labels exactly as
+  quoted above; and the **mobile width (375 px) with `scrollWidth === clientWidth`, zero overflow**.
+  Captured frames show the grey horse and the bronze chariot on the grid with the coloured guides,
+  in the side and three-quarter views, with and without the Biga pair. **Successful asset loading is
+  NOT visual acceptance, and the three console entries are the documented pre-existing pair** (the
+  WebGL guard's *"Attempted to synchronously unmount a root…"* plus an empty *"Uncaught"*, the same
+  two C-8.66B/C-8.66C/C-8.66D recorded on other screens at a canvas teardown/remount).
+
+- **Android visual acceptance: PENDING, and it is the whole point of the phase.** The sandbox has no
+  GPU (SwiftShader), so the captures above are legible but coarse, and **nothing about how the
+  arrangement *reads* — only that it loads, places and measures as specified — is settled here**. The
+  device check this prototype exists to inform: (a) does the Biga pair read as **pony-scale** in a
+  human-scale world — 0.935 at the withers and 1.241 at the ears under a **1.370** wheel, beside a
+  1.7 eye line — i.e. is Alternative A acceptable, or is the answer B (a re-authored chariot front,
+  which no one has authorized)? (b) does the horse sit **between the pole and the wheel** with the
+  pole clearly between the two inner horses and the draught pole passing the horses' chests? (c) does
+  the staging horse beside the chariot make the size comparison obvious? (d) is the horse's head
+  reaching past the pole's tip acceptable? (e) do the guide lines read as **diagnostic markers**
+  rather than as fittings? Still open from earlier phases: the C-8.66B/C-8.66C/C-8.66D workshop,
+  wheel-swap and racing-UI checks, and everything before them.
+
+- **Carried forward, unchanged by this phase.** (1) The **target withers height** remains the open
+  product/art decision (C-8.68B's first unresolved item) — this prototype supplies the evidence, not
+  the answer. (2) **No harness exists** and none is modelled here: a raced team still needs a yoke
+  pad, neck straps, girths, hames, traces and reins, and the chariot still needs C-8.67D's trace
+  staple before a trace team can be assembled. (3) **No gait exists** — the shipped clips still
+  cannot drive a walk or a gallop, and skin deformation at stride angles is still unverified. (4)
+  Nothing connects the arrangement to rendering or gameplay: no arena entry, no racing loop, no
+  rewards, no hub, and the prototype is disposable by construction (delete its two files, its suite
+  and the `main.tsx` branch). (5) The **46 MB of horse GLBs in `public/`** are still copied into any
+  production build (C-8.68B item 7) and should move out of `public/` before a racing phase ships one.
+  (6) **C-8.67C still has no record in this file**, unchanged since C-8.67D.

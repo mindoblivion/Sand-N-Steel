@@ -54,6 +54,20 @@ const useRacingHarness =
   (new URLSearchParams(window.location.search).get('devHarness') === 'racing' ||
     readDevHarnessFlag() === 'racing');
 
+// Phase C-8.68C — development-only horse ↔ chariot FIT PROTOTYPE. Reachable ONLY
+// in a Vite dev build, through the exact `?devHarness=horsefit` query parameter or
+// the equivalent dev-only scratch-storage flag `sand_and_steel_dev_harness =
+// 'horsefit'`.  It renders a DISPOSABLE scale-and-alignment viewer — the real
+// horse GLB and the real chariot, with reference guides — so the C-8.68B
+// proportion decision can be judged in the renderer.  It is not racing, it is not
+// wired into the city or the arena, it saves nothing and it never reads the
+// player's save.  Like every branch here it is dynamically imported INSIDE the
+// `import.meta.env.DEV` gate, so a production build contains none of it.
+const useHorseFitHarness =
+  import.meta.env.DEV &&
+  (new URLSearchParams(window.location.search).get('devHarness') === 'horsefit' ||
+    readDevHarnessFlag() === 'horsefit');
+
 if (useCharacterHarness) {
   // Lazy so the harness module (and its DuelScene chunk) is never even parsed
   // outside this dev+param path.
@@ -77,6 +91,14 @@ if (useCharacterHarness) {
     ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <React.StrictMode>
         <RacingConfigHarness />
+      </React.StrictMode>,
+    );
+  });
+} else if (useHorseFitHarness) {
+  void import('./components/dev/HorseChariotFitPrototype').then(({ HorseChariotFitPrototype }) => {
+    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+      <React.StrictMode>
+        <HorseChariotFitPrototype />
       </React.StrictMode>,
     );
   });

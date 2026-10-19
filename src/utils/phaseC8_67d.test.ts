@@ -711,18 +711,35 @@ describe('C-8.67D §G — the horse-asset inventory: what exists, and what it is
     };
     walk(repo('public'));
     walk(repo('src'));
+    // REBASED by C-8.68C, not weakened.  "A horse file that is named horse-ishly" and "a
+    // source file that names a horse asset" are different things, and the sweep separates
+    // them: the ASSETS are still exactly the three uploads, and the only SOURCES that
+    // mention an upload are C-8.68C's own two prototype files, whose whole purpose is to
+    // load one of them behind a dev-only gate.  Every other source file still has to stay
+    // silent, which is the property this section was written to protect.
+    const C8_68C_PROTOTYPE = [
+      'src/components/dev/HorseChariotFitPrototype.tsx',
+      'src/utils/horseFitPrototype.ts',
+    ];
+    // Only the NUMBERS module actually names the file; the component that draws it reads
+    // the URL from that module, so the asset path still has exactly one source of truth.
+    const C8_68C_NAMES_THE_ASSET = ['src/utils/horseFitPrototype.ts'];
     const matches = names
       .filter((f) => horseish.test(f.replace(repo(''), '')))
       .map((f) => f.replace(repo(''), ''))
       .sort();
-    expect(matches).toEqual([
-      'public/_workspace_dist_horse_better.glb',
-      'public/_workspace_dist_horse_great.glb',
-      'public/_workspace_dist_horse_weak.glb',
-    ]);
+    expect(matches).toEqual(
+      [
+        'public/_workspace_dist_horse_better.glb',
+        'public/_workspace_dist_horse_great.glb',
+        'public/_workspace_dist_horse_weak.glb',
+        ...C8_68C_PROTOTYPE,
+      ].sort()
+    );
     // Byte-for-byte, so a re-export of a horse model fails here rather than silently
     // invalidating every measurement the C-8.68A audit and the C-8.68B decision report
     // cite (the proportions, the 31-joint rig, the three clip names and durations).
+    // C-8.68C reads the same three files and modifies none of them.
     const sha256 = (p: string) => createHash('sha256').update(readFileSync(p)).digest('hex');
     expect(sha256(repo('public/_workspace_dist_horse_weak.glb'))).toBe(
       '0a00300e57892e30a6b5a186a37b1c1a6ec1aeb8b21cd952036d38250e3c9d58'
@@ -733,7 +750,11 @@ describe('C-8.67D §G — the horse-asset inventory: what exists, and what it is
     expect(sha256(repo('public/_workspace_dist_horse_great.glb'))).toBe(
       'f7e1b698fef8e95e5fd7d7b70a2c5640965b8121f1a0f541bacbaa4b1b6f2aa0'
     );
-    // Unreferenced: no `.ts`/`.tsx` file outside this suite names any of the three.
+    // Unreferenced by PRODUCTION: no `.ts`/`.tsx` file that can ship names any of the
+    // three.  Suites are excluded because they never ship and this one — and C-8.68C's
+    // own — must name the file in order to resolve and hash it; the exact list of
+    // shipping files that name an upload is asserted instead of emptiness, which is a
+    // stronger statement than the one it replaces.
     const srcFiles: string[] = [];
     const walkSources = (dir: string) => {
       for (const entry of readdirSync(dir)) {
@@ -743,11 +764,12 @@ describe('C-8.67D §G — the horse-asset inventory: what exists, and what it is
       }
     };
     walkSources(repo('src'));
-    const referencing = srcFiles.filter((f) => {
-      if (f.endsWith('phaseC8_67d.test.ts')) return false;
-      return /_workspace_dist_horse_/.test(readFileSync(f, 'utf8'));
-    });
-    expect(referencing).toEqual([]);
+    const referencing = srcFiles
+      .filter((f) => !f.endsWith('.test.ts'))
+      .filter((f) => /_workspace_dist_horse_/.test(readFileSync(f, 'utf8')))
+      .map((f) => f.replace(repo(''), ''))
+      .sort();
+    expect(referencing).toEqual(C8_68C_NAMES_THE_ASSET);
     // The model assets in public/ are the character, weapon, sign, city and horse files.
     expect(names.filter((f) => /\.glb$/.test(f)).length).toBeGreaterThan(0);
   });
@@ -875,7 +897,7 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
     expect(/from\s+'three'/.test(MODULE_CODE)).toBe(false);
   });
 
-  test('nothing consumes the module yet — no screen, no harness, no city file', () => {
+  test('nothing in the shipping game consumes the module — only the dev-only C-8.68C prototype', () => {
     const files: string[] = [];
     const walk = (dir: string) => {
       for (const entry of readdirSync(dir)) {
@@ -885,15 +907,33 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
       }
     };
     walk(repo('src'));
-    const consumers = files.filter((f) => {
-      const name = f.replace(repo('src/'), '');
-      if (name === 'utils/chariotTeamFormation.ts' || name.endsWith('.test.ts')) return false;
-      return readFileSync(f, 'utf8').includes('chariotTeamFormation');
-    });
-    expect(consumers).toEqual([]);
-    // The app's own entry points name it nowhere.
+    const consumers = files
+      .filter((f) => {
+        const name = f.replace(repo('src/'), '');
+        if (name === 'utils/chariotTeamFormation.ts' || name.endsWith('.test.ts')) return false;
+        return readFileSync(f, 'utf8').includes('chariotTeamFormation');
+      })
+      .map((f) => f.replace(repo('src/'), ''))
+      .sort();
+    // REBASED by C-8.68C, not weakened.  This guard exists to keep the plan out of
+    // RENDERING AND GAMEPLAY — no screen, no city file, no arena, no hub — and that still
+    // holds: C-8.68C added exactly TWO files — the disposable fit prototype's numbers-only
+    // module and the dev-only component that draws it — and both are reached only through
+    // `main.tsx`'s `import.meta.env.DEV` branch, which dynamically imports the component
+    // (so neither is in a production build; `phaseC8_68c.test.ts` §F pins that).  A
+    // gameplay file still cannot start importing the plan without failing here.
+    expect(consumers).toEqual([
+      'components/dev/HorseChariotFitPrototype.tsx',
+      'utils/horseFitPrototype.ts',
+    ]);
+    // The app's own entry points still name it nowhere.
     expect(code('../App.tsx')).not.toContain('chariotTeamFormation');
     expect(code('../main.tsx')).not.toContain('chariotTeamFormation');
+    // …and the one consumer is dev-gated end to end: the module knows no renderer, the
+    // component is guarded by `import.meta.env.DEV`, and the gate itself is in main.tsx.
+    expect(code('./horseFitPrototype.ts')).not.toContain('@react-three');
+    expect(code('../components/dev/HorseChariotFitPrototype.tsx')).toContain('import.meta.env.DEV');
+    expect(code('../main.tsx')).toContain("'horsefit'");
   });
 
   test('no horse asset, mesh, animation or instance was added by this phase', () => {
