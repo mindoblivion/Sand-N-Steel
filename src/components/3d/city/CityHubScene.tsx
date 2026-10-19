@@ -82,6 +82,17 @@ import {
   Settings,
 } from 'lucide-react';
 
+/**
+ * Phase C-8.70B Stage 1, Slice 1 — the city pose handed back to the race.
+ * Captured here from the movement refs at the moment the player starts a race,
+ * held by `App` for the length of the race, and handed back as this scene's
+ * `initialPosition` / `initialRotationY` when it remounts. In memory only.
+ */
+export interface CityExitPose {
+  position: [number, number, number];
+  rotationY: number;
+}
+
 interface CityHubSceneProps {
   playerProfile: PlayerProfile;
   activeOpponent: OpponentConfig;
@@ -98,6 +109,18 @@ interface CityHubSceneProps {
   onReturnToMainMenu: () => void;
   isLeftyMode: boolean;
   onOpenSettings?: () => void;
+  /**
+   * Phase C-8.70B Stage 1, Slice 1 — leave the city for the race scene.  The
+   * pose the player must come back to is captured in this scene and passed here,
+   * because the city unmounts with the race; nothing is written to a save.
+   */
+  onStartRace: (pose: CityExitPose) => void;
+  /**
+   * Phase C-8.70B Stage 1, Slice 1 — the pose to spawn at when the city comes
+   * back from a race.  Absent (the normal case) means the usual town-gate spawn.
+   */
+  initialPosition?: [number, number, number];
+  initialRotationY?: number;
 }
 
 export const CityHubScene: React.FC<CityHubSceneProps> = ({
@@ -111,6 +134,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onReturnToMainMenu,
   isLeftyMode,
   onOpenSettings,
+  onStartRace,
+  initialPosition,
+  initialRotationY,
 }) => {
   // Stabilize the Environment cubemap's Lightformer children across player-movement re-renders.
   // Without this, each setPlayerPos / setPlayerRotY / setIsMoving call creates a new children
@@ -159,9 +185,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     []
   );
 
-  // Spawn gracefully in front of the Monumental Town Gate on the open avenue
-  const [playerPos, setPlayerPos] = useState<[number, number, number]>([0, 0, 16]);
-  const [playerRotY, setPlayerRotY] = useState(Math.PI);
+  // Spawn gracefully in front of the Monumental Town Gate on the open avenue —
+  // or, when the player has just come back from a race, at the exact position
+  // and facing they entered it from (Phase C-8.70B Stage 1, Slice 1; these are
+  // initial values, so a later prop change cannot move a player mid-walk).
+  const [playerPos, setPlayerPos] = useState<[number, number, number]>(initialPosition ?? [0, 0, 16]);
+  const [playerRotY, setPlayerRotY] = useState(initialRotationY ?? Math.PI);
   const [isMoving, setIsMoving] = useState(false);
   const [isAttacking, setIsAttacking] = useState(false);
   const [nearbyLoc, setNearbyLoc] = useState<InteractiveLocation | null>(null);
@@ -181,9 +210,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   }, []);
 
   // Mutable refs for silky smooth 60fps movement without React re-render cancellation
-  const playerPosRef = useRef<[number, number, number]>([0, 0, 16]);
-  const playerRotYRef = useRef<number>(Math.PI);
-  const cameraYawRef = useRef<number>(Math.PI);
+  const playerPosRef = useRef<[number, number, number]>(initialPosition ?? [0, 0, 16]);
+  const playerRotYRef = useRef<number>(initialRotationY ?? Math.PI);
+  const cameraYawRef = useRef<number>(initialRotationY ?? Math.PI);
   const lastNearbyIdRef = useRef<string | null>(null);
 
   // Mobile Virtual Joystick State
@@ -254,6 +283,22 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       }, 4000);
     }
   }, [nearbyLoc, onEnterDuel, activeOpponent, onOpenTab]);
+
+  /**
+   * Phase C-8.70B Stage 1, Slice 1 — "Start Race" leaves the city for the race
+   * scene.  The pose the player has to be returned to is captured HERE, from the
+   * refs the movement loop writes (so it is the live position, not a lagging
+   * render), and handed up to `App`: this scene is about to unmount, so this is
+   * the only moment the pose exists.  Nothing is written to a save.
+   */
+  const handleStartRace = useCallback(() => {
+    const pose: CityExitPose = {
+      position: [...playerPosRef.current] as [number, number, number],
+      rotationY: playerRotYRef.current,
+    };
+    setShowRaceEntry(false);
+    onStartRace(pose);
+  }, [onStartRace]);
 
   // Attack weapon strike
   const handleAttack = useCallback(() => {
@@ -918,9 +963,15 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       )}
 
       {/* PHASE C-8.70B — EAST CIRCUS DISTRICT PRE-RACE ENTRY PANEL.
-          Opened by the district's own hub trigger; read-only (see PreRacePanel). */}
+          Opened by the district's own hub trigger; read-only (see PreRacePanel).
+          "Start Race" closes it and hands the race scene the pose to come back
+          to (Stage 1, Slice 1). */}
       {showRaceEntry && (
-        <PreRacePanel profile={playerProfile} onLeave={() => setShowRaceEntry(false)} />
+        <PreRacePanel
+          profile={playerProfile}
+          onLeave={() => setShowRaceEntry(false)}
+          onStartRace={handleStartRace}
+        />
       )}
     </div>
   );

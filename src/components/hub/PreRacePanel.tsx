@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { PlayerProfile } from '../../types/game';
 import { Coins, Eye, Flag, Info, Wrench } from 'lucide-react';
 import { getSelectedRacingConfig } from '../../utils/racingProgression';
@@ -9,6 +9,12 @@ interface PreRacePanelProps {
   profile: PlayerProfile;
   /** Close the panel and hand control back to the city, exactly as it was. */
   onLeave: () => void;
+  /**
+   * Phase C-8.70B Stage 1, Slice 1 — "Start Race": leave the city for the race
+   * scene.  The city captures the pose it must return the player to and hands it
+   * up to `App`; this panel itself still writes nothing.
+   */
+  onStartRace: () => void;
 }
 
 /**
@@ -30,15 +36,14 @@ interface PreRacePanelProps {
  * Save safety — the whole point of this slice.  The panel is READ-ONLY: it
  * imports no storage and calls no save writer, so opening it, pressing
  * "Start Race" or pressing "Leave" cannot move gold, ownership, unlocks or the
- * selection.  "Start Race" is inert by design in this slice — it sets one piece
- * of local React state and says so on screen; it does not change scene, spawn
- * anything or write anything.  "Leave" calls back to the city, which simply
- * closes the panel.  Both controls are ordinary buttons, so touch and
- * mouse/keyboard drive them identically.
+ * selection.  "Start Race" now hands off to the race scene (Stage 1, Slice 1):
+ * it calls the callback the city gave it, which lets go of the panel, captures
+ * the pose the city must restore the player to and swaps the screen — it is
+ * still the city that owns that pose, and nothing is written to a save.  "Leave"
+ * calls back to the city, which simply closes the panel.  Both controls are
+ * ordinary buttons, so touch and mouse/keyboard drive them identically.
  */
-export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave }) => {
-  const [notice, setNotice] = useState(false);
-
+export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, onStartRace }) => {
   const team = useMemo(() => getSelectedRacingConfig(profile), [profile]);
   const loadout = useMemo(() => resolveChariotLoadout(profile), [profile]);
 
@@ -105,26 +110,14 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave }) 
           </div>
         </div>
 
-        {notice ? (
-          <div
-            className="flex items-start gap-2 text-[11px] font-serif text-amber-200 bg-amber-950/50 border border-amber-500/60 rounded-2xl p-3 mb-4"
-            data-race-notice="pending"
-          >
-            <Info className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-            <p>
-              The gates are still being raised — chariot racing arrives in the next phase. Your team
-              and chariot are recorded and will be waiting on the sand.
-            </p>
-          </div>
-        ) : (
-          <div className="flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4">
-            <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-            <p>
-              Nothing is wagered and nothing is written to your gladiator here: this is the entry
-              staging point for the Circus, and the race itself is not run yet.
-            </p>
-          </div>
-        )}
+        <div className="flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4">
+          <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+          <p>
+            Nothing is wagered and nothing is written to your gladiator: starting the race takes
+            your chariot out onto the Circus sand, and stepping back to the city leaves your
+            progress exactly as it was.
+          </p>
+        </div>
 
         <div className="flex gap-3">
           <button
@@ -135,7 +128,7 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave }) 
             Leave
           </button>
           <button
-            onClick={() => setNotice(true)}
+            onClick={onStartRace}
             data-race-action="start"
             className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-neutral-950 font-serif font-black text-xs uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all"
           >

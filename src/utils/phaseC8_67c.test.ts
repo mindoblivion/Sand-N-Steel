@@ -231,14 +231,22 @@ describe('C-8.67C §A — reachable from the Imperial Stable route, and nothing 
     expect(WORKSHOP).not.toContain('racingProgression');
   });
 
-  test('no new top-level screen, tab or subview was created', () => {
-    // App's screen union and the hub's tab union are exactly the shipped ones.
+  test('no new top-level screen, tab or subview was created for the racing configuration', () => {
+    // REBASED, NOT WEAKENED (Phase C-8.70B Stage 1, Slice 1).  This guard exists to
+    // pin that the Racing Configuration SECTION was not bolted on as an
+    // application screen of its own — it rides inside the Armory's existing gear
+    // tab.  Slice 1 has since added a `'race'` screen to the same union, so the
+    // union pin moves with it and the property is restated: the configuration
+    // still has no screen, no tab and no subview of its own, and the hub's tab set
+    // and the Armory's two subviews are exactly what they were.
+    // App's screen union and the hub's tab union are the shipped ones.
     expect(APP).toContain(
-      "type GameScreen = 'title' | 'create_character' | 'city_3d' | 'hub_2d' | 'duel';"
+      "type GameScreen = 'title' | 'create_character' | 'city_3d' | 'hub_2d' | 'duel' | 'race';"
     );
     expect(APP).not.toContain("'racing'");
     const tabs = HUB.match(/key: '(tournament|training|shop|gear|stats)'/g) ?? [];
     expect(tabs).toHaveLength(5);
+    expect(tabs).not.toContain("key: 'racing'");
     // The Armory keeps its two subviews; the racing section rides inside one.
     const views = GEAR_TAB.match(/key: '(armory|chariot)'/g) ?? [];
     expect(views.sort()).toEqual(["key: 'armory'", "key: 'chariot'"]);
