@@ -2753,3 +2753,79 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   will have the dev server come up on the harness instead of the title screen until they clear it.
   That is a development convenience, not a production exposure — in a production build the flag is not
   read at all.
+
+## Racing progression data model and transactions (Phase C-8.67B — implemented, no UI)
+
+- **What shipped, and what deliberately did not.** Types, pure progression logic, persistence
+  compatibility and a focused suite — **no racing screen, no race loop, no horse assets, no
+  animation, no arena entry, no physics, no rewards and no UI**. Three files changed:
+  `src/types/game.ts` (the declarations, 33 added lines), `src/utils/racingProgression.ts` (new) and
+  `src/utils/phaseC8_67b.test.ts` (new). No existing behaviour, price, save key, collider or city
+  mesh was touched, and the module is consumed by nothing yet — the suite asserts that by sweeping
+  `src/` (excluding the module and the suite itself) for any reference to `racingProgression`.
+
+- **The data model.** `ChariotTeamSize = 2 | 3 | 4` and an **optional** `PlayerProfile.racing`:
+  `{ unlocked?: number[]; selected?: number }`. `unlocked` stores the *bought* sizes only — 3
+  (Triga) and/or 4 (Quadra) — because **Biga (2) is implicit and is never written**; `selected` is
+  the team size the player races with. Both members are optional so a partial save stays loadable.
+  A missing, partial or malformed field resolves to **Biga selected, Triga and Quadra locked** rather
+  than being repaired, and `Quadra` is dropped unless `Triga` is unlocked — a state no legitimate
+  transaction can produce is not honoured on read either.
+
+- **The module is pure, and it is the single source of truth for the catalogue.** `RACING_CONFIGS`
+  is `Biga` (2, 0 gold), `Triga` (3, **750**, requires biga) and `Quadra` (4, **1,500**, requires
+  triga). `resolveRacingState(profile) → { unlocked, selected, horses }` is total: junk entries,
+  duplicates, a fraction, a string, an array, `null` and an unknown size all fall back. The
+  operations are `getRacingPurchaseEligibility` / `purchaseRacingConfig` /
+  `getRacingSelectionEligibility` / `selectRacingConfig`, plus `isRacingConfigUnlocked` and
+  `describeRacingRejection`. Every one accepts a configuration **by team size or by name**
+  (`3` or `'triga'`) and rejects everything else as `unknown-config`. Refusals are
+  `no-profile | unknown-config | already-unlocked | prerequisite-locked | insufficient-gold |
+  not-unlocked`; a refusal returns `{ ok:false, reason }` and leaves the caller's profile — its gold
+  included — untouched, exactly the C-8.66B chariot pattern. A success returns a **new**
+  profile for the existing `saveProfile()` path; nothing is mutated in place, and the suite pins that
+  on frozen inputs. A purchase **never selects** (mirroring "buying never equips"), and a selection
+  **never moves gold**. A profile whose `gold` is missing or non-finite is treated as unable to
+  afford anything, so a malformed save can never produce a `NaN` balance by subtraction.
+
+- **Persistence: no migration, and none is needed.** `racing` is optional and whole-profile JSON, so
+  it rides the existing paths unchanged: the local `saveProfile()` / `loadSavedProfile()` pair
+  (`PROFILE_STORAGE_KEY`, untouched) and the Google Drive path, which serializes the **whole profile**
+  (`const fileContent = JSON.stringify(profile, null, 2)` up; `await response.json()` down; App then
+  calls its existing `saveProfile(loadedProfile)`). `createNewProfile()` still writes no `racing`
+  field, so a legacy save round-trips **byte-identical** and is never rewritten just to carry
+  defaults. `src/services/storage.ts`, `googleDrive.ts` and `App.tsx` are unchanged — the phase's
+  only production edits are the two type declarations.
+
+- **Regression suite: `src/utils/phaseC8_67b.test.ts` — 46 tests / 443 expect() calls** in five
+  sections: §A the catalogue, the effective state for a legacy save and for eleven malformed shapes
+  (with a control showing the same predicate passes a real unlock), partial fields, orphan Quadra,
+  junk/duplicate entries, Biga un-lockable from every shape, `selected ∈ {2,3,4}` and always
+  unlocked, and purity on a frozen profile; §B purchase — Triga 750 once, Quadra 1,500 once only
+  after Triga, duplicates never charging twice, insufficient gold (including exactly-enough paying to
+  zero, and a missing/non-finite balance), unknown refs, the eligibility read-out matching the
+  purchase, deterministic repeats from one base profile and frozen-input purity; §C selection — free
+  on every path, refused when locked, idempotent, both reference forms, unknown refs and no profile;
+  §D independence — owning every wheel and finish leaves both upgrades locked, a racing purchase
+  leaves the chariot loadout byte-identical, the racing module imports no catalogue or storage, the
+  chariot prices are re-pinned, no screen consumes the module, and the type is declared optional;
+  §E persistence — a real local save/load round trip with and without the field, a purchase
+  round-tripped, the cloud path's own serialization technique (and a source-level check that it has
+  no field whitelist), and the preview metadata. **No cloud upload, download or account-save
+  mutation is performed by the suite**, and it never touches a browser's real save.
+
+- **Verified 2026-10-19** in the dev container: focused `bun test src/utils/phaseC8_67b.test.ts` →
+  **46 pass / 0 fail** (443 expect() calls); `bun test` → **1706 pass / 0 fail (53 files, 37524
+  expect() calls)** (C-8.66D left 1660 / 52; the delta is this suite's 46 tests and its file);
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only;
+  `dist/` is gitignored); `git diff --check` → clean. The dev server still answers `HTTP 200` for the
+  shell and serves the new module transformed.
+
+- **No C-8.67A record exists in this file.** The C-8.67A audit was executed in the previous window
+  (racing traced in `App.tsx`/city services, the chariot assets re-parsed, the absence of both racing
+  gameplay and horse assets documented) but never written up here, so a future phase should not
+  assume a record exists; the C-8.66 sections above are the nearest baseline. This phase changed no
+  gameplay, so **there is nothing to see on device** and no new Android item: the racing items that
+  remain open are still the C-8.66B/C-8.66C/C-8.66D workshop and wheel-swap checks, and racing
+  gameplay itself does not exist yet (no arena entry, no horses, no loop).

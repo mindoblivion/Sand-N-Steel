@@ -243,6 +243,33 @@ export interface ChariotLoadout {
   equipped: { wheels: string; finish: string };
 }
 
+/**
+ * Phase C-8.67B — the three historical horse-team configurations:
+ * Biga (2), Triga (3), Quadra (4).
+ */
+export type ChariotTeamSize = 2 | 3 | 4;
+
+/**
+ * Phase C-8.67B — racing progression, stored on the gladiator save alongside
+ * gold, inventory and the chariot loadout.
+ *
+ * Optional on `PlayerProfile` on purpose, exactly like `chariot`: a save written
+ * before this phase has no `racing` field at all and must keep loading, so the
+ * pure helpers in `src/utils/racingProgression.ts` resolve a missing, partial or
+ * malformed field to "Biga selected, Triga and Quadra locked" rather than
+ * repairing the save.  Every field is optional for the same reason — a save may
+ * carry only one of them and still be valid.
+ */
+export interface RacingProgression {
+  /**
+   * The team sizes the player has bought: only 3 (Triga) and/or 4 (Quadra).
+   * Biga (2) is never stored — it is unlocked for every profile by definition.
+   */
+  unlocked?: number[];
+  /** The team size the player races with.  2 | 3 | 4; anything else resolves to Biga. */
+  selected?: number;
+}
+
 export interface PlayerProfile {
   name: string;
   title: string;
@@ -281,4 +308,10 @@ export interface PlayerProfile {
   isLeftyMode?: boolean;
   /** Phase C-8.66B — chariot ownership/fit-out; absent on every pre-workshop save. */
   chariot?: ChariotLoadout;
+  /**
+   * Phase C-8.67B — Biga/Triga/Quadra progression; absent on every pre-racing
+   * save, and written only by a successful purchase or selection (never by a
+   * migration, and never by `createNewProfile()`).
+   */
+  racing?: RacingProgression;
 }
