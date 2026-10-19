@@ -15,10 +15,13 @@
  *   3. §C  the C-8.68B scale hypothesis: where the withers lands, where the
  *          hooves stand, and every C-8.67D rule applied to the MEASURED horse.
  *   4. §D  the controls — what the same readout says at scales the hypothesis is
- *          not, so the checks are shown to be sensitive rather than constant.
+ *          not, so the checks are shown to be sensitive rather than constant; and,
+ *          since C-8.68D, the A / B / C comparison set the phase names.
  *   5. §E  the reference guides, whose whole job is to make scale legible.
  *   6. §F  scope: the module is numbers-only, the harness is dev-only, and no
  *          formation constant moved.
+ *   7. §G  the C-8.68D comparison views — which end of the rig each stands at, and
+ *          the one fixed framing that holds the whole arrangement at every scale.
  *
  * The suite reads the shipped sources as text and parses the GLB with
  * `@gltf-transform/core` (the library the repo's other asset suites use).  It
@@ -65,9 +68,14 @@ import {
   HORSE_FIT_MEASURED,
   HORSE_FIT_ROTATION_Y,
   HORSE_FIT_SCALE,
+  HORSE_FIT_SCALE_EXPLORATORY,
   HORSE_FIT_SCALE_MAX,
   HORSE_FIT_SCALE_MIN,
   HORSE_FIT_SCALE_PRESETS,
+  HORSE_FIT_TARGET,
+  HORSE_FIT_VIEWS,
+  HORSE_FIT_VIEW_HALF_HEIGHT,
+  HORSE_FIT_VIEW_HALF_WIDTH,
   HORSE_NOSE_AHEAD_OF_WITHERS,
   HORSE_RUMP_BEHIND_WITHERS,
   HORSE_TAIL_TIP_BEHIND_WITHERS,
@@ -476,12 +484,41 @@ describe('C-8.68C §D — the readout is sensitive to the scale it is given', ()
     expect(round(split.yokeSeat, 4)).toBe(0.4176);
   });
 
-  test('the presets span the hypothesis and both alternatives, and only A passes', () => {
-    expect(HORSE_FIT_SCALE_PRESETS.map((p) => p.id)).toEqual(['A', 'C', 'B']);
-    expect(HORSE_FIT_SCALE_PRESETS.map((p) => round(p.scale, 4))).toEqual([0.553, 0.8, 1]);
+  test('the presets are C-8.68D’s A / B / C comparison, and only A passes', () => {
+    // Rebased by C-8.68D, not weakened: the labelled comparison set is now the
+    // phase's own A (the measured yoke-fit baseline), B (the exploratory 0.70) and C
+    // (the unscaled horse).  The 0.80 split C-8.68C's preset offered is still
+    // asserted in the test above — it is reachable on the slider — so nothing the
+    // old set could do was lost, only its labelled shortcut.
+    expect(HORSE_FIT_SCALE_PRESETS.map((p) => p.id)).toEqual(['A', 'B', 'C']);
+    expect(HORSE_FIT_SCALE_PRESETS.map((p) => round(p.scale, 4))).toEqual([0.553, 0.7, 1]);
     expect(getHorseFitReadout(HORSE_FIT_SCALE_PRESETS[0].scale).ok).toBe(true);
     expect(getHorseFitReadout(HORSE_FIT_SCALE_PRESETS[1].scale).ok).toBe(false);
     expect(getHorseFitReadout(HORSE_FIT_SCALE_PRESETS[2].scale).ok).toBe(false);
+    // B is exploratory and LABELLED as such — it is not presented as a solution.
+    expect(HORSE_FIT_SCALE_EXPLORATORY).toBe(0.7);
+    expect(round(HORSE_FIT_SCALE_PRESETS[1].scale, 4)).toBe(HORSE_FIT_SCALE_EXPLORATORY);
+    expect(HORSE_FIT_SCALE_PRESETS[1].label).toContain('not validated');
+  });
+
+  test('the exploratory 0.70 is measured, and it fails its own rules', () => {
+    const exploratory = getHorseFitReadout(HORSE_FIT_SCALE_EXPLORATORY);
+    expect(exploratory.ok).toBe(false);
+    expect(exploratory.rules.filter((r) => !r.ok).map((r) => r.id)).toEqual([
+      'yoke-seat',
+      'adjacent-lanes-manes',
+    ]);
+    expect(round(exploratory.withersY, 4)).toBe(1.1835);
+    expect(round(exploratory.yokeSeat, 4)).toBe(0.2485);
+    expect(round(exploratory.maneHalfWidth, 4)).toBe(0.3153);
+    expect(round(exploratory.laneAirManes, 4)).toBe(0.0893);
+    expect(round(exploratory.rearClearance, 4)).toBe(0.1661);
+    expect(round(exploratory.poleClearance, 4)).toBe(0.2062);
+    // The ear tip clears the wheel top (1.335) at 0.70 where the baseline's does not
+    // — the one measured respect in which the intermediate reads better, and the
+    // reason it is worth a look on device at all.  It is still not a fit.
+    expect(round(exploratory.earTipY, 4)).toBe(1.5713);
+    expect(exploratory.earTipY).toBeGreaterThan(CHARIOT_WHEEL_HUB_Y + WHEEL_RADIUS);
   });
 
   test('the diagnostic scale is clamped, and a non-finite value falls back', () => {
@@ -746,5 +783,118 @@ describe('C-8.68C §F — scope: numbers only, dev only, nothing moved', () => {
     const horseFiles = names.filter((f) => /horse/i.test(f)).sort();
     expect(horseFiles.length).toBe(3);
     expect(horseFiles.every((f) => f.includes('_workspace_dist_'))).toBe(true);
+  });
+});
+
+// ── §G — the C-8.68D comparison views ──────────────────────────────────────
+
+describe('C-8.68D §G — the fixed comparison views', () => {
+  test('the three fixed views are named for the end of the rig they stand at', () => {
+    expect(HORSE_FIT_VIEWS.map((v) => v.id)).toEqual(['side', 'front-quarter', 'rear-quarter']);
+    expect(HORSE_FIT_VIEWS.map((v) => v.label)).toEqual(['side', 'front ¾', 'rear ¾']);
+    const [side, front, rear] = HORSE_FIT_VIEWS;
+    // The horse faces the chariot's forward (−Z), so the front view stands ahead of
+    // the horses' heads and the rear view behind the chariot's wheels.
+    expect(CHARIOT_FORWARD).toBe('-Z');
+    expect(front.dir[2]).toBeLessThan(0);
+    expect(rear.dir[2]).toBeGreaterThan(0);
+    // The two three-quarters differ ONLY in that sign — one camera, mirrored.
+    expect(front.dir[0]).toBe(rear.dir[0]);
+    expect(front.dir[1]).toBe(rear.dir[1]);
+    expect(front.dir[2] + rear.dir[2]).toBe(0);
+    // …and the side view carries no elevation at all: the exact profile.
+    expect(side.dir).toEqual([1, 0, 0]);
+    expect(new Set(HORSE_FIT_VIEWS.map((v) => v.label)).size).toBe(3);
+  });
+
+  test('one fixed camera per view, and it holds the whole arrangement at every scale', () => {
+    expect(HORSE_FIT_TARGET).toEqual([0, 0, 0]);
+    expect(HORSE_FIT_TARGET[1]).toBe(CHARIOT_GROUND_Y);
+    expect(HORSE_FIT_VIEW_HALF_WIDTH).toBe(4.25);
+    expect(HORSE_FIT_VIEW_HALF_HEIGHT).toBe(2.9);
+
+    const up: [number, number, number] = [0, 1, 0];
+    const cross = (a: number[], b: number[]) => [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0],
+    ];
+    const unit = (v: number[]) => {
+      const n = Math.hypot(...v);
+      return v.map((c) => c / n);
+    };
+
+    for (const preset of HORSE_FIT_SCALE_PRESETS) {
+      const s = preset.scale;
+      const readout = getHorseFitReadout(s);
+      // The FOUR solids the arrangement is made of, each by its own measured bounds —
+      // not one bounding box around all of them, which would invent corners no
+      // geometry occupies (the staging horse's tail never shares an X with the left
+      // draught horse's mane) and demand a much wider frame than the scene needs.
+      const mane = readout.maneHalfWidth;
+      const noseAhead = HORSE_NOSE_AHEAD_OF_WITHERS * s;
+      const tailBehind = HORSE_TAIL_TIP_BEHIND_WITHERS * s;
+      const wheelTop = CHARIOT_WHEEL_HUB_Y + WHEEL_RADIUS;
+      const boxes: Array<{ x: [number, number]; y: [number, number]; z: [number, number] }> = [
+        {
+          x: [-CHARIOT_WIDEST_X, CHARIOT_WIDEST_X],
+          y: [CHARIOT_TYRE_BOTTOM_Y, wheelTop],
+          z: [CHARIOT_POLE_TIP_Z, CHARIOT_WHEEL_LEADING_Z],
+        },
+        ...[INNER_LANE_X, -INNER_LANE_X].map((lane) => ({
+          x: [lane - mane, lane + mane] as [number, number],
+          y: [CHARIOT_GROUND_Y, readout.earTipY] as [number, number],
+          z: [readout.noseZ, HORSE_STATION_Z + tailBehind] as [number, number],
+        })),
+        {
+          x: [BESIDE_STAGING_X - mane, BESIDE_STAGING_X + mane],
+          y: [CHARIOT_GROUND_Y, readout.earTipY],
+          z: [BESIDE_STAGING_Z - noseAhead, BESIDE_STAGING_Z + tailBehind],
+        },
+      ];
+
+      for (const view of HORSE_FIT_VIEWS) {
+        const dir = unit(view.dir);
+        const right = unit(cross(dir, up));
+        const vertical = unit(cross(right, dir));
+        for (const box of boxes) {
+          for (const cx of box.x) {
+            for (const cy of box.y) {
+              for (const cz of box.z) {
+                const horizontal = Math.abs(cx * right[0] + cy * right[1] + cz * right[2]);
+                const height = Math.abs(cx * vertical[0] + cy * vertical[1] + cz * vertical[2]);
+                expect(horizontal).toBeLessThan(HORSE_FIT_VIEW_HALF_WIDTH);
+                expect(height).toBeLessThan(HORSE_FIT_VIEW_HALF_HEIGHT);
+              }
+            }
+          }
+        }
+      }
+      // The ground line IS the target's own height, so it projects to the middle of
+      // the frame at every aspect — which is what keeps the wheel contact clear of
+      // the harness's control panel, while the whole arrangement sits above it.
+      expect(readout.withersY).toBeGreaterThan(0);
+      expect(CHARIOT_TYRE_BOTTOM_Y).toBeLessThanOrEqual(HORSE_FIT_TARGET[1]);
+    }
+  });
+
+  test('the harness draws the module’s own views — and hides the horse guides with the horses', () => {
+    const harness = code('../components/dev/HorseChariotFitPrototype.tsx');
+    // The view row and the camera both read the module's list: there is no second
+    // copy of the views in the component, so the two cannot drift.
+    expect(harness).toContain(
+      'HORSE_FIT_VIEWS.map((view) => ({ id: view.id as FitView, label: view.label }))'
+    );
+    expect(harness).toContain('HORSE_FIT_VIEWS.find((candidate) => candidate.id === view)');
+    expect(harness).toContain('HORSE_FIT_VIEW_HALF_WIDTH');
+    expect(harness).toContain('HORSE_FIT_VIEW_HALF_HEIGHT');
+    expect(harness).toContain('HORSE_FIT_TARGET');
+    // View D is the chariot alone: the horse's own guides follow the horses toggle, so
+    // hiding the horses leaves the wheel, yoke, pole and ground references only.
+    expect(harness).toContain('...(showHorses ? getHorseGuideSegments(scale, laneX) : [])');
+    // …and the readout can be hidden, because it otherwise covers the ground line and
+    // the wheel contact in the fixed views.
+    expect(harness).toContain('data-testid="fit-panel-toggle"');
+    expect(harness).toContain("panelOpen ? '' : 'hidden'");
   });
 });

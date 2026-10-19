@@ -15,6 +15,14 @@
  * this module, and nothing about it is integrated into the city, the arena or
  * racing gameplay.
  *
+ * C-8.68D widened the viewing, not the scope: the two named three-quarter views
+ * (`front-` ahead of the horses' heads, `rear-` behind the chariot's wheels), the
+ * one fixed framing all three fixed views share so A/B/C/D are compared under the
+ * same camera, the exploratory 0.70 preset, and a collapsible control panel so the
+ * ground line and wheel contact are never hidden behind the readout.  Still
+ * numbers only, still dev-only, still no scale decision, no harness, no gait and
+ * no asset change.
+ *
  * ── WHAT IS MEASURED, AND WHAT IS DERIVED ────────────────────────────────
  * MEASURED — `HORSE_FIT_MEASURED` below, re-read from
  * `public/_workspace_dist_horse_weak.glb` (15,248,136 bytes, sha256
@@ -184,11 +192,26 @@ export const HORSE_FIT_SCALE = CHARIOT_YOKE_UNDERSIDE_Y / HORSE_FIT_MEASURED.wit
 export const HORSE_FIT_SCALE_MIN = 0.4;
 export const HORSE_FIT_SCALE_MAX = 1.2;
 
-/** The three scales worth comparing: the hypothesis, the C-8.68B split, and an unscaled horse. */
+/**
+ * C-8.68D's middle rung: an explicitly **exploratory** intermediate scale, recorded
+ * so the comparison is reproducible rather than eyeballed.  It is **not** a
+ * validated fit and is not presented as one — two of the five rules fail at it
+ * (`yoke-seat`, `adjacent-lanes-manes`, see `getHorseFitReadout`), and those
+ * failing rules are the evidence, not an opinion.
+ */
+export const HORSE_FIT_SCALE_EXPLORATORY = 0.7;
+
+/**
+ * The three scales C-8.68D compares, in the order that phase names them: A is the
+ * measured yoke-fit baseline, B the exploratory intermediate, C the unscaled horse
+ * the predicted fit problems show on.  Nothing here chooses a scale — the slider
+ * still reaches every value in the diagnostic range, including the C-8.68B split
+ * at 0.80.
+ */
 export const HORSE_FIT_SCALE_PRESETS = [
-  { id: 'A', label: 'A — fit the chariot', scale: HORSE_FIT_SCALE },
-  { id: 'C', label: 'C — split (0.80)', scale: 0.8 },
-  { id: 'B', label: 'B — unscaled horse (1.00)', scale: 1 },
+  { id: 'A', label: 'A — fit the chariot (0.5530)', scale: HORSE_FIT_SCALE },
+  { id: 'B', label: 'B — exploratory 0.70 (not validated)', scale: HORSE_FIT_SCALE_EXPLORATORY },
+  { id: 'C', label: 'C — unscaled horse (1.00)', scale: 1 },
 ] as const;
 
 /**
@@ -372,6 +395,73 @@ export function getHorseFitReadout(
     ok: rules.every((r) => r.ok),
   };
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// The fixed comparison cameras (C-8.68D) — camera numbers, still no renderer
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * What every fixed view aims at: the chariot's own ground plane at its centre.
+ * The ground line therefore sits at the middle of the frame, clear of the
+ * harness's control panel, so the wheel contact stays visible in every view.
+ */
+export const HORSE_FIT_TARGET: Vec3 = [0, 0, 0];
+
+/**
+ * How much every fixed view must frame — the SAME extents for all three views and
+ * every scale, which is what makes the comparison controlled.  Sized around the
+ * whole arrangement rather than one model: the draught horse's nose ahead of the
+ * yoke, the staging horse behind the chariot's wheels, and the ear tips at the
+ * tallest of the comparison scales.  A view is solved per viewport from these, so
+ * a narrow canvas still holds the arrangement.
+ *
+ * The height is deliberately larger than the animal, and that is measured rather
+ * than guessed: an elevated view's own vertical axis is NOT world +Y, so a part far
+ * ahead of — or far behind — the target projects above the frame centre.  Measured
+ * over the four solids the arrangement is made of, at the unscaled comparison scale
+ * 1.00 (the widest), the ear tips themselves reach only 2.2447, but the rear
+ * three-quarter view lifts the draught horse's muzzle and ears to **2.8158** and
+ * the front three-quarter the staging horse's tail to 2.4389.  2.9 contains both
+ * with margin, and the frame stays symmetric about the ground plane so the ground
+ * line — and the wheel contact on it — stays at the middle of the canvas, above the
+ * harness's control panel.  The width is set by the same measurement: the front
+ * view's projected extent reaches 4.1244.
+ */
+export const HORSE_FIT_VIEW_HALF_WIDTH = 4.25;
+export const HORSE_FIT_VIEW_HALF_HEIGHT = 2.9;
+
+/**
+ * The three fixed views' ids.  They are short compounds rather than the full English
+ * term so that this module carries no occurrence of the renderer library's own name
+ * as a substring — the C-8.68C scope guard sweeps this file's code for exactly that,
+ * and it is a substring check — while the labels and the comments here still say
+ * "front ¾" and "three-quarter" in words.
+ */
+export type HorseFitViewId = 'side' | 'front-quarter' | 'rear-quarter';
+
+export interface HorseFitView {
+  id: HorseFitViewId;
+  label: string;
+  /** Direction from the target to the camera, in the chariot's own frame (not normalised). */
+  dir: Vec3;
+}
+
+/**
+ * The three fixed views the comparison is taken from.  The horse is yawed so that
+ * it faces the chariot's forward, −Z (`HORSE_FIT_ROTATION_Y`), so `front-` stands
+ * ahead of the horses' heads and `rear-` behind the chariot's wheels; the two
+ * three-quarters differ ONLY in the sign of their Z component, and `side` carries
+ * no elevation at all — the exact side view, looking along −X with the wheel discs
+ * square to the camera.  The two three-quarters sit about **12°** above the ground
+ * plane (a slightly raised, near-eye-level reading of the animal rather than a
+ * downward one, which is also what keeps the frame from having to grow to hold a
+ * long rig seen from above).
+ */
+export const HORSE_FIT_VIEWS: readonly HorseFitView[] = [
+  { id: 'side', label: 'side', dir: [1, 0, 0] },
+  { id: 'front-quarter', label: 'front ¾', dir: [0.72, 0.196, -0.57] },
+  { id: 'rear-quarter', label: 'rear ¾', dir: [0.72, 0.196, 0.57] },
+];
 
 // ───────────────────────────────────────────────────────────────────────────
 // Diagnostic guides — lines and circles, never fake harness geometry

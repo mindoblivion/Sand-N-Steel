@@ -21,6 +21,10 @@ import {
   HORSE_FIT_SCALE_MAX,
   HORSE_FIT_SCALE_MIN,
   HORSE_FIT_SCALE_PRESETS,
+  HORSE_FIT_TARGET,
+  HORSE_FIT_VIEWS,
+  HORSE_FIT_VIEW_HALF_HEIGHT,
+  HORSE_FIT_VIEW_HALF_WIDTH,
   clampFitScale,
   getChariotGuideSegments,
   getGuideCircles,
@@ -28,6 +32,7 @@ import {
   getHorseFitReadout,
   getHorseGuideSegments,
   type GuideSegment,
+  type HorseFitViewId,
 } from '../../utils/horseFitPrototype';
 
 /**
@@ -56,23 +61,33 @@ import {
  * untouched.  Nothing is saved, nothing is written, and the player's real save is
  * never read.
  *
+ * C-8.68D — the Android visual-fit review's preparation, and nothing beyond it:
+ * the two named three-quarter views (`front-` ahead of the horses' heads, `rear-`
+ * behind the chariot's wheels) and one fixed framing all three fixed views share,
+ * so A (0.5530) / B (0.70) / C (1.00) / D (chariot alone) are compared under the
+ * same camera; an exploratory 0.70 preset, labelled as not validated; the horse
+ * guides following the horses toggle; and a collapsible panel, because the control
+ * box otherwise covers the ground line and the wheel contact.  No scale is chosen
+ * here, no geometry, formation constant or asset changes, and the harness still
+ * cannot touch a save.  Android visual acceptance remains the user's to make.
+ *
  * Removal: delete this file, `src/utils/horseFitPrototype.ts` and its suite, and
  * revert the `?devHarness=horsefit` branch in `src/main.tsx`.
  */
 
-type FitView = 'side' | 'three-quarter' | 'free';
+/**
+ * The prototype's view control: the module's three named comparison views
+ * (C-8.68D), plus the free orbit camera, which is the close-inspection path when
+ * the fixed framing is too wide to read a detail.
+ */
+type FitView = HorseFitViewId | 'free';
 type FitClip = 'rest' | 'Idle' | 'Walk' | 'Gallop';
 
-const FIT_TARGET: [number, number, number] = [0, 0.85, -1.0];
-
-/** The two fixed cameras this prototype inspects from, and how much they must frame. */
-const FIT_VIEWS: Record<
-  Exclude<FitView, 'free'>,
-  { dir: [number, number, number]; halfWidth: number; halfHeight: number }
-> = {
-  side: { dir: [1, 0.1, 0], halfWidth: 2.3, halfHeight: 1.6 },
-  'three-quarter': { dir: [0.78, 0.42, 0.6], halfWidth: 2.2, halfHeight: 1.6 },
-};
+/** Every view option the row renders, in comparison order. */
+const VIEW_OPTIONS: Array<{ id: FitView; label: string }> = [
+  ...HORSE_FIT_VIEWS.map((view) => ({ id: view.id as FitView, label: view.label })),
+  { id: 'free', label: 'free (orbit)' },
+];
 
 /**
  * Holds the camera on a fixed view.  The distance is solved per viewport so a
@@ -84,16 +99,20 @@ const CameraRig: React.FC<{ view: FitView }> = ({ view }) => {
   const size = useThree((state) => state.size);
 
   useEffect(() => {
-    if (view === 'free') return;
-    const preset = FIT_VIEWS[view];
+    const preset = HORSE_FIT_VIEWS.find((candidate) => candidate.id === view);
+    if (!preset) return;
     const vFov = THREE.MathUtils.degToRad(camera.fov);
     const distance = Math.max(
-      preset.halfHeight / Math.tan(vFov / 2),
-      preset.halfWidth / (Math.tan(vFov / 2) * camera.aspect)
+      HORSE_FIT_VIEW_HALF_HEIGHT / Math.tan(vFov / 2),
+      HORSE_FIT_VIEW_HALF_WIDTH / (Math.tan(vFov / 2) * camera.aspect)
     );
     const dir = new THREE.Vector3(...preset.dir).normalize().multiplyScalar(distance);
-    camera.position.set(FIT_TARGET[0] + dir.x, FIT_TARGET[1] + dir.y, FIT_TARGET[2] + dir.z);
-    camera.lookAt(new THREE.Vector3(...FIT_TARGET));
+    camera.position.set(
+      HORSE_FIT_TARGET[0] + dir.x,
+      HORSE_FIT_TARGET[1] + dir.y,
+      HORSE_FIT_TARGET[2] + dir.z
+    );
+    camera.lookAt(new THREE.Vector3(...HORSE_FIT_TARGET));
     camera.updateProjectionMatrix();
   }, [view, camera, size.width, size.height]);
 
@@ -123,11 +142,23 @@ const GuideLine: React.FC<{ segment: GuideSegment }> = ({ segment }) => {
   return <primitive object={line} renderOrder={2} name={segment.id} />;
 };
 
-/** The guides: the chariot's own references, the wheel discs, and the horse's stations. */
-const FitGuides: React.FC<{ scale: number; laneX: number }> = ({ scale, laneX }) => {
+/**
+ * The guides: the chariot's own references, the wheel discs, and — only while the
+ * horses are shown — the horse's stations.  Hiding the horses therefore leaves the
+ * wheel radius, the yoke height, the draught pole and the ground plane as the
+ * chariot-alone reference the comparison's view D is read against.
+ */
+const FitGuides: React.FC<{ scale: number; laneX: number; showHorses: boolean }> = ({
+  scale,
+  laneX,
+  showHorses,
+}) => {
   const segments = useMemo(
-    () => [...getChariotGuideSegments(), ...getHorseGuideSegments(scale, laneX)],
-    [scale, laneX]
+    () => [
+      ...getChariotGuideSegments(),
+      ...(showHorses ? getHorseGuideSegments(scale, laneX) : []),
+    ],
+    [scale, laneX, showHorses]
   );
   const circles = useMemo(() => getGuideCircles(), []);
 
@@ -299,10 +330,10 @@ const FitScene: React.FC<{
         </>
       )}
 
-      {showGuides && <FitGuides scale={scale} laneX={INNER_LANE_X} />}
+      {showGuides && <FitGuides scale={scale} laneX={INNER_LANE_X} showHorses={showHorses} />}
 
       <CameraRig view={view} />
-      {view === 'free' && <OrbitControls target={FIT_TARGET} enablePan />}
+      {view === 'free' && <OrbitControls target={HORSE_FIT_TARGET} enablePan />}
     </>
   );
 };
@@ -326,6 +357,9 @@ export const HorseChariotFitPrototype: React.FC = () => {
   const [showGuides, setShowGuides] = useState(true);
   const [showPair, setShowPair] = useState(false);
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
+  // The readout opens with the screen and can be hidden: the control box would
+  // otherwise cover the ground line and the wheel contact in the fixed views.
+  const [panelOpen, setPanelOpen] = useState(true);
   const [loaded, setLoaded] = useState<{
     horse: boolean;
     chariot: boolean;
@@ -416,18 +450,18 @@ export const HorseChariotFitPrototype: React.FC = () => {
 
         <div className="absolute left-3 right-3 bottom-3 sm:left-5 sm:right-5 max-h-[46%] overflow-y-auto rounded-2xl border border-neutral-700/70 bg-neutral-950/90 backdrop-blur p-3 font-mono text-[11px] leading-relaxed">
           <div className="flex flex-wrap gap-2 items-center mb-2">
-            {(['side', 'three-quarter', 'free'] as FitView[]).map((option) => (
+            {VIEW_OPTIONS.map((option) => (
               <button
-                key={option}
-                data-testid={`fit-view-${option}`}
-                onClick={() => setView(option)}
+                key={option.id}
+                data-testid={`fit-view-${option.id}`}
+                onClick={() => setView(option.id)}
                 className={`px-3 py-1.5 rounded-xl border font-bold uppercase tracking-wider cursor-pointer active:scale-95 ${
-                  view === option
+                  view === option.id
                     ? 'bg-cyan-800/70 border-cyan-400/70 text-cyan-100'
                     : 'bg-neutral-800 border-neutral-600/60 text-neutral-300'
                 }`}
               >
-                {option}
+                {option.label}
               </button>
             ))}
             {(
@@ -451,6 +485,13 @@ export const HorseChariotFitPrototype: React.FC = () => {
                 <span className="uppercase tracking-wider text-neutral-300">{label}</span>
               </label>
             ))}
+            <button
+              data-testid="fit-panel-toggle"
+              onClick={() => setPanelOpen((open) => !open)}
+              className="px-2.5 py-1 rounded-lg bg-neutral-800 border border-neutral-600/60 text-neutral-400 uppercase tracking-wider cursor-pointer active:scale-95"
+            >
+              {panelOpen ? 'hide readout' : 'show readout'}
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 mb-2">
@@ -505,7 +546,10 @@ export const HorseChariotFitPrototype: React.FC = () => {
             {CLIP_LABELS[clip]}
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1">
+          <div
+            data-testid="fit-readout"
+            className={`grid sm:grid-cols-2 gap-x-6 gap-y-1 ${panelOpen ? '' : 'hidden'}`}
+          >
             <div data-testid="fit-withers">
               withers <span className="text-cyan-300">{readout.withersY.toFixed(4)}</span> vs yoke
               underside 0.9350 — seat{' '}
@@ -575,11 +619,19 @@ export const HorseChariotFitPrototype: React.FC = () => {
                   .map((rule) => rule.id)
                   .join(', ')}`}
           </div>
-          <div className="text-neutral-500 mt-1">
-            Guides: amber = wheel radius/hub, green = yoke height + pegs, orange = draught pole,
-            white = ground plane (Y = 0), cyan = horse withers/rear, red = the station line, the
-            wheel’s leading edge and the plan’s rear limit. Asset loading success is not visual
-            acceptance.
+          <div className={`text-neutral-500 mt-1 ${panelOpen ? '' : 'hidden'}`}>
+            <span className="text-neutral-300">side</span> is the exact profile,{' '}
+            <span className="text-neutral-300">front ¾</span> stands ahead of the horses’ heads and{' '}
+            <span className="text-neutral-300">rear ¾</span> behind the chariot’s wheels — one fixed
+            camera for every scale, and{' '}
+            <span className="text-neutral-300">chariot</span> alone gives the wheel and yoke
+            proportions. Guides: amber = wheel radius/hub, green = yoke height + pegs, orange =
+            draught pole, white = ground plane (Y = 0), cyan = horse withers/rear, red = the station
+            line, the wheel’s leading edge and the plan’s rear limit.{' '}
+            <span className="text-amber-200">
+              B (0.70) is an exploratory comparison, not a validated fit
+            </span>{' '}
+            — the rule line above is its evidence. Asset loading success is not visual acceptance.
           </div>
         </div>
       </div>

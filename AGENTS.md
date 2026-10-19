@@ -3460,3 +3460,150 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   and the `main.tsx` branch). (5) The **46 MB of horse GLBs in `public/`** are still copied into any
   production build (C-8.68B item 7) and should move out of `public/` before a racing phase ships one.
   (6) **C-8.67C still has no record in this file**, unchanged since C-8.67D.
+
+## Horse ↔ chariot fit prototype — comparison views (Phase C-8.68D — implemented, dev-only; Android acceptance PENDING)
+
+- **What this phase is: the review's preparation, and nothing past it.** C-8.68C's disposable
+  prototype gains the three fixed views the phase names (exact side, front ¾, rear ¾) under ONE
+  fixed framing, so **A (0.5530) / B (0.70) / C (1.00) / D (chariot alone)** are compared under the
+  same camera; the phase's exploratory 0.70 preset, labelled as not validated; a collapsible readout,
+  because the control box otherwise covers the ground line and the wheel contact; and the horse's
+  guide lines now follow the horses toggle, so view D is the chariot's own wheel/yoke/pole/ground
+  references alone. **No scale is chosen, no chariot front is redesigned, no harness geometry is
+  invented, no gait is fabricated, horses are still not integrated into the city, racing is still not
+  implemented, nothing is committed and no player save is read or written.** The three files are
+  `src/utils/horseFitPrototype.ts`, `src/components/dev/HorseChariotFitPrototype.tsx` and
+  `src/utils/phaseC8_68c.test.ts` — **no production game file, no collider, no service, no asset and
+  no `public/` change.**
+
+- **Preflight, measured rather than assumed.** Branch `colosseum-exterior-architecture`, HEAD
+  **9d4503add7**, `git status --short` **empty** before the first edit. The three horse GLBs are
+  byte-identical to the C-8.68A hashes (weak **15,248,136 bytes / sha256 `0a00300e…`**,
+  `better 639b75d5…`, `great f7e1b698…`) and the chariot GLBs to C-8.66B/C-8.67D's (`49e132e6…`,
+  `d5b36add…`, `_workspace_chariot.glb` and `_workspace_arena.glb` untouched) — `git status` after
+  the phase names **exactly the three files above**, so every asset is demonstrably unchanged rather
+  than merely unmentioned. The `?devHarness=horsefit` route is still DEV-gated, still a dynamic
+  import in `main.tsx`'s `else if` chain, and the prototype still cannot reach a save (§F re-run).
+
+- **The three views, as shipped** (numbers in the pure module, so the suite checks them instead of
+  grepping the component):
+
+  | view | id / label | camera direction (chariot frame) | elevation |
+  |---|---|---|---|
+  | exact side | `side` / "side" | `[1, 0, 0]` | **0°** — no elevation at all; the wheel discs sit square to the camera |
+  | front three-quarter | `front-quarter` / "front ¾" | `[0.72, 0.196, -0.57]` | ≈12°, **ahead of the horses' heads** (the horse is yawed to face the chariot's −Z) |
+  | rear three-quarter | `rear-quarter` / "rear ¾" | `[0.72, 0.196, 0.57]` | ≈12°, **behind the chariot's wheels**; differs from the front view ONLY in that sign |
+
+  The ids are short compounds rather than the full English term because **the C-8.68C §F scope
+  guard sweeps the module's code for the renderer library's own name as a substring**, and
+  `"three-quarter"` contains it. The labels and comments still say "front ¾" and "three-quarter" in
+  words, and the guard was left as it was rather than loosened for a new feature's convenience.
+
+- **The framing is one camera for every scale, and its size was MEASURED, not guessed.**
+  `HORSE_FIT_TARGET [0, 0, 0]` is the chariot's own ground plane, so the ground line — and the wheel
+  contact standing on it — projects to the **middle of the canvas at every aspect**, above the
+  control panel's `max-h-[46%]` overlay. `HORSE_FIT_VIEW_HALF_WIDTH 4.25` / `HALF_HEIGHT 2.9` were
+  then fixed from the arrangement's own solids (the chariot, both Biga lanes and the staging lane,
+  each by its measured bounds — *not* one box around all of them, which would invent corners no
+  geometry occupies and demand a much larger frame). A throwaway harness in the `web` container
+  projected all four solids through each view's real horizontal and vertical axes:
+
+  | quantity (at scale 1.00, the widest) | measured |
+  |---|---|
+  | ear tips, world height | **2.2447** (1.5713 at 0.70, 1.2414 at A) |
+  | rear ¾ — projected vertical maximum (the draught horse's muzzle and ears, far ahead of the target) | **2.8158** |
+  | front ¾ — projected vertical maximum (the staging horse's tail, far behind it) | 2.4389 |
+  | side — projected vertical maximum | 2.2447 |
+  | front ¾ — projected horizontal maximum | **4.1244** |
+  | every view's projected minimum | ≥ −1.34 |
+
+  An elevated view's own vertical axis is **not** world +Y, which is why the frame is taller than
+  the animal and why the elevation is ≈12° rather than a steeper look-down: at 20° the same
+  measurement reaches **3.1275**, which would have cost another 8 % of the subject's size in every
+  view for no better reading of the fit. The suite re-derives all of this from the module's constants
+  and the four solids, and asserts it holds at **all three comparison scales**.
+
+- **What the collapsible readout is for, and why it is a fix rather than a nicety.** The canvas is a
+  full-height layer behind the absolutely positioned control box, so with the framing centred on the
+  ground plane the wheel contact sits at the 50 % line — **behind** the panel. The panel now carries
+  a `hide readout` / `show readout` control that collapses the numeric grid and the legend (the view
+  row, the toggles, the scale row and the rule-status line all stay visible), which is what makes
+  "keep the ground plane and wheel contact visible" true of the default screen and not only of a
+  cropped one. Driven live: the grid takes the `hidden` class and the status line keeps reading
+  *"EVERY MEASURED RULE PASSES AT THIS SCALE"*.
+
+- **The comparison scales, and the preset rebase.** `HORSE_FIT_SCALE_EXPLORATORY = 0.7` is the
+  phase's middle rung, recorded so the comparison is reproducible; its label reads **"B — exploratory
+  0.70 (not validated)"** and the legend says the rule line above it is its evidence. The labelled
+  set is now A / B / C in the phase's own order, and **the 0.80 split C-8.68C's preset offered is
+  still reachable on the slider and still asserted** — only the shortcut button moved, so nothing the
+  old set could do was lost. Measured at 0.70 (pinned in the suite and read back live): withers
+  **1.1835**, seat **+0.2485**, ear tip **1.5713** against the wheel top **1.3350**, mane ±**0.3153**,
+  lane air at the manes **0.0893**, rear clearance 0.1661, pole clearance 0.2062, and exactly **two**
+  rules failing — `yoke-seat`, `adjacent-lanes-manes`. Its one measured virtue over A is that **the
+  ear tip clears the wheel** (1.5713 > 1.335) where A's (1.2414) does not; that is a reading, not a
+  fit, and the phase does not present it as one.
+
+- **Regression suite: `phaseC8_68c.test.ts` — 33 → 36 tests.** The new **§G** covers the view
+  ids/labels/directions (the two three-quarters differing only in the sign of their Z component, the
+  side view's zero elevation), the one-fixed-camera property checked against the four solids at
+  every preset scale, the ground line's coincidence with the target's height, and that the harness
+  draws the module's own list (no second copy of the views) and hides the horse guides with the
+  horses. §D's preset test was **rebased, not weakened** (A / B / C, with the exploratory value and
+  its "not validated" label pinned, and the 0.80 readout still asserted in the test above it), and a
+  new §D test pins the 0.70 numbers above. The suite's starting point was **one failing assertion**
+  plus one rebase-driven failure: the module's new view ids tripped §F's substring sweep, which was
+  **fixed by naming rather than by loosening the guard**.
+
+- **Live evidence, and its limits.** The harness was driven in the preview browser. Two environment
+  facts, both recorded elsewhere and re-confirmed here: the platform's own fresh loads **clear the
+  dev-only scratch flag** (`sand_and_steel_dev_harness`, replayed from the account's snapshot), and a
+  `path`-based navigation carries `?devHarness=horsefit` **only on the tool's first navigation of a
+  turn**. The working route is C-8.66C's: load the harness URL **inside an in-page `<iframe>`**, drive
+  its real controls with real DOM clicks, capture, then remove the frame (done — the frame is gone
+  and no harness record was left behind). Read back from the running screen: `loaded: horse=true
+  (7 skinned meshes, 31 joints, clips [Gallop, Idle, Walk]) chariot=true` — the real GLB, its real
+  skeleton, in the renderer; the view row **`side` / `front ¾` / `rear ¾` / `free (orbit)`**; the
+  presets **`A — fit the chariot (0.5530)`**, **`B — exploratory 0.70 (not validated)`**,
+  **`C — unscaled horse (1.00)`**; at A `0.5530` with *"every measured rule passes at this scale"*
+  and seat `-0.0000`; at B `0.7000` with *"rule(s) failing: yoke-seat, adjacent-lanes-manes"*; at C
+  `1.0000` with three rules failing and lane air `-0.1810`; the collapse taking the readout grid to
+  the `hidden` class; and **375 px with `documentElement.scrollWidth === clientWidth` in both the top
+  document and the frame**, so nothing overflows sideways on a phone. **0 console errors. Screenshots
+  of the side, front ¾ and rear ¾ views, of B, of C, of the chariot-only view and of the collapsed
+  panel were captured through SwiftShader.** *Successful asset loading, a correct numerical readout
+  and a legible software-rendered frame are not visual acceptance.*
+
+- **Android visual acceptance: PENDING, and this phase deliberately decides nothing.** The sandbox
+  has no GPU (SwiftShader), so **nothing about how the arrangement READS on the target device is
+  settled here, and no claim is made that it was seen there.** The device review this preparation
+  exists for, in the phase's own terms: (a) is the horse at **0.5530** — 0.935 at the withers, 1.241
+  at the ears, under a **1.370** wheel beside a 1.7 eye line — visually acceptable, or is the answer
+  a **redesigned chariot front** that accommodates a larger horse (C-8.68B's Alternative B, which
+  **no one has authorized**); (b) what does **0.70** read as — it is exploratory, it fails two
+  measured rules, and its only measured advantage is the ear tip clearing the wheel; (c) does
+  **1.00** show the predicted failure (seat +0.7557, manes interpenetrating, rear −0.3349); (d) does
+  **chariot alone** read as the wheel and yoke proportions the team is judged against; (e) do the
+  guide lines still read as **diagnostic markers** rather than fittings; and (f) does the one fixed
+  framing hold the whole arrangement in all three views **on the device's own aspect** — a phone in
+  portrait has a wide arrangement in a narrow canvas, so the solver zooms out, and the FREE orbit
+  view is the close-inspection path there.
+
+- **Verified 2026-10-19** in the dev container, after the last edit: `bun test` → **1805 pass / 0
+  fail (56 files, 39,173 `expect()`)** (C-8.68C left 1801 / 56; the delta is this phase's three new
+  tests); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only);
+  `git diff --check` → clean. The diff is exactly **3 files / 315 insertions / 43 deletions** — the
+  two prototype sources and the suite.
+
+- **Carried forward, unchanged by this phase.** (1) The **target withers height** is still the open
+  product/art decision — this phase supplies the comparison, not the answer, and its instruction not
+  to choose a scale was honoured. (2) **No harness exists** (yoke pad, neck straps, girth, hames,
+  traces, reins and C-8.67D's trace staple all still absent), **no gait exists** (the shipped
+  `Walk`/`Gallop` still move 0.000° of leg rotation and the screen still labels them *"NOT a
+  gait"*), and skin deformation at stride angles is still unverified. (3) Nothing connects the
+  arrangement to rendering or gameplay, and the prototype remains disposable by construction. (4) The
+  **46 MB of horse GLBs in `public/`** still land in any production build. (5) **C-8.67C still has no
+  record in this file.** (6) New here: the fixed framing is sized for the **three comparison
+  scales**; dragging the slider past them (up to 1.2) can push the staging horse's tail outside a
+  three-quarter frame, which is expected and is why the FREE view exists.
