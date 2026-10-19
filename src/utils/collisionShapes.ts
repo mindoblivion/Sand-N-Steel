@@ -964,6 +964,36 @@ const circusPerimeter: SegmentCollider[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// East Circus District — the forecourt parapet (Phase C-8.64B)
+//
+// The district's paved shell (components/3d/city/EastCircusDistrict.tsx, laid
+// out by utils/circusDistrictGeometry.ts) adds exactly ONE solid structure: the
+// low travertine parapet closing the carceres forecourt's south edge.  Its
+// rendered body is 0.50 deep and 0.90 high with a 0.10 coping (the same
+// construction as the city's own StreetWall boundary walls), and its rectangle
+// below is that body's own footprint — centre (50.25, 54.75), 30.50 × 0.50,
+// i.e. X 35.00 … 65.50 and Z 54.50 … 55.00.
+//
+//   • It is the district's southern EDGE made visible: the envelope's own south
+//     limit (CIRCUS_ENVELOPE_Z_MAX, cityCollisions.ts) is this wall's outer
+//     face, so the boundary the player is stopped at south of the forecourt is
+//     stone rather than nothing.
+//   • It blocks nothing that was walkable before it existed: every point of the
+//     forecourt's paving (Z 46.10 … 54.50) is still clear of it, and the wall
+//     occupies ground that was open sand.
+//   • The district's roads and kerbs carry no colliders.  A road is pavement,
+//     and the kerbs are the city's own 0.16-high curb (CityStreets' cross-street
+//     curbs are equally collider-free): a 0.16-high stone is stepped over, not
+//     walked around.  So the forecourt parapet is this phase's whole collision
+//     addition — the registry goes 141 → 142 colliders, 31 → 32 rectangles, and
+//     the `circus-*` arena perimeter is untouched at 31 segments.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const circusDistrictRects: RectCollider[] = [
+  RECT('forecourt-parapet', 50.25, 54.75, 30.5, 0.5),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Master Registry
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -981,4 +1011,5 @@ export const CITY_COLLIDERS: Collider[] = [
   ...fortressWallRects,
   ...mottePerimeterSegments,
   ...circusPerimeter,
+  ...circusDistrictRects,
 ];

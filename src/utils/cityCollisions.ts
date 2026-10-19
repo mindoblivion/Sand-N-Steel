@@ -23,43 +23,62 @@ export const BOUNDARY_X = 35;
 export const BOUNDARY_Z_MIN = MOTTE_CENTER_Z - MOTTE_PERIMETER_RADIUS + 2.5; // -101
 export const BOUNDARY_Z_MAX = 35;
 
-// ── Phase C-8.64A — East Circus District envelope ────────────────────────
+// ── Phase C-8.64A / C-8.64B — East Circus District envelope ─────────────
 // The city's own limits above are untouched: they still describe the square
 // every earlier phase measured (±35 in X, +35 south, the motte-derived north
 // limit).  The East Circus District lies entirely outside them — the arena's
 // footprint is X 37.60 … 66.34, Z −30.157 … 46.00, and its two entrances are at
 // (X 43.34 … 61.34, Z 43.80 … 46.00) and (X 49.84 … 54.84, Z −30.16 … −22.5) —
-// so without an envelope there the district could not be walked to at all and
-// neither entrance could be entered.
+// so without an envelope there the district could not be walked to at all.
 //
-// The extension is the smallest rectangle that makes the district usable rather
-// than merely reachable:
+// The extension is a rectangle that makes the district usable rather than
+// merely reachable:
 //   • east 67.5 = the arena's east wall (66.30) + 1.20, so the whole building is
 //     inside the walkable area and the player can walk round it instead of into
-//     an invisible wall inside its own track;
-//   • south 47.5 = the carceres' front face (46.00) + 1.50, the apron its
-//     entrance is approached from;
-//   • north −35.0 = the shell's north tip (−30.157) less 4.84, so the north
-//     entrance can be reached round the sphendone.
-// It is a *union* with the city square, not a replacement: the pair of bounds
-// below applies only east of BOUNDARY_X and only inside that Z band, so the
-// city's own envelope is bit-for-bit what it was.
+//     an invisible wall inside its own track (C-8.64A);
+//   • north −35.0 = the shell's north tip (−30.157) less 4.84, so the north end
+//     can be reached round the sphendone (C-8.64A);
+//   • south 55.0 = the forecourt parapet's outer face, i.e. the district's own
+//     southern edge (C-8.64B).  C-8.64A ended the band at 47.5 — the carceres'
+//     front face (46.00) + 1.50, a 1.50-deep apron — which is not a gathering
+//     space.  The district's paved forecourt is 8.40 deep in front of that face
+//     and is closed by a parapet, so the band follows the measured district
+//     instead of the apron: 55.0 is that wall's outer face, which makes the
+//     boundary the player is stopped at south of the forecourt STONE rather
+//     than nothing at all.  The whole forecourt pavement (Z 46.10 … 54.50) sits
+//     inside it.
+//
+// It is a *union* with the city square, not a replacement: the band applies
+// only east of BOUNDARY_X and only inside that Z range, so the city's own
+// envelope is bit-for-bit what it was.  Two rules keep the union consistent at
+// its shared edge (X = BOUNDARY_X), and both are load-bearing:
+//   • clampBoundaryX may not clamp a point WEST of BOUNDARY_X while it is south
+//     of the city square.  There is no walkable ground there (the union holds
+//     only the district band south of Z 35), so clamping inward would leave the
+//     player inside the city square's Z range and the following Z clamp would
+//     then snap them north — measured before this rule existed: a step west
+//     from (36, 50) teleported the player to (35, 35), a 15-unit jump.
+//   • clampBoundaryZ treats X = BOUNDARY_X itself as district, so a player
+//     clamped exactly onto the city's east limit is never pulled back into the
+//     square's Z range by the axis that runs second.
 export const CIRCUS_ENVELOPE_X_EAST = 67.5;
 export const CIRCUS_ENVELOPE_Z_MIN = -35.0;
-export const CIRCUS_ENVELOPE_Z_MAX = 47.5;
+export const CIRCUS_ENVELOPE_Z_MAX = 55.0;
 
-/** Phase C-8.64A — clamp an X move: the district's band is open east only. */
+/** Phase C-8.64A/B — clamp an X move: the district's band is open east only. */
 export function clampBoundaryX(x: number, z: number): number {
-  const east =
-    z >= CIRCUS_ENVELOPE_Z_MIN && z <= CIRCUS_ENVELOPE_Z_MAX
-      ? CIRCUS_ENVELOPE_X_EAST
-      : BOUNDARY_X;
-  return Math.max(-BOUNDARY_X, Math.min(east, x));
+  const inDistrictBand = z >= CIRCUS_ENVELOPE_Z_MIN && z <= CIRCUS_ENVELOPE_Z_MAX;
+  const east = inDistrictBand ? CIRCUS_ENVELOPE_X_EAST : BOUNDARY_X;
+  // South of the city square the district band is the union's only rectangle,
+  // so its west edge is BOUNDARY_X, not −BOUNDARY_X.
+  const west = inDistrictBand && z > BOUNDARY_Z_MAX ? BOUNDARY_X : -BOUNDARY_X;
+  return Math.max(west, Math.min(east, x));
 }
 
-/** Phase C-8.64A — clamp a Z move: east of the city the district's band applies. */
+/** Phase C-8.64A/B — clamp a Z move: east of the city the district's band applies. */
 export function clampBoundaryZ(x: number, z: number): number {
-  const inDistrict = x > BOUNDARY_X;
+  // >= so the shared edge belongs to the district side too (see above).
+  const inDistrict = x >= BOUNDARY_X;
   const zMin = inDistrict ? CIRCUS_ENVELOPE_Z_MIN : BOUNDARY_Z_MIN;
   const zMax = inDistrict ? CIRCUS_ENVELOPE_Z_MAX : BOUNDARY_Z_MAX;
   return Math.max(zMin, Math.min(zMax, z));

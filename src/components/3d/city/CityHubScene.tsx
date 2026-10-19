@@ -27,6 +27,7 @@ import { NorthernFortress } from './NorthernFortress';
 import { NorthernMotte } from './NorthernMotte';
 import { Drawbridge } from './Drawbridge';
 import { EastCircusArena } from './EastCircusArena';
+import { EastCircusDistrict } from './EastCircusDistrict';
 import { CityCamera } from './CityCamera';
 import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
@@ -616,6 +617,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <Suspense fallback={null}>
                 <EastCircusArena />
               </Suspense>
+              {/* Phase C-8.64B — East Circus District: the paved approach
+                  roads, the carceres forecourt and its parapet.  Mounted once,
+                  immediately after the arena it serves.  No asset of its own,
+                  so it needs no Suspense; every footprint comes from
+                  utils/circusDistrictGeometry.ts. */}
+              <EastCircusDistrict />
             </ThreeComponentErrorBoundary>
 
             {/* 3D Player Gladiator Model Wrapped in Error Boundary */}
