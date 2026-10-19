@@ -25,13 +25,13 @@ function ProductionLighting() {
   const lightformers = useMemo(() => <>
     <Lightformer form="rect" intensity={2.0} color="#fffbeb" position={[30, 42, 22]} scale={[30, 30, 1]} target={[0, 0, 0]} />
     <Lightformer form="rect" intensity={0.35} color="#fef3c7" position={[0, 60, 0]} scale={[100, 100, 1]} target={[0, 0, 0]} />
-    <Lightformer form="rect" intensity={0.25} color="#b08968" position={[0, -30, 0]} scale={[100, 100, 1]} target={[0, 0, 0]} />
+    <Lightformer form="rect" intensity={0.25} color="#8a7a5f" position={[0, -30, 0]} scale={[100, 100, 1]} target={[0, 0, 0]} />
     <Lightformer form="rect" intensity={0.2} color="#7dd3fc" position={[-25, 20, -25]} scale={[20, 20, 1]} target={[0, 0, 0]} />
   </>, []);
   return <>
-    <fog attach="fog" args={['#e0a96d', 35, 115]} />
+    <fog attach="fog" args={['#e3dbc6', 45, 160]} />
     <Sky sunPosition={[30, 42, 22]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
-    <hemisphereLight color="#fef3c7" groundColor="#b08968" intensity={0.45} />
+    <hemisphereLight color="#fef3c7" groundColor="#8a7a5f" intensity={0.45} />
     <directionalLight position={[30, 42, 22]} intensity={2.15} color="#fffbeb" castShadow
       shadow-mapSize={[2048, 2048]} shadow-camera-left={-70} shadow-camera-right={50}
       shadow-camera-top={50} shadow-camera-bottom={-50} shadow-camera-near={1}
