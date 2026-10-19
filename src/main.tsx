@@ -13,6 +13,33 @@ const useCharacterHarness =
   import.meta.env.DEV &&
   new URLSearchParams(window.location.search).get('devHarness') === 'character';
 
+// Phase C-8.66C — development-only Chariot Workshop transaction harness.
+// Reachable ONLY in a Vite dev build, either through the exact
+// `?devHarness=chariot` query parameter or — for a preview browser that cannot
+// deliver a query parameter on a reload — through the equivalent dev-only
+// scratch-storage flag `sand_and_steel_dev_harness = 'chariot'`.  It drives the REAL
+// workshop UI against a DISPOSABLE profile stored under its own storage key,
+// so a purchase and an equip can be exercised end to end without touching the
+// player's save.  `?gold=<n>` sets the disposable profile's starting purse when
+// it is first seeded (default 600); the flag route uses that default.
+const DEV_HARNESS_KEY = 'sand_and_steel_dev_harness';
+const readDevHarnessFlag = (): string | null => {
+  for (const store of [window.sessionStorage, window.localStorage]) {
+    try {
+      const value = store.getItem(DEV_HARNESS_KEY);
+      if (value !== null) return value;
+    } catch {
+      // Ignore an unavailable store and try the next one.
+    }
+  }
+  return null;
+};
+
+const useChariotHarness =
+  import.meta.env.DEV &&
+  (new URLSearchParams(window.location.search).get('devHarness') === 'chariot' ||
+    readDevHarnessFlag() === 'chariot');
+
 if (useCharacterHarness) {
   // Lazy so the harness module (and its DuelScene chunk) is never even parsed
   // outside this dev+param path.
@@ -20,6 +47,14 @@ if (useCharacterHarness) {
     ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <React.StrictMode>
         <CharacterTestHarness />
+      </React.StrictMode>,
+    );
+  });
+} else if (useChariotHarness) {
+  void import('./components/dev/ChariotWorkshopHarness').then(({ ChariotWorkshopHarness }) => {
+    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+      <React.StrictMode>
+        <ChariotWorkshopHarness />
       </React.StrictMode>,
     );
   });

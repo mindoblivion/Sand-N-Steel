@@ -2506,3 +2506,122 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   confirm it by hand. **Android visual acceptance is PENDING** for the workshop cards and the chariot
   preview on the target GPU. Cleanup: the preview browser's save was put back to its original value
   (gold 100, no `chariot` field) and the temporary backup key removed.
+
+## Chariot Workshop transaction and visual-fit audit (Phase C-8.66C — audited, verified live)
+
+- **Scope: verification only.** This phase changed **no workshop behaviour**. The whole shipped
+  feature — `chariotParts.ts`, `chariotLoadout.ts`, `chariotGeometry.ts`, `ChariotPreview.tsx`,
+  `ChariotWorkshopTab.tsx`, `GearTab.tsx`, `App.tsx`'s two handlers and the collision registry — is
+  byte-identical, and the two chariot GLBs still hash to their audited values
+  (`49e132e6…` and `d5b36add…`). What it *adds* is a **dev-only transaction harness** and a focused
+  suite that closes the two gaps the audit found; the feature it verifies is the C-8.66B one.
+
+- **`src/components/dev/ChariotWorkshopHarness.tsx` + one branch in `src/main.tsx`.** A
+  DEVELOPMENT-ONLY screen (`import.meta.env.DEV`, so it is dead-code-eliminated from a production
+  build) that mounts the **real** Armory subview — `GearTab` → `ChariotWorkshopTab` → the real
+  `ChariotPreview` — against a **disposable** profile, so the purchase and equip clicks C-8.66B could
+  not exercise (its profile has 100 gold; the cheapest part costs 180) can be driven end to end. It
+  never calls `saveProfile` / `loadSavedProfile` and never names `PROFILE_STORAGE_KEY`: the disposable
+  profile lives under its own key (`sand_and_steel_chariot_workshop_harness_v1`) in **per-tab scratch
+  storage**, seeded from `?gold=<n>` (default 600) only when no disposable record exists. Buy and
+  equip go through the **same** `purchaseChariotPart` / `equipChariotPart` calls and the same
+  state-then-save flow App uses. Reachable by `?devHarness=chariot` **or** the equivalent dev-only
+  `sand_and_steel_dev_harness = 'chariot'` scratch flag. Removal: delete the file and revert the
+  branch (the import + the conditional); nothing else references it.
+
+- **Two environment facts the audit measured, both worth remembering for future phases.**
+  (1) **A query-parameter URL is delivered only when the preview tool performs the initial
+  navigation.** After any shell command the platform re-loads the **home route**, and a
+  `path`-based navigation then no longer carried `?devHarness=chariot` — the frame came back the
+  title screen. (2) **Every fresh load restores the account's own session snapshot and clears the
+  browser's storage**: canaries planted in `localStorage` *and* `sessionStorage` were both gone after
+  the next fresh load, and so was the harness's disposable record. A **page-initiated reload inside
+  the live document is not one of those loads** — it preserves scratch storage. So the transaction
+  flow was driven in an in-page `<iframe>` that loads the harness URL itself: the top document stays
+  the real app, the harness is a real second instance, and a reload of that frame is a real reload
+  with the same disposable profile. The clicks were dispatched on the **real buttons** (the preview
+  click helper refuses elements that live in the frame, so `element.click()` was used — a real DOM
+  click delivered to React, not a state injection). Everything was cleaned up afterwards: the
+  disposable record deleted from both stores, the frame removed, and the player's save verified
+  byte-identical (1959 chars) before and after.
+
+- **Transaction evidence, driven through the real UI** (each row is an assertion the harness read
+  back from the rendered DOM *and* from the persisted profile):
+
+  | step | observed |
+  |---|---|
+  | disposable profile on mount | gold **600**, owned `wheels_standard, finish_stock`, equipped stock |
+  | **Buy (450)** on Reinforced wheels | gold 600 → **150** — exactly the listed price, one deduction |
+  | ownership | `wheels_reinforced` appears **once** in `owned`; equipped is **unchanged** (`wheels_standard`) |
+  | the card afterwards | `Preview` + **`Equip`** — the Buy control is gone, so a repeat purchase cannot be issued |
+  | **Equip** Reinforced | equipped → `wheels_reinforced`, gold **still 150** (equipping never charges) |
+  | **repeat Equip** click | control disabled; gold and loadout unchanged |
+  | **Preview** Standard wheels | header reads `PREVIEWING (NOT EQUIPPED)` and `Reset preview` appears; gold and loadout **unchanged** |
+  | **Reset preview** | back to `CURRENTLY EQUIPPED`; gold and loadout unchanged |
+  | **insufficient gold** at 150 | all three paid finishes (180 / 240 / 320) read `Not enough gold.` with a **disabled** button; clicking them changes nothing |
+  | **reload with the same disposable profile** | rehydrated from storage: gold **150**, `owned` still one `wheels_reinforced`, the Reinforced card reads **`Equipped`** and the preview shows the reinforced set |
+  | the player's own save | **untouched** — byte-identical before and after, and never read by the harness |
+
+- **The fitted wheels, re-measured from the shipping GLBs through the shipped transform** (a
+  throwaway harness in the `web` container composed every glTF node matrix and moved the kit's real
+  VERTICES, not just the accessor bounds):
+
+  | quantity | standard | reinforced |
+  |---|---|---|
+  | mounted hub, both sides | **(±0.7000, 0.6500, 0.0000)** — the axle's own axis (Y 0.605…0.695) | **the same point** |
+  | mounted bottom Y | **−0.0350** — the stock wheel's own bottom, to the digit | **−0.0525**, i.e. the recorded 0.0175 deeper |
+  | the disc's X band | −0.7680…−0.6320 (left) / 0.6320…0.7680 (right) — **bit-identical to the fitted stock wheel**, so the mounting interface is unchanged | **the same band** |
+  | nearest tub/rail vertex | 0.1728 (`CarBody_Wood`) | **0.1726** |
+  | nearest handle-grip vertex | 0.1331 (`Handle_Grip`) | **0.1159** — the bigger rim passes that much nearer the grip |
+  | rim top against the tub's own top rail (1.222) | 1.335 → **+0.113** | 1.3525 → **+0.1305** |
+  | body AABBs overlapping the wheel | the **axle and that side's own cap only** — the mounting contact, which the stock wheel occupies identically | **the same two** |
+
+- **`src/utils/phaseC8_66c.test.ts` — 21 tests / 118 assertions, the two real coverage gaps.**
+  §A drives both variants on both sides through the shipped transform and pins the table above
+  (the stock X band, the hub, the bottom, the axle-only overlap, the tub/handle clearances, the
+  wheel as the model's lowest point, and the mirrored instances); §B runs the shipped
+  `applyChariotFinish` against real `THREE` objects that share materials the way `Object3D.clone()`
+  makes them share — so the "no material leaks through the shared cached GLB" property is
+  **exercised** rather than grepped (the cached scene keeps its colours and its material objects;
+  two different finishes cannot bleed into one another; the stock finish is a no-op); §C pins the
+  harness's isolation (its own key, per-tab scratch storage, no `saveProfile` / `PROFILE_STORAGE_KEY`
+  reference, the real UI and the real helpers, and the `DEV`-gated mount). The transaction rules
+  themselves are deliberately **not** restated — `phaseC8_66b.test.ts` already pins them.
+
+- **Verified 2026-10-19** in the dev container: focused `bun test src/utils/phaseC8_66c.test.ts` →
+  **21 pass / 0 fail** (118 expect() calls); `bun test` → **1637 pass / 0 fail (51 files, 36644
+  expect() calls)** (C-8.66B left 1616 / 50; the delta is this suite); `bun run
+  scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only); `git diff --check`
+  → clean. The phase's source changes are three files: `src/main.tsx` (the harness branch),
+  `src/components/dev/ChariotWorkshopHarness.tsx` (new) and `src/utils/phaseC8_66c.test.ts` (new).
+
+- **Runtime health during the live pass.** No failed requests (`getNetworkRequests({filter:
+  'failed'})` → 0) — the chariot GLB, the wheel kit and the workshop's other assets all answered.
+  Two console errors appeared, **both at the teardown of the temporary frame**: the documented
+  pre-existing `"Attempted to synchronously unmount a root while React was already rendering"`
+  (C-8.66B records the same message on the city → hub transition; it comes from the WebGL guard's
+  remount) and an `"Uncaught "` with an empty message immediately after it, i.e. when the frame
+  holding the harness was removed. Neither was observed while the workshop was in use.
+
+- **Not verified — the wheel swap's appearance on the target GPU, and this is a device question.**
+  The live frames do show the chariot rendering with a kit wheel set fitted (the preview viewport
+  renders through SwiftShader), but the fine difference between the two wheel sets is **not
+  resolvable at this environment's frame quality**, so **Android visual acceptance of the reinforced
+  wheel swap, the hub alignment and the 0.0175-lower tyre stays PENDING** exactly as C-8.66B
+  recorded it. Do not claim it.
+
+- **The real route, driven end to end in the preview browser (2026-10-19).** title → `Play as Guest`
+  → the **3D city hub** (HUD up) → the map drawer (`City Map & Navigation`) → **fast travel to the
+  Imperial Stable** → the stable's own prompt → its banner button → the **Armory's Chariot Workshop
+  subview**. All six cards render, the two subview pills read `Gladiator Loadout` / `Chariot
+  Workshop` (the workshop one active), and the player's own **100 gold** makes all four paid parts
+  read `Not enough gold.` with their buy controls disabled — exactly the behaviour C-8.66B recorded,
+  on an untouched save. **0 failed requests** (21 buffered) and the only console error is the
+  documented pre-existing React unmount message on the city → hub transition. Two honest notes:
+  (a) the prompt text is matched case-insensitively because Tailwind's `uppercase` is reflected in
+  `innerText` — the captured frame shows `VISIT CHARIOT WORKSHOP [E / SPACE]`, i.e. the prompt was
+  up; and (b) the workshop's **3D preview canvas was still initializing** when the frame was taken
+  (the WebGL guard's "initializing 3D world context" state), so this pass does not *re-establish*
+  the preview's first render — the disposable-harness frames in this same phase show the chariot
+  rendering in that viewport, and C-8.66B captured it first.
