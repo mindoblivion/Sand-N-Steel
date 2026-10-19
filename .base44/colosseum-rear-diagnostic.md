@@ -106,6 +106,70 @@ No candidate fix was implemented. **Android visual acceptance remains PENDING.**
 Capture the three modes in both orientations if the defect differs, and include
 device model, browser, displayed renderer, camera readout, and affected θ/y band.
 
+## C-8.69D closure — persisted audit findings (C-8.69E)
+
+Persistence check first, because it was not assumed: everything above **is** the persisted record.
+It already carries the A/B/C comparison table, the **ANGLE / SwiftShader** renderer limitation, the
+dark rear upper recess as an appearance concern, the outstanding Android hardware-GPU verification
+and the audit's validation figures, and those sections are left untouched below. Two findings from
+the completed audit were **absent** and are the only things this closure adds. Nothing above is
+duplicated.
+
+### 360° roofline coverage — measured
+
+Re-derived from the shipped `GrandColosseum.tsx` constants and the real three.js geometry of every
+band (throwaway harness `/tmp/phase869d-roof.mjs`, run in the `web` container against `/app/src`):
+
+- **The topmost exterior stone is identical at every azimuth:** roofline **min = max = Y 17.35**, the
+  **attic crest** being the top-most band at all 72 sampled azimuths (5° step). The crest is
+  continuous — there is no azimuth where the building is lower.
+- **Complete rings (no gap anywhere on the circle)** at y ≈ 14.95 (tier-2 / golden cornice), 16.20
+  (attic wall) and 17.10 (attic crest). Above y 8.6 the rear gate zone is solid stone (spandrel
+  7.35–8.0, tier-1 cornice 7.8–8.6 as its lintel), so the only non-stone sector at y 7.6–12.0 is the
+  monumental entrance. Below y 7.35 the only openings are the rear gate and the tier-1 arcade bays —
+  exactly the C-8.31 cut.
+- **No band exists entirely above the crest** (y > 17.35) and the source contains no roof, velarium
+  or cap mesh (no `roof`/`velarium`/`cap` token, no `FlatArcRing` usage): **the building has no
+  conventional roof.**
+- Every drum band is a real open-ended `CylinderGeometry` with 36 radial segments; all 72 face
+  normals and all 74 vertex normals point **outward** (0 inward, 0 degenerate, no inverted winding),
+  and all five facade materials are `THREE.DoubleSide`. Back-face culling therefore cannot remove a
+  rear surface.
+
+### Conclusion
+
+**No conventional roof exists and no confirmed geometry gap exists in the inspected source.** The
+drum is closed everywhere except the designed openings, the roofline is a continuous crest at
+Y = 17.35 the whole way round, nothing occludes or depth-conflicts with the rear stone, and there is
+no culled or hidden rear surface. The **dark rear upper recess is recorded as an appearance concern,
+not a proven geometry defect** — it is the building's unlit side (tier 1 a see-through arcade, the
+tier-2 liner exposed over the gate where no pilaster is placed), and the A/B/C comparison above
+supports a lighting/material-contrast explanation. A material/render-path issue specific to Android
+hardware is **not** ruled out.
+
+### Outstanding verification
+
+**Android hardware-GPU verification remains PENDING.** No device capture has yet established whether
+the "missing" surface is stone or the designed openings, so no production lighting or geometry change
+is authorised. The evidence still needed is the list in `AGENTS.md` under the C-8.69C section:
+a device screenshot/recording from behind (plus the front for comparison), device model/GPU/browser,
+whether the missing region is stone or an opening, whether it is stable with camera angle/distance,
+and whether it differs between portrait and landscape.
+
+### Exact tests and validation
+
+- Completed C-8.69D audit: `bun test` → **1814 pass / 0 fail (57 files)** including **9** new
+  diagnostic tests; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only).
+- C-8.69E re-run against the unchanged source: focused
+  `bun test src/components/dev/colosseumRearDiagnostic.test.ts` → **9 pass / 0 fail** (136 expect);
+  `bun test` → **1814 pass / 0 fail (57 files, 39322 expect)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0, with the built `dist/` containing **no** diagnostic token
+  (`colosseum-rear`, `ColosseumRearDiagnostic`, `colosseumRearDiagnostic`, `applyRearNeutral`,
+  `probeRear`, `useColosseumRearHarness`, `__dev`) and **no harness chunk**; `git diff --check` →
+  clean.
+
 ## Verification
 
 - Development compose reused successfully; service healthy; shell and diagnostic
