@@ -2125,4 +2125,206 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   now lie inside the closed ring, which the player can no longer reach, so the interior is documented
   as unreachable rather than collided. (c) No chariot, no racing gameplay, no hub, no fast travel and
   no racing loop exists yet — the arena is a placement prototype, and C-8.64B (the district's
-  remaining shell) was explicitly **not** started.
+  remaining shell) was explicitly **not** started — **Phase C-8.64B built it; its record, and the
+  completion pass that finished and re-validated it, are the section below.**
+
+## East Circus District — access roads, forecourt and boundary (Phase C-8.64B — implemented, completed and validated)
+
+- **What the phase ships** (`28145c2`, the branch's tip when this phase was closed):
+  `src/utils/circusDistrictGeometry.ts` — the pure layout module that is the single source of the
+  pavement the component draws *and* the pavement the suite asserts, so the two can never drift;
+  `src/components/3d/city/EastCircusDistrict.tsx` — the paved shell (four runs, the carceres
+  forecourt, the parapet, three kerbs; 20 static meshes, no per-frame work, no new material, no new
+  texture — the forecourt's bump map is a clone of the shared `NOISE_TEXTURE`, which shares its
+  canvas image), mounted **exactly once**, from `CityHubScene.tsx:625`; one new collider in
+  `collisionShapes.ts` (`forecourt-parapet`); and the district-access envelope's south limit in
+  `cityCollisions.ts`. No file under `public/` changed.
+
+- **The layout, with centre lines and world footprints** (every figure below was recomputed from the
+  shipped module and the shipped registry in a throwaway harness in the `web` container, and is also
+  pinned in `src/utils/phaseC8_64b.test.ts`):
+
+  | run | centre | size | world footprint |
+  |---|---|---|---|
+  | `circus-approach` (east–west) | (30.375, 7.50) | 15.25 × 6.00 | X 22.75 … 38.00, Z 4.50 … 10.50 |
+  | `circus-approach-link` (east–west) | (19.025, 8.25) | 7.45 × 3.00 | X 15.30 … 22.75, Z 6.75 … 9.75 |
+  | `circus-via` (north–south, the arena frontage) | (36.50, 28.30) | 3.00 × 35.60 | X 35.00 … 38.00, Z 10.50 … 46.10 |
+  | `circus-service-lane` (east–west) | (32.375, 20.50) | 5.25 × 5.00 | X 29.75 … 35.00, Z 18.00 … 23.00 |
+  | `circus-forecourt` (plaza) | (50.25, 50.30) | 30.50 × 8.40 | X 35.00 … 65.50, Z 46.10 … 54.50 |
+
+  **Ground coverage: 503.1 sq units of new paving** (roads 246.9 — 91.5 + 22.35 + 106.8 + 26.25 —
+  plus the forecourt's 256.2). The four junctions are shared *edges*, not gaps: the link meets the
+  approach along X 22.75 (Z 6.75 … 9.75), the approach meets the frontage run along Z 10.50
+  (X 35 … 38), the service lane meets it along X 35.00 (Z 18 … 23), and the frontage run opens into
+  the forecourt along Z 46.10 (X 35 … 38). No two paved surfaces overlap on both axes, so no slab
+  z-fights another.
+
+- **Usable walking width, with the player's own 0.40 radius applied** — the request's 0.15–0.50
+  figures are *pavement-to-collider clearances*, not passages, and every route's real usable band
+  was measured rather than assumed:
+
+  | passage | plan gap between colliders | usable centre band (r 0.40) | pavement under the band |
+  |---|---|---|---|
+  | forum link (Forge north face 6.60 ↔ Inn south face 9.95) | 3.35 | **2.55** (Z 7.00 … 9.55) | fully paved — the 3.00-wide link covers it |
+  | frontage run (city limit X 35.00 ↔ arena wall 38.38) | 3.38 | **2.98** (X 35.00 … 37.98) | fully paved (0 bare samples at 0.05 spacing) |
+  | approach (Workshop north face 4.00 ↔ Stable south face 11.15) | 7.15 | **6.35** (Z 4.40 … 10.75) | the 6.00 pavement covers its middle; 0.35 of bare kerb-side ground remains at each building line, which is where its two kerbs are laid |
+  | service lane (Stable east face 29.75 ↔ the frontage run at 35.00) | 5.25 | **4.85** | fully paved |
+
+  So the tightest *passage* a player walks through is the forum link's 2.55 of usable width — 3.2×
+  the player's own 0.80 diameter — and the two "0.15 / 0.20" figures are the link's kerb-side
+  clearances to the Forge and the Inn, deliberately narrow because the link is a paved corridor laid
+  between two buildings, not a gap a player must thread.
+
+- **Measured clearances, all recomputed** (registry rectangles/segments read directly):
+  approach → Armor Workshop **0.5000**, approach → Imperial Stable **0.6500**, link → Smithing Forge
+  **0.1500**, link → Caravanserai **0.2000**, frontage run → arena west wall **0.3800**, forecourt →
+  carceres front face **0.1000**, forecourt → arena shell's south face **2.3000**, forecourt → arena
+  east wall line **0.8000**, forecourt south edge → parapet near face **0.0000** (flush), parapet's
+  outer face **= the envelope's south limit 55.00**, parapet → nearest other collider
+  (`circus-carceres-w`) **8.5000**, and the nearest pavement point to the arena ring **0.1000** (the
+  forecourt/carceres line above).
+
+- **The movement envelope is a union with the city square, and only its south limit changed.**
+  `CIRCUS_ENVELOPE_X_EAST` **67.5** (= the arena east wall 66.30 + 1.20) and `CIRCUS_ENVELOPE_Z_MIN`
+  **−35.0** are C-8.64A's; `CIRCUS_ENVELOPE_Z_MAX` **47.5 → 55.0**, which is the forecourt parapet's
+  outer face. The city square's own limits (`BOUNDARY_X` 35, `BOUNDARY_Z_MAX` 35, `BOUNDARY_Z_MIN`
+  −101) are untouched, and the two rules that make the shared edge X = 35 consistent are unchanged:
+  the district band's west floor is `BOUNDARY_X` south of the city (so a westward walk stops there
+  instead of being clamped into the square), and `clampBoundaryZ` treats X = 35 itself as
+  district-side (so a player stopped on the limit is not pulled north).
+
+- **Collider changes: exactly one.** `forecourt-parapet` — centre (50.25, 54.75), 30.50 × 0.50, i.e.
+  X 35.00 … 65.50, Z 54.50 … 55.00, the body of the 0.90-high travertine wall (0.10 coping
+  overhanging 0.05, above the player's shoulder line). Read from the shipped module: **142 colliders
+  — 111 non-circus + 31 `circus-*` — 32 rectangles, 109 segments, 1 circle, 46 `colo-*`, 142 unique
+  ids.** The kerbs carry **no** colliders (the city's own 0.16-high curbs are equally collider-free:
+  a curb is stepped over, not walked around), and no existing collider moved.
+
+- **What did not move: the arena.** `public/_workspace_arena.glb` is byte-identical (git blob
+  `d701424aab906c0b6af850cb7874505efe3d4809`, unchanged at this pass), `EastCircusArena.tsx` still
+  carries `[52.34, −0.05, 43.8]` with yaw `π/2` and scale `0.20`, and the perimeter is still C-8.64A's
+  **closed 31-segment ring** with the same ids (`circus-south-w/e`, the two carceres cheeks plus
+  `circus-carceres-front`, the two flanks, and `circus-oval-w/e-0…11`). Nothing inside the ring was
+  touched, and the forecourt faces the closed carceres end without covering it (0.10 clear of the
+  block's own face plane).
+
+- **Regression suite: `src/utils/phaseC8_64b.test.ts`** — 34 tests across 7 sections, every figure
+  derived from the two layout modules and the shipped registry: §A the layout (the four runs' derived
+  rectangles, no two pavements overlapping, the junctions shown to be shared edges, every road's
+  usable width, the forecourt facing the closed carceres end); §B clearances and the registry (no
+  pavement blocked by any collider, the named neighbours' measured clearances, the arena ring's
+  clearances, the registry grown by exactly one rectangle — the parapet — and the kerbs shown
+  decorative and outside their roads); §C the routes **driven with the real `resolveCityMovement`**
+  (3.8 u/s, 0.1 s steps = 0.38/step) in both directions, every road traversed across its full width,
+  and the junctions shown to turn; §D the forecourt (the parapet closing its south edge and stopping
+  a walk at every point across its length, the ring refusing entry through the carceres end, the
+  forecourt opening east into the perimeter corridor, and every reachable cell of its pavement
+  standable); §E the envelope (the city square bit-for-bit, the band reaching the parapet and no
+  further, the driven limits, the shared edge X = 35 consistent in both axes, and no pavement outside
+  the envelope); §F the **control** replaying C-8.64A's own band (47.5) through the same predicates,
+  showing the old band left the forecourt's south half out of bounds and teleported a player walking
+  west off it; §G the scope guard (the asset and its transform, the 31-segment ring, the city's own
+  road materials, the layout module's purity and the district mounted exactly once, the roads on the
+  existing ground plane).
+
+- **Completion pass (2026-10-19) — what this turn actually changed, and why.** The implementation was
+  already committed; the suite failed **1 of 34** and the repo's absolute registry pins were stale.
+  Every change is a *test* change — no production file was touched.
+  1. **The failing test started inside the arena.** §E's southward walk began at `(50, 40)`, which
+     C-8.64A's band made sense of (`CIRCUS_ENVELOPE_Z_MAX − 0.5` = 47.0, the carceres apron) but which
+     is, in this world, **inside the arena's closed ring** — the ring's south boundary is the carceres
+     front face at Z 46.00, and the start is 6.0 north of it. The walk therefore never left the
+     arena's interior and ended on the carceres' own face (45.32). It now starts on the forecourt's
+     own north band, 0.5 south of the apron line, and the test is **stronger** than before: it asserts
+     the walk passes the city square's limit, reaches the forecourt's south half, stays short of the
+     envelope limit, is never inside the parapet, and is **stopped within one 0.38 walk step of the
+     parapet's own contact line** (54.50 − 0.40 = 54.10), with every step collision-free.
+  2. **One assertion became several: the old band's limit is no longer pinned as a walk start.**
+     C-8.64A's four driven routes in `phaseC8_64a.test.ts` wrote their apron start as
+     `CIRCUS_ENVELOPE_Z_MAX − 0.5`, i.e. from a boundary the district has since moved past; they now
+     read the named `CARCERES_APRON_Z = CIRCUS_CARCERES_FRONT_Z + 1.5` (**47.5**), derived from the
+     geometry the apron is named after. Its envelope test now pins `CIRCUS_ENVELOPE_Z_MAX` **55.0**
+     and asserts it is greater than that apron; its clamp test derives both bounds from the constant
+     and gained an in-band case (5 assertions where there were 4).
+  3. **Twelve scope guards rebased 141 → 142 and 31 → 32** (`phaseC8_41`, `45`, `47`, `49`, `51`,
+     `52`, `53`, `55`, `57`, `60`, `62` and C-8.64A's own `110 → 111` non-circus count), each with a
+     comment naming C-8.64B's `forecourt-parapet` as the one addition. Every id-uniqueness check, the
+     46 `colo-*` count, the movement constants and the 31 `circus-*` segments are unchanged: the
+     arithmetic is entirely explained by 110 + 31 + 1 = 142 and 30 + 1 + 1 = 32. Nothing was relaxed
+     and no assertion was deleted.
+  4. **The parapet was confirmed not to introduce a movement discontinuity.** A throwaway harness
+     (kept in `/tmp`) drove the shipped resolver: 30 walks south across the parapet's whole 30.50
+     length are each stopped **0.1400** short of its contact line (within one 0.38 step) with no
+     colliding endpoint; all four kerb lines are crossed by a walk with max step **0.3800** and no
+     collision; the forecourt's east opening runs to the envelope's east limit (67.50) and the
+     perimeter corridor runs north round the arena, both collision-free; and 36 westward walks across
+     the city/district seam at Z 36 … 54 drift **0.000000** in Z (the teleport C-8.64B removed).
+     One honest edge case, reported rather than fixed: because the union is enforced by a *clamp*, a
+     start **outside both envelopes** (e.g. (33.10, 39.20) — west of the city limit at a Z south of
+     the city's own bound) is projected onto the district's west floor X 35 in one 1.9-unit step. No
+     reachable path can produce such a position (the city side's Z clamp holds Z ≤ 35 while X < 35,
+     and X ≥ 35 is district-side), and every driven route's step is ≤ 0.38 with zero clamp-bitten
+     frames.
+
+- **Verified 2026-10-19** in the dev container, re-run in full rather than inferred from the earlier
+  pass: focused `bun test src/utils/phaseC8_64b.test.ts` → **34 pass / 0 fail** (3535 expect() calls;
+  the starting point was 33/1) and `src/utils/phaseC8_64{a,b}.test.ts` together → **72 pass / 0 fail**;
+  `bun test` → **1545 pass / 0 fail (48 files, 28710 expect() calls)** (the starting point was 1526/19
+  — all 19 were the stale registry pins and the one in-ring start, i.e. this pass's own list);
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only);
+  `git diff --check` → clean. The registry counts above were read from the shipped module rather than
+  from a test, the GLB's git blob hash was compared with C-8.64A's record, and `EastCircusDistrict` is
+  referenced from exactly one mount site. The 13 changed files are all suites under `src/utils/`.
+
+- **Independent route measurements (throwaway harness, `/tmp`, the shipped resolver and registry).**
+  Forum → west link → approach → frontage run → forecourt: 198 steps, ending (36.60, 53.85) at the
+  parapet, max step **0.3800**, **0 blocked** and **0 clamp-bitten** frames; the return route
+  (forecourt → frontage run → approach → link → forum): 178 steps, ending (13.70, 7.92), max step
+  **0.3800**, 0 blocked, 0 clamp-bitten. **The ring refusal**: the 31 segments chain into a simple
+  closed polygon (31 vertices, closed), and 24 radial approaches from outside — 2686 steps — leave
+  **0 steps inside the ring**; the arena's interior also reads as inside the ring while the apron and
+  tip probes read as outside. **Overlaps**: no pavement interpenetrates any collider, no kerb stands
+  on a slab, and the parapet overlaps nothing (its nearest neighbour is 8.50 away). The only
+  pre-existing rectangle/rectangle interpenetrations are the six known ones (the two Ishtar
+  composites and the four fortress wall joins), unchanged.
+
+- **One measured seam, reported rather than "fixed": the forum's paving and the link do not meet.**
+  The forum plaza is a 16.5-radius disc about [0, 0], so its east reach falls away from the link's
+  west face (X 15.300) as Z increases: at the link's north edge (Z 6.75) the bare gap is **0.244**
+  (the figure the module documents as the design intent — the two paved surfaces are deliberately
+  kept from coinciding), at the link's centre (Z 8.25) it is **1.011**, and at its south edge
+  (Z 9.75) **1.989**. Both driven routes therefore cross 2 bare steps at the link's centre line. This
+  is geometry the C-8.64B record's own clearance rule produces, not a regression from this pass, and
+  it is left alone here: changing it means moving the link's west terminus (or extending the plaza's
+  paving), which is a layout decision for an explicitly authorized phase, not a validation fix.
+
+- **Not automatically verified — the rendered district, and it is a device question.** The preview
+  boot was checked (title → `Play as Guest` → the 3D hub renders, canvas mounted, `/_workspace_arena.glb`
+  **HTTP 200**, 0 failed requests, **0 console errors**; warnings are the known
+  `BuilderBridge`/`MusicEngine`-missing-track pair and one `WebGLHealthMonitor` GPU-stall notice from
+  the software renderer). The live dev server was separately confirmed to serve the district's own
+  source (all four modules HTTP 200, with `forecourt-parapet` present in the transformed
+  `collisionShapes.ts` and `CIRCUS_ENVELOPE_Z_MAX = 55` in `cityCollisions.ts`). **But no frame of the
+  district itself was obtained**: it stands 26+ units east of the plaza the player spawns in, the hub
+  renders through SwiftShader at ~2 fps with the movement step clamped (≈0.6 units per second of wall
+  time), so a walk to it exceeds a script budget — the same limit C-8.36/C-8.37/C-8.55/C-8.64A
+  recorded. **Android visual acceptance is therefore PENDING** for: the four runs reading as paved
+  stone joined at their junctions, the forecourt reading as a gathering space facing the closed
+  carceres end, the parapet reading as the district's visible south wall (and the player *stopping* at
+  it), the three kerbs reading as curbs rather than walls, and the bare seam between the forum plaza
+  and the link's west end. Still open from earlier phases: C-8.64A's arena appearance and closed-ring
+  reading, the C-8.62 pediment rakes, the C-8.60 wreath, the C-8.57 portico, the C-8.53 lean-to, the
+  C-8.52 veranda canopy, the C-8.49 wall-to-gable junctions, the C-8.51 awning, the C-8.41 kerb, the
+  C-8.38 northern approach, the C-8.28 bowl cut, the C-8.29 junction and the C-8.31/C-8.33 rear-gate
+  checks. Do not claim Android visual acceptance.
+
+- **Remaining limitations of the district (carried forward, unchanged by this pass).** (a) **The
+  arena still cannot be entered** — C-8.64A's closed 31-segment ring stands, and a future, explicitly
+  authorized art/geometry change is required before either entrance can become traversable. (b) No
+  chariot, no racing gameplay, no hub, no fast-travel arrival and no racing loop exists in the
+  district yet; it is a paved approach and a forecourt, not a racetrack. (c) The arena's seating
+  banks, carceres piers and spina still carry no colliders — they lie inside the closed ring, which
+  the player cannot reach. (d) The kerbs and the parapet's coping are decorative/above the player
+  plane respectively; the parapet's *body* is the only new collidable surface. (e) The forum ↔ link
+  seam measured above.

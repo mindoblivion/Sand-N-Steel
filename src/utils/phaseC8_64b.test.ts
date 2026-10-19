@@ -676,10 +676,24 @@ describe('E. The movement envelope', () => {
     // The city's own southern limit still holds west of it…
     const citySouth = driven([20.0, 0, 30.0], [0, 1], 30);
     expect(last(citySouth)[2]).toBeCloseTo(BOUNDARY_Z_MAX, 6);
-    // …and east of it the forecourt only reaches the district's own limit.
-    const districtSouth = driven([50.0, 0, 40.0], [0, 1], 60);
-    expect(last(districtSouth)[2]).toBeLessThan(CIRCUS_ENVELOPE_Z_MAX);
-    expect(last(districtSouth)[2]).toBeGreaterThan(boxOf(CIRCUS_FORECOURT).z1 - 0.5);
+    // …and east of it the walk leaves the city square's own Z band and is stopped
+    // by the forecourt's south parapet, short of the district limit.
+    // The start is the forecourt's north band, NOT the C-8.64A apron line this
+    // test walked before the band moved south: (50, 40) lies INSIDE the arena's
+    // closed ring (the carceres front face at Z 46.00 is the ring's south
+    // boundary), so the only exterior start on this axis is 0.5 south of the
+    // carceres apron, on the forecourt's own pavement.
+    const parapetFace = CIRCUS_FORECOURT_PARAPET.cz - CIRCUS_FORECOURT_PARAPET.d / 2;
+    const districtSouth = driven([50.0, 0, boxOf(CIRCUS_FORECOURT).z0 + 0.5], [0, 1], 60);
+    const zEnd = last(districtSouth)[2];
+    expect(zEnd).toBeGreaterThan(BOUNDARY_Z_MAX); // past the city square's own limit
+    expect(zEnd).toBeGreaterThan(CIRCUS_FORECOURT.cz); // into the forecourt's south half
+    expect(zEnd).toBeLessThan(CIRCUS_ENVELOPE_Z_MAX); // short of the district's limit
+    expect(zEnd).toBeLessThan(parapetFace); // never inside the wall
+    // Stopped at the parapet's own contact line, within one 0.38 walk step.
+    expect(parapetFace - PLAYER_RADIUS - zEnd).toBeLessThanOrEqual(0.38 + 1e-9);
+    expect(zEnd).toBeGreaterThan(parapetFace - PLAYER_RADIUS - 0.38 - 1e-9);
+    clearOf(districtSouth);
     // The north limit is C-8.64A's, unchanged.
     expect(clampBoundaryZ(50, CIRCUS_ENVELOPE_Z_MIN - 3)).toBeCloseTo(CIRCUS_ENVELOPE_Z_MIN, 9);
   }, 30000);

@@ -457,6 +457,18 @@ const clearOf = (path: [number, number, number][]) => {
 const reachesInterior = (x: number, z: number) =>
   x > 44.2 && x < 60.5 && z > -24.5 && z < 43.6;
 
+/**
+ * The carceres apron: the band immediately south of the ring's closed front
+ * face, from which that entrance is approached.  C-8.64A wrote these drives as
+ * `CARCERES_APRON_Z`, because the district band's own south limit
+ * then WAS the apron (46.00 + 1.5 = 47.5).  C-8.64B extended the band south to
+ * the forecourt parapet's outer face (55.0), so the apron is stated here from
+ * the geometry it is named after — the carceres' front face plus the same 1.5
+ * the C-8.64A record measured it at — rather than from a boundary the district
+ * has since moved past.
+ */
+const CARCERES_APRON_Z = CIRCUS_CARCERES_FRONT_Z + 1.5; // 47.5
+
 const near = (a: number, b: number, tol = 0.02) => Math.abs(a - b) <= tol;
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -854,7 +866,7 @@ describe('C. The rendered entrances, measured', () => {
 
 describe('D. Driven routes with the real resolver', () => {
   test('from the southern apron the walk is stopped outside the block', () => {
-    const path = driven([CIRCUS_AXIS_X, 0, CIRCUS_ENVELOPE_Z_MAX - 0.5], [0, -1], 40);
+    const path = driven([CIRCUS_AXIS_X, 0, CARCERES_APRON_Z], [0, -1], 40);
     const last = path[path.length - 1];
     expect(last[2]).toBeGreaterThanOrEqual(CIRCUS_CARCERES_FRONT_Z);
     expect(last[2]).toBeLessThan(CIRCUS_ENVELOPE_Z_MAX);
@@ -871,9 +883,9 @@ describe('D. Driven routes with the real resolver', () => {
 
   test('every approach is stopped outside the ring and never inside rendered stone', () => {
     const starts: Array<[string, number, number, number, number]> = [
-      ['apron S', CIRCUS_AXIS_X, CIRCUS_ENVELOPE_Z_MAX - 0.5, 0, -1],
-      ['apron S west', 41.0, CIRCUS_ENVELOPE_Z_MAX - 0.5, 0, -1],
-      ['apron S east', 64.0, CIRCUS_ENVELOPE_Z_MAX - 0.5, 0, -1],
+      ['apron S', CIRCUS_AXIS_X, CARCERES_APRON_Z, 0, -1],
+      ['apron S west', 41.0, CARCERES_APRON_Z, 0, -1],
+      ['apron S east', 64.0, CARCERES_APRON_Z, 0, -1],
       ['west flank', CIRCUS_ENVELOPE_Z_MIN + 3, 20.0, 1, 0],
       ['west flank N', 31.5, -10.0, 1, 0],
       ['east flank', CIRCUS_ENVELOPE_X_EAST - 0.5, 20.0, -1, 0],
@@ -900,11 +912,11 @@ describe('D. Driven routes with the real resolver', () => {
 
   test('the whole arena can still be walked round on the outside', () => {
     // East along the southern apron, then north up the east flank to the tip.
-    const east = driven([36.0, 0, CIRCUS_ENVELOPE_Z_MAX - 0.5], [1, 0], 120);
+    const east = driven([36.0, 0, CARCERES_APRON_Z], [1, 0], 120);
     expect(east[east.length - 1][0]).toBeGreaterThan(CIRCUS_EAST_X);
     clearOf(east);
     const north = driven(
-      [CIRCUS_ENVELOPE_X_EAST - 0.45, 0, CIRCUS_ENVELOPE_Z_MAX - 0.5], [0, -1], 300);
+      [CIRCUS_ENVELOPE_X_EAST - 0.45, 0, CARCERES_APRON_Z], [0, -1], 300);
     expect(north[north.length - 1][2]).toBeLessThan(CIRCUS_NORTH_END_Z + 1);
     clearOf(north);
   }, 30000);
@@ -940,26 +952,36 @@ describe('E. The movement envelope', () => {
   test('the district band is the smallest rectangle the district needs', () => {
     expect(CIRCUS_ENVELOPE_X_EAST).toBe(67.5);
     expect(CIRCUS_ENVELOPE_Z_MIN).toBe(-35.0);
-    expect(CIRCUS_ENVELOPE_Z_MAX).toBe(47.5);
+    // South: C-8.64A set this limit to the carceres apron (46.00 + 1.5 = 47.5);
+    // C-8.64B extended the band south to the forecourt parapet's outer face
+    // (55.0), which now IS the district's own southern limit.  The city square's
+    // own Z band is untouched by either.
+    expect(CIRCUS_ENVELOPE_Z_MAX).toBe(55.0);
+    expect(CIRCUS_ENVELOPE_Z_MAX).toBeGreaterThan(CARCERES_APRON_Z);
     // East: the arena's own east wall + 1.2, so the whole building is inside.
     expect(CIRCUS_ENVELOPE_X_EAST).toBeCloseTo(CIRCUS_EAST_X + 1.2, 6);
-    // South: the carceres' front face + 1.5 — the apron its entrance is entered from.
-    expect(CIRCUS_ENVELOPE_Z_MAX).toBeCloseTo(CIRCUS_CARCERES_FRONT_Z + 1.5, 6);
     // North: the shell's tip less 4.84, which also clears the cap's apex.
     expect(CIRCUS_ENVELOPE_Z_MIN).toBeLessThan(CIRCUS_NORTH_END_Z - 4);
     expect(CIRCUS_ENVELOPE_Z_MIN).toBeLessThan(-30.65);
   });
 
   test('the clamps keep the city square outside the district band', () => {
-    // Outside the band means Z < −35.0 or Z > 47.5; 40.0 sits INSIDE it (the
-    // band contains the city's whole +Z extent), so the boundary to test the
-    // city square against is the band's own south edge.
+    // Outside the band means Z < −35.0 or Z > the band's own south edge; 40.0
+    // sits INSIDE it (the band contains the city's whole +Z extent), so the
+    // boundary to test the city square against is the band's own south edge.
     expect(clampBoundaryX(34 + 3.8, CIRCUS_ENVELOPE_Z_MAX + 5)).toBe(35);
     expect(clampBoundaryX(34 + 3.8, CIRCUS_ENVELOPE_Z_MIN - 5)).toBe(35);
     expect(clampBoundaryX(34 + 3.8, 0)).toBeCloseTo(37.8, 6);
     expect(clampBoundaryZ(0, 34 + 3.8)).toBe(35);
     expect(clampBoundaryZ(40, 34 + 3.8)).toBeCloseTo(37.8, 6);
-    expect(clampBoundaryZ(40, 47.0 + 3.8)).toBeCloseTo(47.5, 6);
+    // Inside the band the district's own limit applies (a point short of it is
+    // untouched)…
+    expect(clampBoundaryZ(40, CIRCUS_ENVELOPE_Z_MAX - 3.8))
+      .toBeCloseTo(CIRCUS_ENVELOPE_Z_MAX - 3.8, 6);
+    // …and past it the same point is clamped onto the band's south edge, which
+    // is what the pre-C-8.64B assertion at 47.0 + 3.8 measured for that band.
+    expect(clampBoundaryZ(40, CIRCUS_ENVELOPE_Z_MAX + 3.8))
+      .toBeCloseTo(CIRCUS_ENVELOPE_Z_MAX, 6);
     expect(clampBoundaryZ(40, CIRCUS_ENVELOPE_Z_MIN - 3.8)).toBeCloseTo(CIRCUS_ENVELOPE_Z_MIN, 6);
   });
 
@@ -994,11 +1016,12 @@ describe('E. The movement envelope', () => {
 
 describe('F. Scope guard', () => {
   test('the registry grew by exactly this phase\'s 31 segments', () => {
-    // The 110 pre-existing colliders are byte-identical; this phase owns the
-    // 31 `circus-*` perimeter segments and nothing else.
-    expect(nonCircus.length).toBe(110);
-    expect(CITY_COLLIDERS.length).toBe(141);
-    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
+    // The 110 pre-existing colliders are byte-identical and this phase owns the
+    // 31 `circus-*` perimeter segments; the one extra collider and rectangle are
+    // Phase C-8.64B's `forecourt-parapet`, the district's only solid structure.
+    expect(nonCircus.length).toBe(111); // 110 + C-8.64B's parapet
+    expect(CITY_COLLIDERS.length).toBe(142); // C-8.64A's 141 + 1
+    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(32); // 31 + 1
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-')).length).toBe(46);
     const ids = CITY_COLLIDERS.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);

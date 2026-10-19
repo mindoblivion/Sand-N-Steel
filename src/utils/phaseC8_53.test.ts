@@ -484,9 +484,10 @@ describe('E. Walkability, collision and navigation are untouched', () => {
   });
 
   test('the registry, the movement constant and the module’s imports are unchanged', () => {
-    // 110 before Phase C-8.64A; the +31 are its own `circus-*` segments.
-    expect(CITY_COLLIDERS.length).toBe(141);
-    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
+    // 110 before Phase C-8.64A; the +31 are its own `circus-*` segments, and
+    // Phase C-8.64B's `forecourt-parapet` is its +1 rectangle.
+    expect(CITY_COLLIDERS.length).toBe(142);
+    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(32);
     expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(CITY_COLLIDERS.length);
     expect(PLAYER_RADIUS).toBe(0.4);
     expect(shopSrc).not.toMatch(/from '\.\.\/\.\.\/utils/);

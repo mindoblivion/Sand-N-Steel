@@ -746,11 +746,11 @@ describe('G. Nothing but the eight radii changed', () => {
   test('the registry still holds the same rectangles, plus C-8.64A\'s segments', () => {
     // 110 colliders / 31 rectangles was the count this phase left; Phase C-8.64A
     // appended its `circus-*` perimeter segments — 31 after the entrance-
-    // alignment closure, so 141 with the same 31 rectangles and the same 110
-    // pre-existing ids.
-    expect(CITY_COLLIDERS.length).toBe(141);
-    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(31);
-    expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(141);
+    // alignment closure — and Phase C-8.64B appended the one `forecourt-parapet`
+    // rectangle, so 142 with 32 rectangles and the same 110 pre-existing ids.
+    expect(CITY_COLLIDERS.length).toBe(142);
+    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(32);
+    expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(142);
   });
 
   test('the movement constants are untouched', () => {
