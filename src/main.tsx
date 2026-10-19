@@ -68,7 +68,21 @@ const useHorseFitHarness =
   (new URLSearchParams(window.location.search).get('devHarness') === 'horsefit' ||
     readDevHarnessFlag() === 'horsefit');
 
-if (useCharacterHarness) {
+// C-8.69D — isolated rear-material/lighting comparison; no game/save mount.
+const useColosseumRearHarness =
+  import.meta.env.DEV &&
+  (new URLSearchParams(window.location.search).get('devHarness') === 'colosseum-rear' ||
+    window.location.pathname === '/__dev/colosseum-rear');
+
+if (useColosseumRearHarness) {
+  void import('./components/dev/ColosseumRearDiagnostic').then(({ ColosseumRearDiagnostic }) => {
+    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+      <React.StrictMode>
+        <ColosseumRearDiagnostic />
+      </React.StrictMode>,
+    );
+  });
+} else if (useCharacterHarness) {
   // Lazy so the harness module (and its DuelScene chunk) is never even parsed
   // outside this dev+param path.
   void import('./components/dev/CharacterTestHarness').then(({ CharacterTestHarness }) => {

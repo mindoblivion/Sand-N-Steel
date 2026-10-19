@@ -116,6 +116,12 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   buildings is about Z, so each piece's Z extent equals its own box Z dimension exactly:
   the reported Z clearances are exact rather than AABB approximations.
 
+## C-8.69D rear appearance diagnostic (development only)
+
+- Open `/__dev/colosseum-rear` (or `/?devHarness=colosseum-rear`) directly for fixed-camera A/B/C comparisons; it mounts instead of the game and accesses no saves.
+- Implementation, reversibility, measured sectors, evidence limits and removal: [.base44/colosseum-rear-diagnostic.md](.base44/colosseum-rear-diagnostic.md). Keep future diagnostic details there rather than enlarging this file.
+- `bun test src/components/dev/colosseumRearDiagnostic.test.ts` checks material restoration, unchanged surfaces, production gating and light-rig parity. Production geometry/lighting are untouched; Android acceptance remains pending.
+
 ## Verifying
 
 - `curl -s localhost:3000/` should return the HTML shell (title: "Sand & Steel: 3D Gladiator Arena RPG").
