@@ -31,7 +31,7 @@
  *   D. the Arena Medical House ↔ Training Hall passage stays traversable end
  *      to end at the 0.4 player radius, through its narrowest section;
  *   E. the training-yard walls and the east entrance gate are unchanged;
- *   F. all 20 hub triggers remain reachable and all 20 arrivals collision-free;
+ *   F. all 21 hub triggers remain reachable and all 21 arrivals collision-free;
  *   G. everything the phase must not touch — the C-8.43 widths, the Forge's
  *      deliberate 9.5, the C-8.33 seals, the C-8.38 motte centre, the C-8.41
  *      kerb, the C-8.36 water ring and the drawbridge — is unchanged.
@@ -367,8 +367,9 @@ describe('E. The yard enclosure and its east entrance are unchanged', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('F. Hub triggers and arrivals are unaffected', () => {
-  test('all 20 hub interaction triggers remain reachable', () => {
-    expect(HUB_LOCATIONS.length).toBe(20);
+  test('all 21 hub interaction triggers remain reachable', () => {
+    // C-8.70B added the East Circus District's race entry — the 21st trigger.
+    expect(HUB_LOCATIONS.length).toBe(21);
     const unreachable: string[] = [];
     for (const loc of HUB_LOCATIONS) {
       const lx = loc.position[0];
@@ -385,8 +386,8 @@ describe('F. Hub triggers and arrivals are unaffected', () => {
     expect(unreachable).toEqual([]);
   });
 
-  test('all 20 fast-travel arrivals are collision-free and have a clear step out', () => {
-    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(20);
+  test('all 21 fast-travel arrivals are collision-free and have a clear step out', () => {
+    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(21);
     for (const loc of HUB_LOCATIONS) {
       const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
       expect(collidesWith(ax, az, PLAYER_RADIUS, CITY_COLLIDERS), `${loc.id} arrival blocked`).toBe(false);

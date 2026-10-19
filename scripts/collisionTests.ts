@@ -35,6 +35,8 @@ import {
   BOUNDARY_Z_MAX,
   CIRCUS_ENVELOPE_X_EAST,
   CIRCUS_ENVELOPE_Z_MIN,
+  clampBoundaryX,
+  clampBoundaryZ,
 } from '../src/utils/cityCollisions';
 import { MOTTE_CENTER_Z } from '../src/utils/terrainHeight';
 
@@ -608,11 +610,17 @@ test('fast-travel: every arrival is outside all colliders with player clearance'
   }
 });
 
-test('fast-travel: every arrival is inside the world boundary', () => {
+test('fast-travel: every arrival is inside the walkable envelope', () => {
+  // Rebased for the East Circus District (C-8.64A/B, C-8.70B).  The walkable
+  // envelope is the union of the city square and the district band, so the
+  // static ±BOUNDARY_X / BOUNDARY_Z_MAX rectangle no longer bounds every arrival
+  // — east_circus_arena sits at x=40.5, z=48.3, inside the band.  An arrival is
+  // in bounds when the shipped clamps leave it untouched, which is the same
+  // ±BOUNDARY_X semantics for every city hub as before.
   for (const loc of HUB_LOCATIONS) {
     const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
-    assert.ok(ax >= -BOUNDARY_X && ax <= BOUNDARY_X, `${loc.id} x=${ax} out of bounds`);
-    assert.ok(az >= BOUNDARY_Z_MIN && az <= BOUNDARY_Z_MAX, `${loc.id} z=${az} out of bounds`);
+    assert.strictEqual(clampBoundaryX(ax, az), ax, `${loc.id} x=${ax} out of bounds`);
+    assert.strictEqual(clampBoundaryZ(ax, az), az, `${loc.id} z=${az} out of bounds`);
   }
 });
 
