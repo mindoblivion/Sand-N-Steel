@@ -2298,6 +2298,10 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   is geometry the C-8.64B record's own clearance rule produces, not a regression from this pass, and
   it is left alone here: changing it means moving the link's west terminus (or extending the plaza's
   paving), which is a layout decision for an explicitly authorized phase, not a validation fix.
+  **Phase C-8.65 was that phase, and it did neither: it filled the wedge with one flat slab tucked
+  under the plaza's own edge, so the link's terminus and the plaza's paving are exactly as recorded
+  here — see its section below for the measured gap (0.311 … 2.061 drawn, 0.244 … 1.989 true
+  circle), the 3.295 sq units it covers, and the control that shows every sample bare before it.**
 
 - **Not automatically verified — the rendered district, and it is a device question.** The preview
   boot was checked (title → `Play as Guest` → the 3D hub renders, canvas mounted, `/_workspace_arena.glb`
@@ -2327,4 +2331,108 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   banks, carceres piers and spina still carry no colliders — they lie inside the closed ring, which
   the player cannot reach. (d) The kerbs and the parapet's coping are decorative/above the player
   plane respectively; the parapet's *body* is the only new collidable surface. (e) The forum ↔ link
-  seam measured above.
+  seam measured above — **Phase C-8.65 closed it, and its record follows; the other four
+  limitations stand unchanged.**
+
+## East Circus District — forum-link mouth apron (Phase C-8.65 — audit + implemented)
+
+- **The audit found one gap worth fixing, and nothing else moved.** Every other item on the C-8.65
+  list re-measured as C-8.64B left it (see "what did not move" below). The seam is a *rendered*
+  gap, not a documentation artefact: the forum's plaza paving is a disc about [0, 0]
+  (`ProcessionAvenue`, `<circleGeometry args={[16.5, 36]}>` on a mesh at Y 0.005) while the
+  district link's west face is a straight line at X 15.30, so across the link's own 3.00 Z band the
+  plaza's **36-gon** edge — not its circumscribing circle — falls away from the link:
+
+  | Z (the link's band) | plaza edge X | gap to the link — drawn (36-gon) | (true circle) |
+  |---|---|---|---|
+  | 6.75 — north edge, the Forge side | 14.9889 | **0.311** | 0.244 |
+  | 8.25 — band centre | 14.2894 | **1.011** | 1.011 |
+  | 9.75 — south edge, the Inn side | 13.2391 | **2.061** | 1.989 |
+
+  **3.295 sq units of bare sand** — up to 2.06 of the link's 3.00 width — at the mouth of the only
+  paved route from the forum into the district, and 0.055 below the plaza's surface (plaza plane
+  0.005, city ground plane −0.05), so it read as a paved break with a lip. C-8.64B's recorded 0.244
+  / 1.011 / 1.989 are the **true-circle** clearances; a 36-gon's chords sit up to 0.063 inside its
+  circle, so the drawn gap is the wider figure the player actually sees. It is a visible gap; it is
+  **not** a bottleneck (bare ground is walkable) and it confuses no route.
+
+- **The refinement is one slab, not a layout change.** `CIRCUS_LINK_MOUTH_APRON` (and its derived
+  `CIRCUS_LINK_MOUTH_APRON_RECT`) in `circusDistrictGeometry.ts` plus ONE plane mesh in
+  `EastCircusDistrict.tsx` (**20 → 21 static meshes**): X 13.10 … 15.30, Z 6.75 … 9.75, Y **0.003**,
+  in the plaza's own `ROMAN_PALETTE.forumPaving` stone. Its east edge **is** the link's west face
+  and its Z band **is** the link's band, so the link starts exactly where the slab ends; its west
+  edge is deliberately **inside** the plaza's rendered paving (0.139 clear of the polygon at the
+  band's south edge), where the plaza's disc (0.005) and its gilded ring (0.008) both stand above
+  it and cover the join. It is therefore visible only in the bare wedge: plaza stone runs unbroken
+  into the Via Circensis, the gold ring is **not** notched, the slab overlaps no other pavement on
+  both axes, and 2 mm of separation is ~8× the depth precision at that distance, so nothing
+  z-fights. **It carries no collider** — like the four runs, the plaza and the kerbs it is pavement
+  the player walks over.
+
+- **What did not move.** The link's west terminus, centre and width; the plaza and its component;
+  the four runs, the forecourt, the parapet and the kerbs; the arena — GLB byte-identical (blob
+  `d701424aab906c0b6af850cb7874505efe3d4809`), transform `[52.34, −0.05, 43.8]` with yaw `π/2` and
+  scale `0.20`, and the **closed 31-segment ring** untouched; the collision registry (**142
+  colliders — 111 non-circus + 31 `circus-*` — 32 rectangles, 109 segments, 1 circle, 46 `colo-*`**,
+  all ids unique, unchanged by this phase); the movement envelope (`CIRCUS_ENVELOPE_X_EAST` 67.5,
+  `Z_MIN` −35.0, `Z_MAX` 55.0; the city square's 35 / 35 / −101); the ground plane; fog, lighting
+  and shadows; and C-8.64B's measured clearances — the apron sits 0.15 clear of the Smithing
+  Forge's collider face and 0.20 clear of the Caravanserai's across the band. No decorative
+  structure, no new asset, no new material, texture or light.
+
+- **Regression suite: `src/utils/phaseC8_65.test.ts`** — 21 tests / 7331 assertions across 5
+  sections, every figure re-derived (the plaza's 36-gon is **parsed out of `ProcessionAvenue.tsx`**
+  and its boundary computed from the polygon's own vertices, never restated): §A the seam (the
+  derived gaps above, the wedge's integrated area, the true-circle pair, the 0.055 sand lip and the
+  ground plane's coverage); §B the apron (its edges and band, the 0.139 minimum tuck, the 2 mm /
+  0.053 mm depth margins, no interpenetration with any pavement, no collider, and the component's
+  source guard re-run: exactly one draw, no literal 13.1, only the plaza's material, still exactly
+  one `clone(`, no light, no per-frame state, no GLTF); §C **driven with the real
+  `resolveCityMovement`** (3.8 u/s, 0.1 s steps = 0.38/step) — the plaza → link route started from
+  *inside the plaza at X 13.0* (the C-8.64B suite starts at 16.0, already east of the seam) and the
+  return leg, every centre across the apron's usable band standable, three Z-level crossings each
+  way, and the carceres end still refusing entry at four X samples; §D preservation (registry,
+  the four runs / forecourt / parapet / kerbs re-derived, the envelope, the asset hash and
+  transform, the single mount site); §E the **control** — the pre-fix pavement set (everything but
+  the apron) leaves **all 2623 wedge samples bare** and the shipped set covers every one of them,
+  while a polar sweep of the gilded ring's own annulus shows the ring still lies wholly on the
+  plaza's paving.
+
+- **Verified 2026-10-19** in the dev container: focused
+  `bun test src/utils/phaseC8_{64a,64b,65}.test.ts` → **93 pass / 0 fail** (13409 expect() calls);
+  `bun test` → **1566 pass / 0 fail (49 files, 36041 expect() calls)** (C-8.64B's completion pass
+  left 1545 / 48; the delta is this suite's 21 tests and 1 file); `bun run scripts/collisionTests.ts`
+  → **123 passed, 0 failed**, exit 0; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` →
+  exit 0 (the pre-existing >500 kB chunk warning only; `dist/` is gitignored); `git diff --check` →
+  clean. The phase's files are three: `src/utils/circusDistrictGeometry.ts`, the district component
+  and the new suite.
+
+- **Preview evidence, and what could not be captured.** Live checks in the preview browser: the dev
+  server serves the changed modules — the transformed `circusDistrictGeometry.ts` carries
+  `CIRCUS_LINK_MOUTH_APRON` and `westX: 13.1`, and the transformed `EastCircusDistrict.tsx` reads
+  the module's own numbers with no `13.1` literal — and the app boots (`Play as Guest` → the **3D
+  city hub** renders, canvas mounted) with **0 console errors and 0 failed requests** after the
+  change. **No frame of the district was obtained.** The player spawns at [0, 0, 16] — the plaza's
+  south exit — so the seam stands ~16 units north-east of it; the hub renders through SwiftShader at
+  ~2 fps with the movement step clamped (≈0.6 units per second of wall time), and a scripted
+  21-second W+D walk produced **no visible change in position** (the captured frame still shows the
+  plaza, its fountain and the Colosseum), so the vantage was not reached and no further attempt was
+  made — the environment limit C-8.36/C-8.37/C-8.55/C-8.60/C-8.64A/C-8.64B all recorded.
+  **Android visual acceptance is therefore PENDING**, for the apron specifically: stand at the
+  forum's eastern exit and confirm the marble paving runs unbroken from the plaza's gilded ring into
+  the Via Circensis' link — no sand strip and no step at the link's west face — with the ring's own
+  outer edge still terminating cleanly on the plaza's boundary. Still open from earlier phases:
+  C-8.64B's four runs / forecourt / parapet / kerb readings, C-8.64A's arena appearance and
+  closed-ring reading, the C-8.62 pediment rakes, the C-8.60 wreath, the C-8.57 portico, the C-8.53
+  lean-to, the C-8.52 veranda canopy, the C-8.49 wall-to-gable junctions, the C-8.51 awning, the
+  C-8.41 kerb, the C-8.38 northern approach, the C-8.28 bowl cut, the C-8.29 junction and the
+  C-8.31/C-8.33 rear-gate checks. Do not claim Android visual acceptance.
+
+- **One documentation inconsistency found, deliberately not "fixed".** `circusDistrictGeometry.ts`'s
+  reference list labels the Smithing Forge's Z 6.60 face "north 6.60" and the Caravanserai's Z 9.95
+  face "south 9.95", which is inverted against the city's own convention (the plaza's NORTH exit is
+  at Z −16 toward the Colosseum at Z −25, and the SOUTH exit at Z +16 toward the tavern and the town
+  gate at Z +14/+24 — so +Z is south). The *numbers* are the collider faces the resolver uses and
+  are correct; only the two words are inverted, and the C-8.64B record uses the same labels, so this
+  phase changed no wording and states the band by its world Z instead (6.75 … 9.75, the Forge side
+  to the Inn side).

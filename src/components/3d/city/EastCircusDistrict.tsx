@@ -7,6 +7,8 @@ import {
   DISTRICT_ROADS,
   CIRCUS_FORECOURT,
   CIRCUS_FORECOURT_PARAPET,
+  CIRCUS_LINK_MOUTH_APRON,
+  CIRCUS_LINK_MOUTH_APRON_RECT,
   KERB_DEPTH,
   KERB_HEIGHT,
 } from '../../../utils/circusDistrictGeometry';
@@ -28,7 +30,11 @@ import {
  *     the same two gilded border trims the Forum Socialis uses;
  *   • the low travertine parapet closing the forecourt's south edge — the
  *     district's southern limit as a visible wall rather than an invisible one;
- *   • three 0.16-high kerbs, the city's own curb convention.
+ *   • three 0.16-high kerbs, the city's own curb convention;
+ *   • the forum-link mouth apron (C-8.65) — one flat slab in the plaza's own
+ *     stone, tucked under the forum plaza's edge and reaching east to the link's
+ *     west face, so the bare sand wedge the round plaza leaves at the link's
+ *     mouth is paved and the forum's paving runs unbroken into the link.
  *
  * ── Layout is single-sourced ─────────────────────────────────────────────
  * Every footprint comes from `src/utils/circusDistrictGeometry.ts`, which is
@@ -37,10 +43,11 @@ import {
  * pavement and the asserted pavement cannot disagree.
  *
  * ── Cost ─────────────────────────────────────────────────────────────────
- * 20 meshes in total, all static and all created once at mount: each road run
+ * 21 meshes in total, all static and all created once at mount: each road run
  * is a single instanced stone mesh plus its bedding plane (one draw call for
- * its stones), the forecourt is one plane and two trim strips, the parapet is a
- * body plus a coping, and the kerbs are three boxes.  Nothing is added per
+ * its stones), the forecourt is one plane and two trim strips, the link's mouth
+ * carries the one apron plane (C-8.65), the parapet is a body plus a coping, and
+ * the kerbs are three boxes.  Nothing is added per
  * frame, no material is cloned, no texture is loaded (the forecourt's bump map
  * is a clone of the shared `NOISE_TEXTURE`, which shares its canvas image and
  * costs no memory), and no light source is added — the city's own sun and
@@ -122,6 +129,28 @@ export const EastCircusDistrict = React.memo(() => {
       {DISTRICT_ROADS.map((spec) => (
         <DistrictRoad key={spec.id} spec={spec} />
       ))}
+
+      {/* ── The forum-link mouth apron (C-8.65) ─────────────────────────────
+          The forum's plaza is a disc and the link's west face is a straight
+          line, so a bare wedge of sand (3.30 sq units, up to 2.06 of the link's
+          3.00 width) stood between the two paved surfaces at the mouth of the
+          only paved route into the district.  This one flat slab — the plaza's
+          own `forumPaving` stone — reaches east to the link's own west face and
+          tucks UNDER the plaza's edge at its west end, 2 mm below the plaza's
+          plane, so the plaza's disc and its gilded ring cover the join: the
+          wedge is paved, the ring is not notched, and no slab z-fights. */}
+      <mesh
+        receiveShadow
+        position={[
+          CIRCUS_LINK_MOUTH_APRON_RECT.cx,
+          CIRCUS_LINK_MOUTH_APRON.y,
+          CIRCUS_LINK_MOUTH_APRON_RECT.cz,
+        ]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <planeGeometry args={[CIRCUS_LINK_MOUTH_APRON_RECT.w, CIRCUS_LINK_MOUTH_APRON_RECT.d]} />
+        <meshStandardMaterial color={ROMAN_PALETTE.forumPaving.color} roughness={0.68} />
+      </mesh>
 
       {/* ── The carceres forecourt (pedestrian gathering space) ─────────── */}
       <group position={[CIRCUS_FORECOURT.cx, 0, CIRCUS_FORECOURT.cz]}>

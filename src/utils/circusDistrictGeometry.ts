@@ -29,11 +29,17 @@
  *
  * The forum's own eastern paving is the 16.5-radius plaza circle centred on
  * [0, 0] (`ProcessionAvenue`), which reaches X 13.31 … 15.06 across the west
- * link's Z band — the link's west terminus is set clear of its closest approach
- * so the two paved surfaces never coincide.
+ * link's Z band.  The link's west terminus is set clear of its closest approach
+ * so the two paved surfaces never coincide — and because the plaza is a disc
+ * meeting a straight road, that clearance widens across the band and leaves a
+ * bare wedge of sand at the link's mouth.  Phase C-8.65 closes it with the
+ * link-mouth apron (§8): one flat slab, drawn in the plaza's own stone, that
+ * tucks under the plaza's paving and reaches east to the link's west face.
  *
  * ── The layout ─────────────────────────────────────────────────────────────
- * Four paved runs and one paved forecourt.  Every run is a rectangle whose long
+ * Four paved runs, one paved forecourt, and the link-mouth apron that closes the
+ * join between the forum plaza's own paving and the link's (§8).
+ * Every run is a rectangle whose long
  * edges are axis-aligned, so its world footprint is exact rather than a
  * conservative bound, and no two paved surfaces overlap (each pair meets flush
  * along a shared edge or is separated by bare ground): overlapping slabs would
@@ -314,6 +320,58 @@ export const DISTRICT_KERBS: DistrictKerb[] = [
 /** Kerb height and depth, matching the city's street curbs. */
 export const KERB_HEIGHT = 0.16;
 export const KERB_DEPTH = 0.4;
+
+// ── 8. The forum-link mouth apron (Phase C-8.65) ───────────────────────────
+/**
+ * The plaza's paving is a disc about [0, 0]; the link's west face is a straight
+ * line at X 15.30.  Across the link's own 3.00 Z band the disc's rendered edge
+ * — a 36-gon, not a true circle — falls away from that line as Z grows: 0.311
+ * clear of it at Z 6.75, and 2.061 at Z 9.75 (the true-circle clearances
+ * recorded elsewhere in this module are 0.244 and 1.989; the polygon's chords
+ * sit up to 0.063 inside the circle, so the drawn gap is the wider figure).
+ * That left 3.295 sq units of bare sand — up to 2.06 of the link's 3.00 width —
+ * between the forum's paving and the district's, at the mouth of the only paved
+ * route from the forum into the district.
+ *
+ * One flat slab closes it.  Its east edge is the link's own west face, so the
+ * link starts exactly where the slab ends; its west edge is deliberately INSIDE
+ * the plaza's paving, where the plaza's disc and its gilded ring — both above
+ * it — cover the join.  The slab therefore fills the bare wedge without cutting
+ * the ring, moving the link or overlapping any other pavement, and it is drawn
+ * in the plaza's own stone, so the forum's paving reads as running unbroken into
+ * the Via Circensis' link.  Like the roads, the plaza and the kerbs it carries
+ * NO collider: it is pavement the player walks over, not a wall.
+ */
+export const CIRCUS_LINK_MOUTH_APRON = {
+  id: 'circus-link-mouth-apron',
+  label: 'Via Circensis — forum link mouth apron',
+  /** East edge: the link's own west face (X 15.30). */
+  eastX: CIRCUS_APPROACH_LINK.cx - CIRCUS_APPROACH_LINK.w / 2,
+  /**
+   * West edge: inside the plaza's rendered paving at every Z in the band.  The
+   * plaza's 36-gon reaches its most-recessed X (13.2391) at Z 9.75, the band's
+   * south edge; 13.10 stays 0.139 inside that, so the slab is covered by the
+   * plaza everywhere the two meet.
+   */
+  westX: 13.1,
+  /** The link's own Z band, so both slab edges meet the link flush. */
+  z0: CIRCUS_APPROACH_LINK.cz - CIRCUS_APPROACH_LINK.d / 2, // 6.75
+  z1: CIRCUS_APPROACH_LINK.cz + CIRCUS_APPROACH_LINK.d / 2, // 9.75
+  /**
+   * 2 mm under the plaza's own surface (Y 0.005) and 0.053 above the ground
+   * plane (Y −0.05): visible in the wedge, hidden wherever the plaza covers it,
+   * and far enough apart in depth to never z-fight.
+   */
+  y: 0.003,
+} as const;
+
+/** The apron slab's own centre and extents, in the roads' {cx, cz, w, d} shape. */
+export const CIRCUS_LINK_MOUTH_APRON_RECT = {
+  cx: (CIRCUS_LINK_MOUTH_APRON.westX + CIRCUS_LINK_MOUTH_APRON.eastX) / 2,
+  cz: (CIRCUS_LINK_MOUTH_APRON.z0 + CIRCUS_LINK_MOUTH_APRON.z1) / 2,
+  w: CIRCUS_LINK_MOUTH_APRON.eastX - CIRCUS_LINK_MOUTH_APRON.westX,
+  d: CIRCUS_LINK_MOUTH_APRON.z1 - CIRCUS_LINK_MOUTH_APRON.z0,
+} as const;
 
 /** World-space bounds of a pavement rectangle, as [x0, x1, z0, z1]. */
 export const pavementBounds = (
