@@ -98,6 +98,9 @@ import {
   HUB_LOCATIONS,
   resolveCityMovement,
   getNearbyHubLocation,
+  // Phase C-8.70B — the walkable envelope's own clamps.
+  clampBoundaryX,
+  clampBoundaryZ,
 } from './cityCollisions';
 
 // ── Recorded references ─────────────────────────────────────────────────────
@@ -507,8 +510,12 @@ describe('D. The ground plane and the boundaries followed the group', () => {
 
   test('every fast-travel arrival is inside the boundaries and collision-free', () => {
     for (const [id, [ax, az]] of Object.entries(FAST_TRAVEL_ARRIVALS)) {
-      expect(`${id}:${ax >= -BOUNDARY_X && ax <= BOUNDARY_X}`).toBe(`${id}:true`);
-      expect(`${id}:${az >= BOUNDARY_Z_MIN && az <= BOUNDARY_Z_MAX}`).toBe(`${id}:true`);
+      // Phase C-8.70B: the walkable world is the city square UNION the East
+      // Circus District band (C-8.64A/B), so the literal bounds become the
+      // movement envelope's own clamp — the same "inside the walkable world"
+      // invariant, stated against what now actually bounds movement.
+      expect(`${id}:${clampBoundaryX(ax, az) === ax}`).toBe(`${id}:true`);
+      expect(`${id}:${clampBoundaryZ(ax, az) === az}`).toBe(`${id}:true`);
       expect(collidesWith(ax, az, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
     }
   });

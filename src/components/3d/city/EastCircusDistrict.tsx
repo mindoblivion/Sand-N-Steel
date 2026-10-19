@@ -9,6 +9,7 @@ import {
   CIRCUS_FORECOURT_PARAPET,
   CIRCUS_LINK_MOUTH_APRON,
   CIRCUS_LINK_MOUTH_APRON_RECT,
+  CIRCUS_RACE_ENTRY,
   KERB_DEPTH,
   KERB_HEIGHT,
 } from '../../../utils/circusDistrictGeometry';
@@ -43,11 +44,12 @@ import {
  * pavement and the asserted pavement cannot disagree.
  *
  * ── Cost ─────────────────────────────────────────────────────────────────
- * 21 meshes in total, all static and all created once at mount: each road run
+ * 25 meshes in total, all static and all created once at mount: each road run
  * is a single instanced stone mesh plus its bedding plane (one draw call for
  * its stones), the forecourt is one plane and two trim strips, the link's mouth
- * carries the one apron plane (C-8.65), the parapet is a body plus a coping, and
- * the kerbs are three boxes.  Nothing is added per
+ * carries the one apron plane (C-8.65), the parapet is a body plus a coping, the
+ * kerbs are three boxes, and the race entry signpost (C-8.70B) is four meshes.
+ * Nothing is added per
  * frame, no material is cloned, no texture is loaded (the forecourt's bump map
  * is a clone of the shared `NOISE_TEXTURE`, which shares its canvas image and
  * costs no memory), and no light source is added — the city's own sun and
@@ -102,6 +104,49 @@ const DistrictParapet: React.FC = () => {
     </group>
   );
 };
+
+/**
+ * Phase C-8.70B — the race entry signpost.
+ *
+ * A timber post carrying a gilded signboard on the carceres forecourt: the
+ * district's own visible marker for the chariot-race entry point, whose
+ * interaction trigger lives in `cityCollisions.ts` and whose world position both
+ * read from `circusDistrictGeometry.ts` (single-sourced, so the drawn sign and
+ * the trigger cannot drift).  It follows the city's existing signpost
+ * construction — `MerchantHouse`'s and `GladiatorAcademy`'s post-plus-board, in
+ * the same oak and Roman palette — rather than inventing a new one: four static
+ * meshes, no texture, no light, no per-frame work, and no collider (the city's
+ * signposts carry none either; a sign is walked past, not around).
+ */
+const RaceEntrySign: React.FC = () => (
+  <group position={[CIRCUS_RACE_ENTRY.x, 0, CIRCUS_RACE_ENTRY.z]}>
+    {/* Timber post */}
+    <mesh castShadow position={[0, 1.1, 0]}>
+      <cylinderGeometry args={[0.07, 0.09, 2.2, 8]} />
+      <meshStandardMaterial color="#451a03" roughness={0.85} />
+    </mesh>
+    {/* Signboard, thin across X so it faces the approach from the Via Circensis */}
+    <mesh castShadow position={[0, 1.95, 0]}>
+      <boxGeometry args={[0.12, 0.7, 1.3]} />
+      <meshStandardMaterial
+        color="#78350f"
+        roughness={0.8}
+        bumpMap={NOISE_TEXTURE || undefined}
+        bumpScale={0.012}
+      />
+    </mesh>
+    {/* Gilded border, the district's own trim colour */}
+    <mesh position={[0.075, 1.95, 0]}>
+      <boxGeometry args={[0.03, 0.5, 1.06]} />
+      <meshStandardMaterial color={ROMAN_PALETTE.goldAccent.color} metalness={0.75} roughness={0.34} />
+    </mesh>
+    {/* Gilded finial */}
+    <mesh castShadow position={[0, 2.45, 0]}>
+      <sphereGeometry args={[0.09, 10, 8]} />
+      <meshStandardMaterial color={ROMAN_PALETTE.goldAccent.color} metalness={0.75} roughness={0.34} />
+    </mesh>
+  </group>
+);
 
 export const EastCircusDistrict = React.memo(() => {
   // The forecourt is a plaza-sized surface (30.5 × 8.4), so the shared 3×3
@@ -197,6 +242,9 @@ export const EastCircusDistrict = React.memo(() => {
           <meshStandardMaterial color={ROMAN_PALETTE.roadKerb.color} roughness={0.76} />
         </mesh>
       ))}
+
+      {/* ── The race entry signpost (C-8.70B) ─────────────────────────────── */}
+      <RaceEntrySign />
     </group>
   );
 });

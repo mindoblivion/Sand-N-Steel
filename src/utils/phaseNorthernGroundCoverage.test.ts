@@ -93,6 +93,9 @@ import {
   BOUNDARY_Z_MIN,
   BOUNDARY_Z_MAX,
   FAST_TRAVEL_ARRIVALS,
+  // Phase C-8.70B — the walkable envelope's own clamps.
+  clampBoundaryX,
+  clampBoundaryZ,
 } from './cityCollisions';
 
 // ── Measured / recorded references ──────────────────────────────────────────
@@ -456,10 +459,11 @@ describe('Terrain contracts are unchanged by the ground extension', () => {
     // (outer face MOTTE_CENTER_Z + 10.5 = -71.0), inside the summit.
     expect(FAST_TRAVEL_ARRIVALS.northern_fortress).toEqual([0, MOTTE_CENTER_Z + 12.5]);
     for (const [ax, az] of Object.values(FAST_TRAVEL_ARRIVALS)) {
-      expect(ax).toBeGreaterThanOrEqual(-BOUNDARY_X);
-      expect(ax).toBeLessThanOrEqual(BOUNDARY_X);
-      expect(az).toBeGreaterThanOrEqual(BOUNDARY_Z_MIN);
-      expect(az).toBeLessThanOrEqual(BOUNDARY_Z_MAX);
+      // Phase C-8.70B: the walkable world is the city square UNION the East
+      // Circus District band (C-8.64A/B); the literal bounds become the
+      // envelope's own clamp, the same "inside the walkable world" invariant.
+      expect(clampBoundaryX(ax, az)).toBe(ax);
+      expect(clampBoundaryZ(ax, az)).toBe(az);
     }
   });
 

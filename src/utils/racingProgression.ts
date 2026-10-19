@@ -141,6 +141,31 @@ export function resolveRacingState(
   return { unlocked: ordered, selected, horses: selected };
 }
 
+/**
+ * Phase C-8.70B — the racing configuration the player is currently racing with,
+ * for display.
+ *
+ * A pure read of the same `selected` source of truth `resolveRacingState` uses:
+ * the returned `RacingConfig` is the catalogue entry for the resolved team size,
+ * so a fresh or legacy profile (nothing unlocked, nothing selected) answers
+ * `Biga` with 2 horses — exactly the state `defaultRacingState()` describes, and
+ * the state the race entry panel must show from a fresh profile.  A partial or
+ * hand-edited `racing` field falls back the same way, because the fallback lives
+ * in `resolveRacingState` and is not duplicated here.
+ *
+ * Unlock and selection stay separate: a Triga that is unlocked but not selected
+ * still answers whatever `selected` actually names, never the highest unlock.
+ *
+ * Read-only by construction — it neither writes, migrates nor repairs the save.
+ * The race entry panel is its only consumer; the transaction helpers above remain
+ * the single mutation path.
+ */
+export function getSelectedRacingConfig(
+  profile: PlayerProfile | null | undefined
+): RacingConfig {
+  return getRacingConfig(resolveRacingState(profile).selected) ?? RACING_CONFIGS[0];
+}
+
 /** Is this configuration unlocked for the profile?  Biga always is. */
 export function isRacingConfigUnlocked(
   profile: PlayerProfile | null | undefined,

@@ -42,6 +42,10 @@ import {
   FAST_TRAVEL_ARRIVALS,
   HUB_LOCATIONS,
   getNearbyHubLocation,
+  // Phase C-8.70B — the walkable envelope's own clamps: the district's race
+  // entry added the first arrival east of the city square.
+  clampBoundaryX,
+  clampBoundaryZ,
 } from './cityCollisions';
 import { VIA_MERCATORIA_PATH } from './streetGeometry';
 
@@ -337,9 +341,14 @@ describe('D. Arrival clearance invariant (every fast-travel arrival)', () => {
     for (const loc of HUB_LOCATIONS) {
       const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
       expect(collidesWith(ax, az, R, CITY_COLLIDERS)).toBe(false);
-      expect(Math.abs(ax)).toBeLessThanOrEqual(35);
-      expect(az).toBeGreaterThanOrEqual(-91);
-      expect(az).toBeLessThanOrEqual(35);
+      // Phase C-8.70B: the walkable world is the city square UNION the East
+      // Circus District band (C-8.64A/B), so the literal ±35 square is replaced
+      // by the movement envelope's own clamp — the same invariant ("the arrival
+      // is inside the walkable world"), stated against the envelope that now
+      // actually bounds movement.  Every city arrival still satisfies the old
+      // numbers; only the district entry sits outside them.
+      expect(clampBoundaryX(ax, az)).toBe(ax);
+      expect(clampBoundaryZ(ax, az)).toBe(az);
     }
   });
 
