@@ -99,7 +99,10 @@ const sceneSrc = load('../components/3d/city/CityHubScene.tsx');
 const GLB_BYTES = readFileSync(new URL('../../public/_workspace_arena.glb', import.meta.url));
 const doc = await new NodeIO().registerExtensions(ALL_EXTENSIONS).readBinary(new Uint8Array(GLB_BYTES));
 
-const ARENA_POS: [number, number, number] = [52.34, -0.05, 43.8];
+// C-8.69B: the Y is the ground plane plus the arena's 0.05 ground clearance, so
+// this suite's own transform follows the component's derivation (the assertions on
+// it below are what pin the value).
+const ARENA_POS: [number, number, number] = [52.34, 0, 43.8];
 const ARENA_SCALE = 0.2;
 /**
  * Yaw π/2 maps an ASSET-space point (lx, ly, lz) — i.e. one already carried
@@ -478,11 +481,18 @@ const near = (a: number, b: number, tol = 0.02) => Math.abs(a - b) <= tol;
 describe('A. Placement and footprint', () => {
   test('the component mounts the asset at the approved transform', () => {
     expect(arenaSrc).toContain("'/_workspace_arena.glb'");
-    expect(arenaSrc).toContain('[52.34, -0.05, 43.8]');
+    // C-8.69B: the Y is no longer a literal — it is the ground plane plus the phase's
+    // clearance — so the pin is the derivation, its operands, and the X/Z literals.
+    expect(arenaSrc).toContain('export const CIRCUS_ARENA_GROUND_CLEARANCE = 0.05;');
+    expect(arenaSrc).toContain('GROUND_PLANE_ELEVATION_Y + CIRCUS_ARENA_GROUND_CLEARANCE');
+    expect(arenaSrc).toContain('52.34,');
+    expect(arenaSrc).toContain('43.8,');
     expect(arenaSrc).toContain('Math.PI / 2');
     expect(arenaSrc).toContain('= 0.2;');
     expect(sceneSrc).toContain('<EastCircusArena />');
-    expect(ARENA_POS).toEqual([52.34, -0.05, 43.8]);
+    expect(ARENA_POS).toEqual([52.34, 0, 43.8]);
+    // …and that Y really is the ground plane lifted by the phase's 0.05 clearance.
+    expect(ARENA_POS[1] - GROUND_PLANE_ELEVATION_Y).toBe(0.05);
     expect(ARENA_SCALE).toBe(0.2);
   });
 
@@ -521,10 +531,16 @@ describe('A. Placement and footprint', () => {
     expect(SHELL.maxZ - SHELL.minZ).toBeCloseTo(73.957, 2);
   });
 
-  test('the track surface is flush with the city ground plane', () => {
-    // Sand_00's top face is the walk plane of the whole arena interior.
-    expect(TRACK.maxY).toBeCloseTo(GROUND_PLANE_ELEVATION_Y, 4);
-    expect(TRACK.minY).toBeCloseTo(-0.25, 4);
+  test('the track surface clears the city ground plane by the C-8.69B clearance', () => {
+    // Sand_00's top face is the walk plane of the whole arena interior.  C-8.63/
+    // C-8.64A placed it exactly ON the ground plane, which made the arena's floor
+    // coplanar with the ground plane that also runs underneath the arena; C-8.69B
+    // lifts the whole arena by the 0.05 clearance this project gives a
+    // ground-contact surface, so the two can no longer be resolved against each
+    // other.
+    expect(TRACK.maxY).toBeCloseTo(GROUND_PLANE_ELEVATION_Y + 0.05, 4);
+    expect(TRACK.maxY - GROUND_PLANE_ELEVATION_Y).toBeCloseTo(0.05, 4);
+    expect(TRACK.minY).toBeCloseTo(-0.2, 4);
     expect(GROUND_PLANE_ELEVATION_Y).toBe(-0.05);
     // …and the track really is the arena's floor, not a sliver.
     expect(TRACK.maxX - TRACK.minX).toBeCloseTo(16.8, 1);

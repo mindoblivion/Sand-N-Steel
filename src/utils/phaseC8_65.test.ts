@@ -525,7 +525,12 @@ describe('D. Preservation', () => {
       .update(GLB_BYTES)
       .digest('hex');
     expect(blob).toBe('d701424aab906c0b6af850cb7874505efe3d4809');
-    expect(arenaSrc).toContain('[52.34, -0.05, 43.8]');
+    // C-8.69B derived the arena's Y from the ground plane plus a 0.05 ground
+    // clearance, so the pin is the derivation and its operands, not a literal.
+    expect(arenaSrc).toContain('export const CIRCUS_ARENA_GROUND_CLEARANCE = 0.05;');
+    expect(arenaSrc).toContain('GROUND_PLANE_ELEVATION_Y + CIRCUS_ARENA_GROUND_CLEARANCE');
+    expect(arenaSrc).toContain('52.34,');
+    expect(arenaSrc).toContain('43.8,');
     expect(arenaSrc).toContain('Math.PI / 2');
     expect(arenaSrc).toContain('0.2');
     expect(districtSrc.includes('_workspace_arena.glb')).toBe(false);

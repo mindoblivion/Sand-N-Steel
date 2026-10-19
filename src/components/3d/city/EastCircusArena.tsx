@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
+import { GROUND_PLANE_ELEVATION_Y } from './ProcessionAvenue';
 
 /**
  * EastCircusArena.tsx — East Circus District: the chariot arena's placement
@@ -11,25 +12,31 @@ import { useGLTF } from '@react-three/drei';
  * NorthernFortress, ColosseumSignPrototype) and mounts it at the audit's
  * approved transform:
  *
- *   position [52.34, -0.05, 43.80]   yaw  Math.PI / 2   scale  0.20
+ *   position [52.34, 0.00, 43.80]   yaw  Math.PI / 2   scale  0.20
  *
  * Measured world-space results of that transform.  All 76 nodes carry the SAME
  * matrix — the Z-up → Y-up correction, which three's GLTFLoader applies while
  * building the scene graph — so the figures below are that matrix applied to
  * each node's own POSITION data and then the group's uniform scale and yaw:
- * they are NOT the raw vertex extents.
+ * they are NOT the raw vertex extents.  The Y figures are the C-8.69B figures;
+ * C-8.63's were these minus the 0.05 ground clearance (see the constant below).
  *
- *   whole asset    X 37.600 … 66.344   Y -0.250 … 5.710   Z -30.157 … 46.000
- *   shell          X 38.380 … 66.300   Z -30.157 … 43.800  (Marble_01 — outer
- *                  wall + cavea; 27.92 wide × 73.96 long)
- *   sand track     X 43.940 … 60.740   Z -24.600 … 43.800  (Sand_00)
- *   carceres       X 43.340 … 61.340   Z  43.800 … 46.000  (Travertine_25)
- *   triumphal arch X 49.840 … 54.840   Z -23.900 … -22.500 (Travertine_30)
+ *   whole asset    X 37.600 … 66.344   Y -0.200 … 5.760   Z -30.157 … 46.000
+ *   shell          X 38.380 … 66.300   Y  0.000 … 4.060   Z -30.157 … 43.800
+ *                  (Marble_01 — outer wall + cavea; 27.92 wide × 73.96 long)
+ *   sand track     X 43.940 … 60.740   Y -0.200 … 0.000   Z -24.600 … 43.800
+ *                  (Sand_00)
+ *   carceres       X 43.340 … 61.340   Y  0.000 … 1.900   Z  43.800 … 46.000
+ *                  (Travertine_25)
+ *   triumphal arch X 49.840 … 54.840   Y  0.000 … 3.800   Z -23.900 … -22.500
+ *                  (Travertine_30)
  *
- * The track's top face is exactly Y = -0.05 (`Sand_00` spans Y -0.25 … -0.05 at
- * this scale), i.e. flush with `ProcessionAvenue`'s ground plane
- * (`GROUND_PLANE_ELEVATION_Y`), which already spans X ±70 / Z -114 … +70 — so
- * the arena needs no new ground, no terrain change and no ground-plane resize.
+ * The track's top face is Y = 0.00 (`Sand_00` spans Y -0.20 … 0.00 at this
+ * scale), i.e. 0.05 above `ProcessionAvenue`'s ground plane
+ * (`GROUND_PLANE_ELEVATION_Y` -0.05) — which already spans X ±70 / Z -114 … +70
+ * and therefore also runs underneath the arena — so the arena still needs no new
+ * ground, no terrain change and no ground-plane resize, and its floor is no
+ * longer coplanar with that plane (`CIRCUS_ARENA_GROUND_CLEARANCE`).
  *
  * ── Why the asset is used exactly as authored ────────────────────────────
  * The phase requires the mesh normals, UVs, material assignments and transforms
@@ -65,8 +72,39 @@ import { useGLTF } from '@react-three/drei';
 
 export const CIRCUS_ARENA_URL = '/_workspace_arena.glb';
 
-/** Approved placement (C-8.63 audit, Candidate A — East Circus District). */
-export const CIRCUS_ARENA_POSITION: [number, number, number] = [52.34, -0.05, 43.8];
+/**
+ * Phase C-8.69B — the arena's ground clearance.
+ *
+ * C-8.63/C-8.64A placed the root on `GROUND_PLANE_ELEVATION_Y` (-0.05), which put the
+ * arena's ground-contact surfaces *exactly* coplanar with `ProcessionAvenue`'s ground
+ * plane — a single quad spanning X ±70 / Z -114 … +70 that therefore also runs
+ * underneath the arena.  The pair that matters is the arena's own floor: `Sand_00`'s
+ * top face and that plane are both upward-facing and both at -0.05, so the floor is
+ * resolved against the ground plane instead of against itself, per fragment and per
+ * frame.  That is a rendering defect (flicker, dropped patches), not a modelling one,
+ * and it can only be seen where the floor is visible from outside the bowl — over the
+ * 2.13-high carceres block, i.e. from the paved forecourt on the arena's far south
+ * side.
+ *
+ * The correction is the 0.05 clearance this project already gives a ground-contact
+ * surface (C-8.35: the motte's crest rings sit exactly 0.05 proud of the sand).  It is
+ * small enough that the outer wall's base reveal stays a hairline — a fraction of the
+ * wall's own thickness, and the same order as the district's paving thickness (0.022
+ * plus its 0.01 base) — and large enough that the floor clears the ground plane's depth
+ * by an order of magnitude at every distance the arena is viewed from.  Nothing else
+ * moves: the asset is untouched, X/Z (and therefore every collider, arrival and
+ * clearance) are unchanged, and the yaw and scale are unchanged.
+ */
+export const CIRCUS_ARENA_GROUND_CLEARANCE = 0.05;
+
+/** Approved placement (C-8.63 audit, Candidate A — East Circus District; Y derived
+ *  from the ground plane plus C-8.69B's clearance, so no arena surface is coplanar
+ *  with the city ground plane). */
+export const CIRCUS_ARENA_POSITION: [number, number, number] = [
+  52.34,
+  GROUND_PLANE_ELEVATION_Y + CIRCUS_ARENA_GROUND_CLEARANCE,
+  43.8,
+];
 export const CIRCUS_ARENA_YAW = Math.PI / 2;
 export const CIRCUS_ARENA_SCALE = 0.2;
 

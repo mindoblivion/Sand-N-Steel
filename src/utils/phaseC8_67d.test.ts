@@ -622,13 +622,22 @@ describe('C-8.67D §E — the team fits the track the C-8.64A audit measured', (
   const arenaSrc = code('../components/3d/city/EastCircusArena.tsx');
 
   test('the sand track’s world bounds are still what the component documents', () => {
-    const line = arenaSrc.match(/sand track\s+X\s+([\d.]+)\s+…\s+([\d.]+)\s+Z\s+(-[\d.]+)\s+…\s+([\d.]+)/);
+    // C-8.69B added a Y column to the component’s table, so the row is parsed with
+    // it — and the Y figures it documents are asserted too: the whole point of this
+    // check is that the numbers the team fit relies on are the documented ones.
+    const line = arenaSrc.match(
+      /sand track\s+X\s+([\d.]+)\s+…\s+([\d.]+)\s+Y\s+(-[\d.]+)\s+…\s+([\d.]+)\s+Z\s+(-[\d.]+)\s+…\s+([\d.]+)/,
+    );
     expect(line).not.toBeNull();
-    const [, x0, x1, z0, z1] = line!;
+    const [, x0, x1, y0, y1, z0, z1] = line!;
     const width = Number(x1) - Number(x0);
     const length = Number(z1) - Number(z0);
     expect(width).toBeCloseTo(16.8, 6);
     expect(length).toBeCloseTo(68.4, 6);
+    // The documented floor is the arena’s ground clearance (C-8.69B): the track’s
+    // top face sits 0.05 above the city ground plane (-0.05), i.e. at 0.00.
+    expect(Number(y1)).toBeCloseTo(0, 6);
+    expect(Number(y1) - Number(y0)).toBeCloseTo(0.2, 6);
   });
 
   test('a four-abreast team fits the track with room to spare', () => {
