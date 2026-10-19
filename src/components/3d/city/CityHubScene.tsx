@@ -33,6 +33,8 @@ import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
 import { CORE_3D_ASSETS } from '../../../utils/preloadAssets';
 import { Banner, SteamParticles, ForgeSmoke, SandDrift } from './EnvironmentalMotion';
+// Phase C-8.70B — the East Circus District's read-only pre-race entry panel.
+import { PreRacePanel } from '../../hub/PreRacePanel';
 
 // Preload 3D models for instant, seamless city rendering
 try {
@@ -166,6 +168,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const [showNavDrawer, setShowNavDrawer] = useState(false);
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
   const [stableNotice, setStableNotice] = useState<string | null>(null);
+  // Phase C-8.70B — the East Circus District's race entry panel.  Local view
+  // state only: opening it and leaving it change no game data.
+  const [showRaceEntry, setShowRaceEntry] = useState(false);
 
   useEffect(() => {
     // Start with frameloop="demand" initially, switching to "always" after core 3D assets & context are warm
@@ -205,7 +210,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const handleInteract = useCallback(() => {
     if (!nearbyLoc) return;
     sounds.playClick();
-    if (nearbyLoc.tabKey === 'tournament') {
+    if (nearbyLoc.id === 'east_circus_arena') {
+      // Phase C-8.70B — the district's race entry opens the pre-race panel
+      // rather than a hub tab.  Read-only: the panel takes the profile and
+      // returns control to the city unchanged.
+      setShowRaceEntry(true);
+    } else if (nearbyLoc.tabKey === 'tournament') {
       onEnterDuel(activeOpponent);
     } else if (nearbyLoc.tabKey) {
       onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab);
@@ -905,6 +915,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* PHASE C-8.70B — EAST CIRCUS DISTRICT PRE-RACE ENTRY PANEL.
+          Opened by the district's own hub trigger; read-only (see PreRacePanel). */}
+      {showRaceEntry && (
+        <PreRacePanel profile={playerProfile} onLeave={() => setShowRaceEntry(false)} />
       )}
     </div>
   );

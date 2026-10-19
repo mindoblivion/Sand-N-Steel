@@ -41,6 +41,10 @@ import {
   FAST_TRAVEL_ARRIVALS,
   HUB_LOCATIONS,
   getNearbyHubLocation,
+  // Phase C-8.70B — the walkable envelope's own clamps: the district's race
+  // entry added the first arrival east of the city square.
+  clampBoundaryX,
+  clampBoundaryZ,
 } from './cityCollisions';
 
 // ── Sources ───────────────────────────────────────────────────────────────
@@ -1002,9 +1006,11 @@ describe('E. Colosseum clearance, academy geometry and phase scope hold', () => 
         `${loc.id} arrival clearance`,
       ).toBeGreaterThanOrEqual(ARRIVAL_CLEARANCE);
       expect(collidesWith(ax, az, R, CITY_COLLIDERS), `${loc.id} arrival collision`).toBe(false);
-      expect(Math.abs(ax)).toBeLessThanOrEqual(35);
-      expect(az).toBeGreaterThanOrEqual(-91);
-      expect(az).toBeLessThanOrEqual(35);
+      // Phase C-8.70B: the walkable world is the city square UNION the East
+      // Circus District band (C-8.64A/B); the literal ±35 square becomes the
+      // envelope's own clamp, the same "inside the walkable world" invariant.
+      expect(clampBoundaryX(ax, az), `${loc.id} arrival in the envelope`).toBe(ax);
+      expect(clampBoundaryZ(ax, az), `${loc.id} arrival in the envelope`).toBe(az);
     }
   });
 

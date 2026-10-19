@@ -53,8 +53,8 @@
  * with the Doctore House 3.27 away and the academy 5.24.  See §D.
  *
  * ── WHAT THIS SUITE PINS ──────────────────────────────────────────────────
- *   A. the configuration: the eight new radii, the twelve unchanged ones, and
- *      the standoff rule for all 20 hubs;
+ *   A. the configuration: the eight new radii, the thirteen unchanged ones, and
+ *      the standoff rule for all 21 hubs;
  *   B. each affected hub is enterable from its own entrance — the closest
  *      standable point on that side is inside the disc with a usable band;
  *   C. the Smithing Forge's fast-travel arrival behaviour, explicitly, with a
@@ -62,8 +62,8 @@
  *   D. the nine disc overlaps the new radii create, nearest-hub selection (with
  *      its order-based tie-break) at every arrival and entrance, and the alley
  *      the old first-match rule answered wrongly;
- *   E. the twelve unaffected hubs keep their radii, arrivals and selection;
- *   F. all 20 triggers are reachable and all 20 arrivals are collision-free and
+ *   E. the thirteen unaffected hubs keep their radii, arrivals and selection;
+ *   F. all 21 triggers are reachable and all 21 arrivals are collision-free and
  *      lead to their own prompt, driven with the shipped resolver;
  *   G. everything the phase must not touch is unchanged — the Training Hall
  *      collider and its narrow passage, the C-8.43 widths, the Forge's 9.5,
@@ -86,6 +86,8 @@ import {
   resolveCityMovement,
   BOUNDARY_X,
   BOUNDARY_Z_MAX,
+  clampBoundaryX,
+  clampBoundaryZ,
   type InteractiveLocation,
 } from './cityCollisions';
 import { MOTTE_CENTER_Z } from './terrainHeight';
@@ -140,6 +142,10 @@ const APPROACH: Record<string, { dir: [number, number]; collider: string; source
   arena_medical_house: { dir: [1, 0], collider: 'arena-medical', source: 'ArenaMedicalHouse.tsx (portico on +X)' },
   // the gate gap on the motte's south side
   northern_fortress: { dir: [0, 1], collider: 'fortress-south-l', source: 'NorthernFortress.tsx (gate on +Z)' },
+  // Phase C-8.70B's race-entry signpost on the carceres forecourt, its centre
+  // open forecourt ground — like the arena, courtyard and fortress, the disc
+  // needs no entrance ring, so the collider column is not consulted.
+  east_circus_arena: { dir: [-1, 0], collider: 'forecourt-parapet', source: 'EastCircusDistrict.tsx (race-entry signpost; carries no collider)' },
 };
 
 // ── The measured configuration ──────────────────────────────────────────────
@@ -170,6 +176,8 @@ const UNCHANGED: Record<string, number> = {
   veteran_gladiator_hall: 4.5,
   arena_medical_house: 4.5,
   northern_fortress: 10.0,
+  // Phase C-8.70B's race entry — open-centre, radius from `CIRCUS_RACE_ENTRY`.
+  east_circus_arena: 6.0,
 };
 
 /** Positions are untouched by this phase — pinned so a move cannot hide here. */
@@ -313,7 +321,7 @@ describe('A. Hub radii and the standoff rule', () => {
       expect(hub(id).radius, `${id} radius`).toBe(radius);
     }
     const touched = new Set([...Object.keys(CHANGED), ...Object.keys(UNCHANGED)]);
-    expect(touched.size).toBe(20);
+    expect(touched.size).toBe(21);
     expect(HUB_IDS.filter((id) => !touched.has(id))).toEqual([]);
   });
 
@@ -629,7 +637,7 @@ describe('D. Overlapping discs and which hub answers', () => {
 // E. Unaffected hubs
 // ══════════════════════════════════════════════════════════════════════════
 
-describe('E. The twelve unaffected hubs are untouched and still work', () => {
+describe('E. The thirteen unaffected hubs are untouched and still work', () => {
   test('their radii and arrivals are exactly what they were', () => {
     for (const [id, radius] of Object.entries(UNCHANGED)) {
       expect(hub(id).radius, `${id} radius`).toBe(radius);
@@ -654,7 +662,7 @@ describe('E. The twelve unaffected hubs are untouched and still work', () => {
 
   test('none of the eight changes reaches a hub that was already fine', () => {
     // The affected set and the unaffected set are disjoint and together cover
-    // all 20 hubs.
+    // all 21 hubs.
     const changed = Object.keys(CHANGED);
     const unaffected = Object.keys(UNCHANGED);
     expect(changed.filter((id) => unaffected.includes(id))).toEqual([]);
@@ -663,11 +671,11 @@ describe('E. The twelve unaffected hubs are untouched and still work', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-// F. All 20 triggers and all 20 arrivals
+// F. All 21 triggers and all 21 arrivals
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('F. Every trigger and every arrival', () => {
-  test('all 20 hub triggers are reachable: each arrival walks to its own prompt', () => {
+  test('all 21 hub triggers are reachable: each arrival walks to its own prompt', () => {
     const failures: string[] = [];
     for (const id of HUB_IDS) {
       const { result } = arrivalWalk(id);
@@ -685,15 +693,16 @@ describe('F. Every trigger and every arrival', () => {
     }
   });
 
-  test('all 20 arrivals are collision-free at the player radius and with clearance', () => {
-    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(20);
+  test('all 21 arrivals are collision-free at the player radius and with clearance', () => {
+    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(21);
     for (const loc of HUB_LOCATIONS) {
       const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
       expect(collidesWith(ax, az, PLAYER_RADIUS, CITY_COLLIDERS), `${loc.id} at R`).toBe(false);
       expect(collidesWith(ax, az, PLAYER_RADIUS + 0.5, CITY_COLLIDERS), `${loc.id} with 0.5 clearance`).toBe(false);
-      expect(ax).toBeGreaterThan(-BOUNDARY_X);
-      expect(ax).toBeLessThan(BOUNDARY_X);
-      expect(az).toBeLessThan(BOUNDARY_Z_MAX);
+      // Inside the walkable envelope — the union of the city square and the
+      // East Circus District band (C-8.70B).
+      expect(clampBoundaryX(ax, az), `${loc.id} x in bounds`).toBe(ax);
+      expect(clampBoundaryZ(ax, az), `${loc.id} z in bounds`).toBe(az);
     }
   });
 

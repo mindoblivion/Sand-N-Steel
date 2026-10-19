@@ -8,6 +8,9 @@ import {
   maxPenetration,
 } from './collisionShapes';
 import { MOTTE_CENTER_Z, MOTTE_PERIMETER_RADIUS } from './terrainHeight';
+// Phase C-8.70B — the East Circus District's race entry position, single-sourced
+// with the signpost mesh the district draws (see `circusDistrictGeometry.ts`).
+import { CIRCUS_RACE_ENTRY } from './circusDistrictGeometry';
 
 // ── World movement boundaries ────────────────────────────────────────────
 // These four constants describe the CITY square: X is symmetric ±35, and the Z
@@ -433,6 +436,29 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     color: '#78716c',
     district: 'NORTH',
   },
+  {
+    // Phase C-8.70B — the East Circus District's race entry point.
+    //
+    // It is the city's existing interaction component and nothing new: a hub
+    // trigger disc the 2-in-1 action button (and the desktop prompt banner)
+    // answers exactly like every other entrance, opening the pre-race panel in
+    // `CityHubScene`.  Its position, its radius and the arrival below all read
+    // `CIRCUS_RACE_ENTRY`, the same numbers the district's signpost mesh draws
+    // from, so the stone and the trigger cannot drift.
+    //
+    // `tabKey` is deliberately absent: this entry opens a modal in the city, not
+    // a hub tab, so `CityHubScene` branches on the id (the same way it already
+    // branches on `doctore_house` and the other tabless hubs).
+    id: 'east_circus_arena',
+    name: 'East Circus Race Forecourt',
+    subtitle: 'Chariot Racing',
+    position: [CIRCUS_RACE_ENTRY.x, 0, CIRCUS_RACE_ENTRY.z],
+    radius: CIRCUS_RACE_ENTRY.radius,
+    icon: 'Flag',
+    actionPrompt: 'Enter the Circus Race',
+    color: '#ca8a04',
+    district: 'EAST',
+  },
 ];
 
 /**
@@ -719,6 +745,12 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   // Collision-free with the fortress wall gap (X=0) and the motte perimeter
   // opening.
   northern_fortress:   [0, MOTTE_CENTER_Z + 12.5],
+  // Phase C-8.70B — the East Circus District's race entry, 2.0 south of the
+  // signpost on the carceres forecourt (Z 46.10 … 54.50, X 35 … 65.50).  Inside
+  // the entry disc, so the prompt is up as the player lands; 3.66 clear of the
+  // carceres' front face, 4.50 of the arena's south face and 6.20 of the
+  // parapet.  Its X/Z come from `CIRCUS_RACE_ENTRY`.
+  east_circus_arena:   [CIRCUS_RACE_ENTRY.x, CIRCUS_RACE_ENTRY.z - 2],
 };
 
 /**

@@ -697,13 +697,17 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
     ]);
   });
 
-  test('the racing module is consumed by the C-8.67C UI and by nothing else', () => {
+  test('the racing module is consumed by the C-8.67C UI, the C-8.70B pre-race panel, and by nothing else', () => {
     // Phase C-8.67B asserted this list was EMPTY ("data + logic only, no UI").
     // Phase C-8.67C wired the module into the player-facing Racing Configuration
-    // section, App's two handlers and its dev-only harness, so the assertion is
-    // rebased onto the exact consumer set rather than dropped: a *gameplay* file
-    // — a race loop, an arena entry, physics, a HUD — still cannot start
-    // importing it without failing here.
+    // section, App's two handlers and its dev-only harness.  Phase C-8.70B added
+    // exactly one more: `PreRacePanel`, the East Circus District's read-only
+    // pre-race surface, which reads the selected team through the module's pure
+    // `getSelectedRacingConfig` and writes nothing.  The guard stays a deliberate,
+    // narrow allowlist: a *gameplay* file — a race loop, an arena entry, physics,
+    // a HUD — still cannot start importing it without failing here, so a new
+    // consumer must be named here on purpose rather than slipping in under a
+    // blanket allowance.
     const consumers = sourceFiles(SRC_ROOT)
       .filter((file) => !isSuiteOrModule(file))
       .filter((file) => code(file).includes('racingProgression'))
@@ -712,6 +716,7 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
     expect(consumers).toEqual([
       'App.tsx',
       'components/dev/RacingConfigHarness.tsx',
+      'components/hub/PreRacePanel.tsx',
       'components/hub/RacingConfigSection.tsx',
     ]);
     expect(code('./racingProgression.ts').length).toBeGreaterThan(1000);

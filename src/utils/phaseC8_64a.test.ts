@@ -1058,14 +1058,22 @@ describe('F. Scope guard', () => {
 
   test('the ground plane, the hubs and the arrivals are unchanged', () => {
     expect(GROUND_PLANE_ELEVATION_Y).toBe(-0.05);
-    expect(HUB_LOCATIONS.length).toBe(20);
-    expect(HUB_LOCATIONS.some((h) => h.id.includes('circus'))).toBe(false);
-    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(20);
-    expect(Object.keys(FAST_TRAVEL_ARRIVALS).some((k) => k.includes('circus'))).toBe(false);
+    // C-8.64A left 20 hubs; Phase C-8.70B added the East Circus District's race
+    // entry — the only circus hub, and the only circus arrival.
+    expect(HUB_LOCATIONS.length).toBe(21);
+    expect(HUB_LOCATIONS.filter((h) => h.id.includes('circus')).map((h) => h.id)).toEqual([
+      'east_circus_arena',
+    ]);
+    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(21);
+    expect(Object.keys(FAST_TRAVEL_ARRIVALS).filter((k) => k.includes('circus'))).toEqual([
+      'east_circus_arena',
+    ]);
+    // Every arrival is inside the walkable envelope — the union of the city
+    // square and the district band — so the shipped clamps leave it untouched
+    // (the same ±BOUNDARY_X semantics for every city hub as before).
     for (const [x, z] of Object.values(FAST_TRAVEL_ARRIVALS)) {
-      expect(Math.abs(x)).toBeLessThanOrEqual(BOUNDARY_X);
-      expect(z).toBeGreaterThanOrEqual(BOUNDARY_Z_MIN);
-      expect(z).toBeLessThanOrEqual(BOUNDARY_Z_MAX);
+      expect(clampBoundaryX(x, z), `x=${x} in bounds`).toBe(x);
+      expect(clampBoundaryZ(x, z), `z=${z} in bounds`).toBe(z);
     }
   });
 

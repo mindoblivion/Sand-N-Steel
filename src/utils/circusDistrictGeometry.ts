@@ -373,6 +373,37 @@ export const CIRCUS_LINK_MOUTH_APRON_RECT = {
   d: CIRCUS_LINK_MOUTH_APRON.z1 - CIRCUS_LINK_MOUTH_APRON.z0,
 } as const;
 
+// ── 9. The race entry point (Phase C-8.70B) ────────────────────────────────
+/**
+ * The East Circus District's race entry point: a signed signpost standing on
+ * the carceres forecourt, and the world centre of the interaction disc that
+ * opens the pre-race panel.
+ *
+ * Its position is single-sourced here for the same reason every other district
+ * footprint is: the signpost mesh (`EastCircusDistrict.tsx`), the interaction
+ * trigger and the fast-travel arrival (`cityCollisions.ts`) and the phase's
+ * suite all read these numbers, so the stone that is drawn and the trigger that
+ * answers cannot drift apart.
+ *
+ * It stands on open pavement clear of every collider — the carceres' own front
+ * face is 4.30 away and the forecourt parapet 4.20 — and it carries no collider
+ * of its own: like the city's other signposts (`MerchantHouse`,
+ * `GladiatorAcademy`) a sign is walked past, not around.  The disc's west rim
+ * reaches X 34.50 at the forecourt's own Z, so the prompt is raised as the
+ * player steps off the Via Circensis' frontage run (X 35 … 38, Z 46.10) onto
+ * the forecourt.
+ */
+export const CIRCUS_RACE_ENTRY = {
+  id: 'east-circus-race-entry',
+  label: 'Circus race entry signpost',
+  /** World X of the signpost and of the interaction disc's own centre. */
+  x: 40.5,
+  /** World Z of the signpost and of the interaction disc's own centre. */
+  z: 50.3,
+  /** Interaction-disc radius; the forecourt is open ground, so it is a wide disc. */
+  radius: 6.0,
+} as const;
+
 /** World-space bounds of a pavement rectangle, as [x0, x1, z0, z1]. */
 export const pavementBounds = (
   r: Pick<DistrictPavement, 'cx' | 'cz' | 'w' | 'd'>,
