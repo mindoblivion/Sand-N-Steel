@@ -121,6 +121,12 @@ export interface InteractiveLocation {
   radius: number;
   icon: string;
   tabKey?: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | null;
+  /**
+   * Phase C-8.66B — which subview of `tabKey` the interaction opens, for the one
+   * hub that needs it.  The Imperial Stable opens the gear tab straight onto the
+   * Chariot Workshop; the tab's own switch returns to the gear list.
+   */
+  subTab?: 'chariot';
   actionPrompt: string;
   color: string;
   district: CityDistrictType;
@@ -273,8 +279,15 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
   },
   {
     id: 'stable',
-    name: 'Imperial Horse Stable',
-    subtitle: 'Mounts & Caravans',
+    // Phase C-8.66B: the stable's city interaction now opens the Chariot
+    // Workshop through the EXISTING gear tab (tabKey 'gear') with its 'chariot'
+    // subview — no sixth global tab and no new building.  Name, subtitle and
+    // prompt describe what the interaction actually does; the id, position,
+    // radius, icon, colour, district and the [26, 10] arrival are unchanged.
+    name: 'Imperial Stable & Chariot Workshop',
+    subtitle: 'Racing Chariots & Mounts',
+    tabKey: 'gear',
+    subTab: 'chariot',
     position: [26, 0, 15],
     // Phase C-8.47: 4.5 → 5.25.  The stable's open front is its NORTH side — the
     // solid box at local Z +3.1 is the rear wall and only the two cutout posts at
@@ -284,7 +297,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     // the [26, 10] arrival (5.00) inside the disc.
     radius: 5.25,
     icon: 'Compass',
-    actionPrompt: 'Visit Stables',
+    actionPrompt: 'Visit Chariot Workshop',
     color: '#10b981',
     district: 'EAST',
   },

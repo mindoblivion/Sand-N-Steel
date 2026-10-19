@@ -5,6 +5,8 @@ import { TitleScreen } from './components/hub/TitleScreen';
 import { CharacterCreation } from './components/hub/CharacterCreation';
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
 import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
+import type { GearView } from './components/hub/GearTab';
+import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 import { DuelResultModal } from './components/hub/DuelResultModal';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
@@ -27,6 +29,10 @@ export function App() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
   const [activeHubTab, setActiveHubTab] = useState<'tournament' | 'training' | 'shop' | 'gear' | 'stats'>('tournament');
+  // Phase C-8.66B: the Armory's own subview. The Imperial Stable's city
+  // interaction opens the gear tab with this set to 'chariot'; the tab's own
+  // switch flips it back to the gear list.
+  const [gearView, setGearView] = useState<GearView>('armory');
   const [duelResult, setDuelResult] = useState<{ didWin: boolean; stats: DuelStatistics } | null>(null);
   const [showDriveSync, setShowDriveSync] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -214,9 +220,34 @@ export function App() {
     setCurrentScreen('duel');
   };
 
-  const handleOpenHubTab = (tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats') => {
+  const handleOpenHubTab = (
+    tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats',
+    gearSubview?: GearView
+  ) => {
     setActiveHubTab(tab);
+    if (tab === 'gear') setGearView(gearSubview ?? 'armory');
     setCurrentScreen('hub_2d');
+  };
+
+  /**
+   * Phase C-8.66B — buy a chariot part with the player's existing gold.
+   * `purchaseChariotPart` is pure and re-checks every rule (ownership, price,
+   * unknown id), so a rejected buy leaves gold, ownership and the equipped
+   * choice exactly as they were and never reaches `saveProfile`.
+   */
+  const handleBuyChariotPart = (partId: string) => {
+    const result = purchaseChariotPart(profile, partId);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /** Equip an owned chariot part — never deducts gold. */
+  const handleEquipChariotPart = (partId: string) => {
+    const result = equipChariotPart(profile, partId);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
   };
 
   const handleMatchComplete = (stats: DuelStatistics, didWin: boolean) => {
@@ -422,6 +453,10 @@ export function App() {
             onBuyItem={handleBuyItem}
             onEquipWeapon={handleEquipWeapon}
             onEquipArmor={handleEquipArmor}
+            gearView={gearView}
+            onGearViewChange={setGearView}
+            onBuyChariotPart={handleBuyChariotPart}
+            onEquipChariotPart={handleEquipChariotPart}
             onAllocateStatPoint={handleAllocateStatPoint}
             onOpenDriveSync={() => setShowDriveSync(true)}
             onToggleMute={handleToggleMute}

@@ -3,7 +3,7 @@ import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem } from '../../type
 import { TournamentTab } from './TournamentTab';
 import { TrainingTab } from './TrainingTab';
 import { ShopTab } from './ShopTab';
-import { GearTab } from './GearTab';
+import { GearView, GearTab } from './GearTab';
 import { StatsTab } from './StatsTab';
 import { PreFightModal } from './PreFightModal';
 import { HelpModal } from './HelpModal';
@@ -20,6 +20,11 @@ interface GladiatorSchoolHubProps {
   onBuyItem: (item: WeaponItem | ArmorItem) => void;
   onEquipWeapon: (wpn: WeaponItem) => void;
   onEquipArmor: (armor: ArmorItem) => void;
+  /** Armory subview (Phase C-8.66B); 'chariot' is what the Imperial Stable opens. */
+  gearView?: GearView;
+  onGearViewChange?: (view: GearView) => void;
+  onBuyChariotPart?: (partId: string) => void;
+  onEquipChariotPart?: (partId: string) => void;
   onAllocateStatPoint: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -38,6 +43,10 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onBuyItem,
   onEquipWeapon,
   onEquipArmor,
+  gearView = 'armory',
+  onGearViewChange,
+  onBuyChariotPart,
+  onEquipChariotPart,
   onAllocateStatPoint,
   onOpenDriveSync,
   onToggleMute,
@@ -157,6 +166,10 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             profile={playerProfile}
             onEquipWeapon={onEquipWeapon}
             onEquipArmor={onEquipArmor}
+            gearView={gearView}
+            onGearViewChange={onGearViewChange}
+            onBuyChariotPart={onBuyChariotPart}
+            onEquipChariotPart={onEquipChariotPart}
           />
         )}
         {activeTab === 'stats' && (

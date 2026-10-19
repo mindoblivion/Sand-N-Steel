@@ -83,7 +83,12 @@ import {
 interface CityHubSceneProps {
   playerProfile: PlayerProfile;
   activeOpponent: OpponentConfig;
-  onOpenTab: (tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats') => void;
+  /**
+   * Phase C-8.66B: `subTab` carries the one hub that opens a subview of its tab
+   * (the Imperial Stable → the Armory's Chariot Workshop). Every other hub
+   * passes nothing and lands on the tab's own default view.
+   */
+  onOpenTab: (tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats', subTab?: 'chariot') => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -203,7 +208,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     if (nearbyLoc.tabKey === 'tournament') {
       onEnterDuel(activeOpponent);
     } else if (nearbyLoc.tabKey) {
-      onOpenTab(nearbyLoc.tabKey);
+      onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab);
     } else {
       // Elegant immersive fallback notification for locations with no immediate tab key
       if (nearbyLoc.id === 'doctore_house') {
@@ -227,9 +232,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           "Arena Medical House: Bandages, ceramic vessels, and surgical tools are prepared for the arena's wounded."
         );
       } else {
-        setStableNotice(
-          "Imperial Horse Stable: Under construction by order of the Emperor! Battle mounts, transport carriages, and trade caravan routes are currently being prepared."
-        );
+        // Phase C-8.66B: the stable no longer falls through to this branch — its
+        // interaction opens the Chariot Workshop through the gear tab's own
+        // subview (see HUB_LOCATIONS). This is the neutral notice for any hub
+        // left without a tab, e.g. the Northern Roman Fortress.
+        setStableNotice(`${nearbyLoc.name}: ${nearbyLoc.subtitle}. Nothing to trade here yet.`);
       }
       // Auto dismiss after 4 seconds
       setTimeout(() => {

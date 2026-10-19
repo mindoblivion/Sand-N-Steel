@@ -1,15 +1,37 @@
 import React from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
-import { Layers, Shield, Swords, Check } from 'lucide-react';
+import { Layers, Shield, Swords, Check, Wrench } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
+import { ChariotWorkshopTab } from './ChariotWorkshopTab';
+
+/** The Armory's own subview (Phase C-8.66B): the gear list, or the Chariot Workshop. */
+export type GearView = 'armory' | 'chariot';
 
 interface GearTabProps {
   profile: PlayerProfile;
   onEquipWeapon: (wpn: WeaponItem) => void;
   onEquipArmor: (armor: ArmorItem) => void;
+  /** Which subview is open.  Optional so the tab works with no chariot wiring. */
+  gearView?: GearView;
+  onGearViewChange?: (view: GearView) => void;
+  onBuyChariotPart?: (partId: string) => void;
+  onEquipChariotPart?: (partId: string) => void;
 }
 
-export const GearTab: React.FC<GearTabProps> = ({ profile, onEquipWeapon, onEquipArmor }) => {
+const GEAR_VIEWS: { key: GearView; label: string; icon: typeof Layers }[] = [
+  { key: 'armory', label: 'Gladiator Loadout', icon: Layers },
+  { key: 'chariot', label: 'Chariot Workshop', icon: Wrench },
+];
+
+export const GearTab: React.FC<GearTabProps> = ({
+  profile,
+  onEquipWeapon,
+  onEquipArmor,
+  gearView = 'armory',
+  onGearViewChange,
+  onBuyChariotPart,
+  onEquipChariotPart,
+}) => {
   const currentWeapon = profile.equipped.weapon;
   const currentHelm = profile.equipped.helm;
   const currentChest = profile.equipped.chest;
@@ -19,6 +41,40 @@ export const GearTab: React.FC<GearTabProps> = ({ profile, onEquipWeapon, onEqui
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-12">
+      {/* SUBVIEW SWITCH — the Armory keeps its own tab; the workshop lives inside it. */}
+      <div className="flex flex-wrap gap-2">
+        {GEAR_VIEWS.map((view) => {
+          const Icon = view.icon;
+          const isActive = gearView === view.key;
+          return (
+            <button
+              key={view.key}
+              onClick={() => {
+                sounds.playClick();
+                onGearViewChange?.(view.key);
+              }}
+              disabled={isActive}
+              className={`py-2.5 px-4 rounded-2xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+                isActive
+                  ? 'bg-amber-500/20 border border-amber-400 text-amber-200 shadow-md cursor-default'
+                  : 'bg-neutral-900/80 border border-neutral-800 text-neutral-400 hover:text-amber-200'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{view.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {gearView === 'chariot' ? (
+        <ChariotWorkshopTab
+          profile={profile}
+          onBuyPart={onBuyChariotPart ?? (() => {})}
+          onEquipPart={onEquipChariotPart ?? (() => {})}
+        />
+      ) : (
+        <>
       <div className="bg-neutral-900/80 border-2 border-cyan-500/60 rounded-3xl p-6 shadow-xl">
         <h3 className="font-serif font-black text-2xl text-amber-100 uppercase mb-1">
           Gladiator Loadout & Armory
@@ -141,6 +197,8 @@ export const GearTab: React.FC<GearTabProps> = ({ profile, onEquipWeapon, onEqui
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 };
