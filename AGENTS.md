@@ -1934,14 +1934,18 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the C-8.38 northern approach, the C-8.28 bowl cut, the C-8.29 junction and the C-8.31/C-8.33
   rear-gate checks. Do not claim Android visual acceptance.
 
-## East Circus District — chariot arena placement (Phase C-8.64A — implemented and validated)
+## East Circus District — chariot arena placement (Phase C-8.64A — implemented, corrected and validated)
 
-- **What the phase ships** (`44721b9`): `EastCircusArena.tsx` loads `public/_workspace_arena.glb`
+- **What the phase ships** (`44721b9` placement; `64e31a8` entrance-alignment correction):
+  `EastCircusArena.tsx` loads `public/_workspace_arena.glb`
   once through the shared `useGLTF` pipeline (preload + its own `Suspense` in `CityHubScene`, the
   `ColosseumSignPrototype` pattern) and renders `gltf.scene` in place — no `clone()`, no material or
   wrap override, every mesh static (`matrixAutoUpdate = false`). `collisionShapes.ts` registers a
-  **26-segment** `circus-*` perimeter (6 straights + 10 chords per side of the 11-point outline) that
-  follows the arena's measured outer silhouette and leaves a mouth at each axial end;
+  **31-segment** `circus-*` perimeter (7 straights + 12 chords per side of the 13-point outline) that
+  follows the arena's measured outer silhouette and is now a **closed ring** at both axial ends —
+  the placement prototype shipped a 26-segment ring that left an 18.00 mouth at the carceres and a
+  7.92 mouth at the north tip, and the entrance-alignment correction **shut both** after measuring
+  that neither corresponds to a rendered passage a player can walk through (see below).
   `cityCollisions.ts` adds the **district-access envelope** as a *union* with the city square.
 - **The transform, the footprint and the ground contact, measured from the shipping asset.** All 76
   nodes carry the SAME matrix — the Z-up → Y-up correction
@@ -1976,9 +1980,54 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   standing INSIDE the arena**, 4.6 south of the ring's end, whose passages measure **1.380** (centre,
   X 51.64 … 53.02) and **0.700** either side; only the centre arch admits a 0.4-radius player. So the
   phase's documented prototype mismatch (no colliders for the seating banks, the carceres piers or
-  the spina) is now *measured*, and the collider's mouths are **wider than any rendered opening** —
-  the player walks through rendered stone on both lines, and the north mouth has no rendered portal
-  behind it at all.
+  the spina) is now *measured* — and the correction below acts on it: the two mouths are **closed**,
+  so the ring is a single closed perimeter and the player is stopped outside rendered stone. (As
+  first shipped, the collider's mouths were wider than any rendered opening — the player walked
+  through rendered stone on both lines, and the north mouth had no rendered portal behind it at all.)
+- **The entrance-alignment closure (corrective follow-up, `64e31a8`).** Both axial mouths were
+  re-measured against the shipping asset, and **neither is a passage a player can enter**, so the
+  ring was closed rather than left to admit movement through stone. The three kinds of evidence are
+  kept separate here, because they carry different weight.
+  - *Measured geometry (read off the asset itself, not asserted by a test).* The carceres block is
+    an arcade of **twelve through-openings of 0.49–0.51** (pitch 1.35, the first on X ≈ 44.66, the
+    last ending X ≈ 60.02) pierced through the 1.85-high block, each narrowing with height (**0.280
+    at Y 1.30**) — none is anywhere near the 0.80 player diameter at any height in the player's band,
+    and a body-cylinder sweep finds no player-sized column on the block's front line (Z 46.00) or
+    through its 2.20 depth. The sphendone's north **tip is solid stone at ground level** from the
+    shell's own north extreme (Z −30.157) south to Z ≈ −27.8 across the whole mouth; its only
+    ground-level voids are sub-0.45 slivers (0.09 at Z −29.72) that do not pass through. So **there
+    is no player-sized rendered passage at either end**, and `Travertine_30` is an **interior**
+    triple-arch monument standing 4.6 south of the cap (passages 0.700 / 1.380 / 0.700), not a gate.
+  - *What changed in the registry (`collisionShapes.ts`).* The ring is **closed**: a new
+    `circus-carceres-front` segment spans the carceres' own face plane (Z 46.00) between the two
+    cheeks, and the north mouth is closed by **two chords laid in open air NORTH of the tip** —
+    `[50.0, −30.5]` to the axis apex `[CIRCUS_AXIS_X, −30.65]` and their mirrors — so no rendered
+    geometry is left outside the ring and the player is stopped *before* the stone rather than inside
+    it (the cap clears the player-blocked boundary by 0.14–0.18 at every sample; the tip's stone
+    stops at Z −30.157 while the boundary reaches Z −30.45 on the axis). The perimeter goes 26 →
+    **31 segments** (7 straights + 24 chords of the now **13-point** outline), i.e. `circus-*` is
+    **31**, the registry is **141** colliders (110 non-circus + 31) with the same **31 rectangles**,
+    the same **46 `colo-*` ids** and all ids unique; and it has **zero dangling endpoints** — the
+    cap's apex sits on the arena axis, so it is its own mirror and the two halves meet there.
+    `CIRCUS_ARCH_WEST_X` / `CIRCUS_ARCH_EAST_X` stay exported as the measured interior span they
+    are. **The GLB is untouched — `public/_workspace_arena.glb` is byte-identical** (blob
+    `d701424aab906c0b6af850cb7874505efe3d4809`, unmodified by every C-8.64A commit) **and the arena
+    transform is unchanged** (`[52.34, −0.05, 43.80]`, yaw `π/2`, scale `0.20`).
+  - *Automated movement tests (the shipped `resolveCityMovement`, in the suite).* §B asserts the ring
+    is closed with no free end, that every west-profile point is on-or-outside the measured
+    silhouette and none is inside stone; §C re-derives the rendered openings from the asset and shows
+    the carceres cross-section and the north mouth refuse a player-sized sweep at every height; §D
+    walks in from the southern apron (stopped at Z 46.40, outside the block) and from the north
+    (stopped outside the cap), sweeps every approach and shows the whole arena can still be walked
+    *around*; §G's control replays the pre-correction ring and shows its two mouths let the player
+    cross through stone — so the closure is what stops it, not a coincidence of the walk's start
+    point. This is **the movement guarantee**: the resolver blocks entry into the arena's solid
+    geometry at both ends and never leaves the player inside rendered stone.
+  - *Not verified — appearance.* None of the above is visual acceptance. **The rendered arena has
+    never been seen in this sandbox** (see the NOT-verified bullet below), so a **future, explicitly
+    authorized art/geometry change is required before either entrance can become traversable**: this
+    correction closed the colliders, it did not widen a gate past the player's 0.80 diameter and it
+    changed no art. C-8.64B remains explicitly **not** started.
 - **Nothing else is reachable and nothing else moved.** Exact nearest clearance from the arena
   perimeter to every other collider (`gladiator-academy` 5.2451 to `circus-oval-w-2`, then
   `armor-workshop` 5.7300, `doctore-house` 7.3800, `merchant-house` 8.5300, `stable` 8.6300,
@@ -2010,15 +2059,19 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   so it is taken at `CIRCUS_ENVELOPE_Z_MIN − 5` (the same ±35 semantics, unchanged) and a **new**
   test asserts the district's 67.5 inside the band, i.e. one assertion became two. Ten suites pinned
   the registry with an absolute count from their own phase (110) as a *scope guard* ("no collider
-  moved"); each was rebased to 136 with a comment naming C-8.64A's 26 added segments, keeping the
-  31 rectangles, the 46 `colo-*` ids and every id-uniqueness check. Nothing was relaxed, and no
-  count assertion was deleted.
+  moved"); each was rebased to **141** with a comment naming C-8.64A's added `circus-*` segments —
+  26 at placement, then **31** after the entrance-alignment closure — keeping the 31 rectangles, the
+  46 `colo-*` ids and every id-uniqueness check. Every count change is explained by the registry
+  change alone (110 + 31, nothing else touched), and the ten suites' ids, rectangles and per-prefix
+  counts were re-verified unchanged; the closure's five extra segments are `circus-carceres-front`
+  plus the four cap chords. Nothing was relaxed, and no count assertion was deleted.
 - **The phase's own suite was committed broken and is now repaired, not accommodated.** It measured
   the asset in the raw Z-up frame (it asserted that every node was untransformed) and so failed 15
   of its 35 tests — its "track surface flush" check read Y 8.35 against the real −0.05. It now
   multiplies each node's world matrix in first, asserts the 76 identical node matrices instead of
-  their absence, counts the 26 segments it actually registers, names the carceres cheeks' *front*
-  ends as the dangling ends (it had named their south-face ends, which are interior corners),
+  their absence, counts the segments the ring actually registers (26 before the closure, **31**
+  after), names the carceres cheeks' *front* ends as the dangling ends (it had named their
+  south-face ends, which are interior corners),
   derives the north jambs from the outline, tolerates the resolver's 0.38 step when a walk is
   stopped by a wall, starts its two apron walks inside the envelope (a start beyond Z 47.5 is
   out-of-bounds and the clamp snaps it to `[35, 35]`), tests the city square against the band's
@@ -2026,33 +2079,50 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   component contains no `clone(`. `phaseC8_41`'s and `phaseC8_47`'s test names, and the C-8.62
   suite's own prose, now say what they mean. The two negative assertions that had been defeated by
   the component's own docstring are comment-proof.
-- **Verified 2026-10-18** in the dev container: focused `bun test src/utils/phaseC8_64a.test.ts` →
-  **35 pass / 0 fail**; `bun test` → **1508 pass / 0 fail (47 files, 23867 expect() calls)**;
-  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
-  **exit 0** (the suite had six TS18047 `getArray()` null errors, never linted before — now guarded);
-  `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only); `git diff --check` →
-  clean. The validation's starting point was **27 failing `bun test` cases and one failing collision
-  test**, all of them this phase's. Preview: the hub boots from `Play as Guest` with the canvas
-  mounted, `/_workspace_arena.glb` is requested and answers **HTTP 200**, and there are **zero
-  console errors and zero failed requests**; the dev server serves the corrected
-  `collisionShapes.ts` (`[48.38, -30.08]` present in the transformed module).
+- **Verified 2026-10-18 (placement, `44721b9` / `507558b`)** in the dev container: focused
+  `bun test src/utils/phaseC8_64a.test.ts` → **35 pass / 0 fail**; `bun test` → **1508 pass / 0 fail
+  (47 files, 23867 expect() calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → **exit 0** (the suite had six TS18047 `getArray()` null errors,
+  never linted before — now guarded); `bun run build` → exit 0 (the pre-existing >500 kB chunk
+  warning only); `git diff --check` → clean. The validation's starting point was **27 failing
+  `bun test` cases and one failing collision test**, all of them this phase's. Preview: the hub boots
+  from `Play as Guest` with the canvas mounted, `/_workspace_arena.glb` is requested and answers
+  **HTTP 200**, and there are **zero console errors and zero failed requests**; the dev server serves
+  the corrected `collisionShapes.ts` (`[48.38, -30.08]` present in the transformed module).
+- **Verified 2026-10-19 (entrance-alignment closure, `64e31a8`)** in the dev container — re-run in
+  full rather than inferred from the earlier pass: focused `bun test src/utils/phaseC8_64a.test.ts` →
+  **38 pass / 0 fail** (2530 expect() calls; the suite grew 35 → 38 with the closed-ring,
+  no-dangling-end, rendered-opening and driven-walk sections); `bun test` → **1511 pass / 0 fail
+  (47 files, 25156 expect() calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**,
+  exit 0; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing
+  >500 kB chunk warning only); `git diff --check` → clean (the turn's only change is this document).
+  The registry was read directly from the shipped module rather than from a test: **141 colliders —
+  110 non-circus + 31 `circus-*` — 31 rectangles, 109 segments, 1 circle, 46 `colo-*`, 141 unique
+  ids**; the arena GLB's blob hash was compared to `HEAD`'s and matches
+  (`d701424aab906c0b6af850cb7874505efe3d4809`), and `EastCircusArena.tsx` still carries
+  `[52.34, −0.05, 43.8]` with yaw `π/2` and scale `0.20`, so **the asset and the transform are
+  demonstrably unchanged**.
 - **NOT automatically verified — the rendered arena.** No frame of the arena itself was obtained:
   it stands 26+ units east of the plaza the player spawns in, the hub renders through SwiftShader at
   ~2 fps with the movement step clamped (~0.6 units per second of wall time), so a walk to the
   district exceeds a script budget — the same limit C-8.36, C-8.37 and C-8.55 recorded. **A device
   (Android) look is therefore required** before anything about the arena's *appearance* is claimed:
   whether the GLB's eight materials and authored UV tiling read correctly at scale 0.20, whether the
-  perimeter's visible faces agree with the stone at the two mouths (where this record says they do
-  not — the player walks through the carceres piers and the solid north tip), and whether the
-  district reads as reachable from the city's east edge. Still open from earlier phases: the C-8.57
+  closed perimeter's faces read as *stopping* the player outside the stone at both ends (the
+  closure's whole point — the player is refused at the carceres' front face and at the cap laid north
+  of the solid tip), and whether the district reads as reachable from the city's east edge. Still open from earlier phases: the C-8.57
   pediment/order-under-the-eave reading, the C-8.53 lean-to bearing, the C-8.52 veranda canopy, the
   C-8.49 wall-to-gable junctions, the C-8.51 awning, the C-8.41 kerb, the C-8.38 northern approach,
   the C-8.28 bowl cut, the C-8.29 junction and the C-8.31/C-8.33 rear-gate checks. **Do not claim
   Android visual acceptance, and do not claim the arena renders correctly on the target GPU** — this
   sandbox cannot settle it.
-- **Known limitations of this phase, carried forward:** (a) the two collider mouths are wider than
-  any rendered opening, so the player walks through rendered stone at both ends — the seating banks,
-  the carceres piers and the spina carry no colliders; (b) the north mouth is a collider-only
-  feature (the sphendone's tip is solid at ground level there); (c) no chariot, no racing gameplay,
-  no hub, no fast travel and no racing loop exists yet — the arena is a placement prototype, and
-  C-8.64B (the district's remaining shell) was explicitly **not** started.
+- **Known limitations of this phase, carried forward (updated by the closure):** (a) **the arena
+  cannot be entered at all** — both ends are closed by a collider-only ring because neither has a
+  player-sized rendered passage, so this is now a documented *refusal* rather than the placement
+  prototype's walk-through-stone defect; **a future, explicitly authorized art/geometry change is
+  required before either entrance can become traversable**, and nothing in this phase changed the
+  art. (b) The seating banks, the carceres piers and the spina still carry no colliders — they all
+  now lie inside the closed ring, which the player can no longer reach, so the interior is documented
+  as unreachable rather than collided. (c) No chariot, no racing gameplay, no hub, no fast travel and
+  no racing loop exists yet — the arena is a placement prototype, and C-8.64B (the district's
+  remaining shell) was explicitly **not** started.
