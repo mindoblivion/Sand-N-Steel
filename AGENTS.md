@@ -2984,3 +2984,295 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   reads as running alongside the chariot clear of the wheel, and whether Triga's single outer horse
   reads as intentional. The C-8.66B/C-8.66C/C-8.66D workshop and wheel-swap checks, and everything
   before them, remain open.
+
+## Horse assets (Phase C-8.68A — audited, documentation only)
+
+- **The C-8.67D inventory is stale and must not be read as current.** Its "Verified asset inventory
+  — no animation-ready horse exists anywhere in the project" paragraph, its "No horse asset exists"
+  decision item and its §G assertion were true of the repo as it stood when that phase closed. Three
+  horse GLBs were uploaded **afterwards** (the three "Add files via upload" commits, 2026-10-19), so
+  a reader must take the rest of this section as the current inventory and treat the C-8.67D wording
+  as a historical record of what existed then. The C-8.67A note ("a future phase should not assume a
+  record exists") is unaffected. **Everything else in the C-8.67D record still holds**: the legacy
+  `public/_workspace_chariot.glb` really is 88 unrigged horse-shaped meshes, the wheel kit really
+  ships no horse, and `public/models/arena_roman.glb` really is the only rigged *humanoid*.
+
+- **The three uploads, byte-for-byte.** `public/_workspace_dist_horse_weak.glb` 15,248,136 bytes
+  sha256 `0a00300e…`; `public/_workspace_dist_horse_better.glb` 15,783,980 bytes sha256 `639b75d5…`;
+  `public/_workspace_dist_horse_great.glb` 16,342,056 bytes sha256 `f7e1b698…`. All three are
+  exported by Khronos glTF Blender I/O v3.4.50 with `KHR_materials_specular` + `KHR_materials_ior`
+  (no Draco, no `KHR_texture_basisu`, no quantization). **No `.ts`/`.tsx` file references any of
+  them** (`git grep` and the rebased §G agree), so they are inert data in `public/`, not a feature.
+
+- **One shared rig, 31 joints, identical in all three files** — the same joint-name list *and* the
+  same rest world positions, so the three differ in skins and tack only:
+  `root (0, 0, 0)` → `pelvis (−0.95, 1.30)` → `spine (−0.45, 1.34)` → `chest (0.05, 1.34)` →
+  `neck1 (0.60, 1.36)` → `neck2 (0.90, 1.64)` → `head (1.20, 1.88)` → `muzzle (1.62, 1.74)`;
+  fore leg `shoulder (±0.62, 1.22, ∓0.17)` → `forearm (0.60, 0.80)` → `fcannon (0.60, 0.55)` →
+  `fpastern (0.60, 0.26)` → `fhoof (0.60, 0.10)`; hind leg `thigh (−0.62, 1.24, ±0.155)` →
+  `gaskin (−0.55, 0.78)` → `hcannon (−0.62, 0.58)` → `hpastern (−0.60, 0.26)` → `hhoof (−0.60, 0.10)`;
+  `tail1 (−0.95, 1.30)` → `tail2 (−1.10, 1.05)` → `tail3 (−1.22, 0.78)`. 1 root + pelvis + spine +
+  chest + 2 neck + head + muzzle + 10 fore-leg + 10 hind-leg + 3 tail = **31**. Both leg chains are
+  complete five-joint chains, which is what a gait needs.
+
+- **Three clips each, identical names, durations, key counts and channel counts** (93 channels =
+  31 joints × translation/rotation/scale): `Gallop` 0.7083 s / 17 keys, `Idle` 4.0417 s / 97 keys,
+  `Walk` 1.0417 s / 25 keys.
+
+- **The decisive motion fact: the shipped clips do not animate the legs, so they are not gaits.**
+  Measured per joint over every key (degrees of rotation away from key 0, and translation span):
+  - `Gallop` — **every leg-joint rotation is 0.000°** (the two shoulders 0.022°, from a rounded key)
+    and **every leg-joint translation is 0.000**. All the motion is trunk and hair: `tail3` 14.605°,
+    `tail2` 11.789°, `head` 10.954°, `neck2` 8.842°, `tail1` 6.000°, `neck1` 5.000°, `chest` 3.473°,
+    `spine` 3.000°; the only translation with any span is `root` ±0.05 (a vertical bob).
+  - `Walk` — the same pattern: leg rotations 0.000° (shoulders 0.022°), leg translations 0.000;
+    `tail2` 10.354°, `tail1` 6.000°, `neck1` 2.500°, `head` 2.000°, `spine` 0.040°; `root` ±0.018.
+  - `Idle` — the only clip that touches the legs at all, and only just: shoulders 2.400°, thighs
+    2.000°, forearms 1.500°, gaskins 0.900°, `hcannon` 0.660°, `fcannon` 0.525°, pasterns 0.18–0.22°.
+  - **Evaluated forward-kinematically** (composing the real bone matrices over every key, so this is
+    the posed world position, not a channel reading): in `Gallop` the front hooves travel **0.220
+    forward and 0.229 up** while the hind hooves travel **0.000 forward and 0.100 up**; in `Walk`
+    every hoof's forward travel is **0.000** and its vertical travel **0.036**; in `Idle` 0.032–0.040.
+    The hooves move only because the trunk rotates under them. A horse driven by these clips stands
+    still and bobs its head — **the clips cannot be used as walk or gallop**, and this is measured,
+    not inferred.
+
+- **Measured proportions** (rest pose, model units, forward **+X**, up **+Y**, lateral Z; the coat
+  mesh's minY is exactly **0** = the hoof plane; the only geometry below it is the tail, −0.0695):
+
+  | quantity | weak | better | great |
+  |---|---|---|---|
+  | body (coat) length nose→rump | 3.0389 (nose +1.9946, rump −1.0443) | 3.0425 (rump −1.0475) | 3.0453 (rump −1.0504) |
+  | withers — max Y over x 0.15…0.45 | **1.6907** @ x 0.426 | 1.7265 @ 0.426 | 1.7516 @ 0.426 |
+  | croup — max Y over x −0.8…−0.5 | 1.6841 | 1.7185 | 1.7426 |
+  | ear tip — coat max Y | 2.2447 | 2.2447 | 2.2447 |
+  | barrel half-width — max over x −0.7…0.4 | 0.3496 | 0.3660 | 0.3894 |
+  | mane half-width — widest slice (at x ≈ 0.316, the withers end) | 0.4505 | 0.4505 | 0.4505 |
+  | fore-leg column (verts below y 0.9) x | 0.5208…0.6792 | 0.5139…0.6970 | 0.3822…0.7013 |
+  | hind-leg column x | −0.7113…−0.4508 | −0.7243…−0.4276 | −0.7287…−0.4194 |
+  | hoof band (verts below y 0.12) | x ±0.6792, z ±0.264 | x ±0.6789, z ±0.264 | x ±0.6789, z ±0.264 |
+  | tail tip x | −1.2439 | −1.2439 | −1.2440 |
+
+  Two facts matter downstream: the **mane is the widest part of the animal (0.901 wide)**, wider than
+  the barrel, and it is widest exactly over the withers where the yoke sits; and the horse's **nose
+  sits 1.57 ahead of the withers while its rump sits 1.47 (body) / 1.67 (tail tip) behind it**.
+
+- **Asset economy as shipped.** weak 39 nodes / 7 meshes / 7 draw calls / **90,184 tris**;
+  better 41 / 9 / 9 / **98,480**; great 42 / 10 / 10 / **108,714**. Textures: weak 4 — `hair_n_weak`
+  1024² 2.43 MB, `coat_fur_weak` 2048² 7.54 MB, `coat_detail_weak` 1024² 0.23 MB, `coat_r_weak` 512²
+  0.09 MB (10.29 MB of PNG payload, ≈33 MB VRAM at RGBA + mips); better 6 (adds `leather_better_tex`
+  1024² and `velvet_better_tex` 1024², 10.53 MB, ≈44 MB VRAM); great 6 (adds `gold_great_tex`
+  1024², 10.57 MB, ≈44 MB VRAM). The 2048² coat PNG alone is 7.5 MB of every file.
+
+- **`better` and `great` carry riding tack, and a riding bridle is not a racing harness.** `Bridle`
+  (leather_better 176 tris at x 1.384…1.691, y 1.646…1.896; gold_great 204 tris at x 1.284…1.711,
+  y 1.644…2.006) is a headstall around the horse's head; `Saddle_Blanket`/`Saddle_Cloth` (880 tris
+  each, x −0.30…0.44, y 1.49…1.73) is a riding saddle pad on the back; `great`'s `Armor_Gold`
+  (6,040 tris, x −0.93…1.95, y 0.85…2.13) is a barding shell over the neck and back. None of them
+  transmits a draught load: there are **no hames, no traces, no yoke straps and no girth** on any of
+  the three assets.
+
+- **The phase's one code change: §G of the C-8.67D suite was rebased, not weakened.**
+  `src/utils/phaseC8_67d.test.ts`'s `no horse asset exists anywhere in the project` assertion became
+  false the moment the uploads landed, so `bun test` was **1767 pass / 1 fail** before this phase.
+  The test is now *"the only horse files are the three uploads, and nothing references them"*: the
+  horseish-name sweep still walks `public/` **and** `src/`, but it now pins the **exact** three
+  paths, pins each file's **sha256**, and adds the property the section was really protecting — no
+  source file outside the suite names `_workspace_dist_horse_`. Every other assertion in the file
+  (§A–§H) is untouched: the legacy chariot's 88 meshes / 0 skins / 0 animations / 7 materials, both
+  chariot GLB hashes and the scope guards all still pass unchanged. The §G header comment and the new
+  test's body record what was rebased and why.
+
+- **Verified 2026-10-19** in the dev container: focused `bun test src/utils/phaseC8_67d.test.ts` →
+  **34 pass / 0 fail** (418 `expect()`, up from 414); `bun test` → **1768 pass / 0 fail (55 files,
+  38,193 `expect()`)** (the start of this phase was 1767 / 1); `bun run lint` (`tsc --noEmit`) →
+  exit 0; `git diff --check` → clean. The dev server was checked **because the uploads added 46 MB to
+  `public/`**, which is where the Tailwind content-scanner incident happened: `curl
+  'localhost:3000/src/index.css?direct'` answers 200 in **0.12 s** and the `web` container's memory
+  moves **283 → 298 MiB** across a full forced rescan, so `@source not "../public";` still covers the
+  new files and there is no SIGKILL loop. (`public/` is now 218 MB in total; Vite copies it into any
+  production build — see the C-8.68B section's last recommendation.)
+
+- **Nothing was verified visually, and nothing was supposed to be.** This phase renders no pixel and
+  changes no production file: it is an audit of three inert assets plus the suite rebase above. The
+  three GLBs were not modified, opened for writing, renamed or deleted.
+
+## Horse–chariot proportion and harness design decision (Phase C-8.68B — decision report, nothing implemented)
+
+- **What this phase is.** A read-only decision: how the three verified horse GLBs would be scaled to
+  the shipping chariot, what harness they would need, whether a gait can be authored on their rig,
+  and what a four-horse team costs on mobile. **No production file, no asset, no model, no constant,
+  no formation value, no renderer, no gameplay and no save was changed**; the two files this phase
+  touched are this document and the §G rebase described above. The C-8.67D formation plan
+  (`src/utils/chariotTeamFormation.ts`) is unchanged and still consumed by nothing.
+
+- **The chariot, re-measured node by node this phase** (unchanged from C-8.66B/C-8.67D — so the
+  anchors those records cite are still accurate): whole model X ±0.768, Y −0.035…1.335,
+  Z −2.1071…0.685 (1.536 × 1.370 × 2.792); `DraughtPole` X ±0.0495, Y 0.671…1.029,
+  Z −2.1071…−0.2929; `Yoke` X ±0.650, Y 0.935…1.025, Z −2.0639…−1.9761 (centre line −2.020);
+  `Yoke_Peg_L/R` X ±0.47…0.53, Y 0.970…1.190; `Wheel_L/R_Wood` X ±0.665…0.735, Y −0.035…1.335,
+  Z ±0.685 → hub (±0.70, 0.65), **radius 0.685, diameter 1.370**, disc 0.070 thick; `Axle` X ±0.750,
+  Y 0.605…0.695; `CarBody_Bronze` (tub) X ±0.4799, Y 0.850…1.222, Z −0.482…0.4121;
+  `Handle_Grip_L/R` Y 1.254…1.326; `Footboard` Y 0.595…0.645. **The model's tallest points are its
+  wheels (1.335)**; the yoke's underside sits 0.400 below the wheel top and 0.319 below the driver's
+  handrail grip, and the whole front assembly (pole + yoke + pegs, Y 0.671…1.190) sits at
+  tub-handrail height rather than up at a horse's back.
+
+- **The proportion mismatch, measured.** Horse withers : yoke underside = **1.6907 : 0.935 = 1.808**
+  (weak; 1.847 better, 1.873 great). The model's yoke therefore describes an animal about **0.94 m**
+  at the withers, i.e. a pony, while its **1.370 wheel** is 0.81 × the weak horse's withers height.
+  For comparison — and these are **assumptions, not established facts**: a Roman racing horse is
+  commonly estimated at ≈1.35–1.5 m at the withers, a racing chariot's yoke is built to rest on the
+  horses' withers (so that ratio is ≈1.0), and modern reconstructions of a biga usually show wheels
+  ≈0.8–0.95 m across, i.e. ≈0.6 × the horse's withers height; those figures are repeated in
+  secondary sources rather than measured from an artefact. Against them the shipped asset's wheel
+  corresponds to a ≈2.2 m horse and its yoke to a ≈0.94 m one. **The honest conclusion is that the
+  two assets are mutually inconsistent by ≈1.8× and no single scale derived from history satisfies
+  both** — any resolution is a visual/product choice, which is why this section reports two
+  alternatives with exact numbers instead of asserting one.
+
+- **Alternative A — scale the horse to the shipping chariot.** `s = yokeUnderside / withersAboveHoof`
+  = **0.5530** (weak), 0.5416 (better), 0.5338 (great); the horse's hooves then stand on the asset's
+  own ground plane with the yoke bar resting on its withers. Resulting numbers (weak / better /
+  great): withers **0.935** by construction; ear-top 1.241 / 1.215 / 1.198; nose-to-tail 1.791 /
+  1.754 / 1.729; barrel width 0.387 / 0.396 / 0.416 (half 0.1934 / 0.1982 / 0.2079); **mane width
+  0.498** (half 0.2491 / 0.2440 / 0.2405 — inside the 0.250 half-width the C-8.67D envelope
+  assumes); rump 0.813 / 0.798 / 0.788 behind the withers and tail tip 0.924 / 0.904 / 0.891
+  (against the plan's 1.235 budget). Every C-8.67D clearance passes with margin, re-derived from the
+  measured horse rather than from the envelope's 0.500-wide placeholder:
+
+  | clearance rule | weak | limit |
+  |---|---|---|
+  | inner barrel to the pole's face | 0.2571 | ≥ 0.100 |
+  | adjacent-lane air, barrels | 0.3333 | ≥ 0.150 |
+  | adjacent-lane air, **manes** (the binding case) | 0.2217 | ≥ 0.150 |
+  | trace-lane inner edge to the hub cap | 0.2586 | ≥ 0.150 |
+  | rump / tail tip forward of the wheel's leading edge | 0.5219 / 0.4115 | ≥ 0.100 |
+
+  Cost: the team reads **pony-scale in a human-scale world** — 0.935 at the withers and 1.241 at the
+  ears against a 1.370 wheel and a 1.326 handrail, so the horses are shorter than the chariot's own
+  wheels, and a player whose eye line is 1.7 towers over them. It needs **no chariot change at all**
+  beyond the C-8.67D trace staple, changes no formation constant, and is reversible in one scale
+  value.
+
+- **Alternative B — keep the horse at scale 1.0 and correct the chariot's front assembly.** The yoke
+  underside must rise 0.935 → 1.6907 (weak) / 1.7265 / 1.7516, i.e. **+0.7557 / +0.7915 / +0.8166
+  (×1.81 / ×1.85 / ×1.87)**, taking the pegs with it and steepening the draught pole from **11.16° to
+  31.45° / 32.27° / 32.83°** (the tip kept at its current 0.094 above the yoke's underside). The lane
+  pitch must then be re-derived from the **mane** rather than the barrel — `2 × 0.4505 + 0.15 =
+  **1.051**` against today's 0.720 — which moves the outer lane to ±1.551 and the team width to
+  **3.80 / 3.83 / 3.88** (the chariot itself is 1.536 wide). The rump forces the station line forward
+  from −2.020 to **−2.2552**, i.e. the **pole lengthens 0.2352 (13.0 %)**; and the **tail still
+  reaches 1.6699 behind the withers against the plan's 1.235 budget (over by 0.4349)**, so the tail
+  would have to be shortened or retracted, or the wheel-Z rule rewritten. Every one of those is a
+  change to the shipped chariot GLB — a model change nobody has authorized — plus a rebase of the
+  C-8.67D anchors and suite. Its benefit is the one thing A cannot buy: a horse that is plausible
+  beside a 1.7-unit player, with the horses' backs 0.37 above the driver's handrail, which is
+  roughly the ratio a real biga shows.
+
+- **Alternative C (split, recorded but not recommended).** Horse at `s = 0.80` (withers ≈1.35 m, the
+  middle of the assumed historical band) with the yoke raised 0.415, the pole lengthened ≈0.19 and
+  the lane pitch widened to ≥ 0.87 (the mane again binding). It pays B's cost — the same
+  unauthorized front-assembly re-authoring — while leaving the 1.370 wheel as tall as the horse, so
+  it buys the least for the same risk.
+
+- **Recommended scale strategy: A, now; B only if the device read fails.** A leaves the shipped
+  chariot, the wheel kit and its audited transform, the workshop preview and every C-8.67D constant
+  intact and satisfies every measured clearance — the only strategy that fits the project's
+  "no model change without authorization" rule — and a prototype must be seen on a device before the
+  art direction is committed; it is also reversible in a single constant. **The cost that has to be
+  accepted with it is A's pony read**, so the recommendation is explicitly conditional: if the team
+  on device reads as miniature (a 0.935-withers animal under 1.37 wheels beside a 1.7 eye line), the
+  answer is B, and B's price is the front-assembly rebuild and pole lengthening quantified above.
+  **Which one is right is a product/art decision, not a geometry one, and it is this phase's first
+  unresolved item.**
+
+- **Harness and team formation** — the C-8.67D formation is retained unchanged (Biga = the yoke's own
+  pegs at ±0.500; Quadra = those plus outer lanes at ±1.220 on a 0.720 pitch with staples at ±0.600;
+  Triga = the yoked pair plus one right-hand trace lane, still provisional). What a team needs, none
+  of which exists on any of the three assets:
+  1. **Yoke pad / saddle** on each yoked horse's withers, under the bar (bar Y 0.935…1.025, X ±0.650).
+  2. **Neck strap** over each yoked horse's neck between the peg and the withers — the peg rises to
+     1.190, 0.255 above the bar's underside, which is the strap's guide.
+  3. **Girth** around each yoked horse's barrel behind the forelegs (weak's girth-band half-width
+     0.3127 at scale 1, 0.173 at A's scale), stopping the yoke lifting.
+  4. **Hame / breast strap** at each trace horse's shoulder (model x ≈ 0.62, y ≈ 1.22).
+  5. **Trace strap** from that hame back to the yoke-top staple: under A the endpoints are the staple
+     at (X 0.600, Y 1.025, Z −2.020) and the outer horse's shoulder at about (X 1.31, Y 0.675,
+     Z −2.127), i.e. **≈0.80 long** — an estimate from those two measured points, not a modelled part.
+  6. **Reins** from each bit to the driver. Not modelled anywhere, and not part of the list above
+     because they are a dynamic line rather than a fitting — but a driven team without them reads as
+     riderless horses, and the chariot's `Handle_Grip` (Y 1.254…1.326) is the driver's handrail, not
+     a rein bar.
+  **Chariot mesh changes required under A: exactly one** — the trace-staple pair on the yoke's top
+  face that C-8.67D already specified (X ±0.600, Y 1.025, Z ≈ −2.020, 0.050 in from the yoke's ±0.650
+  end). Under B the staple goes with the rest of the rebuilt front. **The `Bridle`, `Saddle_Blanket` /
+  `Saddle_Cloth` and `Armor_Gold` meshes are NOT a racing harness** — they are riding tack and
+  barding, they carry no draught load, and a racing team would drop them (another reason to prefer the
+  untacked `weak` asset). Triga stays a design hypothesis: nothing here approves its asymmetry.
+
+- **Animation plan, with the verified/speculation split made explicit.**
+  **Verified:** the rig can *carry* a gait — 31 joints with two complete five-joint leg chains, every
+  joint carrying translation/rotation/scale channels in all three shipped clips, exported by Blender
+  I/O 3.4.50 — so a new clip can drive every leg joint, and the shipped clips already provide a usable
+  head/neck/tail layer. **Verified:** the shipped clips are not gaits (0.000° leg rotation in both
+  `Walk` and `Gallop`; hooves moving 0.000 forward in `Walk`; measured above). **Not verified, i.e.
+  speculation if claimed:** whether the coat's skinning deforms acceptably at full stride — it has
+  never been exercised, because no shipped clip moves a leg, so the weights are untested at gait
+  angles; whether hoof-ground contact can be held without inverse kinematics; whether a re-export
+  preserves the node and joint layout; and the authoring cost itself, which is a Blender task outside
+  this repo. **Plan:** author in place on the existing rig — a `Walk` loop of ≈1.0 s (the shipped
+  1.0417 s is the natural grid) and a `Gallop` loop of ≈0.7 s (shipped 0.7083 s) driving
+  shoulder/forearm/fcannon/fpastern and thigh/gaskin/hcannon/hpastern, keeping the shipped head, neck
+  and tail channels and the root's ±0.05 bob, with **no in-clip forward translation** (the chariot
+  carries the world motion) and a fixed **quarter-cycle phase offset per lane** so four horses do not
+  read as one mechanism. Runtime cost is small: four skeletons × 31 joints = 124 joints and four
+  mixers, with the draws dominated by the skinned meshes, not the animation.
+
+- **Mobile budget.** As shipped, one horse is **14.54–16.34 MB, 90,184–108,714 tris, 7–10 draw calls
+  and ≈33–44 MB of VRAM**, so a naive four-horse team is **58–65 MB of download, 361–435 k triangles,
+  28–40 draw calls and 132–176 MB of VRAM** — not shippable on mobile. Recommended for the team:
+  **one** horse asset, loaded once and shared by all four instances (skinning rules out a single
+  `InstancedMesh`, so the four are four `SkinnedMesh` draws, but they share one geometry and one
+  texture set); **≤ 20,000 tris per horse** (the team ≤ 80,000 — less than one imported horse renders
+  today); **≤ 3 materials** (coat, hair, eye) for **≤ 12 draw calls**, against the chariot's own 23;
+  textures **1024² coat base + 512² hair normal, WebP or KTX2, no separate `coat_detail`/`coat_r`**
+  for ≤ 1.5 MB of payload and ≤ 8 MB of shared VRAM; **≤ 3 MB per team asset**. The repo's existing
+  `scripts/gltf-transform-optimize.js` (`bun run compress:glb --no-draco`) already does
+  dedup/weld/resample/quantize but **does not resize images**, so a texture resize/re-encode step has
+  to be added. One LOD is enough for the prototype; a ≈6 k-tri LOD1 is the next lever. **Frame cost
+  cannot be measured in the sandbox** (no GPU; SwiftShader ≈2 fps in the city hub), so the budget
+  above is a source- and file-size-based recommendation whose real test is on device.
+
+- **Unresolved decisions, and what each costs if it goes the other way.** (1) **The target withers
+  height in world units** — the deciding datum is 0.935 (A) versus 1.6907 (B); choosing A accepts a
+  miniature team, choosing B accepts a re-authored chariot front. (2) **Whether the chariot GLB may
+  be re-authored at all** — B and C both need it, and no one has authorized it. (3) **Skin deformation
+  at gait angles** — unverified, and the main re-authoring risk. (4) **Who authors the clips and when**
+  — a Blender task, outside this repo, with no owner. (5) **Triga's asymmetric formation** — still a
+  hypothesis, and the mane's 0.901 width makes the yoked pair's own spacing tighter than the bare
+  barrel suggests (0.720 pitch − 0.901 × s at A's scale = 0.222 of air; at scale 1.0 it would be
+  −0.181, i.e. the manes would interpenetrate). (6) **Reins** — unmodelled, and required for a driven
+  team to read correctly. (7) **The 46 MB of horse GLBs sitting in `public/`** — Vite copies `public/`
+  into any production build, so they should move out of `public/` (or be excluded) before a
+  production build once a racing phase picks one. (8) **C-8.67C still has no record in this file**,
+  unchanged from C-8.67D. (9) **De-tacking the chosen asset** — `better` and `great` ship riding tack
+  and barding that a racing team should not wear.
+
+- **Recommended candidate: `public/_workspace_dist_horse_weak.glb`.** All three share the identical
+  31-joint rig and the identical three clips, so the choice is asset economy and tack: `weak` has the
+  fewest meshes (7), the lowest triangle count (90,184), the smallest file (14.54 MB) and **no riding
+  tack or barding to strip**, and its mane half-width (0.4505) is the same as the other two while its
+  barrel is the narrowest (0.3496), which is the tightest fit to the lane plan. `better` (+8,296 tris,
+  +0.54 MB) is the alternative if the art direction wants a richer coat, and `great` (+18,530 tris,
+  +1.09 MB) only adds gold barding.
+
+- **Verified 2026-10-19** in the dev container: every number in this section is re-derived from the
+  four GLB files by throwaway harnesses kept in `/tmp` (a dependency-free GLB parser and an FK
+  evaluator over the clips, plus a re-measurement of the chariot node by node). `bun test` →
+  **1768 pass / 0 fail (55 files)**; `bun run lint` (`tsc --noEmit`) → exit 0; `git diff --check` →
+  clean; the dev shell still answers HTTP 200. **Not verified, and not verifiable here:** anything
+  visual or performance-related — this phase ships no rendering, the sandbox has no GPU, and the
+  horses are not loaded, posed or drawn by any code. The racing items that remain open are still the
+  C-8.66B/C-8.66C/C-8.66D workshop and wheel-swap device checks; racing gameplay itself still does
+  not exist (no arena entry, no horse, no loop).

@@ -24,8 +24,9 @@
  *   §F  the arrangement the single central pole FORBIDS — three abreast with a
  *       horse on the centre line — and the alternative that would need a model
  *       change, both shown to fail the measured geometry;
- *   §G  the horse-asset inventory: what exists, what does not, and what the one
- *       horse-shaped asset in the repo actually is;
+ *   §G  the horse-asset inventory: the horse-shaped bodies inside the legacy
+ *       chariot file, the three uploaded horse GLBs (pinned byte-for-byte since
+ *       C-8.68A) and the fact that nothing in src/ references any of them;
  *   §H  scope guards — the module is pure and unconsumed, nothing renders, no
  *       horse file, mesh or animation was added, and the C-8.67B catalogue,
  *       prices and save behaviour are untouched.
@@ -691,7 +692,14 @@ describe('C-8.67D §F — three abreast on the centre line is geometrically impo
 // ── §G — the horse-asset inventory ─────────────────────────────────────────
 
 describe('C-8.67D §G — the horse-asset inventory: what exists, and what it is', () => {
-  test('no horse asset exists anywhere in the project', () => {
+  // REBASED by C-8.68A, not weakened.  When this suite was written the repo held no
+  // horse file at all, so "there are none" was the true statement.  Three horse GLBs
+  // were uploaded afterwards (`public/_workspace_dist_horse_{weak,better,great}.glb`),
+  // so the property this section exists to protect is restated exactly: those three
+  // are the ONLY horse files in the project, they are byte-identical to the copies the
+  // C-8.68A audit measured, and no source file references them — nothing horse-shaped
+  // is loaded, rendered or collided with.
+  test('the only horse files are the three uploads, and nothing references them', () => {
     const horseish = /horse|equine|stallion|pony|quadruped/i;
     const names: string[] = [];
     const walk = (dir: string) => {
@@ -703,9 +711,44 @@ describe('C-8.67D §G — the horse-asset inventory: what exists, and what it is
     };
     walk(repo('public'));
     walk(repo('src'));
-    const matches = names.filter((f) => horseish.test(f.replace(repo(''), '')));
-    expect(matches).toEqual([]);
-    // The only model assets in public/ are the character, weapon, sign and city files.
+    const matches = names
+      .filter((f) => horseish.test(f.replace(repo(''), '')))
+      .map((f) => f.replace(repo(''), ''))
+      .sort();
+    expect(matches).toEqual([
+      'public/_workspace_dist_horse_better.glb',
+      'public/_workspace_dist_horse_great.glb',
+      'public/_workspace_dist_horse_weak.glb',
+    ]);
+    // Byte-for-byte, so a re-export of a horse model fails here rather than silently
+    // invalidating every measurement the C-8.68A audit and the C-8.68B decision report
+    // cite (the proportions, the 31-joint rig, the three clip names and durations).
+    const sha256 = (p: string) => createHash('sha256').update(readFileSync(p)).digest('hex');
+    expect(sha256(repo('public/_workspace_dist_horse_weak.glb'))).toBe(
+      '0a00300e57892e30a6b5a186a37b1c1a6ec1aeb8b21cd952036d38250e3c9d58'
+    );
+    expect(sha256(repo('public/_workspace_dist_horse_better.glb'))).toBe(
+      '639b75d53607d3560267970507bc4451badb6160cece47a0354eb62dc180fed8'
+    );
+    expect(sha256(repo('public/_workspace_dist_horse_great.glb'))).toBe(
+      'f7e1b698fef8e95e5fd7d7b70a2c5640965b8121f1a0f541bacbaa4b1b6f2aa0'
+    );
+    // Unreferenced: no `.ts`/`.tsx` file outside this suite names any of the three.
+    const srcFiles: string[] = [];
+    const walkSources = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const full = `${dir}/${entry}`;
+        if (statSync(full).isDirectory()) walkSources(full);
+        else if (/\.(ts|tsx)$/.test(entry)) srcFiles.push(full);
+      }
+    };
+    walkSources(repo('src'));
+    const referencing = srcFiles.filter((f) => {
+      if (f.endsWith('phaseC8_67d.test.ts')) return false;
+      return /_workspace_dist_horse_/.test(readFileSync(f, 'utf8'));
+    });
+    expect(referencing).toEqual([]);
+    // The model assets in public/ are the character, weapon, sign, city and horse files.
     expect(names.filter((f) => /\.glb$/.test(f)).length).toBeGreaterThan(0);
   });
 
