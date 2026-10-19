@@ -2436,3 +2436,73 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   are correct; only the two words are inverted, and the C-8.64B record uses the same labels, so this
   phase changed no wording and states the band by its world Z instead (6.75 … 9.75, the Forge side
   to the Inn side).
+
+## Chariot Workshop (Phase C-8.66B — implemented; UI validated, purchase click unverified)
+
+- **What it is.** A chariot fit-and-finish screen mounted as a **subview of the existing Armory (gear)
+  tab** — no sixth global tab. The **Imperial Stable** hub location (`cityCollisions.ts`, `tabKey:
+  'gear'`, `subTab: 'chariot'`) opens it through the existing `onOpenTab(tabKey, subTab)` callback;
+  the Armory also offers it as its own pill. Two slots, `wheels` (a real, separately modelled kit
+  variant) and `finish` (material recolours of the chariot's own `Wood`/`DarkWood`/`Bronze`/`Leather`
+  materials, the GLB left byte-identical); Spiked and Bladed wheels are in the uploaded kit but are
+  deliberately not sold (their rims reach 0.8025 / 0.8429 against the reinforced set's 0.7025).
+  Purchases use the existing `gold` field and the existing `saveProfile()` path — no second currency,
+  no second storage key. Nothing here feeds combat or stats.
+
+- **Catalogue isolation.** Chariot parts are their own catalogue (`src/data/chariotParts.ts`); nothing
+  was added to `ITEMS_DB`, whose `'damageLight' in i` / `'defense' in i` narrowing every shop and gear
+  screen depends on. The loadout module (`src/utils/chariotLoadout.ts`) is pure: it imports neither the
+  storage layer nor `localStorage`, returns a **new** profile on success and the caller's own object on
+  refusal, and resolves a legacy save (no `chariot` field), a partial loadout and an unknown id to the
+  stock chariot instead of throwing.
+
+- **The missing type declarations (repaired this turn).** Phase C-8.66B shipped the feature without
+  adding `ChariotSlot`, `ChariotLoadout` and `PlayerProfile.chariot?` to `src/types/game.ts`, so the
+  repo's own `lint` (`tsc --noEmit`) failed with 23 errors even though the app ran — Vite strips types
+  and never type-checks. They are now declared there (`chariot` is **optional**: every pre-workshop save
+  has no such field, and `createNewProfile()` still writes none).
+
+- **`src/utils/phaseC8_66b.test.ts` — test-side corrections.** Five assertions were wrong about the
+  code or the assets, not the other way round, and were fixed as such: the two GLB paths were
+  `../public/…` (resolving to the non-existent `src/public/`); the purchase/equip tests ran against
+  `createNewProfile`'s **100 gold** while every paid part costs 180–450, so the tester now starts with
+  5000 gold and the genuinely-poor path keeps its own test; the "App writes only through the pure
+  helpers" check asserted no `gold: profile.gold - ` anywhere in `App.tsx`, which the **pre-existing**
+  training and shop handlers legitimately contain, so it is now scoped to the phase's two chariot
+  handlers; the registry check banned the string `chariot` from `cityCollisions.ts`, which the stable's
+  legitimate `subTab: 'chariot'` hint contains — it now pins that the only two mentions are that hint
+  (type and value); and the fitted rim's X thickness was pinned at an invented 0.07 when the asset
+  measures **0.136** (thin against its 1.37 diameter). Two precision-9 comparisons of kit geometry put
+  through a 90° rotation were relaxed to 6 — the accessor min/max are float32, so the re-measurement
+  carries ~1e-8, and the assertion stays a re-measurement of the shipping GLB rather than a restatement.
+
+- **Verified 2026-10-19** in the dev container: focused `bun test src/utils/phaseC8_66b.test.ts` →
+  **50 pass / 0 fail** (489 expect() calls); `bun test` → **1616 pass / 0 fail (50 files, 36530
+  expect() calls)**; `bun run lint` (`tsc --noEmit`) → clean; `bun run build` → exit 0 (the pre-existing
+  >500 kB chunk warning only); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `git diff --check` → clean. This turn's source changes are two files: `src/types/game.ts` (the three
+  declarations) and the suite above.
+
+- **Preview evidence.** Drove the real route in the preview browser: title → `Play as Guest` → 3D city
+  → nav drawer → fast travel to the **Imperial Stable** → its own `Visit Chariot Workshop` prompt →
+  the Armory's Chariot Workshop subview. There the **3D chariot preview renders** (the model on the
+  viewport's platform, via SwiftShader — the first captured frame of this feature), the cards show
+  their prices, slot and class tags, descriptions, `Equipped` on the two stock parts and `Insufficient
+  gold` with a **disabled** buy button for the four paid parts, the per-card `Preview` gesture moves the
+  model to that part and raises `Reset preview`, and `Reset preview` returns it. At a 375 px viewport
+  the cards stack to one column with **no sideways scroll** (`scrollWidth` = `clientWidth` = 375). One
+  pre-existing console warning ("Attempted to synchronously unmount a root while React was already
+  rendering") appears on the city → hub transition; it is React's own message from the WebGL guard's
+  remount and predates this phase.
+
+- **What is NOT verified — the purchase click.** The preview profile carries **100 gold** and the
+  cheapest part costs 180, so neither the **Buy** nor an **Equip** click could be exercised in the UI: a
+  run that seeded 2000 gold into the save could not be made to stick, because the preview session
+  replays the account's own save on every fresh load, and faking the app's React state to afford a
+  purchase is not an acceptable check. The underlying logic is covered by the suite (one deduction,
+  no duplicates, no in-place mutation, refusals on insufficient gold / repeat buy / unknown id /
+  missing profile, equip never touching gold, and a real `saveProfile()`/`loadSavedProfile()` round
+  trip), but the **UI click path stays not automatically verified** — earn 180+ gold and buy a part to
+  confirm it by hand. **Android visual acceptance is PENDING** for the workshop cards and the chariot
+  preview on the target GPU. Cleanup: the preview browser's save was put back to its original value
+  (gold 100, no `chariot` field) and the temporary backup key removed.

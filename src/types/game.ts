@@ -225,6 +225,24 @@ export interface PlayerInjury {
   penaltyAgility: number;
 }
 
+/** Phase C-8.66B — the two chariot slots the Chariot Workshop sells parts for. */
+export type ChariotSlot = 'wheels' | 'finish';
+
+/**
+ * Phase C-8.66B — the player's chariot ownership and fit-out, stored on the
+ * gladiator save alongside gold and inventory.
+ *
+ * Optional on `PlayerProfile` on purpose: a save written before this phase has
+ * no `chariot` field at all and must keep loading, so the workshop resolves a
+ * missing or partial loadout to the stock chariot rather than repairing it.
+ */
+export interface ChariotLoadout {
+  /** Owned chariot part ids.  The two stock parts are always owned. */
+  owned: string[];
+  /** The equipped part id per slot. */
+  equipped: { wheels: string; finish: string };
+}
+
 export interface PlayerProfile {
   name: string;
   title: string;
@@ -261,4 +279,6 @@ export interface PlayerProfile {
   fightsLost: number;
   peakCrowdHypeOverall: number;
   isLeftyMode?: boolean;
+  /** Phase C-8.66B — chariot ownership/fit-out; absent on every pre-workshop save. */
+  chariot?: ChariotLoadout;
 }
