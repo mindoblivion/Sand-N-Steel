@@ -3831,3 +3831,113 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
   exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only); `git diff --check`
   → clean. No test, constant or collider was touched.
+
+## Circus race scene and state machine (Phase C-8.70B Stage 1, Slice 1 — implemented, verified live)
+
+- **What ships, and on which screen machine.** The race is a **fifth value of the existing screen
+  machine**, reached exactly the way the duel is: `App.tsx` gains `'race'` in its `GameScreen` union,
+  one `React.lazy()` import and one conditional render (`RaceScene` behind the same `Suspense`
+  fallback as `CityHubScene` / `DuelScene`), so the city **unmounts** for the race rather than being
+  overlaid. No router, no second scene manager, no scene registry. The files are
+  `src/components/3d/RaceScene.tsx` (new), `src/utils/raceState.ts` (new),
+  `src/utils/raceState.test.ts` (new, 60 tests), `src/utils/phaseC8_70bStage1.test.ts` (new, 26
+  tests), and the Slice 0 wiring they extend — `App.tsx`, `CityHubScene.tsx` (`handleStartRace`
+  captures the live pose, `initialPosition` / `initialRotationY` spawn the city back at it),
+  `PreRacePanel.tsx` ("Start Race" hands off instead of showing the Slice 0 notice) and
+  `circusDistrictGeometry.ts` (the derived start line and camera).
+
+- **The state machine is a pure module, and it owns the vocabulary.** `raceState.ts` imports
+  **nothing** — no React, no three.js, no clock, no storage — and holds the five states `idle |
+  countdown | racing | finished | aborted` in a transition table: `idle → countdown` on `start`,
+  `countdown → racing` on `countdown-elapsed`, `racing → finished` on `finish` (**from `racing`
+  only**), any state → `aborted` on `abort`. Every other pair is a no-op returning the state it was
+  handed, so a stray second `start` (a StrictMode double-mount) or a `finish` arriving early cannot
+  move the machine. Presentation timing lives here too but is *derived*, never stored:
+  `COUNTDOWN_STEPS` / `COUNTDOWN_STEP_MS` / `COUNTDOWN_MS` (3 s), `getCountdownStep(elapsed)` →
+  `"3" | "2" | "1" | null`, `GO_LABEL` / `GO_DISPLAY_MS` (a beat inside `racing`, not a sixth state)
+  and `formatRaceElapsed` → mm:ss.t. **`finishRace` is the finish-line API: nothing calls it yet**,
+  which is why `finished` is a state the suite drives and the scene cannot reach — Stage 2's job.
+
+- **The scene owns the two clocks the machine is not allowed.** It mounts in `idle`, dispatches
+  `start` once on mount, runs a 100 ms interval that reads `getCountdownStep` and dispatches
+  `countdown-elapsed` the moment it answers `null`, and derives the race clock from that instant.
+  `GO` clears itself after `GO_DISPLAY_MS`. Abort is an oversized touch target **and** Esc (a desktop
+  addition to a control that is always on screen), and either path dispatches `abort` and hands
+  control back to `App`, which tears the scene down and returns the player to the city at the pose
+  captured on entry. The scene renders the **shipping** `EastCircusArena` (same GLB, transform,
+  static-mesh handling and preload — the paved district is deliberately not mounted) and the
+  **shipping** chariot through `CHARIOT_MODEL_URL` / `CHARIOT_MODEL_SCALE`, cloned per the workshop's
+  rule, on the start line `CIRCUS_RACE_START` (`CIRCUS_AXIS_X` 52.34, Y 0 — the track's top face — and
+  Z 42.5, on the track's centre line 1.30 north of the carceres block's rendered north face at
+  43.80 and 3.50 north of its registered front line at 46.00), under the city hub's own calibrated
+  light rig.
+
+- **Both race poses are derived in the layout module, not typed into the scene.** `CIRCUS_RACE_START`
+  (`{x: CIRCUS_AXIS_X, y: 0, z: 42.5, rotationY: 0}` — the chariot's pole faces −Z) and `CIRCUS_RACE_CAMERA`
+  (`position [start.x + 3.66, 3.4, start.z − 8.5]`, target `[start.x, 0.9, start.z − 0.5]`) live in
+  `circusDistrictGeometry.ts`; the camera stands north-east of the model looking back at it because
+  the 2.18-high carceres block behind the start line would hide the chariot from any camera placed
+  there. The scene reads both, so the line the model stands on and the line the suite asserts cannot
+  drift, and **no collider, movement constant or city mesh was touched** — the whole slice adds
+  geometry to no city file.
+
+- **Read-only, and it is pinned both ways.** Neither handler (`handleStartRace`, `handleExitRace`)
+  nor the scene names `saveProfile`, `localStorage`, `sessionStorage` or the storage service, and the
+  suite asserts that over the sources *and* over the scene's comment-stripped code (so prose cannot
+  satisfy or defeat the check). Entering, racing and aborting therefore cannot move gold, unlocks or
+  progression — which the live pass below measured against the save itself.
+
+- **Harness repairs (this turn — no production file changed).** The Slice 1 suite was committed in a
+  state that could not run: its §C `describe` block was missing its closing brace (bun reported the
+  file as an *unhandled error between tests*, and `bun run lint` failed with TS1005 at
+  `phaseC8_70bStage1.test.ts:319`), and the "CONTROL: the pose is not the city's own spawn" test had
+  an empty body. Both were finished, and two further expectations were stale against the shipped
+  code: the §D import assertion pinned a bare `import { CIRCUS_RACE_START }` where the scene
+  legitimately imports `{ CIRCUS_RACE_CAMERA, CIRCUS_RACE_START }` in one line, and §E's scope-guard
+  strip removed only the start line and then failed on the **derived** `CIRCUS_RACE_CAMERA`, which
+  references it. The strip now lifts both constants out (they are exactly this slice's additions)
+  before asserting no other mention survives. **No assertion was deleted or weakened** — the
+  control test gained a body (four assertions), the import check gained a second member, and the
+  scope guard now removes the whole race block instead of half of it.
+
+- **Verified 2026-10-19** in the dev container: focused
+  `bun test src/utils/{raceState.test.ts,phaseC8_70bStage1.test.ts,phaseC8_70b.test.ts}` →
+  **81 pass / 0 fail** (the starting point was 79 / 2 fail / 1 error); `bun test` →
+  **1895 pass / 0 fail (60 files, 40,297 `expect()`)**; `bun run scripts/collisionTests.ts` →
+  **123 passed, 0 failed**, exit 0; `bun run lint` (`tsc --noEmit`) → **exit 0** (TS1005 before the
+  repair); `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only); `git diff --check`
+  → clean.
+
+- **Preview evidence — the whole flow driven through the real UI.** In the preview browser
+  (anonymous visitor: **no session was replayed**, so the run used the app's own guest path —
+  `PLAY AS GUEST` → the creation screen with its defaults accepted → the city hub, which wrote the
+  guest profile the app itself writes, **1960 chars**): the map drawer's **`East Circus Race
+  Forecourt`** fast-travel entry (`[CIRCUS_RACE_ENTRY.x, z − 2]`, inside the entry disc) landed on
+  the district's own prompt **`ENTER THE CIRCUS RACE [E / SPACE]`**; that opened the read-only
+  pre-race panel (`BIGA · 2 horses on the yoke`, the "nothing is wagered and nothing is written to
+  your gladiator" notice); **`Start Race`** unmounted the city and mounted the race scene on
+  `data-race-state="countdown"` with the step overlay reading **3**; the countdown elapsed into
+  `data-race-state="racing"` with the **GO** overlay up and the clock ticking (`00:00.0` → `00:00.8`
+  across a 600 ms gap); **`Abort race`** — the control the touch path uses, present in both running
+  states — unmounted the race, remounted the city and brought the district's prompt back up,
+  i.e. **the pose captured on entry was restored**; and a **second** full cycle left the save
+  **byte-identical** (1960 chars before and after, gold 100). **0 console errors** in every call.
+  Captured frames: the creation screen, the forecourt prompt, the pre-race panel, the countdown
+  (`STARTING GATES` + the step), the running race (`RACE CLOCK 00:01.0`) and the city after the
+  abort. The guest profile this check created was **deleted from storage afterwards**, and the
+  preview browser's save was otherwise never written by the race.
+
+- **Not automatically verified, and out of this slice's scope.** (1) **The rendered arena and
+  chariot read on device** — the sandbox has no GPU (SwiftShader, ~1–2 fps), so the frames above
+  establish that the arena shell, the chariot on the sand and the countdown/clock overlays *render*,
+  which is not visual acceptance of their appearance, scale or lighting; that check belongs with the
+  open C-8.64A/B/C-8.65 district items. (2) **The `finished` state and `finishRace`** — nothing calls
+  the finish-line API and the scene cannot reach `finished`; it is exercised only by
+  `raceState.test.ts`, and **Stage 2 (the finish line) is not started**. (3) **Horses, opponents and
+  any locomotion** — this slice renders one static chariot at the start line: no horse asset, no
+  trace staple, no harness, no gait and no rival, exactly as C-8.67D/C-8.68B left them. (4) **The
+  race's own camera is fixed** (`RaceCameraRig` sets it once; nothing moves this slice), so no
+  driving/steering behaviour is claimed. **This file had no C-8.70B section before this one**, so
+  Slice 0's entry point — the district signpost trigger, the `east_circus_arena` hub entry and
+  fast-travel arrival, and the read-only panel — is documented only in `phaseC8_70b.test.ts`'s header
+  and `cityCollisions.ts`'s own comments.

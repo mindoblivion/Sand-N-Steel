@@ -210,6 +210,17 @@ describe('C. The start line', () => {
   });
 
   test('CONTROL: the pose is not the city’s own spawn', () => {
+    // The city hub's own spawn is the town-gate avenue — `[0, 0, 16]` facing π
+    // (`CityHubScene`'s `initialPosition ?? [0, 0, 16]` / `initialRotationY ??
+    // Math.PI`, which §B pins).  The start line is 52.34 east and 34.34 north of
+    // it and faces the other way, so entering the race can never be confused with
+    // the city spawn the player returns to.
+    expect([start.x, start.y, start.z]).not.toEqual([0, 0, 16]);
+    expect(start.rotationY).not.toBe(Math.PI);
+    // …and control on the components themselves: the checks above are not vacuous.
+    expect(start.x).not.toBe(0);
+    expect(start.z).not.toBe(16);
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -242,8 +253,13 @@ describe('D. Reuse', () => {
   });
 
   test('the start line is read from the layout module, not restated', () => {
-    expect(sceneSrc).toContain("import { CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry'");
+    // the two layout constants the scene needs — the start line and the camera
+    // derived from it — arrive in one import from the layout module
+    expect(sceneSrc).toContain(
+      "import { CIRCUS_RACE_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry'"
+    );
     expect(sceneSrc).toContain('CIRCUS_RACE_START.x');
+    expect(sceneSrc).toContain('CIRCUS_RACE_START.rotationY');
     expect(sceneSrc).not.toContain('CIRCUS_RACE_START:');
   });
 
@@ -291,9 +307,13 @@ describe('E. Slice boundaries', () => {
   });
 
   test('no collider, movement constant or city geometry changed for this slice', () => {
-    const withoutRaceLine = code(load('./circusDistrictGeometry.ts'))
-      .replace(/export const CIRCUS_RACE_START[\s\S]*?\} as const;/, '');
-    expect(withoutRaceLine).not.toContain('CIRCUS_RACE_START');
+    // both constants this slice added to the layout module are lifted out first —
+    // the start line and the camera derived from it — so what remains is the module
+    // as the district laid it out before the race existed.
+    const withoutRaceBlock = code(load('./circusDistrictGeometry.ts'))
+      .replace(/export const CIRCUS_RACE_START[\s\S]*?\} as const;/, '')
+      .replace(/export const CIRCUS_RACE_CAMERA[\s\S]*?\} as const;/, '');
+    expect(withoutRaceBlock).not.toContain('CIRCUS_RACE_START');
     const withoutRaceStart = code(load('./raceState.ts'));
     expect(withoutRaceStart).not.toContain('CITY_COLLIDERS');
     // the city's own collision files name the race nowhere
