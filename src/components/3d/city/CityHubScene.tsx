@@ -140,7 +140,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         <Lightformer
           form="rect"
           intensity={0.25}
-          color="#b08968"
+          color="#8a7a5f"
           position={[0, -30, 0]}
           scale={[100, 100, 1]}
           target={[0, 0, 0]}
@@ -526,13 +526,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             <CanvasWebGLMonitor sceneName="CityHubMetropolis" />
 
             {/* Atmospheric Mediterranean Horizon Fog */}
-            <fog attach="fog" args={['#e0a96d', 35, 115]} />
+            <fog attach="fog" args={['#e3dbc6', 45, 160]} />
 
             <Sky sunPosition={[30, 42, 22]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
             {/* Phase 24 — Calibrated Mediterranean Sunlight & Contrast.
                 Phase 2A: hemisphere replaces flat ambient; shadow camera bounds
                 expanded from default ±5 to cover full city; bias added; Sky aligned. */}
-            <hemisphereLight color="#fef3c7" groundColor="#b08968" intensity={0.45} />
+            <hemisphereLight color="#fef3c7" groundColor="#8a7a5f" intensity={0.45} />
             <directionalLight
               position={[30, 42, 22]}
               intensity={2.15}
