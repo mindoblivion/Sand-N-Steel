@@ -26,23 +26,50 @@ import { purchaseChariotPart, equipChariotPart, resolveChariotLoadout } from '..
  *   - The starting gold is a URL parameter (`?gold=600`, default 600) applied
  *     ONLY when a fresh disposable profile is seeded.  Seeding a disposable
  *     profile is not "forcing affordability" on the real one: the player's save
- *     is a different key and is never touched.
+ *     is a different key and is never touched.  Being untrusted input to a
+ *     currency field it is bounded before use — plain decimal digits only, and
+ *     clamped to `MAX_HARNESS_GOLD` — so no URL can seed a negative, fractional
+ *     or overflowed purse (Phase C-8.66D).
  *   - Buy and equip go through the SAME pure helpers and the same flow App uses
  *     (`purchaseChariotPart` / `equipChariotPart` → state → save), so the UI path
  *     under test is the shipping one.
  *
  * Removal: delete this file and revert the `?devHarness=chariot` branch in
  * `src/main.tsx` (the import + the conditional).  No other file references it.
+ *
+ * Phase C-8.66D audited this file: a production build contains neither it nor its
+ * chunk, so the harness is absent from a production runtime rather than merely
+ * hidden in the UI, and the disposable record provably never reaches the
+ * player's save key.  The three storage helpers below are exported (and nothing
+ * else about them changed) so `src/utils/phaseC8_66d.test.ts` can drive that
+ * isolation for real instead of asserting it from the source text.
  */
 export const HARNESS_PROFILE_KEY = 'sand_and_steel_chariot_workshop_harness_v1';
 
 /** The harness's disposable starting purse — enough for the 450-gold wheel set. */
-const DEFAULT_HARNESS_GOLD = 600;
+export const DEFAULT_HARNESS_GOLD = 600;
 
-const readSeedGold = (): number => {
-  const raw = new URLSearchParams(window.location.search).get('gold');
-  const parsed = raw === null ? NaN : Number(raw);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_HARNESS_GOLD;
+/**
+ * Ceiling for a URL-supplied purse.  `?gold=<n>` is untrusted input handed
+ * straight to a currency field, so it is bounded before it is ever seeded: a
+ * hand-typed `?gold=1e308` (or a 400-digit number) lands here instead of
+ * producing a balance nothing can spend down.
+ */
+export const MAX_HARNESS_GOLD = 1_000_000;
+
+/**
+ * The disposable starting purse, from `?gold=<n>` (default 600).
+ *
+ * Accepted only as plain decimal digits: a sign, a fraction, an exponent, a hex
+ * prefix, or an empty value is not a purse and falls back to the default — so
+ * the seeded balance can never be negative, fractional, `NaN` or an overflowed
+ * `Infinity`.  An accepted value is then clamped to `MAX_HARNESS_GOLD`, which
+ * also catches a digit string long enough to read as `Infinity`.
+ */
+export const readSeedGold = (): number => {
+  const raw = new URLSearchParams(window.location.search).get('gold')?.trim() ?? '';
+  if (!/^\d+$/.test(raw)) return DEFAULT_HARNESS_GOLD;
+  return Math.min(Number(raw), MAX_HARNESS_GOLD);
 };
 
 const seedProfile = (gold: number): PlayerProfile => ({
@@ -68,7 +95,8 @@ const scratchStorage = (): Storage | null => {
   }
 };
 
-const loadHarnessProfile = (): PlayerProfile | null => {
+/** Exported for the C-8.66D isolation suite; it touches only `HARNESS_PROFILE_KEY`. */
+export const loadHarnessProfile = (): PlayerProfile | null => {
   try {
     const raw = scratchStorage()?.getItem(HARNESS_PROFILE_KEY) ?? null;
     return raw ? (JSON.parse(raw) as PlayerProfile) : null;
@@ -77,7 +105,8 @@ const loadHarnessProfile = (): PlayerProfile | null => {
   }
 };
 
-const saveHarnessProfile = (profile: PlayerProfile): void => {
+/** Exported for the C-8.66D isolation suite; it touches only `HARNESS_PROFILE_KEY`. */
+export const saveHarnessProfile = (profile: PlayerProfile): void => {
   try {
     scratchStorage()?.setItem(HARNESS_PROFILE_KEY, JSON.stringify(profile));
   } catch {

@@ -2625,3 +2625,131 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   (the WebGL guard's "initializing 3D world context" state), so this pass does not *re-establish*
   the preview's first render — the disposable-harness frames in this same phase show the chariot
   rendering in that viewport, and C-8.66B captured it first.
+
+## Dev-harness safety and workshop acceptance prep (Phase C-8.66D — audited, one fix, verified)
+
+- **Scope.** An audit of C-8.66C's dev-only transaction harness, plus one narrowly necessary fix.
+  The workshop feature is untouched: `chariotParts.ts`, `chariotLoadout.ts`, `chariotGeometry.ts`,
+  `ChariotPreview.tsx`, `ChariotWorkshopTab.tsx`, `GearTab.tsx`, both `App.tsx` handlers, the
+  collision registry and the two chariot GLBs are byte-identical, and **no price, wheel geometry,
+  city layout, combat stat or player save was changed.** The phase's files are three:
+  `src/components/dev/ChariotWorkshopHarness.tsx` (the bounded purse, plus three helpers exported for
+  the new suite), `src/utils/phaseC8_66d.test.ts` (new) and this record.
+
+- **The question the audit had to answer was the difference between "dev" as a name and "dev" as a
+  fact — and the two are not equivalent.** Measured against a real production build
+  (`bun run build`, then grepping its output): **the harness is ABSENT from the production runtime,
+  not merely hidden in the UI.** The built bundle contains no occurrence of `devHarness`,
+  `sand_and_steel_dev_harness`, `sand_and_steel_chariot_workshop_harness_v1`,
+  `ChariotWorkshopHarness`, `MAX_HARNESS_GOLD`, `readSeedGold` or even `import.meta.env.DEV` (Vite
+  substitutes it), and the output consists of five assets only — `index`, `CityHubScene`,
+  `DuelScene`, `useCameraDrag` and the stylesheet. **No harness chunk is emitted at all**: both dev
+  harnesses are dynamically imported *inside* their own `import.meta.env.DEV` branch, so Rollup's
+  dead-code elimination removes the branches, the imports and the chunks together. That is what makes
+  `?devHarness=chariot` a no-op in production rather than a hidden screen a curious visitor could
+  reach.
+
+- **Why that is structural, not coincidental — the gates, read out of the shipped source.**
+  `main.tsx` computes `import.meta.env.DEV && (…)` for each harness and mounts them in an
+  `if / else if / else` chain whose final `else` is `<App />`; there is no static import of anything
+  under `components/dev`, which would have shipped a harness in the main chunk of every build. The
+  new suite lifts both gate *expressions* out of the file, substitutes `import.meta.env.DEV` the way
+  a build does (`false`) and evaluates them (`Function(...)`, the technique `phaseFortressRotation`
+  already uses for source expressions) across 10 query strings × 7 scratch-flag values: with `DEV`
+  false **neither gate can be true for any input**, and — because `false && …` never evaluates its
+  right-hand side — a production load does not even read the harness flag. Its control removes the
+  `DEV` conjunct from the same expression and shows the ungated shape would open the harness in a
+  production build from both routes, so the checks are sensitive to the thing they pin.
+
+- **The one real gap found, and the fix: the URL purse was unbounded.** `?gold=<n>` reached a
+  currency field through `Number(raw)` guarded only by `isFinite && >= 0`, so `?gold=1e308` seeded a
+  1e308-gold purse, `?gold=` (empty) seeded **0** instead of the default, and `12.5`, `0x10`, `1e21`
+  were all read as purses. It is dev-only input, but it is untrusted input to a balance, so it is now
+  bounded (`DEFAULT_HARNESS_GOLD` 600, `MAX_HARNESS_GOLD` **1 000 000**): plain decimal digits only —
+  a sign, a fraction, an exponent, a hex prefix or an empty value falls back to the default, and an
+  accepted value is clamped, which also catches a digit string long enough to read as `Infinity`.
+  Measured live in the preview browser (two real `<iframe>` instances of the harness against the dev
+  server, the C-8.66C technique): `?gold=1e308` → **`gold: 600`** and `?gold=999999999999` →
+  **`gold: 1000000`**, each with the workshop's real cards mounted (`Reinforced Wheel Set` present,
+  `owned: wheels_standard, finish_stock`), so the harness still drives the shipping UI.
+
+- **Storage isolation, now exercised rather than grepped.** The harness's own key
+  (`sand_and_steel_chariot_workshop_harness_v1`) lives in per-tab scratch storage and the player's
+  key (`sand_and_steel_gladiator_save_v2`) is a different key in a different store. The three storage
+  helpers are **exported** (the only change to them) so the suite can drive them against recording
+  fake stores: a save writes exactly one key into `sessionStorage` and nothing into `localStorage`; a
+  load reads only that key and returns `null` when the store holds only the player's save (it does not
+  fall back to it); `sessionStorage` is preferred, `localStorage` is the fallback when session storage
+  is blocked, and neither store being reachable is survivable; and a full harness session — seed,
+  `purchaseChariotPart`, persist, reload — leaves a pre-seeded real-save record **byte-identical** and
+  never reads the real store. `createNewProfile` is pure (it writes no storage), and nothing in
+  `GearTab` / `ChariotWorkshopTab` / `ChariotPreview` touches `localStorage`, `sessionStorage` or
+  `saveProfile` either, so no path in the harness can reach the real save. The module's export list is
+  pinned exactly, so a future edit cannot quietly hand the harness a save writer.
+
+- **Routing is unchanged.** The harness mounts *instead of* `<App />` and only under the gate; it is
+  referenced from `main.tsx` alone — `App.tsx`, `GearTab.tsx` and `CityHubScene.tsx` name it nowhere.
+  Title screen, guest entry, sign-in, cloud save, city hub and the workshop route are the shipped
+  ones, and the suite pins the branch order (character branch → chariot branch → `<App />`), the
+  single dynamic import of each harness and the absence of any static one.
+
+- **`src/utils/phaseC8_66d.test.ts`** — **22 tests / 428 expect() calls** in four sections: §A the
+  production gate (§above, including the branch-order and no-static-import guards, and the control);
+  §B storage isolation (§above); §C the bounded purse, table-driven over 20 inputs plus the
+  invariants (whole, ≥ 0, ≤ the ceiling) and a control replaying the pre-fix parser, which is shown to
+  pass 1e308, 0, 12.5 and 16 through; §D the shipped workshop unchanged — the wheel slot still sells
+  exactly `wheels_standard` (0) and `wheels_reinforced` (450), the three finishes keep their 180 / 320
+  / 240 prices, **no spiked or bladed wheel exists anywhere in the catalogue and no entry mentions a
+  racing number**, the two kit variants keep their audited specs (`Wheel_Standard` r 0.685 /
+  `kitBottomY` 0.065, `Wheel_Reinforced` r 0.7025 / `kitBottomY` 0.0475 — the mounted fit itself is
+  still pinned by `phaseC8_66c.test.ts`), and the Imperial Stable still routes `tabKey: 'gear'` +
+  `subTab: 'chariot'` with `getNearbyHubLocation([26, 0, 10])?.id === 'stable'`.
+
+- **Workshop acceptance prep, driven live (2026-10-19).** The real route was driven in the preview
+  browser: title → `Play as Guest` (which continues the replayed save rather than writing one) → the
+  **3D city hub** → the map drawer → **fast travel to the Imperial Stable** → its prompt
+  `VISIT CHARIOT WORKSHOP [E / SPACE]` → its **banner button**. Every step reported itself performed
+  and the workshop subview opened. Read back from the rendered DOM: `Standard Wheel Set`,
+  `Reinforced Wheel Set`, `Charred Ebony Timber` and `Gilded Parade Trim` all present, the
+  `GLADIATOR LOADOUT` / `CHARIOT WORKSHOP` pills with the workshop one active, the 450 / 180 / 320 /
+  240 prices, **four `NOT ENOUGH GOLD` refusals and 7 disabled controls** on the player's own 100
+  gold, `EQUIPPED` on the two stock parts, and no sideways scroll. A legible frame was captured
+  showing the Armory tab, the active Chariot Workshop pill, `CURRENTLY EQUIPPED`, the 3D chariot on
+  its platform (SwiftShader) and `Wheels: Standard Wheel Set` / `Finish: Workshop Stock Finish`.
+  **The player's own save was byte-identical before and after every check (1959 chars), and the
+  disposable record was deleted from both stores afterwards.** Two honest notes: (a) the first capture
+  of the opened workshop was blocked by the game's own asset preloader (`ENTERING THE ARENA`, 50 %),
+  so the drive was re-checked once the overlay had cleared — the earlier frame is not evidence of the
+  workshop, the later one is; and (b) Tailwind's `uppercase` is reflected in `innerText`, so the DOM
+  assertions match case-insensitively (`NOT ENOUGH GOLD`, not the authored casing).
+
+- **Verified 2026-10-19** in the dev container: focused
+  `bun test src/utils/phaseC8_66d.test.ts src/utils/phaseC8_66c.test.ts src/utils/phaseC8_66b.test.ts`
+  → **94 pass / 0 fail** (1040 expect() calls: 22 + 21 + 50 + the 66b additions); `bun test` →
+  **1660 pass / 0 fail (52 files, 37081 expect() calls)** (C-8.66C left 1637 / 51; the delta is this
+  suite's 22 tests and its file); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**,
+  exit 0; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing
+  >500 kB chunk warning only; `dist/` is gitignored); `git diff --check` → clean.
+  The bundle greps above were re-run after the edits, so they describe the shipped code.
+
+- **Not verified / not attempted.** (a) The production build was **grepped, not served**: no static
+  server was started over `dist/`, so `?devHarness=chariot` was not probed against a served production
+  bundle — but that bundle contains no harness code and emits no harness chunk, so there is nothing
+  there to mount. (b) The phase's suite checks the *production* gate by substituting `DEV` in the real
+  expressions and by the bundle grep; it does not run Vite inside the test. (c) **Android visual
+  acceptance remains PENDING** for the workshop cards and the reinforced wheel swap on the target GPU,
+  exactly as C-8.66B and C-8.66C recorded — and the purchase/equip **click** path on real hardware is
+  still the open device item (the transaction logic is covered by `phaseC8_66b`/`phaseC8_66c`, and
+  this phase changed none of it). Still open from earlier phases: the C-8.65 apron, the C-8.64B
+  district, the C-8.64A arena, the C-8.62 pediment rakes, the C-8.60 wreath, the C-8.57 portico, the
+  C-8.53 lean-to, the C-8.52 veranda canopy, the C-8.49 wall-to-gable junctions, the C-8.51 awning,
+  the C-8.41 kerb, the C-8.38 northern approach, the C-8.28 bowl cut, the C-8.29 junction and the
+  C-8.31/C-8.33 rear-gate checks. Do not claim device acceptance.
+
+- **One dev-only caveat, deliberately left as-is.** The `sand_and_steel_dev_harness = 'chariot'`
+  scratch flag exists so a preview browser that cannot deliver a query parameter on a reload can still
+  reach the harness. **No application code writes that key** (both harnesses only read it, and only
+  under the `DEV` gate), so it cannot trigger itself; but a developer who sets it once and forgets it
+  will have the dev server come up on the harness instead of the title screen until they clear it.
+  That is a development convenience, not a production exposure — in a production build the flag is not
+  read at all.
