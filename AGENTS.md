@@ -3693,3 +3693,135 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   a visible lip)? Still open from earlier phases: the C-8.64A/B district envelope, forecourt and
   entrances, the C-8.28 bowl cut, the C-8.29 Store ↔ Workshop junction and the C-8.31/C-8.33
   rear-gate stonework. Do not claim visual acceptance without device evidence.
+
+## Colosseum rear wall "missing" on device (Phase C-8.69C — audit, **no production code changed**)
+
+- **Reported:** on Android, viewed directly from behind, "large sections of the rear wall are
+  missing or invisible". Treated as the unresolved defect. **Result: the shipping drum has no
+  missing sector, no culled or hidden rear surface, no depth conflict and nothing occluding it, so
+  no production geometry was changed.** What the rear *is* exposed to, measured below, is a
+  see-through arcade on the building's unlit side. This section records the measurements and the
+  evidence still needed; documentation is all this phase changed.
+
+- **The drum shell is closed everywhere except the designed openings.** A full-360° occupancy sweep
+  of `GrandColosseum.tsx`'s own constants (0.25° θ × 0.05 y grid, every band at its shipped radius)
+  reports the non-stone intervals at each height:
+
+  | y | non-stone sectors (θ from +Z; 180° = rear gate) |
+  |---|---|
+  | 0.05 | gate floor 172.0…188.3° only |
+  | 1.5 | entrance 335.5…360.0 + 0.0…24.8; gate 172.0…188.3 |
+  | 3.0 / 4.0 / 6.5 | entrance, gate, and the **18 arch bays** (8.3° wide at y 3–4, narrowing to the crown at 7.35) |
+  | 7.6 / 8.3 / 9.0 / 12.0 | **entrance only** — the rear gate zone is solid (spandrel 7.35–8.0, tier-1 cornice 7.8–8.6 as its lintel, tier-2 sill, liner) |
+  | 15.0 / 16.5 / 17.2 | **FULL RING — solid stone** |
+
+  **No unintended gap appears anywhere on the circle**, and the gate is open only over y 0.16…7.35 —
+  exactly the C-8.31 cut. From behind, the rear quadrant therefore shows the gate (171.96…188.04°,
+  5.40 wide at the facade, to y 7.35) and the four bays nearest the axis (143.25…151.55,
+  159.65…167.95, 192.05…200.35, 208.45…216.75 at y ≤ 6 — each arch centre ±4.148°, narrowing to the
+  crown at 7.35; the remaining bays are seen at a grazing angle). Bay pitch 16.369°, jamb 1.3141 wide, opening
+  2.70 wide × 4.85 tall; the bays tile each drum arc exactly — no half-bay, no slit at either
+  opening's jamb.
+
+- **Nothing hides the rear stone.** Every band, jamb, arch head and portal surface uses
+  `side: THREE.DoubleSide` (`facadeMat`, `recessMat`, `interiorMat`, `corniceMat`, `portalStoneMat`
+  and the inline plinth/cornice materials), so back-face culling cannot remove a rear-facing
+  surface; no mesh in the file carries `visible`, a conditional render or a depth-write override
+  (the city's only `mesh.visible = false` calls are `NorthernMotte`'s GLB `Ramp_Dirt` /
+  `Moat_Water`). The only same-radius pairs in the facade are **tangentially adjacent** (jamb ↔
+  arch head in the same bay) or meet edge-to-edge (the tier-1 ledge ring at y 8.6 against the
+  cornice's top edge) — no coplanar overlap exists on the drum, so there is no depth-conflicting
+  duplicate surface to remove. The one sub-millimetre interaction is the 36-segment cylinder chord
+  sagitta (0.0122 at r 19.3) against the flat jamb/arch-head faces, which *protrudes* by ≤0.012
+  rather than fighting.
+
+- **The collision registry cannot produce a rendering symptom, and it is unchanged.** All 46
+  `colo-*` colliders are X/Z only — 42 `segment`s (`x1,z1,x2,z2`) and 4 `rect`s (`cx,cz,hw,hd`, the
+  two portal piers and their C-8.27 closure pair) — and **none of the registry's 142 colliders
+  carries a `y`/`minY`/`maxY`/`height` field**, so there is nothing for a render to be hidden
+  behind; the rear pairs
+  (`colo-rearwall-l/r-0…1` on r 19.3, `colo-rearpodium-l/r-0…1` on r 15.3) and the two C-8.33
+  `colo-gateseal-l/r` seals are the ones C-8.31/C-8.33 verified. The known registry/rendered delta
+  stands: the rear-most *rendered* stone is the plinth cut edge at Z = −44.308 (on-axis lintel
+  −44.5), 0.198 north of the registered jamb line at −44.110.
+
+- **Measured: the rear facade is the building's unlit side.** `CityHubScene` lights it with
+  `directionalLight [30, 42, 22] intensity 2.15` (the sun), `directionalLight [−25, 20, −25]
+  intensity 0.28` (a cool fill), `hemisphereLight 0.45` and `Environment 0.35`. Lambert terms on the
+  vertical facade:
+
+  | normal | sun 2.15 | cool fill 0.28 | hemisphere | sum |
+  |---|---|---|---|---|
+  | front (θ 0, +Z) | 0.843 | 0.000 | 0.225 | 1.068 |
+  | θ 45° | 1.409 | 0.000 | 0.225 | 1.634 |
+  | **rear (θ 180°, −Z)** | **0.000** | 0.172 | 0.225 | **0.397** |
+  | θ 225° | 0.000 | 0.244 | 0.225 | 0.469 |
+
+  `N·L(sun)` on the rear normal is **−0.392**: the sun contributes nothing, so the rear receives
+  **20.4%** of the front's directional light (0.172 vs 0.843) and **37.2%** of its directional +
+  hemisphere total, against a warm fog/sky (`fog ['#e0a96d', 35, 115]`).
+
+- **Two rear-versus-front asymmetries exist, and both are by design — neither is a defect.**
+  (a) **Tier 1 is a see-through arcade**: each bay is 2.70 of a 5.33 pitch (51%), and because
+  Phase 25.4 removed the tier-1 liner those openings reveal the bowl (podium r 15.3, seating
+  frustums to r 17.8) and the sunlit arena floor behind them rather than a recessed dark panel; at
+  the front the identical arcade is largely masked by the portal mass (8.6-wide piers, lintel,
+  pediment, columns, frieze), which is why the same construction reads as an opening there and as a
+  void from behind. (b) **Tier 2 carries no pilaster over a 48.80° zone about θ = π** (the last
+  pilaster each side stands at 155.60° / 204.40°, because the rule places pilasters only above
+  piers *between* two arches and the gate has no arch beyond its jamb). There the dark recess liner
+  (`recessMat` #3d352a, roughness 0.92, r 17.0) is exposed directly above the gate; the analogous
+  49.26° front zone is filled by the portal. It is stone, not a hole — but in shade it is nearly
+  black, and in the chase camera's framing it is the top band of the rear view.
+
+- **Framing at the reported vantage, measured.** The only outside approach to the rear is the
+  northern route; the nearest fast-travel arrival is `northern_fortress` [0, −69]. `CityCamera`
+  places the chase camera at `player − (sin yaw, cos yaw) · distance` with `baseDistance` **5.5** and
+  `baseHeight` **2.8**, looking at the player's chest +1.5 with a 0.66 forward offset — so the view
+  sits **11.9° below horizontal** and its top edge is **+17.1°** (58° vertical FOV). After the walk
+  that vantage needs (the camera must clear the fortress's south wall at Z = −71), the camera stands
+  at Z ≈ −68.7, y ≈ 3.6 and the rear stone plane is 24.4 away, so the visible top edge is
+  **≈ y 11.1**: the frame holds tier 1 (the arcade and the gate), the tier-1 cornice, and the tier-2
+  recess only over y 9.5 → ≈ 11.8 — the attic and crest are far above it. That exposed liner band
+  becomes visible only above the tier-1 cornice's own top edge (11.7° at that distance), i.e. from
+  ~12.5° upwards.
+
+- **Live reproduction in the sandbox.** The player was driven to the rear (title → `Play as Guest`
+  → city map → fast travel to the Northern Roman Fortress → walk south → orbit the chase camera) and
+  a frame was captured: **the rear wall renders complete with its arch openings and the gate**, the
+  gate opening onto the darkened interior, no blank or torn regions, **0 console errors and no
+  failed requests**. A second capture (rear ¾) and the mobile-portrait framing were **not** obtained:
+  the sandbox has no GPU (SwiftShader ~1.5 fps) and the travel + walk + orbit sequence alone
+  consumed the script budget — that attempt timed out after the first frame.
+
+- **No cause was established, so nothing was changed.** Untouched: the drum's arcs, the gate, the
+  arcade, every material, every collider, the Colosseum's position and every other city component.
+  This phase's diff is **this file only** (documentation).
+
+- **Evidence needed to continue.** (a) A device screenshot/recording from behind, at the same spot
+  with the camera panned left and right, plus the front for comparison, so the *shape* of the
+  missing region is visible; (b) the device model, GPU and browser; (c) whether what is missing is
+  **stone** (the facade surface between/below/above the openings) or the **openings themselves**
+  (the arches and the gate showing the interior) — the two have opposite remedies; (d) whether it
+  changes with camera angle/distance or is stable, and whether the tier-2 band above the gate is
+  part of what looks missing; (e) whether it appears in both portrait and landscape, since portrait
+  narrows the horizontal window to ~27° and the arcade's openings then dominate the frame.
+
+- **Ranked candidate mechanisms, each with the remedy it would imply** (none authorised; none
+  applied): (1) **perception, not geometry** — the unlit rear, the 51%-open arcade and the exposed
+  dark liner over the gate read as a missing wall; the remedy is a *design* choice (a north-side
+  fill light, or carrying the rear's tier-2 pilaster rhythm across the gate zone as the front's
+  portal does), not a geometry repair. (2) **tone-mapping/ambient response** differing on the
+  device, crushing the already dim rear surface; the remedy is again a city-wide lighting/contrast
+  change. (3) **environment-map (PMREM) failure or loss on the mobile GPU**, which removes most of
+  the shade-side fill and would make the rear the first thing to disappear; the remedy is
+  diagnostic — read `[WebGL 3D Context - CityHubMetropolis]` and the console on the device — before
+  any code change. (4) **WebGL context loss/restore** leaving stale buffers; C-8.69A recorded one
+  blank-canvas frame under SwiftShader with `isContextLost() === false`, so this needs a device log,
+  not a code change. A device screenshot is what separates these.
+
+- **Verified 2026-10-19** in the dev container: `bun test` → **1805 pass / 0 fail (56 files,
+  39,186 `expect()`)**; `bun test src/utils/phaseC8_{24,28,31,33}.test.ts` → **101 pass / 0 fail**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only); `git diff --check`
+  → clean. No test, constant or collider was touched.
