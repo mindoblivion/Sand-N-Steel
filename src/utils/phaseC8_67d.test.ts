@@ -77,7 +77,9 @@ import {
   getTeamClearanceReport,
   describeTeamArrangement,
 } from './chariotTeamFormation';
-import { CHARIOT_MODEL_URL, CHARIOT_WHEEL_HUB_X } from './chariotGeometry';
+// The workshop's own wheel-fit constant, under its own name: the formation module exports a
+// constant of the same name, and the two are deliberately cross-checked below.
+import { CHARIOT_MODEL_URL, CHARIOT_WHEEL_HUB_X as WORKSHOP_WHEEL_HUB_X } from './chariotGeometry';
 
 // ── Paths and the asset, loaded once ───────────────────────────────────────
 const repo = (p: string) => fileURLToPath(new URL(`../../${p}`, import.meta.url));
@@ -335,8 +337,10 @@ describe('C-8.67D §B — every formation constant is the measured value', () =>
       expect(Number.isFinite(measured)).toBe(true);
       expect(near(measured, constant)).toBeLessThanOrEqual(PUBLISHED_PRECISION);
     }
-    // The one cross-module agreement: the workshop's own wheel-fit constant.
-    expect(CHARIOT_WHEEL_HUB_X).toBe(0.7);
+    // The one cross-module agreement: the workshop's own wheel-fit constant, and the
+    // formation module's own copy of it, agree on the axle's hub X.
+    expect(WORKSHOP_WHEEL_HUB_X).toBe(0.7);
+    expect(WORKSHOP_WHEEL_HUB_X).toBe(CHARIOT_WHEEL_HUB_X);
   });
 
   test('every clearance re-derived from the RAW asset still passes its rule', () => {
@@ -458,6 +462,48 @@ describe('C-8.67D §C — Biga, Triga and Quadra', () => {
     expect(OUTER_LANE_X).toBeCloseTo(INNER_LANE_X + LANE_PITCH, 12);
     expect(LANE_X['outer-left']).toBeCloseTo(-OUTER_LANE_X, 12);
     expect(LANE_X['outer-right']).toBeCloseTo(OUTER_LANE_X, 12);
+    // Horse SPACING: each OUTER (trace) lane sits exactly one pitch outside the inner lane
+    // beside it — that is what the pitch is the distance between.  The two yoked lanes are
+    // deliberately NOT a pitch apart: they straddle the pole at ±INNER_LANE_X, one lane per
+    // yoke peg, which is how an even team takes the pole between it.
+    for (const size of [3, 4] as const) {
+      const stations = getHorseStations(size);
+      const outer = stations.filter((s) => !s.yoked);
+      for (const s of outer) {
+        const beside = stations.find((o) => o.yoked && Math.sign(o.x) === Math.sign(s.x))!;
+        expect(Math.abs(s.x) - Math.abs(beside.x)).toBeCloseTo(LANE_PITCH, 12);
+      }
+    }
+    expect(2 * INNER_LANE_X).toBeGreaterThan(LANE_PITCH);
+    // SYMMETRY: for the even teams each station's mirror is another station; for Triga it
+    // is not, which is the documented consequence of a single central pole.
+    for (const size of [2, 4] as const) {
+      for (const s of getHorseStations(size)) {
+        expect(getHorseStations(size).some((o) => Math.abs(o.x + s.x) < 1e-12)).toBe(true);
+      }
+    }
+    for (const s of getHorseStations(3)) {
+      if (s.lane === 'outer-right') {
+        expect(getHorseStations(3).some((o) => Math.abs(o.x + s.x) < 1e-12 && o.lane !== s.lane)).toBe(false);
+      }
+    }
+  });
+
+  test('the plan is deterministic and hands out fresh, unshared objects', () => {
+    const first = getHorseStations(4);
+    // Same inputs, same plan …
+    expect(getHorseStations(4)).toEqual(first);
+    // … and a fresh array of fresh objects each call, so a caller cannot corrupt the plan
+    // for the next one, or for the clearance report built from it.
+    expect(getHorseStations(4)).not.toBe(first);
+    first[0].x = 99;
+    first[0].attachment.x = 99;
+    first.pop();
+    const second = getHorseStations(4);
+    expect(second.length).toBe(4);
+    expect(second.map((s) => s.x)).toEqual([-OUTER_LANE_X, -INNER_LANE_X, INNER_LANE_X, OUTER_LANE_X]);
+    expect(second[0].attachment.x).toBe(-TRACE_STAPLE_X);
+    expect(getTeamClearanceReport(4).ok).toBe(true);
   });
 
   test('a description exists for every configuration, and names its own team', () => {
@@ -466,8 +512,9 @@ describe('C-8.67D §C — Biga, Triga and Quadra', () => {
       const text = describeTeamArrangement(size);
       expect(text.length).toBeGreaterThan(20);
       expect(text.toLowerCase()).toContain(names[size]);
-      // Each one states the team's shape in words a player reads.
-      expect(text.toLowerCase()).toContain(size === 3 ? 'yoked pair' : 'yoked pair');
+      // Each one states the team's shape in words a player reads: every team fields the
+      // yoked pair, and Biga — which is nothing but that pair — says so as the yoke.
+      expect(text.toLowerCase()).toContain(size === 2 ? 'yoke' : 'yoked pair');
     }
     // The odd team is the only one the description calls asymmetric.
     expect(describeTeamArrangement(3).toLowerCase()).toContain('trace');
@@ -478,18 +525,50 @@ describe('C-8.67D §C — Biga, Triga and Quadra', () => {
 // ── §D — the clearances ────────────────────────────────────────────────────
 
 describe('C-8.67D §D — wheel clearance, overlap, body interference, ground contact', () => {
-  test('every team passes every measured clearance', () => {
+  test('every team passes every clearance that applies to it', () => {
+    // The chariot-body rule is a TRACE-lane rule: only a lane that runs alongside the
+    // chariot can owe the hub-cap clearance.  Biga fields no trace lane — both its horses
+    // are yoked, standing between the pole and the wheel, which is the wheel-Z rule's job —
+    // so its report carries five rows, not a sixth it could never satisfy.
+    const ROWS: Record<2 | 3 | 4, string[]> = {
+      2: ['pole', 'adjacent-lanes', 'wheel-z-leading-edge', 'wheel-band', 'ground'],
+      3: ['pole', 'adjacent-lanes', 'chariot-body', 'wheel-z-leading-edge', 'wheel-band', 'ground'],
+      4: ['pole', 'adjacent-lanes', 'chariot-body', 'wheel-z-leading-edge', 'wheel-band', 'ground'],
+    };
     for (const size of [2, 3, 4] as const) {
       const report = getTeamClearanceReport(size);
       expect(report.ok).toBe(true);
-      expect(report.clearances.map((c) => c.id)).toEqual([
-        'pole', 'adjacent-lanes', 'chariot-body', 'wheel-z-leading-edge', 'wheel-band', 'ground',
-      ]);
+      expect(report.clearances.map((c) => c.id)).toEqual(ROWS[size]);
       for (const c of report.clearances) {
         expect(typeof c.description).toBe('string');
         expect(c.ok).toBe(true);
       }
     }
+    // The reason the row is absent for Biga, measured: no Biga lane lies outside the
+    // chariot's widest point, while every trace team has one that does.
+    const outside = (size: 2 | 3 | 4) =>
+      getHorseStations(size).filter((s) => Math.abs(s.x) - HORSE_ENVELOPE.barrelHalfWidth > CHARIOT_WIDEST_X);
+    expect(outside(2)).toEqual([]);
+    expect(outside(3).map((s) => s.lane)).toEqual(['outer-right']);
+    expect(outside(4).map((s) => s.lane)).toEqual(['outer-left', 'outer-right']);
+  });
+
+  test('the wheel-Z tolerance covers binary rounding only, not a real violation', () => {
+    // The rule is satisfied EXACTLY by construction — rear limit = wheel leading edge −
+    // clearance — so its own subtraction rounds to 0.09999999999999998.  The tolerance has
+    // to cover that and nothing more: it is 1e-9 against a published precision of 5e-4, so a
+    // real violation (1e-3 and up) can never hide behind it.
+    const row = getTeamClearanceReport(2).clearances.find((c) => c.id === 'wheel-z-leading-edge')!;
+    expect(row.limit).toBe(HORSE_REAR_CLEARANCE);
+    expect(Math.abs(row.value - row.limit)).toBeLessThan(1e-12);
+    expect(1e-9).toBeLessThan(PUBLISHED_PRECISION / 100);
+    // And at the RAW accessor the same clearance holds to float32 rounding (the raw leading
+    // edge measures −0.685000002…), so the tolerance here is the accessor's own precision,
+    // not a relaxation of the rule.
+    expect(CHARIOT_WHEEL_LEADING_Z - HORSE_ENVELOPE.maxRearZ).toBeCloseTo(HORSE_REAR_CLEARANCE, 12);
+    const rawRearClearance = box('Wheel_R_Wood_geom').z[0] - HORSE_ENVELOPE.maxRearZ;
+    expect(Math.abs(rawRearClearance - HORSE_REAR_CLEARANCE)).toBeLessThan(1e-6);
+    expect(rawRearClearance).toBeGreaterThan(0.09);
   });
 
   test('the numbers behind them, re-derived', () => {
@@ -526,8 +605,13 @@ describe('C-8.67D §D — wheel clearance, overlap, body interference, ground co
     expect(getTeamWidth(3)).toBeCloseTo(2 * (OUTER_LANE_X + 0.25), 9);
     expect(getTeamWidth(4)).toBeCloseTo(2 * (OUTER_LANE_X + 0.25), 9);
     expect(getTeamWidth(4)).toBeCloseTo(2.94, 9);
-    // The team is far wider than the chariot it pulls — as a real racing team is.
-    expect(getTeamWidth(4)).toBeGreaterThan(3 * 2 * 0.768);
+    // The chariot's own full width is 2 × 0.768 = 1.536.  A team with trace horses is much
+    // wider than the vehicle it pulls (2.94, ~1.9×), while the yoked pair alone is not: at
+    // 1.50 Biga is actually narrower than the chariot, because both its horses stand
+    // between the wheels' inner faces.
+    expect(getTeamWidth(3)).toBeGreaterThan(2 * CHARIOT_WIDEST_X);
+    expect(getTeamWidth(4)).toBeGreaterThan(2 * CHARIOT_WIDEST_X);
+    expect(getTeamWidth(2)).toBeLessThan(2 * CHARIOT_WIDEST_X);
   });
 });
 
@@ -581,11 +665,13 @@ describe('C-8.67D §F — three abreast on the centre line is geometrically impo
     // A horse entirely forward of the pole must place its rearmost point past the tip.
     const requiredRearZ = CHARIOT_POLE_TIP_Z - HORSE_REAR_CLEARANCE;
     expect(requiredRearZ).toBeCloseTo(-2.207, 6);
-    // Its withers would then sit 0.187 further forward than the yoke line, and the whole
-    // team's nose would run ~1.4 past the trace horses' — a detached-looking lead horse.
-    const stationZ = requiredRearZ + HORSE_MAX_WITHERS_TO_REAR;
+    // That rearmost point is 0.187 ahead of the yoke line, i.e. the horse cannot stand
+    // where the others do: its withers must move the whole torso budget (1.235) further
+    // forward again, 1.422 ahead of the trace horses' — a detached-looking lead horse.
+    expect(HORSE_STATION_Z - requiredRearZ).toBeCloseTo(0.187, 6);
+    const stationZ = requiredRearZ - HORSE_MAX_WITHERS_TO_REAR;
     expect(stationZ).toBeLessThan(HORSE_STATION_Z);
-    expect(HORSE_STATION_Z - stationZ).toBeCloseTo(0.187, 6);
+    expect(HORSE_STATION_Z - stationZ).toBeCloseTo(1.422, 6);
     // Nothing in the shipped layout does this: no station is off the yoke line.
     for (const size of [2, 3, 4] as const) {
       expect(getHorseStations(size).every((s) => s.z === HORSE_STATION_Z)).toBe(true);
@@ -634,10 +720,46 @@ describe('C-8.67D §G — the horse-asset inventory: what exists, and what it is
       expect(root.listMaterials().map((m: Doc) => m.getName()).sort()).toEqual([
         'Bronze', 'Hide', 'Iron', 'Leather', 'Mane', 'Wicker', 'Wood',
       ]);
-      // Two horse-shaped bodies stand abreast, mirrored about Z, with rigid leg blocks:
-      // 11 meshes each (Hide/Mane), and no joints anywhere in the asset.
-      const hideMane = [...worldBounds(legacy).keys()].filter((n) => /^(Hide|Mane)_/.test(n));
-      expect(hideMane.length).toBe(22);
+      // Two horse-shaped bodies stand abreast, mirrored about Z, with rigid leg blocks.
+      // The counts deserve care, because two different numbers invite confusion: the asset
+      // carries 44 meshes wearing Hide/Mane (NOT 22), and 22 is the number of horse
+      // components PER BODY — 12 Hide + 10 Mane, the same mix on each side.
+      const legacyBounds = worldBounds(legacy);
+      const hideMane = [...legacyBounds.keys()].filter((n) => /^(Hide|Mane)_/.test(n));
+      expect(hideMane.length).toBe(44);
+      expect(hideMane.filter((n) => n.startsWith('Hide')).length).toBe(24);
+      expect(hideMane.filter((n) => n.startsWith('Mane')).length).toBe(20);
+      const sideOf = (sign: 1 | -1) =>
+        hideMane.filter((n) => {
+          const b = legacyBounds.get(n)!;
+          return ((b.z[0] + b.z[1]) / 2) * sign > 0;
+        });
+      const leftBody = sideOf(-1);
+      const rightBody = sideOf(1);
+      expect(leftBody.length).toBe(22);
+      expect(rightBody.length).toBe(22);
+      expect(leftBody.filter((n) => n.startsWith('Hide')).length).toBe(12);
+      expect(leftBody.filter((n) => n.startsWith('Mane')).length).toBe(10);
+      // The two bodies are each other's mirror about Z = 0 — same X and Y extents, Z
+      // negated and swapped.  Compared as multisets of measured boxes, so no pairing
+      // between individual mesh names is assumed.
+      const shapes = (names: string[], mirrorZ: boolean) => {
+        const counts = new Map<string, number>();
+        for (const n of names) {
+          const b = legacyBounds.get(n)!;
+          const z = mirrorZ ? [-b.z[1], -b.z[0]] : [b.z[0], b.z[1]];
+          const key = [b.x[0], b.x[1], b.y[0], b.y[1], z[0], z[1]]
+            .map((v) => v.toFixed(4))
+            .join('|');
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        return counts;
+      };
+      const mirroredLeft = shapes(leftBody, true);
+      const right = shapes(rightBody, false);
+      expect(mirroredLeft.size).toBe(22);
+      expect([...mirroredLeft.keys()].sort()).toEqual([...right.keys()].sort());
+      for (const [key, count] of mirroredLeft) expect(right.get(key)).toBe(count);
       // It is dead weight: no source file references it.
       const srcFiles: string[] = [];
       const walk = (dir: string) => {
@@ -744,7 +866,9 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
   });
 
   test('C-8.67B/C-8.67C are untouched: the catalogue, the prices and the save behaviour', async () => {
-    const { RACING_CONFIGS, resolveRacingState, purchaseRacingConfig } = await import('./racingProgression');
+    const { RACING_CONFIGS, resolveRacingState, purchaseRacingConfig, selectRacingConfig } = await import(
+      './racingProgression'
+    );
     const { createNewProfile } = await import('../services/storage');
     expect(RACING_CONFIGS.map((c: Doc) => [c.id, c.horses, c.price])).toEqual([
       ['biga', 2, 0],
@@ -754,13 +878,28 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
     // The team size this module consumes is exactly what the progression module resolves.
     const profile = { ...createNewProfile('Tester'), gold: 5000 } as Doc;
     expect(resolveRacingState(profile).horses).toBe(2);
-    const bought = purchaseRacingConfig(profile, 4);
-    expect(bought.ok).toBe(false);
-    // A Biga profile resolves to the two-lane arrangement; a purchased Quadra to the four.
-    const quadra = purchaseRacingConfig(purchaseRacingConfig(profile, 3).profile, 4);
+    // Quadra before Triga is refused outright.
+    expect(purchaseRacingConfig(profile, 4)).toEqual({ ok: false, reason: 'prerequisite-locked' });
+    // BUYING AN UNLOCK IS NOT SELECTING IT — the racing analogue of "buying never equips".
+    // The profile still resolves to the Biga until a separate, free selection is made.
+    const triga = purchaseRacingConfig(profile, 3);
+    expect(triga.ok).toBe(true);
+    const afterTriga = triga.ok ? triga.profile : profile;
+    expect(resolveRacingState(afterTriga).unlocked).toEqual([2, 3]);
+    expect(resolveRacingState(afterTriga).horses).toBe(2);
+    const quadra = purchaseRacingConfig(afterTriga, 4);
     expect(quadra.ok).toBe(true);
-    expect(resolveRacingState(quadra.ok ? quadra.profile : null).horses).toBe(4);
-    expect(getHorseStations(resolveRacingState(quadra.ok ? quadra.profile : null).horses).length).toBe(4);
+    const afterQuadra = quadra.ok ? quadra.profile : afterTriga;
+    expect(resolveRacingState(afterQuadra).unlocked).toEqual([2, 3, 4]);
+    expect(resolveRacingState(afterQuadra).horses).toBe(2);
+    // Selecting is that separate free step — and once selected, the four-lane arrangement
+    // is what this module is asked for.
+    const selected = selectRacingConfig(afterQuadra, 4);
+    expect(selected.ok).toBe(true);
+    const racingFour = selected.ok ? selected.profile : afterQuadra;
+    expect(resolveRacingState(racingFour).horses).toBe(4);
+    expect(racingFour.gold).toBe(afterQuadra.gold);
+    expect(getHorseStations(resolveRacingState(racingFour).horses).length).toBe(4);
     // Every resolved team size is one this module has a lane set for.
     for (const size of [2, 3, 4] as const) expect(TEAM_LANES[size].length).toBe(size);
   });
@@ -769,6 +908,6 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
     expect(createHash('sha256').update(readFileSync(CHARIOT_GLB)).digest('hex').slice(0, 8)).toBe('49e132e6');
     expect(createHash('sha256').update(readFileSync(WHEEL_KIT_GLB)).digest('hex').slice(0, 8)).toBe('d5b36add');
     // The workshop's own wheel-fit constant is unchanged by this phase.
-    expect(CHARIOT_WHEEL_HUB_X).toBe(0.7);
+    expect(WORKSHOP_WHEEL_HUB_X).toBe(0.7);
   });
 });

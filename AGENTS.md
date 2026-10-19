@@ -2829,3 +2829,158 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   gameplay, so **there is nothing to see on device** and no new Android item: the racing items that
   remain open are still the C-8.66B/C-8.66C/C-8.66D workshop and wheel-swap checks, and racing
   gameplay itself does not exist yet (no arena entry, no horses, no loop).
+
+## Chariot team formation geometry (Phase C-8.67D — audited, suite finished and validated)
+
+- **Scope, and what deliberately did not ship.** A pure geometry plan for the Biga / Triga /
+  Quadra horse teams, plus the horse-asset inventory: `src/utils/chariotTeamFormation.ts` (the
+  module) and `src/utils/phaseC8_67d.test.ts` (its suite). **No racing gameplay, no horse rendering,
+  no animation, no placeholder mesh, no arena entry, no collider, no city geometry, no UI and no
+  save change.** The module is consumed by nothing — the suite sweeps `src/` to prove it — so it
+  cannot affect rendering or gameplay yet, and it imports only the `ChariotTeamSize` type: no
+  renderer, no storage, no catalogue, no progression module.
+
+- **The measured chariot anchors**, re-derived node by node in the rendered Y-up frame from
+  `public/_workspace_chariot_model_RomanChariot.glb` (26 nodes / 23 meshes / 9,768 triangles / no
+  skin / no animation / no textures / 202,280 bytes / sha256 `49e132e6…`): draught pole ON the
+  centre line, X ±0.049, Y 0.671…1.029, Z −0.293…−2.107; yoke bar centre line Z −2.020, X ±0.650,
+  faces Y 0.935 / 1.025; **two** pegs at X ±0.500, base 0.970, top 1.190; wheels X ±0.700 at
+  Y 0.650, disc 0.070 thick (inner face ±0.665), leading edge Z −0.685, tyre bottom −0.035; hub caps
+  ±0.768 (the model's widest point); axle ±0.750; tub's bronze front rail Z −0.482 at X ±0.480. The
+  suite re-measures every one of them, so a re-export that moves the yoke, the pole or a wheel fails
+  rather than silently invalidating the layout.
+
+- **The formation proposal** — designed, and every value derived from a measured anchor. **Biga**
+  (2) is the yoke's own peg stations ±0.500, both horses yoked, i.e. exactly what the asset already
+  describes. **Quadra** (4) is those two lanes plus one OUTER lane per side at ±1.220 (lane pitch
+  0.720), the outer horses being TRACE horses made fast to a staple on the yoke's top face at
+  X ±0.600 — no chariot change at all. **Triga** (3) is the same yoked pair plus ONE outer trace
+  lane, on +X. Horse envelope: withers 0.935 (the yoke's underside), barrel half width 0.250,
+  rearmost point Z ≤ −0.785 (the wheel disc's leading edge less 0.100) and hooves on the asset's own
+  ground plane, giving a 1.235 torso budget behind the withers. Every team stands abreast on the
+  yoke line (Z −2.020) with its lanes ascending in X.
+
+- **The one arrangement the model FORBIDS, measured.** Three abreast with a horse on the centre line
+  is impossible: the pole lies on the centre line at a horse's own barrel height, so a centre
+  horse's chest and belly would be inside it, and moving the pole off-centre would break the
+  chariot's own X symmetry (axle, tub and both handles are symmetric about X = 0). The alternative —
+  a lead horse entirely forward of the pole — needs its rearmost point past Z −2.207, which puts its
+  withers 1.422 ahead of the yoke line. An odd team therefore fields the yoked pair plus one trace
+  horse, and is asymmetric by construction.
+
+- **Verified asset inventory — no animation-ready horse exists anywhere in the project.**
+  - `public/_workspace_chariot.glb` is the only horse-shaped asset in the repo: **88 nodes / 88
+    meshes, 7 textures, materials Bronze/Hide/Iron/Leather/Mane/Wicker/Wood, and ZERO skins and ZERO
+    animations** — no skeleton, no joints, no gait. Two horse-shaped bodies stand abreast, mirrored
+    about the Z = 0 plane (verified as multisets of measured boxes, 22 distinct shapes each), with
+    rigid leg blocks. **44 of the 88 meshes carry Hide/Mane — 24 Hide + 20 Mane, i.e. 12 Hide + 10
+    Mane per body, 22 horse components per body** — the per-body number, not the total. It is dead
+    weight: no `.ts`/`.tsx` file outside its own suite names it.
+  - `public/models/arena_roman.glb` (the player) is the only rigged model in the project: 1 skin, 66
+    joints, 178 clips — all humanoid, with no trot / canter / gallop / gait / hoof / neigh clip.
+  - `public/_workspace_arena.glb` (76 meshes), the wheel kit (15 meshes, sha256 `d5b36add…`) and
+    every other GLB under `public/` are static scenery with no skin and no animation, and the wheel
+    kit ships no horse.
+  - **So horse meshes and horse animation remain unresolved prerequisites for any racing phase:**
+    this phase supplies the numbers a future renderer needs, not an asset to render.
+
+- **Regression suite: `src/utils/phaseC8_67d.test.ts` — 34 tests / 414 expect() calls** across eight
+  sections: §A the shipping asset re-measured from the file; §B every published constant against
+  that measurement plus every clearance re-derived from the raw accessors; §C the three teams (lanes,
+  symmetry, spacing, attachments, and a determinism/purity check that the plan hands out fresh
+  objects each call); §D the clearances, the applied-row contract, the tolerance check and the team
+  widths; §E the fit inside the East Circus track (its 16.8 × 68.4 bounds parsed from the arena
+  component); §F the arrangement the pole forbids and the model change the alternative would need;
+  §G the asset inventory above; §H the scope guards — purity, unconsumed, no horse asset added, the
+  C-8.67B catalogue and prices untouched, the purchase/selection contract, and both chariot GLB
+  hashes. **The phase's files are three:** the module, the suite and this record.
+
+- **Corrections this phase — one in production, the rest in the suite; each determined from the
+  evidence rather than from the failing expectation.**
+  1. **Production defect: the `chariot-body` clearance was a trace-lane rule applied to a team that
+     fields no trace lane.** `getTeamClearanceReport(2)` reported −0.518 against its 0.15 limit, i.e.
+     `ok === false`, for a Biga whose horses stand *between* the pole and the wheel — the
+     configuration the wheel-Z rule governs, and nothing the hub-cap rule was ever about. The rule is
+     now scoped to the trace lanes, so Biga's report carries five rows where Triga and Quadra carry
+     six; the documented reason is that a yoked lane's barrel reaches inside the disc's own X band by
+     design (0.750 against 0.665…0.735), which is exactly why the rear-Z rule exists. **Nothing was
+     relaxed for the teams the rule applies to** — Triga and Quadra still check 0.202 against 0.15.
+  2. **§D's team-width bound compared the team with three chariots:** `> 3 × 2 × 0.768` (4.608)
+     could never hold for a 2.94-wide team. The measured statements now stand: the trace teams
+     (2.94) are wider than the chariot's own 1.536, while the yoked pair alone (1.50) is narrower
+     than it, because both its horses stand between the wheels' faces.
+  3. **§F's centre-ahead arithmetic had the withers offset's sign inverted:** `requiredRearZ +
+     HORSE_MAX_WITHERS_TO_REAR` (−0.972) lands *behind* the yoke line, so the comparison it fed
+     could not pass. The withers must move the torso budget FURTHER forward from that rear limit —
+     station Z −3.442, i.e. 1.422 ahead of the trace horses' — and the 0.187 figure belongs to the
+     rear limit's own distance ahead of the yoke line; both are now asserted separately.
+  4. **§G conflated two counts:** it expected 22 Hide/Mane meshes and read 44. It now distinguishes
+     **44 Hide/Mane meshes** (24 Hide + 20 Mane) from **22 components per horse body** (12 Hide + 10
+     Mane each), and adds the mirror check described above.
+  5. **§H asserted that BUYING selects.** `purchaseRacingConfig` deliberately does not select — the
+     racing analogue of "buying never equips" — so a purchased Quadra still resolved `horses` = 2.
+     The test now asserts the real contract: purchase unlocks and leaves the selection at Biga, a
+     separate free selection moves it, and only then does the profile resolve to 4.
+  6. **§C's description check was a degenerate ternary** — both branches read `'yoked pair'`, so it
+     could never have distinguished anything and failed on Biga's own text ("both on the yoke"). It
+     now asserts what each description says: the yoke for Biga, the yoked pair for the trace teams.
+  7. **The peg and tub-rail assertions were re-run, not assumed.** §A's peg test (exactly two pegs,
+     mirror-symmetric, rooted in the bar, topping out 0.255 above the withers plane) and §A's tub-rail
+     test (narrower than the pegs' own span, entirely behind every station) pass unchanged.
+  8. **The float tolerance was verified against the real constraint, not loosened.** The
+     `wheel-z-leading-edge` rule is satisfied EXACTLY by construction — the rear limit IS the wheel's
+     leading edge less the clearance — so its own subtraction rounds to 0.09999999999999998 against a
+     limit of 0.1, a 2.2e-17 departure the helper's 1e-9 epsilon covers and nothing more: that
+     epsilon is seven orders below the suite's 5e-4 published precision, so a real violation (1e-3
+     and up) cannot hide behind it. A new test pins the value-to-limit difference at < 1e-12, the
+     limit as `HORSE_REAR_CLEARANCE`, the raw accessor's agreement to float32 rounding (< 1e-6, and
+     > 0.09 in absolute terms) and the epsilon's size against the published precision.
+  9. **Two failures in this turn's NEW assertions were mine, not the code's.** (a) The lane pitch is
+     the distance between an outer lane and the inner lane BESIDE it (0.720); the two yoked lanes
+     straddle the pole at ±0.500 and are 1.0 apart by design, which is what the test now states
+     instead of expecting a uniform adjacent gap. (b) The raw accessor is float32, so a 12-decimal
+     comparison of the wheel's leading edge (a 2.4e-9 departure) was impossible; the raw check now
+     states the accessor's own precision.
+  10. **Lint was failing before this phase and is fixed, not worked around.** `tsc --noEmit` reported
+     a pre-existing TS2300 duplicate identifier: the suite imported `CHARIOT_WHEEL_HUB_X` from both
+     `chariotTeamFormation` and `chariotGeometry`. The workshop's is now imported as
+     `WORKSHOP_WHEEL_HUB_X`, and the cross-module check that mattered — the two constants agreeing
+     on the axle's hub X — is asserted explicitly instead of being implied by the shared name.
+
+- **Verified 2026-10-19** in the dev container, after the last edit: focused
+  `bun test src/utils/phaseC8_67d.test.ts` → **34 pass / 0 fail** (414 expect() calls; the starting
+  point was 26 pass / 6 fail); `bun test` → **1768 pass / 0 fail (55 files, 38189 expect() calls)**
+  (C-8.67B left 1706 / 53, the delta being the C-8.67C work in between plus this suite's two new
+  tests); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → **exit 0** (exit 1 before this turn's duplicate-import fix); `bun run build` →
+  exit 0 with the pre-existing >500 kB chunk warning only; `git diff --check` → clean. **The
+  player's real save was never read or written:** every purchase/selection check runs against an
+  in-memory `createNewProfile` object, no browser storage was touched, and no record was left behind.
+
+- **Unresolved design decisions, carried forward.**
+  1. **Triga is a DESIGN HYPOTHESIS, not a final, historically or visually approved formation.** An
+     odd team with a single central pole cannot be symmetric, so this plan fields the yoked pair plus
+     ONE outer trace horse on the RIGHT (+X). The left lane is geometrically equivalent — the choice
+     is one constant (`TEAM_LANES[3]`) — and no artist or historian has accepted the arrangement, so
+     a future phase must treat it as open, not settled.
+  2. **A lead horse ahead of the pole is a model change**, not a layout option: it needs the draught
+     pole shortened (or the chariot re-symmetrised) and would read as a detached lead horse.
+  3. **No horse asset exists** — and the one horse-shaped asset is unrigged, unreferenced and carries
+     no animation, so a racing phase cannot start from it as-is.
+  4. **The outer horse's fitting is a plan, not geometry:** the trace staple at X ±0.600 on the
+     yoke's top face does not exist on the model; adding it is a chariot change nobody has authorized.
+  5. **The plan stays unconnected to rendering and gameplay by design**, and must remain pure until
+     an explicitly authorized phase wires it up.
+
+- **Documentation gap, deliberately not fixed:** this file still has **no C-8.67C section** (the
+  Racing Configuration UI and its live validation), so a future reader should not assume that record
+  exists; `src/utils/phaseC8_67c*.test.ts` is the nearest record. This phase documents C-8.67D only.
+
+- **Android visual acceptance: not applicable yet, and PENDING when it becomes applicable.** Nothing
+  in this phase renders a pixel — no horse, no trace staple, no racing screen — so there is no
+  appearance to accept here and no new device item. **Do not claim a raceable team or an
+  animation-ready horse:** when one ships, the device check this plan exists to inform is whether the
+  horses stand abreast on the yoke line with the pole between the inner pair, whether a trace horse
+  reads as running alongside the chariot clear of the wheel, and whether Triga's single outer horse
+  reads as intentional. The C-8.66B/C-8.66C/C-8.66D workshop and wheel-swap checks, and everything
+  before them, remain open.

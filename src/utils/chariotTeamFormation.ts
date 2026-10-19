@@ -292,6 +292,12 @@ export interface TeamClearance {
  * These are the checks the audit owed: wheel clearance, horse-to-horse air,
  * chariot-body interference and ground contact.  A future renderer can assert
  * `report.ok` before it draws anything; the suite asserts every row.
+ *
+ * The row set follows the team, because one rule is scoped to a lane a team may
+ * not field: `chariot-body` governs a TRACE lane — the lane that runs alongside
+ * the chariot — so Biga's report carries five rows where Triga and Quadra carry
+ * six.  Every row present is a rule the arrangement must satisfy, and `ok` is
+ * the conjunction of those rows.
  */
 export function getTeamClearanceReport(teamSize: ChariotTeamSize): {
   teamSize: ChariotTeamSize;
@@ -304,7 +310,12 @@ export function getTeamClearanceReport(teamSize: ChariotTeamSize): {
   const stations = getHorseStations(teamSize);
   const half = HORSE_ENVELOPE.barrelHalfWidth;
   const innerMost = INNER_LANE_X - half;
-  const outerMost = Math.max(...stations.map((s) => Math.abs(s.x))) - half;
+  // Only a TRACE lane runs alongside the chariot, so only a trace lane owes the hub-cap
+  // clearance.  A yoked lane stands between the pole and the wheel by design — its barrel
+  // reaches inside the disc's own X band, which is exactly why the wheel-Z rule below
+  // exists — so measuring it against the hub cap would report a violation of a constraint
+  // the arrangement is not trying to satisfy and can never meet.
+  const traceStations = stations.filter((s) => !s.yoked);
 
   // The 1e-9 tolerance is for a rule that is satisfied EXACTLY by construction: the rear
   // limit is defined as `wheel leading edge − clearance`, so its own difference rounds to
@@ -331,12 +342,16 @@ export function getTeamClearanceReport(teamSize: ChariotTeamSize): {
       LANE_PITCH - 2 * half,
       0.15
     ),
-    check(
-      'chariot-body',
-      'Outermost lane’s inner edge clear of the chariot’s widest point (hub cap)',
-      outerMost - CHARIOT_WIDEST_X,
-      0.15
-    ),
+    ...(traceStations.length
+      ? [
+          check(
+            'chariot-body',
+            'Outermost trace lane’s inner edge clear of the chariot’s widest point (hub cap)',
+            Math.max(...traceStations.map((s) => Math.abs(s.x))) - half - CHARIOT_WIDEST_X,
+            0.15
+          ),
+        ]
+      : []),
     check(
       'wheel-z-leading-edge',
       'Inner horse’s rearmost point forward of the wheel disc’s leading edge',
