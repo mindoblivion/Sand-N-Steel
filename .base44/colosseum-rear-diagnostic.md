@@ -201,3 +201,105 @@ Added: `src/components/dev/ColosseumRearDiagnostic.tsx` (viewer),
 this report. Delete the three new dev source/test files and remove the
 `useColosseumRearHarness` gate/branch to remove the diagnostic. Neither production
 build behaviour nor saved data needs migration or cleanup.
+
+## C-8.69F — Android visual review evidence pack (verification only, no production change)
+
+**Preflight.** Branch `colosseum-exterior-architecture`, HEAD
+`7368e46144a4cc1e34e0895cf144756d7c86f4ce`, `git status --short` empty. This phase changed no
+production source, geometry, material, light rig, collider or save code, and added no diagnostic
+control. Nothing below supersedes the C-8.69D/E findings — it re-confirms that the diagnostic still
+behaves as recorded, and states exactly what a device capture must show.
+
+### Verified entry points
+
+- **`/__dev/colosseum-rear`** (pathname) — **verified live.** `src/main.tsx`'s
+  `useColosseumRearHarness` gate tests the pathname (and the `?devHarness=colosseum-rear` query) and
+  mounts `ColosseumRearDiagnostic` **instead of** `App`, so the save loader, player and collision
+  system never mount. It reached `Ready · A · overview` at the **mobile viewport (375 px client
+  width)** with the three mode buttons, both fixed cameras and the probe table present. The query
+  entry is the same gate on `URLSearchParams`; it is source-checked, not separately browser-verified.
+
+### Narrow-viewport and A/B/C/A checks (driven in one pass at 375 px)
+
+A · Production → B · Neutral rear → C · Rear fill → A · Production, without changing camera,
+orientation or viewport:
+
+| check | result |
+|---|---|
+| modes reached, in order | **A → B → C → A** |
+| exterior surface signature | **`7b40c557` in all four states** — buffers and world transforms unchanged |
+| camera position | `[0, 8, −76.563]`, identical in all four states |
+| rear fill present | `true` **only** in C |
+| radial probes (θ 148/164/180/196/212°) | identical in A, B and C — y 4 = **opening**, y 12 = **recess liner**, y 16.2 = **stone** |
+| horizontal overflow | `scrollWidth` 375 = `clientWidth` 375 — no sideways scroll |
+| console errors / failed requests | **0 / 0** |
+
+Read from the captures taken inside that pass: **A** — production shading, the tier-2 band above the
+gate dark, the arches open onto the lit interior; **B** — the rear exterior flat unlit grey with
+**the openings still open** and the lit interior still visible through them; **C** — the same stone
+brightened, the tier-2 band reading as a lit band rather than a void. **No state shows a hole, a
+torn surface or a blank region.**
+
+### Renderer limitation
+
+The preview identifies itself as **`ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)),
+SwiftShader driver)`** — CPU software rendering, no Android GPU, ~1.5–2 fps. This environment can
+establish that the rear geometry is present and that lighting/contrast changes its reading; it
+**cannot** adjudicate a hardware render path (environment/PMREM, tone mapping, precision) and does
+not reproduce the reported device symptom. Nothing here is Android acceptance.
+
+### Roofline and rear-wall findings
+
+**Source-confirmed (measured in this repo):**
+
+- The drum is closed at every height except the designed openings — the rear gate
+  (θ 171.96–188.04°, to y 7.35), the tier-1 arcade bays and the monumental entrance. Above y 8.6 the
+  rear gate zone is solid stone; y 15.0 / 16.5 / 17.2 are a **full ring**.
+- The roofline is a **continuous crest at y 17.35** at every azimuth, and the source contains **no
+  roof, velarium or cap mesh** — the building has no conventional roof, and no band sits above the
+  crest.
+- Every drum band is `DoubleSide` with outward normals, so back-face culling cannot remove a rear
+  surface, and no coplanar duplicate surface exists on the drum.
+- The rear is the building's **unlit side** — 0.397 against 1.068 for the front (37.2% of the
+  directional + hemisphere total), with `N·L(sun)` = −0.392 there.
+- Two by-design rear asymmetries: tier 1 is a **51%-open see-through arcade** (liner removed in
+  Phase 25.4), and tier 2 carries **no pilaster over a 48.80° zone** about θ = π (pilasters end at
+  155.60° / 204.40°), exposing the dark recess liner (`recessMat` #3d352a, r 17.0) above the gate.
+
+**Unresolved / device-dependent:**
+
+- Whether on the device the dark band is **stone rendered dark** (lighting / material / tone
+  mapping) or **absent geometry** — this renderer cannot distinguish them, and A/B/C here supports
+  only a *contrast* explanation.
+- Whether a device-specific **environment-map (PMREM) failure**, tone-mapping difference or WebGL
+  **context loss** is involved (the C-8.69A closeout recorded one blank-canvas frame under
+  SwiftShader with `isContextLost() === false`).
+- Whether it changes with camera angle/distance, and between portrait and landscape.
+
+### Required device evidence (Android)
+
+Capture **A, B and C without switching camera or orientation**, at the reported vantage, and
+include:
+
+1. **Rear overview**, **rear approach**, the **front** for comparison, and the **attic crest**.
+2. **Device model, GPU and browser** (and, if shown, the diagnostic's own renderer line).
+3. Which surface appears missing — **stone** (the facade between/below/above the openings) or the
+   **openings themselves** (arches and gate showing the interior).
+4. Whether it is stable with camera angle/distance, and whether it differs between **portrait and
+   landscape** (portrait narrows the horizontal window to ~27°).
+
+### Validation obtained
+
+- Focused diagnostic suite at this HEAD:
+  `bun test src/components/dev/colosseumRearDiagnostic.test.ts` → **9 pass / 0 fail, 136 `expect()`
+  calls** (material restoration, geometry/transform/resource preservation, one-draw-per-index, probe
+  parity across A/B/restored-A, B→A cycle disposal, production short-circuit, no
+  storage/player/collision dependencies, light-rig parity, mode-independent camera).
+- Live comparison at the mobile viewport: the table above — signature `7b40c557` stable across
+  A→B→C→A, camera fixed, probes identical, fill only in C, **0** console errors, **0** failed
+  requests, no horizontal overflow.
+- The full `bun test`, collision-script, lint and build figures are the C-8.69E ones above; no
+  implementation code changed, so they were **not** re-run.
+
+**No fix was selected, no production file was touched, and Android visual acceptance remains
+PENDING.** Persisting this record and the capture request are all this phase produces.
