@@ -779,7 +779,9 @@ const mottePerimeterSegments: SegmentCollider[] = arcSegments(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// East Circus Arena — EastCircusArena.tsx, group [52.34, -0.05, 43.80]
+// East Circus Arena — EastCircusArena.tsx, group [52.34, 0.00, 43.80]
+// (Y is GROUND_PLANE_ELEVATION_Y + CIRCUS_ARENA_GROUND_CLEARANCE since C-8.69B.
+//  Every collider below is a pure X/Z segment, so the lift cannot reach it.)
 //
 // Phase C-8.64A.  Every node of `public/_workspace_arena.glb` carries the same
 // Z-up → Y-up matrix (the loader applies it), so with the group's yaw π/2 and

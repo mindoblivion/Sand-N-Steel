@@ -3607,3 +3607,89 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   record in this file.** (6) New here: the fixed framing is sized for the **three comparison
   scales**; dragging the slider past them (up to 1.2) can push the staging horse's tail outside a
   three-quarter frame, which is expected and is why the FREE view exists.
+
+## East Circus Arena ground clearance (Phase C-8.69B — implemented; Android acceptance PENDING)
+
+- **Demonstrated cause — a coplanarity, not a modelling error.** C-8.63/C-8.64A placed the arena's
+  root on `GROUND_PLANE_ELEVATION_Y` (−0.05), i.e. *exactly* on `ProcessionAvenue`'s ground plane —
+  a single quad spanning X ±70 / Z −114 … +70 that therefore also runs underneath the arena. The pair
+  that matters is the arena's own floor: `Sand_00`'s top face is upward-facing and was also at −0.05,
+  so the floor was resolved against the ground plane instead of against itself, per fragment and per
+  frame. Measured on the shipping GLB under the pre-lift transform, **18 of the asset's 76 meshes had
+  their lowest vertex exactly on the ground plane** (`Marble_01`, `Travertine_02`, `Marble_05`–`10`,
+  `Granite_11`, `Granite_12`, `Marble_13`, `15`, `17`, `19`, `21`, `23`, `Travertine_25`,
+  `Travertine_30`) — the coplanar set, and the reason the artifact is visible only where the floor is
+  seen from outside the bowl: over the 2.13-high carceres block, i.e. from the paved forecourt on the
+  arena's far south side.
+
+- **The correction is a 0.05 Y lift and nothing else.** `EastCircusArena.tsx` now derives
+  `CIRCUS_ARENA_POSITION[1]` as `GROUND_PLANE_ELEVATION_Y + CIRCUS_ARENA_GROUND_CLEARANCE`, with
+  `CIRCUS_ARENA_GROUND_CLEARANCE = 0.05` — the clearance this project already gives a ground-contact
+  surface (C-8.35: the motte's crest rings sit exactly 0.05 proud of the sand).
+
+  | quantity | before (C-8.63/C-8.64A) | after (C-8.69B) |
+  |---|---|---|
+  | root position Y | **−0.05** | **0.00** |
+  | root X / Z | 52.34 / 43.80 | 52.34 / 43.80 — unchanged |
+  | yaw / scale | π/2 / 0.20 | π/2 / 0.20 — unchanged |
+  | `Sand_00` top face (the arena floor) | −0.05 | **0.00** |
+  | floor clearance above the ground plane | 0.000 | **0.05** |
+  | whole-asset world Y span | −0.25 … 5.71 | **−0.20 … 5.76** |
+  | `Sand_00` X / Z extents | 43.94 … 60.74 / −24.598 … 43.80 | **identical** |
+  | `Marble_01` / `Travertine_25` / `Travertine_30` X-Z extents | — | **identical** |
+
+  Every X and Z extent is byte-identical before and after (throwaway harness in `/tmp`, parsing the
+  shipping GLB through gltf-transform and the component's own transform), so the horizontal position,
+  scale and yaw — and therefore the whole collision footprint — are untouched. The asset, its
+  materials and its transforms inside the group are not edited at all.
+
+- **The collision registry is provably inert to the change: it carries no Y at all.** Measured over
+  all 142 colliders (111 non-`circus` + 31 `circus-*`, 32 rectangles — the count C-8.64B's completion
+  pass left), **none** holds a `y`, `minY`, `maxY`, `height` or `h` field — colliders use only
+  `type`, `id`, `cx`, `cz`, `hw`, `hd`, `x1`, `z1`, `x2`, `z2`, `r`, and all **31 `circus-*`
+  segments are pure X/Z segments** (`{type:'segment', id, x1, z1, x2, z2}`). There is therefore no
+  "perimeter collider height" for the lift to change, and the ring's footprint is unchanged:
+  X 38.38 … 66.30, Z −30.65 … 46.00. The East Circus District has **no fast-travel arrival of its
+  own**, and all 20 entries in `FAST_TRAVEL_ARRIVALS` are unchanged.
+
+- **Entrances and the forecourt are unchanged.** The carceres' front face stays at Z 46.00 and the
+  forecourt pavement (Z 46.10 … 54.50) is a separate, unlifted district mesh, so the single vertical
+  relationship that moved is the arena's: it now stands 0.05 proud of the district paving and of the
+  ground plane, which is the intended clearance and a fraction of the shell's own wall thickness.
+
+- **Files changed.** `src/components/3d/city/EastCircusArena.tsx` (the new constant, the derived
+  position and the header's measured figures) plus four suites **rebased, not weakened**, each of
+  which had pinned the old literal `[52.34, -0.05, 43.8]` as a scope guard:
+  `phaseC8_64a.test.ts` (the transform pin became the derivation and its operands, and "flush with the
+  ground plane" became the clearance test — `TRACK.maxY − GROUND_PLANE_ELEVATION_Y = 0.05`),
+  `phaseC8_64b.test.ts` and `phaseC8_65.test.ts` (same scope guards),
+  `phaseC8_67d.test.ts` (its documented-track parser gained the new Y column and now asserts the track
+  at Y 0.00 … −0.20). `src/utils/collisionShapes.ts`'s header comment, which still read
+  `group [52.34, -0.05, 43.80]`, now reads `0.00`. **No assertion was removed or relaxed and no other
+  production file changed.**
+
+- **Verified 2026-10-19** (the C-8.69A closeout) in the dev container: focused
+  `bun test src/utils/phaseC8_64a.test.ts src/utils/phaseC8_64b.test.ts src/utils/phaseC8_65.test.ts src/utils/phaseC8_67d.test.ts`
+  → **127 pass / 0 fail** (4 files); `bun test` → **1805 pass / 0 fail (56 files)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0; `git diff --check` → clean.
+
+- **Not automatically verified — the rendered look, and this is a device question.** The sandbox has
+  no GPU (SwiftShader; the city hub measures ~1.4–1.7 fps here). The player **was** driven into the
+  East Circus District in the preview (title → `Play as Guest` → city map → fast travel to the
+  Armory & Leather Workshop, then walked east and south through the district envelope) and frames do
+  render legibly there, but **no frame legibly resolves the arena's far-south facade over the
+  carceres**, and a 0.05-unit coplanarity is below what a software rasterizer can adjudicate in any
+  case. One further observation, recorded but **not** attributed to this phase: a frame captured
+  mid-walk came back with the canvas blank; it recovered on the next fast travel, with no console
+  errors, no failed requests and `isContextLost() === false` — a capture/software-renderer artifact
+  rather than an app fault. **So visual acceptance of the z-fighting fix remains PENDING**, to be
+  judged on an Android device from the paved forecourt south of the carceres, the one viewpoint where
+  the arena's floor is seen over the block. Do not claim the artifact is gone from a green test run.
+
+- **Open device checklist — unchanged, plus this phase's question:** (a) does the
+  floor-over-carceres flicker / dropped-patch artifact disappear from the far-south forecourt;
+  (b) does the arena read as standing *on* the paving rather than sunk into it (a 0.05 hairline, not
+  a visible lip)? Still open from earlier phases: the C-8.64A/B district envelope, forecourt and
+  entrances, the C-8.28 bowl cut, the C-8.29 Store ↔ Workshop junction and the C-8.31/C-8.33
+  rear-gate stonework. Do not claim visual acceptance without device evidence.
