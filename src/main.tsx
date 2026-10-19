@@ -40,6 +40,20 @@ const useChariotHarness =
   (new URLSearchParams(window.location.search).get('devHarness') === 'chariot' ||
     readDevHarnessFlag() === 'chariot');
 
+// Phase C-8.67C — development-only Racing Configuration transaction harness.
+// Reachable ONLY in a Vite dev build, through the exact `?devHarness=racing`
+// query parameter or the equivalent dev-only scratch-storage flag
+// `sand_and_steel_dev_harness = 'racing'`.  It drives the REAL Racing
+// Configuration UI (inside the Armory's subview the Imperial Stable opens)
+// against a DISPOSABLE profile stored under its own storage key, so a team
+// purchase and a team selection can be exercised end to end without touching
+// the player's save.  `?gold=<n>` sets the disposable profile's starting purse
+// when it is first seeded (default 2,500 — enough for Triga and Quadra).
+const useRacingHarness =
+  import.meta.env.DEV &&
+  (new URLSearchParams(window.location.search).get('devHarness') === 'racing' ||
+    readDevHarnessFlag() === 'racing');
+
 if (useCharacterHarness) {
   // Lazy so the harness module (and its DuelScene chunk) is never even parsed
   // outside this dev+param path.
@@ -55,6 +69,14 @@ if (useCharacterHarness) {
     ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <React.StrictMode>
         <ChariotWorkshopHarness />
+      </React.StrictMode>,
+    );
+  });
+} else if (useRacingHarness) {
+  void import('./components/dev/RacingConfigHarness').then(({ RacingConfigHarness }) => {
+    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+      <React.StrictMode>
+        <RacingConfigHarness />
       </React.StrictMode>,
     );
   });

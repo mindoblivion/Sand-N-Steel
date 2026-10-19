@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem } from './types/game';
+import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize } from './types/game';
 import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
 import { CharacterCreation } from './components/hub/CharacterCreation';
@@ -7,6 +7,7 @@ const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene'
 import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
 import type { GearView } from './components/hub/GearTab';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
+import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 import { DuelResultModal } from './components/hub/DuelResultModal';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
@@ -312,6 +313,29 @@ export function App() {
     setCurrentScreen('city_3d');
   };
 
+  /**
+   * Phase C-8.67C — buy a racing team (Triga 750, Quadra 1,500) with the
+   * player's existing purse.  `purchaseRacingConfig` is pure and re-checks every
+   * rule against the profile it is handed — prerequisite, ownership, price — so a
+   * rejected buy leaves the profile, its balance included, exactly as it was and
+   * never reaches `saveProfile`.  An already-unlocked team is refused too, so a
+   * repeated or stale click cannot be charged twice.
+   */
+  const handleBuyRacingConfig = (horses: ChariotTeamSize) => {
+    const result = purchaseRacingConfig(profile, horses);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /** Select an unlocked team: free, and it only records the player's preference. */
+  const handleSelectRacingConfig = (horses: ChariotTeamSize) => {
+    const result = selectRacingConfig(profile, horses);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
   // Profile mutations
   const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
     if (!profile) return;
@@ -457,6 +481,8 @@ export function App() {
             onGearViewChange={setGearView}
             onBuyChariotPart={handleBuyChariotPart}
             onEquipChariotPart={handleEquipChariotPart}
+            onBuyRacingConfig={handleBuyRacingConfig}
+            onSelectRacingConfig={handleSelectRacingConfig}
             onAllocateStatPoint={handleAllocateStatPoint}
             onOpenDriveSync={() => setShowDriveSync(true)}
             onToggleMute={handleToggleMute}

@@ -1,8 +1,9 @@
 import React from 'react';
-import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
+import { PlayerProfile, WeaponItem, ArmorItem, ChariotTeamSize } from '../../types/game';
 import { Layers, Shield, Swords, Check, Wrench } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { ChariotWorkshopTab } from './ChariotWorkshopTab';
+import { RacingConfigSection } from './RacingConfigSection';
 
 /** The Armory's own subview (Phase C-8.66B): the gear list, or the Chariot Workshop. */
 export type GearView = 'armory' | 'chariot';
@@ -16,6 +17,14 @@ interface GearTabProps {
   onGearViewChange?: (view: GearView) => void;
   onBuyChariotPart?: (partId: string) => void;
   onEquipChariotPart?: (partId: string) => void;
+  /**
+   * Phase C-8.67C — the Racing Configuration section shown below the workshop's
+   * fit and cosmetic cards.  App wires these to the pure racing-progression
+   * helpers and the existing `saveProfile()` path.  Both optional so the tab
+   * works with no racing wiring.
+   */
+  onBuyRacingConfig?: (horses: ChariotTeamSize) => void;
+  onSelectRacingConfig?: (horses: ChariotTeamSize) => void;
 }
 
 const GEAR_VIEWS: { key: GearView; label: string; icon: typeof Layers }[] = [
@@ -31,6 +40,8 @@ export const GearTab: React.FC<GearTabProps> = ({
   onGearViewChange,
   onBuyChariotPart,
   onEquipChariotPart,
+  onBuyRacingConfig,
+  onSelectRacingConfig,
 }) => {
   const currentWeapon = profile.equipped.weapon;
   const currentHelm = profile.equipped.helm;
@@ -68,11 +79,19 @@ export const GearTab: React.FC<GearTabProps> = ({
       </div>
 
       {gearView === 'chariot' ? (
-        <ChariotWorkshopTab
-          profile={profile}
-          onBuyPart={onBuyChariotPart ?? (() => {})}
-          onEquipPart={onEquipChariotPart ?? (() => {})}
-        />
+        <>
+          <ChariotWorkshopTab
+            profile={profile}
+            onBuyPart={onBuyChariotPart ?? (() => {})}
+            onEquipPart={onEquipChariotPart ?? (() => {})}
+          />
+          {/* Phase C-8.67C — horse-team progression, below the workshop's own cards. */}
+          <RacingConfigSection
+            profile={profile}
+            onBuyConfig={onBuyRacingConfig}
+            onSelectConfig={onSelectRacingConfig}
+          />
+        </>
       ) : (
         <>
       <div className="bg-neutral-900/80 border-2 border-cyan-500/60 rounded-3xl p-6 shadow-xl">

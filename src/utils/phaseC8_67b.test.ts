@@ -87,8 +87,14 @@ const APP = code('../App.tsx');
 const MODULE = code('./racingProgression.ts');
 
 const SRC_ROOT = path('../');
+/**
+ * The module itself and every `*.test.ts` file are not application code: the
+ * consumer sweep below is about what a *screen* consumes.  (Phase C-8.67C added
+ * `phaseC8_67c.test.ts`, which imports the module, so the exclusion is stated by
+ * extension rather than by one suite's filename.)
+ */
 const isSuiteOrModule = (file: string): boolean =>
-  file.endsWith('racingProgression.ts') || file.endsWith('phaseC8_67b.test.ts');
+  file.endsWith('racingProgression.ts') || file.endsWith('.test.ts');
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];
@@ -687,11 +693,23 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
     ]);
   });
 
-  test('no application screen consumes the racing module yet', () => {
+  test('the racing module is consumed by the C-8.67C UI and by nothing else', () => {
+    // Phase C-8.67B asserted this list was EMPTY ("data + logic only, no UI").
+    // Phase C-8.67C wired the module into the player-facing Racing Configuration
+    // section, App's two handlers and its dev-only harness, so the assertion is
+    // rebased onto the exact consumer set rather than dropped: a *gameplay* file
+    // — a race loop, an arena entry, physics, a HUD — still cannot start
+    // importing it without failing here.
     const consumers = sourceFiles(SRC_ROOT)
       .filter((file) => !isSuiteOrModule(file))
-      .filter((file) => code(file).includes('racingProgression'));
-    expect(consumers).toEqual([]);
+      .filter((file) => code(file).includes('racingProgression'))
+      .map((file) => file.slice(SRC_ROOT.length))
+      .sort();
+    expect(consumers).toEqual([
+      'App.tsx',
+      'components/dev/RacingConfigHarness.tsx',
+      'components/hub/RacingConfigSection.tsx',
+    ]);
     expect(code('./racingProgression.ts').length).toBeGreaterThan(1000);
   });
 

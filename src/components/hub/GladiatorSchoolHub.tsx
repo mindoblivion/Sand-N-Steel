@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem } from '../../types/game';
+import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize } from '../../types/game';
 import { TournamentTab } from './TournamentTab';
 import { TrainingTab } from './TrainingTab';
 import { ShopTab } from './ShopTab';
@@ -25,6 +25,9 @@ interface GladiatorSchoolHubProps {
   onGearViewChange?: (view: GearView) => void;
   onBuyChariotPart?: (partId: string) => void;
   onEquipChariotPart?: (partId: string) => void;
+  /** Phase C-8.67C — the racing team progression shown inside the same subview. */
+  onBuyRacingConfig?: (horses: ChariotTeamSize) => void;
+  onSelectRacingConfig?: (horses: ChariotTeamSize) => void;
   onAllocateStatPoint: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -47,6 +50,8 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onGearViewChange,
   onBuyChariotPart,
   onEquipChariotPart,
+  onBuyRacingConfig,
+  onSelectRacingConfig,
   onAllocateStatPoint,
   onOpenDriveSync,
   onToggleMute,
@@ -170,6 +175,8 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onGearViewChange={onGearViewChange}
             onBuyChariotPart={onBuyChariotPart}
             onEquipChariotPart={onEquipChariotPart}
+            onBuyRacingConfig={onBuyRacingConfig}
+            onSelectRacingConfig={onSelectRacingConfig}
           />
         )}
         {activeTab === 'stats' && (
