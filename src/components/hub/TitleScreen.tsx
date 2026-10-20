@@ -6,10 +6,16 @@ import { preloadTapStage } from '../../utils/preloadAssets';
 import { useTitlePhaseBackdrop } from '../../hooks/useTitlePhaseBackdrop';
 import { TITLE_BACKDROP_CLASS } from '../../utils/startupAssets';
 import { TitleAccountPanel } from './TitleAccountPanel';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { AlertTriangle, Settings as SettingsIcon, X } from 'lucide-react';
 
 interface TitleScreenProps {
   savedProfile: PlayerProfile | null;
+  /**
+   * Save-safety — the stored save could not be read this boot and its original bytes
+   * were kept on the device under the quarantine key instead of being dropped.  Stated
+   * here, once, in plain language; nothing else about the title changes.
+   */
+  saveQuarantineNotice?: boolean;
   onContinueAdventure: () => void;
   onNewCharacter: () => void;
   onOpenDriveSync: () => void;
@@ -79,6 +85,7 @@ const DUST_PARTICLES = [
  */
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   savedProfile,
+  saveQuarantineNotice,
   onContinueAdventure,
   onNewCharacter,
   onOpenDriveSync,
@@ -96,6 +103,9 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onEmailSignIn,
 }) => {
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  // Save-safety — the quarantine notice is stated once and dismissible; nothing
+  // behind it (no save, no profile) changes when it is dismissed.
+  const [quarantineNoticeDismissed, setQuarantineNoticeDismissed] = useState(false);
 
   // Guards against double-fire if the player taps the primary action twice quickly.
   const startedRef = useRef(false);
@@ -127,6 +137,20 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
     if (savedProfile) onContinueAdventure();
     else onNewCharacter();
+
+    // SAVE-SAFETY — with no stored gladiator this tap may NOT leave the title: the New
+    // Character overwrite confirmation can take the screen while the title stays mounted
+    // underneath, and the latch above would then leave the primary action dead once the
+    // player cancels (dismissing the dialog never navigates).  Release it on the next
+    // tick.  A tap that DID leave — a returning gladiator's Continue, or creation itself
+    // — unmounts this screen, so the release is moot for that player and their
+    // double-fire guard is untouched.  While the confirmation is up it covers the whole
+    // screen, so a second tap cannot reach this button anyway.
+    if (!savedProfile) {
+      window.setTimeout(() => {
+        startedRef.current = false;
+      }, 0);
+    }
   };
 
   const handleOpenAccount = () => {
@@ -258,6 +282,39 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             Account
           </button>
         </div>
+
+        {/* SAVE-SAFETY — the stored gladiator could not be read this boot.  The original
+            bytes were kept on this device (quarantine key) rather than dropped, so the
+            title says so in plain language instead of the game failing silently or
+            pretending the save was never there. */}
+        {saveQuarantineNotice && !quarantineNoticeDismissed && (
+          <div
+            role="alert"
+            data-title-notice="save-quarantined"
+            className="absolute left-1/2 -translate-x-1/2 z-20 w-[min(92vw,26rem)] rounded-2xl border border-amber-800/60 bg-neutral-950/95 backdrop-blur-sm px-4 py-3 shadow-2xl text-amber-100"
+            style={{ bottom: '30%' }}
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-400 shrink-0" />
+              <div className="flex-1">
+                <p className="font-serif text-sm text-amber-200">A saved gladiator couldn&rsquo;t be read</p>
+                <p className="mt-1 text-[11px] text-neutral-300 leading-relaxed">
+                  The save on this device was damaged, so the game kept the original data and started
+                  fresh. Nothing has been deleted, and a new gladiator asks before it replaces anything.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Dismiss notice"
+                data-title-notice-action="dismiss"
+                onClick={() => setQuarantineNoticeDismissed(true)}
+                className="text-amber-700/80 hover:text-amber-300 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Version label */}
         <div className="absolute bottom-2 left-2 z-10 font-serif text-[10px] text-amber-200/40 tracking-wider pointer-events-none select-none">

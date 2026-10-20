@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize } from './types/game';
-import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats } from './services/storage';
+import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
+import type { StoredProfileSummary } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
 import { CharacterCreation } from './components/hub/CharacterCreation';
+import { NewCharacterOverwriteModal } from './components/hub/NewCharacterOverwriteModal';
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
 import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
 import type { GearView } from './components/hub/GearTab';
+import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 import { sellItem } from './utils/selling';
+import { markSeen } from './utils/coachMarks';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
 // city hub and the duel arena are: one more screen value, one more lazy import
@@ -57,6 +61,7 @@ import { appleSignIn } from './services/appleAuth';
 import { microsoftSignIn } from './services/microsoftAuth';
 import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 import { ALL_OPPONENTS } from './data/opponents';
+import { resolveVictoryTier } from './utils/tierAdvancement';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
 import { preloadTitleStage } from './utils/preloadAssets';
@@ -83,6 +88,10 @@ export function App() {
   // interaction opens the gear tab with this set to 'chariot'; the tab's own
   // switch flips it back to the gear list.
   const [gearView, setGearView] = useState<GearView>('armory');
+  // Phase SHOP-2: the shop tab's own storefront. A city building's interaction
+  // opens the shop tab with the building's id; the tab's own switch returns to
+  // the open market.
+  const [shopId, setShopId] = useState<StorefrontId>('market');
   // Phase C-8.70B Stage 1, Slice 1 — where the city must put the player back
   // after a race. Set when the race is entered, read when the city remounts,
   // in memory only.
@@ -125,6 +134,23 @@ export function App() {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
 
   /**
+   * Save-safety — the New Character overwrite confirmation.  Set when the New
+   * Character flow begins while a gladiator is already stored on this device: the
+   * player sees what would be lost and has to arm the erase (two taps) before
+   * creation starts.  `null` means nothing is pending.  View state only — no save is
+   * touched by showing, arming or cancelling this dialog.
+   */
+  const [overwriteConfirm, setOverwriteConfirm] = useState<StoredProfileSummary | null>(null);
+
+  /**
+   * Save-safety — the stored save could not be read this boot and its original bytes
+   * were quarantined rather than dropped.  The title screen says so in plain
+   * language; nothing is repaired, rewritten or deleted, and the game starts on the
+   * same path it takes with no save at all.
+   */
+  const [saveQuarantineNotice, setSaveQuarantineNotice] = useState(false);
+
+  /**
    * Who is signed in.  The panel needs one thing from auth: whether there IS an
    * account, because a signed-in player deletes an account and a guest erases the
    * device's data instead.  Nothing here is saved; it follows Firebase's own session.
@@ -164,6 +190,9 @@ export function App() {
 
     const saved = loadSavedProfile();
     if (saved) setProfile(saved);
+    // Save-safety — an unreadable stored save was kept verbatim under the quarantine
+    // key instead of being lost; the title states it once.
+    if (wasStoredSaveQuarantined()) setSaveQuarantineNotice(true);
     // START-1 — preload stage 1. This effect runs at title mount, which is the beat
     // the startup sequence warms the first tier on; stage 2 fires on the tap.
     preloadTitleStage();
@@ -297,9 +326,29 @@ export function App() {
     enterCity(profile);
   };
 
+  /**
+   * Save-safety — enter the New Character flow.
+   *
+   * A new gladiator REPLACES the one stored on this device when creation completes
+   * (the write happens on completion, exactly as it always has), so when a save is
+   * stored the player first confirms it: `NewCharacterOverwriteModal` names what
+   * would be lost and requires a deliberate two-step arm.  With NO save stored this
+   * is byte-for-byte the old behaviour — straight into creation, no added friction.
+   * Every route into creation (the title's tap, and after signing in) comes through
+   * here.
+   */
+  const beginCharacterCreation = () => {
+    const stored = readStoredProfileSummary();
+    if (stored) {
+      setOverwriteConfirm(stored);
+      return;
+    }
+    setCurrentScreen('create_character');
+  };
+
   const handleNewCharacter = () => {
     sounds.playClick();
-    setCurrentScreen('create_character');
+    beginCharacterCreation();
   };
 
   // "Continue with Google" — sign in, then restore a cloud save if one exists.
@@ -330,7 +379,7 @@ export function App() {
         if (profile) {
           enterCity(profile);
         } else {
-          setCurrentScreen('create_character');
+          beginCharacterCreation();
         }
       }
     } catch (e) {
@@ -350,7 +399,7 @@ export function App() {
       if (profile) {
         enterCity(profile);
       } else {
-        setCurrentScreen('create_character');
+        beginCharacterCreation();
       }
     } catch (e) {
       console.error('[FacebookSignIn] failed:', e);
@@ -368,7 +417,7 @@ export function App() {
       if (profile) {
         enterCity(profile);
       } else {
-        setCurrentScreen('create_character');
+        beginCharacterCreation();
       }
     } catch (e) {
       console.error('[AppleSignIn] failed:', e);
@@ -386,7 +435,7 @@ export function App() {
       if (profile) {
         enterCity(profile);
       } else {
-        setCurrentScreen('create_character');
+        beginCharacterCreation();
       }
     } catch (e) {
       console.error('[MicrosoftSignIn] failed:', e);
@@ -400,7 +449,7 @@ export function App() {
     if (profile) {
       enterCity(profile);
     } else {
-      setCurrentScreen('create_character');
+      beginCharacterCreation();
     }
   };
 
@@ -462,11 +511,37 @@ export function App() {
 
   const handleOpenHubTab = (
     tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library',
-    gearSubview?: GearView
+    gearSubview?: GearView,
+    shopStorefront?: StorefrontId
   ) => {
     setActiveHubTab(tab);
     if (tab === 'gear') setGearView(gearSubview ?? 'armory');
+    if (tab === 'shop') setShopId(shopStorefront ?? 'market');
     setCurrentScreen('hub_2d');
+  };
+
+  /**
+   * CL-2 — the one place the coach-mark `seen` field is written.  `markSeen` is pure
+   * and returns the SAME profile when the card is already recorded, so a repeated or
+   * stale call neither re-renders nor reaches `saveProfile`.
+   */
+  const handleMarkCardSeen = (id: string) => {
+    const marked = markSeen(profile, id);
+    if (!marked || marked === profile) return;
+    setProfile(marked);
+    saveProfile(marked);
+  };
+
+  /**
+   * Phase SHOP-2 — the hub's own navigation row.  Choosing the Bazaar & Forge
+   * tab from the hub always means the open market; a city building's own
+   * storefront only ever arrives through `handleOpenHubTab`.
+   */
+  const handleHubTabChange = (
+    tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library'
+  ) => {
+    setActiveHubTab(tab);
+    if (tab === 'shop') setShopId('market');
   };
 
   /**
@@ -512,11 +587,16 @@ export function App() {
         ? profile.defeatedOpponentIds
         : [...profile.defeatedOpponentIds, activeOpponent.id];
 
-      // Advance tier if boss is defeated
-      let nextTier = profile.currentTier;
-      if (activeOpponent.isBoss && nextTier < 4) {
-        nextTier += 1;
-      }
+      // The tier moves only on a boss's FIRST defeat — the boss's id newly entering
+      // `defeatedOpponentIds` in this write. A rematch pays its rewards exactly as it
+      // always did, but it proves nothing new, so it never opens the next tier (see
+      // `utils/tierAdvancement.ts`: one boss could otherwise carry a gladiator through
+      // tiers whose champions were never faced).
+      const tierAfterVictory = resolveVictoryTier({
+        currentTier: profile.currentTier,
+        opponent: activeOpponent,
+        defeatedOpponentIds: profile.defeatedOpponentIds,
+      });
 
       const updatedProfile: PlayerProfile = {
         ...profile,
@@ -526,7 +606,7 @@ export function App() {
         level: nextLevel,
         xpToNextLevel: nextXpToNext,
         unspentStatPoints: nextUnspentPoints,
-        currentTier: nextTier,
+        currentTier: tierAfterVictory.currentTier,
         defeatedOpponentIds: defeated,
         fightsWon: profile.fightsWon + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
@@ -711,6 +791,7 @@ export function App() {
         {currentScreen === 'title' && (
             <TitleScreen
                 savedProfile={profile}
+                saveQuarantineNotice={saveQuarantineNotice}
                 onContinueAdventure={handleContinueAdventure}
                 onNewCharacter={handleNewCharacter}
                 onOpenDriveSync={() => setShowDriveSync(true)}
@@ -745,7 +826,6 @@ export function App() {
           <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
             <CityHubScene
             playerProfile={profile}
-            activeOpponent={activeOpponent}
             onOpenTab={handleOpenHubTab}
             onEnterDuel={handleEnterDuel}
             onOpenDriveSync={() => setShowDriveSync(true)}
@@ -777,7 +857,7 @@ export function App() {
             playerProfile={profile}
             onOpenDeviceChoice={() => setDeviceChoiceOpen(true)}
             activeTab={activeHubTab}
-            onTabChange={setActiveHubTab}
+            onTabChange={handleHubTabChange}
             onEnterCity3D={() => { if (profile) enterCity(profile); }}
             onSelectOpponent={handleEnterDuel}
             onTrainStat={handleTrainStat}
@@ -787,6 +867,7 @@ export function App() {
             onEquipArmor={handleEquipArmor}
             gearView={gearView}
             onGearViewChange={setGearView}
+            shopId={shopId}
             onBuyChariotPart={handleBuyChariotPart}
             onEquipChariotPart={handleEquipChariotPart}
             onBuyRacingConfig={handleBuyRacingConfig}
@@ -797,6 +878,7 @@ export function App() {
             isMuted={isMuted}
             onResetGame={handleResetGame}
             onOpenSettings={() => handleOpenSettings()}
+            onMarkCardSeen={handleMarkCardSeen}
             />
         )}
 
@@ -840,6 +922,20 @@ export function App() {
             stats={duelResult.stats}
             goldTotal={profile?.gold}
             onContinue={handleDuelResultDismiss}
+            />
+        )}
+
+        {/* SAVE-SAFETY — the New Character overwrite confirmation.  It sits above every
+            screen and holds the flow until the player decides; nothing is erased, and
+            the stored profile is only replaced when a new creation completes. */}
+        {overwriteConfirm && (
+            <NewCharacterOverwriteModal
+            existing={overwriteConfirm}
+            onCancel={() => setOverwriteConfirm(null)}
+            onConfirm={() => {
+              setOverwriteConfirm(null);
+              setCurrentScreen('create_character');
+            }}
             />
         )}
 

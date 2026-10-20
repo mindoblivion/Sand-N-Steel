@@ -12,12 +12,14 @@
  *       armorer (all armor), merchant (the rare/legendary goods), bazaar (empty
  *       by design) and market (the whole catalogue);
  *   §C  forge excludes the starter gladius, and every other weapon is present;
- *   §D  the merchant's six goods are exactly the rare/legendary 6;
+ *   §D  the merchant's thirteen goods are exactly the rare/legendary 13;
  *   §E  forge ∪ armorer = market minus the starter, and the two are disjoint;
  *   §F  the item catalogue itself is untouched — the counts and the
  *       load-bearing `ALL_WEAPONS` order (index 2 is the spare starter);
  *   §G  the scope guard — `shops.ts` derives from `ITEMS_DB` fields (no id or
- *       price table of its own) and no component consumes it yet.
+ *       price table of its own), and exactly three components consume it: the
+ *       shop screen the storefront wiring added (Phase SHOP-2) and the two
+ *       components that carry a storefront id to it.
  *
  * The expected lists below are written out literally on purpose: they are the
  * specification, so a change to a shipped storefront has to be acknowledged
@@ -78,6 +80,16 @@ const ARMORER_IDS = [
   'chest_golden_muscled',
   'arms_manica',
   'legs_greaves_bronze',
+  'arms_manica_iron',
+  'arms_manica_steel',
+  'arms_galerus_gilded',
+  'legs_greaves_iron',
+  'legs_greaves_steel',
+  'legs_greaves_gilded',
+  'helm_galea_iron',
+  'helm_champion_gilded',
+  'chest_lorica_hamata',
+  'chest_champion_gilded',
 ];
 
 const MERCHANT_IDS = [
@@ -87,6 +99,13 @@ const MERCHANT_IDS = [
   'shamshir_curved',
   'helm_centurion',
   'chest_golden_muscled',
+  'arms_manica_steel',
+  'arms_galerus_gilded',
+  'legs_greaves_steel',
+  'legs_greaves_gilded',
+  'helm_champion_gilded',
+  'chest_lorica_hamata',
+  'chest_champion_gilded',
 ];
 
 const MARKET_IDS = ITEMS_DB.map((item) => item.id);
@@ -128,13 +147,13 @@ describe('SHOP-1 §B — each storefront offers exactly its own set', () => {
     expect(new Set(getStorefrontStock('forge'))).toEqual(new Set(FORGE_IDS));
   });
 
-  test('armorer offers all six armor pieces', () => {
-    expect(getStorefrontStock('armorer')).toHaveLength(ALL_ARMORS.length);
+  test('armorer offers all sixteen armor pieces', () => {
+    expect(getStorefrontStock('armorer')).toHaveLength(16);
     expect(new Set(getStorefrontStock('armorer'))).toEqual(new Set(ALL_ARMORS.map((a) => a.id)));
   });
 
-  test('merchant offers exactly the six rare/legendary goods', () => {
-    expect(getStorefrontStock('merchant')).toHaveLength(6);
+  test('merchant offers exactly the thirteen rare/legendary goods', () => {
+    expect(getStorefrontStock('merchant')).toHaveLength(13);
     expect(new Set(getStorefrontStock('merchant'))).toEqual(new Set(MERCHANT_IDS));
   });
 
@@ -173,7 +192,7 @@ describe('SHOP-1 §D — the merchant deals only in rare and legendary', () => {
       .filter((item) => item.rarity === 'rare' || item.rarity === 'legendary')
       .map((item) => item.id);
     expect(sorted(getStorefrontStock('merchant'))).toEqual(sorted(rareLegendary));
-    expect(rareLegendary).toHaveLength(6);
+    expect(rareLegendary).toHaveLength(13);
   });
 
   test('no common or uncommon item is merchant stock', () => {
@@ -205,8 +224,8 @@ describe('SHOP-1 §E — forge + armorer partition the market minus the starter'
 describe('SHOP-1 §F — the item catalogue itself is untouched', () => {
   test('the database keeps its weapon and armor counts', () => {
     expect(ALL_WEAPONS).toHaveLength(11);
-    expect(ALL_ARMORS).toHaveLength(6);
-    expect(ITEMS_DB).toHaveLength(17);
+    expect(ALL_ARMORS).toHaveLength(16);
+    expect(ITEMS_DB).toHaveLength(27);
   });
 
   test('the load-bearing ALL_WEAPONS order is intact', () => {
@@ -217,7 +236,7 @@ describe('SHOP-1 §F — the item catalogue itself is untouched', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-describe('SHOP-1 §G — scope guard: derived from fields, no consumers yet', () => {
+describe('SHOP-1 §G — scope guard: derived from fields, one consumer', () => {
   test('shops.ts derives from itemsDB and carries no id or price table of its own', () => {
     expect(SHOPS_SRC).toContain("from './itemsDB'");
     for (const id of [
@@ -233,9 +252,22 @@ describe('SHOP-1 §G — scope guard: derived from fields, no consumers yet', ()
     expect(SHOPS_SRC).not.toContain('sellPrice');
   });
 
-  test('no component consumes the storefront layer yet (data layer only)', () => {
+  test('exactly one component renders the storefront layer, and two carry the id to it', () => {
     const components = filesUnder(path('../components'));
-    const consumers = components.filter((file) => /['"][^'"]*\/shops['"]/.test(load(file)));
-    expect(consumers).toEqual([]);
+    // Comments are stripped: a file may name the module in prose without consuming it.
+    const consumers = components
+      .filter((file) => /['"][^'"]*\/shops['"]/.test(code(file)))
+      .sort();
+    // Phase SHOP-2 wired the layer up: `ShopTab` renders a storefront's stock, and
+    // the two components that carry the storefront id to it — the city scene, which
+    // raises the interaction, and the hub screen in between — import its type. No
+    // other component consumes the catalogue layer.
+    expect(consumers).toEqual(
+      [
+        path('../components/3d/city/CityHubScene.tsx'),
+        path('../components/hub/GladiatorSchoolHub.tsx'),
+        path('../components/hub/ShopTab.tsx'),
+      ].sort()
+    );
   });
 });
