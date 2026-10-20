@@ -4174,3 +4174,56 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   (4) The preview-call budget was exhausted by the route search, so no cleanup call followed: the
   preview browser holds the guest profile the app's own `PLAY AS GUEST` path wrote, and the platform's
   fresh loads clear browser storage anyway.
+
+
+## Offline service worker (store-quality offline launch — implemented)
+
+- **What ships.** `public/sw.js` (hand-written, no workbox), `public/offline.html` (the designed
+  offline screen) and a production-gated registration at the end of `src/main.tsx`:
+  `if (import.meta.env.PROD && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')`
+  — fire-and-forget, so an unsupported or blocked browser cannot break boot. The suite is
+  `src/utils/serviceWorker.test.ts` (32 tests); its §F is *driven*: it evaluates the shipped `sw.js`
+  against a fake `self` / `caches` / `fetch`, so the fallback chain, the 200 status, the cache
+  write-back and every bypass are exercised rather than grepped.
+- **The contract, and why each piece is the way it is.** One versioned cache,
+  `sand-steel-shell-v1`: **bumping `VERSION` is the upgrade path**, `activate` deletes every other
+  `sand-steel-*` cache so an old shell cannot linger (the file is copied verbatim into `dist/` and
+  never hashed, so the cache name is the only version marker) and claims the open clients. `install`
+  precaches `/`, `/index.html`, `/offline.html`, the manifest and the four icons, each entry fetched
+  and stored independently (`cache: 'reload'`, one failure tolerated) so a missing icon cannot abort
+  the install. Navigations are network-first → the cached shell → `/offline.html` → an inline
+  fallback document, **always answered as a normal 200** (a failed main document is a crash in store
+  review). A successful navigation refreshes ONE fixed key (`/index.html`) — never a per-route or
+  per-query entry, so the cache cannot grow. Static game assets (`.glb`, `.ogg`, images, fonts,
+  built js/css) are network-first with a cache fallback. **Nothing authenticated is ever intercepted
+  or stored**: another origin; `googleapis.com` / `googleusercontent.com` / `firebaseapp.com` /
+  `firebaseio.com` / `gstatic.com` / `accounts.google.com`; the `/identitytoolkit`, `/securetoken`,
+  `/drive/v3`, `/__/auth`, `/oauth` paths; any request carrying `authorization` or `range` (the
+  soundtrack plays through `Audio()`); every non-GET; the `/__dev/` harness routes; and `sw.js`
+  itself. Only a same-origin `status === 200 && type === 'basic'` response is ever stored.
+- **Non-obvious: the worker exists only in a production build.** `import.meta.env.PROD` is statically
+  false under `vite` / `bun run dev`, so the dev server registers nothing and the dev-harness
+  branches in `main.tsx` are untouched — which also means the sandbox preview cannot reach it
+  through the app. To exercise it, serve the **built** `/sw.js` (`bun run build`, then serve `dist/`)
+  or register `/sw.js` by hand in the preview browser: the shipped worker then installs, caches
+  exactly the eight shell entries and claims the open client. `public/offline.html` is deliberately
+  self-contained — inline style and script, no font/image/link request of any kind — because it has
+  to render with no network at all; its type stack starts at Cinzel and falls back to the device
+  serif.
+- **Verified 2026-10-20** in the dev container: `bun test` → **2054 pass / 0 fail (65 files)**,
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, `bun run lint` (`tsc --noEmit`) →
+  exit 0, `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only), with `sw.js`,
+  `offline.html`, `manifest.webmanifest` and all four icons in `dist/` and the registration present
+  in the built bundle. In the preview browser the shipped `/sw.js` was registered for real (then
+  unregistered and its cache deleted): it activated, `clients.claim()` took over the page, and
+  `sand-steel-shell-v1` held exactly `/`, `/index.html`, `/offline.html`, `/manifest.webmanifest`
+  and the four icons; `/offline.html` was served 200 and rendered its designed copy with no
+  external reference in the file. The validation's starting point was **one failing test** in the
+  new suite — the offline-navigation case asserted `/offline.html` where the documented chain serves
+  the **cached shell**, so it became two tests (the cached shell; and `/offline.html` once both
+  shell keys are gone), with no assertion removed — plus eight `tsc` errors in the test harness
+  (a nullable helper return), fixed by typing it.
+- **Not automatically verified — the offline launch itself.** The sandbox cannot cut the network
+  mid-run, so a genuine cold start with no connection, and the installed-app (Android / TWA)
+  launch, still need a device check: start the app with the connection off and confirm the shell
+  (or, on a very first run, the designed offline screen) appears instead of the browser error page.

@@ -146,3 +146,17 @@ if (useColosseumRearHarness) {
     </React.StrictMode>,
   );
 }
+
+// Offline support (store-quality requirement). The service worker caches the app
+// shell and serves the designed /offline.html when the shell cannot be reached, so
+// an offline launch cannot fail as a missing main document. It is registered in
+// PRODUCTION builds only: `import.meta.env.PROD` is statically `false` under
+// `vite` / `bun run dev`, so nothing below runs in the dev environment and the
+// dev-harness branches above are untouched. Registration is fire-and-forget — a
+// failure (unsupported browser, private mode, blocked storage) is swallowed so it
+// can never break boot.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {
+    // Offline support is unavailable; the game continues to run online as before.
+  });
+}
