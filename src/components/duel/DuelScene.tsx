@@ -14,6 +14,8 @@ import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
 import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
 import { calculateTotalStats } from '../../services/storage';
+import { resolveTemperLevel, getEffectiveWeaponStats } from '../../utils/tempering';
+import { calculateDuelGold } from '../../utils/duelRewards';
 import { getWeaponByType } from '../../data/itemsDB';
 import {
   getWeaponRange,
@@ -238,6 +240,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // independent of `playerProfile.equipped`.
   const opponentWeapon = opponent.loadout?.weapon ?? getWeaponByType(opponent.weaponType);
 
+  // P1 tempering: the player fights with the EFFECTIVE stats of their equipped
+  // weapon at its current temper level (+8 % damage per level, from
+  // `getEffectiveWeaponStats`). The saved item object is never modified — only
+  // this in-duel copy carries the bonus, so the attack resolution below and
+  // TurnActionPanel's damage preview both read the tempered numbers. The
+  // opponent has no save and no temper record, so its weapon stays base.
+  const playerWeapon = getEffectiveWeaponStats(
+    playerProfile.equipped.weapon,
+    resolveTemperLevel(playerProfile, playerProfile.equipped.weapon.id)
+  );
+
   const [player, setPlayer] = useState<FighterState>({
     id: 'player',
     name: playerProfile.name,
@@ -253,7 +266,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     isInvulnerable: false,
     hitFlashTimer: 0,
     stats: pStats,
-    loadout: { weapon: playerProfile.equipped.weapon },
+    loadout: { weapon: playerWeapon },
     comboCount: 0,
     skinColor: playerProfile.appearance.skinColor,
     hairColor: playerProfile.appearance.hairColor,
@@ -928,6 +941,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       sounds.playVictory();
       addLog(`VICTORY! ${player.name} has vanquished ${opp.name}!`, 'crit');
+      // The purse the crowd actually pays for this fight: the opponent's own
+      // bounty plus performance bonuses read off the fight's statistics. It is
+      // written onto the ONE stats object App credits, so the result screen and
+      // the gold in the purse can never disagree.
+      const purse = calculateDuelGold({
+        baseGold: opponent.rewardGold,
+        didWin: true,
+        crowdHypePeak: statsRef.current.crowdHypePeak,
+        perfectBlocks: statsRef.current.perfectBlocks,
+        damageTaken: statsRef.current.damageTaken,
+      });
+      statsRef.current.goldEarned = purse.total;
+      statsRef.current.goldBreakdown = purse;
+      addLog(`The crowd pays out ${purse.total} gold.`, 'system');
       setTimeout(() => {
         onMatchComplete(statsRef.current, true);
       }, 1400);
@@ -939,6 +966,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // C-8.70B §SET-1 — the player has fallen: the defeat pattern.
       vibrate(HAPTIC_DEFEAT_PATTERN);
       addLog(`DEFEAT! ${player.name} has fallen in the sand.`, 'opponent');
+      // The arena only feeds a winner: a defeat pays no purse at all.
+      statsRef.current.goldEarned = 0;
       setTimeout(() => {
         onMatchComplete(statsRef.current, false);
       }, 1400);

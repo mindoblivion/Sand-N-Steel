@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { applyRearNeutral, getExteriorMeshes, probeRear, surfaceSignature } from './colosseumRearMaterials';
+import { DAY_LIGHT } from '../../utils/cityLightProfile';
 
 const source = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const main = source('../../main.tsx');
@@ -146,10 +147,26 @@ describe('C-8.69D isolation and lighting parity', () => {
   test('normal light rig copies all production parameters, including environment and shadows', () => {
     const rig = view.slice(view.indexOf('function ProductionLighting'), view.indexOf('function RearScene'));
     const tags = ['Lightformer', 'fog', 'Sky', 'hemisphereLight', 'directionalLight', 'Environment'];
+    // The city now spells this rig as the named day profile (`utils/cityLightProfile`), so
+    // parity is compared by VALUE, not by spelling: every attribute of every tag is
+    // evaluated with `lights` bound to the day rig exactly as the scene resolves it, and
+    // the two lists must match — shorthands included, so nothing is dropped from the check.
+    const props = (source: string, tag: string) =>
+      [...source.matchAll(new RegExp(`<${tag}\\s([^>]*?)(?:/?>)`, 'g'))]
+        .map((m) =>
+          m[1]
+            .replace(/([A-Za-z][\w-]*)=(\{[^}]*\}|"[^"]*")/g, (_all, name, raw) => {
+              const value = raw.startsWith('{')
+                ? Function('lights', `return (${raw.slice(1, -1)});`)(DAY_LIGHT)
+                : raw.slice(1, -1);
+              return `${name}=${JSON.stringify(value)}`;
+            })
+            .replace(/\s/g, '')
+            .replace(/\/$/, ''),
+        )
+        .sort();
     for (const tag of tags) {
-      const props = (code: string) => [...code.matchAll(new RegExp(`<${tag}\\s([^>]*?)(?:/?>)`, 'g'))]
-        .map((m) => m[1].replace(/\s/g, '').replace(/\/$/, '')).sort();
-      expect(props(rig)).toEqual(props(city));
+      expect({ tag, rig: props(rig, tag) }).toEqual({ tag, rig: props(city, tag) });
     }
   });
 
