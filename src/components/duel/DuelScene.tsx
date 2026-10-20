@@ -29,6 +29,12 @@ import {
   shouldActivateRage,
   applyComboEvent,
   updateHypePeak,
+  isAttackInRange,
+  shieldGuardStaminaGain,
+  ENEMY_ATTACK_WINDUP_MS,
+  DODGE_STAMINA_COST,
+  applyDefensiveAction,
+  clearDefensiveStance,
 } from '../../utils/combatCalculations';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
@@ -312,6 +318,15 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
   const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
 
+  // C-8.70B §R1 — the announced enemy strike. `pendingEnemyAttack` is the
+  // readable cue (the HUD banner + the wind-up log line); the damage itself is
+  // only ever resolved when the wind-up timer ends and calls the SAME
+  // executeCombatTurn the attack always went through, so no formula, hit chance
+  // or boss value moves. `reactionTaken` records that the player spent their one
+  // reaction (Shield Guard or Dodge) inside the window.
+  const [pendingEnemyAttack, setPendingEnemyAttack] = useState<'quick_attack' | 'power_attack' | null>(null);
+  const [reactionTaken, setReactionTaken] = useState(false);
+
   const [crowdHype, setCrowdHype] = useState(25);
 
   // C-8 (Phase 39C): a ref mirrors the committed hype value so the updater can
@@ -361,6 +376,27 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const pendingHeavyAttackRef = useRef(false);
   const pendingCounterRef = useRef(false);
   const rageActivatedRef = useRef(false);
+
+  // ── C-8.70B §R1 — pending enemy attack bookkeeping ─────────────────────────
+  // `pendingEnemyAttackRef` mirrors the state above so the timers and the
+  // reaction handler read it synchronously (React state lags a render).
+  // `reactionTakenRef` makes the reaction a once-per-attack decision, so mashing
+  // both buttons cannot stack a block AND a dodge. `windupTimerRef` is the single
+  // scheduled damage; `resolutionTimerRef` is the existing 1100 ms turn-end
+  // timeout, now tracked so it can be cleared too. Both are cleared when the
+  // fight ends or the scene unmounts, which is what stops a delayed hit or a
+  // delayed payout after the player has left. `resolvingRef` is the synchronous
+  // re-entrancy guard (React state is one render behind, so two calls in the same
+  // tick used to be able to slip past `isExecuting`).
+  const pendingEnemyAttackRef = useRef<'quick_attack' | 'power_attack' | null>(null);
+  const reactionTakenRef = useRef(false);
+  const windupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resolutionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resolvingRef = useRef(false);
+  // The wind-up timer must call the LATEST executeCombatTurn, not the closure it
+  // was scheduled with — otherwise a block raised during the cue would resolve
+  // against a stale `player` and be ignored.
+  const executeTurnRef = useRef<(actor: 'player' | 'opponent', action: CombatActionType) => void>(() => {});
 
   // Shared impact feedback (the hit-stop clock and the shake energy) — see the
   // tables at the top of this file. Written once per hit resolution and read
@@ -446,10 +482,32 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // Core Turn Execution Function
   const executeCombatTurn = useCallback(
     (actor: 'player' | 'opponent', actionType: CombatActionType) => {
-      if (isExecuting || isMatchOver.current) return;
+      // Synchronous guard: `resolvingRef` flips in the same tick, so a doubled
+      // click or a repeated direct call cannot resolve twice (the state-based
+      // check alone was one render behind).
+      if (resolvingRef.current || isMatchOver.current) return;
 
-      setIsExecuting(true);
       const isActorPlayer = actor === 'player';
+      const attackerNow = isActorPlayer ? player : opp;
+
+      // C-8.70B §R3 — the authoritative range guard. It runs BEFORE any stamina
+      // is spent, any animation starts or the turn is committed, so a stale UI or
+      // a direct call cannot cost a turn on a swing that cannot land. The tactic
+      // panel disables the same buttons through the same shared rule.
+      const isAttackAction = actionType === 'quick_attack' || actionType === 'power_attack';
+      if (isAttackAction) {
+        const gap = Math.abs(player.position[2] - opp.position[2]);
+        if (!isAttackInRange(gap, attackerNow.loadout.weapon)) {
+          addLog(
+            `${attackerNow.name} is out of reach — Advance before striking.`,
+            'system',
+          );
+          return;
+        }
+      }
+
+      resolvingRef.current = true;
+      setIsExecuting(true);
 
       // Read-and-clear the telegraphed-heavy marker for THIS resolution, before
       // any branch can return, so a miss, an evade or an out-of-range swing
@@ -479,9 +537,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             : prev,
         );
       }
-
-      const dist = Math.abs(player.position[2] - opp.position[2]);
-      const effectiveRange = getWeaponRange(attacker.loadout.weapon);
 
       // 1. MOVEMENT ACTIONS
       if (actionType === 'advance') {
@@ -529,19 +584,22 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // 2. DEFENSIVE / UTILITY ACTIONS
       else if (actionType === 'shield_block') {
         sounds.playBlock();
+        // C-8.70B §R2 — raising the guard recovers no stamina by itself. The
+        // `staminaRegen` this branch used to apply unconditionally made Shield
+        // Guard strictly better than Dodge (damage reduction AND free recovery,
+        // where Dodge pays 12 SP); the regen now happens only in the resolution's
+        // `isBlocked` branch, i.e. when the guard actually stops a blow.
         if (isActorPlayer) {
           setPlayer((prev) => ({
             ...prev,
             action: 'block',
             isBlocking: true,
-            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         } else {
           setOpp((prev) => ({
             ...prev,
             action: 'block',
             isBlocking: true,
-            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
         addLog(`${attacker.name} braces behind their shield.`, isActorPlayer ? 'player' : 'opponent');
@@ -553,7 +611,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             action: 'dodge',
             isInvulnerable: true,
-            stamina: Math.max(0, prev.stamina - 12),
+            stamina: Math.max(0, prev.stamina - DODGE_STAMINA_COST),
           }));
           statsRef.current.dodgesPerformed += 1;
         } else {
@@ -561,7 +619,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             action: 'dodge',
             isInvulnerable: true,
-            stamina: Math.max(0, prev.stamina - 12),
+            stamina: Math.max(0, prev.stamina - DODGE_STAMINA_COST),
           }));
         }
         addLog(`${attacker.name} enters an evasion stance!`, isActorPlayer ? 'player' : 'opponent');
@@ -635,12 +693,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           }));
         }
 
-        // Check weapon range
-        if (dist > effectiveRange) {
-          sounds.playSlash();
-          addLog(`${attacker.name} strikes with ${isQuick ? 'Quick Slash' : 'Power Slash'}, but is OUT OF RANGE!`, 'system');
-          spawnDamageText('OUT OF RANGE!', 'blocked', defender.position);
-        } else {
+        // Range was validated by the authoritative guard at the top of this
+        // function (C-8.70B §R3), before a single point of stamina was spent, so
+        // there is no separate out-of-range path left to reach here.
+        {
           // Check Evasion / Hit Probability
           const hitPct = calculateHitChance(isQuick, attacker.stats.agility, defender.stats.agility);
 
@@ -701,6 +757,22 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 'system'
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
+              // C-8.70B §R2 — Shield Guard's ONLY recovery: the guard stopped a
+              // blow. Applied here (and only here) so raising a shield that
+              // nothing hits recovers nothing, and so one blocked strike can
+              // never credit the regen twice.
+              const guardGain = shieldGuardStaminaGain(true, defender.stats.staminaRegen);
+              if (isActorPlayer) {
+                setOpp((prev) => ({
+                  ...prev,
+                  stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, guardGain),
+                }));
+              } else {
+                setPlayer((prev) => ({
+                  ...prev,
+                  stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, guardGain),
+                }));
+              }
             } else {
               if (isCrit) {
                 sounds.playHeavyImpact();
@@ -798,7 +870,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }
 
       // 4. ANIMATION RESOLUTION & TURN TRANSITION (1100ms)
-      setTimeout(() => {
+      // Tracked so the scene can cancel it on unmount or at the end of the
+      // fight: a turn that lands after the player has left must not toggle a
+      // turn or re-open the resolution guard.
+      resolutionTimerRef.current = setTimeout(() => {
+        resolutionTimerRef.current = null;
         // Reset action animations back to idle
         if (isActorPlayer) {
           setPlayer((prev) => ({
@@ -823,6 +899,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         }
 
         setIsExecuting(false);
+        resolvingRef.current = false;
 
         // Check match end
         if (opp.health <= 0 || player.health <= 0) {
@@ -834,6 +911,124 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }, 1100);
     },
     [isExecuting, player, opp, addLog, spawnDamageText, updateCrowdHype]
+  );
+
+  // Keeps the wind-up timer pointed at the CURRENT resolution closure, so the
+  // delayed hit reads the health/stance state as it stands at the impact point
+  // rather than the state captured when the attack was announced.
+  useEffect(() => {
+    executeTurnRef.current = executeCombatTurn;
+  }, [executeCombatTurn]);
+
+  // ── C-8.70B §R1 — the announced enemy strike ───────────────────────────────
+  // The AI selects an action; when it is a strike, this announces it and holds
+  // the damage for ENEMY_ATTACK_WINDUP_MS. The opponent's swing animation starts
+  // HERE, so the blow lands mid-swing at the resolution point — and re-setting
+  // the same action when the resolution runs does NOT restart the clip, because
+  // GladiatorMesh only resets a clip when the action it is driven with changes.
+  // That is the animation/timing synchronization: no new clip, no new mixer and
+  // no change to any combat formula.
+  const cancelPendingEnemyAttack = useCallback(() => {
+    if (windupTimerRef.current !== null) {
+      clearTimeout(windupTimerRef.current);
+      windupTimerRef.current = null;
+    }
+    pendingEnemyAttackRef.current = null;
+    reactionTakenRef.current = false;
+    setPendingEnemyAttack(null);
+    setReactionTaken(false);
+  }, []);
+
+  const announceEnemyAttack = useCallback(
+    (actionType: 'quick_attack' | 'power_attack') => {
+      // One announcement at a time: a second call inside the window is ignored,
+      // so a strike can never be queued twice and pay its damage twice.
+      if (isMatchOver.current || pendingEnemyAttackRef.current) return;
+
+      pendingEnemyAttackRef.current = actionType;
+      reactionTakenRef.current = false;
+      setPendingEnemyAttack(actionType);
+      setReactionTaken(false);
+      // Locks the normal actions for the whole announcement + resolution window.
+      setIsExecuting(true);
+      setOpp((prev) => ({
+        ...prev,
+        action: actionType === 'quick_attack' ? 'attack_light' : 'attack_heavy',
+        telegraphText: actionType === 'quick_attack' ? 'QUICK STRIKE INCOMING' : 'POWER STRIKE INCOMING',
+      }));
+      addLog(
+        `${opp.name} winds up a ${actionType === 'quick_attack' ? 'quick strike' : 'power slash'} — brace or dodge!`,
+        'alert',
+      );
+
+      windupTimerRef.current = setTimeout(() => {
+        windupTimerRef.current = null;
+        pendingEnemyAttackRef.current = null;
+        setPendingEnemyAttack(null);
+        setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+        if (isMatchOver.current) return;
+        // The LATEST resolution closure, so a stance raised during the cue (or
+        // any other state written while it was up) is what the blow meets.
+        executeTurnRef.current('opponent', actionType);
+      }, ENEMY_ATTACK_WINDUP_MS);
+    },
+    [opp.name, addLog],
+  );
+
+  /**
+   * The player's one answer to an announced strike: raise the shield or dodge.
+   * A reaction is NOT a turn — it writes the same stance flags the fighter's own
+   * turn would, and the pending attack then resolves through the existing rules
+   * (block reduction from the weapon, or the 75 % evade roll). The two stances
+   * replace each other, so mashing both cannot stack a guaranteed block with an
+   * evade, and only one reaction is accepted per announcement.
+   */
+  const reactToPendingAttack = useCallback(
+    (action: 'shield_block' | 'dodge') => {
+      if (!pendingEnemyAttackRef.current || reactionTakenRef.current || isMatchOver.current) return;
+      if (action === 'dodge' && player.stamina < DODGE_STAMINA_COST) return;
+
+      reactionTakenRef.current = true;
+      setReactionTaken(true);
+
+      if (action === 'dodge') {
+        sounds.playDodge();
+        statsRef.current.dodgesPerformed += 1;
+        setPlayer((prev) => ({
+          ...prev,
+          action: 'dodge',
+          ...applyDefensiveAction(clearDefensiveStance(prev), 'dodge'),
+          stamina: Math.max(0, prev.stamina - DODGE_STAMINA_COST),
+        }));
+        addLog(`${player.name} throws themselves into a dodge!`, 'player');
+        spawnDamageText('DODGE!', 'dodge', player.position);
+      } else {
+        sounds.playBlock();
+        setPlayer((prev) => ({
+          ...prev,
+          action: 'block',
+          ...applyDefensiveAction(clearDefensiveStance(prev), 'shield_block'),
+        }));
+        addLog(`${player.name} snaps the shield up!`, 'player');
+        spawnDamageText('GUARD!', 'blocked', player.position);
+      }
+    },
+    [player.stamina, player.name, player.position, addLog, spawnDamageText],
+  );
+
+  // No timer may outlive the scene: an unmount (leaving the arena, a reload, the
+  // result screen) drops the pending strike and the turn-end timeout, so nothing
+  // resolves — and nothing pays out — after the player has gone.
+  useEffect(
+    () => () => {
+      if (windupTimerRef.current !== null) clearTimeout(windupTimerRef.current);
+      if (resolutionTimerRef.current !== null) clearTimeout(resolutionTimerRef.current);
+      windupTimerRef.current = null;
+      resolutionTimerRef.current = null;
+      pendingEnemyAttackRef.current = null;
+      reactionTakenRef.current = false;
+    },
+    [],
   );
 
   // OPPONENT AI TURN STRATEGY ENGINE
@@ -924,11 +1119,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         chosenAction = 'telegraph';
       }
 
+      // A strike is ANNOUNCED, not resolved: it becomes visible intent for
+      // ENEMY_ATTACK_WINDUP_MS and only then meets the existing resolution. The
+      // non-attack actions (advance, retreat, taunt, rest, shield block, dodge,
+      // telegraph) resolve immediately exactly as before.
+      if (chosenAction === 'quick_attack' || chosenAction === 'power_attack') {
+        announceEnemyAttack(chosenAction);
+        return;
+      }
+
       executeCombatTurn('opponent', chosenAction);
     }, 750);
 
     return () => clearTimeout(aiTimer);
-  }, [isPlayerTurn, isExecuting, player, opp, executeCombatTurn]);
+  }, [isPlayerTurn, isExecuting, player, opp, executeCombatTurn, announceEnemyAttack]);
 
   // Check victory / defeat conditions
   useEffect(() => {
@@ -938,6 +1142,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       isMatchOver.current = true;
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
+      // The fight is over: drop any announced strike so no delayed hit can land
+      // after the result, and no duplicate payout can follow.
+      cancelPendingEnemyAttack();
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       sounds.playVictory();
       addLog(`VICTORY! ${player.name} has vanquished ${opp.name}!`, 'crit');
@@ -962,6 +1169,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       isMatchOver.current = true;
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
+      cancelPendingEnemyAttack();
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // C-8.70B §SET-1 — the player has fallen: the defeat pattern.
       vibrate(HAPTIC_DEFEAT_PATTERN);
@@ -972,7 +1180,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         onMatchComplete(statsRef.current, false);
       }, 1400);
     }
-  }, [opp.health, player.health, player.name, opp.name, addLog, onMatchComplete]);
+  }, [opp.health, player.health, player.name, opp.name, addLog, onMatchComplete, cancelPendingEnemyAttack]);
 
   // Boss phase-2 weapon switch (Ignis: dual_blades → mace at 50% health).
   // One-time: guarded by phaseSwitchedRef so the effect cannot re-trigger
@@ -1097,6 +1305,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         isPlayerTurn={isPlayerTurn}
         isExecuting={isExecuting}
         combatLog={combatLog}
+        pendingEnemyAttack={pendingEnemyAttack}
+        reactionTaken={reactionTaken}
+        playerStamina={player.stamina}
+        onReactToPendingAttack={reactToPendingAttack}
         onExecuteAction={(action) => executeCombatTurn('player', action)}
       />
     </div>

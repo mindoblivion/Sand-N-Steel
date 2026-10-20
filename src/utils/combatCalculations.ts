@@ -55,6 +55,38 @@ export function getWeaponRange(weapon: WeaponItem): number {
 }
 
 /**
+ * Whether an attack can legally be started at `distance` with `weapon`.
+ *
+ * C-8.70B §R3 — the ONE range rule, read by both the tactic panel (so the
+ * attack buttons disable themselves) and the combat engine (so a stale UI or a
+ * direct call cannot spend stamina on a swing that cannot land). A weapon with
+ * no usable range answers `false` rather than letting an invalid attack through.
+ */
+export function isAttackInRange(distance: number, weapon: WeaponItem): boolean {
+  const range = weapon?.range;
+  if (typeof distance !== 'number' || !Number.isFinite(distance)) return false;
+  if (typeof range !== 'number' || !Number.isFinite(range) || range <= 0) return false;
+  return distance <= range;
+}
+
+/**
+ * The readable wind-up before an announced enemy attack lands, in milliseconds.
+ *
+ * C-8.70B §R1 — the AI announces the strike, the HUD shows the cue and offers
+ * Shield Guard / Dodge, and only at the end of this window does the existing
+ * resolution run. It sits inside the audited 600–800 ms reaction band and stays
+ * shorter than the ~1.1 s resolution window that follows it, so an enemy turn
+ * keeps a readable rhythm without moving any combat formula.
+ */
+export const ENEMY_ATTACK_WINDUP_MS = 700;
+
+/**
+ * Stamina spent to enter the Dodge stance. The engine and the tactic panel read
+ * the same constant so the displayed cost can never drift from the charge.
+ */
+export const DODGE_STAMINA_COST = 12;
+
+/**
  * Weapon-specific stamina cost for a light (quick) or heavy (power) attack.
  *
  * Replaces the old hardcoded 10 / 22 constants.  Every weapon defines
@@ -145,6 +177,24 @@ export function applyStaminaRegen(
   regen: number,
 ): number {
   return Math.max(0, Math.min(staminaMax, current + regen));
+}
+
+/**
+ * Shield Guard's stamina rule (C-8.70B §R2).
+ *
+ * Raising the guard costs nothing and recovers NOTHING on its own: the old
+ * unconditional `staminaRegen` on every Shield Guard turn made the action
+ * strictly better than Dodge — damage reduction *and* free recovery — where
+ * Dodge pays {@link DODGE_STAMINA_COST} for a 75 % evade. Recovery now happens
+ * only when the guard actually STOPS a blow, i.e. in the existing `isBlocked`
+ * branch of the resolution, so a raised shield that nothing hits recovers
+ * nothing and the trade-off is real: certainty (partial damage absorbed) versus
+ * the dodge's all-or-nothing evade at a cost.
+ */
+export function shieldGuardStaminaGain(didStopBlow: boolean, regen: number): number {
+  if (!didStopBlow) return 0;
+  if (typeof regen !== 'number' || !Number.isFinite(regen) || regen <= 0) return 0;
+  return regen;
 }
 
 /**
