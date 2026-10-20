@@ -5696,3 +5696,41 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   LVL 3 or a beaten boss, while the Colosseum tab still offers Marcus and Flaccus. That is consistent
   with FIX-B's "legal door bouts", but it is a player-facing change from a door that used to drop
   straight into the sand.
+
+### Second live verification pass (§R1–R3B, 2026-10-20, at `c59695a`)
+
+- **Scope and outcome.** Re-checked on `development-focus-strategy` at `c59695a` (this record's own
+  commit, on top of `ff82313`), tree clean, desktop preview browser with SwiftShader software
+  rendering. **No defect was found**, so no source file was changed: the combat loop, damage, weapon,
+  boss and reward code are untouched and no new regression suite was added.
+- **Dodge, taken live for the first time, follows the existing evade rules.** With
+  `data-windup-cue="quick_attack"` up the pair read `Dodge −12 SP` / `Shield Guard`; claiming Dodge took
+  stamina **120 → 108 — exactly one charge**, logged "Verifier throws themselves into a dodge!", and the
+  strike then resolved through the ordinary roll: "Verifier swiftly EVADED Marcus the Rookie's strike!",
+  health unchanged at **138/138** and stamina still **108**. The end-of-turn reset billed nothing more.
+- **A second reaction inside one window is refused, not merely hidden.** The guard button was still live
+  in the DOM when the same tick clicked it *after* the dodge claim, so its handler really ran — and no
+  "snaps the shield up!" line appeared, the stance stayed the dodge and stamina stayed at 108. Only then
+  were both buttons replaced by `data-reaction-taken="true"`. The guarantee is `claimReaction()`, not the
+  re-render.
+- **The Colosseum door gates the player itself, and the route onward is the tab.** Reached as a door
+  (fast travel to "The Grand Colosseum", then **Enter Arena Duels**), a LVL 1 profile got "The gatekeeper
+  bars the way: Goliath the Pit Behemoth requires LVL 3, and you are LVL 1. Train, and return." — with
+  **no briefing, no duel, and the player still in the city**. The tab in the same session listed Marcus
+  (`ENTER ARENA DUEL`, LVL 1), Flaccus (locked LVL 2) and Goliath (locked LVL 3), so a legitimate route
+  exists and there is **no progression dead end**; nothing was changed. The notice's "Train, and return"
+  still does not point at that tab — a copy/design question, not a defect.
+- **Still unverified — the same two gaps.**
+  - **Fight end and payout.** The bout was driven to Marcus at **24/90 HP** (player 106/138) but no result
+    screen was reached within the preview budget, so "one payout, no duplicate result" is unproven live.
+    The poll loop spent most rounds on the opponent's turn; a future pass should click only while a strike
+    button is enabled and budget ~3 s per round.
+  - **Leaving during a pending strike.** The duel itself offers no leave control — the only exit is
+    finishing the bout — so it cannot be driven from the preview at all; the unmount `cancel()` path stays
+    pinned by `pendingStrike.test.ts` alone.
+- **Two verification-environment facts worth knowing before the next live pass.** A save does **not**
+  survive a page reload in the preview browser, so a pass must create the profile and finish every check
+  inside one document (seeding `localStorage` and reloading loses it — two attempts were spent on that).
+  And a fresh save can raise the first-visit oath beat over the city; the entry steps above were driven
+  programmatically, which bypasses that overlay, so the oath itself was not exercised (the reaction and
+  gate results are unaffected by it).
