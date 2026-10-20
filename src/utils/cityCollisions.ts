@@ -11,6 +11,8 @@ import { MOTTE_CENTER_Z, MOTTE_PERIMETER_RADIUS } from './terrainHeight';
 // Phase C-8.70B — the East Circus District's race entry position, single-sourced
 // with the signpost mesh the district draws (see `circusDistrictGeometry.ts`).
 import { CIRCUS_RACE_ENTRY } from './circusDistrictGeometry';
+// Phase SHOP-2 — the storefront a hub's shop tab opens (see `data/shops.ts`).
+import type { StorefrontId } from '../data/shops';
 
 // ── World movement boundaries ────────────────────────────────────────────
 // These four constants describe the CITY square: X is symmetric ±35, and the Z
@@ -125,6 +127,14 @@ export interface InteractiveLocation {
   icon: string;
   tabKey?: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | null;
   /**
+   * Phase SHOP-2 — which storefront of the `shop` tab the interaction opens,
+   * for the four city buildings that each sell their own stock.  Optional and
+   * back-compatible exactly like `subTab`: absent means the tab's own default,
+   * the open market (`'market'`, the hub tab's behaviour).  Only `ShopTab`
+   * reads it; a hub that sells nothing leaves it unset.
+   */
+  shopId?: StorefrontId;
+  /**
    * Phase C-8.66B — which subview of `tabKey` the interaction opens, for the one
    * hub that needs it.  The Imperial Stable opens the gear tab straight onto the
    * Chariot Workshop; the tab's own switch returns to the gear list.
@@ -190,7 +200,10 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     radius: 6.0,
     icon: 'Hammer',
     tabKey: 'shop',
-    actionPrompt: 'Buy Weapons & Armor',
+    // Phase SHOP-2: the Forge's interaction opens the forge storefront — every
+    // weapon except the starter gladius every gladiator already carries.
+    shopId: 'forge',
+    actionPrompt: 'Buy Weapons',
     color: '#ca8a04',
     district: 'EAST',
   },
@@ -209,6 +222,10 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     radius: 5.25,
     icon: 'ShoppingCart',
     tabKey: 'shop',
+    // Phase SHOP-2: the general store is the Bazaar — potions and trade wares,
+    // whose stock arrives with the medicus trade, so the storefront is honestly
+    // empty today rather than stocked with goods it does not trade in.
+    shopId: 'bazaar',
     actionPrompt: 'Visit Bazaar Merchant',
     color: '#16a34a',
     district: 'EAST',
@@ -228,7 +245,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     radius: 5.75,
     icon: 'Beer',
     tabKey: 'stats',
-    actionPrompt: 'Gather Intel & Rest',
+    actionPrompt: 'Hear Rumors',
     color: '#9333ea',
     district: 'SOUTH',
   },
@@ -264,6 +281,8 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     radius: 5.25,
     icon: 'ShoppingCart',
     tabKey: 'shop',
+    // Phase SHOP-2: the merchant house deals only in rare and legendary goods.
+    shopId: 'merchant',
     actionPrompt: 'Inspect High-Tier Wares',
     color: '#10b981',
     district: 'EAST',
@@ -275,8 +294,12 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     position: [28.2, 0, 1],
     radius: 4.5,
     icon: 'Shield',
-    tabKey: 'gear',
-    actionPrompt: 'Forge Armor & Accessories',
+    // Phase SHOP-2: the workshop sells armor and accessories, so its interaction
+    // opens the SHOP tab's armorer storefront.  It used to open the Armory
+    // (`tabKey: 'gear'`), which equips owned gear and has nothing to sell.
+    tabKey: 'shop',
+    shopId: 'armorer',
+    actionPrompt: 'Buy Armor & Accessories',
     color: '#f59e0b',
     district: 'EAST',
   },
@@ -364,7 +387,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     radius: 4.75,
     icon: 'Home',
     tabKey: 'stats',
-    actionPrompt: 'Rest in Bathhouse Thermae',
+    actionPrompt: 'Visit the Thermae',
     color: '#0ea5e9',
     district: 'SOUTH',
   },

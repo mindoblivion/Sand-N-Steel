@@ -6,6 +6,7 @@ import { CharacterCreation } from './components/hub/CharacterCreation';
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
 import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
 import type { GearView } from './components/hub/GearTab';
+import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
@@ -59,6 +60,10 @@ export function App() {
   // interaction opens the gear tab with this set to 'chariot'; the tab's own
   // switch flips it back to the gear list.
   const [gearView, setGearView] = useState<GearView>('armory');
+  // Phase SHOP-2: the shop tab's own storefront. A city building's interaction
+  // opens the shop tab with the building's id; the tab's own switch returns to
+  // the open market.
+  const [shopId, setShopId] = useState<StorefrontId>('market');
   // Phase C-8.70B Stage 1, Slice 1 — where the city must put the player back
   // after a race. Set when the race is entered, read when the city remounts,
   // in memory only.
@@ -324,11 +329,23 @@ export function App() {
 
   const handleOpenHubTab = (
     tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats',
-    gearSubview?: GearView
+    gearSubview?: GearView,
+    shopStorefront?: StorefrontId
   ) => {
     setActiveHubTab(tab);
     if (tab === 'gear') setGearView(gearSubview ?? 'armory');
+    if (tab === 'shop') setShopId(shopStorefront ?? 'market');
     setCurrentScreen('hub_2d');
+  };
+
+  /**
+   * Phase SHOP-2 — the hub's own navigation row.  Choosing the Bazaar & Forge
+   * tab from the hub always means the open market; a city building's own
+   * storefront only ever arrives through `handleOpenHubTab`.
+   */
+  const handleHubTabChange = (tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats') => {
+    setActiveHubTab(tab);
+    if (tab === 'shop') setShopId('market');
   };
 
   /**
@@ -600,7 +617,7 @@ export function App() {
             <GladiatorSchoolHub
             playerProfile={profile}
             activeTab={activeHubTab}
-            onTabChange={setActiveHubTab}
+            onTabChange={handleHubTabChange}
             onEnterCity3D={() => setCurrentScreen('city_3d')}
             onSelectOpponent={handleEnterDuel}
             onTrainStat={handleTrainStat}
@@ -609,6 +626,7 @@ export function App() {
             onEquipArmor={handleEquipArmor}
             gearView={gearView}
             onGearViewChange={setGearView}
+            shopId={shopId}
             onBuyChariotPart={handleBuyChariotPart}
             onEquipChariotPart={handleEquipChariotPart}
             onBuyRacingConfig={handleBuyRacingConfig}

@@ -53,6 +53,7 @@ import {
 } from '../../../utils/cityCollisions';
 import { getTerrainY } from '../../../utils/terrainHeight';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
+import type { StorefrontId } from '../../../data/shops';
 import { calculateTotalStats } from '../../../services/storage';
 import { sounds } from '../../../audio/soundEffects';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
@@ -102,7 +103,16 @@ interface CityHubSceneProps {
    * (the Imperial Stable → the Armory's Chariot Workshop). Every other hub
    * passes nothing and lands on the tab's own default view.
    */
-  onOpenTab: (tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats', subTab?: 'chariot') => void;
+  /**
+   * Phase SHOP-2: `shopId` carries the storefront of the `shop` tab, for the
+   * four city buildings that each sell their own stock.  Every other hub passes
+   * nothing and lands on the open market.
+   */
+  onOpenTab: (
+    tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats',
+    subTab?: 'chariot',
+    shopId?: StorefrontId
+  ) => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -248,7 +258,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     } else if (nearbyLoc.tabKey === 'tournament') {
       onEnterDuel(activeOpponent);
     } else if (nearbyLoc.tabKey) {
-      onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab);
+      onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
       // Elegant immersive fallback notification for locations with no immediate tab key
       if (nearbyLoc.id === 'doctore_house') {
