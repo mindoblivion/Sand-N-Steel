@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize } from '../../types/game';
 import { TournamentTab } from './TournamentTab';
 import { TrainingTab } from './TrainingTab';
@@ -7,6 +7,8 @@ import { GearView, GearTab } from './GearTab';
 import { StatsTab } from './StatsTab';
 import { PreFightModal } from './PreFightModal';
 import { HelpModal } from './HelpModal';
+import { CoachCard } from '../ui/CoachCard';
+import { HUB_FIRST_OPEN_CARD_ID, getCoachCard, hasSeenCard } from '../../utils/coachMarks';
 import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 
@@ -34,6 +36,8 @@ interface GladiatorSchoolHubProps {
   isMuted: boolean;
   onResetGame: () => void;
   onOpenSettings?: () => void;
+  /** CL-2 — the one seen-write: App records a card the moment this screen shows it. */
+  onMarkCardSeen?: (id: string) => void;
 }
 
 export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
@@ -58,9 +62,31 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   isMuted,
   onResetGame,
   onOpenSettings,
+  onMarkCardSeen,
 }) => {
   const [selectedOpponent, setSelectedOpponent] = useState<OpponentConfig | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+
+  /**
+   * CL-2 — the first-open coach card, decided once from the profile the hub was
+   * opened with: a profile that has already been shown HUB-1 gets no card and no
+   * mark, a first-time profile gets both.  `showFirstOpenCard` is local view state,
+   * so the card stays up until it is dismissed even though the seen-write lands the
+   * moment it is displayed; `helpMarked` is the one-off mark on the Help control,
+   * cleared when the card is dismissed or when Help is opened.
+   */
+  const firstOpenCardPending = !hasSeenCard(playerProfile, HUB_FIRST_OPEN_CARD_ID);
+  const [showFirstOpenCard, setShowFirstOpenCard] = useState(firstOpenCardPending);
+  const [helpMarked, setHelpMarked] = useState(firstOpenCardPending);
+  const firstOpenCard = getCoachCard(HUB_FIRST_OPEN_CARD_ID);
+
+  // CL-2 — marked seen ON DISPLAY, once: it runs on the mount that showed the card,
+  // and `markSeen` is a no-op for a card the profile already carries, so a repeated
+  // call can never rewrite the save.
+  useEffect(() => {
+    if (!firstOpenCardPending) return;
+    onMarkCardSeen?.(HUB_FIRST_OPEN_CARD_ID);
+  }, []);
 
   return (
     <div className="relative w-full h-full min-h-screen bg-neutral-950 text-amber-100 flex flex-col select-none overflow-y-auto">
@@ -109,11 +135,22 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             <Cloud className="w-4 h-4" />
           </button>
 
+          {/* CL-2 — the Help control carries a one-off mark on a first hub open; the
+              mark clears the moment Help is opened (or the card is dismissed). */}
           <button
-            onClick={() => setShowHelp(true)}
-            className="p-2 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-amber-200 cursor-pointer"
+            onClick={() => {
+              setShowHelp(true);
+              setHelpMarked(false);
+            }}
+            data-help-marked={helpMarked ? '1' : '0'}
+            className={`relative p-2 rounded-xl bg-neutral-800 border text-neutral-300 hover:text-amber-200 cursor-pointer ${
+              helpMarked ? 'border-amber-400 text-amber-200 ring-2 ring-amber-400/60' : 'border-neutral-700'
+            }`}
           >
             <HelpCircle className="w-4 h-4" />
+            {helpMarked && (
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 shadow" />
+            )}
           </button>
 
           <button
@@ -199,7 +236,27 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
       )}
 
       {/* HELP MODAL */}
-      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showHelp && (
+        <HelpModal
+          onClose={() => {
+            setShowHelp(false);
+            setHelpMarked(false);
+          }}
+        />
+      )}
+
+      {/* CL-2 — the first-open coach card.  Non-modal: the camp underneath stays usable. */}
+      {showFirstOpenCard && firstOpenCard && (
+        <CoachCard
+          id={HUB_FIRST_OPEN_CARD_ID}
+          card={firstOpenCard}
+          placement="bottom"
+          onDismiss={() => {
+            setShowFirstOpenCard(false);
+            setHelpMarked(false);
+          }}
+        />
+      )}
     </div>
   );
 };

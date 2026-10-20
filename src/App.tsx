@@ -8,6 +8,7 @@ import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
 import type { GearView } from './components/hub/GearTab';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
+import { markSeen } from './utils/coachMarks';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
 // city hub and the duel arena are: one more screen value, one more lazy import
@@ -332,6 +333,18 @@ export function App() {
   };
 
   /**
+   * CL-2 — the one place the coach-mark `seen` field is written.  `markSeen` is pure
+   * and returns the SAME profile when the card is already recorded, so a repeated or
+   * stale call neither re-renders nor reaches `saveProfile`.
+   */
+  const handleMarkCardSeen = (id: string) => {
+    const marked = markSeen(profile, id);
+    if (!marked || marked === profile) return;
+    setProfile(marked);
+    saveProfile(marked);
+  };
+
+  /**
    * Phase C-8.66B — buy a chariot part with the player's existing gold.
    * `purchaseChariotPart` is pure and re-checks every rule (ownership, price,
    * unknown id), so a rejected buy leaves gold, ownership and the equipped
@@ -619,6 +632,7 @@ export function App() {
             isMuted={isMuted}
             onResetGame={handleResetGame}
             onOpenSettings={() => handleOpenSettings()}
+            onMarkCardSeen={handleMarkCardSeen}
             />
         )}
 
