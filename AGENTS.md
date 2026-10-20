@@ -4690,3 +4690,84 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   wiring runs clean, and their *feel* is the developer's Android read, exactly as the brief said it
   would be. The sandbox has no GPU (SwiftShader, ~1–2 fps in the 3D scenes), so no frame here could
   adjudicate a 40–200 ms hold or a sub-degree camera wobble in any case.
+
+## Day/night cycle T0 — the clock's data model, resolver and phase table (implemented, validated; nothing consumes it yet)
+
+- **What ships: one optional field, one pure module and one suite — and no call site anywhere** (on
+  branch `day-night-cycle`, off `colosseum-exterior-architecture`). `PlayerProfile.time?: { total:
+  number }` (`src/types/game.ts`, optional exactly like `chariot` and `racing`),
+  `src/utils/timeState.ts` (new) and `src/utils/timeState.test.ts` (new, 36 tests). **No screen, no
+  scene, no renderer, no collider, no save write, no new dependency and no existing behaviour
+  changed:** nothing advances the clock, no scene reads the phase table, and `createNewProfile()`
+  still writes no `time` field, so a legacy save round-trips byte-identical. The suite asserts the
+  module is consumed by nothing (a `src/` sweep) and that no shipped file writes `time:` to a
+  profile — the same scope-guard discipline `racingProgression` was held to.
+
+- **ONE lazily-advanced integer drives everything: `total` counts phases from the save's
+  beginning.** `resolveTimeState(profile)` returns `{ total, day, phaseIndex, phase,
+  phasesUntilDawn, isNight }` with `phaseIndex = total % PHASES_PER_DAY` and
+  `day = floor(total / PHASES_PER_DAY) + 1`, so **Day 1 is the first seven phases and the day
+  increments at night → dawn**.
+
+- **The seven phases, in cycle order: `dawn, morning, midday, afternoon, golden, dusk, night`**
+  (labels Dawn … Golden Hour … Night). **No day/night design sheet is committed in this
+  repository** — the `day-night-cycle.md` the brief points at does not exist here and a `git grep`
+  finds no other phase list — so these ids are the ones this slice states and pins. The suite writes
+  its own `EXPECTED_PHASES` / `EXPECTED_NAMES` out as the specification rather than reading them back
+  from the module, so a future slice adopting a different naming sheet rebases those two literals and
+  nothing else. (The title's phase resolver, `useTitlePhaseBackdrop` from START-1, already records
+  that "nothing under `src/` resolves a day/night state" and returns the dawn variant; that named
+  stub is now one consumer away from this module.)
+
+- **The resolver's discipline, pinned the way `resolveRacingState` is: a LAZY, forgiving read —
+  never validated, never repaired, never migrated.** Absent (every pre-T0 save), `null`, non-number,
+  `NaN`, `±Infinity` and any **negative** `total` all resolve to **0** — Day 1, dawn — and a
+  **fractional** value is floored (`6.99` is night of Day 1; `7.1` is dawn of Day 2). A legacy save
+  therefore wakes on Day 1 at dawn and is deliberately **not** retro-credited for the time it was
+  played before this slice. `phasesUntilDawn` is `7 − phaseIndex` — **7 at dawn, 1 at night** — and
+  `isNight` is the `night` phase only; both are stated as conventions in the module and pinned as
+  such.
+
+- **The two advance functions are PURE: they RETURN a new profile and never mutate or persist.**
+  `advanceTimeBy(profile, steps)` steps by whole phases — a negative, fractional or nonsense `steps`
+  is normalised to a whole non-negative count, so the clock can only move forward, and a malformed
+  save advances from 0 rather than from garbage. `advanceToNextDawn(profile)` rounds up to the next
+  multiple of seven and is the **identity from dawn** (the pinned dawn-stay rule: there is no "next"
+  dawn without spending a whole cycle). Both are driven against **deep-frozen** inputs in the suite,
+  so an in-place write would throw rather than pass quietly. T0 wires neither to anything —
+  persisting the returned profile stays a later slice's job through the existing `saveProfile()`.
+
+- **`PHASE_PROFILES` is DATA, interpolated between two anchors, and it renders nowhere.** There is
+  no atmosphere package in the repo, so the anchors are the *shipped* ones rather than documented
+  ones: the midday anchor is `CityHubScene`'s own calibrated noon rig value for value (sun `#fffbeb`
+  at 2.15, hemisphere `#fef3c7` / `#8a7a5f` at 0.45, fog `#e3dbc6` at 45…160, sky dome `#fef3c7` at
+  0.35), and the night anchor — a cool moonlight key over a dark warm ground with a warm torch key —
+  is **authored here and flagged proposed, not measured**, because no shipped scene paints night
+  yet. The seven phases are a linear sRGB interpolation of those two, driven by per-phase daylight
+  weights. **It is Director-reviewable data, not settled art direction**, and the suite pins its
+  *shape* (the anchors exact in both directions, every value between them field by field, a
+  monotonic key light, every colour a well-formed hex) rather than its taste.
+
+- **Validation (2026-10-20, dev container — all five commands run, every one green):** focused
+  `bun test src/utils/timeState.test.ts` → **36 pass / 0 fail** (784 `expect()` calls); `bun test` →
+  **2189 pass / 0 fail (70 files, 66,351 `expect()` calls)** — the branch tip read 2153 / 69, so
+  this suite's 36 tests and its file are the whole delta; `bun run scripts/collisionTests.ts` →
+  **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` →
+  **exit 0** with the startup asset check passing (8 assets; the pre-existing >500 kB chunk warning
+  only); `git diff --check` → **clean**. The dev server still answers HTTP 200 for the shell and
+  serves the new module transformed.
+
+- **One test-side repair this turn, determined by the evidence rather than by weakening a check.**
+  The suite's §G "no scene consumes it in T0" guard swept `src/` for the module's name over **raw**
+  source, so the cross-reference comment this phase adds in `types/game.ts` counted as a consumer and
+  the suite failed 1 of 36. It now reads **comment-stripped** through the suite's own `code()` helper
+  — the helper that exists precisely so "prose can never satisfy (or defeat) an assertion" — so it
+  still fails on a real import while a documentation mention is not a consumer. No assertion was
+  removed or relaxed, and the module itself was unchanged by the repair.
+
+- **Not automatically verified — and there is nothing to see, by construction.** This slice renders
+  no pixel and advances no clock: the module has no call site, no scene reads `PHASE_PROFILES`, and
+  no screen shows `day` or `phase`. So there is no appearance to accept and **no new Android item**;
+  the visual acceptance of the seven phases belongs to the slice that wires this resolver to the
+  title background and the scene lighting. Still open from earlier phases: the C-8.41 kerb, the
+  C-8.64A/B district, the C-8.65 apron and the rest of the device checklist this file carries.

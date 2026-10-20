@@ -487,7 +487,9 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
     const sources = filesUnder(path('..')).filter(
       (file) => /\.(ts|tsx)$/.test(file) && !file.endsWith('timeState.ts') && !file.endsWith('timeState.test.ts')
     );
-    const consumers = sources.filter((file) => /timeState/.test(load(file)));
+    // `code`, not `load`: a prose mention of the module (e.g. the cross-reference
+    // in `types/game.ts`) is not a consumer — only real source is scanned.
+    const consumers = sources.filter((file) => /timeState/.test(code(file)));
     expect(consumers).toEqual([]);
     // no shipped source writes the field either — T0 adds no profile write
     expect(code('../services/storage.ts')).not.toContain('time:');
