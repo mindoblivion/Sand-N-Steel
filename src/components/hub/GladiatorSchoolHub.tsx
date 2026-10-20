@@ -92,7 +92,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
         <div className="flex flex-wrap justify-end items-center gap-2">
           <button
             onClick={onEnterCity3D}
-            className="px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-serif font-bold text-xs uppercase tracking-wider shadow-lg active:scale-95 cursor-pointer flex items-center gap-1.5"
+            className="min-h-[48px] px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-serif font-bold text-xs uppercase tracking-wider shadow-lg active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
           >
             <Compass className="w-4 h-4" />
             <span>3D Metropolis</span>
@@ -111,24 +111,29 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
 
           <button
             onClick={onOpenDriveSync}
-            className="p-2 rounded-xl bg-neutral-800 hover:bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 hover:text-cyan-100 cursor-pointer"
+            className="min-h-[48px] min-w-[48px] px-2.5 rounded-xl bg-neutral-800 hover:bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 hover:text-cyan-100 cursor-pointer flex items-center justify-center gap-1.5 font-serif font-bold text-xs uppercase tracking-wider"
             title="Google Drive Cloud Saves"
           >
             <Cloud className="w-4 h-4" />
+            <span>Drive</span>
           </button>
 
           <button
             onClick={() => setShowHelp(true)}
-            className="p-2 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-amber-200 cursor-pointer"
+            className="min-h-[48px] min-w-[48px] px-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-amber-200 cursor-pointer flex items-center justify-center gap-1.5 font-serif font-bold text-xs uppercase tracking-wider"
+            title="Combat & Controls Help"
           >
             <HelpCircle className="w-4 h-4" />
+            <span>Help</span>
           </button>
 
           <button
             onClick={onToggleMute}
-            className="p-2 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-amber-200 cursor-pointer"
+            className="min-h-[48px] min-w-[48px] px-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-amber-200 cursor-pointer flex items-center justify-center gap-1.5 font-serif font-bold text-xs uppercase tracking-wider"
+            title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
+            <span>{isMuted ? 'Unmute' : 'Mute'}</span>
           </button>
         </div>
       </header>
@@ -155,7 +160,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
                 sounds.playClick();
                 onTabChange(tab.key as 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library');
               }}
-              className={`py-2 px-3 sm:px-4 rounded-xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`min-h-[48px] py-2 px-3 sm:px-4 rounded-xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                 isActive
                   ? 'bg-amber-500/20 border border-amber-400 text-amber-200 shadow-md'
                   : 'bg-neutral-900/80 border border-neutral-800 text-neutral-400 hover:text-amber-200'

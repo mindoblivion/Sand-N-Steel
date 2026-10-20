@@ -253,7 +253,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             type="button"
             data-title-action="account"
             onClick={handleOpenAccount}
-            className="mt-4 px-4 py-1.5 rounded-full font-serif text-[11px] uppercase tracking-[0.25em] text-amber-200/80 border border-amber-800/40 hover:text-amber-100 hover:border-amber-600/60 transition-colors cursor-pointer"
+            className="mt-4 inline-flex items-center justify-center min-h-[48px] px-4 py-1.5 rounded-full font-serif text-[11px] uppercase tracking-[0.25em] text-amber-200/80 border border-amber-800/40 hover:text-amber-100 hover:border-amber-600/60 transition-colors cursor-pointer"
           >
             Account
           </button>
@@ -274,7 +274,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           target="_blank"
           rel="noopener noreferrer"
           data-title-action="privacy"
-          className="absolute bottom-1 right-2 z-10 min-h-[44px] px-2 flex items-center font-serif text-xs uppercase tracking-[0.2em] text-amber-200/70 hover:text-amber-100 underline decoration-dotted underline-offset-4 transition-colors cursor-pointer"
+          className="absolute bottom-1 right-2 z-10 min-h-[48px] px-2 flex items-center font-serif text-xs uppercase tracking-[0.2em] text-amber-200/70 hover:text-amber-100 underline decoration-dotted underline-offset-4 transition-colors cursor-pointer"
         >
           Privacy
         </a>

@@ -1,7 +1,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon, XCircle } from 'lucide-react';
 import { Environment, Lightformer, Sky, useGLTF } from '@react-three/drei';
 import { EastCircusArena } from './city/EastCircusArena';
 import { RaceTouchControls } from '../ui/RaceTouchControls';
@@ -788,9 +788,11 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
               type="button"
               onClick={handleAbort}
               data-race-action="abort"
-              className="pointer-events-auto min-h-[3rem] px-4 rounded-2xl bg-gradient-to-r from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 border-2 border-red-400/70 text-amber-50 font-serif font-black text-xs uppercase tracking-wider shadow-[0_0_25px_rgba(220,38,38,0.45)] active:scale-95 transition-all cursor-pointer touch-manipulation"
+              className="pointer-events-auto min-h-[3rem] px-4 rounded-2xl bg-gradient-to-r from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 border-2 border-red-400/70 text-amber-50 font-serif font-black text-xs uppercase tracking-wider shadow-[0_0_25px_rgba(220,38,38,0.45)] active:scale-95 transition-all cursor-pointer touch-manipulation flex items-center gap-2"
             >
-              Abort race
+              {/* UI-1 (B-19) — the icon its label always implied. */}
+              <XCircle className="w-4 h-4" />
+              <span>Abort race</span>
               <span className="hidden md:inline ml-2 text-[10px] opacity-70">(Esc)</span>
             </button>
           </div>

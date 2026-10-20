@@ -475,7 +475,10 @@ describe('E. The wiring — every consumer, read out of the shipped sources', ()
     // text-[Npx] rule below the 10px floor.
     expect(modal).toContain('min-h-[48px]');
     expect(modal).toContain('min-h-[56px]');
-    expect(modal).toContain('w-12 h-12');
+    // UI-1 moved the header ✕ onto the shared close class, which is the same 48×48
+    // target this assertion has always pinned: the shape lives in one place now.
+    expect(modal).toContain('CLOSE_BUTTON_CLASS');
+    expect(source('src/components/ui/controlStyles.ts')).toContain('w-12 h-12');
     expect(modal).toContain("width: 'min(940px, 94vw)'");
     expect(modal).toMatch(/sm:flex-row/);
     expect(modalCode.match(/text-\[\d+px\]/g) ?? []).toEqual([]);

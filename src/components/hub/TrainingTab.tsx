@@ -53,7 +53,7 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({ profile, onTrainStat }
                   onTrainStat(opt.key as 'strength' | 'agility' | 'stamina' | 'defense');
                 }}
                 disabled={!canAfford}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 disabled:opacity-40 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md"
+                className="w-full min-h-[48px] py-3 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 disabled:opacity-40 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md"
               >
                 Train (+1 {opt.key.toUpperCase()})
               </button>

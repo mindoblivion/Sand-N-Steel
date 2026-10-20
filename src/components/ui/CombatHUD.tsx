@@ -53,7 +53,9 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   const crowdFavorTier = crowdHype > 75 ? 'MAX' : crowdHype > 40 ? 'HIGH' : 'LOW';
 
   return (
-    <div className="combat-hud absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 sm:p-5 select-none z-10">
+    /* UI-1 (S-3) — the HUD owns its safe-area gutter, rather than relying on the
+       global body padding alone.  The max() keeps the existing padding as the floor. */
+    <div className="combat-hud absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 sm:p-5 pb-[max(0.625rem,env(safe-area-inset-bottom))] pl-[max(0.625rem,env(safe-area-inset-left))] pr-[max(0.625rem,env(safe-area-inset-right))] sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pl-[max(1.25rem,env(safe-area-inset-left))] sm:pr-[max(1.25rem,env(safe-area-inset-right))] select-none z-10">
       {/* TOP HEADER: HEALTH, STAMINA, HYPE & UTILITY BUTTONS */}
       <div className="combat-top w-full flex flex-col gap-2">
         {/* TOP UTILITY BAR */}
@@ -78,37 +80,40 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={onCycleCameraMode}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer text-xs font-mono"
+              className="flex items-center justify-center gap-1 min-h-[48px] min-w-[48px] px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer text-xs font-mono"
               title={`Camera: ${cameraMode.replace('_', ' ')} (Tap to switch / press C)`}
             >
               <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
-              <span className="hidden sm:inline capitalize">
+              {/* UI-1 (B-1) — the label IS this control's state, so it shows at every width. */}
+              <span className="capitalize">
                 {cameraMode === 'cinematic' ? '3/4 Duel' : cameraMode === 'over_shoulder' ? 'Shoulder' : 'Isometric'}
               </span>
             </button>
             {onOpenSettings && (
               <button
                 onClick={onOpenSettings}
-                className="min-h-[48px] px-2.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-semibold tracking-wide"
+                className="min-h-[48px] min-w-[48px] px-2.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide"
                 title="Game Settings"
               >
                 <Settings className="w-4 h-4 text-amber-400" />
-                <span className="hidden sm:inline">Settings</span>
+                <span>Settings</span>
               </button>
             )}
             <button
               onClick={onOpenHelp}
-              className="p-1.5 sm:p-2 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer"
+              className="min-h-[48px] min-w-[48px] px-2 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide"
               title="Controls & Instructions"
             >
               <HelpCircle className="w-4 h-4" />
+              <span>Help</span>
             </button>
             <button
               onClick={onToggleMute}
-              className="p-1.5 sm:p-2 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer"
+              className="min-h-[48px] min-w-[48px] px-2 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide"
               title={isMuted ? 'Unmute Sound' : 'Mute Sound'}
             >
               {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
+              <span>{isMuted ? 'Unmute' : 'Mute'}</span>
             </button>
           </div>
         </div>
