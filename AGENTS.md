@@ -4691,6 +4691,41 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   would be. The sandbox has no GPU (SwiftShader, ~1–2 fps in the 3D scenes), so no frame here could
   adjudicate a 40–200 ms hold or a sub-degree camera wobble in any case.
 
+## Tempering — pure logic (P1 — implemented)
+
+- **Scope.** Data + logic only, no UI: `src/utils/tempering.ts` (new), one optional
+  `temper?: Record<string, number>` on `PlayerProfile` (`src/types/game.ts`), and the stat seam
+  (`src/services/storage.ts`). The owned `WeaponItem` / `ArmorItem` objects are **never** modified
+  — the upgrade lives only in `profile.temper`, keyed by item id, and is written only by a
+  successful `purchaseTemper()` (never by `createNewProfile()`), so the save format gains exactly
+  one lazy optional field, like `chariot` and `racing`.
+- **The stat seam existed and is wired.** `calculateTotalStats()` (`services/storage.ts`) is the one
+  aggregation both combat (`components/duel/DuelScene.tsx`) and the hub (`components/hub/StatsTab.tsx`)
+  already read, so it now resolves each equipped item's level with `resolveTemperLevel()` and adds
+  `getEffectiveWeaponStats()` / `getEffectiveArmorStats()`. At level 0 each helper returns a copy
+  equal to the base item, so a legacy save (no `temper` field) is unchanged — the whole suite is
+  green with no existing expectation touched. `combatCalculations.ts` formulas are untouched:
+  weapon **damage** still comes from the item object, so a later slice must read the effective
+  weapon wherever damage is consumed (`DuelScene`'s `loadout.weapon.damageLight|damageHeavy`).
+- **Numbers.** Cost = 40 / 80 / 140 % of the item's own `price`, rounded to the nearest 5
+  (starter gladius 50 → 20 / 40 / 70; Colossus Titan Skullcrusher 920 → 370 / 735 / 1,290).
+  Weapon: `damageLight` / `damageHeavy` +8 % of **base** per level (linear, rounded), +1
+  `bonusStrength` at +2 and again at +3. Armour: +1 `defense` per level, and at +3 +1 to each bonus
+  stat it already lists (a temper never invents a bonus; a piece with two listed bonuses gets +1 to
+  both — `helm_murmillo`'s `bonusDefense` 2 → 3, `defense` 4 → 7). Sell value = `sellPrice` + 25 %
+  of the temper gold spent, rounded (`getTemperSellValue(profile, item)`). Gold can never go
+  negative: an unaffordable level is refused before any object is built.
+- **Validation — all five commands, run in the `web` container.** `bun test` → **2176 pass / 0 fail
+  (70 files)**, this slice contributing the 23 tests in the new `src/utils/tempering.test.ts` with
+  **no existing test file modified** (`git status`: only `storage.ts`, `game.ts` edited, two files
+  added); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0; `git diff --check` → clean.
+- **Verified in the preview:** the app boots with the new module in its graph (title screen renders,
+  0 console errors; the dev server serves the transformed `tempering.ts` and the wired
+  `storage.ts`). **Not automatically verified:** the hub's Stats screen and the duel's stat readout —
+  this app is sign-in gated and the preview browser had no session, so the wiring is pinned by the
+  unit test that drives `calculateTotalStats` with a `temper` record instead.
+
 ## Screen motion tokens & foundation (MO-1 — implemented, validated)
 
 - **What ships: three production files and one suite.** `src/index.css` (a new SCREEN MOTION
@@ -5038,3 +5073,69 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   cheap device lands on Swift at first run (`devicePixelRatio` > 2.5 with ≤ 4 cores) while a record
   that already carries a choice keeps it; (d) that a fast travel and the first second in the hub do
   not visibly drop the resolution (the suspension). Do not claim device acceptance.
+
+## Selling — market buy-back (P1 sell-refund — implemented)
+
+- **What ships.** `src/utils/selling.ts` (new) is the transaction that pairs with the value rule
+  `utils/tempering.ts` already owned: `getSellValue()` returns the item's own `sellPrice` plus 25 %
+  of the temper gold spent on it (`getTemperSellValue`), `getSellEligibility()` states the rules, and
+  `sellItem()` is the transaction. Same purity contract as the chariot / racing / tempering helpers:
+  a refusal returns the caller's own profile object untouched, a success returns a NEW profile with
+  the value added to `gold` and the item dropped from `inventory`.
+- **Selling clears that item's temper record**, because `ITEMS_DB` objects are shared data — a
+  re-bought sword must start at level 0, not inherit the levels its previous owner paid for. A save
+  with no `temper` field never gains one by selling.
+- **Only a carried, unequipped item is sellable** (`not-owned` / `equipped` / `unknown-item` /
+  `no-profile` refusals). `equipped.weapon` is required, so unequipping-by-selling would leave a
+  state no other code expects; the player unequips first, exactly as in a real armoury.
+- **UI.** The Bazaar & Forge (`components/hub/ShopTab.tsx`) now shows a `Sell for N Gold` control on
+  an owned, unequipped card, below the disabled `Owned` button; it is wired `ShopTab → onSellItem →
+  GladiatorSchoolHub → App.handleSellItem → saveProfile`, the same path every other profile change
+  uses. The Armory (`GearTab`) is unchanged — it equips, the market trades.
+- **Verified.** `bun test` → **2346 pass / 0 fail (77 files)**, this slice contributing the 16 tests
+  in the new `src/utils/selling.test.ts` (eligibility, value, transaction purity, inert refusals);
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0. In the preview the market
+  renders the control with the correct figure (`SELL FOR 45 GOLD` on the 45 g Dory Hoplite Spear,
+  the equipped gladius correctly offered none).
+- **Not automatically verified: the click-through.** The button was rendered and read, but the
+  sale click was not dispatched in that run (the selector missed the label because Tailwind's
+  `uppercase` class uppercases `innerText`), so the gold credit + inventory removal + save write
+  through the UI are pinned only by the unit tests that drive `sellItem()` itself. Reaching the
+  market also costs the full creation → press-and-hold oath → city fast-travel path, so it was not
+  repeated in the same session.
+
+## Arena purse — victory gold (P1 rewards — implemented)
+
+- **What ships.** `src/utils/duelRewards.ts` (new, pure: no profile, no storage, no clock) is the
+  rule that turns a finished duel's own statistics into the gold a victory pays; `DuelGoldBreakdown`
+  and an optional `goldBreakdown` on `DuelStatistics` (`src/types/game.ts`); `DuelScene` computes the
+  purse at the victory resolution and writes it onto the ONE stats object App already credits; the
+  result modal itemises it and shows the settled purse. **No new currency, no second save field, no
+  change to the reward path**: `App.handleMatchComplete` still does `profile.gold + stats.goldEarned`
+  and still refuses to pay on a loss.
+- **The rule.** Base = the opponent's own `rewardGold` (35 … 1,000 across the roster), plus crowd
+  favour (+10 % of the base per full 25 hype above 50, so +7 on a 35-gold bounty at hype 100), plus
+  precision (5 gold per perfect block, capped at five), plus flawless (+50 % of the base when no
+  damage was taken). Marcus at peak value pays **85**; the tier-4 boss at peak value pays over
+  **1,700**. A loss pays **0** — every field zero — which is what keeps the arena a reward for risk.
+- **Why the flat bounty was kept as the base:** `rewardGold` is the roster's balance data (and what
+  the Colosseum list and pre-fight panel quote), so the purse is written over it rather than
+  replacing it; a quiet win therefore pays exactly what the game always paid and only a showy or
+  flawless one pays more.
+- **Where the gold goes.** Straight into `profile.gold` through the existing `saveProfile()` write, so
+  it is the same purse `purchaseTemper()` spends — a tempered gladius' first level (20 g) is one
+  Marcus victory, and the whole gladius curve (130 g) is under two.
+- **Validation (2026-10-20).** `bun test` → **2366 pass / 0 fail (78 files, 78,928 expect() calls)**,
+  this slice contributing the 18 tests in `src/utils/duelRewards.test.ts` (loss pays nothing, base
+  bounty, the hype steps and their monotonicity, the block cap, flawless and its removal by one point
+  of damage, integer/non-negative totals for malformed input, the "a win never pays less than the
+  bounty" invariant, and the wiring: the duel pays `purse.total` onto `statsRef`, a defeat zeroes it,
+  App credits `stats.goldEarned`, the modal renders the breakdown); `bun run lint` (`tsc --noEmit`) →
+  exit 0. The dev server serves the new module and the changed scene/modal/App transformed (HTTP 200).
+- **Preview evidence, and what it does NOT establish.** The dev harness's own screens mount with the
+  change in place — creation, the test profile, the "START TEST DUEL" hand-off — with **0 console
+  errors**, so the new import chain is clean. **The purse itself is NOT automatically verified in the
+  browser:** paying it requires actually winning a duel, and the sandbox renders the arena through
+  SwiftShader at ~1–2 fps (the duel-mount attempt timed out at 30 s), so neither the paid figure nor
+  the breakdown rows were seen rendered. They are pinned by the suite above; confirm by winning one
+  Colosseum duel on a device.

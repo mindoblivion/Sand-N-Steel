@@ -185,6 +185,20 @@ export interface DuelStatistics {
   xpEarned: number;
   wagerEarned?: number;
   lootDrop?: WeaponItem | ArmorItem | null;
+  /** The victory purse itemised (see `utils/duelRewards.ts`); absent on a defeat. */
+  goldBreakdown?: DuelGoldBreakdown;
+}
+
+/**
+ * An itemised arena purse: the opponent's base bounty plus the performance
+ * bonuses a victory pays. `total` is the gold credited to the player's purse.
+ */
+export interface DuelGoldBreakdown {
+  base: number;
+  hype: number;
+  precision: number;
+  flawless: number;
+  total: number;
 }
 
 export interface TournamentTierInfo {
@@ -338,6 +352,16 @@ export interface PlayerProfile {
    * migration, and never by `createNewProfile()`).
    */
   racing?: RacingProgression;
+  /**
+   * P1 — per-item temper (upgrade) level, keyed by item id; absent on every
+   * pre-tempering save.  Exactly like `chariot` and `racing`, a missing
+   * field, a missing id and a malformed value all resolve to level 0 in
+   * `src/utils/tempering.ts` rather than repairing the save, and the field
+   * is written only by a successful `purchaseTemper()` — never by
+   * `createNewProfile()`.  The owned `WeaponItem` / `ArmorItem` objects are
+   * never modified: an item's upgrade state lives only here.
+   */
+  temper?: Record<string, number>;
   /**
    * The road; absent on every save written before it, and written only by the writers
    * named on `RoadProgress` above.

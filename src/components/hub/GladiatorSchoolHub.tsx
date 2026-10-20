@@ -20,6 +20,8 @@ interface GladiatorSchoolHubProps {
   onSelectOpponent: (opp: OpponentConfig) => void;
   onTrainStat: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
   onBuyItem: (item: WeaponItem | ArmorItem) => void;
+  /** P1 sell — the market pays the item's sellPrice plus any temper refund. */
+  onSellItem?: (item: WeaponItem | ArmorItem) => void;
   onEquipWeapon: (wpn: WeaponItem) => void;
   onEquipArmor: (armor: ArmorItem) => void;
   /** Armory subview (Phase C-8.66B); 'chariot' is what the Imperial Stable opens. */
@@ -48,6 +50,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onSelectOpponent,
   onTrainStat,
   onBuyItem,
+  onSellItem,
   onEquipWeapon,
   onEquipArmor,
   gearView = 'armory',
@@ -174,7 +177,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           <TrainingTab profile={playerProfile} onTrainStat={onTrainStat} />
         )}
         {activeTab === 'shop' && (
-          <ShopTab profile={playerProfile} onBuyItem={onBuyItem} />
+          <ShopTab profile={playerProfile} onBuyItem={onBuyItem} onSellItem={onSellItem} />
         )}
         {activeTab === 'gear' && (
           <GearTab
