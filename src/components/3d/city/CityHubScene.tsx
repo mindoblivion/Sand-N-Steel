@@ -36,6 +36,13 @@ import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
 import { CORE_3D_ASSETS } from '../../../utils/preloadAssets';
 import { Banner, SteamParticles, ForgeSmoke, SandDrift } from './EnvironmentalMotion';
+// SF-1 — the city's picture budget: the tier table and the adaptive engine that
+// steps inside a tier's DPR band, plus the one settings reader the drifting dust
+// obeys (the preset itself arrives through `useSettings`).
+import { CITY_TIERS, POST_TRANSITION_MS, useAdaptiveDpr } from '../../../hooks/useAdaptiveDpr';
+import { getEffectiveAtmosphereMotion } from '../../../services/settings';
+import type { QualityPreset } from '../../../services/settings';
+import { useSettings } from '../../../hooks/useSettings';
 // Phase C-8.70B — the East Circus District's read-only pre-race entry panel.
 import { PreRacePanel } from '../../hub/PreRacePanel';
 
@@ -98,6 +105,22 @@ export interface CityExitPose {
   position: [number, number, number];
   rotationY: number;
 }
+
+/**
+ * SF-1 — the adaptive DPR engine's mount point.
+ *
+ * It has to sit INSIDE `<Canvas>` (a frame's duration only exists there) and it
+ * renders nothing: a step is published into the scene's own state, which the
+ * Canvas's `dpr` prop follows, so there is exactly one holder of the value.
+ */
+const CityAdaptiveDpr: React.FC<{
+  tier: QualityPreset;
+  suspendedRef: { readonly current: boolean };
+  onDprChange: (dpr: number) => void;
+}> = ({ tier, suspendedRef, onDprChange }) => {
+  useAdaptiveDpr({ tier, suspendedRef, onDprChange });
+  return null;
+};
 
 interface CityHubSceneProps {
   playerProfile: PlayerProfile;
@@ -228,13 +251,69 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // state only: opening it and leaving it change no game data.
   const [showRaceEntry, setShowRaceEntry] = useState(false);
 
+  /**
+   * SF-1 — the quality preset arrives as a setting, not as a prop: the panel writes
+   * the one settings record and this scene subscribes to it, exactly as it does for
+   * brightness.  A preset change re-applies the whole tier.
+   */
+  const settings = useSettings();
+  const qualityPreset = settings.qualityPreset;
+  const cityTier = CITY_TIERS[qualityPreset];
+
+  /**
+   * SF-1 — the drift the city's dust obeys: the tier's particle budget, and nothing
+   * at all while the player's atmosphere motion is off.  Swift forces that motion
+   * off (`getEffectiveAtmosphereMotion`), which is why Swift's row draws no dust.
+   */
+  const atmosphericMotion = getEffectiveAtmosphereMotion(settings);
+  const sparklesCount = atmosphericMotion ? cityTier.sparkles : 0;
+
+  /**
+   * SF-1 — the Canvas's DPR is STATE now, not a constant: the tier sets its starting
+   * value and the adaptive engine steps it inside the tier's band.  A step is rare
+   * (never twice inside 3 s) and is the only thing about the picture budget that
+   * re-renders this scene — the per-frame EMA lives in the engine's own ref.
+   */
+  const [cityDpr, setCityDpr] = useState<number>(() => CITY_TIERS[qualityPreset].dpr.start);
+
+  /**
+   * SF-1 — adaptation is suspended while the scene is a TRANSITION: the mounting
+   * warm-up, a fast travel, and one transition-length after arrival.  A ref, because
+   * the engine reads it every frame and the scene only ever writes it; the resume
+   * delay is the engine's own `POST_TRANSITION_MS`, so the two cannot drift apart.
+   */
+  const adaptationSuspendedRef = useRef(true);
+  const adaptationResumeRef = useRef<number | null>(null);
+  const suspendAdaptation = useCallback(() => {
+    adaptationSuspendedRef.current = true;
+    if (adaptationResumeRef.current !== null) window.clearTimeout(adaptationResumeRef.current);
+    adaptationResumeRef.current = window.setTimeout(() => {
+      adaptationSuspendedRef.current = false;
+      adaptationResumeRef.current = null;
+    }, POST_TRANSITION_MS);
+  }, []);
+
+  // SF-1 — the tier, applied at mount and on a preset change (never mid-frame and
+  // never by the engine): the band's starting DPR.  The engine keeps a tier's DPR
+  // inside its band from there on.
+  useEffect(() => {
+    setCityDpr(CITY_TIERS[qualityPreset].dpr.start);
+  }, [qualityPreset]);
+
   useEffect(() => {
     // Start with frameloop="demand" initially, switching to "always" after core 3D assets & context are warm
     const timer = setTimeout(() => {
       setFrameloopMode('always');
     }, 250);
-    return () => clearTimeout(timer);
-  }, []);
+    // SF-1 — mounting IS a transition: the first compiles and the demand→always
+    // switch are not a slow device, so the engine starts suspended and is released
+    // one transition-length after mount.
+    suspendAdaptation();
+    return () => {
+      clearTimeout(timer);
+      if (adaptationResumeRef.current !== null) window.clearTimeout(adaptationResumeRef.current);
+    };
+  }, [suspendAdaptation]);
 
   // Mutable refs for silky smooth 60fps movement without React re-render cancellation
   const playerPosRef = useRef<[number, number, number]>(initialPosition ?? [0, 0, 16]);
@@ -552,6 +631,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     const newPos: [number, number, number] = [ax, getTerrainY(ax, az), az];
     playerPosRef.current = newPos;
     setPlayerPos(newPos);
+    // SF-1 — a fast travel is a scene transition: the engine stops reading frames
+    // for it and for the second after arrival, so the teleport's own hitches cannot
+    // be mistaken for a device that cannot hold the tier's DPR.
+    suspendAdaptation();
     // Phase 31J: clear stale recovery history so oscillation-prevention
     // entries from the previous location don't block escape at the new one.
     clearRecoveryHistory();
@@ -620,7 +703,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           <Canvas
             shadows
             frameloop={frameloopMode}
-            dpr={[1, 2]}
+            /* SF-1 — the tier's band replaces the old [1, 2]: Balanced, the default,
+               now tops out at the studio budget's 1.5 instead of asking for 2. */
+            dpr={cityDpr}
             camera={{ position: [0, 5, 24], fov: 58, near: 0.1, far: 180 }}
             gl={{ antialias: false, powerPreference: 'high-performance' }}
             onCreated={(state) => {
@@ -630,6 +715,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           >
             {/* Active GPU Health & Context Monitor */}
             <CanvasWebGLMonitor sceneName="CityHubMetropolis" />
+            {/* SF-1 — the city's pixel governor, inside the Canvas because only here
+                does a frame's own duration exist. */}
+            <CityAdaptiveDpr
+              tier={qualityPreset}
+              suspendedRef={adaptationSuspendedRef}
+              onDprChange={setCityDpr}
+            />
             {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
             <SceneBrightness />
 
@@ -719,9 +811,16 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               </group>
             </ThreeComponentErrorBoundary>
 
-            {/* Floating Atmospheric Desert Dust Particles */}
-            <DreiSparkles count={90} scale={[80, 20, 80]} size={2.8} speed={0.35} color="#fef08a" opacity={0.65} />
-            <SandDrift />
+            {/* Floating Atmospheric Desert Dust Particles.
+                SF-1 — the count is the tier's (Swift 0 / Balanced 60 / Cinematic 90,
+                the last being the pre-slice count), and the drifting atmosphere obeys
+                the motion switch, which Swift forces off.  `count` is the component's
+                own visibility path and `visible` is three's, so neither adds a code
+                path: Swift draws no dust at all. */}
+            <DreiSparkles count={sparklesCount} scale={[80, 20, 80]} size={2.8} speed={0.35} color="#fef08a" opacity={0.65} />
+            <group visible={atmosphericMotion}>
+              <SandDrift />
+            </group>
 
             {/* 3D Architectural City Components Wrapped in Error Boundary */}
             <ThreeComponentErrorBoundary componentName="CityArchitecturalDistricts">
