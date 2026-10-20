@@ -13,8 +13,9 @@ import { DEFAULT_PLAYER_WEAPON, ITEMS_DB, isWeapon, GameItem } from './itemsDB';
  * Pure data: `getStorefrontStock` only reads `ITEMS_DB` and returns a fresh
  * array of ids, so a caller can never mutate the catalogue through it.
  *
- * Consumed by: nothing yet — the hub tab still renders `ITEMS_DB` directly;
- * a storefront UI arrives in a later phase.
+ * Consumed by: `components/hub/ShopTab.tsx`, which renders exactly the ids a
+ * city building's own storefront resolves to — and the whole catalogue for the
+ * hub's own tab, whose storefront id is 'market'.
  */
 
 /** The five hub storefronts. */

@@ -60,7 +60,9 @@ export interface PostOathNudgeProps {
 }
 
 export const PostOathNudge: React.FC<PostOathNudgeProps> = ({ onSaveProgress, onDismiss }) => (
-  <div className="fixed inset-0 z-[65] pointer-events-none flex items-end justify-center sm:justify-end">
+  /* UI-1 (S-1) — the anchored wrapper pads for the device's own insets, so the card
+     never sits under a home bar or a notch-side gesture area. */
+  <div className="fixed inset-0 z-[65] pointer-events-none flex items-end justify-center sm:justify-end pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]">
     <div
       data-post-oath-nudge="1"
       role="status"
@@ -78,7 +80,7 @@ export const PostOathNudge: React.FC<PostOathNudgeProps> = ({ onSaveProgress, on
               type="button"
               data-post-oath-action="save"
               onClick={onSaveProgress}
-              className="px-3 py-1.5 rounded-full bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] border border-[#8b2a2a]/60 font-serif font-bold text-[11px] uppercase tracking-wider text-amber-50 cursor-pointer active:scale-95 transition-all"
+              className="inline-flex items-center min-h-[48px] px-3 py-1.5 rounded-full bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] border border-[#8b2a2a]/60 font-serif font-bold text-[11px] uppercase tracking-wider text-amber-50 cursor-pointer active:scale-95 transition-all"
             >
               Keep him safe
             </button>
@@ -86,7 +88,7 @@ export const PostOathNudge: React.FC<PostOathNudgeProps> = ({ onSaveProgress, on
               type="button"
               data-post-oath-action="dismiss"
               onClick={onDismiss}
-              className="px-3 py-1.5 rounded-full border border-neutral-700 font-serif text-[11px] uppercase tracking-wider text-neutral-300 cursor-pointer hover:border-amber-700/60 hover:text-amber-200 transition-colors"
+              className="inline-flex items-center min-h-[48px] px-3 py-1.5 rounded-full border border-neutral-700 font-serif text-[11px] uppercase tracking-wider text-neutral-300 cursor-pointer hover:border-amber-700/60 hover:text-amber-200 transition-colors"
             >
               Not now
             </button>

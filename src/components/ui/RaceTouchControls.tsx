@@ -7,17 +7,16 @@ import type { ChariotInput } from '../../utils/chariotMovement';
  * controls.
  *
  * ── What it reuses, rather than reinventing ───────────────────────────────
- * It is the same construction as `ui/TouchControls.tsx`: one full-screen
+ * It is the race screen's only touch scheme: one full-screen
  * `pointer-events-none` overlay at `z-20` in which each cluster is
  * `pointer-events-auto touch-none`, laid out with `justify-between items-end`
  * and safe-area padding, with the project's own amber/stone round buttons.  The
- * HOLD idiom is that component's Block button verbatim — `onTouchStart` with
- * `preventDefault()` plus `onMouseDown`/`onMouseUp`/`onMouseLeave` — because it is
- * the one idiom in the shipped controls that already holds a value for as long as
- * a thumb stays down, which is exactly what a throttle needs.  This project's
- * TouchControls offers a drag joystick and round hold buttons and NO slider, so
- * per the slice's instruction the throttle is a large HOLD-TO-RUN button pair
- * rather than a slider.
+ * HOLD idiom is `onTouchStart` with `preventDefault()` plus
+ * `onMouseDown`/`onMouseUp`/`onMouseLeave` — the one shape that holds a value for
+ * as long as a thumb stays down, which is exactly what a throttle needs, so the
+ * throttle is a large HOLD-TO-RUN button pair rather than a slider.  (UI-1 removed
+ * the unused second touch-control module that carried the earlier copy of this
+ * idiom; this file is now the single touch-control implementation in the tree.)
  *
  * ── The two corner clusters (the amendment's layout) ──────────────────────
  * Steering lives under one thumb and throttle/brake under the other, in the two
@@ -51,7 +50,7 @@ export interface RaceTouchControlsProps {
 /**
  * The hold-to-run gesture: press applies `value`, and every way a thumb can leave
  * the control — lift, cancel, or slide off it with the mouse — releases to zero.
- * The same shape the shipped TouchControls uses for Block.
+ * The same shape the shipped hold controls use (the city's primary action).
  */
 const holdProps = (
   value: number,
@@ -108,11 +107,22 @@ const RaceControlButton: React.FC<RaceControlButtonProps> = ({
     data-race-rev={rev ? 'true' : 'false'}
     title={hint}
     {...handlers}
-    className={`relative rounded-full border-2 shadow-2xl flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-90 shrink-0 touch-manipulation ${className}`}
+    /* UI-1 (S-2) — the min-h/min-w floor is the guarantee; the vh sizing on top of it
+       is the large-screen flourish, so a short landscape phone cannot dip under 48px. */
+    className={`relative min-h-[48px] min-w-[48px] rounded-full border-2 shadow-2xl flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-90 shrink-0 touch-manipulation ${className}`}
   >
     {children}
     <span className="text-[8px] sm:text-[9px] font-mono font-bold tracking-tight leading-none mt-0.5">
       {label}
+    </span>
+    {/* UI-1 (B-18) — "Hold" is a permanent micro-label, not a first-race hint:
+        the gesture only works while the thumb stays down, and that has to survive
+        the hint's fade after the first race. */}
+    <span
+      data-race-hold={control}
+      className="font-mono text-[7px] sm:text-[8px] uppercase tracking-wider leading-none mt-0.5 opacity-75"
+    >
+      Hold
     </span>
     <span
       data-race-hint={control}
@@ -140,7 +150,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
         label="LEFT"
         hint="hold to steer left"
         showHints={showHints}
-        className="w-[min(4.5rem,13vh)] h-[min(4.5rem,13vh)] bg-gradient-to-br from-amber-600 to-amber-800 border-amber-300 text-amber-50"
+        className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-amber-600 to-amber-800 border-amber-300 text-amber-50"
         handlers={holdProps(-1, (value) => { input.steer = value; }, () => { input.steer = 0; })}
       >
         <ChevronLeft className="w-6 h-6 sm:w-8 sm:h-8" />
@@ -150,7 +160,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
         label="RIGHT"
         hint="hold to steer right"
         showHints={showHints}
-        className="w-[min(4.5rem,13vh)] h-[min(4.5rem,13vh)] bg-gradient-to-br from-amber-600 to-amber-800 border-amber-300 text-amber-50"
+        className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-amber-600 to-amber-800 border-amber-300 text-amber-50"
         handlers={holdProps(1, (value) => { input.steer = value; }, () => { input.steer = 0; })}
       >
         <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8" />
@@ -178,7 +188,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
         label="BRAKE"
         hint="hold to brake / reverse"
         showHints={showHints}
-        className="w-[min(4.5rem,13vh)] h-[min(4.5rem,13vh)] bg-gradient-to-br from-red-700 to-rose-900 border-red-300 text-rose-50"
+        className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-red-700 to-rose-900 border-red-300 text-rose-50"
         handlers={holdProps(-1, (value) => { input.throttle = value; }, () => { input.throttle = 0; })}
       >
         <ChevronDown className="w-6 h-6 sm:w-8 sm:h-8" />

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, WifiOff, MonitorX, AlertTriangle, X } from 'lucide-react';
+import { CLOSE_BUTTON_CLASS } from './controlStyles';
 
 /**
  * START-1 — the failure surfaces.
@@ -85,7 +86,7 @@ export const OfflineNotice: React.FC = () => {
               type="button"
               data-failure-action="retry"
               onClick={reload}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] border border-[#8b2a2a]/60 font-serif font-bold text-[11px] uppercase tracking-wider text-amber-50 cursor-pointer active:scale-95 transition-all"
+              className="inline-flex items-center gap-2 min-h-[48px] px-3 py-1.5 rounded-full bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] border border-[#8b2a2a]/60 font-serif font-bold text-[11px] uppercase tracking-wider text-amber-50 cursor-pointer active:scale-95 transition-all"
             >
               <RefreshCw className="w-3 h-3" />
               <span>Retry</span>
@@ -94,7 +95,7 @@ export const OfflineNotice: React.FC = () => {
               type="button"
               data-failure-action="dismiss"
               onClick={() => setDismissed(true)}
-              className="px-3 py-1.5 rounded-full border border-neutral-700 font-serif text-[11px] uppercase tracking-wider text-neutral-300 cursor-pointer hover:border-amber-700/60 hover:text-amber-200 transition-colors"
+              className="inline-flex items-center min-h-[48px] px-3 py-1.5 rounded-full border border-neutral-700 font-serif text-[11px] uppercase tracking-wider text-neutral-300 cursor-pointer hover:border-amber-700/60 hover:text-amber-200 transition-colors"
             >
               Keep playing
             </button>
@@ -104,7 +105,7 @@ export const OfflineNotice: React.FC = () => {
           type="button"
           aria-label="Dismiss offline notice"
           onClick={() => setDismissed(true)}
-          className="text-amber-700/80 hover:text-amber-300 cursor-pointer"
+          className={CLOSE_BUTTON_CLASS}
         >
           <X className="w-4 h-4" />
         </button>
@@ -142,7 +143,7 @@ export const LoadFailureScreen: React.FC<{ tierLabel: string; detail?: string }>
       type="button"
       data-failure-action="retry"
       onClick={reload}
-      className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] border border-[#8b2a2a]/60 font-serif font-bold text-xs uppercase tracking-wider text-amber-50 shadow-[0_0_20px_rgba(107,26,26,0.5)] cursor-pointer active:scale-95 transition-all"
+      className="mt-6 inline-flex items-center gap-2 min-h-[48px] px-6 py-3 rounded-full bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] border border-[#8b2a2a]/60 font-serif font-bold text-xs uppercase tracking-wider text-amber-50 shadow-[0_0_20px_rgba(107,26,26,0.5)] cursor-pointer active:scale-95 transition-all"
     >
       <RefreshCw className="w-4 h-4" />
       <span>Try again</span>
@@ -177,7 +178,7 @@ export const NoWebGLScreen: React.FC = () => (
       type="button"
       data-failure-action="retry"
       onClick={reload}
-      className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] border border-[#8b2a2a]/60 font-serif font-bold text-xs uppercase tracking-wider text-amber-50 shadow-[0_0_20px_rgba(107,26,26,0.5)] cursor-pointer active:scale-95 transition-all"
+      className="mt-6 inline-flex items-center gap-2 min-h-[48px] px-6 py-3 rounded-full bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] border border-[#8b2a2a]/60 font-serif font-bold text-xs uppercase tracking-wider text-amber-50 shadow-[0_0_20px_rgba(107,26,26,0.5)] cursor-pointer active:scale-95 transition-all"
     >
       <RefreshCw className="w-4 h-4" />
       <span>Try again</span>

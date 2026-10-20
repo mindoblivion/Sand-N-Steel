@@ -17,8 +17,10 @@ import {
   Trash2,
   Check,
   Gauge,
+  FileText,
   Waves,
 } from 'lucide-react';
+import { CLOSE_BUTTON_CLASS } from '../ui/controlStyles';
 import { sounds } from '../../audio/soundEffects';
 import { VOLUME_MAX, VOLUME_MIN, updateSettings } from '../../services/settings';
 import type {
@@ -363,7 +365,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 select-none"
+      /* UI-1 (S-4) — the wrapper carries its own safe-area gutter, so the panel's
+         clearance does not rest on the centring arithmetic alone. */
+      className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:pt-4 sm:pr-4 sm:pb-[max(1rem,env(safe-area-inset-bottom))] select-none"
       data-settings-context={context}
     >
       <div
@@ -392,8 +396,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={handleDone}
-            aria-label="Done"
-            className="shrink-0 w-12 h-12 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-amber-200 flex items-center justify-center font-bold text-base cursor-pointer transition-colors"
+            aria-label="Close settings"
+            className={CLOSE_BUTTON_CLASS}
           >
             ✕
           </button>
@@ -603,6 +607,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <RowLabel
                     label="Privacy policy"
                     description="What the game collects, what it never collects, and how long it is kept."
+                    icon={<FileText className="w-5 h-5 text-amber-300" />}
                   />
                   <span className="shrink-0 font-serif font-bold text-xs uppercase tracking-wider text-amber-300">
                     Read

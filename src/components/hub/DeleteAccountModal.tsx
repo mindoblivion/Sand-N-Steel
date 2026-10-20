@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, Trash2, X } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
+import { CLOSE_BUTTON_CLASS } from '../ui/controlStyles';
 import {
   accountCanDeleteDriveSave,
   deletionErrorMessage,
@@ -107,7 +108,9 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-neutral-950/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 select-none"
+      /* UI-1 (S-4) — the wrapper carries its own safe-area gutter, so the panel's
+         clearance does not rest on the centring arithmetic alone. */
+      className="fixed inset-0 z-[60] bg-neutral-950/90 backdrop-blur-md flex items-center justify-center px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:pt-4 sm:pr-4 sm:pb-[max(1rem,env(safe-area-inset-bottom))] select-none"
       data-delete-account-step={step}
     >
       <div
@@ -133,7 +136,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
                 type="button"
                 onClick={handleDismiss}
                 aria-label={step === 'done' ? 'Done' : 'Cancel'}
-                className="shrink-0 w-11 h-11 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-amber-200 flex items-center justify-center font-bold text-base cursor-pointer transition-colors"
+                className={CLOSE_BUTTON_CLASS}
               >
                 <X className="w-5 h-5" />
               </button>
