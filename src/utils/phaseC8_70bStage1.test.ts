@@ -144,8 +144,15 @@ describe('B. The pre-race pose, in memory only', () => {
 
   test('App holds the pose in state and hands it back to the city', () => {
     expect(appSrc).toContain('const [cityReturnPose, setCityReturnPose] = useState<CityExitPose | null>(null)');
-    expect(appSrc).toContain('initialPosition={cityReturnPose?.position}');
-    expect(appSrc).toContain('initialRotationY={cityReturnPose?.rotationY}');
+    // The captured pose is what the city is handed — and the ONLY arrival that overrides
+    // it is the oath's own, which a racing gladiator cannot be in: the race is entered
+    // from free roam, and free roam is what the oath's yard arrival holds back.
+    expect(appSrc).toContain(
+      'initialPosition={oathBeatMode ? OATH_YARD_SPAWN.position : cityReturnPose?.position}',
+    );
+    expect(appSrc).toContain(
+      'initialRotationY={oathBeatMode ? OATH_YARD_SPAWN.rotationY : cityReturnPose?.rotationY}',
+    );
     expect(appSrc).toContain('onStartRace={handleStartRace}');
   });
 
