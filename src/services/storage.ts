@@ -1,5 +1,10 @@
 import { PlayerProfile, FighterStats } from '../types/game';
 import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON } from '../data/itemsDB';
+import {
+  resolveTemperLevel,
+  getEffectiveWeaponStats,
+  getEffectiveArmorStats,
+} from '../utils/tempering';
 
 /**
  * The one local-save key.  Exported so the two things that remove it — `Reset save`
@@ -18,20 +23,32 @@ export function calculateTotalStats(profile: PlayerProfile): FighterStats {
   // Add equipment bonuses
   const { weapon, helm, chest, arms, legs } = profile.equipped;
   if (weapon) {
-    str += weapon.bonusStrength || 0;
-    agi += weapon.bonusAgility || 0;
-    sta += weapon.bonusStamina || 0;
-    def += weapon.bonusDefense || 0;
+    // P1 — a tempered weapon contributes its effective bonuses; the item
+    // object itself is never modified (level 0 is the base item exactly).
+    const effective = getEffectiveWeaponStats(
+      weapon,
+      resolveTemperLevel(profile, weapon.id)
+    );
+    str += effective.bonusStrength || 0;
+    agi += effective.bonusAgility || 0;
+    sta += effective.bonusStamina || 0;
+    def += effective.bonusDefense || 0;
   }
   let regenBonus = 0;
   [helm, chest, arms, legs].forEach((armor) => {
     if (armor) {
-      str += armor.bonusStrength || 0;
-      agi += armor.bonusAgility || 0;
-      sta += armor.bonusStamina || 0;
-      def += armor.defense || 0;
-      def += armor.bonusDefense || 0;
-      regenBonus += armor.staminaRegenBonus || 0;
+      // P1 — same seam for armour: defense and its listed bonuses are read
+      // at the piece's own temper level.
+      const effective = getEffectiveArmorStats(
+        armor,
+        resolveTemperLevel(profile, armor.id)
+      );
+      str += effective.bonusStrength || 0;
+      agi += effective.bonusAgility || 0;
+      sta += effective.bonusStamina || 0;
+      def += effective.defense || 0;
+      def += effective.bonusDefense || 0;
+      regenBonus += effective.staminaRegenBonus || 0;
     }
   });
 

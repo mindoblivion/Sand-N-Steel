@@ -8,6 +8,8 @@ interface DuelResultModalProps {
   didWin: boolean;
   opponent: OpponentConfig;
   stats: DuelStatistics;
+  /** The player's purse after the duel, so the reward reads as spendable gold. */
+  goldTotal?: number;
   onContinue: () => void;
 }
 
@@ -39,6 +41,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   didWin,
   opponent,
   stats,
+  goldTotal,
   onContinue,
 }) => {
   const pace = didWin ? 1 : DEFEAT_PACE;
@@ -215,6 +218,32 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
                 <span className="text-yellow-400">Gold Earned:</span>
                 <span data-testid="duel-reward-gold" className="text-yellow-400">+{counted.gold}</span>
               </div>
+              {stats.goldBreakdown && (
+                <div className="pl-3 ml-1 flex flex-col gap-1 text-[11px] text-neutral-400 border-l border-amber-900/70">
+                  <div className="flex justify-between">
+                    <span>Victory Bounty</span>
+                    <span>+{stats.goldBreakdown.base}</span>
+                  </div>
+                  {stats.goldBreakdown.hype > 0 && (
+                    <div className="flex justify-between">
+                      <span>Crowd Favour</span>
+                      <span>+{stats.goldBreakdown.hype}</span>
+                    </div>
+                  )}
+                  {stats.goldBreakdown.precision > 0 && (
+                    <div className="flex justify-between">
+                      <span>Perfect Blocks</span>
+                      <span>+{stats.goldBreakdown.precision}</span>
+                    </div>
+                  )}
+                  {stats.goldBreakdown.flawless > 0 && (
+                    <div className="flex justify-between">
+                      <span>Flawless Victory</span>
+                      <span>+{stats.goldBreakdown.flawless}</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex justify-between font-bold">
                 <span className="text-purple-400">Fame Gained:</span>
                 <span data-testid="duel-reward-fame" className="text-purple-400">+{counted.fame}</span>
@@ -223,6 +252,12 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
                 <span className="text-cyan-400">XP Earned:</span>
                 <span data-testid="duel-reward-xp" className="text-cyan-400">+{counted.xp}</span>
               </div>
+              {typeof goldTotal === 'number' && (
+                <div className="flex justify-between">
+                  <span className="text-neutral-400">Purse Now:</span>
+                  <span className="text-yellow-300">{goldTotal} Gold</span>
+                </div>
+              )}
             </div>
           )}
         </div>
