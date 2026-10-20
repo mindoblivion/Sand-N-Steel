@@ -5,6 +5,31 @@ import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
 
+/**
+ * Shared impact feedback for the duel: one mutable object, owned by
+ * `DuelScene`'s `impactRef` and read by the camera rig and by every
+ * `GladiatorMesh` inside its own frame loop. Refs only, so a landed blow never
+ * re-renders anything.
+ */
+export interface ImpactState {
+  /** `performance.now()` (ms) until which the fighters' animation time is held. */
+  freezeUntil: number;
+  /** Screen-shake energy, 0…1: the camera rig squares it and decays it per frame. */
+  trauma: number;
+}
+
+/**
+ * The animation-time multiplier for this frame — `0` while a hit-stop is
+ * running (animation advances by `delta * 0`), `1` otherwise. Pure, so the
+ * freeze can be reasoned about without a canvas.
+ */
+export function impactAnimationScale(
+  impact: ImpactState | null | undefined,
+  now = performance.now(),
+): number {
+  return impact && now < impact.freezeUntil ? 0 : 1;
+}
+
 interface GladiatorMeshProps {
   fighter: FighterState;
   overrideAction?: FighterState['action'];
@@ -14,6 +39,8 @@ interface GladiatorMeshProps {
   // per-frame re-render that caused character vibration on mobile.
   positionRef?: React.MutableRefObject<[number, number, number]>;
   rotationRef?: React.MutableRefObject<number>;
+  /** Hit-stop / shake state shared with the duel's camera rig (optional). */
+  impactRef?: React.MutableRefObject<ImpactState>;
 }
 
 // Per-URL cache for GLB file presence & validity check
@@ -492,6 +519,7 @@ const RomanWarriorGLB: React.FC<{
   modelUrl?: string;
   positionRef?: React.MutableRefObject<[number, number, number]>;
   rotationRef?: React.MutableRefObject<number>;
+  impactRef?: React.MutableRefObject<ImpactState>;
 }> = ({
   fighter,
   overrideAction,
@@ -500,6 +528,7 @@ const RomanWarriorGLB: React.FC<{
   modelUrl = '/models/arena_roman.glb',
   positionRef,
   rotationRef,
+  impactRef,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const currentActionName = useRef<string>('');
@@ -558,7 +587,9 @@ const RomanWarriorGLB: React.FC<{
     return { clonedScene: clone, rightHandBone: rHand, leftHandBone: lHand };
   }, [gltf.scene]);
 
-  const { actions, names } = useAnimations(gltf.animations, groupRef);
+  // `mixer` is the AnimationMixer drei updates each frame; its own `timeScale`
+  // is how the hit-stop holds the animation clock (see the frame loop below).
+  const { actions, names, mixer } = useAnimations(gltf.animations, groupRef);
   const activeAction = overrideAction || fighter.action;
 
   // Selection is driven by the clip-name list (see resolveActionClip), which is
@@ -595,6 +626,14 @@ const RomanWarriorGLB: React.FC<{
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
+
+    // Hit-stop. This fighter's animation time is held while a blow is landing:
+    // the mixer's own time scale is the exact place for it (`delta * 0`), so
+    // every clip on this fighter stops together and the hit reaction's first pose
+    // — which the action effect's `reset()` sets, independently of the clock — is
+    // the frame that holds. Read from the shared impact ref, so both fighters
+    // freeze on the same blow.
+    mixer.timeScale = impactAnimationScale(impactRef?.current);
 
     // Phase 26.1: Apply position/rotation from refs when provided, bypassing
     // React state for smooth per-frame updates without re-rendering the tree.
@@ -918,7 +957,8 @@ const ProceduralGladiator: React.FC<{
   isLeftyMode?: boolean;
   positionRef?: React.MutableRefObject<[number, number, number]>;
   rotationRef?: React.MutableRefObject<number>;
-}> = ({ fighter, overrideAction, isLeftyMode = false, positionRef, rotationRef }) => {
+  impactRef?: React.MutableRefObject<ImpactState>;
+}> = ({ fighter, overrideAction, isLeftyMode = false, positionRef, rotationRef, impactRef }) => {
   const rootRef = useRef<THREE.Group>(null);
   const hipsRef = useRef<THREE.Group>(null);
   const torsoRef = useRef<THREE.Group>(null);
@@ -934,11 +974,14 @@ const ProceduralGladiator: React.FC<{
   const [flashActive, setFlashActive] = useState(false);
   const flashTimerRef = useRef(0);
   const lastActionRef = useRef(fighter.action);
+  // This fallback path has no AnimationMixer, so it accumulates its own animation
+  // clock — the one the hit-stop holds (see the frame loop below).
+  const elapsedRef = useRef(0);
 
   const activeAction = overrideAction || fighter.action;
   const isLefty = isLeftyMode || fighter.isLeftyMode || false;
 
-  useFrame(({ clock }, delta) => {
+  useFrame((_, delta) => {
     // Phase 26.1: Apply position/rotation from refs before any early return.
     if (rootRef.current) {
       if (positionRef) {
@@ -949,7 +992,11 @@ const ProceduralGladiator: React.FC<{
       }
     }
 
-    const t = clock.getElapsedTime();
+    // Hit-stop, for the procedural fallback: the accumulator advances by
+    // `delta * impactAnimationScale`, which is `delta * 0` while a blow lands, so
+    // the fallback gladiator holds its pose exactly like the rigged one. With no
+    // freeze running the multiplier is 1, so `t` is the ordinary elapsed time.
+    const t = (elapsedRef.current += delta * impactAnimationScale(impactRef?.current));
 
     if (!hipsRef.current || !torsoRef.current || !headRef.current) return;
 
@@ -1458,7 +1505,7 @@ class GLTFErrorBoundary extends React.Component<
 }
 
 // 4. Main GladiatorMesh Component
-export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef }: GladiatorMeshProps) => {
+export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef, impactRef }: GladiatorMeshProps) => {
   const modelUrl = fighter.characterModel === 'amazonian'
     ? '/models/amazonian.glb'
     : fighter.characterModel === 'retiarius'
@@ -1485,6 +1532,7 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
         isLeftyMode={effectiveLefty}
         positionRef={positionRef}
         rotationRef={rotationRef}
+        impactRef={impactRef}
       />
     );
   }
@@ -1499,6 +1547,7 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
           isLeftyMode={effectiveLefty}
           positionRef={positionRef}
           rotationRef={rotationRef}
+          impactRef={impactRef}
         />
       }
     >
@@ -1510,6 +1559,7 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
         modelUrl={modelUrl}
         positionRef={positionRef}
         rotationRef={rotationRef}
+        impactRef={impactRef}
       />
     </GLTFErrorBoundary>
   );

@@ -238,7 +238,8 @@ describe('D. Storage — the record round-trips, and the save is untouched', () 
   test('a saved record loads back as the same resolved values', () => {
     const next: Settings = {
       ...DEFAULT_SETTINGS,
-      qualityPreset: 'high',
+      // SF-1 renamed the presets: 'high' is now Cinematic.
+      qualityPreset: 'cinematic',
       brightness: 'dim',
       cityCamDistance: 'far',
       raceCamDistance: 'near',
@@ -314,7 +315,8 @@ describe('D. Storage — the record round-trips, and the save is untouched', () 
 
     // Every field of the record, each one changed to a different legal value.
     const variations: Array<Partial<Settings>> = [
-      { qualityPreset: 'high' },
+      // SF-1 renamed the presets: 'high' is now Cinematic.
+      { qualityPreset: 'cinematic' },
       { brightness: 'bright' },
       { cityCamDistance: 'far' },
       { raceCamDistance: 'near' },

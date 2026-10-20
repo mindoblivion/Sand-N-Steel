@@ -185,6 +185,20 @@ export interface DuelStatistics {
   xpEarned: number;
   wagerEarned?: number;
   lootDrop?: WeaponItem | ArmorItem | null;
+  /** The victory purse itemised (see `utils/duelRewards.ts`); absent on a defeat. */
+  goldBreakdown?: DuelGoldBreakdown;
+}
+
+/**
+ * An itemised arena purse: the opponent's base bounty plus the performance
+ * bonuses a victory pays. `total` is the gold credited to the player's purse.
+ */
+export interface DuelGoldBreakdown {
+  base: number;
+  hype: number;
+  precision: number;
+  flawless: number;
+  total: number;
 }
 
 export interface TournamentTierInfo {
@@ -270,6 +284,58 @@ export interface RacingProgression {
   selected?: number;
 }
 
+/**
+ * STORY-1 — the campaign's own evidence, stored on the gladiator save.
+ *
+ * Optional on `PlayerProfile` on purpose, exactly like `chariot` and `racing`: a
+ * save written before this slice has no `story` field at all and must keep
+ * loading.  Every subfield is optional for the same reason — a save may carry
+ * one of them and still be valid — so a partially-written field is a normal
+ * state, not a corrupt one.
+ *
+ * Nothing writes this on creation: `createNewProfile()` never emits the field,
+ * there is no migration, and the campaign reads it through the pure
+ * `resolveStoryState()` (`src/utils/storyState.ts`) rather than repairing it.
+ */
+export interface StoryProgress {
+  /** The player has read their own name in the Records & Lore Library. */
+  librarySeen?: boolean;
+  /** Fragment ids the player has found, in the order they were found. */
+  fragmentsFound?: string[];
+  /** The Northern Trial has been walked. */
+  trialDone?: boolean;
+  /** How the vulture's dice fell: cut, or refused. */
+  diceEnding?: 'cut' | 'refused';
+  /** What became of the deserter: spared, or taken. */
+  deserterChoice?: 'spared' | 'taken';
+  /** The player has stood on the summit above the city. */
+  summitSeen?: boolean;
+}
+
+/**
+ * The road — the gladiator's arrival path through the city and the Road of Glory's
+ * own field: the oath, the banner device sworn under, and the milestones shown.
+ *
+ * Optional on `PlayerProfile` on purpose, exactly like `chariot` and `racing`: a save
+ * written before the road has no `road` field at all and must keep loading, so the
+ * pure helpers resolve a missing, partial or malformed field to unsworn / no device /
+ * none seen rather than repairing the save. Every subfield is optional for the same
+ * reason, and `createNewProfile()` writes no `road` field.
+ *
+ * One writer per subfield: `oathSworn` is set only by the oath beat's completion
+ * (`withOathSworn`, `src/utils/gladiatorOath.ts`); `bannerDevice` only by the Device
+ * Choosing panel and `milestonesSeen` only by the milestone evaluation
+ * (`src/utils/roadMilestones.ts`) — never by a migration.
+ */
+export interface RoadProgress {
+  /** Set `true` once, on the oath beat's completion. Absent means the words are still owed. */
+  oathSworn?: boolean;
+  /** The banner device sworn under, as the player chose it. */
+  bannerDevice?: string;
+  /** Ids of the road milestones the player has been shown. */
+  milestonesSeen?: string[];
+}
+
 export interface PlayerProfile {
   name: string;
   title: string;
@@ -314,4 +380,25 @@ export interface PlayerProfile {
    * migration, and never by `createNewProfile()`).
    */
   racing?: RacingProgression;
+  /**
+   * STORY-1 — the campaign's own evidence; absent on every save written before
+   * this slice, and written by nothing yet (the campaign is read-only, so
+   * `resolveStoryState()` derives every chapter from the record that exists).
+   */
+  story?: StoryProgress;
+  /**
+   * P1 — per-item temper (upgrade) level, keyed by item id; absent on every
+   * pre-tempering save.  Exactly like `chariot` and `racing`, a missing
+   * field, a missing id and a malformed value all resolve to level 0 in
+   * `src/utils/tempering.ts` rather than repairing the save, and the field
+   * is written only by a successful `purchaseTemper()` — never by
+   * `createNewProfile()`.  The owned `WeaponItem` / `ArmorItem` objects are
+   * never modified: an item's upgrade state lives only here.
+   */
+  temper?: Record<string, number>;
+  /**
+   * The road; absent on every save written before it, and written only by the writers
+   * named on `RoadProgress` above.
+   */
+  road?: RoadProgress;
 }

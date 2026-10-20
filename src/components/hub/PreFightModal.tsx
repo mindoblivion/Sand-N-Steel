@@ -35,7 +35,7 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({ opponent, onConfir
             <span className="text-purple-300">{opponent.personality}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-neutral-400">Gold Bounty:</span>
+            <span className="text-neutral-400">Base Bounty:</span>
             <span className="text-yellow-400">+{opponent.rewardGold} Gold</span>
           </div>
         </div>
