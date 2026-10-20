@@ -1,7 +1,12 @@
 import { PlayerProfile, FighterStats } from '../types/game';
 import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON } from '../data/itemsDB';
 
-const PROFILE_STORAGE_KEY = 'sand_and_steel_gladiator_save_v2';
+/**
+ * The one local-save key.  Exported so the two things that remove it — `Reset save`
+ * here in storage, and the account-deletion flow's device wipe
+ * (`services/accountDeletion.ts`) — cannot drift apart.
+ */
+export const PROFILE_STORAGE_KEY = 'sand_and_steel_gladiator_save_v2';
 
 export function calculateTotalStats(profile: PlayerProfile): FighterStats {
   const base = profile.baseStats;

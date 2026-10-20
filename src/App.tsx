@@ -25,7 +25,9 @@ import { LazySceneBoundary } from './components/ui/LazySceneBoundary';
 import { NoWebGLScreen, OfflineNotice } from './components/ui/GameFailureSurface';
 import { checkWebGLAvailability } from './components/ui/WebGLErrorBoundary';
 import { PostOathNudge, usePostOathNudge } from './components/hub/PostOathNudge';
-import { googleSignIn } from './services/googleAuth';
+import { googleSignIn, subscribeAuthUser } from './services/googleAuth';
+import type { User } from 'firebase/auth';
+import { DeleteAccountModal } from './components/hub/DeleteAccountModal';
 import { facebookSignIn } from './services/facebookAuth';
 import { appleSignIn } from './services/appleAuth';
 import { microsoftSignIn } from './services/microsoftAuth';
@@ -85,12 +87,31 @@ export function App() {
   const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [isMicrosoftLoading, setIsMicrosoftLoading] = useState(false);
 
+  /**
+   * Play asks every app that creates accounts for an in-app deletion path, so the
+   * settings panel's Game section opens this flow — and it is view state only: the
+   * deletion itself is `services/accountDeletion.ts`, driven by the dialog.
+   */
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+
+  /**
+   * Who is signed in.  The panel needs one thing from auth: whether there IS an
+   * account, because a signed-in player deletes an account and a guest erases the
+   * device's data instead.  Nothing here is saved; it follows Firebase's own session.
+   */
+  const [authUser, setAuthUser] = useState<User | null>(null);
+
   // START-1 — the post-Oath nudge: offered once, session-flagged, dismissible.
   const postOathNudge = usePostOathNudge();
 
   // START-1 — the device can run the game at all. Resolved once, at boot, so a device
   // without 3D is told so in plain language instead of reaching a scene that cannot draw.
   const [webglAvailable] = useState(() => checkWebGLAvailability().supported);
+
+  // Follow the Firebase session — the account rows' own source of truth.  It writes
+  // nothing and reads no save, and it re-subscribes never (the unsubscribe is the
+  // effect's cleanup).
+  useEffect(() => subscribeAuthUser(setAuthUser), []);
 
   // Load saved profile on boot
   useEffect(() => {
@@ -654,7 +675,29 @@ export function App() {
               setShowDriveSync(true);
             }}
             onResetSave={handleResetGame}
+            onDeleteAccount={authUser ? () => setDeleteAccountOpen(true) : undefined}
+            onEraseDeviceData={authUser ? undefined : handleResetGame}
         />
+
+        {/* ACCOUNT DELETION — the confirmation flow the settings panel opens.  It sits
+            above the panel, so cancelling returns to Settings. */}
+        {deleteAccountOpen && authUser && (
+            <DeleteAccountModal
+            isOpen={deleteAccountOpen}
+            user={{
+              email: authUser.email,
+              providerIds: authUser.providerData.map((provider) => provider.providerId),
+            }}
+            onClose={() => setDeleteAccountOpen(false)}
+            onDeleted={() => {
+              setDeleteAccountOpen(false);
+              setSettingsOpen(false);
+              // The account and this device's save are already gone by now; App only
+              // has to drop its own copy of the profile and return to the title.
+              handleResetGame();
+            }}
+            />
+        )}
 
         {/* GOOGLE DRIVE CLOUD SYNC MODAL */}
         {showDriveSync && (
