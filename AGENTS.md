@@ -5297,3 +5297,24 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   afterwards (there was no record, so the key was removed again). No console errors. The animation
   values themselves are pinned by the suite, not by eye — the sandbox renders through SwiftShader,
   so the curve/travel/scale change is not visually adjudicated here.
+
+## Motion token adoption — duel flow (CORR-4 — implemented)
+
+- **Two files, class names only.** `PreFightModal`'s dialog card carries `.anim-panel` with
+  `data-origin="center"` (replacing `animate-fadeIn`) and both of its buttons carry `.btn-press`
+  (`active:scale-95` dropped: the token rule presses to `scale(0.95)` on `--dur-press` and releases on
+  `--dur-micro`). `DuelResultModal`'s verdict heading carries `.anim-stamp`, and its Continue button
+  carries `.btn-press` in place of `transition-all active:scale-95`; the staged reveal, the count-up,
+  the copy and the card layout are untouched. No props, state or gameplay changed.
+- **Verified live 2026-10-20** (preview browser, anonymous visitor): title → Play → creation →
+  "Apply Points & Enter Metropolis" → the 3D city hub's Colosseum shortcut → the tournament list's
+  "Enter Arena Duel" → the Arena Challenge modal rendered with computed
+  `animation-name: anim-panel-in-center`, `animation-duration: 0.22s`,
+  `cubic-bezier(0.22, 1, 0.36, 1)`, `fill-mode: both`, and both buttons
+  `transition-property: transform, opacity, color` at `0.16s`; Retreat closed it. `bun test` →
+  2403 pass / 0 fail, `bun run lint` (`tsc --noEmit`) → exit 0, `bun run build` → exit 0 with the
+  startup-asset check passing. The test save this run created was removed afterwards.
+- **Not automatically verified:** `.anim-stamp` on a real result card. Reaching one needs a full
+  turn-based duel, and the sandbox renders the arena at ~1–2 fps through SwiftShader; the class and
+  its 700 ms ceremony beat are pinned by `motionTokens.test.ts`, and the pacing still wants an
+  on-device look.
