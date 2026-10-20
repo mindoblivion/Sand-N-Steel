@@ -4690,3 +4690,132 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   wiring runs clean, and their *feel* is the developer's Android read, exactly as the brief said it
   would be. The sandbox has no GPU (SwiftShader, ~1–2 fps in the 3D scenes), so no frame here could
   adjudicate a 40–200 ms hold or a sub-degree camera wobble in any case.
+
+## Screen motion tokens & foundation (MO-1 — implemented, validated)
+
+- **What ships: three production files and one suite.** `src/index.css` (a new SCREEN MOTION
+  section: the tokens, six keyframe families, five utility classes, the two reduced-motion paths and
+  the pause-on-hidden rule, plus the one in-place retime of `.animate-fadeIn`),
+  `src/services/settings.ts` (one pure resolver, `resolveMotionAttribute`), `src/App.tsx` (two
+  small root effects and the import), and `src/utils/motionTokens.test.ts` (new suite, 17 tests /
+  251 `expect()` calls). **No animation library, no dependency, no per-screen redesign, no save, no
+  collider and no gameplay value changed** — `git diff --stat` is exactly those three production
+  files.
+
+- **The tokens, exactly as the design names them** (all in the section's own `:root`, read out
+  live): `--dur-press` 90ms, `--dur-micro` 160ms, `--dur-panel` 220ms, `--dur-screen` 420ms,
+  `--dur-ceremony` 700ms, `--dur-phase` 1200ms, `--stagger-step` 45ms; `--ease-out`
+  `cubic-bezier(0.22, 1, 0.36, 1)`, `--ease-inout` `cubic-bezier(0.65, 0, 0.35, 0)`, `--ease-in`
+  `cubic-bezier(0.5, 0, 0.75, 0)`, `--ease-spring` `cubic-bezier(0.34, 1.4, 0.64, 1)` (the one curve
+  whose y1 exceeds 1, which is what "the spring's overshoot" means and what the reduced paths
+  remove).
+
+- **The classes shipped, and what each one is for:**
+
+  | class | what it does | reads |
+  |---|---|---|
+  | `.anim-panel` | a panel/modal entrance, with **per-origin variants** through `data-origin` — `bottom` (the default, also what no attribute and an unknown origin get), `top`, `left`, `right`, `center`, each its own `@keyframes` (`anim-panel-in`, `…-top`, `…-left`, `…-right`, `…-center`) selected by `animation-name` | `--dur-panel`, `--ease-out` |
+  | `.anim-screen` | a whole screen arriving: one fade with a small lift, the screen moving rather than its contents | `--dur-screen`, `--ease-out` |
+  | `.anim-stagger` | each **direct child** fades in `--i × --stagger-step` after the one before it, `--i` being the child's own 0-based index | `--dur-micro`, `--ease-out`, `--stagger-step` |
+  | `.anim-stamp` | a verdict landing: oversize → settle, with the spring's overshoot on the way | `--dur-panel`, `--ease-spring` |
+  | `.btn-press` | press feedback (`:active` → `scale(0.97)`), its transition **naming its three properties** | `--dur-press`, `--ease-out` |
+
+- **The two laws are encoded as mechanics, not as hopes.** (1) **Transform, opacity and colour only,
+  never `transition-all`**: the suite parses every keyframe in the section and asserts the union of
+  its declared properties is a subset of `{opacity, transform}`, scans the comment-stripped section
+  for `transition-all` / `transition: all` / `transition-property: all`, and scans it for
+  `width`/`height`/`top:`/`left:`/`margin` — geometry is moved with `translate3d`/`scale` throughout,
+  so a moving element never re-runs layout or paint. (2) **At most 12 animations concurrent, by
+  construction**: the stagger's delay is `calc(var(--stagger-step) * min(var(--i, 0), 7))`, i.e.
+  clamped at its **8th step** (7 × 45 ms = **315 ms**) however long the list is, so a 40-row list
+  keeps at most those 8 distinct steps in flight plus the `ceil(220 / 45) − 1 = 4` predecessors still
+  fading when the clamp bites — twelve, fixed. Both laws are stated in the section's own header
+  comment, and the arithmetic is re-derived in the suite from the shipped tokens.
+
+- **`.animate-fadeIn` is retimed onto the panel token, and that is the whole of the feel change it
+  makes.** The house precedent (modals, the pre-race panel, the race's verdict text, the city's
+  notices) now reads `animation: fadeIn var(--dur-panel) ease-out forwards` — the token carries
+  **exactly the 220 ms** (`0.22s`) the rule already used, and the suite asserts the literal is gone
+  while the curve deliberately stays the **shipped `ease-out` keyword**: codifying a duration onto a
+  token is not a re-grade of the curve, and swapping in `--ease-out` would have been a (small) feel
+  change to every modal in the game. Its one visible consequence is the intended one: under either
+  reduced-motion path the same rule retimes to **132 ms**.
+
+- **Reduced motion is two paths and ONE set of reductions, and the suite proves they are the same
+  set.** `[data-motion="reduced"]` (the player's own setting, mirrored onto the root by App) and the
+  app-wide `@media (prefers-reduced-motion: reduce)` block both apply, through one shared assertion
+  helper: fades at **60% duration** (54 / 96 / 132 / 252 / 420 / 720 ms — each compared against 60%
+  of the base token the suite read from `:root`, so they cannot drift from the tokens they scale),
+  **`--stagger-step: 0ms`** (every child at once), **`--ease-spring: var(--ease-out)`** (the
+  overshoot removed, and read back as the *identical* curve), and **press = an opacity flash**
+  (`transform: none; opacity: 0.7` — the feedback is dimmed, not taken away).
+  The OS block is scoped `:root:not([data-motion="full"])`, so the platform governs only while the
+  player's record is silent or asks for reduction — an **explicit `full` is not quietly over-ridden
+  by the media query**, which is exactly how `getEffectiveScreenMotion` resolves the same record.
+  Nothing is disabled outright: this is a *reduction*, not the title screen's own `animation: none`
+  (whose block, and the wait surface's, are untouched). Verified live: with the attribute set, every
+  base token, the fade's computed duration (`0.132s`) and the stagger delays (`0s`, `0s`, `0s`) all
+  move, and removing it restores `220ms` / `0.22s`.
+
+- **The wiring point: `App`'s root, two attributes, no re-render.** One small effect
+  (`[settings.screenMotion]`) calls the pure `resolveMotionAttribute(settings)` and writes
+  `data-motion` on `document.documentElement` — **removing the attribute when the record is silent**,
+  so the OS query is what governs a player who has never chosen. A second, mount-only effect toggles
+  `motion-paused` on the same root from `visibilitychange`, the title screen's own
+  `title-anim-paused` precedent taken app-wide; the CSS rule that consumes it freezes
+  `.anim-panel`, `.anim-screen`, `.anim-stagger > *`, `.anim-stamp` **and** `.animate-fadeIn`
+  (`animation-play-state: paused`), so hidden work costs nothing and nothing is caught half-way
+  through a fade on the way back. Both are root attributes rather than React output, so neither
+  re-renders anything, and `screenMotion`'s **absence stays absent** — the resolver never invents a
+  value, and a chosen `'off'` is carried **verbatim** rather than folded into `'reduced'`: MO-1 ships
+  the reduced block, and the stilling `'off'` treatment is a later slice's to add, so the attribute
+  has to keep the two distinct from the moment it is first written. Nothing in the settings panel
+  changed — SET-1's rule is that a row appears only when its consumer exists, and the Screen Motion
+  row is still one consumer away (the class set is that consumer's toolkit, not a rebuild of any
+  screen).
+
+- **Validation (2026-10-20, dev container — all five commands run, every line green):**
+
+  | command | result |
+  |---|---|
+  | `bun test` | **2170 pass / 0 fail (70 files, 65,818 `expect()` calls)** — the branch tip read 2153 / 69 before it, so this suite's 17 tests and its file are the whole delta |
+  | `bun run scripts/collisionTests.ts` | **123 passed, 0 failed** (exit 0) — unchanged, as expected: no collider is touched |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `bun run build` | **exit 0**, with the startup-asset check passing (8 assets in `public/` and `dist/`; the pre-existing >500 kB chunk warning only) |
+  | `git diff --check` | **clean (exit 0)** |
+
+  The suite's own starting point was **2 failing assertions, both of them mine** — a comment-stripped
+  scan that the slice's own partial header comment defeated, and a selector-list slice that landed
+  inside the comment preceding it. Both were fixed in the harness, **not by loosening a check**, and
+  no assertion was removed.
+
+- **Live evidence (preview browser, anonymous visitor — no session replayed; 0 console errors, 0
+  failed requests), and what it establishes.** Read out of the running app after the change: the
+  title screen renders; every base token computes to the design's own value; a probe element carrying
+  the shipped classes resolves `.anim-panel[data-origin="right"]` to `anim-panel-in-right` / `0.22s`
+  / the `--ease-out` curve, `.anim-screen` to `anim-screen-in` / `0.42s`, `.anim-stamp` to the
+  **spring** curve, `.animate-fadeIn` to **0.22s** (the house duration, unchanged) and `.btn-press`
+  to `transition-property: transform, opacity, color` / `0.09s`; the stagger's three children resolve
+  **`0s`, `0.135s` (3 steps) and `0.315s` (12 → the clamp at the 8th step)** — the concurrency
+  ceiling, measured in a real browser rather than reasoned about; setting `data-motion="reduced"`
+  moves every token to its 60% value, the spring to the ease-out curve, the stagger to `0s/0s/0s` and
+  the fade to `0.132s`, and removing it restores `220ms`; `motion-paused` puts all five utilities at
+  `animation-play-state: paused`; and with the settings record **absent** the app wrote **no**
+  `data-motion` attribute (the OS path), which is the shipped effect running. The probe was removed
+  and the attribute and class cleared afterwards, and the settings record was never written (absent
+  before and after).
+
+- **Not automatically verified, and each for a stated reason.** (a) **The positive settings→attribute
+  path in the live app** — the resolver's mapping and App's effect are pinned by the suite and by the
+  source contract, and the *absent*-record path (no attribute) was read live, but driving the
+  *chosen* value end to end needs a `screenMotion` in the settings record and a fresh load to read it,
+  and this environment restores the account's own snapshot and clears browser storage on every fresh
+  load (the C-8.66C finding), so a written record cannot survive the reload the app needs. No row
+  exists in the settings panel to set it from the UI either (SET-1's attachment-point rule), so this
+  path is **not automatically verified**. (b) **The OS `prefers-reduced-motion` path live** — the
+  sandbox cannot emulate the media feature, so that block is source- and suite-verified only.
+  (c) **Any screen's appearance** — no screen mounts these utilities yet, so this slice changes **no
+  rendered pixel**: the utilities are a toolkit whose first consumer is a later slice, and no
+  per-screen redesign was attempted here. The one screen whose motion *did* change is none: the
+  `.animate-fadeIn` retime carries the same 220 ms and the same curve, which is a codification, not
+  a feel change.

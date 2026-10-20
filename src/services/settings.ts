@@ -388,6 +388,21 @@ export function getEffectiveScreenMotion(settings: Settings, prefersReducedMotio
 }
 
 /**
+ * MO-1 — what the document root's `data-motion` attribute should carry: the stored
+ * preference when the player has chosen one, and `null` when the record is silent.
+ *
+ * Absence is load-bearing.  `null` means App writes NO attribute at all, so the
+ * operating system's own `prefers-reduced-motion` query (the app-wide block in
+ * `index.css`) is what governs — exactly the way `getEffectiveScreenMotion`
+ * resolves an absent field.  A chosen `'off'` is carried verbatim rather than
+ * folded into `'reduced'`: MO-1 ships the reduced block, and the attribute has to
+ * keep the two distinct from the moment it is first written.
+ */
+export function resolveMotionAttribute(settings: Settings): ScreenMotion | null {
+  return settings.screenMotion ?? null;
+}
+
+/**
  * The camera-shake multiplier: full 1.0, reduced 0.4, off 0 — and never more than
  * 0.4 while the effective screen motion is reduced or off, so a player who has
  * stilled the screen never gets a full shake out of the other control.

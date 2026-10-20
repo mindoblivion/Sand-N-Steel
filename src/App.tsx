@@ -18,7 +18,7 @@ import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
 import type { SettingsCategory, SettingsContext } from './components/hub/SettingsModal';
 import { useSettings } from './hooks/useSettings';
-import { updateSettings } from './services/settings';
+import { resolveMotionAttribute, updateSettings } from './services/settings';
 import { AssetLoadingOverlay } from './components/ui/AssetLoadingOverlay';
 import { WaitSurface } from './components/ui/WaitSurface';
 import { LazySceneBoundary } from './components/ui/LazySceneBoundary';
@@ -133,6 +133,35 @@ export function App() {
     music.setMuted(settings.muted);
     music.setVolume(settings.musicVolume);
   }, [settings.muted, settings.musicVolume]);
+
+  /**
+   * MO-1 — the screen-motion root: two attributes on the document root, written
+   * from here so no component has to render them.
+   *
+   * `data-motion` mirrors the player's own screen-motion choice, and
+   * `index.css`'s `[data-motion="reduced"]` block is what gives that value its
+   * meaning. When the record is silent (`resolveMotionAttribute` answers null) the
+   * attribute is removed rather than defaulted, so the OS's `prefers-reduced-motion`
+   * query governs — absence is the whole reason `screenMotion` is optional.
+   *
+   * `motion-paused` is the pause-on-hidden scaffolding: while the document is
+   * hidden the root carries it and every motion utility freezes, the title screen's
+   * own `visibilitychange` precedent taken app-wide.
+   */
+  useEffect(() => {
+    const root = document.documentElement;
+    const motion = resolveMotionAttribute(settings);
+    if (motion) root.setAttribute('data-motion', motion);
+    else root.removeAttribute('data-motion');
+  }, [settings.screenMotion]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const syncHiddenState = () => root.classList.toggle('motion-paused', document.hidden);
+    syncHiddenState();
+    document.addEventListener('visibilitychange', syncHiddenState);
+    return () => document.removeEventListener('visibilitychange', syncHiddenState);
+  }, []);
 
   // Music Routing
   useEffect(() => {
