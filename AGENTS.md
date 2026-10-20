@@ -5204,6 +5204,42 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the breakdown rows were seen rendered. They are pinned by the suite above; confirm by winning one
   Colosseum duel on a device.
 
+## Boss-kill counter writer (FIX-A — implemented, validated; the win path itself not driven live)
+
+- **The defect was a field with readers and no writer.** `PlayerProfile.bossKills` was written only
+  as `0` by the two creation paths (`services/storage.ts` `createNewProfile`, `hub/CharacterCreation`),
+  so everything reading it was silently dead: `utils/heraldry.ts`'s `bannerStripeCount` never drew a
+  stripe, and `rank.ts`'s `bossKills` half of the Legend gate was only ever satisfied by its
+  `defeatedOpponentIds` evidence path (untouched here).
+- **The one writer is `src/utils/bossKills.ts` → `nextBossKills(before, after, opponent)`.** It is
+  pure (types only, no storage, clock or randomness) and reads the write it is handed: the count rises
+  by exactly one only when `opponent.isBoss === true` **and** the opponent's id was absent from
+  `before.defeatedOpponentIds` **and** present in `after.defeatedOpponentIds` — i.e. the id newly
+  entering the record in that same write. Rematches, non-boss wins, losses and malformed saves all
+  return the stored count unchanged (a non-finite or negative count reads as 0).
+- **The single call site is `App.handleMatchComplete`'s victory write**, one line beside the existing
+  `defeatedOpponentIds: defeated` it reads:
+  `bossKills: nextBossKills(profile, { defeatedOpponentIds: defeated }, activeOpponent)`. The defeat
+  branch is untouched and never mentions the field. Every other value of that write — gold, fame, XP,
+  level, tier, `fightsWon`, the hype peak and the `defeatedOpponentIds` expression itself — is
+  byte-for-byte as it was, and `evaluateRoadMilestones` still receives the same `before`/`after` pair.
+- **The invariant is pinned, not assumed:** `src/utils/bossKills.test.ts` (22 tests) sweeps the whole
+  roster for a first kill, drives rematches, non-boss wins, loss writes and malformed saves, derives
+  Legend from one Tier-4 boss's first defeat (count and felled id agreeing), checks the stripes at
+  0 / 1 / 4, and **scans every shipped `.ts`/`.tsx` under `src/`** to prove no file but `bossKills.ts`
+  adds to the field and that `App`'s handler names it exactly once, in the win branch.
+- **Validation (2026-10-20, `web` container):** `bun test` → **2422 pass / 0 fail (80 files, 79,188
+  `expect()`)** (the branch tip read 2400 / 79 before this suite's 22); `bun run
+  scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `bun run build` → **exit 0** with the startup-asset check passing (8 assets); `git diff --check` →
+  clean.
+- **Not automatically verified — the win path in a running game.** A first boss defeat cannot be
+  driven here: it needs a duel won in the 3D arena, which renders through SwiftShader at ~1–2 fps (the
+  duel-mount attempts recorded in earlier phases exceed the script budget), and the dev character
+  harness deliberately uses its own in-memory `onMatchComplete` rather than App's write. The rule, its
+  one caller and the stripes it feeds are pinned by the suite; confirm on device by putting a boss
+  down and checking the ludus banner gains a stripe (and that a rematch adds none).
+
 ## Duel result screen staged reveal — implemented (one file; ceremony not automatically verified)
 
 - **What ships: one production file.** `src/components/hub/DuelResultModal.tsx` is the whole code

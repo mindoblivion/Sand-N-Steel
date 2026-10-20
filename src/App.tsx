@@ -12,6 +12,7 @@ import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 import { sellItem } from './utils/selling';
+import { nextBossKills } from './utils/bossKills';
 import { markSeen } from './utils/coachMarks';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
@@ -608,6 +609,9 @@ export function App() {
         unspentStatPoints: nextUnspentPoints,
         currentTier: tierAfterVictory.currentTier,
         defeatedOpponentIds: defeated,
+        // FIX-A — the kill count rides this same write: `nextBossKills` reads the record
+        // being saved, so it can only rise for a boss whose id is newly entering it.
+        bossKills: nextBossKills(profile, { defeatedOpponentIds: defeated }, activeOpponent),
         fightsWon: profile.fightsWon + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
