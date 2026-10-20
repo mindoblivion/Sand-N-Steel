@@ -125,7 +125,7 @@ export interface InteractiveLocation {
   position: [number, number, number];
   radius: number;
   icon: string;
-  tabKey?: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | null;
+  tabKey?: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library' | null;
   /**
    * Phase SHOP-2 — which storefront of the `shop` tab the interaction opens,
    * for the four city buildings that each sell their own stock.  Optional and
@@ -233,7 +233,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
   {
     id: 'tavern',
     name: 'The Golden Palm Tavern',
-    subtitle: 'Rumors & Gambling',
+    subtitle: 'Rumors & Gossip',
     position: [-16, 0, 14],
     // Phase C-8.47: 4.5 → 5.75.  The tavern's arched portal is on its EAST face
     // (local X +4.22 — the side its [−10, 14] arrival stands off), where the nearest
@@ -369,7 +369,11 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     position: [23.1, 0, -30],
     radius: 4.5,
     icon: 'BookOpen',
-    tabKey: 'stats',
+    // Progression Slice 1: the building opens its own Library view (the Records &
+    // Lore Library tab), whose first page is the Road of Glory.  Everything else
+    // about this hub — its centre, radius, prompt, colour and district — is
+    // exactly as it was; only the door it opens changed.
+    tabKey: 'library',
     actionPrompt: 'Read Ancient Scrolls',
     color: '#9333ea',
     district: 'NORTH',

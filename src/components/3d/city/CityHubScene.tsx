@@ -11,6 +11,8 @@ import { CityTavern } from './CityTavern';
 import { GeneralStore } from './GeneralStore';
 import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
+import { ChampionBannerPole } from './ChampionBannerPole';
+import { resolveBanner } from '../../../utils/heraldry';
 import { MerchantHouse } from './MerchantHouse';
 import { ArmorLeatherWorkshop } from './ArmorLeatherWorkshop';
 import { Stable } from './Stable';
@@ -34,6 +36,13 @@ import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
 import { CORE_3D_ASSETS } from '../../../utils/preloadAssets';
 import { Banner, SteamParticles, ForgeSmoke, SandDrift } from './EnvironmentalMotion';
+// SF-1 — the city's picture budget: the tier table and the adaptive engine that
+// steps inside a tier's DPR band, plus the one settings reader the drifting dust
+// obeys (the preset itself arrives through `useSettings`).
+import { CITY_TIERS, POST_TRANSITION_MS, useAdaptiveDpr } from '../../../hooks/useAdaptiveDpr';
+import { getEffectiveAtmosphereMotion } from '../../../services/settings';
+import type { QualityPreset } from '../../../services/settings';
+import { useSettings } from '../../../hooks/useSettings';
 // Phase C-8.70B — the East Circus District's read-only pre-race entry panel.
 import { PreRacePanel } from '../../hub/PreRacePanel';
 
@@ -52,6 +61,8 @@ import {
   InteractiveLocation,
 } from '../../../utils/cityCollisions';
 import { getTerrainY } from '../../../utils/terrainHeight';
+import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
+import type { HeraldAim } from '../../../utils/cityHerald';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
 import type { StorefrontId } from '../../../data/shops';
 import { calculateTotalStats } from '../../../services/storage';
@@ -69,6 +80,7 @@ import {
   Layers,
   BarChart2,
   Beer,
+  BookOpen,
   Home,
   Coins,
   Trophy,
@@ -95,6 +107,22 @@ export interface CityExitPose {
   rotationY: number;
 }
 
+/**
+ * SF-1 — the adaptive DPR engine's mount point.
+ *
+ * It has to sit INSIDE `<Canvas>` (a frame's duration only exists there) and it
+ * renders nothing: a step is published into the scene's own state, which the
+ * Canvas's `dpr` prop follows, so there is exactly one holder of the value.
+ */
+const CityAdaptiveDpr: React.FC<{
+  tier: QualityPreset;
+  suspendedRef: { readonly current: boolean };
+  onDprChange: (dpr: number) => void;
+}> = ({ tier, suspendedRef, onDprChange }) => {
+  useAdaptiveDpr({ tier, suspendedRef, onDprChange });
+  return null;
+};
+
 interface CityHubSceneProps {
   playerProfile: PlayerProfile;
   activeOpponent: OpponentConfig;
@@ -109,7 +137,7 @@ interface CityHubSceneProps {
    * nothing and lands on the open market.
    */
   onOpenTab: (
-    tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats',
+    tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library',
     subTab?: 'chariot',
     shopId?: StorefrontId
   ) => void;
@@ -132,6 +160,19 @@ interface CityHubSceneProps {
    */
   initialPosition?: [number, number, number];
   initialRotationY?: number;
+  /**
+   * Which light rig the city is drawn under. Absent (the normal case) is the midday
+   * the city has always had; `oathDawn` is the low sun the oath is sworn in.
+   */
+  lightProfile?: CityLightProfile;
+  /**
+   * While a presented scene owns the screen — the oath beat — the city stops reading
+   * its own controls, so the beat cannot be walked out of and the player's position is
+   * exactly where it was when the scene released him.
+   */
+  movementLocked?: boolean;
+  /** The herald's pointer, when the herald is pointing somewhere (see `utils/cityHerald`). */
+  heraldAim?: HeraldAim | null;
 }
 
 export const CityHubScene: React.FC<CityHubSceneProps> = ({
@@ -148,19 +189,27 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onStartRace,
   initialPosition,
   initialRotationY,
+  lightProfile,
+  movementLocked,
+  heraldAim,
 }) => {
+  // The rig this screen is drawn under. `resolveCityLightProfile` answers module
+  // constants, so `lights` keeps its reference across re-renders and the Environment
+  // cubemap below is not re-captured on every player-movement render.
+  const lights = resolveCityLightProfile(lightProfile);
   // Stabilize the Environment cubemap's Lightformer children across player-movement re-renders.
   // Without this, each setPlayerPos / setPlayerRotY / setIsMoving call creates a new children
   // reference, which can re-trigger drei's Environment layout effect and recapture the cubemap.
   const environmentLightformers = useMemo(
     () => (
       <>
-        {/* Warm Mediterranean sun — aligned with key directional light direction */}
+        {/* Warm Mediterranean sun — aligned with the key light's own direction, which is
+            why it reads the rig rather than a literal: at dawn it follows the sun down. */}
         <Lightformer
           form="rect"
           intensity={2.0}
           color="#fffbeb"
-          position={[30, 42, 22]}
+          position={lights.sunPosition}
           scale={[30, 30, 1]}
           target={[0, 0, 0]}
         />
@@ -193,7 +242,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         />
       </>
     ),
-    []
+    [lights]
   );
 
   // Spawn gracefully in front of the Monumental Town Gate on the open avenue —
@@ -212,13 +261,69 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // state only: opening it and leaving it change no game data.
   const [showRaceEntry, setShowRaceEntry] = useState(false);
 
+  /**
+   * SF-1 — the quality preset arrives as a setting, not as a prop: the panel writes
+   * the one settings record and this scene subscribes to it, exactly as it does for
+   * brightness.  A preset change re-applies the whole tier.
+   */
+  const settings = useSettings();
+  const qualityPreset = settings.qualityPreset;
+  const cityTier = CITY_TIERS[qualityPreset];
+
+  /**
+   * SF-1 — the drift the city's dust obeys: the tier's particle budget, and nothing
+   * at all while the player's atmosphere motion is off.  Swift forces that motion
+   * off (`getEffectiveAtmosphereMotion`), which is why Swift's row draws no dust.
+   */
+  const atmosphericMotion = getEffectiveAtmosphereMotion(settings);
+  const sparklesCount = atmosphericMotion ? cityTier.sparkles : 0;
+
+  /**
+   * SF-1 — the Canvas's DPR is STATE now, not a constant: the tier sets its starting
+   * value and the adaptive engine steps it inside the tier's band.  A step is rare
+   * (never twice inside 3 s) and is the only thing about the picture budget that
+   * re-renders this scene — the per-frame EMA lives in the engine's own ref.
+   */
+  const [cityDpr, setCityDpr] = useState<number>(() => CITY_TIERS[qualityPreset].dpr.start);
+
+  /**
+   * SF-1 — adaptation is suspended while the scene is a TRANSITION: the mounting
+   * warm-up, a fast travel, and one transition-length after arrival.  A ref, because
+   * the engine reads it every frame and the scene only ever writes it; the resume
+   * delay is the engine's own `POST_TRANSITION_MS`, so the two cannot drift apart.
+   */
+  const adaptationSuspendedRef = useRef(true);
+  const adaptationResumeRef = useRef<number | null>(null);
+  const suspendAdaptation = useCallback(() => {
+    adaptationSuspendedRef.current = true;
+    if (adaptationResumeRef.current !== null) window.clearTimeout(adaptationResumeRef.current);
+    adaptationResumeRef.current = window.setTimeout(() => {
+      adaptationSuspendedRef.current = false;
+      adaptationResumeRef.current = null;
+    }, POST_TRANSITION_MS);
+  }, []);
+
+  // SF-1 — the tier, applied at mount and on a preset change (never mid-frame and
+  // never by the engine): the band's starting DPR.  The engine keeps a tier's DPR
+  // inside its band from there on.
+  useEffect(() => {
+    setCityDpr(CITY_TIERS[qualityPreset].dpr.start);
+  }, [qualityPreset]);
+
   useEffect(() => {
     // Start with frameloop="demand" initially, switching to "always" after core 3D assets & context are warm
     const timer = setTimeout(() => {
       setFrameloopMode('always');
     }, 250);
-    return () => clearTimeout(timer);
-  }, []);
+    // SF-1 — mounting IS a transition: the first compiles and the demand→always
+    // switch are not a slow device, so the engine starts suspended and is released
+    // one transition-length after mount.
+    suspendAdaptation();
+    return () => {
+      clearTimeout(timer);
+      if (adaptationResumeRef.current !== null) window.clearTimeout(adaptationResumeRef.current);
+    };
+  }, [suspendAdaptation]);
 
   // Mutable refs for silky smooth 60fps movement without React re-render cancellation
   const playerPosRef = useRef<[number, number, number]>(initialPosition ?? [0, 0, 16]);
@@ -235,6 +340,18 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const lastTimeRef = useRef<number>(performance.now());
   const isMovingRef = useRef<boolean>(false);
+
+  /**
+   * A presented scene owns the screen (the oath beat), so the city's own inputs are
+   * inert for as long as it does.  A ref, because the movement loop is mounted once
+   * and reads refs only — a lock that arrived as React state would need the loop to
+   * re-subscribe and would re-render the whole screen to boot.
+   */
+  const inputLockedRef = useRef<boolean>(!!movementLocked);
+
+  useEffect(() => {
+    inputLockedRef.current = !!movementLocked;
+  }, [movementLocked]);
 
   // Interact with nearby landmark or update ambient audio
   useEffect(() => {
@@ -333,6 +450,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // Cross-platform PC Keyboard input listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // A presented scene owns the screen: no movement key and no action key is read
+      // while it does, so the beat cannot be walked out of.
+      if (inputLockedRef.current) return;
       const code = e.code;
       const key = e.key.toLowerCase();
 
@@ -428,16 +548,20 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       let inputX = 0;
       let inputZ = 0;
 
-      // Keyboard input
-      if (keysPressed.current['w']) inputZ -= 1;
-      if (keysPressed.current['s']) inputZ += 1;
-      if (keysPressed.current['a']) inputX -= 1;
-      if (keysPressed.current['d']) inputX += 1;
+      // A presented scene owns the screen: while it does, no input is read at all, so
+      // the player stands exactly where the scene found him.
+      if (!inputLockedRef.current) {
+        // Keyboard input
+        if (keysPressed.current['w']) inputZ -= 1;
+        if (keysPressed.current['s']) inputZ += 1;
+        if (keysPressed.current['a']) inputX -= 1;
+        if (keysPressed.current['d']) inputX += 1;
 
-      // Mobile joystick input
-      if (touchVectorRef.current.x !== 0 || touchVectorRef.current.z !== 0) {
-        inputX += touchVectorRef.current.x;
-        inputZ += touchVectorRef.current.z;
+        // Mobile joystick input
+        if (touchVectorRef.current.x !== 0 || touchVectorRef.current.z !== 0) {
+          inputX += touchVectorRef.current.x;
+          inputZ += touchVectorRef.current.z;
+        }
       }
 
       if (inputX !== 0 || inputZ !== 0) {
@@ -517,6 +641,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     const newPos: [number, number, number] = [ax, getTerrainY(ax, az), az];
     playerPosRef.current = newPos;
     setPlayerPos(newPos);
+    // SF-1 — a fast travel is a scene transition: the engine stops reading frames
+    // for it and for the second after arrival, so the teleport's own hitches cannot
+    // be mistaken for a device that cannot hold the tier's DPR.
+    suspendAdaptation();
     // Phase 31J: clear stale recovery history so oscillation-prevention
     // entries from the previous location don't block escape at the new one.
     clearRecoveryHistory();
@@ -524,6 +652,21 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   };
 
   const calculatedStats = useMemo(() => calculateTotalStats(playerProfile), [playerProfile]);
+  // RG-3 — the gladiator's banner, derived: no device means no banner, and the champion
+  // stage is what raises it at the gate. Nothing here writes the save.
+  const championBanner = useMemo(() => resolveBanner(playerProfile), [playerProfile]);
+
+  /**
+   * The herald's destination, resolved against the city's own registry: the pointer
+   * carries a `HUB_LOCATIONS` id and this screen turns that id into the name, the
+   * district and the subtitle the card shows — so the pointer can never name a place
+   * the city does not have, and an id that is not in the table renders no pointer at
+   * all rather than a broken one.
+   */
+  const heraldTarget = useMemo(
+    () => (heraldAim ? HUB_LOCATIONS.find((location) => location.id === heraldAim.id) ?? null : null),
+    [heraldAim]
+  );
 
   // Phase 26.1: Memoized so it doesn't change reference on unrelated
   // re-renders (e.g. setKnobPos). Position/rotation are overridden by
@@ -570,7 +713,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           <Canvas
             shadows
             frameloop={frameloopMode}
-            dpr={[1, 2]}
+            /* SF-1 — the tier's band replaces the old [1, 2]: Balanced, the default,
+               now tops out at the studio budget's 1.5 instead of asking for 2. */
+            dpr={cityDpr}
             camera={{ position: [0, 5, 24], fov: 58, near: 0.1, far: 180 }}
             gl={{ antialias: false, powerPreference: 'high-performance' }}
             onCreated={(state) => {
@@ -580,21 +725,38 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           >
             {/* Active GPU Health & Context Monitor */}
             <CanvasWebGLMonitor sceneName="CityHubMetropolis" />
+            {/* SF-1 — the city's pixel governor, inside the Canvas because only here
+                does a frame's own duration exist. */}
+            <CityAdaptiveDpr
+              tier={qualityPreset}
+              suspendedRef={adaptationSuspendedRef}
+              onDprChange={setCityDpr}
+            />
             {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
             <SceneBrightness />
 
-            {/* Atmospheric Mediterranean Horizon Fog */}
-            <fog attach="fog" args={['#e3dbc6', 45, 160]} />
+            {/* Atmospheric Mediterranean Horizon Fog — and, at dawn, the oath's own
+                shorter band.  Both come from the named light profile. */}
+            <fog attach="fog" args={[lights.fogColor, lights.fogNear, lights.fogFar]} />
 
-            <Sky sunPosition={[30, 42, 22]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
+            <Sky
+              sunPosition={lights.sunPosition}
+              turbidity={lights.skyTurbidity}
+              rayleigh={lights.skyRayleigh}
+              mieCoefficient={lights.skyMieCoefficient}
+            />
             {/* Phase 24 — Calibrated Mediterranean Sunlight & Contrast.
                 Phase 2A: hemisphere replaces flat ambient; shadow camera bounds
                 expanded from default ±5 to cover full city; bias added; Sky aligned. */}
-            <hemisphereLight color="#fef3c7" groundColor="#8a7a5f" intensity={0.45} />
+            <hemisphereLight
+              color={lights.ambientSky}
+              groundColor={lights.ambientGround}
+              intensity={lights.ambientIntensity}
+            />
             <directionalLight
-              position={[30, 42, 22]}
-              intensity={2.15}
-              color="#fffbeb"
+              position={lights.sunPosition}
+              intensity={lights.keyIntensity}
+              color={lights.keyColor}
               castShadow
               shadow-mapSize={[2048, 2048]}
               shadow-camera-left={-70}
@@ -606,7 +768,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               shadow-bias={-0.0004}
               shadow-normalBias={0.02}
             />
-            <directionalLight position={[-25, 20, -25]} intensity={0.28} color="#7dd3fc" />
+            <directionalLight
+              position={[-25, 20, -25]}
+              intensity={lights.fillIntensity}
+              color={lights.fillColor}
+            />
 
             {/* Phase 2B — Scene-level PBR environment for metallic/physical material reflections.
                 The visible <Sky> is a mesh, not an environment map; without this, materials with
@@ -614,7 +780,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 Procedural Lightformers are rendered ONCE into a 256px cubemap, PMREM-processed,
                 and assigned to scene.environment. environmentIntensity=0.35 keeps reflections
                 subtle so warm Roman material colors remain readable. No external HDR files. */}
-            <Environment resolution={256} frames={1} environmentIntensity={0.35}>
+            <Environment resolution={256} frames={1} environmentIntensity={lights.environmentIntensity}>
               {environmentLightformers}
             </Environment>
 
@@ -655,9 +821,16 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               </group>
             </ThreeComponentErrorBoundary>
 
-            {/* Floating Atmospheric Desert Dust Particles */}
-            <DreiSparkles count={90} scale={[80, 20, 80]} size={2.8} speed={0.35} color="#fef08a" opacity={0.65} />
-            <SandDrift />
+            {/* Floating Atmospheric Desert Dust Particles.
+                SF-1 — the count is the tier's (Swift 0 / Balanced 60 / Cinematic 90,
+                the last being the pre-slice count), and the drifting atmosphere obeys
+                the motion switch, which Swift forces off.  `count` is the component's
+                own visibility path and `visible` is three's, so neither adds a code
+                path: Swift draws no dust at all. */}
+            <DreiSparkles count={sparklesCount} scale={[80, 20, 80]} size={2.8} speed={0.35} color="#fef08a" opacity={0.65} />
+            <group visible={atmosphericMotion}>
+              <SandDrift />
+            </group>
 
             {/* 3D Architectural City Components Wrapped in Error Boundary */}
             <ThreeComponentErrorBoundary componentName="CityArchitecturalDistricts">
@@ -670,6 +843,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <GeneralStore />
               <CaravanseraiInn />
               <GrandColosseum />
+              {/* RG-3 — the champion's banner, raised at the gate once the Colossus falls. */}
+              {championBanner?.atGate && (
+                <ChampionBannerPole
+                  device={championBanner.device}
+                  stripes={championBanner.stripes}
+                />
+              )}
               <MerchantHouse />
               <ArmorLeatherWorkshop />
               <Stable />
@@ -719,7 +899,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
       {/* TOP STATUS HEADER BAR */}
       <header className="absolute top-0 left-0 right-0 p-3 sm:p-5 pointer-events-none flex justify-between items-start z-10">
-        <div className="flex items-center gap-2 pointer-events-auto bg-neutral-950/85 border border-amber-600/50 p-2 sm:p-3 rounded-2xl backdrop-blur-md shadow-2xl">
+        <div className="pointer-events-auto flex flex-col items-start gap-2">
+        <div className="flex items-center gap-2 bg-neutral-950/85 border border-amber-600/50 p-2 sm:p-3 rounded-2xl backdrop-blur-md shadow-2xl">
           <button
             onClick={() => setShowNavDrawer(!showNavDrawer)}
             className="p-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer active:scale-95 transition-all"
@@ -738,6 +919,44 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               {playerProfile.title}
             </div>
           </div>
+        </div>
+
+          {/* THE HERALD — the city's one pointer at the next beat. Session-scoped and
+              read-only: it names a landmark the city already has and opens the existing
+              city map, so it never moves the player and never touches the save. Held down
+              for the arrival the oath is telling (see `App`'s city entry). */}
+          {heraldTarget && heraldAim && (
+            <div
+              data-herald-aim={heraldTarget.id}
+              className="w-[min(72vw,15rem)] rounded-2xl border border-amber-500/50 bg-neutral-950/85 p-2 sm:p-3 backdrop-blur-md shadow-2xl"
+            >
+              <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400/80">
+                The herald points
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playClick();
+                  setShowNavDrawer(true);
+                }}
+                className="mt-1 flex w-full min-h-[48px] items-center gap-2 rounded-xl border border-amber-600/40 bg-amber-500/10 px-2 text-left cursor-pointer active:scale-[0.98] transition-all hover:bg-amber-500/20"
+                title={`${heraldTarget.actionPrompt} — open the city map`}
+              >
+                <MapPin className="w-4 h-4 shrink-0 text-amber-400" />
+                <span className="min-w-0">
+                  <span className="block font-serif font-bold text-[11px] leading-tight text-amber-100 truncate">
+                    {heraldTarget.name}
+                  </span>
+                  <span className="block text-[10px] leading-tight text-neutral-400 truncate">
+                    {heraldTarget.district} · {heraldTarget.subtitle}
+                  </span>
+                </span>
+              </button>
+              <p className="mt-1.5 font-serif text-[10px] leading-snug text-neutral-300">
+                {heraldAim.note}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* GOLD, FAME, GOOGLE DRIVE & AUDIO */}
@@ -905,6 +1124,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             { id: 'shop', label: 'Smith & Bazaar', icon: ShoppingCart, color: 'text-yellow-400' },
             { id: 'gear', label: 'Armory', icon: Layers, color: 'text-cyan-400' },
             { id: 'stats', label: 'Gladiator Stats', icon: BarChart2, color: 'text-purple-400' },
+            { id: 'library', label: 'Records & Lore', icon: BookOpen, color: 'text-amber-300' },
           ].map((item) => {
             const Icon = item.icon;
             return (
@@ -912,7 +1132,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 key={item.id}
                 onClick={() => {
                   sounds.playClick();
-                  onOpenTab(item.id as 'tournament' | 'training' | 'shop' | 'gear' | 'stats');
+                  onOpenTab(item.id as 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library');
                 }}
                 className="flex-1 min-w-[54px] py-1.5 sm:py-2 px-1 rounded-xl hover:bg-amber-500/20 text-neutral-300 hover:text-amber-200 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all active:scale-95 cursor-pointer"
               >

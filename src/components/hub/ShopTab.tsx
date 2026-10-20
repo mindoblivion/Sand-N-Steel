@@ -2,12 +2,15 @@ import React from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
 import { getItemById, isWeapon } from '../../data/itemsDB';
 import { getStorefrontStock, StorefrontId } from '../../data/shops';
+import { getSellEligibility, getSellValue } from '../../utils/selling';
 import { ShoppingCart, Coins, Shield, Swords, Check } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 
 interface ShopTabProps {
   profile: PlayerProfile;
   onBuyItem: (item: WeaponItem | ArmorItem) => void;
+  /** P1 sell — the market pays the item's sellPrice plus any temper refund. */
+  onSellItem?: (item: WeaponItem | ArmorItem) => void;
   /**
    * Phase SHOP-2 — which storefront is open.  A city building the player walked
    * into passes its own id; the hub's own Bazaar & Forge tab uses the default,
@@ -39,7 +42,12 @@ const STOREFRONT_COPY: Record<
   },
 };
 
-export const ShopTab: React.FC<ShopTabProps> = ({ profile, onBuyItem, shopId = 'market' }) => {
+export const ShopTab: React.FC<ShopTabProps> = ({
+  profile,
+  onBuyItem,
+  onSellItem,
+  shopId = 'market',
+}) => {
   const ownedItemIds = new Set([
     profile.equipped.weapon?.id,
     profile.equipped.helm?.id,
@@ -93,6 +101,8 @@ export const ShopTab: React.FC<ShopTabProps> = ({ profile, onBuyItem, shopId = '
             {weapons.map((wpn) => {
               const isOwned = ownedItemIds.has(wpn.id);
               const canAfford = profile.gold >= wpn.price;
+              const sellable = getSellEligibility(profile, wpn.id).ok;
+              const sellValue = getSellValue(profile, wpn.id);
 
               return (
                 <div
@@ -140,6 +150,18 @@ export const ShopTab: React.FC<ShopTabProps> = ({ profile, onBuyItem, shopId = '
                       </>
                     )}
                   </button>
+                  {isOwned && sellable && onSellItem && (
+                    <button
+                      onClick={() => {
+                        sounds.playCoin();
+                        onSellItem?.(wpn);
+                      }}
+                      className="w-full mt-2 py-2.5 rounded-2xl font-serif font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 bg-neutral-950 text-red-300 border border-red-900/70 hover:text-red-200 hover:border-red-700"
+                    >
+                      <Coins className="w-4 h-4" />
+                      <span>Sell for {sellValue} Gold</span>
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -158,6 +180,8 @@ export const ShopTab: React.FC<ShopTabProps> = ({ profile, onBuyItem, shopId = '
             {armors.map((arm) => {
               const isOwned = ownedItemIds.has(arm.id);
               const canAfford = profile.gold >= arm.price;
+              const sellable = getSellEligibility(profile, arm.id).ok;
+              const sellValue = getSellValue(profile, arm.id);
 
               return (
                 <div
@@ -204,6 +228,18 @@ export const ShopTab: React.FC<ShopTabProps> = ({ profile, onBuyItem, shopId = '
                       </>
                     )}
                   </button>
+                  {isOwned && sellable && onSellItem && (
+                    <button
+                      onClick={() => {
+                        sounds.playCoin();
+                        onSellItem?.(arm);
+                      }}
+                      className="w-full mt-2 py-2.5 rounded-2xl font-serif font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 bg-neutral-950 text-red-300 border border-red-900/70 hover:text-red-200 hover:border-red-700"
+                    >
+                      <Coins className="w-4 h-4" />
+                      <span>Sell for {sellValue} Gold</span>
+                    </button>
+                  )}
                 </div>
               );
             })}
