@@ -68,6 +68,7 @@ import {
   Layers,
   BarChart2,
   Beer,
+  BookOpen,
   Home,
   Coins,
   Trophy,

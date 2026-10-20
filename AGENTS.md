@@ -4523,3 +4523,54 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   row set above is the one the shipped module and its suite pin; if \u00a72 lists a row this panel does
   not show, the design governs and the row should be added the same way Race Camera Distance was
   (wire the consumer first, then show the row).
+
+## Records & Lore Library — the Road of Glory (Progression Slice 1 — implemented)
+
+- **What shipped.** `src/utils/rank.ts` (`deriveRank` + its threshold constants),
+  `src/utils/roadOfGlory.ts` (`resolveRoadState`, `resolveRoadProgress`, `ROAD_STAGES`,
+  `AURELIUS_OPPONENT_ID`, `CHAMPION_RECORD_LINE`), `src/components/hub/RoadOfGloryPage.tsx`,
+  `src/components/hub/LibraryTab.tsx`, and the `RoadProgress` field on `PlayerProfile`
+  (`src/types/game.ts`). The view is reachable two ways, both through the hub's existing `onOpenTab`:
+  the bottom nav / tab row's new **Records & Lore** entry, and the Records & Lore Library
+  building itself — `HUB_LOCATIONS`' `records_house` now carries `tabKey: 'library'` where it
+  previously fell back to the stats tab (its centre, radius 4.5, prompt, colour and district are
+  unchanged, and `InteractiveLocation.tabKey` gains the `'library'` member).
+- **Derived, never stored.** Seven stages stand in order — nobody → sworn → blooded → known →
+  feared → champion → legend — each `'reached' | 'current' | 'ahead'`, the current one being the
+  **highest** the profile qualifies for (so a skipped stage is `'reached'`, never `'ahead'`, and
+  exactly one stage is ever current). The gates read only: `deriveRank(profile)` (imported from
+  `rank.ts` — its thresholds are never restated, so the road cannot promise a gate the rank does
+  not enforce), `fightsWon`, `defeatedOpponentIds`, and the optional `profile.road`
+  (`oathSworn` / `bannerDevice` / `milestonesSeen`, resolved lazily: absent, partial and
+  hand-edited all read as unsworn). **The stored `PlayerProfile.rank` is not read**, nothing
+  writes a save, and `profile.road` has no writer in this slice — the oath slice owns that.
+- **The Champion gate names the roster's own boss.** `AURELIUS_OPPONENT_ID` is read from
+  `ALL_OPPONENTS` as the tier-4 boss (`opp_aurelius_boss`), not copied as a literal, so the gate
+  follows the roster if the entry ever moves.
+- **No Codex module — Legend's Codex condition is NOT implemented.** There is no
+  `src/utils/codex.ts` in this tree, so the progression design's "Rudis-ready" condition for the
+  Legend stage was left out rather than invented: legend is `deriveRank`'s Legend alone
+  (fame >= 1,500, the tier-4 circuit, a boss kill). The Codex slice owns that condition; if it
+  lands, the legend gate in `resolveRoadState` is the one line to extend.
+- **Suites: `src/utils/rank.test.ts`** (16 tests — the three gates on both sides of every
+  boundary with each half required, precedence and monotonicity, malformed saves reading as zero,
+  the stored rank not being read, the rank table and `rankAtLeast`) and
+  **`src/utils/roadOfGlory.test.ts`** (26 tests — the road's shape and contiguity, every gate,
+  the roster-derived champion id, the cumulative rule, the optional road field, and purity: the
+  resolvers mutate nothing). Both state their boundaries against `rank.ts`'s exported constants,
+  so a threshold change moves the assertions with it.
+- **Fixed in this pass.** `CityHubScene.tsx`'s new nav entry used `BookOpen` without importing it
+  (`tsc --noEmit` TS2304), so the 3D hub's Records & Lore button had no icon; the import is added.
+- **Verified 2026-10-20** in the dev container: `bun test` → **2177 pass / 0 fail (70 files)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0; `git diff --check` → clean. Live in the preview: title →
+  character creation → city hub → the new Records & Lore entry → the Library renders page one with
+  its seven stage nodes, exactly one of them current (`nobody` on a fresh save, six ahead), the
+  requirement line on the next node only, the champion record line on the Champion node, the
+  page's own tab marked `aria-current="page"`, no console errors, and no sideways overflow at a
+  375 px viewport (the tab row wraps to a 2x3 grid; the new tab's icon renders). The changed door
+  was driven with the shipped `getNearbyHubLocation`: every step in from Records & Lore's
+  fast-travel arrival `[23.1, -26]` answers `records_house`, whose `tabKey` is now `library`.
+- **Not automatically verified.** Nothing here needs an account (the Library is not gated), so
+  the anonymous preview covers it end to end; no 3D rendering changed, so this slice adds no
+  device-visual item to the open Android checklist.
