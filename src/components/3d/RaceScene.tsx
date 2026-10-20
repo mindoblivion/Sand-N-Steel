@@ -18,6 +18,7 @@ import {
   CHARIOT_MOVEMENT,
   CHARIOT_MODEL_YAW_OFFSET,
   advanceChariot,
+  advanceWheelRoll,
   createChariotLaunchState,
   createChariotMotion,
   getChariotGait,
@@ -26,6 +27,15 @@ import {
   mergeChariotInputs,
   trackChariotLaunch,
 } from '../../utils/chariotMovement';
+
+/**
+ * The fitted wheels' own nodes in the shipping chariot GLB.  Both are parentless
+ * nodes carrying the asset's Z-up → Y-up correction, with their geometry centred
+ * on the hub — which is why each is re-parented onto a pivot AT that hub before
+ * it is spun (a node whose rotation is applied about the model's origin would
+ * swing the wheel around the chariot instead of turning it).
+ */
+export const RACE_WHEEL_NODE_NAMES = ['Wheel_L', 'Wheel_R'] as const;
 import type { ChariotInput, ChariotLaunchQuality, ChariotMotion } from '../../utils/chariotMovement';
 import {
   CHARIOT_CHASE_CAMERA,
@@ -327,7 +337,31 @@ const RaceChariot: React.FC<{
 
   // Clone: `useGLTF` caches one scene per URL and the workshop holds the same
   // entry, so the cached scene is never touched (the workshop's own rule).
-  const body = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
+  //
+  // C-8.70B Stage 1, Slice 3 — the fitted wheels roll.  Each wheel node is moved
+  // onto a pivot placed at its OWN hub, measured from its rendered bounds in the
+  // model's frame (the asset's hubs are (±0.700, 0.650, 0.000), but the centre is
+  // measured rather than typed in), so a rotation about the pivot's X axis turns
+  // the wheel on its axle.  The cached GLB is never mutated: the pivots live on
+  // this clone only.
+  const body = useMemo(() => {
+    const scene = gltf.scene.clone(true);
+    const wheels: THREE.Group[] = [];
+    scene.updateMatrixWorld(true);
+    for (const name of RACE_WHEEL_NODE_NAMES) {
+      const node = scene.getObjectByName(name);
+      if (!node) continue;
+      const bounds = new THREE.Box3().setFromObject(node);
+      if (bounds.isEmpty()) continue;
+      const pivot = new THREE.Group();
+      bounds.getCenter(pivot.position);
+      scene.add(pivot);
+      pivot.attach(node);
+      wheels.push(pivot);
+    }
+    return { scene, wheels };
+  }, [gltf.scene]);
+  const roll = useRef(0);
   const group = useRef<THREE.Group>(null);
 
   useFrame((_state, delta) => {
@@ -351,6 +385,15 @@ const RaceChariot: React.FC<{
       chassis.position.set(motion.x, RACE_START_POSITION[1], motion.z);
       chassis.rotation.y = motion.heading + CHARIOT_MODEL_YAW_OFFSET;
     }
+
+    // C-8.70B Stage 1, Slice 3 — the wheels turn with the ground.  The reading is
+    // the motion module's own speed, and it advances only while the chariot is
+    // actually being driven, so a race frozen behind the settings panel or idling
+    // on the start line does not spin its wheels.
+    roll.current = advanceWheelRoll(roll.current, racing ? motion.speed : 0, delta);
+    for (const wheel of body.wheels) {
+      wheel.rotation.x = roll.current;
+    }
   });
 
   return (
@@ -360,7 +403,7 @@ const RaceChariot: React.FC<{
       rotation={[0, RACE_START_ROTATION_Y, 0]}
       scale={CHARIOT_MODEL_SCALE}
     >
-      <primitive object={body} />
+      <primitive object={body.scene} />
     </group>
   );
 };

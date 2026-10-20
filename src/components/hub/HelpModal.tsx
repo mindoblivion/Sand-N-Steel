@@ -23,7 +23,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         <div className="flex justify-between items-center mb-4 shrink-0">
           <h3 className="font-serif font-black text-xl text-amber-200 flex items-center gap-2">
             <HelpCircle className="w-5 h-5 text-amber-400" />
-            <span>Tactical Combat Manual</span>
+            <span>Combat Notes</span>
           </h3>
           <button
             onClick={onClose}
@@ -33,6 +33,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             ✕
           </button>
         </div>
+
+        {/* CL-2 — the header line: where the short version is taught, and where the
+            full notes live.  The body below is deliberately not rewritten in this slice. */}
+        <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-4 shrink-0">
+          Short version: the Doctore teaches in your first fights. The full notes live in the Codex at the Records Library.
+        </p>
 
         {/* SCROLLABLE MANUAL BODY */}
         <div className="flex flex-col gap-3.5 text-xs font-serif text-neutral-300 overflow-y-auto pr-1 mb-5">
