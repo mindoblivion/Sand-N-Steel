@@ -14,6 +14,7 @@ import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
 import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
 import { calculateTotalStats } from '../../services/storage';
+import { resolveTemperLevel, getEffectiveWeaponStats } from '../../utils/tempering';
 import { getWeaponByType } from '../../data/itemsDB';
 import {
   getWeaponRange,
@@ -238,6 +239,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // independent of `playerProfile.equipped`.
   const opponentWeapon = opponent.loadout?.weapon ?? getWeaponByType(opponent.weaponType);
 
+  // P1 tempering: the player fights with the EFFECTIVE stats of their equipped
+  // weapon at its current temper level (+8 % damage per level, from
+  // `getEffectiveWeaponStats`). The saved item object is never modified — only
+  // this in-duel copy carries the bonus, so the attack resolution below and
+  // TurnActionPanel's damage preview both read the tempered numbers. The
+  // opponent has no save and no temper record, so its weapon stays base.
+  const playerWeapon = getEffectiveWeaponStats(
+    playerProfile.equipped.weapon,
+    resolveTemperLevel(playerProfile, playerProfile.equipped.weapon.id)
+  );
+
   const [player, setPlayer] = useState<FighterState>({
     id: 'player',
     name: playerProfile.name,
@@ -253,7 +265,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     isInvulnerable: false,
     hitFlashTimer: 0,
     stats: pStats,
-    loadout: { weapon: playerProfile.equipped.weapon },
+    loadout: { weapon: playerWeapon },
     comboCount: 0,
     skinColor: playerProfile.appearance.skinColor,
     hairColor: playerProfile.appearance.hairColor,

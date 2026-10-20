@@ -20,12 +20,17 @@
  *       `calculateTotalStats` reads the temper record, so combat and the hub
  *       see a tempered item without either of them changing;
  *   §E  the sell-refund rule: base `sellPrice` untempered, +25 % of the temper
- *       gold spent once tempered.
+ *       gold spent once tempered;
+ *   §F  the duel seam: `DuelScene` builds the player fighter's loadout from the
+ *       effective weapon, so the damage the attack resolution reads is the
+ *       tempered one.
  *
  * Run with: `bun test src/utils/tempering.test.ts`
  */
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../types/game';
 import { DEFAULT_PLAYER_WEAPON, ALL_WEAPONS, ALL_ARMORS } from '../data/itemsDB';
 import { calculateTotalStats } from '../services/storage';
@@ -439,5 +444,30 @@ describe('P1 §E — the sell-refund rule', () => {
 
     // A tempered item the profile does not own is still read from its own record.
     expect(getTemperSellValue(profile(), GLADIUS)).toBe(GLADIUS.sellPrice);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+describe('P1 §F — the duel reads the effective weapon', () => {
+  // A source-level check, the repo's convention for a wiring claim that needs a
+  // renderer: the behaviour above is unit-tested, this pins that combat actually
+  // consumes it.
+  const duelSource = readFileSync(
+    fileURLToPath(new URL('../components/duel/DuelScene.tsx', import.meta.url)),
+    'utf8'
+  );
+
+  test('the player fighter is built from the tempered weapon, never the saved object', () => {
+    expect(duelSource).toContain('getEffectiveWeaponStats(');
+    expect(duelSource).toContain(
+      'resolveTemperLevel(playerProfile, playerProfile.equipped.weapon.id)'
+    );
+    expect(duelSource).toContain('loadout: { weapon: playerWeapon }');
+    expect(duelSource).not.toContain('loadout: { weapon: playerProfile.equipped.weapon }');
+  });
+
+  test('attack resolution still reads the fighter loadout, so the tempered damage is what lands', () => {
+    expect(duelSource).toContain('attacker.loadout.weapon.damageLight');
+    expect(duelSource).toContain('attacker.loadout.weapon.damageHeavy');
   });
 });
