@@ -203,9 +203,9 @@ const SliderRow: React.FC<{
 /**
  * A destructive row whose SECOND tap is the one that acts.
  *
- * §SET-1's rule for Reset save — tap, then confirm within `RESET_ARM_MS`, never
- * `window.confirm` — as a self-contained row: each row owns its own arming state, so
- * two such rows cannot interfere and the panel needs no shared flag for them.
+ * §SET-1's rule for Reset save — tap, then confirm within `RESET_ARM_MS`, never the
+ * browser's own confirm dialog — as a self-contained row: each row owns its own arming
+ * state, so two such rows cannot interfere and the panel needs no shared flag for them.
  */
 const ArmedActionRow: React.FC<{
   label: string;
@@ -266,6 +266,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   context = 'menu',
   onOpenCloudSave,
   onResetSave,
+  onDeleteAccount,
+  onEraseDeviceData,
 }) => {
   const settings: SettingsRecord = useSettings();
   const [category, setCategory] = useState<SettingsCategory>(
