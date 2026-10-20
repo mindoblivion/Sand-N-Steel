@@ -472,6 +472,21 @@ export function getEffectiveScreenMotion(settings: Settings, prefersReducedMotio
 }
 
 /**
+ * MO-1 — what the document root's `data-motion` attribute should carry: the stored
+ * preference when the player has chosen one, and `null` when the record is silent.
+ *
+ * Absence is load-bearing.  `null` means App writes NO attribute at all, so the
+ * operating system's own `prefers-reduced-motion` query (the app-wide block in
+ * `index.css`) is what governs — exactly the way `getEffectiveScreenMotion`
+ * resolves an absent field.  A chosen `'off'` is carried verbatim rather than
+ * folded into `'reduced'`: MO-1 ships the reduced block, and the attribute has to
+ * keep the two distinct from the moment it is first written.
+ */
+export function resolveMotionAttribute(settings: Settings): ScreenMotion | null {
+  return settings.screenMotion ?? null;
+}
+
+/**
  * The atmosphere motion the city's drifting dust actually runs with: the player's
  * own switch, and OFF while Swift is the preset.
  *
