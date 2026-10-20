@@ -137,6 +137,20 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
     if (savedProfile) onContinueAdventure();
     else onNewCharacter();
+
+    // SAVE-SAFETY — with no stored gladiator this tap may NOT leave the title: the New
+    // Character overwrite confirmation can take the screen while the title stays mounted
+    // underneath, and the latch above would then leave the primary action dead once the
+    // player cancels (dismissing the dialog never navigates).  Release it on the next
+    // tick.  A tap that DID leave — a returning gladiator's Continue, or creation itself
+    // — unmounts this screen, so the release is moot for that player and their
+    // double-fire guard is untouched.  While the confirmation is up it covers the whole
+    // screen, so a second tap cannot reach this button anyway.
+    if (!savedProfile) {
+      window.setTimeout(() => {
+        startedRef.current = false;
+      }, 0);
+    }
   };
 
   const handleOpenAccount = () => {
