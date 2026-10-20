@@ -4690,3 +4690,123 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   wiring runs clean, and their *feel* is the developer's Android read, exactly as the brief said it
   would be. The sandbox has no GPU (SwiftShader, ~1–2 fps in the 3D scenes), so no frame here could
   adjudicate a 40–200 ms hold or a sub-degree camera wobble in any case.
+
+## Quality preset and the city's adaptive DPR (SF-1 — implemented)
+
+- **What ships: the picture-quality preset becomes live, and the city Canvas stops asking for
+  whatever the device reports.** The city's Canvas carried `dpr={[1, 2]}` — a constant that renders at
+  up to 2 × on a device reporting 2, far past the studio budget's 1.5 cap for the city. It is now
+  `dpr={cityDpr}`, where the value comes from the player's preset and is then adapted inside that
+  preset's band by a frame-time engine; the city's drifting dust is part of the same row. The phase's
+  files: `src/hooks/useAdaptiveDpr.ts` (new — the tier table, the pure engine and the hook),
+  `src/services/settings.ts` (the preset's type, its legacy spellings and the first-run default),
+  `src/components/3d/city/CityHubScene.tsx` (the Canvas prop, the tier's dust and the transition
+  suspension), `src/components/hub/SettingsModal.tsx` (the row the new consumer makes wired),
+  `src/utils/adaptiveDpr.test.ts` (new suite, 38 tests) and two rebased pins in
+  `src/utils/settings.test.ts`.
+
+- **The tier table — one row per preset, and every number exported.** `CITY_TIERS` holds
+  `dpr: { min, max, start }` and `sparkles` per preset; `start` is the band's ceiling for the two
+  tiers that ask for pixels (a device that cannot hold it is stepped down — that is what the engine
+  is for) and Swift opens at its floor. Cinematic 1.5–2.0 starting at 2.0, **Balanced 1.0–1.5
+  starting at 1.5** (the default, and the budget fix this slice exists for), Swift 1.0–1.25 starting
+  at 1.0. Dust: **Cinematic 90 — the count the city already had — Balanced 60, Swift 0.** Every
+  band boundary sits on a multiple of `DPR_STEP` (0.25), which is what lets a step land exactly on a
+  floor and never one past it. A later slice attaches its shadow tier to the same row, which is why
+  the row is a record of named fields rather than loose constants.
+
+- **The engine lives in a hook inside the Canvas, and it is pure at its core.**
+  `stepAdaptiveDpr(state, tier, frameMs, suspended)` is total and returns a new state: the evidence is
+  a **trimmed EMA** — a 30-frame window (`EMA_WINDOW`) with its two worst samples dropped
+  (`EMA_TRIM`), so one hitch or a garbage collection cannot move the picture — over a
+  `SAMPLE_CLAMP_MS` (100 ms) clamp, with a sustained hold on each side: over `STEP_DOWN_MS` (17.5 ms)
+  for `STEP_DOWN_SUSTAIN_MS` (1.5 s) steps **down** one `DPR_STEP`, under `STEP_UP_MS` (12 ms) for
+  `STEP_UP_SUSTAIN_MS` (5 s) steps **up**, and never twice inside `DWELL_MS` (3 s). A frame that
+  cannot be measured (NaN, Infinity, zero, negative) is not a frame and leaves the state untouched.
+  `useAdaptiveDpr` keeps that state in a **ref** and publishes through `onDprChange` only when the
+  value actually moved, so a steady device renders nothing per frame — at most one publication per
+  3 s, and the callback itself is held in a ref so an inline arrow cannot reset the engine.
+
+- **One holder of the value: the scene owns the Canvas's `dpr`.** The engine renders nothing and
+  returns nothing; a step is published into the scene's own `useState`, which the Canvas follows, so
+  the scene and the engine cannot disagree. The tier is applied **at mount and on a preset change by
+  the scene** (`useEffect [qualityPreset]`) and never mid-frame by the engine; the scene reads the
+  preset through the settings module's existing `useSettings` — no second store, no new key, and the
+  hook imports the preset's *type* from `services/settings` so there is one owner of the names.
+
+- **The preset resolves three ways in order, and the heuristic is a FIRST-RUN default, not a policy.**
+  `resolveQualityPreset(stored, device)`: a value the design names (`cinematic` / `balanced` /
+  `swift`); a record written before SF-1 — **`high` → Cinematic, `low` → Swift**, because a stored
+  choice is a choice and those were the most- and least-pixels spellings; and otherwise the first-run
+  default, which consults the cheap-device heuristic **`devicePixelRatio > 2.5` AND
+  `hardwareConcurrency ≤ 4`** (`isCheapDevice`; BOTH halves must hold, and a browser that withholds a
+  fact is not evidence of a cheap device) — **Swift on such a device, Balanced everywhere else.** A
+  stored or translated preset always wins over the heuristic, so it can only ever decide a first run.
+
+- **How the preset coexists with the World Motion toggle — the toggle stays the player's switch, and
+  Swift overrides it while it is active.** `getEffectiveAtmosphereMotion(settings)` is the city's dust
+  reader: the player's own `atmosphereMotion`, and **false while the preset is Swift**. The stored
+  toggle is never rewritten, so the player's choice is back the moment they leave Swift, and the two
+  controls cannot disagree about whether the city's atmosphere drifts. The city's dust obeys it twice
+  over: `count` is `atmosphericMotion ? cityTier.sparkles : 0`, and the `<SandDrift />` group is
+  `visible={atmosphericMotion}`. **No panel row was added for `atmosphereMotion`** in this slice: it
+  now has exactly one consumer (the city's dust) and its row's own wording is a Motion/Accessibility
+  decision that belongs with the accessibility pass, not here — it stays a named attachment point,
+  and this note is the record that the consumer exists.
+
+- **Adaptation is suspended for a transition, and the suspension is the scene's.** Mounting IS a
+  transition (the first compiles and the `demand`→`always` switch are not a slow device), and a fast
+  travel is another, so `suspendAdaptation()` sets a ref for `POST_TRANSITION_MS` (1 s) after each —
+  the scene writes the ref, the engine reads it per frame, and the same exported constant drives both
+  so they cannot drift apart. While suspended every frame is ignored and the two sustain timers are
+  held at zero (the measured window and the dwell carry over, so a device is not forgotten — it just
+  is not judged on a scene build's hitches).
+
+- **The draw-call count does not depend on the tier.** The dust is still **one** element whose `count`
+  is the tier's, never a conditional mount, so a tier changes a vertex count and not the number of
+  objects in the scene; the DPR band changes pixels, not scene content. (Swift's 0 draws no dust.)
+
+- **Rebased, not weakened: SET-1's two preset pins.** `settings.test.ts`'s storage round-trip and its
+  every-field cycle both pinned `qualityPreset: 'high'`; they now pin `'cinematic'` with a comment
+  naming this phase. No other assertion moved, and no test file was otherwise touched.
+
+- **Regression suite: `src/utils/adaptiveDpr.test.ts`** — 38 tests / 8,358 expect() calls across five
+  sections: §A the tier table (one row per preset, every band's numbers on the step grid, Balanced's
+  1.5 ceiling, the descending ceilings, Swift opening at its floor, the dust budget, and the engine's
+  own constants pinned from the module); §B the trimmed EMA (the two worst dropped, order
+  sensitivity, at least one survivor, no mutation of the window); §C the engine driven over real
+  frame traces — a smooth 60 fps holds its start, a sustained 30 fps is stepped to the floor one step
+  at a time and held (never twice inside the dwell, never before the sustain), a recovered device is
+  stepped back to the ceiling, a chaotic 900-frame trace never leaves the band for any tier, one 5 s
+  stall is clamped and then swallowed by the trim, unmeasurable frames are ignored, a transition's
+  frames are ignored with the timers restarted, and every step is exactly one `DPR_STEP`; §D the
+  wiring read out of the shipped sources (the engine inside the Canvas, no React work per frame, the
+  old `dpr={[1, 2]}` gone, the tier read from settings, the dust through one element, the motion
+  switch, the two suspensions, and no second store or save path); §E the settings side (the three
+  ways in, the legacy spellings, the heuristic's both-halves rule and its thresholds, the first-run-only
+  property, and the panel row).
+
+- **Verified 2026-10-20** in the dev container: `bun test` → **2191 pass / 0 fail (70 files, 73,925
+  expect() calls)** (the starting point was 2152 pass / 1 fail across 69 files — the one failure was
+  SET-1's stale `'high'` pin, and the delta is this suite's 38); `bun run scripts/collisionTests.ts`
+  → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `bun run build` → **exit 0** with the startup asset check passing (8 assets; the pre-existing
+  >500 kB chunk warning only); `git diff --check` → **clean**.
+
+- **Live evidence (preview browser, anonymous visitor — no session replayed), and what it does and
+  does not establish.** The panel's new row was driven from the title screen's own Settings entry:
+  it opens showing the stored choice painted (Balanced), **choosing an option writes the one settings
+  record** (`sand_and_steel_settings_v1.qualityPreset` read back as `swift`, then `balanced`) and the
+  painted selection follows within **3 ms**; the row fits a phone viewport with no sideways scroll;
+  Done closes the panel; **zero console errors** throughout. The check restored the storage it found
+  (there was no record, so the key was removed again). **The city's own rendered DPR and dust are NOT
+  automatically verified:** the sandbox has no GPU (SwiftShader, ~2 fps in the city hub), and a
+  preview browser reporting `devicePixelRatio` 1 would read 1.0 in every tier there, so no frame in
+  this environment can adjudicate a band or a step — the engine's behaviour is pinned instead by the
+  deterministic frame traces in §C, and the Canvas wiring by the source pins in §D.
+  **Android check list:** (a) that Cinematic and Balanced are visibly sharper than Swift on the same
+  device and that the frame rate improves as the preset descends; (b) that Swift draws no drifting
+  dust and that the atmosphere motion switch brings it back on leaving Swift; (c) that a genuinely
+  cheap device lands on Swift at first run (`devicePixelRatio` > 2.5 with ≤ 4 cores) while a record
+  that already carries a choice keeps it; (d) that a fast travel and the first second in the hub do
+  not visibly drop the resolution (the suspension). Do not claim device acceptance.
