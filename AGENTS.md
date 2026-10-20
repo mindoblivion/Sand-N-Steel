@@ -4524,6 +4524,51 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   not show, the design governs and the row should be added the same way Race Camera Distance was
   (wire the consumer first, then show the row).
 
+## Storefront catalogue layer (hub shops) — implemented, data layer only
+
+- **What ships.** `src/data/shops.ts` (new) is a pure data module: the type
+  `StorefrontId = 'forge' | 'armorer' | 'bazaar' | 'merchant' | 'market'` and
+  `getStorefrontStock(id)` → the item ids that storefront offers. Every list is **derived only from
+  `ITEMS_DB`'s own fields** (its `id`, its `rarity`, and the `damageLight` narrowing `isWeapon()`
+  uses), kept in `ITEMS_DB` order, and returned as a **fresh array** on every call, so a caller
+  cannot mutate the catalogue through it. The module owns no item, price or stat of its own.
+- **The five storefronts, measured.** `forge` = every weapon **except the starter** — the 10 ids
+  `spatha_legion, hoplite_spear, trident_retarius, dual_sicae_daggers, dual_vipers, bronze_mace,
+  titan_colossus_mace, dagger_pugio, dirk_desert, shamshir_curved` (the starter is excluded through
+  `item.id !== DEFAULT_PLAYER_WEAPON.id`, not a literal id). `armorer` = all 6 armor pieces
+  (`!isWeapon(item)`). `merchant` = the items whose own `rarity` is `rare` or `legendary` — exactly
+  6: `trident_retarius, dual_vipers, titan_colossus_mace, shamshir_curved, helm_centurion,
+  chest_golden_muscled`. `bazaar` = `[]` — consumables arrive in a later phase, so an empty list is
+  the correct answer today rather than a missing filter. `market` = the whole catalogue (`ITEMS_DB`,
+  17 ids), i.e. the hub tab's current behaviour. forge ∪ armorer = market minus the starter (16 ids)
+  and the two sets are disjoint.
+- **Nothing else moved.** No price, stat or array-order change: `ALL_WEAPONS` (11 — the starter at
+  index 0 and the spare starter at index 2) and `ALL_ARMORS` (6) are byte-identical, no existing
+  export was renamed, and no component, handler, collider or save path was touched. `ShopTab.tsx`
+  still renders `ALL_WEAPONS` / `ALL_ARMORS` directly — **nothing consumes `shops.ts` yet**, which the
+  suite pins — and the module reads neither storage nor a profile, so player saves stay read-only.
+- **Regression suite: `src/utils/storefrontCatalogue.test.ts`** — 18 tests / 67 `expect()` calls in
+  seven sections: §A the resolver's contract (order-preserving, a fresh array per call, and
+  `ITEMS_DB` unchanged after resolving every storefront); §B each storefront's exact id list (forge
+  10, armorer 6, merchant 6, bazaar `[]`, market = `ITEMS_DB`); §C the forge excludes the starter and
+  nothing else; §D the merchant set equals the rare/legendary subset of `ITEMS_DB` and no
+  common/uncommon item is merchant stock; §E forge ∪ armorer = market minus the starter, and the two
+  are disjoint; §F the catalogue counts (11 / 6 / 17) and the load-bearing `ALL_WEAPONS` order (index
+  0 starter, index 2 = `STARTING_SPARE_WEAPON`); §G the scope guard — `shops.ts` imports from
+  `itemsDB` and carries no id or price table of its own (comments stripped before the scan), and no
+  file under `src/components` imports it yet.
+- **Verified 2026-10-20** in the dev container: focused
+  `bun test src/utils/storefrontCatalogue.test.ts` → **18 pass / 0 fail** (67 `expect()`);
+  `bun test` → **2153 pass / 0 fail (69 files, 65,567 `expect()` calls)** — this suite's 18 tests and
+  1 file are the whole delta, so the branch tip read 2135 / 68 before them;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0; `bun run lint`
+  (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup-asset check passing
+  (8 assets); `git diff --check` → clean. The dev server still answers HTTP 200 for the shell and
+  serves the new module transformed, and `itemsDB.ts` is unchanged in the served source.
+- **Not applicable / nothing visual.** This is a data layer no screen renders yet, so there is no
+  appearance to accept and no new Android item: `ShopTab`'s rendered shop is exactly what it was, and
+  no preview capture was needed.
+
 ## Duel hit-stop and scaled screen shake (Combat impact — implemented, validated; Android read PENDING)
 
 - **What ships: two files, and they are the phase's whole production diff.**
