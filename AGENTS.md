@@ -5189,3 +5189,49 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   SwiftShader at ~1–2 fps (the duel-mount attempt timed out at 30 s), so neither the paid figure nor
   the breakdown rows were seen rendered. They are pinned by the suite above; confirm by winning one
   Colosseum duel on a device.
+
+## Motion foundation corrections (CORR-3 — implemented)
+
+- **Four conformance corrections, one new settings row; no architecture change.** The MO-1 motion
+  system (`src/index.css`'s Screen Motion section, `src/utils/motionTokens.test.ts`, App's root
+  `data-motion` effect, `settings.screenMotion`) was already shipped; this slice brought four
+  declarations back to the design and closed the missing consumer.
+- **C-1 — `--ease-inout` is `cubic-bezier(0.65, 0, 0.35, 1)`** (it read `…, 0`, a curve that never
+  reaches its endpoint). The suite pin that ratified the wrong value was changed in the same
+  commit, so the pin and the declaration can no longer disagree.
+- **C-3 — `.anim-stamp` runs on `--dur-ceremony` (700 ms), not `--dur-panel` (220 ms).** A new pin
+  asserts the class contains `var(--dur-ceremony)` and explicitly not `var(--dur-panel)`.
+- **C-4 — the geometry values.** Every `anim-panel-in*` origin travels **12 px** (was 10 vertical /
+  14 horizontal) with `from` scale **0.97** (was 0.985); the `center` variant keeps its transport-free
+  `scale(0.97)`, so all five origins now share one starting scale. `.btn-press:active` is
+  **`scale(0.95)`** (was 0.97) and the press transition splits its durations: the base rule
+  releases on `var(--dur-micro)` (160 ms), the `:active` rule presses in on `var(--dur-press)`
+  (90 ms). Three pins were added beside the existing ones (`animate-panel` travel/scale per origin,
+  the press scale, both press durations), read from the base rules above the reduced blocks.
+- **C-2 — the Screen Motion row.** `SettingsModal`'s Accessibility section now carries a
+  `ChoiceRow` — the panel's existing SET-1 segmented-rail control, the same one Picture Quality and
+  Brightness use — with **Auto / Full / Reduced** and a `Waves` icon. `auto` is not a fourth stored
+  value: it is the DEFAULT state, and choosing it clears the field
+  (`set({ screenMotion: undefined })`, which `updateSettings` already deletes), so the root
+  attribute is removed and the device's own `prefers-reduced-motion` governs again. The field's
+  shape, the resolver and App's effect are untouched. The Accessibility placeholder card
+  ("Nothing to set here yet") was replaced by the row it was standing in for — no other row moved.
+- **Untouched by design:** the transform/opacity-only law (still no `transition-all`, `.btn-press`
+  still names `transform, opacity, color`), both reduced-motion blocks and their 60 % columns, every
+  other token, the save/profile path, and every consumer of `screenMotion`.
+- **Validation (2026-10-20, dev container — all five commands run):** `bun test` → **2403 pass /
+  0 fail (79 files, 79,152 expect() calls)**, the delta being three new tests in
+  `motionTokens.test.ts`; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup asset
+  check passing (8 assets in `public/` and `dist/`; the pre-existing >500 kB chunk warning only);
+  `git diff --check` → **clean**.
+- **Live evidence (preview browser, anonymous visitor — no session replayed).** From the title
+  screen's own Settings entry: the Accessibility section renders the row with its icon, label,
+  description and the three chips (Auto painted as the default on a record that carries no
+  `screenMotion`); choosing **Reduced** writes `screenMotion: 'reduced'` into
+  `sand_and_steel_settings_v1` **and** sets `data-motion="reduced"` on the document root within
+  ~200 ms; choosing **Auto** removes the field from the stored record and removes the root
+  attribute (checked by presence, not by value). The storage the check found was restored
+  afterwards (there was no record, so the key was removed again). No console errors. The animation
+  values themselves are pinned by the suite, not by eye — the sandbox renders through SwiftShader,
+  so the curve/travel/scale change is not visually adjudicated here.

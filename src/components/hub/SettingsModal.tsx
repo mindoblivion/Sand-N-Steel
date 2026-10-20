@@ -17,6 +17,7 @@ import {
   Trash2,
   Check,
   Gauge,
+  Waves,
 } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { VOLUME_MAX, VOLUME_MIN, updateSettings } from '../../services/settings';
@@ -24,6 +25,7 @@ import type {
   Brightness,
   CameraDistance,
   QualityPreset,
+  ScreenMotion,
   Settings as SettingsRecord,
 } from '../../services/settings';
 import { useSettings } from '../../hooks/useSettings';
@@ -66,6 +68,15 @@ let lastCategoryThisSession: SettingsCategory | null = null;
 
 /** How long the reset row stays armed. */
 const RESET_ARM_MS = 3000;
+
+/**
+ * The Screen Motion row's three choices. `auto` is not a fourth stored value: it is
+ * the DEFAULT state, and choosing it clears the field. An absent `screenMotion` is
+ * what lets the device's own `prefers-reduced-motion` setting decide — the resolver
+ * never invents one — so the row offers exactly the two values the field holds plus
+ * that absence.
+ */
+type ScreenMotionChoice = 'auto' | ScreenMotion;
 
 const CATEGORIES: ReadonlyArray<{ id: SettingsCategory; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: 'picture', label: 'Picture & Camera', icon: ImageIcon },
@@ -342,6 +353,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { value: 'near', label: 'Near' },
     { value: 'standard', label: 'Standard' },
     { value: 'far', label: 'Far' },
+  ];
+
+  const screenMotionOptions: ReadonlyArray<{ value: ScreenMotionChoice; label: string }> = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'full', label: 'Full' },
+    { value: 'reduced', label: 'Reduced' },
   ];
 
   return (
@@ -630,13 +647,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             {category === 'accessibility' && (
-              <RowCard>
-                <RowLabel
-                  label="Nothing to set here yet"
-                  description="Screen-motion and camera-shake controls arrive with the accessibility pass."
-                  icon={<Accessibility className="w-5 h-5" />}
-                />
-              </RowCard>
+              /* C-2 — `auto` is the default state, so choosing it drops the field and
+                 the device's own setting governs again. */
+              <ChoiceRow
+                label="Screen Motion"
+                description="Auto follows your device's motion setting. Full plays every animation; Reduced tones them down."
+                icon={<Waves className="w-5 h-5" />}
+                options={screenMotionOptions}
+                value={settings.screenMotion ?? 'auto'}
+                onChange={(screenMotion) =>
+                  set({ screenMotion: screenMotion === 'auto' ? undefined : screenMotion })
+                }
+              />
             )}
           </div>
         </div>
