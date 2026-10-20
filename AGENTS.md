@@ -5251,3 +5251,98 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   request placed the pacing judgement anyway (a real Android device). Nothing was left behind: the
   run stopped at the creation screen, so no profile was written and no fight was fought — no
   gold/fame/xp was awarded or persisted.
+
+## Payload trim — `public/` workspace scratch (branch `payload-trim` — implemented)
+
+- **Branch.** The slice's branch `payload-trim` was forked from `colosseum-exterior-architecture`
+  (its tip `445cab9` **is** the merge base), so the required base is the one the brief named. No code,
+  no referenced asset, no collider, no save or storage path was touched: the whole diff is four file
+  deletions under `public/`.
+- **Method.** Every file > 100 KB under `public/` (29 files) was classified by searching **all** of
+  `src/` (including `.ts`/`.tsx` string literals and dynamic path construction), `index.html`,
+  `public/sw.js`, `public/manifest.webmanifest` and **every** test file; a file named by any test, or
+  whose hash a test checks, counts as REFERENCED even when no shipping code names it. Result of the
+  dynamic-path audit: **every `_workspace_*` reference in the repo is a literal filename** — there is
+  no template-, prefix- or lookup-built asset path anywhere — so nothing needed the ambiguous
+  treatment. No `.zip` is named by anything in the searched set.
+- **Deleted — 4 files, 20,497,192 bytes (19.55 MiB).** `public/` **230,863,848 → 210,366,656 bytes**
+  (`du -sh` 221M → 201M):
+
+  | file | bytes | why dead |
+  |---|---|---|
+  | `_workspace_gladiator_era_signs.zip` | 19,869,379 | delivery archive of the sign pack; the unpacked, live copies are `public/signs/<id>/<id>.glb` |
+  | `_workspace_chariot_model_RomanChariot_GLB_Assets.zip` | 490,733 | delivery archive; its payload is unpacked as `_workspace_chariot_model_RomanChariot{,_WheelKit}.glb` |
+  | `_workspace_roman_fortress.glb` | 77,404 | superseded by `_workspace_roman_fortress_normals_candidate.glb` (`NorthernFortress.tsx` `FORTRESS_URL`) |
+  | `_workspace_motte.glb` | 59,676 | superseded by `_workspace_motte_normals.glb` (`NorthernMotte.tsx` `MOTTE_URL`) |
+
+  The last two are below the 100 KB inventory threshold, but they are exactly the "unreferenced
+  `_workspace_*` scratch" the slice names as its deletion candidate, and both are provably dead (0
+  hits in every searched location), so they were included rather than left behind.
+- **Kept although scratch-looking — test-pinned, so untouchable here.** `public/_workspace_chariot.glb`
+  (1,506,872 B) is REFERENCED: `phaseC8_67d.test.ts` reads it as `LEGACY_CHARIOT_GLB` and asserts 88
+  meshes / 0 skins / 0 clips / the 7 named materials, and line 848 asserts that no other source file
+  names it. The same suite hash-pins the three horse uploads
+  (`_workspace_dist_horse_{weak,better,great}.glb`, sha256 `0a00300e…` / `639b75d5…` / `f7e1b698…`) and
+  `_workspace_chariot_model_RomanChariot.glb` + its WheelKit (`49e132e6…` / `d5b36add…`), and
+  `phaseC8_66b/66c/68c`, `phaseC8_64a/64b/65/67d`, `phaseC8_35/36`, `phaseMotteTerrain`,
+  `phaseFortressRotation` and `phaseC8_70b*` all read these files or their component sources. Deleting
+  any of them was never on the table: the tests are the contract.
+- **AMBIGUOUS list: empty.** No pattern-built path exists for any inventoried file, so no file needed
+  to be kept "because it could not be fully resolved". (Outside this slice's inventory: the ten
+  `public/signs/<id>/<id>.glb` files are all 77–97 KB, below the 100 KB threshold; only
+  `grand_colosseum/grand_colosseum.glb` is named by shipping code
+  (`ColosseumSignPrototype.tsx` `SIGN_GLB_PATH`), the other nine only by `public/signs/manifest.json`,
+  which nothing in `src/` reads.)
+- **Restore incidents: none.** No deletion broke a check, so nothing had to be restored.
+- **REFERENCED-BUT-FAT — the compression backlog's input** (every referenced file > 2 MB, 20 files,
+  **206,017,828 bytes ≈ 196.5 MiB = 98.0 % of the surviving `public/`**):
+
+  | file | bytes |
+  |---|---|
+  | `models/amazonian.glb` | 24,178,572 |
+  | `models/dimachaerus.glb` | 21,589,980 |
+  | `models/netfighter.glb` | 21,263,388 |
+  | `models/minotaur.glb` | 19,285,660 |
+  | `_workspace_dist_horse_great.glb` | 16,342,056 |
+  | `models/arena_roman.glb` | 16,177,472 |
+  | `_workspace_dist_horse_better.glb` | 15,783,980 |
+  | `_workspace_dist_horse_weak.glb` | 15,248,136 |
+  | `music/boss_final.ogg` | 8,744,875 |
+  | `models/weapons/spatha.glb` | 6,531,404 |
+  | `models/weapons/dagger.glb` | 5,943,296 |
+  | `models/weapons/gladius.glb` | 5,862,904 |
+  | `models/weapons/shamshir.glb` | 5,763,084 |
+  | `models/weapons/dirk.glb` | 5,065,728 |
+  | `music/arena_combat.ogg` | 4,630,302 |
+  | `music/ludus_train.ogg` | 3,504,456 |
+  | `_workspace_arena.glb` | 3,202,640 |
+  | `title_screen.png` | 2,670,368 |
+  | `music/victory_cue.ogg` | 2,155,311 |
+  | `music/title_main.ogg` | 2,074,216 |
+
+  Where each is referenced: the four character GLBs and the five weapon GLBs in
+  `components/3d/GladiatorMesh.tsx` (+ `data/itemsDB.ts` for the weapons); `models/arena_roman.glb`
+  also at `utils/preloadAssets.ts`; the seven music tracks in `data/musicTracks.ts`;
+  `title_screen.png`/`.webp` in `index.html`'s `.title-backdrop` rule and `startupAssets.ts`;
+  `_workspace_arena.glb`, `_workspace_motte_normals.glb`,
+  `_workspace_roman_fortress_normals_candidate.glb` and the two chariot GLBs as the city's shipping
+  asset URLs. **No compression, re-encode or resize was done in this slice, by design** — this table is
+  the separate pipeline backlog's input.
+- **One factual note for that backlog.** The three horse uploads (47.4 MB together) are referenced only
+  by test-pinned hashes and by `HORSE_FIT_ASSET_URL` in `utils/horseFitPrototype.ts`, whose only
+  consumer is the dev-only `HorseChariotFitPrototype.tsx` reached through `main.tsx`'s
+  `import.meta.env.DEV` branch — so no production build loads them. They stay because three suites hash
+  them; shrinking or dropping them is a test-decision, not a payload-trim one.
+- **Verified 2026-10-20 in the dev container, all five commands on the post-deletion tree** (with the
+  same five re-run on the pre-deletion tree as a baseline, so any failure could be attributed to a
+  deletion rather than inherited): `bun test` → **2153 pass / 0 fail (69 files)** — identical to the
+  baseline; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed** (baseline 123/0);
+  `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0**, including
+  `scripts/startupAssetCheck.ts` ("8 assets in public/ and dist/"), which also shows the four files are
+  gone from the regenerated `dist/`; `git diff --check` → **clean**. Live check against the running dev
+  server: `/`, `/models/arena_roman.glb`, `/music/title_main.ogg`, `/title_screen.webp` and
+  `/_workspace_motte_normals.glb` still serve their real bytes with the right content type, while the
+  four deleted paths no longer resolve to a file (Vite's SPA fallback answers with the 3218-byte
+  `index.html`, `text/html`), and a browser load of `/` renders the title screen with **0 console
+  errors and 0 failed requests** and **no request for any deleted path**. Player saves untouched:
+  nothing in this slice reads or writes storage.
