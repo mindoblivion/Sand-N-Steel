@@ -13,6 +13,7 @@ import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
 import { ChampionBannerPole } from './ChampionBannerPole';
 import { resolveBanner } from '../../../utils/heraldry';
+import { resolveDoorDuelTarget } from '../../../utils/tierAdvancement';
 import { MerchantHouse } from './MerchantHouse';
 import { ArmorLeatherWorkshop } from './ArmorLeatherWorkshop';
 import { Stable } from './Stable';
@@ -125,7 +126,6 @@ const CityAdaptiveDpr: React.FC<{
 
 interface CityHubSceneProps {
   playerProfile: PlayerProfile;
-  activeOpponent: OpponentConfig;
   /**
    * Phase C-8.66B: `subTab` carries the one hub that opens a subview of its tab
    * (the Imperial Stable → the Armory's Chariot Workshop). Every other hub
@@ -177,7 +177,6 @@ interface CityHubSceneProps {
 
 export const CityHubScene: React.FC<CityHubSceneProps> = ({
   playerProfile,
-  activeOpponent,
   onOpenTab,
   onEnterDuel,
   onOpenDriveSync,
@@ -373,7 +372,18 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // returns control to the city unchanged.
       setShowRaceEntry(true);
     } else if (nearbyLoc.tabKey === 'tournament') {
-      onEnterDuel(activeOpponent);
+      // The door resolves its own ticket HERE, when the player interacts: the
+      // current tier's first UNDEFEATED boss, which is the same boss the tournament
+      // tab presents as the next one to beat. A stored `activeOpponent` is never
+      // used — it can carry a fighter from a tier the player has already left. Once
+      // every boss of the tier is down the door offers that tier's boss rematch,
+      // which pays its rewards but cannot move the tier.
+      const target = resolveDoorDuelTarget(
+        playerProfile.currentTier,
+        playerProfile.defeatedOpponentIds
+      );
+      if (target) onEnterDuel(target.opponent);
+      else onOpenTab('tournament');
     } else if (nearbyLoc.tabKey) {
       onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
@@ -410,7 +420,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         setStableNotice(null);
       }, 4000);
     }
-  }, [nearbyLoc, onEnterDuel, activeOpponent, onOpenTab]);
+  }, [
+    nearbyLoc,
+    onEnterDuel,
+    playerProfile.currentTier,
+    playerProfile.defeatedOpponentIds,
+    onOpenTab,
+  ]);
 
   /**
    * Phase C-8.70B Stage 1, Slice 1 — "Start Race" leaves the city for the race
