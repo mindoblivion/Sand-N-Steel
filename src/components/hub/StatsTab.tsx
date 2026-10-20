@@ -77,7 +77,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) 
                   {profile.unspentStatPoints > 0 && (
                     <button
                       onClick={() => onAllocatePoint(item.key as 'strength' | 'agility' | 'stamina' | 'defense')}
-                      className="w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-lg flex items-center justify-center cursor-pointer shadow-md"
+                      aria-label={`Raise ${item.name}`}
+                      className="w-12 h-12 min-h-[48px] min-w-[48px] rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-lg flex items-center justify-center cursor-pointer shadow-md"
                     >
                       +
                     </button>

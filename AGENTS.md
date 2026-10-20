@@ -5204,6 +5204,49 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the breakdown rows were seen rendered. They are pinned by the suite above; confirm by winning one
   Colosseum duel on a device.
 
+## UI-1 — button & safe-area sweep (implemented)
+
+- **Scope.** Presentation only: class names, two labels/captions (B-15's "Move", B-18's "Hold"),
+  one retitle (B-16) and one printed sentence (B-17). No handler, route, save or layout change;
+  Lefty/Righty parity untouched.
+- **The shared control.** `src/components/ui/controlStyles.ts` exports `CLOSE_BUTTON_CLASS` — the
+  C-8.70B §SET-1 header ✕ lifted out of `SettingsModal` (`w-12 h-12` + `min-h-[48px] min-w-[48px]`).
+  Every close control now uses it with its own `aria-label`: HelpModal, GoogleDriveSyncModal, the
+  city drawer and its notice banner, DeleteAccountModal, the offline banner (GameFailureSurface) and
+  SettingsModal itself. `settings.test.ts`'s `w-12 h-12` assertion now reads that one constant,
+  because the literal moved there — the 48×48 guarantee is unchanged, not relaxed.
+- **What the sweep touched.** CombatHUD (utility cluster at 48dp, camera state label at all widths,
+  own safe-area gutter), TurnActionPanel movement strip, CityHubScene + GladiatorSchoolHub headers,
+  both tab bars, CharacterCreation steppers (48px, real disabled state at the stat floor),
+  GoogleDriveSyncModal (labelled Refresh / Sign out / Delete / Load), the four OAuth buttons
+  (compact 48×48), TitleScreen account pill + privacy link, the tab primaries and Equip/Buy rows,
+  RaceTouchControls (permanent "Hold" micro-label under each gait word, 48px floor + `max()` on the
+  steer/brake sizing), RaceScene's Abort (now carries its icon), and the SettingsModal privacy row
+  (the panel's last icon-less row).
+- **B-14.** `src/components/ui/TouchControls.tsx` was deleted. Fresh grep before deleting:
+  no `from '…/TouchControls'` and no `ui/TouchControls.tsx` import anywhere in `src/`, `scripts/`
+  (only prose mentions in `phaseC8_70bStage1Slice2.test.ts`, which name the idiom, not the module).
+  `RaceTouchControls.tsx` is now the tree's only touch-control implementation.
+- **Not applicable here.** `CoachCard.tsx` does not exist on this branch (S-1's second half lands
+  with the onboarding branch). S-5 (the city's double bottom inset) was left alone, by instruction.
+- **Regression suite: `src/utils/uiControls.test.ts`** — §A the shared close class and its
+  labelled sites, §B the 48dp floor per audited file plus the negative pins (no `w-7 h-7`, no
+  `w-8 h-8 rounded-xl`, no `w-9 h-9`, no `min-h-[44px]`, no `hidden sm:inline capitalize`), §C
+  B-14 against the tree, §D the copy items (B-15 … B-19), §E the safe-area items (S-1 … S-4).
+  Assertions match class *names*, not whole class strings, so reformatting does not break them.
+- **Verified 2026-10-20** in the dev container: `bun test` → **2424 pass / 0 fail (80 files,
+  79,245 expect())**, `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, `bun run lint`
+  (`tsc --noEmit`) → exit 0, `bun run build` → exit 0, `git diff --check` → clean.
+- **Preview evidence.** Title screen: the account pill, the privacy link and the settings entry all
+  measure 48px (`min-height: 48px`). Account panel: `← Back` and the submit 48px, and the four
+  compact OAuth circles are 48×48, still one row with 0 horizontal overflow at 375×812. Settings
+  panel: the close is 48×48 with `aria-label="Close settings"`, and all four Game rows (Cloud save,
+  Reset save, Privacy policy, Erase device data) now carry an icon. 0 console errors throughout.
+- **Not automatically verified.** The city, hub, duel and race screens were not rendered here —
+  the sandbox draws them through SwiftShader at ~2 fps — so their 48dp/inset changes rest on the
+  class pins above and need the on-device (Android) look, together with the still-open northern
+  approach and Colosseum checks recorded above.
+
 ## Boss-kill counter writer (FIX-A — implemented, validated; the win path itself not driven live)
 
 - **The defect was a field with readers and no writer.** `PlayerProfile.bossKills` was written only

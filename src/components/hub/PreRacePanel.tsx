@@ -140,14 +140,14 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
           <button
             onClick={onLeave}
             data-race-action="leave"
-            className="flex-1 py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-serif font-bold text-xs uppercase cursor-pointer active:scale-95 transition-all"
+            className="flex-1 min-h-[48px] py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-serif font-bold text-xs uppercase cursor-pointer active:scale-95 transition-all"
           >
             Leave
           </button>
           <button
             onClick={onStartRace}
             data-race-action="start"
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-neutral-950 font-serif font-black text-xs uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all"
+            className="flex-1 min-h-[48px] py-3 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-neutral-950 font-serif font-black text-xs uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all"
           >
             Start Race
           </button>

@@ -111,7 +111,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
       <div className="flex justify-between items-center mb-6">
         <button
           onClick={onCancel}
-          className="flex items-center gap-2 text-sm font-serif text-neutral-400 hover:text-amber-300 cursor-pointer"
+          className="flex min-h-[48px] items-center gap-2 text-sm font-serif text-neutral-400 hover:text-amber-300 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Return to Title</span>
@@ -272,6 +272,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
                 { key: 'def', label: 'Defense (Armor & Block)', val: defense, icon: Shield, color: 'text-blue-400' },
               ].map((stat) => {
                 const Icon = stat.icon;
+                // UI-1 (B-4) — the stepper's own floor, so the − control is really
+                // disabled at the value `handleStatChange` already refuses to cross.
+                const statFloor = stat.key === 'def' ? 4 : 10;
                 return (
                   <div key={stat.key} className="flex justify-between items-center bg-neutral-950/80 p-2.5 rounded-xl border border-neutral-800">
                     <div className="flex items-center gap-2">
@@ -284,7 +287,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
                         <button
                           type="button"
                           onClick={() => handleStatChange(stat.key as 'str' | 'agi' | 'sta' | 'def', -1)}
-                          className="w-7 h-7 rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-neutral-200 font-bold cursor-pointer"
+                          disabled={stat.val <= statFloor}
+                          aria-label={`Reduce ${stat.label}`}
+                          className="shrink-0 w-12 h-12 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:bg-neutral-900 disabled:border-neutral-800 disabled:text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-600 text-neutral-200 font-bold cursor-pointer"
                         >
                           -
                         </button>
@@ -292,7 +297,8 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
                           type="button"
                           onClick={() => handleStatChange(stat.key as 'str' | 'agi' | 'sta' | 'def', 1)}
                           disabled={pointsLeft <= 0}
-                          className="w-7 h-7 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-40 border border-amber-400 text-neutral-950 font-bold cursor-pointer"
+                          aria-label={`Raise ${stat.label}`}
+                          className="shrink-0 w-12 h-12 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-40 border border-amber-400 text-neutral-950 font-bold cursor-pointer"
                         >
                           +
                         </button>

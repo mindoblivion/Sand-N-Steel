@@ -130,7 +130,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
                       onBuyItem(wpn);
                     }}
                     disabled={isOwned || !canAfford}
-                    className={`w-full py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
+                    className={`w-full min-h-[48px] py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
                       isOwned
                         ? 'bg-neutral-800 text-neutral-500 border border-neutral-700'
                         : canAfford
@@ -208,7 +208,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
                       onBuyItem(arm);
                     }}
                     disabled={isOwned || !canAfford}
-                    className={`w-full py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
+                    className={`w-full min-h-[48px] py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
                       isOwned
                         ? 'bg-neutral-800 text-neutral-500 border border-neutral-700'
                         : canAfford

@@ -9,6 +9,7 @@ import {
   BatteryCharging,
   Compass,
 } from 'lucide-react';
+import { CLOSE_BUTTON_CLASS } from '../ui/controlStyles';
 
 interface HelpModalProps {
   onClose: () => void;
@@ -26,7 +27,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-amber-200 cursor-pointer transition-colors"
+            aria-label="Close the combat manual"
+            className={CLOSE_BUTTON_CLASS}
           >
             ✕
           </button>
@@ -199,7 +201,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         {/* CLOSE BUTTON */}
         <button
           onClick={onClose}
-          className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs uppercase tracking-wider cursor-pointer active:scale-95 transition-all shadow-xl shrink-0"
+          className="w-full min-h-[48px] py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs uppercase tracking-wider cursor-pointer active:scale-95 transition-all shadow-xl shrink-0"
         >
           Understood, Return to Arena
         </button>
