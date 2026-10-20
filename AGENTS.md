@@ -4524,6 +4524,56 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   not show, the design governs and the row should be added the same way Race Camera Distance was
   (wire the consumer first, then show the row).
 
+## STORY-1 — campaign state and the campaign card (implemented)
+
+- **What ships.** `PlayerProfile.story?` (`src/types/game.ts`, every subfield optional); the pure
+  read path `src/utils/storyState.ts` (`resolveStoryState`) plus the derived rank in
+  `src/utils/rank.ts`; and the presentational `src/components/hub/CampaignCard.tsx`, mounted at the
+  head of `StatsTab` — the Records & Lore Library view (`records_house` opens `tabKey: 'stats'`).
+  Nothing writes `story`: `createNewProfile()` still emits no field, there is no migration, and both
+  new modules import no storage. The stored `rank` field is ignored; the rank the campaign reads is
+  derived from fame / `currentTier` / `defeatedOpponentIds`.
+- **The campaign's rules, all in `storyState.ts`.** The chapter (0–7) is DERIVED, never stored: the
+  current chapter is the first one that still has an unmet gate, and a gate is `'pending'` when its
+  owning system has not landed (the District race beats and the omen), so pending gates never hold a
+  chapter shut. Both consequences are load-bearing and are asserted directly in the suite: a
+  Goliath-down profile resolves to Chapter 3 (not 2), and a profile that has met every available gate
+  reaches Chapter 7 and the Legend state. The Oath gate is also met by the grandfather rule
+  (`fightsWon > 0`, or a `road.oathSworn === true` field read structurally), which is how saves
+  written before this slice stay playable. Malformed input of any shape resolves to the defaults and
+  never throws or mutates the profile — the `resolveRacingState` contract.
+- **Three test assertions had been failing; all three were test-side, and no source changed.**
+  (1) The rank suite's object-literal guard `/rank:\s*\w+,/` was satisfied by `rankAtLeast`'s own
+  **parameter declaration** (`rank: GladiatorRank,`) — a rank *value*, not the stored field — so it is
+  now anchored on `{`/`,` (`/[{,]\s*rank\s*:/`) and the two fixtures are typed. (2) §B7 read the dice
+  gate off a profile that had already met it: a met gate closes Chapter 4 and moves the player to
+  Chapter 5, so the gate is no longer among the gates the resolver returns; the test now asserts that
+  advance (and that an unknown enum name does not move the chapter) instead of re-reading the gate.
+  (3) §B9's final walk step never raised fame to the Legend threshold, so Chapter 7 resolved as
+  current-but-unclosed; the step now carries `RANK_THRESHOLDS.legend`. No assertion was weakened and
+  no production file was involved in the repair.
+- **Verified 2026-10-20** in the dev container: `bun test src/utils/storyState.test.ts` → **34 pass /
+  0 fail** (188 expect() calls); `bun test` → **2169 pass / 0 fail (69 files, 65688 expect()
+  calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only);
+  `git diff --check` → clean. The dev server serves all four modules (HTTP 200).
+- **Live check, and what could not be captured.** Drove the real route in the preview browser (no
+  save in that browser): title → `Play` → the character-creation confirm →
+  **3D city hub** → the footer's own `Gladiator Stats` shortcut → the Records & Lore Library view,
+  where the card was present in the DOM with `data-chapter="0"`, `data-campaign-complete="false"`,
+  `data-story-gate="oath-sworn:unmet"`, the Chapter-0 title/beat and the unmet requirement — i.e. the
+  fresh-profile state, **0 console errors** throughout, and the card shown as the first child of the
+  view. **No clean frame of it was obtained:** the capture caught the city's asset-loading overlay
+  (`ENTERING THE ARENA`), and the follow-up attempt to re-reach the view did not land inside the
+  script budget (the hub renders at ~2 fps through SwiftShader, the limit C-8.36…C-8.65 recorded).
+  **The card's rendered appearance is therefore a device question and is NOT automatically verified
+  here** — check it on Android: the card heads the library view, the chapter line reads
+  `Campaign · Chapter 0` with a serif title, the three dot states (met ✔ / unmet ◆ / pending …) read
+  distinctly, and the Legend line appears only once every chapter is closed.
+- **Not attempted:** anything that would write `story`. The slice is a read path; the race and omen
+  systems that would meet the two `'pending'` gates do not exist on this branch, and the card says so
+  in words rather than showing an unmet requirement the player could not satisfy.
+
 ## Storefront catalogue layer (hub shops) — implemented, data layer only
 
 - **What ships.** `src/data/shops.ts` (new) is a pure data module: the type
@@ -4568,3 +4618,574 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Not applicable / nothing visual.** This is a data layer no screen renders yet, so there is no
   appearance to accept and no new Android item: `ShopTab`'s rendered shop is exactly what it was, and
   no preview capture was needed.
+
+## Duel hit-stop and scaled screen shake (Combat impact — implemented, validated; Android read PENDING)
+
+- **What ships: two files, and they are the phase's whole production diff.**
+  `src/components/duel/DuelScene.tsx` (the outcome tables, the shared impact ref, the shake in
+  `DuelCameraRig`, the settings read) and `src/components/3d/GladiatorMesh.tsx` (the hit-stop on the
+  animation clock, plus the `ImpactState` type and the one pure helper both of them read). **No new
+  file, no new dependency, no new React state, no collider, no save, no combat constant and no
+  timer.** `git diff --stat` is exactly those two production files.
+
+- **The shared object, and why it is a ref.** `DuelScene` owns
+  `impactRef = useRef<ImpactState>({ freezeUntil: 0, trauma: 0 })` — `freezeUntil` is a
+  `performance.now()` deadline in ms, `trauma` is 0…1 shake energy — and passes the same object to
+  `DuelCameraRig` and to **both** `GladiatorMesh` instances. `ImpactState` and
+  `impactAnimationScale(impact, now) → 0 | 1` live in `GladiatorMesh.tsx` (exported, pure), so the
+  type travels the import edge the component already had and nothing else has to know about it.
+  Reading and writing it costs no re-render, and **no `useState` was added to `DuelScene`**: the two
+  new refs (`impactRef`, `telegraphLandingRef`) plus the shake-multiplier ref are the whole addition.
+
+- **Hit-stop, outcome → duration (ms), as implemented:**
+
+  | outcome | `freezeUntil` |
+  |---|---|
+  | quick attack | +60 |
+  | power attack | +110 |
+  | crit (a power attack that crit) | +170 |
+  | blocked (any strike stopped by a shield) | +40 |
+  | telegraphed heavy landing (the boss's overhead smash) | +200 |
+
+  Precedence, in the order the branch reads it: **blocked wins** (a shield stops the blow, however
+  hard it was), then the telegraphed heavy, then crit, then quick/power. The write sits in the landed
+  branch of `executeCombatTurn`, immediately before the two `hitFlashTimer: 0.3` state writes, so it
+  happens at exactly the points the brief named. The freeze itself is
+  `mixer.timeScale = impactAnimationScale(impactRef?.current)` in `RomanWarriorGLB`'s frame loop —
+  three's `AnimationMixer.update` multiplies its delta by `timeScale`, so this is literally
+  "animation advances by `delta * 0`", every clip on that fighter stopping together while the hit
+  reaction's first pose (set by the action effect's own `reset()`, not by the clock) is the frame
+  that holds. `ProceduralGladiator` — the fallback used only when the GLB is missing — has no mixer,
+  so it accumulates its own clock and multiplies it the same way, keeping both paths identical.
+  **No game logic waits on the freeze:** the 1100 ms resolution timeout, the 750 ms AI delay and
+  every state write are untouched.
+
+- **Shake, outcome → trauma, as implemented:**
+
+  | outcome | trauma added |
+  |---|---|
+  | the player's quick attack lands | +0.25 |
+  | the player's power attack lands | +0.45 |
+  | the player's crit lands | +0.7 |
+  | **the player receives any hit** | **+0.2 — replacing the dealt value rather than adding to it** |
+
+  The total is capped at 1.0. The rig then, each frame, **after** the existing
+  `camera.position.lerp`: decays `trauma` by `1.6 × delta`, forms
+  `shake = trauma² × getCameraShakeMultiplier(...)`, and when `shake > 0` adds
+  `shake × 0.18 ×` a bounded two-frequency sum — ~31 Hz and ~47 Hz, weights summing to 1 per axis, so
+  the peak displacement is the 0.18 itself — to `camera.position` on all three axes, and offsets the
+  `lookAt` target laterally by `shake × 0.6° ×` the camera-to-target distance (the rotational half of
+  the same effect). Trauma decays whether or not an offset is applied, so **Camera Shake = Off**
+  (multiplier 0) still winds the state down rather than freezing it.
+
+- **How the multiplier is read — the contract honoured exactly.** `DuelScene` holds
+  `shakeMultiplierRef`, refreshed **through the settings module's cache and listener**, never through
+  React state and never per frame: one mount-time `useEffect` calls
+  `getCameraShakeMultiplier(getSettings(), motionQuery?.matches ?? false)` immediately and again on
+  every `subscribeSettings` notification, and the rig reads `shakeMultiplierRef.current` inside its
+  frame loop. The second argument is the OS's `prefers-reduced-motion` preference, read once through
+  `window.matchMedia('(prefers-reduced-motion: reduce)')` with a change listener and guarded exactly
+  as `WaitSurface` guards it — because the module's own doc says an ABSENT `screenMotion` field is
+  what lets the platform decide, and `getEffectiveScreenMotion` can only answer that if it is told.
+  So the applied offset is 1.0 at Camera Shake = Full, 0.4 at Reduced (the shipped default) and 0 at
+  Off, and never more than 0.4 while the effective screen motion is reduced or off.
+
+- **"No shake and no freeze on a quiet player turn" holds by construction.** Trauma is only ever
+  written inside the landed branch of `executeCombatTurn`, which can only run while `isExecuting` is
+  true; and 1.6/s of decay empties even the largest single addition (a crit's 0.7) in **0.44 s**,
+  well inside the **1100 ms** resolution window `isExecuting` covers. The freeze is ≤200 ms, inside
+  the same window. Both are therefore spent before the turn can be handed back with nothing
+  executing.
+
+- **The telegraphed heavy needed one new ref, because the AI clears the existing one first.** The
+  boss's telegraph resolves as `pendingHeavyAttackRef.current = false; … executeCombatTurn('opponent',
+  'power_attack')` — that marker is already gone when the resolution runs — so `telegraphLandingRef`
+  is set by that branch and **read-and-cleared at the top of `executeCombatTurn`**, before any branch
+  can return: a miss, an evade or an out-of-range swing cannot leave it set for a later attack. No
+  existing flag's lifecycle changed.
+
+- **Scope kept: what deliberately did not move.** No value in `src/utils/combatCalculations.ts`; no
+  damage, hit chance, stamina, combo or hype outcome; not the 1100 ms or 750 ms timers; no
+  `isLeftyMode` handling and no line of `GladiatorMesh`'s handedness or shield-constraint code (the
+  shield slews on the real delta, so only the animation clock is held); no dependency, no save, no
+  collider, no settings row (the Camera Shake row and its reader already existed — this is the
+  consumer the SET-1 record said was one away). The duel Canvas keeps `fov: 45`,
+  `getCameraSensitivityScale(useSettings())` and both `vibrate(` call sites, which `settings.test.ts`
+  pins.
+
+- **Validation (2026-10-20, dev container — all five commands run, every one green):**
+  `bun test` → **2135 pass / 0 fail (68 files, 65,500 expect() calls)** — the suite set is identical
+  to the pre-change one (no test file was touched), so the count is directly comparable and the
+  unchanged turn timing and outcomes are the existing suite's own evidence;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `bun run build` → **exit 0** with the startup asset check passing (8 assets; the pre-existing
+  >500 kB chunk warning only);
+  `git diff --check` → **clean (exit 0)**.
+
+- **Live evidence (preview browser, anonymous visitor — no session replayed), and what it does and
+  does not establish.** The dev harness's own duel (`?devHarness=character`, loaded in an in-page
+  iframe and driven through the real HUD) mounted the shipping `DuelScene` with this change in place,
+  and **a full turn resolved end to end**: `Quick Strike` disabled itself while executing, the Arena
+  Chronicle gained its lines (`Spartacus strikes with Quick Slash, but is OUT OF RANGE!`, then the
+  opponent's own turn and log line), the health bars and the 3D arena kept rendering, and the frame
+  loops — the rig's new shake maths and both meshes' new `impactAnimationScale` reads — ran with **no
+  console error attributable to the change** (the only entries seen anywhere were the documented
+  pre-existing WebGL-guard teardown pair, "Attempted to synchronously unmount a root…" plus an empty
+  "Uncaught", which appear when the temporary harness frame is removed — the same pair C-8.66B/
+  C-8.66C/C-8.66D/C-8.68C record). **The landed-hit branch itself was NOT exercised:** the two strikes
+  that could be driven fell out of range (a gladius reaches 2.5 and the fighters close 1.8 a turn),
+  and a third click was swallowed at a turn boundary, so no blow landed inside the script budget.
+  **The hit-stop and the shake are therefore NOT automatically verified** — the run proves their
+  wiring runs clean, and their *feel* is the developer's Android read, exactly as the brief said it
+  would be. The sandbox has no GPU (SwiftShader, ~1–2 fps in the 3D scenes), so no frame here could
+  adjudicate a 40–200 ms hold or a sub-degree camera wobble in any case.
+
+## Tempering — pure logic (P1 — implemented)
+
+- **Scope.** Data + logic only, no UI: `src/utils/tempering.ts` (new), one optional
+  `temper?: Record<string, number>` on `PlayerProfile` (`src/types/game.ts`), and the stat seam
+  (`src/services/storage.ts`). The owned `WeaponItem` / `ArmorItem` objects are **never** modified
+  — the upgrade lives only in `profile.temper`, keyed by item id, and is written only by a
+  successful `purchaseTemper()` (never by `createNewProfile()`), so the save format gains exactly
+  one lazy optional field, like `chariot` and `racing`.
+- **The stat seam existed and is wired.** `calculateTotalStats()` (`services/storage.ts`) is the one
+  aggregation both combat (`components/duel/DuelScene.tsx`) and the hub (`components/hub/StatsTab.tsx`)
+  already read, so it now resolves each equipped item's level with `resolveTemperLevel()` and adds
+  `getEffectiveWeaponStats()` / `getEffectiveArmorStats()`. At level 0 each helper returns a copy
+  equal to the base item, so a legacy save (no `temper` field) is unchanged — the whole suite is
+  green with no existing expectation touched. `combatCalculations.ts` formulas are untouched:
+  weapon **damage** still comes from the item object, so a later slice must read the effective
+  weapon wherever damage is consumed (`DuelScene`'s `loadout.weapon.damageLight|damageHeavy`).
+- **Numbers.** Cost = 40 / 80 / 140 % of the item's own `price`, rounded to the nearest 5
+  (starter gladius 50 → 20 / 40 / 70; Colossus Titan Skullcrusher 920 → 370 / 735 / 1,290).
+  Weapon: `damageLight` / `damageHeavy` +8 % of **base** per level (linear, rounded), +1
+  `bonusStrength` at +2 and again at +3. Armour: +1 `defense` per level, and at +3 +1 to each bonus
+  stat it already lists (a temper never invents a bonus; a piece with two listed bonuses gets +1 to
+  both — `helm_murmillo`'s `bonusDefense` 2 → 3, `defense` 4 → 7). Sell value = `sellPrice` + 25 %
+  of the temper gold spent, rounded (`getTemperSellValue(profile, item)`). Gold can never go
+  negative: an unaffordable level is refused before any object is built.
+- **Validation — all five commands, run in the `web` container.** `bun test` → **2176 pass / 0 fail
+  (70 files)**, this slice contributing the 23 tests in the new `src/utils/tempering.test.ts` with
+  **no existing test file modified** (`git status`: only `storage.ts`, `game.ts` edited, two files
+  added); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0; `git diff --check` → clean.
+- **Verified in the preview:** the app boots with the new module in its graph (title screen renders,
+  0 console errors; the dev server serves the transformed `tempering.ts` and the wired
+  `storage.ts`). **Not automatically verified:** the hub's Stats screen and the duel's stat readout —
+  this app is sign-in gated and the preview browser had no session, so the wiring is pinned by the
+  unit test that drives `calculateTotalStats` with a `temper` record instead.
+
+## Screen motion tokens & foundation (MO-1 — implemented, validated)
+
+- **What ships: three production files and one suite.** `src/index.css` (a new SCREEN MOTION
+  section: the tokens, six keyframe families, five utility classes, the two reduced-motion paths and
+  the pause-on-hidden rule, plus the one in-place retime of `.animate-fadeIn`),
+  `src/services/settings.ts` (one pure resolver, `resolveMotionAttribute`), `src/App.tsx` (two
+  small root effects and the import), and `src/utils/motionTokens.test.ts` (new suite, 17 tests /
+  251 `expect()` calls). **No animation library, no dependency, no per-screen redesign, no save, no
+  collider and no gameplay value changed** — `git diff --stat` is exactly those three production
+  files.
+
+- **The tokens, exactly as the design names them** (all in the section's own `:root`, read out
+  live): `--dur-press` 90ms, `--dur-micro` 160ms, `--dur-panel` 220ms, `--dur-screen` 420ms,
+  `--dur-ceremony` 700ms, `--dur-phase` 1200ms, `--stagger-step` 45ms; `--ease-out`
+  `cubic-bezier(0.22, 1, 0.36, 1)`, `--ease-inout` `cubic-bezier(0.65, 0, 0.35, 0)`, `--ease-in`
+  `cubic-bezier(0.5, 0, 0.75, 0)`, `--ease-spring` `cubic-bezier(0.34, 1.4, 0.64, 1)` (the one curve
+  whose y1 exceeds 1, which is what "the spring's overshoot" means and what the reduced paths
+  remove).
+
+- **The classes shipped, and what each one is for:**
+
+  | class | what it does | reads |
+  |---|---|---|
+  | `.anim-panel` | a panel/modal entrance, with **per-origin variants** through `data-origin` — `bottom` (the default, also what no attribute and an unknown origin get), `top`, `left`, `right`, `center`, each its own `@keyframes` (`anim-panel-in`, `…-top`, `…-left`, `…-right`, `…-center`) selected by `animation-name` | `--dur-panel`, `--ease-out` |
+  | `.anim-screen` | a whole screen arriving: one fade with a small lift, the screen moving rather than its contents | `--dur-screen`, `--ease-out` |
+  | `.anim-stagger` | each **direct child** fades in `--i × --stagger-step` after the one before it, `--i` being the child's own 0-based index | `--dur-micro`, `--ease-out`, `--stagger-step` |
+  | `.anim-stamp` | a verdict landing: oversize → settle, with the spring's overshoot on the way | `--dur-panel`, `--ease-spring` |
+  | `.btn-press` | press feedback (`:active` → `scale(0.97)`), its transition **naming its three properties** | `--dur-press`, `--ease-out` |
+
+- **The two laws are encoded as mechanics, not as hopes.** (1) **Transform, opacity and colour only,
+  never `transition-all`**: the suite parses every keyframe in the section and asserts the union of
+  its declared properties is a subset of `{opacity, transform}`, scans the comment-stripped section
+  for `transition-all` / `transition: all` / `transition-property: all`, and scans it for
+  `width`/`height`/`top:`/`left:`/`margin` — geometry is moved with `translate3d`/`scale` throughout,
+  so a moving element never re-runs layout or paint. (2) **At most 12 animations concurrent, by
+  construction**: the stagger's delay is `calc(var(--stagger-step) * min(var(--i, 0), 7))`, i.e.
+  clamped at its **8th step** (7 × 45 ms = **315 ms**) however long the list is, so a 40-row list
+  keeps at most those 8 distinct steps in flight plus the `ceil(220 / 45) − 1 = 4` predecessors still
+  fading when the clamp bites — twelve, fixed. Both laws are stated in the section's own header
+  comment, and the arithmetic is re-derived in the suite from the shipped tokens.
+
+- **`.animate-fadeIn` is retimed onto the panel token, and that is the whole of the feel change it
+  makes.** The house precedent (modals, the pre-race panel, the race's verdict text, the city's
+  notices) now reads `animation: fadeIn var(--dur-panel) ease-out forwards` — the token carries
+  **exactly the 220 ms** (`0.22s`) the rule already used, and the suite asserts the literal is gone
+  while the curve deliberately stays the **shipped `ease-out` keyword**: codifying a duration onto a
+  token is not a re-grade of the curve, and swapping in `--ease-out` would have been a (small) feel
+  change to every modal in the game. Its one visible consequence is the intended one: under either
+  reduced-motion path the same rule retimes to **132 ms**.
+
+- **Reduced motion is two paths and ONE set of reductions, and the suite proves they are the same
+  set.** `[data-motion="reduced"]` (the player's own setting, mirrored onto the root by App) and the
+  app-wide `@media (prefers-reduced-motion: reduce)` block both apply, through one shared assertion
+  helper: fades at **60% duration** (54 / 96 / 132 / 252 / 420 / 720 ms — each compared against 60%
+  of the base token the suite read from `:root`, so they cannot drift from the tokens they scale),
+  **`--stagger-step: 0ms`** (every child at once), **`--ease-spring: var(--ease-out)`** (the
+  overshoot removed, and read back as the *identical* curve), and **press = an opacity flash**
+  (`transform: none; opacity: 0.7` — the feedback is dimmed, not taken away).
+  The OS block is scoped `:root:not([data-motion="full"])`, so the platform governs only while the
+  player's record is silent or asks for reduction — an **explicit `full` is not quietly over-ridden
+  by the media query**, which is exactly how `getEffectiveScreenMotion` resolves the same record.
+  Nothing is disabled outright: this is a *reduction*, not the title screen's own `animation: none`
+  (whose block, and the wait surface's, are untouched). Verified live: with the attribute set, every
+  base token, the fade's computed duration (`0.132s`) and the stagger delays (`0s`, `0s`, `0s`) all
+  move, and removing it restores `220ms` / `0.22s`.
+
+- **The wiring point: `App`'s root, two attributes, no re-render.** One small effect
+  (`[settings.screenMotion]`) calls the pure `resolveMotionAttribute(settings)` and writes
+  `data-motion` on `document.documentElement` — **removing the attribute when the record is silent**,
+  so the OS query is what governs a player who has never chosen. A second, mount-only effect toggles
+  `motion-paused` on the same root from `visibilitychange`, the title screen's own
+  `title-anim-paused` precedent taken app-wide; the CSS rule that consumes it freezes
+  `.anim-panel`, `.anim-screen`, `.anim-stagger > *`, `.anim-stamp` **and** `.animate-fadeIn`
+  (`animation-play-state: paused`), so hidden work costs nothing and nothing is caught half-way
+  through a fade on the way back. Both are root attributes rather than React output, so neither
+  re-renders anything, and `screenMotion`'s **absence stays absent** — the resolver never invents a
+  value, and a chosen `'off'` is carried **verbatim** rather than folded into `'reduced'`: MO-1 ships
+  the reduced block, and the stilling `'off'` treatment is a later slice's to add, so the attribute
+  has to keep the two distinct from the moment it is first written. Nothing in the settings panel
+  changed — SET-1's rule is that a row appears only when its consumer exists, and the Screen Motion
+  row is still one consumer away (the class set is that consumer's toolkit, not a rebuild of any
+  screen).
+
+- **Validation (2026-10-20, dev container — all five commands run, every line green):**
+
+  | command | result |
+  |---|---|
+  | `bun test` | **2170 pass / 0 fail (70 files, 65,818 `expect()` calls)** — the branch tip read 2153 / 69 before it, so this suite's 17 tests and its file are the whole delta |
+  | `bun run scripts/collisionTests.ts` | **123 passed, 0 failed** (exit 0) — unchanged, as expected: no collider is touched |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `bun run build` | **exit 0**, with the startup-asset check passing (8 assets in `public/` and `dist/`; the pre-existing >500 kB chunk warning only) |
+  | `git diff --check` | **clean (exit 0)** |
+
+  The suite's own starting point was **2 failing assertions, both of them mine** — a comment-stripped
+  scan that the slice's own partial header comment defeated, and a selector-list slice that landed
+  inside the comment preceding it. Both were fixed in the harness, **not by loosening a check**, and
+  no assertion was removed.
+
+- **Live evidence (preview browser, anonymous visitor — no session replayed; 0 console errors, 0
+  failed requests), and what it establishes.** Read out of the running app after the change: the
+  title screen renders; every base token computes to the design's own value; a probe element carrying
+  the shipped classes resolves `.anim-panel[data-origin="right"]` to `anim-panel-in-right` / `0.22s`
+  / the `--ease-out` curve, `.anim-screen` to `anim-screen-in` / `0.42s`, `.anim-stamp` to the
+  **spring** curve, `.animate-fadeIn` to **0.22s** (the house duration, unchanged) and `.btn-press`
+  to `transition-property: transform, opacity, color` / `0.09s`; the stagger's three children resolve
+  **`0s`, `0.135s` (3 steps) and `0.315s` (12 → the clamp at the 8th step)** — the concurrency
+  ceiling, measured in a real browser rather than reasoned about; setting `data-motion="reduced"`
+  moves every token to its 60% value, the spring to the ease-out curve, the stagger to `0s/0s/0s` and
+  the fade to `0.132s`, and removing it restores `220ms`; `motion-paused` puts all five utilities at
+  `animation-play-state: paused`; and with the settings record **absent** the app wrote **no**
+  `data-motion` attribute (the OS path), which is the shipped effect running. The probe was removed
+  and the attribute and class cleared afterwards, and the settings record was never written (absent
+  before and after).
+
+- **Not automatically verified, and each for a stated reason.** (a) **The positive settings→attribute
+  path in the live app** — the resolver's mapping and App's effect are pinned by the suite and by the
+  source contract, and the *absent*-record path (no attribute) was read live, but driving the
+  *chosen* value end to end needs a `screenMotion` in the settings record and a fresh load to read it,
+  and this environment restores the account's own snapshot and clears browser storage on every fresh
+  load (the C-8.66C finding), so a written record cannot survive the reload the app needs. No row
+  exists in the settings panel to set it from the UI either (SET-1's attachment-point rule), so this
+  path is **not automatically verified**. (b) **The OS `prefers-reduced-motion` path live** — the
+  sandbox cannot emulate the media feature, so that block is source- and suite-verified only.
+  (c) **Any screen's appearance** — no screen mounts these utilities yet, so this slice changes **no
+  rendered pixel**: the utilities are a toolkit whose first consumer is a later slice, and no
+  per-screen redesign was attempted here. The one screen whose motion *did* change is none: the
+  `.animate-fadeIn` retime carries the same 220 ms and the same curve, which is a codification, not
+  a feel change.
+
+## Records & Lore Library — the Road of Glory (Progression Slice 1 — implemented)
+
+- **What shipped.** `src/utils/rank.ts` (`deriveRank` + its threshold constants),
+  `src/utils/roadOfGlory.ts` (`resolveRoadState`, `resolveRoadProgress`, `ROAD_STAGES`,
+  `AURELIUS_OPPONENT_ID`, `CHAMPION_RECORD_LINE`), `src/components/hub/RoadOfGloryPage.tsx`,
+  `src/components/hub/LibraryTab.tsx`, and the `RoadProgress` field on `PlayerProfile`
+  (`src/types/game.ts`). The view is reachable two ways, both through the hub's existing `onOpenTab`:
+  the bottom nav / tab row's new **Records & Lore** entry, and the Records & Lore Library
+  building itself — `HUB_LOCATIONS`' `records_house` now carries `tabKey: 'library'` where it
+  previously fell back to the stats tab (its centre, radius 4.5, prompt, colour and district are
+  unchanged, and `InteractiveLocation.tabKey` gains the `'library'` member).
+- **Derived, never stored.** Seven stages stand in order — nobody → sworn → blooded → known →
+  feared → champion → legend — each `'reached' | 'current' | 'ahead'`, the current one being the
+  **highest** the profile qualifies for (so a skipped stage is `'reached'`, never `'ahead'`, and
+  exactly one stage is ever current). The gates read only: `deriveRank(profile)` (imported from
+  `rank.ts` — its thresholds are never restated, so the road cannot promise a gate the rank does
+  not enforce), `fightsWon`, `defeatedOpponentIds`, and the optional `profile.road`
+  (`oathSworn` / `bannerDevice` / `milestonesSeen`, resolved lazily: absent, partial and
+  hand-edited all read as unsworn). **The stored `PlayerProfile.rank` is not read**, nothing
+  writes a save, and `profile.road` has no writer in this slice — the oath slice owns that.
+- **The Champion gate names the roster's own boss.** `AURELIUS_OPPONENT_ID` is read from
+  `ALL_OPPONENTS` as the tier-4 boss (`opp_aurelius_boss`), not copied as a literal, so the gate
+  follows the roster if the entry ever moves.
+- **No Codex module — Legend's Codex condition is NOT implemented.** There is no
+  `src/utils/codex.ts` in this tree, so the progression design's "Rudis-ready" condition for the
+  Legend stage was left out rather than invented: legend is `deriveRank`'s Legend alone
+  (fame >= 1,500, the tier-4 circuit, a boss kill). The Codex slice owns that condition; if it
+  lands, the legend gate in `resolveRoadState` is the one line to extend.
+- **Suites: `src/utils/rank.test.ts`** (16 tests — the three gates on both sides of every
+  boundary with each half required, precedence and monotonicity, malformed saves reading as zero,
+  the stored rank not being read, the rank table and `rankAtLeast`) and
+  **`src/utils/roadOfGlory.test.ts`** (26 tests — the road's shape and contiguity, every gate,
+  the roster-derived champion id, the cumulative rule, the optional road field, and purity: the
+  resolvers mutate nothing). Both state their boundaries against `rank.ts`'s exported constants,
+  so a threshold change moves the assertions with it.
+- **Fixed in this pass.** `CityHubScene.tsx`'s new nav entry used `BookOpen` without importing it
+  (`tsc --noEmit` TS2304), so the 3D hub's Records & Lore button had no icon; the import is added.
+- **Verified 2026-10-20** in the dev container: `bun test` → **2177 pass / 0 fail (70 files)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0; `git diff --check` → clean. Live in the preview: title →
+  character creation → city hub → the new Records & Lore entry → the Library renders page one with
+  its seven stage nodes, exactly one of them current (`nobody` on a fresh save, six ahead), the
+  requirement line on the next node only, the champion record line on the Champion node, the
+  page's own tab marked `aria-current="page"`, no console errors, and no sideways overflow at a
+  375 px viewport (the tab row wraps to a 2x3 grid; the new tab's icon renders). The changed door
+  was driven with the shipped `getNearbyHubLocation`: every step in from Records & Lore's
+  fast-travel arrival `[23.1, -26]` answers `records_house`, whose `tabKey` is now `library`.
+- **Not automatically verified.** Nothing here needs an account (the Library is not gated), so
+  the anonymous preview covers it end to end; no 3D rendering changed, so this slice adds no
+  device-visual item to the open Android checklist.
+
+## Herald & Banner — milestone cries, the device and the banner (RG-3 — implemented)
+
+- **What rides what.** RG-3 is stacked on the two sibling slices it was specced against, and this branch
+  carries both: `origin/road-glory` (RG-1 — `src/utils/roadOfGlory.ts`: `resolveRoadState`,
+  `resolveRoadProgress`, `ROAD_STAGES`; `src/utils/rank.ts`; the `road` field and the Road page) and
+  `origin/gladiator-oath-beat` (RG-2 — `src/utils/gladiatorOath.ts`, `withOathSworn`, `OathBeat`, the
+  session-scoped `cityHerald`). **`src/utils/heraldry.ts` did not exist on any branch** — RG-3 creates it —
+  and neither did any herald/toast surface or any ludus banner row, so RG-3 builds those too.
+- **The merge conflict, and how it was settled.** Both slices declared the same `road` field, in the same
+  region of `src/types/game.ts`, under different names (`RoadProgress` vs `GladiatorRoad`). The branch keeps
+  RG-1's name — one `interface RoadProgress` with a `road?: RoadProgress` field — and RG-2's writer;
+  `gladiatorOath.ts` imports `RoadProgress`. Two of RG-2's own assertions needed widening for the merge and
+  no assertion was weakened: its "no other file in src/ writes the field" scan now skips `*.test.ts` (the road
+  suites' fixtures name the field) and `roadOfGlory.ts` (which reads it into a resolved value, never writes it).
+- **The two call sites, and the only writers.** `src/utils/roadMilestones.ts` is evaluated in exactly two
+  places in `src/App.tsx`: `handleMatchComplete` (both duel outcomes) and `enterCity` (which every entry into
+  the city passes through). `evaluateRoadMilestones(before, after)` compares `resolveRoadState` and returns the
+  profile to save; it is the **only** writer of `road.milestonesSeen`, appending the ids of the stages this
+  event newly reached. `chooseBannerDevice` is the **only** writer of `road.bannerDevice` and refuses a second
+  choice outright. Nothing else is stored: the stripes come from `bossKills`, the gate from the road.
+- **Why a stage below the jump is recorded too.** The road is cumulative (`resolveRoadState` marks every stage
+  below the current one `'reached'`), so a gladiator who jumps to Veteran records `sworn`/`blooded`/`known` in
+  one go; only `known` and `feared` have cries. Suppression is `milestonesSeen` plus "not reached before this
+  event", so a repeated or replayed evaluation is silent — there is no watcher and no timer.
+- **The surfaces RG-3 had to build.** `src/components/hub/HeraldToast.tsx` (the herald's cries, above every
+  screen — a duel ends into the city, so a cry must outlive the screen it was raised from),
+  `src/components/hub/DeviceChoosingPanel.tsx` (the four devices, Latin name + gloss, field colour from
+  `ROMAN_PALETTE`), `src/components/hub/BannerRow.tsx` (the ludus banner row; not drawn below Veteran) and
+  `src/components/3d/city/ChampionBannerPole.tsx` (raised at the Colosseum gate once the road stands at
+  Champion — four meshes and one 192x288 canvas texture).
+- **Grandfathering.** A gladiator at or past Veteran with no `bannerDevice` is offered the panel at the next
+  evaluation — `enterCity` is the site that catches them. "Not yet" closes it and the next evaluation offers it
+  again, so nobody is ever silently deviceless.
+- **Verified 2026-10-20** in the dev container: `bun test` → **2252 pass / 0 fail (73 files, 66,192 expect()
+  calls)**, 23 of them new in `src/utils/roadMilestones.test.ts`; `bun run scripts/collisionTests.ts` → **123
+  passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the
+  startup asset check passing; `git diff --check` → **clean**. The new suite pins each stage firing once,
+  seen-id suppression, both rank cries with the gladiator's name, the boss cry named from the roster, the
+  one-time device write, stripes at 0/1/4 kills, a save with no `milestonesSeen`, grandfathering and the four
+  device specs.
+- **Live evidence, and what it does NOT establish.** Driving the real flow in the preview browser (Play →
+  character creation → `APPLY POINTS & ENTER METROPOLIS` → the city's Colosseum button) reached the ludus hub
+  with the banner row wired and correctly **not** drawn for a level-1 profile, and the run produced **no
+  console errors**. **Not automatically verified:** the *chosen* banner's field/device/stripes, the Device
+  Choosing panel and the herald toast in a rendered state, and the champion gate pole. The managed preview
+  browser does not keep `localStorage` between preview calls, so a seeded Veteran save cannot be carried into
+  the page, and the city hub renders at ~1–2 fps through SwiftShader; both need a hand look on a real device.
+
+## Quality preset and the city's adaptive DPR (SF-1 — implemented)
+
+- **What ships: the picture-quality preset becomes live, and the city Canvas stops asking for
+  whatever the device reports.** The city's Canvas carried `dpr={[1, 2]}` — a constant that renders at
+  up to 2 × on a device reporting 2, far past the studio budget's 1.5 cap for the city. It is now
+  `dpr={cityDpr}`, where the value comes from the player's preset and is then adapted inside that
+  preset's band by a frame-time engine; the city's drifting dust is part of the same row. The phase's
+  files: `src/hooks/useAdaptiveDpr.ts` (new — the tier table, the pure engine and the hook),
+  `src/services/settings.ts` (the preset's type, its legacy spellings and the first-run default),
+  `src/components/3d/city/CityHubScene.tsx` (the Canvas prop, the tier's dust and the transition
+  suspension), `src/components/hub/SettingsModal.tsx` (the row the new consumer makes wired),
+  `src/utils/adaptiveDpr.test.ts` (new suite, 38 tests) and two rebased pins in
+  `src/utils/settings.test.ts`.
+
+- **The tier table — one row per preset, and every number exported.** `CITY_TIERS` holds
+  `dpr: { min, max, start }` and `sparkles` per preset; `start` is the band's ceiling for the two
+  tiers that ask for pixels (a device that cannot hold it is stepped down — that is what the engine
+  is for) and Swift opens at its floor. Cinematic 1.5–2.0 starting at 2.0, **Balanced 1.0–1.5
+  starting at 1.5** (the default, and the budget fix this slice exists for), Swift 1.0–1.25 starting
+  at 1.0. Dust: **Cinematic 90 — the count the city already had — Balanced 60, Swift 0.** Every
+  band boundary sits on a multiple of `DPR_STEP` (0.25), which is what lets a step land exactly on a
+  floor and never one past it. A later slice attaches its shadow tier to the same row, which is why
+  the row is a record of named fields rather than loose constants.
+
+- **The engine lives in a hook inside the Canvas, and it is pure at its core.**
+  `stepAdaptiveDpr(state, tier, frameMs, suspended)` is total and returns a new state: the evidence is
+  a **trimmed EMA** — a 30-frame window (`EMA_WINDOW`) with its two worst samples dropped
+  (`EMA_TRIM`), so one hitch or a garbage collection cannot move the picture — over a
+  `SAMPLE_CLAMP_MS` (100 ms) clamp, with a sustained hold on each side: over `STEP_DOWN_MS` (17.5 ms)
+  for `STEP_DOWN_SUSTAIN_MS` (1.5 s) steps **down** one `DPR_STEP`, under `STEP_UP_MS` (12 ms) for
+  `STEP_UP_SUSTAIN_MS` (5 s) steps **up**, and never twice inside `DWELL_MS` (3 s). A frame that
+  cannot be measured (NaN, Infinity, zero, negative) is not a frame and leaves the state untouched.
+  `useAdaptiveDpr` keeps that state in a **ref** and publishes through `onDprChange` only when the
+  value actually moved, so a steady device renders nothing per frame — at most one publication per
+  3 s, and the callback itself is held in a ref so an inline arrow cannot reset the engine.
+
+- **One holder of the value: the scene owns the Canvas's `dpr`.** The engine renders nothing and
+  returns nothing; a step is published into the scene's own `useState`, which the Canvas follows, so
+  the scene and the engine cannot disagree. The tier is applied **at mount and on a preset change by
+  the scene** (`useEffect [qualityPreset]`) and never mid-frame by the engine; the scene reads the
+  preset through the settings module's existing `useSettings` — no second store, no new key, and the
+  hook imports the preset's *type* from `services/settings` so there is one owner of the names.
+
+- **The preset resolves three ways in order, and the heuristic is a FIRST-RUN default, not a policy.**
+  `resolveQualityPreset(stored, device)`: a value the design names (`cinematic` / `balanced` /
+  `swift`); a record written before SF-1 — **`high` → Cinematic, `low` → Swift**, because a stored
+  choice is a choice and those were the most- and least-pixels spellings; and otherwise the first-run
+  default, which consults the cheap-device heuristic **`devicePixelRatio > 2.5` AND
+  `hardwareConcurrency ≤ 4`** (`isCheapDevice`; BOTH halves must hold, and a browser that withholds a
+  fact is not evidence of a cheap device) — **Swift on such a device, Balanced everywhere else.** A
+  stored or translated preset always wins over the heuristic, so it can only ever decide a first run.
+
+- **How the preset coexists with the World Motion toggle — the toggle stays the player's switch, and
+  Swift overrides it while it is active.** `getEffectiveAtmosphereMotion(settings)` is the city's dust
+  reader: the player's own `atmosphereMotion`, and **false while the preset is Swift**. The stored
+  toggle is never rewritten, so the player's choice is back the moment they leave Swift, and the two
+  controls cannot disagree about whether the city's atmosphere drifts. The city's dust obeys it twice
+  over: `count` is `atmosphericMotion ? cityTier.sparkles : 0`, and the `<SandDrift />` group is
+  `visible={atmosphericMotion}`. **No panel row was added for `atmosphereMotion`** in this slice: it
+  now has exactly one consumer (the city's dust) and its row's own wording is a Motion/Accessibility
+  decision that belongs with the accessibility pass, not here — it stays a named attachment point,
+  and this note is the record that the consumer exists.
+
+- **Adaptation is suspended for a transition, and the suspension is the scene's.** Mounting IS a
+  transition (the first compiles and the `demand`→`always` switch are not a slow device), and a fast
+  travel is another, so `suspendAdaptation()` sets a ref for `POST_TRANSITION_MS` (1 s) after each —
+  the scene writes the ref, the engine reads it per frame, and the same exported constant drives both
+  so they cannot drift apart. While suspended every frame is ignored and the two sustain timers are
+  held at zero (the measured window and the dwell carry over, so a device is not forgotten — it just
+  is not judged on a scene build's hitches).
+
+- **The draw-call count does not depend on the tier.** The dust is still **one** element whose `count`
+  is the tier's, never a conditional mount, so a tier changes a vertex count and not the number of
+  objects in the scene; the DPR band changes pixels, not scene content. (Swift's 0 draws no dust.)
+
+- **Rebased, not weakened: SET-1's two preset pins.** `settings.test.ts`'s storage round-trip and its
+  every-field cycle both pinned `qualityPreset: 'high'`; they now pin `'cinematic'` with a comment
+  naming this phase. No other assertion moved, and no test file was otherwise touched.
+
+- **Regression suite: `src/utils/adaptiveDpr.test.ts`** — 38 tests / 8,358 expect() calls across five
+  sections: §A the tier table (one row per preset, every band's numbers on the step grid, Balanced's
+  1.5 ceiling, the descending ceilings, Swift opening at its floor, the dust budget, and the engine's
+  own constants pinned from the module); §B the trimmed EMA (the two worst dropped, order
+  sensitivity, at least one survivor, no mutation of the window); §C the engine driven over real
+  frame traces — a smooth 60 fps holds its start, a sustained 30 fps is stepped to the floor one step
+  at a time and held (never twice inside the dwell, never before the sustain), a recovered device is
+  stepped back to the ceiling, a chaotic 900-frame trace never leaves the band for any tier, one 5 s
+  stall is clamped and then swallowed by the trim, unmeasurable frames are ignored, a transition's
+  frames are ignored with the timers restarted, and every step is exactly one `DPR_STEP`; §D the
+  wiring read out of the shipped sources (the engine inside the Canvas, no React work per frame, the
+  old `dpr={[1, 2]}` gone, the tier read from settings, the dust through one element, the motion
+  switch, the two suspensions, and no second store or save path); §E the settings side (the three
+  ways in, the legacy spellings, the heuristic's both-halves rule and its thresholds, the first-run-only
+  property, and the panel row).
+
+- **Verified 2026-10-20** in the dev container: `bun test` → **2191 pass / 0 fail (70 files, 73,925
+  expect() calls)** (the starting point was 2152 pass / 1 fail across 69 files — the one failure was
+  SET-1's stale `'high'` pin, and the delta is this suite's 38); `bun run scripts/collisionTests.ts`
+  → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `bun run build` → **exit 0** with the startup asset check passing (8 assets; the pre-existing
+  >500 kB chunk warning only); `git diff --check` → **clean**.
+
+- **Live evidence (preview browser, anonymous visitor — no session replayed), and what it does and
+  does not establish.** The panel's new row was driven from the title screen's own Settings entry:
+  it opens showing the stored choice painted (Balanced), **choosing an option writes the one settings
+  record** (`sand_and_steel_settings_v1.qualityPreset` read back as `swift`, then `balanced`) and the
+  painted selection follows within **3 ms**; the row fits a phone viewport with no sideways scroll;
+  Done closes the panel; **zero console errors** throughout. The check restored the storage it found
+  (there was no record, so the key was removed again). **The city's own rendered DPR and dust are NOT
+  automatically verified:** the sandbox has no GPU (SwiftShader, ~2 fps in the city hub), and a
+  preview browser reporting `devicePixelRatio` 1 would read 1.0 in every tier there, so no frame in
+  this environment can adjudicate a band or a step — the engine's behaviour is pinned instead by the
+  deterministic frame traces in §C, and the Canvas wiring by the source pins in §D.
+  **Android check list:** (a) that Cinematic and Balanced are visibly sharper than Swift on the same
+  device and that the frame rate improves as the preset descends; (b) that Swift draws no drifting
+  dust and that the atmosphere motion switch brings it back on leaving Swift; (c) that a genuinely
+  cheap device lands on Swift at first run (`devicePixelRatio` > 2.5 with ≤ 4 cores) while a record
+  that already carries a choice keeps it; (d) that a fast travel and the first second in the hub do
+  not visibly drop the resolution (the suspension). Do not claim device acceptance.
+
+## Selling — market buy-back (P1 sell-refund — implemented)
+
+- **What ships.** `src/utils/selling.ts` (new) is the transaction that pairs with the value rule
+  `utils/tempering.ts` already owned: `getSellValue()` returns the item's own `sellPrice` plus 25 %
+  of the temper gold spent on it (`getTemperSellValue`), `getSellEligibility()` states the rules, and
+  `sellItem()` is the transaction. Same purity contract as the chariot / racing / tempering helpers:
+  a refusal returns the caller's own profile object untouched, a success returns a NEW profile with
+  the value added to `gold` and the item dropped from `inventory`.
+- **Selling clears that item's temper record**, because `ITEMS_DB` objects are shared data — a
+  re-bought sword must start at level 0, not inherit the levels its previous owner paid for. A save
+  with no `temper` field never gains one by selling.
+- **Only a carried, unequipped item is sellable** (`not-owned` / `equipped` / `unknown-item` /
+  `no-profile` refusals). `equipped.weapon` is required, so unequipping-by-selling would leave a
+  state no other code expects; the player unequips first, exactly as in a real armoury.
+- **UI.** The Bazaar & Forge (`components/hub/ShopTab.tsx`) now shows a `Sell for N Gold` control on
+  an owned, unequipped card, below the disabled `Owned` button; it is wired `ShopTab → onSellItem →
+  GladiatorSchoolHub → App.handleSellItem → saveProfile`, the same path every other profile change
+  uses. The Armory (`GearTab`) is unchanged — it equips, the market trades.
+- **Verified.** `bun test` → **2346 pass / 0 fail (77 files)**, this slice contributing the 16 tests
+  in the new `src/utils/selling.test.ts` (eligibility, value, transaction purity, inert refusals);
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0. In the preview the market
+  renders the control with the correct figure (`SELL FOR 45 GOLD` on the 45 g Dory Hoplite Spear,
+  the equipped gladius correctly offered none).
+- **Not automatically verified: the click-through.** The button was rendered and read, but the
+  sale click was not dispatched in that run (the selector missed the label because Tailwind's
+  `uppercase` class uppercases `innerText`), so the gold credit + inventory removal + save write
+  through the UI are pinned only by the unit tests that drive `sellItem()` itself. Reaching the
+  market also costs the full creation → press-and-hold oath → city fast-travel path, so it was not
+  repeated in the same session.
+
+## Arena purse — victory gold (P1 rewards — implemented)
+
+- **What ships.** `src/utils/duelRewards.ts` (new, pure: no profile, no storage, no clock) is the
+  rule that turns a finished duel's own statistics into the gold a victory pays; `DuelGoldBreakdown`
+  and an optional `goldBreakdown` on `DuelStatistics` (`src/types/game.ts`); `DuelScene` computes the
+  purse at the victory resolution and writes it onto the ONE stats object App already credits; the
+  result modal itemises it and shows the settled purse. **No new currency, no second save field, no
+  change to the reward path**: `App.handleMatchComplete` still does `profile.gold + stats.goldEarned`
+  and still refuses to pay on a loss.
+- **The rule.** Base = the opponent's own `rewardGold` (35 … 1,000 across the roster), plus crowd
+  favour (+10 % of the base per full 25 hype above 50, so +7 on a 35-gold bounty at hype 100), plus
+  precision (5 gold per perfect block, capped at five), plus flawless (+50 % of the base when no
+  damage was taken). Marcus at peak value pays **85**; the tier-4 boss at peak value pays over
+  **1,700**. A loss pays **0** — every field zero — which is what keeps the arena a reward for risk.
+- **Why the flat bounty was kept as the base:** `rewardGold` is the roster's balance data (and what
+  the Colosseum list and pre-fight panel quote), so the purse is written over it rather than
+  replacing it; a quiet win therefore pays exactly what the game always paid and only a showy or
+  flawless one pays more.
+- **Where the gold goes.** Straight into `profile.gold` through the existing `saveProfile()` write, so
+  it is the same purse `purchaseTemper()` spends — a tempered gladius' first level (20 g) is one
+  Marcus victory, and the whole gladius curve (130 g) is under two.
+- **Validation (2026-10-20).** `bun test` → **2366 pass / 0 fail (78 files, 78,928 expect() calls)**,
+  this slice contributing the 18 tests in `src/utils/duelRewards.test.ts` (loss pays nothing, base
+  bounty, the hype steps and their monotonicity, the block cap, flawless and its removal by one point
+  of damage, integer/non-negative totals for malformed input, the "a win never pays less than the
+  bounty" invariant, and the wiring: the duel pays `purse.total` onto `statsRef`, a defeat zeroes it,
+  App credits `stats.goldEarned`, the modal renders the breakdown); `bun run lint` (`tsc --noEmit`) →
+  exit 0. The dev server serves the new module and the changed scene/modal/App transformed (HTTP 200).
+- **Preview evidence, and what it does NOT establish.** The dev harness's own screens mount with the
+  change in place — creation, the test profile, the "START TEST DUEL" hand-off — with **0 console
+  errors**, so the new import chain is clean. **The purse itself is NOT automatically verified in the
+  browser:** paying it requires actually winning a duel, and the sandbox renders the arena through
+  SwiftShader at ~1–2 fps (the duel-mount attempt timed out at 30 s), so neither the paid figure nor
+  the breakdown rows were seen rendered. They are pinned by the suite above; confirm by winning one
+  Colosseum duel on a device.
