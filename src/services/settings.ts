@@ -43,8 +43,15 @@ import { getLeftyMode, setLeftyMode } from './storage';
 /** The one settings record. */
 export const SETTINGS_STORAGE_KEY = 'sand_and_steel_settings_v1';
 
-/** Low / Balanced / High — the picture-quality preset (its consumers are SF-1's). */
-export type QualityPreset = 'low' | 'balanced' | 'high';
+/**
+ * Cinematic / Balanced / Swift — the picture-quality preset.
+ *
+ * SF-1 made it live: it is the city's governor, read by `hooks/useAdaptiveDpr.ts`
+ * for the Canvas's DPR band and for the dust particle count.  The names are the
+ * design's; a record written with SET-1's `low` / `high` spellings still resolves
+ * (see `LEGACY_QUALITY_PRESETS`).
+ */
+export type QualityPreset = 'cinematic' | 'balanced' | 'swift';
 
 /** Dim / Standard / Bright — the scene exposure. */
 export type Brightness = 'dim' | 'standard' | 'bright';
@@ -92,7 +99,49 @@ export interface Settings {
   enhancedColor: boolean;
 }
 
-export const QUALITY_PRESETS: readonly QualityPreset[] = ['low', 'balanced', 'high'];
+export const QUALITY_PRESETS: readonly QualityPreset[] = ['cinematic', 'balanced', 'swift'];
+
+/**
+ * The spellings a record written before SF-1 could carry (`SET-1` shipped
+ * `low` / `balanced` / `high`).  A stored choice is a choice, so it is translated
+ * rather than dropped on the floor: `high` was the most-pixels setting and `low`
+ * the least, which is exactly Cinematic and Swift.  `balanced` needs no alias — it
+ * is in `QUALITY_PRESETS` itself.
+ */
+const LEGACY_QUALITY_PRESETS: Record<string, QualityPreset> = {
+  high: 'cinematic',
+  low: 'swift',
+};
+
+/**
+ * The cheap-device heuristic's thresholds: a dense screen on few cores.  BOTH
+ * halves must hold — a dense screen alone is not a cheap device.
+ */
+export const CHEAP_DEVICE_DPR = 2.5;
+export const CHEAP_DEVICE_CORES = 4;
+
+/** The two device facts the first-run default reads. */
+export interface DeviceProfile {
+  devicePixelRatio?: number;
+  hardwareConcurrency?: number;
+}
+
+/**
+ * Whether this device should start at Swift (SF-1's first-run default).  An
+ * unknown core count is not evidence of a cheap device — a browser that withholds
+ * `hardwareConcurrency` is usually not the slow one.
+ */
+export function isCheapDevice(device: DeviceProfile): boolean {
+  const dpr = device.devicePixelRatio;
+  const cores = device.hardwareConcurrency;
+  return (
+    typeof dpr === 'number' &&
+    typeof cores === 'number' &&
+    dpr > CHEAP_DEVICE_DPR &&
+    cores >= 1 &&
+    cores <= CHEAP_DEVICE_CORES
+  );
+}
 export const BRIGHTNESS_LEVELS: readonly Brightness[] = ['dim', 'standard', 'bright'];
 export const CAMERA_DISTANCES: readonly CameraDistance[] = ['near', 'standard', 'far'];
 export const SCREEN_MOTION_LEVELS: readonly ScreenMotion[] = ['full', 'reduced', 'off'];
@@ -161,12 +210,35 @@ function asRecord(stored: unknown): Record<string, unknown> {
  * `legacyLefty` is the legacy lefty key's value (`storage.ts`'s `getLeftyMode`), or
  * `false` when there is none.  It is used ONLY when the record is silent about
  * lefty: a record that carries a boolean lefty wins, either way round.
+ *
+ * `device` is the device's own two facts (`window.devicePixelRatio`,
+ * `navigator.hardwareConcurrency`), read by `loadSettings` and passed in by the
+ * suite.  It is consulted ONLY where the record carries no usable preset, which is
+ * what makes it a FIRST-RUN default rather than a policy.
  */
-export function resolveSettings(stored: unknown, legacyLefty = false): Settings {
+/**
+ * The preset, three ways in order: a value the design names; the spelling a record
+ * written before SF-1 could carry (`low` / `high`); and otherwise the first-run
+ * default — Swift on a cheap device, Balanced everywhere else.
+ */
+export function resolveQualityPreset(stored: unknown, device: DeviceProfile = {}): QualityPreset {
+  if (typeof stored === 'string') {
+    if ((QUALITY_PRESETS as readonly string[]).includes(stored)) return stored as QualityPreset;
+    const legacy = LEGACY_QUALITY_PRESETS[stored];
+    if (legacy) return legacy;
+  }
+  return isCheapDevice(device) ? 'swift' : DEFAULT_SETTINGS.qualityPreset;
+}
+
+export function resolveSettings(
+  stored: unknown,
+  legacyLefty = false,
+  device: DeviceProfile = {},
+): Settings {
   const record = asRecord(stored);
 
   const resolved: Settings = {
-    qualityPreset: oneOf(record.qualityPreset, QUALITY_PRESETS, DEFAULT_SETTINGS.qualityPreset),
+    qualityPreset: resolveQualityPreset(record.qualityPreset, device),
     brightness: oneOf(record.brightness, BRIGHTNESS_LEVELS, DEFAULT_SETTINGS.brightness),
     cityCamDistance: oneOf(record.cityCamDistance, CAMERA_DISTANCES, DEFAULT_SETTINGS.cityCamDistance),
     raceCamDistance: oneOf(record.raceCamDistance, CAMERA_DISTANCES, DEFAULT_SETTINGS.raceCamDistance),
@@ -223,9 +295,21 @@ function readLegacyLefty(): boolean {
   }
 }
 
+/**
+ * The device's own two facts, or an empty profile where the browser withholds them
+ * (or where there is no window at all, as in the suite).
+ */
+function readDeviceProfile(): DeviceProfile {
+  if (typeof window === 'undefined') return {};
+  return {
+    devicePixelRatio: window.devicePixelRatio,
+    hardwareConcurrency: window.navigator?.hardwareConcurrency,
+  };
+}
+
 /** What the player has stored, resolved over the defaults. */
 export function loadSettings(): Settings {
-  return resolveSettings(readStoredRecord(), readLegacyLefty());
+  return resolveSettings(readStoredRecord(), readLegacyLefty(), readDeviceProfile());
 }
 
 /**
@@ -400,6 +484,20 @@ export function getEffectiveScreenMotion(settings: Settings, prefersReducedMotio
  */
 export function resolveMotionAttribute(settings: Settings): ScreenMotion | null {
   return settings.screenMotion ?? null;
+}
+
+/**
+ * The atmosphere motion the city's drifting dust actually runs with: the player's
+ * own switch, and OFF while Swift is the preset.
+ *
+ * The stored toggle is never rewritten — Swift overrides it for as long as it is
+ * active, and the player's own choice is back the moment they leave Swift.  This is
+ * the toggle's first consumer (SET-1 defined it as a named attachment point), so the
+ * motion switch and the quality preset cannot disagree about whether the city's
+ * atmosphere drifts.
+ */
+export function getEffectiveAtmosphereMotion(settings: Settings): boolean {
+  return settings.qualityPreset === 'swift' ? false : settings.atmosphereMotion;
 }
 
 /**

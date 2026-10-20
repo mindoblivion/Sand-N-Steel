@@ -4819,3 +4819,222 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   per-screen redesign was attempted here. The one screen whose motion *did* change is none: the
   `.animate-fadeIn` retime carries the same 220 ms and the same curve, which is a codification, not
   a feel change.
+
+## Records & Lore Library — the Road of Glory (Progression Slice 1 — implemented)
+
+- **What shipped.** `src/utils/rank.ts` (`deriveRank` + its threshold constants),
+  `src/utils/roadOfGlory.ts` (`resolveRoadState`, `resolveRoadProgress`, `ROAD_STAGES`,
+  `AURELIUS_OPPONENT_ID`, `CHAMPION_RECORD_LINE`), `src/components/hub/RoadOfGloryPage.tsx`,
+  `src/components/hub/LibraryTab.tsx`, and the `RoadProgress` field on `PlayerProfile`
+  (`src/types/game.ts`). The view is reachable two ways, both through the hub's existing `onOpenTab`:
+  the bottom nav / tab row's new **Records & Lore** entry, and the Records & Lore Library
+  building itself — `HUB_LOCATIONS`' `records_house` now carries `tabKey: 'library'` where it
+  previously fell back to the stats tab (its centre, radius 4.5, prompt, colour and district are
+  unchanged, and `InteractiveLocation.tabKey` gains the `'library'` member).
+- **Derived, never stored.** Seven stages stand in order — nobody → sworn → blooded → known →
+  feared → champion → legend — each `'reached' | 'current' | 'ahead'`, the current one being the
+  **highest** the profile qualifies for (so a skipped stage is `'reached'`, never `'ahead'`, and
+  exactly one stage is ever current). The gates read only: `deriveRank(profile)` (imported from
+  `rank.ts` — its thresholds are never restated, so the road cannot promise a gate the rank does
+  not enforce), `fightsWon`, `defeatedOpponentIds`, and the optional `profile.road`
+  (`oathSworn` / `bannerDevice` / `milestonesSeen`, resolved lazily: absent, partial and
+  hand-edited all read as unsworn). **The stored `PlayerProfile.rank` is not read**, nothing
+  writes a save, and `profile.road` has no writer in this slice — the oath slice owns that.
+- **The Champion gate names the roster's own boss.** `AURELIUS_OPPONENT_ID` is read from
+  `ALL_OPPONENTS` as the tier-4 boss (`opp_aurelius_boss`), not copied as a literal, so the gate
+  follows the roster if the entry ever moves.
+- **No Codex module — Legend's Codex condition is NOT implemented.** There is no
+  `src/utils/codex.ts` in this tree, so the progression design's "Rudis-ready" condition for the
+  Legend stage was left out rather than invented: legend is `deriveRank`'s Legend alone
+  (fame >= 1,500, the tier-4 circuit, a boss kill). The Codex slice owns that condition; if it
+  lands, the legend gate in `resolveRoadState` is the one line to extend.
+- **Suites: `src/utils/rank.test.ts`** (16 tests — the three gates on both sides of every
+  boundary with each half required, precedence and monotonicity, malformed saves reading as zero,
+  the stored rank not being read, the rank table and `rankAtLeast`) and
+  **`src/utils/roadOfGlory.test.ts`** (26 tests — the road's shape and contiguity, every gate,
+  the roster-derived champion id, the cumulative rule, the optional road field, and purity: the
+  resolvers mutate nothing). Both state their boundaries against `rank.ts`'s exported constants,
+  so a threshold change moves the assertions with it.
+- **Fixed in this pass.** `CityHubScene.tsx`'s new nav entry used `BookOpen` without importing it
+  (`tsc --noEmit` TS2304), so the 3D hub's Records & Lore button had no icon; the import is added.
+- **Verified 2026-10-20** in the dev container: `bun test` → **2177 pass / 0 fail (70 files)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0; `git diff --check` → clean. Live in the preview: title →
+  character creation → city hub → the new Records & Lore entry → the Library renders page one with
+  its seven stage nodes, exactly one of them current (`nobody` on a fresh save, six ahead), the
+  requirement line on the next node only, the champion record line on the Champion node, the
+  page's own tab marked `aria-current="page"`, no console errors, and no sideways overflow at a
+  375 px viewport (the tab row wraps to a 2x3 grid; the new tab's icon renders). The changed door
+  was driven with the shipped `getNearbyHubLocation`: every step in from Records & Lore's
+  fast-travel arrival `[23.1, -26]` answers `records_house`, whose `tabKey` is now `library`.
+- **Not automatically verified.** Nothing here needs an account (the Library is not gated), so
+  the anonymous preview covers it end to end; no 3D rendering changed, so this slice adds no
+  device-visual item to the open Android checklist.
+
+## Herald & Banner — milestone cries, the device and the banner (RG-3 — implemented)
+
+- **What rides what.** RG-3 is stacked on the two sibling slices it was specced against, and this branch
+  carries both: `origin/road-glory` (RG-1 — `src/utils/roadOfGlory.ts`: `resolveRoadState`,
+  `resolveRoadProgress`, `ROAD_STAGES`; `src/utils/rank.ts`; the `road` field and the Road page) and
+  `origin/gladiator-oath-beat` (RG-2 — `src/utils/gladiatorOath.ts`, `withOathSworn`, `OathBeat`, the
+  session-scoped `cityHerald`). **`src/utils/heraldry.ts` did not exist on any branch** — RG-3 creates it —
+  and neither did any herald/toast surface or any ludus banner row, so RG-3 builds those too.
+- **The merge conflict, and how it was settled.** Both slices declared the same `road` field, in the same
+  region of `src/types/game.ts`, under different names (`RoadProgress` vs `GladiatorRoad`). The branch keeps
+  RG-1's name — one `interface RoadProgress` with a `road?: RoadProgress` field — and RG-2's writer;
+  `gladiatorOath.ts` imports `RoadProgress`. Two of RG-2's own assertions needed widening for the merge and
+  no assertion was weakened: its "no other file in src/ writes the field" scan now skips `*.test.ts` (the road
+  suites' fixtures name the field) and `roadOfGlory.ts` (which reads it into a resolved value, never writes it).
+- **The two call sites, and the only writers.** `src/utils/roadMilestones.ts` is evaluated in exactly two
+  places in `src/App.tsx`: `handleMatchComplete` (both duel outcomes) and `enterCity` (which every entry into
+  the city passes through). `evaluateRoadMilestones(before, after)` compares `resolveRoadState` and returns the
+  profile to save; it is the **only** writer of `road.milestonesSeen`, appending the ids of the stages this
+  event newly reached. `chooseBannerDevice` is the **only** writer of `road.bannerDevice` and refuses a second
+  choice outright. Nothing else is stored: the stripes come from `bossKills`, the gate from the road.
+- **Why a stage below the jump is recorded too.** The road is cumulative (`resolveRoadState` marks every stage
+  below the current one `'reached'`), so a gladiator who jumps to Veteran records `sworn`/`blooded`/`known` in
+  one go; only `known` and `feared` have cries. Suppression is `milestonesSeen` plus "not reached before this
+  event", so a repeated or replayed evaluation is silent — there is no watcher and no timer.
+- **The surfaces RG-3 had to build.** `src/components/hub/HeraldToast.tsx` (the herald's cries, above every
+  screen — a duel ends into the city, so a cry must outlive the screen it was raised from),
+  `src/components/hub/DeviceChoosingPanel.tsx` (the four devices, Latin name + gloss, field colour from
+  `ROMAN_PALETTE`), `src/components/hub/BannerRow.tsx` (the ludus banner row; not drawn below Veteran) and
+  `src/components/3d/city/ChampionBannerPole.tsx` (raised at the Colosseum gate once the road stands at
+  Champion — four meshes and one 192x288 canvas texture).
+- **Grandfathering.** A gladiator at or past Veteran with no `bannerDevice` is offered the panel at the next
+  evaluation — `enterCity` is the site that catches them. "Not yet" closes it and the next evaluation offers it
+  again, so nobody is ever silently deviceless.
+- **Verified 2026-10-20** in the dev container: `bun test` → **2252 pass / 0 fail (73 files, 66,192 expect()
+  calls)**, 23 of them new in `src/utils/roadMilestones.test.ts`; `bun run scripts/collisionTests.ts` → **123
+  passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the
+  startup asset check passing; `git diff --check` → **clean**. The new suite pins each stage firing once,
+  seen-id suppression, both rank cries with the gladiator's name, the boss cry named from the roster, the
+  one-time device write, stripes at 0/1/4 kills, a save with no `milestonesSeen`, grandfathering and the four
+  device specs.
+- **Live evidence, and what it does NOT establish.** Driving the real flow in the preview browser (Play →
+  character creation → `APPLY POINTS & ENTER METROPOLIS` → the city's Colosseum button) reached the ludus hub
+  with the banner row wired and correctly **not** drawn for a level-1 profile, and the run produced **no
+  console errors**. **Not automatically verified:** the *chosen* banner's field/device/stripes, the Device
+  Choosing panel and the herald toast in a rendered state, and the champion gate pole. The managed preview
+  browser does not keep `localStorage` between preview calls, so a seeded Veteran save cannot be carried into
+  the page, and the city hub renders at ~1–2 fps through SwiftShader; both need a hand look on a real device.
+
+## Quality preset and the city's adaptive DPR (SF-1 — implemented)
+
+- **What ships: the picture-quality preset becomes live, and the city Canvas stops asking for
+  whatever the device reports.** The city's Canvas carried `dpr={[1, 2]}` — a constant that renders at
+  up to 2 × on a device reporting 2, far past the studio budget's 1.5 cap for the city. It is now
+  `dpr={cityDpr}`, where the value comes from the player's preset and is then adapted inside that
+  preset's band by a frame-time engine; the city's drifting dust is part of the same row. The phase's
+  files: `src/hooks/useAdaptiveDpr.ts` (new — the tier table, the pure engine and the hook),
+  `src/services/settings.ts` (the preset's type, its legacy spellings and the first-run default),
+  `src/components/3d/city/CityHubScene.tsx` (the Canvas prop, the tier's dust and the transition
+  suspension), `src/components/hub/SettingsModal.tsx` (the row the new consumer makes wired),
+  `src/utils/adaptiveDpr.test.ts` (new suite, 38 tests) and two rebased pins in
+  `src/utils/settings.test.ts`.
+
+- **The tier table — one row per preset, and every number exported.** `CITY_TIERS` holds
+  `dpr: { min, max, start }` and `sparkles` per preset; `start` is the band's ceiling for the two
+  tiers that ask for pixels (a device that cannot hold it is stepped down — that is what the engine
+  is for) and Swift opens at its floor. Cinematic 1.5–2.0 starting at 2.0, **Balanced 1.0–1.5
+  starting at 1.5** (the default, and the budget fix this slice exists for), Swift 1.0–1.25 starting
+  at 1.0. Dust: **Cinematic 90 — the count the city already had — Balanced 60, Swift 0.** Every
+  band boundary sits on a multiple of `DPR_STEP` (0.25), which is what lets a step land exactly on a
+  floor and never one past it. A later slice attaches its shadow tier to the same row, which is why
+  the row is a record of named fields rather than loose constants.
+
+- **The engine lives in a hook inside the Canvas, and it is pure at its core.**
+  `stepAdaptiveDpr(state, tier, frameMs, suspended)` is total and returns a new state: the evidence is
+  a **trimmed EMA** — a 30-frame window (`EMA_WINDOW`) with its two worst samples dropped
+  (`EMA_TRIM`), so one hitch or a garbage collection cannot move the picture — over a
+  `SAMPLE_CLAMP_MS` (100 ms) clamp, with a sustained hold on each side: over `STEP_DOWN_MS` (17.5 ms)
+  for `STEP_DOWN_SUSTAIN_MS` (1.5 s) steps **down** one `DPR_STEP`, under `STEP_UP_MS` (12 ms) for
+  `STEP_UP_SUSTAIN_MS` (5 s) steps **up**, and never twice inside `DWELL_MS` (3 s). A frame that
+  cannot be measured (NaN, Infinity, zero, negative) is not a frame and leaves the state untouched.
+  `useAdaptiveDpr` keeps that state in a **ref** and publishes through `onDprChange` only when the
+  value actually moved, so a steady device renders nothing per frame — at most one publication per
+  3 s, and the callback itself is held in a ref so an inline arrow cannot reset the engine.
+
+- **One holder of the value: the scene owns the Canvas's `dpr`.** The engine renders nothing and
+  returns nothing; a step is published into the scene's own `useState`, which the Canvas follows, so
+  the scene and the engine cannot disagree. The tier is applied **at mount and on a preset change by
+  the scene** (`useEffect [qualityPreset]`) and never mid-frame by the engine; the scene reads the
+  preset through the settings module's existing `useSettings` — no second store, no new key, and the
+  hook imports the preset's *type* from `services/settings` so there is one owner of the names.
+
+- **The preset resolves three ways in order, and the heuristic is a FIRST-RUN default, not a policy.**
+  `resolveQualityPreset(stored, device)`: a value the design names (`cinematic` / `balanced` /
+  `swift`); a record written before SF-1 — **`high` → Cinematic, `low` → Swift**, because a stored
+  choice is a choice and those were the most- and least-pixels spellings; and otherwise the first-run
+  default, which consults the cheap-device heuristic **`devicePixelRatio > 2.5` AND
+  `hardwareConcurrency ≤ 4`** (`isCheapDevice`; BOTH halves must hold, and a browser that withholds a
+  fact is not evidence of a cheap device) — **Swift on such a device, Balanced everywhere else.** A
+  stored or translated preset always wins over the heuristic, so it can only ever decide a first run.
+
+- **How the preset coexists with the World Motion toggle — the toggle stays the player's switch, and
+  Swift overrides it while it is active.** `getEffectiveAtmosphereMotion(settings)` is the city's dust
+  reader: the player's own `atmosphereMotion`, and **false while the preset is Swift**. The stored
+  toggle is never rewritten, so the player's choice is back the moment they leave Swift, and the two
+  controls cannot disagree about whether the city's atmosphere drifts. The city's dust obeys it twice
+  over: `count` is `atmosphericMotion ? cityTier.sparkles : 0`, and the `<SandDrift />` group is
+  `visible={atmosphericMotion}`. **No panel row was added for `atmosphereMotion`** in this slice: it
+  now has exactly one consumer (the city's dust) and its row's own wording is a Motion/Accessibility
+  decision that belongs with the accessibility pass, not here — it stays a named attachment point,
+  and this note is the record that the consumer exists.
+
+- **Adaptation is suspended for a transition, and the suspension is the scene's.** Mounting IS a
+  transition (the first compiles and the `demand`→`always` switch are not a slow device), and a fast
+  travel is another, so `suspendAdaptation()` sets a ref for `POST_TRANSITION_MS` (1 s) after each —
+  the scene writes the ref, the engine reads it per frame, and the same exported constant drives both
+  so they cannot drift apart. While suspended every frame is ignored and the two sustain timers are
+  held at zero (the measured window and the dwell carry over, so a device is not forgotten — it just
+  is not judged on a scene build's hitches).
+
+- **The draw-call count does not depend on the tier.** The dust is still **one** element whose `count`
+  is the tier's, never a conditional mount, so a tier changes a vertex count and not the number of
+  objects in the scene; the DPR band changes pixels, not scene content. (Swift's 0 draws no dust.)
+
+- **Rebased, not weakened: SET-1's two preset pins.** `settings.test.ts`'s storage round-trip and its
+  every-field cycle both pinned `qualityPreset: 'high'`; they now pin `'cinematic'` with a comment
+  naming this phase. No other assertion moved, and no test file was otherwise touched.
+
+- **Regression suite: `src/utils/adaptiveDpr.test.ts`** — 38 tests / 8,358 expect() calls across five
+  sections: §A the tier table (one row per preset, every band's numbers on the step grid, Balanced's
+  1.5 ceiling, the descending ceilings, Swift opening at its floor, the dust budget, and the engine's
+  own constants pinned from the module); §B the trimmed EMA (the two worst dropped, order
+  sensitivity, at least one survivor, no mutation of the window); §C the engine driven over real
+  frame traces — a smooth 60 fps holds its start, a sustained 30 fps is stepped to the floor one step
+  at a time and held (never twice inside the dwell, never before the sustain), a recovered device is
+  stepped back to the ceiling, a chaotic 900-frame trace never leaves the band for any tier, one 5 s
+  stall is clamped and then swallowed by the trim, unmeasurable frames are ignored, a transition's
+  frames are ignored with the timers restarted, and every step is exactly one `DPR_STEP`; §D the
+  wiring read out of the shipped sources (the engine inside the Canvas, no React work per frame, the
+  old `dpr={[1, 2]}` gone, the tier read from settings, the dust through one element, the motion
+  switch, the two suspensions, and no second store or save path); §E the settings side (the three
+  ways in, the legacy spellings, the heuristic's both-halves rule and its thresholds, the first-run-only
+  property, and the panel row).
+
+- **Verified 2026-10-20** in the dev container: `bun test` → **2191 pass / 0 fail (70 files, 73,925
+  expect() calls)** (the starting point was 2152 pass / 1 fail across 69 files — the one failure was
+  SET-1's stale `'high'` pin, and the delta is this suite's 38); `bun run scripts/collisionTests.ts`
+  → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `bun run build` → **exit 0** with the startup asset check passing (8 assets; the pre-existing
+  >500 kB chunk warning only); `git diff --check` → **clean**.
+
+- **Live evidence (preview browser, anonymous visitor — no session replayed), and what it does and
+  does not establish.** The panel's new row was driven from the title screen's own Settings entry:
+  it opens showing the stored choice painted (Balanced), **choosing an option writes the one settings
+  record** (`sand_and_steel_settings_v1.qualityPreset` read back as `swift`, then `balanced`) and the
+  painted selection follows within **3 ms**; the row fits a phone viewport with no sideways scroll;
+  Done closes the panel; **zero console errors** throughout. The check restored the storage it found
+  (there was no record, so the key was removed again). **The city's own rendered DPR and dust are NOT
+  automatically verified:** the sandbox has no GPU (SwiftShader, ~2 fps in the city hub), and a
+  preview browser reporting `devicePixelRatio` 1 would read 1.0 in every tier there, so no frame in
+  this environment can adjudicate a band or a step — the engine's behaviour is pinned instead by the
+  deterministic frame traces in §C, and the Canvas wiring by the source pins in §D.
+  **Android check list:** (a) that Cinematic and Balanced are visibly sharper than Swift on the same
+  device and that the frame rate improves as the preset descends; (b) that Swift draws no drifting
+  dust and that the atmosphere motion switch brings it back on leaving Swift; (c) that a genuinely
+  cheap device lands on Swift at first run (`devicePixelRatio` > 2.5 with ≤ 4 cores) while a record
+  that already carries a choice keeps it; (d) that a fast travel and the first second in the hub do
+  not visibly drop the resolution (the suspension). Do not claim device acceptance.
