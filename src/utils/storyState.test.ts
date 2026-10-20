@@ -153,7 +153,9 @@ describe('§A the derived rank', () => {
   });
 
   test('the stored `rank` field is ignored, not read', () => {
-    expect(deriveRank({ ...fresh(), rank: 'Legend' })).toBe('Rookie');
+    // `rank` is a `PlayerProfile` field, not a `RankInput` one, so the fixture is
+    // asserted back to the profile type while it carries the stale stored field.
+    expect(deriveRank({ ...fresh(), rank: 'Legend' } as PlayerProfile)).toBe('Rookie');
     // Reading the stored field would be a `.rank` access; the module has none.
     expect(rankSource).not.toMatch(/\.rank\b/);
     // …and writing one would be an object-literal key.  The pattern anchors on a
