@@ -86,7 +86,7 @@ export const EmailAuthScreen: React.FC<EmailAuthScreenProps> = ({
           sounds.playClick();
           onBack();
         }}
-        className="absolute top-4 left-4 text-amber-400/80 hover:text-amber-300 text-sm font-serif uppercase tracking-wider transition-colors"
+        className="absolute top-4 left-4 inline-flex items-center min-h-[48px] px-2 text-amber-400/80 hover:text-amber-300 text-sm font-serif uppercase tracking-wider transition-colors"
       >
         ← Back
       </button>
@@ -159,7 +159,7 @@ export const EmailAuthScreen: React.FC<EmailAuthScreenProps> = ({
           <button
             type="submit"
             disabled={isLoading}
-            className="px-6 py-3 rounded-full font-serif font-bold text-sm uppercase tracking-wider text-amber-50 bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] hover:from-[#5c1010] hover:to-[#7a2020] shadow-[0_0_20px_rgba(107,26,26,0.5)] border border-[#8b2a2a]/60 active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+            className="px-6 py-3 min-h-[48px] rounded-full font-serif font-bold text-sm uppercase tracking-wider text-amber-50 bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] hover:from-[#5c1010] hover:to-[#7a2020] shadow-[0_0_20px_rgba(107,26,26,0.5)] border border-[#8b2a2a]/60 active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait"
           >
             {isLoading
               ? 'Please wait…'

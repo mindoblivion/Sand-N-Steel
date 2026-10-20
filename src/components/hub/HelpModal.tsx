@@ -9,6 +9,7 @@ import {
   BatteryCharging,
   Compass,
 } from 'lucide-react';
+import { CLOSE_BUTTON_CLASS } from '../ui/controlStyles';
 
 interface HelpModalProps {
   onClose: () => void;
@@ -22,15 +23,22 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         <div className="flex justify-between items-center mb-4 shrink-0">
           <h3 className="font-serif font-black text-xl text-amber-200 flex items-center gap-2">
             <HelpCircle className="w-5 h-5 text-amber-400" />
-            <span>Tactical Combat Manual</span>
+            <span>Combat Notes</span>
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-amber-200 cursor-pointer transition-colors"
+            aria-label="Close the combat manual"
+            className={CLOSE_BUTTON_CLASS}
           >
             ✕
           </button>
         </div>
+
+        {/* CL-2 — the header line: where the short version is taught, and where the
+            full notes live.  The body below is deliberately not rewritten in this slice. */}
+        <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-4 shrink-0">
+          Short version: the Doctore teaches in your first fights. The full notes live in the Codex at the Records Library.
+        </p>
 
         {/* SCROLLABLE MANUAL BODY */}
         <div className="flex flex-col gap-3.5 text-xs font-serif text-neutral-300 overflow-y-auto pr-1 mb-5">
@@ -193,7 +201,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         {/* CLOSE BUTTON */}
         <button
           onClick={onClose}
-          className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs uppercase tracking-wider cursor-pointer active:scale-95 transition-all shadow-xl shrink-0"
+          className="w-full min-h-[48px] py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs uppercase tracking-wider cursor-pointer active:scale-95 transition-all shadow-xl shrink-0"
         >
           Understood, Return to Arena
         </button>

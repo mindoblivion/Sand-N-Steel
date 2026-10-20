@@ -401,4 +401,25 @@ export interface PlayerProfile {
    * named on `RoadProgress` above.
    */
   road?: RoadProgress;
+  /**
+   * CL-1 — the coach-mark cards this profile has already been shown, keyed by
+   * card id (`COACH_CARDS` in `utils/coachMarks.ts`).
+   *
+   * Optional on purpose, exactly like `chariot` and `racing`: a save written
+   * before this slice has no `seen` field at all and must keep loading, so
+   * `resolveSeenState()` reads a missing, partial or malformed field as "nothing
+   * seen yet" rather than repairing the save.  Written ONLY by `markSeen()` on an
+   * actual card display — never by `createNewProfile()` and never by a migration.
+   */
+  seen?: Record<string, true>;
+  /**
+   * Day/night cycle T0 — the whole game clock, as ONE lazily-advanced integer.
+   * Optional on purpose, exactly like `chariot` and `racing`: a save written
+   * before this slice has no `time` field at all and must keep loading, so
+   * `resolveTimeState` (`src/utils/timeState.ts`) reads a missing, malformed or
+   * negative field as `total: 0` — i.e. Day 1, at dawn.  Nothing migrates it and
+   * nothing writes it yet (T0 ships no call sites); the advance helpers return a
+   * NEW profile and leave persisting it to a later slice.
+   */
+  time?: { total: number };
 }

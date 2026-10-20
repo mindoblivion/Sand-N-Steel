@@ -354,7 +354,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             <button
               onClick={() => onExecuteAction('advance')}
               disabled={!isPlayerTurn || isExecuting || isInWeaponRange}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
+              className={`min-h-[48px] px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
                 !isPlayerTurn || isExecuting || isInWeaponRange
                   ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
                   : 'bg-amber-950/80 hover:bg-amber-900 border-amber-600 text-amber-200'
@@ -369,7 +369,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             <button
               onClick={() => onExecuteAction('retreat')}
               disabled={!isPlayerTurn || isExecuting || distance >= 9.0}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
+              className={`min-h-[48px] px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
                 !isPlayerTurn || isExecuting || distance >= 9.0
                   ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
                   : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-700 text-neutral-300'
@@ -385,7 +385,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           <button
             onClick={() => onExecuteAction('rest')}
             disabled={!isPlayerTurn || isExecuting || player.stamina >= player.stats.staminaMax}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
+            className={`min-h-[48px] px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
               !isPlayerTurn || isExecuting || player.stamina >= player.stats.staminaMax
                 ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
                 : 'bg-emerald-950/80 hover:bg-emerald-900 border-emerald-600 text-emerald-200'

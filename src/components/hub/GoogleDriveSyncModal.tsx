@@ -23,6 +23,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
+import { CLOSE_BUTTON_CLASS } from '../ui/controlStyles';
 
 interface GoogleDriveSyncModalProps {
   currentProfile: PlayerProfile | null;
@@ -269,7 +270,8 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-amber-200 cursor-pointer"
+            aria-label="Close cloud saves"
+            className={CLOSE_BUTTON_CLASS}
           >
             ✕
           </button>
@@ -322,7 +324,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
         ) : (
           <div className="flex flex-col gap-4">
             {/* USER CARD */}
-            <div className="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800 flex justify-between items-center">
+            <div className="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800 flex flex-wrap justify-between items-center gap-2">
               <div className="flex items-center gap-3">
                 {user.photoURL ? (
                   <img src={user.photoURL} alt="Avatar" className="w-9 h-9 rounded-full border border-amber-400" />
@@ -340,20 +342,24 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
               </div>
 
               <div className="flex items-center gap-1.5">
+                {/* UI-1 (B-5) — labelled, not two icon-only squares: the destructive
+                    action is never a lookalike of the one beside it. */}
                 <button
                   onClick={fetchDriveSaves}
                   disabled={isLoading}
-                  className="p-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-700 cursor-pointer"
+                  className="min-h-[48px] px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-wait text-neutral-300 border border-neutral-700 cursor-pointer flex items-center justify-center gap-1.5 font-serif font-bold text-xs uppercase tracking-wider"
                   title="Refresh Drive saves"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
                 </button>
                 <button
                   onClick={handleSignOut}
-                  className="p-2 rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-700 text-red-300 cursor-pointer"
-                  title="Sign Out"
+                  className="min-h-[48px] px-3 rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-700 text-red-200 cursor-pointer flex items-center justify-center gap-1.5 font-serif font-bold text-xs uppercase tracking-wider"
+                  title="Sign out of Google Drive"
                 >
                   <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign out</span>
                 </button>
               </div>
             </div>
@@ -406,7 +412,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
                         <button
                           onClick={() => handleLoadFromDrive(file.id)}
                           disabled={isLoading}
-                          className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 font-serif font-bold text-xs uppercase cursor-pointer flex items-center gap-1 active:scale-95"
+                          className="min-h-[48px] px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 font-serif font-bold text-xs uppercase cursor-pointer flex items-center gap-1 active:scale-95"
                           title="Restore this save"
                         >
                           <DownloadCloud className="w-3.5 h-3.5" />
@@ -415,10 +421,11 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
 
                         <button
                           onClick={() => setDeleteConfirmId(file.id)}
-                          className="p-2 rounded-xl bg-neutral-900 hover:bg-red-950/60 border border-neutral-800 hover:border-red-600 text-neutral-400 hover:text-red-400 cursor-pointer"
+                          className="min-h-[48px] px-3 rounded-xl bg-neutral-900 hover:bg-red-950/60 border border-neutral-800 hover:border-red-600 text-neutral-400 hover:text-red-300 cursor-pointer flex items-center gap-1.5 font-serif font-bold text-xs uppercase tracking-wider"
                           title="Delete cloud backup"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
                         </button>
                       </div>
                     </div>

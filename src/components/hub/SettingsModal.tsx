@@ -17,13 +17,17 @@ import {
   Trash2,
   Check,
   Gauge,
+  FileText,
+  Waves,
 } from 'lucide-react';
+import { CLOSE_BUTTON_CLASS } from '../ui/controlStyles';
 import { sounds } from '../../audio/soundEffects';
 import { VOLUME_MAX, VOLUME_MIN, updateSettings } from '../../services/settings';
 import type {
   Brightness,
   CameraDistance,
   QualityPreset,
+  ScreenMotion,
   Settings as SettingsRecord,
 } from '../../services/settings';
 import { useSettings } from '../../hooks/useSettings';
@@ -66,6 +70,15 @@ let lastCategoryThisSession: SettingsCategory | null = null;
 
 /** How long the reset row stays armed. */
 const RESET_ARM_MS = 3000;
+
+/**
+ * The Screen Motion row's three choices. `auto` is not a fourth stored value: it is
+ * the DEFAULT state, and choosing it clears the field. An absent `screenMotion` is
+ * what lets the device's own `prefers-reduced-motion` setting decide — the resolver
+ * never invents one — so the row offers exactly the two values the field holds plus
+ * that absence.
+ */
+type ScreenMotionChoice = 'auto' | ScreenMotion;
 
 const CATEGORIES: ReadonlyArray<{ id: SettingsCategory; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: 'picture', label: 'Picture & Camera', icon: ImageIcon },
@@ -344,9 +357,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { value: 'far', label: 'Far' },
   ];
 
+  const screenMotionOptions: ReadonlyArray<{ value: ScreenMotionChoice; label: string }> = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'full', label: 'Full' },
+    { value: 'reduced', label: 'Reduced' },
+  ];
+
   return (
     <div
-      className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 select-none"
+      /* UI-1 (S-4) — the wrapper carries its own safe-area gutter, so the panel's
+         clearance does not rest on the centring arithmetic alone. */
+      className="fixed inset-0 z-50 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center px-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:pt-4 sm:pr-4 sm:pb-[max(1rem,env(safe-area-inset-bottom))] select-none"
       data-settings-context={context}
     >
       <div
@@ -375,8 +396,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={handleDone}
-            aria-label="Done"
-            className="shrink-0 w-12 h-12 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-amber-200 flex items-center justify-center font-bold text-base cursor-pointer transition-colors"
+            aria-label="Close settings"
+            className={CLOSE_BUTTON_CLASS}
           >
             ✕
           </button>
@@ -586,6 +607,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <RowLabel
                     label="Privacy policy"
                     description="What the game collects, what it never collects, and how long it is kept."
+                    icon={<FileText className="w-5 h-5 text-amber-300" />}
                   />
                   <span className="shrink-0 font-serif font-bold text-xs uppercase tracking-wider text-amber-300">
                     Read
@@ -630,13 +652,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             {category === 'accessibility' && (
-              <RowCard>
-                <RowLabel
-                  label="Nothing to set here yet"
-                  description="Screen-motion and camera-shake controls arrive with the accessibility pass."
-                  icon={<Accessibility className="w-5 h-5" />}
-                />
-              </RowCard>
+              /* C-2 — `auto` is the default state, so choosing it drops the field and
+                 the device's own setting governs again. */
+              <ChoiceRow
+                label="Screen Motion"
+                description="Auto follows your device's motion setting. Full plays every animation; Reduced tones them down."
+                icon={<Waves className="w-5 h-5" />}
+                options={screenMotionOptions}
+                value={settings.screenMotion ?? 'auto'}
+                onChange={(screenMotion) =>
+                  set({ screenMotion: screenMotion === 'auto' ? undefined : screenMotion })
+                }
+              />
             )}
           </div>
         </div>

@@ -13,6 +13,7 @@ import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
 import { ChampionBannerPole } from './ChampionBannerPole';
 import { resolveBanner } from '../../../utils/heraldry';
+import { resolveDoorDuelTarget } from '../../../utils/tierAdvancement';
 import { MerchantHouse } from './MerchantHouse';
 import { ArmorLeatherWorkshop } from './ArmorLeatherWorkshop';
 import { Stable } from './Stable';
@@ -36,6 +37,7 @@ import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
 import { CORE_3D_ASSETS } from '../../../utils/preloadAssets';
 import { Banner, SteamParticles, ForgeSmoke, SandDrift } from './EnvironmentalMotion';
+import { CLOSE_BUTTON_CLASS } from '../../ui/controlStyles';
 // SF-1 — the city's picture budget: the tier table and the adaptive engine that
 // steps inside a tier's DPR band, plus the one settings reader the drifting dust
 // obeys (the preset itself arrives through `useSettings`).
@@ -61,9 +63,11 @@ import {
   InteractiveLocation,
 } from '../../../utils/cityCollisions';
 import { getTerrainY } from '../../../utils/terrainHeight';
+import { applyDeadZone } from '../../../utils/joystickDeadZone';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
+import type { StorefrontId } from '../../../data/shops';
 import { calculateTotalStats } from '../../../services/storage';
 import { sounds } from '../../../audio/soundEffects';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
@@ -124,13 +128,21 @@ const CityAdaptiveDpr: React.FC<{
 
 interface CityHubSceneProps {
   playerProfile: PlayerProfile;
-  activeOpponent: OpponentConfig;
   /**
    * Phase C-8.66B: `subTab` carries the one hub that opens a subview of its tab
    * (the Imperial Stable → the Armory's Chariot Workshop). Every other hub
    * passes nothing and lands on the tab's own default view.
    */
-  onOpenTab: (tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library', subTab?: 'chariot') => void;
+  /**
+   * Phase SHOP-2: `shopId` carries the storefront of the `shop` tab, for the
+   * four city buildings that each sell their own stock.  Every other hub passes
+   * nothing and lands on the open market.
+   */
+  onOpenTab: (
+    tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library',
+    subTab?: 'chariot',
+    shopId?: StorefrontId
+  ) => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -167,7 +179,6 @@ interface CityHubSceneProps {
 
 export const CityHubScene: React.FC<CityHubSceneProps> = ({
   playerProfile,
-  activeOpponent,
   onOpenTab,
   onEnterDuel,
   onOpenDriveSync,
@@ -363,9 +374,20 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // returns control to the city unchanged.
       setShowRaceEntry(true);
     } else if (nearbyLoc.tabKey === 'tournament') {
-      onEnterDuel(activeOpponent);
+      // The door resolves its own ticket HERE, when the player interacts: the
+      // current tier's first UNDEFEATED boss, which is the same boss the tournament
+      // tab presents as the next one to beat. A stored `activeOpponent` is never
+      // used — it can carry a fighter from a tier the player has already left. Once
+      // every boss of the tier is down the door offers that tier's boss rematch,
+      // which pays its rewards but cannot move the tier.
+      const target = resolveDoorDuelTarget(
+        playerProfile.currentTier,
+        playerProfile.defeatedOpponentIds
+      );
+      if (target) onEnterDuel(target.opponent);
+      else onOpenTab('tournament');
     } else if (nearbyLoc.tabKey) {
-      onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab);
+      onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
       // Elegant immersive fallback notification for locations with no immediate tab key
       if (nearbyLoc.id === 'doctore_house') {
@@ -400,7 +422,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         setStableNotice(null);
       }, 4000);
     }
-  }, [nearbyLoc, onEnterDuel, activeOpponent, onOpenTab]);
+  }, [
+    nearbyLoc,
+    onEnterDuel,
+    playerProfile.currentTier,
+    playerProfile.defeatedOpponentIds,
+    onOpenTab,
+  ]);
 
   /**
    * Phase C-8.70B Stage 1, Slice 1 — "Start Race" leaves the city for the race
@@ -505,11 +533,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
         setKnobPos({ x: dx, y: dy });
 
-        // Normalize direction (Left is negative x, Right is positive x)
-        touchVectorRef.current = {
-          x: dx / maxDist,
-          z: dy / maxDist,
-        };
+        // Normalize direction (Left is negative x, Right is positive x), then read it
+        // through the joystick's radial dead zone: a resting thumb's small offset is no
+        // input, and anything past the dead zone is rescaled so there is no jump at the
+        // boundary (see utils/joystickDeadZone.ts for the constant to tune).
+        const vec = applyDeadZone(dx / maxDist, dy / maxDist);
+        touchVectorRef.current = { x: vec.x, z: vec.z };
         break;
       }
     }
@@ -748,7 +777,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               intensity={lights.keyIntensity}
               color={lights.keyColor}
               castShadow
-              shadow-mapSize={[2048, 2048]}
+              shadow-mapSize={[1024, 1024]}
               shadow-camera-left={-70}
               shadow-camera-right={50}
               shadow-camera-top={50}
@@ -893,8 +922,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         <div className="flex items-center gap-2 bg-neutral-950/85 border border-amber-600/50 p-2 sm:p-3 rounded-2xl backdrop-blur-md shadow-2xl">
           <button
             onClick={() => setShowNavDrawer(!showNavDrawer)}
-            className="p-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer active:scale-95 transition-all"
-            title="City Map & Navigation"
+            aria-label="City Map & Fast Travel"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer active:scale-95 transition-all"
+            title="City Map & Fast Travel"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -975,23 +1005,25 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
           <button
             onClick={onOpenDriveSync}
-            className="p-2.5 rounded-2xl bg-neutral-950/85 border border-cyan-500/50 text-cyan-300 hover:text-cyan-100 backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all"
+            className="min-h-[48px] min-w-[48px] px-2.5 rounded-2xl bg-neutral-950/85 border border-cyan-500/50 text-cyan-300 hover:text-cyan-100 backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all flex items-center justify-center gap-1.5 font-serif font-bold text-xs uppercase tracking-wider"
             title="Google Drive Cloud Saves"
           >
             <Cloud className="w-4 h-4" />
+            <span>Drive</span>
           </button>
 
           <button
             onClick={onToggleMute}
-            className="p-2.5 rounded-2xl bg-neutral-950/85 border border-amber-600/50 text-amber-300 hover:text-amber-100 backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all"
+            className="min-h-[48px] min-w-[48px] px-2.5 rounded-2xl bg-neutral-950/85 border border-amber-600/50 text-amber-300 hover:text-amber-100 backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all flex items-center justify-center gap-1.5 font-serif font-bold text-xs uppercase tracking-wider"
             title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
+            <span>{isMuted ? 'Unmute' : 'Mute'}</span>
           </button>
 
           <button
             onClick={onReturnToMainMenu}
-            className="px-3 py-2 rounded-2xl bg-neutral-900/90 border border-neutral-700 hover:border-amber-500/60 text-neutral-300 hover:text-amber-200 text-xs font-serif font-bold backdrop-blur-md cursor-pointer active:scale-95 transition-all shadow-xl"
+            className="min-h-[48px] px-3 py-2 rounded-2xl bg-neutral-900/90 border border-neutral-700 hover:border-amber-500/60 text-neutral-300 hover:text-amber-200 text-xs font-serif font-bold backdrop-blur-md cursor-pointer active:scale-95 transition-all shadow-xl"
           >
             Main Menu
           </button>
@@ -1026,6 +1058,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-200/90"></div>
               </div>
             </div>
+            {/* UI-1 (B-15) — the stick's own caption, styled like the hub's micro-labels,
+                so the control is never an unlabelled shape under a thumb. */}
+            <span className="mt-1 font-mono text-[10px] uppercase tracking-wider text-amber-300/80">
+              Move
+            </span>
           </div>
 
           {/* 2-IN-1 ATTACK / INTERACT ACTION BUTTON */}
@@ -1091,7 +1128,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             </div>
             <button
               onClick={() => setStableNotice(null)}
-              className="text-neutral-400 hover:text-amber-200 font-bold text-sm cursor-pointer select-none"
+              aria-label="Dismiss announcement"
+              className={CLOSE_BUTTON_CLASS}
             >
               ✕
             </button>
@@ -1124,7 +1162,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                   sounds.playClick();
                   onOpenTab(item.id as 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library');
                 }}
-                className="flex-1 min-w-[54px] py-1.5 sm:py-2 px-1 rounded-xl hover:bg-amber-500/20 text-neutral-300 hover:text-amber-200 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all active:scale-95 cursor-pointer"
+                className="flex-1 min-w-[54px] min-h-[48px] py-1.5 sm:py-2 px-1 rounded-xl hover:bg-amber-500/20 text-neutral-300 hover:text-amber-200 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all active:scale-95 cursor-pointer"
               >
                 <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${item.color}`} />
                 <span className="text-[10px] sm:text-[11px] font-serif font-bold tracking-tight truncate">
@@ -1143,11 +1181,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-serif font-black text-amber-200 text-lg flex items-center gap-2">
                 <Compass className="w-5 h-5 text-amber-400" />
-                <span>City Map &amp; Settings</span>
+                <span>City Map &amp; Fast Travel</span>
               </h3>
               <button
                 onClick={() => setShowNavDrawer(false)}
-                className="p-1 rounded-lg text-neutral-400 hover:text-amber-200 cursor-pointer"
+                aria-label="Close city map"
+                className={CLOSE_BUTTON_CLASS}
               >
                 ✕
               </button>
