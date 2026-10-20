@@ -61,6 +61,13 @@ export interface VictoryTierResult {
   advanced: boolean;
 }
 
+export interface BoutLevelGate {
+  /** True when the player may not start this bout yet. */
+  locked: boolean;
+  /** The level the bout asks for (the roster's `recommendedLevel`, read safely). */
+  requiredLevel: number;
+}
+
 export interface DoorDuelTarget {
   /** The opponent the door must start; never a stored selection. */
   opponent: OpponentConfig;
@@ -104,6 +111,39 @@ export function resolveVictoryTier(input: VictoryTierInput): VictoryTierResult {
   const advanced = firstDefeat && tier < FINAL_TIER;
 
   return { currentTier: advanced ? tier + 1 : tier, firstDefeat, advanced };
+}
+
+/**
+ * The tournament's level gate for ONE bout — the single rule both the Colosseum
+ * tab and the city's duel doors read, so a door can never open a fight its own
+ * tab would lock.
+ *
+ * A bout is locked while the player is below the fighter's recommended level AND
+ * that fighter has never been beaten: an opponent already in the book has been
+ * faced, so the recommended level is advice rather than a gate, and a rematch is
+ * always offered. Pure: no save, no storage, no clock.
+ *
+ * A bout whose gate cannot be evaluated at all (no fighter, or no id to check the
+ * book against) is reported LOCKED, because a fight nothing can vouch for must not
+ * start.
+ */
+export function resolveBoutLevelGate(
+  level: number,
+  opponent: (TierOpponent & { recommendedLevel?: number }) | null | undefined,
+  defeatedOpponentIds?: readonly unknown[] | null
+): BoutLevelGate {
+  if (!opponent || typeof opponent.id !== 'string') {
+    return { locked: true, requiredLevel: 1 };
+  }
+  const requiredLevel =
+    typeof opponent.recommendedLevel === 'number' &&
+    Number.isFinite(opponent.recommendedLevel) &&
+    opponent.recommendedLevel >= 1
+      ? Math.floor(opponent.recommendedLevel)
+      : 1;
+  const alreadyBeaten = readDefeatedIds(defeatedOpponentIds).includes(opponent.id);
+  const locked = readTier(level) < requiredLevel && !alreadyBeaten;
+  return { locked, requiredLevel };
 }
 
 /**

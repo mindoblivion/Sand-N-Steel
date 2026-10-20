@@ -31,11 +31,11 @@ import {
   updateHypePeak,
   isAttackInRange,
   shieldGuardStaminaGain,
-  ENEMY_ATTACK_WINDUP_MS,
   DODGE_STAMINA_COST,
   applyDefensiveAction,
   clearDefensiveStance,
 } from '../../utils/combatCalculations';
+import { createPendingStrike, type PendingStrike } from '../../utils/pendingStrike';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
@@ -377,20 +377,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const pendingCounterRef = useRef(false);
   const rageActivatedRef = useRef(false);
 
-  // ── C-8.70B §R1 — pending enemy attack bookkeeping ─────────────────────────
-  // `pendingEnemyAttackRef` mirrors the state above so the timers and the
-  // reaction handler read it synchronously (React state lags a render).
-  // `reactionTakenRef` makes the reaction a once-per-attack decision, so mashing
-  // both buttons cannot stack a block AND a dodge. `windupTimerRef` is the single
-  // scheduled damage; `resolutionTimerRef` is the existing 1100 ms turn-end
-  // timeout, now tracked so it can be cleared too. Both are cleared when the
-  // fight ends or the scene unmounts, which is what stops a delayed hit or a
-  // delayed payout after the player has left. `resolvingRef` is the synchronous
-  // re-entrancy guard (React state is one render behind, so two calls in the same
-  // tick used to be able to slip past `isExecuting`).
-  const pendingEnemyAttackRef = useRef<'quick_attack' | 'power_attack' | null>(null);
-  const reactionTakenRef = useRef(false);
-  const windupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ── Combat responsiveness §R1 — pending enemy strike bookkeeping ───────────
+  // `strikeRef` owns the announced action, its ONE scheduled impact and the
+  // player's ONE reaction (utils/pendingStrike), so a doubled announcement, a
+  // callback that fires after a cancel, or a second reaction cannot resolve a
+  // strike twice. `resolutionTimerRef` is the existing 1100 ms turn-end timeout,
+  // now tracked so it can be cleared too. Both are dropped when the fight ends or
+  // the scene unmounts, which is what stops a delayed hit after the player has
+  // left. `resolvingRef` is the synchronous re-entrancy guard (React state is one
+  // render behind, so two calls in the same tick used to be able to slip past
+  // `isExecuting`).
+  const strikeRef = useRef<PendingStrike | null>(null);
+  if (strikeRef.current === null) strikeRef.current = createPendingStrike();
   const resolutionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resolvingRef = useRef(false);
   // The wind-up timer must call the LATEST executeCombatTurn, not the closure it
@@ -920,57 +918,52 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     executeTurnRef.current = executeCombatTurn;
   }, [executeCombatTurn]);
 
-  // ── C-8.70B §R1 — the announced enemy strike ───────────────────────────────
+  // ── Combat responsiveness §R1 — the announced enemy strike ─────────────────
   // The AI selects an action; when it is a strike, this announces it and holds
-  // the damage for ENEMY_ATTACK_WINDUP_MS. The opponent's swing animation starts
-  // HERE, so the blow lands mid-swing at the resolution point — and re-setting
-  // the same action when the resolution runs does NOT restart the clip, because
-  // GladiatorMesh only resets a clip when the action it is driven with changes.
-  // That is the animation/timing synchronization: no new clip, no new mixer and
-  // no change to any combat formula.
+  // the damage for ENEMY_ATTACK_WINDUP_MS so the HUD's cue can be read and
+  // answered. The strike itself still resolves through the SAME
+  // executeCombatTurn the attack always went through, so no formula, hit chance,
+  // weapon value or boss mechanic moves.
   const cancelPendingEnemyAttack = useCallback(() => {
-    if (windupTimerRef.current !== null) {
-      clearTimeout(windupTimerRef.current);
-      windupTimerRef.current = null;
-    }
-    pendingEnemyAttackRef.current = null;
-    reactionTakenRef.current = false;
+    strikeRef.current?.cancel();
     setPendingEnemyAttack(null);
     setReactionTaken(false);
   }, []);
 
   const announceEnemyAttack = useCallback(
     (actionType: 'quick_attack' | 'power_attack') => {
-      // One announcement at a time: a second call inside the window is ignored,
-      // so a strike can never be queued twice and pay its damage twice.
-      if (isMatchOver.current || pendingEnemyAttackRef.current) return;
+      if (isMatchOver.current) return;
 
-      pendingEnemyAttackRef.current = actionType;
-      reactionTakenRef.current = false;
+      // One announcement at a time: `announce` refuses while a strike is pending,
+      // so a second call inside the window cannot queue the strike — or its
+      // damage — twice. The impact reads the LATEST resolution closure, so a
+      // stance raised during the cue (or any other state written while it was up)
+      // is what the blow meets.
+      const announced = strikeRef.current?.announce(actionType, (landing) => {
+        setPendingEnemyAttack(null);
+        setReactionTaken(false);
+        if (isMatchOver.current) return;
+        executeTurnRef.current('opponent', landing);
+      });
+      if (!announced) return;
+
       setPendingEnemyAttack(actionType);
       setReactionTaken(false);
       // Locks the normal actions for the whole announcement + resolution window.
       setIsExecuting(true);
+      // The opponent's swing animation starts HERE, so the blow lands mid-swing at
+      // the resolution point — and re-setting the same action when the resolution
+      // runs does NOT restart the clip, because GladiatorMesh only resets a clip
+      // when the action it is driven with changes. That is the animation/timing
+      // synchronization: no new clip, no new mixer and no combat formula change.
       setOpp((prev) => ({
         ...prev,
         action: actionType === 'quick_attack' ? 'attack_light' : 'attack_heavy',
-        telegraphText: actionType === 'quick_attack' ? 'QUICK STRIKE INCOMING' : 'POWER STRIKE INCOMING',
       }));
       addLog(
         `${opp.name} winds up a ${actionType === 'quick_attack' ? 'quick strike' : 'power slash'} — brace or dodge!`,
-        'alert',
+        'opponent',
       );
-
-      windupTimerRef.current = setTimeout(() => {
-        windupTimerRef.current = null;
-        pendingEnemyAttackRef.current = null;
-        setPendingEnemyAttack(null);
-        setOpp((prev) => ({ ...prev, telegraphText: undefined }));
-        if (isMatchOver.current) return;
-        // The LATEST resolution closure, so a stance raised during the cue (or
-        // any other state written while it was up) is what the blow meets.
-        executeTurnRef.current('opponent', actionType);
-      }, ENEMY_ATTACK_WINDUP_MS);
     },
     [opp.name, addLog],
   );
@@ -985,10 +978,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
    */
   const reactToPendingAttack = useCallback(
     (action: 'shield_block' | 'dodge') => {
-      if (!pendingEnemyAttackRef.current || reactionTakenRef.current || isMatchOver.current) return;
+      if (isMatchOver.current) return;
+      // The stamina check runs BEFORE the claim, so a failed dodge does not
+      // consume the announcement's one reaction.
       if (action === 'dodge' && player.stamina < DODGE_STAMINA_COST) return;
+      // One reaction per announcement: `claimReaction` is what stops mashing both
+      // buttons from stacking a guaranteed block with an evade.
+      if (!strikeRef.current?.claimReaction()) return;
 
-      reactionTakenRef.current = true;
       setReactionTaken(true);
 
       if (action === 'dodge') {
@@ -1021,12 +1018,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // resolves — and nothing pays out — after the player has gone.
   useEffect(
     () => () => {
-      if (windupTimerRef.current !== null) clearTimeout(windupTimerRef.current);
       if (resolutionTimerRef.current !== null) clearTimeout(resolutionTimerRef.current);
-      windupTimerRef.current = null;
       resolutionTimerRef.current = null;
-      pendingEnemyAttackRef.current = null;
-      reactionTakenRef.current = false;
+      // Drops the announcement and makes its scheduled callback inert, so a hit
+      // can never land in a scene that has gone.
+      strikeRef.current?.cancel();
     },
     [],
   );
@@ -1307,7 +1303,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         combatLog={combatLog}
         pendingEnemyAttack={pendingEnemyAttack}
         reactionTaken={reactionTaken}
-        playerStamina={player.stamina}
         onReactToPendingAttack={reactToPendingAttack}
         onExecuteAction={(action) => executeCombatTurn('player', action)}
       />

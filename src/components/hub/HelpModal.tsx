@@ -108,11 +108,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               <div className="flex items-center justify-between mb-0.5">
                 <strong className="text-cyan-200 text-xs">Shield Guard</strong>
                 <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-800/60">
-                  Restores: 12 SP
+                  No cost
                 </span>
               </div>
               <p className="text-[11px] text-neutral-400">
-                Raise your scutum to reduce incoming damage by 75% on the opponent&apos;s next strike while recovering stamina.
+                Raise your scutum to blunt the opponent&apos;s next strike — damage is cut by your weapon&apos;s block
+                value, and the guard recovers stamina only when it actually stops a blow.
               </p>
             </div>
           </div>

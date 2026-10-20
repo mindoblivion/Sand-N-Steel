@@ -13,7 +13,8 @@ import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
 import { ChampionBannerPole } from './ChampionBannerPole';
 import { resolveBanner } from '../../../utils/heraldry';
-import { resolveDoorDuelTarget } from '../../../utils/tierAdvancement';
+import { resolveDoorDuelTarget, resolveBoutLevelGate } from '../../../utils/tierAdvancement';
+import { PreFightModal } from '../../hub/PreFightModal';
 import { MerchantHouse } from './MerchantHouse';
 import { ArmorLeatherWorkshop } from './ArmorLeatherWorkshop';
 import { Stable } from './Stable';
@@ -256,6 +257,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const [showNavDrawer, setShowNavDrawer] = useState(false);
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
   const [stableNotice, setStableNotice] = useState<string | null>(null);
+  // Combat responsiveness §R3B — the fighter a Colosseum door has resolved and
+  // is offering through the SAME pre-fight briefing the tournament tab uses. The
+  // duel only starts when that briefing is confirmed.
+  const [pendingDuel, setPendingDuel] = useState<OpponentConfig | null>(null);
   // Phase C-8.70B — the East Circus District's race entry panel.  Local view
   // state only: opening it and leaving it change no game data.
   const [showRaceEntry, setShowRaceEntry] = useState(false);
@@ -382,8 +387,28 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         playerProfile.currentTier,
         playerProfile.defeatedOpponentIds
       );
-      if (target) onEnterDuel(target.opponent);
-      else onOpenTab('tournament');
+      if (!target) {
+        onOpenTab('tournament');
+        return;
+      }
+      // §R3B — the door reads the tab's own level gate, so it can never open a
+      // fight the Colosseum tab would lock, and it opens the SAME pre-fight
+      // briefing rather than dropping the player straight into the sand.
+      const gate = resolveBoutLevelGate(
+        playerProfile.level,
+        target.opponent,
+        playerProfile.defeatedOpponentIds
+      );
+      if (gate.locked) {
+        setStableNotice(
+          `The gatekeeper bars the way: ${target.opponent.name} requires LVL ${gate.requiredLevel}, and you are LVL ${playerProfile.level}. Train, and return.`
+        );
+        setTimeout(() => {
+          setStableNotice(null);
+        }, 4000);
+        return;
+      }
+      setPendingDuel(target.opponent);
     } else if (nearbyLoc.tabKey) {
       onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
@@ -424,6 +449,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     nearbyLoc,
     onEnterDuel,
     playerProfile.currentTier,
+    playerProfile.level,
     playerProfile.defeatedOpponentIds,
     onOpenTab,
   ]);
@@ -1123,6 +1149,20 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             </button>
           </div>
         </div>
+      )}
+
+      {/* PRE-FIGHT BRIEFING — the same modal the tournament tab uses, so the
+          Colosseum door confirms the bout before the sand (§R3B). */}
+      {pendingDuel && (
+        <PreFightModal
+          opponent={pendingDuel}
+          onConfirm={() => {
+            const opp = pendingDuel;
+            setPendingDuel(null);
+            onEnterDuel(opp);
+          }}
+          onCancel={() => setPendingDuel(null)}
+        />
       )}
 
       {/* DESKTOP CONTROLS HELPER BAR */}

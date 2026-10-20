@@ -64,7 +64,7 @@ export function getWeaponRange(weapon: WeaponItem): number {
  */
 export function isAttackInRange(distance: number, weapon: WeaponItem): boolean {
   const range = weapon?.range;
-  if (typeof distance !== 'number' || !Number.isFinite(distance)) return false;
+  if (typeof distance !== 'number' || !Number.isFinite(distance) || distance < 0) return false;
   if (typeof range !== 'number' || !Number.isFinite(range) || range <= 0) return false;
   return distance <= range;
 }

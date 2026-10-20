@@ -125,6 +125,24 @@
   scrollbar-width: none;
 }
 
+/* ── Combat responsiveness §R1 — the enemy strike's wind-up bar ──
+   The announcement's 700 ms window, drawn as it runs out. The service passes its
+   own length as `animationDuration`, so the visible timer is the window itself;
+   it animates a transform rather than a width, so it costs no layout. */
+@keyframes windup-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.windup-bar {
+  transform-origin: left center;
+  animation: windup-drain 700ms linear forwards;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

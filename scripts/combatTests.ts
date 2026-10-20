@@ -18,6 +18,7 @@ import {
   calculateHitChance,
   calculateAttackDamage,
   applyStaminaRegen,
+  shieldGuardStaminaGain,
   DEFENSE_MITIGATION_FACTOR,
   STRENGTH_BONUS_PER_POINT,
   CRIT_MULTIPLIER,
@@ -453,14 +454,20 @@ test('defense curve: diminishing returns', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
-// 12. SHIELD GUARD RECOVERY DISPLAY (Phase 32D)
+// 12. SHIELD GUARD'S CREDITED STOP (§R2)
 //
-// The Shield Guard button in TurnActionPanel derives its displayed stamina
-// recovery from applyStaminaRegen — the same function DuelScene uses for the
-// production shield_block action.  The displayed value must reflect the
-// *actual* recoverable stamina, clamped by remaining capacity, not the
-// theoretical regen rate.
+// Raising the guard spends nothing and recovers nothing: the older rule credited
+// stamina on every Shield Guard turn, which made the guard strictly better than
+// Dodge.  Recovery now happens only when the guard actually STOPS a blow
+// (shieldGuardStaminaGain), and that credit is still clamped by the fighter's
+// remaining capacity through applyStaminaRegen.  The clamp cases below are the
+// same arithmetic the engine applies to that one credit.
 // ════════════════════════════════════════════════════════════════════════════
+
+test('raising the guard that stops nothing credits 0 SP', () => {
+  approx(shieldGuardStaminaGain(false, 24), 0);
+  approx(shieldGuardStaminaGain(true, 24), 24);
+});
 
 test('shield recovery at full stamina: 0 (no room to recover)', () => {
   // staminaRegen = 24 (12 + 10*0.8 + 10*0.4), but at full stamina nothing to recover

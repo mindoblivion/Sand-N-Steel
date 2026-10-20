@@ -3,6 +3,7 @@ import { PlayerProfile, OpponentConfig } from '../../types/game';
 import { TOURNAMENT_TIERS, ALL_OPPONENTS } from '../../data/opponents';
 import { Swords, Trophy, Skull, Play, Lock, CheckCircle, Shield } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
+import { resolveBoutLevelGate } from '../../utils/tierAdvancement';
 
 interface TournamentTabProps {
   profile: PlayerProfile;
@@ -35,7 +36,13 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {tierOpponents.map((opp) => {
           const isDefeated = profile.defeatedOpponentIds.includes(opp.id);
-          const isLocked = profile.level < opp.recommendedLevel && !isDefeated;
+          // The shared gate (`resolveBoutLevelGate`) — the city's duel doors read
+          // the same rule, so a door cannot offer a bout this tab locks.
+          const isLocked = resolveBoutLevelGate(
+            profile.level,
+            opp,
+            profile.defeatedOpponentIds
+          ).locked;
 
           return (
             <div

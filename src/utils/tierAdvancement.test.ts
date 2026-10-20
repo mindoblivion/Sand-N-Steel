@@ -363,8 +363,9 @@ describe('§D — the rule lives in the shipped paths', () => {
   });
 
   test('the city scene resolves the door with the helper and has no stored selection at all', () => {
+    // The import gained the level gate in the same statement (§R3B).
     expect(citySource).toContain(
-      "import { resolveDoorDuelTarget } from '../../../utils/tierAdvancement';"
+      "import { resolveDoorDuelTarget, resolveBoutLevelGate } from '../../../utils/tierAdvancement';"
     );
     expect(citySource).toContain(
       "} else if (nearbyLoc.tabKey === 'tournament') {"
@@ -372,7 +373,15 @@ describe('§D — the rule lives in the shipped paths', () => {
     expect(citySource).toContain('const target = resolveDoorDuelTarget(');
     expect(citySource).toContain('playerProfile.currentTier,');
     expect(citySource).toContain('playerProfile.defeatedOpponentIds');
-    expect(citySource).toContain('if (target) onEnterDuel(target.opponent);');
+    // Combat responsiveness §R3B rebased this pin, it did not weaken it: the door
+    // still resolves its ticket with `resolveDoorDuelTarget`, but it now opens the
+    // pre-fight briefing (`setPendingDuel`) through the tab's own level gate instead
+    // of starting the duel on the spot. `combatResponsiveness.test.ts` §D pins the
+    // briefing itself.
+    expect(citySource).toContain('setPendingDuel(target.opponent);');
+    expect(citySource).toContain('const gate = resolveBoutLevelGate(');
+    expect(citySource).toContain('if (gate.locked) {');
+    expect(citySource).not.toContain('onEnterDuel(target.opponent)');
     const cityCode = citySource
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/[^\n]*/g, '');

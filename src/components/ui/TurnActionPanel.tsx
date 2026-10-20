@@ -14,11 +14,11 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import {
-  getWeaponRange,
   getStaminaCost,
   calculateHitChance,
   calculateAttackDamage,
-  applyStaminaRegen,
+  isAttackInRange,
+  DODGE_STAMINA_COST,
 } from '../../utils/combatCalculations';
 
 export type CombatActionType =
@@ -58,18 +58,14 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   combatLog,
   onExecuteAction,
 }) => {
-  const effectiveRange = getWeaponRange(player.loadout.weapon);
-  const isInWeaponRange = distance <= effectiveRange;
+  // Combat responsiveness §R3 — the ONE range rule, shared with the combat
+  // engine's authoritative guard in DuelScene, so the buttons disable exactly
+  // when a strike could not land.
+  const isInWeaponRange = isAttackInRange(distance, player.loadout.weapon);
 
-  // Shield Guard stamina recovery — mirrors the production shield_block
-  // action in DuelScene which calls applyStaminaRegen. The displayed value
-  // is the *actual* recoverable stamina (clamped by remaining capacity),
-  // not the theoretical regen rate.
-  const shieldRecovery = applyStaminaRegen(
-    player.stamina,
-    player.stats.staminaMax,
-    player.stats.staminaRegen,
-  ) - player.stamina;
+  // Shield Guard recovers no stamina by itself (§R2): the regen happens only when
+  // the guard actually stops a blow, in the engine's resolution. There is
+  // therefore no "+SP" to display here.
 
   // Calculate hit probability percentages (shared with combat resolution)
   const playerAgi = player.stats.agility;
@@ -179,7 +175,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 1. QUICK STRIKE */}
           <button
             onClick={() => onExecuteAction('quick_attack')}
-            disabled={!isPlayerTurn || isExecuting || player.stamina < quickStaminaCost}
+            disabled={!isPlayerTurn || isExecuting || player.stamina < quickStaminaCost || !isInWeaponRange}
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < quickStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
@@ -211,7 +207,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
             {!isInWeaponRange && (
               <div className="absolute inset-0 bg-neutral-950/85 backdrop-blur-[1px] rounded-xl flex items-center justify-center p-1 text-center text-[10px] font-mono text-amber-400 font-bold border border-amber-700/50">
-                Out of Range (Advance)
+                Out of range — Advance to strike
               </div>
             )}
           </button>
@@ -219,7 +215,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 2. POWER SLASH / HEAVY ATTACK */}
           <button
             onClick={() => onExecuteAction('power_attack')}
-            disabled={!isPlayerTurn || isExecuting || player.stamina < powerStaminaCost}
+            disabled={!isPlayerTurn || isExecuting || player.stamina < powerStaminaCost || !isInWeaponRange}
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < powerStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
@@ -251,7 +247,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
             {!isInWeaponRange && (
               <div className="absolute inset-0 bg-neutral-950/85 backdrop-blur-[1px] rounded-xl flex items-center justify-center p-1 text-center text-[10px] font-mono text-red-400 font-bold border border-red-700/50">
-                Out of Range (Advance)
+                Out of range — Advance to strike
               </div>
             )}
           </button>
@@ -272,7 +268,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
                 <span>Shield Guard</span>
               </span>
               <span className="text-[9px] font-mono bg-cyan-950/80 border border-cyan-700/60 px-1 py-0.2 rounded text-cyan-300">
-                +{shieldRecovery} SP
+                NO COST
               </span>
             </div>
 
@@ -282,16 +278,16 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
             <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-cyan-900/40">
               <span className="text-cyan-300 font-bold">{Math.round(weapon.blockReduction * 100)}% Absorb</span>
-              <span className="text-emerald-300 font-bold">+{shieldRecovery} SP</span>
+              <span className="text-emerald-300 font-bold">SP on block</span>
             </div>
           </button>
 
           {/* 4. DODGE / EVASION STANCE */}
           <button
             onClick={() => onExecuteAction('dodge')}
-            disabled={!isPlayerTurn || isExecuting || player.stamina < 12}
+            disabled={!isPlayerTurn || isExecuting || player.stamina < DODGE_STAMINA_COST}
             className={`p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
-              !isPlayerTurn || isExecuting || player.stamina < 12
+              !isPlayerTurn || isExecuting || player.stamina < DODGE_STAMINA_COST
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
                 : 'bg-gradient-to-br from-teal-950 via-neutral-900 to-emerald-950 border-teal-500 hover:border-teal-300 text-teal-100 shadow-lg'
             }`}
@@ -302,7 +298,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
                 <span>Dodge</span>
               </span>
               <span className="text-[9px] font-mono bg-teal-950/80 border border-teal-700/60 px-1 py-0.2 rounded text-teal-300">
-                12 SP
+                {DODGE_STAMINA_COST} SP
               </span>
             </div>
 
@@ -312,7 +308,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
             <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-teal-900/40">
               <span className="text-teal-300 font-bold">75% Evade</span>
-              <span className="text-rose-300 font-bold">−12 SP</span>
+              <span className="text-rose-300 font-bold">−{DODGE_STAMINA_COST} SP</span>
             </div>
           </button>
 

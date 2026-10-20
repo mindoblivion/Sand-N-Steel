@@ -1,7 +1,8 @@
 import React from 'react';
 import { FighterState } from '../../types/game';
 import { TurnActionPanel, CombatActionType, CombatLogEntry } from './TurnActionPanel';
-import { Swords, Flame, Sparkles, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle } from 'lucide-react';
+import { Swords, Flame, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle, Shield, Wind } from 'lucide-react';
+import { DODGE_STAMINA_COST, ENEMY_ATTACK_WINDUP_MS } from '../../utils/combatCalculations';
 
 interface CombatHUDProps {
   player: FighterState;
@@ -22,6 +23,11 @@ interface CombatHUDProps {
   isExecuting: boolean;
   combatLog: CombatLogEntry[];
   onExecuteAction: (action: CombatActionType) => void;
+  // Combat responsiveness §R1 — the enemy strike that has been announced but has
+  // not landed yet, the player's one reaction to it, and the reaction itself.
+  pendingEnemyAttack: 'quick_attack' | 'power_attack' | null;
+  reactionTaken: boolean;
+  onReactToPendingAttack: (action: 'shield_block' | 'dodge') => void;
 }
 
 export const CombatHUD: React.FC<CombatHUDProps> = ({
@@ -42,6 +48,9 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   isExecuting,
   combatLog,
   onExecuteAction,
+  pendingEnemyAttack,
+  reactionTaken,
+  onReactToPendingAttack,
 }) => {
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
   const playerStaminaPct = Math.max(0, Math.min(100, (player.stamina / player.stats.staminaMax) * 100));
@@ -205,6 +214,65 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ENEMY STRIKE WIND-UP (Combat responsiveness §R1) — the announced
+          strike, its shrinking timer and the two reactions that answer it. This
+          is NOT a turn: Shield Guard or Dodge here only sets the stance the
+          incoming blow already resolves against. */}
+      {pendingEnemyAttack && (
+        <div className="w-full flex justify-center mt-1 sm:mt-2 pointer-events-none z-10">
+          <div
+            data-windup-cue={pendingEnemyAttack}
+            className="pointer-events-auto w-full max-w-lg bg-red-950/95 border-2 border-red-500 rounded-xl px-2.5 py-2 shadow-2xl backdrop-blur-md flex flex-col gap-1.5"
+          >
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-300 shrink-0 animate-pulse" />
+              <span className="font-serif font-black text-[11px] sm:text-sm text-red-100 tracking-wider uppercase">
+                {pendingEnemyAttack === 'quick_attack' ? 'Quick strike incoming' : 'Power slash incoming'}
+              </span>
+              <span className="ml-auto text-[9px] sm:text-[10px] font-mono text-red-300/80 uppercase">React</span>
+            </div>
+
+            {/* The 700 ms window, drawn as it runs down. */}
+            <div className="w-full h-1.5 bg-neutral-950 rounded-full overflow-hidden">
+              <div
+                className="windup-bar h-full w-full bg-gradient-to-r from-amber-400 to-red-500 rounded-full"
+                style={{ animationDuration: `${ENEMY_ATTACK_WINDUP_MS}ms` }}
+              ></div>
+            </div>
+
+            {reactionTaken ? (
+              <p data-reaction-taken="true" className="text-[10px] font-mono text-emerald-300 text-center">
+                Stance set — the strike lands against your guard.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  data-reaction="shield_block"
+                  onClick={() => onReactToPendingAttack('shield_block')}
+                  className="min-h-[44px] px-2 py-2 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/70 text-cyan-100 font-serif font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                >
+                  <Shield className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+                  <span>Shield Guard</span>
+                </button>
+                <button
+                  data-reaction="dodge"
+                  onClick={() => onReactToPendingAttack('dodge')}
+                  disabled={player.stamina < DODGE_STAMINA_COST}
+                  className={`min-h-[44px] px-2 py-2 rounded-lg border text-[11px] sm:text-xs font-serif font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
+                    player.stamina < DODGE_STAMINA_COST
+                      ? 'bg-neutral-900/70 border-neutral-700 text-neutral-500 cursor-not-allowed'
+                      : 'bg-teal-950/80 hover:bg-teal-900 border-teal-500/70 text-teal-100 cursor-pointer'
+                  }`}
+                >
+                  <Wind className="w-3.5 h-3.5 shrink-0" />
+                  <span>Dodge −{DODGE_STAMINA_COST} SP</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* BOSS TELEGRAPH WARNING BANNER */}
       {opponent.telegraphText && (
