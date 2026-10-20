@@ -270,6 +270,27 @@ export interface RacingProgression {
   selected?: number;
 }
 
+/**
+ * The road — the gladiator's arrival path through the city, stored on the save
+ * alongside gold, inventory and the chariot loadout.
+ *
+ * Optional on `PlayerProfile` on purpose, exactly like `chariot` and `racing`: a save
+ * written before this slice has no `road` field at all and must keep loading, so the
+ * pure helpers in `src/utils/gladiatorOath.ts` resolve a missing, partial or malformed
+ * road to "nothing said" rather than repairing the save. Every subfield is optional
+ * for the same reason — a save may carry one of them and still be valid — and
+ * `oathSworn` is written by exactly one place, the oath beat's completion
+ * (`withOathSworn`), never by a migration and never by `createNewProfile()`.
+ */
+export interface GladiatorRoad {
+  /** Set `true` once, on the oath beat's completion. Absent means the words are still owed. */
+  oathSworn?: boolean;
+  /** RG-1 — the device the gladiator's banner carries. Declared for the type's shape; unwritten here. */
+  bannerDevice?: string;
+  /** RG-1 — the milestones the gladiator has been shown. Declared for the type's shape; unwritten here. */
+  milestonesSeen?: string[];
+}
+
 export interface PlayerProfile {
   name: string;
   title: string;
@@ -314,4 +335,10 @@ export interface PlayerProfile {
    * migration, and never by `createNewProfile()`).
    */
   racing?: RacingProgression;
+  /**
+   * The gladiator's arrival path through the city; absent on every save written
+   * before this slice, and written only by the oath beat's completion
+   * (`src/utils/gladiatorOath.ts`'s `withOathSworn`).
+   */
+  road?: GladiatorRoad;
 }
