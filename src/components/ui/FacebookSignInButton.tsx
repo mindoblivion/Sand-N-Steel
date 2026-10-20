@@ -26,9 +26,11 @@ export const FacebookSignInButton: React.FC<FacebookSignInButtonProps> = ({
     onClick();
   };
 
+  // UI-1 (B-9) — compact is a 48×48 target (the old 36px square was under the floor),
+  // and the full pill carries the 48dp minimum height.
   const layoutClass = compact
-    ? 'flex items-center justify-center w-9 h-9 rounded-full shadow-lg active:scale-90 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait'
-    : 'flex items-center justify-center gap-3 px-5 py-3 rounded-full font-semibold text-xs sm:text-sm shadow-xl active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait';
+    ? 'flex items-center justify-center w-12 h-12 min-h-[48px] min-w-[48px] rounded-full shadow-lg active:scale-90 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait'
+    : 'flex items-center justify-center gap-3 min-h-[48px] px-5 py-3 rounded-full font-semibold text-xs sm:text-sm shadow-xl active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait';
 
   return (
     <button

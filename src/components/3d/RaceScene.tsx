@@ -1,7 +1,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon, XCircle } from 'lucide-react';
 import { Environment, Lightformer, Sky, useGLTF } from '@react-three/drei';
 import { EastCircusArena } from './city/EastCircusArena';
 import { RaceTouchControls } from '../ui/RaceTouchControls';
@@ -18,6 +18,7 @@ import {
   CHARIOT_MOVEMENT,
   CHARIOT_MODEL_YAW_OFFSET,
   advanceChariot,
+  advanceWheelRoll,
   createChariotLaunchState,
   createChariotMotion,
   getChariotGait,
@@ -26,6 +27,15 @@ import {
   mergeChariotInputs,
   trackChariotLaunch,
 } from '../../utils/chariotMovement';
+
+/**
+ * The fitted wheels' own nodes in the shipping chariot GLB.  Both are parentless
+ * nodes carrying the asset's Z-up → Y-up correction, with their geometry centred
+ * on the hub — which is why each is re-parented onto a pivot AT that hub before
+ * it is spun (a node whose rotation is applied about the model's origin would
+ * swing the wheel around the chariot instead of turning it).
+ */
+export const RACE_WHEEL_NODE_NAMES = ['Wheel_L', 'Wheel_R'] as const;
 import type { ChariotInput, ChariotLaunchQuality, ChariotMotion } from '../../utils/chariotMovement';
 import {
   CHARIOT_CHASE_CAMERA,
@@ -327,7 +337,31 @@ const RaceChariot: React.FC<{
 
   // Clone: `useGLTF` caches one scene per URL and the workshop holds the same
   // entry, so the cached scene is never touched (the workshop's own rule).
-  const body = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
+  //
+  // C-8.70B Stage 1, Slice 3 — the fitted wheels roll.  Each wheel node is moved
+  // onto a pivot placed at its OWN hub, measured from its rendered bounds in the
+  // model's frame (the asset's hubs are (±0.700, 0.650, 0.000), but the centre is
+  // measured rather than typed in), so a rotation about the pivot's X axis turns
+  // the wheel on its axle.  The cached GLB is never mutated: the pivots live on
+  // this clone only.
+  const body = useMemo(() => {
+    const scene = gltf.scene.clone(true);
+    const wheels: THREE.Group[] = [];
+    scene.updateMatrixWorld(true);
+    for (const name of RACE_WHEEL_NODE_NAMES) {
+      const node = scene.getObjectByName(name);
+      if (!node) continue;
+      const bounds = new THREE.Box3().setFromObject(node);
+      if (bounds.isEmpty()) continue;
+      const pivot = new THREE.Group();
+      bounds.getCenter(pivot.position);
+      scene.add(pivot);
+      pivot.attach(node);
+      wheels.push(pivot);
+    }
+    return { scene, wheels };
+  }, [gltf.scene]);
+  const roll = useRef(0);
   const group = useRef<THREE.Group>(null);
 
   useFrame((_state, delta) => {
@@ -351,6 +385,15 @@ const RaceChariot: React.FC<{
       chassis.position.set(motion.x, RACE_START_POSITION[1], motion.z);
       chassis.rotation.y = motion.heading + CHARIOT_MODEL_YAW_OFFSET;
     }
+
+    // C-8.70B Stage 1, Slice 3 — the wheels turn with the ground.  The reading is
+    // the motion module's own speed, and it advances only while the chariot is
+    // actually being driven, so a race frozen behind the settings panel or idling
+    // on the start line does not spin its wheels.
+    roll.current = advanceWheelRoll(roll.current, racing ? motion.speed : 0, delta);
+    for (const wheel of body.wheels) {
+      wheel.rotation.x = roll.current;
+    }
   });
 
   return (
@@ -360,7 +403,7 @@ const RaceChariot: React.FC<{
       rotation={[0, RACE_START_ROTATION_Y, 0]}
       scale={CHARIOT_MODEL_SCALE}
     >
-      <primitive object={body} />
+      <primitive object={body.scene} />
     </group>
   );
 };
@@ -788,9 +831,11 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
               type="button"
               onClick={handleAbort}
               data-race-action="abort"
-              className="pointer-events-auto min-h-[3rem] px-4 rounded-2xl bg-gradient-to-r from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 border-2 border-red-400/70 text-amber-50 font-serif font-black text-xs uppercase tracking-wider shadow-[0_0_25px_rgba(220,38,38,0.45)] active:scale-95 transition-all cursor-pointer touch-manipulation"
+              className="pointer-events-auto min-h-[3rem] px-4 rounded-2xl bg-gradient-to-r from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 border-2 border-red-400/70 text-amber-50 font-serif font-black text-xs uppercase tracking-wider shadow-[0_0_25px_rgba(220,38,38,0.45)] active:scale-95 transition-all cursor-pointer touch-manipulation flex items-center gap-2"
             >
-              Abort race
+              {/* UI-1 (B-19) — the icon its label always implied. */}
+              <XCircle className="w-4 h-4" />
+              <span>Abort race</span>
               <span className="hidden md:inline ml-2 text-[10px] opacity-70">(Esc)</span>
             </button>
           </div>

@@ -140,7 +140,7 @@ describe('A. The tokens exist, at the design’s own values', () => {
 
   test('the four easings are exactly the design’s', () => {
     expect(tight(token('ease-out'))).toBe('cubic-bezier(0.22,1,0.36,1)');
-    expect(tight(token('ease-inout'))).toBe('cubic-bezier(0.65,0,0.35,0)');
+    expect(tight(token('ease-inout'))).toBe('cubic-bezier(0.65,0,0.35,1)');
     expect(tight(token('ease-in'))).toBe('cubic-bezier(0.5,0,0.75,0)');
     expect(tight(token('ease-spring'))).toBe('cubic-bezier(0.34,1.4,0.64,1)');
     for (const name of ['ease-out', 'ease-inout', 'ease-in', 'ease-spring']) {
@@ -174,6 +174,14 @@ describe('B. The utility classes, and the law they are built to', () => {
     expect(block(motionSection, '.anim-screen {')).toContain('var(--dur-screen)');
     expect(block(motionSection, '.anim-stagger > * {')).toContain('var(--dur-micro)');
     expect(block(motionSection, '.anim-stamp {')).toContain('var(--ease-spring)');
+  });
+
+  test('.anim-stamp runs on the ceremony beat, not the panel token', () => {
+    const stamp = block(motionSection, '.anim-stamp {');
+    expect(stamp).toContain('var(--dur-ceremony)');
+    expect(stamp, 'the panel token is the old, wrong retime').not.toContain('var(--dur-panel)');
+    // and the token it names is the design's 700 ms, not a second number
+    expect(token('dur-ceremony')).toBe('700ms');
   });
 
   test('.anim-panel has one variant per origin, all four reachable through data-origin', () => {
@@ -226,10 +234,51 @@ describe('B. The utility classes, and the law they are built to', () => {
     // the press transition names its properties rather than catching everything
     const press = block(motionSection, '.btn-press {');
     expect(press).toContain('transition-property: transform, opacity, color');
+    expect(press).toContain('transition-duration: var(--dur-micro)');
     // no geometry is animated or transitioned anywhere in the section
     for (const property of ['width', 'height', 'top:', 'left:', 'margin']) {
       expect(motionCode, property).not.toContain(property);
     }
+  });
+
+  test('the panel travels 12 px and starts at 0.97, on every origin', () => {
+    const travels: Array<[string, string]> = [
+      ['anim-panel-in', 'translate3d(0, 12px, 0)'],
+      ['anim-panel-in-top', 'translate3d(0, -12px, 0)'],
+      ['anim-panel-in-left', 'translate3d(-12px, 0, 0)'],
+      ['anim-panel-in-right', 'translate3d(12px, 0, 0)'],
+    ];
+    for (const [name, travel] of travels) {
+      const from = block(motionSection, `@keyframes ${name} {`);
+      expect(from, name).toContain(travel);
+      expect(from, `${name} starts at the design’s scale`).toContain('scale(0.97)');
+      expect(from, `${name} keeps the old 0.985`).not.toContain('scale(0.985)');
+    }
+    // the centre variant is the same scale with no travel — all five origins agree
+    const center = block(motionSection, '@keyframes anim-panel-in-center {');
+    expect(center).toContain('scale(0.97)');
+    expect(center).not.toContain('translate3d');
+    // no origin keeps a 10 px or 14 px travel
+    const panelFrames = motionSection.slice(
+      motionSection.indexOf('@keyframes anim-panel-in {'),
+      motionSection.indexOf('.anim-panel {'),
+    );
+    for (const stale of ['10px', '14px']) {
+      expect(panelFrames, stale).not.toContain(stale);
+    }
+  });
+
+  test('the press presses in at 0.95 on the press token and releases on the micro one', () => {
+    // the reduced blocks below redefine `:active`, so the base rules are read above them
+    const baseCode = motionCode.slice(0, motionCode.indexOf('[data-motion="reduced"] {'));
+    const press = block(baseCode, '.btn-press {');
+    expect(press).toContain('transition-duration: var(--dur-micro)');
+    expect(press, 'release is not the press token').not.toContain('var(--dur-press)');
+    const active = block(baseCode, '.btn-press:active {');
+    expect(active).toContain('transform: scale(0.95)');
+    expect(active).toContain('transition-duration: var(--dur-press)');
+    // and the downstroke really is the shorter of the two
+    expect(parseFloat(token('dur-press'))).toBeLessThan(parseFloat(token('dur-micro')));
   });
 });
 

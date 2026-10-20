@@ -162,7 +162,7 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => previewPart(part)}
-            className={`flex-1 min-w-[96px] py-2.5 rounded-2xl font-serif font-bold text-[11px] uppercase tracking-wider transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 border ${
+            className={`flex-1 min-w-[96px] min-h-[48px] py-2.5 rounded-2xl font-serif font-bold text-[11px] uppercase tracking-wider transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 border ${
               isPreviewed
                 ? 'bg-cyan-900/60 text-cyan-200 border-cyan-600'
                 : 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:text-amber-200'
@@ -176,7 +176,7 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
             <button
               onClick={() => handleEquip(part)}
               disabled={isEquipped}
-              className={`flex-1 min-w-[96px] py-2.5 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+              className={`flex-1 min-w-[96px] min-h-[48px] py-2.5 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
                 isEquipped
                   ? 'bg-green-800 text-green-200 cursor-default'
                   : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 cursor-pointer'
@@ -190,7 +190,7 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
               onClick={() => handleBuy(part)}
               disabled={!purchase.ok}
               title={purchase.ok ? `Buy for ${part.price} gold` : describeChariotRejection(purchase.reason)}
-              className={`flex-1 min-w-[96px] py-2.5 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+              className={`flex-1 min-w-[96px] min-h-[48px] py-2.5 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
                 purchase.ok
                   ? 'bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-neutral-950 border border-yellow-300 cursor-pointer'
                   : 'bg-neutral-900 text-neutral-600 border border-neutral-800 cursor-not-allowed'
@@ -232,7 +232,7 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
           {isPreviewing && (
             <button
               onClick={resetPreview}
-              className="px-3 py-1.5 rounded-xl bg-neutral-800 border border-amber-600/50 text-amber-200 font-serif font-bold text-[11px] uppercase tracking-wider active:scale-95 cursor-pointer flex items-center gap-1.5"
+              className="min-h-[48px] px-3 py-1.5 rounded-xl bg-neutral-800 border border-amber-600/50 text-amber-200 font-serif font-bold text-[11px] uppercase tracking-wider active:scale-95 cursor-pointer flex items-center gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset preview</span>

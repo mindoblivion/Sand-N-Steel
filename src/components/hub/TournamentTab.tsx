@@ -78,7 +78,7 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
                   onSelectOpponent(opp);
                 }}
                 disabled={isLocked}
-                className={`w-full py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2 ${
+                className={`w-full min-h-[48px] py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2 ${
                   isDefeated
                     ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-600'
                     : opp.isBoss

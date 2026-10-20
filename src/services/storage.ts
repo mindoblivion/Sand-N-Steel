@@ -13,6 +13,16 @@ import {
  */
 export const PROFILE_STORAGE_KEY = 'sand_and_steel_gladiator_save_v2';
 
+/**
+ * Where a save that cannot be read is kept, verbatim.
+ *
+ * `loadSavedProfile()` never deletes the main key: when the bytes there cannot be
+ * parsed, or do not carry the fields the game runs on, the *original string* is
+ * copied here untouched and the game starts as if no save existed.  This is the only
+ * storage key the save-safety pass adds.
+ */
+export const PROFILE_QUARANTINE_KEY = 'sand_and_steel_gladiator_save_v2_quarantine';
+
 export function calculateTotalStats(profile: PlayerProfile): FighterStats {
   const base = profile.baseStats;
   let str = base.strength;
@@ -115,15 +125,167 @@ export function createNewProfile(name: string, characterModel = 'roman_warrior' 
   };
 }
 
-export function loadSavedProfile(): PlayerProfile | null {
+/* ---------------------------------------------------------------------------
+ * Save-safety: shape validation and quarantine
+ * ------------------------------------------------------------------------- */
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isString = (value: unknown): value is string => typeof value === 'string';
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const isStatBlock = (value: unknown): value is Record<string, unknown> =>
+  isPlainObject(value) && ['strength', 'agility', 'stamina', 'defense'].every((key) => isFiniteNumber(value[key]));
+
+const isEquipment = (value: unknown): value is Record<string, unknown> =>
+  isPlainObject(value) && isPlainObject(value.weapon);
+
+/**
+ * The fields a stored profile must carry for the game to run — every
+ * **non-optional** member of `PlayerProfile`, at its own type.
+ *
+ * This is a shape check and deliberately nothing more: a save that satisfies it is
+ * handed back exactly as it was parsed (no field added, removed, reordered or
+ * repaired), and anything nested inside `appearance` / `tierProgress` / a weapon is
+ * the game's business rather than this check's.  `injury`, `isLeftyMode`, `chariot`
+ * and `racing` are optional on the type and stay optional here, so every save that
+ * was written before those fields existed still loads.
+ */
+const REQUIRED_PROFILE_FIELDS: ReadonlyArray<readonly [string, (value: unknown) => boolean]> = [
+  ['name', isString],
+  ['title', isString],
+  ['rank', isString],
+  ['appearance', isPlainObject],
+  ['level', isFiniteNumber],
+  ['xp', isFiniteNumber],
+  ['xpToNextLevel', isFiniteNumber],
+  ['unspentStatPoints', isFiniteNumber],
+  ['baseStats', isStatBlock],
+  ['gold', isFiniteNumber],
+  ['fame', isFiniteNumber],
+  ['currentTier', isFiniteNumber],
+  ['tierProgress', isPlainObject],
+  ['defeatedOpponentIds', (value: unknown) => Array.isArray(value)],
+  ['bossKills', isFiniteNumber],
+  ['newGamePlus', isFiniteNumber],
+  ['trainingSessionsLeft', isFiniteNumber],
+  ['equipped', isEquipment],
+  ['inventory', (value: unknown) => Array.isArray(value)],
+  ['fightsWon', isFiniteNumber],
+  ['fightsLost', isFiniteNumber],
+  ['peakCrowdHypeOverall', isFiniteNumber],
+];
+
+/** True when `value` carries every field the game cannot run without. */
+export function isValidStoredProfile(value: unknown): value is PlayerProfile {
+  return (
+    isPlainObject(value) &&
+    REQUIRED_PROFILE_FIELDS.every(([field, check]) => check((value as Record<string, unknown>)[field]))
+  );
+}
+
+/**
+ * Set when THIS boot had to quarantine a stored save.  A module flag rather than a
+ * second storage record: it is boot state, not player data, and it is what the title
+ * screen reads to say so in plain language.
+ */
+let storedSaveQuarantined = false;
+
+/** Did `loadSavedProfile()` quarantine a stored save this boot? */
+export function wasStoredSaveQuarantined(): boolean {
+  return storedSaveQuarantined;
+}
+
+/**
+ * Keep an unreadable save's ORIGINAL bytes, verbatim, under the quarantine key.
+ *
+ * The main key is never touched — not emptied, not rewritten — so the player's bytes
+ * survive here and in place.  The key holds the most recent unreadable save.
+ */
+function quarantineStoredProfile(raw: string, reason: string): void {
   try {
-    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
+    localStorage.setItem(PROFILE_QUARANTINE_KEY, raw);
+  } catch (e) {
+    console.error('Failed to quarantine profile:', e);
+  }
+  storedSaveQuarantined = true;
+  console.warn(`Stored gladiator save could not be read (${reason}). The original data was kept under "${PROFILE_QUARANTINE_KEY}"; starting as if no save existed.`);
+}
+
+/**
+ * A short, tolerant read of whatever gladiator is stored — what a "start over" would
+ * erase.  `null` means nothing is stored; the identity fields are `null` when the
+ * bytes cannot be read as a profile at all, which is still a stored save.
+ */
+export interface StoredProfileSummary {
+  name: string | null;
+  fame: number | null;
+  rank: string | null;
+}
+
+export function readStoredProfileSummary(): StoredProfileSummary | null {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (isPlainObject(parsed)) {
+      const name = typeof parsed.name === 'string' ? parsed.name.trim() : '';
+      const rank = typeof parsed.rank === 'string' ? parsed.rank.trim() : '';
+      return {
+        name: name || null,
+        fame: isFiniteNumber(parsed.fame) ? parsed.fame : null,
+        rank: rank || null,
+      };
+    }
+  } catch {
+    // Unreadable bytes still mean a save is stored — the caller must still confirm.
+  }
+  return { name: null, fame: null, rank: null };
+}
+
+/**
+ * Load the stored gladiator.
+ *
+ * A valid save is returned **exactly as parsed**.  A save that is not valid JSON, or
+ * that is missing a field the game runs on, is quarantined (see
+ * `quarantineStoredProfile`), reported once through `wasStoredSaveQuarantined()`, and
+ * answered with `null` — so the game takes the same path it takes for a missing save.
+ */
+export function loadSavedProfile(): PlayerProfile | null {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(PROFILE_STORAGE_KEY);
   } catch (e) {
     console.error('Failed to load profile:', e);
     return null;
   }
+  if (!raw) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load profile:', e);
+    quarantineStoredProfile(raw, 'not valid JSON');
+    return null;
+  }
+
+  if (!isValidStoredProfile(parsed)) {
+    console.error('Stored profile is missing fields the game needs:', parsed);
+    quarantineStoredProfile(raw, 'missing a required field or a field has the wrong type');
+    return null;
+  }
+
+  return parsed;
 }
 
 export function saveProfile(profile: PlayerProfile): void {

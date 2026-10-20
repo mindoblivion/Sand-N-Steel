@@ -11,7 +11,11 @@ interface PreFightModalProps {
 export const PreFightModal: React.FC<PreFightModalProps> = ({ opponent, onConfirm, onCancel }) => {
   return (
     <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-40 flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border-2 border-red-500/80 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl animate-fadeIn text-amber-100">
+      {/* A centred dialog: `data-origin="center"` is the transport-free panel variant. */}
+      <div
+        className="anim-panel bg-neutral-900 border-2 border-red-500/80 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-amber-100"
+        data-origin="center"
+      >
         <div className="text-center mb-6">
           <div className="w-16 h-16 rounded-full bg-red-900/50 border border-red-500 flex items-center justify-center mx-auto mb-3 shadow-[0_0_20px_rgba(239,68,68,0.5)]">
             <Swords className="w-8 h-8 text-red-300" />
@@ -43,13 +47,13 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({ opponent, onConfir
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-serif font-bold text-xs uppercase cursor-pointer"
+            className="btn-press flex-1 min-h-[48px] py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-serif font-bold text-xs uppercase cursor-pointer"
           >
             Retreat
           </button>
           <button
             onClick={onConfirm}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-serif font-black text-xs uppercase tracking-wider cursor-pointer shadow-lg active:scale-95"
+            className="btn-press flex-1 min-h-[48px] py-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-serif font-black text-xs uppercase tracking-wider cursor-pointer shadow-lg"
           >
             Step into Sand
           </button>

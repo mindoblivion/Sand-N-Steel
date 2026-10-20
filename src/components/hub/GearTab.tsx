@@ -120,7 +120,7 @@ export const GearTab: React.FC<GearTabProps> = ({
                 onGearViewChange?.(view.key);
               }}
               disabled={isActive}
-              className={`py-2.5 px-4 rounded-2xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+              className={`min-h-[48px] py-2.5 px-4 rounded-2xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
                 isActive
                   ? 'bg-amber-500/20 border border-amber-400 text-amber-200 shadow-md cursor-default'
                   : 'bg-neutral-900/80 border border-neutral-800 text-neutral-400 hover:text-amber-200'
@@ -187,7 +187,7 @@ export const GearTab: React.FC<GearTabProps> = ({
                       onEquipWeapon(wpn);
                     }}
                     disabled={isEquipped}
-                    className={`px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
+                    className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
                       isEquipped
                         ? 'bg-green-800 text-green-200 cursor-default'
                         : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'
@@ -280,7 +280,7 @@ export const GearTab: React.FC<GearTabProps> = ({
                         onEquipArmor(arm);
                       }}
                       disabled={isEquipped}
-                      className={`px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
+                      className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
                         isEquipped
                           ? 'bg-green-800 text-green-200 cursor-default'
                           : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'

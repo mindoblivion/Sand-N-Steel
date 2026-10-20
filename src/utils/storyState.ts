@@ -12,8 +12,8 @@
  *   • A gate whose owning system has not landed is `'pending'`, not `'unmet'`: its
  *     evidence cannot exist yet, so the card says so instead of telling the
  *     player they are behind (the design's graceful-degradation rule).  No gate
- *     for an unlanded system is ever invented here — there is no race-results
- *     field and no omen field, so the race and omen beats resolve as pending.
+ *     reads evidence that does not exist: the race, omen and story-beat gates all
+ *     resolve as pending until the slice that writes their evidence lands.
  *   • A chapter is closed when every gate whose evidence CAN exist is met, so a
  *     profile whose record already passes a chapter's available gates resolves
  *     that chapter closed (the grandfather rule).
@@ -37,13 +37,14 @@ import { GladiatorRank, rankAtLeast, deriveRank } from './rank';
 /** A gate's state: met by evidence, not yet met, or waiting on a later slice. */
 export type StoryGateState = 'met' | 'unmet' | 'pending';
 
-/** The two kinds of gate whose owning system has not landed yet. */
-export type StoryPendingKind = 'race' | 'omen';
+/** The kinds of gate whose owning system has not landed yet. */
+export type StoryPendingKind = 'race' | 'omen' | 'beat';
 
 /** The ids every gate is addressed by; stable, so the card and tests can name one. */
 export type StoryGateId =
   | 'oath-sworn'
   | 'first-duel-won'
+  | 'doctore-test'
   | 'tier-1-boss'
   | 'district-race'
   | 'omen'
@@ -53,6 +54,7 @@ export type StoryGateId =
   | 'library-seen'
   | 'tier-3'
   | 'league-promotion'
+  | 'vexus-race'
   | 'dice-ending'
   | 'rank-champion'
   | 'tier-3-boss'
@@ -61,6 +63,7 @@ export type StoryGateId =
   | 'tier-4-boss'
   | 'league-final'
   | 'summit-seen'
+  | 'statue-ceremony'
   | 'rank-legend';
 
 export interface StoryGate {
@@ -80,6 +83,7 @@ export interface StoryGate {
 export const PENDING_GATE_LINES: Record<StoryPendingKind, string> = {
   race: 'The Circus has not opened its books yet.',
   omen: 'The omens have not been read yet.',
+  beat: 'That hour has not been written yet.',
 };
 
 /** The line the card reads once every available chapter is closed. */
@@ -276,7 +280,7 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       met: (evidence) => evidence.oathSworn || evidence.fightsWon > 0,
     },
   ],
-  // 1 — First Sand: the first win, which is the evidence that exists today.
+  // 1 — First Sand: the first win, and the Doctore's test (pending).
   [
     {
       id: 'first-duel-won',
@@ -284,6 +288,12 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       confirmation: 'Your first duel is won.',
       met: (evidence) => evidence.fightsWon >= 1,
     },
+    pendingGate(
+      'doctore-test',
+      "Pass the Doctore's test under the restricted rules",
+      "The Doctore's test is passed.",
+      'beat'
+    ),
   ],
   // 2 — Fortuna's Coin: Goliath, the first District race (pending), the omen (pending).
   [
@@ -332,6 +342,12 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       'Your League promotion is taken.',
       'race'
     ),
+    pendingGate(
+      'vexus-race',
+      'Run the Vexus incident race',
+      'The Vexus incident race is run.',
+      'beat'
+    ),
     {
       id: 'dice-ending',
       requirement: "Reach the vulture's dice and let them fall",
@@ -372,7 +388,7 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       met: (evidence) => evidence.flags.summitSeen,
     },
   ],
-  // 7 — Legend, and the Open Road: the rank itself, and nothing else.
+  // 7 — Legend, and the Open Road: the rank itself, and the statue ceremony (pending).
   [
     {
       id: 'rank-legend',
@@ -380,6 +396,12 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       confirmation: 'You have reached Legend.',
       met: (evidence) => rankAtLeast(evidence.rank, 'Legend'),
     },
+    pendingGate(
+      'statue-ceremony',
+      'See the statue ceremony played',
+      'The statue ceremony is played.',
+      'beat'
+    ),
   ],
 ];
 
