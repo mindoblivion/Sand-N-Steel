@@ -98,3 +98,20 @@ export const googleSignOut = async () => {
   await signOut(auth);
   cachedAccessToken = null;
 };
+
+/**
+ * The signed-in Firebase user, or null — for the surfaces that only need to know
+ * WHO is signed in (the settings panel's account rows).  Returns the
+ * `onAuthStateChanged` unsubscribe, so a React effect can return it directly.
+ */
+export const subscribeAuthUser = (onChange: (user: User | null) => void) =>
+  onAuthStateChanged(auth, onChange);
+
+/**
+ * Hand the Drive client a freshly confirmed access token.  `reauthenticateWithPopup`
+ * returns one when the provider is Google, which is what lets the account-deletion
+ * flow remove the player's cloud save inside the same confirmed session.
+ */
+export const setAccessToken = (token: string | null) => {
+  cachedAccessToken = token;
+};

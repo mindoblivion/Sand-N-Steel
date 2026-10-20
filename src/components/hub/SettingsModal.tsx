@@ -38,6 +38,17 @@ interface SettingsModalProps {
   onOpenCloudSave?: () => void;
   /** Row 18 — `App`'s existing reset, reached only through the armed two-step tap. */
   onResetSave?: () => void;
+  /**
+   * Play's account-deletion entry, for a SIGNED-IN player: it opens the confirmation
+   * flow.  Menu contexts only — the same suppression Reset save follows, so a duel or
+   * a race never offers to delete an account.
+   */
+  onDeleteAccount?: () => void;
+  /**
+   * The guest half of the same requirement: a player with no account has no account
+   * to delete, so they are offered the device wipe instead.  Also menu-only.
+   */
+  onEraseDeviceData?: () => void;
 }
 
 /**
@@ -188,6 +199,56 @@ const SliderRow: React.FC<{
     />
   </RowCard>
 );
+
+/**
+ * A destructive row whose SECOND tap is the one that acts.
+ *
+ * §SET-1's rule for Reset save — tap, then confirm within `RESET_ARM_MS`, never
+ * `window.confirm` — as a self-contained row: each row owns its own arming state, so
+ * two such rows cannot interfere and the panel needs no shared flag for them.
+ */
+const ArmedActionRow: React.FC<{
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  actionLabel: string;
+  armedLabel: string;
+  onConfirm: () => void;
+}> = ({ label, description, icon, actionLabel, armedLabel, onConfirm }) => {
+  const [armed, setArmed] = useState(false);
+
+  useEffect(() => {
+    if (!armed) return;
+    const timer = setTimeout(() => setArmed(false), RESET_ARM_MS);
+    return () => clearTimeout(timer);
+  }, [armed]);
+
+  return (
+    <RowCard className="border-red-800/60 bg-red-950/30">
+      <div className="flex items-center justify-between gap-3">
+        <RowLabel label={label} description={description} icon={icon} />
+        <button
+          type="button"
+          onClick={() => {
+            sounds.playClick();
+            if (!armed) {
+              setArmed(true);
+              return;
+            }
+            onConfirm();
+          }}
+          className={`shrink-0 min-h-[48px] px-3 rounded-xl border font-serif font-bold text-xs uppercase tracking-wider cursor-pointer transition-colors ${
+            armed
+              ? 'bg-red-600 text-neutral-950 border-red-300'
+              : 'bg-red-900/70 text-red-100 border-red-500/60 hover:bg-red-800'
+          }`}
+        >
+          {armed ? armedLabel : actionLabel}
+        </button>
+      </div>
+    </RowCard>
+  );
+};
 
 /**
  * The settings panel — one menu, every wired row live.
@@ -483,6 +544,58 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </button>
                     </div>
                   </RowCard>
+                )}
+                {/* The privacy policy lives at its own public URL, so this row is an
+                    anchor and not a panel route — and a new tab keeps the game (and
+                    anything unsaved in a session) exactly where it was. */}
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full min-h-[56px] rounded-2xl bg-neutral-950/90 border border-neutral-700 hover:border-amber-500 px-4 py-3 shadow-lg cursor-pointer transition-colors flex items-center justify-between gap-3"
+                >
+                  <RowLabel
+                    label="Privacy policy"
+                    description="What the game collects, what it never collects, and how long it is kept."
+                  />
+                  <span className="shrink-0 font-serif font-bold text-xs uppercase tracking-wider text-amber-300">
+                    Read
+                  </span>
+                </a>
+
+                {/* Play asks every app that creates accounts for an in-app deletion
+                    path.  Menu only, exactly like Reset save above: a duel and a race
+                    suppress both rows.  A signed-in player gets the deletion flow; a
+                    guest, who has no account to delete, gets the device wipe. */}
+                {context === 'menu' && onDeleteAccount && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      onDeleteAccount();
+                    }}
+                    className="w-full min-h-[56px] text-left rounded-2xl bg-red-950/30 border border-red-800/60 hover:border-red-500 px-4 py-3 shadow-lg cursor-pointer transition-colors flex items-center justify-between gap-3"
+                  >
+                    <RowLabel
+                      label="Delete account"
+                      description="Delete your sign-in account, the gladiators saved on this device, and — if you tick it — your cloud save."
+                      icon={<Trash2 className="w-5 h-5 text-red-300" />}
+                    />
+                    <span className="shrink-0 font-serif font-bold text-xs uppercase tracking-wider text-red-300">
+                      Delete
+                    </span>
+                  </button>
+                )}
+
+                {context === 'menu' && !onDeleteAccount && onEraseDeviceData && (
+                  <ArmedActionRow
+                    label="Erase this device's data"
+                    description="Erase every gladiator saved on this device. This cannot be undone."
+                    icon={<Trash2 className="w-5 h-5 text-red-300" />}
+                    actionLabel="Erase"
+                    armedLabel="Tap again to erase everything"
+                    onConfirm={onEraseDeviceData}
+                  />
                 )}
               </>
             )}

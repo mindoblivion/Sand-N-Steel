@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 import { dismissBootShell } from './utils/bootShell';
+import { resolvePublicPage } from './components/legal/publicPages';
 
 // START-1 — mount the app into #root and hand the inline boot shell over to React.
 //
@@ -104,6 +105,14 @@ const useRaceHarness =
   (new URLSearchParams(window.location.search).get('devHarness') === 'race' ||
     readDevHarnessFlag() === 'race');
 
+// The two PUBLIC pages — `/delete-account` and `/privacy` — are the opposite of the
+// harnesses above: they must exist in EVERY build, including a production one, and
+// they need no session at all.  `/delete-account` is the URL a store listing is given,
+// so it cannot be dev-gated and cannot depend on a sign-in.  The route table itself
+// lives in `components/legal/publicPages.ts`, so the address a listing points at and
+// the address this entry point resolves cannot drift apart.
+const publicPage = resolvePublicPage(window.location.pathname);
+
 if (useColosseumRearHarness) {
   void import('./components/dev/ColosseumRearDiagnostic').then(({ ColosseumRearDiagnostic }) => {
     mountRoot(
@@ -151,6 +160,18 @@ if (useColosseumRearHarness) {
     mountRoot(
       <React.StrictMode>
         <RaceHarness />
+      </React.StrictMode>,
+    );
+  });
+} else if (publicPage) {
+  // The public pages, mounted INSTEAD of the game: no title screen, no save loader,
+  // no sign-in.  Dynamically imported (like every branch above) so neither page lands
+  // in the game's own chunk.
+  void import('./components/legal/LegalPages').then((pages) => {
+    const Page = publicPage === 'privacy' ? pages.PrivacyPolicyPage : pages.DeleteAccountPage;
+    mountRoot(
+      <React.StrictMode>
+        <Page />
       </React.StrictMode>,
     );
   });

@@ -264,6 +264,21 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           Alpha 1.0
         </div>
 
+        {/* The title's own footer entry: the privacy policy, at a public URL that needs
+            no sign-in (Play asks every app that creates accounts to make its policy
+            reachable inside the app).  A new tab, so reading it cannot disturb a
+            session in progress.  No `text-[10px]` floor here — this is a label a
+            player has to be able to read. */}
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-title-action="privacy"
+          className="absolute bottom-1 right-2 z-10 min-h-[44px] px-2 flex items-center font-serif text-xs uppercase tracking-[0.2em] text-amber-200/70 hover:text-amber-100 underline decoration-dotted underline-offset-4 transition-colors cursor-pointer"
+        >
+          Privacy
+        </a>
+
         {/* The account panel: the existing auth screen and the existing social
             buttons, mounted unchanged, only once the player asks for them. */}
         {isAccountOpen && (
