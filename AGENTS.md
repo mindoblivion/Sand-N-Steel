@@ -6035,3 +6035,125 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 
 - **Nothing was implemented, and no save was touched.** This section is analysis only; the next step is a
   decision on the clock's advance events (part A), because every other phase reads it.
+
+## Living City L1 — foundational in-game clock (implemented)
+
+- **Scope, and what this phase deliberately is not.** The first step of the audit's own sequence
+  (Deliverable 4, item 1): one optional `profile.city.day`, one authoritative resolver, one pure
+  advance, and exactly one call site in the existing settlement path. **No rotation, no classes, no
+  visitors, no rare chariot parts, no encounters, no UI, no rest button, no lighting change, no shop,
+  training, chariot, NPC, combat or reward change, no timer, no interval, no real-world clock.** The
+  clock is a passive progression primitive; nothing reads it for behaviour yet.
+
+- **Preflight (measured, not assumed).** Branch `development-focus-strategy`, HEAD **`070252c4b0`**,
+  `git status --porcelain` **empty** and `git diff` empty before the first edit. The branch's own
+  baseline suite read **2537 pass / 0 fail (86 files)** — the `duelResultLifecycle` record's count —
+  and this phase ends at **2567 / 87**, the delta being this phase's own suite. Nothing in the tree
+  was stashed, reverted or overwritten.
+
+- **The data model — one field, optional on purpose.** `src/types/game.ts` gains
+  `CityState { day?: number }` and `PlayerProfile.city?: CityState`, declared exactly like
+  `chariot`, `racing`, `temper`, `road` and `story`. A new profile starts at **day 1 by resolution**:
+  `createNewProfile()` still writes **no** `city` field (the house rule for every optional slice), and
+  there is **no migration** — a legacy save is never rewritten just to gain the field.
+
+- **`src/utils/cityClock.ts` (new) is the whole clock, and it is pure.** No React, no storage, no
+  timers, no `Date`, no randomness (asserted over comment-stripped source):
+  - `CITY_DAY_START = 1`, `CITY_DAY_MAX = Number.MAX_SAFE_INTEGER`;
+  - `normalizeCityDay(value)` — the one validity rule: anything that is not a finite number, and any
+    value below 1 (zero, negatives), resolves to **day 1**; a fraction is **floored** (`3.7 -> 3`,
+    `0.9 -> 1`); the value is **capped** at the largest safe integer, so no later `+ 1` can leave the
+    safe range;
+  - `resolveCityDay(profile)` — **the single authoritative reader** (there is no second counter and
+    nothing else in the app resolves a day);
+  - `nextCityDay(profile)` / `advanceCityDay(profile)` — exactly **one** day later, returning a **new**
+    profile with a **new** `city` object. Every unrelated field is carried over (by identity for the
+    nested records), a future member already stored inside `city` survives the advance, and the input
+    profile is never mutated.
+  A malformed `city` **container** (a string, a number, an array, `true`) is ignored rather than spread
+  into the new state, so a hand-edited save cannot smuggle junk keys forward.
+
+- **The one event that spends a day: a completed duel's settlement.** `App.handleMatchComplete` — the
+  same handler that credits gold/fame/xp, the fight count, the tier and the road's rituals. The
+  advanced clock is computed **once**, before the outcome branches, and carried into **whichever
+  branch settles the fight**:
+  `const city = advanceCityDay(profile).city;` -> `city,` in both the victory and the defeat profile
+  literals -> the existing `saveProfile(settledProfile)`. So it lands in the **same** profile update
+  the duel already persists (no second write that could race or overwrite the purse), and victory and
+  defeat each count as exactly one completed duel.
+
+- **Exactly-once, enforced at two levels, and the latch is App's own.** `DuelScene`'s `isMatchOver`
+  latch already refuses a second outcome; App now also carries `duelSettledRef` (a `useRef`, view
+  lifetime, saved nowhere): `if (duelSettledRef.current) return; duelSettledRef.current = true;` runs
+  **before** the clock is computed, so a callback that fires twice, a StrictMode remount or a stale
+  delayed `setTimeout` cannot credit the fight or turn the day again. It is cleared in exactly one
+  place — `handleEnterDuel`, the only route onto the duel screen — so a **new** bout re-arms it and a
+  repeated callback for the same bout cannot. Merely opening, leaving (the HUD's Armory exit) or
+  cancelling a duel never reaches the settlement and therefore never advances the day.
+
+- **Backward compatibility, measured through the real save path.** A pre-L1 save is JSON with no
+  `city` field: it loads unchanged (`saveProfile`/`loadSavedProfile` round trip is **byte-identical** —
+  loading never rewrites it), resolves to **day 1**, and its first completed duel writes `day: 2`. The
+  Drive path needs nothing: `googleDrive.ts` serializes the whole profile with no field whitelist. The
+  changed profile is still a plain whole-profile JSON write under the one existing key
+  (`sand_and_steel_gladiator_save_v2`).
+
+- **Files changed — four.** `src/types/game.ts` (the `CityState` interface and the optional `city`
+  field, with the "one clock, resolved totally, never written by a migration" contract in the docs);
+  `src/utils/cityClock.ts` (**new**); `src/utils/cityClock.test.ts` (**new**, 30 tests); `src/App.tsx`
+  (the `useRef` import, the `advanceCityDay` import, the `duelSettledRef` declaration, the re-arm in
+  `handleEnterDuel`, and the settle-side latch + one `city` computation carried into both branches).
+  Plus this record.
+
+- **Regression suite: `src/utils/cityClock.test.ts` — 30 tests / 157 `expect()` calls**, in the
+  repo's two registers (behaviour for pure logic, ordered source assertions for React wiring):
+  §A the resolver — a new profile and a legacy save both read day 1, fifteen malformed shapes
+  (`undefined`, `null`, `{}`, `'3'`, `true`, `[]`, `NaN`, `Infinity`, `0`, `-7`, `-0.5`, ...) all
+  normalize, malformed containers are not spread, valid values round-trip, and exactly one `city?:`
+  field exists on the profile type; §B advancing — 1 -> 2, a legacy save advances too, 25 successive
+  advances are exactly 2...26, corrupt inputs never yield an invalid day, the ceiling holds and stays a
+  safe integer, the input is untouched (profile *and* `city` object), every unrelated field survives
+  by identity, a future `city` member survives, one completed duel advances once for **both** a win
+  and a loss, a replayed settlement cannot compound while a genuinely new bout does, and the module
+  names no storage/clock/timer/React token; §C persistence — the legacy round trip is byte-identical,
+  a settled duel reloads at day 2, a raw pre-L1 JSON string under the real key reads as day 1, and the
+  cloud serialization keeps the day; §D the wiring — `advanceCityDay` appears exactly **once** in the
+  credit handler and **zero** times in either outcome branch, both persisted literals carry `city`,
+  the two existing `saveProfile`/`setProfile` calls per branch are unchanged and no extra save exists,
+  the latch is checked -> set -> used in that order and cleared in exactly one place, entering /
+  leaving / dismissing never advances, `handleEnterDuel` is the only re-arm, the handler is the only
+  `onMatchComplete`, and `advanceCityDay` is the application's only call site with no `setInterval`
+  anywhere in `App.tsx`.
+
+- **Checks actually run (2026-10-20, `web` dev container, on the final tree).** `bun test` ->
+  **2567 pass / 0 fail (87 files, 80,174 `expect()` calls)** (baseline 2537 / 86 -> the delta is this
+  suite's 30 tests and its file); `bun run scripts/combatTests.ts` -> **65 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) -> **exit 0**; `bun run build` -> **exit 0** with the startup-asset
+  check passing (8 assets in `public/` and `dist/`, the pre-existing >500 kB chunk warning only);
+  `git diff --check` -> **clean**. No existing assertion was touched, weakened or deleted — no other
+  test file changed at all.
+
+- **Live evidence, and what is NOT verified.** The dev server serves the changed modules (the
+  transformed `/src/utils/cityClock.ts` carries `advanceCityDay`/`resolveCityDay`, and
+  `/src/App.tsx` carries **one** `advanceCityDay(profile)`, **one** `duelSettledRef.current = true`
+  and **one** `= false`), and the app boots to its title screen (`PLAY`, `ACCOUNT`, Alpha 1.0) with
+  **0 console errors** on an anonymous preview. **The day advance itself is NOT automatically verified
+  live:** it can only happen by finishing a duel, and this environment cannot reach one — the route
+  (title -> creation -> 3D city -> Colosseum -> pre-fight -> "Step into Sand" -> a ~10-exchange fight)
+  costs far more than the preview tool's 30 s script budget at SwiftShader's ~1-2 fps, which is the
+  same limit the `duelResultLifecycle` final pass recorded (its character sheet alone timed out). The
+  exactly-once rule is therefore pinned by the suite (the pure replay test and §D's source ordering)
+  rather than observed. **Device check owed:** win one Colosseum duel and lose one, and confirm the
+  save gains `city.day` **2** after the first and **3** after the second (`localStorage` key
+  `sand_and_steel_gladiator_save_v2`), that leaving mid-bout through the HUD's Armory badge leaves the
+  day unchanged, and that a pre-existing save starts at day 1.
+
+- **Risks and limitations, stated rather than buried.** (a) Nothing consumes the day yet — L2's
+  rotation resolver is the first reader, so a wrong day would currently be invisible in play and only
+  visible in the save. (b) The clock advances on **duels only**; racing, travel and training do not
+  spend a day, which is a deliberate L1 choice (one authoritative event, per the audit) and not an
+  oversight — adding a second site is a later, explicit decision. (c) A save that arrives with a huge
+  or fractional `day` (a hand edit) is normalized on read, never repaired on write, so the stored value
+  stays as it was until the next completed duel. (d) The training/injury dormant fields
+  (`trainingSessionsLeft`, `injury.fightsRemaining`) are still unwired; the clock is the owner they
+  were waiting for, but nothing decrements them in this phase.

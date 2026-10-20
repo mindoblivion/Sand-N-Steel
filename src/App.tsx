@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize } from './types/game';
 import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
@@ -19,6 +19,7 @@ import { DuelResultModal } from './components/hub/DuelResultModal';
 import { HeraldToast } from './components/hub/HeraldToast';
 import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
+import { advanceCityDay } from './utils/cityClock';
 import type { BannerDevice } from './utils/heraldry';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
@@ -94,6 +95,16 @@ export function App() {
   // in memory only.
   const [cityReturnPose, setCityReturnPose] = useState<CityExitPose | null>(null);
   const [duelResult, setDuelResult] = useState<{ didWin: boolean; stats: DuelStatistics } | null>(null);
+  /**
+   * L1 (Living City) — the duel settlement's exactly-once latch. `DuelScene`
+   * already refuses a second outcome (`isMatchOver`), but App must not depend on
+   * another component for the one thing it cannot repeat: crediting a fight and
+   * turning the city's clock. Set when a settlement is handled and cleared only
+   * when a NEW duel is entered, so an effect that fires twice, a StrictMode
+   * remount or a stale delayed callback cannot pay a purse twice or advance the
+   * day twice. Nothing here is saved — it is view-lifetime bookkeeping.
+   */
+  const duelSettledRef = useRef(false);
   /**
    * RG-3 — the herald's cries and the one-time Device Choosing panel. Both are view
    * state only: the road's own writes go through `profile.road`, saved the normal way.
@@ -441,6 +452,9 @@ export function App() {
   };
 
   const handleEnterDuel = (opp: OpponentConfig) => {
+    // A fresh bout re-arms the settlement latch. Merely opening a duel never
+    // advances the day: only a completed settlement does (see handleMatchComplete).
+    duelSettledRef.current = false;
     setActiveOpponent(opp);
     sounds.playClick();
     setCurrentScreen('duel');
@@ -513,6 +527,20 @@ export function App() {
   const handleMatchComplete = (stats: DuelStatistics, didWin: boolean) => {
     if (!profile) return;
 
+    // Exactly one settlement per completed duel. The latch is re-armed by
+    // `handleEnterDuel`, so a callback that fires twice — a repeated effect, a
+    // StrictMode remount, a stale timer — cannot credit the fight or turn the day
+    // a second time.
+    if (duelSettledRef.current) return;
+    duelSettledRef.current = true;
+
+    // L1 — THE LIVING CITY'S CLOCK. One COMPLETED duel turns the day, and it turns
+    // in the SAME profile update this settlement already writes: the advanced clock
+    // is computed once, here, and carried into whichever branch settles this fight.
+    // A duel that is opened and then abandoned or cancelled never reaches this
+    // handler, so it never advances the day.
+    const city = advanceCityDay(profile).city;
+
     if (didWin) {
       const nextGold = profile.gold + stats.goldEarned;
       const nextFame = profile.fame + stats.fameEarned;
@@ -555,6 +583,7 @@ export function App() {
         defeatedOpponentIds: defeated,
         fightsWon: profile.fightsWon + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
+        city,
       };
 
       const settledProfile = evaluateRituals(profile, updatedProfile);
@@ -565,6 +594,7 @@ export function App() {
         ...profile,
         fightsLost: profile.fightsLost + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
+        city,
       };
       const settledProfile = evaluateRituals(profile, updatedProfile);
       setProfile(settledProfile);

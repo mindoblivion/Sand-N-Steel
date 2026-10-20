@@ -336,6 +336,25 @@ export interface RoadProgress {
   milestonesSeen?: string[];
 }
 
+/**
+ * L1 (Living City) — the in-game clock, stored on the gladiator save.
+ *
+ * Optional on `PlayerProfile` on purpose, exactly like `chariot`, `racing`,
+ * `story` and `road`: a save written before this phase has no `city` field at
+ * all and must keep loading, so `resolveCityDay()` (`src/utils/cityClock.ts`)
+ * resolves a missing, partial or malformed field to day 1 rather than repairing
+ * the save. Every member is optional for the same reason — `{}` is a legal city
+ * state and means day 1.
+ *
+ * `day` is the ONE authoritative in-game day: a positive integer, advanced by
+ * exactly one on each completed duel. There is no second counter, no real-world
+ * timestamp and no timer — nothing in this phase advances it on its own.
+ */
+export interface CityState {
+  /** The current in-game day. Positive integer; 1 when absent or unusable. */
+  day?: number;
+}
+
 export interface PlayerProfile {
   name: string;
   title: string;
@@ -401,4 +420,11 @@ export interface PlayerProfile {
    * named on `RoadProgress` above.
    */
   road?: RoadProgress;
+  /**
+   * L1 (Living City) — the in-game clock; absent on every save written before this
+   * phase, and written only by a completed duel's settlement
+   * (`App.handleMatchComplete`).  Never by `createNewProfile()`, never by a
+   * migration: a legacy save simply resolves to day 1.
+   */
+  city?: CityState;
 }
