@@ -331,7 +331,10 @@ const runLifecycle = async (handler: (event: any) => void) => {
   await Promise.all(waited);
 };
 
-const dispatchFetch = async (handlers: Map<string, (event: any) => void>, request: any) => {
+const dispatchFetch = async (
+  handlers: Map<string, (event: any) => void>,
+  request: any,
+): Promise<any> => {
   let responded: Promise<any> | null = null;
   handlers.get('fetch')!({ request, respondWith: (promise: any) => { responded = promise; } });
   return responded ? await responded : null;
@@ -350,6 +353,26 @@ const installedWorker = async (offlineBody = '<!doctype html><title>offline</tit
     const body = url.includes('offline.html') ? offlineBody : '<!doctype html><title>shell</title>';
     return makeResponse(body, new URL(url, ORIGIN).href);
   });
+
+/** The route an offline launch lands on. */
+const OFFLINE_ROUTE = '/some/route';
+
+/**
+ * The same worker, installed against a network that serves the shell — and then no
+ * connection at all. Only a navigation fails afterwards, which is exactly what an
+ * offline launch looks like once the shell is already on the device.
+ */
+const installedWorkerGoneOffline = async (offlineBody: string) => {
+  const worker = createWorker(async (input: any) => {
+    const url = typeof input === 'string' ? input : input.url;
+    const path = new URL(url, ORIGIN).pathname;
+    if (path === OFFLINE_ROUTE) throw new Error('offline');
+    const body = path === '/offline.html' ? offlineBody : '<!doctype html><title>shell</title>';
+    return makeResponse(body, new URL(url, ORIGIN).href);
+  });
+  await runLifecycle(worker.handlers.get('install')!);
+  return worker;
+};
 
 const offlineFetch = async () => {
   throw new Error('offline');
@@ -391,12 +414,30 @@ describe('F. The shipped worker, driven', () => {
     expect(cache.entries.has(keyOf('/some/route'))).toBe(false);
   });
 
-  test('an offline navigation falls back to the designed page and answers HTTP 200', async () => {
-    const worker = await installedWorker('<h1>The gates are closed — no connection.</h1>');
-    await runLifecycle(worker.handlers.get('install')!);
-    expect(worker.storage.stores.get('sand-steel-shell-v1')!.entries.has(keyOf('/offline.html'))).toBe(true);
+  test('an offline navigation falls back to the cached shell and answers HTTP 200', async () => {
+    const worker = await installedWorkerGoneOffline('<h1>The gates are closed — no connection.</h1>');
+    const cache = worker.storage.stores.get('sand-steel-shell-v1')!;
+    expect(cache.entries.has(keyOf('/index.html'))).toBe(true);
 
-    const response = await dispatchFetch(worker.handlers, navigationRequest('/some/route'));
+    const response = await dispatchFetch(worker.handlers, navigationRequest(OFFLINE_ROUTE));
+    expect(response).not.toBeNull();
+    expect(response.status).toBe(200);
+    // The app itself: the shell is cached so an offline launch still runs, rather
+    // than landing on the offline screen whenever the connection is gone.
+    expect(await response.text()).toContain('shell');
+    // One fixed key — the route itself is never stored.
+    expect(cache.entries.has(keyOf(OFFLINE_ROUTE))).toBe(false);
+  });
+
+  test('with no shell left the offline navigation serves the designed page as HTTP 200', async () => {
+    const worker = await installedWorkerGoneOffline('<h1>The gates are closed — no connection.</h1>');
+    const cache = worker.storage.stores.get('sand-steel-shell-v1')!;
+    expect(cache.entries.has(keyOf('/offline.html'))).toBe(true);
+    // Nothing left to serve the app from: both shell keys are gone.
+    cache.entries.delete(keyOf('/index.html'));
+    cache.entries.delete(keyOf('/'));
+
+    const response = await dispatchFetch(worker.handlers, navigationRequest(OFFLINE_ROUTE));
     expect(response).not.toBeNull();
     expect(response.status).toBe(200);
     expect(await response.text()).toContain('The gates are closed — no connection.');
