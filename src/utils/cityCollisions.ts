@@ -123,7 +123,7 @@ export interface InteractiveLocation {
   position: [number, number, number];
   radius: number;
   icon: string;
-  tabKey?: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | null;
+  tabKey?: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library' | null;
   /**
    * Phase C-8.66B — which subview of `tabKey` the interaction opens, for the one
    * hub that needs it.  The Imperial Stable opens the gear tab straight onto the
@@ -346,7 +346,11 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     position: [23.1, 0, -30],
     radius: 4.5,
     icon: 'BookOpen',
-    tabKey: 'stats',
+    // Progression Slice 1: the building opens its own Library view (the Records &
+    // Lore Library tab), whose first page is the Road of Glory.  Everything else
+    // about this hub — its centre, radius, prompt, colour and district — is
+    // exactly as it was; only the door it opens changed.
+    tabKey: 'library',
     actionPrompt: 'Read Ancient Scrolls',
     color: '#9333ea',
     district: 'NORTH',
