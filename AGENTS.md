@@ -4523,3 +4523,53 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   row set above is the one the shipped module and its suite pin; if \u00a72 lists a row this panel does
   not show, the design governs and the row should be added the same way Race Camera Distance was
   (wire the consumer first, then show the row).
+
+## STORY-1 — campaign state and the campaign card (implemented)
+
+- **What ships.** `PlayerProfile.story?` (`src/types/game.ts`, every subfield optional); the pure
+  read path `src/utils/storyState.ts` (`resolveStoryState`) plus the derived rank in
+  `src/utils/rank.ts`; and the presentational `src/components/hub/CampaignCard.tsx`, mounted at the
+  head of `StatsTab` — the Records & Lore Library view (`records_house` opens `tabKey: 'stats'`).
+  Nothing writes `story`: `createNewProfile()` still emits no field, there is no migration, and both
+  new modules import no storage. The stored `rank` field is ignored; the rank the campaign reads is
+  derived from fame / `currentTier` / `defeatedOpponentIds`.
+- **The campaign's rules, all in `storyState.ts`.** The chapter (0–7) is DERIVED, never stored: the
+  current chapter is the first one that still has an unmet gate, and a gate is `'pending'` when its
+  owning system has not landed (the District race beats and the omen), so pending gates never hold a
+  chapter shut. Both consequences are load-bearing and are asserted directly in the suite: a
+  Goliath-down profile resolves to Chapter 3 (not 2), and a profile that has met every available gate
+  reaches Chapter 7 and the Legend state. The Oath gate is also met by the grandfather rule
+  (`fightsWon > 0`, or a `road.oathSworn === true` field read structurally), which is how saves
+  written before this slice stay playable. Malformed input of any shape resolves to the defaults and
+  never throws or mutates the profile — the `resolveRacingState` contract.
+- **Three test assertions had been failing; all three were test-side, and no source changed.**
+  (1) The rank suite's object-literal guard `/rank:\s*\w+,/` was satisfied by `rankAtLeast`'s own
+  **parameter declaration** (`rank: GladiatorRank,`) — a rank *value*, not the stored field — so it is
+  now anchored on `{`/`,` (`/[{,]\s*rank\s*:/`) and the two fixtures are typed. (2) §B7 read the dice
+  gate off a profile that had already met it: a met gate closes Chapter 4 and moves the player to
+  Chapter 5, so the gate is no longer among the gates the resolver returns; the test now asserts that
+  advance (and that an unknown enum name does not move the chapter) instead of re-reading the gate.
+  (3) §B9's final walk step never raised fame to the Legend threshold, so Chapter 7 resolved as
+  current-but-unclosed; the step now carries `RANK_THRESHOLDS.legend`. No assertion was weakened and
+  no production file was involved in the repair.
+- **Verified 2026-10-20** in the dev container: `bun test src/utils/storyState.test.ts` → **34 pass /
+  0 fail** (188 expect() calls); `bun test` → **2169 pass / 0 fail (69 files, 65688 expect()
+  calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only);
+  `git diff --check` → clean. The dev server serves all four modules (HTTP 200).
+- **Live check, and what could not be captured.** Drove the real route in the preview browser (no
+  save in that browser): title → `Play` → the character-creation confirm →
+  **3D city hub** → the footer's own `Gladiator Stats` shortcut → the Records & Lore Library view,
+  where the card was present in the DOM with `data-chapter="0"`, `data-campaign-complete="false"`,
+  `data-story-gate="oath-sworn:unmet"`, the Chapter-0 title/beat and the unmet requirement — i.e. the
+  fresh-profile state, **0 console errors** throughout, and the card shown as the first child of the
+  view. **No clean frame of it was obtained:** the capture caught the city's asset-loading overlay
+  (`ENTERING THE ARENA`), and the follow-up attempt to re-reach the view did not land inside the
+  script budget (the hub renders at ~2 fps through SwiftShader, the limit C-8.36…C-8.65 recorded).
+  **The card's rendered appearance is therefore a device question and is NOT automatically verified
+  here** — check it on Android: the card heads the library view, the chapter line reads
+  `Campaign · Chapter 0` with a serif title, the three dot states (met ✔ / unmet ◆ / pending …) read
+  distinctly, and the Legend line appears only once every chapter is closed.
+- **Not attempted:** anything that would write `story`. The slice is a read path; the race and omen
+  systems that would meet the two `'pending'` gates do not exist on this branch, and the card says so
+  in words rather than showing an unmet requirement the player could not satisfy.

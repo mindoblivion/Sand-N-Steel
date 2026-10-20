@@ -154,8 +154,13 @@ describe('§A the derived rank', () => {
 
   test('the stored `rank` field is ignored, not read', () => {
     expect(deriveRank({ ...fresh(), rank: 'Legend' })).toBe('Rookie');
+    // Reading the stored field would be a `.rank` access; the module has none.
     expect(rankSource).not.toMatch(/\.rank\b/);
-    expect(codeOf(rankSource)).not.toMatch(/\brank:\s*\w+,/);
+    // …and writing one would be an object-literal key.  The pattern anchors on a
+    // `{` or a `,` so it cannot be satisfied by `rankAtLeast`'s own parameter
+    // declaration (`rank: GladiatorRank,`) — that is a rank VALUE, not the stored
+    // field this test is about.
+    expect(codeOf(rankSource)).not.toMatch(/[{,]\s*rank\s*:/);
   });
 
   test('`rankAtLeast` orders the four ranks', () => {
@@ -284,14 +289,25 @@ describe('§B the chapter boundaries', () => {
     expect(state.chapter).toBe(4);
     expect(gateOf(beforeDice, 'dice-ending').state).toBe('unmet');
     expect(gateOf(beforeDice, 'league-promotion').state).toBe('pending');
-    const rolled = { ...beforeDice, story: { librarySeen: true, diceEnding: 'refused' } };
-    expect(gateOf(rolled, 'dice-ending').state).toBe('met');
-    expect(storyGateLine(gateOf(rolled, 'dice-ending'))).toBe('The dice have fallen.');
-    // An unknown enum name is not evidence.
-    expect(
-      gateOf({ ...beforeDice, story: { librarySeen: true, diceEnding: 'folded' } }, 'dice-ending')
-        .state
-    ).toBe('unmet');
+    const rolled: PlayerProfile = {
+      ...beforeDice,
+      story: { librarySeen: true, diceEnding: 'refused' },
+    };
+    // …and a met gate CLOSES its chapter: once the dice have fallen, Chapter 4 is
+    // closed on its available gates and the chapter in front of the player is 5, so
+    // the dice gate is no longer one of the gates the resolver hands back.  That
+    // advance is the property §B6's Legend state depends on.
+    const rolledState = resolveStoryState(rolled);
+    expect(rolledState.chapter).toBe(5);
+    expect(rolledState.gates.some((gate) => gate.id === 'dice-ending')).toBe(false);
+    // An unknown enum name is not evidence, so the chapter does not move.
+    // Deliberately wrong-typed input, so the cast is the point of the fixture.
+    const folded = {
+      ...beforeDice,
+      story: { librarySeen: true, diceEnding: 'folded' },
+    } as unknown as PlayerProfile;
+    expect(resolveStoryState(folded).chapter).toBe(4);
+    expect(gateOf(folded, 'dice-ending').state).toBe('unmet');
   });
 
   test('B8 — the chapter table is the eight authored chapters, in order', () => {
@@ -334,6 +350,11 @@ describe('§B the chapter boundaries', () => {
     expect(resolveStoryState(profile).chapter).toBe(6);
     profile = {
       ...profile,
+      // Chapter 7's own gate IS the rank, so the walk has to arrive at Legend:
+      // 1,500 fame AND a Tier-4 boss in the record.  Without them the chapter
+      // resolves as current-but-unclosed, which is what the assertion below caught.
+      fame: RANK_THRESHOLDS.legend.fame,
+      currentTier: RANK_THRESHOLDS.legend.currentTier,
       defeatedOpponentIds: [bossId(1), bossId(2), bossId(3), bossId(4)],
       story: { librarySeen: true, diceEnding: 'cut', trialDone: true, summitSeen: true },
     }; // → Ch 7, closed
