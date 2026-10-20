@@ -16,10 +16,16 @@ import {
   Cloud,
   Trash2,
   Check,
+  Gauge,
 } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { VOLUME_MAX, VOLUME_MIN, updateSettings } from '../../services/settings';
-import type { Brightness, CameraDistance, Settings as SettingsRecord } from '../../services/settings';
+import type {
+  Brightness,
+  CameraDistance,
+  QualityPreset,
+  Settings as SettingsRecord,
+} from '../../services/settings';
 import { useSettings } from '../../hooks/useSettings';
 
 /** The five sections of §1.3, in the design's order. */
@@ -321,6 +327,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { value: 'bright', label: 'Bright' },
   ];
 
+  /**
+   * SF-1 — the picture-quality preset's three names.  §SET-1 carried the field as a
+   * named attachment point with no consumer, which is why it had no row; the city's
+   * DPR band and dust budget read it now, and that is what makes this row a wired one.
+   */
+  const qualityOptions: ReadonlyArray<{ value: QualityPreset; label: string }> = [
+    { value: 'cinematic', label: 'Cinematic' },
+    { value: 'balanced', label: 'Balanced' },
+    { value: 'swift', label: 'Swift' },
+  ];
+
   const distanceOptions: ReadonlyArray<{ value: CameraDistance; label: string }> = [
     { value: 'near', label: 'Near' },
     { value: 'standard', label: 'Standard' },
@@ -395,6 +412,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="flex-1 min-w-0 overflow-y-auto flex flex-col gap-3 pr-1">
             {category === 'picture' && (
               <>
+                {/* SF-1 — the governor: it sets the city's DPR band and its dust
+                    budget, and Swift stops the drifting atmosphere too. */}
+                <ChoiceRow
+                  label="Picture Quality"
+                  description="How much picture the city draws. Cinematic is the richest, Swift the smoothest."
+                  icon={<Gauge className="w-5 h-5" />}
+                  options={qualityOptions}
+                  value={settings.qualityPreset}
+                  onChange={(qualityPreset) => set({ qualityPreset })}
+                />
                 <ChoiceRow
                   label="Brightness"
                   description="How bright the world is drawn."
