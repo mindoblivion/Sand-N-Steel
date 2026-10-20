@@ -5189,3 +5189,47 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   SwiftShader at ~1–2 fps (the duel-mount attempt timed out at 30 s), so neither the paid figure nor
   the breakdown rows were seen rendered. They are pinned by the suite above; confirm by winning one
   Colosseum duel on a device.
+
+## Selling corrections — CORR-1 (C-2 / C-3 / C-4 / C-6 — implemented)
+
+- **A sale is one instance (C-3).** `utils/selling.ts`'s `sellItem()` no longer filters every
+  entry of the sold id: it finds the FIRST matching index and removes only that entry, paying once.
+  Two copies of one id therefore leave one copy and one credit.
+- **Eligibility counts copies, it does not look the id up (C-4).** `getSellEligibility()` is
+  `carried > equipped`, where `equipped` is how many equipped slots hold that id. The starter
+  gladius sits in BOTH `equipped.weapon` and `inventory`, so the worn copy explains one entry and
+  any further entry is a spare that sells; when the inventory holds no more copies than the
+  equipment explains, the only copy left is the worn one and the refusal stays `equipped`. The same
+  rule covers the four armor slots. Prices, `sellPrice` values, the 25 % temper refund rate and the
+  refusal set are unchanged; `sellItem` is still pure and still writes only through `saveProfile()`.
+- **The sell surface moved to the Armory (C-2, one surface only).** `components/hub/GearTab.tsx`
+  puts a two-tap Sell control on every carried weapon/armor card that is not the worn copy, showing
+  `getTemperSellValue(profile, item)` (`sellPrice` + 25 % of temper gold). The first tap arms it
+  (`Confirm?`, red), the second sells through the existing `onSellItem → App.handleSellItem →
+  saveProfile` path; the arm lapses after `SELL_CONFIRM_ARM_MS` (3 s) or when the profile changes
+  under it. Cards are keyed `id#index` and the worn copy is resolved by index, so a spare with the
+  worn id renders as a spare (Equip + Sell) instead of a second `Equipped`. `ShopTab`'s catalogue
+  cards no longer offer any sell control and its `onSellItem` prop is gone — the Bazaar buys only,
+  and every other ShopTab behaviour is untouched.
+- **Purse wording (C-6).** `PreFightModal`'s "Base Bounty" row and `TournamentTab`'s reward row now
+  read `from {rewardGold} Gold`; the bounty has been a floor rather than the payout since the
+  performance purse landed. Layout and every other line are unchanged; no test pinned the old
+  string.
+- **Tests.** `src/utils/selling.test.ts` gained the S3 cases (two copies → one sale → one copy and
+  one credit; starter gladius worn + a spare → the spare sells; the armor-slot equivalent).
+  `src/utils/sellingSurface.test.ts` (new) renders the real components with `react-dom/server`:
+  the Bazaar markup carries no sell control, the Armory offers one control per spare at its
+  effective value (temper refund included) and none on the worn card, a second copy of the worn id
+  is a spare, and both purse surfaces read "from N Gold".
+- **Validation (2026-10-20).** `bun test` → **2413 pass / 0 fail (80 files)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0 with the startup asset check passing (8 assets); `git diff
+  --check` → clean.
+- **Not automatically verified — the browser gesture.** The Armory is only reachable through
+  title → character creation → the oath beat → the city, and this sandbox renders those 3D screens
+  through SwiftShader: the creation screen had not mounted after a 20 s wait, and a seeded
+  `localStorage` save does not survive the preview browser's fresh loads (the title came up
+  `PLAY`, not `Continue`). So the two-tap confirm (arm → sell, and the 3 s lapse), the gold credit
+  and the saved-inventory shrink were **not** dispatched in a browser. They are pinned by the
+  suites above plus the shipped `sellItem`/`onSellItem` path; confirm on a device by selling the
+  starter spear from the Armory.

@@ -15,10 +15,13 @@
  *     `ITEMS_DB` are shared data, so a re-bought sword must start at level 0
  *     rather than inherit the levels its previous owner paid for.
  *
- * An item is sellable only while it sits in `inventory` and is NOT equipped:
- * `equipped.weapon` is a required field, so unequipping-by-selling a weapon
- * would leave the profile in a state no other code expects.  The player unequips
- * first, exactly as they would in a real armoury.
+ * A sale is an instance, not an id (C-3/C-4): it removes exactly ONE inventory
+ * entry and pays once.  The equipped copy itself is never sellable — `equipped.weapon`
+ * is a required field, so unequipping-by-selling a weapon would leave the profile in a
+ * state no other code expects — but the starter gladius genuinely sits in BOTH
+ * `equipped.weapon` and `inventory`, so eligibility counts copies instead of looking the
+ * id up: equipment explains one inventory entry, and every entry beyond that count is a
+ * spare that sells under the normal rule.
  */
 
 import { PlayerProfile } from '../types/game';
@@ -28,18 +31,18 @@ import { getTemperSellValue } from './tempering';
 /** Why a sale was refused.  `ok: true` never carries a reason. */
 export type SellRejectionReason = 'no-profile' | 'unknown-item' | 'not-owned' | 'equipped';
 
-/** Whether the player owns this id in `inventory` (an equipped item is not sellable). */
-function isInInventory(profile: PlayerProfile, itemId: string): boolean {
-  return profile.inventory.some((item) => item?.id === itemId);
+/** How many `inventory` entries carry this id. */
+function inventoryCount(profile: PlayerProfile, itemId: string): number {
+  return profile.inventory.filter((item) => item?.id === itemId).length;
 }
 
-/** Whether the id currently occupies one of the equipped slots. */
-function isEquipped(profile: PlayerProfile, itemId: string): boolean {
+/** How many equipped slots hold this id — the copies the equipment already explains. */
+function equippedCount(profile: PlayerProfile, itemId: string): number {
   const equipped = profile.equipped;
-  if (!equipped) return false;
-  return [equipped.weapon, equipped.helm, equipped.chest, equipped.arms, equipped.legs].some(
+  if (!equipped) return 0;
+  return [equipped.weapon, equipped.helm, equipped.chest, equipped.arms, equipped.legs].filter(
     (item) => item?.id === itemId
-  );
+  ).length;
 }
 
 /** The gold a sale of `itemId` pays this profile, or 0 when the item is unknown. */
@@ -50,8 +53,13 @@ export function getSellValue(profile: PlayerProfile | null | undefined, itemId: 
 }
 
 /**
- * The sell rules, read out before a caller draws a control: the item must exist,
- * be carried in the inventory, and not be equipped.
+ * The sell rules, read out before a caller draws a control: the item must exist and
+ * at least one carried copy must be explained by no equipment.
+ *
+ * Eligibility is counted, not looked up by id (C-4): the equipped copy accounts for
+ * one inventory entry — the starter gladius genuinely sits in both — and every entry
+ * beyond that count is a spare.  When the inventory holds no more copies than the
+ * equipment explains, the only copy left is the one being worn, and it is `equipped`.
  */
 export function getSellEligibility(
   profile: PlayerProfile | null | undefined,
@@ -59,8 +67,9 @@ export function getSellEligibility(
 ): { ok: true } | { ok: false; reason: SellRejectionReason } {
   if (!profile) return { ok: false, reason: 'no-profile' };
   if (!getItemById(itemId)) return { ok: false, reason: 'unknown-item' };
-  if (!isInInventory(profile, itemId)) return { ok: false, reason: 'not-owned' };
-  if (isEquipped(profile, itemId)) return { ok: false, reason: 'equipped' };
+  const carried = inventoryCount(profile, itemId);
+  if (carried === 0) return { ok: false, reason: 'not-owned' };
+  if (carried <= equippedCount(profile, itemId)) return { ok: false, reason: 'equipped' };
   return { ok: true };
 }
 
@@ -69,8 +78,9 @@ export function getSellEligibility(
  *
  * PURE: a refusal returns the caller's own profile object, untouched (same
  * reference).  A success returns a NEW profile with the sale value added to
- * `gold`, the item dropped from `inventory`, and that item's temper entry
- * removed — the owned item objects themselves are never modified.
+ * `gold`, exactly ONE matching entry dropped from `inventory` (the first — a sale
+ * is one instance, C-3), and that item's temper entry removed — the owned item
+ * objects themselves are never modified.
  */
 export function sellItem(profile: PlayerProfile, itemId: string): PlayerProfile {
   if (!getSellEligibility(profile, itemId).ok) return profile;
@@ -78,10 +88,13 @@ export function sellItem(profile: PlayerProfile, itemId: string): PlayerProfile 
   const item = getItemById(itemId);
   if (!item) return profile; // unreachable: eligibility already resolved it
 
+  const soldAt = profile.inventory.findIndex((owned) => owned?.id === itemId);
+  const inventory = profile.inventory.filter((_, index) => index !== soldAt);
+
   const next: PlayerProfile = {
     ...profile,
     gold: profile.gold + getTemperSellValue(profile, item),
-    inventory: profile.inventory.filter((owned) => owned?.id !== itemId),
+    inventory,
   };
 
   // Drop the temper record with the item, and leave the field absent on a save

@@ -65,7 +65,7 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
 
                 {/* REWARDS */}
                 <div className="flex items-center gap-3 text-xs font-mono bg-neutral-950/80 p-2.5 rounded-xl border border-neutral-800 mb-4">
-                  <span className="text-yellow-400 font-bold">+{opp.rewardGold} Gold</span>
+                  <span className="text-yellow-400 font-bold">from {opp.rewardGold} Gold</span>
                   <span className="text-purple-400 font-bold">+{opp.rewardFame} Fame</span>
                   <span className="text-cyan-400 font-bold">+{opp.rewardXp} XP</span>
                 </div>

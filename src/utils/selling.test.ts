@@ -2,15 +2,16 @@
  * Selling — the market buy-back regression tests (pure logic, no UI).
  *
  * ── WHAT THIS SUITE PINS ──────────────────────────────────────────────────
- *   §A  eligibility: only an item carried in `inventory` and not equipped is
- *       sellable; unknown ids, unowned ids and the equipped weapon are refused
- *       with a reason rather than throwing;
+ *   §A  eligibility: a carried entry that the equipment does not explain is
+ *       sellable (copies are counted, so a starter gladius worn AND carried still
+ *       leaves its spare sellable, C-4); unknown ids, unowned ids and the worn copy
+ *       alone are refused with a reason rather than throwing;
  *   §B  the value: an untempered item pays exactly its own `sellPrice`, a
  *       tempered one adds 25 % of the temper gold spent, and an unknown id is
  *       worth 0;
- *   §C  the transaction: a success credits the gold, drops the item from the
- *       inventory and clears that item's temper record, returns a new profile
- *       and never modifies the input or a shared catalogue item object;
+ *   §C  the transaction: a success credits the gold, drops exactly ONE matching
+ *       entry from the inventory (C-3), clears that item's temper record, returns a
+ *       new profile and never modifies the input or a shared catalogue item object;
  *   §D  the refusals: every refused sale returns the caller's own frozen
  *       profile, identical, so no click can move gold or lose an item.
  *
@@ -95,6 +96,28 @@ describe('P1 sell §A — eligibility', () => {
     expect(getSellEligibility(p, GLADIUS.id)).toEqual({ ok: false, reason: 'equipped' });
   });
 
+  // C-4 scope 4 — the starter gladius is both worn and carried, so the id alone
+  // cannot decide: one copy is the equipped one, the second is a spare.
+  test('the equipped gladius plus a spare gladius: the spare is sellable', () => {
+    const p = profile((prof) => (prof.inventory = [GLADIUS, { ...GLADIUS }]));
+    expect(getSellEligibility(p, GLADIUS.id)).toEqual({ ok: true });
+  });
+
+  test('the same counting rule for an armor slot: the spare sells, the worn copy alone does not', () => {
+    const worn = { ...MURMILLO };
+    const spare = profile((prof) => {
+      prof.equipped = { ...prof.equipped, helm: worn };
+      prof.inventory = [GLADIUS, worn, { ...MURMILLO }];
+    });
+    expect(getSellEligibility(spare, MURMILLO.id)).toEqual({ ok: true });
+
+    const onlyWorn = profile((prof) => {
+      prof.equipped = { ...prof.equipped, helm: worn };
+      prof.inventory = [GLADIUS, worn];
+    });
+    expect(getSellEligibility(onlyWorn, MURMILLO.id)).toEqual({ ok: false, reason: 'equipped' });
+  });
+
   test('an unowned item and an unknown id are refused with their own reasons', () => {
     const p = profile();
     expect(getSellEligibility(p, MURMILLO.id)).toEqual({ ok: false, reason: 'not-owned' });
@@ -142,6 +165,27 @@ describe('P1 sell §C — the transaction', () => {
     // The input is untouched.
     expect(before.gold).toBe(100);
     expect(before.inventory.length).toBe(2);
+  });
+
+  // C-3 — a sale is one instance, not one id: two copies, one credit, one left.
+  test('two copies of one id: a sale removes exactly one and pays once', () => {
+    const before = profile((p) => (p.inventory = [GLADIUS, TITAN, { ...TITAN }]));
+    const after = sellItem(before, TITAN.id);
+
+    expect(after.gold).toBe(100 + TITAN.sellPrice);
+    expect(after.inventory.filter((i) => i.id === TITAN.id)).toHaveLength(1);
+    expect(after.inventory.map((i) => i.id)).toEqual([GLADIUS.id, TITAN.id]);
+    expect(before.inventory).toHaveLength(3);
+  });
+
+  // C-4 scope 4 — the spare sells, and the worn gladius is still the one wielded.
+  test('the spare starter gladius sells and the equipped gladius stays equipped', () => {
+    const before = profile((p) => (p.inventory = [GLADIUS, { ...GLADIUS }]));
+    const after = sellItem(before, GLADIUS.id);
+
+    expect(after.gold).toBe(100 + GLADIUS.sellPrice);
+    expect(after.inventory.map((i) => i.id)).toEqual([GLADIUS.id]);
+    expect(after.equipped.weapon.id).toBe(GLADIUS.id);
   });
 
   test('selling an item clears its temper record and keeps the rest', () => {
