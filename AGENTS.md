@@ -5492,3 +5492,78 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   guest profile's 100 gold affords none of them, and a purchase would write a save this phase must not
   touch), and the **gear screen's** rendering of an owned piece — the shop list above is the one screen
   checked live, the data pins are the suite's.
+
+## Storefront wiring — each building opens its own stock (Phase SHOP-2 — implemented, validated)
+
+- **What ships.** Phase SHOP-1's catalogue (`src/data/shops.ts`) now has consumers: every
+  commercial building in the city opens the SHOP tab on its OWN storefront, and `ShopTab` renders
+  that storefront's ids. Seven files: `src/utils/cityCollisions.ts` (the optional `shopId`),
+  `src/components/3d/city/CityHubScene.tsx` (it hands the id to `onOpenTab`), `src/App.tsx` (the
+  `shopId` state and the tab router), `src/components/hub/GladiatorSchoolHub.tsx` (it passes the id
+  through), `src/components/hub/ShopTab.tsx` (the storefront screen), `src/data/shops.ts` (its
+  header comment now names its consumer), plus the new suite `src/utils/storefrontWiring.test.ts`
+  (20 tests) and **two rebased guards** (`src/utils/storefrontCatalogue.test.ts` §G,
+  `src/utils/phaseC8_66b.test.ts` §G).
+- **The mapping, and why each building's id is the one it is.**
+  `smithing_forge → 'forge'` (every weapon but the starter), `armor_workshop → 'armorer'` (all six
+  armor pieces), `general_store → 'bazaar'` (empty by design), `merchant_house → 'merchant'` (the
+  rare/legendary six), and the hub's own tab — which no city building raises — keeps `'market'`
+  (the whole catalogue), exactly what that tab always showed. `shopId` is optional and
+  back-compatible in the same style as C-8.66B's `subTab`, so a hub that sells nothing passes
+  nothing.
+- **The one defect this fixes: the Armor & Leather Workshop opened the Armory.** Its `tabKey` was
+  `'gear'`, and the Armory equips owned gear — it has nothing to sell, so walking to the tannery
+  and pressing interact led to a screen with no wares at all. It now opens the SHOP tab's armorer
+  storefront. Its id, position, radius, icon, colour, district, prompt behaviour and arrival are
+  unchanged, as is the stable's `subTab: 'chariot'` (which gained no `shopId`).
+- **The screen.** `ShopTab` takes an optional `shopId` (default `'market'`), resolves
+  `getStorefrontStock(shopId)` and renders those ids — grouped into the existing Weapons / Armor
+  sections so the open market is pixel-for-pixel the screen it was, with the section that has no
+  stock simply absent. Each storefront has its own title/subtitle, and a storefront with no stock
+  says so instead of listing goods it does not trade in: the bazaar reads **"The Bazaar's potion
+  stock arrives with the medicus trade"**, and nothing else about it pretends to be a stock list.
+  **Purchase behaviour is untouched**: the same `onBuyItem` handler, the same owned/afford logic and
+  the same button sizes (the touch-parity floor the hub buttons already set).
+- **The tab router.** `handleOpenHubTab(tab, gearSubview?, shopStorefront?)` sets the storefront
+  only when the SHOP tab is opened, defaulting to `'market'`, and the hub's own navigation row goes
+  through a new `handleHubTabChange`, so choosing "Bazaar & Forge" from the hub itself always means
+  the open market — a city building's storefront can only arrive through the city interaction.
+- **Copy fixes in the same pass** (`cityCollisions.ts` actionPrompts; the prompt banner in
+  `CityHubScene` renders them verbatim): forge `Buy Weapons & Armor → Buy Weapons`; armor_workshop
+  `Forge Armor & Accessories → Buy Armor & Accessories`; tavern `Gather Intel & Rest → Hear Rumors`;
+  bathhouse `Rest in Bathhouse Thermae → Visit the Thermae`. The general store's and the merchant
+  house's prompts are unchanged. **The doctore_house notice was already fixed by the Polish Pack §3
+  and was not touched.** (`CityHubScene` carries no separate tavern/bathhouse notice copy — checked
+  — so the banner is the only surface those two strings reach.)
+- **Two guards rebased, not weakened.** `storefrontCatalogue.test.ts` §G's "no component consumes
+  the storefront layer yet" is now an **exact list** of the three components that consume it (the
+  screen that renders a storefront's stock, and the two that carry the id to it), scanned
+  comment-stripped so prose cannot satisfy it; `phaseC8_66b.test.ts` §G's
+  `onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab)` became the three-argument call, with the chariot
+  subview still asserted (`subTab?: 'chariot'`, `subTab: 'chariot'`, and the file's `chariot` token
+  count still exactly 2). No assertion was removed or relaxed.
+- **Validation (2026-10-20, dev container — all five commands run and evidenced).** `bun test` →
+  **2173 pass / 0 fail (70 files, 65,667 `expect()` calls)** — the branch tip before this phase read
+  2153 / 69, so the delta is this suite's 20 tests and its file; `bun run scripts/collisionTests.ts`
+  → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` →
+  **exit 0** with the startup-asset check passing (8 assets; the pre-existing >500 kB chunk warning
+  only); `git diff --check` → **clean (exit 0)**.
+- **Live evidence (preview browser, anonymous visitor — no session was replayed).** Driven through
+  the app's own route: title → `Play as Guest` → the creation screen's CTA → the 3D city hub → the
+  map drawer's fast-travel entries. The player's save was snapshotted before the runs and restored
+  afterwards (`saveRestored: true`; the disposable guest profile was removed, and no purchase record
+  was left behind).
+  | building | driven | seen |
+  |---|---|---|
+  | Imperial Smithing Forge | fast travel, then walked east (`KeyD`) to its doorway | prompt **`BUY WEAPONS`** → the shop tab reading **IMPERIAL SMITHING FORGE / Weapons & Armaments**, 10 weapon cards (9 "Buy Weapon" + the spare starter already `OWNED`), **no armor section** |
+  | (the purchase) | clicked `Buy Weapon (90 Gold)` on the forge screen | gold **100 → 10** — one deduction — the card became `OWNED`, the Armory then listed **Legionary Pugio Dagger**, and the hub's own **Bazaar & Forge** tab showed **14 buy + 3 owned = all 17 items**, i.e. the full market |
+  | Armor & Leather Workshop | fast travel `Armor & Leather Workshop` → prompt → interact | **ARMOR & LEATHER WORKSHOP / Armor, Helmets & Accessories**, six armor cards, **no weapons section** (captured frame; that call reached the 30 s script budget before returning its log, so this row is screenshot evidence rather than a returned assertion) |
+  | Bazaar & General Store | fast travel → prompt `VISIT BAZAAR MERCHANT` → interact | **BAZAAR & GENERAL STORE**, the empty-state sentence exactly, and **0 buy buttons** |
+  | Elite Merchant House | fast travel → prompt `INSPECT HIGH-TIER WARES` → interact | **ELITE MERCHANT HOUSE / Rare & Legendary Wares**, 6 cards (4 weapons + 2 armor), and no common/uncommon item anywhere on the screen |
+- **Not automatically verified.** (a) **The rendered storefront copy on the target device** — the
+  sandbox frames are software-rendered (SwiftShader, ~1–2 fps in the city hub) and two of the four
+  travel cycles each cost a whole preview call's budget, so the reading of the new titles, subtitles
+  and prompt strings on a phone remains a device item. (b) **The tavern's and the bathhouse's new
+  prompt strings in the running banner** — they are pinned in source and asserted by the suite, but
+  neither building was walked to in the live pass. (c) Anything behind a login: no session was
+  replayed, so every run used the app's own guest path.

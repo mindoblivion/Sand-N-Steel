@@ -17,7 +17,9 @@
  *   §F  the item catalogue itself is untouched — the counts and the
  *       load-bearing `ALL_WEAPONS` order (index 2 is the spare starter);
  *   §G  the scope guard — `shops.ts` derives from `ITEMS_DB` fields (no id or
- *       price table of its own) and no component consumes it yet.
+ *       price table of its own), and exactly three components consume it: the
+ *       shop screen the storefront wiring added (Phase SHOP-2) and the two
+ *       components that carry a storefront id to it.
  *
  * The expected lists below are written out literally on purpose: they are the
  * specification, so a change to a shipped storefront has to be acknowledged
@@ -234,7 +236,7 @@ describe('SHOP-1 §F — the item catalogue itself is untouched', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-describe('SHOP-1 §G — scope guard: derived from fields, no consumers yet', () => {
+describe('SHOP-1 §G — scope guard: derived from fields, one consumer', () => {
   test('shops.ts derives from itemsDB and carries no id or price table of its own', () => {
     expect(SHOPS_SRC).toContain("from './itemsDB'");
     for (const id of [
@@ -250,9 +252,22 @@ describe('SHOP-1 §G — scope guard: derived from fields, no consumers yet', ()
     expect(SHOPS_SRC).not.toContain('sellPrice');
   });
 
-  test('no component consumes the storefront layer yet (data layer only)', () => {
+  test('exactly one component renders the storefront layer, and two carry the id to it', () => {
     const components = filesUnder(path('../components'));
-    const consumers = components.filter((file) => /['"][^'"]*\/shops['"]/.test(load(file)));
-    expect(consumers).toEqual([]);
+    // Comments are stripped: a file may name the module in prose without consuming it.
+    const consumers = components
+      .filter((file) => /['"][^'"]*\/shops['"]/.test(code(file)))
+      .sort();
+    // Phase SHOP-2 wired the layer up: `ShopTab` renders a storefront's stock, and
+    // the two components that carry the storefront id to it — the city scene, which
+    // raises the interaction, and the hub screen in between — import its type. No
+    // other component consumes the catalogue layer.
+    expect(consumers).toEqual(
+      [
+        path('../components/3d/city/CityHubScene.tsx'),
+        path('../components/hub/GladiatorSchoolHub.tsx'),
+        path('../components/hub/ShopTab.tsx'),
+      ].sort()
+    );
   });
 });

@@ -925,7 +925,9 @@ describe('C-8.66B §G — workshop access, navigation and untouched city geometr
   });
 
   test('the city scene hands the subview to the router callback', () => {
-    expect(citySceneSrc).toContain('onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab)');
+    // Phase SHOP-2 added the third argument (the shop tab's storefront); the
+    // subview hint itself is unchanged and still handed through in second place.
+    expect(citySceneSrc).toContain('onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId)');
     expect(citySceneSrc).toContain('subTab?:');
     // The old "under construction" stable notice is gone.
     expect(citySceneSrc).not.toContain('Under construction by order of the Emperor');

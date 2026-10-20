@@ -7,6 +7,7 @@ import { GearView, GearTab } from './GearTab';
 import { StatsTab } from './StatsTab';
 import { LibraryTab } from './LibraryTab';
 import { BannerRow } from './BannerRow';
+import type { StorefrontId } from '../../data/shops';
 import { PreFightModal } from './PreFightModal';
 import { HelpModal } from './HelpModal';
 import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
@@ -26,6 +27,12 @@ interface GladiatorSchoolHubProps {
   onEquipArmor: (armor: ArmorItem) => void;
   /** Armory subview (Phase C-8.66B); 'chariot' is what the Imperial Stable opens. */
   gearView?: GearView;
+  /**
+   * Phase SHOP-2 — the shop tab's storefront: the one the city building the
+   * player walked into sells, or `'market'` (the default) for the whole
+   * catalogue the hub's own Bazaar & Forge tab has always shown.
+   */
+  shopId?: StorefrontId;
   onGearViewChange?: (view: GearView) => void;
   onBuyChariotPart?: (partId: string) => void;
   onEquipChariotPart?: (partId: string) => void;
@@ -54,6 +61,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onEquipWeapon,
   onEquipArmor,
   gearView = 'armory',
+  shopId = 'market',
   onGearViewChange,
   onBuyChariotPart,
   onEquipChariotPart,
@@ -177,7 +185,12 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           <TrainingTab profile={playerProfile} onTrainStat={onTrainStat} />
         )}
         {activeTab === 'shop' && (
-          <ShopTab profile={playerProfile} onBuyItem={onBuyItem} onSellItem={onSellItem} />
+          <ShopTab
+            profile={playerProfile}
+            onBuyItem={onBuyItem}
+            onSellItem={onSellItem}
+            shopId={shopId}
+          />
         )}
         {activeTab === 'gear' && (
           <GearTab
