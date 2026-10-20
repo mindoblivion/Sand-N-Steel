@@ -11,6 +11,8 @@ import { CityTavern } from './CityTavern';
 import { GeneralStore } from './GeneralStore';
 import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
+import { ChampionBannerPole } from './ChampionBannerPole';
+import { resolveBanner } from '../../../utils/heraldry';
 import { MerchantHouse } from './MerchantHouse';
 import { ArmorLeatherWorkshop } from './ArmorLeatherWorkshop';
 import { Stable } from './Stable';
@@ -557,6 +559,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   };
 
   const calculatedStats = useMemo(() => calculateTotalStats(playerProfile), [playerProfile]);
+  // RG-3 — the gladiator's banner, derived: no device means no banner, and the champion
+  // stage is what raises it at the gate. Nothing here writes the save.
+  const championBanner = useMemo(() => resolveBanner(playerProfile), [playerProfile]);
 
   /**
    * The herald's destination, resolved against the city's own registry: the pointer
@@ -729,6 +734,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <GeneralStore />
               <CaravanseraiInn />
               <GrandColosseum />
+              {/* RG-3 — the champion's banner, raised at the gate once the Colossus falls. */}
+              {championBanner?.atGate && (
+                <ChampionBannerPole
+                  device={championBanner.device}
+                  stripes={championBanner.stripes}
+                />
+              )}
               <MerchantHouse />
               <ArmorLeatherWorkshop />
               <Stable />

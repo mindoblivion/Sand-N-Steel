@@ -6,6 +6,7 @@ import { ShopTab } from './ShopTab';
 import { GearView, GearTab } from './GearTab';
 import { StatsTab } from './StatsTab';
 import { LibraryTab } from './LibraryTab';
+import { BannerRow } from './BannerRow';
 import { PreFightModal } from './PreFightModal';
 import { HelpModal } from './HelpModal';
 import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
@@ -35,6 +36,8 @@ interface GladiatorSchoolHubProps {
   isMuted: boolean;
   onResetGame: () => void;
   onOpenSettings?: () => void;
+  /** RG-3 — opens the Device Choosing panel from the banner row. */
+  onOpenDeviceChoice?: () => void;
 }
 
 export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
@@ -59,6 +62,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   isMuted,
   onResetGame,
   onOpenSettings,
+  onOpenDeviceChoice,
 }) => {
   const [selectedOpponent, setSelectedOpponent] = useState<OpponentConfig | null>(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -125,6 +129,9 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           </button>
         </div>
       </header>
+
+      {/* RG-3 — THE LUDUS BANNER ROW: the gladiator's own banner once a device is sworn. */}
+      <BannerRow playerProfile={playerProfile} onChooseDevice={onOpenDeviceChoice} />
 
       {/* NAVIGATION TABS */}
       <nav className="w-full bg-neutral-900/50 border-b border-neutral-800 px-4 py-2.5 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">

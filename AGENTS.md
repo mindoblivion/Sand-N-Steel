@@ -4741,3 +4741,51 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Not automatically verified.** Nothing here needs an account (the Library is not gated), so
   the anonymous preview covers it end to end; no 3D rendering changed, so this slice adds no
   device-visual item to the open Android checklist.
+
+## Herald & Banner — milestone cries, the device and the banner (RG-3 — implemented)
+
+- **What rides what.** RG-3 is stacked on the two sibling slices it was specced against, and this branch
+  carries both: `origin/road-glory` (RG-1 — `src/utils/roadOfGlory.ts`: `resolveRoadState`,
+  `resolveRoadProgress`, `ROAD_STAGES`; `src/utils/rank.ts`; the `road` field and the Road page) and
+  `origin/gladiator-oath-beat` (RG-2 — `src/utils/gladiatorOath.ts`, `withOathSworn`, `OathBeat`, the
+  session-scoped `cityHerald`). **`src/utils/heraldry.ts` did not exist on any branch** — RG-3 creates it —
+  and neither did any herald/toast surface or any ludus banner row, so RG-3 builds those too.
+- **The merge conflict, and how it was settled.** Both slices declared the same `road` field, in the same
+  region of `src/types/game.ts`, under different names (`RoadProgress` vs `GladiatorRoad`). The branch keeps
+  RG-1's name — one `interface RoadProgress` with a `road?: RoadProgress` field — and RG-2's writer;
+  `gladiatorOath.ts` imports `RoadProgress`. Two of RG-2's own assertions needed widening for the merge and
+  no assertion was weakened: its "no other file in src/ writes the field" scan now skips `*.test.ts` (the road
+  suites' fixtures name the field) and `roadOfGlory.ts` (which reads it into a resolved value, never writes it).
+- **The two call sites, and the only writers.** `src/utils/roadMilestones.ts` is evaluated in exactly two
+  places in `src/App.tsx`: `handleMatchComplete` (both duel outcomes) and `enterCity` (which every entry into
+  the city passes through). `evaluateRoadMilestones(before, after)` compares `resolveRoadState` and returns the
+  profile to save; it is the **only** writer of `road.milestonesSeen`, appending the ids of the stages this
+  event newly reached. `chooseBannerDevice` is the **only** writer of `road.bannerDevice` and refuses a second
+  choice outright. Nothing else is stored: the stripes come from `bossKills`, the gate from the road.
+- **Why a stage below the jump is recorded too.** The road is cumulative (`resolveRoadState` marks every stage
+  below the current one `'reached'`), so a gladiator who jumps to Veteran records `sworn`/`blooded`/`known` in
+  one go; only `known` and `feared` have cries. Suppression is `milestonesSeen` plus "not reached before this
+  event", so a repeated or replayed evaluation is silent — there is no watcher and no timer.
+- **The surfaces RG-3 had to build.** `src/components/hub/HeraldToast.tsx` (the herald's cries, above every
+  screen — a duel ends into the city, so a cry must outlive the screen it was raised from),
+  `src/components/hub/DeviceChoosingPanel.tsx` (the four devices, Latin name + gloss, field colour from
+  `ROMAN_PALETTE`), `src/components/hub/BannerRow.tsx` (the ludus banner row; not drawn below Veteran) and
+  `src/components/3d/city/ChampionBannerPole.tsx` (raised at the Colosseum gate once the road stands at
+  Champion — four meshes and one 192x288 canvas texture).
+- **Grandfathering.** A gladiator at or past Veteran with no `bannerDevice` is offered the panel at the next
+  evaluation — `enterCity` is the site that catches them. "Not yet" closes it and the next evaluation offers it
+  again, so nobody is ever silently deviceless.
+- **Verified 2026-10-20** in the dev container: `bun test` → **2252 pass / 0 fail (73 files, 66,192 expect()
+  calls)**, 23 of them new in `src/utils/roadMilestones.test.ts`; `bun run scripts/collisionTests.ts` → **123
+  passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the
+  startup asset check passing; `git diff --check` → **clean**. The new suite pins each stage firing once,
+  seen-id suppression, both rank cries with the gladiator's name, the boss cry named from the roster, the
+  one-time device write, stripes at 0/1/4 kills, a save with no `milestonesSeen`, grandfathering and the four
+  device specs.
+- **Live evidence, and what it does NOT establish.** Driving the real flow in the preview browser (Play →
+  character creation → `APPLY POINTS & ENTER METROPOLIS` → the city's Colosseum button) reached the ludus hub
+  with the banner row wired and correctly **not** drawn for a level-1 profile, and the run produced **no
+  console errors**. **Not automatically verified:** the *chosen* banner's field/device/stripes, the Device
+  Choosing panel and the herald toast in a rendered state, and the champion gate pole. The managed preview
+  browser does not keep `localStorage` between preview calls, so a seeded Veteran save cannot be carried into
+  the page, and the city hub renders at ~1–2 fps through SwiftShader; both need a hand look on a real device.

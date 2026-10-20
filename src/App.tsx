@@ -14,6 +14,10 @@ const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m
 // and one more conditional render. No router and no second scene manager.
 const RaceScene = React.lazy(() => import('./components/3d/RaceScene').then((m) => ({ default: m.RaceScene })));
 import { DuelResultModal } from './components/hub/DuelResultModal';
+import { HeraldToast } from './components/hub/HeraldToast';
+import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
+import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
+import type { BannerDevice } from './utils/heraldry';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
 import type { SettingsCategory, SettingsContext } from './components/hub/SettingsModal';
@@ -83,6 +87,12 @@ export function App() {
   // in memory only.
   const [cityReturnPose, setCityReturnPose] = useState<CityExitPose | null>(null);
   const [duelResult, setDuelResult] = useState<{ didWin: boolean; stats: DuelStatistics } | null>(null);
+  /**
+   * RG-3 — the herald's cries and the one-time Device Choosing panel. Both are view
+   * state only: the road's own writes go through `profile.road`, saved the normal way.
+   */
+  const [heraldCries, setHeraldCries] = useState<string[]>([]);
+  const [deviceChoiceOpen, setDeviceChoiceOpen] = useState(false);
   const [showDriveSync, setShowDriveSync] = useState(false);
   /**
    * C-8.70B §SET-1 — one settings panel, opened from every screen.  `category` is
@@ -217,10 +227,33 @@ export function App() {
    * back and walks in freely. The question is asked once, here, and every entry point
    * into the city comes through this one function.
    */
+  /**
+   * RG-3 — THE ROAD'S RITUALS, at the two call sites only: the duel result and city
+   * entry. `evaluateRoadMilestones` compares the road before and after the event and
+   * hands back the profile to save — it is the only writer of `road.milestonesSeen` —
+   * together with the cries the herald should raise and whether the device panel is owed.
+   */
+  const evaluateRituals = (before: PlayerProfile, after: PlayerProfile): PlayerProfile => {
+    const evaluation = evaluateRoadMilestones(before, after);
+    if (evaluation.cries.length > 0) {
+      setHeraldCries((previous) => [...previous, ...evaluation.cries]);
+    }
+    if (evaluation.offerDeviceChoice) setDeviceChoiceOpen(true);
+    return evaluation.profile;
+  };
+
   const enterCity = (forProfile: PlayerProfile) => {
-    if (shouldPlayOathBeat(forProfile)) {
+    // City entry is the second milestone call site. Nothing new has happened here, so
+    // this records at most a stage the save already earned — never a watcher's guess.
+    const arrivalProfile = evaluateRituals(forProfile, forProfile);
+    if (arrivalProfile !== forProfile) {
+      setProfile(arrivalProfile);
+      saveProfile(arrivalProfile);
+    }
+
+    if (shouldPlayOathBeat(arrivalProfile)) {
       setHerald(suppressHeraldForEntry());
-      setOathBeatMode(resolveOathBeatMode(forProfile));
+      setOathBeatMode(resolveOathBeatMode(arrivalProfile));
     } else {
       setHerald(releaseHeraldForEntry());
       setOathBeatMode(null);
@@ -469,16 +502,18 @@ export function App() {
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
 
-      setProfile(updatedProfile);
-      saveProfile(updatedProfile);
+      const settledProfile = evaluateRituals(profile, updatedProfile);
+      setProfile(settledProfile);
+      saveProfile(settledProfile);
     } else {
       const updatedProfile: PlayerProfile = {
         ...profile,
         fightsLost: profile.fightsLost + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
-      setProfile(updatedProfile);
-      saveProfile(updatedProfile);
+      const settledProfile = evaluateRituals(profile, updatedProfile);
+      setProfile(settledProfile);
+      saveProfile(settledProfile);
     }
 
     setDuelResult({ didWin, stats });
@@ -488,6 +523,19 @@ export function App() {
     setDuelResult(null);
     if (profile) enterCity(profile);
     else setCurrentScreen('city_3d');
+  };
+
+  /**
+   * RG-3 — the Device Choosing panel's one write. `chooseBannerDevice` refuses a second
+   * choice outright, so this can only ever set `road.bannerDevice` once.
+   */
+  const handleChooseBannerDevice = (device: BannerDevice) => {
+    if (!profile) return;
+    const chosen = chooseBannerDevice(profile, device);
+    setDeviceChoiceOpen(false);
+    if (!chosen) return;
+    setProfile(chosen);
+    saveProfile(chosen);
   };
 
   /**
@@ -686,6 +734,7 @@ export function App() {
         {currentScreen === 'hub_2d' && profile && (
             <GladiatorSchoolHub
             playerProfile={profile}
+            onOpenDeviceChoice={() => setDeviceChoiceOpen(true)}
             activeTab={activeHubTab}
             onTabChange={setActiveHubTab}
             onEnterCity3D={() => { if (profile) enterCity(profile); }}
@@ -748,6 +797,16 @@ export function App() {
             opponent={activeOpponent}
             stats={duelResult.stats}
             onContinue={handleDuelResultDismiss}
+            />
+        )}
+
+        {/* RG-3 — THE HERALD, and the one-time device choice. Both sit above every screen:
+            a duel ends into the city, so a cry raised by the result has to outlive it. */}
+        <HeraldToast cries={heraldCries} onDismiss={() => setHeraldCries([])} />
+        {deviceChoiceOpen && profile && (
+            <DeviceChoosingPanel
+            onChoose={handleChooseBannerDevice}
+            onDismiss={() => setDeviceChoiceOpen(false)}
             />
         )}
 
