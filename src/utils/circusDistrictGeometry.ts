@@ -68,7 +68,7 @@
  * rather than a dead end.
  */
 
-import { CIRCUS_EAST_X, CIRCUS_WEST_X } from './collisionShapes';
+import { CIRCUS_AXIS_X, CIRCUS_EAST_X, CIRCUS_WEST_X } from './collisionShapes';
 
 /** Road characters, structurally the `RoadDistrict` union of RomanStreetPavement. */
 export type DistrictRoadCharacter = 'triumphal' | 'civic' | 'commercial';
@@ -402,6 +402,93 @@ export const CIRCUS_RACE_ENTRY = {
   z: 50.3,
   /** Interaction-disc radius; the forecourt is open ground, so it is a wide disc. */
   radius: 6.0,
+} as const;
+
+// ── 10. The racing start line (Phase C-8.70B Stage 1, Slice 1) ─────────────
+/**
+ * Where a race begins: the start line the player's own chariot stands on in the
+ * race scene.
+ *
+ * It is a point ON the arena's own sand track, on the arena's long axis, and it
+ * is placed by POSITION only — the race scene runs no city collision at all.
+ * The track (`Sand_00` in `_workspace_arena.glb`, measured in
+ * `EastCircusArena.tsx`) spans X 43.940 … 60.740 and Z -24.600 … 43.800 with its
+ * top face at Y 0.00, and `CIRCUS_AXIS_X` (52.34) is its centre line, so the
+ * pose does not restate the arena's group transform (yaw π/2, scale 0.20): the
+ * arena is mounted with its own transform by `EastCircusArena`, and the chariot
+ * is placed in world space beside it.
+ *
+ * Z 42.50 is the start line itself, and it is measured rather than guessed: the
+ * arena's interior carries a SPINA on the centre line (measured off the shipping
+ * GLB — `Travertine_02` X 51.500 … 53.180, Y 0.000 … 0.440, Z -13.000 … 38.600;
+ * `Marble_03` its cap, X 51.380 … 53.300, Z -13.120 … 38.720; `Water_04` the
+ * channel in it, Z -11.800 … 37.400) and three starting-marker blocks straddling
+ * the axis just beyond it (`Marble_05` / `07` / `09`, X 51.210 … 53.470,
+ * Y 0.000 … 1.120, Z 39.050 … 39.830).  The chariot's own draught pole reaches
+ * 2.107 ahead of its origin and its tub 0.685 behind (`chariotGeometry.ts`), so
+ * at Z 42.50 the whole model spans Z 40.393 … 43.185: clear of the markers by
+ * 0.563, and 0.615 short of the sand's southern edge (43.800) with the carceres
+ * block (`Travertine_25`, 43.800 … 46.000) beyond it.  That is a start line at
+ * the gates, on open sand, on the axis — the arena's long axis, which is the
+ * direction the chariot faces.  The chariot's draught pole points down its own
+ * local -Z (`chariotGeometry.ts` measures it at Z -0.293 … -2.107), so
+ * `rotationY` 0 faces it down that straight — away from the carceres, toward the
+ * far end and the interior triumphal arch (`Travertine_30`, X 49.840 … 54.840,
+ * Z -23.900 … -22.500).
+ *
+ * Y 0.00 is the sand's own top face (the arena floor since C-8.69B), so the
+ * chariot stands ON the track exactly as the workshop preview stands it on its
+ * flagstones: the model's own fitted wheels sink their 0.035 below its y = 0
+ * plane there too (`CHARIOT_STOCK_WHEEL_BOTTOM_Y`).
+ *
+ * The sealed `circus-*` perimeter (C-8.64A, a closed 31-segment ring) surrounds
+ * this point, and the point is INSIDE its interior — which is exactly why the
+ * pose is a position and nothing more.  The ring stops the player walking in
+ * from the city; it says nothing about a scene that never asks the resolver.
+ */
+export const CIRCUS_RACE_START = {
+  id: 'east-circus-race-start',
+  label: 'Circus race start line (on the arena sand, on its long axis)',
+  /** On the track's own centre line. */
+  x: CIRCUS_AXIS_X,
+  /** The track's top face — the arena's floor. */
+  y: 0,
+  z: 42.5,
+  /** The chariot's yaw: its pole faces -Z, i.e. down the arena's long axis. */
+  rotationY: 0,
+} as const;
+
+/**
+ * The race scene's camera pose, derived from the start line above.
+ *
+ * It is measured, not chosen for looks, because the one obvious camera — behind
+ * the chariot — cannot see it.  "Behind" is SOUTH of the start line, and the
+ * carceres block stands there 2.18 high (`Travertine_25` Y 0.000 … 1.900 plus its
+ * coping `Marble_26` Y 1.900 … 2.180, Z 43.800 … 46.000).  Measured, a camera at
+ * Y 3.4 / Z 50.0 has the block's own north-top corner (43.800, 2.180) on the line
+ * of sight to the chariot's rear plane, which hides that plane below Y 2.06 —
+ * the whole 1.37-high model, not part of it.  Raising the camera only trades one
+ * problem for a worse one (the block's 2.2 of depth stays between them).
+ *
+ * So the camera stands NORTH-EAST of the chariot, ON the track, looking back
+ * south-west at it with the closed carceres as the backdrop — the one direction
+ * with a clear corridor:
+ *
+ *   • the camera itself is on the sand (X 43.940 … 60.740, Z -24.600 … 43.800)
+ *     and 2.70 east of the spina's own band, at Y 3.400 — open air above the
+ *     floor, and clear of the awnings (X 38.710 … 40.490 and 64.190 … 65.970);
+ *   • its line of sight to the chariot passes the spina's south-east corner by
+ *     0.54 in X at Z 38.720, and clears the marker blocks' 1.120 top by 0.46 at
+ *     Z 39.830;
+ *   • the frame's bottom edge (50° FOV, 15.9° of pitch) meets the sand ≈3.9 units
+ *     in front of the camera, so every pixel of the frame is the arena's own
+ *     floor, walls or sky — no bare ground beyond the arena is ever in shot;
+ *   • the chariot sits ≈9.1 away, subtending ≈10°, i.e. just below the middle of
+ *     the frame, with the gates behind it and the track's whole length beyond.
+ */
+export const CIRCUS_RACE_CAMERA = {
+  position: [CIRCUS_RACE_START.x + 3.66, 3.4, CIRCUS_RACE_START.z - 8.5],
+  target: [CIRCUS_RACE_START.x, 0.9, CIRCUS_RACE_START.z - 0.5],
 } as const;
 
 /** World-space bounds of a pavement rectangle, as [x0, x1, z0, z1]. */

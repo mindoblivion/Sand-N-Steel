@@ -18,7 +18,9 @@
  *   • `PreRacePanel.tsx` — the read-only pre-race panel, opened by that trigger
  *     from `CityHubScene`, showing the selected team by name and horse count and
  *     the fitted loadout from `chariotLoadout.ts`.  "Leave" closes it; "Start
- *     Race" sets one piece of local state and shows the in-panel notice.
+ *     Race" was inert in this slice ("it sets one piece of local state and says
+ *     so on screen") and Slice 1 has since made it the race hand-off — see the
+ *     note in §B and `src/utils/phaseC8_70bStage1.test.ts`.
  *
  * ── WHAT IT MUST NOT DO, AND HOW THAT IS CHECKED ──────────────────────────
  * Player saves are READ-ONLY here.  The panel imports no storage and names no
@@ -185,12 +187,22 @@ describe('B. The entry flow is read-only', () => {
     expect(panel.includes('selectRacingConfig')).toBe(false);
   });
 
-  test('"Start Race" is inert: local notice state only', () => {
+  test('"Start Race" hands off to the race scene — and still writes nothing', () => {
+    // REBASED, NOT WEAKENED (Phase C-8.70B Stage 1, Slice 1).  Slice 0 pinned
+    // "Start Race" as inert on purpose — the race did not exist yet, so the
+    // button set local state and showed a notice.  Slice 1 wired it to the race
+    // scene, which is exactly the behaviour that pin had to give way to; the
+    // property this section exists for (the entry flow writes nothing) is
+    // unchanged and is re-pinned here, plus the notice's removal.
     expect(panel.includes('data-race-action="start"')).toBe(true);
-    expect(panel.includes('setNotice(true)')).toBe(true);
-    expect(panel.includes('data-race-notice="pending"')).toBe(true);
-    // nothing in the panel writes, navigates or changes scene
+    expect(panel.includes('onClick={onStartRace}')).toBe(true);
+    // the Slice 0 stand-in for a race is gone
+    expect(panel.includes('setNotice(true)')).toBe(false);
+    expect(panel.includes('data-race-notice="pending"')).toBe(false);
+    // nothing in the panel writes, navigates or changes scene by itself
     expect(panel.includes('saveProfile')).toBe(false);
+    expect(panel.includes('setCurrentScreen')).toBe(false);
+    expect(panel.includes('localStorage')).toBe(false);
   });
 
   test('the city wiring only toggles local view state', () => {

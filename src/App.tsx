@@ -9,6 +9,10 @@ import type { GearView } from './components/hub/GearTab';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
+// Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
+// city hub and the duel arena are: one more screen value, one more lazy import
+// and one more conditional render. No router and no second scene manager.
+const RaceScene = React.lazy(() => import('./components/3d/RaceScene').then((m) => ({ default: m.RaceScene })));
 import { DuelResultModal } from './components/hub/DuelResultModal';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
@@ -23,7 +27,18 @@ import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
 import { preloadCoreGameAssets } from './utils/preloadAssets';
 
-type GameScreen = 'title' | 'create_character' | 'city_3d' | 'hub_2d' | 'duel';
+type GameScreen = 'title' | 'create_character' | 'city_3d' | 'hub_2d' | 'duel' | 'race';
+
+/**
+ * Phase C-8.70B Stage 1, Slice 1 — the city pose a race has to return the player
+ * to: the position and facing the city held at the moment the race was entered.
+ * It is captured there, held here for the length of the race and never written
+ * anywhere (no save, no storage).
+ */
+interface CityExitPose {
+  position: [number, number, number];
+  rotationY: number;
+}
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
@@ -34,6 +49,10 @@ export function App() {
   // interaction opens the gear tab with this set to 'chariot'; the tab's own
   // switch flips it back to the gear list.
   const [gearView, setGearView] = useState<GearView>('armory');
+  // Phase C-8.70B Stage 1, Slice 1 — where the city must put the player back
+  // after a race. Set when the race is entered, read when the city remounts,
+  // in memory only.
+  const [cityReturnPose, setCityReturnPose] = useState<CityExitPose | null>(null);
   const [duelResult, setDuelResult] = useState<{ didWin: boolean; stats: DuelStatistics } | null>(null);
   const [showDriveSync, setShowDriveSync] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -219,6 +238,25 @@ export function App() {
     setActiveOpponent(opp);
     sounds.playClick();
     setCurrentScreen('duel');
+  };
+
+  /**
+   * Phase C-8.70B Stage 1, Slice 1 — enter the race from the East Circus
+   * District's pre-race panel.  `pose` is the city position and facing the
+   * player has to be returned to when the race is over; it is held in memory for
+   * the length of the race and nothing here reads or writes a save.
+   */
+  const handleStartRace = (pose: CityExitPose) => {
+    setCityReturnPose(pose);
+    setCurrentScreen('race');
+  };
+
+  /**
+   * Leave the race — aborting, or (in a later slice) crossing the finish line.
+   * The city remounts and puts the player back at the pose captured on entry.
+   */
+  const handleExitRace = () => {
+    setCurrentScreen('city_3d');
   };
 
   const handleOpenHubTab = (
@@ -462,6 +500,9 @@ export function App() {
             onReturnToMainMenu={() => setCurrentScreen('title')}
             isLeftyMode={isLeftyMode}
             onOpenSettings={() => setShowSettingsModal(true)}
+            initialPosition={cityReturnPose?.position}
+            initialRotationY={cityReturnPose?.rotationY}
+            onStartRace={handleStartRace}
             />
           </React.Suspense>
         )}
@@ -505,6 +546,12 @@ export function App() {
             isLeftyMode={isLeftyMode}
             onOpenSettings={() => setShowSettingsModal(true)}
             />
+          </React.Suspense>
+        )}
+
+        {currentScreen === 'race' && (
+          <React.Suspense fallback={<div className="w-full h-screen flex items-center justify-center bg-neutral-950 text-amber-500 font-serif text-xl animate-pulse">Entering the Circus...</div>}>
+            <RaceScene onAbort={handleExitRace} />
           </React.Suspense>
         )}
 
