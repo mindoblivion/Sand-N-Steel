@@ -10,6 +10,12 @@ Everything here is **synthetic**: fixtures are constructed in this repository, o
 reconstructed from this repository's own git history. No real player's save was
 ever read, copied or trimmed to produce them.
 
+**Extended by GC20-X.** The corpus began with the eight shapes the game had shipped
+through GC20 (`chariot`, `racing`). It now also covers every optional profile field
+added since: `story`, `temper`, `road`, `seen` and `time` — three new fixtures, and
+the suite's corpus rule (§J) reads the full optional set straight out of
+`src/types/game.ts`, so a field that appears without a fixture still fails the run.
+
 ## Corpus rule
 
 **A slice that adds a field to the save adds a fixture for the shape it writes, in
@@ -34,6 +40,9 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `malformed-partial-racing` | `partialRacingProfile.json` | A partial `racing` record: `unlocked: [4]` (Quadra with no Triga) and `selected: 3` (a configuration that is not unlocked). | Hand-aged from the fresh shape. |
 | `malformed-partial-chariot` | `partialChariotProfile.json` | A partial `chariot` record: `owned` present with a id no longer in the catalogue, `equipped` absent entirely. | Hand-aged from the fresh shape. |
 | `malformed-unknown-fields` | `unknownFieldsProfile.json` | Forward compatibility: a fresh save plus `saveSchemaVersion` (number), `futureSeason` (nested object) and `_legacyNote` (string) — fields no build in this tree writes. | Hand-aged from the fresh shape. |
+| `story-road-era` | `storyRoadEraProfile.json` | The fully-populated shape: the racing-era save plus all five fields added after GC20 — `temper` on three owned items (levels 2 / 1 / 3), `story` with the library read and three fragments, `road` sworn under the laurel with three milestones seen, `seen` with five coach-mark ids, and `time` at a mid-cycle 26 (day 4, dusk). | The racing-era fixture hand-aged field by field; nothing was produced by a transaction that does not exist. |
+| `partial-story-fields` | `partialStoryProfile.json` | A partial new-fields shape: a played second-level save with `story: { librarySeen: true }`, a single temper entry (`gladius_standard: 1`) and `time: { total: 9 }`; `road` and `seen` absent entirely. | Hand-aged from the fresh shape through two wins and one upgrade. |
+| `malformed-empty-fields` | `emptyFieldsProfile.json` | The empty-shaped new fields: `story`, `temper`, `road` and `seen` present as `{}`, `time` present as `{ total: 0 }` — what a writer that created a field before filling it leaves. | Hand-aged from the fresh shape. |
 
 ### Shapes each fixture covers
 
@@ -47,6 +56,9 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `malformed-partial-racing` | partial racing record · orphan Quadra dropped · a selection that is not unlocked |
 | `malformed-partial-chariot` | partial chariot record · unknown id dropped · equipped falls back to the stock parts |
 | `malformed-unknown-fields` | forward compatibility · unknown fields ignored by every resolver · unknown fields survive a load and save round trip |
+| `story-road-era` | all five post-GC20 optional fields populated · temper levels on owned items (1 to 3) · road milestones and a chosen banner device · a mid-cycle clock (day 4, dusk) |
+| `partial-story-fields` | sparse story record · a single temper entry · road and seen absent |
+| `malformed-empty-fields` | empty-shaped optional records · a zero clock (day 1, dawn) · nothing seen, no milestones |
 
 ## What the corpus proves
 
@@ -60,14 +72,21 @@ For every fixture, `src/utils/saveCorpus.test.ts` runs:
    (`getSelectedRacingConfig`, `isRacingConfigUnlocked`,
    `getRacingPurchaseEligibility`, `getRacingSelectionEligibility`,
    `ownsChariotPart`, `isChariotPartEquipped`, `equippedChariotPartId`,
-   `getChariotPurchaseEligibility`, `getChariotEquipEligibility`) plus the boot-path
-   stats reader `calculateTotalStats`;
+   `getChariotPurchaseEligibility`, `getChariotEquipEligibility`), the campaign's
+   `resolveStoryState`, the road's `resolveRoadProgress` / `resolveRoadState`, the
+   coach marks' `resolveSeenState`, the clock's `resolveTimeState` and temper's
+   `resolveTemperLevel` read through the effective-stats helpers
+   (`getEffectiveWeaponStats` / `getEffectiveArmorStats`) the boot-path stats reader
+   `calculateTotalStats` itself uses;
 3. **purity** — the fixture's serialized bytes are compared before and after the
    resolvers run, and the stored bytes are re-read: resolving a save never rewrites
    it;
 4. **sane defaults for every absent field** — an absent `racing` resolves to Biga
    selected with Triga and Quadra locked, an absent `chariot` to the stock loadout,
-   and an absent `injury` to no penalty.
+   an absent `injury` to no penalty, an absent `story` to no campaign flags, an
+   absent `temper` to level 0 on every owned item, an absent `road` to unsworn with
+   no device and no milestones, an absent `seen` to nothing seen, and an absent
+   `time` to Day 1 at dawn.
 
 The other resolvers in the tree are not profile-shaped and are out of scope here:
 `resolveSettings` (the separate settings record, `sand_and_steel_settings_v1`, with
@@ -99,10 +118,19 @@ it cannot drift silently.
    `settings.lefty` from the settings record; the only reader of the profile field
    left is the dev character harness. The field is still written at creation, so it
    stays in the corpus as a shape to keep loadable.
-4. **No `road`, `story`, `seen`, `temper` or `stable` state exists in this tree** —
-   the phase brief lists them among fields a save might have gained, but the only
-   save fields added since import are `chariot` (C-8.66B) and `racing` (C-8.67B).
-   The corpus covers both.
+4. **CORRECTED (GC20-X) — the tree does now carry `story`, `temper`, `road`, `seen`
+   and `time`.** GC20 recorded that none of `road`, `story`, `seen` or `temper`
+   existed; that was true when it was written. Since then `story` landed with
+   STORY-1, `temper` with P1, `road` with RG-1/RG-3, `seen` with CL-1 and `time`
+   with T0 — every one an optional, lazily-resolved field exactly like `chariot`
+   and `racing`. The corpus is therefore **extended**, not merely annotated:
+   `story-road-era` carries all five populated, `partial-story-fields` carries three
+   of them sparsely, and `malformed-empty-fields` carries all five empty-shaped, so
+   each new field has a fixture with it and a fixture without it (the rule §J of
+   the suite enforces). `stable` is still not a save field — it is a building
+   (`stable` in `HUB_LOCATIONS`), and its state is the `chariot` loadout this corpus
+   already covers — so it is the one name from the original brief with nothing of
+   its own to cover.
 
 ## Findings that would fail the corpus
 

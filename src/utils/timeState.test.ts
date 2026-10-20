@@ -484,8 +484,14 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
         expect(typeof value, `${phase}`).not.toBe('function');
       }
     }
+    // Suites are not consumers either: since GC20-X the save corpus drives
+    // `resolveTimeState` over every fixture (a test, not a screen).  The guard's
+    // property is that no SHIPPED source reads the module while nothing paints it.
     const sources = filesUnder(path('..')).filter(
-      (file) => /\.(ts|tsx)$/.test(file) && !file.endsWith('timeState.ts') && !file.endsWith('timeState.test.ts')
+      (file) =>
+        /\.(ts|tsx)$/.test(file) &&
+        !/\.test\.tsx?$/.test(file) &&
+        !file.endsWith('timeState.ts')
     );
     // `code`, not `load`: a prose mention of the module (e.g. the cross-reference
     // in `types/game.ts`) is not a consumer — only real source is scanned.

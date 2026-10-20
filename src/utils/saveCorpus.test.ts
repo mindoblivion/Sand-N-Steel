@@ -20,9 +20,11 @@
  *       key and read back through `loadSavedProfile()`, exactly as `App` reads it
  *       at boot, with no field added or dropped and no rewrite of the stored JSON;
  *   §C  every lazy resolver in the tree — `resolveRacingState`,
- *       `resolveChariotLoadout` and every pure reader built on them plus the
- *       boot-path `calculateTotalStats` — resolves every fixture without throwing
- *       and returns shaped, coherent state;
+ *       `resolveChariotLoadout`, `resolveStoryState`, `resolveRoadProgress` /
+ *       `resolveRoadState`, `resolveSeenState`, `resolveTimeState` and the temper
+ *       read through the effective-stats path, plus the boot-path
+ *       `calculateTotalStats` — resolves every fixture without throwing and
+ *       returns shaped, coherent state;
  *   §D  purity — the fixture's serialized bytes are byte-compared before and
  *       after the resolvers run, and the stored bytes are re-read;
  *   §E  sane defaults for every absent field — an absent `racing` is Biga with
@@ -108,6 +110,15 @@ import {
 import { ITEMS_DB } from '../data/itemsDB';
 import { ALL_OPPONENTS } from '../data/opponents';
 import { SAVE_FIXTURES, SaveFixture } from './saveFixtures';
+import { STORY_FINAL_CHAPTER, resolveStoryState } from './storyState';
+import {
+  getEffectiveArmorStats,
+  getEffectiveWeaponStats,
+  resolveTemperLevel,
+} from './tempering';
+import { resolveRoadProgress, resolveRoadState } from './roadOfGlory';
+import { resolveSeenState } from './coachMarks';
+import { TIME_PHASES, resolveTimeState } from './timeState';
 
 // ── The corpus on disk ─────────────────────────────────────────────────────
 const FIXTURE_DIR = fileURLToPath(new URL('./saveFixtures/', import.meta.url));
@@ -123,6 +134,9 @@ const REQUIRED_FIXTURE_IDS = [
   'malformed-partial-racing',
   'malformed-partial-chariot',
   'malformed-unknown-fields',
+  'story-road-era',
+  'partial-story-fields',
+  'malformed-empty-fields',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -177,9 +191,33 @@ const statsAreSane = (stats: Record<string, unknown>): boolean =>
 const driveEveryResolver = (profile: PlayerProfile) => {
   const racing = resolveRacingState(profile);
   const loadout = resolveChariotLoadout(profile);
+  // GC20-X — the five lazy fields added after GC20.  Temper is read through the
+  // effective-stats path `calculateTotalStats` uses, so a fixture's levels are
+  // exercised the way a duel and the hub read them.
+  const story = resolveStoryState(profile);
+  const road = resolveRoadProgress(profile);
+  const roadState = resolveRoadState(profile);
+  const seen = resolveSeenState(profile);
+  const time = resolveTimeState(profile);
+  const equipped = profile.equipped;
+  const temperedWeapon = getEffectiveWeaponStats(
+    equipped.weapon,
+    resolveTemperLevel(profile, equipped.weapon.id),
+  );
+  const temperedArmor = [equipped.helm, equipped.chest, equipped.arms, equipped.legs].flatMap(
+    (armor) =>
+      armor ? [getEffectiveArmorStats(armor, resolveTemperLevel(profile, armor.id))] : [],
+  );
   return {
     racing,
     loadout,
+    story,
+    road,
+    roadState,
+    seen,
+    time,
+    temperedWeapon,
+    temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
     bigaUnlocked: isRacingConfigUnlocked(profile, 'biga'),
     trigaUnlocked: isRacingConfigUnlocked(profile, 3),
@@ -285,6 +323,22 @@ for (const fixture of SAVE_FIXTURES) {
       expect(resolved.selectedConfig).toBeDefined();
       expect(resolved.bigaUnlocked).toBe(true);
       expect(RACING_CONFIGS.map((config) => config.horses)).toContain(resolved.racing.horses);
+
+      // The five fields added after GC20 resolve to shaped state too.
+      expect(resolved.story.chapter).toBeGreaterThanOrEqual(0);
+      expect(resolved.story.chapter).toBeLessThanOrEqual(STORY_FINAL_CHAPTER);
+      expect(resolved.story.gates.length).toBeGreaterThan(0);
+      expect(resolved.road.milestonesSeen.every((id) => typeof id === 'string')).toBe(true);
+      expect(resolved.road.bannerDevice === null || typeof resolved.road.bannerDevice === 'string').toBe(true);
+      expect(resolved.roadState.length).toBe(7);
+      expect(resolved.roadState.filter((stage) => stage.state === 'current').length).toBe(1);
+      expect(Object.values(resolved.seen).every((value) => value === true)).toBe(true);
+      expect(Number.isInteger(resolved.time.total)).toBe(true);
+      expect(resolved.time.total).toBeGreaterThanOrEqual(0);
+      expect(resolved.time.phase).toBe(TIME_PHASES[resolved.time.phaseIndex]);
+      expect(Number.isFinite(resolved.temperedWeapon.damageLight)).toBe(true);
+      expect(resolved.temperedWeapon.damageLight).toBeGreaterThanOrEqual(loaded.equipped.weapon.damageLight);
+      expect(resolved.temperedArmor.every((armor) => Number.isFinite(armor.defense))).toBe(true);
     });
 
     test('resolution does not mutate the fixture’s stored JSON (byte compare)', () => {
@@ -318,12 +372,55 @@ for (const fixture of SAVE_FIXTURES) {
         absentFields += 1;
         expect(calculateTotalStats(profile)).toEqual(calculateTotalStats({ ...profile, injury: null }));
       }
+      if (!('story' in raw) || raw.story === null) {
+        absentFields += 1;
+        const flags = resolveStoryState(profile).flags;
+        expect(flags.librarySeen).toBe(false);
+        expect(flags.fragmentsFound).toEqual([]);
+        expect(flags.trialDone).toBe(false);
+        expect(flags.diceEnding).toBeUndefined();
+        expect(flags.deserterChoice).toBeUndefined();
+        expect(flags.summitSeen).toBe(false);
+      }
+      if (!('temper' in raw) || raw.temper === null) {
+        absentFields += 1;
+        for (const item of [
+          profile.equipped.weapon,
+          profile.equipped.helm,
+          profile.equipped.chest,
+          profile.equipped.arms,
+          profile.equipped.legs,
+        ]) {
+          if (item) expect(resolveTemperLevel(profile, item.id)).toBe(0);
+        }
+      }
+      if (!('road' in raw) || raw.road === null) {
+        absentFields += 1;
+        expect(resolveRoadProgress(profile)).toEqual({
+          oathSworn: false,
+          bannerDevice: null,
+          milestonesSeen: [],
+        });
+      }
+      if (!('seen' in raw) || raw.seen === null) {
+        absentFields += 1;
+        expect(resolveSeenState(profile)).toEqual({});
+      }
+      if (!('time' in raw) || raw.time === null) {
+        absentFields += 1;
+        expect(resolveTimeState(profile)).toMatchObject({
+          total: 0,
+          day: 1,
+          phaseIndex: 0,
+          phase: 'dawn',
+        });
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
       // fixture is missing (or holds as null), so nothing is silently skipped:
-      // a fully-populated shape accounts for none, a legacy shape for all three.
-      const resolverBacked = ['racing', 'chariot', 'injury'];
+      // a fully-populated shape accounts for none, a legacy shape for all eight.
+      const resolverBacked = ['racing', 'chariot', 'injury', 'story', 'temper', 'road', 'seen', 'time'];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
       );
@@ -546,7 +643,18 @@ describe('GC20 §H — scope guards', () => {
   test('every fixture is synthetic — no fixture claims a real gladiator’s name', () => {
     for (const fixture of SAVE_FIXTURES) {
       const name = String(rawOf(fixture).name ?? '');
-      expect(['Corpus Legacy', 'Corpus Veteran', 'Corpus Nulled', 'Corpus Partial Racing', 'Corpus Partial Chariot', 'Corpus Forward Compat', 'Tester']).toContain(name);
+      expect([
+        'Corpus Legacy',
+        'Corpus Veteran',
+        'Corpus Nulled',
+        'Corpus Partial Racing',
+        'Corpus Partial Chariot',
+        'Corpus Forward Compat',
+        'Corpus Chronicler',
+        'Corpus Partial Story',
+        'Corpus Hollow Fields',
+        'Tester',
+      ]).toContain(name);
     }
   });
 
@@ -652,14 +760,26 @@ describe('GC20 §J — the corpus rule', () => {
     const body = types.slice(start, end);
     const optional = [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\?:/gm)].map((match) => match[1]);
 
-    // The optional fields of PlayerProfile, as of this slice. A slice that adds
-    // one lands here first — which is the corpus rule: add the fixture with the field.
-    expect(optional).toEqual(['injury', 'isLeftyMode', 'chariot', 'racing']);
+    // The optional fields of PlayerProfile, in the order src/types/game.ts
+    // declares them (above, the scan reads declarations in file order).  A slice
+    // that adds one lands here first — which is the corpus rule: add the fixture
+    // with the field.
+    expect(optional).toEqual([
+      'injury',
+      'isLeftyMode',
+      'chariot',
+      'racing',
+      'story',
+      'temper',
+      'road',
+      'seen',
+      'time',
+    ]);
 
-    // `racing` and `chariot` have a resolver each and a fixture for both their
-    // absent and their present case; `injury` is read by calculateTotalStats;
-    // `isLeftyMode` is still written by the creation path and read by nothing.
-    for (const field of ['racing', 'chariot']) {
+    // Every optional field with a resolver has a fixture for both its absent and
+    // its present case; `injury` is read by calculateTotalStats; `isLeftyMode` is
+    // still written by the creation path and read by nothing.
+    for (const field of ['racing', 'chariot', 'story', 'temper', 'road', 'seen', 'time']) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);
       expect(withField.length, `no fixture carries '${field}'`).toBeGreaterThan(0);
