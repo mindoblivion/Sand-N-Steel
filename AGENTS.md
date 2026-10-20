@@ -4523,3 +4523,125 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   row set above is the one the shipped module and its suite pin; if \u00a72 lists a row this panel does
   not show, the design governs and the row should be added the same way Race Camera Distance was
   (wire the consumer first, then show the row).
+
+## Duel hit-stop and scaled screen shake (Combat impact — implemented, validated; Android read PENDING)
+
+- **What ships: two files, and they are the phase's whole production diff.**
+  `src/components/duel/DuelScene.tsx` (the outcome tables, the shared impact ref, the shake in
+  `DuelCameraRig`, the settings read) and `src/components/3d/GladiatorMesh.tsx` (the hit-stop on the
+  animation clock, plus the `ImpactState` type and the one pure helper both of them read). **No new
+  file, no new dependency, no new React state, no collider, no save, no combat constant and no
+  timer.** `git diff --stat` is exactly those two production files.
+
+- **The shared object, and why it is a ref.** `DuelScene` owns
+  `impactRef = useRef<ImpactState>({ freezeUntil: 0, trauma: 0 })` — `freezeUntil` is a
+  `performance.now()` deadline in ms, `trauma` is 0…1 shake energy — and passes the same object to
+  `DuelCameraRig` and to **both** `GladiatorMesh` instances. `ImpactState` and
+  `impactAnimationScale(impact, now) → 0 | 1` live in `GladiatorMesh.tsx` (exported, pure), so the
+  type travels the import edge the component already had and nothing else has to know about it.
+  Reading and writing it costs no re-render, and **no `useState` was added to `DuelScene`**: the two
+  new refs (`impactRef`, `telegraphLandingRef`) plus the shake-multiplier ref are the whole addition.
+
+- **Hit-stop, outcome → duration (ms), as implemented:**
+
+  | outcome | `freezeUntil` |
+  |---|---|
+  | quick attack | +60 |
+  | power attack | +110 |
+  | crit (a power attack that crit) | +170 |
+  | blocked (any strike stopped by a shield) | +40 |
+  | telegraphed heavy landing (the boss's overhead smash) | +200 |
+
+  Precedence, in the order the branch reads it: **blocked wins** (a shield stops the blow, however
+  hard it was), then the telegraphed heavy, then crit, then quick/power. The write sits in the landed
+  branch of `executeCombatTurn`, immediately before the two `hitFlashTimer: 0.3` state writes, so it
+  happens at exactly the points the brief named. The freeze itself is
+  `mixer.timeScale = impactAnimationScale(impactRef?.current)` in `RomanWarriorGLB`'s frame loop —
+  three's `AnimationMixer.update` multiplies its delta by `timeScale`, so this is literally
+  "animation advances by `delta * 0`", every clip on that fighter stopping together while the hit
+  reaction's first pose (set by the action effect's own `reset()`, not by the clock) is the frame
+  that holds. `ProceduralGladiator` — the fallback used only when the GLB is missing — has no mixer,
+  so it accumulates its own clock and multiplies it the same way, keeping both paths identical.
+  **No game logic waits on the freeze:** the 1100 ms resolution timeout, the 750 ms AI delay and
+  every state write are untouched.
+
+- **Shake, outcome → trauma, as implemented:**
+
+  | outcome | trauma added |
+  |---|---|
+  | the player's quick attack lands | +0.25 |
+  | the player's power attack lands | +0.45 |
+  | the player's crit lands | +0.7 |
+  | **the player receives any hit** | **+0.2 — replacing the dealt value rather than adding to it** |
+
+  The total is capped at 1.0. The rig then, each frame, **after** the existing
+  `camera.position.lerp`: decays `trauma` by `1.6 × delta`, forms
+  `shake = trauma² × getCameraShakeMultiplier(...)`, and when `shake > 0` adds
+  `shake × 0.18 ×` a bounded two-frequency sum — ~31 Hz and ~47 Hz, weights summing to 1 per axis, so
+  the peak displacement is the 0.18 itself — to `camera.position` on all three axes, and offsets the
+  `lookAt` target laterally by `shake × 0.6° ×` the camera-to-target distance (the rotational half of
+  the same effect). Trauma decays whether or not an offset is applied, so **Camera Shake = Off**
+  (multiplier 0) still winds the state down rather than freezing it.
+
+- **How the multiplier is read — the contract honoured exactly.** `DuelScene` holds
+  `shakeMultiplierRef`, refreshed **through the settings module's cache and listener**, never through
+  React state and never per frame: one mount-time `useEffect` calls
+  `getCameraShakeMultiplier(getSettings(), motionQuery?.matches ?? false)` immediately and again on
+  every `subscribeSettings` notification, and the rig reads `shakeMultiplierRef.current` inside its
+  frame loop. The second argument is the OS's `prefers-reduced-motion` preference, read once through
+  `window.matchMedia('(prefers-reduced-motion: reduce)')` with a change listener and guarded exactly
+  as `WaitSurface` guards it — because the module's own doc says an ABSENT `screenMotion` field is
+  what lets the platform decide, and `getEffectiveScreenMotion` can only answer that if it is told.
+  So the applied offset is 1.0 at Camera Shake = Full, 0.4 at Reduced (the shipped default) and 0 at
+  Off, and never more than 0.4 while the effective screen motion is reduced or off.
+
+- **"No shake and no freeze on a quiet player turn" holds by construction.** Trauma is only ever
+  written inside the landed branch of `executeCombatTurn`, which can only run while `isExecuting` is
+  true; and 1.6/s of decay empties even the largest single addition (a crit's 0.7) in **0.44 s**,
+  well inside the **1100 ms** resolution window `isExecuting` covers. The freeze is ≤200 ms, inside
+  the same window. Both are therefore spent before the turn can be handed back with nothing
+  executing.
+
+- **The telegraphed heavy needed one new ref, because the AI clears the existing one first.** The
+  boss's telegraph resolves as `pendingHeavyAttackRef.current = false; … executeCombatTurn('opponent',
+  'power_attack')` — that marker is already gone when the resolution runs — so `telegraphLandingRef`
+  is set by that branch and **read-and-cleared at the top of `executeCombatTurn`**, before any branch
+  can return: a miss, an evade or an out-of-range swing cannot leave it set for a later attack. No
+  existing flag's lifecycle changed.
+
+- **Scope kept: what deliberately did not move.** No value in `src/utils/combatCalculations.ts`; no
+  damage, hit chance, stamina, combo or hype outcome; not the 1100 ms or 750 ms timers; no
+  `isLeftyMode` handling and no line of `GladiatorMesh`'s handedness or shield-constraint code (the
+  shield slews on the real delta, so only the animation clock is held); no dependency, no save, no
+  collider, no settings row (the Camera Shake row and its reader already existed — this is the
+  consumer the SET-1 record said was one away). The duel Canvas keeps `fov: 45`,
+  `getCameraSensitivityScale(useSettings())` and both `vibrate(` call sites, which `settings.test.ts`
+  pins.
+
+- **Validation (2026-10-20, dev container — all five commands run, every one green):**
+  `bun test` → **2135 pass / 0 fail (68 files, 65,500 expect() calls)** — the suite set is identical
+  to the pre-change one (no test file was touched), so the count is directly comparable and the
+  unchanged turn timing and outcomes are the existing suite's own evidence;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `bun run build` → **exit 0** with the startup asset check passing (8 assets; the pre-existing
+  >500 kB chunk warning only);
+  `git diff --check` → **clean (exit 0)**.
+
+- **Live evidence (preview browser, anonymous visitor — no session replayed), and what it does and
+  does not establish.** The dev harness's own duel (`?devHarness=character`, loaded in an in-page
+  iframe and driven through the real HUD) mounted the shipping `DuelScene` with this change in place,
+  and **a full turn resolved end to end**: `Quick Strike` disabled itself while executing, the Arena
+  Chronicle gained its lines (`Spartacus strikes with Quick Slash, but is OUT OF RANGE!`, then the
+  opponent's own turn and log line), the health bars and the 3D arena kept rendering, and the frame
+  loops — the rig's new shake maths and both meshes' new `impactAnimationScale` reads — ran with **no
+  console error attributable to the change** (the only entries seen anywhere were the documented
+  pre-existing WebGL-guard teardown pair, "Attempted to synchronously unmount a root…" plus an empty
+  "Uncaught", which appear when the temporary harness frame is removed — the same pair C-8.66B/
+  C-8.66C/C-8.66D/C-8.68C record). **The landed-hit branch itself was NOT exercised:** the two strikes
+  that could be driven fell out of range (a gladius reaches 2.5 and the fighters close 1.8 a turn),
+  and a third click was swallowed at a turn boundary, so no blow landed inside the script budget.
+  **The hit-stop and the shake are therefore NOT automatically verified** — the run proves their
+  wiring runs clean, and their *feel* is the developer's Android read, exactly as the brief said it
+  would be. The sandbox has no GPU (SwiftShader, ~1–2 fps in the 3D scenes), so no frame here could
+  adjudicate a 40–200 ms hold or a sub-degree camera wobble in any case.
