@@ -5190,6 +5190,68 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the breakdown rows were seen rendered. They are pinned by the suite above; confirm by winning one
   Colosseum duel on a device.
 
+## Duel result screen staged reveal — implemented (one file; ceremony not automatically verified)
+
+- **What ships: one production file.** `src/components/hub/DuelResultModal.tsx` is the whole code
+  diff. Nothing else moved: `DuelStatistics`' shape and its computation in `DuelScene`, `App`'s
+  `handleMatchComplete` / `handleDuelResultDismiss`, `onContinue`, the confetti call, the card's own
+  layout and every gold / fame / xp amount are exactly as they were. The reveal is display-only —
+  mount timers plus Tailwind `transition-[opacity,transform]`, no animation library.
+- **The stage timings as shipped.** Win: header at **0** (unchanged — the card's own
+  `animate-fadeIn`), the recap block at **250**, the two recap lines the result never showed
+  (`Max Combo: x{N}`, `Crowd Peak: {P}%`) at **550**, the rewards block at **800**, then the count-up
+  runs **600** from the rewards' appearance, so the ceremony ends at ≈1400 ms. A defeat multiplies
+  every stage by **1.4** (`DEFEAT_PACE`) — recap **350**, extra lines **770** — and has no rewards
+  stage, no count-up and no coin (confetti and the defeat copy are unchanged). Every unrevealed block
+  keeps its space (`opacity-0 translate-y-3`), so the card never changes height mid-ceremony.
+- **The Continue button is deliberately outside the ceremony.** It renders at t=0, stays enabled, and
+  closes the modal through the existing `onContinue` however early it is tapped — no skip logic was
+  added, which the request did not require.
+- **The three reward figures count up and end exact.** Gold, Fame and XP animate from 0 to their
+  stats over `COUNT_UP_MS` (600 ms) on `requestAnimationFrame`; the frames are cancelled on unmount;
+  the last frame writes `stats.goldEarned` / `fameEarned` / `xpEarned` verbatim rather than a
+  rounding of them. `sounds.playCoin()` is called once on the count-up's first frame and once on its
+  completion (two call sites; the first sits inside the frame callback so React StrictMode's
+  double-mounted effect cannot double-play it). The engine self-checks the app's mute state, so
+  nothing had to be wired for it. XP is a new recap row (`+{xp} XP`, `text-cyan-400` — the colour
+  `TournamentTab` already uses for XP).
+- **Addendum A — "Fell at X% of <opponent>'s HP remaining": IMPLEMENTED, with no plumbing rewired.**
+  The modal is handed no final-HP value, but it needs none: `DuelScene` puts the opponent on
+  `opponent.stats.healthMax` (`DuelScene.tsx`:191) and removes exactly `stats.damageDealt` from it
+  (`statsRef.damageDealt += rawDamage`, :580, applied as `Math.max(0, prev.health - rawDamage)`, :589)
+  with no healing anywhere in the scene, so `round((healthMax − damageDealt) / healthMax × 100)` is the
+  fight's final share. Defeat-only, revealed with the recap block (350 ms), and omitted entirely when
+  `healthMax` is missing or unusable. `DuelStatistics`' shape and `App`'s plumbing are untouched.
+- **House motion rule.** Transform and opacity only, and `prefers-reduced-motion: reduce` stills the
+  ceremony: every block is already in place on mount (`setStage(didWin ? 3 : 2)`) while the count-up
+  and its two clinks still mark the reward figures. The rule's "paused while the tab is hidden" clause
+  is not applied to this one-shot reveal — nothing loops, and a hidden tab simply reaches the end
+  state.
+- **Validation (2026-10-20, dev container — all five run on the final code state).** `bun test` →
+  **2153 pass / 0 fail (69 files, 65,567 `expect()` calls)** — the branch tip's own count, so the diff
+  moved nothing; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0;
+  `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup-asset
+  check passing (8 assets); `git diff --check` → **clean (exit 0)**. The diff is the modal plus this
+  note.
+- **Live evidence, and what is NOT verified (preview browser, anonymous visitor — no session was
+  replayed).** Verified: the app boots to its title screen with **0 console errors and 0 failed
+  requests**; the dev server serves the changed module transformed (HTTP 200) carrying
+  `STAGE_RECAP_MS = 250` / `STAGE_EXTRA_MS = 550` / `STAGE_REWARDS_MS = 800` / `DEFEAT_PACE = 1.4` /
+  `COUNT_UP_MS = 600`, both `playCoin` call sites, `cancelAnimationFrame`, all three reward rows with
+  their test ids, the `Fell at` line with its `opponent.stats?.healthMax` source, and the
+  reduced-motion branch; and the app's own route still walks (title → `PLAY` → the creation screen
+  renders). **NOT automatically verified: the ceremony itself.** `DuelResultModal` renders only after
+  a duel ends, and reaching one means title → creation → the 3D city hub → the map drawer → fast
+  travel → the Colosseum prompt → the hub's tournament tab → `Enter Arena Duel` → `Step into Sand` →
+  a turn-based fight to death (~8-10 exchanges at ~3 s each): three heavy scenes plus the fight on a
+  sandbox with no GPU (SwiftShader, ~1-2 fps), and in this run the preview page did not carry its
+  state between calls, so the route could not be driven inside the call budget. **The stage timings,
+  the count-up's start/completion clinks, the exact on-screen final values and the defeat variant
+  (including the Addendum-A line) therefore need the developer's own look** — which is where the
+  request placed the pacing judgement anyway (a real Android device). Nothing was left behind: the
+  run stopped at the creation screen, so no profile was written and no fight was fought — no
+  gold/fame/xp was awarded or persisted.
+
 ## Motion foundation corrections (CORR-3 — implemented)
 
 - **Four conformance corrections, one new settings row; no architecture change.** The MO-1 motion
