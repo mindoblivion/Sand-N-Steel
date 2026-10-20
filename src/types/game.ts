@@ -314,4 +314,14 @@ export interface PlayerProfile {
    * migration, and never by `createNewProfile()`).
    */
   racing?: RacingProgression;
+  /**
+   * P1 — per-item temper (upgrade) level, keyed by item id; absent on every
+   * pre-tempering save.  Exactly like `chariot` and `racing`, a missing
+   * field, a missing id and a malformed value all resolve to level 0 in
+   * `src/utils/tempering.ts` rather than repairing the save, and the field
+   * is written only by a successful `purchaseTemper()` — never by
+   * `createNewProfile()`.  The owned `WeaponItem` / `ArmorItem` objects are
+   * never modified: an item's upgrade state lives only here.
+   */
+  temper?: Record<string, number>;
 }

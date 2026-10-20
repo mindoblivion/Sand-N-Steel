@@ -4690,3 +4690,39 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   wiring runs clean, and their *feel* is the developer's Android read, exactly as the brief said it
   would be. The sandbox has no GPU (SwiftShader, ~1–2 fps in the 3D scenes), so no frame here could
   adjudicate a 40–200 ms hold or a sub-degree camera wobble in any case.
+
+
+## Tempering — pure logic (P1 — implemented)
+
+- **Scope.** Data + logic only, no UI: `src/utils/tempering.ts` (new), one optional
+  `temper?: Record<string, number>` on `PlayerProfile` (`src/types/game.ts`), and the stat seam
+  (`src/services/storage.ts`). The owned `WeaponItem` / `ArmorItem` objects are **never** modified
+  — the upgrade lives only in `profile.temper`, keyed by item id, and is written only by a
+  successful `purchaseTemper()` (never by `createNewProfile()`), so the save format gains exactly
+  one lazy optional field, like `chariot` and `racing`.
+- **The stat seam existed and is wired.** `calculateTotalStats()` (`services/storage.ts`) is the one
+  aggregation both combat (`components/duel/DuelScene.tsx`) and the hub (`components/hub/StatsTab.tsx`)
+  already read, so it now resolves each equipped item's level with `resolveTemperLevel()` and adds
+  `getEffectiveWeaponStats()` / `getEffectiveArmorStats()`. At level 0 each helper returns a copy
+  equal to the base item, so a legacy save (no `temper` field) is unchanged — the whole suite is
+  green with no existing expectation touched. `combatCalculations.ts` formulas are untouched:
+  weapon **damage** still comes from the item object, so a later slice must read the effective
+  weapon wherever damage is consumed (`DuelScene`'s `loadout.weapon.damageLight|damageHeavy`).
+- **Numbers.** Cost = 40 / 80 / 140 % of the item's own `price`, rounded to the nearest 5
+  (starter gladius 50 → 20 / 40 / 70; Colossus Titan Skullcrusher 920 → 370 / 735 / 1,290).
+  Weapon: `damageLight` / `damageHeavy` +8 % of **base** per level (linear, rounded), +1
+  `bonusStrength` at +2 and again at +3. Armour: +1 `defense` per level, and at +3 +1 to each bonus
+  stat it already lists (a temper never invents a bonus; a piece with two listed bonuses gets +1 to
+  both — `helm_murmillo`'s `bonusDefense` 2 → 3, `defense` 4 → 7). Sell value = `sellPrice` + 25 %
+  of the temper gold spent, rounded (`getTemperSellValue(profile, item)`). Gold can never go
+  negative: an unaffordable level is refused before any object is built.
+- **Validation — all five commands, run in the `web` container.** `bun test` → **2176 pass / 0 fail
+  (70 files)**, this slice contributing the 23 tests in the new `src/utils/tempering.test.ts` with
+  **no existing test file modified** (`git status`: only `storage.ts`, `game.ts` edited, two files
+  added); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0; `git diff --check` → clean.
+- **Verified in the preview:** the app boots with the new module in its graph (title screen renders,
+  0 console errors; the dev server serves the transformed `tempering.ts` and the wired
+  `storage.ts`). **Not automatically verified:** the hub's Stats screen and the duel's stat readout —
+  this app is sign-in gated and the preview browser had no session, so the wiring is pinned by the
+  unit test that drives `calculateTotalStats` with a `temper` record instead.
