@@ -5,7 +5,7 @@ import { AssetLoadingOverlay } from '../ui/AssetLoadingOverlay';
 import { ALL_OPPONENTS } from '../../data/opponents';
 import { sounds } from '../../audio/soundEffects';
 import { music } from '../../audio/musicEngine';
-import { preloadCoreGameAssets } from '../../utils/preloadAssets';
+import { preloadTitleStage } from '../../utils/preloadAssets';
 
 // DuelScene is a heavy 3D scene — load it on demand, mirroring App.tsx's React.lazy.
 const DuelScene = React.lazy(() =>
@@ -53,7 +53,7 @@ export const CharacterTestHarness: React.FC = () => {
   // Match App's boot side-effects for audio/asset parity (no save load here).
   useEffect(() => {
     try { music.init(sounds.getAudioContext()); } catch (e) { /* ignore */ }
-    preloadCoreGameAssets();
+    preloadTitleStage();
   }, []);
 
   // Keep music in sync with the current stage, like App's music router (no storage).

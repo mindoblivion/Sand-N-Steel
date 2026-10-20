@@ -90,9 +90,15 @@ describe('A. The race is a screen of the existing machine', () => {
     expect(appSrc.split('<RaceScene').length - 1).toBe(1);
   });
 
-  test('the race scene is lazy and behind the same Suspense fallback pattern', () => {
+  test('the race scene is lazy and behind the shared Suspense fallback pattern', () => {
     expect(appSrc).toContain("React.lazy(() => import('./components/3d/RaceScene')");
-    expect(appSrc).toContain('Entering the Circus...');
+    // Rebased by START-1, not weakened: the bare "Entering the Circus..." div became the
+    // shared `WaitSurface` — the SAME fallback the city and the duel use — still inside
+    // exactly one Suspense, now under the destination-load boundary for the circus tier.
+    // The property this test exists to pin is unchanged: the race scene is a lazy chunk
+    // behind a Suspense fallback rather than an eager import rendered without one.
+    expect(appSrc).toContain('<React.Suspense fallback={<WaitSurface destination="circus" />}>');
+    expect(appSrc).toContain('<LazySceneBoundary tier="circus">');
   });
 
   test('the race screen replaces the city rather than overlaying it', () => {

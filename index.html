@@ -13,8 +13,62 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <!--
+      START-1 — the boot shell. This is the first thing that paints, before any bundle
+      or stylesheet has loaded, and it is removed by src/utils/bootShell.ts once React
+      has mounted. Two things it must never do: flash white, and hand over to a
+      different picture than the title screen itself shows.
+
+      - The field colour is the PWA manifest's `background_color` (#0c0a09), matched by
+        the `theme-color` meta above, so the installed-app splash, this shell and the
+        title screen are all the same near-black.
+      - The art is the SAME rule the title screen uses (`.title-backdrop`): the WebP
+        primary with the PNG as the fallback, and the same 20% black scrim TitleScreen
+        paints over it. Keep the two in step — this is the shared source of truth for
+        both, because index.css (loaded by the bundle) is not available this early.
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        background-color: #0c0a09;
+      }
+
+      .title-backdrop {
+        background-color: #0c0a09;
+        background-image: url(/title_screen.png);
+        background-image: image-set(
+          url(/title_screen.webp) type("image/webp"),
+          url(/title_screen.png) type("image/png")
+        );
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+      }
+
+      #boot-shell {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        transition: opacity 0.3s ease-out;
+      }
+
+      #boot-shell::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.2);
+      }
+
+      #boot-shell.boot-shell-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
   </head>
   <body class="bg-neutral-950 text-amber-100 overflow-hidden select-none">
+    <div id="boot-shell" class="title-backdrop" aria-hidden="true"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

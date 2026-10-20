@@ -17,6 +17,11 @@ import { DuelResultModal } from './components/hub/DuelResultModal';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
 import { AssetLoadingOverlay } from './components/ui/AssetLoadingOverlay';
+import { WaitSurface } from './components/ui/WaitSurface';
+import { LazySceneBoundary } from './components/ui/LazySceneBoundary';
+import { NoWebGLScreen, OfflineNotice } from './components/ui/GameFailureSurface';
+import { checkWebGLAvailability } from './components/ui/WebGLErrorBoundary';
+import { PostOathNudge, usePostOathNudge } from './components/hub/PostOathNudge';
 import { googleSignIn } from './services/googleAuth';
 import { facebookSignIn } from './services/facebookAuth';
 import { appleSignIn } from './services/appleAuth';
@@ -25,7 +30,7 @@ import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 import { ALL_OPPONENTS } from './data/opponents';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
-import { preloadCoreGameAssets } from './utils/preloadAssets';
+import { preloadTitleStage } from './utils/preloadAssets';
 
 type GameScreen = 'title' | 'create_character' | 'city_3d' | 'hub_2d' | 'duel' | 'race';
 
@@ -63,6 +68,13 @@ export function App() {
   const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [isMicrosoftLoading, setIsMicrosoftLoading] = useState(false);
 
+  // START-1 — the post-Oath nudge: offered once, session-flagged, dismissible.
+  const postOathNudge = usePostOathNudge();
+
+  // START-1 — the device can run the game at all. Resolved once, at boot, so a device
+  // without 3D is told so in plain language instead of reaching a scene that cannot draw.
+  const [webglAvailable] = useState(() => checkWebGLAvailability().supported);
+
   // Load saved profile on boot
   useEffect(() => {
     try { music.init(sounds.getAudioContext()); } catch (e) {}
@@ -74,7 +86,9 @@ export function App() {
     } else {
       setIsLeftyMode(false);
     }
-    preloadCoreGameAssets();
+    // START-1 — preload stage 1. This effect runs at title mount, which is the beat
+    // the startup sequence warms the first tier on; stage 2 fires on the tap.
+    preloadTitleStage();
   }, []);
 
   // Music Routing
@@ -232,6 +246,8 @@ export function App() {
     saveProfile(newProfile);
     // Spawns directly at the 3D Monumental Town Gate!
     setCurrentScreen('city_3d');
+    // The Oath has just been sworn: offer the once-a-session save-progress nudge.
+    postOathNudge.offer();
   };
 
   const handleEnterDuel = (opp: OpponentConfig) => {
@@ -451,10 +467,33 @@ export function App() {
     setCurrentScreen('title');
   };
 
+  // A device that cannot draw the 3D world gets one plain-language surface and a retry,
+  // never a scene that fails to render.
+  if (!webglAvailable) {
+    return <NoWebGLScreen />;
+  }
+
   return (
     <div className="w-full h-full min-h-[100dvh] bg-neutral-950 text-amber-100 overflow-hidden select-none">
         {/* 3D ASSET LOADING OVERLAY WITH DUAL GOLD SPINNER & PERCENTAGE */}
         <AssetLoadingOverlay />
+
+        {/* START-1 — the offline surface. Non-blocking on purpose: the service-worker
+            shell may still hold a playable game, so this informs and offers a Retry
+            without taking the game away. */}
+        <OfflineNotice />
+
+        {/* START-1 — the post-Oath save-progress nudge: once per session, dismissible,
+            and pointer-transparent everywhere but its own card. */}
+        {postOathNudge.visible && (
+          <PostOathNudge
+            onSaveProgress={() => {
+              postOathNudge.dismiss();
+              setShowDriveSync(true);
+            }}
+            onDismiss={postOathNudge.dismiss}
+          />
+        )}
 
         {/* GAME SCREENS */}
         {currentScreen === 'title' && (
@@ -488,7 +527,8 @@ export function App() {
         )}
 
         {currentScreen === 'city_3d' && profile && (
-          <React.Suspense fallback={<div className="w-full h-screen flex items-center justify-center bg-neutral-950 text-amber-500 font-serif text-xl animate-pulse">Loading City Hub...</div>}>
+          <LazySceneBoundary tier="city">
+          <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
             <CityHubScene
             playerProfile={profile}
             activeOpponent={activeOpponent}
@@ -505,6 +545,7 @@ export function App() {
             onStartRace={handleStartRace}
             />
           </React.Suspense>
+          </LazySceneBoundary>
         )}
 
         {currentScreen === 'hub_2d' && profile && (
@@ -534,7 +575,8 @@ export function App() {
         )}
 
         {currentScreen === 'duel' && profile && (
-          <React.Suspense fallback={<div className="w-full h-screen flex items-center justify-center bg-neutral-950 text-amber-500 font-serif text-xl animate-pulse">Entering Arena...</div>}>
+          <LazySceneBoundary tier="arena">
+          <React.Suspense fallback={<WaitSurface destination="arena" />}>
             <DuelScene
             playerProfile={profile}
             opponent={activeOpponent}
@@ -547,12 +589,15 @@ export function App() {
             onOpenSettings={() => setShowSettingsModal(true)}
             />
           </React.Suspense>
+          </LazySceneBoundary>
         )}
 
         {currentScreen === 'race' && (
-          <React.Suspense fallback={<div className="w-full h-screen flex items-center justify-center bg-neutral-950 text-amber-500 font-serif text-xl animate-pulse">Entering the Circus...</div>}>
+          <LazySceneBoundary tier="circus">
+          <React.Suspense fallback={<WaitSurface destination="circus" />}>
             <RaceScene onAbort={handleExitRace} isLeftyMode={isLeftyMode} />
           </React.Suspense>
+          </LazySceneBoundary>
         )}
 
         {/* DUEL RESULT MODAL */}
