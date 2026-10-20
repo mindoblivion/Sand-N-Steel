@@ -420,6 +420,16 @@ describe('E. The wiring — every consumer, read out of the shipped sources', ()
     expect(source('src/components/3d/SceneBrightness.tsx')).toContain('applyBrightness(gl, getSettings())');
   });
 
+  test('the race camera reads its own row, through the addendum\u2019s attachment point', () => {
+    const race = source('src/components/3d/RaceScene.tsx');
+    expect(race).toContain('preset={resolveChaseDistancePreset(chaseDistancePreset)}');
+    // The row itself, in the panel's Picture & Camera section.
+    expect(source('src/components/hub/SettingsModal.tsx')).toContain('label="Race Camera Distance"');
+    // …and App is what passes the stored value in.
+    const app = source('src/App.tsx');
+    expect(app).toContain('chaseDistancePreset={settings.raceCamDistance}');
+  });
+
   test('the city camera reads both of its rows', () => {
     const camera = source('src/components/3d/city/CityCamera.tsx');
     expect(camera).toContain('CITY_CAMERA_DISTANCES[settings.cityCamDistance]');

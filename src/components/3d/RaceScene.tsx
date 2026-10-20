@@ -109,8 +109,9 @@ import type { CountdownStep, RaceState } from '../../utils/raceState';
  * Slice 2's rig, following what `utils/chaseCamera.ts` hands it: a 55° vertical
  * FOV at rest widening smoothly to a capped 65° with speed, the Standard
  * distance/height preset behind the chariot (Near and Far are presets of the same
- * named config, and the settings row that will offer them attaches through the
- * `chaseDistancePreset` prop — no UI here), and a look point carried
+ * named config, and the settings row that offers them attaches through the
+ * `chaseDistancePreset` prop — App hands the settings record's own value in), and
+ * a look point carried
  * `4 + 0.9 × speed` ahead along the heading, leaned into the active steering
  * input.  At the start line, at rest, that pose IS Slice 1's measured start
  * composition, so the framed start is unchanged and the take-over at GO is
@@ -143,9 +144,10 @@ export interface RaceSceneProps {
    * The chase distance preset (the camera addendum): `near`, `standard` or
    * `far`.  **This is where the settings row attaches** — the value goes through
    * `resolveChaseDistancePreset`, which falls back to the config's Standard for a
-   * missing or unknown name, so today's callers pass nothing and get Standard.
-   * No settings UI exists yet, and no settings module is read: see
-   * `utils/chaseCamera.ts`.
+   * missing or unknown name, so a caller that passes nothing still gets Standard.
+   * C-8.70B §SET-1 — the Race Camera Distance row is what passes it now: `App`
+   * reads the settings record's own `raceCamDistance` and hands it in.  The
+   * camera's module is unread here, exactly as `utils/chaseCamera.ts` records.
    */
   chaseDistancePreset?: ChaseDistancePreset;
   /**

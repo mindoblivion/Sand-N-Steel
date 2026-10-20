@@ -625,6 +625,7 @@ export function App() {
             <RaceScene
               onAbort={handleExitRace}
               isLeftyMode={isLeftyMode}
+              chaseDistancePreset={settings.raceCamDistance}
               onOpenSettings={() => handleOpenSettings(undefined, 'race')}
               frozen={settingsOpen}
             />

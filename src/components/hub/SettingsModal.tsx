@@ -348,6 +348,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   value={settings.cityCamDistance}
                   onChange={(cityCamDistance) => set({ cityCamDistance })}
                 />
+                <ChoiceRow
+                  label="Race Camera Distance"
+                  description="How far the chase camera sits behind your chariot in the circus."
+                  icon={<Camera className="w-5 h-5" />}
+                  options={distanceOptions}
+                  value={settings.raceCamDistance}
+                  onChange={(raceCamDistance) => set({ raceCamDistance })}
+                />
               </>
             )}
 
