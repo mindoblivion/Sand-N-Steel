@@ -5073,3 +5073,33 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   cheap device lands on Swift at first run (`devicePixelRatio` > 2.5 with ≤ 4 cores) while a record
   that already carries a choice keeps it; (d) that a fast travel and the first second in the hub do
   not visibly drop the resolution (the suspension). Do not claim device acceptance.
+
+## Selling — market buy-back (P1 sell-refund — implemented)
+
+- **What ships.** `src/utils/selling.ts` (new) is the transaction that pairs with the value rule
+  `utils/tempering.ts` already owned: `getSellValue()` returns the item's own `sellPrice` plus 25 %
+  of the temper gold spent on it (`getTemperSellValue`), `getSellEligibility()` states the rules, and
+  `sellItem()` is the transaction. Same purity contract as the chariot / racing / tempering helpers:
+  a refusal returns the caller's own profile object untouched, a success returns a NEW profile with
+  the value added to `gold` and the item dropped from `inventory`.
+- **Selling clears that item's temper record**, because `ITEMS_DB` objects are shared data — a
+  re-bought sword must start at level 0, not inherit the levels its previous owner paid for. A save
+  with no `temper` field never gains one by selling.
+- **Only a carried, unequipped item is sellable** (`not-owned` / `equipped` / `unknown-item` /
+  `no-profile` refusals). `equipped.weapon` is required, so unequipping-by-selling would leave a
+  state no other code expects; the player unequips first, exactly as in a real armoury.
+- **UI.** The Bazaar & Forge (`components/hub/ShopTab.tsx`) now shows a `Sell for N Gold` control on
+  an owned, unequipped card, below the disabled `Owned` button; it is wired `ShopTab → onSellItem →
+  GladiatorSchoolHub → App.handleSellItem → saveProfile`, the same path every other profile change
+  uses. The Armory (`GearTab`) is unchanged — it equips, the market trades.
+- **Verified.** `bun test` → **2346 pass / 0 fail (77 files)**, this slice contributing the 16 tests
+  in the new `src/utils/selling.test.ts` (eligibility, value, transaction purity, inert refusals);
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0. In the preview the market
+  renders the control with the correct figure (`SELL FOR 45 GOLD` on the 45 g Dory Hoplite Spear,
+  the equipped gladius correctly offered none).
+- **Not automatically verified: the click-through.** The button was rendered and read, but the
+  sale click was not dispatched in that run (the selector missed the label because Tailwind's
+  `uppercase` class uppercases `innerText`), so the gold credit + inventory removal + save write
+  through the UI are pinned only by the unit tests that drive `sellItem()` itself. Reaching the
+  market also costs the full creation → press-and-hold oath → city fast-travel path, so it was not
+  repeated in the same session.

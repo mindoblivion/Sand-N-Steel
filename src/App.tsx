@@ -8,6 +8,7 @@ import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
 import type { GearView } from './components/hub/GearTab';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
+import { sellItem } from './utils/selling';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
 // city hub and the duel arena are: one more screen value, one more lazy import
@@ -620,6 +621,17 @@ export function App() {
     saveProfile(updated);
   };
 
+  // P1 sell — the market buys a carried, unequipped item back for its
+  // `sellPrice` plus 25 % of any temper gold spent on it.  The transaction is
+  // pure: a refusal hands back the same profile object, so nothing is saved.
+  const handleSellItem = (item: WeaponItem | ArmorItem) => {
+    if (!profile) return;
+    const updated = sellItem(profile, item.id);
+    if (updated === profile) return;
+    setProfile(updated);
+    saveProfile(updated);
+  };
+
   const handleEquipWeapon = (wpn: WeaponItem) => {
     if (!profile) return;
     const updated: PlayerProfile = {
@@ -770,6 +782,7 @@ export function App() {
             onSelectOpponent={handleEnterDuel}
             onTrainStat={handleTrainStat}
             onBuyItem={handleBuyItem}
+            onSellItem={handleSellItem}
             onEquipWeapon={handleEquipWeapon}
             onEquipArmor={handleEquipArmor}
             gearView={gearView}
