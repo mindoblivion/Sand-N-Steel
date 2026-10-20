@@ -25,6 +25,25 @@ import { LazySceneBoundary } from './components/ui/LazySceneBoundary';
 import { NoWebGLScreen, OfflineNotice } from './components/ui/GameFailureSurface';
 import { checkWebGLAvailability } from './components/ui/WebGLErrorBoundary';
 import { PostOathNudge, usePostOathNudge } from './components/hub/PostOathNudge';
+import { OathBeat } from './components/hub/OathBeat';
+import {
+  OATH_YARD_SPAWN,
+  oathWriteOnCompletion,
+  resolveOathBeatMode,
+  shouldPlayOathBeat,
+  withOathSworn,
+  type OathBeatMode,
+  type OathBeatState,
+} from './utils/gladiatorOath';
+import {
+  HERALD_COLOSSEUM,
+  aimHerald,
+  heraldPointerVisible,
+  readHeraldState,
+  releaseHeraldForEntry,
+  suppressHeraldForEntry,
+  type HeraldState,
+} from './utils/cityHerald';
 import { googleSignIn, subscribeAuthUser } from './services/googleAuth';
 import type { User } from 'firebase/auth';
 import { DeleteAccountModal } from './components/hub/DeleteAccountModal';
@@ -104,6 +123,21 @@ export function App() {
   // START-1 — the post-Oath nudge: offered once, session-flagged, dismissible.
   const postOathNudge = usePostOathNudge();
 
+  /**
+   * THE GLADIATOR'S OATH — `null` is free roam; a mode means the Doctore's presented
+   * scene owns the screen (see `utils/gladiatorOath`). It is VIEW state: the beat's own
+   * write is the profile's `road.oathSworn`, and that leaves through the usual save pair
+   * below, never from the beat itself.
+   */
+  const [oathBeatMode, setOathBeatMode] = useState<OathBeatMode | null>(null);
+
+  /**
+   * The herald's pointer, read once from the session's own scratch record and aimed
+   * again on each arrival (see `utils/cityHerald`). Session-scoped by construction: it
+   * names a landmark the city already has and reaches no save.
+   */
+  const [herald, setHerald] = useState<HeraldState>(() => readHeraldState());
+
   // START-1 — the device can run the game at all. Resolved once, at boot, so a device
   // without 3D is told so in plain language instead of reaching a scene that cannot draw.
   const [webglAvailable] = useState(() => checkWebGLAvailability().supported);
@@ -174,10 +208,30 @@ export function App() {
     setSettingsOpen(true);
   };
 
+  /**
+   * THE CITY ARRIVAL — the one way into `city_3d`, and the whole of the oath's trigger.
+   * A gladiator whose road state resolves UNSWORN arrives at the Ludus Martial Yard with
+   * the Doctore's oath as his first beat instead of free roam, and the herald holds its
+   * pointer down for that arrival only. Everything else — every later arrival, and every
+   * gladiator the save itself shows to have played before this slice — hands the pointer
+   * back and walks in freely. The question is asked once, here, and every entry point
+   * into the city comes through this one function.
+   */
+  const enterCity = (forProfile: PlayerProfile) => {
+    if (shouldPlayOathBeat(forProfile)) {
+      setHerald(suppressHeraldForEntry());
+      setOathBeatMode(resolveOathBeatMode(forProfile));
+    } else {
+      setHerald(releaseHeraldForEntry());
+      setOathBeatMode(null);
+    }
+    setCurrentScreen('city_3d');
+  };
+
   const handleContinueAdventure = () => {
     if (!profile) return;
     sounds.playClick();
-    setCurrentScreen('city_3d');
+    enterCity(profile);
   };
 
   const handleNewCharacter = () => {
@@ -205,13 +259,13 @@ export function App() {
           const cloudProfile = await loadProfileFromDrive(saves[0].id);
           setProfile(cloudProfile);
           saveProfile(cloudProfile);
-          setCurrentScreen('city_3d');
+          enterCity(cloudProfile);
         }
       } else {
         // No cloud save yet. If a local profile already exists, continue
         // that gladiator — don't send a returning player to character creation.
         if (profile) {
-          setCurrentScreen('city_3d');
+          enterCity(profile);
         } else {
           setCurrentScreen('create_character');
         }
@@ -231,7 +285,7 @@ export function App() {
     try {
       await facebookSignIn();
       if (profile) {
-        setCurrentScreen('city_3d');
+        enterCity(profile);
       } else {
         setCurrentScreen('create_character');
       }
@@ -249,7 +303,7 @@ export function App() {
     try {
       await appleSignIn();
       if (profile) {
-        setCurrentScreen('city_3d');
+        enterCity(profile);
       } else {
         setCurrentScreen('create_character');
       }
@@ -267,7 +321,7 @@ export function App() {
     try {
       await microsoftSignIn();
       if (profile) {
-        setCurrentScreen('city_3d');
+        enterCity(profile);
       } else {
         setCurrentScreen('create_character');
       }
@@ -281,7 +335,7 @@ export function App() {
   // "Sign In with Email" — called after inline email/password auth succeeds on the title screen.
   const handleEmailSignIn = () => {
     if (profile) {
-      setCurrentScreen('city_3d');
+      enterCity(profile);
     } else {
       setCurrentScreen('create_character');
     }
@@ -291,8 +345,28 @@ export function App() {
     sounds.playClick();
     setProfile(newProfile);
     saveProfile(newProfile);
-    // Spawns directly at the 3D Monumental Town Gate!
-    setCurrentScreen('city_3d');
+    // A new gladiator is unsworn, so this arrival is the oath's: the city puts him in
+    // the Ludus Martial Yard and the Doctore is waiting there. Free roam begins when the
+    // words are sworn, and the post-Oath nudge is offered then, not here.
+    enterCity(newProfile);
+  };
+
+  /**
+   * The oath is over. A completed FULL oath is the beat's ONE write, and it leaves
+   * through the same `setProfile` + `saveProfile` pair every other profile change uses
+   * — `withOathSworn` refuses a profile that already resolves sworn, so `road.oathSworn`
+   * is set exactly once, and a beat abandoned mid-line writes nothing at all. The words
+   * are sworn, so the herald turns to the sand.
+   */
+  const handleOathComplete = (finalState: OathBeatState) => {
+    setOathBeatMode(null);
+    if (!oathWriteOnCompletion(finalState)) return;
+    const sworn = withOathSworn(profile);
+    if (sworn) {
+      setProfile(sworn);
+      saveProfile(sworn);
+    }
+    setHerald(aimHerald(HERALD_COLOSSEUM));
     // The Oath has just been sworn: offer the once-a-session save-progress nudge.
     postOathNudge.offer();
   };
@@ -319,7 +393,8 @@ export function App() {
    * The city remounts and puts the player back at the pose captured on entry.
    */
   const handleExitRace = () => {
-    setCurrentScreen('city_3d');
+    if (profile) enterCity(profile);
+    else setCurrentScreen('city_3d');
   };
 
   const handleOpenHubTab = (
@@ -411,7 +486,8 @@ export function App() {
 
   const handleDuelResultDismiss = () => {
     setDuelResult(null);
-    setCurrentScreen('city_3d');
+    if (profile) enterCity(profile);
+    else setCurrentScreen('city_3d');
   };
 
   /**
@@ -575,6 +651,7 @@ export function App() {
         )}
 
         {currentScreen === 'city_3d' && profile && (
+          <>
           <LazySceneBoundary tier="city">
           <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
             <CityHubScene
@@ -588,12 +665,22 @@ export function App() {
             onReturnToMainMenu={() => setCurrentScreen('title')}
             isLeftyMode={isLeftyMode}
             onOpenSettings={() => handleOpenSettings()}
-            initialPosition={cityReturnPose?.position}
-            initialRotationY={cityReturnPose?.rotationY}
+            initialPosition={oathBeatMode ? OATH_YARD_SPAWN.position : cityReturnPose?.position}
+            initialRotationY={oathBeatMode ? OATH_YARD_SPAWN.rotationY : cityReturnPose?.rotationY}
             onStartRace={handleStartRace}
+            lightProfile={oathBeatMode ? 'oathDawn' : undefined}
+            movementLocked={!!oathBeatMode}
+            heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
             />
           </React.Suspense>
           </LazySceneBoundary>
+
+          {/* THE GLADIATOR'S OATH — the presented scene the yard is mounted for: the
+              Doctore's framing line, the four lines each in Latin with its gloss, and the
+              closing vow. It owns the screen while it is up (the city reads no controls),
+              so a new gladiator's arrival is the beat and never free roam. */}
+          {oathBeatMode && <OathBeat mode={oathBeatMode} onComplete={handleOathComplete} />}
+          </>
         )}
 
         {currentScreen === 'hub_2d' && profile && (
@@ -601,7 +688,7 @@ export function App() {
             playerProfile={profile}
             activeTab={activeHubTab}
             onTabChange={setActiveHubTab}
-            onEnterCity3D={() => setCurrentScreen('city_3d')}
+            onEnterCity3D={() => { if (profile) enterCity(profile); }}
             onSelectOpponent={handleEnterDuel}
             onTrainStat={handleTrainStat}
             onBuyItem={handleBuyItem}
@@ -707,7 +794,7 @@ export function App() {
                 setProfile(loadedProfile);
                 saveProfile(loadedProfile);
                 setShowDriveSync(false);
-                setCurrentScreen('city_3d');
+                enterCity(loadedProfile);
             }}
             onClose={() => setShowDriveSync(false)}
             />
