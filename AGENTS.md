@@ -4227,3 +4227,116 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   mid-run, so a genuine cold start with no connection, and the installed-app (Android / TWA)
   launch, still need a device check: start the app with the connection off and confirm the shell
   (or, on a very first run, the designed offline screen) appears instead of the browser error page.
+
+## START-1 — "The Front Gate" (the designed startup sequence — implemented, verified live)
+
+- **What ships.** The startup SEQUENCE the PWA hardening exists to serve, on a new branch
+  (`startup-sequence`) from `colosseum-exterior-architecture`. No game system, no auth change and no
+  save write: the nudge is session-scoped, and every new surface is read-only.
+  1. **The boot shell** — an inline `<style>` block and `#boot-shell` div in `index.html`, painted
+     before any bundle or stylesheet exists, faded out and removed by `src/utils/bootShell.ts` once
+     React has committed a frame (`src/main.tsx` dismisses it inside a double `requestAnimationFrame`).
+     Its field colour is the manifest's `background_color` (`#0c0a09`), matched by the `theme-color`
+     meta and by `<html>`/`<body>`, and its art is the SAME `.title-backdrop` rule `TitleScreen`
+     wears, so the splash → title hand-off shows one picture twice rather than a blank frame.
+  2. **The title art, compressed and named in one place** — `public/title_screen.webp` (285,498 bytes)
+     is the primary with the 2,670,368-byte PNG as the fallback, declared once in `index.html`'s
+     `image-set`. `src/utils/startupAssets.ts` is the registry; `scripts/startupAssetCheck.ts` is the
+     build check (`bun run check:startup-assets`, and the second half of `bun run build`), which
+     verifies the registry against `public/` AND `dist/`, verifies every URL the boot path names
+     (`index.html`'s inline style and links, the manifest's icons, `sw.js`'s precache list) is
+     registered, and verifies `TitleScreen` wears the shared class rather than naming the files.
+  3. **The title hierarchy** — ONE primary action (`Play` for a fresh profile, `Continue` for a
+     returning one) and ONE `Account` entry (`TitleAccountPanel` + `src/components/hub/TitleScreen.tsx`).
+     Every sign-in path — the repo's existing `EmailAuthScreen` and the four existing social buttons —
+     is mounted unchanged behind that entry, so nothing asks for input before the player chooses to
+     give it.
+  4. **The post-Oath nudge** — `src/components/hub/PostOathNudge.tsx` + `src/utils/postOathNudge.ts`:
+     offered ONCE per session after character creation completes, dismissible twice over, and
+     `pointer-events-none` everywhere but its own card so it never blocks the hub. Its only state is a
+     `sessionStorage` flag (`sand_and_steel_post_oath_nudge_seen`) — the module names neither the
+     profile key nor any save path — and its "keep him safe" action reuses the existing cloud-save
+     entry point rather than adding auth.
+  5. **The wait surface** — `src/components/ui/WaitSurface.tsx` + `waitSurfaceLines.ts` replace the
+     bare "Loading City Hub…" text at all three destination fallbacks (city / arena / circus) inside
+     `LazySceneBoundary`: the destination in the fiction plus a plain gloss, one Acta line that
+     rotates (and can be tapped), and honest progress — a real asset count when Drei's loader knows
+     one, an indeterminate sweep when it does not, never a fake percentage. Motion is
+     transform/opacity only, paused while the tab is hidden, stilled under `prefers-reduced-motion`.
+  6. **The failure surfaces** — `src/components/ui/GameFailureSurface.tsx`: an offline notice
+     (non-blocking, dismissible, clears itself when the connection returns), a load-failure screen
+     that names the tier that failed, and a no-3D screen. All plain language, each with the one honest
+     recovery (reload); `LazySceneBoundary` catches a failed lazy chunk, and `App.tsx` resolves
+     `checkWebGLAvailability()` once at boot.
+  7. **The two-stage preload** — `src/utils/preloadAssets.ts` exposes `preloadTitleStage()` (stage 1,
+     called at title mount) and `preloadTapStage()` (stage 2, called on the primary tap), each
+     idempotent. The TIER CONTENTS are deliberately unchanged in this slice: both stages read the same
+     `CORE_3D_ASSETS` list, so what a later slice's tier split decides is what is fetched and when the
+     fetch starts — not what this slice ships.
+  8. **The title's audio beat** (`src/audio/titleAudio.ts`) and **the title's phase** 
+     (`src/hooks/useTitlePhaseBackdrop.ts`) — the title paints silent and unlocks its motif on the
+     first tap anywhere; the phase backdrop resolves through ONE named function that returns the dawn
+     variant today, so START-1b replaces its body and nothing else.
+  9. **`src/utils/start1.test.ts`** (20 tests) — the sequence's own contract: §A the shell's colour
+     and backdrop, §B the hand-off (id/class/fade/order), §C the assets (present, the WebP smaller,
+     the art named only in `index.html`, the build wired), §D the sequence (both preload beats, every
+     destination's copy and mount, the Acta wrap, the three failure surfaces' plain language), §E the
+     nudge (once per session, driven against a recording store, and provably unable to name the save).
+
+- **A real defect the new build check found, fixed this turn.** `scripts/startupAssetCheck.ts`
+  harvested EVERY `href`/`src` in `index.html`, so the bundle entry point `<script src="/src/main.tsx">`
+  was reported as an unregistered startup asset and `bun run build` **exited 1** — i.e. the check as
+  committed made every build fail. It now carries an explicit `SOURCE_ENTRY_POINTS` list (holding only
+  `/src/main.tsx`), named rather than pattern-matched so a new asset cannot slip through by being
+  mistaken for an entry point. `bun run build` is green and prints all eight assets in both `public/`
+  and `dist/`.
+
+- **Two repairs this turn — both determined by the evidence, neither by weakening a check.**
+  1. **`src/components/dev/CharacterTestHarness.tsx` still called `preloadCoreGameAssets()`**, which the
+     preload split removed, so `bun run lint` (`tsc --noEmit`) failed with TS2305 on the import. It now
+     calls `preloadTitleStage()`, the harness's stated purpose being parity with App's boot
+     side-effects. (`bun test` never saw it: the harness is a DEV-gated dynamic import and no suite
+     loads it.)
+  2. **`src/utils/phaseC8_70bStage1.test.ts` §A pinned the fallback TEXT START-1 replaced** — it
+     asserted `'Entering the Circus...'`, the bare div that no longer exists. It is **rebased, not
+     weakened**: the property it exists to pin (the race scene is a lazy chunk behind a Suspense
+     fallback) now reads through the shipped form — `React.lazy(() => import('./components/3d/RaceScene')`,
+     `<React.Suspense fallback={<WaitSurface destination="circus" />}>`, `<LazySceneBoundary tier="circus">`.
+
+- **Verified 2026-10-20** in the dev container, after the last edit: `bun test` → **2074 pass / 0 fail
+  (66 files, 65,061 `expect()`)** (2054 / 65 before, 1 of which was the stale fallback assertion;
+  the delta is this suite's 20 tests and its file); `bun run scripts/collisionTests.ts` → **123 passed,
+  0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0** (one TS2305 before the harness repair);
+  `bun run build` → **exit 0** with the startup-asset check passing (the pre-existing >500 kB chunk
+  warning only). The check reports every startup asset with its byte count in `public/` and `dist/`.
+
+- **Live evidence in the preview browser (anonymous visitor — no session was replayed).** Part 1, the
+  title: the served document carries `#boot-shell` with the shared `title-backdrop` class, and the live
+  document has **no shell** once React has mounted, i.e. the hand-off ran; `meta[name=theme-color]` is
+  `#0c0a09` and both `<html>` and `<body>` compute to `rgb(12, 10, 9)`; `.title-backdrop`'s computed
+  `background-image` resolves to an `image-set` whose **WebP member is first and whose PNG member is
+  the fallback**; there is **exactly one** primary action (labelled `Play` on a fresh visitor) and
+  **exactly one** `Account` entry, and **zero** OAuth buttons are on the title until Account is opened;
+  Account opens the panel (8 controls: the repo's email form plus the four social buttons) and its
+  `← Back` control closes it, returning the title to its one-action state. Frames were captured of the
+  title and of the open panel. Part 2, the sequence: the `Play` tap unmounted the title for the
+  creation screen; taking the Oath surfaced the **wait surface** with its designed copy and a REAL
+  asset count — *"The Ishtar Gate opens onto the Via Mercatoria. / LOADING THE CITY / Loading asset 10
+  of 10 / FROM THE ACTA — The keeper inks another name into the Acta; the sand decides the rest."*; it
+  cleared itself, the city hub mounted, and the **post-Oath nudge** appeared once over it; `Not now`
+  dismissed it, the session flag read `1`, and there were **0 console errors** throughout. The guest
+  profile this run wrote was **deleted from storage afterwards** — nothing was left behind, and no
+  existing save was touched (`profileExistedBeforeThisRun: false`).
+
+- **Not automatically verified, and what each would need.** (a) **The splash frame itself** — the first
+  paint happens before any script, so what was checked is the served HTML, the colour contract and the
+  fact that the shell is gone after mount; seeing the shell *painted* (and the installed-app splash
+  above it) needs a device or a slowed network. (b) **The offline notice and the no-3D screen** — the
+  sandbox cannot cut the network or remove WebGL, so both are covered by source and suite only; the
+  offline launch is already an open device item from the service-worker phase. (c) **Sign-in** — the
+  Account panel is verified to open and close, NOT to authenticate: no session was replayed and
+  Google sign-in still needs an authorized domain. (d) **The once-per-session promise across a reload**
+  — the live run offered the nudge exactly once and the suite drives the refusal of a second offer in
+  the same session, but no reload was exercised live. (e) **The title's phase** — only the dawn
+  variant exists (START-1b's resolver is a named stub). (f) The visual reading of the sequence on the
+  **target device**, as with every other phase in this file.

@@ -87,6 +87,15 @@ function shellAssetUrls(sw: string): string[] {
   return found;
 }
 
+/**
+ * References that are NOT startup assets. `index.html` also names the module the bundle
+ * is built from, which no `public/` file backs and which no build output contains under
+ * that name — it is the entry point, not an asset the startup sequence downloads. Kept
+ * as an explicit list (rather than a silent pattern) so a new startup asset cannot slip
+ * through by being mistaken for one of these.
+ */
+const SOURCE_ENTRY_POINTS = ['/src/main.tsx'];
+
 function report(): void {
   // ── 1: the registry, in the repository ──────────────────────────────────────────
   const sizes: string[] = [];
@@ -122,6 +131,7 @@ function report(): void {
 
   for (const url of referenced) {
     if (SHELL_DOCUMENTS.includes(url)) continue;
+    if (SOURCE_ENTRY_POINTS.includes(url)) continue;
     if (!STARTUP_ASSETS.includes(url)) {
       fail(`UNREGISTERED REFERENCE: ${url} is referenced by the boot/title path but is not in src/utils/startupAssets.ts.`);
     }
