@@ -252,7 +252,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // Elegant immersive fallback notification for locations with no immediate tab key
       if (nearbyLoc.id === 'doctore_house') {
         setStableNotice(
-          "Doctore Tactical House: Chief Doctore is currently supervising advanced conditioning. Advanced tactics and special combat stances will be unlocked soon!"
+          "Doctore Tactical House: Chief Doctore is currently supervising advanced conditioning. Train hard, fight well, and Rome will learn your name."
         );
       } else if (nearbyLoc.id === 'shrine_temple') {
         setStableNotice(
@@ -903,7 +903,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 className="flex-1 min-w-[54px] py-1.5 sm:py-2 px-1 rounded-xl hover:bg-amber-500/20 text-neutral-300 hover:text-amber-200 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all active:scale-95 cursor-pointer"
               >
                 <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${item.color}`} />
-                <span className="text-[9px] sm:text-[11px] font-serif font-bold tracking-tight truncate">
+                <span className="text-[10px] sm:text-[11px] font-serif font-bold tracking-tight truncate">
                   {item.label}
                 </span>
               </button>
