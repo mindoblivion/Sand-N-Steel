@@ -551,7 +551,7 @@ export function App() {
 
         {currentScreen === 'race' && (
           <React.Suspense fallback={<div className="w-full h-screen flex items-center justify-center bg-neutral-950 text-amber-500 font-serif text-xl animate-pulse">Entering the Circus...</div>}>
-            <RaceScene onAbort={handleExitRace} />
+            <RaceScene onAbort={handleExitRace} isLeftyMode={isLeftyMode} />
           </React.Suspense>
         )}
 

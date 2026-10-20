@@ -74,6 +74,21 @@ const useColosseumRearHarness =
   (new URLSearchParams(window.location.search).get('devHarness') === 'colosseum-rear' ||
     window.location.pathname === '/__dev/colosseum-rear');
 
+// Phase C-8.70B Stage 1, Slice 2 — development-only RACE harness.  Reachable
+// ONLY in a Vite dev build, through the exact `?devHarness=race` query parameter
+// or the equivalent dev-only scratch-storage flag `sand_and_steel_dev_harness =
+// 'race'`.  It mounts the REAL race scene (the shipping arena, chariot, state
+// machine, controls and HUD) with no title screen, character creation, city hub
+// or fast travel to walk first, because that route costs more wall time in this
+// sandbox than a verification script is allowed.  It saves nothing and it never
+// reads the player's save.  Like every branch here it is dynamically imported
+// INSIDE the `import.meta.env.DEV` gate, so a production build contains none of
+// it.
+const useRaceHarness =
+  import.meta.env.DEV &&
+  (new URLSearchParams(window.location.search).get('devHarness') === 'race' ||
+    readDevHarnessFlag() === 'race');
+
 if (useColosseumRearHarness) {
   void import('./components/dev/ColosseumRearDiagnostic').then(({ ColosseumRearDiagnostic }) => {
     ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
@@ -113,6 +128,14 @@ if (useColosseumRearHarness) {
     ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <React.StrictMode>
         <HorseChariotFitPrototype />
+      </React.StrictMode>,
+    );
+  });
+} else if (useRaceHarness) {
+  void import('./components/dev/RaceHarness').then(({ RaceHarness }) => {
+    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+      <React.StrictMode>
+        <RaceHarness />
       </React.StrictMode>,
     );
   });
