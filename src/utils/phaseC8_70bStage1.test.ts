@@ -73,7 +73,11 @@ describe('A. The race is a screen of the existing machine', () => {
   test('App gains one screen value and one lazy import — no router', () => {
     expect(appSrc).toContain("'duel' | 'race'");
     expect(appSrc).toContain("import('./components/3d/RaceScene')");
-    expect(appSrc).toContain('<RaceScene onAbort={handleExitRace} />');
+    // Rebased by Slice 2 (driving): the race screen now also receives the
+    // handedness flag, so its touch cluster can mirror in Lefty Mode.  The
+    // property this pins — the screen is mounted with its abort handler — is
+    // unchanged, and the mount count below is still exactly one.
+    expect(appSrc).toContain('<RaceScene onAbort={handleExitRace} isLeftyMode={isLeftyMode} />');
     expect(appSrc).toContain("currentScreen === 'race' &&");
     // the mechanism is the one that already moves between title / city / duel
     expect(appSrc).toContain("currentScreen === 'city_3d' &&");

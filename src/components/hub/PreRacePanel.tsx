@@ -119,6 +119,23 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
           </p>
         </div>
 
+        <div
+          className="bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4"
+          data-race-field="controls"
+        >
+          <div className="text-[10px] font-serif uppercase tracking-widest text-amber-400 mb-2">
+            How to drive
+          </div>
+          <ul className="flex flex-col gap-1 font-mono text-[11px] text-neutral-300">
+            <li>Throttle (hold) — <span className="text-amber-300">W</span> / <span className="text-amber-300">↑</span></li>
+            <li>Brake &amp; reverse (hold) — <span className="text-amber-300">S</span> / <span className="text-amber-300">↓</span></li>
+            <li>Steer — <span className="text-amber-300">A</span> / <span className="text-amber-300">D</span> or <span className="text-amber-300">←</span> / <span className="text-amber-300">→</span></li>
+            <li>Touch — steering under one thumb, throttle and brake under the other</li>
+            <li>Clean start — hold the throttle before GO, release as it turns green</li>
+            <li>Abort — the Abort control, or <span className="text-amber-300">Esc</span></li>
+          </ul>
+        </div>
+
         <div className="flex gap-3">
           <button
             onClick={onLeave}
