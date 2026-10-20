@@ -5103,3 +5103,39 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   through the UI are pinned only by the unit tests that drive `sellItem()` itself. Reaching the
   market also costs the full creation → press-and-hold oath → city fast-travel path, so it was not
   repeated in the same session.
+
+## Arena purse — victory gold (P1 rewards — implemented)
+
+- **What ships.** `src/utils/duelRewards.ts` (new, pure: no profile, no storage, no clock) is the
+  rule that turns a finished duel's own statistics into the gold a victory pays; `DuelGoldBreakdown`
+  and an optional `goldBreakdown` on `DuelStatistics` (`src/types/game.ts`); `DuelScene` computes the
+  purse at the victory resolution and writes it onto the ONE stats object App already credits; the
+  result modal itemises it and shows the settled purse. **No new currency, no second save field, no
+  change to the reward path**: `App.handleMatchComplete` still does `profile.gold + stats.goldEarned`
+  and still refuses to pay on a loss.
+- **The rule.** Base = the opponent's own `rewardGold` (35 … 1,000 across the roster), plus crowd
+  favour (+10 % of the base per full 25 hype above 50, so +7 on a 35-gold bounty at hype 100), plus
+  precision (5 gold per perfect block, capped at five), plus flawless (+50 % of the base when no
+  damage was taken). Marcus at peak value pays **85**; the tier-4 boss at peak value pays over
+  **1,700**. A loss pays **0** — every field zero — which is what keeps the arena a reward for risk.
+- **Why the flat bounty was kept as the base:** `rewardGold` is the roster's balance data (and what
+  the Colosseum list and pre-fight panel quote), so the purse is written over it rather than
+  replacing it; a quiet win therefore pays exactly what the game always paid and only a showy or
+  flawless one pays more.
+- **Where the gold goes.** Straight into `profile.gold` through the existing `saveProfile()` write, so
+  it is the same purse `purchaseTemper()` spends — a tempered gladius' first level (20 g) is one
+  Marcus victory, and the whole gladius curve (130 g) is under two.
+- **Validation (2026-10-20).** `bun test` → **2366 pass / 0 fail (78 files, 78,928 expect() calls)**,
+  this slice contributing the 18 tests in `src/utils/duelRewards.test.ts` (loss pays nothing, base
+  bounty, the hype steps and their monotonicity, the block cap, flawless and its removal by one point
+  of damage, integer/non-negative totals for malformed input, the "a win never pays less than the
+  bounty" invariant, and the wiring: the duel pays `purse.total` onto `statsRef`, a defeat zeroes it,
+  App credits `stats.goldEarned`, the modal renders the breakdown); `bun run lint` (`tsc --noEmit`) →
+  exit 0. The dev server serves the new module and the changed scene/modal/App transformed (HTTP 200).
+- **Preview evidence, and what it does NOT establish.** The dev harness's own screens mount with the
+  change in place — creation, the test profile, the "START TEST DUEL" hand-off — with **0 console
+  errors**, so the new import chain is clean. **The purse itself is NOT automatically verified in the
+  browser:** paying it requires actually winning a duel, and the sandbox renders the arena through
+  SwiftShader at ~1–2 fps (the duel-mount attempt timed out at 30 s), so neither the paid figure nor
+  the breakdown rows were seen rendered. They are pinned by the suite above; confirm by winning one
+  Colosseum duel on a device.

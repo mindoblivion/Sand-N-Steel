@@ -838,6 +838,7 @@ export function App() {
             didWin={duelResult.didWin}
             opponent={activeOpponent}
             stats={duelResult.stats}
+            goldTotal={profile?.gold}
             onContinue={handleDuelResultDismiss}
             />
         )}

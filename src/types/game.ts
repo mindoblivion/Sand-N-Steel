@@ -185,6 +185,20 @@ export interface DuelStatistics {
   xpEarned: number;
   wagerEarned?: number;
   lootDrop?: WeaponItem | ArmorItem | null;
+  /** The victory purse itemised (see `utils/duelRewards.ts`); absent on a defeat. */
+  goldBreakdown?: DuelGoldBreakdown;
+}
+
+/**
+ * An itemised arena purse: the opponent's base bounty plus the performance
+ * bonuses a victory pays. `total` is the gold credited to the player's purse.
+ */
+export interface DuelGoldBreakdown {
+  base: number;
+  hype: number;
+  precision: number;
+  flawless: number;
+  total: number;
 }
 
 export interface TournamentTierInfo {
