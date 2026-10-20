@@ -212,6 +212,31 @@ export const ClassicalPediment: React.FC<ClassicalPedimentProps> = ({
   const slopeAngle = Math.atan2(height, halfBase);
   const rafterLen = Math.hypot(halfBase, height);
 
+  /**
+   * Phase C-8.62 — the raking cornices now FOLLOW the gable's own edges.
+   *
+   * The two raking cornices used to be rotated `∓slopeAngle`, i.e. each one DESCENDED from its
+   * eave corner toward the axis, so they met low over the pediment's centre as a V: at the Veteran
+   * Gladiator Hall's own proportions the two arms crossed the axis over the local Y band
+   * `0.1770 … 0.4230` — `(0.22 / 2) / cos(slope)` either side of the entablature's own top plane
+   * at `0.3` — which left the gable's upper triangle as the only free area and made the V's arms
+   * the thing every decoration had to clear.
+   * They were also 0.2 longer than the corner-to-apex run (`rafterLen + 0.2`), which pushed each
+   * bar 0.0894 past the axis and 0.0894 past its own eave corner.
+   *
+   * The signs are now `±slopeAngle`, so each bar's own axis runs exactly from its eave corner
+   * `(∓halfBase, 0.3)` to the apex `(0, 0.3 + height)`; the length is that run, `rafterLen`, with
+   * no extra, so the two bars meet at the apex instead of crossing through it; and the section
+   * comes in from 0.22 to 0.16, which keeps the thinner bar clear of the tympanum panel's edges
+   * and of the roof ridge behind the gable.
+   *
+   * `crownLift` is the one derived quantity the correction needs: with the bars meeting on the
+   * axis, their crowns stand `(thickness / 2) · cos(slopeAngle)` above the apex, so the acroterion
+   * is lifted by exactly that much and seats on the joint instead of sinking into it.
+   */
+  const rakeThickness = 0.16;
+  const crownLift = Math.cos(slopeAngle) * (rakeThickness / 2);
+
   const tympanumShape = useMemo(() => {
     const shape = new THREE.Shape();
     shape.moveTo(-halfBase + 0.15, 0);
@@ -240,28 +265,30 @@ export const ClassicalPediment: React.FC<ClassicalPedimentProps> = ({
         <meshStandardMaterial color={stoneColor} roughness={0.82} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* 3. LEFT RAKING CORNICE */}
+      {/* 3. LEFT RAKING CORNICE — Phase C-8.62: `+slopeAngle` runs this bar UP from its eave
+          corner to the apex; the run is `rafterLen`, with no extra length to cross the axis. */}
       <mesh
         castShadow
         position={[-halfBase / 2, 0.3 + height / 2, 0]}
-        rotation={[0, 0, -slopeAngle]}
+        rotation={[0, 0, slopeAngle]}
       >
-        <boxGeometry args={[rafterLen + 0.2, 0.22, depth + 0.35]} />
+        <boxGeometry args={[rafterLen, rakeThickness, depth + 0.35]} />
         <meshStandardMaterial color={trimColor} roughness={0.75} />
       </mesh>
 
-      {/* 4. RIGHT RAKING CORNICE */}
+      {/* 4. RIGHT RAKING CORNICE — Phase C-8.62: mirrored, `−slopeAngle`. */}
       <mesh
         castShadow
         position={[halfBase / 2, 0.3 + height / 2, 0]}
-        rotation={[0, 0, slopeAngle]}
+        rotation={[0, 0, -slopeAngle]}
       >
-        <boxGeometry args={[rafterLen + 0.2, 0.22, depth + 0.35]} />
+        <boxGeometry args={[rafterLen, rakeThickness, depth + 0.35]} />
         <meshStandardMaterial color={trimColor} roughness={0.75} />
       </mesh>
 
-      {/* 5. APEX ACROTERION FINIAL */}
-      <mesh castShadow position={[0, 0.3 + height + 0.16, depth / 2 + 0.05]}>
+      {/* 5. APEX ACROTERION FINIAL — Phase C-8.62: `crownLift` seats its underside on the two
+          raking cornices' crowns where they meet on the axis. */}
+      <mesh castShadow position={[0, 0.3 + height + 0.16 + crownLift, depth / 2 + 0.05]}>
         <boxGeometry args={[0.35, 0.32, 0.35]} />
         <meshStandardMaterial color={ROMAN_PALETTE.goldAccent.color} metalness={0.75} roughness={0.34} />
       </mesh>

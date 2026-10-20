@@ -4,7 +4,7 @@ import { Sparkles, useGLTF, Sky, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumber } from '../../types/game';
 import { DuelArena } from '../3d/DuelArena';
-import { GladiatorMesh } from '../3d/GladiatorMesh';
+import { GladiatorMesh, type ImpactState } from '../3d/GladiatorMesh';
 import { CombatHUD } from '../ui/CombatHUD';
 import { CombatActionType, CombatLogEntry } from '../ui/TurnActionPanel';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
@@ -14,10 +14,34 @@ import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
 import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
 import { calculateTotalStats } from '../../services/storage';
+import { resolveTemperLevel, getEffectiveWeaponStats } from '../../utils/tempering';
+import { calculateDuelGold } from '../../utils/duelRewards';
 import { getWeaponByType } from '../../data/itemsDB';
+import {
+  getWeaponRange,
+  getStaminaCost,
+  calculateHitChance,
+  calculateAttackDamage,
+  applyStaminaRegen,
+  chooseAIStandardAction,
+  chooseAIOutOfRangeAction,
+  RAGE_DAMAGE_MULTIPLIER,
+  shouldActivateRage,
+  applyComboEvent,
+  updateHypePeak,
+} from '../../utils/combatCalculations';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
-import { useCameraDrag } from '../../hooks/useCameraDrag';
+import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
+import { SceneBrightness } from '../3d/SceneBrightness';
+import { useSettings } from '../../hooks/useSettings';
+import {
+  getCameraSensitivityScale,
+  getCameraShakeMultiplier,
+  getSettings,
+  subscribeSettings,
+} from '../../services/settings';
+import { vibrate, HAPTIC_HIT_LANDED_MS, HAPTIC_DEFEAT_PATTERN } from '../../utils/haptics';
 
 // Preload 3D assets for instant duel startup
 try {
@@ -25,6 +49,46 @@ try {
 } catch (e) {
   // Silent fallback
 }
+
+// ── Impact feedback: hit-stop durations and shake trauma by outcome ───────────
+// A landed blow stops the fighters' animation for a few frames (hit-stop) and
+// kicks the camera (scaled screen shake), so a hit reads as physical. Both are
+// carried on ONE shared ref — `impactRef`, created by DuelScene and read by the
+// camera rig and every GladiatorMesh inside its own frame loop — so the feedback
+// is refs-only and re-renders nothing. No timer, damage value, hit chance, combo
+// or hype outcome is involved.
+const HIT_STOP_MS = {
+  /** Quick attack. */
+  quick: 60,
+  /** Power attack. */
+  power: 110,
+  /** Critical blow (a power attack that crit). */
+  crit: 170,
+  /** Any strike stopped by a shield — the shortest hold. */
+  blocked: 40,
+  /** The boss's telegraphed overhead smash — the heaviest impact in the game. */
+  telegraphedHeavy: 200,
+} as const;
+
+// Shake trauma added at hit resolution, in the very branches that set
+// `hitFlashTimer`. The player's own strikes scale with what they landed; a blow
+// the player RECEIVES replaces those with one flat value, so being hit always
+// reads differently from landing one.
+const SHAKE_TRAUMA = {
+  quick: 0.25,
+  power: 0.45,
+  crit: 0.7,
+  playerHit: 0.2,
+} as const;
+
+// The camera rig's shake response. The rig squares trauma before scaling it, so
+// these are the peak offsets at trauma 1. Two incommensurate frequencies keep the
+// wobble from settling into a visible loop.
+const CAMERA_SHAKE_POSITION_AMPLITUDE = 0.18; // world units
+const CAMERA_SHAKE_LOOK_DEGREES = 0.6; // lateral look-at shift, in degrees of view
+const CAMERA_SHAKE_TRAUMA_DECAY = 1.6; // trauma units per second
+const CAMERA_SHAKE_OMEGA_A = 2 * Math.PI * 31; // ≈31 Hz
+const CAMERA_SHAKE_OMEGA_B = 2 * Math.PI * 47; // ≈47 Hz
 
 interface DuelSceneProps {
   playerProfile: PlayerProfile;
@@ -43,11 +107,19 @@ const DuelCameraRig: React.FC<{
   playerPos: [number, number, number];
   opponentPos: [number, number, number];
   cameraMode: string;
-}> = ({ playerPos, opponentPos, cameraMode }) => {
+  impactRef: React.MutableRefObject<ImpactState>;
+  shakeMultiplierRef: React.MutableRefObject<number>;
+}> = ({ playerPos, opponentPos, cameraMode, impactRef, shakeMultiplierRef }) => {
   const { camera } = useThree();
-  const { yawOffsetRef, pitchOffsetRef } = useCameraDrag(false);
+  // C-8.70B §SET-1 — the Camera Sensitivity row scales this orbit, through the
+  // settings subscription (a change re-renders the rig; the frame loop is the same).
+  const sensitivityScale = getCameraSensitivityScale(useSettings());
+  const { yawOffsetRef, pitchOffsetRef } = useCameraDrag(false, {
+    yawSensitivity: CAMERA_DRAG_BASE_YAW_SENSITIVITY * sensitivityScale,
+    pitchSensitivity: CAMERA_DRAG_BASE_PITCH_SENSITIVITY * sensitivityScale,
+  });
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const midX = (playerPos[0] + opponentPos[0]) / 2;
     const midZ = (playerPos[2] + opponentPos[2]) / 2;
 
@@ -74,7 +146,48 @@ const DuelCameraRig: React.FC<{
     const targetCamPos = new THREE.Vector3(camX, currentHeight, camZ);
 
     camera.position.lerp(targetCamPos, Math.min(1, delta * 6));
-    camera.lookAt(midX, 1.2, midZ);
+
+    // ── Scaled screen shake ──────────────────────────────────────────────
+    // Trauma decays every frame whether or not an offset is applied, so Camera
+    // Shake = Off (multiplier 0) still winds the state down instead of leaving it
+    // stuck. `trauma²` makes the knock fall away sharply, as a real one does, and
+    // the multiplier is the settings module's own reader — read from a ref, so
+    // this frame loop touches no React state. Trauma is only ever added while an
+    // action is executing, and 1.6/s of decay empties even a crit (0.7) in 0.44s
+    // — inside the 1100ms resolution window — so the rig can only shake during, or
+    // in the tail of, a resolution, never on a quiet player turn.
+    const impact = impactRef.current;
+    impact.trauma = Math.max(0, impact.trauma - CAMERA_SHAKE_TRAUMA_DECAY * delta);
+    const shake = impact.trauma * impact.trauma * shakeMultiplierRef.current;
+
+    let lookX = midX;
+    let lookY = 1.2;
+    if (shake > 0) {
+      const phase = state.clock.elapsedTime;
+      // Two incommensurate frequencies (~31 Hz and ~47 Hz), each axis a bounded
+      // sum of the two, so the wobble never settles into a visible loop. The
+      // weights sum to 1, so the peak displacement is the amplitude itself.
+      const posAmp = shake * CAMERA_SHAKE_POSITION_AMPLITUDE;
+      const oscA = Math.sin(phase * CAMERA_SHAKE_OMEGA_A);
+      const oscB = Math.cos(phase * CAMERA_SHAKE_OMEGA_B);
+      const oscC = Math.cos(phase * CAMERA_SHAKE_OMEGA_A);
+      const oscD = Math.sin(phase * CAMERA_SHAKE_OMEGA_B);
+      camera.position.x += posAmp * (oscA * 0.6 + oscB * 0.4);
+      camera.position.y += posAmp * (oscC * 0.6 + oscD * 0.4);
+      camera.position.z += posAmp * oscD * 0.4;
+      // Rotational shake: the same energy as a small lateral shift of the look-at
+      // target, sized in degrees of view at the current framing distance.
+      const viewDistance = Math.hypot(
+        camera.position.x - midX,
+        camera.position.y - 1.2,
+        camera.position.z - midZ,
+      );
+      const lookShift = shake * Math.tan((CAMERA_SHAKE_LOOK_DEGREES * Math.PI) / 180) * viewDistance;
+      lookX = midX + lookShift * oscA;
+      lookY = 1.2 + lookShift * 0.6 * oscC;
+    }
+
+    camera.lookAt(lookX, lookY, midZ);
   });
 
   return null;
@@ -127,6 +240,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // independent of `playerProfile.equipped`.
   const opponentWeapon = opponent.loadout?.weapon ?? getWeaponByType(opponent.weaponType);
 
+  // P1 tempering: the player fights with the EFFECTIVE stats of their equipped
+  // weapon at its current temper level (+8 % damage per level, from
+  // `getEffectiveWeaponStats`). The saved item object is never modified — only
+  // this in-duel copy carries the bonus, so the attack resolution below and
+  // TurnActionPanel's damage preview both read the tempered numbers. The
+  // opponent has no save and no temper record, so its weapon stays base.
+  const playerWeapon = getEffectiveWeaponStats(
+    playerProfile.equipped.weapon,
+    resolveTemperLevel(playerProfile, playerProfile.equipped.weapon.id)
+  );
+
   const [player, setPlayer] = useState<FighterState>({
     id: 'player',
     name: playerProfile.name,
@@ -142,7 +266,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     isInvulnerable: false,
     hitFlashTimer: 0,
     stats: pStats,
-    loadout: { weapon: playerProfile.equipped.weapon },
+    loadout: { weapon: playerWeapon },
     comboCount: 0,
     skinColor: playerProfile.appearance.skinColor,
     hairColor: playerProfile.appearance.hairColor,
@@ -189,6 +313,24 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
 
   const [crowdHype, setCrowdHype] = useState(25);
+
+  // C-8 (Phase 39C): a ref mirrors the committed hype value so the updater can
+  // compute the exact next value from an authoritative current value without
+  // reading stale React state. The ref is updated synchronously inside
+  // updateCrowdHype, so two calls batched in the same React render cycle each
+  // see the result of the previous one — no stale-closure bug. The peak is
+  // updated outside the state updater, keeping setCrowdHype pure. Under Strict
+  // Mode the updater is no longer a function, so double-invocation does not
+  // double-mutate the ref or peak.
+  const crowdHypeRef = useRef(25);
+
+  const updateCrowdHype = useCallback((updater: (prev: number) => number) => {
+    const next = updater(crowdHypeRef.current);
+    crowdHypeRef.current = next;
+    setCrowdHype(next);
+    statsRef.current.crowdHypePeak = updateHypePeak(statsRef.current.crowdHypePeak, next);
+  }, []);
+
   const [matchTimer, setMatchTimer] = useState(0);
   const [cameraMode, setCameraMode] = useState<'cinematic' | 'over_shoulder' | 'isometric'>('cinematic');
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
@@ -218,6 +360,41 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
   const pendingCounterRef = useRef(false);
+  const rageActivatedRef = useRef(false);
+
+  // Shared impact feedback (the hit-stop clock and the shake energy) — see the
+  // tables at the top of this file. Written once per hit resolution and read
+  // every frame by the camera rig and both GladiatorMesh instances, so the
+  // feedback costs no re-render and no React state.
+  const impactRef = useRef<ImpactState>({ freezeUntil: 0, trauma: 0 });
+  // Marks the ONE resolution that is a telegraphed heavy landing, so it can take
+  // the longest hit-stop. Set by the AI branch that resolves the telegraph, then
+  // read-and-cleared at the top of executeCombatTurn — a miss, an evade or an
+  // out-of-range swing therefore cannot leave it set for a later attack.
+  const telegraphLandingRef = useRef(false);
+
+  // C-8.70B §SET-1 — the Camera Shake row's consumer contract. The rig reads the
+  // multiplier from this ref every frame; it is refreshed through the settings
+  // module's own cache and change listener (never React state, never per frame),
+  // and it folds in the OS's reduced-motion preference, which the module leaves
+  // for the platform to answer. Refs only: the value never re-renders a thing.
+  const shakeMultiplierRef = useRef(1);
+  useEffect(() => {
+    const motionQuery =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null;
+    const applyShakeMultiplier = () => {
+      shakeMultiplierRef.current = getCameraShakeMultiplier(getSettings(), motionQuery?.matches ?? false);
+    };
+    applyShakeMultiplier();
+    const unsubscribe = subscribeSettings(applyShakeMultiplier);
+    motionQuery?.addEventListener('change', applyShakeMultiplier);
+    return () => {
+      unsubscribe();
+      motionQuery?.removeEventListener('change', applyShakeMultiplier);
+    };
+  }, []);
 
   // Match timer
   useEffect(() => {
@@ -229,6 +406,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Update maxCombo from the actual player combo count (C-9).
+  // Uses Math.max so maxCombo only ever increases, never decreases when
+  // the current combo resets. Runs after every comboCount change.
+  useEffect(() => {
+    statsRef.current.maxCombo = Math.max(statsRef.current.maxCombo, player.comboCount);
+  }, [player.comboCount]);
 
   // Distance in 3D arena
   const currentDistance = Math.abs(player.position[2] - opp.position[2]);
@@ -266,23 +450,38 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       setIsExecuting(true);
       const isActorPlayer = actor === 'player';
+
+      // Read-and-clear the telegraphed-heavy marker for THIS resolution, before
+      // any branch can return, so a miss, an evade or an out-of-range swing
+      // cannot leave it set for a later attack.
+      const isTelegraphedHeavy = !isActorPlayer && telegraphLandingRef.current;
+      telegraphLandingRef.current = false;
+
       const attacker = isActorPlayer ? player : opp;
       const defender = isActorPlayer ? opp : player;
 
-      // Taking a new action ends any lingering dodge invulnerability from a
-      // previous turn. The dodge stance persists across the turn boundary
-      // (see the reset below) so the opposing attack can interact with it;
-      // it is consumed here when the fighter acts again. Returning the same
-      // reference when nothing changes lets React bail out of a re-render.
+      // Taking a new action ends any lingering defensive stance (block or
+      // dodge invulnerability) from a previous turn. Both stances persist
+      // across the turn boundary (see the turn-end reset below) so the
+      // opposing attack can interact with them; they are consumed here
+      // when the fighter acts again. Returning the same reference when
+      // nothing changes lets React bail out of a re-render.
       if (isActorPlayer) {
-        setPlayer((prev) => (prev.isInvulnerable ? { ...prev, isInvulnerable: false } : prev));
+        setPlayer((prev) =>
+          prev.isInvulnerable || prev.isBlocking
+            ? { ...prev, isInvulnerable: false, isBlocking: false }
+            : prev,
+        );
       } else {
-        setOpp((prev) => (prev.isInvulnerable ? { ...prev, isInvulnerable: false } : prev));
+        setOpp((prev) =>
+          prev.isInvulnerable || prev.isBlocking
+            ? { ...prev, isInvulnerable: false, isBlocking: false }
+            : prev,
+        );
       }
 
       const dist = Math.abs(player.position[2] - opp.position[2]);
-      const weaponType = attacker.loadout.weapon.type || 'sword_shield';
-      const effectiveRange = weaponType === 'spear' ? 3.8 : 2.5;
+      const effectiveRange = getWeaponRange(attacker.loadout.weapon);
 
       // 1. MOVEMENT ACTIONS
       if (actionType === 'advance') {
@@ -293,7 +492,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             position: [0, 0, targetZ],
             action: 'walk',
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 10),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         } else {
           const targetZ = Math.min(player.position[2] - 1.2, opp.position[2] + 1.8);
@@ -301,7 +500,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             position: [0, 0, targetZ],
             action: 'walk',
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 10),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
         addLog(`${attacker.name} advances 1.8m toward their opponent.`, isActorPlayer ? 'player' : 'opponent');
@@ -313,7 +512,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             position: [0, 0, targetZ],
             action: 'walk',
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 10),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         } else {
           const targetZ = Math.max(-7.5, opp.position[2] - 1.8);
@@ -321,7 +520,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             position: [0, 0, targetZ],
             action: 'walk',
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 10),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
         addLog(`${attacker.name} retreats back 1.8m.`, isActorPlayer ? 'player' : 'opponent');
@@ -335,17 +534,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ...prev,
             action: 'block',
             isBlocking: true,
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 12),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         } else {
           setOpp((prev) => ({
             ...prev,
             action: 'block',
             isBlocking: true,
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 12),
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
-        addLog(`${attacker.name} braces behind their shield (+75% Def).`, isActorPlayer ? 'player' : 'opponent');
+        addLog(`${attacker.name} braces behind their shield.`, isActorPlayer ? 'player' : 'opponent');
         spawnDamageText('BRACED!', 'blocked', attacker.position);
       } else if (actionType === 'dodge') {
         sounds.playDodge();
@@ -382,7 +581,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: Math.min(prev.stats.staminaMax, prev.stamina + 25),
           }));
         }
-        setCrowdHype((prev) => Math.min(100, prev + 20));
+        updateCrowdHype((prev) => Math.min(100, prev + 20));
         addLog(`${attacker.name} flexes & taunts! The arena roars (+20% Hype)!`, isActorPlayer ? 'player' : 'opponent');
         spawnDamageText('TAUNT! +20% HYPE', 'hype', attacker.position);
       } else if (actionType === 'rest') {
@@ -419,7 +618,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // 3. OFFENSIVE ATTACK ACTIONS
       else if (actionType === 'quick_attack' || actionType === 'power_attack') {
         const isQuick = actionType === 'quick_attack';
-        const staminaCost = isQuick ? 10 : 22;
+        const staminaCost = getStaminaCost(attacker.loadout.weapon, isQuick);
 
         // Deduct stamina & set attack animation
         if (isActorPlayer) {
@@ -443,9 +642,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           spawnDamageText('OUT OF RANGE!', 'blocked', defender.position);
         } else {
           // Check Evasion / Hit Probability
-          const hitPct = isQuick
-            ? Math.max(50, Math.min(95, Math.round(80 + attacker.stats.agility * 1.5 - defender.stats.agility * 1.2)))
-            : Math.max(35, Math.min(80, Math.round(60 + attacker.stats.agility * 1.2 - defender.stats.agility * 1.2)));
+          const hitPct = calculateHitChance(isQuick, attacker.stats.agility, defender.stats.agility);
 
           const roll = Math.random() * 100;
           // A dodge sets isInvulnerable; the stance persists across the turn
@@ -483,19 +680,25 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             const baseDmg = isQuick
               ? attacker.loadout.weapon.damageLight
               : attacker.loadout.weapon.damageHeavy;
-            const strBonus = 1 + attacker.stats.strength * 0.05;
             const isCrit = !isQuick && Math.random() < 0.25;
-            let rawDamage = Math.round(baseDmg * strBonus * (isCrit ? 1.5 : 1.0));
-
-            // Check defender block status
             const isBlocked = defender.isBlocking;
+            const rageMult = (!isActorPlayer && attacker.isRaged) ? RAGE_DAMAGE_MULTIPLIER : 1.0;
+            const rawDamage = calculateAttackDamage(
+              baseDmg,
+              attacker.stats.strength,
+              isCrit,
+              defender.stats.defense,
+              isBlocked,
+              defender.loadout.weapon.blockReduction,
+              rageMult,
+            );
+
             if (isBlocked) {
-              rawDamage = Math.max(1, Math.round(rawDamage * 0.25));
               sounds.playBlock();
               if (!isActorPlayer) statsRef.current.perfectBlocks += 1;
               addLog(
                 `${attacker.name}'s strike was BLOCKED by ${defender.name}'s shield (-${rawDamage} HP)!`,
-                isBlocked ? 'system' : isActorPlayer ? 'player' : 'opponent'
+                'system'
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
             } else {
@@ -508,18 +711,47 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 addLog(`${attacker.name} struck ${defender.name} for ${rawDamage} damage.`, isActorPlayer ? 'player' : 'opponent');
                 spawnDamageText(`-${rawDamage}`, 'damage', defender.position);
               }
+              // C-8.70B §SET-1 — the player's blade landed: one short buzz, on the
+              // device's own haptics and only when the Vibration row is on.
+              if (isActorPlayer) vibrate(HAPTIC_HIT_LANDED_MS);
             }
 
             // Track stats
             if (isActorPlayer) {
               statsRef.current.hitsLanded += 1;
               statsRef.current.damageDealt += rawDamage;
-              setCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 : 8)));
+              updateCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 : 8)));
             } else {
               statsRef.current.damageTaken += rawDamage;
             }
 
-            // Apply HP damage to defender
+            // ── Impact feedback: hit-stop + screen shake ──────────────────
+            // The same point that sets `hitFlashTimer` below — every outcome is
+            // already known here, and none of it, nor any timer, is touched. A
+            // blocked strike is the shortest hold; the boss's telegraphed overhead
+            // smash the longest; a crit reads off the power attack that produced it.
+            const freezeMs = isBlocked
+              ? HIT_STOP_MS.blocked
+              : isTelegraphedHeavy
+              ? HIT_STOP_MS.telegraphedHeavy
+              : isCrit
+              ? HIT_STOP_MS.crit
+              : isQuick
+              ? HIT_STOP_MS.quick
+              : HIT_STOP_MS.power;
+            // The player's own strikes scale with the blow they landed; a blow the
+            // player RECEIVES replaces that with one flat value (never both).
+            const trauma = isActorPlayer
+              ? isCrit
+                ? SHAKE_TRAUMA.crit
+                : isQuick
+                ? SHAKE_TRAUMA.quick
+                : SHAKE_TRAUMA.power
+              : SHAKE_TRAUMA.playerHit;
+            impactRef.current.freezeUntil = performance.now() + freezeMs;
+            impactRef.current.trauma = Math.min(1, impactRef.current.trauma + trauma);
+
+            // Apply HP damage to defender + combo tracking (C-9)
             if (isActorPlayer) {
               setOpp((prev) => {
                 const nextHp = Math.max(0, prev.health - rawDamage);
@@ -530,7 +762,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   hitFlashTimer: 0.3,
                 };
               });
+              // Player's attack resolved: update combo based on outcome.
+              // Not blocked → increment; blocked with chip damage → no change;
+              // fully blocked (0 damage, never occurs due to Math.max(1,...))
+              // → reset.
+              if (!isBlocked) {
+                setPlayer((prev) => ({ ...prev, comboCount: applyComboEvent(prev.comboCount, 'landed') }));
+              } else if (rawDamage <= 0) {
+                setPlayer((prev) => ({ ...prev, comboCount: applyComboEvent(prev.comboCount, 'fully_blocked') }));
+              }
             } else {
+              // Opponent damaged the player → reset player's combo.
               setPlayer((prev) => {
                 const nextHp = Math.max(0, prev.health - rawDamage);
                 return {
@@ -538,6 +780,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   health: nextHp,
                   action: nextHp <= 0 ? 'death' : 'hit',
                   hitFlashTimer: 0.3,
+                  comboCount: applyComboEvent(prev.comboCount, 'player_damaged'),
                 };
               });
             }
@@ -546,6 +789,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             sounds.playSlash();
             addLog(`${attacker.name}'s attack MISSED!`, 'system');
             spawnDamageText('MISSED!', 'dodge', defender.position);
+            // Player missed: reset combo (opponent miss does not affect player combo)
+            if (isActorPlayer) {
+              setPlayer((prev) => ({ ...prev, comboCount: applyComboEvent(prev.comboCount, 'miss') }));
+            }
           }
         }
       }
@@ -557,21 +804,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           setPlayer((prev) => ({
             ...prev,
             action: 'idle',
-            // Preserve the player's block when a telegraphed heavy attack
-            // is pending so the block can absorb the announced strike on
-            // the boss's next turn. Without this, isBlocking is cleared at
-            // turn end and the telegraph response is dodge-only.
-            isBlocking: pendingHeavyAttackRef.current ? prev.isBlocking : false,
-            // isInvulnerable is intentionally NOT cleared here: a dodge stance
-            // must survive into the opponent's turn so the incoming strike can
-            // be evaded. It is consumed when the fighter next acts (pre-clear
-            // at the top of executeCombatTurn). isBlocking is unchanged.
+            // Both isBlocking and isInvulnerable are intentionally NOT cleared
+            // here: a block or dodge stance must survive into the opponent's
+            // turn so the incoming attack can interact with it. Each is
+            // consumed when the fighter next acts (pre-clear at the top of
+            // executeCombatTurn). This mirrors the isInvulnerable lifecycle
+            // and fixes the C-8.5 defect where shield_block was always
+            // cleared before the opponent's attack could be blocked.
           }));
         } else {
           setOpp((prev) => ({
             ...prev,
             action: 'idle',
-            isBlocking: false,
+            // isBlocking intentionally NOT cleared here — same lifecycle as
+            // the player's block. Consumed via pre-clear at the top of
+            // executeCombatTurn when the opponent next acts.
           }));
         }
 
@@ -586,7 +833,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         setIsPlayerTurn(!isActorPlayer);
       }, 1100);
     },
-    [isExecuting, player, opp, addLog, spawnDamageText]
+    [isExecuting, player, opp, addLog, spawnDamageText, updateCrowdHype]
   );
 
   // OPPONENT AI TURN STRATEGY ENGINE
@@ -595,8 +842,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
     const aiTimer = setTimeout(() => {
       const dist = Math.abs(player.position[2] - opp.position[2]);
-      const oppWeaponType = opp.loadout.weapon.type || 'sword_shield';
-      const effectiveRange = oppWeaponType === 'spear' ? 3.8 : 2.5;
+      const effectiveRange = getWeaponRange(opp.loadout.weapon);
+      const oppLightCost = getStaminaCost(opp.loadout.weapon, true);
+      const oppHeavyCost = getStaminaCost(opp.loadout.weapon, false);
 
       // Resolve pending heavy-attack telegraph (Goliath). The attack
       // was announced on the previous AI turn; the player has since
@@ -605,16 +853,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // and block all use existing code paths.
       //
       // The player's block (if they chose shield_block as their
-      // response) is intentionally left in place: executeCombatTurn
-      // reads fighter state from its render closure, so the preserved
-      // isBlocking flag is active during the power_attack and applies
-      // the existing 75% damage reduction. The block is then cleared
-      // by the 1100ms turn-end cleanup, which evaluates
-      // pendingHeavyAttackRef.current (now false) and sets
-      // isBlocking to false. No explicit pre-clear is needed here.
+      // response) persists through the turn-end cleanup (C-8.5 fix):
+      // isBlocking is no longer cleared at turn end, so it is active
+      // during this power_attack and applies the existing block
+      // reduction via calculateAttackDamage. The block is consumed by
+      // the pre-clear at the top of executeCombatTurn when the player
+      // next acts — no explicit clear is needed here.
       if (opponent.bossMechanic === 'heavy_telegraph' && pendingHeavyAttackRef.current) {
         pendingHeavyAttackRef.current = false;
         setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+        // Mark THIS resolution as the wind-up's landing, so it takes the longest
+        // hit-stop. Cleared by executeCombatTurn as it resolves.
+        telegraphLandingRef.current = true;
         executeCombatTurn('opponent', 'power_attack');
         return;
       }
@@ -635,37 +885,27 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       if (dist > effectiveRange) {
         // Distance is large: Advance or Taunt
-        if (oppWeaponType === 'spear' && dist <= 3.8) {
-          chosenAction = 'quick_attack';
-        } else {
-          chosenAction = Math.random() < 0.82 ? 'advance' : 'taunt';
-        }
+        chosenAction = chooseAIOutOfRangeAction();
       } else {
         // Inside strike range: Evaluate tactical options
         if (player.isBlocking) {
           // Player is guarding: AI uses Power Attack or Taunt
           const r = Math.random();
           chosenAction = r < 0.45 ? 'power_attack' : r < 0.75 ? 'taunt' : 'shield_block';
-        } else if (opp.stamina < 15) {
+        } else if (opp.stamina < oppLightCost) {
           // Low AI stamina: Rest or Shield Block
           chosenAction = Math.random() < 0.6 ? 'shield_block' : 'rest';
         } else if (player.health < 25) {
           // Player low HP: Finish with Quick Attack
           chosenAction = Math.random() < 0.7 ? 'quick_attack' : 'power_attack';
         } else {
-          // Standard combat balance. A small chance to take a preventive
-          // evasion stance against the player's likely next strike — only in
-          // strike range, with stamina to spare, and never against a blocking
-          // player (no incoming attack to evade). The alternating turn model
-          // means the AI cannot react to a specific player attack (the
-          // player's action is already reset to idle by the time the AI
-          // chooses), so this is a low-probability preventive dodge, not a
-          // reaction. 10% keeps it from becoming a repetitive loop.
-          const r = Math.random();
-          if (r < 0.10) chosenAction = 'dodge';
-          else if (r < 0.56) chosenAction = 'quick_attack';
-          else if (r < 0.82) chosenAction = 'power_attack';
-          else chosenAction = 'shield_block';
+          // Standard combat: use the opponent's configured aggression and
+          // blockChance to determine the action. See chooseAIStandardAction
+          // in combatCalculations.ts for the full probability model. When
+          // either value is missing or invalid, the function falls back to
+          // the original hardcoded probabilities (46% quick, 26% power, 18%
+          // block, 10% dodge).
+          chosenAction = chooseAIStandardAction(opponent.aggression, opponent.blockChance);
         }
       }
 
@@ -678,7 +918,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         opponent.bossMechanic === 'heavy_telegraph' &&
         !pendingHeavyAttackRef.current &&
         dist <= effectiveRange &&
-        opp.stamina >= 22 &&
+        opp.stamina >= oppHeavyCost &&
         Math.random() < 0.30
       ) {
         chosenAction = 'telegraph';
@@ -701,6 +941,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       sounds.playVictory();
       addLog(`VICTORY! ${player.name} has vanquished ${opp.name}!`, 'crit');
+      // The purse the crowd actually pays for this fight: the opponent's own
+      // bounty plus performance bonuses read off the fight's statistics. It is
+      // written onto the ONE stats object App credits, so the result screen and
+      // the gold in the purse can never disagree.
+      const purse = calculateDuelGold({
+        baseGold: opponent.rewardGold,
+        didWin: true,
+        crowdHypePeak: statsRef.current.crowdHypePeak,
+        perfectBlocks: statsRef.current.perfectBlocks,
+        damageTaken: statsRef.current.damageTaken,
+      });
+      statsRef.current.goldEarned = purse.total;
+      statsRef.current.goldBreakdown = purse;
+      addLog(`The crowd pays out ${purse.total} gold.`, 'system');
       setTimeout(() => {
         onMatchComplete(statsRef.current, true);
       }, 1400);
@@ -709,7 +963,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+      // C-8.70B §SET-1 — the player has fallen: the defeat pattern.
+      vibrate(HAPTIC_DEFEAT_PATTERN);
       addLog(`DEFEAT! ${player.name} has fallen in the sand.`, 'opponent');
+      // The arena only feeds a winner: a defeat pays no purse at all.
+      statsRef.current.goldEarned = 0;
       setTimeout(() => {
         onMatchComplete(statsRef.current, false);
       }, 1400);
@@ -737,6 +995,22 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     }
   }, [opp.health, opp.stats.healthMax, opponent.bossMechanic, opponent.phase2WeaponType, opp.name, addLog]);
 
+  // Aurelius rage_mode_colossus: activate rage once when health drops to 50%.
+  // Guarded by rageActivatedRef so it fires exactly once per duel. The ref
+  // resets naturally on a fresh DuelScene mount. Rage state persists on
+  // FighterState.isRaged for the rest of the fight — no save persistence.
+  // The 750 ms AI delay ensures rage is active before the opponent's next
+  // outgoing attack: setOpp triggers a re-render that recreates
+  // executeCombatTurn (which has opp in its deps) before the AI timer fires.
+  useEffect(() => {
+    if (isMatchOver.current) return;
+    if (!shouldActivateRage(opponent.bossMechanic, opp.health, opp.stats.healthMax, rageActivatedRef.current)) return;
+    rageActivatedRef.current = true;
+    setOpp((prev) => ({ ...prev, isRaged: true }));
+    addLog(`${opp.name} enters a devastating RAGE! Attack power surged!`, 'system');
+    spawnDamageText('RAGE MODE!', 'crit', opp.position);
+  }, [opp.health, opp.stats.healthMax, opponent.bossMechanic, opp.name, addLog, spawnDamageText]);
+
   return (
     <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
       {/* 3D WEBGL DUEL CANVAS WRAPPED IN ERROR BOUNDARY & READY GUARD */}
@@ -762,6 +1036,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           >
             {/* Active GPU Health & Context Monitor */}
             <CanvasWebGLMonitor sceneName="DuelArena" />
+            {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
+            <SceneBrightness />
 
             <Sky sunPosition={[40, 25, 20]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
             <fog attach="fog" args={['#d4a373', 25, 65]} />
@@ -782,8 +1058,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
             <ThreeComponentErrorBoundary componentName="DuelFightersGladiatorMeshes">
               <Suspense fallback={<CanvasLoadingFallback />}>
-                <GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} />
-                <GladiatorMesh fighter={opp} />
+                <GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} />
+                <GladiatorMesh fighter={opp} impactRef={impactRef} />
                 <FloatingDamage3D damages={damageNumbers} />
               </Suspense>
             </ThreeComponentErrorBoundary>
@@ -792,6 +1068,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               playerPos={player.position}
               opponentPos={opp.position}
               cameraMode={cameraMode}
+              impactRef={impactRef}
+              shakeMultiplierRef={shakeMultiplierRef}
             />
           </Canvas>
         </WebGLContextErrorBoundary>
@@ -802,7 +1080,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         player={player}
         opponent={opp}
         crowdHype={crowdHype}
-        comboCount={0}
+        comboCount={player.comboCount}
         matchTimer={matchTimer}
         isMuted={isMuted}
         onToggleMute={onToggleMute}

@@ -13,7 +13,10 @@ import { RomanBench } from './CivicFurnishingProps';
 
 export const RecordsLibrary = React.memo(() => {
   return (
-    <group position={[20.5, 0, -28]}>
+    // Phase C-8.18: root shifted 0.90 west (X 24 → 23.10) so the plinth
+    // footprint clears the Gladiator Academy (west face X = 26.65) by 0.30
+    // instead of interpenetrating the academy plinth, doorway and column bases.
+    <group position={[23.10, 0, -30]}>
       {/* 0. STEPPED MARBLE FOUNDATION PLINTH */}
       <BuildingFoundation size={[6.0, 5.2]} height={0.25} projection={0.25} color="#cbd5e1" capColor="#e2e8f0" />
 

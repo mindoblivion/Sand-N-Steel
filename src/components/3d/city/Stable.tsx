@@ -18,17 +18,22 @@ export const Stable = React.memo(() => {
       </mesh>
 
       {/* Rough Oak Wood Walls with Open Doorways */}
-      <mesh castShadow receiveShadow position={[0, 2.1, 3.1]}>
+      {/* Phase C-8.49: the timber box closed only 6.6 of the roof's 7.0-unit depth, leaving a
+          0.20 gap at each gable.  It now spans the full envelope at the same centreline —
+          rear wall out 3.1 → 3.3, side walls 6.6 → 7.0 deep, posts out −3.1 → −3.3 — so every
+          timber face lands on the ±3.5 plane the roof, base ring and quoins already use.
+          Thicknesses, widths, heights, materials and the building position are unchanged. */}
+      <mesh castShadow receiveShadow position={[0, 2.1, 3.3]}>
         <boxGeometry args={[6.8, 2.6, 0.4]} />
         <meshStandardMaterial color="#78350f" roughness={0.85} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
       {/* Side walls */}
       <mesh castShadow receiveShadow position={[-3.2, 2.1, 0]}>
-        <boxGeometry args={[0.4, 2.6, 6.6]} />
+        <boxGeometry args={[0.4, 2.6, 7.0]} />
         <meshStandardMaterial color="#78350f" roughness={0.85} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
       <mesh castShadow receiveShadow position={[3.2, 2.1, 0]}>
-        <boxGeometry args={[0.4, 2.6, 6.6]} />
+        <boxGeometry args={[0.4, 2.6, 7.0]} />
         <meshStandardMaterial color="#78350f" roughness={0.85} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
       </mesh>
 
@@ -37,7 +42,7 @@ export const Stable = React.memo(() => {
 
       {/* Front Entrance Open Cutout Support Posts */}
       {[-2.0, 2.0].map((x, i) => (
-        <mesh key={`stable-post-${i}`} castShadow position={[x, 2.1, -3.1]}>
+        <mesh key={`stable-post-${i}`} castShadow position={[x, 2.1, -3.3]}>
           <boxGeometry args={[0.4, 2.6, 0.4]} />
           <meshStandardMaterial color="#451a03" roughness={0.9} />
         </mesh>

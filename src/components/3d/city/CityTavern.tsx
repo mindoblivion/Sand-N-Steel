@@ -88,27 +88,66 @@ export const CityTavern = React.memo(() => {
       </group>
 
       {/* 3. OUTDOOR PATIO TAVERN BENCHES & WINE BARRELS */}
-      <group position={[3.6, 0, 2.2]}>
+      {/* Phase C-8.24 — the group is re-seated onto the Tavern's north terrace.
+          The C-8.23 audit measured the old anchor [3.6, 0, 2.2] *inside* the solid
+          8.4 × 6.4 × 7.2 wall box: the table's east face protruded 0.10 through the
+          façade above the plinth, both barrels sat wholly inside the wall, and the
+          two amphorae stood against the stepped base with their bellies reaching
+          0.055 (0.8-scale) and 0.144 (0.75-scale) inside plinth.upper.  No group
+          shift fixed that — 0.10 west hid the table but drove the 0.75-scale jar
+          into the façade — so the whole group is re-seated instead onto the Golden
+          Palm's outside seating/storage strip (the terrace C-8.22 established along
+          the north frontage): the pocket between the Tavern's north plinth faces
+          (lower step Z = 10.15, upper step Z = 10.25, wall Z = 10.4) and the
+          Training Yard's enclosure wall (coping outer radius 7.205 about [-18, 0]),
+          west of the C-8.21 cypress and the C-8.22 forecourt props.
+          Anchor: [3.6, 0, 2.2] → [-2.8, 0, -5.4] (world [-18.8, 0, 8.6]).
+          Each offset is placed from the rendered primitives, never a bounding box;
+          world footprints and the gaps that fix them (measured in
+          phaseC8_24.test.ts):
+            • table    — 1.4 × 0.9 × 1.2 block, X[-19.97,-18.57] Z[8.75,9.95]:
+                         0.20 to the lower plinth step (Z = 10.15), 0.30 to the
+                         upper step, 0.45 to the wall, 1.56 to the yard wall;
+            • cups     — seated on the table top (world Y 0.95), inside its plan,
+                         1.08 / 0.99 clear of the plinth;
+            • amphorae — the 0.8-scale (belly r 0.208) and 0.75-scale (r 0.195) jars
+                         stand on the ground at world X = -18.10: 0.26 / 0.28 east
+                         of the table, 0.99 / 0.26 clear of the plinth, and 0.30 /
+                         0.32 west of the C-8.22 lying barrel;
+            • barrels  — the 0.9-tall upright (r 0.38) at world [-19.17, 0, 8.15],
+                         and the lying barrel now rests *on* its rim instead of 0.18
+                         inside it (Y 0.72 → 0.90, its underside meeting the
+                         upright's 0.90 top), its axis along ±X: the stack spans
+                         X[-20.0,-18.34] Z[7.77,8.53], 1.62 / 1.92 clear of the
+                         plinth, 0.65 / 0.82 of the yard wall, 0.22 / 0.30 of the
+                         table and 1.29 of the C-8.22 lying barrel.
+          Tightest gaps after the re-seat: 0.20 (table ↔ lower plinth step), 0.22
+          (table ↔ upright barrel), 0.26.  Nothing intersects the wall, the plinth,
+          either step, the yard wall, the C-8.21 cypress or any C-8.22 street prop.
+          Parts, rotations, colours, materials and the Tavern's root / entrance /
+          collider / lighting are unchanged.
+          See src/utils/phaseC8_24.test.ts. */}
+      <group position={[-2.8, 0, -5.4]}>
         {/* Rustic Oak Table */}
-        <mesh castShadow position={[0, 0.5, 0]}>
+        <mesh castShadow position={[-0.47, 0.5, 0.75]}>
           <boxGeometry args={[1.4, 0.9, 1.2]} />
           <meshStandardMaterial color="#451a03" roughness={0.8} />
         </mesh>
         {/* Clay Wine Cups */}
-        <mesh position={[-0.2, 1.02, 0]}>
+        <mesh position={[-0.67, 1.02, 0.75]}>
           <cylinderGeometry args={[0.08, 0.06, 0.15, 8]} />
           <meshStandardMaterial color="#c2410c" roughness={0.6} />
         </mesh>
-        <mesh position={[0.2, 1.02, 0.15]}>
+        <mesh position={[-0.27, 1.02, 0.9]}>
           <cylinderGeometry args={[0.08, 0.06, 0.15, 8]} />
           <meshStandardMaterial color="#c2410c" roughness={0.6} />
         </mesh>
-        {/* Authentic Roman Wine Amphora beside table */}
-        <RomanAmphora position={[0.9, 0, 0.4]} scale={0.8} tone="terracotta" />
-        <RomanAmphora position={[0.8, 0, -0.2]} scale={0.75} tone="dark" />
+        {/* Authentic Roman Wine Amphorae stored on the terrace beside the table */}
+        <RomanAmphora position={[0.7, 0, 0.35]} scale={0.8} tone="terracotta" />
+        <RomanAmphora position={[0.7, 0, 1.1]} scale={0.75} tone="dark" />
         {/* Wine Barrel Stack */}
-        <WineBarrel position={[-0.8, 0, -1.8]} rotationY={0} />
-        <WineBarrel position={[-0.8, 0.72, -1.8]} isLyingDown={true} rotationY={Math.PI / 2} />
+        <WineBarrel position={[-0.37, 0, -0.45]} rotationY={0} />
+        <WineBarrel position={[-0.37, 0.9, -0.45]} isLyingDown={true} rotationY={0} />
       </group>
 
       {/* 4. HANGING TAVERN WARM LANTERNS */}

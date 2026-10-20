@@ -9,6 +9,7 @@ import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
 import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
+import { SceneBrightness } from './SceneBrightness';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 
@@ -83,6 +84,8 @@ export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, 
             }}
           >
             <CanvasWebGLMonitor sceneName="GladiatorPreview" />
+            {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
+            <SceneBrightness />
             <ambientLight intensity={0.7} />
             <directionalLight position={[5, 8, 5]} intensity={1.4} castShadow />
             <directionalLight position={[-4, 3, -4]} intensity={0.5} color="#38bdf8" />

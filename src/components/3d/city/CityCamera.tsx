@@ -1,53 +1,97 @@
 import React, { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useCameraDrag } from '../../../hooks/useCameraDrag';
+import {
+  useCameraDrag,
+  CAMERA_DRAG_BASE_YAW_SENSITIVITY,
+  CAMERA_DRAG_BASE_PITCH_SENSITIVITY,
+} from '../../../hooks/useCameraDrag';
+import { CITY_CAMERA_DISTANCES, getCameraSensitivityScale } from '../../../services/settings';
+import { useSettings } from '../../../hooks/useSettings';
 
 interface CityCameraProps {
   targetPosition: [number, number, number];
+  targetPositionRef?: React.MutableRefObject<[number, number, number]>;
   targetRotationY: number;
   isMoving?: boolean;
   cameraYawRef?: React.MutableRefObject<number>;
 }
 
+/** The camera's own height above the player, unchanged since Phase 26. */
+const CITY_CAMERA_BASE_HEIGHT = 2.8;
+
+/** The dragged distance may not exceed this, so the pitch control cannot run away. */
+const CITY_CAMERA_MAX_DRAGGED_DISTANCE = 12;
+
 /**
  * Elevated 3rd-Person Chase Camera with Wider Field of View, Smooth Damped Tracking,
  * and Hold-and-Drag Camera Angle Control (360 Orbit & Elevation Pitch)
+ *
+ * C-8.70B §SET-1 — two settings rows arrive here through the settings
+ * subscription (a change re-renders this component; the frame loop below is
+ * untouched and still reads nothing but refs):
+ *   • City Camera Distance — the framing behind the player.  Standard is the
+ *     framing this camera already had (5.5 behind at 2.8 above); Near and Far are
+ *     the design's presets, `CITY_CAMERA_DISTANCES`.
+ *   • Camera Sensitivity — the drag-orbit scale `useCameraDrag` is handed, 1.0 at
+ *     the default setting.
  */
 export const CityCamera: React.FC<CityCameraProps> = ({
   targetPosition,
+  targetPositionRef,
   targetRotationY,
   isMoving = false,
   cameraYawRef,
 }) => {
   const { camera } = useThree();
 
-  const { yawOffsetRef, pitchOffsetRef } = useCameraDrag(isMoving);
+  const settings = useSettings();
+  const sensitivityScale = getCameraSensitivityScale(settings);
+
+  const { yawOffsetRef, pitchOffsetRef } = useCameraDrag(isMoving, {
+    yawSensitivity: CAMERA_DRAG_BASE_YAW_SENSITIVITY * sensitivityScale,
+    pitchSensitivity: CAMERA_DRAG_BASE_PITCH_SENSITIVITY * sensitivityScale,
+  });
 
   const currentLookAt = useRef(
     new THREE.Vector3(targetPosition[0], targetPosition[1] + 1.2, targetPosition[2])
   );
   const currentCamYaw = useRef<number>(targetRotationY);
+  // Phase 26.0: Fixed base yaw captured from the initial player facing.
+  // The camera yaw must NOT follow the player's rotation — only the user's drag
+  // offset changes it. Following the player's facing creates a positive feedback
+  // loop (move right → face right → camera follows → "right" shifts → spiral).
+  const baseYawRef = useRef<number>(targetRotationY);
 
   // Phase 2B.60: Reusable vectors to avoid per-frame allocations inside useFrame.
   const desiredCamPosRef = useRef(new THREE.Vector3());
   const targetPointRef = useRef(new THREE.Vector3());
 
   useFrame((_, delta) => {
-    const pX = targetPosition[0];
-    const pY = targetPosition[1];
-    const pZ = targetPosition[2];
+    // Phase 26.1: Read position from ref when provided for smooth per-frame
+    // tracking without depending on React state re-renders.
+    const pos = targetPositionRef ? targetPositionRef.current : targetPosition;
+    const pX = pos[0];
+    const pY = pos[1];
+    const pZ = pos[2];
 
-    const baseDistance = 5.5;
-    const baseHeight = 2.8;
+    // C-8.70B §SET-1 — the framing comes from the settings row.
+    const baseDistance = CITY_CAMERA_DISTANCES[settings.cityCamDistance];
+    const baseHeight = CITY_CAMERA_BASE_HEIGHT;
 
     // Apply hold-and-drag pitch adjustment
     const dragPitch = pitchOffsetRef.current;
     const currentHeight = Math.max(0.8, Math.min(7.5, baseHeight + dragPitch));
-    const currentDistance = Math.max(2.8, Math.min(10.5, baseDistance + dragPitch * 0.35));
+    const currentDistance = Math.max(
+      2.8,
+      Math.min(CITY_CAMERA_MAX_DRAGGED_DISTANCE, baseDistance + dragPitch * 0.35)
+    );
 
-    // Combine player facing yaw with manual drag orbit yaw offset
-    const effectiveTargetYaw = targetRotationY + yawOffsetRef.current;
+    // Phase 26.0: Camera yaw is decoupled from the player's facing rotation.
+    // Only the user's drag offset changes the camera orientation (auto-recentering
+    // to baseYaw via useCameraDrag's decay when moving). This keeps joystick
+    // movement direction stable relative to the screen — no spiral feedback.
+    const effectiveTargetYaw = baseYawRef.current + yawOffsetRef.current;
 
     // Smoothly damp camera yaw towards effective target yaw
     let yawDiff = effectiveTargetYaw - currentCamYaw.current;

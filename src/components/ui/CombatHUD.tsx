@@ -50,7 +50,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   const opponentStaminaPct = Math.max(0, Math.min(100, (opponent.stamina / opponent.stats.staminaMax) * 100));
 
   const formattedTime = `${Math.floor(matchTimer / 60)}:${(matchTimer % 60).toString().padStart(2, '0')}`;
-  const hypeMultiplier = crowdHype > 75 ? '3.0x' : crowdHype > 40 ? '2.0x' : '1.0x';
+  const crowdFavorTier = crowdHype > 75 ? 'MAX' : crowdHype > 40 ? 'HIGH' : 'LOW';
 
   return (
     <div className="combat-hud absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 sm:p-5 select-none z-10">
@@ -89,10 +89,11 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             {onOpenSettings && (
               <button
                 onClick={onOpenSettings}
-                className="p-1.5 sm:p-2 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer"
+                className="min-h-[48px] px-2.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-semibold tracking-wide"
                 title="Game Settings"
               >
                 <Settings className="w-4 h-4 text-amber-400" />
+                <span className="hidden sm:inline">Settings</span>
               </button>
             )}
             <button
@@ -122,6 +123,11 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                 <span className="font-serif font-black tracking-wider text-[11px] sm:text-sm text-amber-100 uppercase truncate">
                   {player.name}
                 </span>
+                {comboCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-orange-500/20 border border-orange-500/50 text-orange-300 text-[10px] sm:text-xs font-mono font-bold shrink-0 animate-pulse">
+                    COMBO ×{comboCount}
+                  </span>
+                )}
               </div>
               <span className="text-xs font-mono font-bold text-amber-300">
                 {Math.round(player.health)} / {player.stats.healthMax}
@@ -186,7 +192,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             </span>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-amber-400/80 uppercase font-mono">
-                Bonus: <strong className="text-yellow-300">{hypeMultiplier}</strong>
+                <strong className="text-yellow-300">{crowdFavorTier}</strong>
               </span>
               <span className="font-mono text-amber-100">{Math.round(crowdHype)}%</span>
             </div>

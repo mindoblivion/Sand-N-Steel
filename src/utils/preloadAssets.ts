@@ -13,20 +13,36 @@ export const CORE_3D_ASSETS = [
 
 export type Core3DAssetPath = typeof CORE_3D_ASSETS[number];
 
-let isPreloaded = false;
+/**
+ * START-1 — the two-stage preload. WIRING ONLY.
+ *
+ * The startup sequence warms the 3D payload in two beats instead of one: stage 1 when
+ * the title mounts (the player is reading the title, not waiting), stage 2 on the
+ * Play/Continue tap (the player has committed, and the destination is loading).
+ *
+ * The TIER CONTENTS do not change in this slice — both stages read the same
+ * `CORE_3D_ASSETS` list they always did, so what is fetched, and when the fetch starts
+ * relative to the title, is what a later slice's tier split will actually decide.
+ */
+export const PRELOAD_STAGES = {
+  1: CORE_3D_ASSETS,
+  2: CORE_3D_ASSETS,
+} as const;
+
+export type PreloadStage = keyof typeof PRELOAD_STAGES;
+
+const triggered: Record<PreloadStage, boolean> = { 1: false, 2: false };
 
 /**
- * Preload core game assets into Drei/Three.js memory cache.
- * Triggers right after the player clicks on the Title Screen to start or continue,
- * ensuring models, geometry buffers, and textures are warm in GPU/browser memory
- * prior to rendering the 3D City Hub or Colosseum duel arena.
+ * Warm one preload stage into Drei/Three.js cache. Idempotent per stage, so a
+ * remounted title (or a tap after a previous tap) cannot queue the same work twice.
  */
-export function preloadCoreGameAssets(): void {
-  if (isPreloaded) return;
-  isPreloaded = true;
+export function preloadAssetsForStage(stage: PreloadStage): void {
+  if (triggered[stage]) return;
+  triggered[stage] = true;
 
   try {
-    for (const assetPath of CORE_3D_ASSETS) {
+    for (const assetPath of PRELOAD_STAGES[stage]) {
       // Drei useGLTF.preload queues the fetch and parses the buffer into Three.js cache
       useGLTF.preload(assetPath);
     }
@@ -35,9 +51,19 @@ export function preloadCoreGameAssets(): void {
   }
 }
 
+/** Stage 1 — at title mount. */
+export function preloadTitleStage(): void {
+  preloadAssetsForStage(1);
+}
+
+/** Stage 2 — on the Play/Continue tap. */
+export function preloadTapStage(): void {
+  preloadAssetsForStage(2);
+}
+
 /**
- * Returns whether preloading has been triggered
+ * Returns whether any preload stage has been triggered
  */
 export function hasTriggeredPreload(): boolean {
-  return isPreloaded;
+  return triggered[1] || triggered[2];
 }

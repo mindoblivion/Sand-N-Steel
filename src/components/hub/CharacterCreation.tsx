@@ -3,16 +3,18 @@ import { PlayerProfile, PlayerAppearance } from '../../types/game';
 import { GladiatorPreview } from '../3d/GladiatorPreview';
 import { sounds } from '../../audio/soundEffects';
 import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON } from '../../data/itemsDB';
-import { Sparkles, Swords, Shield, Heart, Zap, Check, ArrowLeft } from 'lucide-react';
+import { Sparkles, Swords, Shield, Heart, Zap, Check, ArrowLeft, Settings } from 'lucide-react';
 import { GoogleSignInButton } from '../ui/GoogleSignInButton';
 interface CharacterCreationProps {
   onComplete: (profile: PlayerProfile) => void;
   onCancel: () => void;
   onGoogleSignIn?: () => void;
   isGoogleLoading?: boolean;
+  /** C-8.70B §SET-1 — the creation screen's own way into the settings panel. */
+  onOpenSettings?: () => void;
 }
 
-export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading }) => {
+export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, onOpenSettings }) => {
   const [name, setName] = useState('Spartacus');
   const [characterModel, setCharacterModel] = useState<'roman_warrior' | 'procedural_gladiator' | 'amazonian' | 'retiarius' | 'minotaur' | 'dimachaerus'>('roman_warrior');
   const [skinColor, setSkinColor] = useState('#c68b59');
@@ -106,7 +108,22 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         <h2 className="font-serif font-black text-xl sm:text-2xl text-amber-300 uppercase tracking-wider">
           Gladiator Selection & Creation
         </h2>
-        <div>
+        <div className="flex items-center gap-2">
+          {/* C-8.70B §SET-1 — gear + label, at the same ≥48dp standard as every
+              other entry point, beside the account button. */}
+          {onOpenSettings && (
+            <button
+              type="button"
+              onClick={() => {
+                sounds.playClick();
+                onOpenSettings();
+              }}
+              className="min-h-[48px] px-3 rounded-xl bg-neutral-900 border border-amber-600/50 text-amber-300 hover:text-amber-100 cursor-pointer flex items-center gap-2 font-serif font-bold text-xs uppercase tracking-wider"
+            >
+              <Settings className="w-5 h-5" />
+              <span>Settings</span>
+            </button>
+          )}
           {onGoogleSignIn && (
             <GoogleSignInButton
               onClick={onGoogleSignIn}
@@ -124,7 +141,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[360px] shadow-2xl relative overflow-hidden">
           <GladiatorPreview appearance={appearance} />
           <div className="absolute bottom-4 left-4 bg-neutral-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-mono text-amber-300">
-            {characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Custom Gladiator'}
+            {characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Centurion (Animated Rig)'}
           </div>
         </div>
 

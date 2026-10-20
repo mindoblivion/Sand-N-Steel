@@ -13,6 +13,13 @@ import {
   AlertCircle,
   HelpCircle,
 } from 'lucide-react';
+import {
+  getWeaponRange,
+  getStaminaCost,
+  calculateHitChance,
+  calculateAttackDamage,
+  applyStaminaRegen,
+} from '../../utils/combatCalculations';
 
 export type CombatActionType =
   | 'quick_attack'
@@ -51,26 +58,42 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   combatLog,
   onExecuteAction,
 }) => {
-  const isMeleeRange = distance <= 2.5;
-  const isSpearRange = distance <= 3.8;
-  const weaponType = player.loadout.weapon.type || 'sword_shield';
-  const effectiveRange = weaponType === 'spear' ? 3.8 : 2.5;
+  const effectiveRange = getWeaponRange(player.loadout.weapon);
   const isInWeaponRange = distance <= effectiveRange;
 
-  // Calculate hit probability percentages
+  // Shield Guard stamina recovery — mirrors the production shield_block
+  // action in DuelScene which calls applyStaminaRegen. The displayed value
+  // is the *actual* recoverable stamina (clamped by remaining capacity),
+  // not the theoretical regen rate.
+  const shieldRecovery = applyStaminaRegen(
+    player.stamina,
+    player.stats.staminaMax,
+    player.stats.staminaRegen,
+  ) - player.stamina;
+
+  // Calculate hit probability percentages (shared with combat resolution)
   const playerAgi = player.stats.agility;
   const oppAgi = opponent.stats.agility;
+  const quickHitPct = calculateHitChance(true, playerAgi, oppAgi);
+  const powerHitPct = calculateHitChance(false, playerAgi, oppAgi);
 
-  const quickHitPct = Math.max(50, Math.min(95, Math.round(80 + playerAgi * 1.5 - oppAgi * 1.2)));
-  const powerHitPct = Math.max(35, Math.min(80, Math.round(60 + playerAgi * 1.2 - oppAgi * 1.2)));
-
-  // Estimated damage ranges
+  // Estimated damage using the same calculation pipeline as combat,
+  // accounting for the opponent's defense stat. Quick attacks cannot
+  // crit, so the estimate is a single value. Power attacks show the
+  // non-crit minimum and crit maximum.
   const str = player.stats.strength;
-  const quickDmgMin = Math.round(player.loadout.weapon.damageLight * (0.9 + str * 0.04));
-  const quickDmgMax = Math.round(player.loadout.weapon.damageLight * (1.1 + str * 0.05));
+  const oppDef = opponent.stats.defense;
+  const weapon = player.loadout.weapon;
 
-  const powerDmgMin = Math.round(player.loadout.weapon.damageHeavy * (0.9 + str * 0.07));
-  const powerDmgMax = Math.round(player.loadout.weapon.damageHeavy * (1.2 + str * 0.09));
+  const quickDmgMin = calculateAttackDamage(weapon.damageLight, str, false, oppDef, false, 0);
+  const quickDmgMax = quickDmgMin;
+
+  const powerDmgMin = calculateAttackDamage(weapon.damageHeavy, str, false, oppDef, false, 0);
+  const powerDmgMax = calculateAttackDamage(weapon.damageHeavy, str, true, oppDef, false, 0);
+
+  // Weapon-specific stamina costs (shared with combat resolution)
+  const quickStaminaCost = getStaminaCost(weapon, true);
+  const powerStaminaCost = getStaminaCost(weapon, false);
 
   return (
     <div className="w-full max-w-5xl mx-auto pointer-events-auto flex flex-col md:flex-row gap-2.5 items-stretch z-20 select-none pb-2 sm:pb-4">
@@ -156,9 +179,9 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 1. QUICK STRIKE */}
           <button
             onClick={() => onExecuteAction('quick_attack')}
-            disabled={!isPlayerTurn || isExecuting || player.stamina < 10}
+            disabled={!isPlayerTurn || isExecuting || player.stamina < quickStaminaCost}
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
-              !isPlayerTurn || isExecuting || player.stamina < 10
+              !isPlayerTurn || isExecuting || player.stamina < quickStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
                 : !isInWeaponRange
                 ? 'bg-neutral-900 border-amber-900/60 hover:border-amber-500 text-amber-200'
@@ -171,7 +194,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
                 <span>Quick Strike</span>
               </span>
               <span className="text-[9px] font-mono bg-amber-950/80 border border-amber-700/60 px-1 py-0.2 rounded text-amber-300">
-                10 SP
+                {quickStaminaCost} SP
               </span>
             </div>
 
@@ -196,9 +219,9 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 2. POWER SLASH / HEAVY ATTACK */}
           <button
             onClick={() => onExecuteAction('power_attack')}
-            disabled={!isPlayerTurn || isExecuting || player.stamina < 22}
+            disabled={!isPlayerTurn || isExecuting || player.stamina < powerStaminaCost}
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
-              !isPlayerTurn || isExecuting || player.stamina < 22
+              !isPlayerTurn || isExecuting || player.stamina < powerStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
                 : !isInWeaponRange
                 ? 'bg-neutral-900 border-red-900/60 hover:border-red-500 text-red-200'
@@ -211,7 +234,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
                 <span>Power Slash</span>
               </span>
               <span className="text-[9px] font-mono bg-red-950/80 border border-red-700/60 px-1 py-0.2 rounded text-red-300">
-                22 SP
+                {powerStaminaCost} SP
               </span>
             </div>
 
@@ -249,17 +272,17 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
                 <span>Shield Guard</span>
               </span>
               <span className="text-[9px] font-mono bg-cyan-950/80 border border-cyan-700/60 px-1 py-0.2 rounded text-cyan-300">
-                +12 SP
+                +{shieldRecovery} SP
               </span>
             </div>
 
             <div className="tactic-desc text-[10px] text-neutral-300 font-sans leading-tight mb-1">
-              Brace shield to reduce incoming hit damage by 75%.
+              Brace to absorb {Math.round(weapon.blockReduction * 100)}% of incoming damage.
             </div>
 
             <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-cyan-900/40">
-              <span className="text-cyan-300 font-bold">75% Reduction</span>
-              <span className="text-emerald-300 font-bold">+Stamina</span>
+              <span className="text-cyan-300 font-bold">{Math.round(weapon.blockReduction * 100)}% Absorb</span>
+              <span className="text-emerald-300 font-bold">+{shieldRecovery} SP</span>
             </div>
           </button>
 
@@ -330,9 +353,9 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             {/* ADVANCE */}
             <button
               onClick={() => onExecuteAction('advance')}
-              disabled={!isPlayerTurn || isExecuting || isMeleeRange}
+              disabled={!isPlayerTurn || isExecuting || isInWeaponRange}
               className={`px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
-                !isPlayerTurn || isExecuting || isMeleeRange
+                !isPlayerTurn || isExecuting || isInWeaponRange
                   ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
                   : 'bg-amber-950/80 hover:bg-amber-900 border-amber-600 text-amber-200'
               }`}

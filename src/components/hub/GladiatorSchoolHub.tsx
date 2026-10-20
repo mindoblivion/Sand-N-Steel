@@ -1,31 +1,52 @@
 import React, { useState } from 'react';
-import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem } from '../../types/game';
+import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize } from '../../types/game';
 import { TournamentTab } from './TournamentTab';
 import { TrainingTab } from './TrainingTab';
 import { ShopTab } from './ShopTab';
-import { GearTab } from './GearTab';
+import { GearView, GearTab } from './GearTab';
 import { StatsTab } from './StatsTab';
+import { LibraryTab } from './LibraryTab';
+import { BannerRow } from './BannerRow';
+import type { StorefrontId } from '../../data/shops';
 import { PreFightModal } from './PreFightModal';
 import { HelpModal } from './HelpModal';
-import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
+import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 
 interface GladiatorSchoolHubProps {
   playerProfile: PlayerProfile;
-  activeTab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats';
-  onTabChange: (tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats') => void;
+  activeTab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library';
+  onTabChange: (tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library') => void;
   onEnterCity3D: () => void;
   onSelectOpponent: (opp: OpponentConfig) => void;
   onTrainStat: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
   onBuyItem: (item: WeaponItem | ArmorItem) => void;
+  /** P1 sell — the market pays the item's sellPrice plus any temper refund. */
+  onSellItem?: (item: WeaponItem | ArmorItem) => void;
   onEquipWeapon: (wpn: WeaponItem) => void;
   onEquipArmor: (armor: ArmorItem) => void;
+  /** Armory subview (Phase C-8.66B); 'chariot' is what the Imperial Stable opens. */
+  gearView?: GearView;
+  /**
+   * Phase SHOP-2 — the shop tab's storefront: the one the city building the
+   * player walked into sells, or `'market'` (the default) for the whole
+   * catalogue the hub's own Bazaar & Forge tab has always shown.
+   */
+  shopId?: StorefrontId;
+  onGearViewChange?: (view: GearView) => void;
+  onBuyChariotPart?: (partId: string) => void;
+  onEquipChariotPart?: (partId: string) => void;
+  /** Phase C-8.67C — the racing team progression shown inside the same subview. */
+  onBuyRacingConfig?: (horses: ChariotTeamSize) => void;
+  onSelectRacingConfig?: (horses: ChariotTeamSize) => void;
   onAllocateStatPoint: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
   isMuted: boolean;
   onResetGame: () => void;
   onOpenSettings?: () => void;
+  /** RG-3 — opens the Device Choosing panel from the banner row. */
+  onOpenDeviceChoice?: () => void;
 }
 
 export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
@@ -36,14 +57,23 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onSelectOpponent,
   onTrainStat,
   onBuyItem,
+  onSellItem,
   onEquipWeapon,
   onEquipArmor,
+  gearView = 'armory',
+  shopId = 'market',
+  onGearViewChange,
+  onBuyChariotPart,
+  onEquipChariotPart,
+  onBuyRacingConfig,
+  onSelectRacingConfig,
   onAllocateStatPoint,
   onOpenDriveSync,
   onToggleMute,
   isMuted,
   onResetGame,
   onOpenSettings,
+  onOpenDeviceChoice,
 }) => {
   const [selectedOpponent, setSelectedOpponent] = useState<OpponentConfig | null>(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -67,7 +97,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
         </div>
 
         {/* 3D CITY BUTTON & UTILITIES */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap justify-end items-center gap-2">
           <button
             onClick={onEnterCity3D}
             className="px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-serif font-bold text-xs uppercase tracking-wider shadow-lg active:scale-95 cursor-pointer flex items-center gap-1.5"
@@ -79,10 +109,11 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              className="p-2 rounded-xl bg-neutral-800 border border-amber-500/40 text-amber-300 hover:text-amber-100 cursor-pointer"
+              className="min-h-[48px] px-3 rounded-xl bg-neutral-800 border border-amber-500/40 text-amber-300 hover:text-amber-100 cursor-pointer flex items-center gap-2 font-serif font-bold text-xs uppercase tracking-wider"
               title="Game Settings"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-5 h-5" />
+              <span>Settings</span>
             </button>
           )}
 
@@ -110,6 +141,9 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
         </div>
       </header>
 
+      {/* RG-3 — THE LUDUS BANNER ROW: the gladiator's own banner once a device is sworn. */}
+      <BannerRow playerProfile={playerProfile} onChooseDevice={onOpenDeviceChoice} />
+
       {/* NAVIGATION TABS */}
       <nav className="w-full bg-neutral-900/50 border-b border-neutral-800 px-4 py-2.5 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
         {[
@@ -118,6 +152,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           { key: 'shop', label: 'Bazaar & Forge', icon: ShoppingCart },
           { key: 'gear', label: 'Armory', icon: Layers },
           { key: 'stats', label: 'Gladiator Stats', icon: BarChart2 },
+          { key: 'library', label: 'Records & Lore', icon: BookOpen },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -126,7 +161,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
               key={tab.key}
               onClick={() => {
                 sounds.playClick();
-                onTabChange(tab.key as 'tournament' | 'training' | 'shop' | 'gear' | 'stats');
+                onTabChange(tab.key as 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library');
               }}
               className={`py-2 px-3 sm:px-4 rounded-xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                 isActive
@@ -150,18 +185,30 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           <TrainingTab profile={playerProfile} onTrainStat={onTrainStat} />
         )}
         {activeTab === 'shop' && (
-          <ShopTab profile={playerProfile} onBuyItem={onBuyItem} />
+          <ShopTab
+            profile={playerProfile}
+            onBuyItem={onBuyItem}
+            onSellItem={onSellItem}
+            shopId={shopId}
+          />
         )}
         {activeTab === 'gear' && (
           <GearTab
             profile={playerProfile}
             onEquipWeapon={onEquipWeapon}
             onEquipArmor={onEquipArmor}
+            gearView={gearView}
+            onGearViewChange={onGearViewChange}
+            onBuyChariotPart={onBuyChariotPart}
+            onEquipChariotPart={onEquipChariotPart}
+            onBuyRacingConfig={onBuyRacingConfig}
+            onSelectRacingConfig={onSelectRacingConfig}
           />
         )}
         {activeTab === 'stats' && (
           <StatsTab profile={playerProfile} onAllocatePoint={onAllocateStatPoint} />
         )}
+        {activeTab === 'library' && <LibraryTab profile={playerProfile} />}
       </main>
 
       {/* PRE-FIGHT MODAL */}

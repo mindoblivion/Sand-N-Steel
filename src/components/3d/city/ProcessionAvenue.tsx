@@ -46,6 +46,55 @@ const StreetBrazier: React.FC<{ position: [number, number, number] }> = ({ posit
   );
 };
 
+// ── City ground plane (single flat surface under the whole city) ────────────
+//
+// The mesh is rotated -π/2 about X, so its local +Y axis maps to world -Z:
+// GROUND_PLANE_WIDTH spans world X and GROUND_PLANE_DEPTH spans world Z.
+// Everything below is therefore in world axes.
+//
+// Ground Coverage phase: the plane previously measured 140×140 centred at
+// Z = 0, so the ground stopped at Z = -70 while the northern movement
+// envelope reaches beyond it, the motte mesh and the visible moat ring reach
+// further north still — leaving a reachable void where the player walked on
+// nothing north of Z = -70.  The depth was extended north by moving the
+// plane's centre north; the south edge stays at Z = +70 and the elevation
+// stays at Y = -0.05 (below the moat water surface at Y = 0.06). The
+// correction is a pure resize of the existing single plane — no extra mesh,
+// no extra draw call, and no change to its material, lighting or shadow
+// behaviour.
+//
+// Phases C-8.37 / C-8.38: the northern group (motte, moat, drawbridge,
+// fortress) moved 5.0 units north twice (MOTTE_CENTER_Z -71.5 → -76.5 →
+// -81.5), so the plane's north edge followed it by the same 10.0 — from
+// Z = -104 to Z = -114 — keeping exactly the margins the Ground Coverage phase
+// measured: 1.5 units past the moat ring's north extent (-112.5), 8.34 past
+// the motte mesh bound (-106.66) and 13 past the walkable limit
+// (BOUNDARY_Z_MIN, -101).  Only the north edge moves: the south edge, the
+// width and the elevation are untouched.
+export const GROUND_PLANE_WIDTH = 140; // world X extent (unchanged)
+export const GROUND_PLANE_DEPTH = 184; // world Z extent (was 179)
+export const GROUND_PLANE_ELEVATION_Y = -0.05; // unchanged elevation
+export const GROUND_PLANE_CENTER: [number, number, number] = [
+  0,
+  GROUND_PLANE_ELEVATION_Y,
+  -22.0,
+];
+
+// Derived world-space bounds of that plane (centre ∓ half extent).
+export const GROUND_PLANE_NORTH_Z = GROUND_PLANE_CENTER[2] - GROUND_PLANE_DEPTH / 2; // -114
+export const GROUND_PLANE_SOUTH_Z = GROUND_PLANE_CENTER[2] + GROUND_PLANE_DEPTH / 2; // +70
+export const GROUND_PLANE_WEST_X = GROUND_PLANE_CENTER[0] - GROUND_PLANE_WIDTH / 2; // -70
+export const GROUND_PLANE_EAST_X = GROUND_PLANE_CENTER[0] + GROUND_PLANE_WIDTH / 2; // +70
+
+// Bump-map tiling. The 140 m plane tiled the clone at 32×32, i.e. 140 / 32 =
+// 4.375 m per tile. Tiling depth is kept at that density by raising the Z
+// repeat with the depth (184 / 42 = 4.381 m per tile, within 0.14 % of 4.375),
+// so the texture stays isotropic instead of stretching along Z.
+export const GROUND_BUMP_REPEAT_X = 32; // 140 / 32 = 4.375 m per tile (unchanged)
+export const GROUND_BUMP_REPEAT_Z = 42; // 184 / 42 = 4.381 m per tile
+export const GROUND_BUMP_METERS_PER_TILE_X = GROUND_PLANE_WIDTH / GROUND_BUMP_REPEAT_X;
+export const GROUND_BUMP_METERS_PER_TILE_Z = GROUND_PLANE_DEPTH / GROUND_BUMP_REPEAT_Z;
+
 export const ProcessionAvenue = React.memo(() => {
   // Phase 2B.8: Dedicated bump-map for the central forum plaza circle.
   // NOISE_TEXTURE has a global repeat of (3, 3) calibrated for ~1m surfaces.
@@ -60,15 +109,17 @@ export const ProcessionAvenue = React.memo(() => {
     return tex;
   }, []);
 
-  // Phase 2B.10: Dedicated bump-map for the 140×140 m ground plane.
+  // Phase 2B.10 / Ground Coverage: Dedicated bump-map for the ground plane.
   // NOISE_TEXTURE has a global repeat of (3, 3) calibrated for ~1m surfaces.
-  // On the 140 m plane that yields only ~0.02 tiles/m — functionally flat.
+  // On a 140 m plane that yields only ~0.02 tiles/m — functionally flat.
   // Cloning shares the canvas image (zero memory cost) with an independent
-  // repeat of (32, 32) → ~4.4 m per tile, giving visible micro-relief.
+  // per-axis repeat (GROUND_BUMP_REPEAT_X / _Z) that keeps the plane's
+  // world-space texel density at the calibrated ~4.375 m per tile on both
+  // axes, so extending the plane north does not stretch the micro-relief.
   const groundBumpMap = useMemo(() => {
     if (!NOISE_TEXTURE) return undefined;
     const tex = NOISE_TEXTURE.clone();
-    tex.repeat.set(32, 32);
+    tex.repeat.set(GROUND_BUMP_REPEAT_X, GROUND_BUMP_REPEAT_Z);
     tex.needsUpdate = true;
     return tex;
   }, []);
@@ -83,8 +134,16 @@ export const ProcessionAvenue = React.memo(() => {
   return (
     <group>
       {/* 1. VAST MEDITERRANEAN SANDSTONE & TERRACOTTA PLAZA FLOOR (FLAT ON GROUND) */}
-      <mesh receiveShadow position={[0, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[140, 140]} />
+      {/* Ground Coverage phase: single plane extended north to Z = -114 since
+          Phase C-8.38 (see the GROUND_PLANE_* constants) so it underlies the
+          full reachable northern envelope, the motte footprint and the visible
+          moat ring at their shifted positions. */}
+      <mesh
+        receiveShadow
+        position={GROUND_PLANE_CENTER}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <planeGeometry args={[GROUND_PLANE_WIDTH, GROUND_PLANE_DEPTH]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.arenaSand.color}
           roughness={0.92}
@@ -246,10 +305,11 @@ export const ProcessionAvenue = React.memo(() => {
       ))}
 
       {/* 3. COLOSSAL FLUTED ROMAN COLONNADE ALONG BOULEVARD */}
-      {/* North-side column at z=-1 frames the Colosseum approach (wall at z≈-3.0 for x=±8.5;
-          plinth 1.2×1.2 sits at distance 19.97 from Colosseum center — outside the wall). */}
+      {/* North-side column at z=-6 frames the Colosseum approach (Phase 29.4A: moved 5m north
+          with the Colosseum root from z=-20 to z=-25; plinth 1.2×1.2 sits at distance 19.97
+          from the new Colosseum center — outside the wall). */}
       {[-8.5, 8.5].map((cx, ci) =>
-        [-1, 8, 16].map((cz, zi) => (
+        [-6, 8, 16].map((cz, zi) => (
           <group key={`col-${ci}-${zi}`} position={[cx, 0, cz]}>
             {/* Square Plinth Base */}
             <mesh castShadow receiveShadow position={[0, 0.25, 0]}>
@@ -285,23 +345,31 @@ export const ProcessionAvenue = React.memo(() => {
       )}
 
       {/* 4. MEDITERRANEAN CYPRESS TREES (NATURAL ITALIAN FLORA) */}
-      {/* Phase 1A.3: north-side cypress moved from z=-3 to z=-2.5. The planter is a cylinder
-          (ground radius 0.85 x scale 1.05 = 0.8925). At z=-3 circle-to-circle clearance
-          vs Colosseum foundation (r=19.5, center [0,-20]) was 0.132m, below 0.30m target.
-          No actual intersection; prior 0.154m was a bounding-box artifact. At z=-2.5:
-          d=20.94, clearance=0.548m. Crowns clear all columns/braziers by >1.4m. */}
+      {/* Phase 29.4A: north-side cypress moved 5m north (z=-7.5) with the Colosseum root.
+          The planter (ground radius 0.8925) clearance vs foundation (r=19.5, center [0,-25]):
+          d=20.94, clearance=0.548m — same relative spacing as before. */}
+      {/* Phase C-8.21: the mid-row cypresses at z=10 stood at the north-west corner of
+          the Caravanserai Inn [16, 0, 14] and the north-east corner of the City Tavern
+          [-16, 0, 14]: at the Inn the planter (0.8925 ground radius) cut 0.94 into the
+          plinth and the widest crown band (0.9841) 0.96 into the quoin corner; at the
+          Tavern the crown cut 0.77 into the quoin corner and the planter 0.74 into the
+          plinth. Both trees move 1.45 north along Z (10 → 8.55), keeping X, scale and
+          seed, so the avenue stays symmetric. Tightest clearances after the move: Inn
+          crown ↔ quoin corner 0.49, Inn planter ↔ plinth 0.51, Tavern crown ↔ quoin
+          corner 0.68. The planter also clears the avenue bench at [±13, 0, 11.2] by 0.82
+          (it previously overlapped it). See src/utils/phaseC8_21.test.ts. */}
       {[-11.5, 11.5].map((px, pi) =>
-        [-2.5, 10, 20].map((pz, zi) => (
+        [-7.5, 8.55, 20].map((pz, zi) => (
           <ItalianCypress key={`cypress-${pi}-${zi}`} position={[px, 0, pz]} scale={1.05} seed={pi * 3 + zi + 1} />
         ))
       )}
 
       {/* 5. ROMAN STREET BRAZIERS WITH WARM AMBER FLAMES */}
-      {/* North-side brazier at z=0 lights the Colosseum approach. Phase 1A.2: moved from
-          z=-1 (pedestal north edge clipped Colosseum foundation step by ~17mm at inner
-          edge x=±5.8) to z=0. Min clearance from foundation: 0.98m at inner pedestal edge. */}
+      {/* North-side brazier at z=-5 lights the Colosseum approach. Phase 29.4A: moved 5m north
+          with the Colosseum root. Min clearance from foundation (now at z=-5.5): 0.98m at
+          inner pedestal edge, same relative spacing as before. */}
       {[-6.2, 6.2].map((bx, bi) =>
-        [0, 2, 12, 18].map((bz, zi) => (
+        [-5, 2, 12, 18].map((bz, zi) => (
           <StreetBrazier key={`brazier-${bi}-${zi}`} position={[bx, 0, bz]} />
         ))
       )}
