@@ -5414,3 +5414,81 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   is unchanged behaviour, and adding a lock there is a design decision, not part of this fix. (c) The
   tier's "first undefeated boss" is read from the shipped roster order (`fightIndex`), so a future
   tier with two bosses answers the earlier one first and the later one after the first falls.
+## Progression P0 — armor material ladder (data only)
+
+- **What shipped: ten armor entries APPENDED to `ALL_ARMORS`, and nothing else in the file.** Branch
+  `armor-progression-data` (from `colosseum-exterior-architecture`), HEAD `b7e7bb0` at the preflight,
+  `git status --short` empty before the first edit. `src/data/itemsDB.ts` goes **6 → 16 armor pieces**;
+  no entry was reordered (registry order is load-bearing for the `ITEMS_BY_CATEGORY` slot filters and,
+  for weapons, `STARTING_SPARE_WEAPON`), no existing entry's id, name, price, rarity or stat was
+  edited, and the only other addition is the new suite `src/utils/armorLadder.test.ts` (16 tests).
+- **The ten pieces, with the values the suite pins exactly:** `arms_manica_iron` Banded Iron Manica 5
+  (+1 STR, 180 / 80), `arms_manica_steel` Toledo-Steel Manica 7 (+2 STR, 420 / 185),
+  `arms_galerus_gilded` Gilded Galerus of the Retiarius 9 (+2 STR, +2 AGI, 780 / 345),
+  `legs_greaves_iron` Iron Ocrea Greaves 7 (+1 AGI, 260 / 115), `legs_greaves_steel` Steel War Greaves 9
+  (+2 AGI, 480 / 210), `legs_greaves_gilded` Gilded Champion Greaves 11 (+3 AGI, 820 / 360),
+  `helm_galea_iron` Iron Galea 6 (+1 DEF, 170 / 75), `helm_champion_gilded` Champion's Gilded Galea 11
+  (+2 STR, +3 DEF, 760 / 335), `chest_lorica_hamata` Lorica Hamata Mail 14 (+3 DEF, 520 / 230),
+  `chest_champion_gilded` Gilded Champion Cuirass 20 (+3 STR, +6 DEF, 1200 / 530).
+- **The two conventions assigned, both the catalogue's own.** *Rarity by price band* — uncommon below
+  320, rare below 760, legendary at or above it (so iron = uncommon, steel = rare, gilded = legendary:
+  the three steel pieces are the only *rare* new entries, the four gilded ones the only legendary).
+  *`sellPrice` = `round(price × 0.44 / 5) × 5`* — four of the six legacy entries already satisfy it
+  (`helm_murmillo` 35, `helm_centurion` 140, `arms_manica` 30, `legs_greaves_bronze` 55); the
+  segmentata 100 and the golden muscled 420 predate the rule and were left exactly as they shipped.
+  Colors follow the metal (`iron #64748b/#94a3b8`, `steel #475569/#cbd5e1`, `gilded #ca8a04/#fef08a`),
+  `style: 'crested'` on both new helmets and `'heavy'` on both new chests, matching their slots.
+- **`staminaRegenBonus` is the one required `ArmorItem` field the brief did not state, and it is
+  tier-scaled inside each slot** (arms 0.5 / 0.6 / 0.8, legs 1 / 1.2 / 1.5, helm 0.5 / 2, chest 0.5 / 2),
+  mirroring the existing pattern where the higher tier grants more regen (`helm_murmillo` 0 →
+  `helm_centurion` 1; `chest_lorica_segmentata` 0 → `chest_golden_muscled` 2). **`healthBonus` was
+  deliberately not invented** — it is optional in `ArmorItem`, the brief fixed only defense and the
+  named stat bonuses, and `ShopTab` / `GearTab` already render an armor row with no HP line for the
+  pre-existing `arms_manica`, so the ten new rows simply show none. No `bonusStamina` was added either.
+- **The ladder is complete for arms and legs and NOT for helm and chest — stated, not filled.** The
+  specified ten give `arms` and `legs` a full bronze → iron → steel → gilded set (3 < 5 < 7 < 9 and
+  5 < 7 < 9 < 11). **`helm` ships no steel rung** (bronze `helm_murmillo` 4 → iron `helm_galea_iron` 6 →
+  gilded `helm_champion_gilded` 11, with the pre-existing `helm_centurion` 8 sitting between iron and
+  gilded) and **`chest` ships neither a bronze nor a steel rung** (iron `chest_lorica_segmentata` 10 →
+  iron `chest_lorica_hamata` 14 → gilded `chest_champion_gilded` 20, with `chest_golden_muscled` 18
+  now the second gilded chest). The suite pins exactly the rungs that ship (`helm: bronze, iron,
+  gilded`; `chest: iron, iron, gilded`) so a future rung is a deliberate edit to the table rather than
+  a silent drift, and it asserts the ordering property that does hold everywhere: within a slot the
+  rungs are non-decreasing in material and **strictly increasing in defense**. Adding the missing
+  steel helm (and a bronze / steel chest) is a data follow-up, not a defect in this phase's scope.
+- **Everything else is untouched.** No UI, component, handler, combat formula, Lefty/Righty path or
+  save code changed; player saves are read-only here and no test writes one. `ITEMS_BY_CATEGORY` and
+  `getItemById` pick the new pieces up by construction (the slot filters derive from `ALL_ARMORS`), so
+  `ShopTab`'s armor list grows from six rows to sixteen with no edit; `scripts/combatTests.ts` and
+  every existing item suite pass unmodified (`phase36.test.ts` finds its six fixtures by id).
+  `src/data/shops.ts` does not exist in this checkout — if the parallel storefront lands, it resolves
+  the new stock from the same fields and needed no change here.
+- **Verified 2026-10-20** in the dev container, after the last source edit: `bun test` → **2151 pass /
+  0 fail (69 files, 65,808 `expect()` calls)** — the preflight baseline was 2135 / 0 (68 files, 65,500
+  `expect()`), so the delta is exactly this suite's 16 tests and its file, with no other suite's count
+  moved; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0; `bun run lint`
+  (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup-asset check passing
+  (8 assets; the pre-existing >500 kB chunk warning only); `git diff --check` → **clean (exit 0)**.
+  `src/data/itemsDB.ts` is the only production file the phase touched.
+- **Live evidence in the preview browser (anonymous visitor — no session was replayed).** The shop
+  screen was driven through the app's own route: title → `Play` → the creation screen's
+  `Apply Points & Enter Metropolis` → the 3D city hub → `City Map & Navigation` → fast travel to the
+  Imperial Smithing Forge → its own `Buy Weapons & Armor [E / Space]` prompt (the arrival sits 0.50
+  outside the hub's 6.0 disc, so a short `KeyD` walk brings the prompt up) → the hub's `Bazaar & Forge`
+  tab. Read back from the rendered DOM: the armor section holds **16 rows** (six legacy + ten new); all
+  **ten new rows carry their exact price badge and their exact `Defense: +N`** (`Banded Iron Manica`
+  180 / +5, `Toledo-Steel Manica` 420 / +7, `Gilded Galerus of the Retiarius` 780 / +9,
+  `Iron Ocrea Greaves` 260 / +7, `Steel War Greaves` 480 / +9, `Gilded Champion Greaves` 820 / +11,
+  `Iron Galea` 170 / +6, `Champion's Gilded Galea` 760 / +11, `Lorica Hamata Mail` 520 / +14,
+  `Gilded Champion Cuirass` 1200 / +20); **none of the ten renders an `HP:` line** (the legacy cards
+  do), which is the documented consequence of not inventing `healthBonus`; the six legacy names are
+  still present; and the run had **0 console errors**. A frame of the armor grid was captured and shows
+  the legacy rows followed by the new ones. No purchase was made and nothing was bought, equipped or
+  saved: the guest profile this run wrote was **deleted from storage afterwards**, so no record was
+  left behind.
+- **Not automatically verified — nothing needs a device.** This is catalogue data: no geometry, no
+  material, no lighting, no collider, no rendered pixel and no new asset, so there is no appearance to
+  accept and no Android item. Two things remain unexercised: **buying or equipping a new piece** (the
+  guest profile's 100 gold affords none of them, and a purchase would write a save this phase must not
+  touch), and the **gear screen's** rendering of an owned piece — the shop list above is the one screen
+  checked live, the data pins are the suite's.
