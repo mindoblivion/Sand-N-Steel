@@ -241,7 +241,12 @@ describe('§C — the announced strike is visible, answerable and cancellable (�
   test('the reaction writes the existing stance rules, and pays Dodge once', () => {
     const react = duelSource.slice(
       duelSource.indexOf('const reactToPendingAttack = useCallback('),
-      duelSource.indexOf('// No timer may outlive the scene'),
+      // Follow-up pass (2026-10-20): the anchor is the unmount effect's comment, whose
+      // wording was corrected to "No blow may outlive the scene" because the 1400 ms
+      // result settlement deliberately DOES outlive the scene. The property these
+      // assertions pin — the reaction pays Dodge once and writes the stance flags —
+      // is unchanged; only the marker's first word moved.
+      duelSource.indexOf('// No blow may outlive the scene'),
     );
     expect(react).toContain("applyDefensiveAction(clearDefensiveStance(prev), 'dodge')");
     expect(react).toContain("applyDefensiveAction(clearDefensiveStance(prev), 'shield_block')");
@@ -254,7 +259,7 @@ describe('§C — the announced strike is visible, answerable and cancellable (�
     const endOfFightCalls = duelSource.split('\n      cancelPendingEnemyAttack();').length - 1;
     expect(endOfFightCalls).toBe(2);
 
-    const unmount = duelSource.slice(duelSource.indexOf('// No timer may outlive the scene'));
+    const unmount = duelSource.slice(duelSource.indexOf('// No blow may outlive the scene'));
     expect(unmount.slice(0, 1200)).toContain('strikeRef.current?.cancel();');
     expect(unmount.slice(0, 1200)).toContain('clearTimeout(resolutionTimerRef.current)');
   });

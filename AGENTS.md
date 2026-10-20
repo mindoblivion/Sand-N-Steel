@@ -5734,3 +5734,304 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   And a fresh save can raise the first-visit oath beat over the city; the entry steps above were driven
   programmatically, which bypasses that overlay, so the oath itself was not exercised (the reaction and
   gate results are unaffected by it).
+
+### Final verification pass — fight completion, payout and pending-action cleanup (§R1–R3B follow-up, 2026-10-20, at `33f6ac4`)
+
+- **Preflight.** Branch `development-focus-strategy`, HEAD **`33f6ac46d1`**, `git status --porcelain`
+  empty, no unstaged and no staged diff. Both live passes above stand as written; nothing was reset,
+  reverted or rewritten.
+- **What was attempted live, and where it stopped.** The arena route was driven once more in the
+  preview browser (title → character creation → city → Colosseum tab → "Step into Sand" → duel). The
+  3D character sheet alone consumed the tool's 30 s script budget before its confirm button existed;
+  the call timed out and the platform reset the browser, so **no duel was reached and no live
+  fight-completion evidence was obtained this pass.** That is the environment limit the earlier passes
+  recorded, measured more sharply: the route's *first* screen is the expensive one, and the hub's
+  ~2 fps SwiftShader rendering sits behind it.
+- **Automated evidence instead — `src/utils/duelResultLifecycle.test.ts` (new; 20 tests / 74
+  `expect()` calls, all passing).** Five sections, written in the two registers the neighbouring
+  suites already use (pure functions and a hand-advanced `StrikeTimer` for behaviour; ordered source
+  assertions for the React wiring, exactly as `combatResponsiveness.test.ts` §D and
+  `tierAdvancement.test.ts` §D do — this repo has no DOM-testing library to render `DuelScene` under):
+  - **§A one settlement per fight** — exactly two `onMatchComplete` call sites in the whole scene; both
+    inside the victory/defeat effect; `isMatchOver.current = true` in both branches; the string
+    `isMatchOver.current = false` nowhere in the file; both settlements delayed by the same bounded
+    ceremony (equal, finite, ≤ 5 s).
+  - **§B the purse is one object** — the win branch computes `calculateDuelGold` from the opponent's
+    bounty and the fight's own hype / perfect blocks / damage taken, writes `purse.total` to
+    `statsRef.current.goldEarned` and `purse` to `goldBreakdown` **before** the settlement, and the
+    result screen counts up those same three figures verbatim.
+  - **§C App's credit** — gold, fame and xp each added exactly once; `fightsWon` / `fightsLost` once
+    each on their own branch; the opponent id appended only when absent; **no gold, fame or xp token in
+    the loss branch**; exactly two `saveProfile(getProfile)`-shaped writes (one per branch); the tier
+    moved only through `resolveVictoryTier` — a boss's first defeat advances, a rematch and a non-boss
+    do not.
+  - **§D nothing lands after the fight** — both outcome branches call `cancelPendingEnemyAttack()`
+    *before* scheduling the settlement; a cancelled strike resolves no impact when the clock is
+    advanced past its window and again 10 s later; a stale callback fired after the cancel resolves
+    nothing; a second announcement inside one window is refused so exactly one impact follows; the
+    unmount cleanup clears the turn timer and cancels the strike; and the engine, the reaction and the
+    announce callback all refuse once the latch is set.
+  - **§E a defeat pays nothing** — the loss branch writes `goldEarned = 0`, never calls
+    `calculateDuelGold` and never sets a breakdown; `calculateDuelGold` totals 0 for a loss at every
+    set of statistics tried.
+- **No defect was found, so no combat source changed.** The only source edit this pass is a comment in
+  `DuelScene.tsx`'s unmount effect (below). Damage, weapon, boss, progression and reward formulas,
+  timers and thresholds are untouched, and there is no change to `combatCalculations.ts`,
+  `duelRewards.ts`, `pendingStrike.ts`, `tierAdvancement.ts` or `App.tsx`.
+- **Correction to the earlier passes' premise — the duel DOES have a leave control.** "The duel itself
+  offers no leave control — the only exit is finishing the bout" is wrong. `CombatHUD`'s top-left
+  **Armory badge** (labelled with the equipped weapon) calls `onOpenArmory` for the whole fight, and
+  App's handler switches to `hub_2d`, unmounting `DuelScene` mid-bout. Three consequences, stated
+  rather than fixed:
+  1. **Leaving with a strike pending is reachable**, and the cancel path is the one this record already
+     pins: `strikeRef.current?.cancel()`, the 1100 ms turn timer cleared, and the engine / reaction /
+     announce guards behind `isMatchOver`. It remains **not automatically verified live**.
+  2. **Leaving mid-fight records no defeat** — the defeat branch is the only writer of `fightsLost` and
+     it needs `player.health <= 0`. A losing gladiator can therefore walk out through the badge. That
+     is a **design question** (should the badge confirm, or count as a forfeit?), not a code defect;
+     nothing was changed, and it is the next decision owed to the duel's exit.
+  3. **The 1400 ms result settlement is deliberately not cancelled on unmount.** The fight is already
+     decided when it is scheduled, so its purse (or its defeat) is earned and is kept. The comment now
+     says exactly that instead of promising the opposite; cancelling it would rob a legitimately won
+     purse, which is the worse failure. **The guarantee that does hold is that it cannot settle
+     twice** — the latch is set before the timer is scheduled and is never cleared.
+- **Still not verified, and not implied by the evidence above.** The rendered result screen appearing
+  exactly once, the payout reaching the saved purse, a defeat's result and its rules, and leaving with
+  a strike pending — all four need a live bout this environment cannot reach. They are pinned by the
+  suite; **confirm them by winning and by losing one Colosseum duel on a device.** The suite's
+  sensitivity to its own values (the mutation check the geometry phases run) was **not** performed:
+  every assertion is an ordering or counting predicate over the live source, so it fails on exactly the
+  change it describes — reasoned, not demonstrated.
+- **Checks actually run (2026-10-20, `web` dev container, on the final tree).** `bun test` →
+  **2537 pass / 0 fail, 86 files, 80,017 `expect()` calls** (the preflight baseline was 2517 / 85, so
+  this pass adds exactly this suite's 20 tests and its file); `bun run scripts/combatTests.ts` →
+  **65 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0**
+  with the startup-asset check passing (8 assets); `git diff --check` → **clean** after removing one
+  trailing blank line it caught at the end of this file.
+- **Three assertions failed on the suite's first run, and all three were mine — the anchors, not the
+  code.** Retitling the unmount comment (below) emptied the source slices three tests read
+  (`''` receives `toContain`), and `combatResponsiveness.test.ts` pinned the same comment as two of its
+  own slice markers. Fixed by anchoring the new suite's unmount slice on **code**
+  (`if (resolutionTimerRef.current !== null) clearTimeout(resolutionTimerRef.current);`) instead of
+  prose, and by rebasing those two markers in `combatResponsiveness.test.ts` to the new wording with a
+  comment naming this pass. **No assertion was removed, relaxed or weakened** — each one now reads a
+  boundary it can actually find, which is what it always meant.
+- **Files this pass touched: four.** `src/utils/duelResultLifecycle.test.ts` (new), `AGENTS.md` (this
+  record and the audit below), `src/components/duel/DuelScene.tsx` (**comment only** — the unmount
+  effect's invariant now names what is dropped and what is deliberately kept), and
+  `src/utils/combatResponsiveness.test.ts` (**two slice markers only**).
+
+## Living City discovery audit (READ-ONLY — no code changed, no feature implemented)
+
+- **Scope and status.** A read-only audit for the proposed Living City (a shared in-game clock, rotating
+  shop stock, rotating Ludus classes, occasional visitors, rare chariot parts, and a readable mobile
+  city). **No production file, test, asset, save or collider was touched for this section**; its only
+  artefact is the text below. Every claim is traced to source, and the files that were read are named
+  in each part.
+
+- **A. Shared in-game clock — DOES NOT EXIST. This is the missing foundational system.**
+  - **No clock, calendar, day counter or rest mechanic exists.** `src/utils` has no time module;
+    `grep` for `resolveTimeState` finds only a *comment* in `src/services/settings.ts` naming it as an
+    idiom, not an implementation. Nothing under `src/` reads `Date.now()` for progression (the one
+    hit is `src/utils/webglDebugger.ts`, diagnostics only).
+  - **Time is not persisted at all.** `PlayerProfile` (`src/types/game.ts`) carries no time, day or
+    calendar field; the save is one localStorage key
+    (`sand_and_steel_gladiator_save_v2`, `src/services/storage.ts`).
+  - **Time does not advance from any activity.** Exploration: no clock. Combat: `DuelScene`'s
+    `matchTimer` / `statsRef.durationSeconds` are per-duel presentation only and are discarded.
+    Racing: `RaceScene`'s elapsed clock is per-race and discarded. Travel: fast travel is a teleport.
+    Resting: there is no city rest; the duel's `rest` action is a +40 stamina turn and nothing else.
+  - **The only "time" in the game is a light preset.** `src/utils/cityLightProfile.ts` holds
+    `'day' | 'oathDawn'` and `resolveCityLightProfile()`, selected by App from whether the oath beat is
+    up (`oathBeatMode ? 'oathDawn' : undefined`), i.e. by *entry state*, not by time. `src/hooks/useTitlePhaseBackdrop.ts`
+    exposes a `dawn` variant whose own header says there is "no day/night state to read (nothing under
+    `src/` resolves a …)" and that a real resolver is a later slice. `OATH_SCENE_LABEL` ("Ludus Martial
+    Yard · dawn") is copy.
+  - **Therefore:** a Living City must **create** the clock first. The house pattern for it is already
+    established twice — a pure, total `resolveXState(stored)` plus an event-driven evaluator
+    (`evaluateRoadMilestones`, `src/utils/roadMilestones.ts`, called only from `App.handleMatchComplete`
+    and `App.enterCity`); no watcher, no interval, no timer. That is the pattern the clock should copy.
+  - **Real-world time is currently irrelevant** to progression, so the "do not default to real-world
+    time" rule costs nothing to honour — but it does mean nothing exists to fall back on.
+
+- **B. Shops — reusable catalogue, no rotation, no per-visit state.**
+  - `src/data/shops.ts` is pure and derived: `StorefrontId` (`forge | armorer | bazaar | merchant |
+    market`), `STOCK_PREDICATES` over the item's own fields, `getStorefrontStock(id) → string[]` in
+    `ITEMS_DB` order, returning a fresh array. It owns no price or item.
+  - `src/components/hub/ShopTab.tsx` renders exactly those ids, grouped into Weapons / Armor, with the
+    buy/own/afford logic; App wires `onBuyItem` → `handleBuyItem` and `onSellItem` → `handleSellItem`.
+  - `App.handleBuyItem` (`src/App.tsx`) is the whole purchase transaction: `profile.gold < item.price`
+    → return; otherwise `inventory: [...profile.inventory, item]`, `setProfile`, `saveProfile`. **It
+    permits buying the same id repeatedly** (each purchase is another inventory copy) — pre-existing
+    and correct for gear, but it is the reason a rotated slot must record what was bought rather than
+    infer it from ownership. Selling (`src/utils/selling.ts`) and tempering
+    (`src/utils/tempering.ts`) are pure helpers returning a NEW profile or the caller's own on refusal.
+  - **Nothing can reroll today because nothing is random** — the stock is a pure function of the item
+    catalogue. **So the reload/duplicate risk is entirely a property of the design that will be added**:
+    if the rotation is computed on mount, on shop entry or from `Math.random()`, a reload or a re-entry
+    rerolls it and a purchase can be repeated. It must be a pure function of persistable state.
+  - Core stock vs rotating slots: `forge` / `armorer` / `market` are the permanent spine (they are what
+    progression needs); `merchant` (rare/legendary) and the empty `bazaar` are the natural rotation
+    slots; `market` should stay complete so no item becomes unreachable.
+
+- **C. Ludus School classes — cost-per-stat exists; no classes, and two dormant fields.**
+  - `src/components/hub/TrainingTab.tsx`: one session costs `25 × profile.level` gold, four stat
+    buttons, nothing else. `App.handleTrainStat` is the transaction: gold deducted, `baseStats[stat] + 1`,
+    saved. Progression is **permanent and permanent only** — no temporary bonuses, no classes, no
+    specialisations, no daily limit.
+  - `calculateTotalStats()` (`src/services/storage.ts`) is the single aggregation, and it applies
+    `profile.injury` as a strength/agility penalty.
+  - **Two dormant fields worth knowing before adding classes.** `PlayerProfile.trainingSessionsLeft`
+    is written as `2` at creation (`CharacterCreation.tsx`, `createNewProfile`) and **read nowhere** —
+    a ready-made per-period limit, or dead residue. `PlayerProfile.injury` (`fightsRemaining`,
+    penalty fields) is **read** by `calculateTotalStats` but **written nowhere and never decremented**,
+    so a save that ever carried an injury would carry it forever. A rest/day system is the natural
+    owner of both; today neither is wired, and nothing should assume otherwise.
+  - Classes should therefore be **offerings over the existing `handleTrainStat` transaction** (same gold,
+    same +1, same save path) with eligibility and price modifiers — not a second training or stat system.
+
+- **D. Rare NPCs and city events — no NPC/event system exists; the trigger pattern does.**
+  - `src/utils/cityCollisions.ts` holds `HUB_LOCATIONS` (**21 entries**: id, position, radius, prompt,
+    `tabKey`, optional `subTab`, `shopId`, colour, district). `getNearbyHubLocation(pos)` scans all 21
+    discs and returns the **nearest containing** one (a C-8.47 rule). `CityHubScene` calls it every
+    frame and raises that hub's prompt; interacting opens a tab or a modal.
+  - There is **no NPC entity, no dialogue system, no schedule, no event queue, no visit history**.
+    Persistence of "has this happened" has exactly two precedents: `profile.defeatedOpponentIds` and
+    `profile.road.milestonesSeen` (ids of road stages already *shown*), both plain string arrays on the
+    profile. `profile.story` is a read-only derived campaign view.
+  - Notifications exist: `src/utils/cityHerald.ts` + `HeraldToast` (cries) and the city's 4 s notices —
+    but the herald lives in **`sessionStorage`** (`sand_and_steel_herald_v1`), so it is a display
+    mechanism, **never** the record that an event happened.
+  - **Reroll risk, stated precisely:** a visitor's stock must be a pure function of (`day`, visitor id,
+    slot) so that leaving and re-entering, or reloading, cannot produce a better roll; and the visitor's
+    arrival window must be a pure function of `day` so a reload cannot re-roll *which* visitor appears.
+    Both need the clock from part A and a persisted `day`, not `Date.now()`.
+
+- **E. Chariot — one ownership model already extends cleanly.**
+  - Ownership: `PlayerProfile.chariot?: ChariotLoadout` = `{ owned: string[]; equipped: { wheels;
+    finish } }` (`src/types/game.ts`). Catalogue: `src/data/chariotParts.ts` (`ChariotPart` with
+    `slot`, `price`, `defaultOwned`, finish overrides; 7 parts across 2 slots). Transactions:
+    `src/utils/chariotLoadout.ts` (`purchaseChariotPart`, `equipChariotPart` — pure, refusal-safe), wired
+    through `App.handleBuyChariotPart` / `handleEquipChariotPart`, each `setProfile` + `saveProfile`.
+  - Team progression is a **separate, also-optional** model: `profile.racing?: RacingProgression` =
+    `{ unlocked?: number[]; selected?: number }` with `RACING_CONFIGS` / `purchaseRacingConfig` /
+    `selectRacingConfig` in `src/utils/racingProgression.ts` (Biga free, Triga 750, Quadra 1,500).
+  - Rare chariot parts should therefore be **new `ChariotPart` entries (or a third slot) in the same
+    catalogue**, owned through the same `owned[]` array and the same `purchaseChariotPart` rule — never a
+    parallel inventory, never a second currency. Note the racing plan's own constraint: the team
+    formation (`chariotTeamFormation.ts`) and the fit decisions are still unapproved, so a "rare
+    component" that changed geometry would collide with an open design decision.
+
+- **F. Mobile performance and city presentation — the budget rules already exist.**
+  - `src/services/settings.ts` `CITY_TIERS` give per-preset DPR bands and a **dust count** (90 / 60 / 0);
+    `src/hooks/useAdaptiveDpr.ts` adapts DPR inside the band from a trimmed frame-time EMA. The city's
+    Canvas takes `dpr={cityDpr}`.
+  - The city's own render discipline: static meshes with `matrixAutoUpdate = false`, shared materials,
+    no per-frame `useState`; the only per-frame React-visible work is `getNearbyHubLocation` (21
+    distance comparisons) and the movement loop.
+  - **Therefore:** visible visitors should be a small number of static meshes whose *visibility* is a
+    render-time predicate over the persisted day (`visible={visitor.activeToday}`), with their own
+    `HUB_LOCATIONS`-style disc for the prompt — no mixers, no per-visitor animation loops, no always-on
+    effects, no new lights. Notifications reuse `HeraldToast`. The one caution: `HUB_LOCATIONS` is
+    already a nearest-wins scan of 21 discs, so visitor discs must be added sparingly and must not
+    overlap an existing door (the C-8.47 hijack rule).
+
+- **Persistence and migration patterns (all of the above rests on these).** One key
+  (`sand_and_steel_gladiator_save_v2`), whole-profile JSON, `saveProfile` on every mutation; the Google
+  Drive path serialises the entire profile. **No migration has ever been written**: every feature added
+  since has used an **optional field** with a total resolver (`chariot`, `racing`, `temper`, `road`,
+  `story`), and a missing/garbage value resolves to a defined default rather than being repaired. A
+  Living City must follow that exactly — one new optional field, resolved totally, written only by a
+  successful action.
+
+- **Existing tests and the missing coverage.** Baseline on this HEAD: **2517 pass / 0 fail, 85 files**.
+  Relevant suites: `storefrontCatalogue`, `storefrontWiring`, `selling`, `tempering`, `phaseC8_66b/c/d`
+  (chariot shop), `phaseC8_67b` (racing), `duelRewards`, `duelResultLifecycle` (new, above),
+  `tierAdvancement`, `rank`, `roadOfGlory`, `roadMilestones`, `storyState`, `settings`,
+  `adaptiveDpr`, `motionTokens`, `cityHerald`'s consumers. **Missing entirely:** anything about time,
+  day advancement, rotation determinism, per-day limits, visitor scheduling, or event history — there
+  is no system to test yet.
+
+- **Risks to design against (each one traceable to the code above).** (1) **Rerolls** — entry/reload
+  rerolling stock or visitors if the roll is not a pure function of persisted `day` + slot + seed.
+  (2) **Duplicated purchases** — `handleBuyItem` has no per-slot record; a rotated slot needs one, or a
+  reload plus a re-entry can buy the same roll twice. (3) **Stale timers** — the repo's hard-won rule
+  (the `pendingStrike` cancel discipline, the RG-3 event-driven milestone evaluator) is "no watcher,
+  no periodic timer"; a Living City must schedule from `day`, not from `setInterval`. (4) **Save
+  compatibility** — optional field only; a legacy save must resolve to day 1 with nothing visited.
+  (5) **Mobile** — no per-visitor frame work, no new lights, no unbounded disc scans.
+  (6) **Dead fields** — `trainingSessionsLeft` and `injury.fightsRemaining` are read/written
+  asymmetrically today; a day/rest system is the right owner for them, and a class system must not
+  silently rely on either being wired.
+
+- **Deliverable 1 — reusable as-is.** `ITEMS_DB` and the item fields; `src/data/shops.ts`'s predicate
+  style and `getStorefrontStock`'s purity; `ShopTab`'s rendering/buy/own/afford logic; the pure
+  transactions `purchaseChariotPart` / `equipChariotPart` / `purchaseRacingConfig` / `sellItem` /
+  `purchaseTemper` and App's `setProfile` + `saveProfile` pattern; `TrainingTab` + `App.handleTrainStat`
+  (cost `25 × level`, `baseStats + 1`); `CHARIOT_PARTS` + `ChariotLoadout` + `RacingProgression`;
+  `HUB_LOCATIONS` + `getNearbyHubLocation`'s nearest-wins rule and the interaction prompt; `HeraldToast`
+  / `cityHerald` for notifications; `CITY_TIERS` / `useAdaptiveDpr`; and the optional-field +
+  total-resolver persistence pattern.
+
+- **Deliverable 2 — requires modification.** `getStorefrontStock` (needs `(storefrontId, day)` so a
+  rotation is a pure function, with the permanent spine untouched); `ShopTab` (render the day's slots
+  and say when they change); `App.handleBuyItem` (record a per-slot purchase against the day);
+  `TrainingTab` (offer the day's classes, still calling `handleTrainStat`); `CityHubScene` +
+  `cityCollisions` (visitor discs and their prompts, sparingly); `PlayerProfile` (one new optional
+  field); and `cityLightProfile` — the natural consumer of a day phase, which today has only `'day'`
+  and `'oathDawn'`.
+
+- **Deliverable 3 — the missing foundational system.** **The shared in-game clock**: a persisted day
+  counter, one pure `advanceCityDay`-style transition, and one named set of event sites that call it
+  (the same shape as RG-3's two call sites). Everything else in the vision is a consumer of it.
+
+- **Deliverable 4 — proposed implementation sequence, each phase independently testable.**
+  1. **L1 — the clock.** `profile.city?: { day: number }` (optional, resolved to 1), a pure
+     `resolveCityState` + `advanceCityDay(state)` and **one** `advanceDay` call site wired to a single
+     existing event (the duel result is the most defensible: it is already the credit point). No UI
+     beyond the day's own readout. Tests: default for a legacy save, one increment per settlement, no
+     increment on a repeated evaluation, monotonic and clamped.
+  2. **L2 — deterministic rotation resolver.** A pure `rotatedStock(storefrontId, day)` over
+     `getStorefrontStock`, with a documented hash (below). Tests: stable across calls and reloads,
+     changes only at a day boundary, covers the pool over N days, never removes the permanent spine.
+  3. **L3 — the shops.** `ShopTab` renders the day's slots; purchases are recorded per slot+day so a
+     reload cannot re-buy. Tests: buy once per slot per day, refused second time, stock identical
+     across a simulated reload.
+  4. **L4 — the Ludus classes.** Day-scoped offerings over the existing `handleTrainStat`, with
+     eligibility (level/gold, and the dormant `trainingSessionsLeft` if it is adopted) and a stated
+     bonus rule; permanent +1 remains the only stat effect.
+  5. **L5 — visitors.** A small visitor catalogue with an arrival window derived from `day`, a
+     persisted `seenVisitors` / `completedVisitors`, their own stock resolved by the L2 hash, and one
+     optional, non-progression-critical offer each. Tests: arrival is stable for a day, a completed
+     visit cannot be repeated, and the core progression path is reachable with zero visitors.
+  6. **L6 — rare chariot parts.** New `ChariotPart` entries in the existing catalogue and `owned[]`,
+     sold only by the relevant visitor, through the existing purchase rule.
+  7. **L7 — city presentation & performance.** Static visitor meshes gated on `activeToday`, prompts via
+     the existing disc rule, one herald cry; measured against the existing city tiers (no new lights,
+     no per-frame React).
+- **Deliverable 5 — suggested data models and deterministic scheduling rules.**
+  - `PlayerProfile.city?: { day?: number; seenVisitors?: string[]; completedVisitors?: string[];
+    boughtSlots?: string[] }` — every member optional; a missing object resolves to day 1 with empty
+    lists. One field, written only by a successful action.
+  - **Deterministic slot rule:** `index = fnv1a(`${dayBucket}:${storefrontId}:${slotIndex}`) % pool.length`,
+    where `dayBucket = floor(day / periodDays)`; a small integer hash implemented in-repo (no new
+    dependency), pure, and identical on every device and reload. `periodDays` is per storefront
+    (e.g. 1–3), never a real-world clock.
+  - **Purchase record:** `boughtSlots` entries of the form `${dayBucket}:${storefrontId}:${slotIndex}`,
+    so the same roll cannot be bought twice, and the record stays small.
+  - **Visitor rule:** a visitor is active when `fnv1a(`${day}:${visitorId}`) % cadence === 0` inside its
+    own window, and its offers are resolved by the same slot hash; completion is recorded in
+    `completedVisitors` and excludes it permanently.
+- **Deliverable 6 — acceptance criteria and regression tests per phase.** L1: a legacy save resolves to
+  day 1; exactly one increment per settlement; no increment on a repeated evaluation. L2: byte-identical
+  stock for the same (`dayBucket`, storefront, slot) across calls and a simulated reload; different on
+  the next bucket; the union over many buckets covers the pool; the permanent spine is invariant. L3:
+  one purchase per slot per day, a second refused with no gold moved; a reload shows the same stock and
+  the same purchase state. L4: the day's offering is stable, a class call is the existing +1 transaction,
+  and an ineligible class is refused before any gold moves. L5: an arrival is stable for a day, a
+  completed visit cannot repeat, and a "no visitors ever" run still reaches the next tier. L6: a rare
+  part is owned once, equips through the existing rule and never bypasses a price. L7: the city's frame
+  cost does not depend on the number of visitors (visibility only), and no new light or mixer is added.
+
+- **Nothing was implemented, and no save was touched.** This section is analysis only; the next step is a
+  decision on the clock's advance events (part A), because every other phase reads it.

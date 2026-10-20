@@ -1013,9 +1013,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     [player.stamina, player.name, player.position, addLog, spawnDamageText],
   );
 
-  // No timer may outlive the scene: an unmount (leaving the arena, a reload, the
-  // result screen) drops the pending strike and the turn-end timeout, so nothing
-  // resolves — and nothing pays out — after the player has gone.
+  // No blow may outlive the scene: an unmount (leaving the arena, a reload, the
+  // result screen) drops the pending strike and the turn-end timeout, so no
+  // delayed hit can land and no second resolution can start after the player has
+  // gone. The 1400 ms result settlement is deliberately NOT dropped here: the
+  // fight is already decided, so its purse (or its defeat) has been earned and is
+  // kept even if the player leaves through the HUD's Armory shortcut first. That
+  // settlement cannot run twice — the outcome effect latches `isMatchOver` before
+  // scheduling it and nothing ever clears the latch.
   useEffect(
     () => () => {
       if (resolutionTimerRef.current !== null) clearTimeout(resolutionTimerRef.current);
