@@ -5189,3 +5189,71 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   SwiftShader at ~1–2 fps (the duel-mount attempt timed out at 30 s), so neither the paid figure nor
   the breakdown rows were seen rendered. They are pinned by the suite above; confirm by winning one
   Colosseum duel on a device.
+
+## Tier integrity — first-defeat advancement and legal door bouts (FIX-B — implemented)
+
+- **The two defects were both measured, and they are one rule each.** (1) `App.handleMatchComplete`
+  advanced the tier on `activeOpponent.isBoss && nextTier < 4` — ANY boss victory, so rematching
+  Goliath from the hub tab after he was already in `defeatedOpponentIds` wrote tier 3 without Ignis
+  ever being faced. (2) `CityHubScene.handleInteract` handed the Colosseum door's duel
+  `onEnterDuel(activeOpponent)` — the *stored* selection from whichever tab fight was last picked —
+  so a stale tier-1 selection could be duelled at the door of a tier-2 gladiator. Story gates keyed on
+  defeated ids stayed honest; every gate keyed on `currentTier` (`utils/rank.ts`, `utils/storyState.ts`)
+  leaked.
+- **What ships.** `src/utils/tierAdvancement.ts` (new, pure: no profile write, no storage, no clock):
+  `resolveVictoryTier({ currentTier, opponent, defeatedOpponentIds })` answers
+  `{ currentTier, firstDefeat, advanced }`, where `firstDefeat` is exactly "the boss's id is not in
+  the record yet" — the same test the win path already used to decide whether to append it — and
+  `advanced` is `firstDefeat && currentTier < FINAL_TIER (4)`. `resolveDoorDuelTarget(tier, ids)`
+  answers `{ opponent, rematch } | null`: the tier's first UNDEFEATED boss, else that tier's boss as a
+  rematch, else `null`. `App.handleMatchComplete` now writes `tierAfterVictory.currentTier` and nothing
+  else in that path changed — gold, XP, fame, level, `fightsWon`, hype, `defeatedOpponentIds` semantics
+  and `evaluateRituals` are untouched, so a repeat victory still pays exactly what it always paid.
+- **The door's fallback is the tier's boss rematch (`rematch: true`), not the tab.** Chosen because a
+  door that silently redirects to a menu is a worse answer at a physical door, the rematch is already
+  a supported fight in this game, and the new tier rule makes it provably inert (the boss is already
+  in the book, so `firstDefeat` is false). It is reached at the top tier once Aurelius is down, and by
+  a legacy save that arrived mid-tier with that tier's boss already felled. `null` — the tier has no
+  boss in the shipped roster at all — is the only case that opens the tournament tab instead.
+- **The city scene no longer accepts `activeOpponent` at all.** The prop was removed from
+  `CityHubSceneProps`, from the destructure and from `App`'s JSX, so a stored selection cannot be
+  read by the door even by accident; `handleInteract` resolves through `resolveDoorDuelTarget` at
+  interact time from the live `playerProfile`. Rematches remain exactly as they were in the hub tab
+  (training and rewards unchanged) — only the door's targeting and the tier rule moved.
+- **No save shape changed.** No new field, no migration, no reset: `defeatedOpponentIds` keeps its
+  meaning and `currentTier` keeps its meaning, so an existing save is read as it is.
+- **Regression suite: `src/utils/tierAdvancement.test.ts`** — 23 tests / 93 expect() calls in four
+  sections: §A the rule (the roster's one boss per tier, a first defeat advancing, a repeat boss win
+  not advancing, a non-boss never advancing, the tier-by-tier climb, the tier-4 cap still recording
+  the felled id, malformed opponent/record/tier input); §B the audit repro end to end (Goliath falls
+  through the tab → the door's target is Ignis → Goliath rematches at tier 2 keep it at 2 → Ignis's own
+  first defeat writes 3 → the door then offers Valéria) plus the reconstructed pre-fix expression shown
+  to have advanced; §C the door targeting (each tier's boss, a deliberately stale `activeOpponent`
+  from an earlier AND a later tier both ignored, the all-bosses-down rematch fallback shown inert, a
+  legacy mid-tier save, the no-boss tier, malformed input); §D the shipped wiring (App composes the
+  helper and the old unconditional block is gone, the tier is written in the same update as the book,
+  App no longer passes `activeOpponent` to the city, the scene calls the helper inside `handleInteract`
+  and contains no stored selection outside its explanatory comment, and the module touches no storage,
+  no `saveProfile`, no `localStorage`, no clock and no randomness).
+- **Validation (2026-10-20, in the `web` dev container).** `bun test` → **2423 pass / 0 fail (80
+  files, 79,209 expect() calls)** — up from the 2400 / 79 baseline by exactly this suite's 23;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  **exit 0**; `bun run build` → **exit 0**, startup asset check passing (8 assets; the pre-existing
+  >500 kB chunk warning only); `git diff --check` → **clean**.
+- **Live evidence, and what it does NOT establish.** The preview browser was seeded with a tier-2
+  save (Goliath down) and the dev server serves the changed modules with **0 console errors on the
+  title screen**, but **the door flow itself is NOT automatically verified**: this browser does not
+  keep `localStorage` between preview calls (the seed read back inside its own call and was gone at
+  the next load — the same limitation earlier phases recorded), so the app boots to `PLAY` and the
+  tier-2 profile never reaches the city; the alternative route (character creation → oath → city) is
+  a fresh tier-1 save, whose door target is Goliath either way, so it would not distinguish the fixed
+  door from the stale one. **And the tier write cannot be exercised live at all without winning a
+  duel**, which the SwiftShader city/arena (~1–2 fps) will not sustain. Both rules are pinned by the
+  suite above and by the source pins in §D; confirm by winning a Colosseum duel on a device.
+- **Open risks, stated rather than buried.** (a) A save that already climbed a tier through a rematch
+  keeps that tier — the fix is forward-only and no migration was written, per the "saves untouched"
+  constraint. (b) The door still does not apply the hub tab's level lock (it never did; it used
+  whatever was stored), so the door can offer the tier's next boss below its `recommendedLevel`; that
+  is unchanged behaviour, and adding a lock there is a design decision, not part of this fix. (c) The
+  tier's "first undefeated boss" is read from the shipped roster order (`fightIndex`), so a future
+  tier with two bosses answers the earlier one first and the later one after the first falls.

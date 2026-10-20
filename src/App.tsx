@@ -57,6 +57,7 @@ import { appleSignIn } from './services/appleAuth';
 import { microsoftSignIn } from './services/microsoftAuth';
 import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 import { ALL_OPPONENTS } from './data/opponents';
+import { resolveVictoryTier } from './utils/tierAdvancement';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
 import { preloadTitleStage } from './utils/preloadAssets';
@@ -512,11 +513,16 @@ export function App() {
         ? profile.defeatedOpponentIds
         : [...profile.defeatedOpponentIds, activeOpponent.id];
 
-      // Advance tier if boss is defeated
-      let nextTier = profile.currentTier;
-      if (activeOpponent.isBoss && nextTier < 4) {
-        nextTier += 1;
-      }
+      // The tier moves only on a boss's FIRST defeat — the boss's id newly entering
+      // `defeatedOpponentIds` in this write. A rematch pays its rewards exactly as it
+      // always did, but it proves nothing new, so it never opens the next tier (see
+      // `utils/tierAdvancement.ts`: one boss could otherwise carry a gladiator through
+      // tiers whose champions were never faced).
+      const tierAfterVictory = resolveVictoryTier({
+        currentTier: profile.currentTier,
+        opponent: activeOpponent,
+        defeatedOpponentIds: profile.defeatedOpponentIds,
+      });
 
       const updatedProfile: PlayerProfile = {
         ...profile,
@@ -526,7 +532,7 @@ export function App() {
         level: nextLevel,
         xpToNextLevel: nextXpToNext,
         unspentStatPoints: nextUnspentPoints,
-        currentTier: nextTier,
+        currentTier: tierAfterVictory.currentTier,
         defeatedOpponentIds: defeated,
         fightsWon: profile.fightsWon + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
@@ -745,7 +751,6 @@ export function App() {
           <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
             <CityHubScene
             playerProfile={profile}
-            activeOpponent={activeOpponent}
             onOpenTab={handleOpenHubTab}
             onEnterDuel={handleEnterDuel}
             onOpenDriveSync={() => setShowDriveSync(true)}
