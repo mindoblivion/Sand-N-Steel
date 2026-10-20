@@ -270,6 +270,30 @@ export interface RacingProgression {
   selected?: number;
 }
 
+/**
+ * The road — the gladiator's arrival path through the city and the Road of Glory's
+ * own field: the oath, the banner device sworn under, and the milestones shown.
+ *
+ * Optional on `PlayerProfile` on purpose, exactly like `chariot` and `racing`: a save
+ * written before the road has no `road` field at all and must keep loading, so the
+ * pure helpers resolve a missing, partial or malformed field to unsworn / no device /
+ * none seen rather than repairing the save. Every subfield is optional for the same
+ * reason, and `createNewProfile()` writes no `road` field.
+ *
+ * One writer per subfield: `oathSworn` is set only by the oath beat's completion
+ * (`withOathSworn`, `src/utils/gladiatorOath.ts`); `bannerDevice` only by the Device
+ * Choosing panel and `milestonesSeen` only by the milestone evaluation
+ * (`src/utils/roadMilestones.ts`) — never by a migration.
+ */
+export interface RoadProgress {
+  /** Set `true` once, on the oath beat's completion. Absent means the words are still owed. */
+  oathSworn?: boolean;
+  /** The banner device sworn under, as the player chose it. */
+  bannerDevice?: string;
+  /** Ids of the road milestones the player has been shown. */
+  milestonesSeen?: string[];
+}
+
 export interface PlayerProfile {
   name: string;
   title: string;
@@ -314,4 +338,9 @@ export interface PlayerProfile {
    * migration, and never by `createNewProfile()`).
    */
   racing?: RacingProgression;
+  /**
+   * The road; absent on every save written before it, and written only by the writers
+   * named on `RoadProgress` above.
+   */
+  road?: RoadProgress;
 }

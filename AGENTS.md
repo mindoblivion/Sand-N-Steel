@@ -4691,6 +4691,105 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   would be. The sandbox has no GPU (SwiftShader, ~1–2 fps in the 3D scenes), so no frame here could
   adjudicate a 40–200 ms hold or a sub-degree camera wobble in any case.
 
+## Records & Lore Library — the Road of Glory (Progression Slice 1 — implemented)
+
+- **What shipped.** `src/utils/rank.ts` (`deriveRank` + its threshold constants),
+  `src/utils/roadOfGlory.ts` (`resolveRoadState`, `resolveRoadProgress`, `ROAD_STAGES`,
+  `AURELIUS_OPPONENT_ID`, `CHAMPION_RECORD_LINE`), `src/components/hub/RoadOfGloryPage.tsx`,
+  `src/components/hub/LibraryTab.tsx`, and the `RoadProgress` field on `PlayerProfile`
+  (`src/types/game.ts`). The view is reachable two ways, both through the hub's existing `onOpenTab`:
+  the bottom nav / tab row's new **Records & Lore** entry, and the Records & Lore Library
+  building itself — `HUB_LOCATIONS`' `records_house` now carries `tabKey: 'library'` where it
+  previously fell back to the stats tab (its centre, radius 4.5, prompt, colour and district are
+  unchanged, and `InteractiveLocation.tabKey` gains the `'library'` member).
+- **Derived, never stored.** Seven stages stand in order — nobody → sworn → blooded → known →
+  feared → champion → legend — each `'reached' | 'current' | 'ahead'`, the current one being the
+  **highest** the profile qualifies for (so a skipped stage is `'reached'`, never `'ahead'`, and
+  exactly one stage is ever current). The gates read only: `deriveRank(profile)` (imported from
+  `rank.ts` — its thresholds are never restated, so the road cannot promise a gate the rank does
+  not enforce), `fightsWon`, `defeatedOpponentIds`, and the optional `profile.road`
+  (`oathSworn` / `bannerDevice` / `milestonesSeen`, resolved lazily: absent, partial and
+  hand-edited all read as unsworn). **The stored `PlayerProfile.rank` is not read**, nothing
+  writes a save, and `profile.road` has no writer in this slice — the oath slice owns that.
+- **The Champion gate names the roster's own boss.** `AURELIUS_OPPONENT_ID` is read from
+  `ALL_OPPONENTS` as the tier-4 boss (`opp_aurelius_boss`), not copied as a literal, so the gate
+  follows the roster if the entry ever moves.
+- **No Codex module — Legend's Codex condition is NOT implemented.** There is no
+  `src/utils/codex.ts` in this tree, so the progression design's "Rudis-ready" condition for the
+  Legend stage was left out rather than invented: legend is `deriveRank`'s Legend alone
+  (fame >= 1,500, the tier-4 circuit, a boss kill). The Codex slice owns that condition; if it
+  lands, the legend gate in `resolveRoadState` is the one line to extend.
+- **Suites: `src/utils/rank.test.ts`** (16 tests — the three gates on both sides of every
+  boundary with each half required, precedence and monotonicity, malformed saves reading as zero,
+  the stored rank not being read, the rank table and `rankAtLeast`) and
+  **`src/utils/roadOfGlory.test.ts`** (26 tests — the road's shape and contiguity, every gate,
+  the roster-derived champion id, the cumulative rule, the optional road field, and purity: the
+  resolvers mutate nothing). Both state their boundaries against `rank.ts`'s exported constants,
+  so a threshold change moves the assertions with it.
+- **Fixed in this pass.** `CityHubScene.tsx`'s new nav entry used `BookOpen` without importing it
+  (`tsc --noEmit` TS2304), so the 3D hub's Records & Lore button had no icon; the import is added.
+- **Verified 2026-10-20** in the dev container: `bun test` → **2177 pass / 0 fail (70 files)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0; `git diff --check` → clean. Live in the preview: title →
+  character creation → city hub → the new Records & Lore entry → the Library renders page one with
+  its seven stage nodes, exactly one of them current (`nobody` on a fresh save, six ahead), the
+  requirement line on the next node only, the champion record line on the Champion node, the
+  page's own tab marked `aria-current="page"`, no console errors, and no sideways overflow at a
+  375 px viewport (the tab row wraps to a 2x3 grid; the new tab's icon renders). The changed door
+  was driven with the shipped `getNearbyHubLocation`: every step in from Records & Lore's
+  fast-travel arrival `[23.1, -26]` answers `records_house`, whose `tabKey` is now `library`.
+- **Not automatically verified.** Nothing here needs an account (the Library is not gated), so
+  the anonymous preview covers it end to end; no 3D rendering changed, so this slice adds no
+  device-visual item to the open Android checklist.
+
+## Herald & Banner — milestone cries, the device and the banner (RG-3 — implemented)
+
+- **What rides what.** RG-3 is stacked on the two sibling slices it was specced against, and this branch
+  carries both: `origin/road-glory` (RG-1 — `src/utils/roadOfGlory.ts`: `resolveRoadState`,
+  `resolveRoadProgress`, `ROAD_STAGES`; `src/utils/rank.ts`; the `road` field and the Road page) and
+  `origin/gladiator-oath-beat` (RG-2 — `src/utils/gladiatorOath.ts`, `withOathSworn`, `OathBeat`, the
+  session-scoped `cityHerald`). **`src/utils/heraldry.ts` did not exist on any branch** — RG-3 creates it —
+  and neither did any herald/toast surface or any ludus banner row, so RG-3 builds those too.
+- **The merge conflict, and how it was settled.** Both slices declared the same `road` field, in the same
+  region of `src/types/game.ts`, under different names (`RoadProgress` vs `GladiatorRoad`). The branch keeps
+  RG-1's name — one `interface RoadProgress` with a `road?: RoadProgress` field — and RG-2's writer;
+  `gladiatorOath.ts` imports `RoadProgress`. Two of RG-2's own assertions needed widening for the merge and
+  no assertion was weakened: its "no other file in src/ writes the field" scan now skips `*.test.ts` (the road
+  suites' fixtures name the field) and `roadOfGlory.ts` (which reads it into a resolved value, never writes it).
+- **The two call sites, and the only writers.** `src/utils/roadMilestones.ts` is evaluated in exactly two
+  places in `src/App.tsx`: `handleMatchComplete` (both duel outcomes) and `enterCity` (which every entry into
+  the city passes through). `evaluateRoadMilestones(before, after)` compares `resolveRoadState` and returns the
+  profile to save; it is the **only** writer of `road.milestonesSeen`, appending the ids of the stages this
+  event newly reached. `chooseBannerDevice` is the **only** writer of `road.bannerDevice` and refuses a second
+  choice outright. Nothing else is stored: the stripes come from `bossKills`, the gate from the road.
+- **Why a stage below the jump is recorded too.** The road is cumulative (`resolveRoadState` marks every stage
+  below the current one `'reached'`), so a gladiator who jumps to Veteran records `sworn`/`blooded`/`known` in
+  one go; only `known` and `feared` have cries. Suppression is `milestonesSeen` plus "not reached before this
+  event", so a repeated or replayed evaluation is silent — there is no watcher and no timer.
+- **The surfaces RG-3 had to build.** `src/components/hub/HeraldToast.tsx` (the herald's cries, above every
+  screen — a duel ends into the city, so a cry must outlive the screen it was raised from),
+  `src/components/hub/DeviceChoosingPanel.tsx` (the four devices, Latin name + gloss, field colour from
+  `ROMAN_PALETTE`), `src/components/hub/BannerRow.tsx` (the ludus banner row; not drawn below Veteran) and
+  `src/components/3d/city/ChampionBannerPole.tsx` (raised at the Colosseum gate once the road stands at
+  Champion — four meshes and one 192x288 canvas texture).
+- **Grandfathering.** A gladiator at or past Veteran with no `bannerDevice` is offered the panel at the next
+  evaluation — `enterCity` is the site that catches them. "Not yet" closes it and the next evaluation offers it
+  again, so nobody is ever silently deviceless.
+- **Verified 2026-10-20** in the dev container: `bun test` → **2252 pass / 0 fail (73 files, 66,192 expect()
+  calls)**, 23 of them new in `src/utils/roadMilestones.test.ts`; `bun run scripts/collisionTests.ts` → **123
+  passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the
+  startup asset check passing; `git diff --check` → **clean**. The new suite pins each stage firing once,
+  seen-id suppression, both rank cries with the gladiator's name, the boss cry named from the roster, the
+  one-time device write, stripes at 0/1/4 kills, a save with no `milestonesSeen`, grandfathering and the four
+  device specs.
+- **Live evidence, and what it does NOT establish.** Driving the real flow in the preview browser (Play →
+  character creation → `APPLY POINTS & ENTER METROPOLIS` → the city's Colosseum button) reached the ludus hub
+  with the banner row wired and correctly **not** drawn for a level-1 profile, and the run produced **no
+  console errors**. **Not automatically verified:** the *chosen* banner's field/device/stripes, the Device
+  Choosing panel and the herald toast in a rendered state, and the champion gate pole. The managed preview
+  browser does not keep `localStorage` between preview calls, so a seeded Veteran save cannot be carried into
+  the page, and the city hub renders at ~1–2 fps through SwiftShader; both need a hand look on a real device.
+
 ## Quality preset and the city's adaptive DPR (SF-1 — implemented)
 
 - **What ships: the picture-quality preset becomes live, and the city Canvas stops asking for
