@@ -5601,3 +5601,98 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   - Main's optimized models and music (`public/models/*`, `public/music/*`) are taken as-is.
 - Verified after the merge: `bun run lint` exit 0, `bun run build` exit 0 (startup asset check: 8 assets),
   `bun test` → 2473 pass / 0 fail (83 files), `bun run scripts/collisionTests.ts` → 123 passed.
+
+## Arena combat responsiveness — announced enemy strikes, tactical stamina, legal door bouts (§R1–R3B — implemented; strike window and range gate verified live)
+
+- **Phase label.** This workstream is labelled **§R1–R3B** in the source. It is **not** `C-8.70B`:
+  that label belongs to the chariot-racing workstream above, and an earlier draft of these comments
+  reused it, so the `DuelScene` comment headers were renamed to "Combat responsiveness §R1". A future
+  record for this work belongs under a new title again, not under `C-8.70B`.
+- **It landed as two commits, not as a working-tree change.** `ff82313` ("Implement telegraphed enemy
+  strikes and reaction windows", 14 files, +997/−93) sits on top of `d220bee` ("Implement enemy attack
+  wind-up and tactical stamina adjustments", 2 files) on `development-focus-strategy`, and the tree was
+  clean when this record was written. The hand-off premise — the work uncommitted with HEAD at
+  `d220bee` — was stale; nothing was discarded or rewritten to reconcile it.
+- **§R1 — the strike is announced, held, then resolved.** `src/utils/pendingStrike.ts` (new) is the
+  whole bookkeeping layer and is deliberately non-React: `createPendingStrike()` over an injectable
+  `StrikeTimer` owns the pending action, its **one** scheduled impact and the player's **one**
+  reaction. It guarantees three things — an `announce` while a strike is pending is refused, so no
+  damage can be queued twice; `cancel()` clears the scheduled impact *and* makes an in-flight callback
+  inert, so a victory, a defeat or an unmount cannot resolve into a scene that has gone; and
+  `claimReaction()` succeeds at most once per announcement, so mashing both buttons cannot stack a
+  block with a dodge. The impact reads the pending action *at impact time*, not from a closure.
+  `DuelScene.tsx` drops its own `pendingEnemyAttackRef` / `reactionTakenRef` / `windupTimerRef` for
+  this controller, holds the damage for `ENEMY_ATTACK_WINDUP_MS` (**700 ms**, `combatCalculations.ts`),
+  and resolves through the **same** `executeCombatTurn` the attack always went through — no formula,
+  hit chance, weapon value or boss mechanic moved. `reactToPendingAttack` claims the reaction *before*
+  applying the stance, and the unmount cleanup cancels the strike as well as the 1100 ms turn timer.
+- **The cue and its controls.** `CombatHUD.tsx` renders the announcement (`data-windup-cue`), a
+  draining 700 ms bar and the two answers — `data-reaction="shield_block"` and `data-reaction="dodge"`
+  (44 px minimum, Dodge disabled below `DODGE_STAMINA_COST`); once claimed, the pair is replaced by
+  `data-reaction-taken="true"`. `src/index.css` adds `.windup-bar` / `@keyframes windup-drain`, which
+  animates `transform: scaleX` so the timer costs no layout.
+- **§R2 — the guard is no longer free stamina.** Shield Guard spends and restores nothing by itself;
+  recovery is credited only when the guard actually stops a blow (`shieldGuardStaminaGain`), still
+  clamped by remaining capacity through `applyStaminaRegen`. The old unconditional Shield-Guard regen
+  made the guard strictly better than Dodge. Copy follows the rule: `TurnActionPanel` shows
+  "NO COST" / "SP on block" and takes Dodge's cost from `DODGE_STAMINA_COST` instead of a literal 12;
+  `HelpModal` drops "Restores: 12 SP".
+- **§R3A — the range rule is one rule.** `isAttackInRange` now also refuses a negative distance, and
+  `TurnActionPanel` uses it (not its own `distance <= getWeaponRange(...)`) to disable **both** Quick
+  Strike and Power Strike and to show "Out of range — Advance to strike". The engine keeps the
+  authoritative guard, so an out-of-range strike cannot spend stamina even if a control slips through.
+- **§R3B — the Colosseum door briefs and gates like the tab.** `CityHubScene` resolves the door's
+  ticket (`resolveDoorDuelTarget`, unchanged: the tier's first undefeated boss) and then reads the new
+  pure `resolveBoutLevelGate` — the *same* gate `TournamentTab` now uses, so a door cannot offer a bout
+  its own tab would lock. Locked replies with a 4 s gatekeeper notice naming the required level;
+  otherwise the existing `PreFightModal` opens and the duel starts only on "Step into Sand". A bout
+  whose gate cannot be evaluated (no fighter, no id) reports **locked**.
+- **Changed files (all in `ff82313`; `DuelScene.tsx` and `combatCalculations.ts` also in `d220bee`).**
+  New: `src/utils/pendingStrike.ts`, `src/utils/pendingStrike.test.ts`,
+  `src/utils/combatResponsiveness.test.ts`. Modified: `src/components/duel/DuelScene.tsx`,
+  `src/components/ui/CombatHUD.tsx`, `src/components/ui/TurnActionPanel.tsx`,
+  `src/components/3d/city/CityHubScene.tsx`, `src/components/hub/TournamentTab.tsx`,
+  `src/components/hub/HelpModal.tsx`, `src/utils/combatCalculations.ts`, `src/utils/tierAdvancement.ts`,
+  `src/utils/tierAdvancement.test.ts`, `src/index.css`, `scripts/combatTests.ts`.
+- **Checks actually run (2026-10-20, in the `web` dev container).** `bun test` → **2517 pass / 0 fail,
+  85 files, 79,943 expect() calls** (the merge record above stood at 2473 / 83, so this workstream adds
+  the two new files and 44 tests); the two new suites alone → **44 pass / 0 fail, 149 expect() calls**;
+  `bun run scripts/combatTests.ts` → **65 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0;
+  `bun run build` → exit 0 with the startup-asset check passing (8 assets); `git diff --check` clean.
+- **Verified live in the preview browser** (guest path, 400 px mobile viewport, SwiftShader software
+  rendering), driving the app's own route: New Game → character sheet → city → Colosseum tab →
+  pre-fight briefing → "Step into Sand" → duel.
+  - **The cue precedes the damage.** With `data-windup-cue="power_attack"` up ("POWER SLASH INCOMING",
+    draining bar), health stood at **138/138**; only after the window did it read **132/138** with
+    `BLOCK! -6` and the chronicle sequence "winds up a power slash — brace or dodge!" →
+    "snaps the shield up!". A second announced strike (quick strike) resolved the same way
+    (`BLOCKED -3`).
+  - **A reaction can be taken during the window and it affects that strike.** "Shield Guard" was
+    offered inside the cue and claiming it replaced *both* buttons with the stance line; the blow then
+    resolved against the raised guard rather than the bare fighter.
+  - **Out-of-range strikes are disabled by the shared rule.** At the start of the bout (`DIST: 7.0m`,
+    weapon range 2.1) the panel read "Range Status: OUT OF RANGE", both strikes were disabled under an
+    "Out of range — Advance to strike" overlay while Advance was enabled; at `DIST: 1.6m` both strikes
+    were enabled and the status read "IN STRIKE RANGE".
+  - **The §R2 copy is on screen**: Shield Guard "NO COST" / "SP on block", Dodge "12 SP" / "−12 SP".
+    No console errors were recorded during the duel.
+- **Not automatically verified — do not read the list above as covering it.**
+  - **Dodge during a wind-up** was never taken (only Shield Guard was), so the evade path is pinned by
+    its suite, not by a live run.
+  - **A second reaction inside one window.** After the claim the two buttons are gone, which closes the
+    UI path, but no second click was attempted inside a live window; the guarantee rests on
+    `claimReaction()` and its suite.
+  - **The Colosseum door itself** (§R3B) was not reached in the live pass — the preview budget went to
+    the strike window and the range gate. Its gate rule is pinned by `tierAdvancement.test.ts`, and the
+    briefing it opens was verified through the tab, not through the door.
+  - **Fight end / scene exit** (no delayed strike, no duplicate payout) was not exercised: the bout was
+    still running when the preview budget ran out, so the exit path is unverified.
+  - **Android remains manual acceptance**: 700 ms is a short read at arm's length, the cue and both
+    reaction targets must be reachable one-handed on a phone in landscape, and neither was tested on
+    hardware.
+- **Risk worth a design decision, not a bug.** Tier 1's only boss is Goliath the Pit Behemoth
+  (`recommendedLevel: 3`) and `resolveDoorDuelTarget` returns the tier's first undefeated boss, so a
+  LVL 1–2 gladiator is now **refused at the Colosseum door** (gatekeeper notice, no briefing) until
+  LVL 3 or a beaten boss, while the Colosseum tab still offers Marcus and Flaccus. That is consistent
+  with FIX-B's "legal door bouts", but it is a player-facing change from a door that used to drop
+  straight into the sand.
