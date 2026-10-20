@@ -102,7 +102,7 @@ interface CityHubSceneProps {
    * (the Imperial Stable → the Armory's Chariot Workshop). Every other hub
    * passes nothing and lands on the tab's own default view.
    */
-  onOpenTab: (tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats', subTab?: 'chariot') => void;
+  onOpenTab: (tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library', subTab?: 'chariot') => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -895,6 +895,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             { id: 'shop', label: 'Smith & Bazaar', icon: ShoppingCart, color: 'text-yellow-400' },
             { id: 'gear', label: 'Armory', icon: Layers, color: 'text-cyan-400' },
             { id: 'stats', label: 'Gladiator Stats', icon: BarChart2, color: 'text-purple-400' },
+            { id: 'library', label: 'Records & Lore', icon: BookOpen, color: 'text-amber-300' },
           ].map((item) => {
             const Icon = item.icon;
             return (
@@ -902,7 +903,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 key={item.id}
                 onClick={() => {
                   sounds.playClick();
-                  onOpenTab(item.id as 'tournament' | 'training' | 'shop' | 'gear' | 'stats');
+                  onOpenTab(item.id as 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library');
                 }}
                 className="flex-1 min-w-[54px] py-1.5 sm:py-2 px-1 rounded-xl hover:bg-amber-500/20 text-neutral-300 hover:text-amber-200 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all active:scale-95 cursor-pointer"
               >

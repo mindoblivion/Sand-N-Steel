@@ -270,6 +270,27 @@ export interface RacingProgression {
   selected?: number;
 }
 
+/**
+ * Progression Slice 1 — the Road of Glory's own field: the oath, the banner device
+ * the gladiator swore under, and the milestones the road has shown them.
+ *
+ * Optional on `PlayerProfile` on purpose, exactly like `chariot` and `racing`: every
+ * save written before this slice has no `road` field at all and must keep loading,
+ * so `resolveRoadProgress` (`src/utils/roadOfGlory.ts`) resolves a missing, partial
+ * or malformed field to unsworn / no device / none seen rather than repairing it.
+ * Every subfield is optional for the same reason.  Nothing in this slice writes it:
+ * it has no writer until the oath slice lands, and `createNewProfile()` still writes
+ * no `road` field.
+ */
+export interface RoadProgress {
+  /** The oath at the Ludus gate has been sworn. */
+  oathSworn?: boolean;
+  /** The banner device sworn under, as the player chose it. */
+  bannerDevice?: string;
+  /** Ids of the road milestones the player has been shown. */
+  milestonesSeen?: string[];
+}
+
 export interface PlayerProfile {
   name: string;
   title: string;
@@ -314,4 +335,10 @@ export interface PlayerProfile {
    * migration, and never by `createNewProfile()`).
    */
   racing?: RacingProgression;
+  /**
+   * Progression Slice 1 — the Road of Glory's own field; absent on every save that
+   * predates the Road, and written by nothing in this slice (the road is derived
+   * from progress, not stored).  See `RoadProgress` above.
+   */
+  road?: RoadProgress;
 }

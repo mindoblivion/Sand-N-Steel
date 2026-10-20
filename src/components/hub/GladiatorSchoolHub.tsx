@@ -5,15 +5,16 @@ import { TrainingTab } from './TrainingTab';
 import { ShopTab } from './ShopTab';
 import { GearView, GearTab } from './GearTab';
 import { StatsTab } from './StatsTab';
+import { LibraryTab } from './LibraryTab';
 import { PreFightModal } from './PreFightModal';
 import { HelpModal } from './HelpModal';
-import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
+import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 
 interface GladiatorSchoolHubProps {
   playerProfile: PlayerProfile;
-  activeTab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats';
-  onTabChange: (tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats') => void;
+  activeTab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library';
+  onTabChange: (tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library') => void;
   onEnterCity3D: () => void;
   onSelectOpponent: (opp: OpponentConfig) => void;
   onTrainStat: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
@@ -133,6 +134,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           { key: 'shop', label: 'Bazaar & Forge', icon: ShoppingCart },
           { key: 'gear', label: 'Armory', icon: Layers },
           { key: 'stats', label: 'Gladiator Stats', icon: BarChart2 },
+          { key: 'library', label: 'Records & Lore', icon: BookOpen },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -141,7 +143,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
               key={tab.key}
               onClick={() => {
                 sounds.playClick();
-                onTabChange(tab.key as 'tournament' | 'training' | 'shop' | 'gear' | 'stats');
+                onTabChange(tab.key as 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library');
               }}
               className={`py-2 px-3 sm:px-4 rounded-xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                 isActive
@@ -183,6 +185,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
         {activeTab === 'stats' && (
           <StatsTab profile={playerProfile} onAllocatePoint={onAllocateStatPoint} />
         )}
+        {activeTab === 'library' && <LibraryTab profile={playerProfile} />}
       </main>
 
       {/* PRE-FIGHT MODAL */}

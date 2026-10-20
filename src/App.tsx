@@ -54,7 +54,7 @@ export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
-  const [activeHubTab, setActiveHubTab] = useState<'tournament' | 'training' | 'shop' | 'gear' | 'stats'>('tournament');
+  const [activeHubTab, setActiveHubTab] = useState<'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library'>('tournament');
   // Phase C-8.66B: the Armory's own subview. The Imperial Stable's city
   // interaction opens the gear tab with this set to 'chariot'; the tab's own
   // switch flips it back to the gear list.
@@ -323,7 +323,7 @@ export function App() {
   };
 
   const handleOpenHubTab = (
-    tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats',
+    tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library',
     gearSubview?: GearView
   ) => {
     setActiveHubTab(tab);
