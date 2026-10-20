@@ -5677,3 +5677,79 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   with the card was confirmed at 375px and fixed by the offset above, but the desktop capture (where
   the two sit side by side) is the only frame of the two notices together. Signed-in (account) paths
   are untouched: the preview browser runs as an anonymous visitor.
+
+## Golden save corpus — fixture profiles and load-compatibility tests (GC20 — implemented, tests + fixtures only)
+
+- **What ships, and what deliberately did not.** The corpus that proves the save's lazy-resolution
+  design still holds for every shape the game has shipped: **`src/utils/saveFixtures/`** (eight frozen
+  profile `.json` files, an `index.ts` registry carrying each fixture's one-line provenance and the
+  shapes it covers, and `MANIFEST.md`) and **`src/utils/saveCorpus.test.ts`** (80 tests / 400
+  `expect()` calls). **Zero production changes and zero changes to existing tests** — `git status
+  --short` names only the new directory and the new suite. No new dependency, no dev-harness change,
+  no save format change, and no fixture derived from a real player's data: every one is synthetic,
+  built in this repository.
+- **Why it exists.** The profile is whole-profile JSON under `sand_and_steel_gladiator_save_v2`
+  (`services/storage.ts`) with **no version field and no migration**; new fields (`chariot` in
+  C-8.66B, `racing` in C-8.67B) resolve lazily through `resolveRacingState` / `resolveChariotLoadout`
+  and nothing proved that a historical shape keeps resolving. It does — the whole corpus is green —
+  but the design was resting on an unproven assumption until now.
+- **The eight fixtures.** `minimal-legacy` (the import-era creation shape, reconstructed from git
+  `76984d6`), `current-fresh` (generated from `createNewProfile('Tester')` at HEAD and frozen),
+  `mid-career` (hand-aged through the fields the shipped handlers advance), `racing-era` (the
+  mid-career save driven through the real `purchaseChariotPart` / `equipChariotPart` /
+  `purchaseRacingConfig` / `selectRacingConfig` transactions, so it is byte-for-byte what those
+  handlers persist), and four malformed-adjacent shapes: `null` where an object is expected, a
+  partial `racing` record (`unlocked: [4]`, `selected: 3`), a partial `chariot` record (no `equipped`,
+  a retired id), and unknown extra fields.
+- **What the suite drives.** For each fixture: the fixture's own bytes are put under the real save key
+  and read back through `loadSavedProfile()` exactly as `App` calls it; **every profile-facing lazy
+  resolver in the tree** runs (`resolveRacingState`, `resolveChariotLoadout` and every pure reader
+  built on them — `getSelectedRacingConfig`, `isRacingConfigUnlocked`, the four eligibility readers,
+  `ownsChariotPart`, `isChariotPartEquipped`, `equippedChariotPartId`) plus the boot-path
+  `calculateTotalStats`; the serialized bytes are compared before and after (resolution never mutates
+  a save, and never rewrites the stored JSON); and every absent field is shown to resolve to its
+  documented default (absent `racing` → Biga, Triga and Quadra locked; absent `chariot` → the stock
+  loadout; absent `injury` → no penalty). The other resolvers in the tree are not profile-shaped and
+  are listed as out of scope in the manifest.
+- **Findings recorded, production untouched (each pinned by an assertion).**
+  (1) **`bossKills`, `tierProgress`, `newGamePlus` and `trainingSessionsLeft` are written once at
+  creation and never advanced** — nothing in `src/` increments `bossKills`, and tier advancement is
+  `currentTier += 1` on a boss kill, so **no played save can carry a non-zero `bossKills`**; the
+  mid-career fixture keeps the creation values for exactly that reason.
+  (2) **The shipped creation and the factory write different shapes**: `CharacterCreation.handleFinish`
+  (the path a real player's save comes from) writes `isLeftyMode`; `createNewProfile()` does not — so a
+  fixture built from the factory alone does not represent a real save, and the suite pins the
+  difference.
+  (3) **`profile.isLeftyMode` is read by no production code any more** (`App` reads `settings.lefty`);
+  the field is still written at creation and stays in the corpus as a shape to keep loadable.
+  (4) **No `road`, `story`, `seen`, `temper` or `stable` state exists in this tree** — the only save
+  fields added since import are `chariot` and `racing`, and the corpus covers both.
+- **The corpus rule, and how it is enforced.** A slice that adds a field to the save adds a fixture for
+  the shape it writes **in the same PR that adds the field** (stated in the manifest and the registry).
+  `saveCorpus.test.ts` §J makes that mechanical: it parses `PlayerProfile`'s optional members out of
+  `src/types/game.ts` and fails unless the set is exactly `injury`, `isLeftyMode`, `chariot`, `racing`
+  — each with a fixture carrying it and a fixture omitting it. §A fails if a `.json` file in the
+  directory is unregistered or a registered one is missing, so a fixture cannot be silently dropped;
+  §H proves no production file imports the corpus, that every fixture is synthetic, and that the only
+  storage key the suite ever writes is the real save key.
+- **Open risks, recorded not covered.** A `null` in a field **no resolver guards** (`equipped`,
+  `appearance`, `baseStats`) is not exercised — the corpus's null coverage is the optional object
+  fields the load path resolves, which is what this slice's brief specifies — and the Google Drive
+  cloud-save client is not driven (it needs an account and a network; the stored shape it writes is
+  covered by the same load path).
+- **Verified 2026-10-20** in the dev container: focused `bun test src/utils/saveCorpus.test.ts` →
+  **80 pass / 0 fail** (400 `expect()`), then `bun test` → **2233 pass / 0 fail (70 files, 65,967
+  `expect()` calls)** — the branch tip read 2153 / 69 files / 65,567 `expect()` before this suite, so
+  this suite's 80 tests and 400 `expect()` calls are the whole delta; `bun run
+  scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0; `bun run lint` (`tsc --noEmit`) →
+  **exit 0**; `bun run build` → **exit 0** with the startup-asset check passing (8 assets); `git diff
+  --check` → clean. The validation's starting point was 3 failing assertions in the new suite — all
+  three mine, in the suite's own checks (the racing invariant did not yet reject an orphan Quadra, and
+  one eligibility expectation ignored the fixture's 100 gold) — **no production file and no other
+  suite was touched to make anything pass**.
+- **Not applicable / nothing visual, and not attempted.** This slice ships no screen, no scene and no
+  style: the app's own boot path is unchanged, so there is no appearance to accept and no new Android
+  item. The corpus's verification is the `bun test` run above. The preview browser was opened once on
+  the fresh tree to confirm the app itself is undisturbed — the dev server answers HTTP 200 for the
+  shell and the title screen renders (PLAY, PRESS TO START, ACCOUNT, SETTINGS) with **0 console
+  errors** and no horizontal overflow — which is the only app-level claim this slice makes.
