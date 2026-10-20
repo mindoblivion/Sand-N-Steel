@@ -1,34 +1,46 @@
 /**
- * Progression Slice 1 — `deriveRank`, and the thresholds it is derived from.
+ * The gladiator's rank, derived from the record — the single source of truth.
  *
- * The rank is a threshold on fields the save already carries, in ascending order:
+ * The stored `rank` field is what character creation writes ('Rookie') and
+ * nothing in the game ever advances it, so it says nothing about how far the
+ * player has actually come.  The rank read here is DERIVED from the record that
+ * does move — fame, the tier the player fights in, and the bosses who have
+ * fallen — and is never written back to the save.
  *
- *   • **Rookie**   — the default; every profile below the first gate.
- *   • **Veteran**  — `fame >= 150` AND `currentTier >= 2`.
- *   • **Champion** — `fame >= 600` AND `currentTier >= 3`.
- *   • **Legend**   — `fame >= 1,500` AND a boss felled on the tier-4 circuit.
+ * The thresholds, ascending:
  *
- * This module is the single source of truth for those numbers: the Road of Glory's
- * requirement text (`src/utils/roadOfGlory.ts`) reads the constants rather than
- * repeating them, and every boundary in `src/utils/rank.test.ts` is stated against
- * them.
+ *   | rank     | fame    | and                                     |
+ *   |----------|---------|-----------------------------------------|
+ *   | Rookie   | —       | the default: everything below           |
+ *   | Veteran  | >= 150  | `currentTier` >= 2                      |
+ *   | Champion | >= 600  | `currentTier` >= 3                      |
+ *   | Legend   | >= 1500 | Tier 4, and a boss felled on that tier  |
  *
- * **The stored `rank` field is not this.** `PlayerProfile.rank` is what the save has
- * always carried (character creation writes `'Rookie'`); nothing here reads it,
- * nothing writes it, and there is no migration for it. `deriveRank` is the truth
- * derived from progress, and the Road page is its only consumer.
+ * A Tier-4 boss felled is recorded two ways on the save: the profile's
+ * `bossKills` count, and the fallen boss's id in `defeatedOpponentIds` (what the
+ * arena's win path writes today).  Either is evidence of the same kill, so either
+ * satisfies Legend — a save carrying one of them is not asked to carry both.
  *
- * The module is pure: it imports the profile *type* only, reads no storage, no
- * clock and no environment, and returns a rank rather than a profile — no path
- * through it can write a save.
+ * A missing, partial or malformed profile resolves to 'Rookie' rather than
+ * throwing — the same contract `resolveRacingState` and `resolveStoryState` keep.
+ * The module is pure: it imports the profile type and the shipped roster only,
+ * reads no storage and no clock, and returns a rank rather than a profile, so no
+ * path through it can write a save.
  */
+
 import type { PlayerProfile } from '../types/game';
+import { ALL_OPPONENTS } from '../data/opponents';
 
 /** The four ranks, ascending.  The stored union itself, so the two cannot drift. */
 export type GladiatorRank = PlayerProfile['rank'];
 
 /** The ranks as a value, for display and for the suites' sweeps. */
-export const RANK_ORDER: GladiatorRank[] = ['Rookie', 'Veteran', 'Champion', 'Legend'];
+export const RANK_ORDER: readonly GladiatorRank[] = [
+  'Rookie',
+  'Veteran',
+  'Champion',
+  'Legend',
+];
 
 /** Exhaustive against `GladiatorRank`: a fifth rank cannot be added silently. */
 export const RANK_INDEX: Record<GladiatorRank, number> = {
@@ -57,6 +69,17 @@ export const LEGEND_TIER = 4;
 export const LEGEND_BOSS_KILLS = 1;
 
 /**
+ * The same thresholds keyed by rank, for consumers that walk the table (the
+ * campaign card's gate table).  Built from the constants above, so the two forms
+ * cannot drift.
+ */
+export const RANK_THRESHOLDS = {
+  veteran: { fame: VETERAN_FAME, currentTier: VETERAN_TIER },
+  champion: { fame: CHAMPION_FAME, currentTier: CHAMPION_TIER },
+  legend: { fame: LEGEND_FAME, currentTier: LEGEND_TIER },
+} as const;
+
+/**
  * The fields `deriveRank` reads.  Structural on purpose: a `PlayerProfile`
  * satisfies it, and so does a bare literal in a suite.
  */
@@ -64,30 +87,46 @@ export interface RankInput {
   fame?: number;
   currentTier?: number;
   bossKills?: number;
+  defeatedOpponentIds?: string[];
 }
 
 /** A missing, non-finite or negative count reads as zero — never as NaN. */
-function countOrZero(value: number | undefined): number {
+function countOrZero(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+/** Every Tier-4 boss in the shipped roster — the rank's Legend condition. */
+function tierFourBossIds(): string[] {
+  return ALL_OPPONENTS.filter(
+    (opponent) => opponent.tier === LEGEND_TIER && opponent.isBoss === true
+  ).map((opponent) => opponent.id);
+}
+
+/** The felled ids, dropped unless they are really ids (strings). */
+function felledIds(profile: RankInput | null | undefined): string[] {
+  const stored = profile?.defeatedOpponentIds;
+  if (!Array.isArray(stored)) return [];
+  return stored.filter((id): id is string => typeof id === 'string');
 }
 
 /**
  * The player's rank, derived from the save.
  *
- * `bossKills` is a bare count: the save records no tier per kill, so the tier-4
- * condition is read off `currentTier`, which only ever reaches 4 by fighting
- * through the fourth-tier circuit.  A profile with no fame, tier or boss-kill
- * field at all (every pre-progression save) resolves to Rookie rather than
- * throwing, which is the state it actually earned.
+ * Legend is tested first, then Champion, then Veteran, so the highest satisfied
+ * row wins.  A profile with no fame, tier or kill record at all (every
+ * pre-progression save) resolves to Rookie rather than throwing, which is the
+ * state it actually earned.
  */
 export function deriveRank(profile: RankInput | null | undefined): GladiatorRank {
   const fame = countOrZero(profile?.fame);
   const tier = countOrZero(profile?.currentTier);
   const bossKills = countOrZero(profile?.bossKills);
+  const felled = felledIds(profile);
 
-  if (fame >= LEGEND_FAME && tier >= LEGEND_TIER && bossKills >= LEGEND_BOSS_KILLS) {
-    return 'Legend';
-  }
+  const tierFourBossDown =
+    bossKills >= LEGEND_BOSS_KILLS || tierFourBossIds().some((id) => felled.includes(id));
+
+  if (fame >= LEGEND_FAME && tier >= LEGEND_TIER && tierFourBossDown) return 'Legend';
   if (fame >= CHAMPION_FAME && tier >= CHAMPION_TIER) return 'Champion';
   if (fame >= VETERAN_FAME && tier >= VETERAN_TIER) return 'Veteran';
   return 'Rookie';

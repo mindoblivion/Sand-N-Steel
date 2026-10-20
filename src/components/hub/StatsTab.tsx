@@ -2,6 +2,7 @@ import React from 'react';
 import { PlayerProfile } from '../../types/game';
 import { calculateTotalStats } from '../../services/storage';
 import { Swords, Shield, Heart, Zap, Flame, Activity } from 'lucide-react';
+import { CampaignCard } from './CampaignCard';
 
 interface StatsTabProps {
   profile: PlayerProfile;
@@ -14,6 +15,15 @@ export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) 
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto w-full pb-12">
+      {/* STORY-1 — the campaign card heads this view, above everything already
+          here.  This tab is the Records & Lore Library's own screen on this
+          branch: the library building's hub entry (`cityCollisions.ts`,
+          `records_house` — "Records & Lore Library") opens `tabKey: 'stats'`,
+          and there is no separate Library page tree or Road page in the tree at
+          this point.  Read-only: it renders the chapter resolved from the
+          profile and writes nothing. */}
+      <CampaignCard profile={profile} />
+
       <div className="bg-neutral-900/80 border-2 border-purple-500/60 rounded-3xl p-6 shadow-xl flex justify-between items-center">
         <div>
           <h3 className="font-serif font-black text-2xl text-amber-100 uppercase mb-1">

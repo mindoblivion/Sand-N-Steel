@@ -528,6 +528,9 @@ describe('D. The one write', () => {
       .filter((file) => !file.endsWith('gladiatorOath.ts'))
       // `roadOfGlory.ts` reads the field into its resolved value; it never writes it.
       .filter((file) => !file.endsWith('roadOfGlory.ts'))
+      // `storyState.ts` reads it the same way, through a structural cast, so the
+      // campaign's Oath gate is correct before the field is declared; it never writes it.
+      .filter((file) => !file.endsWith('storyState.ts'))
       // Test fixtures name the field too (this suite's own did, and the road suites' do);
       // the claim is about production files, so every .test.ts is out of scope.
       .filter((file) => !file.endsWith('.test.ts'))

@@ -285,6 +285,34 @@ export interface RacingProgression {
 }
 
 /**
+ * STORY-1 — the campaign's own evidence, stored on the gladiator save.
+ *
+ * Optional on `PlayerProfile` on purpose, exactly like `chariot` and `racing`: a
+ * save written before this slice has no `story` field at all and must keep
+ * loading.  Every subfield is optional for the same reason — a save may carry
+ * one of them and still be valid — so a partially-written field is a normal
+ * state, not a corrupt one.
+ *
+ * Nothing writes this on creation: `createNewProfile()` never emits the field,
+ * there is no migration, and the campaign reads it through the pure
+ * `resolveStoryState()` (`src/utils/storyState.ts`) rather than repairing it.
+ */
+export interface StoryProgress {
+  /** The player has read their own name in the Records & Lore Library. */
+  librarySeen?: boolean;
+  /** Fragment ids the player has found, in the order they were found. */
+  fragmentsFound?: string[];
+  /** The Northern Trial has been walked. */
+  trialDone?: boolean;
+  /** How the vulture's dice fell: cut, or refused. */
+  diceEnding?: 'cut' | 'refused';
+  /** What became of the deserter: spared, or taken. */
+  deserterChoice?: 'spared' | 'taken';
+  /** The player has stood on the summit above the city. */
+  summitSeen?: boolean;
+}
+
+/**
  * The road — the gladiator's arrival path through the city and the Road of Glory's
  * own field: the oath, the banner device sworn under, and the milestones shown.
  *
@@ -352,6 +380,12 @@ export interface PlayerProfile {
    * migration, and never by `createNewProfile()`).
    */
   racing?: RacingProgression;
+  /**
+   * STORY-1 — the campaign's own evidence; absent on every save written before
+   * this slice, and written by nothing yet (the campaign is read-only, so
+   * `resolveStoryState()` derives every chapter from the record that exists).
+   */
+  story?: StoryProgress;
   /**
    * P1 — per-item temper (upgrade) level, keyed by item id; absent on every
    * pre-tempering save.  Exactly like `chariot` and `racing`, a missing
