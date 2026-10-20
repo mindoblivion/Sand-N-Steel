@@ -5601,3 +5601,79 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   - Main's optimized models and music (`public/models/*`, `public/music/*`) are taken as-is.
 - Verified after the merge: `bun run lint` exit 0, `bun run build` exit 0 (startup asset check: 8 assets),
   `bun test` → 2473 pass / 0 fail (83 files), `bun run scripts/collisionTests.ts` → 123 passed.
+
+## Onboarding coach marks — foundation and creation/hub walk-through (CL-1 + CL-2 — implemented)
+
+- **What ships.** `src/utils/coachMarks.ts` (new) — the whole data + helper layer: `COACH_CARDS`
+  (the one registry of card copy), `getCoachCard`, `resolveSeenState`, `hasSeenCard` and `markSeen`.
+  `src/data/glossary.ts` (new) — the glossary appendix as data (`GLOSSARY`, `GLOSSARY_SECTIONS`,
+  `getGlossaryEntry`, `getGlossaryGloss`), no UI. `src/components/ui/CoachCard.tsx` (new) — one
+  presentational card, non-modal, at a screen edge by `placement`, 44px ✕. `src/types/game.ts` —
+  the optional `seen?: Record<string, true>` field. `CharacterCreation.tsx` — the label/sub-line
+  work, "Stat Points", and the live derived preview. `GladiatorSchoolHub.tsx` — the first-open
+  `HUB-1` card and its one-off Help mark. `HelpModal.tsx` — "Combat Notes" + its header line.
+  `App.tsx` — the single seen-write. `src/utils/coachMarks.test.ts` (new suite, 21 tests).
+
+- **The `seen` field is written ONLY on display, and only by `markSeen`.** `resolveSeenState` is the
+  `resolveRacingState` idiom: `seen` absent (every pre-CL save), partial, or of the wrong type
+  (string, number, `null`, array) all resolve to `{}`, an entry that is not exactly `true` is
+  dropped, the returned record is a fresh object, and the input profile is never mutated. `markSeen`
+  returns a NEW profile carrying the existing ids plus this one and returns the SAME reference when
+  the card is already recorded, so the hub's mount effect (and a double-mounted dev render) is a
+  true no-op that never reaches `saveProfile`. `createNewProfile()` does not set the field and no
+  migration touches it — a legacy save JSON without `seen` round-trips byte-identical.
+
+- **`COACH_CARDS` is the single source of truth for card copy** — 37 entries: `D1`–`D9`, `S1`–`S7`,
+  `HUB-1` and 20 `BRIEF_<building slug>` briefings (the slug is the building's own `HUB_LOCATIONS`
+  id). Every entry carries `codexEntry` (the id, its future Codex page stem); no trigger is wired
+  for the `D`/`S`/briefing cards in this slice — registry data only. The suite asserts the id set,
+  the verbatim copy, ≤ 48 words per entry, the no-speaker cards, and that neither
+  `GladiatorSchoolHub.tsx` nor `CoachCard.tsx` repeats the `HUB-1` sentence (comments stripped
+  first) while `App.tsx` is the one `markSeen(` caller.
+
+- **Creation-screen state found for the "Fighter's Look" copy:** this screen has **no** armatura /
+  class selection — the six-button picker is `appearance.characterModel` only, and the fighting
+  class is earned in the ludus later — so the plain branch was taken: the label became
+  "Fighter's Look" with the one sub-line, and no class pick / doctrina gloss exists to relabel. (The
+  glossary module carries `Armatura`/`Doctrina` for the future class work.)
+
+- **The derived preview reads the SAME object creation submits.** `CharacterCreation` now builds the
+  profile once (`buildProfile()` — the exact literal `handleFinish` used to inline) and runs
+  `calculateTotalStats` on it for the preview, so the creation screen and the camp's own
+  "Derived Combat Statistics" can never disagree. With the starter gladius equipped (`+2` Defense)
+  the default reading is **Health 138 · Stamina 120**; the appendix's 132 is the same formula on
+  base stats alone (`80 + 10×4 + 12`), i.e. without the weapon's own bonus. No formula, pool or
+  floor changed — the 10-point pool, the `10/10/10/4` bases and the `≤10` / `≤4` decrement floors
+  are untouched.
+
+- **The `HUB-1` card and its Help mark.** `GladiatorSchoolHub` decides once per mount from the
+  profile it was opened with: a profile that already carries `HUB-1` shows no card and no mark; a
+  first-time profile shows the card at the bottom edge and marks the header's `?` control
+  (`data-help-marked="1"`, amber ring + dot). The mark clears when Help is opened or the card is
+  dismissed. The card is non-modal (wrapper `pointer-events-none`, card `pointer-events-auto`), so
+  the camp stays usable while it is up.
+  - **Mobile note (a real finding, fixed in the same slice):** on the session's first camp open the
+    post-Oath nudge (`PostOathNudge`, `z-[65]`, bottom-centred under 640px) occupies the same bottom
+    band as the card, and the mobile capture showed it covering the card. The card's bottom
+    placement therefore lifts by 8rem under 640px (`max-sm:bottom-32`); above 640px the nudge sits
+    at the bottom-right corner and the edge is free.
+
+- **Verified 2026-10-20** in the dev container: `bun test` → **2156 pass / 0 fail (69 files)** (the
+  new suite contributes 21); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB
+  chunk warning only); `git diff --check` → clean. Live in the preview browser, driving the real
+  screens: a stranger's creation screen reads "Fighter's Look" + the sub-line, "Stat Points" and the
+  preview at **Health 138 · Stamina 120**, and two Strength points moved it to **146 · 120** with
+  the pool at 8; creating that fighter and opening the camp showed the `HUB-1` card with the
+  registry copy verbatim, `data-help-marked="1"`, `seen: {"HUB-1": true}` in `localStorage`, the
+  camp's own Stats tab still switching while the card was up (non-modal), the ✕ measuring 44×44, and
+  dismissal clearing both the card and the mark; leaving the camp and re-entering it with that
+  profile showed **no card, no mark**, with `seen` still recorded — the "once per profile" rule
+  driven end to end. At a 375×812 viewport the creation screen and the camp both report no
+  horizontal overflow. Test fighters were removed afterwards.
+
+- **Not verified:** the 3D city itself is untouched by this slice and the camp was reached through
+  its existing shortcut bar, so nothing here re-tests the city; the post-Oath nudge's own overlap
+  with the card was confirmed at 375px and fixed by the offset above, but the desktop capture (where
+  the two sit side by side) is the only frame of the two notices together. Signed-in (account) paths
+  are untouched: the preview browser runs as an anonymous visitor.

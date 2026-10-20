@@ -10,6 +10,7 @@ import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 import { sellItem } from './utils/selling';
+import { markSeen } from './utils/coachMarks';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
 // city hub and the duel arena are: one more screen value, one more lazy import
@@ -478,6 +479,18 @@ export function App() {
   };
 
   /**
+   * CL-2 — the one place the coach-mark `seen` field is written.  `markSeen` is pure
+   * and returns the SAME profile when the card is already recorded, so a repeated or
+   * stale call neither re-renders nor reaches `saveProfile`.
+   */
+  const handleMarkCardSeen = (id: string) => {
+    const marked = markSeen(profile, id);
+    if (!marked || marked === profile) return;
+    setProfile(marked);
+    saveProfile(marked);
+  };
+
+  /**
    * Phase SHOP-2 — the hub's own navigation row.  Choosing the Bazaar & Forge
    * tab from the hub always means the open market; a city building's own
    * storefront only ever arrives through `handleOpenHubTab`.
@@ -822,6 +835,7 @@ export function App() {
             isMuted={isMuted}
             onResetGame={handleResetGame}
             onOpenSettings={() => handleOpenSettings()}
+            onMarkCardSeen={handleMarkCardSeen}
             />
         )}
 
