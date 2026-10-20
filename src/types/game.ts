@@ -314,4 +314,14 @@ export interface PlayerProfile {
    * migration, and never by `createNewProfile()`).
    */
   racing?: RacingProgression;
+  /**
+   * Day/night cycle T0 — the whole game clock, as ONE lazily-advanced integer.
+   * Optional on purpose, exactly like `chariot` and `racing`: a save written
+   * before this slice has no `time` field at all and must keep loading, so
+   * `resolveTimeState` (`src/utils/timeState.ts`) reads a missing, malformed or
+   * negative field as `total: 0` — i.e. Day 1, at dawn.  Nothing migrates it and
+   * nothing writes it yet (T0 ships no call sites); the advance helpers return a
+   * NEW profile and leave persisting it to a later slice.
+   */
+  time?: { total: number };
 }
