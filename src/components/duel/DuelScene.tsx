@@ -771,7 +771,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               intensity={1.9}
               color="#fffbeb"
               castShadow
-              shadow-mapSize={[2048, 2048]}
+              shadow-mapSize={[1024, 1024]}
             />
             <directionalLight position={[-15, 10, -15]} intensity={0.5} color="#38bdf8" />
             <Sparkles count={50} scale={[20, 10, 20]} size={2} color="#fef08a" opacity={0.5} />
@@ -824,4 +824,3 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     </div>
   );
 };
-

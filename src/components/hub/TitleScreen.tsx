@@ -177,7 +177,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       ref={containerRef}
       className="relative w-full h-full min-h-screen flex flex-col items-center justify-center overflow-hidden"
       style={{
-        backgroundImage: 'url(/title_screen.png)',
+        backgroundImage: 'url(/title_screen.webp)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',

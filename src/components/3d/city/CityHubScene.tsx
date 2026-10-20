@@ -463,7 +463,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           <Canvas
             shadows
             frameloop={frameloopMode}
-            dpr={[1, 2]}
+            dpr={[1, 1.5]}
             camera={{ position: [0, 5, 24], fov: 58, near: 0.1, far: 180 }}
             gl={{ antialias: false, powerPreference: 'high-performance' }}
             onCreated={(state) => {
@@ -487,7 +487,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               intensity={2.15}
               color="#fffbeb"
               castShadow
-              shadow-mapSize={[2048, 2048]}
+              shadow-mapSize={[1024, 1024]}
               shadow-camera-left={-50}
               shadow-camera-right={50}
               shadow-camera-top={50}
