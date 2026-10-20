@@ -227,7 +227,14 @@ describe('E. The touch controls', () => {
     // the mirror is applied to the row that holds the clusters AND to each cluster
     expect(controlsCode.split('${mirror}').length - 1).toBe(3);
     expect(sceneSrc).toContain('isLeftyMode={isLeftyMode}');
-    expect(appSrc).toContain('<RaceScene onAbort={handleExitRace} isLeftyMode={isLeftyMode} />');
+    // Rebased by C-8.70B SET-1 (the settings slice): the race screen now also
+    // receives its own settings entry and the panel's freeze flag, so the mount is
+    // written across several lines.  The property this pins — the screen is mounted
+    // with its abort handler and its handedness — is unchanged, and the mount count
+    // below is still exactly one.
+    expect(appSrc).toContain('onAbort={handleExitRace}');
+    expect(appSrc).toContain('isLeftyMode={isLeftyMode}');
+    expect(appSrc).toContain('frozen={settingsOpen}');
   });
 
   test('the first race of a session teaches on the controls, and nothing is saved', () => {

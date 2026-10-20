@@ -6,6 +6,7 @@ import { preloadTapStage } from '../../utils/preloadAssets';
 import { useTitlePhaseBackdrop } from '../../hooks/useTitlePhaseBackdrop';
 import { TITLE_BACKDROP_CLASS } from '../../utils/startupAssets';
 import { TitleAccountPanel } from './TitleAccountPanel';
+import { Settings as SettingsIcon } from 'lucide-react';
 
 interface TitleScreenProps {
   savedProfile: PlayerProfile | null;
@@ -217,6 +218,24 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             />
           ))}
         </div>
+
+        {/* C-8.70B §SET-1 — the title's own way into the settings panel, at the
+            ≥48dp icon-and-label standard the other entries use.  It sits above the
+            primary action and away from it, so Play/Continue stays the one big tap. */}
+        {onOpenSettings && (
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playClick();
+              onOpenSettings();
+            }}
+            data-title-action="settings"
+            className="absolute top-3 right-3 z-10 min-h-[48px] px-3 rounded-full flex items-center gap-2 bg-black/45 border border-amber-800/50 hover:border-amber-600/70 text-amber-100/90 hover:text-amber-50 font-serif font-bold text-xs uppercase tracking-widest backdrop-blur-sm transition-colors cursor-pointer"
+          >
+            <SettingsIcon className="w-5 h-5" />
+            <span>Settings</span>
+          </button>
+        )}
 
         {/* THE ONE PRIMARY ACTION — positioned over the baked "PRESS TO START" artwork */}
         <div className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center" style={{ bottom: '14%' }}>

@@ -1,6 +1,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Settings as SettingsIcon } from 'lucide-react';
 import { Environment, Lightformer, Sky, useGLTF } from '@react-three/drei';
 import { EastCircusArena } from './city/EastCircusArena';
 import { RaceTouchControls } from '../ui/RaceTouchControls';
@@ -9,6 +10,7 @@ import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
 import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
+import { SceneBrightness } from './SceneBrightness';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
 import { CHARIOT_MODEL_SCALE, CHARIOT_MODEL_URL } from '../../utils/chariotGeometry';
 import { CIRCUS_RACE_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry';
@@ -146,6 +148,18 @@ export interface RaceSceneProps {
    * `utils/chaseCamera.ts`.
    */
   chaseDistancePreset?: ChaseDistancePreset;
+  /**
+   * C-8.70B §SET-1 — the gear beside Abort.  The race context opens the settings
+   * panel over the race; nothing else about the scene changes.
+   */
+  onOpenSettings?: () => void;
+  /**
+   * C-8.70B §SET-1 — the settings panel is OPEN over the race.  This is a GATE, not
+   * a sixth race state: while `frozen` the movement loop does not advance, the launch
+   * does not accrue and the race clock accrues nothing, and the state machine is
+   * untouched (`raceState` only ever moves through `utils/raceState.ts`).
+   */
+  frozen?: boolean;
 }
 
 // Preload the chariot at module import (the EastCircusArena pattern).  The
@@ -305,7 +319,8 @@ const RaceChariot: React.FC<{
   launch: ReturnType<typeof createChariotLaunchState>;
   raceState: RaceState;
   startedAt: number | null;
-}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt }) => {
+  frozen: boolean;
+}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
 
   // Clone: `useGLTF` caches one scene per URL and the workshop holds the same
@@ -317,8 +332,13 @@ const RaceChariot: React.FC<{
     mergeChariotInputs(input, keyboardInput, touchInput);
 
     const elapsedSinceGoMs = startedAt !== null ? performance.now() - startedAt : 0;
-    const racing = raceState === 'racing';
-    trackChariotLaunch(launch, input.throttle, racing, elapsedSinceGoMs);
+    // C-8.70B §SET-1 — frozen: the panel is open, so nothing advances and the
+    // launch state is left exactly where it was.  The frame still writes the
+    // existing pose, so the scene under the panel does not jump.
+    const racing = raceState === 'racing' && !frozen;
+    if (!frozen) {
+      trackChariotLaunch(launch, input.throttle, racing, elapsedSinceGoMs);
+    }
 
     if (racing) {
       advanceChariot(motion, input, delta, launchAccelScale(launch, elapsedSinceGoMs));
@@ -349,15 +369,19 @@ const RaceChariot: React.FC<{
  * reading from the moment `racing` began — the state machine stores no clock, and
  * this is an elapsed-since-the-transition reading, never a sum of frame deltas.
  */
-const RaceClock: React.FC<{ startedAt: number }> = ({ startedAt }) => {
+const RaceClock: React.FC<{ startedAt: number; frozen: boolean }> = ({ startedAt, frozen }) => {
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
     const update = () => setElapsedMs(performance.now() - startedAt);
     update();
+    // C-8.70B §SET-1 — frozen: the reading is held where it was.  The origin moves
+    // forward by the frozen interval when the panel closes (see RaceScene), so the
+    // clock picks up where it left off rather than jumping.
+    if (frozen) return;
     const interval = setInterval(update, 100);
     return () => clearInterval(interval);
-  }, [startedAt]);
+  }, [startedAt, frozen]);
 
   const formatted = formatRaceElapsed(elapsedMs);
 
@@ -420,6 +444,8 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   onAbort,
   isLeftyMode = false,
   chaseDistancePreset,
+  onOpenSettings,
+  frozen = false,
 }) => {
   const [raceState, setRaceState] = useState<RaceState>(RACE_INITIAL_STATE);
   const [countdownStep, setCountdownStep] = useState<CountdownStep | null>(COUNTDOWN_STEPS[0]);
@@ -429,6 +455,25 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const [revving, setRevving] = useState(false);
   const [launchQuality, setLaunchQuality] = useState<ChariotLaunchQuality | null>(null);
   const [showHints, setShowHints] = useState(!hasRacedThisSession);
+
+  /**
+   * C-8.70B §SET-1 — the freeze's own bookkeeping.  While the settings panel is
+   * open the clock's origin is left alone and no race time accrues anywhere; the
+   * moment it closes, the origin moves forward by exactly the frozen interval, so
+   * the race clock resumes at the reading it was showing.
+   */
+  const pausedAtRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (frozen) {
+      pausedAtRef.current = performance.now();
+      return;
+    }
+    const pausedAt = pausedAtRef.current;
+    pausedAtRef.current = null;
+    if (pausedAt === null) return;
+    const frozenMs = performance.now() - pausedAt;
+    setRaceStartedAt((prev) => (prev === null ? prev : prev + frozenMs));
+  }, [frozen]);
 
   // The whole simulation: one motion object, three input objects and one launch
   // state, created once and mutated in place by the frame loop.
@@ -473,7 +518,9 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   // moment a step is no longer available the countdown has elapsed — that is the
   // machine's event, and the race clock starts on the same instant.
   useEffect(() => {
-    if (raceState !== 'countdown') return;
+    // Frozen during the countdown: the countdown restarts when the panel closes,
+    // which is the one honest reading of "the race does not advance".
+    if (raceState !== 'countdown' || frozen) return;
 
     const startedAt = performance.now();
     setCountdownStep(getCountdownStep(0));
@@ -491,7 +538,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
     }, 100);
 
     return () => clearInterval(interval);
-  }, [raceState]);
+  }, [raceState, frozen]);
 
   // The green light is a beat inside `racing`, so it clears itself.
   useEffect(() => {
@@ -541,6 +588,15 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   // controls' — both paths therefore feed the same throttle/steer values.  A lost
   // focus releases every key, so a tab switch cannot leave the throttle held.
   useEffect(() => {
+    // C-8.70B §SET-1 — frozen: the keys are released, so a key held while the panel
+    // was open cannot set the chariot moving the moment it closes.
+    if (frozen) {
+      heldKeys.clear();
+      keyboardInput.throttle = 0;
+      keyboardInput.steer = 0;
+      return;
+    }
+
     const actions: Record<string, string> = {
       KeyW: 'forward',
       w: 'forward',
@@ -590,7 +646,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', releaseAll);
     };
-  }, [heldKeys, keyboardInput]);
+  }, [heldKeys, keyboardInput, frozen]);
 
   /** Abort: dispatch the machine's own event, then let `App` tear the scene down. */
   const handleAbort = useCallback(() => {
@@ -601,6 +657,9 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   // Esc is a desktop ADDITION to the Abort control, which is the touch path and
   // is always on screen: no gesture depends on this listener.
   useEffect(() => {
+    // C-8.70B §SET-1 — frozen: Esc belongs to the settings panel (Done), never to
+    // Abort, so the panel cannot be closed by leaving the race.
+    if (frozen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
@@ -608,7 +667,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleAbort]);
+  }, [handleAbort, frozen]);
 
   return (
     <div
@@ -639,6 +698,8 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             }}
           >
             <CanvasWebGLMonitor sceneName="CircusRace" />
+            {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
+            <SceneBrightness />
 
             <fog attach="fog" args={['#e3dbc6', 45, 160]} />
             <Sky sunPosition={[30, 42, 22]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
@@ -675,6 +736,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   launch={launch}
                   raceState={raceState}
                   startedAt={raceStartedAt}
+                  frozen={frozen}
                 />
               </Suspense>
             </ThreeComponentErrorBoundary>
@@ -699,20 +761,37 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
               {raceState === 'racing' ? 'Race Clock' : 'Starting Gates'}
             </span>
             {raceState === 'racing' && raceStartedAt !== null && (
-              <RaceClock startedAt={raceStartedAt} />
+              <RaceClock startedAt={raceStartedAt} frozen={frozen} />
             )}
             {raceState === 'racing' && <RaceGaitReadout motion={motion} />}
           </div>
 
-          <button
-            type="button"
-            onClick={handleAbort}
-            data-race-action="abort"
-            className="pointer-events-auto min-h-[3rem] px-4 rounded-2xl bg-gradient-to-r from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 border-2 border-red-400/70 text-amber-50 font-serif font-black text-xs uppercase tracking-wider shadow-[0_0_25px_rgba(220,38,38,0.45)] active:scale-95 transition-all cursor-pointer touch-manipulation"
-          >
-            Abort race
-            <span className="hidden md:inline ml-2 text-[10px] opacity-70">(Esc)</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* C-8.70B §SET-1 — the gear sits BESIDE Abort in this top bar: never
+                inside either bottom touch cluster and never over the clock or the
+                gates panel, which are the bar's other two occupants. */}
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                data-race-action="settings"
+                className="pointer-events-auto min-h-[3rem] px-4 rounded-2xl bg-neutral-950/85 border-2 border-amber-500/60 text-amber-200 hover:text-amber-50 hover:border-amber-400 font-serif font-black text-xs uppercase tracking-wider shadow-xl active:scale-95 transition-all cursor-pointer touch-manipulation flex items-center gap-2"
+              >
+                <SettingsIcon className="w-5 h-5" />
+                <span>Settings</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleAbort}
+              data-race-action="abort"
+              className="pointer-events-auto min-h-[3rem] px-4 rounded-2xl bg-gradient-to-r from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 border-2 border-red-400/70 text-amber-50 font-serif font-black text-xs uppercase tracking-wider shadow-[0_0_25px_rgba(220,38,38,0.45)] active:scale-95 transition-all cursor-pointer touch-manipulation"
+            >
+              Abort race
+              <span className="hidden md:inline ml-2 text-[10px] opacity-70">(Esc)</span>
+            </button>
+          </div>
         </div>
       )}
 

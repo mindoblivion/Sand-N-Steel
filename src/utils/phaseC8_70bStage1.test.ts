@@ -77,7 +77,14 @@ describe('A. The race is a screen of the existing machine', () => {
     // handedness flag, so its touch cluster can mirror in Lefty Mode.  The
     // property this pins — the screen is mounted with its abort handler — is
     // unchanged, and the mount count below is still exactly one.
-    expect(appSrc).toContain('<RaceScene onAbort={handleExitRace} isLeftyMode={isLeftyMode} />');
+    // Rebased by C-8.70B SET-1 (the settings slice): the race screen now also
+    // receives its own settings entry and the panel's freeze flag, so the mount is
+    // written across several lines.  The property this pins — the screen is mounted
+    // with its abort handler and its handedness — is unchanged, and the mount count
+    // below is still exactly one.
+    expect(appSrc).toContain('onAbort={handleExitRace}');
+    expect(appSrc).toContain('isLeftyMode={isLeftyMode}');
+    expect(appSrc).toContain('frozen={settingsOpen}');
     expect(appSrc).toContain("currentScreen === 'race' &&");
     // the mechanism is the one that already moves between title / city / duel
     expect(appSrc).toContain("currentScreen === 'city_3d' &&");

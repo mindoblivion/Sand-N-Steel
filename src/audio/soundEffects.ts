@@ -31,6 +31,17 @@ class SoundFXEngine {
     return this.isMuted;
   }
 
+  /**
+   * C-8.70B §SET-1 — the persisted "All sound" setting, applied on boot and on
+   * every change: the same effect as `toggleMute`, without the flip.  An
+   * unchanged value is a no-op, so it never restarts the ambient loop.
+   */
+  public setMuted(muted: boolean): void {
+    const next = Boolean(muted);
+    if (next === this.isMuted) return;
+    this.toggleMute();
+  }
+
   public playAmbientLoop(type: AmbientType) {
     if (this.isMuted || !type || this.currentAmbient === type) return;
     this.stopAmbient();

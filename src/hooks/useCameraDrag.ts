@@ -1,5 +1,13 @@
 import { useEffect, useRef } from 'react';
 
+/**
+ * The shipped drag feel: the yaw/pitch sensitivities a scale of 1.0 means.
+ * C-8.70B §SET-1 — the settings' Camera Sensitivity row scales these, so the row
+ * and the rig that reads it share one definition of "the default speed".
+ */
+export const CAMERA_DRAG_BASE_YAW_SENSITIVITY = 0.0055;
+export const CAMERA_DRAG_BASE_PITCH_SENSITIVITY = 0.012;
+
 interface CameraDragOptions {
   yawSensitivity?: number;
   pitchSensitivity?: number;
@@ -24,8 +32,8 @@ export function useCameraDrag(
   options: CameraDragOptions = {}
 ): CameraDragState {
   const {
-    yawSensitivity = 0.0055,
-    pitchSensitivity = 0.012,
+    yawSensitivity = CAMERA_DRAG_BASE_YAW_SENSITIVITY,
+    pitchSensitivity = CAMERA_DRAG_BASE_PITCH_SENSITIVITY,
     minPitch = -1.8,
     maxPitch = 3.5,
   } = options;

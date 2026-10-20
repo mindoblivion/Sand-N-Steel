@@ -30,7 +30,11 @@ import {
 } from '../../utils/combatCalculations';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
-import { useCameraDrag } from '../../hooks/useCameraDrag';
+import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
+import { SceneBrightness } from '../3d/SceneBrightness';
+import { useSettings } from '../../hooks/useSettings';
+import { getCameraSensitivityScale } from '../../services/settings';
+import { vibrate, HAPTIC_HIT_LANDED_MS, HAPTIC_DEFEAT_PATTERN } from '../../utils/haptics';
 
 // Preload 3D assets for instant duel startup
 try {
@@ -58,7 +62,13 @@ const DuelCameraRig: React.FC<{
   cameraMode: string;
 }> = ({ playerPos, opponentPos, cameraMode }) => {
   const { camera } = useThree();
-  const { yawOffsetRef, pitchOffsetRef } = useCameraDrag(false);
+  // C-8.70B §SET-1 — the Camera Sensitivity row scales this orbit, through the
+  // settings subscription (a change re-renders the rig; the frame loop is the same).
+  const sensitivityScale = getCameraSensitivityScale(useSettings());
+  const { yawOffsetRef, pitchOffsetRef } = useCameraDrag(false, {
+    yawSensitivity: CAMERA_DRAG_BASE_YAW_SENSITIVITY * sensitivityScale,
+    pitchSensitivity: CAMERA_DRAG_BASE_PITCH_SENSITIVITY * sensitivityScale,
+  });
 
   useFrame((_, delta) => {
     const midX = (playerPos[0] + opponentPos[0]) / 2;
@@ -559,6 +569,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 addLog(`${attacker.name} struck ${defender.name} for ${rawDamage} damage.`, isActorPlayer ? 'player' : 'opponent');
                 spawnDamageText(`-${rawDamage}`, 'damage', defender.position);
               }
+              // C-8.70B §SET-1 — the player's blade landed: one short buzz, on the
+              // device's own haptics and only when the Vibration row is on.
+              if (isActorPlayer) vibrate(HAPTIC_HIT_LANDED_MS);
             }
 
             // Track stats
@@ -765,6 +778,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+      // C-8.70B §SET-1 — the player has fallen: the defeat pattern.
+      vibrate(HAPTIC_DEFEAT_PATTERN);
       addLog(`DEFEAT! ${player.name} has fallen in the sand.`, 'opponent');
       setTimeout(() => {
         onMatchComplete(statsRef.current, false);
@@ -834,6 +849,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           >
             {/* Active GPU Health & Context Monitor */}
             <CanvasWebGLMonitor sceneName="DuelArena" />
+            {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
+            <SceneBrightness />
 
             <Sky sunPosition={[40, 25, 20]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
             <fog attach="fog" args={['#d4a373', 25, 65]} />
