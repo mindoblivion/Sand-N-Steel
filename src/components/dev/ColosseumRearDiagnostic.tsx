@@ -32,8 +32,9 @@ function ProductionLighting() {
     <fog attach="fog" args={['#e3dbc6', 45, 160]} />
     <Sky sunPosition={[30, 42, 22]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
     <hemisphereLight color="#fef3c7" groundColor="#8a7a5f" intensity={0.45} />
+    {/* shadow-map size mirrors production: 1024 since the main-branch merge (40acb8f) */}
     <directionalLight position={[30, 42, 22]} intensity={2.15} color="#fffbeb" castShadow
-      shadow-mapSize={[2048, 2048]} shadow-camera-left={-70} shadow-camera-right={50}
+      shadow-mapSize={[1024, 1024]} shadow-camera-left={-70} shadow-camera-right={50}
       shadow-camera-top={50} shadow-camera-bottom={-50} shadow-camera-near={1}
       shadow-camera-far={140} shadow-bias={-0.0004} shadow-normalBias={0.02} />
     <directionalLight position={[-25, 20, -25]} intensity={0.28} color="#7dd3fc" />
