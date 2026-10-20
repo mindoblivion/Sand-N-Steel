@@ -4340,3 +4340,68 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the same session, but no reload was exercised live. (e) **The title's phase** — only the dawn
   variant exists (START-1b's resolver is a named stub). (f) The visual reading of the sequence on the
   **target device**, as with every other phase in this file.
+
+## Sand & Steel polish pack — six value/copy fixes (Polish Pack §3 — implemented, validated)
+
+- **Scope honoured: values and copy only.** Six single-site edits across four files — no logic, no
+  save format, no test, no new file, no dependency. `git diff` is exactly six changed lines.
+- **Item 1 — Doctore House notice (`src/components/3d/city/CityHubScene.tsx`).** The path the request
+  named (`src/components/3d/CityHubScene.tsx`) resolves to
+  `src/components/3d/city/CityHubScene.tsx` — the only `CityHubScene.tsx` in the repo; the *code*
+  matched the description, so the item was completed rather than stopped. The sentence carrying the
+  "special combat stances will be unlocked soon!" promise (no stance system exists) was replaced:
+  - before: `Doctore Tactical House: Chief Doctore is currently supervising advanced conditioning. Advanced tactics and special combat stances will be unlocked soon!`
+  - after: `Doctore Tactical House: Chief Doctore is currently supervising advanced conditioning. Train hard, fight well, and Rome will learn your name.`
+  The first sentence is byte-identical; the replaced sentence is the whole second sentence, which is
+  the one that carried the promise.
+- **Item 2 — Settings panel title (`src/components/hub/SettingsModal.tsx`).** `Touch &amp; Movement
+  Calibration` → `Touch &amp; Movement` (the panel carries no calibration control).
+- **Item 3 — Settings footer button (same file).** `Apply &amp; Return` → `Done`. The handler is
+  untouched: it plays the click sound and calls `onClose()`; every toggle still applies instantly.
+- **Item 4 — Creation preview header (`src/components/hub/CharacterCreation.tsx`).** The
+  `procedural_gladiator` fallback of the header mapping: `'Custom Gladiator'` →
+  `'Centurion (Animated Rig)'`, matching that archetype's own model button (`🛡️ Centurion`). The five
+  named rigs' labels are unchanged.
+- **Item 5 — Viewport meta (`index.html`).** `width=device-width, initial-scale=1.0,
+  maximum-scale=1.0, user-scalable=no, viewport-fit=cover` → `width=device-width, initial-scale=1.0,
+  viewport-fit=cover`. Only the two zoom locks are dropped; width, initial-scale and viewport-fit are
+  byte-identical. This is the authorized exception to the PWA workstream's "don't touch the viewport"
+  note, and it applies to this tag only.
+- **Item 6 — Hub footer label floor (`CityHubScene.tsx`).** The bottom district shortcut bar's label
+  span: `text-[9px] sm:text-[11px]` → `text-[10px] sm:text-[11px]`. Only the 9px floor moved. The
+  other three `text-[9px]` sites in the file are deliberately untouched: the 2-in-1 Attack/Interact
+  button's two labels (`text-[9px] sm:text-xs`) and the quick-travel drawer's district badge
+  (`text-[9px] font-mono …`), none of which is a footer shortcut-bar label.
+- **Validation (2026-10-20, dev container — all five commands run and evidenced).** `bun test` →
+  **2074 pass / 0 fail (66 files, 65,061 expect() calls)** — the START-1 count, unchanged;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  **exit 0**; `bun run build` → **exit 0** with the startup-asset check passing (8 assets; the
+  pre-existing >500 kB chunk warning only); `git diff --check` → **clean (exit 0)**.
+- **Live evidence (preview browser, anonymous visitor — no session replayed).** Served document:
+  `meta[name=viewport]` content is `width=device-width, initial-scale=1.0, viewport-fit=cover`, with
+  `maximum-scale` and `user-scalable` both absent. Creation screen: selecting the `🛡️ Centurion`
+  archetype (real click) made the preview header read **`Centurion (Animated Rig)`**. City hub at a
+  375 px viewport: all five footer shortcut labels compute to **10px** with the class
+  `text-[10px] sm:text-[11px]`, and `scrollWidth === clientWidth === 375` (no sideways scroll).
+  Settings panel, opened from the hub's own gear button (real click): the section reads
+  **Touch & Movement**, `Calibration` is absent, the footer button reads **Done**, `Apply & Return`
+  is absent, and clicking **Done** closed the panel. The dev server separately serves all four edited
+  modules with the new values and none of the old ones (the viewport tag; the new notice sentence
+  with `special combat stances` gone; `text-[10px] sm:text-[11px]` with the old 9px floor gone;
+  `Centurion (Animated Rig)` with `Custom Gladiator` gone; and `"Touch & Movement"` / `"Done"`
+  present with `Calibration` / `Apply & Return` absent). The guest profile the run created was
+  deleted from storage afterwards.
+- **Files (4 production + this note):** `index.html`,
+  `src/components/3d/city/CityHubScene.tsx`, `src/components/hub/SettingsModal.tsx`,
+  `src/components/hub/CharacterCreation.tsx`.
+- **Not automatically verified.** (a) **The Doctore House notice banner itself** — it renders only
+  after interacting with the Doctore House in the 3D city, and two scripted attempts to reach it
+  (a walk, then fast travel through the city map) exceeded the preview tool's 30 s budget while the
+  hub mounted through SwiftShader at ~2 fps; the change is confirmed in source and in the module the
+  dev server serves, but the rendered banner has not been seen. (b) **The zoom behaviour the viewport
+  change enables** — that pinch-zoom now works is a device question; the sandbox only confirms the
+  served tag. (c) The visual reading of the 10px footer labels and the retitled settings panel on
+  the target device, as with every other phase here. Two capture caveats worth recording: the first
+  run's inline capture labelled as the creation header in fact landed on the Oath's wait surface, and
+  a second attempt showed the hub instead — so the header evidence is the DOM read above, and no
+  frame of that header exists.

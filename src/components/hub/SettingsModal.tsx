@@ -143,7 +143,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="bg-neutral-950/90 border border-neutral-800 rounded-2xl p-4 flex flex-col gap-2 shadow-lg">
             <div className="flex items-center gap-2 font-serif font-bold text-sm text-amber-300">
               <Move className="w-4 h-4 text-amber-400" />
-              <span>Touch &amp; Movement Calibration</span>
+              <span>Touch &amp; Movement</span>
             </div>
             <div className="text-[11px] text-neutral-300 font-sans leading-relaxed space-y-1">
               <p>• <strong className="text-amber-200">Mobile Joystick:</strong> Standardized left/right &amp; forward/back response (Inversion corrected).</p>
@@ -188,7 +188,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs uppercase tracking-wider shadow-xl cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-2"
           >
             <Check className="w-4 h-4 text-neutral-950" />
-            <span>Apply &amp; Return</span>
+            <span>Done</span>
           </button>
         </div>
       </div>

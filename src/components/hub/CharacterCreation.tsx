@@ -124,7 +124,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[360px] shadow-2xl relative overflow-hidden">
           <GladiatorPreview appearance={appearance} />
           <div className="absolute bottom-4 left-4 bg-neutral-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-mono text-amber-300">
-            {characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Custom Gladiator'}
+            {characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Centurion (Animated Rig)'}
           </div>
         </div>
 
