@@ -13,6 +13,7 @@ import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
 import { ChampionBannerPole } from './ChampionBannerPole';
 import { resolveBanner } from '../../../utils/heraldry';
+import { resolveDoorDuelTarget } from '../../../utils/tierAdvancement';
 import { MerchantHouse } from './MerchantHouse';
 import { ArmorLeatherWorkshop } from './ArmorLeatherWorkshop';
 import { Stable } from './Stable';
@@ -61,9 +62,11 @@ import {
   InteractiveLocation,
 } from '../../../utils/cityCollisions';
 import { getTerrainY } from '../../../utils/terrainHeight';
+import { applyDeadZone } from '../../../utils/joystickDeadZone';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
+import type { StorefrontId } from '../../../data/shops';
 import { calculateTotalStats } from '../../../services/storage';
 import { sounds } from '../../../audio/soundEffects';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
@@ -124,13 +127,21 @@ const CityAdaptiveDpr: React.FC<{
 
 interface CityHubSceneProps {
   playerProfile: PlayerProfile;
-  activeOpponent: OpponentConfig;
   /**
    * Phase C-8.66B: `subTab` carries the one hub that opens a subview of its tab
    * (the Imperial Stable → the Armory's Chariot Workshop). Every other hub
    * passes nothing and lands on the tab's own default view.
    */
-  onOpenTab: (tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library', subTab?: 'chariot') => void;
+  /**
+   * Phase SHOP-2: `shopId` carries the storefront of the `shop` tab, for the
+   * four city buildings that each sell their own stock.  Every other hub passes
+   * nothing and lands on the open market.
+   */
+  onOpenTab: (
+    tabKey: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library',
+    subTab?: 'chariot',
+    shopId?: StorefrontId
+  ) => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -167,7 +178,6 @@ interface CityHubSceneProps {
 
 export const CityHubScene: React.FC<CityHubSceneProps> = ({
   playerProfile,
-  activeOpponent,
   onOpenTab,
   onEnterDuel,
   onOpenDriveSync,
@@ -363,9 +373,20 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // returns control to the city unchanged.
       setShowRaceEntry(true);
     } else if (nearbyLoc.tabKey === 'tournament') {
-      onEnterDuel(activeOpponent);
+      // The door resolves its own ticket HERE, when the player interacts: the
+      // current tier's first UNDEFEATED boss, which is the same boss the tournament
+      // tab presents as the next one to beat. A stored `activeOpponent` is never
+      // used — it can carry a fighter from a tier the player has already left. Once
+      // every boss of the tier is down the door offers that tier's boss rematch,
+      // which pays its rewards but cannot move the tier.
+      const target = resolveDoorDuelTarget(
+        playerProfile.currentTier,
+        playerProfile.defeatedOpponentIds
+      );
+      if (target) onEnterDuel(target.opponent);
+      else onOpenTab('tournament');
     } else if (nearbyLoc.tabKey) {
-      onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab);
+      onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
       // Elegant immersive fallback notification for locations with no immediate tab key
       if (nearbyLoc.id === 'doctore_house') {
@@ -400,7 +421,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         setStableNotice(null);
       }, 4000);
     }
-  }, [nearbyLoc, onEnterDuel, activeOpponent, onOpenTab]);
+  }, [
+    nearbyLoc,
+    onEnterDuel,
+    playerProfile.currentTier,
+    playerProfile.defeatedOpponentIds,
+    onOpenTab,
+  ]);
 
   /**
    * Phase C-8.70B Stage 1, Slice 1 — "Start Race" leaves the city for the race
@@ -505,11 +532,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
         setKnobPos({ x: dx, y: dy });
 
-        // Normalize direction (Left is negative x, Right is positive x)
-        touchVectorRef.current = {
-          x: dx / maxDist,
-          z: dy / maxDist,
-        };
+        // Normalize direction (Left is negative x, Right is positive x), then read it
+        // through the joystick's radial dead zone: a resting thumb's small offset is no
+        // input, and anything past the dead zone is rescaled so there is no jump at the
+        // boundary (see utils/joystickDeadZone.ts for the constant to tune).
+        const vec = applyDeadZone(dx / maxDist, dy / maxDist);
+        touchVectorRef.current = { x: vec.x, z: vec.z };
         break;
       }
     }
@@ -748,7 +776,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               intensity={lights.keyIntensity}
               color={lights.keyColor}
               castShadow
-              shadow-mapSize={[2048, 2048]}
+              shadow-mapSize={[1024, 1024]}
               shadow-camera-left={-70}
               shadow-camera-right={50}
               shadow-camera-top={50}
