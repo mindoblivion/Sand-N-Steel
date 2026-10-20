@@ -5581,3 +5581,23 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   prompt strings in the running banner** — they are pinned in source and asserted by the suite, but
   neither building was walked to in the live pass. (c) Anything behind a login: no session was
   replayed, so every run used the app's own guest path.
+
+## Main-branch merge (2026-10-20)
+
+- `40acb8f` ("Stabilize WebGL and optimize game assets") was merged into this branch; its four conflicts
+  were resolved in favour of this branch's architecture, with main's performance intent kept:
+  - **`CityHubScene.tsx`** — kept the SF-1 adaptive `dpr={cityDpr}` tier (its ceiling is the same 1.5
+    main set) and the branch's wider `shadow-camera-left={-70}` (main's is -50, from before the city
+    grew), but adopted main's `shadow-mapSize={[1024, 1024]}`. `DuelScene.tsx` took main's 1024 too
+    (it auto-merged). Shadow cost is now half the texture memory it was in both 3D scenes.
+  - **`TitleScreen.tsx`** — kept the START-1 `TITLE_BACKDROP_CLASS` (`title-backdrop`, WebP with a PNG
+    fallback declared in `index.html`); main's inline `url(/title_screen.webp)` is superseded by it.
+  - **`public/title_screen.png` / `.webp`** — both kept as this branch ships them. Main deleted the PNG,
+    but `STARTUP_ASSETS` and the boot shell's `image-set` fallback both name it, and
+    `scripts/startupAssetCheck.ts` (run by `bun run build`) fails without it. The branch's 285 KB WebP
+    is kept over main's 393 KB encode of the same art.
+  - **`components/dev/ColosseumRearDiagnostic.tsx`** — its light rig mirrors production by design, so its
+    `shadow-mapSize` moved to 1024 as well; `colosseumRearDiagnostic.test.ts` pins the pair.
+  - Main's optimized models and music (`public/models/*`, `public/music/*`) are taken as-is.
+- Verified after the merge: `bun run lint` exit 0, `bun run build` exit 0 (startup asset check: 8 assets),
+  `bun test` → 2473 pass / 0 fail (83 files), `bun run scripts/collisionTests.ts` → 123 passed.
