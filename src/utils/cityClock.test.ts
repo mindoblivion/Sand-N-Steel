@@ -406,22 +406,27 @@ describe('§D — the settlement is the only place a day is spent', () => {
     expect(creditHandler).not.toContain('saveProfile(city');
   });
 
-  test('an exactly-once latch guards the settlement, and is set before the branch', () => {
-    const latchCheck = creditHandler.indexOf('if (duelSettledRef.current) return;');
-    const latchSet = creditHandler.indexOf('duelSettledRef.current = true;');
+  test('an exactly-once latch guards the settlement, claimed before the branch', () => {
+    // L1 verification gate: the latch is IDENTITY-AWARE (one claim per bout id),
+    // because `DuelScene` reports a result 1400 ms after the deciding blow and that
+    // callback can outlive the scene. See `duelSettlement.test.ts` for the
+    // behaviour; here the ordering is pinned.
+    const latchCheck = creditHandler.indexOf(
+      'if (!duelSettlementRef.current.claim(settledDuelId)) return;'
+    );
     const advance = creditHandler.indexOf('advanceCityDay(profile)');
 
     expect(latchCheck).toBeGreaterThan(-1);
-    expect(latchSet).toBeGreaterThan(latchCheck);
-    expect(advance).toBeGreaterThan(latchSet);
-    // The latch is set exactly once and cleared in exactly one place.
-    expect(creditHandler.match(/duelSettledRef\.current = true/g)?.length).toBe(1);
-    expect(appSource.match(/duelSettledRef\.current = false/g)?.length).toBe(1);
+    expect(advance).toBeGreaterThan(latchCheck);
+    // One claim per settlement — nothing else may consume the latch.
+    expect(creditHandler.match(/\.claim\(/g)?.length).toBe(1);
   });
 
-  test('the latch is re-armed only when a new duel is entered', () => {
+  test('the latch is armed only when a new duel is entered', () => {
     expect(duelEntry.length).toBeGreaterThan(0);
-    expect(duelEntry).toContain('duelSettledRef.current = false;');
+    expect(duelEntry).toContain('setDuelId(duelSettlementRef.current.arm());');
+    // Exactly one arm site in the whole application.
+    expect(appSource.match(/\.arm\(\)/g)?.length).toBe(1);
   });
 
   test('opening, leaving or dismissing a duel never advances the day', () => {
@@ -434,8 +439,13 @@ describe('§D — the settlement is the only place a day is spent', () => {
       expect(handler).not.toContain('advanceCityDay');
       expect(handler).not.toContain('city.day');
     }
-    // The scene's own callbacks are the only route into the handler…
-    expect(appSource.match(/onMatchComplete=\{handleMatchComplete\}/g)?.length).toBe(1);
+    // The scene's own callback is the only route into the handler, and it carries
+    // the bout id that names the settlement…
+    expect(
+      appSource.match(
+        /onMatchComplete=\{\(stats, didWin\) => handleMatchComplete\(stats, didWin, duelId\)\}/g
+      )?.length
+    ).toBe(1);
     // …and the clock's module is named in exactly one import.
     expect(appSource.match(/from '\.\/utils\/cityClock'/g)?.length).toBe(1);
   });

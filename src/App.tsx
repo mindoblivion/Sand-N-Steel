@@ -20,6 +20,7 @@ import { HeraldToast } from './components/hub/HeraldToast';
 import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
 import { advanceCityDay } from './utils/cityClock';
+import { createDuelSettlementLatch } from './utils/duelSettlement';
 import type { BannerDevice } from './utils/heraldry';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
@@ -96,15 +97,23 @@ export function App() {
   const [cityReturnPose, setCityReturnPose] = useState<CityExitPose | null>(null);
   const [duelResult, setDuelResult] = useState<{ didWin: boolean; stats: DuelStatistics } | null>(null);
   /**
-   * L1 (Living City) — the duel settlement's exactly-once latch. `DuelScene`
-   * already refuses a second outcome (`isMatchOver`), but App must not depend on
-   * another component for the one thing it cannot repeat: crediting a fight and
-   * turning the city's clock. Set when a settlement is handled and cleared only
-   * when a NEW duel is entered, so an effect that fires twice, a StrictMode
-   * remount or a stale delayed callback cannot pay a purse twice or advance the
-   * day twice. Nothing here is saved — it is view-lifetime bookkeeping.
+   * L1 (Living City) — the duel settlement's exactly-once latch, PER BOUT.
+   * `DuelScene` already refuses a second outcome (`isMatchOver`), but App must
+   * not depend on another component for the one thing it cannot repeat: crediting
+   * a fight and turning the city's clock.
+   *
+   * `DuelScene` reports a result 1400 ms after the deciding blow, and that call
+   * deliberately outlives the scene (an Armory exit must not drop an earned
+   * purse), so App can receive it after another bout has already begun. A boolean
+   * latch cannot tell those apart: such a callback would consume the NEW bout's
+   * latch and the new bout would never settle. `duelSettlementRef` therefore
+   * claims a per-bout id (`utils/duelSettlement.ts`), and `duelId` is the id of
+   * the bout in progress — the token the callback handed to the scene carries —
+   * so a replay, a stale callback or an out-of-order arrival can only ever settle
+   * its own bout, once. Nothing here is saved: view-lifetime bookkeeping.
    */
-  const duelSettledRef = useRef(false);
+  const duelSettlementRef = useRef(createDuelSettlementLatch());
+  const [duelId, setDuelId] = useState(0);
   /**
    * RG-3 — the herald's cries and the one-time Device Choosing panel. Both are view
    * state only: the road's own writes go through `profile.road`, saved the normal way.
@@ -452,9 +461,10 @@ export function App() {
   };
 
   const handleEnterDuel = (opp: OpponentConfig) => {
-    // A fresh bout re-arms the settlement latch. Merely opening a duel never
-    // advances the day: only a completed settlement does (see handleMatchComplete).
-    duelSettledRef.current = false;
+    // A fresh bout ARMS the settlement latch with a new id: its own settlement
+    // must carry that id to be paid. Merely opening a duel never advances the
+    // day: only a completed settlement does (see handleMatchComplete).
+    setDuelId(duelSettlementRef.current.arm());
     setActiveOpponent(opp);
     sounds.playClick();
     setCurrentScreen('duel');
@@ -524,15 +534,19 @@ export function App() {
     saveProfile(result.profile);
   };
 
-  const handleMatchComplete = (stats: DuelStatistics, didWin: boolean) => {
+  const handleMatchComplete = (
+    stats: DuelStatistics,
+    didWin: boolean,
+    settledDuelId: number
+  ) => {
     if (!profile) return;
 
-    // Exactly one settlement per completed duel. The latch is re-armed by
-    // `handleEnterDuel`, so a callback that fires twice — a repeated effect, a
-    // StrictMode remount, a stale timer — cannot credit the fight or turn the day
-    // a second time.
-    if (duelSettledRef.current) return;
-    duelSettledRef.current = true;
+    // Exactly one settlement per COMPLETED bout, named by the id the scene's own
+    // callback carries. A callback that fires twice for the same bout (a repeated
+    // effect, a StrictMode remount, a stale timer), one that names a bout that
+    // never existed, and one whose bout has already settled are all refused here
+    // — so neither the purse nor the clock below is reached twice.
+    if (!duelSettlementRef.current.claim(settledDuelId)) return;
 
     // L1 — THE LIVING CITY'S CLOCK. One COMPLETED duel turns the day, and it turns
     // in the SAME profile update this settlement already writes: the advanced clock
@@ -861,7 +875,7 @@ export function App() {
             <DuelScene
             playerProfile={profile}
             opponent={activeOpponent}
-            onMatchComplete={handleMatchComplete}
+            onMatchComplete={(stats, didWin) => handleMatchComplete(stats, didWin, duelId)}
             onOpenArmory={() => handleOpenHubTab('tournament')}
             onOpenHelp={() => handleOpenSettings('controls', 'duel')}
             onToggleMute={handleToggleMute}

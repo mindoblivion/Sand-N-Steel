@@ -6157,3 +6157,118 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   stays as it was until the next completed duel. (d) The training/injury dormant fields
   (`trainingSessionsLeft`, `injury.fightsRemaining`) are still unwired; the clock is the owner they
   were waiting for, but nothing decrements them in this phase.
+
+### L1 verification gate — settlement idempotency and profile persistence (implemented)
+
+- **Scope.** A verification-first pass over L1 *before* L2: audit the settlement latch, the profile the
+  settlement writes, and the day advance, then fix only a concrete defect. No L2 work, no day/night
+  visual, timer, shop, rotation, class, rest mechanic, NPC, combat, reward, progression or save-key
+  change, and no migration. The Living City audit and the L1 record above are preserved verbatim.
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`fcd0309`**
+  ("Implement city day clock logic"), `git status --porcelain` **empty** and no diff before the first
+  edit; the tree was clean after every later step too (no reset, stash or overwrite). The baseline
+  suite read **2567 pass / 0 fail (87 files)**, the figure the L1 record ended on, so the L1 report's
+  description matched the code that actually shipped — **no material discrepancy** was found.
+
+- **Audit result: one concrete defect, in the latch's identity.** `DuelScene` reports an outcome
+  `1400 ms` after the deciding blow (`setTimeout` in its victory/defeat effect), and that timer
+  deliberately survives unmount so an Armory exit cannot drop an earned purse. The L1 latch was a
+  boolean checked and set in `App.handleMatchComplete` and cleared only in `handleEnterDuel`, so it
+  answered "has anything settled since the last bout began?" — which cannot distinguish **a repeated
+  callback for the same bout** (it refuses those correctly) from **a callback for a bout that has
+  already finished** (it does not): if the player exits through the HUD's Armory badge after the
+  deciding blow and a new bout is entered before that timer fires, `handleEnterDuel` re-arms the
+  latch, the stale callback then consumes it and settles the *old* bout, and the **new** bout's own
+  settlement is dropped — no purse and no day for it — while its result modal would also have shown
+  the previous bout's outcome. The window is ~1.4 s and needs several navigation taps, so it is not
+  humanly reachable in normal play today, but the architecture could not tell the two callbacks
+  apart, which is exactly the property this gate exists to establish.
+
+- **The correction is identity, not a new mechanism: one small pure module plus the id threaded
+  through the existing callback.** `src/utils/duelSettlement.ts` (new) exports
+  `createDuelSettlementLatch()` → `{ arm(), currentId(), claim(id) }`; ids are 1-based and `claim(id)`
+  is true **at most once per id**, only for an **armed** id, and only **in increasing order**
+  (`id > current || id <= settled` is refused). `App` holds one latch in a `useRef` (view lifetime,
+  never saved), `handleEnterDuel` is still the only arm site (`setDuelId(duelSettlementRef.current.arm())`),
+  and the callback handed to the scene is
+  `onMatchComplete={(stats, didWin) => handleMatchComplete(stats, didWin, duelId)}` — so every
+  callback **names the bout it belongs to**. `DuelScene` is **unchanged**: its `(stats, didWin)`
+  signature, its `isMatchOver` guard and its two call sites are exactly as they were, so a scene
+  remount cannot re-declare the token. Consequences, all pinned: a repeated callback for the same
+  bout is refused; a callback naming a bout that never existed is refused; a previous bout's late
+  callback settles **its own** purse and one day and can never settle the current bout; and a
+  callback whose bout already settled is refused even if a newer bout is in progress, so an
+  out-of-order arrival cannot write an older snapshot over newer data. The claim is the first
+  statement after the null-profile guard, so a refused settlement never reaches the clock.
+
+- **Profile freshness and persistence — audited, unchanged.** The settlement reads the `profile`
+  React state captured by the callback identity from the render in which the scene's outcome effect
+  ran; rewards are applied in the two outcome branches, the clock is computed **once** before them
+  (`const city = advanceCityDay(profile).city;`), and both branches build **one** `updatedProfile`
+  that carries `city` alongside gold/fame/xp/level/tier/defeats — then `evaluateRituals` (which
+  spreads `after`, so `city` survives) and **one** `setProfile` + **one** `saveProfile` per
+  settlement. `saveProfile` writes the whole profile as JSON under the one existing key
+  (`sand_and_steel_gladiator_save_v2`), and the Drive path serializes the whole profile with no field
+  list, so `city.day` rides both unchanged. A stale snapshot could only be written inside the same
+  ~1.4 s window analysed above, where the ordering is fixed (the old bout's timer is always scheduled
+  before the new bout can begin), so the latch change leaves no reachable lost update; the App-level
+  ordering is pinned by source assertions, not executed, because this repo has no DOM renderer.
+
+- **Files changed — four (one production path, one new module, two suites).**
+  `src/utils/duelSettlement.ts` (**new**, the latch); `src/App.tsx` (the import, the latch ref plus
+  `duelId` state, the arm in `handleEnterDuel`, the third handler argument and its `claim` guard, the
+  inline `onMatchComplete` adapter); `src/utils/duelSettlement.test.ts` (**new**, 20 tests);
+  `src/utils/cityClock.test.ts` (**rebased, not weakened** — the three §D assertions that named
+  `duelSettledRef` now pin the id-aware claim/order, the single arm site and the id-carrying
+  callback, and one `onMatchComplete` regex became an exact-match assertion). No save format, key,
+  combat, reward or progression rule changed.
+
+- **Regression suite: `src/utils/duelSettlement.test.ts` — 20 tests / 214 `expect()` calls.**
+  §A the latch (ids count up; one claim per bout; unarmed, fractional, `NaN`, `Infinity` and future
+  ids refused; an older bout refused once a newer one settled; a late callback for the previous bout
+  accepted while the new bout is unsettled, and the new bout still settles itself; arming never
+  resurrects a settled id). §B the settlement it guards, through a **mirror** of App's arithmetic
+  (victory 1 → 2 exactly once with its purse and a refused replay; defeat 2 → 3 exactly once with no
+  purse; a new bout after a completed bout settles normally; a stale callback settles its own bout
+  and never the current one, which then settles itself, with the stale one inert afterwards; a replay
+  arriving after a new bout began is refused; abandoning before settlement leaves day and gold
+  untouched; the day and the rewards arrive in the **same** object and survive **one** real
+  `saveProfile`/`loadSavedProfile` round trip with only the one key present; a legacy save with no
+  `city` stays byte-identical on load and writes day 2 on its first settlement; the Drive-style
+  whole-profile JSON keeps both). §C the wiring (handler names its bout, claims once, before the
+  clock; the adapter carries `duelId` from state set only on entry; one latch instance, one arm site,
+  no reset on dismissal or navigation; `DuelScene` still reports `(stats, didWin)`, never passes a
+  third argument, and names no latch; the module imports no React, storage, timer, `Date` or
+  randomness).
+
+- **Checks actually run (2026-10-20, `web` dev container, on the final tree).** `bun test` →
+  **2587 pass / 0 fail (88 files, 80,281 `expect()` calls)** (baseline 2567 / 87 → the delta is this
+  suite's 20 tests and its file); `bun run scripts/combatTests.ts` → **65 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup-asset
+  check passing (8 assets, the pre-existing >500 kB chunk warning only); `git diff --check` →
+  **clean**. No existing assertion was deleted or relaxed — the three `cityClock` §D pins were
+  rebased onto the new wiring and one regex became an exact match.
+
+- **Live evidence, and what is NOT verified.** The dev server serves the change (the transformed
+  `/src/utils/duelSettlement.ts` carries `createDuelSettlementLatch`, `/src/App.tsx` carries
+  `setDuelId(duelSettlementRef.current.arm())`, `duelSettlementRef.current.claim(settledDuelId)` and
+  **exactly one** `advanceCityDay(profile)`), and the app boots to its title screen (`PLAY`, `ACCOUNT`,
+  Alpha 1.0) with **0 console errors and 0 failed requests** on an anonymous preview. **No duel was
+  played, so no settlement was observed live:** the preview had no save and the route (title →
+  creation → 3D city → Colosseum → pre-fight → a many-exchange fight) exceeds the preview tool's
+  script budget at SwiftShader's ~1–2 fps — the same limit the L1 record and `duelResultLifecycle`
+  recorded. Startup is therefore *not* evidence of settlement behaviour, and the exactly-once and
+  stale-callback rules rest on the suite plus §C's source ordering. **Device check still owed:** win
+  one duel and lose one, confirming `city.day` reads **2** then **3** in
+  `sand_and_steel_gladiator_save_v2` with the purse credited in the same write, that leaving mid-bout
+  through the Armory badge leaves the day unchanged, and that a pre-existing save still starts at
+  day 1.
+
+- **Remaining limitations.** (a) The App-level orchestration is verified by source assertions plus a
+  behavioural mirror, not by executing React — this repo has no DOM renderer and its suites use that
+  two-register convention throughout. (b) The latch is per App instance and per page load, which is
+  sufficient because a settlement call is a `setTimeout` in the same document; a full page reload
+  cannot deliver one. (c) Nothing consumes the day yet (L2 is the first reader), so a wrong day is
+  still visible only in the save. (d) `trainingSessionsLeft` and `injury.fightsRemaining` remain
+  unwired, as L1 recorded.
