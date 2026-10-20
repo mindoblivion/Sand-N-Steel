@@ -4405,3 +4405,121 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   run's inline capture labelled as the creation header in fact landed on the Oath's wait surface, and
   a second attempt showed the hub instead — so the header evidence is the DOM read above, and no
   frame of that header exists.
+
+## One settings menu (Phase C-8.70B \u00a7SET-1 \u2014 implemented)
+
+- **What ships: one settings record, one panel, every row it shows live.** Before this slice the
+  game had exactly one player preference \u2014 Lefty Mode \u2014 saved as a field on the profile, and
+  everything else (camera distances, audio levels, vibration) was a module constant or session
+  state. Now there is **one** settings store and **one** menu that reaches it from every screen, and
+  a row is only shown when its control actually does something: the panel's own rule is "every wired
+  row live", so the sections hold the rows whose consumer exists and say so where none does yet.
+  The phase's files: `src/services/settings.ts` (new), `src/hooks/useSettings.ts` (new),
+  `src/utils/haptics.ts` (new), `src/components/3d/SceneBrightness.tsx` (new),
+  `src/components/hub/SettingsModal.tsx` (rebuilt), `src/App.tsx`, `src/components/3d/RaceScene.tsx`,
+  `src/components/3d/city/CityHubScene.tsx`, `src/components/3d/city/CityCamera.tsx`,
+  `src/components/duel/DuelScene.tsx`, `src/components/3d/GladiatorPreview.tsx`,
+  `src/components/hub/TitleScreen.tsx`, `src/components/hub/CharacterCreation.tsx`,
+  `src/components/hub/GladiatorSchoolHub.tsx`, `src/components/ui/CombatHUD.tsx`,
+  `src/hooks/useCameraDrag.ts`, `src/audio/musicEngine.ts`, `src/audio/soundEffects.ts`,
+  `src/utils/settings.test.ts` (new suite, 30 tests) and two rebased pins in
+  `src/utils/phaseC8_70bStage1Camera.test.ts`.
+
+- **`src/services/settings.ts` is the whole store, under one key.** `SETTINGS_STORAGE_KEY` =
+  `sand_and_steel_settings_v1` holds the record; `resolveSettings(stored, legacyLefty)` is **pure and
+  total** \u2014 the `resolveRacingState`/`resolveTimeState` idiom \u2014 so any stored value, however
+  partial or damaged, resolves to a complete record field by field (unknown enum names, wrong types
+  and non-finite numbers fall back; volumes clamp to 0\u20261 and the sensitivity to 1\u202610 and stays
+  whole). `loadSettings()`/`saveSettings()` use the `storage.ts` try/catch idiom, so a browser that
+  refuses storage degrades to the defaults instead of throwing. `getSettings()` is a module-level
+  resolved cache with `subscribeSettings()`/`updateSettings()`; the frame loops read the cache and
+  **never** re-render, and React surfaces subscribe through `useSettings()` (a
+  `useSyncExternalStore` over the module). `screenMotion` is deliberately **absent** by default: an
+  absent field is what lets the OS decide (`prefers-reduced-motion`), and the resolver never invents
+  it.
+- **Lefty Mode moved into the record, and the settings path never touches the save.**
+  `saveSettings` mirrors the value into the legacy `sand_and_steel_lefty_mode` key (so a Lefty chosen
+  before this slice stays Lefty), and a record that says nothing about lefty still falls back to that
+  key. A `lefty` field on the record always wins. The suite proves the separation the hard way:
+  **every field is cycled through `saveSettings` and the profile key
+  (`sand_and_steel_gladiator_save_v2`) is compared byte-for-byte after each individual write**, plus
+  a comment-stripped source scan showing the module names no save path
+  (`saveProfile`/`loadSavedProfile`/`PROFILE_STORAGE_KEY`). `App`'s old profile-writing lefty toggle
+  (`isLeftyMode: nextLefty` via `saveProfile`) is gone.
+
+- **The panel (`SettingsModal.tsx`) is rebuilt around a category rail, and it has no Apply.** Five
+  sections (Picture & Camera, Controls, Sound, Game, Accessibility) as a rail beside the panel, and
+  the same rail as a chip row under 640px; the panel lands on the section a screen asked for
+  (the duel HUD's help button opens Controls), otherwise on the last one looked at this session
+  (module memory, never storage). Every change is written to the record the moment it is made, so the
+  panel only ever shows what is already stored and `Done`/`Esc` is just `onClose()`. Controls are at
+  least 48dp, the full-row cards at least 56dp, no label under 10px. **Reset save is menu-only and
+  armed in the panel** (tap, then "Tap again to erase everything" within 3 s) \u2014 never
+  `window.confirm`, and the duel and the race do not offer it at all; cloud save (row 16) opens
+  `App`'s existing Drive modal, reset (row 18) calls `App`'s existing reset.
+
+- **Which rows are live, and which settings are named attachment points with no consumer yet.**
+  Live: Brightness (exposure on all four Canvases through `SceneBrightness`, which subscribes to the
+  module and re-applies on every change), City Camera Distance (`CityCamera`), **Race Camera
+  Distance** (below), Lefty Mode, Camera Sensitivity (`useCameraDrag`'s yaw/pitch through
+  `getCameraSensitivityScale`, 0.6\u00d7\u20261.5\u00d7 with 1.0 at the default 5), Vibration (haptics), All
+  sound + Music (the engines). **No row is shown for a setting with no consumer yet**, and the
+  module carries those as named attachment points: `qualityPreset` (SF-1's governor),
+  `atmosphereMotion` (no animated-atmosphere module exists \u2014 `useTitlePhaseBackdrop`'s own note),
+  `sfxVolume`, `crowdVolume`, `screenMotion`, `cameraShake` and `enhancedColor`. The Accessibility
+  section therefore says so in as many words rather than offering a dead switch; `cameraShake` and
+  `screenMotion` already have their readers (`getCameraShakeMultiplier`, `getEffectiveScreenMotion`,
+  the latter capping shake at 0.4 whenever motion is reduced or off) so the rows are one consumer
+  away.
+
+- **Race Camera Distance lands the row the camera addendum pre-arranged \u2014 no camera number moved.**
+  The addendum (Slice 2, below) deliberately left `RaceScene`'s optional `chaseDistancePreset` prop
+  as "the settings row's attachment point", with no UI and no caller. `App` now passes
+  `chaseDistancePreset={settings.raceCamDistance}`, and `RaceScene` resolves it through
+  `resolveChaseDistancePreset` exactly as before, so the panel offers Near / Standard / Far on the
+  same `CHASE_DISTANCE_PRESETS` config the addendum surveyed (7.0 / 8.5 / 10.5 behind, 3.0 / 3.4 /
+  4.0 high). The prop stays optional and the config default stays Standard for a caller that passes
+  nothing (the dev `RaceHarness` still does). Two of the addendum suite's pins were **rebased, not
+  weakened**: its "no caller passes a preset yet" and "no settings screen was touched" tests now
+  assert the opposite \u2014 App is the one caller, the panel offers the row, and the race scene still
+  reads no settings module itself and still adds no default of its own.
+
+- **The other consumers.** `vibrate()` (`src/utils/haptics.ts`) is the only place
+  `navigator.vibrate` is touched: it reads `getSettings().vibration`, checks the API and stays a
+  silent no-op otherwise; the duel calls it at exactly two sites (the player's landed hit, 15 ms;
+  defeat, `[30, 40, 30]`). `sounds.setMuted`/`toggleMute` and `music.setVolume` follow the record
+  from `App`, whose effect re-applies them on boot and on every change; the music engine's own
+  default volume is the designed 0.8. The race's freeze is a **gate, not a sixth race state**: while
+  the panel is open over a race the movement loop does not advance, the launch does not accrue and
+  the clock holds its reading (its origin moves forward by the frozen interval on close), and Esc
+  belongs to the panel \u2014 `utils/raceState.ts` is untouched.
+
+- **Verification (2026-10-20, dev container).** `bun test src/utils/settings.test.ts` \u2192 **30 pass /
+  0 fail**; `bun test src/utils/phaseC8_70bStage1Camera.test.ts` \u2192 **20 pass / 0 fail**;
+  `bun test` \u2192 **2104 pass / 0 fail (67 files, 65,248 expect() calls)** \u2014 the starting point was
+  2102 / 2, the two stale "no caller passes a preset yet" pins in the camera addendum's suite, now
+  rebased (no assertion removed); `bun run scripts/collisionTests.ts` \u2192 **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) \u2192 **exit 0**; `bun run build` \u2192 **exit 0** with the startup
+  asset check passing (8 assets); `git diff --check` \u2192 clean.
+- **Live evidence (preview browser, anonymous visitor \u2014 no session replayed).** Opened the panel
+  from the **title screen's** own gear (real click): the dialog mounted with the five sections
+  (Picture & Camera, Controls, Sound, Game, Accessibility), the Picture & Camera section showing
+  Brightness, City Camera Distance **and Race Camera Distance**, whose description reads "How far the
+  chase camera sits behind your chariot in the circus." Clicking **Far** on that row wrote
+  `raceCamDistance: "far"` into `sand_and_steel_settings_v1` and moved the chip's `aria-pressed`
+  (Near false / Standard false / Far true); no label in the panel computes under 10px; **zero console
+  errors**; `Done` closed it. The record was absent before the run and was removed again afterwards,
+  so nothing was left changed.
+- **Not automatically verified.** (a) **The race itself**: that the chase camera visibly moves to the
+  chosen preset needs the circus screen, reached through the 3D city at ~2 fps through SwiftShader
+  \u2014 the wiring is pinned in source (`App` \u2192 prop \u2192 `resolveChaseDistancePreset` \u2192
+  `CHASE_DISTANCE_PRESETS`, asserted by both suites) but no frame of the race camera at Far was
+  captured here. (b) **Brightness, sensitivity, vibration and the audio levels in situ** \u2014 the
+  readers are unit-tested and mounted in source, but their on-screen effect is not captured in this
+  environment. (c) Anything behind a login. (d) **The on-device (Android) reading** of the panel
+  \u2014 the sandbox preview is a desktop-width browser, so the rail-as-chip-row layout under 640px
+  and the touch targets want a phone look. Also worth stating: the design of record
+  (`settings-design.md`, \u00a71 findability / \u00a72 menu) is not committed in this repository, so the
+  row set above is the one the shipped module and its suite pin; if \u00a72 lists a row this panel does
+  not show, the design governs and the row should be added the same way Race Camera Distance was
+  (wire the consumer first, then show the row).

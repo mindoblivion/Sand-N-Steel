@@ -89,10 +89,11 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             {onOpenSettings && (
               <button
                 onClick={onOpenSettings}
-                className="p-1.5 sm:p-2 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer"
+                className="min-h-[48px] px-2.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-semibold tracking-wide"
                 title="Game Settings"
               >
                 <Settings className="w-4 h-4 text-amber-400" />
+                <span className="hidden sm:inline">Settings</span>
               </button>
             )}
             <button

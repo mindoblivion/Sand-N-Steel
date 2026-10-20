@@ -81,7 +81,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
         </div>
 
         {/* 3D CITY BUTTON & UTILITIES */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap justify-end items-center gap-2">
           <button
             onClick={onEnterCity3D}
             className="px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-serif font-bold text-xs uppercase tracking-wider shadow-lg active:scale-95 cursor-pointer flex items-center gap-1.5"
@@ -93,10 +93,11 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              className="p-2 rounded-xl bg-neutral-800 border border-amber-500/40 text-amber-300 hover:text-amber-100 cursor-pointer"
+              className="min-h-[48px] px-3 rounded-xl bg-neutral-800 border border-amber-500/40 text-amber-300 hover:text-amber-100 cursor-pointer flex items-center gap-2 font-serif font-bold text-xs uppercase tracking-wider"
               title="Game Settings"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-5 h-5" />
+              <span>Settings</span>
             </button>
           )}
 

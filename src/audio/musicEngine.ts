@@ -7,7 +7,11 @@ export class MusicEngine {
   private currentSource: MediaElementAudioSourceNode | null = null;
   private currentTrackId: string | null = null;
   private isMuted: boolean = false;
-  private volume: number = 0.5;
+  /**
+   * C-8.70B §SET-1 — the designed default level: 0.8, the settings record's own
+   * `musicVolume` default.  It is what plays when no settings record exists yet.
+   */
+  private volume: number = 0.8;
 
   public init(audioContext: AudioContext) {
     this.ctx = audioContext;

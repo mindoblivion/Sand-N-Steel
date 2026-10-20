@@ -16,6 +16,9 @@ const RaceScene = React.lazy(() => import('./components/3d/RaceScene').then((m) 
 import { DuelResultModal } from './components/hub/DuelResultModal';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
+import type { SettingsCategory, SettingsContext } from './components/hub/SettingsModal';
+import { useSettings } from './hooks/useSettings';
+import { updateSettings } from './services/settings';
 import { AssetLoadingOverlay } from './components/ui/AssetLoadingOverlay';
 import { WaitSurface } from './components/ui/WaitSurface';
 import { LazySceneBoundary } from './components/ui/LazySceneBoundary';
@@ -60,9 +63,23 @@ export function App() {
   const [cityReturnPose, setCityReturnPose] = useState<CityExitPose | null>(null);
   const [duelResult, setDuelResult] = useState<{ didWin: boolean; stats: DuelStatistics } | null>(null);
   const [showDriveSync, setShowDriveSync] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [isMuted, setIsMuted] = useState(sounds.isMuted);
-  const [isLeftyMode, setIsLeftyMode] = useState(false);
+  /**
+   * C-8.70B §SET-1 — one settings panel, opened from every screen.  `category` is
+   * the section it should open on (the duel's Help button asks for Controls) and
+   * `context` is where it was opened from, which is what hides the save row in a
+   * fight.  Neither is game state: they are view state for the panel.
+   */
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsCategory, setSettingsCategory] = useState<SettingsCategory | undefined>(undefined);
+  const [settingsContext, setSettingsContext] = useState<SettingsContext>('menu');
+  /**
+   * The one settings record.  Lefty and mute used to be App state — session-only in
+   * the mute's case, and written into the profile in lefty's — and both now come
+   * from here, so they survive a reload without the save being touched.
+   */
+  const settings = useSettings();
+  const isMuted = settings.muted;
+  const isLeftyMode = settings.lefty;
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
@@ -80,16 +97,21 @@ export function App() {
     try { music.init(sounds.getAudioContext()); } catch (e) {}
 
     const saved = loadSavedProfile();
-    if (saved) {
-      setProfile(saved);
-      setIsLeftyMode(saved.isLeftyMode === true);
-    } else {
-      setIsLeftyMode(false);
-    }
+    if (saved) setProfile(saved);
     // START-1 — preload stage 1. This effect runs at title mount, which is the beat
     // the startup sequence warms the first tier on; stage 2 fires on the tap.
     preloadTitleStage();
   }, []);
+
+  // C-8.70B §SET-1 — the sound settings, applied to the engines on boot and on
+  // every change: "All sound" reaches the effect engine AND the music, and the
+  // music slider reaches the music engine's own gain.  Nothing here is stored
+  // twice — the settings record is the only place the choice lives.
+  useEffect(() => {
+    sounds.setMuted(settings.muted);
+    music.setMuted(settings.muted);
+    music.setVolume(settings.musicVolume);
+  }, [settings.muted, settings.musicVolume]);
 
   // Music Routing
   useEffect(() => {
@@ -108,21 +130,27 @@ export function App() {
     }
   }, [currentScreen, duelResult, activeOpponent, activeHubTab]);
 
+  /**
+   * C-8.70B §SET-1 — Lefty Mode is a preference now, so the toggle routes through
+   * the settings module and **writes no save**: the profile the player earned is
+   * never rewritten by a settings change.
+   */
   const handleToggleLeftyMode = () => {
     sounds.playClick();
-    const nextLefty = !isLeftyMode;
-    setIsLeftyMode(nextLefty);
-    if (profile) {
-      const updated = { ...profile, isLeftyMode: nextLefty };
-      setProfile(updated);
-      saveProfile(updated);
-    }
+    updateSettings({ lefty: !settings.lefty });
   };
 
+  /** "All sound", persisted: the effect engine and the music follow the record. */
   const handleToggleMute = () => {
-    const muted = sounds.toggleMute();
-    music.setMuted(muted);
-    setIsMuted(muted);
+    updateSettings({ muted: !settings.muted });
+  };
+
+  /** Open the settings panel: on a section, from a screen. */
+  const handleOpenSettings = (category?: SettingsCategory, context: SettingsContext = 'menu') => {
+    sounds.playClick();
+    setSettingsCategory(category);
+    setSettingsContext(context);
+    setSettingsOpen(true);
   };
 
   const handleContinueAdventure = () => {
@@ -155,7 +183,6 @@ export function App() {
           // No local save — safe to load the cloud save directly.
           const cloudProfile = await loadProfileFromDrive(saves[0].id);
           setProfile(cloudProfile);
-          setIsLeftyMode(Boolean(cloudProfile.isLeftyMode));
           saveProfile(cloudProfile);
           setCurrentScreen('city_3d');
         }
@@ -242,7 +269,6 @@ export function App() {
   const handleCharacterCreated = (newProfile: PlayerProfile) => {
     sounds.playClick();
     setProfile(newProfile);
-    setIsLeftyMode(Boolean(newProfile.isLeftyMode));
     saveProfile(newProfile);
     // Spawns directly at the 3D Monumental Town Gate!
     setCurrentScreen('city_3d');
@@ -504,7 +530,7 @@ export function App() {
                 onOpenDriveSync={() => setShowDriveSync(true)}
                 onToggleMute={handleToggleMute}
                 isMuted={isMuted}
-                onOpenSettings={() => setShowSettingsModal(true)}
+                onOpenSettings={() => handleOpenSettings()}
                 onGoogleSignIn={handleGoogleSignIn}
                 isGoogleLoading={isGoogleLoading}
                 onFacebookSignIn={handleFacebookSignIn}
@@ -523,6 +549,7 @@ export function App() {
             onCancel={() => setCurrentScreen('title')}
             onGoogleSignIn={handleGoogleSignIn}
             isGoogleLoading={isGoogleLoading}
+            onOpenSettings={() => handleOpenSettings()}
             />
         )}
 
@@ -539,7 +566,7 @@ export function App() {
             isMuted={isMuted}
             onReturnToMainMenu={() => setCurrentScreen('title')}
             isLeftyMode={isLeftyMode}
-            onOpenSettings={() => setShowSettingsModal(true)}
+            onOpenSettings={() => handleOpenSettings()}
             initialPosition={cityReturnPose?.position}
             initialRotationY={cityReturnPose?.rotationY}
             onStartRace={handleStartRace}
@@ -570,7 +597,7 @@ export function App() {
             onToggleMute={handleToggleMute}
             isMuted={isMuted}
             onResetGame={handleResetGame}
-            onOpenSettings={() => setShowSettingsModal(true)}
+            onOpenSettings={() => handleOpenSettings()}
             />
         )}
 
@@ -582,11 +609,11 @@ export function App() {
             opponent={activeOpponent}
             onMatchComplete={handleMatchComplete}
             onOpenArmory={() => handleOpenHubTab('tournament')}
-            onOpenHelp={() => setShowSettingsModal(true)}
+            onOpenHelp={() => handleOpenSettings('controls', 'duel')}
             onToggleMute={handleToggleMute}
             isMuted={isMuted}
             isLeftyMode={isLeftyMode}
-            onOpenSettings={() => setShowSettingsModal(true)}
+            onOpenSettings={() => handleOpenSettings(undefined, 'duel')}
             />
           </React.Suspense>
           </LazySceneBoundary>
@@ -595,7 +622,13 @@ export function App() {
         {currentScreen === 'race' && (
           <LazySceneBoundary tier="circus">
           <React.Suspense fallback={<WaitSurface destination="circus" />}>
-            <RaceScene onAbort={handleExitRace} isLeftyMode={isLeftyMode} />
+            <RaceScene
+              onAbort={handleExitRace}
+              isLeftyMode={isLeftyMode}
+              chaseDistancePreset={settings.raceCamDistance}
+              onOpenSettings={() => handleOpenSettings(undefined, 'race')}
+              frozen={settingsOpen}
+            />
           </React.Suspense>
           </LazySceneBoundary>
         )}
@@ -610,15 +643,17 @@ export function App() {
             />
         )}
 
-        {/* GAME SETTINGS MODAL */}
+        {/* GAME SETTINGS MODAL — one panel, five sections, every wired row live */}
         <SettingsModal
-            isOpen={showSettingsModal}
-            onClose={() => setShowSettingsModal(false)}
-            isLeftyMode={isLeftyMode}
-            onToggleLeftyMode={handleToggleLeftyMode}
-            isMuted={isMuted}
-            onToggleMute={handleToggleMute}
-            onResetGame={handleResetGame}
+            isOpen={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            initialCategory={settingsCategory}
+            context={settingsContext}
+            onOpenCloudSave={() => {
+              setSettingsOpen(false);
+              setShowDriveSync(true);
+            }}
+            onResetSave={handleResetGame}
         />
 
         {/* GOOGLE DRIVE CLOUD SYNC MODAL */}

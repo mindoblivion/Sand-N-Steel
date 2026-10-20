@@ -11,7 +11,8 @@
  *   §B the FOV actually reaches the camera — set on the frame, the projection
  *      matrix rebuilt only when it moves, and the rest FOV restored whenever the
  *      race is not `racing`;
- *   §C the preset's attachment point: one optional prop, one resolver, no UI;
+ *   §C the preset's attachment point: one optional prop, one resolver, one settings
+ *      row (C-8.70B SET-1 landed the row this addendum pre-arranged);
  *   §D the start composition is the layout module's, never a literal in the
  *      scene, and the camera constants are not restated in the rig;
  *   §E the frame loop still allocates nothing;
@@ -141,32 +142,38 @@ describe('B. The FOV is the survey’s, on the running camera', () => {
 // C. The preset's attachment point
 // ══════════════════════════════════════════════════════════════════════════
 
-describe('C. One prop, one resolver, and no settings UI', () => {
+describe('C. One prop, one resolver, one settings row (rebased by C-8.70B SET-1)', () => {
   test('the scene takes the preset as an optional prop and resolves it', () => {
     expect(sceneCode).toContain('chaseDistancePreset?: ChaseDistancePreset;');
     expect(sceneCode).toContain('resolveChaseDistancePreset(chaseDistancePreset)');
     expect(CHASE_DISTANCE_PRESET_DEFAULT).toBe('standard');
   });
 
-  test('no caller passes a preset yet, so the config default is what runs', () => {
-    expect(appSrc).not.toContain('chaseDistancePreset');
-    for (const source of [appSrc, load('../components/dev/RaceHarness.tsx')]) {
-      expect(source.includes('ChaseDistancePreset')).toBe(false);
-    }
+  // C-8.70B SET-1 landed the settings row this addendum pre-arranged, so App is now
+  // the ONE caller and it passes the stored value.  The two properties this section
+  // was written for are unchanged: the prop is still optional (the config default
+  // still covers a caller that passes nothing) and the module is still the resolver.
+  test('App is the one caller, and what it passes is the settings record value', () => {
+    expect(appSrc).toContain('chaseDistancePreset={settings.raceCamDistance}');
+    // the dev harness still passes nothing, so the default path stays exercised
+    expect(load('../components/dev/RaceHarness.tsx')).not.toContain('ChaseDistancePreset');
+    // and the scene adds no default of its own
+    expect(sceneCode).not.toContain("chaseDistancePreset = 'standard'");
   });
 
-  test('the resolver is the module’s, and nothing else reads the config', () => {
+  test('the resolver is the module own, and nothing else reads the config', () => {
     expect(cameraSrc).toContain('export function resolveChaseDistancePreset(');
     expect(sceneCode).not.toContain('CHASE_DISTANCE_PRESETS');
     expect(cameraCode).toContain('CHASE_DISTANCE_PRESETS');
-    // no settings module was created, and no settings screen was touched
-    expect(appSrc).not.toContain('chaseDistance');
-    expect(load('../components/hub/SettingsModal.tsx')).not.toContain('Chase');
+    // the row that offers the presets is the settings panel's, and the rig reaches the
+    // preset through the prop - the race scene still reads no settings module itself.
+    const modal = load('../components/hub/SettingsModal.tsx');
+    expect(modal).toContain('label="Race Camera Distance"');
+    expect(modal).toContain('onChange={(raceCamDistance) => set({ raceCamDistance })}');
+    expect(sceneCode).not.toContain('services/settings');
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════════
-// D. The composition is the modules’, never a literal in the scene
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('D. Nothing is restated in the scene', () => {

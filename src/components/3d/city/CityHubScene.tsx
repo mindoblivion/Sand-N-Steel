@@ -29,6 +29,7 @@ import { Drawbridge } from './Drawbridge';
 import { EastCircusArena } from './EastCircusArena';
 import { EastCircusDistrict } from './EastCircusDistrict';
 import { CityCamera } from './CityCamera';
+import { SceneBrightness } from '../SceneBrightness';
 import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
 import { CORE_3D_ASSETS } from '../../../utils/preloadAssets';
@@ -569,6 +570,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           >
             {/* Active GPU Health & Context Monitor */}
             <CanvasWebGLMonitor sceneName="CityHubMetropolis" />
+            {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
+            <SceneBrightness />
 
             {/* Atmospheric Mediterranean Horizon Fog */}
             <fog attach="fog" args={['#e3dbc6', 45, 160]} />
@@ -728,7 +731,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         </div>
 
         {/* GOLD, FAME, GOOGLE DRIVE & AUDIO */}
-        <div className="flex items-center gap-2 pointer-events-auto">
+        <div className="flex flex-wrap justify-end items-center gap-2 pointer-events-auto">
           <div className="flex items-center gap-3 bg-neutral-950/85 border border-amber-600/50 px-3 py-1.5 rounded-2xl backdrop-blur-md shadow-2xl">
             <div className="flex items-center gap-1 text-xs font-bold text-amber-300">
               <Coins className="w-4 h-4 text-yellow-400" />
@@ -743,10 +746,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              className="p-2.5 rounded-2xl bg-neutral-950/85 border border-amber-500/50 text-amber-300 hover:text-amber-100 backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all"
-              title="Game Settings (Lefty Mode, Audio, Controls)"
+              className="min-h-[48px] px-3 rounded-2xl bg-neutral-950/85 border border-amber-500/50 text-amber-300 hover:text-amber-100 backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all flex items-center gap-2 font-serif font-bold text-xs uppercase tracking-wider"
+              title="Game Settings (Touch, Sound, Picture)"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-5 h-5" />
+              <span>Settings</span>
             </button>
           )}
 
