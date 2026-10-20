@@ -23,7 +23,7 @@ interface GladiatorSchoolHubProps {
   onSelectOpponent: (opp: OpponentConfig) => void;
   onTrainStat: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
   onBuyItem: (item: WeaponItem | ArmorItem) => void;
-  /** P1 sell — the market pays the item's sellPrice plus any temper refund. */
+  /** C-2 — the Armory sells a spare for its sellPrice plus any temper refund. */
   onSellItem?: (item: WeaponItem | ArmorItem) => void;
   onEquipWeapon: (wpn: WeaponItem) => void;
   onEquipArmor: (armor: ArmorItem) => void;
@@ -227,18 +227,14 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           <TrainingTab profile={playerProfile} onTrainStat={onTrainStat} />
         )}
         {activeTab === 'shop' && (
-          <ShopTab
-            profile={playerProfile}
-            onBuyItem={onBuyItem}
-            onSellItem={onSellItem}
-            shopId={shopId}
-          />
+          <ShopTab profile={playerProfile} onBuyItem={onBuyItem} shopId={shopId} />
         )}
         {activeTab === 'gear' && (
           <GearTab
             profile={playerProfile}
             onEquipWeapon={onEquipWeapon}
             onEquipArmor={onEquipArmor}
+            onSellItem={onSellItem}
             gearView={gearView}
             onGearViewChange={onGearViewChange}
             onBuyChariotPart={onBuyChariotPart}
