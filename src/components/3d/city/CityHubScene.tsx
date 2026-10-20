@@ -62,6 +62,7 @@ import {
   InteractiveLocation,
 } from '../../../utils/cityCollisions';
 import { getTerrainY } from '../../../utils/terrainHeight';
+import { applyDeadZone } from '../../../utils/joystickDeadZone';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
@@ -531,11 +532,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
         setKnobPos({ x: dx, y: dy });
 
-        // Normalize direction (Left is negative x, Right is positive x)
-        touchVectorRef.current = {
-          x: dx / maxDist,
-          z: dy / maxDist,
-        };
+        // Normalize direction (Left is negative x, Right is positive x), then read it
+        // through the joystick's radial dead zone: a resting thumb's small offset is no
+        // input, and anything past the dead zone is rescaled so there is no jump at the
+        // boundary (see utils/joystickDeadZone.ts for the constant to tune).
+        const vec = applyDeadZone(dx / maxDist, dy / maxDist);
+        touchVectorRef.current = { x: vec.x, z: vec.z };
         break;
       }
     }

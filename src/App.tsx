@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize } from './types/game';
-import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats } from './services/storage';
+import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
+import type { StoredProfileSummary } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
 import { CharacterCreation } from './components/hub/CharacterCreation';
+import { NewCharacterOverwriteModal } from './components/hub/NewCharacterOverwriteModal';
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
 import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
 import type { GearView } from './components/hub/GearTab';
@@ -132,6 +134,23 @@ export function App() {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
 
   /**
+   * Save-safety — the New Character overwrite confirmation.  Set when the New
+   * Character flow begins while a gladiator is already stored on this device: the
+   * player sees what would be lost and has to arm the erase (two taps) before
+   * creation starts.  `null` means nothing is pending.  View state only — no save is
+   * touched by showing, arming or cancelling this dialog.
+   */
+  const [overwriteConfirm, setOverwriteConfirm] = useState<StoredProfileSummary | null>(null);
+
+  /**
+   * Save-safety — the stored save could not be read this boot and its original bytes
+   * were quarantined rather than dropped.  The title screen says so in plain
+   * language; nothing is repaired, rewritten or deleted, and the game starts on the
+   * same path it takes with no save at all.
+   */
+  const [saveQuarantineNotice, setSaveQuarantineNotice] = useState(false);
+
+  /**
    * Who is signed in.  The panel needs one thing from auth: whether there IS an
    * account, because a signed-in player deletes an account and a guest erases the
    * device's data instead.  Nothing here is saved; it follows Firebase's own session.
@@ -171,6 +190,9 @@ export function App() {
 
     const saved = loadSavedProfile();
     if (saved) setProfile(saved);
+    // Save-safety — an unreadable stored save was kept verbatim under the quarantine
+    // key instead of being lost; the title states it once.
+    if (wasStoredSaveQuarantined()) setSaveQuarantineNotice(true);
     // START-1 — preload stage 1. This effect runs at title mount, which is the beat
     // the startup sequence warms the first tier on; stage 2 fires on the tap.
     preloadTitleStage();
@@ -304,9 +326,29 @@ export function App() {
     enterCity(profile);
   };
 
+  /**
+   * Save-safety — enter the New Character flow.
+   *
+   * A new gladiator REPLACES the one stored on this device when creation completes
+   * (the write happens on completion, exactly as it always has), so when a save is
+   * stored the player first confirms it: `NewCharacterOverwriteModal` names what
+   * would be lost and requires a deliberate two-step arm.  With NO save stored this
+   * is byte-for-byte the old behaviour — straight into creation, no added friction.
+   * Every route into creation (the title's tap, and after signing in) comes through
+   * here.
+   */
+  const beginCharacterCreation = () => {
+    const stored = readStoredProfileSummary();
+    if (stored) {
+      setOverwriteConfirm(stored);
+      return;
+    }
+    setCurrentScreen('create_character');
+  };
+
   const handleNewCharacter = () => {
     sounds.playClick();
-    setCurrentScreen('create_character');
+    beginCharacterCreation();
   };
 
   // "Continue with Google" — sign in, then restore a cloud save if one exists.
@@ -337,7 +379,7 @@ export function App() {
         if (profile) {
           enterCity(profile);
         } else {
-          setCurrentScreen('create_character');
+          beginCharacterCreation();
         }
       }
     } catch (e) {
@@ -357,7 +399,7 @@ export function App() {
       if (profile) {
         enterCity(profile);
       } else {
-        setCurrentScreen('create_character');
+        beginCharacterCreation();
       }
     } catch (e) {
       console.error('[FacebookSignIn] failed:', e);
@@ -375,7 +417,7 @@ export function App() {
       if (profile) {
         enterCity(profile);
       } else {
-        setCurrentScreen('create_character');
+        beginCharacterCreation();
       }
     } catch (e) {
       console.error('[AppleSignIn] failed:', e);
@@ -393,7 +435,7 @@ export function App() {
       if (profile) {
         enterCity(profile);
       } else {
-        setCurrentScreen('create_character');
+        beginCharacterCreation();
       }
     } catch (e) {
       console.error('[MicrosoftSignIn] failed:', e);
@@ -407,7 +449,7 @@ export function App() {
     if (profile) {
       enterCity(profile);
     } else {
-      setCurrentScreen('create_character');
+      beginCharacterCreation();
     }
   };
 
@@ -749,6 +791,7 @@ export function App() {
         {currentScreen === 'title' && (
             <TitleScreen
                 savedProfile={profile}
+                saveQuarantineNotice={saveQuarantineNotice}
                 onContinueAdventure={handleContinueAdventure}
                 onNewCharacter={handleNewCharacter}
                 onOpenDriveSync={() => setShowDriveSync(true)}
@@ -879,6 +922,20 @@ export function App() {
             stats={duelResult.stats}
             goldTotal={profile?.gold}
             onContinue={handleDuelResultDismiss}
+            />
+        )}
+
+        {/* SAVE-SAFETY — the New Character overwrite confirmation.  It sits above every
+            screen and holds the flow until the player decides; nothing is erased, and
+            the stored profile is only replaced when a new creation completes. */}
+        {overwriteConfirm && (
+            <NewCharacterOverwriteModal
+            existing={overwriteConfirm}
+            onCancel={() => setOverwriteConfirm(null)}
+            onConfirm={() => {
+              setOverwriteConfirm(null);
+              setCurrentScreen('create_character');
+            }}
             />
         )}
 
