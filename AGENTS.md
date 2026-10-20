@@ -3975,9 +3975,12 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   reverse cap (3.2), acceleration / brake / reverse / drag, the turn rates at rest (0.35 rad/s
   crawl) and at the cap (1.5), the fixed step (1/60 s), the frame clamp (0.1 s), the two boundary
   probes (body 1.05 behind, yoke 0.70 at 2.02 forward) and the Clean Start windows.
-  `CHARIOT_CHASE_CAMERA` holds the camera's — distance 7.5, height 6.6 (measured to clear the
+  `CHARIOT_CHASE_CAMERA` held the camera's — distance 7.5, height 6.6 (measured to clear the
   2.18-high carceres block, which sits south of the start line), look-ahead 5, follow rate 5/s.
-  Nothing else in the slice hard-codes one of these.
+  **Superseded by the camera addendum below:** the camera's constants left this module for
+  `src/utils/chaseCamera.ts`, where the same object now carries the surveyed standard — 55°/65° FOV,
+  the Near/Standard/Far distance presets, the `4 + 0.9 × speed` look-ahead and the start-line rest
+  framing. Nothing else in the slice hard-codes one of these.
 
 - **Steering scales with speed, the boundary STOPS the chariot, and the frame cannot tunnel.** The
   turn rate runs linearly between the standstill crawl and the cap, so there is no pivoting on the
@@ -4034,3 +4037,140 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the touch controls' feel and their Lefty mirroring, the chase camera's smoothness and its framing
   relative to the carceres block, and the racing HUD's legibility on a phone. Stage 2 (the finish
   line) is not started, so `finishRace` still has no caller.
+
+## Chase camera at the surveyed standard (Phase C-8.70B Stage 1, Slice 2 — camera addendum, implemented)
+
+- **What ships, and what deliberately did not.** A surgical CAMERA-only change to Slice 2's race
+  chase rig, at the studio's camera/FOV survey: the camera's constants move into a module of their
+  own and the rig reads the surveyed standard from it. `src/utils/chaseCamera.ts` (new, PURE:
+  no React, no three.js, no clock, no storage), `src/utils/chaseCamera.test.ts` (new, 25 tests),
+  `src/utils/phaseC8_70bStage1Camera.test.ts` (new, 20 tests), `src/components/3d/RaceScene.tsx`
+  (the rig, the Canvas's FOV and one optional prop), `src/utils/chariotMovement.ts` (the camera
+  constants leave it — **the movement physics is untouched, constant for constant**) and
+  `src/utils/chariotMovement.test.ts` (its import list, and its one camera test replaced by the
+  module boundary that now holds). **No movement constant, race state, control, collider, collision
+  response, countdown, save, city mesh or draw call changed, and no settings UI was built.**
+
+- **The standard, before → after.** Every value is asserted in the two new suites rather than
+  restated from this document:
+
+  | quantity | Slice 2 (before) | after (the survey) |
+  |---|---|---|
+  | vertical FOV | fixed `fov: 50` on the Canvas | **55 at rest → capped 65 at `maxSpeed`** |
+  | chase distance | 7.5 | **8.5** (Standard; presets Near 7.0 / Standard 8.5 / Far 10.5) |
+  | camera height | 6.6 | **3.4** (Near 3.0 / Standard 3.4 / Far 4.0) |
+  | look-ahead | constant 5 | **`4 + 0.9 × speed`** — 4 at rest, 15.7 at the 13 u/s cap, signed |
+  | look height / follow rate | 0.9 / 5 s⁻¹ | 0.9 / 5 s⁻¹ — **unchanged** (Slice 2's smoothing) |
+  | steering bias | none | **±2.2 at full deflection, on the look target only** |
+  | start-line framing | none — the rig took its pose and followed the preset everywhere | **Slice 1's measured start pose at rest**, easing to the preset as the chariot gets going |
+
+- **The FOV is coupled to the movement module's own speed fraction, and nothing else.** It reads
+  `getChariotPace` (|speed| / `CHARIOT_MOVEMENT.maxSpeed`, already clamped and NaN-guarded — the same
+  reading the HUD's pace bar uses, so there is one definition of "how fast is that") and smoothsteps
+  it: **55° at 0, 65° at the cap**, monotonic between, clamped beyond, and a pure function of the
+  CURRENT speed, so it settles back exactly as the chariot slows. Measured: over a 1000-sample sweep
+  of the cap the largest single step is **< 0.02°** (no step, no jitter), and a non-finite reading
+  resolves to rest rather than widening the frame. The projection matrix is rebuilt only when the
+  value moves, and a state that is not `racing` restores the rest FOV with the static camera. This
+  adds **no draw call, material, light or geometry**.
+
+- **The look-ahead is the survey's formula plus a lean into the steering.** The look point is
+  `chariot + heading × (4 + 0.9 × speed)` at the unchanged 0.9 look height, and it is leaned
+  `2.2 × steer` toward the driver's RIGHT (`chariotMovement.ts`'s own sign — the scene passes the
+  SAME merged `input.steer` the physics is driven with, so the lean and the turn cannot disagree).
+  Only the look target moves; the camera's own position is untouched by steering. The distance/height
+  pair is **one named preset config** — `CHASE_DISTANCE_PRESETS` (`near` / `standard` / `far`) with
+  `CHASE_DISTANCE_PRESET_DEFAULT = 'standard'` — and the composed pose is written into a
+  preallocated object, so the frame loop still allocates nothing.
+
+- **No settings module exists, so the preset is the config constant plus a named attachment point.**
+  Searched: there is no settings store in this repo — the only player preference, Lefty Mode, is a
+  **field on the saved profile** (`src/types/game.ts`, toggled by `SettingsModal` and written by
+  `App` through `saveProfile`), and this addendum must not write a save. So the preset is read from
+  `CHASE_DISTANCE_PRESETS` through **`resolveChaseDistancePreset(name?)`** — total by construction,
+  an unknown or missing name resolving to Standard — and reaches the rig through `RaceScene`'s new
+  optional **`chaseDistancePreset`** prop. Those two names are the settings row's attachment point:
+  when the row lands it passes its stored name in, and nothing else changes. **No UI was built and no
+  caller passes a preset yet**, so Standard is what runs today.
+
+- **The rest framing: why it exists, and what it does.**
+  1. **Measured, not a taste call.** The carceres block (2.18 high, `Travertine_25` + `Marble_26`,
+     Z 43.800 … 46.000, 18 wide) stands SOUTH of the start line, i.e. exactly where a chase camera
+     goes. At the surveyed 8.5 behind / 3.4 high the sight line to the 1.335-high model crosses
+     Y 2.18 at **Z 45.978 — inside the block**, so at rest the whole model is hidden; its top only
+     clears the block's north-top corner once the chariot is **2.18** of travel clear of it (the whole
+     model, 4.15). Slice 1's own record says the same thing about "behind" from the other side, which
+     is why Slice 1's camera is north-east of the line in the first place.
+  2. **So the rig holds Slice 1's measured pose while the chariot is at the line and slow.** The
+     offsets are **derived** from `CIRCUS_RACE_CAMERA` and `CIRCUS_RACE_START` (camera 8.5 ahead,
+     3.66 to the driver's right, 3.4 up; look point 0.5 ahead at 0.9 up), expressed in the chariot's
+     own frame, so the framing and the layout module's measured pose cannot drift apart. **At the
+     start line at rest the composed pose IS `CIRCUS_RACE_CAMERA`** (asserted to 1e-12), which also
+     makes the take-over at GO **continuous** with the countdown's static camera instead of Slice 2's
+     snap — verified live below.
+  3. **The hand-over is the product of two smooth fades**, because the rest framing is the START
+     LINE's framing and not "what a stopped chariot looks like": the distance from the start line
+     (full at 0, zero at **5.0** of travel) × the speed fraction (full at 0, zero at **0.55** of the
+     cap, i.e. 7.2 u/s). The distance fade is what stops a camera swing to the FRONT of the chariot
+     every time it stops mid-track — a boundary hit zeroes the speed — and the speed fade is what
+     stops one when a chariot crosses the line at speed. Both fades are smooth and monotonic, so the
+     hand-over never reverses while the player accelerates: measured across a real 180-frame launch
+     (the shipped `advanceChariot` at its fixed 1/60 s step), the largest single-frame move of any
+     pose component is **< 1.5 world units** and the largest single-frame FOV change **< 0.35°**.
+
+- **Measured open risk — the interior triumphal arch at the north end (NOT fixed, and not fixable
+  inside the survey's numbers).** Live, driving straight north at full gallop: with the chariot at
+  Z −27.93 the camera sits at Z −19.43, SOUTH of `Travertine_30` (the triple-arched monument,
+  X 49.840 … 54.840, **Y −0.050 … 3.750**, Z −23.900 … −22.500), and its 3.750 top is above the
+  3.4-high camera, so the sight line to the model's top passes **1.44 below** that top — the chariot
+  is occluded for as long as it is north of the monument inside the camera's 8.5. The Slice 2 rig
+  (7.5 behind, 6.6 high) cleared the same top by **0.41** at the same moment. This is the survey's
+  own height, not a coding slip, and the addendum is explicitly a surgical change to the surveyed
+  numbers — so it is **recorded here rather than repaired**: a future, explicitly authorized phase
+  would have to raise the Standard (or make the rig occlusion-aware) and re-run the survey. The
+  carceres block is the same family of risk and is why the rest easing exists.
+
+- **Verified 2026-10-20** in the dev container: focused
+  `bun test src/utils/{chaseCamera.test.ts,phaseC8_70bStage1Camera.test.ts,chariotMovement.test.ts,phaseC8_70bStage1Slice2.test.ts,phaseC8_70bStage1.test.ts}`
+  → **153 pass / 0 fail**; `bun test` → **2022 pass / 0 fail (64 files, 64,803 `expect()`)** (the
+  starting point was 1977 / 62 — the delta is this addendum's 45 tests and 2 files);
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only);
+  `git diff --check` → clean. The validation's starting point was **5 failing assertions in the two
+  new suites plus three `tsc` errors** — one wrong sign, a monotonicity probe that sampled past its
+  own zone, a FOV case that read a *guarded* non-finite speed as "at the cap" when the movement
+  module deliberately reads it as rest, a scene-wide token sweep that matched the city's own
+  `directionalLight`, and the r3f camera union's missing `.fov` — every one of them fixed in the
+  suite or by narrowing the type, **none by loosening a check**.
+
+- **Preview evidence — driven through the app's own route, and what it establishes.** The
+  `?devHarness=race` shortcut was **NOT reachable this turn**: the platform's preview navigation
+  rewrites the query string to its own (`_preview_token`, `base44_data_env=prod`,
+  `analytics-enable=false`, `hide_badge=true`), so the parameter never reaches the app — the route
+  below is the shipped one. Driven in the preview browser (an anonymous visitor; **no session
+  replayed**, so the app's own guest path was used): `PLAY AS GUEST` → the creation screen with its
+  defaults → `APPLY POINTS & ENTER METROPOLIS` → the **3D city hub** → `City Map & Navigation`
+  (by accessible name — it is an icon control, so a text locator does not match it) → the map's
+  **East Circus Race Forecourt** entry → the district's prompt `ENTER THE CIRCUS RACE [E / SPACE]`
+  (`keydown KeyE`) → the read-only pre-race panel → **`Start Race`** → `data-race-state="countdown"`
+  → `"racing"`. Read back at **6.7 s into `racing`, with no throttle** (so the rig — not the
+  countdown's static camera — owned the frame): gait **HALT**, position **(52.34, 42.50)**, the race
+  clock ticking, and a captured frame showing **the chariot centred on the sand with the carceres
+  arcade behind it**, i.e. Slice 1's framed start, with the chariot **visible** rather than hidden
+  behind the 2.18-high block. Then the app's own keyboard path was held (`keydown` `KeyW` on
+  `window`): the gait read **Walk → Trot → Gallop**, the chariot travelled **Z 42.50 → −27.93**
+  (70.4 units down the track, stopped by the arena's own boundary), the chase framing and the wider
+  FOV are visible in the second captured frame, and there were **0 console errors** — the north-end
+  frame is the occlusion recorded above.
+
+- **Not automatically verified.** (1) **The FOV curve as a rendered number** — it is unit-verified
+  (55/65, monotonic, smooth, clamped) but the sandbox's SwiftShader frames cannot be measured for it.
+  (2) **The camera's smoothness and its framing on the target device** — SwiftShader runs the 3D
+  scenes at ~1–2 fps, so the lerp, the launch hand-over and the steering lean were exercised only as
+  a live drive at a coarse frame rate; the device check this addendum leaves open is exactly Slice 2's
+  (the chase camera's smoothness and its framing relative to the carceres block). (3) **The preset
+  prop path with a non-default value** — no settings row exists, so nothing passes `near` or `far`;
+  the presets are unit-verified and the resolver is exercised, but no live run has used one.
+  (4) The preview-call budget was exhausted by the route search, so no cleanup call followed: the
+  preview browser holds the guest profile the app's own `PLAY AS GUEST` path wrote, and the platform's
+  fresh loads clear browser storage anyway.

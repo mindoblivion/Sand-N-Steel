@@ -186,32 +186,17 @@ export const CHARIOT_MOVEMENT = {
 } as const;
 
 /**
- * The chase camera's own constants — this slice's one camera behaviour: a lerped
- * follow behind the chariot, with the look point carried ahead of it.
+ * The chase camera's constants are NOT here: they live in `chaseCamera.ts`.
  *
- * They live here rather than in the scene for the same reason Slice 1 kept both
- * race poses in the layout module: so the suite can pin them.
- *
- * `height` is high on purpose, and measured.  The carceres block stands 2.18
- * high immediately SOUTH of the start line (`Travertine_25` 1.900 plus its
- * coping `Marble_26`, at Z 43.800 … 46.000 — see `circusDistrictGeometry.ts`),
- * and a chase camera sits south of the chariot by definition, so any sight line
- * to the 1.335-high model must clear that corner.  At `distance` 7.5 and
- * `height` 6.6 the line to the model's top passes that corner at 2.25, i.e. 0.07
- * clear, while the look-ahead keeps the frame's own pitch at a normal 24.5°.
+ * Slice 2 kept them in this file only for as long as they were its one camera
+ * behaviour, pinned beside the motion they followed.  The surveyed standard has
+ * since given the camera a surface of its own — a speed-coupled FOV, three
+ * distance presets, the look-ahead formula and the rest framing at the start
+ * line — so the camera moved to a module of its own and this one holds the
+ * chariot's MOTION and nothing else.  Nothing below changed: no speed, rate,
+ * radius, duration or boundary behaves differently, and the camera module reads
+ * the speed fraction from this file rather than restating it.
  */
-export const CHARIOT_CHASE_CAMERA = {
-  /** How far behind the chariot the camera sits. */
-  distance: 7.5,
-  /** Camera height above the chariot's own plane. */
-  height: 6.6,
-  /** How far ahead of the chariot the look point is carried. */
-  lookAhead: 5,
-  /** Height of that look point. */
-  lookHeight: 0.9,
-  /** Follow rate (1/s): `1 − e^(−rate·dt)` is the per-frame blend, so it is frame-rate independent. */
-  followRate: 5,
-} as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. The motion state

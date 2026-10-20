@@ -13,7 +13,6 @@ import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../util
 import { CHARIOT_MODEL_SCALE, CHARIOT_MODEL_URL } from '../../utils/chariotGeometry';
 import { CIRCUS_RACE_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry';
 import {
-  CHARIOT_CHASE_CAMERA,
   CHARIOT_MOVEMENT,
   CHARIOT_MODEL_YAW_OFFSET,
   advanceChariot,
@@ -26,6 +25,14 @@ import {
   trackChariotLaunch,
 } from '../../utils/chariotMovement';
 import type { ChariotInput, ChariotLaunchQuality, ChariotMotion } from '../../utils/chariotMovement';
+import {
+  CHARIOT_CHASE_CAMERA,
+  chaseFovForSpeed,
+  composeChasePose,
+  createChasePose,
+  resolveChaseDistancePreset,
+} from '../../utils/chaseCamera';
+import type { ChaseDistancePreset } from '../../utils/chaseCamera';
 import {
   COUNTDOWN_STEPS,
   GO_DISPLAY_MS,
@@ -96,6 +103,20 @@ import type { CountdownStep, RaceState } from '../../utils/raceState';
  * a labelled pace bar — never as bare digits — and the race clock stays Slice 1's
  * mm:ss.t, whose origin is the state machine's own transition into `racing`.
  *
+ * ── The chase camera, at the surveyed standard (Slice 2's addendum) ───────
+ * Slice 2's rig, following what `utils/chaseCamera.ts` hands it: a 55° vertical
+ * FOV at rest widening smoothly to a capped 65° with speed, the Standard
+ * distance/height preset behind the chariot (Near and Far are presets of the same
+ * named config, and the settings row that will offer them attaches through the
+ * `chaseDistancePreset` prop — no UI here), and a look point carried
+ * `4 + 0.9 × speed` ahead along the heading, leaned into the active steering
+ * input.  At the start line, at rest, that pose IS Slice 1's measured start
+ * composition, so the framed start is unchanged and the take-over at GO is
+ * continuous with the countdown's static camera; the module holds that framing
+ * while the chariot is still at the line and slow, because the Standard framing is
+ * measurably blind there — the carceres block stands between an 8.5-behind,
+ * 3.4-high camera and the model until the chariot is clear of it.
+ *
  * ── Clean Start ───────────────────────────────────────────────────────────
  * A MODIFIER, not a sixth state: holding the throttle during the countdown builds
  * the visible rev on the throttle control, releasing it inside the launch's
@@ -116,6 +137,15 @@ export interface RaceSceneProps {
   onAbort: () => void;
   /** Lefty Mode: the whole touch cluster mirrors as one unit. */
   isLeftyMode?: boolean;
+  /**
+   * The chase distance preset (the camera addendum): `near`, `standard` or
+   * `far`.  **This is where the settings row attaches** — the value goes through
+   * `resolveChaseDistancePreset`, which falls back to the config's Standard for a
+   * missing or unknown name, so today's callers pass nothing and get Standard.
+   * No settings UI exists yet, and no settings module is read: see
+   * `utils/chaseCamera.ts`.
+   */
+  chaseDistancePreset?: ChaseDistancePreset;
 }
 
 // Preload the chariot at module import (the EastCircusArena pattern).  The
@@ -164,21 +194,46 @@ const FIRST_RACE_HINT_MS = 7000;
 let hasRacedThisSession = false;
 
 /**
- * The chase camera, while racing — this slice's one camera behaviour.  It starts
- * from its own pose on the first `racing` frame (the static race framing stands
- * south-east of the start line and cannot see over the 2.18-high carceres block,
- * which is why Slice 1 placed it there; a chase view has to be taken over, not
- * blended into) and then lerps toward a pose behind the chariot with its look
- * point carried ahead along the heading.  The blend uses `1 − e^(−rate·dt)`, so
- * the follow is identical at 30 and 120 fps, and `dt` is clamped at the movement
- * module's own frame limit, so a stalled tab cannot make the camera jump.
+ * The chase camera, while racing — the surveyed standard (the camera addendum),
+ * and this scene's one camera behaviour.
+ *
+ * The rig is Slice 2's and its smoothing is unchanged: it takes its pose on the
+ * first `racing` frame and then lerps toward the desired one with
+ * `1 − e^(−rate·dt)`, so the follow is identical at 30 and 120 fps, and `dt` is
+ * clamped at the movement module's own frame limit, so a stalled tab cannot make
+ * the camera jump.  What changed is WHAT it follows, and how much of the frame
+ * the camera has:
+ *
+ *   • the FOV is the survey's — `chaseFovForSpeed` reads the chariot's own speed
+ *     fraction, widens 55° → a capped 65° as it gets going and settles back as it
+ *     slows (see `utils/chaseCamera.ts`);
+ *   • the pose is the preset framing behind the chariot (`standard` by default),
+ *     with the look point carried `4 + 0.9 × speed` ahead along the heading and
+ *     leaned into the active steering input (`input.steer`, +1 the driver's
+ *     right — the same merged value the movement module is driven with);
+ *   • and at the start line, at rest, that pose IS Slice 1's measured start
+ *     composition, so the take-over at GO is continuous with the countdown's
+ *     static camera instead of a snap and the chariot and the closed carceres
+ *     read exactly as Slice 1 framed them.  The eased hand-over exists because
+ *     the Standard framing is measurably blind there: the carceres block sits
+ *     between an 8.5-behind, 3.4-high camera and the model until the chariot is
+ *     2.18 clear of it.
+ *
+ * The desired pose is written into one preallocated object, so a frame allocates
+ * nothing beyond what the rig already did.
  */
-const RaceCameraRig: React.FC<{ motion: ChariotMotion; raceState: RaceState }> = ({
-  motion,
-  raceState,
-}) => {
-  const { camera } = useThree();
+const RaceCameraRig: React.FC<{
+  motion: ChariotMotion;
+  input: ChariotInput;
+  raceState: RaceState;
+  preset: ChaseDistancePreset;
+}> = ({ motion, input, raceState, preset }) => {
+  const { camera: activeCamera } = useThree();
+  // r3f types the Canvas camera as the Camera union; this scene mounts the
+  // perspective one, whose FOV the survey drives.
+  const camera = activeCamera as THREE.PerspectiveCamera;
   const look = useRef({ x: RACE_CAMERA_TARGET[0], y: RACE_CAMERA_TARGET[1], z: RACE_CAMERA_TARGET[2] });
+  const pose = useRef(createChasePose());
   const following = useRef(false);
 
   useEffect(() => {
@@ -188,6 +243,8 @@ const RaceCameraRig: React.FC<{ motion: ChariotMotion; raceState: RaceState }> =
       RACE_CAMERA_POSITION[1],
       RACE_CAMERA_POSITION[2]
     );
+    camera.fov = CHARIOT_CHASE_CAMERA.fovAtRest;
+    camera.updateProjectionMatrix();
     camera.lookAt(RACE_CAMERA_TARGET[0], RACE_CAMERA_TARGET[1], RACE_CAMERA_TARGET[2]);
     look.current.x = RACE_CAMERA_TARGET[0];
     look.current.y = RACE_CAMERA_TARGET[1];
@@ -199,30 +256,33 @@ const RaceCameraRig: React.FC<{ motion: ChariotMotion; raceState: RaceState }> =
     if (raceState !== 'racing') return;
 
     const dt = Math.min(delta, CHARIOT_MOVEMENT.maxFrameDt);
-    const forwardX = -Math.sin(motion.heading);
-    const forwardZ = -Math.cos(motion.heading);
-    const desiredX = motion.x - forwardX * CHARIOT_CHASE_CAMERA.distance;
-    const desiredZ = motion.z - forwardZ * CHARIOT_CHASE_CAMERA.distance;
-    const lookX = motion.x + forwardX * CHARIOT_CHASE_CAMERA.lookAhead;
-    const lookZ = motion.z + forwardZ * CHARIOT_CHASE_CAMERA.lookAhead;
+    const desired = composeChasePose(pose.current, motion, input.steer, preset);
+
+    // The survey's FOV: a pure reading of the current speed, so it settles back
+    // as the chariot slows.  The projection matrix is rebuilt only when it moves.
+    const fov = chaseFovForSpeed(motion.speed);
+    if (fov !== camera.fov) {
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
 
     if (!following.current) {
-      camera.position.set(desiredX, CHARIOT_CHASE_CAMERA.height, desiredZ);
-      look.current.x = lookX;
-      look.current.y = CHARIOT_CHASE_CAMERA.lookHeight;
-      look.current.z = lookZ;
+      camera.position.set(desired.x, desired.y, desired.z);
+      look.current.x = desired.lookX;
+      look.current.y = desired.lookY;
+      look.current.z = desired.lookZ;
       following.current = true;
       camera.lookAt(look.current.x, look.current.y, look.current.z);
       return;
     }
 
     const alpha = 1 - Math.exp(-CHARIOT_CHASE_CAMERA.followRate * dt);
-    camera.position.x += (desiredX - camera.position.x) * alpha;
-    camera.position.y += (CHARIOT_CHASE_CAMERA.height - camera.position.y) * alpha;
-    camera.position.z += (desiredZ - camera.position.z) * alpha;
-    look.current.x += (lookX - look.current.x) * alpha;
-    look.current.y += (CHARIOT_CHASE_CAMERA.lookHeight - look.current.y) * alpha;
-    look.current.z += (lookZ - look.current.z) * alpha;
+    camera.position.x += (desired.x - camera.position.x) * alpha;
+    camera.position.y += (desired.y - camera.position.y) * alpha;
+    camera.position.z += (desired.z - camera.position.z) * alpha;
+    look.current.x += (desired.lookX - look.current.x) * alpha;
+    look.current.y += (desired.lookY - look.current.y) * alpha;
+    look.current.z += (desired.lookZ - look.current.z) * alpha;
     camera.lookAt(look.current.x, look.current.y, look.current.z);
   });
 
@@ -356,7 +416,11 @@ const RaceGaitReadout: React.FC<{ motion: ChariotMotion }> = ({ motion }) => {
   );
 };
 
-export const RaceScene: React.FC<RaceSceneProps> = ({ onAbort, isLeftyMode = false }) => {
+export const RaceScene: React.FC<RaceSceneProps> = ({
+  onAbort,
+  isLeftyMode = false,
+  chaseDistancePreset,
+}) => {
   const [raceState, setRaceState] = useState<RaceState>(RACE_INITIAL_STATE);
   const [countdownStep, setCountdownStep] = useState<CountdownStep | null>(COUNTDOWN_STEPS[0]);
   const [showGo, setShowGo] = useState(false);
@@ -567,7 +631,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({ onAbort, isLeftyMode = fal
             shadows
             frameloop={frameloopMode}
             dpr={[1, 2]}
-            camera={{ position: RACE_CAMERA_POSITION, fov: 50, near: 0.1, far: 160 }}
+            camera={{ position: RACE_CAMERA_POSITION, fov: CHARIOT_CHASE_CAMERA.fovAtRest, near: 0.1, far: 160 }}
             gl={{ antialias: false, powerPreference: 'high-performance' }}
             onCreated={(state) => {
               logCanvasWebGLCreated(state.gl, 'CircusRace');
@@ -615,7 +679,12 @@ export const RaceScene: React.FC<RaceSceneProps> = ({ onAbort, isLeftyMode = fal
               </Suspense>
             </ThreeComponentErrorBoundary>
 
-            <RaceCameraRig motion={motion} raceState={raceState} />
+            <RaceCameraRig
+              motion={motion}
+              input={input}
+              raceState={raceState}
+              preset={resolveChaseDistancePreset(chaseDistancePreset)}
+            />
           </Canvas>
         </WebGLContextErrorBoundary>
       </WebGLReadyGuard>

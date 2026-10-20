@@ -35,7 +35,6 @@ import { readFileSync } from 'node:fs';
 
 import {
   CHARIOT_BOUNDARY_PROBES,
-  CHARIOT_CHASE_CAMERA,
   CHARIOT_DRIVEABLE_OUTLINE,
   CHARIOT_MODEL_FORWARD,
   CHARIOT_MODEL_YAW_OFFSET,
@@ -166,11 +165,12 @@ describe('A. The configuration', () => {
     expect(START_HEADING + CHARIOT_MODEL_YAW_OFFSET).toBe(0);
   });
 
-  test('the chase camera is one behaviour with a positive follow rate', () => {
-    expect(CHARIOT_CHASE_CAMERA.distance).toBeGreaterThan(0);
-    expect(CHARIOT_CHASE_CAMERA.height).toBeGreaterThan(0);
-    expect(CHARIOT_CHASE_CAMERA.lookAhead).toBeGreaterThan(0);
-    expect(CHARIOT_CHASE_CAMERA.followRate).toBeGreaterThan(0);
+  test('the chase camera is not this module’s — it lives in chaseCamera.ts', () => {
+    // this file is the chariot's MOTION: the camera's constants, its FOV mapping
+    // and its presets moved to `chaseCamera.ts` with the surveyed standard, and
+    // that module's own suite pins their values.
+    expect(moduleCode).not.toContain('CHARIOT_CHASE_CAMERA');
+    expect(moduleCode).not.toContain('camera');
   });
 
   test('the module is pure: no renderer, no DOM and no storage', () => {
