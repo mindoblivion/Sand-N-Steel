@@ -163,7 +163,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
             {didWin ? <Trophy className="w-8 h-8 text-yellow-400" /> : <Skull className="w-8 h-8 text-red-400" />}
           </div>
 
-          <h3 className="font-serif font-black text-3xl sm:text-4xl uppercase tracking-wider mb-1">
+          <h3 className="anim-stamp font-serif font-black text-3xl sm:text-4xl uppercase tracking-wider mb-1">
             {didWin ? 'VICTORY!' : 'DEFEAT'}
           </h3>
           <p className="text-xs font-serif text-neutral-400">
@@ -264,7 +264,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
 
         <button
           onClick={onContinue}
-          className={`w-full py-4 rounded-2xl font-serif font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${
+          className={`btn-press w-full py-4 rounded-2xl font-serif font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl flex items-center justify-center gap-2 ${
             didWin
               ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 text-neutral-950 border border-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.5)]'
               : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-600'

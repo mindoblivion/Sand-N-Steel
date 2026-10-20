@@ -273,7 +273,7 @@ canvas {
   --stagger-step: 45ms;
   /* Easings: decelerating, symmetric in-out, accelerating, and the spring. */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-inout: cubic-bezier(0.65, 0, 0.35, 0);
+  --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
   --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 }
@@ -284,19 +284,19 @@ canvas {
    way. No attribute — or an origin this vocabulary does not name — is the bottom
    variant, the modal case. */
 @keyframes anim-panel-in {
-  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.985); }
+  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.97); }
   to   { opacity: 1; transform: none; }
 }
 @keyframes anim-panel-in-top {
-  from { opacity: 0; transform: translate3d(0, -10px, 0) scale(0.985); }
+  from { opacity: 0; transform: translate3d(0, -12px, 0) scale(0.97); }
   to   { opacity: 1; transform: none; }
 }
 @keyframes anim-panel-in-left {
-  from { opacity: 0; transform: translate3d(-14px, 0, 0) scale(0.985); }
+  from { opacity: 0; transform: translate3d(-12px, 0, 0) scale(0.97); }
   to   { opacity: 1; transform: none; }
 }
 @keyframes anim-panel-in-right {
-  from { opacity: 0; transform: translate3d(14px, 0, 0) scale(0.985); }
+  from { opacity: 0; transform: translate3d(12px, 0, 0) scale(0.97); }
   to   { opacity: 1; transform: none; }
 }
 @keyframes anim-panel-in-center {
@@ -338,27 +338,30 @@ canvas {
 }
 
 /* ── Stamp ── a verdict landing: it arrives oversized and settles, the spring's
-   overshoot taken on the way. Reduced motion turns it into a plain fade by
-   swapping the spring for the ease-out curve. */
+   overshoot taken on the way, over the ceremony beat. Reduced motion turns it into
+   a plain fade by swapping the spring for the ease-out curve. */
 @keyframes anim-stamp-in {
   0%   { opacity: 0; transform: scale(1.3); }
   60%  { opacity: 1; transform: scale(0.97); }
   100% { opacity: 1; transform: scale(1); }
 }
 .anim-stamp {
-  animation: anim-stamp-in var(--dur-panel) var(--ease-spring) both;
+  animation: anim-stamp-in var(--dur-ceremony) var(--ease-spring) both;
 }
 
-/* ── Press feedback ── the press of a button, on the press token. The transition
-   names its three properties (never `transition-all`); reduced motion swaps the
-   scale for an opacity flash below rather than taking the feedback away. */
+/* ── Press feedback ── the press of a button. The transition names its three
+   properties (never `transition-all`) and splits its durations: the base rule
+   releases on `--dur-micro`, the `:active` rule presses in on `--dur-press`, so the
+   downstroke is the quicker of the two. Reduced motion swaps the scale for an
+   opacity flash below rather than taking the feedback away. */
 .btn-press {
   transition-property: transform, opacity, color;
-  transition-duration: var(--dur-press);
+  transition-duration: var(--dur-micro);
   transition-timing-function: var(--ease-out);
 }
 .btn-press:active {
-  transform: scale(0.97);
+  transform: scale(0.95);
+  transition-duration: var(--dur-press);
 }
 
 /* ── Reduced motion, path 1: the player's own setting ── App mirrors a chosen
