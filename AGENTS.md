@@ -5189,3 +5189,36 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   SwiftShader at ~1–2 fps (the duel-mount attempt timed out at 30 s), so neither the paid figure nor
   the breakdown rows were seen rendered. They are pinned by the suite above; confirm by winning one
   Colosseum duel on a device.
+
+## CORR-2 — the three unlanded story gates as pending (C-1; implemented)
+
+- **What shipped.** `StoryPendingKind` gained a third member, `'beat'`, with its own authored pending
+  line `PENDING_GATE_LINES.beat` = "That hour has not been written yet." Three design gates that were
+  absent from the chapter table are now present as pending, in their chapters: `doctore-test` in
+  Chapter 1 (First Sand), `vexus-race` in Chapter 4 (The Vulture's Wheel, beside the pending
+  `league-promotion` gate) and `statue-ceremony` in Chapter 7 (Legend). Each is authored through the
+  same `pendingGate()` helper the race gates use, so the day its beat lands the entry becomes a
+  `{ id, requirement, confirmation, met }` gate in one line — no table restructuring, no new field.
+- **The rules did not move.** Pending still never blocks: a chapter closes when every gate whose
+  evidence can exist is met, so Chapters 1, 4 and 7 close exactly as before and the Legend state
+  stays reachable (`complete` true with the statue ceremony pending). No gate reads evidence that
+  does not exist — no profile field, writer, threshold, chapter or save was added or changed, and
+  the resolver stays pure and writes nothing. The only existing assertion that moved is §B6's gate
+  list for Chapter 7 (`['met']` → `['met', 'pending']`), because the chapter now carries its
+  ceremony beat; nothing was weakened.
+- **Regression suite: `src/utils/storyState.test.ts` §G** — G1 the three gates exist in their
+  chapters with `pendingKind: 'beat'` and `state: 'pending'`; G2 each renders
+  `PENDING_GATE_LINES.beat` through `storyGateLine`, and the card prints that line (never the
+  requirement it stands in for); G3 a profile meeting every available gate still closes Chapters 1,
+  4 and 7 (Legend complete); G4 pending gates are never `'unmet'` and a fresh profile is still held
+  at Chapter 0.
+- **Verified 2026-10-20** in the dev container: `bun test src/utils/storyState.test.ts` → 38 pass /
+  0 fail (227 expect() calls); `bun test` → 2404 pass / 0 fail (79 files, 79155 expect() calls);
+  `bun run scripts/collisionTests.ts` → 123 passed, 0 failed; `bun run lint` (`tsc --noEmit`) → exit
+  0; `bun run build` → exit 0; `git diff --check` → clean.
+- **Not automatically verified — the card's live appearance.** The campaign card is rendered through
+  `renderToStaticMarkup` in §G2 (the beat line, `data-state="pending"`, `data-story-gate="doctore-test"`,
+  requirement never printed), but the running hub was not re-walked: it renders at ~2 fps through
+  SwiftShader and the library view was last reached under the STORY-1 budget. The card's on-screen
+  look with the added rows is a device (Android) check, together with the open C-8.28/C-8.29/
+  C-8.31/C-8.33/C-8.38/C-8.41 items.
