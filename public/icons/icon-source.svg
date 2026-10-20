@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Sand &amp; Steel gladius and laurel">
+  <!-- Sand & Steel - the gladius-and-laurel device on deep stone.
+       Master artwork for the installable web app icons. The PNG rasters are
+       generated from this file, so the art can be replaced later without
+       touching code:
+         rsvg-convert -w 512 -h 512 icon-source.svg -o icon-512.png
+         rsvg-convert -w 512 -h 512 icon-source.svg -o icon-maskable-512.png
+         rsvg-convert -w 192 -h 192 icon-source.svg -o icon-192.png
+         rsvg-convert -w 180 -h 180 icon-source.svg -o apple-touch-icon.png
+       Every drawn point stays inside a centred circle of 80% of the canvas,
+       so the one mark is safe for both "any" and "maskable" icons. -->
+  <defs>
+    <radialGradient id="stone" cx="50%" cy="42%" r="78%">
+      <stop offset="0" stop-color="#1d1917"/>
+      <stop offset="0.6" stop-color="#141110"/>
+      <stop offset="1" stop-color="#0c0a09"/>
+    </radialGradient>
+    <linearGradient id="bronze" gradientUnits="userSpaceOnUse" x1="0" y1="60" x2="0" y2="456">
+      <stop offset="0" stop-color="#f6d27a"/>
+      <stop offset="0.5" stop-color="#c9902f"/>
+      <stop offset="1" stop-color="#8a5a16"/>
+    </linearGradient>
+    <linearGradient id="steel" gradientUnits="userSpaceOnUse" x1="228" y1="0" x2="284" y2="0">
+      <stop offset="0" stop-color="#6f7b88"/>
+      <stop offset="0.42" stop-color="#eef3f8"/>
+      <stop offset="0.62" stop-color="#b9c4cf"/>
+      <stop offset="1" stop-color="#5f6a76"/>
+    </linearGradient>
+    <linearGradient id="grip" gradientUnits="userSpaceOnUse" x1="238" y1="0" x2="274" y2="0">
+      <stop offset="0" stop-color="#4a2a12"/>
+      <stop offset="0.5" stop-color="#8a5524"/>
+      <stop offset="1" stop-color="#3a2010"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#stone)"/>
+  <circle cx="256" cy="256" r="206" fill="#131110" opacity="0.78"/>
+  <circle cx="256" cy="256" r="206" fill="none" stroke="#2a2320" stroke-width="2"/>
+  <g stroke="url(#bronze)" stroke-width="7" stroke-linecap="round" fill="none">
+    <path d="M230.3 401.8 L214.6 398.1 L199.5 392.8 L184.9 385.8 L171.3 377.3 L158.6 367.4 L147.1 356.2 L136.9 343.8 L128.0 330.3 L120.7 316.0 L115.0 301.0 L111.0 285.4 L108.6 269.5 L108.0 253.4 L109.2 237.4 L112.1 221.5 L116.7 206.1 L122.9 191.3 L130.7 177.2 L140.0 164.1 L150.6 152.1 L162.6 141.2 L175.6 131.8 L189.5 123.8 L204.3 117.3 L219.6 112.5 L235.4 109.4"/>
+    <path d="M281.7 401.8 L297.4 398.1 L312.5 392.8 L327.1 385.8 L340.7 377.3 L353.4 367.4 L364.9 356.2 L375.1 343.8 L384.0 330.3 L391.3 316.0 L397.0 301.0 L401.0 285.4 L403.4 269.5 L404.0 253.4 L402.8 237.4 L399.9 221.5 L395.3 206.1 L389.1 191.3 L381.3 177.2 L372.0 164.1 L361.4 152.1 L349.4 141.2 L336.4 131.8 L322.5 123.8 L307.7 117.3 L292.4 112.5 L276.6 109.4"/>
+  </g>
+  <!-- laurel leaves -->
+    <g transform="translate(230.3 401.8) rotate(128.0) scale(0.682)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(175.1 379.9) rotate(151.1) scale(0.727)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(132.9 338.1) rotate(174.3) scale(0.773)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(110.5 283.2) rotate(197.4) scale(0.818)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(111.5 223.8) rotate(220.6) scale(0.864)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(135.8 169.6) rotate(243.7) scale(0.909)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(179.5 129.3) rotate(266.9) scale(0.955)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(235.4 109.4) rotate(290.0) scale(1.000)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(281.7 401.8) rotate(52.0) scale(0.682)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(336.9 379.9) rotate(28.9) scale(0.727)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(379.1 338.1) rotate(5.7) scale(0.773)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(401.5 283.2) rotate(-17.4) scale(0.818)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(400.5 223.8) rotate(-40.6) scale(0.864)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(376.2 169.6) rotate(-63.7) scale(0.909)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(332.5 129.3) rotate(-86.9) scale(0.955)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+    <g transform="translate(276.6 109.4) rotate(-110.0) scale(1.000)">
+      <path d="M0 0 C12 -12 32 -12 44 0 C32 12 12 12 0 0 Z" fill="url(#bronze)"/>
+      <path d="M9 0 C17 -6 30 -6 38 0 C30 6 17 6 9 0 Z" fill="#fbe0a0" opacity="0.22"/>
+    </g>
+  <!-- laurel tie -->
+  <path d="M248 396 L230 440" stroke="#7f1d1d" stroke-width="11" stroke-linecap="round" fill="none"/>
+  <path d="M264 396 L282 440" stroke="#7f1d1d" stroke-width="11" stroke-linecap="round" fill="none"/>
+  <rect x="226" y="392" width="60" height="20" rx="7" fill="url(#bronze)"/>
+  <rect x="232" y="398" width="48" height="8" rx="4" fill="#6d4712" opacity="0.55"/>
+  <!-- gladius -->
+  <path d="M256 130 C264 152 276 168 282 186 L282 300 L230 300 L230 186 C236 168 248 152 256 130 Z" fill="url(#steel)"/>
+  <path d="M256 152 L256 296" stroke="#ffffff" stroke-width="3" opacity="0.30"/>
+  <path d="M240 190 L240 296" stroke="#ffffff" stroke-width="2" opacity="0.16"/>
+  <path d="M270 190 L270 296" stroke="#0f172a" stroke-width="2" opacity="0.18"/>
+  <rect x="215" y="298" width="82" height="16" rx="8" fill="url(#bronze)"/>
+  <rect x="240" y="314" width="32" height="44" fill="url(#grip)"/>
+  <rect x="238" y="322" width="36" height="3" fill="#2a1608" opacity="0.5"/>
+  <rect x="238" y="332" width="36" height="3" fill="#2a1608" opacity="0.5"/>
+  <rect x="238" y="342" width="36" height="3" fill="#2a1608" opacity="0.5"/>
+  <ellipse cx="256" cy="366" rx="20" ry="14" fill="url(#bronze)"/>
+  <ellipse cx="249" cy="361" rx="6" ry="4" fill="#fde9b0" opacity="0.35"/>
+</svg>
