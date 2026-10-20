@@ -4273,7 +4273,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
      idempotent. The TIER CONTENTS are deliberately unchanged in this slice: both stages read the same
      `CORE_3D_ASSETS` list, so what a later slice's tier split decides is what is fetched and when the
      fetch starts — not what this slice ships.
-  8. **The title's audio beat** (`src/audio/titleAudio.ts`) and **the title's phase** 
+  8. **The title's audio beat** (`src/audio/titleAudio.ts`) and **the title's phase**
      (`src/hooks/useTitlePhaseBackdrop.ts`) — the title paints silent and unlocks its motif on the
      first tap anywhere; the phase backdrop resolves through ONE named function that returns the dawn
      variant today, so START-1b replaces its body and nothing else.
