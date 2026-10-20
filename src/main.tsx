@@ -2,6 +2,21 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { dismissBootShell } from './utils/bootShell';
+
+// START-1 — mount the app into #root and hand the inline boot shell over to React.
+//
+// `index.html` paints the boot shell before any bundle exists, so the very first frame
+// and the installed-app splash are the same picture as the title screen's backdrop. Once
+// React has committed its first frame there is nothing left for the shell to cover, so it
+// fades out over the identical art (the `#boot-shell` transition in index.html) and is
+// removed: no blank frame, no white flash, at any point in the sequence.
+function mountRoot(node: React.ReactElement): void {
+  ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(node);
+  // Two frames: React 19 commits asynchronously, and the 300 ms cross-fade covers any
+  // remainder — both layers show the same backdrop, so the hand-over cannot be seen.
+  requestAnimationFrame(() => requestAnimationFrame(() => dismissBootShell()));
+}
 
 // Phase 4 — development-only character test harness. Reachable ONLY in a Vite
 // dev build (import.meta.env.DEV) when the EXACT `?devHarness=character` query
@@ -91,7 +106,7 @@ const useRaceHarness =
 
 if (useColosseumRearHarness) {
   void import('./components/dev/ColosseumRearDiagnostic').then(({ ColosseumRearDiagnostic }) => {
-    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    mountRoot(
       <React.StrictMode>
         <ColosseumRearDiagnostic />
       </React.StrictMode>,
@@ -101,7 +116,7 @@ if (useColosseumRearHarness) {
   // Lazy so the harness module (and its DuelScene chunk) is never even parsed
   // outside this dev+param path.
   void import('./components/dev/CharacterTestHarness').then(({ CharacterTestHarness }) => {
-    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    mountRoot(
       <React.StrictMode>
         <CharacterTestHarness />
       </React.StrictMode>,
@@ -109,7 +124,7 @@ if (useColosseumRearHarness) {
   });
 } else if (useChariotHarness) {
   void import('./components/dev/ChariotWorkshopHarness').then(({ ChariotWorkshopHarness }) => {
-    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    mountRoot(
       <React.StrictMode>
         <ChariotWorkshopHarness />
       </React.StrictMode>,
@@ -117,7 +132,7 @@ if (useColosseumRearHarness) {
   });
 } else if (useRacingHarness) {
   void import('./components/dev/RacingConfigHarness').then(({ RacingConfigHarness }) => {
-    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    mountRoot(
       <React.StrictMode>
         <RacingConfigHarness />
       </React.StrictMode>,
@@ -125,7 +140,7 @@ if (useColosseumRearHarness) {
   });
 } else if (useHorseFitHarness) {
   void import('./components/dev/HorseChariotFitPrototype').then(({ HorseChariotFitPrototype }) => {
-    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    mountRoot(
       <React.StrictMode>
         <HorseChariotFitPrototype />
       </React.StrictMode>,
@@ -133,14 +148,14 @@ if (useColosseumRearHarness) {
   });
 } else if (useRaceHarness) {
   void import('./components/dev/RaceHarness').then(({ RaceHarness }) => {
-    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    mountRoot(
       <React.StrictMode>
         <RaceHarness />
       </React.StrictMode>,
     );
   });
 } else {
-  ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+  mountRoot(
     <React.StrictMode>
       <App />
     </React.StrictMode>,

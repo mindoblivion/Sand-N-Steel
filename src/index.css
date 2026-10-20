@@ -201,3 +201,35 @@ canvas {
     animation: none;
   }
 }
+
+/* ── START-1 WaitSurface ──
+   The waits between destinations carry a destination line, an Acta line and honest
+   progress: a real asset count where the loader knows one, and this indeterminate
+   sweep where it does not. Transform-only (the house motion rule), paused while the
+   tab is hidden, and stilled entirely under prefers-reduced-motion — the Acta line can
+   still be moved on by hand, so nothing is left mid-thought. */
+@keyframes wait-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.wait-sweep {
+  animation: wait-sweep 1.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.wait-anim-paused .wait-sweep {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wait-sweep {
+    animation: none;
+    transform: none;
+    opacity: 0.6;
+  }
+}

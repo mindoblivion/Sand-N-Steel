@@ -1,12 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { PlayerProfile } from '../../types/game';
 import { sounds } from '../../audio/soundEffects';
-import { preloadCoreGameAssets } from '../../utils/preloadAssets';
-import { GoogleSignInButton } from '../ui/GoogleSignInButton';
-import { FacebookSignInButton } from '../ui/FacebookSignInButton';
-import { AppleSignInButton } from '../ui/AppleSignInButton';
-import { MicrosoftSignInButton } from '../ui/MicrosoftSignInButton';
-import { emailSignIn, emailRegister } from '../../services/emailAuth';
+import { armTitleAudioUnlock } from '../../audio/titleAudio';
+import { preloadTapStage } from '../../utils/preloadAssets';
+import { useTitlePhaseBackdrop } from '../../hooks/useTitlePhaseBackdrop';
+import { TITLE_BACKDROP_CLASS } from '../../utils/startupAssets';
+import { TitleAccountPanel } from './TitleAccountPanel';
 
 interface TitleScreenProps {
   savedProfile: PlayerProfile | null;
@@ -65,6 +64,18 @@ const DUST_PARTICLES = [
   { left: 70, size: 1.5, dx: -3, dy: -100, dur: 17, delay: 8, opacity: 0.2 },
 ];
 
+/**
+ * START-1 — the title screen, at the designed hierarchy.
+ *
+ * ONE primary action: Play for a fresh profile, Continue for a returning one. The
+ * account form and every OAuth button sit behind a single "Account" entry, so nothing
+ * asks for input before the player has chosen to give it.
+ *
+ * The backdrop is the shared `.title-backdrop` rule (WebP primary, PNG fallback) that
+ * `index.html` also paints as the boot shell, so the splash → title hand-off shows the
+ * same picture twice rather than a blank frame between them. The phase it is painted in
+ * comes from `useTitlePhaseBackdrop` — the dawn variant today, the real resolver later.
+ */
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   savedProfile,
   onContinueAdventure,
@@ -83,19 +94,21 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   isMicrosoftLoading,
   onEmailSignIn,
 }) => {
-  // Email/password auth state (inline section above the guest button)
-  const [emailMode, setEmailMode] = useState<'signin' | 'register'>('signin');
-  const [emailVal, setEmailVal] = useState('');
-  const [passwordVal, setPasswordVal] = useState('');
-  const [confirmPasswordVal, setConfirmPasswordVal] = useState('');
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [isEmailLoading, setIsEmailLoading] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
 
-  // Guards against double-fire if the user clicks multiple controls in quick succession.
+  // Guards against double-fire if the player taps the primary action twice quickly.
   const startedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const handlePlayAsGuest = async () => {
+  // START-1b resolves the real phase here; today this is the dawn variant.
+  const phase = useTitlePhaseBackdrop();
+
+  /**
+   * The ONE primary action. A returning gladiator continues; a fresh one starts
+   * creation. Unchanged from the tap-to-start behaviour it replaces, except that the
+   * preload it triggers is now stage 2 (stage 1 ran when the title mounted).
+   */
+  const handlePrimaryAction = async () => {
     if (startedRef.current) return;
     startedRef.current = true;
 
@@ -109,57 +122,25 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
     }
 
     sounds.playClick();
-    preloadCoreGameAssets();
+    preloadTapStage();
 
     if (savedProfile) onContinueAdventure();
     else onNewCharacter();
   };
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setEmailError(null);
-
-    if (!emailVal.trim() || !passwordVal) {
-      setEmailError('Please enter your email and password.');
-      return;
-    }
-    if (emailMode === 'register' && passwordVal !== confirmPasswordVal) {
-      setEmailError('Passwords do not match.');
-      return;
-    }
-    if (emailMode === 'register' && passwordVal.length < 6) {
-      setEmailError('Password must be at least 6 characters.');
-      return;
-    }
-
-    setIsEmailLoading(true);
-    try {
-      if (emailMode === 'register') {
-        await emailRegister(emailVal.trim(), passwordVal);
-      } else {
-        await emailSignIn(emailVal.trim(), passwordVal);
-      }
-      sounds.playClick();
-      onEmailSignIn();
-    } catch (err: any) {
-      const code = err?.code ?? '';
-      if (code === 'auth/email-already-in-use') {
-        setEmailError('An account with this email already exists.');
-      } else if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
-        setEmailError('Incorrect email or password.');
-      } else if (code === 'auth/invalid-email') {
-        setEmailError('Invalid email address.');
-      } else if (code === 'auth/weak-password') {
-        setEmailError('Password is too weak. Use at least 6 characters.');
-      } else if (code === 'auth/network-request-failed') {
-        setEmailError('Network error. Check your connection.');
-      } else {
-        setEmailError(err?.message ?? 'Authentication failed. Please try again.');
-      }
-    } finally {
-      setIsEmailLoading(false);
-    }
+  const handleOpenAccount = () => {
+    sounds.playClick();
+    setIsAccountOpen(true);
   };
+
+  const handleCloseAccount = () => {
+    sounds.playClick();
+    setIsAccountOpen(false);
+  };
+
+  // Audio beat: the title paints silent, and the player's first tap anywhere unlocks
+  // audio with the title motif as the first sound. Re-arms after any interruption.
+  useEffect(() => armTitleAudioUnlock(), []);
 
   // Pause CSS animations when the tab is hidden; resume when visible.
   useEffect(() => {
@@ -172,29 +153,26 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, []);
 
+  const primaryLabel = savedProfile ? 'Continue' : 'Play';
+
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full min-h-screen flex flex-col items-center justify-center overflow-hidden"
-      style={{
-        backgroundImage: 'url(/title_screen.png)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }}
+      data-title-phase={phase.id}
+      className={`${TITLE_BACKDROP_CLASS} relative w-full h-full min-h-screen flex flex-col items-center justify-center overflow-hidden`}
     >
-        {/* Subtle darkening for readability */}
+        {/* Subtle darkening for readability — the same layer the boot shell paints. */}
         <div className="absolute inset-0 bg-black/20"></div>
 
         {/* ── Path A atmospheric overlays (pointer-events: none, CSS-only) ── */}
 
+        {/* The phase's own light. Dawn today; START-1b swaps in the resolved phase. */}
+        <div className="absolute inset-0 pointer-events-none" style={{ background: phase.tint }} />
+
         {/* Warm light pulse — slow radial glow, like sunlight through the Colosseum */}
         <div
           className="title-warm-light absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(ellipse 55% 45% at 50% 22%, rgba(255,180,80,0.35) 0%, transparent 70%)',
-          }}
+          style={{ background: phase.warmLightGradient }}
         />
 
         {/* Fluttering flag banners — positioned along upper Colosseum structure */}
@@ -240,90 +218,25 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           ))}
         </div>
 
-        {/* Email/password sign-in section — separate, above the guest button */}
-        <form
-          onSubmit={handleEmailSubmit}
-          className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1.5 w-[260px]"
-          style={{ bottom: '23%' }}
-        >
-          {/* Mode toggle */}
-          <div className="flex gap-3 mb-0.5 font-serif text-xs uppercase tracking-wider">
-            <button
-              type="button"
-              onClick={() => { sounds.playClick(); setEmailMode('signin'); setEmailError(null); setConfirmPasswordVal(''); }}
-              className={emailMode === 'signin' ? 'text-amber-300 underline' : 'text-amber-700/70'}
-            >
-              Sign In
-            </button>
-            <span className="text-amber-700/50">|</span>
-            <button
-              type="button"
-              onClick={() => { sounds.playClick(); setEmailMode('register'); setEmailError(null); }}
-              className={emailMode === 'register' ? 'text-amber-300 underline' : 'text-amber-700/70'}
-            >
-              Register
-            </button>
-          </div>
-
-          <input
-            type="email"
-            placeholder="Email"
-            value={emailVal}
-            onChange={(e) => setEmailVal(e.target.value)}
-            autoComplete="email"
-            className="w-full px-3 py-2 rounded-lg bg-black/55 border border-[#8b2a2a]/40 text-amber-50 placeholder-amber-700/60 text-xs focus:outline-none focus:border-amber-600/60 transition-colors"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={passwordVal}
-            onChange={(e) => setPasswordVal(e.target.value)}
-            autoComplete={emailMode === 'signin' ? 'current-password' : 'new-password'}
-            className="w-full px-3 py-2 rounded-lg bg-black/55 border border-[#8b2a2a]/40 text-amber-50 placeholder-amber-700/60 text-xs focus:outline-none focus:border-amber-600/60 transition-colors"
-          />
-          {emailMode === 'register' && (
-            <input
-              type="password"
-              placeholder="Confirm Password"
-              value={confirmPasswordVal}
-              onChange={(e) => setConfirmPasswordVal(e.target.value)}
-              autoComplete="new-password"
-              className="w-full px-3 py-2 rounded-lg bg-black/55 border border-[#8b2a2a]/40 text-amber-50 placeholder-amber-700/60 text-xs focus:outline-none focus:border-amber-600/60 transition-colors"
-            />
-          )}
-
-          {emailError && (
-            <p className="text-red-400 text-[10px] text-center leading-tight">{emailError}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={isEmailLoading}
-            className="w-full px-5 py-2 rounded-full font-serif font-bold text-xs uppercase tracking-wider text-amber-50 bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] hover:from-[#5c1010] hover:to-[#7a2020] shadow-[0_0_15px_rgba(107,26,26,0.5)] border border-[#8b2a2a]/60 active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait"
-          >
-            {isEmailLoading
-              ? 'Please wait…'
-              : emailMode === 'signin'
-                ? 'Sign In'
-                : 'Create Account'}
-          </button>
-        </form>
-
-        {/* "Play as Guest" button — positioned over the baked "PRESS TO START" artwork */}
-        <div
-          className="absolute left-1/2 -translate-x-1/2 z-10"
-          style={{ bottom: '14%' }}
-          onClick={(e) => {
-            e.stopPropagation();
-            startedRef.current = true;
-          }}
-        >
+        {/* THE ONE PRIMARY ACTION — positioned over the baked "PRESS TO START" artwork */}
+        <div className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center" style={{ bottom: '14%' }}>
           <button
             type="button"
-            onClick={handlePlayAsGuest}
-            className="px-8 py-3 rounded-full font-serif font-bold text-sm uppercase tracking-wider text-amber-50 bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] hover:from-[#5c1010] hover:to-[#7a2020] shadow-[0_0_20px_rgba(107,26,26,0.5)] border border-[#8b2a2a]/60 active:scale-95 transition-all cursor-pointer"
+            data-title-action={savedProfile ? 'continue' : 'play'}
+            onClick={handlePrimaryAction}
+            className="px-10 py-3.5 rounded-full font-serif font-bold text-base uppercase tracking-[0.2em] text-amber-50 bg-gradient-to-r from-[#4a0d0d] via-[#6b1a1a] to-[#4a0d0d] hover:from-[#5c1010] hover:to-[#7a2020] shadow-[0_0_20px_rgba(107,26,26,0.5)] border border-[#8b2a2a]/60 active:scale-95 transition-all cursor-pointer"
           >
-            Play as Guest
+            {primaryLabel}
+          </button>
+
+          {/* The single Account entry — every sign-in path lives behind it. */}
+          <button
+            type="button"
+            data-title-action="account"
+            onClick={handleOpenAccount}
+            className="mt-4 px-4 py-1.5 rounded-full font-serif text-[11px] uppercase tracking-[0.25em] text-amber-200/80 border border-amber-800/40 hover:text-amber-100 hover:border-amber-600/60 transition-colors cursor-pointer"
+          >
+            Account
           </button>
         </div>
 
@@ -332,29 +245,22 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           Alpha 1.0
         </div>
 
-        {/* Social sign-in icons — stay at bottom */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-row items-center gap-3">
-          <GoogleSignInButton
-            onClick={onGoogleSignIn}
-            isLoading={isGoogleLoading}
-            compact
+        {/* The account panel: the existing auth screen and the existing social
+            buttons, mounted unchanged, only once the player asks for them. */}
+        {isAccountOpen && (
+          <TitleAccountPanel
+            onClose={handleCloseAccount}
+            onGoogleSignIn={onGoogleSignIn}
+            isGoogleLoading={isGoogleLoading}
+            onFacebookSignIn={onFacebookSignIn}
+            isFacebookLoading={isFacebookLoading}
+            onAppleSignIn={onAppleSignIn}
+            isAppleLoading={isAppleLoading}
+            onMicrosoftSignIn={onMicrosoftSignIn}
+            isMicrosoftLoading={isMicrosoftLoading}
+            onEmailSignIn={onEmailSignIn}
           />
-          <FacebookSignInButton
-            onClick={onFacebookSignIn}
-            isLoading={isFacebookLoading}
-            compact
-          />
-          <AppleSignInButton
-            onClick={onAppleSignIn}
-            isLoading={isAppleLoading}
-            compact
-          />
-          <MicrosoftSignInButton
-            onClick={onMicrosoftSignIn}
-            isLoading={isMicrosoftLoading}
-            compact
-          />
-        </div>
+        )}
     </div>
   );
 };
