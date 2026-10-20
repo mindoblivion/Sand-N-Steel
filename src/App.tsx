@@ -6,6 +6,7 @@ import { CharacterCreation } from './components/hub/CharacterCreation';
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
 import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
 import type { GearView } from './components/hub/GearTab';
+import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 import { sellItem } from './utils/selling';
@@ -58,6 +59,7 @@ import { appleSignIn } from './services/appleAuth';
 import { microsoftSignIn } from './services/microsoftAuth';
 import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 import { ALL_OPPONENTS } from './data/opponents';
+import { resolveVictoryTier } from './utils/tierAdvancement';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
 import { preloadTitleStage } from './utils/preloadAssets';
@@ -84,6 +86,10 @@ export function App() {
   // interaction opens the gear tab with this set to 'chariot'; the tab's own
   // switch flips it back to the gear list.
   const [gearView, setGearView] = useState<GearView>('armory');
+  // Phase SHOP-2: the shop tab's own storefront. A city building's interaction
+  // opens the shop tab with the building's id; the tab's own switch returns to
+  // the open market.
+  const [shopId, setShopId] = useState<StorefrontId>('market');
   // Phase C-8.70B Stage 1, Slice 1 — where the city must put the player back
   // after a race. Set when the race is entered, read when the city remounts,
   // in memory only.
@@ -463,10 +469,12 @@ export function App() {
 
   const handleOpenHubTab = (
     tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library',
-    gearSubview?: GearView
+    gearSubview?: GearView,
+    shopStorefront?: StorefrontId
   ) => {
     setActiveHubTab(tab);
     if (tab === 'gear') setGearView(gearSubview ?? 'armory');
+    if (tab === 'shop') setShopId(shopStorefront ?? 'market');
     setCurrentScreen('hub_2d');
   };
 
@@ -480,6 +488,18 @@ export function App() {
     if (!marked || marked === profile) return;
     setProfile(marked);
     saveProfile(marked);
+  };
+
+  /**
+   * Phase SHOP-2 — the hub's own navigation row.  Choosing the Bazaar & Forge
+   * tab from the hub always means the open market; a city building's own
+   * storefront only ever arrives through `handleOpenHubTab`.
+   */
+  const handleHubTabChange = (
+    tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library'
+  ) => {
+    setActiveHubTab(tab);
+    if (tab === 'shop') setShopId('market');
   };
 
   /**
@@ -525,11 +545,16 @@ export function App() {
         ? profile.defeatedOpponentIds
         : [...profile.defeatedOpponentIds, activeOpponent.id];
 
-      // Advance tier if boss is defeated
-      let nextTier = profile.currentTier;
-      if (activeOpponent.isBoss && nextTier < 4) {
-        nextTier += 1;
-      }
+      // The tier moves only on a boss's FIRST defeat — the boss's id newly entering
+      // `defeatedOpponentIds` in this write. A rematch pays its rewards exactly as it
+      // always did, but it proves nothing new, so it never opens the next tier (see
+      // `utils/tierAdvancement.ts`: one boss could otherwise carry a gladiator through
+      // tiers whose champions were never faced).
+      const tierAfterVictory = resolveVictoryTier({
+        currentTier: profile.currentTier,
+        opponent: activeOpponent,
+        defeatedOpponentIds: profile.defeatedOpponentIds,
+      });
 
       const updatedProfile: PlayerProfile = {
         ...profile,
@@ -539,7 +564,7 @@ export function App() {
         level: nextLevel,
         xpToNextLevel: nextXpToNext,
         unspentStatPoints: nextUnspentPoints,
-        currentTier: nextTier,
+        currentTier: tierAfterVictory.currentTier,
         defeatedOpponentIds: defeated,
         fightsWon: profile.fightsWon + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
@@ -758,7 +783,6 @@ export function App() {
           <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
             <CityHubScene
             playerProfile={profile}
-            activeOpponent={activeOpponent}
             onOpenTab={handleOpenHubTab}
             onEnterDuel={handleEnterDuel}
             onOpenDriveSync={() => setShowDriveSync(true)}
@@ -790,7 +814,7 @@ export function App() {
             playerProfile={profile}
             onOpenDeviceChoice={() => setDeviceChoiceOpen(true)}
             activeTab={activeHubTab}
-            onTabChange={setActiveHubTab}
+            onTabChange={handleHubTabChange}
             onEnterCity3D={() => { if (profile) enterCity(profile); }}
             onSelectOpponent={handleEnterDuel}
             onTrainStat={handleTrainStat}
@@ -800,6 +824,7 @@ export function App() {
             onEquipArmor={handleEquipArmor}
             gearView={gearView}
             onGearViewChange={setGearView}
+            shopId={shopId}
             onBuyChariotPart={handleBuyChariotPart}
             onEquipChariotPart={handleEquipChariotPart}
             onBuyRacingConfig={handleBuyRacingConfig}

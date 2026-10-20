@@ -625,3 +625,38 @@ export function getChariotPace(speed: number): number {
   const s = Math.abs(Number.isFinite(speed) ? speed : 0);
   return Math.min(s / CHARIOT_MOVEMENT.maxSpeed, 1);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. Wheel roll — the fitted wheels turn with the ground, never with the clock
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The fitted wheel's rolling radius, in world units: the hub's own Y (0.650) less
+ * the tyre's bottom (−0.035), measured node by node off
+ * `_workspace_chariot_model_RomanChariot.glb` in C-8.68B.  `CHARIOT_MODEL_SCALE`
+ * is 1, so the model's radius is the world radius.
+ */
+export const CHARIOT_WHEEL_RADIUS = 0.685;
+
+/**
+ * The wheels' roll in radians, advanced by the distance the chariot travelled
+ * this frame — a pure `distance / radius` reading, so a wheel turns at the speed
+ * the ground goes past it rather than at a rate keyed to the clock.
+ *
+ * FORWARD (`speed` > 0) DECREASES the angle: the model's forward is local −Z, and
+ * a positive rotation about +X carries a wheel's crown toward +Z, so rolling
+ * forward is a negative turn (the crown moves the way the chariot goes, the
+ * contact point stays put).  Reverse rolls the other way, which is why the sign
+ * is not taken from `Math.abs`.
+ *
+ * The frame delta is clamped at `CHARIOT_MOVEMENT.maxFrameDt` exactly as
+ * `advanceChariot` clamps its own, so a backgrounded tab cannot spin the wheels
+ * through a dozen turns on its first frame back; a non-finite speed or angle is
+ * read as zero rather than poisoning the rotation.
+ */
+export function advanceWheelRoll(roll: number, speed: number, frameDt: number): number {
+  const dt = Number.isFinite(frameDt) ? clampNumber(frameDt, 0, CHARIOT_MOVEMENT.maxFrameDt) : 0;
+  const v = Number.isFinite(speed) ? speed : 0;
+  const base = Number.isFinite(roll) ? roll : 0;
+  return base - (v * dt) / CHARIOT_WHEEL_RADIUS;
+}
