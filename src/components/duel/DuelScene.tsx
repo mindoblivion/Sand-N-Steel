@@ -4,7 +4,7 @@ import { Sparkles, useGLTF, Sky, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumber } from '../../types/game';
 import { DuelArena } from '../3d/DuelArena';
-import { GladiatorMesh } from '../3d/GladiatorMesh';
+import { GladiatorMesh, type ImpactState } from '../3d/GladiatorMesh';
 import { CombatHUD } from '../ui/CombatHUD';
 import { CombatActionType, CombatLogEntry } from '../ui/TurnActionPanel';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
@@ -33,7 +33,12 @@ import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
 import { SceneBrightness } from '../3d/SceneBrightness';
 import { useSettings } from '../../hooks/useSettings';
-import { getCameraSensitivityScale } from '../../services/settings';
+import {
+  getCameraSensitivityScale,
+  getCameraShakeMultiplier,
+  getSettings,
+  subscribeSettings,
+} from '../../services/settings';
 import { vibrate, HAPTIC_HIT_LANDED_MS, HAPTIC_DEFEAT_PATTERN } from '../../utils/haptics';
 
 // Preload 3D assets for instant duel startup
@@ -42,6 +47,46 @@ try {
 } catch (e) {
   // Silent fallback
 }
+
+// ── Impact feedback: hit-stop durations and shake trauma by outcome ───────────
+// A landed blow stops the fighters' animation for a few frames (hit-stop) and
+// kicks the camera (scaled screen shake), so a hit reads as physical. Both are
+// carried on ONE shared ref — `impactRef`, created by DuelScene and read by the
+// camera rig and every GladiatorMesh inside its own frame loop — so the feedback
+// is refs-only and re-renders nothing. No timer, damage value, hit chance, combo
+// or hype outcome is involved.
+const HIT_STOP_MS = {
+  /** Quick attack. */
+  quick: 60,
+  /** Power attack. */
+  power: 110,
+  /** Critical blow (a power attack that crit). */
+  crit: 170,
+  /** Any strike stopped by a shield — the shortest hold. */
+  blocked: 40,
+  /** The boss's telegraphed overhead smash — the heaviest impact in the game. */
+  telegraphedHeavy: 200,
+} as const;
+
+// Shake trauma added at hit resolution, in the very branches that set
+// `hitFlashTimer`. The player's own strikes scale with what they landed; a blow
+// the player RECEIVES replaces those with one flat value, so being hit always
+// reads differently from landing one.
+const SHAKE_TRAUMA = {
+  quick: 0.25,
+  power: 0.45,
+  crit: 0.7,
+  playerHit: 0.2,
+} as const;
+
+// The camera rig's shake response. The rig squares trauma before scaling it, so
+// these are the peak offsets at trauma 1. Two incommensurate frequencies keep the
+// wobble from settling into a visible loop.
+const CAMERA_SHAKE_POSITION_AMPLITUDE = 0.18; // world units
+const CAMERA_SHAKE_LOOK_DEGREES = 0.6; // lateral look-at shift, in degrees of view
+const CAMERA_SHAKE_TRAUMA_DECAY = 1.6; // trauma units per second
+const CAMERA_SHAKE_OMEGA_A = 2 * Math.PI * 31; // ≈31 Hz
+const CAMERA_SHAKE_OMEGA_B = 2 * Math.PI * 47; // ≈47 Hz
 
 interface DuelSceneProps {
   playerProfile: PlayerProfile;
@@ -60,7 +105,9 @@ const DuelCameraRig: React.FC<{
   playerPos: [number, number, number];
   opponentPos: [number, number, number];
   cameraMode: string;
-}> = ({ playerPos, opponentPos, cameraMode }) => {
+  impactRef: React.MutableRefObject<ImpactState>;
+  shakeMultiplierRef: React.MutableRefObject<number>;
+}> = ({ playerPos, opponentPos, cameraMode, impactRef, shakeMultiplierRef }) => {
   const { camera } = useThree();
   // C-8.70B §SET-1 — the Camera Sensitivity row scales this orbit, through the
   // settings subscription (a change re-renders the rig; the frame loop is the same).
@@ -70,7 +117,7 @@ const DuelCameraRig: React.FC<{
     pitchSensitivity: CAMERA_DRAG_BASE_PITCH_SENSITIVITY * sensitivityScale,
   });
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const midX = (playerPos[0] + opponentPos[0]) / 2;
     const midZ = (playerPos[2] + opponentPos[2]) / 2;
 
@@ -97,7 +144,48 @@ const DuelCameraRig: React.FC<{
     const targetCamPos = new THREE.Vector3(camX, currentHeight, camZ);
 
     camera.position.lerp(targetCamPos, Math.min(1, delta * 6));
-    camera.lookAt(midX, 1.2, midZ);
+
+    // ── Scaled screen shake ──────────────────────────────────────────────
+    // Trauma decays every frame whether or not an offset is applied, so Camera
+    // Shake = Off (multiplier 0) still winds the state down instead of leaving it
+    // stuck. `trauma²` makes the knock fall away sharply, as a real one does, and
+    // the multiplier is the settings module's own reader — read from a ref, so
+    // this frame loop touches no React state. Trauma is only ever added while an
+    // action is executing, and 1.6/s of decay empties even a crit (0.7) in 0.44s
+    // — inside the 1100ms resolution window — so the rig can only shake during, or
+    // in the tail of, a resolution, never on a quiet player turn.
+    const impact = impactRef.current;
+    impact.trauma = Math.max(0, impact.trauma - CAMERA_SHAKE_TRAUMA_DECAY * delta);
+    const shake = impact.trauma * impact.trauma * shakeMultiplierRef.current;
+
+    let lookX = midX;
+    let lookY = 1.2;
+    if (shake > 0) {
+      const phase = state.clock.elapsedTime;
+      // Two incommensurate frequencies (~31 Hz and ~47 Hz), each axis a bounded
+      // sum of the two, so the wobble never settles into a visible loop. The
+      // weights sum to 1, so the peak displacement is the amplitude itself.
+      const posAmp = shake * CAMERA_SHAKE_POSITION_AMPLITUDE;
+      const oscA = Math.sin(phase * CAMERA_SHAKE_OMEGA_A);
+      const oscB = Math.cos(phase * CAMERA_SHAKE_OMEGA_B);
+      const oscC = Math.cos(phase * CAMERA_SHAKE_OMEGA_A);
+      const oscD = Math.sin(phase * CAMERA_SHAKE_OMEGA_B);
+      camera.position.x += posAmp * (oscA * 0.6 + oscB * 0.4);
+      camera.position.y += posAmp * (oscC * 0.6 + oscD * 0.4);
+      camera.position.z += posAmp * oscD * 0.4;
+      // Rotational shake: the same energy as a small lateral shift of the look-at
+      // target, sized in degrees of view at the current framing distance.
+      const viewDistance = Math.hypot(
+        camera.position.x - midX,
+        camera.position.y - 1.2,
+        camera.position.z - midZ,
+      );
+      const lookShift = shake * Math.tan((CAMERA_SHAKE_LOOK_DEGREES * Math.PI) / 180) * viewDistance;
+      lookX = midX + lookShift * oscA;
+      lookY = 1.2 + lookShift * 0.6 * oscC;
+    }
+
+    camera.lookAt(lookX, lookY, midZ);
   });
 
   return null;
@@ -261,6 +349,40 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const pendingCounterRef = useRef(false);
   const rageActivatedRef = useRef(false);
 
+  // Shared impact feedback (the hit-stop clock and the shake energy) — see the
+  // tables at the top of this file. Written once per hit resolution and read
+  // every frame by the camera rig and both GladiatorMesh instances, so the
+  // feedback costs no re-render and no React state.
+  const impactRef = useRef<ImpactState>({ freezeUntil: 0, trauma: 0 });
+  // Marks the ONE resolution that is a telegraphed heavy landing, so it can take
+  // the longest hit-stop. Set by the AI branch that resolves the telegraph, then
+  // read-and-cleared at the top of executeCombatTurn — a miss, an evade or an
+  // out-of-range swing therefore cannot leave it set for a later attack.
+  const telegraphLandingRef = useRef(false);
+
+  // C-8.70B §SET-1 — the Camera Shake row's consumer contract. The rig reads the
+  // multiplier from this ref every frame; it is refreshed through the settings
+  // module's own cache and change listener (never React state, never per frame),
+  // and it folds in the OS's reduced-motion preference, which the module leaves
+  // for the platform to answer. Refs only: the value never re-renders a thing.
+  const shakeMultiplierRef = useRef(1);
+  useEffect(() => {
+    const motionQuery =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null;
+    const applyShakeMultiplier = () => {
+      shakeMultiplierRef.current = getCameraShakeMultiplier(getSettings(), motionQuery?.matches ?? false);
+    };
+    applyShakeMultiplier();
+    const unsubscribe = subscribeSettings(applyShakeMultiplier);
+    motionQuery?.addEventListener('change', applyShakeMultiplier);
+    return () => {
+      unsubscribe();
+      motionQuery?.removeEventListener('change', applyShakeMultiplier);
+    };
+  }, []);
+
   // Match timer
   useEffect(() => {
     const timer = setInterval(() => {
@@ -315,6 +437,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       setIsExecuting(true);
       const isActorPlayer = actor === 'player';
+
+      // Read-and-clear the telegraphed-heavy marker for THIS resolution, before
+      // any branch can return, so a miss, an evade or an out-of-range swing
+      // cannot leave it set for a later attack.
+      const isTelegraphedHeavy = !isActorPlayer && telegraphLandingRef.current;
+      telegraphLandingRef.current = false;
+
       const attacker = isActorPlayer ? player : opp;
       const defender = isActorPlayer ? opp : player;
 
@@ -583,6 +712,32 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               statsRef.current.damageTaken += rawDamage;
             }
 
+            // ── Impact feedback: hit-stop + screen shake ──────────────────
+            // The same point that sets `hitFlashTimer` below — every outcome is
+            // already known here, and none of it, nor any timer, is touched. A
+            // blocked strike is the shortest hold; the boss's telegraphed overhead
+            // smash the longest; a crit reads off the power attack that produced it.
+            const freezeMs = isBlocked
+              ? HIT_STOP_MS.blocked
+              : isTelegraphedHeavy
+              ? HIT_STOP_MS.telegraphedHeavy
+              : isCrit
+              ? HIT_STOP_MS.crit
+              : isQuick
+              ? HIT_STOP_MS.quick
+              : HIT_STOP_MS.power;
+            // The player's own strikes scale with the blow they landed; a blow the
+            // player RECEIVES replaces that with one flat value (never both).
+            const trauma = isActorPlayer
+              ? isCrit
+                ? SHAKE_TRAUMA.crit
+                : isQuick
+                ? SHAKE_TRAUMA.quick
+                : SHAKE_TRAUMA.power
+              : SHAKE_TRAUMA.playerHit;
+            impactRef.current.freezeUntil = performance.now() + freezeMs;
+            impactRef.current.trauma = Math.min(1, impactRef.current.trauma + trauma);
+
             // Apply HP damage to defender + combo tracking (C-9)
             if (isActorPlayer) {
               setOpp((prev) => {
@@ -694,6 +849,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       if (opponent.bossMechanic === 'heavy_telegraph' && pendingHeavyAttackRef.current) {
         pendingHeavyAttackRef.current = false;
         setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+        // Mark THIS resolution as the wind-up's landing, so it takes the longest
+        // hit-stop. Cleared by executeCombatTurn as it resolves.
+        telegraphLandingRef.current = true;
         executeCombatTurn('opponent', 'power_attack');
         return;
       }
@@ -871,8 +1029,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
             <ThreeComponentErrorBoundary componentName="DuelFightersGladiatorMeshes">
               <Suspense fallback={<CanvasLoadingFallback />}>
-                <GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} />
-                <GladiatorMesh fighter={opp} />
+                <GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} />
+                <GladiatorMesh fighter={opp} impactRef={impactRef} />
                 <FloatingDamage3D damages={damageNumbers} />
               </Suspense>
             </ThreeComponentErrorBoundary>
@@ -881,6 +1039,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               playerPos={player.position}
               opponentPos={opp.position}
               cameraMode={cameraMode}
+              impactRef={impactRef}
+              shakeMultiplierRef={shakeMultiplierRef}
             />
           </Canvas>
         </WebGLContextErrorBoundary>
