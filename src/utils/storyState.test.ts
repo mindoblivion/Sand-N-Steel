@@ -276,7 +276,7 @@ describe('§B the chapter boundaries', () => {
     expect(state.chapter).toBe(7);
     expect(state.title).toBe('Legend, and the Open Road');
     expect(state.complete).toBe(true);
-    expect(state.gates.map((gate) => gate.state)).toEqual(['met']);
+    expect(state.gates.map((gate) => gate.state)).toEqual(['met', 'pending']);
   });
 
   test('B7 — the story flags are the evidence for their own gates', () => {
@@ -569,5 +569,96 @@ describe('§F the campaign card', () => {
       }
       expect((markup.match(/data-story-gate=/g) ?? []).length).toBe(state.gates.length);
     }
+  });
+});
+
+// ── §G the three unlanded story beats (C-1) ───────────────────────────────
+describe('§G the three unlanded story beats', () => {
+  /** The profile that stands IN each chapter, so that chapter's gates can be read. */
+  const chapterOne = (): PlayerProfile => ({ ...fresh(), road: { oathSworn: true } });
+  const chapterFour = (): PlayerProfile =>
+    campaign({
+      currentTier: 3,
+      fame: 700,
+      defeatedOpponentIds: [bossId(1), bossId(2)],
+      story: { librarySeen: true },
+    });
+  const chapterSeven = (): PlayerProfile =>
+    campaign({
+      fame: 2000,
+      currentTier: 4,
+      defeatedOpponentIds: [bossId(1), bossId(2), bossId(3), bossId(4)],
+      story: { librarySeen: true, trialDone: true, summitSeen: true, diceEnding: 'cut' },
+    });
+
+  const BEAT_GATES = [
+    { chapter: 1, id: 'doctore-test', requirement: "Pass the Doctore's test under the restricted rules" },
+    { chapter: 4, id: 'vexus-race', requirement: 'Run the Vexus incident race' },
+    { chapter: 7, id: 'statue-ceremony', requirement: 'See the statue ceremony played' },
+  ] as const;
+
+  const views = () => [chapterOne(), chapterFour(), chapterSeven()];
+
+  test('G1 — each beat gate is on its chapter, kind \'beat\', state \'pending\'', () => {
+    const profiles = views();
+    for (const [index, entry] of BEAT_GATES.entries()) {
+      const state = resolveStoryState(profiles[index]);
+      expect(state.chapter).toBe(entry.chapter);
+      const gate = state.gates.find((candidate) => candidate.id === entry.id);
+      expect(gate).toBeDefined();
+      expect(gate?.pendingKind).toBe('beat');
+      expect(gate?.state).toBe('pending');
+      expect(gate?.requirement).toBe(entry.requirement);
+    }
+  });
+
+  test('G2 — the beat pending line is the authored one, through storyGateLine', () => {
+    expect(PENDING_GATE_LINES.beat).toBe('That hour has not been written yet.');
+    const profiles = views();
+    for (const [index, entry] of BEAT_GATES.entries()) {
+      const gate = resolveStoryState(profiles[index]).gates.find(
+        (candidate) => candidate.id === entry.id
+      );
+      expect(gate).toBeDefined();
+      expect(storyGateLine(gate!)).toBe(PENDING_GATE_LINES.beat);
+    }
+    // …and the card prints that line, never the requirement it stands in for.
+    const markup = text(markupFor(chapterOne()));
+    expect(markup).toContain('data-story-gate="doctore-test"');
+    expect(markup).toContain('data-state="pending"');
+    expect(markup).toContain(PENDING_GATE_LINES.beat);
+    expect(markup).not.toContain("Pass the Doctore's test under the restricted rules");
+  });
+
+  test('G3 — a profile meeting every available gate still closes Chapters 1, 4 and 7', () => {
+    // Chapter 1: the first win is met and the Test beat is pending, so it closes.
+    expect(resolveStoryState(legacy(1)).chapter).toBe(2);
+    // Chapter 4: Tier 3 and the dice are met and the Vexus race is pending, so it closes.
+    const rolled: PlayerProfile = {
+      ...chapterFour(),
+      story: { librarySeen: true, diceEnding: 'cut' },
+    };
+    expect(resolveStoryState(rolled).chapter).toBe(5);
+    // Chapter 7: Legend is met and the statue ceremony is pending, so the campaign completes.
+    const legend = resolveStoryState(chapterSeven());
+    expect(legend.chapter).toBe(STORY_FINAL_CHAPTER);
+    expect(legend.complete).toBe(true);
+    expect(legend.gates.map((gate) => gate.state)).toEqual(['met', 'pending']);
+  });
+
+  test('G4 — no beat reads evidence, so nothing closes early and no pending gate is unmet', () => {
+    for (const profile of views()) {
+      for (const gate of resolveStoryState(profile).gates) {
+        if (gate.pendingKind) expect(gate.state).toBe('pending');
+      }
+    }
+    // The three beats add no field and no writer: a fresh profile is still held at Chapter 0.
+    expect(resolveStoryState(fresh()).chapter).toBe(0);
+    expect(resolveStoryState(fresh()).complete).toBe(false);
+    // A chapter without its available evidence still stays open, beat or no beat.
+    expect(resolveStoryState({ ...chapterOne(), fightsWon: 0 }).chapter).toBe(1);
+    expect(
+      resolveStoryState({ ...chapterFour(), story: { librarySeen: true } }).chapter
+    ).toBe(4);
   });
 });
