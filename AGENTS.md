@@ -3941,3 +3941,96 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   Slice 0's entry point — the district signpost trigger, the `east_circus_arena` hub entry and
   fast-travel arrival, and the read-only panel — is documented only in `phaseC8_70b.test.ts`'s header
   and `cityCollisions.ts`'s own comments.
+
+## Chariot movement, touch controls and the chase camera (Phase C-8.70B Stage 1, Slice 2 — implemented)
+
+- **What ships.** `src/utils/chariotMovement.ts` (new) is the chariot's motion as a **pure module** —
+  no React, no three.js, no clock, no storage; `src/components/ui/RaceTouchControls.tsx` (new) is the
+  touch surface; `src/components/dev/RaceHarness.tsx` (new, dev-only) is the reach-the-race-without-
+  walking harness. They extend Slice 1's `src/components/3d/RaceScene.tsx` (the frame loop, the
+  keyboard map, the chase camera and the racing HUD), `src/components/hub/PreRacePanel.tsx` (the
+  read-only "How to drive" diagram) and `src/main.tsx` (the harness branch). New suites:
+  `src/utils/chariotMovement.test.ts` (52 tests) and `src/utils/phaseC8_70bStage1Slice2.test.ts`
+  (30 tests). No collider, no city geometry, no combat / workshop / progression module and no saved
+  value was touched; both suites assert that over the sources as well as over comment-stripped code.
+
+- **The module's one import is the arena's own collision data, deliberately.** The area the chariot
+  may drive in IS the arena ring's authored outline — `chariotMovement.ts` walks `CIRCUS_WEST_X` /
+  `CIRCUS_SOUTH_Z` / `CIRCUS_OVAL_START_Z` / `CIRCUS_WEST_OUTLINE` (with `CIRCUS_AXIS_X` /
+  `CIRCUS_EAST_X`) as one closed polygon, so the boundary the movement clamps against and the ring
+  the walking resolver stops a player at cannot drift apart. Three of the ring's 31 segments are
+  deliberately NOT edges of it — `circus-carceres-w`, `circus-carceres-e` and `circus-carceres-front`
+  — because those bound the carceres block's own belly, which is stone at Z ≥ `CIRCUS_SOUTH_Z`. The
+  suite re-derives every edge from the registry and pins exactly that exclusion (`circus-*` stays 31).
+
+- **The forward axis is read off the shipping model, not chosen.** `CHARIOT_MODEL_FORWARD = '-Z'`
+  with `CHARIOT_MODEL_YAW_OFFSET = 0`: `chariotGeometry.ts` measures the draught pole ahead of the
+  axle on the model's local −Z, the team plan's own audit states `-Z` as a constant of its own, and
+  `circusDistrictGeometry.ts` places the start line with `rotationY: 0` for that reason. So
+  `rotation.y = heading` needs no correction, the world direction travelled is `(−sin θ, −cos θ)`,
+  and `steer +1` is the driver's RIGHT (it DECREASES the heading, because increasing θ turns the
+  model's −Z nose toward −X).
+
+- **Every constant is one exported object.** `CHARIOT_MOVEMENT` holds the forward cap (13), the lower
+  reverse cap (3.2), acceleration / brake / reverse / drag, the turn rates at rest (0.35 rad/s
+  crawl) and at the cap (1.5), the fixed step (1/60 s), the frame clamp (0.1 s), the two boundary
+  probes (body 1.05 behind, yoke 0.70 at 2.02 forward) and the Clean Start windows.
+  `CHARIOT_CHASE_CAMERA` holds the camera's — distance 7.5, height 6.6 (measured to clear the
+  2.18-high carceres block, which sits south of the start line), look-ahead 5, follow rate 5/s.
+  Nothing else in the slice hard-codes one of these.
+
+- **Steering scales with speed, the boundary STOPS the chariot, and the frame cannot tunnel.** The
+  turn rate runs linearly between the standstill crawl and the cap, so there is no pivoting on the
+  spot; boundary contact resolves as a position projection plus `speed = 0` (a slide was rejected as
+  the more complex of two correct behaviours, and this slice's criterion is only that the chariot
+  cannot leave the arena); and `advanceChariot` clamps the frame delta at 0.1 s and then runs whole
+  fixed 1/60 s steps, so a backgrounded tab freezes the race instead of teleporting the chariot. The
+  suite drives full throttle into the boundary from sixteen headings and asserts
+  `isChariotInsideArena` after EVERY step, plus an absurd-dt case and a corner hit.
+
+- **Clean Start is a `racing`-state MODIFIER, not a sixth state.** `raceState.ts` keeps its five
+  states and its transition table untouched; `trackChariotLaunch` / `launchAccelScale` read the
+  throttle and the elapsed time since GO and hand `advanceChariot` an acceleration multiplier only
+  (1.35 for 1200 ms after a clean release, 0.5 for the same window after a held-through-GO bog).
+  The scene dispatches only Slice 1's own three events, and the suite asserts that too.
+
+- **Both input paths write the SAME two fields.** The keyboard map and the touch clusters feed
+  `throttle` / `steer`, merged per frame by clamped sum, so either path alone produces identical
+  motion and using both at once cannot exceed full deflection. A window `blur` releases every key, so
+  a tab switch cannot hold the throttle. The touch surface is two bottom-corner clusters, every
+  control visible and labelled with its own `data-race-control`, in the shipped `TouchControls`
+  Block-button hold idiom; **Lefty Mode mirrors the entire cluster as one unit**; and the first race
+  of a session teaches on the controls from session state only — nothing is saved.
+
+- **The harness is dev-only and dynamically imported.** `RaceHarness` mounts the REAL `RaceScene`
+  (not a copy) with no title screen, creation, hub or fast travel to walk, reachable only through
+  `?devHarness=race` or the scratch flag `sand_and_steel_dev_harness = 'race'`, inside `main.tsx`'s
+  `import.meta.env.DEV` gate and before the final `<App />` else; the module carries the same
+  self-guard. Removal: delete the file and revert that branch.
+
+- **Suite repair (this turn — no production file changed).** The Slice 2 suite's harness-ordering
+  assertion compared `mainSrc.indexOf('<App />')` on the RAW `main.tsx`, where the header *prose*
+  mentions `<App />` at character 324 while the branch itself sits at 6,515 — so the comparison
+  could never hold, however the branches were ordered. It is now read comment-stripped through the
+  suite's own `code()` helper, which exists for exactly this ("prose cannot satisfy — or defeat — a
+  check"). No assertion was removed or weakened.
+
+- **Verified 2026-10-20** in the dev container: focused
+  `bun test src/utils/chariotMovement.test.ts src/utils/phaseC8_70bStage1Slice2.test.ts` →
+  **82 pass / 0 fail** (22,978 `expect()` calls; the starting point was 81 / 1 fail);
+  `bun test` → **1977 pass / 0 fail (62 files, 63,275 `expect()`)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only);
+  `git diff --check` → clean.
+
+- **Not automatically verified — the drive itself, and it is a device question.** The sandbox has no
+  GPU (SwiftShader, ~1–2 fps in the 3D scenes) and an automated end-to-end drive in the preview was
+  already attempted and abandoned for that reason, so no browser evidence is claimed for driving.
+  What the two suites do establish: the pure module's own behaviour — acceleration and both caps,
+  speed-scaled steering, the no-tunnelling frame, the boundary invariant after every step of every
+  drive, both launch outcomes and the gait bands — which needs no renderer at all; plus the
+  source-level wiring (the scene drives the module, only while `racing`, with the model's own axis,
+  both input paths, and the chase camera's measured height). **Remaining for the device (Android):**
+  the touch controls' feel and their Lefty mirroring, the chase camera's smoothness and its framing
+  relative to the carceres block, and the racing HUD's legibility on a phone. Stage 2 (the finish
+  line) is not started, so `finishRace` still has no caller.

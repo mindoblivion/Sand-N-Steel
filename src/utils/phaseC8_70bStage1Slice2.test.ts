@@ -323,8 +323,11 @@ describe('G. Scope', () => {
     // dynamic only: a static import of the harness would land in the main chunk
     expect(mainSrc).toContain("void import('./components/dev/RaceHarness')");
     expect(mainSrc).not.toContain("import { RaceHarness } from");
-    // and it is the last branch before <App />, which is still the final else
-    expect(mainSrc.indexOf('} else if (useRaceHarness) {')).toBeLessThan(mainSrc.indexOf('<App />'));
+    // and it is the last branch before <App />, which is still the final else.
+    // Read comment-stripped: the header *prose* mentions `<App />` long before the
+    // real mount, and prose must not be able to satisfy — or defeat — the ordering.
+    const mainCode = code(mainSrc);
+    expect(mainCode.indexOf('} else if (useRaceHarness) {')).toBeLessThan(mainCode.indexOf('<App />'));
 
     const harnessSrc = load('../components/dev/RaceHarness.tsx');
     expect(harnessSrc).toContain('import.meta.env.DEV');
