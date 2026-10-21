@@ -11,6 +11,7 @@ import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
+import { purchaseLaurel, type LaurelResult } from './utils/laurels';
 import { sellItem } from './utils/selling';
 import { nextBossKills } from './utils/bossKills';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
@@ -739,6 +740,21 @@ export function App() {
     saveProfile(result.profile);
   };
 
+  /**
+   * P2 — buy a Triumph (a title, or the ludus statue) with fame.  `purchaseLaurel`
+   * is pure and re-checks every rule against the profile it is handed — price,
+   * ownership, and that fame is the only currency — so a refusal returns no profile,
+   * leaves the caller's own object untouched and never reaches `saveProfile`.  The
+   * refusal is handed back to the Library's Triumphs page so it can print the reason.
+   */
+  const handlePurchaseTriumph = (laurelId: string): LaurelResult => {
+    const result = purchaseLaurel(profile, laurelId);
+    if (!result.ok) return result;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+    return result;
+  };
+
   /** Select an unlocked team: free, and it only records the player's preference. */
   const handleSelectRacingConfig = (horses: ChariotTeamSize) => {
     const result = selectRacingConfig(profile, horses);
@@ -956,6 +972,7 @@ export function App() {
             onOpenSettings={() => handleOpenSettings()}
             onMarkCardSeen={handleMarkCardSeen}
             onEnterDoctoreTest={handleEnterDoctoreTest}
+            onPurchaseTriumph={handlePurchaseTriumph}
             />
         )}
 

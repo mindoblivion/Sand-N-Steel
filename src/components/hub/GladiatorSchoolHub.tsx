@@ -8,6 +8,7 @@ import { StatsTab } from './StatsTab';
 import { LibraryTab } from './LibraryTab';
 import { BannerRow } from './BannerRow';
 import type { StorefrontId } from '../../data/shops';
+import type { LaurelResult } from '../../utils/laurels';
 import { PreFightModal } from './PreFightModal';
 import { DOCTORE_TEST_OPPONENT } from '../../data/opponents';
 import {
@@ -65,6 +66,8 @@ interface GladiatorSchoolHubProps {
    * win against the rule that was actually set.
    */
   onEnterDoctoreTest?: (restriction: DoctoreTestRestriction) => void;
+  /** P2 — a Triumph bought from the Library's Triumphs page; `App` writes it. */
+  onPurchaseTriumph?: (laurelId: string) => LaurelResult;
 }
 
 export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
@@ -94,6 +97,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onMarkCardSeen,
   onOpenDeviceChoice,
   onEnterDoctoreTest,
+  onPurchaseTriumph,
 }) => {
   const [selectedOpponent, setSelectedOpponent] = useState<OpponentConfig | null>(null);
   /**
@@ -274,7 +278,9 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
         {activeTab === 'stats' && (
           <StatsTab profile={playerProfile} onAllocatePoint={onAllocateStatPoint} />
         )}
-        {activeTab === 'library' && <LibraryTab profile={playerProfile} />}
+        {activeTab === 'library' && (
+          <LibraryTab profile={playerProfile} onPurchaseTriumph={onPurchaseTriumph} />
+        )}
       </main>
 
       {/* PRE-FIGHT MODAL */}
