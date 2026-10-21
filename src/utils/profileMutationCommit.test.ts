@@ -44,8 +44,13 @@ import { readFileSync } from 'node:fs';
 import { ALL_ARMORS, STARTING_SPARE_WEAPON, getItemById } from '../data/itemsDB';
 import { createNewProfile } from '../services/storage';
 import type { PlayerProfile } from '../types/game';
+import { getVisitor } from '../data/visitors';
 import { getSellValue, sellItem } from './selling';
-import { purchaseVisitorOffer, type VisitorPurchaseResult } from './visitorPurchase';
+import {
+  purchaseVisitorOffer,
+  resolveVisitorBargainPrice,
+  type VisitorPurchaseResult,
+} from './visitorPurchase';
 import { readCompletedVisitors } from './visitorSchedule';
 
 // ── App's real handler source ──────────────────────────────────────────────
@@ -152,10 +157,18 @@ function createHarness(initial: PlayerProfile | null, source = HANDLER_SOURCE) {
 }
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
-/** Day 5: the Numidian bladesmith is in town, offering `dirk_desert` at 170. */
+/**
+ * Day 5: the Numidian bladesmith is in town, offering `dirk_desert` — canonical
+ * 170, and since L15 charged at his own bargain rate (0.70 → **119**). These
+ * assertions read the price from the shared resolver rather than restating it.
+ */
 const ARRIVAL_DAY = 5;
 const BLADESMITH = 'numidian_bladesmith';
 const BLADESMITH_ITEM = 'dirk_desert';
+const BLADESMITH_BARGAIN = resolveVisitorBargainPrice(
+  getItemById(BLADESMITH_ITEM),
+  getVisitor(BLADESMITH)!.bargainRate
+)!;
 /** Day 1 has nobody in town. */
 const EMPTY_DAY = 1;
 
@@ -230,7 +243,9 @@ describe('§B THE CRITICAL REGRESSION — a sale survives the next transaction',
     // 3. The saved result carries BOTH transactions — neither is overwritten.
     const saved = harness.saves[1];
     const price = purchase.ok ? purchase.price : -1;
-    expect(price).toBe(getItemById(BLADESMITH_ITEM)!.price);
+    // L15 — the canonical price is the base, and the bargain is what is charged.
+    expect(getItemById(BLADESMITH_ITEM)!.price).toBe(170);
+    expect(price).toBe(BLADESMITH_BARGAIN);
     expect(saved.gold).toBe(5000 + saleValue - price);
     expect(carries(saved, BLADESMITH_ITEM)).toBe(true);
     expect(carries(saved, SPARE.id)).toBe(false); // the sale was not undone
@@ -250,7 +265,7 @@ describe('§B THE CRITICAL REGRESSION — a sale survives the next transaction',
     harness.handlers.handleVisitorPurchase(BLADESMITH);
 
     const saved = harness.saves[1];
-    expect(saved.gold).toBe(5000 + saleValue - getItemById(BLADESMITH_ITEM)!.price);
+    expect(saved.gold).toBe(5000 + saleValue - BLADESMITH_BARGAIN);
     expect(carries(saved, BLADESMITH_ITEM)).toBe(true);
     expect(carries(saved, SPARE.id)).toBe(false);
   });

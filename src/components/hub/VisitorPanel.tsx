@@ -3,9 +3,11 @@ import { UserRound, Coins, Backpack } from 'lucide-react';
 import type { PlayerProfile } from '../../types/game';
 import { readSeenVisitors, resolveVisitorSchedule } from '../../utils/visitorSchedule';
 import { resolveVisitorEncounter } from '../../utils/visitorEncounter';
-import type {
-  VisitorPurchaseRejectionReason,
-  VisitorPurchaseResult,
+import {
+  resolveVisitorBargainPrice,
+  resolveVisitorItemPrice,
+  type VisitorPurchaseRejectionReason,
+  type VisitorPurchaseResult,
 } from '../../utils/visitorPurchase';
 
 interface VisitorPanelProps {
@@ -19,9 +21,9 @@ interface VisitorPanelProps {
   onEncounter: (visitorId: string) => void;
   /**
    * L12 — the ONE purchase path. `App.handleVisitorPurchase` re-resolves today's
-   * offer against the newest profile, charges the canonical price, grants the item
-   * and completes the visitor in one save. The panel sends only the visitor id and
-   * renders the result it gets back.
+   * offer against the newest profile, charges that visitor's bargain price (L15),
+   * grants the item and completes the visitor in one save. The panel sends only the
+   * visitor id — never a price — and renders the result it gets back.
    */
   onPurchase: (visitorId: string) => VisitorPurchaseResult;
   onClose: () => void;
@@ -50,8 +52,9 @@ function refusalLine(reason: VisitorPurchaseRejectionReason): string {
  * unimitated — so a visitor appears here exactly when the schedule says they are in
  * the city, and a completed visitor never appears at all. Selecting a visitor is the
  * meaningful encounter that records `seenVisitors`; buying the day's offer is the
- * L12 purchase, which charges the canonical `ITEMS_DB` price and completes that
- * visitor permanently. The panel itself writes nothing: it calls the two App
+ * L12 purchase, which charges the visitor's L15 bargain price — the canonical
+ * `ITEMS_DB` price less their rate, with the saving shown beside it — and completes
+ * that visitor permanently. The panel itself writes nothing: it calls the two App
  * transactions and renders what the newest profile says, so "MET" still means met,
  * and only a completed trade removes the row.
  *
@@ -74,13 +77,16 @@ export const VisitorPanel: React.FC<VisitorPanelProps> = ({
   // claim a different day from the list beneath it.
   const day = useMemo(() => resolveVisitorSchedule(profile).day, [profile]);
   const selected = selectedId ? resolveVisitorEncounter(profile, selectedId) : null;
-  const price = selected?.item ? selected.item.price : null;
+  // L15 — the ONE price rule, shared with the purchase transaction: the visitor's
+  // bargain rate over the canonical `ITEMS_DB` price. A missing or malformed rate
+  // resolves to the canonical price, so `saving` is 0 and no discount is claimed.
+  const canonicalPrice = selected ? resolveVisitorItemPrice(selected.item) : null;
+  const price = selected
+    ? resolveVisitorBargainPrice(selected.item, selected.visitor.bargainRate)
+    : null;
+  const saving = canonicalPrice !== null && price !== null ? canonicalPrice - price : 0;
   const affordable =
-    price !== null &&
-    typeof price === 'number' &&
-    Number.isFinite(price) &&
-    Number.isFinite(profile.gold) &&
-    profile.gold >= price;
+    price !== null && Number.isFinite(profile.gold) && profile.gold >= price;
 
   const handleBuy = () => {
     if (!selected) return;
@@ -205,11 +211,15 @@ export const VisitorPanel: React.FC<VisitorPanelProps> = ({
                     {selected.item.description}
                   </p>
                 )}
-                <p className="text-[10px] font-mono text-neutral-300 mt-1 flex items-center gap-1">
-                  <Coins className="w-3 h-3 text-amber-400" />
-                  {price !== null && Number.isFinite(price)
-                    ? `${price} gold`
-                    : 'Price unavailable'}
+                <p className="text-[10px] font-mono text-neutral-300 mt-1 flex items-start gap-1">
+                  <Coins className="w-3 h-3 shrink-0 mt-0.5 text-amber-400" />
+                  <span>
+                    {price === null
+                      ? 'Price unavailable'
+                      : saving > 0 && canonicalPrice !== null
+                        ? `Asks ${price} gold — the shops charge ${canonicalPrice}`
+                        : `${price} gold`}
+                  </span>
                 </p>
               </div>
             </div>

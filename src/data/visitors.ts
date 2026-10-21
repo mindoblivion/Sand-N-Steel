@@ -65,6 +65,18 @@ export interface Visitor {
   readonly cadence: number;
   /** The inclusive range of city days this visitor may arrive on. */
   readonly window: VisitorWindow;
+  /**
+   * L15 — this visitor's own asking price as a fraction of the item's canonical
+   * `ITEMS_DB` price. The one reason to trade with a visitor instead of the shop:
+   * they undercut the permanent spine. It is a RATE, never a price — the only
+   * prices in the game stay in `ITEMS_DB`, and `utils/visitorPurchase` derives
+   * `Math.ceil(canonical × rate)` from it.
+   *
+   * A valid rate is strictly inside `(0, 1)`: zero would make the item free and
+   * one (or more) would be no bargain or a markup. Anything missing or malformed
+   * is read by the resolver as "no bargain" and the canonical price is charged.
+   */
+  readonly bargainRate?: number;
   readonly offer: VisitorOffer;
 }
 
@@ -103,6 +115,8 @@ export const VISITORS: readonly Visitor[] = Object.freeze([
     title: 'Wandering Bladesmith',
     description: 'A Numidian smith who follows the games and grinds a fine edge in the shade of the gate.',
     cadence: 3,
+    // L15 — the bladesmith undercuts the forge by 30%.
+    bargainRate: 0.7,
     window: Object.freeze({ from: 1, to: 150 }),
     offer: Object.freeze({
       summary: 'A short blade ground on the whetstone of his own camp.',
@@ -115,6 +129,8 @@ export const VISITORS: readonly Visitor[] = Object.freeze([
     title: 'Itinerant Armorer',
     description: 'A Campanian armourer with a mule cart of strapped bronze, in the city while the season lasts.',
     cadence: 4,
+    // L15 — the armorer undercuts the permanent armorer by 25%.
+    bargainRate: 0.75,
     window: Object.freeze({ from: 6, to: 240 }),
     offer: Object.freeze({
       summary: 'A single piece of worn bronze armor, offered from the cart.',
@@ -127,6 +143,8 @@ export const VISITORS: readonly Visitor[] = Object.freeze([
     title: 'Caravan Trader',
     description: 'An Emesan trader whose caravan halts by the arena wall for as long as the water holds.',
     cadence: 5,
+    // L15 — the caravan trader undercuts the forge by 20%.
+    bargainRate: 0.8,
     window: Object.freeze({ from: 24, to: 365 }),
     offer: Object.freeze({
       summary: 'Eastern steel from the caravan, one piece unpacked at a time.',

@@ -26,11 +26,20 @@
  *     completion entry is what makes a replayed callback harmless: the second call
  *     sees the id in `completedVisitors` and is refused before it can charge again.
  *
- * WHAT IT DOES NOT DO: no discount, no reward, no fame, no experience, no bonus; no
- * day change (the city object is carried over as stored, only the completion list
- * changes); no merchant allowance (this is not a storefront purchase); no new item
- * and no visitor-exclusive stock. `seenVisitors` is preserved, not rewritten —
- * being seen and being done are different things, and the panel keeps saying so.
+ * L15 gives the visitor their reason to be worth the walk: the asking price is
+ * `ceil(canonical × bargainRate)` — a RATE read from the visitor catalogue, never a
+ * second price table. `resolveVisitorBargainPrice` is the ONE resolver, and the
+ * panel and this transaction both call it, so the price shown and the price charged
+ * cannot disagree. A rate that is missing or outside `(0, 1)` falls back to the
+ * canonical price: malformed catalogue data can only ever cost the player MORE, never
+ * make an item free and never invent a markup.
+ *
+ * WHAT IT DOES NOT DO: no fame, no experience, no bonus; no day change (the city
+ * object is carried over as stored, only the completion list changes); no merchant
+ * allowance (this is not a storefront purchase); no new item and no
+ * visitor-exclusive stock; no second discount at any permanent shop. `seenVisitors`
+ * is preserved, not rewritten — being seen and being done are different things, and
+ * the panel keeps saying so.
  */
 
 import type { CityState, PlayerProfile } from '../types/game';
@@ -87,9 +96,44 @@ export function resolveVisitorItemPrice(item: GameItem | null | undefined): numb
 }
 
 /**
- * Buy the visitor's one offer for today. A success charges exactly the item's
- * `ITEMS_DB` price, grants exactly one copy through the established
- * `[...inventory, item]` convention, and appends the visitor to
+ * L15 — the visitor's asking price: the canonical `ITEMS_DB` price less that
+ * visitor's own bargain rate, rounded UP so the shop's discount never rounds to a
+ * coin the item did not promise (`ceil(170 × 0.75)` = 128).
+ *
+ * It is the ONE price rule — `purchaseVisitorOffer` charges what this returns and
+ * `VisitorPanel` displays it, so the two cannot drift apart. The canonical price is
+ * validated through `resolveVisitorItemPrice` (so `null` in, `null` out, and the
+ * `unknown-item` / `invalid-price` distinction upstream is untouched).
+ *
+ * A rate is valid only strictly inside `(0, 1)`: `0` would make the item free, `1`
+ * is no bargain, and anything above it is a markup on the catalogue — so a missing,
+ * `NaN`, non-finite, non-numeric or out-of-band rate reads as "no bargain" and the
+ * canonical price is charged. Malformed catalogue data can therefore only ever cost
+ * the player more, never less. That fallback is what lets the panel show no saving
+ * (`price === canonical`) instead of a discount it cannot honour.
+ */
+export function resolveVisitorBargainPrice(
+  item: GameItem | null | undefined,
+  bargainRate: number | null | undefined
+): number | null {
+  const canonicalPrice = resolveVisitorItemPrice(item);
+  if (canonicalPrice === null) return null;
+
+  const usable =
+    typeof bargainRate === 'number' &&
+    Number.isFinite(bargainRate) &&
+    bargainRate > 0 &&
+    bargainRate < 1;
+  if (!usable) return canonicalPrice;
+
+  return Math.ceil(canonicalPrice * bargainRate);
+}
+
+/**
+ * Buy the visitor's one offer for today. A success charges exactly the visitor's
+ * bargain price over the item's canonical `ITEMS_DB` price (`result.price` is that
+ * amount, so the caller never re-derives it), grants exactly one copy through the
+ * established `[...inventory, item]` convention, and appends the visitor to
  * `completedVisitors` — all in one profile.
  *
  * Refusals, in the order they are checked: `no-profile`, `unknown-visitor`,
@@ -125,7 +169,10 @@ export function purchaseVisitorOffer(
   const item = getItemById(offerItemId);
   if (!item) return { ok: false, reason: 'unknown-item' };
 
-  const price = resolveVisitorItemPrice(item);
+  // L15 — the price charged is the visitor's own bargain rate over the canonical
+  // price, resolved by the same helper the panel displays. The rate comes from the
+  // catalogue, never from a caller, so the UI cannot name a price the trade honours.
+  const price = resolveVisitorBargainPrice(item, visitor.bargainRate);
   if (price === null) return { ok: false, reason: 'invalid-price' };
 
   const gold = profile.gold;

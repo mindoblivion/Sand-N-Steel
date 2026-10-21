@@ -4,8 +4,9 @@
  * What this suite pins, in the repo's two registers (behaviour for the pure logic,
  * ordered source assertions for the wiring this repo has no DOM renderer for):
  *
- *   §A  the purchase — the canonical price once, exactly one item, the visitor
- *       completed once, every unrelated field and the city day preserved;
+ *   §A  the purchase — the visitor's bargain price once (derived from the
+ *       canonical `ITEMS_DB` price and that visitor's rate), exactly one item, the
+ *       visitor completed once, every unrelated field and the city day preserved;
  *   §B  completion is permanent and the offer is re-resolved — no second purchase,
  *       even on a later day the visitor would otherwise arrive on;
  *   §C  refusals — missing profile, unknown visitor, out of town, unaffordable;
@@ -19,7 +20,14 @@
  *   §G  the neighbours — the merchant window and allowance, the clock, the training
  *       timetable and the visitor catalogue are unchanged;
  *   §H  the wiring — App is the one caller and reads the newest profile, the panel
- *       displays the canonical price and sends only the visitor id.
+ *       displays the shared bargain price and sends only the visitor id;
+ *   §I  the L15 bargain contract — the approved rates, `Math.ceil` rounding, and a
+ *       canonical price that is still validated by the existing safeguard;
+ *   §J  the economic floor — every shipped offer is strictly below its canonical
+ *       price and strictly above its own `sellPrice`, measured here, not assumed;
+ *   §K  malformed rates — missing, `NaN`, negative, zero and above-one all fall back
+ *       to the canonical price, and both the transaction and the panel ask the ONE
+ *       resolver, so neither can invent a price of its own.
  *
  * The pinned days come from the L10 suite (the bladesmith arrives on day 5 with
  * `dirk_desert`, the armorer on day 8 with `arms_manica`), so a cadence change
@@ -33,7 +41,7 @@ import { readFileSync } from 'node:fs';
 
 import { getItemById } from '../data/itemsDB';
 import { getStorefrontStock } from '../data/shops';
-import { VISITORS } from '../data/visitors';
+import { getVisitor, VISITORS } from '../data/visitors';
 import { createNewProfile } from '../services/storage';
 import type { PlayerProfile } from '../types/game';
 import { advanceCityDay, resolveCityDay } from './cityClock';
@@ -42,6 +50,7 @@ import { purchaseStorefrontItem, resolveMerchantPurchaseDay } from './storefront
 import { resolveTrainingSchedule } from './trainingSchedule';
 import {
   purchaseVisitorOffer,
+  resolveVisitorBargainPrice,
   resolveVisitorItemPrice,
 } from './visitorPurchase';
 import { resolveVisitorEncounter, recordVisitorEncounter } from './visitorEncounter';
@@ -60,6 +69,7 @@ const APP_CODE = code('../App.tsx');
 const PANEL_CODE = code('../components/hub/VisitorPanel.tsx');
 const SCENE_CODE = code('../components/3d/city/CityHubScene.tsx');
 const PURCHASE_CODE = code('./visitorPurchase.ts');
+const VISITORS_CODE = code('../data/visitors.ts');
 
 const fresh = (): PlayerProfile => createNewProfile('Tester');
 const onDay = (
@@ -85,6 +95,20 @@ const EMPTY_DAY = 1;
 const item = (id: string) => getItemById(id)!;
 const snapshot = (profile: PlayerProfile): string => JSON.stringify(profile);
 
+/** L15 — a visitor's approved bargain rate, read from the catalogue (never restated). */
+const rateOf = (visitorId: string): number => getVisitor(visitorId)!.bargainRate as number;
+
+/**
+ * L15 — the bargain price an offer MUST resolve to, derived here from the canonical
+ * `ITEMS_DB` price and the offering visitor's own rate. This is the one place the
+ * arithmetic is restated, and only so the resolver can be checked against it.
+ */
+const bargainOf = (itemId: string): number => {
+  const owner = VISITORS.find((entry) => entry.offer.pool.includes(itemId));
+  if (!owner) throw new Error(`no visitor offers ${itemId}`);
+  return Math.ceil(item(itemId).price * (owner.bargainRate as number));
+};
+
 function expectUnchanged(
   before: PlayerProfile,
   result: ReturnType<typeof purchaseVisitorOffer>
@@ -96,16 +120,23 @@ function expectUnchanged(
 }
 
 describe('§A the purchase', () => {
-  test('charges exactly the canonical ITEMS_DB price', () => {
+  test('charges the visitor’s bargain price, derived from the canonical ITEMS_DB price', () => {
     const before = richOn(ARRIVAL_DAY);
-    const price = item(BLADESMITH_ITEM).price;
+    const canonical = resolveVisitorItemPrice(item(BLADESMITH_ITEM));
+    const price = bargainOf(BLADESMITH_ITEM);
     const result = purchaseVisitorOffer(before, BLADESMITH);
 
+    // The canonical price is still what it always was — L15 discounts FROM it.
+    expect(canonical).toBe(170);
+    expect(price).toBe(119);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.price).toBe(price);
+    expect(result.price).toBe(
+      resolveVisitorBargainPrice(item(BLADESMITH_ITEM), rateOf(BLADESMITH))
+    );
     expect(result.profile.gold).toBe(before.gold - price);
-    expect(result.profile.gold).toBe(5000 - 170);
+    expect(result.profile.gold).toBe(5000 - 119);
   });
 
   test('grants exactly one copy, by the catalogue object', () => {
@@ -182,7 +213,7 @@ describe('§B completion is permanent, and the offer is re-resolved', () => {
     expectUnchanged(first.profile, second);
     if (second.ok) return;
     expect(second.reason).toBe('already-completed');
-    expect(first.profile.gold).toBe(5000 - 170);
+    expect(first.profile.gold).toBe(5000 - 119);
     expect(first.profile.inventory.filter((owned) => owned.id === BLADESMITH_ITEM).length).toBe(1);
   });
 
@@ -222,7 +253,10 @@ describe('§B completion is permanent, and the offer is re-resolved', () => {
     const view = resolveVisitorEncounter(richOn(15), BLADESMITH)!;
     expect(view.offerItemId).toBe('dagger_pugio');
     expect(result.item.id).toBe(view.offerItemId!);
-    expect(result.price).toBe(item('dagger_pugio').price);
+    // …charged that day's own bargain price, not the canonical one and not day 5's.
+    expect(result.price).toBe(bargainOf('dagger_pugio'));
+    expect(result.price).toBe(63);
+    expect(result.price).toBeLessThan(item('dagger_pugio').price);
   });
 
   test('a visitor not in town today cannot be bought from', () => {
@@ -253,7 +287,9 @@ describe('§B completion is permanent, and the offer is re-resolved', () => {
 
 describe('§C the purse', () => {
   test('insufficient gold leaves the profile byte-identical', () => {
-    const before = { ...onDay(ARRIVAL_DAY), gold: 169 } as PlayerProfile;
+    // One gold short of the BARGAIN price (119), while still above nothing — a purse
+    // that would have covered the canonical 170 must not be what decides this.
+    const before = { ...onDay(ARRIVAL_DAY), gold: 118 } as PlayerProfile;
     const copy = snapshot(before);
     const result = purchaseVisitorOffer(before, BLADESMITH);
     expectUnchanged(before, result);
@@ -264,7 +300,7 @@ describe('§C the purse', () => {
   });
 
   test('exactly enough gold pays to zero, once', () => {
-    const before = { ...onDay(ARRIVAL_DAY), gold: 170 } as PlayerProfile;
+    const before = { ...onDay(ARRIVAL_DAY), gold: bargainOf(BLADESMITH_ITEM) } as PlayerProfile;
     const result = purchaseVisitorOffer(before, BLADESMITH);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -276,13 +312,33 @@ describe('§C the purse', () => {
     expect(result.profile.gold).toBe(0);
   });
 
-  test('a second visitor costs that visitor’s own price', () => {
+  test('a second visitor costs that visitor’s own bargain price', () => {
     const armorer = purchaseVisitorOffer(richOn(ARMORER_DAY), ARMORER);
     expect(armorer.ok).toBe(true);
     if (!armorer.ok) return;
-    expect(armorer.price).toBe(item(ARMORER_ITEM).price);
-    expect(armorer.price).toBe(70);
-    expect(armorer.profile.gold).toBe(5000 - 70);
+    // Canonical 70 × the armorer's 0.75 = 52.5, rounded UP to 53.
+    expect(resolveVisitorItemPrice(item(ARMORER_ITEM))).toBe(70);
+    expect(armorer.price).toBe(bargainOf(ARMORER_ITEM));
+    expect(armorer.price).toBe(53);
+    expect(armorer.profile.gold).toBe(5000 - 53);
+  });
+
+  test('the purse boundary follows the bargain price, not the canonical one', () => {
+    for (const [visitorId, day] of [
+      [BLADESMITH, ARRIVAL_DAY],
+      [ARMORER, ARMORER_DAY],
+    ] as const) {
+      const view = resolveVisitorEncounter(richOn(day), visitorId)!;
+      const bargain = resolveVisitorBargainPrice(view.item, getVisitor(visitorId)!.bargainRate)!;
+      const oneShort = { ...onDay(day), gold: bargain - 1 } as PlayerProfile;
+      expect(purchaseVisitorOffer(oneShort, visitorId).ok).toBe(false);
+      const exact = { ...onDay(day), gold: bargain } as PlayerProfile;
+      const bought = purchaseVisitorOffer(exact, visitorId);
+      expect(bought.ok).toBe(true);
+      if (!bought.ok) return;
+      expect(bought.price).toBe(bargain);
+      expect(bought.profile.gold).toBe(0);
+    }
   });
 });
 
@@ -349,6 +405,10 @@ describe('§D malformed input', () => {
         const price = resolveVisitorItemPrice(entry);
         expect(price).not.toBeNull();
         expect(price).toBe(item(id).price);
+        // L15 — and a bargain price derived from it, never a second price table.
+        expect(resolveVisitorBargainPrice(entry, visitor.bargainRate)).toBe(
+          Math.ceil((price as number) * (visitor.bargainRate as number))
+        );
       }
     }
   });
@@ -423,7 +483,7 @@ describe('§F replayed callbacks', () => {
     expect(second.ok).toBe(false);
     if (second.ok) return;
     expect(second.reason).toBe('already-completed');
-    expect(gate.profile.gold).toBe(5000 - 170);
+    expect(gate.profile.gold).toBe(5000 - 119);
     expect(gate.profile.inventory.filter((owned) => owned.id === BLADESMITH_ITEM).length).toBe(1);
     expect(readCompletedVisitors(gate.profile)).toEqual([BLADESMITH]);
   });
@@ -524,12 +584,27 @@ describe('§H the wiring', () => {
     expect(SCENE_CODE).toContain('onPurchase={onPurchaseVisitor}');
   });
 
-  test('the panel displays the canonical price and sends only the visitor id', () => {
+  test('the panel uses the shared bargain resolver and sends only the visitor id', () => {
     expect(PANEL_CODE).toContain('onPurchase(selected.visitor.id)');
     expect(PANEL_CODE.match(/onPurchase\(/g)?.length).toBe(1);
-    expect(PANEL_CODE).toContain('selected.item.price');
+    // L15 — the displayed price is the shared resolver's, never the raw catalogue
+    // price, and the panel does not re-derive the formula for itself.
+    expect(PANEL_CODE).not.toContain('selected.item.price');
+    expect(PANEL_CODE).toContain(
+      'resolveVisitorBargainPrice(selected.item, selected.visitor.bargainRate)'
+    );
+    expect(PANEL_CODE).toContain('resolveVisitorItemPrice(selected.item)');
+    expect(PANEL_CODE).not.toMatch(/Math\.ceil/);
     expect(PANEL_CODE).not.toMatch(/saveProfile|completedVisitors|purchaseStorefrontItem/);
     expect(PANEL_CODE).not.toMatch(/\buseEffect\b/);
+  });
+
+  test('the panel shows the bargain price beside the canonical shop price', () => {
+    // The saving is stated in words, from the same two numbers the button charges.
+    expect(PANEL_CODE).toContain('Asks ${price} gold — the shops charge ${canonicalPrice}');
+    expect(PANEL_CODE).toContain('`Buy for ${price} gold`');
+    // …and only while there IS a saving, so a fallback can never claim a discount.
+    expect(PANEL_CODE).toContain('saving > 0 && canonicalPrice !== null');
   });
 
   test('the panel refuses an unaffordable purchase at the control', () => {
@@ -547,5 +622,145 @@ describe('§H the wiring', () => {
     const schedule = code('./visitorSchedule.ts');
     expect(schedule).not.toMatch(/seenVisitors\s*[:=]/);
     expect(schedule).not.toMatch(/completedVisitors\s*[:=]/);
+  });
+});
+
+describe('§I the L15 bargain price contract', () => {
+  test('every visitor carries its approved rate, and the catalogue is unchanged otherwise', () => {
+    expect(VISITORS.map((visitor) => [visitor.id, visitor.bargainRate])).toEqual([
+      [BLADESMITH, 0.7],
+      [ARMORER, 0.75],
+      ['emesan_weapon_trader', 0.8],
+    ]);
+    // Cadence, windows and pools are L10's and were not touched by L15.
+    expect(VISITORS.map((visitor) => [visitor.cadence, visitor.window.from, visitor.window.to])).toEqual([
+      [3, 1, 150],
+      [4, 6, 240],
+      [5, 24, 365],
+    ]);
+  });
+
+  test('Math.ceil is pinned on the approved examples', () => {
+    const priced = (price: number) => ({ price } as unknown as ReturnType<typeof item>);
+    expect(resolveVisitorBargainPrice(priced(170), 0.7)).toBe(119);
+    expect(resolveVisitorBargainPrice(priced(170), 0.75)).toBe(128);
+    expect(resolveVisitorBargainPrice(priced(340), 0.8)).toBe(272);
+    // Rounded UP, never down and never to the nearest integer.
+    expect(resolveVisitorBargainPrice(priced(90), 0.7)).toBe(63); // 62.999… → 63
+    expect(resolveVisitorBargainPrice(priced(70), 0.75)).toBe(53); // 52.5 → 53
+    expect(resolveVisitorBargainPrice(priced(130), 0.75)).toBe(98); // 97.5 → 98
+  });
+
+  test('the price is exactly ceil(canonical × rate) for every shipped offer', () => {
+    for (const visitor of VISITORS) {
+      for (const id of visitor.offer.pool) {
+        expect(resolveVisitorBargainPrice(item(id), visitor.bargainRate)).toBe(
+          Math.ceil(item(id).price * (visitor.bargainRate as number))
+        );
+      }
+    }
+  });
+
+  test('the catalogue carries RATES, never a second price table', () => {
+    expect(VISITORS_CODE).toContain('bargainRate');
+    // No `price:` literal anywhere in the visitor catalogue: the prices stay in ITEMS_DB.
+    expect(VISITORS_CODE).not.toMatch(/\bprice\s*:/);
+    // And the resolver derives from the catalogue entry — it holds no item ids at all.
+    expect(PURCHASE_CODE).not.toMatch(/dagger_pugio|dirk_desert|arms_manica|helm_galea_iron/);
+  });
+
+  test('the canonical price is still validated by the existing safeguard', () => {
+    const priced = (price: unknown) => ({ price } as unknown as ReturnType<typeof item>);
+    for (const bad of [NaN, Infinity, -Infinity, -1, -0.01, null, undefined, '170']) {
+      expect(resolveVisitorItemPrice(priced(bad))).toBeNull();
+      expect(resolveVisitorBargainPrice(priced(bad), 0.7)).toBeNull();
+    }
+    expect(resolveVisitorBargainPrice(null, 0.7)).toBeNull();
+    expect(resolveVisitorBargainPrice(undefined, 0.7)).toBeNull();
+    // A finite zero stays a legitimate price, discounted or not.
+    expect(resolveVisitorBargainPrice(priced(0), 0.7)).toBe(0);
+  });
+
+  test('the resolver is pure and deterministic', () => {
+    const entry = item(BLADESMITH_ITEM);
+    const before = JSON.stringify(entry);
+    expect(resolveVisitorBargainPrice(entry, 0.7)).toBe(119);
+    expect(resolveVisitorBargainPrice(entry, 0.7)).toBe(119);
+    expect(JSON.stringify(entry)).toBe(before);
+    expect(PURCHASE_CODE).not.toMatch(/Date\.|setTimeout|setInterval|Math\.random/);
+  });
+});
+
+describe('§J the economic floor, over every shipping offer', () => {
+  test('every bargain is strictly below canonical and strictly above sellPrice', () => {
+    const measured: string[] = [];
+    for (const visitor of VISITORS) {
+      for (const id of visitor.offer.pool) {
+        const entry = item(id);
+        const price = resolveVisitorBargainPrice(entry, visitor.bargainRate)!;
+        measured.push(
+          `${visitor.id}/${id}: ${price} (canonical ${entry.price}, sell ${entry.sellPrice})`
+        );
+        expect(price).toBeLessThan(entry.price);
+        expect(price).toBeGreaterThan(entry.sellPrice);
+      }
+    }
+    // The exact measured margin table, so a data change cannot quietly narrow one.
+    expect(measured).toEqual([
+      'numidian_bladesmith/dagger_pugio: 63 (canonical 90, sell 40)',
+      'numidian_bladesmith/dirk_desert: 119 (canonical 170, sell 75)',
+      'campanian_armorer/arms_manica: 53 (canonical 70, sell 30)',
+      'campanian_armorer/legs_greaves_bronze: 98 (canonical 130, sell 55)',
+      'campanian_armorer/helm_galea_iron: 128 (canonical 170, sell 75)',
+      'emesan_weapon_trader/bronze_mace: 184 (canonical 230, sell 100)',
+      'emesan_weapon_trader/shamshir_curved: 272 (canonical 340, sell 150)',
+      'emesan_weapon_trader/spatha_legion: 144 (canonical 180, sell 80)',
+    ]);
+  });
+});
+
+describe('§K malformed rates fall back to the canonical price', () => {
+  test('undefined, NaN, negative, zero and above one all fall back', () => {
+    // A rate outside (0, 1) is not a bargain: zero would be free, one is no saving
+    // and above it is a markup the catalogue never set.
+    for (const malformed of [
+      undefined,
+      null,
+      NaN,
+      -1,
+      0,
+      2,
+      Infinity,
+      -Infinity,
+      0.99 + 0.02,
+      '0.7',
+      {},
+    ]) {
+      const price = resolveVisitorBargainPrice(item(BLADESMITH_ITEM), malformed as number);
+      expect(price).toBe(item(BLADESMITH_ITEM).price);
+      expect(price).toBe(170);
+    }
+  });
+
+  test('the fallback equals the canonical price exactly, so no discount is claimed', () => {
+    // The panel derives its saving from the SAME resolver and the canonical price;
+    // an identical pair is what suppresses the "Asks … — the shops charge …" line.
+    for (const malformed of [undefined, NaN, -1, 0, 2]) {
+      const price = resolveVisitorBargainPrice(item(ARMORER_ITEM), malformed as number);
+      const canonical = resolveVisitorItemPrice(item(ARMORER_ITEM));
+      expect(canonical).toBe(70);
+      expect(price).toBe(canonical);
+      expect((canonical as number) - (price as number)).toBe(0);
+    }
+  });
+
+  test('the transaction and the panel ask the ONE resolver, so their fallbacks agree', () => {
+    // visitorPurchase.ts: the definition plus the single charging call site.
+    expect(PURCHASE_CODE.match(/resolveVisitorBargainPrice\(/g)?.length).toBe(2);
+    // The formula lives in exactly one place.
+    expect(PURCHASE_CODE.match(/Math\.ceil\(/g)?.length).toBe(1);
+    // The panel calls the resolver and copies no arithmetic of its own.
+    expect(PANEL_CODE.match(/resolveVisitorBargainPrice\(/g)?.length).toBe(1);
+    expect(PANEL_CODE).not.toMatch(/Math\.ceil/);
   });
 });
