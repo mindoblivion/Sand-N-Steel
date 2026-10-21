@@ -25,12 +25,29 @@
  *
  * The penalties are applied by the existing `calculateTotalStats` (floored at 1);
  * this module never touches that function or any combat formula.
+ *
+ * S5 — THE CURES live here too, because they write the same one field: the Arena
+ * Medical House's `treatInjury` clears a wound outright for 75 gold, and the
+ * Caravanserai Inn's `restAtInn` takes two fights off its clock (clearing it at
+ * zero) for 25 gold.  Both are pure, both refuse before any arithmetic (no live
+ * injury, or a purse that cannot cover the price, returns the caller's own profile
+ * untouched), and neither reads nor advances the day/time — rest is a treatment
+ * service here, not the exertion day counter.
  */
 
-import type { PlayerInjury } from '../types/game';
+import type { PlayerInjury, PlayerProfile } from '../types/game';
 
 /** A fresh injury lasts this many completed duels. */
 export const INJURY_FIGHTS = 3;
+
+/** S5 — the Arena Medical House's price for a full cure, in gold (design §1.6). */
+export const TREAT_PRICE = 75;
+
+/** S5 — the Caravanserai Inn's price for a night's rest, in gold (design §1.6). */
+export const REST_PRICE = 25;
+
+/** S5 — one night's rest takes this many fights off the injury's clock. */
+export const REST_FIGHTS_RESTORED = 2;
 /** A fresh injury costs this much strength … */
 export const INJURY_PENALTY_STRENGTH = 2;
 /** … and this much agility. */
@@ -110,4 +127,74 @@ export function injuryBannerLine(injury: PlayerInjury): string {
   return `Injured: −${injury.penaltyStrength} STR / −${injury.penaltyAgility} AGI for ${fights} ${
     fights === 1 ? 'fight' : 'fights'
   }`;
+}
+
+/* ── S5 — the cures ──────────────────────────────────────────────────────── */
+
+/**
+ * The two places that sell a cure.  The Medical House cures outright; the inn
+ * takes a bite out of the clock.  These ids are the surface's own, not save data.
+ */
+export type TreatmentService = 'medical_house' | 'caravanserai';
+
+/** Why a cure was refused.  `ok: true` never carries a reason. */
+export type TreatmentRejectionReason = 'no-injury' | 'insufficient-gold';
+
+export type TreatmentEligibility =
+  | { ok: true; price: number }
+  | { ok: false; reason: TreatmentRejectionReason };
+
+/** What one visit costs, in gold — the single source for the surface and the transaction. */
+export function treatmentPrice(service: TreatmentService): number {
+  return service === 'medical_house' ? TREAT_PRICE : REST_PRICE;
+}
+
+/**
+ * Can the player buy this cure right now?  Both grounds the transaction enforces:
+ * a LIVE injury to treat (an exhausted or malformed wound is no injury, exactly as
+ * `resolveActiveInjury` reads it) and a purse that covers the price.  A balance that
+ * is missing or not a finite number can afford nothing, so a malformed save can never
+ * produce a NaN balance by subtraction.
+ */
+export function getTreatmentEligibility(
+  profile: PlayerProfile,
+  service: TreatmentService,
+): TreatmentEligibility {
+  if (!resolveActiveInjury(profile?.injury)) return { ok: false, reason: 'no-injury' };
+
+  const price = treatmentPrice(service);
+  const gold = profile.gold;
+  if (typeof gold !== 'number' || !Number.isFinite(gold) || gold < price) {
+    return { ok: false, reason: 'insufficient-gold' };
+  }
+  return { ok: true, price };
+}
+
+/**
+ * The Arena Medical House: 75 gold, and the wound is gone.  Eligibility first, so a
+ * refusal returns the caller's own profile untouched and never a half-charged one;
+ * a success returns a NEW profile with the price deducted exactly once.
+ */
+export function treatInjury(profile: PlayerProfile): PlayerProfile {
+  if (!getTreatmentEligibility(profile, 'medical_house').ok) return profile;
+  return { ...profile, gold: profile.gold - TREAT_PRICE, injury: null };
+}
+
+/**
+ * The Caravanserai Inn: 25 gold, and two fights come off the wound's clock.  The
+ * floor is zero — at zero the injury clears to `null` rather than lingering as a
+ * wound worth nothing — and the penalties ride along until then.
+ *
+ * This is the TREATMENT service only: it does not advance the day or the time.
+ */
+export function restAtInn(profile: PlayerProfile): PlayerProfile {
+  if (!getTreatmentEligibility(profile, 'caravanserai').ok) return profile;
+
+  const current = resolveActiveInjury(profile.injury)!;
+  const fightsRemaining = Math.max(0, current.fightsRemaining - REST_FIGHTS_RESTORED);
+  return {
+    ...profile,
+    gold: profile.gold - REST_PRICE,
+    injury: fightsRemaining > 0 ? { ...current, fightsRemaining } : null,
+  };
 }

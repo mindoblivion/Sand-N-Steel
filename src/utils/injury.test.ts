@@ -307,7 +307,12 @@ describe('§H the one call site: the result transaction', () => {
   })();
 
   test('App composes the helper inside the result transaction, exactly once', () => {
-    expect(APP_SOURCE).toContain("import { resolveInjuryAfterDuel, type DuelInjuryEvent } from './utils/injury';");
+    // S5 — this module now also exports the two cures, so App's one import from it
+    // carries them too; the property pinned here is unchanged (App reaches the
+    // helper through THIS module, and nowhere else).
+    expect(APP_SOURCE).toMatch(
+      /import \{[^}]*resolveInjuryAfterDuel[^}]*\} from '\.\/utils\/injury';/,
+    );
     expect(write.match(/resolveInjuryAfterDuel\(/g)?.length).toBe(1);
     expect(write).toContain('resolveInjuryAfterDuel(profile, didWin)');
   });

@@ -47,6 +47,15 @@ import type { QualityPreset } from '../../../services/settings';
 import { useSettings } from '../../../hooks/useSettings';
 // Phase C-8.70B — the East Circus District's read-only pre-race entry panel.
 import { PreRacePanel } from '../../hub/PreRacePanel';
+// S5 — the two cures: the Medical House's price and the inn's rest are the injury
+// module's own numbers, and this screen writes no save (App owns the transaction).
+import {
+  getTreatmentEligibility,
+  injuryBannerLine,
+  resolveActiveInjury,
+  treatmentPrice,
+  type TreatmentService,
+} from '../../../utils/injury';
 
 // Preload 3D models for instant, seamless city rendering
 try {
@@ -175,7 +184,39 @@ interface CityHubSceneProps {
   movementLocked?: boolean;
   /** The herald's pointer, when the herald is pointing somewhere (see `utils/cityHerald`). */
   heraldAim?: HeraldAim | null;
+  /**
+   * S5 — the two cures. `App` owns the transaction and the save write; this screen
+   * only reports which service the player chose. Each answers whether the gold
+   * actually changed hands, so a refusal leaves the panel open on its own reason.
+   */
+  onTreatInjury: () => boolean;
+  onRestAtInn: () => boolean;
 }
+
+/**
+ * S5 — the two places that sell a cure, and the copy each one speaks.  `notice` is
+ * the flavour line the hub has always printed for the place when the player is not
+ * hurt (unchanged, so a healthy visit reads exactly as it did); `service` is the one
+ * line the panel adds above its price and its single button.
+ */
+const TREATMENT_SITES: Record<
+  TreatmentService,
+  { title: string; notice: string; service: string; action: string }
+> = {
+  medical_house: {
+    title: 'Arena Medical House',
+    notice:
+      "Arena Medical House: Bandages, ceramic vessels, and surgical tools are prepared for the arena's wounded.",
+    service: 'The medicus cleans, stitches and binds the wound — and takes it off you entirely.',
+    action: 'Treat Wound',
+  },
+  caravanserai: {
+    title: 'Caravanserai Inn',
+    notice: 'Caravanserai Inn: Rest & Quarters. Nothing to trade here yet.',
+    service: 'A night under the arches, broth and a clean bed: two fights come off the wound.',
+    action: 'Rest a Night',
+  },
+};
 
 export const CityHubScene: React.FC<CityHubSceneProps> = ({
   playerProfile,
@@ -193,6 +234,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   lightProfile,
   movementLocked,
   heraldAim,
+  onTreatInjury,
+  onRestAtInn,
 }) => {
   // The rig this screen is drawn under. `resolveCityLightProfile` answers module
   // constants, so `lights` keeps its reference across re-renders and the Environment
@@ -261,6 +304,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // Phase C-8.70B — the East Circus District's race entry panel.  Local view
   // state only: opening it and leaving it change no game data.
   const [showRaceEntry, setShowRaceEntry] = useState(false);
+  // S5 — which treatment panel is up (null = none).  Local view state only: the
+  // transaction and its save belong to `App`.
+  const [treatmentPanel, setTreatmentPanel] = useState<TreatmentService | null>(null);
 
   /**
    * SF-1 — the quality preset arrives as a setting, not as a prop: the panel writes
@@ -404,10 +450,17 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         setStableNotice(
           "Veteran Gladiator Hall: Old trophies and worn shields line the walls, honoring fighters who survived the arena."
         );
-      } else if (nearbyLoc.id === 'arena_medical_house') {
-        setStableNotice(
-          "Arena Medical House: Bandages, ceramic vessels, and surgical tools are prepared for the arena's wounded."
-        );
+      } else if (nearbyLoc.id === 'arena_medical_house' || nearbyLoc.id === 'caravanserai') {
+        // S5 — the two treatment sites.  A live injury opens the panel (a service
+        // with a price and one button); a healthy visit keeps the flavour notice the
+        // hub has always printed, with no buttons at all.
+        const service: TreatmentService =
+          nearbyLoc.id === 'arena_medical_house' ? 'medical_house' : 'caravanserai';
+        if (resolveActiveInjury(playerProfile.injury)) {
+          setTreatmentPanel(service);
+        } else {
+          setStableNotice(TREATMENT_SITES[service].notice);
+        }
       } else {
         // Phase C-8.66B: the stable no longer falls through to this branch — its
         // interaction opens the Chariot Workshop through the gear tab's own
@@ -425,6 +478,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     onEnterDuel,
     playerProfile.currentTier,
     playerProfile.defeatedOpponentIds,
+    playerProfile.injury,
     onOpenTab,
   ]);
 
@@ -456,12 +510,28 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
+    // The treatment panel is up: E/Space and the action button are its own.
+    if (treatmentPanel) return;
     if (nearbyLoc) {
       handleInteract();
     } else {
       handleAttack();
     }
-  }, [nearbyLoc, handleInteract, handleAttack]);
+  }, [nearbyLoc, handleInteract, handleAttack, treatmentPanel]);
+
+  /**
+   * S5 — one visit.  The transaction and its save write live in `App`; this screen
+   * only reports the choice, and a refusal (no gold) leaves the panel up on its own
+   * reason.  The panel then re-renders from the profile `App` handed back.
+   */
+  const handleTreatment = useCallback(
+    (service: TreatmentService) => {
+      sounds.playClick();
+      const applied = service === 'medical_house' ? onTreatInjury() : onRestAtInn();
+      if (applied) setStableNotice(null);
+    },
+    [onRestAtInn, onTreatInjury]
+  );
 
   // Cross-platform PC Keyboard input listeners
   useEffect(() => {
@@ -471,6 +541,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       if (inputLockedRef.current) return;
       const code = e.code;
       const key = e.key.toLowerCase();
+
+      // S5 — the treatment panel is a presented surface: Esc closes it, and no other
+      // key (no movement, no interaction) is read while it is up.
+      if (treatmentPanel) {
+        if (code === 'Escape' || key === 'escape') setTreatmentPanel(null);
+        return;
+      }
 
       if (code === 'KeyW' || key === 'w' || code === 'ArrowUp') keysPressed.current['w'] = true;
       if (code === 'KeyS' || key === 's' || code === 'ArrowDown') keysPressed.current['s'] = true;
@@ -499,7 +576,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction]);
+  }, [handlePrimaryAction, treatmentPanel]);
 
   // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
@@ -684,6 +761,17 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     () => (heraldAim ? HUB_LOCATIONS.find((location) => location.id === heraldAim.id) ?? null : null),
     [heraldAim]
   );
+
+  /**
+   * S5 — the treatment panel's own reading of the profile: which place is open, the
+   * wound it would treat and whether the purse covers it.  All derived, so `App`'s
+   * write is the only thing that ever changes them.
+   */
+  const treatmentSite = treatmentPanel ? TREATMENT_SITES[treatmentPanel] : null;
+  const treatmentInjury = resolveActiveInjury(playerProfile.injury);
+  const treatmentEligibility = treatmentPanel
+    ? getTreatmentEligibility(playerProfile, treatmentPanel)
+    : null;
 
   // Phase 26.1: Memoized so it doesn't change reference on unrelated
   // re-renders (e.g. setKnobPos). Position/rotation are overridden by
@@ -1132,6 +1220,66 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               ✕
             </button>
           </div>
+        </div>
+      )}
+
+      {/* S5 — THE TREATMENT PANEL: the Medical House's cure and the inn's rest.  The
+          same surface as the notice above, but its one button is the player's way to
+          spend the gold; the transaction itself lives in `App`, so this screen writes
+          no save.  A refusal keeps the panel up and states its own reason. */}
+      {treatmentPanel && treatmentSite && (
+        <div
+          data-treatment-panel={treatmentPanel}
+          className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
+        >
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex-1">
+              <h4 className="font-serif font-black text-amber-200 text-xs sm:text-sm uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <Compass className="w-4 h-4 text-amber-400" />
+                <span>{treatmentSite.title}</span>
+              </h4>
+              <p className="text-[11px] sm:text-xs text-neutral-300 font-sans leading-relaxed">
+                {treatmentSite.service}
+              </p>
+              <p
+                data-injury={treatmentInjury ? treatmentInjury.fightsRemaining : 'none'}
+                className="mt-2 text-[11px] sm:text-xs font-mono text-amber-300"
+              >
+                {treatmentInjury ? injuryBannerLine(treatmentInjury) : 'The wound is closed.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setTreatmentPanel(null)}
+              aria-label="Close treatment panel"
+              className={CLOSE_BUTTON_CLASS}
+            >
+              ✕
+            </button>
+          </div>
+
+          {treatmentInjury && (
+            <div className="mt-3 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => handleTreatment(treatmentPanel)}
+                disabled={!treatmentEligibility?.ok}
+                className="w-full min-h-[48px] rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg border-2 border-amber-200 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Coins className="w-4 h-4" />
+                <span>
+                  {treatmentSite.action} — {treatmentPrice(treatmentPanel)}g
+                </span>
+              </button>
+              {treatmentEligibility && !treatmentEligibility.ok && (
+                <p
+                  data-treatment-refusal={treatmentEligibility.reason}
+                  className="text-[10px] sm:text-[11px] font-mono text-red-300"
+                >
+                  Not enough gold. You carry {playerProfile.gold}g.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

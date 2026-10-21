@@ -6308,3 +6308,71 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the wound's count fall across three duels and the block disappear when it heals. **Android visual
   acceptance remains pending.** The guest profile this live run wrote was deleted from the preview
   browser's storage afterwards; the repo, the user's save and the user's preview were not touched.
+## S5 — the cures: the Medical House treats, the Caravanserai rests (implemented)
+
+- **The other half of S4's loop, and it writes the same one field.** S4 made a loss inflict
+  `{ fightsRemaining: 3, penaltyStrength: 2, penaltyAgility: 2 }`; this slice sells the cures.
+  **No new save field and no migration:** the existing `injury` field is cleared or shortened and
+  `gold` is deducted through the existing `setProfile` + `saveProfile` pair, so the save format is
+  unchanged, `createNewProfile()` is untouched and a legacy save round-trips byte-identical.
+- **Both helpers live in `src/utils/injury.ts`, beside the inflictor, and both are pure.** The
+  prices are the design's §1.6 values: `TREAT_PRICE` **75**, `REST_PRICE` **25**,
+  `REST_FIGHTS_RESTORED` **2**. `treatmentPrice(service)` is the one reader of the two prices;
+  `getTreatmentEligibility(profile, service)` returns `{ ok: true, price }` or
+  `{ ok: false, reason: 'no-injury' | 'insufficient-gold' }`. `treatInjury(profile)` clears the
+  wound outright; `restAtInn(profile)` takes two fights off its clock and clears it to `null` at
+  zero (the floor is zero, never a wound worth nothing) with the penalties riding along until then.
+  **A refusal returns the caller's own profile object and never charges**, and a missing or
+  non-finite `gold` can afford nothing, so a malformed save cannot produce a NaN balance. Neither
+  helper reads or advances the day/time — rest is a treatment service here, not the exertion
+  clock — and neither imports the combat formulas or storage (all pinned).
+- **App transacts; the city only reports the choice.** `App.tsx` holds the only two call sites:
+  `handleTreatInjury` and `handleRestAtInn` each call the helper once, treat a returned-same-reference
+  as a refusal (`return false`, no `saveProfile`), and on success write the new profile through
+  `setProfile` + `saveProfile` exactly once. `CityHubScene` declares `onTreatInjury` / `onRestAtInn`
+  as `() => boolean` props, calls them from its one treatment panel, and names neither `setProfile`
+  nor `saveProfile` — no transaction is re-implemented on the screen.
+- **The panel is the injury module's own reading.** `HUB_LOCATIONS`' `arena_medical_house` and
+  `caravanserai` have **no `tabKey`**, so `handleInteract` reaches its own branch: with a live injury
+  (`resolveActiveInjury`) it opens the panel keyed `data-treatment-panel={service}`; a healthy visit
+  keeps the flavour notice the hub has always printed, with no buttons at all. The panel prints
+  `injuryBannerLine(injury)` and `treatmentPrice(service)`, shows the refusal as
+  `data-treatment-refusal={reason}`, and its one action is a `min-h-[48px]` target. Esc closes it,
+  and no other key is read while it is up.
+- **The Caravanserai's Armory redirect is gone.** Its `tabKey` was removed (it pointed at the gear
+  tab), so it can never open a tab again; its service is rest, and its `actionPrompt` reads
+  `Rest at the Inn`. Centre, radius, icon, colour, district and fast-travel arrival are unchanged,
+  and the four other flavour notices (shrine, barracks, veteran hall, the neutral fallback) are
+  untouched.
+- **Tests: `src/utils/treatment.test.ts` — 29 tests / 110 `expect()` calls.** §A treat (the 75 gold
+  price, an outright cure, exactly one deduction, a purse exactly at the price paying to zero,
+  nothing else on the profile moving, a second visit refused); §B rest (25 gold / two fights,
+  3→1, 2→null, 1→null, no negatives, two rests taking 3→null for 50, the clock field
+  untouched); §C both refusals with the profile untouched (no injury, an exhausted or malformed
+  wound, a purse one gold short, a malformed balance, and the eligible path answering its price);
+  §D purity (frozen inputs, no mutation, a refusal returning the caller's own object, two calls
+  agreeing but not sharing); §E the wiring (App the only caller and each handler saving once, the
+  scene passing both callbacks and writing no save, the panel's own reads and its 48dp button, the
+  Inn's removed redirect, the untouched notices, and racing never treating or resting).
+- **Two test-side repairs this turn — the production wiring was already correct.** §E's
+  "hands both callbacks through" test asserted `onTreatInjury={handleTreatInjury}` in the *scene*
+  source, where that pass-through legitimately lives in `App.tsx`; it now reads the props off
+  `APP_SOURCE` and the scene's own declaration and call off `SCENE_SOURCE` (four assertions became
+  six). The "racing never treats or rests" test contradicted itself — `not.toContain('restAtInn(')`
+  followed by `match(/restAtInn\(/g).length === 1` — so it now keeps the single-call-site counts and
+  asserts neither call appears inside a racing handler. No production file was touched to make
+  either pass.
+- **Validated 2026-10-21** in the dev container, on the final tree: focused
+  `bun test src/utils/{treatment,injury}.test.ts src/utils/injurySurface.test.tsx` → **65 pass / 0 fail**
+  (196 `expect()`); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → **exit 0**; `git diff --check` → clean. The full `bun test` suite and
+  `bun run build` were **not re-run here** (the sandbox's CPU also runs the preview, so only the
+  suites covering this change were run); CI runs both on the pull request.
+- **Not automatically verified — the panel in the running hub.** The panel only opens on a live
+  injury, and a live injury needs a *duel loss* in App's own flow: the preview session restores the
+  account's save and clears browser storage on every fresh load, so a seeded `injury` cannot survive
+  the reload the city needs, and no dev harness mounts the city hub. Both services' logic, refusals and
+  purity are covered by the suite and the wiring is pinned in source, but the gold deduction, the save
+  write and the panel itself through the UI **remain a device check**: lose one duel, walk to the
+  Arena Medical House, confirm the 75 g button cures the wound and the stats penalties disappear,
+  then take a second injury and confirm a night's rest shows 25 g and takes two fights off the clock.
