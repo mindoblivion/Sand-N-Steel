@@ -7328,3 +7328,56 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   Suites: `storefrontPurchase`, `cityRotationL3`, `restRecovery`, `trainingSession`, `selling`
   (132 pass), `bun run lint` exit 0. **Not driven live:** the sell click (same handler shape and
   pinned by `selling.test.ts`).
+
+## L12C — profile-ref hardening verification closeout (verified, no production code changed)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`487f6747b6`**
+  ("Refactor state updates to use profileRef for consistency"), `git status --short` **empty** before
+  the first edit — the hardening itself is that commit (`src/App.tsx` +36/−14, this file +21), so
+  L12C is a verification phase and this turn's diff is the new suite plus this section.
+- **Confirmed in the shipped source.** `handleSellItem`, `handleEquipWeapon`, `handleEquipArmor` and
+  `handleAllocateStatPoint` each take `const base = profileRef.current`, apply the same pure
+  transaction / field writes as before, then write **`profileRef.current = updated`** and only then
+  call `setProfile(updated)` + `saveProfile(updated)` — one identical object through all three, in
+  that order. Refusal semantics are unchanged: `sellItem` hands back the caller's own object and is
+  compared against the ref's base, so a refused sale touches nothing. Prices, inventory behaviour,
+  stat rules and the save shape are untouched by the hardening.
+- **New regression suite: `src/utils/profileMutationCommit.test.ts` (19 tests, 95 `expect()`).**
+  There is no DOM renderer in this repo, so `<App/>` cannot be mounted; instead of duplicating the
+  handlers next to the real ones, the suite **extracts each handler's own source text out of
+  `src/App.tsx`** (brace-matched, comments stripped), transpiles it with Bun's own transpiler and
+  executes it against the **real** `sellItem` / `purchaseVisitorOffer` transactions. `setProfile` only
+  records the commit and a `render()` helper syncs the ref — React's `useEffect` semantics — so a
+  handler that forgot its ref write is caught: §F replays the same source with the `profileRef.current
+  = …` lines spliced out and the sale is silently lost (the purchase rebuilds from the pre-sale
+  snapshot), which is the pre-hardening defect. Sections: §A extraction/ordering guards; §B **the
+  critical regression** — sale then visitor purchase in one tick, both changes in the one saved
+  profile, one save each; §C refusals (equipped item, unowned item, no visitors in town,
+  insufficient gold, no stat points) write nothing; §D a duplicated purchase charges once
+  (`already-completed`); §E equip weapon / equip armor / stat allocation, including a three-step
+  sequence in one tick; §F the control. **Limitation, stated in the file header:** this executes the
+  production handler source with the production transactions, but it does not render React — the
+  click path in a browser is still the manual check.
+- **Remaining stale-ref risk, found and deliberately NOT changed** (out of L12C's scope: no behaviour
+  changes were authorised): six other App handlers still build their update from the render's
+  `profile` state rather than `profileRef.current` — `handleBuyChariotPart`, `handleEquipChariotPart`,
+  `handleMatchComplete`, `handleChooseBannerDevice`, `handleBuyRacingConfig`,
+  `handleSelectRacingConfig` — plus `enterCity`'s `arrivalProfile` write. Each is either single-shot
+  or guarded by its own latch/refusal (the duel settlement `duelSettlementRef`, the one-time banner
+  choice, the ownership checks in the chariot/racing transactions), so none is a known live defect;
+  they are recorded here so a future hardening phase extends the same commit triad rather than
+  rediscovering it.
+- **Verified 2026-10-20** in the dev container: focused
+  `bun test src/utils/profileMutationCommit.test.ts` → **19 pass / 0 fail**; focused with the
+  transaction neighbours (`visitorPurchase`, `visitorEncounter`, `visitorSchedule`, `selling`,
+  `storefrontPurchase`, `trainingSession`, `restRecovery`, `cityRotation`, `cityRotationL3`) →
+  **293 pass / 0 fail (10 files, 6,882 `expect()`)**, exit 0; `bun test` → **2957 pass / 0 fail
+  (100 files, 88,107 `expect()`)**, exit 0; `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `bun run build` → **exit 0** with the startup-asset check passing (8 assets; the pre-existing
+  >500 kB chunk warning only); `git diff --check` → **clean, exit 0**.
+- **Not automatically verified.** No browser/device pass this turn, because no production file
+  changed: the rendered sell / purchase / equip / allocation clicks are outside what a `bun test`
+  suite can drive here. The prior session's live record (one stat point 10 → 11 with the point spent,
+  the spare weapon equipped, exactly one storage key written) stands for the equip and allocation
+  paths; **the sell click has never been driven in the UI**, only through `selling.test.ts` and this
+  suite's handler execution.
