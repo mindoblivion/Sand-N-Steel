@@ -36,7 +36,10 @@
  *   §D  a replayed settlement writes nothing at all (latch, no save, no day);
  *   §E  a stale bout id and a missing profile are refused without writing;
  *   §F  the CONTROL — with the ref fallback spliced out (the pre-hardening shape)
- *       the very same sequence loses the sale, so §B is sensitive to the fix.
+ *       the very same sequence loses the sale, so §B is sensitive to the fix;
+ *   §G  the settlement's own herald: a stage the bout wins is cried once by the real
+ *       settlement, a stage without a cry says nothing, and a later bout that
+ *       re-treads the road is silent (L13D — the recorder §A–§F built was unasserted).
  *
  * Run with: `bun test src/utils/duelSettlementCommit.test.ts`
  */
@@ -54,6 +57,7 @@ import { settleInjury } from './injurySettlement';
 import { resolveVictoryTier } from './tierAdvancement';
 import { createDuelSettlementLatch } from './duelSettlement';
 import { evaluateRoadMilestones } from './roadMilestones';
+import { VETERAN_FAME, VETERAN_TIER, deriveRank } from './rank';
 
 // ── App's real handler source ──────────────────────────────────────────────
 const APP_SRC = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8')
@@ -516,5 +520,68 @@ describe('§F CONTROL — the pre-hardening shape loses the sale', () => {
     const saved = harness.saves[1];
     expect(goldOf(saved)).toBe(500 + saleValue + STATS.goldEarned);
     expect(carries(saved, SPARE.id)).toBe(false);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+describe('§G the settlement is what raises the herald’s cry', () => {
+  /** Five fame short of Veteran, on the tier-2 circuit: this bout crosses the gate. */
+  const veteranOnTheDay = (overrides: Partial<PlayerProfile> = {}): PlayerProfile =>
+    ({
+      ...fresh(),
+      name: 'Audax',
+      fame: VETERAN_FAME - 5,
+      currentTier: VETERAN_TIER,
+      ...overrides,
+    }) as PlayerProfile;
+
+  const VETERAN_CRY = 'The herald cries: Audax, Veteran of the Ludus!';
+
+  test('a stage the bout wins is cried once, by the real settlement', () => {
+    const captured = veteranOnTheDay();
+    // The gate really is closed by this bout, not before it.
+    expect(deriveRank(captured)).toBe('Rookie');
+    const harness = createHarness(captured, captured);
+
+    harness.handlers.handleMatchComplete(STATS, true, harness.latch.arm());
+
+    // …and the settlement is what crossed it, recording the road on the way.
+    const saved = harness.saves[0];
+    expect(deriveRank(saved)).toBe('Veteran');
+    expect(saved.road?.milestonesSeen).toEqual(['sworn', 'blooded', 'known']);
+
+    // The herald was called exactly once, and said exactly the one thing this bout won.
+    expect(harness.cries.length).toBe(1);
+    expect(harness.cries[0]).toEqual([VETERAN_CRY]);
+    // No other stage's cry, and no boss cry, rides along with it.
+    expect(harness.cries[0].some((cry) => cry.includes('Champion of Rome'))).toBe(false);
+    expect(harness.cries[0].some((cry) => cry.includes('has fallen'))).toBe(false);
+  });
+
+  test('a bout that reaches only a stage without a cry says nothing', () => {
+    // A first win reaches `blooded`, which is recorded but has no cry of its own.
+    const captured = fresh();
+    const harness = createHarness(captured, captured);
+
+    harness.handlers.handleMatchComplete(STATS, true, harness.latch.arm());
+
+    expect(harness.saves[0].road?.milestonesSeen).toEqual(['sworn', 'blooded']);
+    expect(harness.cries).toEqual([]);
+  });
+
+  test('a later bout re-treading the same stage does not cry again', () => {
+    const captured = veteranOnTheDay();
+    const harness = createHarness(captured, captured);
+
+    harness.handlers.handleMatchComplete(STATS, true, harness.latch.arm());
+    harness.render();
+    expect(harness.cries.length).toBe(1);
+
+    harness.handlers.handleMatchComplete(STATS, true, harness.latch.arm());
+
+    // The second win advanced nothing on the road, so the herald is not called at all.
+    expect(harness.saves.length).toBe(2);
+    expect(harness.cries.length).toBe(1);
+    expect(harness.cries[0]).toEqual([VETERAN_CRY]);
   });
 });

@@ -7358,15 +7358,21 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   sequence in one tick; §F the control. **Limitation, stated in the file header:** this executes the
   production handler source with the production transactions, but it does not render React — the
   click path in a browser is still the manual check.
-- **Remaining stale-ref risk, found and deliberately NOT changed** (out of L12C's scope: no behaviour
-  changes were authorised): six other App handlers still build their update from the render's
-  `profile` state rather than `profileRef.current` — `handleBuyChariotPart`, `handleEquipChariotPart`,
+- **Stale-ref risk in seven more App paths — identified by L12C, since RESOLVED (kept for the record).**
+  Out of L12C's scope (no behaviour changes were authorised there), that phase found and deliberately
+  did not change six other App handlers that still built their update from the render's `profile`
+  state rather than `profileRef.current` — `handleBuyChariotPart`, `handleEquipChariotPart`,
   `handleMatchComplete`, `handleChooseBannerDevice`, `handleBuyRacingConfig`,
-  `handleSelectRacingConfig` — plus `enterCity`'s `arrivalProfile` write. Each is either single-shot
+  `handleSelectRacingConfig` — plus `enterCity`'s `arrivalProfile` write. Each was either single-shot
   or guarded by its own latch/refusal (the duel settlement `duelSettlementRef`, the one-time banner
-  choice, the ownership checks in the chariot/racing transactions), so none is a known live defect;
-  they are recorded here so a future hardening phase extends the same commit triad rather than
-  rediscovering it.
+  choice, the ownership checks in the chariot/racing transactions), so none was a known live defect,
+  and they were recorded so the hardening could be extended deliberately rather than rediscovered.
+  **The L13 hardening phase did exactly that, so this paragraph describes L12C's tree, not today's:**
+  every one of the seven now derives its base from `profileRef.current` (with `?? profile` as the
+  first-render fallback where a render snapshot is still needed), writes the ref **before**
+  `setProfile` + `saveProfile`, and commits the one resulting object through all three — the same
+  triad L12C established. See the L13C closeout at the end of this file, which also pins the
+  city-entry path that now owns its own arrival write.
 - **Verified 2026-10-20** in the dev container: focused
   `bun test src/utils/profileMutationCommit.test.ts` → **19 pass / 0 fail**; focused with the
   transaction neighbours (`visitorPurchase`, `visitorEncounter`, `visitorSchedule`, `selling`,
@@ -7381,3 +7387,111 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the spare weapon equipped, exactly one storage key written) stands for the equip and allocation
   paths; **the sell click has never been driven in the UI**, only through `selling.test.ts` and this
   suite's handler execution.
+
+## L13C — silent milestone grandfathering, and its closeout (implemented; herald regression added)
+
+- **Preflight (measured at the closeout).** Branch `development-focus-strategy`, HEAD
+  **`be5f0367f49f4d22c8db6d9d63cbdf9fb4729480`** ("Add silent option to ritual evaluator for city
+  entry"), `git status --porcelain` **empty** before the closeout's first edit — so L13C itself is
+  that commit (`src/App.tsx` +18/−6, `src/utils/roadMilestones.ts` +29/−6,
+  `src/utils/profileWritersCommit.test.ts` +138/−22, `src/utils/roadMilestones.test.ts` +122/−1,
+  4 files, +307/−35), and this closeout's own diff is two test files plus this record. **No
+  L13A/L13B/L13C section existed in this file before this one**, so the L13 series' only written
+  record is here; the hardening commits themselves (`0bd88a3`, `4165026`) are documented by the code
+  they shipped and by the suites below.
+
+- **The defect L13C fixed.** City entry evaluated the road against **the profile itself**
+  (`evaluateRituals(forProfile, forProfile)`), so no stage could ever be "fresh" and the arrival write
+  never fired: a legacy, imported or cloud-loaded save — a gladiator already past Veteran with no
+  `road` field — kept no milestone history at all, and its device-panel offer was the only thing that
+  ever fired. The call is now a genuine null baseline, recorded silently:
+  `evaluateRituals(null, forProfile, { silent: true })`.
+
+- **The contract, confirmed in the shipped source (read, not assumed).**
+  1. **Null baseline, silent register.** `App.enterCity` passes `null` and `{ silent: true }`; the
+     self-comparison is gone.
+  2. **Silent suppresses the herald only.** In `evaluateRoadMilestones` the `cries` array is the one
+     silent-gated quantity; `changed`, `profile`, `rituals` and `offerDeviceChoice` are computed
+     outside that branch, so recording still happens and the device offer is untouched. Silent also
+     suppresses the **boss** cries, which matters because a null baseline would otherwise read the
+     save's whole boss history back as news.
+  3. **The duel settlement is unchanged and loud.** Both branches still call
+     `evaluateRituals(base, updatedProfile)` with a real before/after pair and no options, where
+     `base = profileRef.current ?? profile`.
+  4. **History is deduplicated and append-only.** `!seen.includes(id)` plus the `seen`+`fresh` spread;
+     the appended ids follow road order, while an existing entry keeps its stored position (a save
+     holding `['blooded']` becomes `['blooded', 'sworn', 'known']`) — append-only, not sorted.
+  5. **One object through ref → state → disk.** `profileRef.current = arrivalProfile` first, then
+     `setProfile`/`saveProfile` with the same reference, and only when `arrivalProfile !== forProfile`
+     (an already-recorded road writes nothing and still syncs the ref).
+  6. **Nothing else moved.** The evaluator spreads `after` and replaces only `road.milestonesSeen` —
+     rank derivation, oath state, rewards, fame, tier, boss history, inventory, injury and the city
+     day are carried by identity, and `road.oathSworn` / `road.bannerDevice` are never written by it.
+  7. **Device-choice eligibility is unchanged.** `offerDeviceChoice = pastVeteran && bannerDevice ===
+     null`, independent of `silent`; the panel renders only while `deviceChoiceOpen && profile`, and
+     the hub's manual opener lives inside `BannerRow`'s no-device branch, so a recorded choice cannot
+     reopen it (a "Not yet" dismissal still re-offers at the next evaluation, by design).
+
+- **Call sites swept.** `evaluateRoadMilestones` has exactly three call sites in `src/` — `enterCity`
+  (silent, null baseline) and the two duel branches (loud, real baseline). Ordinary entry into the
+  city with an already-recorded road stays quiet: no save, no render, no herald, no device offer
+  (pinned by `profileWritersCommit` §F).
+
+- **The closeout's additions (the L13D pass) — four tests, no production change.** Both are in the
+  suites that already execute production source; no gameplay file was touched.
+  1. **`duelSettlementCommit.test.ts` §G (3 tests) — the herald channel §A–§F built but never read.**
+     That harness extracts App's own `evaluateRituals` and `handleMatchComplete` text, transpiles it
+     and runs it against the **real** `evaluateRoadMilestones`, and it already recorded
+     `setHeraldCries`; the recorder was simply never asserted. §G now drives a genuine settlement on
+     a profile five fame short of Veteran and asserts (a) the bout itself crossed the gate
+     (`deriveRank` Rookie → Veteran) and recorded `['sworn','blooded','known']`, (b) the herald was
+     called **exactly once**, with exactly `The herald cries: Audax, Veteran of the Ludus!`, and no
+     Champion or boss cry rode along, (c) a bout reaching only a cry-less stage (`blooded` on a first
+     win) records it and says nothing, and (d) a second bout that re-treads the already-recorded stage
+     does not call the herald again. So the duel settlement's announcement is now **observed** rather
+     than inferred from the helper.
+  2. **`roadMilestones.test.ts` §F (1 test) — a torn history that also owes stages.**
+     `road: { milestonesSeen: ['blooded', 42, null, {id:'known'}] }` on a Veteran save yields
+     `['blooded','sworn','known']`: valid ids preserved in stored order, junk dropped by the resolver,
+     each earned id added once, no duplicates, and a second arrival writes nothing (same profile
+     object). Previously only the "torn but owes nothing" path was pinned.
+  3. Both file headers were updated to describe the sections they now contain (§G in the settlement
+     suite; §F's torn case and the previously undocumented §I in the road suite).
+
+- **Checks actually run (2026-10-21, `web` dev container, on the final tree).**
+
+  | command | result |
+  |---|---|
+  | `bun test src/utils/roadMilestones.test.ts` | **30 pass / 0 fail**, 121 `expect()` |
+  | `bun test src/utils/profileWritersCommit.test.ts` | **24 pass / 0 fail**, 150 `expect()` |
+  | `bun test src/utils/duelSettlementCommit.test.ts` | **21 pass / 0 fail**, 104 `expect()` |
+  | the three together | **75 pass / 0 fail**, 375 `expect()` |
+  | herald/settlement neighbours (`roadOfGlory`, `duelSettlement`, `duelResultLifecycle`, `gladiatorOath`) | **105 pass / 0 fail**, 733 `expect()` |
+  | `bun test` (full) | **3015 pass / 0 fail (103 files, 88,432 `expect()`)** — this closeout's four tests are the delta, the file count unchanged because both suites already existed |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `bun run build` | **exit 0**, startup-asset check passing (8 assets in `public/` and `dist/`; `dist/` is gitignored) |
+  | `git diff --check` | **clean (exit 0)** |
+
+  The earlier counts recorded elsewhere in this file (2957 / 100 at L12C, and the L13A commits after
+  it) are **earlier measurements, not this phase's**; only the rows above were run here. No assertion
+  was loosened and no existing test was edited for these additions.
+
+- **What the evidence does and does not prove.** Verified by execution: the evaluator's silent/aloud
+  registers, the recording and dedup rules, the single commit object, and — through the extracted
+  App source and the real helper — the settlement's one cry, its absence for a cry-less stage and its
+  suppression on a repeat. **Modeled, not rendered:** there is no DOM renderer in this repo, so the
+  harness supplies `setProfile`/`saveProfile`/`setHeraldCries` recorders and a `render()` that syncs a
+  ref; React batching and `HeraldToast` itself are not exercised. **Source pins, not behaviour:** the
+  duel-vs-city call shapes are also pinned as text (a reformat would fail them), and they prove call
+  shape rather than semantics. The torn-history rewrite drops non-string entries only when something
+  is owed — that repair is now asserted, but it remains a side effect of the rewrite rather than a
+  declared sanitizer. **No browser or device pass was made or is claimed here:** this phase changes no
+  production file, so there is no rendered pixel to accept, and nothing in it may be read as Android
+  acceptance. The pre-existing live items (the visitor chip/panel on target hardware, the Medical
+  House rest interaction, the wind-up cue, duel settlement and payout on device) are unchanged.
+
+- **Follow-ups worth a decision, not defects.** (a) `silent` is opt-out: a future call site pairing a
+  null baseline with the default would replay the save's entire boss history as herald cries — making
+  silence implicit when `before == null`, or asserting every call site's options, would close that.
+  (b) The evaluator computes `newlyDefeatedBosses` even when silent (its result is discarded); harmless,
+  but it is work done for nothing on every arrival.

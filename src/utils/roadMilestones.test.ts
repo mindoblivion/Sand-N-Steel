@@ -10,9 +10,12 @@
  *   §C a boss kill names the boss from the roster, and a mook says nothing;
  *   §D the Device Choosing write happens once and can never be rewritten;
  *   §E the boss stripes are derived from `bossKills` (0 / 1 / 4);
- *   §F a save with no `milestonesSeen` at all resolves cleanly;
+ *   §F a save with no `milestonesSeen` at all resolves cleanly, and a torn one keeps
+ *      its valid ids while gaining the ones it still owes, once each;
  *   §G grandfathering: past Veteran with no device is offered the panel;
- *   §H the four devices carry a Latin name, a gloss and a palette field.
+ *   §H the four devices carry a Latin name, a gloss and a palette field;
+ *   §I silent grandfathering (city entry) records a save's own history without the
+ *      herald, and a genuine settlement still speaks.
  *
  * Nothing here reads storage or the clock: the evaluators are pure.
  */
@@ -237,6 +240,33 @@ describe('§F — a save with no milestonesSeen resolves cleanly', () => {
     const profile = base({ road: { milestonesSeen: 'nope' as never } });
     expect(resolveRoadProgress(profile).milestonesSeen).toEqual([]);
     expect(evaluateRoadMilestones(profile, profile).changed).toBe(false);
+  });
+
+  test('a torn list keeps its valid ids and adds the earned ones once', () => {
+    // Junk among real ids, on a save that also owes stages it never recorded: the
+    // resolution drops whatever is not a string, and the rewrite carries the rest
+    // forward exactly once — the ids the save already held first, then the missing
+    // ones in road order.
+    const profile = base({
+      fightsWon: 3,
+      fame: VETERAN_FAME + 50,
+      currentTier: VETERAN_TIER,
+      road: { milestonesSeen: ['blooded', 42, null, { id: 'known' }] as never },
+    });
+
+    const evaluation = evaluateRoadMilestones(null, profile, { silent: true });
+    const seen = evaluation.profile.road?.milestonesSeen ?? [];
+
+    expect(seen).toEqual(['blooded', 'sworn', 'known']);
+    expect(new Set(seen).size).toBe(seen.length);
+    expect(seen.filter((id) => id === 'blooded').length).toBe(1);
+    // The torn entries are gone, and what remains is a plain string list.
+    expect(seen.every((id) => typeof id === 'string')).toBe(true);
+
+    // A second arrival finds nothing left to record, so it writes nothing at all.
+    const again = evaluateRoadMilestones(null, evaluation.profile, { silent: true });
+    expect(again.changed).toBe(false);
+    expect(again.profile).toBe(evaluation.profile);
   });
 });
 
