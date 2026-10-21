@@ -193,7 +193,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
           <div className="flex justify-between items-center text-[11px] font-serif font-bold text-amber-300">
             <span className="flex items-center gap-1">
               <Flame className={`w-3.5 h-3.5 ${crowdHype > 50 ? 'text-orange-500 animate-bounce' : 'text-amber-500'}`} />
-              CROWD FAVOR
+              CROWD HYPE
             </span>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-amber-400/80 uppercase font-mono">

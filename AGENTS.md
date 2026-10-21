@@ -6142,3 +6142,59 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   champion's plaque, the ladder row, and the player's own line still blank before the first win and
   chalked after it. The Test's combat difficulty against a fresh gladiator is a balance question
   this suite does not measure.
+
+## CL-3 — the Doctore's guided beats engine (implemented, verified live)
+
+- **The pure engine lives in `src/utils/coachMarks.ts`** (the CL-1 registry module, extended —
+  no card copy changed). `evaluateBeats(snapshot, seen)` returns the ONE beat to show next or
+  `null`: the lowest-numbered unseen beat whose state is true. `CombatSnapshot` is a union —
+  `FightSnapshot` (everything DuelScene already holds: `phase`, `opponentId`, `isBoss`,
+  `playerTurn`, `playerActing`, `inReach`, `playerStamina`/`Max`, `quick`/`powerStaminaCost`,
+  `lastPlayerStrike`, `opponentHealth`/`Max`, `hype`, `telegraph`) and `ResultSnapshot`
+  (`phase: 'result'`, `result`, `losses`). D1–D7 never fire on the result screen and D8 never
+  fires in a fight.
+- **D5 is "low", not "staggered or low" — a deliberate, reported limit.** Nothing in the shipped
+  combat produces a staggered state (no `FighterState` field, no action, no AI branch produces
+  one), so the "staggered" half cannot be evaluated from state DuelScene holds. It was **not**
+  approximated with an invented flag: D5 fires on `playerStamina >= playerStaminaMax` plus
+  `opponentHealth / opponentHealthMax <= OPPONENT_REELING_HEALTH_FRACTION` (0.25). D6 uses
+  `HYPE_HIGH` (40) with the HUD's own `> 40` HIGH reading.
+- **DuelScene supplies the snapshot** in one effect keyed on the combat state it already keeps
+  plus two counters it now holds (`playerTurnCount`, incremented when the AI hands the turn back;
+  `resolvedActionCount`, incremented in the 1100 ms resolution tail) and `lastPlayerStrike`, set
+  in the three places a player strike resolves (out of range / blocked / landed). Nothing pauses,
+  queues or blocks: an action that resolves while a card is up behaves exactly as before.
+- **Dismissal is the only writer, and it runs after the card has rendered:** the ✕, the action the
+  beat teaches (`beatDismissesOn`: D1 quick, D2 advance, D3 guard/taunt, D4 power, D5 power,
+  D6 taunt, D7 dodge), or `BEAT_EXPIRY_ACTIONS` (2) further resolved actions. DuelScene keeps its
+  own seeded `SeenState` (`seenBeatsRef`) so a card cannot re-fire before App's profile update
+  lands, and records through App's single `markSeen` write (`onMarkCardSeen`).
+- **`CoachCard` gained a fifth placement, `panel`** — the duel's own edge, `bottom-[19rem]` with
+  `max-sm:bottom-[24rem]`. Measured live (DOM rects, not by eye): the card's bottom sits 31 px
+  above the action grid at 1280×800 and 58 px above it at 375×812, so it never covers a control;
+  its wrapper stays `pointer-events-none`, so the fight is not intercepted even where it overlays
+  the arena floor. The UI-1 safe-area guard's four `max(0.75rem,env(safe-area-inset-*))` insets
+  are unchanged (the panel edge is not a device edge).
+- **D8 is decided by App, not the modal:** App runs `evaluateBeats({ phase: 'result', result,
+  losses: profile.fightsLost }, resolveSeenState(profile))` and passes the id to
+  `DuelResultModal`, which renders the registry card at the top edge and reports its ✕ (and
+  Continue) to the same `handleMarkCardSeen`. `losses === 1` is the "first loss" reading, so a
+  second loss can never show it.
+- **CombatHUD's hype meter is labelled "CROWD HYPE"** (it read "CROWD FAVOR"); no other markup,
+  no layout change, and `crowdFavorTier` keeps its own HIGH/LOW wording.
+- **Suite: `src/utils/coachMarks.beats.test.ts`** (25 tests, 102 assertions) — per-beat
+  fires/doesn't-fire/never-re-fires, priority (lowest number, one at a time, D1 outranks all),
+  purity (same inputs, no snapshot/seen/profile mutation), D8 first-loss-only, a full simulated
+  turn sequence (D1–D7 in order for a fresh profile, **zero** cards once every D-beat is seen) and
+  the dismissal map. No storage is read or written by it.
+- **Verified 2026-10-21:** `bun test` → **2809 pass / 0 fail (94 files, 82 794 expect())**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`)
+  → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only);
+  `git diff --check` → clean. Live in the preview browser (the dev character harness, driven in an
+  in-page frame so no save is touched): D1 renders the registry copy verbatim on Marcus's opening
+  turn, one card only; ✕ dismisses it; an out-of-range Quick Strike raises D2; Advance (its taught
+  action) dismisses it and nothing comes back; the card clears the action grid at both 1280×800 and
+  375×812 with no sideways scroll; the meter reads CROWD HYPE. **Not automatically verified:** D8 on
+  the result screen — it needs a profile's first real loss in App's own duel flow, which the harness
+  does not mount (its result screen is its own), so that card is covered by the engine suite and the
+  wiring only; check it on device on a first defeat.

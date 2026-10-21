@@ -1,6 +1,8 @@
 import React from 'react';
 import { DuelStatistics, OpponentConfig } from '../../types/game';
 import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight } from 'lucide-react';
+import { CoachCard } from '../ui/CoachCard';
+import { getCoachCard } from '../../utils/coachMarks';
 import confetti from 'canvas-confetti';
 import { sounds } from '../../audio/soundEffects';
 
@@ -17,6 +19,13 @@ interface DuelResultModalProps {
   storyLines?: string[];
   /** The player's purse after the duel, so the reward reads as spendable gold. */
   goldTotal?: number;
+  /**
+   * CL-3 — the Doctore's beat for this result (D8, on a profile's first loss),
+   * already decided and seen-gated by App through `evaluateBeats`. Absent on
+   * every other result, so the modal renders exactly as it always has.
+   */
+  coachCardId?: string | null;
+  onCoachCardDismiss?: (id: string) => void;
   onContinue: () => void;
 }
 
@@ -50,6 +59,8 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   stats,
   storyLines,
   goldTotal,
+  coachCardId,
+  onCoachCardDismiss,
   onContinue,
 }) => {
   const pace = didWin ? 1 : DEFEAT_PACE;
@@ -153,8 +164,25 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
     return Math.round((remaining / maxHp) * 100);
   }, [didWin, opponent.stats?.healthMax, stats.damageDealt]);
 
+  // CL-3 — the first loss's beat. It is dismissed by its ✕ (App records it seen
+  // through the same `markSeen` write the hub uses) or by continuing past it, and
+  // never before it has rendered: both handlers run from the card itself.
+  const resultBeatCard = coachCardId ? getCoachCard(coachCardId) : undefined;
+  const handleContinue = () => {
+    if (resultBeatCard && coachCardId) onCoachCardDismiss?.(coachCardId);
+    onContinue();
+  };
+
   return (
     <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md z-40 flex items-center justify-center p-4">
+      {resultBeatCard && coachCardId && (
+        <CoachCard
+          id={coachCardId}
+          card={resultBeatCard}
+          placement="top"
+          onDismiss={() => onCoachCardDismiss?.(coachCardId)}
+        />
+      )}
       <div
         className={`border-2 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl animate-fadeIn text-amber-100 ${
           didWin
@@ -285,7 +313,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
         </div>
 
         <button
-          onClick={onContinue}
+          onClick={handleContinue}
           className={`btn-press w-full py-4 rounded-2xl font-serif font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl flex items-center justify-center gap-2 ${
             didWin
               ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 text-neutral-950 border border-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.5)]'

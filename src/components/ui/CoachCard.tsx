@@ -16,7 +16,7 @@ import type { CoachCard as CoachCardEntry } from '../../utils/coachMarks';
  * the size of the hub's own header controls.
  */
 
-export type CoachCardPlacement = 'top' | 'bottom' | 'left' | 'right';
+export type CoachCardPlacement = 'top' | 'bottom' | 'left' | 'right' | 'panel';
 
 export interface CoachCardProps {
   /** The registry id this card was drawn from — stamped on the DOM for the caller's tests. */
@@ -39,6 +39,10 @@ const PLACEMENT_CLASS: Record<CoachCardPlacement, string> = {
   bottom: 'bottom-0 left-1/2 -translate-x-1/2 items-end max-sm:bottom-32',
   left: 'left-0 top-1/2 -translate-y-1/2',
   right: 'right-0 top-1/2 -translate-y-1/2',
+  // CL-3 — the duel's own edge: clear of the action panel's controls (and of the
+  // panel's stacked combat log on a phone), over the arena floor rather than over
+  // anything the player taps.
+  panel: 'left-1/2 -translate-x-1/2 items-end bottom-[19rem] max-sm:bottom-[24rem]',
 };
 
 /**
@@ -52,6 +56,8 @@ const EDGE_INSET_CLASS: Record<CoachCardPlacement, string> = {
   bottom: 'mt-3 mr-3 mb-[max(0.75rem,env(safe-area-inset-bottom))] ml-3',
   left: 'mt-3 mr-3 mb-3 ml-[max(0.75rem,env(safe-area-inset-left))]',
   right: 'mt-3 mr-[max(0.75rem,env(safe-area-inset-right))] mb-3 ml-3',
+  // The panel edge is not a device edge; the duel HUD already carries the insets.
+  panel: 'mt-3 mr-3 mb-3 ml-3',
 };
 
 export const CoachCard: React.FC<CoachCardProps> = ({

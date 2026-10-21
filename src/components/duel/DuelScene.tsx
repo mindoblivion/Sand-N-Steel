@@ -42,6 +42,17 @@ import {
   subscribeSettings,
 } from '../../services/settings';
 import { vibrate, HAPTIC_HIT_LANDED_MS, HAPTIC_DEFEAT_PATTERN } from '../../utils/haptics';
+import { CoachCard } from '../ui/CoachCard';
+import {
+  BEAT_EXPIRY_ACTIONS,
+  beatDismissesOn,
+  evaluateBeats,
+  getCoachCard,
+  resolveSeenState,
+  type CombatSnapshot,
+  type PlayerStrikeResult,
+  type SeenState,
+} from '../../utils/coachMarks';
 
 // Preload 3D assets for instant duel startup
 try {
@@ -100,6 +111,8 @@ interface DuelSceneProps {
   isMuted: boolean;
   isLeftyMode?: boolean;
   onOpenSettings?: () => void;
+  /** CL-3 — App's one seen-write (the same `markSeen` path the hub card uses). */
+  onMarkCardSeen?: (id: string) => void;
 }
 
 // Camera controller inside Canvas with hold-and-drag orbit support
@@ -230,6 +243,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   isMuted,
   isLeftyMode = false,
   onOpenSettings,
+  onMarkCardSeen,
 }) => {
   const pStats = calculateTotalStats(playerProfile);
 
@@ -330,6 +344,50 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     setCrowdHype(next);
     statsRef.current.crowdHypePeak = updateHypePeak(statsRef.current.crowdHypePeak, next);
   }, []);
+
+  // ── CL-3 — the Doctore's guided beats ───────────────────────────────────────
+  // The engine (`evaluateBeats`) is pure: it is handed a snapshot of the state
+  // this scene already holds and the profile's resolved `seen` record, and it
+  // answers the one beat to show. Nothing here pauses the simulation, blocks an
+  // action or intercepts a touch — the card is non-modal by construction.
+  const [playerTurnCount, setPlayerTurnCount] = useState(1);
+  const [resolvedActionCount, setResolvedActionCount] = useState(0);
+  const [lastPlayerStrike, setLastPlayerStrike] = useState<
+    { result: PlayerStrikeResult; seq: number } | null
+  >(null);
+  const strikeSeqRef = useRef(0);
+  const [activeBeat, setActiveBeat] = useState<string | null>(null);
+  const activeBeatRef = useRef<string | null>(null);
+  /** Resolved actions since the card was shown — the 2-action expiry. */
+  const beatActionsRef = useRef(0);
+  /** This duel's own seen record, seeded from the profile and written on dismissal. */
+  const seenBeatsRef = useRef<SeenState>(resolveSeenState(playerProfile));
+
+  /**
+   * Record one resolved player strike. The sequence makes two identical outcomes
+   * two distinct pieces of state, so a repeated miss still re-runs the evaluator.
+   */
+  const notePlayerStrike = useCallback((result: PlayerStrikeResult) => {
+    strikeSeqRef.current += 1;
+    setLastPlayerStrike({ result, seq: strikeSeqRef.current });
+  }, []);
+
+  /**
+   * Dismiss the card that is actually on screen and record it seen. Called ONLY
+   * from a real dismissal (the ✕, the action the beat teaches, or the 2-action
+   * expiry), so a beat is never recorded before it has rendered.
+   */
+  const dismissBeat = useCallback(
+    (id: string) => {
+      if (activeBeatRef.current !== id) return;
+      activeBeatRef.current = null;
+      beatActionsRef.current = 0;
+      seenBeatsRef.current = { ...seenBeatsRef.current, [id]: true };
+      setActiveBeat(null);
+      onMarkCardSeen?.(id);
+    },
+    [onMarkCardSeen],
+  );
 
   const [matchTimer, setMatchTimer] = useState(0);
   const [cameraMode, setCameraMode] = useState<'cinematic' | 'over_shoulder' | 'isometric'>('cinematic');
@@ -435,6 +493,55 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // Distance in 3D arena
   const currentDistance = Math.abs(player.position[2] - opp.position[2]);
 
+  // CL-3 — evaluate after every resolved action (and on the opening turn). One
+  // card at a time: while one is up, the evaluator is not consulted, so several
+  // coinciding triggers show the lowest-numbered beat first and the rest follow
+  // in later evaluations.
+  useEffect(() => {
+    if (activeBeatRef.current || isMatchOver.current) return;
+
+    const snapshot: CombatSnapshot = {
+      phase: 'fight',
+      opponentId: opponent.id,
+      isBoss: opponent.isBoss === true,
+      playerTurn: playerTurnCount,
+      playerActing: isPlayerTurn && !isExecuting,
+      inReach: currentDistance <= getWeaponRange(player.loadout.weapon),
+      playerStamina: player.stamina,
+      playerStaminaMax: player.stats.staminaMax,
+      quickStaminaCost: getStaminaCost(player.loadout.weapon, true),
+      powerStaminaCost: getStaminaCost(player.loadout.weapon, false),
+      lastPlayerStrike: lastPlayerStrike?.result ?? null,
+      opponentHealth: opp.health,
+      opponentHealthMax: opp.stats.healthMax,
+      hype: crowdHype,
+      telegraph: Boolean(opp.telegraphText),
+    };
+
+    const next = evaluateBeats(snapshot, seenBeatsRef.current);
+    if (!next) return;
+    activeBeatRef.current = next;
+    beatActionsRef.current = 0;
+    setActiveBeat(next);
+  }, [
+    opponent.id,
+    opponent.isBoss,
+    playerTurnCount,
+    isPlayerTurn,
+    isExecuting,
+    currentDistance,
+    player.stamina,
+    player.stats.staminaMax,
+    player.loadout.weapon,
+    lastPlayerStrike,
+    opp.health,
+    opp.stats.healthMax,
+    opp.telegraphText,
+    crowdHype,
+    resolvedActionCount,
+    activeBeat,
+  ]);
+
   // Helper: Append log
   const addLog = useCallback((text: string, type: 'player' | 'opponent' | 'system' | 'crit' = 'system') => {
     const entry: CombatLogEntry = {
@@ -468,6 +575,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       setIsExecuting(true);
       const isActorPlayer = actor === 'player';
+
+      // CL-3 — a shown beat is dismissed by the action it teaches, or once
+      // BEAT_EXPIRY_ACTIONS further actions have resolved. Either way it is
+      // recorded seen here, after it has rendered, never at evaluation time.
+      const shownBeat = activeBeatRef.current;
+      if (shownBeat) {
+        const taughtAction = isActorPlayer && beatDismissesOn(shownBeat, actionType);
+        beatActionsRef.current += 1;
+        if (taughtAction || beatActionsRef.current >= BEAT_EXPIRY_ACTIONS) {
+          dismissBeat(shownBeat);
+        }
+      }
 
       // Read-and-clear the telegraphed-heavy marker for THIS resolution, before
       // any branch can return, so a miss, an evade or an out-of-range swing
@@ -658,6 +777,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           sounds.playSlash();
           addLog(`${attacker.name} strikes with ${isQuick ? 'Quick Slash' : 'Power Slash'}, but is OUT OF RANGE!`, 'system');
           spawnDamageText('OUT OF RANGE!', 'blocked', defender.position);
+          if (isActorPlayer) notePlayerStrike('missed_out_of_reach');
         } else {
           // Check Evasion / Hit Probability
           const hitPct = calculateHitChance(isQuick, attacker.stats.agility, defender.stats.agility);
@@ -719,6 +839,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 'system'
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
+              if (isActorPlayer) notePlayerStrike('blocked');
             } else {
               if (isCrit) {
                 sounds.playHeavyImpact();
@@ -729,6 +850,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 addLog(`${attacker.name} struck ${defender.name} for ${rawDamage} damage.`, isActorPlayer ? 'player' : 'opponent');
                 spawnDamageText(`-${rawDamage}`, 'damage', defender.position);
               }
+              if (isActorPlayer) notePlayerStrike('landed');
               // C-8.70B §SET-1 — the player's blade landed: one short buzz, on the
               // device's own haptics and only when the Vibration row is on.
               if (isActorPlayer) vibrate(HAPTIC_HIT_LANDED_MS);
@@ -841,17 +963,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         }
 
         setIsExecuting(false);
+        setResolvedActionCount((count) => count + 1);
 
         // Check match end
         if (opp.health <= 0 || player.health <= 0) {
           return;
         }
 
-        // Toggle turn
+        // Toggle turn — a completed opponent action opens the player's next turn.
+        if (!isActorPlayer) setPlayerTurnCount((count) => count + 1);
         setIsPlayerTurn(!isActorPlayer);
       }, 1100);
     },
-    [isExecuting, player, opp, addLog, spawnDamageText, updateCrowdHype]
+    [isExecuting, player, opp, addLog, spawnDamageText, updateCrowdHype, dismissBeat, notePlayerStrike]
   );
 
   // OPPONENT AI TURN STRATEGY ENGINE
@@ -1117,6 +1241,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         combatLog={combatLog}
         onExecuteAction={(action) => executeCombatTurn('player', action)}
       />
+
+      {/* CL-3 — one guided beat at a time, at the action panel's edge. The card's
+          wrapper is pointer-transparent and only the card itself is interactive,
+          so the fight keeps running and no touch meant for it is intercepted. */}
+      {activeBeat && getCoachCard(activeBeat) && (
+        <CoachCard
+          id={activeBeat}
+          card={getCoachCard(activeBeat)!}
+          placement="panel"
+          onDismiss={() => dismissBeat(activeBeat)}
+        />
+      )}
     </div>
   );
 };
