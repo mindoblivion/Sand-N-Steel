@@ -73,7 +73,7 @@ import {
   type DoctoreTestRestriction,
 } from './utils/storyBeats';
 import { resolveVictoryTier } from './utils/tierAdvancement';
-import { resolveInjuryAfterDuel, type DuelInjuryEvent } from './utils/injury';
+import { resolveInjuryAfterDuel, restAtInn, treatInjury, type DuelInjuryEvent } from './utils/injury';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
 import { preloadTitleStage } from './utils/preloadAssets';
@@ -743,6 +743,31 @@ export function App() {
   };
 
   /**
+   * S5 — the Arena Medical House's cure (75 gold) and the Caravanserai Inn's rest
+   * (25 gold).  Both helpers are pure and re-check every rule against the profile
+   * they are handed — a live injury, and a purse that covers the price — so a
+   * refusal returns the caller's own profile and never reaches `saveProfile`.  The
+   * answer says whether the gold changed hands, which is what closes the city panel.
+   */
+  const handleTreatInjury = (): boolean => {
+    if (!profile) return false;
+    const treated = treatInjury(profile);
+    if (treated === profile) return false;
+    setProfile(treated);
+    saveProfile(treated);
+    return true;
+  };
+
+  const handleRestAtInn = (): boolean => {
+    if (!profile) return false;
+    const rested = restAtInn(profile);
+    if (rested === profile) return false;
+    setProfile(rested);
+    saveProfile(rested);
+    return true;
+  };
+
+  /**
    * Phase C-8.67C — buy a racing team (Triga 750, Quadra 1,500) with the
    * player's existing purse.  `purchaseRacingConfig` is pure and re-checks every
    * rule against the profile it is handed — prerequisite, ownership, price — so a
@@ -946,6 +971,8 @@ export function App() {
             initialPosition={oathBeatMode ? OATH_YARD_SPAWN.position : cityReturnPose?.position}
             initialRotationY={oathBeatMode ? OATH_YARD_SPAWN.rotationY : cityReturnPose?.rotationY}
             onStartRace={handleStartRace}
+            onTreatInjury={handleTreatInjury}
+            onRestAtInn={handleRestAtInn}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
             movementLocked={!!oathBeatMode}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}

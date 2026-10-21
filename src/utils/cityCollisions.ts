@@ -263,8 +263,10 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     // player's 0.80 diameter (0.80 here); the arrival sits 0.25 outside, one step.
     radius: 5.75,
     icon: 'Home',
-    tabKey: 'gear',
-    actionPrompt: 'Equip Loadout',
+    // S5 — the inn's service is REST, not an Armory redirect: a live injury opens its
+    // treatment panel (25 gold, two fights off the wound), and loadout lives in the
+    // hub's own Armory tab.  No tabKey, so it can never open a tab again.
+    actionPrompt: 'Rest at the Inn',
     color: '#0891b2',
     district: 'EAST',
   },
