@@ -7008,3 +7008,100 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   confirm the already-treated refusal writes nothing, and that the merchant's allowance and the
   Ludus's timetable have moved to the new day. An uninjured gladiator must read
   "The medicus finds nothing to treat."
+
+## Living City L10 — visitor schedule foundation (implemented; no UI, no interaction)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`143edd0d50`**
+  ("Implement L9 rest and recovery mechanics"), `git status --short` **empty** before the first edit.
+  The branch's baseline suite read **2820 pass / 0 fail (96 files)** — the figure the L9 record ended
+  on — so L9's description matched the code that shipped. Nothing was reset, stashed or overwritten.
+
+- **What ships: a catalogue, one pure resolver, two optional fields, one suite.** `src/data/visitors.ts`
+  (new — three visitors, their seasons and their offers), `src/utils/visitorSchedule.ts` (new — the
+  schedule), `src/types/game.ts` (`CityState.seenVisitors?` / `completedVisitors?`),
+  `src/utils/visitorSchedule.test.ts` (new, 46 tests) and this record. **No mesh, no disc, no prompt,
+  no collider, no scene, no purchase, no reward and no interaction**; `App.tsx`, `CityHubScene.tsx`
+  and `cityCollisions.ts` carry **no mention of a visitor at all** (asserted in §J), and the day is
+  not advanced anywhere new.
+
+- **The two roadmap fields, and the one reading this phase had to choose.** The audit states the rule
+  exactly — `fnv1a(`${day}:${visitorId}`) % cadence === 0` **inside its own window** — but never says
+  what a window *is*. This phase reads it as the visitor's **arrival window: an inclusive range of
+  city days (`from ≤ day ≤ to`)**, which is the only reading that matches "an arrival window derived
+  from `day`" and the phrase "window boundaries are respected". `cadence` is then "one day in
+  `cadence`" inside that range. **This is the phase's single documented interpretation**, stated in the
+  catalogue's own header so a reviewer can overrule it in one place; it is not a stay length, and the
+  alternative (dwell days) would have needed a start anchor nothing in the documentation supplies.
+
+- **The catalogue, measured.** `numidian_bladesmith` (cadence 3, days 1–150), `campanian_armorer`
+  (cadence 4, days 6–240) and `emesan_weapon_trader` (cadence 5, days 24–365). Bounds are exported and
+  asserted: cadence an integer in **2…7** (never 1, which would make the rule vacuous) and a window
+  ending no later than **`VISITOR_WINDOW_MAX_DAY` = 365**, so no visitor is permanent. Staggered on
+  purpose: **first arrivals on days 5, 8 and 31**, and over the first 90 days **52 have a visitor and
+  10 have two** — a visitor is an occasion, not a fixture. Every entry, window, offer and pool is
+  `Object.freeze`d, and the ids are pinned in the suite as a stability record.
+
+- **The offers reference real content and are non-progression-critical by construction.** Each visitor
+  has one `offer: { summary, pool }` whose pool is drawn **only from goods the permanent spine already
+  stocks** (`getStorefrontStock('forge')` ∪ `('armorer')` — daggers, the bronze armor pieces, the mace,
+  the shamshir, the spatha), so nothing is visitor-exclusive and a zero-visitor run still reaches the
+  next tier. The day's single offer is `selectDailyWindow(pool, 1, visitorId, day)` — **the L2 rotation
+  reused, not reimplemented** — so it rotates exactly as a shop's stock does and cannot be re-rolled by
+  a reload. No item id was invented, no price was added and no purchase exists.
+
+- **The resolver.** `scheduleVisitorDay(catalogue, day, completedIds)` (explicit day, normalized through
+  the SAME `normalizeCityDay`) and `resolveVisitorSchedule(profile)` (the day from `resolveCityDay`,
+  completion from the profile) answer `{ day, arrivals: [{ visitor, offerItemId }] }` in catalogue
+  order, plus two total readers — `readSeenVisitors` / `readCompletedVisitors`. A catalogue is
+  deduplicated by id (first entry wins) and only ever SELECTED from, so a schedule can never name a
+  visitor that does not exist; an empty pool answers `offerItemId: null` rather than inventing one.
+
+- **Seen is not done, and completion is permanent.** `completedVisitors` removes a visitor from **every**
+  later schedule (asserted across all of its arrival days and past its window); `seenVisitors` is read,
+  defended against junk and **never** excludes anyone; a malformed or unknown id excludes nobody. **This
+  phase writes neither field** — no initialization, no migration, no visit transaction — and the
+  resolver's own source is asserted not to assign either. Both fields are optional on `CityState`, so a
+  legacy save resolves to day 1 with empty histories and `createNewProfile()` still writes no `city`.
+
+- **One compatibility change outside the new files, and it is type-only.**
+  `selectDailyWindow`'s `id` (and its private `rotationStart`) is now typed `string` instead of
+  `StorefrontId`, because it is a NAMESPACE IN THE HASH KEY, not a storefront lookup — that is what lets
+  the visitors reuse the one rotation instead of growing a second hash. No expression changed;
+  `rotateStorefrontStock` still takes a `StorefrontId`, and the merchant/rotation suites re-run green
+  with the day-1 window still `helm_centurion, chest_golden_muscled, arms_manica_steel,
+  arms_galerus_gilded`.
+
+- **What deliberately did not change.** `advanceCityDay` still has its one call site (the duel
+  settlement), and the merchant offer, the training timetable (day 1 still rests `stamina`), the
+  injury/rest transactions and the collision registry are re-pinned unchanged in §J. `cityClock.ts` is
+  untouched; `cityRotation.ts` carries the type widening above and nothing else.
+
+- **Regression suite: `src/utils/visitorSchedule.test.ts` — 46 tests / 2,389 `expect()` calls**, ten
+  sections: §A the catalogue (ids, bounds, well-formed offers, real content, spine-only pools, frozen
+  data); §B determinism (repeated calls, 30 consecutive days, fresh arrays); §C the arrival rule
+  (an **independent** `fnv1a` reimplementation compared on 400 days, a failing-cadence day, both
+  window boundaries shown respected *where the hash matches*, the end of a season, catalogue order);
+  §D day sensitivity (the pinned days 1/5/8/15/31, per-visitor arrival counts, the 52/10 density
+  record); §E completion (permanent exclusion on every arrival day, independence from the other
+  visitors, seen-is-not-done, junk ids, the explicit-day form); §F the clock (legacy save, no profile,
+  12 malformed days against `normalizeCityDay` itself, fractional flooring, malformed container, and
+  that resolving never advances the day); §G the readers; §H offers (equality with `selectDailyWindow`,
+  one real item per arrival, rotation, empty pool); §I purity and scope (nothing mutated, a frozen
+  profile answerable, exactly the four house imports, and no `Date`/timer/storage/randomness token in
+  either new file); §J the neighbours and the wiring guard.
+
+- **Verified 2026-10-21** in the `web` dev container, on the final tree: focused
+  `bun test src/utils/visitorSchedule.test.ts` → **46 pass / 0 fail** (2,389 `expect()`, first run);
+  `bun test` → **2866 pass / 0 fail (97 files, 87,688 `expect()`)** (the 2820 / 96 baseline plus this
+  suite); `bun run scripts/combatTests.ts` → **65 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  **exit 0** after one real fix the widening exposed (`rotationStart`'s parameter had to follow
+  `selectDailyWindow`'s — a type error, not a behaviour change); `bun run build` → **exit 0** with the
+  startup-asset check passing (8 assets; the pre-existing >500 kB chunk warning only);
+  `git diff --check` → clean.
+
+- **Nothing to see on device, and no new open item.** This phase renders no pixel and mounts no UI: no
+  preview capture was needed and none was taken, and the open Android checklist (the C-8.41 kerb, the
+  northern approach, the arena and district reads, the workshop, the race camera, the injury and rest
+  flows) is exactly as before. The next phase in the audit's own sequence (L5 step 2) is the visitor
+  interaction and its offer purchase, which is the only thing allowed to write `seenVisitors` /
+  `completedVisitors`.

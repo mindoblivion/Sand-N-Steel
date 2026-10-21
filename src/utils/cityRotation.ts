@@ -99,7 +99,7 @@ function hash32(text: string): number {
 }
 
 /** Where this day's window starts in the eligible list (never random). */
-function rotationStart(day: number, id: StorefrontId, size: number): number {
+function rotationStart(day: number, id: string, size: number): number {
   return hash32(`sand-and-steel:city-rotation:${id}:${day}`) % size;
 }
 
@@ -111,11 +111,17 @@ function rotationStart(day: number, id: StorefrontId, size: number): number {
  * eligible stock. Pure and total: any day at all (via `normalizeCityDay`) and
  * any eligible list length is answerable, and the caller gets a fresh array it
  * may mutate freely.
+ *
+ * `id` is a NAMESPACE IN THE HASH KEY, not a storefront lookup: this function
+ * never reads `ROTATION_SLOTS`, so it is typed `string` (rather than
+ * `StorefrontId` since L10) so the Living City's visitors can reuse the ONE
+ * rotation instead of growing a second hash. Callers that pass a storefront id
+ * are unchanged, and `rotateStorefrontStock` still takes a `StorefrontId`.
  */
 export function selectDailyWindow(
   eligible: readonly string[],
   slots: number | null,
-  id: StorefrontId,
+  id: string,
   day: number
 ): string[] {
   if (slots === null || slots >= eligible.length || eligible.length === 0) {

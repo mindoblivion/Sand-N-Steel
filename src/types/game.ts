@@ -371,6 +371,24 @@ export interface CityState {
    * beside it untouched, and no migration ever introduces it.
    */
   restDay?: number;
+  /**
+   * L10 — the visitors this profile has already met. An optional history of
+   * visitor ids, exactly the shape of `defeatedOpponentIds` and
+   * `road.milestonesSeen`, and read defensively (anything that is not an array
+   * of non-empty strings resolves to an empty history). Meeting a visitor is NOT
+   * completing them: this field never removes a visitor from the schedule, and
+   * it is written only by a later successful visitor action — never by the
+   * schedule resolver, never by `createNewProfile()`, never by a migration.
+   */
+  seenVisitors?: string[];
+  /**
+   * L10 — the visitors this profile has completed, whom the roadmap excludes
+   * PERMANENTLY: a valid id here removes that visitor from every later
+   * schedule. Optional and resolved defensively like `seenVisitors`, absent on
+   * every save written before this phase, and written only by a later successful
+   * visitor action.
+   */
+  completedVisitors?: string[];
 }
 
 export interface PlayerProfile {
