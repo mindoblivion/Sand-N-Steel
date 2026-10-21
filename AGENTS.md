@@ -6198,3 +6198,53 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the result screen — it needs a profile's first real loss in App's own duel flow, which the harness
   does not mount (its result screen is its own), so that card is covered by the engine suite and the
   wiring only; check it on device on a first defeat.
+
+## P2 — Triumphs and the derived rank (implemented, validated)
+
+- **What shipped.** One optional save field, one pure transaction, one Library page and one sheet panel.
+  `PlayerProfile.laurels?: { titles?: string[]; statue?: boolean }` (`src/types/game.ts`) is **optional and
+  never backfilled** — a pre-Triumphs save has no field and `resolveLaurels` reads it as "owns nothing".
+  `src/utils/laurels.ts` holds the four-honour catalogue (Crowd Favourite 300 fame, Champion of the Sands
+  800, Living Legend 2,000, Ludus Statue 1,200 — **fame only, never gold**) and the pure
+  `purchaseLaurel` / `getTriumphPurchaseEligibility` / `resolveLaurels` / `ownsTriumph` /
+  `ownedTriumphs`, in the `racingProgression.ts` / `chariotLoadout.ts` idiom: success returns a NEW profile,
+  refusal returns `{ ok: false, reason }` and no profile. A title buy also points `profile.title` at the
+  title's own name; owning is permanent, the displayed title is a pointer. **Zero power** — nothing here
+  touches a stat, price, reward or gate, pinned by `laurels.test.ts` §F, which also allowlists the only
+  files permitted to name the field.
+- **Surface naming: the umbrella is "Triumphs".** "Laurel" belongs to the palma (the day's golden laurel),
+  so no string either surface prints uses it; `laurels` / `purchaseLaurel` are the design's own code
+  identifiers (§11 C1d renames the surface, not the field).
+- **Where it is.** `TriumphsPage.tsx` is the second page of the **Records & Lore** tab's own rack (beside
+  the Road) — it adds **no** hub tab and no nav entry. `StatsTab.tsx` gains a **Career** panel: the
+  **derived** rank from `deriveRank` (`utils/rank.ts`, the Road page's own answer — never the stored
+  `rank` field), the fame balance, and the owned Triumphs with the statue's fixed line.
+- **Corpus discipline.** The added optional field fired the GC20 tripwire by design: `saveCorpus.test.ts`
+  §J's optional-field list now includes `laurels` in `game.ts` declaration order, and a new **triumphs-era**
+  fixture (`saveFixtures/triumphsEraProfile.json`, registered in `saveFixtures/index.ts` and `MANIFEST.md`)
+  carries three owned titles plus the statue and displays the newest. Every pre-existing fixture still
+  resolves as before, and no factory save writes the field.
+- **Suites.** `src/utils/laurels.test.ts` (transactions, refusals, purity, the naming law, §F's zero-power
+  sweep) and `src/utils/triumphsSurface.test.tsx` (server-rendered Library page and sheet: prices, refusal
+  copy, owned/displayed/statue states, the derived rank over deliberately stale stored values, the empty
+  state, the wiring read out of the sources). **The surface suite is `.tsx`, not `.ts`** — it renders JSX and
+  bun's `.ts` transform rejects it; a `.ts` name silently becomes an unhandled parse error.
+- **Validated 2026-10-21** in the dev container: focused
+  `bun test src/utils/{laurels,triumphsSurface,saveCorpus,rank,roadOfGlory,roadMilestones,saveValidation,phaseC8_67b,phaseC8_66b}.test.*`
+  → **337 pass / 0 fail** (3,101 expect() calls); `bun run scripts/collisionTests.ts` → **123 passed,
+  0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB
+  chunk warning only); `git diff --check` → clean. This turn changed **test-side code only** — the feature
+  commit was already in place; the fixes were the suite's `.tsx` naming, §F's allowlist (its walk now
+  descends into `saveFixtures` so the registry's own `index.ts` is accounted for like any source), §D
+  narrowed to the Triumphs page (**the Library rack opens on the Road, whose pre-existing palma copy
+  legitimately says "the laurel hill" — that is not the surface this naming law governs**), and one
+  `as unknown as` cast in the malformed-save test that had made `lint` fail.
+- **Preview evidence.** Live in the hub on a fresh profile: **Records & Lore → Triumphs** renders all four
+  honours with their fame prices, the `RANK: ROOKIE` badge, `Fame: 0`, `Owned: 0 / 4`, and a disabled buy
+  plus `Not enough fame.` on every card; **Gladiator Stats → Career** shows `RANK Rookie`, `FAME 0`,
+  `TRIUMPHS OWNED` / `No Triumphs yet.`; no sideways scroll at 1280 or 375. **Not automatically verified:**
+  the **owned** states on the live surfaces (a title owned/displayed and the statue's line) — a fresh
+  profile has 0 fame and the cheapest Triumph costs 300, so no purchase could be driven; those states are
+  covered by `triumphsSurface.test.tsx` §A/§C against the same components. **Android visual acceptance
+  remains pending** for the two surfaces. The verification profile exists only in the preview browser's
+  own storage; nothing in the repo, the user's save or the user's preview was touched.

@@ -1,7 +1,7 @@
 /**
  * P2 — TRIUMPHS: the two surfaces, rendered.
  *
- * Run with: `bun test src/utils/triumphsSurface.test.ts`
+ * Run with: `bun test src/utils/triumphsSurface.test.tsx`
  *
  * ── WHAT THIS SUITE PINS ──────────────────────────────────────────────────
  *   §A  the Library's Triumphs page — the four honours with their fame prices, the
@@ -197,12 +197,15 @@ describe('P2 §C — the character sheet’s career area lists the Triumphs owne
 
 // ── §D the naming law, rendered ────────────────────────────────────────────
 describe('P2 §D — no rendered text calls the umbrella a “Laurel”', () => {
-  test('neither surface prints the word reserved for the palma', () => {
+  test('the Triumphs page and the sheet print no word reserved for the palma', () => {
     const owned = profileWith({
       fame: 4200,
       laurels: { titles: ['title_champion_of_the_sands'], statue: true },
     });
-    for (const markup of [sheet(owned), library(owned)]) {
+    // The page is rendered directly: the Library rack opens on the Road, whose own
+    // pre-existing copy legitimately speaks of the palma's laurel ("the laurel
+    // hill") and is not the surface this naming law governs.
+    for (const markup of [sheet(owned), markupOf(<TriumphsPage profile={owned} />)]) {
       expect(textOf(markup).toLowerCase()).not.toContain('laurel');
     }
   });

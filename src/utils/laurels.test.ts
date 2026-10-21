@@ -376,7 +376,9 @@ describe('P2 §E — a save with no `laurels` field', () => {
     expect(
       resolveLaurels({
         ...withFame(0),
-        laurels: { statue: 'yes' } as PlayerProfile['laurels'],
+        // A malformed save: `statue` is not a boolean. The cast states that
+        // on purpose — the resolver, not the type, is what has to survive it.
+        laurels: { statue: 'yes' } as unknown as PlayerProfile['laurels'],
       }).statue,
     ).toBe(false);
   });
@@ -396,7 +398,7 @@ describe('P2 §F — zero power', () => {
     'utils/laurels.ts',
     'utils/saveCorpus.test.ts',
     'utils/saveFixtures/index.ts',
-    'utils/triumphsSurface.test.ts',
+    'utils/triumphsSurface.test.tsx',
   ].sort();
 
   const code = (path: string): string =>
@@ -407,8 +409,10 @@ describe('P2 §F — zero power', () => {
   const walk = (dir: string, out: string[] = []): string[] => {
     for (const entry of readdirSync(join(SOURCE_DIR, dir), { withFileTypes: true })) {
       const rel = dir ? `${dir}/${entry.name}` : entry.name;
+      // Descend everywhere: the fixture directory's JSON data is skipped by the
+      // extension filter below, while its `index.ts` registry is real code and is
+      // accounted for like any other source file.
       if (entry.isDirectory()) {
-        if (entry.name === 'saveFixtures') continue;
         walk(rel, out);
         continue;
       }
