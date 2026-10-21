@@ -1,7 +1,8 @@
 import React from 'react';
 import { PlayerProfile } from '../../types/game';
 import { calculateTotalStats } from '../../services/storage';
-import { Swords, Shield, Heart, Zap, Flame, Activity, Crown } from 'lucide-react';
+import { Swords, Shield, Heart, Zap, Flame, Activity, Crown, HeartPulse } from 'lucide-react';
+import { resolveActiveInjury } from '../../utils/injury';
 import { CampaignCard } from './CampaignCard';
 import { deriveRank } from '../../utils/rank';
 import { STATUE_OWNED_LINE, ownedTriumphs, resolveLaurels } from '../../utils/laurels';
@@ -24,6 +25,12 @@ export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) 
   const rank = deriveRank(profile);
   const laurels = resolveLaurels(profile);
   const triumphs = ownedTriumphs(profile);
+  /**
+   * S4 — the live injury. `calculateTotalStats` above has already netted its
+   * penalties, so this is where the player can see where the missing STR/AGI went.
+   * Read-only; no injury means nothing is added here.
+   */
+  const activeInjury = resolveActiveInjury(profile.injury);
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto w-full pb-12">
@@ -110,6 +117,26 @@ export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) 
           <span className="font-serif font-bold text-sm text-amber-200">
             You have {profile.unspentStatPoints} unspent stat point(s)!
           </span>
+        </div>
+      )}
+
+      {/* S4 — THE INJURY */}
+      {activeInjury && (
+        <div
+          data-injury={activeInjury.fightsRemaining}
+          className="bg-red-950/40 border border-red-600/60 rounded-2xl p-4 flex items-center gap-3"
+        >
+          <HeartPulse className="w-5 h-5 text-red-400 shrink-0" />
+          <div>
+            <div className="font-serif font-bold text-sm text-red-200 uppercase tracking-wider">
+              Injured
+            </div>
+            <p className="text-xs font-mono text-red-300/90 mt-0.5">
+              −{activeInjury.penaltyStrength} STR / −{activeInjury.penaltyAgility} AGI ·{' '}
+              {activeInjury.fightsRemaining}{' '}
+              {activeInjury.fightsRemaining === 1 ? 'fight' : 'fights'} remaining
+            </p>
+          </div>
         </div>
       )}
 

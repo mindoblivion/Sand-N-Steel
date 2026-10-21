@@ -267,7 +267,9 @@ describe('P4 — the Doctore reads the first attempt, win or lose', () => {
     expect(write).toContain('isNoviceBoutOpponent(activeOpponent)');
     expect(write).toContain('doctoreAttemptLine(didWin)');
     // …and the line travels to the result screen with the result.
-    expect(write).toContain('setDuelResult({ didWin, stats, storyLines })');
+    // S4 added the injury outcome to the same result payload; the lines still travel
+    // to the result screen with the result, which is the property this pins.
+    expect(write).toContain('setDuelResult({ didWin, stats, storyLines, injuryEvent })');
   });
 
   test('a loss still records only the loss — no win, no id, no story flag', () => {

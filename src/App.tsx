@@ -73,6 +73,7 @@ import {
   type DoctoreTestRestriction,
 } from './utils/storyBeats';
 import { resolveVictoryTier } from './utils/tierAdvancement';
+import { resolveInjuryAfterDuel, type DuelInjuryEvent } from './utils/injury';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
 import { preloadTitleStage } from './utils/preloadAssets';
@@ -116,6 +117,13 @@ export function App() {
      * the save cannot disagree about what happened.
      */
     storyLines: string[];
+    /**
+     * S4 — what this duel did to the injury, decided at the same write, so the
+     * result screen cannot disagree with the save: a fresh wound on a loss, or the
+     * wound this duel closed. A duel that only advances a live injury's clock has
+     * nothing new to say and carries `null`.
+     */
+    injuryEvent: DuelInjuryEvent | null;
   } | null>(null);
   /**
    * STORY-2 — the rule chosen for the Doctore's Test. Held for the length of the
@@ -630,6 +638,15 @@ export function App() {
       storyLines.push(doctoreTestResultLine(doctoreRestriction, stats));
     }
 
+    /**
+     * S4 — INJURIES: one rule, resolved ONCE in this transaction, for a win and a
+     * loss alike.  The helper returns the profile this write is composed from plus
+     * what the result screen should say.  Nothing else in the game inflicts,
+     * decrements or clears an injury — duels are the only thing that touches it,
+     * and a race never does.
+     */
+    const { profile: afterInjury, event: injuryEvent } = resolveInjuryAfterDuel(profile, didWin);
+
     if (didWin) {
       const nextGold = profile.gold + stats.goldEarned;
       const nextFame = profile.fame + stats.fameEarned;
@@ -661,7 +678,7 @@ export function App() {
       });
 
       const updatedProfile: PlayerProfile = {
-        ...profile,
+        ...afterInjury,
         gold: nextGold,
         fame: nextFame,
         xp: nextXp,
@@ -692,7 +709,7 @@ export function App() {
       saveProfile(settledProfile);
     } else {
       const updatedProfile: PlayerProfile = {
-        ...profile,
+        ...afterInjury,
         fightsLost: profile.fightsLost + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
@@ -701,7 +718,7 @@ export function App() {
       saveProfile(settledProfile);
     }
 
-    setDuelResult({ didWin, stats, storyLines });
+    setDuelResult({ didWin, stats, storyLines, injuryEvent });
   };
 
   const handleDuelResultDismiss = () => {
@@ -1016,6 +1033,7 @@ export function App() {
             opponent={activeOpponent}
             stats={duelResult.stats}
             storyLines={duelResult.storyLines}
+            injuryEvent={duelResult.injuryEvent}
             goldTotal={profile?.gold}
             coachCardId={
               profile
