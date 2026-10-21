@@ -84,7 +84,8 @@ For every fixture, `src/utils/saveCorpus.test.ts` runs:
    `ownsChariotPart`, `isChariotPartEquipped`, `equippedChariotPartId`,
    `getChariotPurchaseEligibility`, `getChariotEquipEligibility`), the campaign's
    `resolveStoryState`, the road's `resolveRoadProgress` / `resolveRoadState`, the
-   coach marks' `resolveSeenState`, the clock's `resolveTimeState` and temper's
+   coach marks' `resolveSeenState`, the triumphs' `resolveLaurels`, the clock's
+   `resolveTimeState` and temper's
    `resolveTemperLevel` read through the effective-stats helpers
    (`getEffectiveWeaponStats` / `getEffectiveArmorStats`) the boot-path stats reader
    `calculateTotalStats` itself uses;
@@ -95,8 +96,8 @@ For every fixture, `src/utils/saveCorpus.test.ts` runs:
    selected with Triga and Quadra locked, an absent `chariot` to the stock loadout,
    an absent `injury` to no penalty, an absent `story` to no campaign flags, an
    absent `temper` to level 0 on every owned item, an absent `road` to unsworn with
-   no device and no milestones, an absent `seen` to nothing seen, and an absent
-   `time` to Day 1 at dawn.
+   no device and no milestones, an absent `seen` to nothing seen, an absent `time`
+   to Day 1 at dawn, and an absent `laurels` to owning no titles and no statue.
 
 The other resolvers in the tree are not profile-shaped and are out of scope here:
 `resolveSettings` (the separate settings record, `sand_and_steel_settings_v1`, with

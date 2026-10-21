@@ -433,7 +433,7 @@ for (const fixture of SAVE_FIXTURES) {
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
       // fixture is missing (or holds as null), so nothing is silently skipped:
-      // a fully-populated shape accounts for none, a legacy shape for all eight.
+      // a fully-populated shape accounts for none, a legacy shape for all nine.
       const resolverBacked = [
         'racing',
         'chariot',
