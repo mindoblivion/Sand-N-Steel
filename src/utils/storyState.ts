@@ -32,6 +32,7 @@
 
 import { PlayerProfile, StoryProgress } from '../types/game';
 import { ALL_OPPONENTS } from '../data/opponents';
+import { DOCTORE_TEST_OPPONENT_ID } from './storyBeats';
 import { GladiatorRank, rankAtLeast, deriveRank } from './rank';
 
 /** A gate's state: met by evidence, not yet met, or waiting on a later slice. */
@@ -146,6 +147,13 @@ export const STORY_FINAL_CHAPTER = STORY_CHAPTERS[STORY_CHAPTERS.length - 1].ind
 /** The story flags, resolved: every field present, nothing invented. */
 export interface ResolvedStoryFlags {
   librarySeen: boolean;
+  /**
+   * STORY-2 — the Doctore's Test was won under its chosen restriction
+   * (`story.doctoreTestPassed`). It is only ever TRUE with the test opponent's
+   * id in `defeatedOpponentIds` too: the gate reads both, because the id alone
+   * cannot tell a compliant win from a plain one.
+   */
+  doctoreTestPassed: boolean;
   fragmentsFound: string[];
   trialDone: boolean;
   diceEnding?: 'cut' | 'refused';
@@ -222,6 +230,7 @@ function resolveFlags(profile: PlayerProfile | null | undefined): ResolvedStoryF
 
   return {
     librarySeen: stored?.librarySeen === true,
+    doctoreTestPassed: stored?.doctoreTestPassed === true,
     fragmentsFound: Array.isArray(fragments)
       ? fragments.filter((fragment): fragment is string => typeof fragment === 'string')
       : [],
@@ -280,7 +289,7 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       met: (evidence) => evidence.oathSworn || evidence.fightsWon > 0,
     },
   ],
-  // 1 — First Sand: the first win, and the Doctore's test (pending).
+  // 1 — First Sand: the first win, and the Doctore's Test (STORY-2 made real).
   [
     {
       id: 'first-duel-won',
@@ -288,12 +297,21 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       confirmation: 'Your first duel is won.',
       met: (evidence) => evidence.fightsWon >= 1,
     },
-    pendingGate(
-      'doctore-test',
-      "Pass the Doctore's test under the restricted rules",
-      "The Doctore's test is passed.",
-      'beat'
-    ),
+    {
+      id: 'doctore-test',
+      requirement: "Pass the Doctore's test under the restricted rules",
+      confirmation: "The Doctore's test is passed.",
+      /**
+       * STORY-2 — DERIVED from the record, never stored as a verdict: the test
+       * opponent's id has to be in the book (he was faced and beaten) AND the
+       * pass flag has to be set (that win met the restriction the player chose).
+       * The flag is written by the same victory write that records the id, so a
+       * legacy save — which has neither — simply has not passed yet and can,
+       * whenever it takes the Test. The entry is a permanent place in the world.
+       */
+      met: (evidence) =>
+        evidence.flags.doctoreTestPassed && evidence.defeatedIds.includes(DOCTORE_TEST_OPPONENT_ID),
+    },
   ],
   // 2 — Fortuna's Coin: Goliath, the first District race (pending), the omen (pending).
   [

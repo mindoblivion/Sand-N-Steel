@@ -2,13 +2,24 @@ import React from 'react';
 import { PlayerProfile } from '../../types/game';
 import { Dumbbell, Swords, Shield, Heart, Zap } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
+import { DoctoreTestCard } from './DoctoreTestCard';
+import type { DoctoreTestRestriction } from '../../utils/storyBeats';
 
 interface TrainingTabProps {
   profile: PlayerProfile;
   onTrainStat: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
+  /**
+   * STORY-2 — the Doctore House's own duel entry. The yard is the ludus, so the
+   * restricted-rules Test is offered here, above the conditioning cards.
+   */
+  onSelectDoctoreTest?: (restriction: DoctoreTestRestriction) => void;
 }
 
-export const TrainingTab: React.FC<TrainingTabProps> = ({ profile, onTrainStat }) => {
+export const TrainingTab: React.FC<TrainingTabProps> = ({
+  profile,
+  onTrainStat,
+  onSelectDoctoreTest,
+}) => {
   const cost = 25 * profile.level;
   const canAfford = profile.gold >= cost;
 
@@ -21,6 +32,10 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({ profile, onTrainStat }
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto w-full pb-12">
+      {onSelectDoctoreTest && (
+        <DoctoreTestCard profile={profile} onChooseRestriction={onSelectDoctoreTest} />
+      )}
+
       <div className="bg-neutral-900/80 border-2 border-orange-500/60 rounded-3xl p-6 shadow-xl text-center">
         <Dumbbell className="w-10 h-10 text-orange-400 mx-auto mb-2" />
         <h3 className="font-serif font-black text-2xl text-amber-100 uppercase mb-1">

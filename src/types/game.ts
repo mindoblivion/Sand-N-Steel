@@ -178,6 +178,14 @@ export interface DuelStatistics {
   perfectBlocks: number;
   dodgesPerformed: number;
   maxCombo: number;
+  /**
+   * STORY-2 — the stamina low-water mark, tracked the way `maxCombo` is: a
+   * `Math.min` over the player's live stamina each time it moves, expressed as a
+   * fraction of the maximum the player entered the duel with (1 = never dropped).
+   * It is a reading of the fight, not a rule of it: no combat formula reads it.
+   * The Doctore's "win fresh" restriction is the one consumer.
+   */
+  lowestStaminaFraction: number;
   crowdHypePeak: number;
   durationSeconds: number;
   goldEarned: number;
@@ -310,6 +318,17 @@ export interface StoryProgress {
   deserterChoice?: 'spared' | 'taken';
   /** The player has stood on the summit above the city. */
   summitSeen?: boolean;
+  /**
+   * STORY-2 — the Doctore's Test was WON under the restriction the player chose.
+   *
+   * The duel's own victory write records it, in the same update that puts the test
+   * opponent's id into `defeatedOpponentIds`. It is needed because the id alone
+   * cannot tell a win that met the chosen rule from a win that did not: every win
+   * records the id, only a compliant one records this. The campaign's
+   * `doctore-test` gate reads both, so a legacy save (no field) simply has not
+   * passed yet — and can, whenever it takes the Test.
+   */
+  doctoreTestPassed?: boolean;
 }
 
 /**

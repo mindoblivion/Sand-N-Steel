@@ -390,11 +390,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
       // Elegant immersive fallback notification for locations with no immediate tab key
-      if (nearbyLoc.id === 'doctore_house') {
-        setStableNotice(
-          "Doctore Tactical House: Chief Doctore is currently supervising advanced conditioning. Train hard, fight well, and Rome will learn your name."
-        );
-      } else if (nearbyLoc.id === 'shrine_temple') {
+      // (STORY-2: the Doctore House now carries `tabKey: 'training'`, so it opens
+      // the ludus rather than falling through to a notice.)
+      if (nearbyLoc.id === 'shrine_temple') {
         setStableNotice(
           "Shrine of Fortuna: You offer a quiet prayer at the ancient shrine. The sacred precinct remains still and watchful."
         );

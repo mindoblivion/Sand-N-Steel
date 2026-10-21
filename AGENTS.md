@@ -6055,3 +6055,90 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the saved-inventory shrink were **not** dispatched in a browser. They are pinned by the suites
   above plus the shipped `sellItem`/`onSellItem` path; confirm on a device by selling a spare from
   the Armory.
+
+## STORY-2 — Arrival, Oath, First Sand (Chapters 0–1) — implemented
+
+- **What ships, in the design's three beats.** BEAT 1 — the novice bout's framing:
+  `src/utils/storyBeats.ts` (new, pure) holds `NOVICE_BOUT_BRIEFING` (Niger names the bout, Marcus
+  answers) and `isNoviceBoutDue()`, wired into `PreFightModal` as a `narration` prop that draws a
+  voices-only block above the shipped intel rows; `App.handleMatchComplete` reads the FIRST attempt
+  before the write and sends `doctoreAttemptLine(didWin)` to `DuelResultModal`. BEAT 2 — the
+  Doctore's Test: `src/components/hub/DoctoreTestCard.tsx` offers the two restrictions (each with
+  its rule AND its reason, the Clarity law) at the Doctore House (`tabKey: 'training'`, above the
+  conditioning cards); the chosen rule travels through the hub's `PreFightModal` (printed back on
+  the card) and into `App`, where the victory write judges it off the duel's own
+  `DuelStatistics`. BEAT 3 — `src/components/hub/PrimusPalusBoard.tsx` sits in the Colosseum's
+  Tournament tab beside the tournament card.
+- **The ladder fight is untouched; the Test is off-ladder.** `opp_marcus` is still Tier 1, Fight 1
+  in `ALL_OPPONENTS`. The Test is fought against `DOCTORE_TEST_OPPONENT` (`opp_doctore_sextus`,
+  "Sextus the Yard Measure"), declared in `src/data/opponents.ts` and deliberately NOT in
+  `ALL_OPPONENTS`/`PRIMUS_PALUS_LADDER`: `fightIndex: 0`, no `isBoss`, so `tierAdvancement`,
+  `bossKills` and the banner's stripes cannot be moved by taking it, while the ordinary victory
+  write still records his id — which is the evidence the campaign gate needs.
+- **Fresh-profile-only, both halves of the predicate.** `isNoviceBoutDue()` is true while the
+  record has won NO duel and has not put Marcus down; a profile that lost to him has no win and so
+  is still due on the next attempt ("a loss costs nothing and ends nothing" — the defeat branch of
+  the write still only increments `fightsLost`). A legacy save with any win, or with the Marcus id
+  already in the record, never sees the framing again.
+- **The campaign gate STORY-1 left `'pending'` is now real, and that is the one behavioural change
+  to chapter resolution.** Chapter 1's `doctore-test` gate was already in the table with
+  `pendingKind: 'beat'`; STORY-2 lands its owning system, so the gate reads evidence —
+  the test opponent's id in `defeatedOpponentIds` AND `story.doctoreTestPassed` — and a record that
+  has only won a duel waits in Chapter 1 until it takes the Test. The two rules above it are
+  unchanged: the id alone is not a pass (every win records it), the flag alone is not either, and
+  neither is a stored verdict. A legacy save simply has not passed yet, and the entry stays open in
+  the world so it can.
+- **Save shape — no new top-level field.** The pass lives in the existing lazy `story` object as
+  `story.doctoreTestPassed?: boolean` (`src/types/game.ts`), written by the same victory update that
+  records the id, so the two can never disagree. `DuelStatistics` gained
+  `lowestStaminaFraction: number` — the stamina low-water mark, tracked exactly the way `maxCombo`
+  is (`Math.min` over the duel, initialised to 1, expressed as a fraction of the maximum the player
+  entered with, clamped to 0…1). It is a reading of the fight, not a rule of it: no combat formula
+  consults it. `createNewProfile()` still writes neither `story` nor anything else new.
+- **Primus Palus is a derivative, not a record.** The board reads only the profile it is handed and
+  the roster it imports: Aurelius's plaque (the roster's tier-4 boss, found by data not by an id
+  literal), the challengers' row in ladder order with the champion excluded, and the player's line
+  at the bottom — an UNCHALKED blank until `fightsWon >= 1`, then the gladiator's name with
+  `road.bannerDevice` (or "No device sworn"). No state, no storage, no save field, no per-frame
+  work.
+- **Suites: the existing story suite was REBASED, not weakened.** `src/utils/storyState.test.ts`
+  (39 tests / 226 `expect()` calls) gained two fixtures — `withDoctoreTest()` (the id *and* the
+  flag, written the way the victory write writes them) and `withStory()` (a story patch that keeps
+  the other flags) — and every boundary assertion still measures the boundary it names: B2 now
+  shows a legacy win closing Chapter 0 and waiting in Chapter 1, with the Test's evidence advancing
+  it to 2; B3 splits into "the win meets one half" + "win and Test close it"; B4 re-reads Chapter 2's
+  duel gate before Goliath falls and lists Chapter 3's states after; B5/B6/B7/B9 carry the evidence
+  instead of restating the record, and B5's "missing Ignis" case now filters the id out rather than
+  replacing the array (which would have dropped the Test's). §C's resolved-flag objects gained
+  `doctoreTestPassed: false`, §E's import list gained `./storyBeats`, and §F's fixtures carry the
+  evidence so the card assertions still test the chapter they name. §G was retitled and re-framed:
+  two beats are still unlanded (`vexus-race`, `statue-ceremony`; G1/G2 assert them pending), the
+  third landed (new G3 asserts no pending kind and both halves of its evidence), and G4/G5 keep the
+  "pending never holds a chapter shut / nothing closes early" properties.
+- **New suite: `src/utils/storyChapterOne.test.ts` — 30 tests / 165 `expect()` calls, seven
+  proofs.** P1 the bout is the shipped rung and the Test is off-ladder; P2 the framing is
+  fresh-profile-only (won a duel / already faced Marcus / a loss / a malformed record); P3 it is
+  narration, not intel (two speakers, no digit in either line, the narration block reads no
+  `opponent.` field, the intel rows are still exactly three); P4 the Doctore reads the first attempt
+  win or lose, the line is decided before the write, and a loss records only `fightsLost`; P5
+  exactly two rules, each printed with its reason, one choice each, and a passed Test still offered
+  as a bout; P6 the verdict reads `maxCombo` / `lowestStaminaFraction` (at target yes, one below no;
+  0.5 yes, 0.49 no; unknown rule or no reading passes nothing), the result line names the shortfall,
+  the low-water mark is the only new reading in `DuelScene`, and the gate needs both pieces of
+  evidence; P7 the board's champion/challengers/player line and its statelessness.
+- **Verified 2026-10-21** in the dev container: `bun test src/utils/storyState.test.ts` → **39 pass
+  / 0 fail** (226 expect()); `bun test src/utils/storyChapterOne.test.ts` → **30 pass / 0 fail**
+  (165 expect()); `bun test` → **2784 pass / 0 fail (93 files, 82692 expect() calls)**; `bun run
+  scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0;
+  `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only); `git diff --check` → clean.
+- **Not automatically verified — the rendered surface and the in-browser gesture.** No frame of the
+  Doctore's Test card, the narrated pre-fight card, the result lines or the Primus Palus board was
+  captured this phase: all four sit behind the 3D city hub (title → character creation → the oath →
+  the city → a hub building), which this sandbox renders through SwiftShader at ~2 fps, and the
+  static markup above is `react-dom/server` output rather than a browser paint. **Android check,
+  pending:** open the Doctore House's Training Yard and confirm both rules read with their reasons
+  and one button each, take one and confirm the rule is reprinted on the pre-fight card, read the
+  Doctore's line on the result, then confirm the Tournament tab's Primus Palus board shows the
+  champion's plaque, the ladder row, and the player's own line still blank before the first win and
+  chalked after it. The Test's combat difficulty against a fresh gladiator is a balance question
+  this suite does not measure.

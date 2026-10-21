@@ -1,14 +1,35 @@
 import React from 'react';
 import { OpponentConfig } from '../../types/game';
 import { Swords, Trophy, Coins, Zap, Shield, Skull } from 'lucide-react';
+import type { BeatLine, DoctoreTestRestriction } from '../../utils/storyBeats';
+import { doctoreRestrictionSpec } from '../../utils/storyBeats';
 
 interface PreFightModalProps {
   opponent: OpponentConfig;
   onConfirm: () => void;
   onCancel: () => void;
+  /**
+   * STORY-2 — the beat's NARRATION on this card (the novice bout's briefing).
+   * Words from a voice, never intel: the card's intel block below is unchanged.
+   */
+  narration?: readonly BeatLine[];
+  /**
+   * STORY-2 — the restriction the player chose for the Doctore's Test, printed
+   * back on the card so the rule and its reason are still in front of them when
+   * they step into the sand (the Clarity law).
+   */
+  restriction?: DoctoreTestRestriction | null;
 }
 
-export const PreFightModal: React.FC<PreFightModalProps> = ({ opponent, onConfirm, onCancel }) => {
+export const PreFightModal: React.FC<PreFightModalProps> = ({
+  opponent,
+  onConfirm,
+  onCancel,
+  narration,
+  restriction,
+}) => {
+  const restrictionSpec = doctoreRestrictionSpec(restriction ?? null);
+
   return (
     <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-40 flex items-center justify-center p-4">
       {/* A centred dialog: `data-origin="center"` is the transport-free panel variant. */}
@@ -28,6 +49,41 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({ opponent, onConfir
           </h3>
           <p className="text-xs font-serif text-neutral-400 italic">{opponent.title}</p>
         </div>
+
+        {/* STORY-2 — the beat's framing: voices, not statistics. */}
+        {narration && narration.length > 0 && (
+          <div
+            data-prefight-narration
+            className="bg-amber-950/30 border border-amber-700/40 rounded-2xl p-4 mb-4 flex flex-col gap-3"
+          >
+            {narration.map((entry) => (
+              <div key={entry.speaker}>
+                <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400">
+                  {entry.speaker}
+                </div>
+                <p className="text-xs sm:text-[13px] font-serif italic text-amber-100/90 leading-relaxed">
+                  “{entry.line}”
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* STORY-2 — the Doctore's Test prints the chosen rule and its reason. */}
+        {restrictionSpec && (
+          <div
+            data-prefight-restriction={restrictionSpec.id}
+            className="bg-neutral-950 border border-orange-600/50 rounded-2xl p-4 mb-4"
+          >
+            <div className="text-[10px] font-mono uppercase tracking-wider text-orange-400 mb-1">
+              The Doctore’s Test — {restrictionSpec.name}
+            </div>
+            <p className="text-xs font-serif text-amber-100 leading-relaxed">{restrictionSpec.rule}</p>
+            <p className="text-[11px] font-serif italic text-neutral-400 mt-1 leading-relaxed">
+              {restrictionSpec.reason}
+            </p>
+          </div>
+        )}
 
         <div className="bg-neutral-950 p-4 rounded-2xl border border-neutral-800 mb-6 flex flex-col gap-2 font-mono text-xs">
           <div className="flex justify-between">

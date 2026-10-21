@@ -61,7 +61,16 @@ import { facebookSignIn } from './services/facebookAuth';
 import { appleSignIn } from './services/appleAuth';
 import { microsoftSignIn } from './services/microsoftAuth';
 import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
-import { ALL_OPPONENTS } from './data/opponents';
+import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT } from './data/opponents';
+import {
+  doctoreAttemptLine,
+  doctoreTestResultLine,
+  isDoctoreTestOpponent,
+  isNoviceBoutDue,
+  isNoviceBoutOpponent,
+  meetsDoctoreRestriction,
+  type DoctoreTestRestriction,
+} from './utils/storyBeats';
 import { resolveVictoryTier } from './utils/tierAdvancement';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
@@ -97,7 +106,21 @@ export function App() {
   // after a race. Set when the race is entered, read when the city remounts,
   // in memory only.
   const [cityReturnPose, setCityReturnPose] = useState<CityExitPose | null>(null);
-  const [duelResult, setDuelResult] = useState<{ didWin: boolean; stats: DuelStatistics } | null>(null);
+  const [duelResult, setDuelResult] = useState<{
+    didWin: boolean;
+    stats: DuelStatistics;
+    /**
+     * STORY-2 — the beat's own lines for this result, decided at the write (the
+     * novice bout's reading, and the Doctore's Test verdict) so the screen and
+     * the save cannot disagree about what happened.
+     */
+    storyLines: string[];
+  } | null>(null);
+  /**
+   * STORY-2 — the rule chosen for the Doctore's Test. Held for the length of the
+   * duel only (set on entry, cleared when the result is dismissed), in memory.
+   */
+  const [doctoreRestriction, setDoctoreRestriction] = useState<DoctoreTestRestriction | null>(null);
   /**
    * RG-3 — the herald's cries and the one-time Device Choosing panel. Both are view
    * state only: the road's own writes go through `profile.road`, saved the normal way.
@@ -490,8 +513,21 @@ export function App() {
 
   const handleEnterDuel = (opp: OpponentConfig) => {
     setActiveOpponent(opp);
+    // A ladder bout carries no restriction: the Test's rule is set by its own
+    // entry, and a stale one must never judge a different fight.
+    setDoctoreRestriction(null);
     sounds.playClick();
     setCurrentScreen('duel');
+  };
+
+  /**
+   * STORY-2 — enter the Doctore's Test with the rule the player chose. The rule
+   * rides beside the opponent (it is not a save field); the result write reads it
+   * to judge the win, and the result screen clears it.
+   */
+  const handleEnterDoctoreTest = (restriction: DoctoreTestRestriction) => {
+    handleEnterDuel(DOCTORE_TEST_OPPONENT);
+    setDoctoreRestriction(restriction);
   };
 
   /**
@@ -573,6 +609,26 @@ export function App() {
   const handleMatchComplete = (stats: DuelStatistics, didWin: boolean) => {
     if (!profile) return;
 
+    /**
+     * STORY-2 — the chapter-one beats read the duel ONCE, here, before the write:
+     * a fresh profile's FIRST attempt at the novice bout gets the Doctore's
+     * reading of it (win or lose — a loss costs nothing and ends nothing), and a
+     * Test bout that was won is judged against the rule the player chose. The
+     * pass itself is written below, in the same update that records the duel.
+     */
+    const storyLines: string[] = [];
+    if (isNoviceBoutOpponent(activeOpponent) && isNoviceBoutDue(profile)) {
+      storyLines.push(doctoreAttemptLine(didWin));
+    }
+    const testWon =
+      didWin &&
+      isDoctoreTestOpponent(activeOpponent) &&
+      doctoreRestriction !== null &&
+      meetsDoctoreRestriction(doctoreRestriction, stats);
+    if (isDoctoreTestOpponent(activeOpponent) && didWin && doctoreRestriction) {
+      storyLines.push(doctoreTestResultLine(doctoreRestriction, stats));
+    }
+
     if (didWin) {
       const nextGold = profile.gold + stats.goldEarned;
       const nextFame = profile.fame + stats.fameEarned;
@@ -616,6 +672,15 @@ export function App() {
         // FIX-A — the kill count rides this same write: `nextBossKills` reads the record
         // being saved, so it can only rise for a boss whose id is newly entering it.
         bossKills: nextBossKills(profile, { defeatedOpponentIds: defeated }, activeOpponent),
+        // STORY-2 — the Doctore's Test's pass rides THIS write: the id enters
+        // `defeatedOpponentIds` through the ordinary victory above and the flag
+        // records that the win met the chosen restriction. Both pieces of the
+        // campaign gate's evidence therefore land together or not at all, and the
+        // flag lives inside the existing lazy `story` object (no new top-level
+        // field).
+        ...(testWon
+          ? { story: { ...(profile.story ?? {}), doctoreTestPassed: true } }
+          : {}),
         fightsWon: profile.fightsWon + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
@@ -635,11 +700,13 @@ export function App() {
       saveProfile(settledProfile);
     }
 
-    setDuelResult({ didWin, stats });
+    setDuelResult({ didWin, stats, storyLines });
   };
 
   const handleDuelResultDismiss = () => {
     setDuelResult(null);
+    // The Test's rule judged one duel; it does not outlive it.
+    setDoctoreRestriction(null);
     if (profile) enterCity(profile);
     else setCurrentScreen('city_3d');
   };
@@ -888,6 +955,7 @@ export function App() {
             onResetGame={handleResetGame}
             onOpenSettings={() => handleOpenSettings()}
             onMarkCardSeen={handleMarkCardSeen}
+            onEnterDoctoreTest={handleEnterDoctoreTest}
             />
         )}
 
@@ -929,6 +997,7 @@ export function App() {
             didWin={duelResult.didWin}
             opponent={activeOpponent}
             stats={duelResult.stats}
+            storyLines={duelResult.storyLines}
             goldTotal={profile?.gold}
             onContinue={handleDuelResultDismiss}
             />

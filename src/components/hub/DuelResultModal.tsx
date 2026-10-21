@@ -8,6 +8,13 @@ interface DuelResultModalProps {
   didWin: boolean;
   opponent: OpponentConfig;
   stats: DuelStatistics;
+  /**
+   * STORY-2 — the beats' own lines for this result, decided at the write: the
+   * Doctore's reading of a first novice bout, and the Doctore's Test's verdict
+   * (a win outside the chosen rule says so plainly). Empty or absent on every
+   * other duel, so the modal renders exactly as it always has.
+   */
+  storyLines?: string[];
   /** The player's purse after the duel, so the reward reads as spendable gold. */
   goldTotal?: number;
   onContinue: () => void;
@@ -41,6 +48,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   didWin,
   opponent,
   stats,
+  storyLines,
   goldTotal,
   onContinue,
 }) => {
@@ -170,6 +178,20 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
             {didWin ? `You defeated ${opponent.name} in the sand!` : `Felled by ${opponent.name}. Recover your strength!`}
           </p>
         </div>
+
+        {/* STORY-2 — the beats' lines: the Doctore speaking over the result. */}
+        {storyLines && storyLines.length > 0 && (
+          <div
+            data-duel-story-lines={storyLines.length}
+            className="bg-neutral-950/80 border border-amber-700/50 rounded-2xl p-4 mb-4 flex flex-col gap-2"
+          >
+            {storyLines.map((line) => (
+              <p key={line} className="text-xs sm:text-[13px] font-serif italic text-amber-100/90 leading-relaxed">
+                {line}
+              </p>
+            ))}
+          </div>
+        )}
 
         {/* COMBAT RECAP — in at 250ms (350 on a defeat) */}
         <div

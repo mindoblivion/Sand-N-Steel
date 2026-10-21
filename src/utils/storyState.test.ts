@@ -16,6 +16,15 @@
  *     by a `road.oathSworn === true` field, so a legacy save resolves as
  *     oath-sworn.
  *
+ * ── STORY-2 CHANGED ONE GATE'S STATE, NOT THE RULES ────────────────────────
+ * The chapter-one `doctore-test` gate used to be `'pending'` because its owning
+ * system had not landed.  STORY-2 lands the Doctore's Test, so the gate is now
+ * read off real evidence — the yard champion's id in the record AND
+ * `story.doctoreTestPassed` — and a record that has not taken the Test waits in
+ * Chapter 1.  The two rules above are unchanged; the fixtures below carry that
+ * evidence the way the victory write does (`withDoctoreTest`), so every boundary
+ * assertion still measures the boundary it names.
+ *
  * ── ONE INTERPRETATION NOTE, STATED RATHER THAN BURIED ─────────────────────
  * STORY-1's test list asks for "first win → Ch 1 closed, Ch 2 current with its
  * duel gate met".  Under the two rules above, Chapter 2 closes the moment its
@@ -54,6 +63,7 @@ import {
   storyGateLine,
 } from './storyState';
 import { CampaignCard } from '../components/hub/CampaignCard';
+import { DOCTORE_TEST_OPPONENT_ID } from './storyBeats';
 
 // ── Sources (§E) ──────────────────────────────────────────────────────────
 const moduleSource = readFileSync(new URL('./storyState.ts', import.meta.url), 'utf8');
@@ -85,6 +95,26 @@ const fresh = (): PlayerProfile => createNewProfile('Tester');
 
 /** A legacy save: wins recorded before the campaign's own fields existed. */
 const legacy = (fightsWon: number): PlayerProfile => ({ ...fresh(), fightsWon });
+
+/**
+ * STORY-2 — the Doctore's Test's evidence, written the way the duel's victory
+ * write writes it: the yard champion's id in the record AND the pass flag in the
+ * lazy `story` object.  Chapter 1's gate reads both, so a fixture that means
+ * "past Chapter 1" has to carry both.
+ */
+const withDoctoreTest = (profile: PlayerProfile): PlayerProfile => ({
+  ...profile,
+  defeatedOpponentIds: profile.defeatedOpponentIds.includes(DOCTORE_TEST_OPPONENT_ID)
+    ? profile.defeatedOpponentIds
+    : [...profile.defeatedOpponentIds, DOCTORE_TEST_OPPONENT_ID],
+  story: { ...(profile.story ?? {}), doctoreTestPassed: true },
+});
+
+/** Merge a story patch into the profile's stored story, keeping its other flags. */
+const withStory = (
+  profile: PlayerProfile,
+  story: NonNullable<PlayerProfile['story']>
+): PlayerProfile => ({ ...profile, story: { ...(profile.story ?? {}), ...story } });
 
 /** A mid-campaign record that has beaten the bosses it has met. */
 const campaign = (overrides: Partial<PlayerProfile>): PlayerProfile => ({
@@ -200,17 +230,22 @@ describe('§B the chapter boundaries', () => {
   });
 
   test('B2 — a grandfathered profile resolves as oath-sworn, closing Chapter 0', () => {
-    // Chapter 0's gate is met by the grandfather rule (fightsWon > 0) and
-    // Chapter 1's by the same record, so the first chapter with an unmet gate is
-    // Chapter 2 — which is the statement "Chapter 0 (and 1) closed".
+    // Chapter 0's gate is met by the grandfather rule (fightsWon > 0), so the
+    // first chapter with an unmet gate is Chapter 1 — which is the statement
+    // "Chapter 0 closed".  STORY-2 made Chapter 1's Test gate real, so a legacy
+    // record waits there until it takes the Test (B3).
     const state = resolveStoryState(legacy(3));
-    expect(state.chapter).toBe(2);
+    expect(state.chapter).toBe(1);
     // A record with no wins at all is held at Chapter 0 (B1), so it is the
     // grandfather rule — not the chapter table — that moves a legacy save on.
     expect(resolveStoryState(fresh()).chapter).toBe(0);
     const oneWin = resolveStoryState(legacy(1));
-    expect(oneWin.chapter).toBe(2);
-    expect(oneWin.gates.map((gate) => gate.id)).toEqual(['tier-1-boss', 'district-race', 'omen']);
+    expect(oneWin.chapter).toBe(1);
+    expect(oneWin.gates.map((gate) => gate.id)).toEqual(['first-duel-won', 'doctore-test']);
+    // With the Test's evidence as well, the first chapter with an unmet gate is 2.
+    const tested = resolveStoryState(withDoctoreTest(legacy(1)));
+    expect(tested.chapter).toBe(2);
+    expect(tested.gates.map((gate) => gate.id)).toEqual(['tier-1-boss', 'district-race', 'omen']);
   });
 
   test("B2b — a `road.oathSworn` field closes Chapter 0 too, and a malformed `road` does not", () => {
@@ -222,55 +257,78 @@ describe('§B the chapter boundaries', () => {
     }
   });
 
-  test('B3 — the first win closes Chapter 1 and puts Chapter 2 in front of the player', () => {
-    const state = resolveStoryState(legacy(1));
+  test("B3 — the first win and the Doctore's Test close Chapter 1 and put Chapter 2 in front of the player", () => {
+    // The first win meets one half of Chapter 1; STORY-2's Test is the other.
+    const firstWin = resolveStoryState(legacy(1));
+    expect(firstWin.chapter).toBe(1);
+    expect(gateOf(legacy(1), 'first-duel-won').state).toBe('met');
+    expect(gateOf(legacy(1), 'doctore-test').state).toBe('unmet');
+    expect(storyGateLine(gateOf(legacy(1), 'doctore-test'))).toBe(
+      "Pass the Doctore's test under the restricted rules"
+    );
+
+    const tested = withDoctoreTest(legacy(1));
+    const state = resolveStoryState(tested);
     expect(state.chapter).toBe(2);
     expect(state.title).toBe("Fortuna's Coin, the Second Sand");
-    expect(gateOf(legacy(1), 'tier-1-boss').state).toBe('unmet');
-    expect(gateOf(legacy(1), 'district-race').state).toBe('pending');
-    expect(gateOf(legacy(1), 'omen').state).toBe('pending');
-    expect(storyGateLine(gateOf(legacy(1), 'tier-1-boss'))).toBe(`Defeat ${bossShortName(1)}`);
-    expect(storyGateLine(gateOf(legacy(1), 'district-race'))).toBe(PENDING_GATE_LINES.race);
-    expect(storyGateLine(gateOf(legacy(1), 'omen'))).toBe(PENDING_GATE_LINES.omen);
+    expect(gateOf(tested, 'tier-1-boss').state).toBe('unmet');
+    expect(gateOf(tested, 'district-race').state).toBe('pending');
+    expect(gateOf(tested, 'omen').state).toBe('pending');
+    expect(storyGateLine(gateOf(tested, 'tier-1-boss'))).toBe(`Defeat ${bossShortName(1)}`);
+    expect(storyGateLine(gateOf(tested, 'district-race'))).toBe(PENDING_GATE_LINES.race);
+    expect(storyGateLine(gateOf(tested, 'omen'))).toBe(PENDING_GATE_LINES.omen);
   });
 
   test('B4 — Goliath down: Chapter 2\'s Duel gate is met, its race/omen gates pending, and the chapter closes on its available evidence', () => {
-    const goliathDown = legacy(2);
-    goliathDown.defeatedOpponentIds = [bossId(1)];
+    const tested = withDoctoreTest(legacy(2));
+    // Chapter 2 is in front of the player, and its duel gate is the one unmet gate.
+    expect(resolveStoryState(tested).chapter).toBe(2);
+    expect(gateOf(tested, 'tier-1-boss').state).toBe('unmet');
+    expect(storyGateLine(gateOf(tested, 'tier-1-boss'))).toBe(`Defeat ${bossShortName(1)}`);
+
+    const goliathDown: PlayerProfile = {
+      ...tested,
+      defeatedOpponentIds: [...tested.defeatedOpponentIds, bossId(1)],
+    };
     const state = resolveStoryState(goliathDown);
-    // Chapter 2's own gates, read while it is still the current chapter.
-    expect(gateOf(legacy(1), 'tier-1-boss').state).toBe('unmet');
+    // The gate that closed Chapter 2 is met, so the chapter advances; its race and
+    // omen siblings were pending and never held it shut.
     expect(state.chapter).toBe(3);
-    // The gate that closed Chapter 2 is met, and its pending siblings are pending.
+    expect(state.gates.map((gate) => gate.state)).toEqual(['unmet', 'unmet', 'pending', 'unmet']);
     expect(gateOf(goliathDown, 'rank-veteran').state).toBe('unmet');
-    expect(resolveStoryState({ ...goliathDown, story: {} }).chapter).toBe(3);
   });
 
   test('B5 — Veteran + Ignis + librarySeen closes Chapter 3 on its available gates (its race gate is pending)', () => {
-    const base = campaign(midCampaign(2, 200));
-    const almost = { ...base, story: { librarySeen: false } };
+    const base = withDoctoreTest(campaign(midCampaign(2, 200)));
+    const almost = withStory(base, { librarySeen: false });
     const state = resolveStoryState(almost);
     expect(state.chapter).toBe(3);
     expect(state.title).toBe('The Name in the Records');
     expect(state.gates.map((gate) => gate.state)).toEqual(['met', 'met', 'pending', 'unmet']);
     expect(storyGateLine(state.gates[2])).toBe(PENDING_GATE_LINES.race);
     // The library beat is the one gate still unmet, and meeting it closes Ch 3.
-    const done = { ...base, story: { librarySeen: true } };
+    const done = withStory(base, { librarySeen: true });
     expect(resolveStoryState(done).chapter).toBe(4);
     // …and each missing piece holds it back on its own evidence.
     expect(resolveStoryState({ ...done, fame: 100, currentTier: 2 }).chapter).toBe(3);
     expect(
-      resolveStoryState({ ...done, defeatedOpponentIds: [bossId(1)] }).chapter
+      resolveStoryState({
+        ...done,
+        // Without Ignis — the tier-2 boss — in the record, Chapter 3 stays open.
+        defeatedOpponentIds: done.defeatedOpponentIds.filter((id) => id !== bossId(2)),
+      }).chapter
     ).toBe(3);
   });
 
   test('B6 — Aurelius down and a Legend rank: Chapter 7, every available chapter closed', () => {
-    const veteran = campaign({
-      fame: 2000,
-      currentTier: 4,
-      defeatedOpponentIds: [bossId(1), bossId(2), bossId(3), bossId(4)],
-      story: { librarySeen: true, trialDone: true, summitSeen: true, diceEnding: 'cut' },
-    });
+    const veteran = withDoctoreTest(
+      campaign({
+        fame: 2000,
+        currentTier: 4,
+        defeatedOpponentIds: [bossId(1), bossId(2), bossId(3), bossId(4)],
+        story: { librarySeen: true, trialDone: true, summitSeen: true, diceEnding: 'cut' },
+      })
+    );
     const state = resolveStoryState(veteran);
     expect(state.chapter).toBe(STORY_FINAL_CHAPTER);
     expect(state.chapter).toBe(7);
@@ -281,20 +339,19 @@ describe('§B the chapter boundaries', () => {
 
   test('B7 — the story flags are the evidence for their own gates', () => {
     // Chapter 4: the dice, once the tier and the rank are there.
-    const beforeDice = campaign({
-      currentTier: 3,
-      fame: 700,
-      defeatedOpponentIds: [bossId(1), bossId(2)],
-      story: { librarySeen: true },
-    });
+    const beforeDice = withDoctoreTest(
+      campaign({
+        currentTier: 3,
+        fame: 700,
+        defeatedOpponentIds: [bossId(1), bossId(2)],
+        story: { librarySeen: true },
+      })
+    );
     const state = resolveStoryState(beforeDice);
     expect(state.chapter).toBe(4);
     expect(gateOf(beforeDice, 'dice-ending').state).toBe('unmet');
     expect(gateOf(beforeDice, 'league-promotion').state).toBe('pending');
-    const rolled: PlayerProfile = {
-      ...beforeDice,
-      story: { librarySeen: true, diceEnding: 'refused' },
-    };
+    const rolled = withStory(beforeDice, { diceEnding: 'refused' });
     // …and a met gate CLOSES its chapter: once the dice have fallen, Chapter 4 is
     // closed on its available gates and the chapter in front of the player is 5, so
     // the dice gate is no longer one of the gates the resolver hands back.  That
@@ -304,10 +361,9 @@ describe('§B the chapter boundaries', () => {
     expect(rolledState.gates.some((gate) => gate.id === 'dice-ending')).toBe(false);
     // An unknown enum name is not evidence, so the chapter does not move.
     // Deliberately wrong-typed input, so the cast is the point of the fixture.
-    const folded = {
-      ...beforeDice,
-      story: { librarySeen: true, diceEnding: 'folded' },
-    } as unknown as PlayerProfile;
+    const folded = withStory(beforeDice, {
+      diceEnding: 'folded',
+    } as unknown as NonNullable<PlayerProfile['story']>);
     expect(resolveStoryState(folded).chapter).toBe(4);
     expect(gateOf(folded, 'dice-ending').state).toBe('unmet');
   });
@@ -331,34 +387,37 @@ describe('§B the chapter boundaries', () => {
     // Walk the campaign forward one gate at a time and require each chapter to be
     // closable on today's evidence, ending in the Legend state.
     const steps: PlayerProfile[] = [];
-    let profile: PlayerProfile = legacy(1);
-    profile = { ...profile, defeatedOpponentIds: [bossId(1)] }; // → Ch 3
+    // The walk starts past Chapter 1, so it carries the Test's evidence and every
+    // later step appends to the record it already holds.
+    let profile: PlayerProfile = withDoctoreTest(legacy(1));
+    profile = { ...profile, defeatedOpponentIds: [...profile.defeatedOpponentIds, bossId(1)] }; // → Ch 3
     steps.push(profile);
     profile = { ...profile, fame: 200, currentTier: 2 }; // → still Ch 3 (library unseen)
     steps.push(profile);
     expect(resolveStoryState(steps[1]).chapter).toBe(3);
-    profile = { ...profile, story: { librarySeen: true }, defeatedOpponentIds: [bossId(1), bossId(2)] }; // → Ch 4
+    profile = {
+      ...withStory(profile, { librarySeen: true }),
+      defeatedOpponentIds: [...profile.defeatedOpponentIds, bossId(2)],
+    }; // → Ch 4
     steps.push(profile);
     expect(resolveStoryState(profile).chapter).toBe(4);
-    profile = { ...profile, currentTier: 3, fame: 700, story: { librarySeen: true, diceEnding: 'cut' } }; // → Ch 5
+    profile = { ...withStory(profile, { diceEnding: 'cut' }), currentTier: 3, fame: 700 }; // → Ch 5
     steps.push(profile);
     expect(resolveStoryState(profile).chapter).toBe(5);
     profile = {
-      ...profile,
-      defeatedOpponentIds: [bossId(1), bossId(2), bossId(3)],
-      story: { librarySeen: true, diceEnding: 'cut', trialDone: true },
+      ...withStory(profile, { trialDone: true }),
+      defeatedOpponentIds: [...profile.defeatedOpponentIds, bossId(3)],
     }; // → Ch 6
     steps.push(profile);
     expect(resolveStoryState(profile).chapter).toBe(6);
     profile = {
-      ...profile,
       // Chapter 7's own gate IS the rank, so the walk has to arrive at Legend:
       // 1,500 fame AND a Tier-4 boss in the record.  Without them the chapter
       // resolves as current-but-unclosed, which is what the assertion below caught.
+      ...withStory(profile, { summitSeen: true }),
       fame: RANK_THRESHOLDS.legend.fame,
       currentTier: RANK_THRESHOLDS.legend.currentTier,
-      defeatedOpponentIds: [bossId(1), bossId(2), bossId(3), bossId(4)],
-      story: { librarySeen: true, diceEnding: 'cut', trialDone: true, summitSeen: true },
+      defeatedOpponentIds: [...profile.defeatedOpponentIds, bossId(4)],
     }; // → Ch 7, closed
     steps.push(profile);
     const finalState = resolveStoryState(profile);
@@ -375,6 +434,7 @@ describe('§C malformed input resolves to the defaults', () => {
       expect(state.chapter).toBe(0);
       expect(state.flags).toEqual({
         librarySeen: false,
+        doctoreTestPassed: false,
         fragmentsFound: [],
         trialDone: false,
         diceEnding: undefined,
@@ -395,6 +455,7 @@ describe('§C malformed input resolves to the defaults', () => {
     } as unknown as PlayerProfile['story'];
     expect(resolveStoryState({ ...fresh(), story: junk }).flags).toEqual({
       librarySeen: false,
+      doctoreTestPassed: false,
       fragmentsFound: [],
       trialDone: false,
       diceEnding: undefined,
@@ -483,7 +544,7 @@ describe('§E zero profile writes', () => {
 
   test('the resolver imports nothing that can write', () => {
     const imports = [...moduleSource.matchAll(/from '([^']+)'/g)].map((match) => match[1]);
-    expect(imports).toEqual(['../types/game', '../data/opponents', './rank']);
+    expect(imports).toEqual(['../types/game', '../data/opponents', './storyBeats', './rank']);
     expect([...cardSource.matchAll(/from '([^']+)'/g)].map((match) => match[1])).toEqual([
       'react',
       '../../types/game',
@@ -517,7 +578,7 @@ describe('§F the campaign card', () => {
   });
 
   test('a Goliath-down profile shows the requirement for the fight it has not won', () => {
-    const markup = text(markupFor(legacy(1)));
+    const markup = text(markupFor(withDoctoreTest(legacy(1))));
     expect(markup).toContain('data-chapter="2"');
     expect(markup).toContain("Fortuna's Coin, the Second Sand");
     expect(markup).toContain(`Defeat ${bossShortName(1)}`);
@@ -526,7 +587,7 @@ describe('§F the campaign card', () => {
   });
 
   test('pending gates print the authored pending lines and never their requirement', () => {
-    const markup = text(markupFor(legacy(1)));
+    const markup = text(markupFor(withDoctoreTest(legacy(1))));
     expect(markup).toContain(PENDING_GATE_LINES.race);
     expect(markup).toContain(PENDING_GATE_LINES.omen);
     expect(markup).toContain('data-state="pending"');
@@ -536,8 +597,8 @@ describe('§F the campaign card', () => {
   });
 
   test('a met gate prints its confirmation, not its requirement', () => {
-    const profile = campaign(midCampaign(2, 200));
-    const markup = text(markupFor({ ...profile, story: { librarySeen: false } }));
+    const profile = withDoctoreTest(campaign(midCampaign(2, 200)));
+    const markup = text(markupFor(withStory(profile, { librarySeen: false })));
     expect(markup).toContain('You have reached Veteran.');
     expect(markup).toContain(`${bossShortName(2)} has fallen in the sand.`);
     expect(markup).not.toContain('Reach Veteran — 150 fame and Tier 2');
@@ -545,12 +606,14 @@ describe('§F the campaign card', () => {
   });
 
   test('the Legend state reads the legend line', () => {
-    const legendProfile = campaign({
-      fame: 2000,
-      currentTier: 4,
-      defeatedOpponentIds: [bossId(1), bossId(2), bossId(3), bossId(4)],
-      story: { librarySeen: true, trialDone: true, summitSeen: true, diceEnding: 'cut' },
-    });
+    const legendProfile = withDoctoreTest(
+      campaign({
+        fame: 2000,
+        currentTier: 4,
+        defeatedOpponentIds: [bossId(1), bossId(2), bossId(3), bossId(4)],
+        story: { librarySeen: true, trialDone: true, summitSeen: true, diceEnding: 'cut' },
+      })
+    );
     const markup = text(markupFor(legendProfile));
     expect(markup).toContain('data-chapter="7"');
     expect(markup).toContain('data-campaign-complete="true"');
@@ -572,34 +635,37 @@ describe('§F the campaign card', () => {
   });
 });
 
-// ── §G the three unlanded story beats (C-1) ───────────────────────────────
-describe('§G the three unlanded story beats', () => {
+// ── §G the story beats: two unlanded, one landed (C-1 / STORY-2) ──────────
+describe('§G the story beats', () => {
   /** The profile that stands IN each chapter, so that chapter's gates can be read. */
   const chapterOne = (): PlayerProfile => ({ ...fresh(), road: { oathSworn: true } });
   const chapterFour = (): PlayerProfile =>
-    campaign({
-      currentTier: 3,
-      fame: 700,
-      defeatedOpponentIds: [bossId(1), bossId(2)],
-      story: { librarySeen: true },
-    });
+    withDoctoreTest(
+      campaign({
+        currentTier: 3,
+        fame: 700,
+        defeatedOpponentIds: [bossId(1), bossId(2)],
+        story: { librarySeen: true },
+      })
+    );
   const chapterSeven = (): PlayerProfile =>
-    campaign({
-      fame: 2000,
-      currentTier: 4,
-      defeatedOpponentIds: [bossId(1), bossId(2), bossId(3), bossId(4)],
-      story: { librarySeen: true, trialDone: true, summitSeen: true, diceEnding: 'cut' },
-    });
+    withDoctoreTest(
+      campaign({
+        fame: 2000,
+        currentTier: 4,
+        defeatedOpponentIds: [bossId(1), bossId(2), bossId(3), bossId(4)],
+        story: { librarySeen: true, trialDone: true, summitSeen: true, diceEnding: 'cut' },
+      })
+    );
 
   const BEAT_GATES = [
-    { chapter: 1, id: 'doctore-test', requirement: "Pass the Doctore's test under the restricted rules" },
     { chapter: 4, id: 'vexus-race', requirement: 'Run the Vexus incident race' },
     { chapter: 7, id: 'statue-ceremony', requirement: 'See the statue ceremony played' },
   ] as const;
 
-  const views = () => [chapterOne(), chapterFour(), chapterSeven()];
+  const views = () => [chapterFour(), chapterSeven()];
 
-  test('G1 — each beat gate is on its chapter, kind \'beat\', state \'pending\'', () => {
+  test("G1 — each unlanded beat gate is on its chapter, kind 'beat', state 'pending'", () => {
     const profiles = views();
     for (const [index, entry] of BEAT_GATES.entries()) {
       const state = resolveStoryState(profiles[index]);
@@ -623,42 +689,56 @@ describe('§G the three unlanded story beats', () => {
       expect(storyGateLine(gate!)).toBe(PENDING_GATE_LINES.beat);
     }
     // …and the card prints that line, never the requirement it stands in for.
-    const markup = text(markupFor(chapterOne()));
-    expect(markup).toContain('data-story-gate="doctore-test"');
+    const markup = text(markupFor(chapterFour()));
+    expect(markup).toContain('data-story-gate="vexus-race"');
     expect(markup).toContain('data-state="pending"');
     expect(markup).toContain(PENDING_GATE_LINES.beat);
-    expect(markup).not.toContain("Pass the Doctore's test under the restricted rules");
+    expect(markup).not.toContain('Run the Vexus incident race');
   });
 
-  test('G3 — a profile meeting every available gate still closes Chapters 1, 4 and 7', () => {
-    // Chapter 1: the first win is met and the Test beat is pending, so it closes.
-    expect(resolveStoryState(legacy(1)).chapter).toBe(2);
-    // Chapter 4: Tier 3 and the dice are met and the Vexus race is pending, so it closes.
-    const rolled: PlayerProfile = {
-      ...chapterFour(),
-      story: { librarySeen: true, diceEnding: 'cut' },
+  test("G3 — STORY-2 landed the third beat: Chapter 1's Test gate reads evidence, not pending", () => {
+    // The gate the table always carried is now real: no pending kind, and unmet on
+    // a record that has only won a duel.
+    const firstWin = legacy(1);
+    const gate = gateOf(firstWin, 'doctore-test');
+    expect(gate.pendingKind).toBeUndefined();
+    expect(gate.state).toBe('unmet');
+    // The id alone is not a pass — every win records it — and neither is the flag.
+    const plainWin: PlayerProfile = {
+      ...firstWin,
+      defeatedOpponentIds: [DOCTORE_TEST_OPPONENT_ID],
     };
-    expect(resolveStoryState(rolled).chapter).toBe(5);
-    // Chapter 7: Legend is met and the statue ceremony is pending, so the campaign completes.
+    expect(gateOf(plainWin, 'doctore-test').state).toBe('unmet');
+    expect(gateOf(withStory(firstWin, { doctoreTestPassed: true }), 'doctore-test').state).toBe(
+      'unmet'
+    );
+    // Both together are the evidence, and they close the chapter.
+    expect(resolveStoryState(withDoctoreTest(firstWin)).chapter).toBe(2);
+  });
+
+  test('G4 — a profile meeting every available gate still closes Chapters 1, 4 and 7', () => {
+    // Chapter 1: the first win and the Test are met and no beat is pending.
+    expect(resolveStoryState(withDoctoreTest(legacy(1))).chapter).toBe(2);
+    // Chapter 4: Tier 3 and the dice are met and the Vexus race is pending.
+    expect(resolveStoryState(withStory(chapterFour(), { diceEnding: 'cut' })).chapter).toBe(5);
+    // Chapter 7: Legend is met and the statue ceremony is pending, so it completes.
     const legend = resolveStoryState(chapterSeven());
     expect(legend.chapter).toBe(STORY_FINAL_CHAPTER);
     expect(legend.complete).toBe(true);
     expect(legend.gates.map((gate) => gate.state)).toEqual(['met', 'pending']);
   });
 
-  test('G4 — no beat reads evidence, so nothing closes early and no pending gate is unmet', () => {
+  test('G5 — a pending gate never holds a chapter shut, and nothing closes early', () => {
     for (const profile of views()) {
       for (const gate of resolveStoryState(profile).gates) {
         if (gate.pendingKind) expect(gate.state).toBe('pending');
       }
     }
-    // The three beats add no field and no writer: a fresh profile is still held at Chapter 0.
+    // The unlanded beats add no field and no writer: a fresh profile is still Chapter 0.
     expect(resolveStoryState(fresh()).chapter).toBe(0);
     expect(resolveStoryState(fresh()).complete).toBe(false);
     // A chapter without its available evidence still stays open, beat or no beat.
-    expect(resolveStoryState({ ...chapterOne(), fightsWon: 0 }).chapter).toBe(1);
-    expect(
-      resolveStoryState({ ...chapterFour(), story: { librarySeen: true } }).chapter
-    ).toBe(4);
+    expect(resolveStoryState(chapterOne()).chapter).toBe(1);
+    expect(resolveStoryState(chapterFour()).chapter).toBe(4);
   });
 });
