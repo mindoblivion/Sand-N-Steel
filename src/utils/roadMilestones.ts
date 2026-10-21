@@ -10,7 +10,7 @@
  * Nothing else is stored: the rank gates are read from the road, the boss names from
  * `src/data/opponents.ts`, and the banner's stripes stay derived (`src/utils/heraldry.ts`).
  */
-import type { PlayerProfile } from '../types/game';
+import type { OpponentConfig, PlayerProfile } from '../types/game';
 import { ALL_OPPONENTS } from '../data/opponents';
 import { resolveRoadProgress, resolveRoadState, type RoadStageId } from './roadOfGlory';
 import { isBannerDevice, type BannerDevice } from './heraldry';
@@ -75,14 +75,26 @@ function newlyDefeatedBosses(
     .map((opponent) => (opponent as { name: string }).name);
 }
 
+/** The shape the boss cry needs of the gladiator just fought — nothing more. */
+export type DefeatedOpponent = Pick<OpponentConfig, 'name' | 'isBoss'>;
+
 /**
  * Compare the road before and after one event.  A stage fires only when this event
  * newly reached it and its id is not already recorded, so a replayed or repeated
  * evaluation is silent.
+ *
+ * `justFought` is the opponent the duel behind `after` was fought against, and it is
+ * how the boss cry keeps road-of-glory §4 — a boss's cry sounds at each boss defeat,
+ * "then each", so a rematch is not silent.  When it is given the boss cry is decided
+ * by that opponent alone: a boss win cries exactly once (first defeat or rematch), a
+ * mook win says nothing.  Without it — city entry, which fought nothing — the cry
+ * stays the first-defeat diff it always was.  The stage and `milestonesSeen` logic
+ * never sees it, so their first-time semantics are untouched.
  */
 export function evaluateRoadMilestones(
   before: PlayerProfile | null | undefined,
-  after: PlayerProfile
+  after: PlayerProfile,
+  justFought?: DefeatedOpponent | null
 ): RoadEvaluation {
   const name = after.name;
   const seen = resolveRoadProgress(after).milestonesSeen;
@@ -97,9 +109,17 @@ export function evaluateRoadMilestones(
     offerDeviceChoice: stage === 'known',
   }));
 
+  // The boss cry (road-of-glory §4): the duel just won names the boss it was fought
+  // against — first defeat or rematch, never twice; a mook win says nothing.
+  const bossNames = justFought
+    ? justFought.isBoss === true
+      ? [justFought.name]
+      : []
+    : newlyDefeatedBosses(before, after);
+
   const cries = [
     ...rituals.map((ritual) => ritual.cry).filter((cry): cry is string => cry !== null),
-    ...newlyDefeatedBosses(before, after).map((boss) => HERALD_CRIES.boss(boss, name)),
+    ...bossNames.map((boss) => HERALD_CRIES.boss(boss, name)),
   ];
 
   const changed = freshStages.length > 0;

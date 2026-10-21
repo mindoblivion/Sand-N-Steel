@@ -122,6 +122,9 @@ export function createNewProfile(name: string, characterModel = 'roman_warrior' 
     fightsWon: 0,
     fightsLost: 0,
     peakCrowdHypeOverall: 0,
+    // Shape alignment: `CharacterCreation`'s finish path writes this too, so both
+    // profile factories produce the same key set. App reads lefty from settings.
+    isLeftyMode: false,
   };
 }
 

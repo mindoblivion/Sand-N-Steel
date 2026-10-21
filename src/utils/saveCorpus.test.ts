@@ -43,8 +43,9 @@
  * A fixture that fails is a **finding**, reported precisely and left in the
  * production code's hands: this suite diagnoses compatibility, it does not repair
  * the save format.  This slice's corpus is green; the findings it records (which
- * fields of the profile no code advances, and that the shipped creation and the
- * factory write different shapes) are written up in `saveFixtures/MANIFEST.md`.
+ * fields of the profile no code advances, and — until CORR-BATCH-2 aligned them —
+ * that the shipped creation and the factory wrote different shapes) are written up
+ * in `saveFixtures/MANIFEST.md`.
  *
  * **No real player's save is read or written.**  Every fixture is committed data
  * constructed in this repository; the storage this suite uses is an in-memory
@@ -458,17 +459,17 @@ describe('GC20 §F — what each shape resolves to', () => {
     return fixture;
   };
 
-  test('the shipped creation and the factory write different field sets', () => {
+  test('the shipped creation and the factory write the same field set', () => {
     const legacy = rawOf(fixtureById('minimal-legacy'));
     const fresh = rawOf(fixtureById('current-fresh'));
 
-    // The creation path writes `isLeftyMode`; `createNewProfile()` does not.
+    // CORR-BATCH-2 aligned the shapes: `createNewProfile()` now writes `isLeftyMode`
+    // too, so both factories emit the one field set.
     expect('isLeftyMode' in legacy).toBe(true);
-    expect('isLeftyMode' in fresh).toBe(false);
+    expect('isLeftyMode' in fresh).toBe(true);
+    expect(fresh.isLeftyMode).toBe(false);
 
-    const withoutLeft = { ...legacy } as Record<string, unknown>;
-    delete withoutLeft.isLeftyMode;
-    expect(Object.keys(withoutLeft).sort()).toEqual(Object.keys(fresh).sort());
+    expect(Object.keys(legacy).sort()).toEqual(Object.keys(fresh).sort());
   });
 
   test('the factory fixture is exactly what createNewProfile writes today', () => {

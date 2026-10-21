@@ -293,8 +293,12 @@ export function App() {
    * hands back the profile to save — it is the only writer of `road.milestonesSeen` —
    * together with the cries the herald should raise and whether the device panel is owed.
    */
-  const evaluateRituals = (before: PlayerProfile, after: PlayerProfile): PlayerProfile => {
-    const evaluation = evaluateRoadMilestones(before, after);
+  const evaluateRituals = (
+    before: PlayerProfile,
+    after: PlayerProfile,
+    justFought?: OpponentConfig | null
+  ): PlayerProfile => {
+    const evaluation = evaluateRoadMilestones(before, after, justFought);
     if (evaluation.cries.length > 0) {
       setHeraldCries((previous) => [...previous, ...evaluation.cries]);
     }
@@ -616,7 +620,8 @@ export function App() {
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
 
-      const settledProfile = evaluateRituals(profile, updatedProfile);
+      // The just-fought opponent is what names the boss cry — first defeat or rematch.
+      const settledProfile = evaluateRituals(profile, updatedProfile, activeOpponent);
       setProfile(settledProfile);
       saveProfile(settledProfile);
     } else {

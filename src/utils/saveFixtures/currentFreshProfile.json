@@ -104,5 +104,6 @@
   ],
   "fightsWon": 0,
   "fightsLost": 0,
-  "peakCrowdHypeOverall": 0
+  "peakCrowdHypeOverall": 0,
+  "isLeftyMode": false
 }
