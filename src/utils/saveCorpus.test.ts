@@ -121,6 +121,7 @@ import { resolveRoadProgress, resolveRoadState } from './roadOfGlory';
 import { resolveSeenState } from './coachMarks';
 import { TIME_PHASES, resolveTimeState } from './timeState';
 import { resolveLaurels } from './laurels';
+import { resolveConsumables } from './consumables';
 
 // ── The corpus on disk ─────────────────────────────────────────────────────
 const FIXTURE_DIR = fileURLToPath(new URL('./saveFixtures/', import.meta.url));
@@ -140,6 +141,7 @@ const REQUIRED_FIXTURE_IDS = [
   'partial-story-fields',
   'malformed-empty-fields',
   'triumphs-era',
+  'consumables-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -204,6 +206,8 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const time = resolveTimeState(profile);
   // P2 — the Triumph record, read the way the Library and the character sheet do.
   const laurels = resolveLaurels(profile);
+  // S6 — the Bazaar satchel, read the way the shop and the use surfaces do.
+  const consumables = resolveConsumables(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -222,6 +226,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     seen,
     time,
     laurels,
+    consumables,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -346,6 +351,13 @@ for (const fixture of SAVE_FIXTURES) {
       expect(Array.isArray(resolved.laurels.titles)).toBe(true);
       expect(resolved.laurels.titles.every((id) => typeof id === 'string')).toBe(true);
       expect(typeof resolved.laurels.statue).toBe('boolean');
+      // S6 — the counted satchel: whole, positive counts for known items only.
+      expect(typeof resolved.consumables).toBe('object');
+      expect(
+        Object.values(resolved.consumables).every(
+          (count) => Number.isInteger(count) && (count as number) > 0,
+        ),
+      ).toBe(true);
       expect(Number.isFinite(resolved.temperedWeapon.damageLight)).toBe(true);
       expect(resolved.temperedWeapon.damageLight).toBeGreaterThanOrEqual(loaded.equipped.weapon.damageLight);
       expect(resolved.temperedArmor.every((armor) => Number.isFinite(armor.defense))).toBe(true);
@@ -429,6 +441,10 @@ for (const fixture of SAVE_FIXTURES) {
         absentFields += 1;
         expect(resolveLaurels(profile)).toEqual({ titles: [], statue: false });
       }
+      if (!('consumables' in raw) || raw.consumables === null) {
+        absentFields += 1;
+        expect(resolveConsumables(profile)).toEqual({});
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -444,6 +460,7 @@ for (const fixture of SAVE_FIXTURES) {
         'seen',
         'time',
         'laurels',
+        'consumables',
       ];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
@@ -585,6 +602,16 @@ describe('GC20 §F — what each shape resolves to', () => {
     expect('laurels' in rawOf(fixtureById('current-fresh'))).toBe(false);
     expect('laurels' in rawOf(fixtureById('minimal-legacy'))).toBe(false);
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('laurels');
+  });
+
+  test('the S6 satchel is counted data, and no factory save carries the field', () => {
+    const profile = fixtureById('consumables-era').profile;
+    expect(resolveConsumables(profile)).toEqual({ field_poultice: 2, medicus_salve: 1 });
+
+    // Lazy: a legacy save owns none, and nothing at creation writes the field.
+    expect(resolveConsumables(fixtureById('minimal-legacy').profile)).toEqual({});
+    expect('consumables' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('consumables');
   });
 
   test('null where an object is expected resolves to both defaults', () => {
@@ -825,12 +852,23 @@ describe('GC20 §J — the corpus rule', () => {
       'seen',
       'time',
       'laurels',
+      'consumables',
     ]);
 
     // Every optional field with a resolver has a fixture for both its absent and
     // its present case; `injury` is read by calculateTotalStats; `isLeftyMode` is
     // still written by the creation path and read by nothing.
-    for (const field of ['racing', 'chariot', 'story', 'temper', 'road', 'seen', 'time', 'laurels']) {
+    for (const field of [
+      'racing',
+      'chariot',
+      'story',
+      'temper',
+      'road',
+      'seen',
+      'time',
+      'laurels',
+      'consumables',
+    ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);
       expect(withField.length, `no fixture carries '${field}'`).toBeGreaterThan(0);

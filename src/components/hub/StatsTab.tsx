@@ -1,8 +1,9 @@
 import React from 'react';
 import { PlayerProfile } from '../../types/game';
 import { calculateTotalStats } from '../../services/storage';
-import { Swords, Shield, Heart, Zap, Flame, Activity, Crown, HeartPulse } from 'lucide-react';
+import { Swords, Shield, Heart, Zap, Flame, Activity, Crown, HeartPulse, FlaskConical } from 'lucide-react';
 import { resolveActiveInjury } from '../../utils/injury';
+import { getConsumableCount, ownedConsumables } from '../../utils/consumables';
 import { CampaignCard } from './CampaignCard';
 import { deriveRank } from '../../utils/rank';
 import { STATUE_OWNED_LINE, ownedTriumphs, resolveLaurels } from '../../utils/laurels';
@@ -10,9 +11,15 @@ import { STATUE_OWNED_LINE, ownedTriumphs, resolveLaurels } from '../../utils/la
 interface StatsTabProps {
   profile: PlayerProfile;
   onAllocatePoint: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
+  /** S6 — one-tap use of an owned consumable; `App` applies it and writes the save. */
+  onUseConsumable?: (itemId: string) => void;
 }
 
-export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) => {
+export const StatsTab: React.FC<StatsTabProps> = ({
+  profile,
+  onAllocatePoint,
+  onUseConsumable,
+}) => {
   const total = calculateTotalStats(profile);
   const totalStamina = total.stamina ?? profile.baseStats.stamina;
   /**
@@ -31,6 +38,12 @@ export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) 
    * Read-only; no injury means nothing is added here.
    */
   const activeInjury = resolveActiveInjury(profile.injury);
+  /**
+   * S6 — the consumables this gladiator could use RIGHT NOW. The row exists only
+   * while there is a live wound and at least one item is owned, so a healthy
+   * profile (or an empty satchel) adds nothing at all.
+   */
+  const usableConsumables = activeInjury ? ownedConsumables(profile) : [];
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto w-full pb-12">
@@ -124,7 +137,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) 
       {activeInjury && (
         <div
           data-injury={activeInjury.fightsRemaining}
-          className="bg-red-950/40 border border-red-600/60 rounded-2xl p-4 flex items-center gap-3"
+          className="bg-red-950/40 border border-red-600/60 rounded-2xl p-4 flex flex-wrap items-center gap-3"
         >
           <HeartPulse className="w-5 h-5 text-red-400 shrink-0" />
           <div>
@@ -137,6 +150,28 @@ export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) 
               {activeInjury.fightsRemaining === 1 ? 'fight' : 'fights'} remaining
             </p>
           </div>
+
+          {/* S6 — the compact one-tap use row. It appears only while injured and
+              only for what is actually carried; each button spends one item and
+              hands the wound back to `App`'s transaction. */}
+          {usableConsumables.length > 0 && (
+            <div className="w-full flex flex-wrap gap-2" data-consumable-row>
+              {usableConsumables.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-use-consumable={item.id}
+                  onClick={() => onUseConsumable?.(item.id)}
+                  className="min-h-[40px] px-3 rounded-xl bg-red-900/60 hover:bg-red-800/70 border border-red-500/70 text-neutral-100 text-[11px] font-mono uppercase tracking-wider cursor-pointer active:scale-[0.98] transition-all flex items-center gap-1.5"
+                >
+                  <FlaskConical className="w-3.5 h-3.5 text-amber-300" />
+                  <span>
+                    Use {item.name} ({getConsumableCount(profile, item.id)})
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

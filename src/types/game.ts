@@ -453,4 +453,16 @@ export interface PlayerProfile {
    * shipped `title` string above, which a title purchase also sets.
    */
   laurels?: { titles?: string[]; statue?: boolean };
+  /**
+   * S6 — the counted Bazaar consumables, keyed by consumable id
+   * (`data/consumables.ts`). Optional on purpose, exactly like `chariot` and
+   * `racing`: a save written before this slice has no `consumables` field at all
+   * and must keep loading, so `resolveConsumables` (`utils/consumables.ts`) reads a
+   * missing, null or malformed field as `{}` — owning none — rather than repairing
+   * the save. Written ONLY by a successful `purchaseConsumable()` and a
+   * `consumeItem()` use, never by `createNewProfile()` and never by a migration.
+   * These are NOT gear: nothing here is a `WeaponItem` / `ArmorItem` and nothing
+   * here ever enters `inventory`.
+   */
+  consumables?: Record<string, number>;
 }

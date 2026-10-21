@@ -36,6 +36,7 @@ import storyRoadEraProfile from './storyRoadEraProfile.json';
 import partialStoryProfile from './partialStoryProfile.json';
 import emptyFieldsProfile from './emptyFieldsProfile.json';
 import triumphsEraProfile from './triumphsEraProfile.json';
+import consumablesEraProfile from './consumablesEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -170,6 +171,18 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'the fully-populated shape plus every post-GC20 optional field',
     ],
     profile: asProfile(triumphsEraProfile),
+  },
+  {
+    id: 'consumables-era',
+    file: 'consumablesEraProfile.json',
+    provenance:
+      'The Triumphs-era save with its satchel stocked: two Field Poultices and one Medicus Salve, the counted record a `purchaseConsumable` success writes (S6).',
+    covers: [
+      'the counted `consumables` record populated (S6)',
+      'every post-GC20 optional field populated, consumables included',
+      'every older fixture omits the field, the legacy shape a load must survive',
+    ],
+    profile: asProfile(consumablesEraProfile),
   },
 ];
 
