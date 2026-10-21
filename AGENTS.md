@@ -6755,3 +6755,64 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   repo's no-DOM-renderer convention; the handler itself is not executed by a test. (e) No rest mechanic,
   injury recovery, NPC schedule, day/night visual, new exercise, new stat effect or new cost was
   added, and nothing outside training changed.
+
+## Living City L7 — core injury system (implemented; L1–L5 records preserved above)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`bd3df754a9`**,
+  `git status --short` **empty** before the first edit; nothing was stashed, reset or overwritten. The
+  branch's baseline suite read **2713 pass / 0 fail (93 files)**, the figure the L5 record ended on, so
+  L5's description matched the code that shipped.
+
+- **`PlayerInjury` was dead code, and this phase gives it exactly one writer.**
+  `src/utils/injurySettlement.ts` (new, PURE — no React, storage, timer, wall clock or randomness) owns
+  the one injury slot. Rules as approved: a **completed defeat** inflicts
+  `{ fightsRemaining: 2, penaltyStrength: 2, penaltyAgility: 2 }`; **every completed duel, won or
+  lost,** spends one fight of the injury the fighter entered with; at zero the slot is `null`; a
+  defeat while injured **refreshes the duration to 2 and keeps the fixed penalties** (one slot, never
+  stacked, never accumulated). An abandoned or cancelled bout never reaches the settlement, so it
+  neither inflicts nor spends one. **No rest action, no city-day cost, no injury UI** shipped.
+
+- **Ordering is the rule.** `settleInjury(profile, didWin)` snapshots the entry injury, spends one
+  fight of **that** record, and only then applies the defeat rule — which is what makes a freshly
+  inflicted injury start at 2 instead of 1. Consequence worth knowing: after a defeat the slot reads
+  **2**, not 1 (rules 4 and 5 together), and the brief's test-list line "two remaining becomes one …
+  for both victory and defeat" cannot hold for a defeat; the rules win and the suite states the
+  refresh explicitly.
+
+- **Malformed legacy data, normalized narrowly and totally.** `normalizeInjury(value)` is the ONE
+  reader of a stored injury (both the settlement and `calculateTotalStats` use it): a missing / `null`
+  / non-object record, or a `fightsRemaining` that is not finite or is `<= 0` once floored, reads as
+  **`null`**; a fractional duration **floors** (like `normalizeCityDay`); a non-finite penalty
+  resolves to the canonical **2** and a negative one clamps to **0**. No migration and no save rewrite
+  — `calculateTotalStats` (`services/storage.ts`) now reads the same resolver, so a NaN penalty can no
+  longer poison strength/agility (the audit's latent NaN risk is closed) while valid records behave
+  exactly as before, floor of 1 included.
+
+- **Wiring: still one settlement boundary.** `App.handleMatchComplete` computes
+  `const injury = settleInjury(profile, didWin).injury;` **once**, beside the L1 clock, and carries it
+  into both outcome literals — no second settlement path, `advanceCityDay` still has its one call site,
+  the duel-id latch and the one `setProfile`/`saveProfile` per branch are untouched.
+
+- **Files — four.** `src/utils/injurySettlement.ts` (new); `src/utils/injurySettlement.test.ts` (new,
+  36 tests); `src/App.tsx` (the import, the one computation, `injury,` in both literals);
+  `src/services/storage.ts` (the normalization guard). Nothing else changed.
+
+- **Verified 2026-10-21** in the dev container: `bun test` → **2749 pass / 0 fail (94 files, 84,718
+  `expect()`)** (baseline 2713 / 93 → this suite's 36 tests and its file); `bun run
+  scripts/combatTests.ts` → **65 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0;
+  `bun run build` → exit 0 with the startup-asset check passing; `git diff --check` → clean. The dev
+  server serves the changed modules and the app boots to its title screen with **0 console errors and
+  0 failed requests**.
+
+- **Not automatically verified — no live duel.** A completed defeat and the recovery after it were
+  **not** observed live: paying them needs a finished bout, and the sandbox renders the arena through
+  SwiftShader at ~1–2 fps (the limit L1–L5 and the combat passes recorded). The lifecycle is pinned by
+  the suite (behavioural helper + the settlement's source ordering). **Device check owed:** lose one
+  Colosseum duel and confirm `injury` reads 2/2/2 in `sand_and_steel_gladiator_save_v2` and that
+  strength/agility are 2 lower in the armory, then win one and confirm it drops to 1, win another and
+  confirm it is `null`; abandon a bout and confirm no injury appears.
+
+- **Remaining limitations.** (a) An injury is invisible in play until a UI reads it — no injury
+  indicator, no rest button, no `advanceCityDay` cost (all out of scope). (b)
+  `trainingSessionsLeft` stays dormant. (c) The stat penalty is per-record and uncapped by design
+  beyond the floor of 1.

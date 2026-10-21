@@ -20,6 +20,7 @@ import { HeraldToast } from './components/hub/HeraldToast';
 import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
 import { advanceCityDay } from './utils/cityClock';
+import { settleInjury } from './utils/injurySettlement';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
 import { trainStat } from './utils/trainingSession';
 import type { TrainingStat } from './data/training';
@@ -569,6 +570,13 @@ export function App() {
     // handler, so it never advances the day.
     const city = advanceCityDay(profile).city;
 
+    // L7 — THE INJURY SETTLEMENT. One slot, decided from the pre-fight profile and
+    // carried into whichever branch settles this fight, exactly like the clock above:
+    // the duels that follow an injury spend it (win or lose), and a defeat inflicts or
+    // refreshes it at its fixed duration and penalties. A bout that is abandoned never
+    // reaches this handler, so it neither inflicts nor spends an injury.
+    const injury = settleInjury(profile, didWin).injury;
+
     if (didWin) {
       const nextGold = profile.gold + stats.goldEarned;
       const nextFame = profile.fame + stats.fameEarned;
@@ -612,6 +620,7 @@ export function App() {
         fightsWon: profile.fightsWon + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
         city,
+        injury,
       };
 
       const settledProfile = evaluateRituals(profile, updatedProfile);
@@ -623,6 +632,7 @@ export function App() {
         fightsLost: profile.fightsLost + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
         city,
+        injury,
       };
       const settledProfile = evaluateRituals(profile, updatedProfile);
       setProfile(settledProfile);

@@ -5,6 +5,7 @@ import {
   getEffectiveWeaponStats,
   getEffectiveArmorStats,
 } from '../utils/tempering';
+import { normalizeInjury } from '../utils/injurySettlement';
 
 /**
  * The one local-save key.  Exported so the two things that remove it — `Reset save`
@@ -52,10 +53,14 @@ export function calculateTotalStats(profile: PlayerProfile): FighterStats {
     }
   });
 
-  // Apply injury penalty if any
-  if (profile.injury && profile.injury.fightsRemaining > 0) {
-    str = Math.max(1, str - profile.injury.penaltyStrength);
-    agi = Math.max(1, agi - profile.injury.penaltyAgility);
+  // Apply injury penalty if any. `normalizeInjury` (L7) is the ONE reader of a
+  // stored injury: a missing, spent or malformed record reads as "no injury", and
+  // a non-finite penalty resolves to the canonical 2, so a hand-edited save can
+  // never subtract `NaN` from a stat. A valid record is applied exactly as before.
+  const injury = normalizeInjury(profile.injury);
+  if (injury) {
+    str = Math.max(1, str - injury.penaltyStrength);
+    agi = Math.max(1, agi - injury.penaltyAgility);
   }
 
   const healthMax = 80 + str * 4 + def * 3;
