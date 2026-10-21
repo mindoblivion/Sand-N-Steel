@@ -353,6 +353,15 @@ export interface RoadProgress {
 export interface CityState {
   /** The current in-game day. Positive integer; 1 when absent or unusable. */
   day?: number;
+  /**
+   * L4 — the last city day on which a purchase at the Elite Merchant House
+   * succeeded. ONE number, not a log: the day's allowance is spent exactly while
+   * this equals the current day, so a later purchase overwrites it and the field
+   * can never grow with play. Absent on every save made before L4 and read as
+   * "nothing bought yet"; `city.day` is preserved beside it untouched, and no
+   * migration ever introduces it.
+   */
+  merchantPurchaseDay?: number;
 }
 
 export interface PlayerProfile {

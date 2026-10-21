@@ -20,7 +20,7 @@ import { HeraldToast } from './components/hub/HeraldToast';
 import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
 import { advanceCityDay } from './utils/cityClock';
-import { isStorefrontItemOnOffer } from './utils/cityRotation';
+import { purchaseStorefrontItem } from './utils/storefrontPurchase';
 import { createDuelSettlementLatch } from './utils/duelSettlement';
 import type { BannerDevice } from './utils/heraldry';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
@@ -82,6 +82,17 @@ interface CityExitPose {
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  /**
+   * L4 — the newest committed profile, which is the ONE base a purchase reads.
+   * React state only changes on the next render, so two purchase callbacks in the
+   * same tick (a double click, a duplicated handler) would otherwise both spend
+   * the same purse and both take the merchant's single daily allowance. A commit
+   * writes this ref immediately, so the second call sees the first one's result.
+   */
+  const profileRef = useRef<PlayerProfile | null>(null);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
   const [activeHubTab, setActiveHubTab] = useState<'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library'>('tournament');
   // Phase C-8.66B: the Armory's own subview. The Imperial Stable's city
@@ -680,20 +691,20 @@ export function App() {
   };
 
   const handleBuyItem = (item: WeaponItem | ArmorItem) => {
-    if (!profile || profile.gold < item.price) return;
-    // Living City L3 — a storefront sells only what its own day's rotation lists,
-    // and `ShopTab` renders that same list. An item the storefront stocks but the
-    // day leaves off is refused here too, so the rotation cannot be bypassed.
-    // Buying never advances the city day: the clock only moves on a settled duel.
-    if (!isStorefrontItemOnOffer(profile, shopId, item.id)) return;
-
-    const updated: PlayerProfile = {
-      ...profile,
-      gold: profile.gold - item.price,
-      inventory: [...profile.inventory, item],
-    };
-    setProfile(updated);
-    saveProfile(updated);
+    // Living City L4 — the ONE purchase transaction (`utils/storefrontPurchase`)
+    // decides the purse, the day's offer (L3) and the Elite Merchant House's
+    // single daily purchase, and returns a NEW profile or a refusal reason
+    // without mutating anything. A refusal — insufficient gold, an item the day
+    // does not list, or a merchant already used today — leaves the profile, its
+    // gold and its purchase record exactly as they were. Buying never advances
+    // the city day: the clock only moves on a settled duel.
+    const base = profileRef.current;
+    if (!base) return;
+    const result = purchaseStorefrontItem(base, shopId, item.id);
+    if (!result.ok) return;
+    profileRef.current = result.profile;
+    setProfile(result.profile);
+    saveProfile(result.profile);
   };
 
   // P1 sell — the market buys a carried, unequipped item back for its

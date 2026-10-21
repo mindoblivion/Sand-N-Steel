@@ -47,6 +47,7 @@ const load = (rel: string): string =>
 
 const SHOP_SRC = load('../components/hub/ShopTab.tsx');
 const APP_SRC = load('../App.tsx');
+const PURCHASE_SRC = load('./storefrontPurchase.ts');
 
 const MERCHANT_POOL = getStorefrontStock('merchant');
 
@@ -314,18 +315,18 @@ describe('§F — the screen and the purchase gate share one daily selection', (
     expect(SHOP_SRC).toContain('resolveStorefrontOffer(profile, shopId)');
     expect(SHOP_SRC).not.toContain('getStorefrontStock(shopId)');
 
-    const buyStart = APP_SRC.indexOf('const handleBuyItem');
-    const buyEnd = APP_SRC.indexOf('const handleSellItem', buyStart);
-    expect(buyStart).toBeGreaterThan(-1);
-    expect(buyEnd).toBeGreaterThan(buyStart);
-    const buyBody = APP_SRC.slice(buyStart, buyEnd);
-
-    const goldCheck = buyBody.indexOf('profile.gold < item.price');
-    const offerCheck = buyBody.indexOf('isStorefrontItemOnOffer(profile, shopId, item.id)');
-    const mutation = buyBody.indexOf('inventory: [...profile.inventory, item]');
+    // Living City L4 moved the transaction out of `App.handleBuyItem` into the
+    // pure `utils/storefrontPurchase.ts`, so the ordering this test exists to pin
+    // is read from the module that now owns it, and App is pinned as its caller.
+    const goldCheck = PURCHASE_SRC.indexOf('profile.gold < item.price');
+    const offerCheck = PURCHASE_SRC.indexOf('isStorefrontItemOnOffer(profile, storefront, itemId)');
+    const mutation = PURCHASE_SRC.indexOf('inventory: [...profile.inventory, item]');
     expect(goldCheck).toBeGreaterThan(-1);
     expect(offerCheck).toBeGreaterThan(goldCheck);
     expect(mutation).toBeGreaterThan(offerCheck);
+
+    expect(APP_SRC).toContain('purchaseStorefrontItem(base, shopId, item.id)');
+    expect(APP_SRC).not.toContain('inventory: [...profile.inventory');
   });
 
   test('buying, opening or leaving a shop never advances the city day', () => {

@@ -3,6 +3,7 @@ import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
 import { getItemById, isWeapon } from '../../data/itemsDB';
 import { StorefrontId } from '../../data/shops';
 import { resolveStorefrontOffer } from '../../utils/cityRotation';
+import { isMerchantPurchaseSpent } from '../../utils/storefrontPurchase';
 import { getSellEligibility, getSellValue } from '../../utils/selling';
 import { ShoppingCart, Coins, Shield, Swords, Check } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
@@ -59,6 +60,10 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   ]);
 
   const copy = STOREFRONT_COPY[shopId];
+  // Living City L4 — the Elite Merchant House allows one purchase per city day.
+  // The transaction enforces it; this only says so, so a closed purse is never a
+  // silent, unexplained refusal.
+  const merchantSpentToday = shopId === 'merchant' && isMerchantPurchaseSpent(profile);
   // Living City L3 — the storefront's stock for the city day this profile is on.
   // `resolveStorefrontOffer` selects from `getStorefrontStock`, so the forge,
   // armorer and open market are exactly what they always were and only the
@@ -85,6 +90,15 @@ export const ShopTab: React.FC<ShopTabProps> = ({
           <span>{profile.gold}</span>
         </div>
       </div>
+
+      {merchantSpentToday && (
+        <div className="bg-neutral-900/80 border border-amber-700/40 rounded-3xl p-4 text-center shadow-lg">
+          <p className="font-serif text-amber-100 text-sm sm:text-base">
+            The merchant has closed his purse for today — one purchase per city day.
+            His wares turn over at the next dawn.
+          </p>
+        </div>
+      )}
 
       {stock.length === 0 && (
         <div className="bg-neutral-900/80 border border-amber-700/40 rounded-3xl p-8 text-center shadow-lg">
@@ -133,7 +147,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
                       sounds.playCoin();
                       onBuyItem(wpn);
                     }}
-                    disabled={isOwned || !canAfford}
+                    disabled={isOwned || !canAfford || merchantSpentToday}
                     className={`w-full py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
                       isOwned
                         ? 'bg-neutral-800 text-neutral-500 border border-neutral-700'
@@ -211,7 +225,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
                       sounds.playCoin();
                       onBuyItem(arm);
                     }}
-                    disabled={isOwned || !canAfford}
+                    disabled={isOwned || !canAfford || merchantSpentToday}
                     className={`w-full py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
                       isOwned
                         ? 'bg-neutral-800 text-neutral-500 border border-neutral-700'

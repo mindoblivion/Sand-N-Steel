@@ -292,10 +292,15 @@ describe('§E — no input or catalogue is mutated; L3 consumes only the shared 
 
   test('L3 consumes this module through the shared offer helper on BOTH sides', () => {
     // The screen renders `resolveStorefrontOffer(profile, shopId)` and the
-    // purchase gate asks `isStorefrontItemOnOffer(profile, shopId, item.id)` for
-    // the same profile, so the two cannot disagree about the day's stock.
+    // purchase gate asks `isStorefrontItemOnOffer(...)` for the same profile, so
+    // the two cannot disagree about the day's stock. Since L4 the gate lives in
+    // the purchase transaction (`utils/storefrontPurchase.ts`), which App calls,
+    // so the pin is on the module that actually holds it.
     expect(load('../components/hub/ShopTab.tsx')).toContain('resolveStorefrontOffer(profile, shopId)');
-    expect(load('../App.tsx')).toContain('isStorefrontItemOnOffer(profile, shopId');
+    expect(load('../utils/storefrontPurchase.ts')).toContain(
+      'isStorefrontItemOnOffer(profile, storefront, itemId)'
+    );
+    expect(load('../App.tsx')).toContain('purchaseStorefrontItem(base, shopId, item.id)');
     // Neither the hub screen nor the city scene resolves stock of its own.
     for (const file of [
       '../components/hub/GladiatorSchoolHub.tsx',

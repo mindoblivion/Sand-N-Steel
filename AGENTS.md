@@ -6491,3 +6491,117 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   check** — nothing visual changed beyond which cards are listed, so this adds no Android item. (d) As
   scoped: no daily purchase limits, no transaction history, no rotation of forge/armorer/market, no
   rest/training/NPC/day-night systems, no combat, reward or clock change, and no save migration.
+
+## Living City L4 — merchant purchase lifecycle and daily limits (implemented; L1–L3 records preserved above)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD `157f25cdcc`, `git status --porcelain`
+  **empty** and no diff before the first edit; nothing was stashed, reset or overwritten. The branch's
+  baseline suite read **2642 pass / 0 fail (90 files)**, the figure the L3 record ended on, so L3's
+  description matched the code that shipped.
+
+- **What ships — the smallest change that makes the rule enforceable, and testable.** The purchase
+  transaction moved out of `App.handleBuyItem` into a pure module, `src/utils/storefrontPurchase.ts`,
+  in the repo's established helper style (`purchaseChariotPart`, `purchaseRacingConfig`, `sellItem`);
+  the merchant's day is one optional number on the existing `city` object; the shop screen says the
+  purse is closed. **No price, item, eligibility rule, combat, reward, collider or save key changed**,
+  and no migration was written.
+
+- **The rule, and nothing more.** The Elite Merchant House allows **one purchase per city day**
+  (`DAILY_LIMITED_STOREFRONTS = ['merchant']`). The allowance is *derived*: the stored
+  `city.merchantPurchaseDay` and `resolveCityDay(profile)` are compared on read, so it resets by
+  itself when a settled duel advances the clock — no timer, no wall clock, no second clock, no
+  advancing on purchase. The forge, armorer, market and bazaar are untouched: unlimited and
+  repeatable, exactly as before. A rejection consumes nothing (nothing is written until every check
+  passes), so an unaffordable or off-offer attempt leaves the day's allowance intact.
+
+- **The data model — one optional number, total on read.** `src/types/game.ts` adds
+  `CityState.merchantPurchaseDay?: number` (documented as ONE number, not a log, so the record cannot
+  grow). `resolveMerchantPurchaseDay(profile)` returns the stored day or **`null`** for anything
+  unusable (absent, wrong type, `NaN`, `Infinity`, ≤ 0, a malformed `city` container) — i.e. corrupt
+  data can only ever GRANT the allowance, never lock a player out of a day they never spent.
+  `isMerchantPurchaseSpent(profile)` is the derived answer the screen and the transaction both use.
+  A legacy save resolves to day 1 with no record, so it is treated as day 1 with nothing bought —
+  consistently. `city.day` is carried over **as stored** (never normalized, never fabricated): a
+  legacy profile that buys gains `city: { merchantPurchaseDay: 1 }` and still has no `day` field, and
+  `resolveCityDay` keeps answering 1.
+
+- **The transaction (one base, checks in order, one commit).**
+  `purchaseStorefrontItem(profile, storefront, itemId)` → `{ ok: true, profile }` or
+  `{ ok: false, reason }` with reasons `no-profile | unknown-item | insufficient-gold | not-on-offer |
+  merchant-daily-limit`. Order: the profile → the item resolved **from `ITEMS_DB` by id** (so the
+  committed object is the catalogue's own entry) → the purse → the L3 offer gate
+  (`isStorefrontItemOnOffer` — the same helper the screen renders from) → the merchant allowance.
+  Only then is ONE new profile built: `gold − price`, the item appended, and (merchant only)
+  `city: { ...city, merchantPurchaseDay: day }` **in the same literal**, so there is no second write
+  to race. The caller's profile is never mutated; every unrelated field is carried over by identity.
+
+- **Duplicate clicks cannot charge twice.** React state only changes on the next render, so two
+  purchase callbacks in one tick would otherwise read the same stale purse and the same unspent
+  allowance. `App` now holds `profileRef` (the newest committed profile, synced by an effect on
+  `[profile]` and written **immediately** after a successful commit); `handleBuyItem` reads that ref,
+  never the render's `profile`. The suite drives this composition behaviourally — two clicks in one
+  tick charge once and the second is refused — and its **control** shows the stale-base shape would
+  charge twice. This also removes the pre-existing same-tick double-charge on the other storefronts
+  without changing their rules.
+
+- **Files changed — six (five source/test + this record).** `src/types/game.ts` (the optional field
+  and its contract); `src/utils/storefrontPurchase.ts` (**new**: the record resolver, the derived
+  allowance and the transaction); `src/App.tsx` (the import swap, `profileRef` + its effect, the
+  handler delegating to the transaction); `src/components/hub/ShopTab.tsx` (the closed-purse note and
+  `disabled` on the two buy controls — a *notice*, not the enforcement);
+  `src/utils/storefrontPurchase.test.ts` (**new**, 25 tests); **two rebased, not weakened pins** —
+  `cityRotation.test.ts`'s L2 scope guard now pins the gate in the module that holds it and App as
+  its caller, and `cityRotationL3.test.ts` §F reads the gold-check → offer-check → mutation order from
+  `storefrontPurchase.ts` and pins App as the single caller.
+
+- **Regression suite: `src/utils/storefrontPurchase.test.ts` — 25 tests / 159 `expect()` calls** in
+  nine sections, driving the REAL transaction over real catalogue items and real profiles: §A the
+  record (twelve malformed values → `null`; malformed containers ignored; only the current day spends
+  the allowance); §B a first purchase (exact gold, one appended copy, the day recorded, `city.day`
+  unchanged); §C the allowance (second purchase refused with `merchant-daily-limit` and a
+  byte-identical snapshot; the ref-backed gate charges once; **the stale-base control** charges twice;
+  the limited list is `['merchant']`); §D refusals (unaffordable does **not** consume the allowance;
+  an off-offer item, an unknown id and a missing profile leave everything untouched); §E the other
+  storefronts (forge / armorer / market repeatable, no record written, the bazaar still refuses
+  everything; a merchant purchase does not close another shop); §F the day (a later day buys again;
+  buying never advances the clock); §G legacy and malformed saves (no `city`, junk values, a string
+  container); §H atomicity and purity (one update, unrelated fields by identity, the input never
+  mutated, an existing `city` member preserved); §I the wiring (App buys only through the transaction
+  and writes its ref before committing; the screen renders the note from the same helper; the module
+  names no storage, timer, wall clock, randomness or `advanceCityDay`).
+
+- **Checks actually run (2026-10-21, `web` dev container, on the final tree).** `bun test` →
+  **2667 pass / 0 fail (91 files, 83,877 `expect()` calls)** (the 2642 / 90 baseline plus this
+  suite's 25 tests and its file); `bun run scripts/combatTests.ts` → **65 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup-asset
+  check passing (8 assets; the pre-existing >500 kB chunk warning only); `git diff --check` →
+  **clean**. The suite's own starting point was two wrong expectations of mine in §E/§F (an assumed
+  pre-existing inventory copy, and buying a day-1 item on day 7); both were corrected in the suite —
+  no assertion was loosened, and no production file changed for them.
+
+- **Live evidence (preview browser, anonymous visitor — no session replayed).** Drove the shipped
+  route past the Oath beat (five real press-and-hold gestures: four lines plus the vow) → `City Map &
+  Navigation` → fast travel to the **Elite Merchant House** → its own `INSPECT HIGH-TIER WARES
+  [E / SPACE]` prompt → the merchant screen. It rendered **four cards** — *Transverse Centurion Galea*
+  (320), *Emperor Imperial Muscled Cuirass* (900), *Toledo-Steel Manica* (420), *Gilded Galerus of the
+  Retiarius* (780), i.e. the day-1 window — under **ELITE MERCHANT HOUSE / Rare & Legendary Wares**,
+  with **four disabled `BUY ARMOR` controls** on the guest's 100 gold, **no closed-purse note** (nothing
+  bought today), **0 console errors**, and the dev server serving the new module
+  (`/src/utils/storefrontPurchase.ts` carries `DAILY_LIMITED_STOREFRONTS`). The guest profile the run
+  created lives only in that throwaway browser.
+
+- **Not automatically verified — the purchase click and the second refusal.** The fresh guest profile
+  holds **100 gold** and the cheapest merchant good costs **320**, and nothing in the game awards gold
+  without winning duels (the sandbox renders the arena at ~1–2 fps), so no purchase could be driven
+  in the UI. The rule, the record, the refusals and the atomicity are pinned behaviourally by the
+  suite above; **confirm by hand on a device**: buy one merchant good (gold drops by exactly the
+  price, the item appears in the inventory, `city.day` is unchanged, `city.merchantPurchaseDay`
+  equals the current day and the note appears with the buys disabled), then reload and confirm a
+  second merchant purchase is refused, while a forge/armorer/market purchase still works.
+
+- **Scope kept: what deliberately did not move.** No training schedule, rest, injury, NPC schedule or
+  day/night visual; no change to the day-advancement event (`advanceCityDay` still has exactly one
+  call site, the duel settlement); no merchant price, item definition, combat, reward or other shop
+  behaviour; no timer, randomness, wall clock or second clock; no save key, no migration, no
+  commit/push/deploy. The remaining Living City work (L5+ classes, visitors, rare chariot parts) is
+  unchanged and unstarted.
