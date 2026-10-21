@@ -3,6 +3,7 @@ import { PlayerProfile, OpponentConfig } from '../../types/game';
 import { TOURNAMENT_TIERS, ALL_OPPONENTS } from '../../data/opponents';
 import { Swords, Trophy, Skull, Play, Lock, CheckCircle, Shield } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
+import { PrimusPalusBoard } from './PrimusPalusBoard';
 
 interface TournamentTabProps {
   profile: PlayerProfile;
@@ -30,6 +31,9 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
         </h3>
         <p className="text-sm text-neutral-300 font-serif italic">{currentTierInfo.description}</p>
       </div>
+
+      {/* STORY-2 — THE PRIMUS PALUS BOARD, beside the tournament card. */}
+      <PrimusPalusBoard profile={profile} />
 
       {/* OPPONENTS LIST */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -9,6 +9,14 @@ import { LibraryTab } from './LibraryTab';
 import { BannerRow } from './BannerRow';
 import type { StorefrontId } from '../../data/shops';
 import { PreFightModal } from './PreFightModal';
+import { DOCTORE_TEST_OPPONENT } from '../../data/opponents';
+import {
+  NOVICE_BOUT_BRIEFING,
+  isDoctoreTestOpponent,
+  isNoviceBoutDue,
+  isNoviceBoutOpponent,
+  type DoctoreTestRestriction,
+} from '../../utils/storyBeats';
 import { HelpModal } from './HelpModal';
 import { CoachCard } from '../ui/CoachCard';
 import { HUB_FIRST_OPEN_CARD_ID, getCoachCard, hasSeenCard } from '../../utils/coachMarks';
@@ -51,6 +59,12 @@ interface GladiatorSchoolHubProps {
   onMarkCardSeen?: (id: string) => void;
   /** RG-3 — opens the Device Choosing panel from the banner row. */
   onOpenDeviceChoice?: () => void;
+  /**
+   * STORY-2 — the Doctore House's duel entry. `App` receives the restriction the
+   * player chose together with the opponent, so the result write can judge the
+   * win against the rule that was actually set.
+   */
+  onEnterDoctoreTest?: (restriction: DoctoreTestRestriction) => void;
 }
 
 export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
@@ -79,8 +93,15 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onOpenSettings,
   onMarkCardSeen,
   onOpenDeviceChoice,
+  onEnterDoctoreTest,
 }) => {
   const [selectedOpponent, setSelectedOpponent] = useState<OpponentConfig | null>(null);
+  /**
+   * STORY-2 — the rule the player chose for the Doctore's Test, held only for the
+   * length of the pre-fight card: the entry card sets it, the card prints it, the
+   * confirm hands it to `App`, and a retreat clears it. Nothing is saved here.
+   */
+  const [testRestriction, setTestRestriction] = useState<DoctoreTestRestriction | null>(null);
   const [showHelp, setShowHelp] = useState(false);
 
   /**
@@ -224,7 +245,14 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           <TournamentTab profile={playerProfile} onSelectOpponent={(opp) => setSelectedOpponent(opp)} />
         )}
         {activeTab === 'training' && (
-          <TrainingTab profile={playerProfile} onTrainStat={onTrainStat} />
+          <TrainingTab
+            profile={playerProfile}
+            onTrainStat={onTrainStat}
+            onSelectDoctoreTest={(restriction) => {
+              setTestRestriction(restriction);
+              setSelectedOpponent(DOCTORE_TEST_OPPONENT);
+            }}
+          />
         )}
         {activeTab === 'shop' && (
           <ShopTab profile={playerProfile} onBuyItem={onBuyItem} shopId={shopId} />
@@ -253,12 +281,26 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
       {selectedOpponent && (
         <PreFightModal
           opponent={selectedOpponent}
+          /* STORY-2 — the novice bout's framing, fresh profiles only. */
+          narration={
+            isNoviceBoutOpponent(selectedOpponent) && isNoviceBoutDue(playerProfile)
+              ? NOVICE_BOUT_BRIEFING
+              : undefined
+          }
+          /* STORY-2 — the Test prints the rule the player chose (and its reason). */
+          restriction={isDoctoreTestOpponent(selectedOpponent) ? testRestriction : null}
           onConfirm={() => {
             const opp = selectedOpponent;
+            const restriction = isDoctoreTestOpponent(opp) ? testRestriction : null;
             setSelectedOpponent(null);
-            onSelectOpponent(opp);
+            setTestRestriction(null);
+            if (restriction && onEnterDoctoreTest) onEnterDoctoreTest(restriction);
+            else onSelectOpponent(opp);
           }}
-          onCancel={() => setSelectedOpponent(null)}
+          onCancel={() => {
+            setSelectedOpponent(null);
+            setTestRestriction(null);
+          }}
         />
       )}
 

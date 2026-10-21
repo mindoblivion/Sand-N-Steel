@@ -349,6 +349,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     perfectBlocks: 0,
     dodgesPerformed: 0,
     maxCombo: 0,
+    // STORY-2 — the stamina low-water mark starts at full: the duel opens on
+    // `pStats.staminaMax` (see the player factory above), so nothing has been
+    // spent until the first action does.
+    lowestStaminaFraction: 1,
     crowdHypePeak: 25,
     durationSeconds: 0,
     goldEarned: opponent.rewardGold,
@@ -413,6 +417,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   useEffect(() => {
     statsRef.current.maxCombo = Math.max(statsRef.current.maxCombo, player.comboCount);
   }, [player.comboCount]);
+
+  // STORY-2 — the stamina low-water mark, tracked exactly the way maxCombo is:
+  // a Math.min over the duel, so it only ever falls, and it reads the player's
+  // live stamina against the maximum he entered with. A reading of the fight,
+  // never a rule of it: no formula above consults this value.
+  useEffect(() => {
+    const max = player.stats.staminaMax;
+    if (!Number.isFinite(max) || max <= 0) return;
+    const fraction = Math.max(0, Math.min(1, player.stamina / max));
+    statsRef.current.lowestStaminaFraction = Math.min(
+      statsRef.current.lowestStaminaFraction,
+      fraction
+    );
+  }, [player.stamina, player.stats.staminaMax]);
 
   // Distance in 3D arena
   const currentDistance = Math.abs(player.position[2] - opp.position[2]);

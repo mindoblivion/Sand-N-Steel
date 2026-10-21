@@ -31,6 +31,55 @@ export const TOURNAMENT_TIERS = [
   },
 ];
 
+/**
+ * STORY-2 — the Doctore's yard champion: the ONE opponent the Doctore's Test is
+ * fought against.
+ *
+ * He is deliberately **not** in `ALL_OPPONENTS` and not on the ladder:
+ *   • `TOURNAMENT_TIERS` / `TournamentTab` list the tier ladder only, and he is not
+ *     one of its rungs — `fightIndex: 0` marks that ("no rung");
+ *   • `tierAdvancement` advances on a tier BOSS's first defeat and `bossKills` /
+ *     the banner's stripes read `isBoss`, so a non-boss outside the roster cannot
+ *     move a tier, a kill count or a stripe;
+ *   • his win still records his id in `defeatedOpponentIds` (the ordinary victory
+ *     write does that for every opponent), which is exactly the evidence the
+ *     campaign's `doctore-test` gate needs.
+ *
+ * Tier-1 band stats: a veteran who is a step above the Tier 1 named fighters
+ * (Flaccus 10/12, 90 stamina, 105 HP) and well below the Tier 1 boss (Goliath
+ * 16/7, 120 stamina, 170 HP). He is the yard's measure, not a champion.
+ */
+export const DOCTORE_TEST_OPPONENT: OpponentConfig = {
+  id: 'opp_doctore_sextus',
+  name: 'Sextus the Yard Measure',
+  title: 'Veteran of the Ludus (the Doctore’s Test)',
+  tier: 1,
+  fightIndex: 0,
+  difficulty: 'veteran',
+  weaponType: 'sword_shield',
+  personality: 'Defensive',
+  recommendedLevel: 2,
+  stats: {
+    strength: 12,
+    agility: 10,
+    staminaMax: 95,
+    staminaRegen: 16,
+    defense: 5,
+    healthMax: 120,
+  },
+  skinColor: '#b07d62',
+  hairColor: '#3f2d1d',
+  tunicColor: '#3f3f46',
+  armorColor: '#a8a29e',
+  aggression: 0.45,
+  blockChance: 0.5,
+  dodgeChance: 0.2,
+  rewardGold: 45,
+  rewardFame: 12,
+  rewardXp: 60,
+  clothingStyle: 'gladiator_sash',
+};
+
 export const ALL_OPPONENTS: OpponentConfig[] = [
   // TIER 1
   {
@@ -292,3 +341,11 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     characterModel: 'roman_warrior',
   },
 ];
+
+/**
+ * The Primus Palus ladder in ladder order — tier first, then fight
+ * (`src/data/opponents.ts` is the cast of record). Includes the bosses.
+ */
+export const PRIMUS_PALUS_LADDER: OpponentConfig[] = [...ALL_OPPONENTS].sort(
+  (a, b) => a.tier - b.tier || a.fightIndex - b.fightIndex
+);

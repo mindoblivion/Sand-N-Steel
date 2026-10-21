@@ -355,6 +355,11 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     // footprint, so the hub follows it.
     position: [28, 0, -18.875],
     radius: 4.5,
+    // STORY-2 — the Doctore House is the ludus, so it opens the school's own
+    // Training Yard: that is where the Doctore's Test entry now stands (a
+    // restricted-rules duel beside the conditioning cards). It used to fall
+    // through to a plain notice.
+    tabKey: 'training',
     icon: 'Compass',
     actionPrompt: 'Consult Doctore',
     color: '#ea580c',
