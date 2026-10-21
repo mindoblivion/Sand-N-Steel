@@ -13,7 +13,7 @@ import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 import { sellItem } from './utils/selling';
 import { nextBossKills } from './utils/bossKills';
-import { markSeen } from './utils/coachMarks';
+import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
 // city hub and the duel arena are: one more screen value, one more lazy import
@@ -972,6 +972,7 @@ export function App() {
             isMuted={isMuted}
             isLeftyMode={isLeftyMode}
             onOpenSettings={() => handleOpenSettings(undefined, 'duel')}
+            onMarkCardSeen={handleMarkCardSeen}
             />
           </React.Suspense>
           </LazySceneBoundary>
@@ -999,6 +1000,19 @@ export function App() {
             stats={duelResult.stats}
             storyLines={duelResult.storyLines}
             goldTotal={profile?.gold}
+            coachCardId={
+              profile
+                ? evaluateBeats(
+                    {
+                      phase: 'result',
+                      result: duelResult.didWin ? 'win' : 'loss',
+                      losses: profile.fightsLost,
+                    },
+                    resolveSeenState(profile)
+                  )
+                : null
+            }
+            onCoachCardDismiss={handleMarkCardSeen}
             onContinue={handleDuelResultDismiss}
             />
         )}

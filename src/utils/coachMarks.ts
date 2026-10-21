@@ -304,3 +304,179 @@ export function markSeen(
 
   return { ...profile, seen: { ...resolveSeenState(profile), [id]: true } };
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * CL-3 — the Doctore's guided beats: the pure trigger engine.
+ *
+ * `evaluateBeats(snapshot, seen)` answers ONE question: which beat, if any,
+ * should be on screen next. It reads a snapshot of the duel's own state and the
+ * profile's resolved `seen` record, and returns the lowest-numbered unseen beat
+ * whose state is true — or `null` when there is nothing to say. It is a
+ * decision, not a side effect: it renders nothing, records nothing and never
+ * touches the profile, so the same inputs always answer the same id.
+ *
+ * The snapshot is only what DuelScene already holds (turn phase, range, the
+ * player's stamina and the two strike costs, the last resolved player strike,
+ * both fighters' health, crowd hype, the boss telegraph flag) plus, on the
+ * result screen, the duel's result and the profile's loss count. No beat reads
+ * a screen side (Lefty/Righty safe): the triggers name ACTIONS and STATE, never
+ * a hand or a panel position.
+ *
+ * Every trigger is state-based, not opponent-scripted: a player who never meets
+ * Marcus still learns D2–D7 in their actual first fights, and a beat already in
+ * `seen` never fires again for any opponent.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** The opponent D1 walks a first-timer through their opening turn against. */
+export const FIRST_DUEL_OPPONENT_ID = 'opp_marcus';
+
+/** The hype reading CombatHUD calls HIGH — D6 fires when the meter crosses it. */
+export const HYPE_HIGH = 40;
+
+/**
+ * D5's "low" half: an opponent at or below a quarter of its health is reeling
+ * enough to finish. **The shipped combat has no staggered state** — no
+ * `FighterState` field, no action and no AI branch produces one — so the
+ * "staggered" half of the design's "staggered or low" cannot be evaluated from
+ * state DuelScene holds and is deliberately NOT approximated with an invented
+ * flag. D5 therefore triggers on the "low" reading alone.
+ */
+export const OPPONENT_REELING_HEALTH_FRACTION = 0.25;
+
+/** What the last resolved PLAYER strike did — the outcomes D2 and D4 read. */
+export type PlayerStrikeResult = 'landed' | 'blocked' | 'missed_out_of_reach';
+
+/** Everything DuelScene already holds while a duel is running. */
+export interface FightSnapshot {
+  phase: 'fight';
+  /** The opponent config's own id (D1 is Marcus's opening turn only). */
+  opponentId: string;
+  /** `opponent.isBoss` — the telegraph is boss-gated in the shipped combat. */
+  isBoss: boolean;
+  /** How many player turns have begun this duel; the opening turn is 1. */
+  playerTurn: number;
+  /** It is the player's turn and no action is resolving. */
+  playerActing: boolean;
+  /** The range status: the player's weapon reaches the opponent right now. */
+  inReach: boolean;
+  playerStamina: number;
+  playerStaminaMax: number;
+  quickStaminaCost: number;
+  powerStaminaCost: number;
+  /** The last resolved player strike, or null before the first one. */
+  lastPlayerStrike: PlayerStrikeResult | null;
+  opponentHealth: number;
+  opponentHealthMax: number;
+  hype: number;
+  /** The boss's telegraph warning is up (`opp.telegraphText`). */
+  telegraph: boolean;
+}
+
+/** What the result screen knows: the outcome and the profile's loss record. */
+export interface ResultSnapshot {
+  phase: 'result';
+  result: 'win' | 'loss';
+  /** The profile's lifetime losses AFTER this duel was written. */
+  losses: number;
+}
+
+/** The minimal state a beat is decided from — the fight, or the result screen. */
+export type CombatSnapshot = FightSnapshot | ResultSnapshot;
+
+/** The in-fight beats, in priority order (lowest number first). */
+export const DUEL_BEAT_IDS = ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7'] as const;
+
+/** How many further resolved actions dismiss a shown beat. */
+export const BEAT_EXPIRY_ACTIONS = 2;
+
+/**
+ * The action each in-fight beat teaches, so performing it dismisses the card.
+ * These are the panel's own `CombatActionType` names; D8 is a result-screen card
+ * and is dismissed by its ✕ (or by leaving the result).
+ */
+const BEAT_DISMISS_ACTIONS: Record<string, readonly string[]> = {
+  D1: ['quick_attack'],
+  D2: ['advance'],
+  D3: ['shield_block', 'taunt'],
+  D4: ['power_attack'],
+  D5: ['power_attack'],
+  D6: ['taunt'],
+  D7: ['dodge'],
+};
+
+/** Does performing `action` dismiss `beatId`? Unknown ids or actions answer false. */
+export function beatDismissesOn(beatId: unknown, action: unknown): boolean {
+  if (typeof beatId !== 'string' || typeof action !== 'string') return false;
+  return BEAT_DISMISS_ACTIONS[beatId]?.includes(action) ?? false;
+}
+
+/** Is the opponent in D5's "low" reading — alive, and at or below a quarter? */
+function opponentIsReeling(snapshot: FightSnapshot): boolean {
+  const { opponentHealth, opponentHealthMax } = snapshot;
+  if (!Number.isFinite(opponentHealth) || !Number.isFinite(opponentHealthMax)) return false;
+  if (opponentHealthMax <= 0 || opponentHealth <= 0) return false;
+  return opponentHealth / opponentHealthMax <= OPPONENT_REELING_HEALTH_FRACTION;
+}
+
+/** The state trigger for one beat, exactly as the design words it. */
+function beatTriggered(id: string, snapshot: CombatSnapshot): boolean {
+  if (id === 'D8') {
+    return snapshot.phase === 'result' && snapshot.result === 'loss' && snapshot.losses === 1;
+  }
+
+  // D1–D7 are in-fight beats and never fire on the result screen.
+  if (snapshot.phase !== 'fight') return false;
+
+  switch (id) {
+    case 'D1':
+      return (
+        snapshot.opponentId === FIRST_DUEL_OPPONENT_ID &&
+        snapshot.playerTurn === 1 &&
+        snapshot.playerActing
+      );
+    case 'D2':
+      return snapshot.lastPlayerStrike === 'missed_out_of_reach';
+    case 'D3':
+      return (
+        Number.isFinite(snapshot.playerStamina) &&
+        Number.isFinite(snapshot.powerStaminaCost) &&
+        snapshot.playerStamina < snapshot.powerStaminaCost
+      );
+    case 'D4':
+      return snapshot.lastPlayerStrike === 'blocked';
+    case 'D5':
+      return (
+        Number.isFinite(snapshot.playerStamina) &&
+        Number.isFinite(snapshot.playerStaminaMax) &&
+        snapshot.playerStaminaMax > 0 &&
+        snapshot.playerStamina >= snapshot.playerStaminaMax &&
+        opponentIsReeling(snapshot)
+      );
+    case 'D6':
+      return Number.isFinite(snapshot.hype) && snapshot.hype > HYPE_HIGH;
+    case 'D7':
+      return snapshot.isBoss === true && snapshot.telegraph === true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * The next beat to show, or `null`.
+ *
+ * Priority is the beat number: when several triggers are true at once the
+ * lowest-numbered unseen beat wins, so exactly one card is ever on screen. A
+ * beat already in `seen` never fires again. Pure and total — it never throws,
+ * never mutates `seen` and never reads a profile.
+ */
+export function evaluateBeats(
+  snapshot: CombatSnapshot,
+  seen: SeenState | null | undefined
+): string | null {
+  const isSeen = (id: string) => seen !== null && seen !== undefined && seen[id] === true;
+
+  for (const id of [...DUEL_BEAT_IDS, 'D8']) {
+    if (!isSeen(id) && beatTriggered(id, snapshot)) return id;
+  }
+  return null;
+}
