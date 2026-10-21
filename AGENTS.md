@@ -7224,3 +7224,86 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   cluster (gold · fame · settings · cloud · mute · menu), the panel's legibility in landscape and its
   scroll behaviour on a small screen, as with every other phase here. (e) No browser or device evidence
   is claimed for anything outside the city hub: this phase adds no other route or screen.
+
+## Living City L12 — visitor purchase and permanent completion (implemented)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`18512af109`** ("Implement visitor encounter system and
+  interaction panel", the tip this phase started from), `git status --short` **empty** before the
+  first edit. The L11 baseline was present exactly as recorded: `src/utils/visitorEncounter.ts`,
+  `src/components/hub/VisitorPanel.tsx`, the scene's visitor chip/panel mount, App's
+  `handleVisitorEncounter`, and the two optional `CityState` history fields. Nothing was reset,
+  stashed or overwritten.
+
+- **The product decision L11 left open is now settled, as the phase approved it.** **One successful
+  visitor purchase permanently completes that visitor.** The day's offer — the exact item the L10
+  schedule resolves for that visitor on that city day — is sold at its canonical `ITEMS_DB` price;
+  the purchase grants one copy through the existing `[...inventory, item]` convention and appends the
+  visitor id to `city.completedVisitors` in the SAME profile literal. `seenVisitors` is preserved;
+  the L10 schedule already excludes completed ids, so a finished visitor never appears again. The
+  purchase pays no fame, XP or bonus, does not advance the day, does not touch the merchant's daily
+  allowance, adds no visitor-exclusive item and invents no price.
+
+- **What ships: one pure transaction, one App handler, the panel's buy control, one suite.**
+  **New** `src/utils/visitorPurchase.ts` and `src/utils/visitorPurchase.test.ts` (42 tests);
+  **modified** `src/components/hub/VisitorPanel.tsx` (price, buy control, success/refusal message),
+  `src/components/3d/city/CityHubScene.tsx` (the `onPurchaseVisitor` prop passed to the one panel),
+  `src/App.tsx` (`handleVisitorPurchase`, placed after `handleVisitorEncounter` so the existing
+  App-slice guards in `storefrontPurchase`, `cityRotationL3`, `restRecovery` and `trainingSession`
+  stay outside it), and `src/utils/visitorEncounter.test.ts` (one guard rebased, below).
+  `src/data/visitors.ts`, `src/utils/visitorSchedule.ts`, `src/utils/cityClock.ts`, the item
+  catalogue and every other transaction are byte-identical.
+
+- **The transaction contract.** `purchaseVisitorOffer(profile, visitorId)` checks in a fixed order —
+  profile, catalogue, **already-completed** (before the schedule, so a finished visitor reads as
+  finished), schedule membership (`resolveVisitorEncounter`), the offer belonging to that visitor's
+  pool, the item in `ITEMS_DB`, its price, the purse shape, the inventory shape, then affordability —
+  and only then returns ONE new profile. Refusals are `no-profile | unknown-visitor |
+  already-completed | not-in-town | no-offer | unknown-item | invalid-price | invalid-gold |
+  invalid-inventory | insufficient-gold`; a refusal carries no profile at all, so nothing can be
+  partially written. The offer is re-resolved from the schedule at purchase time, so a stale panel
+  selection cannot buy anything the visitor is not offering today.
+
+- **Malformed data cannot produce a free or duplicated purchase.** `resolveVisitorItemPrice` (exported
+  for its own tests) refuses `NaN`, `Infinity`, negatives and non-numbers — a `NaN` price would
+  otherwise pass every `gold <` comparison and sell for nothing; a finite zero stays legitimate.
+  Gold must be a finite, non-negative number and the inventory a real array, or the transaction
+  refuses instead of rebuilding either. The completion entry is itself the replay guard: a second
+  callback sees `already-completed` and stops before charging.
+
+- **UI.** The panel shows the actual item name and `{price} gold`, disables the control below the
+  price (`Not enough gold`, with the player's purse stated), sends only the visitor id, and renders
+  the transaction's own result: a success reads "*<name>* has departed — the trade is complete." and
+  the completed row disappears (the schedule no longer lists it); a refusal names the reason in plain
+  language. `MET` still means met — only a purchase completes.
+
+- **One L11 guard was rebased, not weakened.** `visitorEncounter.test.ts`'s "the panel sells nothing:
+  no purchase, no price, no completion" asserted exactly what L12 changes, so it is now "the panel
+  sells only through the one visitor transaction": it still forbids the storefront/chariot purchase
+  helpers, `saveProfile` and `completedVisitors` inside the panel, and now pins the single
+  `onPurchase(` call site. Every other L10/L11 assertion is untouched and still passes.
+
+- **Verified 2026-10-21** in the `web` dev container, on the final tree: focused
+  `bun test src/utils/visitorPurchase.test.ts src/utils/visitorEncounter.test.ts
+  src/utils/visitorSchedule.test.ts` → **118 pass / 0 fail** (2,701 `expect()`); related
+  `visitorPurchase + visitorEncounter + visitorSchedule + storefrontPurchase + cityRotation +
+  cityRotationL3 + trainingSession + restRecovery + injurySettlement + storefrontWiring` →
+  **314 pass / 0 fail** (7,084 `expect()`); `bun test` → **2938 pass / 0 fail (99 files,
+  88,012 `expect()`)** (the L11 baseline was 2896 / 98, so the delta is this suite's 42 tests and
+  its file); `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the
+  startup-asset check passing (8 assets); `git diff --check` → clean. The suite's starting point was
+  three failures, all in its own new assertions (an over-eager `Number.isFinite` on the deliberately
+  negative gold case, the merchant's window read on day 5 instead of day 1, and an App slice anchored
+  on a comment the suite strips); each was corrected in the test, none by loosening the transaction.
+
+- **NOT automatically verified — the purchase driven in the browser.** The preview browser is an
+  anonymous visitor with **no save**, so the app starts at the title on **day 1**, and the city has
+  no visitors until day 5 (the L10 schedule's first arrival). Visitors only exist from day 5 and the
+  day advances only on a settled duel, so reaching a visitor needs character creation → the 3D city →
+  the Colosseum → a full fight, which this environment cannot sustain (SwiftShader ~2 fps). A seeded
+  save cannot substitute: the platform's fresh loads **clear browser storage** — a day-5 profile
+  written and reloaded inside the page read back **absent** (`hasSave: false`) on the next load,
+  which is the C-8.66C finding re-confirmed here. The dev server does serve the changed modules
+  (`/src/utils/visitorPurchase.ts` and `/src/components/hub/VisitorPanel.tsx` → HTTP 200), and the
+  wiring is pinned by the suite. **The rendered successful purchase and the insufficient-gold
+  refusal therefore remain a manual/device check** — reach day 5 (or earn a visitor’s offer) and buy;
+  and note the panel opens only on a day the schedule lists someone.

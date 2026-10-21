@@ -26,6 +26,8 @@ import { trainStat } from './utils/trainingSession';
 import { restAtMedicalHouse, type RestResult } from './utils/restRecovery';
 // L11 — the ONE visitor encounter transaction: meeting a visitor writes `seenVisitors`.
 import { recordVisitorEncounter } from './utils/visitorEncounter';
+// L12 — the ONE visitor purchase transaction: buying the day's offer completes the visitor.
+import { purchaseVisitorOffer, type VisitorPurchaseResult } from './utils/visitorPurchase';
 import type { TrainingStat } from './data/training';
 import { createDuelSettlementLatch } from './utils/duelSettlement';
 import type { BannerDevice } from './utils/heraldry';
@@ -823,6 +825,25 @@ export function App() {
     saveProfile(result.profile);
   };
 
+  /**
+   * Living City L12 — the ONE visitor purchase (`utils/visitorPurchase`).
+   * The transaction re-resolves today's offer from the L10 schedule against the
+   * newest committed profile (`profileRef`), so a stale panel selection cannot buy
+   * something the visitor is not offering. On success gold, the granted item and
+   * `completedVisitors` arrive in ONE profile, which is saved exactly once; the
+   * completion entry makes a replayed callback (`already-completed`) refuse before
+   * it can charge again. The result goes back to the panel, which uses it to tell
+   * the player what happened; a refusal changes nothing.
+   */
+  const handleVisitorPurchase = (visitorId: string): VisitorPurchaseResult => {
+    const result = purchaseVisitorOffer(profileRef.current, visitorId);
+    if (!result.ok) return result;
+    profileRef.current = result.profile;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+    return result;
+  };
+
   // A device that cannot draw the 3D world gets one plain-language surface and a retry,
   // never a scene that fails to render.
   if (!webglAvailable) {
@@ -893,6 +914,7 @@ export function App() {
             onEnterDuel={handleEnterDuel}
             onRest={handleRest}
             onEncounterVisitor={handleVisitorEncounter}
+            onPurchaseVisitor={handleVisitorPurchase}
             onOpenDriveSync={() => setShowDriveSync(true)}
             onToggleMute={handleToggleMute}
             isMuted={isMuted}

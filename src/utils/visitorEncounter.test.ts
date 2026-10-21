@@ -338,12 +338,17 @@ describe('§F the wiring', () => {
     expect(code.match(/onEncounter\(/g)?.length).toBe(1);
   });
 
-  test('the panel sells nothing: no purchase, no price, no completion', () => {
+  test('the panel sells only through the one visitor transaction (rebased by L12)', () => {
+    // L11 recorded that the panel sold nothing. L12 makes the day's offer
+    // purchasable, so this guard is rebased, not weakened: what must still hold is
+    // that the panel never touches a storefront transaction, never writes the save
+    // itself, and never writes completion history — it only calls `onPurchase`,
+    // which is App's single `purchaseVisitorOffer` path.
     const code = PANEL_CODE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
     expect(code).not.toMatch(/purchaseStorefrontItem|purchaseChariotPart|storefrontPurchase/);
-    expect(code).not.toMatch(/\.price\b/);
     expect(code).not.toMatch(/completedVisitors/);
     expect(code).not.toMatch(/saveProfile/);
+    expect(code.match(/onPurchase\(/g)?.length).toBe(1);
   });
 
   test('the schedule still has no writer and no purchase path', () => {

@@ -18,6 +18,7 @@ import { PreFightModal } from '../../hub/PreFightModal';
 // L11 — the visitor panel and the ONE schedule it lists (who is in town today).
 import { VisitorPanel } from '../../hub/VisitorPanel';
 import { resolveVisitorSchedule } from '../../../utils/visitorSchedule';
+import type { VisitorPurchaseResult } from '../../../utils/visitorPurchase';
 import { MerchantHouse } from './MerchantHouse';
 import { ArmorLeatherWorkshop } from './ArmorLeatherWorkshop';
 import { Stable } from './Stable';
@@ -191,6 +192,12 @@ interface CityHubSceneProps {
    * explicit selection in the panel) and never writes history itself.
    */
   onEncounterVisitor: (visitorId: string) => void;
+  /**
+   * L12 — the ONE visitor purchase. The transaction lives in `App`
+   * (`utils/visitorPurchase`); this scene only hands the panel's request through,
+   * and the panel renders the result it returns.
+   */
+  onPurchaseVisitor: (visitorId: string) => VisitorPurchaseResult;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
   isMuted: boolean;
@@ -230,6 +237,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onEnterDuel,
   onRest,
   onEncounterVisitor,
+  onPurchaseVisitor,
   onOpenDriveSync,
   onToggleMute,
   isMuted,
@@ -1252,6 +1260,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         <VisitorPanel
           profile={playerProfile}
           onEncounter={onEncounterVisitor}
+          onPurchase={onPurchaseVisitor}
           onClose={() => setShowVisitors(false)}
         />
       )}
