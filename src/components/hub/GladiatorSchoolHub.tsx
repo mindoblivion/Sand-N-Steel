@@ -8,6 +8,7 @@ import { StatsTab } from './StatsTab';
 import { LibraryTab } from './LibraryTab';
 import { BannerRow } from './BannerRow';
 import type { StorefrontId } from '../../data/shops';
+import type { TrainingStat } from '../../data/training';
 import { PreFightModal } from './PreFightModal';
 import { HelpModal } from './HelpModal';
 import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
@@ -19,7 +20,7 @@ interface GladiatorSchoolHubProps {
   onTabChange: (tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library') => void;
   onEnterCity3D: () => void;
   onSelectOpponent: (opp: OpponentConfig) => void;
-  onTrainStat: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
+  onTrainStat: (stat: TrainingStat) => void;
   onBuyItem: (item: WeaponItem | ArmorItem) => void;
   /** P1 sell — the market pays the item's sellPrice plus any temper refund. */
   onSellItem?: (item: WeaponItem | ArmorItem) => void;

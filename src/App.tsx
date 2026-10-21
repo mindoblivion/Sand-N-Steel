@@ -21,6 +21,8 @@ import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
 import { advanceCityDay } from './utils/cityClock';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
+import { trainStat } from './utils/trainingSession';
+import type { TrainingStat } from './data/training';
 import { createDuelSettlementLatch } from './utils/duelSettlement';
 import type { BannerDevice } from './utils/heraldry';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
@@ -673,19 +675,19 @@ export function App() {
   };
 
   // Profile mutations
-  const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
-    if (!profile) return;
-    const cost = 25 * profile.level;
-    if (profile.gold < cost) return;
-
-    const updated: PlayerProfile = {
-      ...profile,
-      gold: profile.gold - cost,
-      baseStats: {
-        ...profile.baseStats,
-        [stat]: profile.baseStats[stat] + 1,
-      },
-    };
+  /**
+   * Living City L5 — the ONE training transaction (`utils/trainingSession`)
+   * decides the purse and the stat. It re-checks the day's schedule
+   * (`utils/trainingSchedule`) and the cost against the profile it is handed, so
+   * a drill that is resting today cannot be executed by calling this handler
+   * directly, and a refusal leaves the profile untouched. Training never
+   * advances the city day: the clock only moves on a settled duel.
+   */
+  const handleTrainStat = (stat: TrainingStat) => {
+    const result = trainStat(profileRef.current, stat);
+    if (!result.ok) return;
+    const updated = result.profile;
+    profileRef.current = updated;
     setProfile(updated);
     saveProfile(updated);
   };

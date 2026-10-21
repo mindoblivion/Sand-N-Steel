@@ -6605,3 +6605,153 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   behaviour; no timer, randomness, wall clock or second clock; no save key, no migration, no
   commit/push/deploy. The remaining Living City work (L5+ classes, visitors, rare chariot parts) is
   unchanged and unstarted.
+
+## Living City L5 — day-based training schedule foundation (implemented; L1–L4 records preserved above)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`4a33c95669`**,
+  `git status --porcelain` **empty** and no diff before the first edit; nothing was stashed, reset or
+  overwritten. The branch's baseline suite read **2667 pass / 0 fail (91 files)**, the figure the L4
+  record ended on, so L4's description matched the code that shipped. The L4 record's closing line
+  ("the remaining Living City work (L5+ …) is unchanged and unstarted") is history from this point on.
+
+- **The training model as it actually shipped (audited before any edit).**
+  - **Four drills, one stat each**: `strength` (Heavy Log Sleds), `agility` (Reflex Speed Target),
+    `stamina` (Sand Endurance Drills), `defense` (Shield Deflection Stance). Each session adds
+    **exactly +1** to that one `baseStats` entry and touches nothing else.
+  - **Cost**: `25 × profile.level` gold, computed **twice** — once in `TrainingTab` for the disabled
+    state and once in `App.handleTrainStat` for the charge. No per-drill price, no discount, no cap.
+  - **No session limit and no training record existed.** `PlayerProfile.trainingSessionsLeft` is
+    written as `2` by `createNewProfile` (`services/storage.ts`) and by `CharacterCreation`, and is
+    **read nowhere** in `src/` — it is dormant, and this phase deliberately neither adopts nor
+    removes it (nothing reads it, nothing writes it during training).
+  - **No shared validation boundary existed**: the screen duplicated the cost formula, and the handler
+    re-checked only the purse. Nothing checked *which* drill was being asked for beyond the union type.
+  - **The profile update was already atomic**: `handleTrainStat` built ONE object literal with the new
+    gold and the new `baseStats` and made ONE `saveProfile` call. That property is preserved exactly.
+  - **The catalogue was inline in the component**, so a schedule built on it could not have been
+    shared with the handler. That is the one structural change this phase makes (below).
+
+- **What ships — three new modules, three edited files, two new suites.** The drills moved out of
+  `TrainingTab` into `src/data/training.ts` (the one catalogue, unchanged in content: same four ids,
+  names, descriptions, the same `25` per level), so the screen and the decision path read the same
+  data. `src/utils/trainingSchedule.ts` is the pure, deterministic schedule; `src/utils/trainingSession.ts`
+  is the authoritative transaction. **No cost, stat formula, progression rule, combat value, save key,
+  migration, collider or merchant limit changed**; the city day is not advanced anywhere new.
+
+- **The schedule, and why this cadence.** `scheduleTrainingDay(catalogue, day)` (explicit day,
+  normalized through the SAME `normalizeCityDay`) and `resolveTrainingSchedule(profile)` (the day from
+  `resolveCityDay`) answer `{ day, actions, resting }` — the drills that drill today and the drill(s)
+  resting, both in catalogue order. **One discipline rests each day** (`TRAINING_RESTING_PER_DAY = 1`),
+  so three of four are available: the game establishes no cadence of its own and has no session limit,
+  so this is the **least disruptive** schedule that still varies day by day — any narrower window would
+  withhold more of the existing training than the phase needs, and a full four would not be a schedule.
+  The resting drill is chosen by an FNV-1a hash of `sand-and-steel:training-schedule:${day}` mod the
+  catalogue length — the same integer-only hash the L2 rotation uses, no randomness, no clock, no
+  storage, nothing persisted (the timetable is *derived* from the saved day, so it is identical after a
+  reload and on a local or a Drive save). Measured: day 1 rests `stamina`, day 2 `defense`, day 3
+  `strength`, day 4 `agility`, and days 1–9 cover every discipline both drilling and resting.
+
+- **Catalogue safety, by construction.** The resolver only ever SELECTS from the catalogue it is
+  handed, deduplicated by id (first entry wins), so a schedule can never list a drill twice or name one
+  that does not exist; it is total for short catalogues (an empty catalogue answers an empty
+  timetable, a single-drill catalogue rests nothing) and it never mutates `TRAINING_ACTIONS`.
+
+- **The authoritative transaction (one base, checks in order, one commit).**
+  `trainStat(profile, stat)` → `{ ok: true, profile, action, cost }` or `{ ok: false, reason }` with
+  reasons `no-profile | unknown-action | not-scheduled | insufficient-gold`, checked in that order:
+  the profile → the catalogue entry (`getTrainingAction`) → **today's membership**
+  (`isTrainingActionScheduled`, the same resolver the screen renders) → the purse
+  (`trainingCost(profile.level)`, the same formula the screen shows). Only then is ONE new profile
+  built — `gold − cost` and the single `baseStats` point in the same literal — so the caller's profile
+  is never mutated and a refusal commits nothing. `App.handleTrainStat` now delegates to it, reading
+  the newest committed profile through the existing `profileRef` (the L4 pattern) and writing that ref
+  before `setProfile`/`saveProfile`, so a double click trains twice (each a legal session) rather than
+  charging a stale base.
+
+- **"Unavailable actions cannot be executed by calling the handler directly" is enforced in the
+  transaction, not in the button.** The `TrainingTab` disabled state is a *notice*: the drill resting
+  today is refused by `trainStat` with `not-scheduled` no matter how the handler is reached, and the
+  suite drives exactly that path. **Training never advances the city day** — `advanceCityDay` still has
+  one call site (the duel settlement), and the spread carries `city` over untouched.
+
+- **The screen.** `TrainingTab` renders the catalogue's four cards (icons/ink are presentation only),
+  states the day and the timetable in its header ("Day 1 of the Ludus — 3 of 4 disciplines drill
+  today; Sand Endurance Drills rests."), and disables a card that is resting *or* unaffordable with the
+  resting copy alongside it, so the drill is visible and clearly not offered rather than silently
+  missing. Existing layout, copy, icons, gold line and touch sizes are unchanged; the cost and the
+  timetable both come from the shared helpers. `GladiatorSchoolHub`'s `onTrainStat` prop is typed with
+  the shared `TrainingStat` — a type-only change.
+
+- **Files changed — nine (three new modules, two edited components, `App.tsx`, two new suites, this
+  record).** `src/data/training.ts` (**new** — the catalogue, `trainingCost`, `getTrainingAction`);
+  `src/utils/trainingSchedule.ts` (**new**); `src/utils/trainingSession.ts` (**new**);
+  `src/components/hub/TrainingTab.tsx` (the shared catalogue, timetable and cost);
+  `src/components/hub/GladiatorSchoolHub.tsx` (the prop type);
+  `src/App.tsx` (the imports and the four-line handler);
+  `src/utils/trainingSchedule.test.ts` (**new**, 24 tests); `src/utils/trainingSession.test.ts`
+  (**new**, 22 tests); `AGENTS.md`.
+
+- **Regression suites: 46 tests / 631 `expect()` calls, behaviour first.**
+  `trainingSchedule.test.ts` — §A determinism (repeated calls, a fresh resolution, 25 consecutive
+  resolutions, fresh arrays a caller may mutate); §B day sensitivity (the pinned day-1 timetable, day 1
+  ≠ day 2, all four disciplines both drilling and resting over nine days, exactly one rest per day);
+  §C the clock (legacy/no-city profile → day 1, a missing profile, twelve malformed day values compared
+  against `normalizeCityDay` itself, fractional flooring, a malformed `city` container, and the module
+  naming no `Date`/timer/storage/randomness and no `advanceCityDay`); §D catalogue safety (only
+  existing ids, no duplicates on 60 days, an extended catalogue with repeated ids absorbed without
+  duplicates or invalid entries, total for empty/one/two-drill catalogues, `TRAINING_ACTIONS`
+  byte-identical after 90 resolutions); §E purity and wiring (profile and `city` untouched, membership
+  agreeing with the timetable, and the screen + transaction proven to read this one resolver — with
+  `TrainingTab` shown to no longer carry its own drill names).
+  `trainingSession.test.ts` — §A the schedule is the gate (a resting drill refused on five days even
+  when `trainStat` is called directly, the same drill refused today and accepted another day, unknown
+  id, missing profile, refusal leaves the profile byte-identical); §B the purse (insufficient gold
+  unchanged, exactly-enough leaves zero, the schedule is checked before the purse); §C the session (the
+  shipped 25 gold and one point, cost scaling at levels 1/2/5/12, only the trained stat moving, two
+  sessions charging twice); §D the clock (never advances on days 1/4/9, a legacy save still has no
+  `day` field afterwards and reads day 1, the module names no clock advance); §E atomicity and purity
+  (one new profile, `city`/`equipped`/`inventory` by identity, the input untouched on every path, a
+  refusal carrying no profile, an existing `city` record carried through, `trainingSessionsLeft`
+  untouched); §F the wiring (App trains only through the transaction and computes no cost, gold or
+  stat itself; the screen renders the shared timetable, cost and disabled state; the transaction reads
+  the one catalogue and the one schedule).
+
+- **Checks actually run (2026-10-21, `web` dev container, on the final tree).** `bun test` →
+  **2713 pass / 0 fail (93 files, 84,508 `expect()` calls)** (the 2667 / 91 baseline plus these two
+  suites and their files); `bun run scripts/combatTests.ts` → **65 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup-asset
+  check passing (8 assets; the pre-existing >500 kB chunk warning only); `git diff --check` →
+  **clean**. The suite's starting point was **one failure in another suite**: `storefrontPurchase`
+  §I pins the *first* `const base = profileRef.current` / `profileRef.current = result.profile` in
+  `App.tsx` as the purchase's, and this phase's handler initially used the same two statements ahead
+  of it. It was fixed **in the new production code, not in the pin** — `handleTrainStat` now passes
+  `profileRef.current` straight into the transaction and writes the ref as `profileRef.current =
+  updated` — so L4's assertion is untouched and still means what it says. No assertion anywhere was
+  loosened, and the two new suites were 46/46 on their first run after that change.
+
+- **Live evidence, and what is NOT automatically verified.** In the preview browser (anonymous
+  visitor, no session replayed) the app boots to its title screen with **0 console errors and 0 failed
+  requests**, and the dev server serves the changed modules transformed — `/src/components/hub/TrainingTab.tsx`
+  carries `resolveTrainingSchedule` and `trainingCost(profile.level)` with **no** `25 *` left in it,
+  and `/src/utils/trainingSchedule.ts` carries the `sand-and-steel:training-schedule:` hash key.
+  **The rendered timetable was NOT seen.** Reaching the training tab needs title → character creation
+  → the five press-and-hold oath lines (`OATH_HOLD_MS` = 1500 each) → the 3D city → the footer's
+  Training Yard shortcut, and this sandbox renders the city through SwiftShader at ~1–2 fps: two
+  scripted attempts timed out (one at the creation CTA, one mid-oath) and the browser resets between
+  calls, so the run never reached the tab. That is the same environment limit L1–L4 and the combat
+  passes recorded, and it is **not** evidence of a defect. **Device check owed:** open the Ludus
+  training tab (via the city footer or the Training Yard building) and confirm the header reads the
+  current day with three drills listed and one named as resting, that the resting card's Train button
+  is disabled while the other three are live on a purse that covers `25 × level`, that the resting
+  drill rotates after a settled duel, and that a completed session still costs exactly `25 × level`
+  and raises exactly one stat.
+
+- **Limitations, stated rather than buried.** (a) The schedule has **no per-day session limit** and no
+  training record — the phase establishes the *schedule* only, and `trainingSessionsLeft` stays
+  dormant. (b) The resting drill is a tuned constant (`TRAINING_RESTING_PER_DAY = 1`), not a game
+  rule; a second resting drill is one constant away and is a design decision, not a code change. (c)
+  The day advances on **duels only** (unchanged), so the timetable changes at that rate. (d) The
+  App-level wiring is pinned by source assertions plus the pure transaction's behaviour, per this
+  repo's no-DOM-renderer convention; the handler itself is not executed by a test. (e) No rest mechanic,
+  injury recovery, NPC schedule, day/night visual, new exercise, new stat effect or new cost was
+  added, and nothing outside training changed.
