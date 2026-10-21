@@ -292,10 +292,14 @@ describe('§E the wiring: App transacts, the city reports the choice', () => {
   });
 
   test('the city scene hands both callbacks through and writes no save itself', () => {
-    expect(SCENE_SOURCE).toContain('onTreatInjury={handleTreatInjury}');
-    expect(SCENE_SOURCE).toContain('onRestAtInn={handleRestAtInn}');
+    // App owns the handlers and passes them down…
+    expect(APP_SOURCE).toContain('onTreatInjury={handleTreatInjury}');
+    expect(APP_SOURCE).toContain('onRestAtInn={handleRestAtInn}');
+    // …and the scene declares them, calls them, and writes no save of its own.
     expect(SCENE_SOURCE).toContain('onTreatInjury: () => boolean;');
     expect(SCENE_SOURCE).toContain('onRestAtInn: () => boolean;');
+    expect(SCENE_SOURCE).toContain('onTreatInjury()');
+    expect(SCENE_SOURCE).toContain('onRestAtInn()');
     expect(SCENE_SOURCE).not.toContain('saveProfile');
     expect(SCENE_SOURCE).not.toContain('setProfile(');
     // The transaction is not re-implemented on the screen.
@@ -344,10 +348,16 @@ describe('§E the wiring: App transacts, the city reports the choice', () => {
   });
 
   test('racing never treats or rests', () => {
-    expect(APP_SOURCE).not.toContain('restAtInn(');
-    expect(APP_SOURCE).not.toContain('treatInjury(');
-    // …apart from the two handlers' own call sites, which the first test pins.
+    // The two handlers' own call sites are the only ones in App…
     expect(APP_SOURCE.match(/restAtInn\(/g)?.length).toBe(1);
     expect(APP_SOURCE.match(/treatInjury\(/g)?.length).toBe(1);
+    // …and neither sits inside a racing handler.
+    for (const racing of ['handleStartRace', 'handleBuyRacingConfig']) {
+      const at = APP_SOURCE.indexOf(`const ${racing}`);
+      expect(at).toBeGreaterThan(-1);
+      const block = APP_SOURCE.slice(at, APP_SOURCE.indexOf('};', at));
+      expect(block).not.toContain('restAtInn(');
+      expect(block).not.toContain('treatInjury(');
+    }
   });
 });
