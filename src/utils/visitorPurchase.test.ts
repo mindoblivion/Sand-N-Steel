@@ -504,10 +504,12 @@ describe('§H the wiring', () => {
     expect(APP_CODE).toContain('purchaseVisitorOffer(profileRef.current, visitorId)');
     expect(APP_CODE.match(/const handleVisitorPurchase = /g)?.length).toBe(1);
     expect(APP_CODE).toContain('onPurchaseVisitor={handleVisitorPurchase}');
-    const handler = APP_CODE.slice(
-      APP_CODE.indexOf('const handleVisitorPurchase'),
-      APP_CODE.indexOf('if (!webglAvailable)')
-    );
+    // Bound the slice at the NEXT top-level handler instead of at the WebGL
+    // guard: later Living City phases add handlers between them (L14's lodging
+    // is one), and their saves are not this transaction's.
+    const handlerStart = APP_CODE.indexOf('const handleVisitorPurchase');
+    const handlerEnd = APP_CODE.indexOf('\n  const ', handlerStart + 1);
+    const handler = APP_CODE.slice(handlerStart, handlerEnd === -1 ? undefined : handlerEnd);
     expect(handler.match(/saveProfile\(/g)?.length).toBe(1);
     expect(handler.match(/setProfile\(/g)?.length).toBe(1);
     expect(handler).toContain('if (!result.ok) return result;');

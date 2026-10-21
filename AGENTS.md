@@ -7495,3 +7495,118 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   silence implicit when `before == null`, or asserting every call site's options, would close that.
   (b) The evaluator computes `newlyDefeatedBosses` even when silent (its result is discarded); harmless,
   but it is work done for nothing on every arrival.
+
+## Living City L14 — a night at the Caravanserai (implemented; the stay verified live, the refusals not)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`d5090928b8`** ("Implement
+  lodging system and caravanserai functionality"), the L13C record above being the branch's previous
+  Living City entry. L14 landed as that commit (`src/utils/lodging.ts`, `src/utils/lodging.test.ts`,
+  `src/types/game.ts`, `src/App.tsx`, `src/components/3d/city/CityHubScene.tsx`,
+  `src/utils/cityCollisions.ts`, `src/utils/restRecovery.test.ts`; 7 files, +968/−13) and was
+  **written up nowhere** until this record. This turn's own diff is one suite fix (below) plus this
+  section — **no production file changed**.
+
+- **What ships: the second way to spend a city day without a bout.** Until L14 the clock only moved on
+  a settled duel (L1) and on a treatment at the Arena Medical House (L9), so a player who wanted
+  tomorrow's merchant stock, tomorrow's training timetable or tomorrow's visitors had to fight for it.
+  `src/utils/lodging.ts` is the inn's transaction, in the house contract of `restAtMedicalHouse` /
+  `trainStat` / `purchaseStorefrontItem`: **one base, checks before the commit in a fixed order, one
+  new profile, a refusal that writes nothing.** It is PURE — no storage, React, timer, wall clock or
+  randomness, asserted over comment-stripped source — and it is **not a second clock**: the day is
+  read and advanced only through `utils/cityClock.ts`.
+
+- **The contract, exactly as shipped.** `LODGING_DAY_FIELD = 'lodgingDay'`; refusals
+  `no-profile | already-lodged | insufficient-gold`, checked in that order; on success
+  `entryDay = resolveCityDay(profile)` is captured **first**, `cost = trainingCost(profile.level)`
+  (**25 × level**, the Ludus's own helper, so there is one price formula and not two), the clock turns
+  **exactly once** by `advanceCityDay`, and ONE new profile carries the advanced `city` (with
+  `lodgingDay: entryDay` beside the new day, never over it, and every other city field preserved),
+  `gold − cost`, and **the injury slot carried across untouched** — a room is not the medicus: nothing
+  is healed, awarded, equipped or settled, and no statistic moves. `resolveLodgingDay` /
+  `isLodgingSpentToday` are total on read (absent, wrong type, `NaN`, zero, negative → `null`, i.e.
+  malformed data can only ever GRANT the stay), `lodgingCost` quotes the level-1 floor for a malformed
+  level, and a legacy profile with no `city` lodges from day 1 into day 2. `RestResult`'s own `day` is
+  the day the stay **consumed**, not the day the profile now stands on.
+
+- **The wiring — one handler, one prompt, one notice, and the inn stops being the Armory.** A new
+  `CityState.lodgingDay?: number` (`src/types/game.ts`) is the record (ONE number, not a log).
+  `App.handleLodging` reads `profileRef.current` (the L4/L5 newest-committed pattern, so a double click
+  cannot treat twice off a stale base), writes the ref, `setProfile` once and `saveProfile` once, and
+  does no clock work of its own. `CityHubScene` takes the narrow `onLodging: () => LodgingResult`
+  prop, and its `caravanserai` branch now calls it and reports through the **existing** `stableNotice`
+  via a local `lodgingNotice(result, level)` — the same "render the result, never the request"
+  discipline as `restNotice`, so a refusal says why and claims no night, and a success names the day
+  from the committed profile (`resolveCityDay(result.profile)`) and the fee actually charged, adding
+  in so many words that no wound is tended there. `cityCollisions.ts`'s `caravanserai` entry loses its
+  `tabKey: 'gear'` (it used to open the **Armory**, which equips rather than sells or sleeps), its
+  prompt becomes **"Take a Room"**, and its centre, radius (5.75, the C-8.47 value), colour, district
+  and fast-travel arrival (`[10, 14]`) are unchanged — so no collider, hub distance or arrival moved.
+  The Armory keeps its own footer tab, and the Bathhouse/Medical House neighbours are untouched.
+
+- **Measured behaviour (the suite's own numbers, `src/utils/lodging.test.ts`, 48 tests).** Day 1 at
+  level 1 pays **25** and wakes on day 2 with `lodgingDay: 1`; `cost === trainingCost(level)` at levels
+  1/2/5/9; the clock advances exactly one day from days 1/4/9/40; nothing is awarded (xp, fame,
+  inventory, base stats, tier and defeats identical); every refusal leaves the input profile, its
+  `city`, `inventory` and `baseStats` untouched; a legacy save with no `city` lodges 1 → 2; the fee,
+  the allowance and the advanced day arrive in ONE object and survive one real
+  `saveProfile`/`loadSavedProfile` round trip; and the day-dependent systems the stay exists for
+  resolve from the **new** day through their own existing resolvers (the merchant's offer and
+  allowance, the Ludus's timetable and the visitors' arrivals), with no rule of theirs restated. The
+  L9 record's clock-caller assertions were **rebased, not weakened**, because `utils/restRecovery.ts`
+  is no longer the only non-settlement caller of `advanceCityDay` — `utils/lodging.ts` is the second.
+
+- **The suite repair this turn — and why it was the suite, not the handler.** The L14 commit left
+  `bun test` at **3062 pass / 1 fail**: `visitorPurchase.test.ts` §H ("App calls the transaction once,
+  from the newest profile, and saves once") counts `saveProfile(` inside App's visitor handler and
+  bounded that slice at `if (!webglAvailable)`. L14's `handleLodging` now sits between the two, so the
+  slice held **two** saves. The handler is correct — the §H property is about **this transaction's**
+  handler — so the slice is now bounded at the **next top-level declaration**
+  (`APP_CODE.indexOf('\n  const ', handlerStart + 1)`), which is the property it always meant: one save,
+  one `setProfile`, and the `if (!result.ok) return result;` guard, inside the visitor handler and
+  nothing else. **No assertion was removed, relaxed or reordered**; the same three counts are asserted
+  on a correctly bounded slice, and a future handler added between them cannot break it again.
+
+- **Checks actually run (2026-10-21, `web` dev container, on the final tree).**
+
+  | command | result |
+  |---|---|
+  | `bun test src/utils/visitorPurchase.test.ts` | **42 pass / 0 fail**, 228 `expect()` (was 41/1) |
+  | `bun test` (full) | **3063 pass / 0 fail (104 files, 88,685 `expect()`)** |
+  | `bun run scripts/collisionTests.ts` | **123 passed, 0 failed** |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `bun run build` | **exit 0**, startup-asset check passing (8 assets in `public/` and `dist/`) |
+  | `git diff --check` | **clean (exit 0)** |
+
+- **Live evidence — the stay driven through the real interface, and it matches the numbers.** The
+  preview browser is an **anonymous visitor (no session replayed)**, so a profile was seeded into its
+  own storage (`sand_and_steel_gladiator_save_v2`: city day **3**, gold **500**, level 1,
+  `road.oathSworn: true` so the Oath beat stays out of the HUD) and the app was loaded **inside an
+  in-page frame** — the C-8.66C/L11 technique, so the app re-reads the seeded save without a platform
+  fresh load clearing it. Driven with real clicks and key events: the title's `Continue` → the 3D city
+  hub → the map drawer → the **Caravanserai Inn** row → one `KeyD` step east into the inn's disc →
+  the prompt **`TAKE A ROOM [E / SPACE]`** → `KeyE`. The notice read *"The innkeeper takes 25 gold and
+  shows you to a room. You sleep until dawn and wake on day 4 — no wound is tended here, only a
+  night's rest."*, and the persisted profile afterwards was **gold 475** (exactly `25 × level`), **day
+  4**, **`city.lodgingDay` 3** (the day consumed), `injury: null`, and **xp 0 / fame 0 / inventory
+  length 1 unchanged** — one save, one day, nothing awarded. Cleanup: the frame was removed and the
+  seeded save deleted, leaving `localStorage` as it was found.
+
+- **Not automatically verified.** (a) **The refusals.** `insufficient-gold` and `already-lodged` were
+  not driven live: the seeded purse covered the fee, and — see the limitation below — the allowance
+  cannot be hit by two interactions in normal play. Both are pinned by `lodging.test.ts`. (b) **The
+  rendered notice and prompt on the target device**, as with every phase in this file: the sandbox
+  renders the city through SwiftShader (~1–2 fps), so the frame is legible but the reading on a phone
+  is still owed. (c) Nothing else: L14 adds no geometry, material, light, collider or asset — the
+  notice reuses the existing banner — so there is no other appearance to accept.
+
+- **Limitations and observations, stated rather than buried.** (a) **`already-lodged` is unreachable
+  through normal play**, and that is by design rather than a defect: a successful stay advances the
+  day, so `lodgingDay` can never equal the current day afterwards, and every subsequent interaction is
+  a legal *new* night (one day each). The refusal exists to make the transaction total and idempotent
+  against a hand-edited or future-state save, and the suite reaches it that way. (b) **Lodging is not
+  healing** — the medical house remains the only cure, so an injured gladiator can now lose days
+  without mending; that is the intended split between the two buildings. (c) The stay spends a **day
+  and gold only**: no fame, xp, reward, item or statistic, and no duel is settled. (d) `advanceCityDay`
+  now has exactly **three** production call sites (the duel settlement, `utils/restRecovery.ts`,
+  `utils/lodging.ts`) and `advanceCityDay` is still not called from any component — the scene only
+  asks the transaction and renders its result.
