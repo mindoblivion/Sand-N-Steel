@@ -28,6 +28,8 @@ import { settleInjury } from './utils/injurySettlement';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
 import { trainStat } from './utils/trainingSession';
 import { restAtMedicalHouse, type RestResult } from './utils/restRecovery';
+// L14 — the ONE night's lodging transaction: a room spends a day, never heals.
+import { lodgeAtCaravanserai, type LodgingResult } from './utils/lodging';
 // L11 — the ONE visitor encounter transaction: meeting a visitor writes `seenVisitors`.
 import { recordVisitorEncounter } from './utils/visitorEncounter';
 // L12 — the ONE visitor purchase transaction: buying the day's offer completes the visitor.
@@ -748,7 +750,8 @@ export function App() {
    * (`utils/trainingSchedule`) and the cost against the profile it is handed, so
    * a drill that is resting today cannot be executed by calling this handler
    * directly, and a refusal leaves the profile untouched. Training never
-   * advances the city day: the clock only moves on a settled duel.
+   * advances the city day: only a settled duel, a rest at the medicus or a
+   * night's lodging at the Caravanserai turns the clock.
    */
   const handleTrainStat = (stat: TrainingStat) => {
     const result = trainStat(profileRef.current, stat);
@@ -789,7 +792,8 @@ export function App() {
     // without mutating anything. A refusal — insufficient gold, an item the day
     // does not list, or a merchant already used today — leaves the profile, its
     // gold and its purchase record exactly as they were. Buying never advances
-    // the city day: the clock only moves on a settled duel.
+    // the city day: only a settled duel, a rest at the medicus or a night's
+    // lodging at the Caravanserai turns the clock.
     const base = profileRef.current;
     if (!base) return;
     const result = purchaseStorefrontItem(base, shopId, item.id);
@@ -906,6 +910,28 @@ export function App() {
     return result;
   };
 
+  /**
+   * Living City L14 — the ONE night's lodging at the Caravanserai
+   * (`utils/lodging`). It reads the newest committed profile and re-checks every
+   * rule against it, so a refusal — a room already taken today, or a purse that
+   * cannot cover `25 × level` — leaves the ref, React state and the saved profile
+   * exactly as they were and never reaches `saveProfile`. On success the
+   * transaction has already turned the city clock by exactly one day inside the
+   * same profile literal it returns (and recorded `city.lodgingDay` beside it),
+   * so this handler saves that one profile once and advances nothing itself. The
+   * result goes back to the city scene, which turns it into the innkeeper's
+   * notice; the injury slot is carried across untouched — lodging is not healing.
+   */
+  const handleLodging = (): LodgingResult => {
+    const lodging = lodgeAtCaravanserai(profileRef.current);
+    if (!lodging.ok) return lodging;
+    const lodged = lodging.profile;
+    profileRef.current = lodged;
+    setProfile(lodged);
+    saveProfile(lodged);
+    return lodging;
+  };
+
   // A device that cannot draw the 3D world gets one plain-language surface and a retry,
   // never a scene that fails to render.
   if (!webglAvailable) {
@@ -975,6 +1001,7 @@ export function App() {
             onOpenTab={handleOpenHubTab}
             onEnterDuel={handleEnterDuel}
             onRest={handleRest}
+            onLodging={handleLodging}
             onEncounterVisitor={handleVisitorEncounter}
             onPurchaseVisitor={handleVisitorPurchase}
             onOpenDriveSync={() => setShowDriveSync(true)}

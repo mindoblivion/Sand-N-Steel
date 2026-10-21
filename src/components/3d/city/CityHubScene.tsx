@@ -72,6 +72,8 @@ import { getTerrainY } from '../../../utils/terrainHeight';
 // consumed from the profile it returned (never advancing anything itself).
 import { resolveCityDay } from '../../../utils/cityClock';
 import { restCost, type RestResult } from '../../../utils/restRecovery';
+// L14 — lodging: the ONE inn transaction, and the fee its notice quotes.
+import { lodgingCost, type LodgingResult } from '../../../utils/lodging';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
@@ -162,6 +164,32 @@ function restNotice(result: RestResult, level: number): string {
   }
 }
 
+/**
+ * L14 — the innkeeper's notice, built from the ONE lodging result.
+ *
+ * Same discipline as `restNotice`: it renders the result rather than the
+ * request, so a refusal says why and claims no night, and a success names the
+ * day the player wakes on (read from the profile the transaction committed, so
+ * this scene never computes a day itself) and the fee actually charged. It also
+ * says plainly that a room is not a treatment — lodging spends the day and
+ * leaves the wound exactly as it was.
+ */
+function lodgingNotice(result: LodgingResult, level: number): string {
+  if (result.ok) {
+    return `The innkeeper takes ${result.cost} gold and shows you to a room. You sleep until dawn and wake on day ${resolveCityDay(result.profile)} — no wound is tended here, only a night's rest.`;
+  }
+  switch (result.reason) {
+    case 'already-lodged':
+      return 'You have already paid for a room today. The innkeeper will take your coin again on the morrow.';
+    case 'insufficient-gold':
+      return `The innkeeper names his price: ${lodgingCost({ level })} gold for a bed, and your purse is short.`;
+    default:
+      // `no-profile` — unreachable in the city (the screen only mounts with a
+      // profile), kept so the switch is total: the inn's own description.
+      return "Caravanserai Inn: Rest & Quarters. The keeper has no room to spare for you tonight.";
+  }
+}
+
 interface CityHubSceneProps {
   playerProfile: PlayerProfile;
   /**
@@ -186,6 +214,12 @@ interface CityHubSceneProps {
    * shows the result, so there is one rest path and no clock work here.
    */
   onRest: () => RestResult;
+  /**
+   * L14 — a night at the Caravanserai. The transaction itself lives in `App`
+   * (`utils/lodging`); this scene only decides WHEN the innkeeper is asked and
+   * shows the result, so there is one lodging path and no clock work here.
+   */
+  onLodging: () => LodgingResult;
   /**
    * L11 — the ONE visitor encounter. The transaction lives in `App`
    * (`utils/visitorEncounter`); this scene only decides WHEN a visitor is met (an
@@ -236,6 +270,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onOpenTab,
   onEnterDuel,
   onRest,
+  onLodging,
   onEncounterVisitor,
   onPurchaseVisitor,
   onOpenDriveSync,
@@ -494,6 +529,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         setStableNotice(
           "Veteran Gladiator Hall: Old trophies and worn shields line the walls, honoring fighters who survived the arena."
         );
+      } else if (nearbyLoc.id === 'caravanserai') {
+        // L14 — the Caravanserai LODGES. The transaction decides everything
+        // (`App.handleLodging` → `utils/lodging`): tonight's allowance, the
+        // `25 × level` fee, and the one-day advance. This branch only asks and
+        // reports, so it can neither lodge twice nor turn the clock itself — and
+        // it never touches the injury, because a room is not the medicus.
+        setStableNotice(lodgingNotice(onLodging(), playerProfile.level));
       } else if (nearbyLoc.id === 'arena_medical_house') {
         // L9 — the Medical House TREATS. The transaction decides everything
         // (`App.handleRest` → `utils/restRecovery`): eligibility, the `25 × level`
@@ -517,6 +559,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     nearbyLoc,
     onEnterDuel,
     onRest,
+    onLodging,
     playerProfile.currentTier,
     playerProfile.level,
     playerProfile.defeatedOpponentIds,

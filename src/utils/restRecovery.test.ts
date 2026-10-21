@@ -543,7 +543,10 @@ describe('§G — one rest path, and the clock call sites stay where they were',
     const callers = PRODUCTION.filter((file) => file.source.includes('advanceCityDay('))
       .map((file) => file.path)
       .sort();
-    expect(callers).toEqual(['App.tsx', 'utils/restRecovery.ts']);
+    // L14 rebased this list, not weakened it: the Caravanserai's lodging is the
+    // third sanctioned way to spend a day, and with the duel settlement in App
+    // that is the whole set — nobody else may turn the clock.
+    expect(callers).toEqual(['App.tsx', 'utils/lodging.ts', 'utils/restRecovery.ts']);
   });
 
   test('no UI component calls the clock or the settlement directly', () => {
@@ -593,18 +596,23 @@ describe('§G — one rest path, and the clock call sites stay where they were',
     expect(CITY_SCENE_CODE).toContain('{nearbyLoc.actionPrompt} [E / Space]');
   });
 
-  test('the Bathhouse and the Caravanserai interactions are untouched', () => {
+  test('the Bathhouse still falls through, and the Caravanserai now LODGES (L14)', () => {
     const bathhouse = HUB_LOCATIONS.find((location) => location.id === 'bathhouse');
     expect(bathhouse?.tabKey).toBe('stats');
     expect(bathhouse?.actionPrompt).toBe('Visit the Thermae');
-
-    const caravanserai = HUB_LOCATIONS.find((location) => location.id === 'caravanserai');
-    expect(caravanserai?.tabKey).toBe('gear');
-    expect(caravanserai?.actionPrompt).toBe('Equip Loadout');
-
-    // Neither gained a branch of its own: both still fall through to the tab.
+    // The Bathhouse gained no branch of its own: it still opens its tab.
+    expect(CITY_SCENE_CODE).not.toContain("id === 'bathouse'");
     expect(CITY_SCENE_CODE).not.toContain("id === 'bathhouse'");
-    expect(CITY_SCENE_CODE).not.toContain("id === 'caravanserai'");
     expect(CITY_SCENE_CODE).toContain('} else if (nearbyLoc.tabKey) {');
+
+    // L14 — rebased, not weakened: the inn previously opened the Armory's gear
+    // tab, which the road audit replaced with the lodging transaction. What must
+    // still hold: its reachability is untouched, and the Medical House's own
+    // branch is the one beside it.
+    const caravanserai = HUB_LOCATIONS.find((location) => location.id === 'caravanserai');
+    expect(caravanserai?.radius).toBe(5.75);
+    expect(caravanserai?.position).toEqual([16, 0, 14]);
+    expect(caravanserai?.tabKey).toBeUndefined();
+    expect(CITY_SCENE_CODE).toContain("nearbyLoc.id === 'caravanserai'");
   });
 });

@@ -372,6 +372,17 @@ export interface CityState {
    */
   restDay?: number;
   /**
+   * L14 — the last city day on which a night's lodging at the Caravanserai was
+   * paid for. ONE number, not a log (the same shape as the merchant's allowance
+   * and the medicus's): the room is available exactly while this does NOT equal
+   * the current day, so a later stay overwrites it and the field can never grow
+   * with play. Absent on every save made before L14 and read as "never lodged";
+   * `city.day` is preserved beside it untouched, and no migration ever
+   * introduces it. Lodging spends a day but never heals — the injury slot is
+   * carried across as it was.
+   */
+  lodgingDay?: number;
+  /**
    * L10 — the visitors this profile has already met. An optional history of
    * visitor ids, exactly the shape of `defeatedOpponentIds` and
    * `road.milestonesSeen`, and read defensively (anything that is not an array

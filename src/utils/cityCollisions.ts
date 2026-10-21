@@ -263,8 +263,11 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     // player's 0.80 diameter (0.80 here); the arrival sits 0.25 outside, one step.
     radius: 5.75,
     icon: 'Home',
-    tabKey: 'gear',
-    actionPrompt: 'Equip Loadout',
+    // L14 — the inn LODGES; it no longer opens the Armory. No `tabKey`, so the
+    // interaction falls to the scene's own `caravanserai` branch, which asks the
+    // lodging transaction for a night's room (the Armory keeps its own hub-tab
+    // entry in the city footer).
+    actionPrompt: 'Take a Room',
     color: '#0891b2',
     district: 'EAST',
   },
