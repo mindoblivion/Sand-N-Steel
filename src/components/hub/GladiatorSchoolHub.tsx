@@ -216,6 +216,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
       {selectedOpponent && (
         <PreFightModal
           opponent={selectedOpponent}
+          injury={playerProfile.injury}
           onConfirm={() => {
             const opp = selectedOpponent;
             setSelectedOpponent(null);

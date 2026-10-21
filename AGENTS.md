@@ -6816,3 +6816,91 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   indicator, no rest button, no `advanceCityDay` cost (all out of scope). (b)
   `trainingSessionsLeft` stays dormant. (c) The stat penalty is per-record and uncapped by design
   beyond the floor of 1.
+
+## Living City L8 — injury visibility and player feedback (implemented; presentation only)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`4698a93cd5`** ("Implement Living
+  City L7 injury mechanics"), `git status --short` **empty** — the L7 audit's own report named `4698a93`,
+  and that is what the tree held. Nothing was stashed, reset or overwritten. The starting suite was
+  **2749 pass / 0 fail (94 files)**.
+
+- **What shipped: one pure presentation model, read by three screens.** `src/utils/injuryStatus.ts`
+  exports `describeInjury(value) → InjuryStatus | null`, where `InjuryStatus` carries
+  `penaltyStrength`, `penaltyAgility`, `fightsRemaining` and `durationLabel` ("Affects the next 2
+  completed duels", singular at one). It **delegates every validity decision to `normalizeInjury`** —
+  no rule is restated (the suite asserts the module contains no `Number.isFinite` / `Math.floor`), so a
+  screen can never show a wound the stat calculation is not applying. `null` (absent / malformed /
+  spent) is the "render nothing" answer, which is what keeps every surface free of an empty container.
+  Pure: no React, storage, clock, timer or randomness; nothing is written.
+
+- **Stats screen (`StatsTab`).** New `data-testid="stats-injury-status"` panel between the identity card
+  and the unspent-points banner: a `Bandage` glyph, the word **Injured**, the two penalties in their own
+  tiles (`-{penaltyStrength}`, `-{penaltyAgility}`), and the duration sentence plus "A wound, not a change
+  to your base attributes." — the attributes' own `Base:` line and derived totals are untouched, so it
+  cannot read as an equipment or permanent-base change. Rendered only when `describeInjury` is non-null.
+
+- **Pre-fight screen (`PreFightModal`).** New optional `injury?: PlayerInjury | null` prop (one line of
+  markup, above the Retreat / Step into Sand row, `data-testid="prefight-injury-status"`): `-2 STR ·
+  -2 AGI · Affects the next 2 completed duels.` Both briefing call sites hand it `playerProfile.injury`
+  (`CityHubScene` for the Colosseum door, `GladiatorSchoolHub` for the tournament tab). Uninjured, the
+  block does not exist at all, so the card's layout and height are exactly what they were.
+
+- **Duel result screen (`DuelResultModal`).** New optional `injury?: PlayerInjury | null` prop rendered
+  after the combat recap, `data-testid="duel-injury-status"`, headed **Still injured** on a victory and
+  **Injured** on a defeat, with the same penalties and the settled duration.
+
+- **How the post-settlement injury reaches the result screen — one presentation-data connection, and it
+  is the minimum.** `duelResult` carried only `{ didWin, stats }`, so the modal had no wound to show and
+  inferring one from `didWin` is exactly what the brief forbids. `App.handleMatchComplete` already
+  computes `const injury = settleInjury(profile, didWin).injury;` once, before both branches, and writes
+  it into the settled profile; that **same value** now rides the result state
+  (`setDuelResult({ didWin, stats, injury })`, `useState<{ didWin; stats; injury: PlayerInjury | null }>`)
+  and the modal reads `injury={duelResult.injury}`. Nothing else in the handler changed — the claim, the
+  clock, the rewards, the losses, the rituals, the one `setProfile`/`saveProfile` per branch and the
+  latch are untouched — and the one type fix needed was `?? null` on that already-computed value (the
+  profile field is optional, the state field is `PlayerInjury | null`). So a defeat shows the **refreshed**
+  2, a surviving injury shows **1**, and an expired one shows **nothing** — all from the settlement's own
+  result, never from the outcome.
+
+- **No gameplay change.** `injurySettlement.ts`, `settleInjury`, `advanceCityDay`, the latch, rewards and
+  persistence are byte-identical. `settleInjury(` still appears exactly once in `App.tsx`, `advanceCityDay(`
+  once, `saveProfile(` twice (one per branch), and no UI component imports `settleInjury` or
+  `normalizeInjury`, touches `localStorage` or calls `saveProfile`. No rest button, healing item, gold or
+  day cost, stacking, severity scaling, migration, new injury type, timer or storage write was added.
+
+- **Tests — `src/utils/injuryStatus.test.ts`, 30 tests / 117 `expect()` in five sections.** §A the model
+  (2/2/2 shown, the singular duration, a legacy 5, `null` for eleven unusable shapes, `NaN`/`Infinity`→2,
+  negatives→0, 1.5→1, agreement with `normalizeInjury` record by record, no mutation, and the no-restated-
+  rules guard); §B the stats screen (reads the helper, names the penalties and duration, `{injury && (`
+  guard, no settlement/storage); §C the pre-fight modal (the prop, the wording, the guard, both call
+  sites); §D the result screen (the prop, the wording, the `Still injured`/`Injured` split, the guard,
+  App's `settleInjury(...)` → `setDuelResult(...)` → `injury={duelResult.injury}` chain, and the real
+  settlement outputs that must read 2 / 1 / nothing); §E the guards (one settlement, one clock call site,
+  the claim before the injury, two saves, no UI component reaching the lifecycle, the helper absent from
+  the settlement path). The screens have no component-test renderer in this repo, so §B–§D are
+  pure-helper behaviour plus source-wiring assertions — stated here as the limitation it is.
+
+- **One L7 guard caught this phase's own prose, and the prose was fixed rather than the guard.**
+  `injurySettlement.test.ts` §G's "no other source file settles an injury (the boundary is App alone)"
+  sweep flags any non-test file containing `settleInjury`; `DuelResultModal.tsx`'s new doc comment named
+  it, so the comment now says "what the settlement wrote". No assertion was weakened.
+
+- **Verified 2026-10-21** in the dev container, on the final code state: `bun test` → **2779 pass / 0 fail
+  (95 files, 84,835 `expect()`)** (baseline 2749 / 94 → this suite's 30 tests and its file);
+  `bun run scripts/combatTests.ts` → **65 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0
+  (one real error was fixed on the way: the `?? null` above); `bun run build` → exit 0 with the
+  startup-asset check passing; `git diff --check` → clean.
+
+- **Live evidence — the uninjured half, captured.** Driven in the preview browser (anonymous visitor; the
+  run created a throwaway gladiator and the save was removed afterwards): title → `PLAY` → character
+  creation → `ENTER METROPOLIS` → the 3D hub → `Colosseum` → the hub's **`Gladiator Stats`** tab, and
+  separately the tournament tab → `Arena Duel` → the briefing. Measured in the DOM: **no
+  `stats-injury-status` panel and no `prefight-injury-status` block**, no "injured" wording anywhere, the
+  stats screen's `PRIMARY ATTRIBUTES` and derived totals rendering as before, no sideways scroll, **0
+  console errors** and **0 failed requests**; the captures show both screens legible and unchanged.
+  **NOT verified live: the injured state.** This browser is an anonymous visitor whose storage is reset
+  on every fresh load, and no UI can inflict an injury, so the panel's rendered appearance at 400 px and
+  the result-screen variant were not seen. **Device check owed:** lose one Colosseum duel and confirm the
+  stats tab shows `Injured -2 -2 / Affects the next 2 completed duels`, the briefing warns before the next
+  bout, and the result card reads `Injured` with 2 duels; win one and confirm the result card reads
+  `Still injured` with 1, the stats panel follows, and after the second win both disappear.

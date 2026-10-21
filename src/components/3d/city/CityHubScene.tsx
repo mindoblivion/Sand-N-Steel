@@ -1156,6 +1156,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       {pendingDuel && (
         <PreFightModal
           opponent={pendingDuel}
+          injury={playerProfile.injury}
           onConfirm={() => {
             const opp = pendingDuel;
             setPendingDuel(null);

@@ -1,8 +1,9 @@
 import React from 'react';
 import { PlayerProfile } from '../../types/game';
 import { calculateTotalStats } from '../../services/storage';
-import { Swords, Shield, Heart, Zap, Flame, Activity } from 'lucide-react';
+import { Swords, Shield, Heart, Zap, Flame, Activity, Bandage } from 'lucide-react';
 import { CampaignCard } from './CampaignCard';
+import { describeInjury } from '../../utils/injuryStatus';
 
 interface StatsTabProps {
   profile: PlayerProfile;
@@ -11,6 +12,7 @@ interface StatsTabProps {
 
 export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) => {
   const total = calculateTotalStats(profile);
+  const injury = describeInjury(profile.injury);
   const totalStamina = total.stamina ?? profile.baseStats.stamina;
 
   return (
@@ -38,6 +40,40 @@ export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) 
           </div>
         </div>
       </div>
+
+      {/* L8 — THE INJURY. `describeInjury` is the one reader of the wound, so this
+          panel can never disagree with the stat calculation above: it is `null` for an
+          absent, malformed or spent injury, and the panel then renders nothing at all. */}
+      {injury && (
+        <div
+          data-testid="stats-injury-status"
+          className="bg-red-950/50 border-2 border-red-600/70 rounded-3xl p-5 shadow-xl"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Bandage className="w-4 h-4 text-red-400" />
+            <h4 className="font-serif font-bold text-sm uppercase tracking-wider text-red-200">
+              Injured
+            </h4>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-2xl bg-neutral-950/70 border border-red-900/60">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                Strength
+              </div>
+              <div className="font-mono font-black text-lg text-red-300">-{injury.penaltyStrength}</div>
+            </div>
+            <div className="p-3 rounded-2xl bg-neutral-950/70 border border-red-900/60">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                Agility
+              </div>
+              <div className="font-mono font-black text-lg text-red-300">-{injury.penaltyAgility}</div>
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] font-serif text-red-200/90 leading-relaxed">
+            {injury.durationLabel}. A wound, not a change to your base attributes.
+          </p>
+        </div>
+      )}
 
       {/* UNSPENT POINTS BANNER */}
       {profile.unspentStatPoints > 0 && (

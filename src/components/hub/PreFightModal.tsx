@@ -1,14 +1,20 @@
 import React from 'react';
-import { OpponentConfig } from '../../types/game';
-import { Swords, Trophy, Coins, Zap, Shield, Skull } from 'lucide-react';
+import { OpponentConfig, PlayerInjury } from '../../types/game';
+import { Swords, Trophy, Coins, Zap, Shield, Skull, Bandage } from 'lucide-react';
+import { describeInjury } from '../../utils/injuryStatus';
 
 interface PreFightModalProps {
   opponent: OpponentConfig;
   onConfirm: () => void;
   onCancel: () => void;
+  /** L8 — the settled injury, so an injured gladiator is warned before stepping in. */
+  injury?: PlayerInjury | null;
 }
 
-export const PreFightModal: React.FC<PreFightModalProps> = ({ opponent, onConfirm, onCancel }) => {
+export const PreFightModal: React.FC<PreFightModalProps> = ({ opponent, onConfirm, onCancel, injury }) => {
+  // `null` when there is no injury to warn about, so nothing is rendered for it.
+  const injuryStatus = describeInjury(injury);
+
   return (
     <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-40 flex items-center justify-center p-4">
       <div className="bg-neutral-900 border-2 border-red-500/80 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl animate-fadeIn text-amber-100">
@@ -39,6 +45,21 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({ opponent, onConfir
             <span className="text-yellow-400">+{opponent.rewardGold} Gold</span>
           </div>
         </div>
+
+        {/* L8 — a concise warning, only while a wound is active. */}
+        {injuryStatus && (
+          <div
+            data-testid="prefight-injury-status"
+            className="mb-6 rounded-2xl border border-red-500/60 bg-red-950/50 p-3 flex items-start gap-2"
+          >
+            <Bandage className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+            <p className="text-[11px] font-mono text-red-200 leading-relaxed">
+              <span className="font-serif font-bold uppercase tracking-wider text-red-300">Injured</span>{' '}
+              -{injuryStatus.penaltyStrength} STR · -{injuryStatus.penaltyAgility} AGI ·{' '}
+              {injuryStatus.durationLabel}.
+            </p>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <button

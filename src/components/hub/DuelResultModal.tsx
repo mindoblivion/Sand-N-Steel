@@ -1,8 +1,9 @@
 import React from 'react';
-import { DuelStatistics, OpponentConfig } from '../../types/game';
-import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight } from 'lucide-react';
+import { DuelStatistics, OpponentConfig, PlayerInjury } from '../../types/game';
+import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight, Bandage } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sounds } from '../../audio/soundEffects';
+import { describeInjury } from '../../utils/injuryStatus';
 
 interface DuelResultModalProps {
   didWin: boolean;
@@ -11,6 +12,12 @@ interface DuelResultModalProps {
   /** The player's purse after the duel, so the reward reads as spendable gold. */
   goldTotal?: number;
   onContinue: () => void;
+  /**
+   * L8 — the SETTLED injury (what the settlement wrote into the saved profile), never
+   * an inference from `didWin`: a defeat refreshes or inflicts it, a victory spends a
+   * fight, and an expired one arrives as `null` so no stale warning is shown.
+   */
+  injury?: PlayerInjury | null;
 }
 
 /**
@@ -43,8 +50,10 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   stats,
   goldTotal,
   onContinue,
+  injury,
 }) => {
   const pace = didWin ? 1 : DEFEAT_PACE;
+  const injuryStatus = describeInjury(injury);
   // 0 = header only, 1 = recap, 2 = the two extra recap lines, 3 = rewards.
   const [stage, setStage] = React.useState(0);
   const [counted, setCounted] = React.useState({ gold: 0, fame: 0, xp: 0 });
@@ -261,6 +270,23 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
             </div>
           )}
         </div>
+
+        {/* L8 — the wound this duel left standing, from the settled profile. */}
+        {injuryStatus && (
+          <div
+            data-testid="duel-injury-status"
+            className="mb-6 rounded-2xl border border-red-500/50 bg-red-950/40 p-3 flex items-start gap-2"
+          >
+            <Bandage className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+            <p className="text-[11px] font-mono text-red-200 leading-relaxed">
+              <span className="font-serif font-bold uppercase tracking-wider text-red-300">
+                {didWin ? 'Still injured' : 'Injured'}
+              </span>{' '}
+              -{injuryStatus.penaltyStrength} STR · -{injuryStatus.penaltyAgility} AGI ·{' '}
+              {injuryStatus.durationLabel}.
+            </p>
+          </div>
+        )}
 
         <button
           onClick={onContinue}

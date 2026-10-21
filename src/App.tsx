@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize } from './types/game';
+import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize, PlayerInjury } from './types/game';
 import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
 import { CharacterCreation } from './components/hub/CharacterCreation';
@@ -110,7 +110,7 @@ export function App() {
   // after a race. Set when the race is entered, read when the city remounts,
   // in memory only.
   const [cityReturnPose, setCityReturnPose] = useState<CityExitPose | null>(null);
-  const [duelResult, setDuelResult] = useState<{ didWin: boolean; stats: DuelStatistics } | null>(null);
+  const [duelResult, setDuelResult] = useState<{ didWin: boolean; stats: DuelStatistics; injury: PlayerInjury | null } | null>(null);
   /**
    * L1 (Living City) — the duel settlement's exactly-once latch, PER BOUT.
    * `DuelScene` already refuses a second outcome (`isMatchOver`), but App must
@@ -575,7 +575,7 @@ export function App() {
     // the duels that follow an injury spend it (win or lose), and a defeat inflicts or
     // refreshes it at its fixed duration and penalties. A bout that is abandoned never
     // reaches this handler, so it neither inflicts nor spends an injury.
-    const injury = settleInjury(profile, didWin).injury;
+    const injury = settleInjury(profile, didWin).injury ?? null;
 
     if (didWin) {
       const nextGold = profile.gold + stats.goldEarned;
@@ -639,7 +639,9 @@ export function App() {
       saveProfile(settledProfile);
     }
 
-    setDuelResult({ didWin, stats });
+    // L8 — the settled injury rides to the result screen with the outcome, so the
+    // screen shows what the save now holds instead of inferring it from `didWin`.
+    setDuelResult({ didWin, stats, injury });
   };
 
   const handleDuelResultDismiss = () => {
@@ -936,6 +938,7 @@ export function App() {
             didWin={duelResult.didWin}
             opponent={activeOpponent}
             stats={duelResult.stats}
+            injury={duelResult.injury}
             goldTotal={profile?.gold}
             onContinue={handleDuelResultDismiss}
             />
