@@ -753,50 +753,58 @@ export function App() {
   // `sellPrice` plus 25 % of any temper gold spent on it.  The transaction is
   // pure: a refusal hands back the same profile object, so nothing is saved.
   const handleSellItem = (item: WeaponItem | ArmorItem) => {
-    if (!profile) return;
-    const updated = sellItem(profile, item.id);
-    if (updated === profile) return;
+    const base = profileRef.current;
+    if (!base) return;
+    const updated = sellItem(base, item.id);
+    if (updated === base) return;
+    profileRef.current = updated;
     setProfile(updated);
     saveProfile(updated);
   };
 
   const handleEquipWeapon = (wpn: WeaponItem) => {
-    if (!profile) return;
+    const base = profileRef.current;
+    if (!base) return;
     const updated: PlayerProfile = {
-      ...profile,
+      ...base,
       equipped: {
-        ...profile.equipped,
+        ...base.equipped,
         weapon: wpn,
       },
     };
+    profileRef.current = updated;
     setProfile(updated);
     saveProfile(updated);
   };
 
   const handleEquipArmor = (armor: ArmorItem) => {
-    if (!profile) return;
+    const base = profileRef.current;
+    if (!base) return;
     const updated: PlayerProfile = {
-      ...profile,
+      ...base,
       equipped: {
-        ...profile.equipped,
+        ...base.equipped,
         [armor.slot]: armor,
       },
     };
+    profileRef.current = updated;
     setProfile(updated);
     saveProfile(updated);
   };
 
   const handleAllocateStatPoint = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
-    if (!profile || profile.unspentStatPoints <= 0) return;
+    const base = profileRef.current;
+    if (!base || base.unspentStatPoints <= 0) return;
     sounds.playClick();
     const updated: PlayerProfile = {
-      ...profile,
-      unspentStatPoints: profile.unspentStatPoints - 1,
+      ...base,
+      unspentStatPoints: base.unspentStatPoints - 1,
       baseStats: {
-        ...profile.baseStats,
-        [stat]: profile.baseStats[stat] + 1,
+        ...base.baseStats,
+        [stat]: base.baseStats[stat] + 1,
       },
     };
+    profileRef.current = updated;
     setProfile(updated);
     saveProfile(updated);
   };

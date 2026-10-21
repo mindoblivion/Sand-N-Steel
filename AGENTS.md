@@ -7307,3 +7307,24 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   wiring is pinned by the suite. **The rendered successful purchase and the insufficient-gold
   refusal therefore remain a manual/device check** — reach day 5 (or earn a visitor’s offer) and buy;
   and note the panel opens only on a day the schedule lists someone.
+
+## Profile-mutation handlers read the committed profile (§L12-hardening — implemented, verified live)
+
+- **The gap.** Four App handlers — `handleSellItem`, `handleEquipWeapon`, `handleEquipArmor`,
+  `handleAllocateStatPoint` — built their update from the render's `profile` state rather than the
+  newest committed profile, unlike the training / rest / storefront / visitor transactions, which
+  read `profileRef.current` and write it back immediately. `profile` is one render behind a click
+  that fires twice before React re-renders, so a duplicated sell or equip could rebuild the profile
+  from the older snapshot and overwrite what the first call had already committed.
+- **The change is App-local and behaviour-preserving for a single click:** each handler now takes
+  `const base = profileRef.current`, applies the same pure transaction / same field writes, then
+  writes `profileRef.current = updated` before `setProfile` + `saveProfile`. No transaction module,
+  save shape, price, stat or storage key changed; the refusal semantics are identical (`sellItem`
+  still hands back the caller's own object on refusal, compared against the ref's base).
+- **Verified live (2026-10-21, preview browser, throwaway profile in an in-page frame, removed
+  afterwards):** allocating one stat point moved `baseStats.strength` 10 → 11 and
+  `unspentStatPoints` 5 → 4 in the saved profile; equipping the spare weapon moved
+  `equipped.weapon.id` `gladius_standard` → `hoplite_spear`; exactly one storage key was written.
+  Suites: `storefrontPurchase`, `cityRotationL3`, `restRecovery`, `trainingSession`, `selling`
+  (132 pass), `bun run lint` exit 0. **Not driven live:** the sell click (same handler shape and
+  pinned by `selling.test.ts`).
