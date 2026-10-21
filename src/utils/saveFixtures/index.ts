@@ -35,6 +35,7 @@ import unknownFieldsProfile from './unknownFieldsProfile.json';
 import storyRoadEraProfile from './storyRoadEraProfile.json';
 import partialStoryProfile from './partialStoryProfile.json';
 import emptyFieldsProfile from './emptyFieldsProfile.json';
+import triumphsEraProfile from './triumphsEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -150,8 +151,25 @@ export const SAVE_FIXTURES: SaveFixture[] = [
     file: 'emptyFieldsProfile.json',
     provenance:
       'Hand-aged: every post-GC20 optional field present but empty-shaped — empty records and a zero clock, what a writer that created a field before filling it leaves.',
-    covers: ['empty-shaped optional records', 'a zero clock (day 1, dawn)', 'nothing seen, no milestones'],
+    covers: [
+      'empty-shaped optional records',
+      'an empty laurels record (owns no Triumph)',
+      'a zero clock (day 1, dawn)',
+      'nothing seen, no milestones',
+    ],
     profile: asProfile(emptyFieldsProfile),
+  },
+  {
+    id: 'triumphs-era',
+    file: 'triumphsEraProfile.json',
+    provenance:
+      'The story-road-era save with its fame hand-aged to 5,000 and then driven through all four shipped `purchaseLaurel` transactions (300 + 800 + 2,000 + 1,200 = 4,300 fame spent, 700 left), so it is byte-for-byte what those handlers persist.',
+    covers: [
+      'the laurels record populated — three titles owned and the statue raised',
+      'a title purchase setting the displayed profile.title',
+      'the fully-populated shape plus every post-GC20 optional field',
+    ],
+    profile: asProfile(triumphsEraProfile),
   },
 ];
 

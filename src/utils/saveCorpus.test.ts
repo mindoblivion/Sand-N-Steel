@@ -120,6 +120,7 @@ import {
 import { resolveRoadProgress, resolveRoadState } from './roadOfGlory';
 import { resolveSeenState } from './coachMarks';
 import { TIME_PHASES, resolveTimeState } from './timeState';
+import { resolveLaurels } from './laurels';
 
 // ── The corpus on disk ─────────────────────────────────────────────────────
 const FIXTURE_DIR = fileURLToPath(new URL('./saveFixtures/', import.meta.url));
@@ -138,6 +139,7 @@ const REQUIRED_FIXTURE_IDS = [
   'story-road-era',
   'partial-story-fields',
   'malformed-empty-fields',
+  'triumphs-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -200,6 +202,8 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const roadState = resolveRoadState(profile);
   const seen = resolveSeenState(profile);
   const time = resolveTimeState(profile);
+  // P2 — the Triumph record, read the way the Library and the character sheet do.
+  const laurels = resolveLaurels(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -217,6 +221,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     roadState,
     seen,
     time,
+    laurels,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -337,6 +342,10 @@ for (const fixture of SAVE_FIXTURES) {
       expect(Number.isInteger(resolved.time.total)).toBe(true);
       expect(resolved.time.total).toBeGreaterThanOrEqual(0);
       expect(resolved.time.phase).toBe(TIME_PHASES[resolved.time.phaseIndex]);
+      // P2 — the Triumph record resolves to shaped state too: known ids only.
+      expect(Array.isArray(resolved.laurels.titles)).toBe(true);
+      expect(resolved.laurels.titles.every((id) => typeof id === 'string')).toBe(true);
+      expect(typeof resolved.laurels.statue).toBe('boolean');
       expect(Number.isFinite(resolved.temperedWeapon.damageLight)).toBe(true);
       expect(resolved.temperedWeapon.damageLight).toBeGreaterThanOrEqual(loaded.equipped.weapon.damageLight);
       expect(resolved.temperedArmor.every((armor) => Number.isFinite(armor.defense))).toBe(true);
@@ -416,12 +425,26 @@ for (const fixture of SAVE_FIXTURES) {
           phase: 'dawn',
         });
       }
+      if (!('laurels' in raw) || raw.laurels === null) {
+        absentFields += 1;
+        expect(resolveLaurels(profile)).toEqual({ titles: [], statue: false });
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
       // fixture is missing (or holds as null), so nothing is silently skipped:
       // a fully-populated shape accounts for none, a legacy shape for all eight.
-      const resolverBacked = ['racing', 'chariot', 'injury', 'story', 'temper', 'road', 'seen', 'time'];
+      const resolverBacked = [
+        'racing',
+        'chariot',
+        'injury',
+        'story',
+        'temper',
+        'road',
+        'seen',
+        'time',
+        'laurels',
+      ];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
       );
@@ -536,6 +559,32 @@ describe('GC20 §F — what each shape resolves to', () => {
     }
     expect(racingRaw.chariot).toBeDefined();
     expect(racingRaw.racing).toBeDefined();
+  });
+
+  test('the Triumphs-era profile owns three titles and the statue, and displays the newest', () => {
+    const profile = fixtureById('triumphs-era').profile;
+    expect(resolveLaurels(profile)).toEqual({
+      titles: [
+        'title_crowd_favourite',
+        'title_champion_of_the_sands',
+        'title_living_legend',
+      ],
+      statue: true,
+    });
+    // A title purchase sets the displayed title, so the newest one is on the record.
+    expect(profile.title).toBe('Living Legend');
+    expect(profile.fame).toBe(700);
+  });
+
+  test('an empty laurels record owns nothing, and no factory save carries the field', () => {
+    const empty = fixtureById('malformed-empty-fields');
+    expect(rawOf(empty).laurels).toEqual({});
+    expect(resolveLaurels(empty.profile)).toEqual({ titles: [], statue: false });
+
+    // Lazy: the factory writes no `laurels`, and neither does the creation-era shape.
+    expect('laurels' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect('laurels' in rawOf(fixtureById('minimal-legacy'))).toBe(false);
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('laurels');
   });
 
   test('null where an object is expected resolves to both defaults', () => {
@@ -775,12 +824,13 @@ describe('GC20 §J — the corpus rule', () => {
       'road',
       'seen',
       'time',
+      'laurels',
     ]);
 
     // Every optional field with a resolver has a fixture for both its absent and
     // its present case; `injury` is read by calculateTotalStats; `isLeftyMode` is
     // still written by the creation path and read by nothing.
-    for (const field of ['racing', 'chariot', 'story', 'temper', 'road', 'seen', 'time']) {
+    for (const field of ['racing', 'chariot', 'story', 'temper', 'road', 'seen', 'time', 'laurels']) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);
       expect(withField.length, `no fixture carries '${field}'`).toBeGreaterThan(0);

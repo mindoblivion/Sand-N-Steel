@@ -3,32 +3,37 @@
  * Records & Lore Library building opens.
  *
  * The view is a small page rack: **page one is "The Road"** (the Road of Glory), and
- * the pages that already exist keep their own content and their order behind it.  The
- * page list below is the single place that order is written, so a later page (the
- * Triumphs and Codex pages of the progression design) appends here rather than
- * re-ordering anything: nothing in this slice adds a page, and there is nothing else
- * to re-order yet — this tree has no Triumphs or Codex page.
+ * the pages behind it keep their own content and their order.  The page list below is
+ * the single place that order is written, so a later page (the Codex page of the
+ * progression design) appends here rather than re-ordering anything.  The Triumphs
+ * page appended here with P2 — inside this rack, with no new navigation entry.
  *
- * Read-only: the view takes the profile, hands it to the page it is showing, and
- * writes nothing.
+ * Read-only except for the Triumphs page: it takes the profile, hands it to the page
+ * it is showing, and every other page writes nothing.  A Triumph purchase is handed
+ * up to `onPurchaseTriumph` (`App`'s one write) and this view stores nothing.
  */
 import React, { useState } from 'react';
 import { BookOpen } from 'lucide-react';
 import { PlayerProfile } from '../../types/game';
+import { LaurelResult } from '../../utils/laurels';
 import { RoadOfGloryPage } from './RoadOfGloryPage';
+import { TriumphsPage } from './TriumphsPage';
 
 /** The library's pages, in reading order.  The Road is page one. */
-export type LibraryPageId = 'road';
+export type LibraryPageId = 'road' | 'triumphs';
 
 export const LIBRARY_PAGES: { id: LibraryPageId; label: string }[] = [
   { id: 'road', label: 'The Road' },
+  { id: 'triumphs', label: 'Triumphs' },
 ];
 
 interface LibraryTabProps {
   profile: PlayerProfile;
+  /** P2 — a Triumph buy, routed to `App`'s `purchaseLaurel` + save path. */
+  onPurchaseTriumph?: (laurelId: string) => LaurelResult;
 }
 
-export const LibraryTab: React.FC<LibraryTabProps> = ({ profile }) => {
+export const LibraryTab: React.FC<LibraryTabProps> = ({ profile, onPurchaseTriumph }) => {
   const [page, setPage] = useState<LibraryPageId>('road');
 
   return (
@@ -66,6 +71,9 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ profile }) => {
       </div>
 
       {page === 'road' && <RoadOfGloryPage profile={profile} />}
+      {page === 'triumphs' && (
+        <TriumphsPage profile={profile} onPurchase={onPurchaseTriumph} />
+      )}
     </div>
   );
 };

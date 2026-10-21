@@ -16,6 +16,14 @@ added since: `story`, `temper`, `road`, `seen` and `time` — three new fixtures
 the suite's corpus rule (§J) reads the full optional set straight out of
 `src/types/game.ts`, so a field that appears without a fixture still fails the run.
 
+**Extended by P2 (Triumphs).** `PlayerProfile.laurels` — the fame honours the player
+buys — is the newest optional field, so it gets both halves of the rule in the same
+slice: `triumphs-era`, produced by driving the **shipped** `purchaseLaurel`
+transaction four times (three titles plus the statue), and `malformed-empty-fields`,
+which gained `"laurels": {}` so its "every post-GC20 optional field, present and
+empty-shaped" claim stays true. Every other fixture predates the field and keeps
+omitting it, which is the legacy shape a load must survive.
+
 ## Corpus rule
 
 **A slice that adds a field to the save adds a fixture for the shape it writes, in
@@ -42,7 +50,8 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `malformed-unknown-fields` | `unknownFieldsProfile.json` | Forward compatibility: a fresh save plus `saveSchemaVersion` (number), `futureSeason` (nested object) and `_legacyNote` (string) — fields no build in this tree writes. | Hand-aged from the fresh shape. |
 | `story-road-era` | `storyRoadEraProfile.json` | The fully-populated shape: the racing-era save plus all five fields added after GC20 — `temper` on three owned items (levels 2 / 1 / 3), `story` with the library read and three fragments, `road` sworn under the laurel with three milestones seen, `seen` with five coach-mark ids, and `time` at a mid-cycle 26 (day 4, dusk). | The racing-era fixture hand-aged field by field; nothing was produced by a transaction that does not exist. |
 | `partial-story-fields` | `partialStoryProfile.json` | A partial new-fields shape: a played second-level save with `story: { librarySeen: true }`, a single temper entry (`gladius_standard: 1`) and `time: { total: 9 }`; `road` and `seen` absent entirely. | Hand-aged from the fresh shape through two wins and one upgrade. |
-| `malformed-empty-fields` | `emptyFieldsProfile.json` | The empty-shaped new fields: `story`, `temper`, `road` and `seen` present as `{}`, `time` present as `{ total: 0 }` — what a writer that created a field before filling it leaves. | Hand-aged from the fresh shape. |
+| `malformed-empty-fields` | `emptyFieldsProfile.json` | The empty-shaped new fields: `story`, `temper`, `road`, `seen` and `laurels` present as `{}`, `time` present as `{ total: 0 }` — what a writer that created a field before filling it leaves. | Hand-aged from the fresh shape. |
+| `triumphs-era` | `triumphsEraProfile.json` | The fully-populated shape with the Triumph record filled: all three titles owned (`Crowd Favourite`, `Champion of the Sands`, `Living Legend`), the ludus statue raised, `title` set to the newest title bought and 700 fame left of 5,000. | The `story-road-era` save with its fame hand-aged to 5,000 and then driven through the real `purchaseLaurel` transaction four times (4,300 fame spent) and frozen. |
 
 ### Shapes each fixture covers
 
@@ -58,7 +67,8 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `malformed-unknown-fields` | forward compatibility · unknown fields ignored by every resolver · unknown fields survive a load and save round trip |
 | `story-road-era` | all five post-GC20 optional fields populated · temper levels on owned items (1 to 3) · road milestones and a chosen banner device · a mid-cycle clock (day 4, dusk) |
 | `partial-story-fields` | sparse story record · a single temper entry · road and seen absent |
-| `malformed-empty-fields` | empty-shaped optional records · a zero clock (day 1, dawn) · nothing seen, no milestones |
+| `malformed-empty-fields` | empty-shaped optional records · an empty `laurels` record (owns no Triumph) · a zero clock (day 1, dawn) · nothing seen, no milestones |
+| `triumphs-era` | `laurels` populated — three titles owned and the statue raised · a title purchase setting the displayed `title` · every post-GC20 optional field populated |
 
 ## What the corpus proves
 

@@ -1,8 +1,10 @@
 import React from 'react';
 import { PlayerProfile } from '../../types/game';
 import { calculateTotalStats } from '../../services/storage';
-import { Swords, Shield, Heart, Zap, Flame, Activity } from 'lucide-react';
+import { Swords, Shield, Heart, Zap, Flame, Activity, Crown } from 'lucide-react';
 import { CampaignCard } from './CampaignCard';
+import { deriveRank } from '../../utils/rank';
+import { STATUE_OWNED_LINE, ownedTriumphs, resolveLaurels } from '../../utils/laurels';
 
 interface StatsTabProps {
   profile: PlayerProfile;
@@ -12,6 +14,16 @@ interface StatsTabProps {
 export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) => {
   const total = calculateTotalStats(profile);
   const totalStamina = total.stamina ?? profile.baseStats.stamina;
+  /**
+   * P2 — the rank shown here is DERIVED from the record (`utils/rank.ts`
+   * `deriveRank`), never the stored `rank` field: nothing advances that field after
+   * creation, so printing it as truth would tell a Champion he is a Rookie.  The
+   * Triumphs beside it are read through the pure `resolveLaurels`/`ownedTriumphs`
+   * helpers — this view writes nothing.
+   */
+  const rank = deriveRank(profile);
+  const laurels = resolveLaurels(profile);
+  const triumphs = ownedTriumphs(profile);
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto w-full pb-12">
@@ -36,6 +48,59 @@ export const StatsTab: React.FC<StatsTabProps> = ({ profile, onAllocatePoint }) 
           <div className="text-[11px] font-mono text-neutral-400">
             XP: {profile.xp} / {profile.xpToNextLevel}
           </div>
+        </div>
+      </div>
+
+      {/* CAREER — the derived rank beside fame, and every Triumph owned. */}
+      <div
+        className="bg-neutral-900/80 border border-amber-600/50 rounded-3xl p-6 shadow-lg"
+        data-career
+      >
+        <h4 className="font-serif font-bold text-sm text-amber-300 mb-4 uppercase tracking-wider flex items-center gap-2">
+          <Crown className="w-4 h-4 text-amber-400" />
+          <span>Career</span>
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="p-4 bg-neutral-950/80 border border-neutral-800 rounded-2xl" data-rank={rank}>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Rank</div>
+            <div className="font-serif font-black text-xl text-amber-200 mt-1">{rank}</div>
+            <div className="text-[10px] font-mono text-neutral-500 mt-1">Earned from fame and the circuit.</div>
+          </div>
+          <div className="p-4 bg-neutral-950/80 border border-neutral-800 rounded-2xl" data-fame={profile.fame}>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Fame</div>
+            <div className="font-mono font-black text-xl text-yellow-300 mt-1">
+              {profile.fame.toLocaleString('en-US')}
+            </div>
+            <div className="text-[10px] font-mono text-neutral-500 mt-1">Spent on Triumphs, never on gold.</div>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+            Triumphs owned
+          </div>
+          {triumphs.length === 0 ? (
+            <p className="mt-1.5 font-serif text-xs italic text-neutral-500" data-triumphs-none>
+              No Triumphs yet.
+            </p>
+          ) : (
+            <ul className="mt-2 flex flex-wrap gap-1.5">
+              {triumphs.map((triumph) => (
+                <li
+                  key={triumph.id}
+                  data-owned-triumph={triumph.id}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/50 text-[11px] font-mono uppercase tracking-wider text-amber-200"
+                >
+                  {triumph.name}
+                </li>
+              ))}
+            </ul>
+          )}
+          {laurels.statue && (
+            <p className="mt-2 font-serif text-xs text-amber-200" data-statue-line>
+              {STATUE_OWNED_LINE}
+            </p>
+          )}
         </div>
       </div>
 

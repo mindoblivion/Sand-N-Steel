@@ -441,4 +441,16 @@ export interface PlayerProfile {
    * NEW profile and leave persisting it to a later slice.
    */
   time?: { total: number };
+  /**
+   * P2 — TRIUMPHS (the fame honours the player buys; the player-facing name is
+   * never "Laurel", which belongs to the palma).  Optional on purpose, exactly like
+   * `chariot` and `racing`: a save written before this slice has no `laurels` field
+   * at all and must keep loading, so `resolveLaurels` (`src/utils/laurels.ts`) reads
+   * a missing, partial or malformed field as "owns nothing" rather than repairing
+   * it.  Written ONLY by a successful `purchaseLaurel()` — never by
+   * `createNewProfile()` and never by a migration.  `titles` holds the owned title
+   * ids and stays owned permanently; the title the player is DISPLAYED with is the
+   * shipped `title` string above, which a title purchase also sets.
+   */
+  laurels?: { titles?: string[]; statue?: boolean };
 }
