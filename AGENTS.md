@@ -6248,3 +6248,63 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   covered by `triumphsSurface.test.tsx` §A/§C against the same components. **Android visual acceptance
   remains pending** for the two surfaces. The verification profile exists only in the preview browser's
   own storage; nothing in the repo, the user's save or the user's preview was touched.
+
+## S4 — injuries happen (disease before cures — implemented)
+
+- **The defect was one end of a finished loop.** `PlayerInjury { fightsRemaining, penaltyStrength,
+  penaltyAgility }` has existed on the profile since import, `createNewProfile()` writes `injury:
+  null`, and `calculateTotalStats` has always subtracted the penalties (floored at 1) — but nothing
+  in the game ever wrote a non-null injury, so the penalty branch was dead. This slice writes the
+  missing inflictor. **No new save field and no migration:** the existing field is written through
+  the existing `saveProfile` path, so the save format is unchanged.
+- **The helper is `src/utils/injury.ts` (pure, deterministic, no RNG).**
+  `resolveInjuryAfterDuel(profile, won)` returns `{ profile, event }` with a NEW profile: a loss with
+  no active injury sets `{ fightsRemaining: 3, penaltyStrength: 2, penaltyAgility: 2 }`; ANY completed
+  duel (win or loss) with a live injury decrements `fightsRemaining` by 1 and clears to `null` at 0; a
+  loss while injured neither stacks nor refreshes. Order of operations is explicit — the fresh
+  infliction branch returns before the decrement, so a new wound starts at the full 3. `event` is
+  `{ kind: 'inflicted', injury }`, `{ kind: 'healed' }` or `null` (a plain decrement says nothing).
+  `resolveActiveInjury()` is the one "is the wound live" read; `injuryBannerLine()` is the one
+  player-facing line, built from the injury's own numbers. The module never reads
+  `calculateTotalStats` or `combatCalculations` (pinned).
+- **One call site: `App.handleMatchComplete` (src/App.tsx:648).** The helper is resolved ONCE before
+  the win/loss branch, and both branches spread `...afterInjury` into the `updatedProfile` they commit
+  through the existing `setProfile` + `saveProfile(settledProfile)` pair — the same transaction that
+  credits gold/fame/xp and records story progress. Wins and losses both run it; racing and every
+  other handler never touch the field. The outcome travels to the result modal in the same
+  `setDuelResult` payload, so the screen and the save cannot disagree. Boss fights and the Doctore's
+  Test go through that one handler, so the rule is uniform — no boss-only exception, no Test exception.
+- **Surfaces.** `DuelResultModal` shows a red banner on an inflicting loss ("Injured: −2 STR / −2 AGI
+  for 3 fights", from the injury written) and a short emerald "Injury healed." line when a duel closes
+  one; a plain decrement adds nothing. `StatsTab` shows an "Injured" block with the penalties and
+  fights remaining above Primary Attributes, only while `resolveActiveInjury` says the wound is live —
+  this is where the player sees why the stats `calculateTotalStats` renders are netted. Neither
+  surface restates the penalty numbers; both read the helper.
+- **Tests.** `src/utils/injury.test.ts` (30 tests / 71 `expect()`) — §A infliction on a loss only,
+  §B a fresh wound starts at 3 and is not decremented by its own duel, §C the cadence across
+  subsequent duels (win or loss), §D clear at 0 → `null`, §E no stacking/refreshing, §F
+  `calculateTotalStats` applies −2/−2 floored at 1 (the first non-null-injury coverage in the repo),
+  §G purity (frozen input, no mutation; a no-op returns the caller's object), §H the wiring (one call
+  site, before the branch, both writes, the result payload, no other caller in `src/`).
+  `src/utils/injurySurface.test.tsx` (6 tests / 15 `expect()`) renders the real components with
+  `react-dom/server`: the modal's three states and the stats tab's live/absent/cleared states.
+  One existing assertion was **rebased, not weakened**: `storyChapterOne.test.ts`'s exact
+  `setDuelResult({ didWin, stats, storyLines })` now includes `injuryEvent`, which is the same
+  payload it exists to pin.
+- **Validated 2026-10-21** in the dev container (all five, on the final tree): `bun test` → **2896
+  pass / 0 fail (98 files, 83,796 `expect()` calls)**; `bun run scripts/collisionTests.ts` → **123
+  passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the
+  pre-existing >500 kB chunk warning; startup asset check 8 assets); `git diff --check` → clean.
+  The one startup failure was mine — `const { injuryEvent }` read a property the helper calls
+  `event`, caught by `tsc` and fixed by `event: injuryEvent`.
+- **Preview evidence.** Live in the preview browser (anonymous visitor, no session): title → PLAY →
+  creation → the city hub → the footer's **Gladiator Stats** tab renders the full stats screen with
+  **no "Injured" block** (`data-injury` absent), no sideways scroll at 1280, and 0 console errors —
+  the no-injury state. **Not automatically verified: the injury states in the running UI.** Putting a
+  wound on a live profile needs a *duel loss* in App's own flow (the 3D city → arena at ~2 fps
+  through SwiftShader), and seeding `localStorage` cannot survive the app's next fresh load, so the
+  positive states are covered by `injurySurface.test.tsx` against the real components instead. Check
+  on device: lose one duel and confirm the red banner's numbers, then open Gladiator Stats and watch
+  the wound's count fall across three duels and the block disappear when it heals. **Android visual
+  acceptance remains pending.** The guest profile this live run wrote was deleted from the preview
+  browser's storage afterwards; the repo, the user's save and the user's preview were not touched.

@@ -1,6 +1,7 @@
 import React from 'react';
 import { DuelStatistics, OpponentConfig } from '../../types/game';
-import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight } from 'lucide-react';
+import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight, HeartPulse } from 'lucide-react';
+import { injuryBannerLine, type DuelInjuryEvent } from '../../utils/injury';
 import { CoachCard } from '../ui/CoachCard';
 import { getCoachCard } from '../../utils/coachMarks';
 import confetti from 'canvas-confetti';
@@ -17,6 +18,13 @@ interface DuelResultModalProps {
    * other duel, so the modal renders exactly as it always has.
    */
   storyLines?: string[];
+  /**
+   * S4 — what this duel did to the injury, decided at the same write that saved
+   * the profile: a fresh wound on a loss (the banner names its own numbers), or
+   * the wound this duel closed. A duel that only advances a live injury's clock
+   * carries `null` and adds nothing.
+   */
+  injuryEvent?: DuelInjuryEvent | null;
   /** The player's purse after the duel, so the reward reads as spendable gold. */
   goldTotal?: number;
   /**
@@ -58,6 +66,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   opponent,
   stats,
   storyLines,
+  injuryEvent,
   goldTotal,
   coachCardId,
   onCoachCardDismiss,
@@ -218,6 +227,30 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
                 {line}
               </p>
             ))}
+          </div>
+        )}
+
+        {/* S4 — the wound this duel dealt (or closed).  Outside the staged
+            reveal: it is the consequence of the fight, not a reward line. */}
+        {injuryEvent && (
+          <div
+            data-duel-injury={injuryEvent.kind}
+            className={`rounded-2xl border p-4 mb-4 flex items-start gap-2 font-serif text-xs sm:text-[13px] leading-relaxed ${
+              injuryEvent.kind === 'inflicted'
+                ? 'bg-red-950/50 border-red-600/60 text-red-200'
+                : 'bg-emerald-950/40 border-emerald-600/50 text-emerald-200'
+            }`}
+          >
+            <HeartPulse
+              className={`w-4 h-4 mt-0.5 shrink-0 ${
+                injuryEvent.kind === 'inflicted' ? 'text-red-400' : 'text-emerald-400'
+              }`}
+            />
+            <span>
+              {injuryEvent.kind === 'inflicted'
+                ? injuryBannerLine(injuryEvent.injury)
+                : 'Injury healed.'}
+            </span>
           </div>
         )}
 
