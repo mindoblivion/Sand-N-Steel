@@ -261,6 +261,17 @@ describe('E. Safe areas (S-1 … S-4; S-5 is recorded as no-action)', () => {
     expect(source('src/components/hub/PostOathNudge.tsx')).toContain('env(safe-area-inset-bottom)');
   });
 
+  test('the coach card pads the edge each placement anchors to (S-1)', () => {
+    const card = source('src/components/ui/CoachCard.tsx');
+    // One inset per placement, with the card's existing 12px spacing as the floor.
+    for (const edge of ['top', 'bottom', 'left', 'right']) {
+      expect(card, edge).toContain(`env(safe-area-inset-${edge})`);
+    }
+    expect(card.match(/max\(0\.75rem,env\(safe-area-inset-/g)?.length ?? 0).toBe(4);
+    // The plain `m-3` margin it replaces is gone, so no edge is left at 12px flat.
+    expect(card).not.toContain('z-[60] m-3');
+  });
+
   test('the race controls keep their 48px floor and their safe-area gutter (S-2)', () => {
     const race = source('src/components/ui/RaceTouchControls.tsx');
     expect(race).toContain('w-[max(3rem,min(4.5rem,13vh))]');

@@ -41,6 +41,19 @@ const PLACEMENT_CLASS: Record<CoachCardPlacement, string> = {
   right: 'right-0 top-1/2 -translate-y-1/2',
 };
 
+/**
+ * UI-1 (S-1) — the device's own insets, on the edge each placement anchors to, with
+ * the card's existing 12px spacing as the floor (the `PostOathNudge` pattern): the
+ * notch or status bar can never sit over the card, and a device without insets is
+ * pixel-identical to the `m-3` it replaces, since `env()` resolves to 0 there.
+ */
+const EDGE_INSET_CLASS: Record<CoachCardPlacement, string> = {
+  top: 'mt-[max(0.75rem,env(safe-area-inset-top))] mr-3 mb-3 ml-3',
+  bottom: 'mt-3 mr-3 mb-[max(0.75rem,env(safe-area-inset-bottom))] ml-3',
+  left: 'mt-3 mr-3 mb-3 ml-[max(0.75rem,env(safe-area-inset-left))]',
+  right: 'mt-3 mr-[max(0.75rem,env(safe-area-inset-right))] mb-3 ml-3',
+};
+
 export const CoachCard: React.FC<CoachCardProps> = ({
   id,
   card,
@@ -51,7 +64,7 @@ export const CoachCard: React.FC<CoachCardProps> = ({
     <div
       data-coach-card={id}
       role="status"
-      className={`fixed z-[60] m-3 w-[min(92vw,22rem)] pointer-events-none flex flex-col ${PLACEMENT_CLASS[placement]}`}
+      className={`fixed z-[60] w-[min(92vw,22rem)] pointer-events-none flex flex-col ${PLACEMENT_CLASS[placement]} ${EDGE_INSET_CLASS[placement]}`}
     >
       <div className="pointer-events-auto rounded-2xl border border-amber-800/60 bg-neutral-950/95 backdrop-blur-sm px-4 py-3 shadow-2xl text-amber-100">
         <div className="flex items-start gap-3">
