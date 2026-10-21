@@ -1,7 +1,8 @@
 import React from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
 import { getItemById, isWeapon } from '../../data/itemsDB';
-import { getStorefrontStock, StorefrontId } from '../../data/shops';
+import { StorefrontId } from '../../data/shops';
+import { resolveStorefrontOffer } from '../../utils/cityRotation';
 import { getSellEligibility, getSellValue } from '../../utils/selling';
 import { ShoppingCart, Coins, Shield, Swords, Check } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
@@ -58,10 +59,13 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   ]);
 
   const copy = STOREFRONT_COPY[shopId];
-  // The storefront's own stock, resolved to the catalogue entries behind it.
-  // `getStorefrontStock` hands back ids from `ITEMS_DB` and `getItemById` reads
-  // that same table, so every id resolves; the guard keeps the array typed.
-  const stock = getStorefrontStock(shopId)
+  // Living City L3 — the storefront's stock for the city day this profile is on.
+  // `resolveStorefrontOffer` selects from `getStorefrontStock`, so the forge,
+  // armorer and open market are exactly what they always were and only the
+  // merchant's rare goods turn over with the day. The purchase handler checks the
+  // same helper against the same profile, so a card and a purchase agree; ids come
+  // from `ITEMS_DB` and `getItemById` reads that same table, so every id resolves.
+  const stock = resolveStorefrontOffer(profile, shopId)
     .map((id) => getItemById(id))
     .filter((item): item is WeaponItem | ArmorItem => item !== undefined);
   const weapons = stock.filter(isWeapon);

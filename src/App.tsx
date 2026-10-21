@@ -20,6 +20,7 @@ import { HeraldToast } from './components/hub/HeraldToast';
 import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
 import { advanceCityDay } from './utils/cityClock';
+import { isStorefrontItemOnOffer } from './utils/cityRotation';
 import { createDuelSettlementLatch } from './utils/duelSettlement';
 import type { BannerDevice } from './utils/heraldry';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
@@ -680,6 +681,11 @@ export function App() {
 
   const handleBuyItem = (item: WeaponItem | ArmorItem) => {
     if (!profile || profile.gold < item.price) return;
+    // Living City L3 — a storefront sells only what its own day's rotation lists,
+    // and `ShopTab` renders that same list. An item the storefront stocks but the
+    // day leaves off is refused here too, so the rotation cannot be bypassed.
+    // Buying never advances the city day: the clock only moves on a settled duel.
+    if (!isStorefrontItemOnOffer(profile, shopId, item.id)) return;
 
     const updated: PlayerProfile = {
       ...profile,

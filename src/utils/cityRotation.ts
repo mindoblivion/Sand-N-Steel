@@ -31,8 +31,11 @@
  *     offers nothing on every day; an empty list is the correct answer, not a
  *     rotation.
  *
- * Not in this phase: no shop UI, no purchase change, no daily limit, no per-day
- * transaction record, no rest/training schedule and no day/night visual.
+ * L3 consumes this module: `resolveStorefrontOffer(profile, id)` is the ONE list
+ * the merchant screen renders and `isStorefrontItemOnOffer(...)` the ONE gate the
+ * purchase handler checks, so a card on screen and a purchase agree by
+ * construction. Still out of scope: daily purchase limits, per-day transaction
+ * records, a rest/training schedule and day/night visuals.
  */
 
 import { getStorefrontStock, type StorefrontId } from '../data/shops';
@@ -109,11 +112,14 @@ function rotationStart(day: number, id: StorefrontId, size: number): number {
  * any eligible list length is answerable, and the caller gets a fresh array it
  * may mutate freely.
  */
-export function rotateStorefrontStock(id: StorefrontId, day: number): string[] {
-  const eligible = getStorefrontStock(id);
-  const slots = ROTATION_SLOTS[id];
+export function selectDailyWindow(
+  eligible: readonly string[],
+  slots: number | null,
+  id: StorefrontId,
+  day: number
+): string[] {
   if (slots === null || slots >= eligible.length || eligible.length === 0) {
-    return eligible;
+    return [...eligible];
   }
 
   const start = rotationStart(normalizeCityDay(day), id, eligible.length);
@@ -122,6 +128,45 @@ export function rotateStorefrontStock(id: StorefrontId, day: number): string[] {
   picked.sort((a, b) => a - b);
 
   return picked.map((index) => eligible[index]);
+}
+
+/**
+ * The ids one storefront offers on one day, in `ITEMS_DB` order.
+ *
+ * A rotating storefront lists a contiguous window of its eligible list, wrapped
+ * and re-sorted into catalogue order; a non-rotating one lists its whole
+ * eligible stock. Pure and total: any day at all (via `normalizeCityDay`) and
+ * any eligible list length is answerable, and the caller gets a fresh array it
+ * may mutate freely.
+ */
+export function rotateStorefrontStock(id: StorefrontId, day: number): string[] {
+  return selectDailyWindow(getStorefrontStock(id), ROTATION_SLOTS[id], id, day);
+}
+
+/**
+ * L3 — the ids a storefront offers on the day the profile is on: the ONE list
+ * the shop screen renders and the ONE list the purchase gate checks, so the two
+ * cannot disagree about what is on offer today.
+ */
+export function resolveStorefrontOffer(
+  profile: CityCarrier | null | undefined,
+  id: StorefrontId
+): string[] {
+  return selectDailyWindow(getStorefrontStock(id), ROTATION_SLOTS[id], id, resolveCityDay(profile));
+}
+
+/**
+ * L3 — whether a storefront offers `itemId` on the profile's current city day.
+ * `false` for an item the storefront stocks but the day's window leaves off, so
+ * buying can never bypass the rotation. Buying, opening or leaving a shop never
+ * advances the day: this helper only reads it.
+ */
+export function isStorefrontItemOnOffer(
+  profile: CityCarrier | null | undefined,
+  id: StorefrontId,
+  itemId: string
+): boolean {
+  return resolveStorefrontOffer(profile, id).includes(itemId);
 }
 
 /**

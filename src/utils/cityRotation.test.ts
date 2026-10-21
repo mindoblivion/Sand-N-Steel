@@ -255,7 +255,7 @@ describe('§D — eligibility comes from getStorefrontStock, unchanged', () => {
 
 // ── §E. Purity and scope ──────────────────────────────────────────────────
 
-describe('§E — no input or catalogue is mutated, and no shop consumes this yet', () => {
+describe('§E — no input or catalogue is mutated; L3 consumes only the shared helper', () => {
   test('the profile and its city object are untouched', () => {
     const city = { day: 5 };
     const profile = { gold: 250, city };
@@ -290,12 +290,16 @@ describe('§E — no input or catalogue is mutated, and no shop consumes this ye
     }
   });
 
-  test('no shop screen, hub or App imports the rotation yet', () => {
+  test('L3 consumes this module through the shared offer helper on BOTH sides', () => {
+    // The screen renders `resolveStorefrontOffer(profile, shopId)` and the
+    // purchase gate asks `isStorefrontItemOnOffer(profile, shopId, item.id)` for
+    // the same profile, so the two cannot disagree about the day's stock.
+    expect(load('../components/hub/ShopTab.tsx')).toContain('resolveStorefrontOffer(profile, shopId)');
+    expect(load('../App.tsx')).toContain('isStorefrontItemOnOffer(profile, shopId');
+    // Neither the hub screen nor the city scene resolves stock of its own.
     for (const file of [
-      '../components/hub/ShopTab.tsx',
       '../components/hub/GladiatorSchoolHub.tsx',
       '../components/3d/city/CityHubScene.tsx',
-      '../App.tsx',
     ]) {
       expect(load(file)).not.toContain('cityRotation');
     }

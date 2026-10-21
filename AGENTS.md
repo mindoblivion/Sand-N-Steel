@@ -6389,3 +6389,105 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   rotation has no UI, so nothing about it is visible in play yet. (c) `triga`-style per-storefront
   period lengths, daily purchase limits and per-day transaction records are deliberately **not**
   built — L2 is the pure foundation only.
+
+## Living City L3 — merchant daily stock (implemented; L1/L2 records preserved above)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`2713ee4bb6`**,
+  `git status --porcelain` **empty** and `git diff` empty before the first edit. Nothing in the tree was
+  stashed, reset or overwritten. The L1 and L2 records above are unchanged; this section appends L3.
+
+- **L2 correctness audit — the shipped hash-window PASSES, so no algorithmic correction was made.** Every
+  property was re-derived from the shipped modules in a throwaway harness in the `web` container, not
+  taken from the L2 report:
+  - **Pool.** `getStorefrontStock('merchant')` is **13** ids in `ITEMS_DB` order —
+    `trident_retarius, dual_vipers, titan_colossus_mace, shamshir_curved, helm_centurion,
+    chest_golden_muscled, arms_manica_steel, arms_galerus_gilded, legs_greaves_steel,
+    legs_greaves_gilded, helm_champion_gilded, chest_lorica_hamata, chest_champion_gilded`.
+  - **Catalogue safety.** Every id a day offers is in `ITEMS_DB` **and** in the merchant's own eligible
+    list; every id in the catalogue and in every storefront pool is unique.
+  - **The misspelled id.** `arms_galerus_gilded` is a real legendary entry ("Gilded Galerus of the
+    Retiarius", 780 / 345, +2 STR +2 AGI). `arms_galerus_rilded` **does not exist** — `getItemById`
+    returns `undefined` and no id in `ITEMS_DB` contains `rilded`. The L2 report's spelling was a typo in
+    prose, never in code or data.
+  - **Shape.** Days **1–500** each return exactly **4** distinct ids, all inside the pool, in catalogue
+    order — no duplicate, no short list, no invalid index. Day 1 is still
+    `helm_centurion, chest_golden_muscled, arms_manica_steel, arms_galerus_gilded`.
+  - **Determinism.** Repeated calls, a fresh `resolveCityRotation`, reversed evaluation order and a fresh
+    resolution all agree; days 1–13 give **9** distinct windows (hash wrap, expected); all 13 goods appear
+    over days 1–40.
+  - **Unchanged storefronts.** `forge` (10), `armorer` (16) and `market` (27) resolve to exactly
+    `getStorefrontStock(id)` on every day tried; `bazaar` is `[]`. `merchant` is the only category the
+    resolver marks `rotates: true`.
+  - **Purity.** The profile and its `city` object are untouched; `ITEMS_DB` is byte-identical after 60
+    resolutions whose returned arrays were mutated; the module still names no storage and no wall clock;
+    `resolveCityDay` remains the only day reader.
+
+- **The one change inside the resolver is a testability refactor, not a behaviour change.** The hash-window
+  arithmetic moved verbatim into an exported pure helper, `selectDailyWindow(eligible, slots, id, day)`,
+  and `rotateStorefrontStock(id, day)` is now `selectDailyWindow(getStorefrontStock(id), ROTATION_SLOTS[id], id, day)`.
+  This is what makes the short-pool and reordered-catalogue cases assertable without touching `ITEMS_DB`
+  (the guard order — `slots === null || slots >= eligible.length || eligible.length === 0` — is
+  unchanged, and the whole-pool branch now returns a copy, which is still a fresh array). No id, price,
+  rarity, slot count, hash key or eligibility rule changed; day 1 still yields the same four ids.
+
+- **L3 wiring — one authoritative offer, used by both the screen and the purchase gate.** Two helpers join
+  the L2 module: `resolveStorefrontOffer(profile, id)` (the day's ids for the profile's own city day,
+  through `resolveCityDay`) and `isStorefrontItemOnOffer(profile, id, itemId)` (the gate). Because both
+  are the same pure selection over the same profile, the merchant's cards and the purchase check cannot
+  disagree.
+  - **Screen.** `ShopTab` no longer reads `getStorefrontStock` directly: `stock` comes from
+    `resolveStorefrontOffer(profile, shopId)` and is then mapped through `getItemById` exactly as before,
+    so forge/armorer/market render their whole stock and the merchant renders the day's four.
+  - **Purchase.** `App.handleBuyItem` keeps its gold check first, then refuses anything
+    `isStorefrontItemOnOffer(profile, shopId, item.id)` does not list, then builds the update. `shopId` is
+    the same App state that reaches `ShopTab`, so an eligible-but-not-selected merchant item has no card
+    and is also refused by the handler — the rotation cannot be bypassed by calling the handler directly.
+  - **Clock untouched.** Buying/opening/leaving a storefront never advances the day: `advanceCityDay`
+    still has exactly one call site (settlement), and neither `ShopTab` nor the buy body names the clock.
+    No new persisted field, no stock snapshot, no second day.
+
+- **Files changed — six (five source/test + this record).** `src/utils/cityRotation.ts` (the helper, the
+  two L3 helpers, the header note), `src/components/hub/ShopTab.tsx` (the offer as the stock source),
+  `src/App.tsx` (the import and one guard line), `src/utils/cityRotation.test.ts` (**one** L2 scope guard
+  rebased: "no shop screen imports the rotation yet" became "L3 consumes this module through the shared
+  offer helper on both sides" — every other L2 assertion untouched), `src/utils/storefrontWiring.test.ts`
+  (**one** pin rebased from `getStorefrontStock(shopId)` to `resolveStorefrontOffer(profile, shopId)`, with
+  the same intent), and **new** `src/utils/cityRotationL3.test.ts`.
+
+- **Regression suite: `src/utils/cityRotationL3.test.ts` — 32 tests** in six sections: §A catalogue safety
+  (the gilded id, the misspelling's absence, 200 days of real/stocked ids, unique ids everywhere);
+  §B shape and stability (four unique per day over 200 days, repeated calls, catalogue order, day 1);
+  §C the clock (legacy profile → day-one stock, eleven malformed day values matching `normalizeCityDay`,
+  fractional flooring, malformed `city` containers, day 1 ≠ day 2); §D the permanent spine (`forge`,
+  `armorer`, `market` equal to `getStorefrontStock` on six days, `bazaar` empty, only `merchant` rotates);
+  §E short/reordered catalogues via `selectDailyWindow` (empty, 1–3 items, 8 items, `null` slots, a
+  reversed pool, day normalisation); §F the shared boundary (every displayed id passes the gate, an
+  eligible-but-withheld merchant item fails it and is offered on another day, unknown ids refused
+  everywhere, the market still offers all 27, the screen renders `resolveStorefrontOffer(profile, shopId)`
+  and no longer `getStorefrontStock(shopId)`, the handler's gold check → offer check → mutation order,
+  and no day advance / no second storage on either path).
+
+- **Checks actually run (2026-10-21, `web` dev container, on the final tree).** `bun test` → **2642 pass /
+  0 fail (90 files, 83,717 `expect()` calls)** (this phase's 32 tests and its file are the delta, so the
+  branch tip read 2610 / 89); `bun run scripts/combatTests.ts` → **65 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup-asset check passing (8
+  assets; the pre-existing >500 kB chunk warning only); `git diff --check` → **clean**.
+
+- **Live evidence (preview browser, anonymous visitor — no session replayed).** Drove the shipped route:
+  title `Play` → character creation → `Apply Points & Enter Metropolis` → 3D city → `City Map &
+  Navigation` → **Elite Merchant House** → its own prompt `INSPECT HIGH-TIER WARES [E / SPACE]` → the
+  merchant screen. It rendered **exactly four cards**, matching the resolver's day-1 window by name:
+  *Transverse Centurion Galea* (320), *Emperor Imperial Muscled Cuirass* (900), *Toledo-Steel Manica*
+  (420), *Gilded Galerus of the Retiarius* (780) — i.e. `helm_centurion`, `chest_golden_muscled`,
+  `arms_manica_steel`, `arms_galerus_gilded`. The hub's own **Bazaar & Forge** tab then rendered **27
+  cards** (the whole market, unchanged), and there were **0 console errors** on either screen. The
+  automation browser's own storage was cleared afterwards; no real save was read or written.
+
+- **Not automatically verified / limitations.** (a) **The purchase click** — the fresh guest profile held
+  100 gold and every merchant good costs more, so every buy control was disabled and no purchase could be
+  driven; the gate is pinned by §F (behavioural helper + the handler's source order) but not by a live
+  click. (b) **A day change in the live UI** — no duel was fought (the sandbox renders the arena at ~1–2
+  fps), so the merchant was only seen on day 1; the day-2 window is pinned by the suite. (c) **No device
+  check** — nothing visual changed beyond which cards are listed, so this adds no Android item. (d) As
+  scoped: no daily purchase limits, no transaction history, no rotation of forge/armorer/market, no
+  rest/training/NPC/day-night systems, no combat, reward or clock change, and no save migration.

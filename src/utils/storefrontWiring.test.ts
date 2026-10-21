@@ -163,7 +163,10 @@ describe('SHOP-2 §C — the storefront id is threaded from the city to the scre
 // ══════════════════════════════════════════════════════════════════════════
 describe('SHOP-2 §D — the shop screen renders a storefront, not the catalogue', () => {
   test('the screen resolves its list through the catalogue layer', () => {
-    expect(SHOP_SRC).toContain('getStorefrontStock(shopId)');
+    // Living City L3 moved the source of truth one step out: the screen renders
+    // the day's offer, which the rotation resolver selects FROM this catalogue
+    // layer (`getStorefrontStock`), so the storefront still decides eligibility.
+    expect(SHOP_SRC).toContain('resolveStorefrontOffer(profile, shopId)');
     expect(SHOP_SRC).toContain("shopId = 'market'");
     // The storefront's list replaces the old "render every weapon and every armor" screen.
     expect(SHOP_SRC).not.toContain('ALL_WEAPONS');
