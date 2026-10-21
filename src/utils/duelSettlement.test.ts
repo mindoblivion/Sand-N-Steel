@@ -397,3 +397,119 @@ describe('§C — App arms and claims per bout; the scene only reports a result'
     }
   });
 });
+
+// ── §D. Callback identity, driven behaviourally ────────────────────────────
+
+describe('§D — a callback is bound to ITS bout, not to "the current" one', () => {
+  /**
+   * A faithful model of App's closure. In `App.tsx` the scene receives
+   * `onMatchComplete={(stats, didWin) => handleMatchComplete(stats, didWin, duelId)}`
+   * — an arrow created in the render that owns the `duelId` STATE, so the id the
+   * scene's timer holds is the one that render saw. Nothing reads a ref at call
+   * time. This model reproduces exactly that, so the tests below exercise the
+   * pattern rather than assert it from source text.
+   */
+  function createClosureBoundApp() {
+    const latch = createDuelSettlementLatch();
+    return {
+      latch,
+      /** `handleEnterDuel`: the ONLY arm site; returns the id it bound. */
+      enterDuel: () => latch.arm(),
+      /** The callback handed to the scene by the render that owns `duelIdAtRender`. */
+      sceneCallback: (duelIdAtRender: number, profile: PlayerProfile, purse: number) => () =>
+        settleDuel(profile, latch, duelIdAtRender, true, purse),
+    };
+  }
+
+  test('bout A\'s callback, arriving after bout B started, cannot settle B and B still settles itself', () => {
+    const app = createClosureBoundApp();
+    const before = legacy();
+
+    const boutA = app.enterDuel();
+    // A is decided; its 1400 ms callback is captured from the render that owns A.
+    const staleCallbackA = app.sceneCallback(boutA, before, 100);
+    // The player is already in bout B when that timer fires.
+    const boutB = app.enterDuel();
+
+    // A settles ITS OWN earned result, once…
+    const afterA = staleCallbackA();
+    expect(resolveCityDay(afterA)).toBe(2);
+    expect(afterA.gold).toBe(before.gold + 100);
+    expect(afterA.fightsWon).toBe(before.fightsWon + 1);
+
+    // …and it did NOT consume B's token: B's own callback names B and settles.
+    expect(app.latch.currentId()).toBe(boutB);
+    const afterB = app.sceneCallback(boutB, afterA, 40)();
+    expect(resolveCityDay(afterB)).toBe(3);
+    expect(afterB.gold).toBe(before.gold + 140);
+    expect(afterB.fightsWon).toBe(before.fightsWon + 2);
+
+    // A firing again is inert: a refused claim hands back the caller's own profile.
+    const replay = staleCallbackA();
+    expect(replay).toBe(before);
+    expect(resolveCityDay(replay)).toBe(1);
+  });
+
+  test('CONTROL: a latest-id read would impersonate B — so the test above pins the closure', () => {
+    const latch = createDuelSettlementLatch();
+    const before = legacy();
+
+    const boutA = latch.arm();
+    const boutB = latch.arm();
+
+    // The rejected wiring: read "the current bout" when the callback runs.
+    const latestIdCallback = () => settleDuel(before, latch, latch.currentId(), true, 100);
+    const settled = latestIdCallback();
+
+    // It settled B with A's result…
+    expect(resolveCityDay(settled)).toBe(2);
+    // …and B can then never settle itself, which is the defect this suite guards.
+    expect(latch.claim(boutB)).toBe(false);
+    // A, meanwhile, is still unclaimed: its earned purse would be lost.
+    expect(latch.claim(boutA)).toBe(false);
+  });
+
+  test('a stale callback for A arriving after B has ALREADY settled is refused', () => {
+    const latch = createDuelSettlementLatch();
+    const before = legacy();
+
+    const boutA = latch.arm();
+    const boutB = latch.arm();
+
+    const afterB = settleDuel(before, latch, boutB, true, 60);
+    expect(resolveCityDay(afterB)).toBe(2);
+
+    // Out of order: A's late arrival would replay an older snapshot over B's.
+    const afterA = settleDuel(afterB, latch, boutA, true, 100);
+    expect(afterA).toBe(afterB);
+    expect(resolveCityDay(afterA)).toBe(2);
+    expect(afterA.gold).toBe(before.gold + 60);
+  });
+
+  test('a bout can never settle unless its id was armed', () => {
+    const app = createClosureBoundApp();
+    const before = legacy();
+    const boutA = app.enterDuel();
+
+    // The future, a zero and a fraction are refused; the armed one is honoured.
+    for (const id of [0, -1, 1.5, NaN, Infinity, boutA + 1]) {
+      expect(settleDuel(before, app.latch, id, true, 100)).toBe(before);
+    }
+    expect(resolveCityDay(settleDuel(before, app.latch, boutA, true, 100))).toBe(2);
+  });
+
+  test('ids never collide or reset inside one app session', () => {
+    const latch = createDuelSettlementLatch();
+    const ids: number[] = [];
+    for (let i = 0; i < 50; i += 1) ids.push(latch.arm());
+
+    expect(new Set(ids).size).toBe(50);
+    expect(ids).toEqual(Array.from({ length: 50 }, (_, i) => i + 1));
+    // And each settles exactly once, in order, with no id reusable afterwards.
+    for (const id of ids) {
+      expect(latch.claim(id)).toBe(true);
+      expect(latch.claim(id)).toBe(false);
+    }
+    expect(latch.claim(50)).toBe(false);
+  });
+});

@@ -6272,3 +6272,120 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   cannot deliver one. (c) Nothing consumes the day yet (L2 is the first reader), so a wrong day is
   still visible only in the save. (d) `trainingSessionsLeft` and `injury.fightsRemaining` remain
   unwired, as L1 recorded.
+
+### L1 final identity audit — callback closure, verified behaviourally (audited, no production change)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`a159c665ca`**,
+  `git status --porcelain` **empty** and no diff before the first edit; the tree stayed clean after
+  every step (nothing stashed, reverted or overwritten). The working tree matched the L1
+  verification gate's shipped code: `src/utils/duelSettlement.ts`, the `duelId` state, the single
+  arm site and the id-carrying `onMatchComplete` adapter are exactly as that record describes, so
+  no material discrepancy was found.
+
+- **Verdict: the L1 identity fix PASSES; no production wiring was changed.** The six properties the
+  audit had to establish, each traced to the exact mechanism:
+  1. **Every duel gets a stable, unique id.** `handleEnterDuel` — the only route onto the duel
+     screen — calls `duelSettlementRef.current.arm()` and stores the result in `duelId` state; the
+     latch is one `useRef` for the App's lifetime and its counter only ever increments, so 50 bouts
+     yield exactly ids 1…50 with no reuse.
+  2. **The callback is captured at render time, not read at invocation time.** The scene receives
+     `onMatchComplete={(stats, didWin) => handleMatchComplete(stats, didWin, duelId)}` — an arrow
+     closed over that render's `duelId` **state**. Nothing in the path reads a mutable
+     latest-id ref, and `DuelScene` knows no id at all (its `onMatchComplete(stats, didWin)`
+     signature is unchanged, and its `setTimeout` holds the closure React gave it).
+  3. **A stale callback cannot impersonate a newer bout.** §D of `duelSettlement.test.ts` now
+     **executes** the pattern (a closure-bound app model, not a source assertion): bout A's
+     callback, fired after bout B has started, settles A's own purse and one day, leaves the latch
+     pointing at B, and B still settles itself. A **control** runs the rejected "read the current id
+     at call time" wiring through the same model and shows it would consume B's token and lose A's
+     purse — so the test discriminates between the two designs rather than agreeing with itself.
+  4. **Settlement stays idempotent per bout.** `claim(id)` is true at most once per id; a replay
+     hands back the caller's own profile object (asserted by identity in §D and §B).
+  5. **A duel cannot settle unless its id was armed** — future ids, `0`, negative, fractional,
+     `NaN` and `Infinity` are all refused (§D).
+  6. **Starting a new duel does not invalidate an earned pending result**, and **the id lifecycle
+     cannot collide or reset** inside a session (§D's 50-bout test).
+
+- **What the audit deliberately did not change.** `DuelScene`'s combat timing, its 1400 ms result
+  delay, the wind-up windows, `handleMatchComplete`'s arithmetic, the save shape and the one storage
+  key are exactly as L1 shipped. One documented limit stands: a callback for A arriving **after** B
+  has already settled is refused (out of order) because it would replay an older profile snapshot —
+  that is the designed trade-off, and it is pinned as a test rather than left implicit.
+
+- **Files changed this phase: one suite** (`src/utils/duelSettlement.test.ts` — the new §D,
+  5 tests). No production file. `bun test src/utils/duelSettlement.test.ts` → **25 pass / 0 fail**.
+
+## Living City L2 — deterministic day-based rotation foundation (implemented; no shop wiring)
+
+- **What ships.** `src/utils/cityRotation.ts` (new, pure) and `src/utils/cityRotation.test.ts`
+  (new, 20 tests). **No shop screen, purchase handler, stock persistence, daily limit, transaction
+  record, training schedule, rest mechanic, NPC, day/night visual, timer, combat, reward or save
+  change** — and no save key or migration: the rotation is *derived* from the saved day, never
+  stored, so it is identical after a reload and on a local or a Drive save alike.
+
+- **The contract.** `resolveCityRotation(profile)` → `{ day, storefronts }`, where
+  `storefronts[id] = { storefront, rotates, slots, itemIds }`. The day is
+  `resolveCityDay(profile)` from `utils/cityClock.ts` — the one clock, with no second reader and no
+  wall clock; `rotateStorefrontStock(id, day)` takes an explicit day (normalized through the same
+  `normalizeCityDay`) for a caller that already has one. Selection is a contiguous window of the
+  storefront's **eligible** list, its start an FNV-1a hash of `sand-and-steel:city-rotation:${id}:${day}`
+  mod the pool length, re-sorted into `ITEMS_DB` order: same day + same inputs → same window; the
+  next day → a different window; no randomness, no time, nothing persisted.
+  **Eligibility is `getStorefrontStock(id)`, unchanged and authoritative** — rotation only selects
+  from it, so it can never offer an item the storefront does not stock.
+
+- **Supported categories (exactly what L2 covers).**
+  - **`merchant` — ROTATES**: `MERCHANT_ROTATION_SLOTS = 4` of its **13** rare/legendary goods are
+    on offer each day (tuned constant, not a rule; the pool is 13, so the window is ~31 % of it).
+  - **`forge` (10), `armorer` (16), `market` (27) — do NOT rotate**: they resolve to exactly
+    `getStorefrontStock(id)`, so wiring a later phase's shop screen to this resolver cannot change
+    what those shops sell. `market` stays complete so no item is ever unreachable.
+  - **`bazaar` — empty on every day** (its consumables are a later phase); an empty list is the
+    correct answer, not a rotation.
+  The slot table is a `Record<StorefrontId, number | null>`, so a newly added storefront is a type
+  error here rather than a silently non-rotating shop; `ROTATING_STOREFRONTS` is derived from it.
+
+- **Measured behaviour (the suite's own numbers).** Day 1's merchant window is
+  `helm_centurion, chest_golden_muscled, arms_manica_steel, arms_galerus_gilded`; day 2 differs;
+  days 1–13 produce **9** distinct windows (the hash wraps the pool, so a collision is expected and
+  harmless); over days 1–40 **every one of the 13 merchant goods appears** at least once, so nothing
+  is rotated away permanently; `3.7 → 3`, and `'7'`, `true`, `NaN`, `Infinity`, `0`, `-7`, `-0.5`,
+  `null`, `{}`, `[]` all resolve to day 1 — exactly as `resolveCityDay` resolves them.
+
+- **Regression suite: `src/utils/cityRotation.test.ts` — 20 tests**, in the repo's two registers:
+  §A stability (repeated calls equal, fresh arrays, 25 consecutive calls byte-identical, a fresh
+  resolution repeats it, the day-1 window pinned, catalogue order kept, no duplicates); §B day
+  sensitivity (day 1 ≠ day 2, ≥ 2 and measured 9 distinct windows in 13 days, full-pool coverage over
+  40 days, order-independent); §C the clock (legacy profile → day 1, eleven malformed day values
+  matching `normalizeCityDay`, fractional flooring, malformed `city` containers ignored, and the
+  module naming no `Date` / timer / storage / randomness and importing the clock); §D eligibility
+  (every id stocked by its own storefront and resolvable via `getItemById`, merchant window
+  rare/legendary only, the three permanent storefronts exactly equal to `getStorefrontStock` on five
+  days, bazaar empty, `merchant` the only rotating category, forge still excluding the starter);
+  §E purity and scope (profile and its `city` object untouched by identity and JSON, `ITEMS_DB`
+  byte-identical after 60 resolutions despite callers mutating the returned arrays, no id/price/
+  rarity table of its own, and `ShopTab` / `GladiatorSchoolHub` / `CityHubScene` / `App` naming
+  `cityRotation` nowhere — the proof that shop behaviour is unchanged).
+
+- **Boundaries honoured.** No `ShopTab`, purchase handler, `App` wiring, saved value, item, price,
+  eligibility rule, collider or asset was touched. Nothing consumes the resolver yet — that is L3's
+  job, and wiring it is an explicit later decision.
+
+- **Verified 2026-10-20** in the dev container on the final tree: `bun test` → **2616 pass / 0 fail
+  (89 files, 80,792 `expect()` calls)** — this phase contributes 25 tests (the new
+  `cityRotation` file's 20 plus the 5 added to `duelSettlement`), so the branch tip carried 2591 /
+  88 before it by arithmetic; the L1 record's own 2587 was measured at `fcd0309`, an earlier
+  commit, and is not this HEAD's baseline. `bun run scripts/combatTests.ts` → **65 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup-asset
+  check passing (8 assets; the pre-existing >500 kB chunk warning only); `git diff --check` →
+  **clean**. The day/rotation numbers above were produced by a throwaway harness in the container
+  importing the shipped module, not by a test that agrees with itself.
+
+- **Not verified / limitations.** (a) **No live duel was played and no live day was advanced** — the
+  audit and the rotation are pinned by executed pure logic plus source ordering, and the sandbox's
+  SwiftShader city/arena (~1–2 fps) cannot reach a completed bout inside a script budget, exactly as
+  L1 recorded. The same device check is still owed: win one duel and lose one, confirm `city.day`
+  reads 2 then 3, and confirm the merchant window changes with it once L3 wires the screen. (b) The
+  rotation has no UI, so nothing about it is visible in play yet. (c) `triga`-style per-storefront
+  period lengths, daily purchase limits and per-day transaction records are deliberately **not**
+  built — L2 is the pure foundation only.
