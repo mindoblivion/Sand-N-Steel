@@ -351,7 +351,8 @@ describe('§D a duplicated visitor purchase cannot charge twice', () => {
     expect(second.ok).toBe(false);
     if (!second.ok) expect(second.reason).toBe('already-completed');
 
-    const price = getItemById(BLADESMITH_ITEM)!.price;
+    // L15 — the single charge is the bladesmith's bargain, not the canonical price.
+    const price = BLADESMITH_BARGAIN;
     expect(harness.saves.length).toBe(1);
     expect(goldOf(harness.ref.current)).toBe(5000 - price);
     expect(
@@ -441,7 +442,8 @@ describe('§F control — without the ref write the sale is lost', () => {
 
   test('CONTROL: the same sale + purchase loses the sale gold and inventory', () => {
     const harness = createHarness(fresh(), LEGACY_SOURCE);
-    const price = getItemById(BLADESMITH_ITEM)!.price;
+    // L15 — the charge is the bladesmith's bargain; the control is about the lost sale.
+    const price = BLADESMITH_BARGAIN;
 
     harness.handlers.handleSellItem(SPARE);
     const purchase = harness.handlers.handleVisitorPurchase(BLADESMITH);

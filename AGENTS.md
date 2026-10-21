@@ -7610,3 +7610,131 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   now has exactly **three** production call sites (the duel settlement, `utils/restRecovery.ts`,
   `utils/lodging.ts`) and `advanceCityDay` is still not called from any component — the scene only
   asks the transaction and renders its result.
+
+## Living City L15 — the visitor's bargain price (implemented; the purchase verified live)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD
+  **`cde7db5d6c9b3bf1412b195b5279d6e413107eea`** ("Implement visitor bargain pricing and discounts"),
+  `git status --short` **empty** before the first edit — so L15 landed as that commit
+  (`src/data/visitors.ts`, `src/utils/visitorPurchase.ts`, `src/components/hub/VisitorPanel.tsx`,
+  `src/utils/visitorPurchase.test.ts`, `src/utils/profileMutationCommit.test.ts`; 5 files,
+  +355/−50) and was written up nowhere until this record. The hand-off premise (an uncommitted tree
+  with two failing assertions) was stale; nothing was reset, stashed, discarded or overwritten.
+
+- **What ships: a reason to walk to a visitor instead of the shop.** Each visitor carries one
+  **rate**, and the asking price is `ceil(canonical × rate)` — derived from the catalogue's own
+  `ITEMS_DB` price, never a second price table. `src/data/visitors.ts` gains
+  `Visitor.bargainRate?: number` and three values; nothing else in the catalogue changed (cadences,
+  windows and pools are L10's, re-pinned in the suite).
+
+  | visitor | rate | offer measured | canonical | bargain |
+  |---|---|---|---|---|
+  | `numidian_bladesmith` | **0.70** | `dirk_desert` / `dagger_pugio` | 170 / 90 | **119 / 63** |
+  | `campanian_armorer` | **0.75** | `arms_manica` / `legs_greaves_bronze` / `helm_galea_iron` | 70 / 130 / 170 | **53 / 98 / 128** |
+  | `emesan_weapon_trader` | **0.80** | `bronze_mace` / `shamshir_curved` / `spatha_legion` | 230 / 340 / 180 | **184 / 272 / 144** |
+
+- **The one resolver, and the fallback that can only cost the player more.**
+  `resolveVisitorBargainPrice(item, rate)` in `src/utils/visitorPurchase.ts` returns
+  `Math.ceil(canonical × rate)`; `ceil` because a bargain must never round to a coin the offer did not
+  promise (`ceil(170 × 0.75)` = 128, `ceil(70 × 0.75)` = 53, `ceil(90 × 0.7)` = 63 — 62.999… before
+  rounding). A rate is valid only strictly inside `(0, 1)`: `0` would make the item free, `1` is no
+  bargain and above it is a markup, so a **missing, `NaN`, non-finite, non-numeric or out-of-band**
+  rate reads as "no bargain" and the **canonical price is charged**. The canonical price itself is
+  still validated by the L12 safeguard (`resolveVisitorItemPrice` — `NaN`/`Infinity`/negatives/non-
+  numbers are refused, a finite zero stays a legitimate free gift), so malformed catalogue data can
+  never produce a free item, a `NaN` balance or a price the panel cannot explain.
+
+- **The UI/transaction price contract: one function, two callers, no third opinion.**
+  `VisitorPanel` renders `resolveVisitorBargainPrice(selected.item, selected.visitor.bargainRate)`
+  and `purchaseVisitorOffer` charges `resolveVisitorBargainPrice(item, visitor.bargainRate)` — the
+  same call on the same catalogue entry, so the price shown and the price charged cannot disagree.
+  The panel shows **both** figures (`Asks 119 gold — the shops charge 170`), states the saving only
+  when there is one (`price < canonical`), and the buy control reads **`Buy for 119 gold`** /
+  `Not enough gold` from that same bargain price, so the affordability check, the button and the
+  charge are one number. The panel still sends **only the visitor id** — a UI cannot name a price the
+  trade honours. The transaction's own order (profile → catalogue → `already-completed` → schedule →
+  offer → item → price → purse → inventory → affordability) is L12's, unchanged.
+
+- **The economic floor — eight offers, measured against canonical AND sell prices.** §J of
+  `visitorPurchase.test.ts` walks every shipped offer and asserts it is **strictly below its canonical
+  price** and **strictly above its own `sellPrice`**, then pins the whole measured table (the eight
+  rows above) so a data change cannot quietly narrow a margin. That is the property that makes the
+  bargain a bargain rather than a laundering loop: buying from the visitor and selling back at the
+  market's own refund is always a loss (e.g. `dirk_desert` 119 → sell 75), and the visitor stays
+  cheaper than the permanent spine it undercuts.
+
+- **Why four `profileMutationCommit.test.ts` assertions needed rebasing, and what each protects.**
+  That suite executes App's **real handler source** against the **real** transactions, so a price
+  change moves its gold arithmetic. The four affected assertions were each about the visitor
+  purchase's **charged amount**, and each was rebased onto the **shared resolver** rather than a
+  literal:
+  1. §B "the sale survives the next purchase" — `expect(price).toBe(BLADESMITH_BARGAIN)` with the
+     canonical base still pinned beside it (`expect(getItemById(...).price).toBe(170)`), so the test
+     proves the discount is applied **to** the catalogue price, not instead of it;
+  2. §B "the sale's gold is intact" — `saved.gold === 5000 + saleValue − BLADESMITH_BARGAIN`;
+  3. §D "a duplicated purchase charges once" — the purse after one charge is `5000 − BLADESMITH_BARGAIN`
+     (it had still pinned 170, and was one of the two failures this turn resolved);
+  4. §F "the CONTROL: the sale is lost" — that control replays the same source with the
+     `profileRef.current = …` writes stripped and asserts the purchase rebuilt from the **pre-sale**
+     snapshot (`5000 − price`, the sold item back). Its subject is the lost sale, not the price, so it
+     now subtracts the same bargain figure (it was the second failure).
+  `BLADESMITH_BARGAIN` is derived once at the top of the file from `getItemById` +
+  `getVisitor(...).bargainRate` through `resolveVisitorBargainPrice`, so the suite cannot drift from
+  the production rule and **no price table is duplicated**. Nothing was deleted, no assertion was
+  weakened, and the file's one-save-on-success and ref-write guarantees (§B, §D, §E, §F) are exactly as
+  they were — §F still splices out the ref write and still loses the sale.
+
+- **Checks actually run (2026-10-21, `web` dev container, on the final tree).**
+
+  | command | result |
+  |---|---|
+  | `bun test src/utils/profileMutationCommit.test.ts src/utils/visitorPurchase.test.ts src/utils/visitorSchedule.test.ts src/utils/visitorEncounter.test.ts` | **149 pass / 0 fail** (2,935 `expect()`; the starting point was 147 / 2 — the §D and §F pins) |
+  | `bun test` (full) | **3075 pass / 0 fail (104 files, 88,814 `expect()`)** |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `bun run build` | **exit 0**, startup-asset check passing (8 assets in `public/` and `dist/`) |
+  | `git diff --check` | **clean (exit 0)** |
+
+- **Live evidence — the bargain purchase driven through the real interface.** The preview browser is an
+  **anonymous visitor (no session replayed)**, so a profile was seeded into its own storage
+  (`sand_and_steel_gladiator_save_v2`: city day **5**, gold **2,000**, level 1, `road.oathSworn: true`
+  so the Oath beat stays out of the HUD) and the app was loaded **inside an in-page frame** — the
+  C-8.66C/L11/L14 technique, so the app re-reads the seeded save without a platform fresh load clearing
+  it. Driven with real clicks: the title's **`Continue`** → the 3D city hub → the header chip reading
+  **`VISITORS 1`** → the panel on **`CITY DAY 5`** → the **Hanno of Cirta** row → the detail pane
+  reading **`Asks 119 gold — the shops charge 170`** with the control **`BUY FOR 119 GOLD`** → the
+  control clicked. Result, read back from the persisted profile: **gold 2,000 → 1,881 — exactly 119**,
+  `dirk_desert` **granted once** (inventory 2 → 3, dirk count 1), `city.completedVisitors:
+  ["numidian_bladesmith"]`, `city.seenVisitors` retained from the row click, `city.day` still **5**, the
+  visitor's row **gone** from the panel, the message *"Hanno of Cirta has departed — the trade is
+  complete."*, and **three** writes to the save key in the whole run (hub entry, the encounter, the
+  purchase) — i.e. **one save for the purchase**. The same script was run before and after the fix
+  below, which is what makes the charge attributable to the code rather than to luck.
+
+- **One environment defect found live, and fixed without a code change: the dev server served a STALE
+  `visitorPurchase.ts`.** The first live run showed the panel and the button reading **119** while the
+  profile was charged **170** — a real disagreement, but not one in the repository: `curl
+  http://localhost:3000/src/utils/visitorPurchase.ts` returned a cached transform whose
+  `purchaseVisitorOffer` still said `const price = resolveVisitorItemPrice(item);` (the pre-L15 body)
+  while the same transform already exported `resolveVisitorBargainPrice` — a half-updated module from
+  the previous session's edits, which Vite had never re-transformed. A direct
+  `purchaseVisitorOffer(day-5 profile, 'numidian_bladesmith')` in the container charges **119**
+  (gold 2,000 → 1,881), which is what the repository's source says. After
+  `docker compose restart web`, the served module carries
+  `const price = resolveVisitorBargainPrice(item, visitor.bargainRate)` and the live run charges
+  **exactly 119**. **No production file was changed for this** — but it is worth knowing that a stale
+  transform can make a correct repository look broken in the preview, so re-fetch the module before
+  diagnosing a UI/transaction disagreement.
+
+- **Not automatically verified / limitations.** (a) **The panel's rendered frame** was not obtained in
+  the passing run — the inline capture came back as a failed upload — so the live evidence above is
+  **DOM and persisted-profile** evidence: the price line and button labels were read from the running
+  DOM, and the charge/inventory/completion from the saved profile. An earlier run's capture did show the
+  panel with the post-trade message; treat the **visual reading on a device as still owed**. (b) **The
+  refusals** (`insufficient-gold`, `already-completed`) were not driven live this turn; both are pinned
+  by the suites. (c) **The armorer's and the trader's rates** were not driven live — only the
+  bladesmith was traded with, on day 5. (d) **No physical Android device was used**, and nothing here
+  should be read as device acceptance: the panel's fit and legibility at a phone breakpoint, and the
+  chip in the header cluster, remain on the open device checklist with every other phase's items.
+  (e) The bargain rate is deliberately a **rate**, not a price: an item whose canonical price changes
+  moves its visitor price with it, and a future visitor-exclusive stock would need a rate too rather
+  than a table of its own.
