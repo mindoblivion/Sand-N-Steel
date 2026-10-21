@@ -32,6 +32,9 @@ import nullObjectsProfile from './nullObjectsProfile.json';
 import partialRacingProfile from './partialRacingProfile.json';
 import partialChariotProfile from './partialChariotProfile.json';
 import unknownFieldsProfile from './unknownFieldsProfile.json';
+import storyRoadEraProfile from './storyRoadEraProfile.json';
+import partialStoryProfile from './partialStoryProfile.json';
+import emptyFieldsProfile from './emptyFieldsProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -120,6 +123,35 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'Hand-aged: a fresh save plus three fields no build in this tree writes (a schema counter, a nested unknown object and an unknown string).',
     covers: ['forward compatibility', 'unknown fields ignored by every resolver', 'unknown fields survive a load and save round trip'],
     profile: asProfile(unknownFieldsProfile),
+  },
+  {
+    id: 'story-road-era',
+    file: 'storyRoadEraProfile.json',
+    provenance:
+      'The racing-era save hand-aged through every field added after it: tempered gear on three owned items, campaign flags, the road record with a chosen device, the coach-mark log and a mid-cycle clock.',
+    covers: [
+      'all five post-GC20 optional fields populated',
+      'temper levels on owned items (1 to 3)',
+      'road milestones and a chosen banner device',
+      'a mid-cycle clock (day 4, dusk)',
+    ],
+    profile: asProfile(storyRoadEraProfile),
+  },
+  {
+    id: 'partial-story-fields',
+    file: 'partialStoryProfile.json',
+    provenance:
+      'Hand-aged: a played second-level save carrying a sparse story record, a single temper entry and a clock, with road and seen absent entirely.',
+    covers: ['sparse story record', 'a single temper entry', 'road and seen absent'],
+    profile: asProfile(partialStoryProfile),
+  },
+  {
+    id: 'malformed-empty-fields',
+    file: 'emptyFieldsProfile.json',
+    provenance:
+      'Hand-aged: every post-GC20 optional field present but empty-shaped — empty records and a zero clock, what a writer that created a field before filling it leaves.',
+    covers: ['empty-shaped optional records', 'a zero clock (day 1, dawn)', 'nothing seen, no milestones'],
+    profile: asProfile(emptyFieldsProfile),
   },
 ];
 

@@ -214,14 +214,18 @@ describe('§A isValidStoredProfile — the shape the game will run on', () => {
 });
 
 describe('§B loadSavedProfile — a good save is returned untouched, a bad one is kept', () => {
-  test('nothing stored loads as no save, and reports no quarantine', () => {
+  test('nothing stored loads as no save, and reports no new quarantine', () => {
+    // The quarantine flag is module state that latches on the first bad save
+    // anywhere in the process — the save corpus suite deliberately loads a
+    // corrupt fixture, so in a full-repo run it can already be true here.  The
+    // assertion is therefore relative: this load must not change the flag.
+    const before = wasStoredSaveQuarantined();
     const store = makeStore();
     withStore(store, () => {
       expect(loadSavedProfile()).toBeNull();
       expect(store.data.has(PROFILE_QUARANTINE_KEY)).toBe(false);
     });
-    // No quarantine has happened yet in this module instance.
-    expect(wasStoredSaveQuarantined()).toBe(false);
+    expect(wasStoredSaveQuarantined()).toBe(before);
   });
 
   test('a valid save comes back exactly as parsed — no field added, removed or repaired', () => {
