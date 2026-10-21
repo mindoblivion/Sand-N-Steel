@@ -24,6 +24,8 @@ import { settleInjury } from './utils/injurySettlement';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
 import { trainStat } from './utils/trainingSession';
 import { restAtMedicalHouse, type RestResult } from './utils/restRecovery';
+// L11 — the ONE visitor encounter transaction: meeting a visitor writes `seenVisitors`.
+import { recordVisitorEncounter } from './utils/visitorEncounter';
 import type { TrainingStat } from './data/training';
 import { createDuelSettlementLatch } from './utils/duelSettlement';
 import type { BannerDevice } from './utils/heraldry';
@@ -803,6 +805,24 @@ export function App() {
     setCurrentScreen('title');
   };
 
+  /**
+   * Living City L11 — the ONE visitor encounter (`utils/visitorEncounter`).
+   * Selecting a visitor is a meeting, and that is the only thing this records: it
+   * writes `city.seenVisitors` — deduplicated, with every other profile and city
+   * field carried across — and never `completedVisitors`, because the roadmap has
+   * not defined what completes a visit. The transaction reads the newest committed
+   * profile (`profileRef`), so a stale panel callback cannot overwrite newer state,
+   * answers `recorded: false` for a visitor already met (no second save), and never
+   * advances the city day or touches gold, inventory or progression.
+   */
+  const handleVisitorEncounter = (visitorId: string) => {
+    const result = recordVisitorEncounter(profileRef.current, visitorId);
+    if (!result.ok || !result.recorded) return;
+    profileRef.current = result.profile;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
   // A device that cannot draw the 3D world gets one plain-language surface and a retry,
   // never a scene that fails to render.
   if (!webglAvailable) {
@@ -872,6 +892,7 @@ export function App() {
             onOpenTab={handleOpenHubTab}
             onEnterDuel={handleEnterDuel}
             onRest={handleRest}
+            onEncounterVisitor={handleVisitorEncounter}
             onOpenDriveSync={() => setShowDriveSync(true)}
             onToggleMute={handleToggleMute}
             isMuted={isMuted}

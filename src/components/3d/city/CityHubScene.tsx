@@ -15,6 +15,9 @@ import { ChampionBannerPole } from './ChampionBannerPole';
 import { resolveBanner } from '../../../utils/heraldry';
 import { resolveDoorDuelTarget, resolveBoutLevelGate } from '../../../utils/tierAdvancement';
 import { PreFightModal } from '../../hub/PreFightModal';
+// L11 — the visitor panel and the ONE schedule it lists (who is in town today).
+import { VisitorPanel } from '../../hub/VisitorPanel';
+import { resolveVisitorSchedule } from '../../../utils/visitorSchedule';
 import { MerchantHouse } from './MerchantHouse';
 import { ArmorLeatherWorkshop } from './ArmorLeatherWorkshop';
 import { Stable } from './Stable';
@@ -101,6 +104,7 @@ import {
   Cloud,
   Zap,
   Settings,
+  Users,
 } from 'lucide-react';
 
 /**
@@ -181,6 +185,12 @@ interface CityHubSceneProps {
    * shows the result, so there is one rest path and no clock work here.
    */
   onRest: () => RestResult;
+  /**
+   * L11 — the ONE visitor encounter. The transaction lives in `App`
+   * (`utils/visitorEncounter`); this scene only decides WHEN a visitor is met (an
+   * explicit selection in the panel) and never writes history itself.
+   */
+  onEncounterVisitor: (visitorId: string) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
   isMuted: boolean;
@@ -219,6 +229,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onOpenTab,
   onEnterDuel,
   onRest,
+  onEncounterVisitor,
   onOpenDriveSync,
   onToggleMute,
   isMuted,
@@ -294,6 +305,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const [isAttacking, setIsAttacking] = useState(false);
   const [nearbyLoc, setNearbyLoc] = useState<InteractiveLocation | null>(null);
   const [showNavDrawer, setShowNavDrawer] = useState(false);
+  // L11 — the visitor panel. Nothing is resolved per frame: the schedule is derived
+  // from the profile (and therefore from the saved day) only when that profile changes.
+  const [showVisitors, setShowVisitors] = useState(false);
+  const visitorArrivals = useMemo(
+    () => resolveVisitorSchedule(playerProfile).arrivals,
+    [playerProfile]
+  );
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
   const [stableNotice, setStableNotice] = useState<string | null>(null);
   // Combat responsiveness §R3B — the fighter a Colosseum door has resolved and
@@ -1057,6 +1075,24 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             </div>
           </div>
 
+          {visitorArrivals.length > 0 && (
+            <button
+              onClick={() => {
+                sounds.playClick();
+                setShowVisitors(true);
+              }}
+              className="min-h-[48px] px-3 rounded-2xl bg-neutral-950/85 border border-amber-500/60 text-amber-200 hover:text-amber-100 backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all flex items-center gap-2 font-serif font-bold text-xs uppercase tracking-wider"
+              title={`Visitors in the city today: ${visitorArrivals.map((a) => a.visitor.name).join(', ')}`}
+              data-testid="city-visitors-button"
+            >
+              <Users className="w-5 h-5 text-amber-300" />
+              <span className="hidden sm:inline">Visitors</span>
+              <span className="text-[10px] font-mono bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-700/50">
+                {visitorArrivals.length}
+              </span>
+            </button>
+          )}
+
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
@@ -1206,6 +1242,17 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             onEnterDuel(opp);
           }}
           onCancel={() => setPendingDuel(null)}
+        />
+      )}
+
+      {/* L11 — THE VISITOR PANEL. Opens from the header's visitor chip, which only
+          appears on a day the schedule has someone in the city; selecting a visitor
+          there is the encounter that records `seenVisitors`. */}
+      {showVisitors && (
+        <VisitorPanel
+          profile={playerProfile}
+          onEncounter={onEncounterVisitor}
+          onClose={() => setShowVisitors(false)}
         />
       )}
 

@@ -495,14 +495,17 @@ describe('§J the neighbours and the wiring', () => {
     expect(schedule.resting.map((action) => action.id)).toEqual(['stamina']);
   });
 
-  test('no screen, scene or collider carries visitor wiring', () => {
-    for (const rel of [
-      '../App.tsx',
-      '../components/3d/city/CityHubScene.tsx',
-      './cityCollisions.ts',
-    ]) {
-      expect(load(rel)).not.toMatch(/visitor/i);
-    }
+  test('visitors still have no geometry, collider or disc (rebased by L11)', () => {
+    // L10 shipped no visitor wiring at all. L11 adds exactly ONE surface — the
+    // visitor panel, opened from the city header's chip — so this guard is
+    // rebased, not weakened: what must remain true is that no visitor has a
+    // mesh, a disc, a collider or a proximity trigger, and that the panel is the
+    // only thing the scene mounts for them.
+    expect(load('./cityCollisions.ts')).not.toMatch(/visitor/i);
+    const scene = load('../components/3d/city/CityHubScene.tsx');
+    expect(scene).not.toMatch(/VisitorMesh|visitorDisc|visitorCollider|activeToday/);
+    expect(scene.match(/<VisitorPanel/g)?.length).toBe(1);
+    expect(load('../App.tsx')).not.toMatch(/completedVisitors\s*[:=]/);
   });
 
   test('the two history fields stay optional, and no migration introduces them', () => {

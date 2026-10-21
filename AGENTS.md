@@ -7105,3 +7105,122 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   flows) is exactly as before. The next phase in the audit's own sequence (L5 step 2) is the visitor
   interaction and its offer purchase, which is the only thing allowed to write `seenVisitors` /
   `completedVisitors`.
+
+## Living City L11 — visitor encounters (implemented; meeting recorded, completion NOT implemented)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`7d206c11a6`** ("Implement
+  visitor schedule and arrival system"), parent `143edd0d50`, `git status --short` **empty** — the
+  state the L10 record and the L10B audit both described. **There is no separate L10B record in this
+  file**: that audit was read-only and changed nothing, so its findings live in the phase report, not
+  here. Nothing was reset, stashed or overwritten.
+
+- **The window semantics are adopted as this phase's approved reading.** A visitor's `window` is an
+  **inclusive range of city days** (`from ≤ day ≤ to`), on which the L10 cadence predicate
+  `fnv1a(`${day}:${visitorId}`) % cadence === 0` decides the day; eligibility is that predicate **and**
+  schedule membership **and** absence from `completedVisitors`. No time-of-day clock, dwell duration,
+  wall-clock timer or random scheduling was introduced, the L10 resolver and the L2 rotation are
+  untouched, and **no catalogue bound, cadence or offer changed** (`src/data/visitors.ts` and
+  `src/utils/visitorSchedule.ts` are byte-identical to L10).
+
+- **The interaction surface: one HUD entry and one panel — no mesh, no disc, no collider.**
+  `CityHubScene` reads `resolveVisitorSchedule(playerProfile).arrivals` in a `useMemo` keyed on the
+  profile (so nothing is resolved per frame), and shows a **`VISITORS n` chip in the header only when
+  `arrivals.length > 0`** — a visitor is an occasion, so on a day with nobody in town the chip does not
+  exist. `src/components/hub/VisitorPanel.tsx` (new) is the focused interaction: a `PreFightModal`-
+  shaped overlay listing the day's visitors, a selectable row per visitor (name, title, a `MET` badge
+  once seen) and a detail pane with the visitor's flavour, the day's offer item (name and description
+  from `ITEMS_DB`) and the line **"No trade is offered yet."** It displays **no price and has no buy
+  control**, because no purchase is approved in this phase. **The physical-visitor work the audit
+  sequenced as "L7 — city presentation & performance" (static meshes gated on `activeToday`, discs
+  under the C-8.47 nearest-wins rule) is deliberately NOT started**: `cityCollisions.ts` carries no
+  visitor entry, so `HUB_LOCATIONS` is still 21 discs and the frame's cost is unchanged.
+
+- **Seen is a meeting; completion is undefined, so completion is NOT implemented.** Choosing a visitor
+  in the panel is the encounter, and it is the **only** thing that writes history:
+  `src/utils/visitorEncounter.ts` (new, pure) exposes `recordVisitorEncounter(profile, visitorId)` —
+  the one write of `seenVisitors` — plus `isVisitorInTown` and `resolveVisitorEncounter` (the view the
+  panel renders: visitor, offer id, resolved item, `seen`). It refuses (`no-profile`,
+  `unknown-visitor`, `not-in-town`) before writing anything, deduplicates against the stored history
+  (a repeat answers `ok: true, recorded: false` with the caller's own profile object, so **no second
+  save**), preserves every other profile and city field, never advances the day and **never writes
+  `completedVisitors`**. `App.handleVisitorEncounter` reads `profileRef.current` (so a stale panel
+  callback cannot overwrite newer state) and commits through the existing `setProfile` + `saveProfile`
+  pair exactly once, only when `recorded` is true.
+
+- **The unresolved product decision, stated precisely.** The roadmap defines `completedVisitors`
+  ("completion → excluded permanently") and the L10 catalogue calls its pool the visitor's *offer*, but
+  **nothing in this repository says what action completes a visit** — neither the roadmap's L5/L6
+  entries nor the L10 record name the event, and L6 is the first phase allowed to sell anything
+  visitor-specific. So this phase stops at `seenVisitors`. The decision the next phase needs:
+  **does buying the day's offered item — through the existing purchase rule, at its `ITEMS_DB` price —
+  mark the visitor completed (and, if so, permanently, as the roadmap says, which also means one
+  purchase ends all future trades with that visitor for a 2–3 item pool)?** The alternatives are a
+  separate completion step (a courtesy, a gift, a dismissal) or deferring completion to L6's rare
+  chariot parts. No reward, cost, price or completion condition was invented here to make the UI work.
+
+- **Two App slice placements, and one guard, were rebased — not weakened.** (1) `handleVisitorEncounter`
+  sits after `handleResetGame`, at the end of the mutator list, because three existing suites slice
+  `App.tsx` by handler boundaries (`restRecovery` §G between `const handleRest` and `const handleBuyItem`;
+  `trainingSession` between `const handleTrainStat` and `const handleBuyItem`; `storefrontPurchase` §I
+  and `cityRotationL3` between `const handleBuyItem` and `const handleSellItem`, the latter asserting
+  exactly one `saveProfile(`). Placing it anywhere inside those spans made a neighbour's slice count two
+  saves — a genuine overlap, so the handler moved rather than the neighbours' assertions being relaxed.
+  (2) The L10 suite's `§J  no screen, scene or collider carries visitor wiring` became false the moment
+  this phase wired the panel; it is now **"visitors still have no geometry, collider or disc"** and
+  asserts the properties that must still hold: `cityCollisions.ts` names no visitor, the scene carries
+  no `VisitorMesh`/`visitorDisc`/`visitorCollider`/`activeToday`, exactly one `<VisitorPanel` is
+  mounted, and `App.tsx` never assigns `completedVisitors`. Every other L10 assertion is untouched.
+
+- **Regression suite: `src/utils/visitorEncounter.test.ts` (new) — 30 tests / 93 `expect()`** in six
+  sections: §A the transaction (one meeting records one id; a repeat records nothing; dedupe against a
+  stored history; two visitors accumulate in the order met; every profile and city field survives —
+  pinned as a whole `city` object; a malformed container is refused; a junk-filled history is filtered);
+  §B eligibility (not in town today, past its window, unknown id, no profile, a **completed** visitor,
+  and the view agreeing with the schedule); §C seen is not done (a met visitor still arrives, the same
+  schedule is produced, `completedVisitors` stays unwritten, the day never moves, and a source scan of
+  the module finds no writer for anything but `seenVisitors`); §D purity (no mutation, a frozen profile
+  answerable and a new object returned, passive resolution writing nothing); §E the neighbours (the
+  merchant window on day 1, the training timetable, the rest fee, `advanceCityDay` and the catalogue's
+  spine-only pools); §F the wiring (`App` is the one caller and reads `profileRef.current`, the handler
+  is handed to the scene once, the scene lists the schedule and mounts one panel, the panel calls
+  `onEncounter` only from a click and never from an effect, the panel names no purchase, `.price` or
+  `saveProfile`, and the L10 resolver still has no writer).
+
+- **Verified 2026-10-21** in the dev container, after the last edit: focused
+  `bun test src/utils/visitorEncounter.test.ts src/utils/visitorSchedule.test.ts` → **76 pass / 0 fail**
+  (2,483 `expect()`); `bun test` → **2896 pass / 0 fail (98 files, 87,784 `expect()`)** (the 2866 / 97
+  baseline plus this suite's 30 tests and its file); `bun run lint` (`tsc --noEmit`) → exit 0;
+  `bun run build` → exit 0 with the startup-asset check passing (8 assets; the pre-existing >500 kB
+  chunk warning only; `dist/` is gitignored); `git diff --check` → clean. The validation's starting
+  point was **2 failures in the new suite** (both mine: an expected history order, and the merchant
+  window read on day 5 instead of the day-1 baseline) and **3 in existing suites** — the two
+  App-slice overlaps and the L10 §J guard above. No assertion was loosened to pass.
+
+- **Live evidence — the encounter driven through the real interface.** The preview browser is an
+  **anonymous visitor (no session replayed)**, so a profile was created through the app's own creation
+  path and seeded to **city day 5 with the Oath sworn** (a new gladiator opens the city on the Oath
+  beat, which has no HUD). Driven in an in-page frame against the dev server — C-8.66C's technique, so
+  the app re-reads the seeded save without a platform fresh load — the real clicks produced: the
+  header chip reading **`VISITORS 1`** (day 5 is the bladesmith's first day); the panel opening on
+  **`CITY DAY 5`**, listing **Hanno of Cirta · Wandering Bladesmith**; and, after selecting him, the
+  stored profile gaining exactly **`city.seenVisitors: ["numidian_bladesmith"]`** with
+  `completedVisitors` still **absent**, `city.day` still **5**, **gold unchanged** (100), and the same
+  profile otherwise byte-identical. The rendered frame after the meeting shows the row's green **`MET`**
+  badge and the detail pane's **"Brought to trade — Desert Dirk"** with **"No trade is offered yet."**
+  A **second click on the same row wrote nothing** (the stored string was identical before and after),
+  which is the dedupe + no-second-save rule observed end to end rather than inferred. Cleanup: the
+  frame was removed and the seeded save deleted, leaving `localStorage` **empty**, as it was before the
+  run.
+
+- **Not automatically verified, and the honest caveats.** (a) The `MET` badge was read from the
+  **captured frame**, not from a DOM read after the click — that read returned a stale panel node
+  (`rowShowsMet: false`) while the screenshot taken at the same moment shows the badge, so the badge is
+  visually confirmed and the DOM read was an automation artefact, not a defect. (b) The two earlier
+  captures in that run landed on the game's own asset preloader overlay; only the third frame is
+  evidence of the panel. (c) **Not exercised at all:** a day with **no** visitors (the chip is then
+  absent by construction and by the source guard), a visitor the player has **already met** on a later
+  day, a **completed** visitor (impossible to reach — nothing writes completion), and the panel at a
+  phone breakpoint. (d) **Android / device acceptance is PENDING** for the chip's fit in the header
+  cluster (gold · fame · settings · cloud · mute · menu), the panel's legibility in landscape and its
+  scroll behaviour on a small screen, as with every other phase here. (e) No browser or device evidence
+  is claimed for anything outside the city hub: this phase adds no other route or screen.
