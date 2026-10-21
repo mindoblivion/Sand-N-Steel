@@ -21,7 +21,7 @@ import { describe, test, expect } from 'bun:test';
 import type { PlayerProfile } from '../types/game';
 import { DEFAULT_PLAYER_WEAPON } from '../data/itemsDB';
 import { ALL_OPPONENTS } from '../data/opponents';
-import { CHAMPION_FAME, CHAMPION_TIER, VETERAN_FAME, VETERAN_TIER } from './rank';
+import { CHAMPION_FAME, CHAMPION_TIER, VETERAN_FAME, VETERAN_TIER, deriveRank } from './rank';
 import { resolveRoadProgress } from './roadOfGlory';
 import { chooseBannerDevice, evaluateRoadMilestones } from './roadMilestones';
 import {
@@ -283,5 +283,126 @@ describe('§H — the four personal devices', () => {
     expect(bannerDeviceSpec(null)).toBe(null);
     expect(bannerDeviceSpec('   ')).toBe(null);
     expect(bannerDeviceSpec('bull')?.latin).toBe('Taurus');
+  });
+});
+
+// ── §I. Silent grandfathering (city entry) vs a genuine settlement ─────────
+
+describe('§I — `silent` records a save’s own history without the herald', () => {
+  /** A pre-road save: Veteran, and no `road` field at all. */
+  const legacyVeteran = (overrides: Partial<PlayerProfile> = {}): PlayerProfile =>
+    base({ fightsWon: 3, fame: VETERAN_FAME + 50, currentTier: VETERAN_TIER, ...overrides });
+
+  test('the same pair records silently, and speaks when the settlement asks it to', () => {
+    // City entry passes a null baseline with `silent`; the duel settlement passes a real
+    // before/after pair and no options. One comparison, two registers.
+    const arrival = legacyVeteran();
+    const silent = evaluateRoadMilestones(null, arrival, { silent: true });
+    const settled = evaluateRoadMilestones(null, arrival);
+
+    expect(silent.changed).toBe(true);
+    expect(silent.profile.road?.milestonesSeen).toEqual(['sworn', 'blooded', 'known']);
+    expect(silent.cries).toEqual([]);
+    // The rituals still describe what was recorded — only the herald is held.
+    expect(silent.rituals.map((ritual) => ritual.stage)).toEqual(['sworn', 'blooded', 'known']);
+
+    expect(settled.changed).toBe(true);
+    expect(settled.cries).toEqual(['The herald cries: Test, Veteran of the Ludus!']);
+    expect(settled.profile.road?.milestonesSeen).toEqual(['sworn', 'blooded', 'known']);
+  });
+
+  test('a milestone won in the sand still cries and records', () => {
+    // The duel shape: a genuine before/after pair, no options — the announcement stands.
+    const before = base({ name: 'Spartacus' });
+    const after = { ...before, fame: VETERAN_FAME, currentTier: VETERAN_TIER };
+
+    const victory = evaluateRoadMilestones(before, after);
+
+    expect(victory.changed).toBe(true);
+    expect(victory.cries).toContain('The herald cries: Spartacus, Veteran of the Ludus!');
+    expect(victory.profile.road?.milestonesSeen).toContain('known');
+    expect(victory.offerDeviceChoice).toBe(true);
+  });
+
+  test('silent is monotonic and idempotent: a second arrival writes nothing', () => {
+    const first = evaluateRoadMilestones(null, legacyVeteran(), { silent: true });
+    const second = evaluateRoadMilestones(null, first.profile, { silent: true });
+
+    expect(second.changed).toBe(false);
+    expect(second.profile).toBe(first.profile);
+    expect(second.cries).toEqual([]);
+    expect(second.profile.road?.milestonesSeen).toEqual(['sworn', 'blooded', 'known']);
+  });
+
+  test('silent keeps what the save already recorded, in order, without duplicates', () => {
+    const partial = base({
+      fightsWon: 3,
+      fame: VETERAN_FAME + 50,
+      currentTier: VETERAN_TIER,
+      road: { milestonesSeen: ['blooded'] },
+    });
+
+    const evaluation = evaluateRoadMilestones(null, partial, { silent: true });
+    const seen = evaluation.profile.road?.milestonesSeen ?? [];
+
+    expect(seen).toEqual(['blooded', 'sworn', 'known']);
+    expect(new Set(seen).size).toBe(seen.length);
+    expect(resolveRoadProgress(evaluation.profile).milestonesSeen).toEqual(seen);
+  });
+
+  test('grandfathering changes the road record and nothing else', () => {
+    // The whole profile, field by field, on a mid-game save with history worth keeping.
+    const arrival = base({
+      fightsWon: 4,
+      fightsLost: 2,
+      fame: CHAMPION_FAME,
+      currentTier: CHAMPION_TIER,
+      gold: 777,
+      bossKills: 1,
+      defeatedOpponentIds: [ALL_OPPONENTS[0].id],
+      injury: { fightsRemaining: 2, penaltyStrength: 2, penaltyAgility: 2 },
+      city: { day: 9, merchantPurchaseDay: 9, restDay: 8, seenVisitors: ['numidian_bladesmith'] },
+    } as Partial<PlayerProfile>);
+
+    const evaluation = evaluateRoadMilestones(null, arrival, { silent: true });
+
+    expect(evaluation.changed).toBe(true);
+    expect(evaluation.cries).toEqual([]);
+    // Every gameplay-bearing field is carried through untouched…
+    expect(evaluation.profile.gold).toBe(arrival.gold);
+    expect(evaluation.profile.fame).toBe(arrival.fame);
+    expect(evaluation.profile.xp).toBe(arrival.xp);
+    expect(evaluation.profile.level).toBe(arrival.level);
+    expect(evaluation.profile.currentTier).toBe(arrival.currentTier);
+    expect(evaluation.profile.fightsWon).toBe(arrival.fightsWon);
+    expect(evaluation.profile.fightsLost).toBe(arrival.fightsLost);
+    expect(evaluation.profile.bossKills).toBe(arrival.bossKills);
+    expect(evaluation.profile.defeatedOpponentIds).toBe(arrival.defeatedOpponentIds);
+    expect(evaluation.profile.inventory).toBe(arrival.inventory);
+    expect(evaluation.profile.injury).toBe(arrival.injury);
+    expect(evaluation.profile.baseStats).toBe(arrival.baseStats);
+    expect(evaluation.profile.equipped).toBe(arrival.equipped);
+    expect(evaluation.profile.city).toEqual(arrival.city);
+    // …the derived rank is unmoved, and the only difference is the road record.
+    expect(deriveRank(evaluation.profile)).toBe(deriveRank(arrival));
+    const { road: withRoad, ...rest } = evaluation.profile;
+    const { road: _withoutRoad, ...before } = arrival;
+    expect(rest).toEqual(before);
+    expect(withRoad?.milestonesSeen).toEqual(['sworn', 'blooded', 'known', 'feared']);
+    expect(withRoad?.oathSworn).toBeUndefined();
+    expect(withRoad?.bannerDevice).toBeUndefined();
+  });
+
+  test('the device offer is untouched by `silent`', () => {
+    const past = base({ fame: VETERAN_FAME, currentTier: VETERAN_TIER });
+    const short = base({ fame: VETERAN_FAME - 1, currentTier: VETERAN_TIER - 1 });
+
+    expect(evaluateRoadMilestones(null, past, { silent: true }).offerDeviceChoice).toBe(true);
+    expect(evaluateRoadMilestones(null, short, { silent: true }).offerDeviceChoice).toBe(false);
+    // …and a device already chosen is still never offered again.
+    expect(
+      evaluateRoadMilestones(null, { ...past, road: { bannerDevice: 'laurel' } }, { silent: true })
+        .offerDeviceChoice
+    ).toBe(false);
   });
 });

@@ -18,7 +18,11 @@ const RaceScene = React.lazy(() => import('./components/3d/RaceScene').then((m) 
 import { DuelResultModal } from './components/hub/DuelResultModal';
 import { HeraldToast } from './components/hub/HeraldToast';
 import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
-import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
+import {
+  evaluateRoadMilestones,
+  chooseBannerDevice,
+  type RoadEvaluationOptions,
+} from './utils/roadMilestones';
 import { advanceCityDay } from './utils/cityClock';
 import { settleInjury } from './utils/injurySettlement';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
@@ -309,8 +313,12 @@ export function App() {
    * hands back the profile to save — it is the only writer of `road.milestonesSeen` —
    * together with the cries the herald should raise and whether the device panel is owed.
    */
-  const evaluateRituals = (before: PlayerProfile, after: PlayerProfile): PlayerProfile => {
-    const evaluation = evaluateRoadMilestones(before, after);
+  const evaluateRituals = (
+    before: PlayerProfile | null,
+    after: PlayerProfile,
+    options?: RoadEvaluationOptions
+  ): PlayerProfile => {
+    const evaluation = evaluateRoadMilestones(before, after, options);
     if (evaluation.cries.length > 0) {
       setHeraldCries((previous) => [...previous, ...evaluation.cries]);
     }
@@ -319,9 +327,13 @@ export function App() {
   };
 
   const enterCity = (forProfile: PlayerProfile) => {
-    // City entry is the second milestone call site. Nothing new has happened here, so
-    // this records at most a stage the save already earned — never a watcher's guess.
-    const arrivalProfile = evaluateRituals(forProfile, forProfile);
+    // City entry is the second milestone call site, and the grandfathering one: a null
+    // baseline makes every stage the save has already earned but never been shown "fresh",
+    // so a legacy, imported or cloud-loaded gladiator finally records its own road. It is
+    // recorded `silent` — a cry belongs to the event that won the stage (the duel
+    // settlement), never to an arrival, which must not read old history back as news. The
+    // device-panel offer is derived from the arrival alone, so it is unaffected.
+    const arrivalProfile = evaluateRituals(null, forProfile, { silent: true });
     // L13A — city entry is handed the profile the caller means the city to open with,
     // and that argument is authoritative: a freshly created gladiator or a cloud save
     // is NEWER than the ref, while a caller passing the render's own snapshot always

@@ -7,6 +7,10 @@
  * appended to `profile.road.milestonesSeen`, which this module is the only writer of.
  * There is no watcher and no timer — an event that changes nothing fires nothing.
  *
+ * City entry is the grandfathering site, not a settlement: it passes a null baseline so
+ * the stages a save has already earned but never been shown are recorded, and `silent`
+ * so that history is written without the herald reading it back as news.
+ *
  * Nothing else is stored: the rank gates are read from the road, the boss names from
  * `src/data/opponents.ts`, and the banner's stripes stay derived (`src/utils/heraldry.ts`).
  */
@@ -48,10 +52,23 @@ export interface RoadEvaluation {
   /** True when `milestonesSeen` grew, i.e. there is something new to save. */
   changed: boolean;
   rituals: RoadRitual[];
-  /** Everything the herald says this time, in order. */
+  /** Everything the herald says this time, in order. Empty when the call is `silent`. */
   cries: string[];
   /** True while the road is at or past Veteran and no device is recorded. */
   offerDeviceChoice: boolean;
+}
+
+/** Per-call switches. Only city entry sets one. */
+export interface RoadEvaluationOptions {
+  /**
+   * City-entry grandfathering: record the stages the save has already earned but has
+   * never been shown, and say nothing. A cry belongs to the event that won the stage —
+   * the duel settlement — never to an arrival, so a save that is only now meeting its
+   * own history must not hear that history read back as news. `rituals` still describes
+   * what was recorded and `offerDeviceChoice` is untouched, so a grandfathered veteran
+   * is still offered a banner device.
+   */
+  silent?: boolean;
 }
 
 /** The stages the road has already carried this profile through, in road order. */
@@ -82,7 +99,8 @@ function newlyDefeatedBosses(
  */
 export function evaluateRoadMilestones(
   before: PlayerProfile | null | undefined,
-  after: PlayerProfile
+  after: PlayerProfile,
+  options: RoadEvaluationOptions = {}
 ): RoadEvaluation {
   const name = after.name;
   const seen = resolveRoadProgress(after).milestonesSeen;
@@ -97,10 +115,15 @@ export function evaluateRoadMilestones(
     offerDeviceChoice: stage === 'known',
   }));
 
-  const cries = [
-    ...rituals.map((ritual) => ritual.cry).filter((cry): cry is string => cry !== null),
-    ...newlyDefeatedBosses(before, after).map((boss) => HERALD_CRIES.boss(boss, name)),
-  ];
+  // A silent evaluation records what it finds and says nothing: city entry passes a null
+  // baseline (so every earned-but-unshown stage is "fresh") and must not read the save's
+  // whole boss history back to the herald — those cries were raised where the bosses fell.
+  const cries = options.silent
+    ? []
+    : [
+        ...rituals.map((ritual) => ritual.cry).filter((cry): cry is string => cry !== null),
+        ...newlyDefeatedBosses(before, after).map((boss) => HERALD_CRIES.boss(boss, name)),
+      ];
 
   const changed = freshStages.length > 0;
   const profile: PlayerProfile = changed

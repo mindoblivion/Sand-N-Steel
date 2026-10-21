@@ -23,8 +23,9 @@
  *   §C  the banner device: the one-time write, and a second choice refused;
  *   §D  racing purchase and selection: cost, unlock, and free selection;
  *   §E  the gladiator's oath: the one guarded write, and a non-writing beat;
- *   §F  city entry: the arrival write updates the ref, and a no-op arrival cannot
- *       leave the ref pointing at a profile the save no longer holds.
+ *   §F  city entry: the arrival grandfathers the road it never recorded (silently, with the
+ *       device offer intact), commits one object through ref → state → disk, and leaves a
+ *       save whose road is already recorded quiet.
  *
  * Run with: `bun test src/utils/profileWritersCommit.test.ts`
  */
@@ -38,6 +39,7 @@ import { CHARIOT_PARTS } from '../data/chariotParts';
 import { purchaseChariotPart, equipChariotPart } from './chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './racingProgression';
 import { chooseBannerDevice, evaluateRoadMilestones } from './roadMilestones';
+import { CHAMPION_FAME, CHAMPION_TIER, VETERAN_FAME, VETERAN_TIER } from './rank';
 import {
   oathWriteOnCompletion,
   resolveOathBeatMode,
@@ -455,6 +457,10 @@ describe('§F city entry keeps the committed ref in step', () => {
   function cityHarness() {
     const harness = createRefHarness();
     const screens: string[] = [];
+    // The two surfaces `evaluateRituals` drives, modelled faithfully: the herald is
+    // App state appended through an updater, and the device panel is an open.
+    const herald: string[] = [];
+    const deviceOffers: number[] = [];
     const factory = new Function(
       'profileRef',
       'setProfile',
@@ -479,8 +485,14 @@ describe('§F city entry keeps the committed ref in step', () => {
       harness.setProfile,
       harness.saveProfile,
       evaluateRoadMilestones,
-      () => {},
-      () => {},
+      (update: (previous: string[]) => string[]) => {
+        const next = update([...herald]);
+        herald.length = 0;
+        herald.push(...next);
+      },
+      () => {
+        deviceOffers.push(1);
+      },
       shouldPlayOathBeat,
       suppressHeraldForEntry,
       releaseHeraldForEntry,
@@ -489,34 +501,115 @@ describe('§F city entry keeps the committed ref in step', () => {
       () => {},
       (screen: string) => screens.push(screen)
     );
-    return { ...harness, handlers, screens };
+    return { ...harness, handlers, screens, herald, deviceOffers };
   }
 
-  test('an arrival writes nothing today: the road is compared with itself', () => {
-    // `enterCity` evaluates the milestones with the SAME profile as both sides, so no
-    // stage can be "fresh" and the guarded arrival write never fires — a measured
-    // property of the shipped call shape, asserted here so the branch cannot start
-    // writing without this test noticing. The ref sync (below) is what L13A adds.
-    for (const arriving of [
-      fresh({ fightsWon: 1 }),
-      fresh({ fightsWon: 3, fame: 5000, currentTier: 2 }),
-      fresh({ gold: 0, city: { day: 40 } }),
-    ]) {
+  // ── L13C — city entry grandfathers what the save already earned, silently ─────
+  /** A gladiator the road has already outrun: Veteran, and no `road` field at all. */
+  const veteranArrival = (overrides: Partial<PlayerProfile> = {}): PlayerProfile =>
+    fresh({ fightsWon: 2, fame: VETERAN_FAME, currentTier: VETERAN_TIER, ...overrides });
+  /** Past the Champion gate, so several stages are owed at once. */
+  const championArrival = (overrides: Partial<PlayerProfile> = {}): PlayerProfile =>
+    fresh({ fightsWon: 6, fame: CHAMPION_FAME, currentTier: CHAMPION_TIER, ...overrides });
+
+  test('a legacy arrival records the stages it earned, and says nothing', () => {
+    // A pre-road save entering the city: every earned stage is "fresh" against the null
+    // baseline, so the arrival write finally fires — exactly once — and the herald stays
+    // silent, because a cry belongs to the event that won the stage, not to an arrival.
+    for (const [arriving, owed] of [
+      [veteranArrival(), ['sworn', 'blooded', 'known']],
+      [championArrival(), ['sworn', 'blooded', 'known', 'feared']],
+    ] as const) {
       const harness = cityHarness();
       harness.ref.current = arriving;
       harness.handlers.enterCity(arriving);
 
-      expect(harness.saves.length).toBe(0);
-      expect(harness.renders.length).toBe(0);
-      expect(harness.ref.current).toBe(arriving);
+      expect(harness.saves.length).toBe(1);
+      expect(harness.renders.length).toBe(1);
+      expect(harness.saves[0].road?.milestonesSeen).toEqual([...owed]);
+      expect(harness.herald).toEqual([]);
       expect(harness.screens).toEqual(['city_3d']);
     }
   });
 
-  test('when the guarded arrival write does fire, the ref is written first', () => {
-    // Ordering, read from the source the test above executes: ref → state → disk, with
-    // the arrival literal shared by all three. This is the shape that keeps the ref
-    // fresh on the one branch that can write.
+  test('a second arrival neither writes again nor records anything twice', () => {
+    const arriving = veteranArrival();
+    const harness = cityHarness();
+    harness.ref.current = arriving;
+
+    harness.handlers.enterCity(arriving);
+    const recorded = harness.saves[0];
+    harness.render();
+    harness.handlers.enterCity(recorded);
+
+    expect(harness.saves.length).toBe(1);
+    expect(harness.renders.length).toBe(1);
+    expect(recorded.road?.milestonesSeen).toEqual(['sworn', 'blooded', 'known']);
+    expect(harness.herald).toEqual([]);
+  });
+
+  test('existing history is preserved, in order, and never duplicated', () => {
+    // A save that recorded part of its road already: the ids it holds stay first and
+    // untouched, and only the missing ones are appended — monotonic, never rewritten.
+    const harness = cityHarness();
+    const arriving = veteranArrival({ road: { milestonesSeen: ['blooded'] } });
+    harness.ref.current = arriving;
+
+    harness.handlers.enterCity(arriving);
+
+    expect(harness.saves.length).toBe(1);
+    const seen = harness.saves[0].road?.milestonesSeen ?? [];
+    expect(seen).toEqual(['blooded', 'sworn', 'known']);
+    // No id was added twice and none of the stored ones was dropped.
+    expect(new Set(seen).size).toBe(seen.length);
+    expect(seen.filter((id) => id === 'blooded').length).toBe(1);
+  });
+
+  test('a grandfathered veteran with no device is still offered the panel', () => {
+    const harness = cityHarness();
+    const arriving = veteranArrival();
+    harness.ref.current = arriving;
+
+    harness.handlers.enterCity(arriving);
+
+    expect(harness.deviceOffers.length).toBe(1);
+    expect(harness.herald).toEqual([]);
+  });
+
+  test('a chosen device is never reopened, and the record still lands', () => {
+    const harness = cityHarness();
+    const arriving = veteranArrival({ road: { bannerDevice: 'sword' } });
+    harness.ref.current = arriving;
+
+    harness.handlers.enterCity(arriving);
+
+    expect(harness.deviceOffers).toEqual([]);
+    expect(harness.saves[0].road?.milestonesSeen).toEqual(['sworn', 'blooded', 'known']);
+    expect(harness.saves[0].road?.bannerDevice).toBe('sword');
+  });
+
+  test('an ordinary session profile whose road is already recorded stays quiet', () => {
+    // The steady state: the duel settlement recorded the road first, so the arrival has
+    // nothing to say, nothing to write and no device to offer.
+    const harness = cityHarness();
+    const arriving = veteranArrival({
+      road: { milestonesSeen: ['sworn', 'blooded', 'known'], bannerDevice: 'sword' },
+    });
+    harness.ref.current = arriving;
+
+    harness.handlers.enterCity(arriving);
+
+    expect(harness.saves.length).toBe(0);
+    expect(harness.renders.length).toBe(0);
+    expect(harness.herald).toEqual([]);
+    expect(harness.deviceOffers).toEqual([]);
+    expect(harness.ref.current).toBe(arriving);
+    expect(harness.screens).toEqual(['city_3d']);
+  });
+
+  test('the arrival commits one object through the ref, then state, then disk', () => {
+    // Ordering and identity, read from the source the tests above execute: ref → state
+    // → disk, with the arrival literal shared by all three.
     const body = extractHandler('enterCity');
     const refWrite = body.indexOf('profileRef.current = arrivalProfile;');
     const setState = body.indexOf('setProfile(arrivalProfile)');
@@ -525,6 +618,29 @@ describe('§F city entry keeps the committed ref in step', () => {
     expect(setState).toBeGreaterThan(refWrite);
     expect(save).toBeGreaterThan(setState);
     expect(body.match(/profileRef\.current =/g)?.length).toBe(1);
+
+    const harness = cityHarness();
+    const arriving = championArrival();
+    harness.ref.current = arriving;
+    harness.handlers.enterCity(arriving);
+
+    const committed = harness.committed();
+    expect(committed.ref).toBe(committed.render);
+    expect(committed.ref).toBe(committed.save);
+    expect(committed.ref).not.toBe(arriving);
+  });
+
+  test('city entry is the silent, grandfathered call site; the duel is not', () => {
+    // The two call shapes, pinned so neither can drift into the other's register.
+    const cityBody = extractHandler('enterCity');
+    expect(cityBody).toContain('evaluateRituals(null, forProfile, { silent: true })');
+    expect(cityBody).not.toContain('evaluateRituals(forProfile, forProfile)');
+
+    // The duel settlement hands a real before/after pair and passes NO options, so a
+    // milestone won in the sand still raises its cry.
+    const loudCalls = APP_SRC.match(/evaluateRituals\(base, updatedProfile\)/g) ?? [];
+    expect(loudCalls.length).toBe(2);
+    expect(APP_SRC).not.toContain('evaluateRituals(base, updatedProfile, {');
   });
 
   test('an arrival that earns nothing writes nothing but still syncs the ref', () => {
