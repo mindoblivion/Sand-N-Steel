@@ -513,14 +513,15 @@ describe('D. The one write', () => {
   test('the app reaches the write from exactly one guarded place', () => {
     expect(appCode.match(/withOathSworn\(/g)?.length).toBe(1);
     expect(appCode.match(/oathWriteOnCompletion\(/g)?.length).toBe(1);
-    expect(appCode).toContain('const sworn = withOathSworn(profile);');
+    // REBASED (L13A): the write is built from the newest committed profile.
+    expect(appCode).toContain('const sworn = withOathSworn(base);');
     expect(appCode).toContain('setProfile(sworn);');
     expect(appCode).toContain('saveProfile(sworn);');
     // …and the guard is the completed full oath, asked before anything is written.
     const complete = appCode.indexOf('const handleOathComplete');
     expect(complete).toBeGreaterThan(-1);
     expect(appCode.indexOf('oathWriteOnCompletion(finalState)')).toBeGreaterThan(complete);
-    expect(appCode.indexOf('withOathSworn(profile)')).toBeGreaterThan(complete);
+    expect(appCode.indexOf('withOathSworn(base)')).toBeGreaterThan(complete);
   });
 
   test('no other file in src/ writes the field', () => {

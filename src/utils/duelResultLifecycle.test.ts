@@ -216,16 +216,19 @@ describe('§B — one stats object carries the purse to both the screen and the 
 
 describe('§C — App credits a finished fight once, by the existing rules', () => {
   test('the three currencies are credited exactly once, from the stats object', () => {
-    expect(creditHandler.match(/profile\.gold \+ stats\.goldEarned/g)?.length).toBe(1);
-    expect(creditHandler.match(/profile\.fame \+ stats\.fameEarned/g)?.length).toBe(1);
-    expect(creditHandler.match(/profile\.xp \+ stats\.xpEarned/g)?.length).toBe(1);
+    // REBASED (L13A): the credit now adds to the settlement's newest-committed base
+    // (`profileRef.current ?? profile`) instead of the render's snapshot. The rule
+    // this pins — one credit per currency, from the stats object, once — is unchanged.
+    expect(creditHandler.match(/base\.gold \+ stats\.goldEarned/g)?.length).toBe(1);
+    expect(creditHandler.match(/base\.fame \+ stats\.fameEarned/g)?.length).toBe(1);
+    expect(creditHandler.match(/base\.xp \+ stats\.xpEarned/g)?.length).toBe(1);
   });
 
   test('each fight is counted once, on its own side of the result', () => {
-    expect(creditHandler.match(/fightsWon: profile\.fightsWon \+ 1/g)?.length).toBe(1);
-    expect(creditHandler.match(/fightsLost: profile\.fightsLost \+ 1/g)?.length).toBe(1);
+    expect(creditHandler.match(/fightsWon: base\.fightsWon \+ 1/g)?.length).toBe(1);
+    expect(creditHandler.match(/fightsLost: base\.fightsLost \+ 1/g)?.length).toBe(1);
     // The id is appended only when it is not already in the book.
-    expect(creditHandler).toContain('profile.defeatedOpponentIds.includes(activeOpponent.id)');
+    expect(creditHandler).toContain('base.defeatedOpponentIds.includes(activeOpponent.id)');
   });
 
   test('gold, fame and xp exist only on the winning branch', () => {

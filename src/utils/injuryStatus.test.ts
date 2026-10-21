@@ -250,13 +250,14 @@ describe('§D — the result screen reflects the POST-SETTLEMENT injury', () => 
 
   test("App carries settleInjury's own output into the result", () => {
     const app = code(appSource);
-    expect(app).toContain('const injury = settleInjury(profile, didWin).injury ?? null;');
+    // REBASED (L13A): computed once, from the settlement's newest-committed base.
+    expect(app).toContain('const injury = settleInjury(base, didWin).injury ?? null;');
     expect(app).toContain('setDuelResult({ didWin, stats, injury });');
     expect(app).toContain('injury={duelResult.injury}');
     // The value carried is the settlement's, computed once, before the branches.
     const handler = between(app, 'const handleMatchComplete', 'const handleDuelResultDismiss');
     expect(handler.match(/settleInjury\(/g)?.length).toBe(1);
-    expect(handler.indexOf('settleInjury(profile, didWin)')).toBeLessThan(handler.indexOf('setDuelResult('));
+    expect(handler.indexOf('settleInjury(base, didWin)')).toBeLessThan(handler.indexOf('setDuelResult('));
   });
 
   test('the refresh and the expiry the screen must show are the settlement’s own results', () => {

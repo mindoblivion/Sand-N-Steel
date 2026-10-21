@@ -376,15 +376,20 @@ describe('§I the wiring', () => {
   test('App buys only through the transaction, and writes its ref before committing', () => {
     expect(APP_SRC).toContain('purchaseStorefrontItem(base, shopId, item.id)');
     expect(APP_SRC).not.toContain('inventory: [...profile.inventory');
-    const call = APP_SRC.indexOf('purchaseStorefrontItem(base, shopId, item.id)');
-    const base = APP_SRC.indexOf('const base = profileRef.current');
-    const refWrite = APP_SRC.indexOf('profileRef.current = result.profile');
-    const commit = APP_SRC.indexOf('setProfile(result.profile)', refWrite);
+    // REBASED (L13A): the ordering is now asserted INSIDE this handler's own body.
+    // Several later-hardened handlers (chariot, racing, oath) write the ref the same
+    // way, so a file-wide `indexOf` would let one of them satisfy this check for the
+    // shop. Slicing first states the property for the handler it is about.
+    const body = APP_SRC.slice(APP_SRC.indexOf('const handleBuyItem'), APP_SRC.indexOf('const handleSellItem'));
+    const call = body.indexOf('purchaseStorefrontItem(base, shopId, item.id)');
+    const base = body.indexOf('const base = profileRef.current');
+    const refWrite = body.indexOf('profileRef.current = result.profile');
+    const commit = body.indexOf('setProfile(result.profile)', refWrite);
     expect(base).toBeGreaterThan(-1);
+    expect(call).toBeGreaterThan(base);
     expect(refWrite).toBeGreaterThan(call);
     expect(commit).toBeGreaterThan(refWrite);
     // No separate save, no second persistence path, no clock on this path.
-    const body = APP_SRC.slice(APP_SRC.indexOf('const handleBuyItem'), APP_SRC.indexOf('const handleSellItem'));
     expect(body).not.toContain('advanceCityDay');
     expect(body.split('saveProfile(').length - 1).toBe(1);
   });

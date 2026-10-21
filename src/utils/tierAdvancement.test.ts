@@ -335,9 +335,10 @@ describe('§D — the rule lives in the shipped paths', () => {
   test('App composes the helper and the old unconditional advance is gone', () => {
     expect(appSource).toContain("import { resolveVictoryTier } from './utils/tierAdvancement';");
     expect(appSource).toContain('const tierAfterVictory = resolveVictoryTier({');
-    expect(appSource).toContain('currentTier: profile.currentTier,');
+    // REBASED (L13A): the tier rule reads the settlement's newest-committed base.
+    expect(appSource).toContain('currentTier: base.currentTier,');
     expect(appSource).toContain('opponent: activeOpponent,');
-    expect(appSource).toContain('defeatedOpponentIds: profile.defeatedOpponentIds,');
+    expect(appSource).toContain('defeatedOpponentIds: base.defeatedOpponentIds,');
     expect(appSource).toContain('currentTier: tierAfterVictory.currentTier,');
 
     expect(appSource).not.toContain('if (activeOpponent.isBoss && nextTier < 4)');

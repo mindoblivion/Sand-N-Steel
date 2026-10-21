@@ -517,7 +517,8 @@ describe('§G — injury processing happens only inside the authoritative settle
 
   test('the existing settlement guards and save behaviour are intact', () => {
     const claim = creditHandler.indexOf('if (!duelSettlementRef.current.claim(settledDuelId)) return;');
-    const settle = creditHandler.indexOf('settleInjury(profile, didWin)');
+    // REBASED (L13A): the wound is settled from the settlement's newest-committed base.
+    const settle = creditHandler.indexOf('settleInjury(base, didWin)');
 
     expect(claim).toBeGreaterThan(-1);
     expect(settle).toBeGreaterThan(claim);

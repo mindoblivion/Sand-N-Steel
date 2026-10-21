@@ -161,7 +161,8 @@ describe('§G wiring', () => {
   });
 
   test('App credits the same figure it saved — the reward path is unchanged', () => {
-    expect(app).toContain('const nextGold = profile.gold + stats.goldEarned;');
+    // REBASED (L13A): the credit adds to the settlement's newest-committed base.
+    expect(app).toContain('const nextGold = base.gold + stats.goldEarned;');
     expect(app).toContain('gold: nextGold');
     expect(app).toContain('goldTotal={profile?.gold}');
   });

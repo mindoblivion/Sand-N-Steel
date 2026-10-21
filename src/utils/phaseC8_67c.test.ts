@@ -262,8 +262,12 @@ describe('C-8.67C §A — reachable from the Imperial Stable route, and nothing 
       APP.indexOf('const handleBuyRacingConfig'),
       APP.indexOf('const handleTrainStat')
     );
-    expect(handlers).toContain('purchaseRacingConfig(profile, horses)');
-    expect(handlers).toContain('selectRacingConfig(profile, horses)');
+    // REBASED (L13A): both handlers now pass the newest committed profile (the ref)
+    // to the pure transactions instead of the render's snapshot.
+    expect(handlers).toContain('const base = profileRef.current;');
+    expect(handlers).toContain('purchaseRacingConfig(base, horses)');
+    expect(handlers).toContain('selectRacingConfig(base, horses)');
+    expect(handlers).toContain('profileRef.current = result.profile;');
     expect(handlers).toContain('if (!result.ok) return;');
     expect(handlers).toContain('saveProfile(result.profile)');
     expect(handlers.split('saveProfile(result.profile)')).toHaveLength(3);

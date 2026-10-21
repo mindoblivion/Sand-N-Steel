@@ -414,7 +414,9 @@ describe('§D — the settlement is the only place a day is spent', () => {
     const latchCheck = creditHandler.indexOf(
       'if (!duelSettlementRef.current.claim(settledDuelId)) return;'
     );
-    const advance = creditHandler.indexOf('advanceCityDay(profile)');
+    // REBASED (L13A): the settlement now advances the clock from its newest-committed
+    // base (`profileRef.current ?? profile`) rather than the render's snapshot.
+    const advance = creditHandler.indexOf('advanceCityDay(base)');
 
     expect(latchCheck).toBeGreaterThan(-1);
     expect(advance).toBeGreaterThan(latchCheck);

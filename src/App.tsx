@@ -322,6 +322,15 @@ export function App() {
     // City entry is the second milestone call site. Nothing new has happened here, so
     // this records at most a stage the save already earned — never a watcher's guess.
     const arrivalProfile = evaluateRituals(forProfile, forProfile);
+    // L13A — city entry is handed the profile the caller means the city to open with,
+    // and that argument is authoritative: a freshly created gladiator or a cloud save
+    // is NEWER than the ref, while a caller passing the render's own snapshot always
+    // matches it on a committed render (the duel dismissal, the race exit and the
+    // hub's way back in). The ref is therefore synced to the arrival in the same
+    // synchronous call — before the one write below — so no later transaction (the
+    // duel settlement reads it as its base) can build on a profile the save no longer
+    // holds. This line itself writes nothing to disk.
+    profileRef.current = arrivalProfile;
     if (arrivalProfile !== forProfile) {
       setProfile(arrivalProfile);
       saveProfile(arrivalProfile);
@@ -470,8 +479,10 @@ export function App() {
   const handleOathComplete = (finalState: OathBeatState) => {
     setOathBeatMode(null);
     if (!oathWriteOnCompletion(finalState)) return;
-    const sworn = withOathSworn(profile);
+    const base = profileRef.current ?? profile;
+    const sworn = withOathSworn(base);
     if (sworn) {
+      profileRef.current = sworn;
       setProfile(sworn);
       saveProfile(sworn);
     }
@@ -540,16 +551,22 @@ export function App() {
    * choice exactly as they were and never reaches `saveProfile`.
    */
   const handleBuyChariotPart = (partId: string) => {
-    const result = purchaseChariotPart(profile, partId);
+    const base = profileRef.current;
+    if (!base) return;
+    const result = purchaseChariotPart(base, partId);
     if (!result.ok) return;
+    profileRef.current = result.profile;
     setProfile(result.profile);
     saveProfile(result.profile);
   };
 
   /** Equip an owned chariot part — never deducts gold. */
   const handleEquipChariotPart = (partId: string) => {
-    const result = equipChariotPart(profile, partId);
+    const base = profileRef.current;
+    if (!base) return;
+    const result = equipChariotPart(base, partId);
     if (!result.ok) return;
+    profileRef.current = result.profile;
     setProfile(result.profile);
     saveProfile(result.profile);
   };
@@ -559,7 +576,15 @@ export function App() {
     didWin: boolean,
     settledDuelId: number
   ) => {
-    if (!profile) return;
+    // L13A — THE SETTLEMENT'S BASE IS THE NEWEST COMMITTED PROFILE, never the render's
+    // snapshot. `DuelScene` reports a result 1400 ms after the deciding blow and that
+    // call deliberately outlives the scene, so this closure can hold a `profile` that
+    // has since been superseded — another bout settling, a sale, a purchase, a rest.
+    // Every figure below (the clock, the injury, the purse, fame, xp, progression and
+    // the defeated list) is read from this one base, so a settlement can only ADD to
+    // what the save already holds. The render's `profile` is only the first-render fallback.
+    const base = profileRef.current ?? profile;
+    if (!base) return;
 
     // Exactly one settlement per COMPLETED bout, named by the id the scene's own
     // callback carries. A callback that fires twice for the same bout (a repeated
@@ -573,23 +598,23 @@ export function App() {
     // is computed once, here, and carried into whichever branch settles this fight.
     // A duel that is opened and then abandoned or cancelled never reaches this
     // handler, so it never advances the day.
-    const city = advanceCityDay(profile).city;
+    const city = advanceCityDay(base).city;
 
     // L7 — THE INJURY SETTLEMENT. One slot, decided from the pre-fight profile and
     // carried into whichever branch settles this fight, exactly like the clock above:
     // the duels that follow an injury spend it (win or lose), and a defeat inflicts or
     // refreshes it at its fixed duration and penalties. A bout that is abandoned never
     // reaches this handler, so it neither inflicts nor spends an injury.
-    const injury = settleInjury(profile, didWin).injury ?? null;
+    const injury = settleInjury(base, didWin).injury ?? null;
 
     if (didWin) {
-      const nextGold = profile.gold + stats.goldEarned;
-      const nextFame = profile.fame + stats.fameEarned;
-      const nextXp = profile.xp + stats.xpEarned;
+      const nextGold = base.gold + stats.goldEarned;
+      const nextFame = base.fame + stats.fameEarned;
+      const nextXp = base.xp + stats.xpEarned;
 
-      let nextLevel = profile.level;
-      let nextXpToNext = profile.xpToNextLevel;
-      let nextUnspentPoints = profile.unspentStatPoints;
+      let nextLevel = base.level;
+      let nextXpToNext = base.xpToNextLevel;
+      let nextUnspentPoints = base.unspentStatPoints;
 
       if (nextXp >= nextXpToNext) {
         nextLevel += 1;
@@ -597,9 +622,9 @@ export function App() {
         nextUnspentPoints += 2;
       }
 
-      const defeated = profile.defeatedOpponentIds.includes(activeOpponent.id)
-        ? profile.defeatedOpponentIds
-        : [...profile.defeatedOpponentIds, activeOpponent.id];
+      const defeated = base.defeatedOpponentIds.includes(activeOpponent.id)
+        ? base.defeatedOpponentIds
+        : [...base.defeatedOpponentIds, activeOpponent.id];
 
       // The tier moves only on a boss's FIRST defeat — the boss's id newly entering
       // `defeatedOpponentIds` in this write. A rematch pays its rewards exactly as it
@@ -607,13 +632,13 @@ export function App() {
       // `utils/tierAdvancement.ts`: one boss could otherwise carry a gladiator through
       // tiers whose champions were never faced).
       const tierAfterVictory = resolveVictoryTier({
-        currentTier: profile.currentTier,
+        currentTier: base.currentTier,
         opponent: activeOpponent,
-        defeatedOpponentIds: profile.defeatedOpponentIds,
+        defeatedOpponentIds: base.defeatedOpponentIds,
       });
 
       const updatedProfile: PlayerProfile = {
-        ...profile,
+        ...base,
         gold: nextGold,
         fame: nextFame,
         xp: nextXp,
@@ -622,24 +647,29 @@ export function App() {
         unspentStatPoints: nextUnspentPoints,
         currentTier: tierAfterVictory.currentTier,
         defeatedOpponentIds: defeated,
-        fightsWon: profile.fightsWon + 1,
-        peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
+        fightsWon: base.fightsWon + 1,
+        peakCrowdHypeOverall: Math.max(base.peakCrowdHypeOverall, stats.crowdHypePeak),
         city,
         injury,
       };
 
-      const settledProfile = evaluateRituals(profile, updatedProfile);
+      // L13A — the ref is written FIRST, so a second settlement arriving in the same
+      // tick reads this one's result; ref, state and disk then receive the identical
+      // object. A refused claim above returns before any of them is touched.
+      const settledProfile = evaluateRituals(base, updatedProfile);
+      profileRef.current = settledProfile;
       setProfile(settledProfile);
       saveProfile(settledProfile);
     } else {
       const updatedProfile: PlayerProfile = {
-        ...profile,
-        fightsLost: profile.fightsLost + 1,
-        peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
+        ...base,
+        fightsLost: base.fightsLost + 1,
+        peakCrowdHypeOverall: Math.max(base.peakCrowdHypeOverall, stats.crowdHypePeak),
         city,
         injury,
       };
-      const settledProfile = evaluateRituals(profile, updatedProfile);
+      const settledProfile = evaluateRituals(base, updatedProfile);
+      profileRef.current = settledProfile;
       setProfile(settledProfile);
       saveProfile(settledProfile);
     }
@@ -660,10 +690,12 @@ export function App() {
    * choice outright, so this can only ever set `road.bannerDevice` once.
    */
   const handleChooseBannerDevice = (device: BannerDevice) => {
-    if (!profile) return;
-    const chosen = chooseBannerDevice(profile, device);
+    const base = profileRef.current ?? profile;
+    if (!base) return;
+    const chosen = chooseBannerDevice(base, device);
     setDeviceChoiceOpen(false);
     if (!chosen) return;
+    profileRef.current = chosen;
     setProfile(chosen);
     saveProfile(chosen);
   };
@@ -677,16 +709,22 @@ export function App() {
    * repeated or stale click cannot be charged twice.
    */
   const handleBuyRacingConfig = (horses: ChariotTeamSize) => {
-    const result = purchaseRacingConfig(profile, horses);
+    const base = profileRef.current;
+    if (!base) return;
+    const result = purchaseRacingConfig(base, horses);
     if (!result.ok) return;
+    profileRef.current = result.profile;
     setProfile(result.profile);
     saveProfile(result.profile);
   };
 
   /** Select an unlocked team: free, and it only records the player's preference. */
   const handleSelectRacingConfig = (horses: ChariotTeamSize) => {
-    const result = selectRacingConfig(profile, horses);
+    const base = profileRef.current;
+    if (!base) return;
+    const result = selectRacingConfig(base, horses);
     if (!result.ok) return;
+    profileRef.current = result.profile;
     setProfile(result.profile);
     saveProfile(result.profile);
   };
@@ -811,6 +849,10 @@ export function App() {
 
   const handleResetGame = () => {
     clearSavedProfile();
+    // L13A — the newest-committed ref is cleared in the SAME tick as the save, so a
+    // settlement callback that fires after a reset can never rebuild a deleted profile
+    // from it (`handleMatchComplete` reads `profileRef.current ?? profile`).
+    profileRef.current = null;
     setProfile(null);
     setCurrentScreen('title');
   };

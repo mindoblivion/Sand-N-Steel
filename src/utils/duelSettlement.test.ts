@@ -330,8 +330,9 @@ describe('§C — App arms and claims per bout; the scene only reports a result'
     ).toBeGreaterThan(-1);
     // The claim is the FIRST thing after the null-profile guard, and precedes the
     // clock, so a refused claim cannot turn the day.
+    // REBASED (L13A): the advance reads the settlement's newest-committed base.
     expect(creditHandler.indexOf('.claim(')).toBeLessThan(
-      creditHandler.indexOf('advanceCityDay(profile)')
+      creditHandler.indexOf('advanceCityDay(base)')
     );
     expect(creditHandler.match(/\.claim\(/g)?.length).toBe(1);
   });
