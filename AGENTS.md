@@ -6904,3 +6904,107 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   stats tab shows `Injured -2 -2 / Affects the next 2 completed duels`, the briefing warns before the next
   bout, and the result card reads `Injured` with 2 duels; win one and confirm the result card reads
   `Still injured` with 1, the stats panel follows, and after the second win both disappear.
+
+## Living City L9 — rest and recovery at the Arena Medical House (implemented; interaction not verified live)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`90bb82d0e3`** ("Add injury
+  status visibility to stats and duel screens"), `git status --short` **empty** before the first edit;
+  nothing was stashed, reset or overwritten. The starting suite read **2779 pass / 0 fail (95 files)**,
+  the figure the L8 record ended on, and the audit's premises all held: no `restDay` anywhere, the
+  Medical House still showed a static description, `advanceCityDay` had one call site and `CityState`
+  carried only `day` / `merchantPurchaseDay`.
+
+- **What shipped: one pure transaction, one optional field, two wiring points.** A wound could only be
+  spent by fighting while wounded (L7), so `src/utils/restRecovery.ts` (new) is the medicus's
+  treatment, following the house contract of `trainStat` / `purchaseStorefrontItem`:
+  `REST_DAY_FIELD = 'restDay'`, `RestRefusal` (`no-profile | already-rested | no-injury |
+  insufficient-gold`), `RestResult` (`{ ok: true, profile, cost, day }` | `{ ok: false, reason }`),
+  `resolveRestDay`, `isRestSpentToday`, `restCost` and `restAtMedicalHouse`. It is **PURE** — no
+  storage, React, timer, wall clock or randomness — and it is **not a duel settlement**: nothing is
+  awarded, no win/loss statistic moves, and the injury lifecycle module is only *read* through
+  `normalizeInjury` (the sole validity reader; no rule restated).
+
+- **Exact semantics.** Checks run in the approved order — profile, today's allowance, the wound
+  (through `normalizeInjury`, so `null` / spent / malformed all refuse), then the purse — and nothing
+  is built until all pass, so a refusal returns only its reason and leaves the profile and every
+  nested object untouched. On success: `entryDay = resolveCityDay(profile)` is captured **first**,
+  `cost = trainingCost(profile.level)` (**25 × level**, the Ludus's own helper, not a new constant),
+  the clock is turned **exactly once** by `advanceCityDay`, and ONE new profile carries the advanced
+  `city` (with `restDay: entryDay` written beside the new day, never over it), `gold − cost` and
+  `injury: null`; unrelated fields survive by identity, other `city` fields are preserved, and no
+  migration exists — a legacy profile with no `city` rests from day 1 into **day 2** with
+  `restDay: 1`. The result's `day` is the day **consumed**; the resulting profile stands on the next.
+
+- **The field.** `CityState.restDay?: number` (`src/types/game.ts`) — optional, documented as ONE
+  number rather than a log, read as "never rested" when absent, and never introduced by a migration.
+  No other profile or city field changed.
+
+- **The wiring, through the existing patterns.** `App.handleRest` (beside the training and purchase
+  handlers) reads `profileRef.current` — the L4/L5 newest-committed pattern, so a double click cannot
+  treat twice off a stale base — returns the refusal untouched on failure, and on success writes the
+  ref, calls `setProfile` once and `saveProfile` once (no second persistence path, and **no** clock
+  work in the handler). It is handed to `CityHubScene` as the narrow `onRest: () => RestResult` prop.
+  The scene's existing `arena_medical_house` branch now calls it and reports through the **existing**
+  `stableNotice`: success reads *"The medicus cleans and binds your wound, and you sleep until dawn.
+  Day {day} — the treatment cost {cost} gold."* (the day read from the committed profile with
+  `resolveCityDay`, so no arithmetic in the UI); refusals read the approved *"The medicus finds
+  nothing to treat."*, a distinct already-treated line, and a fee line quoting `restCost`. The
+  prompt (**"Visit Arena Medical House"**), its radius/position and the proximity rules are
+  unchanged; the Bathhouse and Caravanserai still fall through to their own tabs, untouched.
+
+- **Files — five production/test files plus this record.** `src/utils/restRecovery.ts` (new),
+  `src/utils/restRecovery.test.ts` (new, **41 tests / 464 `expect()`**), `src/types/game.ts` (the
+  field), `src/App.tsx` (import, handler, `onRest` prop), `src/components/3d/city/CityHubScene.tsx`
+  (the prop, the branch, a local `restNotice` builder, the `onRest` dep). `storage.ts`,
+  `trainingSession.ts`, `storefrontPurchase.ts`, `injurySettlement.ts`, `cityClock.ts` and every
+  other UI file are **untouched**.
+
+- **The suite (seven sections).** §A the treatment (wound cleared, fee, one day, nothing awarded);
+  §B the fee through `trainingCost` at six levels plus `restCost`'s totality and the exact-enough /
+  one-short boundary; §C every refusal with the input profile, `city`, `inventory` and `baseStats`
+  byte-identical and object-identical; §D the clock (a later day re-opens the allowance, the advance
+  never overwrites itself with the entry day, other `city` fields survive, `resolveRestDay` total over
+  junk, the legacy day-1 → day-2 path); §E purity (identity of unrelated fields, no mutation, no
+  storage/React/timer/clock/randomness token, exactly the four house imports); §F the neighbours —
+  the merchant's allowance reopens and its offer resolves from the resulting day through
+  `resolveStorefrontOffer` / `rotateStorefrontStock`, the training schedule resolves on that day
+  (resting drill refused, scheduled accepted, no training rule changed), and injury normalization
+  plus the win/loss settlement behave exactly as before; §G the wiring guards — App keeps **one**
+  `advanceCityDay(` and **one** `settleInjury(`, the credit handler keeps its one clock call and two
+  `saveProfile(settledProfile)`, this module is the **only other** production caller of the clock
+  (a recursive `src/` scan proves it), no component names the clock or the settlement, the Medical
+  House phrase and radius are pinned, the Bathhouse and Caravanserai are unchanged, and the handler's
+  ref → state → save order is pinned. Source guards are comment-stripped and narrowly scoped to those
+  properties; no test counts arbitrary strings.
+
+- **One prose fix, no guard weakened.** The L7 boundary guard in `injurySettlement.test.ts` scans raw
+  source for the settlement's name, and this module's first draft named it in a doc comment. The
+  **comment** was reworded (L8's precedent) — the guard and its expectation list are exactly as they
+  were.
+
+- **Verified 2026-10-21** in the `web` dev container, on the final tree: focused
+  `bun test src/utils/restRecovery.test.ts` → **41 pass / 0 fail** (464 `expect()`; the starting
+  point was 37 / 4, all four a fixture bug of mine — `woundedOn(day, { city })` discarded the city
+  override — fixed in the helper, not by weakening an assertion); `bun test` → **2820 pass / 0 fail
+  (96 files, 85,299 `expect()`)** (the 2779 / 95 baseline plus this suite); `bun run
+  scripts/combatTests.ts` → **65 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `bun run build` → **exit 0** with the startup-asset check passing (8 assets; the pre-existing
+  >500 kB chunk warning only); `git diff --check` → **clean**.
+
+- **NOT automatically verified — the interaction itself.** Three preview attempts were made and all
+  three exhausted the 30 s script budget before reaching the Medical House: the route needs title →
+  character creation → the five press-and-hold oath lines (1.5 s each) → the 3D city mount (lazy
+  chunk plus the WebGL-ready gate) → the map drawer → fast travel → the prompt → interact, and this
+  sandbox renders the hub through SwiftShader at ~1–2 fps. The third attempt then hit the preview
+  tool's per-turn retry cap, so no frame or DOM assertion from the running city exists for this
+  phase. **What remains unproven live:** the banner's wording and dismissal, the refusal/success
+  branches as *rendered* output, and the saved profile gaining `city.restDay` + `day: 2` with the
+  wound cleared and the gold reduced. It is also **not reachable without a duel**: a fresh profile
+  has no injury, so the success branch needs a lost bout first (the arena is the same ~1–2 fps).
+  **Device check owed:** lose one Colosseum duel (injury 2/2/2), walk or fast-travel to the Arena
+  Medical House, interact once and confirm the prompt is unchanged, that the notice names the wound,
+  dawn, the new day and the gold, that the save shows `injury: null`, `gold − 25 × level`,
+  `city.day` + 1 and `city.restDay` = the day you rested on — then interact again the same day and
+  confirm the already-treated refusal writes nothing, and that the merchant's allowance and the
+  Ludus's timetable have moved to the new day. An uninjured gladiator must read
+  "The medicus finds nothing to treat."

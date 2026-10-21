@@ -63,6 +63,11 @@ import {
   InteractiveLocation,
 } from '../../../utils/cityCollisions';
 import { getTerrainY } from '../../../utils/terrainHeight';
+// L9 — the rest-and-recovery transaction's result type and its cost reader: the
+// Medical House shows what the ONE transaction decided, and reads the day it
+// consumed from the profile it returned (never advancing anything itself).
+import { resolveCityDay } from '../../../utils/cityClock';
+import { restCost, type RestResult } from '../../../utils/restRecovery';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
@@ -125,6 +130,33 @@ const CityAdaptiveDpr: React.FC<{
   return null;
 };
 
+/**
+ * L9 — the medicus's notice, built from the ONE transaction's own result.
+ *
+ * Rendering the result rather than the request is what keeps the feedback honest:
+ * a refusal says why and shows nothing about a treatment that never happened, and
+ * a success names the day the player wakes on (read from the profile the
+ * transaction committed, so this scene never computes a day itself) and the gold
+ * the treatment actually charged. Pure and local: no clock, no storage, no state.
+ */
+function restNotice(result: RestResult, level: number): string {
+  if (result.ok) {
+    return `The medicus cleans and binds your wound, and you sleep until dawn. Day ${resolveCityDay(result.profile)} — the treatment cost ${result.cost} gold.`;
+  }
+  switch (result.reason) {
+    case 'no-injury':
+      return 'The medicus finds nothing to treat.';
+    case 'already-rested':
+      return 'The medicus has already treated you today. He will see you again on the morrow.';
+    case 'insufficient-gold':
+      return `The medicus names his fee: ${restCost({ level })} gold, and your purse is short. Come back when the arena has paid.`;
+    default:
+      // `no-profile` — unreachable in the city (the screen only mounts with a
+      // profile), kept so the switch is total: the house's own description.
+      return "Arena Medical House: Bandages, ceramic vessels, and surgical tools are prepared for the arena's wounded.";
+  }
+}
+
 interface CityHubSceneProps {
   playerProfile: PlayerProfile;
   /**
@@ -143,6 +175,12 @@ interface CityHubSceneProps {
     shopId?: StorefrontId
   ) => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
+  /**
+   * L9 — rest at the Arena Medical House. The transaction itself lives in `App`
+   * (`utils/restRecovery`); this scene only decides WHEN the medicus is asked and
+   * shows the result, so there is one rest path and no clock work here.
+   */
+  onRest: () => RestResult;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
   isMuted: boolean;
@@ -180,6 +218,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   playerProfile,
   onOpenTab,
   onEnterDuel,
+  onRest,
   onOpenDriveSync,
   onToggleMute,
   isMuted,
@@ -430,9 +469,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           "Veteran Gladiator Hall: Old trophies and worn shields line the walls, honoring fighters who survived the arena."
         );
       } else if (nearbyLoc.id === 'arena_medical_house') {
-        setStableNotice(
-          "Arena Medical House: Bandages, ceramic vessels, and surgical tools are prepared for the arena's wounded."
-        );
+        // L9 — the Medical House TREATS. The transaction decides everything
+        // (`App.handleRest` → `utils/restRecovery`): eligibility, the `25 × level`
+        // fee, clearing the wound and spending one city day. This branch only asks
+        // and reports, so it can neither treat twice nor advance the clock itself
+        // — a refusal leaves the profile untouched and says why instead.
+        setStableNotice(restNotice(onRest(), playerProfile.level));
       } else {
         // Phase C-8.66B: the stable no longer falls through to this branch — its
         // interaction opens the Chariot Workshop through the gear tab's own
@@ -448,6 +490,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   }, [
     nearbyLoc,
     onEnterDuel,
+    onRest,
     playerProfile.currentTier,
     playerProfile.level,
     playerProfile.defeatedOpponentIds,

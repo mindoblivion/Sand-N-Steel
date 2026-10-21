@@ -23,6 +23,7 @@ import { advanceCityDay } from './utils/cityClock';
 import { settleInjury } from './utils/injurySettlement';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
 import { trainStat } from './utils/trainingSession';
+import { restAtMedicalHouse, type RestResult } from './utils/restRecovery';
 import type { TrainingStat } from './data/training';
 import { createDuelSettlementLatch } from './utils/duelSettlement';
 import type { BannerDevice } from './utils/heraldry';
@@ -704,6 +705,29 @@ export function App() {
     saveProfile(updated);
   };
 
+  /**
+   * Living City L9 — the ONE rest-and-recovery transaction (`utils/restRecovery`)
+   * decides the purse, the wound and the day. It reads the newest committed
+   * profile and re-checks every rule against it, so a refusal — already rested
+   * today, nothing to treat, or a purse that cannot cover `25 × level` — leaves
+   * the ref, React state and the saved profile exactly as they were and never
+   * reaches `saveProfile`. On success the transaction has already turned the city
+   * clock by exactly one day inside the same profile literal it returns, so this
+   * handler saves that one profile and advances nothing itself.
+   *
+   * The result goes back to the city scene, which is what turns it into the
+   * medicus's notice (the day it consumed and the gold it cost are in it).
+   */
+  const handleRest = (): RestResult => {
+    const rest = restAtMedicalHouse(profileRef.current);
+    if (!rest.ok) return rest;
+    const rested = rest.profile;
+    profileRef.current = rested;
+    setProfile(rested);
+    saveProfile(rested);
+    return rest;
+  };
+
   const handleBuyItem = (item: WeaponItem | ArmorItem) => {
     // Living City L4 — the ONE purchase transaction (`utils/storefrontPurchase`)
     // decides the purse, the day's offer (L3) and the Elite Merchant House's
@@ -847,6 +871,7 @@ export function App() {
             playerProfile={profile}
             onOpenTab={handleOpenHubTab}
             onEnterDuel={handleEnterDuel}
+            onRest={handleRest}
             onOpenDriveSync={() => setShowDriveSync(true)}
             onToggleMute={handleToggleMute}
             isMuted={isMuted}

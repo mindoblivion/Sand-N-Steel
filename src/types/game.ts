@@ -362,6 +362,15 @@ export interface CityState {
    * migration ever introduces it.
    */
   merchantPurchaseDay?: number;
+  /**
+   * L9 — the last city day on which a rest at the Arena Medical House succeeded.
+   * ONE number, not a log (the same shape as the merchant's allowance): the
+   * treatment is available exactly while this does NOT equal the current day, so
+   * a later rest overwrites it and the field can never grow with play. Absent on
+   * every save made before L9 and read as "never rested"; `city.day` is preserved
+   * beside it untouched, and no migration ever introduces it.
+   */
+  restDay?: number;
 }
 
 export interface PlayerProfile {
