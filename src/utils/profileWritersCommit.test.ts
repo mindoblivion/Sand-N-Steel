@@ -193,6 +193,7 @@ describe('§B the chariot workshop', () => {
       'saveProfile',
       'purchaseChariotPart',
       'equipChariotPart',
+      // @ts-ignore — Bun is the test runtime
       new Bun.Transpiler({ loader: 'ts' }).transformSync(
         `${extractHandler('handleBuyChariotPart')}\n${extractHandler('handleEquipChariotPart')}\n` +
           'return { handleBuyChariotPart, handleEquipChariotPart };'
@@ -273,6 +274,7 @@ describe('§C the banner device', () => {
       'saveProfile',
       'chooseBannerDevice',
       'setDeviceChoiceOpen',
+      // @ts-ignore — Bun is the test runtime
       new Bun.Transpiler({ loader: 'ts' }).transformSync(
         `${extractHandler('handleChooseBannerDevice')}\nreturn { handleChooseBannerDevice };`
       )
@@ -324,6 +326,7 @@ describe('§D racing configurations', () => {
       'saveProfile',
       'purchaseRacingConfig',
       'selectRacingConfig',
+      // @ts-ignore — Bun is the test runtime
       new Bun.Transpiler({ loader: 'ts' }).transformSync(
         `${extractHandler('handleBuyRacingConfig')}\n${extractHandler('handleSelectRacingConfig')}\n` +
           'return { handleBuyRacingConfig, handleSelectRacingConfig };'
@@ -400,6 +403,7 @@ describe('§E the gladiator’s oath', () => {
       'aimHerald',
       'HERALD_COLOSSEUM',
       'postOathNudge',
+      // @ts-ignore — Bun is the test runtime
       new Bun.Transpiler({ loader: 'ts' }).transformSync(
         `${extractHandler('handleOathComplete')}\nreturn { handleOathComplete };`
       )
@@ -465,6 +469,7 @@ describe('§F city entry keeps the committed ref in step', () => {
       'setHerald',
       'setOathBeatMode',
       'setCurrentScreen',
+      // @ts-ignore — Bun is the test runtime
       new Bun.Transpiler({ loader: 'ts' }).transformSync(
         `${CITY_SOURCE}\nreturn { enterCity };`
       )
