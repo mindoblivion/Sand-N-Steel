@@ -1349,6 +1349,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           <Canvas
             shadows
             frameloop={frameloopMode}
+            // C-8.74B — duel pixel budget.  Without a `dpr` prop the buffer
+            // follows window.devicePixelRatio with no cap, so a 3x phone shades
+            // 9x the CSS pixel count.  React Three Fiber clamps an array range as
+            // min(max(min, devicePixelRatio), max), so [1, 2] leaves a 1x or 2x
+            // device untouched and caps a 3x device at 2.  Fragment resolution
+            // only: no light, shadow, material, geometry, camera or combat change.
+            dpr={[1, 2]}
             camera={{ position: [0, 6, 12], fov: 45, near: 0.1, far: 80 }}
             gl={{ antialias: false, powerPreference: 'high-performance' }}
             onCreated={(state) => {

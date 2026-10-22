@@ -8649,3 +8649,59 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   preview browser has no such preset), and the feel of the 44 px reactions inside the 700 ms
   window. The sandbox renders the duel through SwiftShader, so none of the above settles a
   device question.
+
+## Duel Canvas pixel budget (Phase C-8.74B — implemented; DPR 1 and 2 verified live, DPR 3 by the library's own clamp)
+
+- **Preflight.** Repository root `/app`; branch `development-focus-strategy`, HEAD **`ff8501b228`**;
+  `git status --short` empty and `git diff --check` clean before the first edit. Nothing was reset,
+  stashed, reverted, committed, pushed or deployed, and the C-8.74A record above plus
+  `.base44/mobile-combat-audit.md` are untouched.
+
+- **The change is one prop.** `DuelScene`'s `<Canvas>` gains **`dpr={[1, 2]}`**. The installed
+  `@react-three/fiber` 9.8.1 resolves an array range as
+  `Math.min(Math.max(dpr[0], devicePixelRatio), dpr[1])` (read from its own dist build, and executed
+  by the suite), so a 1x or 2x device renders at its own ratio and a 3x device is capped at 2 — the
+  pre-change buffer on a 3x phone was 9x the CSS pixel count, now 4x. No quality governor was added
+  and `settings.qualityPreset` was **not** wired in: the city's `useAdaptiveDpr` / `CITY_TIERS`
+  machinery stays city-only, so there is still exactly one quality system in the app and the duel
+  adds no second setting.
+
+- **Measured live in the preview harness** (`?devHarness=character` in an in-page frame, real
+  clicks; the buffer is read from the canvas element, never from the prop):
+
+  | device pixel ratio | CSS client box | drawing buffer | measured ratio | verdict |
+  |---|---|---|---|---|
+  | **1** (desktop preset) | 1280 × 800 | 1280 × 800 | **1.0000** | unchanged, approximately 1x |
+  | **2** (mobile preset) | 375 × 812 | 750 × 1624 | **2.0000** | unchanged, approximately 2x (matches C-8.74A's pre-change 750 × 1624) |
+  | **3** | — | — | — | **not available**: the preview browser's only presets report `devicePixelRatio` 1 (desktop/tablet) and 2 (mobile); no 3x context can be requested |
+
+  The 3x case is therefore pinned by the library's own clamp expression executed from the installed
+  build (1 → 1, 2 → 2, 3 → **2**) plus the buffer arithmetic in the suite, not by a rendered frame —
+  as is the sub-1 case (0.75 → 1) and a fractional 2.5 → 2.
+
+- **What did not change.** Lights (ambient 0.65, both directionals, the 8 brazier point lights), the
+  one 1024² cast shadow, `Sparkles count={50}`, geometry, materials, camera (`fov: 45`), the
+  `frameloop` state machine, HUD layout, touch targets, combat calculations, animation timing and
+  save data — all re-pinned as a scope guard in the new suite. `antialias: false` is unchanged.
+
+- **Tests.** New `src/utils/phaseC8_74b.test.ts` (**10 tests / 32 `expect()`**): §A the shipped prop
+  (exactly one real `<Canvas>` tag carrying `dpr={[1, 2]}`, beside `shadows` and `frameloop`); §B the
+  clamp read out of `node_modules/@react-three/fiber/dist/*.esm.js` and executed; §C the
+  buffer/client ratio at DPR 1, 2 and 3 plus the fractional cases; §D the scope guard (no
+  `useAdaptiveDpr`, no `CITY_TIERS`, no `qualityPreset`, light/shadow/camera props intact). The
+  focused combat set C-8.74A used is **unchanged at 160 pass / 0 fail / 694 `expect()` across 7
+  files**, exactly its recorded baseline; `bun run lint` → exit 0 and `bun run build` → exit 0
+  (startup asset check, 8 assets) on the final tree.
+
+- **Live frame inspection (DPR 2, mobile preset).** The arena, its lighting/shadows, both fighters
+  brought to `DIST: 1.6m`, the full HUD (vitals 138/138 and 90/90, crowd meter, chronicle, five
+  tactics, movement strip) and the **player** wind-up cue (`data-player-windup-cue="quick_attack"`,
+  "YOUR QUICK STRIKE / COMMITTED", `pointer-events: none`, gone after the impact) were read from the
+  running DOM and captured. The **enemy** telegraph was **not** driven this phase (it needs an
+  opponent announcement inside a turn the script did not reach), so that cue is unchanged-by-scope
+  but not visually re-confirmed here.
+
+- **Not automatically verified.** Any real-GPU frame time or thermal gain from the cap (the sandbox
+  renders through SwiftShader), the 3x cap as a rendered frame, and the softened-edge cost at 2x vs
+  3x on device — **Android acceptance remains PENDING**, as does the open HUD/touch-target work
+  (C-8.74A recommendations 2 and 3), which this phase deliberately did not start.
