@@ -26,6 +26,11 @@
  *     tier cannot go past 4), and it can also be a legacy save that arrived
  *     mid-tier. The door keeps working as a door; the rematch is inert on the
  *     tier because the boss is already recorded.
+ *   • **The tab also lists earlier divisions' beaten fighters as rematches.**
+ *     `listTournamentBouts` answers the current division in full plus every
+ *     earlier-division fighter already in `defeatedOpponentIds`. They are fights
+ *     like any other — same rewards, same level gate — and they exist so the top
+ *     tier can never strand a gladiator whose only current bout is level-locked.
  *
  * Everything here is a pure function of the roster and the record it is handed:
  * no profile write, no storage, no clock.
@@ -91,6 +96,13 @@ function tierBosses(tier: number): OpponentConfig[] {
   return ALL_OPPONENTS.filter(
     (opponent) => opponent.tier === tier && opponent.isBoss === true
   ).sort((a, b) => a.fightIndex - b.fightIndex);
+}
+
+/** Every fighter of a tier, in the roster's `fightIndex` order. */
+function tierFighters(tier: number): OpponentConfig[] {
+  return ALL_OPPONENTS.filter((opponent) => opponent.tier === tier).sort(
+    (a, b) => a.fightIndex - b.fightIndex
+  );
 }
 
 /**
@@ -167,4 +179,53 @@ export function resolveDoorDuelTarget(
 
   const fallen = bosses[bosses.length - 1];
   return fallen ? { opponent: fallen, rematch: true } : null;
+}
+
+/** One entry of the tournament list: the roster entry and why it is offered. */
+export interface TournamentBout {
+  /** The roster's own entry — never a copy, so the card and the duel see the same fighter. */
+  opponent: OpponentConfig;
+  /** True only for an earlier division's fighter the profile has already beaten. */
+  rematch: boolean;
+}
+
+export interface TournamentBoutList {
+  /** The current division's fighters, in the roster's `fightIndex` order. */
+  currentTier: TournamentBout[];
+  /** Already-beaten fighters of EARLIER divisions — division, then `fightIndex`, order. */
+  rematches: TournamentBout[];
+}
+
+/**
+ * The fighters the tournament tab lists: the current division in full, plus — as
+ * rematches — the earlier divisions' fighters the profile has actually beaten.
+ *
+ * This is a LIST, not an eligibility rule: it decides only WHAT is shown, and the
+ * shared `resolveBoutLevelGate` above stays the single rule for whether a bout may
+ * start, exactly as it is for the current division. Because every entry is a
+ * roster fighter and rematches are filtered by the record itself, an unbeaten
+ * earlier-division opponent is never exposed and a defeated one is never missing.
+ *
+ * Earlier divisions exist to keep the arena reachable: at the top tier the only
+ * current-division bout can be level-locked, and without an XP source the player
+ * would be stranded. Rematch rewards are unchanged — they are the same fight.
+ *
+ * Total on read: an unknown id in the record matches nothing, a duplicate cannot
+ * appear twice (the roster is the source), and a malformed tier reads as the first.
+ */
+export function listTournamentBouts(
+  currentTier: number,
+  defeatedOpponentIds?: readonly unknown[] | null
+): TournamentBoutList {
+  const tier = readTier(currentTier);
+  const defeated = readDefeatedIds(defeatedOpponentIds);
+
+  return {
+    currentTier: tierFighters(tier).map((opponent) => ({ opponent, rematch: false })),
+    rematches: ALL_OPPONENTS.filter(
+      (opponent) => opponent.tier < tier && defeated.includes(opponent.id)
+    )
+      .sort((a, b) => a.tier - b.tier || a.fightIndex - b.fightIndex)
+      .map((opponent) => ({ opponent, rematch: true })),
+  };
 }

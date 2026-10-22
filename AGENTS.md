@@ -7839,3 +7839,98 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   into a stall fails §B — the guard is the suite, not a runtime warning. (d) No physical Android device
   was used; the relabelled button's touch ergonomics join the open device checklist. Do not claim
   device or visual acceptance without that evidence.
+
+## Arena progression reachability — earlier-division rematches (L19 — implemented; the rendered section NOT verified live)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`b31c7c84e3`**,
+  `git status --porcelain` **empty** and no diff before the first edit; nothing was reset, stashed or
+  discarded. The L18 audit's finding was re-derived from the shipped roster and the shipped
+  settlement, not taken on faith: a natural run (each division in `fightIndex` order, rematching the
+  best-paying fighter already beaten **in the current division** whenever a boss's level gate is shut)
+  reaches **tier 4 at LVL 9 with `xp` 1845 / `xpToNextLevel` 2570**, Aurelius asks for LVL 10, and the
+  pre-L19 tab listed the current division only — so the list had **zero** legal bouts and the final
+  boss was unreachable. The economy, XP curve, rewards and tier rule were all correct; the fights that
+  could pay the missing experience were simply not listed.
+
+- **What ships: one pure list helper, one tab section, one notice rewording.** No rule moved.
+  `src/utils/tierAdvancement.ts` gains `listTournamentBouts(currentTier, defeatedOpponentIds)` →
+  `{ currentTier: TournamentBout[]; rematches: TournamentBout[] }`, where `TournamentBout` is
+  `{ opponent, rematch }` carrying the roster entry itself. `currentTier` is the division in its
+  existing `fightIndex` order (the same `tierFighters` read), and `rematches` is every **earlier**
+  division's fighter whose id is in `defeatedOpponentIds`, in division-then-`fightIndex` order with
+  `rematch: true`. It reuses `readTier` / `readDefeatedIds`, so a broken tier reads as division 1 and
+  junk entries are dropped exactly as the tier rule drops them. **`resolveVictoryTier`,
+  `resolveBoutLevelGate`, `resolveDoorDuelTarget`, the roster, `rewardXp`/`rewardGold`/`rewardFame`,
+  `recommendedLevel`, the XP curve and the settlement are byte-identical** — the helper lists, it does
+  not gate, and `resolveBoutLevelGate` stays the one eligibility rule (the card still calls it).
+
+- **The tab.** `TournamentTab` now renders through the helper and keeps its current-division layout
+  unchanged; the card was extracted into a local `OpponentCard` so both sections render the **same**
+  card and both call the same `onSelectOpponent(opp)` — i.e. a rematch takes the normal duel-entry and
+  settlement path, with no second entry route. The new **Earlier Divisions** section renders only when
+  `rematches` is non-empty, uses the existing card at the same grid, and marks each entry
+  `Division {n} Rematch` in the badge slot (the button still reads "Fight Again (Rematch)" for any
+  defeated fighter). Its heading carries one line of copy ("Fighters you have already bested still
+  answer the sand…"). Both the current and the rematch cards keep `resolveBoutLevelGate(`.
+
+- **The Colosseum notice.** The door's locked-boss line no longer says "Train, and return" — which
+  named no way to earn the levels and was the misleading half of the dead end. It now reads "…
+  Earn the experience in the Colosseum's tournament list — rematches, earlier divisions included,
+  stay open." The door's eligibility logic, its `resolveDoorDuelTarget` ticket and its
+  `resolveBoutLevelGate` check are untouched; only the sentence moved.
+
+- **Regression suite: `src/utils/arenaReachability.test.ts` — 25 tests / 132 `expect()`** in six
+  sections. §A the current division's order (every tier, `rematch: false`, roster objects by identity,
+  roster/tier table untouched); §B exposure (the tier-4 book lists the seven beaten fighters in
+  division order, an **undefeated** earlier-division opponent is never exposed, a defeated
+  current-division fighter stays in the current list, the division being fought is never in the
+  rematches, a fresh profile gets none); §C malformed input (unknown/misspelled ids, duplicates,
+  junk entries, `null`/`undefined`, a `NaN`/`0`/negative/missing tier, a fractional tier); §D the
+  natural path and the **control** — the run reaches tier 4 at LVL 9 with the seven-id book, Aurelius
+  is `{ locked: true, requiredLevel: 10 }`, the pre-fix current-tier-only list yields **zero** legal
+  bouts (so this suite fails against the old behaviour) while the shipped list yields a legal bout;
+  §E two Valéria rematches take the player to LVL 10 (xp 1845 → 2295 → 2745, the threshold 2570 crossed,
+  the next threshold 3855 = `round(2570 × 1.5)`) and Aurelius reads `{ locked: false }`, with the
+  rematch paying its own gold/fame and **not** moving the tier or the book; §F the shipped wiring
+  (the tab lists through the helper with no `ALL_OPPONENTS.filter` of its own, the section and its
+  single `onSelectOpponent(opp)` call site, the door's gate/ticket/settlement untouched, and the old
+  "Train, and return" string gone from the **code** — the phase's own comment quotes it).
+
+- **Settlement arithmetic was DIRECTLY EXERCISED, not simulated.** There is no DOM renderer here, so
+  `<App/>` cannot be mounted; instead the suite extracts App's own `evaluateRituals` and
+  `handleMatchComplete` source (brace-matched, comments stripped), transpiles it with Bun's transpiler
+  and runs it against the **real** `advanceCityDay`, `settleInjury`, `resolveVictoryTier`,
+  `evaluateRoadMilestones` and `createDuelSettlementLatch` — the `duelSettlementCommit.test.ts`
+  technique — modelling only React (`profileRef`/`profile`/`setProfile`/`saveProfile`). So every XP,
+  level, threshold, tier and book value in §D/§E is produced by the shipping settlement. What that
+  leaves unexercised is the UI and the duel itself (see below).
+
+- **Checks actually run (2026-10-22, `web` dev container, on the final tree).**
+
+  | command | result |
+  |---|---|
+  | `bun test src/utils/arenaReachability.test.ts src/utils/tierAdvancement.test.ts` | **48 pass / 0 fail** (210 `expect()`; 25 are this suite's) |
+  | related duel/wiring suites (`combatResponsiveness`, `duelSettlement`, `duelSettlementCommit`, `duelRewards`, `duelResultLifecycle`, `storefrontWiring`) | **133 pass / 0 fail** (769 `expect()`) |
+  | `bun test` (full) | **3131 pass / 0 fail (106 files, 89,621 `expect()`)** — the 3106 / 105 L17 baseline plus this suite's 25 tests and its file; no existing assertion was edited, loosened or deleted |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `bun run build` | **exit 0**, startup-asset check passing (8 assets in `public/` and `dist/`; `dist/` is gitignored) |
+  | `git diff --check` | **clean (exit 0)** |
+
+- **Live evidence, and what is NOT verified.** The preview browser loads as an **anonymous visitor**:
+  the app boots to its title screen (`PLAY`, `ACCOUNT`, Alpha 1.0) with **0 console errors**, and the
+  dev server serves both changed modules transformed (200; the tab carries `listTournamentBouts(`,
+  `Earlier Divisions` and `resolveBoutLevelGate(`, the city scene no longer contains the old
+  sentence). **The rendered Earlier Divisions section was NOT seen**: it only exists for a profile
+  that has beaten earlier-division fighters, and reaching one means title → creation → the Oath beat →
+  the 3D city (SwiftShader ~1–2 fps) → the Colosseum tab, or seeding a save that the platform's fresh
+  loads clear (the C-8.66C/L11/L14/L15 finding). **Device check owed:** on a save at tier 4 with the
+  earlier divisions beaten, open the Colosseum tab and confirm the current division is unchanged, that
+  Earlier Divisions lists the beaten fighters each badged `Division n Rematch`, that Aurelius still
+  reads `Locked (Requires LVL 10)` at LVL 9, and that selecting a rematch → briefing → "Step into
+  Sand" settles one bout that pays its gold/fame/XP without moving the tier — twice, until Aurelius
+  unlocks. Also confirm the door's locked notice now reads the new sentence.
+
+- **Scope kept.** No change to Aurelius's level, XP rewards, the XP threshold formula, tier
+  advancement, reward settlement, boss first-defeat behaviour, the visitor system, the save schema,
+  combat presentation or 3D geometry. No opponent, division, currency or grind mechanic was added, and
+  nothing was committed, pushed or deployed by the phase.
