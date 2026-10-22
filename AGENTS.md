@@ -6566,3 +6566,13 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset
   check passing (8 assets); `git diff --check` → clean. **Not verified:** nothing visual — this slice
   ships no screen and changes no pixel, so there is no appearance to accept on device.
+- **Six single-literal mutations, each caught (2026-10-22, throwaway harness in `/tmp`, nothing added
+  to the repo).** Applied one at a time to `facilityProgression.ts`, reverted and compared
+  byte-identical (sha256) before the next: temper L3's workshop requirement 2 → 1 (**2 fails**, §D);
+  conditioning's `level === 4 || level === 5` → `level === 5` (**2**, §D); the yard's 20 base → 25
+  (**3**, §E); the helm gilded id struck from `GILDED_FORGE_ITEM_IDS` (**1**, §F); `levels[level]` →
+  `levels[MAX_FACILITY_LEVEL - 1]`, i.e. a skippable level (**4**, §C); the workshop's L2 price
+  1,400 → 1,200 (**2**, §A/§C). Every gate, the price ladder, the in-order rule and the training
+  curve therefore fail a test when broken — none is pinned only by agreeing with its own constant.
+  Post-restore run: **288 pass / 0 fail** across the five suites the gates reach (P5, P4 stable,
+  tempering, storefront wiring, save corpus).
