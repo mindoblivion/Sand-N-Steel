@@ -8602,3 +8602,22 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `src/components/duel/DuelScene.tsx` (the mirror state, the creation wiring, the HUD prop),
   `src/components/ui/CombatHUD.tsx` (prop, rule, the cue panel), `src/utils/playerWindupCue.test.ts`
   (new), `src/utils/playerStrikeWindup.test.ts` (one rebased pin), and this record.
+
+## Hit-stop device acceptance preparation (Phase C-8.73D — preparation only, no production change)
+
+- The full procedure — the five outcome holds and their precedence as read from source, the recording
+  protocol, the pass/fail discriminator, the five scenario checklists (quick, power/crit, blocked,
+  killing blow, telegraphed heavy), the scenarios that cannot be set up safely, and the smallest
+  recommended step after the device results — lives in
+  [.base44/hit-stop-device-acceptance.md](.base44/hit-stop-device-acceptance.md). Keep hit-stop
+  acceptance detail there rather than enlarging this file.
+- **Nothing was changed for this phase but these two documents**: HEAD `40bad99932`, empty
+  `git status --porcelain`, focused combat set 136 pass / 0 fail. Two facts a future phase should not
+  re-derive: `?devHarness=character` hardcodes `ALL_OPPONENTS[0]` (Marcus, not a boss), so the
+  telegraphed-heavy hold is **not** reachable in the harness; and the harness does not exist in a
+  production/device build at all (`import.meta.env.DEV`), so device acceptance must use the shipping
+  routes — the tier-1 bout against Goliath, gated at `recommendedLevel 3` unless he is already beaten.
+- **No test anywhere pins `HIT_STOP_MS`, `SHAKE_TRAUMA` or `impactAnimationScale`** — the only
+  references to them are `DuelScene.tsx` and `GladiatorMesh.tsx`. Android acceptance of every hold
+  (40/60/110/170/200 ms) remains PENDING; the sandbox renders the duel at ~1–2 fps and cannot resolve
+  them.
