@@ -8621,3 +8621,31 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   references to them are `DuelScene.tsx` and `GladiatorMesh.tsx`. Android acceptance of every hold
   (40/60/110/170/200 ms) remains PENDING; the sandbox renders the duel at ~1–2 fps and cannot resolve
   them.
+
+## Mobile combat usability & performance audit (Phase C-8.74A — read-only, no production change)
+
+- The full record — preflight, files inspected, every measured touch target, the live HUD
+  overflow figures, the canvas/DPR measurement, the rendering configuration and the ranked
+  three-item recommendation — lives in [.base44/mobile-combat-audit.md](.base44/mobile-combat-audit.md).
+  Keep mobile-combat audit detail there rather than enlarging this file.
+- **Nothing was changed but these two documents**: HEAD `f8e296e824`, empty
+  `git status --porcelain` before the audit, focused combat set **160 pass / 0 fail** (7 files).
+- Headline findings a future phase should not re-derive. (1) **The duel Canvas has no `dpr`
+  cap and no governor** — measured 750 × 1624 drawing buffer for a 375 × 812 canvas
+  (effective DPR **2.00** at `devicePixelRatio` 2), where the city hub caps and adapts its own
+  through `useAdaptiveDpr` / `CITY_TIERS`. (2) **Ten of the fifteen duel controls are under the
+  48 × 48 baseline** — the top utility cluster is 28–34 px (Help/Mute 30 × 30, Camera 36 × 28,
+  Armory 193 × 30, Settings 38 × 48) at *every* breakpoint, the reactions are 44 px
+  (`min-h-[44px]`) and the movement strip 46 px. (3) At 375 × 812 portrait the tactic dashboard's
+  bottom sits **13.5 px past the HUD's own bottom edge** with the chronicle at its `max-h-24` cap,
+  and the movement strip has 6.5 px of clearance — the tightest budget in the HUD. (4) Both
+  wind-up cues clear the vitals and never cover a live control; zero controls overlap; zero
+  console errors.
+- **`frameloop` is `'always'` from 200 ms after mount and never returns** — nothing in the duel
+  calls `invalidate` — so the arena keeps rendering while idle, while the result modal is up
+  (the scene stays mounted under `DuelResultModal`'s backdrop blur) and behind the settings
+  sheet. `RaceScene` already takes a `frozen` prop for that case; `DuelScene` does not.
+- **Not automatically verified:** any real-GPU frame time, a true 812 × 375 landscape render (the
+  preview browser has no such preset), and the feel of the 44 px reactions inside the 700 ms
+  window. The sandbox renders the duel through SwiftShader, so none of the above settles a
+  device question.
