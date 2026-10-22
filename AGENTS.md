@@ -7738,3 +7738,104 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   (e) The bargain rate is deliberately a **rate**, not a price: an item whose canonical price changes
   moves its visitor price with it, and a future visitor-exclusive stock would need a rate too rather
   than a table of its own.
+
+## Living City L17 — visitors standing in the city (implemented; bodies, prompt and VISIT label NOT verified live)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`198578a1e7`** ("Implement
+  visitor presence and interaction system"), `git status --short` **empty** — the phase had already
+  landed as that commit and was written up nowhere until this record. Five files, +875/−27:
+  `src/utils/visitorPresence.ts` (**new**, 214 lines), `src/utils/visitorPresence.test.ts` (**new**,
+  462 lines), `src/components/3d/city/CityHubScene.tsx` (+191/−7), `src/data/ambientCharacters.ts`
+  (+8/−1, an export only), `src/utils/visitorSchedule.test.ts` (one §J guard rebased). Nothing was
+  reset, stashed or discarded.
+
+- **What ships: the missing half of a fact L10 already decided.** L10 chose *who* is in town on a day;
+  L11/L12 gave them a meeting and a trade in the panel. Until L17 a visitor existed **only** in that
+  panel — the city had no body for them. `resolveVisitorPresence(profile)` is now the ONE answer to
+  "who is standing here, and where": it calls `resolveVisitorSchedule` and **joins** the arrivals to a
+  frozen stall table, carrying `offerItemId` along. Presence is **derived, never stored**, so a visitor
+  who leaves town (the day turns) or completes a trade disappears in the same render that changed the
+  profile. Three frozen stalls, and no entry for any id the catalogue does not list:
+
+  | visitor | stall (X, Z) | facing | measured clearance |
+  |---|---|---|---|
+  | `numidian_bladesmith` | **(−6, 18)** | +π/2 | tightest hub rim in the city: 3.985 from the town gate's disc |
+  | `campanian_armorer` | **(12.5, −6.5)** | −π/3 | **moved** from the audited (15, −6) — see below |
+  | `emesan_weapon_trader` | **(6.5, −3.5)** | −π/4 | clears the Colosseum facade and every hub disc |
+
+- **The one anchor that had to move, and the measured reason.** At (15, −6) the armorer's 2.5 disc
+  contained the **Bazaar & General Store's own fast-travel arrival `[17, −5]`** at 2.236 — arriving at
+  the bazaar would have raised *"Speak with Gaius the Armorer"* instead of the store's door — and the
+  disc reached 0.679 into that hub's interaction disc while the arrival sits exactly 5.000 from its
+  centre. At (12.5, −6.5) the arrival is 5.656 away and no hub is touched. §B keeps the old anchor as
+  an **executable CONTROL**: replaying (15, −6) through the shipped rule at that arrival answers the
+  armorer, while the shipped table answers `null`.
+
+- **Geometry re-measured on the real registry, not assumed.** Baselines pinned first — `CITY_COLLIDERS`
+  **142**, `HUB_LOCATIONS` **21**, `FAST_TRAVEL_ARRIVALS` **21** — so a new building or landmark that
+  lands on a stall fails here. Per visitor: **1,947 cells** at 0.1 spacing inside the 2.5 disc,
+  **0 blocked** by `collidesWith(..., PLAYER_RADIUS, ...)`, anchor standable; **no** visitor disc
+  reaches a hub disc or approach ring (`distance − hub.radius ≥ 2.5`, all 63 pairs); **no** arrival
+  lands inside a disc (63 pairs); and seven approaches driven through the real `resolveCityMovement`
+  at 3.8 u/s for one second from six units out all end inside the disc.
+
+- **The interaction rule, and it fails safe towards what already worked.**
+  `resolveVisitorTarget(pos, presence, competingHub)`: only a visitor whose own disc contains the
+  player is eligible, the **nearest** wins (ties keep the earlier catalogue entry), and when the player
+  is **also** inside a hub's disc the visitor owns the action only if **strictly** nearer than that
+  hub's centre. A tie, a nearer hub, or an unusable hub distance (`NaN`) answers `null`, leaving the
+  hub's established behaviour as it was before visitors had bodies. The hub handed in is the very one
+  `getNearbyHubLocation` answered (C-8.47's nearest-hub rule), so no second hub rule exists. A **stale**
+  day-five list re-resolved against a day-eight profile cannot produce a target (§D).
+
+- **Rendering reuses what the city already has — no second character system.** `createAmbientFighter`
+  (now exported, behaviour unchanged) + the shipping `GladiatorMesh`, one idle fighter per presence,
+  dyed `#2b3a67` tunic with a `#d4a017` crest so a visitor reads differently from the undyed extras.
+  Each pitch is marked by **one existing `TimberCrate`** at their right hand — three meshes against a
+  `MerchantCart`'s twenty, which matters at three visitors. Bodies and crates come from one memo over
+  the presence list, so a departed visitor's body and cue vanish together. Stalls are **not**
+  `HUB_LOCATIONS` entries and **not** colliders (no fast-travel entry, district, audio zone or collision
+  shape), which is why the registry baselines are unchanged.
+
+- **The prompt, and one control that keeps its identity.** `visitorPrompt(target)` reads *"Speak with
+  Hanno of Cirta"*; the desktop banner shows only for the selected target and the hub banner stands
+  down while it is up. On touch the existing 2-in-1 action button **relabels itself** — `VISIT` with
+  the visitors icon, `ENTER [E]` at a hub, `ATTACK` otherwise — and the press order is Visit →
+  Interact → Attack, so a valid visitor target can never fire an attack. Speaking **opens the existing
+  L11 panel and nothing else**: `onEncounterVisitor` is not called by walking past or by VISIT, so
+  `seenVisitors` is still written only by the panel's own selection and the L12 purchase still
+  re-validates against the newest profile. Proximity state is written **only when the target id
+  changes** (`lastVisitorIdRef`), so the 60 fps loop allocates nothing per frame.
+
+- **Checks actually run (final tree, `web` dev container).**
+
+  | command | result |
+  |---|---|
+  | `bun test src/utils/visitorPresence.test.ts src/utils/visitorSchedule.test.ts` | **77 pass / 0 fail** (3,083 `expect()`; 31 are the new suite) |
+  | `bun test` (full) | **3106 pass / 0 fail (105 files, 89,507 `expect()`)** — L15's 3075 plus the 31 new |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `bun run build` | **exit 0** |
+
+- **Not automatically verified live — the honest status of the phase.** The preview browser is an
+  **anonymous visitor**. Two attempts at the established in-page-frame technique (seed a day-five
+  profile into `sand_and_steel_gladiator_save_v2`, load the app inside a frame so the save survives,
+  click through, walk the gate spawn to the bladesmith at (−6, 18)) both **timed out at the 30 s
+  budget**, and the follow-up read showed only the landing screen (**Settings / Play / Account**,
+  **0 canvases**) — the city's WebGL scene never reached a drivable state, the same SwiftShader limit
+  (~2 fps) that left the Medical House interaction and the C-8.36/C-8.37 northern approach outstanding.
+  **So L17's three visible outcomes — the bodies at their pitches, the "Speak with …" banner, and the
+  mobile label reading VISIT — have no live evidence.** What is pinned instead is source-and-geometry
+  evidence: §E reads the cleaned `CityHubScene.tsx` and asserts the scene derives its bodies from the
+  presence resolver, names the prompt through `visitorPrompt`, relabels the action to `VISIT`, and
+  records an encounter **only** through the panel's selection. With a real GPU or a device, walk to one
+  stall and confirm: body + crate appear, the banner names the visitor, the touch button reads
+  **VISIT**, the panel opens on that same visitor — then that the body disappears after a trade.
+
+- **Known limits.** (a) **Maximum concurrent visitors is three** — measured over a year: 225 days with
+  none, 119 with one, 18 with two, **exactly 3 days with three (51, 99, 145)**; a fourth catalogue
+  visitor needs a fourth stall *and* re-measuring §B. (b) Stalls are not colliders, so the player can
+  walk **through** a visitor — deliberate (people, not doorways). (c) The stall table is level design
+  **keyed by catalogue id**: a renamed visitor id silently loses their body, and a hub anchor moved
+  into a stall fails §B — the guard is the suite, not a runtime warning. (d) No physical Android device
+  was used; the relabelled button's touch ergonomics join the open device checklist. Do not claim
+  device or visual acceptance without that evidence.
