@@ -4,6 +4,25 @@ import { TOURNAMENT_TIERS, ALL_OPPONENTS } from '../../data/opponents';
 import { Swords, Trophy, Skull, Play, Lock, CheckCircle, Shield } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { PrimusPalusBoard } from './PrimusPalusBoard';
+// S7 — whether the player has bought the tavern's rumour on this opponent.  The
+// dossier below is READ from OpponentConfig; intel changes nothing a fight computes.
+import { hasIntel } from '../../utils/intel';
+
+/** How the opponents' own weapon types read on a rumour card. Display only. */
+const WEAPON_LABELS: Record<OpponentConfig['weaponType'], string> = {
+  sword_shield: 'Sword & Shield',
+  spear: 'Spear',
+  dual_blades: 'Dual Blades',
+  mace: 'Mace',
+};
+
+/** How each boss mechanic reads on a rumour card. Display only. */
+const BOSS_MECHANIC_LABELS: Record<NonNullable<OpponentConfig['bossMechanic']>, string> = {
+  heavy_telegraph: 'Heavy attacks are telegraphed',
+  phase_weapon_switch: 'Changes weapon in the second phase',
+  counter_dodge: 'Counters out of a dodge',
+  rage_mode_colossus: 'Falls into a rage when wounded',
+};
 
 interface TournamentTabProps {
   profile: PlayerProfile;
@@ -40,6 +59,7 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
         {tierOpponents.map((opp) => {
           const isDefeated = profile.defeatedOpponentIds.includes(opp.id);
           const isLocked = profile.level < opp.recommendedLevel && !isDefeated;
+          const hasRumour = hasIntel(profile, opp.id);
 
           return (
             <div
@@ -66,6 +86,34 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
 
                 <h4 className="font-serif font-black text-lg text-amber-100 mb-0.5">{opp.name}</h4>
                 <div className="text-xs text-neutral-400 font-serif italic mb-4">{opp.title}</div>
+
+                {/* S7 — THE TAVERN'S RUMOUR.  Rendered ONLY for an opponent whose
+                    rumour the player has bought, from OpponentConfig as it stands:
+                    no stat, formula or reward is touched, and every opponent
+                    without intel renders exactly the surface it always has. */}
+                {hasRumour && (
+                  <div
+                    data-intel={opp.id}
+                    className="mb-4 rounded-xl border border-cyan-700/60 bg-cyan-950/40 p-2.5"
+                  >
+                    <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-300 mb-1">
+                      Tavern rumour — information only
+                    </div>
+                    <div className="text-[11px] font-mono text-neutral-100">
+                      {opp.personality} fighter · {WEAPON_LABELS[opp.weaponType]}
+                    </div>
+                    <div className="text-[11px] font-mono text-neutral-300">
+                      STR {opp.stats.strength} · AGI {opp.stats.agility} · STA{' '}
+                      {opp.stats.staminaMax} · REG {opp.stats.staminaRegen} · DEF{' '}
+                      {opp.stats.defense} · HP {opp.stats.healthMax}
+                    </div>
+                    {opp.bossMechanic && (
+                      <div className="mt-1 text-[11px] font-mono text-cyan-200">
+                        Signature: {BOSS_MECHANIC_LABELS[opp.bossMechanic]}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* REWARDS */}
                 <div className="flex items-center gap-3 text-xs font-mono bg-neutral-950/80 p-2.5 rounded-xl border border-neutral-800 mb-4">

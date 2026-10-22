@@ -33,6 +33,15 @@ field, which is the legacy shape a load must survive, and `saveCorpus.test.ts` �
 expected optional set now ends with `consumables` in `src/types/game.ts` declaration
 order.
 
+**Extended by S7 (Tavern rumours).** `PlayerProfile.intel` — the opponents the player
+has bought the Golden Palm Tavern's rumour on (15 gold each, information only) — is
+the newest optional field, so it gets the fixture half of the rule too: `intel-era`,
+the S6 consumables-era save with two rumours bought (the tier-2 boss and a tier-3
+opponent, the shape a successful `purchaseIntel` writes). Every older fixture keeps
+**omitting** the field, which is the legacy shape a load must survive, and
+`saveCorpus.test.ts` §J's expected optional set now ends with `intel` in
+`src/types/game.ts` declaration order.
+
 ## Corpus rule
 
 **A slice that adds a field to the save adds a fixture for the shape it writes, in
@@ -62,6 +71,7 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `malformed-empty-fields` | `emptyFieldsProfile.json` | The empty-shaped new fields: `story`, `temper`, `road`, `seen` and `laurels` present as `{}`, `time` present as `{ total: 0 }` — what a writer that created a field before filling it leaves. | Hand-aged from the fresh shape. |
 | `triumphs-era` | `triumphsEraProfile.json` | The fully-populated shape with the Triumph record filled: all three titles owned (`Crowd Favourite`, `Champion of the Sands`, `Living Legend`), the ludus statue raised, `title` set to the newest title bought and 700 fame left of 5,000. | The `story-road-era` save with its fame hand-aged to 5,000 and then driven through the real `purchaseLaurel` transaction four times (4,300 fame spent) and frozen. |
 | `consumables-era` | `consumablesEraProfile.json` | The fully-populated shape with the counted satchel filled: two Field Poultices and one Medicus Salve, keyed by consumable id and carrying no gear at all. | The `triumphs-era` save hand-aged with the record a successful `purchaseConsumable` writes; frozen, and never written by `createNewProfile`. |
+| `intel-era` | `intelEraProfile.json` | The fully-populated shape with the tavern's rumour record filled: two opponents bought at 15 gold each (`opp_ignis_boss`, `opp_centurion_drusus`), plus every earlier optional field. | The `consumables-era` save with the `intel` list a successful `purchaseIntel` writes (S7); frozen, and never written by `createNewProfile`. |
 
 ### Shapes each fixture covers
 
@@ -80,6 +90,7 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `malformed-empty-fields` | empty-shaped optional records · an empty `laurels` record (owns no Triumph) · a zero clock (day 1, dawn) · nothing seen, no milestones |
 | `triumphs-era` | `laurels` populated — three titles owned and the statue raised · a title purchase setting the displayed `title` · every post-GC20 optional field populated |
 | `consumables-era` | `consumables` populated — the counted satchel (2 × Field Poultice, 1 × Medicus Salve) · every post-GC20 optional field populated · every earlier fixture omits the field |
+| `intel-era` | `intel` populated — two rumours bought, information only · every post-GC20 optional field populated · every earlier fixture omits the field |
 
 ## What the corpus proves
 
@@ -96,7 +107,8 @@ For every fixture, `src/utils/saveCorpus.test.ts` runs:
    `getChariotPurchaseEligibility`, `getChariotEquipEligibility`), the campaign's
    `resolveStoryState`, the road's `resolveRoadProgress` / `resolveRoadState`, the
    coach marks' `resolveSeenState`, the triumphs' `resolveLaurels`, the Bazaar
-   satchel's `resolveConsumables`, the clock's `resolveTimeState` and temper's
+   satchel's `resolveConsumables`, the tavern's `resolveIntel`, the clock's
+   `resolveTimeState` and temper's
    `resolveTemperLevel` read through the effective-stats helpers
    (`getEffectiveWeaponStats` / `getEffectiveArmorStats`) the boot-path stats reader
    `calculateTotalStats` itself uses;
@@ -108,8 +120,9 @@ For every fixture, `src/utils/saveCorpus.test.ts` runs:
    an absent `injury` to no penalty, an absent `story` to no campaign flags, an
    absent `temper` to level 0 on every owned item, an absent `road` to unsworn with
    no device and no milestones, an absent `seen` to nothing seen, an absent `time`
-   to Day 1 at dawn, an absent `laurels` to owning no titles and no statue, and an
-   absent `consumables` to an empty satchel.
+   to Day 1 at dawn, an absent `laurels` to owning no titles and no statue, an
+   absent `consumables` to an empty satchel, and an absent `intel` to no rumour
+   bought.
 
 The other resolvers in the tree are not profile-shaped and are out of scope here:
 `resolveSettings` (the separate settings record, `sand_and_steel_settings_v1`, with

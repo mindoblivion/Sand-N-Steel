@@ -37,6 +37,7 @@ import partialStoryProfile from './partialStoryProfile.json';
 import emptyFieldsProfile from './emptyFieldsProfile.json';
 import triumphsEraProfile from './triumphsEraProfile.json';
 import consumablesEraProfile from './consumablesEraProfile.json';
+import intelEraProfile from './intelEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -183,6 +184,18 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every older fixture omits the field, the legacy shape a load must survive',
     ],
     profile: asProfile(consumablesEraProfile),
+  },
+  {
+    id: 'intel-era',
+    file: 'intelEraProfile.json',
+    provenance:
+      'The S6 consumables-era save with the tavern\'s rumour record filled — two opponents bought at 15 gold each (S7), the shape a successful `purchaseIntel` writes.',
+    covers: [
+      'the `intel` list populated (S7)',
+      'every post-GC20 optional field populated, intel included',
+      'every older fixture omits the field, the legacy shape a load must survive',
+    ],
+    profile: asProfile(intelEraProfile),
   },
 ];
 

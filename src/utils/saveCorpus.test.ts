@@ -122,6 +122,9 @@ import { resolveSeenState } from './coachMarks';
 import { TIME_PHASES, resolveTimeState } from './timeState';
 import { resolveLaurels } from './laurels';
 import { resolveConsumables } from './consumables';
+// S7 — the tavern's rumour record, read the way the tavern panel and the
+// tournament card read it.
+import { resolveIntel } from './intel';
 
 // ── The corpus on disk ─────────────────────────────────────────────────────
 const FIXTURE_DIR = fileURLToPath(new URL('./saveFixtures/', import.meta.url));
@@ -142,6 +145,7 @@ const REQUIRED_FIXTURE_IDS = [
   'malformed-empty-fields',
   'triumphs-era',
   'consumables-era',
+  'intel-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -208,6 +212,9 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const laurels = resolveLaurels(profile);
   // S6 — the Bazaar satchel, read the way the shop and the use surfaces do.
   const consumables = resolveConsumables(profile);
+  // S7 — the tavern's rumour list, read the way the tavern panel and the
+  // tournament card read it.
+  const intel = resolveIntel(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -227,6 +234,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     time,
     laurels,
     consumables,
+    intel,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -358,6 +366,10 @@ for (const fixture of SAVE_FIXTURES) {
           (count) => Number.isInteger(count) && (count as number) > 0,
         ),
       ).toBe(true);
+      // S7 — the rumour record resolves to known opponent ids only.
+      expect(Array.isArray(resolved.intel)).toBe(true);
+      expect(resolved.intel.every((id) => OPPONENT_IDS.has(id))).toBe(true);
+      expect(new Set(resolved.intel).size).toBe(resolved.intel.length);
       expect(Number.isFinite(resolved.temperedWeapon.damageLight)).toBe(true);
       expect(resolved.temperedWeapon.damageLight).toBeGreaterThanOrEqual(loaded.equipped.weapon.damageLight);
       expect(resolved.temperedArmor.every((armor) => Number.isFinite(armor.defense))).toBe(true);
@@ -445,6 +457,10 @@ for (const fixture of SAVE_FIXTURES) {
         absentFields += 1;
         expect(resolveConsumables(profile)).toEqual({});
       }
+      if (!('intel' in raw) || raw.intel === null) {
+        absentFields += 1;
+        expect(resolveIntel(profile)).toEqual([]);
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -461,6 +477,7 @@ for (const fixture of SAVE_FIXTURES) {
         'time',
         'laurels',
         'consumables',
+        'intel',
       ];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
@@ -612,6 +629,16 @@ describe('GC20 §F — what each shape resolves to', () => {
     expect(resolveConsumables(fixtureById('minimal-legacy').profile)).toEqual({});
     expect('consumables' in rawOf(fixtureById('current-fresh'))).toBe(false);
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('consumables');
+  });
+
+  test('the S7 rumour record is a list of known opponents, and no factory save carries it', () => {
+    const profile = fixtureById('intel-era').profile;
+    expect(resolveIntel(profile)).toEqual(['opp_ignis_boss', 'opp_centurion_drusus']);
+
+    // Lazy: a legacy save knows no rumour, and nothing at creation writes the field.
+    expect(resolveIntel(fixtureById('minimal-legacy').profile)).toEqual([]);
+    expect('intel' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('intel');
   });
 
   test('null where an object is expected resolves to both defaults', () => {
@@ -853,6 +880,7 @@ describe('GC20 §J — the corpus rule', () => {
       'time',
       'laurels',
       'consumables',
+      'intel',
     ]);
 
     // Every optional field with a resolver has a fixture for both its absent and
@@ -868,6 +896,7 @@ describe('GC20 §J — the corpus rule', () => {
       'time',
       'laurels',
       'consumables',
+      'intel',
     ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);
