@@ -27,7 +27,8 @@
  */
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { PlayerProfile } from '../types/game';
@@ -68,6 +69,33 @@ const code = (rel: string): string =>
   load(rel)
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '');
+
+const SOURCE_DIR = fileURLToPath(new URL('../', import.meta.url));
+
+/**
+ * Every non-test source file under `src/` whose code names `token`, as paths
+ * relative to `src/`.  Used instead of a hand-written list of neighbours, so a
+ * new gold sink that reaches for the helper fails here without this suite having
+ * to name it.
+ */
+const namersOf = (token: string): string[] => {
+  const walk = (dir: string, out: string[] = []): string[] => {
+    for (const entry of readdirSync(join(SOURCE_DIR, dir), { withFileTypes: true })) {
+      const rel = dir ? `${dir}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        walk(rel, out);
+        continue;
+      }
+      if (!/\.tsx?$/.test(entry.name) || /\.test\.tsx?$/.test(entry.name)) continue;
+      const source = readFileSync(join(SOURCE_DIR, rel), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      if (source.includes(token)) out.push(rel);
+    }
+    return out;
+  };
+  return walk('').sort();
+};
 
 const MODULE = code('./facilityProgression.ts');
 const GAME_TYPES = code('../types/game.ts');
@@ -495,11 +523,14 @@ describe('P5 §E — the yard discounts stat training, and only stat training', 
   test('the two shipped consumers read the helper, and nothing else charges it', () => {
     expect(APP).toContain('trainingCost(profile, 25 * profile.level)');
     expect(TRAINING_TAB).toContain('trainingCost(profile, 25 * profile.level)');
-    // The other gold sinks keep their own price: no stables, chariot, gear, temple
-    // or arena path mentions the helper.
-    for (const file of ['utils/selling.ts', 'utils/stableProgression.ts', 'utils/laurels.ts', 'utils/consumables.ts', 'utils/intel.ts', 'utils/chariotLoadout.ts', 'utils/injury.ts']) {
-      expect(load(`../${file}`).includes('trainingCost'), file).toBe(false);
-    }
+    // The other gold sinks keep their own price: the helper's only namers in the
+    // whole source tree are the module that defines it and the two surfaces that
+    // charge stat training.
+    expect(namersOf('trainingCost')).toEqual([
+      'App.tsx',
+      'components/hub/TrainingTab.tsx',
+      'utils/facilityProgression.ts',
+    ]);
   });
 });
 

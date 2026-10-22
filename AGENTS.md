@@ -6495,3 +6495,49 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `git diff --check` → clean. Four single-literal mutations (transactions leak the 5-key record; resolver
   iterates only wheels/finish; a price off by 50; production reads `raceEffect`) each fail exactly the
   intended tests, with the files restored byte-identical. **Not verified:** nothing visual — no pixel changes.
+
+## P5 — facility progression (implemented, validated)
+
+- **What shipped.** One optional save field, one pure module and four read-time gates — no screen.
+  `src/utils/facilityProgression.ts` follows the `stableProgression.ts` / `racingProgression.ts`
+  idiom (catalogue → resolve → eligibility → purchase, a NEW profile on success, a refusal that
+  carries no profile): `FACILITIES` (Imperial Stable, Ludus Training Yard, Smithing Workshop) at the
+  brief's 500 / 1,200 ladder, bought IN ORDER — only the level above the one owned is ever offered,
+  so a skipped level is a level that does not exist to buy.
+- **The save field.** `PlayerProfile.facilities?: { stable?: number; yard?: number; workshop?: number }`
+  (`src/types/game.ts`), optional and **never backfilled**: absent, partial and malformed values all
+  resolve to level 0 per building, and `createNewProfile()` still writes nothing. `purchaseFacility`
+  is the single writer.
+- **The gates are read-time facts, restated nowhere.** `tempering.ts` asks
+  `getFacilityLevel(profile, 'workshop')` for temper levels 2–3; `stableProgression.ts` asks
+  `getFacilityLevel(profile, 'stable')` for quality grades 2–3 and conditioning levels 4–5;
+  `data/shops.ts`'s `getVisibleStorefrontStock` withholds the four `_gilded` armour rows until
+  workshop L2; and the yard's 0 / 10 / 25 % discount reaches **stat training only** through
+  `trainingCost(profile, 25 * profile.level)`, the one call shape in both consumers (`App.tsx`'s
+  `handleTrainStat` and `components/hub/TrainingTab.tsx`). A gate outranks the purse and never
+  charges.
+- **Corpus discipline.** The new optional field fired the GC20 tripwire by design: `saveCorpus.test.ts`
+  §J's optional-field list ends with `facilities` in `game.ts` declaration order, a **facilities-era**
+  fixture (`saveFixtures/facilitiesEraProfile.json`, registered in `saveFixtures/index.ts` and
+  `MANIFEST.md`) carries all three buildings at L2 with 900 gold, and every pre-existing fixture still
+  resolves as before.
+- **Suites.** `src/utils/phaseP5FacilityProgression.test.ts` — §A the catalogue, §B the resolver over
+  absent / partial / malformed shapes, §C the in-order purchase with refusals that move nothing and
+  frozen-profile purity, §D the four gates, §E the training discount and its consumers, §F the gilded
+  stock gate, §G the profile field and the corpus, §H the scope guards (one writer, one consumer set,
+  no UI purchase path yet).
+- **Scope guards worth knowing.** §E is a **repo-wide sweep**, not a hand-written list: every
+  non-test source file naming `trainingCost` must be exactly `App.tsx`,
+  `components/hub/TrainingTab.tsx` and `utils/facilityProgression.ts`, so a new gold sink that
+  reaches for the helper fails without the suite naming it. The P2 `laurels.test.ts` §F allowlist is
+  untouched — the sweep keeps this suite from writing another module's name.
+- **Two open design items, deliberately not invented.** (1) The workshop's own L1/L2 *names* and
+  prices are not fixed in the design; the module uses the same 500 / 1,200 ladder as a documented
+  placeholder, and every consumer reads the constants rather than duplicating a price — change them
+  in the module, nowhere else. (2) The yard L2 brief mentions a "+1 creation-style point" that no
+  shipped system consumes; nothing implements it, because no system reads such a point today.
+- **Verified 2026-10-22** in the dev container, on the final tree: `bun test` → **3181 pass / 0 fail
+  (107 files, 87,044 `expect()` calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0
+  failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset
+  check passing (8 assets); `git diff --check` → clean. **Not verified:** nothing visual — this slice
+  ships no screen and changes no pixel, so there is no appearance to accept on device.
