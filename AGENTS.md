@@ -8023,3 +8023,147 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   **Device check still owed:** on a save one level short of the next boss, confirm the tournament
   card's button is visibly disabled and reads `Locked (Requires LVL n)`, and that the Colosseum door's
   notice now names both an open rank match and an earlier division's rematch.
+
+## Combat action validation and wind-up audit (C-8.71A — one ordering fix; the delay DEFERRED)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`8856ff6c3a`**,
+  `git status --porcelain` **empty** and `git diff` empty before the first edit — the baseline the
+  brief named. Nothing was reset, stashed, discarded, committed or pushed. The combat path was read
+  in source before anything was changed: `src/components/duel/DuelScene.tsx` (`executeCombatTurn`,
+  `announceEnemyAttack`, `reactToPendingAttack`, the AI effect, the victory/defeat effect),
+  `src/utils/combatCalculations.ts` (`isAttackInRange`, `getStaminaCost`, `ENEMY_ATTACK_WINDUP_MS`),
+  `src/utils/pendingStrike.ts`, `src/components/ui/TurnActionPanel.tsx`,
+  `src/components/ui/CombatHUD.tsx`, and the focused suites `combatResponsiveness.test.ts`,
+  `pendingStrike.test.ts`, `duelResultLifecycle.test.ts`.
+
+- **The report's headline symptom does NOT reproduce at this HEAD, and that is stated rather than
+  "fixed".** "An out-of-range attack consumes stamina and the player's turn" cannot happen on this
+  tree, for two independent reasons, both read from the shipped code and pinned in the new suite:
+  1. **The engine refuses before anything is spent.** The authoritative guard
+     (`if (!isAttackInRange(gap, attackerNow.loadout.weapon))`) sits ABOVE
+     `resolvingRef.current = true`, `setIsExecuting(true)`, the animation write, the stamina
+     deduction, the hit roll, the damage roll and the 1100 ms turn timer — its refusal body holds
+     nothing but a chronicle line and a `return`. A refused strike therefore costs no stamina and
+     never schedules the turn toggle.
+  2. **No control can issue one.** `TurnActionPanel` disables BOTH strike buttons through the same
+     shared helper (`isAttackInRange(distance, player.loadout.weapon)`) and covers them with an
+     "Out of range — Advance to strike" overlay; `distance` is the very expression the engine's
+     `gap` re-computes (`Math.abs(player.position[2] - opp.position[2])`). There is no keyboard
+     path, no second duel component (`grep` finds exactly one `executeCombatTurn`) and no direct
+     caller outside the HUD.
+  So the guard's value is defence-in-depth (a stale render, a direct call), not a live bug fix —
+  and the phase's own tests assert the properties the brief asked for *and* record that they already
+  held, rather than claiming a defect that was not there.
+
+- **The two real action-order defects the audit found, and fixed.** Both are in the same guard, and
+  both are order-of-operations faults rather than rule faults:
+  1. **A refused strike left the telegraphed-heavy marker set (reachable).** `telegraphLandingRef`
+     is set by the boss's heavy-telegraph branch and is documented as "read-and-cleared at the top
+     of `executeCombatTurn`, before any branch can return". It was not: the read-and-clear sat
+     *below* the range guard, so a telegraph the player had walked out of (`resolveDoorDuelTarget`
+     aside, this is exactly the Goliath case: telegraph → player retreats → the pending heavy is
+     resolved out of range and refused) returned first and kept the marker. The next ordinary
+     landing then took the **200 ms telegraphed-heavy hit-stop** it never earned. The clear now
+     precedes the guard.
+  2. **A refused announced strike could latch the scene (structural).** `announceEnemyAttack` sets
+     `isExecuting` for the whole cue, and the announcement's impact is the only path that would
+     clear it — via the 1100 ms timer inside a completed resolution. A refusal returns before that
+     timer is scheduled, so the HUD would stay locked with `isPlayerTurn` still false and no way to
+     act. It is not reachable today (the AI only announces in range and the player cannot move
+     during the cue), so this is a guarantee rather than an observed bug: the refusal now releases
+     the announcement's lock and hands the turn back, scoped to `!isActorPlayer && isExecuting` so a
+     player action is never affected.
+
+- **Feedback.** The refusal line read "… is out of reach — Advance before striking."; it now reads
+  "… is out of range — Advance before striking.", matching the panel's own "OUT OF RANGE" badge and
+  its "Out of range — Advance to strike" overlay. Copy only: no rule, threshold or outcome moved.
+
+- **What did NOT change.** No damage formula, weapon stat, stamina cost, hit chance, crit rate,
+  defence curve, opponent balance, reward/xp/fame/gold, tier advancement, settlement, block/dodge/
+  shield rule, AI strategy, arena visual, lighting, particle, performance setting, save field,
+  authentication or city content. `combatCalculations.ts` is **byte-identical**; the suite re-pins
+  its five audited constants (dodge 12, wind-up 700, defence factor 2.5, crit 1.5, strength 0.05) as
+  a scope guard. `pendingStrike.ts`, `CombatHUD.tsx`, `TurnActionPanel.tsx` and `App.tsx` were read
+  and are untouched.
+
+- **Files changed: two.** `src/components/duel/DuelScene.tsx` (the marker read-and-clear moved above
+  the guard; the refusal's lock release; the copy; comments) and
+  `src/utils/combatActionOrder.test.ts` (**new**, 17 tests / 113 `expect()`), plus this record.
+
+- **The trace the phase established (all synchronous unless marked).**
+  1. *Action selection* — the panel calls `onExecuteAction` → `executeCombatTurn('player', action)`.
+  2. *Refusal check* — `resolvingRef` / `isMatchOver` latches (synchronous).
+  3. *Range validation* — `isAttackInRange(gap, attacker.loadout.weapon)` (synchronous, shared).
+  4. *Stamina + animation + hit/miss + damage* — one synchronous commit inside the attack branch.
+  5. *Turn commitment* — `resolvingRef.current = true` immediately; the panel locks via
+     `setIsExecuting(true)`.
+  6. *Wind-up* — **player: none**; **opponent: 700 ms** (`ENEMY_ATTACK_WINDUP_MS`) on the scheduled
+     announcement path.
+  7. *Resolution window* — a single `setTimeout(…, 1100)` resets the animation, releases
+     `resolvingRef`, and toggles `setIsPlayerTurn`.
+  8. *AI response* — a `setTimeout(…, 750)` effect fires once the turn belongs to the opponent, picks
+     an action, and either announces a strike (returning to step 6 for 700 ms) or resolves at once.
+  Races checked: a doubled click is refused by `resolvingRef` (set in the same tick); a repeated
+  announcement is refused by `strikeRef.announce`; a strike resolved after a cancel is inert; the
+  1400 ms result settlement is latched by `isMatchOver` and by App's per-bout `duelSettlement` id.
+
+- **Wind-up audit — evidence, and why the delay is DEFERRED (no timing changed).**
+  - **The opponent's damage is NOT in the commit that starts its swing.** `announceEnemyAttack`
+    starts the clip (`setOpp(action: 'attack_light' | 'attack_heavy')`), logs the cue and schedules
+    the impact; the damage lands 700 ms later through `executeTurnRef.current('opponent', landing)`
+    and the SAME `executeCombatTurn`. That decoupling already shipped (§R1) and is re-pinned here.
+  - **The player's damage IS in the commit that starts its swing.** The attack branch writes
+    `action: 'attack_light' | 'attack_heavy'` and rolls/applies damage in one synchronous block,
+    with no timer between them. That is the readability asymmetry a delayed hit would address — and
+    it is the *player's* side, not the opponent's.
+  - **A 600–800 ms delayed player hit is not safe in this lifecycle without a separate phase:**
+    `resolvingRef` is taken at commit and released only inside the 1100 ms timer, so a wind-up would
+    either hold the latch across the delay (locking the panel for ~1.8 s) or need a second latch;
+    `pendingStrike` is enemy-shaped (`claimReaction` exists so the *player* answers an announcement —
+    reusing it would let the opponent "react" to the player's swing, a rules change); the
+    cancellation set grows by "the target died during the wind-up", which also moves the 1400 ms
+    victory settlement; and stamina is spent at commit today, so a cancelled delayed strike must
+    either refund (a balance change) or remain a paid miss (a design decision).
+  - **What is safe, measured:** positions only change on `advance`/`retreat`, which are themselves
+    turns and are locked while a resolution or an announcement is in flight, so a 600–800 ms window
+    cannot let the target move; duplicate input is already excluded by `resolvingRef` + the panel's
+    `isExecuting` lock; death/cancel is already covered by `strikeRef.cancel()` on victory, defeat
+    and unmount, plus App's Armory exit (which unmounts the scene).
+  - **The tests a delayed hit would need before it ships** (stated, not written, because the
+    behaviour does not exist): one impact per click; stamina charged exactly once, at commit;
+    damage applied exactly once, at the delayed impact; a cancelled strike (victory, defeat,
+    unmount, Armory exit) applies none; the turn toggles only after the delayed resolution; a stale
+    impact from the previous bout cannot settle the next one (the `duelSettlement` id rule); and the
+    hit-stop/shake read the state at impact time, not at click time.
+  - **Recommendation:** a separate phase ("player strike anticipation"), designed against the
+    cancellation and payment rules above. Timing was left exactly as it shipped — no 600–800 ms
+    constant was introduced anywhere.
+
+- **Checks actually run (2026-10-22, `web` dev container, on the final tree).**
+
+  | command | result |
+  |---|---|
+  | `bun test src/utils/combatActionOrder.test.ts` | **17 pass / 0 fail** (113 `expect()`) |
+  | focused combat set (`combatActionOrder`, `combatResponsiveness`, `pendingStrike`, `duelResultLifecycle`, `duelSettlement`, `duelSettlementCommit`, `duelRewards`) | **145 pass / 0 fail** (793 `expect()`, 7 files) |
+  | `bun test` (full) | **3154 pass / 0 fail (107 files, 89,792 `expect()`)** — the L20b baseline of 3137 / 106 plus this suite's 17 tests and its file; no existing assertion was edited, loosened or deleted |
+  | `bun run scripts/combatTests.ts` | **65 passed, 0 failed** |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `git diff --check` | **clean (exit 0)** |
+
+  The suite's sensitivity was **demonstrated, not assumed**: the same predicates were replayed
+  against `git show HEAD:src/components/duel/DuelScene.tsx` in a throwaway script (kept in `/tmp`,
+  deleted afterwards) — on the pre-fix source the marker clear sits at character 21874 against a
+  guard at 21292 (so "clear precedes guard" is **false**), the lock release is **absent**, the
+  `setIsPlayerTurn(` count is **1** (not 2) and the old copy is still present — i.e. three of the
+  suite's assertions fail on exactly the code this phase changed.
+
+- **Not automatically verified — and nothing here is device-verifiable.** The refusal path cannot be
+  driven from the UI (both strike buttons are disabled out of range, which is itself the evidence
+  that the symptom cannot occur), so no browser run can exercise it: the fix is proven by the
+  source-order suite plus the pre-fix replay above, and the app boots and the dev server serves the
+  changed module (200). **No Android or visual acceptance is claimed**: this phase moves no pixel,
+  adds no animation and changes no timing, so the open device items (the wind-up cue's legibility,
+  the duel settlement/payout, the injury and rest flows, the C-8.41 kerb and northern approach) are
+  exactly as they were. **Still owed by hand, if desired:** confirm in a live bout that stepping out
+  of a boss telegraph no longer makes the following ordinary hit feel heavier than a normal landing
+  — a hit-stop difference of 140 ms (200 vs 60), which the sandbox's ~1–2 fps cannot adjudicate.

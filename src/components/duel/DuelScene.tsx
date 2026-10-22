@@ -488,30 +488,46 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       const isActorPlayer = actor === 'player';
       const attackerNow = isActorPlayer ? player : opp;
 
+      // Read-and-clear the telegraphed-heavy marker for THIS resolution, before
+      // ANY branch can return, so a miss, an evade or a refused swing cannot
+      // leave it set for a later attack. C-8.71A moved this above the range
+      // guard: the guard's own refusal used to return first, so a telegraph the
+      // player stepped out of left the marker set and the boss's next ordinary
+      // landing took the telegraphed heavy's 200 ms hit-stop.
+      const isTelegraphedHeavy = !isActorPlayer && telegraphLandingRef.current;
+      telegraphLandingRef.current = false;
+
       // C-8.70B §R3 — the authoritative range guard. It runs BEFORE any stamina
-      // is spent, any animation starts or the turn is committed, so a stale UI or
-      // a direct call cannot cost a turn on a swing that cannot land. The tactic
-      // panel disables the same buttons through the same shared rule.
+      // is spent, any animation starts, any damage is rolled or the turn is
+      // committed, so a stale UI or a direct call cannot cost stamina or a turn
+      // on a swing that cannot land. The tactic panel disables the same buttons
+      // through the same shared rule.
       const isAttackAction = actionType === 'quick_attack' || actionType === 'power_attack';
       if (isAttackAction) {
         const gap = Math.abs(player.position[2] - opp.position[2]);
         if (!isAttackInRange(gap, attackerNow.loadout.weapon)) {
           addLog(
-            `${attackerNow.name} is out of reach — Advance before striking.`,
+            `${attackerNow.name} is out of range — Advance before striking.`,
             'system',
           );
+          // C-8.71A — a refused strike never holds the turn. The one call that
+          // can arrive here with the panel already locked is the landing of an
+          // announced opponent strike (announcing it sets `isExecuting`), and no
+          // turn-end timer was ever scheduled for it; the refusal must release
+          // that lock and hand the turn back, or the HUD stays locked with no
+          // turn to take. A player action is never affected: while a resolution
+          // or an announcement is in flight its controls are disabled, and
+          // `resolvingRef` refuses the call above.
+          if (!isActorPlayer && isExecuting) {
+            setIsExecuting(false);
+            setIsPlayerTurn(true);
+          }
           return;
         }
       }
 
       resolvingRef.current = true;
       setIsExecuting(true);
-
-      // Read-and-clear the telegraphed-heavy marker for THIS resolution, before
-      // any branch can return, so a miss, an evade or an out-of-range swing
-      // cannot leave it set for a later attack.
-      const isTelegraphedHeavy = !isActorPlayer && telegraphLandingRef.current;
-      telegraphLandingRef.current = false;
 
       const attacker = isActorPlayer ? player : opp;
       const defender = isActorPlayer ? opp : player;
