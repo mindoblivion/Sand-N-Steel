@@ -232,7 +232,13 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
           is NOT a turn: Shield Guard or Dodge here only sets the stance the
           incoming blow already resolves against. */}
       {pendingEnemyAttack && (
-        <div className="relative h-0 w-full pointer-events-none z-10">
+        // C-8.74C-H — the cue layer sits ABOVE the tactic panel (z-20), which is
+        // the surface measured to paint over it: at 375x812 the panel's own box
+        // begins at y 286 while this cue spans y 251-350, so at z-10 the chronicle
+        // covered the reaction row and swallowed every hit test. The wrapper keeps
+        // `h-0`, so the cue stays out of the flex flow and neither the dashboard
+        // nor the movement strip moves; only the paint order changes.
+        <div className="relative h-0 w-full pointer-events-none z-30">
          <div className="absolute inset-x-0 top-1 sm:top-2 flex justify-center pointer-events-none">
           <div
             data-windup-cue={pendingEnemyAttack}
@@ -295,7 +301,10 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
           health or stamina. It lasts exactly as long as the strike is pending:
           the controller clears it at impact and on every cancellation. */}
       {playerWindupCue && (
-        <div className="relative h-0 w-full pointer-events-none z-10">
+        // Same layer as the opponent cue (C-8.74C-H): the player's 700 ms cue is
+        // inert (pointer-events-none throughout), but it must be readable, and at
+        // z-10 the panel painted over its timer bar.
+        <div className="relative h-0 w-full pointer-events-none z-30">
          <div className="absolute inset-x-0 top-1 sm:top-2 flex justify-center pointer-events-none">
           <div
             data-player-windup-cue={playerWindupCue.action}

@@ -105,6 +105,20 @@ const useRaceHarness =
   (new URLSearchParams(window.location.search).get('devHarness') === 'race' ||
     readDevHarnessFlag() === 'race');
 
+// C-8.74C-H — development-only COMBAT HUD harness. Reachable ONLY in a Vite
+// dev build, through the exact `?devHarness=hud` query parameter or the
+// equivalent dev-only scratch-storage flag `sand_and_steel_dev_harness = 'hud'`.
+// It mounts the REAL `CombatHUD` (no replica) with fixed props so the telegraph
+// cue layers can be measured at any viewport without paying for the 3D arena;
+// the cue state is held for as long as the harness says, while the 700 ms
+// timings themselves stay pinned by `combatResponsiveness`/`playerWindupCue`.
+// It saves nothing and never reads the player's save. Removal: delete the
+// component and revert this gate and its branch.
+const useCombatHudHarness =
+  import.meta.env.DEV &&
+  (new URLSearchParams(window.location.search).get('devHarness') === 'hud' ||
+    readDevHarnessFlag() === 'hud');
+
 // The two PUBLIC pages — `/delete-account` and `/privacy` — are the opposite of the
 // harnesses above: they must exist in EVERY build, including a production one, and
 // they need no session at all.  `/delete-account` is the URL a store listing is given,
@@ -160,6 +174,14 @@ if (useColosseumRearHarness) {
     mountRoot(
       <React.StrictMode>
         <RaceHarness />
+      </React.StrictMode>,
+    );
+  });
+} else if (useCombatHudHarness) {
+  void import('./components/dev/CombatHudHarness').then(({ CombatHudHarness }) => {
+    mountRoot(
+      <React.StrictMode>
+        <CombatHudHarness />
       </React.StrictMode>,
     );
   });
