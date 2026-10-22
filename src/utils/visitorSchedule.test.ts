@@ -24,8 +24,9 @@
  *   §I  purity and scope — nothing is mutated, and the module names no storage,
  *       React, timer, wall clock or randomness;
  *   §J  the neighbours and the wiring — the merchant window, the training
- *       timetable and the city registry are unchanged, and no visitor UI,
- *       interaction or collider exists.
+ *       timetable and the city registry are unchanged; the visitor panel is still
+ *       the one surface, and (since L17) a visitor's body is derived from THIS
+ *       schedule's presence resolver rather than hard-coded, with no collider.
  *
  * The pinned days and the density count are a stability record measured from the
  * shipped hash: changing a cadence, a window or the hash must be acknowledged
@@ -495,16 +496,24 @@ describe('§J the neighbours and the wiring', () => {
     expect(schedule.resting.map((action) => action.id)).toEqual(['stamina']);
   });
 
-  test('visitors still have no geometry, collider or disc (rebased by L11)', () => {
-    // L10 shipped no visitor wiring at all. L11 adds exactly ONE surface — the
-    // visitor panel, opened from the city header's chip — so this guard is
-    // rebased, not weakened: what must remain true is that no visitor has a
-    // mesh, a disc, a collider or a proximity trigger, and that the panel is the
-    // only thing the scene mounts for them.
+  test('a visitor has a body now, and it comes only from the presence resolver (rebased by L17)', () => {
+    // L10 shipped no visitor wiring; L11 added exactly one surface — the visitor
+    // panel, opened from the city header's chip; **L17 deliberately gives the
+    // scheduled visitors a body standing at a fixed stall**, which is the one
+    // assertion below that could no longer be stated as "no mesh". This guard is
+    // rebased, not weakened: the property it always protected was that the city's
+    // COLLISION and HUB tables know nothing about visitors, that a body exists only
+    // because THIS schedule put the visitor in town (never a hard-coded mesh, a
+    // per-day literal or a disc of its own), and that the panel stays the one
+    // surface for meeting and trading. Each of those is now asserted directly.
     expect(load('./cityCollisions.ts')).not.toMatch(/visitor/i);
     const scene = load('../components/3d/city/CityHubScene.tsx');
-    expect(scene).not.toMatch(/VisitorMesh|visitorDisc|visitorCollider|activeToday/);
+    expect(scene).toContain('resolveVisitorPresence(playerProfile)');
+    expect(scene.match(/\{visitorStalls\.map/g)?.length).toBe(2);
+    expect(scene).not.toMatch(/visitorCollider|visitorDisc|activeToday/);
     expect(scene.match(/<VisitorPanel/g)?.length).toBe(1);
+    // Proximity raises a prompt and opens the panel; it never records a meeting.
+    expect(scene).not.toMatch(/onEncounterVisitor\(/);
     expect(load('../App.tsx')).not.toMatch(/completedVisitors\s*[:=]/);
   });
 

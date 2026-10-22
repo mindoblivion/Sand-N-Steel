@@ -1,7 +1,11 @@
 import { CharacterModelType, FighterState } from '../types/game';
 
-// Minimal FighterState for ambient, static characters
-const createAmbientFighter = (id: string, name: string, model: CharacterModelType, pos: [number, number, number], rotY: number): FighterState => ({
+// Minimal FighterState for ambient, static characters.
+//
+// L17 — EXPORTED: the city's visitors are built by this same factory (one more
+// idle fighter at a fixed stall), so the visitor presence adds no second
+// character setup. `AMBIENT_CHARACTERS` below is unchanged.
+export const createAmbientFighter = (id: string, name: string, model: CharacterModelType, pos: [number, number, number], rotY: number): FighterState => ({
   id,
   name,
   title: 'Ambient',

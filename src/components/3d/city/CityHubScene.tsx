@@ -5,6 +5,7 @@ import { PlayerProfile, OpponentConfig, FighterState } from '../../../types/game
 import { IshtarGatehouse } from './IshtarGatehouse';
 import { ProcessionAvenue } from './ProcessionAvenue';
 import { CityStreets } from './CityStreets';
+import { TimberCrate } from './CivicFurnishingProps';
 import { SmithingForge } from './SmithingForge';
 import { TrainingYard } from './TrainingYard';
 import { CityTavern } from './CityTavern';
@@ -18,6 +19,17 @@ import { PreFightModal } from '../../hub/PreFightModal';
 // L11 — the visitor panel and the ONE schedule it lists (who is in town today).
 import { VisitorPanel } from '../../hub/VisitorPanel';
 import { resolveVisitorSchedule } from '../../../utils/visitorSchedule';
+// L17 — where the scheduled visitors stand, and the ONE rule that decides whether a
+// visitor or a hub owns the interaction. Pure data + pure resolvers; no state.
+import {
+  resolveVisitorPresence,
+  resolveVisitorTarget,
+  visitorPrompt,
+  VISITOR_CREST_COLOR,
+  VISITOR_TUNIC_COLOR,
+  type VisitorPresence,
+  type VisitorTarget,
+} from '../../../utils/visitorPresence';
 import type { VisitorPurchaseResult } from '../../../utils/visitorPurchase';
 import { MerchantHouse } from './MerchantHouse';
 import { ArmorLeatherWorkshop } from './ArmorLeatherWorkshop';
@@ -39,7 +51,7 @@ import { EastCircusDistrict } from './EastCircusDistrict';
 import { CityCamera } from './CityCamera';
 import { SceneBrightness } from '../SceneBrightness';
 import { GladiatorMesh } from '../GladiatorMesh';
-import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
+import { AMBIENT_CHARACTERS, createAmbientFighter } from '../../../data/ambientCharacters';
 import { CORE_3D_ASSETS } from '../../../utils/preloadAssets';
 import { Banner, SteamParticles, ForgeSmoke, SandDrift } from './EnvironmentalMotion';
 // SF-1 — the city's picture budget: the tier table and the adaptive engine that
@@ -355,6 +367,20 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     () => resolveVisitorSchedule(playerProfile).arrivals,
     [playerProfile]
   );
+  /**
+   * L17 — who is STANDING in the city, derived from the same schedule the chip
+   * reads (so a body and a row can never disagree). Derived from the profile, so
+   * it is recomputed when — and only when — the profile (and therefore the saved
+   * day or the completion history) changes: a purchase, a night's lodging, a rest
+   * and a settled duel all remove a departed visitor here, with no per-frame work.
+   */
+  const visitorPresence = useMemo(
+    () => resolveVisitorPresence(playerProfile),
+    [playerProfile]
+  );
+  // The selected visitor — non-null ONLY when the visitor wins the interaction
+  // (see `resolveVisitorTarget`), so it is the single owner of the VISIT prompt.
+  const [nearbyVisitor, setNearbyVisitor] = useState<VisitorTarget | null>(null);
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
   const [stableNotice, setStableNotice] = useState<string | null>(null);
   // Combat responsiveness §R3B — the fighter a Colosseum door has resolved and
@@ -434,6 +460,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const playerRotYRef = useRef<number>(initialRotationY ?? Math.PI);
   const cameraYawRef = useRef<number>(initialRotationY ?? Math.PI);
   const lastNearbyIdRef = useRef<string | null>(null);
+  // L17 — the mount-once loop reads the presence list through this ref, exactly as
+  // it reads the player's own position: it must never close over an arrival list
+  // from its first render.
+  const visitorPresenceRef = useRef<VisitorPresence[]>(visitorPresence);
+  const lastVisitorIdRef = useRef<string | null>(null);
 
   // Mobile Virtual Joystick State
   const joystickRef = useRef<HTMLDivElement>(null);
@@ -567,6 +598,18 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   ]);
 
   /**
+   * L17 — SPEAK WITH A VISITOR. This opens the existing Visitors panel and nothing
+   * else: no second panel, no second purchase path, and no encounter is recorded
+   * here — the panel's explicit selection is still the only thing that calls
+   * `onEncounterVisitor`, so walking past a visitor changes no history at all.
+   */
+  const handleVisit = useCallback(() => {
+    if (!nearbyVisitor) return;
+    sounds.playClick();
+    setShowVisitors(true);
+  }, [nearbyVisitor]);
+
+  /**
    * Phase C-8.70B Stage 1, Slice 1 — "Start Race" leaves the city for the race
    * scene.  The pose the player has to be returned to is captured HERE, from the
    * refs the movement loop writes (so it is the live position, not a lagging
@@ -592,14 +635,18 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     }, 420);
   }, [isAttacking]);
 
-  // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
+  // 2-in-1 Dual Action: Speak (visitor) → Interact (hub) → Attack if neither. A
+  // valid visitor target therefore never triggers an attack, and a hub target is
+  // only ever answered when no visitor won the interaction.
   const handlePrimaryAction = useCallback(() => {
-    if (nearbyLoc) {
+    if (nearbyVisitor) {
+      handleVisit();
+    } else if (nearbyLoc) {
       handleInteract();
     } else {
       handleAttack();
     }
-  }, [nearbyLoc, handleInteract, handleAttack]);
+  }, [nearbyVisitor, nearbyLoc, handleVisit, handleInteract, handleAttack]);
 
   // Cross-platform PC Keyboard input listeners
   useEffect(() => {
@@ -690,6 +737,41 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     }
   };
 
+  /**
+   * L17 — the ONE interaction selection, run from the movement loop (and again
+   * whenever the profile changes, so a visitor who leaves town cannot keep a
+   * prompt). The hub scan is untouched — `getNearbyHubLocation` answers exactly
+   * what it always did, and `nearbyLoc` keeps every established behaviour (its
+   * branches, its fast-travel entries, the ambient district) — while
+   * `resolveVisitorTarget` decides whether a visitor owns the prompt instead: only
+   * when the player is inside the visitor's own disc AND strictly nearer than the
+   * hub he is also standing in. A tie or a nearer hub leaves the hub in charge.
+   * State is only written when the selected id changes, so a frame that changes
+   * nothing costs two comparisons.
+   */
+  const syncNearbyTargets = useCallback(() => {
+    const hub = getNearbyHubLocation(playerPosRef.current);
+    const visitor = resolveVisitorTarget(playerPosRef.current, visitorPresenceRef.current, hub);
+    const hubId = hub ? hub.id : null;
+    if (hubId !== lastNearbyIdRef.current) {
+      lastNearbyIdRef.current = hubId;
+      setNearbyLoc(hub);
+    }
+    const visitorId = visitor ? visitor.presence.visitor.id : null;
+    if (visitorId !== lastVisitorIdRef.current) {
+      lastVisitorIdRef.current = visitorId;
+      setNearbyVisitor(visitor);
+    }
+  }, []);
+
+  // L17 — mirror the presence list into the loop's ref, then re-resolve the target
+  // NOW: a trade completes a visitor and a day advance removes them, so a body can
+  // disappear while the player is standing in its disc.
+  useEffect(() => {
+    visitorPresenceRef.current = visitorPresence;
+    syncNearbyTargets();
+  }, [visitorPresence, syncNearbyTargets]);
+
   // Continuous, non-stuttering 60fps Movement Loop
   useEffect(() => {
     let animId: number;
@@ -768,20 +850,15 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         }
       }
 
-      // Check proximity to landmarks (only update state when changed)
-      const found = getNearbyHubLocation(playerPosRef.current);
-      const foundId = found ? found.id : null;
-      if (foundId !== lastNearbyIdRef.current) {
-        lastNearbyIdRef.current = foundId;
-        setNearbyLoc(found);
-      }
+      // Check proximity to landmarks AND visitors (only updates state on a change).
+      syncNearbyTargets();
 
       animId = requestAnimationFrame(loop);
     };
 
     animId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animId);
-  }, []);
+  }, [syncNearbyTargets]);
 
   // Fast Travel teleport — Phase 31D: uses verified exterior arrival points
   const handleFastTravel = (loc: InteractiveLocation) => {
@@ -850,6 +927,42 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     characterModel: playerProfile.appearance.characterModel || 'roman_warrior',
     isLeftyMode: isLeftyMode,
   }), [playerProfile, playerPos, playerRotY, isMoving, isAttacking, isLeftyMode, calculatedStats]);
+
+  /**
+   * L17 — the visitors' bodies and their pitch. Same factory (`createAmbientFighter`)
+   * and same `GladiatorMesh` as the ambient extras, so a visitor is one more idle
+   * gladiator rather than a second character system; the only differences are the
+   * `VISITOR_*` dyes and the frozen yaw from the stall table. Each is marked by ONE
+   * existing `TimberCrate` set down at their right hand — the stall cue — which is
+   * three meshes rather than a `MerchantCart`'s twenty (see the L17 record). Both
+   * lists come straight from the presence resolver, so a departed visitor's body
+   * and crate disappear together.
+   */
+  const visitorStalls = useMemo(
+    () =>
+      visitorPresence.map((presence) => {
+        const { x, z, facing } = presence.stall;
+        const y = getTerrainY(x, z);
+        // The crate stands at the visitor's right hand, half a stride out.
+        const crateX = x + Math.cos(facing) * 0.95;
+        const crateZ = z - Math.sin(facing) * 0.95;
+        return {
+          fighter: {
+            ...createAmbientFighter(
+              `visitor_${presence.visitor.id}`,
+              presence.visitor.name,
+              'roman_warrior',
+              [x, y, z],
+              facing
+            ),
+            tunicColor: VISITOR_TUNIC_COLOR,
+            crestColor: VISITOR_CREST_COLOR,
+          },
+          crate: [crateX, getTerrainY(crateX, crateZ), crateZ] as [number, number, number],
+        };
+      }),
+    [visitorPresence]
+  );
 
   return (
     <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
@@ -1042,6 +1155,21 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 {AMBIENT_CHARACTERS.map(fighter => (
                     <GladiatorMesh key={fighter.id} fighter={fighter} />
                 ))}
+                {/* L17 — the visitors in town today, at their own stalls. The list
+                    IS the visibility gate (it is derived from the saved day and the
+                    completion history), so there is no per-frame work and no second
+                    condition; they carry no collider, so the walk-through behaviour
+                    of every character in the city is unchanged. */}
+                {visitorStalls.map((stall) => (
+                  <GladiatorMesh key={stall.fighter.id} fighter={stall.fighter} />
+                ))}
+                {visitorStalls.map((stall) => (
+                  <TimberCrate
+                    key={`stall-crate-${stall.fighter.id}`}
+                    position={stall.crate}
+                    rotationY={stall.fighter.rotationY}
+                  />
+                ))}
               </Suspense>
             </ThreeComponentErrorBoundary>
 
@@ -1219,13 +1347,29 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               }}
               onClick={handlePrimaryAction}
               className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 flex flex-col items-center justify-center shadow-2xl active:scale-90 transition-all cursor-pointer ${
-                nearbyLoc
+                nearbyVisitor || nearbyLoc
                   ? 'bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-600 border-yellow-300 text-neutral-950 shadow-[0_0_25px_rgba(245,158,11,0.8)] animate-pulse'
                   : 'bg-gradient-to-br from-red-600 via-rose-700 to-red-900 border-red-300 text-white shadow-[0_0_20px_rgba(225,29,72,0.6)]'
               }`}
-              title={nearbyLoc ? `Interact with ${nearbyLoc.name} [E / Space]` : 'Attack with Weapon [Space / E]'}
+              title={
+                nearbyVisitor
+                  ? `${visitorPrompt(nearbyVisitor)} [E / Space]`
+                  : nearbyLoc
+                  ? `Interact with ${nearbyLoc.name} [E / Space]`
+                  : 'Attack with Weapon [Space / E]'
+              }
             >
-              {nearbyLoc ? (
+              {/* L17 — the same control, relabelled for whoever owns the action:
+                  VISIT while a visitor is the selected target, ENTER [E] at a hub,
+                  ATTACK when there is nothing to speak to or enter. */}
+              {nearbyVisitor ? (
+                <>
+                  <Users className="w-6 h-6 sm:w-8 sm:h-8" />
+                  <span className="text-[9px] sm:text-xs font-serif font-black uppercase tracking-wider mt-0.5">
+                    VISIT
+                  </span>
+                </>
+              ) : nearbyLoc ? (
                 <>
                   <SparklesIcon className="w-6 h-6 sm:w-8 sm:h-8 fill-neutral-950 text-neutral-950" />
                   <span className="text-[9px] sm:text-xs font-serif font-black uppercase tracking-wider mt-0.5">
@@ -1244,8 +1388,23 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           </div>
         </div>
 
+      {/* L17 — THE VISITOR PROMPT. Only the selected target speaks: a visitor
+          raises this banner, and the hub banner below stands down while it is up. */}
+      {nearbyVisitor && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto animate-bounce hidden sm:block">
+          <button
+            onClick={handleVisit}
+            className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_25px_rgba(245,158,11,0.7)] border-2 border-amber-200 transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+          >
+            <Users className="w-4 h-4 text-neutral-950" />
+            <span>{visitorPrompt(nearbyVisitor)} [E / Space]</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* PROXIMITY INTERACTION BANNER (CENTER DESKTOP POPUP) */}
-      {nearbyLoc && (
+      {nearbyLoc && !nearbyVisitor && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto animate-bounce hidden sm:block">
           <button
             onClick={handleInteract}
