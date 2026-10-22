@@ -21,8 +21,8 @@
  *       at boot, with no field added or dropped and no rewrite of the stored JSON;
  *   §C  every lazy resolver in the tree — `resolveRacingState`,
  *       `resolveChariotLoadout`, `resolveStoryState`, `resolveRoadProgress` /
- *       `resolveRoadState`, `resolveSeenState`, `resolveTimeState` and the temper
- *       read through the effective-stats path, plus the boot-path
+ *       `resolveRoadState`, `resolveSeenState`, `resolveTimeState`,
+ *       `resolveStableState` and the temper read through the effective-stats path, plus the boot-path
  *       `calculateTotalStats` — resolves every fixture without throwing and
  *       returns shaped, coherent state;
  *   §D  purity — the fixture's serialized bytes are byte-compared before and
@@ -126,6 +126,7 @@ import { resolveConsumables } from './consumables';
 // S7 — the tavern's rumour record, read the way the tavern panel and the
 // tournament card read it.
 import { resolveIntel } from './intel';
+import { resolveStableState } from './stableProgression';
 
 // ── The corpus on disk ─────────────────────────────────────────────────────
 const FIXTURE_DIR = fileURLToPath(new URL('./saveFixtures/', import.meta.url));
@@ -147,6 +148,7 @@ const REQUIRED_FIXTURE_IDS = [
   'triumphs-era',
   'consumables-era',
   'intel-era',
+  'stable-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -216,6 +218,8 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   // S7 — the tavern's rumour list, read the way the tavern panel and the
   // tournament card read it.
   const intel = resolveIntel(profile);
+  // P4 — the stables' two ladders, read the way a stable screen would.
+  const stable = resolveStableState(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -236,6 +240,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     laurels,
     consumables,
     intel,
+    stable,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -462,6 +467,11 @@ for (const fixture of SAVE_FIXTURES) {
         absentFields += 1;
         expect(resolveIntel(profile)).toEqual([]);
       }
+      // P4 — an absent stable is the Plow Team at conditioning 0, un-repaired.
+      if (!('stable' in raw) || raw.stable === null) {
+        absentFields += 1;
+        expect(resolveStableState(profile)).toEqual({ quality: 0, conditioning: 0 });
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -479,6 +489,7 @@ for (const fixture of SAVE_FIXTURES) {
         'laurels',
         'consumables',
         'intel',
+        'stable',
       ];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
@@ -642,6 +653,22 @@ describe('GC20 §F — what each shape resolves to', () => {
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('intel');
   });
 
+  test('the P4 stable record is two rungs of the ladders, and no factory save carries it', () => {
+    const profile = fixtureById('stable-era').profile;
+    // Quality 3 (Champion Bloodline) and conditioning 5 on the selected Quadra: the
+    // shape a real `purchaseStableQuality` / `purchaseStableConditioning` run writes.
+    expect(resolveStableState(profile)).toEqual({ quality: 3, conditioning: 5 });
+    expect(resolveRacingState(profile).horses).toBe(4);
+
+    // Lazy: a legacy save is the Plow Team at conditioning 0, and creation writes none.
+    expect(resolveStableState(fixtureById('minimal-legacy').profile)).toEqual({
+      quality: 0,
+      conditioning: 0,
+    });
+    expect('stable' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('stable');
+  });
+
   test('null where an object is expected resolves to both defaults', () => {
     const profile = fixtureById('malformed-null-objects').profile;
     expect(resolveRacingState(profile)).toEqual(defaultRacingState());
@@ -748,7 +775,14 @@ describe('GC20 §H — scope guards', () => {
       }
     };
     walk(SOURCE_DIR);
-    expect(offenders).toEqual(['utils/saveCorpus.test.ts']);
+    // The list is exact, not a filter: the corpus has exactly two consumers in the
+    // tree, and both are SUITES — this one, and P4's, which reads the `stable-era`
+    // fixture to pin the shape the new field writes.  Nothing under `services/`,
+    // `components/` or `App.tsx` may reach the corpus.
+    expect(offenders.sort()).toEqual([
+      'utils/phaseP4StableProgression.test.ts',
+      'utils/saveCorpus.test.ts',
+    ]);
   });
 
   test('every fixture is synthetic — no fixture claims a real gladiator’s name', () => {
@@ -888,6 +922,7 @@ describe('GC20 §J — the corpus rule', () => {
       'laurels',
       'consumables',
       'intel',
+      'stable',
     ]);
 
     // Every optional field with a resolver has a fixture for both its absent and
@@ -904,6 +939,7 @@ describe('GC20 §J — the corpus rule', () => {
       'laurels',
       'consumables',
       'intel',
+      'stable',
     ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);

@@ -492,4 +492,20 @@ export interface PlayerProfile {
    * `purchaseIntel()` — never by `createNewProfile()` and never by a migration.
    */
   intel?: string[];
+  /**
+   * P4 — STABLE PROGRESSION: the horse team's bought quality grade (0–3) and
+   * conditioning level (0–5), read by `utils/stableProgression.ts`.  Optional on
+   * purpose, exactly like `chariot` and `racing`: a save written before this
+   * slice has no `stable` field at all and must keep loading, so
+   * `resolveStableState` reads a missing, partial or malformed field as
+   * "Plow Team, conditioning 0" rather than repairing the save.  Written ONLY by
+   * a successful `purchaseStableQuality()` / `purchaseStableConditioning()` —
+   * never by `createNewProfile()` and never by a migration.  No team size is
+   * stored here: conditioning's price reads the horse count from
+   * `resolveRacingState()` every time.
+   *
+   * DATA ONLY for now: the pace/stamina each grade and level is DECLARED to
+   * change is inert data that nothing reads as a live stat until racing Stage 3.
+   */
+  stable?: { quality?: number; conditioning?: number };
 }
