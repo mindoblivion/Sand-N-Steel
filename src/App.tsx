@@ -28,8 +28,7 @@ import { resolveMotionAttribute, updateSettings } from './services/settings';
 import { AssetLoadingOverlay } from './components/ui/AssetLoadingOverlay';
 import { WaitSurface } from './components/ui/WaitSurface';
 import { LazySceneBoundary } from './components/ui/LazySceneBoundary';
-import { NoWebGLScreen, OfflineNotice } from './components/ui/GameFailureSurface';
-import { checkWebGLAvailability } from './components/ui/WebGLErrorBoundary';
+import { OfflineNotice } from './components/ui/GameFailureSurface';
 import { PostOathNudge, usePostOathNudge } from './components/hub/PostOathNudge';
 import { OathBeat } from './components/hub/OathBeat';
 import {
@@ -154,10 +153,6 @@ export function App() {
    * names a landmark the city already has and reaches no save.
    */
   const [herald, setHerald] = useState<HeraldState>(() => readHeraldState());
-
-  // START-1 — the device can run the game at all. Resolved once, at boot, so a device
-  // without 3D is told so in plain language instead of reaching a scene that cannot draw.
-  const [webglAvailable] = useState(() => checkWebGLAvailability().supported);
 
   // Follow the Firebase session — the account rows' own source of truth.  It writes
   // nothing and reads no save, and it re-subscribes never (the unsubscribe is the
@@ -703,12 +698,6 @@ export function App() {
     setProfile(null);
     setCurrentScreen('title');
   };
-
-  // A device that cannot draw the 3D world gets one plain-language surface and a retry,
-  // never a scene that fails to render.
-  if (!webglAvailable) {
-    return <NoWebGLScreen />;
-  }
 
   return (
     <div className="w-full h-full min-h-[100dvh] bg-neutral-950 text-amber-100 overflow-hidden select-none">
