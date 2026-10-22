@@ -33,6 +33,7 @@
 
 import { PlayerProfile, WeaponItem, ArmorItem } from '../types/game';
 import { getItemById } from '../data/itemsDB';
+import { getFacilityLevel, requiredWorkshopForTemper } from './facilityProgression';
 
 /** The highest temper level an item can reach. */
 export const TEMPER_MAX_LEVEL = 3;
@@ -55,7 +56,8 @@ export type TemperRejectionReason =
   | 'unknown-item'
   | 'not-owned'
   | 'max-level'
-  | 'insufficient-gold';
+  | 'insufficient-gold'
+  | 'facility-required';
 
 /** The armour bonus fields a level-3 temper can raise by one. */
 const ARMOR_BONUS_KEYS = ['bonusStrength', 'bonusAgility', 'bonusStamina', 'bonusDefense'] as const;
@@ -199,6 +201,12 @@ export function getTemperPurchaseEligibility(
   if (!ownsItem(profile, itemId)) return { ok: false, reason: 'not-owned' };
   const level = resolveTemperLevel(profile, itemId);
   if (level >= TEMPER_MAX_LEVEL) return { ok: false, reason: 'max-level' };
+  // P5 — the Smithing Workshop caps the ladder: L2 needs the bench built, L3 the
+  // master forge.  Level 1 is open to every smith.
+  const requiredWorkshop = requiredWorkshopForTemper(level + 1);
+  if (requiredWorkshop > 0 && getFacilityLevel(profile, 'workshop') < requiredWorkshop) {
+    return { ok: false, reason: 'facility-required' };
+  }
   if (profile.gold < getTemperCost(item, level)) return { ok: false, reason: 'insufficient-gold' };
   return { ok: true };
 }
@@ -240,5 +248,7 @@ export function describeTemperRejection(reason: TemperRejectionReason): string {
       return 'This item is already fully tempered.';
     case 'insufficient-gold':
       return 'Not enough gold.';
+    case 'facility-required':
+      return 'The Smithing Workshop is not built high enough for that temper.';
   }
 }

@@ -1,4 +1,6 @@
 import { DEFAULT_PLAYER_WEAPON, ITEMS_DB, isWeapon, GameItem } from './itemsDB';
+import { PlayerProfile } from '../types/game';
+import { gildedUnlocked } from '../utils/facilityProgression';
 
 /**
  * ===========================================================================
@@ -54,4 +56,31 @@ const STOCK_PREDICATES: Record<StorefrontId, (item: GameItem) => boolean> = {
  */
 export function getStorefrontStock(id: StorefrontId): string[] {
   return ITEMS_DB.filter(STOCK_PREDICATES[id]).map((item) => item.id);
+}
+
+/**
+ * P5 — the Gilded pieces are the four §3.1 armour rows whose id ends in
+ * `_gilded`.  They are gold worked onto champion's plate, so only the Master
+ * Forge (workshop L2) can sell them.
+ */
+const isGildedItem = (item: GameItem): boolean => item.id.endsWith('_gilded');
+
+/**
+ * The ids a storefront actually OFFERS this gladiator: `getStorefrontStock`
+ * minus the Gilded pieces until the Smithing Workshop reaches L2.
+ *
+ * The forge/armorer/merchant/market predicates are untouched; only the four
+ * `_gilded` rows are held back, and a profile with no `facilities` field is a
+ * workshop at level 0 like any other.  Pure: a fresh array per call.
+ */
+export function getVisibleStorefrontStock(
+  id: StorefrontId,
+  profile: PlayerProfile | null | undefined
+): string[] {
+  const stock = getStorefrontStock(id);
+  if (gildedUnlocked(profile)) return stock;
+  return stock.filter((itemId) => {
+    const item = ITEMS_DB.find((candidate) => candidate.id === itemId);
+    return item ? !isGildedItem(item) : true;
+  });
 }

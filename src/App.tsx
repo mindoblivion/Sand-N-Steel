@@ -17,6 +17,7 @@ import { purchaseIntel } from './utils/intel';
 import type { ConsumableItem } from './data/consumables';
 import { sellItem } from './utils/selling';
 import { nextBossKills } from './utils/bossKills';
+import { trainingCost } from './utils/facilityProgression';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
@@ -811,7 +812,8 @@ export function App() {
   // Profile mutations
   const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
     if (!profile) return;
-    const cost = 25 * profile.level;
+    // P5 — the Ludus Training Yard discounts stat training, and nothing else.
+    const cost = trainingCost(profile, 25 * profile.level);
     if (profile.gold < cost) return;
 
     const updated: PlayerProfile = {

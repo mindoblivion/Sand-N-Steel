@@ -127,6 +127,8 @@ import { resolveConsumables } from './consumables';
 // tournament card read it.
 import { resolveIntel } from './intel';
 import { resolveStableState } from './stableProgression';
+// P5 — the ludus's three buildings, read the way a facility screen would.
+import { resolveFacilities } from './facilityProgression';
 
 // ── The corpus on disk ─────────────────────────────────────────────────────
 const FIXTURE_DIR = fileURLToPath(new URL('./saveFixtures/', import.meta.url));
@@ -149,6 +151,7 @@ const REQUIRED_FIXTURE_IDS = [
   'consumables-era',
   'intel-era',
   'stable-era',
+  'facilities-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -220,6 +223,8 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const intel = resolveIntel(profile);
   // P4 — the stables' two ladders, read the way a stable screen would.
   const stable = resolveStableState(profile);
+  // P5 — the three buildings, read the way a facility screen would.
+  const facilities = resolveFacilities(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -241,6 +246,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     consumables,
     intel,
     stable,
+    facilities,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -472,6 +478,11 @@ for (const fixture of SAVE_FIXTURES) {
         absentFields += 1;
         expect(resolveStableState(profile)).toEqual({ quality: 0, conditioning: 0 });
       }
+      // P5 — absent facilities are three buildings at level 0, un-repaired.
+      if (!('facilities' in raw) || raw.facilities === null) {
+        absentFields += 1;
+        expect(resolveFacilities(profile)).toEqual({ stable: 0, yard: 0, workshop: 0 });
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -490,6 +501,7 @@ for (const fixture of SAVE_FIXTURES) {
         'consumables',
         'intel',
         'stable',
+        'facilities',
       ];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
@@ -669,6 +681,22 @@ describe('GC20 §F — what each shape resolves to', () => {
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('stable');
   });
 
+  test('the P5 facilities record is three buildings, and no factory save carries it', () => {
+    const profile = fixtureById('facilities-era').profile;
+    // All three buildings at their top level: the shape a real `purchaseFacility`
+    // run writes (both rungs of each, 500 + 1,200 apiece).
+    expect(resolveFacilities(profile)).toEqual({ stable: 2, yard: 2, workshop: 2 });
+
+    // Lazy: a legacy save has nothing built, and creation writes no field.
+    expect(resolveFacilities(fixtureById('minimal-legacy').profile)).toEqual({
+      stable: 0,
+      yard: 0,
+      workshop: 0,
+    });
+    expect('facilities' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('facilities');
+  });
+
   test('null where an object is expected resolves to both defaults', () => {
     const profile = fixtureById('malformed-null-objects').profile;
     expect(resolveRacingState(profile)).toEqual(defaultRacingState());
@@ -775,12 +803,14 @@ describe('GC20 §H — scope guards', () => {
       }
     };
     walk(SOURCE_DIR);
-    // The list is exact, not a filter: the corpus has exactly two consumers in the
-    // tree, and both are SUITES — this one, and P4's, which reads the `stable-era`
-    // fixture to pin the shape the new field writes.  Nothing under `services/`,
-    // `components/` or `App.tsx` may reach the corpus.
+    // The list is exact, not a filter: the corpus has exactly three consumers in
+    // the tree, and all three are SUITES — this one, P4's (which reads `stable-era`
+    // to pin the shape the stable field writes) and P5's (which reads
+    // `facilities-era` the same way).  Nothing under `services/`, `components/`
+    // or `App.tsx` may reach the corpus.
     expect(offenders.sort()).toEqual([
       'utils/phaseP4StableProgression.test.ts',
+      'utils/phaseP5FacilityProgression.test.ts',
       'utils/saveCorpus.test.ts',
     ]);
   });
@@ -923,6 +953,7 @@ describe('GC20 §J — the corpus rule', () => {
       'consumables',
       'intel',
       'stable',
+      'facilities',
     ]);
 
     // Every optional field with a resolver has a fixture for both its absent and
@@ -940,6 +971,7 @@ describe('GC20 §J — the corpus rule', () => {
       'consumables',
       'intel',
       'stable',
+      'facilities',
     ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);

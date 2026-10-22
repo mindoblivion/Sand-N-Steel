@@ -39,6 +39,7 @@ import triumphsEraProfile from './triumphsEraProfile.json';
 import consumablesEraProfile from './consumablesEraProfile.json';
 import intelEraProfile from './intelEraProfile.json';
 import stableEraProfile from './stableEraProfile.json';
+import facilitiesEraProfile from './facilitiesEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -209,6 +210,18 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every older fixture omits the field, the legacy shape a load must survive',
     ],
     profile: asProfile(stableEraProfile),
+  },
+  {
+    id: 'facilities-era',
+    file: 'facilitiesEraProfile.json',
+    provenance:
+      'The P4 stable-era save with its purse hand-aged to 6,000 gold and then driven through the shipped P5 `purchaseFacility` transactions — both levels of all three buildings (500 + 1,200 each, 5,100 total) — leaving 900 gold and the exact bytes those purchases persist.',
+    covers: [
+      'the `facilities` record populated (P5): stable 2, yard 2, workshop 2',
+      'every post-GC20 optional field populated, facilities included',
+      'every older fixture omits the field, the legacy shape a load must survive',
+    ],
+    profile: asProfile(facilitiesEraProfile),
   },
 ];
 

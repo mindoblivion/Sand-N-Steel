@@ -77,6 +77,9 @@ function profile(mutate: (p: PlayerProfile) => void = () => {}): PlayerProfile {
     newGamePlus: 0,
     trainingSessionsLeft: 2,
     injury: null,
+    // P5 — the workshop stands at L2 so these tests measure the temper cost curve
+    // itself; the workshop gates are `phaseP5FacilityProgression.test.ts`'s.
+    facilities: { workshop: 2 },
     equipped: { weapon: GLADIUS, helm: MURMILLO },
     inventory: [GLADIUS, TITAN],
     fightsWon: 0,
