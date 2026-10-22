@@ -8,6 +8,7 @@ import { StatsTab } from './StatsTab';
 import { LibraryTab } from './LibraryTab';
 import { BannerRow } from './BannerRow';
 import type { StorefrontId } from '../../data/shops';
+import type { ConsumableItem } from '../../data/consumables';
 import type { LaurelResult } from '../../utils/laurels';
 import { PreFightModal } from './PreFightModal';
 import { DOCTORE_TEST_OPPONENT } from '../../data/opponents';
@@ -32,6 +33,10 @@ interface GladiatorSchoolHubProps {
   onSelectOpponent: (opp: OpponentConfig) => void;
   onTrainStat: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
   onBuyItem: (item: WeaponItem | ArmorItem) => void;
+  /** S6 — a Bazaar consumable bought on the shop screen; `App` writes the save. */
+  onBuyConsumable?: (item: ConsumableItem) => void;
+  /** S6 — one-tap use of an owned consumable from the stats tab. */
+  onUseConsumable?: (itemId: string) => boolean;
   /** C-2 — the Armory sells a spare for its sellPrice plus any temper refund. */
   onSellItem?: (item: WeaponItem | ArmorItem) => void;
   onEquipWeapon: (wpn: WeaponItem) => void;
@@ -78,6 +83,8 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onSelectOpponent,
   onTrainStat,
   onBuyItem,
+  onBuyConsumable,
+  onUseConsumable,
   onSellItem,
   onEquipWeapon,
   onEquipArmor,
@@ -259,7 +266,12 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           />
         )}
         {activeTab === 'shop' && (
-          <ShopTab profile={playerProfile} onBuyItem={onBuyItem} shopId={shopId} />
+          <ShopTab
+            profile={playerProfile}
+            onBuyItem={onBuyItem}
+            onBuyConsumable={onBuyConsumable}
+            shopId={shopId}
+          />
         )}
         {activeTab === 'gear' && (
           <GearTab
@@ -276,7 +288,11 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           />
         )}
         {activeTab === 'stats' && (
-          <StatsTab profile={playerProfile} onAllocatePoint={onAllocateStatPoint} />
+          <StatsTab
+            profile={playerProfile}
+            onAllocatePoint={onAllocateStatPoint}
+            onUseConsumable={onUseConsumable}
+          />
         )}
         {activeTab === 'library' && (
           <LibraryTab profile={playerProfile} onPurchaseTriumph={onPurchaseTriumph} />

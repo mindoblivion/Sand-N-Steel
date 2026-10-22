@@ -79,6 +79,7 @@ import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
 import type { StorefrontId } from '../../../data/shops';
 import { calculateTotalStats } from '../../../services/storage';
 import { sounds } from '../../../audio/soundEffects';
+import { getConsumableCount, ownedConsumables } from '../../../utils/consumables';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../../ui/ThreeComponentErrorBoundary';
@@ -99,6 +100,7 @@ import {
   Volume2,
   VolumeX,
   Compass,
+  FlaskConical,
   MapPin,
   ChevronRight,
   Menu,
@@ -191,6 +193,11 @@ interface CityHubSceneProps {
    */
   onTreatInjury: () => boolean;
   onRestAtInn: () => boolean;
+  /**
+   * S6 — one-tap use of an owned consumable from the treatment panel. `App` owns
+   * the transaction and the save write; the answer says whether it applied.
+   */
+  onUseConsumable?: (itemId: string) => boolean;
 }
 
 /**
@@ -236,6 +243,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   heraldAim,
   onTreatInjury,
   onRestAtInn,
+  onUseConsumable,
 }) => {
   // The rig this screen is drawn under. `resolveCityLightProfile` answers module
   // constants, so `lights` keeps its reference across re-renders and the Environment
@@ -533,6 +541,15 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     [onRestAtInn, onTreatInjury]
   );
 
+  /** S6 — one consumable from the satchel; the panel re-renders from the profile. */
+  const handleUseConsumable = useCallback(
+    (itemId: string) => {
+      sounds.playClick();
+      onUseConsumable?.(itemId);
+    },
+    [onUseConsumable]
+  );
+
   // Cross-platform PC Keyboard input listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -772,6 +789,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const treatmentEligibility = treatmentPanel
     ? getTreatmentEligibility(playerProfile, treatmentPanel)
     : null;
+  /**
+   * S6 — what the panel can offer from the player's own satchel. Empty when the
+   * panel is closed, when there is no live wound, or when nothing is carried, so a
+   * use button never appears without something to use it on.
+   */
+  const treatmentConsumables =
+    treatmentPanel && treatmentInjury ? ownedConsumables(playerProfile) : [];
 
   // Phase 26.1: Memoized so it doesn't change reference on unrelated
   // re-renders (e.g. setKnobPos). Position/rotation are overridden by
@@ -1277,6 +1301,30 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 >
                   Not enough gold. You carry {playerProfile.gold}g.
                 </p>
+              )}
+
+              {/* S6 — the satchel's own remedies, offered on the same surface as the
+                  services above: one tap spends one item and the wound changes. */}
+              {treatmentConsumables.length > 0 && (
+                <div className="flex flex-col gap-2 pt-2 border-t border-amber-800/40">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400/80">
+                    From your satchel
+                  </span>
+                  {treatmentConsumables.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      data-use-consumable={item.id}
+                      onClick={() => handleUseConsumable(item.id)}
+                      className="w-full min-h-[42px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-amber-100 font-serif font-bold text-[11px] sm:text-xs uppercase tracking-wider border border-amber-600/70 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <FlaskConical className="w-3.5 h-3.5 text-amber-400" />
+                      <span>
+                        Use {item.name} ({getConsumableCount(playerProfile, item.id)})
+                      </span>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           )}

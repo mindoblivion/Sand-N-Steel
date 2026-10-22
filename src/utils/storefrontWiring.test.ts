@@ -170,11 +170,16 @@ describe('SHOP-2 §D — the shop screen renders a storefront, not the catalogue
     expect(SHOP_SRC).not.toContain('ALL_ARMORS');
   });
 
-  test('the bazaar’s empty state is the honest one, not a fake list', () => {
+  test('the bazaar sells its consumables, not gear', () => {
+    // S6 — the potions have arrived. The storefront's GEAR list stays empty (the
+    // consumables are their own catalogue, never `ITEMS_DB` stock), and the screen
+    // renders them from that catalogue with the count already owned. The superseded
+    // "potion stock arrives with the medicus trade" empty state is gone.
     expect(getStorefrontStock('bazaar')).toEqual([]);
-    expect(SHOP_SRC).toContain(
-      "The Bazaar's potion stock arrives with the medicus trade"
-    );
+    expect(SHOP_SRC).toContain('CONSUMABLES');
+    expect(SHOP_SRC).toContain("const showsConsumables = shopId === 'bazaar';");
+    expect(SHOP_SRC).toContain('getConsumableCount(profile, item.id)');
+    expect(SHOP_SRC).not.toContain("The Bazaar's potion stock arrives with the medicus trade");
   });
 
   test('every storefront the hub can open has its own title and subtitle', () => {

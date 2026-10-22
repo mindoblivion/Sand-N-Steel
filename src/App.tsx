@@ -12,6 +12,8 @@ import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 import { purchaseLaurel, type LaurelResult } from './utils/laurels';
+import { consumeItem, purchaseConsumable } from './utils/consumables';
+import type { ConsumableItem } from './data/consumables';
 import { sellItem } from './utils/selling';
 import { nextBossKills } from './utils/bossKills';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
@@ -835,6 +837,34 @@ export function App() {
     saveProfile(updated);
   };
 
+  /**
+   * S6 — buy a Bazaar consumable. `purchaseConsumable` is pure and re-checks the
+   * price against the purse, so a refused buy leaves gold, counts and the GEAR
+   * inventory exactly as they were and never reaches `saveProfile`. A consumable is
+   * counted in `profile.consumables`; it is never pushed into `profile.inventory`.
+   */
+  const handleBuyConsumable = (item: ConsumableItem) => {
+    if (!profile) return;
+    const result = purchaseConsumable(profile, item.id);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /**
+   * S6 — one-tap use on the live injury, from the treatment surfaces or the stats
+   * tab. Same contract as the two cures above: a refusal (no wound, none owned)
+   * returns no profile and never saves; the answer closes the city panel.
+   */
+  const handleUseConsumable = (itemId: string): boolean => {
+    if (!profile) return false;
+    const result = consumeItem(profile, itemId);
+    if (!result.ok) return false;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+    return true;
+  };
+
   // P1 sell — the market buys a carried, unequipped item back for its
   // `sellPrice` plus 25 % of any temper gold spent on it.  The transaction is
   // pure: a refusal hands back the same profile object, so nothing is saved.
@@ -973,6 +1003,7 @@ export function App() {
             onStartRace={handleStartRace}
             onTreatInjury={handleTreatInjury}
             onRestAtInn={handleRestAtInn}
+            onUseConsumable={handleUseConsumable}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
             movementLocked={!!oathBeatMode}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
@@ -998,6 +1029,8 @@ export function App() {
             onSelectOpponent={handleEnterDuel}
             onTrainStat={handleTrainStat}
             onBuyItem={handleBuyItem}
+            onBuyConsumable={handleBuyConsumable}
+            onUseConsumable={handleUseConsumable}
             onSellItem={handleSellItem}
             onEquipWeapon={handleEquipWeapon}
             onEquipArmor={handleEquipArmor}
