@@ -9,7 +9,19 @@ import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
 import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
-import { CHARIOT_MODEL_URL, CHARIOT_MODEL_SCALE } from '../../utils/chariotGeometry';
+import {
+  CHARIOT_MODEL_SCALE,
+  CHARIOT_MODEL_URL,
+  CHARIOT_STOCK_WHEEL_NODES,
+  CHARIOT_WHEEL_KIT_URL,
+} from '../../utils/chariotGeometry';
+import {
+  WHEEL_FIT_VARIANTS,
+  getFailingWheelFitRules,
+  getWheelFitPlacement,
+  getWheelFitReport,
+  type WheelFitVariantKey,
+} from '../../utils/chariotWheelFit';
 import { HORSE_STATION_Z, INNER_LANE_X } from '../../utils/chariotTeamFormation';
 import {
   BESIDE_STAGING_X,
@@ -71,8 +83,18 @@ import {
  * here, no geometry, formation constant or asset changes, and the harness still
  * cannot touch a save.  Android visual acceptance remains the user's to make.
  *
- * Removal: delete this file, `src/utils/horseFitPrototype.ts` and its suite, and
- * revert the `?devHarness=horsefit` branch in `src/main.tsx`.
+ * S8 — the withheld wheel variants' MEASURING SURFACE, and nothing else.  The
+ * screen can now mount any of the wheel kit's four variants in place of the
+ * model's own fitted wheels, both sides, through `chariotWheelFit`'s audited
+ * transform — including the per-side mirror the bladed set needs — and prints
+ * that variant's measured fit (radius, tyre bottom, deeper-than-stock, hub, the
+ * wheel-Z clearance at its own radius, and which gates fail).  It admits nothing:
+ * no catalogue entry, price or slot changed, and the wheel kit is loaded on
+ * demand here only, exactly as the workshop preview loads it.
+ *
+ * Removal: delete this file, `src/utils/horseFitPrototype.ts`,
+ * `src/utils/chariotWheelFit.ts` and their suites, and revert the
+ * `?devHarness=horsefit` branch in `src/main.tsx`.
  */
 
 /**
@@ -82,6 +104,22 @@ import {
  */
 type FitView = HorseFitViewId | 'free';
 type FitClip = 'rest' | 'Idle' | 'Walk' | 'Gallop';
+
+/**
+ * S8 — which wheel set the measuring surface mounts.  `stock` is the model's own
+ * fitted wheels (the screen's original state); every other value mounts a kit
+ * variant through `chariotWheelFit`'s audited transform, which is the same
+ * arithmetic the workshop preview uses, plus the per-side mirror.
+ */
+type FitWheel = WheelFitVariantKey | 'stock';
+
+const WHEEL_OPTIONS: Array<{ id: FitWheel; label: string }> = [
+  { id: 'stock', label: 'stock' },
+  { id: 'standard', label: 'standard' },
+  { id: 'reinforced', label: 'reinforced' },
+  { id: 'spiked', label: 'spiked (S8)' },
+  { id: 'bladed', label: 'bladed (S8)' },
+];
 
 /** Every view option the row renders, in comparison order. */
 const VIEW_OPTIONS: Array<{ id: FitView; label: string }> = [
@@ -248,6 +286,7 @@ const FitScene: React.FC<{
   showHorses: boolean;
   showGuides: boolean;
   showPair: boolean;
+  wheelVariant: FitWheel;
   onLoaded: (report: {
     horse: boolean;
     chariot: boolean;
@@ -255,12 +294,48 @@ const FitScene: React.FC<{
     meshes: number;
     clips: string[];
   }) => void;
-}> = ({ scale, view, clip, showChariot, showHorses, showGuides, showPair, onLoaded }) => {
+}> = ({
+  scale,
+  view,
+  clip,
+  showChariot,
+  showHorses,
+  showGuides,
+  showPair,
+  wheelVariant,
+  onLoaded,
+}) => {
   const horseGltf = useGLTF(HORSE_FIT_ASSET_URL);
   const chariotGltf = useGLTF(CHARIOT_MODEL_URL);
+  const wheelKitGltf = useGLTF(CHARIOT_WHEEL_KIT_URL);
 
   // The chariot as the game ships it: its own fitted wheels, no finish overrides.
-  const chariot = useMemo(() => chariotGltf.scene.clone(true), [chariotGltf.scene]);
+  // A kit variant hides them, exactly as the workshop preview does.
+  const chariot = useMemo(() => {
+    const clone = chariotGltf.scene.clone(true);
+    if (wheelVariant !== 'stock') {
+      clone.traverse((object) => {
+        if ((CHARIOT_STOCK_WHEEL_NODES as readonly string[]).includes(object.name)) {
+          object.visible = false;
+        }
+      });
+    }
+    return clone;
+  }, [chariotGltf.scene, wheelVariant]);
+
+  // S8 — the variant's two wheels, each under its own wrapper: the audited
+  // position and yaw, plus the per-side mirror (`scale.x = −1` on the bladed
+  // set's right wheel).  One clone per side, so no transform can leak across.
+  const wheels = useMemo(() => {
+    if (wheelVariant === 'stock') return [];
+    const source = wheelKitGltf.scene.getObjectByName(WHEEL_FIT_VARIANTS[wheelVariant].node);
+    if (!source) return [];
+    return (['left', 'right'] as const).map((side) => ({
+      side,
+      placement: getWheelFitPlacement(wheelVariant, side),
+      object: source.clone(true),
+    }));
+  }, [wheelKitGltf.scene, wheelVariant]);
 
   // What the loaded horse actually carries — the evidence the harness reports.
   const horseFacts = useMemo(() => {
@@ -299,6 +374,17 @@ const FitScene: React.FC<{
       {showChariot && (
         <group scale={CHARIOT_MODEL_SCALE} name="chariot">
           <primitive object={chariot} />
+          {wheels.map(({ side, placement, object }) => (
+            <group
+              key={`fit-wheel-${side}`}
+              name={`fit-wheel-${wheelVariant}-${side}`}
+              position={placement.position}
+              rotation={[0, placement.rotationY, 0]}
+              scale={placement.scale}
+            >
+              <primitive object={object} />
+            </group>
+          ))}
         </group>
       )}
 
@@ -356,6 +442,8 @@ export const HorseChariotFitPrototype: React.FC = () => {
   const [showHorses, setShowHorses] = useState(true);
   const [showGuides, setShowGuides] = useState(true);
   const [showPair, setShowPair] = useState(false);
+  // S8 — the wheel variant this measuring surface mounts (`stock` = the model's own).
+  const [wheelVariant, setWheelVariant] = useState<FitWheel>('stock');
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
   // The readout opens with the screen and can be hidden: the control box would
   // otherwise cover the ground line and the wheel contact in the fixed views.
@@ -376,6 +464,8 @@ export const HorseChariotFitPrototype: React.FC = () => {
   const onLoaded = useRef((report: typeof loaded) => setLoaded(report)).current;
   const readout = getHorseFitReadout(scale);
   const placement = getHorseFitPlacement(scale);
+  const wheelReport = wheelVariant === 'stock' ? null : getWheelFitReport(wheelVariant);
+  const wheelFailing = wheelVariant === 'stock' ? [] : getFailingWheelFitRules(wheelVariant);
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-200 flex flex-col">
@@ -434,6 +524,7 @@ export const HorseChariotFitPrototype: React.FC = () => {
                     <FitScene
                       scale={scale}
                       view={view}
+                      wheelVariant={wheelVariant}
                       clip={clip}
                       showChariot={showChariot}
                       showHorses={showHorses}
@@ -492,6 +583,24 @@ export const HorseChariotFitPrototype: React.FC = () => {
             >
               {panelOpen ? 'hide readout' : 'show readout'}
             </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <span className="uppercase tracking-wider text-neutral-400">wheel set (S8)</span>
+            {WHEEL_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                data-testid={`fit-wheel-${option.id}`}
+                onClick={() => setWheelVariant(option.id)}
+                className={`px-2.5 py-1 rounded-lg border cursor-pointer active:scale-95 ${
+                  wheelVariant === option.id
+                    ? 'bg-cyan-800/70 border-cyan-400/70 text-cyan-100'
+                    : 'bg-neutral-800 border-neutral-600/60 text-neutral-300'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 mb-2">
@@ -619,6 +728,50 @@ export const HorseChariotFitPrototype: React.FC = () => {
                   .map((rule) => rule.id)
                   .join(', ')}`}
           </div>
+          {wheelReport && (
+            <div
+              data-testid="fit-wheel-readout"
+              className={`mt-2 border-t border-neutral-700/60 pt-2 ${panelOpen ? '' : 'hidden'}`}
+            >
+              <div>
+                wheel <span className="text-amber-200">{wheelVariant}</span> · radius{' '}
+                <span className="text-cyan-300">{wheelReport.radius.toFixed(4)}</span> · tyre bottom{' '}
+                <span className="text-cyan-300">{wheelReport.sides.right.bottomY.toFixed(4)}</span> ·
+                deeper than stock{' '}
+                <span
+                  className={
+                    wheelReport.sides.right.bottomDelta < 0 ? 'text-red-300' : 'text-emerald-300'
+                  }
+                >
+                  {wheelReport.sides.right.bottomDelta.toFixed(4)}
+                </span>
+              </div>
+              <div>
+                hub [{wheelReport.sides.right.hub.map((v) => v.toFixed(4)).join(', ')}] · mirror{' '}
+                <span className="text-amber-200">
+                  {wheelReport.sides.right.mirrored ? 'right wheel (scale.x −1)' : 'none'}
+                </span>{' '}
+                · wheel-Z clearance at this radius{' '}
+                <span className="text-cyan-300">
+                  {wheelReport.formation[0].clearances
+                    .find((row) => row.id === 'wheel-z-leading-edge')
+                    ?.value.toFixed(4)}
+                </span>{' '}
+                (rule ≥ 0.1000)
+              </div>
+              <div
+                data-testid="fit-wheel-status"
+                className={`font-bold uppercase tracking-wider ${
+                  wheelReport.ok ? 'text-emerald-300' : 'text-red-300'
+                }`}
+              >
+                {wheelReport.ok
+                  ? 'every wheel fit gate passes'
+                  : `wheel fit gate(s) failing: ${wheelFailing.join(', ')}`}
+              </div>
+            </div>
+          )}
+
           <div className={`text-neutral-500 mt-1 ${panelOpen ? '' : 'hidden'}`}>
             <span className="text-neutral-300">side</span> is the exact profile,{' '}
             <span className="text-neutral-300">front ¾</span> stands ahead of the horses’ heads and{' '}
