@@ -81,6 +81,21 @@ export function isAttackInRange(distance: number, weapon: WeaponItem): boolean {
 export const ENEMY_ATTACK_WINDUP_MS = 700;
 
 /**
+ * The readable wind-up before the PLAYER's own strike lands, in milliseconds.
+ *
+ * C-8.71B — the swing and its telegraph start at the tap, but the blow resolves
+ * one window later, so the player's attack reads as a swing instead of an
+ * instant number. It is ONE explicit duration for every weapon and both strike
+ * types (no per-weapon timing): the deliberate 600–800 ms band, matched to the
+ * enemy's 700 ms so both fighters anticipate at the same speed.
+ *
+ * It must stay shorter than the 1100 ms resolution window that follows every
+ * action — the impact is scheduled first and the turn-end timer second, so the
+ * blow always lands before the turn can pass.
+ */
+export const PLAYER_ATTACK_WINDUP_MS = 700;
+
+/**
  * Stamina spent to enter the Dodge stance. The engine and the tactic panel read
  * the same constant so the displayed cost can never drift from the charge.
  */

@@ -36,6 +36,7 @@ import {
   clearDefensiveStance,
 } from '../../utils/combatCalculations';
 import { createPendingStrike, type PendingStrike } from '../../utils/pendingStrike';
+import { createPlayerStrike, canResolveStrikeImpact, type PlayerStrike } from '../../utils/playerStrike';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
@@ -396,6 +397,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // against a stale `player` and be ignored.
   const executeTurnRef = useRef<(actor: 'player' | 'opponent', action: CombatActionType) => void>(() => {});
 
+  // C-8.71B — the PLAYER's own strike now has the readable wind-up the enemy's
+  // has had since §R1: the swing and its telegraph are committed at the tap, and
+  // the blow lands one PLAYER_ATTACK_WINDUP_MS later. `playerStrikeRef` owns that
+  // ONE scheduled impact (so a second tap cannot queue a second blow), and
+  // `fightersRef` is the state the impact validates itself against, so a stale
+  // closure can never resolve damage into a fight that has moved on.
+  const playerStrikeRef = useRef<PlayerStrike | null>(null);
+  if (playerStrikeRef.current === null) playerStrikeRef.current = createPlayerStrike();
+  const fightersRef = useRef({ player, opp });
+  useEffect(() => {
+    fightersRef.current = { player, opp };
+  }, [player, opp]);
+
   // Shared impact feedback (the hit-stop clock and the shake energy) — see the
   // tables at the top of this file. Written once per hit resolution and read
   // every frame by the camera rig and both GladiatorMesh instances, so the
@@ -710,7 +724,43 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         // Range was validated by the authoritative guard at the top of this
         // function (C-8.70B §R3), before a single point of stamina was spent, so
         // there is no separate out-of-range path left to reach here.
-        {
+        //
+        // C-8.71B — this is the IMPACT, not the commit. For the player it runs at
+        // the end of the wind-up (one PLAYER_ATTACK_WINDUP_MS later); for an
+        // announced enemy strike it runs at the end of ITS wind-up, exactly as
+        // before. Both read the same formulas.
+        const resolveImpact = () => {
+          // Re-read the fight at the impact point rather than trusting the
+          // commit's closure: a duel already decided, a downed attacker or
+          // target, or (after any future movement change) a target out of reach
+          // resolves NOTHING, so a stale strike can never damage an obsolete
+          // target. Nothing in the shipped lifecycle can move state inside the
+          // window — every action is locked by `resolvingRef`/`isExecuting` — so
+          // this is the same defence-in-depth guarantee C-8.71A gave the range
+          // guard. The turn still ends through the timer below, so a dropped
+          // blow can never leave the fight locked.
+          const live = fightersRef.current;
+          const gapNow = Math.abs(live.player.position[2] - live.opp.position[2]);
+          const attackerHealth = isActorPlayer ? live.player.health : live.opp.health;
+          const defenderHealth = isActorPlayer ? live.opp.health : live.player.health;
+          if (
+            !canResolveStrikeImpact({
+              isMatchOver: isMatchOver.current,
+              attackerHealth,
+              defenderHealth,
+              distance: gapNow,
+              weapon: attacker.loadout.weapon,
+            })
+          ) {
+            // The fight is over (its own outcome effect owns the settlement), so
+            // stay silent; otherwise the target has left the weapon's reach and
+            // the swing is spent on air.
+            if (!isMatchOver.current && attackerHealth > 0 && defenderHealth > 0) {
+              addLog(`${defender.name} slips out of reach — ${attacker.name}'s strike lands on air.`, 'system');
+            }
+            return;
+          }
+
           // Check Evasion / Hit Probability
           const hitPct = calculateHitChance(isQuick, attacker.stats.agility, defender.stats.agility);
 
@@ -880,6 +930,29 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               setPlayer((prev) => ({ ...prev, comboCount: applyComboEvent(prev.comboCount, 'miss') }));
             }
           }
+        };
+
+        // C-8.71B — the player's blow lands at the END of the anticipation
+        // window, not in the commit that started the swing. The animation above
+        // is the telegraph (it is driven for the whole window), stamina was spent
+        // once, at that commit, and is deliberately NOT refunded if the swing is
+        // dropped — the same rule a miss or an evade already follows. The
+        // opponent's strike has worked this way since §R1 (announce → 700 ms →
+        // resolve), so both fighters now read with one anticipation rule. The
+        // 1100 ms turn timer below is unchanged and still owns the turn: the
+        // impact is scheduled first (700 < 1100), so it cannot run after the
+        // turn has passed, and the opponent cannot answer before it lands.
+        if (isActorPlayer) {
+          if (playerStrikeRef.current?.strike(actionType, resolveImpact)) {
+            addLog(
+              `${attacker.name} winds up a ${isQuick ? 'quick strike' : 'power slash'}…`,
+              'player',
+            );
+          }
+        } else {
+          // The AI's strike resolves through the same block, at the end of its
+          // own announced wind-up, exactly as it always has.
+          resolveImpact();
         }
       }
 
@@ -889,6 +962,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // turn or re-open the resolution guard.
       resolutionTimerRef.current = setTimeout(() => {
         resolutionTimerRef.current = null;
+        // C-8.71B — a wind-up that has not fired by the end of the resolution
+        // window is dropped rather than landing after the turn has passed (it
+        // already cleared itself at impact, so this is inert on the normal path).
+        playerStrikeRef.current?.cancel();
         // Reset action animations back to idle
         if (isActorPlayer) {
           setPlayer((prev) => ({
@@ -1044,6 +1121,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // Drops the announcement and makes its scheduled callback inert, so a hit
       // can never land in a scene that has gone.
       strikeRef.current?.cancel();
+      // C-8.71B — the player's own pending swing is dropped for the same reason:
+      // leaving the arena (or the HUD's Armory shortcut unmounting the scene)
+      // must not let a delayed blow land afterwards.
+      playerStrikeRef.current?.cancel();
     },
     [],
   );
@@ -1162,6 +1243,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // The fight is over: drop any announced strike so no delayed hit can land
       // after the result, and no duplicate payout can follow.
       cancelPendingEnemyAttack();
+      // C-8.71B — and the player's own pending swing, so nothing resolves into a
+      // decided fight. (Inert today: only the player's impact can end a fight.)
+      playerStrikeRef.current?.cancel();
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       sounds.playVictory();
       addLog(`VICTORY! ${player.name} has vanquished ${opp.name}!`, 'crit');
@@ -1187,6 +1271,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
       cancelPendingEnemyAttack();
+      playerStrikeRef.current?.cancel();
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // C-8.70B §SET-1 — the player has fallen: the defeat pattern.
       vibrate(HAPTIC_DEFEAT_PATTERN);

@@ -8167,3 +8167,139 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   exactly as they were. **Still owed by hand, if desired:** confirm in a live bout that stepping out
   of a boss telegraph no longer makes the following ordinary hit feel heavier than a normal landing
   — a hit-stop difference of 140 ms (200 vs 60), which the sandbox's ~1–2 fps cannot adjudicate.
+
+## Safe player attack wind-up (C-8.71B — implemented; the deferred delay, now shipped)
+
+- **Preflight (measured).** Repository root `/app`; branch `development-focus-strategy`, HEAD
+  **`74bad41cb3`**; `git status --porcelain` **empty** and `git diff --check` clean before the first
+  edit — the baseline C-8.71A's record names. Nothing was reset, stashed, discarded, committed or
+  pushed. The C-8.71A record (the section above) was read first, then the shipped combat path:
+  `src/components/duel/DuelScene.tsx` (`executeCombatTurn`, `announceEnemyAttack`,
+  `reactToPendingAttack`, the AI effect, the victory/defeat effect, the unmount cleanup),
+  `src/utils/combatCalculations.ts`, `src/utils/pendingStrike.ts`, and the suites
+  `combatActionOrder` / `combatResponsiveness` / `pendingStrike` / `duelResultLifecycle`. The two
+  C-8.71A fixes are present exactly as that record describes (the telegraph marker's read-and-clear
+  above the range guard; the refusal's lock release), and they are **untouched** here.
+
+- **The lifecycle, traced before any code was written.** `TurnActionPanel` →
+  `onExecuteAction` → `executeCombatTurn('player', actionType)` → `resolvingRef`/`isMatchOver`
+  latch → `isAttackInRange(gap, weapon)` guard (before anything is spent) → commit
+  (`resolvingRef = true`, `setIsExecuting(true)`, stance pre-clear, stamina spend, swing animation)
+  → hit roll → damage → **one** `setTimeout(…, 1100)` that resets the animation, releases the latch
+  and toggles `setIsPlayerTurn` → the AI effect's 750 ms timer → the opponent's own announce (700 ms)
+  or an immediate resolution.
+
+- **The change: the player's blow moves from the commit to the end of a wind-up — and only that.**
+  `PLAYER_ATTACK_WINDUP_MS = 700` (`src/utils/combatCalculations.ts`) is ONE explicit duration for
+  every weapon and both strike types, matched to `ENEMY_ATTACK_WINDUP_MS` so both fighters anticipate
+  at the same speed. At the commit the engine now: spends stamina (the established point, unchanged),
+  sets `attack_light`/`attack_heavy` (the swing IS the telegraph — it is driven for the whole
+  window), logs `"<name> winds up a quick strike…"`, and hands the resolution to a new one-impact
+  controller. The damage block itself was **not rewritten** — it was enclosed unchanged in
+  `const resolveImpact = () => { … }` inside the same attack branch, so there is still exactly one
+  `calculateHitChance(` and one `calculateAttackDamage(` call site in the engine (pinned).
+  **The turn did not get longer:** the impact is scheduled at 700 ms and the existing 1100 ms
+  turn-end timer is untouched and still scheduled after it in the same tick, so a player turn is
+  still 1100 ms — the strike simply lands 400 ms before the turn passes instead of at its start.
+  The opponent cannot answer before the blow: the latch and `isExecuting` are held across the whole
+  window, and the AI effect is gated on `isPlayerTurn || isExecuting`.
+
+- **`src/utils/playerStrike.ts` (new) is the bookkeeping, and it is deliberately NOT
+  `pendingStrike`.** That controller carries `claimReaction` — the player's answer to an enemy
+  announcement — and reusing it would have let the opponent "react" to the player's swing, a rules
+  change. Its contract: `strike(action, onImpact)` schedules exactly one impact and **refuses** while
+  one is pending; `cancel()` clears the timer and makes any in-flight callback inert; the pending
+  action is read **at impact**, never from the closure. Timers are injectable, which is what makes
+  the timing testable on a controlled clock. `canResolveStrikeImpact({ isMatchOver, attackerHealth,
+  defenderHealth, distance, weapon })` is the impact-point rule (pure, total, NaN-refusing) and the
+  engine calls it **before** any roll.
+
+- **Cancellation, target invalidity and defeat — the explicit answers.**
+  - *Target moves out of range during the wind-up:* impossible in the shipped lifecycle (positions
+    change only on advance/retreat, which are turns, locked by the latch) — but the impact re-reads
+    live positions through `canResolveStrikeImpact`, so if that ever changed the swing lands on air,
+    logs `"…slips out of reach…"`, deals nothing, and the turn still ends through the 1100 ms timer.
+  - *Target dies or becomes invalid before resolution:* the impact resolves nothing (health ≤ 0 or
+    non-finite, or the fight already decided) — **no stale damage**. Unreachable today (the player's
+    own impact is the only damage source while its turn is resolving); the rule is defence-in-depth,
+    the same shape C-8.71A gave the range guard.
+  - *Player or opponent defeat during a pending attack:* both end-of-fight effects call
+    `playerStrikeRef.current?.cancel()` next to the existing `cancelPendingEnemyAttack()`, so nothing
+    resolves into a decided fight (inert today, for the reason above). The 1400 ms settlement is
+    untouched, and the `duelSettlement` id rule still latches it.
+  - *Duplicate taps / a second action:* three layers — `resolvingRef` (same-tick), the panel's
+    `isExecuting` lock, and the controller's own refusal while pending. A second strike cannot queue.
+  - *Unmount, duel exit, timer cleanup:* the unmount effect cancels the pending swing as well as the
+    enemy's and the turn-end timeout, and the 1100 ms timer cancels any impact that has not fired
+    (inert on the normal path) — so nothing lands after the player has left, including via the HUD's
+    Armory shortcut (which unmounts the scene).
+  - *Superseding actions:* none exist — every other action is locked while the window is open.
+  - **Stamina is spent once, at the commit, and is NOT refundable on cancellation.** That is the
+    established rule a miss or an evade already follows, it is what the opponent's side already does,
+    and refunding would be a balance change this phase is not authorized to make.
+
+- **Files changed: five.** `src/utils/playerStrike.ts` (**new**: the controller + the impact rule),
+  `src/utils/combatCalculations.ts` (`PLAYER_ATTACK_WINDUP_MS` and its doc comment; **no existing
+  value touched** — the file's five audited constants are re-pinned as a scope guard),
+  `src/components/duel/DuelScene.tsx` (the import, `playerStrikeRef` + `fightersRef`, the
+  `resolveImpact` enclosure and its impact validation, the player/opponent dispatch, the wind-up log
+  line, and the four cancel sites), `src/utils/playerStrikeWindup.test.ts` (**new**, 27 tests) and
+  `src/utils/combatActionOrder.test.ts` (**rebased, not weakened**: §F's third pin and its describe
+  title — that test asserted the old synchronous player hit, which C-8.71A wrote deliberately so a
+  delayed hit would have to move it on purpose; it now pins the deferred impact, the one controller
+  and the unchanged 1100 ms turn timer; 113 → 115 `expect()` calls), plus this record.
+
+- **What did NOT change.** No damage formula, hit chance, crit rate, stamina cost, defense curve,
+  dodge/block/shield rule, combo/hype rule, AI strategy, opponent balance, reward/xp/fame/gold,
+  tier advancement, settlement, save field, collider, city content, visual, lighting, particle or
+  performance setting. The 1100 ms resolution window, the 750 ms AI delay, the 700 ms enemy wind-up,
+  the 1400 ms result settlement, the range refusal and its copy, the two turn toggles
+  (`setIsPlayerTurn(` is still 2), the two stamina spend sites and the telegraphed-heavy hit-stop
+  path are exactly as they were.
+
+- **Tests added (`src/utils/playerStrikeWindup.test.ts`, 27 tests / 127 `expect()`), all
+  deterministic — `fakeTimer`, no wall-clock sleeps.** §A the window (nothing before
+  `PLAYER_ATTACK_WINDUP_MS`, exactly one impact at it, the injected-window path, the action carried
+  through, the 600–800 band, and that the window is shorter than the 1100 ms turn); §B at-most-once
+  and cancellation (a second strike refused with no leaked timer, cancel wins, a callback fired after
+  a cancel is inert, a doubled callback resolves once, the next swing still lands once); §C the
+  impact rule table (live fight in reach / at the border; match over; defender at 0, negative or NaN;
+  attacker down; out of reach, NaN and Infinity; a per-weapon reach); §D the wiring in the shipped
+  source (the commit spends and starts the swing before any roll, the player schedules while only the
+  opponent resolves inline, `resolveImpact` exists once and is referenced twice, the validation
+  precedes the roll and the first `Math.random(`, the turn is still advanced exactly once by the
+  unchanged timer, the AI gate still guards it, four cancel sites, the controller created once,
+  `resolveImpact();` exactly once); §E scope (the five audited constants, the C-8.71A guard and its
+  refusal text intact, one damage formula, one hit roll, no per-weapon timing, no `windupTimerRef`,
+  no `pendingPlayerStrike`).
+
+- **Checks actually run (2026-10-22, `web` dev container, on the final tree).**
+
+  | command | result |
+  |---|---|
+  | `bun test src/utils/playerStrikeWindup.test.ts` | **27 pass / 0 fail** (127 `expect()`) |
+  | focused combat set (`playerStrikeWindup`, `combatActionOrder`, `combatResponsiveness`, `pendingStrike`, `duelResultLifecycle`, `duelSettlement`, `duelSettlementCommit`, `duelRewards`) | **172 pass / 0 fail** (922 `expect()`, 8 files) |
+  | `bun test` (full) | **3181 pass / 0 fail (108 files, 89,921 `expect()`)** — the C-8.71A baseline of 3154 / 107 plus this suite's 27 tests and its file; no existing assertion was deleted or loosened |
+  | `bun run scripts/combatTests.ts` | **65 passed, 0 failed** |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `git diff --check` | **clean (exit 0)** |
+
+  The suite's sensitivity was **demonstrated, not assumed**: the same predicates were replayed against
+  `git show HEAD:src/components/duel/DuelScene.tsx` in a throwaway script (kept in `/tmp`, deleted
+  afterwards) — on the pre-fix source `resolveImpact` is **absent**, the controller dispatch is
+  **absent**, the cancel sites are **0** (not 4) and `canResolveStrikeImpact({` is **absent**, while
+  the invariants that must not move (2 stamina-spend sites, 2 turn toggles) read identically.
+
+- **Not automatically verified — the feel, and it is a device question.** A live end-to-end drive was
+  attempted in the preview browser (the dev duel harness `?devHarness=character` in an in-page
+  frame: creation → `Apply Points & Enter Metropolis [Town Gate]` → `Start Test Duel` → four Advance
+  turns to close the 7.0 gap → a Quick Strike, sampling the chronicle for the wind-up line and its
+  impact) and **timed out at the 30 s cap** while the duel scene mounted — the sandbox has no GPU
+  (SwiftShader, ~1–2 fps in the 3D scenes), the limit C-8.71A, C-8.70B and the district phases all
+  recorded. A boot check was run instead and passed: the shell renders (title screen, "PLAY"), the
+  dev server serves the changed modules (the transformed `DuelScene.tsx` carries the dispatch and the
+  impact check; `src/utils/playerStrike.ts` answers), and the page reports **0 console errors and 0
+  failed requests**. **So the wind-up's rendered read — that a swing now reads as a swing, that the
+  damage number arrives ~0.7 s after the tap, and whether that delay feels right for a heavy strike
+  versus a quick one — is NOT automatically verified and needs an on-device look.** Nothing here is
+  device acceptance; no Android or visual acceptance is claimed.

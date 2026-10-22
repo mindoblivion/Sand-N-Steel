@@ -200,7 +200,7 @@ describe('§E — a legal strike still costs, rolls and lands exactly as before'
 
 // ── §F. The wind-up timing this phase did NOT change ───────────────────────
 
-describe('§F — the shipped timing: the opponent winds up, the player strikes at once', () => {
+describe('§F — the shipped timing: both fighters wind up and the cue is answerable', () => {
   test('the opponent\'s swing is announced and its damage resolved later, by the controller', () => {
     const announce = between(
       duelSource,
@@ -225,10 +225,16 @@ describe('§F — the shipped timing: the opponent winds up, the player strikes 
     expect(duelSource).toContain('}, 750);');
   });
 
-  test('the player\'s own strike still resolves in the commit that starts its swing', () => {
-    // No second pending-action controller exists for the player: the attack
-    // branch above spends, rolls and applies damage synchronously.
+  test('the player\'s strike is committed at once but RESOLVED at the end of its wind-up', () => {
+    // C-8.71B rebased this pin deliberately — C-8.71A wrote it so that a delayed
+    // player hit would move these assertions on purpose rather than by accident.
+    // The branch still spends, starts the swing and carries the roll in ONE
+    // place, but the player's roll is handed to the one-impact controller
+    // instead of running in the commit; the branch itself still owns no timer
+    // (the controller does), and the shared 1100 ms timer still owns the turn.
     expect(duelSource).toContain("onExecuteAction={(action) => executeCombatTurn('player', action)}");
+    expect(duelSource).toContain('const resolveImpact = () => {');
+    expect(duelSource).toContain('playerStrikeRef.current?.strike(actionType, resolveImpact)');
     expect(duelSource).not.toContain('pendingPlayerStrike');
     expect(duelSource).not.toContain('announcePlayerAttack');
     const attackBranch = between(
@@ -236,7 +242,8 @@ describe('§F — the shipped timing: the opponent winds up, the player strikes 
       "else if (actionType === 'quick_attack' || actionType === 'power_attack') {",
       '// 4. ANIMATION RESOLUTION & TURN TRANSITION (1100ms)',
     );
-    // Animation and damage sit in the same branch, with no timer between them.
+    // The swing animation still precedes the roll it labels, and the deferred
+    // impact still lives in this branch: one path, one formula, no second timer.
     expect(attackBranch.indexOf('action: isQuick ? \'attack_light\' : \'attack_heavy\''))
       .toBeLessThan(attackBranch.indexOf('calculateAttackDamage('));
     expect(attackBranch).not.toContain('setTimeout(');
