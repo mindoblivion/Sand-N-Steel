@@ -2,7 +2,12 @@ import React from 'react';
 import { FighterState } from '../../types/game';
 import { TurnActionPanel, CombatActionType, CombatLogEntry } from './TurnActionPanel';
 import { Swords, Flame, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle, Shield, Wind } from 'lucide-react';
-import { DODGE_STAMINA_COST, ENEMY_ATTACK_WINDUP_MS } from '../../utils/combatCalculations';
+import {
+  DODGE_STAMINA_COST,
+  ENEMY_ATTACK_WINDUP_MS,
+  PLAYER_ATTACK_WINDUP_MS,
+} from '../../utils/combatCalculations';
+import { resolvePlayerWindupCue, type PlayerStrikeAction } from '../../utils/playerStrike';
 
 interface CombatHUDProps {
   player: FighterState;
@@ -26,6 +31,9 @@ interface CombatHUDProps {
   // Combat responsiveness §R1 — the enemy strike that has been announced but has
   // not landed yet, the player's one reaction to it, and the reaction itself.
   pendingEnemyAttack: 'quick_attack' | 'power_attack' | null;
+  // C-8.73B — the player's own strike, held for its 700 ms wind-up. Mirrored
+  // from the strike controller (`playerStrike.ts`), never timed here.
+  pendingPlayerAttack: PlayerStrikeAction | null;
   reactionTaken: boolean;
   onReactToPendingAttack: (action: 'shield_block' | 'dodge') => void;
 }
@@ -49,9 +57,13 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   combatLog,
   onExecuteAction,
   pendingEnemyAttack,
+  pendingPlayerAttack,
   reactionTaken,
   onReactToPendingAttack,
 }) => {
+  // The player's cue, as the shared rule decides it: nothing unless a strike is
+  // genuinely pending, and never alongside an opponent announcement.
+  const playerWindupCue = resolvePlayerWindupCue(pendingPlayerAttack, pendingEnemyAttack);
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
   const playerStaminaPct = Math.max(0, Math.min(100, (player.stamina / player.stats.staminaMax) * 100));
 
@@ -270,6 +282,37 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* PLAYER STRIKE WIND-UP (C-8.73B) — the mirror of the enemy telegraph,
+          in the player's own amber rather than the incoming red. It is inert
+          (pointer-events-none throughout, no controls) so it cannot block the
+          tactic dashboard, and it sits below the vitals so it never covers
+          health or stamina. It lasts exactly as long as the strike is pending:
+          the controller clears it at impact and on every cancellation. */}
+      {playerWindupCue && (
+        <div className="w-full flex justify-center mt-1 sm:mt-2 pointer-events-none z-10">
+          <div
+            data-player-windup-cue={playerWindupCue.action}
+            className="pointer-events-none w-full max-w-lg bg-amber-950/95 border-2 border-amber-500 rounded-xl px-2.5 py-2 shadow-2xl backdrop-blur-md flex flex-col gap-1.5"
+          >
+            <div className="flex items-center gap-2">
+              <Swords className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 shrink-0 animate-pulse" />
+              <span className="font-serif font-black text-[11px] sm:text-sm text-amber-100 tracking-wider uppercase">
+                {playerWindupCue.label}
+              </span>
+              <span className="ml-auto text-[9px] sm:text-[10px] font-mono text-amber-300/80 uppercase">Committed</span>
+            </div>
+
+            {/* The same 700 ms window, drawn as it runs down. */}
+            <div className="w-full h-1.5 bg-neutral-950 rounded-full overflow-hidden">
+              <div
+                className="windup-bar h-full w-full bg-gradient-to-r from-amber-300 to-orange-600 rounded-full"
+                style={{ animationDuration: `${PLAYER_ATTACK_WINDUP_MS}ms` }}
+              ></div>
+            </div>
           </div>
         </div>
       )}

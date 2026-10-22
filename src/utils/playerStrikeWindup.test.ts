@@ -523,8 +523,10 @@ describe('§D — commit, wind-up, impact, and the single turn-end timer', () =>
     expect(duelSource.split('playerStrikeRef.current?.cancel();').length - 1).toBe(4);
     const unmount = duelSource.slice(at(duelSource, '// No blow may outlive the scene'));
     expect(unmount.slice(0, 1400)).toContain('playerStrikeRef.current?.cancel();');
-    // The player's own controller is created exactly once per mount.
-    expect(duelSource.split('createPlayerStrike()').length - 1).toBe(1);
+    // The player's own controller is created exactly once per mount, and (C-8.73B)
+    // that same creation is the one wired to the HUD's wind-up cue.
+    expect(duelSource.split('createPlayerStrike(').length - 1).toBe(1);
+    expect(duelSource).toContain('onPendingChange: setPendingPlayerAttack');
   });
 
   test('the wind-up is announced to the player, and it is the player\'s own strike', () => {

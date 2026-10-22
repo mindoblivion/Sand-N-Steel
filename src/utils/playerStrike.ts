@@ -29,6 +29,11 @@
  *     action, invoke the OLD closure and clear the newer strike's state — which
  *     also orphans its timer, since `cancel()` would then have no handle left to
  *     clear. A stale callback must be a complete no-op.
+ *   • **One readable cue (C-8.73B).** `onPendingChange` reports every transition
+ *     of `pending` (commit -> impact -> cancel), so the HUD's player wind-up cue
+ *     mirrors THIS controller's state instead of reading a second timer that
+ *     could drift from it. It fires only on an actual change, and only for the
+ *     strike that owns the controller — a stale callback stays a no-op here too.
  *
  * Timing is injectable, which is what lets the tests drive it on a controlled
  * clock instead of a wall clock.
@@ -56,6 +61,12 @@ export interface PlayerStrikeConfig {
   timer?: PlayerStrikeTimer;
   /** Defaults to {@link PLAYER_ATTACK_WINDUP_MS}. */
   windupMs?: number;
+  /**
+   * C-8.73B — notified whenever {@link PlayerStrike.pending} actually changes:
+   * the accepted commit, the impact, and any cancellation. Never called twice
+   * with the same value, and never called by a stale callback.
+   */
+  onPendingChange?: (pending: PlayerStrikeAction | null) => void;
 }
 
 export interface PlayerStrike {
@@ -79,6 +90,16 @@ export function createPlayerStrike(config: PlayerStrikeConfig = {}): PlayerStrik
 
   let handle: number | null = null;
   let action: PlayerStrikeAction | null = null;
+
+  // C-8.73B — the ONLY writer of `pending`. Reporting the change here (and
+  // nowhere else) is what makes the HUD's cue a mirror of this controller
+  // rather than a second, drifting source of truth.
+  const notify = config.onPendingChange;
+  const setPending = (next: PlayerStrikeAction | null) => {
+    if (action === next) return;
+    action = next;
+    notify?.(next);
+  };
   /**
    * The serial number of the strike that currently owns the controller — the
    * C-8.71D ownership token. `cancel()` retires it, so a callback queued by the
@@ -94,7 +115,7 @@ export function createPlayerStrike(config: PlayerStrikeConfig = {}): PlayerStrik
     strike(nextAction, onImpact) {
       if (action !== null) return false;
       const mine = ++owner;
-      action = nextAction;
+      setPending(nextAction);
       handle = timer.set(() => {
         // Ownership first: only the strike that scheduled this callback may
         // resolve, and a stale one must not touch the pending state, the handle
@@ -105,7 +126,8 @@ export function createPlayerStrike(config: PlayerStrikeConfig = {}): PlayerStrik
         // swing is null here, so a repeated delivery resolves nothing.
         const landing = action;
         if (landing === null) return;
-        action = null;
+        // The blow has landed: the cue goes before the impact resolves.
+        setPending(null);
         onImpact(landing);
       }, windupMs);
       return true;
@@ -115,7 +137,7 @@ export function createPlayerStrike(config: PlayerStrikeConfig = {}): PlayerStrik
       const hadPending = action !== null;
       if (handle !== null) timer.clear(handle);
       handle = null;
-      action = null;
+      setPending(null);
       // Retire the pending strike's token, so its already-queued callback is inert.
       owner += 1;
       return hadPending;
@@ -146,4 +168,37 @@ export function canResolveStrikeImpact(check: {
   // `!(x > 0)` also refuses a health value that is not a number.
   if (!(check.attackerHealth > 0) || !(check.defenderHealth > 0)) return false;
   return isAttackInRange(check.distance, check.weapon);
+}
+
+/**
+ * The player's own wind-up cue, as the HUD should show it — C-8.73B.
+ *
+ * The cue is a READ of the controller state, never a lifecycle of its own: the
+ * scene mirrors `PlayerStrike.pending` through `onPendingChange`, so the cue can
+ * only be up while a strike is genuinely pending inside the 700 ms window, and
+ * it clears on the impact, on every cancellation and on unmount without any
+ * second timer to drift from the strike.
+ *
+ * Ownership is decided here so the two cues can never be shown at once: an
+ * opponent announcement always owns the wind-up display, because that is the one
+ * the player has to answer. (In the shipped lifecycle the two cannot overlap —
+ * the resolution latch holds the player's window closed until the opponent's
+ * turn can even begin — so this is the deterministic rule, not a workaround.)
+ */
+export interface PlayerWindupCue {
+  action: PlayerStrikeAction;
+  /** The player's own words for the committed strike. */
+  label: string;
+}
+
+export function resolvePlayerWindupCue(
+  pendingPlayerAttack: PlayerStrikeAction | null,
+  pendingEnemyAttack: PlayerStrikeAction | null,
+): PlayerWindupCue | null {
+  if (pendingPlayerAttack === null) return null;
+  if (pendingEnemyAttack !== null) return null;
+  return {
+    action: pendingPlayerAttack,
+    label: pendingPlayerAttack === 'quick_attack' ? 'Your quick strike' : 'Your power slash',
+  };
 }

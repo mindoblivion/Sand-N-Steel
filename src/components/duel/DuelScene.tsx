@@ -36,7 +36,12 @@ import {
   clearDefensiveStance,
 } from '../../utils/combatCalculations';
 import { createPendingStrike, type PendingStrike } from '../../utils/pendingStrike';
-import { createPlayerStrike, canResolveStrikeImpact, type PlayerStrike } from '../../utils/playerStrike';
+import {
+  createPlayerStrike,
+  canResolveStrikeImpact,
+  type PlayerStrike,
+  type PlayerStrikeAction,
+} from '../../utils/playerStrike';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
@@ -327,6 +332,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // reaction (Shield Guard or Dodge) inside the window.
   const [pendingEnemyAttack, setPendingEnemyAttack] = useState<'quick_attack' | 'power_attack' | null>(null);
   const [reactionTaken, setReactionTaken] = useState(false);
+  // C-8.73B — the player's OWN wind-up cue. This is a mirror of
+  // `playerStrikeRef.current.pending`, written only by the controller's
+  // `onPendingChange` (commit, impact, cancellation), so there is no second
+  // timer and no second source of truth to drift from the actual strike.
+  const [pendingPlayerAttack, setPendingPlayerAttack] = useState<PlayerStrikeAction | null>(null);
 
   const [crowdHype, setCrowdHype] = useState(25);
 
@@ -404,7 +414,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // `fightersRef` is the state the impact validates itself against, so a stale
   // closure can never resolve damage into a fight that has moved on.
   const playerStrikeRef = useRef<PlayerStrike | null>(null);
-  if (playerStrikeRef.current === null) playerStrikeRef.current = createPlayerStrike();
+  if (playerStrikeRef.current === null) {
+    playerStrikeRef.current = createPlayerStrike({ onPendingChange: setPendingPlayerAttack });
+  }
   const fightersRef = useRef({ player, opp });
   useEffect(() => {
     fightersRef.current = { player, opp };
@@ -1408,6 +1420,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         isExecuting={isExecuting}
         combatLog={combatLog}
         pendingEnemyAttack={pendingEnemyAttack}
+        pendingPlayerAttack={pendingPlayerAttack}
         reactionTaken={reactionTaken}
         onReactToPendingAttack={reactToPendingAttack}
         onExecuteAction={(action) => executeCombatTurn('player', action)}

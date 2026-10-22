@@ -8505,3 +8505,100 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   probability, stamina cost, turn timing, reward, settlement, save field, collider, asset or 3D
   geometry value moved. `DODGE_STAMINA_COST` is still 12, `PLAYER_ATTACK_WINDUP_MS` still 700, a player
   turn still 1100, and no save was read or written by this phase.
+
+## Player attack wind-up cue (Phase C-8.73B — implemented; live harness verified, Android acceptance PENDING)
+
+- **Preflight.** Repository root `/app`; branch `development-focus-strategy`, HEAD **`f2bb04ef66`**;
+  `git status --porcelain` and `git diff --check` clean before the first edit. **No C-8.73A document
+  exists in this repo** — that audit was read-only and appended nothing — so its finding is stated
+  here from the shipped code: the player's 700 ms wind-up was legible only through the swing
+  animation and the `"…winds up a quick strike…"` log line, while the opponent's identical window
+  had a HUD telegraph (`data-windup-cue`) with a draining bar. Read first: the C-8.71B and C-8.71D
+  records above, `playerStrike.ts`, `DuelScene`'s attack branch and cancel sites, the HUD's enemy cue,
+  and `combatResponsiveness` / `playerStrikeWindup` / `combatActionOrder` / `duelResultLifecycle`.
+
+- **The cue is a MIRROR of the strike controller, never a second timer.** `playerStrike.ts` gained
+  one optional config field, `onPendingChange`, and its `pending` field now has exactly one writer
+  (`setPending`), which notifies **only on an actual change** and only for the strike that owns the
+  controller — the C-8.71D ownership token already guarantees a cancelled strike's queued callback
+  is a complete no-op, so it cannot clear a newer strike's cue either. `DuelScene` holds
+  `pendingPlayerAttack` (`useState<PlayerStrikeAction | null>`) and feeds it from that callback; the
+  HUD renders it. **No `setTimeout`, no interval, no derived duration anywhere in the cue** — the
+  window it draws is `PLAYER_ATTACK_WINDUP_MS`, the same constant the controller schedules with.
+
+- **The lifecycle is the controller's own, so every path is already covered.** It appears only when
+  `strike()` accepts a swing (a refused second strike notifies nothing); it clears **before** the
+  impact closure runs (`setPending(null)` precedes `onImpact`), so the cue is never up during the
+  damage/feedback that follows; and it clears on `cancel()`, which is the same call the turn-end
+  timer, the victory path, the defeat path and the unmount cleanup already make — **the four
+  `playerStrikeRef.current?.cancel()` sites are unchanged and none needed a new clear**, so the
+  existing count pin (`= 4`) still holds. A refused out-of-range action never reaches `strike()`:
+  the authoritative range guard returns above the commit.
+
+- **Ownership rule, extracted and pure.** `resolvePlayerWindupCue(pendingPlayerAttack,
+  pendingEnemyAttack)` returns `null` unless a player strike is pending **and** no opponent
+  announcement is up — the opponent's cue always wins because that is the one the player must answer.
+  (In the shipped lifecycle the two cannot overlap: the resolution latch holds the player's window
+  closed until the opponent can act at all. The rule makes that deterministic rather than incidental.)
+  Labels are `Your quick strike` / `Your power slash`, deliberately distinct from the enemy banner's
+  "…incoming", and carry **no "incoming"** wording.
+
+- **UI: the enemy telegraph's own treatment, in the player's amber.** Below the vital cards, above the
+  tactic dashboard, the same bordered panel + `.windup-bar` draining bar (with
+  `animationDuration: ${PLAYER_ATTACK_WINDUP_MS}ms`), `data-player-windup-cue={action}`, the panel
+  reading `COMMITTED`. **Inert by construction** — `pointer-events-none` throughout, no button, no
+  handler — so it cannot block a control, and it sits under the health/stamina cards rather than over
+  them. The red enemy cue and its two reactions are untouched.
+
+- **What did not change.** `PLAYER_ATTACK_WINDUP_MS` 700, `ENEMY_ATTACK_WINDUP_MS` 700, the 1100 ms
+  turn-end timer, the 750 ms AI delay, the 1400 ms result settlement, attack animations, damage
+  formula, hit chance, stamina costs, hit-stop, turn order, the range guard, the enemy announcement
+  and both of its reactions. No dependency, no asset, no new HUD section, no collider, no save field.
+
+- **Tests — `src/utils/playerWindupCue.test.ts` (new, 22 tests / 94 `expect()`).** §A the pure rule
+  (nothing pending, light, heavy, the two labels distinct and never "incoming", the opponent's
+  announcement owning the cue for all four combinations, totality over the scene's value space); §B
+  the lifecycle **driven on the C-8.71B fake clock** — the cue appears at commit and is still up at
+  699 ms, is gone at 700 ms with the impact firing once, the same for heavy, cleared *before* the
+  impact closure reads the controller, cleared by `cancel()` with nothing resolving afterwards, no
+  spurious clear when nothing was pending, a refused second strike raising nothing, **no stale cue
+  after cancel → new strike** (the cancelled callback fired on purpose leaves the newer strike's cue
+  up and resolvable), and a refused out-of-range action reaching neither the controller nor the cue;
+  §C the wiring (the scene's mirror state + the single creation with `onPendingChange`, the HUD prop,
+  the shared rule, the cue being inert and below the vitals, `.windup-bar` + the 700 ms duration, no
+  timer in the HUD and exactly one `timer.set(` in the controller); §D scope (the two 700 ms
+  constants, the 1100 ms timer, the two turn toggles, the enemy cue and both reaction controls, and
+  all four cancel sites).
+  **One existing pin was rebased, not weakened:** `playerStrikeWindup.test.ts` §D asserted
+  `createPlayerStrike()` exactly once; the creation now carries `onPendingChange`, so it pins
+  `createPlayerStrike(` **plus** the `onPendingChange: setPendingPlayerAttack` wiring — a stronger
+  statement than the empty-argument form it replaces.
+
+- **Verified 2026-10-22** in the dev container: focused
+  `bun test src/utils/playerWindupCue.test.ts src/utils/playerStrikeWindup.test.ts
+  src/utils/combatActionOrder.test.ts src/utils/combatResponsiveness.test.ts
+  src/utils/duelResultLifecycle.test.ts src/utils/pendingStrike.test.ts` → **136 pass / 0 fail**
+  (599 `expect()`); `bun test` (full) → **3233 pass / 0 fail (110 files, 90,150 `expect()`)**;
+  `bun run scripts/combatTests.ts` → **65 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only; `dist/` is
+  gitignored); `git diff --check` → clean.
+
+- **Live harness evidence (not device acceptance).** `?devHarness=character` → complete the in-memory
+  creation → `Start Test Duel` → two real `Advance` clicks → a real `Quick Strike` click. Read back
+  from the DOM during the wind-up: `[data-player-windup-cue="quick_attack"]` visible, text
+  `YOUR QUICK STRIKE / COMMITTED`, `pointer-events: none`, bar `animation-duration: 0.7s`, **no**
+  enemy cue at the same time, cue top **331** against the vitals' bottom **184** (below them, not
+  over them), and `elementFromPoint` over the Quick Strike button **not** inside the cue; the cue was
+  **gone one second later**, and the log carried the matching wind-up line. Repeated at the **mobile
+  (400 px)** viewport: cue top **259** vs vitals bottom **206**, **0 px** of horizontal overflow,
+  control still hittable, cleared after impact, and **no console errors**. The frame captured during
+  the window shows the amber `YOUR QUICK STRIKE — COMMITTED` panel over the arena. **The power slash
+  cue was not driven live** (it shares the one rule and is unit-tested); no Android/GPU pass was done,
+  so how the cue *reads* at speed on a phone — including whether 700 ms is long enough to notice it
+  beside the 1.1 s turn — remains a device question, as does the 140ms hit-stop and 700 ms wind-up
+  feel already open from C-8.71B/C-8.73A.
+
+- **Files.** `src/utils/playerStrike.ts` (the notifier, the single pending writer, the pure cue rule),
+  `src/components/duel/DuelScene.tsx` (the mirror state, the creation wiring, the HUD prop),
+  `src/components/ui/CombatHUD.tsx` (prop, rule, the cue panel), `src/utils/playerWindupCue.test.ts`
+  (new), `src/utils/playerStrikeWindup.test.ts` (one rebased pin), and this record.
