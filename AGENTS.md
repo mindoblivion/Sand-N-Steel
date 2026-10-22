@@ -6376,3 +6376,37 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   write and the panel itself through the UI **remain a device check**: lose one duel, walk to the
   Arena Medical House, confirm the 75 g button cures the wound and the stats penalties disappear,
   then take a second injury and confirm a night's rest shows 25 g and takes two fights off the clock.
+
+## S7 — tavern rumours: intel as a service (implemented)
+
+- **One module owns the rules: `src/utils/intel.ts`.** `INTEL_PRICE = 15`, `resolveIntel` (a save with
+  no/null/malformed `intel` reads `[]`; unknown ids and duplicates are dropped), `hasIntel`,
+  `intelTargets` (roster order, minus what is owned), `getIntelPurchaseEligibility` and
+  `purchaseIntel` — pure, a NEW profile, refusals (`unknown-opponent` / `already-owned` /
+  `insufficient-gold`) carry no profile, so a refused buy can never reach `saveProfile()`.
+  `PlayerProfile.intel?: string[]` is optional exactly like `chariot`/`racing`/`consumables`: nothing
+  migrates it and `createNewProfile()` never writes it.
+- **INTEL IS INFORMATION ONLY.** No file in the combat path imports `intel.ts`; the write touches
+  `gold` and `intel` and nothing else. The tavern panel and the tournament card both say so in words.
+- **Wiring:** `App.handleBuyIntel` is the only caller of the purchase (one `setProfile` +
+  `saveProfile`) and hands the answer back; `CityHubScene` adds the `intelPanel` view state beside
+  `treatmentPanel` (Esc closes it, the primary action is its own while it is up) and opens it for the
+  `tavern` location, whose `tabKey: 'stats'` redirect is gone. `TournamentTab` renders the opposing
+  dossier only when `hasIntel(profile, opp.id)`.
+- **Validated 2026-10-22** in the dev container, on the final tree: `bun test` → **3008 pass / 0 fail
+  (103 files)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → built + startup asset check passed; `git diff --check`
+  → clean.
+- **Verified live 2026-10-22** in the preview (anonymous visitor, a gladiator created through the
+  real creation screen, oath skipped by holding): quick-travel to the Golden Palm → "Hear Rumors"
+  opened the panel listing **8 opponents at 15 g** with the "Information only" line; six purchases
+  moved gold **85 → 70 → 55 → 40 → 25 → 10** (exactly 15 each) and removed each bought name from the
+  list; at 10 g every remaining row was disabled and the panel printed "Not enough gold. You carry
+  10g."; the stored save carried `intel: [opp_marcus … opp_centurion_drusus]`. The Colosseum tab then
+  showed rumour blocks on exactly the three tier-1 cards bought (`opp_marcus`, `opp_flaccus`,
+  `opp_goliath_boss`) reading `Aggressive fighter · Sword & Shield · STR 8 · AGI 8 · STA 80 · REG 14 ·
+  DEF 2 · HP 90`. The bought save was removed afterwards; the browser's storage is cleared per fresh
+  load anyway, so a seeded save cannot survive one.
+- **Not visually captured:** the card-level screenshot was taken with the Colosseum page at the top, so
+  the rumour block's own frame was asserted in the DOM (text and `data-intel` ids) but not seen in a
+  capture — a one-glance device check.
