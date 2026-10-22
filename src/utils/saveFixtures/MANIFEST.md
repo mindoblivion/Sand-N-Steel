@@ -42,6 +42,18 @@ opponent, the shape a successful `purchaseIntel` writes). Every older fixture ke
 `saveCorpus.test.ts` §J's expected optional set now ends with `intel` in
 `src/types/game.ts` declaration order.
 
+**Extended by P4 (Stable progression).** `PlayerProfile.stable` — the horse team's
+bought quality grade (0–3) and conditioning level (0–5) — is the newest optional
+field, so it gets both halves of the rule in the same slice: `stable-era`, the
+`intel-era` save with its purse hand-aged to 7,000 gold and then driven through the
+**shipped** P4 transactions (three `purchaseStableQuality` buys — Trained Team 400,
+Racing Bred 900, Champion Bloodline 1,600 — and five `purchaseStableConditioning`
+levels at the selected Quadra's four-horse rate, 240 + 480 + 720 + 960 + 1,200),
+leaving 500 gold, `stable: { "quality": 3, "conditioning": 5 }` and no stored team
+size. Every older fixture keeps **omitting** the field, which is the legacy shape a
+load must survive, and `saveCorpus.test.ts` §J's expected optional set now ends with
+`stable` in `src/types/game.ts` declaration order.
+
 ## Corpus rule
 
 **A slice that adds a field to the save adds a fixture for the shape it writes, in
@@ -72,6 +84,7 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `triumphs-era` | `triumphsEraProfile.json` | The fully-populated shape with the Triumph record filled: all three titles owned (`Crowd Favourite`, `Champion of the Sands`, `Living Legend`), the ludus statue raised, `title` set to the newest title bought and 700 fame left of 5,000. | The `story-road-era` save with its fame hand-aged to 5,000 and then driven through the real `purchaseLaurel` transaction four times (4,300 fame spent) and frozen. |
 | `consumables-era` | `consumablesEraProfile.json` | The fully-populated shape with the counted satchel filled: two Field Poultices and one Medicus Salve, keyed by consumable id and carrying no gear at all. | The `triumphs-era` save hand-aged with the record a successful `purchaseConsumable` writes; frozen, and never written by `createNewProfile`. |
 | `intel-era` | `intelEraProfile.json` | The fully-populated shape with the tavern's rumour record filled: two opponents bought at 15 gold each (`opp_ignis_boss`, `opp_centurion_drusus`), plus every earlier optional field. | The `consumables-era` save with the `intel` list a successful `purchaseIntel` writes (S7); frozen, and never written by `createNewProfile`. |
+| `stable-era` | `stableEraProfile.json` | The fully-populated shape with the stable's two ladders topped out: quality 3 (Champion Bloodline) and conditioning 5, bought for the Quadra team the save races, with 500 gold left of 7,000. No team size is stored — the horse count stays the racing record's fact. | The `intel-era` save with its purse hand-aged to 7,000 and then driven through the real P4 transactions — `purchaseStableQuality` ×3 (400 + 900 + 1,600) and `purchaseStableConditioning` ×5 (240 + 480 + 720 + 960 + 1,200 at the Quadra's four-horse rate) — and frozen; never written by `createNewProfile`. |
 
 ### Shapes each fixture covers
 
@@ -91,6 +104,7 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `triumphs-era` | `laurels` populated — three titles owned and the statue raised · a title purchase setting the displayed `title` · every post-GC20 optional field populated |
 | `consumables-era` | `consumables` populated — the counted satchel (2 × Field Poultice, 1 × Medicus Salve) · every post-GC20 optional field populated · every earlier fixture omits the field |
 | `intel-era` | `intel` populated — two rumours bought, information only · every post-GC20 optional field populated · every earlier fixture omits the field |
+| `stable-era` | `stable` populated — quality 3 and conditioning 5, no team size stored · every post-GC20 optional field populated · every earlier fixture omits the field |
 
 ## What the corpus proves
 

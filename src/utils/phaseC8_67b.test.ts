@@ -705,11 +705,14 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
     // section, App's two handlers and its dev-only harness.  Phase C-8.70B added
     // exactly one more: `PreRacePanel`, the East Circus District's read-only
     // pre-race surface, which reads the selected team through the module's pure
-    // `getSelectedRacingConfig` and writes nothing.  The guard stays a deliberate,
-    // narrow allowlist: a *gameplay* file — a race loop, an arena entry, physics,
-    // a HUD — still cannot start importing it without failing here, so a new
-    // consumer must be named here on purpose rather than slipping in under a
-    // blanket allowance.
+    // `getSelectedRacingConfig` and writes nothing.  Phase P4 added exactly one
+    // more: `utils/stableProgression.ts`, which reads the SELECTED team's horse
+    // count (`resolveRacingState().horses`) to price conditioning — a read of the
+    // racing state, never a write, and nothing about the racing shape changed.  The
+    // guard stays a deliberate, narrow allowlist: a *gameplay* file — a race loop,
+    // an arena entry, physics, a HUD — still cannot start importing it without
+    // failing here, so a new consumer must be named here on purpose rather than
+    // slipping in under a blanket allowance.
     const consumers = sourceFiles(SRC_ROOT)
       .filter((file) => !isSuiteOrModule(file))
       .filter((file) => code(file).includes('racingProgression'))
@@ -720,6 +723,7 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
       'components/dev/RacingConfigHarness.tsx',
       'components/hub/PreRacePanel.tsx',
       'components/hub/RacingConfigSection.tsx',
+      'utils/stableProgression.ts',
     ]);
     expect(code('./racingProgression.ts').length).toBeGreaterThan(1000);
   });

@@ -38,6 +38,7 @@ import emptyFieldsProfile from './emptyFieldsProfile.json';
 import triumphsEraProfile from './triumphsEraProfile.json';
 import consumablesEraProfile from './consumablesEraProfile.json';
 import intelEraProfile from './intelEraProfile.json';
+import stableEraProfile from './stableEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -196,6 +197,18 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every older fixture omits the field, the legacy shape a load must survive',
     ],
     profile: asProfile(intelEraProfile),
+  },
+  {
+    id: 'stable-era',
+    file: 'stableEraProfile.json',
+    provenance:
+      'The S7 intel-era save with its purse hand-aged to 7,000 gold and then driven through the shipped P4 transactions — `purchaseStableQuality` x3 (grades 1-3) and `purchaseStableConditioning` x5 (levels 1-5 on the selected Quadra, so the 4-horse rate) — leaving 500 gold, the exact bytes those purchases persist.',
+    covers: [
+      'the `stable` record populated (P4): quality 3, conditioning 5',
+      'every post-GC20 optional field populated, stable included',
+      'every older fixture omits the field, the legacy shape a load must survive',
+    ],
+    profile: asProfile(stableEraProfile),
   },
 ];
 
