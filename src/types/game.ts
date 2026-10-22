@@ -465,4 +465,15 @@ export interface PlayerProfile {
    * here ever enters `inventory`.
    */
   consumables?: Record<string, number>;
+  /**
+   * S7 — TAVERN RUMOURS: the ids of the opponents the player has bought the
+   * Golden Palm Tavern's rumour on (`utils/intel.ts`).  INFORMATION ONLY — intel
+   * never changes a stat, a formula or a reward, and no file in the combat path
+   * reads this field.  Optional on purpose, exactly like `chariot` and `racing`: a
+   * save written before this slice has no `intel` field at all and must keep
+   * loading, so `resolveIntel` reads a missing, null or malformed field as "no
+   * rumour bought" rather than repairing the save.  Written ONLY by a successful
+   * `purchaseIntel()` — never by `createNewProfile()` and never by a migration.
+   */
+  intel?: string[];
 }

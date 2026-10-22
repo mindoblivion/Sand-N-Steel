@@ -80,6 +80,13 @@ import type { StorefrontId } from '../../../data/shops';
 import { calculateTotalStats } from '../../../services/storage';
 import { sounds } from '../../../audio/soundEffects';
 import { getConsumableCount, ownedConsumables } from '../../../utils/consumables';
+// S7 — the tavern's rumour list and its one price.  Information only: nothing
+// in the combat path reads this module.
+import {
+  getIntelPurchaseEligibility,
+  intelTargets,
+  INTEL_PRICE,
+} from '../../../utils/intel';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../../ui/ThreeComponentErrorBoundary';
@@ -198,6 +205,12 @@ interface CityHubSceneProps {
    * the transaction and the save write; the answer says whether it applied.
    */
   onUseConsumable?: (itemId: string) => boolean;
+  /**
+   * S7 — one tavern rumour, at the tavern's own price. `App` owns the transaction
+   * and the save write; the answer says whether the gold changed hands, so a
+   * refusal leaves the panel open on its own reason. INTEL IS INFORMATION ONLY.
+   */
+  onBuyIntel: (opponentId: string) => boolean;
 }
 
 /**
@@ -244,6 +257,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onTreatInjury,
   onRestAtInn,
   onUseConsumable,
+  onBuyIntel,
 }) => {
   // The rig this screen is drawn under. `resolveCityLightProfile` answers module
   // constants, so `lights` keeps its reference across re-renders and the Environment
@@ -315,6 +329,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // S5 — which treatment panel is up (null = none).  Local view state only: the
   // transaction and its save belong to `App`.
   const [treatmentPanel, setTreatmentPanel] = useState<TreatmentService | null>(null);
+  // S7 — the Golden Palm Tavern's rumour panel.  Local view state only: the
+  // purchase and its save belong to `App`.
+  const [intelPanel, setIntelPanel] = useState(false);
 
   /**
    * SF-1 — the quality preset arrives as a setting, not as a prop: the panel writes
@@ -440,6 +457,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       );
       if (target) onEnterDuel(target.opponent);
       else onOpenTab('tournament');
+    } else if (nearbyLoc.id === 'tavern') {
+      // S7 — the tavern sells information: the panel lists every tournament
+      // opponent the player has not yet bought a rumour on.
+      setIntelPanel(true);
     } else if (nearbyLoc.tabKey) {
       onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
@@ -518,14 +539,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
-    // The treatment panel is up: E/Space and the action button are its own.
-    if (treatmentPanel) return;
+    // A presented panel is up: E/Space and the action button are its own.
+    if (treatmentPanel || intelPanel) return;
     if (nearbyLoc) {
       handleInteract();
     } else {
       handleAttack();
     }
-  }, [nearbyLoc, handleInteract, handleAttack, treatmentPanel]);
+  }, [nearbyLoc, handleInteract, handleAttack, treatmentPanel, intelPanel]);
 
   /**
    * S5 — one visit.  The transaction and its save write live in `App`; this screen
@@ -539,6 +560,19 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       if (applied) setStableNotice(null);
     },
     [onRestAtInn, onTreatInjury]
+  );
+
+  /**
+   * S7 — one rumour.  The transaction and the save write live in `App`; a refusal
+   * (the purse cannot cover it, or the opponent is already known) leaves the panel
+   * up, and the list re-renders from the profile `App` handed back.
+   */
+  const handleBuyIntel = useCallback(
+    (opponentId: string) => {
+      sounds.playClick();
+      onBuyIntel(opponentId);
+    },
+    [onBuyIntel]
   );
 
   /** S6 — one consumable from the satchel; the panel re-renders from the profile. */
@@ -559,10 +593,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       const code = e.code;
       const key = e.key.toLowerCase();
 
-      // S5 — the treatment panel is a presented surface: Esc closes it, and no other
+      // S5 / S7 — a presented panel owns the screen: Esc closes it, and no other
       // key (no movement, no interaction) is read while it is up.
       if (treatmentPanel) {
         if (code === 'Escape' || key === 'escape') setTreatmentPanel(null);
+        return;
+      }
+      if (intelPanel) {
+        if (code === 'Escape' || key === 'escape') setIntelPanel(false);
         return;
       }
 
@@ -593,7 +631,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction, treatmentPanel]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel]);
 
   // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
@@ -796,6 +834,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    */
   const treatmentConsumables =
     treatmentPanel && treatmentInjury ? ownedConsumables(playerProfile) : [];
+  /**
+   * S7 — what the tavern can still sell: every tournament opponent the player has
+   * not bought a rumour on. Empty when the panel is closed, so the surface adds
+   * nothing to any other interaction.
+   */
+  const tavernTargets = intelPanel ? intelTargets(playerProfile) : [];
+  const tavernPurseShort = intelPanel && playerProfile.gold < INTEL_PRICE;
 
   // Phase 26.1: Memoized so it doesn't change reference on unrelated
   // re-renders (e.g. setKnobPos). Position/rotation are overridden by
@@ -1328,6 +1373,78 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* S7 — THE TAVERN RUMOUR PANEL: the Golden Palm sells information.  The same
+          surface as the notice and the treatment panel, and its copy says plainly
+          that a rumour changes nothing a fight computes.  The transaction lives in
+          `App`, so this screen writes no save. */}
+      {intelPanel && (
+        <div
+          data-intel-panel
+          className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
+        >
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex-1">
+              <h4 className="font-serif font-black text-amber-200 text-xs sm:text-sm uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <Beer className="w-4 h-4 text-amber-400" />
+                <span>The Golden Palm Tavern</span>
+              </h4>
+              <p className="text-[11px] sm:text-xs text-neutral-300 font-sans leading-relaxed">
+                A coin buys a word. The keeper knows the names on the sand — how they fight,
+                what they carry, and what they do when it turns against them.
+              </p>
+              <p className="mt-2 text-[10px] sm:text-[11px] font-mono text-amber-300/90">
+                Information only — a rumour changes no stat, no formula and no reward.
+              </p>
+            </div>
+            <button
+              onClick={() => setIntelPanel(false)}
+              aria-label="Close tavern panel"
+              className={CLOSE_BUTTON_CLASS}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-2 max-h-[52vh] overflow-y-auto pr-1">
+            {tavernTargets.length === 0 ? (
+              <p className="text-[11px] sm:text-xs font-mono text-neutral-400">
+                You have bought every rumour the tavern keeps.
+              </p>
+            ) : (
+              tavernTargets.map((opponent) => {
+                const eligibility = getIntelPurchaseEligibility(playerProfile, opponent.id);
+                return (
+                  <button
+                    key={opponent.id}
+                    type="button"
+                    data-buy-intel={opponent.id}
+                    onClick={() => handleBuyIntel(opponent.id)}
+                    disabled={!eligibility.ok}
+                    className="w-full min-h-[48px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-amber-100 font-serif font-bold text-[11px] sm:text-xs uppercase tracking-wider border border-amber-600/70 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-between gap-2 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Coins className="w-3.5 h-3.5 text-amber-400" />
+                      <span>
+                        {opponent.name} — {opponent.isBoss ? 'Boss' : `Tier ${opponent.tier}`}
+                      </span>
+                    </span>
+                    <span className="font-mono text-amber-300">{INTEL_PRICE}g</span>
+                  </button>
+                );
+              })
+            )}
+            {tavernPurseShort && tavernTargets.length > 0 && (
+              <p
+                data-intel-refusal="insufficient-gold"
+                className="text-[10px] sm:text-[11px] font-mono text-red-300"
+              >
+                Not enough gold. You carry {playerProfile.gold}g.
+              </p>
+            )}
+          </div>
         </div>
       )}
 

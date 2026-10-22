@@ -244,7 +244,9 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     // arrival stays 0.25 outside it, one walk step.
     radius: 5.75,
     icon: 'Beer',
-    tabKey: 'stats',
+    // S7 — the tavern sells INTEL, not a tab: its interaction opens the tavern
+    // panel (opponents the player has not bought a rumour on).  With no `tabKey`
+    // it can never open the stats tab it used to redirect to.
     actionPrompt: 'Hear Rumors',
     color: '#9333ea',
     district: 'SOUTH',

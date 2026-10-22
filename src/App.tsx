@@ -13,6 +13,7 @@ import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 import { purchaseLaurel, type LaurelResult } from './utils/laurels';
 import { consumeItem, purchaseConsumable } from './utils/consumables';
+import { purchaseIntel } from './utils/intel';
 import type { ConsumableItem } from './data/consumables';
 import { sellItem } from './utils/selling';
 import { nextBossKills } from './utils/bossKills';
@@ -865,6 +866,22 @@ export function App() {
     return true;
   };
 
+  /**
+   * S7 — buy one tavern rumour (15 gold). `purchaseIntel` is pure and re-checks
+   * every rule against the profile it is handed — a real opponent, not already
+   * owned, a purse that covers the price — so a refusal returns no profile and
+   * never reaches `saveProfile`. INTEL IS INFORMATION ONLY: the write touches
+   * `gold` and `intel`, and no stat, formula or reward.
+   */
+  const handleBuyIntel = (opponentId: string): boolean => {
+    if (!profile) return false;
+    const result = purchaseIntel(profile, opponentId);
+    if (!result.ok) return false;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+    return true;
+  };
+
   // P1 sell — the market buys a carried, unequipped item back for its
   // `sellPrice` plus 25 % of any temper gold spent on it.  The transaction is
   // pure: a refusal hands back the same profile object, so nothing is saved.
@@ -1004,6 +1021,7 @@ export function App() {
             onTreatInjury={handleTreatInjury}
             onRestAtInn={handleRestAtInn}
             onUseConsumable={handleUseConsumable}
+            onBuyIntel={handleBuyIntel}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
             movementLocked={!!oathBeatMode}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
