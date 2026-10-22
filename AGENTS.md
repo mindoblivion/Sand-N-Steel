@@ -8303,3 +8303,80 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   damage number arrives ~0.7 s after the tap, and whether that delay feels right for a heavy strike
   versus a quick one — is NOT automatically verified and needs an on-device look.** Nothing here is
   device acceptance; no Android or visual acceptance is claimed.
+
+## Stale strike callback hardening (C-8.71D — demonstrated defect fixed, suite added)
+
+- **Preflight (measured).** Repository root `/app`; branch `development-focus-strategy`, HEAD
+  **`3b5b7686d2`**; `git status --porcelain` **empty** and no stash entries before the first edit —
+  the baseline the C-8.71B record's tree left. Nothing was reset, stashed, overwritten, committed,
+  pushed or deployed. **No C-8.71C record exists in this file** (that audit was read-only and appended
+  nothing), so this section is the C-8.71B-to-C-8.71D record; the C-8.71B section immediately above is
+  its baseline, and the two C-8.71A fixes it describes are untouched here.
+
+- **The defect, REPRODUCED on the shipped controller before anything was changed.** `createPlayerStrike`
+  kept one shared `action` / `handle` pair, and its callback read the pending action *at impact* rather
+  than at commit. A probe in the `web` container (`createPlayerStrike` with a hand-advanced clock)
+  drove the audit's own sequence — start A, `cancel()`, start B, then fire A's already-queued callback —
+  and printed, verbatim: `before stale fire — pending: power_attack live timers: 1`;
+  `after stale fire — pending: null live timers: 1`; `A fired? true`;
+  `cancel B returned: false live timers: 1 B handle cleared?: false`;
+  `callbacks resolved: ["A:power_attack"]`. So a stale callback **invoked A's closure with B's action**,
+  **cleared B's pending state**, **orphaned B's timer** (still live, handle still scheduled) and made
+  **`cancel()` unable to reach it** — B could then neither resolve nor be cancelled. All four are the
+  hazards the brief names, in one ordering.
+
+- **The fix is an ownership token, and nothing else.** Each accepted strike takes a serial number
+  (`owner += 1`, captured as `mine`), and the callback returns **first** on `mine !== owner` — before
+  it touches `handle`, `action` or the closure. `cancel()` retires the pending strike's token
+  (`owner += 1`) after clearing, so a callback queued by the strike it dropped is a complete no-op:
+  no impact, no pending-state write, no handle nulled, timer untouched. The at-impact read of `action`
+  is kept as a second, independent guard for repeated delivery of a *valid* callback. The public API is
+  byte-identical (`pending`, `strike(action, onImpact) → boolean`, `cancel() → boolean`), `cancel()` is
+  still idempotent (a second call returns `false` and clears nothing), the timer injection point and
+  `canResolveStrikeImpact` are unchanged, and **the file's only consumer**
+  (`src/components/duel/DuelScene.tsx`, the sole importer, grep-verified) needed **no change at all** —
+  no integration adjustment was necessary.
+
+- **Regression tests: five, and they reproduce the audit's ORDERING rather than asserting tokens exist.**
+  `src/utils/playerStrikeWindup.test.ts` gains **§B2 (5 tests)** on the existing deterministic
+  `fakeTimer` harness, which gained one accessor (`lastHandle()`) so a *specific* queued callback can be
+  fired out of order: (1) the audit sequence above — after A's stale callback neither closure resolves,
+  `pending` is still `POWER`, `clock.live` is still 1, and B then lands exactly once at its deadline;
+  (2) B resolves exactly once even when its own callback is delivered twice after the stale one;
+  (3) `cancel()` after the stale callback **still returns `true` and clears B's timer** (live → 0, no
+  impact); (4) repeated cancellation and repeated delivery stay harmless, and a later swing C still
+  lands exactly once (`['B:power_attack', 'C:quick_attack']`); (5) a *spent* callback delivered again
+  cannot resolve a later strike — the same ownership hazard in the other ordering, where the old code
+  would have fired A's closure with C's action. **The suite was shown to be sensitive to the fix, not
+  merely green:** replaying the file against `git show HEAD:src/utils/playerStrike.ts` (temporary
+  replacement, restored byte-for-byte and `cmp`-verified) gave **27 pass / 5 fail — exactly the five
+  new tests**, on the assertions quoted above.
+
+- **Scope honoured.** `PLAYER_ATTACK_WINDUP_MS` is still **700** and a player turn still **1100**; no
+  damage/hit formula, stamina rule, weapon stat, AI, block/dodge, reward or settlement value moved; no
+  `DuelScene` edit; no save schema, visual, city content or unrelated file touched. Files changed:
+  `src/utils/playerStrike.ts` (the token and its doc comment), `src/utils/playerStrikeWindup.test.ts`
+  (§B2, the harness accessor, the header's section list) and this record.
+
+- **Checks actually run (2026-10-22, `web` dev container, on the final tree).**
+
+  | command | result |
+  |---|---|
+  | `bun test src/utils/playerStrikeWindup.test.ts` | **32 pass / 0 fail** (155 `expect()`; was 27 / 127) |
+  | focused set (`playerStrikeWindup`, `combatActionOrder`, `pendingStrike`, `combatResponsiveness`, `duelResultLifecycle`, `duelSettlement`, `duelSettlementCommit`, `duelRewards`) | **177 pass / 0 fail** (950 `expect()`, 8 files) |
+  | `bun run scripts/combatTests.ts` | **65 passed, 0 failed** |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `git diff --check` | **clean (exit 0)** |
+
+  The **full suite was deliberately not run**: the change is inside one pure controller with one
+  production importer and one test file, and the eight-suite focused set covers every consumer of it —
+  the branch's `bun test` baseline stays the C-8.71B record's 3181 / 108. No temporary probe or mutation
+  artifact remains: the reproduction script lived in the container's `/tmp`, the mutation was restored
+  and `cmp`-checked, and `git status --porcelain` reads exactly the two modified files above.
+
+- **Not automatically verified — and nothing here is device-verifiable.** The hazard is a
+  same-tick callback ordering that no shipped lifecycle produces today (every cancellation site is a
+  victory, a defeat, the turn's end or an unmount, none of which can commit a new strike before the old
+  callback fires), so it cannot be driven from the UI and no browser run can exercise it. **No Android
+  or visual acceptance is claimed**; the wind-up's feel and its rendered read remain the open device
+  item the C-8.71B record left.

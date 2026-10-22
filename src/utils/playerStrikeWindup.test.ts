@@ -12,6 +12,8 @@
  * Covered:
  *   §A the window — nothing resolves before PLAYER_ATTACK_WINDUP_MS, exactly once at it
  *   §B at-most-once and cancellation — a second swing is refused, cancel wins, stale callbacks are inert
+ *   §B2 stale-callback ownership (C-8.71D) — cancel A, start B, fire A's queued callback: the audit's
+ *       own ordering, shown to leave B pending, cancellable and exactly-once
  *   §C the impact rule — no damage before the wind-up, none to a dead/absent/out-of-reach target
  *   §D the wiring — commit → wind-up → impact → the ONE turn-end timer, and every cancel path
  *   §E scope — no formula, cost, timer or turn rule moved
@@ -77,6 +79,10 @@ function fakeTimer() {
     },
     fireStale(handle: number) {
       callbacks.get(handle)?.();
+    },
+    /** The handle of the most recently scheduled callback (C-8.71D). */
+    lastHandle(): number {
+      return nextId - 1;
     },
     get live() {
       return scheduled.size;
@@ -268,6 +274,137 @@ describe('§B — one swing at a time, and a cancel always wins', () => {
 
     strike.cancel();
     expect(clock.live).toBe(0);
+  });
+});
+
+// ── §B2. Stale-callback ownership (C-8.71D) ────────────────────────────────
+
+/**
+ * The hazard the C-8.71C audit reproduced, driven in its own order: a strike is
+ * cancelled, a NEWER strike takes the controller, and only then does the
+ * cancelled strike's already-queued callback fire. Before the ownership token it
+ * read the newer strike's shared pending action, invoked the OLD closure with it
+ * and cleared the newer strike's state — orphaning its timer, so `cancel()` could
+ * no longer reach it either.
+ */
+describe('§B2 — a cancelled strike\'s queued callback cannot act on its successor', () => {
+  test('the audit sequence: cancel A, start B, then fire A\'s stale callback', () => {
+    const clock = fakeTimer();
+    const strike = createPlayerStrike({ timer: clock.timer });
+    const impacts: string[] = [];
+
+    strike.strike(QUICK, (action) => impacts.push(`A:${action}`));
+    const handleA = clock.lastHandle();
+    expect(strike.cancel()).toBe(true);
+
+    strike.strike(POWER, (action) => impacts.push(`B:${action}`));
+    const handleB = clock.lastHandle();
+    expect(handleB).toBeGreaterThan(handleA);
+    expect(strike.pending).toBe(POWER);
+    expect(clock.live).toBe(1);
+
+    // A's callback, deliberately fired after its cancel and B's commit.
+    clock.fireStale(handleA);
+
+    // A's closure never runs — not with B's action, not with anything.
+    expect(impacts).toEqual([]);
+    // B's pending state is intact rather than cleared by A.
+    expect(strike.pending).toBe(POWER);
+    // B's timer was not nulled out from under it.
+    expect(clock.live).toBe(1);
+
+    // …and B still lands, exactly once, at its own deadline.
+    clock.advance(PLAYER_ATTACK_WINDUP_MS);
+    expect(impacts).toEqual(['B:power_attack']);
+    expect(strike.pending).toBeNull();
+    expect(clock.live).toBe(0);
+  });
+
+  test('B resolves exactly once when its own callback follows the stale one', () => {
+    const clock = fakeTimer();
+    const strike = createPlayerStrike({ timer: clock.timer });
+    const impacts: string[] = [];
+
+    strike.strike(QUICK, (action) => impacts.push(`A:${action}`));
+    const handleA = clock.lastHandle();
+    strike.cancel();
+    strike.strike(POWER, (action) => impacts.push(`B:${action}`));
+    const handleB = clock.lastHandle();
+
+    clock.fireStale(handleA);
+    clock.fireStale(handleB);
+    clock.fireStale(handleB);
+
+    expect(impacts).toEqual(['B:power_attack']);
+    expect(strike.pending).toBeNull();
+  });
+
+  test('cancelling B after A\'s stale callback still cancels B\'s timer', () => {
+    const clock = fakeTimer();
+    const strike = createPlayerStrike({ timer: clock.timer });
+    const impacts: string[] = [];
+
+    strike.strike(QUICK, (action) => impacts.push(`A:${action}`));
+    const handleA = clock.lastHandle();
+    strike.cancel();
+    strike.strike(POWER, (action) => impacts.push(`B:${action}`));
+
+    clock.fireStale(handleA);
+    // The handle A's callback used to null is still B's, so cancel reaches the timer.
+    expect(strike.cancel()).toBe(true);
+    expect(clock.live).toBe(0);
+
+    clock.advance(PLAYER_ATTACK_WINDUP_MS);
+    expect(impacts).toEqual([]);
+    expect(strike.pending).toBeNull();
+  });
+
+  test('repeated cancellation and repeated delivery stay harmless', () => {
+    const clock = fakeTimer();
+    const strike = createPlayerStrike({ timer: clock.timer });
+    const impacts: string[] = [];
+
+    strike.strike(QUICK, (action) => impacts.push(`A:${action}`));
+    const handleA = clock.lastHandle();
+    expect(strike.cancel()).toBe(true);
+    expect(strike.cancel()).toBe(false);
+    expect(strike.cancel()).toBe(false);
+    clock.fireStale(handleA);
+    clock.fireStale(handleA);
+
+    strike.strike(POWER, (action) => impacts.push(`B:${action}`));
+    const handleB = clock.lastHandle();
+    clock.fireStale(handleB);
+    clock.fireStale(handleB);
+    expect(strike.cancel()).toBe(false);
+    clock.fireStale(handleB);
+
+    // A new swing after all that is unaffected and lands exactly once.
+    expect(strike.strike(QUICK, (action) => impacts.push(`C:${action}`))).toBe(true);
+    clock.advance(PLAYER_ATTACK_WINDUP_MS);
+
+    expect(impacts).toEqual(['B:power_attack', 'C:quick_attack']);
+    expect(strike.pending).toBeNull();
+    expect(clock.live).toBe(0);
+  });
+
+  test('a spent callback delivered again cannot resolve a LATER strike', () => {
+    const clock = fakeTimer();
+    const strike = createPlayerStrike({ timer: clock.timer });
+    const impacts: string[] = [];
+
+    strike.strike(QUICK, (action) => impacts.push(`A:${action}`));
+    const handleA = clock.lastHandle();
+    clock.advance(PLAYER_ATTACK_WINDUP_MS);
+    expect(impacts).toEqual(['A:quick_attack']);
+
+    // A resolved normally; delivering its callback again must not land B.
+    strike.strike(POWER, (action) => impacts.push(`B:${action}`));
+    clock.fireStale(handleA);
+
+    expect(impacts).toEqual(['A:quick_attack']);
+    expect(strike.pending).toBe(POWER);
+    expect(clock.live).toBe(1);
   });
 });
 

@@ -22,6 +22,13 @@
  *   • **Cancellation wins.** `cancel()` clears the scheduled impact and makes the
  *     callback inert, so a victory, a defeat, an unmount or the turn's own end can
  *     drop a pending swing without damage landing into a scene that has gone.
+ *   • **Ownership (C-8.71D).** Every accepted strike takes its own token, and a
+ *     callback may resolve ONLY the strike that scheduled it. Without that, a
+ *     cancelled strike's already-queued callback could fire after a NEWER strike
+ *     had taken the controller over, read the newer strike's shared pending
+ *     action, invoke the OLD closure and clear the newer strike's state — which
+ *     also orphans its timer, since `cancel()` would then have no handle left to
+ *     clear. A stale callback must be a complete no-op.
  *
  * Timing is injectable, which is what lets the tests drive it on a controlled
  * clock instead of a wall clock.
@@ -72,6 +79,12 @@ export function createPlayerStrike(config: PlayerStrikeConfig = {}): PlayerStrik
 
   let handle: number | null = null;
   let action: PlayerStrikeAction | null = null;
+  /**
+   * The serial number of the strike that currently owns the controller — the
+   * C-8.71D ownership token. `cancel()` retires it, so a callback queued by the
+   * strike it dropped can never act on whatever the controller carries next.
+   */
+  let owner = 0;
 
   return {
     get pending() {
@@ -80,11 +93,16 @@ export function createPlayerStrike(config: PlayerStrikeConfig = {}): PlayerStrik
 
     strike(nextAction, onImpact) {
       if (action !== null) return false;
+      const mine = ++owner;
       action = nextAction;
       handle = timer.set(() => {
+        // Ownership first: only the strike that scheduled this callback may
+        // resolve, and a stale one must not touch the pending state, the handle
+        // or the newer strike's timer in any way.
+        if (mine !== owner) return;
         handle = null;
         // Read the pending action AT IMPACT, not from the closure: a cancelled
-        // swing is null here, so a stale or repeated callback resolves nothing.
+        // swing is null here, so a repeated delivery resolves nothing.
         const landing = action;
         if (landing === null) return;
         action = null;
@@ -94,10 +112,12 @@ export function createPlayerStrike(config: PlayerStrikeConfig = {}): PlayerStrik
     },
 
     cancel() {
+      const hadPending = action !== null;
       if (handle !== null) timer.clear(handle);
       handle = null;
-      const hadPending = action !== null;
       action = null;
+      // Retire the pending strike's token, so its already-queued callback is inert.
+      owner += 1;
       return hadPending;
     },
   };
