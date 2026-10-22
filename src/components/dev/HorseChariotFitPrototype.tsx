@@ -749,7 +749,7 @@ export const HorseChariotFitPrototype: React.FC = () => {
               <div>
                 hub [{wheelReport.sides.right.hub.map((v) => v.toFixed(4)).join(', ')}] · mirror{' '}
                 <span className="text-amber-200">
-                  {wheelReport.sides.right.mirrored ? 'right wheel (scale.x −1)' : 'none'}
+                  {wheelReport.sides.right.mirrored ? 'right wheel (scale.z −1)' : 'none'}
                 </span>{' '}
                 · wheel-Z clearance at this radius{' '}
                 <span className="text-cyan-300">

@@ -415,7 +415,7 @@ describe('A. The measured fit, re-derived from the shipping wheel kit', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('B. The bladed set’s per-side mirror', () => {
-  test('exactly one variant is mirrored, on exactly one side, with scale.x = −1', () => {
+  test('exactly one variant is mirrored, on exactly one side, with scale.z = −1', () => {
     expect(WHEEL_FIT_VARIANTS.bladed.mirroredSide).toBe('right');
     for (const key of ['standard', 'reinforced', 'spiked'] as const) {
       expect(WHEEL_FIT_VARIANTS[key].mirroredSide, key).toBeNull();

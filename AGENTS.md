@@ -6410,3 +6410,41 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Not visually captured:** the card-level screenshot was taken with the Colosseum page at the top, so
   the rumour block's own frame was asserted in the DOM (text and `data-intel` ids) but not seen in a
   capture — a one-glance device check.
+
+## S8 — Spiked & Bladed wheels: the measured fit pass (report only; nothing admitted)
+
+- **The slice was measurement-gated and the measurement FAILED, so the catalogue is untouched.** A full
+  record lives in [.base44/wheel-fit-s8.md](.base44/wheel-fit-s8.md); keep S8 detail there. The wheels
+  slot still sells exactly `wheels_standard` (0) and `wheels_reinforced` (450), and
+  `ChariotWheelVariantKey` still admits only `'standard' | 'reinforced'`.
+- **The numbers, re-derived from the shipping kit's own vertices** through the shipped mount (the two
+  shipping variants reproduce `getChariotWheelPlacement` to 12 dp, which is the control): spiked
+  **radius 0.7940**, tyre bottom **−0.1440** (0.1090 deeper than standard), wheel-Z clearance
+  **−0.0090**; bladed **radius 1.0947**, tyre bottom **−0.2429** (0.2079 deeper), wheel-Z **−0.3097**
+  — both against a 0.100 rule. Hubs land on (±0.70, 0.65, 0) exactly for both, so the stop is ground
+  penetration plus the inner horse's rear envelope, not the mount. The withheld comments' 0.8025 /
+  0.8429 were unmeasured guesses; the asset says 0.7940 / **1.0947** (the bladed wheel is 2.19 across,
+  60 % larger than the stock 1.37).
+- **The reinforced set that ships is already 0.0175 short on the same recomputed rule** — that is the
+  recorded fit discrepancy, and it is why the gate is read as diagnostic rather than binary.
+- **The bladed set's mirror seam is `scale: [1, 1, −1]` on the right-hand wrapper, i.e. the kit frame's
+  Z** (the disc normal, hence the axle after the yaw) — **not X**, which would leave both blades raked
+  the same way. Measured on the real vertices: the mirrored side is the left side reflected through the
+  chariot's centre plane and the blades' rake sign reverses while its magnitude holds to 1e-6.
+- **`src/utils/chariotWheelFit.ts` is the dev-only measuring module** (its own `WheelFitVariantKey`, so
+  the catalogue's type is untouched); its only consumer is `components/dev/HorseChariotFitPrototype.tsx`,
+  whose `?devHarness=horsefit` screen now carries a wheel-set selector and the fit readout.
+  `src/utils/phaseS8WheelFit.test.ts` (21 tests) pins §A the fit, §B the mirror, §C the radius
+  consumption trace (one stock radius in `chariotMovement.ts`, a hub-centred workshop mount, a race
+  scene that never mounts the kit) and §D report-only.
+- **Verified 2026-10-22** in the dev container: `bun test src/utils/phaseS8WheelFit.test.ts` → 21 pass /
+  0 fail (217 expect); `bun run scripts/collisionTests.ts` → 123 passed / 0 failed; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check passing;
+  `git diff --check` → clean. Live in the dev harness: spiked and bladed mounted through the shipping
+  transform, the readout printing exactly the figures above (including `mirror right wheel (scale.z −1)`
+  for the bladed pair) and the standard set reproducing 0.6850 / −0.0350 / 0.1000 as the control.
+- **Not automatically verified — the rendered reading.** The sandbox has no GPU (SwiftShader), so
+  whether the spikes and the mirrored blades *read* correctly at a glance is an on-device (Android)
+  check. Making either variant shippable needs a ride lift / hub drop of exactly the measured
+  penetration, a decision on the horse's rear envelope, and a variant-aware roll radius — none of which
+  this slice was authorised to change.
