@@ -8705,3 +8705,75 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   renders through SwiftShader), the 3x cap as a rendered frame, and the softened-edge cost at 2x vs
   3x on device — **Android acceptance remains PENDING**, as does the open HUD/touch-target work
   (C-8.74A recommendations 2 and 3), which this phase deliberately did not start.
+
+## Duel HUD bottom band (Phase C-8.74C — implemented; live layout measured, device acceptance PENDING)
+
+- **Preflight.** Repository root `/app`; branch `development-focus-strategy`; HEAD **`09c21da37f`**;
+  `git status --short` empty and `git diff --check` clean before the first edit. The C-8.74A audit
+  (`.base44/mobile-combat-audit.md`, untouched) and the C-8.74B DPR record above were read first, and
+  C-8.74B's `dpr={[1, 2]}` on the duel Canvas is **unchanged by this phase**.
+
+- **The overflow is stacked chrome, not a bad panel height.** Re-measured live before editing
+  (`?devHarness=character`, 375 × 812 CSS px, DPR 2; the harness wraps the scene in `pt-7`, so
+  absolute Y carries a 28 px banner offset — every figure below is compared against the HUD's own
+  rect, which is banner-independent): with the chronicle's list at its `max-h-24` (96 px — reached at
+  four entries, so the five-entry cap is the same frame), the HUD rect was 28 … 840 (812 tall) and the
+  tactic panel 254.5 … 853.5: **13.5 px past the HUD's bottom edge**, 23.5 px past its padding box,
+  with the movement strip at 782.5 … 833.5, i.e. **6.5 px of clearance**. The whole stack is
+  content-driven inside a `justify-between` column, so every millimetre of chrome above the strip
+  comes off the bottom band.
+
+- **The change is six Tailwind spacing strings in one component** (`TurnActionPanel.tsx`); every one
+  is *base-smaller, `sm:`-unchanged*, so desktop and tablet render exactly as before, and no
+  control's own size is touched (the tactic tiles' `p-2 sm:p-2.5`, the movement strip's `px-3 py-1.5`
+  and the reactions' `min-h-[44px]` are all untouched — the C-8.74D touch-target work is not started):
+
+  | element | before | after (mobile) | reclaimed |
+  |---|---|---|---|
+  | panel root | `pb-2 sm:pb-4`, `gap-2.5` | `pb-0 sm:pb-4`, `gap-2 sm:gap-2.5` | 10 px |
+  | chronicle card | `p-2.5` | `p-2 sm:p-2.5` | 4 px |
+  | chronicle header | `pb-1.5 … mb-1.5` | `pb-1 sm:pb-1.5 … mb-1 sm:mb-1.5` | 4 px |
+  | chronicle footer | `mt-2 pt-1.5` | `mt-1.5 sm:mt-2 pt-1 sm:pt-1.5` | 6 px |
+  | dashboard | `p-2.5 sm:p-3.5`, `gap-2.5` | `p-2 sm:p-3.5`, `gap-2 sm:gap-2.5` | 8 px |
+  | turn-state banner | `py-1.5` | `py-1 sm:py-1.5` | 4 px |
+
+  Total **36 px**, all of it spacing between or inside non-interactive chrome. The chronicle keeps its
+  five-entry `slice(-5)` cap and its `max-h-24` list verbatim (still 96 px), and nothing is hidden,
+  collapsed or scaled.
+
+- **Measured after, same viewport, same harness** (HUD 28 … 840 in both states, `scrollWidth` =
+  `clientWidth` = 375):
+
+  | state | panel | past HUD bottom | strip | strip clearance |
+  |---|---|---|---|---|
+  | before, 4–5 entries | 254.5 … 853.5 | **+13.5** | 782.5 … 833.5 | **6.5** |
+  | after, 1 entry | 330 … 830 | **−10.0** | 769 … 820 | **20.0** |
+  | after, 5 entries (list at its 96 px cap) | 265 … 830 | **−10.0** | 769 … 820 | **20.0** |
+
+  So the panel now ends exactly on the HUD's padding box (10 px inside its border), the movement strip
+  is 20 px clear of the bottom edge and 10 px inside the dashboard's own rounded border, and the
+  chronicle card (171 px at the cap) and the dashboard (386 px) are unchanged in content.
+
+- **Cues, measured live.** The player's 700 ms wind-up is unchanged and still clears everything: a
+  48.5 px cue at 258.5 … 307, `pointer-events: none`, **52.5 px** under the vital cards and 179 px
+  above the dashboard. The **enemy** telegraph was driven this time (Marcus announced
+  `data-windup-cue="quick_attack"`): the 98.5 px cue sits at 258.5 … 357, both reactions (44 px,
+  `Shield Guard` / `Dodge −12 SP`) hit-test true at their centres and inside the viewport, but the
+  cue **still pushes the dashboard to 536 and the panel to 922 — 82 px past the HUD bottom, with the
+  movement strip at 861 … 912, i.e. 72 px below it**. That transient is pre-existing, is 36 px better
+  than before, and is **not fixed here**: containing it needs ≈100 px more than the whole bottom
+  band's spare chrome, and every tactic and movement control is disabled by the `isExecuting` latch
+  during the window while the two reactions — the only live targets — stay inside. Recorded, not
+  papered over.
+
+- **Baseline and checks.** Focused combat set unchanged at **160 pass / 0 fail / 694 `expect()` across
+  7 files**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (startup asset check,
+  8 assets); `git diff --check` → clean. No combat rule, stamina cost, attack timing, Canvas DPR,
+  arena geometry, shadow or rendering value was touched — the diff is six class strings in one file.
+
+- **Not automatically verified / PENDING.** Nothing here is Android evidence: the sandbox renders
+  through SwiftShader at the mobile preset (375 × 812), so **the safe-area-inset case C-8.74A flagged
+  (a gesture-bar device eating the HUD's last band) and the true 812 × 375 landscape frame are still
+  device questions**, as is whether 20 px of clearance reads as enough breathing room on hardware.
+  C-8.74A's recommendation 2 is implemented; **recommendation 3 (the sub-48 px touch targets) is
+  deliberately not started** — C-8.74D.

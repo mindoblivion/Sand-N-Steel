@@ -92,10 +92,10 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   const powerStaminaCost = getStaminaCost(weapon, false);
 
   return (
-    <div className="w-full max-w-5xl mx-auto pointer-events-auto flex flex-col md:flex-row gap-2.5 items-stretch z-20 select-none pb-2 sm:pb-4">
+    <div className="w-full max-w-5xl mx-auto pointer-events-auto flex flex-col md:flex-row gap-2 sm:gap-2.5 items-stretch z-20 select-none pb-0 sm:pb-4">
       {/* COMBAT LOG FEED (LEFT / TOP) */}
-      <div className="w-full md:w-64 bg-neutral-950/85 border border-amber-600/40 rounded-2xl p-2.5 backdrop-blur-md shadow-2xl flex flex-col justify-between shrink-0">
-        <div className="flex items-center justify-between pb-1.5 border-b border-amber-900/40 mb-1.5">
+      <div className="w-full md:w-64 bg-neutral-950/85 border border-amber-600/40 rounded-2xl p-2 sm:p-2.5 backdrop-blur-md shadow-2xl flex flex-col justify-between shrink-0">
+        <div className="flex items-center justify-between pb-1 sm:pb-1.5 border-b border-amber-900/40 mb-1 sm:mb-1.5">
           <span className="font-serif font-bold text-xs text-amber-300 flex items-center gap-1.5">
             <Flame className="w-3.5 h-3.5 text-amber-500" />
             <span>ARENA CHRONICLE</span>
@@ -132,7 +132,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
         </div>
 
         {/* DISTANCE RANGE BADGE */}
-        <div className="mt-2 pt-1.5 border-t border-amber-900/40 flex items-center justify-between text-[10px] font-mono">
+        <div className="mt-1.5 sm:mt-2 pt-1 sm:pt-1.5 border-t border-amber-900/40 flex items-center justify-between text-[10px] font-mono">
           <span className="text-neutral-400">Range Status:</span>
           <span
             className={`font-bold px-1.5 py-0.5 rounded border ${
@@ -147,9 +147,9 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
       </div>
 
       {/* TACTICAL COMMAND DASHBOARD (CENTER / RIGHT) */}
-      <div className="flex-1 bg-neutral-950/90 border-2 border-amber-600/60 rounded-2xl p-2.5 sm:p-3.5 backdrop-blur-md shadow-2xl flex flex-col justify-between gap-2.5">
+      <div className="flex-1 bg-neutral-950/90 border-2 border-amber-600/60 rounded-2xl p-2 sm:p-3.5 backdrop-blur-md shadow-2xl flex flex-col justify-between gap-2 sm:gap-2.5">
         {/* TURN STATE BANNER */}
-        <div className="flex items-center justify-between bg-neutral-900/90 border border-amber-700/50 px-3 py-1.5 rounded-xl">
+        <div className="flex items-center justify-between bg-neutral-900/90 border border-amber-700/50 px-3 py-1 sm:py-1.5 rounded-xl">
           <div className="flex items-center gap-2">
             <span
               className={`w-2.5 h-2.5 rounded-full ${
