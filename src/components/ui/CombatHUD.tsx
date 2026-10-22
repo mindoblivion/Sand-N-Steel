@@ -232,7 +232,8 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
           is NOT a turn: Shield Guard or Dodge here only sets the stance the
           incoming blow already resolves against. */}
       {pendingEnemyAttack && (
-        <div className="w-full flex justify-center mt-1 sm:mt-2 pointer-events-none z-10">
+        <div className="relative h-0 w-full pointer-events-none z-10">
+         <div className="absolute inset-x-0 top-1 sm:top-2 flex justify-center pointer-events-none">
           <div
             data-windup-cue={pendingEnemyAttack}
             className="pointer-events-auto w-full max-w-lg bg-red-950/95 border-2 border-red-500 rounded-xl px-2.5 py-2 shadow-2xl backdrop-blur-md flex flex-col gap-1.5"
@@ -283,6 +284,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
               </div>
             )}
           </div>
+         </div>
         </div>
       )}
 
@@ -293,7 +295,8 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
           health or stamina. It lasts exactly as long as the strike is pending:
           the controller clears it at impact and on every cancellation. */}
       {playerWindupCue && (
-        <div className="w-full flex justify-center mt-1 sm:mt-2 pointer-events-none z-10">
+        <div className="relative h-0 w-full pointer-events-none z-10">
+         <div className="absolute inset-x-0 top-1 sm:top-2 flex justify-center pointer-events-none">
           <div
             data-player-windup-cue={playerWindupCue.action}
             className="pointer-events-none w-full max-w-lg bg-amber-950/95 border-2 border-amber-500 rounded-xl px-2.5 py-2 shadow-2xl backdrop-blur-md flex flex-col gap-1.5"
@@ -314,6 +317,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
               ></div>
             </div>
           </div>
+         </div>
         </div>
       )}
 
