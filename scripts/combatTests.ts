@@ -460,13 +460,14 @@ test('defense curve: diminishing returns', () => {
 // stamina on every Shield Guard turn, which made the guard strictly better than
 // Dodge.  Recovery now happens only when the guard actually STOPS a blow
 // (shieldGuardStaminaGain), and that credit is still clamped by the fighter's
-// remaining capacity through applyStaminaRegen.  The clamp cases below are the
-// same arithmetic the engine applies to that one credit.
+// remaining capacity through applyStaminaRegen.  C-8.72B halves that credit
+// (SHIELD_GUARD_REGEN_MULTIPLIER), so the clamp cases below feed the engine's
+// own credit — not the raw regen stat — into the same arithmetic it applies.
 // ════════════════════════════════════════════════════════════════════════════
 
 test('raising the guard that stops nothing credits 0 SP', () => {
   approx(shieldGuardStaminaGain(false, 24), 0);
-  approx(shieldGuardStaminaGain(true, 24), 24);
+  approx(shieldGuardStaminaGain(true, 24), 12);
 });
 
 test('shield recovery at full stamina: 0 (no room to recover)', () => {
@@ -479,14 +480,14 @@ test('shield recovery at full stamina: 0 (no room to recover)', () => {
   approx(recovery, 0);
 });
 
-test('shield recovery below max: full regen amount', () => {
-  // stamina 50/100, regen 24 → recover full 24
-  const regen = 24;
+test('shield recovery below max: the credited gain, once', () => {
+  // stamina 50/100, regen 24 → the guard credits half of it (12)
+  const gain = shieldGuardStaminaGain(true, 24);
   const current = 50;
   const max = 100;
-  const afterRegen = applyStaminaRegen(current, max, regen);
+  const afterRegen = applyStaminaRegen(current, max, gain);
   const recovery = afterRegen - current;
-  approx(recovery, 24);
+  approx(recovery, 12);
 });
 
 test('shield recovery with partial remaining capacity: clamped', () => {
@@ -500,13 +501,13 @@ test('shield recovery with partial remaining capacity: clamped', () => {
   approx(afterRegen, max); // cannot exceed max
 });
 
-test('shield recovery at 0 stamina: full regen (if regen < max)', () => {
-  const regen = 24;
+test('shield recovery at 0 stamina: the credited gain (if it is below max)', () => {
+  const gain = shieldGuardStaminaGain(true, 24);
   const current = 0;
   const max = 100;
-  const afterRegen = applyStaminaRegen(current, max, regen);
+  const afterRegen = applyStaminaRegen(current, max, gain);
   const recovery = afterRegen - current;
-  approx(recovery, 24);
+  approx(recovery, 12);
 });
 
 test('shield recovery when regen exceeds remaining capacity: clamped to capacity', () => {

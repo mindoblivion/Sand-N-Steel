@@ -8380,3 +8380,128 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   callback fires), so it cannot be driven from the UI and no browser run can exercise it. **No Android
   or visual acceptance is claimed**; the wind-up's feel and its rendered read remain the open device
   item the C-8.71B record left.
+
+## Defensive balance correction (C-8.72B — Dodge documented, Shield Guard regen halved, validated)
+
+- **Preflight (measured).** Repository root `/app`; branch `development-focus-strategy`, HEAD
+  **`f9f205bbe3`**; `git status --porcelain` **empty** and `git diff --check` clean before the first
+  edit. Nothing was reset, stashed, overwritten, committed, pushed or deployed. **No C-8.72A record
+  exists in this file** — that audit was read-only and appended nothing, so its findings were
+  re-derived here from the shipped code rather than taken on faith: `shieldGuardStaminaGain` and its
+  **one** production caller (`DuelScene.tsx`:828, grep-verified), the `shield_block`/`dodge` branches
+  of `executeCombatTurn`, the reaction handler `reactToPendingAttack`, `applyStaminaRegen` /
+  `applyDefensiveAction` / `clearDefensiveStance`, `TurnActionPanel` and the manual.
+- **The brief's path is stale, the change was made at the canonical one.** `src/components/ui/HelpModal.tsx`
+  does not exist; the manual lives at **`src/components/hub/HelpModal.tsx`**, the only `HelpModal.tsx`
+  in the repo, and its content matches the description, so the entry was added there.
+- **Where the guard credit actually happens, and that it cannot exceed the cap.** One place: the
+  resolution's `if (isBlocked)` branch, which reads `defender.stats.staminaRegen` and writes the OTHER
+  fighter through `applyStaminaRegen(prev.stamina, prev.stats.staminaMax, gain)`. `applyStaminaRegen`
+  clamps to `[0, staminaMax]`, so no guard credit can pass the normal ceiling. Recovery happens
+  **only** on a stopped blow: the `shield_block` action branch spends and credits nothing, the evade
+  branch, the miss branch and an unblocked hit credit nothing, and a reaction guard writes a STANCE
+  only (measured by source slice, pinned in the suite). Both defensive paths therefore share the one
+  credit — a normal-turn guard and a reaction guard alike.
+- **The measured comparison, through the shipped helpers** (`calculateTotalStats`,
+  `calculateAttackDamage`, `calculateHitChance`, `shieldGuardStaminaGain`, `applyStaminaRegen`; a
+  throwaway harness in the `web` container, kept in `/tmp`). Shield build = gladius 0.82 block,
+  `helm_centurion` + full plate, str 18 / agi 16 / sta 14 / def 10 → `defense 42`, `staminaMax 140`,
+  **`staminaRegen 31.9`**. Non-shield build = `dagger_pugio` (0.35), str 18 / agi 20 / sta 12 →
+  `staminaRegen 37.5`, `staminaMax 130`. Attacker: strength 12, 26 heavy, **58.0 % hit** against the
+  shield build's agility.
+
+  | quantity | shield build | non-shield build |
+  |---|---|---|
+  | damage taken, blocked | **4** | **14** |
+  | damage taken, unblocked | 20 | 21 |
+  | guard credit, existing rule | **31.9 SP** | **37.5 SP** |
+  | guard credit, candidate 50 % | **15.95 SP** | **18.75 SP** |
+
+  Stamina scenarios under both rules (shield build, regen 31.9): full stamina 140 → **140 / 140** (no
+  room, neither rule can exceed the cap); mid stamina 50 → **81.9 / 65.95**; **low stamina 0 →
+  31.9 / 15.95**; near-defeat (health 6, stamina 40) → **71.9 / 55.95**; **an unblocked attack → no
+  gain under either rule (0)**. **Damage is identical under both rules in every scenario** — the
+  change touches recovery only. Expected value per defensive turn at that hit chance: guard **2.32
+  damage and +18.50 SP**, candidate **2.32 and +9.25**; dodge **2.90 and −12 SP**; undefended 11.60.
+- **The decision: the 50 % reduction is supported and was shipped.** Before, a shield build's blocked
+  exchange paid **31.9 SP** against Dodge's **12 SP** cost *and* absorbed 82 % of the blow — the guard
+  dominated on both axes for the archetype it belongs to. Halving the credit leaves the mitigation,
+  the block reduction, Dodge's cost, the 75 % evade, every AI probability, the damage formula and the
+  turn timing **byte-identical**, narrows the resource swing to ≈ 16 SP, and cannot introduce an
+  exploit: a smaller credit cannot do anything the larger one did not, it is still only paid on a
+  stopped blow, still exactly once per resolution, and still clamped to `staminaMax`. No severe
+  defensive disadvantage follows, because a guard costs **0 SP** and its absorption is untouched. The
+  non-shield build's guard (14 damage through 35 % block) stays clearly worse than its dodge, which is
+  the archetype split that was always intended. **No stamina refund was added to Dodge.**
+- **The rule lives in one place and only one place.** `SHIELD_GUARD_REGEN_MULTIPLIER = 0.5`
+  (`src/utils/combatCalculations.ts`, beside `DODGE_STAMINA_COST`) and `shieldGuardStaminaGain` returns
+  `regen * SHIELD_GUARD_REGEN_MULTIPLIER`. **No call site changed** — `DuelScene` neither names the
+  constant nor restates the halving (pinned). The helper has **one** production caller, so the change
+  has no unintended consumer; it is also read by `scripts/combatTests.ts` and two suites, all rebased.
+- **Dodge documented in the manual** (`HelpModal`, a new §4 between Shield Guard and Arena Taunt; the
+  remaining section comments were renumbered, no other entry's copy or markup changed): cost **12 SP**,
+  **75 %** evade chance, the 12 SP is spent **whether the dodge succeeds or fails**, **a failed dodge
+  still takes the damage**, and the timing split verified from production code — a normal-turn Dodge
+  is the turn's action and its stance **persists into the opponent's next strike** (`isInvulnerable` is
+  deliberately not cleared at turn end), while an **announced** strike offers a **reaction** dodge for
+  the same 12 SP, **one per announcement** (`claimReaction`), refused below 12 SP before the claim. The
+  cost and the evade chance were **not** changed.
+- **Files changed — five plus this record.** `src/utils/combatCalculations.ts` (the constant, the
+  helper's arithmetic and its doc comment); `src/components/hub/HelpModal.tsx` (the Dodge entry, one
+  `Wind` icon import, comment renumbering); `src/utils/combatResponsiveness.test.ts` (**rebased, not
+  weakened**: §A's title and the two pins that asserted the full regen — 24 → 12, and the clamp case
+  50 → **62** instead of 74 — plus **one new test** pinning that an unblocked hit credits nothing);
+  `scripts/combatTests.ts` (the one assertion that read 24, and the two clamp cases that described
+  "full regen", now feeding the engine's own credit through the same arithmetic); **new**
+  `src/utils/defensiveBalance.test.ts` (24 tests).
+- **Regression suite: `src/utils/defensiveBalance.test.ts` — 24 tests, 6 sections-worth of cases.**
+  §A the reduced gain (the 0.5 multiplier; the measured 31.9 → 15.95 and 37.5 → 18.75; whole and
+  fractional regen; nothing when no blow is stopped, on a miss, or on a malformed `NaN`/`Infinity`/0/-
+  regen; the credit still clamped by the normal cap and unable to exceed it; and the rule living in the
+  shared helper with **no** restatement at the call site). §B both defensive paths (the reaction's guard
+  writes a stance only — no stamina, no credit; the engine's `shield_block` turn spends and credits
+  nothing; the single credit sits inside the shared resolution and credits the fighter who was struck;
+  an evade credits nothing; a miss credits nothing). §C Dodge's 12 SP (the constant is 12 with no
+  hardcoded literal; the dodge turn debits once per fighter write and applies no regen; the reaction
+  debits once and refuses below the cost **before** the claim; **the resolution never refunds a
+  successful dodge or recharges a failed one**; the evade roll is the unchanged `Math.random() < 0.75`;
+  and the manual carries cost, odds, failure and both timings). §D the 700 ms wind-up (700 < 1100; a
+  **delivered-twice impact resolves once**, so one swing cannot credit the guard twice; a second swing
+  is refused while one is pending; the stance is read **at impact** and survives the turn boundary,
+  consumed once by the pre-clear — 2 occurrences, one per fighter — while the reaction **replaces**
+  the stance rather than stacking).
+- **Checks actually run (2026-10-22, `web` dev container, on the final tree).**
+
+  | command | result |
+  |---|---|
+  | `bun test src/utils/defensiveBalance.test.ts src/utils/combatResponsiveness.test.ts` | **54 pass / 0 fail** (220 `expect()`) |
+  | focused combat set (`playerStrikeWindup`, `combatActionOrder`, `pendingStrike`, `duelResultLifecycle`, `duelSettlement`, `duelSettlementCommit`, `duelRewards`) | **148 pass / 0 fail** (836 `expect()`, 7 files) |
+  | `bun run scripts/combatTests.ts` | **65 passed, 0 failed** |
+  | `bun test` (full) | **3211 pass / 0 fail (109 files, 90,055 `expect()`)** — the true HEAD baseline was **3186 / 108** (the C-8.71B record's 3181 / 108 plus C-8.71D's five §B2 tests, which that phase deliberately did not full-run); this phase's delta is exactly 24 + 1 tests and one file |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `bun run build` | **exit 0**, startup-asset check passing (8 assets in `public/` and `dist/`; `dist/` is gitignored) |
+  | `git diff --check` | **clean (exit 0)** |
+
+  No existing assertion was deleted or loosened: the two full-regen pins were rebased onto the shipped
+  rule and the two clamp cases now feed the engine's own credit rather than the raw stat. No temporary
+  probe or artifact remains — the comparison harness and all throwaway scripts lived in `/tmp`, and
+  `git status --porcelain` reads exactly the five files above plus this record.
+- **Compile and boot evidence.** The dev server compiles and serves the edited manual
+  (`/src/components/hub/HelpModal.tsx` → 200, carrying `Cost: 12 SP`, `one per announcement` and the
+  `Wind` icon), `bun run build` bundles the whole app, and a preview load of `/` renders the title
+  screen with **0 console errors and 0 failed requests** (anonymous visitor, no session replayed).
+- **Not automatically verified — the rendered manual entry, and it is a device/manual check.** The
+  HelpModal mounts only from the city hub (and the duel HUD), and reaching it needs creation → the five
+  hold-to-oath gestures → the 3D city on a sandbox with no GPU (SwiftShader, ~1–2 fps) — the limit
+  C-8.36…C-8.72 all recorded. So the **Dodge entry's rendered appearance in the manual is NOT
+  automatically verified**: its content is pinned by the suite and its module compiles and serves, but
+  no frame of it was captured. **Device check owed:** open the Tactical Combat Manual from the city hub
+  and confirm the Dodge card reads 12 SP / 75 % / the failure rule / both timings, and that it sits
+  between Shield Guard and Arena Taunt. Also outstanding: whether the halved credit *feels* right
+  (a shielded exchange now returns ≈ 16 SP rather than ≈ 32) — a balance read that only play can
+  settle, alongside the open wind-up and hit-stop device items. No Android or visual acceptance is
+  claimed.
+- **Scope kept.** No damage, hit chance, crit rate, defence curve, block reduction, evade chance, AI
+  probability, stamina cost, turn timing, reward, settlement, save field, collider, asset or 3D
+  geometry value moved. `DODGE_STAMINA_COST` is still 12, `PLAYER_ATTACK_WINDUP_MS` still 700, a player
+  turn still 1100, and no save was read or written by this phase.

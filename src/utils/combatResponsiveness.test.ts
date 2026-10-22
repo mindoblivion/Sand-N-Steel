@@ -24,6 +24,7 @@ import { readFileSync } from 'node:fs';
 import {
   applyStaminaRegen,
   shieldGuardStaminaGain,
+  SHIELD_GUARD_REGEN_MULTIPLIER,
   isAttackInRange,
   DODGE_STAMINA_COST,
   ENEMY_ATTACK_WINDUP_MS,
@@ -64,15 +65,20 @@ const weaponAt = (range: number) => ({ range } as WeaponItem);
 
 // ── §A. Shield Guard's stamina rule ────────────────────────────────────────
 
-describe('§A — Shield Guard recovers nothing by itself (§R2)', () => {
+describe('§A — Shield Guard recovers nothing by itself, and half a stopped blow (C-8.72B)', () => {
   test('raising the guard that stops nothing recovers no stamina', () => {
     expect(shieldGuardStaminaGain(false, 24)).toBe(0);
     expect(shieldGuardStaminaGain(false, 0.0001)).toBe(0);
   });
 
-  test('a guard that stops a blow credits the fighter\'s own regen, once', () => {
-    expect(shieldGuardStaminaGain(true, 24)).toBe(24);
-    expect(shieldGuardStaminaGain(true, 5)).toBe(5);
+  test('a stopped blow credits HALF the fighter\'s own regen, once (C-8.72B)', () => {
+    expect(SHIELD_GUARD_REGEN_MULTIPLIER).toBe(0.5);
+    expect(shieldGuardStaminaGain(true, 24)).toBe(12);
+    expect(shieldGuardStaminaGain(true, 5)).toBe(2.5);
+    // The measured representative shield build: staminaRegen 31.9 → 15.95,
+    // against Dodge's 12 SP cost. Still positive, no longer a full turn of regen.
+    expect(shieldGuardStaminaGain(true, 31.9)).toBeCloseTo(15.95, 10);
+    expect(shieldGuardStaminaGain(true, 31.9)).toBeGreaterThan(0);
   });
 
   test('a stalled or malformed regen credits nothing rather than NaN', () => {
@@ -84,9 +90,28 @@ describe('§A — Shield Guard recovers nothing by itself (§R2)', () => {
 
   test('the credited stop is still clamped by the stamina ceiling', () => {
     const gain = shieldGuardStaminaGain(true, 24);
+    expect(gain).toBe(12);
     expect(applyStaminaRegen(100, 100, gain)).toBe(100);
     expect(applyStaminaRegen(90, 100, gain)).toBe(100);
-    expect(applyStaminaRegen(50, 100, gain)).toBe(74);
+    expect(applyStaminaRegen(50, 100, gain)).toBe(62);
+    // No guard credit can ever exceed the normal cap, however large the regen.
+    expect(applyStaminaRegen(0, 100, shieldGuardStaminaGain(true, 999))).toBe(100);
+  });
+
+  test('an unblocked hit credits nothing — the guard must actually stop the blow', () => {
+    // The resolution's non-blocked branch writes health/action only: no credit,
+    // no stamina write for the defender.
+    const call = duelSource.indexOf('shieldGuardStaminaGain(');
+    const blockOpens = duelSource.lastIndexOf('if (isBlocked) {', call);
+    const blockCloses = duelSource.indexOf('\n            } else {', call);
+    expect(blockOpens).toBeGreaterThan(-1);
+    expect(blockCloses).toBeGreaterThan(call);
+    const unblocked = duelSource.slice(blockCloses, duelSource.indexOf('// Track stats', blockCloses));
+    expect(unblocked.length).toBeGreaterThan(0);
+    expect(unblocked).not.toContain('shieldGuardStaminaGain');
+    expect(unblocked).not.toContain('applyStaminaRegen');
+    // And the helper itself is the one place the rule lives.
+    expect(shieldGuardStaminaGain(false, 24)).toBe(0);
   });
 
   test('the engine\'s shield_block action spends and credits nothing', () => {

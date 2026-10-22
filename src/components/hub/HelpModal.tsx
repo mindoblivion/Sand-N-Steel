@@ -8,6 +8,7 @@ import {
   Footprints,
   BatteryCharging,
   Compass,
+  Wind,
 } from 'lucide-react';
 
 interface HelpModalProps {
@@ -118,7 +119,30 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             </div>
           </div>
 
-          {/* 4. Arena Taunt */}
+          {/* 4. Dodge */}
+          <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800 flex items-start gap-2.5">
+            <div className="p-2 rounded-lg bg-teal-950/60 border border-teal-700/50 text-teal-400 shrink-0">
+              <Wind className="w-4 h-4" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-0.5">
+                <strong className="text-teal-200 text-xs">Dodge</strong>
+                <span className="text-[10px] font-mono text-teal-300 bg-teal-950/80 px-1.5 py-0.5 rounded border border-teal-800/60">
+                  Cost: 12 SP
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                Enter an evasion stance with a 75% chance to evade the next strike. The 12 SP is spent to take the
+                stance whether the dodge succeeds or fails, and a failed dodge still takes the damage.
+              </p>
+              <p className="text-[10px] text-teal-300/80 font-mono mt-1">
+                Used on your turn, the stance carries into the opponent&apos;s next strike. When a strike is
+                announced, the same 12 SP buys a reaction dodge instead — one per announcement.
+              </p>
+            </div>
+          </div>
+
+          {/* 5. Arena Taunt */}
           <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800 flex items-start gap-2.5">
             <div className="p-2 rounded-lg bg-purple-950/60 border border-purple-700/50 text-purple-400 shrink-0">
               <Flame className="w-4 h-4" />
@@ -136,7 +160,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             </div>
           </div>
 
-          {/* 5. Advance */}
+          {/* 6. Advance */}
           <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800 flex items-start gap-2.5">
             <div className="p-2 rounded-lg bg-amber-950/60 border border-amber-700/50 text-amber-300 shrink-0">
               <Footprints className="w-4 h-4" />
@@ -154,7 +178,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             </div>
           </div>
 
-          {/* 6. Retreat */}
+          {/* 7. Retreat */}
           <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800 flex items-start gap-2.5">
             <div className="p-2 rounded-lg bg-neutral-900 border border-neutral-700 text-neutral-400 shrink-0">
               <Footprints className="w-4 h-4 rotate-180" />
@@ -172,7 +196,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             </div>
           </div>
 
-          {/* 7. Catch Breath */}
+          {/* 8. Catch Breath */}
           <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800 flex items-start gap-2.5">
             <div className="p-2 rounded-lg bg-emerald-950/60 border border-emerald-700/50 text-emerald-400 shrink-0">
               <BatteryCharging className="w-4 h-4" />

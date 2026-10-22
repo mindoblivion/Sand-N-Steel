@@ -102,6 +102,20 @@ export const PLAYER_ATTACK_WINDUP_MS = 700;
 export const DODGE_STAMINA_COST = 12;
 
 /**
+ * Fraction of the fighter's `staminaRegen` a stopped blow returns through
+ * Shield Guard (C-8.72B).
+ *
+ * C-8.70B §R2 stopped the guard from recovering on its own, but a stopped blow
+ * still credited the FULL regen stat — measured at 31.9 SP per blocked exchange
+ * on a representative shield build, against Dodge's 12 SP cost for a 75 %
+ * evade. Halving that credit narrows the resource gap (≈ 16 SP instead of
+ * ≈ 32 SP) while leaving the guard's mitigation, Dodge's cost and evade chance,
+ * the damage formula and every AI probability untouched: the shield absorbs the
+ * same damage, it just no longer doubles as the arena's best stamina engine.
+ */
+export const SHIELD_GUARD_REGEN_MULTIPLIER = 0.5;
+
+/**
  * Weapon-specific stamina cost for a light (quick) or heavy (power) attack.
  *
  * Replaces the old hardcoded 10 / 22 constants.  Every weapon defines
@@ -205,11 +219,15 @@ export function applyStaminaRegen(
  * branch of the resolution, so a raised shield that nothing hits recovers
  * nothing and the trade-off is real: certainty (partial damage absorbed) versus
  * the dodge's all-or-nothing evade at a cost.
+ *
+ * C-8.72B scales that credit by {@link SHIELD_GUARD_REGEN_MULTIPLIER}: the full
+ * regen stat was measured at 31.9 SP per blocked exchange against Dodge's 12 SP,
+ * so the guard's recovery is halved and its mitigation left exactly as it was.
  */
 export function shieldGuardStaminaGain(didStopBlow: boolean, regen: number): number {
   if (!didStopBlow) return 0;
   if (typeof regen !== 'number' || !Number.isFinite(regen) || regen <= 0) return 0;
-  return regen;
+  return regen * SHIELD_GUARD_REGEN_MULTIPLIER;
 }
 
 /**
