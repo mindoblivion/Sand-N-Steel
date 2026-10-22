@@ -6501,21 +6501,27 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **What shipped.** One optional save field, one pure module and four read-time gates — no screen.
   `src/utils/facilityProgression.ts` follows the `stableProgression.ts` / `racingProgression.ts`
   idiom (catalogue → resolve → eligibility → purchase, a NEW profile on success, a refusal that
-  carries no profile): `FACILITIES` (Imperial Stable, Ludus Training Yard, Smithing Workshop) at the
-  brief's 500 / 1,200 ladder, bought IN ORDER — only the level above the one owned is ever offered,
-  so a skipped level is a level that does not exist to buy.
+  carries no profile): `FACILITIES` (Imperial Stable 500 / 1,200 — Stone Stalls, Stud & Training
+  Paddock; Ludus Training Yard 500 / 1,200 — Doctore's Yard, Master's Ludus; Smithing Workshop
+  600 / 1,400 — Master's Forge, Imperial Armoury), bought IN ORDER — only the level above the one
+  owned is ever offered, so a skipped level is a level that does not exist to buy. The whole ludus
+  costs 5,400 gold.
 - **The save field.** `PlayerProfile.facilities?: { stable?: number; yard?: number; workshop?: number }`
   (`src/types/game.ts`), optional and **never backfilled**: absent, partial and malformed values all
   resolve to level 0 per building, and `createNewProfile()` still writes nothing. `purchaseFacility`
   is the single writer.
 - **The gates are read-time facts, restated nowhere.** `tempering.ts` asks
   `getFacilityLevel(profile, 'workshop')` for temper levels 2–3; `stableProgression.ts` asks
-  `getFacilityLevel(profile, 'stable')` for quality grades 2–3 and conditioning levels 4–5;
-  `data/shops.ts`'s `getVisibleStorefrontStock` withholds the four `_gilded` armour rows until
-  workshop L2; and the yard's 0 / 10 / 25 % discount reaches **stat training only** through
-  `trainingCost(profile, 25 * profile.level)`, the one call shape in both consumers (`App.tsx`'s
-  `handleTrainStat` and `components/hub/TrainingTab.tsx`). A gate outranks the purse and never
-  charges.
+  `getFacilityLevel(profile, 'stable')` for quality grades 2–3 and conditioning levels **4 and 5**
+  (both need the L2 paddock); `data/shops.ts`'s `getVisibleStorefrontStock` withholds exactly the
+  two `GILDED_FORGE_ITEM_IDS` rows (`chest_champion_gilded`, `helm_champion_gilded`) until workshop
+  L2 — the gilded galerus and greaves stay on sale at every level; and the yard sets **stat
+  training's price** at a flat 25 / 22 / 20 gold per character level through
+  `trainingCost(profile)`, the one call shape in both consumers (`App.tsx`'s `handleTrainStat` and
+  `components/hub/TrainingTab.tsx`). A gate outranks the purse and never charges. The buy path
+  re-checks the gate: `src/utils/itemPurchase.ts` (`getItemPurchaseEligibility` / `purchaseItem`,
+  the `selling.ts` idiom — a new profile on success, a refusal that carries none) is what
+  `App.handleBuyItem` now calls, so a stock list cannot be bypassed.
 - **Corpus discipline.** The new optional field fired the GC20 tripwire by design: `saveCorpus.test.ts`
   §J's optional-field list ends with `facilities` in `game.ts` declaration order, a **facilities-era**
   fixture (`saveFixtures/facilitiesEraProfile.json`, registered in `saveFixtures/index.ts` and
@@ -6523,19 +6529,38 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   resolves as before.
 - **Suites.** `src/utils/phaseP5FacilityProgression.test.ts` — §A the catalogue, §B the resolver over
   absent / partial / malformed shapes, §C the in-order purchase with refusals that move nothing and
-  frozen-profile purity, §D the four gates, §E the training discount and its consumers, §F the gilded
-  stock gate, §G the profile field and the corpus, §H the scope guards (one writer, one consumer set,
-  no UI purchase path yet).
+  frozen-profile purity, §D the four gates, §E the flat 25 / 22 / 20 training price and its
+  consumers, §F the two-row Master Forge stock gate, **§F2 the purchase refusal layer**
+  (`purchaseItem` refuses a gated row below workshop L2 and an unaffordable one without charging,
+  never mutating its input), §G the profile field and the corpus, §H the scope guards (one writer,
+  one consumer set, no facility screen yet).
 - **Scope guards worth knowing.** §E is a **repo-wide sweep**, not a hand-written list: every
   non-test source file naming `trainingCost` must be exactly `App.tsx`,
   `components/hub/TrainingTab.tsx` and `utils/facilityProgression.ts`, so a new gold sink that
   reaches for the helper fails without the suite naming it. The P2 `laurels.test.ts` §F allowlist is
   untouched — the sweep keeps this suite from writing another module's name.
-- **Two open design items, deliberately not invented.** (1) The workshop's own L1/L2 *names* and
-  prices are not fixed in the design; the module uses the same 500 / 1,200 ladder as a documented
-  placeholder, and every consumer reads the constants rather than duplicating a price — change them
-  in the module, nowhere else. (2) The yard L2 brief mentions a "+1 creation-style point" that no
-  shipped system consumes; nothing implements it, because no system reads such a point today.
+- **One open design item, deliberately not invented.** The yard L2 brief mentions a "+1
+  creation-style point" that no shipped system consumes; nothing implements it, because no system
+  reads such a point today. Every price and name lives in `FACILITIES` and every consumer reads the
+  constants rather than duplicating a price — change them in the module, nowhere else.
+- **Repaired 2026-10-22 (build error this turn).** `src/App.tsx` imported
+  `./utils/itemPurchase`, which had never been committed, so the dev server failed to resolve it and
+  the app could not render. The module is now written (the pure transaction described above) and
+  the P5 suite — which still pinned the pre-update values — was rebased, not weakened: the workshop
+  rows 500 / 1,200 → **600 / 1,400** (total 5,400, the frozen workshop purchase 5,000 → 4,400), the
+  conditioning table's level 4 **1 → 2** (both levels need the paddock), the 0 / 10 / 25 % discount
+  → the flat **25 / 22 / 20** base with a malformed-level case, the four `_gilded` rows → the two
+  `GILDED_FORGE_ITEM_IDS` (arms/legs asserted to stay on sale), and `shops.ts`'s gate read
+  `gildedUnlocked` → `isItemUnlocked`. **Verified:** `tsc --noEmit` exit 0 (it reported 10 stale-pin
+  errors before); the P5 suite 50 pass / 0 fail (331 `expect()`); the repo-sweeping guards
+  (`storefrontCatalogue`, `storefrontWiring`, `saveCorpus`, `laurels`, `phaseP3ChariotCatalogue`)
+  237 pass / 0 fail; the dev server serves `/src/utils/itemPurchase.ts` and `/src/App.tsx` HTTP 200
+  with no further resolve error, and the app boots to the title with 0 console errors and 0 failed
+  requests. **Driven live in the preview** (guest profile): market at workshop 0 shows the gilded
+  galerus and greaves and **not** the gilded cuirass or galea; buying the 90 g pugio through the real
+  button moved gold 100 → 10, added exactly one `dagger_pugio` to a 2 → 3-entry inventory, and
+  persisted it to the save key — the `purchaseItem` path end to end. The disposable guest save was
+  removed afterwards.
 - **Verified 2026-10-22** in the dev container, on the final tree: `bun test` → **3181 pass / 0 fail
   (107 files, 87,044 `expect()` calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0
   failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset
