@@ -7934,3 +7934,82 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   advancement, reward settlement, boss first-defeat behaviour, the visitor system, the save schema,
   combat presentation or 3D geometry. No opponent, division, currency or grind mechanic was added, and
   nothing was committed, pushed or deployed by the phase.
+
+## Tournament gate regression guard and early-game door guidance (L20a — implemented)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`6c499aebf7`**,
+  `git status --porcelain` **empty** and `git diff` empty before the first edit; nothing was reset,
+  stashed, discarded or overwritten. The L20 audit's finding held: the tab's §F checks were
+  **source strings** (`toContain('resolveBoutLevelGate(')`), so a card whose gate result was no longer
+  bound to its button would have passed them. This phase closes that gap with a suite and adjusts one
+  sentence of door copy; **no gate, list, roster, reward, settlement or geometry rule moved**.
+
+- **What the guard actually EXERCISES, and what it only inspects.** `src/utils/arenaReachability.test.ts`
+  gains **§G (6 tests)**. It extracts `OpponentCard`'s own declaration out of `TournamentTab.tsx`
+  (brace-matched), transpiles it with Bun's own TSX transpiler in **classic `React.createElement`**
+  form (`tsconfig: { jsx: 'react' }`) and **renders it against the shipped `resolveBoutLevelGate`**,
+  with a small React stub recording the element tree — so the assertions read the **button the card
+  produces**: its `disabled` prop and its visible label. Genuinely executed: the gate result for a
+  real profile, the `disabled` value it yields at that profile's level, and the label branch taken
+  (locked / eligible / defeated). Structurally inspected only: that `isLocked` is the `.locked` of
+  `resolveBoutLevelGate(profile.level, opp, profile.defeatedOpponentIds)` (one whitespace-insensitive
+  expression) and that the button's `disabled` attribute is bound to exactly `isLocked` — read from
+  the declaration's own start tag, brace-aware because `onClick={() => …}` contains `>`.
+
+- **The six cases.** (1) gate→`isLocked`→`disabled` wiring, and no second level rule in the card;
+  (2) at the natural path's tier-4/LVL-9 profile, Aurelius is `{ locked, requiredLevel: 10 }`, the
+  button is **`disabled: true`** and reads **`Locked (Requires LVL 10)`**; (3) the **same fighter at
+  LVL 10** is `disabled: false` and reads `Enter Arena Duel` — the gate decides, not the copy;
+  (4) a fresh profile's Marcus is enabled (`Enter Arena Duel`) while Flaccus, one level short, is
+  disabled and reads `Locked (Requires LVL 2)` from the same card; (5) every earlier-division rematch
+  `listTournamentBouts` offers is **in `defeatedOpponentIds`**, resolves unlocked and renders enabled
+  as `Fight Again (Rematch)` — an unbeaten earlier-division fighter is still never listed (L19 §B);
+  (6) the controls below.
+
+- **The guard is shown to be sensitive, twice over.** In-suite, the extracted source is mutated three
+  ways: `disabled={isLocked}` removed (the prop is `undefined`), replaced with `disabled={false}`, and
+  the locked label branch turned into `: false ? (` (a disabled button that says "Enter Arena Duel").
+  Each mutant fails the same assertion the shipped card passes. Then the **production file itself**
+  was mutated and restored (`cmp` byte-identical afterwards): removing the `disabled={isLocked}` line
+  fails **6 of 31** tests in the suite, and disconnecting the locked label branch fails **3 of 31** —
+  both detected by §G, not merely by a substring.
+
+- **One harness correction, no expectation weakened.** The label reader joined an element's children
+  with a space, so `Locked (Requires LVL 10)` read back as `… LVL 10 )`; JSX concatenates children, so
+  it now joins with nothing. The failing expectations were the shipped text, unchanged.
+
+- **The door copy now covers both cases, and nothing else changed.** `CityHubScene`'s locked-door
+  notice (L19's sentence named only rematches, which a player early in the ladder does not have yet)
+  now reads: "The gatekeeper bars the way: *name* requires LVL *n*, and you are LVL *m*. Earn the
+  experience in the Colosseum's tournament list — **an open rank match, or a rematch of an earlier
+  division you have already beaten**." It is **one sentence, no branch and no new data**: `listTournamentBouts`
+  ordering, `resolveBoutLevelGate`, `resolveVictoryTier`, `resolveDoorDuelTarget`, the roster, XP
+  rewards, thresholds, settlement, the latch, the visitor system, the save schema and every 3D
+  geometry value are byte-identical. `arenaReachability` §F's guidance pin was **rebased, not
+  weakened**: it still requires the old "Train, and return" string to be absent from the code and the
+  list to be named, and now requires both routes (`an open rank match`, `rematch of an earlier
+  division`) — 5 assertions where there were 3.
+
+- **Checks actually run (2026-10-22, `web` dev container, on the final tree).**
+
+  | command | result |
+  |---|---|
+  | `bun test src/utils/arenaReachability.test.ts src/utils/tierAdvancement.test.ts` | **54 pass / 0 fail** (264 `expect()`; 6 are §G) |
+  | related wiring suites (`combatResponsiveness`, `duelSettlement`, `duelSettlementCommit`, `duelRewards`, `duelResultLifecycle`, `storefrontWiring`) | **133 pass / 0 fail** (769 `expect()`) |
+  | `bun test` (full) | **3137 pass / 0 fail (106 files, 89,675 `expect()`)** — the L19 baseline of 3131 / 106 plus this phase's 6 tests; no existing assertion was edited, loosened or deleted |
+  | `bun run lint` (`tsc --noEmit`) | **exit 0** |
+  | `bun run build` | **exit 0**, startup-asset check passing (8 assets in `public/` and `dist/`; `dist/` is gitignored) |
+  | `git diff --check` | **clean (exit 0)** |
+
+  Files changed: `src/utils/arenaReachability.test.ts`, `src/components/3d/city/CityHubScene.tsx`
+  (the sentence plus its comment) and this record — 2 production/test files, +264/−5.
+
+- **Not automatically verified — the rendered notice.** The dev server serves the changed module
+  transformed (the new sentence is present at `/src/components/3d/city/CityHubScene.tsx`); no preview
+  capture was taken, because the notice renders only after interacting with a **level-locked**
+  Colosseum door, and reaching one costs the full creation → Oath → 3D city → fast travel route on a
+  SwiftShader renderer (~1–2 fps) — the limit L1–L19 recorded. The button's rendered `disabled` state
+  is likewise **not** claimed from a live DOM here: §G proves the card's element, not its pixels.
+  **Device check still owed:** on a save one level short of the next boss, confirm the tournament
+  card's button is visibly disabled and reads `Locked (Requires LVL n)`, and that the Colosseum door's
+  notice now names both an open rank match and an earlier division's rematch.

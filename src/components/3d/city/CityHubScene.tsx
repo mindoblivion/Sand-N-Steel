@@ -533,10 +533,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       if (gate.locked) {
         // L19 — the old copy ("Train, and return") named no way to earn the levels,
         // which is exactly the dead end the tournament list now closes: the earlier
-        // divisions' beaten fighters are offered there as rematches. The gate
-        // itself is unchanged; only the guidance is accurate.
+        // divisions' beaten fighters are offered there as rematches. L20a — the line
+        // also has to help a player early in the ladder, who has no rematch yet, so
+        // it names the list's other route: an open rank match. The gate itself is
+        // unchanged; only the guidance is accurate.
         setStableNotice(
-          `The gatekeeper bars the way: ${target.opponent.name} requires LVL ${gate.requiredLevel}, and you are LVL ${playerProfile.level}. Earn the experience in the Colosseum's tournament list — rematches, earlier divisions included, stay open.`
+          `The gatekeeper bars the way: ${target.opponent.name} requires LVL ${gate.requiredLevel}, and you are LVL ${playerProfile.level}. Earn the experience in the Colosseum's tournament list — an open rank match, or a rematch of an earlier division you have already beaten.`
         );
         setTimeout(() => {
           setStableNotice(null);

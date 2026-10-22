@@ -533,14 +533,271 @@ describe('§F — the shipped wiring', () => {
     expect(appSourceHasSettlement());
   });
 
-  test('the locked-door guidance names the tournament list’s rematches', () => {
+  test('the locked-door guidance names both routes the list offers', () => {
     // Read through the code only: the phase's own comment quotes the old wording.
     const cityCode = citySource
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/[^\n]*/g, '');
     expect(cityCode).not.toContain('Train, and return');
+    // The list itself, named once...
     expect(cityCode).toContain("Colosseum's tournament list");
-    expect(cityCode).toContain('earlier divisions');
+    // ...then both cases it has to cover: a rank match, for a player early in the
+    // ladder who has no rematches yet, and the earlier division's rematch.
+    expect(cityCode).toContain('an open rank match');
+    expect(cityCode).toContain('rematch of an earlier division');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// L20a — the card's gate-to-button guard
+//
+// The L20 audit found the tab's source-string checks never proved that a
+// LOCKED opponent's button is actually `disabled`. These helpers render the
+// real `OpponentCard` — its own source, brace-matched out of the tab,
+// transpiled with Bun's own TSX transpiler in classic `React.createElement`
+// form and evaluated against the shipped `resolveBoutLevelGate` — so the
+// assertion is about the element the card produces, not about a substring.
+// There is no DOM: a small React stub records the element tree.
+
+/** Where the card's declaration starts in the tab's source. */
+const CARD_START = 'const OpponentCard: React.FC<OpponentCardProps> = (';
+
+/** The card's own declaration, brace-matched out of the tab's source. */
+function extractOpponentCard(source: string): string {
+  const start = source.indexOf(CARD_START);
+  if (start < 0) throw new Error('TournamentTab no longer declares OpponentCard');
+  const bodyStart = source.indexOf('{', source.indexOf('=>', start));
+  let depth = 0;
+  for (let i = bodyStart; i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, i + 2);
+    }
+  }
+  throw new Error("OpponentCard's body is not balanced");
+}
+
+const CARD_SOURCE = extractOpponentCard(tabSource);
+
+/** Source with every run of whitespace removed — comparisons ignore formatting. */
+function squash(source: string): string {
+  return source.replace(/\s+/g, '');
+}
+
+/** The card's JSX in classic form, so a React stub can execute it. */
+function transpileCard(declaration: string): string {
+  // @ts-ignore — Bun is the test runtime
+  return new Bun.Transpiler({
+    loader: 'tsx',
+    tsconfig: JSON.stringify({ compilerOptions: { jsx: 'react' } }),
+  }).transformSync(`${declaration}\nreturn OpponentCard;`);
+}
+
+interface StubElement {
+  type: unknown;
+  props: Record<string, any>;
+  children: unknown[];
+}
+
+const STUB_REACT = {
+  Fragment: 'Fragment',
+  createElement: (
+    type: unknown,
+    props: Record<string, any> | null,
+    ...children: unknown[]
+  ): StubElement => ({ type, props: props ?? {}, children }),
+};
+
+/** A start tag, scanned with brace awareness (`onClick={() => …}` contains `>`). */
+function openingTag(declaration: string, tag: string): string {
+  const start = declaration.indexOf(`<${tag}`);
+  if (start < 0) throw new Error(`OpponentCard renders no <${tag}>`);
+  let depth = 0;
+  for (let i = start; i < declaration.length; i += 1) {
+    if (declaration[i] === '{') depth += 1;
+    else if (declaration[i] === '}') depth -= 1;
+    else if (declaration[i] === '>' && depth === 0) return declaration.slice(start, i + 1);
+  }
+  throw new Error(`OpponentCard's <${tag}> is not closed`);
+}
+
+/** The exact expression the button's `disabled` prop is bound to. */
+function disabledBinding(declaration: string): string | null {
+  const match = /\sdisabled=\{([^}]*)\}/.exec(openingTag(declaration, 'button'));
+  return match ? match[1].trim() : null;
+}
+
+function findElement(node: unknown, type: string): StubElement | null {
+  if (!node || typeof node !== 'object') return null;
+  const element = node as StubElement;
+  if (element.type === type) return element;
+  for (const child of element.children ?? []) {
+    const found = findElement(child, type);
+    if (found) return found;
+  }
+  return null;
+}
+
+function textOf(node: unknown): string {
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number') return String(node);
+  if (!node || typeof node !== 'object') return '';
+  // JSX concatenates an element's children, so the text nodes join with nothing.
+  return (node as StubElement).children.map(textOf).join('');
+}
+
+interface RenderedCard {
+  /** The button's own `disabled` prop — the property a browser would act on. */
+  disabled: unknown;
+  /** The button's visible label, whitespace-collapsed. */
+  label: string;
+}
+
+/**
+ * Render ONE card from a given declaration. The shipped source is what the
+ * tests assert against; a mutated declaration is how the controls below show
+ * the guard is sensitive to the wiring it pins.
+ */
+function renderCard(
+  declaration: string,
+  profile: PlayerProfile,
+  opponent: OpponentConfig,
+  rematchTier?: number
+): RenderedCard {
+  const factory = new Function(
+    'React',
+    'resolveBoutLevelGate',
+    'sounds',
+    'Swords',
+    'Lock',
+    'CheckCircle',
+    transpileCard(declaration)
+  ) as (...args: unknown[]) => (props: {
+    profile: PlayerProfile;
+    opponent: OpponentConfig;
+    onSelectOpponent: (opp: OpponentConfig) => void;
+    rematchTier?: number;
+  }) => StubElement;
+
+  const Card = factory(
+    STUB_REACT,
+    resolveBoutLevelGate,
+    { playClick: () => {} },
+    'Swords',
+    'Lock',
+    'CheckCircle'
+  );
+  const tree = Card({ profile, opponent, onSelectOpponent: () => {}, rematchTier });
+  const button = findElement(tree, 'button');
+  if (!button) throw new Error('OpponentCard rendered no button');
+  return {
+    disabled: button.props.disabled,
+    label: textOf(button).replace(/\s+/g, ' ').trim(),
+  };
+}
+
+describe('§G — L20a: the card’s gate result reaches the button', () => {
+  test('the card binds the shared gate to `isLocked` and `isLocked` to `disabled`', () => {
+    // The gate, read as one compact expression: the same three arguments the
+    // rest of the arena passes, and the `.locked` field as the answer.
+    expect(squash(CARD_SOURCE)).toContain(
+      squash(
+        'const isLocked = resolveBoutLevelGate(profile.level, opp, profile.defeatedOpponentIds).locked;'
+      )
+    );
+    // ...and that boolean is the button's own `disabled` prop, verbatim.
+    expect(disabledBinding(CARD_SOURCE)).toBe('isLocked');
+    // No second level rule may decide the card.
+    expect(squash(CARD_SOURCE)).not.toContain(squash('profile.level < opp.recommendedLevel'));
+  });
+
+  test('a locked opponent’s button is disabled and says Locked (Requires LVL n)', () => {
+    const gate = resolveBoutLevelGate(
+      path.profile.level,
+      AURELIUS,
+      path.profile.defeatedOpponentIds
+    );
+    expect(gate).toEqual({ locked: true, requiredLevel: 10 });
+
+    const card = renderCard(CARD_SOURCE, path.profile, AURELIUS);
+    expect(card.disabled).toBe(true);
+    expect(card.label).toBe('Locked (Requires LVL 10)');
+  });
+
+  test('the same fighter is enabled once the gate opens — the gate decides, not the copy', () => {
+    const ready = { ...path.profile, level: 10 };
+    expect(
+      resolveBoutLevelGate(ready.level, AURELIUS, ready.defeatedOpponentIds)
+    ).toEqual({ locked: false, requiredLevel: 10 });
+
+    const card = renderCard(CARD_SOURCE, ready, AURELIUS);
+    expect(card.disabled).toBe(false);
+    expect(card.label).toBe('Enter Arena Duel');
+  });
+
+  test('an eligible rank match keeps its action label and a live button', () => {
+    const fresh = createNewProfile('Card guard');
+    const marcus = opponentById('opp_marcus');
+    expect(resolveBoutLevelGate(fresh.level, marcus, fresh.defeatedOpponentIds)).toEqual({
+      locked: false,
+      requiredLevel: 1,
+    });
+
+    const card = renderCard(CARD_SOURCE, fresh, marcus);
+    expect(card.disabled).toBe(false);
+    expect(card.label).toBe('Enter Arena Duel');
+    // ...and the very same card, short of Flaccus's level, is locked: the
+    // disabled state is data-driven, not a property of the card.
+    const flaccus = opponentById('opp_flaccus');
+    const flaccusCard = renderCard(CARD_SOURCE, fresh, flaccus);
+    expect(flaccusCard.disabled).toBe(true);
+    expect(flaccusCard.label).toBe(`Locked (Requires LVL ${flaccus.recommendedLevel})`);
+  });
+
+  test('earlier-division rematches are only beaten fighters, and each is enabled', () => {
+    const bouts = listTournamentBouts(
+      path.profile.currentTier,
+      path.profile.defeatedOpponentIds
+    );
+    expect(bouts.rematches.length).toBe(path.profile.defeatedOpponentIds.length);
+
+    for (const bout of bouts.rematches) {
+      // Offered only because the record says so...
+      expect(path.profile.defeatedOpponentIds).toContain(bout.opponent.id);
+      // ...and therefore always a live button, whatever its recommended level.
+      expect(
+        resolveBoutLevelGate(path.profile.level, bout.opponent, path.profile.defeatedOpponentIds)
+          .locked
+      ).toBe(false);
+      const card = renderCard(CARD_SOURCE, path.profile, bout.opponent, bout.opponent.tier);
+      expect(card.disabled).toBe(false);
+      expect(card.label).toBe('Fight Again (Rematch)');
+    }
+  });
+
+  test('the guard fails if the disabled binding or the locked label is disconnected', () => {
+    // The shipped card, as the controls' baseline.
+    expect(renderCard(CARD_SOURCE, path.profile, AURELIUS).disabled).toBe(true);
+
+    // (1) The binding removed: the button has no `disabled` prop at all.
+    const noBinding = CARD_SOURCE.replace('disabled={isLocked}', '');
+    expect(noBinding).not.toBe(CARD_SOURCE);
+    expect(disabledBinding(noBinding)).toBeNull();
+    expect(renderCard(noBinding, path.profile, AURELIUS).disabled).toBeUndefined();
+
+    // (2) The binding left in place but disconnected from the gate.
+    const deadBinding = CARD_SOURCE.replace('disabled={isLocked}', 'disabled={false}');
+    expect(deadBinding).not.toBe(CARD_SOURCE);
+    expect(renderCard(deadBinding, path.profile, AURELIUS).disabled).toBe(false);
+
+    // (3) The locked label branch removed: a disabled button that says "Enter".
+    const noLockedLabel = CARD_SOURCE.replace(': isLocked ? (', ': false ? (');
+    expect(noLockedLabel).not.toBe(CARD_SOURCE);
+    const mislabelled = renderCard(noLockedLabel, path.profile, AURELIUS);
+    expect(mislabelled.disabled).toBe(true);
+    expect(mislabelled.label).toBe('Enter Arena Duel');
+    expect(mislabelled.label).not.toBe('Locked (Requires LVL 10)');
   });
 });
 
