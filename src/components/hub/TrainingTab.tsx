@@ -21,8 +21,8 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
   onTrainStat,
   onSelectDoctoreTest,
 }) => {
-  // P5 — the Ludus Training Yard discounts stat training (and only that).
-  const cost = trainingCost(profile, 25 * profile.level);
+  // P5 — the Ludus Training Yard sets stat training's price (and only that).
+  const cost = trainingCost(profile);
   const canAfford = profile.gold >= cost;
 
   const trainingOptions = [

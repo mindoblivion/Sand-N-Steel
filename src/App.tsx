@@ -18,6 +18,7 @@ import type { ConsumableItem } from './data/consumables';
 import { sellItem } from './utils/selling';
 import { nextBossKills } from './utils/bossKills';
 import { trainingCost } from './utils/facilityProgression';
+import { purchaseItem } from './utils/itemPurchase';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
@@ -812,8 +813,8 @@ export function App() {
   // Profile mutations
   const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
     if (!profile) return;
-    // P5 — the Ludus Training Yard discounts stat training, and nothing else.
-    const cost = trainingCost(profile, 25 * profile.level);
+    // P5 — the Ludus Training Yard sets stat training's price, and nothing else.
+    const cost = trainingCost(profile);
     if (profile.gold < cost) return;
 
     const updated: PlayerProfile = {
@@ -828,16 +829,17 @@ export function App() {
     saveProfile(updated);
   };
 
+  /**
+   * P5 — `purchaseItem` re-checks the item's gate and the purse, so a Master
+   * Forge piece bought below workshop L2 is refused here even if a stock list
+   * were bypassed.  A refusal returns no profile and never reaches `saveProfile`.
+   */
   const handleBuyItem = (item: WeaponItem | ArmorItem) => {
-    if (!profile || profile.gold < item.price) return;
-
-    const updated: PlayerProfile = {
-      ...profile,
-      gold: profile.gold - item.price,
-      inventory: [...profile.inventory, item],
-    };
-    setProfile(updated);
-    saveProfile(updated);
+    if (!profile) return;
+    const result = purchaseItem(profile, item);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
   };
 
   /**

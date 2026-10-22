@@ -12,7 +12,7 @@
  *   |----------|---------------------|-------------------------|---------------------------|
  *   | stable   | Imperial Stable     | Stone Stalls — 500 g    | Stud & Training Paddock — 1,200 g |
  *   | yard     | Ludus Training Yard | Doctore's Yard — 500 g  | Master's Ludus — 1,200 g  |
- *   | workshop | Smithing Workshop   | Smith's Bench — 500 g   | Master Forge — 1,200 g    |
+ *   | workshop | Smithing Workshop   | Master's Forge — 600 g  | Imperial Armoury — 1,400 g |
  *
  * Levels are bought IN ORDER — only the level directly above the one owned is
  * ever on offer, so a skipped level is not a rule to check but a level that does
@@ -22,19 +22,20 @@
  * The gates are read-time facts; nothing in the save records them.
  *
  *   • workshop L1 — the second temper level; L2 — the third and last.
- *   • stable L1 — Racing Bred (quality grade 2) and conditioning level 4;
- *     L2 — Champion Bloodline (grade 3) and conditioning level 5.
- *   • yard L1 — 10 % off stat training; L2 — 25 % off.  The discount applies to
- *     STAT TRAINING ONLY (`trainingCost`), never to any other gold sink.
- *   • workshop L2 — the Gilded armour pieces appear in a shop's stock
- *     (`getVisibleStorefrontStock`).
+ *   • stable L1 — Racing Bred (quality grade 2); L2 — Champion Bloodline
+ *     (grade 3) AND conditioning levels 4 and 5, which both need the paddock.
+ *   • yard — the stat-training PRICE itself: 25 / 22 / 20 gold per character
+ *     level at yard 0 / 1 / 2 (`trainingCost`), never any other gold sink.
+ *   • workshop L2 — the two champion Gilded rows (`chest_champion_gilded`,
+ *     `helm_champion_gilded`) are withheld from shop stock
+ *     (`getVisibleStorefrontStock`) and refused at purchase
+ *     (`getItemPurchaseEligibility`).
  *
  * ── PRICES ────────────────────────────────────────────────────────────────
- * The 500 / 1,200 ladder for the stable and the yard is the brief's.  The
- * workshop's own level names and prices are NOT yet fixed in the design; the
- * same 500 / 1,200 ladder is used here as the documented placeholder so the
- * catalogue is complete, and every consumer reads these constants rather than
- * duplicating a price.  Change them here, nowhere else.
+ * The design's ladder: the stable and the yard 500 / 1,200, the workshop
+ * 600 / 1,400 — 5,400 gold to build the whole ludus.  Every consumer reads
+ * these constants rather than duplicating a price.  Change them here, nowhere
+ * else.
  *
  * A legacy save (no `facilities` field), a partial field and a malformed one all
  * resolve to level 0 for each building rather than throwing, and nothing
@@ -65,8 +66,7 @@ export interface Facility {
 
 /**
  * The catalogue, in progression order.  Prices and names are the single source
- * of truth for the tests and any future screen; the workshop's are placeholders
- * (see the header).
+ * of truth for the tests and any future screen.
  */
 export const FACILITIES: Facility[] = [
   {
@@ -89,8 +89,8 @@ export const FACILITIES: Facility[] = [
     id: 'workshop',
     name: 'Smithing Workshop',
     levels: [
-      { level: 1, name: "Smith's Bench", price: 500 },
-      { level: 2, name: 'Master Forge', price: 1200 },
+      { level: 1, name: "Master's Forge", price: 600 },
+      { level: 2, name: 'Imperial Armoury', price: 1400 },
     ],
   },
 ];
@@ -283,40 +283,70 @@ export function requiredStableForQuality(grade: number): number {
   return 0;
 }
 
-/** The Imperial Stable level a conditioning level requires: level 4 → L1, level 5 → L2. */
+/**
+ * The Imperial Stable level a conditioning level requires: BOTH level 4 and
+ * level 5 need the stud paddock (L2); levels 1–3 are open to every ludus.
+ */
 export function requiredStableForConditioning(level: number): number {
-  if (level === 4) return 1;
-  if (level === 5) return 2;
+  if (level === 4 || level === 5) return 2;
   return 0;
 }
 
+/** The workshop level that works gold onto a champion's plate. */
+export const GILDED_ARMOUR_WORKSHOP_LEVEL = 2;
+
 /**
- * Whether the Smithing Workshop is high enough for gilded armour to appear in a
- * shop's stock.  Only the L2 forge can work gold onto a champion's plate.
+ * The two §3.1 Gilded rows only the Master Forge sells — an explicit id list,
+ * not a naming convention.  `arms_galerus_gilded` and `legs_greaves_gilded` are
+ * deliberately absent: they are in stock and purchasable at every level.
+ */
+export const GILDED_FORGE_ITEM_IDS: readonly string[] = [
+  'chest_champion_gilded',
+  'helm_champion_gilded',
+];
+
+/** Whether this item id waits for the Smithing Workshop's L2 forge. */
+export function requiresMasterForge(itemId: unknown): boolean {
+  return typeof itemId === 'string' && GILDED_FORGE_ITEM_IDS.includes(itemId);
+}
+
+/**
+ * Whether the Smithing Workshop is high enough for the gated armour to appear in
+ * a shop's stock.
  */
 export function gildedUnlocked(profile: PlayerProfile | null | undefined): boolean {
-  return hasFacilityLevel(profile, 'workshop', 2);
-}
-
-/** The stat-training discount by yard level: 0 %, 10 %, 25 %. */
-export const TRAINING_DISCOUNT_BY_YARD: readonly number[] = [0, 0.1, 0.25];
-
-/** The discount rate this profile's yard earns (0, 0.1 or 0.25). */
-export function trainingDiscountRate(profile: PlayerProfile | null | undefined): number {
-  return TRAINING_DISCOUNT_BY_YARD[getFacilityLevel(profile, 'yard')] ?? 0;
+  return hasFacilityLevel(profile, 'workshop', GILDED_ARMOUR_WORKSHOP_LEVEL);
 }
 
 /**
- * What stat training costs this profile: the unbuilt price less the yard's
- * discount, rounded to the nearest gold and never below zero.
+ * Whether this item may be OFFERED and BOUGHT at the profile's workshop level:
+ * everything that is not on the Master Forge's list is open at level 0.
+ */
+export function isItemUnlocked(
+  profile: PlayerProfile | null | undefined,
+  itemId: unknown
+): boolean {
+  return !requiresMasterForge(itemId) || gildedUnlocked(profile);
+}
+
+/** Stat training's price per character level by yard level: 25 / 22 / 20 gold. */
+export const TRAINING_BASE_BY_YARD: readonly number[] = [25, 22, 20];
+
+/** The per-level stat-training price this profile's yard sets (25, 22 or 20). */
+export function trainingBaseCost(profile: PlayerProfile | null | undefined): number {
+  return TRAINING_BASE_BY_YARD[getFacilityLevel(profile, 'yard')] ?? TRAINING_BASE_BY_YARD[0];
+}
+
+/**
+ * What one stat training costs this profile: the yard's flat per-level base
+ * times the character's level — 25 / 22 / 20 at level 1, 100 / 88 / 80 at 4.
  *
- * This is the ONLY place the yard discount is applied — every other gold sink
+ * This is the ONLY place the yard's price is applied — every other gold sink
  * keeps its own price untouched.
  */
-export function trainingCost(
-  profile: PlayerProfile | null | undefined,
-  baseCost: number
-): number {
-  if (!Number.isFinite(baseCost) || baseCost <= 0) return 0;
-  return Math.max(0, baseCost - Math.round(baseCost * trainingDiscountRate(profile)));
+export function trainingCost(profile: PlayerProfile | null | undefined): number {
+  const level = profile?.level;
+  const rung =
+    typeof level === 'number' && Number.isFinite(level) && level >= 1 ? Math.floor(level) : 1;
+  return trainingBaseCost(profile) * rung;
 }
