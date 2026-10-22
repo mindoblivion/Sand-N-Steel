@@ -29,6 +29,22 @@ export type ChariotFinishKey = 'stock' | 'charred' | 'gilded' | 'oxblood';
 
 export type ChariotPartClass = 'performance' | 'cosmetic';
 
+/**
+ * P3 — the race effect a racing part will carry, as plain numbers.
+ *
+ * INERT DATA.  Nothing in production reads this: racing Stage 3 owns its
+ * consumption.  It is not a live stat, is not shown by any screen, and no
+ * gameplay number is derived from it in this slice (`chariotPartsSlice.test.ts`
+ * sweeps every non-test module to prove it).  Keys are the design's effect names.
+ */
+export interface ChariotRaceEffect {
+  durability?: number;
+  grip?: number;
+  horseComfort?: number;
+  stability?: number;
+  weight?: number;
+}
+
 /** One finish override: which of the chariot's own material names it recolors, and to what. */
 export interface ChariotFinishOverride {
   material: string;
@@ -59,6 +75,8 @@ export interface ChariotPart {
   finish?: ChariotFinishKey;
   /** Set for `finish` parts: what the finish recolors, in catalogue order. */
   overrides?: ChariotFinishOverride[];
+  /** Declared by the P3 axle/harness/chassis parts.  Inert data — see `ChariotRaceEffect`. */
+  raceEffect?: ChariotRaceEffect;
 }
 
 /**
@@ -152,6 +170,102 @@ export const CHARIOT_PARTS: ChariotPart[] = [
       { material: 'Wood', color: '#c9a86b', roughness: 0.65 },
     ],
   },
+
+  // ── Slot: axle (P3 — catalogue data only; no screen sells these yet) ───
+  {
+    id: 'axle_stock',
+    slot: 'axle',
+    name: 'Ash Axle',
+    description: 'The plain ash axle every chariot leaves the bench with.',
+    price: 0,
+    partClass: 'performance',
+    defaultOwned: true,
+    raceEffect: {},
+  },
+  {
+    id: 'axle_ironbound',
+    slot: 'axle',
+    name: 'Iron-Bound Axle',
+    description: 'An ash axle banded in iron where the wheels bear on it.',
+    price: 260,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { durability: 2 },
+  },
+  {
+    id: 'axle_bronzehub',
+    slot: 'axle',
+    name: 'Bronze-Hub Racing Axle',
+    description: 'A racing axle with bronze-sleeved hubs for a truer, longer-lived turn.',
+    price: 520,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { durability: 4, grip: 1 },
+  },
+
+  // ── Slot: harness (P3) ────────────────────────────────────────────────
+  {
+    id: 'harness_stock',
+    slot: 'harness',
+    name: 'Hide Harness',
+    description: 'Plain hide traces and yoke, as issued with the stock chariot.',
+    price: 0,
+    partClass: 'performance',
+    defaultOwned: true,
+    raceEffect: {},
+  },
+  {
+    id: 'harness_padded',
+    slot: 'harness',
+    name: 'Padded Draft Harness',
+    description: 'A draft harness with wool-padded collars to spare the team\'s shoulders.',
+    price: 300,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { horseComfort: 2 },
+  },
+  {
+    id: 'harness_russata',
+    slot: 'harness',
+    name: 'Russata Racing Harness',
+    description: 'A light racing harness in the russata team\'s red leather, cut for a free stride.',
+    price: 580,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { horseComfort: 4 },
+  },
+
+  // ── Slot: chassis (P3) ────────────────────────────────────────────────
+  {
+    id: 'chassis_stock',
+    slot: 'chassis',
+    name: 'Ash Tub',
+    description: 'The stock ash tub the driver stands in.',
+    price: 0,
+    partClass: 'performance',
+    defaultOwned: true,
+    raceEffect: {},
+  },
+  {
+    id: 'chassis_reinforced',
+    slot: 'chassis',
+    name: 'Reinforced War Tub',
+    description: 'A heavier tub with iron-strapped sides, built to take a knock.',
+    price: 350,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { stability: 2 },
+  },
+  {
+    id: 'chassis_lightweight',
+    slot: 'chassis',
+    name: 'Lightweight Racing Tub',
+    description: 'A stripped-back racing tub: less wood, less weight, a livelier ride.',
+    price: 700,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { stability: 3, weight: -2 },
+  },
 ];
 
 const PARTS_BY_ID: ReadonlyMap<string, ChariotPart> = new Map(
@@ -179,6 +293,23 @@ export const chariotPartsBySlot = (slot: ChariotSlot): ChariotPart[] =>
  */
 export const DEFAULT_CHARIOT_WHEELS = getDefaultChariotPart('wheels').id;
 export const DEFAULT_CHARIOT_FINISH = getDefaultChariotPart('finish').id;
+
+/**
+ * P3 — every slot the catalogue sells, in catalogue (first-seen) order.  The
+ * loadout resolver iterates this, so a slot added to the catalogue is resolved
+ * without touching the resolver.
+ */
+export const CHARIOT_SLOTS: readonly ChariotSlot[] = [
+  ...new Set(CHARIOT_PARTS.map((part) => part.slot)),
+];
+
+/**
+ * P3 — the per-slot stock defaults: slot → the id of its one `defaultOwned`
+ * part.  Replaces the old two-way `wheels ? … : …` branch in the resolver.
+ */
+export const DEFAULT_CHARIOT_PART_IDS: Readonly<Record<ChariotSlot, string>> = Object.fromEntries(
+  CHARIOT_SLOTS.map((slot) => [slot, getDefaultChariotPart(slot).id])
+) as Record<ChariotSlot, string>;
 
 /** Does this part id exist in the catalogue? */
 export const isChariotPartId = (id: string): boolean => PARTS_BY_ID.has(id);

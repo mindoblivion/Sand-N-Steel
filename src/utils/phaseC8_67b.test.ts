@@ -686,7 +686,9 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
   });
 
   test('the chariot catalogue and prices are untouched by this phase', () => {
-    const prices = CHARIOT_PARTS.map((p) => [p.id, p.price]);
+    // P3 appended nine axle/harness/chassis parts AFTER these six; the six
+    // shipped rows (ids, prices, order) are still pinned exactly as a prefix.
+    const prices = CHARIOT_PARTS.slice(0, 6).map((p) => [p.id, p.price]);
     expect(prices).toEqual([
       ['wheels_standard', 0],
       ['wheels_reinforced', 450],
