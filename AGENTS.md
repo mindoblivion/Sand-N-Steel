@@ -7954,7 +7954,13 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   (locked / eligible / defeated). Structurally inspected only: that `isLocked` is the `.locked` of
   `resolveBoutLevelGate(profile.level, opp, profile.defeatedOpponentIds)` (one whitespace-insensitive
   expression) and that the button's `disabled` attribute is bound to exactly `isLocked` — read from
-  the declaration's own start tag, brace-aware because `onClick={() => …}` contains `>`.
+  the declaration's own start tag, brace-aware because `onClick={() => …}` contains `>`. **L20b added
+  one more structural pin to that same test** (so the six-test count is unchanged): the card's
+  `resolveBoutLevelGate` must be a **single named import** of the tab's, and its specifier must
+  resolve — relative to `TournamentTab.tsx`, extension-insensitive — to the same module this suite
+  imports (`utils/tierAdvancement`), with no local re-declaration and no alias of the name. That closes the
+  harness's one blind spot: it *injects* the canonical resolver, so a same-named local or duplicate
+  resolver would never be executed and the guard would pass on wiring the game does not ship.
 
 - **The six cases.** (1) gate→`isLocked`→`disabled` wiring, and no second level rule in the card;
   (2) at the natural path's tier-4/LVL-9 profile, Aurelius is `{ locked, requiredLevel: 10 }`, the
@@ -7971,7 +7977,10 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the locked label branch turned into `: false ? (` (a disabled button that says "Enter Arena Duel").
   Each mutant fails the same assertion the shipped card passes. Then the **production file itself**
   was mutated and restored (`cmp` byte-identical afterwards): removing the `disabled={isLocked}` line
-  fails **6 of 31** tests in the suite, and disconnecting the locked label branch fails **3 of 31** —
+  fails **6 of 31** tests in the suite, and disconnecting the locked label branch fails **2 of 31**
+  (**L20b re-measured this one**: the same `: false ? (` mutation, replayed in memory, fails the two
+  locked-label reads — Aurelius at LVL 9 and one-level-short Flaccus — while §6's own post-mutation
+  label expectation still holds, so 2 is the reproducible count; the 6 was reproduced exactly) —
   both detected by §G, not merely by a substring.
 
 - **One harness correction, no expectation weakened.** The label reader joined an element's children
@@ -7988,15 +7997,16 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   geometry value are byte-identical. `arenaReachability` §F's guidance pin was **rebased, not
   weakened**: it still requires the old "Train, and return" string to be absent from the code and the
   list to be named, and now requires both routes (`an open rank match`, `rematch of an earlier
-  division`) — 5 assertions where there were 3.
+  division`) — **4** assertions where there were 3 (L20b corrected an earlier miscount; the four are
+  the absence check, the list-naming check and the two route strings).
 
 - **Checks actually run (2026-10-22, `web` dev container, on the final tree).**
 
   | command | result |
   |---|---|
-  | `bun test src/utils/arenaReachability.test.ts src/utils/tierAdvancement.test.ts` | **54 pass / 0 fail** (264 `expect()`; 6 are §G) |
+  | `bun test src/utils/arenaReachability.test.ts src/utils/tierAdvancement.test.ts` | **54 pass / 0 fail** (264 `expect()`; 6 are §G — **L20b raised this to 268 `expect()`**, the four additions being the import pin (module, count, shadow and alias), with the test count unchanged) |
   | related wiring suites (`combatResponsiveness`, `duelSettlement`, `duelSettlementCommit`, `duelRewards`, `duelResultLifecycle`, `storefrontWiring`) | **133 pass / 0 fail** (769 `expect()`) |
-  | `bun test` (full) | **3137 pass / 0 fail (106 files, 89,675 `expect()`)** — the L19 baseline of 3131 / 106 plus this phase's 6 tests; no existing assertion was edited, loosened or deleted |
+  | `bun test` (full) | **3137 pass / 0 fail (106 files, 89,675 `expect()`)** — the L19 baseline of 3131 / 106 plus this phase's 6 tests. **L20b correction:** exactly one pre-existing assertion was *replaced*, not left untouched — §F's guidance pin `toContain('earlier divisions')` was split into two narrower strings, so both routes must now be named. That is stricter, not looser (any mention of the phrase used to satisfy it), the old "Train, and return" absence check and the list-naming check are kept, and the suite's test count is unchanged because the pin's title was reworded rather than a test added; every other pre-existing assertion is untouched |
   | `bun run lint` (`tsc --noEmit`) | **exit 0** |
   | `bun run build` | **exit 0**, startup-asset check passing (8 assets in `public/` and `dist/`; `dist/` is gitignored) |
   | `git diff --check` | **clean (exit 0)** |

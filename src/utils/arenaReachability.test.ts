@@ -68,10 +68,8 @@ const APP_SRC = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/^\s*\/\/.*$/gm, '');
 
-const tabSource = readFileSync(
-  new URL('../components/hub/TournamentTab.tsx', import.meta.url),
-  'utf8'
-);
+const TAB_URL = new URL('../components/hub/TournamentTab.tsx', import.meta.url);
+const tabSource = readFileSync(TAB_URL, 'utf8');
 const citySource = readFileSync(
   new URL('../components/3d/city/CityHubScene.tsx', import.meta.url),
   'utf8'
@@ -585,6 +583,24 @@ function squash(source: string): string {
   return source.replace(/\s+/g, '');
 }
 
+/** A file's named imports: binding names → module specifier. */
+function namedImports(source: string): Array<{ names: string[]; module: string }> {
+  return [...source.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g)].map(
+    (match) => ({
+      names: match[1]
+        .split(',')
+        .map((entry) => entry.trim().split(/\s+as\s+/)[0].trim())
+        .filter(Boolean),
+      module: match[2],
+    })
+  );
+}
+
+/** A specifier resolved against its importer, without a file extension. */
+function moduleOf(specifier: string, importer: string | URL): string {
+  return new URL(specifier, importer).pathname.replace(/\.(?:ts|tsx)$/, '');
+}
+
 /** The card's JSX in classic form, so a React stub can execute it. */
 function transpileCard(declaration: string): string {
   // @ts-ignore — Bun is the test runtime
@@ -710,6 +726,20 @@ describe('§G — L20a: the card’s gate result reaches the button', () => {
     expect(disabledBinding(CARD_SOURCE)).toBe('isLocked');
     // No second level rule may decide the card.
     expect(squash(CARD_SOURCE)).not.toContain(squash('profile.level < opp.recommendedLevel'));
+    // ...and the gate it calls is the module this harness injects. The harness
+    // passes the canonical resolver in as a parameter, so a same-named local or
+    // duplicate resolver would never be executed: pin the tab's own import.
+    const gateImports = namedImports(tabSource).filter((entry) =>
+      entry.names.includes('resolveBoutLevelGate')
+    );
+    expect(gateImports).toHaveLength(1);
+    expect(moduleOf(gateImports[0].module, TAB_URL)).toBe(
+      moduleOf('./tierAdvancement', import.meta.url)
+    );
+    // No local re-declaration that could shadow that import, and no aliased
+    // binding that would leave the card calling a name the import never declares.
+    expect(tabSource).not.toMatch(/\b(?:const|let|var|function)\s+resolveBoutLevelGate\b/);
+    expect(tabSource).not.toMatch(/\bresolveBoutLevelGate\s+as\b/);
   });
 
   test('a locked opponent’s button is disabled and says Locked (Requires LVL n)', () => {
