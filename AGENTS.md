@@ -6448,3 +6448,50 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   check. Making either variant shippable needs a ride lift / hub drop of exactly the measured
   penetration, a decision on the horse's rear envelope, and a variant-aware roll radius — none of which
   this slice was authorised to change.
+
+## P3 — chariot catalogue expansion (types + data + resolver; NO UI — implemented, validated)
+
+- **What ships.** `ChariotSlot` widens to `'wheels' | 'finish' | 'axle' | 'harness' | 'chassis'`
+  (`src/types/game.ts`); nine parts are APPENDED to `CHARIOT_PARTS` (`src/data/chariotParts.ts`) after the
+  six shipped rows, each declaring an inert `raceEffect` of plain numbers; and `resolveChariotLoadout`
+  (`src/utils/chariotLoadout.ts`) iterates the catalogue's slot list so a legacy save resolves each newer
+  slot to its stock part at READ time. Prices (pinned from the brief): `axle_stock` / `harness_stock` /
+  `chassis_stock` free; `axle_ironbound` 260, `axle_bronzehub` 520, `harness_padded` 300,
+  `harness_russata` 580, `chassis_reinforced` 350, `chassis_lightweight` 700.
+- **The defaults map.** `DEFAULT_CHARIOT_PART_IDS: Record<ChariotSlot, string>` (+ `CHARIOT_SLOTS`) in
+  `chariotParts.ts` replaces the resolver's old `slot === 'wheels' ? … : …` branch:
+  `{ wheels: wheels_standard, finish: finish_stock, axle: axle_stock, harness: harness_stock,
+  chassis: chassis_stock }`. Both are derived from the catalogue, so a future slot needs no resolver edit.
+- **Stored shape unchanged — the load-bearing decision.** `ChariotLoadout.equipped` (STORED) is still
+  `{ wheels; finish }`; the five-key record is a separate read-side type, `ChariotEquippedResolved`
+  (`Record<ChariotSlot, string>`), returned by the resolver as `ChariotLoadoutState.equipped`. No profile
+  field was added and the corpus stays green. **Trap found and closed:** `purchaseChariotPart` and
+  `equipChariotPart` used to spread `loadout.equipped` into the stored record; with a five-key resolved
+  record that would have WRITTEN `axle/harness/chassis` into every save on the next buy or equip. They now
+  persist through `storedEquipped()` (wheels + finish only). A mutation that removes it fails
+  `phaseP3ChariotCatalogue.test.ts` §D.
+- **`owned` keeps its pre-P3 meaning.** The two original stock parts are always owned and the new stock
+  parts are implicit — never listed in `owned` — because the pinned corpus assertion
+  (`saveCorpus.test.ts` §F) and every purchase/equip test compare `owned` exactly. A paid new-slot part
+  still needs to be in `owned` to resolve as equipped.
+- **`raceEffect` is inert.** Only `data/chariotParts.ts` names it; `phaseP3ChariotCatalogue.test.ts` §E
+  sweeps every non-test module under `src/` (comments stripped) and fails if any other one mentions it or
+  reads an effect key. Racing Stage 3 owns consumption.
+- **Exclusions held.** No UI (the workshop still queries `chariotPartsBySlot('wheels')` and `('finish')`
+  only, pinned in §G — it mentions "axle" in prose about wheel height, so the guard pins the slot QUERIES,
+  not the word); the wheels slot is exactly as shipped (no Spiked/Bladed; no 480/620/600/800 price); no
+  Triumph banner parts.
+- **Existing assertions widened, not weakened.** The old tests pinned a 6-part, 2-slot world:
+  `phaseC8_66b` (slot allow-list; resolved `equipped` now carries the three stock ids),
+  `phaseC8_67b` (the six shipped price rows are now pinned as a `slice(0, 6)` prefix),
+  `phaseS8WheelFit` (15 parts; the wheels/finish rows still exactly 6, wheels still exactly 2) and
+  `saveCorpus` (resolved `equipped` includes the stock ids). Every wheels/finish value is still asserted.
+- **Corpus note.** `saveCorpus.test.ts` §H pins that ONLY that file imports `saveFixtures`, so the
+  corpus-wide P3 checks are `saveCorpus.test.ts` §K (additive), not in the P3 suite — found by the bare
+  repo-wide run, which an isolated run of the new suite could not have shown.
+- **Verified 2026-10-22** in the dev container: `bun test` → **3067 pass / 0 fail (105 files)** (baseline
+  3029 / 104); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0, 0 TS errors; `bun run build` → exit 0, startup-asset check passing (8 assets);
+  `git diff --check` → clean. Four single-literal mutations (transactions leak the 5-key record; resolver
+  iterates only wheels/finish; a price off by 50; production reads `raceEffect`) each fail exactly the
+  intended tests, with the files restored byte-identical. **Not verified:** nothing visual — no pixel changes.

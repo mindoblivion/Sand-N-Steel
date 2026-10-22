@@ -562,7 +562,10 @@ describe('D. The catalogue is untouched — this slice stopped', () => {
 
   test('the finishes and the slot shape are exactly as they shipped', () => {
     expect(chariotPartsBySlot('finish').map((part) => part.price)).toEqual([0, 180, 320, 240]);
-    expect(CHARIOT_PARTS).toHaveLength(6);
+    // P3 appended nine non-wheel parts; the wheels/finish rows are the same six,
+    // and the wheels slot still holds exactly the two shipped sets (no Spiked/Bladed).
+    expect(CHARIOT_PARTS).toHaveLength(15);
+    expect(CHARIOT_PARTS.filter((part) => part.slot === 'wheels' || part.slot === 'finish')).toHaveLength(6);
     expect(CHARIOT_PARTS.filter((part) => part.slot === 'wheels')).toHaveLength(2);
   });
 

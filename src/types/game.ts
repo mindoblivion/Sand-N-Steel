@@ -247,8 +247,12 @@ export interface PlayerInjury {
   penaltyAgility: number;
 }
 
-/** Phase C-8.66B — the two chariot slots the Chariot Workshop sells parts for. */
-export type ChariotSlot = 'wheels' | 'finish';
+/**
+ * Phase C-8.66B — the chariot slots.  P3 widened this from `wheels` | `finish` to
+ * five: `axle`, `harness` and `chassis` are catalogue-only in that slice (no UI
+ * sells them yet) and are resolved at READ time — see `ChariotEquippedResolved`.
+ */
+export type ChariotSlot = 'wheels' | 'finish' | 'axle' | 'harness' | 'chassis';
 
 /**
  * Phase C-8.66B — the player's chariot ownership and fit-out, stored on the
@@ -261,9 +265,21 @@ export type ChariotSlot = 'wheels' | 'finish';
 export interface ChariotLoadout {
   /** Owned chariot part ids.  The two stock parts are always owned. */
   owned: string[];
-  /** The equipped part id per slot. */
+  /**
+   * The equipped part id per slot, AS STORED.  Unchanged by P3: a save carries
+   * only `wheels` and `finish`.  The three newer slots are never written here —
+   * `resolveChariotLoadout` resolves them to their stock parts when the loadout
+   * is read (`ChariotEquippedResolved`).
+   */
   equipped: { wheels: string; finish: string };
 }
+
+/**
+ * P3 — the equipped part id for EVERY chariot slot, as resolved at read time.
+ * Never stored: it is what `resolveChariotLoadout` returns, with the slots a
+ * legacy save does not carry filled in with their stock parts.
+ */
+export type ChariotEquippedResolved = Record<ChariotSlot, string>;
 
 /**
  * Phase C-8.67B — the three historical horse-team configurations:

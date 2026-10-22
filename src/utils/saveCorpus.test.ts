@@ -87,6 +87,7 @@ import {
 } from '../services/storage';
 import {
   DEFAULT_CHARIOT_FINISH,
+  DEFAULT_CHARIOT_PART_IDS,
   DEFAULT_CHARIOT_WHEELS,
   getChariotPart,
 } from '../data/chariotParts';
@@ -578,7 +579,7 @@ describe('GC20 §F — what each shape resolves to', () => {
 
     expect(resolveChariotLoadout(profile)).toEqual({
       owned: ['wheels_standard', 'finish_stock', 'wheels_reinforced', 'finish_charred'],
-      equipped: { wheels: 'wheels_reinforced', finish: 'finish_charred' },
+      equipped: { wheels: 'wheels_reinforced', finish: 'finish_charred', axle: 'axle_stock', harness: 'harness_stock', chassis: 'chassis_stock' },
     });
     expect(equippedChariotPartId(profile, 'finish')).toBe('finish_charred');
     expect(isChariotPartEquipped(profile, 'wheels_reinforced')).toBe(true);
@@ -661,7 +662,13 @@ describe('GC20 §F — what each shape resolves to', () => {
   test('a partial chariot record keeps what it knows and falls back per slot', () => {
     const profile = fixtureById('malformed-partial-chariot').profile;
     const resolved = resolveChariotLoadout(profile);
-    expect(resolved.equipped).toEqual({ wheels: DEFAULT_CHARIOT_WHEELS, finish: DEFAULT_CHARIOT_FINISH });
+    expect(resolved.equipped).toEqual({
+      wheels: DEFAULT_CHARIOT_WHEELS,
+      finish: DEFAULT_CHARIOT_FINISH,
+      axle: 'axle_stock',
+      harness: 'harness_stock',
+      chassis: 'chassis_stock',
+    });
     expect(resolved.owned).toEqual([DEFAULT_CHARIOT_WHEELS, DEFAULT_CHARIOT_FINISH, 'wheels_reinforced']);
     // The id the catalogue no longer knows is gone, so it cannot be equipped or bought again.
     expect(ownsChariotPart(profile, 'wheels_bladed_retired')).toBe(false);
@@ -904,5 +911,47 @@ describe('GC20 §J — the corpus rule', () => {
       expect(withoutField.length, `no fixture omits '${field}'`).toBeGreaterThan(0);
     }
     expect(SAVE_FIXTURES.some((fixture) => rawOf(fixture).isLeftyMode === false)).toBe(true);
+  });
+});
+
+// ── §K P3 — the chariot catalogue widening leaves every stored shape alone ─────
+// P3 widened `ChariotSlot` to five slots and made `resolveChariotLoadout` return
+// all five at READ time.  The corpus is the proof that no historical shape needed
+// anything written for that: no fixture carries a new-slot key, and every one of
+// them resolves the three newer slots to their stock parts without being touched.
+describe('GC20 §K — P3 chariot catalogue (read-time slots, nothing stored)', () => {
+  const NEW_SLOTS = ['axle', 'harness', 'chassis'] as const;
+
+  test('no fixture stores an axle, harness or chassis key anywhere', () => {
+    for (const fixture of SAVE_FIXTURES) {
+      const raw = JSON.stringify(rawOf(fixture));
+      for (const token of NEW_SLOTS) {
+        expect(raw.includes(`"${token}"`), `${fixture.id} stores "${token}"`).toBe(false);
+      }
+    }
+  });
+
+  test('every fixture resolves all five slots, the three newer ones at their stock parts', () => {
+    for (const fixture of SAVE_FIXTURES) {
+      const resolved = resolveChariotLoadout(fixture.profile);
+      expect(Object.keys(resolved.equipped).sort(), fixture.id).toEqual(
+        ['axle', 'chassis', 'finish', 'harness', 'wheels'],
+      );
+      for (const slot of NEW_SLOTS) {
+        expect(resolved.equipped[slot], `${fixture.id} ${slot}`).toBe(DEFAULT_CHARIOT_PART_IDS[slot]);
+      }
+    }
+  });
+
+  test('resolving the newer slots never rewrites a fixture (and never grows its stored equipped block)', () => {
+    for (const fixture of SAVE_FIXTURES) {
+      const before = JSON.stringify(fixture.profile);
+      resolveChariotLoadout(fixture.profile);
+      expect(JSON.stringify(fixture.profile), fixture.id).toBe(before);
+      const stored = (fixture.profile.chariot as { equipped?: Record<string, unknown> } | null | undefined)?.equipped;
+      if (stored && typeof stored === 'object') {
+        for (const slot of NEW_SLOTS) expect(slot in stored, `${fixture.id} ${slot}`).toBe(false);
+      }
+    }
   });
 });
