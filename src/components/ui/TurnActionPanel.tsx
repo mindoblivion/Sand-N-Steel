@@ -20,6 +20,14 @@ import {
   calculateAttackDamage,
   applyStaminaRegen,
 } from '../../utils/combatCalculations';
+import {
+  EMPTY_MODIFIERS,
+  blockReductionFor,
+  hitAgilityFor,
+  resolveTraitMult,
+  staminaCostWithModifiers,
+  type FighterModifiers,
+} from '../../utils/combatModifiers';
 
 export type CombatActionType =
   | 'quick_attack'
@@ -46,6 +54,14 @@ interface TurnActionPanelProps {
   isPlayerTurn: boolean;
   isExecuting: boolean;
   combatLog: CombatLogEntry[];
+  /**
+   * CH-3a — the two merged armatura/palma blocks `DuelScene` resolves with.
+   * Passing them (rather than rebuilding an approximation here) is what makes
+   * every estimate below read the SAME values as resolution.
+   */
+  playerModifiers?: FighterModifiers;
+  opponentModifiers?: FighterModifiers;
+  opponentIsBoss?: boolean;
   onExecuteAction: (action: CombatActionType) => void;
 }
 
@@ -56,6 +72,9 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   isPlayerTurn,
   isExecuting,
   combatLog,
+  playerModifiers = EMPTY_MODIFIERS,
+  opponentModifiers = EMPTY_MODIFIERS,
+  opponentIsBoss = false,
   onExecuteAction,
 }) => {
   const effectiveRange = getWeaponRange(player.loadout.weapon);
@@ -71,9 +90,10 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
     player.stats.staminaRegen,
   ) - player.stamina;
 
-  // Calculate hit probability percentages (shared with combat resolution)
-  const playerAgi = player.stats.agility;
-  const oppAgi = opponent.stats.agility;
+  // Calculate hit probability percentages (shared with combat resolution) —
+  // CH-3a: the effective AGI the duel actually rolls against.
+  const playerAgi = hitAgilityFor(player.stats.agility, playerModifiers);
+  const oppAgi = hitAgilityFor(opponent.stats.agility, opponentModifiers);
   const quickHitPct = calculateHitChance(true, playerAgi, oppAgi);
   const powerHitPct = calculateHitChance(false, playerAgi, oppAgi);
 
@@ -85,15 +105,43 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   const oppDef = opponent.stats.defense;
   const weapon = player.loadout.weapon;
 
-  const quickDmgMin = calculateAttackDamage(weapon.damageLight, str, false, oppDef, false, 0);
+  // CH-3a — the damage signature resolution will hand calculateAttackDamage:
+  // attacker damageDealtMult ÷ defender damageTakenMult, with the same
+  // conditions (health thresholds, boss flag, attack type, Mirror Drill's
+  // ledger, Spearman's Ground's bands) evaluated by the same helper.
+  const estimateTraitMult = (isQuick: boolean) =>
+    resolveTraitMult(playerModifiers, opponentModifiers, {
+      isQuick,
+      distance,
+      effectiveRange,
+      attackerHealth: player.health,
+      attackerHealthMax: player.stats.healthMax,
+      defenderHealth: opponent.health,
+      defenderHealthMax: opponent.stats.healthMax,
+      defenderIsBoss: opponentIsBoss,
+      defenderTypesHit: opponent.mirrorDrillTypes,
+    });
+
+  const quickDmgMin = calculateAttackDamage(
+    weapon.damageLight, str, false, oppDef, false, 0, 1.0, estimateTraitMult(true),
+  );
   const quickDmgMax = quickDmgMin;
 
-  const powerDmgMin = calculateAttackDamage(weapon.damageHeavy, str, false, oppDef, false, 0);
-  const powerDmgMax = calculateAttackDamage(weapon.damageHeavy, str, true, oppDef, false, 0);
+  const powerDmgMin = calculateAttackDamage(
+    weapon.damageHeavy, str, false, oppDef, false, 0, 1.0, estimateTraitMult(false),
+  );
+  const powerDmgMax = calculateAttackDamage(
+    weapon.damageHeavy, str, true, oppDef, false, 0, 1.0, estimateTraitMult(false),
+  );
 
-  // Weapon-specific stamina costs (shared with combat resolution)
-  const quickStaminaCost = getStaminaCost(weapon, true);
-  const powerStaminaCost = getStaminaCost(weapon, false);
+  // Weapon-specific stamina costs (shared with combat resolution) — CH-3a: the
+  // block's staminaCostMult applied exactly as the attack branch applies it.
+  const quickStaminaCost = staminaCostWithModifiers(getStaminaCost(weapon, true), true, playerModifiers);
+  const powerStaminaCost = staminaCostWithModifiers(getStaminaCost(weapon, false), false, playerModifiers);
+
+  // CH-3a — the block the Shield Guard button will actually absorb with
+  // (weapon reduction + the block's add, capped at 0.90).
+  const blockAbsorbPct = Math.round(blockReductionFor(weapon.blockReduction, playerModifiers) * 100);
 
   return (
     <div className="w-full max-w-5xl mx-auto pointer-events-auto flex flex-col md:flex-row gap-2.5 items-stretch z-20 select-none pb-2 sm:pb-4">
@@ -277,11 +325,11 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             </div>
 
             <div className="tactic-desc text-[10px] text-neutral-300 font-sans leading-tight mb-1">
-              Brace to absorb {Math.round(weapon.blockReduction * 100)}% of incoming damage.
+              Brace to absorb {blockAbsorbPct}% of incoming damage.
             </div>
 
             <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-cyan-900/40">
-              <span className="text-cyan-300 font-bold">{Math.round(weapon.blockReduction * 100)}% Absorb</span>
+              <span className="text-cyan-300 font-bold">{blockAbsorbPct}% Absorb</span>
               <span className="text-emerald-300 font-bold">+{shieldRecovery} SP</span>
             </div>
           </button>

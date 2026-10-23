@@ -86,6 +86,20 @@ export type FighterAction =
 
 export type ClothingStyle = 'gladiator_sash' | 'roman_tunic' | 'centurion_harness' | 'champion_mantle';
 
+/**
+ * CH-3a — the Provocator's Mirror Drill ledger: which attack types have already
+ * landed on this fighter.  "After the first hit of each attack type, you take
+ * 8% less damage from that type", so the FIRST hit of a type resolves at full
+ * damage and every later hit of that type takes the doctrina's multiplier.
+ *
+ * Runtime state only — it lives on `FighterState` for the length of one duel
+ * and is never written to a save.
+ */
+export interface MirrorDrillLedger {
+  light?: boolean;
+  power?: boolean;
+}
+
 export interface FighterState {
   id: string;
   name: string;
@@ -113,6 +127,8 @@ export interface FighterState {
   characterModel?: CharacterModelType;
   meshScale?: number;
   isRaged?: boolean;
+  /** CH-3a — Mirror Drill's per-type ledger (Provocator only; see the type). */
+  mirrorDrillTypes?: MirrorDrillLedger;
   telegraphTimer?: number;
   telegraphText?: string;
   isPhase2?: boolean;

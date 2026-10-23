@@ -7,6 +7,7 @@ import {
   getEffectiveWeaponStats,
   getEffectiveArmorStats,
 } from '../utils/tempering';
+import { buildPlayerModifiers } from '../utils/combatModifiers';
 
 /**
  * The one local-save key.  Exported so the two things that remove it — `Reset save`
@@ -64,15 +65,31 @@ export function calculateTotalStats(profile: PlayerProfile): FighterStats {
     }
   });
 
+  // CH-3a — the equipped palmae's stat-stage block (design §2.4), folded after
+  // the equipment bonuses and before the injury penalty. `buildPlayerModifiers`
+  // builds the SAME merged block the duel resolves with, so the hub's readout and
+  // the arena cannot disagree. With no palmae equipped every term below is the
+  // identity — and no CH-1 doctrina carries a stat-stage field — so the output is
+  // bit-identical to pre-CH-3a.
+  const traitBlock = buildPlayerModifiers(profile).block;
+  const statFlat = traitBlock.statFlat;
+  if (statFlat) {
+    str += statFlat.str ?? 0;
+    agi += statFlat.agi ?? 0;
+    sta += statFlat.sta ?? 0;
+    def += statFlat.def ?? 0;
+  }
+
   // Apply injury penalty if any
   if (profile.injury && profile.injury.fightsRemaining > 0) {
     str = Math.max(1, str - profile.injury.penaltyStrength);
     agi = Math.max(1, agi - profile.injury.penaltyAgility);
   }
 
-  const healthMax = 80 + str * 4 + def * 3;
-  const staminaMax = 70 + sta * 5;
-  const staminaRegen = 12 + agi * 0.8 + sta * 0.4 + regenBonus;
+  const healthMax = 80 + str * 4 + def * 3 + (traitBlock.healthMaxAdd ?? 0);
+  const staminaMax = 70 + sta * 5 + (traitBlock.staminaMaxAdd ?? 0);
+  const staminaRegen =
+    12 + agi * 0.8 + sta * 0.4 + regenBonus + (traitBlock.staminaRegenAdd ?? 0);
 
   return {
     strength: str,
