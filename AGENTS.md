@@ -9058,3 +9058,102 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `src/components/duel/DuelScene.tsx` (imports; the selection call; the resolution guard; the counter
   and telegraph predicates; comments), `scripts/combatTests.ts` (four cases), and the four rebased
   suites above.
+
+## AI affordability at resolution (C-8.75F — verification only; live fight and Android still PENDING)
+
+- **Preflight (measured).** Repository root `/app`; branch `development-focus-strategy`; HEAD
+  **`38d9d66742`** ("Prevent AI from performing unaffordable strikes", C-8.75E), with an **empty**
+  `git status --porcelain` before the first edit. Nothing was reset, stashed, amended, rebased,
+  committed, pushed, merged or deployed, and **no production file changed** — the turn's only change
+  is the new suite plus this record.
+
+- **Paths traced in the shipped source.** Every route that can resolve an AI attack runs through the
+  ONE `executeCombatTurn` in `DuelScene.tsx`, and all four are closed by the C-8.75E guard:
+  1. **Ordinary selection** — the AI effect calls `chooseAITacticalAction` (already affordable) and,
+     for a strike, `announceEnemyAttack` → production `createPendingStrike` (700 ms) →
+     `executeTurnRef.current('opponent', action)`.
+  2. **Telegraph impact** — `pendingHeavyAttackRef` → `telegraphLandingRef.current = true` →
+     `executeCombatTurn('opponent', 'power_attack')` (the marker is read-and-cleared at the top, so a
+     refusal cannot leave it set).
+  3. **Valéria's queued counter** — `pendingCounterRef` → `canAffordAttack(..., 'quick_attack')` →
+     `announceEnemyAttack` → the same resolution; an unaffordable counter is dropped and the turn
+     falls through to ordinary selection.
+  4. **Direct/stale calls** — the player panel's `executeCombatTurn('player', …)`, and any call that
+     skips selection, meet the guard too (it is not gated on the actor).
+  **Order verified:** range guard (`isAttackInRange`) → **affordability guard** → `resolvingRef.current
+  = true`. Both sit inside `if (isAttackAction)` and above every stamina write, animation, hit/damage
+  roll and turn commit, so a refused strike cannot cost stamina, deal damage or schedule a timer.
+  **No-lock property verified:** the affordability refusal always releases a non-player actor
+  (`setIsExecuting(false)` + `setIsPlayerTurn(true)`) and returns — the state an announced strike
+  holds and the state a telegraph landing opens the opponent's turn in.
+
+- **The limitation this suite exists to work around, stated precisely.** `<DuelScene/>` cannot be
+  mounted in this repo's tests: there is no DOM renderer (no jsdom, no testing-library) and the
+  component mounts a three.js `<Canvas>`, so its `useCallback` closures are unreachable from a test
+  harness. C-8.75E's §E therefore asserted the guard's *source order*; it never executed it.
+
+- **What this phase added: `src/utils/phaseC8_75F.test.ts` — 14 tests / 87 `expect()`.** The body of
+  the real `executeCombatTurn` (and of `announceEnemyAttack`) is read out of `DuelScene.tsx` at test
+  time by a string/comment-aware brace matcher and instantiated with `new Function('env', …)` under
+  a `with (env)` scope, so **the executed text is the shipped text** — not a copy, not a
+  reimplementation. Every combat formula, `canAffordAttack`, `canResolveStrikeImpact`,
+  `queuesCounterOnEvade`/`rollsPassiveEvade`, `shieldGuardStaminaGain`, `HIT_STOP_MS`, `SHAKE_TRAUMA`
+  (both parsed from the component) and the pending-strike bookkeeping are the PRODUCTION modules,
+  imported. The harness supplies only the React primitives the body touches — `setPlayer`/`setOpp`
+  (applied to one object per fighter, mutated in place like the component's state), `setIsExecuting`,
+  `setIsPlayerTurn`, `addLog`, `spawnDamageText`, `updateCrowdHype`, the refs, `sounds`/`vibrate`, and
+  a fake clock/RNG (`setTimeout`/`clearTimeout`/`performance.now`/`Math.random`). `createPendingStrike`
+  is driven through its own documented injectable `timer`, so the 700 ms wind-up is deterministic and
+  the suite still exercises the real announce → impact → resolve lifecycle.
+
+- **The failure scenario covered, at the shipped costs** (canonical gladius: light **12** SP, heavy
+  **24** SP, so the between-cost balance is 18):
+  - **Enough for a light attack, not for a power attack** (18 SP): a forced `power_attack` is
+    refused — stamina stays 18, the player's health stays 120, **no damage number of any kind** (not
+    even `MISSED`), `action` stays `idle`, **no turn timer is scheduled**, `resolvingRef` never
+    commits, one chronicle line is emitted, and `setIsExecuting(false)` + `setIsPlayerTurn(true)` are
+    called once each.
+  - **Below the light cost** (11 SP): neither strike resolves, with the same invariants.
+  - **Exactly the light cost** (12 SP): `power_attack` refused; `quick_attack` resolves and bills
+    exactly 12 (balance 0, never negative).
+  - **Malformed/empty balances** (0, −5, `NaN`): refused, balance unchanged (no `NaN` arithmetic).
+  - **The player** is held to the same rule on a direct call.
+  - **A refused telegraphed landing** consumes `telegraphLandingRef` and adds no hit-stop
+    (`freezeUntil` and `trauma` stay 0).
+  - **No permanent lock**: after a refusal the very next affordable action in the same harness pays,
+    lands and schedules its turn timer.
+  - **Paid control** (so the harness is not refusing everything): 100 SP power attack bills exactly
+    24, lands, sets its hit-stop, schedules **one** timer, and flushing that 1100 ms timer clears
+    `isExecuting`/`resolvingRef` and hands the turn on; a miss (RNG 0.999) still costs 12.
+  - **Announced lifecycle end to end**: `announce('power_attack')` at 18 SP → wind-up fires → the
+    resolution refuses, the strike is cleared, the turn is handed back, and a following
+    `announce('quick_attack')` resolves and bills 12.
+
+- **Mutation check — the suite is shown to read the production guard, not itself.** Two single-line
+  mutations of `DuelScene.tsx`, each restored byte-for-byte afterwards (sha256 + `cmp` clean):
+  (1) disabling the affordability condition (`if (false && !canAffordAttack(…))`) fails **8** tests —
+  every refusal case in §B and §D; (2) removing the refusal's turn hand-back (an early `return`
+  right after the chronicle line) fails **2** — the refusal-state assertions and the announced
+  lifecycle. With the file restored, all 14 pass. A missing binding in the extracted body throws a
+  `ReferenceError` and fails the harness rather than skipping a check.
+
+- **Checks run (2026-10-23, `web` container).** `bun test src/utils/phaseC8_75F.test.ts` → **14 pass /
+  0 fail** (87 `expect()`); the focused combat set `{phaseC8_75F, phaseC8_75E, phaseC8_75B,
+  combatActionOrder, combatResponsiveness, playerStrikeWindup, playerWindupCue, pendingStrike,
+  defensiveBalance, duelResultLifecycle}` → **236 pass / 0 fail** (10 files, 1,616 `expect()`);
+  the full `bun test` → **3337 pass / 0 fail (115 files, 91,149 `expect()`)** — C-8.75E left 3323 /
+  114, the delta being this suite's 14 and its file; `bun run scripts/combatTests.ts` → **69 passed,
+  0 failed** (unchanged: this phase adds no helper cases); `bun run lint` (`tsc --noEmit`) → exit 0;
+  `bun run build` → exit 0 with the startup-asset check passing (8 assets); `git diff --check` →
+  clean.
+
+- **Not automatically verified: no live fight and no Android read.** No duel was driven in the
+  preview and no device pass was performed, so nothing is claimed about how a winded opponent's lost
+  strike *feels*, about a real duel reaching a between-cost stamina state, or about the HUD's
+  behaviour on hardware. The suite proves the shipped guard refuses an unpaid strike and hands the
+  turn back; it does not mount, render or run the component. The C-8.75E open items and the
+  C-8.73B/C-8.75B device checklist stand unchanged.
+
+- **Scope guard.** No stamina cost, attack weight, telegraph/wind-up timing, opponent balance,
+  counter behaviour, HUD layout or collider moved, and nothing was added to `combatTests.ts`; the
+  only tracked file this phase adds is the suite above.
