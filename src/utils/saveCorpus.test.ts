@@ -129,6 +129,8 @@ import { resolveIntel } from './intel';
 import { resolveStableState } from './stableProgression';
 // P5 — the ludus's three buildings, read the way a facility screen would.
 import { resolveFacilities } from './facilityProgression';
+// CH-1 — the class and the palmae, read the way a later class screen would.
+import { resolveArmatura, resolvePalmae } from './traitModifiers';
 
 // ── The corpus on disk ─────────────────────────────────────────────────────
 const FIXTURE_DIR = fileURLToPath(new URL('./saveFixtures/', import.meta.url));
@@ -152,6 +154,7 @@ const REQUIRED_FIXTURE_IDS = [
   'intel-era',
   'stable-era',
   'facilities-era',
+  'armatura-palmae',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -225,6 +228,9 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const stable = resolveStableState(profile);
   // P5 — the three buildings, read the way a facility screen would.
   const facilities = resolveFacilities(profile);
+  // CH-1 — the class and the worn palmae, read the way a class screen would.
+  const armatura = resolveArmatura(profile);
+  const palmae = resolvePalmae(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -247,6 +253,8 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     intel,
     stable,
     facilities,
+    armatura,
+    palmae,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -385,6 +393,14 @@ for (const fixture of SAVE_FIXTURES) {
       expect(Number.isFinite(resolved.temperedWeapon.damageLight)).toBe(true);
       expect(resolved.temperedWeapon.damageLight).toBeGreaterThanOrEqual(loaded.equipped.weapon.damageLight);
       expect(resolved.temperedArmor.every((armor) => Number.isFinite(armor.defense))).toBe(true);
+      // CH-1 — a class is always resolved, and the palmae record is always shaped:
+      // worn ids are unlocked ids, never more than three, and never boss-only.
+      expect(['murmillo', 'retiarius', 'secutor', 'thraex', 'hoplomachus', 'dimachaerus', 'provocator']).toContain(resolved.armatura);
+      const palmae = resolved.palmae as { unlocked?: string[]; equipped?: string[] };
+      expect(Array.isArray(palmae.unlocked)).toBe(true);
+      expect(Array.isArray(palmae.equipped)).toBe(true);
+      expect((palmae.equipped ?? []).length).toBeLessThanOrEqual(3);
+      expect((palmae.equipped ?? []).every((id) => (palmae.unlocked ?? []).includes(id))).toBe(true);
     });
 
     test('resolution does not mutate the fixture’s stored JSON (byte compare)', () => {
@@ -483,6 +499,15 @@ for (const fixture of SAVE_FIXTURES) {
         absentFields += 1;
         expect(resolveFacilities(profile)).toEqual({ stable: 0, yard: 0, workshop: 0 });
       }
+      // CH-1 — an absent class is a Murmillo; absent palmae are none earned, none worn.
+      if (!('armatura' in raw) || raw.armatura === null) {
+        absentFields += 1;
+        expect(resolveArmatura(profile)).toBe('murmillo');
+      }
+      if (!('palmae' in raw) || raw.palmae === null) {
+        absentFields += 1;
+        expect(resolvePalmae(profile)).toEqual({ unlocked: [], equipped: [] });
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -502,6 +527,8 @@ for (const fixture of SAVE_FIXTURES) {
         'intel',
         'stable',
         'facilities',
+        'armatura',
+        'palmae',
       ];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
@@ -695,6 +722,26 @@ describe('GC20 §F — what each shape resolves to', () => {
     });
     expect('facilities' in rawOf(fixtureById('current-fresh'))).toBe(false);
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('facilities');
+  });
+
+  test('the CH-1 class and palmae resolve to what they store, and no factory save carries them', () => {
+    const profile = fixtureById('armatura-palmae').profile;
+    expect(resolveArmatura(profile)).toBe('retiarius');
+    expect(resolvePalmae(profile)).toEqual({
+      unlocked: ['iron_lungs', 'second_wind'],
+      equipped: ['iron_lungs'],
+    });
+
+    // Lazy: a legacy save is a Murmillo with no palmae, and creation writes neither.
+    expect(resolveArmatura(fixtureById('minimal-legacy').profile)).toBe('murmillo');
+    expect(resolvePalmae(fixtureById('minimal-legacy').profile)).toEqual({
+      unlocked: [],
+      equipped: [],
+    });
+    expect('armatura' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect('palmae' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('armatura');
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('palmae');
   });
 
   test('null where an object is expected resolves to both defaults', () => {
@@ -954,6 +1001,8 @@ describe('GC20 §J — the corpus rule', () => {
       'intel',
       'stable',
       'facilities',
+      'armatura',
+      'palmae',
     ]);
 
     // Every optional field with a resolver has a fixture for both its absent and
@@ -972,6 +1021,8 @@ describe('GC20 §J — the corpus rule', () => {
       'intel',
       'stable',
       'facilities',
+      'armatura',
+      'palmae',
     ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);

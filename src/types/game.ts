@@ -375,6 +375,32 @@ export interface RoadProgress {
   milestonesSeen?: string[];
 }
 
+/**
+ * CH-1 — the seven gladiator classes (armaturae).  The class sets a character's
+ * stat template, its signature technique (doctrina) and its starting kit; the
+ * catalogue and its data live in `src/data/armaturae.ts`.
+ */
+export type ArmaturaId =
+  | 'murmillo'
+  | 'retiarius'
+  | 'secutor'
+  | 'thraex'
+  | 'hoplomachus'
+  | 'dimachaerus'
+  | 'provocator';
+
+/**
+ * CH-1 — the palmae a gladiator has earned and wears.  A palma is a victory palm
+ * (a trait), never a Laurel — `laurels` above is the separate Triumphs record.
+ * At most three are equipped at once; `resolvePalmae` enforces that on read.
+ */
+export interface PalmaeState {
+  /** Palma ids the player has earned. */
+  unlocked?: string[];
+  /** Palma ids the player wears, a subset of `unlocked`, capped at three. */
+  equipped?: string[];
+}
+
 export interface PlayerProfile {
   name: string;
   title: string;
@@ -521,4 +547,22 @@ export interface PlayerProfile {
    * successful `purchaseFacility()` — never by `createNewProfile()`.
    */
   facilities?: { stable?: number; yard?: number; workshop?: number };
+  /**
+   * CH-1 — the gladiator's class.  Optional on purpose, exactly like `chariot`
+   * and `racing`: a save written before the class exists has no `armatura` field
+   * at all and must keep loading, so `resolveArmatura` (`utils/traitModifiers.ts`)
+   * reads it as Murmillo rather than repairing the save.  Written ONLY by a later
+   * successful class choice — never by `createNewProfile()` and never by a
+   * migration.
+   */
+  armatura?: ArmaturaId;
+  /**
+   * CH-1 — the earned palmae.  Optional on purpose, exactly like `armatura`: a
+   * save written before palmae exist has no `palmae` field at all and must keep
+   * loading, so `resolvePalmae` (`utils/traitModifiers.ts`) reads it as "none
+   * earned, none worn" rather than repairing the save.  Written ONLY by a later
+   * successful earn/equip action — never by `createNewProfile()` and never by a
+   * migration.
+   */
+  palmae?: PalmaeState;
 }

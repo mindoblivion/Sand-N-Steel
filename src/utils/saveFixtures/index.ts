@@ -40,6 +40,7 @@ import consumablesEraProfile from './consumablesEraProfile.json';
 import intelEraProfile from './intelEraProfile.json';
 import stableEraProfile from './stableEraProfile.json';
 import facilitiesEraProfile from './facilitiesEraProfile.json';
+import armaturaPalmaeProfile from './armaturaPalmaeProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -222,6 +223,18 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every older fixture omits the field, the legacy shape a load must survive',
     ],
     profile: asProfile(facilitiesEraProfile),
+  },
+  {
+    id: 'armatura-palmae',
+    file: 'armaturaPalmaeProfile.json',
+    provenance:
+      'The P5 facilities-era save with the two CH-1 fields hand-aged on: class retiarius, two palmae unlocked and one worn — the shape a later class choice and a palma earn/equip write.',
+    covers: [
+      'the `armatura` class field populated (CH-1), retiarius',
+      'the `palmae` record populated (CH-1): two unlocked, one equipped',
+      'every post-GC20 optional field populated, armatura and palmae included',
+    ],
+    profile: asProfile(armaturaPalmaeProfile),
   },
 ];
 

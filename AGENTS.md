@@ -6665,3 +6665,88 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   appearance on the chariot** (the `triumph` finish's three material overrides) — SwiftShader only
   here, so it needs the on-device look. (c) The Triumphs page row, verified by markup assertions (it
   only appears once the set is owned, which the guest profile never is).
+
+## CH-1 — Armatura & palmae data (implemented, data only)
+
+- **What shipped, and what deliberately did not.** The seven classes and the sixteen
+  palmae as data, two optional profile fields, and the pure read model a later
+  combat slice will consume. **No combat, `DuelScene`, `App.tsx`, storage behaviour
+  or UI changed**, `createNewProfile()` writes neither field (they are written only
+  by later successful actions, exactly like `racing`), and the only `itemsDB.ts`
+  edit is the trident's display name (`Barbed Retiarius Trident` → `Retiarius
+  Trident`; id, stats and array order untouched — `ALL_WEAPONS[2]` is still the
+  spare starter weapon).
+- **The type seam** (`src/types/game.ts`): `ArmaturaId` (the seven ids),
+  `PalmaeState { unlocked?, equipped? }`, and `PlayerProfile.armatura?` /
+  `PlayerProfile.palmae?` appended last, so GC20 §J's optional-field list ends
+  `…, 'facilities', 'armatura', 'palmae'`. No save-version field was added; no
+  existing field or type changed.
+- **`src/data/armaturae.ts`** — `ARMATURAE` (id, name, fantasy, stat template,
+  doctrina, starting kit, `forgeKit: 'kit_<id>'`), `ARMATURA_IDS`,
+  `DEFAULT_ARMATURA_ID` (`murmillo`), `getArmatura`, `isArmaturaId`. Kits:
+  murmillo/secutor/provocator `gladius_standard`; retiarius `trident_retarius`
+  equipped + `gladius_standard` carried; thraex `shamshir_curved` (the file's only
+  curved `sword_shield`); hoplomachus `hoplite_spear`; dimachaerus
+  `dual_sicae_daggers` + `dagger_pugio` (two `dual_blades`-family items, one
+  equipped, one carried).
+- **Doctrinae — block-expressible vs noted.** `onBlockStamina: 6` (murmillo),
+  `staminaCostMult: 0.85` (secutor), `damageTakenMult: 0.92` (provocator) live in
+  `doctrina.modifiers`. Retiarius (net), thraex (`blockPenetration 0.40`),
+  hoplomachus (distance-band damage) and dimachaerus (twin strike) carry empty
+  blocks with the magnitude/condition named in `doctrina.notes` — no new formula
+  hook was invented.
+- **`src/data/palmae.ts`** — `PALMAE` (16), `PALMAE_PLAYER_POOL` (12, derived by
+  filtering), `PALMAE_BOSS_ONLY` (4), `getPalma`. Each row carries `id` (snake_case
+  from the name), `name`, `description`, `source` + `sourceDetail`, `hookStages`,
+  an `effect: TraitModifierBlock`, and `notes` for what the block cannot hold.
+  `bossOnly` rows are structurally excluded from the pool (tested), and
+  `resolvePalmae` also drops them from a hand-edited save.
+- **`src/utils/traitModifiers.ts`** — `TraitModifierBlock` (the design §2.4 field
+  set; `statFlat {str,agi,sta,def}`), `mergeModifiers`, `applyBlockReduction`,
+  `BLOCK_REDUCTION_CAP` (0.90), `MAX_EQUIPPED_PALMAE` (3), `resolvePalmae`,
+  `resolveArmatura`. Merge rules: adds add, multipliers multiply, `statFlat` adds
+  per stat, `comboShield` ORs, and the pooled `blockReductionAdd` is clamped to
+  0.90 — `applyBlockReduction(base, add)` is the call-site half that clamps the
+  weapon's own base plus the add to the same 0.90. `resolvePalmae` accepts the
+  profile or the raw record, reads absent/null/garbage as
+  `{ unlocked: [], equipped: [] }`, keeps only strings the player pool offers,
+  de-duplicates, filters `equipped` to `unlocked` and caps it at 3.
+  `resolveArmatura`: explicit valid `armatura` wins, else `characterModel`
+  `retiarius` / `dimachaerus`, else `murmillo`.
+- **Findings (effects the block shape cannot express):** the retiarius net and
+  dimachaerus's twin strike are stateful; thraex's 0.40 block penetration has no
+  field at all; hoplomachus's distance-band damage is a table, not a multiplier;
+  secutor's stamina discount is power-attack-only and its entangle immunity has no
+  field; provocator's and Viper's Patience's per-attack-type / post-counter
+  conditions ride as notes; Pyre Brand's heal and Pit Bellower's stamina drain
+  have no field either. `Heavy Hand` keeps its two multipliers but notes the
+  power-attack restriction. All fifteen other effects are fully expressible.
+- **Corpus (GC20-X style).** New fixture `armatura-palmae`
+  (`armaturaPalmaeProfile.json`) — the `facilities-era` save plus `armatura:
+  "retiarius"` and `palmae { unlocked: [iron_lungs, second_wind], equipped:
+  [iron_lungs] }` — registered in `saveFixtures/index.ts`, added to
+  `REQUIRED_FIXTURE_IDS` (count now 17) and documented in
+  `saveFixtures/MANIFEST.md`. `saveCorpus.test.ts` now drives `resolveArmatura` /
+  `resolvePalmae` from `driveEveryResolver`, asserts their shaped state per
+  fixture, their absent-field defaults in §E and the new fixture's own values in
+  §F, and §J's expected optional list gained exactly `'armatura'`, `'palmae'`
+  (both also added to §J's with/without-fixture loop). No §J assertion weakened.
+- **Tests:** `src/utils/traitModifiers.test.ts` (46 tests / 7 sections) — resolver
+  defaults on undefined/garbage, the 3-cap and unlocked filter, unknown/boss-only
+  dropping, purity, merge identity + arithmetic + the 0.90 cap +
+  `applyBlockReduction`, the `resolveArmatura` table, all seven classes (stats,
+  fantasy, doctrinae, kit ids verified against `itemsDB`, retiarius/dimachaerus
+  kit rules, Forge kit names), all sixteen palmae (snake_case ids, 12/4 split,
+  boss-only never in the pool, every effect magnitude), and a pre-CH-1 save
+  (`createNewProfile` → `saveProfile` → `loadSavedProfile`) resolving to Murmillo +
+  empty palmae with no console errors.
+- **Verified 2026-10-23** in the dev container on the final tree: `bun test` →
+  **3277 pass / 0 fail (110 files, 87,861 `expect()` calls)**; `bun run
+  scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup
+  asset check passing (8 assets); `git diff --check` → clean. The corpus suite
+  gained the new fixture's five per-fixture cases plus one §F case, and this slice
+  adds one test file and one fixture.
+- **Not attempted, and why:** no preview/visual check — this slice changes no
+  rendered pixel, no route and no interaction, so there is nothing on screen to
+  accept. The dev server still serves the shell (HTTP 200) and the build is clean.
