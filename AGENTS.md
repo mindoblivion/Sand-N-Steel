@@ -6750,3 +6750,53 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Not attempted, and why:** no preview/visual check — this slice changes no
   rendered pixel, no route and no interaction, so there is nothing on screen to
   accept. The dev server still serves the shell (HTTP 200) and the build is clean.
+
+## CH-2 — creation & roster wiring (armatura picker, templates, legacy re-pledge)
+
+- **What ships.** The seven classes are now chosen at creation, the choice sets the stat
+  template the ten points are spent on, the class kit replaces the one-size starter for NEW
+  profiles, and a legacy save can re-pledge its inferred class once. Five production files:
+  `utils/characterCreation.ts` (new — the pure creation write path + the two picker reducers),
+  `utils/armaturaPledge.ts` (new — the one-time re-pledge), `components/hub/CharacterCreation.tsx`
+  (the seven-card picker), `components/hub/StatsTab.tsx` (+ hub/App prop chain), `services/storage.ts`
+  (the factory's optional class argument). Three suites: `characterCreation.test.ts`,
+  `armaturaPledge.test.ts`, `armaturaSurface.test.tsx`.
+- **The creation write path is pure and shared.** `buildCreatedProfile({name, appearance, armatura,
+  allocation})` is what `onComplete` receives and what the screen's live derived preview runs
+  `calculateTotalStats` on; `baseStats` = the class template + the points SPENT (the allocation is
+  held as deltas, so the template IS the per-stat floor and the pool is still ten). The profile is
+  written WITH `armatura` and never with `palmae`. Retiarius pins: 9/13/11/1, trident equipped,
+  gladius carried, HP 119 from the base stats alone (135 once the trident's +4 STR is counted —
+  `calculateTotalStats` reads equipment, which is why the two numbers differ).
+- **The factory's argument.** `createNewProfile(name, model = 'roman_warrior', armatura?)`:
+  with NO argument the output is byte-identical to pre-CH-2 (the frozen `PRE_CH2_FACTORY_JSON`
+  literal in `characterCreation.test.ts` compares the serialised bytes, including key order), and
+  an unknown id writes nothing. With a valid id it writes that class, its template and its kit, so
+  the added keys are exactly `armatura` and the class values.
+- **The re-pledge.** `withArmaturaPledge(profile, id)` returns a NEW profile whose only difference
+  is `armatura` (nested objects are shared references) and refuses `already-pledged` /
+  `unknown-armatura` / `no-profile` with no profile at all. `App.handleRepledgeArmatura` is the only
+  caller and the only save writer; `StatsTab` offers it only while `canRepledgeArmatura(profile)`
+  AND a handler is wired, so an explicit class hides it. No other existing-profile field is written.
+- **Picker independence.** `selectArmatura` moves the look only to the class's natural model
+  (retiarius / dimachaerus) while `modelPicked` is false; `selectCharacterModel` only sets the look.
+  Verified live: choosing Retiarius suggested its rig, then choosing Amazonian kept the class.
+- **Not touched:** `createNewProfile()`'s no-argument shape, the ten-point pool, `calculateTotalStats`'
+  formula, combat, Lefty mode, the save key, `palmae`, and every existing profile's stats/gear/gold.
+- **Verified 2026-10-23**: `bun test` → **3313 pass / 0 fail (113 files, 88,238 expect())**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0 (startup check, 8 assets); `git diff --check` → clean.
+- **Preview evidence (anonymous visitor, 0 console errors).** Through the real UI: the picker renders
+  seven cards with Murmillo selected (Health 152 · Stamina 120); choosing Retiarius moved the derived
+  read to **135 · 125** and the rig label to The Retiarius; choosing Amazonian left the class card
+  selected; +1 STR read **139 · 125** with 9 points left; finishing persisted
+  `armatura: "retiarius"`, `baseStats {10,13,11,1}`, the trident equipped, the gladius carried,
+  `unspentStatPoints: 9`, no `palmae`. A second creation (Murmillo) was carried through the oath into
+  the hub: Gladiator Stats rendered `data-armatura="murmillo"` / `data-doctrina="fish_scale_wall"`
+  and offered **no** re-pledge. Both preview saves were deleted afterwards.
+- **NOT automatically verified:** the re-pledge button in a running hub (it needs a save with no
+  `armatura`, and a seeded save does not survive this environment's fresh load — server-rendered
+  `armaturaSurface.test.tsx` covers the offered/hidden states); the class cards' rendered look,
+  touch feel and landscape framing on the target device (SwiftShader here — **visual acceptance
+  defers to Walter's Android device**); and the class-argument factory path, which no production
+  caller passes yet (the Google/cloud new-profile path is its intended consumer).

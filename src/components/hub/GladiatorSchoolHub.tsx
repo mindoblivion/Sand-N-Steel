@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize } from '../../types/game';
+import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId } from '../../types/game';
 import { TournamentTab } from './TournamentTab';
 import { TrainingTab } from './TrainingTab';
 import { ShopTab } from './ShopTab';
@@ -58,6 +58,8 @@ interface GladiatorSchoolHubProps {
   onBuyRacingConfig?: (horses: ChariotTeamSize) => void;
   onSelectRacingConfig?: (horses: ChariotTeamSize) => void;
   onAllocateStatPoint: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
+  /** CH-2 — the stats tab's one-time legacy re-pledge; `App` writes the class. */
+  onRepledgeArmatura?: (armatura: ArmaturaId) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
   isMuted: boolean;
@@ -105,6 +107,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onBuyRacingConfig,
   onSelectRacingConfig,
   onAllocateStatPoint,
+  onRepledgeArmatura,
   onOpenDriveSync,
   onToggleMute,
   isMuted,
@@ -311,6 +314,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             profile={playerProfile}
             onAllocatePoint={onAllocateStatPoint}
             onUseConsumable={onUseConsumable}
+            onRepledgeArmatura={onRepledgeArmatura}
           />
         )}
         {activeTab === 'library' && (
