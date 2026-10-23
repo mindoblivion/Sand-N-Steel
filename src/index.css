@@ -115,6 +115,26 @@
   .combat-hud .combat-log-items {
     max-height: 4rem;
   }
+  /* C-8.74D-A — the five tactic cards in ONE row of five.
+     Measured at 812x375 with the production-equivalent Settings row (C-8.74D-A
+     closed that harness gap): the panel ran 164.9 -> 495.9 against a 375px
+     viewport, so 120.9px sat below the fold and the movement strip (444.9 ->
+     479.9) was entirely unreachable. The `sm:grid-cols-4` grid wrapped the five
+     cards onto two rows of 101px; one row of five reclaims that whole row. Only
+     the column count changes — every card keeps its own content, and the
+     reaction/telegraph cues are untouched. */
+  .combat-hud .tactic-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  /* C-8.74D-A — the dashboard's own chrome, not its controls. The one-row grid
+     above leaves the panel ending 11.9px past the fold (its bottom padding and
+     border); tightening the card's padding and inter-row gaps closes that
+     (panel 222 -> 199.6px) without touching any button: every card, the movement
+     strip and the reaction targets keep their shipped heights. */
+  .combat-hud .tactic-dashboard {
+    gap: 0.3rem;
+    padding: 0.5rem;
+  }
 }
 
 .scrollbar-none::-webkit-scrollbar {

@@ -160,6 +160,11 @@ export const CombatHudHarness: React.FC = () => {
           onOpenHelp={() => {}}
           cameraMode="cinematic"
           onCycleCameraMode={() => {}}
+          // C-8.74D-A — DuelScene passes this, so the harness must too: the
+          // Settings button carries `min-h-[48px]` and makes the utility row
+          // taller, which is exactly the vertical budget landscape is short of.
+          // Without it the harness under-measured the top block by ~18px.
+          onOpenSettings={() => {}}
           distance={4.2}
           isPlayerTurn={cueState === 'normal' || cueState === 'player-windup'}
           isExecuting={cueState === 'player-windup'}

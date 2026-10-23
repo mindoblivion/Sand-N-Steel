@@ -147,7 +147,11 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
       </div>
 
       {/* TACTICAL COMMAND DASHBOARD (CENTER / RIGHT) */}
-      <div className="flex-1 bg-neutral-950/90 border-2 border-amber-600/60 rounded-2xl p-2 sm:p-3.5 backdrop-blur-md shadow-2xl flex flex-col justify-between gap-2 sm:gap-2.5">
+      {/* `tactic-dashboard` is a landscape-only hook (C-8.74D-A): at 812x375 this
+          card's own padding and gaps are what left the panel's bottom edge 11.9px
+          past the fold once the grid fit. No rule targets it outside the
+          short-landscape media query, so desktop and portrait are unchanged. */}
+      <div className="tactic-dashboard flex-1 bg-neutral-950/90 border-2 border-amber-600/60 rounded-2xl p-2 sm:p-3.5 backdrop-blur-md shadow-2xl flex flex-col justify-between gap-2 sm:gap-2.5">
         {/* TURN STATE BANNER */}
         <div className="flex items-center justify-between bg-neutral-900/90 border border-amber-700/50 px-3 py-1 sm:py-1.5 rounded-xl">
           <div className="flex items-center gap-2">
@@ -170,8 +174,11 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           </div>
         </div>
 
-        {/* COMMAND ACTION BUTTONS GRID */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+        {/* COMMAND ACTION BUTTONS GRID. `tactic-grid` is the landscape-only hook
+            (C-8.74D-A): at 812x375 the panel is wide but only ~200px tall, so the
+            five cards go in ONE row of five instead of two rows of four, which is
+            the single largest vertical saving on the screen (measured 210 -> 101px). */}
+        <div className="tactic-grid grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
           {/* 1. QUICK STRIKE */}
           <button
             onClick={() => onExecuteAction('quick_attack')}
