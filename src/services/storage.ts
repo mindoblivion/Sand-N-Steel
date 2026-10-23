@@ -1,5 +1,7 @@
-import { PlayerProfile, FighterStats } from '../types/game';
+import { PlayerProfile, FighterStats, ArmaturaId } from '../types/game';
 import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON } from '../data/itemsDB';
+import { getArmatura } from '../data/armaturae';
+import { armaturaKit } from '../utils/characterCreation';
 import {
   resolveTemperLevel,
   getEffectiveWeaponStats,
@@ -83,8 +85,23 @@ export function calculateTotalStats(profile: PlayerProfile): FighterStats {
   };
 }
 
-export function createNewProfile(name: string, characterModel = 'roman_warrior' as const): PlayerProfile {
-  return {
+/**
+ * The profile factory.
+ *
+ * CH-2 — `armatura` is optional and defaults to `undefined`.  With NO argument the
+ * output is byte-identical to the pre-CH-2 factory: no `armatura` key, the flat
+ * 10 / 10 / 10 / 4 stats and the one-size starter kit exactly as before, so the
+ * GC20 corpus pins are untouched.  With a class argument the profile carries that
+ * class, its stat template and its kit — the same shape local creation writes, so a
+ * cloud-created gladiator is not a classless one.  Either way `palmae` is never
+ * written: a palm is earned in the arena.
+ */
+export function createNewProfile(
+  name: string,
+  characterModel = 'roman_warrior' as const,
+  armatura?: ArmaturaId,
+): PlayerProfile {
+  const profile: PlayerProfile = {
     name: name.trim() || 'Spartacus',
     title: 'The Sandborn Rebel',
     rank: 'Rookie',
@@ -125,6 +142,21 @@ export function createNewProfile(name: string, characterModel = 'roman_warrior' 
     // Shape alignment: `CharacterCreation`'s finish path writes this too, so both
     // profile factories produce the same key set. App reads lefty from settings.
     isLeftyMode: false,
+  };
+
+  if (armatura === undefined) return profile;
+
+  const row = getArmatura(armatura);
+  // An unknown id writes nothing, so the no-argument shape stays the fallback.
+  if (!row) return profile;
+
+  const kit = armaturaKit(row);
+  return {
+    ...profile,
+    baseStats: { ...row.stats },
+    equipped: { weapon: kit.weapon },
+    inventory: kit.inventory,
+    armatura: row.id,
   };
 }
 

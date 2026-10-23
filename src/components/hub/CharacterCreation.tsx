@@ -1,9 +1,22 @@
 import React, { useState } from 'react';
-import { PlayerProfile, PlayerAppearance } from '../../types/game';
+import { PlayerProfile, PlayerAppearance, ArmaturaId, CharacterModelType } from '../../types/game';
 import { GladiatorPreview } from '../3d/GladiatorPreview';
 import { sounds } from '../../audio/soundEffects';
-import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON } from '../../data/itemsDB';
+import { ARMATURAE } from '../../data/armaturae';
 import { calculateTotalStats } from '../../services/storage';
+import {
+  CREATION_POINTS,
+  DEFAULT_SELECTION,
+  NO_ALLOCATION,
+  armaturaKit,
+  buildCreatedProfile,
+  selectArmatura,
+  selectCharacterModel,
+  unspentPoints,
+  type AllocationStat,
+  type CreationAllocation,
+  type CreationSelection,
+} from '../../utils/characterCreation';
 import { Sparkles, Swords, Shield, Heart, Zap, Check, ArrowLeft, Settings, Activity } from 'lucide-react';
 import { GoogleSignInButton } from '../ui/GoogleSignInButton';
 interface CharacterCreationProps {
@@ -17,16 +30,25 @@ interface CharacterCreationProps {
 
 export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, onOpenSettings }) => {
   const [name, setName] = useState('Spartacus');
-  const [characterModel, setCharacterModel] = useState<'roman_warrior' | 'procedural_gladiator' | 'amazonian' | 'retiarius' | 'minotaur' | 'dimachaerus'>('roman_warrior');
-  const [skinColor, setSkinColor] = useState('#c68b59');
-  const [tunicColor, setTunicColor] = useState('#854d0e');
-  const [crestColor, setCrestColor] = useState('#dc2626');
-  // 10 Starting Attribute Points
-  const [pointsLeft, setPointsLeft] = useState(10);
-  const [strength, setStrength] = useState(10);
-  const [agility, setAgility] = useState(10);
-  const [stamina, setStamina] = useState(10);
-  const [defense, setDefense] = useState(4);
+  /**
+   * CH-2 — the class is chosen here and the LOOK is chosen beside it; the two are
+   * independent.  `selectArmatura` / `selectCharacterModel` are the only two
+   * writers, so a class can only ever *suggest* its natural model (while the player
+   * has not picked one) and a look can never change the class.
+   */
+  const [selection, setSelection] = useState<CreationSelection>(DEFAULT_SELECTION);
+  const [skinColor] = useState('#c68b59');
+  const [tunicColor] = useState('#854d0e');
+  const [crestColor] = useState('#dc2626');
+  /**
+   * CH-2 — the ten creation points, held as points SPENT per attribute.  The
+   * absolute value on screen is the class template plus this, so the per-stat floor
+   * IS the template and the pool is the same ten points it has always been.
+   */
+  const [allocation, setAllocation] = useState<CreationAllocation>(NO_ALLOCATION);
+
+  const armatura = ARMATURAE.find((row) => row.id === selection.armatura) ?? ARMATURAE[0];
+  const pointsLeft = unspentPoints(allocation);
 
   const appearance: PlayerAppearance = {
     skinColor,
@@ -34,68 +56,36 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
     tunicColor,
     crestColor,
     clothingStyle: 'roman_tunic',
-    characterModel,
+    characterModel: selection.characterModel,
   };
 
-  const handleStatChange = (stat: 'str' | 'agi' | 'sta' | 'def', delta: number) => {
+  const handleArmaturaSelect = (id: ArmaturaId) => {
+    sounds.playClick();
+    setSelection((current) => selectArmatura(current, id));
+  };
+
+  const handleModelSelect = (model: CharacterModelType) => {
+    sounds.playClick();
+    setSelection((current) => selectCharacterModel(current, model));
+  };
+
+  const handleStatChange = (stat: AllocationStat, delta: number) => {
     sounds.playClick();
     if (delta > 0 && pointsLeft <= 0) return;
-
-    if (stat === 'str') {
-      if (delta < 0 && strength <= 10) return;
-      setStrength((prev) => prev + delta);
-    } else if (stat === 'agi') {
-      if (delta < 0 && agility <= 10) return;
-      setAgility((prev) => prev + delta);
-    } else if (stat === 'sta') {
-      if (delta < 0 && stamina <= 10) return;
-      setStamina((prev) => prev + delta);
-    } else if (stat === 'def') {
-      if (delta < 0 && defense <= 4) return;
-      setDefense((prev) => prev + delta);
-    }
-    setPointsLeft((prev) => prev - delta);
+    const next = allocation[stat] + delta;
+    // The floor is the class template: never below zero points spent.
+    if (next < 0) return;
+    setAllocation((current) => ({ ...current, [stat]: next }));
   };
 
   /**
-   * CL-2 — the profile exactly as `handleFinish` hands it to `onComplete`, built
-   * from the screen's current state.  Nothing here is written anywhere: the
-   * derived preview below runs `calculateTotalStats` on it, and the fighter is
-   * created from the same object, so the two can never disagree.
+   * CL-2 / CH-2 — the profile exactly as `handleFinish` hands it to `onComplete`,
+   * built from the screen's current state by the pure creation module.  Nothing
+   * here is written anywhere: the derived preview below runs `calculateTotalStats`
+   * on it, so the two can never disagree.
    */
-  const buildProfile = (): PlayerProfile => ({
-    name: name.trim() || 'Spartacus',
-    title: 'The Sandborn Rebel',
-    rank: 'Rookie',
-    appearance,
-    level: 1,
-    xp: 0,
-    xpToNextLevel: 100,
-    unspentStatPoints: pointsLeft,
-    baseStats: {
-      strength,
-      agility,
-      stamina,
-      defense,
-    },
-    gold: 100,
-    fame: 0,
-    currentTier: 1,
-    tierProgress: { 1: 0, 2: 0, 3: 0, 4: 0 },
-    defeatedOpponentIds: [],
-    bossKills: 0,
-    newGamePlus: 0,
-    trainingSessionsLeft: 2,
-    injury: null,
-    equipped: {
-      weapon: DEFAULT_PLAYER_WEAPON,
-    },
-    inventory: [DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON], // includes spear
-    fightsWon: 0,
-    fightsLost: 0,
-    peakCrowdHypeOverall: 0,
-    isLeftyMode: false,
-  });
+  const buildProfile = (): PlayerProfile =>
+    buildCreatedProfile({ name, appearance, armatura: selection.armatura, allocation });
 
   /** CL-2 — the live derived numbers shown under the stat allocation. */
   const draftStats = calculateTotalStats(buildProfile());
@@ -104,6 +94,15 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
     sounds.playClick();
     onComplete(buildProfile());
   };
+
+  // CH-2 — each row's floor is the class template's own value, so the − control is
+  // really disabled at the value `handleStatChange` already refuses to cross.
+  const statRows = [
+    { key: 'strength' as AllocationStat, label: 'Strength (Damage)', val: armatura.stats.strength + allocation.strength, statFloor: armatura.stats.strength, icon: Swords, color: 'text-red-400' },
+    { key: 'agility' as AllocationStat, label: 'Agility (Speed & Dodge)', val: armatura.stats.agility + allocation.agility, statFloor: armatura.stats.agility, icon: Zap, color: 'text-yellow-400' },
+    { key: 'stamina' as AllocationStat, label: 'Stamina (Endurance)', val: armatura.stats.stamina + allocation.stamina, statFloor: armatura.stats.stamina, icon: Heart, color: 'text-green-400' },
+    { key: 'defense' as AllocationStat, label: 'Defense (Armor & Block)', val: armatura.stats.defense + allocation.defense, statFloor: armatura.stats.defense, icon: Shield, color: 'text-blue-400' },
+  ];
 
   return (
     <div className="relative w-full h-full min-h-screen bg-neutral-950 text-amber-100 flex flex-col p-4 sm:p-8 select-none overflow-y-auto">
@@ -152,7 +151,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[360px] shadow-2xl relative overflow-hidden">
           <GladiatorPreview appearance={appearance} />
           <div className="absolute bottom-4 left-4 bg-neutral-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-mono text-amber-300">
-            {characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Centurion (Animated Rig)'}
+            {selection.characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : selection.characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : selection.characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : selection.characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : selection.characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Centurion (Animated Rig)'}
           </div>
         </div>
 
@@ -172,23 +171,67 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
             />
           </div>
 
-          {/* CL-2 — the model pick is a LOOK, not a class.  This screen has no
-              armatura / class selection at all (the fighting style is earned in the
-              ludus later), so the label says so in one line rather than implying a
-              class choice. */}
+          {/* CH-2 — THE ARMATURA PICKER.  Seven cards rendered from `data/armaturae.ts`
+              (never a copy of the data): name, fantasy, stat template, doctrina and kit.
+              Choosing one sets the allocation's starting stats to its template. */}
+          <div>
+            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+              Armatura — Your Class
+            </label>
+            <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
+              Your class sets your starting attributes, your signature technique and the weapon you enter with.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-armatura-picker>
+              {ARMATURAE.map((row) => {
+                const selected = row.id === armatura.id;
+                const kit = armaturaKit(row);
+                const kitLine = [kit.weapon.name, ...kit.inventory.slice(1).map((item) => item.name)].join(' · ');
+                return (
+                  <button
+                    key={row.id}
+                    type="button"
+                    data-armatura-card={row.id}
+                    aria-pressed={selected}
+                    onClick={() => handleArmaturaSelect(row.id)}
+                    className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                      selected
+                        ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
+                        : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
+                      {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
+                    </div>
+                    <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.fantasy}</p>
+                    <p className="text-[10px] font-mono text-amber-400/80 mt-1">
+                      STR {row.stats.strength} · AGI {row.stats.agility} · STA {row.stats.stamina} · DEF {row.stats.defense}
+                    </p>
+                    <p className="text-[10px] font-serif text-neutral-300 mt-1">
+                      <span className="font-bold text-amber-200/90">{row.doctrina.name}:</span> {row.doctrina.text}
+                    </p>
+                    <p className="text-[10px] font-mono text-neutral-500 mt-1">Kit: {kitLine}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* CH-2 — the model pick is a LOOK only.  It never changes the class, and
+              the class never overrides a look the player has chosen. */}
           <div>
             <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
               Fighter's Look
             </label>
             <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
-              Your look only — every fighter starts equal. Your fighting style comes from your class, earned in the ludus.
+              Your look only — it never changes your class. Your class is chosen above.
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setCharacterModel('roman_warrior')}
+                onClick={() => handleModelSelect('roman_warrior')}
                 className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  characterModel === 'roman_warrior'
+                  selection.characterModel === 'roman_warrior'
                     ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-md'
                     : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-amber-600/50'
                 }`}
@@ -197,9 +240,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               </button>
               <button
                 type="button"
-                onClick={() => setCharacterModel('amazonian')}
+                onClick={() => handleModelSelect('amazonian')}
                 className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  characterModel === 'amazonian'
+                  selection.characterModel === 'amazonian'
                     ? 'bg-emerald-500/30 border-emerald-400 text-emerald-200 shadow-md'
                     : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-emerald-600/50'
                 }`}
@@ -208,9 +251,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               </button>
               <button
                 type="button"
-                onClick={() => setCharacterModel('procedural_gladiator')}
+                onClick={() => handleModelSelect('procedural_gladiator')}
                 className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  characterModel === 'procedural_gladiator'
+                  selection.characterModel === 'procedural_gladiator'
                     ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-md'
                     : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-amber-600/50'
                 }`}
@@ -219,9 +262,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               </button>
               <button
                 type="button"
-                onClick={() => setCharacterModel('retiarius')}
+                onClick={() => handleModelSelect('retiarius')}
                 className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  characterModel === 'retiarius'
+                  selection.characterModel === 'retiarius'
                     ? 'bg-cyan-500/30 border-cyan-400 text-cyan-200 shadow-md'
                     : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-cyan-600/50'
                 }`}
@@ -230,9 +273,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               </button>
               <button
                 type="button"
-                onClick={() => setCharacterModel('minotaur')}
+                onClick={() => handleModelSelect('minotaur')}
                 className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  characterModel === 'minotaur'
+                  selection.characterModel === 'minotaur'
                     ? 'bg-orange-500/30 border-orange-400 text-orange-200 shadow-md'
                     : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-orange-600/50'
                 }`}
@@ -241,9 +284,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               </button>
               <button
                 type="button"
-                onClick={() => setCharacterModel('dimachaerus')}
+                onClick={() => handleModelSelect('dimachaerus')}
                 className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  characterModel === 'dimachaerus'
+                  selection.characterModel === 'dimachaerus'
                     ? 'bg-purple-500/30 border-purple-400 text-purple-200 shadow-md'
                     : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-purple-600/50'
                 }`}
@@ -265,16 +308,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
             </div>
 
             <div className="flex flex-col gap-2.5">
-              {[
-                { key: 'str', label: 'Strength (Damage)', val: strength, icon: Swords, color: 'text-red-400' },
-                { key: 'agi', label: 'Agility (Speed & Dodge)', val: agility, icon: Zap, color: 'text-yellow-400' },
-                { key: 'sta', label: 'Stamina (Endurance)', val: stamina, icon: Heart, color: 'text-green-400' },
-                { key: 'def', label: 'Defense (Armor & Block)', val: defense, icon: Shield, color: 'text-blue-400' },
-              ].map((stat) => {
+              {statRows.map((stat) => {
                 const Icon = stat.icon;
-                // UI-1 (B-4) — the stepper's own floor, so the − control is really
-                // disabled at the value `handleStatChange` already refuses to cross.
-                const statFloor = stat.key === 'def' ? 4 : 10;
+                const { statFloor } = stat;
                 return (
                   <div key={stat.key} className="flex justify-between items-center bg-neutral-950/80 p-2.5 rounded-xl border border-neutral-800">
                     <div className="flex items-center gap-2">
@@ -286,7 +322,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => handleStatChange(stat.key as 'str' | 'agi' | 'sta' | 'def', -1)}
+                          onClick={() => handleStatChange(stat.key, -1)}
                           disabled={stat.val <= statFloor}
                           aria-label={`Reduce ${stat.label}`}
                           className="shrink-0 w-12 h-12 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:bg-neutral-900 disabled:border-neutral-800 disabled:text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-600 text-neutral-200 font-bold cursor-pointer"
@@ -295,7 +331,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleStatChange(stat.key as 'str' | 'agi' | 'sta' | 'def', 1)}
+                          onClick={() => handleStatChange(stat.key, 1)}
                           disabled={pointsLeft <= 0}
                           aria-label={`Raise ${stat.label}`}
                           className="shrink-0 w-12 h-12 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-40 border border-amber-400 text-neutral-950 font-bold cursor-pointer"
@@ -308,6 +344,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
                 );
               })}
             </div>
+            <p className="text-[10px] font-mono text-neutral-500 mt-2">
+              {CREATION_POINTS} points to spend · your class template is the floor.
+            </p>
           </div>
 
           {/* CL-2 — the live derived preview: the same `calculateTotalStats` the camp's

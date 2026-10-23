@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize } from './types/game';
+import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId } from './types/game';
 import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
 import type { StoredProfileSummary } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
@@ -21,6 +21,7 @@ import { purchaseFacility, trainingCost, type FacilityId } from './utils/facilit
 import { purchaseTemper } from './utils/tempering';
 import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
 import { purchaseItem } from './utils/itemPurchase';
+import { withArmaturaPledge } from './utils/armaturaPledge';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
@@ -986,6 +987,22 @@ export function App() {
     saveProfile(updated);
   };
 
+  /**
+   * CH-2 — the legacy re-pledge.  A save written before the classes existed has no
+   * `armatura` field, so its class is only inferred; this writes the chosen id and
+   * NOTHING else (no stat, item, gold or palma), through the same
+   * `setProfile` + `saveProfile` pair every other profile change uses.  The helper
+   * refuses an already-pledged profile, so the tap can only ever happen once.
+   */
+  const handleRepledgeArmatura = (armatura: ArmaturaId) => {
+    if (!profile) return;
+    const result = withArmaturaPledge(profile, armatura);
+    if (!result.ok) return;
+    sounds.playClick();
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
   const handleResetGame = () => {
     clearSavedProfile();
     setProfile(null);
@@ -1112,6 +1129,7 @@ export function App() {
             onBuyRacingConfig={handleBuyRacingConfig}
             onSelectRacingConfig={handleSelectRacingConfig}
             onAllocateStatPoint={handleAllocateStatPoint}
+            onRepledgeArmatura={handleRepledgeArmatura}
             onOpenDriveSync={() => setShowDriveSync(true)}
             onToggleMute={handleToggleMute}
             isMuted={isMuted}

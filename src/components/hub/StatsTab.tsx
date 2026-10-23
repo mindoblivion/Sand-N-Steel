@@ -1,7 +1,10 @@
-import React from 'react';
-import { PlayerProfile } from '../../types/game';
+import React, { useState } from 'react';
+import { PlayerProfile, ArmaturaId } from '../../types/game';
 import { calculateTotalStats } from '../../services/storage';
-import { Swords, Shield, Heart, Zap, Flame, Activity, Crown, HeartPulse, FlaskConical } from 'lucide-react';
+import { Swords, Shield, Heart, Zap, Flame, Activity, Crown, HeartPulse, FlaskConical, ScrollText } from 'lucide-react';
+import { ARMATURAE, getArmatura } from '../../data/armaturae';
+import { resolveArmatura } from '../../utils/traitModifiers';
+import { canRepledgeArmatura } from '../../utils/armaturaPledge';
 import { resolveActiveInjury } from '../../utils/injury';
 import { getConsumableCount, ownedConsumables } from '../../utils/consumables';
 import { CampaignCard } from './CampaignCard';
@@ -13,14 +16,30 @@ interface StatsTabProps {
   onAllocatePoint: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
   /** S6 — one-tap use of an owned consumable; `App` applies it and writes the save. */
   onUseConsumable?: (itemId: string) => void;
+  /**
+   * CH-2 — the one-time legacy re-pledge.  A profile whose class was only INFERRED
+   * gets this action; `App` writes the chosen id (and nothing else) through its
+   * single save path.  Absent handler = no action offered.
+   */
+  onRepledgeArmatura?: (armatura: ArmaturaId) => void;
 }
 
 export const StatsTab: React.FC<StatsTabProps> = ({
   profile,
   onAllocatePoint,
   onUseConsumable,
+  onRepledgeArmatura,
 }) => {
   const total = calculateTotalStats(profile);
+  /**
+   * CH-2 — the class and its doctrina, read through the one resolver the game
+   * already owns (an explicit `armatura` wins; otherwise the model infers it).
+   * Read-only: this panel writes nothing.  The re-pledge action below is the only
+   * write this screen offers, and only while the field was never explicitly set.
+   */
+  const armatura = getArmatura(resolveArmatura(profile));
+  const canRepledge = canRepledgeArmatura(profile);
+  const [pledgeOpen, setPledgeOpen] = useState(false);
   const totalStamina = total.stamina ?? profile.baseStats.stamina;
   /**
    * P2 — the rank shown here is DERIVED from the record (`utils/rank.ts`
@@ -70,6 +89,74 @@ export const StatsTab: React.FC<StatsTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* CH-2 — ARMATURA & DOCTRINA (read-only).  The class sets the stat template
+          and the signature technique; nothing here is editable except the one-time
+          re-pledge a legacy save is offered below. */}
+      {armatura && (
+        <div
+          data-armatura={armatura.id}
+          className="bg-neutral-900/80 border border-amber-600/50 rounded-3xl p-6 shadow-lg"
+        >
+          <h4 className="font-serif font-bold text-sm text-amber-300 mb-4 uppercase tracking-wider flex items-center gap-2">
+            <ScrollText className="w-4 h-4 text-amber-400" />
+            <span>Armatura &amp; Doctrina</span>
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 bg-neutral-950/80 border border-neutral-800 rounded-2xl">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Armatura</div>
+              <div className="font-serif font-black text-xl text-amber-200 mt-1">{armatura.name}</div>
+              <p className="text-[11px] font-serif italic text-neutral-400 mt-1">{armatura.fantasy}</p>
+              <p className="text-[10px] font-mono text-amber-400/70 mt-1">
+                STR {armatura.stats.strength} · AGI {armatura.stats.agility} · STA{' '}
+                {armatura.stats.stamina} · DEF {armatura.stats.defense}
+              </p>
+            </div>
+            <div
+              className="p-4 bg-neutral-950/80 border border-neutral-800 rounded-2xl"
+              data-doctrina={armatura.doctrina.id}
+            >
+              <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Doctrina</div>
+              <div className="font-serif font-black text-xl text-amber-200 mt-1">
+                {armatura.doctrina.name}
+              </div>
+              <p className="text-[11px] font-serif text-neutral-300 mt-1">{armatura.doctrina.text}</p>
+            </div>
+          </div>
+
+          {canRepledge && onRepledgeArmatura && (
+            <div className="mt-4" data-repledge-armatura>
+              <button
+                type="button"
+                onClick={() => setPledgeOpen((open) => !open)}
+                aria-expanded={pledgeOpen}
+                className="min-h-[48px] w-full px-4 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400 text-amber-200 font-serif font-bold text-xs uppercase tracking-wider cursor-pointer"
+              >
+                Re-pledge your Armatura
+              </button>
+              <p className="text-[11px] font-serif text-neutral-400 mt-2">
+                Your class was read from your look. Choose it once, free — your stats, gear and honours stay exactly as they are.
+              </p>
+              {pledgeOpen && (
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2" data-repledge-options>
+                  {ARMATURAE.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      data-repledge-choice={option.id}
+                      onClick={() => onRepledgeArmatura(option.id)}
+                      className="min-h-[48px] text-left px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 hover:border-amber-500 text-neutral-200 cursor-pointer"
+                    >
+                      <span className="block font-serif font-bold text-sm text-amber-200">{option.name}</span>
+                      <span className="block text-[10px] font-serif italic text-neutral-400">{option.fantasy}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* CAREER — the derived rank beside fame, and every Triumph owned. */}
       <div
