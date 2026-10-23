@@ -720,7 +720,8 @@ describe('P5 §G — the profile field and the GC20 corpus', () => {
     expect(raw.facilities).toEqual({ stable: 2, yard: 2, workshop: 2 });
     expect(Object.keys(raw.facilities!).sort()).toEqual(['stable', 'workshop', 'yard']);
     expect(resolveFacilities(fixture!.profile)).toEqual({ stable: 2, yard: 2, workshop: 2 });
-    expect(raw.gold).toBe(900);
+    // Rebased to the corrected facility prices: a 6,000 purse minus the 5,400 whole-ludus sink.
+    expect(raw.gold).toBe(600);
     expect(fixture!.covers.join(' ')).toContain('facilities');
   });
 
