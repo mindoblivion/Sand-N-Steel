@@ -1,0 +1,344 @@
+{
+  "name": "Corpus Chronicler",
+  "title": "Living Legend",
+  "rank": "Veteran",
+  "appearance": {
+    "skinColor": "#c68b59",
+    "hairColor": "#3e2723",
+    "tunicColor": "#854d0e",
+    "crestColor": "#dc2626",
+    "clothingStyle": "roman_tunic",
+    "characterModel": "roman_warrior"
+  },
+  "level": 7,
+  "xp": 180,
+  "xpToNextLevel": 300,
+  "unspentStatPoints": 0,
+  "baseStats": {
+    "strength": 18,
+    "agility": 14,
+    "stamina": 12,
+    "defense": 10
+  },
+  "gold": 600,
+  "fame": 700,
+  "currentTier": 3,
+  "tierProgress": {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0
+  },
+  "defeatedOpponentIds": [
+    "opp_marcus",
+    "opp_flaccus",
+    "opp_goliath_boss",
+    "opp_hoplite",
+    "opp_ignis_boss"
+  ],
+  "bossKills": 0,
+  "newGamePlus": 0,
+  "trainingSessionsLeft": 2,
+  "injury": null,
+  "equipped": {
+    "weapon": {
+      "id": "spatha_legion",
+      "name": "Imperial Spatha & Buckler",
+      "type": "sword_shield",
+      "rarity": "uncommon",
+      "description": "Longer cavalry blade forged from tempered Iberian steel.",
+      "damageLight": 19,
+      "damageHeavy": 35,
+      "staminaLight": 14,
+      "staminaHeavy": 28,
+      "range": 2.4,
+      "speed": 0.42,
+      "blockReduction": 0.85,
+      "price": 180,
+      "sellPrice": 80,
+      "color": "#991b1b",
+      "metalColor": "#cbd5e1",
+      "icon": "Shield",
+      "modelPath": "/models/weapons/spatha.glb",
+      "bonusStrength": 3,
+      "bonusDefense": 3
+    },
+    "helm": {
+      "id": "helm_murmillo",
+      "slot": "helm",
+      "name": "Bronze Murmillo Helmet",
+      "rarity": "common",
+      "description": "Crested fish-fin helmet with grated visor.",
+      "defense": 4,
+      "staminaRegenBonus": 0,
+      "healthBonus": 10,
+      "price": 80,
+      "sellPrice": 35,
+      "color": "#b45309",
+      "trimColor": "#d97706",
+      "style": "crested",
+      "bonusDefense": 2
+    },
+    "chest": {
+      "id": "chest_lorica_segmentata",
+      "slot": "chest",
+      "name": "Lorica Segmentata Cuirass",
+      "rarity": "uncommon",
+      "description": "Overlapping broad iron plates fastened with leather straps.",
+      "defense": 10,
+      "staminaRegenBonus": 0,
+      "healthBonus": 35,
+      "price": 240,
+      "sellPrice": 100,
+      "color": "#475569",
+      "trimColor": "#cbd5e1",
+      "style": "heavy",
+      "bonusDefense": 5
+    },
+    "arms": {
+      "id": "arms_manica",
+      "slot": "arms",
+      "name": "Segmented Iron Manica",
+      "rarity": "common",
+      "description": "Protects sword arm with curved metal lames.",
+      "defense": 3,
+      "staminaRegenBonus": 0.5,
+      "price": 70,
+      "sellPrice": 30,
+      "color": "#64748b",
+      "trimColor": "#94a3b8",
+      "bonusStrength": 1
+    },
+    "legs": {
+      "id": "legs_greaves_bronze",
+      "slot": "legs",
+      "name": "Polished Bronze Ocrea Greaves",
+      "rarity": "uncommon",
+      "description": "Shin guards extending from knee to instep.",
+      "defense": 5,
+      "staminaRegenBonus": 1,
+      "price": 130,
+      "sellPrice": 55,
+      "color": "#b45309",
+      "trimColor": "#f59e0b",
+      "bonusAgility": 2
+    }
+  },
+  "inventory": [
+    {
+      "id": "gladius_standard",
+      "name": "Standard Gladius & Scutum",
+      "type": "sword_shield",
+      "rarity": "common",
+      "description": "The iconic Roman short sword and rectangular legionary curved shield.",
+      "damageLight": 14,
+      "damageHeavy": 26,
+      "staminaLight": 12,
+      "staminaHeavy": 24,
+      "range": 2.1,
+      "speed": 0.38,
+      "blockReduction": 0.82,
+      "price": 50,
+      "sellPrice": 20,
+      "color": "#c59b27",
+      "metalColor": "#e2e8f0",
+      "icon": "ShieldAlert",
+      "modelPath": "/models/weapons/gladius.glb",
+      "bonusStrength": 0,
+      "bonusDefense": 2
+    },
+    {
+      "id": "hoplite_spear",
+      "name": "Dory Hoplite Spear",
+      "type": "spear",
+      "rarity": "common",
+      "description": "Ash-wood shaft tipped with a bronze leaf blade for deadly thrusts.",
+      "damageLight": 16,
+      "damageHeavy": 30,
+      "staminaLight": 11,
+      "staminaHeavy": 22,
+      "range": 3.1,
+      "speed": 0.34,
+      "blockReduction": 0.45,
+      "price": 110,
+      "sellPrice": 45,
+      "color": "#b45309",
+      "metalColor": "#d97706",
+      "icon": "Zap",
+      "bonusAgility": 3
+    },
+    {
+      "id": "helm_murmillo",
+      "slot": "helm",
+      "name": "Bronze Murmillo Helmet",
+      "rarity": "common",
+      "description": "Crested fish-fin helmet with grated visor.",
+      "defense": 4,
+      "staminaRegenBonus": 0,
+      "healthBonus": 10,
+      "price": 80,
+      "sellPrice": 35,
+      "color": "#b45309",
+      "trimColor": "#d97706",
+      "style": "crested",
+      "bonusDefense": 2
+    },
+    {
+      "id": "arms_manica",
+      "slot": "arms",
+      "name": "Segmented Iron Manica",
+      "rarity": "common",
+      "description": "Protects sword arm with curved metal lames.",
+      "defense": 3,
+      "staminaRegenBonus": 0.5,
+      "price": 70,
+      "sellPrice": 30,
+      "color": "#64748b",
+      "trimColor": "#94a3b8",
+      "bonusStrength": 1
+    },
+    {
+      "id": "spatha_legion",
+      "name": "Imperial Spatha & Buckler",
+      "type": "sword_shield",
+      "rarity": "uncommon",
+      "description": "Longer cavalry blade forged from tempered Iberian steel.",
+      "damageLight": 19,
+      "damageHeavy": 35,
+      "staminaLight": 14,
+      "staminaHeavy": 28,
+      "range": 2.4,
+      "speed": 0.42,
+      "blockReduction": 0.85,
+      "price": 180,
+      "sellPrice": 80,
+      "color": "#991b1b",
+      "metalColor": "#cbd5e1",
+      "icon": "Shield",
+      "modelPath": "/models/weapons/spatha.glb",
+      "bonusStrength": 3,
+      "bonusDefense": 3
+    },
+    {
+      "id": "chest_lorica_segmentata",
+      "slot": "chest",
+      "name": "Lorica Segmentata Cuirass",
+      "rarity": "uncommon",
+      "description": "Overlapping broad iron plates fastened with leather straps.",
+      "defense": 10,
+      "staminaRegenBonus": 0,
+      "healthBonus": 35,
+      "price": 240,
+      "sellPrice": 100,
+      "color": "#475569",
+      "trimColor": "#cbd5e1",
+      "style": "heavy",
+      "bonusDefense": 5
+    },
+    {
+      "id": "legs_greaves_bronze",
+      "slot": "legs",
+      "name": "Polished Bronze Ocrea Greaves",
+      "rarity": "uncommon",
+      "description": "Shin guards extending from knee to instep.",
+      "defense": 5,
+      "staminaRegenBonus": 1,
+      "price": 130,
+      "sellPrice": 55,
+      "color": "#b45309",
+      "trimColor": "#f59e0b",
+      "bonusAgility": 2
+    }
+  ],
+  "fightsWon": 6,
+  "fightsLost": 2,
+  "peakCrowdHypeOverall": 88,
+  "isLeftyMode": false,
+  "chariot": {
+    "owned": [
+      "wheels_standard",
+      "finish_stock",
+      "wheels_reinforced",
+      "finish_charred"
+    ],
+    "equipped": {
+      "wheels": "wheels_reinforced",
+      "finish": "finish_charred"
+    }
+  },
+  "racing": {
+    "unlocked": [
+      3,
+      4
+    ],
+    "selected": 4
+  },
+  "temper": {
+    "spatha_legion": 2,
+    "helm_murmillo": 1,
+    "chest_lorica_segmentata": 3
+  },
+  "story": {
+    "librarySeen": true,
+    "fragmentsFound": [
+      "frag_ludus_ledger",
+      "frag_doctore_yard",
+      "frag_temple_omens"
+    ],
+    "diceEnding": "cut"
+  },
+  "road": {
+    "oathSworn": true,
+    "bannerDevice": "laurel",
+    "milestonesSeen": [
+      "sworn",
+      "blooded",
+      "known"
+    ]
+  },
+  "seen": {
+    "D1": true,
+    "D2": true,
+    "D6": true,
+    "HUB-1": true,
+    "BRIEF_colosseum": true
+  },
+  "time": {
+    "total": 26
+  },
+  "laurels": {
+    "titles": [
+      "title_crowd_favourite",
+      "title_champion_of_the_sands",
+      "title_living_legend"
+    ],
+    "statue": true
+  },
+  "consumables": {
+    "field_poultice": 2,
+    "medicus_salve": 1
+  },
+  "intel": [
+    "opp_ignis_boss",
+    "opp_centurion_drusus"
+  ],
+  "stable": {
+    "quality": 3,
+    "conditioning": 5
+  },
+  "facilities": {
+    "stable": 2,
+    "yard": 2,
+    "workshop": 2
+  },
+  "armatura": "retiarius",
+  "palmae": {
+    "unlocked": [
+      "iron_lungs",
+      "second_wind"
+    ],
+    "equipped": [
+      "iron_lungs"
+    ]
+  }
+}

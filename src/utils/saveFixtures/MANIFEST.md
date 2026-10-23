@@ -66,6 +66,16 @@ must survive — three buildings at level 0, un-repaired — and `saveCorpus.tes
 §J's expected optional set now ends with `facilities` in `src/types/game.ts`
 declaration order.
 
+**Extended by CH-1 (armatura & palmae).** `PlayerProfile.armatura` and
+`PlayerProfile.palmae` — the gladiator's class and the palmae worn — are the two
+newest optional fields, so they get both halves of the rule in the same slice:
+`armatura-palmae`, the `facilities-era` save hand-aged with class `retiarius`,
+two palmae unlocked (`iron_lungs`, `second_wind`) and one worn (`iron_lungs`), the
+shape a later class choice and palma earn/equip write. Every older fixture keeps
+**omitting** both fields, which is the legacy shape a load must survive — a
+Murmillo with no palmae — and `saveCorpus.test.ts` §J's expected optional set now
+ends with `armatura`, `palmae` in `src/types/game.ts` declaration order.
+
 ## Corpus rule
 
 **A slice that adds a field to the save adds a fixture for the shape it writes, in
@@ -97,6 +107,7 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `consumables-era` | `consumablesEraProfile.json` | The fully-populated shape with the counted satchel filled: two Field Poultices and one Medicus Salve, keyed by consumable id and carrying no gear at all. | The `triumphs-era` save hand-aged with the record a successful `purchaseConsumable` writes; frozen, and never written by `createNewProfile`. |
 | `intel-era` | `intelEraProfile.json` | The fully-populated shape with the tavern's rumour record filled: two opponents bought at 15 gold each (`opp_ignis_boss`, `opp_centurion_drusus`), plus every earlier optional field. | The `consumables-era` save with the `intel` list a successful `purchaseIntel` writes (S7); frozen, and never written by `createNewProfile`. |
 | `stable-era` | `stableEraProfile.json` | The fully-populated shape with the stable's two ladders topped out: quality 3 (Champion Bloodline) and conditioning 5, bought for the Quadra team the save races, with 500 gold left of 7,000. No team size is stored — the horse count stays the racing record's fact. | The `intel-era` save with its purse hand-aged to 7,000 and then driven through the real P4 transactions — `purchaseStableQuality` ×3 (400 + 900 + 1,600) and `purchaseStableConditioning` ×5 (240 + 480 + 720 + 960 + 1,200 at the Quadra's four-horse rate) — and frozen; never written by `createNewProfile`. |
+| `armatura-palmae` | `armaturaPalmaeProfile.json` | The fully-populated shape with the CH-1 class and palmae filled: `armatura: "retiarius"`, `palmae` with two unlocked (`iron_lungs`, `second_wind`) and one equipped (`iron_lungs`), plus every earlier optional field. | The `facilities-era` save hand-aged with the two field shapes a later class choice and palma earn/equip write; frozen, and never written by `createNewProfile`. |
 
 ### Shapes each fixture covers
 
