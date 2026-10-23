@@ -341,17 +341,44 @@ describe('P3 §D — resolution is read-only and writes nothing', () => {
     expect(defaultChariotLoadout().equipped.chassis).toBe('chassis_stock');
   });
 
-  test('the purchase and equip transactions persist ONLY wheels/finish — no new-slot key is ever written', () => {
+  test('the transactions persist every NON-STOCK slot and omit the stock ones', () => {
+    // P3 pinned "ONLY wheels/finish are ever written".  P6 widens the rule to
+    // every slot the workshop sells, and keeps the property P3 cared about —
+    // whatever is written round-trips to the same resolved loadout.
     const bought = purchaseChariotPart({ ...createNewProfile('Buyer'), gold: 5000 }, 'wheels_reinforced');
     if (!bought.ok) throw new Error('buy should succeed');
-    expect(Object.keys(bought.profile.chariot!.equipped).sort()).toEqual(['finish', 'wheels']);
+    // A purchase never equips, so every slot is still stock: nothing is stored.
+    expect(bought.profile.chariot!.equipped).toEqual({});
 
     const equipped = equipChariotPart(bought.profile, 'wheels_reinforced');
     if (!equipped.ok) throw new Error('equip should succeed');
-    expect(Object.keys(equipped.profile.chariot!.equipped).sort()).toEqual(['finish', 'wheels']);
+    expect(equipped.profile.chariot!.equipped).toEqual({ wheels: 'wheels_reinforced' });
     for (const stock of ['axle_stock', 'harness_stock', 'chassis_stock']) {
       expect(equipped.profile.chariot!.owned).not.toContain(stock);
     }
+    expect(resolveChariotLoadout(equipped.profile).equipped).toEqual({
+      ...DEFAULT_CHARIOT_PART_IDS,
+      wheels: 'wheels_reinforced',
+    });
+  });
+
+  test('a non-stock fit in a newer slot is written, and reads back after a serialization round trip', () => {
+    const bought = purchaseChariotPart({ ...createNewProfile('Charioteer'), gold: 5000 }, 'chassis_lightweight');
+    if (!bought.ok) throw new Error('buy should succeed');
+    const equipped = equipChariotPart(bought.profile, 'chassis_lightweight');
+    if (!equipped.ok) throw new Error('equip should succeed');
+
+    expect(equipped.profile.chariot!.equipped).toEqual({ chassis: 'chassis_lightweight' });
+    const resolved = resolveChariotLoadout(equipped.profile).equipped;
+    expect(resolved).toEqual({ ...DEFAULT_CHARIOT_PART_IDS, chassis: 'chassis_lightweight' });
+    // The bytes on disk read back to the same five-slot loadout.
+    const reloaded = JSON.parse(JSON.stringify(equipped.profile)) as PlayerProfile;
+    expect(resolveChariotLoadout(reloaded).equipped).toEqual(resolved);
+    // Re-equipping the stock part removes the key again, so a legacy-shaped save
+    // is what a stock chariot still stores.
+    const back = equipChariotPart(equipped.profile, 'chassis_stock');
+    if (!back.ok) throw new Error('re-equip should succeed');
+    expect(back.profile.chariot!.equipped).toEqual({});
   });
 });
 
@@ -416,9 +443,13 @@ describe('P3 §E — raceEffect is inert data nothing in production reads', () =
 
 // ══════════════════════════════════════════════════════════════════════════
 describe('P3 §F — the stored save shape is unchanged', () => {
-  test('the stored ChariotLoadout still declares only wheels + finish; ChariotSlot is the five slots', () => {
+  test('the stored ChariotLoadout is a PARTIAL five-slot record; ChariotSlot is the five slots', () => {
     const types = stripComments(readFileSync(`${SRC_ROOT}/types/game.ts`, 'utf8'));
-    expect(types).toContain('equipped: { wheels: string; finish: string };');
+    // P3 pinned `{ wheels: string; finish: string }` because nothing sold the
+    // newer slots.  P6's workshop sells all five, so a non-stock fit in any slot
+    // has to survive a save; the record is now Partial, and a stock slot is
+    // omitted and restored at read time (`DEFAULT_CHARIOT_PART_IDS`).
+    expect(types).toContain('equipped: Partial<Record<ChariotSlot, string>>;');
     expect(types).toContain(
       "export type ChariotSlot = 'wheels' | 'finish' | 'axle' | 'harness' | 'chassis';"
     );
@@ -473,17 +504,27 @@ describe('P3 §G — the exclusions hold', () => {
     expect(CHARIOT_PARTS).toHaveLength(15);
   });
 
-  test('the workshop lists only the wheels and finish slots, and the pre-race panel names no new slot (no UI gained them)', () => {
-    // The workshop reaches the catalogue through `chariotPartsBySlot(<slot>)` only.
-    // (It mentions the word "axle" in prose about wheel height, so the property is
-    // pinned on the slot QUERIES it makes, not on a word.)
+  test('the workshop derives its sections from the catalogue — no slot list, no part id, no price (P6)', () => {
+    // P3 pinned "the workshop queries wheels and finish only", because no screen
+    // had gained the newer slots.  P6's workshop sells all five, so the property
+    // is restated as the thing P3 was protecting: the screen owns no slot list,
+    // no part id and no price, and every section comes from `CHARIOT_SLOTS`.
     const workshop = stripComments(readFileSync(`${SRC_ROOT}/components/hub/ChariotWorkshopTab.tsx`, 'utf8'));
-    const queried = [...workshop.matchAll(/chariotPartsBySlot\(\s*'(\w+)'\s*\)/g)].map((m) => m[1]);
-    expect(queried).toEqual(['wheels', 'finish']);
-    for (const slot of ['axle', 'harness', 'chassis']) {
-      expect(workshop.includes(`'${slot}'`), `workshop names slot '${slot}'`).toBe(false);
-      expect(workshop.includes(`"${slot}"`), `workshop names slot "${slot}"`).toBe(false);
-    }
+    expect(workshop).toContain(
+      'const SLOT_SECTIONS = CHARIOT_SLOTS.map((slot) => ({ slot, parts: chariotPartsBySlot(slot) }));'
+    );
+    expect(workshop).toContain('SLOT_SECTIONS.map(({ slot, parts })');
+    // The only place the slot names appear is `SLOT_META`, a Record keyed by the
+    // exported type — so a slot added to the catalogue fails to compile here
+    // rather than rendering nothing.  No array of slot names survives.
+    const slotNames = /'(?:wheels|finish|axle|harness|chassis)'/;
+    const slotArrays = [...workshop.matchAll(/\[([^\]]*)\]/g)]
+      .map((m) => m[1])
+      .filter((body) => slotNames.test(body));
+    expect(slotArrays).toEqual([]);
+    // No part id and no gold price literal: both belong to the catalogue.
+    for (const part of CHARIOT_PARTS) expect(workshop).not.toContain(`'${part.id}'`);
+    expect(workshop).not.toMatch(/\b\d{2,4}\s*[Gg]old/);
     const panel = stripComments(readFileSync(`${SRC_ROOT}/components/hub/PreRacePanel.tsx`, 'utf8'));
     for (const slot of ['axle', 'harness', 'chassis']) {
       expect(panel.includes(slot), `pre-race panel mentions ${slot}`).toBe(false);

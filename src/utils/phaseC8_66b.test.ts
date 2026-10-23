@@ -430,8 +430,11 @@ describe('C-8.66B §C — purchase: one deduction, no duplicates, no mutation', 
     expect(
       resolveChariotLoadout(result.profile).owned.filter((id) => id === 'wheels_reinforced')
     ).toHaveLength(1);
-    // A purchase never equips.
-    expect(result.profile.chariot?.equipped.wheels).toBe('wheels_standard');
+    // A purchase never equips.  P6 — the stored record now carries only a
+    // NON-stock fit, so a still-stock wheels slot is absent from it and the
+    // resolver is what answers the question.
+    expect(resolveChariotLoadout(result.profile).equipped.wheels).toBe('wheels_standard');
+    expect(result.profile.chariot?.equipped.wheels).toBeUndefined();
   });
 
   test('the original profile and its nested loadout are untouched by a purchase', () => {

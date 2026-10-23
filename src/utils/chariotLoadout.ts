@@ -148,13 +148,23 @@ function storedEquipped(resolved: ChariotEquippedResolved): ChariotLoadout['equi
   return stored;
 }
 
-/** Does the profile own this part?  Unknown ids are not owned; stock parts always are. */
+/**
+ * Does the profile own this part?  Unknown ids are not owned; EVERY slot's stock
+ * part always is.
+ *
+ * P3 kept `owned` to the two original stock ids, and the newer slots' stock
+ * parts are implicit — never listed in a save.  P6's workshop renders all five
+ * slots, so ownership is read off the catalogue here (`defaultOwned`) instead:
+ * the stock axle, harness and tub are "included with every chariot" and must be
+ * equippable back to, while the stored `owned` array keeps its P3 meaning.
+ */
 export function ownsChariotPart(
   profile: PlayerProfile | null | undefined,
   partId: string
 ): boolean {
   const part = getChariotPart(partId);
   if (!part) return false;
+  if (part.defaultOwned) return true;
   return resolveChariotLoadout(profile).owned.includes(part.id);
 }
 

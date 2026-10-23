@@ -16,6 +16,7 @@ import {
   describeChariotRejection,
   getChariotEquipEligibility,
   getChariotPurchaseEligibility,
+  ownsChariotPart,
   resolveChariotLoadout,
 } from '../../utils/chariotLoadout';
 
@@ -32,9 +33,17 @@ interface ChariotWorkshopTabProps {
  */
 const SLOT_SECTIONS = CHARIOT_SLOTS.map((slot) => ({ slot, parts: chariotPartsBySlot(slot) }));
 
-/** A slot's own id, title-cased — presentation only, never a second slot table. */
-const slotLabel = (slot: ChariotSlot): string =>
-  `${slot.charAt(0).toUpperCase()}${slot.slice(1)}`;
+/**
+ * Presentation copy per slot: the section heading, the badge on each card and
+ * the icon that heads the section.  Names only — no price, no rule, no part.
+ */
+const SLOT_META: Record<ChariotSlot, { title: string; badge: string; icon: React.ReactNode }> = {
+  wheels: { title: 'Wheel Sets', badge: 'Wheel set', icon: <Wrench className="w-5 h-5" /> },
+  finish: { title: 'Timber & Hide Finishes', badge: 'Cosmetic finish', icon: <Eye className="w-5 h-5" /> },
+  axle: { title: 'Axle', badge: 'Axle', icon: <Wrench className="w-5 h-5" /> },
+  harness: { title: 'Harness', badge: 'Harness', icon: <Wrench className="w-5 h-5" /> },
+  chassis: { title: 'Chassis', badge: 'Chassis', icon: <Wrench className="w-5 h-5" /> },
+};
 
 /**
  * Whether the 3D preview can SHOW this part.  Only the wheel kit and the finish
@@ -43,6 +52,13 @@ const slotLabel = (slot: ChariotSlot): string =>
  */
 const canPreview = (part: ChariotPart): boolean =>
   part.wheelVariant !== undefined || part.finish !== undefined;
+
+/**
+ * The equip/buy control's width: it shares the row with the Preview control where
+ * that control exists, and takes the whole row where it does not.
+ */
+const actionWidth = (part: ChariotPart): string =>
+  canPreview(part) ? 'flex-1 min-w-[96px]' : 'w-full';
 
 /**
  * Phase C-8.66B — the Chariot Workshop, mounted as a subview of the existing
@@ -111,7 +127,9 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
 
   const renderCard = (part: ChariotPart) => {
     const purchase = getChariotPurchaseEligibility(profile, part.id);
-    const isOwned = loadout.owned.includes(part.id);
+    // The module's own predicate — every slot's stock part counts as owned, so a
+    // stock axle/harness/tub shows Equip rather than a free Buy control.
+    const isOwned = ownsChariotPart(profile, part.id);
     const isEquipped = loadout.equipped[part.slot] === part.id;
     const isPreviewed =
       (part.slot === 'wheels' && part.wheelVariant === previewWheels) ||
@@ -121,8 +139,6 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
       ? 'Equipped'
       : isOwned
       ? 'Owned'
-      : part.price === 0
-      ? 'Included with every chariot'
       : affordable
       ? 'Available'
       : 'Insufficient gold';
@@ -148,7 +164,7 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
 
           <div className="flex items-center gap-2 mb-2">
             <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-neutral-800 text-amber-300 border border-neutral-700">
-              {part.slot === 'wheels' ? 'Wheel set' : 'Cosmetic finish'}
+              {SLOT_META[part.slot].badge}
             </span>
             <span
               className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border ${
@@ -180,23 +196,27 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => previewPart(part)}
-            className={`flex-1 min-w-[96px] min-h-[48px] py-2.5 rounded-2xl font-serif font-bold text-[11px] uppercase tracking-wider transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 border ${
-              isPreviewed
-                ? 'bg-cyan-900/60 text-cyan-200 border-cyan-600'
-                : 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:text-amber-200'
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>{isPreviewed ? 'Previewing' : 'Preview'}</span>
-          </button>
+          {/* Only the wheel kit and the finishes have a model to drive, so the
+              other slots carry no Preview control rather than one that does nothing. */}
+          {canPreview(part) && (
+            <button
+              onClick={() => previewPart(part)}
+              className={`flex-1 min-w-[96px] min-h-[48px] py-2.5 rounded-2xl font-serif font-bold text-[11px] uppercase tracking-wider transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 border ${
+                isPreviewed
+                  ? 'bg-cyan-900/60 text-cyan-200 border-cyan-600'
+                  : 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:text-amber-200'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>{isPreviewed ? 'Previewing' : 'Preview'}</span>
+            </button>
+          )}
 
           {isOwned ? (
             <button
               onClick={() => handleEquip(part)}
               disabled={isEquipped}
-              className={`flex-1 min-w-[96px] min-h-[48px] py-2.5 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+              className={`${actionWidth(part)} min-h-[48px] py-2.5 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
                 isEquipped
                   ? 'bg-green-800 text-green-200 cursor-default'
                   : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 cursor-pointer'
@@ -210,7 +230,7 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
               onClick={() => handleBuy(part)}
               disabled={!purchase.ok}
               title={purchase.ok ? `Buy for ${part.price} gold` : describeChariotRejection(purchase.reason)}
-              className={`flex-1 min-w-[96px] min-h-[48px] py-2.5 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+              className={`${actionWidth(part)} min-h-[48px] py-2.5 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
                 purchase.ok
                   ? 'bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-neutral-950 border border-yellow-300 cursor-pointer'
                   : 'bg-neutral-900 text-neutral-600 border border-neutral-800 cursor-not-allowed'
@@ -284,27 +304,16 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
         </div>
       </div>
 
-      {/* WHEELS */}
-      <div>
-        <h4 className="font-serif font-bold text-lg text-amber-300 mb-3 flex items-center gap-2">
-          <Wrench className="w-5 h-5" />
-          <span>Wheel Sets</span>
-        </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {chariotPartsBySlot('wheels').map(renderCard)}
+      {/* ONE SECTION PER SLOT THE CATALOGUE SELLS, in catalogue order. */}
+      {SLOT_SECTIONS.map(({ slot, parts }) => (
+        <div key={slot} data-chariot-slot-section={slot}>
+          <h4 className="font-serif font-bold text-lg text-amber-300 mb-3 flex items-center gap-2">
+            {SLOT_META[slot].icon}
+            <span>{SLOT_META[slot].title}</span>
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{parts.map(renderCard)}</div>
         </div>
-      </div>
-
-      {/* FINISHES */}
-      <div>
-        <h4 className="font-serif font-bold text-lg text-amber-300 mb-3 flex items-center gap-2">
-          <Eye className="w-5 h-5" />
-          <span>Timber &amp; Hide Finishes</span>
-        </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {chariotPartsBySlot('finish').map(renderCard)}
-        </div>
-      </div>
+      ))}
     </div>
   );
 };

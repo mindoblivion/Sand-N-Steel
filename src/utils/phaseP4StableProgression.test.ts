@@ -640,45 +640,58 @@ describe('P4 §E — the declared effects are inert data nothing in production r
     expect(PRODUCTION_FILES.some((file) => file.endsWith('/types/game.ts'))).toBe(true);
   });
 
-  test('the module is the only production file that mentions its own catalogue or transactions', () => {
-    const tokens = [
-      'STABLE_QUALITIES',
-      'StableDeclaredEffect',
-      'declaredConditioningEffect',
-      'purchaseStableQuality',
-      'purchaseStableConditioning',
-      'resolveStableState',
-      'stableTeamSize',
-      'conditioningCost',
-      'nextConditioningCost',
-      'getStableQualityEligibility',
-      'getStableConditioningEligibility',
-      'describeStableRejection',
-      'MAX_CONDITIONING',
-      'MAX_STABLE_QUALITY',
-    ];
+  test('every production mention of the module is one of P6\'s named consumers', () => {
+    // P4 pinned "the module is the ONLY production file that names any of these",
+    // because nothing consumed it.  P6 wires the ladder into the Armory's workshop
+    // subview, so that property is rebased to the exact consumer set instead of
+    // being dropped: the panel reads the catalogue and the eligibility helpers,
+    // App runs the two transactions, and nothing else in the tree names them.
+    const MODULE = '/utils/stableProgression.ts';
+    const PANEL = '/components/hub/StablePanel.tsx';
+    const expected: Record<string, string[]> = {
+      // Catalogue and presentation-only readers: the panel's alone.
+      STABLE_QUALITIES: [MODULE],
+      StableDeclaredEffect: [MODULE],
+      declaredConditioningEffect: [MODULE],
+      conditioningCost: [MODULE],
+      MAX_STABLE_QUALITY: [MODULE],
+      // Read by the panel, written (transacted) by App.
+      purchaseStableQuality: ['/App.tsx', MODULE],
+      purchaseStableConditioning: ['/App.tsx', MODULE],
+      resolveStableState: [PANEL, MODULE],
+      stableTeamSize: [PANEL, MODULE],
+      nextConditioningCost: [PANEL, MODULE],
+      getStableQualityEligibility: [PANEL, MODULE],
+      getStableConditioningEligibility: [PANEL, MODULE],
+      describeStableRejection: [PANEL, MODULE],
+      MAX_CONDITIONING: [PANEL, MODULE],
+    };
     // The corpus registry is excluded on purpose and for one reason: its
     // `provenance` strings are DATA that describe how a fixture was obtained and
     // are never executed — every era fixture's entry names the transaction that
     // produced it (`purchaseLaurel`, `purchaseIntel`, and now these).  It imports
     // nothing from this module, which the test below pins.
-    for (const token of tokens) {
+    for (const [token, files] of Object.entries(expected)) {
       const mentioning = PRODUCTION_FILES.filter((file) =>
         !file.endsWith('/saveFixtures/index.ts') &&
         stripComments(readFileSync(file, 'utf8')).includes(token)
-      ).map(rel);
-      expect(mentioning, token).toEqual(['/utils/stableProgression.ts']);
+      ).map(rel).sort();
+      expect(mentioning, token).toEqual([...files].sort());
     }
     // …and it is prose only: the registry imports nothing from this module.
     expect(load('./saveFixtures/index.ts')).not.toContain('stableProgression');
   });
 
-  test('nothing in production imports the module: no screen, no combat path, no city file', () => {
-    for (const file of PRODUCTION_FILES) {
-      if (file.endsWith('/utils/stableProgression.ts')) continue;
-      const source = stripComments(readFileSync(file, 'utf8'));
-      expect(source.includes('stableProgression'), rel(file)).toBe(false);
-    }
+  test('the module has exactly two importers: the Armory panel and App, and no third', () => {
+    // P4 asserted NO importer at all.  P6 gives the ladder its surface, so the
+    // property is restated as an exact list — a combat path, a city file, a
+    // storage service or a second screen still fails it.
+    const importers = PRODUCTION_FILES.filter(
+      (file) =>
+        !file.endsWith('/utils/stableProgression.ts') &&
+        stripComments(readFileSync(file, 'utf8')).includes('stableProgression')
+    ).map(rel).sort();
+    expect(importers).toEqual(['/App.tsx', '/components/hub/StablePanel.tsx']);
   });
 
   test('the module only DECLARES its effects: it never reads one as a stat', () => {
@@ -695,19 +708,38 @@ describe('P4 §E — the declared effects are inert data nothing in production r
     expect(declared.slice(0, declared.indexOf('}'))).toContain('stamina: level');
   });
 
-  test('the combat, racing and hub paths are clear of the stable ladder', () => {
+  test('the combat, racing and storage paths are clear of the stable ladder', () => {
     for (const file of [
       'utils/racingProgression.ts',
       'utils/chariotLoadout.ts',
       'utils/combatCalculations.ts',
       'utils/tempering.ts',
       'services/storage.ts',
-      'App.tsx',
     ]) {
       const source = stripComments(readFileSync(path(`../${file}`), 'utf8'));
       for (const token of ['stableProgression', 'STABLE_QUALITIES', 'purchaseStable', 'resolveStableState']) {
         expect(source.includes(token), `${file} mentions ${token}`).toBe(false);
       }
+    }
+    // P6 — App is no longer clear of the module: it is the only WRITER, through the
+    // two transactions.  What is pinned is its exact footprint — each name once in
+    // the import and once at its call, and none of the ladder's rules.
+    const app = stripComments(readFileSync(path('../App.tsx'), 'utf8'));
+    for (const name of ['purchaseStableQuality', 'purchaseStableConditioning']) {
+      expect(app.split(name).length - 1, name).toBe(2);
+    }
+    for (const token of [
+      'STABLE_QUALITIES',
+      'MAX_CONDITIONING',
+      'MAX_STABLE_QUALITY',
+      'conditioningCost',
+      'nextConditioningCost',
+      'stableTeamSize',
+      'getStableQualityEligibility',
+      'getStableConditioningEligibility',
+      'describeStableRejection',
+    ]) {
+      expect(app.includes(token), `App mentions ${token}`).toBe(false);
     }
   });
 
@@ -771,11 +803,16 @@ describe('P4 §F — the profile field and the GC20 corpus', () => {
 
 // ══════════════════════════════════════════════════════════════════════════
 describe('P4 §G — the exclusions hold', () => {
-  test('no UI consumes the module: no component, no hub tab, no App handler', () => {
-    for (const file of PRODUCTION_FILES) {
-      if (!file.endsWith('.tsx')) continue;
-      expect(stripComments(readFileSync(file, 'utf8')).includes('stableProgression'), rel(file)).toBe(false);
-    }
+  test('exactly two .tsx files name the module: App and the Armory\'s stable panel', () => {
+    // P4 pinned "no component names the module".  P6 mounts the panel, so the
+    // guard pins the exact list — a second screen, a hub tab or a duel surface
+    // still fails it.
+    const components = PRODUCTION_FILES.filter(
+      (file) =>
+        file.endsWith('.tsx') &&
+        stripComments(readFileSync(file, 'utf8')).includes('stableProgression')
+    ).map(rel).sort();
+    expect(components).toEqual(['/App.tsx', '/components/hub/StablePanel.tsx']);
   });
 
   test('the racing state shape is untouched: still unlocked + selected, and nothing new stored', () => {
