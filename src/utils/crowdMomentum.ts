@@ -61,6 +61,16 @@ export interface CrowdMomentumReward {
   milestone: boolean;
   /** Hype this transition is worth: 10 on a new milestone, otherwise 0. */
   hypeGain: number;
+  /**
+   * Hype the meter ACTUALLY moved by — the grant after the {@link CROWD_HYPE_MAX}
+   * cap, so it equals `hypeGain` on an ordinary milestone, the remaining headroom
+   * near the ceiling (5 from 95), and **0** on a milestone reached with the meter
+   * already full. Report THIS, never `hypeGain`: at the cap the milestone is real
+   * but pays nothing, and a chronicle line claiming +10 % there would be untrue.
+   * The award, the threshold, the cap and the transition rule are unchanged —
+   * only what the caller is allowed to say about them.
+   */
+  hypeAwarded: number;
   /** Hype after the grant, clamped to [0, {@link CROWD_HYPE_MAX}]. */
   hype: number;
 }
@@ -85,9 +95,13 @@ export function crowdMomentumReward(
   const safeHype = typeof currentHype === 'number' && Number.isFinite(currentHype)
     ? Math.min(CROWD_HYPE_MAX, Math.max(0, currentHype))
     : 0;
+  const hype = Math.min(CROWD_HYPE_MAX, safeHype + hypeGain);
   return {
     milestone,
     hypeGain,
-    hype: Math.min(CROWD_HYPE_MAX, safeHype + hypeGain),
+    // The cap is applied above, so this is the meter's real movement — the only
+    // figure the caller may report as gained.
+    hypeAwarded: hype - safeHype,
+    hype,
   };
 }

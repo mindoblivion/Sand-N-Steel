@@ -9454,3 +9454,49 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   → exit 0; `git diff --check` → clean. No test was altered and no suite needed rebasing.
 - **Android acceptance of all four mechanics remains PENDING** — the sandbox renders the duel through
   SwiftShader and cannot resolve a 40–200 ms hold. Do not claim device acceptance.
+
+## Crowd Momentum reward accuracy and hit-stop pins (Phase C-8.78B — implemented)
+
+- **The defect was the chronicle, not the mechanic.** `crowdMomentumReward` returned the NOMINAL
+  milestone value (`hypeGain: 10`) alongside the capped meter reading (`hype: 100`), and
+  `DuelScene`'s combo effect printed `+${hypeGain}% Hype` from that pair — so a milestone reached at
+  hype 100 announced a 10-point gain while the meter correctly stayed at 100 (C-8.78A §D1).
+- **The correction is one derived field plus one string.** The helper now also returns
+  `hypeAwarded = hype - safeHype`, i.e. the meter's real movement after the 100-point cap; the
+  caller destructures it, keeps the `if (hypeGain === 0) return;` milestone gate and the single
+  `updateCrowdHype` write, and logs `+${hypeAwarded}% Hype`. A zero award gets its own line instead
+  of a false claim: "CROWD MOMENTUM! N unanswered strikes — the mob is on its feet, but the Hype is
+  already at its full 100%." `hypeGain` keeps its nominal meaning (so `phaseC8_76` §E's
+  `hypeGain === 10` at the cap still holds); the interval, the +10 threshold, the cap, the combo
+  transition rule, the gold payout and every combat formula are untouched.
+- **Regression suite: `src/utils/phaseC8_78b.test.ts`** — 36 tests / 721 assertions in nine
+  sections: §A normal gains, §B partial gains near the ceiling (95 → +5, 99.5 → +0.5, with an
+  `awarded + previous === hype` sweep), §C the zero award at the cap (milestone still true, award 0,
+  over-cap readings clamped first), §D the shipped caller (one evaluation, `hypeAwarded` in the
+  line, no `(+${hypeGain}% Hype)`, the truthful zero branch, gate/write order unchanged), §E the
+  five `HIT_STOP_MS` holds pinned at 40 / 60 / 110 / 170 / 200 with their key set and severity
+  order, §F the heavy-minus-quick delta of 140 pinned as a DERIVATION (no configured hold is 140,
+  no key claims to be), §G the blocked → telegraphed heavy → crit → quick → power precedence and the
+  landed-vs-received trauma rule evaluated through `new Function` on the extracted expressions,
+  §H `SHAKE_TRAUMA` (0.25 / 0.45 / 0.7 / 0.2), the `Math.min(1, …)` accumulation and the camera's
+  0.18 / 0.6° / 1.6 u/s response, and §I `impactAnimationScale` driven on an injected clock
+  (0 strictly before `freezeUntil`, 1 at and after it) plus its two wiring sites in `GladiatorMesh`.
+  Extraction is regex/brace-match based and evaluated as real expressions, so reformatting the
+  constant blocks cannot fail it — only a rename, deletion or value drift can.
+- **Mutation-checked, both restored byte-for-byte (`sha256sum -c` clean):** heavy hold 200 → 20 →
+  3 tests fail; caller printing `hypeGain` → 1 fails; `hypeAwarded: hypeGain` (ignoring the cap) →
+  8 fail.
+- **Verified 2026-10-23** in the dev container: focused `bun test src/utils/phaseC8_78b.test.ts` →
+  **36 pass / 0 fail**; with `phaseC8_76` → **63 pass / 0 fail** (865 expect()); broader combat
+  (`combatResponsiveness`, `phaseC8_75B`, `phaseC8_75F`, `playerStrikeWindup`, `pendingStrike`,
+  `playerWindupCue`) → **135 pass / 0 fail**; `bun test` → **3440 pass / 0 fail (119 files,
+  92,143 expect())** (C-8.78A left 3404 / 118; the delta is this suite); `bun run lint`
+  (`tsc --noEmit`) → exit 0; `git diff --check` → clean. The dev server transforms both edited
+  modules (`/src/utils/crowdMomentum.ts` and `/src/components/duel/DuelScene.tsx` → HTTP 200, with
+  `hypeAwarded: hype - safeHype` present in the served module).
+- **Not automatically verified — the rendered chronicle line.** No duel was driven to hype 100 in
+  the preview (the duel renders through SwiftShader at a few fps and reaching the cap needs ~10
+  landed hits plus a 3rd-hit milestone), so the on-screen text is verified as production behaviour
+  through the helper + the pinned caller rather than seen on a device. The C-8.78A §3 Android
+  checklist, including its item 16 ("the chronicle still says +10% Hype"), remains **pending on
+  hardware** — item 16 can now be re-run expecting the truthful line.

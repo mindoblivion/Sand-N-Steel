@@ -34,7 +34,7 @@ import {
   applyDefensiveAction,
   clearDefensiveStance,
 } from '../../utils/combatCalculations';
-import { crowdMomentumReward } from '../../utils/crowdMomentum';
+import { CROWD_HYPE_MAX, crowdMomentumReward } from '../../utils/crowdMomentum';
 import {
   canAffordAttack,
   chooseAITacticalAction,
@@ -530,11 +530,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     const previousCombo = comboMilestoneRef.current;
     const newCombo = player.comboCount;
     comboMilestoneRef.current = newCombo;
-    const { hypeGain, hype } = crowdMomentumReward(crowdHypeRef.current, previousCombo, newCombo);
+    const { hypeGain, hype, hypeAwarded } = crowdMomentumReward(crowdHypeRef.current, previousCombo, newCombo);
     if (hypeGain === 0) return;
     updateCrowdHype(() => hype);
+    // C-8.78B — report the meter's REAL movement, never the nominal milestone
+    // value: near the 100 ceiling the award is capped (95 → +5) and at the
+    // ceiling it pays nothing at all. The milestone still celebrates and the
+    // badge still lights; only the claim about hype is allowed to differ.
     addLog(
-      `CROWD MOMENTUM! ${newCombo} unanswered strikes — the mob is on its feet (+${hypeGain}% Hype).`,
+      hypeAwarded > 0
+        ? `CROWD MOMENTUM! ${newCombo} unanswered strikes — the mob is on its feet (+${hypeAwarded}% Hype).`
+        : `CROWD MOMENTUM! ${newCombo} unanswered strikes — the mob is on its feet, but the Hype is already at its full ${CROWD_HYPE_MAX}%.`,
       'crit',
     );
   }, [player.comboCount, addLog, updateCrowdHype]);
