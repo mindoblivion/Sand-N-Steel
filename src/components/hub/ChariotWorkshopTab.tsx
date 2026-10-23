@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { PlayerProfile } from '../../types/game';
+import { ChariotSlot, PlayerProfile } from '../../types/game';
 import { Coins, Check, Lock, Eye, Wrench, RotateCcw, Info, ShoppingCart } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { ChariotPreview } from '../3d/ChariotPreview';
 import {
   CHARIOT_PARTS,
+  CHARIOT_SLOTS,
   ChariotFinishKey,
   ChariotPart,
   ChariotWheelVariantKey,
@@ -23,6 +24,25 @@ interface ChariotWorkshopTabProps {
   onBuyPart: (partId: string) => void;
   onEquipPart: (partId: string) => void;
 }
+
+/**
+ * P6 — every slot the catalogue sells, in catalogue order.  The list is DERIVED
+ * from `CHARIOT_PARTS` (`CHARIOT_SLOTS`), so a slot added to the catalogue is
+ * rendered here with no edit; this component keeps no slot list of its own.
+ */
+const SLOT_SECTIONS = CHARIOT_SLOTS.map((slot) => ({ slot, parts: chariotPartsBySlot(slot) }));
+
+/** A slot's own id, title-cased — presentation only, never a second slot table. */
+const slotLabel = (slot: ChariotSlot): string =>
+  `${slot.charAt(0).toUpperCase()}${slot.slice(1)}`;
+
+/**
+ * Whether the 3D preview can SHOW this part.  Only the wheel kit and the finish
+ * recolours have a model to drive, so the other slots' cards carry no Preview
+ * control rather than one that does nothing.
+ */
+const canPreview = (part: ChariotPart): boolean =>
+  part.wheelVariant !== undefined || part.finish !== undefined;
 
 /**
  * Phase C-8.66B — the Chariot Workshop, mounted as a subview of the existing

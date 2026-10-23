@@ -17,7 +17,9 @@ import { purchaseIntel } from './utils/intel';
 import type { ConsumableItem } from './data/consumables';
 import { sellItem } from './utils/selling';
 import { nextBossKills } from './utils/bossKills';
-import { trainingCost } from './utils/facilityProgression';
+import { purchaseFacility, trainingCost, type FacilityId } from './utils/facilityProgression';
+import { purchaseTemper } from './utils/tempering';
+import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
 import { purchaseItem } from './utils/itemPurchase';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
@@ -897,6 +899,51 @@ export function App() {
     saveProfile(updated);
   };
 
+  /**
+   * P6 — temper an owned item.  `purchaseTemper` is pure and re-checks every
+   * rule (ownership, the level cap, the Smithing Workshop's gate, the purse), so
+   * a refusal hands back the caller's own profile object and never reaches
+   * `saveProfile`.
+   */
+  const handleTemperItem = (itemId: string) => {
+    if (!profile) return;
+    const updated = purchaseTemper(profile, itemId);
+    if (updated === profile) return;
+    setProfile(updated);
+    saveProfile(updated);
+  };
+
+  /** P6 — the Imperial Stable's quality ladder, through the P4 transaction. */
+  const handleBuyStableQuality = (grade: number) => {
+    if (!profile) return;
+    const result = purchaseStableQuality(profile, grade);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /** P6 — the Imperial Stable's conditioning ladder, through the P4 transaction. */
+  const handleBuyStableConditioning = (level: number) => {
+    if (!profile) return;
+    const result = purchaseStableConditioning(profile, level);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /**
+   * P6 — build the next level of a ludus facility.  `purchaseFacility` is pure
+   * and re-checks the order and the purse, and a refusal carries no profile at
+   * all, so nothing is charged and nothing is saved.
+   */
+  const handleBuyFacility = (id: FacilityId) => {
+    if (!profile) return;
+    const result = purchaseFacility(profile, id);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
   const handleEquipWeapon = (wpn: WeaponItem) => {
     if (!profile) return;
     const updated: PlayerProfile = {
@@ -1072,6 +1119,10 @@ export function App() {
             onMarkCardSeen={handleMarkCardSeen}
             onEnterDoctoreTest={handleEnterDoctoreTest}
             onPurchaseTriumph={handlePurchaseTriumph}
+            onTemperItem={handleTemperItem}
+            onBuyStableQuality={handleBuyStableQuality}
+            onBuyStableConditioning={handleBuyStableConditioning}
+            onBuyFacility={handleBuyFacility}
             />
         )}
 

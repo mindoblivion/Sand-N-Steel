@@ -124,12 +124,28 @@ function resolveEquippedId(
 }
 
 /**
- * The STORED form of a resolved loadout's `equipped` block: the original two
- * slots only.  The purchase and equip transactions persist this, never the
- * resolved record, so the three P3 slots are never written into a save.
+ * The STORED form of a resolved loadout's `equipped` block.
+ *
+ * P6 widened this from P3's wheels + finish only: now that the workshop sells
+ * the axle, harness and chassis slots, a non-stock fit in ANY slot has to
+ * survive a save.  The rule is stated once, here:
+ *
+ *   • a slot whose equipped part is NOT its stock part is persisted;
+ *   • a slot sitting on its stock part is omitted — the resolver restores it at
+ *     read (`DEFAULT_CHARIOT_PART_IDS`), so nothing is lost;
+ *   • a legacy wheels/finish-only record therefore reads exactly as it did, and
+ *     a stock chariot still writes no `equipped` entry at all.
+ *
+ * The property P3 cared about is preserved and widened: whatever this writes
+ * round-trips through `resolveChariotLoadout` to the same resolved loadout.
  */
 function storedEquipped(resolved: ChariotEquippedResolved): ChariotLoadout['equipped'] {
-  return { wheels: resolved.wheels, finish: resolved.finish };
+  const stored: ChariotLoadout['equipped'] = {};
+  for (const slot of CHARIOT_SLOTS) {
+    const partId = resolved[slot];
+    if (partId && partId !== DEFAULT_CHARIOT_PART_IDS[slot]) stored[slot] = partId;
+  }
+  return stored;
 }
 
 /** Does the profile own this part?  Unknown ids are not owned; stock parts always are. */

@@ -10,6 +10,7 @@ import {
   getRacingSelectionEligibility,
   resolveRacingState,
 } from '../../utils/racingProgression';
+import { StablePanel } from './StablePanel';
 
 interface RacingConfigSectionProps {
   profile: PlayerProfile;
@@ -17,6 +18,13 @@ interface RacingConfigSectionProps {
   onBuyConfig?: (horses: ChariotTeamSize) => void;
   /** Select an unlocked team.  App wires this to `selectRacingConfig` + `saveProfile`. */
   onSelectConfig?: (horses: ChariotTeamSize) => void;
+  /**
+   * P6 — the Imperial Stable panel's two actions.  App wires them to
+   * `purchaseStableQuality` / `purchaseStableConditioning` and the existing
+   * save path; this section computes no price and no eligibility of its own.
+   */
+  onBuyStableQuality?: (grade: number) => void;
+  onBuyStableConditioning?: (level: number) => void;
 }
 
 /**
@@ -53,6 +61,8 @@ export const RacingConfigSection: React.FC<RacingConfigSectionProps> = ({
   profile,
   onBuyConfig,
   onSelectConfig,
+  onBuyStableQuality,
+  onBuyStableConditioning,
 }) => {
   const racing = resolveRacingState(profile);
 
@@ -224,6 +234,13 @@ export const RacingConfigSection: React.FC<RacingConfigSectionProps> = ({
 
       {/* TEAMS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{RACING_CONFIGS.map(renderCard)}</div>
+
+      {/* P6 — the stable that trains the team: quality grade and conditioning. */}
+      <StablePanel
+        profile={profile}
+        onBuyQuality={onBuyStableQuality}
+        onBuyConditioning={onBuyStableConditioning}
+      />
     </div>
   );
 };

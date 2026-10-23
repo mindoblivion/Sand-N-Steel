@@ -3,6 +3,7 @@ import { PlayerProfile, WeaponItem, ArmorItem, ChariotTeamSize } from '../../typ
 import { Layers, Shield, Swords, Check, Wrench, Coins } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { getTemperSellValue } from '../../utils/tempering';
+import { TemperControl } from './TemperControl';
 import { ChariotWorkshopTab } from './ChariotWorkshopTab';
 import { RacingConfigSection } from './RacingConfigSection';
 
@@ -32,6 +33,14 @@ interface GearTabProps {
    */
   onBuyRacingConfig?: (horses: ChariotTeamSize) => void;
   onSelectRacingConfig?: (horses: ChariotTeamSize) => void;
+  /**
+   * P6 — the temper row on every owned card.  `App` runs `purchaseTemper` and
+   * the existing save path; this tab never computes a level, a price or a cap.
+   */
+  onTemperItem?: (itemId: string) => void;
+  /** P6 — the Stable panel inside the workshop subview; `App` runs the P4 helpers. */
+  onBuyStableQuality?: (grade: number) => void;
+  onBuyStableConditioning?: (level: number) => void;
 }
 
 /** C-2 — how long a Sell control stays armed before its confirmation lapses. */
@@ -78,6 +87,9 @@ export const GearTab: React.FC<GearTabProps> = ({
   onEquipChariotPart,
   onBuyRacingConfig,
   onSelectRacingConfig,
+  onTemperItem,
+  onBuyStableQuality,
+  onBuyStableConditioning,
 }) => {
   const currentWeapon = profile.equipped.weapon;
   const currentHelm = profile.equipped.helm;
@@ -145,6 +157,8 @@ export const GearTab: React.FC<GearTabProps> = ({
             profile={profile}
             onBuyConfig={onBuyRacingConfig}
             onSelectConfig={onSelectRacingConfig}
+            onBuyStableQuality={onBuyStableQuality}
+            onBuyStableConditioning={onBuyStableConditioning}
           />
         </>
       ) : (
@@ -170,10 +184,11 @@ export const GearTab: React.FC<GearTabProps> = ({
             return (
               <div
                 key={`${wpn.id}-${index}`}
-                className={`p-4 rounded-2xl border transition-all flex justify-between items-center ${
+                className={`p-4 rounded-2xl border transition-all flex flex-col gap-3 ${
                   isEquipped ? 'bg-amber-950/60 border-amber-400' : 'bg-neutral-950/80 border-neutral-800'
                 }`}
               >
+                <div className="flex justify-between items-center gap-2">
                 <div>
                   <div className="font-serif font-bold text-sm text-amber-100">{wpn.name}</div>
                   <div className="text-xs font-mono text-neutral-400">
@@ -211,6 +226,9 @@ export const GearTab: React.FC<GearTabProps> = ({
                     />
                   )}
                 </div>
+                </div>
+                {/* P6 — the item's temper level and its one action. */}
+                <TemperControl profile={profile} item={wpn} onTemper={onTemperItem} />
               </div>
             );
           })}
@@ -258,10 +276,11 @@ export const GearTab: React.FC<GearTabProps> = ({
               return (
                 <div
                   key={`${arm.id}-${index}`}
-                  className={`p-4 rounded-2xl border transition-all flex justify-between items-center ${
+                  className={`p-4 rounded-2xl border transition-all flex flex-col gap-3 ${
                     isEquipped ? 'bg-amber-950/60 border-amber-400' : 'bg-neutral-950/80 border-neutral-800'
                   }`}
                 >
+                  <div className="flex justify-between items-center gap-2">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-serif font-bold text-sm text-amber-100">{arm.name}</span>
@@ -304,6 +323,9 @@ export const GearTab: React.FC<GearTabProps> = ({
                       />
                     )}
                   </div>
+                  </div>
+                  {/* P6 — the piece's temper level and its one action. */}
+                  <TemperControl profile={profile} item={arm} onTemper={onTemperItem} />
                 </div>
               );
             })}
