@@ -59,8 +59,8 @@ level (0–2) of the Imperial Stable, the Ludus Training Yard and the Smithing
 Workshop — is the newest optional field, so it gets both halves of the rule in the
 same slice: `facilities-era`, the `stable-era` save with its purse hand-aged to
 6,000 gold and then driven through the **shipped** `purchaseFacility` transaction
-six times (both levels of all three buildings: 500 + 1,200 apiece, 5,100 total),
-leaving 900 gold and `facilities: { "stable": 2, "yard": 2, "workshop": 2 }`.
+six times (both levels of all three buildings: 500 + 1,200 for the stable and the yard,
+600 + 1,400 for the workshop, 5,400 total), leaving 600 gold and `facilities: { "stable": 2, "yard": 2, "workshop": 2 }`.
 Every older fixture keeps **omitting** the field, which is the legacy shape a load
 must survive — three buildings at level 0, un-repaired — and `saveCorpus.test.ts`
 §J's expected optional set now ends with `facilities` in `src/types/game.ts`

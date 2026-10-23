@@ -215,7 +215,7 @@ export const SAVE_FIXTURES: SaveFixture[] = [
     id: 'facilities-era',
     file: 'facilitiesEraProfile.json',
     provenance:
-      'The P4 stable-era save with its purse hand-aged to 6,000 gold and then driven through the shipped P5 `purchaseFacility` transactions — both levels of all three buildings (500 + 1,200 each, 5,100 total) — leaving 900 gold and the exact bytes those purchases persist.',
+      'The P4 stable-era save with its purse hand-aged to 6,000 gold and then driven through the shipped P5 `purchaseFacility` transactions — both levels of all three buildings (500 + 1,200 for the stable and the yard, 600 + 1,400 for the workshop, 5,400 total) — leaving 600 gold and the exact bytes those purchases persist.',
     covers: [
       'the `facilities` record populated (P5): stable 2, yard 2, workshop 2',
       'every post-GC20 optional field populated, facilities included',

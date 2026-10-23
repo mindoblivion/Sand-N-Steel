@@ -6525,7 +6525,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Corpus discipline.** The new optional field fired the GC20 tripwire by design: `saveCorpus.test.ts`
   §J's optional-field list ends with `facilities` in `game.ts` declaration order, a **facilities-era**
   fixture (`saveFixtures/facilitiesEraProfile.json`, registered in `saveFixtures/index.ts` and
-  `MANIFEST.md`) carries all three buildings at L2 with 900 gold, and every pre-existing fixture still
+  `MANIFEST.md`) carries all three buildings at L2 with 600 gold, and every pre-existing fixture still
   resolves as before.
 - **Suites.** `src/utils/phaseP5FacilityProgression.test.ts` — §A the catalogue, §B the resolver over
   absent / partial / malformed shapes, §C the in-order purchase with refusals that move nothing and
