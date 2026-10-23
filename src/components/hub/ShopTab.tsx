@@ -1,7 +1,7 @@
 import React from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
 import { getItemById, isWeapon } from '../../data/itemsDB';
-import { getStorefrontStock, StorefrontId } from '../../data/shops';
+import { getVisibleStorefrontStock, StorefrontId } from '../../data/shops';
 import { CONSUMABLES, ConsumableItem } from '../../data/consumables';
 import { getConsumableCount } from '../../utils/consumables';
 import { ShoppingCart, Coins, Shield, Swords, Check, FlaskConical } from 'lucide-react';
@@ -77,7 +77,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   // The storefront's own stock, resolved to the catalogue entries behind it.
   // `getStorefrontStock` hands back ids from `ITEMS_DB` and `getItemById` reads
   // that same table, so every id resolves; the guard keeps the array typed.
-  const stock = getStorefrontStock(shopId)
+  const stock = getVisibleStorefrontStock(shopId, profile)
     .map((id) => getItemById(id))
     .filter((item): item is WeaponItem | ArmorItem => item !== undefined);
   const weapons = stock.filter(isWeapon);

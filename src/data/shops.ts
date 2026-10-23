@@ -1,4 +1,6 @@
 import { DEFAULT_PLAYER_WEAPON, ITEMS_DB, isWeapon, GameItem } from './itemsDB';
+import { PlayerProfile } from '../types/game';
+import { isItemUnlocked } from '../utils/facilityProgression';
 
 /**
  * ===========================================================================
@@ -54,4 +56,22 @@ const STOCK_PREDICATES: Record<StorefrontId, (item: GameItem) => boolean> = {
  */
 export function getStorefrontStock(id: StorefrontId): string[] {
   return ITEMS_DB.filter(STOCK_PREDICATES[id]).map((item) => item.id);
+}
+
+/**
+ * The ids a storefront actually OFFERS this gladiator: `getStorefrontStock`
+ * minus the two Master Forge pieces (chest and helm) until the Smithing
+ * Workshop reaches L2.
+ *
+ * The withheld ids come from `GILDED_FORGE_ITEM_IDS` in
+ * `utils/facilityProgression.ts`, so this layer owns no list and no rule of its
+ * own; a profile with no `facilities` field is a workshop at level 0 like any
+ * other.  The forge/armorer/merchant/market predicates are untouched.  Pure: a
+ * fresh array per call.
+ */
+export function getVisibleStorefrontStock(
+  id: StorefrontId,
+  profile: PlayerProfile | null | undefined
+): string[] {
+  return getStorefrontStock(id).filter((itemId) => isItemUnlocked(profile, itemId));
 }

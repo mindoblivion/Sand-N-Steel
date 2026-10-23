@@ -508,4 +508,13 @@ export interface PlayerProfile {
    * change is inert data that nothing reads as a live stat until racing Stage 3.
    */
   stable?: { quality?: number; conditioning?: number };
+  /**
+   * P5 — the ludus's three buildings, each level 0–2, read by
+   * `utils/facilityProgression.ts`.  Optional on purpose, exactly like `stable`:
+   * a save written before this slice has no `facilities` field at all and must
+   * keep loading, so `resolveFacilities` reads a missing, partial or malformed
+   * field as "nothing built" rather than repairing the save.  Written ONLY by a
+   * successful `purchaseFacility()` — never by `createNewProfile()`.
+   */
+  facilities?: { stable?: number; yard?: number; workshop?: number };
 }

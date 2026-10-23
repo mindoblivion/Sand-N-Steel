@@ -4,6 +4,7 @@ import { Dumbbell, Swords, Shield, Heart, Zap } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { DoctoreTestCard } from './DoctoreTestCard';
 import type { DoctoreTestRestriction } from '../../utils/storyBeats';
+import { trainingCost } from '../../utils/facilityProgression';
 
 interface TrainingTabProps {
   profile: PlayerProfile;
@@ -20,7 +21,8 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
   onTrainStat,
   onSelectDoctoreTest,
 }) => {
-  const cost = 25 * profile.level;
+  // P5 — the Ludus Training Yard sets stat training's price (and only that).
+  const cost = trainingCost(profile);
   const canAfford = profile.gold >= cost;
 
   const trainingOptions = [

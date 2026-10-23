@@ -82,10 +82,19 @@ const isTest = (file: string): boolean => /\.test\.(ts|tsx)$/.test(file);
 const rel = (file: string): string => file.slice(SRC_ROOT.length);
 const PRODUCTION_FILES = walk(SRC_ROOT).filter((file) => !isTest(file));
 
-/** A profile of this game's own factory with an explicit purse. */
+/**
+ * A profile of this game's own factory with an explicit purse.
+ *
+ * P5 — the Imperial Stable now holds Racing Bred (grade 2), Champion Bloodline
+ * (grade 3) and conditioning levels 4–5 behind its own levels.  These tests
+ * measure the stable's ORDER + GOLD rules, so the building is raised to its top
+ * (L2) by default and the P5 gate itself is exercised by
+ * `phaseP5FacilityProgression.test.ts` — never silently bypassed here.
+ */
 const profileWith = (gold: number, stable?: { quality?: number; conditioning?: number }): PlayerProfile => ({
   ...createNewProfile('Tester'),
   gold,
+  facilities: { stable: 2 },
   ...(stable ? { stable } : {}),
 });
 
@@ -201,8 +210,13 @@ describe('P4 §A — the catalogue', () => {
     expect(MODULE).not.toMatch(/export function select/);
   });
 
-  test('the module declares no facility gate: eligibility is order + gold only', () => {
-    expect(MODULE).not.toContain('facility');
+  test('the P5 facility gate is READ here, never restated: order + gold + the Imperial Stable', () => {
+    // P5's gate is owned by `facilityProgression.ts`; this module only asks it.
+    expect(MODULE).toContain('requiredStableForQuality');
+    expect(MODULE).toContain('requiredStableForConditioning');
+    expect(MODULE).toContain("getFacilityLevel(profile, 'stable')");
+    // No second copy of a requirement and no building table of its own.
+    expect(MODULE).not.toContain('facilityLevel:');
     expect(MODULE).not.toContain('buildingId');
     expect(MODULE).not.toContain('unlocked:');
   });
@@ -788,9 +802,9 @@ describe('P4 §G — the exclusions hold', () => {
     }
   });
 
-  test('the module imports only the profile type and the racing resolver', () => {
+  test('the module imports only the profile type, the racing resolver and P5\'s gate readers', () => {
     const imports = [...MODULE.matchAll(/^import .*?from '(.+?)';$/gm)].map((match) => match[1]);
-    expect(imports.sort()).toEqual(['../types/game', './racingProgression']);
+    expect(imports.sort()).toEqual(['../types/game', './facilityProgression', './racingProgression']);
     expect(MODULE).not.toContain('localStorage');
     expect(MODULE).not.toContain('saveProfile');
   });

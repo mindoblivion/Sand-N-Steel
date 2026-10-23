@@ -39,11 +39,12 @@
  * `phaseP4StableProgression.test.ts` §E pins that no production module outside
  * this file mentions them (the same sweep P3 applies to `raceEffect`).
  *
- * ── NO FACILITY GATES YET ─────────────────────────────────────────────────
- * The brief for this slice fixes eligibility as ORDER + GOLD only.  The facility
- * system (P5) will later gate Racing Bred, Champion Bloodline and conditioning
- * levels 4–5 behind their buildings; those gates are deliberately absent here, so
- * a future slice adds exactly one condition to one function.
+ * ── THE FACILITY GATES (P5) ───────────────────────────────────────────────
+ * Order + gold is the rung rule; the Imperial Stable is the building rule.  P5
+ * gates Racing Bred (grade 2) and conditioning level 4 behind stable L1, and
+ * Champion Bloodline (grade 3) and conditioning level 5 behind stable L2.  The
+ * gates live in `facilityProgression.ts` and are only READ here, so a change to a
+ * requirement happens in one place.
  *
  * Shape and purity follow the house pure-transaction idiom exactly
  * (`racingProgression.ts`, `chariotLoadout.ts`, `tempering.ts`, `laurels.ts`):
@@ -66,6 +67,7 @@
 
 import { PlayerProfile, ChariotTeamSize } from '../types/game';
 import { resolveRacingState } from './racingProgression';
+import { getFacilityLevel, requiredStableForConditioning, requiredStableForQuality } from './facilityProgression';
 
 /**
  * What a stable upgrade is DECLARED to change.  DATA ONLY: no production code
@@ -264,7 +266,8 @@ export type StableRejectionReason =
   | 'already-owned'
   | 'prerequisite-locked'
   | 'max-level'
-  | 'insufficient-gold';
+  | 'insufficient-gold'
+  | 'facility-required';
 
 export type StableResult =
   | { ok: true; profile: PlayerProfile }
@@ -283,8 +286,8 @@ function canAfford(profile: PlayerProfile, price: number): boolean {
  * Can the player buy this quality grade right now?  A surface uses it to state
  * the reason on the card; the purchase re-checks the same rules.
  *
- * Eligibility is ORDER + GOLD only — the facility gates that will later hold
- * Racing Bred and Champion Bloodline back are P5's, not this slice's.
+ * Eligibility is ORDER + GOLD + the Imperial Stable's level (P5, read from
+ * `facilityProgression.ts`).
  */
 export function getStableQualityEligibility(
   profile: PlayerProfile | null | undefined,
@@ -301,6 +304,13 @@ export function getStableQualityEligibility(
   if (quality.grade <= state.quality) return { ok: false, reason: 'already-owned' };
   if (quality.requires !== undefined && quality.requires > state.quality) {
     return { ok: false, reason: 'prerequisite-locked' };
+  }
+
+  // P5 — the Imperial Stable holds the top two grades back: Racing Bred needs
+  // the stone stalls, Champion Bloodline the stud paddock.
+  const requiredStable = requiredStableForQuality(quality.grade);
+  if (requiredStable > 0 && getFacilityLevel(profile, 'stable') < requiredStable) {
+    return { ok: false, reason: 'facility-required' };
   }
 
   if (!canAfford(profile, quality.price)) return { ok: false, reason: 'insufficient-gold' };
@@ -341,7 +351,7 @@ export function purchaseStableQuality(
 /**
  * Can the player buy this conditioning level right now?  `ref` is the level
  * being bought (1–5), and only the level directly above the current one is ever
- * on offer.  ORDER + GOLD only; the L4–L5 facility gate is P5's.
+ * on offer.  ORDER + GOLD, plus the Imperial Stable's level for L4–L5.
  */
 export function getStableConditioningEligibility(
   profile: PlayerProfile | null | undefined,
@@ -357,6 +367,12 @@ export function getStableConditioningEligibility(
   if (state.conditioning >= MAX_CONDITIONING) return { ok: false, reason: 'max-level' };
   if (ref <= state.conditioning) return { ok: false, reason: 'already-owned' };
   if (ref > state.conditioning + 1) return { ok: false, reason: 'prerequisite-locked' };
+
+  // P5 — the last two conditioning rungs need the Imperial Stable's buildings.
+  const requiredStable = requiredStableForConditioning(ref);
+  if (requiredStable > 0 && getFacilityLevel(profile, 'stable') < requiredStable) {
+    return { ok: false, reason: 'facility-required' };
+  }
 
   const price = conditioningCost(state.conditioning, stableTeamSize(profile));
   if (!canAfford(profile, price)) return { ok: false, reason: 'insufficient-gold' };
@@ -410,6 +426,8 @@ export function describeStableRejection(reason: StableRejectionReason): string {
       return 'Buy the grade below it first.';
     case 'max-level':
       return 'Your stable is already at its best.';
+    case 'facility-required':
+      return 'The Imperial Stable is not built high enough for that.';
     case 'insufficient-gold':
       return 'Not enough gold.';
   }
