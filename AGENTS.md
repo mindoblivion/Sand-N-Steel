@@ -9426,3 +9426,31 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   idle, guard and sword attack, with no seam at the wrist — and that the residual palm W/L of 1.25
   (down from 1.81, still squarer than the siblings) is acceptable rather than needing the deeper
   finger-chain weight blend C-8.77C deferred.
+
+## Combat-feel acceptance audit (C-8.78A — audit and test preparation, no production change)
+
+- The full record — the four mechanics traced to their real files, lines, timers and cancellation
+  paths, the test commands with pass counts, the 20-item Android checklist, the confirmed defect and
+  the unverified concerns — lives in
+  [.base44/combat-feel-acceptance-c878a.md](.base44/combat-feel-acceptance-c878a.md). Keep combat-feel
+  acceptance detail there rather than enlarging this file.
+- **Nothing was changed but that document**: HEAD `ffa4dfd756`, empty `git status --porcelain`,
+  `git diff --check` clean, and the C-8.77F asset repair plus `phaseC8_77f`/`phaseC8_77c` intact.
+- **Four facts a future phase should not re-derive.** (1) There is no 140 ms hit-stop: the holds are
+  40/60/110/170/200 ms (`HIT_STOP_MS`, `DuelScene.tsx:81-93`) and 140 ms is the *difference* between
+  the telegraphed heavy and a quick strike. (2) `HIT_STOP_MS`, `SHAKE_TRAUMA` and
+  `impactAnimationScale` are still pinned by **no** test — the only coverage gap found; a test-only
+  follow-up should read them out of `DuelScene.tsx` the way `phaseC8_75F` reads its constants.
+  (3) Hit-stop is a `performance.now()` deadline read by the two rigs' mixers, not a timer: nothing
+  pauses the 1100 ms resolution, so a scene exit or a cancellation cannot leave a stuck freeze.
+  (4) `?devHarness=hud&hudState=player-windup` mounts the shipped HUD alone (no 3D), which is the cheap
+  way to inspect both cue layers at any landscape size — it cannot judge timing.
+- **One confirmed defect, deliberately not fixed** (out of scope): at the 100-point hype ceiling a
+  Crowd Momentum milestone still logs "+10% Hype" (`crowdMomentumReward` returns `hypeGain: 10` with
+  `hype: 100`, `phaseC8_76.test.ts:239`). Cosmetic; the minimal correction is to log the real delta.
+- **Checks run (2026-10-23, `web` container).** Focused wind-up set **69 pass / 0 fail** (283
+  `expect()`); mechanics set **93 / 0** (467); broader combat set **144 / 0** (1,287); full
+  `bun test` → **3,404 pass / 0 fail (118 files, 91,422 `expect()`)**; `bun run lint` (`tsc --noEmit`)
+  → exit 0; `git diff --check` → clean. No test was altered and no suite needed rebasing.
+- **Android acceptance of all four mechanics remains PENDING** — the sandbox renders the duel through
+  SwiftShader and cannot resolve a 40–200 ms hold. Do not claim device acceptance.
