@@ -9257,3 +9257,105 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   (the import, `comboMomentumLit` and the badge's class swap). No damage, hit chance, stamina, AI,
   reward, tier, settlement, save field, collider, asset or 3D geometry value moved; the purse's hype
   thresholds (50 / 25 / 10 %) are untouched.
+
+## Misassigned hand weights in netfighter and minotaur (C-8.77C — assets repaired; numeric only, Android PENDING)
+
+- **Preflight (measured).** Repository root `/app`; branch `development-focus-strategy`; HEAD
+  **`c1b0d6134d`**; `git status --porcelain` **empty** before the first edit. **No C-8.77A/B record
+  exists in this file** (those passes were read-only and appended nothing), so the reported defect was
+  re-derived from the files themselves with a dependency-free GLB decoder (throwaway scripts in `/tmp`,
+  never committed). Nothing was reset, stashed, amended, rebased, committed, pushed, merged or
+  deployed, and `public/models/{arena_roman,amazonian,dimachaerus}.glb` are byte-identical.
+
+- **The defect, measured (and it is larger than the audit's estimate).** In `public/models/netfighter.glb`
+  **207** vertices — not 154 — and in `public/models/minotaur.glb` **478** — not 108 — carry weights
+  `[1, 0, 0, 0]` on joint **6 (`head`)** while the geometry sits on the **back of the hand**. The exact
+  count is definition-dependent, so it is measured topologically instead of by radius: every offending
+  vertex is a `head`-dominant vertex that shares a mesh edge with 100 %-`hand_l`/`hand_r` surface, and
+  the offenders form **four discrete islands per model** (netfighter 97/53/45/12 at |x| 0.661–0.694,
+  y 0.498–0.527; minotaur 142/130/108/98 at |x| 0.767–0.824, y 0.522–0.584), 86 / 126 of whose edges
+  are an open boundary. Because the binding was rigid to the head, every head rotation dragged the
+  patches off the hands: a skinned worst-case edge gap at a welded seam of **0.66–0.77** (netfighter)
+  and **0.81–1.01** (minotaur) units on 2.0 / 1.9-unit-tall models, across `Fighting_Idle`, `Defend`,
+  `Sword_Attack` and `Hit_Chest`.
+
+- **How the destination bones were chosen — from the mesh, not from a bone's convenience.** Four
+  independent lines of evidence agree on the hand (never a finger): (1) every edge leaving an island
+  lands on a `hand_l`/`hand_r` vertex and on nothing else — `hand_l` 38/22 neighbours on the two left
+  islands, `hand_r` 24/17 on the right, plus one `lowerarm_*` vertex each; (2) the nearest bone
+  **segment** is `hand_l`/`hand_r` for all 207 netfighter vertices; on minotaur it is the pinky chain
+  for 449 of 478, but that chain's own weighted geometry lies **outboard** of the patch and the patch
+  shares no edge with it, so a finger binding would have torn the welds instead of closing them;
+  (3) the patches sit **above the palm's own top edge** (netfighter hand max y 0.4977 vs patch 0.4976+;
+  minotaur 0.522 vs 0.522+) and **inboard of / at the knuckle line** (netfighter hand max x 0.709 vs
+  patch 0.693), i.e. the dorsal metacarpal surface, not a phalanx; (4) binding them to the hand makes
+  them **rigid with the surface they are welded to**, so no new deformation can arise.
+
+- **The repair touches only two skinning byte spans.** Each island takes its destination from its own
+  welded seam; the one netfighter island with **no** welded edge (12 vertices) uses the dominant bone of
+  the nearest correctly weighted hand surface — also `hand_l`. The tool then rewrites, in the BIN chunk
+  in place, `JOINTS_0` slot 0 and the four `WEIGHTS_0` bytes of exactly those vertices (u8 weights, so
+  `255,0,0,0` = 1.0 exactly). Measured with `cmp -l`, the whole-file difference is **exactly one byte
+  per repaired vertex — 207 bytes in `netfighter.glb` and 478 in `minotaur.glb`**: the weights were
+  already `255,0,0,0`, so only the joint index byte moved. File size, vertex/triangle data, materials,
+  textures, skeleton, inverse-bind matrices and all 178 clips are byte-identical.
+
+  | asset | before sha256 | after sha256 | bytes | verts / joints / clips |
+  |---|---|---|---|---|
+  | `netfighter.glb` | `f670f441…` | **`a0e0d4dc…`** | 10,670,992 (unchanged) | 106,139 / 56 / 178 |
+  | `minotaur.glb` | `0ff529c4…` | **`46dafe41…`** | 9,759,552 (unchanged) | 88,510 / 56 / 178 |
+
+  Repaired vertices: **109 → `hand_l` + 98 → `hand_r`** (netfighter), **240 + 238** (minotaur).
+
+- **Numeric verification (all through the same decoder + glTF skinning the audit used).** Weight sums
+  are exactly 1.0 on every vertex of both files (u8, no deviation at all), no invalid joint index, no
+  non-finite attribute; bind-pose skinning reproduces the authored geometry to **2.2e-16**; the
+  head-dominant totals fall **17,006 → 16,799** and **11,675 → 11,197** and the rigid hand surfaces grow
+  by exactly the repaired counts (839 → 948 / 1,167 → 1,265; 553 → 793 / 561 → 799). Against the four
+  named clips, evaluated on a harness normalised for the asset's own **0.9482× / 0.9500× hierarchy-vs-
+  IBM scale mismatch** (a pre-existing asset property, unrelated to this phase), the welded-seam
+  deviation drops from **0.66–0.77 / 0.81–1.01** to **exactly 0** (netfighter) and **0.006–0.036**
+  (minotaur) — and that minotaur residual is the asset's **own pre-existing wrist blend**: the control
+  set of untouched `hand`↔`lowerarm` seams deviates by 0.013–0.057 in *both* files before and after.
+  Every interior patch triangle keeps **0 % area change** (no collapse, no stretch); the patch's
+  distance to the palm stays exactly at its authored offset (0 deviation both models). Nothing was
+  gained by binding to a finger and a great deal would have been lost.
+
+- **Shared fused-finger defect — diagnosed, deliberately NOT edited.** The hands are **not** one fused
+  slab: the hand region is **29** separate shells in each model (26 in `arena_roman`), but the weights
+  are a hard partition — **282** (netfighter) / **426** (minotaur) / **121** (`arena_roman`) shared
+  edges carry a >0.5 L2 weight jump while **zero** vertices blend two chains, and most of a hand is
+  driven by one or two chains (`index` has **no** dominant vertices at all in netfighter and minotaur).
+  Rotating those chains therefore stretches the seams by up to **0.094 / 0.153** units. A minimal
+  correction (blending one or two edge rings across the hard steps) is plausible, but it would spread
+  the deformation into the surrounding surface and change the silhouette under motion, so it needs its
+  own numeric **and device** validation — reported, not attempted. `arena_roman`, `amazonian` and
+  `dimachaerus` are untouched and provably free of the head-assignment defect (0 offenders each).
+
+- **Regression suite: `src/utils/phaseC8_77c.test.ts` — 15 tests / 1,453 `expect()`.** §A the two files
+  byte-for-byte **plus** their vertex/joint/clip counts and skeleton names (a re-export must re-run the
+  audit); §B per side, the measured patch box contains **no** `head`-dominant vertex, still holds
+  exactly 109 / 98 and 240 / 238 vertices, and every one is rigid to the correct hand; §C weight hygiene
+  over every vertex, the head/rigid-hand totals; §D the three untouched models' hashes; §E controls —
+  re-binding either patch to `head` in memory is caught on both counts, so the guard is shown sensitive
+  to the defect rather than merely green.
+
+- **Checks run (2026-10-23, `web` container).** `bun test src/utils/phaseC8_77c.test.ts` → **15 pass /
+  0 fail** (1,453 `expect()`); with the two suites that inventory `public/models`
+  (`phaseC8_67d`, `phaseC8_68c`) → **86 pass / 0 fail**; `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `git diff --check` → clean. The full `bun test` sweep was deliberately not run (sandbox CPU is shared
+  with the preview); no existing suite pins these two files' contents, only the directory listing.
+
+- **Live evidence, and its limit.** In the preview browser (anonymous visitor) the app's own model
+  loading path was driven — title → character creation → **The Retiarius** and then **Minotaur** — and
+  both repaired files were fetched by `useGLTF` at **HTTP 200** (10,670,992 and 9,755,952 bytes), with
+  each model rendering on its platform and **0 console errors / 0 failed requests**. That proves the
+  files parse and load through the shipping path; it is **not visual acceptance**. **Device check owed:**
+  on Android, watch a netfighter and a minotaur in idle/attack/hit and confirm the back-of-hand spikes
+  are gone and no seam opens at the wrist, and confirm the hands still read as hands rather than
+  flattened plates.
+
+- **Restoration.** The pre-repair bytes are recoverable from git (`git checkout <pre-phase commit> --
+  public/models/netfighter.glb public/models/minotaur.glb`); copies were also kept outside the repo in
+  `/tmp/handfix/backup/` with the before hashes recorded above. No commit, push, merge or deployment was
+  made by this phase; the asset change plus the suite and this record are the whole diff.
