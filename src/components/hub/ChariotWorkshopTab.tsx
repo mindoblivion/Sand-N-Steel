@@ -9,6 +9,7 @@ import {
   ChariotFinishKey,
   ChariotPart,
   ChariotWheelVariantKey,
+  chariotPartCurrency,
   chariotPartsBySlot,
   getChariotPart,
 } from '../../data/chariotParts';
@@ -39,7 +40,7 @@ const SLOT_SECTIONS = CHARIOT_SLOTS.map((slot) => ({ slot, parts: chariotPartsBy
  */
 const SLOT_META: Record<ChariotSlot, { title: string; badge: string; icon: React.ReactNode }> = {
   wheels: { title: 'Wheel Sets', badge: 'Wheel set', icon: <Wrench className="w-5 h-5" /> },
-  finish: { title: 'Timber & Hide Finishes', badge: 'Cosmetic finish', icon: <Eye className="w-5 h-5" /> },
+  finish: { title: 'Finishes & Triumph Livery', badge: 'Cosmetic finish', icon: <Eye className="w-5 h-5" /> },
   axle: { title: 'Axle', badge: 'Axle', icon: <Wrench className="w-5 h-5" /> },
   harness: { title: 'Harness', badge: 'Harness', icon: <Wrench className="w-5 h-5" /> },
   chassis: { title: 'Chassis', badge: 'Chassis', icon: <Wrench className="w-5 h-5" /> },
@@ -134,13 +135,19 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
     const isPreviewed =
       (part.slot === 'wheels' && part.wheelVariant === previewWheels) ||
       (part.slot === 'finish' && part.finish === previewFinish);
-    const affordable = profile.gold >= part.price;
+    // P-BANNER — the price and the balance are read in the part's OWN currency,
+    // so a fame-priced row neither prints gold nor compares against the purse.
+    const currency = chariotPartCurrency(part);
+    const balance = currency === 'fame' ? profile.fame : profile.gold;
+    const affordable = balance >= part.price;
     const stateLabel = isEquipped
       ? 'Equipped'
       : isOwned
       ? 'Owned'
       : affordable
       ? 'Available'
+      : currency === 'fame'
+      ? 'Insufficient fame'
       : 'Insufficient gold';
 
     return (
@@ -157,8 +164,16 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
         <div>
           <div className="flex justify-between items-start gap-2 mb-2">
             <h5 className="font-serif font-bold text-base text-amber-100">{part.name}</h5>
-            <span className="font-mono text-xs font-bold text-yellow-400 bg-amber-950 px-2 py-0.5 rounded border border-amber-700 shrink-0">
-              {part.price === 0 ? 'Free' : `${part.price} Gold`}
+            {/* The price prints in the part's own currency: gold styling for gold,
+                a cold violet for fame — never gold numerals on a fame price. */}
+            <span
+              className={`font-mono text-xs font-bold px-2 py-0.5 rounded border shrink-0 ${
+                currency === 'fame'
+                  ? 'text-violet-300 bg-violet-950/70 border-violet-700'
+                  : 'text-yellow-400 bg-amber-950 border-amber-700'
+              }`}
+            >
+              {part.price === 0 ? 'Free' : `${part.price} ${currency === 'fame' ? 'Fame' : 'Gold'}`}
             </span>
           </div>
 
@@ -229,15 +244,25 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
             <button
               onClick={() => handleBuy(part)}
               disabled={!purchase.ok}
-              title={purchase.ok ? `Buy for ${part.price} gold` : describeChariotRejection(purchase.reason)}
+              title={
+                purchase.ok
+                  ? `Buy for ${part.price} ${currency === 'fame' ? 'fame' : 'gold'}`
+                  : describeChariotRejection(purchase.reason)
+              }
               className={`${actionWidth(part)} min-h-[48px] py-2.5 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
                 purchase.ok
-                  ? 'bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-neutral-950 border border-yellow-300 cursor-pointer'
+                  ? currency === 'fame'
+                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-700 hover:from-violet-500 hover:to-fuchsia-600 text-neutral-950 border border-violet-300 cursor-pointer'
+                    : 'bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-neutral-950 border border-yellow-300 cursor-pointer'
                   : 'bg-neutral-900 text-neutral-600 border border-neutral-800 cursor-not-allowed'
               }`}
             >
               <ShoppingCart className="w-3.5 h-3.5" />
-              <span>{purchase.ok ? `Buy (${part.price})` : describeChariotRejection(purchase.reason)}</span>
+              <span>
+                {purchase.ok
+                  ? `Buy (${part.price} ${currency === 'fame' ? 'Fame' : 'Gold'})`
+                  : describeChariotRejection(purchase.reason)}
+              </span>
             </button>
           )}
         </div>
