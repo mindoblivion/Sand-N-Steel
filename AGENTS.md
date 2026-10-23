@@ -9500,3 +9500,49 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   through the helper + the pinned caller rather than seen on a device. The C-8.78A §3 Android
   checklist, including its item 16 ("the chronicle still says +10% Hype"), remains **pending on
   hardware** — item 16 can now be re-run expecting the truthful line.
+
+## Out-of-range attack fairness (Phase C-8.79A — audit, no production change)
+
+- **The shipped path already satisfies the contract, so no production file was touched.** The whole
+  player attack path was traced at `e9628b0a5e`: the tactic panel's `onExecuteAction` is the single
+  player entry (`DuelScene.tsx` has exactly one `executeCombatTurn('player', …)` call and no
+  keyboard/touch second path) → `executeCombatTurn` → the `resolvingRef`/`isMatchOver` latch → the
+  telegraphed-heavy read-and-clear → the **range guard** → the C-8.75E affordability guard → the
+  `resolvingRef` commit and `setIsExecuting(true)` → the attack branch's stamina spend and swing
+  animation → `playerStrikeRef.current?.strike(...)` (the 700 ms pending strike) → `resolveImpact`,
+  which re-checks `canResolveStrikeImpact` → the 1100 ms turn timer. **The range guard precedes all
+  of it**, and its refusal block contains only `addLog(…)` and `return;` — no stamina write, no
+  fighter mutation, no pending strike, no `resolveImpact`, no timer.
+- **One range rule, measured.** `isAttackInRange(distance, weapon)` accepts `distance <= weapon.range`
+  (boundary legal: the starting gladius' 2.1 is in range, 2.1001 is not; non-finite/negative/≤0 reach
+  is refused). The engine's `gap` and the HUD's `currentDistance` are the *same* expression,
+  `Math.abs(player.position[2] - opp.position[2])`, so the panel cannot disagree with the guard.
+- **A duel starts out of range and the panel is coherent there.** Spawn positions are Z ±3.5, i.e.
+  distance 7.0 against 2.1 — so at the opening bell both strikes are disabled with
+  `Out of range — Advance to strike`, **Advance is enabled** (it is disabled *in* range, which is
+  what stops the fighters being walked through each other), Retreat is enabled below 9.0, and Shield
+  Guard / Dodge / Taunt / Rest are unaffected. Every duel therefore exercises the out-of-range state
+  from the first frame.
+- **Coverage gap filled by `src/utils/phaseC8_79A.test.ts`** (11 tests, 75 `expect()`), the only file
+  this phase adds: §A pins the refusal *before* the pending-strike dispatch and the turn timer and the
+  refusal block's mutation-free body, plus the single player entry point; §B pins the shared distance
+  expression through `CombatHUD` to `TurnActionPanel`; §C **renders the shipped panel** with
+  `react-dom/server` (the repo's first executable UI check of this rule) and asserts the buttons
+  themselves: just outside reach and at 7.5 both strikes are `disabled` with the overlay, at the 2.1
+  boundary and at 1.2 they are enabled with no overlay, low stamina out of range is still disabled,
+  and out of range the **Advance** card is the enabled remedy while in range it is the disabled one.
+  Off-turn and mid-resolution both strikes are disabled inside reach too.
+- **Mutation evidence (each restored and `cmp`-verified byte-for-byte).** Bypassing the engine guard
+  (`if (false && !isAttackInRange(…))`) fails 4 tests across `phaseC8_79A`, `combatActionOrder`,
+  `combatResponsiveness` and `playerStrikeWindup` (plus 2 file-level errors from the missing
+  anchor). Removing `|| !isInWeaponRange` from the quick-strike button fails 4 tests — 3 of them the
+  rendered §C checks, i.e. the render catches a gate edit the source-count pin also happens to catch.
+- **Verified 2026-10-19** in the dev container: focused `bun test src/utils/phaseC8_79A.test.ts` →
+  **11 pass / 0 fail**; the adjacent combat set (`combatActionOrder`, `combatResponsiveness`,
+  `playerStrikeWindup`, `pendingStrike`) → **97 pass / 0 fail**; `bun test` → **3451 pass / 0 fail
+  (120 files, 92 218 `expect()`)**, C-8.78B's 3440 / 119 plus this suite; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `git diff --check` → clean (the untracked suite checked with
+  `--no-index`). `git status` shows the one new file and nothing else.
+- **Not verified / not attempted.** No preview pass was needed (no rendered pixel or behaviour
+  changed) and **no Android/device acceptance was performed or claimed**; the visual state asserted
+  in §C is the shipped component's own server-rendered markup, not a frame on hardware.
