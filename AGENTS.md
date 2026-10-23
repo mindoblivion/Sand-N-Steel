@@ -9546,3 +9546,133 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Not verified / not attempted.** No preview pass was needed (no rendered pixel or behaviour
   changed) and **no Android/device acceptance was performed or claimed**; the visual state asserted
   in §C is the shipped component's own server-rendered markup, not a frame on hardware.
+
+## Opponent readability and reaction-window audit (Phase C-8.79B — audit + one fix)
+
+- **Preflight (measured).** Repository root `/app`; branch `development-focus-strategy`; HEAD
+  **`8eeff15829`** with an **empty** `git status --porcelain` before the first edit. Nothing was
+  reset, stashed, discarded, amended, rebased, committed, pushed, merged or deployed. Final HEAD is
+  unchanged (`8eeff15829`) — this phase's work is the working tree plus **this section**.
+
+- **The lifecycle, traced in the shipped source (exact values and guard locations).**
+  1. **Selection + affordability.** The AI effect (`DuelScene.tsx`, `setTimeout(…, 750)`) only runs
+     when `!isPlayerTurn && !isExecuting && !isMatchOver.current && opp.health > 0`. In range it calls
+     `chooseAITacticalAction` (`utils/aiActionSelection`), whose every strike passes through
+     `enforceAffordableAIAction` → `canAffordAttack` — the cost of the attack **actually thrown**
+     (gladius: light **12** SP, heavy **24** SP), a non-finite stamina affording nothing. Out of range
+     it calls `chooseAIOutOfRangeAction` (advance/taunt), which can never name a strike.
+  2. **Announcement.** A chosen strike goes to `announceEnemyAttack`, never to resolution. That sets
+     `strikeRef.current.announce(action, onImpact)` (`utils/pendingStrike`,`ENEMY_ATTACK_WINDUP_MS =
+     **700**`), `setPendingEnemyAttack(action)`, `setReactionTaken(null)`, `setIsExecuting(true)` (the
+     HUD lock for the whole window), the opponent's swing animation, and one chronicle line. A second
+     announce inside the window is refused by `announce` and returns before any state is written.
+  3. **Reaction window.** The cue (`CombatHUD`, `data-windup-cue`) renders on the same React update as
+     the announcement; its bar is `animationDuration: ${ENEMY_ATTACK_WINDUP_MS}ms` (700), so the drawn
+     window and the timer read the **same** constant. `reactToPendingAttack` refuses a dodge below
+     `DODGE_STAMINA_COST` (**12**) **before** claiming, then `claimReaction()` (at most once per
+     announcement) **before** writing either stance.
+  4. **Resolution of the answer.** Dodge → `isInvulnerable`; Shield Guard → `isBlocking`. The impact
+     reads `defender.isInvulnerable && Math.random() < 0.75` for the evade and
+     `defender.isBlocking` → `blockReduction` for the guard, i.e. the two stances meet the existing
+     rules; the turn-end reset preserves both flags (`resolveTurnEndDefensive`) so they survive into
+     the incoming strike.
+  5. **Impact and turn.** The impact fires `executeTurnRef.current('opponent', landing)` — the
+     **latest** resolution closure, so a stance raised during the cue is what the blow meets. It meets
+     the same `executeCombatTurn` guards in order: `resolvingRef`/`isMatchOver` →
+     telegraphed-heavy read-and-clear → **range** (`isAttackInRange`) → **affordability**
+     (`canAffordAttack`) → `resolvingRef = true` / `setIsExecuting(true)` → the stamina bill → the
+     swing → `resolveImpact`, which re-checks `canResolveStrikeImpact`. The turn ends on the shared
+     **1100 ms** timer, which is longer than the 700 ms wind-up, so an impact can never run after the
+     turn has moved on.
+  6. **Settlement and cancellation.** `isMatchOver` is latched in the outcome effect **before** the
+     1400 ms settlement is scheduled; both outcome branches clear `pendingHeavyAttackRef` /
+     `pendingCounterRef` and call `cancelPendingEnemyAttack()`; the impact callback re-checks
+     `isMatchOver` before resolving; and the unmount cleanup clears the turn timer and cancels both
+     controllers (`strikeRef`, `playerStrikeRef`). Valéria's queued counter is consumed
+     (`pendingCounterRef.current = false`) **before** it is announced, and she is re-checked for
+     affordability there, so it can neither resolve twice nor survive a stale turn.
+
+- **The one defect, and it was a UI/state discrepancy rather than a mechanics one.** The reaction cue
+  was **stance-blind**: `reactionTaken` was a boolean and the line under the telegraph read
+  *"Stance set — the strike lands against your guard."* whichever answer was given. After a **Dodge**
+  that is false twice over — `reactToPendingAttack('dodge')` sets `isInvulnerable` and never
+  `isBlocking`, the impact rolls the 75 % evade, and a failed roll lands at **full** damage because no
+  guard was raised. So the only feedback inside a 700 ms decision window told the player their shield
+  was up when it was not. **Reproduction, in the shipped HUD** (the dev harness mounts the real
+  component): `/?devHarness=hud&hudState=power` → press `Dodge` → `data-hud-reacts="dodge"` while the
+  cue read the guard line.
+
+- **The fix is the stance, one rule and one line — no combat value moved.** `reactionTaken` is now
+  `PendingReaction | null` (`'shield_block' | 'dodge'`): `DuelScene` writes `setReactionTaken(action)`
+  after the claim (unchanged order) and clears it to `null` at announce, at impact and in
+  `cancelPendingEnemyAttack`; `utils/pendingStrike` gains `resolveReactionCue(reaction)` — the same
+  module that already owns the announcement/reaction bookkeeping — returning
+  *"Dodge set — a chance to slip the blow entirely."* or *"Guard set — the blow lands at reduced
+  force."*; `CombatHUD` renders that label and exposes `data-reaction-kind` beside the existing
+  `data-reaction-taken`. The dev harness passes the reaction it actually delivered. **Untouched:**
+  every stamina cost, damage formula, hit chance, dodge rate (still the inline 0.75), wind-up (700),
+  hit-stop, shake, turn timer (1100), AI delay (750), Crowd Momentum, rewards, the announcement API,
+  the claim ordering and every opponent's data.
+
+- **Scenario results (evidence named for each).**
+
+  | scenario | status | evidence |
+  |---|---|---|
+  | a normal opponent attack gives the documented window | **PASS** | 700 ms constant read by both the controller and the drawn bar; `pendingStrike` §A (nothing lands before the wind-up, the impact carries the announced action) |
+  | rapid input cannot bypass or duplicate the lifecycle | **PASS** | `claimReaction` once per announcement (`pendingStrike` §B), a second `announce` refused (§C), the cue's two controls are replaced after the claim — re-read live in this phase |
+  | dodge and block meet the telegraphed strike consistently | **PASS** | source trace: `isInvulnerable` → 75 % evade, `isBlocking` → `blockReduction`; the flags are preserved by `resolveTurnEndDefensive` (`defensiveBalance`) |
+  | Valéria's counter resolves at most once | **PASS** | latch consumed pre-announce + `canAffordAttack` re-check; `phaseC8_75B` §A, the C-8.75D source guard |
+  | unaffordable strikes are neither selected nor charged | **PASS** | `enforceAffordableAIAction` at selection and `canAffordAttack` at resolution (`phaseC8_75E`/`phaseC8_75F`) |
+  | a bout ending during a pending strike prevents late damage/counters | **PASS** | both branches cancel before settling and the callback re-checks the latch (`duelResultLifecycle` §D) |
+  | leaving the duel prevents delayed effects | **PASS (source + suite)** | the unmount cleanup cancels both controllers (`duelResultLifecycle` §D). **Not driven live**: the only leaves are the HUD's Armory badge and the result screen, neither reached in this pass |
+  | announcements and impacts are the same pending strike | **PASS** | the impact passes the controller's own `landing`, read at impact time (`pendingStrike` §A) |
+  | **the reaction cue reports the stance taken** | **FAIL → FIXED** | the defect above, reproduced in the shipped HUD and re-checked live after the fix |
+
+- **Two timing notes a future phase should not re-derive.** (1) The player's window is **700 ms
+  measured from the announcement**, which itself follows the AI effect's **750 ms** think delay — so
+  the opponent's whole turn reads as ~1450 ms before the blow. (2) On a slow device the cue can mount
+  late relative to the timer (React commits the state it was written in, while the 700 ms timer is
+  wall-clock), so the *visible* window can be shorter than the configured one; that is a
+  hardware question, not a source inconsistency, and it is unmeasurable in this sandbox.
+
+- **Files changed (one defect, no balance change).** `src/utils/pendingStrike.ts` (the
+  `PendingReaction` type and `resolveReactionCue`), `src/components/ui/CombatHUD.tsx` (prop typed to
+  the union, the resolved label, `data-reaction-kind`), `src/components/duel/DuelScene.tsx` (the state
+  carries the stance; four write sites), `src/components/dev/CombatHudHarness.tsx` (passes the
+  delivered reaction), `src/utils/combatResponsiveness.test.ts` (**two pins rebased, none weakened** —
+  the prop's type and the write's argument, each with a comment naming this phase), and the new
+  `src/utils/phaseC8_79B.test.ts` (16 tests / 45 `expect()`: §A the rule, §B the **rendered** HUD for
+  both stances, §C the shipped write sites and the claim-before-write order, §D the untouched
+  lifecycle).
+
+- **Mutation evidence (each restored and `sha256sum -c` clean).** Reverting the cue to the old
+  stance-blind line (`{reactionCue.label}` → the fixed guard string) fails **exactly** `§B — after a
+  Dodge the cue does not claim a raised guard` (1 fail / 15 pass); reverting the write to
+  `setReactionTaken(true)` fails **exactly** `§C — the reaction writes the stance it was handed` and
+  the claim-before-write pin (2 fail / 14 pass). With both restored, all 16 pass.
+
+- **Checks run (2026-10-23, `web` container, on the final tree).** Focused combat set
+  `{pendingStrike, combatActionOrder, combatResponsiveness, phaseC8_75B, phaseC8_75F, defensiveBalance,
+  duelResultLifecycle, phaseC8_79A, phaseC8_79B}` → **172 pass / 0 fail** (764 `expect()`, 9 files);
+  full `bun test` → **3467 pass / 0 fail (121 files, 92,263 `expect()`)** — C-8.79A left 3451 / 120, the
+  delta being this suite's 16 tests and its file; `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `git diff --check` → **clean**.
+
+- **Live evidence (preview browser, anonymous visitor — no session replayed).** The shipped HUD was
+  mounted through the dev harness (`/?devHarness=hud&hudState=power`) and driven: the cue read
+  `power_attack` with both reaction controls offered and no line claimed; pressing **Dodge** delivered
+  `data-hud-reacts="dodge"`, replaced both controls, and the line then read
+  **"Dodge set — a chance to slip the blow entirely."** with `data-reaction-kind="dodge"` and **no**
+  mention of a guard. Before the fix the same gesture produced the guard line. **The Shield Guard
+  variant was not driven live** (the harness holds one reaction per mount); it is covered by §B's
+  server-rendered markup, which renders the shipped component for both stances.
+
+- **Not automatically verified — do not read the table above as covering it.** No duel was fought in
+  this environment: the sandbox renders the arena through SwiftShader at ~1–2 fps, so the reaction
+  window was never *seen* running in a real bout, and a 700 ms read cannot be judged here at all.
+  **Android acceptance stays PENDING** for the whole reaction surface: that the cue is readable at
+  arm's length and that both 44 px reaction targets are reachable one-handed in landscape; that
+  700 ms reads as fair rather than tight (and that the cue is not visibly late on a slow device); that
+  **the new Dodge line is legible and truthful on hardware**, and that a blocked strike still reads as
+  reduced damage while a failed dodge reads as a full hit. The C-8.73B/C-8.75B device checklists and
+  every earlier device item stand unchanged. Do not claim device acceptance.

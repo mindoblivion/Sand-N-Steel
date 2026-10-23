@@ -39,7 +39,7 @@ import {
   canAffordAttack,
   chooseAITacticalAction,
 } from '../../utils/aiActionSelection';
-import { createPendingStrike, type PendingStrike } from '../../utils/pendingStrike';
+import { createPendingStrike, type PendingReaction, type PendingStrike } from '../../utils/pendingStrike';
 import {
   isCounterDodgeOpponent,
   queuesCounterOnEvade,
@@ -337,10 +337,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // readable cue (the HUD banner + the wind-up log line); the damage itself is
   // only ever resolved when the wind-up timer ends and calls the SAME
   // executeCombatTurn the attack always went through, so no formula, hit chance
-  // or boss value moves. `reactionTaken` records that the player spent their one
-  // reaction (Shield Guard or Dodge) inside the window.
+  // or boss value moves. `reactionTaken` records WHICH stance the player spent
+  // their one reaction on (Shield Guard or Dodge) inside the window, so the cue
+  // can name it back: a dodge is not a guard.
   const [pendingEnemyAttack, setPendingEnemyAttack] = useState<'quick_attack' | 'power_attack' | null>(null);
-  const [reactionTaken, setReactionTaken] = useState(false);
+  const [reactionTaken, setReactionTaken] = useState<PendingReaction | null>(null);
   // C-8.73B — the player's OWN wind-up cue. This is a mirror of
   // `playerStrikeRef.current.pending`, written only by the controller's
   // `onPendingChange` (commit, impact, cancellation), so there is no second
@@ -1103,7 +1104,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const cancelPendingEnemyAttack = useCallback(() => {
     strikeRef.current?.cancel();
     setPendingEnemyAttack(null);
-    setReactionTaken(false);
+    setReactionTaken(null);
   }, []);
 
   const announceEnemyAttack = useCallback(
@@ -1117,14 +1118,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // is what the blow meets.
       const announced = strikeRef.current?.announce(actionType, (landing) => {
         setPendingEnemyAttack(null);
-        setReactionTaken(false);
+        setReactionTaken(null);
         if (isMatchOver.current) return;
         executeTurnRef.current('opponent', landing);
       });
       if (!announced) return;
 
       setPendingEnemyAttack(actionType);
-      setReactionTaken(false);
+      setReactionTaken(null);
       // Locks the normal actions for the whole announcement + resolution window.
       setIsExecuting(true);
       // The opponent's swing animation starts HERE, so the blow lands mid-swing at
@@ -1162,7 +1163,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // buttons from stacking a guaranteed block with an evade.
       if (!strikeRef.current?.claimReaction()) return;
 
-      setReactionTaken(true);
+      // C-8.79B — record the stance itself, so the cue names back what the
+      // player actually chose rather than always reporting a raised guard.
+      setReactionTaken(action);
 
       if (action === 'dodge') {
         sounds.playDodge();

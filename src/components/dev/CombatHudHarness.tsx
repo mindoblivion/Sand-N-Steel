@@ -91,7 +91,7 @@ export const CombatHudHarness: React.FC = () => {
   const [logCount] = useState<number>(readLogCount);
   // The reactions actually delivered to the shipped handler, so a click that
   // reaches the button is provable rather than inferred from the DOM.
-  const [reacts, setReacts] = useState<string[]>([]);
+  const [reacts, setReacts] = useState<Array<'shield_block' | 'dodge'>>([]);
 
   const player = useMemo(
     () =>
@@ -178,7 +178,13 @@ export const CombatHudHarness: React.FC = () => {
                 : null
           }
           pendingPlayerAttack={cueState === 'player-windup' ? 'quick_attack' : null}
-          reactionTaken={cueState === 'reaction-taken' || reacts.length > 0}
+          reactionTaken={
+            cueState === 'reaction-taken'
+              ? 'shield_block'
+              : reacts.length > 0
+                ? reacts[reacts.length - 1]
+                : null
+          }
           onReactToPendingAttack={(action) => setReacts((prev) => [...prev, action])}
         />
       </div>

@@ -65,6 +65,32 @@ export interface PendingStrike {
   cancel(): boolean;
 }
 
+/** The player's one answer to an announced strike. */
+export type PendingReaction = 'shield_block' | 'dodge';
+
+/** What the cue says once the reaction has been spent. */
+export interface ReactionCue {
+  kind: PendingReaction;
+  label: string;
+}
+
+/**
+ * The line the cue shows once the player has answered the announced strike.
+ *
+ * It names the stance that was ACTUALLY taken, because the two answer the blow
+ * differently: Shield Guard sets `isBlocking`, so the strike still lands and its
+ * damage is reduced by the shield's blockReduction; Dodge sets `isInvulnerable`,
+ * so the blow is evaded outright at the dodge rate and lands unreduced only when
+ * that roll fails. A single guard line therefore misreports a dodge — it claims a
+ * guard that was never raised and hides that the incoming blow can land in full.
+ */
+export function resolveReactionCue(reaction: PendingReaction | null): ReactionCue | null {
+  if (reaction === null) return null;
+  return reaction === 'dodge'
+    ? { kind: 'dodge', label: 'Dodge set — a chance to slip the blow entirely.' }
+    : { kind: 'shield_block', label: 'Guard set — the blow lands at reduced force.' };
+}
+
 export function createPendingStrike(config: PendingStrikeConfig = {}): PendingStrike {
   const timer = config.timer ?? realTimer;
   const windupMs = config.windupMs ?? ENEMY_ATTACK_WINDUP_MS;

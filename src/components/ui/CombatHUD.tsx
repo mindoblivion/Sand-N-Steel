@@ -9,6 +9,7 @@ import {
 } from '../../utils/combatCalculations';
 import { isCrowdMomentumMilestone } from '../../utils/crowdMomentum';
 import { resolvePlayerWindupCue, type PlayerStrikeAction } from '../../utils/playerStrike';
+import { resolveReactionCue, type PendingReaction } from '../../utils/pendingStrike';
 
 interface CombatHUDProps {
   player: FighterState;
@@ -30,12 +31,14 @@ interface CombatHUDProps {
   combatLog: CombatLogEntry[];
   onExecuteAction: (action: CombatActionType) => void;
   // Combat responsiveness §R1 — the enemy strike that has been announced but has
-  // not landed yet, the player's one reaction to it, and the reaction itself.
+  // not landed yet, the player's one reaction to it, and WHICH stance that
+  // reaction was (C-8.79B: the cue names it back, so a dodge cannot be reported
+  // as a raised guard).
   pendingEnemyAttack: 'quick_attack' | 'power_attack' | null;
   // C-8.73B — the player's own strike, held for its 700 ms wind-up. Mirrored
   // from the strike controller (`playerStrike.ts`), never timed here.
   pendingPlayerAttack: PlayerStrikeAction | null;
-  reactionTaken: boolean;
+  reactionTaken: PendingReaction | null;
   onReactToPendingAttack: (action: 'shield_block' | 'dodge') => void;
 }
 
@@ -65,6 +68,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   // The player's cue, as the shared rule decides it: nothing unless a strike is
   // genuinely pending, and never alongside an opponent announcement.
   const playerWindupCue = resolvePlayerWindupCue(pendingPlayerAttack, pendingEnemyAttack);
+  const reactionCue = resolveReactionCue(reactionTaken);
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
   const playerStaminaPct = Math.max(0, Math.min(100, (player.stamina / player.stats.staminaMax) * 100));
 
@@ -271,9 +275,13 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
               ></div>
             </div>
 
-            {reactionTaken ? (
-              <p data-reaction-taken="true" className="text-[10px] font-mono text-emerald-300 text-center">
-                Stance set — the strike lands against your guard.
+            {reactionCue ? (
+              <p
+                data-reaction-taken="true"
+                data-reaction-kind={reactionCue.kind}
+                className="text-[10px] font-mono text-emerald-300 text-center"
+              >
+                {reactionCue.label}
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-1.5">

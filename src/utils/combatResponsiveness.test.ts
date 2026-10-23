@@ -236,7 +236,8 @@ describe('§B — an out-of-range attack is refused before it costs anything (§
 describe('§C — the announced strike is visible, answerable and cancellable (§R1)', () => {
   test('the HUD takes the cue, the reaction and the reaction handler', () => {
     expect(hudSource).toContain("pendingEnemyAttack: 'quick_attack' | 'power_attack' | null;");
-    expect(hudSource).toContain('reactionTaken: boolean;');
+    // C-8.79B — the cue is told WHICH stance was taken (a dodge named a guard).
+    expect(hudSource).toContain("reactionTaken: PendingReaction | null;");
     expect(hudSource).toContain(
       "onReactToPendingAttack: (action: 'shield_block' | 'dodge') => void;"
     );
@@ -271,7 +272,7 @@ describe('§C — the announced strike is visible, answerable and cancellable (�
 
   test('the reaction is claimed before any stance is written', () => {
     const claim = duelSource.indexOf('claimReaction()');
-    const write = duelSource.indexOf('setReactionTaken(true)');
+    const write = duelSource.indexOf('setReactionTaken(action)');
     const stamina = duelSource.indexOf('player.stamina < DODGE_STAMINA_COST');
 
     expect(claim).toBeGreaterThan(-1);
