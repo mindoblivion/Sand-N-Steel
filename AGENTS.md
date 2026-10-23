@@ -6626,3 +6626,42 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   under the team cards** — pinned by source contract in the suite, not read from the live DOM in that
   run. (c) The panels' rendered look on the target device (SwiftShader here, ~2 fps in the 3D hub),
   together with the device checklist this file already carries.
+
+## P-BANNER — Triumph banner set, priced in FAME (implemented)
+
+- **One catalogue row, and the design's one deliberate currency extension.** `finish_triumph_banners`
+  is a finish-slot cosmetic in `CHARIOT_PARTS` (finish key `triumph`: bleached ash wood, oxblood hide,
+  gilded bronze). Its row names `currency: 'fame'`; every other row omits the field, which means gold —
+  `chariotPartCurrency(part)` is the single reader of that default, so a gold part behaves exactly as
+  it always has (the sweep in `phasePBannerTriumphSet.test.tsx` pins that this stays the only fame row).
+- **Price: 500 FAME.** The design lists the set among the §3.6 fame sinks but never prices it (titles
+  300 / 800 / 2,000 + statue 1,200 = 4,300); 500 is the director's ruling for this slice and the suite
+  pins the literal `500`, not a value read back from the catalogue.
+- **`purchaseChariotPart` spends the row's own currency.** A fame row deducts from `profile.fame` and
+  leaves `gold` byte-identical (and a gold row leaves `fame` byte-identical); the refusal is
+  `insufficient-fame` and, per the house idiom, returns **no profile at all**, so a short balance can
+  never reach a writer. Malformed (`NaN` / `Infinity` / missing) fame affords nothing. `App`'s
+  `handleBuyChariotPart` still holds no currency logic — it persists what the transaction returns.
+- **Ownership stays in the one chariot record.** No second storage key and no second ownership field:
+  the Triumphs page only READS the set through `ownsChariotPart` and offers no buy control — the
+  Chariot Workshop is the only seller, through the existing data-driven finish section.
+- **The workshop reads, never restates, the currency.** Badge and buy button print `${price} Fame` with
+  a violet palette (`text-violet-300 bg-violet-950/70 border-violet-700`) where gold rows keep
+  amber/yellow, and the refusal sentence is `Insufficient fame` (`Not enough fame.` on the button).
+- **Verified 2026-10-23** in the dev container on the final tree: `bun test` → **3224 pass / 0 fail
+  (109 files, 87,315 `expect()` calls)**; `bun run lint` (`tsc --noEmit`) → **exit 0**; `git diff
+  --check` clean. **Live evidence** (preview browser, anonymous visitor): driven through the app's own
+  guest route — title → `Play` → `Apply Points & Enter Metropolis` → city hub `Armory` → `Chariot
+  Workshop` — the finish section renders **Triumph Banners** with a violet `500 Fame` badge (computed
+  `oklch(0.811 0.111 293.571)`) beside the unchanged gold rows (`450 Gold` at
+  `oklch(0.852 0.199 91.936)`), the card's state line reads **Insufficient fame** and its buy button is
+  **disabled** reading **Not enough fame.**; `scrollWidth === clientWidth` at 1280. The console shows
+  only the pre-existing React unmount warning recorded elsewhere in this file. The guest save the walk
+  wrote was removed afterwards.
+- **Not automatically verified.** (a) **The fame purchase CLICK** — the preview profile carries 0 fame
+  and the preview session replays its own save on every fresh load, the same limit C-8.66B recorded for
+  gold; the transaction, both refusals, the idempotence and a real `saveProfile()` / `loadSavedProfile()`
+  round trip are pinned by `src/utils/phasePBannerTriumphSet.test.tsx`. (b) The set's **rendered
+  appearance on the chariot** (the `triumph` finish's three material overrides) — SwiftShader only
+  here, so it needs the on-device look. (c) The Triumphs page row, verified by markup assertions (it
+  only appears once the set is owned, which the guest profile never is).
