@@ -28,6 +28,11 @@ import {
   DEFAULT_PLAYER_WEAPON,
   getWeaponByType,
 } from '../src/data/itemsDB';
+import {
+  canAffordAttack,
+  chooseAITacticalAction,
+  enforceAffordableAIAction,
+} from '../src/utils/aiActionSelection';
 
 // ── Mini test runner ──────────────────────────────────────────────────────
 let passed = 0;
@@ -642,6 +647,74 @@ test('advance: all weapons at 2.5m — dagger enabled, spear disabled', () => {
   const spear = getWeaponByType('spear');
   assert.ok(!advanceDisabled(2.5, getWeaponRange(dagger)), 'dagger at 2.5m: advance enabled (out of range)');
   assert.ok(advanceDisabled(2.5, getWeaponRange(spear)), 'spear at 2.5m: advance disabled (in range)');
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// AI STRIKE AFFORDABILITY (C-8.75E)
+//
+// The AI may only throw a strike it can pay for. These read the same helpers
+// DuelScene's AI turn and executeCombatTurn use, at both cost boundaries.
+// ════════════════════════════════════════════════════════════════════════════
+
+test('affordability: the light cost leaves the power attack unaffordable', () => {
+  const weapon = DEFAULT_PLAYER_WEAPON;
+  const light = getStaminaCost(weapon, true);
+  const heavy = getStaminaCost(weapon, false);
+  assert.ok(heavy > light, 'the audited weapon must have distinct strike costs');
+  assert.equal(canAffordAttack(light, weapon, 'quick_attack'), true);
+  assert.equal(canAffordAttack(light, weapon, 'power_attack'), false);
+  assert.equal(canAffordAttack(heavy, weapon, 'power_attack'), true);
+  assert.equal(canAffordAttack(light - 1, weapon, 'quick_attack'), false);
+});
+
+test('affordability: every weapon answers its own two costs', () => {
+  ALL_WEAPONS.forEach((w) => {
+    const light = getStaminaCost(w, true);
+    const heavy = getStaminaCost(w, false);
+    assert.equal(canAffordAttack(light, w, 'quick_attack'), true, `${w.name} light`);
+    assert.equal(canAffordAttack(light, w, 'power_attack'), light >= heavy, `${w.name} heavy`);
+    assert.equal(canAffordAttack(heavy, w, 'power_attack'), true, `${w.name} heavy cost`);
+  });
+});
+
+test('affordability: an unaffordable power attack degrades to the quick attack', () => {
+  const weapon = DEFAULT_PLAYER_WEAPON;
+  const between = Math.floor((getStaminaCost(weapon, true) + getStaminaCost(weapon, false)) / 2);
+  assert.equal(enforceAffordableAIAction('power_attack', between, weapon), 'quick_attack');
+  assert.equal(enforceAffordableAIAction('power_attack', 0, weapon), 'rest');
+});
+
+test('affordability: the AI selection never names an unpayable strike', () => {
+  const weapon = DEFAULT_PLAYER_WEAPON;
+  const light = getStaminaCost(weapon, true);
+  const heavy = getStaminaCost(weapon, false);
+  const staminas = [0, light - 1, light, Math.floor((light + heavy) / 2), heavy, heavy + 20];
+  const draws = [0, 0.2, 0.44, 0.45, 0.7, 0.75, 0.9, 0.99];
+  for (const stamina of staminas) {
+    for (const playerIsBlocking of [false, true]) {
+      for (const playerHealth of [100, 10]) {
+        for (const draw of draws) {
+          const action = chooseAITacticalAction(
+            { playerIsBlocking, playerHealth, stamina, weapon, aggression: 0.95, blockChance: 0.7 },
+            draw,
+          );
+          if (action === 'quick_attack' || action === 'power_attack') {
+            assert.equal(
+              canAffordAttack(stamina, weapon, action),
+              true,
+              `${action} at ${stamina} SP must be affordable`,
+            );
+          }
+          if (stamina < light) {
+            assert.ok(
+              action !== 'quick_attack' && action !== 'power_attack',
+              `no strike is possible at ${stamina} SP, got ${action}`,
+            );
+          }
+        }
+      }
+    }
+  }
 });
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -105,6 +105,28 @@ function between(source: string, start: string, end: string): string {
   return source.slice(from, to);
 }
 
+/**
+ * The brace-balanced block that STARTS at `start` (inclusive).
+ *
+ * C-8.75E added a second guard (strike affordability) beside the range guard,
+ * before the same `resolvingRef` commit, so a slice that runs to the commit
+ * marker no longer means "the refusal". This returns exactly one block, so the
+ * claim each slice makes is unchanged and precisely delimited.
+ */
+function blockAt(source: string, start: string): string {
+  const from = at(source, start); // eslint-disable-line @typescript-eslint/no-use-before-define
+  let depth = 0;
+  for (let i = from; i < source.length; i += 1) {
+    const char = source[i];
+    if (char === '{') depth += 1;
+    else if (char === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(from, i + 1);
+    }
+  }
+  throw new Error(`unbalanced block at ${start}`);
+}
+
 const QUICK = 'quick_attack' as const;
 const POWER = 'power_attack' as const;
 
@@ -508,7 +530,9 @@ describe('§D — commit, wind-up, impact, and the single turn-end timer', () =>
   });
 
   test('the turn is still advanced exactly once, by the unchanged 1100 ms timer', () => {
-    expect(duelSource.split('setIsPlayerTurn(').length - 1).toBe(2);
+    // The 1100 ms timer, the range refusal's release and C-8.75E's affordability
+    // refusal release.
+    expect(duelSource.split('setIsPlayerTurn(').length - 1).toBe(3);
     expect(duelSource).toContain('setIsPlayerTurn(!isActorPlayer);');
     expect(duelSource).toContain('}, 1100);');
     // The opponent cannot answer before the impact: the AI effect is gated on the
@@ -556,7 +580,9 @@ describe('§E — no combat value, cost or formula moved with the timing', () =>
     const stamina = at(duelSource, 'const staminaCost = getStaminaCost(');
     expect(guard).toBeLessThan(commit);
     expect(guard).toBeLessThan(stamina);
-    const refusal = between(duelSource, "if (!isAttackInRange(gap, attackerNow.loadout.weapon)) {", 'resolvingRef.current = true;');
+    // C-8.75E — brace-balanced, so this is the range refusal itself and not the
+    // affordability guard added beside it before the same commit.
+    const refusal = blockAt(duelSource, "if (!isAttackInRange(gap, attackerNow.loadout.weapon)) {");
     expect(refusal).not.toContain('stamina');
     expect(refusal).toContain('return;');
     expect(refusal).toContain('is out of range — Advance before striking.');

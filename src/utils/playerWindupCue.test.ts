@@ -340,7 +340,9 @@ describe('§D — no timing or combat value moved with the cue', () => {
 
   test('the turn-end timer, the opponent cue and the turn toggles are untouched', () => {
     expect(duelSource).toContain('}, 1100);');
-    expect(duelSource.split('setIsPlayerTurn(').length - 1).toBe(2);
+    // The 1100 ms timer, the range refusal's release and C-8.75E's affordability
+    // refusal release.
+    expect(duelSource.split('setIsPlayerTurn(').length - 1).toBe(3);
     expect(hudSource).toContain('data-windup-cue={pendingEnemyAttack}');
     expect(hudSource).toContain('data-reaction="shield_block"');
     expect(hudSource).toContain('data-reaction="dodge"');

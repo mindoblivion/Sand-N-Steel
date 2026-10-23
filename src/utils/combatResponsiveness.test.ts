@@ -38,6 +38,22 @@ const duelSource = readFileSync(
   new URL('../components/duel/DuelScene.tsx', import.meta.url),
   'utf8',
 );
+
+/** The brace-balanced block that STARTS at `start` (inclusive). */
+function blockAt(source: string, start: string): string {
+  const from = source.indexOf(start);
+  expect(from).toBeGreaterThan(-1);
+  let depth = 0;
+  for (let i = from; i < source.length; i += 1) {
+    const char = source[i];
+    if (char === '{') depth += 1;
+    else if (char === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(from, i + 1);
+    }
+  }
+  throw new Error(`unbalanced block at ${start}`);
+}
 const hudSource = readFileSync(
   new URL('../components/ui/CombatHUD.tsx', import.meta.url),
   'utf8',
@@ -197,8 +213,10 @@ describe('§B — an out-of-range attack is refused before it costs anything (§
     expect(guard).toBeLessThan(committing);
     expect(guard).toBeLessThan(stamina);
 
-    // The guarded branch leaves the function before anything is spent.
-    const guarded = duelSource.slice(guard, duelSource.indexOf('resolvingRef.current = true;'));
+    // The guarded branch leaves the function before anything is spent. C-8.75E
+    // added a second guard beside it (strike affordability) before the same
+    // commit, so the range refusal is delimited by its own braces.
+    const guarded = blockAt(duelSource, 'if (!isAttackInRange(gap, attackerNow.loadout.weapon)) {');
     expect(guarded).toContain('return;');
     expect(guarded).not.toContain('stamina');
     expect(guarded).not.toContain('setPlayer(');

@@ -59,11 +59,43 @@ function between(source: string, start: string, end: string): string {
 const guardStart = 'if (!isAttackInRange(gap, attackerNow.loadout.weapon)) {';
 const commitMarker = 'resolvingRef.current = true;';
 
+/**
+ * The brace-balanced block that STARTS at `start` (inclusive).
+ *
+ * C-8.75E added a second guard (strike affordability) beside the range guard,
+ * before the same `resolvingRef` commit, so a slice that runs to the commit
+ * marker no longer means "the refusal". This returns exactly one block, so the
+ * claim each slice makes is unchanged and precisely delimited.
+ */
+function blockAt(source: string, start: string): string {
+  const from = at(source, start); // eslint-disable-line @typescript-eslint/no-use-before-define
+  let depth = 0;
+  for (let i = from; i < source.length; i += 1) {
+    const char = source[i];
+    if (char === '{') depth += 1;
+    else if (char === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(from, i + 1);
+    }
+  }
+  throw new Error(`unbalanced block at ${start}`);
+}
+
+/**
+ * The RANGE guard's own refusal, brace-balanced.
+ *
+ * C-8.75E added the affordability guard beside it (before the same commit), so
+ * the pins below stop at this block: they still assert exactly what C-8.71A
+ * established — that the range refusal costs nothing — without being tripped by
+ * an unrelated guard that happens to sit further down.
+ */
+const rangeRefusal = blockAt(duelSource, guardStart);
+
 // ── §A. A refused strike costs nothing ─────────────────────────────────────
 
 describe('§A — an out-of-range strike is refused before it costs anything', () => {
   test('the refusal is a log line and a return: no stamina, animation, damage or timer', () => {
-    const refusal = between(duelSource, guardStart, commitMarker);
+    const refusal = rangeRefusal;
 
     expect(refusal).toContain('addLog(');
     expect(refusal).toContain('return;');
@@ -111,12 +143,14 @@ describe('§A — an out-of-range strike is refused before it costs anything', (
 describe('§B — a refused strike never holds or advances the turn', () => {
   test('the resolution timer is the only turn advance, and it is scheduled after the guard', () => {
     const toggles = duelSource.split('setIsPlayerTurn(').length - 1;
-    expect(toggles).toBe(2); // the 1100 ms resolution timer and this phase's refusal release
+    // The 1100 ms resolution timer, the range guard's refusal release (C-8.71A)
+    // and the affordability guard's refusal release (C-8.75E).
+    expect(toggles).toBe(3);
     expect(at(duelSource, guardStart)).toBeLessThan(at(duelSource, commitMarker));
   });
 
   test('a refused announced strike releases the lock and hands the turn back', () => {
-    const refusal = between(duelSource, guardStart, commitMarker);
+    const refusal = rangeRefusal;
 
     expect(refusal).toContain('if (!isActorPlayer && isExecuting) {');
     const release = between(refusal, 'if (!isActorPlayer && isExecuting) {', 'return;');
@@ -157,7 +191,7 @@ describe('§C — the telegraphed-heavy marker is cleared before any refusal', (
 
 describe('§D — the player is told why the strike was refused', () => {
   test('the chronicle line names the reason and the remedy', () => {
-    const refusal = between(duelSource, guardStart, commitMarker);
+    const refusal = rangeRefusal;
     expect(refusal).toContain('is out of range — Advance before striking.');
     expect(refusal).toContain("'system'");
   });
@@ -262,7 +296,7 @@ describe('§G — the fix moved no combat value', () => {
   });
 
   test('the refusal block adds no new rule table of its own', () => {
-    const refusal = between(duelSource, guardStart, commitMarker);
+    const refusal = rangeRefusal;
     // Four statements or fewer beyond the log: the release pair and the return.
     expect(refusal.split('\n').filter((line) => line.trim().startsWith('set')).length).toBe(2);
     expect(refusal).not.toContain('gap >');

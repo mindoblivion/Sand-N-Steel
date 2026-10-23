@@ -23,7 +23,6 @@ import {
   calculateHitChance,
   calculateAttackDamage,
   applyStaminaRegen,
-  chooseAIStandardAction,
   chooseAIOutOfRangeAction,
   RAGE_DAMAGE_MULTIPLIER,
   shouldActivateRage,
@@ -35,6 +34,10 @@ import {
   applyDefensiveAction,
   clearDefensiveStance,
 } from '../../utils/combatCalculations';
+import {
+  canAffordAttack,
+  chooseAITacticalAction,
+} from '../../utils/aiActionSelection';
 import { createPendingStrike, type PendingStrike } from '../../utils/pendingStrike';
 import {
   isCounterDodgeOpponent,
@@ -550,6 +553,28 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // or an announcement is in flight its controls are disabled, and
           // `resolvingRef` refuses the call above.
           if (!isActorPlayer && isExecuting) {
+            setIsExecuting(false);
+            setIsPlayerTurn(true);
+          }
+          return;
+        }
+
+        // C-8.75E — the authoritative AFFORDABILITY guard, beside the range guard
+        // above and for the same reason: a strike the attacker cannot pay for is
+        // refused BEFORE any stamina, animation, damage roll or turn commit, so
+        // an unaffordable blow can never be free. Selection
+        // (`chooseAITacticalAction`) only ever offers an affordable action; this
+        // closes the paths that never consult it — a queued counter, a telegraph
+        // landing, a stale UI. Before this phase the attack branch billed with
+        // `Math.max(0, stamina - cost)`, which silently turned a 22 SP power
+        // slash into a 12 SP one whenever the opponent was short.
+        if (!canAffordAttack(attackerNow.stamina, attackerNow.loadout.weapon, actionType)) {
+          addLog(`${attackerNow.name} is too winded to strike — the blow is lost.`, 'system');
+          // Hand the turn back the way the range guard does. An announced strike
+          // holds `isExecuting` with no turn-end timer scheduled, and a telegraph
+          // landing opens the opponent's turn with `isPlayerTurn` already false,
+          // so without this the HUD would stay locked with no turn to take.
+          if (!isActorPlayer) {
             setIsExecuting(false);
             setIsPlayerTurn(true);
           }
@@ -1160,8 +1185,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     const aiTimer = setTimeout(() => {
       const dist = Math.abs(player.position[2] - opp.position[2]);
       const effectiveRange = getWeaponRange(opp.loadout.weapon);
-      const oppLightCost = getStaminaCost(opp.loadout.weapon, true);
-      const oppHeavyCost = getStaminaCost(opp.loadout.weapon, false);
+      // C-8.75E — affordability comes from the ONE shared predicate
+      // (`canAffordAttack`, utils/aiActionSelection), which compares the cost of
+      // the attack actually being thrown. The two local cost snapshots this
+      // replaces invited exactly the defect this phase fixes: a single
+      // `opp.stamina < oppLightCost` test standing in for both strikes.
 
       // Resolve pending heavy-attack telegraph (Goliath). The attack
       // was announced on the previous AI turn; the player has since
@@ -1207,8 +1235,15 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // the counter cannot resolve twice or survive into a stale turn.
       if (isCounterDodgeOpponent(opponent) && pendingCounterRef.current) {
         pendingCounterRef.current = false;
-        announceEnemyAttack('quick_attack');
-        return;
+        // C-8.75E — a counter is an enemy strike, so it is paid for like one. If
+        // she cannot afford the blow the queued answer is dropped rather than
+        // announced as a strike that could never land; the turn then carries on
+        // through the ordinary selection below, so nothing is left locked.
+        if (canAffordAttack(opp.stamina, opp.loadout.weapon, 'quick_attack')) {
+          announceEnemyAttack('quick_attack');
+          return;
+        }
+        addLog(`${opp.name} is too winded to answer the opening.`, 'system');
       }
 
       let chosenAction: CombatActionType = 'quick_attack';
@@ -1217,38 +1252,37 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         // Distance is large: Advance or Taunt
         chosenAction = chooseAIOutOfRangeAction();
       } else {
-        // Inside strike range: Evaluate tactical options
-        if (player.isBlocking) {
-          // Player is guarding: AI uses Power Attack or Taunt
-          const r = Math.random();
-          chosenAction = r < 0.45 ? 'power_attack' : r < 0.75 ? 'taunt' : 'shield_block';
-        } else if (opp.stamina < oppLightCost) {
-          // Low AI stamina: Rest or Shield Block
-          chosenAction = Math.random() < 0.6 ? 'shield_block' : 'rest';
-        } else if (player.health < 25) {
-          // Player low HP: Finish with Quick Attack
-          chosenAction = Math.random() < 0.7 ? 'quick_attack' : 'power_attack';
-        } else {
-          // Standard combat: use the opponent's configured aggression and
-          // blockChance to determine the action. See chooseAIStandardAction
-          // in combatCalculations.ts for the full probability model. When
-          // either value is missing or invalid, the function falls back to
-          // the original hardcoded probabilities (46% quick, 26% power, 18%
-          // block, 10% dodge).
-          chosenAction = chooseAIStandardAction(opponent.aggression, opponent.blockChance);
-        }
+        // Inside strike range: evaluate the tactical options.
+        //
+        // C-8.75E — the chain now lives in `chooseAITacticalAction`
+        // (utils/aiActionSelection). Its branches, order, thresholds and
+        // one-draw-per-branch shape are the shipped ones (player guarding →
+        // power/taunt/block; low stamina → block/rest; player low HP →
+        // quick/power; otherwise `chooseAIStandardAction(aggression,
+        // blockChance)`), and the action it returns is guaranteed affordable:
+        // an unpayable power attack becomes the quick attack it can afford, and
+        // with neither affordable the turn falls back to the existing `rest`.
+        chosenAction = chooseAITacticalAction({
+          playerIsBlocking: player.isBlocking,
+          playerHealth: player.health,
+          stamina: opp.stamina,
+          weapon: opp.loadout.weapon,
+          aggression: opponent.aggression,
+          blockChance: opponent.blockChance,
+        });
       }
 
       // Goliath heavy-attack telegraph: occasionally announce a heavy
       // attack instead of the chosen action. Only when in strike range,
-      // with enough stamina for the follow-up power attack (22 SP), and
-      // no pending telegraph already queued. ~30% rate keeps the boss
+      // with enough stamina for the power attack it will actually land
+      // (its own weapon's heavy cost — C-8.75E reads the shared predicate),
+      // and no pending telegraph already queued. ~30% rate keeps the boss
       // threatening without making every turn a telegraph.
       if (
         opponent.bossMechanic === 'heavy_telegraph' &&
         !pendingHeavyAttackRef.current &&
         dist <= effectiveRange &&
-        opp.stamina >= oppHeavyCost &&
+        canAffordAttack(opp.stamina, opp.loadout.weapon, 'power_attack') &&
         Math.random() < 0.30
       ) {
         chosenAction = 'telegraph';

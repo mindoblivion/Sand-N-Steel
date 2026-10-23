@@ -8952,3 +8952,109 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   an announced strike with Shield Guard / Dodge answerable in the 700 ms window, exactly one counter
   per evaded strike, and whether 0.35 plays as a boss rather than a wall. Do not claim device
   acceptance without that pass.
+
+## AI strike affordability (C-8.75E — implemented; live fight and Android read PENDING)
+
+- **Preflight (measured).** Repository root `/app`; branch `development-focus-strategy`; HEAD
+  **`dfbff758e9`** — one commit AHEAD of the `211a9a265f` the brief expected (that is C-8.75D's
+  commit; `dfbff75` is "Integrate Valéria counter logic and add test suite"), with an **empty**
+  `git status --porcelain` before the first edit. The mismatch was verified rather than assumed, and
+  nothing was reset, stashed, amended, rebased, committed, pushed, merged or deployed.
+
+- **Root cause, traced in the shipped source rather than taken from the earlier audit.** The
+  opponent's in-range decision lived inline in `DuelScene.tsx`'s AI effect and read exactly **one**
+  stamina value: `const oppLightCost = getStaminaCost(opp.loadout.weapon, true)`, used by one test,
+  `else if (opp.stamina < oppLightCost)`. That test sat BEHIND three branches that could name a
+  power attack — `player.isBlocking` (`r < 0.45 ? 'power_attack'`, no stamina test at all),
+  `player.health < 25` (`r < 0.7 ? 'quick_attack' : 'power_attack'`), and the standard
+  `chooseAIStandardAction(aggression, blockChance)` pool — so an opponent with enough for a light
+  attack but not a heavy one threw the heavy anyway. Resolution then billed it with
+  `stamina: Math.max(0, prev.stamina - staminaCost)` (two write sites, player and opponent), so the
+  shortfall was silently forgiven and the strike was **free**: at 14 SP a 22 SP power slash cost 12
+  and kept its full damage. The only other gate in the chain, Goliath's telegraph, already compared
+  against `oppHeavyCost` — the correct cost, but only on that one path.
+
+- **The fix, and it is two halves of ONE rule.** New pure module `src/utils/aiActionSelection.ts`
+  (no React, no three.js, no storage) exports `canAffordAttack(stamina, weapon, action)` — the cost
+  of the attack actually being thrown, with a non-finite stamina affording nothing —
+  `enforceAffordableAIAction(action, stamina, weapon)`, and `chooseAITacticalAction(context, rng)`.
+  Every cost, threshold, draw count and personality value is untouched: the branch chain was lifted
+  out of the scene verbatim (player guarding → power/taunt/block; stamina < light → block/rest;
+  player below 25 HP → quick/power; otherwise `chooseAIStandardAction`), and only the RETURNED
+  action is passed through the rule.
+  1. **Selection** — `DuelScene`'s AI effect now calls `chooseAITacticalAction({ playerIsBlocking,
+     playerHealth, stamina: opp.stamina, weapon: opp.loadout.weapon, aggression, blockChance })`.
+     An unaffordable power attack becomes the **quick attack it can afford** (the offence, the
+     aggression and the turn's shape survive); with neither strike affordable it falls back to the
+     existing **`rest`** recovery, so the turn is never wasted on a blow that cannot happen.
+  2. **Resolution** — `canAffordAttack(attackerNow.stamina, attackerNow.loadout.weapon, actionType)`
+     now sits inside the attack block of `executeCombatTurn`, **beside the C-8.70B §R3 range guard
+     and above `resolvingRef.current = true`**. Its refusal is a chronicle line and a return: no
+     stamina, no animation, no hit or damage roll, no turn timer. Both checks are necessary: the
+     selection guard cannot see the paths that bypass selection — a queued counter, a telegraph
+     landing, a stale UI, a direct call — which is exactly what the range guard exists for too.
+  3. **The two bypass paths now read the same predicate.** Valéria's queued counter is announced only
+     when her quick attack is affordable (otherwise the latch is spent, one line is logged and the
+     turn falls through to the ordinary selection, so nothing is left locked), and Goliath's
+     telegraph still checks its heavy cost at the moment it queues the landing.
+
+- **Behaviour preserved, deliberately.** No stamina cost, damage formula, hit chance, crit rate,
+  defence curve, telegraph/wind-up timing, impact timing, dodge/counter rate, combo or hype value,
+  reward, progression value, opponent `aggression`/`blockChance`, HUD layout or collider moved. The
+  `Math.max(0, …)` clamps stay (a PAID strike can never go negative); they simply no longer hide an
+  unpaid one. The one behavioural change beyond the defect itself: a winded opponent that would have
+  thrown a free blow now strikes for what it can afford, rests, or (in the counter case) loses the
+  answer — never a free hit, a negative balance or a stalled turn.
+
+- **Regression suite: `src/utils/phaseC8_75E.test.ts` — 37 tests / 724 `expect()` calls.** §A the
+  predicate at every boundary the brief names (below the light cost, exactly it, between the costs,
+  exactly the power cost, above both), the malformed readings (NaN, ±Infinity, undefined), and every
+  weapon in `ITEMS_DB` against its own two costs; §B the downgrade, the `rest` fallback, non-strike
+  pass-through and idempotence; §C the PRODUCTION selector across every boundary × every branch × 12
+  draws — an attack is always affordable, nothing strikes below the light cost, a power attack is
+  never chosen at exactly the light cost, the heavy slice degrades between the costs and is restored
+  at the power cost, plus the round trip (the chosen action's cost is payable); §D the shipped
+  weights (45/30/25, 60/40, 70/30), the standard branch shown to equal `chooseAIStandardAction`
+  exactly, one draw per branch, the malformed-stamina case and every shipped opponent; §E the
+  resolution guard and its refusal (spends nothing, hands the turn back); §F the counter, the
+  telegraph and the `rest` branch. Sections E and F are ordered source assertions on comment-stripped
+  source — this repo has no DOM renderer to mount `<DuelScene/>` under — anchored on CODE markers.
+
+- **`scripts/combatTests.ts` gained four cases** (65 → **69 passed, 0 failed**): both cost boundaries
+  on the canonical weapon, every weapon's own costs, the downgrade/fallback, and a 6 × 2 × 2 × 8
+  boundary sweep of the production selector. Both harnesses read the production helpers, not copies.
+
+- **Four existing suites were rebased, not weakened**, because C-8.75E puts a second guard between
+  the range guard and the `resolvingRef` commit that their scope pins sliced across:
+  `combatActionOrder.test.ts` (§A/§B/§D/§G now slice the range guard's own **brace-balanced** block
+  via a new `blockAt()` helper, and the `setIsPlayerTurn(` count is 2 → 3 with a comment naming both
+  releases), `playerStrikeWindup.test.ts` (§E's refusal slice, §D's count),
+  `combatResponsiveness.test.ts` (§B's `guarded` slice) and `playerWindupCue.test.ts` (§D's count).
+  Every assertion those tests make is unchanged — they still prove the RANGE refusal costs nothing —
+  and each edit names C-8.75E where a count moved. No assertion was deleted or relaxed.
+
+- **Checks run (2026-10-23, `web` container).** `bun test src/utils/phaseC8_75E.test.ts` → **37 pass /
+  0 fail** (724 `expect()`); the focused combat set
+  `{combatActionOrder, combatResponsiveness, playerStrikeWindup, playerWindupCue, phaseC8_75E,
+  phaseC8_75B, phase37, phase38, phase39b, phase39c, pendingStrike, defensiveBalance,
+  duelResultLifecycle}` → **380 pass / 0 fail**; the full `bun test` → **3323 pass / 0 fail
+  (114 files, 91,062 `expect()`)**; `bun run scripts/combatTests.ts` → **69 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup-asset
+  check passing (8 assets); `git diff --check` → **clean**. The dev server serves the changed code
+  (`/` 200, the transformed `DuelScene.tsx` carries `chooseAITacticalAction`, and the new module is
+  served and transformed), so the import graph Vite compiles is the edited one.
+
+- **Not automatically verified: no live fight, no Android read.** No opponent turn was driven in the
+  preview browser and no device pass was performed, so nothing is claimed about how the new
+  behaviour FEELS or about a real duel reaching the low-stamina branch. The sandbox has no GPU
+  (SwiftShader, ~1–2 fps in the 3D scenes), the reachable dev harness duels `ALL_OPPONENTS[0]` with
+  full stamina, and C-8.73B/C-8.75B both recorded that reaching a specific stamina state live is not
+  reproducible there. What the suite does establish is the rule itself, driven at every boundary
+  through the same helpers the scene calls, plus the scene's wiring. **Remaining device item:** play a
+  bout into low stamina and confirm the opponent visibly downgrades its heavy to a quick strike, and
+  that a totally winded opponent rests instead of swinging.
+
+- **Files.** New: `src/utils/aiActionSelection.ts`, `src/utils/phaseC8_75E.test.ts`. Modified:
+  `src/components/duel/DuelScene.tsx` (imports; the selection call; the resolution guard; the counter
+  and telegraph predicates; comments), `scripts/combatTests.ts` (four cases), and the four rebased
+  suites above.
