@@ -269,3 +269,71 @@ describe('§G — the fix moved no combat value', () => {
     expect(refusal).not.toContain('0.5');
   });
 });
+
+// ── §H. The queued counter is announced, not resolved (C-8.75D) ────────────
+
+/**
+ * `source` with `//` line comments removed.
+ *
+ * Valéria's counter branch carries a long prose comment that NAMES the call the
+ * fix stopped making, so a plain `not.toContain('executeCombatTurn(...)')` over
+ * the raw slice would be satisfied — or tripped — by the explanation of the fix
+ * rather than by the fix itself. Every pin below runs on code only.
+ */
+function codeOnly(source: string): string {
+  return source
+    .split('\n')
+    .map((line) => line.replace(/\/\/.*$/, ''))
+    .join('\n');
+}
+
+describe('§H — Valéria\'s queued counter goes through the shared announcement', () => {
+  // The AI effect's decision block: from the timer it runs in up to the point the
+  // ORDINARY action is chosen. That is exactly the two branches able to fire a
+  // strike before the normal AI decision — Goliath's telegraph landing and
+  // Valéria's queued counter.
+  const aiTurn = between(
+    duelSource,
+    'const aiTimer = setTimeout(() => {',
+    'let chosenAction: CombatActionType',
+  );
+
+  // The counter branch alone: from the latch it consumes to the end of the block.
+  // Anchored on CODE, never on the phase comment above it, so retitling that
+  // comment cannot silently empty the slice.
+  const counterTurn = aiTurn.slice(at(aiTurn, 'pendingCounterRef.current = false;'));
+  const counterCode = codeOnly(counterTurn);
+  const aiCode = codeOnly(aiTurn);
+
+  test('the counter is handed to the announcement exactly once, and the latch is spent first', () => {
+    expect(counterCode).toContain("announceEnemyAttack('quick_attack');");
+    // One announcement — not two, not zero.
+    expect(counterCode.split("announceEnemyAttack('quick_attack')").length - 1).toBe(1);
+    // Consumed BEFORE announcing, so one evade can arm one counter (C-8.75B).
+    expect(counterCode.indexOf('pendingCounterRef.current = false;')).toBeLessThan(
+      counterCode.indexOf("announceEnemyAttack('quick_attack')"),
+    );
+    // The branch ends there: the turn belongs to the controller's 700 ms impact.
+    expect(counterCode.indexOf('return;')).toBeGreaterThan(
+      counterCode.indexOf("announceEnemyAttack('quick_attack')"),
+    );
+  });
+
+  test('the counter cannot resolve in place — the bypass C-8.75B removed stays removed', () => {
+    // Revert the production call to the old direct resolution and THIS fails: the
+    // player would again be struck by a strike that was never announced and could
+    // never be answered.
+    expect(counterCode).not.toContain("executeCombatTurn('opponent', 'quick_attack')");
+    expect(counterCode).not.toContain('executeCombatTurn(');
+  });
+
+  test('no opponent quick attack in the AI turn is resolved without an announcement', () => {
+    // The invariant behind that one branch: every quick attack she throws has been
+    // announced, so none of them is resolved directly anywhere in the AI turn.
+    expect(aiCode).not.toContain("executeCombatTurn('opponent', 'quick_attack')");
+    expect(aiCode).toContain("announceEnemyAttack('quick_attack');");
+    // The one direct resolution left is Goliath's telegraph landing — a strike the
+    // player was shown on the PREVIOUS turn, i.e. its own announcement.
+    expect(aiCode).toContain("executeCombatTurn('opponent', 'power_attack')");
+  });
+});

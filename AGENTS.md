@@ -8892,3 +8892,63 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   strike while unable to pay) and any hype/combo gameplay were **not** touched. Valéria's HP, damage,
   aggression, block chance, weapon and rewards are exactly as they were; no other boss's mechanic,
   no general combat formula and no HUD layout moved.
+
+## Valéria counter integration guard (C-8.75D — regression test only, no production change)
+
+- **Preflight (measured).** Repository root `/app`; branch `development-focus-strategy`; HEAD
+  **`211a9a265f`** with an **empty** `git status --porcelain` before the first edit — so C-8.75B was
+  already committed at HEAD and nothing was reset, stashed, amended, rebased, committed, pushed,
+  merged or deployed. This phase's diff is **one test file plus this section**.
+
+- **What the guard pins, and how it is anchored.** `src/utils/combatActionOrder.test.ts` gains **§H**
+  (3 tests) — the suite that already pins the announcement lifecycle (`§F`: "the opponent's swing is
+  announced and its damage resolved later, by the controller"), so no new suite or harness was
+  introduced. It slices the scene's **own source**: the AI effect from `const aiTimer = setTimeout(`
+  to `let chosenAction: CombatActionType`, then the counter branch from the latch line
+  (`pendingCounterRef.current = false;`) to the end of that slice. It asserts the announcement
+  (`announceEnemyAttack('quick_attack');`) is present **exactly once** and comes **after** the latch
+  is spent and **before** the branch's `return;`, that **no** `executeCombatTurn(` call survives in
+  the counter branch, and — one level out — that no `executeCombatTurn('opponent', 'quick_attack')`
+  remains anywhere in the AI turn, while Goliath's legitimate telegraph landing
+  (`executeCombatTurn('opponent', 'power_attack')`, a strike announced on the previous turn) is still
+  there. Every predicate runs on `codeOnly()`, i.e. with `//` comments stripped: the branch's own
+  prose **names** the call the fix removed, so a raw-text `not.toContain` would have been defeated by
+  the explanation of the fix (the vacuous-pass trap `duelResultLifecycle` records). The slices use
+  the suite's existing `at()`/`between()` helpers, which **fail by name** when a marker is missing,
+  so deleting the branch cannot silently produce an empty slice that `not.toContain` would pass.
+
+- **Sensitivity was demonstrated, not assumed.** The production call was temporarily reverted to its
+  pre-fix form (`announceEnemyAttack('quick_attack');` → `executeCombatTurn('opponent',
+  'quick_attack');`), the suite run, and the file restored and verified byte-identical with `cmp`:
+  the revert fails **exactly the three new tests** (**17 pass / 3 fail** of 20), and the restored tree
+  passes **20 / 0** again. So the guard fails on precisely the change it exists to catch and on
+  nothing else, and no artifact was left behind.
+
+- **What it is, stated plainly: source-structure protection, not a runtime integration test.** This
+  repo has no DOM renderer, so `<DuelScene/>` is never mounted — the guard reads the shipped source
+  and therefore proves the **call that is written**, not that a live counter reaches the HUD. The
+  behaviour it protects (one announcement, one impact at 700 ms, one reaction, a cancel that drops
+  rather than defers) is pinned separately by `phaseC8_75B` §A on a controlled clock through the real
+  `createPendingStrike`; the two together cover "the controller behaves" and "the scene uses it".
+  **No live Valéria fight, Android acceptance or GPU verification was performed or is claimed** — her
+  bout remains behind tier-3 progression and the sandbox renders the duel through SwiftShader.
+
+- **No production or balance value moved.** Counter timing, reaction handling, damage, range, evade
+  rate, opponent data, the announcement API and `DuelScene.tsx` itself are **byte-identical**; the
+  phase adds no assertion that the shipped code does not already satisfy and weakens no existing one
+  (`§A`–`§G` are untouched; the suite went 17 tests / 113 `expect()` → **20 / 128**).
+
+- **Checks run (2026-10-23, `web` container, on the final tree).** Focused combat set
+  `{combatResponsiveness, combatActionOrder, duelResultLifecycle, pendingStrike, defensiveBalance,
+  playerStrikeWindup, playerWindupCue, phase38, phaseC8_75B}` → **215 pass / 0 fail** (870
+  `expect()`, 9 files — the C-8.75B record's 212 plus this phase's 3);
+  `bun run scripts/combatTests.ts` → **65 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  **exit 0**; `bun run build` → **exit 0** with the startup-asset check passing (8 assets in
+  `public/` and `dist/`; the pre-existing >500 kB chunk warning only, and `dist/` is gitignored);
+  `git diff --check` → **clean**. The full `bun test` sweep was deliberately not run (a test-only
+  addition inside one suite whose whole consumer set is in the focused list above).
+
+- **Open items unchanged.** The device checklist C-8.75B left stands in full: her counter reading as
+  an announced strike with Shield Guard / Dodge answerable in the 700 ms window, exactly one counter
+  per evaded strike, and whether 0.35 plays as a boss rather than a wall. Do not claim device
+  acceptance without that pass.
