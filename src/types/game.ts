@@ -266,12 +266,16 @@ export interface ChariotLoadout {
   /** Owned chariot part ids.  The two stock parts are always owned. */
   owned: string[];
   /**
-   * The equipped part id per slot, AS STORED.  Unchanged by P3: a save carries
-   * only `wheels` and `finish`.  The three newer slots are never written here —
-   * `resolveChariotLoadout` resolves them to their stock parts when the loadout
-   * is read (`ChariotEquippedResolved`).
+   * The equipped part id per slot, AS STORED.
+   *
+   * P3 wrote `wheels` and `finish` only, because no screen sold the newer slots.
+   * P6's workshop sells all five, so the stored record now carries any slot
+   * whose equipped part is NOT the slot's stock part; a slot on its stock part
+   * is omitted and `resolveChariotLoadout` restores it at read time
+   * (`ChariotEquippedResolved`).  A legacy wheels/finish-only record therefore
+   * reads identically, and a stock chariot still stores no entry at all.
    */
-  equipped: { wheels: string; finish: string };
+  equipped: Partial<Record<ChariotSlot, string>>;
 }
 
 /**

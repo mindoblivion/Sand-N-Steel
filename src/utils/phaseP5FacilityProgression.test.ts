@@ -777,10 +777,32 @@ describe('P5 §H — the scope guards', () => {
     }
   });
 
-  test('the facility purchase is called by no UI: there is no facility screen yet', () => {
-    for (const file of [APP, TRAINING_TAB, SHOPS]) {
-      expect(file).not.toContain('purchaseFacility');
-      expect(file).not.toContain('nextFacilityCost');
-    }
+  test('the facility purchase has exactly one call site, and one screen that only asks for it', () => {
+    // P5 pinned "no UI calls it, there is no facility screen yet".  P6 mounts the
+    // hub's facilities panel, so the property is restated as the exact consumer
+    // set rather than dropped: the module, the one App handler, and a panel that
+    // names the callback and never the transaction.
+    // `saveFixtures/index.ts` is excluded on purpose and for one reason (the P4
+    // suite's): its `provenance` strings are DATA that name the transaction that
+    // produced a fixture and are never executed.  It imports nothing from here.
+    expect(namersOf('purchaseFacility')).toEqual([
+      'App.tsx',
+      'utils/facilityProgression.ts',
+      'utils/saveFixtures/index.ts',
+    ]);
+    expect(code('./saveFixtures/index.ts')).not.toContain('from \'./facilityProgression');
+    expect(code('./saveFixtures/index.ts')).not.toContain("from '../utils/facilityProgression");
+    // The price table stays the module's: no UI computes a facility price.
+    expect(namersOf('nextFacilityCost')).toEqual(['utils/facilityProgression.ts']);
+    const PANEL = code('../components/hub/FacilitiesPanel.tsx');
+    expect(PANEL).toContain('onBuyFacility');
+    expect(PANEL).not.toContain('purchaseFacility');
+    expect(PANEL).not.toContain('nextFacilityCost');
+    // The rung it prints is the catalogue's own, and no price literal appears.
+    expect(PANEL).toContain('nextFacilityLevel(profile, facility.id)');
+    expect(PANEL).not.toMatch(/\b\d{3,4}\b\s*(Gold|gold)/);
+    // App still charges nothing through the other surfaces this suite watches.
+    expect(APP).toContain('purchaseFacility(profile, id)');
+    for (const file of [TRAINING_TAB, SHOPS]) expect(file).not.toContain('purchaseFacility');
   });
 });

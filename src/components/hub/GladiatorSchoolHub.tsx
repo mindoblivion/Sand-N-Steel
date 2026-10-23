@@ -11,6 +11,8 @@ import type { StorefrontId } from '../../data/shops';
 import type { ConsumableItem } from '../../data/consumables';
 import type { LaurelResult } from '../../utils/laurels';
 import { PreFightModal } from './PreFightModal';
+import { FacilitiesPanel } from './FacilitiesPanel';
+import type { FacilityId } from '../../utils/facilityProgression';
 import { DOCTORE_TEST_OPPONENT } from '../../data/opponents';
 import {
   NOVICE_BOUT_BRIEFING,
@@ -73,6 +75,13 @@ interface GladiatorSchoolHubProps {
   onEnterDoctoreTest?: (restriction: DoctoreTestRestriction) => void;
   /** P2 — a Triumph bought from the Library's Triumphs page; `App` writes it. */
   onPurchaseTriumph?: (laurelId: string) => LaurelResult;
+  /** P6 — the temper row on an Armory card; `App` runs `purchaseTemper` and writes. */
+  onTemperItem?: (itemId: string) => void;
+  /** P6 — the Stable panel's two ladders; `App` runs the P4 helpers and writes. */
+  onBuyStableQuality?: (grade: number) => void;
+  onBuyStableConditioning?: (level: number) => void;
+  /** P6 — the Facilities panel; `App` runs `purchaseFacility` and writes. */
+  onBuyFacility?: (id: FacilityId) => void;
 }
 
 export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
@@ -105,6 +114,10 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onOpenDeviceChoice,
   onEnterDoctoreTest,
   onPurchaseTriumph,
+  onTemperItem,
+  onBuyStableQuality,
+  onBuyStableConditioning,
+  onBuyFacility,
 }) => {
   const [selectedOpponent, setSelectedOpponent] = useState<OpponentConfig | null>(null);
   /**
@@ -252,6 +265,9 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
 
       {/* MAIN TAB CONTENT */}
       <main className="flex-1 p-4 sm:p-8">
+        {/* P6 — the ludus's three buildings, above every tab: their levels gate
+            tempering, the stable's ladders and the forge's stock. */}
+        <FacilitiesPanel profile={playerProfile} onBuyFacility={onBuyFacility} />
         {activeTab === 'tournament' && (
           <TournamentTab profile={playerProfile} onSelectOpponent={(opp) => setSelectedOpponent(opp)} />
         )}
@@ -285,6 +301,9 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onEquipChariotPart={onEquipChariotPart}
             onBuyRacingConfig={onBuyRacingConfig}
             onSelectRacingConfig={onSelectRacingConfig}
+            onTemperItem={onTemperItem}
+            onBuyStableQuality={onBuyStableQuality}
+            onBuyStableConditioning={onBuyStableConditioning}
           />
         )}
         {activeTab === 'stats' && (
