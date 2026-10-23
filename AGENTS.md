@@ -9359,3 +9359,70 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   public/models/netfighter.glb public/models/minotaur.glb`); copies were also kept outside the repo in
   `/tmp/handfix/backup/` with the before hashes recorded above. No commit, push, merge or deployment was
   made by this phase; the asset change plus the suite and this record are the whole diff.
+
+## arena_roman hand proportions (C-8.77F — asset repaired and pinned; device read PENDING)
+
+- **Preflight (measured).** Repository root `/app`; branch `development-focus-strategy`; HEAD
+  `90b5c0bead` ("Update arena_roman.glb model file"), `git status --porcelain` **empty**. The
+  read-only audit is `.base44/roman-warrior-proportion-audit-c877e.md` (C-8.77E); its recommended
+  smallest implementation is what shipped, and this phase's job was to **pin it** — the repaired
+  asset was committed without the regression suite the audit's §7 requires.
+
+- **What the repaired file now is.** `public/models/arena_roman.glb`, **7,053,980 bytes**, sha256
+  **`f405de59…`** (pre-repair `a93ee702…`, 7,054,440 bytes). Anisotropic, wrist-anchored map over the
+  hand region only — length and thickness ×**1.51**, width ×**1.04** — plus the five finger chains'
+  rest origins moved one matching metacarpal out (node-space `middle_01_*` local y **0.0656 → 0.099050**).
+
+  | quantity | before (C-8.77E) | after (measured here) |
+  |---|---|---|
+  | hand length L / R | 0.1315 / 0.1388 | **0.1986 / 0.2088** |
+  | hand thickness L / R | 0.0472 / 0.0503 | **0.0713 / 0.0742** |
+  | hand width L / R | 0.1266 / 0.1273 | 0.1320 / 0.1328 |
+  | palm W/L | 1.81 | **1.25** |
+  | metacarpal (IBM-derived) | 0.0652 | **0.0983** |
+  | hand as % of stature | 6.58 %H | **9.93 %H** |
+
+- **Scope, measured rather than asserted.** Exactly **40 nodes** carry a new rest origin — the
+  5 × 4 bones of both finger chains, nothing else; `hand_l/r`, `lowerarm_l/r` and `upperarm_l/r`
+  translations are byte-identical, and their inverse-bind rows did not move. Vertices (31,292),
+  triangles (51,726), joints (66), all **178 clips and their names**, the skeleton names/order, the
+  materials and the three textures are unchanged; weight sums still normalise, no joint index is out
+  of range, and the C-8.77C signatures are identical (3,215 `head`-dominant, 443 / 409 rigid-to-hand).
+  The forearm boxes are the pre-repair ones (0.1907 / 0.1721) and the hand keeps its 939 / 966
+  vertices, 443 / 409 of them palm.
+
+- **Animation-safe, and that is the load-bearing fact.** All 178 clips are rotation-only on the arm
+  and the fingers: of **12,008** channels, **zero** animate a finger joint's translation, so the new
+  rest length cannot be overwritten or fought by a clip. No degenerate or non-finite hand triangle
+  appeared under the stretch (3,044 hand triangles, 0 collapsed, total area 0.0787 against 0.0425
+  before — 1.85×, consistent with a length/thickness stretch and an almost unchanged width).
+
+- **Suite: `src/utils/phaseC8_77f.test.ts` — 25 tests / 76 `expect()`.** §A identity (file hash and
+  size, counts, skeleton names, inverse-bind block hash); §B scope (every finger chain's rest origin,
+  the untouched wrist/elbow/shoulder origins, no finger translation channel, the clip-name signature);
+  §C proportions bilaterally plus the palm and forearm; §D mesh integrity; §E skinning; §F the other
+  four gladiator files byte-identical (`amazonian`, `dimachaerus`, `minotaur`, `netfighter`); §G the
+  **control** — the recorded pre-repair numbers fail the same `handReadsAsHand` guard the shipped
+  asset passes, so the guard is shown sensitive to the defect.
+
+- **`phaseC8_77c.test.ts` §D was rebased, not weakened.** It pinned `arena_roman.glb` as *untouched*
+  (`a93ee702…`) — true of C-8.77C, false after this repair — and now pins `f405de59…` with a comment
+  naming this phase. Its purpose (the three models C-8.77C did not touch keep their hashes) is
+  unchanged.
+
+- **Checks run (2026-10-23, `web` container).** `bun test src/utils/phaseC8_77f.test.ts
+  src/utils/phaseC8_77c.test.ts src/utils/phaseC8_67d.test.ts src/utils/phaseC8_68c.test.ts` →
+  **111 pass / 0 fail** (1,529 `expect()`); `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `curl localhost:3000/models/arena_roman.glb` → **200, 7,053,980 bytes**. The full `bun test` sweep
+  was deliberately not run (sandbox CPU is shared with the preview); no other suite pins this file's
+  hash.
+
+- **Live evidence, and its limit.** In the preview browser (anonymous visitor, no session replayed)
+  the shipping path was driven — title → **Play as Guest** → character creation → **Roman Warrior** —
+  and the preview canvas renders the model on its platform, labelled *Roman Warrior (Animated Rig)*,
+  with **0 console errors**. That proves the repaired file loads and draws through `useGLTF`; it is
+  **not** visual acceptance of the hands. **Device check owed:** on Android, view the Roman Warrior /
+  Centurion in the creation preview and in a duel and confirm the hands read as hands (not plates) at
+  idle, guard and sword attack, with no seam at the wrist — and that the residual palm W/L of 1.25
+  (down from 1.81, still squarer than the siblings) is acceptable rather than needing the deeper
+  finger-chain weight blend C-8.77C deferred.

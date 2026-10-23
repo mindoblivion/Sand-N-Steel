@@ -314,7 +314,10 @@ describe('C-8.77C §C — weight hygiene, and the rest of the model untouched', 
 
 describe('C-8.77C §D — the other three models are untouched', () => {
   test('arena_roman, amazonian and dimachaerus keep their audited hashes', () => {
-    expect(sha256(UNTOUCHED[0])).toBe('a93ee70206d6b4b462ebe5d3401e599b955b26f030200c005e9f12feb09269d7');
+    // Rebased by C-8.77F, which repaired arena_roman.glb's hand geometry
+    // (anisotropic, wrist-anchored; see phaseC8_77f.test.ts). The C-8.77C value
+    // was a93ee702…; that phase did not touch amazonian or dimachaerus.
+    expect(sha256(UNTOUCHED[0])).toBe('f405de59d6e34e2d51baaf29de12faebfa94c463b1b129a0227e6e72648eeee5');
     expect(sha256(UNTOUCHED[1])).toBe('49e5830b2c90d4a770cabd14d1bee6084c501d53015739d8fb496fdddc5c7016');
     expect(sha256(UNTOUCHED[2])).toBe('62627ab5ade9c2b44222d05e35ddad927b759e08f159c4af352c3dddf7d2a26b');
   });
