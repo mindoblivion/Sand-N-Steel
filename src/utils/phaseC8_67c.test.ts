@@ -323,11 +323,13 @@ describe('C-8.67C §A — reachable from the Imperial Stable route, and nothing 
     expect(SECTION).not.toContain('saveProfile');
     expect(SECTION).not.toContain('localStorage');
     expect(SECTION).not.toContain('sessionStorage');
-    // It reads the profile and the catalogue — nothing else.
+    // It reads the profile and the catalogue, and mounts the Imperial Stable
+    // panel P6 gave it (a read-only surface of its own) — nothing else.
     expect(SECTION.match(/from '[^']+'/g)?.sort()).toEqual([
       "from '../../audio/soundEffects'",
       "from '../../types/game'",
       "from '../../utils/racingProgression'",
+      "from './StablePanel'",
       "from 'lucide-react'",
       "from 'react'",
     ]);

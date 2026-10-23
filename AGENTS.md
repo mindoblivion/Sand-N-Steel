@@ -6576,3 +6576,53 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   curve therefore fail a test when broken — none is pinned only by agreeing with its own constant.
   Post-restore run: **288 pass / 0 fail** across the five suites the gates reach (P5, P4 stable,
   tempering, storefront wiring, save corpus).
+
+## P6 — progression UI wiring (tempering, chariot slots, stable, facilities) — implemented, validated
+
+- **What shipped (surfaces only; every transaction still lives in `App`).** The four progression
+  slices that had shipped data + pure logic and no screen now have one each:
+  `components/hub/TemperControl.tsx` (mounted on BOTH Armory cards — weapon and armour — through
+  `GearTab`'s one `onTemperItem` callback); `ChariotWorkshopTab` renders one section per
+  `CHARIOT_SLOTS` entry from `chariotPartsBySlot`, with a Preview control only on the parts the 3D
+  kit can show (`part.wheelVariant !== undefined || part.finish !== undefined`); `StablePanel.tsx`
+  mounted in `RacingConfigSection` under the team cards; `FacilitiesPanel.tsx` mounted in
+  `GladiatorSchoolHub` above every tab. `ChariotLoadout.equipped` widened to
+  `Partial<Record<ChariotSlot, string>>` (`storedEquipped()` persists only non-stock slots), and
+  `ownsChariotPart` treats the new stock axle/harness/chassis as implicitly owned, so a legacy save
+  still stores nothing.
+- **The rule the suite pins: a surface DERIVES, `App` WRITES.** Every price, cap, gate and refusal
+  sentence is read from the owning module (`getTemperCost`, `TEMPERS_MAX_LEVEL`,
+  `getStableQualityEligibility`, `nextConditioningCost`, `getFacilityUpgradeEligibility`, …); no
+  surface names `saveProfile`, `localStorage` or `setProfile`, and no surface restates a catalogue
+  price. `src/utils/phaseP6UiWiring.test.ts` (19 tests) holds both halves, plus save/load round
+  trips for a five-slot non-stock chariot.
+- **Three test-side corrections this pass — each determined by the shipped data, none by weakening a
+  check.** (1) The stable refusal case assumed grade 1 costs 500; the catalogue's `STABLE_QUALITIES`
+  says **400**, so the test now reads `getStableQuality(1).price` and asserts one gold short fails
+  and exactly the price succeeds. (2) The "no surface re-states a price" sweep flagged `300` inside
+  the workshop's `text-amber-300` Tailwind token, so it now matches a **standalone** number
+  (`(?<![\w-])300(?![\w-])`) — a class token is not a price, a literal is. (3) `phaseC8_67c`'s
+  `RacingConfigSection` guard pinned its exact import list; P6 legitimately adds
+  `./StablePanel`, so that list gained the entry with a comment naming this phase. The P6 suite also
+  needed the repo's `// @ts-ignore — bun:test is available at runtime via bun test` line above its
+  `bun:test` import, which is what made `bun run lint` exit 0 again.
+- **Verified 2026-10-23** in the dev container, on the final tree: `bun test` → **3207 pass / 0 fail
+  (108 files, 87,136 `expect()` calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0
+  failed**; `bunx tsc --noEmit` → **exit 0**; `bun run build` → exit 0 with the startup-asset check
+  passing (8 assets); `git diff --check` → clean.
+- **Live evidence (preview browser, anonymous visitor — no session replayed, so the run used the
+  app's own guest path and wrote the guest profile it normally writes).** Driven through the real
+  route — title → `Play` → creation → `Apply Points` → the camp: `LUDUS FACILITIES` renders all three
+  buildings at `LV 0 / 2` with the catalogue's own next rung and price (500 / 500 / 600) and a
+  disabled BUILD plus "Not enough gold." on a 100-gold profile; the Armory carries **2**
+  `[data-temper-level]` rows (weapon and armour); the Chariot Workshop subview opens and the stable
+  panel below it mounts with `data-stable-quality="0"`, `data-stable-conditioning="0"`,
+  `data-conditioning-price="120"`, both actions present, the refusal `data-stable-rejection` on both,
+  and its own copy reading `Next: Trained Team · 400 Gold` — i.e. the 400 my corrected test now
+  reads. `scrollWidth === clientWidth` at 1280, 0 console errors.
+- **Not automatically verified.** (a) **Buying through the UI** — every paid rung costs more than the
+  guest profile's 100 gold, so only the refusal paths were exercised; the transactions themselves are
+  pinned by the phase suites and the P1/P4/P5 suites they build on. (b) **The stable panel's position
+  under the team cards** — pinned by source contract in the suite, not read from the live DOM in that
+  run. (c) The panels' rendered look on the target device (SwiftShader here, ~2 fps in the 3D hub),
+  together with the device checklist this file already carries.

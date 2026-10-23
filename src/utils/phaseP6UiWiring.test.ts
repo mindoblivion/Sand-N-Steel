@@ -16,6 +16,7 @@
  * make); the components themselves are pinned by their own source contracts, the
  * convention the P4/P5 wiring suites use.
  */
+// @ts-ignore — bun:test is available at runtime via bun test
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -42,7 +43,11 @@ import {
   purchaseTemper,
   resolveTemperLevel,
 } from './tempering';
-import { purchaseStableQuality, purchaseStableConditioning } from './stableProgression';
+import {
+  getStableQuality,
+  purchaseStableQuality,
+  purchaseStableConditioning,
+} from './stableProgression';
 import { FACILITIES, purchaseFacility, resolveFacilities } from './facilityProgression';
 
 const path = (rel: string): string => fileURLToPath(new URL(rel, import.meta.url));
@@ -268,9 +273,13 @@ describe('P6 §D — the Imperial Stable panel', () => {
     expect(APP).toContain('purchaseStableQuality(profile, grade)');
     expect(APP).toContain('purchaseStableConditioning(profile, level)');
     expect(APP).toContain('if (!result.ok) return;');
-    // Behaviour: 400 gold cannot buy grade 1 (500), so nothing moves.
-    const refused = purchaseStableQuality(purse(400), 1);
+    // Behaviour: one gold short of grade 1 buys nothing — the price is the
+    // catalogue's own, read here rather than restated.
+    const gradeOne = getStableQuality(1);
+    if (!gradeOne) throw new Error('grade 1 missing from the stable catalogue');
+    const refused = purchaseStableQuality(purse(gradeOne.price - 1), 1);
     expect(refused.ok).toBe(false);
+    expect(purchaseStableQuality(purse(gradeOne.price), 1).ok).toBe(true);
     // …and the affordable path returns a new profile carrying only the purchase.
     const bought = purchaseStableConditioning(purse(400), 1);
     expect(bought.ok).toBe(true);
@@ -341,9 +350,12 @@ describe('P6 §F — no surface duplicates a rule or a save path', () => {
     ].filter((price) => price >= 100);
     for (const [file, source] of SURFACES) {
       for (const price of new Set(prices)) {
-        // A price may appear inside a Tailwind class or a comment only; comments
-        // are already stripped, so any hit here is a literal in code.
-        expect(source.includes(String(price)), `${file} contains the price ${price}`).toBe(false);
+        // A price may appear inside a Tailwind token (`text-amber-300`,
+        // `w-[300px]`) or a comment only; comments are already stripped, so
+        // what is left is code. A standalone number is what a restated price
+        // looks like, so the token boundary is what this checks.
+        const standalone = new RegExp(`(?<![\\w-])${price}(?![\\w-])`);
+        expect(standalone.test(source), `${file} contains the price ${price}`).toBe(false);
       }
     }
   });
