@@ -8777,3 +8777,118 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   device questions**, as is whether 20 px of clearance reads as enough breathing room on hardware.
   C-8.74A's recommendation 2 is implemented; **recommendation 3 (the sub-48 px touch targets) is
   deliberately not started** — C-8.74D.
+
+## Valéria counter readability and evade balance (C-8.75B — implemented; counter lifecycle verified by suite, boss fight not live-verified)
+
+- **Preflight (measured).** Repository root `/app`; branch `development-focus-strategy`; HEAD
+  **`fce92fc3fd`** — the same commit the previous read-only audit reported — with a clean working tree.
+  Nothing was reset, stashed, overwritten, amended, rebased, committed, pushed, merged or deployed.
+  The reported bypass was re-traced in the shipped source rather than taken from the audit's line
+  numbers, and it was real: the counter branch in `DuelScene.tsx`'s AI effect called
+  `executeCombatTurn('opponent', 'quick_attack')` **directly**, so Valéria's counter was resolved the
+  instant it was reached — no announcement, no 700 ms cue, no reaction — while every other enemy
+  strike has gone through `announceEnemyAttack` → `utils/pendingStrike` since §R1.
+
+- **The fix is one call site.** The counter branch now reads
+  `if (isCounterDodgeOpponent(opponent) && pendingCounterRef.current) { pendingCounterRef.current = false;
+  announceEnemyAttack('quick_attack'); return; }`. `announceEnemyAttack` announces the strike, starts
+  her swing, locks the panel, logs the wind-up line, and hands the SAME `executeCombatTurn('opponent',
+  'quick_attack')` to the controller's impact callback 700 ms later — inside the unchanged 1100 ms
+  turn window (700 < 1100). **The trigger, the action, the damage, the range guard, the stamina cost
+  and every evade rule are byte-identical: only WHEN the blow is announced, and whether it can be
+  answered, changed.** The counter now also inherits the C-8.71A safety it previously lacked — a
+  refused (out of range) announced strike releases the lock and hands the turn back instead of
+  latching the HUD.
+
+- **Why it cannot resolve twice, or survive a stale turn.** The latch (`pendingCounterRef`) is
+  consumed BEFORE the announcement, so one evade can only ever arm one counter;
+  `pendingStrike.announce` refuses a second announcement while a strike is pending and its cleared
+  callback is inert after a cancel, so one counter can only land one impact; both outcome effects
+  still clear the latch on victory/defeat, and `announceEnemyAttack`/the impact callback both re-check
+  `isMatchOver`. A counter cancelled by the fight ending or the scene unmounting is **dropped, not
+  deferred** — the latch was already spent, which is the deliberate choice over re-arming.
+
+- **The passive evade now has ONE reader.** New pure module `src/utils/counterDodge.ts` —
+  `isCounterDodgeOpponent`, `resolvePassiveEvadeChance`, `rollsPassiveEvade`, `queuesCounterOnEvade`.
+  It rolls no dice itself: `DuelScene` passes its own `Math.random()` and keeps the exact
+  short-circuit order (`!isEvaded && isActorPlayer && isCounterDodgeOpponent(opponent) &&
+  !defender.isInvulnerable && rollsPassiveEvade(opponent, Math.random())`), so **exactly one random
+  value is consumed and only when the earlier conditions already hold** — no other opponent's RNG
+  stream moves. `dodgeChance` is configured on every opponent (0.10–0.60) but read **only** by this
+  mechanic, so the mechanic — not the populated field — is what gates a passive evade, and a
+  missing/NaN/out-of-range rate resolves to 0 rather than to a free evade.
+
+- **The rate: 0.75 → 0.35, and the evidence.** `dodgeChance: 0.35` on `opp_valeria_boss`
+  (`src/data/opponents.ts`), with the reasoning recorded beside it. This is the only data value the
+  phase changed. Measured with a seeded (mulberry32, 10,000 trials per rate, 95% binomial half-width
+  ≈ 0.98 points) simulation of the **shipped** formulas and her own configured stats — a level-8
+  shield-and-spatha line (str 15 / agi 11 / def 21 / sta 10 → 203 HP, 120 SP, 24.8 regen), quick
+  attacks, and Shield Guard on every announced strike:
+
+  | passive evade | landed-hit rate | attempts (median) | counters / fight | damage taken | win rate |
+  |---|---|---|---|---|---|
+  | **0.75 (was)** | 17.5% | 52 | 39.0 | 200.5 | **12.3%** |
+  | **0.35 (now)** | 45.5% | 28 | 10.0 | 104.9 | **100%** |
+  | 0.25 | 52.5% | 24 | 6.2 | 90.3 | 100% |
+
+  **Three reasons 0.35 is the defensible value, and only one is the simulation.** (1) It is the rate
+  her own division already fields — the Tier-3 champion at `fightIndex: 1` is also 0.35. (2) It sits
+  mid-roster instead of *double the roster's maximum* (0.75 against a 0.60 top). (3) The simulation
+  shows 0.75 is a wall even for optimal play (12.3%, and those wins are marginal) while 0.35 is a
+  real fight the player can lose by misplaying (105 damage taken, ~29 rounds), and 0.25 is
+  measurably softer on every axis. **The value is data-only and reversible in one line** if device
+  play says otherwise. The simulation's simplifications (Valéria never runs out of stamina; her
+  non-attack AI turns are not modelled) are conservative on damage taken and identical across the
+  three rates, so the comparison holds.
+
+- **Files changed — four.** `src/components/duel/DuelScene.tsx` (the import, the two helper calls, the
+  counter branch and its comments); `src/data/opponents.ts` (Valéria's rate plus its rationale);
+  **new** `src/utils/counterDodge.ts`; **new** `src/utils/phaseC8_75B.test.ts` (22 tests / 110
+  `expect()`). No other opponent, formula, reward, progression value, HUD layout, timing constant or
+  collider was touched, and no existing test needed a rebase — nothing pinned the old counter path or
+  her old rate.
+
+- **Suite: `src/utils/phaseC8_75B.test.ts`.** §A drives the counter lifecycle on a **controlled clock**
+  through the real `createPendingStrike` controller and a harness that reproduces exactly the two
+  decisions the scene makes (queue on evade, announce on her turn): announced-not-resolved; nothing
+  before 700 ms and exactly one impact at it; a second turn attempt inside the window refused; one
+  announcement per evade, re-armed only by a new evade; one reaction (`claimReaction` succeeds once,
+  so a block and a dodge cannot stack); a cancel drops the counter instead of deferring it; nothing
+  announced after the latch or on the player's turn; a player evading the counter chains nothing.
+  §B pins that **only** `opp_valeria_boss` can passively evade (the other seven opponents resolve 0
+  *despite* their configured rates, and all three other boss mechanics resolve 0 at 0.9), the strict
+  roll boundary, the clamps and the malformed-input cases. §C runs the simulation above with its
+  uncertainty stated, asserts the monotonic orderings, pins the shipped 0.35 and the roster
+  relationship, and proves determinism (same seed → identical result; a second seed lands within
+  3 / 2 points).
+
+- **Checks run (2026-10-23, `web` container).** Focused combat set
+  `{combatResponsiveness, combatActionOrder, duelResultLifecycle, pendingStrike, defensiveBalance,
+  playerStrikeWindup, playerWindupCue, phase38, phaseC8_75B}` → **212 pass / 0 fail** (857 `expect()`,
+  9 files); `bun run scripts/combatTests.ts` → **65 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup asset check passing
+  (8 assets); `git diff --check` → **clean**. The full `bun test` sweep was deliberately not run (the
+  brief's list is the focused set, and the sandbox shares its CPU with the preview).
+
+- **Preview evidence, and what it does not prove.** In the preview browser the changed module is
+  served and compiled by Vite (`/src/components/duel/DuelScene.tsx` → HTTP 200, and the transformed
+  output carries `announceEnemyAttack("quick_attack")` in the counter branch, the queue through
+  `queuesCounterOnEvade(...)` and the evade through `rollsPassiveEvade(...)`), the app boots to its
+  title screen and **0 console errors** were recorded. **No live Valéria fight was performed and none
+  is claimed:** her bout sits behind tier-3 progression, and the only dev harness that mounts a real
+  `DuelScene` (`?devHarness=character`) duels `ALL_OPPONENTS[0]` (Marcus) — the sandbox also renders
+  the duel through SwiftShader at ~1–2 fps. So the counter's telegraph, its readability on screen and
+  the new rate's *feel* are **not automatically verified**; the lifecycle is pinned by §A and the
+  balance by §C.
+
+- **Android / device checklist (PENDING).** (a) Does Valéria's counter now read as an announced strike
+  — the HUD's wind-up cue appearing for her counter exactly as for her normal strikes, with Shield
+  Guard / Dodge offered and answerable in the 700 ms window? (b) Does one evaded player strike produce
+  exactly one counter (never two), and a counter that is answered still resolve its damage through the
+  usual rules? (c) Does the fight feel like a boss fight at 0.35 — still the trickiest opponent, but
+  winnable — rather than a wall? Do not claim device acceptance without that pass.
+
+- **Deliberately out of scope, unchanged.** The separate AI stamina-affordability issue (the AI can
+  strike while unable to pay) and any hype/combo gameplay were **not** touched. Valéria's HP, damage,
+  aggression, block chance, weapon and rewards are exactly as they were; no other boss's mechanic,
+  no general combat formula and no HUD layout moved.

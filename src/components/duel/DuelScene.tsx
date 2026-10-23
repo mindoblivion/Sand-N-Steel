@@ -37,6 +37,11 @@ import {
 } from '../../utils/combatCalculations';
 import { createPendingStrike, type PendingStrike } from '../../utils/pendingStrike';
 import {
+  isCounterDodgeOpponent,
+  queuesCounterOnEvade,
+  rollsPassiveEvade,
+} from '../../utils/counterDodge';
+import {
   createPlayerStrike,
   canResolveStrikeImpact,
   type PlayerStrike,
@@ -789,12 +794,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // dodge stance, roll against the boss's configured
           // dodgeChance for a passive evade. Does not stack with
           // the active-dodge evasion above.
+          //
+          // C-8.75B — the mechanic gate and the rate now come from the one
+          // shared reader (`utils/counterDodge`), so only a counter_dodge boss
+          // can passively evade and the rate has a single answer. The roll, its
+          // ordering and its short-circuits are unchanged: exactly one
+          // `Math.random()` is consumed, and only when the earlier conditions
+          // already hold, so no other opponent's RNG stream moves.
           const isPassiveEvaded =
             !isEvaded &&
             isActorPlayer &&
-            opponent.bossMechanic === 'counter_dodge' &&
+            isCounterDodgeOpponent(opponent) &&
             !defender.isInvulnerable &&
-            Math.random() < opponent.dodgeChance;
+            rollsPassiveEvade(opponent, Math.random());
 
           if (isEvaded || isPassiveEvaded) {
             sounds.playDodge();
@@ -804,7 +816,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // Only when the player is the attacker against a
             // counter_dodge boss — a player evading Valéria's own
             // counter must NOT chain into another counter.
-            if (isActorPlayer && opponent.bossMechanic === 'counter_dodge') {
+            if (queuesCounterOnEvade(isActorPlayer, opponent)) {
               pendingCounterRef.current = true;
             }
           } else if (roll <= hitPct) {
@@ -1176,13 +1188,26 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       // Resolve pending counterattack (Valéria counter_dodge). The
       // counter was queued when Valéria evaded a player attack on the
-      // previous turn. Clear the ref before resolving so it cannot fire
-      // twice, then resolve through the standard quick_attack pipeline
-      // — reusing all existing range, stamina, block, invulnerability,
-      // and damage logic.
-      if (opponent.bossMechanic === 'counter_dodge' && pendingCounterRef.current) {
+      // previous turn.
+      //
+      // C-8.75B — the counter is an ENEMY STRIKE, so it is announced through
+      // the same 700 ms telegraph/reaction lifecycle every other enemy strike
+      // uses (`announceEnemyAttack` → `pendingStrike` → the existing
+      // `executeCombatTurn('opponent', 'quick_attack')` resolution) instead of
+      // resolving the instant it is reached. Before this phase it called
+      // `executeCombatTurn` directly, so the player was hit by a strike they
+      // were never shown and could never answer. The trigger, the action, the
+      // damage, the range guard, the stamina cost and every evade rule are
+      // unchanged: only WHEN the blow is announced and whether it can be
+      // answered changed.
+      //
+      // The latch is consumed BEFORE announcing, so this one queued counter can
+      // never be spent twice, and `announce` itself refuses a second strike
+      // while one is pending (and does nothing once the fight is decided), so
+      // the counter cannot resolve twice or survive into a stale turn.
+      if (isCounterDodgeOpponent(opponent) && pendingCounterRef.current) {
         pendingCounterRef.current = false;
-        executeCombatTurn('opponent', 'quick_attack');
+        announceEnemyAttack('quick_attack');
         return;
       }
 

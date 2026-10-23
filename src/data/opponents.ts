@@ -248,7 +248,16 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     armorColor: '#eab308',
     aggression: 0.9,
     blockChance: 0.55,
-    dodgeChance: 0.75,
+    // C-8.75B — the PASSIVE-evade rate for the counter_dodge mechanic (the only
+    // reader of `dodgeChance`; see `src/utils/counterDodge.ts`). It was 0.75,
+    // which — on top of the counter it queues — made her a wall rather than a
+    // boss: a seeded 20,000-trial simulation of the shipped formulas and her own
+    // configured stats put a competent level-8 shield-and-spatha build at a
+    // ~12% win rate at 0.75 against ~100% at 0.35 and at 0.25. 0.35 is also the
+    // rate her own division already fields (the Tier-3 champion at fightIndex 1)
+    // and sits mid-roster (0.10–0.60) instead of double the roster's maximum, so
+    // the value is supported by the roster as well as by the simulation.
+    dodgeChance: 0.35,
     rewardGold: 450,
     rewardFame: 140,
     rewardXp: 450,
