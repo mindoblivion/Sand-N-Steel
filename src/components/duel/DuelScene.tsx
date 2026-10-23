@@ -34,6 +34,7 @@ import {
   applyDefensiveAction,
   clearDefensiveStance,
 } from '../../utils/combatCalculations';
+import { crowdMomentumReward } from '../../utils/crowdMomentum';
 import {
   canAffordAttack,
   chooseAITacticalAction,
@@ -510,6 +511,33 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       setDamageNumbers((prev) => prev.filter((d) => d.id !== dmgItem.id));
     }, 1400);
   }, []);
+
+  // C-8.76B — Crowd Momentum. Every third consecutive landed player hit is worth
+  // +10 crowd hype and one chronicle line, through the existing hype pathway so
+  // the peak that pays the purse keeps its single writer. It is read HERE, on the
+  // combo count itself, for three reasons:
+  //   • `player.comboCount` only moves on a player `landed` (+1) or a reset (miss,
+  //     player damaged), so an opponent's hit, a taunt, a blocked strike or a
+  //     cancelled/unresolved swing can never reach it — the award is player-only
+  //     by construction rather than by an extra if-check in the impact.
+  //   • The transition rule (previous → current) makes a repeated evaluation worth
+  //     nothing: a re-render, a Strict Mode doubled effect or a second identical
+  //     callback all re-observe 3 → 3 and pay 0, so one milestone pays once.
+  //   • No damage, hit chance, stamina, AI or reward value is involved. The reward
+  //     is bounded by the meter's own 100 cap.
+  const comboMilestoneRef = useRef(0);
+  useEffect(() => {
+    const previousCombo = comboMilestoneRef.current;
+    const newCombo = player.comboCount;
+    comboMilestoneRef.current = newCombo;
+    const { hypeGain, hype } = crowdMomentumReward(crowdHypeRef.current, previousCombo, newCombo);
+    if (hypeGain === 0) return;
+    updateCrowdHype(() => hype);
+    addLog(
+      `CROWD MOMENTUM! ${newCombo} unanswered strikes — the mob is on its feet (+${hypeGain}% Hype).`,
+      'crit',
+    );
+  }, [player.comboCount, addLog, updateCrowdHype]);
 
   // Core Turn Execution Function
   const executeCombatTurn = useCallback(

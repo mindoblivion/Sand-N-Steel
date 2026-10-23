@@ -7,6 +7,7 @@ import {
   ENEMY_ATTACK_WINDUP_MS,
   PLAYER_ATTACK_WINDUP_MS,
 } from '../../utils/combatCalculations';
+import { isCrowdMomentumMilestone } from '../../utils/crowdMomentum';
 import { resolvePlayerWindupCue, type PlayerStrikeAction } from '../../utils/playerStrike';
 
 interface CombatHUDProps {
@@ -72,6 +73,10 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
 
   const formattedTime = `${Math.floor(matchTimer / 60)}:${(matchTimer % 60).toString().padStart(2, '0')}`;
   const crowdFavorTier = crowdHype > 75 ? 'MAX' : crowdHype > 40 ? 'HIGH' : 'LOW';
+  // C-8.76B — the streak is lit while it stands on a Crowd Momentum milestone
+  // (3, 6, 9, …). A colour/glow swap inside the badge's EXISTING box: no new row,
+  // no timer, no layout change, and the badge's own animate-pulse is untouched.
+  const comboMomentumLit = isCrowdMomentumMilestone(comboCount);
 
   return (
     <div className="combat-hud absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 sm:p-5 select-none z-10">
@@ -145,7 +150,13 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                   {player.name}
                 </span>
                 {comboCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded bg-orange-500/20 border border-orange-500/50 text-orange-300 text-[10px] sm:text-xs font-mono font-bold shrink-0 animate-pulse">
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-mono font-bold shrink-0 animate-pulse border ${
+                      comboMomentumLit
+                        ? 'bg-amber-400/30 border-amber-300 text-amber-100 shadow-[0_0_10px_rgba(251,191,36,0.45)]'
+                        : 'bg-orange-500/20 border-orange-500/50 text-orange-300'
+                    }`}
+                  >
                     COMBO ×{comboCount}
                   </span>
                 )}

@@ -9157,3 +9157,103 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Scope guard.** No stamina cost, attack weight, telegraph/wind-up timing, opponent balance,
   counter behaviour, HUD layout or collider moved, and nothing was added to `combatTests.ts`; the
   only tracked file this phase adds is the suite above.
+
+## Crowd Momentum milestones (C-8.76B — implemented; the milestone itself NOT observed live)
+
+- **Preflight (measured).** Repository root `/app`; branch `development-focus-strategy`; HEAD
+  **`3f83a785deeedd024b77baf327205000b362ef88`** — exactly the C-8.76A audit's baseline — with an
+  **empty** `git status --porcelain` before the first edit. Nothing was reset, stashed, amended,
+  rebased, committed, pushed, merged or deployed.
+
+- **The gap C-8.76A found, and what this phase gives it.** The combo counter was tracked, shown and
+  recorded (`maxCombo`) but changed nothing; hype had exactly one consumer (the purse's crowd-favour
+  step). Crowd Momentum now converts every **third consecutive landed player hit** into **+10 hype**,
+  through the meter's existing 100-point cap, plus one chronicle line — so the streak is worth
+  something to the crowd and nothing at all to the damage formula.
+
+- **The rule is one pure module: `src/utils/crowdMomentum.ts`.** `CROWD_MOMENTUM_INTERVAL` (3),
+  `CROWD_MOMENTUM_HYPE_GAIN` (10), `CROWD_HYPE_MAX` (100), `isCrowdMomentumMilestone(count)` (the
+  badge's question: is this count 3, 6, 9…?) and `crowdMomentumReward(currentHype, previousCombo,
+  comboCount)` → `{ milestone, hypeGain, hype }`. **The award is keyed on the count MOVING FORWARD
+  onto a milestone**, never on "the count is a multiple of three": a repeated evaluation (3 → 3), a
+  reset (~→ 0) and an unchanged count are all worth 0, which is what makes it idempotent. Malformed
+  hype reads as 0 rather than NaN.
+
+- **Where it is read, and why there.** `DuelScene` holds `comboMilestoneRef` and one `useEffect` on
+  `[player.comboCount, addLog, updateCrowdHype]` that prices the transition and, only when
+  `hypeGain > 0`, calls the existing `updateCrowdHype(() => hype)` (so the peak that pays the purse
+  keeps its single writer) and logs `CROWD MOMENTUM! … (+10% Hype)` as a `'crit'` line. The effect
+  sits **outside `executeCombatTurn`**, which gives the phase three properties for free and is why
+  no second counter, no strike-branch if-check and no new persistent state were needed:
+  1. **Player-only by construction.** `player.comboCount` only moves on a player `landed` (+1) or a
+     reset (`miss`, `player_damaged`) — an opponent's hit, a taunt, a blocked strike, a dodge or a
+     cancelled/unresolved swing cannot produce a forward move, so none can pay.
+  2. **Exactly once.** Strict Mode's doubled effect, a re-render and a second identical callback all
+     re-observe the same count and pay 0; the C-9 events themselves are untouched (the four
+     `applyComboEvent` call sites are byte-identical).
+  3. **No turn-path risk.** Nothing is added to the resolution: no damage, hit chance, stamina, AI,
+     timing, latch or settlement value moved, so the C-8.71A/B, C-8.75B/E/F guards are unaffected
+     (their suites re-run green, unedited).
+
+- **Reset and evade semantics preserved, as the audit asked.** `applyComboEvent` is not changed:
+  `landed` +1, `miss` / `player_damaged` / `fully_blocked` → 0, `blocked` / `none` unchanged. An
+  **evaded** player strike still leaves the streak standing (production reaches `'none'` by simply
+  not calling the helper on the evade branch) and therefore pays nothing — the documented Phase 39B
+  behaviour, kept deliberately and pinned in §G of the suite.
+
+- **HUD: the existing badge, lit — no new row, no timer, no layout change.** `CombatHUD` renders the
+  same `COMBO ×n` span with the same padding, border width and `animate-pulse`, and swaps only its
+  colours when `isCrowdMomentumMilestone(comboCount)` is true (`bg-amber-400/30 border-amber-300
+  text-amber-100` + a glow) instead of the shipped orange. A *timed* pulse was rejected: it needs a
+  new HUD state and timer and the badge already animates, so the phase lights the badge rather than
+  re-animating it. The short-landscape budget is untouched because nothing was added to the bar.
+
+- **Regression suite: `src/utils/phaseC8_76.test.ts` — 27 tests / 144 `expect()`.** §A the milestone
+  (3/6/9/12 true; 0, 1, 2, 4, 5, 7, 8, 10, 11, negatives, NaN, ±Infinity, `undefined` and `'3'`
+  false; the shipped 3 / +10 / 100); §B the award on real sequences (1 → 2 → 3 pays exactly once,
+  through `applyComboEvent`, and 4/5 pay nothing; 3, 6 and 9 each qualify once over nine hits);
+  §C idempotency (the same milestone re-evaluated from 3 → 3 pays 0; a duplicated `landed` advances
+  the streak instead of re-paying; an unchanged count never pays); §D reset and re-qualify (a miss
+  and a `player_damaged` each restart the sequence and the next third hit pays again — +20 over the
+  two streaks — with the C-9 reset table pinned unchanged); §E the cap (a milestone at 100 pays
+  nothing and never exceeds it, 95 → 100, 99.5 → 100, a 30-hit streak ends at 100, malformed metres
+  read as empty); §F opponent isolation (a damaging hit, a taunt/block/dodge and a chip-damage block
+  all pay nothing); §G the evade semantics; §H the purse (`calculateDuelGold`'s 50 / 75 / 100 steps,
+  a loss paying nothing, the total identity — **no reward formula changed**); §I the wiring (the
+  award evaluated once, imported once, called **above** `const executeCombatTurn`, watching
+  `player.comboCount`; the gate before both the hype write and the log; four `applyComboEvent` call
+  sites and no fifth; the HUD importing the same rule with exactly one `COMBO ×{comboCount}` span).
+  §I is the same source-register the repo's other combat suites use, because there is no DOM
+  renderer here to mount `<DuelScene/>` or `CombatHUD` under; §A–§H are behaviour on production
+  helpers.
+
+- **Checks run (2026-10-23, `web` container).** `bun test src/utils/phaseC8_76.test.ts` → **27 pass /
+  0 fail** (144 `expect()`); the focused combat set
+  `{phaseC8_76, phaseC8_75F, phaseC8_75E, phaseC8_75B, playerWindupCue, playerStrikeWindup,
+  combatActionOrder, combatResponsiveness, defensiveBalance, pendingStrike, duelResultLifecycle,
+  duelRewards, phase39b, phase39c}` → **374 pass / 0 fail** (14 files, 2,061 `expect()`);
+  `bun run scripts/combatTests.ts` → **69 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  **exit 0**; `bun run build` → **exit 0** with the startup-asset check passing (8 assets);
+  `git diff --check` → **clean**. No existing assertion was edited, loosened or deleted — no other
+  test file changed at all.
+
+- **Live evidence, and what is NOT verified.** In the preview browser (anonymous visitor, no session
+  replayed) the app boots to its title screen at the mobile width with **0 console errors**, and the
+  dev server serves both changed modules transformed (`/src/components/duel/DuelScene.tsx` → 200,
+  carrying `crowdMomentumReward(` and the `if (hypeGain === 0) return;` gate;
+  `/src/utils/crowdMomentum.ts` → 200 with its three exports), so the graph Vite compiles is the
+  edited one. **The milestone itself was NOT observed live:** it fires only from a landed player hit
+  in a running duel, the only harness that mounts a real `DuelScene` (`?devHarness=character`) is
+  behind a query param this preview cannot carry (C-8.70B's finding) and duels `ALL_OPPONENTS[0]`,
+  and the sandbox renders the 3D scenes through SwiftShader at ~1–2 fps. The lit badge was likewise
+  not seen — `?devHarness=hud` mounts the HUD with a fixed `comboCount` of 2, i.e. not a milestone.
+  **Device check owed:** land three consecutive hits in a Colosseum duel and confirm one chronicle
+  line, the hype meter reading +10 (on top of the hit's own +8/+18, capped at 100), the badge turning
+  amber at exactly 3/6/9 and returning to orange at 4, that a miss or a hit taken resets it with no
+  award, and that the purse's crowd-favour step is unchanged. Do not claim device acceptance.
+
+- **Files.** New: `src/utils/crowdMomentum.ts`, `src/utils/phaseC8_76.test.ts`. Modified:
+  `src/components/duel/DuelScene.tsx` (the import and the one effect), `src/components/ui/CombatHUD.tsx`
+  (the import, `comboMomentumLit` and the badge's class swap). No damage, hit chance, stamina, AI,
+  reward, tier, settlement, save field, collider, asset or 3D geometry value moved; the purse's hype
+  thresholds (50 / 25 / 10 %) are untouched.
