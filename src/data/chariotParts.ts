@@ -17,6 +17,12 @@
  * No racing or combat number is derived from it: no racing gameplay consumes
  * chariot stats yet, so every part is presented as a fit or cosmetic upgrade
  * and never as a stat change.
+ *
+ * Currency (P-BANNER): every part is priced in gold by default — a row simply
+ * omits `currency`, which is the shipped purchase path — and the one deliberate
+ * extension is `currency: 'fame'`, spent from the profile's existing `fame`
+ * field.  The Triumph banner set is the only fame-priced row, and the catalogue
+ * suites pin that it stays the only one.
  */
 
 import { ChariotSlot } from '../types/game';
@@ -25,7 +31,17 @@ import { ChariotSlot } from '../types/game';
 export type ChariotWheelVariantKey = 'standard' | 'reinforced';
 
 /** Finish keys.  `stock` keeps the asset's own materials untouched. */
-export type ChariotFinishKey = 'stock' | 'charred' | 'gilded' | 'oxblood';
+export type ChariotFinishKey = 'stock' | 'charred' | 'gilded' | 'oxblood' | 'triumph';
+
+/**
+ * P-BANNER — the currency a part's `price` is denominated in.
+ *
+ * `gold` is the shipped default: a part that names no currency is priced in
+ * gold, and the gold purchase path is the unchanged one.  `fame` is the design's
+ * single deliberate extension of the purchase pattern, spent from the profile's
+ * existing `fame` field (the Triumphs' currency) — never from gold.
+ */
+export type ChariotCurrency = 'gold' | 'fame';
 
 export type ChariotPartClass = 'performance' | 'cosmetic';
 
@@ -60,8 +76,14 @@ export interface ChariotPart {
   slot: ChariotSlot;
   name: string;
   description: string;
-  /** Gold price.  0 = free, and the slot's default is always owned. */
+  /** Price in `currency` — gold unless the part names another.  0 = free, and the slot's default is always owned. */
   price: number;
+  /**
+   * The currency `price` is denominated in.  Absent on every gold-priced part
+   * (the shipped default), so the gold purchase path stays the common one and
+   * behaves exactly as it did before the fame extension.
+   */
+  currency?: ChariotCurrency;
   /**
    * Cosmetic/performance classification.  Purely descriptive: it selects the
    * card's label and nothing else (there is no racing stat to apply it to).
@@ -266,7 +288,29 @@ export const CHARIOT_PARTS: ChariotPart[] = [
     defaultOwned: false,
     raceEffect: { stability: 3, weight: -2 },
   },
+
+  // ── Slot: finish (P-BANNER — the Triumph banner set, priced in FAME) ───
+  {
+    id: 'finish_triumph_banners',
+    slot: 'finish',
+    name: 'Triumph Banners',
+    description:
+      'The livery a champion carries home from the games: white-dyed cloth over the ash, crimson hide binding and bright gilded fittings. Worn for the procession, never for an edge in the race.',
+    price: 500,
+    currency: 'fame',
+    partClass: 'cosmetic',
+    defaultOwned: false,
+    finish: 'triumph',
+    overrides: [
+      { material: 'Wood', color: '#e8dec4', roughness: 0.9 },
+      { material: 'Leather', color: '#7a1520', roughness: 0.7 },
+      { material: 'Bronze', color: '#e6c169', roughness: 0.2, metalness: 1 },
+    ],
+  },
 ];
+
+/** P-BANNER — the Triumph banner set's stable id, for surfaces that only READ it. */
+export const TRIUMPH_BANNER_PART_ID = 'finish_triumph_banners';
 
 const PARTS_BY_ID: ReadonlyMap<string, ChariotPart> = new Map(
   CHARIOT_PARTS.map((part) => [part.id, part])
@@ -313,3 +357,11 @@ export const DEFAULT_CHARIOT_PART_IDS: Readonly<Record<ChariotSlot, string>> = O
 
 /** Does this part id exist in the catalogue? */
 export const isChariotPartId = (id: string): boolean => PARTS_BY_ID.has(id);
+
+/**
+ * P-BANNER — the currency a part is priced in.  Gold is the default and the
+ * only meaning of an absent field, so a part that says nothing keeps the
+ * shipped behaviour.
+ */
+export const chariotPartCurrency = (part: ChariotPart): ChariotCurrency =>
+  part.currency ?? 'gold';

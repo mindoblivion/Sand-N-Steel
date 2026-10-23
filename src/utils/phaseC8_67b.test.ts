@@ -55,7 +55,12 @@ globalThis.localStorage = localStorageShim;
 
 import { PlayerProfile } from '../types/game';
 import { createNewProfile, saveProfile, loadSavedProfile } from '../services/storage';
-import { CHARIOT_PARTS, DEFAULT_CHARIOT_FINISH, DEFAULT_CHARIOT_WHEELS } from '../data/chariotParts';
+import {
+  CHARIOT_PARTS,
+  DEFAULT_CHARIOT_FINISH,
+  DEFAULT_CHARIOT_WHEELS,
+  chariotPartCurrency,
+} from '../data/chariotParts';
 import { purchaseChariotPart, resolveChariotLoadout } from './chariotLoadout';
 import {
   BIGA_HORSES,
@@ -619,7 +624,11 @@ describe('C-8.67B §C — selection', () => {
 describe('C-8.67B §D — unlocks are independent of the chariot workshop', () => {
   test('buying chariot parts never unlocks a horse count', () => {
     let profile = profileWithGold(5000);
-    for (const part of CHARIOT_PARTS.filter((p) => p.price > 0)) {
+    // Gold-priced parts only: P-BANNER's fame-priced set is bought from fame,
+    // and this profile carries none — its own suite covers that path.
+    for (const part of CHARIOT_PARTS.filter(
+      (p) => p.price > 0 && chariotPartCurrency(p) === 'gold'
+    )) {
       const bought = purchaseChariotPart(profile, part.id);
       expect(bought.ok).toBe(true);
       if (!bought.ok) return;

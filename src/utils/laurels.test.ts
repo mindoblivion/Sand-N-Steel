@@ -396,6 +396,9 @@ describe('P2 §F — zero power', () => {
     'types/game.ts',
     'utils/laurels.test.ts',
     'utils/laurels.ts',
+    // P-BANNER — the banner suite reads the field to show a chariot purchase
+    // creates no second ownership record.
+    'utils/phasePBannerTriumphSet.test.tsx',
     'utils/saveCorpus.test.ts',
     'utils/saveFixtures/index.ts',
     'utils/triumphsSurface.test.tsx',

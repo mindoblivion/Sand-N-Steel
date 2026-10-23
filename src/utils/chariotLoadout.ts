@@ -11,9 +11,12 @@
  *     (no `chariot` field), a partial loadout or an id that no longer exists in
  *     the catalogue all resolve to the standard chariot instead of throwing.
  *
- * The persistence path is deliberately the existing one: `profile.gold` and the
- * existing `saveProfile()` / `PROFILE_STORAGE_KEY`.  There is no second currency,
- * no second storage key and no parallel purchase system.
+ * The persistence path is deliberately the existing one: the profile's own
+ * `gold` (or, for the one fame-priced part, its own `fame`) and the existing
+ * `saveProfile()` / `PROFILE_STORAGE_KEY`.  There is no second storage key and
+ * no parallel purchase system: `currency` on the catalogue row is the design's
+ * single deliberate extension of the purchase pattern, and a part that declares
+ * none is gold-priced and behaves exactly as it always has.
  */
 
 import {
@@ -27,6 +30,7 @@ import {
   DEFAULT_CHARIOT_PART_IDS,
   DEFAULT_CHARIOT_WHEELS,
   DEFAULT_CHARIOT_FINISH,
+  chariotPartCurrency,
   getChariotPart,
 } from '../data/chariotParts';
 
@@ -37,6 +41,7 @@ export type ChariotRejectionReason =
   | 'slot-mismatch'
   | 'already-owned'
   | 'insufficient-gold'
+  | 'insufficient-fame'
   | 'not-owned';
 
 export type ChariotLoadoutState = {
@@ -198,6 +203,18 @@ export function getChariotPurchaseEligibility(
   const part = getChariotPart(partId);
   if (!part) return { ok: false, reason: 'unknown-part' };
   if (ownsChariotPart(profile, part.id)) return { ok: false, reason: 'already-owned' };
+
+  if (chariotPartCurrency(part) === 'fame') {
+    // Fame is the profile's own existing field (the Triumphs' currency).  A
+    // missing or non-finite balance can afford nothing, so a malformed save can
+    // never produce a NaN balance by subtraction.
+    const fame = profile.fame;
+    if (typeof fame !== 'number' || !Number.isFinite(fame) || fame < part.price) {
+      return { ok: false, reason: 'insufficient-fame' };
+    }
+    return { ok: true };
+  }
+
   if (profile.gold < part.price) return { ok: false, reason: 'insufficient-gold' };
   return { ok: true };
 }
@@ -215,11 +232,17 @@ export function getChariotEquipEligibility(
 }
 
 /**
- * Buy a chariot part with the player's existing gold.
+ * Buy a chariot part with the currency its catalogue row declares.
  *
- * Deducts `part.price` exactly once and adds ownership without duplicates.
- * Refuses, with the caller's profile returned unchanged, when there is no
- * profile, the id is unknown, the part is already owned, or gold is short.
+ * A gold-priced part — every shipped part but the Triumph banner set — deducts
+ * `part.price` from `gold` exactly as it always has.  A fame-priced part
+ * deducts the same amount from `profile.fame` and never touches gold: the two
+ * are separate fields, so a fame purchase leaves `gold` byte-identical and a
+ * gold purchase leaves `fame` byte-identical.
+ *
+ * Deducts the price exactly once and adds ownership without duplicates.
+ * Refuses, with no profile returned, when there is no profile, the id is
+ * unknown, the part is already owned, or the part's own currency is short.
  * Equipping is a separate step: a purchase never changes what is equipped.
  */
 export function purchaseChariotPart(
@@ -232,17 +255,21 @@ export function purchaseChariotPart(
 
   const part = getChariotPart(partId)!;
   const loadout = resolveChariotLoadout(profile);
+  const chariot: ChariotLoadout = {
+    owned: [...loadout.owned, part.id],
+    equipped: storedEquipped(loadout.equipped),
+  };
+
+  if (chariotPartCurrency(part) === 'fame') {
+    return {
+      ok: true,
+      profile: { ...profile, fame: profile.fame - part.price, chariot },
+    };
+  }
 
   return {
     ok: true,
-    profile: {
-      ...profile,
-      gold: profile.gold - part.price,
-      chariot: {
-        owned: [...loadout.owned, part.id],
-        equipped: storedEquipped(loadout.equipped),
-      },
-    },
+    profile: { ...profile, gold: profile.gold - part.price, chariot },
   };
 }
 
@@ -291,6 +318,8 @@ export function describeChariotRejection(reason: ChariotRejectionReason): string
       return 'Already owned — equip it without paying again.';
     case 'insufficient-gold':
       return 'Not enough gold.';
+    case 'insufficient-fame':
+      return 'Not enough fame.';
     case 'not-owned':
       return 'Buy this part before equipping it.';
   }

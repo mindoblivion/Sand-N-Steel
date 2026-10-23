@@ -602,10 +602,11 @@ export function App() {
   };
 
   /**
-   * Phase C-8.66B — buy a chariot part with the player's existing gold.
-   * `purchaseChariotPart` is pure and re-checks every rule (ownership, price,
-   * unknown id), so a rejected buy leaves gold, ownership and the equipped
-   * choice exactly as they were and never reaches `saveProfile`.
+   * Phase C-8.66B — buy a chariot part, in the currency its catalogue row
+   * declares (gold for every shipped part; fame for the P-BANNER Triumph banner
+   * set).  `purchaseChariotPart` is pure and re-checks every rule (ownership,
+   * price, currency balance, unknown id), so a rejected buy leaves the profile —
+   * both balances included — exactly as it was and never reaches `saveProfile`.
    */
   const handleBuyChariotPart = (partId: string) => {
     const result = purchaseChariotPart(profile, partId);

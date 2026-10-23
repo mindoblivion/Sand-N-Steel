@@ -21,6 +21,8 @@ import React, { useState } from 'react';
 import { Award, Landmark } from 'lucide-react';
 import { PlayerProfile } from '../../types/game';
 import { deriveRank } from '../../utils/rank';
+import { TRIUMPH_BANNER_PART_ID, getChariotPart } from '../../data/chariotParts';
+import { ownsChariotPart } from '../../utils/chariotLoadout';
 import {
   Laurel,
   LaurelResult,
@@ -44,6 +46,14 @@ export const TriumphsPage: React.FC<TriumphsPageProps> = ({ profile, onPurchase 
   const [notice, setNotice] = useState<{ id: string; text: string } | null>(null);
   const rank = deriveRank(profile);
   const owned = resolveLaurels(profile);
+  /**
+   * P-BANNER — the Triumph banner set is a chariot cosmetic: its ownership lives
+   * in the chariot record exactly like every other part's, so this page only
+   * READS it through the workshop's own predicate.  No second ownership record
+   * exists, and the page offers no buy control — the Chariot Workshop sells it.
+   */
+  const bannersOwned = ownsChariotPart(profile, TRIUMPH_BANNER_PART_ID);
+  const bannerPart = getChariotPart(TRIUMPH_BANNER_PART_ID);
 
   const buy = (triumph: Laurel) => {
     if (!onPurchase) return;
@@ -165,6 +175,24 @@ export const TriumphsPage: React.FC<TriumphsPageProps> = ({ profile, onPurchase 
           );
         })}
       </div>
+
+      {bannersOwned && (
+        <div
+          data-triumph-banners
+          data-banners-owned="true"
+          className="rounded-2xl border border-amber-500/60 bg-amber-500/10 px-3 py-3 flex items-start gap-2"
+        >
+          <Landmark className="w-4 h-4 text-amber-300 mt-0.5 shrink-0" aria-hidden="true" />
+          <div>
+            <h4 className="font-serif font-black text-sm uppercase tracking-wider text-amber-100">
+              {bannerPart?.name ?? 'Triumph Banners'}
+            </h4>
+            <p className="text-[11px] font-serif italic text-neutral-300">
+              Owned · carried by your chariot. Worn for the procession, never for an edge in the race.
+            </p>
+          </div>
+        </div>
+      )}
 
       <p className="text-[10px] font-serif italic text-neutral-500">
         A title you buy is the title the scribes read from your record, and every title you own stays
