@@ -67,6 +67,18 @@ export function getStaminaCost(weapon: WeaponItem, isQuick: boolean): number {
 }
 
 /**
+ * The clamp `calculateHitChance` applies, per attack type.
+ *
+ * Exported only so a caller that adjusts the RESULT — CH-3b's entangle penalty
+ * is subtracted from the returned percentage — can floor at the very same
+ * limits the formula itself uses instead of restating them.
+ */
+export const HIT_CHANCE_BOUNDS = {
+  quick: { floor: 50, ceiling: 95 },
+  power: { floor: 35, ceiling: 80 },
+} as const;
+
+/**
  * Hit-probability percentage for a quick or power attack.
  *
  * Quick:  high floor (50 %), high ceiling (95 %) — fast, reliable.
@@ -81,9 +93,21 @@ export function calculateHitChance(
   defenderAgi: number,
 ): number {
   if (isQuick) {
-    return Math.max(50, Math.min(95, Math.round(80 + attackerAgi * 1.5 - defenderAgi * 1.2)));
+    return Math.max(
+      HIT_CHANCE_BOUNDS.quick.floor,
+      Math.min(
+        HIT_CHANCE_BOUNDS.quick.ceiling,
+        Math.round(80 + attackerAgi * 1.5 - defenderAgi * 1.2),
+      ),
+    );
   }
-  return Math.max(35, Math.min(80, Math.round(60 + attackerAgi * 1.2 - defenderAgi * 1.2)));
+  return Math.max(
+    HIT_CHANCE_BOUNDS.power.floor,
+    Math.min(
+      HIT_CHANCE_BOUNDS.power.ceiling,
+      Math.round(60 + attackerAgi * 1.2 - defenderAgi * 1.2),
+    ),
+  );
 }
 
 /**

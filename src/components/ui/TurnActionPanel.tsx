@@ -12,6 +12,7 @@ import {
   ChevronRight,
   AlertCircle,
   HelpCircle,
+  Grid3x3,
 } from 'lucide-react';
 import {
   getWeaponRange,
@@ -28,6 +29,13 @@ import {
   staminaCostWithModifiers,
   type FighterModifiers,
 } from '../../utils/combatModifiers';
+import {
+  canCastNet,
+  entangledHitChance,
+  isEntangled,
+  NET_LAND_CHANCE,
+  ENTANGLE_HIT_PENALTY,
+} from '../../utils/statefulDoctrinae';
 
 export type CombatActionType =
   | 'quick_attack'
@@ -38,7 +46,9 @@ export type CombatActionType =
   | 'retreat'
   | 'taunt'
   | 'rest'
-  | 'telegraph';
+  | 'telegraph'
+  // CH-3b — the retiarius' Cast the Net (once per fight).
+  | 'cast_net';
 
 export interface CombatLogEntry {
   id: string;
@@ -91,11 +101,17 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   ) - player.stamina;
 
   // Calculate hit probability percentages (shared with combat resolution) —
-  // CH-3a: the effective AGI the duel actually rolls against.
+  // CH-3a: the effective AGI the duel actually rolls against. CH-3b: while the
+  // player is entangled the displayed figure is the one resolution rolls
+  // against, i.e. the −25 pp penalty applied to the formula's RESULT.
   const playerAgi = hitAgilityFor(player.stats.agility, playerModifiers);
   const oppAgi = hitAgilityFor(opponent.stats.agility, opponentModifiers);
-  const quickHitPct = calculateHitChance(true, playerAgi, oppAgi);
-  const powerHitPct = calculateHitChance(false, playerAgi, oppAgi);
+  const playerEntangled = isEntangled(player.entangledTurns);
+  const quickHitPct = entangledHitChance(calculateHitChance(true, playerAgi, oppAgi), true, playerEntangled);
+  const powerHitPct = entangledHitChance(calculateHitChance(false, playerAgi, oppAgi), false, playerEntangled);
+  // CH-3b — the net is the retiarius' alone, and only while it is unspent.
+  const isRetiarius = playerModifiers.armaturaId === 'retiarius';
+  const netReady = canCastNet(player.netAvailable);
 
   // Estimated damage using the same calculation pipeline as combat,
   // accounting for the opponent's defense stat. Quick attacks cannot
@@ -364,7 +380,43 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             </div>
           </button>
 
-          {/* 5. TAUNT CROWD / REST */}
+          {/* 5. CAST THE NET — retiarius doctrina (CH-3b), once per fight */}
+          {isRetiarius && (
+            <button
+              onClick={() => onExecuteAction('cast_net')}
+              disabled={!isPlayerTurn || isExecuting || !netReady}
+              className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
+                !isPlayerTurn || isExecuting || !netReady
+                  ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
+                  : 'bg-gradient-to-br from-stone-900 via-neutral-900 to-amber-950 border-amber-400 hover:border-amber-200 text-amber-100 shadow-lg hover:shadow-amber-500/20'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-serif font-black text-xs sm:text-sm text-amber-100 flex items-center gap-1">
+                  <Grid3x3 className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Cast the Net</span>
+                </span>
+                <span className="text-[9px] font-mono bg-amber-950/80 border border-amber-700/60 px-1 py-0.2 rounded text-amber-300">
+                  {netReady ? 'ONCE' : 'SPENT'}
+                </span>
+              </div>
+
+              <div className="tactic-desc text-[10px] text-neutral-300 font-sans leading-tight mb-1">
+                {netReady
+                  ? 'Hurl the net — entangle them for two turns. Secutors are immune.'
+                  : 'The net is spent for this fight.'}
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-amber-900/40">
+                <span className="text-amber-300 font-bold">
+                  {Math.round(NET_LAND_CHANCE * 100)}% Entangle
+                </span>
+                <span className="text-emerald-300 font-bold">−{ENTANGLE_HIT_PENALTY}% Foe Hit</span>
+              </div>
+            </button>
+          )}
+
+          {/* 6. TAUNT CROWD / REST */}
           <button
             onClick={() => onExecuteAction('taunt')}
             disabled={!isPlayerTurn || isExecuting}
