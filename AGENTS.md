@@ -9716,3 +9716,47 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   alternative bodies in a live bout (SwiftShader duel ~1-2 fps cannot adjudicate 0.4 units), and the
   residual standoff shortfall above. **Android acceptance remains PENDING** — do not claim device or
   visual acceptance.
+
+## Attack contact-phase calibration (C-8.80G — implemented; clip timing measured, duel frame PENDING)
+
+- **The defect, re-measured because no C-8.80F record exists in this repo.** The player's swing is
+  committed at the tap and damage resolves one fixed `PLAYER_ATTACK_WINDUP_MS` (700 ms) later, but
+  the clips were authored without that window: with the real assets through a real `AnimationMixer`
+  and the shipped hierarchy (the C-8.80E attachment included), `Sword_Attack`'s blade tip reaches
+  its closest approach to the defender at **519 ms** and `Sword_Regular_C`'s at **659 ms**. At the
+  700 ms impact the tip is 2.032 and 1.673 from the defender against 0.786 and 0.573 at contact —
+  the blade has visibly left the target before the number appears.
+- **Per clip, not per model and not a universal multiplier.** All five shipped bodies load the same
+  178 clips and `resolveActionClip` resolves the same two attack clips on every one; re-measuring
+  each body (amazonian 0.61, dimachaerus 0.60, minotaur 0.77, netfighter 0.60) puts contact within
+  **6 ms** (517-523 / 659-661). The two clips differ by 140 ms, so one constant per clip is the
+  right granularity.
+- **The fix is one module and one line.** `src/utils/attackContact.ts` holds the two measured contact
+  times and derives `rate = contact / window`, where the window is the 700 ms wind-up with two
+  one-frame offsets that **cancel**: the clip's clock starts a frame after the commit (the action
+  effect runs post-commit and the mixer advances next frame), and the hit-stop holds the pose
+  sampled a frame *after* the impact (`GladiatorMesh` sets `mixer.timeScale = 0` in a `useFrame`
+  that runs after drei's mixer update). Rates: `Sword_Attack` **0.7414**, `Sword_Regular_C`
+  **0.9414**. `GladiatorMesh`'s action effect applies
+  `nextAction.setEffectiveTimeScale(attackPlaybackRateForAction(activeAction, targetClip))` after
+  `reset()` (which does not clear the rate), for both fighters. `mixer.timeScale` stays the
+  hit-stop's only channel — the file still has exactly one assignment to it — and every non-striking
+  action still plays at 1.
+- **Left at the better end of the one-frame band, deliberately.** The freeze pose is sampled
+  somewhere within one frame of the impact; a frame *after* contact costs less than a frame *before*
+  it on both clips (517→533 ms: 0.790→0.912; 650→667 ms: 0.892→0.792), so contact is aligned to the
+  impact rather than biased early.
+- **Explicitly not changed:** both 700 ms wind-ups, the 1100 ms turn window, the `HIT_STOP_MS` table
+  (60/110/170/40/200), damage, range, stamina, the AI, the defensive stances, the withdrawal path,
+  the settlement and the C-8.80E weapon attachment. Cancellation and withdrawal still drop the
+  pending swing (`playerStrike.cancel()` in both paths, pinned in the suite).
+- **Suite: `src/utils/phaseC8_80g.test.ts`** (22 tests / 92 expect(), ~0.6 s) — rate derivation and
+  per-clip values, contact frames re-measured from the real GLBs (arena_roman and minotaur, within
+  7 ms), real `AnimationAction` semantics (`action.time` at the impact, the hit-stop holding it,
+  resumption at `rate × delta`), the unchanged combat contract, and cancellation/withdrawal.
+  `bun test` **3553 pass / 0 fail (125 files, 92,654 expect())**, `bun run lint` exit 0,
+  `git diff --check` clean. Full record: [.base44/attack-contact-c880g.md](.base44/attack-contact-c880g.md).
+- **Not automatically verified:** a live duel capture at the impact frame — the sandbox renders the
+  duel through SwiftShader at ~1-2 fps against a 700 ms window, so the comparison comes from the
+  deterministic transform harness. **Android visual acceptance remains PENDING**; the residual ~0.5
+  world-unit standoff at the legal range (C-8.80E) is untouched.

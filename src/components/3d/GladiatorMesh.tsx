@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
 import { attachmentScaleForModelCorrection } from '../../utils/weaponAttachment';
+import { attackPlaybackRateForAction } from '../../utils/attackContact';
 
 /**
  * Shared impact feedback for the duel: one mutable object, owned by
@@ -608,6 +609,11 @@ const RomanWarriorGLB: React.FC<{
     }
 
     nextAction.reset();
+    // C-8.80G — an attack clip is calibrated so its contact frame lands on the
+    // 700 ms impact instead of before it (see utils/attackContact). Only the
+    // clip's own playback rate is set; the mixer's `timeScale` stays the
+    // hit-stop's channel, and every non-striking action still plays at 1.
+    nextAction.setEffectiveTimeScale(attackPlaybackRateForAction(activeAction, targetClip));
     if (activeAction === 'death') {
       nextAction.setLoop(THREE.LoopOnce, 1);
       nextAction.clampWhenFinished = true;
