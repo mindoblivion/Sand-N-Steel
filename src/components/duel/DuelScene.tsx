@@ -42,6 +42,20 @@ import {
   resolveTraitMult,
   staminaCostWithModifiers,
 } from '../../utils/combatModifiers';
+import {
+  canCastNet,
+  decrementEntangle,
+  entangledHitChance,
+  isEntangled,
+  netCritBonusModifiers,
+  resolveNetCast,
+  rollBonusStrike,
+  shouldAICastNet,
+  twinFangsApplies,
+  twinFangsBaseDamage,
+  twinFangsComboEvent,
+  TWIN_FANGS_LANDED_HYPE,
+} from '../../utils/statefulDoctrinae';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
@@ -89,6 +103,12 @@ const HIT_STOP_MS = {
   crit: 170,
   /** Any strike stopped by a shield — the shortest hold. */
   blocked: 40,
+  /**
+   * CH-3b — the dimachaerus' Twin Fangs bonus strike. It reuses the light
+   * attack's own animation (the attacker is already mid-`attack_light`); this
+   * shorter hold is what makes the second bite read as a separate, lighter beat.
+   */
+  twin: 35,
   /** The boss's telegraphed overhead smash — the heaviest impact in the game. */
   telegraphedHeavy: 200,
 } as const;
@@ -308,6 +328,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     clothingStyle: playerProfile.appearance.clothingStyle,
     characterModel: playerProfile.appearance.characterModel || 'roman_warrior',
     isLeftyMode: isLeftyMode,
+    // CH-3b — transient duel state only. The net belongs to the retiarius
+    // doctrina; the entangle counter starts clear and nothing here is saved.
+    netAvailable: playerMods.armaturaId === 'retiarius',
+    entangledTurns: 0,
   });
 
   // Keep player handedness in sync if changed dynamically
@@ -337,6 +361,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     tunicColor: opponent.tunicColor,
     meshScale: opponent.meshScale,
     characterModel: opponent.characterModel || 'roman_warrior',
+    // CH-3b — an AI retiarius carries its net when its own armatura resolves to
+    // retiarius (the opponent config lands in CH-4; the read is already here).
+    netAvailable: opponentMods.armaturaId === 'retiarius',
+    entangledTurns: 0,
   });
 
   // Swords & Sandals Turn-Based State Machine
@@ -791,6 +819,49 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         spawnDamageText('\u26A0 HEAVY!', 'crit', attacker.position);
       }
 
+      // 2c. STATEFUL DOCTRINA — CAST THE NET (retiarius, CH-3b)
+      // Once per fight, no stamina cost. The net is SPENT by the cast whether it
+      // lands, misses or meets a secutor's Snag-Proof Pursuit — that immunity is
+      // read at resolution, so `entangledTurns` can never be written to a secutor.
+      else if (actionType === 'cast_net') {
+        if (!canCastNet(attacker.netAvailable)) {
+          addLog(`${attacker.name} has no net left to throw.`, 'system');
+        } else {
+          if (isActorPlayer) {
+            setPlayer((prev) => ({ ...prev, netAvailable: false }));
+          } else {
+            setOpp((prev) => ({ ...prev, netAvailable: false }));
+          }
+          // The throw itself: the existing slash hook.
+          sounds.playSlash();
+          const net = resolveNetCast({ targetArmaturaId: defenderMods.armaturaId });
+          if (net.landed) {
+            // The snare reads on the dodge hook (the other existing sound).
+            sounds.playDodge();
+            if (isActorPlayer) {
+              setOpp((prev) => ({ ...prev, entangledTurns: net.entangledTurns }));
+            } else {
+              setPlayer((prev) => ({ ...prev, entangledTurns: net.entangledTurns }));
+            }
+            addLog(
+              `${attacker.name} hurls the net — ${defender.name} is ENTANGLED for ${net.entangledTurns} turns!`,
+              isActorPlayer ? 'player' : 'opponent',
+            );
+            spawnDamageText('ENTANGLED', 'crit', defender.position);
+          } else if (net.immune) {
+            addLog(
+              `${defender.name} is Snag-Proof — the net finds no hold. The cast is spent.`,
+              'system',
+            );
+            spawnDamageText('SNAG-PROOF!', 'blocked', defender.position);
+          } else {
+            sounds.playDodge();
+            addLog(`${attacker.name}'s net flies wide. The cast is spent.`, 'system');
+            spawnDamageText('NET MISSED', 'dodge', defender.position);
+          }
+        }
+      }
+
       // 3. OFFENSIVE ATTACK ACTIONS
       else if (actionType === 'quick_attack' || actionType === 'power_attack') {
         const isQuick = actionType === 'quick_attack';
@@ -826,10 +897,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         } else {
           // Check Evasion / Hit Probability
           // CH-3a hit stage — effective AGI = AGI + hitAgiAdd on both sides.
-          const hitPct = calculateHitChance(
+          // CH-3b — an ENTANGLED attacker loses 25 percentage points off the
+          // RESULT, floored at the formula's own clamp (the formula is untouched).
+          const hitPct = entangledHitChance(
+            calculateHitChance(
+              isQuick,
+              hitAgilityFor(attacker.stats.agility, attackerMods),
+              hitAgilityFor(defender.stats.agility, defenderMods),
+            ),
             isQuick,
-            hitAgilityFor(attacker.stats.agility, attackerMods),
-            hitAgilityFor(defender.stats.agility, defenderMods),
+            isEntangled(attacker.entangledTurns),
           );
 
           const roll = Math.random() * 100;
@@ -882,7 +959,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               : attacker.loadout.weapon.damageHeavy;
             // CH-3a hit stage — 0.25 + critChanceAdd, clamped ≤ 0.60. With no
             // crit-chance palma the value IS 0.25, so the draw is unchanged.
-            const isCrit = !isQuick && Math.random() < critChanceFor(attackerMods);
+            // CH-3b — the net's +0.25 rider is folded into that SAME critChanceAdd
+            // while the target stays entangled (see `netCritBonusModifiers`).
+            const isCrit =
+              !isQuick &&
+              Math.random() <
+                critChanceFor(netCritBonusModifiers(attackerMods, isEntangled(defender.entangledTurns)));
             const isBlocked = defender.isBlocking;
             const rageMult = (!isActorPlayer && attacker.isRaged) ? RAGE_DAMAGE_MULTIPLIER : 1.0;
             // CH-3a weapon stage — the defender's own blockReduction plus the
@@ -1041,6 +1123,77 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 };
               });
             }
+
+            // ── CH-3b — TWIN FANGS (dimachaerus) ─────────────────────────────
+            // After a LANDED quick attack, one bonus strike follows at 50 % of
+            // the weapon's light damage. It makes its OWN hit roll against the
+            // same hit chance, costs no stamina, can never crit and can never
+            // fork into another twin (`twinFangsApplies(..., true)` is false).
+            if (twinFangsApplies(attackerMods.armaturaId, isQuick)) {
+              const bonusHit = rollBonusStrike(hitPct);
+              if (bonusHit) {
+                const bonusDamage = calculateAttackDamage(
+                  twinFangsBaseDamage(attacker.loadout.weapon.damageLight),
+                  attacker.stats.strength,
+                  false,
+                  defender.stats.defense,
+                  isBlocked,
+                  blockReduction,
+                  rageMult,
+                  traitMult,
+                );
+                sounds.playSlash();
+                addLog(
+                  `${attacker.name}'s second blade lands for ${bonusDamage} damage!`,
+                  isActorPlayer ? 'player' : 'opponent',
+                );
+                spawnDamageText(`-${bonusDamage} TWIN!`, 'damage', defender.position);
+                // The same light-attack animation, on a SHORTER hold.
+                impactRef.current.freezeUntil = Math.max(
+                  impactRef.current.freezeUntil,
+                  performance.now() + HIT_STOP_MS.twin,
+                );
+                if (isActorPlayer) {
+                  setOpp((prev) => {
+                    const nextHp = Math.max(0, prev.health - bonusDamage);
+                    return {
+                      ...prev,
+                      health: nextHp,
+                      action: nextHp <= 0 ? 'death' : 'hit',
+                      hitFlashTimer: 0.3,
+                    };
+                  });
+                  statsRef.current.damageDealt += bonusDamage;
+                  setPlayer((prev) => ({
+                    ...prev,
+                    comboCount: applyComboEvent(prev.comboCount, twinFangsComboEvent(true)),
+                  }));
+                  updateCrowdHype((prev) => Math.min(100, prev + TWIN_FANGS_LANDED_HYPE));
+                } else {
+                  setPlayer((prev) => {
+                    const nextHp = Math.max(0, prev.health - bonusDamage);
+                    return {
+                      ...prev,
+                      health: nextHp,
+                      action: nextHp <= 0 ? 'death' : 'hit',
+                      hitFlashTimer: 0.3,
+                      comboCount: applyComboEvent(prev.comboCount, 'player_damaged'),
+                    };
+                  });
+                  statsRef.current.damageTaken += bonusDamage;
+                }
+              } else {
+                sounds.playSlash();
+                addLog(`${attacker.name}'s second blade whistles past.`, 'system');
+                spawnDamageText('TWIN MISS!', 'dodge', defender.position);
+                if (isActorPlayer) {
+                  setPlayer((prev) => ({
+                    ...prev,
+                    comboCount: applyComboEvent(prev.comboCount, twinFangsComboEvent(false)),
+                  }));
+                }
+              }
+            }
           } else {
             // MISSED
             sounds.playSlash();
@@ -1076,6 +1229,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // executeCombatTurn). This mirrors the isInvulnerable lifecycle
             // and fixes the C-8.5 defect where shield_block was always
             // cleared before the opponent's attack could be blocked.
+            // CH-3b — an entangle ticks down on the entangled fighter's OWN
+            // action, AFTER it resolved, so the penalty above applied while it
+            // was still live. At 0 the entangle is over (the crit rider with it).
+            ...(isEntangled(prev.entangledTurns)
+              ? { entangledTurns: decrementEntangle(prev.entangledTurns) }
+              : {}),
           }));
         } else {
           setOpp((prev) => ({
@@ -1084,6 +1243,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // isBlocking intentionally NOT cleared here — same lifecycle as
             // the player's block. Consumed via pre-clear at the top of
             // executeCombatTurn when the opponent next acts.
+            // CH-3b — the same entangle tick as the player's branch.
+            ...(isEntangled(prev.entangledTurns)
+              ? { entangledTurns: decrementEntangle(prev.entangledTurns) }
+              : {}),
           }));
         }
 
@@ -1155,7 +1318,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         chosenAction = chooseAIOutOfRangeAction();
       } else {
         // Inside strike range: Evaluate tactical options
-        if (player.isBlocking) {
+        // CH-3b — a retiarius throws the net BEFORE the standard tactical ladder:
+        // once per fight, while its net is still in hand and the player is not
+        // already entangled. The armatura comes from the opponent's own resolved
+        // block, so no selection is duplicated here.
+        if (
+          shouldAICastNet({
+            armaturaId: opponentMods.armaturaId,
+            netAvailable: opp.netAvailable,
+            playerEntangled: isEntangled(player.entangledTurns),
+          })
+        ) {
+          chosenAction = 'cast_net';
+        } else if (player.isBlocking) {
           // Player is guarding: AI uses Power Attack or Taunt
           const r = Math.random();
           chosenAction = r < 0.45 ? 'power_attack' : r < 0.75 ? 'taunt' : 'shield_block';

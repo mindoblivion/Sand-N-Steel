@@ -1073,7 +1073,9 @@ describe('CH-3a §X — wiring', () => {
     );
   });
 
-  test('no new action was added to the duel\u2019s action set', () => {
+  // Renamed by CH-3b: that slice DOES add an action ('cast_net'), so the name
+  // now states what the assertions below actually pin — the CH-1..CH-3a set.
+  test('the duel\u2019s action set still carries every CH-1..CH-3a action', () => {
     expect(panel).toContain("export type CombatActionType =");
     for (const action of ['quick_attack', 'power_attack', 'shield_block', 'dodge', 'advance', 'retreat', 'taunt', 'rest', 'telegraph']) {
       expect(panel, action).toContain(`'${action}'`);

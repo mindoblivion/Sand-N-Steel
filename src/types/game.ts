@@ -129,6 +129,14 @@ export interface FighterState {
   isRaged?: boolean;
   /** CH-3a — Mirror Drill's per-type ledger (Provocator only; see the type). */
   mirrorDrillTypes?: MirrorDrillLedger;
+  /**
+   * CH-3b — Cast the Net's transient duel state: how many of this fighter's own
+   * actions the entangle still covers. 0/undefined = not entangled. Runtime
+   * state only — never written to a profile or a save.
+   */
+  entangledTurns?: number;
+  /** CH-3b — the retiarius' net is still in hand this fight (runtime only). */
+  netAvailable?: boolean;
   telegraphTimer?: number;
   telegraphText?: string;
   isPhase2?: boolean;
