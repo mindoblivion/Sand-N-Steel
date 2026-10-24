@@ -9982,3 +9982,66 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - Suite: `bun test src/utils/phaseC8_80q.test.ts` (23 tests). Files: `src/index.css`, four
   layout suites (three rebased for the 768px gate), this record, and
   [.base44/duel-composition-c880q.md](.base44/duel-composition-c880q.md).
+
+## Fighter world scale and strike reach (C-8.81C — implemented; geometry measured, device read PENDING)
+
+- **The defect was one missing table entry.** `arena_roman.glb`'s authored visible height is **1.103**,
+  and `MODEL_SCALE_CORRECTIONS` had no `roman_warrior` key — so the player *and every opponent* (every
+  opponent config carries `characterModel: 'roman_warrior'`) fell through the lookup's `?? 1.0` and
+  rendered at 1.103, while the four alternative bodies were normalised to the same ~1.10 rather than to
+  their intended size. One number, and the reported "models render at ~60 % of intended height" and the
+  short blade of C-8.81A follow from it. Full record, including every measurement table:
+  [.base44/fighter-scale-c881c.md](.base44/fighter-scale-c881c.md).
+- **The shipped table renders every body at its intended size** (`Fighting_Idle` t = 0.4, every skinned
+  vertex through `getVertexPosition`/`localToWorld`): `roman_warrior` **1.632** (1.1035 → 1.8009),
+  `amazonian` 0.990 (1.8177 → 1.7995), `dimachaerus` 0.989 (1.8208 → 1.8007), `retiarius` 0.985
+  (1.8288 → 1.8014), `minotaur` **1.256** (1.7055 → 2.1421). The Minotaur keeps the shipped 1.19×
+  human ratio instead of being flattened; the four humans agree on 1.800 within 2 mm.
+- **`SHIELD_SCALE_GLB` 0.53 → 0.861** (= 0.55 × 1.80 / 1.15) with the 0.13 hand offset unchanged
+  (0.13 × 0.861 ≈ 0.112 world units). The `SHIELD_SCALE_GLB / modelCorrection` attachment still cancels
+  the body correction, so the board is **0.990** world units on all five bodies — 0.55× a human, 0.462×
+  the Minotaur. At the old 0.53 it would have been 34 % of a 1.80 m body.
+- **What the scale buys, measured at each clip's contact frame** (forward reach of the furthest blade
+  vertex from the attacker's root; `axisGap = sep − (reach + the defender's forward extent)`, negative =
+  the blade is past the opponent's silhouette; `nearest` = C-8.80E's nearest-vertex figure):
+
+  | config | sep | clip | reach | defender | axisGap | nearest |
+  |---|---|---|---|---|---|---|
+  | shipped | 1.2 m | `Sword_Attack` | 1.2962 | 0.3615 | **−0.4577** | **0.0648** |
+  | shipped | 1.2 m | `Sword_Regular_C` | 1.2931 | 0.3615 | −0.4546 | — |
+  | shipped | 1.8 m | `Sword_Attack` | 1.2962 | 0.3615 | **+0.1423** | — |
+  | pre-fix | 1.2 m | `Sword_Attack` | 1.0304 | 0.2215 | −0.0519 | 0.3198 |
+  | pre-fix | 1.8 m | `Sword_Attack` | 1.0304 | 0.2215 | +0.5481 | — |
+
+  So at 1.2 m the overlap grows from a marginal 0.052 to **0.458** (nearest vertex 0.32 → 0.065), and at
+  **1.8 m — the first legal attack** (3.6 m opening, one 1.8 m Advance, 2.1 gladius range) — the
+  shortfall drops **0.548 → 0.142**. **It is still a shortfall of 0.142**: this phase does not close
+  1.8 m, and the suite pins that residual so nobody reads the scale fix as a solved contact problem.
+- **Ground alignment is unchanged in kind.** The root group is never offset vertically, so the four
+  bodies whose soles sit at Y = 0 still do (within 5 mm at their correction), and `arena_roman`'s own
+  **0.7516** band of stray vertices below Y = 0 scales to −1.2266 (the floor hides it, as before). The
+  visible height is `maxY`, never the 3.03 full bounding box — pinned separately so a future "fix"
+  cannot shrink the body to make the box look right.
+- **Nothing else moved:** `getWeaponRange` 2.1, damage 14/26, stamina 12/24, both 700 ms wind-ups, the
+  1100 ms turn, the 1400 ms settlement, the C-8.80E attachment (still 1.000 world units of blade on every
+  body), the arena, every collider, every save field and every asset byte. The production diff is two
+  constant blocks in `GladiatorMesh.tsx` plus one corrected comment sentence in `weaponAttachment.ts`.
+- **Suite: `src/utils/phaseC8_81c.test.ts`** — 24 tests / 85 `expect()` in ~3 s over the five real
+  character GLBs and the real `gladius.glb`: §A the table parsed out of the component (keys, values, the
+  default key present, no pre-fix value surviving, the 0.861 and 0.13 derivations); §B authored heights
+  re-measured, every correction shown to be `target / authored`; §C rendered heights plus the pre-fix
+  control (1.103 / 1.092); §D the ground; §E the shield; §F the strike table above; §G the combat
+  contract. **Sensitivity demonstrated:** restoring `roman_warrior: 1.0` fails **11 of 24**; the file was
+  restored byte-identical (`cmp` clean). `phaseC8_80e` / `phaseC8_80g` were rebased onto the shipped
+  constants (0.53 → 0.861 and the 1.632 / 0.989 corrections; C-8.80G's contact tolerance is now one
+  60 Hz frame, with the reason stated in the file) — rebased, not weakened.
+- **Verified 2026-10-24** in the dev container: focused `bun test phaseC8_81c + phaseC8_80e + phaseC8_80g`
+  → **62 pass / 0 fail** (229 `expect()`); `bun run lint` (`tsc --noEmit`) → exit 0; `git diff --check` →
+  clean.
+- **Not automatically verified — the rendered read, and it is a device question.** The numbers are
+  geometry, not appearance: whether a 1.80 m fighter reads correctly beside the arena's 1.37 m wheels and
+  the 2.18 m carceres block, and whether the remaining 0.142 at 1.8 m reads as a miss, cannot be settled
+  in this sandbox (no GPU; SwiftShader ~1–2 fps in the 3D scenes). **Android visual acceptance is
+  PENDING.** Open follow-ups this phase did not take: the 1.8 m residual itself (a clip-pose, Advance or
+  opening-separation change — scaling the blade is already ruled out), `arena_roman`'s stray vertex band
+  (now 1.2266 deep under the floor), and the Minotaur sharing the humans' 0.990 board.

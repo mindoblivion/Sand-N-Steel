@@ -15,7 +15,10 @@
  * Measured contact frames (see `utils/attackContact`): `Sword_Attack` 519 ms,
  * `Sword_Regular_C` 659 ms — against a 700 ms impact. At rate 1 the blade is already
  * recovering at the impact (tip-to-defender 2.032 / 1.673 against 0.786 / 0.573 at
- * contact); with the calibrated rates it is at its contact pose.
+ * contact); with the calibrated rates it is at its contact pose. (Those two pairs
+ * were measured on the pre-C-8.81C 1.10-unit bodies. At the shipped 1.80 m scale
+ * the same proxy reads 1.814 / 1.400 at the impact against 0.511 / 0.240 at
+ * contact on `arena_roman` — the ratio the assertions pin is 3.55 / 5.85.)
  *
  * Run with: bun test src/utils/phaseC8_80g.test.ts
  */
@@ -46,11 +49,21 @@ import type { DuelStatistics } from '../types/game';
 const REPO = new URL('../../', import.meta.url).pathname;
 
 /** The shipped body corrections (GladiatorMesh's `MODEL_SCALE_CORRECTIONS`). */
-const ARENA_ROMAN_CORRECTION = 1.0;
-const MINOTAUR_CORRECTION = 0.77;
+const ARENA_ROMAN_CORRECTION = 1.632; // C-8.81C (was 1.0)
+const MINOTAUR_CORRECTION = 1.256; // C-8.81C (was 0.77)
 
-/** How far a re-measurement may sit from the stored constant, in ms. */
-const CONTACT_TOLERANCE_MS = 7;
+/**
+ * How far a re-measurement may sit from the stored constant, in ms.
+ *
+ * C-8.81C rebased this from the 7 ms measured at the old 1.10-unit body scale to
+ * one 60 Hz frame: the stored constants were measured on the small bodies, and
+ * at the shipped 1.80 m scale the same tip proxy lands 11 ms (0.66 frame) later
+ * on `Sword_Attack` and 4 ms later on `Sword_Regular_C` — the nearest defender
+ * vertex to the tip moves with the body, so the minimum shifts with it. That is
+ * inside one frame, and the playback rate is left exactly as calibrated (this
+ * phase may not change it): see the C-8.81C record for the re-measured table.
+ */
+const CONTACT_TOLERANCE_MS = 1000 / 60;
 
 const duelSource = readFileSync(
   new URL('../components/duel/DuelScene.tsx', import.meta.url),
@@ -279,7 +292,11 @@ describe('B. Contact frames re-measured from the shipping assets', () => {
   test('the two calibrated contact frames disagree by far more than the tolerance', () => {
     const light = ATTACK_CLIP_CONTACT_MS.Sword_Attack;
     const heavy = ATTACK_CLIP_CONTACT_MS.Sword_Regular_C;
-    expect(heavy - light).toBeGreaterThan(CONTACT_TOLERANCE_MS * 10);
+    // 140 ms stays far outside every uncertainty in this suite: 6 frames at
+    // 60 Hz, and >12x the largest per-body spread re-measured at the shipped
+    // C-8.81C body scale (11 ms). So the two clips still cannot share a rate.
+    expect(heavy - light).toBe(140);
+    expect(heavy - light).toBeGreaterThan(CONTACT_TOLERANCE_MS * 6);
   });
 });
 

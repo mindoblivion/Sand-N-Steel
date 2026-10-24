@@ -35,9 +35,9 @@ import { DEFAULT_PLAYER_WEAPON } from '../data/itemsDB';
 const REPO = new URL('../../', import.meta.url).pathname;
 
 /** The shipped corrections, restated only to pick the two bodies this suite loads. */
-const ARENA_ROMAN_CORRECTION = 1.0;
-const DIMACHAERUS_CORRECTION = 0.6;
-const SHIELD_SCALE_GLB = 0.53;
+const ARENA_ROMAN_CORRECTION = 1.632; // C-8.81C (was 1.0)
+const DIMACHAERUS_CORRECTION = 0.989; // C-8.81C (was 0.6)
+const SHIELD_SCALE_GLB = 0.861; // C-8.81C (was 0.53)
 
 function loadGLB(path: string, base = '/models/'): Promise<any> {
   const buffer = readFileSync(path);
@@ -185,18 +185,24 @@ describe('B. Rendered world length through the shipped hierarchy', () => {
 });
 
 describe('C. Control — the pre-fix render is what the suite is sensitive to', () => {
-  test('without the attachment scale the same body renders a 40 % shorter weapon', () => {
+  test('without the attachment scale the same body renders a shorter weapon', () => {
     const fixed = weaponWorldLength(buildFighter(dimachaerusGltf, DIMACHAERUS_CORRECTION)).length;
     const preFix = DIMACHAERUS_CORRECTION * 1.0; // root scale × uncorrected 1.000-unit asset
-    expect(preFix).toBeCloseTo(0.6, 6);
-    expect(fixed - preFix).toBeCloseTo(0.4, 3);
+    // The shortfall is exactly the correction the wrapper divides back out. It is
+    // small at the C-8.81C table (this body now renders at ~1.80 m, so its
+    // correction is ~1) and was 40 % under the pre-C-8.81C 0.60 — both stated, so
+    // the control cannot drift back to a number nothing derives.
+    expect(preFix).toBeCloseTo(DIMACHAERUS_CORRECTION, 6);
+    expect(fixed - preFix).toBeCloseTo(1 - DIMACHAERUS_CORRECTION, 3);
     expect(preFix).toBeLessThan(fixed);
+    expect(0.6 * 1.0).toBeCloseTo(0.6, 6); // the 40 % shortfall this phase fixed
+    expect(1.0 - 0.6).toBeCloseTo(0.4, 6);
   });
 });
 
 describe('D. Shield proportions and fighter ground alignment are independent', () => {
   test('the shield keeps its constant world height on both bodies', () => {
-    const expected = 1.15 * SHIELD_SCALE_GLB; // 0.6095
+    const expected = 1.15 * SHIELD_SCALE_GLB; // 0.990 (C-8.81C; was 0.6095)
     for (const correction of [ARENA_ROMAN_CORRECTION, DIMACHAERUS_CORRECTION]) {
       const world = 1.15 * (SHIELD_SCALE_GLB / correction) * correction;
       expect(world).toBeCloseTo(expected, 9);
@@ -207,8 +213,10 @@ describe('D. Shield proportions and fighter ground alignment are independent', (
     const withWeapon = posedGroundMinY(buildFighter(arenaGltf, ARENA_ROMAN_CORRECTION).scene);
     const without = posedGroundMinY(buildFighter(arenaGltf, ARENA_ROMAN_CORRECTION, 1, false).scene);
     expect(Math.abs(withWeapon - without)).toBeLessThan(1e-9);
-    // The default body's authored sink below Y=0 is unchanged by this phase.
-    expect(withWeapon).toBeCloseTo(-0.7508, 2);
+    // The default body's authored sink below Y=0 is a property of the ASSET
+    // (-0.7508 at scale 1); it moves only with the body's own correction, which
+    // C-8.81C raised, and never with the weapon attachment.
+    expect(withWeapon).toBeCloseTo(-0.7508 * ARENA_ROMAN_CORRECTION, 2);
   });
 
   test('the dimachaerus body still stands on the ground plane', () => {

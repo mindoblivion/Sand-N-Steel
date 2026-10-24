@@ -27,7 +27,8 @@
  * 1.00) but **0.600** on `dimachaerus` and `amazonian` (correction 0.60) and
  * **0.770** on `minotaur` (0.77) — a 40 % reach deficit on a body of identical
  * rendered height. The shield, which already divides the correction out, stayed
- * 0.6095 world units tall on all five bodies.
+ * 0.990 world units tall on all five bodies (C-8.81C raised the shared
+ * constant with the body scale; the cancellation is what this module owns).
  */
 export function attachmentScaleForModelCorrection(modelCorrection: number): number {
   const correction =
