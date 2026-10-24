@@ -4,6 +4,7 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
+import { attachmentScaleForModelCorrection } from '../../utils/weaponAttachment';
 
 /**
  * Shared impact feedback for the duel: one mutable object, owned by
@@ -915,9 +916,12 @@ const RomanWarriorGLB: React.FC<{
   // group's scale (baseScale × modelCorrection). To keep the shield at a
   // constant world size across models (proportional to the corrected visible
   // height), divide the shield scale by the model correction so it cancels
-  // out. The weapon is also bone-attached and inherits the same scale, which
-  // is correct — weapons should scale with the character.
+  // out. The weapon is also bone-attached and inherits the same scale, so its
+  // attachment group divides the correction back out too (C-8.80E) — a weapon
+  // must be the same length in world space on every body, because combat reach
+  // is world-space. See utils/weaponAttachment.ts for the measurements.
   const effectiveShieldScale = SHIELD_SCALE_GLB / modelCorrection;
+  const weaponAttachmentScale = attachmentScaleForModelCorrection(modelCorrection);
 
   const weaponModelPath = weaponItem?.modelPath;
   const useWeaponGLB = weaponModelPath != null && SUPPORTED_WEAPON_MODEL_PATHS.has(weaponModelPath);
@@ -926,9 +930,15 @@ const RomanWarriorGLB: React.FC<{
     : <WeaponModel weaponType={weaponType} goldColor={goldColor} />;
   const shieldNode = <ShieldModel ref={shieldGroupRef} isLefty={isLefty} goldColor={goldColor} shieldScale={effectiveShieldScale} />;
 
+  // C-8.80E: the weapon is scaled on its own attachment group, inside the hand
+  // bone, so its world length no longer depends on which body wears it. Only
+  // this wrapper changed; the fighter's root scale, its ground alignment, the
+  // shield's proportions and every combat value are untouched.
+  const weaponAttachment = <group scale={weaponAttachmentScale}>{weaponNode}</group>;
+
   // Anatomical assignment: Righty = Sword in Right Hand, Shield in Left Hand. Lefty = Reversed.
-  const rightHandEquipment = isLefty ? shieldNode : weaponNode;
-  const leftHandEquipment = isLefty ? weaponNode : shieldNode;
+  const rightHandEquipment = isLefty ? shieldNode : weaponAttachment;
+  const leftHandEquipment = isLefty ? weaponAttachment : shieldNode;
 
   return (
     <group

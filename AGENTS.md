@@ -9676,3 +9676,43 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   **the new Dodge line is legible and truthful on hardware**, and that a blocked strike still reads as
   reduced damage while a failed dodge reads as a full hit. The C-8.73B/C-8.75B device checklists and
   every earlier device item stand unchanged. Do not claim device acceptance.
+
+## Weapon attachment and reach calibration (C-8.80E — implemented; runtime transforms measured, device read PENDING)
+
+- **No C-8.80D record exists in this repo** (that audit was read-only), so the defect was re-derived
+  from the assets and the code. Full record: [.base44/weapon-attachment-c880e.md](.base44/weapon-attachment-c880e.md).
+- **The proven defect: the weapon was the only bone-attached item that did not divide the body
+  correction back out.** `GladiatorMesh`'s root group carries `scale = meshScale ×
+  MODEL_SCALE_CORRECTIONS[characterModel]`; the shield compensates (`SHIELD_SCALE_GLB / modelCorrection`,
+  0.6095 world height on every body) but the weapon inherited it, so the *same* 1.000-unit gladius
+  rendered **1.000** on `arena_roman` (correction 1.00) and **0.610 / 0.600 / 0.770** on
+  amazonian / dimachaerus / minotaur. Combat reach is world-space, so those bodies struck 23-40 %
+  short: at the legal gladius range `dimachaerus`' `Sword_Attack` came **0.904** from the defender's
+  nearest vertex against **0.515** corrected.
+- **The fix is one attachment group, inside the hand bone.** New pure `src/utils/weaponAttachment.ts`
+  (`attachmentScaleForModelCorrection(correction) = 1/correction`, total) and
+  `const weaponAttachment = <group scale={weaponAttachmentScale}>{weaponNode}</group>`, used by
+  **both** hands. Composition is `meshScale × correction × (1/correction) = meshScale`, so a boss at
+  `meshScale 1.25` still swings a 1.25-length weapon. The shield's expression, the fighter root, its
+  ground alignment, `getWeaponRange`, damage, stamina, hit timing, AI and the settlement are untouched.
+- **Explicitly NOT changed, because the measurements did not support it:** no multiplier was applied to
+  `arena_roman` (1.000 units against 1.101 of rendered height is already 91 %), and the residual
+  standoff shortfall present on *every* body (0.515 corrected at 2.1) is the character's ~1.10-unit
+  world scale plus the clip's contact frame at ~0.56-0.69 s against a 0.70 s resolution — the open
+  "models render at ~60 % intended height" issue and the hit-timing rule, both out of scope. A future
+  phase that widens visible reach further must fix the body's world scale or the clip, not the weapon.
+- **Suite: `src/utils/phaseC8_80e.test.ts`** (16 tests / 49 expect(), ~0.35 s) — runtime-transform
+  assertions over the real GLBs (weapon world length equal on both bodies, `meshScale` still applied,
+  attachment parented to `hand_r`, shield height and posed ground offset unchanged, combat constants
+  and the 2.1 range boundary pinned, both hands binding the one node), plus a control showing the
+  pre-fix render is 0.4 shorter. Removing the wrapper fails it.
+- **Verified 2026-10-24** in the `web` container: focused suite 16/0; focused combat set **241/0**;
+  `bun run scripts/combatTests.ts` **69/0**; `bun test` **3531 pass / 0 fail (124 files, 92,562
+  expect())**; `bun run lint` exit 0; `git diff --check` clean. Preview: title screen and the dev
+  character harness mount (creation preview renders the Roman Warrior with sword and shield, one
+  canvas, **0 console errors**), which proves the extra attachment group renders through
+  `createPortal`.
+- **Not automatically verified:** the corrected blade *reading* as reaching further on the four
+  alternative bodies in a live bout (SwiftShader duel ~1-2 fps cannot adjudicate 0.4 units), and the
+  residual standoff shortfall above. **Android acceptance remains PENDING** — do not claim device or
+  visual acceptance.
