@@ -145,12 +145,13 @@ export function buildPlayerModifiers(
  * The OPPONENT's merged block.
  *
  * An opponent carries no save, so its class and its palms come from its own
- * config — and that config does not exist yet: CH-4 lands the opponent's
- * `armatura` / `palmae`.  Until then both fields are absent, so every opponent
- * resolves to the empty block and behaves exactly as it does today.  The read is
- * deliberately tolerant (a bare id list or the player save's
- * `{ equipped: [...] }` shape, unknown ids dropped, capped at three) so CH-4
- * needs no second resolver here.
+ * config (`OpponentConfig.armatura` / `.palmae`, CH-4).  Both fields are
+ * optional: an opponent without them — or a palma id the list does not know —
+ * resolves to the empty block, which is the identity, so every pre-CH-4 config
+ * keeps behaving exactly as it did.  The read stays deliberately tolerant (a
+ * bare id list or the player save's `{ equipped: [...] }` shape, unknown ids
+ * dropped, capped at three); the opponent's own `palmae` IS that bare id list,
+ * so no second resolver was needed.
  */
 export function buildOpponentModifiers(
   opponent: OpponentConfig | null | undefined,
@@ -272,6 +273,12 @@ export interface DamageContext {
   defenderIsBoss: boolean;
   /** Attack types the DEFENDER has already been hit by (Mirror Drill). */
   defenderTypesHit?: MirrorDrillLedger;
+  /**
+   * CH-4 — this resolution is the counterattack Valéria's `counter_dodge`
+   * passive queued (`pendingCounterRef`). It is the only state Viper's Patience
+   * reads; absent means "not a counter", which is every other strike.
+   */
+  isCounterAttack?: boolean;
 }
 
 /**
@@ -287,10 +294,9 @@ const PALMA_DEALT_CONDITIONS: Record<string, (ctx: DamageContext) => boolean> = 
   colossus_bane: (ctx) => ctx.defenderIsBoss === true,
   // "Power attacks … deal 5% less damage." (the CH-1 descriptor's own note)
   heavy_hand: (ctx) => !ctx.isQuick,
-  // "Only the attack following a triggered counter" — a state that does not
-  // exist yet, so it never applies in this slice (CH-4 lands it at its own
-  // mechanic site).
-  vipers_patience: () => false,
+  // "Only the attack following a triggered counter" (CH-4): the flag is set
+  // for the one resolution `DuelScene` resolves from `pendingCounterRef`.
+  vipers_patience: (ctx) => ctx.isCounterAttack === true,
 };
 
 /** Per-palma conditions on `damageTakenMult`. */

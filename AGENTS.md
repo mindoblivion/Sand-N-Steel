@@ -6863,3 +6863,82 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   palmae duel could be exercised. The stage arithmetic, the fixed-seed traces and the wiring are
   covered by the suites above; the arena's feel with palmae equipped, and its render on the target
   device, defer to manual play. Nothing was left behind: no save key remained in the preview.
+
+## CH-4 — opponents & ladder (identities, boss palmae, four new rivals)
+
+- **What ships.** `OpponentConfig` gains two optional fields — `armatura?: ArmaturaId` and
+  `palmae?: string[]` (`types/game.ts`) — and `data/opponents.ts` uses them. No second resolver was
+  written: CH-3a's `buildOpponentModifiers` already read exactly these two keys off a config
+  (tolerant: a bare id list or `{equipped: […]}`), so it needed only its stale "do not exist until
+  CH-4" doc comment replaced. `DuelScene` builds that block once per duel with `useMemo`, and it now
+  carries a class and palmae for the AI, the doctrina branches and the HUD.
+- **The roster's identities.** Every existing config keeps its id, name, tier, stats, rewards,
+  weapon, personality and difficulty exactly; the only additions are the two new fields.
+
+  | opponent | tier / rung | armatura | palma | doctrina / boss mechanic |
+  |---|---|---|---|---|
+  | Marcus the Rookie | 1 / 1 | `murmillo` | — (tutorial) | — |
+  | Flaccus the Nimble | 1 / 2 | `thraex` | `sand_sprinter` | 0.40 block penetration |
+  | Goliath the Pit Behemoth (BOSS) | 1 / 3 | `provocator` | `pit_bellower` | Mirror Drill + bellow drain |
+  | Cassius the Phalanx | 2 / 1 | `hoplomachus` | `shieldwall_discipline` | Spearman's Ground |
+  | Ignis the Pyre Champion (BOSS) | 2 / **4** | `dimachaerus` | `pyre_brand` | Twin Fangs + phase-switch heal |
+  | Centurion Drusus | 3 / 1 | `murmillo` | `iron_lungs` | — |
+  | Valéria the Viper Queen (BOSS) | 3 / **4** | `retiarius` | `vipers_patience` | net + counter bonus |
+  | Aurelius the Invincible Titan (BOSS) | 4 / 1 | `murmillo` | `colossus_hide` | quick-attack mitigation |
+
+- **Four new rivals, appended inside their tier** (`fightIndex` is ordering/display only): tier 2
+  = Cassius (1) → **Brutus "The Anvil"** (2, `provocator`, Mirror Drill) → **Naija the Fisher**
+  (3, `retiarius`, the CH-3b net) → Ignis (4); tier 3 = Drusus (1) → **Kallias of Sparta** (2,
+  `hoplomachus`, Spearman's Ground) → **The Pale Twins** (3, `dimachaerus`,
+  `characterModel: 'dimachaerus'`, one config fought as a single opponent) → Valéria (4). None
+  ships a `loadout`, so each resolves its weapon through `getWeaponByType` as every other config
+  does.
+- **Director ruling — Ignis and Valéria move `fightIndex` 2 → 4, and that is the only rung change
+  in the roster.** The six other pre-existing rungs are untouched (Marcus 1, Flaccus 2, Goliath 3,
+  Cassius 1, Drusus 1, Aurelius 1; the Doctore's 0 means "no rung"). Safe because **tier
+  advancement keys on boss identity, not on the rung** — the unlock reads `isBoss` plus
+  `defeatedOpponentIds`, so no save's progress changes meaning (§D of the suite pins it against
+  the real `tierAdvancement` / `intel` helpers).
+- **`utils/bossPalmae.ts` (new) owns the two event-shaped boss palmae's magnitudes and clamping**,
+  so the mechanic sites stay a call and the arithmetic stays testable without a browser.
+  `PIT_BELLOWER_STAMINA_DRAIN` = 8 stamina; `PYRE_BRAND_HEAL_FRACTION` = 0.1 (rounded to a whole
+  point, as every health value in the duel is). `applyPitBellowerDrain` floors at 0;
+  `applyPyreBrandHeal` caps at `healthMax`; a non-boss can never reach either, because `bossOnly`
+  rows are structurally excluded from non-boss configs (§A asserts that sweep).
+- **The four boss palmae, at their existing mechanic sites — palmae ADD, nothing was replaced.**
+  1. **Pit Bellower** (Goliath) — the `heavy_telegraph` announce branch in `executeCombatTurn`
+     drains 8 stamina from the defending side and logs it. The telegraph, the pending heavy and its
+     landing are untouched.
+  2. **Pyre Brand** (Ignis) — inside the `phase_weapon_switch` effect, after `phaseSwitchedRef` is
+     set, the boss heals 10 % of maximum health. "Once per fight" IS that ref: it is set before the
+     heal and the effect returns early while set. `opponentMods` joined the effect's dep array.
+  3. **Viper's Patience** (Valéria) — CH-3a shipped the row inert (`() => false`). The AI's
+     `counter_dodge` branch now sets `counterStrikeRef`; `executeCombatTurn` read-and-clears it into
+     the new `DamageContext.isCounterAttack` exactly as `telegraphLandingRef` works, so the +20 %
+     lands on that one resolution and on nothing else (a miss or evade cannot carry it forward).
+  4. **Colossus Hide** (Aurelius) — no new site needed: it is a `damageTakenMult` already evaluated
+     in `damageTakenMultiplier` for quick attacks only, which CH-3a shipped.
+- **Regression suite: `src/utils/opponentsLadder.test.ts`** — 36 tests across 7 sections: §A the
+  config shape and the structural sweep (palma ids are real rows, no non-boss carries a boss
+  mechanic or a boss-only palma, one boss-only palma per boss, no opponent hands out Lefty mode);
+  §B the eight originals frozen against their pre-CH-4 values plus the Director ruling
+  (`fightIndex` 2 → 4 and nothing else); §C the ladder order, the four new rivals' identities, and
+  `PRIMUS_PALUS_LADDER` still the whole roster tier-then-rung; §D old saves (same ids, same
+  advancement); §E every new config's weapon resolving through `getWeaponByType`; §F the new
+  classes reaching the CH-3a stage helpers through `buildOpponentModifiers`; §G each boss palma
+  firing at its own site, never on a non-boss, plus a source read showing `DuelScene` calls each
+  helper at the intended branch. `combatPlumbing.test.ts` went 64 → 65 for `isCounterAttack`.
+- **Verified 2026-10-24** in the dev container
+  (`docker compose -f docker-compose.base44.yml exec web …`): `opponentsLadder` → **36 pass /
+  0 fail**, `combatPlumbing` → **65 pass / 0 fail**, the roster-dependent suites (`bossKills`,
+  `intel`, `intelSurface`, `injurySurface`, `phase37`, `roadMilestones`, `roadOfGlory`,
+  `saveCorpus`, `sellingSurface`, `storyChapterOne`, `storyState`, `tierAdvancement`) → **383
+  pass / 0 fail (11 files)**, `scripts/combatTests.ts` → **67 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (startup check, 8 assets);
+  `git diff --check` → clean.
+- **Not automatically verified — no boss fight was driven live.** The sandbox preview has no GPU
+  (SwiftShader) and the dev harness's duel is hard-wired to `ALL_OPPONENTS[0]` (Marcus, no palma),
+  so Goliath's drain, Ignis's heal and Valéria's counter bonus could not be exercised in the arena
+  here. Their arithmetic and clamping are covered by the pure helpers and the suites above; the
+  on-device feel of the four boss palmae defers to manual play. Nothing is persisted by any of
+  this: the modifiers live in `useMemo` for the duel's lifetime only.

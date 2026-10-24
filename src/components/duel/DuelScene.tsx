@@ -56,6 +56,12 @@ import {
   twinFangsComboEvent,
   TWIN_FANGS_LANDED_HYPE,
 } from '../../utils/statefulDoctrinae';
+import {
+  applyPitBellowerDrain,
+  applyPyreBrandHeal,
+  pitBellowerStaminaDrain,
+  pyreBrandHealAmount,
+} from '../../utils/bossPalmae';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
@@ -484,6 +490,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // read-and-cleared at the top of executeCombatTurn — a miss, an evade or an
   // out-of-range swing therefore cannot leave it set for a later attack.
   const telegraphLandingRef = useRef(false);
+  // CH-4 — marks the ONE resolution that is Valéria's queued counterattack, so
+  // Viper's Patience's +20 % lands on it and on nothing else. Set by the AI
+  // branch that resolves `pendingCounterRef`, read-and-cleared beside the
+  // telegraph marker above.
+  const counterStrikeRef = useRef(false);
 
   // C-8.70B §SET-1 — the Camera Shake row's consumer contract. The rig reads the
   // multiplier from this ref every frame; it is refreshed through the settings
@@ -652,6 +663,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // cannot leave it set for a later attack.
       const isTelegraphedHeavy = !isActorPlayer && telegraphLandingRef.current;
       telegraphLandingRef.current = false;
+      // CH-4 — the same read-and-clear for Valéria's counterattack.
+      const isCounterAttack = !isActorPlayer && counterStrikeRef.current;
+      counterStrikeRef.current = false;
 
       const attacker = isActorPlayer ? player : opp;
       const defender = isActorPlayer ? opp : player;
@@ -817,6 +831,25 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         setOpp((prev) => ({ ...prev, telegraphText: 'HEAVY ATTACK INCOMING' }));
         addLog(`${attacker.name} winds up a devastating overhead smash!`, 'opponent');
         spawnDamageText('\u26A0 HEAVY!', 'crit', attacker.position);
+        // CH-4 — Pit Bellower: the bellow behind the wind-up also drains stamina
+        // (floored at 0). Palmae ADD to the mechanic — the announce, the pending
+        // heavy and its landing below are untouched.
+        const bellowerDrain = pitBellowerStaminaDrain(attackerMods);
+        if (bellowerDrain > 0) {
+          const drainStamina = (prev: FighterState) => ({
+            ...prev,
+            stamina: applyPitBellowerDrain(prev.stamina, bellowerDrain),
+          });
+          if (isActorPlayer) {
+            setOpp(drainStamina);
+          } else {
+            setPlayer(drainStamina);
+          }
+          addLog(
+            `${attacker.name}'s pit bellow drains ${bellowerDrain} stamina from ${defender.name}.`,
+            'system',
+          );
+        }
       }
 
       // 2c. STATEFUL DOCTRINA — CAST THE NET (retiarius, CH-3b)
@@ -990,6 +1023,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               defenderHealthMax: defender.stats.healthMax,
               defenderIsBoss: opponent.isBoss === true,
               defenderTypesHit: defender.mirrorDrillTypes,
+              // CH-4 — Viper's Patience reads this: true only on the attack
+              // that follows a triggered counter.
+              isCounterAttack,
             });
             const rawDamage = calculateAttackDamage(
               baseDmg,
@@ -1307,6 +1343,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // and damage logic.
       if (opponent.bossMechanic === 'counter_dodge' && pendingCounterRef.current) {
         pendingCounterRef.current = false;
+        // CH-4 — Viper's Patience: mark THIS resolution as the counterattack, so
+        // its +20 % lands here and nowhere else. Read-and-cleared at the top of
+        // executeCombatTurn, exactly like the telegraph landing marker.
+        counterStrikeRef.current = true;
         executeCombatTurn('opponent', 'quick_attack');
         return;
       }
@@ -1428,14 +1468,33 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     const threshold = opp.stats.healthMax * 0.5;
     if (opp.health > 0 && opp.health <= threshold) {
       phaseSwitchedRef.current = true;
+      // CH-4 — Pyre Brand: the phase switch also heals 10 % of maximum health.
+      // "Once per fight" is `phaseSwitchedRef` itself: it is set above, before
+      // the heal is applied, and this effect returns early while it is set.
+      // With no Pyre Brand the heal is 0 and the state update is unchanged.
+      const pyreHeal = pyreBrandHealAmount(opponentMods, opp.stats.healthMax);
       setOpp((prev) => ({
         ...prev,
         isPhase2: true,
+        ...(pyreHeal > 0
+          ? { health: applyPyreBrandHeal(prev.health, prev.stats.healthMax, pyreHeal) }
+          : {}),
         loadout: { ...prev.loadout, weapon: getWeaponByType(opponent.phase2WeaponType!) },
       }));
       addLog(`${opp.name} discards their blades and draws a heavy war mace!`, 'system');
+      if (pyreHeal > 0) {
+        addLog(`${opp.name}'s Pyre Brand flares — ${pyreHeal} health restored.`, 'system');
+      }
     }
-  }, [opp.health, opp.stats.healthMax, opponent.bossMechanic, opponent.phase2WeaponType, opp.name, addLog]);
+  }, [
+    opp.health,
+    opp.stats.healthMax,
+    opponent.bossMechanic,
+    opponent.phase2WeaponType,
+    opp.name,
+    opponentMods,
+    addLog,
+  ]);
 
   // Aurelius rage_mode_colossus: activate rage once when health drops to 50%.
   // Guarded by rageActivatedRef so it fires exactly once per duel. The ref

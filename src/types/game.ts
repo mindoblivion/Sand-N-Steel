@@ -186,6 +186,22 @@ export interface OpponentConfig {
   rewardXp: number;
   meshScale?: number;
   characterModel?: CharacterModelType;
+  /**
+   * CH-4 — the opponent's fighting class. `DuelScene` resolves it into the
+   * opponent's merged modifier block (`buildOpponentModifiers`), which is what
+   * routes the class's doctrina (provocator's Mirror Drill, hoplomachus's
+   * Spearman's Ground, retiarius's net, thraex's block penetration, …) through
+   * the CH-3a/CH-3b plumbing. Absent means no class: the empty block.
+   */
+  armatura?: ArmaturaId;
+  /**
+   * CH-4 — the palmae the opponent carries, as `Palma.id` strings. Resolved
+   * through the same `mergeModifiers` the player's save uses; an unknown id is
+   * dropped and three is the cap. A `bossOnly` palma may only appear here on an
+   * `isBoss` config, and its hand-wired effect lands at that boss's own
+   * mechanic site (see `utils/bossPalmae.ts`).
+   */
+  palmae?: string[];
   bossMechanic?: BossMechanic;
   phase2WeaponType?: WeaponType;
   guaranteedDrop?: WeaponItem | ArmorItem;

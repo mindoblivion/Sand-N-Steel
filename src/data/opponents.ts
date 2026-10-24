@@ -91,6 +91,7 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     difficulty: 'rookie',
     weaponType: 'sword_shield',
     personality: 'Aggressive',
+    armatura: 'murmillo',
     recommendedLevel: 1,
     stats: {
       strength: 8,
@@ -121,6 +122,8 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     difficulty: 'rookie',
     weaponType: 'dual_blades',
     personality: 'Tricky',
+    armatura: 'thraex',
+    palmae: ['sand_sprinter'],
     recommendedLevel: 2,
     stats: {
       strength: 10,
@@ -152,6 +155,8 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     difficulty: 'veteran',
     weaponType: 'mace',
     personality: 'Berserker',
+    armatura: 'provocator',
+    palmae: ['pit_bellower'],
     recommendedLevel: 3,
     stats: {
       strength: 16,
@@ -186,6 +191,8 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     difficulty: 'veteran',
     weaponType: 'spear',
     personality: 'Defensive',
+    armatura: 'hoplomachus',
+    palmae: ['shieldwall_discipline'],
     recommendedLevel: 3,
     stats: {
       strength: 13,
@@ -206,16 +213,93 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardFame: 25,
     rewardXp: 95,
   },
+  // CH-4 — new rivals, appended within their tier so the roster stays tier-then-
+  // rung ordered (the order `intelTargets` and `PRIMUS_PALUS_LADDER` read).
+  // Tier 2 ladder: Cassius (1), Brutus (2), Naija (3), Ignis (4).
+  {
+    id: 'opp_brutus_anvil',
+    name: 'Brutus "The Anvil"',
+    title: 'Provocator of the Nineveh Sands',
+    tier: 2,
+    fightIndex: 2,
+    difficulty: 'veteran',
+    weaponType: 'sword_shield',
+    personality: 'Defensive',
+    // CH-4 — the provocator doctrina IS his identity: Mirror Drill (the first hit
+    // of each attack type at full damage, later ones 8% softer) arrives from his
+    // class, so no separate mechanic is declared.
+    armatura: 'provocator',
+    recommendedLevel: 3,
+    stats: {
+      strength: 14,
+      agility: 12,
+      staminaMax: 108,
+      staminaRegen: 19,
+      defense: 8,
+      healthMax: 160,
+    },
+    skinColor: '#8d5b4c',
+    hairColor: '#3f2d1d',
+    tunicColor: '#1e293b',
+    armorColor: '#94a3b8',
+    aggression: 0.5,
+    blockChance: 0.7,
+    dodgeChance: 0.2,
+    rewardGold: 125,
+    rewardFame: 35,
+    rewardXp: 120,
+    clothingStyle: 'gladiator_sash',
+  },
+  {
+    id: 'opp_naija_fisher',
+    name: 'Naija the Fisher',
+    title: 'Net-Fighter of the River Docks',
+    tier: 2,
+    fightIndex: 3,
+    difficulty: 'veteran',
+    // The trident is the spear family's weapon; `getWeaponByType('spear')`
+    // resolves it, exactly as it does for Cassius and Valéria.
+    weaponType: 'spear',
+    personality: 'Tricky',
+    // CH-4 — the retiarius class carries the one-shot net (CH-3b's cast_net).
+    armatura: 'retiarius',
+    recommendedLevel: 4,
+    stats: {
+      strength: 15,
+      agility: 16,
+      staminaMax: 120,
+      staminaRegen: 21,
+      defense: 7,
+      healthMax: 180,
+    },
+    skinColor: '#6b4423',
+    hairColor: '#0f172a',
+    tunicColor: '#0e7490',
+    armorColor: '#22d3ee',
+    aggression: 0.7,
+    blockChance: 0.4,
+    dodgeChance: 0.6,
+    rewardGold: 165,
+    rewardFame: 50,
+    rewardXp: 160,
+    clothingStyle: 'gladiator_sash',
+  },
   {
     id: 'opp_ignis_boss',
     name: 'Ignis the Pyre Champion',
     title: 'Nineveh Arena Master (BOSS)',
     tier: 2,
-    fightIndex: 2,
+    // CH-4 Director ruling — the ladder is the design's intent and tier
+    // advancement keys on boss IDENTITY (`isBoss` + `defeatedOpponentIds`), so
+    // `fightIndex` is ordering/display only and moves 2 → 4 to seat Brutus (2)
+    // and Naija (3) ahead of him.
+    fightIndex: 4,
     isBoss: true,
     difficulty: 'champion',
     weaponType: 'dual_blades',
     personality: 'Tricky',
+    armatura: 'dimachaerus',
+    palmae: ['pyre_brand'],
     recommendedLevel: 5,
     stats: {
       strength: 18,
@@ -251,6 +335,8 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     difficulty: 'champion',
     weaponType: 'sword_shield',
     personality: 'Defensive',
+    armatura: 'murmillo',
+    palmae: ['iron_lungs'],
     recommendedLevel: 6,
     stats: {
       strength: 22,
@@ -272,16 +358,90 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardXp: 260,
     clothingStyle: 'centurion_harness',
   },
+  // CH-4 — new rivals, appended within their tier. Tier 3 ladder:
+  // Drusus (1), Kallias (2), the Pale Twins (3), Valéria (4).
+  {
+    id: 'opp_kallias_sparta',
+    name: 'Kallias of Sparta',
+    title: 'Spartan Hoplite of the Grand Amphitheater',
+    tier: 3,
+    fightIndex: 2,
+    difficulty: 'champion',
+    weaponType: 'spear',
+    personality: 'Defensive',
+    // CH-4 — Spearman's Ground arrives with the hoplomachus doctrina: the outer
+    // third of his reach deals +15%, inside half reach −10%.
+    armatura: 'hoplomachus',
+    recommendedLevel: 6,
+    stats: {
+      strength: 23,
+      agility: 16,
+      staminaMax: 142,
+      staminaRegen: 22,
+      // Between Drusus (14) and Valéria (12): a hoplite's shield, below the
+      // praetorian's tower shield and above the net-fighter's.
+      defense: 13,
+      healthMax: 285,
+    },
+    skinColor: '#c68642',
+    hairColor: '#1c1917',
+    tunicColor: '#065f46',
+    armorColor: '#10b981',
+    aggression: 0.55,
+    blockChance: 0.7,
+    dodgeChance: 0.3,
+    rewardGold: 310,
+    rewardFame: 105,
+    rewardXp: 310,
+    clothingStyle: 'gladiator_sash',
+  },
+  {
+    id: 'opp_pale_twins',
+    name: 'The Pale Twins',
+    title: 'Twin Blades of the Imperial Sand',
+    tier: 3,
+    fightIndex: 3,
+    difficulty: 'champion',
+    weaponType: 'dual_blades',
+    personality: 'Berserker',
+    // CH-4 — one config for the pair: the dimachaerus model with the class's
+    // twin-strike doctrina, fought as a single opponent.
+    armatura: 'dimachaerus',
+    recommendedLevel: 7,
+    stats: {
+      strength: 24,
+      agility: 20,
+      staminaMax: 152,
+      staminaRegen: 24,
+      defense: 12,
+      healthMax: 300,
+    },
+    skinColor: '#e7d8d0',
+    hairColor: '#f8fafc',
+    tunicColor: '#334155',
+    armorColor: '#94a3b8',
+    aggression: 0.85,
+    blockChance: 0.35,
+    dodgeChance: 0.65,
+    rewardGold: 380,
+    rewardFame: 122,
+    rewardXp: 380,
+    characterModel: 'dimachaerus',
+  },
   {
     id: 'opp_valeria_boss',
     name: 'Valéria the Viper Queen',
     title: 'Coliseum Grand Champion (BOSS)',
     tier: 3,
-    fightIndex: 2,
+    // CH-4 Director ruling — ordering/display only (see Ignis above): 2 → 4 so
+    // Kallias (2) and the Pale Twins (3) take their rungs ahead of her.
+    fightIndex: 4,
     isBoss: true,
     difficulty: 'champion',
     weaponType: 'spear',
     personality: 'Tricky',
+    armatura: 'retiarius',
+    palmae: ['vipers_patience'],
     recommendedLevel: 8,
     stats: {
       strength: 25,
@@ -317,6 +477,8 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     difficulty: 'champion',
     weaponType: 'mace',
     personality: 'Berserker',
+    armatura: 'murmillo',
+    palmae: ['colossus_hide'],
     recommendedLevel: 10,
     stats: {
       strength: 34,
