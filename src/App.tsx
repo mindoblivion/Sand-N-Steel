@@ -22,6 +22,7 @@ import { purchaseTemper } from './utils/tempering';
 import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
 import { purchaseItem } from './utils/itemPurchase';
 import { withArmaturaPledge } from './utils/armaturaPledge';
+import { applyPalmaEarns, equipPalma, purchaseDoctorePalma, unequipPalma } from './utils/palmaeState';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
@@ -132,6 +133,11 @@ export function App() {
      * nothing new to say and carries `null`.
      */
     injuryEvent: DuelInjuryEvent | null;
+    /**
+     * CH-5 — the palma ids this victory NEWLY unlocked (empty on a defeat), so the
+     * result screen announces exactly what the save already carries.
+     */
+    palmaEarned?: string[];
   } | null>(null);
   /**
    * STORY-2 — the rule chosen for the Doctore's Test. Held for the length of the
@@ -656,6 +662,9 @@ export function App() {
      */
     const { profile: afterInjury, event: injuryEvent } = resolveInjuryAfterDuel(profile, didWin);
 
+    /** CH-5 — what this victory unlocked, decided at the write and told to the result. */
+    let palmaEarned: string[] | undefined;
+
     if (didWin) {
       const nextGold = profile.gold + stats.goldEarned;
       const nextFame = profile.fame + stats.fameEarned;
@@ -712,8 +721,18 @@ export function App() {
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
 
+      /**
+       * CH-5 — THE EARN CHECKS, inside the victory write.  They read the profile
+       * this same write is about to save (gold, fame, xp, the tier, the felled
+       * ids, `fightsWon` and the hype peak are all already on it), and the helper
+       * appends only ids the save does not already carry — so re-winning a fight
+       * can never duplicate an unlock.  Unlocking is never equipping.
+       */
+      const earned = applyPalmaEarns(updatedProfile);
+      palmaEarned = earned.earned.map((palma) => palma.id);
+
       // The just-fought opponent is what names the boss cry — first defeat or rematch.
-      const settledProfile = evaluateRituals(profile, updatedProfile, activeOpponent);
+      const settledProfile = evaluateRituals(profile, earned.profile, activeOpponent);
       setProfile(settledProfile);
       saveProfile(settledProfile);
     } else {
@@ -727,7 +746,13 @@ export function App() {
       saveProfile(settledProfile);
     }
 
-    setDuelResult({ didWin, stats, storyLines, injuryEvent });
+    setDuelResult({
+      didWin,
+      stats,
+      storyLines,
+      injuryEvent,
+      ...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),
+    });
   };
 
   const handleDuelResultDismiss = () => {
@@ -1003,6 +1028,38 @@ export function App() {
     saveProfile(result.profile);
   };
 
+  /**
+   * CH-5 — the palmae's three writes, and the only ones besides the victory
+   * write's earn checks.  Each runs the pure transaction in `utils/palmaeState.ts`,
+   * which re-checks every rule against the profile it is handed — unlocked, not
+   * boss-only, the tier's slot ladder, the purse — and hands back NO profile on a
+   * refusal, so a stale tap can neither charge twice nor wear an unearned palm.
+   */
+  const handleEquipPalma = (palmaId: string) => {
+    if (!profile) return;
+    const result = equipPalma(profile, palmaId);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  const handleUnequipPalma = (palmaId: string) => {
+    if (!profile) return;
+    const result = unequipPalma(profile, palmaId);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /** A purchase UNLOCKS the palm; it is worn later, in the Gladiator Stats panel. */
+  const handleBuyPalma = (palmaId: string) => {
+    if (!profile) return;
+    const result = purchaseDoctorePalma(profile, palmaId);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
   const handleResetGame = () => {
     clearSavedProfile();
     setProfile(null);
@@ -1142,6 +1199,9 @@ export function App() {
             onBuyStableQuality={handleBuyStableQuality}
             onBuyStableConditioning={handleBuyStableConditioning}
             onBuyFacility={handleBuyFacility}
+            onEquipPalma={handleEquipPalma}
+            onUnequipPalma={handleUnequipPalma}
+            onBuyPalma={handleBuyPalma}
             />
         )}
 
@@ -1186,6 +1246,7 @@ export function App() {
             stats={duelResult.stats}
             storyLines={duelResult.storyLines}
             injuryEvent={duelResult.injuryEvent}
+            palmaEarned={duelResult.palmaEarned}
             goldTotal={profile?.gold}
             coachCardId={
               profile

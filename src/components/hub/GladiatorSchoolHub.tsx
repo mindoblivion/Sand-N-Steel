@@ -84,6 +84,11 @@ interface GladiatorSchoolHubProps {
   onBuyStableConditioning?: (level: number) => void;
   /** P6 — the Facilities panel; `App` runs `purchaseFacility` and writes. */
   onBuyFacility?: (id: FacilityId) => void;
+  /** CH-5 — the Palmae panel's two taps; `App` runs the validated transaction. */
+  onEquipPalma?: (palmaId: string) => void;
+  onUnequipPalma?: (palmaId: string) => void;
+  /** CH-5 — the Doctore's sold palms; `App` runs `purchaseDoctorePalma`. */
+  onBuyPalma?: (palmaId: string) => void;
 }
 
 export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
@@ -121,6 +126,9 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onBuyStableQuality,
   onBuyStableConditioning,
   onBuyFacility,
+  onEquipPalma,
+  onUnequipPalma,
+  onBuyPalma,
 }) => {
   const [selectedOpponent, setSelectedOpponent] = useState<OpponentConfig | null>(null);
   /**
@@ -278,6 +286,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           <TrainingTab
             profile={playerProfile}
             onTrainStat={onTrainStat}
+            onBuyPalma={onBuyPalma}
             onSelectDoctoreTest={(restriction) => {
               setTestRestriction(restriction);
               setSelectedOpponent(DOCTORE_TEST_OPPONENT);
@@ -315,6 +324,8 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onAllocatePoint={onAllocateStatPoint}
             onUseConsumable={onUseConsumable}
             onRepledgeArmatura={onRepledgeArmatura}
+            onEquipPalma={onEquipPalma}
+            onUnequipPalma={onUnequipPalma}
           />
         )}
         {activeTab === 'library' && (
