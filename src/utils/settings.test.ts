@@ -439,10 +439,14 @@ describe('E. The wiring — every consumer, read out of the shipped sources', ()
     expect(camera).toContain('useSettings()');
   });
 
-  test('the duel orbits at the sensitivity and buzzes exactly twice', () => {
+  // REBASED (C-8.80B): the duel's haptic sites are three, not two — a landed blow, a
+  // knockout defeat, and the CONFIRMED WITHDRAWAL (a forfeit is a defeat, so it plays the
+  // defeat pattern). The property this test exists to pin is unchanged: every buzz goes
+  // through the settings-aware helper, and each site is named below.
+  test('the duel orbits at the sensitivity and buzzes at its three defeat/hit sites', () => {
     const duel = source('src/components/duel/DuelScene.tsx');
     expect(duel).toContain('getCameraSensitivityScale(useSettings())');
-    expect(duel.match(/vibrate\(/g)?.length).toBe(2);
+    expect(duel.match(/vibrate\(/g)?.length).toBe(3);
     expect(duel).toContain('vibrate(HAPTIC_HIT_LANDED_MS)');
     expect(duel).toContain('vibrate(HAPTIC_DEFEAT_PATTERN)');
     expect(duel).toContain('if (isActorPlayer) vibrate(HAPTIC_HIT_LANDED_MS);');

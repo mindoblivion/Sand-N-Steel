@@ -187,6 +187,17 @@ export interface DuelStatistics {
   lootDrop?: WeaponItem | ArmorItem | null;
   /** The victory purse itemised (see `utils/duelRewards.ts`); absent on a defeat. */
   goldBreakdown?: DuelGoldBreakdown;
+  /**
+   * C-8.80B — how the bout ended, when it was not decided by the sand.
+   *
+   * ABSENT means "the bout was fought out" (a victory or a knockout defeat), so every
+   * reader that exists today — the purse, the injury settlement, the clock, the tier
+   * rule, the result screen's defeat copy — keeps its exact semantics. `'withdrawn'` is
+   * the ONE other state: the gladiator confirmed a withdrawal, which the settlement
+   * treats as a defeat. It is a FACT about the bout, never a substitute for its
+   * statistics: no damage, hit, combo or hype figure is altered to fake a knockout.
+   */
+  outcome?: 'withdrawn';
 }
 
 /**

@@ -156,7 +156,7 @@ export const CombatHudHarness: React.FC = () => {
           matchTimer={97}
           isMuted={false}
           onToggleMute={() => {}}
-          onOpenArmory={() => {}}
+          onWithdraw={() => {}}
           onOpenHelp={() => {}}
           cameraMode="cinematic"
           onCycleCameraMode={() => {}}

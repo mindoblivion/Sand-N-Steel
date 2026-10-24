@@ -1,6 +1,6 @@
 import React from 'react';
 import { DuelStatistics, OpponentConfig, PlayerInjury } from '../../types/game';
-import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight, Bandage } from 'lucide-react';
+import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight, Bandage, Flag } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sounds } from '../../audio/soundEffects';
 import { describeInjury } from '../../utils/injuryStatus';
@@ -53,6 +53,12 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   injury,
 }) => {
   const pace = didWin ? 1 : DEFEAT_PACE;
+  /**
+   * C-8.80B — a confirmed withdrawal is a DEFEAT that was not fought to the end, so the
+   * card must not say the gladiator was felled. The bout's own record carries the fact
+   * (`stats.outcome`), never the outcome alone and never an invented killing blow.
+   */
+  const withdrew = !didWin && stats.outcome === 'withdrawn';
   const injuryStatus = describeInjury(injury);
   // 0 = header only, 1 = recap, 2 = the two extra recap lines, 3 = rewards.
   const [stage, setStage] = React.useState(0);
@@ -155,7 +161,10 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   }, [didWin, opponent.stats?.healthMax, stats.damageDealt]);
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md z-40 flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md z-40 flex items-center justify-center p-4"
+      data-duel-outcome={didWin ? 'victory' : withdrew ? 'withdrawal' : 'defeat'}
+    >
       <div
         className={`border-2 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl animate-fadeIn text-amber-100 ${
           didWin
@@ -169,14 +178,24 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
               didWin ? 'bg-amber-500/20 border border-amber-400' : 'bg-red-900/40 border border-red-500'
             }`}
           >
-            {didWin ? <Trophy className="w-8 h-8 text-yellow-400" /> : <Skull className="w-8 h-8 text-red-400" />}
+            {didWin ? (
+              <Trophy className="w-8 h-8 text-yellow-400" />
+            ) : withdrew ? (
+              <Flag className="w-8 h-8 text-red-400" />
+            ) : (
+              <Skull className="w-8 h-8 text-red-400" />
+            )}
           </div>
 
           <h3 className="font-serif font-black text-3xl sm:text-4xl uppercase tracking-wider mb-1">
-            {didWin ? 'VICTORY!' : 'DEFEAT'}
+            {didWin ? 'VICTORY!' : withdrew ? 'WITHDREW' : 'DEFEAT'}
           </h3>
           <p className="text-xs font-serif text-neutral-400">
-            {didWin ? `You defeated ${opponent.name} in the sand!` : `Felled by ${opponent.name}. Recover your strength!`}
+            {didWin
+              ? `You defeated ${opponent.name} in the sand!`
+              : withdrew
+                ? `You quit the sand. ${opponent.name} is awarded the bout.`
+                : `Felled by ${opponent.name}. Recover your strength!`}
           </p>
         </div>
 
@@ -215,7 +234,8 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
           {/* Addendum A — how much of the opponent was still standing.  Defeat only. */}
           {opponentHpRemainingPercent !== null && (
             <div className="text-neutral-400">
-              Fell at <span className="text-red-400 font-bold">{opponentHpRemainingPercent}%</span> of{' '}
+              {withdrew ? 'Withdrew with' : 'Fell at'}{' '}
+              <span className="text-red-400 font-bold">{opponentHpRemainingPercent}%</span> of{' '}
               {opponent.name}&apos;s HP remaining
             </div>
           )}

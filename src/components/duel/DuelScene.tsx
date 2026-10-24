@@ -6,6 +6,8 @@ import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumb
 import { DuelArena } from '../3d/DuelArena';
 import { GladiatorMesh, type ImpactState } from '../3d/GladiatorMesh';
 import { CombatHUD } from '../ui/CombatHUD';
+import { WithdrawConfirmModal } from './WithdrawConfirmModal';
+import { withdrawFromDuel } from '../../utils/duelWithdrawal';
 import { CombatActionType, CombatLogEntry } from '../ui/TurnActionPanel';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
@@ -347,6 +349,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // `onPendingChange` (commit, impact, cancellation), so there is no second
   // timer and no second source of truth to drift from the actual strike.
   const [pendingPlayerAttack, setPendingPlayerAttack] = useState<PlayerStrikeAction | null>(null);
+  // C-8.80B — the withdrawal CONFIRMATION is view state and nothing else: opening it
+  // changes no gameplay value, "Stay and Fight" only closes it, and the forfeit itself
+  // happens in `handleConfirmWithdrawal` (utils/duelWithdrawal).
+  const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false);
 
   const [crowdHype, setCrowdHype] = useState(25);
 
@@ -1107,6 +1113,37 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     setReactionTaken(null);
   }, []);
 
+  // ── C-8.80B — the CONFIRMED withdrawal ─────────────────────────────────────
+  // The HUD's Withdraw control only ASKS; this is the one place a forfeit happens, and
+  // the order is the rule (see `utils/duelWithdrawal`): the latch first, so every impact,
+  // announcement, reaction and AI timer already in flight is inert; then the pending work
+  // dropped; then the bout settled as a defeat through the SAME `onMatchComplete` App
+  // uses for a knockout — so the settlement latch, the clock, the injury settlement and
+  // the one save all run unchanged, and only once. The dialog closes either way: a
+  // confirmation arriving over a bout that has already ended changes nothing.
+  const handleConfirmWithdrawal = useCallback(() => {
+    setWithdrawConfirmOpen(false);
+    const withdrew = withdrawFromDuel({
+      isMatchOver,
+      stats: statsRef.current,
+      pending: {
+        cancelEnemyStrike: cancelPendingEnemyAttack,
+        cancelPlayerStrike: () => playerStrikeRef.current?.cancel(),
+        clearTurnTimer: () => {
+          if (resolutionTimerRef.current !== null) clearTimeout(resolutionTimerRef.current);
+          resolutionTimerRef.current = null;
+        },
+      },
+      settle: onMatchComplete,
+    });
+    if (!withdrew) return;
+    // Nothing is left armed: no telegraph, no queued counter, no turn timer.
+    pendingHeavyAttackRef.current = false;
+    pendingCounterRef.current = false;
+    addLog(`${player.name} yields to the sand — the bout is forfeit.`, 'opponent');
+    vibrate(HAPTIC_DEFEAT_PATTERN);
+  }, [cancelPendingEnemyAttack, onMatchComplete, player.name, addLog]);
+
   const announceEnemyAttack = useCallback(
     (actionType: 'quick_attack' | 'power_attack') => {
       if (isMatchOver.current) return;
@@ -1351,6 +1388,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // The fight is over: drop any announced strike so no delayed hit can land
       // after the result, and no duplicate payout can follow.
       cancelPendingEnemyAttack();
+      // C-8.80B — a confirmation left open over a bout that just ended is closed, so it
+      // can neither cover the result card nor be clicked into a settled fight.
+      setWithdrawConfirmOpen(false);
       // C-8.71B — and the player's own pending swing, so nothing resolves into a
       // decided fight. (Inert today: only the player's impact can end a fight.)
       playerStrikeRef.current?.cancel();
@@ -1378,6 +1418,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       isMatchOver.current = true;
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
+      setWithdrawConfirmOpen(false);
       cancelPendingEnemyAttack();
       playerStrikeRef.current?.cancel();
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
@@ -1509,7 +1550,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         matchTimer={matchTimer}
         isMuted={isMuted}
         onToggleMute={onToggleMute}
-        onOpenArmory={onOpenArmory}
+        onWithdraw={() => setWithdrawConfirmOpen(true)}
         onOpenHelp={onOpenHelp}
         cameraMode={cameraMode}
         onCycleCameraMode={() =>
@@ -1528,6 +1569,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         onReactToPendingAttack={reactToPendingAttack}
         onExecuteAction={(action) => executeCombatTurn('player', action)}
       />
+
+      {/* C-8.80B — the withdrawal confirmation. A dialog, never a settlement: opening it
+          and choosing to stay change nothing, and only the confirmed answer forfeits the
+          bout, through `handleConfirmWithdrawal`. */}
+      {withdrawConfirmOpen && (
+        <WithdrawConfirmModal
+          onStay={() => setWithdrawConfirmOpen(false)}
+          onConfirm={handleConfirmWithdrawal}
+        />
+      )}
     </div>
   );
 };

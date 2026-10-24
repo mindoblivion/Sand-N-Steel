@@ -1,7 +1,7 @@
 import React from 'react';
 import { FighterState } from '../../types/game';
 import { TurnActionPanel, CombatActionType, CombatLogEntry } from './TurnActionPanel';
-import { Swords, Flame, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle, Shield, Wind } from 'lucide-react';
+import { Swords, Flame, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle, Shield, Wind, Flag } from 'lucide-react';
 import {
   DODGE_STAMINA_COST,
   ENEMY_ATTACK_WINDUP_MS,
@@ -19,7 +19,12 @@ interface CombatHUDProps {
   matchTimer: number;
   isMuted: boolean;
   onToggleMute: () => void;
-  onOpenArmory: () => void;
+  /**
+   * C-8.80B — the ONE way out of a live bout. It opens the withdrawal confirmation;
+   * it is not itself an exit (the duel only ends through `utils/duelWithdrawal`, and a
+   * forfeit is settled as a defeat). The Armory stays reachable from the hub, not the sand.
+   */
+  onWithdraw: () => void;
   onOpenHelp: () => void;
   cameraMode: string;
   onCycleCameraMode: () => void;
@@ -50,7 +55,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   matchTimer,
   isMuted,
   onToggleMute,
-  onOpenArmory,
+  onWithdraw,
   onOpenHelp,
   cameraMode,
   onCycleCameraMode,
@@ -88,24 +93,38 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
       <div className="combat-top w-full flex flex-col gap-2">
         {/* TOP UTILITY BAR */}
         <div className="w-full flex flex-wrap items-center justify-between gap-1.5 pointer-events-auto">
-          {/* PLAYER WEAPON BADGE & ARMORY SHORTCUT */}
-          <button
-            onClick={onOpenArmory}
-            className="flex items-center gap-2 bg-black/60 hover:bg-neutral-900 border border-amber-600/50 hover:border-amber-400 text-amber-200 px-3 py-1.5 rounded-lg shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer text-xs sm:text-sm font-semibold tracking-wide"
-            title="Armory & Opponents"
+          {/* C-8.80B — THE EQUIPPED WEAPON, INFORMATION ONLY. This badge used to be the
+              Armory shortcut, i.e. a one-tap way out of the bout that recorded no defeat.
+              Knowing your weapon is worth it; leaving the sand is a decision, so the badge
+              no longer exits and the Withdraw action below is the one deliberate way out. */}
+          <div
+            className="flex items-center gap-2 bg-black/60 border border-amber-600/50 text-amber-200 px-3 py-1.5 rounded-lg shadow-lg backdrop-blur-md text-xs sm:text-sm font-semibold tracking-wide"
+            title="Your equipped weapon"
+            data-combat-weapon-badge="true"
           >
             <Swords className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">Armory:</span>
+            <span className="hidden sm:inline">Armed:</span>
             <span className="text-amber-100 font-bold">{player.loadout.weapon.name}</span>
-          </button>
+          </div>
 
           {/* ARENA MATCH TIMER */}
           <div className="bg-black/60 border border-amber-700/40 px-3 py-1 rounded-md text-amber-300 font-mono text-sm tracking-widest backdrop-blur-sm">
             {formattedTime}
           </div>
 
-          {/* ACTION BUTTONS (CAMERA, HELP, AUDIO) */}
+          {/* ACTION BUTTONS (WITHDRAW, CAMERA, HELP, AUDIO) */}
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* C-8.80B — the one deliberate way out: it asks for confirmation, and only the
+                confirmed answer forfeits the bout (as a defeat). Nothing here settles. */}
+            <button
+              onClick={onWithdraw}
+              data-withdraw="true"
+              className="min-h-[44px] px-2.5 rounded-lg bg-black/60 hover:bg-red-950/70 border border-red-700/60 text-red-300 hover:text-red-200 transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-semibold tracking-wide"
+              title="Withdraw from the bout (counts as a defeat)"
+            >
+              <Flag className="w-4 h-4 text-red-400" />
+              <span className="hidden sm:inline">Withdraw</span>
+            </button>
             <button
               onClick={onCycleCameraMode}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer text-xs font-mono"
