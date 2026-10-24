@@ -6942,3 +6942,52 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   here. Their arithmetic and clamping are covered by the pure helpers and the suites above; the
   on-device feel of the four boss palmae defers to manual play. Nothing is persisted by any of
   this: the modifiers live in `useMemo` for the duel's lifetime only.
+
+## CF-3 — the crowd reacts to hype (implemented, validated; device feel PENDING)
+
+- **The tier rule is CombatHUD's, not a second one.** `src/utils/crowdHype.ts` (new, pure,
+  dependency-free) reads `> 75 → MAX` / `> 40 → HIGH` — both STRICT, exactly
+  `CombatHUD`'s `crowdHype > 75 ? 'MAX' : crowdHype > 40 ? 'HIGH' : 'LOW'`. So hype **40 is still
+  LOW and 75 is still HIGH**: an upward crossing fires on the value that PASSES the boundary
+  (41 / 76), and the crowd and the meter change together. The suite reads the HUD expression from
+  its source, so the two cannot drift.
+- **The one detection point is inside `DuelScene`'s existing `updateCrowdHype`** — the only place
+  hype changes. It reads the previous value (already mirrored in `crowdHypeRef`), calls
+  `detectCrowdHypeCrossing(prev, next)` and, on a crossing, `sounds.setCrowdLevel(level)`; on an
+  UPWARD crossing it adds `sounds.playCrowdSwell()` and `crowdPulseRef.current += 1`. Downward
+  crossings only set the level (no swell, no bounce). **No hype value, award site or
+  `combatCalculations.ts` line changed** — 18 / 8 / 20 / TWIN_FANGS / the 25 seed are byte-identical.
+- **`src/audio/soundEffects.ts` gained the bed**: one looping 2 s generated brown-noise
+  `AudioBufferSourceNode` → 500 Hz lowpass `BiquadFilter` → **level gain** → **swell gain** →
+  destination. Two gain nodes, not one, so a 0.4 s tier ramp and a 350 ms swell never cancel each
+  other's automation. `CROWD_BED_GAINS` = **0.015 / 0.04 / 0.075** with 0.4 s ramps;
+  `playCrowdSwell()` is 1.8× for 350 ms. `startCrowdBed` is idempotent and no-ops while muted;
+  `toggleMute` now tears the bed down (keeping it "wanted") and restores it on unmute; the bed is
+  started at the opening tier (hype 25 = LOW) on `DuelScene` mount and stopped on unmount.
+- **The arena bounce owns `position.y` of ONE group.** `DuelArena` wraps both 56 spectator meshes in
+  a single `<group ref={crowdGroupRef}>`; a `useFrame` advances `stepCrowdBounce` with the frame
+  delta and writes only that group's `position.y`. The curve is 600 ms, two hops, first hop's crown
+  exactly **0.12** at 150 ms, second 0.042 at 450 ms, exactly 0 elsewhere. The `crowdPulseRef` prop
+  is optional, so an arena without a duel never celebrates. Walls, cavea, braziers, loge and gates
+  are outside the group and unmoved.
+- **Regression suite: `src/utils/crowdHype.test.ts`** — 38 tests / 16,158 `expect()` calls: §A the
+  tier reading and crossings (including the no-event-at-the-boundary cases from both sides), §B the
+  gain table and the bed's whole lifecycle against a recording fake `AudioContext` (one shared
+  context — two engine instances build two contexts and read the wrong one), §C the bounce curve and
+  the pulse step, §D the scene wiring plus the byte-identical hype numbers, §E the arena's structure
+  (one group, balanced tags, one `position.y` assignment, unchanged geometry).
+- **Two production defects found by the suite and fixed, not worked around**: the first bounce curve
+  normalised by the sine crown and actually peaked at **0.1226** (now each hop is its own half-sine
+  scaled by `CROWD_BOUNCE_HOP_DECAY`, so the peak is exactly the design's 0.12); and
+  `setCrowdLevel`'s "clamp" was a whitelist that mapped 7 → LOW (now it saturates to the nearest
+  tier).
+- **Verified 2026-10-24** in the dev container, the full battery on the final tree: `bun test` →
+  **3530 pass / 0 fail (118 files, 106,201 `expect()`)**; `bun run scripts/collisionTests.ts` →
+  **123 passed, 0 failed** (exit 0); `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` →
+  exit 0 with the startup-asset check passing (8 assets); `git diff --check` → clean.
+- **Not automatically verified — the crowd's feel, and that is a device question.** The sandbox has
+  no GPU (SwiftShader) and no way to capture Web Audio, so **browser preview proves nothing about
+  the crowd feel on a real device**: whether the 0.12 bounce reads as a surge rather than a jitter,
+  whether the bed is audible under combat at 0.015/0.04/0.075, whether the swell is a swell and not
+  a clip, and how tier-up feels on a phone's speakers. That acceptance is Walter's Android device
+  check. The suite pins the arithmetic; it cannot pin the feel.

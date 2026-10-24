@@ -1,7 +1,38 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { createCrowdBounce, stepCrowdBounce, type CrowdBounce } from '../../utils/crowdHype';
 
-export const DuelArena: React.FC = () => {
+export interface DuelArenaProps {
+  /**
+   * CF-3 — the duel's crowd-pulse counter. DuelScene bumps it when the hype
+   * crosses a tier upward, and the crowd answers with one bounce per change.
+   * It is a ref rather than state on purpose: a celebration must not cost a
+   * React render of the whole scene. Optional — an arena rendered without it
+   * simply never celebrates.
+   */
+  crowdPulseRef?: React.RefObject<number>;
+}
+
+export const DuelArena: React.FC<DuelArenaProps> = ({ crowdPulseRef }) => {
+  const crowdGroupRef = useRef<THREE.Group>(null);
+  // Seeded from the counter's current value, so the first frame never mistakes
+  // a pulse that happened before this arena existed for a fresh one.
+  const crowdBounceRef = useRef<CrowdBounce>(createCrowdBounce(crowdPulseRef?.current ?? 0));
+
+  // CF-3 — the celebration is the crowd group's `position.y` and nothing else.
+  // It idles at exactly 0, so the walls, braziers and loge are not affected even
+  // implicitly; `stepCrowdBounce` returns 0 unless a pulse is playing.
+  useFrame((_, delta) => {
+    const group = crowdGroupRef.current;
+    if (!group) return;
+    group.position.y = stepCrowdBounce(
+      crowdBounceRef.current,
+      crowdPulseRef?.current ?? 0,
+      delta * 1000,
+    );
+  });
+
   return (
     <group>
       {/* 1. ARENA CIRCULAR SAND PIT (WARM GOLDEN BLOOD-STAINED ARENA SAND) */}
@@ -39,24 +70,30 @@ export const DuelArena: React.FC = () => {
         <meshStandardMaterial color="#854d0e" roughness={0.85} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* Spectator Crowd Silhouettes */}
-      {Array.from({ length: 28 }).map((_, ci) => {
-        const angle = (ci / 28) * Math.PI * 2;
-        const rad1 = 22.2;
-        const rad2 = 25.8;
-        return (
-          <group key={`crowd-${ci}`}>
-            <mesh position={[Math.cos(angle) * rad1, 7.8, Math.sin(angle) * rad1]}>
-              <boxGeometry args={[1.2, 1.4, 0.8]} />
-              <meshStandardMaterial color={ci % 3 === 0 ? '#991b1b' : ci % 2 === 0 ? '#f5f5f4' : '#78350f'} roughness={0.9} />
-            </mesh>
-            <mesh position={[Math.cos(angle) * rad2, 11.2, Math.sin(angle) * rad2]}>
-              <boxGeometry args={[1.4, 1.5, 0.8]} />
-              <meshStandardMaterial color={ci % 2 === 0 ? '#b45309' : '#e5e5e5'} roughness={0.9} />
-            </mesh>
-          </group>
-        );
-      })}
+      {/* CF-3 — SPECTATOR CROWD SILHOUETTES. Both rings live in ONE group so a
+          hype celebration can bounce the crowd alone: the podium wall, the
+          cavea, the braziers and the imperial loge all stay outside it. The 28
+          spectators per ring (56 meshes), their radii, sizes and materials are
+          exactly what they were. */}
+      <group ref={crowdGroupRef}>
+        {Array.from({ length: 28 }).map((_, ci) => {
+          const angle = (ci / 28) * Math.PI * 2;
+          const rad1 = 22.2;
+          const rad2 = 25.8;
+          return (
+            <group key={`crowd-${ci}`}>
+              <mesh position={[Math.cos(angle) * rad1, 7.8, Math.sin(angle) * rad1]}>
+                <boxGeometry args={[1.2, 1.4, 0.8]} />
+                <meshStandardMaterial color={ci % 3 === 0 ? '#991b1b' : ci % 2 === 0 ? '#f5f5f4' : '#78350f'} roughness={0.9} />
+              </mesh>
+              <mesh position={[Math.cos(angle) * rad2, 11.2, Math.sin(angle) * rad2]}>
+                <boxGeometry args={[1.4, 1.5, 0.8]} />
+                <meshStandardMaterial color={ci % 2 === 0 ? '#b45309' : '#e5e5e5'} roughness={0.9} />
+              </mesh>
+            </group>
+          );
+        })}
+      </group>
 
       {/* 4. ROARING BRONZE ARENA FIRE BRAZIERS */}
       {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
