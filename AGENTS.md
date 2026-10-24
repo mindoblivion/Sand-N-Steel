@@ -6991,3 +6991,89 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   whether the bed is audible under combat at 0.015/0.04/0.075, whether the swell is a swell and not
   a clip, and how tier-up feels on a phone's speakers. That acceptance is Walter's Android device
   check. The suite pins the arithmetic; it cannot pin the feel.
+
+## CF-4 — impact particles (sparks + sand), pooled (implemented, validated; device feel PENDING)
+
+- **What ships: one new component and one file's wiring.** `src/components/3d/ImpactParticles.tsx`
+  (new) and `src/components/duel/DuelScene.tsx` (an import, one `useRef`, one mount inside the
+  existing `Suspense`, and three `burst()` calls). `src/utils/impactParticles.test.ts` (new, 41
+  tests) + this note. **No combat outcome, timing, formula, `combatCalculations.ts`, `GladiatorMesh`,
+  handedness, save field or dependency was touched**, and the component is imported by `DuelScene`
+  alone (asserted over the whole tree), so nothing renders outside the duel.
+- **The budget is exact: ONE `THREE.Points` = +1 draw call.** 128 pre-allocated particles in one
+  `BufferGeometry` with only `position` + `color` (no index), one `PointsMaterial` (`size` 0.06,
+  `sizeAttenuation`, `vertexColors`, `AdditiveBlending`, `depthWrite: false`, `transparent: true`),
+  rendered as a single `<primitive object={points} />`. No second object, no per-burst mesh, no
+  React state (`useRef` + `useImperativeHandle` + one `useFrame` only).
+- **Recipes, as briefed and pinned:** spark 14 particles, `#fff7cc`→`#f97316` lerp, speed 2.2–3.6,
+  gravity −4, life 0.35 s; sand 10 particles, `#c29b62`, speed 0.6–1.2 upward cone, gravity −1.5,
+  life 0.5 s; crit 28 spark-recipe particles + 6 `#fbbf24`, life 0.5 s, wider cone (34 slots).
+- **Emission axis (the brief's implementer choice, documented in the module):** sparks and crit open
+  their cone along a caller-supplied direction, and `DuelScene` passes **the blow's own axis** — the
+  sign of `defender.position[2] − attacker.position[2]`, i.e. from the attacker toward the defender,
+  so the spray is biased away from the attacker. The duel's fighters only ever separate along Z, so
+  that sign is the whole axis; with no direction the cone points at world +Z. **Sand is the
+  exception**: it always fountains along world up (a dust kick, not a ricochet).
+- **Zero per-frame allocation, structurally and behaviourally.** The update path is
+  `integrateImpactPool(pool, dt)` — semi-implicit Euler over the fixed 128 slots, reading and writing
+  only the typed arrays it is handed, with no `new`, no literal, no collection-returning array method
+  and no `Math.random`. The spawn path is allocation-free too: module-scope temps (`_axis`, `_dir`,
+  two tangents, three scratch `THREE.Color`s) mirror `GladiatorMesh`'s house pattern, and
+  `createImpactPool` / `createImpactPoints` allocate exactly once per instance inside `useMemo`. The
+  suite pins both halves: 600 steps keep every array identity, byte length and the pool's key set,
+  and a source scan of the function body finds no allocating construct.
+- **Dead particles sit at `y = IMPACT_PARKED_Y` (−10)** and are skipped; a spent burst frees its
+  slots, and a full pool recycles its oldest slot through a round-robin cursor rather than growing.
+- **Two non-obvious implementation requirements, both found while building it.**
+  (1) **`points.frustumCulled = false` is mandatory.** A `Points`' bounding sphere is computed from
+  its position data and never refreshed, and every slot starts parked at y = −10 — so with culling on
+  the whole pool would be rejected the moment it left those initial bounds and no burst would ever
+  draw. (2) **The frame delta is clamped** at `IMPACT_MAX_STEP_SECONDS` (0.1 s): a backgrounded tab
+  hands back a multi-second delta, and without the clamp a burst teleports off-screen on the first
+  frame after the tab returns. Neither is a preference; both are load-bearing.
+- **Call sites: exactly three, all in the landed branch of `executeCombatTurn`**, beside the
+  pre-existing feedback lines and replacing none of them: blocked → `burst('spark', …)`;
+  unblocked crit → `burst('crit', …)` **instead of** sand; unblocked non-crit → `burst('sand', …)`.
+  The impact point is `defender.position + [0, 1.2, 0]`, computed once per landed blow. Nothing is
+  awaited or assigned, so a burst cannot influence an outcome; the twin-fangs bonus strike and every
+  other resolution point deliberately have no call site (per the brief).
+- **Regression suite: `src/utils/impactParticles.test.ts` — 41 tests / 1,026 expect() calls**, eight
+  sections: §A the pool budget and the single-Points/single-material/single-draw-call shape plus the
+  material props and the component's one-element tree; §B the recipes' counts, colours, speed bands,
+  gravity and life; §C a burst's shape (slot count, spawn point, speed band, cone axis for sparks and
+  up for sand, the colour lerp, the degenerate-axis fallback); §D gravity/life integration per
+  recipe, the Euler order and the per-particle gravity that lets sand and sparks share one pool;
+  §E parking, slot reuse and in-place recycling; §F the zero-allocation proofs above; §G the three
+  call sites read out of `DuelScene` (branch by branch, `'crit'` in place of `'sand'`, the import, the
+  single mount inside `Suspense`, and the tree-wide sweep that finds no other importer); §H the
+  hit-stop table, the single 1100 ms resolution window and `combatCalculations.ts` unchanged, plus
+  the structural proof that every call is fire-and-forget. Because the pool's arrays are
+  `Float32Array`, stored-value comparisons use precision 4 and speed/colour bounds 1e-4 — far below
+  the quantities asserted and far above the storage's own rounding (the suite says so in its header).
+- **Validated 2026-10-24** in the dev container, the full battery on the final tree:
+  `bun test` → **3571 pass / 0 fail (119 files, 107,231 `expect()` calls)** — the branch tip read
+  3530 / 118 before this suite, so the 41 new tests and one new file are the whole delta, and the
+  existing outcome/timing suites pass unchanged; `bun run scripts/collisionTests.ts` → **123 passed,
+  0 failed** (exit 0); `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0**
+  with the startup-asset check passing (8 assets in `public/` and `dist/`; the pre-existing >500 kB
+  chunk warning only); `git diff --check` → **clean (exit 0)**. The only production file the phase
+  edits is the duel scene; the rest is the new component and the new suite.
+- **Live evidence, and its limits.** The real route was driven in the preview browser (anonymous
+  visitor, no session replayed): title → `PLAY` → creation defaults → the Oath's four space-bar holds
+  → the 3D city hub → the Colosseum tab → `Enter Arena Duel` → `Step into Sand`. The duel's canvas
+  mounted with the pooled `Points` in the scene graph, turns resolved both ways (the player's
+  out-of-range swings, and Marcus's landed blows that took 152 → 136 HP), and there were **0 console
+  errors** throughout — no error boundary, no exception, no scene-graph complaint.
+  **The particles themselves were NOT seen in a frame, and that is why no visual claim is made**:
+  the sandbox has no GPU (SwiftShader, ~1–2 fps in the arena), and a 0.06-unit point with a 0.35–0.5 s
+  life is not reliably catchable at that frame rate. **Browser preview proves nothing about particle
+  feel on a real device — that is Walter's device check:** whether sparks read as sparks at the
+  briefed size, whether the sand kick is visible at the fighters' feet, whether the crit's gold
+  flakes separate from the orange, and whether the +1 draw call and the 128-slot pool cost anything
+  measurable on a phone.
+- **Finding worth carrying forward — the character dev harness is unreachable in this preview.** The
+  platform's navigation rewrites the query string, so `?devHarness=character` never reaches the app
+  (the preview tool's own `search` carries only `_preview_token` / `base44_data_env` / …), and unlike
+  `race`, `chariot` and `horsefit` the character harness has **no `sand_and_steel_dev_harness` scratch
+  fallback**. A future phase that needs a live `DuelScene` either adds that flag or accepts the long
+  route above, which cost several preview calls to reach one resolved hit.
