@@ -265,7 +265,18 @@
   }
 }
 
-/* C-8.80P — WIDE COMPOSITION (desktop and large tablets). Measured at 1280x800
+/* C-8.80P — WIDE COMPOSITION (desktop and large tablets), EXTENDED TO 768 BY C-8.80Q.
+   C-8.80Q measured the band this block did not cover: at 768...1023px wide the overlay
+   default laid the panel across the bottom 375...451px, so the player's 77.0% foot line
+   sat 139...254px behind it at every required size (768x1024, 800x1024, 900x800,
+   960x800, 1023x768). A bottom overlay cannot clear that foot line at any width, so the
+   gate is now 768px — the same stacked composition, measured clear at all five sizes
+   (opponent's head 19.7...117.6px below the top HUD, player's feet 112.3...165.1px above
+   the panel, and more once the narrow tier below adds margin at 768...879). Below 768px
+   the panel keeps the overlay default; that band is recorded as bounded, not fixed, in
+   .base44/duel-composition-c880q.md.
+   --- original C-8.80P measurement ---
+   Measured at 1280x800
    before this phase: the stage was the full 800px, the panel covered 445...800, and
    the player projects into 63.3%-77.0% of the canvas = 506...616 — so the PLAYER sat
    behind the panel for its whole height, which is the reported desktop occlusion. No
@@ -282,7 +293,7 @@
    188.5px. Result: stage 533px, opponent's head at 227.2px (38.7px clear of the HUD)
    and player's feet at 410.5px (122.5px clear of the panel). No control, label,
    readout or history entry is removed, and no text size changes. */
-@media (min-width: 1024px) and (min-height: 521px) {
+@media (min-width: 768px) and (min-height: 521px) {
   .duel-root {
     display: flex;
     flex-direction: column;
@@ -328,6 +339,27 @@
   }
 }
 
+
+/* C-8.80Q — NARROW COMMAND GRID (768...879px wide). Measured at 768x1024 with the wide
+   rules alone: five cards across the 728px panel are 82.4px each, and each card's own
+   label/value rows — "Shield Guard" beside "NO COST", "82% Absorb" beside "SP on block"
+   — cannot fit one line, so every card clipped horizontally (5...19px of
+   scrollWidth > clientWidth; zero clipping from 880px wide, where the cards reach
+   104.8px). Two changes, both already precedented: the blurb goes (portrait and short
+   landscape both drop `.tactic-desc`, keeping the name, the stamina cost, the hit chance
+   and the damage), and those rows wrap instead of colliding. Measured after: zero
+   clipping at 768/800/850/879, panel 270.5/267/267/267 (was 306, clipped), stage 753.5
+   at 768x1024 and 497.5 at 768x768, opponent's head 132.7 / 23.6px clear of the top HUD.
+   No control, label, readout, history entry or text size changes. */
+@media (min-width: 768px) and (max-width: 879px) and (min-height: 521px) {
+  .duel-command .tactic-desc {
+    display: none;
+  }
+  .duel-command .tactic-grid > button > div.flex {
+    flex-wrap: wrap;
+    row-gap: 1px;
+  }
+}
 
 /* SHORT-LANDSCAPE COMBAT HUD (e.g. 812x375, or a desktop window squashed flat).
    C-8.80N — the composition is a ROW at these sizes. Measured at 812x375, the two

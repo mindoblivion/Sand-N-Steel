@@ -26,6 +26,7 @@
  *      no orientation lock;
  *   §C the wide composition — the stack, the five-column grid, the measured
  *      clearances at 1280x800 / 1024x768, and that short landscape stays a ROW;
+ *      C-8.80Q widened this block's gate from 1024px to 768px (phaseC8_80q.test.ts);
  *   §D the controls and the chronicle survive every block;
  *   §E the scope guard — no camera, spacing, timing, combat or save value moved.
  *
@@ -71,7 +72,7 @@ const bare = (block: string) => block.replace(/\/\*[\s\S]*?\*\//g, '');
 
 const PORTRAIT = '(max-width: 520px) and (orientation: portrait)';
 const LANDSCAPE = '(orientation: landscape) and (max-height: 520px)';
-const WIDE = '(min-width: 1024px) and (min-height: 521px)';
+const WIDE = '(min-width: 768px) and (min-height: 521px)'; // C-8.80Q widened this
 const SHORT = '(max-height: 720px)';
 
 const portrait = mediaBlock(css, PORTRAIT) ?? '';

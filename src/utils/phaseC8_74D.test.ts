@@ -53,8 +53,11 @@ const landscape = mediaBlock(css, LANDSCAPE) ?? '';
 // same hooks are now also styled for portrait phones; §C states the guard per block.
 const PORTRAIT = '(max-width: 520px) and (orientation: portrait)';
 // C-8.80P — the wide composition. It re-flows the same two hooks for desktop, so §C's
-// per-block guards name three blocks now, not two.
-const WIDE = '(min-width: 1024px) and (min-height: 521px)';
+// per-block guards name the responsive blocks rather than two.
+// C-8.80Q — the wide gate starts at 768px, and a narrow tier (768...879px) fits the
+// five-across cards, so §C's guards name four blocks now.
+const WIDE = '(min-width: 768px) and (min-height: 521px)';
+const NARROW = '(min-width: 768px) and (max-width: 879px) and (min-height: 521px)';
 
 /** The declaration body of one flat selector inside a block. */
 const ruleBody = (block: string, selector: string): string | null => {
@@ -133,14 +136,17 @@ describe('C-8.74D-A §B the hooks the rules target', () => {
 });
 
 describe('C-8.74D-A §C the fix cannot leak into portrait or desktop', () => {
-  test('every tactic hook rule lives inside one of the three responsive blocks', () => {
+  test('every tactic hook rule lives inside a responsive block', () => {
     // REBASED (C-8.80N): a second phone block (portrait) now styles the same hooks.
     // REBASED (C-8.80P): a third (wide) block re-flows the grid for desktop, where the
     // panel has to shrink for the opponent's head to clear the top HUD.
+    // REBASED (C-8.80Q): the wide gate starts at 768, and a fourth (narrow) tier fits
+    // the five-across cards at the bottom of that band.
     const withoutResponsiveBlocks = css
       .replace(landscape, '')
       .replace(mediaBlock(css, PORTRAIT) ?? '', '')
-      .replace(mediaBlock(css, WIDE) ?? '', '');
+      .replace(mediaBlock(css, WIDE) ?? '', '')
+      .replace(mediaBlock(css, NARROW) ?? '', '');
     expect(withoutResponsiveBlocks).not.toContain('.tactic-grid');
     expect(withoutResponsiveBlocks).not.toContain('.tactic-dashboard');
   });
@@ -151,8 +157,9 @@ describe('C-8.74D-A §C the fix cannot leak into portrait or desktop', () => {
       const body = mediaBlock(css, query) ?? '';
       return body.includes('.tactic-grid') || body.includes('.tactic-dashboard');
     });
-    // C-8.80P adds the wide block; the order is the file's own order.
-    expect(withHooks).toEqual([PORTRAIT, WIDE, LANDSCAPE]);
+    // C-8.80P adds the wide block, C-8.80Q the narrow tier after it; the order is the
+    // file's own order.
+    expect(withHooks).toEqual([PORTRAIT, WIDE, NARROW, LANDSCAPE]);
   });
 
   test('the base grid stays two columns on mobile and four from `sm`', () => {

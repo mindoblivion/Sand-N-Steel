@@ -75,9 +75,10 @@ const mediaBlock = (source: string, query: string): string | null => {
 
 const PORTRAIT = '(max-width: 520px) and (orientation: portrait)';
 const LANDSCAPE = '(orientation: landscape) and (max-height: 520px)';
-// C-8.80P — the wide composition: from 1024x521 the same two regions stack on
-// desktop too, because a bottom panel could never clear the player's feet.
-const WIDE = '(min-width: 1024px) and (min-height: 521px)';
+// C-8.80P — the wide composition: desktop stacks too, because a bottom panel could
+// never clear the player's feet. REBASED (C-8.80Q): the same gate now starts at 768px
+// wide, where the overlay was measured to hide the player by 139...254px.
+const WIDE = '(min-width: 768px) and (min-height: 521px)';
 const portrait = mediaBlock(css, PORTRAIT) ?? '';
 const landscape = mediaBlock(css, LANDSCAPE) ?? '';
 const wide = mediaBlock(css, WIDE) ?? '';
@@ -298,10 +299,11 @@ describe('C-8.80N §C both fighters project inside the unobscured stage', () => 
 
 describe('C-8.80N §D the responsive rules', () => {
   // REBASED (C-8.80P): the absolute overlay is still the DEFAULT — it is what
-  // tablet-width and mid-size windows still get — but from 1024x521 the two regions
-  // stack, because measured at 1280x800 the player projected to 506...616 while the
-  // panel began at 445: the player was behind it for its whole height, and the foot
-  // line at 77% of the stage means no bottom panel could ever clear it.
+  // viewports narrower than 768px still get — but from 768x521 the two regions stack,
+  // because measured at 1280x800 the player projected to 506...616 while the panel
+  // began at 445: the player was behind it for its whole height, and the foot line at
+  // 77% of the stage means no bottom panel could ever clear it. C-8.80Q measured the
+  // same defect at every width from 768 to 1023 and moved the gate down to 768.
   test('the overlay is still the default; the wide block stacks the two regions', () => {
     expect(css).toContain('.duel-stage {\n  position: absolute;\n  inset: 0;\n}');
     const command = css.slice(css.indexOf('.duel-command {'));

@@ -9934,3 +9934,51 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   at 1280x800 that same overlay is what hid the player, so a mid-width window can still hide it (measured
   as out of scope, not fixed). **Android acceptance is PENDING.** Full record:
   [.base44/duel-composition-c880p.md](.base44/duel-composition-c880p.md).
+
+## Duel composition: intermediate widths (Phase C-8.80Q — implemented; live geometry measured, one confirming sweep PENDING)
+
+- **The 768–1023px band was a real defect, and it is the player's occlusion — the same
+  structural one C-8.80P fixed at 1024px.** C-8.80P's stacked composition was gated at
+  `min-width: 1024px`, so every width from 768 to 1023 kept the absolute overlay. Measured
+  on the shipped HUD harness in exact-size same-origin iframes: the panel measured
+  375–451.5px tall (the 4-column grid wraps five cards into two rows) and the player's feet
+  — 77.01% of the canvas — sat **198.4–253.6px behind it** at 768x1024, 800x1024, 900x800,
+  960x800 and 1023x768. The opponent stayed clear at every size.
+- **The fix is the existing composition, not a new one.** The wide block's gate is now
+  `(min-width: 768px) and (min-height: 521px)`; its declarations are unchanged byte for
+  byte (the diff touches only the query line and the comment), so the accepted 1024/1280
+  layouts are provably identical. Stacked, the stage is `viewport − panel`, which puts the
+  foot line inside the stage at every width; the only remaining constraint is the
+  opponent's head against the top HUD (188.5px).
+- **A narrow tier is required at the bottom of the band, and its cause is horizontal, not
+  vertical.** Five cards across a 728px panel are 82.4px each, and the cards' own
+  label/value rows ("Shield Guard" beside "NO COST", 89px intrinsic) clipped by 5–19px at
+  768 and 800 wide. `@media (min-width: 768px) and (max-width: 879px) and (min-height: 521px)`
+  drops `.tactic-desc` (the rule portrait and short landscape already use — name, stamina
+  cost, hit chance and damage stay) and lets those rows wrap. Clipping ends at 880px
+  (cards 104.8px), so the tier stops at 879 and 880+ keeps its blurb.
+- **Measured after:** 768x1024 panel 270.5 / stage 753.5 / opponent's head 132.7px clear;
+  800x1024 267 / 757 / 134.2; 850x800 267 / 533 / 38.7; 879x768 267 / 501 / 25.1;
+  880x800 281 / 519 / 32.7; 900x800 281 / 519 / 32.7; 1023x768 279.5 / 488.5 / 19.7;
+  1024x768 and 1280x800 unchanged at 279.5 / 488.5 / 19.7 and 267 / 533 / 38.7. Zero card
+  clipping anywhere in the band, 13/13 controls hit-test at their centres, no sideways or
+  vertical overflow. The three accepted phone sizes are unchanged (375x667 stage 329,
+  400x720 stage 382, 812x375 the landscape row) because the blocks are disjoint
+  (`max-width: 520px`, `max-height: 520px`).
+- **Bounded, not fixed: 521–767px wide keeps the overlay default.** Not measured this
+  phase; the same arithmetic predicts the same foot-line defect (at 600px the grid falls
+  back to `grid-cols-2`, three card rows). Flagged for the next phase rather than changed.
+- **Verification note.** The gate change was measured on the real stylesheet. The narrow
+  tier's declarations were measured in the same harness by injecting the identical block
+  (the preview call budget ran out before a sweep of the compiled file), and
+  `phaseC8_80q.test.ts` pins those exact declarations plus the geometry table — so what is
+  outstanding is one confirming sweep of the five required sizes, not unexplored behaviour.
+- **Measurement method that works here:** a size the preview browser cannot select (e.g.
+  812x375 or 768x1024) is reproducible by mounting the app in a same-origin `<iframe>` with
+  exact CSS size — the iframe is its own media-query viewport and needs no reload.
+  `?devHarness=hud&logs=5` gives the real `CombatHUD` + `TurnActionPanel` without the 3D
+  arena. Fighter bands are projected from the rig constants; three.js `fov` is vertical, so
+  those fractions hold at any width.
+- Suite: `bun test src/utils/phaseC8_80q.test.ts` (23 tests). Files: `src/index.css`, four
+  layout suites (three rebased for the 768px gate), this record, and
+  [.base44/duel-composition-c880q.md](.base44/duel-composition-c880q.md).
