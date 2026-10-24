@@ -119,7 +119,12 @@ describe('§B — the panel is shown the engine\'s own range distance', () => {
     // One computation feeds both: the guard re-reads the same two positions and
     // the HUD is handed `currentDistance` untouched, through to the panel.
     expect(duelSource).toContain('distance={currentDistance}');
-    expect(hudSource).toContain('distance={distance}');
+    // REBASED (C-8.80N): the command panel is no longer a CombatHUD child, so the
+    // second hop is DuelScene's own and the HUD forwards nothing. The contract this
+    // test exists to pin is unchanged — the engine's single `currentDistance` reaches
+    // the panel untouched, with no offset arithmetic anywhere on the way.
+    expect(duelSource.split('distance={currentDistance}').length - 1).toBe(1);
+    expect(hudSource).not.toContain('distance={');
     expect(duelSource).not.toContain('distance={currentDistance +');
   });
 });

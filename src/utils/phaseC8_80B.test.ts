@@ -347,11 +347,8 @@ const renderHud = (): string =>
       onOpenHelp: () => {},
       cameraMode: 'cinematic',
       onCycleCameraMode: () => {},
-      distance: 2.0,
-      isPlayerTurn: true,
-      isExecuting: false,
-      combatLog: [],
-      onExecuteAction: () => {},
+      // C-8.80N — the command panel is DuelScene's flex sibling of the stage, not a
+      // CombatHUD prop; these fixtures render the instrumentation overlay only.
       pendingEnemyAttack: null,
       pendingPlayerAttack: null,
       reactionTaken: null,

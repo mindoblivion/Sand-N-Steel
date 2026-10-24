@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { FighterState } from '../../types/game';
 import { CombatHUD } from '../ui/CombatHUD';
-import type { CombatLogEntry } from '../ui/TurnActionPanel';
+import { TurnActionPanel, type CombatLogEntry } from '../ui/TurnActionPanel';
 import { ALL_WEAPONS } from '../../data/itemsDB';
 
 /**
@@ -141,7 +141,11 @@ export const CombatHudHarness: React.FC = () => {
   return (
     // Mirrors DuelScene's own root so the HUD's `absolute inset-0` resolves
     // against the same kind of containing block it has in the arena.
-    <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
+    // C-8.80N — mirrors DuelScene's own composition: a `.duel-stage` carrying the
+    // instrumentation overlay, and the `.duel-command` panel beside it, so the phone
+    // media queries (portrait column / landscape row) can be measured here too.
+    <div className="duel-root relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
+      <div className="duel-stage">
       <div
         data-hud-harness={cueState}
         data-hud-log-count={logCount}
@@ -165,11 +169,6 @@ export const CombatHudHarness: React.FC = () => {
           // taller, which is exactly the vertical budget landscape is short of.
           // Without it the harness under-measured the top block by ~18px.
           onOpenSettings={() => {}}
-          distance={4.2}
-          isPlayerTurn={cueState === 'normal' || cueState === 'player-windup'}
-          isExecuting={cueState === 'player-windup'}
-          combatLog={combatLog}
-          onExecuteAction={() => {}}
           pendingEnemyAttack={
             cueState === 'power' || cueState === 'reaction-taken'
               ? 'power_attack'
@@ -186,6 +185,19 @@ export const CombatHudHarness: React.FC = () => {
                 : null
           }
           onReactToPendingAttack={(action) => setReacts((prev) => [...prev, action])}
+        />
+      </div>
+      </div>
+
+      <div className="duel-command">
+        <TurnActionPanel
+          player={player}
+          opponent={opponent}
+          distance={4.2}
+          isPlayerTurn={cueState === 'normal' || cueState === 'player-windup'}
+          isExecuting={cueState === 'player-windup'}
+          combatLog={combatLog}
+          onExecuteAction={() => {}}
         />
       </div>
     </div>

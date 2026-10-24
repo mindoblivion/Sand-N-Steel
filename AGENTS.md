@@ -141,7 +141,9 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   outrank Tailwind's utilities layer without `!important`. **Verification caveat:** the sandbox's preview
   browser only offers fixed viewport presets (no ~812x375), so the compacted layout was measured by replaying
   those declarations unconditionally over the live duel HUD — content dropped from 403px to 347px against a
-  365px budget. A true 812x375 render is not reproducible here; check it on a real landscape phone.
+  365px budget. **Superseded twice: C-8.74D-A re-did the landscape chrome, and C-8.80N replaced the whole
+  composition (see "Phone duel composition" below). A true 812x375 viewport IS reproducible here — put the
+  app in a sized same-origin `<iframe>`, which is its own media-query viewport.**
 - `bun run lint` (`tsc --noEmit`) reports several **pre-existing** type errors inherited from the AI Studio export
   (e.g. `screen.orientation.lock` missing from the DOM lib, extra fields on `FighterStats`/`WeaponItem`,
   `isBone` on `Object3D`). Vite's dev server does not type-check, so they do not block the app — don't chase
@@ -9803,3 +9805,60 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   1.2 m gap) — reaching them needs more turns than the script budget allowed at SwiftShader's
   ~1–2 fps; both are unit-verified. **Android acceptance is PENDING** for how the longer clamped
   sentences wrap in the five-line chronicle on a phone.
+
+## Phone duel composition (Phase C-8.80N — implemented; live geometry measured, device read PENDING)
+
+- **The defect was composition, not camera and not combat.** The duel's canvas was full-viewport and the HUD
+  was an overlay on top of it, so the bottom panel sat exactly where the two fighters project. Measured live
+  at 400x800: the top block ended at y 227, the stacked chronicle began at y 290 and the tactic dashboard
+  ended at y 818, while the cinematic camera put the opponent at 341-427 and the player at 506-616 in the
+  same 800px canvas — **both fighters were entirely behind HUD chrome.** With the rig's fixed vertical FOV
+  the fighters project to the same *fraction* of canvas height at every width (opponent 42.6%-53.4%, player
+  63.3%-77.0% at the 3.6m opening), so no amount of chrome-shedding could help: the canvas had to stop being
+  covered.
+- **What ships now.** `DuelScene` renders a `.duel-stage` (canvas + the instrumentation HUD that overlays it)
+  and a `.duel-command` panel as **siblings**; `TurnActionPanel` therefore left `CombatHUD` (its five props
+  moved with it, and `CombatHUD`'s root lost `justify-between`, which would otherwise push the zero-height
+  cue wrappers to the stage's bottom). `index.css` carries the default (desktop/tablet) placement —
+  stage `absolute inset-0`, panel absolute across the bottom at the same 20px/16px insets as before, so the
+  established layout is untouched — plus two phone blocks: portrait (`max-width: 520px` + portrait) stacks
+  the stage above the panel; short landscape (`orientation: landscape` + `max-height: 520px`) puts the panel
+  in a 460px right-hand column beside it. Compaction is chrome only (shortened vital bars via
+  `.vital-health-bar`/`.vital-stamina-bar`, a one-line crowd meter, the utility row's `data-hud-label` text
+  hidden with the icons and their `title`s kept, tactic blurbs hidden, the chronicle list capped but still
+  scrollable with its shipped `slice(-5)`); in short landscape only, the crowd meter, the chronicle's
+  redundant range row, and the utility labels are dropped and the tactic grid becomes three columns of
+  three. **No control was removed or resized, and no camera, combat, canvas, timing, damage, stamina, AI,
+  movement, reach or spawn value moved.**
+- **Measured after (relative to the stage top, preview browser, real duel).** 375x812: stage 377, HUD ends
+  156, opponent 161-201, player 239-290, panel 407 with no scroll. 812x375: stage 352x347, HUD ends 120,
+  opponent 148-185, player 220-267, panel 460x347 with the movement strip 11px clear. 1280x800: unchanged
+  (HUD ends 205, opponent 341-427, player 506-616, panel 355 across the bottom, chronicle 256 wide, 4-column
+  grid, descriptions visible). Every core action hit-tested in all four sizes; no sideways scroll; zero
+  console errors. **One honest gap:** at 400x800 the opponent's head measured **1px under** the HUD's edge,
+  and the final 6px portrait trim that addresses it (dashboard gap, chronicle range row) is **derived, not
+  measured** — by arithmetic it lands at about +7 in the harness case (which carries a 28px banner no device
+  has) and +18 on a real 400x800 viewport.
+- **How to measure a phone viewport here (this is the reusable part).** The preview presets are only
+  375x812 / 768x1024 / 1280x800, but a same-origin `<iframe>` sized in CSS pixels **is its own media-query
+  viewport**: create it in the live page, load `/?devHarness=character`, click `Apply Points` then
+  `Start Test Duel`, and measure with `getBoundingClientRect` at 400x800, 375x812, 812x375 and 1280x800 in
+  one script (resizing the frame reflows it — no reload). This is how C-8.80N got its four sizes and how any
+  future layout phase can too; the harness's banner is a 28px offset that must be excluded.
+- **Suites.** `src/utils/phaseC8_80n.test.ts` (new, 30 tests) pins the composition, that every control and
+  readout survived, the framing contract (camera constants parsed from `DuelScene`, spawn values from
+  `duelGeometry`, measured HUD/panel heights — both fighter bands must sit below the top HUD and inside the
+  stage at 400x800, 375x812, 812x375 and 1280x800), the CSS contract, and the scope guard. `phaseC8_74D`
+  (landscape chrome) and `phaseC8_79A` (one distance reaches the panel) were **rebased, not weakened** — their
+  selectors follow the panel out of `.combat-hud`, "one row of five" became the column's three columns, and
+  the distance contract is now stated on DuelScene because the HUD forwards nothing. The `79B`/`79C`/`80B`
+  HUD fixtures stopped passing panel props (they only assert cue/weapon markup).
+- **Verified 2026-10-24** in the dev container: focused `bun test src/utils/phaseC8_80n.test.ts` → 30 pass /
+  0 fail; `bun test` → **3620 pass / 0 fail (128 files, 92 939 expect)**; `bun run scripts/collisionTests.ts` →
+  **123 passed, 0 failed**; `bun run lint` → exit 0; `bun run build` → exit 0; `git diff --check` → clean.
+- **NOT verified — the rendered read and the device.** The captured frames show the arena with both figures
+  legibly inside the unobscured stage in portrait and landscape, but the sandbox renders through SwiftShader
+  at a few frames per second, so "meaningful figures" here is a DOM/geometry conclusion plus a coarse visual
+  check. **Android acceptance is PENDING**, and the safe-area-inset case (a gesture-bar phone eating the
+  panel's bottom band) is untested; a landscape phone narrower than ~700px leaves a stage narrower than the
+  460px column allows. Full record: [.base44/duel-phone-composition-c880n.md](.base44/duel-phone-composition-c880n.md).

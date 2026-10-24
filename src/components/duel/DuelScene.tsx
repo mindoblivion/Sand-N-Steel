@@ -8,7 +8,7 @@ import { GladiatorMesh, type ImpactState } from '../3d/GladiatorMesh';
 import { CombatHUD } from '../ui/CombatHUD';
 import { WithdrawConfirmModal } from './WithdrawConfirmModal';
 import { withdrawFromDuel } from '../../utils/duelWithdrawal';
-import { CombatActionType, CombatLogEntry } from '../ui/TurnActionPanel';
+import { TurnActionPanel, CombatActionType, CombatLogEntry } from '../ui/TurnActionPanel';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
@@ -1501,7 +1501,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   }, [opp.health, opp.stats.healthMax, opponent.bossMechanic, opp.name, addLog, spawnDamageText]);
 
   return (
-    <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
+    <div className="duel-root relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
+      {/* C-8.80N — THE STAGE. The canvas and the instrumentation HUD that overlays it.
+          On phones the stage is a flex region ABOVE the command panel (`.duel-stage` /
+          `.duel-command` in index.css), so the bottom panel can no longer paint over
+          the fighters; desktop and tablet keep the full-screen stage and the panel's
+          old overlay position. No camera, canvas or combat value changed. */}
+      <div className="duel-stage">
       {/* 3D WEBGL DUEL CANVAS WRAPPED IN ERROR BOUNDARY & READY GUARD */}
       <WebGLReadyGuard
         sceneName="DuelArena"
@@ -1571,7 +1577,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         </WebGLContextErrorBoundary>
       </WebGLReadyGuard>
 
-      {/* SWORDS & SANDALS COMBAT HUD & TACTICAL DASHBOARD */}
+      {/* SWORDS & SANDALS COMBAT HUD — the stage's instrumentation overlay (vitals,
+          crowd meter, cues). The command panel is NOT part of it any more. */}
       <CombatHUD
         player={player}
         opponent={opp}
@@ -1589,16 +1596,27 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           )
         }
         onOpenSettings={onOpenSettings}
-        distance={currentDistance}
-        isPlayerTurn={isPlayerTurn}
-        isExecuting={isExecuting}
-        combatLog={combatLog}
         pendingEnemyAttack={pendingEnemyAttack}
         pendingPlayerAttack={pendingPlayerAttack}
         reactionTaken={reactionTaken}
         onReactToPendingAttack={reactToPendingAttack}
-        onExecuteAction={(action) => executeCombatTurn('player', action)}
       />
+      </div>
+
+      {/* C-8.80N — THE COMMAND PANEL, now a sibling of the stage rather than part of
+          the HUD overlay: the same `TurnActionPanel`, the same five tactics, the same
+          movement strip and chronicle — placed where it cannot cover the combatants. */}
+      <div className="duel-command">
+        <TurnActionPanel
+          player={player}
+          opponent={opp}
+          distance={currentDistance}
+          isPlayerTurn={isPlayerTurn}
+          isExecuting={isExecuting}
+          combatLog={combatLog}
+          onExecuteAction={(action) => executeCombatTurn('player', action)}
+        />
+      </div>
 
       {/* C-8.80B — the withdrawal confirmation. A dialog, never a settlement: opening it
           and choosing to stay change nothing, and only the confirmed answer forfeits the

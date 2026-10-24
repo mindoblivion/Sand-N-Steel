@@ -1,6 +1,5 @@
 import React from 'react';
 import { FighterState } from '../../types/game';
-import { TurnActionPanel, CombatActionType, CombatLogEntry } from './TurnActionPanel';
 import { Swords, Flame, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle, Shield, Wind, Flag } from 'lucide-react';
 import {
   DODGE_STAMINA_COST,
@@ -29,12 +28,6 @@ interface CombatHUDProps {
   cameraMode: string;
   onCycleCameraMode: () => void;
   onOpenSettings?: () => void;
-  // Turn-Based Swords & Sandals Combat Props
-  distance: number;
-  isPlayerTurn: boolean;
-  isExecuting: boolean;
-  combatLog: CombatLogEntry[];
-  onExecuteAction: (action: CombatActionType) => void;
   // Combat responsiveness §R1 — the enemy strike that has been announced but has
   // not landed yet, the player's one reaction to it, and WHICH stance that
   // reaction was (C-8.79B: the cue names it back, so a dodge cannot be reported
@@ -60,11 +53,6 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   cameraMode,
   onCycleCameraMode,
   onOpenSettings,
-  distance,
-  isPlayerTurn,
-  isExecuting,
-  combatLog,
-  onExecuteAction,
   pendingEnemyAttack,
   pendingPlayerAttack,
   reactionTaken,
@@ -88,7 +76,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   const comboMomentumLit = isCrowdMomentumMilestone(comboCount);
 
   return (
-    <div className="combat-hud absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 sm:p-5 select-none z-10">
+    <div className="combat-hud absolute inset-0 pointer-events-none flex flex-col p-2.5 sm:p-5 select-none z-10">
       {/* TOP HEADER: HEALTH, STAMINA, HYPE & UTILITY BUTTONS */}
       <div className="combat-top w-full flex flex-col gap-2">
         {/* TOP UTILITY BAR */}
@@ -103,8 +91,8 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             data-combat-weapon-badge="true"
           >
             <Swords className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">Armed:</span>
-            <span className="text-amber-100 font-bold">{player.loadout.weapon.name}</span>
+            <span data-hud-label="armed" className="hidden sm:inline">Armed:</span>
+            <span data-hud-label="weapon" className="text-amber-100 font-bold">{player.loadout.weapon.name}</span>
           </div>
 
           {/* ARENA MATCH TIMER */}
@@ -123,7 +111,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
               title="Withdraw from the bout (counts as a defeat)"
             >
               <Flag className="w-4 h-4 text-red-400" />
-              <span className="hidden sm:inline">Withdraw</span>
+              <span data-hud-label="withdraw" className="hidden sm:inline">Withdraw</span>
             </button>
             <button
               onClick={onCycleCameraMode}
@@ -131,7 +119,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
               title={`Camera: ${cameraMode.replace('_', ' ')} (Tap to switch / press C)`}
             >
               <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
-              <span className="hidden sm:inline capitalize">
+              <span data-hud-label="camera" className="hidden sm:inline capitalize">
                 {cameraMode === 'cinematic' ? '3/4 Duel' : cameraMode === 'over_shoulder' ? 'Shoulder' : 'Isometric'}
               </span>
             </button>
@@ -142,7 +130,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                 title="Game Settings"
               >
                 <Settings className="w-4 h-4 text-amber-400" />
-                <span className="hidden sm:inline">Settings</span>
+                <span data-hud-label="settings" className="hidden sm:inline">Settings</span>
               </button>
             )}
             <button
@@ -190,7 +178,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             </div>
 
             {/* Health Bar */}
-            <div className="w-full bg-neutral-950 h-3 sm:h-4 rounded border border-red-900/60 overflow-hidden mb-1 p-0.5">
+            <div className="vital-health-bar w-full bg-neutral-950 h-3 sm:h-4 rounded border border-red-900/60 overflow-hidden mb-1 p-0.5">
               <div
                 className="h-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-400 rounded transition-all duration-300 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
                 style={{ width: `${playerHpPct}%` }}
@@ -198,7 +186,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             </div>
 
             {/* Stamina Bar */}
-            <div className="w-full bg-neutral-950 h-1.5 sm:h-2 rounded border border-amber-900/50 overflow-hidden p-0.5">
+            <div className="vital-stamina-bar w-full bg-neutral-950 h-1.5 sm:h-2 rounded border border-amber-900/50 overflow-hidden p-0.5">
               <div
                 className="h-full bg-gradient-to-r from-amber-600 via-amber-400 to-yellow-300 rounded transition-all duration-200"
                 style={{ width: `${playerStaminaPct}%` }}
@@ -221,7 +209,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             </div>
 
             {/* Health Bar */}
-            <div className="w-full bg-neutral-950 h-3 sm:h-4 rounded border border-red-900/60 overflow-hidden mb-1 p-0.5">
+            <div className="vital-health-bar w-full bg-neutral-950 h-3 sm:h-4 rounded border border-red-900/60 overflow-hidden mb-1 p-0.5">
               <div
                 className="h-full bg-gradient-to-l from-red-600 via-rose-500 to-amber-400 rounded transition-all duration-300 shadow-[0_0_10px_rgba(239,68,68,0.5)] ml-auto"
                 style={{ width: `${opponentHpPct}%` }}
@@ -229,7 +217,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             </div>
 
             {/* Stamina Bar */}
-            <div className="w-full bg-neutral-950 h-1.5 sm:h-2 rounded border border-amber-900/50 overflow-hidden p-0.5">
+            <div className="vital-stamina-bar w-full bg-neutral-950 h-1.5 sm:h-2 rounded border border-amber-900/50 overflow-hidden p-0.5">
               <div
                 className="h-full bg-gradient-to-l from-amber-600 via-amber-400 to-yellow-300 rounded transition-all duration-200 ml-auto"
                 style={{ width: `${opponentStaminaPct}%` }}
@@ -380,16 +368,6 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
         </div>
       )}
 
-      {/* SWORDS & SANDALS TURN ACTION DASHBOARD (BOTTOM) */}
-      <TurnActionPanel
-        player={player}
-        opponent={opponent}
-        distance={distance}
-        isPlayerTurn={isPlayerTurn}
-        isExecuting={isExecuting}
-        combatLog={combatLog}
-        onExecuteAction={onExecuteAction}
-      />
     </div>
   );
 };

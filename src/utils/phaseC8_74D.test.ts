@@ -49,6 +49,9 @@ const mediaBlock = (source: string, query: string): string | null => {
 
 const LANDSCAPE = '(orientation: landscape) and (max-height: 520px)';
 const landscape = mediaBlock(css, LANDSCAPE) ?? '';
+// C-8.80N — the second phone block. The command panel left the HUD overlay, so the
+// same hooks are now also styled for portrait phones; §C states the guard per block.
+const PORTRAIT = '(max-width: 520px) and (orientation: portrait)';
 
 /** The declaration body of one flat selector inside a block. */
 const ruleBody = (block: string, selector: string): string | null => {
@@ -64,22 +67,26 @@ describe('C-8.74D-A §A the landscape rules', () => {
     expect(landscape.length).toBeGreaterThan(0);
   });
 
-  test('the tactic grid becomes one row of five', () => {
-    expect(ruleBody(landscape, '.combat-hud .tactic-grid')).toBe(
-      'grid-template-columns: repeat(5, minmax(0, 1fr));',
+  // REBASED (C-8.80N): the panel is no longer a full-width overlay — it is a 460px
+  // column beside the stage — so "one row of five" became "two rows of three", the
+  // same intent (one short grid, nothing clipped) at the width the grid now has. The
+  // selector follows the panel out of `.combat-hud`, and the gap belongs to the grid.
+  test('the tactic grid becomes one short grid of three columns', () => {
+    expect(ruleBody(landscape, '.duel-command .tactic-grid')).toBe(
+      'grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.3rem;',
     );
   });
 
   test('the dashboard chrome tightens without touching controls', () => {
-    expect(ruleBody(landscape, '.combat-hud .tactic-dashboard')).toBe(
-      'gap: 0.3rem; padding: 0.5rem;',
+    expect(ruleBody(landscape, '.duel-command .tactic-dashboard')).toBe(
+      'gap: 0.25rem; padding: 0.375rem;',
     );
   });
 
-  test('the five columns are the only grid property the rule sets', () => {
-    const body = ruleBody(landscape, '.combat-hud .tactic-grid') ?? '';
-    expect(body).not.toContain('gap');
+  test('the grid rule changes only its columns and gap', () => {
+    const body = ruleBody(landscape, '.duel-command .tactic-grid') ?? '';
     expect(body).not.toContain('padding');
+    expect(body).not.toContain('display');
   });
 
   test('the pre-existing compaction rules are still present', () => {
@@ -88,8 +95,8 @@ describe('C-8.74D-A §A the landscape rules', () => {
       '.combat-top',
       '.combat-hud .vital-card',
       '.combat-hud .hype-meter',
-      '.combat-hud .tactic-desc',
-      '.combat-hud .combat-log-items',
+      '.duel-command .tactic-desc',
+      '.duel-command .combat-log-items',
     ]) {
       expect(ruleBody(landscape, selector)).not.toBeNull();
     }
@@ -123,10 +130,13 @@ describe('C-8.74D-A §B the hooks the rules target', () => {
 });
 
 describe('C-8.74D-A §C the fix cannot leak into portrait or desktop', () => {
-  test('every new rule lives inside the short-landscape block', () => {
-    const without = css.replace(landscape, '');
-    expect(without).not.toContain('.tactic-grid');
-    expect(without).not.toContain('.tactic-dashboard');
+  test('every tactic hook rule lives inside one of the two phone blocks', () => {
+    // REBASED (C-8.80N): a second phone block (portrait) now styles the same hooks.
+    const withoutPhoneBlocks = css
+      .replace(landscape, '')
+      .replace(mediaBlock(css, PORTRAIT) ?? '', '');
+    expect(withoutPhoneBlocks).not.toContain('.tactic-grid');
+    expect(withoutPhoneBlocks).not.toContain('.tactic-dashboard');
   });
 
   test('no other media query mentions the hooks', () => {
@@ -135,7 +145,7 @@ describe('C-8.74D-A §C the fix cannot leak into portrait or desktop', () => {
       const body = mediaBlock(css, query) ?? '';
       return body.includes('.tactic-grid') || body.includes('.tactic-dashboard');
     });
-    expect(withHooks).toEqual([LANDSCAPE]);
+    expect(withHooks).toEqual([PORTRAIT, LANDSCAPE]);
   });
 
   test('the base grid stays two columns on mobile and four from `sm`', () => {
@@ -184,11 +194,20 @@ describe('C-8.74D-A §D scope guard — no control, cue or timing changed', () =
   });
 
   test('no rule hides a control or forces scrolling', () => {
-    // The shipped block hides exactly one thing — the tactic blurbs — and no
-    // control: not the movement strip, not a tactic card, not a cue.
-    const hidden = [...landscape.matchAll(/([^{}]+)\{\s*display: none;/g)].map((m) => m[1].trim());
-    expect(hidden).toEqual(['.combat-hud .tactic-desc']);
-    expect(landscape).not.toContain('overflow');
+    // REBASED (C-8.80N): the block now hides four informational surfaces — the tactic
+    // blurbs (C-8.74D-A), the crowd meter, the utility row's text labels and the
+    // chronicle's redundant range row — and none of them is a control. The only
+    // scroll container is the command column itself.
+    const bare = landscape.replace(/\/\*[\s\S]*?\*\//g, '');
+    const hidden = [...bare.matchAll(/([^{}]+)\{\s*display: none;/g)].map((m) => m[1].trim());
+    expect(hidden).toEqual([
+      '.combat-hud .hype-meter',
+      '.combat-hud [data-hud-label]',
+      '.duel-command .chronicle-range',
+      '.duel-command .tactic-desc',
+    ]);
+    for (const selector of hidden) expect(selector).not.toContain('button');
+    expect(bare.match(/overflow[^;]*;/g)).toEqual(['overflow-y: auto;']);
     expect(landscape).not.toContain('position: fixed');
   });
 });
