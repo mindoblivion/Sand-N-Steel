@@ -9760,3 +9760,46 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   duel through SwiftShader at ~1-2 fps against a 700 ms window, so the comparison comes from the
   deterministic transform harness. **Android visual acceptance remains PENDING**; the residual ~0.5
   world-unit standoff at the legal range (C-8.80E) is untouched.
+
+## Accurate movement reports (C-8.80K — implemented; normal and clamped lines verified live)
+
+- **The defect was the chronicle, not the movement.** Advance printed "advances 1.8m toward their
+  opponent" and Retreat "retreats back 1.8m" whatever the clamps did: at the 1.2 m minimum gap an
+  Advance does not move at all, and at the ±7.5 m arena edge a Retreat is shortened and then refused
+  — so a fighter at grips was told they had walked. `DuelScene` already computed the clamped target
+  (`utils/duelGeometry`, C-8.80J); only the sentence ignored it.
+- **The fix is one pure module plus one reading of the real positions.** `src/utils/duelMoveReport.ts`
+  exports `moveDisplacement(fromZ, toZ)`, `reportedDistance` (one decimal — the shipped precision),
+  `formatMoveDistance` ("1.8m") and `describeMoveReport(name, action, fromZ, toZ)`, which answers the
+  full sentence (verbatim as shipped), `advances only 0.8m … — the enemy is already at grips.`,
+  `cannot advance — the enemy is already at grips.`, and the retreat pair `retreats only 1.5m — the
+  arena's edge stops them.` / `cannot retreat — the arena's edge is at their back.` Rounding happens
+  ONCE, on the same value the "did they move" decision uses, so a sub-0.05 m float residual reads as
+  no movement rather than "0.0m". `DuelScene`'s two movement branches now read `fromZ =
+  attacker.position[2]` before computing `targetZ`, and log through the helper. **Player and
+  opponent share that one path**, so the AI's step is fixed by the same change.
+- **What did not move:** the 1.8 m step, the 1.2 m minimum gap, the ±7.5 m limit, the C-8.80J 3.6 m
+  opening, the `resolve*TargetZ` call sites (still two each), the `walk` action, the stamina rule,
+  the wind-up/turn timings and every combat value. The tactic card's "Advance (+1.8m)" label is the
+  ACTION's nominal description, not a performed step, and was deliberately left alone.
+- **Suite: `src/utils/phaseC8_80k.test.ts`** (17 tests / 52 expect()) — the seven required outcomes
+  driven through the shipped helpers and the shipped formatter (unobstructed advance, gap-clamped
+  advance, refused advance, ordinary retreat, edge-clamped retreat, refused retreat), the opponent
+  mirror, the formatting/rounding rules, and the wiring pins (helper used in both branches, no flat
+  "1.8m" claim left in code, clamps/values/stamina untouched, no timer or randomness in the branch).
+  Mutation-checked: restoring the flat advance literal fails 3 of the 17 (`sha256sum -c` clean after).
+- **Verified 2026-10-24** in the `web` container: focused suite 17/0; the movement+combat set
+  (`phaseC8_80j`, `phaseC8_80k`, `combatActionOrder`, `combatResponsiveness`, `phaseC8_79A`) →
+  **98 pass / 0 fail**; `bun run scripts/combatTests.ts` → **69 passed, 0 failed**; `bun test` →
+  **3590 pass / 0 fail (127 files, 92,791 expect())**; `bun run lint` (`tsc --noEmit`) → exit 0;
+  `git diff --check` → clean.
+- **Live evidence (preview browser, anonymous visitor, the dev duel harness in an in-page frame).**
+  One Advance logged **"Spartacus advances 1.8m toward their opponent."**; the opponent's own step
+  logged **"Marcus the Rookie advances 1.8m toward their opponent."**; and four retreats at 1.8 m
+  each plus the fifth, from z 7.2 to the 7.5 edge, logged **"Spartacus retreats only 0.3m — the
+  arena's edge stops them."** — the clamp reported at the distance actually travelled, read from the
+  running chronicle. The frame was removed afterwards (`leakedFrames: 0`); the harness writes nothing.
+- **Not verified live:** the two REFUSED lines (a further retreat at the edge, and an Advance at the
+  1.2 m gap) — reaching them needs more turns than the script budget allowed at SwiftShader's
+  ~1–2 fps; both are unit-verified. **Android acceptance is PENDING** for how the longer clamped
+  sentences wrap in the five-line chronicle on a phone.

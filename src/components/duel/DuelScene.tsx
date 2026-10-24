@@ -42,6 +42,7 @@ import {
   resolveAdvanceTargetZ,
   resolveRetreatTargetZ,
 } from '../../utils/duelGeometry';
+import { describeMoveReport } from '../../utils/duelMoveReport';
 import {
   canAffordAttack,
   chooseAITacticalAction,
@@ -658,10 +659,24 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }
 
       // 1. MOVEMENT ACTIONS
+      //
+      // C-8.80K — both branches report the step that was ACTUALLY taken. Each
+      // target above is already clamped (the 1.2 m minimum gap holds an Advance
+      // short, the ±7.5 m arena edge holds a Retreat short, and either can
+      // refuse a step outright), but the chronicle used to print a flat "1.8m"
+      // whatever happened — telling a fighter at grips they had walked when
+      // their position had not moved. The displacement is measured from the real
+      // before/after Z (`utils/duelMoveReport`), so the sentence and the
+      // rendered position cannot disagree. Player and opponent share this one
+      // path, so both are covered; distances, clamps, stamina and turn timing
+      // are untouched.
       if (actionType === 'advance') {
         sounds.playDodge();
+        const fromZ = attacker.position[2];
+        const targetZ = isActorPlayer
+          ? resolveAdvanceTargetZ(player.position[2], opp.position[2], -1)
+          : resolveAdvanceTargetZ(opp.position[2], player.position[2], 1);
         if (isActorPlayer) {
-          const targetZ = resolveAdvanceTargetZ(player.position[2], opp.position[2], -1);
           setPlayer((prev) => ({
             ...prev,
             position: [0, 0, targetZ],
@@ -669,7 +684,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         } else {
-          const targetZ = resolveAdvanceTargetZ(opp.position[2], player.position[2], 1);
           setOpp((prev) => ({
             ...prev,
             position: [0, 0, targetZ],
@@ -677,11 +691,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
-        addLog(`${attacker.name} advances 1.8m toward their opponent.`, isActorPlayer ? 'player' : 'opponent');
+        addLog(
+          describeMoveReport(attacker.name, 'advance', fromZ, targetZ),
+          isActorPlayer ? 'player' : 'opponent',
+        );
       } else if (actionType === 'retreat') {
         sounds.playDodge();
+        const fromZ = attacker.position[2];
+        const targetZ = isActorPlayer
+          ? resolveRetreatTargetZ(player.position[2], -1)
+          : resolveRetreatTargetZ(opp.position[2], 1);
         if (isActorPlayer) {
-          const targetZ = resolveRetreatTargetZ(player.position[2], -1);
           setPlayer((prev) => ({
             ...prev,
             position: [0, 0, targetZ],
@@ -689,7 +709,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         } else {
-          const targetZ = resolveRetreatTargetZ(opp.position[2], 1);
           setOpp((prev) => ({
             ...prev,
             position: [0, 0, targetZ],
@@ -697,7 +716,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
-        addLog(`${attacker.name} retreats back 1.8m.`, isActorPlayer ? 'player' : 'opponent');
+        addLog(
+          describeMoveReport(attacker.name, 'retreat', fromZ, targetZ),
+          isActorPlayer ? 'player' : 'opponent',
+        );
       }
 
       // 2. DEFENSIVE / UTILITY ACTIONS
