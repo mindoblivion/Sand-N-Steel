@@ -75,8 +75,12 @@ const mediaBlock = (source: string, query: string): string | null => {
 
 const PORTRAIT = '(max-width: 520px) and (orientation: portrait)';
 const LANDSCAPE = '(orientation: landscape) and (max-height: 520px)';
+// C-8.80P — the wide composition: from 1024x521 the same two regions stack on
+// desktop too, because a bottom panel could never clear the player's feet.
+const WIDE = '(min-width: 1024px) and (min-height: 521px)';
 const portrait = mediaBlock(css, PORTRAIT) ?? '';
 const landscape = mediaBlock(css, LANDSCAPE) ?? '';
+const wide = mediaBlock(css, WIDE) ?? '';
 
 /** The declaration body of one flat selector inside a block. */
 const ruleBody = (block: string, selector: string): string | null => {
@@ -232,11 +236,15 @@ const CLOSE = { midZ: -DUEL_SPAWN_OFFSET_Z / 2, playerZ: 0, oppZ: -DUEL_SPAWN_OF
  * panel's height. `stageH` is derived — the real viewport height minus the panel in
  * portrait, the whole viewport height in landscape (where the panel is a column).
  */
+// REBASED (C-8.80P) on the post-fix measurements: the portrait panel is 338px
+// (was 407/420), the desktop one 267px and its HUD compaction puts the top block at
+// 188.5px. The stage is still DERIVED — viewport minus the panel where the two stack,
+// the full height in short landscape where the panel is a column.
 const MEASURED = [
-  { label: '400x800 portrait', stageH: 800 - 407, overlayBottom: 150 },
-  { label: '375x812 portrait', stageH: 812 - 407, overlayBottom: 150 },
+  { label: '400x800 portrait', stageH: 800 - 338, overlayBottom: 155.5 },
+  { label: '375x812 portrait', stageH: 812 - 338, overlayBottom: 155.5 },
   { label: '812x375 landscape', stageH: 375, overlayBottom: 120 },
-  { label: '1280x800 desktop', stageH: 800, overlayBottom: 205 },
+  { label: '1280x800 desktop', stageH: 800 - 267, overlayBottom: 188.5 },
 ];
 
 describe('C-8.80N §C both fighters project inside the unobscured stage', () => {
@@ -271,7 +279,7 @@ describe('C-8.80N §C both fighters project inside the unobscured stage', () => 
 
   test('the player is a meaningful figure, not a few pixels of canvas', () => {
     const p = fracOf(OPENING.midZ, OPENING.playerZ);
-    expect(Math.round((p.feet - p.head) * (800 - 407))).toBeGreaterThanOrEqual(50);
+    expect(Math.round((p.feet - p.head) * (800 - 338))).toBeGreaterThanOrEqual(50);
   });
 
   test('the opponent is legible at opening distance', () => {
@@ -289,10 +297,19 @@ describe('C-8.80N §C both fighters project inside the unobscured stage', () => 
 // ── §D. The CSS contract ────────────────────────────────────────────────────
 
 describe('C-8.80N §D the responsive rules', () => {
-  test('desktop keeps the old overlay: stage absolute, panel across the bottom', () => {
+  // REBASED (C-8.80P): the absolute overlay is still the DEFAULT — it is what
+  // tablet-width and mid-size windows still get — but from 1024x521 the two regions
+  // stack, because measured at 1280x800 the player projected to 506...616 while the
+  // panel began at 445: the player was behind it for its whole height, and the foot
+  // line at 77% of the stage means no bottom panel could ever clear it.
+  test('the overlay is still the default; the wide block stacks the two regions', () => {
     expect(css).toContain('.duel-stage {\n  position: absolute;\n  inset: 0;\n}');
     const command = css.slice(css.indexOf('.duel-command {'));
     expect(command.slice(0, 200)).toContain('position: absolute');
+    expect(wide).not.toBe('');
+    expect(ruleBody(wide, '.duel-root')).toContain('flex-direction: column');
+    expect(ruleBody(wide, '.duel-stage')).toContain('flex: 1 1 auto');
+    expect(ruleBody(wide, '.duel-command')).toContain('position: relative');
   });
 
   test('portrait stacks the stage above the panel', () => {
@@ -325,14 +342,17 @@ describe('C-8.80N §D the responsive rules', () => {
   });
 
   test('the chronicle stays bounded and scrollable on phones', () => {
-    expect(ruleBody(portrait, '.duel-command .combat-log-items')).toBe('max-height: 3rem;');
+    expect(ruleBody(portrait, '.duel-command .combat-log-items')).toBe('max-height: 2.25rem;');
     expect(ruleBody(landscape, '.duel-command .combat-log-items')).toBe('max-height: 1.5rem;');
     expect(panelSource).toContain('overflow-y-auto');
   });
 
   test('the portrait block does not force the landscape layout', () => {
     expect(portrait).not.toContain('flex-direction: row');
-    expect(portrait).not.toContain('tactic-grid');
+    // REBASED (C-8.80P): the portrait block now tightens the tactic grid's GAPS
+    // (``.tactic-grid { gap }`` and its cards' padding); what it must never do is
+    // re-flow the columns, which is what the landscape and wide blocks change.
+    expect(portrait).not.toContain('grid-template-columns');
   });
 });
 

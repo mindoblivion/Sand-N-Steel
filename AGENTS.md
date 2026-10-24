@@ -9893,3 +9893,44 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   motion (the 700ms cue measured 159.5-208.0 and does overlap the opponent's band), safe-area on a
   notched phone (`env()` probes 0px here), and any portrait viewport under ≈779px. **Android PENDING.**
   Full record: [.base44/duel-phone-composition-c880o.md](.base44/duel-phone-composition-c880o.md).
+
+## Duel composition: short viewports and desktop (Phase C-8.80P — implemented; live geometry measured, device read PENDING)
+
+- **Both open items from C-8.80O are now measured defects and are fixed.** (1) *Short portrait*: the
+  opponent's head was **27.6px behind the HUD at 400x720**, 10.6px at 760 and **50.2px at 375x667** — the
+  clearance is `0.4263 × stage − 155.5`, so anything under a ~784px-tall portrait window failed. (2)
+  *Desktop*: at 1280x800 the panel covered 445-800 while the player projects to 506-616, so the **player**
+  was behind it for its whole height — and no bottom overlay can fix that, because the player's foot line
+  is at 77% of the stage.
+- **The fix has three parts, all in `src/index.css` (plus a comment in `DuelScene`).**
+  1. **Portrait chrome** (inside the existing `max-width: 520px) and (orientation: portrait)` block):
+     hides the chronicle's range row (the strike tiles' own "Out of range — Advance to strike" text says
+     it twice; short landscape already dropped it) and tightens paddings, gaps, card padding and the log
+     cap (3rem → 2.25rem, still five entries in a scroll container). Panel **420 → 338px**. The movement
+     strip's 46px buttons are untouched.
+  2. **New `@media (max-height: 720px)`**: hides only `.combat-hud .hype-meter` — the lowest 29.5px of the
+     top block, i.e. exactly what sits over the opponent's head. HUD **155.5 → 122px**. This generalizes
+     the short-landscape block's own meter rule; health, stamina, turn state, both cues and every action
+     stay, and hype still reads in the chronicle.
+  3. **New `@media (min-width: 1024px) and (min-height: 521px)`**: the two regions **stack** (no overlay),
+     the tactic grid goes to **five columns in one row** (panel 355 → **267px**, every blurb intact,
+     nothing clipped) and the top chrome tightens (206.5 → **188.5px**). The gate is disjoint from the
+     520px-tall landscape row block, which is unchanged.
+- **Measured after, real duel, banner collapsed** (opponent-head clearance / player feet above the panel):
+  375x667 stage 334 panel 333 **+20.4**; 400x720 stage 387 panel 333 **+43.0**; 400x740 **+18.0**;
+  400x760 **+26.5**; 400x800 **+43.6**; 1280x800 stage 533 panel 267 **+40.7**, player feet 122.5 above
+  the panel; 1024x768 stage 488.5 panel 279.5 **+21.7**; 812x375 unchanged (stage 352x375, **+40.1**).
+  Worst case with the chronicle at its cap: +40.8 at 400x720, +18.3 at 375x667, +15.9 at 400x740.
+- **Driven at 400x720**: `DIST: 3.6m` → one Advance → **`DIST: 1.8m`**, close-range bands opponent
+  183.5-228.3 / player 223.3-274 inside a 394px stage; 12 of 13 controls hit-test at their own centres,
+  the miss being the disabled `Catch Breath` (`pointer-events-none` at full stamina, pre-existing).
+- **Traps for the next phase.** The duel's own asset preloader ("ENTERING THE ARENA") is a full-screen
+  overlay: while it is up, every `elementFromPoint` hit-test misses and the frame looks fine — always wait
+  for a control to be the topmost element before measuring reachability. Panel height is **content-sized**
+  (333 with one chronicle line, 338 at the cap), so quote the cap. The R3F canvas still lags one resize in
+  this sandbox; poll `canvas.height === stage.height`.
+- **NOT verified:** how the arrangement *reads* on device (SwiftShader, a few fps); safe-area insets (they
+  probe 0 here); and any viewport between 768 and 1023px wide, which still uses the **overlay** default —
+  at 1280x800 that same overlay is what hid the player, so a mid-width window can still hide it (measured
+  as out of scope, not fixed). **Android acceptance is PENDING.** Full record:
+  [.base44/duel-composition-c880p.md](.base44/duel-composition-c880p.md).

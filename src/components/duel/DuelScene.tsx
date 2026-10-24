@@ -1503,10 +1503,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   return (
     <div className="duel-root relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
       {/* C-8.80N — THE STAGE. The canvas and the instrumentation HUD that overlays it.
-          On phones the stage is a flex region ABOVE the command panel (`.duel-stage` /
-          `.duel-command` in index.css), so the bottom panel can no longer paint over
-          the fighters; desktop and tablet keep the full-screen stage and the panel's
-          old overlay position. No camera, canvas or combat value changed. */}
+          The command panel is a sibling region (`.duel-stage` / `.duel-command` in
+          index.css), never an overlay on the canvas: phones stack it above the panel
+          (portrait) or beside it (short landscape), and C-8.80P extends the same
+          stacking to wide viewports, where the panel used to cover the player for its
+          whole height. No camera, canvas or combat value changed. */}
       <div className="duel-stage">
       {/* 3D WEBGL DUEL CANVAS WRAPPED IN ERROR BOUNDARY & READY GUARD */}
       <WebGLReadyGuard
