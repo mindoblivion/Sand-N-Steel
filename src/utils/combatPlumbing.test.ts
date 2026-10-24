@@ -337,15 +337,27 @@ describe('CH-3a §S — the merged block each fighter reads', () => {
     expect(buildPlayerModifiers(locked).palmae).toEqual([]);
   });
 
-  test('an opponent with no config resolves to the empty block (today\u2019s behaviour)', () => {
+  // CH-4 landed the opponent's `armatura`/`palmae`, so this is no longer "every
+  // opponent is empty": the identity case is a config that declares neither, and
+  // the roster is asserted to resolve exactly what its own config says.
+  test('an opponent with no class and no palms resolves to the empty block', () => {
+    const bare = buildOpponentModifiers({
+      id: 'bare',
+      name: 'Bare',
+    } as unknown as (typeof ALL_OPPONENTS)[number]);
+    expect(bare.block).toEqual({});
+    expect(bare.palmae).toEqual([]);
+    expect(bare.armaturaId).toBeUndefined();
+    expect(bare.doctrina).toEqual({});
+    expect(buildOpponentModifiers(null).block).toEqual({});
+  });
+
+  test('CH-4 — each roster opponent resolves the class and palms its config declares', () => {
     for (const opponent of ALL_OPPONENTS) {
       const mods = buildOpponentModifiers(opponent);
-      expect(mods.block, opponent.id).toEqual({});
-      expect(mods.palmae, opponent.id).toEqual([]);
-      expect(mods.armaturaId, opponent.id).toBeUndefined();
-      expect(mods.doctrina, opponent.id).toEqual({});
+      expect(mods.armaturaId, opponent.id).toBe(opponent.armatura);
+      expect(mods.palmae.map((p) => p.id), opponent.id).toEqual(opponent.palmae ?? []);
     }
-    expect(buildOpponentModifiers(null).block).toEqual({});
   });
 
   test('CH-4 seam — a configured opponent resolves its class and palms', () => {
