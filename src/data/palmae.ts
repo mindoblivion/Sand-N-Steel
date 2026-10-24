@@ -43,6 +43,13 @@ export interface Palma {
   hookStages: PalmaHookStage[];
   /** Boss-only palmae are never offered to the player. */
   bossOnly?: true;
+  /**
+   * CH-5 — what the Doctore charges for this palma, in gold.  Only a
+   * `doctore-training` row carries one: every other palma is EARNED, never bought,
+   * so its price is not data at all.  The Doctore's stall reads this field and
+   * nothing else, so a price can never drift from the row it belongs to.
+   */
+  price?: number;
   /** The effect in the shared modifier shape; an empty block is the identity. */
   effect: TraitModifierBlock;
   /** What the block shape cannot express — conditions and unhooked magnitudes. */
@@ -106,6 +113,7 @@ export const PALMAE: Palma[] = [
     description: 'Increase maximum stamina by 12 and stamina regeneration by 2.',
     source: 'doctore-training',
     sourceDetail: 'Doctore training, 250g',
+    price: 250,
     hookStages: ['stat'],
     effect: { staminaMaxAdd: 12, staminaRegenAdd: 2 },
   },
@@ -115,6 +123,7 @@ export const PALMAE: Palma[] = [
     description: 'Rest restores 15 extra stamina (40 -> 55).',
     source: 'doctore-training',
     sourceDetail: 'Doctore training, 300g',
+    price: 300,
     hookStages: ['event'],
     effect: { restStaminaAdd: 15 },
   },

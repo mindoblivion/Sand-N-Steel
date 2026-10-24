@@ -121,9 +121,14 @@ describe('CH-2 §C — the handler is App\'s single save writer', () => {
     expect(app).toContain('const handleRepledgeArmatura = (armatura: ArmaturaId) => {');
     expect(app).toContain('onRepledgeArmatura={handleRepledgeArmatura}');
     // The handler writes through the one save pair, and only on a success.
+    // CH-5 later inserted the three palma writers (equip / unequip / buy) BELOW this
+    // handler, between it and `handleResetGame`.  So the slice now ends at the NEXT
+    // handler after it: the measurement reads this pledge handler only, keeping the
+    // one-save count honest as further handlers are added below, instead of counting
+    // them.  Every assertion in this test is otherwise unchanged.
     const handler = app.slice(
       app.indexOf('const handleRepledgeArmatura'),
-      app.indexOf('const handleResetGame'),
+      app.indexOf('const handleEquipPalma'),
     );
     expect((handler.match(/saveProfile\(/g) ?? []).length).toBe(1);
     expect(handler).toContain('if (!result.ok) return;');

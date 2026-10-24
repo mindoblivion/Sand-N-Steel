@@ -337,7 +337,21 @@ describe('§H the one call site: the result transaction', () => {
   });
 
   test('the result screen is handed the event from the same write', () => {
-    expect(write).toContain('setDuelResult({ didWin, stats, storyLines, injuryEvent })');
+    // CH-5 — a victory also tells the result screen which palmae it unlocked, so the
+    // single payload gained one OPTIONAL conditional spread.  The literal is gone; the
+    // PROPERTY is not.  It is asserted (and strengthened) as: exactly ONE result write,
+    // and it carries the outcome, the stats, the story lines and the injury event — a
+    // payload that drops any one of them fails here, exactly as the literal did.
+    expect(write.match(/setDuelResult\(/g)?.length).toBe(1);
+    const resultCallStart = write.indexOf('setDuelResult({');
+    expect(resultCallStart).toBeGreaterThan(-1);
+    const resultCall = write.slice(resultCallStart, write.indexOf('});', resultCallStart));
+    for (const field of ['didWin', 'stats', 'storyLines', 'injuryEvent']) {
+      expect(resultCall).toContain(`${field},`);
+    }
+    expect(resultCall).toContain(
+      '...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),',
+    );
     const callStart = APP_SOURCE.indexOf('<DuelResultModal');
     const block = APP_SOURCE.slice(callStart, APP_SOURCE.indexOf('onContinue={handleDuelResultDismiss}', callStart));
     expect(block).toContain('injuryEvent={duelResult.injuryEvent}');

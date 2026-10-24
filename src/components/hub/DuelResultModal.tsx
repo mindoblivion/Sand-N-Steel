@@ -1,6 +1,7 @@
 import React from 'react';
 import { DuelStatistics, OpponentConfig } from '../../types/game';
-import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight, HeartPulse } from 'lucide-react';
+import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight, HeartPulse, Award } from 'lucide-react';
+import { getPalma } from '../../data/palmae';
 import { injuryBannerLine, type DuelInjuryEvent } from '../../utils/injury';
 import { CoachCard } from '../ui/CoachCard';
 import { getCoachCard } from '../../utils/coachMarks';
@@ -34,6 +35,12 @@ interface DuelResultModalProps {
    */
   coachCardId?: string | null;
   onCoachCardDismiss?: (id: string) => void;
+  /**
+   * CH-5 — the palma ids this victory newly unlocked, decided at the same write
+   * that saved them.  Empty or absent on every other duel (and always on a
+   * defeat), so the modal renders exactly as it always has.
+   */
+  palmaEarned?: string[];
   onContinue: () => void;
 }
 
@@ -70,6 +77,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   goldTotal,
   coachCardId,
   onCoachCardDismiss,
+  palmaEarned,
   onContinue,
 }) => {
   const pace = didWin ? 1 : DEFEAT_PACE;
@@ -173,6 +181,11 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
     return Math.round((remaining / maxHp) * 100);
   }, [didWin, opponent.stats?.healthMax, stats.damageDealt]);
 
+  // CH-5 — the palms this victory unlocked, resolved from the palmae data by id.
+  const earnedPalmae = (palmaEarned ?? [])
+    .map((id) => getPalma(id))
+    .filter((palma) => palma !== undefined);
+
   // CL-3 — the first loss's beat. It is dismissed by its ✕ (App records it seen
   // through the same `markSeen` write the hub uses) or by continuing past it, and
   // never before it has rendered: both handlers run from the card itself.
@@ -227,6 +240,25 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
                 {line}
               </p>
             ))}
+          </div>
+        )}
+
+        {/* CH-5 — PALMA EARNED.  Outside the staged reveal: a new palm is the
+            consequence of the fight, not one of its reward figures. */}
+        {earnedPalmae.length > 0 && (
+          <div
+            data-duel-palma-earned={earnedPalmae.map((palma) => palma.id).join(',')}
+            className="bg-amber-950/40 border border-amber-500/70 rounded-2xl p-4 mb-4 flex items-start gap-2 font-serif text-xs sm:text-[13px] leading-relaxed text-amber-100"
+          >
+            <Award className="w-4 h-4 mt-0.5 shrink-0 text-amber-300" />
+            <span>
+              <strong className="text-amber-300 uppercase tracking-wider">Palma earned</strong>
+              {' — '}
+              {earnedPalmae.map((palma) => palma.name).join(', ')}.
+              <span className="block text-[11px] italic text-amber-200/80 mt-0.5">
+                Wear it in Gladiator Stats, as far as your tier allows.
+              </span>
+            </span>
           </div>
         )}
 

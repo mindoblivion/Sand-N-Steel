@@ -269,7 +269,20 @@ describe('P4 — the Doctore reads the first attempt, win or lose', () => {
     // …and the line travels to the result screen with the result.
     // S4 added the injury outcome to the same result payload; the lines still travel
     // to the result screen with the result, which is the property this pins.
-    expect(write).toContain('setDuelResult({ didWin, stats, storyLines, injuryEvent })');
+    // CH-5 then added one OPTIONAL conditional spread (the palmae a victory earned), so
+    // the payload is no longer a one-line literal.  The property is unchanged and
+    // strengthened: ONE result write, carrying the Doctore's line with the outcome.  A
+    // payload missing the line, the stats, the outcome or the injury event fails here.
+    expect(write.match(/setDuelResult\(/g)?.length).toBe(1);
+    const callStart = write.indexOf('setDuelResult({');
+    expect(callStart).toBeGreaterThan(-1);
+    const resultCall = write.slice(callStart, write.indexOf('});', callStart));
+    for (const field of ['didWin', 'stats', 'storyLines', 'injuryEvent']) {
+      expect(resultCall).toContain(`${field},`);
+    }
+    expect(resultCall).toContain(
+      '...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),',
+    );
   });
 
   test('a loss still records only the loss — no win, no id, no story flag', () => {

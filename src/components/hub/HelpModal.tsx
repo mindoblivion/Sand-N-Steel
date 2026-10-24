@@ -196,6 +196,39 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               </p>
             </div>
           </div>
+          {/* CH-5 — THE ARENA'S TONGUE: the three words a gladiator meets first. */}
+          <div
+            data-help-glossary
+            className="bg-neutral-950/90 p-3.5 rounded-2xl border border-amber-800/60 flex flex-col gap-2"
+          >
+            <div className="flex items-center gap-2 text-amber-300 font-bold font-serif text-xs">
+              <Compass className="w-4 h-4 text-amber-400" />
+              <span>The Arena&apos;s Tongue</span>
+            </div>
+            <dl className="flex flex-col gap-1.5 text-[11px] leading-relaxed">
+              <div>
+                <dt className="text-amber-200 font-bold">Armatura</dt>
+                <dd className="text-neutral-400">
+                  Your fighting class — Murmillo, Retiarius, Thraex and the rest. It sets your stat
+                  template, your kit and the technique you are known for.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-amber-200 font-bold">Doctrina</dt>
+                <dd className="text-neutral-400">
+                  Your class&apos;s signature technique, learned with the class and always in play: the
+                  Murmillo&apos;s fish-scale wall, the Retiarius&apos; net, the Provocator&apos;s mirror drill.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-amber-200 font-bold">Palmae</dt>
+                <dd className="text-neutral-400">
+                  Victory palms: traits earned in the sand or bought from the Doctore. What you own is
+                  yours; what you wear is limited by your tier, and changed in Gladiator Stats.
+                </dd>
+              </div>
+            </dl>
+          </div>
         </div>
 
         {/* CLOSE BUTTON */}

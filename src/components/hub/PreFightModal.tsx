@@ -3,6 +3,8 @@ import { OpponentConfig } from '../../types/game';
 import { Swords, Trophy, Coins, Zap, Shield, Skull } from 'lucide-react';
 import type { BeatLine, DoctoreTestRestriction } from '../../utils/storyBeats';
 import { doctoreRestrictionSpec } from '../../utils/storyBeats';
+import { getArmatura } from '../../data/armaturae';
+import { getPalma, type Palma } from '../../data/palmae';
 
 interface PreFightModalProps {
   opponent: OpponentConfig;
@@ -29,6 +31,15 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
   restriction,
 }) => {
   const restrictionSpec = doctoreRestrictionSpec(restriction ?? null);
+  /**
+   * CH-5 — SCOUTING INTEL, read-only.  The opponent's class, its doctrina and the
+   * palms it carries all come from CH-4's own config data; nothing is derived here
+   * and nothing is written.  A config without a class or a palm adds no row.
+   */
+  const armatura = opponent.armatura ? getArmatura(opponent.armatura) : undefined;
+  const palmae = (opponent.palmae ?? [])
+    .map((id) => getPalma(id))
+    .filter((palma): palma is Palma => Boolean(palma));
 
   return (
     <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-40 flex items-center justify-center p-4">
@@ -99,6 +110,33 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
             <span className="text-yellow-400">from {opponent.rewardGold} Gold</span>
           </div>
         </div>
+
+        {/* CH-5 — SCOUTING INTEL.  What the opponent fights as, and what it
+            carries.  Read-only: the card reports the config, it changes nothing. */}
+        {(armatura || palmae.length > 0) && (
+          <div
+            data-prefight-scouting
+            className="bg-neutral-950 p-4 rounded-2xl border border-amber-800/60 mb-6 flex flex-col gap-2 font-mono text-xs"
+          >
+            {armatura && (
+              <div data-scouting-armatura={armatura.id}>
+                <div className="flex justify-between gap-3">
+                  <span className="text-neutral-400">Armatura:</span>
+                  <span className="text-amber-200 text-right">{armatura.name}</span>
+                </div>
+                <p className="text-[11px] font-serif text-neutral-400 mt-1">
+                  <span className="text-amber-300">{armatura.doctrina.name}</span> — {armatura.doctrina.text}
+                </p>
+              </div>
+            )}
+            {palmae.map((palma) => (
+              <div key={palma.id} data-scouting-palma={palma.id} className="flex justify-between gap-3">
+                <span className="text-neutral-400">Palma · {palma.name}:</span>
+                <span className="text-right text-neutral-300 text-[11px] font-serif">{palma.description}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex gap-3">
           <button

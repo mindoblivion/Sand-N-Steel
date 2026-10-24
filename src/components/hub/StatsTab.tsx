@@ -8,6 +8,7 @@ import { canRepledgeArmatura } from '../../utils/armaturaPledge';
 import { resolveActiveInjury } from '../../utils/injury';
 import { getConsumableCount, ownedConsumables } from '../../utils/consumables';
 import { CampaignCard } from './CampaignCard';
+import { PalmaePanel } from './PalmaePanel';
 import { deriveRank } from '../../utils/rank';
 import { STATUE_OWNED_LINE, ownedTriumphs, resolveLaurels } from '../../utils/laurels';
 
@@ -22,6 +23,12 @@ interface StatsTabProps {
    * single save path.  Absent handler = no action offered.
    */
   onRepledgeArmatura?: (armatura: ArmaturaId) => void;
+  /**
+   * CH-5 — the Palmae panel's two taps.  `App` runs the validated transaction
+   * (`equipPalma` / `unequipPalma`) and writes the save; this screen only asks.
+   */
+  onEquipPalma?: (palmaId: string) => void;
+  onUnequipPalma?: (palmaId: string) => void;
 }
 
 export const StatsTab: React.FC<StatsTabProps> = ({
@@ -29,6 +36,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   onAllocatePoint,
   onUseConsumable,
   onRepledgeArmatura,
+  onEquipPalma,
+  onUnequipPalma,
 }) => {
   const total = calculateTotalStats(profile);
   /**
@@ -157,6 +166,14 @@ export const StatsTab: React.FC<StatsTabProps> = ({
           )}
         </div>
       )}
+
+      {/* CH-5 — THE PALMAE.  The palms earned against the slots the tier allows;
+          the panel's two taps are the only write this screen offers here. */}
+      <PalmaePanel
+        profile={profile}
+        onEquipPalma={onEquipPalma}
+        onUnequipPalma={onUnequipPalma}
+      />
 
       {/* CAREER — the derived rank beside fame, and every Triumph owned. */}
       <div
