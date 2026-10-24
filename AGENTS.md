@@ -9862,3 +9862,34 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   check. **Android acceptance is PENDING**, and the safe-area-inset case (a gesture-bar phone eating the
   panel's bottom band) is untested; a landscape phone narrower than ~700px leaves a stage narrower than the
   460px column allows. Full record: [.base44/duel-phone-composition-c880n.md](.base44/duel-phone-composition-c880n.md).
+
+## Phone duel composition acceptance (Phase C-8.80O — measured; **no production file changed**)
+
+- **The reported "opponent's head 1px under the HUD at 400x800" does not reproduce.** Re-measured on the
+  real duel (iframe at exact CSS sizes, banner collapsed) the clearance is **+13.7px** at the opening with
+  a one-line chronicle and **+9.2px** in the worst case (chronicle at its own 48px cap: panel 420, stage
+  380). The C-8.80N trim is now measured rather than derived — the panel is **403px**, not the pre-trim
+  407 — and the −1px was the **harness's own 28px `pt-7` banner**, which no device has (+4.4 in the
+  banner case vs +13.7 without it). **No trim was added.**
+- **Measured, banner collapsed, opening 3.6m** (px from the stage top; HUD bottom 155.5 in portrait):
+  400x800 stage 397, opponent 169.2-211.8, player 251.1-305.7; 375x812 stage 409, opponent 174.3-218.2,
+  player 258.7-315.0; 812x375 stage 352x375, HUD 119.8, opponent 159.8-200.0, player 237.2-288.8, the
+  460px column has no scroll; 1280x800 stage 800, HUD 204.5, opponent 341.0-426.7, player 506.0-616.1.
+  **Close range, driven** (real Advance: `DIST 3.6m → 1.8m`, `IN STRIKE RANGE`): opponent 176.9-220.1
+  (**+21.4** clear of the HUD), player 215.2-264.1 (**+164.8** above the panel). Every control but the
+  disabled `Catch Breath` hit-tests at its centre; no sideways scroll anywhere.
+- **The lever is the panel's content height, not the HUD.** Clearance is `0.4333 × stage − 155.5`, so it
+  reaches zero at a stage of 359px — a portrait viewport of **≈779px**. A shorter portrait viewport (e.g.
+  400x720 → −25.5px) reproduces the reported symptom, and fixing it is a composition decision (stage floor
+  + bounded panel, or portrait chrome shed as 812x375 does), not another trim.
+- **Two measurement traps to know about.** (1) R3F's canvas lags a resize by one step in this sandbox
+  (375x812 still showed a 369-tall canvas), so poll `canvas.height === stage.height` before projecting.
+  (2) The Advance button must be found by its `title` — the strike tiles' "Out of range — Advance to
+  strike" text matches a naive `includes('Advance')` search and those buttons are disabled, so the click
+  silently does nothing.
+- **Desktop is unchanged and the panel still covers the player** (panel 445-800, player 506-616) — the
+  pre-C-8.80N geometry that phase preserved on purpose. Not fixed here.
+- **NOT verified:** the fighters as *rendered* figures (SwiftShader, a few fps), cue readability in
+  motion (the 700ms cue measured 159.5-208.0 and does overlap the opponent's band), safe-area on a
+  notched phone (`env()` probes 0px here), and any portrait viewport under ≈779px. **Android PENDING.**
+  Full record: [.base44/duel-phone-composition-c880o.md](.base44/duel-phone-composition-c880o.md).
