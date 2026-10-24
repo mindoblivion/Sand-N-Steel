@@ -63,6 +63,7 @@ import {
   pyreBrandHealAmount,
 } from '../../utils/bossPalmae';
 import { sounds } from '../../audio/soundEffects';
+import { crowdHypeTier, detectCrowdHypeCrossing } from '../../utils/crowdHype';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
 import { SceneBrightness } from '../3d/SceneBrightness';
@@ -391,11 +392,31 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // double-mutate the ref or peak.
   const crowdHypeRef = useRef(25);
 
+  // CF-3 — the crowd's celebration counter. UpdateCrowdHype bumps it on every
+  // UPWARD tier crossing and DuelArena reads it once per frame; a ref, so a
+  // celebration never re-renders the scene.
+  const crowdPulseRef = useRef(0);
+
   const updateCrowdHype = useCallback((updater: (prev: number) => number) => {
-    const next = updater(crowdHypeRef.current);
+    const prev = crowdHypeRef.current;
+    const next = updater(prev);
     crowdHypeRef.current = next;
     setCrowdHype(next);
     statsRef.current.crowdHypePeak = updateHypePeak(statsRef.current.crowdHypePeak, next);
+
+    // CF-3 — the one place the crowd reacts to hype. The tier thresholds are
+    // CombatHUD's own strict `> 40` / `> 75`, so the crowd and the meter the
+    // player is watching change together; the hype numbers above are untouched.
+    // An upward crossing is the celebration (level + swell + bounce); a
+    // downward one only lowers the bed's level.
+    const crossing = detectCrowdHypeCrossing(prev, next);
+    if (crossing) {
+      sounds.setCrowdLevel(crossing.level);
+      if (crossing.upward) {
+        sounds.playCrowdSwell();
+        crowdPulseRef.current += 1;
+      }
+    }
   }, []);
 
   // ── CL-3 — the Doctore's guided beats ───────────────────────────────────────
@@ -451,6 +472,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       setFrameloopMode('always');
     }, 200);
     return () => clearTimeout(timer);
+  }, []);
+
+  // CF-3 — the crowd's noise bed lives exactly as long as the duel: started on
+  // mount at the tier the opening hype (25) is in — LOW — and stopped on
+  // unmount, so leaving the arena never leaves noise behind. The engine itself
+  // no-ops while muted and restores the bed when it is unmuted.
+  useEffect(() => {
+    sounds.startCrowdBed();
+    sounds.setCrowdLevel(crowdHypeTier(crowdHypeRef.current));
+    return () => sounds.stopCrowdBed();
   }, []);
 
   const statsRef = useRef<DuelStatistics>({
@@ -1066,6 +1097,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             } else {
               if (isCrit) {
                 sounds.playHeavyImpact();
+                // CF-3 — a critical blow is the crowd's cue, whoever landed it.
+                sounds.playCrowdSwell();
                 addLog(`CRITICAL BLOW! ${attacker.name} struck ${defender.name} for ${rawDamage} DAMAGE!`, 'crit');
                 spawnDamageText(`-${rawDamage} CRIT!`, 'crit', defender.position);
               } else {
@@ -1554,7 +1587,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             <Sparkles count={50} scale={[20, 10, 20]} size={2} color="#fef08a" opacity={0.5} />
 
             <ThreeComponentErrorBoundary componentName="DuelArenaArchitecture">
-              <DuelArena />
+              <DuelArena crowdPulseRef={crowdPulseRef} />
             </ThreeComponentErrorBoundary>
 
             <ThreeComponentErrorBoundary componentName="DuelFightersGladiatorMeshes">
