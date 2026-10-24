@@ -1,5 +1,6 @@
 import React from 'react';
 import { FighterState } from '../../types/game';
+import type { FighterModifiers } from '../../utils/combatModifiers';
 import { TurnActionPanel, CombatActionType, CombatLogEntry } from './TurnActionPanel';
 import { Swords, Flame, Sparkles, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle } from 'lucide-react';
 
@@ -21,6 +22,10 @@ interface CombatHUDProps {
   isPlayerTurn: boolean;
   isExecuting: boolean;
   combatLog: CombatLogEntry[];
+  /** CH-3a — the two merged blocks the duel resolves with (HUD truth). */
+  playerModifiers?: FighterModifiers;
+  opponentModifiers?: FighterModifiers;
+  opponentIsBoss?: boolean;
   onExecuteAction: (action: CombatActionType) => void;
 }
 
@@ -41,6 +46,9 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   isPlayerTurn,
   isExecuting,
   combatLog,
+  playerModifiers,
+  opponentModifiers,
+  opponentIsBoss,
   onExecuteAction,
 }) => {
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
@@ -231,6 +239,9 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
         isPlayerTurn={isPlayerTurn}
         isExecuting={isExecuting}
         combatLog={combatLog}
+        playerModifiers={playerModifiers}
+        opponentModifiers={opponentModifiers}
+        opponentIsBoss={opponentIsBoss}
         onExecuteAction={onExecuteAction}
       />
     </div>

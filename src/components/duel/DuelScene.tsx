@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Sparkles, useGLTF, Sky, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -28,8 +28,20 @@ import {
   RAGE_DAMAGE_MULTIPLIER,
   shouldActivateRage,
   applyComboEvent,
+  applyPalmaEvent,
   updateHypePeak,
 } from '../../utils/combatCalculations';
+import {
+  buildOpponentModifiers,
+  buildPlayerModifiers,
+  critChanceFor,
+  effectiveBlockReduction,
+  hitAgilityFor,
+  passiveEvadeChance,
+  recordHitType,
+  resolveTraitMult,
+  staminaCostWithModifiers,
+} from '../../utils/combatModifiers';
 import { sounds } from '../../audio/soundEffects';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
@@ -247,6 +259,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 }) => {
   const pStats = calculateTotalStats(playerProfile);
 
+  // CH-3a — each fighter's merged armatura/palma block, built ONCE per duel (the
+  // profile and the opponent config cannot change mid-fight). `TurnActionPanel`
+  // receives these SAME objects through the HUD, so its cost/hit/damage estimates
+  // and the resolution below read one block and can never drift apart.
+  const playerMods = useMemo(() => buildPlayerModifiers(playerProfile), [playerProfile]);
+  const opponentMods = useMemo(() => buildOpponentModifiers(opponent), [opponent]);
+
   // D1 fix: the opponent fights with ITS OWN configured weapon, never the
   // player's equipped gear. An explicit per-opponent loadout (if one is ever
   // supplied) wins; otherwise the configured `weaponType` is resolved through
@@ -423,6 +442,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const pendingHeavyAttackRef = useRef(false);
   const pendingCounterRef = useRef(false);
   const rageActivatedRef = useRef(false);
+  // CH-3a — Phoenix Nerves' "once per fight": the event stage reports whether a
+  // miss may be shielded, this ref remembers that it already was.
+  const comboShieldUsedRef = useRef(false);
 
   // Shared impact feedback (the hit-stop clock and the shake energy) — see the
   // tables at the top of this file. Written once per hit resolution and read
@@ -509,8 +531,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       inReach: currentDistance <= getWeaponRange(player.loadout.weapon),
       playerStamina: player.stamina,
       playerStaminaMax: player.stats.staminaMax,
-      quickStaminaCost: getStaminaCost(player.loadout.weapon, true),
-      powerStaminaCost: getStaminaCost(player.loadout.weapon, false),
+      quickStaminaCost: staminaCostWithModifiers(
+        getStaminaCost(player.loadout.weapon, true),
+        true,
+        playerMods,
+      ),
+      powerStaminaCost: staminaCostWithModifiers(
+        getStaminaCost(player.loadout.weapon, false),
+        false,
+        playerMods,
+      ),
       lastPlayerStrike: lastPlayerStrike?.result ?? null,
       opponentHealth: opp.health,
       opponentHealthMax: opp.stats.healthMax,
@@ -533,6 +563,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     player.stamina,
     player.stats.staminaMax,
     player.loadout.weapon,
+    playerMods,
     lastPlayerStrike,
     opp.health,
     opp.stats.healthMax,
@@ -596,6 +627,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       const attacker = isActorPlayer ? player : opp;
       const defender = isActorPlayer ? opp : player;
+      // CH-3a — the two blocks every stage below reads, resolved for this turn's
+      // actor and defender (the same objects the HUD estimates with).
+      const attackerMods = isActorPlayer ? playerMods : opponentMods;
+      const defenderMods = isActorPlayer ? opponentMods : playerMods;
 
       // Taking a new action ends any lingering defensive stance (block or
       // dodge invulnerability) from a previous turn. Both stances persist
@@ -718,25 +753,29 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: Math.min(prev.stats.staminaMax, prev.stamina + 25),
           }));
         }
-        updateCrowdHype((prev) => Math.min(100, prev + 20));
-        addLog(`${attacker.name} flexes & taunts! The arena roars (+20% Hype)!`, isActorPlayer ? 'player' : 'opponent');
-        spawnDamageText('TAUNT! +20% HYPE', 'hype', attacker.position);
+        // CH-3a event stage — First Palm of the Crowd adds its hype to a taunt.
+        const tauntHype = 20 + applyPalmaEvent(playerMods.block, 'taunt').hypeAdd;
+        updateCrowdHype((prev) => Math.min(100, prev + tauntHype));
+        addLog(`${attacker.name} flexes & taunts! The arena roars (+${tauntHype}% Hype)!`, isActorPlayer ? 'player' : 'opponent');
+        spawnDamageText(`TAUNT! +${tauntHype}% HYPE`, 'hype', attacker.position);
       } else if (actionType === 'rest') {
+        // CH-3a event stage — Second Wind: rest restores 40 + `restStaminaAdd`.
+        const restGain = 40 + applyPalmaEvent(attackerMods.block, 'rest').staminaAdd;
         if (isActorPlayer) {
           setPlayer((prev) => ({
             ...prev,
             action: 'idle',
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 40),
+            stamina: Math.min(prev.stats.staminaMax, prev.stamina + restGain),
           }));
         } else {
           setOpp((prev) => ({
             ...prev,
             action: 'idle',
-            stamina: Math.min(prev.stats.staminaMax, prev.stamina + 40),
+            stamina: Math.min(prev.stats.staminaMax, prev.stamina + restGain),
           }));
         }
-        addLog(`${attacker.name} catches breath (+40 Stamina).`, isActorPlayer ? 'player' : 'opponent');
-        spawnDamageText('+40 SP', 'hype', attacker.position);
+        addLog(`${attacker.name} catches breath (+${restGain} Stamina).`, isActorPlayer ? 'player' : 'opponent');
+        spawnDamageText(`+${restGain} SP`, 'hype', attacker.position);
       }
 
       // 2b. BOSS TELEGRAPH ACTION (Goliath heavy_telegraph)
@@ -755,7 +794,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // 3. OFFENSIVE ATTACK ACTIONS
       else if (actionType === 'quick_attack' || actionType === 'power_attack') {
         const isQuick = actionType === 'quick_attack';
-        const staminaCost = getStaminaCost(attacker.loadout.weapon, isQuick);
+        // CH-3a weapon stage — the block's staminaCostMult (a POWER-attack
+        // discount: secutor 0.85, Heavy Hand 0.90). No multiplier = the base cost.
+        const staminaCost = staminaCostWithModifiers(
+          getStaminaCost(attacker.loadout.weapon, isQuick),
+          isQuick,
+          attackerMods,
+        );
 
         // Deduct stamina & set attack animation
         if (isActorPlayer) {
@@ -780,7 +825,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           if (isActorPlayer) notePlayerStrike('missed_out_of_reach');
         } else {
           // Check Evasion / Hit Probability
-          const hitPct = calculateHitChance(isQuick, attacker.stats.agility, defender.stats.agility);
+          // CH-3a hit stage — effective AGI = AGI + hitAgiAdd on both sides.
+          const hitPct = calculateHitChance(
+            isQuick,
+            hitAgilityFor(attacker.stats.agility, attackerMods),
+            hitAgilityFor(defender.stats.agility, defenderMods),
+          );
 
           const roll = Math.random() * 100;
           // A dodge sets isInvulnerable; the stance persists across the turn
@@ -802,7 +852,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             !defender.isInvulnerable &&
             Math.random() < opponent.dodgeChance;
 
-          if (isEvaded || isPassiveEvaded) {
+          // CH-3a evasion stage — the palma/doctrina passive evade (Untouchable's
+          // 4 %). It mirrors the counter_dodge passive above: a defender-side
+          // branch that applies only while the defender is NOT in a dodge stance,
+          // so it never stacks with the stance's own 75 %. The draw is skipped
+          // entirely when the chance is 0, so a fighter with no palmae consumes
+          // exactly the same random sequence as before this slice.
+          const palmaEvadeChance = isActorPlayer
+            ? 0
+            : passiveEvadeChance(defenderMods, defender.isInvulnerable);
+          const isPalmaEvaded =
+            !isEvaded && palmaEvadeChance > 0 && Math.random() < palmaEvadeChance;
+
+          if (isEvaded || isPassiveEvaded || isPalmaEvaded) {
             sounds.playDodge();
             addLog(`${defender.name} swiftly EVADED ${attacker.name}'s strike!`, 'system');
             spawnDamageText('EVADED!', 'dodge', defender.position);
@@ -818,22 +880,65 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             const baseDmg = isQuick
               ? attacker.loadout.weapon.damageLight
               : attacker.loadout.weapon.damageHeavy;
-            const isCrit = !isQuick && Math.random() < 0.25;
+            // CH-3a hit stage — 0.25 + critChanceAdd, clamped ≤ 0.60. With no
+            // crit-chance palma the value IS 0.25, so the draw is unchanged.
+            const isCrit = !isQuick && Math.random() < critChanceFor(attackerMods);
             const isBlocked = defender.isBlocking;
             const rageMult = (!isActorPlayer && attacker.isRaged) ? RAGE_DAMAGE_MULTIPLIER : 1.0;
+            // CH-3a weapon stage — the defender's own blockReduction plus the
+            // block's add (capped at 0.90 by applyBlockReduction), less the
+            // attacker's class penetration (thraex's Hook the Rim, 0.40).
+            const blockReduction = effectiveBlockReduction(
+              defender.loadout.weapon.blockReduction,
+              defenderMods,
+              attackerMods,
+              isBlocked,
+            );
+            // CH-3a damage stage — attacker damageDealtMult ÷ defender
+            // damageTakenMult, with every condition (health thresholds, the boss
+            // flag, attack type, Mirror Drill's ledger, Spearman's Ground's
+            // distance bands) evaluated at this call site.
+            const traitMult = resolveTraitMult(attackerMods, defenderMods, {
+              isQuick,
+              distance: dist,
+              effectiveRange,
+              attackerHealth: attacker.health,
+              attackerHealthMax: attacker.stats.healthMax,
+              defenderHealth: defender.health,
+              defenderHealthMax: defender.stats.healthMax,
+              defenderIsBoss: opponent.isBoss === true,
+              defenderTypesHit: defender.mirrorDrillTypes,
+            });
             const rawDamage = calculateAttackDamage(
               baseDmg,
               attacker.stats.strength,
               isCrit,
               defender.stats.defense,
               isBlocked,
-              defender.loadout.weapon.blockReduction,
+              blockReduction,
               rageMult,
+              traitMult,
             );
 
             if (isBlocked) {
               sounds.playBlock();
               if (!isActorPlayer) statsRef.current.perfectBlocks += 1;
+              // CH-3a event stage — Fish-Scale Wall: whoever blocks recovers the
+              // block's `onBlockStamina` (+6 for a Murmillo), clamped to maximum.
+              const blockStamina = applyPalmaEvent(defenderMods.block, 'block').staminaAdd;
+              if (blockStamina > 0) {
+                if (isActorPlayer) {
+                  setOpp((prev) => ({
+                    ...prev,
+                    stamina: Math.min(prev.stats.staminaMax, prev.stamina + blockStamina),
+                  }));
+                } else {
+                  setPlayer((prev) => ({
+                    ...prev,
+                    stamina: Math.min(prev.stats.staminaMax, prev.stamina + blockStamina),
+                  }));
+                }
+              }
               addLog(
                 `${attacker.name}'s strike was BLOCKED by ${defender.name}'s shield (-${rawDamage} HP)!`,
                 'system'
@@ -860,7 +965,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             if (isActorPlayer) {
               statsRef.current.hitsLanded += 1;
               statsRef.current.damageDealt += rawDamage;
-              updateCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 : 8)));
+              // CH-3a event stage — First Palm of the Crowd adds its hype to a
+              // crit (taunts and crits only, per its own descriptor).
+              const critHype = applyPalmaEvent(playerMods.block, 'crit').hypeAdd;
+              updateCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 + critHype : 8)));
             } else {
               statsRef.current.damageTaken += rawDamage;
             }
@@ -900,6 +1008,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   health: nextHp,
                   action: nextHp <= 0 ? 'death' : 'hit',
                   hitFlashTimer: 0.3,
+                  // CH-3a — the FIRST hit of a type resolved at full damage, so
+                  // the type is recorded as taken only now (Mirror Drill).
+                  ...(defenderMods.armaturaId === 'provocator'
+                    ? { mirrorDrillTypes: recordHitType(prev.mirrorDrillTypes, isQuick) }
+                    : {}),
                 };
               });
               // Player's attack resolved: update combo based on outcome.
@@ -920,6 +1033,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   health: nextHp,
                   action: nextHp <= 0 ? 'death' : 'hit',
                   hitFlashTimer: 0.3,
+                  // CH-3a — Mirror Drill's ledger (see the setOpp branch above).
+                  ...(defenderMods.armaturaId === 'provocator'
+                    ? { mirrorDrillTypes: recordHitType(prev.mirrorDrillTypes, isQuick) }
+                    : {}),
                   comboCount: applyComboEvent(prev.comboCount, 'player_damaged'),
                 };
               });
@@ -931,7 +1048,15 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             spawnDamageText('MISSED!', 'dodge', defender.position);
             // Player missed: reset combo (opponent miss does not affect player combo)
             if (isActorPlayer) {
-              setPlayer((prev) => ({ ...prev, comboCount: applyComboEvent(prev.comboCount, 'miss') }));
+              // CH-3a event stage — Phoenix Nerves: once per fight, a miss does
+              // not reset the combo. The once-per-fight memory is this scene's.
+              const comboShield = applyPalmaEvent(playerMods.block, 'miss').comboShield;
+              if (comboShield && !comboShieldUsedRef.current) {
+                comboShieldUsedRef.current = true;
+                addLog(`${attacker.name}'s Phoenix Nerves hold the rhythm — the combo is kept.`, 'player');
+              } else {
+                setPlayer((prev) => ({ ...prev, comboCount: applyComboEvent(prev.comboCount, 'miss') }));
+              }
             }
           }
         }
@@ -1239,6 +1364,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         isPlayerTurn={isPlayerTurn}
         isExecuting={isExecuting}
         combatLog={combatLog}
+        playerModifiers={playerMods}
+        opponentModifiers={opponentMods}
+        opponentIsBoss={opponent.isBoss === true}
         onExecuteAction={(action) => executeCombatTurn('player', action)}
       />
 

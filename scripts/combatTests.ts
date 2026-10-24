@@ -21,6 +21,8 @@ import {
   DEFENSE_MITIGATION_FACTOR,
   STRENGTH_BONUS_PER_POINT,
   CRIT_MULTIPLIER,
+  applyPalmaEvent,
+  RAGE_DAMAGE_MULTIPLIER,
 } from '../src/utils/combatCalculations';
 import {
   ALL_WEAPONS,
@@ -634,6 +636,75 @@ test('advance: all weapons at 2.5m — dagger enabled, spear disabled', () => {
   const spear = getWeaponByType('spear');
   assert.ok(!advanceDisabled(2.5, getWeaponRange(dagger)), 'dagger at 2.5m: advance enabled (out of range)');
   assert.ok(advanceDisabled(2.5, getWeaponRange(spear)), 'spear at 2.5m: advance disabled (in range)');
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// CH-3a — THE DAMAGE SIGNATURE'S DEFAULT REPRODUCES EVERY EXISTING EXPECTATION
+// ════════════════════════════════════════════════════════════════════════════
+// `calculateAttackDamage` gained ONE optional trailing parameter (`traitMult`,
+// the armatura/palma damage signature) multiplied at the same stage as the rage
+// multiplier.  With no palmae and no doctrina the multiplier is 1.0, so every
+// expectation above must be byte-identical.  Each case is stated three ways —
+// the pre-CH-3a arithmetic, the call with the argument omitted, and the call
+// with it passed explicitly — and all three must agree.
+
+const preCh3aDamage = (
+  baseDamage: number,
+  strength: number,
+  isCrit: boolean,
+  defense: number,
+  isBlocked: boolean,
+  blockReduction: number,
+  rage = 1.0,
+): number => {
+  const raw =
+    baseDamage * (1 + strength * STRENGTH_BONUS_PER_POINT) * (isCrit ? CRIT_MULTIPLIER : 1.0) * rage;
+  let mitigated = raw * (100 / (100 + defense * DEFENSE_MITIGATION_FACTOR));
+  if (isBlocked) mitigated *= 1 - blockReduction;
+  return Math.max(1, Math.round(mitigated));
+};
+
+const DAMAGE_PIN_CASES: Array<[string, number, number, boolean, number, boolean, number, number]> = [
+  ['unarmoured', 20, 10, false, 0, false, 0, 1.0],
+  ['defense 6', 20, 10, false, 6, false, 0, 1.0],
+  ['defense 38', 20, 10, false, 38, false, 0, 1.0],
+  ['critical', 20, 10, true, 10, false, 0, 1.0],
+  ['blocked 0.82', 30, 15, false, 5, true, 0.82, 1.0],
+  ['blocked 0.40', 20, 10, false, 0, true, 0.4, 1.0],
+  ['rage mode', 25, 12, false, 8, false, 0, RAGE_DAMAGE_MULTIPLIER],
+  ['rage, crit and block', 25, 12, true, 8, true, 0.65, RAGE_DAMAGE_MULTIPLIER],
+];
+
+test('CH-3a: default traitMult reproduces every existing damage expectation', () => {
+  for (const [name, base, str, crit, def, blocked, reduction, rage] of DAMAGE_PIN_CASES) {
+    const before = preCh3aDamage(base, str, crit, def, blocked, reduction, rage);
+    assert.equal(calculateAttackDamage(base, str, crit, def, blocked, reduction, rage), before, `${name} (omitted)`);
+    assert.equal(
+      calculateAttackDamage(base, str, crit, def, blocked, reduction, rage, 1.0),
+      before,
+      `${name} (explicit 1.0)`,
+    );
+  }
+});
+
+test('CH-3a: traitMult multiplies at the rage stage (and composes with it)', () => {
+  const plain = calculateAttackDamage(20, 10, false, 10, false, 0, 1.0, 1.0);
+  assert.equal(calculateAttackDamage(20, 10, false, 10, false, 0, 1.0, 1.1), Math.max(1, Math.round(plain * 1.1)));
+  assert.equal(
+    calculateAttackDamage(20, 10, false, 10, false, 0, RAGE_DAMAGE_MULTIPLIER, 1.1),
+    Math.max(1, Math.round(plain * RAGE_DAMAGE_MULTIPLIER * 1.1)),
+  );
+});
+
+test('CH-3a: an empty modifier block answers every event with nothing', () => {
+  for (const event of ['block', 'taunt', 'crit', 'rest', 'miss'] as const) {
+    const effect = applyPalmaEvent({}, event);
+    assert.equal(effect.staminaAdd, 0, `${event} stamina`);
+    assert.equal(effect.hypeAdd, 0, `${event} hype`);
+    assert.equal(effect.comboShield, false, `${event} combo shield`);
+  }
+  // The Murmillo's own doctrina is the one block today that answers an event.
+  assert.equal(applyPalmaEvent({ onBlockStamina: 6 }, 'block').staminaAdd, 6);
 });
 
 // ════════════════════════════════════════════════════════════════════════════

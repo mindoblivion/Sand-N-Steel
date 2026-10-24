@@ -6800,3 +6800,66 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   touch feel and landscape framing on the target device (SwiftShader here — **visual acceptance
   defers to Walter's Android device**); and the class-argument factory path, which no production
   caller passes yet (the Google/cloud new-profile path is its intended consumer).
+
+## CH-3a — combat plumbing (palmae + passive doctrinae through the hooks; NO new action)
+
+- **What ships.** One merged block per fighter, read at every combat stage. New
+  `utils/combatModifiers.ts` (the block builders plus one pure helper per stage);
+  `utils/combatCalculations.ts` gains ONE optional trailing parameter and ONE helper;
+  `services/storage.ts` folds the stat stage; `components/duel/DuelScene.tsx` resolves with it;
+  `components/ui/CombatHUD.tsx` + `TurnActionPanel.tsx` estimate with the SAME block objects;
+  `types/game.ts` adds `MirrorDrillLedger` / `FighterState.mirrorDrillTypes` (runtime only, never
+  saved). Suites: `combatPlumbing.test.ts` (64 tests) and three CH-3a assertions in
+  `scripts/combatTests.ts`.
+- **The formulas are frozen.** No constant in `combatCalculations.ts` changed and no stage moved:
+  `calculateAttackDamage` gained a trailing `traitMult: number = 1.0` multiplied at the rage stage
+  (`rawDamage = base × strBonus × critMult × rageMultiplier × traitMult`), and `applyPalmaEvent`
+  sits beside `applyComboEvent`. The default is the identity, so every pre-CH-3a expectation and
+  every fixed-seed trace reproduces exactly (§R of the suite pins both).
+- **The block.** `buildPlayerModifiers(profile)` = `mergeModifiers([...equipped palma effects,
+  class doctrina])`, read through the SAME resolvers the save uses, so locked/boss-only palma ids
+  never arrive. `buildOpponentModifiers(config)` is deliberately tolerant (a bare id list or the
+  save's `{equipped: [...]}`, unknown ids dropped, three max) because **opponent `armatura`/`palmae`
+  do not exist until CH-4**: every opponent resolves to the empty block today, which is the
+  identity. `DuelScene` builds both ONCE per duel with `useMemo` and hands the same objects to the HUD.
+- **Stage order, and where the conditions live.** Weapon: `staminaCostMult` is a POWER-attack
+  discount only (secutor 0.85 × Heavy Hand 0.90), `blockReductionAdd` capped at 0.90, and the
+  thraex's 0.40 block penetration (CH-1 could only record it in `notes`) keeps `(1 − 0.40)` of a
+  block. Hit: effective AGI = AGI + `hitAgiAdd`; crit = 0.25 + `critChanceAdd`, capped at 0.60.
+  Evasion: `passiveEvadeAdd` applies only OUT of the dodge stance (`isInvulnerable`) and the draw is
+  skipped at 0, so a fighter with no palma consumes exactly the same randomness as before. Damage:
+  attacker `damageDealtMult` ÷ defender `damageTakenMult`, passed as `traitMult`. Conditions a
+  `TraitModifierBlock` cannot express are evaluated at the call site: health thresholds (Executioner
+  <25 % target, Blood Price <40 % self), the boss flag (Colossus Bane), quick-vs-power (Heavy Hand,
+  Colossus Hide), Mirror Drill's per-type ledger (`recordHitType`: the first hit of a type at full
+  damage, later ones ×0.92) and the hoplomachus distance bands (§2.2 exactly: outer third of reach, ratio ≥ 2/3 → ×1.15; inside half reach, ratio < 0.5 → ×0.90; the span between is neutral → ×1.00 — there is no middle modifier. **Corrected after review:** the slice first shipped an invented table (0.75 → 1.15, 0.45 → 1.05, else 0.90), which drifted on all three boundaries; `spearmansGroundMult` now pins 0.49 → 0.90, 0.50 → 1.00, 0.66 → 1.00, exactly 2/3 → 1.15 and 0.75 → 1.15 in §P of the suite).
+  Viper's Patience stays inert — it needs the counter state CH-4 lands.
+- **The event stage.** `applyPalmaEvent(block, event)` returns data only; `DuelScene` owns the clamp,
+  the hype update and the once-per-fight flag. Block → `onBlockStamina` (Fish-Scale Wall +6), rest →
+  `restStaminaAdd` (Second Wind: 40 + 15), taunt (+20 base) and crit → `hypeAdd` (First Palm +4),
+  miss → `comboShield` (Phoenix Nerves, guarded by a ref).
+- **The stat stage.** `calculateTotalStats` folds `statFlat`, `healthMaxAdd`, `staminaMaxAdd` and
+  `staminaRegenAdd` right after the equipment bonuses and BEFORE the injury penalty, through the same
+  `buildPlayerModifiers` the duel reads. With no palmae every term is the identity — the suite pins
+  the output against the pre-CH-3a numbers byte for byte, and no CH-1 doctrina carries a stat-stage
+  field, so legacy saves read exactly as before.
+- **HUD parity by construction.** `TurnActionPanel` receives `playerModifiers` / `opponentModifiers`
+  through `CombatHUD` and calls `staminaCostWithModifiers`, `hitAgilityFor`, `resolveTraitMult` and
+  `blockReductionFor` — the raw-field estimates (`getStaminaCost(weapon, …)`,
+  `Math.round(weapon.blockReduction * 100)`) are gone, so an estimate cannot drift from resolution.
+- **Not touched:** the duel's action set (still the same nine), every formula constant, the save shape
+  and key, boss passives, and the AI branch, which still picks with the raw stamina costs.
+- **Verified 2026-10-23 (inside the compose `web` service — bun is not on the sandbox host, so use
+  `docker compose -f docker-compose.base44.yml exec web …`):** `combatPlumbing.test.ts` → **64 pass /
+  0 fail**; the combat-related subset (`traitModifiers`, `characterCreation`, `saveCorpus`, `injury`,
+  `consumables`, `phase36`, plus the above) → **345 pass / 0 fail (2,700 expect())**;
+  `scripts/combatTests.ts` → **67 pass, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0;
+  `bun run build` → exit 0 (startup check, 8 assets).
+- **Preview evidence:** the title screen loads with **0 console errors** at this commit.
+- **NOT automatically verified — no duel was driven live this slice.** A palmae-equipped corpus
+  fixture (`armaturaPalmaeProfile.json`, retiarius + Iron Lungs) was seeded into
+  `sand_and_steel_gladiator_save_v2` and was gone by the next call — the app's own save validation
+  discards it — so the hub never carried palmae and neither the palmae-equipped stat readout nor a
+  palmae duel could be exercised. The stage arithmetic, the fixed-seed traces and the wiring are
+  covered by the suites above; the arena's feel with palmae equipped, and its render on the target
+  device, defer to manual play. Nothing was left behind: no save key remained in the preview.
