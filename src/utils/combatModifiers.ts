@@ -66,17 +66,18 @@ export interface SpearmansGroundBand {
 }
 
 /**
- * Spearman's Ground's distance table (`hoplomachus`).
+ * Spearman's Ground's distance table (`hoplomachus`), exactly as §2.2 states it:
+ * "Strikes landed from the outer third of your weapon's reach deal +15% damage;
+ * strikes landed from inside half your reach deal −10%."  There are two
+ * modifiers and no middle tier — the span between them is neutral (×1.00).
  *
- * The design states "damage scales with the distance band you strike from" and
- * leaves the table to the call site (CH-1's note: "a block carries one flat
- * multiplier, so the band table belongs to the call site").  A spear is a reach
- * weapon — strongest at the far end of its own reach, worst once the opponent
- * is inside the point — so the bands rise with distance.
+ * `ratio` is `distance / effectiveRange`, so the outer third of reach is
+ * `ratio >= 2/3`, inside half reach is `ratio < 0.5`, and `0.5 <= ratio < 2/3`
+ * lies between them with no modifier.
  */
 export const SPEARMANS_GROUND_BANDS: readonly SpearmansGroundBand[] = [
-  { minRatio: 0.75, mult: 1.15 },
-  { minRatio: 0.45, mult: 1.05 },
+  { minRatio: 2 / 3, mult: 1.15 },
+  { minRatio: 0.5, mult: 1 },
   { minRatio: 0, mult: 0.9 },
 ];
 

@@ -738,14 +738,21 @@ describe('CH-3a §P — the damage stage', () => {
     expect(recordHitType(second, true)).toEqual({ light: true, power: true });
   });
 
-  test('Spearman\u2019s Ground scales with the distance band', () => {
-    expect(spearmansGroundMult(2.5, 2.5)).toBeCloseTo(1.15, 10); // far: on the point
-    expect(spearmansGroundMult(1.9, 2.5)).toBeCloseTo(1.15, 10);
-    expect(spearmansGroundMult(1.5, 2.5)).toBeCloseTo(1.05, 10);
-    expect(spearmansGroundMult(0.5, 2.5)).toBeCloseTo(0.9, 10);
+  test('Spearman\u2019s Ground uses the design\u2019s two bands and a neutral middle', () => {
+    // Outer third of reach (ratio >= 2/3): +15%.
+    expect(spearmansGroundMult(2.5, 2.5)).toBeCloseTo(1.15, 10); // on the point
+    expect(spearmansGroundMult(2, 3)).toBeCloseTo(1.15, 10); // ratio exactly 2/3
+    expect(spearmansGroundMult(1.875, 2.5)).toBeCloseTo(1.15, 10); // ratio 0.75
+    // Between half and two-thirds reach: no modifier.
+    expect(spearmansGroundMult(1.65, 2.5)).toBeCloseTo(1, 10); // ratio 0.66
+    expect(spearmansGroundMult(1.25, 2.5)).toBeCloseTo(1, 10); // ratio exactly 0.50
+    // Inside half reach: −10%.
+    expect(spearmansGroundMult(1.225, 2.5)).toBeCloseTo(0.9, 10); // ratio 0.49
+    // Unusable inputs stay neutral.
     expect(spearmansGroundMult(Number.NaN, 2.5)).toBe(1);
     expect(spearmansGroundMult(1, 0)).toBe(1);
-    expect(SPEARMANS_GROUND_BANDS.map((b) => b.minRatio)).toEqual([0.75, 0.45, 0]);
+    expect(SPEARMANS_GROUND_BANDS.map((b) => b.minRatio)).toEqual([2 / 3, 0.5, 0]);
+    expect(SPEARMANS_GROUND_BANDS.map((b) => b.mult)).toEqual([1.15, 1, 0.9]);
   });
 
   test('only the hoplomachus gets the distance bands', () => {

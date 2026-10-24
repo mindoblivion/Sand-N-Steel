@@ -6832,7 +6832,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `TraitModifierBlock` cannot express are evaluated at the call site: health thresholds (Executioner
   <25 % target, Blood Price <40 % self), the boss flag (Colossus Bane), quick-vs-power (Heavy Hand,
   Colossus Hide), Mirror Drill's per-type ledger (`recordHitType`: the first hit of a type at full
-  damage, later ones ×0.92) and the hoplomachus distance bands (0.75→1.15, 0.45→1.05, inside→0.90).
+  damage, later ones ×0.92) and the hoplomachus distance bands (§2.2 exactly: outer third of reach, ratio ≥ 2/3 → ×1.15; inside half reach, ratio < 0.5 → ×0.90; the span between is neutral → ×1.00 — there is no middle modifier. **Corrected after review:** the slice first shipped an invented table (0.75 → 1.15, 0.45 → 1.05, else 0.90), which drifted on all three boundaries; `spearmansGroundMult` now pins 0.49 → 0.90, 0.50 → 1.00, 0.66 → 1.00, exactly 2/3 → 1.15 and 0.75 → 1.15 in §P of the suite).
   Viper's Patience stays inert — it needs the counter state CH-4 lands.
 - **The event stage.** `applyPalmaEvent(block, event)` returns data only; `DuelScene` owns the clamp,
   the hype update and the once-per-fight flag. Block → `onBlockStamina` (Fish-Scale Wall +6), rest →
