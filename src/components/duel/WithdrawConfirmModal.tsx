@@ -61,7 +61,7 @@ export const WithdrawConfirmModal: React.FC<WithdrawConfirmModalProps> = ({ onSt
           type="button"
           onClick={onConfirm}
           data-withdraw-action="confirm"
-          className="w-full min-h-[56px] px-4 rounded-2xl bg-red-600/85 hover:bg-red-600 border border-red-400/80 text-neutral-950 font-serif font-black uppercase tracking-wider text-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
+          className="w-full min-h-[56px] px-4 rounded-2xl bg-red-600/85 hover:bg-red-600 border border-red-400/80 text-white font-serif font-black uppercase tracking-wider text-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
         >
           <Skull className="w-4 h-4" />
           Confirm Withdrawal
