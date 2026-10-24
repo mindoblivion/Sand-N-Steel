@@ -38,6 +38,11 @@ import {
 } from '../../utils/combatCalculations';
 import { CROWD_HYPE_MAX, crowdMomentumReward } from '../../utils/crowdMomentum';
 import {
+  DUEL_SPAWN_OFFSET_Z,
+  resolveAdvanceTargetZ,
+  resolveRetreatTargetZ,
+} from '../../utils/duelGeometry';
+import {
   canAffordAttack,
   chooseAITacticalAction,
 } from '../../utils/aiActionSelection';
@@ -279,7 +284,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     name: playerProfile.name,
     title: playerProfile.title,
     isPlayer: true,
-    position: [0, 0, 3.5],
+    // C-8.80J — the designed opening: ±1.8 about the arena origin, i.e. 3.6 m
+    // apart. Outside the starter gladius's 2.1 m reach, and one 1.8 m Advance
+    // inside it. See utils/duelGeometry.
+    position: [0, 0, DUEL_SPAWN_OFFSET_Z],
     rotationY: Math.PI,
     health: pStats.healthMax,
     stamina: pStats.staminaMax,
@@ -310,7 +318,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     name: opponent.name,
     title: opponent.title,
     isPlayer: false,
-    position: [0, 0, -3.5],
+    position: [0, 0, -DUEL_SPAWN_OFFSET_Z],
     rotationY: 0,
     health: opponent.stats.healthMax,
     stamina: opponent.stats.staminaMax,
@@ -653,7 +661,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       if (actionType === 'advance') {
         sounds.playDodge();
         if (isActorPlayer) {
-          const targetZ = Math.max(opp.position[2] + 1.2, player.position[2] - 1.8);
+          const targetZ = resolveAdvanceTargetZ(player.position[2], opp.position[2], -1);
           setPlayer((prev) => ({
             ...prev,
             position: [0, 0, targetZ],
@@ -661,7 +669,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         } else {
-          const targetZ = Math.min(player.position[2] - 1.2, opp.position[2] + 1.8);
+          const targetZ = resolveAdvanceTargetZ(opp.position[2], player.position[2], 1);
           setOpp((prev) => ({
             ...prev,
             position: [0, 0, targetZ],
@@ -673,7 +681,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       } else if (actionType === 'retreat') {
         sounds.playDodge();
         if (isActorPlayer) {
-          const targetZ = Math.min(7.5, player.position[2] + 1.8);
+          const targetZ = resolveRetreatTargetZ(player.position[2], -1);
           setPlayer((prev) => ({
             ...prev,
             position: [0, 0, targetZ],
@@ -681,7 +689,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         } else {
-          const targetZ = Math.max(-7.5, opp.position[2] - 1.8);
+          const targetZ = resolveRetreatTargetZ(opp.position[2], 1);
           setOpp((prev) => ({
             ...prev,
             position: [0, 0, targetZ],

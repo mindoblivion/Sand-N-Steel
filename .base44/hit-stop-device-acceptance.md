@@ -47,10 +47,11 @@ recorded below.
 - **Randomness that cannot be forced:** crit is `!isQuick && Math.random() < 0.25`; the opponent's
   choice while the player guards is `45 % power / 30 % taunt / 25 % shield block`; the Goliath
   telegraph is announced at ~30 % per AI turn. None of these has a test hook, and none is added.
-- **Reach and the advance rule:** both fighters start at `z = ±3.5` (**7.0 m** apart). `Advance`
-  moves 1.8 m but clamps to a 1.2 m minimum gap; the starting gladius has `range: 2.1`, Goliath's
-  mace `2.2`. The `Advance` button disables itself once in range, and both strike cards show
-  "Out of range — Advance to strike" until then.
+- **Reach and the advance rule:** both fighters start at `z = ±1.8` (**3.6 m** apart since
+  C-8.80J; it was an accidental `±3.5` / 7.0 m before). `Advance` moves 1.8 m but clamps to a
+  1.2 m minimum gap; the starting gladius has `range: 2.1`, Goliath's mace `2.2`. So one Advance
+  (1.8 m apart) reaches strike range. The `Advance` button disables itself once in range, and both
+  strike cards show "Out of range — Advance to strike" until then.
 - **Which builds can use the dev harness:** `?devHarness=character` exists only in a
   `vite`/`bun run dev` build (`import.meta.env.DEV`, dead-code-eliminated in production). On an
   Android device running a build, **only the shipping routes exist**.
