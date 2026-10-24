@@ -465,13 +465,16 @@ describe('§D — the scene asks, the module settles, nothing else does', () => 
   });
 
   test('an unrelated unmount forfeits nothing', () => {
-    const cleanup = between(
-      sceneSource,
-      'if (resolutionTimerRef.current !== null) clearTimeout(resolutionTimerRef.current);',
-      '// OPPONENT AI TURN STRATEGY ENGINE',
-    );
+    // Anchor on the unmount effect ITSELF, not on its first `clearTimeout` statement: the
+    // confirmed-withdrawal handler's `clearTurnTimer` closure contains that same statement, so
+    // a statement-level anchor slices the handler and never reaches the cleanup at all.
+    const cleanup = between(sceneSource, 'useEffect(\n    () => () => {', '// OPPONENT AI TURN STRATEGY ENGINE');
     expect(cleanup.length).toBeGreaterThan(0);
-    // The cleanup drops pending work — it does NOT settle, and it does not withdraw.
+    // It DOES drop the pending work, which is the only thing a cleanup may do...
+    expect(cleanup).toContain('resolutionTimerRef.current = null');
+    expect(cleanup).toContain('strikeRef.current?.cancel()');
+    expect(cleanup).toContain('playerStrikeRef.current?.cancel()');
+    // ...and it does NOT settle, and it does not withdraw.
     expect(cleanup).not.toContain('onMatchComplete');
     expect(cleanup).not.toContain('withdrawFromDuel');
     expect(cleanup).not.toContain('setWithdrawConfirmOpen');

@@ -450,6 +450,13 @@ describe('E. The wiring — every consumer, read out of the shipped sources', ()
     expect(duel).toContain('vibrate(HAPTIC_HIT_LANDED_MS)');
     expect(duel).toContain('vibrate(HAPTIC_DEFEAT_PATTERN)');
     expect(duel).toContain('if (isActorPlayer) vibrate(HAPTIC_HIT_LANDED_MS);');
+    // The third site is NAMED, so the count cannot drift into an unnamed buzz: a confirmed
+    // withdrawal is a defeat, so its confirmation plays the defeat pattern.
+    const withdraw = duel.slice(
+      duel.indexOf('const handleConfirmWithdrawal = useCallback('),
+      duel.indexOf('}, [cancelPendingEnemyAttack'),
+    );
+    expect(withdraw).toContain('vibrate(HAPTIC_DEFEAT_PATTERN)');
   });
 
   test('haptics is the only place the device is touched, and it reads the setting', () => {

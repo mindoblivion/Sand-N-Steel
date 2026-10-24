@@ -1,7 +1,8 @@
 # C-8.80B — Confirmed duel withdrawal (phase record)
 
-Status: implementation in progress. This file records the rule contract and the L1 conflict
-**before** the production edit, as the phase brief requires.
+Status: implemented and verified (C-8.80B verification pass, 2026-10-23). The production code
+shipped in `6998d37` was **not** redesigned or rewritten; three test-side defects were repaired
+and every requested check was run. See §7.
 
 ## 1. Preflight (measured, not assumed)
 
@@ -121,3 +122,96 @@ reinterpreting it.
 `src/components/hub/DuelResultModal.tsx`, `src/components/dev/CombatHudHarness.tsx`,
 `src/utils/phaseC8_79B.test.ts` and `src/utils/phaseC8_79C.test.ts` (prop rename only),
 `src/utils/phaseC8_80B.test.ts` (new), `AGENTS.md` (this phase's record).
+
+## 7. Verification pass (2026-10-23) — what was run, and what it proved
+
+**Starting state** (measured before any edit): root `/app`, branch `development-focus-strategy`,
+HEAD `6998d37a02c7402634af676f083a4350743e8270`, `git status --porcelain` empty (the previous
+session's work is the commit itself), `app-web-1` `Up 2 days (healthy)` on `0.0.0.0:3000`,
+`curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/` → `200`. Nothing was reset, stashed,
+discarded, committed, pushed, merged or deployed.
+
+**The unfinished runs, and the three test-side defects they had hidden.** The first run of
+`bun test src/utils/phaseC8_80B.test.ts src/utils/settings.test.ts` was **50 pass / 1 fail**:
+
+1. `§D an unrelated unmount forfeits nothing` sliced the scene with
+   `between(source, 'if (resolutionTimerRef.current !== null) clearTimeout(...)', '// OPPONENT AI TURN
+   STRATEGY ENGINE')`. `between` takes the **first** match, and C-8.80B's `handleConfirmWithdrawal`
+   now contains that same `clearTimeout` statement, so the slice covered the withdrawal handler and
+   never reached the cleanup — a false failure, not a production defect. The anchor is now the
+   unmount effect itself (`useEffect(\n    () => () => {`), and the test additionally asserts that
+   the cleanup *does* drop the timer and both pending strikes, so it pins more than before.
+2. The full suite then exposed one stale pin outside this phase's files:
+   `phaseC8_74D.test.ts` §D pinned exactly **two** `min-h-[44px]` touch targets in `CombatHUD`; the
+   Withdraw action is a third (44 px tall, per the existing convention). The count is rebased to 3
+   **and** each reaction target (`shield_block`, `dodge`) is now checked by name, so the test still
+   pins its stated contract instead of a bare total.
+3. `settings.test.ts`'s haptic-site assertion (`2 → 3`, rebased by the previous session) **was**
+   confirmed to test the intended contract rather than merely a changed count: the three `vibrate(`
+   sites in `DuelScene.tsx` are the landed hit (942), the confirmed withdrawal (1144) and the
+   knockout defeat (1426), and the withdrawal site is now asserted **inside** the confirm handler,
+   so the count cannot drift into an unnamed buzz.
+
+No production file was changed in this pass. `error: blocked` lines in the settings output are
+expected log noise from the passing "a store that refuses to answer is not an error state" test.
+
+**Results, with exit codes.**
+
+| check | result | exit |
+| --- | --- | --- |
+| `bun test src/utils/phaseC8_80B.test.ts src/utils/settings.test.ts` | **51 pass / 0 fail** (2 files) | 0 |
+| focused regressions (`duelResultLifecycle`, `duelSettlement`, `duelSettlementCommit`, `combatResponsiveness`, `phaseC8_79A`, `phaseC8_79B`, `phaseC8_79C`, `phaseC8_76`, `settings`, `lodging`) | **255 pass / 0 fail** (10 files) | 0 |
+| `bun test` (full) | **3515 pass / 0 fail** (123 files) — started at 3514/1 | 0 |
+| `bun run lint` (`tsc --noEmit`) | clean | 0 |
+| `git diff --check` | clean | 0 |
+
+**The settlement contract, traced and pinned.** `DuelScene` hands `settle: onMatchComplete` by
+reference, and App's `handleMatchComplete` is unchanged: `claim(settledDuelId)` first (the per-bout
+latch), then one `advanceCityDay`, one `settleInjury(base, didWin)`, then the **defeat** branch only
+(`fightsLost + 1`, peak hype, city, injury — no gold, fame, xp or tier). A withdrawal therefore
+settles exactly once, applies loss/injury/day exactly once, and can never reach the victory branch.
+`withdrawFromDuel` refuses when `isMatchOver.current` is already set, so a duplicate confirmation or
+a late click cannot settle or mutate a decided bout; `cancelEnemyStrike`, `cancelPlayerStrike` and
+`clearTurnTimer` run before the settlement, so no stale attack/counter can resolve afterwards; the
+dialog and "Stay and Fight" touch only `withdrawConfirmOpen`; and the unmount effect settles nothing.
+
+**`DuelStatistics.outcome` and `goldEarned = 0` — consistent with every consumer.** `outcome` is
+written in exactly one place (`duelWithdrawal.ts`) and read in exactly one (`DuelResultModal`, as
+`!didWin && stats.outcome === 'withdrawn'`), where it selects the WITHDREW card and a flag glyph
+instead of DEFEAT/"Felled by". Absence keeps the shipped semantics for every other reader.
+`goldEarned = 0` matches the shipped knockout-defeat branch exactly, and App only credits
+`stats.goldEarned` inside the `didWin` branch. The object's `fameEarned`/`xpEarned` are still the
+opponent's seeded figures (as they are for a knockout defeat), and the result card's reward block is
+gated on `didWin && stage >= 3`, so **no victory-only figure is ever displayed or credited** for a
+forfeit. Nothing was changed here.
+
+**UI acceptance (preview browser, `?devHarness=character` — the real `DuelScene`/`CombatHUD` against
+a disposable in-memory profile, so the player's save is never touched).** Driven with real clicks:
+
+- the weapon badge is a **`<div>`**, not inside any `<button>`, reading
+  "Armed: Standard Gladius & Scutum" — it no longer exits the duel;
+- the **Withdraw** control is a real `<button>`, 38 × 44 px at the 400 px viewport, and opens the
+  confirmation;
+- the dialog's copy states the consequence ("it is recorded as a **defeat** … a loss on your record,
+  your wound renewed, and the day spent. You take no purse, no fame and no renown.");
+- **Stay and Fight** closed the dialog, the stage stayed `duel` and the HUD remained — no settlement;
+- **Confirm Withdrawal** closed the dialog and the harness received **one** result: stage `result`,
+  `Gold Earned 0`.
+
+**Not automatically verified, and why.** (a) The production `DuelResultModal`'s WITHDREW card was
+pinned by `phaseC8_80B.test.ts` §C (copy, icon, "Withdrew with N%") but **not rendered in the
+browser**: reaching it needs the real duel entry from the city hub, which writes the player's own
+save (a loss, an injury, a day), and that is not something this pass may spend for a screenshot.
+(b) **No Android/physical-device run** was performed — landscape HUD legibility, touch feel and the
+defeat haptic on hardware remain the open device items recorded in earlier phases. (c) At the 400 px
+preview width the Withdraw label is hidden (`hidden sm:inline`), leaving the 44 px flag button with
+its `title`; the label returns at ≥ 640 px, i.e. on a landscape phone. This matches the top bar's
+other utilities and was **not** changed (a labelling decision, not a defect found in the code).
+(d) One low-priority observation, not acted on: the confirm button's label is
+`text-neutral-950` on `bg-red-600/85` (≈ 3.2:1), the app's established destructive-button styling
+(`DeleteAccountModal`, `SettingsModal` use the same pairing); it reads in the captured frame, and
+changing it would relitigate a shared design token.
+
+**Remaining acceptance blockers.** Device (Android) validation of the withdrawal gesture, the
+landscape HUD and the defeat haptic; and a real-flow look at the production WITHDREW result card.
+No production defect is known to remain in C-8.80B.

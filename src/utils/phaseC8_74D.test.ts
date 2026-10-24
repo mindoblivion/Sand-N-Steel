@@ -147,7 +147,15 @@ describe('C-8.74D-A §C the fix cannot leak into portrait or desktop', () => {
 
 describe('C-8.74D-A §D scope guard — no control, cue or timing changed', () => {
   test('the reaction targets keep their 44px minimum', () => {
-    expect(hudSource.split('min-h-[44px]').length - 1).toBe(2);
+    // REBASED (C-8.80B): a third 44px touch target — the Withdraw action in the top bar —
+    // joined the two reaction buttons. The contract is unchanged, so it is now also named
+    // per control: each reaction target's own class list still carries the 44px floor.
+    expect(hudSource.split('min-h-[44px]').length - 1).toBe(3);
+    for (const reaction of ['shield_block', 'dodge']) {
+      const at = hudSource.indexOf(`data-reaction="${reaction}"`);
+      expect(at).toBeGreaterThan(-1);
+      expect(hudSource.slice(at, at + 400)).toContain('min-h-[44px]');
+    }
   });
 
   test('the C-8.74C-H cue stacking is untouched', () => {
