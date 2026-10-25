@@ -141,6 +141,53 @@ const CAMERA_SHAKE_TRAUMA_DECAY = 1.6; // trauma units per second
 const CAMERA_SHAKE_OMEGA_A = 2 * Math.PI * 31; // ≈31 Hz
 const CAMERA_SHAKE_OMEGA_B = 2 * Math.PI * 47; // ≈47 Hz
 
+// ── CF-5 — TURN PACING BY ACTION WEIGHT ─────────────────────────────────────
+// These numbers are FEEL PACING, NOT GAME LOGIC. Every outcome of a turn —
+// damage, hit chance and crits, stamina, combo, hype, entanglement, the purse —
+// is already computed before the resolution timer below is scheduled; the timer
+// only decides how long the result sits on the sand before the action animations
+// reset and the turn is handed over. So the table can be tuned for weight and
+// readability without touching a single rule: a heavy blow gets time to land, a
+// step or a guard gets just enough to read, and a killing turn gets the longest
+// beat of all so the fall is never cut off. Nothing here feeds back into combat.
+const TURN_RESOLUTION_MS: Record<CombatActionType, number> = {
+  /** Quick attack — the lightest strike, readable but brief. */
+  quick_attack: 880,
+  /** Power attack — the wind-up and its aftermath need the extra hold. */
+  power_attack: 1300,
+  /** The boss's announced overhead smash — the longest read in the fight. */
+  telegraph: 1450,
+  /** Every positional, defensive and utility action shares one short beat. */
+  advance: 800,
+  retreat: 800,
+  shield_block: 800,
+  dodge: 800,
+  taunt: 800,
+  rest: 800,
+  /**
+   * CH-3b's net throw predates this table, so it keeps the old fixed hold
+   * (1100 ms) rather than inventing a weight the design never gave it.
+   */
+  cast_net: 1100,
+};
+
+/** A turn that leaves a fighter at 0 health holds this long, whatever it was. */
+const TURN_RESOLUTION_DEATH_MS = 1600;
+
+/** The resolution hold for one turn: the action's weight, or the death beat. */
+export const turnResolutionMs = (actionType: CombatActionType, fightEnded = false): number =>
+  fightEnded ? TURN_RESOLUTION_DEATH_MS : TURN_RESOLUTION_MS[actionType];
+
+// The opponent's think time. Unchanged at 750 ms, except on the AI turn that
+// follows a resolved telegraphed heavy, which waits 900 ms so that fight's
+// heaviest beat can be read before the opponent moves again.
+const AI_TURN_DELAY_MS = 750;
+const AI_TURN_DELAY_AFTER_TELEGRAPH_MS = 900;
+
+/** The AI's think time for one turn. */
+export const aiTurnDelayMs = (afterTelegraphedHeavy: boolean): number =>
+  afterTelegraphedHeavy ? AI_TURN_DELAY_AFTER_TELEGRAPH_MS : AI_TURN_DELAY_MS;
+
 interface DuelSceneProps {
   playerProfile: PlayerProfile;
   opponent: OpponentConfig;
@@ -207,8 +254,8 @@ const DuelCameraRig: React.FC<{
     // the multiplier is the settings module's own reader — read from a ref, so
     // this frame loop touches no React state. Trauma is only ever added while an
     // action is executing, and 1.6/s of decay empties even a crit (0.7) in 0.44s
-    // — inside the 1100ms resolution window — so the rig can only shake during, or
-    // in the tail of, a resolution, never on a quiet player turn.
+    // — inside the shortest 800 ms resolution window (CF-5) — so the rig can only
+    // shake during, or in the tail of, a resolution, never on a quiet player turn.
     const impact = impactRef.current;
     impact.trauma = Math.max(0, impact.trauma - CAMERA_SHAKE_TRAUMA_DECAY * delta);
     const shake = impact.trauma * impact.trauma * shakeMultiplierRef.current;
@@ -523,6 +570,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // read-and-cleared at the top of executeCombatTurn — a miss, an evade or an
   // out-of-range swing therefore cannot leave it set for a later attack.
   const telegraphLandingRef = useRef(false);
+  // CF-5 — marks that a telegraphed heavy has RESOLVED, so the AI's next turn
+  // waits its longer 900 ms beat (see aiTurnDelayMs above). Set beside the
+  // landing marker below and cleared as that next AI turn is taken, so the turn
+  // after it is back to 750 ms.
+  const telegraphAftermathRef = useRef(false);
   // CH-4 — marks the ONE resolution that is Valéria's queued counterattack, so
   // Viper's Patience's +20 % lands on it and on nothing else. Set by the AI
   // branch that resolves `pendingCounterRef`, read-and-cleared beside the
@@ -712,6 +764,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // actor and defender (the same objects the HUD estimates with).
       const attackerMods = isActorPlayer ? playerMods : opponentMods;
       const defenderMods = isActorPlayer ? opponentMods : playerMods;
+
+      // CF-5 — did this turn's damage leave a fighter at 0? Only the resolution
+      // that ends the fight holds for the longest beat (TURN_RESOLUTION_DEATH_MS).
+      // The two assignments below READ the same subtraction the damage branches
+      // apply; no outcome, formula, stamina value or state changes here.
+      let fightEnded = false;
 
       // Taking a new action ends any lingering defensive stance (block or
       // dodge invulnerability) from a previous turn. Both stances persist
@@ -1077,6 +1135,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               traitMult,
             );
 
+            // CF-5 — the same subtraction the damage branch below applies, read
+            // here so the resolution hold can know the fight ended on this blow.
+            fightEnded = defender.health - rawDamage <= 0;
+
             // CF-4 — the impact point and the cone's axis for this landed blow.
             // The fighters only ever separate along Z, so the axis is the sign of
             // that offset: the blow's own direction, from the attacker toward the
@@ -1241,6 +1303,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   rageMult,
                   traitMult,
                 );
+
+                // CF-5 — the second blade can be the killing blow.
+                fightEnded = fightEnded || defender.health - rawDamage - bonusDamage <= 0;
                 sounds.playSlash();
                 addLog(
                   `${attacker.name}'s second blade lands for ${bonusDamage} damage!`,
@@ -1314,7 +1379,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         }
       }
 
-      // 4. ANIMATION RESOLUTION & TURN TRANSITION (1100ms)
+      // 4. ANIMATION RESOLUTION & TURN TRANSITION (CF-5 — weight-scaled hold)
+      // The hold is the ONLY thing this timer decides: every outcome above is
+      // already resolved, and the callback below only resets the animations,
+      // ticks the entangle and hands the turn over. See TURN_RESOLUTION_MS.
       setTimeout(() => {
         // Reset action animations back to idle
         if (isActorPlayer) {
@@ -1360,7 +1428,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         // Toggle turn — a completed opponent action opens the player's next turn.
         if (!isActorPlayer) setPlayerTurnCount((count) => count + 1);
         setIsPlayerTurn(!isActorPlayer);
-      }, 1100);
+      }, turnResolutionMs(actionType, fightEnded));
     },
     [isExecuting, player, opp, addLog, spawnDamageText, updateCrowdHype, dismissBeat, notePlayerStrike]
   );
@@ -1369,7 +1437,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   useEffect(() => {
     if (isPlayerTurn || isExecuting || isMatchOver.current || opp.health <= 0) return;
 
+    // CF-5 — the opponent's think time (aiTurnDelayMs): 750 ms as it has always
+    // been, except on the turn that follows a resolved telegraphed heavy, where
+    // the fight's heaviest beat gets 900 ms. The marker is read here and cleared
+    // as this turn is taken, so the turn after it is back to 750.
+    const aiDelayMs = aiTurnDelayMs(telegraphAftermathRef.current);
+
     const aiTimer = setTimeout(() => {
+      telegraphAftermathRef.current = false;
       const dist = Math.abs(player.position[2] - opp.position[2]);
       const effectiveRange = getWeaponRange(opp.loadout.weapon);
       const oppLightCost = getStaminaCost(opp.loadout.weapon, true);
@@ -1394,6 +1469,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         // Mark THIS resolution as the wind-up's landing, so it takes the longest
         // hit-stop. Cleared by executeCombatTurn as it resolves.
         telegraphLandingRef.current = true;
+        // CF-5 — and mark the fight's heaviest beat as resolved, so the AI's next
+        // turn waits aiTurnDelayMs' longer 900 ms (see that helper).
+        telegraphAftermathRef.current = true;
         executeCombatTurn('opponent', 'power_attack');
         return;
       }
@@ -1470,7 +1548,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }
 
       executeCombatTurn('opponent', chosenAction);
-    }, 750);
+    }, aiDelayMs);
 
     return () => clearTimeout(aiTimer);
   }, [isPlayerTurn, isExecuting, player, opp, executeCombatTurn]);

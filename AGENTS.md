@@ -7077,3 +7077,47 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `race`, `chariot` and `horsefit` the character harness has **no `sand_and_steel_dev_harness` scratch
   fallback**. A future phase that needs a live `DuelScene` either adds that flag or accepts the long
   route above, which cost several preview calls to reach one resolved hit.
+
+## CF-5 — turn pacing by action weight (implemented, validated; pacing feel is a device question)
+
+- **What ships: one production file, and only the timing seam inside it.** `DuelScene.tsx` gains
+  `TURN_RESOLUTION_MS` (a `Record<CombatActionType, number>`), `TURN_RESOLUTION_DEATH_MS` and the two
+  exported resolvers `turnResolutionMs(actionType, fightEnded)` / `aiTurnDelayMs(afterTelegraphedHeavy)`,
+  plus one ref (`telegraphAftermathRef`). The fixed `setTimeout(…, 1100)` at the end of
+  `executeCombatTurn` now reads `turnResolutionMs(actionType, fightEnded)`, and the AI effect's fixed
+  `750` reads `aiTurnDelayMs(telegraphAftermathRef.current)`. **No outcome, formula, stamina value,
+  state write, `combatCalculations.ts` line, Lefty path, save field or profile field changed**, and
+  the CF-3 crowd pulse, CF-4 particles, CH-4 boss palmae and the modifier blocks are untouched.
+- **The table, as implemented:** `quick_attack` 880, `power_attack` 1300, `telegraph` 1450,
+  `advance`/`retreat`/`shield_block`/`dodge`/`taunt`/`rest` 800, **`cast_net` 1100** — the net throw
+  postdates the design, so it keeps the old fixed hold rather than an invented weight — and
+  **1600 for any turn that leaves a fighter at 0 health**, whatever the action was.
+- **`fightEnded` is a READ, not a rule.** It is assigned from the same arithmetic the damage branches
+  apply (`defender.health - rawDamage <= 0`, and the twin's `- bonusDamage`). It must be computed
+  BEFORE the timer is scheduled: the timeout callback's own `opp.health <= 0 || player.health <= 0`
+  check reads the closure's pre-resolution state, so it cannot answer "did this turn kill".
+- **The AI's 900 ms beat is the turn AFTER the telegraph resolves**, not the resolving turn. The
+  `pendingHeavyAttackRef` branch sets `telegraphAftermathRef` beside `telegraphLandingRef`; the AI
+  effect reads it when it schedules and clears it inside the callback (before the AI chooses), so the
+  next AI turn is back to 750. A boolean read-once-and-clear, exactly like the landing marker.
+- **Regression suite: `src/utils/duelTurnPacing.test.ts`** — 21 tests: §A the table (every
+  `CombatActionType`, the weight order, the shared 800 beat, the death override for all ten actions),
+  §B the AI delay (750 / 900 / back to 750, and the source order of the read-then-clear), §C the
+  full-fight bound (standard 24-turn duel 26,400 → 23,160 ms = **0.877×**, power-heavy 0.95×,
+  telegraph-heavy boss 1.03× — all ≤ the design's ~8 % ceiling; the standard hand-off with AI delays
+  is 32.2 s, under a 45 s bound), §D the seam (one scheduling call, no `}, 1100);` left, the timer
+  body still only resets and toggles, the repo sweep finds no second pacing system).
+- **`src/utils/impactParticles.test.ts` §H carried the one 1100 ms assertion** (CF-4 pinned
+  `duel.match(/\}, 1100\);/g)?.length === 1`); it is **updated to pin the shipped CF-5 call** instead,
+  and that is the only pre-existing assertion this phase touched.
+- **Verified 2026-10-25** in the dev container: `bun test` → **3592 pass / 0 fail (120 files, 107,339
+  `expect()`)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets);
+  `git diff --check` → clean.
+- **Not automatically verified — the pacing itself, and that is Walter's Android device check.** The
+  sandbox has no GPU (SwiftShader, ~1–2 fps in the arena), so how an 880 ms quick strike, a 1300 ms
+  power blow, a 1450 ms telegraph and the 1600 ms death beat *feel* cannot be judged from a frame
+  rate that coarse; the arithmetic is pinned by the suite. The one game-rule consequence to watch on
+  device: `turnResolutionMs` is also the window `isExecuting` covers, and the CF-4 hit-stop (≤200 ms)
+  plus trauma decay (0.44 s for a crit) still fit inside the shortest 800 ms hold — so no shake or
+  freeze can now outlive the resolution it belongs to.
