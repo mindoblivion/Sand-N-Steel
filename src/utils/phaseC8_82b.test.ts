@@ -189,6 +189,16 @@ describe('§A — the evade chance lives in one constant and every display deriv
     expect(helpSource).toContain('damage is cut by your weapon');
   });
 
+  test('the manual never prints a universal guard mitigation', () => {
+    // C-8.82C — Guard's cut IS the equipped weapon's blockReduction, which spans
+    // 0.35–0.85 across the roster, so a fixed figure in the manual would be wrong
+    // for most of it. The manual states the rule and leaves the number to the
+    // tactic panel and the HUD, which both read the active weapon.
+    expect(helpSource).not.toMatch(/\b(?:3[5-9]|[4-8]\d)% ?(?:absorb|absorbed|cut|blocked|reduced)/i);
+    // And it keeps the one claim that separates the free guard from the paid dodge.
+    expect(helpSource).toContain('costs nothing');
+  });
+
   test('the reaction row offers both stances with their real odds', () => {
     expect(hudSource).toContain('{DODGE_EVADE_PERCENT}% evade');
     expect(hudSource).toContain('{guardMitigationPct}% cut · no cost');
