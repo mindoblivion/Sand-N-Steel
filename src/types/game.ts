@@ -207,6 +207,41 @@ export interface ArenaParticle {
   type: 'spark' | 'dust' | 'flower' | 'coin';
 }
 
+/**
+ * D-2 — the beast a `beast_hunt` Feature Bout fields, as DATA on its master's row.
+ *
+ * Every number here is AUTHORED for this slice (boss-rosters.md Part A carries no
+ * beast numbers); each one states the Tier-2 value it is anchored to in
+ * `data/opponents.ts`. The duel reads these values and nothing else: the beast has
+ * no `FighterState`, no save and no stat block of its own, so a pounce consumes the
+ * EXISTING hit/evasion/damage pipeline with these numbers substituted for a
+ * fighter's.
+ */
+export interface BeastConfig {
+  /** The beast's name, as the arena and the log lines call it. */
+  name: string;
+  /**
+   * Which of the two published hit formulas the pounce rolls
+   * (`calculateHitChance`'s quick or power variant). The pounce is dispatched as
+   * that same action type, so it needs no branch of its own.
+   */
+  hitProfile: 'quick' | 'power';
+  /** The agility the pounce's hit roll — and an attack aimed at the crouch — uses. */
+  agility: number;
+  /** The strength `calculateAttackDamage` is handed for the pounce. */
+  strength: number;
+  /** The pounce's base damage: the value a weapon's `damageLight` would hold. */
+  pounceDamage: number;
+  /** One crouch every this many boss action slots. */
+  crouchEveryNthAction: number;
+  /** Wounds that drive the beast off. */
+  maxWounds: number;
+  /** The master's aggression shift once the beast is gone, for the rest of the duel. */
+  masterAloneAggressionBonus: number;
+  /** Hype the crowd pays when the beast flees. */
+  flightHype: number;
+}
+
 export interface OpponentConfig {
   id: string;
   name: string;
@@ -264,6 +299,12 @@ export interface OpponentConfig {
   cardLine?: string;
   /** D-1 — the authored presentation state NAME (the AI-4 key map is deferred). */
   presentationState?: BossPresentationState;
+  /**
+   * D-2 — the beast this row fields, for a `beast_hunt` Feature Bout only. Absent
+   * on every other row; `utils/beastHunt.ts`'s fence is what decides whether it can
+   * ever be used (a mechanic string alone is not enough).
+   */
+  beast?: BeastConfig;
   phase2WeaponType?: WeaponType;
   guaranteedDrop?: WeaponItem | ArmorItem;
   loadout?: FighterLoadout;
@@ -296,6 +337,12 @@ export interface DuelStatistics {
   lootDrop?: WeaponItem | ArmorItem | null;
   /** The victory purse itemised (see `utils/duelRewards.ts`); absent on a defeat. */
   goldBreakdown?: DuelGoldBreakdown;
+  /**
+   * D-2 — the beast-hunt result screen's flavour line, computed in the duel from
+   * its own beast state. IN-MEMORY only: it rides this object to the result modal
+   * and is never written to a profile (nothing saves `DuelStatistics`).
+   */
+  beastEpilogue?: string;
 }
 
 /**

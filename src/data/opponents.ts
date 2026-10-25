@@ -594,6 +594,36 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardXp: 180,
     meshScale: 1.04,
     bossMechanic: 'beast_hunt',
+    // ── D-2 — FERRUM, THE LION (every number AUTHORED for this slice) ───────
+    // boss-rosters.md Part A carries no beast numbers, so each one below is
+    // authored here and anchored to the TIER-2 band this row sits in (Cassius
+    // 13/11, Brutus 14/12, Naija 15/16, Ignis 18/17; light weapon damage 16–24).
+    //   • agility 18    — one point above the tier's fastest man (Ignis 17): a
+    //                     predator's burst is the beast's whole threat.
+    //   • strength 12   — below the tier's lowest rung (Cassius 13): the blow is
+    //                     the animal's mass, not a trained arm.
+    //   • pounceDamage 24 — the top of the tier's light-damage band (the Legion
+    //                     Spear's 24), so an unanswered pounce costs about what a
+    //                     rival's best light strike costs.
+    //   • hitProfile 'quick' — the pounce rolls the quick formula (`calculateHitChance`),
+    //                     which is why the duel dispatches it as a quick attack.
+    //   • cadence 3, wounds 3 — the card line's own words ("every third exchange",
+    //                     "three wounds drive it off").
+    //   • aggression +0.10 — the master-alone shift (0.60 → 0.70), one step of
+    //                     `chooseAIStandardAction`'s 0.05-per-thousand weighting.
+    //   • flightHype 20  — the taunt's own +20, so a flight reads as one more
+    //                     crowd-raising beat rather than a second currency.
+    beast: {
+      name: 'Ferrum',
+      hitProfile: 'quick',
+      agility: 18,
+      strength: 12,
+      pounceDamage: 24,
+      crouchEveryNthAction: 3,
+      maxWounds: 3,
+      masterAloneAggressionBonus: 0.1,
+      flightHype: 20,
+    },
     characterModel: 'roman_warrior',
   },
   {

@@ -37,6 +37,27 @@ import {
   ENTANGLE_HIT_PENALTY,
 } from '../../utils/statefulDoctrinae';
 
+/**
+ * D-2 — which fighter a PLAYER attack is aimed at. Only a beast bout offers the
+ * second target, and only while the beast crouches; every other duel passes
+ * `undefined`, which reads as the master.
+ */
+export type AttackTarget = 'master' | 'beast';
+
+/**
+ * D-2 — what the panel needs to know about a beast bout. `null` for every other
+ * duel, which is what keeps the target control off a standard fight entirely.
+ */
+export interface BeastPanelInfo {
+  name: string;
+  wounds: number;
+  maxWounds: number;
+  /** The beast's row agility — the denominator of a strike aimed at it. */
+  agility: number;
+  /** True only while the crouch is live: the one window a strike can take it. */
+  targetable: boolean;
+}
+
 export type CombatActionType =
   | 'quick_attack'
   | 'power_attack'
@@ -48,7 +69,11 @@ export type CombatActionType =
   | 'rest'
   | 'telegraph'
   // CH-3b — the retiarius' Cast the Net (once per fight).
-  | 'cast_net';
+  | 'cast_net'
+  // D-2 — the beast's crouch, the boss's own action for that slot. It resolves
+  // nothing (no hit roll, no damage), which is why it is a boss-only action and
+  // never a button the player is offered.
+  | 'beast_crouch';
 
 export interface CombatLogEntry {
   id: string;
@@ -72,7 +97,9 @@ interface TurnActionPanelProps {
   playerModifiers?: FighterModifiers;
   opponentModifiers?: FighterModifiers;
   opponentIsBoss?: boolean;
-  onExecuteAction: (action: CombatActionType) => void;
+  /** D-2 — the beast, while one is in the arena. Absent on every other duel. */
+  beast?: BeastPanelInfo | null;
+  onExecuteAction: (action: CombatActionType, target?: AttackTarget) => void;
 }
 
 export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
@@ -85,8 +112,19 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   playerModifiers = EMPTY_MODIFIERS,
   opponentModifiers = EMPTY_MODIFIERS,
   opponentIsBoss = false,
+  beast = null,
   onExecuteAction,
 }) => {
+  // D-2 — the target choice, and it MUST default to the master: a standard duel
+  // (and every turn of a beast bout that is not a crouch) is untouched by this
+  // control's existence. It resets to the master the moment the window closes.
+  const [target, setTarget] = React.useState<AttackTarget>('master');
+  const beastTargetable = beast !== null && beast.targetable === true;
+  React.useEffect(() => {
+    if (!beastTargetable) setTarget('master');
+  }, [beastTargetable]);
+  const targetingBeast = beastTargetable && target === 'beast';
+  const attackTarget: AttackTarget | undefined = targetingBeast ? 'beast' : undefined;
   const effectiveRange = getWeaponRange(player.loadout.weapon);
   const isInWeaponRange = distance <= effectiveRange;
 
@@ -112,6 +150,19 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   // CH-3b — the net is the retiarius' alone, and only while it is unspent.
   const isRetiarius = playerModifiers.armaturaId === 'retiarius';
   const netReady = canCastNet(player.netAvailable);
+
+  // D-2 — the estimates when the strike is aimed at the crouching beast: the same
+  // formula the resolution rolls, with the BEAST's own row agility as the
+  // defender. Its "damage" is a wound, not HP, so the card says so.
+  const beastAgility = beast?.agility ?? 0;
+  const beastQuickHitPct = beast
+    ? entangledHitChance(calculateHitChance(true, playerAgi, beastAgility), true, playerEntangled)
+    : 0;
+  const beastPowerHitPct = beast
+    ? entangledHitChance(calculateHitChance(false, playerAgi, beastAgility), false, playerEntangled)
+    : 0;
+  const quickDisplayHitPct = targetingBeast ? beastQuickHitPct : quickHitPct;
+  const powerDisplayHitPct = targetingBeast ? beastPowerHitPct : powerHitPct;
 
   // Estimated damage using the same calculation pipeline as combat,
   // accounting for the opponent's defense stat. Quick attacks cannot
@@ -217,7 +268,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
       {/* TACTICAL COMMAND DASHBOARD (CENTER / RIGHT) */}
       <div className="flex-1 bg-neutral-950/90 border-2 border-amber-600/60 rounded-2xl p-2.5 sm:p-3.5 backdrop-blur-md shadow-2xl flex flex-col justify-between gap-2.5">
         {/* TURN STATE BANNER */}
-        <div className="flex items-center justify-between bg-neutral-900/90 border border-amber-700/50 px-3 py-1.5 rounded-xl">
+        <div className="turn-banner flex flex-wrap items-center justify-between gap-1 bg-neutral-900/90 border border-amber-700/50 px-3 py-1.5 rounded-xl">
           <div className="flex items-center gap-2">
             <span
               className={`w-2.5 h-2.5 rounded-full ${
@@ -233,6 +284,47 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             </span>
           </div>
 
+          {/* D-2 — THE TARGET CHOICE. It lives in this banner so the standard
+              duel's layout does not grow a row, it defaults to the master, and it
+              is two real buttons: one tap on touch, Enter/Space on a keyboard.
+              Each is a 48dp target, so it meets the same floor as every other
+              combat control. */}
+          {beastTargetable && beast && (
+            <div
+              className="flex items-center gap-1"
+              data-beast-target-control="true"
+              role="group"
+              aria-label={`Who to strike — ${opponent.name} or ${beast.name}`}
+            >
+              <button
+                type="button"
+                data-beast-target="master"
+                aria-pressed={!targetingBeast}
+                onClick={() => setTarget('master')}
+                className={`min-h-[48px] min-w-[48px] px-2 rounded-lg border text-[10px] font-serif font-black uppercase tracking-wide transition-all active:scale-95 cursor-pointer ${
+                  !targetingBeast
+                    ? 'bg-red-900/80 border-red-400 text-red-100'
+                    : 'bg-neutral-900/80 border-neutral-700 text-neutral-400 hover:text-red-200'
+                }`}
+              >
+                {opponent.name.split(' the ')[0]}
+              </button>
+              <button
+                type="button"
+                data-beast-target="beast"
+                aria-pressed={targetingBeast}
+                onClick={() => setTarget('beast')}
+                className={`min-h-[48px] min-w-[48px] px-2 rounded-lg border text-[10px] font-serif font-black uppercase tracking-wide transition-all active:scale-95 cursor-pointer ${
+                  targetingBeast
+                    ? 'bg-amber-700/90 border-amber-300 text-amber-50'
+                    : 'bg-neutral-900/80 border-neutral-700 text-neutral-400 hover:text-amber-200'
+                }`}
+              >
+                {beast.name}
+              </button>
+            </div>
+          )}
+
           <div className="text-[10px] font-mono text-amber-300/80 hidden sm:block">
             STAMINA: <strong className="text-amber-100">{Math.round(player.stamina)} SP</strong>
           </div>
@@ -242,7 +334,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
           {/* 1. QUICK STRIKE */}
           <button
-            onClick={() => onExecuteAction('quick_attack')}
+            onClick={() => onExecuteAction('quick_attack', attackTarget)}
             disabled={!isPlayerTurn || isExecuting || player.stamina < quickStaminaCost}
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < quickStaminaCost
@@ -267,9 +359,9 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             </div>
 
             <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-amber-900/40">
-              <span className="text-emerald-400 font-bold">{quickHitPct}% Hit</span>
+              <span className="text-emerald-400 font-bold">{quickDisplayHitPct}% Hit</span>
               <span className="text-amber-300 font-bold">
-                {quickDmgMin}-{quickDmgMax} Dmg
+                {targetingBeast ? '1 WOUND' : `${quickDmgMin}-${quickDmgMax} Dmg`}
               </span>
             </div>
 
@@ -282,7 +374,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
           {/* 2. POWER SLASH / HEAVY ATTACK */}
           <button
-            onClick={() => onExecuteAction('power_attack')}
+            onClick={() => onExecuteAction('power_attack', attackTarget)}
             disabled={!isPlayerTurn || isExecuting || player.stamina < powerStaminaCost}
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < powerStaminaCost
@@ -307,9 +399,9 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             </div>
 
             <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-red-900/40">
-              <span className="text-yellow-400 font-bold">{powerHitPct}% Hit</span>
+              <span className="text-yellow-400 font-bold">{powerDisplayHitPct}% Hit</span>
               <span className="text-rose-300 font-bold">
-                {powerDmgMin}-{powerDmgMax} Dmg
+                {targetingBeast ? '1 WOUND' : `${powerDmgMin}-${powerDmgMax} Dmg`}
               </span>
             </div>
 
@@ -383,7 +475,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 5. CAST THE NET — retiarius doctrina (CH-3b), once per fight */}
           {isRetiarius && (
             <button
-              onClick={() => onExecuteAction('cast_net')}
+              onClick={() => onExecuteAction('cast_net', attackTarget)}
               disabled={!isPlayerTurn || isExecuting || !netReady}
               className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
                 !isPlayerTurn || isExecuting || !netReady
@@ -402,9 +494,11 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
               </div>
 
               <div className="tactic-desc text-[10px] text-neutral-300 font-sans leading-tight mb-1">
-                {netReady
-                  ? 'Hurl the net — entangle them for two turns. Secutors are immune.'
-                  : 'The net is spent for this fight.'}
+                {!netReady
+                  ? 'The net is spent for this fight.'
+                  : targetingBeast
+                  ? 'Net the beast — the pounce dies and it loses two cadences. No helm to refuse it.'
+                  : 'Hurl the net — entangle them for two turns. Secutors are immune.'}
               </div>
 
               <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-amber-900/40">

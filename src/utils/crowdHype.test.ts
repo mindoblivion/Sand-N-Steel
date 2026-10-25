@@ -562,11 +562,16 @@ describe('CF-3 §D — DuelScene wiring', () => {
     expect(DUEL_SCENE).toContain('const tauntHype = 20 + applyPalmaEvent(playerMods.block, \'taunt\').hypeAdd;');
     expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + tauntHype));');
     expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + TWIN_FANGS_LANDED_HYPE));');
+    // D-2 — the beast's flight is the fourth award site, and its magnitude is the
+    // beast row's own authored value (the taunt's +20), not a constant added here.
+    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + beastCfg.flightHype));');
     // The peak helper is still the one consumer of the record.
     expect(DUEL_SCENE).toContain('updateHypePeak(statsRef.current.crowdHypePeak, next)');
-    // CF-3 added no hype value of its own: exactly three award sites exist.
+    // CF-3 added no hype value of its own: it left three award sites. D-2's
+    // beast-flight award is the fourth, and it is named above so the count cannot
+    // drift silently.
     const awards = stripComments(DUEL_SCENE).match(/updateCrowdHype\(\(prev\)/g) ?? [];
-    expect(awards).toHaveLength(3);
+    expect(awards).toHaveLength(4);
   });
 
   test('the scene does not award hype anywhere CF-3 introduced', () => {
