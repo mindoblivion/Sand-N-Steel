@@ -7272,3 +7272,27 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `opponentsLadder`, `bossKills`, `tierAdvancement`, `palmaeState`, `traitModifiers`,
   `combatPlumbing`, `intel`, `bossPresentation` and `storyChapterOne`'s P7 counts were rebased to
   the new roster (12 ladder + 5 feature bouts; 26 palms = 17 pool + 9 carried).
+
+## Beast Hunt (D-2) — validation status and the harness opponent parameter
+
+- **The dev character harness takes an optional `?opponent=<id>`** (`src/components/dev/CharacterTestHarness.tsx`),
+  defaulting to `ALL_OPPONENTS[0]` exactly as before. It exists so one boss bout can be mounted without
+  climbing the ladder: `/?devHarness=character&opponent=opp_marcellin_boss` (Marcellin / Ferrum). The gate is
+  unchanged and still **query-only** (`phaseC8_66d.test.ts` §A pins that), and an unknown id falls back to the
+  default — the harness never invents an opponent.
+- **D-2 validation, 2026-10-25:** `bun test` → 3710 pass / 0 fail (123 files; the beast suite
+  `src/utils/beastHunt.test.ts` is 45 of them), `bun run lint` (`tsc --noEmit`) → clean, `bun run build` → ok.
+- **NOT automatically verified — the live arena interaction.** The whole beast cycle (crouch telegraph → target
+  control → strike at the crouch → wound pip → pounce / flight) is covered by the suite and by
+  `DuelScene`'s own code paths, but it has **not** been driven in the preview browser: the Base44 preview
+  reloads every preview call at the home route and clears `localStorage` between calls, so a
+  `?devHarness=` deep route cannot be held from one call to the next, and the beast bout sits behind a
+  ladder gate. Do the by-hand check with the URL above (creation → **Start Test Duel**); the states to look
+  for are Ferrum standing beside the master, the three wound pips beside Marcellin's name, the
+  `FERRUM CROUCHES — POUNCE INCOMING` banner at the third boss action with the Master / Ferrum target
+  buttons, one pip lighting on a landed strike, a third wound driving the beast off, and its absence from
+  the arena afterwards.
+- **Authored (not design) numbers.** `boss-rosters.md` Part A carries no beast values, so Ferrum's row in
+  `src/data/opponents.ts` is authored against the tier-2 band and says so in its own comment: agility 18
+  (one above Ignis' 17), strength 12 (below Cassius' 13), pounce damage 24 (the tier's light-damage ceiling),
+  `quick` hit profile, cadence 3 and 3 wounds (the card line's own words).
