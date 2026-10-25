@@ -7122,3 +7122,114 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   device: `turnResolutionMs` is also the window `isExecuting` covers, and the CF-4 hit-stop (≤200 ms)
   plus trauma decay (0.44 s for a crit) still fit inside the shortest 800 ms hold — so no shake or
   freeze can now outlive the resolution it belongs to.
+
+## CF-6 — boss moments get boss treatment (implemented, validated; boss-moment feel is a device question)
+
+- **What ships — and what deliberately did not.** Presentation only, on the merged tree, for the four
+  boss mechanics that had a log line and a sound apiece. `src/components/duel/DuelScene.tsx` (four
+  gated call sites), `src/audio/soundEffects.ts` (`playWeaponDraw()`), `src/components/ui/CombatHUD.tsx`
+  (the `bossVignettePulse` prop and its div), `src/components/3d/GladiatorMesh.tsx` (the
+  `telegraphGlow` prop, consumed by the mesh's EXISTING emissive path), `src/index.css` (one keyframe
+  family), `src/utils/bossPresentation.ts` (new: the gate, the numbers, the pulse curve) and
+  `src/utils/bossPresentation.test.ts` (new suite, 35 tests). **No mechanic trigger, rate, damage,
+  threshold or timing changed; no `combatCalculations.ts` line; no handedness code; no new profile
+  field, save write, collider, dependency or timer.**
+- **The gate is one pure function, and it is the acceptance core.** `bossPresentsMoment(opponent,
+  mechanic)` answers true only when `isBoss === true` AND the config owns that mechanic;
+  `bossPresentationMoments(opponent)` is the same rule read as "which moments does this identity own"
+  and answers `[]` for a standard opponent. All four sites are wrapped: the rage effect
+  (`rage_mode_colossus`), the phase-switch effect (`phase_weapon_switch`), the evasion branch that
+  queues `pendingCounterRef` (`counter_dodge`) and the render's telegraph prop (`heavy_telegraph`).
+  Standard opponents were already excluded by the mechanics' own guards; the gate makes that explicit
+  and testable as a NEGATIVE, and it costs one comparison per site.
+- **The four moments, as wired.**
+  1. **Rage (Aurelius)** — after `shouldActivateRage` has resolved (so `isRaged` is already set):
+     `impactRef.current.trauma = Math.min(1, trauma + 0.5)` into **CF-1's** own ref (the rig's 1.6/s
+     decay spends it in ~0.31 s), `sounds.playCrowdSwell()` on **CF-3's** bed, and
+     `setBossVignettePulse(Date.now())` — the HUD's red vignette pulse. The div is keyed by the
+     timestamp (a second pulse restarts the animation), `pointer-events: none`, and its keyframes
+     declare **opacity only** (the house motion law). `BOSS_VIGNETTE_MS` = 700.
+  2. **Telegraph (Goliath)** — `<GladiatorMesh fighter={opp} telegraphGlow={Boolean(opp.telegraphText)
+     && bossPresentsMoment(opponent, 'heavy_telegraph')} />`. The mesh writes
+     `TELEGRAPH_GLOW_COLOR` (#ff2222) into the materials it already flashes, and pulses
+     `emissiveIntensity` on a 2 Hz sine (`telegraphGlowIntensity`, `TELEGRAPH_GLOW_MIN` 0.25 →
+     `MAX` 0.8 — the same peak the hit flash uses). The existing "write on change" optimisation is
+     kept: the traverse happens once per mode change, the per-frame pulse is a loop over the
+     materials it collected, so idle fighters cost exactly what they did before. A landed blow always
+     wins (`!isHit && telegraphGlow`), so the flash and the glow cannot fight over one material. The
+     prop is derived from `opp.telegraphText`, the field the telegraph is the only writer of, so it
+     clears exactly when the telegraph clears; **the telegraph's timing is untouched** (no new flag,
+     timer or delay in the announce branch or the AI's resolution), so the player still has exactly
+     one full turn.
+  3. **Phase switch (Ignis)** — `sounds.playWeaponDraw()` inside the `phaseSwitchedRef` effect, gated.
+     The sound is procedural in the engine's existing style: a 0.25 s white-noise draw through a
+     highpass whose corner sweeps 600 → 6000 Hz, with one 1200 Hz sine ping (0.2 gain, 0.4 s decay)
+     on top. **The 300 ms WHITE flash was SKIPPED, and the reason is a property of the shipped mesh,
+     not a choice:** `GladiatorMesh`'s flash is the fixed red hit reaction
+     (`HIT_FLASH_COLOR = '#ff0000'`) fired only by an action transition to `'hit'`. The phase switch
+     is triggered by the health drop of a blow that is *already* flashing red, so a white flash would
+     need a second trigger AND a colour override — i.e. a fork of the flash system, which the brief
+     forbids. Nothing was faked (no `action: 'hit'`, no `hitFlashTimer`) and the suite pins that.
+  4. **Counter-dodge (Valéria)** — in the branch that queues `pendingCounterRef` (the turn her passive
+     dodge actually succeeded), `impactParticlesRef.current?.burst('sand', boss position + 1.2 m)` —
+     **CF-4's** pool, its own sand recipe, fire-and-forget, so a burst cannot influence the
+     counterattack queued beside it.
+- **Two existing suites were rebased, not weakened.** CF-4's `impactParticles.test.ts` pinned
+  "exactly three bursts". The truth is now four (spark 1, crit 1, sand 2 — one outcome, one
+  boss-gated), and its scope guard went 5 → 6 `impactParticlesRef` occurrences; the outcome-sand
+  assertion now uses `lastIndexOf`, because CF-6's call site sits earlier in the file. Each rebase
+  carries a comment naming CF-6, and the count test additionally asserts the fourth call sits behind
+  the counter gate. No assertion was deleted or relaxed.
+- **`src/utils/bossPresentation.test.ts` — 35 tests / 1,263 `expect()` calls, six sections:**
+  §A the gate (each boss on its own mechanic and on no other's; **the whole roster swept for
+  standard opponents, each proving ZERO of the four moments and `[]` from the identity read**; a
+  non-boss carrying a mechanic still presenting nothing; `isBoss` alone; `undefined`/`null`; the four
+  moment owners are exactly the four bosses, one moment each; the four call sites and each effect
+  inside its own gate block); §B rage (the exact `+0.5` write, one `trauma:` in the scene, no
+  `setTimeout`, CF-3's own swell, the timestamp state and the HUD prop, the order after the mechanic,
+  and the CSS — 700 ms, opacity-only keyframes, `pointer-events: none`, the keyed div); §C the glow
+  (colour/rate, a 2 Hz periodic curve with eight crests in 4 s and never outside its band, a
+  non-finite clock reading as the trough, the boss-only prop derivation, the player's mesh untouched,
+  ONE `.emissive.copy(` and two intensity writers, `isTelegraphing` precedence, the clearing path, and
+  the telegraph's own timing/pace pins); §D the draw (driven against a recording fake
+  `AudioContext`: one source, one `highpass` sweeping to the target over exactly 0.25 s, one sine at
+  1200 Hz; muted plays nothing; the call site inside the phase effect; and the skipped flash, with the
+  mesh's fixed red path pinned as the reason); §E the counter (sand at `defender.position + 1.2`, no
+  direction, no allocation; the gate inside the queueing branch; the counter itself unchanged);
+  §F the mechanics (telegraph 30 % and its four guards, both 50 % thresholds, the CF-5 pace table and
+  AI delays, the CF-1 hit-stop/trauma tables, the damage call untouched by any presentation token, and
+  the new module's purity — no storage, no clock, no randomness).
+- **Validation (2026-10-25, dev container — all five commands on the final tree):**
+  `bun test` → **3627 pass / 0 fail (121 files, 108,613 `expect()` calls)** (the branch tip read 3592 /
+  120; the delta is this suite's 35 tests and its file, with the four CF-4 tests rebased in place);
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  **exit 0**; `bun run build` → **exit 0** with the startup-asset check passing (8 assets in
+  `public/` and `dist/`); `git diff --check` → **clean (exit 0)**.
+- **Live evidence (preview browser, anonymous visitor — no session replayed; 0 console errors).**
+  Read out of the running document: the vignette's stylesheet contract is real —
+  a probe carrying `.boss-vignette-pulse` computes `animation-name: boss-vignette-pulse`,
+  `animation-duration: 0.7s`, `pointer-events: none`, `position: absolute` and a radial-gradient
+  background. The shipping `DuelScene` was then mounted through the dev character harness
+  (`?devHarness=character` in an in-page frame, the C-8.66C technique) and driven with real clicks:
+  creation → `Start Test Duel` → the combat HUD reading **SPARTACUS 152 / 152 · MARCUS THE ROOKIE
+  90 / 90**, and one turn resolved (`Advance`: the Arena Chronicle gained
+  "Spartacus advances 1.8m toward their opponent.", the distance readout 7.0 m → 5.2 m). Across that
+  standard duel the HUD held **zero** `[data-boss-vignette]` elements and no telegraph banner — the
+  live form of the negative the acceptance core asks for — and the frame loops (the mesh's new
+  emissive path included) ran with no console error.
+- **NOT automatically verified — the four boss moments' rendered behaviour, and it is a device
+  question.** The dev harness's duel is hard-wired to `ALL_OPPONENTS[0]` (Marcus, a standard
+  opponent), and reaching Goliath, Ignis, Valéria or Aurelius needs a levelled save, so **no boss
+  fight was driven here**: the 0.5 shake, the crowd swell, the red vignette, the #ff2222 telegraph
+  pulse, the weapon-draw sound and the counter's dust are pinned by the suite and by their gating,
+  not seen. The sandbox also has no GPU (SwiftShader, ~1–2 fps in the arena), so no frame could
+  adjudicate a 700 ms pulse or a 2 Hz emissive in any case. **Boss-moment FEEL — whether the rage
+  lands as a punch, whether the telegraph glow reads at a glance without obscuring the boss, whether
+  the draw is audible under the crowd bed — is Walter's Android device check.** Do not claim it.
+- **Open device checklist for this phase:** (a) Aurelius's rage: one clean camera kick, a crowd
+  swell and a single red vignette that never dims the sand or the fighters; (b) Goliath's telegraph:
+  a red pulse you can read from the chase camera while you still have the full turn to answer it;
+  (c) Ignis's switch: the draw audible over the crowd bed (and no flash — see above); (d) Valéria's
+  slip: sand at her feet as the counter is queued; (e) a standard duel (Marcus, Flaccus) producing
+  none of it. Still open from earlier phases: C-8.28, C-8.29, C-8.31/C-8.33, C-8.38, C-8.41,
+  C-8.64A/B, C-8.65 and the CL-1/CL-2 coach-mark readings.

@@ -538,11 +538,20 @@ describe('CF-4 §F the update path allocates nothing', () => {
 describe('CF-4 §G the duel call sites', () => {
   const duel = read('components/duel/DuelScene.tsx');
 
-  test('exactly three bursts, one per outcome', () => {
-    expect(duel.match(/impactParticlesRef\.current\?\.burst\(/g)?.length).toBe(3);
+  test('exactly four bursts: the three outcomes plus CF-6’s boss counter dust', () => {
+    // REBASED (not weakened) by CF-6: the boss moment layer adds ONE call site —
+    // Valéria's counter-dodge kicks up sand at her own position — so the four
+    // calls are spark 1, crit 1, and sand 2 (one outcome, one boss-gated). The
+    // outcome trio is still exactly one call per outcome, asserted below.
+    expect(duel.match(/impactParticlesRef\.current\?\.burst\(/g)?.length).toBe(4);
     expect(duel.match(/\.burst\('spark'/g)?.length).toBe(1);
-    expect(duel.match(/\.burst\('sand'/g)?.length).toBe(1);
+    expect(duel.match(/\.burst\('sand'/g)?.length).toBe(2);
     expect(duel.match(/\.burst\('crit'/g)?.length).toBe(1);
+    // The fourth is the boss's, and it is behind CF-6's gate.
+    const counter = duel.slice(
+      duel.indexOf("if (bossPresentsMoment(opponent, 'counter_dodge'))"),
+    );
+    expect(counter.indexOf("burst('sand'")).toBeGreaterThan(-1);
   });
 
   test('blocked → spark, and only spark, inside the isBlocked branch', () => {
@@ -589,7 +598,9 @@ describe('CF-4 §G the duel call sites', () => {
     expect(duel.indexOf("burst('crit'")).toBeGreaterThan(duel.indexOf('CRITICAL BLOW!'));
     // DAMAGE: the plain strike log and its damage text are untouched.
     expect(duel).toContain('sounds.playSlash();');
-    expect(duel.indexOf("burst('sand'")).toBeGreaterThan(
+    // REBASED (not weakened) by CF-6: the boss counter-dodge's own sand burst is
+    // an EARLIER call site in the file, so this outcome site is the LAST one.
+    expect(duel.lastIndexOf("burst('sand'")).toBeGreaterThan(
       duel.indexOf("spawnDamageText(`-${rawDamage}`, 'damage'"),
     );
   });
@@ -650,8 +661,10 @@ describe('CF-4 §H combat outcomes and timing are unchanged', () => {
   });
 
   test('each call is a fire-and-forget statement, never assigned or awaited', () => {
+    // Four call sites since CF-6 (the boss counter-dodge dust is the fourth);
+    // every one still a bare statement.
     const calls = duel.match(/[^\n]*impactParticlesRef\.current\?\.burst\([^\n]*/g) ?? [];
-    expect(calls.length).toBe(3);
+    expect(calls.length).toBe(4);
     for (const line of calls) {
       expect(line.trim().startsWith('impactParticlesRef.current?.burst(')).toBe(true);
       expect(line).not.toContain('await');
@@ -660,7 +673,8 @@ describe('CF-4 §H combat outcomes and timing are unchanged', () => {
   });
 
   test('the wiring touches no combat state, timer or calculation', () => {
-    // Declaration + the ref prop + the three call sites: nothing else.
-    expect((duel.match(/impactParticlesRef/g) ?? []).length).toBe(5);
+    // Declaration + the ref prop + the four call sites (CF-6 added the boss
+    // counter-dodge's): nothing else.
+    expect((duel.match(/impactParticlesRef/g) ?? []).length).toBe(6);
   });
 });

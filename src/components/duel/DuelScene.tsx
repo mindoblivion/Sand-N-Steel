@@ -64,6 +64,7 @@ import {
   pyreBrandHealAmount,
 } from '../../utils/bossPalmae';
 import { sounds } from '../../audio/soundEffects';
+import { BOSS_RAGE_TRAUMA, bossPresentsMoment } from '../../utils/bossPresentation';
 import { crowdHypeTier, detectCrowdHypeCrossing } from '../../utils/crowdHype';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
@@ -432,6 +433,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
 
   const [crowdHype, setCrowdHype] = useState(25);
+
+  // CF-6 — the boss rage vignette's ONE pulse: a timestamp CombatHUD keys its
+  // 700 ms CSS animation on. Undefined until a boss's rage ignites, and only a
+  // boss can ever set it (see the rage effect below), so a standard duel leaves
+  // the HUD exactly as it was.
+  const [bossVignettePulse, setBossVignettePulse] = useState<number | undefined>(undefined);
 
   // C-8 (Phase 39C): a ref mirrors the committed hype value so the updater can
   // compute the exact next value from an authoritative current value without
@@ -1084,6 +1091,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // counter must NOT chain into another counter.
             if (isActorPlayer && opponent.bossMechanic === 'counter_dodge') {
               pendingCounterRef.current = true;
+              // CF-6 — boss moment (bosses only): the Viper's slip kicks up the
+              // sand she left behind. CF-4's pool, the same point convention the
+              // landed blows use, and fire-and-forget — a burst cannot influence
+              // the counterattack queued above.
+              if (bossPresentsMoment(opponent, 'counter_dodge')) {
+                impactParticlesRef.current?.burst('sand', [
+                  defender.position[0],
+                  defender.position[1] + 1.2,
+                  defender.position[2],
+                ]);
+              }
             }
           } else if (roll <= hitPct) {
             // HIT LANDED! Calculate damage & crits
@@ -1629,11 +1647,23 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       if (pyreHeal > 0) {
         addLog(`${opp.name}'s Pyre Brand flares — ${pyreHeal} health restored.`, 'system');
       }
+      // CF-6 — boss moment (bosses only): the new weapon is HEARD being drawn.
+      // The 300 ms WHITE flash the brief offered is deliberately skipped: the
+      // mesh's flash is the fixed red hit reaction (#ff0000, fired only by an
+      // action transition to 'hit'), and this switch is triggered by the health
+      // drop of a blow that is already flashing red — a white one would need a
+      // second trigger and a colour override, i.e. a fork of the flash system.
+      // Reported as skipped; the mechanic, its threshold and its heal are
+      // untouched.
+      if (bossPresentsMoment(opponent, 'phase_weapon_switch')) {
+        sounds.playWeaponDraw();
+      }
     }
   }, [
     opp.health,
     opp.stats.healthMax,
     opponent.bossMechanic,
+    opponent.isBoss,
     opponent.phase2WeaponType,
     opp.name,
     opponentMods,
@@ -1654,7 +1684,25 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     setOpp((prev) => ({ ...prev, isRaged: true }));
     addLog(`${opp.name} enters a devastating RAGE! Attack power surged!`, 'system');
     spawnDamageText('RAGE MODE!', 'crit', opp.position);
-  }, [opp.health, opp.stats.healthMax, opponent.bossMechanic, opp.name, addLog, spawnDamageText]);
+    // CF-6 — boss moment (bosses only): the arena FEELS the rage. The shake goes
+    // into the SAME `impactRef.trauma` the landed blows write (CF-1's rig decays
+    // it, so no new shake system), the crowd swells through CF-3's own bed, and
+    // the HUD gets one red vignette pulse. The mechanic itself was already
+    // activated above — nothing here can change when, or how hard, rage is.
+    if (bossPresentsMoment(opponent, 'rage_mode_colossus')) {
+      impactRef.current.trauma = Math.min(1, impactRef.current.trauma + BOSS_RAGE_TRAUMA);
+      sounds.playCrowdSwell();
+      setBossVignettePulse(Date.now());
+    }
+  }, [
+    opp.health,
+    opp.stats.healthMax,
+    opponent.bossMechanic,
+    opponent.isBoss,
+    opp.name,
+    addLog,
+    spawnDamageText,
+  ]);
 
   return (
     <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
@@ -1704,7 +1752,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             <ThreeComponentErrorBoundary componentName="DuelFightersGladiatorMeshes">
               <Suspense fallback={<CanvasLoadingFallback />}>
                 <GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} />
-                <GladiatorMesh fighter={opp} impactRef={impactRef} />
+                {/* CF-6 — boss telegraph: while the announced heavy is pending the
+                    boss mesh's own emissive path pulses #ff2222 at 2 Hz. Bosses
+                    only, and it clears the moment `telegraphText` does — the
+                    telegraph's timing is untouched, so the player still has
+                    exactly one full turn to answer it. */}
+                <GladiatorMesh
+                  fighter={opp}
+                  impactRef={impactRef}
+                  telegraphGlow={
+                    Boolean(opp.telegraphText) && bossPresentsMoment(opponent, 'heavy_telegraph')
+                  }
+                />
                 <FloatingDamage3D damages={damageNumbers} />
                 {/* CF-4 — one pooled Points, one draw call, mounted only here. */}
                 <ImpactParticles ref={impactParticlesRef} />
@@ -1747,6 +1806,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         playerModifiers={playerMods}
         opponentModifiers={opponentMods}
         opponentIsBoss={opponent.isBoss === true}
+        bossVignettePulse={bossVignettePulse}
         onExecuteAction={(action) => executeCombatTurn('player', action)}
       />
 

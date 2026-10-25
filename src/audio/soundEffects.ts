@@ -20,6 +20,19 @@ const CROWD_SWELL_MULTIPLIER = 1.8;
 const CROWD_SWELL_RISE_SECONDS = 0.12;
 const CROWD_SWELL_HOLD_SECONDS = 0.35;
 
+/**
+ * CF-6 — a boss's phase switch: steel clears the scabbard. A high-passed noise
+ * sweep is the draw itself and a 1200 Hz sine ping is the blade's ring; both are
+ * generated, so the moment costs no asset and no download.
+ */
+export const WEAPON_DRAW_SECONDS = 0.25;
+export const WEAPON_DRAW_SWEEP_FROM_HZ = 600;
+export const WEAPON_DRAW_SWEEP_TO_HZ = 6000;
+export const WEAPON_DRAW_NOISE_GAIN = 0.22;
+export const WEAPON_DRAW_PING_HZ = 1200;
+export const WEAPON_DRAW_PING_GAIN = 0.2;
+const WEAPON_DRAW_PING_SECONDS = 0.4;
+
 export class SoundFXEngine {
   private ctx: AudioContext | null = null;
   public isMuted: boolean = false;
@@ -385,6 +398,61 @@ export class SoundFXEngine {
       osc.start(now);
       osc.stop(now + 0.36);
     });
+  }
+
+  // CF-6 — Boss phase switch: the weapon draw.
+  // One high-passed white-noise sweep of 0.25 s (the steel leaving the scabbard)
+  // with a single 1200 Hz sine ping on top (the blade's ring). Same procedural
+  // house style as every other effect here: no asset, one context, nothing
+  // persisted, and a no-op while muted or without Web Audio.
+  public playWeaponDraw() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    // The draw: white noise through a highpass whose corner sweeps upward.
+    const length = Math.max(1, Math.floor(ctx.sampleRate * WEAPON_DRAW_SECONDS));
+    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i += 1) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.setValueAtTime(WEAPON_DRAW_SWEEP_FROM_HZ, now);
+    highpass.frequency.exponentialRampToValueAtTime(
+      WEAPON_DRAW_SWEEP_TO_HZ,
+      now + WEAPON_DRAW_SECONDS,
+    );
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.linearRampToValueAtTime(WEAPON_DRAW_NOISE_GAIN, now + 0.02);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + WEAPON_DRAW_SECONDS);
+
+    noise.connect(highpass);
+    highpass.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + WEAPON_DRAW_SECONDS);
+
+    // The ring: one sine ping at the blade's own pitch.
+    const ping = ctx.createOscillator();
+    const pingGain = ctx.createGain();
+    ping.type = 'sine';
+    ping.frequency.setValueAtTime(WEAPON_DRAW_PING_HZ, now);
+    pingGain.gain.setValueAtTime(WEAPON_DRAW_PING_GAIN, now);
+    pingGain.gain.exponentialRampToValueAtTime(0.0001, now + WEAPON_DRAW_PING_SECONDS);
+    ping.connect(pingGain);
+    pingGain.connect(ctx.destination);
+    ping.start(now);
+    ping.stop(now + WEAPON_DRAW_PING_SECONDS + 0.02);
   }
 
   // UI Button Click
