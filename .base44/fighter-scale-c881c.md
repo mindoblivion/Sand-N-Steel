@@ -57,6 +57,16 @@ Left at 0.53 the board would have been 0.6095 — **34 %** of a 1.80 m body.
 
 ## 5. What the scale buys the strike (the point of the phase)
 
+> **SUPERSEDED FIGURES — see C-8.81D (`.base44/attack-contact-c881d.md`).** Every number in this
+> section was measured at the contact frames C-8.80G had derived from an **invalid blade-tip proxy**
+> (`attachment.localToWorld((0, box.max.y, 0))`, 1.4132 world units from the real point of the sword).
+> Re-measured with the true tip at the corrected frames (546 / 698 ms), the conclusion is **stronger
+> than stated here**: at 1.8 m the shipped blade **touches** the opponent (nearest 0.0066) where the
+> pre-fix 1.10-unit body's stands **0.3724** clear, and at 1.2 m the shipped blade overlaps by
+> **−0.793** (not −0.458). The "+0.142 residual at 1.8 m" below was an artifact of the mis-timed frame;
+> the residual is at the 2.1 m maximum (+0.107, nearest 0.276) and is pinned there in
+> `phaseC8_81c.test.ts` §F. The table is kept as this phase's own record, not as current fact.
+
 Measured at each clip's calibrated contact frame (`Sword_Attack` 519 ms, `Sword_Regular_C` 659 ms),
 attacker at `+sep/2` facing the defender at `−sep/2`:
 

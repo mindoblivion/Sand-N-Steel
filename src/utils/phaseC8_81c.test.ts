@@ -19,10 +19,13 @@
  *     so at their correction, and `arena_roman`'s own stray vertex band below Y = 0
  *     scales with its correction instead of being "fixed" by a root offset.
  *  3. REACH. The strike's forward reach at the calibrated contact frame grows with
- *     the body, which is the whole point of the phase: at the 1.2 m reachable
- *     distance the blade now overlaps the opponent's silhouette instead of falling
- *     short, and at the 1.8 m one-Advance distance the shortfall shrinks by ~0.41.
- *     The residual at 1.8 m is pinned as a residual, not asserted away — see §F.
+ *     the body, which is the whole point of the phase. Re-measured against the
+ *     REAL blade tip at the contact frames C-8.81D corrected (546 / 698 ms):
+ *     at the 1.8 m one-Advance distance the shipped body's blade now TOUCHES the
+ *     opponent (0.0066) where the pre-fix 1.10-unit body's stands 0.3724 clear —
+ *     the C-8.81C figures (a 0.142 residual) were measured while the blade was
+ *     still mid-swing. The residual is at the 2.1 m maximum instead (0.276), and
+ *     §F pins it as a residual rather than asserting it away.
  *
  * Run with: bun test src/utils/phaseC8_81c.test.ts
  */
@@ -31,6 +34,7 @@ import { describe, test, expect, beforeAll } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader, SkeletonUtils } from 'three-stdlib';
+import { ATTACK_CLIP_CONTACT_MS } from './attackContact';
 import { isAttackInRange, getWeaponRange } from './combatCalculations';
 import { DEFAULT_PLAYER_WEAPON } from '../data/itemsDB';
 
@@ -87,8 +91,8 @@ const PRE_FIX_CORRECTIONS: Record<string, number> = {
 };
 const PRE_FIX_SHIELD_SCALE_GLB = 0.53;
 
-/** C-8.80G's calibrated contact frames (ms). */
-const CONTACT_MS = { Sword_Attack: 519, Sword_Regular_C: 659 };
+/** The calibrated contact frames (ms) — C-8.81D's real-tip measurement. */
+const CONTACT_MS = ATTACK_CLIP_CONTACT_MS;
 
 function loadGLB(path: string, base = '/models/'): Promise<any> {
   const buffer = readFileSync(path);
@@ -487,52 +491,61 @@ describe('E. The shield keeps its proportion on every body', () => {
 });
 
 // ── §F — the strike, which is what the scale change is for ──────────────────
-describe('F. The strike reaches further on the new bodies', () => {
-  test('at the 1.2 m reachable distance the blade now overlaps the opponent', () => {
+//
+// Every figure below is the posed blade at the clip's calibrated contact frame
+// (C-8.81D's 546 ms / 698 ms), measured on real blade vertices. `reach` is the
+// furthest-forward blade vertex from the attacker's own root; `defenderFront` is
+// the defender's forward-most vertex from its root; `axisGap` is
+// `sep − (reach + defenderFront)` (negative = the blade's furthest point is past
+// the opponent's); `nearest` is the 3-D distance from the blade to the body.
+describe('F. The strike reaches the opponent on the new bodies', () => {
+  test('at the 1.2 m reachable distance the blade overlaps the opponent', () => {
     const shipped = measureStrike(CORRECTION_OF.roman_warrior, 1.2);
     // Forward reach is a global extreme of the posed blade, so it does not depend
-    // on vertex sampling: 1.2962 from the attacker's own root at the 519 ms contact.
-    expect(shipped.reach).toBeCloseTo(1.296, 2);
+    // on vertex sampling: 1.6314 from the attacker's own root at the light clip's
+    // calibrated contact frame.
+    expect(shipped.reach).toBeCloseTo(1.631, 2);
     expect(shipped.defenderFront).toBeCloseTo(0.362, 2);
     expect(shipped.axisGap).toBeLessThan(0);
-    expect(shipped.axisGap).toBeCloseTo(-0.458, 2);
-    // C-8.80E's comparable figure (nearest body vertex, same contact frame).
-    expect(shipped.nearest).toBeLessThan(0.08);
+    expect(shipped.axisGap).toBeCloseTo(-0.793, 2);
+    // The blade's nearest vertex is on the body: contact, not a standoff.
+    expect(shipped.nearest).toBeLessThan(0.02);
   }, 30_000);
 
-  test('the pre-fix 1.2 m strike barely crossed — the control', () => {
-    const preFix = measureStrike(PRE_FIX_CORRECTIONS.roman_warrior, 1.2);
-    expect(preFix.reach).toBeCloseTo(1.03, 2);
-    expect(preFix.defenderFront).toBeCloseTo(0.222, 2);
-    // A 1.10 m body's blade did reach the opponent's forward-most plane — but only
-    // just: 0.052 of overlap against the shipped 0.458, and still 0.32 clear of the
-    // body itself, which is the gap the report saw as a strike that misses.
-    expect(preFix.axisGap).toBeCloseTo(-0.052, 2);
-    expect(preFix.nearest).toBeCloseTo(0.32, 2);
-    const shipped = measureStrike(CORRECTION_OF.roman_warrior, 1.2);
-    expect(shipped.axisGap - preFix.axisGap).toBeCloseTo(-0.406, 2);
-    expect(preFix.nearest - shipped.nearest).toBeGreaterThan(0.2);
-  }, 30_000);
-
-  test('at the 1.8 m one-Advance distance the shortfall drops by ~0.41 (residual kept)', () => {
+  test('at the 1.8 m one-Advance distance the blade touches where the pre-fix one missed', () => {
     // 1.8 m is the first legal attack (3.6 m opening, one 1.8 m Advance, gladius
     // range 2.1), so this is the distance the player actually strikes from first.
-    const shipped = measureStrike(CORRECTION_OF.roman_warrior, 1.8, 'Sword_Attack', false);
-    const preFix = measureStrike(PRE_FIX_CORRECTIONS.roman_warrior, 1.8, 'Sword_Attack', false);
-    expect(shipped.axisGap).toBeCloseTo(0.142, 2);
-    expect(preFix.axisGap).toBeCloseTo(0.548, 2);
-    expect(preFix.axisGap - shipped.axisGap).toBeGreaterThan(0.4);
-    // It is still a shortfall: this phase does NOT close 1.8 m, and the suite says
-    // so, so no later reader mistakes the scale fix for a solved contact problem.
+    const shipped = measureStrike(CORRECTION_OF.roman_warrior, 1.8);
+    const preFix = measureStrike(PRE_FIX_CORRECTIONS.roman_warrior, 1.8);
+    // Measured: the shipped blade's nearest point is 0.0066 from the body …
+    expect(shipped.nearest).toBeLessThan(0.02);
+    expect(shipped.axisGap).toBeCloseTo(-0.193, 2);
+    // … while the pre-fix 1.10-unit body's blade still stands 0.3724 clear — the
+    // strike that misses, which is the symptom C-8.81C addressed.
+    expect(preFix.nearest).toBeGreaterThan(0.3);
+    expect(preFix.axisGap).toBeCloseTo(0.222, 2);
+    // So the scale fix closes the contact gap at the first legal distance.
+    expect(preFix.nearest - shipped.nearest).toBeGreaterThan(0.3);
+  }, 30_000);
+
+  test('at the 2.1 m maximum the tip still falls short — the residual, pinned', () => {
+    // The range guard allows an attack at 2.1 m, and the true blade tip does NOT
+    // reach the body there: 0.276 clear on the light clip. That is a REACH
+    // limitation, not a timing one (the tip misses at every frame of the swing),
+    // and this phase does not change range, so the suite keeps it visible.
+    const shipped = measureStrike(CORRECTION_OF.roman_warrior, 2.1, 'Sword_Attack', true);
     expect(shipped.axisGap).toBeGreaterThan(0);
-    expect(shipped.axisGap).toBeLessThan(0.2);
+    expect(shipped.axisGap).toBeCloseTo(0.107, 2);
+    expect(shipped.nearest).toBeGreaterThan(0.2);
+    expect(shipped.nearest).toBeCloseTo(0.276, 2);
   }, 30_000);
 
   test('the heavy clip agrees with the light one at its own contact frame', () => {
     const shipped = measureStrike(CORRECTION_OF.roman_warrior, 1.2, 'Sword_Regular_C');
-    expect(shipped.reach).toBeCloseTo(1.293, 2);
+    expect(shipped.reach).toBeCloseTo(1.603, 2);
     expect(shipped.defenderFront).toBeCloseTo(0.362, 2);
-    expect(shipped.axisGap).toBeCloseTo(-0.455, 2);
+    expect(shipped.axisGap).toBeCloseTo(-0.765, 2);
+    expect(shipped.nearest).toBeLessThan(0.02);
   }, 30_000);
 });
 

@@ -12,13 +12,21 @@
  * attachment group — and measure the blade tip's world distance to the defender's
  * nearest skinned vertex.
  *
- * Measured contact frames (see `utils/attackContact`): `Sword_Attack` 519 ms,
- * `Sword_Regular_C` 659 ms — against a 700 ms impact. At rate 1 the blade is already
- * recovering at the impact (tip-to-defender 2.032 / 1.673 against 0.786 / 0.573 at
- * contact); with the calibrated rates it is at its contact pose. (Those two pairs
- * were measured on the pre-C-8.81C 1.10-unit bodies. At the shipped 1.80 m scale
- * the same proxy reads 1.814 / 1.400 at the impact against 0.511 / 0.240 at
- * contact on `arena_roman` — the ratio the assertions pin is 3.55 / 5.85.)
+ * C-8.81D replaced the C-8.80G proxy point with the REAL blade tip. The old sampler
+ * read `attachment.localToWorld((0, box.max.y, 0))`, which mixed the gladius
+ * scene's space with the attachment group's — 1.4132 world units from the point of
+ * the sword at the fighting idle — so the frames it produced were measured against
+ * the wrong part of space. The tip now comes from `utils/bladeTip`'s
+ * `bladeTipWorld`: the geometry-space vertex with the greatest Y pushed through
+ * `mesh.localToWorld` with the whole chain (attachment, orientation group,
+ * animated `hand_r`, the root transform) current. Measured on the shipped assets,
+ * that point is 0.9996 from the pommel and the pommel is 0.0017 from the hand.
+ *
+ * Measured contact frames (see `utils/attackContact`): `Sword_Attack` 546 ms,
+ * `Sword_Regular_C` 698 ms — against a 700 ms impact. At 1.8 m (the distance of
+ * the first legal attack) the tip touches the defender at those frames (0.007 /
+ * 0.007) and is 0.519 / 0.828 away at the impact on the shipped rate of 1; the
+ * assertions below pin the ratio, not a hard-coded distance.
  *
  * Run with: bun test src/utils/phaseC8_80g.test.ts
  */
@@ -35,6 +43,7 @@ import {
   attackPlaybackRateForAction,
   attackPlaybackRateForClip,
 } from './attackContact';
+import { bladeTipWorld } from './bladeTip';
 import {
   ENEMY_ATTACK_WINDUP_MS,
   PLAYER_ATTACK_WINDUP_MS,
@@ -55,13 +64,13 @@ const MINOTAUR_CORRECTION = 1.256; // C-8.81C (was 0.77)
 /**
  * How far a re-measurement may sit from the stored constant, in ms.
  *
- * C-8.81C rebased this from the 7 ms measured at the old 1.10-unit body scale to
- * one 60 Hz frame: the stored constants were measured on the small bodies, and
- * at the shipped 1.80 m scale the same tip proxy lands 11 ms (0.66 frame) later
- * on `Sword_Attack` and 4 ms later on `Sword_Regular_C` — the nearest defender
- * vertex to the tip moves with the body, so the minimum shifts with it. That is
- * inside one frame, and the playback rate is left exactly as calibrated (this
- * phase may not change it): see the C-8.81C record for the re-measured table.
+ * One 60 Hz frame. The constants are the true blade tip's closest approach to the
+ * defender's nearest skinned vertex at the legal 1.8 m engagement distance on
+ * `arena_roman` — the body every default profile and every tier-1 opponent uses.
+ * The Minotaur re-measures 1 ms earlier for the light clip and 1 ms later for the
+ * heavy one; the 1.2 m over-close figure moves 10 / 6 ms because the blade passes
+ * through the target there, so the tolerance states the measurement's honest
+ * precision rather than pretending the minimum is exact.
  */
 const CONTACT_TOLERANCE_MS = 1000 / 60;
 
@@ -136,6 +145,16 @@ function findRightHand(scene: THREE.Object3D): THREE.Object3D | null {
 }
 
 /** The C-8.80E attachment: `1 / correction` inside the hand bone, `[π/2, 0, 0]`. */
+/** The first mesh under the attached gladius — the blade the tip sampler reads. */
+function findBladeMesh(root: THREE.Object3D): THREE.Mesh {
+  let mesh: THREE.Mesh | null = null;
+  root.traverse((o: any) => {
+    if (o.isMesh && !mesh) mesh = o;
+  });
+  if (!mesh) throw new Error('gladius mesh not found');
+  return mesh;
+}
+
 function attachGladius(hand: THREE.Object3D, gladius: any, correction: number) {
   const attachment = new THREE.Group();
   attachment.scale.setScalar(1 / correction);
@@ -165,23 +184,34 @@ function skinnedCloud(scene: THREE.Object3D, stride = 5): THREE.Vector3[] {
 }
 
 /**
- * The measured contact frame of one attack clip on one body, at the legal gladius
- * distance (2.1, roots at ±1.05), with the defender holding `Fighting_Idle`.
+ * The measured contact frame of one attack clip on one body at the LEGAL
+ * ENGAGEMENT DISTANCE (1.8 m, roots at ±0.9) with the defender holding
+ * `Fighting_Idle`, sampled through the real blade tip.
+ *
+ * 1.8 m is the distance of the first legal attack (a 3.6 m opening less one
+ * 1.8 m Advance); C-8.80G measured at 2.1 m, where the true tip never reaches the
+ * body at all (0.281 / 0.203 short), so "closest approach" there is not a contact
+ * pose and could not define an impact frame.
  */
-function measureContact(gltf: any, correction: number, clipName: string) {
-  const defender = buildFighter(gltf, correction, -1.05, 0, 'Fighting_Idle', 0.4);
-  const cloud = skinnedCloud(defender.scene);
+const CONTACT_SEPARATION_M = 1.8;
 
-  const player = buildFighter(gltf, correction, 1.05, Math.PI, clipName, 0);
+function measureContact(gltf: any, correction: number, clipName: string) {
+  const sep = CONTACT_SEPARATION_M;
+  const defender = buildFighter(gltf, correction, -sep / 2, 0, 'Fighting_Idle', 0.4);
+  const cloud = skinnedCloud(defender.scene, 3);
+
+  const player = buildFighter(gltf, correction, sep / 2, Math.PI, clipName, 0);
   const hand = findRightHand(player.scene)!;
   const attachment = attachGladius(hand, gladiusGltf, correction);
-  const box = new THREE.Box3().setFromObject(gladiusGltf.scene);
-  const tipLocal = new THREE.Vector3(0, box.max.y, 0);
+  // Sample the GLADIUS's mesh — never the first mesh of the fighter scene, which is
+  // the body itself. `findBladeMesh` is applied to the attachment group for that
+  // reason (the C-8.80G suite had no blade-node lookup at all: it used a proxy point).
+  const blade = findBladeMesh(attachment);
 
   const tipDistanceAt = (t: number) => {
     player.mixer.setTime(t);
     player.root.updateMatrixWorld(true);
-    const tip = attachment.localToWorld(tipLocal.clone());
+    const tip = bladeTipWorld(blade);
     let d = Infinity;
     for (const p of cloud) d = Math.min(d, p.distanceToSquared(tip));
     return Math.sqrt(d);
@@ -221,21 +251,21 @@ describe('A. One playback rate per clip, derived from its own measured contact f
       expect(rate).toBeLessThan(1);
     }
     // The exact shipped figures.
-    expect(attackPlaybackRateForClip('Sword_Attack') * 700).toBeCloseTo(519, 9);
-    expect(attackPlaybackRateForClip('Sword_Regular_C') * 700).toBeCloseTo(659, 9);
+    expect(attackPlaybackRateForClip('Sword_Attack') * 700).toBeCloseTo(546, 9);
+    expect(attackPlaybackRateForClip('Sword_Regular_C') * 700).toBeCloseTo(698, 9);
   });
 
   test('the two clips do not share a rate — there is no universal multiplier', () => {
     const light = attackPlaybackRateForClip('Sword_Attack');
     const heavy = attackPlaybackRateForClip('Sword_Regular_C');
-    expect(light).toBeCloseTo(0.7414285714, 9);
-    expect(heavy).toBeCloseTo(0.9414285714, 9);
-    expect(Math.abs(heavy - light) * 700).toBeCloseTo(140, 9);
+    expect(light).toBeCloseTo(0.78, 9);
+    expect(heavy).toBeCloseTo(0.9971428571, 9);
+    expect(Math.abs(heavy - light) * 700).toBeCloseTo(152, 9);
   });
 
   test('the derivation follows the wind-up instead of hard-coding 700', () => {
-    expect(attackPlaybackRateForClip('Sword_Attack', 900) * 900).toBeCloseTo(519, 9);
-    expect(attackPlaybackRateForClip('Sword_Regular_C', 500) * 500).toBeCloseTo(659, 9);
+    expect(attackPlaybackRateForClip('Sword_Attack', 900) * 900).toBeCloseTo(546, 9);
+    expect(attackPlaybackRateForClip('Sword_Regular_C', 500) * 500).toBeCloseTo(698, 9);
     expect(attackContactWindowMs(600)).toBe(600);
   });
 
@@ -253,15 +283,15 @@ describe('A. One playback rate per clip, derived from its own measured contact f
   });
 
   test('unusable inputs fall back to the identity rate', () => {
-    expect(attackPlaybackRateForClip('Sword_Attack', 0)).toBeCloseTo(519 / 700, 9);
-    expect(attackPlaybackRateForClip('Sword_Attack', NaN)).toBeCloseTo(519 / 700, 9);
+    expect(attackPlaybackRateForClip('Sword_Attack', 0)).toBeCloseTo(546 / 700, 9);
+    expect(attackPlaybackRateForClip('Sword_Attack', NaN)).toBeCloseTo(546 / 700, 9);
     expect(attackContactWindowMs(-5)).toBe(700);
   });
 });
 
 // ── §B  The measured contact frames, re-derived from the real assets ───────
 describe('B. Contact frames re-measured from the shipping assets', () => {
-  test('Sword_Attack contacts at ~519 ms and is long gone at 700 ms', () => {
+  test('Sword_Attack contacts at ~546 ms and is long gone at 700 ms', () => {
     const m = measureContact(arenaGltf, ARENA_ROMAN_CORRECTION, 'Sword_Attack');
     expect(Math.abs(m.contactMs - ATTACK_CLIP_CONTACT_MS.Sword_Attack)).toBeLessThanOrEqual(
       CONTACT_TOLERANCE_MS,
@@ -270,7 +300,7 @@ describe('B. Contact frames re-measured from the shipping assets', () => {
     expect(m.distanceAtImpact).toBeGreaterThan(m.contactDistance * 2);
   }, 120_000);
 
-  test('Sword_Regular_C contacts at ~659 ms and is long gone at 700 ms', () => {
+  test('Sword_Regular_C contacts at ~698 ms and is long gone at 700 ms', () => {
     const m = measureContact(arenaGltf, ARENA_ROMAN_CORRECTION, 'Sword_Regular_C');
     expect(Math.abs(m.contactMs - ATTACK_CLIP_CONTACT_MS.Sword_Regular_C)).toBeLessThanOrEqual(
       CONTACT_TOLERANCE_MS,
@@ -292,10 +322,10 @@ describe('B. Contact frames re-measured from the shipping assets', () => {
   test('the two calibrated contact frames disagree by far more than the tolerance', () => {
     const light = ATTACK_CLIP_CONTACT_MS.Sword_Attack;
     const heavy = ATTACK_CLIP_CONTACT_MS.Sword_Regular_C;
-    // 140 ms stays far outside every uncertainty in this suite: 6 frames at
-    // 60 Hz, and >12x the largest per-body spread re-measured at the shipped
-    // C-8.81C body scale (11 ms). So the two clips still cannot share a rate.
-    expect(heavy - light).toBe(140);
+    // 152 ms stays far outside every uncertainty in this suite: 9 frames at
+    // 60 Hz, and >150x the per-body spread re-measured on the real tip (1 ms).
+    // So the two clips still cannot share a rate.
+    expect(heavy - light).toBe(152);
     expect(heavy - light).toBeGreaterThan(CONTACT_TOLERANCE_MS * 6);
   });
 });
@@ -335,12 +365,12 @@ describe('C. The rate is applied to the action, and the hit-stop does not shift 
     }
   });
 
-  test('at the shipped rate of 1 the action is 181 ms past contact at 700 ms', () => {
+  test('at the shipped rate of 1 the action is 154 ms past contact at 700 ms', () => {
     const { mixer, action } = freshAction(arenaGltf, 'Sword_Attack');
     expect(action.timeScale).toBe(1);
     for (let i = 0; i < 42; i++) mixer.update(frame);
     expect(action.time * 1000).toBeCloseTo(700, 6);
-    expect(action.time * 1000 - ATTACK_CLIP_CONTACT_MS.Sword_Attack).toBeCloseTo(181, 6);
+    expect(action.time * 1000 - ATTACK_CLIP_CONTACT_MS.Sword_Attack).toBeCloseTo(154, 6);
   });
 
   test('the hit-stop freezes the clip and resumes at the calibrated rate', () => {

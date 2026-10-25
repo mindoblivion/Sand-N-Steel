@@ -1,6 +1,7 @@
 /**
  * ===========================================================================
- * SAND & STEEL — ATTACK CONTACT-PHASE CALIBRATION (Phase C-8.80G)
+ * SAND & STEEL — ATTACK CONTACT-PHASE CALIBRATION (Phase C-8.80G, corrected by
+ * C-8.81D)
  * ===========================================================================
  *
  * The duel resolves damage at a FIXED time: the player's swing is committed at
@@ -10,24 +11,44 @@
  * at its own time — and at rate 1 it is already recovering by the time damage
  * resolves.
  *
- * MEASURED (throwaway harness, real `arena_roman.glb` / `gladius.glb` through a
- * real `AnimationMixer`, the shipped hierarchy: root scale = meshScale × body
- * correction, the gladius on `hand_r` inside the C-8.80E attachment group, the
- * defender on `Fighting_Idle` at the legal gladius distance of 2.1 with roots at
- * ±1.05). Contact = the clip time at which the blade TIP's world position is
- * closest to the defender's nearest skinned vertex:
+ * HOW THE CONTACT FRAME IS MEASURED (C-8.81D — the C-8.80G proxy was invalid)
  *
- *   clip                | duration | contact  | tip-to-defender at 700 ms
- *   --------------------|----------|----------|--------------------------
- *   Sword_Attack        |  1.917 s |  519 ms  | 2.032 (2.6x the contact gap)
- *   Sword_Regular_C     |  1.667 s |  659 ms  | 1.673 (2.9x the contact gap)
+ * C-8.80G sampled `attachment.localToWorld((0, box.max.y, 0))` and called it the
+ * blade tip. It is not: `box.max.y` is a length in the gladius SCENE's space,
+ * while the call interprets the point in the ATTACHMENT group's space, and the
+ * attachment carries the C-8.80E orientation group (+90° about X) so the blade
+ * leaves the grip along that group's +Z, not its +Y. At the fighting idle the
+ * proxy sat **1.4132** world units from the real point of the sword, which is why
+ * the old constants drifted to the tail of each swing.
  *
- * The same measurement on all five shipped bodies (arena_roman 1.00, amazonian
- * 0.61, dimachaerus 0.60, minotaur 0.77, netfighter 0.60) lands within 6 ms of
- * those figures — 517-523 ms and 659-661 ms — so the contact phase belongs to
- * the CLIP, not to the model wearing it, and one constant per clip is the
- * correct granularity. There is deliberately no universal multiplier: the two
- * clips disagree by far more than that spread.
+ * The measurement now follows the actual blade point through the complete
+ * animated world transform — `utils/bladeTip`'s `bladeTipWorld`, i.e. the
+ * geometry-space vertex with the greatest Y (the sword's point) pushed through
+ * `mesh.localToWorld` after the whole chain is current: geometry → mesh node →
+ * orientation group → attachment scale → animated `hand_r` bone → the attacker's
+ * root (position, yaw, `meshScale × correction`). Verified on the shipped assets:
+ * the point is 0.9996 from the pommel (C-8.80E's 1.000 world-unit blade) and the
+ * pommel sits 0.0017 from the hand bone's origin.
+ *
+ * Contact = the clip time at which that tip's world position is closest to the
+ * defender's nearest skinned vertex, measured with the defender on
+ * `Fighting_Idle` at 0.4. Reported at the **legal engagement distance of 1.8 m**
+ * (the 3.6 m opening less one 1.8 m Advance — the distance of the first legal
+ * attack), because at the 2.1 m maximum the tip never reaches the body at all
+ * (0.281 / 0.203 short) and "closest approach" there is not a contact pose.
+ *
+ *   clip                | duration | contact  | tip-to-defender at contact
+ *   --------------------|----------|----------|---------------------------
+ *   Sword_Attack        |  1.917 s |  546 ms  | 0.007 at 1.8 m (0.179 at 1.2 m)
+ *   Sword_Regular_C     |  1.667 s |  698 ms  | 0.007 at 1.8 m (0.126 at 1.2 m)
+ *
+ * At the shipped 700 ms impact and rate 1 the same tip is 0.519 / 0.828 away, so
+ * the C-8.80F symptom the calibration exists to remove is measured, not assumed.
+ *
+ * The contact phase belongs to the CLIP, not to the body: measured on the second
+ * shipped rig (`minotaur.glb`, correction 1.256) the same two minima land at
+ * 545 ms and 699 ms at 1.8 m, inside one 60 Hz frame, so one constant per clip is
+ * the correct granularity. There is deliberately no universal multiplier.
  *
  * HOW THE RATE IS DERIVED
  *
@@ -45,6 +66,10 @@
  * and its playback rate is simply `contact / window`. `mixer.timeScale` stays
  * the hit-stop's own channel (it multiplies the action's rate, so the freeze
  * still stops the clip exactly where it is) — this phase never touches it.
+ *
+ * Both constants stay strictly inside the 700 ms wind-up (546 and 698), so the
+ * calibrated rates remain below 1 (0.78 and 0.9971) and no other timer, rule or
+ * sequencing constant had to move.
  *
  * WHAT THIS DOES NOT CHANGE
  *
@@ -80,12 +105,16 @@ export const HIT_STOP_SAMPLE_LAG_MS = ATTACK_FRAME_MS;
  * Sword_Attack is the light attack's first mapped clip and Sword_Regular_C the
  * heavy attack's, for every shipped body — `resolveActionClip` picks them on all
  * five. A clip with no entry here plays at rate 1.
+ *
+ * Both values are the true blade tip's closest approach to the defender on the
+ * shipped `roman_warrior` body at 1.8 m (C-8.81D). The C-8.80G proxy's figures
+ * (519 / 659) are recorded in the module header only as the defect they were.
  */
 export const ATTACK_CLIP_CONTACT_MS: Readonly<Record<string, number>> = {
-  /** Light attack: the forward cut's closest approach to the defender. */
-  Sword_Attack: 519,
-  /** Heavy attack: the overhead smash's closest approach. */
-  Sword_Regular_C: 659,
+  /** Light attack: the diagonal cut landing on the defender's chest. */
+  Sword_Attack: 546,
+  /** Heavy attack: the overhead smash's lowest, deepest contact. */
+  Sword_Regular_C: 698,
 };
 
 /**

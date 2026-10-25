@@ -243,16 +243,16 @@ describe('C-8.80J §E — what this phase must not have changed', () => {
   });
 
   test('the C-8.80G attack-contact calibration is untouched', () => {
-    expect(ATTACK_CLIP_CONTACT_MS.Sword_Attack).toBe(519);
-    expect(ATTACK_CLIP_CONTACT_MS.Sword_Regular_C).toBe(659);
+    expect(ATTACK_CLIP_CONTACT_MS.Sword_Attack).toBe(546);
+    expect(ATTACK_CLIP_CONTACT_MS.Sword_Regular_C).toBe(698);
     expect(attackContactWindowMs()).toBe(PLAYER_ATTACK_WINDUP_MS);
     expect(PLAYER_ATTACK_WINDUP_MS).toBe(700);
     // The rates are still contact ÷ window — derived, not restated.
-    expect(attackPlaybackRateForClip('Sword_Attack')).toBeCloseTo(519 / 700, 12);
-    expect(attackPlaybackRateForClip('Sword_Regular_C')).toBeCloseTo(659 / 700, 12);
+    expect(attackPlaybackRateForClip('Sword_Attack')).toBeCloseTo(546 / 700, 12);
+    expect(attackPlaybackRateForClip('Sword_Regular_C')).toBeCloseTo(698 / 700, 12);
     // …and the duel scene carries no rate of its own.
-    expect(sceneCode).not.toContain('519');
-    expect(sceneCode).not.toContain('659');
+    expect(sceneCode).not.toContain('546');
+    expect(sceneCode).not.toContain('698');
   });
 
   test('the AI’s out-of-range split is unchanged (82 % advance / 18 % taunt)', () => {
