@@ -299,14 +299,27 @@ describe('CF-6 §A — boss gating', () => {
     expect(bossPresentationMoments(null)).toEqual([]);
   });
 
-  test('the roster’s four moment owners are exactly the four bosses', () => {
-    const owners = ALL_OPPONENTS.filter((o) => bossPresentationMoments(o).length > 0);
-    expect(owners.map((o) => o.id).sort()).toEqual(
-      ALL_OPPONENTS.filter((o) => o.isBoss === true).map((o) => o.id).sort(),
+  test('the roster’s four moment owners are exactly the four LADDER bosses', () => {
+    // D-1 — a FEATURE bout is a boss but owns NO presentation moment, so the
+    // owners are the LADDER's four; the feature five are asserted separately.
+    const ladderBosses = ALL_OPPONENTS.filter(
+      (o) => o.isBoss === true && o.featureBout !== true
     );
+    const owners = ALL_OPPONENTS.filter((o) => bossPresentationMoments(o).length > 0);
+    expect(owners.map((o) => o.id).sort()).toEqual(ladderBosses.map((o) => o.id).sort());
     expect(owners).toHaveLength(4);
     // Each owns exactly ONE moment — no boss gets a second boss's moment.
     for (const owner of owners) expect(bossPresentationMoments(owner)).toHaveLength(1);
+    // …and every FEATURE boss presents nothing at all, though it is a boss.
+    const featureBosses = ALL_OPPONENTS.filter((o) => o.featureBout === true);
+    expect(featureBosses).toHaveLength(5);
+    for (const bout of featureBosses) {
+      expect(bout.isBoss).toBe(true);
+      expect(bossPresentationMoments(bout)).toEqual([]);
+      for (const mechanic of MECHANICS) expect(bossPresentsMoment(bout, mechanic)).toBe(false);
+      // Its OWN mechanic owns no moment either — the data is inert this slice.
+      expect(bossPresentationMoments({ isBoss: true, bossMechanic: bout.bossMechanic })).toEqual([]);
+    }
   });
 
   test('every presentation site in the duel is behind the gate', () => {

@@ -96,6 +96,23 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
           </div>
         )}
 
+        {/* D-1 — A FEATURE BOUT'S CARD LINE, verbatim from its row. Identity
+            intel only: who he is and how he fights, in the design's own words.
+            The mechanic's numbers stay on the Tavern's deep card. */}
+        {opponent.featureBout === true && opponent.cardLine && (
+          <div
+            data-prefight-card-line={opponent.id}
+            className="bg-neutral-950 border border-emerald-800/60 rounded-2xl p-4 mb-4"
+          >
+            <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 mb-1">
+              The Bookmaker’s Line
+            </div>
+            <p className="text-xs sm:text-[13px] font-serif italic text-amber-100/90 leading-relaxed">
+              {opponent.cardLine}
+            </p>
+          </div>
+        )}
+
         <div className="bg-neutral-950 p-4 rounded-2xl border border-neutral-800 mb-6 flex flex-col gap-2 font-mono text-xs">
           <div className="flex justify-between">
             <span className="text-neutral-400">Weapon Style:</span>

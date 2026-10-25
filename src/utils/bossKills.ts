@@ -38,6 +38,8 @@ export interface BossKillRecord {
 export interface BossOpponent {
   id: string;
   isBoss?: boolean;
+  /** D-1 — carried so the rule can tell a LADDER boss from a Feature Bout. */
+  featureBout?: true;
 }
 
 /** A missing, non-finite or negative count reads as zero — never as NaN. */
@@ -69,7 +71,11 @@ export function nextBossKills(
 ): number {
   const stored = countOrZero(before?.bossKills);
 
-  if (!opponent || opponent.isBoss !== true) return stored;
+  // D-1 — only a LADDER boss is a campaign kill. A Feature Bout is a boss the
+  // player chose to face OUTSIDE the ladder, so it adds no stripe (and can never
+  // satisfy a rank or campaign gate that reads the count). The check is local on
+  // purpose: this module keeps its zero-import, pure contract.
+  if (opponent?.isBoss !== true || opponent.featureBout === true) return stored;
   const id = opponent.id;
   if (typeof id !== 'string' || id === '') return stored;
 

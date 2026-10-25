@@ -370,7 +370,7 @@ describe('CH-1 §E — the seven armaturae', () => {
 });
 
 // ── §F the palmae as data ─────────────────────────────────────────────────
-describe('CH-1 §F — the sixteen palmae', () => {
+describe("CH-1 §F — the palmae as data (CH-1's sixteen + D-1's ten)", () => {
   const toSnake = (name: string): string =>
     name
       .toLowerCase()
@@ -379,8 +379,10 @@ describe('CH-1 §F — the sixteen palmae', () => {
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '');
 
-  test('all sixteen are present, with snake_case ids derived from the names', () => {
-    expect(PALMAE).toHaveLength(16);
+  test('all twenty-six are present, with snake_case ids derived from the names', () => {
+    // D-1 — CH-1's sixteen rows plus the ten Feature Bout palms (five drops in the
+    // player pool, five carried boss-only).
+    expect(PALMAE).toHaveLength(26);
     for (const palma of PALMAE) {
       expect(palma.id, palma.name).toBe(toSnake(palma.name));
       expect(palma.name.length).toBeGreaterThan(2);
@@ -388,15 +390,25 @@ describe('CH-1 §F — the sixteen palmae', () => {
       expect(palma.sourceDetail.length).toBeGreaterThan(2);
       expect(palma.hookStages.length).toBeGreaterThan(0);
     }
-    expect(new Set(PALMAE.map((palma) => palma.id)).size).toBe(16);
+    expect(new Set(PALMAE.map((palma) => palma.id)).size).toBe(26);
   });
 
-  test('the pool is twelve and the boss-only set is four', () => {
-    expect(PALMAE_PLAYER_POOL).toHaveLength(12);
-    expect(PALMAE_BOSS_ONLY).toHaveLength(4);
+  test('the pool is seventeen and the boss-only set is nine', () => {
+    expect(PALMAE_PLAYER_POOL).toHaveLength(17);
+    expect(PALMAE_BOSS_ONLY).toHaveLength(9);
     expect(PALMAE_PLAYER_POOL.length + PALMAE_BOSS_ONLY.length).toBe(PALMAE.length);
     expect(PALMAE_BOSS_ONLY.map((palma) => palma.name).sort()).toEqual(
-      ['Colossus Hide', 'Pit Bellower', 'Pyre Brand', "Viper's Patience"].sort(),
+      [
+        'Blood-Scent',
+        'Colossus Hide',
+        'Old Craft',
+        'Pit Bellower',
+        'Pyre Brand',
+        "Survivor's Oath",
+        'Two Faces',
+        'Vainheart',
+        "Viper's Patience",
+      ].sort(),
     );
     expect(PALMAE_BOSS_ONLY.every((palma) => palma.bossOnly === true)).toBe(true);
   });
@@ -409,7 +421,7 @@ describe('CH-1 §F — the sixteen palmae', () => {
     expect(PALMAE_PLAYER_POOL.some((palma) => palma.bossOnly === true)).toBe(false);
   });
 
-  test('the player pool is exactly the design twelve', () => {
+  test('the player pool is the design twelve plus D-1\'s five drops', () => {
     expect(PALMAE_PLAYER_POOL.map((palma) => palma.name)).toEqual([
       'Executioner',
       'Shieldwall Discipline',
@@ -423,6 +435,12 @@ describe('CH-1 §F — the sixteen palmae', () => {
       'First Palm of the Crowd',
       'Phoenix Nerves',
       'Golden Laurel',
+      // D-1 — the five Feature Bout drops, appended in Part A's order.
+      "Hunter's Patience",
+      "Ward's Breath",
+      'Shieldbreaker',
+      'The Open Flank',
+      'Undying Name',
     ]);
   });
 
@@ -441,10 +459,27 @@ describe('CH-1 §F — the sixteen palmae', () => {
     expect(getPalma('golden_laurel')?.effect).toEqual({ goldMult: 1.1, fameMult: 1.1, xpMult: 0.95 });
     expect(getPalma('colossus_hide')?.effect).toEqual({ damageTakenMult: 0.92 });
     expect(getPalma('vipers_patience')?.effect).toEqual({ damageDealtMult: 1.2 });
+    // D-1 — the five drops' block data (their CONDITIONS are in `notes`).
+    expect(getPalma('hunters_patience')?.effect).toEqual({ damageDealtMult: 1.1 });
+    expect(getPalma('wards_breath')?.effect).toEqual({ onBlockStamina: 4 });
+    expect(getPalma('shieldbreaker')?.effect).toEqual({ damageDealtMult: 1.12 });
+    expect(getPalma('the_open_flank')?.effect).toEqual({ critChanceAdd: 0.2 });
+    expect(getPalma('undying_name')?.effect).toEqual({ fameMult: 1.12 });
   });
 
-  test('the two effects the block cannot hold are empty blocks with their condition noted', () => {
-    for (const id of ['pyre_brand', 'pit_bellower']) {
+  test('the effects the block cannot hold are empty blocks with their condition noted', () => {
+    // CH-1's two, plus D-1's five CARRIED palms — every one of them conditioned on
+    // a mechanic that does not exist yet, so wiring a magnitude would grant it
+    // unconditionally.
+    for (const id of [
+      'pyre_brand',
+      'pit_bellower',
+      'blood_scent',
+      'two_faces',
+      'vainheart',
+      'survivors_oath',
+      'old_craft',
+    ]) {
       expect(getPalma(id)?.effect, id).toEqual({});
       expect((getPalma(id)?.notes?.length ?? 0) > 0, id).toBe(true);
     }
@@ -480,10 +515,14 @@ describe('CH-1 §F — the sixteen palmae', () => {
     }
   });
 
-  test('the twelve player palmae merge into one block without colliding on ids', () => {
+  test('the seventeen player palmae merge into one block without colliding on ids', () => {
     const merged = mergeModifiers(PALMAE_PLAYER_POOL.map((palma) => palma.effect));
     expect(merged.blockReductionAdd).toBe(0.06);
-    expect(merged.damageDealtMult).toBeCloseTo(1.1 * 1.12 * 1.08 * 0.95, 10);
+    // CH-1's four damage multipliers, then D-1's two (Hunter's Patience 1.10 and
+    // Shieldbreaker 1.12); Undying Name is a reward-stage fame multiplier.
+    expect(merged.damageDealtMult).toBeCloseTo(1.1 * 1.12 * 1.08 * 0.95 * 1.1 * 1.12, 10);
+    expect(merged.fameMult).toBeCloseTo(1.1 * 1.12, 10);
+    expect(merged.critChanceAdd).toBeCloseTo(0.2, 10);
     expect(merged.staminaMaxAdd).toBe(12);
     expect(merged.comboShield).toBe(true);
   });

@@ -7,8 +7,9 @@ import type { TraitModifierBlock } from '../utils/traitModifiers';
  * A palma is a victory palm: a trait a gladiator earns and equips (up to
  * three).  It is NOT a Laurel — `laurels` is the separate Triumphs record.
  *
- * Sixteen rows, as data and nothing else: twelve the player can earn, four the
- * bosses alone carry.  Each row states where it comes from and at which hook
+ * Twenty-six rows, as data and nothing else: seventeen the player can earn (the
+ * twelve of CH-1 plus D-1's five Feature Bout drops), nine the bosses alone
+ * carry (CH-1's four plus D-1's five).  Each row states where it comes from and at which hook
  * stage its effect lands, and carries its effect in the shared
  * `TraitModifierBlock` shape.  A condition the block cannot express (a health
  * threshold, a stance, an attack type, a once-per-fight flag) is named in
@@ -175,6 +176,76 @@ export const PALMAE: Palma[] = [
     effect: { goldMult: 1.1, fameMult: 1.1, xpMult: 0.95 },
   },
 
+  // ── D-1 — the five Feature Bout drops (boss-rosters.md Part A) ───────────
+  // Appended to the pool; every row above is byte-identical. Each effect is
+  // BLOCK DATA ONLY (design §2.4's stages). Where the design's condition cannot
+  // be expressed by the block — a sequence ("first attack after a block"), an
+  // attack type ("a power attack"), a defender stance ("against a blocker"), an
+  // opponent class ("over bosses") — the magnitude still lands in the shape and
+  // the condition is stated in `notes`, with the hook FLAGGED in D-1's report.
+  // No plumbing was invented in this slice. `sourceDetail` names the boss whose
+  // first defeat drops the palm (the deed `utils/palmaeState.ts` already reads).
+  {
+    id: 'hunters_patience',
+    name: "Hunter's Patience",
+    description: 'Deal 10% more damage on your first attack after a successful block.',
+    source: 'boss-drop',
+    sourceDetail: 'Marcellin',
+    hookStages: ['damage'],
+    effect: { damageDealtMult: 1.1 },
+    notes: [
+      'Only the first attack after a successful block — a sequence condition the block cannot express (D-1 hook flagged: the rider needs a post-block counter).',
+    ],
+  },
+  {
+    id: 'wards_breath',
+    name: "Ward's Breath",
+    description: 'Blocking a power attack restores 4 extra stamina.',
+    source: 'boss-drop',
+    sourceDetail: 'Varro',
+    hookStages: ['event'],
+    effect: { onBlockStamina: 4 },
+    notes: [
+      'Only when the blocked attack was a POWER attack — an attack-type filter the block cannot express (D-1 hook flagged: the on-block stage must read the attack type).',
+    ],
+  },
+  {
+    id: 'shieldbreaker',
+    name: 'Shieldbreaker',
+    description: 'Deal 12% more damage against a blocking defender.',
+    source: 'boss-drop',
+    sourceDetail: 'Gnaeus',
+    hookStages: ['damage'],
+    effect: { damageDealtMult: 1.12 },
+    notes: [
+      'Only against a defender who is blocking — a defender-stance condition the block cannot express (D-1 hook flagged: the damage stage must read the defender state).',
+    ],
+  },
+  {
+    id: 'the_open_flank',
+    name: 'The Open Flank',
+    description: 'Your first power attack after a successful dodge gains 20% critical chance.',
+    source: 'boss-drop',
+    sourceDetail: 'Lucius',
+    hookStages: ['hit'],
+    effect: { critChanceAdd: 0.2 },
+    notes: [
+      'Only the first POWER attack after a successful dodge — a sequence and attack-type condition the block cannot express (D-1 hook flagged). The 0.60 crit cap still applies.',
+    ],
+  },
+  {
+    id: 'undying_name',
+    name: 'Undying Name',
+    description: 'Gain 12% more fame from victories over bosses.',
+    source: 'boss-drop',
+    sourceDetail: 'Hermas',
+    hookStages: ['reward'],
+    effect: { fameMult: 1.12 },
+    notes: [
+      'Only victories over BOSSES — the opponent class is not a field of the block (D-1 hook flagged: the reward stage must read the opponent).',
+    ],
+  },
+
   // ── boss-only (4) — never in the player pool ────────────────────────────
   {
     id: 'colossus_hide',
@@ -224,12 +295,86 @@ export const PALMAE: Palma[] = [
       'Drains 8 player stamina on his telegraph turn. A stamina drain has no field in the block shape.',
     ],
   },
+
+  // ── D-1 — the five Feature Bout CARRIED palms (boss-rosters.md Part A) ───
+  // Boss-only, one carrier each, never offered to the player. Their effects are
+  // EMPTY blocks on purpose: each magnitude is conditioned on a mechanic that
+  // does not exist in the tree yet (`beast_hunt`, `false_telegraph`,
+  // `unbroken_panoply`, `yoked_brothers`, `the_long_memory`), so wiring the block
+  // would grant it unconditionally — a combat change this slice forbids. The
+  // magnitude and its condition live in `notes` and land at the boss's own
+  // mechanic site in its D-slice.
+  {
+    id: 'blood_scent',
+    name: 'Blood-Scent',
+    description: "After the beast wounds the player, the master's next attack deals 20% more.",
+    source: 'boss-drop',
+    sourceDetail: 'Marcellin',
+    hookStages: ['damage'],
+    bossOnly: true,
+    effect: {},
+    notes: [
+      "A next-attack rider (+20%, expiring unused after that attack) conditioned on the beast's wound — no field in the block expresses it. Lands with `beast_hunt`.",
+    ],
+  },
+  {
+    id: 'two_faces',
+    name: 'Two Faces',
+    description: 'After a feint, his next true heavy attack deals 15% more.',
+    source: 'boss-drop',
+    sourceDetail: 'Varro',
+    hookStages: ['damage'],
+    bossOnly: true,
+    effect: {},
+    notes: [
+      'Conditional on a feint having just been thrown — a state condition the block cannot express. Lands with `false_telegraph`.',
+    ],
+  },
+  {
+    id: 'vainheart',
+    name: 'Vainheart',
+    description: 'When a pride piece breaks, his next two attacks deal 12% more.',
+    source: 'boss-drop',
+    sourceDetail: 'Gnaeus',
+    hookStages: ['damage'],
+    bossOnly: true,
+    effect: {},
+    notes: [
+      'A two-attack rider fired by a pride piece breaking — a counted state condition the block cannot express. Lands with `unbroken_panoply`.',
+    ],
+  },
+  {
+    id: 'survivors_oath',
+    name: "Survivor's Oath",
+    description: 'When one brother falls, the survivor swears an oath — it fires once.',
+    source: 'boss-drop',
+    sourceDetail: 'Lucius',
+    hookStages: ['event'],
+    bossOnly: true,
+    effect: {},
+    notes: [
+      'Fires once, on the pair losing a brother — an event and a once-per-fight flag, neither of them a block field. Lands with `yoked_brothers`.',
+    ],
+  },
+  {
+    id: 'old_craft',
+    name: 'Old Craft',
+    description: 'Each adaptation he adopts also grants +5% block chance, once per adoption.',
+    source: 'boss-drop',
+    sourceDetail: 'Hermas',
+    hookStages: ['event'],
+    bossOnly: true,
+    effect: {},
+    notes: [
+      'A per-adoption permanent bonus (+0.05 blockChance each time) — a stacking event the block cannot express. Lands with `the_long_memory`.',
+    ],
+  },
 ];
 
-/** The twelve palmae the player can earn — every row that is not boss-only. */
+/** The seventeen palmae the player can earn — every row that is not boss-only. */
 export const PALMAE_PLAYER_POOL: Palma[] = PALMAE.filter((palma) => palma.bossOnly !== true);
 
-/** The four palmae only a boss carries. */
+/** The nine palmae only a boss carries. */
 export const PALMAE_BOSS_ONLY: Palma[] = PALMAE.filter((palma) => palma.bossOnly === true);
 
 const PALMA_BY_ID: ReadonlyMap<string, Palma> = new Map(PALMAE.map((palma) => [palma.id, palma]));

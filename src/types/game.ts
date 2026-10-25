@@ -6,7 +6,52 @@ export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 
 export type AIPersonality = 'Aggressive' | 'Defensive' | 'Tricky' | 'Berserker';
 
-export type BossMechanic = 'heavy_telegraph' | 'phase_weapon_switch' | 'counter_dodge' | 'rage_mode_colossus';
+/**
+ * The four LADDER bosses' mechanics — the ones the duel actually runs, each with
+ * its own branch in `DuelScene` and its own presentation moment
+ * (`utils/bossPresentation.ts`).
+ */
+export type LadderBossMechanic =
+  | 'heavy_telegraph'
+  | 'phase_weapon_switch'
+  | 'counter_dodge'
+  | 'rage_mode_colossus';
+
+/**
+ * D-1 — the five FEATURE bouts' signature mechanics. Carried as inert data in
+ * this slice: no branch in the duel reads them, so a feature bout plays exactly
+ * as a standard boss fight until each boss's own D-slice wires its mechanic.
+ */
+export type FeatureBossMechanic =
+  | 'beast_hunt'
+  | 'false_telegraph'
+  | 'unbroken_panoply'
+  | 'yoked_brothers'
+  | 'the_long_memory';
+
+export type BossMechanic = LadderBossMechanic | FeatureBossMechanic;
+
+/**
+ * D-1 — a feature boss's authored presentation state name (boss-rosters.md
+ * Part A). In this slice the NAME is data only: the AI-4 presentation key map
+ * that would dress it is not in the tree, so every feature boss keeps the
+ * standard boss loge dressing (`data/bossPresentationStates.ts`).
+ */
+export type BossPresentationState = 'dawn' | 'high-noon' | 'gilded' | 'brothers' | 'dusk';
+
+/**
+ * D-1 — what a Feature Bout asks of a profile before it can be entered. Every
+ * condition is inclusive and every value is data: no gate is restated in a
+ * component, and the words the tab prints are built from this shape.
+ */
+export interface FeatureBoutGate {
+  /** The DERIVED rank (`utils/rank.ts`) the bout demands. */
+  rank: PlayerProfile['rank'];
+  /** A ladder boss whose first defeat the bout demands, by roster id. */
+  bossDefeatedId?: string;
+  /** The tier the player must have REACHED (`currentTier` >= this). */
+  tierReached?: number;
+}
 
 export type CharacterModelType = 'roman_warrior' | 'procedural_gladiator' | 'amazonian' | 'retiarius' | 'minotaur' | 'dimachaerus';
 
@@ -203,6 +248,22 @@ export interface OpponentConfig {
    */
   palmae?: string[];
   bossMechanic?: BossMechanic;
+  /**
+   * D-1 — a Feature Bout: a boss faced outside the tier ladder. Appended to the
+   * roster so saves keep their ids; it is NOT a ladder rung (`fightIndex` 0), it
+   * never advances `currentTier`, never counts as a `bossKills` kill and never
+   * satisfies another bout's boss gate (`isLadderBoss` in this module's data).
+   */
+  featureBout?: true;
+  /** D-1 — the bout's gate, as data. Read by `utils/featureBouts.ts` only. */
+  gate?: FeatureBoutGate;
+  /**
+   * D-1 — the boss card's line, verbatim from boss-rosters.md Part A. Printed on
+   * the pre-fight card at identity-intel depth; never restated in a component.
+   */
+  cardLine?: string;
+  /** D-1 — the authored presentation state NAME (the AI-4 key map is deferred). */
+  presentationState?: BossPresentationState;
   phase2WeaponType?: WeaponType;
   guaranteedDrop?: WeaponItem | ArmorItem;
   loadout?: FighterLoadout;
