@@ -7233,3 +7233,42 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   slip: sand at her feet as the counter is queued; (e) a standard duel (Marcus, Flaccus) producing
   none of it. Still open from earlier phases: C-8.28, C-8.29, C-8.31/C-8.33, C-8.38, C-8.41,
   C-8.64A/B, C-8.65 and the CL-1/CL-2 coach-mark readings.
+
+## Boss rosters — Feature Bouts framework and boss data (Slice D-1 — implemented)
+
+- **What ships.** Five Feature Bout bosses appended to `src/data/opponents.ts`, the ten palms that go
+  with them (`src/data/palmae.ts`), a pure availability resolver (`src/utils/featureBouts.ts`), the
+  five authored presentation-state NAMES (`src/data/bossPresentationStates.ts`), a Feature Bouts
+  section on the Colosseum tab and the boss card line on the pre-fight card.
+- **The one structural rule: `isLadderBoss()`** (`src/data/opponents.ts`, also exported as
+  `LADDER_OPPONENTS` / `FEATURE_BOUT_OPPONENTS`). A feature bout carries `isBoss: true` **and**
+  `featureBout: true`; every ladder consumer asks the predicate rather than `isBoss` alone —
+  `resolveVictoryTier` + `resolveDoorDuelTarget` (`utils/tierAdvancement.ts`), `nextBossKills`
+  (`utils/bossKills.ts`, which keeps its zero-import purity and therefore repeats the two-line test)
+  and `deriveRank`'s tier-4 evidence (`utils/rank.ts`). Otherwise a tier-2 feature win would advance
+  `currentTier` to 3 with Ignis still standing. `PRIMUS_PALUS_LADDER` is the ladder only.
+- **Feature mechanics are INERT data this slice.** `BossMechanic` is now
+  `LadderBossMechanic | FeatureBossMechanic`; `DuelScene` branches on the four ladder literals and
+  ignores the rest, `bossPresentation`'s moment table and gate are keyed on
+  `isLadderBossMechanic`, and `TournamentTab`'s `BOSS_MECHANIC_LABELS` needs a text for all nine
+  because the record is exhaustive. A feature bout duels as a clean standard boss fight.
+- **Carried palms are EMPTY blocks on purpose.** `blood_scent`, `two_faces`, `vainheart`,
+  `survivors_oath`, `old_craft` are `bossOnly: true` with `effect: {}` and their magnitude in
+  `notes`, because `buildOpponentModifiers` merges a carried palm's block unconditionally — a
+  magnitude there would be a live combat change. The five drops (`hunters_patience`, `wards_breath`,
+  `shieldbreaker`, `the_open_flank`, `undying_name`) DO carry block data at their §2.4 stage, with
+  the sequence/attack-type/stance/class condition flagged in `notes`; `the_open_flank` is the only
+  row in the game carrying `critChanceAdd`.
+- **Gates are data.** `OpponentConfig.gate` is `{ rank, bossDefeatedId?, tierReached? }`;
+  `featureBoutGateText` builds Part A's sentence from `RANK_THRESHOLDS` and the roster, so no gate
+  wording or purse lives in a component. Gnaeus's gate names no boss — it is `tierReached: 4`, per the
+  design.
+- **Deferred, deliberately:** the **AI-4 presentation key map**. The five state names are stored
+  (`authorPresentationState`), every boss stands in `STANDARD_BOSS_AMBIENT_STATE`
+  (`presentationStateInForce`), and nothing in the tree dresses an authored name yet.
+- **Verify with** `bun test src/utils/featureBouts.test.ts` — it deep-equals the twelve pre-D-1 rows
+  against `src/utils/preD1Opponents.ts` (a generated fixture: **do not edit it**; a change means a
+  pre-existing row moved), drives the gate matrix, and asserts the result-flow invariants above.
+  `opponentsLadder`, `bossKills`, `tierAdvancement`, `palmaeState`, `traitModifiers`,
+  `combatPlumbing`, `intel`, `bossPresentation` and `storyChapterOne`'s P7 counts were rebased to
+  the new roster (12 ladder + 5 feature bouts; 26 palms = 17 pool + 9 carried).

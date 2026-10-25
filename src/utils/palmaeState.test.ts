@@ -153,7 +153,7 @@ describe('CH-5 §B — the earn checks are idempotent', () => {
     expect(second.profile.palmae?.unlocked).toEqual(['executioner']);
   });
 
-  test('a full sweep of every deed source fires exactly the ten earned palms', () => {
+  test('a full sweep of every deed source fires exactly the fifteen earned palms', () => {
     const record: PalmaDeedRecord = {
       fame: 1500,
       currentTier: 4,
@@ -163,6 +163,13 @@ describe('CH-5 §B — the earn checks are idempotent', () => {
         bossId('Ignis'),
         bossId('Valéria'),
         bossId('Aurelius'),
+        // D-1 — every Feature Bout whose first defeat drops a palm, so the sweep
+        // is COMPLETE rather than only the ladder's drops.
+        bossId('Marcellin'),
+        bossId('Varro'),
+        bossId('Gnaeus'),
+        bossId('Lucius'),
+        bossId('Hermas'),
       ],
       fightsWon: SAND_SPRINTER_FIGHTS_WON,
       peakCrowdHypeOverall: PHOENIX_NERVES_HYPE,
@@ -170,7 +177,8 @@ describe('CH-5 §B — the earn checks are idempotent', () => {
 
     const earned = earnedIds(record);
     expect(earned).toEqual(EARNED_PALMAE.map((palma) => palma.id));
-    expect(earned).toHaveLength(10);
+    // The ten CH-1 deeds plus D-1's five Feature Bout drops.
+    expect(earned).toHaveLength(15);
 
     // Every earned row is a player-pool row; no boss-only row and no sold row.
     for (const id of earned) {
@@ -185,11 +193,13 @@ describe('CH-5 §B — the earn checks are idempotent', () => {
     }
   });
 
-  test('the sweep is complete: 12 pool rows = 10 earned + 2 sold', () => {
-    expect(EARNED_PALMAE).toHaveLength(10);
+  test('the sweep is complete: 17 pool rows = 15 earned + 2 sold', () => {
+    // D-1 appended five drops to the pool: 12 + 5 = 17, of which the Doctore
+    // still sells exactly two.
+    expect(EARNED_PALMAE).toHaveLength(15);
     expect(DOCTORE_PALMAE).toHaveLength(2);
     expect(EARNED_PALMAE.length + DOCTORE_PALMAE.length).toBe(PALMAE_PLAYER_POOL.length);
-    expect(PALMAE_PLAYER_POOL).toHaveLength(12);
+    expect(PALMAE_PLAYER_POOL).toHaveLength(17);
   });
 
   test('a record already owning the palms earns nothing, however it is replayed', () => {

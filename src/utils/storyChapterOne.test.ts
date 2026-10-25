@@ -479,7 +479,8 @@ describe('P7 — the Primus Palus board derives everything it shows', () => {
   test('the challengers’ row is the ladder in order, without the champion', () => {
     const champion = primusPalusChampion();
     const challengers = primusPalusChallengers();
-    expect(challengers.length).toBe(ALL_OPPONENTS.length - 1);
+    // The plaque lists the LADDER: D-1's five feature bouts are not rungs of it.
+    expect(challengers.length).toBe(PRIMUS_PALUS_LADDER.length - 1);
     expect(challengers.some((opponent) => opponent.id === champion?.id)).toBe(false);
     // Ladder order: tier first, then the rung.
     const order = PRIMUS_PALUS_LADDER.map((opponent) => opponent.id).filter(

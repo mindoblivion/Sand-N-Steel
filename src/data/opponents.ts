@@ -1,5 +1,27 @@
 import { OpponentConfig } from '../types/game';
 
+/**
+ * D-1 — is this opponent a boss OF THE TIER LADDER?
+ *
+ * A Feature Bout is a boss (`isBoss`) but not a rung: it is fought outside the
+ * tier ladder, so it must never advance `currentTier`, never add a `bossKills`
+ * stripe and never satisfy a rank or campaign gate that means "the ladder's
+ * champion of tier N fell". Every ladder consumer asks this predicate rather
+ * than `isBoss` alone:
+ *
+ *   • `resolveVictoryTier` / `resolveDoorDuelTarget`  — `utils/tierAdvancement.ts`
+ *   • `nextBossKills`                                — `utils/bossKills.ts`
+ *   • `deriveRank`'s tier-4 condition                — `utils/rank.ts`
+ *
+ * The predicate is total: a missing opponent, or one with neither flag, is not
+ * a ladder boss.
+ */
+export function isLadderBoss(
+  opponent: Pick<OpponentConfig, 'isBoss' | 'featureBout'> | null | undefined
+): boolean {
+  return opponent?.isBoss === true && opponent.featureBout !== true;
+}
+
 export const TOURNAMENT_TIERS = [
   {
     tier: 1,
@@ -502,12 +524,273 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     bossMechanic: 'rage_mode_colossus',
     characterModel: 'roman_warrior',
   },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // D-1 — FEATURE BOUTS (boss-rosters.md Part A). APPENDED ONLY: every row above
+  // this line is byte-identical, so every save's ids still resolve. A feature
+  // bout is a BOSS faced OUTSIDE the tier ladder:
+  //
+  //   • `fightIndex: 0` — "no rung", the same marker `DOCTORE_TEST_OPPONENT`
+  //     uses, so no tier's rung list gains an entry;
+  //   • `isBoss: true` — it keeps the boss music, HUD and card treatment, and the
+  //     boss-only palm fence still holds;
+  //   • `featureBout: true` + `isLadderBoss()` — it never advances `currentTier`,
+  //     never adds a `bossKills` stripe and never satisfies a rank/campaign gate;
+  //   • `gate` — the availability rule as DATA (`utils/featureBouts.ts` reads it
+  //     and builds the words the tournament tab prints);
+  //   • `cardLine` — the boss card's line, verbatim from Part A;
+  //   • `presentationState` — the authored state NAME. AI-4's key map is not in
+  //     the tree, so the name is data only and the AI-4 extension is DEFERRED;
+  //     in this slice every feature boss uses the standard boss loge dressing.
+  //
+  // Their mechanics (`beast_hunt`, `false_telegraph`, `unbroken_panoply`,
+  // `yoked_brothers`, `the_long_memory`) are INERT here: no branch in the duel
+  // reads them, so a feature bout plays as a clean standard boss-tier fight until
+  // each boss's own D-slice wires its mechanic. Their carried boss-only palm has
+  // an EMPTY effect block for the same reason — the magnitude lives in `notes`
+  // until the mechanic site exists.
+  //
+  // No `armatura`: Part A names no one of the seven classes for any of the five
+  // (Marcellin's is a Bestiarius spear kit), and a wrong class is worse than no
+  // class — the Director addendum's armatura rule.
+  // ══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'opp_marcellin_boss',
+    name: 'Marcellin the Beastmaster',
+    title: 'Beastmaster of Nineveh (Feature Bout)',
+    tier: 2,
+    fightIndex: 0,
+    isBoss: true,
+    featureBout: true,
+    difficulty: 'champion',
+    weaponType: 'spear',
+    personality: 'Tricky',
+    recommendedLevel: 4,
+    gate: { rank: 'Veteran', bossDefeatedId: 'opp_ignis_boss' },
+    cardLine:
+      'Marcellin hunts with his lion Ferrum. Every third exchange the beast crouches, then pounces — strike it while it crouches, or block the pounce. Three wounds drive it off.',
+    presentationState: 'dawn',
+    palmae: ['blood_scent'],
+    // Anchored between Brutus (14/12, 108/19, def 8, 160 HP) and the tier's boss
+    // Ignis (18/17, 140/22, def 8, 230 HP): a veteran huntsman above the rung
+    // rivals, below the champion — and a spear's reach on top of the beast.
+    stats: {
+      strength: 15,
+      agility: 16,
+      staminaMax: 118,
+      staminaRegen: 20,
+      defense: 8,
+      healthMax: 200,
+    },
+    skinColor: '#b07d62',
+    hairColor: '#27272a',
+    tunicColor: '#78350f',
+    armorColor: '#a16207',
+    aggression: 0.6,
+    blockChance: 0.4,
+    dodgeChance: 0.45,
+    rewardGold: 260,
+    rewardFame: 60,
+    rewardXp: 180,
+    meshScale: 1.04,
+    bossMechanic: 'beast_hunt',
+    characterModel: 'roman_warrior',
+  },
+  {
+    id: 'opp_varro_boss',
+    name: 'Varro "The Mirage"',
+    title: 'Feint-Master of the Grand Amphitheater (Feature Bout)',
+    tier: 3,
+    fightIndex: 0,
+    isBoss: true,
+    featureBout: true,
+    difficulty: 'champion',
+    weaponType: 'dual_blades',
+    personality: 'Tricky',
+    recommendedLevel: 7,
+    gate: { rank: 'Champion', bossDefeatedId: 'opp_valeria_boss' },
+    cardLine:
+      "Varro's wind-ups lie. Watch his feet: a planted stance means the blow is real; a light foot means a feint. When in doubt, block — a feint is only a quick strike.",
+    presentationState: 'high-noon',
+    palmae: ['two_faces'],
+    // Anchored inside the tier-3 band: Drusus (22/14, 130/20, def 14, 260 HP),
+    // Kallias (23/16, 142/22, def 13, 285), the Pale Twins (24/20, 152/24, def 12,
+    // 300), Valéria (25/22, 160/26, def 12, 320). Varro is the fast, lightly
+    // armoured liar of the tier: agility at the rival band's top, defence below it.
+    stats: {
+      strength: 21,
+      agility: 23,
+      staminaMax: 150,
+      staminaRegen: 24,
+      defense: 10,
+      healthMax: 300,
+    },
+    skinColor: '#c68642',
+    hairColor: '#0f172a',
+    tunicColor: '#312e81',
+    armorColor: '#94a3b8',
+    aggression: 0.65,
+    blockChance: 0.4,
+    dodgeChance: 0.6,
+    rewardGold: 520,
+    rewardFame: 165,
+    rewardXp: 330,
+    meshScale: 1.02,
+    bossMechanic: 'false_telegraph',
+    characterModel: 'roman_warrior',
+  },
+  {
+    id: 'opp_gnaeus_boss',
+    name: 'Gnaeus "The Gilded"',
+    title: 'Undercard of the Pantheon (Feature Bout)',
+    tier: 4,
+    fightIndex: 0,
+    isBoss: true,
+    featureBout: true,
+    difficulty: 'champion',
+    weaponType: 'sword_shield',
+    personality: 'Defensive',
+    recommendedLevel: 10,
+    // Part A: "Champion (deriveRank) ∧ Tier 3 cleared (currentTier 4 reached) —
+    // NOT a boss-defeat id". Encoded exactly as the tier condition.
+    gate: { rank: 'Champion', tierReached: 4 },
+    cardLine:
+      'Gnaeus fights behind three gilt pride-pieces — crest, shield facing, pauldron — each guarding him while it shines. Power attacks crack them even through his block. Strip the gold, and the man shrinks.',
+    presentationState: 'gilded',
+    palmae: ['vainheart'],
+    // Anchored below the summit Aurelius (34/20, 200/30, def 20, 480 HP) and above
+    // the tier-3 champions: a heavy, shield-first man whose pride is his armour.
+    stats: {
+      strength: 28,
+      agility: 18,
+      staminaMax: 180,
+      staminaRegen: 27,
+      defense: 19,
+      healthMax: 390,
+    },
+    skinColor: '#d4a373',
+    hairColor: '#a16207',
+    tunicColor: '#78350f',
+    armorColor: '#eab308',
+    aggression: 0.6,
+    blockChance: 0.75,
+    dodgeChance: 0.25,
+    rewardGold: 800,
+    rewardFame: 300,
+    rewardXp: 520,
+    meshScale: 1.1,
+    bossMechanic: 'unbroken_panoply',
+    characterModel: 'roman_warrior',
+  },
+  {
+    id: 'opp_cotta_boss',
+    name: 'Lucius & Gaius Cotta',
+    title: 'The Yoked Brothers (Feature Bout)',
+    tier: 2,
+    fightIndex: 0,
+    isBoss: true,
+    featureBout: true,
+    difficulty: 'champion',
+    weaponType: 'dual_blades',
+    personality: 'Aggressive',
+    recommendedLevel: 4,
+    gate: { rank: 'Veteran', bossDefeatedId: 'opp_ignis_boss' },
+    cardLine:
+      'The Cotta brothers fight as one. Every fourth exchange they cross — one telegraphs, the other circles to your flank. Dodge the crossing. Down one, and the other swears an oath.',
+    presentationState: 'brothers',
+    // Carried by the pair's ONE row, as Part A states ("carried by the pair's
+    // row, fires once").
+    palmae: ["survivors_oath"],
+    // One config for the pair, exactly as the Pale Twins are one config: the duo
+    // model, two blades, and stats just under Marcellin's (the tier's other
+    // feature bout) and well under Ignis (18/17, 140/22, def 8, 230 HP).
+    stats: {
+      strength: 14,
+      agility: 15,
+      staminaMax: 110,
+      staminaRegen: 19,
+      defense: 6,
+      healthMax: 195,
+    },
+    skinColor: '#8d5b4c',
+    hairColor: '#1c1917',
+    tunicColor: '#7f1d1d',
+    armorColor: '#b91c1c',
+    aggression: 0.8,
+    blockChance: 0.35,
+    dodgeChance: 0.5,
+    rewardGold: 240,
+    rewardFame: 55,
+    rewardXp: 170,
+    bossMechanic: 'yoked_brothers',
+    characterModel: 'dimachaerus',
+  },
+  {
+    id: 'opp_hermas_boss',
+    name: 'Hermas the Legend Returned',
+    title: 'Epilogue Champion (Feature Bout)',
+    tier: 4,
+    fightIndex: 0,
+    isBoss: true,
+    featureBout: true,
+    difficulty: 'champion',
+    weaponType: 'sword_shield',
+    personality: 'Defensive',
+    recommendedLevel: 10,
+    // Part A: Legend rank AND "Tier-4 boss defeated — i.e., Aurelius defeated".
+    gate: { rank: 'Legend', bossDefeatedId: 'opp_aurelius_boss' },
+    cardLine:
+      'Hermas took the wooden sword a generation ago. He adapts as you fight: lean on one kind of attack past three-in-five, and he sets himself against it — twice. Fight him whole, or be read.',
+    presentationState: 'dusk',
+    palmae: ['old_craft'],
+    // An EPILOGUE, not a new summit: the last bout stands above Aurelius' rivals
+    // but below the Titan himself (34/20, 200/30, def 20, 480 HP) — a veteran's
+    // patience rather than a Titan's mass.
+    stats: {
+      strength: 31,
+      agility: 24,
+      staminaMax: 195,
+      staminaRegen: 30,
+      defense: 17,
+      healthMax: 450,
+    },
+    skinColor: '#a0522d',
+    hairColor: '#e7e5e4',
+    tunicColor: '#3f3f46',
+    armorColor: '#d6d3d1',
+    aggression: 0.7,
+    blockChance: 0.65,
+    dodgeChance: 0.5,
+    rewardGold: 1250,
+    rewardFame: 600,
+    rewardXp: 700,
+    meshScale: 1.05,
+    bossMechanic: 'the_long_memory',
+    characterModel: 'roman_warrior',
+  },
 ];
+
+/**
+ * The ladder proper — every opponent that is a rung or a tier's boss. The
+ * feature bouts are NOT here: they are their own list, and `fightIndex: 0` keeps
+ * them out of any tier's rung order.
+ */
+export const LADDER_OPPONENTS: OpponentConfig[] = ALL_OPPONENTS.filter(
+  (opponent) => opponent.featureBout !== true
+);
+
+/** D-1 — the five Feature Bouts, in the order Part A presents them. */
+export const FEATURE_BOUT_OPPONENTS: OpponentConfig[] = ALL_OPPONENTS.filter(
+  (opponent) => opponent.featureBout === true
+);
 
 /**
  * The Primus Palus ladder in ladder order — tier first, then fight
  * (`src/data/opponents.ts` is the cast of record). Includes the bosses.
+ *
+ * D-1 — the FEATURE BOUTS are excluded: the plaque is the ladder's hundred-year
+ * list, and a feature bout is not a rung of it.
  */
-export const PRIMUS_PALUS_LADDER: OpponentConfig[] = [...ALL_OPPONENTS].sort(
+export const PRIMUS_PALUS_LADDER: OpponentConfig[] = [...LADDER_OPPONENTS].sort(
   (a, b) => a.tier - b.tier || a.fightIndex - b.fightIndex
 );

@@ -32,7 +32,10 @@ import { fileURLToPath } from 'node:url';
 import {
   ALL_OPPONENTS,
   DOCTORE_TEST_OPPONENT,
+  FEATURE_BOUT_OPPONENTS,
+  LADDER_OPPONENTS,
   PRIMUS_PALUS_LADDER,
+  isLadderBoss,
 } from '../data/opponents';
 import { ARMATURA_IDS, getArmatura } from '../data/armaturae';
 import { PALMAE, PALMAE_BOSS_ONLY, getPalma } from '../data/palmae';
@@ -339,8 +342,10 @@ describe('CH-4 §B — the eight originals are byte-for-byte their pre-CH-4 selv
 // §C — the ladder
 // ════════════════════════════════════════════════════════════════════════════
 
+// The LADDER's roster of a tier: D-1 appended five feature bouts, which are
+// bosses of a VENUE tier but not rungs of it, so they are listed separately.
 const tierRoster = (tier: number) =>
-  ALL_OPPONENTS.filter((opponent) => opponent.tier === tier)
+  ALL_OPPONENTS.filter((opponent) => opponent.tier === tier && opponent.featureBout !== true)
     .slice()
     .sort((a, b) => a.fightIndex - b.fightIndex)
     .map((opponent) => opponent.id);
@@ -452,19 +457,31 @@ describe('CH-4 §C — the ladder order the design intends', () => {
     }
   });
 
-  test('the roster stays tier-then-rung ordered and rungs are unique within a tier', () => {
-    const ranks = ALL_OPPONENTS.map((opponent) => opponent.tier * 100 + opponent.fightIndex);
+  test('the LADDER stays tier-then-rung ordered and rungs are unique within a tier', () => {
+    // D-1 — the LADDER only: the feature bouts are appended at the end with
+    // `fightIndex: 0` ("no rung"), so they are asserted separately below.
+    const ranks = LADDER_OPPONENTS.map((opponent) => opponent.tier * 100 + opponent.fightIndex);
     expect([...ranks].sort((a, b) => a - b)).toEqual(ranks);
     for (const tier of [1, 2, 3, 4]) {
-      const rungs = ALL_OPPONENTS.filter((opponent) => opponent.tier === tier).map((o) => o.fightIndex);
+      const rungs = LADDER_OPPONENTS.filter((opponent) => opponent.tier === tier).map(
+        (o) => o.fightIndex
+      );
       expect(new Set(rungs).size, `tier ${tier}`).toBe(rungs.length);
     }
+    // Every feature bout declares NO rung and is no ladder boss.
+    expect(FEATURE_BOUT_OPPONENTS).toHaveLength(5);
+    for (const bout of FEATURE_BOUT_OPPONENTS) {
+      expect(bout.fightIndex).toBe(0);
+      expect(isLadderBoss(bout)).toBe(false);
+    }
+    for (const ladderRow of LADDER_OPPONENTS) expect(ladderRow.featureBout).toBeUndefined();
   });
 
-  test('PRIMUS_PALUS_LADDER is the whole roster, tier then rung', () => {
-    expect(PRIMUS_PALUS_LADDER.length).toBe(ALL_OPPONENTS.length);
+  test('PRIMUS_PALUS_LADDER is the LADDER, tier then rung', () => {
+    // D-1 — the plaque is the ladder's list: the five feature bouts are NOT on it.
+    expect(PRIMUS_PALUS_LADDER.length).toBe(LADDER_OPPONENTS.length);
     expect(PRIMUS_PALUS_LADDER.map((opponent) => opponent.id)).toEqual(
-      [...ALL_OPPONENTS]
+      [...LADDER_OPPONENTS]
         .sort((a, b) => a.tier - b.tier || a.fightIndex - b.fightIndex)
         .map((opponent) => opponent.id),
     );
@@ -472,8 +489,10 @@ describe('CH-4 §C — the ladder order the design intends', () => {
     expect(PRIMUS_PALUS_LADDER.map((o) => o.id)).not.toContain('opp_doctore_sextus');
   });
 
-  test('the roster grew by exactly the four rivals — nothing was removed', () => {
-    expect(ALL_OPPONENTS.length).toBe(12);
+  test('the roster grew by the four rivals and D-1 five feature bouts — nothing was removed', () => {
+    // 12 ladder rows (the CH-4 roster) + D-1's five feature bouts, appended.
+    expect(ALL_OPPONENTS.length).toBe(17);
+    expect(LADDER_OPPONENTS.length).toBe(12);
     const ids = ALL_OPPONENTS.map((opponent) => opponent.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const rival of ['opp_brutus_anvil', 'opp_naija_fisher', 'opp_kallias_sparta', 'opp_pale_twins']) {

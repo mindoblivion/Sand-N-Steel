@@ -28,7 +28,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PlayerProfile } from '../types/game';
-import { ALL_OPPONENTS, TOURNAMENT_TIERS } from '../data/opponents';
+import { ALL_OPPONENTS, FEATURE_BOUT_OPPONENTS, TOURNAMENT_TIERS } from '../data/opponents';
 import {
   INTEL_PRICE,
   getIntelPurchaseEligibility,
@@ -89,14 +89,22 @@ describe('S7 §A the tavern’s price and its list', () => {
     expect(INTEL_PRICE).toBe(15);
   });
 
-  test('the tavern offers every tournament opponent, in roster order', () => {
+  test('the tavern offers every tournament opponent: the ladder, then the feature bouts', () => {
     const targets = intelTargets(bareProfile());
     expect(targets.map((opponent) => opponent.id)).toEqual(
       ALL_OPPONENTS.map((opponent) => opponent.id),
     );
-    // Roster order is tier then fight index, so the list reads down the ladder.
-    const ranks = targets.map((opponent) => opponent.tier * 10 + opponent.fightIndex);
+    // D-1 — the LADDER rows still read tier then fight index (the list reads down
+    // the ladder); the five feature bouts are APPENDED with `fightIndex: 0` ("no
+    // rung"), so they are their own block at the end rather than a rung of a tier.
+    const ladder = targets.filter((opponent) => opponent.featureBout !== true);
+    const ranks = ladder.map((opponent) => opponent.tier * 10 + opponent.fightIndex);
     expect([...ranks].sort((a, b) => a - b)).toEqual(ranks);
+    const feature = targets.filter((opponent) => opponent.featureBout === true);
+    expect(feature.map((opponent) => opponent.id)).toEqual(
+      FEATURE_BOUT_OPPONENTS.map((opponent) => opponent.id),
+    );
+    expect(targets.slice(ladder.length)).toEqual(feature);
   });
 
   test('only ladder opponents are on sale — never the off-ladder Doctore test', () => {

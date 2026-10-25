@@ -665,8 +665,13 @@ describe('CH-3a §H — the hit stage', () => {
     expect(critChanceFor({ ...EMPTY_MODIFIERS, block: { critChanceAdd: -2 } })).toBe(0);
   });
 
-  test('no CH-1 row carries critChanceAdd today (identity by data)', () => {
-    for (const palma of PALMAE) expect(palma.effect.critChanceAdd, palma.id).toBeUndefined();
+  test("exactly ONE row carries critChanceAdd: D-1's The Open Flank", () => {
+    // D-1 — its data is the hit stage's own field (design §2.4: "first power attack
+    // after a dodge gains +0.20 crit"); the sequence condition is a FLAGGED hook,
+    // so the magnitude is all the block can honestly carry. No other row adds one.
+    const carriers = PALMAE.filter((palma) => palma.effect.critChanceAdd !== undefined);
+    expect(carriers.map((palma) => palma.id)).toEqual(['the_open_flank']);
+    expect(carriers[0].effect.critChanceAdd).toBeCloseTo(0.2, 10);
   });
 });
 

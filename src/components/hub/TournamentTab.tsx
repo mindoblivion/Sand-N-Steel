@@ -1,6 +1,7 @@
 import React from 'react';
 import { PlayerProfile, OpponentConfig } from '../../types/game';
 import { TOURNAMENT_TIERS, ALL_OPPONENTS } from '../../data/opponents';
+import { featureBoutStatuses } from '../../utils/featureBouts';
 import { Swords, Trophy, Skull, Play, Lock, CheckCircle, Shield } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { PrimusPalusBoard } from './PrimusPalusBoard';
@@ -22,6 +23,13 @@ const BOSS_MECHANIC_LABELS: Record<NonNullable<OpponentConfig['bossMechanic']>, 
   phase_weapon_switch: 'Changes weapon in the second phase',
   counter_dodge: 'Counters out of a dodge',
   rage_mode_colossus: 'Falls into a rage when wounded',
+  // D-1 — the feature-bout signatures, named on the tavern's deep card only.
+  // The mechanic itself is inert: no duel branch reads these strings yet.
+  beast_hunt: 'Hunts with a beast that crouches, then pounces',
+  false_telegraph: 'His wind-ups lie — some are feints',
+  unbroken_panoply: 'Fights behind gilt pride-pieces that crack and shrink him',
+  yoked_brothers: 'Fights as a pair, crossing to your flank',
+  the_long_memory: 'Adapts against whatever attack you lean on',
 };
 
 interface TournamentTabProps {
@@ -31,7 +39,12 @@ interface TournamentTabProps {
 
 export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectOpponent }) => {
   const currentTierInfo = TOURNAMENT_TIERS.find((t) => t.tier === profile.currentTier) || TOURNAMENT_TIERS[0];
-  const tierOpponents = ALL_OPPONENTS.filter((o) => o.tier === profile.currentTier);
+  // D-1 — the ladder list is the ladder only: a Feature Bout is never a rung of
+  // the tier the player is fighting in, and it is listed in its own section.
+  const tierOpponents = ALL_OPPONENTS.filter(
+    (o) => o.tier === profile.currentTier && o.featureBout !== true
+  );
+  const featureBouts = featureBoutStatuses(profile);
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-12">
@@ -159,6 +172,99 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
           );
         })}
       </div>
+
+      {/* D-1 — FEATURE BOUTS. Bosses faced OUTSIDE the ladder. Every value on
+          these cards is DATA: the purse and venue come from the row, the gate's
+          words from `featureBoutGateText`, and the availability from the pure
+          resolver — nothing here decides either one. A locked bout prints its
+          gate in plain words; the card line itself belongs to the pre-fight
+          card, at identity-intel depth, not to the arena list. */}
+      {featureBouts.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h3 className="text-xs font-serif uppercase tracking-widest text-emerald-300">
+              Feature Bouts
+            </h3>
+            <span className="text-[10px] font-mono text-neutral-500">
+              outside the ladder — a win here opens no tier
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {featureBouts.map(({ opponent: opp, open, defeated, gateText }) => (
+              <div
+                key={opp.id}
+                data-feature-bout={opp.id}
+                data-feature-bout-open={open ? 'true' : 'false'}
+                className={`p-5 rounded-3xl border-2 shadow-xl flex flex-col justify-between transition-all ${
+                  open
+                    ? 'bg-gradient-to-br from-emerald-950/70 to-neutral-900/90 border-emerald-600/70'
+                    : 'bg-neutral-900/80 border-neutral-700/60'
+                }`}
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <span
+                      className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border ${
+                        open
+                          ? 'bg-emerald-900 text-emerald-200 border-emerald-500'
+                          : 'bg-neutral-800 text-neutral-300 border-neutral-600'
+                      }`}
+                    >
+                      {open ? '⚔ FEATURE BOUT' : '🔒 FEATURE BOUT'}
+                    </span>
+                    <span className="text-xs font-mono text-neutral-400">LVL {opp.recommendedLevel}</span>
+                  </div>
+
+                  <h4 className="font-serif font-black text-lg text-amber-100 mb-0.5">{opp.name}</h4>
+                  <div className="text-xs text-neutral-400 font-serif italic mb-4">{opp.title}</div>
+
+                  <div className="flex items-center gap-3 text-xs font-mono bg-neutral-950/80 p-2.5 rounded-xl border border-neutral-800 mb-4">
+                    <span className="text-yellow-400 font-bold">from {opp.rewardGold} Gold</span>
+                    <span className="text-purple-400 font-bold">+{opp.rewardFame} Fame</span>
+                    <span className="text-cyan-400 font-bold">+{opp.rewardXp} XP</span>
+                  </div>
+
+                  {!open && gateText && (
+                    <p className="text-[11px] font-serif text-amber-200/80 leading-relaxed mb-4">{gateText}</p>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    onSelectOpponent(opp);
+                  }}
+                  disabled={!open}
+                  className={`w-full min-h-[48px] py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                    !open
+                      ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                      : defeated
+                      ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-600 cursor-pointer'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white border border-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.45)] cursor-pointer'
+                  }`}
+                >
+                  {!open ? (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      <span>Locked</span>
+                    </>
+                  ) : defeated ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                      <span>Fight Again (Rematch)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Swords className="w-4 h-4" />
+                      <span>Enter Arena Duel</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

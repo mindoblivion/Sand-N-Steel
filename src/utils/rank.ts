@@ -29,7 +29,7 @@
  */
 
 import type { PlayerProfile } from '../types/game';
-import { ALL_OPPONENTS } from '../data/opponents';
+import { ALL_OPPONENTS, isLadderBoss } from '../data/opponents';
 
 /** The four ranks, ascending.  The stored union itself, so the two cannot drift. */
 export type GladiatorRank = PlayerProfile['rank'];
@@ -98,7 +98,7 @@ function countOrZero(value: unknown): number {
 /** Every Tier-4 boss in the shipped roster — the rank's Legend condition. */
 function tierFourBossIds(): string[] {
   return ALL_OPPONENTS.filter(
-    (opponent) => opponent.tier === LEGEND_TIER && opponent.isBoss === true
+    (opponent) => opponent.tier === LEGEND_TIER && isLadderBoss(opponent)
   ).map((opponent) => opponent.id);
 }
 

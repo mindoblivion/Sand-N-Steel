@@ -31,7 +31,7 @@
  * no profile write, no storage, no clock.
  */
 
-import { ALL_OPPONENTS } from '../data/opponents';
+import { ALL_OPPONENTS, isLadderBoss } from '../data/opponents';
 import type { OpponentConfig } from '../types/game';
 
 /** The highest tier the tournament has; a first defeat at it moves nothing. */
@@ -41,6 +41,8 @@ export const FINAL_TIER = 4;
 export interface TierOpponent {
   id: string;
   isBoss?: boolean;
+  /** D-1 — a Feature Bout is a boss but NOT a ladder boss: it never advances a tier. */
+  featureBout?: true;
 }
 
 export interface VictoryTierInput {
@@ -82,7 +84,7 @@ function readTier(tier: number): number {
 /** Every boss of a tier, in the order the tournament tab lists them. */
 function tierBosses(tier: number): OpponentConfig[] {
   return ALL_OPPONENTS.filter(
-    (opponent) => opponent.tier === tier && opponent.isBoss === true
+    (opponent) => opponent.tier === tier && isLadderBoss(opponent)
   ).sort((a, b) => a.fightIndex - b.fightIndex);
 }
 
@@ -99,7 +101,7 @@ export function resolveVictoryTier(input: VictoryTierInput): VictoryTierResult {
   const id = opponent && typeof opponent.id === 'string' ? opponent.id : '';
   const firstDefeat =
     id !== '' &&
-    opponent?.isBoss === true &&
+    isLadderBoss(opponent) &&
     !readDefeatedIds(input.defeatedOpponentIds).includes(id);
   const advanced = firstDefeat && tier < FINAL_TIER;
 

@@ -79,7 +79,13 @@ function victoryWrite(profile: PlayerProfile, opponent: OpponentConfig): PlayerP
   };
 }
 
-const BOSSES = ALL_OPPONENTS.filter((opponent) => opponent.isBoss === true);
+// The LADDER bosses: D-1 appended five feature bouts, which are bosses but are
+// deliberately NOT campaign kills (see `nextBossKills`'s own rule), so this
+// sweep is the ladder's five — and the suite's own feature-bout case below
+// asserts the exclusion from the other side.
+const BOSSES = ALL_OPPONENTS.filter(
+  (opponent) => opponent.isBoss === true && opponent.featureBout !== true
+);
 const TIER_FOUR_BOSS = ALL_OPPONENTS.find(
   (opponent) => opponent.isBoss === true && opponent.tier === 4
 ) as OpponentConfig;

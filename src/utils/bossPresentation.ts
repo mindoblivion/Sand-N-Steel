@@ -22,18 +22,37 @@
  * the acceptance core testable as an explicit negative: a standard duel's list
  * is empty, so none of the four effects can fire.
  */
-import type { BossMechanic, OpponentConfig } from '../types/game';
+import type { BossMechanic, LadderBossMechanic, OpponentConfig } from '../types/game';
 
 /** The four boss moments, as the presentation layer names them. */
 export type BossMoment = 'rage' | 'telegraph' | 'phaseSwitch' | 'counter';
 
 /** Which presentation moment each boss mechanic owns. */
-const MOMENT_BY_MECHANIC: Record<BossMechanic, BossMoment> = {
+const MOMENT_BY_MECHANIC: Record<LadderBossMechanic, BossMoment> = {
   rage_mode_colossus: 'rage',
   heavy_telegraph: 'telegraph',
   phase_weapon_switch: 'phaseSwitch',
   counter_dodge: 'counter',
 };
+
+/**
+ * D-1 — is this one of the FOUR mechanics the duel actually runs?
+ *
+ * `OpponentConfig.bossMechanic` also accepts the five feature-bout mechanics,
+ * which are inert data in this slice. The moment table and the presentation gate
+ * are keyed on the ladder four only, so a feature mechanic can neither own a
+ * moment nor present one.
+ */
+export function isLadderBossMechanic(
+  mechanic: BossMechanic | undefined
+): mechanic is LadderBossMechanic {
+  return (
+    mechanic === 'rage_mode_colossus' ||
+    mechanic === 'heavy_telegraph' ||
+    mechanic === 'phase_weapon_switch' ||
+    mechanic === 'counter_dodge'
+  );
+}
 
 /** The opponent fields the boss gate reads — nothing else is consulted. */
 export type BossGateInput = Pick<OpponentConfig, 'isBoss' | 'bossMechanic'>;
@@ -48,6 +67,7 @@ export function bossPresentsMoment(
   mechanic: BossMechanic,
 ): boolean {
   if (!opponent || opponent.isBoss !== true) return false;
+  if (!isLadderBossMechanic(mechanic)) return false;
   return opponent.bossMechanic === mechanic;
 }
 
@@ -58,8 +78,13 @@ export function bossPresentsMoment(
 export function bossPresentationMoments(
   opponent: BossGateInput | null | undefined,
 ): BossMoment[] {
-  if (!opponent || opponent.isBoss !== true || !opponent.bossMechanic) return [];
-  const moment = MOMENT_BY_MECHANIC[opponent.bossMechanic];
+  if (!opponent || opponent.isBoss !== true) return [];
+  // D-1 — a FEATURE boss's mechanic owns no presentation moment: the four
+  // moments below belong to the four ladder mechanics and nothing else, so a
+  // feature bout presents exactly as a standard boss until its D-slice.
+  const ladderMechanic = opponent.bossMechanic;
+  if (!isLadderBossMechanic(ladderMechanic)) return [];
+  const moment = MOMENT_BY_MECHANIC[ladderMechanic];
   return moment ? [moment] : [];
 }
 
