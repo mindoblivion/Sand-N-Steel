@@ -60,8 +60,35 @@ distance of the first legal attack), defender on `Fighting_Idle` at 0.4, sampled
 
 | clip | before | after | tip-to-defender at contact (1.8 m) | at rate 1, 700 ms |
 | --- | --- | --- | --- | --- |
-| `Sword_Attack` | 519 ms | **546 ms** | **0.0074** | 0.519 |
-| `Sword_Regular_C` | 659 ms | **698 ms** | **0.0073** | 0.054 |
+| `Sword_Attack` | 519 ms | **546 ms** | **0.0074** | 1.594 (0.519 at the OLD 519 ms frame) |
+| `Sword_Regular_C` | 659 ms | **698 ms** | **0.0073** | 0.054 (0.828 at the OLD 659 ms frame) |
+
+- **Rate-1 figures, reconciled (C-8.81D documentation pass).** The last column is the pose the clip
+  actually holds at the 700 ms impact when its rate is left at 1. For `Sword_Attack` that tip has
+  swung through and down: **1.594** from the defender's nearest vertex (tip height 0.263, the nearest
+  vertex below the feet) and 1.241 from the blade's nearest point — the cut is long past. The
+  **0.519** and **0.828** that earlier text quoted here are the tip's distance at the *old* C-8.80G
+  frames (519 / 659 ms), i.e. the shortfall those frames were calibrated against, not the impact.
+  Only `Sword_Regular_C` still has a meaningful rate-1 figure at the impact (**0.054**), because its
+  contact is 2 ms before it. The units are world units for every distance and milliseconds of clip
+  time for every timestamp; the only dimensionless values in the pipeline are the playback rates
+  (546 / 700 = **0.7800**, 698 / 700 = **0.99714**).
+
+- **One-frame scheduling envelope (measured, and the residual the constants cannot remove).** The two
+  offsets the header describes cancel *in the window* (`700 − lag + hitStop` = 700, so the rate is
+  simply `contact / 700`), but they do not cancel sample-by-sample: each ranges over one 60 Hz frame
+  (0 … 16.67 ms), so the clip time at the *held* impact frame is `rate × (700 + ε − λ)` —
+  **533 … 559 ms** for the light cut and **681 … 715 ms** for the heavy. Measured tip clearance at
+  those window edges: light **0.1939 / 0.2703** (against 0.0074 at 546 ms); heavy **0.2485 / 0.3805**
+  (against 0.0073 at 698 ms). At rate 1 over the same one-frame window (683 … 717 ms) the light cut
+  reads **1.5825 / 1.6013** (1.5937 at exactly 700 ms, 1.2412 to the blade's nearest point), i.e. the
+  cut has carried through, and the heavy reads **0.1937 / 0.4132** (0.0544 at exactly 700 ms) — the
+  same band its calibrated window occupies, which is what "a 2 ms nudge" means in practice. So the
+  calibration removes the C-8.80F symptom on the light cut by roughly an order of magnitude and leaves
+  the heavy essentially as it was. The residual is the contact pose's own narrow basin: measured, the
+  tip is within 0.10 of the surface only for about ±5 ms around 546 (**0.0987** at 541 ms,
+  **0.0653** at 551 ms). No contact constant can widen that; it needs a clip or an attachment change,
+  so it is recorded, not tuned.
 
 - 546.3 ms and 697.7 ms by sub-millisecond refinement; the constants are the integer frames.
 - Body-independence: on `minotaur.glb` (correction 1.256) the same minima are **545 ms** and **699 ms** —
@@ -88,8 +115,9 @@ distance of the first legal attack), defender on `Fighting_Idle` at 0.4, sampled
   0.281 (heavy) past the defender's own root plane at the chosen frames, 0.2535 / 0.1577 from the nearest
   surface. This is inherent to a 1.000-unit blade at a 1.2 m root gap and is unchanged in kind by the
   timing; it is pinned in §D of the suite rather than "cured".
-- **Maximum range (2.1 m):** the tip never reaches the body (0.276 light / 0.243 heavy at the closest
-  frame) — a **reach** limitation, independent of timing, recorded and pinned in `phaseC8_81c` §F so it
+- **Maximum range (2.1 m):** the tip never reaches the body — 0.2817 (light) / 0.2426 (heavy) from the
+  nearest vertex at the chosen frames, and never closer than 0.2808 / 0.2028 anywhere in the 400–800 ms
+  sweep — a **reach** limitation, independent of timing, recorded and pinned in `phaseC8_81c` §F so it
   is not mistaken for a solved contact problem.
 
 ### Blade-to-target distance at the chosen impact frames

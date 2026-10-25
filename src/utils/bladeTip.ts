@@ -45,7 +45,7 @@ import * as THREE from 'three';
  * Y −1.000 … +1.000 (its node carries the 0.4998 scale and 0.4998 offset that
  * turn that into a 0 … 1.000 blade in the GLB's scene space), the cross-section
  * is ±0.236 in X and ±0.099 in Z, and the vertex with the greatest Y is the
- * blade's point (X −0.006, Z −0.004 — on the centreline, to within 7 mm).
+ * blade's point (X −0.0029, Z −0.0020 — on the centreline, to within 3 mm).
  */
 export const BLADE_AXIS_LOCAL: Readonly<THREE.Vector3> = Object.freeze(
   new THREE.Vector3(0, 1, 0),

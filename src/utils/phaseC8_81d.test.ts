@@ -400,10 +400,11 @@ describe('C. At the impact the blade is where the clip says it is', () => {
   test('at the rate 1 the tip has moved on — badly for the light cut, a nudge for the heavy', () => {
     // The two clips need the calibration for very different reasons, and the
     // measurement says so: the light cut's contact is 154 ms before the impact, so
-    // at rate 1 the blade is already recovering (0.519 clear); the heavy smash's
-    // contact is 2 ms before it, so its own correction is a 2 ms nudge (0.9971 rate)
-    // and its rate-1 pose is only 0.054 clear. Both figures are asserted so neither
-    // is mistaken for the other.
+    // at rate 1 the tip has carried through and down — 1.594 from the defender,
+    // where the old 519 ms frame was still 0.519 short. The heavy smash's contact is
+    // 2 ms before the impact, so its own correction is a 2 ms nudge (0.9971 rate)
+    // and its rate-1 pose is only 0.054 clear. Both rate-1 figures are asserted so
+    // neither is mistaken for the other.
     const lightImpact = tipAt(arenaGltf, ARENA_ROMAN_CORRECTION, 'Sword_Attack', LEGAL_SEPARATION_M, 700);
     const lightContact = tipAt(arenaGltf, ARENA_ROMAN_CORRECTION, 'Sword_Attack', LEGAL_SEPARATION_M, 546);
     expect(lightContact.distance).toBeLessThan(0.02);

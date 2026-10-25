@@ -10045,3 +10045,90 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   PENDING.** Open follow-ups this phase did not take: the 1.8 m residual itself (a clip-pose, Advance or
   opening-separation change — scaling the blade is already ruled out), `arena_roman`'s stray vertex band
   (now 1.2266 deep under the floor), and the Minotaur sharing the humans' 0.990 board.
+
+## Corrected blade-tip impact timing (C-8.81D — verified read-only pass; Android acceptance PENDING)
+
+- **What this pass was.** A verification-and-documentation pass over the C-8.81D work that was already
+  committed as `628bbfca` (branch `development-focus-strategy`). No combat rule, timer, damage, range,
+  stamina, sequencing, AI or layout behaviour was changed, and no constant moved: the two contact frames
+  were re-derived from the shipping assets and found correct, one documentation label was proved wrong,
+  and the phase record was completed. Full record, every measurement table and the residual analysis:
+  [.base44/attack-contact-c881d.md](.base44/attack-contact-c881d.md).
+- **Working tree at the start and the end.** Branch `development-focus-strategy`, HEAD
+  **`628bbfca429f92280b228ca2afd156df3dfe26ef`** (unchanged at the end — nothing was committed, pushed,
+  merged, reset, stashed or deployed), `git status --short` **empty** at the start; the phase's earlier
+  edits were already in `628bbfca`, not uncommitted. Files changed by this pass — comments and records
+  only: `src/utils/attackContact.ts`, `src/utils/bladeTip.ts`, `src/utils/phaseC8_80g.test.ts`,
+  `src/utils/phaseC8_81d.test.ts`, `.base44/attack-contact-c881d.md` and this section.
+- **The production consumer and the exact formula.** `GladiatorMesh`'s action effect calls
+  `nextAction.setEffectiveTimeScale(attackPlaybackRateForAction(activeAction, targetClip))` for every
+  clip it plays; only `attack_light` / `attack_heavy` are calibrated, everything else plays at 1. The
+  rate is **`contact / window`**, where `window = attackContactWindowMs()` = `PLAYER_ATTACK_WINDUP_MS −
+  ATTACK_CLIP_START_LAG_MS + HIT_STOP_SAMPLE_LAG_MS` = 700 − 16.67 + 16.67 = **700 ms**, so
+  `Sword_Attack` = 546/700 = **0.78** and `Sword_Regular_C` = 698/700 = **0.9971428571**. The mixer's own
+  `timeScale` is *only* the hit-stop channel (`mixer.timeScale = impactAnimationScale(impactRef.current)`,
+  one assignment in the frame loop), so the freeze stops the calibrated clip where it is.
+- **Units, reconciled — these are three different kinds of number and the old text mixed them.**
+  **546 / 698** are *milliseconds of clip time* (where each clip's blade tip is closest to the defender);
+  **0.78 / 0.99714** are the *dimensionless playback rates* (`Action.setEffectiveTimeScale`, i.e.
+  `contact / 700`); **0.519 / 0.828** are *world-unit tip-to-defender distances at the OLD C-8.80G frames*
+  (519 / 659 ms) — the defect those frames were calibrated against, **not** the impact; **0.054** is the
+  world-unit tip distance of the heavy clip at the 700 ms impact with the rate left at 1; and the light
+  clip at that same rate-1 impact is **1.594** (its cut has carried through and down; the blade's nearest
+  point 1.241). Nothing in the pipeline is a "normalised clip time" — the only dimensionless values are
+  the two rates.
+- **The documentation defect this pass found (corrected, no code change).** `attackContact.ts`'s header
+  and `phaseC8_80g.test.ts`'s header both read "at the shipped 700 ms impact and rate 1 the same tip is
+  0.519 / 0.828 away", which attributes the *old-frame* distances to the impact; the new suite's §C
+  comment repeated the 0.519 label. All four are corrected to name the old frames for 0.519/0.828 and the
+  measured rate-1 impact poses (1.594 / 0.054). `bladeTip.ts`'s tip-vertex coordinate was also stale
+  (−0.006, −0.004, "within 7 mm") and now states the measured (−0.0029, −0.0020, within 3 mm). **No
+  constant, formula, timer or behaviour was touched**, so this is a label repair, not a timing change.
+- **The sampler contract.** `utils/bladeTip` takes the **geometry-space** vertex with the greatest Y
+  (`BLADE_AXIS_LOCAL` = (0,1,0), measured from the GLB) and pushes it through `mesh.localToWorld` after
+  `updateWorldMatrix(true, false)` — so one call applies the whole rendered chain: geometry → mesh node →
+  the C-8.80E orientation group (+90° about X) → the `1/correction` attachment scale → the **animated
+  `hand_r` bone** → the attacker's root (position, yaw, `meshScale × correction`). Re-verified this pass:
+  blade point-to-pommel **0.9996** world units, pommel **0.0017** from the hand bone, and the C-8.80G
+  proxy point **1.4130** from the real tip. The C-8.80G sampler mixed the gladius scene's space with the
+  attachment group's, which is why its frames drifted to the tail of each swing.
+- **The tests target the defender's own body, not the attacker's mesh.** The suites collect the
+  *defender's* posed skinned vertices (`getVertexPosition` + `localToWorld` on
+  `defender.scene`) and look the blade up **on the attachment group** (`findBladeMesh(attachment)`); the
+  earlier `findBladeMesh(player.scene)` returned the fighter's own body and produced impossible 196/348 ms
+  "contacts". The rebased `phaseC8_80g` / `phaseC8_81c` / `phaseC8_80j` suites keep their original
+  invariants (one rate per clip, no universal multiplier, the derivation following the wind-up rather
+  than a hard-coded 700, the old-frame ratio, the scale/turn/stamina/range pins) and moved only the
+  values the corrected measurement changes (519 → 546, 659 → 698, the rate pair, the frame gap 140 → 152,
+  "181 ms past contact" → 154 ms, and §F's re-measured strike reach) — rebased, not weakened.
+- **Residual limitations, unchanged and still not solved** (all pinned in the suites, none of them a
+  timing question): the heavy chop's contact is at **knee height** (nearest vertex y 0.575, torso 0.337 —
+  the overhead arc passes in front of the torso and no frame in the clip touches it); the **1.2 m minimum
+  gap** puts both tips *through* the body (0.2545 / 0.1578 from the nearest surface at the chosen frames;
+  swept minima 0.1793 / 0.1263); the **2.1 m maximum** never reaches the body (0.2817 / 0.2426 at the
+  chosen frames; swept minima 0.2808 / 0.2028); and the calibration leaves a **one-frame scheduling
+  envelope** — the clip time at the held impact frame is `rate × (700 + ε − λ)` with each offset ranging
+  over 0…16.67 ms, which measures 0.1939 … 0.2703 (light) and 0.2485 … 0.3805 (heavy), so the light cut
+  is fixed by roughly an order of magnitude over its 1.5825 … 1.6013 rate-1 pose while the heavy is
+  essentially unchanged (its contact is 2 ms before the impact). The contact basin is narrow — the tip is
+  within 0.10 of the surface for only about ±5 ms around 546 — and widening it needs a clip or an
+  attachment change, not a constant.
+- **Validation (dev container, final tree, after the documentation edits).** Focused
+  `bun test src/utils/phaseC8_81d/80g/81c/80e/80j` → **107 pass / 0 fail, 403 `expect()`** (the new
+  `phaseC8_81d` alone: 25 tests / 97 `expect()`); `bun test` → **3725 pass / 0 fail, 93441 `expect()`
+  across 132 files**; `bun run scripts/combatTests.ts` → **69 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0**, startup-asset check passing (8 assets);
+  `git diff --check` → **clean**. The C-8.81D measurements above were re-derived independently of the
+  suites, in a throwaway harness inside the `web` container that imports `/app/src` directly (the
+  `bladeTip` sampler, the real `arena_roman.glb` / `minotaur.glb` / `gladius.glb`, the real attachment
+  chain and the real body vertices).
+- **The measurement harnesses are committed at the repo root** (`.c881d-*.ts`, added by `5a35664` as part
+  of this workstream). They are scratch scripts, not tests, and nothing imports them; this pass left them
+  untouched rather than deleting files it was not asked to remove — a future cleanup can, and new
+  measurement work should go in `/tmp`.
+- **Android visual acceptance: PENDING.** Nothing here is visual acceptance. The sandbox has no GPU
+  (SwiftShader, ~1–2 fps in the 3D scenes), so **whether the light cut now reads as a chest hit and the
+  heavy chop as a deliberate low strike rather than a leg graze has not been seen on hardware** and no
+  claim is made for it. The measurement convention is also a standing limit: the defender holds
+  `Fighting_Idle` at 0.4, so a defender mid-step or mid-block presents a different silhouette and the
+  contact frame is a property of the clip plus the standing target, not of every pose.

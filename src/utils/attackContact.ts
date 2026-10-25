@@ -39,11 +39,17 @@
  *
  *   clip                | duration | contact  | tip-to-defender at contact
  *   --------------------|----------|----------|---------------------------
- *   Sword_Attack        |  1.917 s |  546 ms  | 0.007 at 1.8 m (0.179 at 1.2 m)
- *   Sword_Regular_C     |  1.667 s |  698 ms  | 0.007 at 1.8 m (0.126 at 1.2 m)
+ *   Sword_Attack        |  1.917 s |  546 ms  | 0.007 at 1.8 m (1.2 m min 0.179)
+ *   Sword_Regular_C     |  1.667 s |  698 ms  | 0.007 at 1.8 m (1.2 m min 0.126)
  *
- * At the shipped 700 ms impact and rate 1 the same tip is 0.519 / 0.828 away, so
- * the C-8.80F symptom the calibration exists to remove is measured, not assumed.
+ * The 0.519 / 0.828 figures belong to the DEFECT, not to the shipped timing: they
+ * are the real tip's distance at the C-8.80G frames (519 / 659 ms), which is why
+ * those frames were calibrated against a swing that had not arrived. At the
+ * shipped 700 ms impact with the rate left at 1 the light cut has carried through
+ * and down — its tip is 1.594 from the defender (0.263 high, its nearest vertex
+ * below the feet) and the blade's nearest point 1.241 — while the heavy smash has
+ * moved on by 0.054. The C-8.80F symptom the calibration exists to remove is
+ * therefore measured on both clips, not assumed.
  *
  * The contact phase belongs to the CLIP, not to the body: measured on the second
  * shipped rig (`minotaur.glb`, correction 1.256) the same two minima land at

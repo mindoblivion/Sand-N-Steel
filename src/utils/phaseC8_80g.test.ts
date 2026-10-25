@@ -25,8 +25,11 @@
  * Measured contact frames (see `utils/attackContact`): `Sword_Attack` 546 ms,
  * `Sword_Regular_C` 698 ms — against a 700 ms impact. At 1.8 m (the distance of
  * the first legal attack) the tip touches the defender at those frames (0.007 /
- * 0.007) and is 0.519 / 0.828 away at the impact on the shipped rate of 1; the
- * assertions below pin the ratio, not a hard-coded distance.
+ * 0.007). The 0.519 / 0.828 figures are the tip's distance at the OLD frames
+ * (519 / 659 ms) — that is the defect, not the shipped timing; at the impact with
+ * the rate left at 1 the light cut has carried through (1.594) and the heavy has
+ * moved on by 0.054. The assertions below pin the old-frame ratio, not a
+ * hard-coded distance.
  *
  * Run with: bun test src/utils/phaseC8_80g.test.ts
  */
