@@ -57,6 +57,7 @@ import { canResolveStrikeImpact } from './playerStrike';
 import { createPendingStrike } from './pendingStrike';
 import type { StrikeTimer } from './pendingStrike';
 import { HAPTIC_HIT_LANDED_MS } from './haptics';
+import { landedStrikeText } from './strikeFeedback';
 import { getWeaponByType } from '../data/itemsDB';
 
 const DUEL_SOURCE = readFileSync(
@@ -275,6 +276,9 @@ function createHarness(options: HarnessOptions) {
     queuesCounterOnEvade,
     rollsPassiveEvade,
     canResolveStrikeImpact,
+    // C-8.82D — the landed-strike chronicle line is production copy, bound like
+    // every other shipped helper (its default path is the unchanged wording).
+    landedStrikeText,
     // Side effects the duel only renders or plays.
     sounds: new Proxy({}, { get: () => () => {} }),
     vibrate: () => {},

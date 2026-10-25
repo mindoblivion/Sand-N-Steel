@@ -10258,3 +10258,67 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   formulas plus the HUD's own rendered copy, not by fighting. Android acceptance of the two-line reaction
   buttons (44 px floor intact, no growth since `min-h-[44px]` already set the floor) remains PENDING with the
   rest of the device checklist.
+
+## Failed-dodge feedback (C-8.82D — implemented)
+
+- **The gap C-8.82B created.** With Dodge at parity (0.88 evade), a dodge that was RAISED and then
+  BEATEN resolved as an unblocked hit, and the chronicle wrote the same line an open guard produces:
+  `X struck Y for N damage.` The player had just paid the 12 SP, the stance was spent, damage went
+  through — and nothing in the log said the dodge was taken and failed. Read as "the dodge did
+  nothing", at exactly the point the balance work landed.
+
+- **The correction is one pure copy module plus its call site.** `src/utils/strikeFeedback.ts` owns
+  the landed-strike wording: `DODGE_FAILED_MARKER` (`'DODGE FAILS'`, one literal) and
+  `landedStrikeText({ attackerName, defenderName, damage, isCrit, dodgeFailed = false })`.
+  `DuelScene`'s unblocked-hit branch builds the line once and passes it to the **same** `addLog` call
+  the blow already made (`'crit'` for a critical, `player`/`opponent` otherwise), so one incoming
+  attack can never log twice, report two damage figures or contradict itself. `dodgeFailed` defaults
+  to false, so open-guard, blocked and evaded wording is byte-identical to before; the failed-dodge
+  line names the defender, keeps the real damage figure and still leads with `CRITICAL BLOW!` on a
+  crit. Nothing here touches stamina, damage, timing or RNG.
+
+- **`defender.isInvulnerable` is the truthful source for the flag, and that is why it is used.** A
+  dodge sets it and the stance survives the turn boundary; the blocked path is its own `isBlocked`
+  branch with its own BLOCKED line; the passive-evade path (counter_dodge bosses) explicitly excludes
+  `isInvulnerable`, so inside the unblocked hit branch a true value can only mean an active dodge
+  whose evade roll failed.
+
+- **Regression suite: `src/utils/phaseC8_82d.test.ts`** — 18 tests / 76 `expect()` across 5 sections:
+  §A the one shared marker (present exactly once on a failed dodge, absent from an open-guard hit,
+  a single literal in the module); §B the copy states what happened (one damage figure, one sentence,
+  no `MISS` / `EVADED` / `BLOCKED` / "no damage" claim, differs from the open-guard line for the same
+  hit); §C crits stay legible and non-crits are not dressed up; §D the default path is untouched
+  (omitted argument, explicit `false` and the open-guard crit line are exact strings); §E production
+  wiring (the helper imported, `dodgeFailed: defender.isInvulnerable`, exactly two `addLog(strikeLine,`
+  sites, no DuelScene-level copy of the marker, the BLOCKED line intact). The "module never logs"
+  check reads the source **with comments stripped** — the module's own docstring names its callers'
+  `addLog`, which is a comment, not behaviour.
+
+- **One existing suite was rebased, not weakened.** `phaseC8_75F.test.ts` executes the real
+  `executeCombatTurn` body extracted from `DuelScene.tsx` against a harness of live production
+  bindings; the new call made it throw `ReferenceError: landedStrikeText is not defined` and took 6
+  of its 14 tests with it (its own design: a missing binding fails loudly instead of passing
+  vacuously). `landedStrikeText` is now imported and bound alongside `calculateAttackDamage`,
+  `canResolveStrikeImpact` and the rest, with a comment naming this phase. No expectation changed.
+
+- **Verified 2026-10-25** in the dev container: focused `phaseC8_82d + phaseC8_82b +
+  defensiveBalance + pendingStrike + combatActionOrder + combatResponsiveness` → **135 pass / 0 fail**;
+  `bun test` → **3771 pass / 0 fail, 93791 `expect()` across 134 files** (the branch tip's baseline
+  was 3753 / 135 files with the 6 `phaseC8_75F` failures this turn fixed — the delta is this suite's
+  18 tests); `bun run scripts/combatTests.ts` → **69 passed, 0 failed**; `bun run lint` (`tsc --noEmit`)
+  → exit 0. The failing start point was those 6 `phaseC8_75F` tests plus 1 of the new suite's own
+  assertions (the comment-defeated `addLog` check above). No production file was changed this pass.
+
+- **Not automatically verified — the rendered chronicle.** No live bout was played: provoking a
+  failed dodge needs the evade RNG to fail inside a real duel, and the arena renders at ~2 fps through
+  SwiftShader here (the standing limit recorded since C-8.81). What *is* verified is the wording as a
+  pure function (18 assertions) and that the production resolution body still runs end to end with
+  the helper bound (`phaseC8_75F`). **Android check:** fight a bout, raise Dodge and let it be beaten —
+  the chronicle should read `Brutus's DODGE FAILS — Cassius's strike lands for N damage.` with the
+  damage figure matching the HP lost, exactly one entry for the exchange, and no claim of a miss,
+  block or stamina refund. Still open from earlier phases: the strike-impact visual acceptance
+  (C-8.81E), the withdrawal/HUD-badge device checks, and the C-8.73D checklist.
+
+- **Known documentation debt, untouched:** twelve `.c881d-*.ts` measurement harnesses remain committed
+  at the repo root from the C-8.81D work (read-only scripts, referenced by nothing in `src/`); they
+  were left in place rather than deleted without authorization.
