@@ -734,8 +734,9 @@ describe('D-2 §I — the surfaces the player reads', () => {
     expect(Object.keys(dawn ?? {}).sort()).toEqual(
       ['ambientColor', 'ambientIntensity', 'fogColor', 'sunColor', 'sunIntensity'].sort(),
     );
-    // Only the one authored state has a table entry so far.
-    expect(Object.keys(BOSS_PRESENTATION_DELTAS)).toEqual(['dawn']);
+    // D-3 rebased this pin, not weakened it: the two states Varro's and Gnaeus's
+    // D-slices author now have table entries beside Marcellin's dawn.
+    expect(Object.keys(BOSS_PRESENTATION_DELTAS)).toEqual(['dawn', 'high-noon', 'gilded']);
     // A ladder boss and a non-boss ask for nothing.
     expect(bossSceneDeltas(ALL_OPPONENTS.find((o) => o.id === 'opp_ignis_boss'))).toBeNull();
     expect(bossSceneDeltas(ALL_OPPONENTS[0])).toBeNull();
@@ -792,10 +793,12 @@ describe('D-2 §J — nothing persists, and no pipeline stage was added', () => 
     }
     // The pounce is the existing attack action; the crouch is the only new action.
     expect(DUEL_SCENE).toContain("beastCfg.hitProfile === 'power' ? 'power_attack' : 'quick_attack'");
-    // Five dispatches inside the resolution (the two ladder boss branches, the
-    // beast's crouch, the beast's pounce, the AI's chosen action) plus the panel's
-    // own callback — no sixth resolution path was introduced.
-    expect((DUEL_SCENE.match(/executeCombatTurn\(/g) ?? []).length).toBe(6);
+    // Six dispatches inside the resolution (the two ladder boss branches, D-3's
+    // false-telegraph wind-up, the beast's crouch, the beast's pounce, the AI's
+    // chosen action) plus the panel's own callback. D-3 rebased this count by
+    // one — Varro's announced heavy resolves through the standard pipeline — and
+    // introduced no new pipeline stage of its own.
+    expect((DUEL_SCENE.match(/executeCombatTurn\(/g) ?? []).length).toBe(7);
   });
 
   test('the fence gates the panel, the figure, the pips and every rule', () => {

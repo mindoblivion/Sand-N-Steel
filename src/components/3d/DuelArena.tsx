@@ -12,9 +12,17 @@ export interface DuelArenaProps {
    * simply never celebrates.
    */
   crowdPulseRef?: React.RefObject<number>;
+  /**
+   * D-3 — the heraldic cloth over the imperial loge. `'gilded'` flies Gnaeus's
+   * own gold while his panoply shines; `'player'` is the house crimson the arena
+   * has always worn, and it is what flies once the third piece breaks (the
+   * allegiance swap). A MATERIAL PROPERTY change on the existing canopy mesh —
+   * no new mesh, no new draw call. Absent = the shipped crimson.
+   */
+  bannerAllegiance?: 'gilded' | 'player';
 }
 
-export const DuelArena: React.FC<DuelArenaProps> = ({ crowdPulseRef }) => {
+export const DuelArena: React.FC<DuelArenaProps> = ({ crowdPulseRef, bannerAllegiance }) => {
   const crowdGroupRef = useRef<THREE.Group>(null);
   // Seeded from the counter's current value, so the first frame never mistakes
   // a pulse that happened before this arena existed for a fresh one.
@@ -124,10 +132,16 @@ export const DuelArena: React.FC<DuelArenaProps> = ({ crowdPulseRef }) => {
           <boxGeometry args={[10, 3.6, 4.5]} />
           <meshStandardMaterial color="#ecd9be" roughness={0.4} />
         </mesh>
-        {/* Imperial Velvet Canopy (Velarium) */}
+        {/* Imperial Velvet Canopy (Velarium) — D-3: the arena's only heraldic
+            cloth, so it is where an allegiance shows. The house crimson is what
+            it has always been; Gnaeus's bout flies his gold until the panoply
+            breaks, and the swap is this one material property. */}
         <mesh position={[0, 4.4, 0]}>
           <boxGeometry args={[10.8, 0.5, 5.2]} />
-          <meshStandardMaterial color="#881337" roughness={0.5} />
+          <meshStandardMaterial
+            color={bannerAllegiance === 'gilded' ? '#eab308' : '#881337'}
+            roughness={0.5}
+          />
         </mesh>
         {/* Gold Trim & Imperial Eagle */}
         <mesh position={[0, 4.8, 2.5]}>

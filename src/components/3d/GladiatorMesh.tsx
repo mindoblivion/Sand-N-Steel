@@ -5,6 +5,9 @@ import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
 import { TELEGRAPH_GLOW_COLOR, telegraphGlowIntensity } from '../../utils/bossPresentation';
+// D-3 — the feet-tell type only: the cue itself is a static stance on this
+// component's own root group, so the 3D layer needs no rule from the mechanic.
+import type { FeetTell } from '../../utils/falseTelegraph';
 
 /**
  * Shared impact feedback for the duel: one mutable object, owned by
@@ -51,7 +54,27 @@ interface GladiatorMeshProps {
    * materials; the procedural fallback has no emissive materials and ignores it.
    */
   telegraphGlow?: boolean;
+  /**
+   * D-3 — Varro's feet-tell. `'light'` is weight forward (a lie); `'planted'` is
+   * the real heavy's stance. A PROPERTY-ONLY cue on the model's own root group —
+   * no mesh, no particle, no draw call — and weight-based, never side-based, so
+   * Lefty Mode cannot change what the player reads.
+   */
+  feetTell?: FeetTell;
 }
+
+/**
+ * D-3 — the stance the feet-tell cue applies to the existing model group.
+ *
+ * Weight forward tips the whole figure about its feet (the model root sits on
+ * the ground plane) and drops it a hair, so "his foot stayed light" reads from
+ * the chase camera without a new mesh or an animation clip. `planted` is the
+ * model exactly as it always was, which is what makes the two distinguishable.
+ */
+const FEET_TELL_STANCE: Record<FeetTell, { leanX: number; forward: number; drop: number }> = {
+  light: { leanX: 0.12, forward: 0.06, drop: -0.03 },
+  planted: { leanX: 0, forward: 0, drop: 0 },
+};
 
 // Per-URL cache for GLB file presence & validity check
 const glbStatusCacheMap = new Map<string, 'unknown' | 'valid' | 'invalid'>();
@@ -533,6 +556,7 @@ const RomanWarriorGLB: React.FC<{
   rotationRef?: React.MutableRefObject<number>;
   impactRef?: React.MutableRefObject<ImpactState>;
   telegraphGlow?: boolean;
+  feetTell?: FeetTell;
 }> = ({
   fighter,
   overrideAction,
@@ -543,6 +567,7 @@ const RomanWarriorGLB: React.FC<{
   rotationRef,
   impactRef,
   telegraphGlow = false,
+  feetTell,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const currentActionName = useRef<string>('');
@@ -988,9 +1013,17 @@ const RomanWarriorGLB: React.FC<{
       rotation={[0, fighter.rotationY, 0]}
       scale={[scale, scale, scale]}
     >
-      <primitive object={clonedScene} />
-      {rightHandBone && createPortal(rightHandEquipment, rightHandBone)}
-      {leftHandBone && createPortal(leftHandEquipment, leftHandBone)}
+      {/* D-3 — the feet-tell stance. A group's transform costs no draw call and
+          adds no mesh: `light` tips the figure forward about its own feet while
+          the wind-up is live, `planted` leaves it exactly as it has always been. */}
+      <group
+        position={[0, feetTell ? FEET_TELL_STANCE[feetTell].drop : 0, feetTell ? FEET_TELL_STANCE[feetTell].forward : 0]}
+        rotation={[feetTell ? FEET_TELL_STANCE[feetTell].leanX : 0, 0, 0]}
+      >
+        <primitive object={clonedScene} />
+        {rightHandBone && createPortal(rightHandEquipment, rightHandBone)}
+        {leftHandBone && createPortal(leftHandEquipment, leftHandBone)}
+      </group>
     </group>
   );
 };
@@ -1009,7 +1042,8 @@ const ProceduralGladiator: React.FC<{
   positionRef?: React.MutableRefObject<[number, number, number]>;
   rotationRef?: React.MutableRefObject<number>;
   impactRef?: React.MutableRefObject<ImpactState>;
-}> = ({ fighter, overrideAction, isLeftyMode = false, positionRef, rotationRef, impactRef }) => {
+  feetTell?: FeetTell;
+}> = ({ fighter, overrideAction, isLeftyMode = false, positionRef, rotationRef, impactRef, feetTell }) => {
   const rootRef = useRef<THREE.Group>(null);
   const hipsRef = useRef<THREE.Group>(null);
   const torsoRef = useRef<THREE.Group>(null);
@@ -1272,6 +1306,10 @@ const ProceduralGladiator: React.FC<{
 
   return (
     <group
+      position={[0, feetTell ? FEET_TELL_STANCE[feetTell].drop : 0, feetTell ? FEET_TELL_STANCE[feetTell].forward : 0]}
+      rotation={[feetTell ? FEET_TELL_STANCE[feetTell].leanX : 0, 0, 0]}
+    >
+    <group
       ref={rootRef}
       position={fighter.position}
       rotation={[0, fighter.rotationY, 0]}
@@ -1526,6 +1564,7 @@ const ProceduralGladiator: React.FC<{
         </group>
       </group>
     </group>
+    </group>
   );
 };
 
@@ -1556,7 +1595,7 @@ class GLTFErrorBoundary extends React.Component<
 }
 
 // 4. Main GladiatorMesh Component
-export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef, impactRef, telegraphGlow }: GladiatorMeshProps) => {
+export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef, impactRef, telegraphGlow, feetTell }: GladiatorMeshProps) => {
   const modelUrl = fighter.characterModel === 'amazonian'
     ? '/models/amazonian.glb'
     : fighter.characterModel === 'retiarius'
@@ -1584,6 +1623,7 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
         positionRef={positionRef}
         rotationRef={rotationRef}
         impactRef={impactRef}
+        feetTell={feetTell}
       />
     );
   }
@@ -1599,6 +1639,7 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
           positionRef={positionRef}
           rotationRef={rotationRef}
           impactRef={impactRef}
+          feetTell={feetTell}
         />
       }
     >
@@ -1612,6 +1653,7 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
         rotationRef={rotationRef}
         impactRef={impactRef}
         telegraphGlow={telegraphGlow}
+        feetTell={feetTell}
       />
     </GLTFErrorBoundary>
   );

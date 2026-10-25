@@ -48,6 +48,7 @@ import {
   presentationStateInForce,
 } from '../data/bossPresentationStates';
 import { PALMAE, PALMAE_BOSS_ONLY, PALMAE_PLAYER_POOL, getPalma } from '../data/palmae';
+import { bossPresentationMoments } from './bossPresentation';
 import { PRE_D1_OPPONENTS } from './preD1Opponents';
 import {
   featureBoutGateText,
@@ -284,8 +285,18 @@ describe('D-1 §B — the five mechanics live only on feature bosses', () => {
     // owns none, which is what keeps a feature duel on the standard branches.
     const source = code('src/utils/bossPresentation.ts');
     for (const mechanic of FEATURE_MECHANICS) expect(source).not.toContain(`'${mechanic}'`);
+    // D-3 wired two of the five mechanics into the duel (`false_telegraph` and
+    // `unbroken_panoply`), each behind a branch on its own mechanic string. The
+    // other three remain inert data, and NONE of the five owns a presentation
+    // moment — which is the property this test exists to pin.
+    const duel = code('src/components/duel/DuelScene.tsx');
+    const wiredByD3 = new Set(['false_telegraph', 'unbroken_panoply']);
     for (const mechanic of FEATURE_MECHANICS) {
-      expect(code('src/components/duel/DuelScene.tsx')).not.toContain(`'${mechanic}'`);
+      if (wiredByD3.has(mechanic)) continue;
+      expect(duel, mechanic).not.toContain(`'${mechanic}'`);
+    }
+    for (const bout of FEATURE_BOUT_OPPONENTS) {
+      expect(bossPresentationMoments(bout), bout.id).toEqual([]);
     }
   });
 
@@ -782,12 +793,26 @@ describe('D-1 §H — the five state names are data; the AI-4 key map is deferre
     // tree maps a state name to a dressing, and no renderer reads the field.
     for (const path of [
       'src/utils/bossPresentation.ts',
-      'src/components/duel/DuelScene.tsx',
       'src/components/hub/TournamentTab.tsx',
     ]) {
       const source = code(path);
       for (const state of BOSS_PRESENTATION_STATES) {
         expect(source, `${path}: ${state.name}`).not.toContain(`'${state.name}'`);
+      }
+    }
+    // D-3 rebased the DuelScene half of this sweep, not weakened it: the scene
+    // passes Gnaeus's LOGE BANNER allegiance to the arena, and that value shares
+    // the state's name. No presentation STATE is named — the rig is still read
+    // through `bossSceneDeltas` — so the four other names stay absent and the
+    // one `'gilded'` occurrence is asserted to be the banner's own expression.
+    const duel = code('src/components/duel/DuelScene.tsx');
+    for (const state of BOSS_PRESENTATION_STATES) {
+      const mentions = duel.match(new RegExp(`'${state.name}'`, 'g')) ?? [];
+      if (state.name === 'gilded') {
+        expect(mentions).toHaveLength(1);
+        expect(duel).toContain("panoply.humiliated ? 'player' : 'gilded'");
+      } else {
+        expect(mentions, state.name).toHaveLength(0);
       }
     }
   });

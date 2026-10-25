@@ -87,6 +87,30 @@ import {
   planBeastSlot,
   type BeastDuelState,
 } from '../../utils/beastHunt';
+// D-3 — Varro's false telegraph and Gnaeus's unbroken panoply. Every rule, fence
+// and word lives in those two modules; this scene only calls them, which is what
+// keeps a non-boss opponent from ever lying or wearing a panoply.
+import {
+  createFalseTelegraphState,
+  falseTelegraphAction,
+  falseTelegraphConfigFor,
+  followUpMultiplier,
+  initiateHeavy,
+  resolveHeavy,
+  type FalseTelegraphState,
+  type TelegraphKind,
+} from '../../utils/falseTelegraph';
+import {
+  PANOPLY_HUMILIATED_WORDS,
+  consumeVainheartAttack,
+  crackPanoply,
+  createPanoplyState,
+  panoplyAggression,
+  panoplyBlockChance,
+  panoplyConfigFor,
+  panoplyDamageTakenMult,
+  type PanoplyState,
+} from '../../utils/panoply';
 import { bossSceneDeltas } from '../../data/bossPresentationStates';
 import { BeastFigure } from '../3d/BeastFigure';
 import { crowdHypeTier, detectCrowdHypeCrossing } from '../../utils/crowdHype';
@@ -622,6 +646,41 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // miss may be shielded, this ref remembers that it already was.
   const comboShieldUsedRef = useRef(false);
 
+  // ── D-3 — VARRO'S FALSE TELEGRAPH ─────────────────────────────────────────
+  // The fence is `utils/falseTelegraph.ts`'s: this scene asks it for a config and
+  // gets `null` for every opponent that is not a boss feature bout carrying that
+  // mechanic, so no tell can exist in a standard duel. The tell and the kind are
+  // published while the wind-up is live (the mesh and the HUD read them), and the
+  // whole state is duel-session only — a ref for the rules, React state for what
+  // the arena draws, and never a save field.
+  const falseTelegraphCfg = useMemo(() => falseTelegraphConfigFor(opponent), [opponent]);
+  const [falseTelegraph, setFalseTelegraph] = useState<FalseTelegraphState>(() =>
+    createFalseTelegraphState()
+  );
+  const falseTelegraphRef = useRef<FalseTelegraphState>(falseTelegraph);
+  const commitFalseTelegraph = useCallback((next: FalseTelegraphState) => {
+    falseTelegraphRef.current = next;
+    setFalseTelegraph(next);
+  }, []);
+  // The seeded roll's seed, drawn ONCE per duel: the same bout therefore always
+  // tells the same sequence, and the test can drive it with a fixed number.
+  const falseTelegraphSeedRef = useRef(Math.floor(Math.random() * 0x7fffffff));
+  // Marks the announced-heavies resolution the AI is about to dispatch; read and
+  // cleared at the top of executeCombatTurn, like every other resolution marker.
+  const pendingTellKindRef = useRef<TelegraphKind | null>(null);
+
+  // ── D-3 — GNAEUS'S UNBROKEN PANOPLY ───────────────────────────────────────
+  // Same fence, same shape: the config is `null` for every opponent that is not
+  // an `unbroken_panoply` feature bout, so the three pieces and their benefits
+  // can only exist in Gnaeus's own duel. State is duel-session only.
+  const panoplyCfg = useMemo(() => panoplyConfigFor(opponent), [opponent]);
+  const [panoply, setPanoply] = useState<PanoplyState>(() => createPanoplyState(panoplyCfg));
+  const panoplyRef = useRef<PanoplyState>(panoply);
+  const commitPanoply = useCallback((next: PanoplyState) => {
+    panoplyRef.current = next;
+    setPanoply(next);
+  }, []);
+
   // Shared impact feedback (the hit-stop clock and the shake energy) — see the
   // tables at the top of this file. Written once per hit resolution and read
   // every frame by the camera rig and both GladiatorMesh instances, so the
@@ -857,6 +916,38 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         (actionType === 'quick_attack' || actionType === 'power_attack') &&
         beastRef.current.pose === 'crouch';
 
+      // ── D-3 — VARRO'S ANNOUNCED HEAVY RESOLVES ────────────────────────────
+      // Read-and-cleared like the markers above. A feint counts HERE, whatever
+      // the blow then becomes (a landed hit, a block, a miss, an evade or a
+      // swing that fell short all spend the lie), so the tell can never outlive
+      // the wind-up and the one-time words fire exactly once.
+      const falseTelegraphKind: TelegraphKind | null =
+        !isActorPlayer && falseTelegraphCfg ? pendingTellKindRef.current : null;
+      pendingTellKindRef.current = null;
+      // Two Faces is read BEFORE the settle clears the arming, so this heavy —
+      // the one the feint promised — is the one that carries the +15 %.
+      const followUpMult =
+        falseTelegraphKind && falseTelegraphCfg
+          ? followUpMultiplier(falseTelegraphRef.current, falseTelegraphCfg, falseTelegraphKind)
+          : 1;
+      if (falseTelegraphKind && falseTelegraphCfg) {
+        const settled = resolveHeavy(falseTelegraphRef.current, falseTelegraphKind);
+        commitFalseTelegraph(settled.state);
+        if (settled.words) addLog(settled.words, 'system');
+      }
+
+      // ── D-3 — GNAEUS'S VAINHEART ─────────────────────────────────────────
+      // One armed attack is spent on this blow — hit, block or miss — and the
+      // +12 % rides it. Read-and-spent exactly as Blood-Scent is, and never on
+      // the beast's pounce (a different fighter's arm).
+      const isVainheartAttack =
+        !isActorPlayer &&
+        !isBeastPounce &&
+        panoplyCfg !== null &&
+        (actionType === 'quick_attack' || actionType === 'power_attack') &&
+        panoplyRef.current.vainheartArmedAttacks > 0;
+      if (isVainheartAttack) commitPanoply(consumeVainheartAttack(panoplyRef.current).state);
+
       const attacker = isActorPlayer ? player : opp;
       const defender = isActorPlayer ? opp : player;
       // CH-3a — the two blocks every stage below reads, resolved for this turn's
@@ -1024,6 +1115,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       else if (actionType === 'telegraph') {
         sounds.playHeavyImpact();
         pendingHeavyAttackRef.current = true;
+        // D-3 — Varro's wind-up is decided HERE, on the announce, so its feet
+        // tell can be shown for the whole turn the player is given. The seeded
+        // roll (or the forced teaching pair) answers true-vs-feint; the tell is
+        // weight-forward (`light`) for a lie and planted for the real heavy.
+        // Goliath's wind-up is untouched: he carries no false-telegraph config.
+        if (falseTelegraphCfg) {
+          const begun = initiateHeavy(
+            falseTelegraphRef.current,
+            falseTelegraphCfg,
+            falseTelegraphSeedRef.current,
+          );
+          commitFalseTelegraph(begun.state);
+        }
         setOpp((prev) => ({ ...prev, telegraphText: 'HEAVY ATTACK INCOMING' }));
         addLog(`${attacker.name} winds up a devastating overhead smash!`, 'opponent');
         spawnDamageText('\u26A0 HEAVY!', 'crit', attacker.position);
@@ -1359,7 +1463,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               // CH-4 — Viper's Patience reads this: true only on the attack
               // that follows a triggered counter.
               isCounterAttack,
-            }) * (isBloodScentAttack ? BLOOD_SCENT_DAMAGE_MULT : 1);
+            // D-3 — Varro's Two Faces: the TRUE heavy promised by the last
+            // feint carries the palma's +15 %, and nothing else does.
+            }) * (isBloodScentAttack ? BLOOD_SCENT_DAMAGE_MULT : 1)
+              * followUpMult
+              // D-3 — Gnaeus's Vainheart: one of the two attacks a break armed.
+              * (isVainheartAttack && panoplyCfg ? panoplyCfg.vainheartDamageMult : 1)
+              // D-3 — the pauldron's gilt plate: what HE takes, while it shines.
+              * (panoplyCfg && isActorPlayer ? panoplyDamageTakenMult(panoplyCfg, panoplyRef.current) : 1);
             const rawDamage = calculateAttackDamage(
               baseDmg,
               // D-2 — the pounce's strength is the beast's row value; every other
@@ -1454,6 +1565,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               // Master's Blood-Scent rides the blow itself.
               if (carriesBossPalma(opponentMods, 'blood_scent')) {
                 bloodScentRef.current = true;
+              }
+            }
+
+            // ── D-3 — THE PANOPLY CRACKS ──────────────────────────────────
+            // A player POWER attack that LANDS — hit or blocked, both of which
+            // this branch is — puts one crack on the first unbroken piece, in the
+            // row's own order. A quick attack, a miss, an evade and a swing that
+            // fell short never reach here, so they crack nothing.
+            if (panoplyCfg && isActorPlayer && actionType === 'power_attack') {
+              const cracked = crackPanoply(panoplyRef.current, panoplyCfg);
+              commitPanoply(cracked.state);
+              if (cracked.broken) {
+                updateCrowdHype((prev) => Math.min(100, prev + panoplyCfg.breakHype));
+                addLog(cracked.words, 'player');
+                if (cracked.humiliatedNow) addLog(PANOPLY_HUMILIATED_WORDS, 'crit');
               }
             }
 
@@ -1683,7 +1809,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         setIsPlayerTurn(!isActorPlayer);
       }, turnResolutionMs(actionType, fightEnded));
     },
-    [isExecuting, player, opp, addLog, spawnDamageText, updateCrowdHype, dismissBeat, notePlayerStrike]
+    [
+      isExecuting,
+      player,
+      opp,
+      addLog,
+      spawnDamageText,
+      updateCrowdHype,
+      dismissBeat,
+      notePlayerStrike,
+      falseTelegraphCfg,
+      commitFalseTelegraph,
+      panoplyCfg,
+      commitPanoply,
+    ]
   );
 
   // OPPONENT AI TURN STRATEGY ENGINE
@@ -1716,6 +1855,24 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // reduction via calculateAttackDamage. The block is consumed by
       // the pre-clear at the top of executeCombatTurn when the player
       // next acts — no explicit clear is needed here.
+      // D-3 — VARRO'S ANNOUNCED HEAVY IS ANSWERED. The wind-up was rolled when
+      // it was announced; here it resolves as what it really was: a feint is a
+      // QUICK attack through the standard pipeline (quick hit profile, quick
+      // damage, quick stamina), a true heavy is the normal power attack. The
+      // telegraph's own duration is untouched either way — the player was given
+      // the same full turn for both, which is the only honest way to lie.
+      if (opponent.bossMechanic === 'false_telegraph' && pendingHeavyAttackRef.current) {
+        const kind = falseTelegraphRef.current.kind ?? 'true';
+        pendingHeavyAttackRef.current = false;
+        pendingTellKindRef.current = kind;
+        setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+        // The longest hit-stop belongs to a real overhead smash, never a feint.
+        if (kind === 'true') telegraphLandingRef.current = true;
+        telegraphAftermathRef.current = true;
+        executeCombatTurn('opponent', falseTelegraphAction(kind));
+        return;
+      }
+
       if (opponent.bossMechanic === 'heavy_telegraph' && pendingHeavyAttackRef.current) {
         pendingHeavyAttackRef.current = false;
         setOpp((prev) => ({ ...prev, telegraphText: undefined }));
@@ -1783,6 +1940,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         }
       }
 
+      // D-3 — Gnaeus's LIVE profile: the crest's shout while it shines, the
+      // facing's guard while it shines, and Humiliated's permanent shift once
+      // every piece is broken. Every other opponent reads its row values exactly
+      // as the shipped call below has always read them.
+      const aiAggression = panoplyCfg
+        ? panoplyAggression(opponent.aggression, panoplyCfg, panoplyRef.current)
+        : opponent.aggression;
+      const aiBlockChance = panoplyCfg
+        ? panoplyBlockChance(opponent.blockChance, panoplyCfg, panoplyRef.current)
+        : opponent.blockChance;
+
       let chosenAction: CombatActionType = 'quick_attack';
 
       if (dist > effectiveRange) {
@@ -1826,8 +1994,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             beastCfg && beastRef.current.pose === 'fled'
               ? chooseAIStandardAction(
                   masterAloneAggression(opponent.aggression, beastCfg.masterAloneAggressionBonus),
-                  opponent.blockChance,
+                  aiBlockChance,
                 )
+              : panoplyCfg
+              ? chooseAIStandardAction(aiAggression, aiBlockChance)
               : chooseAIStandardAction(opponent.aggression, opponent.blockChance);
         }
       }
@@ -1847,11 +2017,36 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         chosenAction = 'telegraph';
       }
 
+      // D-3 — VARRO NEVER THROWS A HEAVY SILENTLY. A heavy he chooses is
+      // announced instead, because the wind-up is where the tell lives; the
+      // announce itself spends the turn exactly as Goliath's does, and the
+      // resolution above dispatches the quick or the power its roll decided.
+      if (
+        falseTelegraphCfg &&
+        chosenAction === 'power_attack' &&
+        !pendingHeavyAttackRef.current &&
+        dist <= effectiveRange &&
+        opp.stamina >= oppHeavyCost
+      ) {
+        chosenAction = 'telegraph';
+      }
+
       executeCombatTurn('opponent', chosenAction);
     }, aiDelayMs);
 
     return () => clearTimeout(aiTimer);
-  }, [isPlayerTurn, isExecuting, player, opp, executeCombatTurn, beastCfg, commitBeast, addLog]);
+  }, [
+    isPlayerTurn,
+    isExecuting,
+    player,
+    opp,
+    executeCombatTurn,
+    beastCfg,
+    commitBeast,
+    addLog,
+    falseTelegraphCfg,
+    panoplyCfg,
+  ]);
 
   // Check victory / defeat conditions
   useEffect(() => {
@@ -2055,7 +2250,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             <Sparkles count={50} scale={[20, 10, 20]} size={2} color="#fef08a" opacity={0.5} />
 
             <ThreeComponentErrorBoundary componentName="DuelArenaArchitecture">
-              <DuelArena crowdPulseRef={crowdPulseRef} />
+              <DuelArena
+                crowdPulseRef={crowdPulseRef}
+                bannerAllegiance={
+                  panoplyCfg ? (panoply.humiliated ? 'player' : 'gilded') : undefined
+                }
+              />
             </ThreeComponentErrorBoundary>
 
             <ThreeComponentErrorBoundary componentName="DuelFightersGladiatorMeshes">
@@ -2066,9 +2266,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                     only, and it clears the moment `telegraphText` does — the
                     telegraph's timing is untouched, so the player still has
                     exactly one full turn to answer it. */}
+                {/* D-3 — the feet-tell: only Varro's announcer sets it, only
+                    while his wind-up is live; `undefined` leaves the model
+                    exactly as it has always been. */}
                 <GladiatorMesh
                   fighter={opp}
                   impactRef={impactRef}
+                  feetTell={falseTelegraph.tell ?? undefined}
                   telegraphGlow={
                     Boolean(opp.telegraphText) && bossPresentsMoment(opponent, 'heavy_telegraph')
                   }
@@ -2135,6 +2339,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 maxWounds: beastCfg.maxWounds,
                 agility: beastCfg.agility,
                 targetable: beast.pose === 'crouch',
+              }
+            : null
+        }
+        panoply={
+          panoplyCfg
+            ? {
+                pieces: panoply.pieces.map((piece) => ({
+                  name: piece.name,
+                  cracks: piece.cracks,
+                  breakAt: piece.breakAt,
+                  broken: piece.broken,
+                })),
+                humiliated: panoply.humiliated,
               }
             : null
         }

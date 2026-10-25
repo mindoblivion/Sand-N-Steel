@@ -43,7 +43,19 @@ interface CombatHUDProps {
    * boss's name and the panel's target choice; `null`/absent on every other duel.
    */
   beast?: BeastPanelInfo | null;
+  /**
+   * D-3 — Gnaeus's panoply, when the bout fields one. Drives the crack pips
+   * beside his name, in the same compact language as the beast's wound pips.
+   * `null`/absent on every other duel.
+   */
+  panoply?: PanoplyPanelInfo | null;
   onExecuteAction: (action: CombatActionType, target?: AttackTarget) => void;
+}
+
+/** D-3 — the panoply as the HUD draws it: one crack-pip row per piece, in crack order. */
+export interface PanoplyPanelInfo {
+  pieces: { name: string; cracks: number; breakAt: number; broken: boolean }[];
+  humiliated: boolean;
 }
 
 export const CombatHUD: React.FC<CombatHUDProps> = ({
@@ -68,6 +80,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   opponentIsBoss,
   bossVignettePulse,
   beast = null,
+  panoply = null,
   onExecuteAction,
 }) => {
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
@@ -221,6 +234,39 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                             : 'bg-neutral-800 border-neutral-600'
                         }`}
                       />
+                    ))}
+                  </span>
+                )}
+                {/* D-3 — the panoply's cracks, beside the boss's name in the
+                    same pip language as the beast's wounds: one group per piece,
+                    in crack order, a lit pip per crack and a broken piece's row
+                    dimmed to red. Only a bout that wears one renders this. */}
+                {panoply && (
+                  <span
+                    data-panoply-pips={panoply.pieces
+                      .map((piece) => `${piece.name}:${piece.cracks}/${piece.breakAt}`)
+                      .join('|')}
+                    data-panoply-humiliated={panoply.humiliated ? '1' : '0'}
+                    title={panoply.pieces
+                      .map((piece) => `${piece.name} ${piece.cracks}/${piece.breakAt}`)
+                      .join(' · ')}
+                    className="ml-1.5 flex items-center gap-1 shrink-0"
+                  >
+                    {panoply.pieces.map((piece) => (
+                      <span key={piece.name} className="flex items-center gap-px">
+                        {Array.from({ length: piece.breakAt }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={`w-1 h-1 rounded-[1px] border ${
+                              piece.broken
+                                ? 'bg-red-900 border-red-700'
+                                : i < piece.cracks
+                                ? 'bg-amber-500 border-amber-300'
+                                : 'bg-neutral-800 border-neutral-600'
+                            }`}
+                          />
+                        ))}
+                      </span>
                     ))}
                   </span>
                 )}

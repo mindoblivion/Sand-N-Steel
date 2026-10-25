@@ -200,7 +200,14 @@ describe('CF-5 §B the AI delay', () => {
   });
 
   test('only the telegraphed-heavy branch sets the marker', () => {
-    expect(duel.match(/telegraphAftermathRef\.current = true;/g)?.length).toBe(1);
+    // D-3 rebased this count, not weakened it: Varro's false telegraph resolves
+    // from its own branch in the same AI effect, and it too has just spent a
+    // full telegraph turn, so it takes the same longer beat.
+    expect(duel.match(/telegraphAftermathRef\.current = true;/g)?.length).toBe(2);
+    const falseTelegraph = duel.indexOf("opponent.bossMechanic === 'false_telegraph' && pendingHeavyAttackRef.current");
+    const falseSet = duel.indexOf('telegraphAftermathRef.current = true;');
+    expect(falseTelegraph).toBeGreaterThan(-1);
+    expect(falseSet).toBeGreaterThan(falseTelegraph);
     const set = duel.indexOf('telegraphAftermathRef.current = true;');
     const landing = duel.indexOf('telegraphLandingRef.current = true;');
     // Set on the same resolution that takes the long hit-stop, one line after it.

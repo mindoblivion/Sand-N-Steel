@@ -549,7 +549,11 @@ describe('CF-3 §D — DuelScene wiring', () => {
   });
 
   test('the arena receives the pulse ref', () => {
-    expect(DUEL_SCENE).toContain('<DuelArena crowdPulseRef={crowdPulseRef} />');
+    // D-3 rebased this pin, not weakened it: the arena now also receives the
+    // loge-banner allegiance, so the mount is written across several lines.
+    expect(DUEL_SCENE).toContain('<DuelArena');
+    expect(DUEL_SCENE).toContain('crowdPulseRef={crowdPulseRef}');
+    expect(DUEL_SCENE).toContain('bannerAllegiance={');
   });
 
   test('the hype numbers are byte-identical to before CF-3', () => {
@@ -567,11 +571,14 @@ describe('CF-3 §D — DuelScene wiring', () => {
     expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + beastCfg.flightHype));');
     // The peak helper is still the one consumer of the record.
     expect(DUEL_SCENE).toContain('updateHypePeak(statsRef.current.crowdHypePeak, next)');
+    // D-3 — a panoply break is the fifth award site, and its magnitude is the row's
+    // own `breakHype`, not a constant added here.
+    expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + panoplyCfg.breakHype));');
     // CF-3 added no hype value of its own: it left three award sites. D-2's
-    // beast-flight award is the fourth, and it is named above so the count cannot
-    // drift silently.
+    // beast-flight award is the fourth and D-3's panoply break the fifth, both
+    // named above so the count cannot drift silently.
     const awards = stripComments(DUEL_SCENE).match(/updateCrowdHype\(\(prev\)/g) ?? [];
-    expect(awards).toHaveLength(4);
+    expect(awards).toHaveLength(5);
   });
 
   test('the scene does not award hype anywhere CF-3 introduced', () => {
