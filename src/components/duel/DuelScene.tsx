@@ -33,6 +33,7 @@ import {
   isAttackInRange,
   shieldGuardStaminaGain,
   DODGE_STAMINA_COST,
+  DODGE_EVADE_CHANCE,
   applyDefensiveAction,
   clearDefensiveStance,
 } from '../../utils/combatCalculations';
@@ -882,8 +883,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // boundary (it is NOT cleared in the end-of-turn reset) so the
           // attacker's strike can be evaded. Reading action === 'dodge' here
           // would always be false — the dodger's action is reset to 'idle'
-          // before the opposing turn begins.
-          const isEvaded = defender.isInvulnerable && Math.random() < 0.75;
+          // before the opposing turn begins. The rate is the ONE shared
+          // constant (C-8.82B), never a literal, so the HUD, the manual and the
+          // roll cannot drift apart.
+          const isEvaded = defender.isInvulnerable && Math.random() < DODGE_EVADE_CHANCE;
 
           // Passive evasion (Valéria counter_dodge): when the player
           // attacks a counter_dodge boss who is NOT in an active
@@ -1216,7 +1219,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
    * The player's one answer to an announced strike: raise the shield or dodge.
    * A reaction is NOT a turn — it writes the same stance flags the fighter's own
    * turn would, and the pending attack then resolves through the existing rules
-   * (block reduction from the weapon, or the 75 % evade roll). The two stances
+   * (block reduction from the weapon, or the shared dodge evade roll). The two stances
    * replace each other, so mashing both cannot stack a guaranteed block with an
    * evade, and only one reaction is accepted per announcement.
    */

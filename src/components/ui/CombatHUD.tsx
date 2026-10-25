@@ -2,6 +2,7 @@ import React from 'react';
 import { FighterState } from '../../types/game';
 import { Swords, Flame, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle, Shield, Wind, Flag } from 'lucide-react';
 import {
+  DODGE_EVADE_PERCENT,
   DODGE_STAMINA_COST,
   ENEMY_ATTACK_WINDUP_MS,
   PLAYER_ATTACK_WINDUP_MS,
@@ -61,7 +62,11 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   // The player's cue, as the shared rule decides it: nothing unless a strike is
   // genuinely pending, and never alongside an opponent announcement.
   const playerWindupCue = resolvePlayerWindupCue(pendingPlayerAttack, pendingEnemyAttack);
-  const reactionCue = resolveReactionCue(reactionTaken);
+  // C-8.82B — the cue states what each answer offers: the guard's own mitigation
+  // (this fighter's weapon) and the shared dodge evade chance. Derived from the
+  // equipped weapon and the shared constant, never from copy literals.
+  const guardMitigationPct = Math.round((player.loadout?.weapon?.blockReduction ?? 0) * 100);
+  const reactionCue = resolveReactionCue(reactionTaken, player.loadout?.weapon?.blockReduction);
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
   const playerStaminaPct = Math.max(0, Math.min(100, (player.stamina / player.stats.staminaMax) * 100));
 
@@ -298,7 +303,12 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                   className="min-h-[44px] px-2 py-2 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/70 text-cyan-100 font-serif font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                 >
                   <Shield className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-                  <span>Shield Guard</span>
+                  <span className="flex flex-col items-start leading-tight">
+                    <span>Shield Guard</span>
+                    <span className="font-mono text-[9px] text-cyan-300/80">
+                      {guardMitigationPct}% cut · no cost
+                    </span>
+                  </span>
                 </button>
                 <button
                   data-reaction="dodge"
@@ -311,7 +321,10 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                   }`}
                 >
                   <Wind className="w-3.5 h-3.5 shrink-0" />
-                  <span>Dodge −{DODGE_STAMINA_COST} SP</span>
+                  <span className="flex flex-col items-start leading-tight">
+                    <span>Dodge −{DODGE_STAMINA_COST} SP</span>
+                    <span className="font-mono text-[9px] opacity-80">{DODGE_EVADE_PERCENT}% evade</span>
+                  </span>
                 </button>
               </div>
             )}

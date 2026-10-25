@@ -102,6 +102,35 @@ export const PLAYER_ATTACK_WINDUP_MS = 700;
 export const DODGE_STAMINA_COST = 12;
 
 /**
+ * Chance that a Dodge stance evades an incoming strike outright (C-8.82B).
+ *
+ * This is the one lever that decides whether Dodge is worth its 12 SP, because
+ * both stances resolve against the SAME mitigated blow: a guard passes
+ * `(1 − blockReduction)` of it through every time it is hit, while a dodge
+ * passes nothing on a success and ALL of it on a failure. The stance therefore
+ * only trades favourably while `1 − DODGE_EVADE_CHANCE < 1 − blockReduction`,
+ * i.e. while the evade rate beats the best shield in the roster.
+ *
+ * At the old 0.75 the roster's shields (gladius 0.82, shamshir 0.80, spatha
+ * 0.85) absorbed more than a dodge avoided AND recovered stamina on a stopped
+ * blow, so for a shield build Shield Guard beat Dodge on both damage and
+ * stamina — strict dominance over the whole shield segment of the roster. The
+ * sweep in `phaseC8_82b.test.ts` finds 0.86 the first rate that merely breaks
+ * the dominance, and 0.88 the smallest whole-percent rate at which the roster's
+ * heaviest attack is cut by a meaningful >= 15 % against EVERY weapon's guard
+ * (spatha 0.85: guard 8 -> dodge 6.72 expected damage, 16.0 %; gladius 0.82:
+ * 33 %). A dodge still fails 12 % of the time and then takes the blow
+ * UNMITIGATED, so it stays a wager rather than a better shield.
+ */
+export const DODGE_EVADE_CHANCE = 0.88;
+
+/**
+ * {@link DODGE_EVADE_CHANCE} as the whole percentage the UI and the manual
+ * print. Derived, so no display can drift from the roll the engine makes.
+ */
+export const DODGE_EVADE_PERCENT = Math.round(DODGE_EVADE_CHANCE * 100);
+
+/**
  * Fraction of the fighter's `staminaRegen` a stopped blow returns through
  * Shield Guard (C-8.72B).
  *
@@ -214,7 +243,8 @@ export function applyStaminaRegen(
  * Raising the guard costs nothing and recovers NOTHING on its own: the old
  * unconditional `staminaRegen` on every Shield Guard turn made the action
  * strictly better than Dodge — damage reduction *and* free recovery — where
- * Dodge pays {@link DODGE_STAMINA_COST} for a 75 % evade. Recovery now happens
+ * Dodge pays {@link DODGE_STAMINA_COST} for an {@link DODGE_EVADE_CHANCE} evade.
+ * Recovery now happens
  * only when the guard actually STOPS a blow, i.e. in the existing `isBlocked`
  * branch of the resolution, so a raised shield that nothing hits recovers
  * nothing and the trade-off is real: certainty (partial damage absorbed) versus

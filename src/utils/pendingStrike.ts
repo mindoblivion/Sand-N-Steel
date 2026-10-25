@@ -20,7 +20,11 @@
  *     mashing Shield Guard and Dodge cannot stack a block with a dodge.
  */
 
-import { ENEMY_ATTACK_WINDUP_MS } from './combatCalculations';
+import {
+  DODGE_EVADE_PERCENT,
+  DODGE_STAMINA_COST,
+  ENEMY_ATTACK_WINDUP_MS,
+} from './combatCalculations';
 
 /** The enemy actions that are announced and held before they land. */
 export type EnemyStrikeAction = 'quick_attack' | 'power_attack';
@@ -83,12 +87,38 @@ export interface ReactionCue {
  * so the blow is evaded outright at the dodge rate and lands unreduced only when
  * that roll fails. A single guard line therefore misreports a dodge — it claims a
  * guard that was never raised and hides that the incoming blow can land in full.
+ *
+ * C-8.82B — the line also states what each answer OFFERS, so the trade-off is
+ * legible at the moment it is being made: the dodge's evade chance and its spent
+ * cost, and (when the caller supplies the fighter's weapon) the guard's own
+ * mitigation. Both percentages come from the shared constants, so the copy cannot
+ * disagree with the roll or the charge.
+ *
+ * @param reaction       the stance actually spent, or null before any answer
+ * @param blockReduction the answering fighter's weapon block fraction (0–1); when
+ *                       finite, the guard line names the mitigation it applies
  */
-export function resolveReactionCue(reaction: PendingReaction | null): ReactionCue | null {
+export function resolveReactionCue(
+  reaction: PendingReaction | null,
+  blockReduction?: number,
+): ReactionCue | null {
   if (reaction === null) return null;
-  return reaction === 'dodge'
-    ? { kind: 'dodge', label: 'Dodge set — a chance to slip the blow entirely.' }
-    : { kind: 'shield_block', label: 'Guard set — the blow lands at reduced force.' };
+  if (reaction === 'dodge') {
+    return {
+      kind: 'dodge',
+      label:
+        `Dodge set — ${DODGE_EVADE_PERCENT}% chance to slip the blow entirely; ` +
+        `${DODGE_STAMINA_COST} SP spent.`,
+    };
+  }
+  const mitigation =
+    typeof blockReduction === 'number' && Number.isFinite(blockReduction)
+      ? ` (${Math.round(blockReduction * 100)}% absorbed by the shield)`
+      : '';
+  return {
+    kind: 'shield_block',
+    label: `Guard set — the blow lands at reduced force${mitigation}.`,
+  };
 }
 
 export function createPendingStrike(config: PendingStrikeConfig = {}): PendingStrike {

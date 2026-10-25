@@ -40,6 +40,7 @@ import {
   applyDefensiveAction,
   calculateAttackDamage,
   clearDefensiveStance,
+  DODGE_EVADE_CHANCE,
   DODGE_STAMINA_COST,
   ENEMY_ATTACK_WINDUP_MS,
 } from './combatCalculations';
@@ -73,11 +74,18 @@ const duelCode = codeOnly(duelSource);
 
 /**
  * The shipped dodge rate, read out of the resolution itself. A model that
- * hard-coded its own 0.75 would keep passing after the real rate moved.
+ * hard-coded its own rate would keep passing after the real rate moved, so the
+ * expression the resolution rolls against is resolved to its value: the literal
+ * it used to be, or — C-8.82B — the shared `DODGE_EVADE_CHANCE` constant it now
+ * names. Anything else resolves to NaN and fails the pin below.
  */
-const SHIPPED_DODGE_RATE = Number(
-  /defender\.isInvulnerable && Math\.random\(\) < ([\d.]+)/.exec(duelCode)?.[1],
-);
+const SHIPPED_DODGE_RATE_EXPR =
+  /defender\.isInvulnerable && Math\.random\(\) < ([\w.]+)/.exec(duelCode)?.[1] ?? '';
+const SHIPPED_DODGE_RATE = Number.isFinite(Number(SHIPPED_DODGE_RATE_EXPR))
+  ? Number(SHIPPED_DODGE_RATE_EXPR)
+  : SHIPPED_DODGE_RATE_EXPR === 'DODGE_EVADE_CHANCE'
+    ? DODGE_EVADE_CHANCE
+    : Number.NaN;
 
 /** The reaction handler's own body, so its ordering can be pinned without the rest of the file. */
 const reactionBody = duelSource.slice(
@@ -206,9 +214,12 @@ function fakeTimer() {
 
 describe('§A — the cue names the stance the impact actually reads', () => {
   test('the shipped dodge rate is still the one this suite models', () => {
-    // Read from the resolution source, not copied: 75 % evade, 25 % land.
-    expect(SHIPPED_DODGE_RATE).toBe(0.75);
+    // Read from the resolution source, not copied, and equal to the ONE shared
+    // constant every display derives from (C-8.82B moved it 0.75 -> 0.88).
+    expect(SHIPPED_DODGE_RATE_EXPR).toBe('DODGE_EVADE_CHANCE');
+    expect(SHIPPED_DODGE_RATE).toBe(DODGE_EVADE_CHANCE);
     expect(SHIPPED_DODGE_RATE).toBeLessThan(1);
+    expect(1 - SHIPPED_DODGE_RATE).toBeGreaterThan(0);
   });
 
   test('a Dodge cue sets exactly the stance the evade roll reads', () => {
@@ -518,7 +529,9 @@ describe('§D — the shipped scene keeps the lifecycle in step', () => {
 
   test('the resolution still reads the two stances the cue names', () => {
     // The cue is only synchronised if these are the reads the impact performs.
-    expect(duelCode).toContain('defender.isInvulnerable && Math.random() < 0.75');
+    expect(duelCode).toContain(
+      'defender.isInvulnerable && Math.random() < DODGE_EVADE_CHANCE',
+    );
     expect(duelCode).toContain('const isBlocked = defender.isBlocking;');
   });
 

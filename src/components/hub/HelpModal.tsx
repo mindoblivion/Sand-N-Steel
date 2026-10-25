@@ -10,6 +10,7 @@ import {
   Compass,
   Wind,
 } from 'lucide-react';
+import { DODGE_EVADE_PERCENT } from '../../utils/combatCalculations';
 
 interface HelpModalProps {
   onClose: () => void;
@@ -114,7 +115,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               </div>
               <p className="text-[11px] text-neutral-400">
                 Raise your scutum to blunt the opponent&apos;s next strike — damage is cut by your weapon&apos;s block
-                value, and the guard recovers stamina only when it actually stops a blow.
+                value every time it lands, and the guard recovers stamina only when it actually stops a blow. It
+                costs nothing, so it is the reliable answer against a blow you cannot afford to dodge.
               </p>
             </div>
           </div>
@@ -132,8 +134,9 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
                 </span>
               </div>
               <p className="text-[11px] text-neutral-400">
-                Enter an evasion stance with a 75% chance to evade the next strike. The 12 SP is spent to take the
-                stance whether the dodge succeeds or fails, and a failed dodge still takes the damage.
+                Enter an evasion stance with a {DODGE_EVADE_PERCENT}% chance to evade the next strike. The 12 SP is
+                spent to take the stance whether the dodge succeeds or fails, and a failed dodge still takes the damage
+                in full — no shield is raised to blunt it.
               </p>
               <p className="text-[10px] text-teal-300/80 font-mono mt-1">
                 Used on your turn, the stance carries into the opponent&apos;s next strike. When a strike is

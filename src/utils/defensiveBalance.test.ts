@@ -5,7 +5,7 @@
  * stopped blow still credited the fighter's FULL `staminaRegen` stat. Measured
  * through the shipped helpers on a representative shield build (gladius 0.82
  * block, `staminaRegen` 31.9) that was **31.9 SP per blocked exchange**, against
- * Dodge's 12 SP cost for a 75 % evade — with the guard also absorbing 82 % of
+ * Dodge's 12 SP cost for an evade — with the guard also absorbing 82 % of
  * the damage. C-8.72B halves the credit (`SHIELD_GUARD_REGEN_MULTIPLIER`) and
  * moves nothing else: no damage, mitigation, block reduction, evade chance, AI
  * probability, stamina cost or turn timing changed, and Dodge gained no refund.
@@ -35,6 +35,8 @@ import { readFileSync } from 'node:fs';
 import {
   applyStaminaRegen,
   shieldGuardStaminaGain,
+  DODGE_EVADE_CHANCE,
+  DODGE_EVADE_PERCENT,
   SHIELD_GUARD_REGEN_MULTIPLIER,
   DODGE_STAMINA_COST,
   PLAYER_ATTACK_WINDUP_MS,
@@ -274,14 +276,22 @@ describe('§C — Dodge pays 12 SP at stance entry, and the outcome cannot chang
     expect(impact).not.toContain('prev.stamina +');
   });
 
-  test('the evade roll is the unchanged 75 %', () => {
-    expect(duelSource).toContain('const isEvaded = defender.isInvulnerable && Math.random() < 0.75;');
+  test('the evade roll reads the ONE shared chance, never a literal', () => {
+    // C-8.82B — the rate is a shared constant, so this pin moved from the literal
+    // 0.75 to the constant's name and keeps its strength: a hardcoded number (or
+    // a different constant) fails here.
+    expect(duelSource).toContain(
+      'const isEvaded = defender.isInvulnerable && Math.random() < DODGE_EVADE_CHANCE;',
+    );
+    expect(duelSource).not.toMatch(/isInvulnerable && Math\.random\(\) < 0\.\d+/);
+    expect(DODGE_EVADE_PERCENT).toBe(Math.round(DODGE_EVADE_CHANCE * 100));
   });
 
   test('the manual documents cost, odds, failure and the two timings', () => {
     expect(helpSource).toContain('Dodge');
     expect(helpSource).toContain('Cost: 12 SP');
-    expect(helpSource).toContain('75% chance to evade');
+    expect(helpSource).toContain('{DODGE_EVADE_PERCENT}% chance to evade');
+    expect(helpSource).not.toMatch(/\d+% chance to evade/);
     expect(helpSource).toContain('whether the dodge succeeds or fails');
     expect(helpSource).toContain('a failed dodge still takes the damage');
     expect(helpSource).toContain('carries into the opponent');

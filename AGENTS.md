@@ -10158,3 +10158,103 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   pass exists to answer is whether the heavy's knee-height contact (0.578 m tip, torso 0.337 clear at
   1.8 m) reads as a deliberate low blow or as a leg graze — a clip/arc question, since no frame of
   `Sword_Regular_C` touches the torso. Do not claim device acceptance.
+
+## Defense stance parity (C-8.82B — implemented, live-verified in the HUD harness)
+
+- **Preflight (measured).** Branch `development-focus-strategy`, HEAD **`2dbebe3ded`**, `git status --short`
+  **empty** at the start and no pre-existing edits; the dev stack was already up (`web` healthy on 3000).
+  Nothing was reset, stashed, discarded, committed, pushed, merged or deployed. C-8.81's strike timing and
+  visual diagnostics were not reopened.
+
+- **The defect is arithmetic, not opinion.** Both stances answer the SAME mitigated blow, so through the
+  shipped `calculateAttackDamage`:
+  `expected guard = hit% × dmg(def, isBlocked=TRUE, blockReduction)` and
+  `expected dodge = hit% × (1 − evade) × dmg(def, isBlocked=false)` — the dodge's failed roll lands
+  UNMITIGATED. The hit% cancels, so the verdict is `(1 − evade)` against `(1 − blockReduction)`. At 0.75 the
+  roster's shields (gladius 0.82, shamshir 0.80, spatha 0.85) passed less through than a dodge avoided **and**
+  recovered stamina on a stopped blow, so over `ALL_WEAPONS` × the opponent weapon set (11 × 4 × 2 attacks =
+  **88 configurations**) **30** had `dodge ≥ guard` on damage while the guard was also the only one that could
+  gain stamina. Documented defender (C-8.72B's shield build): `defense 42`, `agility 16`, `staminaRegen 31.9`;
+  attacker `strength 12`, `agility 14` (58 % heavy / 82 % quick).
+- **The sweep, before choosing.** The block-reduction lever was measured and rejected: `blockReduction` is
+  per-weapon data used by whoever blocks, so lowering it to below an evade rate would weaken the shields of
+  the player AND of every shield-wielding opponent (Marcus, Drusus) and gut the archetype — a much broader
+  shift than the stance it was meant to fix. The evade rate is the one lever that moves only Dodge.
+  | rate | configs where dodge ≥ guard | worst dodge gain over guard |
+  |---|---|---|
+  | 0.75 (shipped) | **30 / 88** | **−66.7 %** (spatha guard vs gladius heavy) |
+  | 0.86 | 0 / 88 | +6.7 % |
+  | 0.87 | 0 / 88 | +13.3 % |
+  | **0.88 (chosen)** | **0 / 88** | **+20.0 %** |
+  **0.86 is the first rate that merely breaks the dominance; 0.88 is the smallest whole-percent rate at which
+  the roster's heaviest attack is cut by a meaningful ≥ 15 % against EVERY weapon's guard**, so the choice is
+  the criterion, not taste. Light weapons do not reverse the trade-off, they gain more: the worst light build
+  (`dual_vipers` 0.48 vs the hoplite's quick thrust) gains **76.0 %**, the best shield entry
+  (`titan_colossus_mace` 0.75 vs the gladius' quick thrust) **56.0 %**.
+- **The heaviest attack, before → after** (`dmg 72` = `titan_colossus_mace`, defender `spatha` 0.85 —
+  the least favourable pair; the opponent set's own heaviest is `bronze_mace` 42, whose worst pair is
+  spatha at **20.8 %**):
+  | | guard | dodge |
+  |---|---|---|
+  | 0.75 | **8** | 14.0 — **75 % WORSE than guarding** |
+  | 0.88 | **8** | **6.72 — 16.0 % better** |
+  Against the standard gladius shield (guard 10) the same dodge pays 14.0 → 6.72, i.e. −75 % → **+32.8 %**.
+- **Whose balance moved — both, symmetrically and measurably, and the effect was quantified, not waved away.**
+  The rate is shared by the player's and the AI's `dodge` stance (one roll, one constant), so an opponent that
+  dodges evades the player's strike 88 % of the time instead of 75. AI *selection* weights are untouched, so
+  the effect is the payoff only: measured over `ALL_OPPONENTS` the mean P(AI picks dodge) is **16.3 %**
+  (max 37.3 %, Marcus), and the player's expected damage into a dodging opponent falls from 25 % to 12 % of
+  the unblocked figure — **−2.4 % overall, −6.7 % in the worst fight (Marcus)**. No enemy damage, hit chance,
+  crit, reward or aggression value moved.
+- **One source of truth.** `DODGE_EVADE_CHANCE = 0.88` and its derived `DODGE_EVADE_PERCENT = 88`
+  (`combatCalculations.ts`, beside `DODGE_STAMINA_COST`); `DuelScene`'s roll now reads the constant (no
+  literal anywhere), and `TurnActionPanel`, `HelpModal`, `CombatHUD` and `pendingStrike.resolveReactionCue`
+  all derive their copy from it. The reaction cue gained the trade-off: the pre-decision row now reads
+  "Shield Guard · {block}% cut · no cost" and "Dodge −12 SP · {88}% evade" (both live in the shipped HUD —
+  verified below), and the claimed line reads
+  "Dodge set — 88 % chance to slip the blow entirely; 12 SP spent." / "Guard set — the blow lands at reduced
+  force (82 % absorbed by the shield)." No hardcoded evade percentage remains in the UI or the manual.
+- **Files changed — five production, three rebased suites, one new suite, this record.**
+  `src/utils/combatCalculations.ts` (the constant, the derived percent, the doc comments);
+  `src/components/duel/DuelScene.tsx` (import + the roll + its comment);
+  `src/components/ui/TurnActionPanel.tsx`; `src/components/hub/HelpModal.tsx`;
+  `src/components/ui/CombatHUD.tsx` (the row's odds, and the cue receiving the fighter's block reduction);
+  `src/utils/pendingStrike.ts` (the cue's labels and its optional `blockReduction` argument);
+  **Rebased, not weakened:** `defensiveBalance.test.ts` (§C's "unchanged 75 %" pin now pins the CONSTANT and
+  forbids a literal — the literal it used to assert is now the thing it rejects; the manual pin reads
+  `{DODGE_EVADE_PERCENT}` and rejects any `N% chance to evade`), `phaseC8_79C.test.ts` (the rate it reads out
+  of the resolution now resolves a constant NAME as well as a literal, and the pin asserts it equals
+  `DODGE_EVADE_CHANCE` — 2 further assertions), `phaseC8_79B.test.ts` (the HUD still resolves the cue from the
+  `reactionTaken` prop; the pin tolerates the new second argument). **New:** `src/utils/phaseC8_82b.test.ts`.
+- **Regression suite: `src/utils/phaseC8_82b.test.ts` — 27 tests / 267 `expect()`.** §A one source of truth
+  (the constant and its derived percent; the roll; the panel, manual, HUD row and cue all derive; no hardcoded
+  evade percentage remains); §B the roster-wide trade-off (the four opponent types and their resolved weapons;
+  the structural `1 − evade < 1 − bestBlock` rule; **0 of 88** dominated after vs **30 of 88** before, with the
+  −66.67 % worst case replayed as a control; light weapons gaining more, not less); §C the meaningful benefit
+  (≥ 15 % for every defender against both the opponent set's heaviest 42 and the roster's heaviest 72, with the
+  8 / 14.0 / 6.72 figures pinned); §D the resource economy (58 % hit, +9.251 SP expected for the guard,
+  exactly −12 for the dodge, the credit non-negative and clamped and reachable only from the one
+  `if (isBlocked)` branch, the dodge charged once per fighter write and never refunded); §E the untouched
+  rules (700/700/1100 ms; range → affordability → lock → debit source order; hit-chance clamps; crit 1.5,
+  strength 0.05, rage 1.25, defence 2.5; the damage formula's measured values; the purse 365 on a flawless
+  hype-max win and 0 on a loss; the AI's thresholds and its 82/18 out-of-range split); §F C-8.81D's contact
+  frames (546 / 698), the 700 ms window, the 0.78 / 0.9971428571 rates, `GladiatorMesh` as the one consumer,
+  and that none of this phase's files reference the contact module at all.
+- **Verified 2026-10-19** in the dev container: focused `phaseC8_82b + defensiveBalance +
+  combatResponsiveness + combatActionOrder + phaseC8_79B` → **117 pass / 0 fail, 653 `expect()`**;
+  `bun run scripts/combatTests.ts` → **69 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0;
+  `bun run build` → exit 0 (startup-asset check passed); `git diff --check` → clean;
+  `bun test` → **3752 pass / 0 fail, 93713 `expect()` across 133 files** (the C-8.81D baseline was 3725 /
+  93441 / 132 — the delta is this suite's 27 tests plus the five rebased assertions).
+- **Live verification in the shipped HUD** (`/?devHarness=hud`, the real `CombatHUD` + `TurnActionPanel`,
+  key `3` for the power-strike cue): the reaction row rendered `Shield Guard 82% cut · no cost` /
+  `Dodge −12 SP 88% evade`; a real click on Dodge disabled nothing, replaced both controls, and the cue read
+  **"Dodge set — 88 % chance to slip the blow entirely; 12 SP spent."** with `data-reaction-kind="dodge"` and
+  no mention of a guard; the tactic panel's Dodge card read `88% chance to evade the next strike` and
+  `88% Evade` with `12 SP` / `−12 SP`, and its Shield Guard card `82% Absorb` / `NO COST`; no `75%` remained
+  on the screen. The temporary harness frame was removed afterwards and nothing was stored.
+- **Not automatically verified:** the **manual** (`HelpModal`) copy was confirmed by source pin only, not
+  rendered, and no live bout was played — the stance trade-off is verified as arithmetic through the shipped
+  formulas plus the HUD's own rendered copy, not by fighting. Android acceptance of the two-line reaction
+  buttons (44 px floor intact, no growth since `min-h-[44px]` already set the floor) remains PENDING with the
+  rest of the device checklist.

@@ -19,6 +19,7 @@ import {
   calculateAttackDamage,
   isAttackInRange,
   DODGE_STAMINA_COST,
+  DODGE_EVADE_PERCENT,
 } from '../../utils/combatCalculations';
 
 export type CombatActionType =
@@ -313,11 +314,11 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             </div>
 
             <div className="tactic-desc text-[10px] text-neutral-300 font-sans leading-tight mb-1">
-              Enter an evasion stance — 75% chance to evade the next strike.
+              Enter an evasion stance — {DODGE_EVADE_PERCENT}% chance to evade the next strike.
             </div>
 
             <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-teal-900/40">
-              <span className="text-teal-300 font-bold">75% Evade</span>
+              <span className="text-teal-300 font-bold">{DODGE_EVADE_PERCENT}% Evade</span>
               <span className="text-rose-300 font-bold">−{DODGE_STAMINA_COST} SP</span>
             </div>
           </button>

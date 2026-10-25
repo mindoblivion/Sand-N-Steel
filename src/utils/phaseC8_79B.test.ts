@@ -210,7 +210,10 @@ describe('§C — the scene records WHICH stance was spent, and clears it', () =
     expect(duelCode).toContain('reactionTaken={reactionTaken}');
     expect(hudSource).toContain('reactionTaken: PendingReaction | null;');
     expect(hudSource).not.toContain('reactionTaken: boolean;');
-    expect(hudSource).toContain('resolveReactionCue(reactionTaken)');
+    // C-8.82B passes the fighter's own block reduction as the cue's second
+    // argument so the guard line can name its mitigation; the stance still comes
+    // straight from the prop, which is the property this pin exists for.
+    expect(hudSource).toContain('resolveReactionCue(reactionTaken,');
   });
 
   test('the dev harness passes the reaction it actually delivered', () => {
