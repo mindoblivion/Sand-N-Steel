@@ -637,7 +637,9 @@ describe('CF-4 §H combat outcomes and timing are unchanged', () => {
     expect(duel).toMatch(/blocked:\s*40,/);
     expect(duel).toMatch(/twin:\s*35,/);
     expect(duel).toMatch(/telegraphedHeavy:\s*200,/);
-    expect(duel.match(/\}, 1100\);/g)?.length).toBe(1);
+    // CF-5 replaced the fixed 1100 ms hold with the weight-scaled table, so the
+    // resolution window is pinned through the shipped call instead.
+    expect(duel.match(/\}, turnResolutionMs\(actionType, fightEnded\)\);/g)?.length).toBe(1);
   });
 
   test('the damage formula module knows nothing about particles', () => {
