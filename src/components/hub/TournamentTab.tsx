@@ -8,6 +8,7 @@ import { PrimusPalusBoard } from './PrimusPalusBoard';
 // S7 — whether the player has bought the tavern's rumour on this opponent.  The
 // dossier below is READ from OpponentConfig; intel changes nothing a fight computes.
 import { hasIntel } from '../../utils/intel';
+import { beastIntelLine } from '../../utils/beastHunt';
 
 /** How the opponents' own weapon types read on a rumour card. Display only. */
 const WEAPON_LABELS: Record<OpponentConfig['weaponType'], string> = {
@@ -123,6 +124,17 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
                     {opp.bossMechanic && (
                       <div className="mt-1 text-[11px] font-mono text-cyan-200">
                         Signature: {BOSS_MECHANIC_LABELS[opp.bossMechanic]}
+                      </div>
+                    )}
+                    {/* D-2 — the beast's published numbers, built from the row by
+                        `beastIntelLine` so no figure is restated here. Rumour
+                        depth only: the fight computes none of this from a card. */}
+                    {opp.beast && (
+                      <div
+                        data-beast-intel={opp.id}
+                        className="mt-1 text-[11px] font-mono text-amber-200"
+                      >
+                        {beastIntelLine(opp.beast)}
                       </div>
                     )}
                   </div>

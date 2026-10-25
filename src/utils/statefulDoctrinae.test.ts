@@ -357,6 +357,11 @@ describe('§P — the duel state never reaches a save', () => {
         'src/components/duel/DuelScene.tsx',
         'src/components/ui/TurnActionPanel.tsx',
         'src/types/game.ts',
+        // D-2 — the beast suite asserts the same cast's own return shape
+        // (`entangledTurns`), so it names the field without ever putting it on a
+        // fighter. A test file joining this list is the list working: no
+        // PRODUCTION file beyond the four above may name either field.
+        'src/utils/beastHunt.test.ts',
         'src/utils/statefulDoctrinae.test.ts',
         'src/utils/statefulDoctrinae.ts',
       ].sort(),
@@ -397,7 +402,10 @@ describe('§X — the wiring', () => {
   test('the cast is a real action in the duel and a button in the HUD', () => {
     expect(duel).toContain("actionType === 'cast_net'");
     expect(panel).toContain("'cast_net'");
-    expect(panel).toContain("onExecuteAction('cast_net')");
+    // D-2 — the button still throws the net; it now carries the chosen target,
+    // because the same cast can be aimed at a crouching beast (the beast branch
+    // resolves it with no target class, so Snag-Proof cannot refuse a lion).
+    expect(panel).toContain("onExecuteAction('cast_net', attackTarget)");
     // Retiarius only, and only while the net is unspent.
     expect(panel).toContain("playerModifiers.armaturaId === 'retiarius'");
     expect(panel).toContain('!netReady');

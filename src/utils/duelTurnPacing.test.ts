@@ -59,6 +59,8 @@ const ACTION_TYPES: CombatActionType[] = [
   'rest',
   'telegraph',
   'cast_net',
+  // D-2 — the beast's crouch (a beast-hunt boss action that resolves nothing).
+  'beast_crouch',
 ];
 
 /**
@@ -79,6 +81,8 @@ const DESIGN_MS: Record<CombatActionType, number> = {
   taunt: 800,
   rest: 800,
   cast_net: 880,
+  // D-2 — a read, not a resolution: between the quick weight and the wind-up.
+  beast_crouch: 1000,
 };
 
 const DEATH_MS = 1600;
@@ -100,7 +104,8 @@ describe('CF-5 §A the duration table', () => {
     // Every id in the union has a row, and every row is a real, usable hold —
     // no `undefined` can reach `setTimeout` even for an action the design never
     // weighted (the net throw, which took the quick weight by Director ruling).
-    expect(ACTION_TYPES.length).toBe(10);
+    // 10 through CH-3b's net throw; D-2's `beast_crouch` is the eleventh.
+    expect(ACTION_TYPES.length).toBe(11);
     for (const actionType of ACTION_TYPES) {
       const ms = turnResolutionMs(actionType);
       expect(Number.isFinite(ms)).toBe(true);

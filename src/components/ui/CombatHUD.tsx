@@ -1,7 +1,13 @@
 import React from 'react';
 import { FighterState } from '../../types/game';
 import type { FighterModifiers } from '../../utils/combatModifiers';
-import { TurnActionPanel, CombatActionType, CombatLogEntry } from './TurnActionPanel';
+import {
+  TurnActionPanel,
+  CombatActionType,
+  CombatLogEntry,
+  AttackTarget,
+  BeastPanelInfo,
+} from './TurnActionPanel';
 import { Swords, Flame, Sparkles, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle } from 'lucide-react';
 
 interface CombatHUDProps {
@@ -32,7 +38,12 @@ interface CombatHUDProps {
    * Boss fights only — DuelScene never sets it for a standard opponent.
    */
   bossVignettePulse?: number;
-  onExecuteAction: (action: CombatActionType) => void;
+  /**
+   * D-2 — the beast, when a bout fields one. Drives the wound pips beside the
+   * boss's name and the panel's target choice; `null`/absent on every other duel.
+   */
+  beast?: BeastPanelInfo | null;
+  onExecuteAction: (action: CombatActionType, target?: AttackTarget) => void;
 }
 
 export const CombatHUD: React.FC<CombatHUDProps> = ({
@@ -56,6 +67,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   opponentModifiers,
   opponentIsBoss,
   bossVignettePulse,
+  beast = null,
   onExecuteAction,
 }) => {
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
@@ -191,6 +203,27 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                 <span className="font-serif font-black tracking-wider text-[11px] sm:text-sm text-red-200 uppercase truncate">
                   {opponent.name}
                 </span>
+                {/* D-2 — the beast's wounds, beside the boss's name: one pip per
+                    wound taken, so "interrupt it three times" is readable at a
+                    glance. Only a bout that fields a beast renders this at all. */}
+                {beast && (
+                  <span
+                    data-beast-pips={`${beast.wounds}/${beast.maxWounds}`}
+                    title={`${beast.name} — ${beast.wounds} of ${beast.maxWounds} wounds`}
+                    className="ml-1.5 flex items-center gap-0.5 shrink-0"
+                  >
+                    {Array.from({ length: beast.maxWounds }).map((_, i) => (
+                      <span
+                        key={i}
+                        className={`w-1.5 h-1.5 rounded-full border ${
+                          i < beast.wounds
+                            ? 'bg-amber-400 border-amber-200'
+                            : 'bg-neutral-800 border-neutral-600'
+                        }`}
+                      />
+                    ))}
+                  </span>
+                )}
               </div>
               <span className="text-xs font-mono font-bold text-red-300">
                 {Math.round(opponent.health)} / {opponent.stats.healthMax}
@@ -261,6 +294,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
         playerModifiers={playerModifiers}
         opponentModifiers={opponentModifiers}
         opponentIsBoss={opponentIsBoss}
+        beast={beast}
         onExecuteAction={onExecuteAction}
       />
     </div>

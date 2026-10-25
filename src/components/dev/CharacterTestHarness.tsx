@@ -40,9 +40,22 @@ const DuelScene = React.lazy(() =>
  */
 type HarnessStage = 'create' | 'ready' | 'duel' | 'result';
 
+/**
+ * The opponent this harness duels. Defaults to the first roster entry, exactly
+ * as before; `?opponent=<id>` picks another roster entry so one boss mechanic
+ * can be exercised without climbing the ladder first. An unknown id falls back
+ * to the default — the harness never invents an opponent.
+ */
+const harnessOpponent = (): (typeof ALL_OPPONENTS)[number] => {
+  const id = new URLSearchParams(window.location.search).get('opponent');
+  return ALL_OPPONENTS.find((o) => o.id === id) ?? ALL_OPPONENTS[0];
+};
+
 export const CharacterTestHarness: React.FC = () => {
   // Self-guard: belt-and-suspenders so a stale import can never render in prod.
   if (!import.meta.env.DEV) return null;
+
+  const testOpponent = harnessOpponent();
 
   const [stage, setStage] = useState<HarnessStage>('create');
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
@@ -58,7 +71,7 @@ export const CharacterTestHarness: React.FC = () => {
 
   // Keep music in sync with the current stage, like App's music router (no storage).
   useEffect(() => {
-    if (stage === 'duel') music.play(ALL_OPPONENTS[0].isBoss ? 'boss_final' : 'arena_combat');
+    if (stage === 'duel') music.play(testOpponent.isBoss ? 'boss_final' : 'arena_combat');
     else music.stop();
   }, [stage]);
 
@@ -127,7 +140,7 @@ export const CharacterTestHarness: React.FC = () => {
                 onClick={() => { sounds.playClick(); setDuelResult(null); setStage('duel'); }}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-serif font-black text-sm uppercase tracking-wider border border-fuchsia-300/50 cursor-pointer transition-all active:scale-95"
               >
-                ⚔️ Start Test Duel (opponent: {ALL_OPPONENTS[0].name})
+                ⚔️ Start Test Duel (opponent: {testOpponent.name})
               </button>
               <button
                 data-testid="harness-back-to-select"
@@ -146,7 +159,7 @@ export const CharacterTestHarness: React.FC = () => {
           <Suspense fallback={<div className="w-full h-screen flex items-center justify-center bg-neutral-950 text-fuchsia-400 font-serif text-xl animate-pulse">Loading Arena…</div>}>
             <DuelScene
               playerProfile={profile}
-              opponent={ALL_OPPONENTS[0]}
+              opponent={testOpponent}
               onMatchComplete={handleMatchComplete}
               onOpenArmory={() => setStage('ready')}
               onOpenHelp={() => {}}

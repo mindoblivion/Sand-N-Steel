@@ -243,6 +243,18 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
           </div>
         )}
 
+        {/* D-2 — the beast hunt's own epilogue, computed in the duel from its
+            duel-session state alone (no save field): the beast driven off or gone
+            with its master's fall. Absent on every other result. */}
+        {stats.beastEpilogue && (
+          <p
+            data-beast-epilogue="1"
+            className="text-xs sm:text-[13px] font-serif italic text-amber-200/90 leading-relaxed mb-4"
+          >
+            {stats.beastEpilogue}
+          </p>
+        )}
+
         {/* CH-5 — PALMA EARNED.  Outside the staged reveal: a new palm is the
             consequence of the fight, not one of its reward figures. */}
         {earnedPalmae.length > 0 && (

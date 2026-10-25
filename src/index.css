@@ -115,6 +115,12 @@
   .combat-hud .combat-log-items {
     max-height: 4rem;
   }
+  /* D-2 — the beast bout's target choice sits IN the turn banner, so the one row
+     it adds is the banner's own: trimming that row's padding pays for the 48dp
+     control instead of pushing the tactic grid past the fold. */
+  .combat-hud .turn-banner {
+    padding-block: 0.15rem;
+  }
 }
 
 .scrollbar-none::-webkit-scrollbar {

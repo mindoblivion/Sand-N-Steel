@@ -7,7 +7,7 @@ import { DuelArena } from '../3d/DuelArena';
 import { GladiatorMesh, type ImpactState } from '../3d/GladiatorMesh';
 import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticles';
 import { CombatHUD } from '../ui/CombatHUD';
-import { CombatActionType, CombatLogEntry } from '../ui/TurnActionPanel';
+import { CombatActionType, CombatLogEntry, AttackTarget } from '../ui/TurnActionPanel';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
@@ -60,11 +60,35 @@ import {
 import {
   applyPitBellowerDrain,
   applyPyreBrandHeal,
+  carriesBossPalma,
   pitBellowerStaminaDrain,
   pyreBrandHealAmount,
 } from '../../utils/bossPalmae';
 import { sounds } from '../../audio/soundEffects';
 import { BOSS_RAGE_TRAUMA, bossPresentsMoment } from '../../utils/bossPresentation';
+// D-2 — the beast hunt. Every rule, fence and word lives in that module; this
+// scene only calls it, which is what keeps a non-boss opponent from ever
+// fielding a beast.
+import {
+  BEAST_CROUCH_TELEGRAPH,
+  BEAST_FLIGHT_WORDS,
+  BLOOD_SCENT_DAMAGE_MULT,
+  beastConfigFor,
+  beastCrouches,
+  beastEpilogueLine,
+  beastFleesWithMaster,
+  beastNetted,
+  beastPounces,
+  beastSkipsCadence,
+  beastWounded,
+  createBeastState,
+  masterAloneAggression,
+  openBossSlot,
+  planBeastSlot,
+  type BeastDuelState,
+} from '../../utils/beastHunt';
+import { bossSceneDeltas } from '../../data/bossPresentationStates';
+import { BeastFigure } from '../3d/BeastFigure';
 import { crowdHypeTier, detectCrowdHypeCrossing } from '../../utils/crowdHype';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
@@ -173,6 +197,14 @@ const TURN_RESOLUTION_MS: Record<CombatActionType, number> = {
    * rest), so it belongs with quick_attack.
    */
   cast_net: 880,
+  /**
+   * D-2 — the beast's crouch postdates CF-5 too. It announces a pounce the player
+   * has one full action to answer, so it takes the weight of a read rather than a
+   * resolution: 1000 ms sits between the quick attack's 880 and the wind-up's
+   * 1300, and the pounce itself resolves on the next slot at the quick profile's
+   * own weight. Pacing only — no rule reads this number.
+   */
+  beast_crouch: 1000,
 };
 
 /** A turn that leaves a fighter at 0 health holds this long, whatever it was. */
@@ -565,6 +597,27 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const pendingHeavyAttackRef = useRef(false);
   const pendingCounterRef = useRef(false);
   const rageActivatedRef = useRef(false);
+
+  // ── D-2 — THE BEAST HUNT (Marcellin the Beastmaster's Ferrum) ──────────────
+  // The fence is `utils/beastHunt.ts`'s: this scene asks it for a config and gets
+  // `null` for every opponent that is not a boss feature bout carrying that
+  // mechanic, so no beast state can exist in a standard duel. The state itself is
+  // duel-session only — a ref for the rules, React state for what the HUD draws —
+  // and is never written to a save.
+  const beastCfg = useMemo(() => beastConfigFor(opponent), [opponent]);
+  const [beast, setBeast] = useState<BeastDuelState>(() => createBeastState());
+  const beastRef = useRef<BeastDuelState>(beast);
+  const commitBeast = useCallback((next: BeastDuelState) => {
+    beastRef.current = next;
+    setBeast(next);
+  }, []);
+  // Marks the ONE opponent resolution that is the beast's pounce rather than
+  // Marcellin's own blow: read-and-cleared at the top of executeCombatTurn, so a
+  // missed or evaded pounce can never mark a later strike.
+  const beastPounceRef = useRef(false);
+  // Blood-Scent — the master's next attack carries the palma's +20 % and expires
+  // unused. Set when the pounce draws blood, read-and-cleared by that attack.
+  const bloodScentRef = useRef(false);
   // CH-3a — Phoenix Nerves' "once per fight": the event stage reports whether a
   // miss may be shielded, this ref remembers that it already was.
   const comboShieldUsedRef = useRef(false);
@@ -739,9 +792,24 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     }, 1400);
   }, []);
 
+  // D-2 — the arena's presentation deltas for this opponent (`dawn` for
+  // Marcellin, nothing for anyone else). Property values only: no light, mesh or
+  // material is added, so the draw-call count is unchanged.
+  const sceneDeltas = useMemo(() => bossSceneDeltas(opponent), [opponent]);
+  const fogArgs = useMemo<[string, number, number]>(
+    () => [sceneDeltas?.fogColor ?? '#d4a373', 25, 65],
+    [sceneDeltas],
+  );
+
   // Core Turn Execution Function
   const executeCombatTurn = useCallback(
-    (actor: 'player' | 'opponent', actionType: CombatActionType) => {
+    (
+      actor: 'player' | 'opponent',
+      actionType: CombatActionType,
+      // D-2 — which fighter a PLAYER attack is aimed at. The panel only offers
+      // 'beast' while the crouch is live; anything else reads as the master.
+      target: AttackTarget = 'master',
+    ) => {
       if (isExecuting || isMatchOver.current) return;
 
       setIsExecuting(true);
@@ -767,6 +835,27 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // CH-4 — the same read-and-clear for Valéria's counterattack.
       const isCounterAttack = !isActorPlayer && counterStrikeRef.current;
       counterStrikeRef.current = false;
+
+      // D-2 — the beast's pounce, read-and-cleared exactly like the two markers
+      // above: it is the one opponent resolution whose attacker numbers come from
+      // the beast's row instead of Marcellin's.
+      const isBeastPounce = !isActorPlayer && beastPounceRef.current && beastCfg !== null;
+      beastPounceRef.current = false;
+      // D-2 — Blood-Scent: the master's next attack after the beast drew blood.
+      // Read-and-cleared here, so the +20 % can land on exactly one blow and
+      // expires unused if the fight ends first.
+      const isBloodScentAttack = !isActorPlayer && !isBeastPounce && bloodScentRef.current;
+      if (isBloodScentAttack) bloodScentRef.current = false;
+      // D-2 — an attack the player aimed at the crouching beast. It is the
+      // attack action with the other target, not a new action: below it consumes
+      // the same `calculateHitChance` a strike at a fighter does (the beast's row
+      // agility as the defender), and the beast is driven off by WOUNDS, not HP.
+      const isBeastStrike =
+        isActorPlayer &&
+        target === 'beast' &&
+        beastCfg !== null &&
+        (actionType === 'quick_attack' || actionType === 'power_attack') &&
+        beastRef.current.pose === 'crouch';
 
       const attacker = isActorPlayer ? player : opp;
       const defender = isActorPlayer ? opp : player;
@@ -964,8 +1053,42 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // lands, misses or meets a secutor's Snag-Proof Pursuit — that immunity is
       // read at resolution, so `entangledTurns` can never be written to a secutor.
       else if (actionType === 'cast_net') {
+        // D-2 — THE NET AT THE BEAST. Only the player's own throw, only with the
+        // crouch live, and only when the panel was pointed at the beast.
+        //
+        // RULING: Secutor's Snag-Proof Pursuit does NOT apply to the beast. That
+        // doctrina is a secutor's helm — a man trained to slip a net — and a lion
+        // is not a secutor: the beast carries no class at all. The cast is
+        // therefore resolved with NO target class, so nothing can refuse it, and
+        // it reuses `resolveNetCast`'s own roll and entangle length rather than a
+        // second net rule. A landed net cancels the pounce and buys two cadences.
+        const isBeastNet =
+          isActorPlayer &&
+          target === 'beast' &&
+          beastCfg !== null &&
+          beastRef.current.pose === 'crouch';
         if (!canCastNet(attacker.netAvailable)) {
           addLog(`${attacker.name} has no net left to throw.`, 'system');
+        } else if (isBeastNet && beastCfg) {
+          setPlayer((prev) => ({ ...prev, netAvailable: false }));
+          sounds.playSlash();
+          const net = resolveNetCast({});
+          if (net.landed) {
+            sounds.playDodge();
+            commitBeast(beastNetted(beastRef.current));
+            setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+            addLog(
+              `The net falls over ${beastCfg.name} — it thrashes in the cords and cannot spring!`,
+              'player',
+            );
+            spawnDamageText('BEAST NETTED', 'crit', opp.position);
+          } else {
+            addLog(
+              `The net flies wide of ${beastCfg.name} — it is still crouched!`,
+              'system',
+            );
+            spawnDamageText('NET MISSED', 'dodge', opp.position);
+          }
         } else {
           if (isActorPlayer) {
             setPlayer((prev) => ({ ...prev, netAvailable: false }));
@@ -1002,6 +1125,77 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         }
       }
 
+      // 2d. BEAST HUNT — THE CROUCH (Marcellin's Ferrum; boss-only, fenced)
+      // The beast spends the boss's action slot gathering itself. Nothing is
+      // resolved — no hit roll, no damage, no stamina — and the telegraph banner
+      // stays up for the whole of the player's next action, which is the one
+      // window against the crouch. If that window passes untouched, the pounce is
+      // the boss's NEXT slot (see the AI effect).
+      else if (actionType === 'beast_crouch' && beastCfg) {
+        sounds.playDodge();
+        setOpp((prev) => ({ ...prev, action: 'idle', telegraphText: BEAST_CROUCH_TELEGRAPH }));
+        addLog(`${beastCfg.name} drops low and gathers itself — it will spring next!`, 'opponent');
+        spawnDamageText('THE BEAST CROUCHES', 'dodge', opp.position);
+      }
+
+      // 2e. BEAST HUNT — STRIKING THE CROUCHING BEAST (Marcellin's Ferrum only)
+      // The attack action with the other target. It rides the SAME hit formula a
+      // strike at a fighter rides — the beast's own row agility as the defender —
+      // costs the same stamina, and applies no damage: the beast is driven off by
+      // wounds, and at its last wound it flees the arena.
+      else if (isBeastStrike && beastCfg) {
+        const isQuick = actionType === 'quick_attack';
+        const staminaCost = staminaCostWithModifiers(
+          getStaminaCost(player.loadout.weapon, isQuick),
+          isQuick,
+          playerMods,
+        );
+        setPlayer((prev) => ({
+          ...prev,
+          action: isQuick ? 'attack_light' : 'attack_heavy',
+          stamina: Math.max(0, prev.stamina - staminaCost),
+        }));
+        sounds.playSlash();
+        const woundPct = entangledHitChance(
+          calculateHitChance(
+            isQuick,
+            hitAgilityFor(player.stats.agility, playerMods),
+            beastCfg.agility,
+          ),
+          isQuick,
+          isEntangled(player.entangledTurns),
+        );
+        if (Math.random() * 100 <= woundPct) {
+          const struck = beastWounded(beastRef.current, beastCfg);
+          commitBeast(struck);
+          // The pounce is dead the moment the beast is hit, so its banner goes.
+          setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+          spawnDamageText(`FERRUM WOUNDED ${struck.wounds}/${beastCfg.maxWounds}`, 'crit', opp.position);
+          if (struck.pose === 'fled') {
+            // D-2 — a hype event, through the crowd's existing plumbing: the same
+            // award shape the taunt and a crit use, so the meter and the crowd's
+            // own level react exactly as they do to any other raise.
+            updateCrowdHype((prev) => Math.min(100, prev + beastCfg.flightHype));
+            sounds.playCrowdSwell();
+            addLog(
+              `${beastCfg.name} is struck a third time — it clears the wall and the crowd roars!`,
+              'crit',
+            );
+            addLog(BEAST_FLIGHT_WORDS, 'system');
+          } else {
+            addLog(
+              `${beastCfg.name} is wounded (${struck.wounds}/${beastCfg.maxWounds}) — the pounce dies in its throat.`,
+              'player',
+            );
+          }
+          vibrate(HAPTIC_HIT_LANDED_MS);
+        } else {
+          sounds.playDodge();
+          addLog(`${beastCfg.name} twists away from ${player.name}'s strike — still crouched!`, 'system');
+          spawnDamageText('THE BEAST SLIPS AWAY', 'dodge', opp.position);
+        }
+      }
+
       // 3. OFFENSIVE ATTACK ACTIONS
       else if (actionType === 'quick_attack' || actionType === 'power_attack') {
         const isQuick = actionType === 'quick_attack';
@@ -1028,10 +1222,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           }));
         }
 
+        // D-2 — who the blow is named after in the log. The beast's pounce rides
+        // this same branch; only the name and the numbers below differ.
+        const attackerLabel = isBeastPounce && beastCfg ? beastCfg.name : attacker.name;
+        // D-2 — the agility this blow rolls against: the beast's own row value for
+        // a pounce, the fighter's modified agility otherwise.
+        const strikeAgility =
+          isBeastPounce && beastCfg
+            ? beastCfg.agility
+            : hitAgilityFor(attacker.stats.agility, attackerMods);
+
         // Check weapon range
         if (dist > effectiveRange) {
           sounds.playSlash();
-          addLog(`${attacker.name} strikes with ${isQuick ? 'Quick Slash' : 'Power Slash'}, but is OUT OF RANGE!`, 'system');
+          addLog(`${attackerLabel} strikes with ${isQuick ? 'Quick Slash' : 'Power Slash'}, but is OUT OF RANGE!`, 'system');
           spawnDamageText('OUT OF RANGE!', 'blocked', defender.position);
           if (isActorPlayer) notePlayerStrike('missed_out_of_reach');
         } else {
@@ -1042,7 +1246,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           const hitPct = entangledHitChance(
             calculateHitChance(
               isQuick,
-              hitAgilityFor(attacker.stats.agility, attackerMods),
+              strikeAgility,
               hitAgilityFor(defender.stats.agility, defenderMods),
             ),
             isQuick,
@@ -1083,7 +1287,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
           if (isEvaded || isPassiveEvaded || isPalmaEvaded) {
             sounds.playDodge();
-            addLog(`${defender.name} swiftly EVADED ${attacker.name}'s strike!`, 'system');
+            addLog(`${defender.name} swiftly EVADED ${attackerLabel}'s strike!`, 'system');
             spawnDamageText('EVADED!', 'dodge', defender.position);
             // Queue a counterattack for Valéria's next AI turn.
             // Only when the player is the attacker against a
@@ -1105,19 +1309,26 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             }
           } else if (roll <= hitPct) {
             // HIT LANDED! Calculate damage & crits
-            const baseDmg = isQuick
-              ? attacker.loadout.weapon.damageLight
-              : attacker.loadout.weapon.damageHeavy;
+            // D-2 — a pounce's base damage is the beast's own row value; every
+            // other blow reads the weapon it was struck with.
+            const baseDmg =
+              isBeastPounce && beastCfg
+                ? beastCfg.pounceDamage
+                : isQuick
+                ? attacker.loadout.weapon.damageLight
+                : attacker.loadout.weapon.damageHeavy;
             // CH-3a hit stage — 0.25 + critChanceAdd, clamped ≤ 0.60. With no
             // crit-chance palma the value IS 0.25, so the draw is unchanged.
             // CH-3b — the net's +0.25 rider is folded into that SAME critChanceAdd
             // while the target stays entangled (see `netCritBonusModifiers`).
             const isCrit =
+              !isBeastPounce &&
               !isQuick &&
               Math.random() <
                 critChanceFor(netCritBonusModifiers(attackerMods, isEntangled(defender.entangledTurns)));
             const isBlocked = defender.isBlocking;
-            const rageMult = (!isActorPlayer && attacker.isRaged) ? RAGE_DAMAGE_MULTIPLIER : 1.0;
+            const rageMult =
+              !isActorPlayer && attacker.isRaged && !isBeastPounce ? RAGE_DAMAGE_MULTIPLIER : 1.0;
             // CH-3a weapon stage — the defender's own blockReduction plus the
             // block's add (capped at 0.90 by applyBlockReduction), less the
             // attacker's class penetration (thraex's Hook the Rim, 0.40).
@@ -1131,6 +1342,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // damageTakenMult, with every condition (health thresholds, the boss
             // flag, attack type, Mirror Drill's ledger, Spearman's Ground's
             // distance bands) evaluated at this call site.
+            // D-2 — Blood-Scent rides this SAME `traitMult` parameter (the
+            // Characters P3a mechanism): the palma's own +20 % multiplies the
+            // resolved pair for the one master's blow that follows the beast's
+            // wound, and the marker is already spent by the time this returns.
             const traitMult = resolveTraitMult(attackerMods, defenderMods, {
               isQuick,
               distance: dist,
@@ -1144,10 +1359,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               // CH-4 — Viper's Patience reads this: true only on the attack
               // that follows a triggered counter.
               isCounterAttack,
-            });
+            }) * (isBloodScentAttack ? BLOOD_SCENT_DAMAGE_MULT : 1);
             const rawDamage = calculateAttackDamage(
               baseDmg,
-              attacker.stats.strength,
+              // D-2 — the pounce's strength is the beast's row value; every other
+              // blow is the weapon-holder's own.
+              isBeastPounce && beastCfg ? beastCfg.strength : attacker.stats.strength,
               isCrit,
               defender.stats.defense,
               isBlocked,
@@ -1195,7 +1412,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 }
               }
               addLog(
-                `${attacker.name}'s strike was BLOCKED by ${defender.name}'s shield (-${rawDamage} HP)!`,
+                `${attackerLabel}'s strike was BLOCKED by ${defender.name}'s shield (-${rawDamage} HP)!`,
                 'system'
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
@@ -1207,14 +1424,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 sounds.playHeavyImpact();
                 // CF-3 — a critical blow is the crowd's cue, whoever landed it.
                 sounds.playCrowdSwell();
-                addLog(`CRITICAL BLOW! ${attacker.name} struck ${defender.name} for ${rawDamage} DAMAGE!`, 'crit');
+                addLog(`CRITICAL BLOW! ${attackerLabel} struck ${defender.name} for ${rawDamage} DAMAGE!`, 'crit');
                 spawnDamageText(`-${rawDamage} CRIT!`, 'crit', defender.position);
                 // CF-4 — a crit gets the larger spark burst plus the gold flakes,
                 // in place of the plain sand dust.
                 impactParticlesRef.current?.burst('crit', impactPoint, impactDir);
               } else {
                 sounds.playSlash();
-                addLog(`${attacker.name} struck ${defender.name} for ${rawDamage} damage.`, isActorPlayer ? 'player' : 'opponent');
+                addLog(`${attackerLabel} struck ${defender.name} for ${rawDamage} damage.`, isActorPlayer ? 'player' : 'opponent');
                 spawnDamageText(`-${rawDamage}`, 'damage', defender.position);
                 // CF-4 — an unblocked, non-crit hit kicks up sand.
                 impactParticlesRef.current?.burst('sand', impactPoint, impactDir);
@@ -1223,6 +1440,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               // C-8.70B §SET-1 — the player's blade landed: one short buzz, on the
               // device's own haptics and only when the Vibration row is on.
               if (isActorPlayer) vibrate(HAPTIC_HIT_LANDED_MS);
+            }
+
+            // ── D-2 — the pounce's own consequences ──────────────────────
+            // The crouch is spent and its banner comes down; and if the beast
+            // drew blood, the master's NEXT attack carries Blood-Scent. A blocked
+            // pounce still draws blood (the formula floors a landed blow at 1), so
+            // the palma's condition is "the pounce wounded", which this is.
+            if (isBeastPounce) {
+              // The banner and the spring's own line were written when the
+              // pounce was dispatched (see the AI's `plan === 'pounce'` branch),
+              // so an unanswered crouch can never outlive the leap. Only the
+              // Master's Blood-Scent rides the blow itself.
+              if (carriesBossPalma(opponentMods, 'blood_scent')) {
+                bloodScentRef.current = true;
+              }
             }
 
             // Track stats
@@ -1382,7 +1614,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           } else {
             // MISSED
             sounds.playSlash();
-            addLog(`${attacker.name}'s attack MISSED!`, 'system');
+            addLog(`${attackerLabel}'s attack MISSED!`, 'system');
             spawnDamageText('MISSED!', 'dodge', defender.position);
             // Player missed: reset combo (opponent miss does not affect player combo)
             if (isActorPlayer) {
@@ -1513,6 +1745,44 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         return;
       }
 
+      // ── D-2 BEAST HUNT — THE BEAST RIDES THE BOSS'S OWN ACTION SLOT ──────
+      // Every third slot the beast crouches INSTEAD of Marcellin striking, and the
+      // slot after a live crouch is the pounce. No second timer, no new pipeline
+      // stage: the crouch is an action this same function resolves and the pounce
+      // is an ordinary attack whose attacker numbers come from the beast's row.
+      if (beastCfg) {
+        const opened = openBossSlot(beastRef.current);
+        const plan = planBeastSlot(opened, beastCfg);
+        if (plan === 'pounce') {
+          commitBeast(beastPounces(opened));
+          beastPounceRef.current = true;
+          // D-2 — the crouch's banner comes down as the spring leaves the
+          // ground, whatever the blow then becomes: a landed pounce, an evade, a
+          // miss or a leap that falls short. Clearing it only on a landed blow
+          // left "FERRUM CROUCHES" standing over a beast that was no longer
+          // crouched, until the next crouch or a strike at it reset the banner.
+          setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+          addLog(`${beastCfg.name} springs out of the crouch!`, 'opponent');
+          executeCombatTurn(
+            'opponent',
+            beastCfg.hitProfile === 'power' ? 'power_attack' : 'quick_attack',
+          );
+          return;
+        }
+        if (plan === 'crouch') {
+          commitBeast(beastCrouches(opened));
+          executeCombatTurn('opponent', 'beast_crouch');
+          return;
+        }
+        if (plan === 'skip') {
+          commitBeast(beastSkipsCadence(opened));
+          addLog(`${beastCfg.name} thrashes in the net — it cannot gather itself to spring.`, 'system');
+          // The master takes the slot himself, through the standard ladder below.
+        } else {
+          commitBeast(opened);
+        }
+      }
+
       let chosenAction: CombatActionType = 'quick_attack';
 
       if (dist > effectiveRange) {
@@ -1549,7 +1819,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // either value is missing or invalid, the function falls back to
           // the original hardcoded probabilities (46% quick, 26% power, 18%
           // block, 10% dodge).
-          chosenAction = chooseAIStandardAction(opponent.aggression, opponent.blockChance);
+          // D-2 — MASTER ALONE. With the beast gone Marcellin's aggression rises
+          // by his row's own authored shift for the rest of the duel. With the
+          // beast still at his side the standard call is exactly the one it was.
+          chosenAction =
+            beastCfg && beastRef.current.pose === 'fled'
+              ? chooseAIStandardAction(
+                  masterAloneAggression(opponent.aggression, beastCfg.masterAloneAggressionBonus),
+                  opponent.blockChance,
+                )
+              : chooseAIStandardAction(opponent.aggression, opponent.blockChance);
         }
       }
 
@@ -1572,7 +1851,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     }, aiDelayMs);
 
     return () => clearTimeout(aiTimer);
-  }, [isPlayerTurn, isExecuting, player, opp, executeCombatTurn]);
+  }, [isPlayerTurn, isExecuting, player, opp, executeCombatTurn, beastCfg, commitBeast, addLog]);
 
   // Check victory / defeat conditions
   useEffect(() => {
@@ -1599,6 +1878,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       statsRef.current.goldEarned = purse.total;
       statsRef.current.goldBreakdown = purse;
       addLog(`The crowd pays out ${purse.total} gold.`, 'system');
+      // D-2 — the beast flees with the result. The epilogue is computed from the
+      // duel's OWN beast state and rides the in-memory statistics object; no save
+      // field and no profile write is involved, and the result flow is unchanged.
+      if (beastCfg) {
+        statsRef.current.beastEpilogue = beastEpilogueLine(
+          beastRef.current,
+          true,
+          beastCfg.name,
+          opp.name.split(' the ')[0],
+        );
+        commitBeast(beastFleesWithMaster(beastRef.current));
+      }
       setTimeout(() => {
         onMatchComplete(statsRef.current, true);
       }, 1400);
@@ -1612,11 +1903,22 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       addLog(`DEFEAT! ${player.name} has fallen in the sand.`, 'opponent');
       // The arena only feeds a winner: a defeat pays no purse at all.
       statsRef.current.goldEarned = 0;
+      // D-2 — the player fell with the beast standing: same in-memory epilogue,
+      // same unchanged result flow.
+      if (beastCfg) {
+        statsRef.current.beastEpilogue = beastEpilogueLine(
+          beastRef.current,
+          false,
+          beastCfg.name,
+          opp.name.split(' the ')[0],
+        );
+        commitBeast(beastFleesWithMaster(beastRef.current));
+      }
       setTimeout(() => {
         onMatchComplete(statsRef.current, false);
       }, 1400);
     }
-  }, [opp.health, player.health, player.name, opp.name, addLog, onMatchComplete]);
+  }, [opp.health, player.health, player.name, opp.name, addLog, onMatchComplete, beastCfg, commitBeast]);
 
   // Boss phase-2 weapon switch (Ignis: dual_blades → mace at 50% health).
   // One-time: guarded by phaseSwitchedRef so the effect cannot re-trigger
@@ -1733,12 +2035,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             <SceneBrightness />
 
             <Sky sunPosition={[40, 25, 20]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
-            <fog attach="fog" args={['#d4a373', 25, 65]} />
-            <ambientLight intensity={0.65} color="#fef3c7" />
+            {/* D-2 — the authored presentation state's PROPERTY deltas. Only the
+                values of the rig that already exists change, so this costs no draw
+                call; an opponent with no authored state passes `null` and the
+                arena is exactly the one it has always been. */}
+            <fog attach="fog" args={fogArgs} />
+            <ambientLight
+              intensity={sceneDeltas?.ambientIntensity ?? 0.65}
+              color={sceneDeltas?.ambientColor ?? '#fef3c7'}
+            />
             <directionalLight
               position={[15, 25, 15]}
-              intensity={1.9}
-              color="#fffbeb"
+              intensity={sceneDeltas?.sunIntensity ?? 1.9}
+              color={sceneDeltas?.sunColor ?? '#fffbeb'}
               castShadow
               shadow-mapSize={[1024, 1024]}
             />
@@ -1764,6 +2073,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                     Boolean(opp.telegraphText) && bossPresentsMoment(opponent, 'heavy_telegraph')
                   }
                 />
+                {/* D-2 — Ferrum. Rendered only for a bout the fence admits, and
+                    not after it has fled. There is no animal in the asset set, so
+                    this is the simplest era-honest stand-in: a low-poly lion built
+                    from primitives — a flag for the art department, not a promise. */}
+                {beastCfg && beast.pose !== 'fled' && (
+                  <BeastFigure
+                    position={[1.55, 0, opp.position[2] + 0.55]}
+                    rotationY={0.35}
+                    pose={beast.pose}
+                  />
+                )}
                 <FloatingDamage3D damages={damageNumbers} />
                 {/* CF-4 — one pooled Points, one draw call, mounted only here. */}
                 <ImpactParticles ref={impactParticlesRef} />
@@ -1807,7 +2127,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         opponentModifiers={opponentMods}
         opponentIsBoss={opponent.isBoss === true}
         bossVignettePulse={bossVignettePulse}
-        onExecuteAction={(action) => executeCombatTurn('player', action)}
+        beast={
+          beastCfg
+            ? {
+                name: beastCfg.name,
+                wounds: beast.wounds,
+                maxWounds: beastCfg.maxWounds,
+                agility: beastCfg.agility,
+                targetable: beast.pose === 'crouch',
+              }
+            : null
+        }
+        onExecuteAction={(action, target) => executeCombatTurn('player', action, target)}
       />
 
       {/* CL-3 — one guided beat at a time, at the action panel's edge. The card's

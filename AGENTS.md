@@ -7272,3 +7272,56 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `opponentsLadder`, `bossKills`, `tierAdvancement`, `palmaeState`, `traitModifiers`,
   `combatPlumbing`, `intel`, `bossPresentation` and `storyChapterOne`'s P7 counts were rebased to
   the new roster (12 ladder + 5 feature bouts; 26 palms = 17 pool + 9 carried).
+
+## Beast Hunt (D-2) — validation status and the harness opponent parameter
+
+- **The dev character harness takes an optional `?opponent=<id>`** (`src/components/dev/CharacterTestHarness.tsx`),
+  defaulting to `ALL_OPPONENTS[0]` exactly as before. It exists so one boss bout can be mounted without
+  climbing the ladder: `/?devHarness=character&opponent=opp_marcellin_boss` (Marcellin / Ferrum). The gate is
+  unchanged and still **query-only** (`phaseC8_66d.test.ts` §A pins that), and an unknown id falls back to the
+  default — the harness never invents an opponent.
+- **D-2 validation, 2026-10-25:** `bun test` → 3710 pass / 0 fail (123 files; the beast suite
+  `src/utils/beastHunt.test.ts` is 45 of them), `bun run lint` (`tsc --noEmit`) → clean, `bun run build` → ok.
+- **NOT automatically verified — the live arena interaction.** The whole beast cycle (crouch telegraph → target
+  control → strike at the crouch → wound pip → pounce / flight) is covered by the suite and by
+  `DuelScene`'s own code paths, but it has **not** been driven in the preview browser: the Base44 preview
+  reloads every preview call at the home route and clears `localStorage` between calls, so a
+  `?devHarness=` deep route cannot be held from one call to the next, and the beast bout sits behind a
+  ladder gate. Do the by-hand check with the URL above (creation → **Start Test Duel**); the states to look
+  for are Ferrum standing beside the master, the three wound pips beside Marcellin's name, the
+  `FERRUM CROUCHES — POUNCE INCOMING` banner at the third boss action with the Master / Ferrum target
+  buttons, one pip lighting on a landed strike, a third wound driving the beast off, and its absence from
+  the arena afterwards.
+- **Authored (not design) numbers.** `boss-rosters.md` Part A carries no beast values, so Ferrum's row in
+  `src/data/opponents.ts` is authored against the tier-2 band and says so in its own comment: agility 18
+  (one above Ignis' 17), strength 12 (below Cassius' 13), pounce damage 24 (the tier's light-damage ceiling),
+  `quick` hit profile, cadence 3 and 3 wounds (the card line's own words).
+- **D-2 live pass (2026-10-25) — two defects the arena showed, both fixed in the same two files, and the
+  full beast cycle then driven end to end.** (a) **The reach warning covered a beast strike.**
+  `TurnActionPanel` painted the "Out of Range (Advance)" overlay from `!isInWeaponRange` alone, but
+  `isBeastStrike` resolves with no range gate, so a strike aimed at a crouching Ferrum was shown as
+  impossible — it is now a single derived `strikeOutOfRange = !isInWeaponRange && !targetingBeast`, used by
+  both attack cards' overlay and their out-of-range styling. (b) **The crouch banner outlived the leap.** The
+  `FERRUM CROUCHES — POUNCE INCOMING` telegraph was cleared only in the pounce's LANDED branch, so a pounce
+  that was evaded, missed or fell short left the banner standing over a beast that was no longer crouched
+  (until the next crouch or a strike at it). It is now cleared — with the "springs out of the crouch" line
+  written beside it — where the pounce is DISPATCHED (the AI's `plan === 'pounce'` branch), so it comes down
+  however the blow ends; only Blood-Scent still rides the landed branch. That same branch's miss log read
+  `${attacker.name}`, i.e. "Marcellin the Beastmaster's attack MISSED!" for the beast's own whiff — it now
+  reads `attackerLabel`. **No cadence, formula, damage, wound, target-gate or pipeline stage changed**, and
+  `beastHunt.test.ts`'s source pins still hold (its `if (isBeastPounce) {` anchor now finds the landed
+  block, whose Blood-Scent lines are what it asserts). Suites re-run green: `beastHunt`, `statefulDoctrinae`,
+  `duelTurnPacing`, `impactParticles`, `bossPresentation`, `uiControls`, `combatPlumbing` → 311 pass / 0 fail;
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (startup asset check, 8 assets).
+  **Driven live** in the dev harness (`?devHarness=character&opponent=opp_marcellin_boss`, mounted in an
+  in-page frame — the C-8.66C technique, since the preview rewrites a top-level query string), Retiarius
+  creation → `Start Test Duel`: at the first crouch the cards read `Out of Range (Advance)` while the master
+  was targeted and **none** after switching to Ferrum (`84% Hit · 1 WOUND`), the net card re-worded to "Net
+  the beast … No helm to refuse it" and spent on the cast, a missed net logged "The net flies wide of Ferrum
+  — it is still crouched!" and the following spring logged "**Ferrum** springs out of the crouch!" / "Ferrum
+  strikes with Quick Slash, but is OUT OF RANGE!" with the banner gone; wounds then went 0/3 → 1/3 → 2/3 →
+  **3/3**, the third logging "Ferrum is struck a third time — it clears the wall and the crowd roars!" plus
+  `BEAST_FLIGHT_WORDS`, the arena frame showing the sand empty of the beast afterwards. **Still NOT
+  automatically verified:** the beast's rendered flight animation on a real GPU (SwiftShader here), and the
+  `3/3` pip row, which stays visible beside Marcellin's name after the flight — a HUD reading worth a
+  Director's look rather than a silent change.

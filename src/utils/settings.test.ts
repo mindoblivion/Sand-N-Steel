@@ -442,7 +442,9 @@ describe('E. The wiring — every consumer, read out of the shipped sources', ()
   test('the duel orbits at the sensitivity and buzzes exactly twice', () => {
     const duel = source('src/components/duel/DuelScene.tsx');
     expect(duel).toContain('getCameraSensitivityScale(useSettings())');
-    expect(duel.match(/vibrate\(/g)?.length).toBe(2);
+    // D-2 — a third site: a landed strike on the crouching beast is the player's
+    // blade landing, so it takes the same hit haptic (two hit sites, one defeat).
+    expect(duel.match(/vibrate\(/g)?.length).toBe(3);
     expect(duel).toContain('vibrate(HAPTIC_HIT_LANDED_MS)');
     expect(duel).toContain('vibrate(HAPTIC_DEFEAT_PATTERN)');
     expect(duel).toContain('if (isActorPlayer) vibrate(HAPTIC_HIT_LANDED_MS);');
