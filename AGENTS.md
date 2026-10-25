@@ -7089,8 +7089,9 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   state write, `combatCalculations.ts` line, Lefty path, save field or profile field changed**, and
   the CF-3 crowd pulse, CF-4 particles, CH-4 boss palmae and the modifier blocks are untouched.
 - **The table, as implemented:** `quick_attack` 880, `power_attack` 1300, `telegraph` 1450,
-  `advance`/`retreat`/`shield_block`/`dodge`/`taunt`/`rest` 800, **`cast_net` 1100** — the net throw
-  postdates the design, so it keeps the old fixed hold rather than an invented weight — and
+  `advance`/`retreat`/`shield_block`/`dodge`/`taunt`/`rest` 800, **`cast_net` 880** — the net throw
+  postdates the design, so a Director ruling placed it with `quick_attack`: an offensive action with a
+  throw animation and a land/miss resolution is not an 800 ms utility beat — and
   **1600 for any turn that leaves a fighter at 0 health**, whatever the action was.
 - **`fightEnded` is a READ, not a rule.** It is assigned from the same arithmetic the damage branches
   apply (`defender.health - rawDamage <= 0`, and the twin's `- bonusDamage`). It must be computed

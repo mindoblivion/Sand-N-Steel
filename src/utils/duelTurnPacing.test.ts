@@ -63,8 +63,10 @@ const ACTION_TYPES: CombatActionType[] = [
 
 /**
  * The design's table, written out as the specification this suite measures.
- * `cast_net` is absent from the CF-5 design (CH-3b's net postdates it), so it
- * keeps the old fixed hold — 1100 ms — rather than an invented weight.
+ * `cast_net` is absent from the CF-5 design (CH-3b's net postdates it), so a
+ * Director ruling gave it the `quick_attack` weight — 880 ms — because the net
+ * throw is an offensive action with a throw animation and a land/miss
+ * resolution, not an 800 ms utility beat.
  */
 const DESIGN_MS: Record<CombatActionType, number> = {
   quick_attack: 880,
@@ -76,7 +78,7 @@ const DESIGN_MS: Record<CombatActionType, number> = {
   dodge: 800,
   taunt: 800,
   rest: 800,
-  cast_net: 1100,
+  cast_net: 880,
 };
 
 const DEATH_MS = 1600;
@@ -97,7 +99,7 @@ describe('CF-5 §A the duration table', () => {
   test('the table covers the whole action union and nothing is a fallback', () => {
     // Every id in the union has a row, and every row is a real, usable hold —
     // no `undefined` can reach `setTimeout` even for an action the design never
-    // weighted (the net throw, which keeps the old fixed hold).
+    // weighted (the net throw, which took the quick weight by Director ruling).
     expect(ACTION_TYPES.length).toBe(10);
     for (const actionType of ACTION_TYPES) {
       const ms = turnResolutionMs(actionType);
@@ -317,8 +319,8 @@ describe('CF-5 §C full-fight duration', () => {
 describe('CF-5 §D the timing seam is the only thing that moved', () => {
   test('the resolution timer is scheduled from the table, exactly once', () => {
     expect(duel.match(/\}, turnResolutionMs\(actionType, fightEnded\)\);/g)?.length).toBe(1);
-    // The old fixed hold is no longer a timer argument anywhere. (The literal
-    // still legitimately appears once, as `cast_net`'s own table row.)
+    // The old fixed hold is no longer a timer argument anywhere, and no 1100 ms
+    // literal survives in the scene at all — `cast_net` now carries 880.
     expect(duel).not.toMatch(/\}, 1100\);/);
     expect(duel.match(/turnResolutionMs\(/g)?.length).toBe(1); // the one call site
   });

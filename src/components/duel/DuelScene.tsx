@@ -165,10 +165,13 @@ const TURN_RESOLUTION_MS: Record<CombatActionType, number> = {
   taunt: 800,
   rest: 800,
   /**
-   * CH-3b's net throw predates this table, so it keeps the old fixed hold
-   * (1100 ms) rather than inventing a weight the design never gave it.
+   * CH-3b's net throw postdates the CF-5 design, so it carried no weight of its
+   * own. Director ruling: it takes the quick_attack weight (880 ms). The throw
+   * is an offensive action with a throw animation and a land/miss resolution,
+   * not an 800 ms utility beat (advance / retreat / block / dodge / taunt /
+   * rest), so it belongs with quick_attack.
    */
-  cast_net: 1100,
+  cast_net: 880,
 };
 
 /** A turn that leaves a fighter at 0 health holds this long, whatever it was. */
