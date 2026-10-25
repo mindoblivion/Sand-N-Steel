@@ -49,6 +49,7 @@ import {
   chooseAITacticalAction,
 } from '../../utils/aiActionSelection';
 import { createPendingStrike, type PendingReaction, type PendingStrike } from '../../utils/pendingStrike';
+import { landedStrikeText } from '../../utils/strikeFeedback';
 import {
   isCounterDodgeOpponent,
   queuesCounterOnEvade,
@@ -961,13 +962,25 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 }));
               }
             } else {
+              // C-8.82D — a dodge that was RAISED and BEATEN is named in the one
+              // line the landed blow already writes. The branch is the unblocked
+              // hit, so `isInvulnerable` here can only mean the stance survived
+              // the evade roll and the strike landed on it: one chronicle entry,
+              // one damage figure, nothing claiming a miss, a block or a refund.
+              const strikeLine = landedStrikeText({
+                attackerName: attacker.name,
+                defenderName: defender.name,
+                damage: rawDamage,
+                isCrit,
+                dodgeFailed: defender.isInvulnerable,
+              });
               if (isCrit) {
                 sounds.playHeavyImpact();
-                addLog(`CRITICAL BLOW! ${attacker.name} struck ${defender.name} for ${rawDamage} DAMAGE!`, 'crit');
+                addLog(strikeLine, 'crit');
                 spawnDamageText(`-${rawDamage} CRIT!`, 'crit', defender.position);
               } else {
                 sounds.playSlash();
-                addLog(`${attacker.name} struck ${defender.name} for ${rawDamage} damage.`, isActorPlayer ? 'player' : 'opponent');
+                addLog(strikeLine, isActorPlayer ? 'player' : 'opponent');
                 spawnDamageText(`-${rawDamage}`, 'damage', defender.position);
               }
               // C-8.70B §SET-1 — the player's blade landed: one short buzz, on the
