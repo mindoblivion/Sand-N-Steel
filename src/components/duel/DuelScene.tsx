@@ -1448,8 +1448,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // pounce still draws blood (the formula floors a landed blow at 1), so
             // the palma's condition is "the pounce wounded", which this is.
             if (isBeastPounce) {
-              setOpp((prev) => ({ ...prev, telegraphText: undefined }));
-              addLog(`${beastCfg?.name ?? 'The beast'} springs out of the crouch!`, 'opponent');
+              // The banner and the spring's own line were written when the
+              // pounce was dispatched (see the AI's `plan === 'pounce'` branch),
+              // so an unanswered crouch can never outlive the leap. Only the
+              // Master's Blood-Scent rides the blow itself.
               if (carriesBossPalma(opponentMods, 'blood_scent')) {
                 bloodScentRef.current = true;
               }
@@ -1612,7 +1614,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           } else {
             // MISSED
             sounds.playSlash();
-            addLog(`${attacker.name}'s attack MISSED!`, 'system');
+            addLog(`${attackerLabel}'s attack MISSED!`, 'system');
             spawnDamageText('MISSED!', 'dodge', defender.position);
             // Player missed: reset combo (opponent miss does not affect player combo)
             if (isActorPlayer) {
@@ -1754,6 +1756,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         if (plan === 'pounce') {
           commitBeast(beastPounces(opened));
           beastPounceRef.current = true;
+          // D-2 — the crouch's banner comes down as the spring leaves the
+          // ground, whatever the blow then becomes: a landed pounce, an evade, a
+          // miss or a leap that falls short. Clearing it only on a landed blow
+          // left "FERRUM CROUCHES" standing over a beast that was no longer
+          // crouched, until the next crouch or a strike at it reset the banner.
+          setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+          addLog(`${beastCfg.name} springs out of the crouch!`, 'opponent');
           executeCombatTurn(
             'opponent',
             beastCfg.hitProfile === 'power' ? 'power_attack' : 'quick_attack',

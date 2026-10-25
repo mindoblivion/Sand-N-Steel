@@ -127,6 +127,10 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   const attackTarget: AttackTarget | undefined = targetingBeast ? 'beast' : undefined;
   const effectiveRange = getWeaponRange(player.loadout.weapon);
   const isInWeaponRange = distance <= effectiveRange;
+  // D-2 — a strike at the crouching beast is resolved with no range gate
+  // (`isBeastStrike` rolls the hit formula alone), so the reach warning belongs
+  // to the master only and must never cover a beast strike.
+  const strikeOutOfRange = !isInWeaponRange && !targetingBeast;
 
   // Shield Guard stamina recovery — mirrors the production shield_block
   // action in DuelScene which calls applyStaminaRegen. The displayed value
@@ -339,7 +343,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < quickStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
-                : !isInWeaponRange
+                : strikeOutOfRange
                 ? 'bg-neutral-900 border-amber-900/60 hover:border-amber-500 text-amber-200'
                 : 'bg-gradient-to-br from-amber-950 via-neutral-900 to-amber-900/60 border-amber-500 hover:border-amber-300 text-amber-100 shadow-lg hover:shadow-amber-500/20'
             }`}
@@ -365,7 +369,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
               </span>
             </div>
 
-            {!isInWeaponRange && (
+            {strikeOutOfRange && (
               <div className="absolute inset-0 bg-neutral-950/85 backdrop-blur-[1px] rounded-xl flex items-center justify-center p-1 text-center text-[10px] font-mono text-amber-400 font-bold border border-amber-700/50">
                 Out of Range (Advance)
               </div>
@@ -379,7 +383,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < powerStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
-                : !isInWeaponRange
+                : strikeOutOfRange
                 ? 'bg-neutral-900 border-red-900/60 hover:border-red-500 text-red-200'
                 : 'bg-gradient-to-br from-red-950 via-neutral-900 to-rose-950 border-red-500 hover:border-rose-300 text-rose-100 shadow-lg hover:shadow-red-500/20'
             }`}
@@ -405,7 +409,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
               </span>
             </div>
 
-            {!isInWeaponRange && (
+            {strikeOutOfRange && (
               <div className="absolute inset-0 bg-neutral-950/85 backdrop-blur-[1px] rounded-xl flex items-center justify-center p-1 text-center text-[10px] font-mono text-red-400 font-bold border border-red-700/50">
                 Out of Range (Advance)
               </div>
