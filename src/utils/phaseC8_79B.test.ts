@@ -184,7 +184,12 @@ describe('§B — the rendered cue reports the stance it was given', () => {
 
   test('the cue keeps its own window and its own reaction cost', () => {
     expect(hudSource).toContain('animationDuration: `${ENEMY_ATTACK_WINDUP_MS}ms`');
-    expect(hudSource).toContain('disabled={player.stamina < DODGE_STAMINA_COST}');
+    // C-8.83B — the control is still gated on the cost, but a dodge the player
+    // ALREADY holds is re-armed for free, so that stance keeps it usable at any
+    // stamina. Both operands are pinned, so neither half can be dropped.
+    expect(hudSource).toContain(
+      'disabled={player.stamina < DODGE_STAMINA_COST && !player.isInvulnerable}',
+    );
     expect(ENEMY_ATTACK_WINDUP_MS).toBe(700);
     expect(DODGE_STAMINA_COST).toBe(12);
   });
@@ -213,7 +218,13 @@ describe('§C — the scene records WHICH stance was spent, and clears it', () =
     // C-8.82B passes the fighter's own block reduction as the cue's second
     // argument so the guard line can name its mitigation; the stance still comes
     // straight from the prop, which is the property this pin exists for.
-    expect(hudSource).toContain('resolveReactionCue(reactionTaken,');
+    // C-8.83B adds the cue's THIRD argument (whether the stamina was actually
+    // spent), so the call is now multi-line. The property is unchanged: the stance
+    // comes straight from the prop and the weapon's own block reduction is still
+    // the second argument.
+    expect(hudSource).toContain(
+      'resolveReactionCue(\n    reactionTaken,\n    player.loadout?.weapon?.blockReduction,\n    reactionDodgeCharged,\n  );',
+    );
   });
 
   test('the dev harness passes the reaction it actually delivered', () => {
@@ -249,7 +260,12 @@ describe('§D — the audited lifecycle is unchanged', () => {
     );
     expect(react).toContain("applyDefensiveAction(clearDefensiveStance(prev), 'dodge')");
     expect(react).toContain("applyDefensiveAction(clearDefensiveStance(prev), 'shield_block')");
-    expect(react.split('prev.stamina - DODGE_STAMINA_COST').length - 1).toBe(1);
+    // C-8.83B — the reaction's debit is the ONE charge rule's cost (12 SP for a new
+    // stance, nothing when the player already holds it), still applied exactly once
+    // and never as a second hardcoded subtraction.
+    expect(react).toContain('planDodgeReaction(');
+    expect(react.split('prev.stamina - dodgeCharge.staminaCost').length - 1).toBe(1);
+    expect(react).not.toContain('prev.stamina - DODGE_STAMINA_COST');
   });
 
   test('a decided fight and an unmount still drop the pending strike', () => {

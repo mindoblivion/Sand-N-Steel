@@ -471,8 +471,11 @@ describe('§C — dropping a pending strike leaves nothing behind', () => {
 // ── §D. The shipped wiring ─────────────────────────────────────────────────
 
 describe('§D — the shipped scene keeps the lifecycle in step', () => {
-  test('the reaction refusal order is stamina → claim → stance → cue', () => {
-    const stamina = reactionBody.indexOf('player.stamina < DODGE_STAMINA_COST');
+  test('the reaction refusal order is refusal → claim → stance → cue', () => {
+    // C-8.83B — the stamina refusal became the charge plan's `refused` verdict, so
+    // the pin moved to that expression. Its strength is unchanged: the refusal still
+    // precedes the claim, and the claim still precedes every stance write.
+    const stamina = reactionBody.indexOf("dodgeCharge.kind === 'refused'");
     const claim = reactionBody.indexOf('claimReaction()');
     const cue = reactionBody.indexOf('setReactionTaken(action)');
     const dodgeStance = reactionBody.indexOf(

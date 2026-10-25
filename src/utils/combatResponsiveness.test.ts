@@ -273,13 +273,15 @@ describe('§C — the announced strike is visible, answerable and cancellable (�
   test('the reaction is claimed before any stance is written', () => {
     const claim = duelSource.indexOf('claimReaction()');
     const write = duelSource.indexOf('setReactionTaken(action)');
-    const stamina = duelSource.indexOf('player.stamina < DODGE_STAMINA_COST');
+    // C-8.83B — the affordability refusal is now the plan's `refused` verdict
+    // (12 SP buys a NEW stance; a stance already held is re-armed free). It still
+    // runs BEFORE the claim, so it cannot burn the reaction.
+    const refusal = duelSource.indexOf("dodgeCharge.kind === 'refused'");
 
     expect(claim).toBeGreaterThan(-1);
     expect(write).toBeGreaterThan(claim);
-    // The stamina refusal runs BEFORE the claim, so it cannot burn the reaction.
-    expect(stamina).toBeGreaterThan(-1);
-    expect(stamina).toBeLessThan(claim);
+    expect(refusal).toBeGreaterThan(-1);
+    expect(refusal).toBeLessThan(claim);
   });
 
   test('the reaction writes the existing stance rules, and pays Dodge once', () => {
@@ -294,8 +296,13 @@ describe('§C — the announced strike is visible, answerable and cancellable (�
     );
     expect(react).toContain("applyDefensiveAction(clearDefensiveStance(prev), 'dodge')");
     expect(react).toContain("applyDefensiveAction(clearDefensiveStance(prev), 'shield_block')");
-    const dodgeCharges = react.split('prev.stamina - DODGE_STAMINA_COST').length - 1;
+    // C-8.83B — the charge now comes from the ONE rule (`planDodgeReaction`): 12 SP
+    // for a NEW stance, nothing when the player already holds it. The property this
+    // pin exists for — Dodge is billed exactly ONCE, never twice — is unchanged; the
+    // debit is the plan's cost instead of a second hardcoded subtraction.
+    const dodgeCharges = react.split('prev.stamina - dodgeCharge.staminaCost').length - 1;
     expect(dodgeCharges).toBe(1);
+    expect(react).toContain('planDodgeReaction(');
   });
 
   test('a pending strike is dropped on victory, on defeat and on unmount', () => {

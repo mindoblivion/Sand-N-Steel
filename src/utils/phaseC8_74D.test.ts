@@ -178,7 +178,13 @@ describe('C-8.74D-A §D scope guard — no control, cue or timing changed', () =
     for (const reaction of ['shield_block', 'dodge']) {
       const at = hudSource.indexOf(`data-reaction="${reaction}"`);
       expect(at).toBeGreaterThan(-1);
-      expect(hudSource.slice(at, at + 400)).toContain('min-h-[44px]');
+      // REBASED (C-8.83B): the window now runs to the target's own closing tag rather
+      // than a fixed 400 characters, because the dodge control gained a short cost
+      // comment. The contract is unchanged and strictly stronger — the WHOLE target
+      // must carry the floor — and the class count above still pins all three.
+      const closed = hudSource.indexOf('</button>', at);
+      expect(closed).toBeGreaterThan(at);
+      expect(hudSource.slice(at, closed)).toContain('min-h-[44px]');
     }
   });
 

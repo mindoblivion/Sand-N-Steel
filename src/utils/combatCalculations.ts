@@ -423,6 +423,53 @@ export function clearDefensiveStance(state: DefensiveStance): DefensiveStance {
 }
 
 /**
+ * What a Dodge taken in the reaction window to an announced strike must charge.
+ *
+ *   kind        -- 'activate' (a new stance), 'reaffirm' (the stance is already
+ *                  held), or 'refused' (an unaffordable new stance)
+ *   staminaCost -- the stamina this reaction debits (0 unless 'activate')
+ *   countsDodge -- whether this reaction is a NEW dodge for `dodgesPerformed`
+ */
+export interface DodgeReactionCharge {
+  kind: 'activate' | 'reaffirm' | 'refused';
+  staminaCost: number;
+  countsDodge: boolean;
+}
+
+/**
+ * The ONE rule for what answering an announced strike with Dodge costs
+ * (C-8.83B).
+ *
+ * `DODGE_STAMINA_COST` buys the dodge STANCE, not the tap. A player who sets Dodge
+ * on their own turn keeps that stance across the turn boundary
+ * (`resolveTurnEndDefensive` preserves it), so when the enemy's announced strike
+ * arrives the stance is ALREADY up and already paid for. Selecting Dodge again is a
+ * reaffirm: it still claims the reaction, names the stance and leaves it standing for
+ * the pending blow, but it debits nothing and records no second dodge -- otherwise
+ * one stance was charged 12 SP twice.
+ *
+ * A reaffirm can never be spent on a different strike: `clearDefensiveStance` runs at
+ * the top of the fighter's next `executeCombatTurn`, so a held stance is consumed by
+ * the player's next action, and the turn order puts that action before any later
+ * announcement. Anything that is not already a dodge stance is an ordinary activation
+ * and keeps the existing refusal below `DODGE_STAMINA_COST`.
+ *
+ * Pure and side-effect-free -- the caller owns the React state.
+ *
+ * @param stance  the fighter's CURRENT defensive stance (the same snapshot the impact
+ *                resolution reads)
+ * @param stamina the fighter's current stamina
+ */
+export function planDodgeReaction(
+  stance: Pick<DefensiveStance, 'isInvulnerable'>,
+  stamina: number,
+): DodgeReactionCharge {
+  if (stance.isInvulnerable) return { kind: 'reaffirm', staminaCost: 0, countsDodge: false };
+  if (stamina < DODGE_STAMINA_COST) return { kind: 'refused', staminaCost: 0, countsDodge: false };
+  return { kind: 'activate', staminaCost: DODGE_STAMINA_COST, countsDodge: true };
+}
+
+/**
  * Choose the AI's out-of-range movement action.
  *
  * When the opponent is beyond strike range, it either advances (82 %) or

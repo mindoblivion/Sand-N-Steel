@@ -38,6 +38,10 @@ interface CombatHUDProps {
   // from the strike controller (`playerStrike.ts`), never timed here.
   pendingPlayerAttack: PlayerStrikeAction | null;
   reactionTaken: PendingReaction | null;
+  // C-8.83B — whether the claimed dodge actually spent its stamina. False when the
+  // player already held the stance and the reaction only re-armed it, so the cue
+  // cannot claim a charge that never happened. Ordinary activations pass true.
+  reactionDodgeCharged?: boolean;
   onReactToPendingAttack: (action: 'shield_block' | 'dodge') => void;
 }
 
@@ -57,6 +61,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   pendingEnemyAttack,
   pendingPlayerAttack,
   reactionTaken,
+  reactionDodgeCharged = true,
   onReactToPendingAttack,
 }) => {
   // The player's cue, as the shared rule decides it: nothing unless a strike is
@@ -66,7 +71,11 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   // (this fighter's weapon) and the shared dodge evade chance. Derived from the
   // equipped weapon and the shared constant, never from copy literals.
   const guardMitigationPct = Math.round((player.loadout?.weapon?.blockReduction ?? 0) * 100);
-  const reactionCue = resolveReactionCue(reactionTaken, player.loadout?.weapon?.blockReduction);
+  const reactionCue = resolveReactionCue(
+    reactionTaken,
+    player.loadout?.weapon?.blockReduction,
+    reactionDodgeCharged,
+  );
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
   const playerStaminaPct = Math.max(0, Math.min(100, (player.stamina / player.stats.staminaMax) * 100));
 
@@ -313,17 +322,21 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                 <button
                   data-reaction="dodge"
                   onClick={() => onReactToPendingAttack('dodge')}
-                  disabled={player.stamina < DODGE_STAMINA_COST}
+                  // C-8.83B — a held stance is re-armed for free, so the cost gate
+                  // refuses only a NEW dodge.
+                  disabled={player.stamina < DODGE_STAMINA_COST && !player.isInvulnerable}
                   className={`min-h-[44px] px-2 py-2 rounded-lg border text-[11px] sm:text-xs font-serif font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
-                    player.stamina < DODGE_STAMINA_COST
+                    player.stamina < DODGE_STAMINA_COST && !player.isInvulnerable
                       ? 'bg-neutral-900/70 border-neutral-700 text-neutral-500 cursor-not-allowed'
                       : 'bg-teal-950/80 hover:bg-teal-900 border-teal-500/70 text-teal-100 cursor-pointer'
                   }`}
                 >
                   <Wind className="w-3.5 h-3.5 shrink-0" />
                   <span className="flex flex-col items-start leading-tight">
-                    <span>Dodge −{DODGE_STAMINA_COST} SP</span>
-                    <span className="font-mono text-[9px] opacity-80">{DODGE_EVADE_PERCENT}% evade</span>
+                    <span>{player.isInvulnerable ? 'Dodge · held' : `Dodge −${DODGE_STAMINA_COST} SP`}</span>
+                    <span className="font-mono text-[9px] opacity-80">
+                      {DODGE_EVADE_PERCENT}% evade{player.isInvulnerable ? ' · no cost' : ''}
+                    </span>
                   </span>
                 </button>
               </div>

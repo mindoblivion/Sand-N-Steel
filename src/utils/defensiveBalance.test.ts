@@ -259,11 +259,18 @@ describe('§C — Dodge pays 12 SP at stance entry, and the outcome cannot chang
     const reactStart = duelSource.indexOf('const reactToPendingAttack = useCallback(');
     const reactEnd = duelSource.indexOf('// No blow may outlive the scene');
     const react = duelSource.slice(reactStart, reactEnd);
-    expect(react.split('prev.stamina - DODGE_STAMINA_COST').length - 1).toBe(1);
-    // The refusal runs before the claim, so a failed dodge does not burn the reaction.
-    expect(react.indexOf('player.stamina < DODGE_STAMINA_COST')).toBeLessThan(
-      react.indexOf('claimReaction()'),
-    );
+    // C-8.83B — the charge is decided by the ONE rule (`planDodgeReaction`): 12 SP
+    // for a NEW stance, nothing when the player already holds it. Rebasing this pin
+    // from the old literal debit keeps its strength and adds the property the fix
+    // exists for: the amount is a plan result, never a second hardcoded subtraction.
+    expect(react).toContain('planDodgeReaction(');
+    expect(react.split('prev.stamina - dodgeCharge.staminaCost').length - 1).toBe(1);
+    expect(react).not.toContain('prev.stamina - DODGE_STAMINA_COST');
+    // The refusal runs before the claim, so a refused (unaffordable) dodge does not
+    // burn the announcement's one reaction.
+    const refusal = react.indexOf("dodgeCharge.kind === 'refused'");
+    expect(refusal).toBeGreaterThan(-1);
+    expect(refusal).toBeLessThan(react.indexOf('claimReaction()'));
   });
 
   test('the resolution never refunds a successful dodge or charges a failed one', () => {

@@ -10322,3 +10322,101 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Known documentation debt, untouched:** twelve `.c881d-*.ts` measurement harnesses remain committed
   at the repo root from the C-8.81D work (read-only scripts, referenced by nothing in `src/`); they
   were left in place rather than deleted without authorization.
+
+## Idempotent Dodge reaction cost (C-8.83B — implemented)
+
+- **The defect was one stance charged twice.** A player who set Dodge on their OWN turn
+  kept the stance across the turn boundary (`resolveTurnEndDefensive` preserves it, by design),
+  so when the enemy's strike was announced the stance was already standing — and selecting
+  Dodge again in the reaction window ran `reactToPendingAttack`'s unconditional debit, charging
+  another 12 SP and incrementing `dodgesPerformed` a second time for the same stance.
+
+- **The correction is ONE pure rule plus its call site.** `planDodgeReaction(stance, stamina)`
+  in `src/utils/combatCalculations.ts` (beside the stance helpers) answers the reaction's charge
+  as `{ kind: 'activate' | 'reaffirm' | 'refused', staminaCost, countsDodge }`:
+  `activate` = 12 SP and one dodge counted; `reaffirm` (the stance is already held) = **0 SP and
+  no count**, the stance simply staying up for the pending blow; `refused` = an unaffordable NEW
+  stance. `DuelScene`'s `reactToPendingAttack` now reads it from `fightersRef.current.player` —
+  **the same snapshot the impact resolves against** — refuses a `refused` plan BEFORE
+  `claimReaction()` (so an unaffordable dodge still does not burn the announcement's one
+  reaction), then debits `dodgeCharge.staminaCost` once and increments the counter only when
+  `countsDodge`. A reaffirm still claims the reaction, still writes the stance through
+  `applyDefensiveAction(clearDefensiveStance(prev), 'dodge')`, still names the dodge in the
+  chronicle and still shows `DODGE!` — nothing about the answer is lost, only the second charge.
+
+- **Why a free reaffirm cannot arm an unrelated strike.** The stance is consumed by
+  `clearDefensiveStance` at the top of the fighter's next `executeCombatTurn`, and the turn order
+  puts that action before any later announcement, so an active dodge stance at reaction time IS
+  the stance for this pending strike. One claim per announcement (`claimReaction`) means the free
+  path runs at most once, and the turn-action `dodge` branch still debits every time it is taken
+  (both fighters, twice in the branch). The ordinary activation is 12 SP with the unchanged
+  refusal at `< DODGE_STAMINA_COST` — a stance already held needs no stamina, which is the one
+  behavioural consequence: a player at 0 SP can still confirm the dodge they already paid for.
+
+- **Nothing else moved.** No change to `DODGE_STAMINA_COST` (12), `DODGE_EVADE_CHANCE` (0.88),
+  `ENEMY_ATTACK_WINDUP_MS` / `PLAYER_ATTACK_WINDUP_MS` (700), the impact's
+  `defender.isInvulnerable && Math.random() < DODGE_EVADE_CHANCE` roll, Shield Guard (still free,
+  still writes no stamina), the passive evade, the miss path, the 1100 ms resolution or the
+  C-8.82D failed-dodge wording. The AI Dodge affordability clamp is deliberately **not** touched.
+
+- **Truthful feedback (the cue and the control).** The reaction cue used to say "12 SP spent" for
+  every dodge; `resolveReactionCue(reaction, blockReduction, dodgeStaminaSpent = true)` now takes
+  a third argument and a reaffirm reads *"Dodge held — 88% chance to slip the blow entirely; the
+  stance was already paid for."* `DuelScene` tracks the one boolean (`reactionDodgeCharged`,
+  reset with `reactionTaken`) and the HUD passes it through; the default keeps every existing
+  caller byte-identical. The HUD's dodge reaction control is gated on
+  `player.stamina < DODGE_STAMINA_COST && !player.isInvulnerable` and labels a held stance
+  `Dodge · held` / `88% evade · no cost`, so the button can neither advertise a charge it will
+  not make nor refuse an answer that costs nothing.
+
+- **Regression suite: `src/utils/phaseC8_83B.test.ts`** — 28 tests / 321 `expect()` across six
+  sections: §A the rule (first activation 12 SP once, reaffirm 0 and uncounted, reaffirm free at
+  0 SP, refusal below the cost with the exact boundary, a guard stance still paying, purity and a
+  0…100 sweep); §B the lifecycle (turn-end preservation, the pre-clear that makes a later strike a
+  fresh activation, five reaffirms accumulating nothing, the turn-action branch still charging
+  twice); §C the impact (the shipped roll line, the 88 % boundary at 0.8799 / 0.88, the untouched
+  timings); §D the wiring (plan from the impact snapshot, refusal before claim, claim before every
+  stance write, one debit of `dodgeCharge.staminaCost`, one `dodgesPerformed += 1` behind
+  `countsDodge`, the cue flag); §E nothing else moved (guard, blocked branch, passive evade, miss,
+  failed-dodge copy, constants); §F the cue and the control, **rendered** with
+  `renderToStaticMarkup` (a held stance at 0 SP is enabled and reads `Dodge · held`, an open one
+  is disabled and reads `Dodge −12 SP`, and a reaffirm cue claims no charge).
+
+- **Five source-pinned assertions were rebased, not weakened — each moved to the new single
+  source, none removed.** `defensiveBalance` §C and `combatResponsiveness` §C (the reaction's one
+  debit: `prev.stamina - DODGE_STAMINA_COST` → `prev.stamina - dodgeCharge.staminaCost`, plus
+  `planDodgeReaction(` present and the literal gone), `phaseC8_79B` §B/§D (the HUD's gate now
+  carries `&& !player.isInvulnerable`; the cue call is the three-argument form), `phaseC8_79C` §D
+  (the refusal order pin moved to `dodgeCharge.kind === 'refused'`, still before the claim), and
+  `phaseC8_74D` §D (the 44px window now runs to the target's own `</button>` — strictly stronger
+  than the fixed 400 characters, because the dodge control gained a two-line comment).
+  `phaseC8_75F`'s harness executes the real `reactToPendingAttack` body, so it now binds
+  `planDodgeReaction` and `setReactionDodgeCharged` alongside the other shipped helpers — its own
+  design (a missing binding fails loudly rather than passing vacuously) is what caught it.
+
+- **Verified 2026-10-25** in the dev container: focused
+  `bun test` over the 14 defensive/reaction suites → **327 pass / 0 fail (2 325 `expect()`)**;
+  `bun test` → **3799 pass / 0 fail (135 files, 94 120 `expect()`)** (the branch tip read 3771 /
+  134; the delta is this suite's 28 tests and its file); `bun run scripts/combatTests.ts` →
+  **69 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with
+  the startup-asset check passing (8 assets); `git diff --check` → clean. The validation's
+  starting point was **6 failing assertions** (four rebases plus `phaseC8_75F`'s unbound helper and
+  one `tsc` error in the new suite), all fixed in the tests or the harness, none by loosening a
+  check.
+
+- **Browser evidence (preview, anonymous visitor — no session replayed), and its limits.** The
+  shipped `CombatHUD` was driven in the repo's own `?devHarness=hud&hudState=power` harness, loaded
+  inside an in-page frame (the C-8.66C/C-8.68C technique, because the preview host rewrites a
+  top-level query string): the dodge control rendered `Dodge −12 SP · 88% evade` and enabled, a
+  real click claimed the reaction (`data-hud-reacts="dodge"`), both controls were replaced, and the
+  cue read **"Dodge set — 88% chance to slip the blow entirely; 12 SP spent."** — i.e. the
+  ordinary, charged path still reports its charge through the new three-argument call — with the
+  frame removed afterwards and no console errors. **The reaffirm state itself was NOT driven in
+  the browser:** the harness's fighter fixture is `isInvulnerable: false` and there is no control
+  to set it, so that path is verified by the suite's rendered `renderToStaticMarkup` assertions
+  (`Dodge · held`, `no cost`, the "already paid for" cue) rather than in a live duel.
+  **Not automatically verified: the live duel itself** — one stance charged once needs a real
+  announcement answered after a real turn-action dodge, and the arena renders at ~2 fps through
+  SwiftShader here (the standing limit since C-8.81). **Android check:** dodge on your turn, let
+  the enemy wind up, and select Dodge again — stamina must not move a second time, the chronicle
+  must say the stance is held, and the blow must still resolve against the 88 % roll.

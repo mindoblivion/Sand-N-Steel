@@ -97,18 +97,25 @@ export interface ReactionCue {
  * @param reaction       the stance actually spent, or null before any answer
  * @param blockReduction the answering fighter's weapon block fraction (0–1); when
  *                       finite, the guard line names the mitigation it applies
+ * @param dodgeStaminaSpent C-8.83B — false when the dodge claimed was a
+ *                       REAFFIRM of a stance the player already held, i.e.
+ *                       nothing was spent; the line then cannot claim a charge
+ *                       that never happened.
  */
 export function resolveReactionCue(
   reaction: PendingReaction | null,
   blockReduction?: number,
+  dodgeStaminaSpent: boolean = true,
 ): ReactionCue | null {
   if (reaction === null) return null;
   if (reaction === 'dodge') {
     return {
       kind: 'dodge',
-      label:
-        `Dodge set — ${DODGE_EVADE_PERCENT}% chance to slip the blow entirely; ` +
-        `${DODGE_STAMINA_COST} SP spent.`,
+      label: dodgeStaminaSpent
+        ? `Dodge set — ${DODGE_EVADE_PERCENT}% chance to slip the blow entirely; ` +
+          `${DODGE_STAMINA_COST} SP spent.`
+        : `Dodge held — ${DODGE_EVADE_PERCENT}% chance to slip the blow entirely; ` +
+          `the stance was already paid for.`,
     };
   }
   const mitigation =

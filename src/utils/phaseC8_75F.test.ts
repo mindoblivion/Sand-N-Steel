@@ -45,6 +45,7 @@ import {
   calculateHitChance,
   getStaminaCost,
   isAttackInRange,
+  planDodgeReaction,
   shieldGuardStaminaGain,
 } from './combatCalculations';
 import { canAffordAttack } from './aiActionSelection';
@@ -276,6 +277,9 @@ function createHarness(options: HarnessOptions) {
     queuesCounterOnEvade,
     rollsPassiveEvade,
     canResolveStrikeImpact,
+    // C-8.83B — the reaction's one charge rule is production code, bound like every
+    // other shipped helper; a missing binding fails loudly instead of passing.
+    planDodgeReaction,
     // C-8.82D — the landed-strike chronicle line is production copy, bound like
     // every other shipped helper (its default path is the unchanged wording).
     landedStrikeText,
@@ -356,6 +360,7 @@ function createHarness(options: HarnessOptions) {
     },
     setPendingEnemyAttack: () => {},
     setReactionTaken: () => {},
+    setReactionDodgeCharged: () => {},
     // Fake clock / RNG so the harness is deterministic.
     setTimeout: schedule,
     clearTimeout: (handle: number) => {

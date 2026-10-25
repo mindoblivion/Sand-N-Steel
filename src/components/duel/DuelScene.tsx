@@ -36,6 +36,7 @@ import {
   DODGE_EVADE_CHANCE,
   applyDefensiveAction,
   clearDefensiveStance,
+  planDodgeReaction,
 } from '../../utils/combatCalculations';
 import { CROWD_HYPE_MAX, crowdMomentumReward } from '../../utils/crowdMomentum';
 import {
@@ -355,6 +356,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // can name it back: a dodge is not a guard.
   const [pendingEnemyAttack, setPendingEnemyAttack] = useState<'quick_attack' | 'power_attack' | null>(null);
   const [reactionTaken, setReactionTaken] = useState<PendingReaction | null>(null);
+  // C-8.83B — whether the Dodge just claimed actually SPENT its 12 SP. A reaffirm
+  // of a stance the player already holds costs nothing, and the cue may not claim a
+  // charge that never happened. True is the ordinary activation.
+  const [reactionDodgeCharged, setReactionDodgeCharged] = useState(true);
   // C-8.73B — the player's OWN wind-up cue. This is a mirror of
   // `playerStrikeRef.current.pending`, written only by the controller's
   // `onPendingChange` (commit, impact, cancellation), so there is no second
@@ -1157,6 +1162,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     strikeRef.current?.cancel();
     setPendingEnemyAttack(null);
     setReactionTaken(null);
+    setReactionDodgeCharged(true);
   }, []);
 
   // ── C-8.80B — the CONFIRMED withdrawal ─────────────────────────────────────
@@ -1202,6 +1208,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       const announced = strikeRef.current?.announce(actionType, (landing) => {
         setPendingEnemyAttack(null);
         setReactionTaken(null);
+        setReactionDodgeCharged(true);
         if (isMatchOver.current) return;
         executeTurnRef.current('opponent', landing);
       });
@@ -1209,6 +1216,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       setPendingEnemyAttack(actionType);
       setReactionTaken(null);
+      setReactionDodgeCharged(true);
       // Locks the normal actions for the whole announcement + resolution window.
       setIsExecuting(true);
       // The opponent's swing animation starts HERE, so the blow lands mid-swing at
@@ -1239,9 +1247,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const reactToPendingAttack = useCallback(
     (action: 'shield_block' | 'dodge') => {
       if (isMatchOver.current) return;
-      // The stamina check runs BEFORE the claim, so a failed dodge does not
-      // consume the announcement's one reaction.
-      if (action === 'dodge' && player.stamina < DODGE_STAMINA_COST) return;
+      // C-8.83B — the 12 SP buys the dodge STANCE, not the tap. `fightersRef` is the
+      // same snapshot the impact resolves against, so a stance the player already
+      // holds for this pending strike (set on their own turn and preserved across the
+      // turn boundary) is re-armed for free instead of being charged a second time
+      // and counted as a second dodge.
+      const dodgeCharge =
+        action === 'dodge'
+          ? planDodgeReaction(fightersRef.current.player, fightersRef.current.player.stamina)
+          : null;
+      // The refusal runs BEFORE the claim, so an unaffordable NEW dodge does not
+      // consume the announcement's one reaction. A stance already held needs no
+      // stamina: it is a reaffirm of what the player has paid for.
+      if (dodgeCharge !== null && dodgeCharge.kind === 'refused') return;
       // One reaction per announcement: `claimReaction` is what stops mashing both
       // buttons from stacking a guaranteed block with an evade.
       if (!strikeRef.current?.claimReaction()) return;
@@ -1250,16 +1268,23 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // player actually chose rather than always reporting a raised guard.
       setReactionTaken(action);
 
-      if (action === 'dodge') {
+      if (dodgeCharge !== null) {
         sounds.playDodge();
-        statsRef.current.dodgesPerformed += 1;
+        // A reaffirm is the stance already on the tally, so it is not counted twice.
+        if (dodgeCharge.countsDodge) statsRef.current.dodgesPerformed += 1;
+        setReactionDodgeCharged(dodgeCharge.staminaCost > 0);
         setPlayer((prev) => ({
           ...prev,
           action: 'dodge',
           ...applyDefensiveAction(clearDefensiveStance(prev), 'dodge'),
-          stamina: Math.max(0, prev.stamina - DODGE_STAMINA_COST),
+          stamina: Math.max(0, prev.stamina - dodgeCharge.staminaCost),
         }));
-        addLog(`${player.name} throws themselves into a dodge!`, 'player');
+        addLog(
+          dodgeCharge.kind === 'reaffirm'
+            ? `${player.name} holds the evasion stance — no further stamina spent.`
+            : `${player.name} throws themselves into a dodge!`,
+          'player',
+        );
         spawnDamageText('DODGE!', 'dodge', player.position);
       } else {
         sounds.playBlock();
@@ -1616,6 +1641,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         pendingEnemyAttack={pendingEnemyAttack}
         pendingPlayerAttack={pendingPlayerAttack}
         reactionTaken={reactionTaken}
+        reactionDodgeCharged={reactionDodgeCharged}
         onReactToPendingAttack={reactToPendingAttack}
       />
       </div>
