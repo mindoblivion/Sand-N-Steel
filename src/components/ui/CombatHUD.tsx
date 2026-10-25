@@ -26,6 +26,12 @@ interface CombatHUDProps {
   playerModifiers?: FighterModifiers;
   opponentModifiers?: FighterModifiers;
   opponentIsBoss?: boolean;
+  /**
+   * CF-6 — a boss's rage. A timestamp (ms) that fires ONE red vignette pulse:
+   * the div is keyed by it, so a second pulse restarts the 700 ms animation.
+   * Boss fights only — DuelScene never sets it for a standard opponent.
+   */
+  bossVignettePulse?: number;
   onExecuteAction: (action: CombatActionType) => void;
 }
 
@@ -49,6 +55,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   playerModifiers,
   opponentModifiers,
   opponentIsBoss,
+  bossVignettePulse,
   onExecuteAction,
 }) => {
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
@@ -64,6 +71,18 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
     /* UI-1 (S-3) — the HUD owns its safe-area gutter, rather than relying on the
        global body padding alone.  The max() keeps the existing padding as the floor. */
     <div className="combat-hud absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 sm:p-5 pb-[max(0.625rem,env(safe-area-inset-bottom))] pl-[max(0.625rem,env(safe-area-inset-left))] pr-[max(0.625rem,env(safe-area-inset-right))] sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pl-[max(1.25rem,env(safe-area-inset-left))] sm:pr-[max(1.25rem,env(safe-area-inset-right))] select-none z-10">
+
+      {/* CF-6 — boss moment: one red vignette pulse (700 ms) when a boss's rage
+          ignites. Keyed by the timestamp so a later pulse starts a fresh
+          animation, and pointer-events-none so it can never intercept a touch. */}
+      {bossVignettePulse !== undefined && (
+        <div
+          key={bossVignettePulse}
+          className="boss-vignette-pulse"
+          data-boss-vignette={bossVignettePulse}
+          aria-hidden="true"
+        />
+      )}
       {/* TOP HEADER: HEALTH, STAMINA, HYPE & UTILITY BUTTONS */}
       <div className="combat-top w-full flex flex-col gap-2">
         {/* TOP UTILITY BAR */}

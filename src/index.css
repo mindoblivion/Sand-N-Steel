@@ -417,3 +417,29 @@ canvas {
 .motion-paused .animate-fadeIn {
   animation-play-state: paused;
 }
+
+/* ── CF-6 — boss moment: the rage vignette ──────────────────────────────────
+   One red pulse at the screen's edge when a boss's rage ignites (CombatHUD
+   renders the div only while DuelScene holds a pulse timestamp for a boss).
+   It animates OPACITY only — the house motion law — runs once for the design's
+   700 ms and then rests at 0, and it is pointer-events: none throughout, so a
+   touch meant for the tactic panel beneath it is never intercepted. Its own
+   gradient is a thin vignette, so the sand and both fighters stay readable. */
+@keyframes boss-vignette-pulse {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.boss-vignette-pulse {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(220, 38, 38, 0) 45%,
+    rgba(153, 27, 27, 0.55) 100%
+  );
+  animation: boss-vignette-pulse 700ms ease-out forwards;
+}

@@ -4,6 +4,7 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
+import { TELEGRAPH_GLOW_COLOR, telegraphGlowIntensity } from '../../utils/bossPresentation';
 
 /**
  * Shared impact feedback for the duel: one mutable object, owned by
@@ -41,6 +42,15 @@ interface GladiatorMeshProps {
   rotationRef?: React.MutableRefObject<number>;
   /** Hit-stop / shake state shared with the duel's camera rig (optional). */
   impactRef?: React.MutableRefObject<ImpactState>;
+  /**
+   * CF-6 — a boss's telegraph. While true, the mesh's OWN emissive path pulses
+   * `TELEGRAPH_GLOW_COLOR` at 2 Hz, so a wound-up boss reads at a glance without
+   * a second highlight system. Boss presentation only: `DuelScene` gates it on
+   * `bossPresentsMoment(opponent, 'heavy_telegraph') && Boolean(opp.telegraphText)`,
+   * so a standard fighter never sets it. Consumed by the rigged GLB path's
+   * materials; the procedural fallback has no emissive materials and ignores it.
+   */
+  telegraphGlow?: boolean;
 }
 
 // Per-URL cache for GLB file presence & validity check
@@ -507,6 +517,8 @@ export function resolveActionClip(action: FighterAction, clipNames: readonly str
 // own emissive Color via .copy(), so no shared mutable references exist.
 const HIT_FLASH_COLOR = new THREE.Color('#ff0000');
 const HIT_FLASH_RESET_COLOR = new THREE.Color('#000000');
+// CF-6 — the boss telegraph's emissive, on the same path as the hit flash.
+const TELEGRAPH_GLOW_COLOR_VALUE = new THREE.Color(TELEGRAPH_GLOW_COLOR);
 
 /**
  * 1. High-Detail Rigged GLB Model Loader with Bone-Attached Equipment
@@ -520,6 +532,7 @@ const RomanWarriorGLB: React.FC<{
   positionRef?: React.MutableRefObject<[number, number, number]>;
   rotationRef?: React.MutableRefObject<number>;
   impactRef?: React.MutableRefObject<ImpactState>;
+  telegraphGlow?: boolean;
 }> = ({
   fighter,
   overrideAction,
@@ -529,11 +542,19 @@ const RomanWarriorGLB: React.FC<{
   positionRef,
   rotationRef,
   impactRef,
+  telegraphGlow = false,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const currentActionName = useRef<string>('');
   const flashTimerRef = useRef(0);
-  const wasFlashActiveRef = useRef<boolean | null>(null);
+  // 0 = resting, 1 = CF-6 telegraph glow, 2 = hit flash — the emissive mode the
+  // materials were last written with (null on the first frame, so the resting
+  // values are written once at init).
+  const wasFlashActiveRef = useRef<number | null>(null);
+  // CF-6 — the materials this instance's emissive path has already collected, so
+  // the 2 Hz telegraph pulse is a loop over a short array instead of a per-frame
+  // traverse of the whole character.
+  const emissiveMaterialsRef = useRef<THREE.MeshStandardMaterial[] | null>(null);
   const lastActionRef = useRef<string>('');
   const shieldGroupRef = useRef<THREE.Group>(null);
   const shieldStrengthRef = useRef(0);
@@ -624,7 +645,7 @@ const RomanWarriorGLB: React.FC<{
     currentActionName.current = targetClip;
   }, [targetClip, actions, activeAction]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (!groupRef.current) return;
 
     // Hit-stop. This fighter's animation time is held while a blow is landing:
@@ -657,23 +678,53 @@ const RomanWarriorGLB: React.FC<{
     }
 
     const isHit = flashTimerRef.current > 0;
-    // Phase 2B.58: only traverse and update emissive materials when the flash
-    // state *changes* (activates, expires, or first-frame init), not every
-    // frame. The emissive color is constant while the flash is active, so
-    // re-setting it each frame was wasted work; while inactive the materials
-    // are already at their resting values. Pre-allocated Color instances
-    // replace the per-frame new THREE.Color allocations.
-    if (isHit !== wasFlashActiveRef.current) {
-      wasFlashActiveRef.current = isHit;
+    // CF-6 — the boss's telegraph glow rides this SAME emissive path: while the
+    // telegraph is up the materials pulse TELEGRAPH_GLOW_COLOR at 2 Hz. A landed
+    // blow always wins, because it is the brighter, redder flash — so the two can
+    // never fight over one material, and a standard fighter (`telegraphGlow`
+    // false, no hit) is written exactly as it always was: once, back to rest.
+    const isTelegraphing = !isHit && telegraphGlow === true;
+    const emissiveMode = isHit ? 2 : isTelegraphing ? 1 : 0;
+    // Phase 2B.58: only traverse and update emissive materials when the mode
+    // *changes* (activates, expires, or first-frame init), not every frame. The
+    // emissive colour is constant while a mode holds, so re-setting it each frame
+    // was wasted work; while inactive the materials are already at their resting
+    // values. Pre-allocated Color instances replace the per-frame allocations.
+    if (emissiveMode !== wasFlashActiveRef.current) {
+      wasFlashActiveRef.current = emissiveMode;
+      const collected: THREE.MeshStandardMaterial[] = [];
       clonedScene.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
           const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
           if (mat) {
-            mat.emissive.copy(isHit ? HIT_FLASH_COLOR : HIT_FLASH_RESET_COLOR);
-            mat.emissiveIntensity = isHit ? 0.8 : 0;
+            mat.emissive.copy(
+              emissiveMode === 2
+                ? HIT_FLASH_COLOR
+                : emissiveMode === 1
+                ? TELEGRAPH_GLOW_COLOR_VALUE
+                : HIT_FLASH_RESET_COLOR,
+            );
+            mat.emissiveIntensity =
+              emissiveMode === 2
+                ? 0.8
+                : emissiveMode === 1
+                ? telegraphGlowIntensity(state.clock.elapsedTime)
+                : 0;
+            collected.push(mat);
           }
         }
       });
+      emissiveMaterialsRef.current = collected;
+    } else if (isTelegraphing) {
+      // The pulse proper: the mode is already held, only the intensity moves.
+      // A short loop over the collected materials, no traverse and no allocation.
+      const mats = emissiveMaterialsRef.current;
+      if (mats) {
+        const intensity = telegraphGlowIntensity(state.clock.elapsedTime);
+        for (let i = 0; i < mats.length; i += 1) {
+          mats[i].emissiveIntensity = intensity;
+        }
+      }
     }
 
     // --- Phase 111: Shield orientation constraint (disabled by default) ---
@@ -1505,7 +1556,7 @@ class GLTFErrorBoundary extends React.Component<
 }
 
 // 4. Main GladiatorMesh Component
-export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef, impactRef }: GladiatorMeshProps) => {
+export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef, impactRef, telegraphGlow }: GladiatorMeshProps) => {
   const modelUrl = fighter.characterModel === 'amazonian'
     ? '/models/amazonian.glb'
     : fighter.characterModel === 'retiarius'
@@ -1560,6 +1611,7 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
         positionRef={positionRef}
         rotationRef={rotationRef}
         impactRef={impactRef}
+        telegraphGlow={telegraphGlow}
       />
     </GLTFErrorBoundary>
   );
