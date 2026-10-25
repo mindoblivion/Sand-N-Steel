@@ -10132,3 +10132,29 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   claim is made for it. The measurement convention is also a standing limit: the defender holds
   `Fighting_Idle` at 0.4, so a defender mid-step or mid-block presents a different silhouette and the
   contact frame is a property of the clip plus the standing target, not of every pose.
+
+## Strike-contact visual acceptance (C-8.81E — preparation only; Android PENDING)
+
+- **What this pass was.** Preparation for judging the C-8.81D strikes on hardware: no clip timing,
+  playback rate, damage timing, attachment transform, range, movement or combat rule changed, and no new
+  route added. The procedure — the exact Android steps, the 60 fps frame inspection, the pass/fail
+  discriminators and the decision rules for a separate heavy-strike animation task — is in
+  [.base44/strike-contact-device-acceptance-c881e.md](.base44/strike-contact-device-acceptance-c881e.md).
+- **Working tree.** Branch `development-focus-strategy`, HEAD `d0956f6094` unchanged at the end,
+  `git status --short` empty before the first edit; nothing was reset, stashed, committed, pushed, merged
+  or deployed.
+- **The route is the existing dev harness.** `?devHarness=character` (dev builds only, in-memory profile,
+  Marcus, 3.6 m opening). Live in the sandbox at a 400 px viewport: the harness mounts instead of the
+  title screen, creation → ready → duel works, the opening chronicle reads `DIST: 3.6m` with both strike
+  cards out of range, and one `Advance (+1.8m)` reaches `DIST: 1.8m` / `IN STRIKE RANGE`. **No strike was
+  executed** (SwiftShader, ~1–2 fps), so nothing about either impact was observed.
+- **The twelve tracked `.c881d-*.ts` root files are scratch, not test artifacts.** They are outside
+  `tsconfig.json`'s include (`src`, `scripts`), not collected by `bun test` (which takes `*.test.ts`),
+  imported by nothing, hardcoded to `/app/...` paths, and two of them still carry the superseded 519 / 659
+  frames. Recommendation: delete them in a future approved cleanup — the durable measurement artifact is
+  `src/utils/phaseC8_81d.test.ts` — or, if kept, move them out of the repo root. Nothing was deleted,
+  moved or rewritten here.
+- **Android visual acceptance: PENDING.** No device is reachable from this sandbox. The open question the
+  pass exists to answer is whether the heavy's knee-height contact (0.578 m tip, torso 0.337 clear at
+  1.8 m) reads as a deliberate low blow or as a leg graze — a clip/arc question, since no frame of
+  `Sword_Regular_C` touches the torso. Do not claim device acceptance.
