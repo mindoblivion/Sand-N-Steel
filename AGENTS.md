@@ -10971,3 +10971,181 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   no preview interaction — every combat figure here is unit-level production helpers plus a
   deterministic EV model (steady-state AI stance mix, light attacks every turn, no potions, one
   attacker), and this phase rendered nothing to look at. **No live-duel or Android acceptance is claimed.**
+
+## Defensive resource economy design gate (Phase C-8.85D — design + evidence, NO production change)
+
+- **Preflight (differs from the brief's expected HEAD; preserved, not restored).** Branch
+  `development-focus-strategy`, HEAD **`00c006bf9995bcd3cc1a915c144006d1971b7161`** "Document C-8.85C
+  combat balance analysis" — one commit on top of the brief's expected `f43d4206` (C-8.85B), its parent
+  and intact. `git status --porcelain` **empty** before and after; nothing was reset, stashed, amended,
+  committed, pushed, merged or deployed. The C-8.85A (L10670), C-8.85B (L10753) and C-8.85C (L10862)
+  records are present and intact. **No production file, constant, test or asset was edited**; this
+  record is the phase's only change.
+
+- **Trace of the credit's origin — what is documented, and what is inference.**
+  - *Documented (C-8.70B §R2, `combatCalculations.ts`'s `shieldGuardStaminaGain` doc comment).* The
+    problem the rule solved was **the guard's UNCONDITIONAL regen**, not the credit: `applyStaminaRegen`
+    ran on *every* Shield Guard turn, so the guard returned full `staminaRegen` while Dodge paid
+    `DODGE_STAMINA_COST`. §R2's stated goal was to remove that dominance ("a raised shield that nothing
+    hits recovers nothing and the trade-off is real"), and the stopped-blow credit was the **allowance
+    deliberately left behind**, not a new engine. It is therefore **a reward for a successful defence**,
+    not a temporary measure and not documented as "Guard's defining advantage".
+  - *Documented (C-8.72B).* The full credit measured 31.9 SP per blocked exchange against a 12 SP Dodge,
+    so `SHIELD_GUARD_REGEN_MULTIPLIER = 0.5` halved it. That record also states the **archetype split**
+    that was "always intended": *"The non-shield build's guard (14 damage through 35 % block) stays
+    clearly worse than its dodge, which is the archetype split that was always intended."* That is the
+    single most important sentence for this phase — see Package D.
+  - *Verified in source (not inferred).* `shieldGuardStaminaGain(true, regen)` is called from exactly one
+    production site, the resolution's `else if (roll <= hitPct)` → `if (isBlocked)` branch
+    (`DuelScene.tsx` L1008). So the credit is paid **only for a blow that actually landed and was
+    blocked**: not on a miss, not on an evade, not on a turn where the opponent did not strike, once per
+    resolution, and clamped by `applyStaminaRegen` to `staminaMax`. It is **loadout-independent** — the
+    call passes no weapon, so a spear or twin-blade "brace" collects the same credit a scutum does.
+  - *Inference (mine).* That the current ×0.5 magnitude is a **tuning artefact rather than a derived
+    value**: C-8.72B chose 0.5 as "the modest step" that halves the gap, without re-deriving what the
+    credit is *for*. Nothing in the code or the records fixes a target for it.
+
+- **The current model's key claims, re-verified with production helpers** (throwaway scripts in the
+  container's `/tmp` only; `calculateAttackDamage`, `calculateHitChance`, `shieldGuardStaminaGain`,
+  `canAffordDodge`, `chooseAITacticalAction`, `weaponCarriesShield`, `calculateTotalStats`, the whole
+  roster and catalogue). Player kit = C-8.85C's (`baseStats` 14/12/10/10 + `helm_centurion`,
+  `chest_lorica_segmentata`, `arms_manica`, `legs_greaves_bronze`) → **gladius 0.82 block, def 47,
+  hp 289, pool 120, regen 29.7, credit 14.85**; **sicae 0.40, hp 283, regen 34.5, credit 17.25**.
+  - **The 0.45 is a real branch, and it is 0.45 for all eight.** `chooseAITacticalAction` tests
+    `playerIsBlocking` FIRST, so a guarding player meets `power 0.45 / taunt 0.30 / block 0.25` against
+    every opponent, measured over a 4000-point sweep. Three corrections to how C-8.85A/C used it:
+    (1) the drop is only 0.50→0.45 for Marcus, 0.60→0.45 for Flaccus/Drusus, 0.75→0.45 for Goliath and
+    0.45→0.45 for Cassius — the "85/90/95 → 45" headline quotes the three most aggressive opponents
+    only; (2) **every** strike a guarding player faces is a POWER attack (the branch cannot pick a quick
+    one), so the guard trades frequency for weight; (3) **30 % of those turns are taunts that refuel the
+    OPPONENT (+25 SP)** and 25 % are braces that halve the player's next strike — two costs no earlier
+    model counted. A winded guarding opponent gets `rest 0.45 / taunt 0.30 / block 0.25`, i.e. P(strike)
+    0, because `enforceAffordableAIAction` downgrades the branch-1 power attack.
+  - **Magnitudes reproduce, at the right unit.** Credit is 14.85 (gladius/spatha), 16.05 (shamshir,
+    hoplite spear), 17.25 (sicae) per landed blocked blow → **4.77–11.80 SP per announcement** on the
+    gladius kit (hit%-weighted) and **3.47–4.68 SP per AI turn** while the turn-action guard is held
+    (branch 1 strikes only). C-8.85C's "8.45–16.21" does not reproduce: the 16.21 exceeds the maximum
+    possible credit on any shield kit (16.05), and — more importantly — **C-8.85C's own 8.45 lower bound
+    contradicts its premise** that the credit is "≥ the entire Dodge price against every opponent".
+    **Corrected: the credit is BELOW the 12 SP Dodge price for roughly half the roster**, per
+    announcement, and below it for the whole roster per AI turn.
+  - **Opportunity cost was missing and it matters more than the credit.** `advance`/`retreat` pay the
+    FULL `staminaRegen` (29.7) unconditionally; `rest` +40; `taunt` +25; `shield_block` pays 0 on the turn
+    and only the conditional credit afterwards. So the turn-action guard is a **stamina loss versus
+    stepping**, and the guard's real value at the turn level is the **attack-rate suppression**
+    (28.7 → 3.1 HP per AI turn versus Aurelius), which no earlier model contained.
+  - **"No non-negative price is competitive" depends entirely on the unit of account — corrected.** That
+    conclusion prices one SP at the player's own light strike (`hp/SP` 2.17 gladius, 3.44 sicae), which
+    assumes every SP converts into an attack. Per-bout modelling (which lets a player step to refill)
+    shows a reaction Dodge at the SHIPPED 12 SP takes **less** damage than a reaction Guard for the
+    shield-less kit in **8/8** pairs (Aurelius 287 v 456 HP) and for the shield kit in **1/8** (Marcus).
+    So the verdict is archetype-specific, not global: **Dodge is already the shield-less fighter's
+    better damage answer at 12 SP, and is dominated only for shield carriers.**
+  - **Structural, not a price problem.** A shield absorbs 82–85 % of a blow, so Dodge's *unique*
+    avoidance is `1 − 0.88` v `1 − 0.82` — **0.06 of a blow**, worth 0.57–1.83 HP per announcement
+    against a 10.2–23.2 SP swing. No non-negative price can make a 6 % improvement worth a whole attack,
+    which is why the price lever is empty **for shields specifically**.
+
+- **Intended role contract (the deliverable of the gate).**
+  - **Shield Guard** — the default defensive answer for a shield carrier and the shield archetype's
+    identity: free, absorbs 82–85 %, **suppresses the AI's attack rate to 0.45** (and turns its strikes
+    heavy, so the mitigation is doing more work), and returns 4.8–11.8 SP per announcement, which is
+    **≈ one light attack's cost (12)** — i.e. the credit's job is **TEMPO: it lets an attacking player
+    keep a 1.00 attack/turn cadence instead of 0.76–0.88**, measured. Risk: none beyond the turn it
+    occupies; it never costs stamina.
+  - **Dodge** — the *spend-tempo-to-not-be-hit* answer: 88 % to take **zero**, 12 % to take the blow
+    **unmitigated**, 12 SP ≈ one attack. It is the right answer exactly when `blockReduction` is weak and
+    the blow is large (shield-less: 1.9–6.5 HP per AI turn saved; 8/8 bouts better than the guard). It is
+    the *wrong* answer when your HP is low, because its failure mode is the largest single hit in the
+    game.
+  - **Turn-action Dodge** — same price, worse information than the reaction dodge, and it is **not**
+    the only answer to the telegraphed heavy: a free turn-action Guard covers it too (Goliath landing:
+    unarmed **20.4 HP**, turn-guard **3.5**, turn-dodge **2.4** for the gladius kit — 1.1 HP apart, with
+    a 39 HP failure tail on the dodge). The correction to C-8.85B is that this niche is real only for
+    **shield-less** kits (sicae: guard 10.4 v dodge 2.1, an 8.3 HP difference).
+  - **Shield-less defence** — Dodge-first, Guard-second: viable today (sicae wins 7/8 bouts with either),
+    but the guard is **better than C-8.72B intended** because it collects the shield's stamina engine
+    (Aurelius: guard 456 HP taken, dodge 287).
+  - **Measurable targets (derived from the arithmetic, not invented).** (i) *Tempo:* a player who answers
+    every announced strike with a guard sustains **≥ 0.95 attacks/turn**; the shipped credit is what
+    produces 1.00 versus 0.76–0.88 unguarded. (ii) *Archetype separation:* for a shield-less kit, Dodge
+    must beat Guard on bout HP taken in every roster pair (it does, 8/8 at 12 SP); for a shield kit it
+    must **not** be required to, because 6 % avoidance cannot pay a whole attack. (iii) *Price sanity:*
+    the Dodge price stays ≤ one light attack (12 v 8–14 across the catalogue), which is the only value
+    the HUD can teach in one line. **No win-rate or action-frequency target is proposed** — nothing in
+    the repo supports one.
+
+- **The four packages, measured (bout = player attacks whenever affordable, else steps; reaction guard
+  or reaction dodge on every announcement; expected values, no RNG).**
+  | package | gladius: Aurelius | gladius: Valéria | sicae: Aurelius | sicae: Drusus |
+  |---|---|---|---|---|
+  | **A** current (credit, 12 SP dodge) | 197 HP / 38 t / WIN | 69 / 22 / WIN | 456 / 28 / LOSS | 73 / 17 / WIN |
+  | **B** credit removed | 259 / 50 / WIN | 84 / 27 / WIN | 521 / 32 / LOSS | 78 / 18 / WIN |
+  | **C** credit on a stopped HEAVY blow only | 233 / 45 / WIN | 78 / 25 / WIN | 472 / 29 / LOSS | 78 / 18 / WIN |
+  | **D** credit only when the defender carries a shield | **197 / 38 / WIN (identical to A)** | 69 / 22 | **521 / 32 (identical to B)** | 78 / 18 |
+  - **A** keeps the tempo engine and the endgame margin (92 of 289 HP spare against Aurelius). Its cost
+    is the one this gate exists to name: a stamina engine that pays every loadout.
+  - **B** flips **no** verdict anywhere and is smaller than feared — the gladius kit still wins 8/8 — but
+    it costs **+62 HP and +12 turns** against Aurelius (margin 92 → 30) and +15/+5/+6 HP against
+    Valéria/Drusus/Ignis: it spends the shield's identity to buy a consistency it cannot use.
+  - **C** lands between A and B for everyone and has an elegant property — the turn-action guard's credit
+    is **untouched**, because branch 1's only strike is already a power attack, so the conditional bites
+    only on the free reaction refund. Rejected on *legibility*: it makes the refund depend on a
+    distinction the HUD does not currently teach (the cue does name the strike type, but the tactic grid
+    says only "SP on block").
+  - **D is the smallest coherent alternative, and the trace is what reveals it.** Every piece of copy
+    around the credit became loadout-aware in C-8.84F (`weaponCarriesShield`, "braces behind their
+    shield."), the action is called **Shield** Guard, the HelpModal says "SP on block" — and the credit
+    alone still ignores the weapon. D is also **provably zero-risk for the shield archetype**: the
+    gladius and spatha kits are HP-identical to A in all eight pairs, because they already carry a
+    shield. For the shield-less kits D equals B (no verdict flips; ≤ 15 % more HP taken) and it restores
+    C-8.72B's documented split — their guard stops paying them for a shield they do not have, so Dodge
+    becomes their best answer by the margin it already had (287 v 521 against Aurelius).
+
+- **Device evidence, and its limits.** **No physical Android device is available in this session, and no
+  live duel was played.** The container renders the arena through SwiftShader at ~1–2 fps, which cannot
+  produce reaction-timed input; the only observations used from it are that the dev stack serves
+  (HTTP 200) and that the sources read as recorded. Every number above is **unit-level production
+  helpers plus a deterministic EV model**, and the model **assumes** one attacker, no potions, no
+  withdraw, the AI's own stamina ignored (the AI also collects the guard credit when it blocks — not
+  modelled), light attacks only for the player, and an AI action mix derived analytically from the
+  shipped branch weights and confirmed by a 4000-point sweep. **The cheapest experiment that would
+  separate A from D:** one gladius/scutum fighter and one twin-blade fighter, each against **Drusus**
+  (moderate aggression 0.60, block 0.75) and **Aurelius** (0.95), 20 AI turns each, logging per exchange
+  — incoming damage, dodge success/failure, stamina before/after, credit per stopped blow, the AI's
+  action type, and whether the player ever could not afford the next light attack. D predicts **identical
+  numbers for the shield fighter** and a **measurably worse stamina curve (≈ −4 SP per announced strike)
+  with no change in bout HP taken** for the twin-blade fighter; A predicts the two fighters stay
+  indistinguishable on stamina. A and C are separated by one number only: credit per **quick** strike
+  stopped (A > 0, C = 0). A live Android capture would also settle the 700 ms wind-up read and the
+  one-handed reachability of both reaction buttons, which are still open from C-8.70B.
+
+- **Recommendation — Package D, and nothing else in this phase.** Guard stays free, 82–85 % absorbing,
+  AI-suppressing, and credits its carrier; **Dodge stays at 12 SP and 88 %**; the credit is paid only to
+  a fighter whose weapon carries a shield. Dodge keeps a real job for shields (the unannounced telegraphed
+  heavy, and bursts) without being asked to beat an 82 % block, and becomes the shield-less fighter's
+  default — which is what C-8.72B said it always was. **Stopping rule:** if the twin-blade experiment
+  above does not show the predicted stamina shortfall with unchanged bout HP, D's premise (the credit is
+  the shield-less fighter's crutch) is wrong and the phase should be re-opened rather than implemented;
+  conversely, if the shield fighter's numbers move at all, the implementation is wrong, because D is
+  mathematically a no-op for shields.
+
+- **What a future implementation would change (NOT done here).** No constant moves. `shieldGuardStaminaGain`
+  gains a loadout-aware argument (or, more cheaply, its one call site in `DuelScene.tsx` L1008 passes
+  `weaponCarriesShield(defender.loadout.weapon) && defender.stats.staminaRegen`), and
+  `TurnActionPanel`'s static `<span>SP on block</span>` (L299) becomes loadout-aware through the existing
+  `shieldGuardFeedback`/`weaponCarriesShield` seam so a spear fighter is not promised stamina it will not
+  get. **Regression risks:** `defensiveBalance` (§A's multiplier and clamp arithmetic),
+  `combatResponsiveness` §A (the 24 → 12 pins), `phaseC8_82b` §D (Guard ≥ 0, Dodge exactly −12),
+  `phaseC8_84F` (the copy seam), and `scripts/combatTests.ts`, which reads the credit directly. **Smallest
+  validating matrix:** those six plus one new suite pinning (i) shielded → 14.85/16.05/17.25 unchanged,
+  (ii) `spear`/`dual_blades`/`mace` → 0 while the mitigation, the AI branch and every price stay
+  byte-identical, (iii) the panel copy per loadout, and (iv) the four bout projections in the table above
+  as the design's regression fixture.
+
+- **Verified / not verified.** Focused `bun test` over `defensiveBalance`, `phaseC8_82b`, `phaseC8_83B`,
+  `phaseC8_84A`, `phaseC8_84B`, `phaseC8_84D`, `phaseC8_84F`, `combatResponsiveness` → **230 pass / 0
+  fail (8 files, 75920 expect())** — run because this phase changed no production file, to show the
+  baseline it reasons about is intact. The full suite was not run (read-only design gate; CI owns it).
+  **No live-duel, no Android and no visual acceptance is claimed**, and none of the four packages was
+  implemented.
