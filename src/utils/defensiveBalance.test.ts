@@ -16,7 +16,8 @@
  * stale stance.
  *
  *   §A the reduced gain — 0.5, the measured credits, nothing when no blow is stopped,
- *      still clamped by the normal cap, and the rule living in ONE place
+ *      still clamped by the normal cap, and the rule living in ONE place; and, since
+ *      C-8.85E/F, only a SHIELD-BEARING loadout earns the credit at all (C-8.85H)
  *   §B both defensive paths — a normal-turn guard and a reaction guard reach the same
  *      single credit; an evade and a miss credit nothing
  *   §C Dodge costs exactly 12 SP, whether it succeeds or fails
@@ -44,7 +45,9 @@ import {
   clearDefensiveStance,
   resolveTurnEndDefensive,
   applyDefensiveAction,
+  carriesShieldForGuardCredit,
 } from './combatCalculations';
+import { ALL_WEAPONS, getWeaponByType } from '../data/itemsDB';
 import { createPlayerStrike } from './playerStrike';
 import type { PlayerStrikeTimer } from './playerStrike';
 
@@ -61,10 +64,34 @@ const panelSource = readFileSync(
   'utf8',
 );
 
-/** The measured `staminaRegen` of the representative shield build (C-8.72B). */
+/**
+ * The measured `staminaRegen` of the representative SHIELD build (C-8.72B): the gladius
+ * kit (0.82 block), the loadout `carriesShieldForGuardCredit` answers `true` for.
+ */
 const SHIELD_BUILD_REGEN = 31.9;
-/** The measured `staminaRegen` of the non-shield (pugio 0.35 block) build. */
-const NON_SHIELD_REGEN = 37.5;
+
+/**
+ * `staminaRegen` INPUTS for two SHIELD-LESS kits — helper inputs, NOT evidence of shield
+ * eligibility (C-8.85H).
+ *
+ * Both are `dual_blades`, so `carriesShieldForGuardCredit` is `false` for each and neither
+ * earns the stopped-blow credit however high its regen stat is. They are here to prove
+ * exactly that: the same numbers DO pay when the eligibility argument is `true`, so what
+ * decides the credit is the shield rule, never the regen value.
+ *
+ *   PUGIO 37.5 — the C-8.72B measured Pugio kit (`dagger_pugio`, 0.35 block).
+ *   SICAE 34.3 — the Sicae kit at AGI 16 / STA 10 + 5.5 armor regen:
+ *                12 + 16 × 0.8 + 10 × 0.4 + 5.5 = 34.3
+ */
+const SHIELDLESS_PUGIO_REGEN = 37.5;
+const SHIELDLESS_SICAE_REGEN = 34.3;
+
+/** The catalogue weapon with this id; throws rather than returning a cast. */
+function weaponById(id: string) {
+  const weapon = ALL_WEAPONS.find((candidate) => candidate.id === id);
+  if (weapon === undefined) throw new Error(`no catalogue weapon '${id}'`);
+  return weapon;
+}
 
 /** A hand-advanced clock, the `playerStrikeWindup.test.ts` idiom. */
 function fakeTimer() {
@@ -115,8 +142,44 @@ describe('§A — Shield Guard credits half a stopped blow (C-8.72B)', () => {
     expect(SHIELD_BUILD_REGEN - credit).toBeCloseTo(15.95, 10);
   });
 
-  test('a non-shield build is credited the same proportional half', () => {
-    expect(shieldGuardStaminaGain(true, NON_SHIELD_REGEN, true)).toBeCloseTo(18.75, 10);
+  test('a shield-bearing build still earns the audited half-regen credit when a blow is stopped', () => {
+    // The eligibility comes from the canonical predicate on the real catalogue weapon, not
+    // from a literal — this is the classification production resolution actually asks.
+    for (const id of ['gladius_standard', 'spatha_legion', 'shamshir_curved']) {
+      const weapon = weaponById(id);
+      expect(carriesShieldForGuardCredit(weapon)).toBe(true);
+      const credit = shieldGuardStaminaGain(true, SHIELD_BUILD_REGEN, carriesShieldForGuardCredit(weapon));
+      expect(credit).toBeCloseTo(SHIELD_BUILD_REGEN * 0.5, 10);
+      expect(credit).toBeCloseTo(15.95, 10);
+    }
+  });
+
+  test('a shield-less Pugio build earns NO credit for the same stopped blow (C-8.85E/F)', () => {
+    const pugio = weaponById('dagger_pugio');
+    expect(carriesShieldForGuardCredit(pugio)).toBe(false);
+    // A stopped blow, through the classification the engine uses: zero, not a smaller credit.
+    expect(shieldGuardStaminaGain(true, SHIELDLESS_PUGIO_REGEN, carriesShieldForGuardCredit(pugio))).toBe(0);
+    // The regen value is only an INPUT: eligible, the very same number pays 18.75.
+    expect(shieldGuardStaminaGain(true, SHIELDLESS_PUGIO_REGEN, true)).toBeCloseTo(18.75, 10);
+  });
+
+  test('a shield-less Sicae build earns NO credit for the same stopped blow (C-8.85E/F)', () => {
+    const sicae = getWeaponByType('dual_blades');
+    expect(sicae.id).toBe('dual_sicae_daggers');
+    expect(carriesShieldForGuardCredit(sicae)).toBe(false);
+    expect(shieldGuardStaminaGain(true, SHIELDLESS_SICAE_REGEN, carriesShieldForGuardCredit(sicae))).toBe(0);
+    expect(shieldGuardStaminaGain(true, SHIELDLESS_SICAE_REGEN, true)).toBeCloseTo(17.15, 10);
+  });
+
+  test('an unblocked blow credits nothing whatever the shield eligibility', () => {
+    // Eligibility is the second gate, never the first: nothing is paid unless a blow stopped.
+    for (const weapon of ALL_WEAPONS) {
+      const eligible = carriesShieldForGuardCredit(weapon);
+      expect(shieldGuardStaminaGain(false, SHIELD_BUILD_REGEN, eligible)).toBe(0);
+      // …and on a stopped blow the credit is paid exactly when a board is carried, so this
+      // loop is sensitive to the eligibility rather than trivially true.
+      expect(shieldGuardStaminaGain(true, SHIELD_BUILD_REGEN, eligible) > 0).toBe(eligible);
+    }
   });
 
   test('whole and fractional regen both halve exactly', () => {

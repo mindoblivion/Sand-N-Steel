@@ -11357,3 +11357,73 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   hub → Colosseum) is likewise unverified here. Also unchanged by design: no stamina cost, block
   reduction, Dodge behaviour, damage, AI weight or credit formula was re-tuned — this phase touched the
   helper's API contract and two pieces of copy only.
+
+## Defensive-balance test contract reconciliation (Phase C-8.85H — implemented, tests only)
+
+- **Preflight.** Branch `development-focus-strategy`, HEAD **`24ca693448bfea3aff3320712dbede1e331dd6e0`**,
+  `git status --short` **empty**. **There is no C-8.85G record in this file**: that phase was a
+  read-only audit, so its findings live only in its chat report (this phase is the follow-up it
+  recommended). The audit's premise — "the uncommitted C-8.85F state" — was also stale: C-8.85F is
+  **committed as HEAD** (`24ca693`, on top of `707097a`), so the audited code is the committed code.
+
+- **The stale contract, stated exactly.** `defensiveBalance.test.ts` carried
+  `const NON_SHIELD_REGEN = 37.5` documented as *"the measured `staminaRegen` of the non-shield
+  (pugio 0.35 block) build"*, and a test named **`a non-shield build is credited the same
+  proportional half`** asserting `shieldGuardStaminaGain(true, 37.5, true) === 18.75`. Since
+  C-8.85E a Pugio earns **0**, so the assertion held only because it hardcoded the eligibility
+  argument `true` — the suite asserted the *opposite* of production under a shield-less label. That
+  is a false statement about shipped behaviour in the one file a future balance pass would read, and
+  it is what this phase corrected. **No gameplay was retuned:** `combatCalculations.ts`,
+  `DuelScene.tsx`, `TurnActionPanel.tsx`, `HelpModal.tsx`, every balance constant, every AI weight
+  and the save format are byte-identical; the phase's only file is
+  **`src/utils/defensiveBalance.test.ts`** (+69 / −6).
+
+- **The corrected expectation, four tests replacing the one.** The regen numbers are now named and
+  documented as **helper INPUTS, never proof of eligibility** (`SHIELDLESS_PUGIO_REGEN` 37.5;
+  `SHIELDLESS_SICAE_REGEN` 34.3 = `12 + 16×0.8 + 10×0.4 + 5.5`), and eligibility comes from the
+  canonical `carriesShieldForGuardCredit` — the same predicate production resolution credits with —
+  read over real catalogue weapons via a `weaponById()` helper. §A grew 6 → 9 tests:
+  1. **a shield-bearing build still earns the audited half-regen credit** — gladius / spatha /
+     shamshir, each `eligible === true` and `0.5 × 31.9 = 15.95`;
+  2. **a shield-less Pugio build earns NO credit for the same stopped blow** — `dagger_pugio` is
+     `eligible === false` and pays **0**, while the identical 37.5 pays **18.75** when eligibility is
+     `true`, so the value is shown to be only an input;
+  3. **a shield-less Sicae build earns NO credit** — `getWeaponByType('dual_blades')` is
+     `dual_sicae_daggers`, pays **0**, and 34.3 pays **17.15** when eligible;
+  4. **an unblocked blow credits nothing whatever the shield eligibility** — swept over **all 11
+     catalogue weapons**: `didStopBlow === false` pays 0 for every one, and on a stopped blow the
+     credit is paid **iff** a board is carried (`> 0 === eligible`), so the sweep is sensitive rather
+     than trivially true.
+  The **direct helper tests were retained** where they pin the fail-closed API (`whole and fractional
+  regen both halve exactly` uses `true`; `an unstopped blow, a miss and malformed regen credit nothing`
+  keeps its `false`/`0`/`-8`/`NaN`/`Infinity` cases; the cap and `the rule lives in the shared helper
+  and nowhere else` are untouched). Nothing was weakened to make the file pass, and the suite's own
+  §A summary line now states that since C-8.85E/F only a shield-bearing loadout earns the credit.
+
+- **A repo sweep confirms no other stale claim was left**: the only remaining "shield-less" strings in
+  the suite are the two new test names, and `NON_SHIELD_REGEN` no longer exists anywhere. The
+  production contract the tests now pin is unchanged and was re-read before editing:
+  `shieldGuardStaminaGain(didStopBlow, regen, carriesShield)` returns `0.5 × regen` **only** when
+  `didStopBlow && carriesShield === true`, and `carriesShieldForGuardCredit` is `false` for an
+  unresolved weapon and otherwise the canonical `weaponCarriesShield` (3 of 11 catalogue weapons —
+  gladius, spatha, shamshir).
+
+- **Verified 2026-10-26** in the dev container
+  (`docker compose -f docker-compose.base44.yml exec -T web …`), after the last edit: focused
+  `bun test src/utils/defensiveBalance.test.ts` → **27 pass / 0 fail** (138 expect() calls; the file
+  left 24 tests, the delta being this phase's +3 net); the C-8.85E/85F, `combatResponsiveness`,
+  `84A/84B/84D/84F`, `82b`, `82d`, `75B` and `75F` suites together → **277 pass / 0 fail**
+  (76,170 expect() calls, 11 files); `bun run scripts/combatTests.ts` → **69 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → **exit 0**; `git diff --check` → **clean**; and the **full
+  `bun test` → 3979 pass / 0 fail (142 files, 169,779 expect() calls)** — exactly the C-8.85F
+  baseline of 3976 / 142 / 169,742 plus this phase's 3 tests and 37 assertions, with no other file
+  touched.
+
+- **Evidence gap, stated rather than papered over.** This phase changes no behaviour, so it has
+  nothing to see: it asserts the *already shipped* contract in the test record. The audit that
+  preceded it remains model-derived — its shield/shield-less economy figures (credit per blocked
+  blow, expected credit per enemy turn, the turtle-cycle stamina nets) are calculations over the
+  shipped formulas, **not** live gameplay — and **no live-duel or Android acceptance is claimed
+  here**. The standing device items are unchanged: the C-8.66B/C/D workshop and wheel-swap checks and
+  the city-architecture list, plus the audit's own open measurement (a played shield vs shield-less
+  duel would be the only thing that upgrades its economy table to evidence).
