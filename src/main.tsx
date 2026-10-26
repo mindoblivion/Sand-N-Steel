@@ -119,6 +119,20 @@ const useCombatHudHarness =
   (new URLSearchParams(window.location.search).get('devHarness') === 'hud' ||
     readDevHarnessFlag() === 'hud');
 
+// L16D — development-only VISITOR harness.  Reachable ONLY in a Vite dev build,
+// through the exact `?devHarness=visitor` query parameter or the equivalent
+// dev-only scratch-storage flag `sand_and_steel_dev_harness = 'visitor'`.  It
+// mounts the REAL `VisitorPanel` (no replica) against a DISPOSABLE profile stored
+// under its own key, on a city day the production visitor schedule resolves, so
+// the L16B rare chariot finish can be bought and refused end to end without
+// touching the player's save.  It saves nothing outside that key and never reads
+// the player's save.  Removal: delete the component and revert this gate and its
+// branch.
+const useVisitorHarness =
+  import.meta.env.DEV &&
+  (new URLSearchParams(window.location.search).get('devHarness') === 'visitor' ||
+    readDevHarnessFlag() === 'visitor');
+
 // The two PUBLIC pages — `/delete-account` and `/privacy` — are the opposite of the
 // harnesses above: they must exist in EVERY build, including a production one, and
 // they need no session at all.  `/delete-account` is the URL a store listing is given,
@@ -182,6 +196,14 @@ if (useColosseumRearHarness) {
     mountRoot(
       <React.StrictMode>
         <CombatHudHarness />
+      </React.StrictMode>,
+    );
+  });
+} else if (useVisitorHarness) {
+  void import('./components/dev/VisitorHarness').then(({ VisitorHarness }) => {
+    mountRoot(
+      <React.StrictMode>
+        <VisitorHarness />
       </React.StrictMode>,
     );
   });
