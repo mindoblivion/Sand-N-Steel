@@ -3,6 +3,9 @@ import { DuelStatistics, OpponentConfig } from '../../types/game';
 import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight, HeartPulse, Award } from 'lucide-react';
 import { getPalma } from '../../data/palmae';
 import { injuryBannerLine, type DuelInjuryEvent } from '../../utils/injury';
+// C-8.70C — what the grudge's own result was, decided at the same write that
+// recorded it (settled on a win, closed until the tier's next standard win).
+import { grudgeResultLine } from '../../utils/grudgeBouts';
 import { CoachCard } from '../ui/CoachCard';
 import { getCoachCard } from '../../utils/coachMarks';
 import confetti from 'canvas-confetti';
@@ -241,6 +244,18 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
               </p>
             ))}
           </div>
+        )}
+
+        {/* C-8.70C — THE GRUDGE'S OWN RESULT. A win settles it for good; a loss
+            leaves it standing until a standard bout at its tier is won. Read
+            from the row this duel was fought with. */}
+        {opponent.grudge && (
+          <p
+            data-duel-grudge={didWin ? 'settled' : 'open'}
+            className="text-xs sm:text-[13px] font-serif italic text-amber-200/90 leading-relaxed mb-4"
+          >
+            {grudgeResultLine(opponent, didWin)}
+          </p>
         )}
 
         {/* D-2 — the beast hunt's own epilogue, computed in the duel from its

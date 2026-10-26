@@ -82,6 +82,14 @@ import {
   type DoctoreTestRestriction,
 } from './utils/storyBeats';
 import { resolveVictoryTier } from './utils/tierAdvancement';
+// C-8.70C — the grudge record's writes. A grudge's own result is recorded here in
+// the SAME result write every duel uses; nothing on the grudge surfaces writes.
+import {
+  closeGrudge,
+  isGrudgeBout,
+  recordStandardVictory,
+  settleGrudge,
+} from './utils/grudgeBouts';
 import { resolveInjuryAfterDuel, restAtInn, treatInjury, type DuelInjuryEvent } from './utils/injury';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
@@ -680,9 +688,28 @@ export function App() {
         nextUnspentPoints += 2;
       }
 
-      const defeated = profile.defeatedOpponentIds.includes(activeOpponent.id)
+      // C-8.70C — a GRUDGE BOUT is a GENERATED rematch row, not a roster id: its
+      // victory settles the grudge and records no new felled id. A standard
+      // victory keeps the shipped rule exactly.
+      const isGrudge = isGrudgeBout(activeOpponent);
+      const defeated = isGrudge
+        ? profile.defeatedOpponentIds
+        : profile.defeatedOpponentIds.includes(activeOpponent.id)
         ? profile.defeatedOpponentIds
         : [...profile.defeatedOpponentIds, activeOpponent.id];
+
+      // C-8.70C — the grudge record rides this same write: the FIRST victory over
+      // a regular opponent records the mix's dominant class, any standard victory
+      // at a grudge's tier re-opens that tier's closed grudges, and a grudge
+      // victory settles it. All three helpers are pure and return the profile
+      // unchanged when nothing applies.
+      const grudgeProfile = isGrudge
+        ? settleGrudge(afterInjury, activeOpponent)
+        : recordStandardVictory(
+            afterInjury,
+            activeOpponent,
+            stats.dominantOffensiveClass ?? 'even'
+          );
 
       // The tier moves only on a boss's FIRST defeat — the boss's id newly entering
       // `defeatedOpponentIds` in this write. A rematch pays its rewards exactly as it
@@ -696,7 +723,7 @@ export function App() {
       });
 
       const updatedProfile: PlayerProfile = {
-        ...afterInjury,
+        ...grudgeProfile,
         gold: nextGold,
         fame: nextFame,
         xp: nextXp,
@@ -736,8 +763,14 @@ export function App() {
       setProfile(settledProfile);
       saveProfile(settledProfile);
     } else {
+      // C-8.70C — a lost GRUDGE closes: it stays shut until the player wins any
+      // standard bout at that grudge's own tier (the anti-farm rule). Nothing
+      // else about a defeat changes.
+      const grudgeProfile = isGrudgeBout(activeOpponent)
+        ? closeGrudge(afterInjury, activeOpponent)
+        : afterInjury;
       const updatedProfile: PlayerProfile = {
-        ...afterInjury,
+        ...grudgeProfile,
         fightsLost: profile.fightsLost + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };

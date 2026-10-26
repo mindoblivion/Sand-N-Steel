@@ -372,6 +372,73 @@ export interface LongMemoryConfig {
   clamp: { min: number; max: number };
 }
 
+/* ── C-8.70C — GRUDGE BOUTS ──────────────────────────────────────────────── */
+
+/**
+ * C-8.70C — the three-way summary of the player's own offensive mix over a bout:
+ * the two attack classes D-5's live counter tracks, plus the balanced case.
+ */
+export type DominantOffensiveClass = 'quick' | 'power' | 'even';
+
+/** The two profile values a grudge's rematch shifts (and the card prints). */
+export interface GrudgeProfileValues {
+  aggression: number;
+  blockChance: number;
+}
+
+/**
+ * C-8.70C — a generated GRUDGE BOUT: the beaten rival, come back having studied
+ * the way the player beat them. Carried as data on the generated row, which is
+ * produced by `utils/grudgeBouts.ts` from a regular `data/opponents.ts` row and
+ * never stored in the roster.
+ *
+ * The row's `stats` are the base row's BYTE-IDENTICAL block: only `aggression`
+ * and `blockChance` move, inside the published ±0.15 cap and the [0.05, 0.95]
+ * clamp, and the AI reads them exactly as it reads any opponent's.
+ */
+export interface GrudgeBoutConfig {
+  /** The roster row this rematch was generated from (`data/opponents.ts`). */
+  baseId: string;
+  /** The class the rival studied — the player's dominant mix in the bout he lost. */
+  studied: DominantOffensiveClass;
+  /**
+   * THE EVOLVED-TRAIT SLOT. `null` until the characters-and-systems trait pool
+   * lands (Director addendum A): this is NOT the palmae ladder, and the fight
+   * card omits the slot entirely while it is null.
+   */
+  evolvedTrait: null;
+  /** The base row's profile, before the studied shift. */
+  baseProfile: GrudgeProfileValues;
+  /** The profile the AI actually reads. */
+  adjustedProfile: GrudgeProfileValues;
+}
+
+/**
+ * C-8.70C — one rival's grudge, as stored on the save.
+ *
+ * Written only at the existing duel-result moments (`App.handleMatchComplete`):
+ * the record is created on the FIRST victory over a regular opponent, `closed`
+ * is set by a lost grudge (the anti-farm rule) and cleared by any standard bout
+ * won at that grudge's own tier, and `settled` is set once the grudge itself has
+ * been won. Nothing writes it on display or selection.
+ */
+export interface GrudgeRecord {
+  /** The player's offensive mix over the bout they won against this rival. */
+  dominant: DominantOffensiveClass;
+  /** The grudge was taken and lost: closed until a standard bout at its tier is won. */
+  closed?: boolean;
+  /** The grudge was fought and won: settled permanently, never offered again. */
+  settled?: boolean;
+}
+
+/**
+ * C-8.70C — the grudges a save carries, keyed by the BASE roster row's id.
+ * Optional on `PlayerProfile` exactly like every other lazy field: absent on a
+ * save written before this slice, which `resolveGrudges` reads as "no grudges"
+ * rather than repairing.
+ */
+export type GrudgeState = Record<string, GrudgeRecord>;
+
 export interface OpponentConfig {
   id: string;
   name: string;
@@ -430,6 +497,13 @@ export interface OpponentConfig {
    * fights as one standard fighter no matter what sub-data it carries.
    */
   brothers?: YokedBrothersConfig;
+  /**
+   * C-8.70C — the grudge marker on a GENERATED rematch row. Absent on every
+   * roster row; `utils/grudgeBouts.ts` is the only producer, and its presence is
+   * what makes a row a Grudge Bout (`isGrudgeBout`). Such a row is never
+   * `isBoss`, never carries a boss mechanic and is never in `ALL_OPPONENTS`.
+   */
+  grudge?: GrudgeBoutConfig;
   /**
    * D-5 — Hermas's long memory, for a `the_long_memory` Feature Bout only.
    * `utils/longMemory.ts`'s fence is what decides whether it can ever be used: a
@@ -505,6 +579,14 @@ export interface DuelStatistics {
    * written to a profile — nothing saves `DuelStatistics`.
    */
   adaptationLines?: string[];
+  /**
+   * C-8.70C — the player's own offensive mix over this bout, READ at result time
+   * from D-5's live counter (`utils/longMemory.ts`'s `LiveMixCounter`, counted by
+   * `DuelScene` for every duel). Only the three-way summary rides this object to
+   * App, which persists it on the first victory over a regular opponent.
+   * IN-MEMORY only, exactly like `adaptationLines`: nothing saves DuelStatistics.
+   */
+  dominantOffensiveClass?: DominantOffensiveClass;
 }
 
 /**
@@ -875,4 +957,15 @@ export interface PlayerProfile {
    * migration.
    */
   palmae?: PalmaeState;
+  /**
+   * C-8.70C — GRUDGES: one record per regular opponent the player has beaten,
+   * keyed by the BASE roster id, holding the dominant class of the bout they won
+   * and the grudge's own state. Optional on purpose, exactly like `chariot` and
+   * `racing`: a save written before this slice has no `grudges` field at all and
+   * must keep loading, so `resolveGrudges` (`utils/grudgeBouts.ts`) reads a
+   * missing, partial or malformed field as "no grudges" rather than repairing it.
+   * Written ONLY at the existing duel-result moments — never by
+   * `createNewProfile()`, never by a migration, and never on display or selection.
+   */
+  grudges?: GrudgeState;
 }

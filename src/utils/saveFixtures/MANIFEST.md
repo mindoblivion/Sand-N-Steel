@@ -76,6 +76,17 @@ shape a later class choice and palma earn/equip write. Every older fixture keeps
 Murmillo with no palmae — and `saveCorpus.test.ts` §J's expected optional set now
 ends with `armatura`, `palmae` in `src/types/game.ts` declaration order.
 
+**Extended by C-8.70C (Grudge Bouts).** `PlayerProfile.grudges` — the record of
+each beaten regular rival, its studied dominant class and the grudge's own state —
+is the newest optional field, so it gets the fixture half of the rule in the same
+slice: `grudge-era`, the `armatura-palmae` save hand-aged with two beaten T1
+rivals — `opp_marcus` studied `power` with its grudge open, `opp_flaccus` studied
+`quick` with its grudge closed by a loss — i.e. the exact shape the duel-result
+write persists through `recordStandardVictory` / `closeGrudge`. Every older
+fixture keeps **omitting** the field, which is the legacy shape a load must
+survive (a gladiator with no grudges), and `saveCorpus.test.ts` §J's expected
+optional set now ends with `grudges` in `src/types/game.ts` declaration order.
+
 ## Corpus rule
 
 **A slice that adds a field to the save adds a fixture for the shape it writes, in

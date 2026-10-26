@@ -41,6 +41,7 @@ import intelEraProfile from './intelEraProfile.json';
 import stableEraProfile from './stableEraProfile.json';
 import facilitiesEraProfile from './facilitiesEraProfile.json';
 import armaturaPalmaeProfile from './armaturaPalmaeProfile.json';
+import grudgeEraProfile from './grudgeEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -235,6 +236,18 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every post-GC20 optional field populated, armatura and palmae included',
     ],
     profile: asProfile(armaturaPalmaeProfile),
+  },
+  {
+    id: 'grudge-era',
+    file: 'grudgeEraProfile.json',
+    provenance:
+      'The CH-1 armatura-palmae save with the C-8.70C grudge record hand-aged on: two beaten T1 rivals — one studied power with its grudge open, one studied quick with its grudge closed by a loss — the exact shape the duel-result write persists.',
+    covers: [
+      'the `grudges` record populated (C-8.70C): one open and one closed entry',
+      'every post-GC20 optional field populated, grudges included',
+      'every older fixture omits the field, the legacy shape a load must survive',
+    ],
+    profile: asProfile(grudgeEraProfile),
   },
 ];
 
