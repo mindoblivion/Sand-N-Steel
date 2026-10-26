@@ -6,6 +6,9 @@ import { injuryBannerLine, type DuelInjuryEvent } from '../../utils/injury';
 // C-8.70C — what the grudge's own result was, decided at the same write that
 // recorded it (settled on a win, closed until the tier's next standard win).
 import { grudgeResultLine } from '../../utils/grudgeBouts';
+// C-8.70C — the bout mode's own purse and renown lines, from the same data the
+// pre-fight card promised them with.
+import { BOUT_MODES } from '../../data/boutModes';
 import { CoachCard } from '../ui/CoachCard';
 import { getCoachCard } from '../../utils/coachMarks';
 import confetti from 'canvas-confetti';
@@ -188,6 +191,11 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   const earnedPalmae = (palmaEarned ?? [])
     .map((id) => getPalma(id))
     .filter((palma) => palma !== undefined);
+
+  // C-8.70C — the mode this victory was fought under. It rides the in-memory
+  // statistics object; a Sand win shows no mode line, because ×1.00 is no change.
+  const boutModeDef = stats.boutMode ? BOUT_MODES[stats.boutMode] : undefined;
+  const showsModeLines = Boolean(boutModeDef && boutModeDef.id !== 'sand');
 
   // CL-3 — the first loss's beat. It is dismissed by its ✕ (App records it seen
   // through the same `markSeen` write the hub uses) or by continuing past it, and
@@ -385,6 +393,16 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
               </div>
               {stats.goldBreakdown && (
                 <div className="pl-3 ml-1 flex flex-col gap-1 text-[11px] text-neutral-400 border-l border-amber-900/70">
+                  {/* C-8.70C — the mode line, before the bounty it multiplied. */}
+                  {showsModeLines && boutModeDef && (
+                    <div
+                      className="flex justify-between text-amber-300"
+                      data-duel-bout-mode-gold={boutModeDef.id}
+                    >
+                      <span>{boutModeDef.name} purse</span>
+                      <span>×{boutModeDef.goldMultiplier.toFixed(2)} gold</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span>Victory Bounty</span>
                     <span>+{stats.goldBreakdown.base}</span>
@@ -437,6 +455,16 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
                   data-duel-crowd-turned="1"
                 >
                   The crowd turned — fame reduced
+                </div>
+              )}
+              {/* C-8.70C — the mode's renown multiplier, the figure the card
+                  promised; the crowd's peak/turned lines above already compose it. */}
+              {showsModeLines && boutModeDef && (
+                <div
+                  className="text-[11px] text-amber-300 pl-3 ml-1 border-l border-amber-900/60"
+                  data-duel-bout-mode-fame={boutModeDef.id}
+                >
+                  {boutModeDef.name} renown: ×{boutModeDef.fameMultiplier.toFixed(2)} fame
                 </div>
               )}
               <div className="flex justify-between font-bold">

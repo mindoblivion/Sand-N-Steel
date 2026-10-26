@@ -44,6 +44,8 @@ import {
   stepCrowdBounce,
 } from './crowdHype';
 import { CROWD_BED_GAINS, SoundFXEngine, type CrowdBedLevel } from '../audio/soundEffects';
+// C-8.70C — the opening hype's one reader, so the seed's numbers are still pinned.
+import { modeCrowdStartHype } from '../data/boutModes';
 
 // ── Sources ────────────────────────────────────────────────────────────────
 const path = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -557,10 +559,15 @@ describe('CF-3 §D — DuelScene wiring', () => {
   });
 
   test('the hype numbers are byte-identical to before CF-3', () => {
-    // The opening value, the ref mirror and the peak seed.
-    expect(DUEL_SCENE).toContain('const [crowdHype, setCrowdHype] = useState(25);');
-    expect(DUEL_SCENE).toContain('const crowdHypeRef = useRef(25);');
-    expect(DUEL_SCENE).toContain('crowdHypePeak: 25,');
+    // The opening value, the ref mirror and the peak seed. C-8.70C rebased the
+    // three source pins onto the MODE's reader (Sand/Steel still 25); the numbers
+    // themselves are asserted through that reader so they cannot drift.
+    expect(DUEL_SCENE).toContain('const [crowdHype, setCrowdHype] = useState(openingHype);');
+    expect(DUEL_SCENE).toContain('const crowdHypeRef = useRef(openingHype);');
+    expect(DUEL_SCENE).toContain('crowdHypePeak: openingHype,');
+    expect(modeCrowdStartHype('sand')).toBe(25);
+    expect(modeCrowdStartHype('steel')).toBe(25);
+    expect(modeCrowdStartHype('invictus')).toBe(40);
     // Every award site, verbatim.
     expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 + critHype : 8)));');
     expect(DUEL_SCENE).toContain('const tauntHype = 20 + applyPalmaEvent(playerMods.block, \'taunt\').hypeAdd;');

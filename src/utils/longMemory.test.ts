@@ -527,7 +527,9 @@ describe('D-5 §I — the duel counts, reads and announces through the module', 
   test('his live blockChance reaches the AI’s chooser and nothing else moves', () => {
     expect(DUEL).toContain('longMemoryBlockChance(longMemoryCfg, longMemoryBase, longMemoryRef.current)');
     expect(DUEL).toContain('chooseAIStandardAction(aiAggression, aiBlockChance)');
-    expect(DUEL).toContain(': opponent.blockChance;');
+    // C-8.70C rebased this fallback (not weakened): Hermas reads the MODE's
+    // composed guard, which on Sand is his own published block value.
+    expect(DUEL).toContain(': modeProfile.blockChance;');
     // Aggression is not an adaptation input: only the block value moves.
     expect(DUEL).not.toContain('longMemoryAggression');
   });
