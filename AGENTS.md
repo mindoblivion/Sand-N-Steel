@@ -10556,8 +10556,12 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   markup (0-11 refused, 12+ allowed, `NaN`/±`Infinity`/`'60'` refused, held stance reaffirmable at 0 SP
   and at a non-finite stamina, plus a control replaying the pre-fix expression); C executes the copy
   module over every catalogue weapon and the whole roster; D binds the shipped branch by source (helper
-  used, no shield literal left in the scene, `isBlocking: true` and no `isInvulnerable`, still no
-  stamina write once comments are stripped); E drives the real fallback and stance helper
+  used, `isBlocking: true` and no `isInvulnerable`, still no stamina write once comments are stripped,
+  and the two shield literals this phase removed absent from the scene — **corrected wording, the pin
+  is scoped to those two strings, not to the whole scene**, and the phase's own test name reads "no
+  shield-specific literal survives in the scene"; the C-8.84E audit later found two further
+  shield-claiming sites at the player's reaction guard and the blocked-strike line, closed in C-8.84F
+  below); E drives the real fallback and stance helper
   (`enforceAffordableAIAction('dodge', 0-11, daggers) === 'shield_block'` → `{isBlocking: true,
   isInvulnerable: false}`); F pins the constants and the engine guard.
 - **Rebased, not weakened: one site that pinned the old gate.** `phaseC8_79B`'s §B "cue keeps its own
@@ -10581,3 +10585,84 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   take a `dual_blades` opponent (Flaccus or Ignis) to the point where its Dodge is unaffordable and
   confirm the chronicle reads "sets a tight guard." / `GUARD!` rather than mentioning a shield. The
   shield-equipped wording (Marcus, Drusus) must be unchanged.
+
+## Shield-accurate feedback at the reaction and blocked-strike sites (Phase C-8.84F — implemented)
+
+- **The two defects were the C-8.84E audit's confirmed findings, re-verified in source here before
+  anything was edited.** (1) The player's REACTION guard logged `${player.name} snaps the shield up!`
+  for every loadout, while the turn action's copy had been made loadout-aware in C-8.84D. Reachable
+  for a shield-less player: the forge sells every weapon except the starting gladius
+  (`data/shops.ts`'s `forge` predicate), so `hoplite_spear` and `dual_sicae_daggers` are acquirable,
+  and `DuelScene` builds the fighter from `playerProfile.equipped.weapon`. (2) The BLOCKED strike
+  line read `${attacker.name}'s strike was BLOCKED by ${defender.name}'s shield (-${rawDamage} HP)!`
+  whoever the defender was — reachable for every `dual_blades`/spear/mace opponent, because
+  `shield_block` is a shared stance and C-8.84B's fallback sends an unaffordable Dodge there.
+- **Both now read the module C-8.84D created; there is still ONE detector and ONE home for the
+  wording.** `src/utils/guardFeedback.ts` gained `reactionGuardFeedback(name, carriesShield)` and
+  `blockedStrikeLog(attackerName, defenderName, carriesShield, damage)`, both pure and both keyed on
+  the existing `weaponCarriesShield` (the rule `GladiatorMesh` renders by). The shield-equipped
+  strings are the shipped ones **byte for byte** — `"<name> snaps the shield up!"` / `GUARD!` and
+  `"<attacker>'s strike was BLOCKED by <defender>'s shield (-N HP)!"` — and the shield-less pair is
+  the neutral `"<name> sets a tight guard."` / `GUARD!` (the reaction's cue was already neutral) and
+  `"… BLOCKED by <defender>'s guard (-N HP)!"`.
+- **The call sites — three, all asking the same function.** `DuelScene.tsx`: the turn-action
+  `shield_block` branch (unchanged, C-8.84D), `reactToPendingAttack`'s guard branch
+  (`reactionGuardFeedback(player.name, weaponCarriesShield(player.loadout.weapon))`, feeding
+  `addLog` and `spawnDamageText`), and the `if (isBlocked)` resolution branch
+  (`blockedStrikeLog(attacker.name, defender.name, weaponCarriesShield(defender.loadout.weapon),
+  rawDamage)`, still on the `'system'` channel). The reaction handler's dependency list gained
+  `player.loadout.weapon` because its copy now reads it.
+- **Deliberately unchanged, and pinned as such:** the stance (`action: 'block'`,
+  `applyDefensiveAction(…, 'shield_block')`, `isBlocking: true`, never `isInvulnerable`), the zero
+  cost, the `'blocked'` damage-text channel, the guarded-reaction claim order, `planDodgeReaction`
+  and the free reaffirmation, the damage formula's arguments
+  (`isBlocked, defender.loadout.weapon.blockReduction`), the single `shieldGuardStaminaGain` credit in
+  the blocked branch, the 12 SP dodge price, the 88 % evade rate, the 700/700 ms wind-ups and every
+  AI affordability rule. `guardFeedback` writes no stamina, deals no damage, draws no RNG and reads no
+  clock — the suite asserts all four.
+- **Regression suite: `src/utils/phaseC8_84F.test.ts`** — 34 tests / 159 `expect()` across 7 sections,
+  executing the real module rather than restating its strings: A the reaction copy (shipped line for a
+  shield, neutral line otherwise, `GUARD!` for both, the fighter named); B the blocked line (shipped
+  sentence, no shield for a shield-less defender, the damage figure exact for 1/7/12/26/72, one
+  `BLOCKED`, one `HP`, no `undefined`/`NaN`); C the turn-action pair unchanged, and the two sites'
+  neutral sentences shown identical; D the one detector over `ALL_WEAPONS` and `ALL_OPPONENTS` with
+  a control showing the pre-fix literals *would* fail the rule; E the three production call sites bound
+  by source with each asking about the right fighter (attacker / player / defender), no shield literal
+  left in the scene, and the name/id heuristic shown to live only in the module; F the real
+  `applyDefensiveAction`/`clearDefensiveStance` pair and both branches' stances; G the constants,
+  the damage-formula arguments, the single stamina credit, the module's purity and the builders'
+  determinism.
+- **Rebased, not weakened: three suites pinned strings or slices this phase moved.**
+  `phaseC8_82b` (§"at most one credit" pinned `'BLOCKED by'` between the blocked branch and the
+  credit; it now pins `blockedStrikeLog(`, the same branch and order) — `phaseC8_82d` (§"the blocked
+  path keeps its own BLOCKED line" now checks the scene consumes `blockedStrikeLog(` **and** that the
+  literal lives in the helper module, 1 assertion → 2) and `phaseC8_83B` (§E's 400-character tail now
+  pins `reactionGuard.log`; its "no stamina field" assertions are untouched) and `phaseC8_84B` (§H's
+  slice end anchor follows the reaction handler's new dependency list; its property — the charge is
+  settled by `planDodgeReaction` and never by `canAffordDodge` — is unchanged). No assertion was
+  deleted, and no expectation was loosened.
+- **Verified 2026-10-26** in the dev container (branch `development-focus-strategy`, HEAD
+  `6a35b90461827b5103411d11fc7c56065981c848`, tree clean at start): focused
+  `bun test` over C-8.84F + C-8.84A + C-8.84B + C-8.84D + C-8.83B + C-8.83D + C-8.82b + C-8.82d +
+  C-8.79B + `defensiveBalance` + `combatActionOrder` + `combatResponsiveness` → **296 pass / 0 fail
+  (12 files, 76 284 `expect()`)**; `bun test` → **3931 pass / 0 fail (140 files, 169 344
+  `expect()`)**; `bun run scripts/combatTests.ts` → **69 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check passing (8
+  assets); `git diff --check` → clean. The validation's start point was 3 failing assertions, all in
+  the new suite's own anchors (a builder returning a string instead of `{log}`, a branch slice that
+  began after the stance write, and a damage-call pin placed after the call itself), fixed in the
+  test, not the production code.
+- **Not automatically verified — the copy in a live duel, and Android.** No bout was driven: the HUD
+  and the arena sit behind character creation and the 3D city at ~2 fps through SwiftShader (the
+  standing limit since C-8.81), and provoking a blocked strike or a guarded reaction needs a real
+  exchange. The wording is verified as pure functions over the real catalogue and roster, plus source
+  binding of the three call sites — not by playing. **Android check (when a device is available):**
+  equip the player with a spear or the twin sicae from the forge, let an opponent attack, take Shield
+  Guard — the chronicle must read "… sets a tight guard." and never mention a shield; then fight a
+  `dual_blades` opponent (Flaccus, Ignis) to the point where it braces and confirm the blocked line
+  reads "… BLOCKED by <name>'s guard". The shield-equipped wording (a gladius/spatha/shamshir player,
+  Marcus and Drusus as opponents) must be unchanged, including `BRACED!`.
+- **Out of scope, deliberately:** the action is still called "Shield Guard" on both controls
+  (`CombatHUD`, `TurnActionPanel`) for a shield-less fighter. That is the action's established proper
+  name, the card body already reads weapon-neutrally ("Brace to absorb N %"), and renaming it would
+  churn the terminology and several suites — the C-8.84E audit recommended leaving it.

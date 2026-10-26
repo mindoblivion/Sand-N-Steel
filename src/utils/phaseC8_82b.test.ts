@@ -405,7 +405,9 @@ describe('§D — Guard never loses stamina, Dodge pays exactly 12', () => {
     const creditAt = impact.indexOf('shieldGuardStaminaGain(');
     const blockedAt = impact.lastIndexOf('if (isBlocked) {', creditAt);
     expect(blockedAt).toBeGreaterThan(-1);
-    expect(impact.slice(blockedAt, creditAt)).toContain('BLOCKED by');
+    // C-8.84F — the wording is built by the shared helper; the blocked branch
+    // still writes it before the credit.
+    expect(impact.slice(blockedAt, creditAt)).toContain('blockedStrikeLog(');
     // The evade path and the miss path never reach it.
     const evade = impact.slice(
       impact.indexOf('if (isEvaded || isPassiveEvaded) {'),

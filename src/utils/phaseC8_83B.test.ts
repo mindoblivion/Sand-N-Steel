@@ -301,7 +301,10 @@ describe('§E - guard, passive evade, miss, failed-dodge copy and constants unch
     const tail = reactionBody.slice(at, at + 400);
     expect(tail).not.toContain('stamina:');
     expect(tail).not.toContain('DODGE_STAMINA_COST');
-    expect(tail).toContain('snaps the shield up!');
+    // C-8.84F — the reaction's copy now comes from the shared `guardFeedback`
+    // module (its shield-equipped wording is unchanged there), so this tail
+    // pins the helper's log as what the guard branch writes.
+    expect(tail).toContain('reactionGuard.log');
   });
 
   test('the blocked branch, the passive evade and the miss are untouched', () => {

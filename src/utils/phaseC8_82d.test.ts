@@ -53,6 +53,8 @@ const duelSceneSource = readFileSync(
   new URL('../components/duel/DuelScene.tsx', import.meta.url),
   'utf8',
 );
+// C-8.84F — the BLOCKED line's wording moved into the shared feedback module.
+const guardFeedbackSource = readFileSync(new URL('./guardFeedback.ts', import.meta.url), 'utf8');
 
 describe('C-8.82D A - the shared marker', () => {
   test('the marker is exported and non-empty', () => {
@@ -178,6 +180,9 @@ describe('C-8.82D E - production wiring', () => {
   });
 
   test('the blocked path keeps its own BLOCKED line (no crossover copy)', () => {
-    expect(duelSceneSource.includes('was BLOCKED by')).toBe(true);
+    // C-8.84F — the line is now built by `blockedStrikeLog`, so the literal
+    // lives in `guardFeedback`; the scene still consumes it.
+    expect(duelSceneSource.includes('blockedStrikeLog(')).toBe(true);
+    expect(stripComments(guardFeedbackSource)).toContain('BLOCKED by');
   });
 });

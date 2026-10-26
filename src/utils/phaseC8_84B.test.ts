@@ -619,7 +619,9 @@ describe('H - the reaction Dodge and its free reaffirmation are untouched', () =
       between(
         DUEL_SOURCE,
         'const reactToPendingAttack = useCallback(',
-        '[player.stamina, player.name, player.position, addLog, spawnDamageText],',
+        // C-8.84F — the handler now also depends on the player's weapon (its
+        // copy follows the loadout); the slice's end anchor follows it.
+        '[player.stamina, player.name, player.position, player.loadout.weapon, addLog, spawnDamageText],',
       ),
     );
     expect(reaction).toContain('planDodgeReaction');

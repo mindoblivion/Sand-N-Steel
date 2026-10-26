@@ -46,7 +46,12 @@ import {
   resolveRetreatTargetZ,
 } from '../../utils/duelGeometry';
 import { describeMoveReport } from '../../utils/duelMoveReport';
-import { shieldGuardFeedback, weaponCarriesShield } from '../../utils/guardFeedback';
+import {
+  blockedStrikeLog,
+  reactionGuardFeedback,
+  shieldGuardFeedback,
+  weaponCarriesShield,
+} from '../../utils/guardFeedback';
 import {
   canAffordAttack,
   chooseAITacticalAction,
@@ -981,9 +986,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             if (isBlocked) {
               sounds.playBlock();
               if (!isActorPlayer) statsRef.current.perfectBlocks += 1;
+              // C-8.84F — the line names what actually stopped the blow: the
+              // defender's own loadout decides (the `shield_block` stance is
+              // shared by every weapon, so a spear or twin-blade defender used
+              // to be credited with a shield). The damage figure, the channel
+              // and the credit below are untouched.
               addLog(
-                `${attacker.name}'s strike was BLOCKED by ${defender.name}'s shield (-${rawDamage} HP)!`,
-                'system'
+                blockedStrikeLog(
+                  attacker.name,
+                  defender.name,
+                  weaponCarriesShield(defender.loadout.weapon),
+                  rawDamage,
+                ),
+                'system',
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
               // C-8.70B §R2 — Shield Guard's ONLY recovery: the guard stopped a
@@ -1329,11 +1344,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           action: 'block',
           ...applyDefensiveAction(clearDefensiveStance(prev), 'shield_block'),
         }));
-        addLog(`${player.name} snaps the shield up!`, 'player');
-        spawnDamageText('GUARD!', 'blocked', player.position);
+        // C-8.84F — the words follow the loadout: a spear raises a guard, not a shield.
+        const reactionGuard = reactionGuardFeedback(
+          player.name,
+          weaponCarriesShield(player.loadout.weapon),
+        );
+        addLog(reactionGuard.log, 'player');
+        spawnDamageText(reactionGuard.cue, 'blocked', player.position);
       }
     },
-    [player.stamina, player.name, player.position, addLog, spawnDamageText],
+    [player.stamina, player.name, player.position, player.loadout.weapon, addLog, spawnDamageText],
   );
 
   // No blow may outlive the scene: an unmount (leaving the arena, a reload, the
