@@ -371,7 +371,7 @@ function fight(rate: number, rand: () => number): Fight {
     OPP_WEAPON.damageLight, VALERIA.stats.strength, false, PLAYER.defense,
     true, PLAYER_WEAPON.blockReduction, 1,
   );
-  const guardGain = shieldGuardStaminaGain(true, PLAYER.staminaRegen);
+  const guardGain = shieldGuardStaminaGain(true, PLAYER.staminaRegen, true);
 
   while (playerHp > 0 && oppHp > 0 && rounds < MAX_ROUNDS) {
     rounds += 1;

@@ -375,7 +375,7 @@ describe('§D — Guard never loses stamina, Dodge pays exactly 12', () => {
 
   test('the documented hit chance and the guard’s expected credit', () => {
     expect(heavyHit).toBe(58);
-    const credit = shieldGuardStaminaGain(true, DEFENDER.staminaRegen);
+    const credit = shieldGuardStaminaGain(true, DEFENDER.staminaRegen, true);
     expect(credit).toBeCloseTo(15.95, 10);
     // Expected stamina per heavy defensive turn: +9.25 (guard) vs −12 (dodge).
     expect((heavyHit / 100) * credit).toBeCloseTo(9.251, 3);
@@ -385,12 +385,12 @@ describe('§D — Guard never loses stamina, Dodge pays exactly 12', () => {
 
   test('the credit is non-negative for every regen, and only on a stopped blow', () => {
     for (const regen of [0, 1, 5, 24, DEFENDER.staminaRegen, 100]) {
-      expect(shieldGuardStaminaGain(true, regen)).toBeGreaterThanOrEqual(0);
-      expect(shieldGuardStaminaGain(false, regen)).toBe(0);
+      expect(shieldGuardStaminaGain(true, regen, true)).toBeGreaterThanOrEqual(0);
+      expect(shieldGuardStaminaGain(false, regen, true)).toBe(0);
     }
     expect(SHIELD_GUARD_REGEN_MULTIPLIER).toBe(0.5);
     // Clamped by the fighter's own ceiling — a credit can never overflow it.
-    const gain = shieldGuardStaminaGain(true, DEFENDER.staminaRegen);
+    const gain = shieldGuardStaminaGain(true, DEFENDER.staminaRegen, true);
     expect(applyStaminaRegen(140, 140, gain)).toBe(140);
     expect(applyStaminaRegen(0, 140, gain)).toBeCloseTo(15.95, 10);
   });

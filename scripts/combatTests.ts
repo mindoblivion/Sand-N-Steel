@@ -471,8 +471,8 @@ test('defense curve: diminishing returns', () => {
 // ════════════════════════════════════════════════════════════════════════════
 
 test('raising the guard that stops nothing credits 0 SP', () => {
-  approx(shieldGuardStaminaGain(false, 24), 0);
-  approx(shieldGuardStaminaGain(true, 24), 12);
+  approx(shieldGuardStaminaGain(false, 24, true), 0);
+  approx(shieldGuardStaminaGain(true, 24, true), 12);
 });
 
 test('shield recovery at full stamina: 0 (no room to recover)', () => {
@@ -487,7 +487,7 @@ test('shield recovery at full stamina: 0 (no room to recover)', () => {
 
 test('shield recovery below max: the credited gain, once', () => {
   // stamina 50/100, regen 24 → the guard credits half of it (12)
-  const gain = shieldGuardStaminaGain(true, 24);
+  const gain = shieldGuardStaminaGain(true, 24, true);
   const current = 50;
   const max = 100;
   const afterRegen = applyStaminaRegen(current, max, gain);
@@ -507,7 +507,7 @@ test('shield recovery with partial remaining capacity: clamped', () => {
 });
 
 test('shield recovery at 0 stamina: the credited gain (if it is below max)', () => {
-  const gain = shieldGuardStaminaGain(true, 24);
+  const gain = shieldGuardStaminaGain(true, 24, true);
   const current = 0;
   const max = 100;
   const afterRegen = applyStaminaRegen(current, max, gain);

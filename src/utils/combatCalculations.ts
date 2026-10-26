@@ -262,18 +262,24 @@ export function applyStaminaRegen(
  * scutum did — a shield's reward paid to a fighter with no shield. The shielded
  * formula, its multiplier and its clamp are untouched, so a shield carrier's
  * credit is byte-identical to what C-8.72B shipped.
+ *
+ * C-8.85F makes eligibility a REQUIRED argument and fails closed on it. C-8.85E
+ * defaulted the third parameter to `true`, so a future caller that forgot it
+ * silently inherited a shield it may not carry; the parameter is now mandatory at
+ * the type boundary, and only the literal boolean `true` earns a credit, so an
+ * omitted, malformed or truthy-but-not-boolean eligibility value pays nothing.
  */
 export function shieldGuardStaminaGain(
   didStopBlow: boolean,
   regen: number,
-  carriesShield: boolean = true,
+  carriesShield: boolean,
 ): number {
   if (!didStopBlow) return 0;
-  // C-8.85E — no board, no credit. The default keeps this helper's other callers
-  // (the regression suites and `scripts/combatTests.ts`) describing the SHIELDED
-  // formula; the one production call site in `DuelScene` always passes the
-  // resolved answer, so no live fighter can reach the default.
-  if (!carriesShield) return 0;
+  // C-8.85F — fail closed. The type requires the argument, and this guard catches
+  // the runtime case TypeScript cannot (`undefined` from an omitted argument,
+  // `'true'` / `1` / a loadout object from a mistaken caller): nothing but an
+  // explicit `true`, resolved from the canonical shield rule, may mint stamina.
+  if (carriesShield !== true) return 0;
   if (typeof regen !== 'number' || !Number.isFinite(regen) || regen <= 0) return 0;
   return regen * SHIELD_GUARD_REGEN_MULTIPLIER;
 }

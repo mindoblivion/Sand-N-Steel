@@ -11277,6 +11277,83 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Deliberately left for an explicitly authorized phase: the HUD label.** C-8.85D recommended making
   that `<span>` loadout-aware through the existing `weaponCarriesShield`/`shieldGuardFeedback` seam; this
   phase's brief forbids altering shield-feedback copy or HUD labels, so the label is untouched and the
-  mismatch is recorded here rather than fixed. Also unchanged by design: the AI's own credit is gated by
+  mismatch is recorded here rather than fixed. **Phase C-8.85F was that authorized phase: the card now
+  asks `carriesShieldForGuardCredit` and shows `No SP credit` for a shield-less loadout — see its record
+  below.** Also unchanged by design: the AI's own credit is gated by
   the same rule (a mace/dual-blade opponent never earned a shield's stamina now), and no AI weight, cost
   or bout projection was re-tuned — the brief's scope.
+
+## Guard credit API safety and loadout-aware tactic copy (Phase C-8.85F — implemented)
+
+- **Preflight.** Branch `development-focus-strategy`, starting HEAD
+  `707097ac818944f6f8ea664fd921babf0c1e6ea4`, `git status --porcelain` **empty** before the work; the
+  C-8.85E implementation and its record are present in that history. Nothing was reset, stashed, amended,
+  discarded, merged, pushed or deployed, and the changes are left uncommitted.
+
+- **The API defect, and the fix.** `combatCalculations.ts`'s `shieldGuardStaminaGain(didStopBlow, regen,
+  carriesShield = true)` defaulted eligibility to shielded, so a future caller that omitted the third
+  argument would silently inherit a shield it may not carry. The parameter is now **required** at the type
+  boundary and the helper fails closed on its value: `if (carriesShield !== true) return 0;` refuses
+  `undefined` (an omitted argument), `null`, and every truthy non-boolean a mistaken caller could pass
+  (`'true'`, `1`, `{}`, a loadout object). The shielded formula, its ×0.5 multiplier, the regen sanity
+  guard and the `applyStaminaRegen` cap are untouched, so a shield carrier's credit is byte-identical to
+  C-8.72B and C-8.85E: 14.85 SP for the C-8.85D gladius kit (regen 29.7) and 0 for a shield-less loadout.
+  `carriesShieldForGuardCredit` already failed closed (an unresolved weapon is not a shield) and is
+  unchanged; it remains the ONE eligibility rule and still asks the canonical `weaponCarriesShield`, so no
+  second shield classification was created.
+
+- **Every caller updated explicitly, no permissive default added.** The single production call site in
+  `DuelScene.tsx` already passed `carriesShieldForGuardCredit(defender.loadout?.weapon)` and needed no
+  change. The seven test/script files that described the SHIELDED formula (the convention every suite uses
+  for the plain helper contract) now pass `true` explicitly: `scripts/combatTests.ts` (4 calls),
+  `combatResponsiveness.test.ts` (13), `defensiveBalance.test.ts` (13), `phaseC8_82b.test.ts` (4),
+  `phaseC8_85E.test.ts` (3), `phaseC8_84A.test.ts` (2), `phaseC8_75B.test.ts` (1). Every one of those
+  assertions is the same value it was before — the argument is added, nothing is relaxed.
+
+- **The tactic-grid copy.** The surface was `TurnActionPanel.tsx`'s Shield Guard card, whose footer paired
+  `{blockReduction}% Absorb` with an unconditional `SP on block`. It now asks the SAME predicate the engine
+  credits with — `carriesShieldForGuardCredit(weapon)` on the fighter's own equipped weapon — and renders
+  `SP on block` (unchanged wording, accurate) for a shield carrier and `No SP credit` in neutral ink for a
+  shield-less loadout. The absorb percentage, the `NO COST` badge, the `Brace to absorb N% of incoming
+  damage.` description and the formal action name **Shield Guard** are untouched: the stance, its
+  mitigation and its zero cost apply to every loadout, so only the promise of stamina changed. The card
+  shows the player's own loadout and no AI card exists, so there is no second surface to keep in step.
+  `HelpModal.tsx` carried the equivalent generic promise ("the guard recovers stamina only when it
+  actually stops a blow"); it now reads "a shield-bearing guard recovers stamina only when it actually
+  stops a blow", which is accurate for both loadouts without giving the manual loadout state.
+
+- **Regression suite: `src/utils/phaseC8_85F.test.ts`** — 22 tests / 210 assertions across 5 sections.
+  **A** the API (omitted → 0, `undefined`/`null` → 0, eight truthy non-booleans → 0, explicit `false` → 0,
+  and the refusal is a finite zero rather than NaN or a throw); **B** the shielded credit unchanged
+  (0.5 multiplier, 14.85 / 17.25 / 12 / 2.5 / 0.5 / 15.95, the unstopped and malformed cases, the cap) and
+  the shield-less credit zero with the stamina left where it was, plus every catalogue weapon's credit
+  shown to equal `weaponCarriesShield`; **C** the contract in source (no defaulted eligibility parameter,
+  the `!== true` guard present, exactly one production call site with the explicit predicate, the credit
+  still only inside `if (isBlocked)`, and no `=== 'sword_shield'` / `includes('shield')` in the credit
+  module or the panel); **D** the tactic grid **rendered with `react-dom/server`** (the `phaseC8_84D`
+  convention) for a shield and for every shield-less weapon — the Shield Guard card carries `SP on block`
+  iff `weaponCarriesShield`, and the agreement is asserted across the whole catalogue, with the action
+  name, `NO COST`, the absorb line and the enabled state unchanged; **E** what did not move (Dodge's 12 SP
+  and 0.88, `canAffordDodge`, `planDodgeReaction`'s free held-stance reaffirmation and single reaction
+  charge, the three guard-feedback builders' wording, and the help copy).
+
+- **Verified in the dev container** (`docker compose -f docker-compose.base44.yml exec -T web …`):
+  focused `bun test src/utils/phaseC8_85F.test.ts` → **22 pass / 0 fail** (210 expect() calls);
+  `bun test` over the 12 guard/UI suites (`phaseC8_85E`, `phaseC8_85F`, `combatResponsiveness`,
+  `defensiveBalance`, `phaseC8_84A/84D/84F`, `phaseC8_82b`, `phaseC8_75B`, `phaseC8_74D`, `phaseC8_80n`,
+  `combatActionOrder`) → **303 pass / 0 fail** (2076 expect() calls); `bun run scripts/combatTests.ts` →
+  **69 passed, 0 failed**, exit 0; `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → exit 0
+  (startup asset check passed); full `bun test` → **3976 pass / 0 fail (142 files, 169742 expect()
+  calls)**; `git diff --check` → clean. The validation's only starting failure was the new suite's own
+  fixtures (a wrong `planDodgeReaction` signature, a wrong `blockedStrikeLog` arity, a re-wrapped help
+  line and a `WeaponItem` import from the wrong module) — all four were corrected in the suite, none in
+  production. Files changed: `combatCalculations.ts`, `TurnActionPanel.tsx`, `HelpModal.tsx`, the new
+  suite, and the seven explicit-argument call sites.
+
+- **Limitation, stated rather than papered over.** The card is verified as *rendered markup* for every
+  catalogue weapon, not in a live duel: the sandbox renders the arena through SwiftShader at a few frames
+  per second (the standing limit C-8.84D/C-8.85E recorded), so no in-duel frame was captured and this is
+  **not** live-duel or Android acceptance. Reaching a shield-less duel by hand (character creation → city
+  hub → Colosseum) is likewise unverified here. Also unchanged by design: no stamina cost, block
+  reduction, Dodge behaviour, damage, AI weight or credit formula was re-tuned — this phase touched the
+  helper's API contract and two pieces of copy only.

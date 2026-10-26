@@ -83,35 +83,35 @@ const weaponAt = (range: number) => ({ range } as WeaponItem);
 
 describe('§A — Shield Guard recovers nothing by itself, and half a stopped blow (C-8.72B)', () => {
   test('raising the guard that stops nothing recovers no stamina', () => {
-    expect(shieldGuardStaminaGain(false, 24)).toBe(0);
-    expect(shieldGuardStaminaGain(false, 0.0001)).toBe(0);
+    expect(shieldGuardStaminaGain(false, 24, true)).toBe(0);
+    expect(shieldGuardStaminaGain(false, 0.0001, true)).toBe(0);
   });
 
   test('a stopped blow credits HALF the fighter\'s own regen, once (C-8.72B)', () => {
     expect(SHIELD_GUARD_REGEN_MULTIPLIER).toBe(0.5);
-    expect(shieldGuardStaminaGain(true, 24)).toBe(12);
-    expect(shieldGuardStaminaGain(true, 5)).toBe(2.5);
+    expect(shieldGuardStaminaGain(true, 24, true)).toBe(12);
+    expect(shieldGuardStaminaGain(true, 5, true)).toBe(2.5);
     // The measured representative shield build: staminaRegen 31.9 → 15.95,
     // against Dodge's 12 SP cost. Still positive, no longer a full turn of regen.
-    expect(shieldGuardStaminaGain(true, 31.9)).toBeCloseTo(15.95, 10);
-    expect(shieldGuardStaminaGain(true, 31.9)).toBeGreaterThan(0);
+    expect(shieldGuardStaminaGain(true, 31.9, true)).toBeCloseTo(15.95, 10);
+    expect(shieldGuardStaminaGain(true, 31.9, true)).toBeGreaterThan(0);
   });
 
   test('a stalled or malformed regen credits nothing rather than NaN', () => {
-    expect(shieldGuardStaminaGain(true, 0)).toBe(0);
-    expect(shieldGuardStaminaGain(true, -8)).toBe(0);
-    expect(shieldGuardStaminaGain(true, Number.NaN)).toBe(0);
-    expect(shieldGuardStaminaGain(true, Number.POSITIVE_INFINITY)).toBe(0);
+    expect(shieldGuardStaminaGain(true, 0, true)).toBe(0);
+    expect(shieldGuardStaminaGain(true, -8, true)).toBe(0);
+    expect(shieldGuardStaminaGain(true, Number.NaN, true)).toBe(0);
+    expect(shieldGuardStaminaGain(true, Number.POSITIVE_INFINITY, true)).toBe(0);
   });
 
   test('the credited stop is still clamped by the stamina ceiling', () => {
-    const gain = shieldGuardStaminaGain(true, 24);
+    const gain = shieldGuardStaminaGain(true, 24, true);
     expect(gain).toBe(12);
     expect(applyStaminaRegen(100, 100, gain)).toBe(100);
     expect(applyStaminaRegen(90, 100, gain)).toBe(100);
     expect(applyStaminaRegen(50, 100, gain)).toBe(62);
     // No guard credit can ever exceed the normal cap, however large the regen.
-    expect(applyStaminaRegen(0, 100, shieldGuardStaminaGain(true, 999))).toBe(100);
+    expect(applyStaminaRegen(0, 100, shieldGuardStaminaGain(true, 999, true))).toBe(100);
   });
 
   test('an unblocked hit credits nothing — the guard must actually stop the blow', () => {
@@ -127,7 +127,7 @@ describe('§A — Shield Guard recovers nothing by itself, and half a stopped bl
     expect(unblocked).not.toContain('shieldGuardStaminaGain');
     expect(unblocked).not.toContain('applyStaminaRegen');
     // And the helper itself is the one place the rule lives.
-    expect(shieldGuardStaminaGain(false, 24)).toBe(0);
+    expect(shieldGuardStaminaGain(false, 24, true)).toBe(0);
   });
 
   test('the engine\'s shield_block action spends and credits nothing', () => {

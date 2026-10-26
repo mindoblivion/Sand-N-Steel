@@ -115,8 +115,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               </div>
               <p className="text-[11px] text-neutral-400">
                 Raise your scutum to blunt the opponent&apos;s next strike — damage is cut by your weapon&apos;s block
-                value every time it lands, and the guard recovers stamina only when it actually stops a blow. It
-                costs nothing, so it is the reliable answer against a blow you cannot afford to dodge.
+                value every time it lands, and a shield-bearing guard recovers stamina only when it actually stops a blow.
+                It costs nothing, so it is the reliable answer against a blow you cannot afford to dodge.
               </p>
             </div>
           </div>

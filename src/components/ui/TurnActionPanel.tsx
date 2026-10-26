@@ -21,6 +21,7 @@ import {
   DODGE_STAMINA_COST,
   DODGE_EVADE_PERCENT,
   canAffordDodge,
+  carriesShieldForGuardCredit,
 } from '../../utils/combatCalculations';
 
 export type CombatActionType =
@@ -82,6 +83,13 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   const str = player.stats.strength;
   const oppDef = opponent.stats.defense;
   const weapon = player.loadout.weapon;
+
+  // C-8.85F — since C-8.85E the stopped-blow Guard credit is the SHIELD's reward,
+  // so the card must not promise it to a loadout with no board. `weapon` is this
+  // fighter's own equipped weapon and `carriesShieldForGuardCredit` is the exact
+  // predicate the resolution credits with, so the label and the engine cannot
+  // disagree.
+  const guardEarnsStaminaCredit = carriesShieldForGuardCredit(weapon);
 
   const quickDmgMin = calculateAttackDamage(weapon.damageLight, str, false, oppDef, false, 0);
   const quickDmgMax = quickDmgMin;
@@ -296,7 +304,11 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
             <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-cyan-900/40">
               <span className="text-cyan-300 font-bold">{Math.round(weapon.blockReduction * 100)}% Absorb</span>
-              <span className="text-emerald-300 font-bold">SP on block</span>
+              {guardEarnsStaminaCredit ? (
+                <span className="text-emerald-300 font-bold">SP on block</span>
+              ) : (
+                <span className="text-neutral-500 font-bold">No SP credit</span>
+              )}
             </div>
           </button>
 

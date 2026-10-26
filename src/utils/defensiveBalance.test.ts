@@ -105,7 +105,7 @@ describe('§A — Shield Guard credits half a stopped blow (C-8.72B)', () => {
   });
 
   test('the measured shield build credits ≈ 16 SP where it used to credit ≈ 32', () => {
-    const credit = shieldGuardStaminaGain(true, SHIELD_BUILD_REGEN);
+    const credit = shieldGuardStaminaGain(true, SHIELD_BUILD_REGEN, true);
     expect(credit).toBeCloseTo(15.95, 10);
     expect(credit).toBeCloseTo(SHIELD_BUILD_REGEN * 0.5, 10);
     // Still a positive recovery — the guard's identity is preserved, not removed.
@@ -116,26 +116,26 @@ describe('§A — Shield Guard credits half a stopped blow (C-8.72B)', () => {
   });
 
   test('a non-shield build is credited the same proportional half', () => {
-    expect(shieldGuardStaminaGain(true, NON_SHIELD_REGEN)).toBeCloseTo(18.75, 10);
+    expect(shieldGuardStaminaGain(true, NON_SHIELD_REGEN, true)).toBeCloseTo(18.75, 10);
   });
 
   test('whole and fractional regen both halve exactly', () => {
-    expect(shieldGuardStaminaGain(true, 24)).toBe(12);
-    expect(shieldGuardStaminaGain(true, 5)).toBe(2.5);
-    expect(shieldGuardStaminaGain(true, 1)).toBe(0.5);
+    expect(shieldGuardStaminaGain(true, 24, true)).toBe(12);
+    expect(shieldGuardStaminaGain(true, 5, true)).toBe(2.5);
+    expect(shieldGuardStaminaGain(true, 1, true)).toBe(0.5);
   });
 
   test('an unstopped blow, a miss and malformed regen credit nothing', () => {
-    expect(shieldGuardStaminaGain(false, SHIELD_BUILD_REGEN)).toBe(0);
-    expect(shieldGuardStaminaGain(false, 24)).toBe(0);
-    expect(shieldGuardStaminaGain(true, 0)).toBe(0);
-    expect(shieldGuardStaminaGain(true, -8)).toBe(0);
-    expect(shieldGuardStaminaGain(true, Number.NaN)).toBe(0);
-    expect(shieldGuardStaminaGain(true, Number.POSITIVE_INFINITY)).toBe(0);
+    expect(shieldGuardStaminaGain(false, SHIELD_BUILD_REGEN, true)).toBe(0);
+    expect(shieldGuardStaminaGain(false, 24, true)).toBe(0);
+    expect(shieldGuardStaminaGain(true, 0, true)).toBe(0);
+    expect(shieldGuardStaminaGain(true, -8, true)).toBe(0);
+    expect(shieldGuardStaminaGain(true, Number.NaN, true)).toBe(0);
+    expect(shieldGuardStaminaGain(true, Number.POSITIVE_INFINITY, true)).toBe(0);
   });
 
   test('the credit is still clamped by the NORMAL stamina cap', () => {
-    const gain = shieldGuardStaminaGain(true, SHIELD_BUILD_REGEN);
+    const gain = shieldGuardStaminaGain(true, SHIELD_BUILD_REGEN, true);
     // Low stamina: the full (halved) credit applies.
     expect(applyStaminaRegen(0, 140, gain)).toBeCloseTo(15.95, 10);
     // Mid stamina: it adds on top of what is there.
@@ -143,7 +143,7 @@ describe('§A — Shield Guard credits half a stopped blow (C-8.72B)', () => {
     // Near the ceiling: it can never pass it.
     expect(applyStaminaRegen(135, 140, gain)).toBe(140);
     expect(applyStaminaRegen(140, 140, gain)).toBe(140);
-    expect(applyStaminaRegen(0, 140, shieldGuardStaminaGain(true, 999))).toBe(140);
+    expect(applyStaminaRegen(0, 140, shieldGuardStaminaGain(true, 999, true))).toBe(140);
   });
 
   test('the rule lives in the shared helper and nowhere else', () => {

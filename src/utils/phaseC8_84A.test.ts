@@ -435,8 +435,8 @@ describe('E - Shield Guard, strike affordability and existing feedback', () => {
     expect(TURN_GUARD_BRANCH).not.toContain('prev.stamina -');
     expect(TURN_GUARD_BRANCH).toContain('isBlocking: true');
     // The guard's recovery still only lands when it stops a blow (C-8.70B R2).
-    expect(shieldGuardStaminaGain(true, 12)).toBeGreaterThan(0);
-    expect(shieldGuardStaminaGain(false, 12)).toBe(0);
+    expect(shieldGuardStaminaGain(true, 12, true)).toBeGreaterThan(0);
+    expect(shieldGuardStaminaGain(false, 12, true)).toBe(0);
   });
 
   test('strike affordability is unchanged, at its own thresholds', () => {

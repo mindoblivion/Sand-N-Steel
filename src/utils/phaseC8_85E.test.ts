@@ -145,9 +145,9 @@ describe('B — a shield carrier receives exactly the C-8.72B credit', () => {
     expect(gladiusKit).toBeCloseTo(14.85, 10); // the C-8.85D measured figure
     expect(gladiusKit).toBeCloseTo(GLADIUS_KIT_REGEN * SHIELD_GUARD_REGEN_MULTIPLIER, 10);
     // The pre-existing two-argument contract is preserved verbatim.
-    expect(shieldGuardStaminaGain(true, 24)).toBe(12);
-    expect(shieldGuardStaminaGain(true, 5)).toBe(2.5);
-    expect(shieldGuardStaminaGain(true, 31.9)).toBeCloseTo(15.95, 10);
+    expect(shieldGuardStaminaGain(true, 24, true)).toBe(12);
+    expect(shieldGuardStaminaGain(true, 5, true)).toBe(2.5);
+    expect(shieldGuardStaminaGain(true, 31.9, true)).toBeCloseTo(15.95, 10);
   });
 
   test('every shield weapon credits the same halved regen', () => {
