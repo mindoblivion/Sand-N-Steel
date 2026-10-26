@@ -19,7 +19,7 @@ export interface DuelArenaProps {
    * allegiance swap). A MATERIAL PROPERTY change on the existing canopy mesh —
    * no new mesh, no new draw call. Absent = the shipped crimson.
    */
-  bannerAllegiance?: 'gilded' | 'player';
+  bannerAllegiance?: 'gilded' | 'player' | 'brothers';
 }
 
 export const DuelArena: React.FC<DuelArenaProps> = ({ crowdPulseRef, bannerAllegiance }) => {
@@ -139,14 +139,24 @@ export const DuelArena: React.FC<DuelArenaProps> = ({ crowdPulseRef, bannerAlleg
         <mesh position={[0, 4.4, 0]}>
           <boxGeometry args={[10.8, 0.5, 5.2]} />
           <meshStandardMaterial
-            color={bannerAllegiance === 'gilded' ? '#eab308' : '#881337'}
+            color={
+              bannerAllegiance === 'gilded'
+                ? '#eab308'
+                : bannerAllegiance === 'brothers'
+                ? '#7f1d1d'
+                : '#881337'
+            }
             roughness={0.5}
           />
         </mesh>
         {/* Gold Trim & Imperial Eagle */}
         <mesh position={[0, 4.8, 2.5]}>
           <boxGeometry args={[11.2, 0.3, 0.2]} />
-          <meshStandardMaterial color="#f59e0b" metalness={0.9} roughness={0.2} />
+          <meshStandardMaterial
+            color={bannerAllegiance === 'brothers' ? '#dc2626' : '#f59e0b'}
+            metalness={0.9}
+            roughness={0.2}
+          />
         </mesh>
         {/* Flanking Corinthian Columns */}
         {[-4.6, 4.6].map((cx, ci) => (

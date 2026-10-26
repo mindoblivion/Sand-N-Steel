@@ -736,7 +736,15 @@ describe('D-2 §I — the surfaces the player reads', () => {
     );
     // D-3 rebased this pin, not weakened it: the two states Varro's and Gnaeus's
     // D-slices author now have table entries beside Marcellin's dawn.
-    expect(Object.keys(BOSS_PRESENTATION_DELTAS)).toEqual(['dawn', 'high-noon', 'gilded']);
+    // D-4 rebased this pin, not weakened it: the Cotta pair's state joined the
+    // table (four entries now), so the table is asserted in full rather than by
+    // membership — a state that silently disappeared would still fail.
+    expect(Object.keys(BOSS_PRESENTATION_DELTAS)).toEqual([
+      'dawn',
+      'high-noon',
+      'brothers',
+      'gilded',
+    ]);
     // A ladder boss and a non-boss ask for nothing.
     expect(bossSceneDeltas(ALL_OPPONENTS.find((o) => o.id === 'opp_ignis_boss'))).toBeNull();
     expect(bossSceneDeltas(ALL_OPPONENTS[0])).toBeNull();
@@ -798,7 +806,12 @@ describe('D-2 §J — nothing persists, and no pipeline stage was added', () => 
     // chosen action) plus the panel's own callback. D-3 rebased this count by
     // one — Varro's announced heavy resolves through the standard pipeline — and
     // introduced no new pipeline stage of its own.
-    expect((DUEL_SCENE.match(/executeCombatTurn\(/g) ?? []).length).toBe(7);
+    // D-4 rebased this count by four, not weakened it: the Cotta pair adds its
+    // Crossing's announce and its telegraphed heavy, the rear brother's flank
+    // strike and the Exposed recovery — each an EXISTING action dispatched into
+    // the same resolution function, so the count grows and the stage count does
+    // not.
+    expect((DUEL_SCENE.match(/executeCombatTurn\(/g) ?? []).length).toBe(11);
   });
 
   test('the fence gates the panel, the figure, the pips and every rule', () => {

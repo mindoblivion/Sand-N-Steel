@@ -73,7 +73,11 @@ export type CombatActionType =
   // D-2 — the beast's crouch, the boss's own action for that slot. It resolves
   // nothing (no hit roll, no damage), which is why it is a boss-only action and
   // never a button the player is offered.
-  | 'beast_crouch';
+  | 'beast_crouch'
+  // D-4 — the Cotta pair's Exposed recovery: the boss's action for that slot
+  // after the Crossing has been dodged. It resolves nothing at all (no hit roll,
+  // no damage, no stamina) — a tempo beat the player is given, never a button.
+  | 'brothers_recovery';
 
 export interface CombatLogEntry {
   id: string;

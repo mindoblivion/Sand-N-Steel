@@ -49,7 +49,29 @@ interface CombatHUDProps {
    * `null`/absent on every other duel.
    */
   panoply?: PanoplyPanelInfo | null;
+  /**
+   * D-4 — the Cotta pair, when the bout fields one. Drives the compact pair
+   * line beside the boss's name (which brother holds the line, whether the pair
+   * is exposed, whether the Oath has been sworn). `null`/absent on every other
+   * duel.
+   */
+  brothers?: BrothersPanelInfo | null;
   onExecuteAction: (action: CombatActionType, target?: AttackTarget) => void;
+}
+
+/** D-4 — the pair as the HUD draws it: the two names, who is acting, and the pair's beat. */
+export interface BrothersPanelInfo {
+  frontName: string;
+  rearName: string;
+  /** The brother leading the slot in progress. */
+  activeName: string;
+  phase: 'pair' | 'survivor';
+  /** The survivor's name, or `null` while both stand. */
+  survivorName: string | null;
+  /** The Crossing's beat, so "the trap is coming" is readable at a glance. */
+  crossing: 'idle' | 'announced' | 'exposed';
+  /** The Oath has been sworn (the announcement is one-shot). */
+  oath: boolean;
 }
 
 /** D-3 — the panoply as the HUD draws it: one crack-pip row per piece, in crack order. */
@@ -81,6 +103,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   bossVignettePulse,
   beast = null,
   panoply = null,
+  brothers = null,
   onExecuteAction,
 }) => {
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
@@ -271,6 +294,33 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                   </span>
                 )}
               </div>
+              {/* D-4 — the pair, beside the boss's name: who holds the line now,
+                  and whether the pair is crossing or exposed. Two names in words
+                  rather than pips, because the pair's beat is a WORD (the trap is
+                  announced by its banner, not by a counter). Only a bout that
+                  fields two men renders this. */}
+              {brothers && (
+                <span
+                  data-brothers-active={brothers.activeName}
+                  data-brothers-phase={brothers.phase}
+                  data-brothers-crossing={brothers.crossing}
+                  data-brothers-oath={brothers.oath ? '1' : '0'}
+                  title={
+                    brothers.phase === 'survivor'
+                      ? `${brothers.survivorName} — the oath is sworn`
+                      : `${brothers.frontName} (front) · ${brothers.rearName} (rear)`
+                  }
+                  className="ml-1.5 shrink-0 font-mono text-[9px] sm:text-[10px] uppercase tracking-wide text-amber-200/90"
+                >
+                  {brothers.phase === 'survivor'
+                    ? `${brothers.survivorName} · swore the oath`
+                    : brothers.crossing === 'announced'
+                    ? `${brothers.frontName} · ${brothers.rearName} cross`
+                    : brothers.crossing === 'exposed'
+                    ? 'the pair is exposed'
+                    : `${brothers.activeName} · pair`}
+                </span>
+              )}
               <span className="text-xs font-mono font-bold text-red-300">
                 {Math.round(opponent.health)} / {opponent.stats.healthMax}
               </span>

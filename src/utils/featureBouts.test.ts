@@ -290,7 +290,9 @@ describe('D-1 §B — the five mechanics live only on feature bosses', () => {
     // other three remain inert data, and NONE of the five owns a presentation
     // moment — which is the property this test exists to pin.
     const duel = code('src/components/duel/DuelScene.tsx');
-    const wiredByD3 = new Set(['false_telegraph', 'unbroken_panoply']);
+    // D-4 wired the third (`yoked_brothers`), behind its own branch in the duel;
+    // the other two remain inert data.
+    const wiredByD3 = new Set(['false_telegraph', 'unbroken_panoply', 'yoked_brothers']);
     for (const mechanic of FEATURE_MECHANICS) {
       if (wiredByD3.has(mechanic)) continue;
       expect(duel, mechanic).not.toContain(`'${mechanic}'`);
@@ -810,7 +812,19 @@ describe('D-1 §H — the five state names are data; the AI-4 key map is deferre
       const mentions = duel.match(new RegExp(`'${state.name}'`, 'g')) ?? [];
       if (state.name === 'gilded') {
         expect(mentions).toHaveLength(1);
-        expect(duel).toContain("panoply.humiliated ? 'player' : 'gilded'");
+        // D-4 rebased this pin: the pair's allegiance now sits ahead of the
+        // panoply's in the same nested expression, so the panoply's arms are
+        // asserted rather than the whole one-line ternary.
+        expect(duel).toContain('? panoply.humiliated');
+        expect(duel).toContain(": 'gilded'");
+      } else if (state.name === 'brothers') {
+        // D-4 rebased this half, not weakened it: the Cotta pair's LOGE BANNER
+        // allegiance shares the state's name, and it is the only occurrence —
+        // no presentation STATE is named, the rig is still read through
+        // `bossSceneDeltas`.
+        expect(mentions).toHaveLength(1);
+        expect(duel).toContain("? 'brothers'");
+        expect(duel).toContain('bannerAllegiance={');
       } else {
         expect(mentions, state.name).toHaveLength(0);
       }

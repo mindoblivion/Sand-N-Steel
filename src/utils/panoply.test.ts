@@ -312,8 +312,18 @@ describe('D-3 §H — the presentation is property-only', () => {
   });
 
   test('the third break swaps the loge’s cloth — one material property', () => {
-    expect(ARENA).toContain("color={bannerAllegiance === 'gilded' ? '#eab308' : '#881337'}");
-    expect(DUEL_SCENE).toContain("panoply.humiliated ? 'player' : 'gilded'");
+    // D-4 rebased this pin, not weakened it: the canopy now has three arms (the
+    // gilded cloth, the Cotta pair's own crimson, the house fallback), so each arm
+    // is asserted rather than the whole ternary.
+    expect(ARENA).toContain("bannerAllegiance === 'gilded'");
+    expect(ARENA).toContain("? '#eab308'");
+    expect(ARENA).toContain("bannerAllegiance === 'brothers'");
+    expect(ARENA).toContain("? '#7f1d1d'");
+    expect(ARENA).toContain(": '#881337'");
+    // D-4 rebased this pin: the pair's allegiance now sits ahead of the panoply's
+    // in the same expression, so the panoply's own arms are asserted.
+    expect(DUEL_SCENE).toContain('? panoply.humiliated');
+    expect(DUEL_SCENE).toContain(": 'gilded'");
     // No new mesh or material was introduced by the swap.
     const canopy = ARENA.slice(ARENA.indexOf('Velarium'), ARENA.indexOf('Gold Trim'));
     expect((canopy.match(/<mesh /g) ?? []).length).toBe(1);

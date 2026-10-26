@@ -297,6 +297,49 @@ export interface BeastConfig {
   flightHype: number;
 }
 
+/**
+ * D-4 — one brother of the Cotta pair, as DATA on the row.
+ *
+ * Each brother fights with HIS OWN published profile: the weapon his armatura
+ * carries, and the aggression / blockChance the AI chooses with while he leads.
+ * The duel reads these values and nothing else, so the pair's two halves can
+ * differ without a second opponent row, a second HP pool or a second result flow.
+ */
+export interface YokedBrotherProfile {
+  /** The brother as the arena, the log and the deep card name him. */
+  name: string;
+  /** The weapon his share of the pair fights with (`getWeaponByType`). */
+  weaponType: WeaponType;
+  /** The aggression the AI chooses with on his slots. */
+  aggression: number;
+  /** The blockChance the AI chooses with on his slots. */
+  blockChance: number;
+}
+
+/**
+ * D-4 — the Cotta brothers (Lucius & Gaius), as data on their ONE row.
+ *
+ * The pair is a single `OpponentConfig`: one row, one HP pool, one result flow,
+ * one purse. `front` leads and takes the damage (his share is the pool above
+ * the withdrawal line); `rear` circles and strikes the flank. Every strike —
+ * the front's heavy, the rear's flank — is resolved by the duel's existing
+ * attack pipeline with these published values substituted for a fighter's.
+ */
+export interface YokedBrothersConfig {
+  /** The brother who leads, takes the damage and telegraphs the Crossing. */
+  front: YokedBrotherProfile;
+  /** The brother who circles to the flank and leads the survivor phase. */
+  rear: YokedBrotherProfile;
+  /** One Crossing every this many boss actions (4), while both brothers stand. */
+  crossingEveryNthAction: number;
+  /** The survivor's Oath: the remaining brother's damage multiplier (1.15). */
+  survivorDamageMult: number;
+  /** The survivor's Oath: the remaining brother's aggression shift (+0.10). */
+  survivorAggressionBonus: number;
+  /** The pair HP fraction at or below which the front brother is withdrawn (0.5). */
+  withdrawalAtHealthFraction: number;
+}
+
 export interface OpponentConfig {
   id: string;
   name: string;
@@ -348,6 +391,13 @@ export interface OpponentConfig {
    * `utils/panoply.ts`'s fence is what decides whether it can ever be used.
    */
   panoply?: PanoplyConfig;
+  /**
+   * D-4 — the Cotta brothers' pair data, for a `yoked_brothers` Feature Bout
+   * only. `utils/yokedBrothers.ts`'s fence is what decides whether it can ever
+   * be used: a row without the mechanic, the feature flag or the boss flag
+   * fights as one standard fighter no matter what sub-data it carries.
+   */
+  brothers?: YokedBrothersConfig;
   /**
    * D-1 — a Feature Bout: a boss faced outside the tier ladder. Appended to the
    * roster so saves keep their ids; it is NOT a ladder rung (`fightIndex` 0), it
