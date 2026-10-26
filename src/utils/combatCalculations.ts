@@ -157,6 +157,11 @@ export function applyStaminaRegen(
  * @param currentHealth    the opponent's current HP
  * @param healthMax        the opponent's maximum HP
  * @param alreadyActivated whether rage has already activated this fight
+ * @param threshold      HP fraction at or below which rage activates, from the
+ *                       committed boss phase (`data/bossPhases.ts`). Defaults to
+ *                       the shipped 0.5, so Phase 1 and every existing caller
+ *                       are unchanged; Phase 2's AUTHORED threshold passes a
+ *                       higher fraction so the rage arrives sooner.
  * @returns true if rage should activate now (caller sets isRaged + ref)
  */
 export function shouldActivateRage(
@@ -164,12 +169,14 @@ export function shouldActivateRage(
   currentHealth: number,
   healthMax: number,
   alreadyActivated: boolean,
+  threshold: number = 0.5,
 ): boolean {
   if (alreadyActivated) return false;
   if (bossMechanic !== 'rage_mode_colossus') return false;
   if (!Number.isFinite(currentHealth) || currentHealth <= 0) return false;
   if (!Number.isFinite(healthMax) || healthMax <= 0) return false;
-  return currentHealth <= healthMax * 0.5;
+  const fraction = Number.isFinite(threshold) ? Math.max(0, Math.min(1, threshold)) : 0.5;
+  return currentHealth <= healthMax * fraction;
 }
 
 /**

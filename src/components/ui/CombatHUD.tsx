@@ -18,6 +18,8 @@ interface CombatHUDProps {
   onOpenSettings?: () => void;
   // Turn-Based Swords & Sandals Combat Props
   distance: number;
+  /** C-8.70C — the committed boss phase; the marker shows only in Phase II. */
+  bossPhase?: 1 | 2;
   isPlayerTurn: boolean;
   isExecuting: boolean;
   combatLog: CombatLogEntry[];
@@ -38,6 +40,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   onCycleCameraMode,
   onOpenSettings,
   distance,
+  bossPhase,
   isPlayerTurn,
   isExecuting,
   combatLog,
@@ -159,6 +162,14 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                 <span className="font-serif font-black tracking-wider text-[11px] sm:text-sm text-red-200 uppercase truncate">
                   {opponent.name}
                 </span>
+                {bossPhase === 2 && (
+                  <span
+                    data-testid="boss-phase-marker"
+                    className="px-1.5 py-0.5 rounded bg-red-600/25 border border-red-400/70 text-red-200 text-[10px] sm:text-xs font-mono font-bold shrink-0"
+                  >
+                    PHASE II
+                  </span>
+                )}
               </div>
               <span className="text-xs font-mono font-bold text-red-300">
                 {Math.round(opponent.health)} / {opponent.stats.healthMax}

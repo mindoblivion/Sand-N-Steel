@@ -170,6 +170,17 @@ export const CharacterTestHarness: React.FC = () => {
               <Row label="Fame Earned" value={String(duelResult.stats.fameEarned)} />
               <Row label="XP Earned" value={String(duelResult.stats.xpEarned)} />
             </div>
+            {/* C-8.70C — parity with DuelResultModal's "why you fell" block. */}
+            {!duelResult.didWin && duelResult.stats.whyYouFell && duelResult.stats.whyYouFell.length > 0 && (
+              <div
+                data-testid="harness-why-you-fell"
+                className="font-mono text-xs text-amber-200/80 text-left flex flex-col gap-1 border-t border-neutral-700 pt-2"
+              >
+                {duelResult.stats.whyYouFell.map((line, index) => (
+                  <p key={index}>{line}</p>
+                ))}
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <button
                 data-testid="harness-rematch"

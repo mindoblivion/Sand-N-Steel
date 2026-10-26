@@ -187,6 +187,12 @@ export interface DuelStatistics {
   lootDrop?: WeaponItem | ArmorItem | null;
   /** The victory purse itemised (see `utils/duelRewards.ts`); absent on a defeat. */
   goldBreakdown?: DuelGoldBreakdown;
+  /**
+   * C-8.70C — the defeat breakdown ("why you fell"), computed from the finished
+   * duel's in-memory log at result time (see `utils/duelBreakdown.ts`). Three
+   * lines at most, present only on a defeat, and never persisted to a save.
+   */
+  whyYouFell?: string[];
 }
 
 /**

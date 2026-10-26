@@ -211,6 +211,19 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
             </div>
           )}
 
+          {/* C-8.70C — "why you fell": at most three plain, factual lines from
+              the finished duel's own log. Defeat only; victory is unchanged. */}
+          {!didWin && stats.whyYouFell && stats.whyYouFell.length > 0 && (
+            <div
+              data-testid="why-you-fell"
+              className="flex flex-col gap-1 pt-1.5 mt-0.5 border-t border-neutral-800 text-neutral-300"
+            >
+              {stats.whyYouFell.map((line, index) => (
+                <p key={index}>{line}</p>
+              ))}
+            </div>
+          )}
+
           {didWin && (
             <div className={`flex flex-col gap-2 ${revealClass(stage >= 3)}`}>
               <div className="h-px bg-neutral-800 my-1"></div>
