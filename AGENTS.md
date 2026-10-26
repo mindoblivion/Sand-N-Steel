@@ -10858,3 +10858,116 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   deterministic model (container `/tmp` only, never the repo) on the C-8.85A player kit: the *formulas,
   constants and roster* are production, the *player stat block* is inherited from C-8.85A and is an
   assumption, and **no live duel was played**. **No live-duel or Android acceptance is claimed.**
+
+## Dodge/Guard resource balance resolution (Phase C-8.85C — audited, NO production change)
+
+- **Preflight (differs from the brief; preserved, not restored).** Branch `development-focus-strategy`,
+  HEAD **`f43d4206519234ea187a2c25d040b341f26c0e5d`** "Append C-8.85B record to AGENTS.md" — one commit
+  on top of the brief's expected `af0f7089ef` (C-8.85A), its parent and intact — `git status --porcelain`
+  **empty** before and after. Nothing was reset, stashed, amended, committed, pushed, merged or deployed,
+  and **no production file was edited**. This record is the phase's only change.
+
+- **Verdict: NEITHER lever can be selected. No production change was made, and the reason is arithmetic
+  rather than taste.** The dominance does not sit in Dodge's price (lever A) or in the guard's credit
+  (lever B) alone: it sits in the fact that **a reaction Guard is a net stamina SOURCE of 7.7–14.9 SP per
+  announced strike while a Dodge is a net SINK of 12**, a 20.5–28.2 SP swing per announcement against
+  which Dodge's whole damage advantage is **−0.06…2.97 HP ≈ −0.03…2.8 SP of offence**. A price is
+  non-negative and a credit reduction is at most a withdrawal, so the one admissible price band is
+  empty and the one admissible multiplier band stops short of the fix.
+
+- **The kit, and what is assumption vs production.** Every formula (`calculateAttackDamage`,
+  `calculateHitChance`, `shieldGuardStaminaGain`, `canAffordDodge`, `planDodgeReaction`,
+  `chooseAITacticalAction`, `calculateTotalStats`) and the whole roster/catalogue are production; the
+  *player stat block* is an assumption, derived by `calculateTotalStats` from one profile
+  (`baseStats` str 14 / agi 12 / sta 10 / def 10; `helm_centurion` + `chest_lorica_segmentata` +
+  `arms_manica` + `legs_greaves_bronze`) with only the weapon swapped across all 11 catalogue weapons —
+  8 opponents × light/heavy = 176 pairs, throwaway scripts in the container's `/tmp` only. Representative
+  derived kits: **gladius** block 0.82, def 47, hp 289, pool 120, regen 29.7 (**spatha** 0.85/48/304);
+  **shamshir** 0.80/45/299, regen 32.1; shield-less **sicae** 0.40/283, regen 34.5, **titan mace**
+  0.75/357, **hoplite spear** 0.45/283.
+
+- **Dodge's damage advantage per announcement** (`hit% × [guard − (1 − 0.88) × dodge]`, both through the
+  real formula on the same mitigated blow): gladius **0.27…1.85 HP**, spatha **−0.06…1.18**, shamshir
+  **0.43…2.97** — the C-8.85A "0.42–2.21" reproduced on a different kit. Shield-less it is
+  **0.69…17.76** (sicae 3.35…15.38, pugio up to 17.76), the archetype split C-8.72B intended, and it survives intact.
+
+- **The guard's credit per announcement**, measured today: **8.45–16.21 SP** (light strikes 12.25–16.21,
+  heavies 8.45–11.56 on the gladius kit). It is ≥ the entire Dodge price against **every** opponent and
+  every strike type, and it is loadout-independent — a shield-less fighter bracing at 0.40 collects the
+  same credit, which is why even the shield-less comparison does not favour Dodge once the credit is
+  counted.
+
+- **Break-even Dodge price `C* = ΔHP / HPperSP`**, where one SP is valued per pair at the player's own
+  light strike against that opponent (HP/SP **1.09–3.00** on the three shield kits, **1.09–5.22** across
+  the catalogue — *measured*, not the 1.9–3.0 first assumed): **gladius 0.20…1.70**, spatha −0.03…0.86, shamshir
+  0.16…1.62; shield-less sicae 1.06…7.67, spear 1.17…9.72, pugio up to 12.22. Subtract the credit the
+  guard would have paid and **every shield pair goes negative (−13.38…−7.20)**. That is the C-8.85B
+  "one flat price cannot serve a ~15× spread" finding, reproduced with a second, independent yardstick.
+
+- **Lever A — loadout-aware Dodge cost: REJECTED, on evidence.** Swept the shield-carrier price over
+  0/2/3/4/6/8/12 SP against all 16 shield pairs per kit: **at every price ≥ 2 SP Dodge is worth choosing
+  in 0/16 pairs**; only at 0 SP does it win, and then only if the guard's credit is ignored — 16/16 for
+  gladius and shamshir, 14/16 for spatha — and 0/16 once it is counted. So the rule that would "work" is **≈0–1.7 SP for shield carriers, 12 SP for
+  everyone else** — a free evade, which takes 12 % of the blow where the guard takes 18 %. That hands the
+  shield archetype the best block, the only stamina engine **and** the best evade, while a shield-less
+  fighter still pays 12 for the same evade: it **reverses the archetype preference** and is a new
+  exploit, not a fix. Cost-wise it is not the small lever either: `planDodgeReaction`, `canAffordDodge`,
+  `enforceAffordableAIAction` (C-8.84B's downgrade), the `DuelScene` turn-action guard (C-8.84A), the
+  `resolveReactionCue` copy, `CombatHUD` and `TurnActionPanel` all read the cost today and would each need
+  the weapon threaded in.
+
+- **Lever B — smaller guard stamina credit: REJECTED, on evidence.** Swept `SHIELD_GUARD_REGEN_MULTIPLIER`
+  0.5 → 0.4 / 0.3 / 0.2 / 0.1 / 0: the credit falls 11.0–14.1 → 8.8–11.3 → 6.6–8.5 → 4.4–5.6 → 2.2–3.0 →
+  0, and `C*` with the credit counted stays **negative at every step but the last** (−1.26…−1.91 at
+  ×0.1). At the **extreme of ×0 — a total withdrawal, beyond "modest"** — `C*` reaches only
+  **0.51…1.50 SP**, still far below 12, so **B cannot close the gap even at its limit**; a modest step
+  (×0.4) moves the swing by ≈2.8 SP per announcement, which is noise against a 20–28 SP swing. It also
+  deletes the guard's only recovery — the one credit C-8.70B §R2 and C-8.72B deliberately keep — and it
+  does not touch Guard's third advantage, the AI branch.
+
+- **Why Guard wins three ways and Dodge one (all measured).** Guard: costs 0 · credits 8–16 SP per
+  announced strike · bends `chooseAITacticalAction` branch 1 — a 2000-point sweep on all eight opponents
+  gives **P(attack) 0.50 / 0.60 / 0.75 / 0.45 / 0.85 / 0.60 / 0.90 / 0.95 → 0.45 for every one** (the
+  0.45 being a 45 % POWER attack). Dodge: passes 12 % instead of 18 % of the blow. Nothing in a
+  non-negative price or a credit trim can outweigh the first three.
+
+- **Capacity, and the paths that did not move.** Pool 120 funds **10** paid dodges at 12 (15 at 8, 20 at
+  6, 30 at 4); Guard is unbounded by construction. The affordability contract was re-driven and is
+  unchanged: 11 SP → `canAffordDodge` false / `planDodgeReaction` `refused` / AI downgrades `dodge` →
+  `shield_block`; 12 SP → `activate`, cost 12, `countsDodge`; a held stance at 0 SP → `reaffirm`, cost 0.
+  Non-strike turns never announce, so no reaction is offered and nothing can be charged for them; the
+  telegraphed heavy still resolves directly with no reaction row, so **the turn-action Dodge keeps its
+  one distinct use** — unaffected by either lever, since both would only move the reaction price or the
+  credit.
+
+- **The unresolved design decision, stated for the next phase.** *Is a reaction Guard allowed to be a net
+  stamina SOURCE of ≈8–15 SP per announced strike?* As long as it is, the credit alone exceeds the whole
+  Dodge price for **every** loadout, so no non-negative price makes Dodge competitive; and as long as the
+  price is 12, no credit reduction short of total withdrawal makes it competitive either. The two levers
+  are therefore **one joint decision**, which this phase's brief forbids combining — hence no change.
+
+- **Evidence that would resolve it.** (1) A **stated design target**: on what share of announcements each
+  stance should be the correct answer (e.g. Dodge optimal on 20–30 % for a shield build and 60–70 %
+  shield-less). Without it no price is *right* rather than merely different — every figure above is
+  comparative, not a goal. (2) **A live stamina curve**: the model assumes 12 SP ≈ 0.5–0.6 of a light
+  strike and that one regen turn (+29.7) funds about two attacks; logging real per-round SP in a device
+  duel would replace that assumption with measured data. (3) A **decision on C-8.70B §R2's intent** —
+  "raising the guard recovers nothing on its own" — versus the stopped-blow credit it kept: is that
+  credit defensive identity, or the leftover that makes Guard the arena's best stamina engine?
+
+- **Regression tests: none added, deliberately.** No production value moved, and every contract this
+  phase was asked to lock is already pinned — `phaseC8_84A`/`84B` (player and AI affordability, the
+  `shield_block` fallback), `phaseC8_84D`/`84F` (loadout-aware guard feedback), `phaseC8_83B` (free
+  reaffirm, no second charge), `defensiveBalance` §C/§D (exactly −12, one debit), `phaseC8_82b` §D
+  (Guard ≥ 0, Dodge exactly −12) and §A/§E (evade rate, damage, block mitigation, timings).
+
+- **Verified 2026-10-26** in the dev container: focused defensive set — `bun test` over `defensiveBalance`,
+  `phaseC8_82b`, `phaseC8_83B`, `phaseC8_84A`, `phaseC8_84B`, `phaseC8_84D`, `phaseC8_84F`,
+  `combatResponsiveness`, `phaseC8_75E`, `combatActionOrder`, `phaseC8_83D`, `playerStrikeWindup` →
+  **331 pass / 0 fail** (12 files, 77035 `expect()`); `bun run scripts/combatTests.ts` → **69 passed,
+  0 failed**; `bun test` (full) → **3931 pass / 0 fail (140 files)**, 50.7 s; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup asset check passing (8 assets);
+  `git diff --check` → clean. **Not verified / not attempted:** no live duel, no Android acceptance and
+  no preview interaction — every combat figure here is unit-level production helpers plus a
+  deterministic EV model (steady-state AI stance mix, light attacks every turn, no potions, one
+  attacker), and this phase rendered nothing to look at. **No live-duel or Android acceptance is claimed.**
