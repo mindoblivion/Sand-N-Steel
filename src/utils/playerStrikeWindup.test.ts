@@ -530,9 +530,9 @@ describe('§D — commit, wind-up, impact, and the single turn-end timer', () =>
   });
 
   test('the turn is still advanced exactly once, by the unchanged 1100 ms timer', () => {
-    // The 1100 ms timer, the range refusal's release and C-8.75E's affordability
-    // refusal release.
-    expect(duelSource.split('setIsPlayerTurn(').length - 1).toBe(3);
+    // The 1100 ms timer, the range refusal's release, C-8.75E's strike
+    // affordability release and C-8.84B's Dodge affordability release.
+    expect(duelSource.split('setIsPlayerTurn(').length - 1).toBe(4);
     expect(duelSource).toContain('setIsPlayerTurn(!isActorPlayer);');
     expect(duelSource).toContain('}, 1100);');
     // The opponent cannot answer before the impact: the AI effect is gated on the

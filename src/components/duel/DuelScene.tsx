@@ -648,11 +648,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // cannot do this: it clamps an unaffordable dodge to 0 SP while still handing
       // out the stance and counting the dodge. The tactic panel disables the button
       // below 12 SP, so a stale panel was the remaining way in — the same hole
-      // C-8.75E closed for strikes. Player-only in this phase: the opponent's Dodge
-      // affordability is a separate audit (`chooseAITacticalAction` still offers
-      // Dodge without a stamina test), so AI behaviour is unchanged here.
-      if (actionType === 'dodge' && isActorPlayer && !canAffordDodge(attackerNow.stamina)) {
+      // C-8.75E closed for strikes. C-8.84A wrote this guard player-only; C-8.84B
+      // extends it to the opponent, whose Dodge now answers to the same predicate at
+      // BOTH boundaries — `chooseAITacticalAction` downgrades an unaffordable Dodge at
+      // selection, and this refuses one that arrives without consulting selection.
+      if (actionType === 'dodge' && !canAffordDodge(attackerNow.stamina)) {
         addLog(`${attackerNow.name} is too winded to take an evasion stance.`, 'system');
+        // Hand the turn back the way the strike guards above do: an opponent's
+        // refused Dodge never reached `resolvingRef`, so without this the HUD would
+        // stay locked with no turn to take.
+        if (!isActorPlayer) {
+          setIsExecuting(false);
+          setIsPlayerTurn(true);
+        }
         return;
       }
 

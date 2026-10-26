@@ -16,7 +16,8 @@
  *
  * What this suite pins:
  *
- *   A  the guard's placement - player-only, before the stance pre-clear, the dodge
+ *   A  the guard's placement - both actors since C-8.84B, before the stance
+ *      pre-clear, the dodge
  *      counter and the `resolvingRef` commit
  *   B  the threshold - 0-11 refused, 12 and above accepted
  *   C  the turn action end to end - refusal leaves no stance / counter / turn, and
@@ -222,16 +223,17 @@ describe('A - the resolution refuses an unaffordable Dodge, before it mutates an
     expect(RESOLVE_CODE).not.toContain('attackerNow.stamina < DODGE_STAMINA_COST');
   });
 
-  test('the guard is player-only, so opponent Dodge behaviour is unchanged', () => {
+  test('the guard covers BOTH actors (rebased by C-8.84B, which closed the AI half)', () => {
     const guard = RESOLVE_CODE.indexOf(GUARD_TEXT);
     expect(guard).toBeGreaterThan(-1);
     const lineStart = RESOLVE_CODE.lastIndexOf('\n', guard);
     const line = RESOLVE_CODE.slice(lineStart, RESOLVE_CODE.indexOf('\n', guard));
     expect(line).toContain("actionType === 'dodge'");
-    expect(line).toContain('isActorPlayer');
-    // The AI's own selection is untouched: it still offers Dodge with no stamina
-    // test (the ROSTER asymmetry, deferred to its own phase).
-    expect(AI_SOURCE).not.toContain('canAffordDodge');
+    // C-8.84B removed the `isActorPlayer` narrowing this test used to pin, and the
+    // AI's own selection now reads the same predicate instead of waving Dodge
+    // through (see phaseC8_84B.test.ts for the AI half of the contract).
+    expect(line).not.toContain('isActorPlayer');
+    expect(AI_SOURCE).toContain('canAffordDodge');
   });
 
   test('it runs after the strike guards and before the commit', () => {

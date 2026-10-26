@@ -37,7 +37,11 @@ import {
   enforceAffordableAIAction,
 } from './aiActionSelection';
 import type { AITacticalContext } from './aiActionSelection';
-import { chooseAIStandardAction, getStaminaCost } from './combatCalculations';
+import {
+  DODGE_STAMINA_COST,
+  chooseAIStandardAction,
+  getStaminaCost,
+} from './combatCalculations';
 import { ALL_WEAPONS, getWeaponByType } from '../data/itemsDB';
 import { ALL_OPPONENTS } from '../data/opponents';
 
@@ -178,12 +182,20 @@ describe('§B — an unaffordable action is downgraded, never executed', () => {
     expect(enforceAffordableAIAction('power_attack', 0, WEAPON)).toBe('rest');
   });
 
-  test('non-strike actions are never rewritten, whatever the stamina', () => {
-    for (const action of ['shield_block', 'dodge', 'taunt', 'rest'] as const) {
+  test('the free non-strike actions are never rewritten, whatever the stamina', () => {
+    // C-8.84B rebased this list: Dodge was in it, and that was the defect — it is
+    // the one non-strike that costs stamina, so it cannot be exempt from the rule.
+    for (const action of ['shield_block', 'taunt', 'rest'] as const) {
       for (const stamina of [0, LIGHT - 1, BETWEEN, HEAVY + 40]) {
         expect(enforceAffordableAIAction(action, stamina, WEAPON)).toBe(action);
       }
     }
+    // Dodge is stamina-priced, so it is enforced like a strike: downgraded below
+    // its own cost, untouched at and above it.
+    expect(enforceAffordableAIAction('dodge', DODGE_STAMINA_COST - 1, WEAPON)).toBe(
+      'shield_block',
+    );
+    expect(enforceAffordableAIAction('dodge', DODGE_STAMINA_COST, WEAPON)).toBe('dodge');
   });
 
   test('enforcement is idempotent and draws no randomness', () => {

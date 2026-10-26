@@ -143,9 +143,23 @@ describe('§A — an out-of-range strike is refused before it costs anything', (
 describe('§B — a refused strike never holds or advances the turn', () => {
   test('the resolution timer is the only turn advance, and it is scheduled after the guard', () => {
     const toggles = duelSource.split('setIsPlayerTurn(').length - 1;
-    // The 1100 ms resolution timer, the range guard's refusal release (C-8.71A)
-    // and the affordability guard's refusal release (C-8.75E).
-    expect(toggles).toBe(3);
+    // The 1100 ms resolution timer, the range guard's refusal release (C-8.71A),
+    // the strike affordability guard's refusal release (C-8.75E) and the Dodge
+    // affordability guard's refusal release (C-8.84B, which widened that guard
+    // from the player to both actors).
+    expect(toggles).toBe(4);
+    // The fourth is the Dodge guard's, and it sits inside the refusal, before the
+    // return that ends it -- the same shape as the other two releases.
+    const dodgeRefusal = between(
+      duelSource,
+      "if (actionType === 'dodge' && !canAffordDodge(attackerNow.stamina)) {",
+      'resolvingRef.current = true;',
+    );
+    expect(dodgeRefusal).toContain('setIsPlayerTurn(true);');
+    expect(dodgeRefusal).toContain('setIsExecuting(false);');
+    expect(dodgeRefusal.indexOf('setIsPlayerTurn(true);')).toBeLessThan(
+      dodgeRefusal.lastIndexOf('return;'),
+    );
     expect(at(duelSource, guardStart)).toBeLessThan(at(duelSource, commitMarker));
   });
 

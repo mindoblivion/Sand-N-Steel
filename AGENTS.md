@@ -10445,6 +10445,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   is NOT guarded in this phase** (`chooseAITacticalAction` still offers it with no stamina test), so
   the pre-existing ROSTER asymmetry — the AI can buy the 88 % evade for less than 12 SP — remains
   open and is the next audit in this workstream.
+  **Phase C-8.84B closed it — see its section at the end of this file.**
 - **Suite: `src/utils/phaseC8_84A.test.ts`** (23 tests / 159 `expect()`) — section A the guard's
   placement (player-only, after the strike guards, before the commit, the pre-clear and the counter)
   and the branch's kept clamp; B the 0-11 / 12 / above threshold plus the non-finite case; C the turn
@@ -10465,3 +10466,58 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   proven by the suite, not by a duel. **Android check (when a device is available):** spend down
   below 12 SP, confirm the Dodge button stays disabled, and confirm no other control can raise a
   Dodge stance that was not paid for.
+
+## AI turn-action Dodge affordability (Phase C-8.84B — implemented)
+
+- **The defect, reproduced in the shipped helper before anything was edited.** The opponent's
+  in-range chain only ever compared stamina to the LIGHT attack's cost (`context.stamina < lightCost`
+  selects the low-stamina branch), so a weapon whose light strike costs less than a Dodge let the
+  opponent reach the `chooseAIStandardAction` pool with too little stamina for the stance, and that
+  pool can return `dodge`. Resolution then billed it with
+  `Math.max(0, prev.stamina - DODGE_STAMINA_COST)` — a CLAMP, which refuses nothing — and the C-8.84A
+  turn guard was narrowed to `isActorPlayer`. Measured against the shipped roster (opponents resolve
+  their weapon through `getWeaponByType`): `dual_blades` resolves to `dual_sicae_daggers`
+  (light **9**) and `spear` to `hoplite_spear` (light **11**), so **Flaccus and Ignis could draw
+  Dodge at 9, 10 and 11 SP, and Cassius and Valéria at 11 SP**, each receiving the stance, its 88 %
+  evade and a dodge for a cost they had not paid.
+- **The fix is one rule in each half of the C-8.75E contract, and nothing else moved.**
+  - SELECTION — `enforceAffordableAIAction` now answers for `dodge` too, through the C-8.84A
+    predicate: `canAffordDodge(stamina) ? 'dodge' : 'shield_block'`. It runs before the strike
+    rules, so every branch that can name a Dodge passes through it, and it draws no randomness, so
+    the probability stream cannot shift.
+  - RESOLUTION — the C-8.84A guard lost its `isActorPlayer` narrowing, so the opponent's Dodge is
+    refused at the commit boundary as well, and an opponent's refusal now hands the turn back
+    (`setIsExecuting(false); setIsPlayerTurn(true)`) exactly as the range and strike refusals do —
+    without it a refused AI action would leave the HUD locked with no turn to take.
+  - FALLBACK — an unaffordable Dodge becomes `shield_block`, not `rest`: the guard costs nothing, is
+    already an outcome of the shipped low-stamina branch (so no new kind of turn exists), keeps the
+    turn defensive, and mints no stamina the way `rest`'s +40 would. Nothing else changed — cost 12,
+    88 % evade, stance lifetime, Shield Guard, strike costs, weapon balance, opponent stats and
+    every timing constant are untouched, and the reaction path's free reaffirmation is not involved.
+- **Rebased, not weakened: four sites pinned the old contract.** `phaseC8_75E`'s "non-strike actions
+  are never rewritten" list contained `dodge` — the defect itself; it now names the three free
+  actions and pins Dodge as enforced below/at its cost. `phaseC8_84A`'s "the guard is player-only"
+  test now asserts the guard is NOT actor-narrowed and that the AI module reads `canAffordDodge`.
+  `combatActionOrder`, `playerStrikeWindup` and `playerWindupCue` each pin the count of
+  `setIsPlayerTurn(` sites; the Dodge refusal's release makes it 4, and `combatActionOrder`
+  additionally shows that fourth one sits inside the Dodge guard, before its return.
+- **Suite: `src/utils/phaseC8_84B.test.ts`** (34 tests / 74 357 `expect()`) — A the roster band
+  measured plus a pre-fix control that still selects Dodge there; B no branch and no draw selects
+  Dodge at 0-11 SP (all four weapon types × both blocking states × both health states × 201 draws)
+  including the 9/10/11 and 11 SP roster edges, every catalogue weapon and non-finite stamina;
+  C Dodge still reachable at the cost and above; D the fallback is legal, free and mints nothing
+  (the Shield Guard branch is asserted to contain no `stamina` write at all); E the shipped chain
+  equals a pre-fix replica wherever the Dodge is affordable, plus the unchanged pool thresholds;
+  F both boundaries bound to the shipped source by order; G the player's C-8.84A contract; H the
+  reaction planner and its zero-cost reaffirmation.
+- **Verified 2026-10-26** in the dev container (branch `development-focus-strategy`, base HEAD
+  `26c8ee892b`, tree clean at start): covering suites
+  (`grep -rln` over `aiActionSelection` / `DuelScene.tsx` → 35 files) → **856 pass / 0 fail**;
+  `bun run scripts/combatTests.ts` → **69 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets); `git diff
+  --check` → clean; full `bun test` → **3868 pass / 0 fail (138 files, 168 756 `expect()`)**.
+- **Not automatically verified — the behaviour in a live duel, and Android.** No scene is mounted by
+  the suite (this repo has no DOM renderer for `<DuelScene/>`) and none was driven in the arena here,
+  so this is a contract proof, not live-duel or device acceptance. Both AI defects were also closed
+  at the selection boundary only in the sense that resolution is a backstop: after this phase no
+  reachable AI path selects an unaffordable Dodge, so the resolution refusal is defence in depth.

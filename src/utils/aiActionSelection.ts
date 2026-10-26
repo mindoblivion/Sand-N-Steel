@@ -24,12 +24,27 @@
  *                consult selection (a queued counter, a telegraph landing, a
  *                stale UI) cannot resolve an unpaid strike either.
  *
+ * C-8.84B — DODGE is the one action this module used to wave through, and it now
+ * answers to the same two halves. `DODGE_STAMINA_COST` buys the evasion STANCE,
+ * but the only stamina test in the chain was the LIGHT attack's cost, so with
+ * `dual_blades` (light 9) an opponent at 9-11 SP reached the standard pool and
+ * could draw `dodge`, and with `spear` (light 11) it could at 11 SP. Resolution
+ * then billed with `Math.max(0, …)`, which clamps rather than refuses: the stance
+ * and its evade were free. Selection now downgrades an unaffordable Dodge to the
+ * existing zero-cost `shield_block`, and resolution refuses one that arrives
+ * without consulting selection. Sufficient stamina is untouched — no priority,
+ * weight, threshold or draw count moves.
+ *
  * Nothing here changes a stamina cost, a probability weight, a telegraph time,
  * a damage formula or an opponent's configured aggression/blockChance: the
  * branches keep their exact order, thresholds and draw counts.
  */
 import type { WeaponItem } from '../types/game';
-import { chooseAIStandardAction, getStaminaCost } from './combatCalculations';
+import {
+  canAffordDodge,
+  chooseAIStandardAction,
+  getStaminaCost,
+} from './combatCalculations';
 
 /** The two actions that actually spend stamina to strike. */
 export type AIAttackAction = 'quick_attack' | 'power_attack';
@@ -60,7 +75,12 @@ export function canAffordAttack(
  *   - power unaffordable, light is    → 'quick_attack' (keeps the offence, the
  *                                       aggression and the turn's shape)
  *   - neither strike affordable       → 'rest' (the existing recovery action)
- *   - any non-strike action           → unchanged (block, dodge, taunt, rest)
+ *   - Dodge unaffordable              → 'shield_block' (C-8.84B — the free guard
+ *                                       this chain's own low-stamina branch
+ *                                       already picks; it keeps the turn
+ *                                       defensive and mints no stamina the way
+ *                                       `rest`'s +40 would)
+ *   - any other action                → unchanged (block, taunt, rest)
  *
  * It never draws a random number, so applying it cannot shift the AI's
  * probability stream.
@@ -70,6 +90,10 @@ export function enforceAffordableAIAction(
   stamina: number,
   weapon: WeaponItem,
 ): AITacticalAction {
+  // C-8.84B — `DODGE_STAMINA_COST` buys the stance, so an opponent short of it
+  // must not be offered one. `shield_block` costs nothing and is already in this
+  // chain's action set (branch 2), so the downgrade adds no new kind of turn.
+  if (action === 'dodge') return canAffordDodge(stamina) ? 'dodge' : 'shield_block';
   if (action !== 'quick_attack' && action !== 'power_attack') return action;
   if (canAffordAttack(stamina, weapon, action)) return action;
   if (action === 'power_attack' && canAffordAttack(stamina, weapon, 'quick_attack')) {
@@ -106,7 +130,9 @@ export interface AITacticalContext {
  *   4. otherwise          → chooseAIStandardAction(aggression, blockChance)
  *
  * Branches 1 and 3 can name a strike the opponent cannot pay for; branch 4 can
- * too. All three now pass through `enforceAffordableAIAction`.
+ * too, and it is also the only branch that can draw a Dodge (C-8.84B), which it
+ * can now only keep when the opponent can pay for it. All three pass through
+ * `enforceAffordableAIAction`.
  */
 export function chooseAITacticalAction(
   context: AITacticalContext,
