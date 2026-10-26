@@ -5,6 +5,8 @@ import type { BeatLine, DoctoreTestRestriction } from '../../utils/storyBeats';
 import { doctoreRestrictionSpec } from '../../utils/storyBeats';
 import { getArmatura } from '../../data/armaturae';
 import { getPalma, type Palma } from '../../data/palmae';
+// C-8.70C — the grudge's two sentences, built from the generated row itself.
+import { grudgeProfileLine, grudgeStudiedLine } from '../../utils/grudgeBouts';
 
 interface PreFightModalProps {
   opponent: OpponentConfig;
@@ -77,6 +79,28 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
                 </p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* C-8.70C — A GRUDGE BOUT, in plain language: that this is a grudge,
+            what the rival studied (from his generated row), and his profile
+            before → after, in his own numbers. The evolved-trait slot ships
+            NULL (Director addendum A), so the card OMITS it: there is no row to
+            print while the slot is empty. */}
+        {opponent.grudge && (
+          <div
+            data-prefight-grudge={opponent.grudge.baseId}
+            className="bg-neutral-950 border border-rose-700/60 rounded-2xl p-4 mb-4"
+          >
+            <div className="text-[10px] font-mono uppercase tracking-wider text-rose-400 mb-1">
+              Grudge Bout
+            </div>
+            <p className="text-xs sm:text-[13px] font-serif italic text-amber-100/90 leading-relaxed">
+              {grudgeStudiedLine(opponent)}
+            </p>
+            <div className="mt-2 text-[11px] font-mono text-neutral-300">
+              {grudgeProfileLine(opponent.grudge)}
+            </div>
           </div>
         )}
 

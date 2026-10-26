@@ -328,7 +328,13 @@ describe('§H the one call site: the result transaction', () => {
     expect(write.indexOf('resolveInjuryAfterDuel(profile, didWin)')).toBeLessThan(
       write.indexOf('if (didWin) {'),
     );
-    expect(write.match(/\.\.\.afterInjury,/g)?.length).toBe(2);
+    // C-8.70C — the grudge record is composed ON TOP of the injury-resolved
+    // profile, so both writes now spread `grudgeProfile` (built from
+    // `afterInjury`) instead of `afterInjury` itself. The property this test
+    // pins — the resolution happens before the branch and feeds BOTH writes —
+    // is unchanged; the literal moved one step down the chain.
+    expect(write.match(/\.\.\.(?:afterInjury|grudgeProfile),/g)?.length).toBe(2);
+    expect(write.match(/afterInjury/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
   test('it rides the existing save — one write per outcome', () => {

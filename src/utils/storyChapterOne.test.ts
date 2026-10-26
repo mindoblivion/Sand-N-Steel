@@ -224,7 +224,12 @@ describe('P3 — the framing is two voices, never a statistic', () => {
   test('the narration block reads no opponent field, so it can print no intel', () => {
     const code = codeOf(preFightSource);
     const start = code.indexOf('data-prefight-narration');
-    const end = code.indexOf('data-prefight-restriction');
+    // C-8.70C's grudge block now sits between the narration and the Test's rule,
+    // so the narration block ends at the NEXT block marker after it, whichever
+    // that is. The property pinned — the narration reads no opponent field — is
+    // unchanged, and the intel-row count below still has to be exactly three.
+    const grudgeStart = code.indexOf('opponent.grudge', start);
+    const end = grudgeStart > start ? grudgeStart : code.indexOf('data-prefight-restriction');
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const block = code.slice(start, end);

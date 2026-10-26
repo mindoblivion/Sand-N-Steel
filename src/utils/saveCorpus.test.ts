@@ -131,6 +131,8 @@ import { resolveStableState } from './stableProgression';
 import { resolveFacilities } from './facilityProgression';
 // CH-1 — the class and the palmae, read the way a later class screen would.
 import { resolveArmatura, resolvePalmae } from './traitModifiers';
+// C-8.70C — the grudge record's lazy reader (the newest optional field).
+import { resolveGrudges } from './grudgeBouts';
 
 // ── The corpus on disk ─────────────────────────────────────────────────────
 const FIXTURE_DIR = fileURLToPath(new URL('./saveFixtures/', import.meta.url));
@@ -155,6 +157,7 @@ const REQUIRED_FIXTURE_IDS = [
   'stable-era',
   'facilities-era',
   'armatura-palmae',
+  'grudge-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -231,6 +234,8 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   // CH-1 — the class and the worn palmae, read the way a class screen would.
   const armatura = resolveArmatura(profile);
   const palmae = resolvePalmae(profile);
+  // C-8.70C — the grudge record, read the way the Colosseum tab reads it.
+  const grudges = resolveGrudges(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -255,6 +260,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     facilities,
     armatura,
     palmae,
+    grudges,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -508,6 +514,11 @@ for (const fixture of SAVE_FIXTURES) {
         absentFields += 1;
         expect(resolvePalmae(profile)).toEqual({ unlocked: [], equipped: [] });
       }
+      if (!('grudges' in raw) || raw.grudges === null) {
+        absentFields += 1;
+        // C-8.70C — a save written before the field reads as "no grudges".
+        expect(resolveGrudges(profile)).toEqual({});
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -529,6 +540,7 @@ for (const fixture of SAVE_FIXTURES) {
         'facilities',
         'armatura',
         'palmae',
+        'grudges',
       ];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
@@ -742,6 +754,20 @@ describe('GC20 §F — what each shape resolves to', () => {
     expect('palmae' in rawOf(fixtureById('current-fresh'))).toBe(false);
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('armatura');
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('palmae');
+  });
+
+  test('the C-8.70C grudge record resolves to what it stores, and no factory save carries it', () => {
+    const profile = fixtureById('grudge-era').profile;
+    // One open grudge (studied power) and one closed by a loss (studied quick).
+    expect(resolveGrudges(profile)).toEqual({
+      opp_marcus: { dominant: 'power' },
+      opp_flaccus: { dominant: 'quick', closed: true },
+    });
+
+    // Lazy: a legacy save has no grudges at all, and creation writes no field.
+    expect(resolveGrudges(fixtureById('minimal-legacy').profile)).toEqual({});
+    expect('grudges' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('grudges');
   });
 
   test('null where an object is expected resolves to both defaults', () => {
@@ -1003,6 +1029,8 @@ describe('GC20 §J — the corpus rule', () => {
       'facilities',
       'armatura',
       'palmae',
+      // C-8.70C — the grudge record, appended last in `game.ts` declaration order.
+      'grudges',
     ]);
 
     // Every optional field with a resolver has a fixture for both its absent and
@@ -1023,6 +1051,7 @@ describe('GC20 §J — the corpus rule', () => {
       'facilities',
       'armatura',
       'palmae',
+      'grudges',
     ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);

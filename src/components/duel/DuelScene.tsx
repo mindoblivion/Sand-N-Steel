@@ -155,6 +155,14 @@ import {
   notePlayerAction,
   type LongMemoryState,
 } from '../../utils/longMemory';
+// ── C-8.70C — GRUDGE BOUTS ──────────────────────────────────────────────────
+// The rematch is generated from a roster row by `utils/grudgeBouts.ts`, so this
+// scene needs nothing new to FIGHT one (its adjusted aggression/blockChance are
+// the ordinary fields the AI already reads). What it does add is the result-time
+// READ: the same D-5 live counter, summarised as quick | power | even and put on
+// the in-memory statistics object, which App persists on the first victory over a
+// regular opponent.
+import { dominantClassOfMix } from '../../utils/grudgeBouts';
 import { BrothersPair } from '../3d/BrothersPair';
 import { BeastFigure } from '../3d/BeastFigure';
 import { crowdHypeTier, detectCrowdHypeCrossing } from '../../utils/crowdHype';
@@ -969,7 +977,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // built). A strike aimed at a beast is not this bout's mix, and a block, a
       // dodge, an advance, a taunt, a rest or a net is not an offensive action at
       // all, so the counter is a count of exactly the two attacks.
-      if (longMemoryCfg && isActorPlayer && target === 'master') {
+      // C-8.70C — the counter runs in EVERY duel (it was Hermas-only). The ref
+      // costs no render, and the grudge record reads it at result time instead of
+      // counting a second time.
+      if (isActorPlayer && target === 'master') {
         commitLongMemory(notePlayerAction(longMemoryRef.current, actionType));
       }
 
@@ -2389,6 +2400,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       });
       statsRef.current.goldEarned = purse.total;
       statsRef.current.goldBreakdown = purse;
+      // C-8.70C — the player's offensive mix over this bout, READ at result time
+      // from D-5's own live counter (no second counter): only the dominant-class
+      // summary rides the in-memory statistics object, and App persists it on the
+      // first victory over a regular opponent.
+      statsRef.current.dominantOffensiveClass = dominantClassOfMix(longMemoryRef.current.mix);
       addLog(`The crowd pays out ${purse.total} gold.`, 'system');
       // D-2 — the beast flees with the result. The epilogue is computed from the
       // duel's OWN beast state and rides the in-memory statistics object; no save

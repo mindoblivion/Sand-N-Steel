@@ -14,6 +14,10 @@ import { beastIntelLine } from '../../utils/beastHunt';
 // none of this from a card.
 import { brothersIntelLine } from '../../utils/yokedBrothers';
 import { longMemoryIntelLine } from '../../utils/longMemory';
+// C-8.70C — GRUDGE BOUTS. The card is built from the resolver's own status and
+// the generated row's own numbers: no shift, purse or studied-class sentence is
+// restated here.
+import { grudgeBoutStatuses, grudgeProfileLine } from '../../utils/grudgeBouts';
 
 /** How the opponents' own weapon types read on a rumour card. Display only. */
 const WEAPON_LABELS: Record<OpponentConfig['weaponType'], string> = {
@@ -51,6 +55,12 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
     (o) => o.tier === profile.currentTier && o.featureBout !== true
   );
   const featureBouts = featureBoutStatuses(profile);
+  // C-8.70C — a rival's grudge appears in the tier it was earned (his own tier +
+  // 1) and only while the player is fighting in that tier. A settled grudge is
+  // never offered again; a closed one is listed so the player can see why not.
+  const grudgeBouts = grudgeBoutStatuses(profile).filter(
+    (status) => status.grudgeTier === profile.currentTier && !status.settled
+  );
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-12">
@@ -214,6 +224,113 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
           );
         })}
       </div>
+
+      {/* C-8.70C — GRUDGE BOUTS. A rival the player has beaten, back one tier up
+          and having studied how they won it. Every sentence and number is read
+          from the generated row (`utils/grudgeBouts.ts`): what he studied, base →
+          adjusted, and the purse (the base bounty plus the TUNING-PENDING fame
+          premium). A closed grudge is still listed, so the player can see why. */}
+      {grudgeBouts.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h3 className="text-xs font-serif uppercase tracking-widest text-rose-300">
+              Grudge Bouts
+            </h3>
+            <span className="text-[10px] font-mono text-neutral-500">
+              a rival you beat, come back having studied you
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {grudgeBouts.map((status) => (
+              <div
+                key={status.opponent.id}
+                data-grudge-bout={status.base.id}
+                data-grudge-open={status.open ? 'true' : 'false'}
+                className={`p-5 rounded-3xl border-2 shadow-xl flex flex-col justify-between transition-all ${
+                  status.open
+                    ? 'bg-gradient-to-br from-rose-950/80 to-neutral-900/90 border-rose-500/80'
+                    : 'bg-neutral-900/80 border-neutral-700/60'
+                }`}
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <span
+                      className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border ${
+                        status.open
+                          ? 'bg-rose-900 text-rose-200 border-rose-500'
+                          : 'bg-neutral-800 text-neutral-300 border-neutral-600'
+                      }`}
+                    >
+                      {status.open ? '⚔ GRUDGE' : '🔒 GRUDGE'}
+                    </span>
+                    <span className="text-xs font-mono text-neutral-400">
+                      LVL {status.opponent.recommendedLevel}
+                    </span>
+                  </div>
+
+                  <h4 className="font-serif font-black text-lg text-amber-100 mb-0.5">
+                    {status.opponent.name}
+                  </h4>
+                  <div className="text-xs text-neutral-400 font-serif italic mb-3">
+                    {status.opponent.title}
+                  </div>
+
+                  <p
+                    data-grudge-studied={status.base.id}
+                    className="text-[11px] sm:text-xs font-serif text-rose-100/90 leading-relaxed mb-2"
+                  >
+                    {status.studiedLine}
+                  </p>
+                  <div className="text-[11px] font-mono text-neutral-300 mb-3">
+                    {grudgeProfileLine(status.opponent.grudge)}
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs font-mono bg-neutral-950/80 p-2.5 rounded-xl border border-neutral-800 mb-4">
+                    <span className="text-yellow-400 font-bold">
+                      from {status.opponent.rewardGold} Gold
+                    </span>
+                    <span className="text-purple-400 font-bold">
+                      +{status.opponent.rewardFame} Fame
+                    </span>
+                    <span className="text-cyan-400 font-bold">+{status.opponent.rewardXp} XP</span>
+                  </div>
+
+                  {status.closed && (
+                    <p className="text-[11px] font-serif text-amber-200/80 leading-relaxed mb-3">
+                      Closed — he has your measure. Win any standard bout at Tier {status.grudgeTier} to reopen it.
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    onSelectOpponent(status.opponent);
+                  }}
+                  disabled={!status.open}
+                  className={`w-full min-h-[48px] py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                    !status.open
+                      ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white border border-rose-300 shadow-[0_0_20px_rgba(225,29,72,0.45)] cursor-pointer'
+                  }`}
+                >
+                  {status.open ? (
+                    <>
+                      <Swords className="w-4 h-4" />
+                      <span>Enter Grudge Bout</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      <span>Closed</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* D-1 — FEATURE BOUTS. Bosses faced OUTSIDE the ladder. Every value on
           these cards is DATA: the purse and venue come from the row, the gate's

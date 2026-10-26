@@ -513,7 +513,13 @@ describe('D-5 §I — the duel counts, reads and announces through the module', 
   test('the mix is counted from the action dispatch, for player attacks at the master', () => {
     expect(DUEL).toContain('longMemoryConfigFor(opponent)');
     expect(DUEL).toContain('commitLongMemory(notePlayerAction(longMemoryRef.current, actionType))');
-    expect(DUEL).toContain("if (longMemoryCfg && isActorPlayer && target === 'master')");
+    // C-8.70C rebased this pin, not weakened: the counter now runs in EVERY duel
+    // (the grudge record READS it at result time instead of counting a second
+    // one), so the dispatch no longer gates the count on Hermas's own config. The
+    // property this test exists to pin — exactly one count per player attack at
+    // the master, taken from the action dispatch — is unchanged.
+    expect(DUEL).toContain("if (isActorPlayer && target === 'master')");
+    expect(DUEL).not.toContain('if (longMemoryCfg && isActorPlayer');
     // No second combat log: the counter is a count, and the log is untouched.
     expect(DUEL).not.toContain('offensiveMixLog');
   });
