@@ -107,6 +107,19 @@ export const BOSS_PRESENTATION_DELTAS: Partial<
     ambientIntensity: 0.42,
     fogColor: '#e4d5b7',
   },
+  // D-4 — the Cotta brothers' state: "Two shadows on the sand where one fighter
+  // should stand." A low, hard, warm key from the SIDE (the sun is lowered and
+  // swung warm, so one long shadow per brother falls across the sand), the
+  // ambient pulled down so those shadows stay hard rather than filled in, and
+  // the haze darkened to the same hour. Property values only: no light, mesh or
+  // material is added, so the draw-call count is unchanged.
+  brothers: {
+    sunColor: '#f2b263',
+    sunIntensity: 1.62,
+    ambientColor: '#e7c9a3',
+    ambientIntensity: 0.44,
+    fogColor: '#b98d63',
+  },
   // D-3 — Gnaeus's state: "Gold under torchlight — wealth displayed as armour."
   // A warm gilt key under a lifted amber ambient, with the haze gilded to match.
   gilded: {

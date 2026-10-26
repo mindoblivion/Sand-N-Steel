@@ -1055,9 +1055,18 @@ describe('CH-3a §X — wiring', () => {
   });
 
   test('the AI branch still reads the RAW stamina costs and chooseAIStandardAction', () => {
-    expect(duel).toContain('chooseAIStandardAction(opponent.aggression, opponent.blockChance)');
-    expect(duel).toContain('const oppLightCost = getStaminaCost(opp.loadout.weapon, true);');
-    expect(duel).toContain('const oppHeavyCost = getStaminaCost(opp.loadout.weapon, false);');
+    // D-4 rebased these pins, not weakened them: the chooser now receives the
+    // pair's/panoply's LIVE values through the two named reads (a standard row
+    // passes its own exactly as before), and the costs are read off the slot's
+    // weapon — the acting brother's for the Cotta pair, the row's own otherwise.
+    expect(duel).toContain('chooseAIStandardAction(aiAggression, aiBlockChance)');
+    expect(duel).toContain(': opponent.aggression;');
+    expect(duel).toContain(': opponent.blockChance;');
+    expect(duel).toContain('const oppLightCost = getStaminaCost(slotWeapon, true);');
+    expect(duel).toContain('const oppHeavyCost = getStaminaCost(slotWeapon, false);');
+    expect(duel).toContain(
+      "brothersCfg && brothersSlotActor ? brotherWeapon(brothersCfg, brothersSlotActor) : opp.loadout.weapon;",
+    );
     expect(calc).toContain('export function chooseAIStandardAction(');
   });
 

@@ -112,6 +112,34 @@ import {
   type PanoplyState,
 } from '../../utils/panoply';
 import { bossSceneDeltas } from '../../data/bossPresentationStates';
+// D-4 — the Cotta pair. Every rule, fence and word lives in that module; this
+// scene only calls it, which is what keeps a non-pair row from ever fielding two
+// men, a second HP pool or a second result flow.
+import {
+  CROSSING_RECOVERY_WORDS,
+  CROSSING_TELEGRAPH_WORDS,
+  brotherAggression,
+  brotherBlockChance,
+  brotherPresentation,
+  brotherProfile,
+  brotherWeapon,
+  completeBrothersSlot,
+  createBrothersState,
+  crossingAnswerFor,
+  flankSide,
+  frontWithdrawalDue,
+  planBrothersSlot,
+  resolveCrossingAnswer,
+  survivorDamageMult,
+  withdrawFront,
+  yokedBrothersConfigFor,
+  type BrothersDuelState,
+  type BrothersRole,
+  type BrothersSlotKind,
+  type BrothersStage,
+  type CrossingAnswer,
+} from '../../utils/yokedBrothers';
+import { BrothersPair } from '../3d/BrothersPair';
 import { BeastFigure } from '../3d/BeastFigure';
 import { crowdHypeTier, detectCrowdHypeCrossing } from '../../utils/crowdHype';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
@@ -229,6 +257,14 @@ const TURN_RESOLUTION_MS: Record<CombatActionType, number> = {
    * own weight. Pacing only — no rule reads this number.
    */
   beast_crouch: 1000,
+  /**
+   * D-4 — the Cotta pair's Exposed recovery. AUTHORED pacing: the pair has
+   * overreached and the player is handed a free tempo beat, so it takes the same
+   * read weight as the beast's crouch (1000 ms) rather than a utility beat's 800
+   * — long enough for "they've overreached" to land. Pacing only; the recovery
+   * resolves nothing and no rule reads this number.
+   */
+  brothers_recovery: 1000,
 };
 
 /** A turn that leaves a fighter at 0 health holds this long, whatever it was. */
@@ -681,6 +717,29 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     setPanoply(next);
   }, []);
 
+  // ── D-4 — THE COTTA BROTHERS (Lucius & Gaius) ─────────────────────────────
+  // Same fence, same shape as D-2/D-3: the config is `null` for every opponent
+  // that is not a `yoked_brothers` Feature Bout, so neither a second model nor a
+  // Crossing can exist in any other duel. The state is duel-session only — a ref
+  // for the rules, React state for what the HUD draws — and never a save field.
+  const brothersCfg = useMemo(() => yokedBrothersConfigFor(opponent), [opponent]);
+  const [brothers, setBrothers] = useState<BrothersDuelState>(() => createBrothersState());
+  const brothersRef = useRef<BrothersDuelState>(brothers);
+  const commitBrothers = useCallback((next: BrothersDuelState) => {
+    brothersRef.current = next;
+    setBrothers(next);
+  }, []);
+  // Which brother leads the resolution in flight (read-and-cleared at the top of
+  // executeCombatTurn, like every other resolution marker).
+  const brothersActorRef = useRef<BrothersRole | null>(null);
+  // This resolution is the Crossing's telegraphed heavy (the front's).
+  const crossingHeavyRef = useRef(false);
+  // What the player answered it with, recorded during the resolution and read at
+  // exchange end.
+  const crossingAnswerRef = useRef<CrossingAnswer | null>(null);
+  // The rear brother's flank strike is queued and takes the pair's next slot.
+  const flankStrikeRef = useRef(false);
+
   // Shared impact feedback (the hit-stop clock and the shake energy) — see the
   // tables at the top of this file. Written once per hit resolution and read
   // every frame by the camera rig and both GladiatorMesh instances, so the
@@ -948,6 +1007,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         panoplyRef.current.vainheartArmedAttacks > 0;
       if (isVainheartAttack) commitPanoply(consumeVainheartAttack(panoplyRef.current).state);
 
+      // ── D-4 — WHICH BROTHER THREW THIS BLOW ─────────────────────────────
+      // Read-and-cleared exactly like the beast's pounce marker: the pair's slot
+      // planner names the brother before dispatch, and the resolution below uses
+      // HIS published weapon for reach, stamina and base damage. A standard
+      // opponent never sets the marker, so nothing changes for it.
+      const brothersActor = !isActorPlayer && brothersCfg ? brothersActorRef.current : null;
+      if (!isActorPlayer) brothersActorRef.current = null;
+      const isCrossingHeavy = !isActorPlayer && crossingHeavyRef.current;
+      crossingHeavyRef.current = false;
+      const isFlankStrike = !isActorPlayer && flankStrikeRef.current;
+      flankStrikeRef.current = false;
+
       const attacker = isActorPlayer ? player : opp;
       const defender = isActorPlayer ? opp : player;
       // CH-3a — the two blocks every stage below reads, resolved for this turn's
@@ -982,7 +1053,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }
 
       const dist = Math.abs(player.position[2] - opp.position[2]);
-      const effectiveRange = getWeaponRange(attacker.loadout.weapon);
+      // D-4 — a brother strikes with the weapon HIS half of the pair carries;
+      // every other fighter strikes with the weapon on its own roster row.
+      const brothersWeapon =
+        brothersActor && brothersCfg ? brotherWeapon(brothersCfg, brothersActor) : null;
+      const attackerWeapon = brothersWeapon ?? attacker.loadout.weapon;
+      const effectiveRange = getWeaponRange(attackerWeapon);
 
       // 1. MOVEMENT ACTIONS
       if (actionType === 'advance') {
@@ -1128,8 +1204,22 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           );
           commitFalseTelegraph(begun.state);
         }
-        setOpp((prev) => ({ ...prev, telegraphText: 'HEAVY ATTACK INCOMING' }));
-        addLog(`${attacker.name} winds up a devastating overhead smash!`, 'opponent');
+        // D-4 — the Cotta pair's Crossing is announced with the pair's own
+        // banner: the front brother's heavy is the trap, and naming it as a
+        // crossing is what makes the rear's flank the second half of one tell.
+        setOpp((prev) => ({
+          ...prev,
+          telegraphText: brothersCfg ? CROSSING_TELEGRAPH_WORDS : 'HEAVY ATTACK INCOMING',
+        }));
+        addLog(
+          brothersCfg
+            ? `The brothers cross — ${brotherProfile(brothersCfg, 'front').name} winds up while ${brotherProfile(
+                brothersCfg,
+                'rear',
+              ).name} circles to the flank!`
+            : `${attacker.name} winds up a devastating overhead smash!`,
+          'opponent',
+        );
         spawnDamageText('\u26A0 HEAVY!', 'crit', attacker.position);
         // CH-4 — Pit Bellower: the bellow behind the wind-up also drains stamina
         // (floored at 0). Palmae ADD to the mechanic — the announce, the pending
@@ -1242,6 +1332,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         spawnDamageText('THE BEAST CROUCHES', 'dodge', opp.position);
       }
 
+      // 2d-bis. D-4 — THE EXPOSED RECOVERY (the Cotta pair; boss-only, fenced)
+      // The pair overreached on a dodged Crossing, so this slot is a recovery and
+      // not an attack: nothing is resolved — no hit roll, no damage, no stamina —
+      // and the player's turn comes straight back. The Exposed words themselves
+      // were written where the dodge was read.
+      else if (actionType === 'brothers_recovery' && brothersCfg) {
+        sounds.playDodge();
+        setOpp((prev) => ({ ...prev, action: 'idle', telegraphText: undefined }));
+        addLog(CROSSING_RECOVERY_WORDS, 'system');
+      }
+
       // 2e. BEAST HUNT — STRIKING THE CROUCHING BEAST (Marcellin's Ferrum only)
       // The attack action with the other target. It rides the SAME hit formula a
       // strike at a fighter rides — the beast's own row agility as the defender —
@@ -1306,7 +1407,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         // CH-3a weapon stage — the block's staminaCostMult (a POWER-attack
         // discount: secutor 0.85, Heavy Hand 0.90). No multiplier = the base cost.
         const staminaCost = staminaCostWithModifiers(
-          getStaminaCost(attacker.loadout.weapon, isQuick),
+          getStaminaCost(attackerWeapon, isQuick),
           isQuick,
           attackerMods,
         );
@@ -1328,7 +1429,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
         // D-2 — who the blow is named after in the log. The beast's pounce rides
         // this same branch; only the name and the numbers below differ.
-        const attackerLabel = isBeastPounce && beastCfg ? beastCfg.name : attacker.name;
+        const attackerLabel =
+          isBeastPounce && beastCfg
+            ? beastCfg.name
+            : brothersActor && brothersCfg
+            ? brotherProfile(brothersCfg, brothersActor).name
+            : attacker.name;
         // D-2 — the agility this blow rolls against: the beast's own row value for
         // a pounce, the fighter's modified agility otherwise.
         const strikeAgility =
@@ -1341,6 +1447,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           sounds.playSlash();
           addLog(`${attackerLabel} strikes with ${isQuick ? 'Quick Slash' : 'Power Slash'}, but is OUT OF RANGE!`, 'system');
           spawnDamageText('OUT OF RANGE!', 'blocked', defender.position);
+          // D-4 — a Crossing that never reached him is still spent: the exchange
+          // resolves as an open answer, so the pair's trap closes cleanly instead
+          // of leaving `announced` standing for the rest of the fight.
+          if (isCrossingHeavy) crossingAnswerRef.current = 'open';
           if (isActorPlayer) notePlayerStrike('missed_out_of_reach');
         } else {
           // Check Evasion / Hit Probability
@@ -1364,6 +1474,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // would always be false — the dodger's action is reset to 'idle'
           // before the opposing turn begins.
           const isEvaded = defender.isInvulnerable && Math.random() < 0.75;
+
+          // ── D-4 — WHAT THE PLAYER ANSWERED THE CROSSING WITH ────────────────
+          // Read off the stances the front heavy actually met: the evasion stance
+          // (which also carries the 75% roll above) takes BOTH blades, a shield
+          // stops only the front one, and neither sends the flank through the
+          // standard pipeline. Recorded here, resolved at exchange end.
+          if (isCrossingHeavy) {
+            crossingAnswerRef.current = crossingAnswerFor({
+              playerInDodge: defender.isInvulnerable,
+              frontBlocked: defender.isBlocking,
+            });
+          }
 
           // Passive evasion (Valéria counter_dodge): when the player
           // attacks a counter_dodge boss who is NOT in an active
@@ -1419,8 +1541,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               isBeastPounce && beastCfg
                 ? beastCfg.pounceDamage
                 : isQuick
-                ? attacker.loadout.weapon.damageLight
-                : attacker.loadout.weapon.damageHeavy;
+                ? attackerWeapon.damageLight
+                : attackerWeapon.damageHeavy;
             // CH-3a hit stage — 0.25 + critChanceAdd, clamped ≤ 0.60. With no
             // crit-chance palma the value IS 0.25, so the draw is unchanged.
             // CH-3b — the net's +0.25 rider is folded into that SAME critChanceAdd
@@ -1470,7 +1592,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               // D-3 — Gnaeus's Vainheart: one of the two attacks a break armed.
               * (isVainheartAttack && panoplyCfg ? panoplyCfg.vainheartDamageMult : 1)
               // D-3 — the pauldron's gilt plate: what HE takes, while it shines.
-              * (panoplyCfg && isActorPlayer ? panoplyDamageTakenMult(panoplyCfg, panoplyRef.current) : 1);
+              * (panoplyCfg && isActorPlayer ? panoplyDamageTakenMult(panoplyCfg, panoplyRef.current) : 1)
+              // D-4 — the survivor's Oath: once one brother is down, every blow
+              // the remaining one lands carries the pair's +15 %.
+              * (brothersCfg && !isActorPlayer ? survivorDamageMult(brothersCfg, brothersRef.current) : 1);
             const rawDamage = calculateAttackDamage(
               baseDmg,
               // D-2 — the pounce's strength is the beast's row value; every other
@@ -1799,12 +1924,46 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         setIsExecuting(false);
         setResolvedActionCount((count) => count + 1);
 
+        // ── D-4 — THE EXCHANGE ENDS (the Crossing resolves here) ────────────
+        // A dodge auto-misses the rear's flank and leaves the pair EXPOSED (their
+        // next action is the recovery, said once); a block or an open answer
+        // queues the flank strike through the standard quick-attack pipeline. The
+        // flank takes the pair's NEXT slot, so the turn is not handed back until
+        // it has landed.
+        let flankPending = false;
+        if (brothersCfg && !isActorPlayer) {
+          if (isFlankStrike) {
+            // The flank was the exchange's last strike; the Crossing's leader led
+            // the slot, so the next ordinary slot belongs to the rear brother.
+            commitBrothers(completeBrothersSlot(brothersRef.current, 'front'));
+          } else {
+            const answer = crossingAnswerRef.current;
+            if (answer) {
+              crossingAnswerRef.current = null;
+              const resolved = resolveCrossingAnswer(brothersRef.current, answer);
+              commitBrothers(resolved.state);
+              if (resolved.words) addLog(resolved.words, 'crit');
+              if (resolved.flank === 'resolves') {
+                flankPending = true;
+                flankStrikeRef.current = true;
+              } else {
+                spawnDamageText('EXPOSED!', 'dodge', opp.position);
+              }
+            }
+            if (!flankPending) {
+              commitBrothers(completeBrothersSlot(brothersRef.current, brothersActor ?? 'front'));
+            }
+          }
+        }
+
         // Check match end
         if (opp.health <= 0 || player.health <= 0) {
           return;
         }
 
         // Toggle turn — a completed opponent action opens the player's next turn.
+        // D-4 — the pair's flank strike is still coming, so the pair keeps it.
+        if (flankPending) return;
         if (!isActorPlayer) setPlayerTurnCount((count) => count + 1);
         setIsPlayerTurn(!isActorPlayer);
       }, turnResolutionMs(actionType, fightEnded));
@@ -1822,6 +1981,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       commitFalseTelegraph,
       panoplyCfg,
       commitPanoply,
+      brothersCfg,
+      commitBrothers,
     ]
   );
 
@@ -1838,9 +1999,67 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     const aiTimer = setTimeout(() => {
       telegraphAftermathRef.current = false;
       const dist = Math.abs(player.position[2] - opp.position[2]);
-      const effectiveRange = getWeaponRange(opp.loadout.weapon);
-      const oppLightCost = getStaminaCost(opp.loadout.weapon, true);
-      const oppHeavyCost = getStaminaCost(opp.loadout.weapon, false);
+
+      // ── D-4 — THE COTTA PAIR'S SLOT, PLANNED ONCE ────────────────────────
+      // One slot, planned in the pure module: alternation, the Crossing's
+      // cadence, the Exposed recovery. The callback runs exactly once per turn
+      // (the effect clears and reschedules this timer on every re-render), so the
+      // pair's slot counter cannot double-count.
+      let brothersPlan: BrothersSlotKind | null = null;
+      let brothersSlotActor: BrothersRole | null = null;
+      // The flank strike is part of the Crossing's OWN exchange, not a slot of its
+      // own, so it must not advance the pair's cadence counter (or plan a second
+      // Crossing on top of the one it is finishing).
+      if (brothersCfg && !flankStrikeRef.current) {
+        const planned = planBrothersSlot(brothersRef.current, brothersCfg, {
+          frontEntangled: isEntangled(opp.entangledTurns),
+          pendingHeavy: pendingHeavyAttackRef.current,
+          inRange: dist <= getWeaponRange(brotherWeapon(brothersCfg, 'front')),
+        });
+        commitBrothers(planned.state);
+        brothersPlan = planned.plan;
+        brothersSlotActor = planned.actor;
+        brothersActorRef.current = planned.actor;
+      }
+
+      // D-4 — the slot's weapon is the ACTING brother's published one: reach,
+      // stamina and base damage all follow the man who is fighting.
+      const slotWeapon =
+        brothersCfg && brothersSlotActor ? brotherWeapon(brothersCfg, brothersSlotActor) : opp.loadout.weapon;
+      const effectiveRange = getWeaponRange(slotWeapon);
+      const oppLightCost = getStaminaCost(slotWeapon, true);
+      const oppHeavyCost = getStaminaCost(slotWeapon, false);
+
+      // ── D-4 — THE PAIR'S FOUR SLOT KINDS ─────────────────────────────────
+      if (brothersCfg) {
+        // The rear brother's flank strike: the trap's second blade, answered by
+        // the SAME quick-attack pipeline (range, hit roll, block, damage), with
+        // Gaius's published weapon read at the resolution.
+        if (flankStrikeRef.current) {
+          brothersActorRef.current = 'rear';
+          executeCombatTurn('opponent', 'quick_attack');
+          return;
+        }
+        if (brothersPlan === 'crossing-resolution') {
+          pendingHeavyAttackRef.current = false;
+          setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+          telegraphLandingRef.current = true;
+          telegraphAftermathRef.current = true;
+          crossingHeavyRef.current = true;
+          brothersActorRef.current = 'front';
+          executeCombatTurn('opponent', 'power_attack');
+          return;
+        }
+        if (brothersPlan === 'crossing') {
+          brothersActorRef.current = 'front';
+          executeCombatTurn('opponent', 'telegraph');
+          return;
+        }
+        if (brothersPlan === 'recovery') {
+          executeCombatTurn('opponent', 'brothers_recovery');
+          return;
+        }
+      }
 
       // Resolve pending heavy-attack telegraph (Goliath). The attack
       // was announced on the previous AI turn; the player has since
@@ -1944,12 +2163,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // facing's guard while it shines, and Humiliated's permanent shift once
       // every piece is broken. Every other opponent reads its row values exactly
       // as the shipped call below has always read them.
-      const aiAggression = panoplyCfg
-        ? panoplyAggression(opponent.aggression, panoplyCfg, panoplyRef.current)
-        : opponent.aggression;
-      const aiBlockChance = panoplyCfg
-        ? panoplyBlockChance(opponent.blockChance, panoplyCfg, panoplyRef.current)
-        : opponent.blockChance;
+      // D-4 — a brother chooses with HIS published aggression and blockChance
+      // (plus the Oath's shift once he is the survivor); every other row reads
+      // its own values exactly as it always has.
+      const aiAggression =
+        brothersCfg && brothersSlotActor
+          ? brotherAggression(brothersCfg, brothersRef.current, brothersSlotActor)
+          : panoplyCfg
+          ? panoplyAggression(opponent.aggression, panoplyCfg, panoplyRef.current)
+          : opponent.aggression;
+      const aiBlockChance =
+        brothersCfg && brothersSlotActor
+          ? brotherBlockChance(brothersCfg, brothersSlotActor)
+          : panoplyCfg
+          ? panoplyBlockChance(opponent.blockChance, panoplyCfg, panoplyRef.current)
+          : opponent.blockChance;
 
       let chosenAction: CombatActionType = 'quick_attack';
 
@@ -2046,6 +2274,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     addLog,
     falseTelegraphCfg,
     panoplyCfg,
+    brothersCfg,
+    commitBrothers,
   ]);
 
   // Check victory / defeat conditions
@@ -2201,6 +2431,65 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     spawnDamageText,
   ]);
 
+  // ── D-4 — THE WITHDRAWAL AND THE OATH ────────────────────────────────────
+  // The front brother's share is the pair's pool above the withdrawal line, so
+  // the moment the pool crosses it the attendants take him: the survivor gains
+  // the Oath's damage and aggression, the Crossing never fires again, and both
+  // announcements are one-shot (the pair state's own flags are the guard, so a
+  // second render cannot say either line twice).
+  useEffect(() => {
+    if (!brothersCfg || isMatchOver.current) return;
+    if (!frontWithdrawalDue(brothersRef.current, opp.health, opp.stats.healthMax, brothersCfg)) {
+      return;
+    }
+    const withdrawn = withdrawFront(brothersRef.current, brothersCfg);
+    commitBrothers(withdrawn.state);
+    if (withdrawn.words) addLog(withdrawn.words, 'system');
+    if (withdrawn.oathWords) {
+      addLog(withdrawn.oathWords, 'crit');
+      spawnDamageText('THE OATH', 'crit', opp.position);
+      sounds.playCrowdSwell();
+    }
+  }, [
+    opp.health,
+    opp.stats.healthMax,
+    opp.position,
+    brothersCfg,
+    addLog,
+    spawnDamageText,
+    commitBrothers,
+  ]);
+
+  // ── D-4 — the two men, as the meshes see them ────────────────────────────
+  // Each model carries HIS own name and weapon; the brother holding the fighting
+  // line plays the action the duel resolved, the other idles. Both are the
+  // existing `GladiatorMesh` — no new renderer, material or animation system.
+  const brothersStage = brothersCfg ? brotherPresentation(brothers) : null;
+  const brotherModels =
+    brothersCfg && brothersStage
+      ? {
+          front: {
+            ...opp,
+            id: `${opp.id}-front`,
+            name: brotherProfile(brothersCfg, 'front').name,
+            characterModel: 'roman_warrior' as const,
+            loadout: { weapon: brotherWeapon(brothersCfg, 'front') },
+            action: brothers.acting === 'front' ? opp.action : ('idle' as const),
+          } as FighterState,
+          rear: {
+            ...opp,
+            id: `${opp.id}-rear`,
+            name: brotherProfile(brothersCfg, 'rear').name,
+            characterModel: 'dimachaerus' as const,
+            loadout: { weapon: brotherWeapon(brothersCfg, 'rear') },
+            action: brothers.acting === 'rear' ? opp.action : ('idle' as const),
+          } as FighterState,
+          fighting: [opp.position[0], 0, opp.position[2]] as [number, number, number],
+          station: [opp.position[0] - 1.1, 0, opp.position[2] - 1.05] as [number, number, number],
+          flank: [flankSide(isLeftyMode) * 2.3, 0, opp.position[2] + 1.4] as [number, number, number],
+        }
+      : null;
+
   return (
     <div className="relative w-full h-full min-h-[100dvh] bg-neutral-950 overflow-hidden select-none">
       {/* 3D WEBGL DUEL CANVAS WRAPPED IN ERROR BOUNDARY & READY GUARD */}
@@ -2253,7 +2542,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               <DuelArena
                 crowdPulseRef={crowdPulseRef}
                 bannerAllegiance={
-                  panoplyCfg ? (panoply.humiliated ? 'player' : 'gilded') : undefined
+                  brothersCfg
+                    ? 'brothers'
+                    : panoplyCfg
+                    ? panoply.humiliated
+                      ? 'player'
+                      : 'gilded'
+                    : undefined
                 }
               />
             </ThreeComponentErrorBoundary>
@@ -2269,14 +2564,41 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 {/* D-3 — the feet-tell: only Varro's announcer sets it, only
                     while his wind-up is live; `undefined` leaves the model
                     exactly as it has always been. */}
-                <GladiatorMesh
-                  fighter={opp}
-                  impactRef={impactRef}
-                  feetTell={falseTelegraph.tell ?? undefined}
-                  telegraphGlow={
-                    Boolean(opp.telegraphText) && bossPresentsMoment(opponent, 'heavy_telegraph')
-                  }
-                />
+                {/* D-4 — the Cotta pair: ONE row, two models. The front brother
+                    (Lucius, sword & shield) and the rear (Gaius, twin blades)
+                    swap the fighting line as the alternation hands it over, and
+                    the rear traverses to the flank when the Crossing is called.
+                    Every other duel mounts the single opponent mesh below. */}
+                {brotherModels && brothersStage ? (
+                  <BrothersPair
+                    front={brotherModels.front}
+                    rear={brotherModels.rear}
+                    frontTarget={
+                      brothersStage.front === 'fighting'
+                        ? brotherModels.fighting
+                        : brotherModels.station
+                    }
+                    rearTarget={
+                      brothersStage.rear === 'flank'
+                        ? brotherModels.flank
+                        : brothersStage.rear === 'fighting'
+                        ? brotherModels.fighting
+                        : brotherModels.station
+                    }
+                    frontVisible={brothersStage.front !== 'withdrawn'}
+                    frontGlows={brothers.crossing === 'announced' && Boolean(opp.telegraphText)}
+                    impactRef={impactRef}
+                  />
+                ) : (
+                  <GladiatorMesh
+                    fighter={opp}
+                    impactRef={impactRef}
+                    feetTell={falseTelegraph.tell ?? undefined}
+                    telegraphGlow={
+                      Boolean(opp.telegraphText) && bossPresentsMoment(opponent, 'heavy_telegraph')
+                    }
+                  />
+                )}
                 {/* D-2 — Ferrum. Rendered only for a bout the fence admits, and
                     not after it has fled. There is no animal in the asset set, so
                     this is the simplest era-honest stand-in: a low-poly lion built
@@ -2339,6 +2661,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 maxWounds: beastCfg.maxWounds,
                 agility: beastCfg.agility,
                 targetable: beast.pose === 'crouch',
+              }
+            : null
+        }
+        brothers={
+          brothersCfg
+            ? {
+                frontName: brotherProfile(brothersCfg, 'front').name,
+                rearName: brotherProfile(brothersCfg, 'rear').name,
+                activeName: brotherProfile(brothersCfg, brothers.acting).name,
+                phase: brothers.phase,
+                survivorName: brothers.survivor
+                  ? brotherProfile(brothersCfg, brothers.survivor).name
+                  : null,
+                crossing: brothers.crossing,
+                oath: brothers.oathAnnounced,
               }
             : null
         }

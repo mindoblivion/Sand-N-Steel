@@ -61,6 +61,8 @@ const ACTION_TYPES: CombatActionType[] = [
   'cast_net',
   // D-2 — the beast's crouch (a beast-hunt boss action that resolves nothing).
   'beast_crouch',
+  // D-4 — the Cotta pair's Exposed recovery (also resolves nothing).
+  'brothers_recovery',
 ];
 
 /**
@@ -83,6 +85,9 @@ const DESIGN_MS: Record<CombatActionType, number> = {
   cast_net: 880,
   // D-2 — a read, not a resolution: between the quick weight and the wind-up.
   beast_crouch: 1000,
+  // D-4 — AUTHORED pacing: the pair's Exposed recovery is a read, so it takes the
+  // same weight as the beast's crouch.
+  brothers_recovery: 1000,
 };
 
 const DEATH_MS = 1600;
@@ -105,7 +110,8 @@ describe('CF-5 §A the duration table', () => {
     // no `undefined` can reach `setTimeout` even for an action the design never
     // weighted (the net throw, which took the quick weight by Director ruling).
     // 10 through CH-3b's net throw; D-2's `beast_crouch` is the eleventh.
-    expect(ACTION_TYPES.length).toBe(11);
+    // 11 through D-2's `beast_crouch`; D-4's `brothers_recovery` is the twelfth.
+    expect(ACTION_TYPES.length).toBe(12);
     for (const actionType of ACTION_TYPES) {
       const ms = turnResolutionMs(actionType);
       expect(Number.isFinite(ms)).toBe(true);
@@ -203,13 +209,19 @@ describe('CF-5 §B the AI delay', () => {
     // D-3 rebased this count, not weakened it: Varro's false telegraph resolves
     // from its own branch in the same AI effect, and it too has just spent a
     // full telegraph turn, so it takes the same longer beat.
-    expect(duel.match(/telegraphAftermathRef\.current = true;/g)?.length).toBe(2);
+    // D-4 rebased this count, not weakened it: the Cotta pair's Crossing heavy is
+    // announced and resolved from its own branch in the same AI effect, and it has
+    // just spent the same full telegraph turn, so it takes the same longer beat.
+    expect(duel.match(/telegraphAftermathRef\.current = true;/g)?.length).toBe(3);
     const falseTelegraph = duel.indexOf("opponent.bossMechanic === 'false_telegraph' && pendingHeavyAttackRef.current");
-    const falseSet = duel.indexOf('telegraphAftermathRef.current = true;');
+    // D-4 — each resolution marker is asserted INSIDE its own branch, since the
+    // Cotta pair's branch now precedes Varro's in the same effect.
+    const falseSet = duel.indexOf('telegraphAftermathRef.current = true;', falseTelegraph);
     expect(falseTelegraph).toBeGreaterThan(-1);
     expect(falseSet).toBeGreaterThan(falseTelegraph);
-    const set = duel.indexOf('telegraphAftermathRef.current = true;');
-    const landing = duel.indexOf('telegraphLandingRef.current = true;');
+    const heavy = duel.indexOf("opponent.bossMechanic === 'heavy_telegraph' && pendingHeavyAttackRef.current");
+    const set = duel.indexOf('telegraphAftermathRef.current = true;', heavy);
+    const landing = duel.indexOf('telegraphLandingRef.current = true;', heavy);
     // Set on the same resolution that takes the long hit-stop, one line after it.
     expect(set).toBeGreaterThan(landing);
     expect(set - landing).toBeLessThan(400);

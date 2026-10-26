@@ -497,8 +497,12 @@ describe('CF-6 §C — the telegraph glow', () => {
     // telegraph site is the ONLY writer of that field.
     const clears = DUEL_SCENE.match(/telegraphText: undefined/g) ?? [];
     expect(clears.length).toBeGreaterThanOrEqual(3);
-    const sets = DUEL_SCENE.match(/telegraphText: 'HEAVY ATTACK INCOMING'/g) ?? [];
-    expect(sets).toHaveLength(1);
+    // D-4 rebased this pin, not weakened it: the announce now chooses its banner
+    // (the Cotta pair's Crossing has its own), so the standard line is asserted
+    // as the ternary's other arm and the crossing line as a module constant —
+    // exactly one standard banner and one crossing banner exist.
+    expect(DUEL_SCENE.match(/'HEAVY ATTACK INCOMING'/g) ?? []).toHaveLength(1);
+    expect(DUEL_SCENE).toContain("telegraphText: brothersCfg ? CROSSING_TELEGRAPH_WORDS : 'HEAVY ATTACK INCOMING'");
     // The emissive mode falls back to resting (0) the moment the prop is false.
     expect(GLADIATOR_MESH).toContain('const emissiveMode = isHit ? 2 : isTelegraphing ? 1 : 0;');
     expect(GLADIATOR_MESH).toContain('HIT_FLASH_RESET_COLOR');

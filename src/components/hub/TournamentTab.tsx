@@ -9,6 +9,10 @@ import { PrimusPalusBoard } from './PrimusPalusBoard';
 // dossier below is READ from OpponentConfig; intel changes nothing a fight computes.
 import { hasIntel } from '../../utils/intel';
 import { beastIntelLine } from '../../utils/beastHunt';
+// D-4 — the Cotta pair's published numbers, built from the row by the pair's own
+// module, so no figure is restated here. Rumour depth only: the fight computes
+// none of this from a card.
+import { brothersIntelLine } from '../../utils/yokedBrothers';
 
 /** How the opponents' own weapon types read on a rumour card. Display only. */
 const WEAPON_LABELS: Record<OpponentConfig['weaponType'], string> = {
@@ -135,6 +139,14 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
                         className="mt-1 text-[11px] font-mono text-amber-200"
                       >
                         {beastIntelLine(opp.beast)}
+                      </div>
+                    )}
+                    {opp.brothers && (
+                      <div
+                        data-brothers-intel={opp.id}
+                        className="mt-1 text-[11px] font-mono text-amber-200"
+                      >
+                        {brothersIntelLine(opp.brothers)}
                       </div>
                     )}
                   </div>

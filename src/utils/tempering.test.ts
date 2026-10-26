@@ -470,7 +470,12 @@ describe('P1 §F — the duel reads the effective weapon', () => {
   });
 
   test('attack resolution still reads the fighter loadout, so the tempered damage is what lands', () => {
-    expect(duelSource).toContain('attacker.loadout.weapon.damageLight');
-    expect(duelSource).toContain('attacker.loadout.weapon.damageHeavy');
+    // D-4 rebased this pin, not weakened it: the resolution reads ONE variable,
+    // `attackerWeapon`, which is the fighter's own loadout weapon for every
+    // fighter except the Cotta pair (whose acting brother carries his own). The
+    // player's tempered weapon still reaches the damage through that variable.
+    expect(duelSource).toContain('const attackerWeapon = brothersWeapon ?? attacker.loadout.weapon;');
+    expect(duelSource).toContain('? attackerWeapon.damageLight');
+    expect(duelSource).toContain(': attackerWeapon.damageHeavy');
   });
 });

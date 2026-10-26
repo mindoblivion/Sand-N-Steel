@@ -802,6 +802,32 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardFame: 55,
     rewardXp: 170,
     bossMechanic: 'yoked_brothers',
+    // ── D-4 — THE PAIR, AND EVERY NUMBER BELOW IS AUTHORED ──────────────────
+    // boss-rosters.md Part A fixes the RULE (front/rear, a Crossing every fourth
+    // boss action, the withdrawal at half the pair, the survivor's Oath) and the
+    // names Lucius (murmillo) / Gaius (dimachaerus); it prices none of them, so
+    // each value here is authored against this row's own band (aggression 0.80,
+    // blockChance 0.35, 110 stamina, 195 HP) and its card line.
+    //   • front — Lucius, sword & shield: the man who holds the line. Aggression
+    //     0.72 and block 0.50 (the murmillo's shield) sit either side of the
+    //     pair's 0.80 / 0.35 aggregate; his weapon resolves through
+    //     `getWeaponByType('sword_shield')` — the standard gladius & scutum.
+    //   • rear — Gaius, twin blades: the man who circles. Aggression 0.88 and
+    //     block 0.20 (no shield to hide behind) are the pair's other half; his
+    //     weapon resolves to the curved Thracian sicae.
+    //   • crossingEveryNthAction 4 — Part A's "every fourth exchange".
+    //   • survivorDamageMult 1.15 / survivorAggressionBonus 0.10 — Part A's
+    //     "+15% damage, +0.10 aggression" for the survivor.
+    //   • withdrawalAtHealthFraction 0.5 — Part A's "when the pair's HP crosses
+    //     50%": the front brother's share is the pool above the line.
+    brothers: {
+      front: { name: 'Lucius', weaponType: 'sword_shield', aggression: 0.72, blockChance: 0.5 },
+      rear: { name: 'Gaius', weaponType: 'dual_blades', aggression: 0.88, blockChance: 0.2 },
+      crossingEveryNthAction: 4,
+      survivorDamageMult: 1.15,
+      survivorAggressionBonus: 0.1,
+      withdrawalAtHealthFraction: 0.5,
+    },
     characterModel: 'dimachaerus',
   },
   {

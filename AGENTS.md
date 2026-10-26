@@ -7412,3 +7412,110 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   a feint-heavy streak is tempo-negative for him (measured by feel, not tuned); the seed is drawn once
   per duel, so a rematch replays a different sequence; and the Humiliated blockChance/aggression values
   ride the AI's standard chooser only — the player-blocking branch's fixed 0.45/0.30 split is unchanged.
+
+## Boss rosters — the Cotta brothers (Slice D-4 — implemented; live arena pass PENDING)
+
+- **What ships.** One boss row (the D-1 `opp_cotta_boss` entry, unchanged in every
+  field it already had) gains its pair sub-data; a pure module (`src/utils/yokedBrothers.ts`)
+  owns the fence, the alternation, the Crossing, the withdrawal and the Oath; the duel mounts
+  the pair as two models; the HUD and the tavern's deep card read the published numbers.
+  Files: `types/game.ts` (`YokedBrotherProfile`, `YokedBrothersConfig`, `OpponentConfig.brothers`),
+  `data/opponents.ts` (the authored sub-data), `utils/yokedBrothers.ts` (+ its suite),
+  `components/duel/DuelScene.tsx`, `components/3d/BrothersPair.tsx` (new),
+  `components/ui/CombatHUD.tsx`, `components/hub/TournamentTab.tsx`,
+  `data/bossPresentationStates.ts` (`brothers` deltas), `components/3d/DuelArena.tsx`
+  (the banner's third tone), `components/ui/TurnActionPanel.tsx` (`brothers_recovery`).
+
+- **What the Pale Twins precedent gave for free, and what was genuinely new.** The Twins are
+  ONE `OpponentConfig` fought as a single opponent: `DuelScene` already binds an opponent row to
+  a `FighterState` + one model, and the duel already resolves every strike through one pipeline
+  with per-attacker values. So the row, the purse, the gate, the result flow, the boss HUD,
+  `getWeaponByType` weapon resolution, the `traitMult` damage hook and the AI's chooser all came
+  free — D-4 adds no second roster entry, no second HP pool and no new damage formula. What was
+  new: (a) a SECOND rendered fighter, which the Twins never had; (b) per-brother profiles
+  (weapon + aggression + blockChance) that change between slots; (c) a slot-level state machine
+  (alternation, the Crossing's cadence, the Exposed recovery, the survivor phase); (d) a
+  second-strike dispatch at exchange end; (e) a withdrawal that changes the pair's numbers.
+
+- **The mechanic, as shipped.** One row, one pool (`healthMax` 195). Every boss action is one of
+  four slots: an ordinary **act** by the brother whose turn it is (his published aggression,
+  blockChance and weapon — reach, stamina and base damage all follow the man), the **Crossing**
+  on every fourth slot while both stand and in reach (the front telegraphs a standard heavy and
+  the rear traverses to the flank), the Crossing's **resolution** (the heavy through the normal
+  power-attack branch; at exchange end a dodge auto-misses the flank and leaves the pair
+  **Exposed**, otherwise the rear's flank strikes through the normal quick-attack branch with
+  Gaius's sicae), and the Exposed **recovery** (`brothers_recovery`, resolves nothing — a tempo
+  beat, 1000 ms AUTHORED pacing). At half the pair the front brother is withdrawn (attendants),
+  the rear becomes the survivor with **+15 % damage** (one more factor on the existing
+  `traitMult`) and **+0.10 aggression**, the Crossing never fires again, and both announcements
+  are one-shot. Cast the Net suppresses the next Crossing (an entangled front cannot lead it).
+
+- **The reading taken where the prompt was ambiguous, stated rather than silently resolved.**
+  "If the player BLOCKS the front heavy … UNLESS the player is in dodge stance, in which case it
+  misses by the standard evasion rule; if the player DODGES … the flank strike auto-misses and the
+  pair enters Exposed (dodge stance OR the evasion resolves)" is read as ONE condition — the
+  player's evasion stance at the front heavy's resolution is the dodge that takes both blades and
+  exposes the pair. A block or an unshielded answer sends the flank through the pipeline, where
+  the standard block reduction still applies (a blocked flank is chip damage, floored at 1 by the
+  shipped formula — the trap punishes blocking, it does not ignore the shield).
+
+- **Sub-data as landed — every value AUTHORED.** Part A fixes the rule and the names, not the
+  numbers, so the row says so: Lucius (front, `sword_shield`, aggression 0.72, block 0.50) and
+  Gaius (rear, `dual_blades`, aggression 0.88, block 0.20) average exactly to the row's own
+  published 0.80 / 0.35 (pinned in the suite); `crossingEveryNthAction` 4, `survivorDamageMult`
+  1.15, `survivorAggressionBonus` 0.10, `withdrawalAtHealthFraction` 0.5.
+
+- **Presentation, and the honest cost.** The `brothers` state joins
+  `BOSS_PRESENTATION_DELTAS` (sun/ambient/fog only — **+0 draw calls**), and the loge's heraldic
+  cloth gains a third tone (`bannerAllegiance: 'brothers'` → canopy `#7f1d1d`, trim `#dc2626`):
+  two MATERIAL PROPERTY changes on meshes the arena already draws, so still **+0**. "Twin
+  banners" as two separate cloths is **+2 draw calls and was not shipped** — the arena has one
+  heraldic cloth, and the state's twin-ness is carried by the low hard side sun (one long shadow
+  per brother) plus the pair's two tones. The second FIGHTER model is the real cost: one extra
+  `GladiatorMesh` = **11 meshes / 11 draw calls in the main pass** (1 skinned GLB body — one
+  primitive, one material — + 5 weapon meshes + 5 shield meshes) plus **6 shadow-map draws**
+  (the body and five equipment meshes are `castShadow`), i.e. **~17 draws** for the rear brother.
+  No new asset is fetched: the pair's two models are `arena_roman.glb` (already in
+  `CORE_3D_ASSETS` for the player) and `dimachaerus.glb` (the row's own `characterModel`).
+  **`performance-budget.md` is not in this repository**, so the budget this must fit could not be
+  read or compared: the delta is reported above, measured from the render tree and the GLBs, not
+  from a GPU. The primary (two live models) shipped; the presentation-only fallback was not used.
+
+- **Suites.** `src/utils/yokedBrothers.test.ts` — **38 tests**: §A the fence (including the
+  string-copy row that must fight as ONE standard man), §B the alternation and the slot
+  sequence, §C the two profiles, §D the cadence (every fourth, both-standing only, in reach,
+  never re-planned), §E the three answers, §F the withdrawal line, §G the Oath, §H the net,
+  §I presentation (the flank mirroring with Lefty Mode, the deltas, the deep-card line), §J the
+  wiring. **Rebased, not weakened:** `duelTurnPacing` (the twelfth action type and the marker
+  count), `beastHunt` (the deltas' key list, the dispatch count 7 → 11), `bossPresentation` (the
+  announce's banner ternary), `featureBouts` (the third wired mechanic and the `'brothers'`
+  banner mention), `panoply` and `featureBouts`'s loge pin (the canopy's three arms),
+  `combatPlumbing` (the chooser's named reads), `tempering` (the one `attackerWeapon` variable).
+
+- **Verified 2026-10-26** in the dev container: `bun test` → **3796 pass / 0 fail (126 files)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`)
+  → exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets);
+  `git diff --check` → clean.
+
+- **NOT automatically verified — the live bout.** The dev harness route
+  (`?devHarness=character&opponent=opp_cotta_boss`) mounts only through the preview tool's FIRST
+  navigation of a turn (a query string is stripped otherwise, and any shell command reloads the
+  home route). Two attempts inside an in-page frame reached the harness but not a duel: its
+  creation form must be submitted before the harness renders its `Start Test Duel` control, and
+  the sandbox renders the 3D screens through SwiftShader (~1–2 fps), so the budget went on the
+  form. **The Crossing's telegraph, the Exposed tempo, the withdrawal and the survivor phase were
+  therefore not seen in the arena** — they are pinned by the suite and by the source, and the
+  device checklist is: (a) does the pair read as two men with one HP pool; (b) does the Crossing
+  read as a built trap a full telegraph ahead (banner + the front's glow + the rear's traverse to
+  the flank); (c) does dodging it produce a visible Exposed beat and a free tempo; (d) does the
+  survivor phase read as a distinct, angrier single fight; (e) does the whole bout hold the duel
+  frame budget on a mid-range Android device. Do not claim device acceptance.
+
+- **Open risks.** (1) The second model's device cost is unmeasured (no GPU here) — the report's
+  ~17 draws is a render-tree count; if it breaks the duel budget, the presentation-only rear
+  presence is the prepared fallback. (2) Every pair number is authored and wants a balance pass.
+  (3) A blocked flank is chip damage because the standard block reduction applies — the trap's
+  teeth are its tempo loss (Exposed) more than its damage. (4) The alternation hands the slot
+  after a Crossing resolution to the brother who did NOT lead it, so the front can act three
+  slots running across a Crossing (telegraph, heavy, next act); this is pinned by the suite and
+  reads as the pair committing to the trap.
