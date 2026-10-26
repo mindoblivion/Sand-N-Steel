@@ -26,13 +26,22 @@
  */
 
 import type { DuelGoldBreakdown } from '../types/game';
+import { CROWD_CONFIG } from '../data/crowdConfig';
 
+/**
+ * C-8.70C — the crowd-favour ladder now lives in `data/crowdConfig.ts`.
+ *
+ * These three names stay exported so every caller and every existing test reads
+ * the SAME values, and the move changed no value: the config carries exactly
+ * 50 / 25 / 0.1. The ladder was the one hard-coded hype tuning in the reward
+ * path, which is why it is the one value-identical migration this slice made.
+ */
 /** Hype at or below this earns no crowd-favour bonus. */
-export const PURSE_HYPE_FLOOR = 50;
+export const PURSE_HYPE_FLOOR = CROWD_CONFIG.crowdFavour.floor;
 /** Each full step of hype above the floor is worth one share of the base. */
-export const PURSE_HYPE_STEP = 25;
+export const PURSE_HYPE_STEP = CROWD_CONFIG.crowdFavour.step;
 /** One step's share of the base bounty. */
-export const PURSE_HYPE_STEP_RATE = 0.1;
+export const PURSE_HYPE_STEP_RATE = CROWD_CONFIG.crowdFavour.stepRate;
 /** Gold per perfect block. */
 export const PURSE_PRECISION_PER_BLOCK = 5;
 /** Perfect blocks beyond this earn nothing, so a long fight cannot out-earn the bounty alone. */

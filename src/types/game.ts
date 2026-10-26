@@ -587,6 +587,16 @@ export interface DuelStatistics {
    * IN-MEMORY only, exactly like `adaptationLines`: nothing saves DuelStatistics.
    */
   dominantOffensiveClass?: DominantOffensiveClass;
+  /**
+   * C-8.70C — the crowd's own line items on a victory, read off the duel's peak
+   * hype and its turning. `fameEarned` and `goldEarned` ALREADY include them;
+   * these three exist so the result screen can itemise them and say the crowd
+   * turned. IN-MEMORY only, exactly like `adaptationLines`: nothing saves
+   * `DuelStatistics`, so no save format and no profile field changes.
+   */
+  crowdPeakFameBonus?: number;
+  crowdPeakGoldBonus?: number;
+  crowdTurned?: boolean;
 }
 
 /**

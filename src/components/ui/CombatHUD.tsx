@@ -56,7 +56,26 @@ interface CombatHUDProps {
    * duel.
    */
   brothers?: BrothersPanelInfo | null;
+  /**
+   * C-8.70C — the crowd emboldening the opponent: its display name and the
+   * current aggression shift. `null`/absent below the config's threshold, so a
+   * cold arena draws exactly what it always did.
+   */
+  crowdEmbolden?: CrowdEmboldenInfo | null;
+  /**
+   * C-8.70C — the roar feeding Aurelius's rage (`rage_mode_colossus` only, while
+   * hype is at or above the embolden threshold). Absent on every other duel.
+   */
+  bossRageFed?: boolean;
   onExecuteAction: (action: CombatActionType, target?: AttackTarget) => void;
+}
+
+/** C-8.70C — the embolden line's two facts: who, and by how much. */
+export interface CrowdEmboldenInfo {
+  /** The opponent's display name, as the duel already prints it. */
+  name: string;
+  /** The current aggression shift (0.05 … 0.15). */
+  shift: number;
 }
 
 /** D-4 — the pair as the HUD draws it: the two names, who is acting, and the pair's beat. */
@@ -104,6 +123,8 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   beast = null,
   panoply = null,
   brothers = null,
+  crowdEmbolden = null,
+  bossRageFed = false,
   onExecuteAction,
 }) => {
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
@@ -364,6 +385,34 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
               style={{ width: `${crowdHype}%` }}
             ></div>
           </div>
+          {/* C-8.70C — the crowd's two states, in words. They sit INSIDE the hype
+              meter they describe, so they cannot overlap the vital cards above or
+              the turn panel below, and they clear themselves the moment the meter
+              drops out of the band. 11px at phone sizes (the HUD's own name
+              scale), tight leading, one line each. */}
+          {(crowdEmbolden || bossRageFed) && (
+            <div className="crowd-state-lines flex flex-col gap-0.5">
+              {crowdEmbolden && (
+                <span
+                  data-crowd-embolden={crowdEmbolden.shift.toFixed(2)}
+                  className="text-[11px] sm:text-xs font-serif leading-tight text-amber-200"
+                >
+                  The crowd roars — {crowdEmbolden.name} fights emboldened
+                  <span className="ml-1 font-mono text-[10px] sm:text-[11px] text-amber-300/90">
+                    +{Math.round(crowdEmbolden.shift * 100)}% aggression
+                  </span>
+                </span>
+              )}
+              {bossRageFed && (
+                <span
+                  data-boss-rage-fed="1"
+                  className="text-[11px] sm:text-xs font-serif leading-tight text-red-200"
+                >
+                  The roar feeds his rage
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
