@@ -531,7 +531,9 @@ describe('D-2 §H — the master alone fights at the row’s own shift', () => {
 
   test('the AI reads it only once the beast has fled', () => {
     expect(DUEL_SCENE).toContain("beastCfg && beastRef.current.pose === 'fled'");
-    expect(DUEL_SCENE).toContain('masterAloneAggression(opponent.aggression, beastCfg.masterAloneAggressionBonus)');
+    // C-8.70C rebased this pin (not weakened): the master-alone shift reads the
+    // MODE's composed aggression, which on Sand is the row's own value exactly.
+    expect(DUEL_SCENE).toContain('masterAloneAggression(modeProfile.aggression, beastCfg.masterAloneAggressionBonus)');
     // The standard call is preserved verbatim for every other bout.
     expect(DUEL_SCENE).toContain('chooseAIStandardAction(opponent.aggression, opponent.blockChance)');
   });

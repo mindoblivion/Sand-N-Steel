@@ -1,5 +1,18 @@
 export type WeaponType = 'sword_shield' | 'spear' | 'dual_blades' | 'mace';
 
+/**
+ * C-8.70C — the three bout modes a player may choose on the pre-fight card.
+ * Session-only: the mode is chosen per bout and is never written to a save (the
+ * result record carries it in memory only — see `DuelStatistics.boutMode`).
+ */
+export type BoutMode = 'sand' | 'steel' | 'invictus';
+
+/** The two profile values a mode's Steel delta moves (and the values are clamped to). */
+export interface SteelDelta {
+  aggression: number;
+  blockChance: number;
+}
+
 export type ArmorSlot = 'helm' | 'chest' | 'arms' | 'legs';
 
 export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'legendary';
@@ -458,6 +471,14 @@ export interface OpponentConfig {
   aggression: number;
   blockChance: number;
   dodgeChance: number;
+  /**
+   * C-8.70C — the Steel profile delta this row carries. The published default
+   * (+0.05 aggression / +0.05 blockChance) is applied to EVERY row; a row with a
+   * different value would be an AUTHORED variation and must say so in its own
+   * comment. Sand never reads it; Steel and Invictus add it and clamp the
+   * result to [0.05, 0.95] (`data/boutModes.ts`).
+   */
+  steelDelta?: SteelDelta;
   rewardGold: number;
   rewardFame: number;
   rewardXp: number;
@@ -597,6 +618,13 @@ export interface DuelStatistics {
   crowdPeakFameBonus?: number;
   crowdPeakGoldBonus?: number;
   crowdTurned?: boolean;
+  /**
+   * C-8.70C — the bout mode this result was fought under, recorded IN MEMORY
+   * only (nothing saves `DuelStatistics`). The result screen uses it to print the
+   * mode's own purse/renown lines; no profile field and no save format changes,
+   * so the mode is session-only (see `data/boutModes.ts`).
+   */
+  boutMode?: BoutMode;
 }
 
 /**

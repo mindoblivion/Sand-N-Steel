@@ -210,8 +210,10 @@ describe('D-3 §D — each break removes exactly its own benefit', () => {
   });
 
   test('the AI reads the live values rather than the row', () => {
-    expect(DUEL_SCENE).toContain('panoplyAggression(opponent.aggression, panoplyCfg, panoplyRef.current)');
-    expect(DUEL_SCENE).toContain('panoplyBlockChance(opponent.blockChance, panoplyCfg, panoplyRef.current)');
+    // C-8.70C rebased these pins (not weakened): the panoply's live reads are
+    // seeded from the MODE's composed profile, which on Sand equals the row.
+    expect(DUEL_SCENE).toContain('panoplyAggression(modeProfile.aggression, panoplyCfg, panoplyRef.current)');
+    expect(DUEL_SCENE).toContain('panoplyBlockChance(modeProfile.blockChance, panoplyCfg, panoplyRef.current)');
     expect(DUEL_SCENE).toContain('panoplyDamageTakenMult(panoplyCfg, panoplyRef.current)');
   });
 });

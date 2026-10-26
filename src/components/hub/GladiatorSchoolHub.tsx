@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId } from '../../types/game';
+import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from '../../types/game';
 import { TournamentTab } from './TournamentTab';
 import { TrainingTab } from './TrainingTab';
 import { ShopTab } from './ShopTab';
@@ -32,7 +32,8 @@ interface GladiatorSchoolHubProps {
   activeTab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library';
   onTabChange: (tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library') => void;
   onEnterCity3D: () => void;
-  onSelectOpponent: (opp: OpponentConfig) => void;
+  /** C-8.70C — carries the bout mode chosen on the pre-fight card (Sand if omitted). */
+  onSelectOpponent: (opp: OpponentConfig, mode?: BoutMode) => void;
   onTrainStat: (stat: 'strength' | 'agility' | 'stamina' | 'defense') => void;
   onBuyItem: (item: WeaponItem | ArmorItem) => void;
   /** S6 — a Bazaar consumable bought on the shop screen; `App` writes the save. */
@@ -74,7 +75,7 @@ interface GladiatorSchoolHubProps {
    * player chose together with the opponent, so the result write can judge the
    * win against the rule that was actually set.
    */
-  onEnterDoctoreTest?: (restriction: DoctoreTestRestriction) => void;
+  onEnterDoctoreTest?: (restriction: DoctoreTestRestriction, mode?: BoutMode) => void;
   /** P2 — a Triumph bought from the Library's Triumphs page; `App` writes it. */
   onPurchaseTriumph?: (laurelId: string) => LaurelResult;
   /** P6 — the temper row on an Armory card; `App` runs `purchaseTemper` and writes. */
@@ -345,13 +346,13 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           }
           /* STORY-2 — the Test prints the rule the player chose (and its reason). */
           restriction={isDoctoreTestOpponent(selectedOpponent) ? testRestriction : null}
-          onConfirm={() => {
+          onConfirm={(mode) => {
             const opp = selectedOpponent;
             const restriction = isDoctoreTestOpponent(opp) ? testRestriction : null;
             setSelectedOpponent(null);
             setTestRestriction(null);
-            if (restriction && onEnterDoctoreTest) onEnterDoctoreTest(restriction);
-            else onSelectOpponent(opp);
+            if (restriction && onEnterDoctoreTest) onEnterDoctoreTest(restriction, mode);
+            else onSelectOpponent(opp, mode);
           }}
           onCancel={() => {
             setSelectedOpponent(null);

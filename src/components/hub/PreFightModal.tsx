@@ -1,6 +1,15 @@
-import React from 'react';
-import { OpponentConfig } from '../../types/game';
+import React, { useState } from 'react';
+import { BoutMode, OpponentConfig } from '../../types/game';
 import { Swords, Trophy, Coins, Zap, Shield, Skull } from 'lucide-react';
+// C-8.70C — the three bout modes and the plain-language list of EVERY effect,
+// built from the same data the duel reads. The choice is session-only: it starts
+// on Sand every time and is never written to a save.
+import {
+  BOUT_MODES,
+  BOUT_MODE_ORDER,
+  DEFAULT_BOUT_MODE,
+  boutModeEffectLines,
+} from '../../data/boutModes';
 import type { BeatLine, DoctoreTestRestriction } from '../../utils/storyBeats';
 import { doctoreRestrictionSpec } from '../../utils/storyBeats';
 import { getArmatura } from '../../data/armaturae';
@@ -10,7 +19,8 @@ import { grudgeProfileLine, grudgeStudiedLine } from '../../utils/grudgeBouts';
 
 interface PreFightModalProps {
   opponent: OpponentConfig;
-  onConfirm: () => void;
+  /** C-8.70C — the chosen bout mode travels to App, which hands it to the duel. */
+  onConfirm: (mode: BoutMode) => void;
   onCancel: () => void;
   /**
    * STORY-2 — the beat's NARRATION on this card (the novice bout's briefing).
@@ -32,6 +42,11 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
   narration,
   restriction,
 }) => {
+  // Session-only, defaulting to Sand on every opening (no preference exists to
+  // remember this in the profile).
+  const [boutMode, setBoutMode] = useState<BoutMode>(DEFAULT_BOUT_MODE);
+  const modeDef = BOUT_MODES[boutMode];
+  const modeEffects = boutModeEffectLines(boutMode, opponent);
   const restrictionSpec = doctoreRestrictionSpec(restriction ?? null);
   /**
    * CH-5 — SCOUTING INTEL, read-only.  The opponent's class, its doctrina and the
@@ -137,6 +152,50 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
           </div>
         )}
 
+        {/* C-8.70C — BOUT MODE. Touch-first: three targets in one row, each at
+            least 48px tall; beneath them EVERY effect of the chosen mode is
+            listed in plain language, built from the same data the duel reads, so
+            the player commits with full information. */}
+        <div
+          data-prefight-mode
+          className="bg-neutral-950 border border-amber-700/50 rounded-2xl p-4 mb-4"
+        >
+          <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400 mb-2">
+            Bout Mode
+          </div>
+          <div role="group" aria-label="Bout mode" className="grid grid-cols-3 gap-2 mb-3">
+            {BOUT_MODE_ORDER.map((id) => {
+              const def = BOUT_MODES[id];
+              const selected = id === boutMode;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  data-bout-mode={id}
+                  data-selected={selected ? 'true' : 'false'}
+                  aria-pressed={selected}
+                  onClick={() => setBoutMode(id)}
+                  className={`btn-press min-h-[48px] px-2 rounded-xl border font-serif font-black text-[11px] uppercase tracking-wider cursor-pointer ${
+                    selected
+                      ? 'bg-amber-500/25 border-amber-300 text-amber-100 shadow-[0_0_12px_rgba(245,158,11,0.35)]'
+                      : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:text-amber-200'
+                  }`}
+                >
+                  {def.name}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] font-serif italic text-amber-200/80 mb-2">{modeDef.tagline}</p>
+          <ul data-bout-mode-effects={boutMode} className="flex flex-col gap-1.5">
+            {modeEffects.map((line) => (
+              <li key={line} className="text-[11px] font-mono text-neutral-300 leading-relaxed">
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <div className="bg-neutral-950 p-4 rounded-2xl border border-neutral-800 mb-6 flex flex-col gap-2 font-mono text-xs">
           <div className="flex justify-between">
             <span className="text-neutral-400">Weapon Style:</span>
@@ -187,7 +246,7 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
             Retreat
           </button>
           <button
-            onClick={onConfirm}
+            onClick={() => onConfirm(boutMode)}
             className="btn-press flex-1 min-h-[48px] py-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-serif font-black text-xs uppercase tracking-wider cursor-pointer shadow-lg"
           >
             Step into Sand

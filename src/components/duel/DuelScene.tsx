@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } fr
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Sparkles, useGLTF, Sky, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumber } from '../../types/game';
+import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumber, BoutMode } from '../../types/game';
 import { DuelArena } from '../3d/DuelArena';
 import { GladiatorMesh, type ImpactState } from '../3d/GladiatorMesh';
 import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticles';
@@ -21,6 +21,19 @@ import { calculateDuelGold } from '../../utils/duelRewards';
 // `combatCalculations.ts` is not touched by this slice (see the two notes at the
 // embolden input and the rage multiplier).
 import { CROWD_CONFIG } from '../../data/crowdConfig';
+// C-8.70C — the bout mode, read as data: the composed profile, the crowd's start
+// and cooling tier, the telegraph floor and the mode-adjusted reward bases.
+import {
+  clampBoutProfileValue,
+  DEFAULT_BOUT_MODE,
+  modeCrowdDecayMultiplier,
+  modeCrowdDecayTier,
+  modeCrowdStartHype,
+  modeRewardBases,
+  modeTelegraphWindowMs,
+  resolveBoutProfile,
+  steelDeltaFor,
+} from '../../data/boutModes';
 import {
   advanceCrowdRageCharge,
   applyCrowdHypeDecay,
@@ -311,9 +324,33 @@ const TURN_RESOLUTION_MS: Record<CombatActionType, number> = {
 /** A turn that leaves a fighter at 0 health holds this long, whatever it was. */
 const TURN_RESOLUTION_DEATH_MS = 1600;
 
-/** The resolution hold for one turn: the action's weight, or the death beat. */
-export const turnResolutionMs = (actionType: CombatActionType, fightEnded = false): number =>
-  fightEnded ? TURN_RESOLUTION_DEATH_MS : TURN_RESOLUTION_MS[actionType];
+/**
+ * C-8.70C — the boss telegraph holds the floor applies to: the announced heavy
+ * (`telegraph`) and the beast's crouch (`beast_crouch`, a boss-only telegraph).
+ * Every other action keeps its shipped weight in every mode.
+ */
+const TELEGRAPH_HOLD_ACTIONS: readonly CombatActionType[] = ['telegraph', 'beast_crouch'];
+
+/**
+ * The resolution hold for one turn: the action's weight, or the death beat.
+ *
+ * C-8.70C — a boss telegraph hold is the one duration a mode may shorten: on
+ * Steel/Invictus it is clamped DOWN TO the 0.8s charter floor and no further, a
+ * hold already at or below the floor is untouched, and Sand (the default)
+ * returns every shipped value exactly. The quick/heavy resolution pacing a
+ * feint or a true heavy is answered with is never re-based by this.
+ */
+export const turnResolutionMs = (
+  actionType: CombatActionType,
+  fightEnded = false,
+  mode: BoutMode = DEFAULT_BOUT_MODE,
+): number => {
+  if (fightEnded) return TURN_RESOLUTION_DEATH_MS;
+  const shipped = TURN_RESOLUTION_MS[actionType];
+  return TELEGRAPH_HOLD_ACTIONS.includes(actionType)
+    ? modeTelegraphWindowMs(mode, shipped)
+    : shipped;
+};
 
 // The opponent's think time. Unchanged at 750 ms, except on the AI turn that
 // follows a resolved telegraphed heavy, which waits 900 ms so that fight's
@@ -337,6 +374,12 @@ interface DuelSceneProps {
   onOpenSettings?: () => void;
   /** CL-3 — App's one seen-write (the same `markSeen` path the hub card uses). */
   onMarkCardSeen?: (id: string) => void;
+  /**
+   * C-8.70C — the bout mode chosen on the pre-fight card. Session-only: it is
+   * passed in, never saved, and a caller that omits it gets Sand exactly as the
+   * game shipped before the modes existed.
+   */
+  boutMode?: BoutMode;
 }
 
 // Camera controller inside Canvas with hold-and-drag orbit support
@@ -468,8 +511,25 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   isLeftyMode = false,
   onOpenSettings,
   onMarkCardSeen,
+  boutMode = DEFAULT_BOUT_MODE,
 }) => {
   const pStats = calculateTotalStats(playerProfile);
+
+  // C-8.70C — the mode as DATA. It resolves the two profile values the AI reads
+  // (and nothing else: `resolveBoutProfile` never touches `stats`, gear or the
+  // reward row), the crowd's opening hype and cooling tier, and the mode-adjusted
+  // bases every reward line is computed from.
+  const modeProfile = useMemo(() => resolveBoutProfile(boutMode, opponent), [boutMode, opponent]);
+  const modeReward = useMemo(() => modeRewardBases(boutMode, opponent), [boutMode, opponent]);
+  const openingHype = useMemo(() => modeCrowdStartHype(boutMode), [boutMode]);
+  const crowdDecayTier = useMemo(
+    () => modeCrowdDecayTier(boutMode, opponent.tier),
+    [boutMode, opponent.tier],
+  );
+  const crowdDecayMultiplier = useMemo(
+    () => modeCrowdDecayMultiplier(boutMode, opponent.tier),
+    [boutMode, opponent.tier],
+  );
 
   // CH-3a — each fighter's merged armatura/palma block, built ONCE per duel (the
   // profile and the opponent config cannot change mid-fight). `TurnActionPanel`
@@ -565,7 +625,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
   const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
 
-  const [crowdHype, setCrowdHype] = useState(25);
+  // C-8.70C — Sand/Steel open at the venue's shipped 25; Invictus opens hot at 40.
+  const [crowdHype, setCrowdHype] = useState(openingHype);
 
   // CF-6 — the boss rage vignette's ONE pulse: a timestamp CombatHUD keys its
   // 700 ms CSS animation on. Undefined until a boss's rage ignites, and only a
@@ -581,7 +642,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // updated outside the state updater, keeping setCrowdHype pure. Under Strict
   // Mode the updater is no longer a function, so double-invocation does not
   // double-mutate the ref or peak.
-  const crowdHypeRef = useRef(25);
+  const crowdHypeRef = useRef(openingHype);
 
   // CF-3 — the crowd's celebration counter. UpdateCrowdHype bumps it on every
   // UPWARD tier crossing and DuelArena reads it once per frame; a ref, so a
@@ -679,9 +740,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   }, []);
 
   // CF-3 — the crowd's noise bed lives exactly as long as the duel: started on
-  // mount at the tier the opening hype (25) is in — LOW — and stopped on
-  // unmount, so leaving the arena never leaves noise behind. The engine itself
-  // no-ops while muted and restores the bed when it is unmuted.
+  // mount at the tier the mode's opening hype is in and stopped on unmount, so
+  // leaving the arena never leaves noise behind. The engine itself no-ops while
+  // muted and restores the bed when it is unmuted.
   useEffect(() => {
     sounds.startCrowdBed();
     sounds.setCrowdLevel(crowdHypeTier(crowdHypeRef.current));
@@ -699,10 +760,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     // `pStats.staminaMax` (see the player factory above), so nothing has been
     // spent until the first action does.
     lowestStaminaFraction: 1,
-    crowdHypePeak: 25,
+    crowdHypePeak: openingHype,
     durationSeconds: 0,
-    goldEarned: opponent.rewardGold,
-    fameEarned: opponent.rewardFame,
+    // C-8.70C — the row's own base, already multiplied by the mode (×1.00 on
+    // Sand, so a Sand duel reads exactly what it always did).
+    goldEarned: modeReward.goldBase,
+    fameEarned: modeReward.fameBase,
     xpEarned: opponent.rewardXp,
   });
 
@@ -802,7 +865,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // nothing draws the counter (his announcements are log lines, which re-render
   // anyway), so a count costs no render of its own.
   const longMemoryCfg = useMemo(() => longMemoryConfigFor(opponent), [opponent]);
-  const longMemoryBase = useMemo(() => longMemoryBaseProfile(opponent), [opponent]);
+  // C-8.70C — his live base is the MODE's composed guard, so Steel/Invictus
+  // sharpen the block value his adaptations then move; Sand resolves the row's
+  // value exactly (the composed profile equals the row's on Sand).
+  const longMemoryBase = useMemo(
+    () => longMemoryBaseProfile({ ...opponent, blockChance: modeProfile.blockChance }),
+    [opponent, modeProfile.blockChance],
+  );
   const longMemoryRef = useRef<LongMemoryState>(createLongMemoryState());
   const commitLongMemory = useCallback((next: LongMemoryState) => {
     longMemoryRef.current = next;
@@ -868,19 +937,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
         // C-8.70C — one second of the crowd's own clock, in the same tick as the
         // match clock. The decay is the config's per-venue rate, doubled while
-        // neither fighter has attacked inside the tier's passive window. The peak
-        // is NOT touched here: it only ever rises, and only `updateCrowdHype`
-        // raises it. A downward tier crossing is CF-3's: it lowers the bed's
-        // level and nothing else.
+        // neither fighter has attacked inside the tier's passive window. The MODE
+        // chooses which tier's curve applies: Sand/Steel the venue's own; Invictus
+        // the next tier's (T4: its own rate × 1.25). The peak is NOT touched here:
+        // it only ever rises, and only `updateCrowdHype` raises it. A downward
+        // tier crossing is CF-3's: it lowers the bed's level and nothing else.
         const passive = crowdIsPassive(
           Date.now() - lastOffensiveActionAtRef.current,
-          opponent.tier,
+          crowdDecayTier,
         );
         const decayed = applyCrowdHypeDecay({
           hype: crowdHypeRef.current,
-          tier: opponent.tier,
+          tier: crowdDecayTier,
           passive,
           dtSeconds: 1,
+          rateMultiplier: crowdDecayMultiplier,
         });
         if (decayed !== crowdHypeRef.current) {
           const crossing = detectCrowdHypeCrossing(crowdHypeRef.current, decayed);
@@ -2107,7 +2178,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         if (flankPending) return;
         if (!isActorPlayer) setPlayerTurnCount((count) => count + 1);
         setIsPlayerTurn(!isActorPlayer);
-      }, turnResolutionMs(actionType, fightEnded));
+      }, turnResolutionMs(actionType, fightEnded, boutMode));
     },
     [
       isExecuting,
@@ -2307,23 +2378,32 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // D-4 — a brother chooses with HIS published aggression and blockChance
       // (plus the Oath's shift once he is the survivor); every other row reads
       // its own values exactly as it always has.
+      // C-8.70C — the mode's profile sharpness, read ONCE per slot and applied
+      // to whichever profile the AI actually chooses with. On Sand the delta is
+      // exactly 0, so every branch below is the shipped value.
+      const modeSteel = steelDeltaFor(boutMode);
+      const brotherAggressionForSlot = (slot: 'front' | 'rear'): number =>
+        clampBoutProfileValue(brotherAggression(brothersCfg!, brothersRef.current, slot) + modeSteel.aggression);
+      const brotherBlockForSlot = (slot: 'front' | 'rear'): number =>
+        clampBoutProfileValue(brotherBlockChance(brothersCfg!, slot) + modeSteel.blockChance);
       let aiAggression =
         brothersCfg && brothersSlotActor
-          ? brotherAggression(brothersCfg, brothersRef.current, brothersSlotActor)
+          ? brotherAggressionForSlot(brothersSlotActor)
           : panoplyCfg
-          ? panoplyAggression(opponent.aggression, panoplyCfg, panoplyRef.current)
-          : opponent.aggression;
-      // D-5 — Hermas chooses with his LIVE blockChance: the row's value plus
-      // whatever his adaptations have already done to it. Every other row reads
-      // its own published value exactly as it always has.
+          ? panoplyAggression(modeProfile.aggression, panoplyCfg, panoplyRef.current)
+          : modeProfile.aggression;
+      // D-5 — Hermas chooses with his LIVE blockChance: the row's (mode-composed)
+      // value plus whatever his adaptations have already done to it. Every other
+      // row reads its own published value, sharpened by the mode exactly as the
+      // card promised.
       const aiBlockChance =
         brothersCfg && brothersSlotActor
-          ? brotherBlockChance(brothersCfg, brothersSlotActor)
+          ? brotherBlockForSlot(brothersSlotActor)
           : panoplyCfg
-          ? panoplyBlockChance(opponent.blockChance, panoplyCfg, panoplyRef.current)
+          ? panoplyBlockChance(modeProfile.blockChance, panoplyCfg, panoplyRef.current)
           : longMemoryCfg
           ? longMemoryBlockChance(longMemoryCfg, longMemoryBase, longMemoryRef.current)
-          : opponent.blockChance;
+          : modeProfile.blockChance;
 
       // C-8.70C — THE CROWD EMBOLDENS THE OPPONENT, AS AN INPUT. The shift is
       // folded into the aggression VALUE the existing chooser is handed — never
@@ -2378,17 +2458,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             beastCfg && beastRef.current.pose === 'fled'
               ? chooseAIStandardAction(
                   crowdEmboldenedAggression(
-                    masterAloneAggression(opponent.aggression, beastCfg.masterAloneAggressionBonus),
+                    masterAloneAggression(modeProfile.aggression, beastCfg.masterAloneAggressionBonus),
                     crowdHypeRef.current,
                     CROWD_CONFIG,
                   ),
                   aiBlockChance,
                 )
-              : // C-8.70C — an emboldened opponent is a LIVE profile like the
-                // panoply's or Hermas's, so it takes the named read that already
-                // carries the shift. With no shift this condition is false and a
-                // standard row keeps its own published values.
-              panoplyCfg || longMemoryCfg || emboldenShift > 0
+              : // C-8.70C — an emboldened opponent, or a STEEL/INVICTUS profile,
+                // is a LIVE profile like the panoply's or Hermas's, so it takes
+                // the named read that already carries the shift. On Sand with a
+                // cold crowd this condition is false and a standard row keeps its
+                // own published values byte-identically.
+              panoplyCfg || longMemoryCfg || emboldenShift > 0 || boutMode !== DEFAULT_BOUT_MODE
               ? chooseAIStandardAction(aiAggression, aiBlockChance)
               : chooseAIStandardAction(opponent.aggression, opponent.blockChance);
         }
@@ -2442,6 +2523,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     commitBrothers,
     longMemoryCfg,
     longMemoryBase,
+    modeProfile,
+    boutMode,
   ]);
 
   // ── D-5 — HERMAS READS THE MIX (66 %, then 33 %) ───────────────────────────
@@ -2496,11 +2579,15 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       sounds.playVictory();
       addLog(`VICTORY! ${player.name} has vanquished ${opp.name}!`, 'crit');
       // The purse the crowd actually pays for this fight: the opponent's own
-      // bounty plus performance bonuses read off the fight's statistics. It is
-      // written onto the ONE stats object App credits, so the result screen and
-      // the gold in the purse can never disagree.
+      // bounty — multiplied by the bout mode FIRST (`modeReward`, ×1.00 on Sand,
+      // so the shipped figure is unchanged) — plus performance bonuses read off
+      // the fight's statistics. The crowd's peak bonus is then computed on that
+      // mode-adjusted base and its turning multiplies fame last: mode → crowd
+      // peak → crowd turned, the documented composition order. Written onto the
+      // ONE stats object App credits, so the result screen and the gold can never
+      // disagree.
       const purse = calculateDuelGold({
-        baseGold: opponent.rewardGold,
+        baseGold: modeReward.goldBase,
         didWin: true,
         crowdHypePeak: statsRef.current.crowdHypePeak,
         perfectBlocks: statsRef.current.perfectBlocks,
@@ -2508,13 +2595,15 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       });
       statsRef.current.goldEarned = purse.total;
       statsRef.current.goldBreakdown = purse;
+      statsRef.current.boutMode = boutMode;
       // C-8.70C — the crowd's two line items, computed in this same result flow
-      // from the duel's own peak and its turning. The peak gold is added AFTER
-      // the shipped purse assignment (which is untouched), and the turned
-      // verdict multiplies FAME only — gold is never reduced.
+      // from the duel's own peak and its turning, on the MODE-ADJUSTED bases. The
+      // peak gold is added AFTER the shipped purse assignment (which is
+      // untouched), and the turned verdict multiplies FAME only — gold is never
+      // reduced.
       const crowdReward = crowdDuelReward({
-        baseFame: opponent.rewardFame,
-        baseGold: opponent.rewardGold,
+        baseFame: modeReward.fameBase,
+        baseGold: modeReward.goldBase,
         crowdHypePeak: statsRef.current.crowdHypePeak,
         crowdTurned: crowdTurnedRef.current,
       });
@@ -2598,6 +2687,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     commitBeast,
     longMemoryCfg,
     longMemoryBase,
+    modeReward,
+    boutMode,
   ]);
 
   // Boss phase-2 weapon switch (Ignis: dual_blades → mace at 50% health).

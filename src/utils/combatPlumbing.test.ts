@@ -1060,8 +1060,10 @@ describe('CH-3a §X — wiring', () => {
     // passes its own exactly as before), and the costs are read off the slot's
     // weapon — the acting brother's for the Cotta pair, the row's own otherwise.
     expect(duel).toContain('chooseAIStandardAction(aiAggression, aiBlockChance)');
-    expect(duel).toContain(': opponent.aggression;');
-    expect(duel).toContain(': opponent.blockChance;');
+    // C-8.70C rebased these two fallbacks (not weakened): the AI reads the
+    // MODE's composed profile, which on Sand is the row's own published value.
+    expect(duel).toContain(': modeProfile.aggression;');
+    expect(duel).toContain(': modeProfile.blockChance;');
     expect(duel).toContain('const oppLightCost = getStaminaCost(slotWeapon, true);');
     expect(duel).toContain('const oppHeavyCost = getStaminaCost(slotWeapon, false);');
     expect(duel).toContain(

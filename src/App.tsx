@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId } from './types/game';
+import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from './types/game';
 import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
 import type { StoredProfileSummary } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
@@ -72,6 +72,9 @@ import { appleSignIn } from './services/appleAuth';
 import { microsoftSignIn } from './services/microsoftAuth';
 import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT } from './data/opponents';
+// C-8.70C — the bout mode is chosen on the pre-fight card and held for the
+// length of the bout only: it is never written to the profile.
+import { DEFAULT_BOUT_MODE } from './data/boutModes';
 import {
   doctoreAttemptLine,
   doctoreTestResultLine,
@@ -112,6 +115,8 @@ export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
+  /** C-8.70C — session-only: set by the pre-fight card, read by the duel, never saved. */
+  const [boutMode, setBoutMode] = useState<BoutMode>(DEFAULT_BOUT_MODE);
   const [activeHubTab, setActiveHubTab] = useState<'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library'>('tournament');
   // Phase C-8.66B: the Armory's own subview. The Imperial Stable's city
   // interaction opens the gear tab with this set to 'chariot'; the tab's own
@@ -542,8 +547,10 @@ export function App() {
     postOathNudge.offer();
   };
 
-  const handleEnterDuel = (opp: OpponentConfig) => {
+  const handleEnterDuel = (opp: OpponentConfig, mode: BoutMode = DEFAULT_BOUT_MODE) => {
     setActiveOpponent(opp);
+    // C-8.70C — the mode the card was committed on, for this bout only.
+    setBoutMode(mode);
     // A ladder bout carries no restriction: the Test's rule is set by its own
     // entry, and a stale one must never judge a different fight.
     setDoctoreRestriction(null);
@@ -556,8 +563,11 @@ export function App() {
    * rides beside the opponent (it is not a save field); the result write reads it
    * to judge the win, and the result screen clears it.
    */
-  const handleEnterDoctoreTest = (restriction: DoctoreTestRestriction) => {
-    handleEnterDuel(DOCTORE_TEST_OPPONENT);
+  const handleEnterDoctoreTest = (
+    restriction: DoctoreTestRestriction,
+    mode: BoutMode = DEFAULT_BOUT_MODE,
+  ) => {
+    handleEnterDuel(DOCTORE_TEST_OPPONENT, mode);
     setDoctoreRestriction(restriction);
   };
 
@@ -1244,6 +1254,7 @@ export function App() {
             <DuelScene
             playerProfile={profile}
             opponent={activeOpponent}
+            boutMode={boutMode}
             onMatchComplete={handleMatchComplete}
             onOpenArmory={() => handleOpenHubTab('tournament')}
             onOpenHelp={() => handleOpenSettings('controls', 'duel')}

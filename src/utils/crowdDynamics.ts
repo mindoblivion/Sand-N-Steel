@@ -45,6 +45,12 @@ export interface CrowdDecayInput {
   /** True while NEITHER fighter has taken an offensive action inside the window. */
   passive: boolean;
   dtSeconds: number;
+  /**
+   * C-8.70C — an optional factor on the tier's own rate. Invictus passes its
+   * top-tier 1.25 here; every other caller omits it and reads exactly the
+   * config value (1).
+   */
+  rateMultiplier?: number;
   config?: CrowdConfig;
 }
 
@@ -58,7 +64,11 @@ export function applyCrowdHypeDecay(input: CrowdDecayInput): number {
   const hype = clampCrowdHype(input.hype, config);
   const dt = Number.isFinite(input.dtSeconds) && input.dtSeconds > 0 ? input.dtSeconds : 0;
   if (dt === 0) return hype;
-  const rate = crowdDecayPerSecond(input.tier, input.passive, config);
+  const multiplier =
+    typeof input.rateMultiplier === 'number' && Number.isFinite(input.rateMultiplier)
+      ? input.rateMultiplier
+      : 1;
+  const rate = crowdDecayPerSecond(input.tier, input.passive, config) * multiplier;
   return Math.max(0, Math.round((hype - rate * dt) * 1000) / 1000);
 }
 

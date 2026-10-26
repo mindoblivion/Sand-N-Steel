@@ -25,6 +25,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { CROWD_CONFIG, crowdTierTuning, type CrowdConfig } from '../data/crowdConfig';
+// C-8.70C — the mode's opening hype is the one reader of the CF-3 seed now.
+import { modeCrowdStartHype } from '../data/boutModes';
 import {
   advanceCrowdRageCharge,
   applyCrowdHypeDecay,
@@ -401,7 +403,7 @@ describe('C-8.70C §G — the wiring', () => {
     // … and both shipped chooser calls are still there, by the same names.
     expect(DUEL_SCENE).toContain('chooseAIStandardAction(aiAggression, aiBlockChance)');
     expect(DUEL_SCENE).toContain('chooseAIStandardAction(opponent.aggression, opponent.blockChance)');
-    expect(DUEL_SCENE).toContain('masterAloneAggression(opponent.aggression, beastCfg.masterAloneAggressionBonus)');
+    expect(DUEL_SCENE).toContain('masterAloneAggression(modeProfile.aggression, beastCfg.masterAloneAggressionBonus)');
     // The named-read branch is what carries the shift for a plain row.
     expect(DUEL_SCENE).toContain('panoplyCfg || longMemoryCfg || emboldenShift > 0');
   });
@@ -428,9 +430,16 @@ describe('C-8.70C §G — the wiring', () => {
   });
 
   test('the CF-3 hype numbers are untouched by this slice', () => {
-    expect(DUEL_SCENE).toContain('const [crowdHype, setCrowdHype] = useState(25);');
-    expect(DUEL_SCENE).toContain('const crowdHypeRef = useRef(25);');
-    expect(DUEL_SCENE).toContain('crowdHypePeak: 25,');
+    // C-8.70C rebased the three seeds (not the numbers): the opening hype is the
+    // MODE's, whose Sand/Steel value is CF-3's own 25 and whose Invictus value is
+    // the published 40. The awards below are still verbatim.
+    expect(DUEL_SCENE).toContain('const [crowdHype, setCrowdHype] = useState(openingHype);');
+    expect(DUEL_SCENE).toContain('const crowdHypeRef = useRef(openingHype);');
+    expect(DUEL_SCENE).toContain('crowdHypePeak: openingHype,');
+    expect(DUEL_SCENE).toContain('modeCrowdStartHype(boutMode)');
+    expect(modeCrowdStartHype('sand')).toBe(25);
+    expect(modeCrowdStartHype('steel')).toBe(25);
+    expect(modeCrowdStartHype('invictus')).toBe(40);
     expect(DUEL_SCENE).toContain('updateCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 + critHype : 8)));');
     expect(DUEL_SCENE).toContain("const tauntHype = 20 + applyPalmaEvent(playerMods.block, 'taunt').hypeAdd;");
     const awards = DUEL_SCENE.match(/updateCrowdHype\(\(prev\)/g) ?? [];

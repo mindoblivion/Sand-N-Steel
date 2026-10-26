@@ -342,7 +342,9 @@ describe('CF-5 §C full-fight duration', () => {
 // ── §D THE PACING IS PRESENTATION, NOT GAME LOGIC ───────────────────────────
 describe('CF-5 §D the timing seam is the only thing that moved', () => {
   test('the resolution timer is scheduled from the table, exactly once', () => {
-    expect(duel.match(/\}, turnResolutionMs\(actionType, fightEnded\)\);/g)?.length).toBe(1);
+    // C-8.70C rebased the call (not the seam): the mode is the one new argument,
+    // and Sand is its default, so the shipped pacing is unchanged.
+    expect(duel.match(/\}, turnResolutionMs\(actionType, fightEnded, boutMode\)\);/g)?.length).toBe(1);
     // The old fixed hold is no longer a timer argument anywhere, and no 1100 ms
     // literal survives in the scene at all — `cast_net` now carries 880.
     expect(duel).not.toMatch(/\}, 1100\);/);
@@ -350,7 +352,7 @@ describe('CF-5 §D the timing seam is the only thing that moved', () => {
   });
 
   test('the timer still only resets the animations and hands the turn over', () => {
-    const schedule = duel.indexOf('}, turnResolutionMs(actionType, fightEnded));');
+    const schedule = duel.indexOf('}, turnResolutionMs(actionType, fightEnded, boutMode));');
     const open = duel.lastIndexOf('setTimeout(() => {', schedule);
     const body = duel.slice(open, schedule);
     expect(body).toMatch(/setIsExecuting\(false\);/);
