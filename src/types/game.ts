@@ -32,6 +32,61 @@ export type FeatureBossMechanic =
 export type BossMechanic = LadderBossMechanic | FeatureBossMechanic;
 
 /**
+ * D-3 — Varro's false telegraph, as data (boss-rosters.md Part A).
+ *
+ * `feintChance` is the seeded roll a heavy makes once the teaching sequence is
+ * spent; `teachingSequence` FORCES the first heavies so the player learns the
+ * tell (true, then feint) before the dice take over. The tell itself is never
+ * data: a feint is always `light`, a true heavy always `planted`.
+ */
+export interface FalseTelegraphConfig {
+  /** P(feint) once the teaching pair is spent — a number in [0, 1]. */
+  feintChance: number;
+  /** The heavies 1..n, forced in this order, before the roll governs. */
+  teachingSequence: ('true' | 'feint')[];
+  /** Two Faces: the next TRUE heavy after a feint deals this much damage (1.15). */
+  feintFollowUpMult: number;
+}
+
+/** D-3 — the three pride pieces of Gnaeus's panoply. */
+export type PanoplyPieceId = 'crest' | 'facing' | 'pauldron';
+
+/** One pride piece: cracks 0 … `breakAt`, broken at `breakAt`. */
+export interface PanoplyPieceConfig {
+  id: PanoplyPieceId;
+  /** The piece as the HUD names it ("shield facing", "crest", "pauldron"). */
+  name: string;
+  /** Cracks that break it (2). */
+  breakAt: number;
+}
+
+/**
+ * D-3 — Gnaeus's unbroken panoply, as data.
+ *
+ * There is NO strike-line model in this combat system (no high/mid/low), so the
+ * crack order is the `pieces` array's own order — the shipped fallback the
+ * design permits, stated in the row and in the report.
+ */
+export interface PanoplyConfig {
+  /** In CRACK ORDER: the first unbroken piece takes each crack. */
+  pieces: PanoplyPieceConfig[];
+  /** The crest's aggression, added to the row's base while it shines. */
+  crestAggressionBonus: number;
+  /** The facing's blockChance, added to the row's base while it shines. */
+  facingBlockChanceBonus: number;
+  /** The pauldron's damage-taken multiplier while it shines (0.90). */
+  pauldronDamageTakenMult: number;
+  /** Crowd hype the player gains on each piece that breaks. */
+  breakHype: number;
+  /** Vainheart: attacks armed by a break. */
+  vainheartAttacks: number;
+  /** Vainheart's damage multiplier (1.12). */
+  vainheartDamageMult: number;
+  /** The permanent shift once all three are broken. */
+  humiliated: { blockChanceDelta: number; aggressionDelta: number };
+}
+
+/**
  * D-1 — a feature boss's authored presentation state name (boss-rosters.md
  * Part A). In this slice the NAME is data only: the AI-4 presentation key map
  * that would dress it is not in the tree, so every feature boss keeps the
@@ -283,6 +338,16 @@ export interface OpponentConfig {
    */
   palmae?: string[];
   bossMechanic?: BossMechanic;
+  /**
+   * D-3 — Varro's false telegraph, for a `false_telegraph` Feature Bout only.
+   * `utils/falseTelegraph.ts`'s fence is what decides whether it can ever be used.
+   */
+  falseTelegraph?: FalseTelegraphConfig;
+  /**
+   * D-3 — Gnaeus's unbroken panoply, for an `unbroken_panoply` Feature Bout only.
+   * `utils/panoply.ts`'s fence is what decides whether it can ever be used.
+   */
+  panoply?: PanoplyConfig;
   /**
    * D-1 — a Feature Bout: a boss faced outside the tier ladder. Appended to the
    * roster so saves keep their ids; it is NOT a ladder rung (`fightIndex` 0), it

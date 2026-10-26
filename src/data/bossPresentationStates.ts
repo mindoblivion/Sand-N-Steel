@@ -96,6 +96,26 @@ export const BOSS_PRESENTATION_DELTAS: Partial<
     ambientIntensity: 0.55,
     fogColor: '#c99a72',
   },
+  // D-3 — Varro's state, per Part A's own brief: "Hard white sun, hard short
+  // shadows: nothing to hide a feint." The key light is driven to white and
+  // lifted, the ambient dropped (so the shadows stay short and hard rather than
+  // filled in), and the sand haze bleached to match.
+  'high-noon': {
+    sunColor: '#ffffff',
+    sunIntensity: 2.45,
+    ambientColor: '#e7e5e4',
+    ambientIntensity: 0.42,
+    fogColor: '#e4d5b7',
+  },
+  // D-3 — Gnaeus's state: "Gold under torchlight — wealth displayed as armour."
+  // A warm gilt key under a lifted amber ambient, with the haze gilded to match.
+  gilded: {
+    sunColor: '#f6c453',
+    sunIntensity: 1.75,
+    ambientColor: '#f3d08a',
+    ambientIntensity: 0.62,
+    fogColor: '#b8863b',
+  },
 };
 
 /**

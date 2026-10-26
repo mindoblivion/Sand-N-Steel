@@ -667,6 +667,23 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardXp: 330,
     meshScale: 1.02,
     bossMechanic: 'false_telegraph',
+    // ── D-3 — THE FALSE TELEGRAPH (every number AUTHORED for this slice) ────
+    // boss-rosters.md Part A fixes the RULE and the two HUD lines but carries no
+    // rate, so the value below is authored against Varro's stated identity — "his
+    // wind-ups lie" — and the card line's own tell ("a planted stance means the
+    // blow is real; a light foot means a feint").
+    //   • feintChance 0.45 — a coin with a thumb on it: a true heavy still comes
+    //     more often than not, so blocking stays the safe answer, but the tell is
+    //     worth reading rather than guessing.
+    //   • teachingSequence ['true','feint'] — the first two heavies are FORCED so
+    //     the player sees one real wind-up and one lie before the RNG governs.
+    //   • feintFollowUpMult 1.15 — Two Faces' own "+15%" (palmae.ts), spent on the
+    //     next TRUE heavy after any feint.
+    falseTelegraph: {
+      feintChance: 0.45,
+      teachingSequence: ['true', 'feint'],
+      feintFollowUpMult: 1.15,
+    },
     characterModel: 'roman_warrior',
   },
   {
@@ -710,6 +727,38 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardXp: 520,
     meshScale: 1.1,
     bossMechanic: 'unbroken_panoply',
+    // ── D-3 — THE UNBROKEN PANOPLY (every number AUTHORED for this slice) ───
+    // boss-rosters.md Part A names the three pieces and the three benefits; it
+    // carries no crack count, no rate and no delta, so each value below is
+    // authored against this row's own band (aggression 0.60, blockChance 0.75)
+    // and its card line ("Power attacks crack them even through his block").
+    //
+    // CRACK ORDER IS THE ARRAY'S ORDER — there is no strike-line model in this
+    // combat system (no high/mid/low), so the design's permitted fallback is
+    // what ships: the first UNBROKEN piece takes each crack, facing → crest →
+    // pauldron. Two cracks break a piece; six power attacks strip the panoply.
+    panoply: {
+      pieces: [
+        { id: 'facing', name: 'shield facing', breakAt: 2 },
+        { id: 'crest', name: 'crest', breakAt: 2 },
+        { id: 'pauldron', name: 'pauldron', breakAt: 2 },
+      ],
+      // The crest's shout: +0.10 aggression (0.60 → 0.70) while it shines.
+      crestAggressionBonus: 0.1,
+      // The facing's guard: +0.10 blockChance (0.75 → 0.85) while it shines.
+      facingBlockChanceBonus: 0.1,
+      // The pauldron's gilt plate: he takes 90% of what lands until it splits.
+      pauldronDamageTakenMult: 0.9,
+      // One crowd-raising beat per break (the taunt's own +20 is the flight's;
+      // a break is a smaller, more frequent cheer).
+      breakHype: 15,
+      // Vainheart (palmae.ts): "+12% on his next two attacks" after a break.
+      vainheartAttacks: 2,
+      vainheartDamageMult: 1.12,
+      // All three broken: the man behind the gold. blockChance −0.10 and
+      // aggression +0.10, permanent for the duel.
+      humiliated: { blockChanceDelta: -0.1, aggressionDelta: 0.1 },
+    },
     characterModel: 'roman_warrior',
   },
   {

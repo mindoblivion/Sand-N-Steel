@@ -7325,3 +7325,90 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   automatically verified:** the beast's rendered flight animation on a real GPU (SwiftShader here), and the
   `3/3` pip row, which stays visible beside Marcellin's name after the flight — a HUD reading worth a
   Director's look rather than a silent change.
+
+## Boss rosters — false telegraph (Varro) and unbroken panoply (Gnaeus) (Slice D-3 — implemented)
+
+- **The two hinges, inspected first and reported as the prompt asks.** Heavies are telegraphed by
+  Goliath's mechanic: the AI may choose the existing `'telegraph'` action (30 %, three guards), which
+  sets `pendingHeavyAttackRef` + `opp.telegraphText`; on the boss's next turn the AI effect's
+  `pendingHeavyAttackRef` branch clears the banner, sets `telegraphLandingRef` (the long hit-stop) and
+  `telegraphAftermathRef` (the 900 ms beat), and calls `executeCombatTurn('opponent', 'power_attack')`
+  — the standard power pipeline, one full turn later. The pace table is untouched
+  (`telegraph: 1450`, `quick_attack: 880`, `power_attack: 1300`). A blocked power attack reaches the
+  landed branch with `isBlocked = defender.isBlocking` and is reported there as
+  `BLOCKED by …` / `notePlayerStrike('blocked')` / sparks; a missed, evaded or out-of-range blow never
+  enters it. That landed branch is the event stage both mechanics hang off.
+- **`false_telegraph` (Varro), gated `isBoss && featureBout && bossMechanic === 'false_telegraph'`
+  and a valid `falseTelegraph` block** (`utils/falseTelegraph.ts`). Every heavy he chooses is announced
+  rather than thrown silently (the wind-up is where the tell lives); `initiateHeavy` decides the kind at
+  the ANNOUNCE with a deterministic seed drawn once per duel (`seededRoll`, murmur-family integer
+  avalanche), the teaching pair forced first, and publishes `tell` (`light` for a feint, `planted` for a
+  true heavy). At resolution `falseTelegraphAction(kind)` dispatches `quick_attack` (feint — standard
+  quick profile, damage, stamina, 880 ms) or `power_attack` (true heavy — byte-identical to a normal
+  heavy). The tell is cleared in `executeCombatTurn` whatever the blow becomes; the announce is the
+  shipped telegraph action, so its 1450 ms turn is never shortened. The tell is WEIGHT-based:
+  `tellFor(kind)` takes no side input and the stance cue is a transform on the model group, so Lefty
+  mode cannot change it.
+- **`unbroken_panoply` (Gnaeus), same fence** (`utils/panoply.ts`). Three pieces with 2 cracks each;
+  **there is no strike-line model in this combat system, so the design's fallback ships: cracks accrue
+  to the first unbroken piece in the row's order `facing → crest → pauldron`**, one per player POWER
+  attack that lands (hit or blocked), never on a quick. While a piece shines: crest `+0.10` aggression
+  (0.60 → 0.70), facing `+0.10` blockChance (0.75 → 0.85), pauldron `damageTakenMult 0.90`. Each break
+  removes exactly that benefit, pays the player `breakHype` 15, speaks
+  `His {piece} splits — the crowd loves it.`, and arms Vainheart (his own palma) for his next 2 attacks
+  at `×1.12`. All three broken: **Humiliated** — blockChance `−0.10` (0.65), aggression `+0.10` (0.70),
+  permanent, announced once (`The gold is gone — Gnaeus stands humiliated before the crowd.`). The AI
+  reads the live values through `panoplyAggression` / `panoplyBlockChance`; the player's blows read
+  `panoplyDamageTakenMult` into the same `traitMult` every other modifier uses. No formula changed.
+- **Naming note, stated rather than silently resolved:** the prompt's item 3 is headed "Vainheart" but
+  describes the effect `palmae.ts` gives **Two Faces** ("after a feint, his next true heavy +15 %"), and
+  item 4 attributes "Vainheart" to Gnaeus — which is what his row carries ("a break arms his next two
+  attacks at +12 %"). Both shipped under the palma each row actually carries: Varro's `two_faces`
+  (1.15 via `followUpMultiplier`, spent on the next TRUE heavy, win or lose the exchange) and Gnaeus's
+  `vainheart` (1.12 for two attacks). This is the only reading in which both the ids and the
+  descriptions are true.
+- **Presentation, property-only.** `high-noon` (hard white sun, low ambient) and `gilded` (warm gold key)
+  joined `BOSS_PRESENTATION_DELTAS` — the arena's existing light/fog properties, +0 draw calls. The
+  duel arena holds no standalone banner, so Gnaeus's third break swaps the **imperial loge canopy's
+  colour** (`#eab308` → the house `#881337`) through a `bannerAllegiance` prop — one material property,
+  no new mesh. The panoply's crack pips render beside the boss name in D-2's pip language
+  (`data-panoply-pips` / `data-panoply-humiliated`), in the vital card, so they cannot crowd
+  `TurnActionPanel`.
+- **Suites:** `src/utils/falseTelegraph.test.ts` (25 tests) and `src/utils/panoply.test.ts` (26 tests)
+  cover the fence (including string-copy and every non-boss row), the teaching pair, the seeded roll's
+  determinism, feint-vs-quick and true-vs-heavy profile equality, the telegraph duration, the tell's
+  lefty-independence, Two Faces, cracks on power-only (hit or blocked), the crack order, each benefit's
+  removal, the Humiliated values, Vainheart's two attacks, the presentation deltas/banner/pips, and that
+  no duel state reaches a save. **Rebased, not weakened:** `beastHunt.test.ts`'s presentation-delta keys
+  (`['dawn']` → the three authored states) and its `executeCombatTurn(` count (6 → 7, Varro's resolution);
+  `crowdHype.test.ts`'s arena mount (now also carries the banner allegiance) and its hype-award count
+  (4 → 5, the panoply break's row value); `duelTurnPacing.test.ts`'s aftermath-marker count (1 → 2, the
+  second telegraph branch); `featureBouts.test.ts`'s D-1 inertness sweep (the two mechanics D-3 wires are
+  named, the other three stay inert, and **no feature mechanic still owns a presentation moment**) and
+  its DuelScene state-name sweep (`'gilded'` now appears once, structurally as the banner's allegiance,
+  the other four names still absent).
+- **Verified 2026-10-25** in the dev container: `bun test` → **3759 pass / 0 fail (125 files, 110 144
+  `expect()`)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets);
+  `git diff --check` → clean.
+- **Live evidence (preview browser, anonymous visitor, dev harness in an in-page frame).** vs Varro
+  (`?devHarness=character&opponent=opp_varro_boss`): creation → Start Test Duel mounted on
+  `VARRO "THE MIRAGE" 300/300`, turns resolved, and on the fifth exchange he **wound up** — the
+  `HEAVY ATTACK INCOMING` banner up with the Doctore's telegraph beat, **0 console errors** — proving
+  the announce path runs for a feature bout through the shipped telegraph action. vs Gnaeus: the HUD
+  read `data-panoply-pips="shield facing:0/2|crest:0/2|pauldron:0/2"`, `data-panoply-humiliated="0"`,
+  boss name present, 0 console errors, no sideways scroll at 1280. The frames are SwiftShader
+  (~1–2 fps).
+- **NOT automatically verified — the human checks the prompt asks for.** (a) Whether a player can call
+  feint-vs-true from the feet tell alone by the third heavy: the tell is a 0.12 rad forward lean plus a
+  0.03 dip on the model group, which a software-rendered, ~2 fps frame at this subject size cannot
+  adjudicate; it is a Director/device reading. (b) Whether the first-feint words read well and whether
+  the teaching pair is unmistakable. (c) Gnaeus's deliberate power-into-block strip, the per-break
+  announcements and the Humiliated shift in play (unit-pinned; no fight was driven to six landed power
+  attacks). (d) The gilded/high-noon lighting and the banner swap's look. The harness cannot seed a
+  levelled save, so these belong to the Android pass.
+- **Open risks:** the panoply's benefit values and Varro's `feintChance 0.45` are AUTHORED (Part A
+  carries no numbers) and want a balance pass; a feint still costs Varro the heavy's announced turn, so
+  a feint-heavy streak is tempo-negative for him (measured by feel, not tuned); the seed is drawn once
+  per duel, so a rematch replays a different sequence; and the Humiliated blockChance/aggression values
+  ride the AI's standard chooser only — the player-blocking branch's fixed 0.45/0.30 split is unchanged.
