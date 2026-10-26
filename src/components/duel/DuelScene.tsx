@@ -17,6 +17,23 @@ import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../util
 import { calculateTotalStats } from '../../services/storage';
 import { resolveTemperLevel, getEffectiveWeaponStats } from '../../utils/tempering';
 import { calculateDuelGold } from '../../utils/duelRewards';
+// C-8.70C — the crowd's tuning and its live rule. ONE config, ONE rule module;
+// `combatCalculations.ts` is not touched by this slice (see the two notes at the
+// embolden input and the rage multiplier).
+import { CROWD_CONFIG } from '../../data/crowdConfig';
+import {
+  advanceCrowdRageCharge,
+  applyCrowdHypeDecay,
+  crowdDuelReward,
+  crowdEmboldenedAggression,
+  crowdEmboldenShift,
+  crowdIsPassive,
+  crowdOffensiveAction,
+  crowdRageDamageMultiplier,
+  crowdRageFeedApplies,
+  crowdTurnsNow,
+  readCrowdHypeState,
+} from '../../utils/crowdDynamics';
 import { getWeaponByType } from '../../data/itemsDB';
 import {
   getWeaponRange,
@@ -571,6 +588,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // celebration never re-renders the scene.
   const crowdPulseRef = useRef(0);
 
+  // C-8.70C — the crowd's own clock and its two latches.
+  //   • `lastOffensiveActionAtRef` is the passive window's only input: the last
+  //     quick/power attack by EITHER fighter (stamped at the top of
+  //     executeCombatTurn).
+  //   • `crowdTurnedRef` latches the one-shot "the crowd has turned" verdict, so
+  //     the result flow reads it without depending on a render.
+  //   • `rageChargeRef` is Aurelius's rage accumulation (0…1) — the NEW rate this
+  //     slice adds (the shipped CF-6 rage is a trigger; see the rage effect and
+  //     the report). It ramps the EXISTING RAGE_DAMAGE_MULTIPLIER input.
+  const lastOffensiveActionAtRef = useRef(Date.now());
+  const crowdTurnedRef = useRef(false);
+  const rageChargeRef = useRef(0);
+
   const updateCrowdHype = useCallback((updater: (prev: number) => number) => {
     const prev = crowdHypeRef.current;
     const next = updater(prev);
@@ -835,6 +865,46 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       if (!isMatchOver.current) {
         setMatchTimer((prev) => prev + 1);
         statsRef.current.durationSeconds += 1;
+
+        // C-8.70C — one second of the crowd's own clock, in the same tick as the
+        // match clock. The decay is the config's per-venue rate, doubled while
+        // neither fighter has attacked inside the tier's passive window. The peak
+        // is NOT touched here: it only ever rises, and only `updateCrowdHype`
+        // raises it. A downward tier crossing is CF-3's: it lowers the bed's
+        // level and nothing else.
+        const passive = crowdIsPassive(
+          Date.now() - lastOffensiveActionAtRef.current,
+          opponent.tier,
+        );
+        const decayed = applyCrowdHypeDecay({
+          hype: crowdHypeRef.current,
+          tier: opponent.tier,
+          passive,
+          dtSeconds: 1,
+        });
+        if (decayed !== crowdHypeRef.current) {
+          const crossing = detectCrowdHypeCrossing(crowdHypeRef.current, decayed);
+          crowdHypeRef.current = decayed;
+          setCrowdHype(decayed);
+          if (crossing) sounds.setCrowdLevel(crossing.level);
+        }
+
+        // The crowd turns once: cold, and late. The flag latches for the result.
+        if (
+          !crowdTurnedRef.current &&
+          crowdTurnsNow(crowdHypeRef.current, statsRef.current.durationSeconds)
+        ) {
+          crowdTurnedRef.current = true;
+        }
+
+        // Aurelius's rage charge (the trigger below is what sets `rageActivatedRef`).
+        if (rageActivatedRef.current) {
+          rageChargeRef.current = advanceCrowdRageCharge(
+            rageChargeRef.current,
+            crowdHypeRef.current,
+            1,
+          );
+        }
       }
     }, 1000);
     return () => clearInterval(timer);
@@ -863,6 +933,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
   // Distance in 3D arena
   const currentDistance = Math.abs(player.position[2] - opp.position[2]);
+
+  // C-8.70C — what the HUD draws about the crowd: the embolden band (with the
+  // current shift, so the words can carry the number) and whether the roar is
+  // feeding Aurelius's rage. Read from the RENDERED hype value, so the line
+  // appears and clears with the meter the player is watching.
+  const crowdHypeState = readCrowdHypeState(crowdHype, CROWD_CONFIG);
 
   // CL-3 — evaluate after every resolved action (and on the opening turn). One
   // card at a time: while one is up, the evaluator is not consulted, so several
@@ -970,6 +1046,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       setIsExecuting(true);
       const isActorPlayer = actor === 'player';
+
+      // C-8.70C — an OFFENSIVE action is either fighter's quick or power attack;
+      // it is the crowd's passive window's only input, and it is stamped at the
+      // single dispatch both fighters resolve through. A block, a dodge, a taunt,
+      // a rest, an advance or a net is not offensive.
+      if (crowdOffensiveAction(actionType)) lastOffensiveActionAtRef.current = Date.now();
 
       // ── D-5 — THE LIVE OFFENSIVE MIX ─────────────────────────────────────
       // One count per PLAYER attack, taken from the dispatch that resolves the
@@ -1604,8 +1686,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               Math.random() <
                 critChanceFor(netCritBonusModifiers(attackerMods, isEntangled(defender.entangledTurns)));
             const isBlocked = defender.isBlocking;
+            // C-8.70C — Aurelius's rage now BUILDS: the charge ramps the
+            // multiplier VALUE the shipped formula already accepts, from 1.0 to
+            // the unchanged RAGE_DAMAGE_MULTIPLIER as it fills. The formula
+            // (`calculateAttackDamage`) and its `rageMultiplier` parameter are
+            // untouched; only a raged attacker can reach this branch, and only
+            // `rage_mode_colossus` can rage.
             const rageMult =
-              !isActorPlayer && attacker.isRaged && !isBeastPounce ? RAGE_DAMAGE_MULTIPLIER : 1.0;
+              !isActorPlayer && attacker.isRaged && !isBeastPounce
+                ? crowdRageDamageMultiplier(rageChargeRef.current)
+                : 1.0;
             // CH-3a weapon stage — the defender's own blockReduction plus the
             // block's add (capped at 0.90 by applyBlockReduction), less the
             // attacker's class penetration (thraex's Hook the Rim, 0.40).
@@ -2217,7 +2307,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // D-4 — a brother chooses with HIS published aggression and blockChance
       // (plus the Oath's shift once he is the survivor); every other row reads
       // its own values exactly as it always has.
-      const aiAggression =
+      let aiAggression =
         brothersCfg && brothersSlotActor
           ? brotherAggression(brothersCfg, brothersRef.current, brothersSlotActor)
           : panoplyCfg
@@ -2234,6 +2324,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           : longMemoryCfg
           ? longMemoryBlockChance(longMemoryCfg, longMemoryBase, longMemoryRef.current)
           : opponent.blockChance;
+
+      // C-8.70C — THE CROWD EMBOLDENS THE OPPONENT, AS AN INPUT. The shift is
+      // folded into the aggression VALUE the existing chooser is handed — never
+      // into its selection math, and never into `combatCalculations.ts`. Below
+      // the threshold the shift is 0 and this is a no-op, so every pre-existing
+      // behaviour is byte-identical.
+      const emboldenShift = crowdEmboldenShift(crowdHypeRef.current, CROWD_CONFIG);
+      if (emboldenShift > 0) {
+        aiAggression = crowdEmboldenedAggression(aiAggression, crowdHypeRef.current, CROWD_CONFIG);
+      }
 
       let chosenAction: CombatActionType = 'quick_attack';
 
@@ -2277,10 +2377,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           chosenAction =
             beastCfg && beastRef.current.pose === 'fled'
               ? chooseAIStandardAction(
-                  masterAloneAggression(opponent.aggression, beastCfg.masterAloneAggressionBonus),
+                  crowdEmboldenedAggression(
+                    masterAloneAggression(opponent.aggression, beastCfg.masterAloneAggressionBonus),
+                    crowdHypeRef.current,
+                    CROWD_CONFIG,
+                  ),
                   aiBlockChance,
                 )
-              : panoplyCfg || longMemoryCfg
+              : // C-8.70C — an emboldened opponent is a LIVE profile like the
+                // panoply's or Hermas's, so it takes the named read that already
+                // carries the shift. With no shift this condition is false and a
+                // standard row keeps its own published values.
+              panoplyCfg || longMemoryCfg || emboldenShift > 0
               ? chooseAIStandardAction(aiAggression, aiBlockChance)
               : chooseAIStandardAction(opponent.aggression, opponent.blockChance);
         }
@@ -2400,6 +2508,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       });
       statsRef.current.goldEarned = purse.total;
       statsRef.current.goldBreakdown = purse;
+      // C-8.70C — the crowd's two line items, computed in this same result flow
+      // from the duel's own peak and its turning. The peak gold is added AFTER
+      // the shipped purse assignment (which is untouched), and the turned
+      // verdict multiplies FAME only — gold is never reduced.
+      const crowdReward = crowdDuelReward({
+        baseFame: opponent.rewardFame,
+        baseGold: opponent.rewardGold,
+        crowdHypePeak: statsRef.current.crowdHypePeak,
+        crowdTurned: crowdTurnedRef.current,
+      });
+      statsRef.current.goldEarned += crowdReward.peakGoldBonus;
+      statsRef.current.fameEarned = crowdReward.fame;
+      statsRef.current.crowdPeakFameBonus = crowdReward.peakFameBonus;
+      statsRef.current.crowdPeakGoldBonus = crowdReward.peakGoldBonus;
+      statsRef.current.crowdTurned = crowdReward.crowdTurned;
       // C-8.70C — the player's offensive mix over this bout, READ at result time
       // from D-5's own live counter (no second counter): only the dominant-class
       // summary rides the in-memory statistics object, and App persists it on the
@@ -2540,6 +2663,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     if (isMatchOver.current) return;
     if (!shouldActivateRage(opponent.bossMechanic, opp.health, opp.stats.healthMax, rageActivatedRef.current)) return;
     rageActivatedRef.current = true;
+    // C-8.70C — the charge starts empty on ignition and ramps at the hype-scaled
+    // rate in the 1 s clock above. The TRIGGER (50 % health, once) is unchanged.
+    rageChargeRef.current = 0;
     setOpp((prev) => ({ ...prev, isRaged: true }));
     addLog(`${opp.name} enters a devastating RAGE! Attack power surged!`, 'system');
     spawnDamageText('RAGE MODE!', 'crit', opp.position);
@@ -2788,6 +2914,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         opponentModifiers={opponentMods}
         opponentIsBoss={opponent.isBoss === true}
         bossVignettePulse={bossVignettePulse}
+        crowdEmbolden={
+          crowdHypeState.isEmboldened
+            ? { name: opp.name, shift: crowdHypeState.shift }
+            : null
+        }
+        bossRageFed={crowdRageFeedApplies(opponent) && crowdHypeState.isEmboldened}
         beast={
           beastCfg
             ? {

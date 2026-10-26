@@ -121,6 +121,14 @@
   .combat-hud .turn-banner {
     padding-block: 0.15rem;
   }
+  /* C-8.70C — the crowd's state lines ("The crowd roars — … fights emboldened",
+     "The roar feeds his rage") are required information, so the compact block
+     tightens them to the same 10px the boss pair line already uses at this size
+     instead of hiding them. Nothing else about them moves. */
+  .combat-hud .crowd-state-lines > * {
+    font-size: 10px;
+    line-height: 1.15;
+  }
 }
 
 .scrollbar-none::-webkit-scrollbar {

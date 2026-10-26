@@ -7652,3 +7652,108 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   read. (5) His `dodgeChance` row field stays 0.50 although his live dodge share is derived
   from block; that is a pre-existing row/datum mismatch this slice deliberately does not
   "fix".
+
+## C-8.70C — two-edged crowd hype (Slice C-B — implemented; device feel PENDING)
+
+- **What ships, and what deliberately did not.** `src/data/crowdConfig.ts` (new — the tuning, one
+  place), `src/utils/crowdDynamics.ts` (new — the pure rule), `src/utils/crowdHypeDynamics.test.ts`
+  (new suite, 41 tests), and four touched files: `components/duel/DuelScene.tsx` (the live loops),
+  `components/ui/CombatHUD.tsx` (the two lines), `components/hub/DuelResultModal.tsx` (the reward
+  lines), `index.css` (one compact-landscape rule). `services/duelRewards.ts` changed by one
+  value-identical migration (below) and `types/game.ts` gained three OPTIONAL read-only stats fields.
+  **`utils/combatCalculations.ts` is byte-identical: no formula, no threshold, no selection math.** No
+  save field, no profile write, no collider, no new asset, no dependency, no handedness change.
+
+- **The config, every value marked design or authored. DESIGN (the brief's own numbers):** embolden
+  threshold **70**, cap **0.15**, full threshold **90**, floor shift **0.05**, turned threshold **20**.
+  **AUTHORED (anchored where a number existed):** decay per second **1.0 / 1.2 / 1.4 / 1.6** (tiers
+  1–4; 1.0 is one landed blow's +8 over a CF-5 exchange's ≈1.85 s), passive multiplier **2.0**,
+  passive window **6 s** (two exchanges), expected duel **90 s** (so the second half starts at 45 s —
+  the duration the phase-39C fixtures already use), turned fame factor **0.8**, peak fame factor
+  **0.25**, peak gold factor **0.1** (one favour step), rage feed factor **0.5**, rage accumulation
+  **0.5/s**. **Value-identical migrations:** the hype ceiling **100** and the purse's crowd-favour
+  ladder **50 / 25 / 0.1**, which `duelRewards.ts` now re-exports from the config
+  (`PURSE_HYPE_*` keep their names and values, so no caller or test moved).
+
+- **What was NOT migrated, on purpose (a move would have changed a value or a pinned reading):** the
+  opening seed `25`, the award magnitudes `+8 / +18 / +20` and the beast/panoply/flight awards (award
+  EVENTS, pinned byte-identical by the CF-3 suite), the tier boundaries `40 / 75` (CombatHUD's own
+  meter reading, pinned from its source) and the CF-3 crowd-audio gains `0.015 / 0.04 / 0.075`.
+
+- **The live loop.** The duel's existing 1 s match-timer tick now also runs the crowd's clock:
+  `applyCrowdHypeDecay` at the tier's rate (× the passive multiplier while
+  `Date.now() − lastOffensiveActionAtRef ≥ the window`), floored at 0; a downward tier crossing lowers
+  CF-3's bed level and nothing else; `crowdHypePeak` still only rises, and only `updateCrowdHype`
+  raises it. `lastOffensiveActionAtRef` is stamped at the TOP of `executeCombatTurn` for
+  `quick_attack` / `power_attack` only (both fighters, one dispatch). **Hype awards and the 100 cap are
+  untouched.**
+
+- **Embolden enters as an INPUT, in `DuelScene`, and `combatCalculations.ts` was not opened.** The
+  shift is folded into the `aiAggression` VALUE the existing chooser is handed (`let aiAggression`,
+  then `crowdEmboldenedAggression(aiAggression, crowdHypeRef.current, CROWD_CONFIG)`), and an
+  emboldened opponent takes the named-read branch (`panoplyCfg || longMemoryCfg || emboldenShift > 0`)
+  — so the shipped `chooseAIStandardAction(aiAggression, aiBlockChance)` and
+  `chooseAIStandardAction(opponent.aggression, opponent.blockChance)` calls are both still present,
+  unchanged, and a cold crowd is byte-identical to before. The beast branch's
+  `masterAloneAggression(…)` is wrapped by the same helper. The HUD shows
+  **"The crowd roars — {name} fights emboldened"** plus the shift (`data-crowd-embolden`, and
+  "+N% aggression" in words) inside the hype meter it describes.
+
+- **The crowd turns: the second half is ELAPSED TIME, not HP.** `expectedDuelSeconds / 2` = **45 s**
+  against `statsRef.durationSeconds`. `crowdTurnsNow` needs BOTH the second half and
+  `hype < 20` (strict), the flag latches in `crowdTurnedRef`, and the result flow multiplies FAME only
+  (`crowdDuelReward`). **Gold is never reduced.** The peak bonus is its own line item:
+  `round(base × peak/100 × factor)` for fame and for gold, computed in the existing victory effect
+  after the shipped purse write (`statsRef.current.goldEarned = purse.total;` is unchanged; the peak
+  gold is added immediately after), reported through `crowdPeakFameBonus` / `crowdPeakGoldBonus` /
+  `crowdTurned`. `DuelResultModal` prints **"Crowd's favor: +N fame"** and
+  **"The crowd turned — fame reduced"** (plus a "Crowd Peak" gold row). No other reward math changed.
+
+- **Rage feed — the rate is NEW, and that is the honest finding (addendum D).** CF-6's rage is a
+  TRIGGER (`shouldActivateRage`, 50 % health, once), and **no accumulation-rate variable existed**
+  anywhere in the tree. The minimal definition added on top of those trigger semantics: on ignition
+  `rageChargeRef` starts at 0 and builds at `0.5/s × (1 + hype/100 × 0.5)` (2 s to full at hype 0,
+  ≈1.33 s at hype 100), and the charge ramps the EXISTING `RAGE_DAMAGE_MULTIPLIER` input from 1.0 to
+  the shipped 1.25 — no second rage system, no formula change, and the 50 % trigger is untouched. The
+  fence is `crowdRageFeedApplies`: `isBoss === true` AND `bossMechanic === 'rage_mode_colossus'`, so
+  Aurelius alone reads hype as power; Goliath (another boss) and a regular row are the suite's
+  controls, and a non-boss carrying the copied string is refused. The HUD shows
+  **"The roar feeds his rage"** for that mechanic while hype ≥ 70.
+
+- **Touch layout.** Both lines sit INSIDE `.hype-meter` (one line each, 11px → `sm:text-xs`), so they
+  cannot overlap the vital cards or `TurnActionPanel`; the short-landscape block
+  (`orientation: landscape and max-height: 520px`) tightens them to 10px — the size the boss pair line
+  already uses there — rather than hiding required information.
+
+- **Verified 2026-10-26** in the dev container, the full battery on the final tree:
+  `bun test` (repo-wide, bare) → **3926 pass / 0 fail (129 files, 112,195 `expect()`)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets); `git diff --check`
+  → clean. **Every existing hype test passed UNMODIFIED** (`crowdHype` 38, `phase39c`, `phase39b`,
+  `phase37`, `phase38`, `duelRewards`, `beastHunt`, `combatPlumbing`, `longMemory`,
+  `statefulDoctrinae`, `yokedBrothers`, `settings`) — no pin was rebased and no assertion weakened.
+
+- **Live evidence in the preview browser (anonymous visitor — no session replayed, 0 console errors).**
+  The real duel was driven end to end: title → creation → city hub → `Colosseum` → `Enter Arena Duel`
+  → `Step into Sand` → the duel arena, where the HUD read `CROWD HYPE · LOW 25%`.
+  **The decay is VERIFIED LIVE:** with neither fighter attacking, the meter fell **25 % → 0 %** over
+  ~23 s (6 s of window, then ≈2/s), and five taunts each moved it by exactly **+20** with decay
+  resuming between them (0 → 20 → 30 → 40 → 50 → 60 → 52). At **375 px** the layout has **no sideways
+  overflow** (`scrollWidth − clientWidth = 0`).
+
+- **NOT automatically verified, and why.** (1) **The embolden line and the rage line were not observed
+  in band:** reaching hype ≥ 70 needs ~7 taunts at the preview's ~1–2 fps turn cadence and the run's
+  budget peaked at 60; their markup, wording, shift attribute and the `≥ 70` gate are pinned by the
+  suite and by the HUD source. (2) **The result screen's two lines and the reward arithmetic** need a
+  WON duel (the boss/regular bouts here are long at that frame rate); the math and the wiring are
+  unit-pinned, the modal render is not. (3) **Aurelius's rage feed in the arena** needs his 50 %-health
+  trigger plus a high-hype band, so it is unit-pinned only. (4) The **feel** of the cooling crowd and
+  of the embolden shift is a device question, like every other feel item in this file.
+
+- **Open risks.** (a) The rage ramp means Aurelius's rage damage RISES over ~2 s from ignition instead
+  of being instantly 1.25× — the one shipped behaviour this slice genuinely changes, chosen because a
+  rate was requested and a cosmetic meter would have been a decoy; flag it if instant rage is
+  preferred. (b) Decay runs on the 1 s timer, so the passive window and rates are quantised to 1 s.
+  (c) `expectedDuelSeconds` 90 is a guess at the venue's pace; it only decides when the turning is
+  possible, never the rewards' correctness. (d) The turned verdict is latched for the whole bout, so a
+  crowd that goes cold at 45 s and roars back still pays the turned fame.

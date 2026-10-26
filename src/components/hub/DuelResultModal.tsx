@@ -407,12 +407,38 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
                       <span>+{stats.goldBreakdown.flawless}</span>
                     </div>
                   )}
+                  {/* C-8.70C — the crowd's peak bonus, its own line item. It is
+                      already inside the Gold Earned total above. */}
+                  {typeof stats.crowdPeakGoldBonus === 'number' && stats.crowdPeakGoldBonus > 0 && (
+                    <div className="flex justify-between" data-duel-crowd-peak-gold={stats.crowdPeakGoldBonus}>
+                      <span>Crowd Peak</span>
+                      <span>+{stats.crowdPeakGoldBonus}</span>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="flex justify-between font-bold">
                 <span className="text-purple-400">Fame Gained:</span>
                 <span data-testid="duel-reward-fame" className="text-purple-400">+{counted.fame}</span>
               </div>
+              {/* C-8.70C — the crowd's own fame line items. Both are already
+                  inside Fame Gained above; these say WHERE it came from. */}
+              {typeof stats.crowdPeakFameBonus === 'number' && stats.crowdPeakFameBonus > 0 && (
+                <div
+                  className="text-[11px] text-purple-300/90 pl-3 ml-1 border-l border-purple-900/60"
+                  data-duel-crowd-peak-fame={stats.crowdPeakFameBonus}
+                >
+                  Crowd&apos;s favor: +{stats.crowdPeakFameBonus} fame
+                </div>
+              )}
+              {stats.crowdTurned && (
+                <div
+                  className="text-[11px] text-red-300 pl-3 ml-1 border-l border-red-900/60"
+                  data-duel-crowd-turned="1"
+                >
+                  The crowd turned — fame reduced
+                </div>
+              )}
               <div className="flex justify-between font-bold">
                 <span className="text-cyan-400">XP Earned:</span>
                 <span data-testid="duel-reward-xp" className="text-cyan-400">+{counted.xp}</span>
