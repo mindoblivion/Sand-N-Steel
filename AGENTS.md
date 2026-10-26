@@ -10749,3 +10749,112 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the model assumes a steady-state AI stance mix, light attacks every turn, no potions and a single
   attacker; it is a comparative instrument, not a forecast of a specific bout. **No live-duel or
   Android acceptance is claimed.**
+
+## Reaction Dodge cost contract (Phase C-8.85B — read-only design gate, no production change)
+
+- **Preflight (differs from the brief; preserved, not restored).** Branch `development-focus-strategy`,
+  HEAD **`af0f7089ef531e869b053a2bbb2ab14d73e10e50`** "Audit shield guard and dodge balance",
+  `git status --porcelain` **empty** before and after. The brief expected HEAD `befccc30b5` with the
+  C-8.85A record still *uncommitted*; it is in fact **committed** as `af0f708`, one commit on top of
+  `befccc3` (C-8.84F, its parent), and its 83 lines are intact above. Nothing was reset, stashed,
+  amended, committed, pushed, merged or deployed, and **no production file was edited**.
+
+- **The contract is already written down (C-8.83B), so it is read, not inferred.** `planDodgeReaction`
+  (`utils/combatCalculations.ts`): `DODGE_STAMINA_COST` "buys the dodge STANCE, not the tap" —
+  `activate` = 12 SP + `dodgesPerformed += 1`; `reaffirm` (stance already held) = 0 SP and no second
+  dodge; `refused` (stamina < 12) = 0 SP. `reactToPendingAttack` (`DuelScene.tsx` L1298) charges
+  through it at the CLAIM: after the refusal test, before `claimReaction()` spends the announcement's
+  one reaction, and before any dice.
+
+- **Which paths can raise a reaction stance at all.** The window exists only inside
+  `announceEnemyAttack`, which has exactly two call sites — the standard strike (L1497, reached only
+  when `dist <= weapon.range`) and Valéria's queued counter (L1444). Taunt, brace/`shield_block`,
+  advance, retreat, rest and `telegraph` all resolve through `executeCombatTurn` directly (L1501) and
+  never announce, so a reaction Dodge is not offered and **nothing can be charged for them**. There is
+  no feint, cancelled or interrupted wind-up in the codebase.
+
+- **On the reaction path the 12 SP is never wasted — in the shipped roster.** `announceEnemyAttack` sets
+  `isExecuting`, and every `TurnActionPanel` control is gated on it (L196-401), so distance is frozen
+  for the window; `strikeRef.announce` refuses a second announce; `cancel()` is only reachable from the
+  confirmed withdrawal, the match-end effect and unmount, all of which need the bout already over. So
+  the landing always runs and the stance always meets a resolving strike. The one *latent* lost-charge
+  path is the counter's own: it is announced with **no range check** while its landing re-runs the
+  authoritative range guard, and it is **unreachable today** only because every player weapon's range
+  (max 3.3, spear) is <= Valéria's spear reach, so any distance at which the player's strike was legal
+  is inside hers. That is an announce-side bug to fix if a shorter-range `counter_dodge` opponent is
+  ever added — not a cost-contract question.
+
+- **Where a charge IS lost is the turn action, and it is lost two ways.** A turn-action Dodge stance
+  dies at the top of the fighter's next action (pre-clear, L684-699), so it buys nothing whenever the
+  enemy's turn is a non-strike (`1 − aggression`, i.e. 5-50 % by opponent). It is also wasted against
+  Goliath's telegraphed heavy: that blow resolves **directly** (L1414) with no announcement, so there
+  is no reaction row at all, and if the player's stance turn was a retreat the mace's reach is left and
+  the guard refuses the heavy — 12 SP spent where a free retreat would have done the same job.
+
+- **A reaction Dodge also REPLACES a held guard.** Both reaction branches run
+  `applyDefensiveAction(clearDefensiveStance(prev), …)` (L1330 / L1345), so dodging an announced strike
+  while holding a free 82 % guard pays 12 SP *and* gives up the guard and its 17.3 SP credit. That is
+  the dominance problem in its sharpest form, and it is a cue/copy question rather than a price one.
+
+- **Policies priced per announcement (production helpers, roster of 8, C-8.85A kit).** **A** current
+  12.0 · **B** impact-settled **12.0 — the same number**, because the announcement already guarantees an
+  impact, so B differs only on the withdrawal/unmount paths where the bout is over · **B′** (charge only
+  if the blow *would* have landed) 7.7, against the roster's mean P(land) 64.4 % — **that is the
+  C-8.85A "7.4–9.4 SP" figure, and it belongs to B′, a policy the list does not contain**: the impact
+  reads the stance *before* the hit roll (L936), so "resolves against the active Dodge" cannot depend on
+  `hitPct` · **C** (successful evade) 10.56, i.e. −12 %, and it makes a FAILED dodge free — the worst
+  outcome pays nothing, and the price stops being knowable at the HUD · **D** capacity only: 11 dodges
+  today, 14 at 10 SP, 17 at 8, 23 at 6.
+
+- **Model challenged and reproduced.** `calculateAttackDamage` / `calculateHitChance` /
+  `shieldGuardStaminaGain` (17.3 SP credit per stopped blow, `×0.5`, clamped at `staminaMax`) give a
+  shield kit **1.5–5.5 HP per announcement** under Guard and **0.9–3.6** under Dodge — the audit's
+  magnitudes, and shield-less Dodge saves **3.7–14.6 HP**. Reproducing the capacity ceiling explains
+  the audit's table: after N = 11 announcements Dodge is ahead (162 vs 245 HP lost across the roster),
+  at N = 12 it is already behind (286 vs 267), at N = 20 it is catastrophic (1270 vs 445) because every
+  dodge past the pool is refused and the blow lands unmitigated. **Dodge's edge is an artefact of short
+  bouts; the 12 SP is exhausted before the roster's later fights pay out.**
+
+- **Why no price in the A–E list fixes it — measured in the game's own currency.** Guard already absorbs
+  82 % of a blow for 0 SP, so Dodge's *unique* avoidance is **6 % of a blow** for a shield build and
+  **48 %** shield-less (blockRed 0.40). Priced by the guard's own credit yardstick (17.3 SP per 82 %
+  stopped ≈ 0.21 SP per 1 % of a blow) that marginal avoidance is worth **≈1.3 SP** to a shield fighter
+  and **≈20.8 SP** to a shield-less one. One flat price cannot serve a ~15× spread, so **D is rejected on
+  evidence rather than taste**; B moves nothing and C moves 12 %. The yardstick is an inference from
+  `SHIELD_GUARD_REGEN_MULTIPLIER`'s own tuning rationale, not observed gameplay.
+
+- **Turn-action Dodge is NOT redundant, but it is dominated (measured, not read off the HUD).** The two
+  actions cover different windows: reaction Dodge is available on **100 % of announced strikes** and can
+  never be wasted on a non-strike turn, while turn-action Dodge costs the turn action, is lost to any
+  non-strike enemy turn, and — because `chooseAITacticalAction` branch 1 reads `player.isBlocking` only —
+  does not bend the AI the way a guard does (P(strike) = `aggression`, 0.50–0.95; 0.45 while guarding).
+  **The one thing only the turn action can do is answer the telegraphed heavy**, which has no reaction
+  row. That niche is real (retreat is the only free alternative and it yields ground), so the action must
+  not be removed or renamed; it needs the telegraph to be the case it exists for.
+
+- **Recommendation — policy A, unchanged, price decision deferred.** The contract stays "activation pays
+  for the stance": the audit's premise (a charge stranded on a strike that never arrives) does not hold
+  for the reaction path, and the two candidates that would move it either change nothing (B) or pay the
+  player for failure and make the price unknowable (C). Transition contract to pin: **activate** → 12 SP
+  now · **non-strike enemy action** → no window, no charge · **announced strike** → the stance always
+  meets an impact · **successful evade** → no further charge · **failed evade** → no refund, full
+  unmitigated blow, named by `landedStrikeText` · **unaffordable activation** → refused before the
+  reaction claim, announcement left unspent, HUD button disabled by `canAffordDodge` · **stance clears**
+  at the top of the fighter's next `executeCombatTurn`. **Unresolved design question for the next phase
+  (out of scope here): is Dodge's price loadout-aware, or is the Guard's free stamina credit the lever?**
+  Both answers move a number this gate is forbidden to touch.
+
+- **Files/tests a future implementation would touch** (none changed here): `utils/combatCalculations.ts`
+  (`planDodgeReaction`, `canAffordDodge`, the price), `DuelScene.tsx` L1298-1355 / L936 / L1005-1018,
+  `CombatHUD.tsx` L87 / L318 / L331-336 — the guard's "no cost" label beside the dodge's "−12 SP" is the
+  dominance made visible — and `utils/pendingStrike.ts` if a charge ever moved to impact. Suites:
+  `phaseC8_83B`, `phaseC8_83D`, `phaseC8_84A`, `phaseC8_84B`, `phaseC8_84D`, `phaseC8_84F`,
+  `defensiveBalance`, `phaseC8_82b`, `phaseC8_79C`, `pendingStrike`, `combatActionOrder`.
+
+- **Verified / not verified.** `bun test` over `phaseC8_82b`, `defensiveBalance`, `phaseC8_83B`,
+  `phaseC8_83D`, `phaseC8_84A`, `phaseC8_84B`, `phaseC8_84D`, `phaseC8_84F`, `pendingStrike`,
+  `combatActionOrder`, `phaseC8_79C`, `combatResponsiveness` → **304 pass / 0 fail** (12 files, 76324
+  `expect()`); the full suite was not run. Every combat figure is production helpers plus a throwaway
+  deterministic model (container `/tmp` only, never the repo) on the C-8.85A player kit: the *formulas,
+  constants and roster* are production, the *player stat block* is inherited from C-8.85A and is an
+  assumption, and **no live duel was played**. **No live-duel or Android acceptance is claimed.**
