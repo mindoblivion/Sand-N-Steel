@@ -13,6 +13,7 @@ import { beastIntelLine } from '../../utils/beastHunt';
 // module, so no figure is restated here. Rumour depth only: the fight computes
 // none of this from a card.
 import { brothersIntelLine } from '../../utils/yokedBrothers';
+import { longMemoryIntelLine } from '../../utils/longMemory';
 
 /** How the opponents' own weapon types read on a rumour card. Display only. */
 const WEAPON_LABELS: Record<OpponentConfig['weaponType'], string> = {
@@ -147,6 +148,23 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
                         className="mt-1 text-[11px] font-mono text-amber-200"
                       >
                         {brothersIntelLine(opp.brothers)}
+                      </div>
+                    )}
+                    {/* D-5 — Hermas's BASE profile and the rule he reads by,
+                        built from the row by `longMemoryIntelLine` so no figure
+                        is restated here. His adaptations are the one honest
+                        unknown and the line says so: whether he reads you at all
+                        depends on the player's own mix. */}
+                    {opp.longMemory && (
+                      <div
+                        data-long-memory-intel={opp.id}
+                        className="mt-1 text-[11px] font-mono text-amber-200"
+                      >
+                        {longMemoryIntelLine(opp.longMemory, {
+                          aggression: opp.aggression,
+                          blockChance: opp.blockChance,
+                          dodgeChance: opp.dodgeChance,
+                        })}
                       </div>
                     )}
                   </div>

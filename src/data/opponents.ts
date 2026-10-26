@@ -871,6 +871,30 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardXp: 700,
     meshScale: 1.05,
     bossMechanic: 'the_long_memory',
+    // ── D-5 — THE LONG MEMORY, AND WHICH NUMBERS ARE WHOSE ──────────────────
+    // The thresholds, the dominance line and the caps are the design's: he reads
+    // the player's mix at 66 % and again at 33 % HP, acts only on a class past
+    // three-in-five (0.60), and no single adoption may move a value by more than
+    // 0.15, clamped into [0.05, 0.95].
+    //   • blockChanceDelta.power +0.10 — PUBLISHED (the Grudge design's own B4
+    //     example: blockChance rises and the dodge share falls with it).
+    //   • blockChanceDelta.quick −0.15 — AUTHORED. B4 publishes no quick-spam
+    //     mirror, so this one is authored inside the same cap. −0.15 is chosen so
+    //     that after Old Craft's +0.05 the net is −0.10 per adoption, the same
+    //     visible size a power adoption leaves after its own stacking.
+    //   • oldCraftBlockChancePerAdoption +0.05 — his carried palma (`old_craft`:
+    //     "each adaptation he adopts also grants +5 % block chance").
+    // Two power adoptions take block 0.65 → 0.80 → 0.95, i.e. exactly to the
+    // clamp ceiling; two quick adoptions take it 0.65 → 0.55 → 0.45 while his
+    // dodge share climbs 35 % → 45 % → 55 %. His base stats never change.
+    longMemory: {
+      readAtHealthFractions: [0.66, 0.33],
+      dominanceThreshold: 0.6,
+      blockChanceDelta: { power: 0.1, quick: -0.15 },
+      oldCraftBlockChancePerAdoption: 0.05,
+      maxDeltaPerAdoption: 0.15,
+      clamp: { min: 0.05, max: 0.95 },
+    },
     characterModel: 'roman_warrior',
   },
 ];

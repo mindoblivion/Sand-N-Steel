@@ -7519,3 +7519,136 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   after a Crossing resolution to the brother who did NOT lead it, so the front can act three
   slots running across a Crossing (telegraph, heavy, next act); this is pinned by the suite and
   reads as the pair committing to the trap.
+
+## Boss rosters — Hermas's long memory (Slice D-5 — implemented; the arena read itself PENDING)
+
+- **What ships.** The D-1 `opp_hermas_boss` row (unchanged in every field it already
+  had) gains its `longMemory` sub-data; a pure module (`src/utils/longMemory.ts`) owns the
+  fence, the **LIVE OFFENSIVE-MIX COUNTER (built new in this slice — the tree had none)**,
+  the two thresholds, the counter-shift, its caps and every word; the duel counts the
+  player's attacks and reads the effective block value into the AI's own chooser; the
+  result modal prints the adaptation log in numbers; the tavern's deep card prints his
+  base profile and labels the one honest unknown. Files: `types/game.ts`
+  (`LongMemoryConfig`, `OpponentConfig.longMemory`, `DuelStatistics.adaptationLines`),
+  `data/opponents.ts` (the authored sub-data), `utils/longMemory.ts` (+ its suite),
+  `components/duel/DuelScene.tsx`, `components/hub/DuelResultModal.tsx`,
+  `components/hub/TournamentTab.tsx`, `data/bossPresentationStates.ts` (`dusk` +
+  `emberEmissive`), `components/3d/DuelArena.tsx` (the banner's fourth tone, the ember
+  property).
+
+- **What the engine already gave, and what is genuinely new.** The duel already hands
+  `executeCombatTurn` the player's `CombatActionType` on every resolved action, and its
+  combat log is prose — so the ACTION STREAM was there and the DATA was not. This slice
+  adds (a) a counts-only live mix in memory (`notePlayerAction` → `{ quick, power }`, no
+  second log, nothing saved), (b) the threshold read + counter-shift rule, (c) one extra
+  named read in the AI chooser (`aiBlockChance`, exactly where D-3's panoply and D-4's
+  brothers already sit), (d) the in-memory result log, (e) a fourth banner tone and one
+  emissive property. **Nothing was imported from the Grudge Bouts slice: C-A is not
+  merged, there is no grudge shift and no mix counter in the tree, and D-5 builds its
+  counter fresh.** C-D is likewise not merged: the "explainable lines" are a small
+  addition to the EXISTING `DuelResultModal` (a `data-long-memory-lines` block fed by
+  `DuelStatistics.adaptationLines`, the same in-memory pattern D-2's `beastEpilogue` uses),
+  not C-D machinery.
+
+- **The mechanic, as shipped.** At Hermas's HP crossing 66 % and again at 33 % (each once,
+  never mid-telegraphed-action — the read is deferred while `opp.telegraphText` or the
+  pending-heavy marker stands, and re-runs when the banner clears; a read on the killing
+  blow is skipped) he reads the player's offensive mix from the live counter. A class past
+  60 % of that mix triggers its counter-shift plus Old Craft; neither past 60 % triggers
+  nothing. Only `blockChance` moves — the one knob `chooseAIStandardAction` reads — and the
+  dodge share is its exact complement (`1 − blockChance` of his defensive actions), which
+  is what B4's "the dodge share falls" names. Hermas's `dodgeChance` row field is untouched
+  because a non-`counter_dodge` opponent never reads it.
+
+- **The values as landed, and which ones are whose.** `readAtHealthFractions` `[0.66,
+  0.33]`, `dominanceThreshold` 0.60, `maxDeltaPerAdoption` 0.15, `clamp` `[0.05, 0.95]` —
+  the design's. `blockChanceDelta.power` **+0.10 — PUBLISHED** (B4's own example).
+  `blockChanceDelta.quick` **−0.15 — AUTHORED** (B4 publishes no quick-spam mirror; it is
+  authored inside the same cap, and its size is chosen so that after Old Craft's +0.05 the
+  net is −0.10 per adoption). `oldCraftBlockChancePerAdoption` **+0.05** (his carried
+  `old_craft` palma). **The cap is read PER ADOPTION** — that is the only reading under
+  which the mechanic's second beat is real: two power adoptions take block **0.65 → 0.80 →
+  0.95** (exactly the published clamp ceiling) with the dodge share **35 % → 20 % → 5 %**,
+  and two quick adoptions take it **0.65 → 0.55 → 0.45** with the dodge share **35 % → 45 %
+  → 55 %**. Under a cumulative reading the second adoption could add nothing at all, which
+  would make the card line's "twice" dead. His base stats never change — the suite pins all
+  seventeen rows byte-identical across a full power-spam bout.
+
+- **The balanced rule, and the boundary.** A 50/50 synthetic mix produces a Hermas whose
+  profile equals his row at BOTH thresholds (block 0.65, aggression 0.70, dodgeChance 0.50,
+  dodge share 35 %), with no shift, no Old Craft, an empty HUD line, and a result line that
+  says so. A mix sitting **exactly** on 60 % is balanced too (the rule is "past
+  three-in-five"); one extra action past it is not — both cases pinned.
+
+- **The words print his real row values.** The announcement is built from the computed
+  before/after pair, e.g. *"The old man has seen enough of your power attacks — he sets
+  himself to block. Old Craft settles his guard. (Block 0.65 → 0.80; his dodge share 35% →
+  20%)"*. The staged prompt's `0.60 → 0.70` is asserted **absent** from every shipped line,
+  and the module carries no bare decimal pair in its prose. The line goes through
+  `addLog` — the duel log `.combat-log-items` that `index.css` already compacts for a short
+  landscape phone — plus one floating `HE HAS READ YOU` tag, so the touch HUD reads the same
+  words as the desktop one.
+
+- **Presentation: `dusk`, property-only, +0 draw calls.** `BOSS_PRESENTATION_DELTAS.dusk`
+  is a DEEPENED dusk (sun `#c2703f` at 1.05, ambient `#a98a6d` at 0.34, fog `#7d5a3f`) and
+  raises the eight existing braziers' ember emissive **3 → 5.4** through a new
+  `emberEmissive` delta on the arena's existing material. The loge's one heraldic cloth
+  gains a fourth tone (`bannerAllegiance: 'dusk'` → canopy `#4c0519`, trim `#a16207`).
+  **"His banner beside the player's" is carried as that one cloth's tones, not a second
+  cloth:** the arena has a single heraldic cloth (D-3/D-4's finding) and a second one would
+  be **+1 draw call**, which this slice's "+0 calls" constraint forbids. The arena's mesh
+  count is unchanged (32 `<mesh>` nodes, pinned by the suite).
+
+- **The honesty re-run (scope 5).** The suite extends the roster-wide assertions to the
+  FINAL nine-mechanic table: each of the four ladder + five feature mechanics resolves on
+  exactly one row and that row is `isBoss`; every feature mechanic additionally requires
+  `featureBout`; no non-boss row carries a mechanic; no ladder boss carries a feature one;
+  and all seventeen rows survive a full power-spam bout byte-identical. **The staged
+  prompt's "Sand/Steel/Invictus" honour suite does not exist in this repository** — a
+  case-insensitive sweep of the whole tree returns nothing for "Invictus" — so there was no
+  such suite to re-run; the roster-wide assertions that DO exist (D-1's byte-identical row
+  check plus these) are what was extended.
+
+- **Suites.** `src/utils/longMemory.test.ts` — **38 tests / 371 expect() calls**: §A the
+  fence (including the sub-data copied onto a standard man, a ladder boss, another mechanic
+  and a row with no sub-data, plus nine malformed shapes), §B the live counter (only the
+  two attacks count; a class dominates only when it EXCEEDS the threshold; immutability),
+  §C the thresholds (450 max, 297 / 148.5, each once, both from one blow, junk health), §D
+  the values and the caps (the published power pattern, the authored mirror, the per-
+  adoption cap, the clamp ceiling, base stats untouched), §E the balanced rule (§above),
+  §F the words, §G the presentation, §H the result lines, §I the wiring, §J the roster-wide
+  honesty. **Rebased, not weakened:** `beastHunt.test.ts`'s presentation-delta key list
+  (four → five entries, `dusk` appended) and `featureBouts.test.ts` (the fifth wired
+  mechanic in the inertness sweep, and the DuelScene state-name sweep now allowing `'dusk'`
+  once, structurally as the banner's allegiance — exactly as D-4 rebased `'brothers'`).
+
+- **Verified 2026-10-26** in the dev container: `bun test` → **3835 pass / 0 fail (127
+  files, 372 `expect()` in this suite)**; `bun run scripts/collisionTests.ts` → **123
+  passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0
+  with the startup-asset check passing (8 assets); `git diff --check` → clean.
+
+- **Live evidence, and what is NOT automatically verified.** The dev harness route
+  (`?devHarness=character&opponent=opp_hermas_boss`, mounted in an in-page frame — the
+  C-8.66C technique) drove the real `DuelScene` against Hermas: creation → **Start Test
+  Duel (opponent: Hermas the Legend Returned)** → `harness-stage="duel"`, the HUD reading
+  `HERMAS THE LEGEND RETURNED 450/450`, the tactical cards in strike range, **0 console
+  errors** — so the new module, its memos, the counting call and the threshold effect all
+  initialise and run in the real scene. **The adaptation announcement itself was NOT
+  observed:** a level-1 harness profile deals 29–44 on 41 %-hit power slashes into a
+  450 HP / defense-17 boss, so reaching 66 % (153 damage) needs roughly ten landed heavies
+  and the run instead spent its budget missing while Spartacus fell to 62/152; the sandbox
+  also renders the arena through SwiftShader (~1–2 fps). **So the on-device check stands:**
+  take a power-spam build into the bout and watch for the block line at 66 %, a varied
+  build all the way down for silence, and the result card's "The long memory" block naming
+  which happened — in numbers.
+
+- **Open risks.** (1) The cap is read per adoption (stated above); a Director who meant a
+  CUMULATIVE ±0.15 would make the second adoption a no-op, and that is a one-constant
+  decision in the row. (2) The quick mirror's −0.15 is authored and wants a balance pass
+  (its net −0.10 per adoption is the authored choice, not a published one). (3) The
+  announcement is a log line plus a floating tag; whether the block pair reads clearly on a
+  phone is a device question. (4) The live counter counts a swing that falls short of range
+  (it is still an offensive action) — pinned, but it means a whiffed approach can feed the
+  read. (5) His `dodgeChance` row field stays 0.50 although his live dodge share is derived
+  from block; that is a pre-existing row/datum mismatch this slice deliberately does not
+  "fix".

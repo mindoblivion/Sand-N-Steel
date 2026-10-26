@@ -739,11 +739,15 @@ describe('D-2 §I — the surfaces the player reads', () => {
     // D-4 rebased this pin, not weakened it: the Cotta pair's state joined the
     // table (four entries now), so the table is asserted in full rather than by
     // membership — a state that silently disappeared would still fail.
+    // D-5 rebased this pin, not weakened it: Hermas's deepened dusk joined the
+    // table (five entries now), so the table is still asserted in full rather
+    // than by membership — a state that silently disappeared would still fail.
     expect(Object.keys(BOSS_PRESENTATION_DELTAS)).toEqual([
       'dawn',
       'high-noon',
       'brothers',
       'gilded',
+      'dusk',
     ]);
     // A ladder boss and a non-boss ask for nothing.
     expect(bossSceneDeltas(ALL_OPPONENTS.find((o) => o.id === 'opp_ignis_boss'))).toBeNull();
