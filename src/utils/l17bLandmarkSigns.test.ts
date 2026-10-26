@@ -313,10 +313,17 @@ describe('L17B §D — presentation only', () => {
     expect(source.split('\n').filter((line) => line.trimStart().startsWith('import '))).toHaveLength(0);
   });
 
-  test('the component imports only react, three, drei and its own data', () => {
+  test('the component imports only react, three, drei, its own data and the shared 3D boundary', () => {
     const source = code(readFileSync(new URL('../components/3d/city/LandmarkSign.tsx', import.meta.url), 'utf8'));
     const specifiers = [...source.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
-    expect(specifiers.sort()).toEqual(['../../../data/landmarkSigns', '@react-three/drei', 'react', 'three'].sort());
+    // L17D added the ONE shared 3D error boundary (the project's own
+    // `ThreeComponentErrorBoundary`) so a failed GLB stays local to its sign;
+    // no city system, no storage and no new global handler came with it.
+    expect(specifiers.sort()).toEqual(
+      ['../../../data/landmarkSigns', '../../ui/ThreeComponentErrorBoundary', '@react-three/drei', 'react', 'three'].sort(),
+    );
+    expect(source).toContain('componentName={`LandmarkSign:${id}`}');
+    expect(source).toContain('fallback={null}');
     // No per-frame work, no lights, no eager preloading of the other models.
     expect(source).not.toContain('useFrame');
     expect(source).not.toContain('pointLight');

@@ -11502,8 +11502,11 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   into their own city buildings through ONE shared component, `src/components/3d/city/LandmarkSign.tsx`,
   driven by ONE typed data map, `src/data/landmarkSigns.ts`. Each building mounts it as a single
   `<LandmarkSign id="…" />` child of its root group, so a sign moves with its building. The Grand
-  Colosseum keeps its own `ColosseumSignPrototype` mount (Phase 29.3D, plate-only at scale 1.35 on the
-  entrance steps) and is deliberately **not** re-signed.
+  Colosseum keeps its own `ColosseumSignPrototype` mount (Phase 29.3D, beside the entrance steps at
+  scale 1.35) and is deliberately **not** re-signed. **That GLB is not a plate-only asset** — L17D
+  corrected this record: `grand_colosseum.glb` carries the same full post-and-bracket assembly as the
+  other nine (13 meshes: plate, post, post base, post cap, arm, brace, scroll and six chain links),
+  and `ColosseumSignPrototype` renders `gltf.scene` unmodified.
 
 - **The assets are floor-standing post signs, not wall plaques — and they are cut-out plates.** Every
   GLB shares one construction: an iron post (local X −1.12 … −0.72) with a bracket arm at Y 2.53 … 2.63
@@ -11537,8 +11540,10 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   **142 colliders / 32 rectangles / 46 `colo-*`**, `HUB_LOCATIONS` and `FAST_TRAVEL_ARRIVALS` are still
   **21 each**, and `cityClock.ts`, the visitor systems, the save format and every gameplay module are
   untouched. `src/data/landmarkSigns.ts` imports nothing at all, and `LandmarkSign.tsx` imports only
-  react / three / drei / its own data: no per-frame work, no lights, no animation, no eager preload of
-  the other models, and each sign owns its `Suspense` so a loading GLB cannot blank its building.
+  react / three / drei / its own data — plus, since L17D, the project's shared
+  `ThreeComponentErrorBoundary`: no per-frame work, no lights, no animation, no eager preload of the
+  other models. Each sign owns its `Suspense`, so a loading GLB cannot blank its building, and (L17D)
+  its own error boundary, so a FAILED GLB cannot blank the district either.
 
 - **Draw-call cost, stated honestly.** Each GLB is 13 meshes (plate, post, base, cap, arm, brace,
   scroll, six chain links) plus the backing panel — **14 draw calls and ~4.6–5.2 k triangles per sign,
@@ -11557,7 +11562,8 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   sign still mounted once, every sign footprint disjoint from all 142 colliders, each sign flanking
   its own facade inside a measured 0.15 … 3.5 band, inside the movement boundary, and clear of every
   hub centre and arrival); §D the contract (the data module imports nothing, the component imports
-  only four specifiers, the registry/hub radii are what C-8.64B/C-8.47 left, no sign covers a hub).
+  only five specifiers — L17D added the shared 3D boundary — the registry/hub radii are what
+  C-8.64B/C-8.47 left, no sign covers a hub).
 
 - **Verified 2026-10-26** in the dev container: focused `bun test src/utils/l17bLandmarkSigns.test.ts`
   → **28 pass / 0 fail**; relevant city/collision regressions
@@ -11589,3 +11595,99 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `[-22, −14]`, Academy `[25.5, −23]`, Veteran Hall `[-24, −29]` (its sign is on the south entrance
   face, so it is met walking round the building). All nine are at the coordinates recorded in
   `src/data/landmarkSigns.ts`, which is the file to edit if a mount needs moving.
+
+## Living City landmark signage reliability (L17D — implemented; Android acceptance PENDING)
+
+- **Scope.** Three narrow corrections to L17B/L17C — individual sign-load isolation, one measured
+  placement defect, and factual documentation — with **no** redesign: no reorientation toward
+  arrival points, no scale change toward the Colosseum prototype, no GLB shadow enablement, no
+  shadow/material-sharing infrastructure, no lighting, clock, gameplay, save, collider, hub, arrival,
+  visitor or combat change, and no new sign or building. Preflight: `development-focus-strategy` at
+  `c82a1121a8` with an **empty `git status`**; the diff left uncommitted for review.
+
+- **Priority A — a failed sign is now local to its sign.** `useGLTF` rejects on a missing or corrupt
+  GLB and React re-throws that rejection during render; before this phase the nearest boundary above
+  `LandmarkSign` was `CityHubScene`'s single `componentName="CityArchitecturalDistricts"` boundary, so
+  **one failed sign unmounted the whole architectural district**. `LandmarkSign.tsx` now renders
+  `<ThreeComponentErrorBoundary componentName={\`LandmarkSign:<id>\`} fallback={null}>` **outside** its
+  `Suspense`: `Suspense` still owns loading, the existing project-standard 3D boundary owns load and
+  render failures, and a failed sign renders nothing while every other building, prop, sign and
+  collider is untouched. No global handler, no second retry mechanism and no change to the district's
+  own fallback for unrelated components. The boundary's `state` has exactly one transition
+  (`getDerivedStateFromError`) and no `componentDidUpdate`/`setState`/`componentWillReceiveProps`, so
+  a permanently missing asset cannot loop: it stays tripped for the life of the mount. Still
+  decoration — `CITY_COLLIDERS` is **142 / 32 rects / 46 `colo-*`**, `HUB_LOCATIONS` and
+  `FAST_TRAVEL_ARRIVALS` are **21 each**.
+
+- **Priority B — the Barracks post no longer stands inside its own doorway.** Re-derived from
+  `GladiatorBarracks.tsx` and `ClassicalArchitecture.tsx`'s own literals (`ClassicalDoorway` at
+  building-local `[0, 0, 2.82]`, `width` 1.5, `depth` 0.35, `jambWidth` 0.22): clear opening
+  `|X| ≤ 0.75`, raised threshold `|X| ≤ 1.02` with its front face at Z 3.12, and the worn contact step
+  `|X| ≤ 0.97` reaching Z 3.24. The sign's post (sign-local X −1.12 … −0.72) sat at building-local
+  X **0.48 … 0.88** — **0.27 inside the door's clear opening** and across both steps' plan bands —
+  while the assembly stood 0.161 clear in Z of the contact step. The mount moved **0.75 east,
+  data-only** (`position` `[1.6, 0, 3.6]` → `[2.35, 0, 3.6]`; no collider, interaction radius or other
+  building touched):
+
+  | quantity (building-local X) | before | after |
+  |---|---|---|
+  | post band | 0.48 … 0.88 | **1.23 … 1.63** |
+  | plate band | 1.161 … 2.039 | **1.911 … 2.789** |
+  | post → east jamb (0.75) | **−0.27 (inside)** | **+0.48** |
+  | post → threshold edge (1.02) | −0.54 | **+0.21** |
+  | post → contact step edge (0.97) | −0.49 | **+0.26** |
+  | assembly → contact step, plan Z | 0.161 | **0.161 (unchanged — X-only move)** |
+  | plate → balcony's east post (X 3.00) | 0.961 | **0.21** |
+  | footprint → `gladiator-barracks` collider | 0.351 | **0.351** |
+
+  **The Medical House was measured and deliberately not moved.** Its post's plan rectangle is **0.601**
+  from the porch column's axis (0.501 from the 0.1-radius shaft) and its near face is 0.301 south of
+  the porch steps' edge, so L17C's overlapping bounding-box projections are **not** a physical
+  overlap: `position` stays `[2.15, 0, 3.3]`.
+
+- **Priority C — documentation corrections** (`src/data/landmarkSigns.ts`, and the L17B record above):
+  the **Tavern** sign stands **2.8 NORTH** of its door's centre with its post 0.58 clear of the NORTH
+  jamb (12.90), not 2.1 south of it against a south jamb; the **Forge** sign stands at the **SOUTH**
+  end of the frontage with its post (4.68 … 5.08) 0.38 clear of the **SOUTH** jamb (4.30), the weapon
+  rack being at the north end; the **Training Hall** post hangs **1.62 SOUTH** of the plate (world
+  Z 6.12 … 6.52) from the nearer courtyard post's axis at Z 4.50, not "0.41 north of its north post";
+  and the **Colosseum GLB** is the full post-and-bracket assembly described above, not plate-only.
+  Every other measurement and all design intent are unchanged.
+
+- **Regression suite: `src/utils/l17dLandmarkSignReliability.test.ts` — 17 tests / 1358 `expect()`
+  calls.** §A the failure path: each of the nine mounts is wrapped in its own boundary *outside* its
+  `Suspense` with a `null` fallback; the real `ThreeComponentErrorBoundary` class is instantiated and
+  driven through its real `getDerivedStateFromError` → `render()` contract — children before, `null`
+  for 40 consecutive renders after (the no-retry/no-loop check), with one failed sign leaving the
+  other eight mountable — and the boundary/component sources are pinned for the absence of reset
+  machinery and global handlers; the hub still has its single `CityArchitecturalDistricts` boundary
+  and no building mounts a boundary of its own. §B the doorway: the doorway is parsed from the
+  Barracks source (and `jambWidth` from `ClassicalArchitecture.tsx`) and the opening, threshold and
+  contact-step bands are derived from it, the corrected post clears all three, the 0.161 Z clearance
+  and the 0.351 collider gap still hold, the pre-fix 1.6 mount is replayed as a control and fails the
+  same predicate, and the Medical House porch is measured as clear. §C the nine shipped mounts pinned
+  id by id (root, yaw, position, rotation, scale, asset paths that exist and face their approach).
+  §D the registries (142 / 32 / 46 / 21 / 21, no sign collider), every sign clear of every collider,
+  hub centre and arrival, and the data module still importless. **Rebased, not weakened:**
+  `l17bLandmarkSigns.test.ts` §D pinned the component's import list at four specifiers and now pins
+  five (the shared boundary), with two new assertions on the boundary's name and `null` fallback.
+
+- **Verified 2026-10-26** in the dev container: focused
+  `bun test src/utils/{l17bLandmarkSigns,l17dLandmarkSignReliability}.test.ts` → **45 pass / 0 fail**;
+  relevant city/collision regressions
+  `bun test src/utils/phaseC8_{45,47,64a,64b,65}.test.ts src/utils/cityClock.test.ts` → **191 pass /
+  0 fail**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun test` → **4073 pass /
+  0 fail (146 files, 174 253 expect() calls)** (L17B left 4056 / 145); `bun run lint` (`tsc --noEmit`)
+  → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only, startup assets ✓);
+  `git diff --check` → clean. The dev server serves both changed modules transformed
+  (`LandmarkSign.tsx` 200, carrying the `LandmarkSign:${id}` boundary name; `landmarkSigns.ts` 200, carrying
+  `position: [2.35, 0, 3.6]`).
+
+- **Not automatically verified.** (a) **No rendered frame** of a sign — the sandbox city hub renders
+  through SwiftShader at ~1.5–2 fps and needs the character-creation/oath flow before the player can
+  walk, so the sign's new Barracks placement, its approach reading and the nine signs' legibility stay
+  **PENDING for the Android device pass** exactly as L17B recorded. (b) **The failure path was not
+  exercised against a real missing GLB** (a network 404): the suite drives the real boundary class and
+  its real state transition, and pins the mount structure, which is the mechanism React uses on a
+  rejected `useGLTF`; the end-to-end 404 → isolated-sign behaviour needs a device/browser run with an
+  asset removed or blocked. No production asset was renamed or blocked to force it.

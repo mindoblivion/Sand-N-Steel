@@ -35,8 +35,10 @@
  * and benches.
  *
  * The Grand Colosseum keeps its own `ColosseumSignPrototype` mount (Phase
- * 29.3D) — it is plate-only at scale 1.35 on the entrance steps, has no post,
- * and is not re-mounted here.
+ * 29.3D) beside the entrance steps.  That GLB is NOT a plate-only asset: it
+ * carries the same full post-and-bracket assembly as the other nine (13 meshes
+ * — plate, post, post base, post cap, arm, brace, scroll and six chain links),
+ * rendered at scale 1.35, and it is not re-mounted here.
  */
 
 export type LandmarkSignId =
@@ -103,6 +105,8 @@ export const LANDMARK_SIGN_ASSET_BOUNDS = {
   halfDepth: 0.199,
   /** Outermost post edge in local X (the post side of the bracket). */
   minLocalX: -1.12,
+  /** Inner post edge in local X — the face that must clear a doorway. */
+  maxLocalX: -0.72,
   /** Plate Y range — the part that has to read at a distance. */
   plateMinY: 0.79,
   plateMaxY: 2.34,
@@ -114,8 +118,9 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
   {
     // World [−10.85, 11.20].  Door on the east face (local X +4.22 → X −11.78,
     // opening Z 12.90 … 15.10); plinth east face X −11.55.  The plate stands
-    // 0.50 east of the plinth and 2.1 south of the door's centre; its post
-    // (world Z 12.17 ± 0.20) stays 0.53 clear of the south jamb.  The balcony
+    // 0.50 east of the plinth and 2.8 NORTH of the door's centre — the door
+    // opening lies south of the sign — and its post spans world Z 11.92 …
+    // 12.32, i.e. 0.58 clear of the NORTH jamb (12.90).  The balcony
     // is at Y 4.10 … 4.30 and the lanterns at 3.30 … 3.90, so the 2.86-tall
     // sign passes under both with ≥ 0.44 to spare.
     id: 'city_tavern',
@@ -134,9 +139,9 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
   {
     // World [12.55, 5.80].  Colonnade doorway on the west face (X 13.25,
     // opening Z 0.90 … 4.30); plinth west face X 13.00.  The plate stands
-    // 0.25 west of the plinth at the north end of the frontage, its post
-    // (world Z 4.83 ± 0.20) 0.33 clear of the north jamb and clear of the
-    // weapon rack that hugs the wall at Z −0.60 … 2.20.
+    // 0.25 west of the plinth at the SOUTH end of the frontage, its post
+    // (world Z 4.68 … 5.08) 0.38 clear of the SOUTH jamb (4.30) and clear of
+    // the weapon rack that hugs the north end of the wall (Z −0.60 … 2.20).
     id: 'smithing_forge',
     building: 'SmithingForge.tsx',
     label: 'Imperial Smithing Forge',
@@ -175,8 +180,11 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     // local +Z into world +X: the sign's LOCAL rotationY is 0 and it reads
     // east, the way the hall's doorway (world X −29.25, opening Z 2.10 … 3.90)
     // and veranda (outer edge X −26.35, posts at Z 1.50 / 4.50) face the yard.
-    // The plate stands 0.75 east of the veranda edge, 0.41 north of its north
-    // post, and outside the yard's enclosure coping (r 7.205 about [−18, 0]).
+    // The mount origin stands 0.75 east of the veranda's outer post axis; its
+    // POST hangs 1.62 SOUTH of the plate along the mounting yaw (world
+    // Z 6.12 … 6.52, measured from the nearer courtyard post's axis at
+    // Z 4.50), and the whole sign is outside the yard's enclosure coping
+    // (r 7.205 about [−18, 0]).
     id: 'training_hall',
     building: 'TrainingHall.tsx',
     label: 'Ludus Training Hall',
@@ -230,12 +238,20 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     note: 'South (porch) apron, east of the infirmary steps',
   },
   {
-    // World [−25.40, −10.40].  Door faces south at Z −11.18 (opening
-    // X −27.75 … −26.25) under the timber balcony (rail Z −11.30, posts at
-    // X −30.00 / −24.00); plinth south face Z −10.95.  The plate stands 0.35
-    // south of the plinth (near face 0.35) east of the door, its post 0.13
-    // clear of the east jamb and 0.96 west of the balcony's east post.  The [−22, −14] arrival
-    // is on the east side, so the sign is met rounding the south-east corner.
+    // World [−24.65, −10.40].  Door faces south at Z −11.18 (clear opening
+    // X −27.75 … −26.25; its raised threshold reaches world Z −10.88 and the
+    // worn contact step in front of it −10.76) under the timber balcony
+    // (rail Z −11.30, posts at X −30.00 / −24.00); plinth south face Z −10.95.
+    // The plate stands 0.35 south of the plinth (near face 0.35) east of the
+    // door.  L17D: the post used to sit at building-local X 0.48 … 0.88, i.e.
+    // 0.27 INSIDE the door's own clear opening and across the threshold step's
+    // plan band; the mount moved 0.75 east so the post spans 1.23 … 1.63 —
+    // 0.48 east of the east jamb (0.75), 0.21 east of the threshold step's edge
+    // (1.02) and 0.26 east of the contact step's (0.97) — and 0.21 west of the
+    // balcony's east post (X 3.00).  Its 0.161 of Z clearance to the contact
+    // step is unchanged, so no collider or interaction radius was touched.  The
+    // [−22, −14] arrival is on the east side, so the sign is met rounding the
+    // south-east corner.
     id: 'gladiator_barracks',
     building: 'GladiatorBarracks.tsx',
     label: 'Gladiator Barracks',
@@ -243,7 +259,7 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     plateWidth: 0.878,
     buildingRoot: [-27, -14],
     buildingYaw: 0,
-    position: [1.6, 0, 3.6],
+    position: [2.35, 0, 3.6],
     rotationY: 0,
     scale: 1,
     facing: 'south',

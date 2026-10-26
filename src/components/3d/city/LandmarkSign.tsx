@@ -6,6 +6,7 @@ import {
   LANDMARK_SIGNS_BY_ID,
   type LandmarkSignId,
 } from '../../../data/landmarkSigns';
+import { ThreeComponentErrorBoundary } from '../../ui/ThreeComponentErrorBoundary';
 
 /**
  * L17B — one landmark sign, mounted inside its building's own root group.
@@ -23,6 +24,17 @@ import {
  * separate ~80 KB asset fetched through the shared `useGLTF` cache when its own
  * building renders.  The component owns its own `Suspense`, so a sign that is
  * still loading can never blank the building around it.
+ *
+ * L17D — reliability.  `useGLTF` rejects on a missing or corrupt GLB, and React
+ * re-throws that rejection during render; before L17D the nearest boundary was
+ * the city's single `CityArchitecturalDistricts` boundary, so ONE failed sign
+ * took the whole architectural district down with it.  Each sign now carries its
+ * own `ThreeComponentErrorBoundary` (the project's existing 3D boundary) with a
+ * `null` fallback: a failed sign renders nothing and every other building, sign
+ * and collider is untouched.  The boundary sits OUTSIDE the `Suspense`, so
+ * `Suspense` keeps owning loading while the boundary owns load and render
+ * failures; once tripped it holds that state for the life of the mount (no
+ * retry, no reset), so a permanently missing asset cannot loop.
  */
 
 const LandmarkSignModel: React.FC<{ id: LandmarkSignId }> = ({ id }) => {
@@ -68,7 +80,9 @@ const LandmarkSignModel: React.FC<{ id: LandmarkSignId }> = ({ id }) => {
 };
 
 export const LandmarkSign: React.FC<{ id: LandmarkSignId }> = ({ id }) => (
-  <Suspense fallback={null}>
-    <LandmarkSignModel id={id} />
-  </Suspense>
+  <ThreeComponentErrorBoundary componentName={`LandmarkSign:${id}`} fallback={null}>
+    <Suspense fallback={null}>
+      <LandmarkSignModel id={id} />
+    </Suspense>
+  </ThreeComponentErrorBoundary>
 );
