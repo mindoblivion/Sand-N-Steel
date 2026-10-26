@@ -24,8 +24,12 @@ import { ChariotSlot } from '../types/game';
 /** Wheel variants that are playable now.  Spiked and Bladed are deliberately absent — see below. */
 export type ChariotWheelVariantKey = 'standard' | 'reinforced';
 
-/** Finish keys.  `stock` keeps the asset's own materials untouched. */
-export type ChariotFinishKey = 'stock' | 'charred' | 'gilded' | 'oxblood';
+/**
+ * Finish keys.  `stock` keeps the asset's own materials untouched.  `ventive` is
+ * L16B's visitor-acquired finish — an ordinary key to the preview, the finish
+ * selection and the save, so nothing downstream needs to know it is rare.
+ */
+export type ChariotFinishKey = 'stock' | 'charred' | 'gilded' | 'oxblood' | 'ventive';
 
 export type ChariotPartClass = 'performance' | 'cosmetic';
 
@@ -59,6 +63,13 @@ export interface ChariotPart {
   finish?: ChariotFinishKey;
   /** Set for `finish` parts: what the finish recolors, in catalogue order. */
   overrides?: ChariotFinishOverride[];
+  /**
+   * L16B — the part is acquired from a visitor, never bought at the workshop.
+   * `price` is still its real value (it is what the visitor's bargain rate is
+   * applied to), but `getChariotPurchaseEligibility` / `purchaseChariotPart`
+   * refuse it: a completed visitor trade is the only way to own it.
+   */
+  visitorOnly?: boolean;
 }
 
 /**
@@ -150,6 +161,24 @@ export const CHARIOT_PARTS: ChariotPart[] = [
     overrides: [
       { material: 'Leather', color: '#7f1d1d', roughness: 0.7 },
       { material: 'Wood', color: '#c9a86b', roughness: 0.65 },
+    ],
+  },
+  // ── Slot: finish — L16B, visitor-acquired ─────────────────────────────
+  {
+    id: 'finish_ventive',
+    slot: 'finish',
+    name: 'Ventive Blue & Gilt',
+    description:
+      'The victor\'s faction blue laid over the hide binding, bronze fittings gilded to a dull shine and the ash darkened to walnut. Brought by a visitor, never sold off the workshop bench.',
+    price: 900,
+    partClass: 'cosmetic',
+    defaultOwned: false,
+    visitorOnly: true,
+    finish: 'ventive',
+    overrides: [
+      { material: 'Leather', color: '#1e3a8a', roughness: 0.62 },
+      { material: 'Bronze', color: '#d4af37', roughness: 0.28, metalness: 1 },
+      { material: 'DarkWood', color: '#2b1d12', roughness: 0.85 },
     ],
   },
 ];

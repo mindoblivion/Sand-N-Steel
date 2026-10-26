@@ -34,6 +34,17 @@
  * canonical price: malformed catalogue data can only ever cost the player MORE, never
  * make an item free and never invent a markup.
  *
+ * L16B extends the SAME transaction to a second kind of offer: a visitor may bring
+ * a chariot finish instead of an item (`data/chariotParts`), and buying it grants
+ * the part into the player's chariot ownership — never into the item inventory,
+ * which every shop and gear screen narrows by weapon/armour shape. The finish's
+ * price is its own catalogue `price` through the SAME `resolveVisitorBargainPrice`
+ * (900 at the bladesmith's 0.70 rate = 630), the visitor is completed by the same
+ * one completion list, and the whole trade is still ONE profile literal. A part
+ * the player already owns is refused before anything is charged, and a malformed
+ * `chariot`/`owned` field is refused rather than rebuilt — a purchase that
+ * silently repaired the list could drop a part the player paid for.
+ *
  * WHAT IT DOES NOT DO: no fame, no experience, no bonus; no day change (the city
  * object is carried over as stored, only the completion list changes); no merchant
  * allowance (this is not a storefront purchase); no new item and no
@@ -44,7 +55,9 @@
 
 import type { CityState, PlayerProfile } from '../types/game';
 import { getItemById, type GameItem } from '../data/itemsDB';
-import { getVisitor } from '../data/visitors';
+import { getVisitor, type Visitor } from '../data/visitors';
+import { getChariotPart, type ChariotPart } from '../data/chariotParts';
+import { resolveChariotLoadout } from './chariotLoadout';
 import { resolveVisitorEncounter } from './visitorEncounter';
 import { readCompletedVisitors } from './visitorSchedule';
 
@@ -59,15 +72,21 @@ export type VisitorPurchaseRejectionReason =
   | 'invalid-price'
   | 'invalid-gold'
   | 'invalid-inventory'
-  | 'insufficient-gold';
+  | 'insufficient-gold'
+  // L16B — the offer is a chariot part rather than an item.
+  | 'invalid-offer'
+  | 'invalid-ownership'
+  | 'already-owned';
 
 /**
- * `item` and `price` are the catalogue's own entry and its canonical price, so the
- * caller can name exactly what was bought and what it cost without looking either
- * up again. `profile` is the single committed update described above.
+ * `kind` names WHICH of the two catalogue entries was bought — an `ITEMS_DB` item
+ * or a chariot part — and carries that entry plus the price actually charged, so
+ * the caller can name exactly what was bought and what it cost without looking
+ * either up again. `profile` is the single committed update described above.
  */
 export type VisitorPurchaseResult =
-  | { ok: true; profile: PlayerProfile; item: GameItem; price: number }
+  | { ok: true; kind: 'item'; profile: PlayerProfile; item: GameItem; price: number }
+  | { ok: true; kind: 'part'; profile: PlayerProfile; part: ChariotPart; price: number }
   | { ok: false; reason: VisitorPurchaseRejectionReason };
 
 /**
@@ -83,17 +102,44 @@ function readCity(profile: PlayerProfile | null | undefined): CityState {
 }
 
 /**
+ * L16B — the chariot part ids this profile owns, stock parts included, or `null`
+ * when the stored `chariot` field is present but malformed.
+ *
+ * A legacy save (no `chariot` at all) is NOT malformed: it resolves to the stock
+ * chariot through the workshop's own reader, so a first-time visitor purchase works
+ * on it. A `chariot` that is not a plain object, or whose `owned` is not an array,
+ * is refused rather than repaired — a purchase that silently rebuilt the list
+ * could drop a part the player paid for.
+ */
+function readOwnedChariotParts(profile: PlayerProfile): string[] | null {
+  const chariot = profile.chariot;
+  if (chariot === undefined || chariot === null) return resolveChariotLoadout(profile).owned;
+  if (typeof chariot !== 'object' || Array.isArray(chariot)) return null;
+  if (chariot.owned !== undefined && !Array.isArray(chariot.owned)) return null;
+  return resolveChariotLoadout(profile).owned;
+}
+
+/**
  * The canonical price, or `null` when it is not a usable price at all. A malformed
  * price must never read as "free": `NaN` and `Infinity` both fail every `gold <`
  * comparison, so without this guard a bad catalogue entry would sell for nothing.
  * A finite zero is a legitimate price (a free gift), so only negative and
  * non-finite values are refused.
  */
-export function resolveVisitorItemPrice(item: GameItem | null | undefined): number | null {
+export function resolveVisitorItemPrice(
+  item: VisitorPriceSource | null | undefined
+): number | null {
   const price = item?.price;
   if (typeof price !== 'number' || !Number.isFinite(price) || price < 0) return null;
   return price;
 }
+
+/**
+ * The little a price source needs: a catalogue `price`. Both the `ITEMS_DB` entry
+ * (`GameItem`) and a chariot part (`ChariotPart`) qualify, so L16B's finish is
+ * priced by the SAME resolver rather than by a second formula.
+ */
+export type VisitorPriceSource = { readonly price?: number };
 
 /**
  * L15 — the visitor's asking price: the canonical `ITEMS_DB` price less that
@@ -113,7 +159,7 @@ export function resolveVisitorItemPrice(item: GameItem | null | undefined): numb
  * (`price === canonical`) instead of a discount it cannot honour.
  */
 export function resolveVisitorBargainPrice(
-  item: GameItem | null | undefined,
+  item: VisitorPriceSource | null | undefined,
   bargainRate: number | null | undefined
 ): number | null {
   const canonicalPrice = resolveVisitorItemPrice(item);
@@ -161,6 +207,11 @@ export function purchaseVisitorOffer(
   const view = resolveVisitorEncounter(profile, visitorId);
   if (!view) return { ok: false, reason: 'not-in-town' };
 
+  // L16B — the day's single offer may be a chariot part rather than an item. The
+  // schedule classified it, so both branches are reached from this one resolution
+  // and neither can be bought on a day the visitor does not bring it.
+  if (view.offerPartId) return purchaseVisitorPart(profile, visitor, view.offerPartId);
+
   const offerItemId = view.offerItemId;
   if (!offerItemId || !visitor.offer.pool.includes(offerItemId)) {
     return { ok: false, reason: 'no-offer' };
@@ -192,6 +243,7 @@ export function purchaseVisitorOffer(
 
   return {
     ok: true,
+    kind: 'item',
     item,
     price,
     profile: {
@@ -203,6 +255,70 @@ export function purchaseVisitorOffer(
       city: {
         ...readCity(profile),
         completedVisitors: [...completed, visitorId],
+      },
+    },
+  };
+}
+
+/**
+ * L16B — buy the visitor's chariot-part offer.
+ *
+ * Reached only from `purchaseVisitorOffer`, with the schedule's own classification,
+ * so the offer is re-validated here rather than taken from a caller: the part must
+ * still be in the visitor's pool, must exist in `CHARIOT_PARTS`, and must be a
+ * visitor-acquired part (`visitorOnly`) — a workshop part that somehow appeared in
+ * a pool is refused, not sold through the visitor.
+ *
+ * Refusals, in the order they are checked: `no-offer` (the part left the pool),
+ * `invalid-offer` (unknown id, or a part a visitor must not sell), `invalid-price`,
+ * `invalid-gold`, `invalid-ownership` (a malformed `chariot`/`owned` field),
+ * `already-owned`, `insufficient-gold`. Nothing is written until all of them pass,
+ * and success is ONE profile literal: gold, the chariot's owned list and
+ * `completedVisitors` together. The part never enters `profile.inventory`.
+ */
+function purchaseVisitorPart(
+  profile: PlayerProfile,
+  visitor: Visitor,
+  partId: string
+): VisitorPurchaseResult {
+  if (!visitor.offer.pool.includes(partId)) return { ok: false, reason: 'no-offer' };
+
+  const part = getChariotPart(partId);
+  if (!part || !part.visitorOnly) return { ok: false, reason: 'invalid-offer' };
+
+  const price = resolveVisitorBargainPrice(part, visitor.bargainRate);
+  if (price === null) return { ok: false, reason: 'invalid-price' };
+
+  const gold = profile.gold;
+  if (typeof gold !== 'number' || !Number.isFinite(gold) || gold < 0) {
+    return { ok: false, reason: 'invalid-gold' };
+  }
+
+  const owned = readOwnedChariotParts(profile);
+  if (owned === null) return { ok: false, reason: 'invalid-ownership' };
+  if (owned.includes(part.id)) return { ok: false, reason: 'already-owned' };
+
+  if (gold < price) return { ok: false, reason: 'insufficient-gold' };
+
+  const loadout = resolveChariotLoadout(profile);
+  const completed = readCompletedVisitors(profile);
+
+  return {
+    ok: true,
+    kind: 'part',
+    part,
+    price,
+    profile: {
+      ...profile,
+      gold: gold - price,
+      // The part joins the chariot's own ownership list. `equipped` is carried
+      // across as it was: a purchase never changes what the player has fitted.
+      chariot: { owned: [...loadout.owned, part.id], equipped: { ...loadout.equipped } },
+      // `city.day`, `restDay`, `merchantPurchaseDay` and `seenVisitors` ride across
+      // from the stored object untouched — only the completion list changes.
+      city: {
+        ...readCity(profile),
+        completedVisitors: [...completed, visitor.id],
       },
     },
   };

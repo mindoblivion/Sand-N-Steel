@@ -619,7 +619,10 @@ describe('C-8.67B §C — selection', () => {
 describe('C-8.67B §D — unlocks are independent of the chariot workshop', () => {
   test('buying chariot parts never unlocks a horse count', () => {
     let profile = profileWithGold(5000);
-    for (const part of CHARIOT_PARTS.filter((p) => p.price > 0)) {
+    // L16B appended a VISITOR-ONLY finish (`finish_ventive`). It carries a real
+    // price but the workshop never sells it, so it is outside this workshop-only
+    // sweep; its own suite pins that refusal and the visitor trade that grants it.
+    for (const part of CHARIOT_PARTS.filter((p) => p.price > 0 && !p.visitorOnly)) {
       const bought = purchaseChariotPart(profile, part.id);
       expect(bought.ok).toBe(true);
       if (!bought.ok) return;
@@ -686,6 +689,8 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
   });
 
   test('the chariot catalogue and prices are untouched by this phase', () => {
+    // L16B appended `finish_ventive` (900, visitor-acquired) at the end; the six
+    // entries this phase pinned are unchanged in id, order and price.
     const prices = CHARIOT_PARTS.map((p) => [p.id, p.price]);
     expect(prices).toEqual([
       ['wheels_standard', 0],
@@ -694,6 +699,7 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
       ['finish_charred', 180],
       ['finish_gilded', 320],
       ['finish_oxblood', 240],
+      ['finish_ventive', 900],
     ]);
   });
 

@@ -38,6 +38,7 @@
 import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
+import { getChariotPart } from '../data/chariotParts';
 import { ITEMS_DB, getItemById } from '../data/itemsDB';
 import { getStorefrontStock } from '../data/shops';
 import {
@@ -134,6 +135,12 @@ describe('§A the catalogue', () => {
   test('every offer references real existing content', () => {
     for (const visitor of VISITORS) {
       for (const id of visitor.offer.pool) {
+        // L16B — a pool may name a chariot part; it must be a real catalogue part.
+        const part = getChariotPart(id);
+        if (part) {
+          expect(part.visitorOnly).toBe(true);
+          continue;
+        }
         expect(getItemById(id)).toBeDefined();
         expect(ITEMS_DB.some((item) => item.id === id)).toBe(true);
       }
@@ -142,7 +149,18 @@ describe('§A the catalogue', () => {
 
   test('every offer is non-progression-critical: the permanent spine already stocks it', () => {
     for (const visitor of VISITORS) {
-      for (const id of visitor.offer.pool) expect(SPINE.has(id)).toBe(true);
+      for (const id of visitor.offer.pool) {
+        // L16B's one documented exception: the visitor-only chariot finish is
+        // cosmetic (no stat feeds racing or combat), so it is not progression and
+        // is deliberately reachable nowhere else. Every ITEM still obeys the rule.
+        const part = getChariotPart(id);
+        if (part) {
+          expect(part.slot).toBe('finish');
+          expect(part.partClass).toBe('cosmetic');
+          continue;
+        }
+        expect(SPINE.has(id)).toBe(true);
+      }
     }
   });
 
@@ -393,17 +411,26 @@ describe('§H offers', () => {
           visitor.id,
           day
         );
-        expect(arrival.offerItemId).toBe(expected[0]);
+        // L16B — the rotation's pick is carried in exactly one of the two fields.
+        expect(arrival.offerItemId ?? arrival.offerPartId).toBe(expected[0]);
+        expect([arrival.offerItemId, arrival.offerPartId].filter(Boolean)).toHaveLength(1);
       }
     }
   });
 
-  test('every arrival offers exactly one real item', () => {
+  test('every arrival offers exactly one real thing — an item or a chariot part', () => {
     for (let day = 1; day <= 200; day += 1) {
       for (const arrival of scheduleVisitorDay(VISITORS, day).arrivals) {
-        expect(typeof arrival.offerItemId).toBe('string');
-        expect(getItemById(arrival.offerItemId as string)).toBeDefined();
-        expect(arrival.visitor.offer.pool).toContain(arrival.offerItemId);
+        const offered = arrival.offerItemId ?? arrival.offerPartId;
+        expect(typeof offered).toBe('string');
+        expect([arrival.offerItemId, arrival.offerPartId].filter(Boolean)).toHaveLength(1);
+        expect(arrival.visitor.offer.pool).toContain(offered);
+        // The id resolves to real content, in the catalogue its own field names.
+        if (arrival.offerPartId) {
+          expect(getChariotPart(arrival.offerPartId)).toBeDefined();
+        } else {
+          expect(getItemById(arrival.offerItemId as string)).toBeDefined();
+        }
       }
     }
   });
@@ -452,10 +479,14 @@ describe('§I purity and scope', () => {
     expect(SCHEDULE_CODE).not.toMatch(/completedVisitors\s*[:=]/);
   });
 
-  test('the module imports only the four house modules', () => {
+  test('the module imports only the five data/house modules', () => {
+    // L16B added `../data/chariotParts` — the catalogue's pure `isChariotPartId`
+    // classifier, so the arrival can say whether the day's pick is an item or a
+    // part. No storage, no React, no clock and no purchase module came with it.
     const imports = Array.from(SCHEDULE_CODE.matchAll(/from\s+'([^']+)'/g)).map((m) => m[1]);
     expect(imports).toEqual([
       '../data/visitors',
+      '../data/chariotParts',
       '../types/game',
       './cityClock',
       './cityRotation',

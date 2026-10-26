@@ -81,6 +81,7 @@ const stallOf = (id: string): VisitorStall => VISITOR_STALLS[id];
 const presenceFor = (id: string, stall: VisitorStall): VisitorPresence => ({
   visitor: VISITORS.find((visitor) => visitor.id === id)!,
   offerItemId: null,
+  offerPartId: null,
   stall,
 });
 
@@ -231,7 +232,12 @@ describe('§C presence follows the L10 schedule', () => {
   test('the pinned days: none, one, and three concurrent visitors', () => {
     expect(ids(resolveVisitorPresence(onDay(1)))).toEqual([]);
     expect(ids(resolveVisitorPresence(onDay(5)))).toEqual([BLADESMITH]);
-    expect(resolveVisitorPresence(onDay(5))[0].offerItemId).toBe('dirk_desert');
+    // L16B — day 5 is now the bladesmith's finish day: the day's single offer is
+    // the visitor-only chariot finish, so the item field is null and the part
+    // field carries the id. (Day 10 is his `dirk_desert` day.)
+    expect(resolveVisitorPresence(onDay(5))[0].offerItemId).toBeNull();
+    expect(resolveVisitorPresence(onDay(5))[0].offerPartId).toBe('finish_ventive');
+    expect(resolveVisitorPresence(onDay(10))[0].offerItemId).toBe('dirk_desert');
     // Day 6 is inside the armorer's window but fails its cadence.
     expect(ids(resolveVisitorPresence(onDay(6)))).toEqual([]);
     expect(ids(resolveVisitorPresence(onDay(8)))).toEqual([ARMORER]);
@@ -239,11 +245,14 @@ describe('§C presence follows the L10 schedule', () => {
     // Day 51 is the first day all three are in the city, in catalogue order.
     const all = resolveVisitorPresence(onDay(51));
     expect(ids(all)).toEqual([BLADESMITH, ARMORER, TRADER]);
+    // The bladesmith's day-51 offer is `dirk_desert` under the L16B pool; the
+    // other two visitors' pools were not touched and still read as they did.
     expect(all.map((entry) => entry.offerItemId)).toEqual([
-      'dagger_pugio',
+      'dirk_desert',
       'legs_greaves_bronze',
       'spatha_legion',
     ]);
+    expect(all.map((entry) => entry.offerPartId)).toEqual([null, null, null]);
   });
 
   test('presence is exactly the schedule, never a second opinion', () => {

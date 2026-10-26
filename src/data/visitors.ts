@@ -21,12 +21,14 @@
  *     0`). `2` is every other day, `7` is roughly weekly. It is never `1`, which
  *     would make the arrival rule vacuous.
  *
- * The offer is deliberately NON-PROGRESSION-CRITICAL: every pool draws only on
- * goods the permanent spine (the forge and the armorer) already stocks, so no
- * visitor sells anything that is otherwise unreachable and a run with zero
- * visitors still reaches the next tier. The day's single offer is chosen by the
- * existing L2 rotation (`selectDailyWindow`), never by a second hash, so it is a
- * pure function of (visitor id, day) and a reload cannot re-roll it.
+ * The offer is deliberately NON-PROGRESSION-CRITICAL: every ITEM pool draws only
+ * on goods the permanent spine (the forge and the armorer) already stocks, so a
+ * run with zero visitors still reaches the next tier. The one exception is
+ * `finish_ventive` (L16B): a chariot finish that is cosmetic only, is marked
+ * `visitorOnly` in its own catalogue, and is the visitor's reason to be worth the
+ * walk. The day's single offer is chosen by the existing L2 rotation
+ * (`selectDailyWindow`), never by a second hash, so it is a pure function of
+ * (visitor id, day) and a reload cannot re-roll it.
  *
  * Pure data — no React, no storage, no clock, no randomness.
  */
@@ -46,9 +48,11 @@ export interface VisitorOffer {
   /** What the visitor is in the city to trade — one line, for a later phase's prompt. */
   readonly summary: string;
   /**
-   * The real `ITEMS_DB` ids this visitor may offer. ONE is on offer on a day,
-   * through `selectDailyWindow` (the L2 rotation), so the offer rotates with the
-   * city day and is identical after a reload.
+   * The ids this visitor may offer: `ITEMS_DB` item ids, and (since L16B) at most
+   * one `CHARIOT_PARTS` id for a visitor-acquired chariot finish. ONE is on offer
+   * on a day, through `selectDailyWindow` (the L2 rotation), so the offer rotates
+   * with the city day and is identical after a reload. `utils/visitorSchedule`
+   * classifies the day's pick — item or chariot part — for its callers.
    */
   readonly pool: readonly string[];
 }
@@ -97,8 +101,9 @@ export const VISITOR_OFFER_SLOTS = 1;
  * entries: deliberately small, because a visitor is an occasion and the city's
  * frame cost must not depend on how many there are.
  *
- * Every offer pool draws on forge / armorer stock only (see the module header),
- * so no id here is exclusive to a visitor.
+ * Every ITEM offer pool draws on forge / armorer stock only (see the module
+ * header); the bladesmith's pool additionally carries L16B's visitor-only chariot
+ * finish, which is cosmetic and reachable no other way by design.
  *
  * The seasons are staggered so the city has somebody to meet from the first
  * week and through most of its first year. Measured from the shipped rule (and
@@ -120,7 +125,9 @@ export const VISITORS: readonly Visitor[] = Object.freeze([
     window: Object.freeze({ from: 1, to: 150 }),
     offer: Object.freeze({
       summary: 'A short blade ground on the whetstone of his own camp.',
-      pool: Object.freeze(['dagger_pugio', 'dirk_desert']),
+      // L16B — the rare finish rotates in beside his two blades, so on the days
+      // the rotation picks it the finish IS the day's offer (one offer a day).
+      pool: Object.freeze(['dagger_pugio', 'dirk_desert', 'finish_ventive']),
     }),
   }),
   Object.freeze({

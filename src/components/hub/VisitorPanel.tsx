@@ -77,12 +77,15 @@ export const VisitorPanel: React.FC<VisitorPanelProps> = ({
   // claim a different day from the list beneath it.
   const day = useMemo(() => resolveVisitorSchedule(profile).day, [profile]);
   const selected = selectedId ? resolveVisitorEncounter(profile, selectedId) : null;
+  // L16B — the day's offer is either an `ITEMS_DB` item or a chariot part; both are
+  // described and priced through this one entry, so the panel has no second path.
+  const offered = selected ? selected.item ?? selected.part : null;
   // L15 — the ONE price rule, shared with the purchase transaction: the visitor's
-  // bargain rate over the canonical `ITEMS_DB` price. A missing or malformed rate
-  // resolves to the canonical price, so `saving` is 0 and no discount is claimed.
-  const canonicalPrice = selected ? resolveVisitorItemPrice(selected.item) : null;
+  // bargain rate over the catalogue price. A missing or malformed rate resolves to
+  // the canonical price, so `saving` is 0 and no discount is claimed.
+  const canonicalPrice = resolveVisitorItemPrice(offered);
   const price = selected
-    ? resolveVisitorBargainPrice(selected.item, selected.visitor.bargainRate)
+    ? resolveVisitorBargainPrice(offered, selected.visitor.bargainRate)
     : null;
   const saving = canonicalPrice !== null && price !== null ? canonicalPrice - price : 0;
   const affordable =
@@ -204,11 +207,16 @@ export const VisitorPanel: React.FC<VisitorPanelProps> = ({
                   Brought to trade
                 </div>
                 <div className="font-serif font-bold text-xs text-amber-100 truncate">
-                  {selected.item ? selected.item.name : selected.visitor.offer.summary}
+                  {offered ? offered.name : selected.visitor.offer.summary}
                 </div>
-                {selected.item && (
+                {offered && (
                   <p className="text-[10px] font-sans leading-snug text-neutral-400 mt-0.5">
-                    {selected.item.description}
+                    {offered.description}
+                  </p>
+                )}
+                {selected.part && (
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-purple-300 mt-0.5">
+                    Chariot finish — brought by a visitor
                   </p>
                 )}
                 <p className="text-[10px] font-mono text-neutral-300 mt-1 flex items-start gap-1">
@@ -216,7 +224,7 @@ export const VisitorPanel: React.FC<VisitorPanelProps> = ({
                   <span>
                     {price === null
                       ? 'Price unavailable'
-                      : saving > 0 && canonicalPrice !== null
+                      : selected.item && saving > 0 && canonicalPrice !== null
                         ? `Asks ${price} gold — the shops charge ${canonicalPrice}`
                         : `${price} gold`}
                   </span>
@@ -227,16 +235,16 @@ export const VisitorPanel: React.FC<VisitorPanelProps> = ({
             <button
               data-testid="visitor-buy-button"
               onClick={handleBuy}
-              disabled={!selected.item || price === null || !affordable}
+              disabled={!offered || price === null || !affordable}
               className="mt-3 w-full min-h-[48px] py-3 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-neutral-950 font-serif font-bold text-xs uppercase tracking-wider cursor-pointer disabled:cursor-not-allowed active:scale-95 transition-all"
             >
               {affordable
                 ? `Buy for ${price} gold`
-                : selected.item
+                : offered
                   ? 'Not enough gold'
                   : 'Nothing to buy'}
             </button>
-            {!affordable && selected.item && (
+            {!affordable && offered && (
               <p className="text-[10px] font-mono text-neutral-400 mt-2">
                 You carry {profile.gold} gold.
               </p>

@@ -35,6 +35,7 @@
 
 import type { CityState, PlayerProfile } from '../types/game';
 import { getItemById, type GameItem } from '../data/itemsDB';
+import { getChariotPart, type ChariotPart } from '../data/chariotParts';
 import { getVisitor, type Visitor } from '../data/visitors';
 import { readSeenVisitors, resolveVisitorSchedule } from './visitorSchedule';
 
@@ -87,10 +88,18 @@ export function isVisitorInTown(
  */
 export interface VisitorEncounterView {
   visitor: Visitor;
-  /** The one id on offer today, or `null` when the pool is empty. */
+  /** The one `ITEMS_DB` id on offer today, or `null` when the day's pick is a part. */
   offerItemId: string | null;
   /** The catalogue item `offerItemId` names, or `null` when it names none. */
   item: GameItem | null;
+  /**
+   * L16B — the one chariot-part id on offer today, or `null` when the day's pick is
+   * an item. Read from the same schedule resolution, so the panel cannot describe
+   * an offer the transaction would refuse.
+   */
+  offerPartId: string | null;
+  /** The catalogue part `offerPartId` names, or `null` when it names none. */
+  part: ChariotPart | null;
   /** True when this profile has already met the visitor (history only). */
   seen: boolean;
 }
@@ -108,6 +117,8 @@ export function resolveVisitorEncounter(
     visitor: arrival.visitor,
     offerItemId: arrival.offerItemId,
     item: arrival.offerItemId ? getItemById(arrival.offerItemId) ?? null : null,
+    offerPartId: arrival.offerPartId,
+    part: arrival.offerPartId ? getChariotPart(arrival.offerPartId) ?? null : null,
     seen: readSeenVisitors(profile).includes(visitorId),
   };
 }

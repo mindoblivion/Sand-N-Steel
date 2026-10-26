@@ -30,7 +30,9 @@ export type ChariotRejectionReason =
   | 'slot-mismatch'
   | 'already-owned'
   | 'insufficient-gold'
-  | 'not-owned';
+  | 'not-owned'
+  // L16B — the part is visitor-acquired; the workshop never sells it.
+  | 'visitor-only';
 
 export type ChariotLoadoutState = {
   owned: string[];
@@ -145,6 +147,9 @@ export function getChariotPurchaseEligibility(
   const part = getChariotPart(partId);
   if (!part) return { ok: false, reason: 'unknown-part' };
   if (ownsChariotPart(profile, part.id)) return { ok: false, reason: 'already-owned' };
+  // L16B — a visitor-acquired part is not for sale here, at any price. Ownership
+  // comes from the visitor trade alone, so the workshop can only show the goal.
+  if (part.visitorOnly) return { ok: false, reason: 'visitor-only' };
   if (profile.gold < part.price) return { ok: false, reason: 'insufficient-gold' };
   return { ok: true };
 }
@@ -240,5 +245,7 @@ export function describeChariotRejection(reason: ChariotRejectionReason): string
       return 'Not enough gold.';
     case 'not-owned':
       return 'Buy this part before equipping it.';
+    case 'visitor-only':
+      return 'Brought by a visitor.';
   }
 }

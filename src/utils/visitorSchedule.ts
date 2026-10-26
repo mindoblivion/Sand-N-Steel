@@ -34,6 +34,7 @@
  */
 
 import { VISITORS, VISITOR_OFFER_SLOTS, type Visitor } from '../data/visitors';
+import { isChariotPartId } from '../data/chariotParts';
 import type { CityState } from '../types/game';
 import { normalizeCityDay, resolveCityDay } from './cityClock';
 import { selectDailyWindow } from './cityRotation';
@@ -41,12 +42,21 @@ import { selectDailyWindow } from './cityRotation';
 /** The little of a profile this module needs: both fields live on `city`. */
 type CityCarrier = { city?: CityState };
 
-/** One visitor in the city on one day, with the single item it offers that day. */
+/**
+ * One visitor in the city on one day, with the single thing it offers that day.
+ *
+ * L16B — the day's pick is classified here, in the one resolver, so every caller
+ * (the panel, the presence layer, the purchase transaction) agrees about what is
+ * on offer: it is either an `ITEMS_DB` item or a `CHARIOT_PARTS` chariot part, and
+ * exactly one of the two ids is non-null.
+ */
 export interface VisitorArrival {
   /** The catalogue entry, so a caller never has to look the id up again. */
   visitor: Visitor;
-  /** The one real `ITEMS_DB` id on offer today, or `null` when the pool is empty. */
+  /** The one real `ITEMS_DB` id on offer today, or `null` when the pick is a part. */
   offerItemId: string | null;
+  /** L16B — the one chariot-part id on offer today, or `null` when the pick is an item. */
+  offerPartId: string | null;
 }
 
 /** One city day's visitors. */
@@ -133,7 +143,12 @@ function uniqueVisitors(catalogue: readonly Visitor[]): Visitor[] {
   return visitors;
 }
 
-/** The one item this visitor offers on this day, through the L2 rotation. */
+/**
+ * The one id this visitor offers on this day, through the L2 rotation. Returned
+ * unclassified: `scheduleVisitorDay` decides whether it names an item or a
+ * chariot part. An id that names neither is carried as an item id, exactly as it
+ * always was, so a malformed pool still reads `unknown-item` at the transaction.
+ */
 function offerForDay(visitor: Visitor, day: number): string | null {
   const onOffer = selectDailyWindow(visitor.offer.pool, VISITOR_OFFER_SLOTS, visitor.id, day);
   return onOffer.length > 0 ? onOffer[0] : null;
@@ -160,7 +175,13 @@ export function scheduleVisitorDay(
   for (const visitor of uniqueVisitors(catalogue)) {
     if (completed.has(visitor.id)) continue;
     if (!arrivesOnDay(visitor, resolvedDay)) continue;
-    arrivals.push({ visitor, offerItemId: offerForDay(visitor, resolvedDay) });
+    const offered = offerForDay(visitor, resolvedDay);
+    const offerPartId = offered !== null && isChariotPartId(offered) ? offered : null;
+    arrivals.push({
+      visitor,
+      offerItemId: offered !== null && offerPartId === null ? offered : null,
+      offerPartId,
+    });
   }
 
   return { day: resolvedDay, arrivals };

@@ -11427,3 +11427,71 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   here**. The standing device items are unchanged: the C-8.66B/C/D workshop and wheel-swap checks and
   the city-architecture list, plus the audit's own open measurement (a played shield vs shield-less
   duel would be the only thing that upgrades its economy table to evidence).
+
+## Rare visitor-acquired chariot finish (L16B — implemented)
+
+- **What ships.** One cosmetic finish, `finish_ventive` ("Ventive Blue & Gilt"), 900 gold, in
+  `src/data/chariotParts.ts`: slot `finish`, `partClass: 'cosmetic'`, `defaultOwned: false`, and the
+  new explicit marker **`visitorOnly: true`** — rarity lives in its own field, never in `partClass`.
+  It recolors the chariot GLB's own `Leather` / `Bronze` / `DarkWood` materials through the existing
+  `overrides` system, so there is **no new wheel geometry, no wheel variant and no new part kind**.
+  Its id is appended to the Numidian bladesmith's own `offer.pool` (`data/visitors.ts`), which is the
+  one 0.70-rate visitor, and `utils/visitorSchedule` classifies the day's single rotation pick into
+  `offerItemId` or the new **`offerPartId`** (`isChariotPartId`, the catalogue's own reader). The
+  encounter view carries `offerItemId`/`item` and `offerPartId`/`part`; the presence layer carries the
+  string only and imports nothing from the chariot catalogue.
+- **The trade.** `purchaseVisitorOffer` gained a part branch (`purchaseVisitorPart`) that re-validates
+  the pool, the catalogue entry and `visitorOnly`, prices the part through the SAME
+  `resolveVisitorBargainPrice` (generalized to a structural `VisitorPriceSource { price }`, so
+  `ceil(900 × 0.70)` = **630**), and commits gold, the chariot's owned list and `completedVisitors`
+  in ONE profile literal. The part never enters `profile.inventory`. Refusals, all before any write:
+  `no-offer`, `invalid-offer`, `invalid-price`, `invalid-gold`, `invalid-ownership` (a `chariot` that
+  is not a plain object, or `owned` that is not an array — refused, never rebuilt), `already-owned`,
+  `insufficient-gold`; `already-completed` still precedes the schedule. A legacy save (no `chariot`)
+  is not malformed: it resolves through `resolveChariotLoadout` and the purchase creates the loadout.
+- **The workshop.** `getChariotPurchaseEligibility` returns the new `'visitor-only'` reason (so
+  `purchaseChariotPart` cannot sell it), `describeChariotRejection` renders it as **"Brought by a
+  visitor."**, and the card's own state label uses the same exact string. Once owned it equips through
+  the ordinary finish-selection flow (`equipChariotPart`).
+- **Measured consequence — the offer rotation legitimately moved.** A pool of three (was two) changes
+  `selectDailyWindow`'s `hash % length` index, so **30 of the bladesmith's 44 arrival days** now offer
+  the other item; the finish is on offer on **14** of them (days 5, 14, 34, 43, 44, 53, 69, 76, 78,
+  90, 97, 99, 119, 126), and **day 5 is now the finish's day**. Day 10 is his first `dirk_desert`
+  day (the item fixtures moved 5 → 10), day 15's `dagger_pugio` pin and the armorer's day-8
+  `arms_manica` are unchanged, and day 51's bladesmith offer is now `dirk_desert`. The armorer's and
+  trader's pools and every item price, grant and completion rule are untouched.
+- **Rebased, not weakened.** `visitorSchedule.test.ts` (the pool "real content" and "permanent spine"
+  invariants now name the ONE visitor-only part as their documented exception, and the offer pins read
+  `offerItemId ?? offerPartId`), `visitorPurchase.test.ts` (fixture day 5 → 10, the usable-price and
+  `ceil` loops classify part vs item, the economic-floor table keeps its exact item rows plus a
+  630/900 part row, the panel wiring strings follow `offered`), `visitorEncounter.test.ts` (the view
+  agrees with whichever offer the schedule classified; the catalogue probe still forbids
+  visitor-exclusive ITEMS), `visitorPresence.test.ts` (day 5 reads item `null` + part
+  `finish_ventive`, day 10 reads `dirk_desert`, day 51 `dirk_desert`), `profileMutationCommit.test.ts`
+  (day 5 → 10), `phaseC8_66d` / `phaseC8_67b` (catalogue price lists gain the appended entry) and
+  `phaseC8_67b`'s workshop sweep (visitor-only parts excluded from "buy every part"). No assertion was
+  deleted or loosened.
+- **Regression suite: `src/utils/visitorChariotFinish.test.ts`** — 32 tests / 436 assertions across 9
+  sections: §A the catalogue entry and the untouched pre-L16B parts; §B the deterministic offer
+  (rotation agreement over 200 days, repeated reads, day change, the 14 part days of 44 arrivals, the
+  armorer untouched); §C 900 × 0.70 = 630; §D the acquisition (one deduction, one owned entry, one
+  completion, no inventory write, siblings preserved, equipping afterwards); §E the refusals and the
+  stale (item) day; §F the JSON round trip and the legacy/no-`city` saves; §G the workshop refusal,
+  the exact label and ordinary parts still purchasable; §H ordinary item trades unchanged; §I the
+  scope guard (panel/presence/schedule source pins, one `Math.ceil`, no clock/randomness).
+- **Verified 2026-10-26** in the dev container: focused
+  `bun test` over the twelve touched visitor/chariot suites → **404 pass / 0 fail**;
+  `bun test` → **4011 pass / 0 fail (143 files, 170,499 expect() calls)**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only,
+  startup asset check passed); `git diff --check` → clean.
+- **Preview evidence.** The DEV-only chariot-workshop harness (`?devHarness=chariot`, disposable
+  profile, the real `GearTab` → `ChariotWorkshopTab` → `ChariotPreview`) rendered the new card:
+  "Ventive Blue & Gilt", "900 Gold", "COSMETIC", its description, the state line **"Brought by a
+  visitor."**, and a **disabled** control reading "BROUGHT BY A VISITOR." — while the ordinary
+  Charred Ebony finish still showed an enabled **"BUY (180)"**. Zero console errors on the page.
+- **Not automatically verified.** The visitor panel's part row was not driven live: the preview save
+  carries 100 gold and its own city day, so the bladesmith's day-5 630-gold offer is not reachable
+  there without fabricating a save (explicitly out of scope); its rendering is pinned by the suite and
+  the transaction it drives is fully covered. **No physical Android acceptance was performed** — no
+  device was available in this environment, and the finish's colour reading on the target GPU stays
+  pending with the C-8.66B/C-8.66C wheel-fit checks.

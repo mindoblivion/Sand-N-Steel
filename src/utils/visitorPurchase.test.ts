@@ -29,9 +29,11 @@
  *       to the canonical price, and both the transaction and the panel ask the ONE
  *       resolver, so neither can invent a price of its own.
  *
- * The pinned days come from the L10 suite (the bladesmith arrives on day 5 with
- * `dirk_desert`, the armorer on day 8 with `arms_manica`), so a cadence change
- * fails there first and here second.
+ * The pinned days come from the L10 suite (the bladesmith arrives on day 5, the
+ * armorer on day 8 with `arms_manica`). L16B put a chariot finish into the
+ * bladesmith's own pool, so day 5's offer is now that finish; every ITEM fixture
+ * below therefore uses day 10, the bladesmith's first `dirk_desert` day under the
+ * shipped rotation (the finish has its own suite, `visitorChariotFinish.test.ts`).
  *
  * Run with: `bun test src/utils/visitorPurchase.test.ts`
  */
@@ -39,6 +41,7 @@
 import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
+import { getChariotPart } from '../data/chariotParts';
 import { getItemById } from '../data/itemsDB';
 import { getStorefrontStock } from '../data/shops';
 import { getVisitor, VISITORS } from '../data/visitors';
@@ -81,8 +84,11 @@ const richOn = (
   extra: Partial<NonNullable<PlayerProfile['city']>> = {}
 ): PlayerProfile => ({ ...onDay(day, extra), gold: 5000 }) as PlayerProfile;
 
-/** Day 5: the Numidian bladesmith is in the city, offering `dirk_desert`. */
-const ARRIVAL_DAY = 5;
+/**
+ * Day 10: the Numidian bladesmith is in the city, offering `dirk_desert`. (Day 5
+ * is his L16B finish day, where the day's single offer is the chariot finish.)
+ */
+const ARRIVAL_DAY = 10;
 const BLADESMITH = 'numidian_bladesmith';
 const BLADESMITH_ITEM = 'dirk_desert';
 /** Day 8: the Campanian armorer, offering `arms_manica`. */
@@ -246,12 +252,15 @@ describe('§B completion is permanent, and the offer is re-resolved', () => {
   });
 
   test('the item granted is the day’s resolved offer, never a caller’s pick', () => {
-    // On day 15 the bladesmith offers `dagger_pugio`, not day 5's `dirk_desert`.
+    // On day 15 the bladesmith offers `dagger_pugio`, not day 10's `dirk_desert`.
     const result = purchaseVisitorOffer(richOn(15), BLADESMITH);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const view = resolveVisitorEncounter(richOn(15), BLADESMITH)!;
     expect(view.offerItemId).toBe('dagger_pugio');
+    // L16B — a successful trade is either an item or a chariot part; this is an item day.
+    expect(result.kind).toBe('item');
+    if (result.kind !== 'item') return;
     expect(result.item.id).toBe(view.offerItemId!);
     // …charged that day's own bargain price, not the canonical one and not day 5's.
     expect(result.price).toBe(bargainOf('dagger_pugio'));
@@ -400,11 +409,13 @@ describe('§D malformed input', () => {
   test('every visitor offer in the shipping catalogue has a usable price', () => {
     for (const visitor of VISITORS) {
       for (const id of visitor.offer.pool) {
-        const entry = getItemById(id);
+        // L16B — a pool may hold a chariot part beside its items; both are priced
+        // from their own catalogue entry through the one resolver.
+        const entry = getChariotPart(id) ?? getItemById(id);
         expect(entry).toBeDefined();
         const price = resolveVisitorItemPrice(entry);
         expect(price).not.toBeNull();
-        expect(price).toBe(item(id).price);
+        expect(price).toBe(entry!.price);
         // L15 — and a bargain price derived from it, never a second price table.
         expect(resolveVisitorBargainPrice(entry, visitor.bargainRate)).toBe(
           Math.ceil((price as number) * (visitor.bargainRate as number))
@@ -544,7 +555,18 @@ describe('§G the neighbours', () => {
     ]);
     const spine = [...getStorefrontStock('forge'), ...getStorefrontStock('armorer')];
     for (const visitor of VISITORS) {
-      for (const id of visitor.offer.pool) expect(spine).toContain(id);
+      for (const id of visitor.offer.pool) {
+        // L16B's one exception: the visitor-only chariot finish is cosmetic, is
+        // marked `visitorOnly`, and is deliberately not on the permanent spine.
+        const part = getChariotPart(id);
+        if (part) {
+          expect(part.slot).toBe('finish');
+          expect(part.visitorOnly).toBe(true);
+          expect(part.partClass).toBe('cosmetic');
+          continue;
+        }
+        expect(spine).toContain(id);
+      }
     }
     expect(PURCHASE_CODE).not.toMatch(/visitor-exclusive|\bprice:\s*\d/);
   });
@@ -590,10 +612,12 @@ describe('§H the wiring', () => {
     // L15 — the displayed price is the shared resolver's, never the raw catalogue
     // price, and the panel does not re-derive the formula for itself.
     expect(PANEL_CODE).not.toContain('selected.item.price');
+    // L16B — one offered entry (the item, or the day's chariot part), one resolver.
+    expect(PANEL_CODE).toContain('selected.item ?? selected.part');
     expect(PANEL_CODE).toContain(
-      'resolveVisitorBargainPrice(selected.item, selected.visitor.bargainRate)'
+      'resolveVisitorBargainPrice(offered, selected.visitor.bargainRate)'
     );
-    expect(PANEL_CODE).toContain('resolveVisitorItemPrice(selected.item)');
+    expect(PANEL_CODE).toContain('resolveVisitorItemPrice(offered)');
     expect(PANEL_CODE).not.toMatch(/Math\.ceil/);
     expect(PANEL_CODE).not.toMatch(/saveProfile|completedVisitors|purchaseStorefrontItem/);
     expect(PANEL_CODE).not.toMatch(/\buseEffect\b/);
@@ -608,7 +632,7 @@ describe('§H the wiring', () => {
   });
 
   test('the panel refuses an unaffordable purchase at the control', () => {
-    expect(PANEL_CODE).toContain('disabled={!selected.item || price === null || !affordable}');
+    expect(PANEL_CODE).toContain('disabled={!offered || price === null || !affordable}');
     expect(PANEL_CODE).toContain('Not enough gold');
   });
 
@@ -654,8 +678,10 @@ describe('§I the L15 bargain price contract', () => {
   test('the price is exactly ceil(canonical × rate) for every shipped offer', () => {
     for (const visitor of VISITORS) {
       for (const id of visitor.offer.pool) {
-        expect(resolveVisitorBargainPrice(item(id), visitor.bargainRate)).toBe(
-          Math.ceil(item(id).price * (visitor.bargainRate as number))
+        // L16B — items and a chariot part alike: one catalogue entry, one formula.
+        const entry = getChariotPart(id) ?? item(id);
+        expect(resolveVisitorBargainPrice(entry, visitor.bargainRate)).toBe(
+          Math.ceil(entry.price * (visitor.bargainRate as number))
         );
       }
     }
@@ -696,6 +722,9 @@ describe('§J the economic floor, over every shipping offer', () => {
     const measured: string[] = [];
     for (const visitor of VISITORS) {
       for (const id of visitor.offer.pool) {
+        // L16B — the visitor-only chariot finish has no `sellPrice`, so it is
+        // measured by its own test below; every ITEM keeps the exact floor rule.
+        if (getChariotPart(id)) continue;
         const entry = item(id);
         const price = resolveVisitorBargainPrice(entry, visitor.bargainRate)!;
         measured.push(
@@ -716,6 +745,16 @@ describe('§J the economic floor, over every shipping offer', () => {
       'emesan_weapon_trader/shamshir_curved: 272 (canonical 340, sell 150)',
       'emesan_weapon_trader/spatha_legion: 144 (canonical 180, sell 80)',
     ]);
+
+    // L16B — the one chariot finish in a visitor's pool: 900 at the bladesmith's
+    // 0.70 rate is 630, strictly below its catalogue value and never free.
+    const finish = getChariotPart('finish_ventive')!;
+    const owner = VISITORS.find((visitor) => visitor.offer.pool.includes(finish.id))!;
+    expect(owner.id).toBe(BLADESMITH);
+    const partPrice = resolveVisitorBargainPrice(finish, owner.bargainRate)!;
+    expect(finish.price).toBe(900);
+    expect(partPrice).toBe(630);
+    expect(partPrice).toBeLessThan(finish.price);
   });
 });
 
@@ -755,8 +794,9 @@ describe('§K malformed rates fall back to the canonical price', () => {
   });
 
   test('the transaction and the panel ask the ONE resolver, so their fallbacks agree', () => {
-    // visitorPurchase.ts: the definition plus the single charging call site.
-    expect(PURCHASE_CODE.match(/resolveVisitorBargainPrice\(/g)?.length).toBe(2);
+    // visitorPurchase.ts: the definition plus one charging call site per offer kind
+    // (the L12 item trade and L16B's chariot part) — both the same resolver.
+    expect(PURCHASE_CODE.match(/resolveVisitorBargainPrice\(/g)?.length).toBe(3);
     // The formula lives in exactly one place.
     expect(PURCHASE_CODE.match(/Math\.ceil\(/g)?.length).toBe(1);
     // The panel calls the resolver and copies no arithmetic of its own.

@@ -526,12 +526,15 @@ describe('C-8.66D §D — the shipped workshop is unchanged', () => {
     expect(/speed|handling|acceleration|lap time/i.test(JSON.stringify(CHARIOT_PARTS))).toBe(false);
   });
 
-  test('the finishes are the four shipped ones at their shipped prices', () => {
+  test('the finishes are the shipped ones at their shipped prices', () => {
+    // L16B appended one finish at the end of the catalogue: the visitor-acquired
+    // `finish_ventive` (900, never sold here). Every earlier entry is unmoved.
     expect(chariotPartsBySlot('finish').map((part) => [part.id, part.price])).toEqual([
       ['finish_stock', 0],
       ['finish_charred', 180],
       ['finish_gilded', 320],
       ['finish_oxblood', 240],
+      ['finish_ventive', 900],
     ]);
   });
 

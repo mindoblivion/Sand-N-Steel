@@ -108,6 +108,12 @@ export interface VisitorPresence {
   readonly visitor: Visitor;
   /** The one `ITEMS_DB` id on offer today (from the schedule), or `null`. */
   readonly offerItemId: string | null;
+  /**
+   * L16B — the one chariot-part id on offer today (from the schedule), or `null`.
+   * Carried as the schedule's own string: this layer stays encounter-only and
+   * imports nothing from the chariot catalogue or its transactions.
+   */
+  readonly offerPartId: string | null;
   /** Where they stand. */
   readonly stall: VisitorStall;
 }
@@ -147,7 +153,12 @@ export function resolveVisitorPresence(
   for (const arrival of resolveVisitorSchedule(profile).arrivals) {
     const stall = readStall(stalls, arrival.visitor.id);
     if (!stall) continue;
-    presence.push({ visitor: arrival.visitor, offerItemId: arrival.offerItemId, stall });
+    presence.push({
+      visitor: arrival.visitor,
+      offerItemId: arrival.offerItemId,
+      offerPartId: arrival.offerPartId,
+      stall,
+    });
   }
   return presence;
 }

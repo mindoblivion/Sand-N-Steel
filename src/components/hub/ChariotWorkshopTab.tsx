@@ -101,6 +101,9 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
       ? 'Equipped'
       : isOwned
       ? 'Owned'
+      : // L16B — a visitor-acquired part is a discoverable locked goal, never stock.
+      part.visitorOnly
+      ? 'Brought by a visitor.'
       : part.price === 0
       ? 'Included with every chariot'
       : affordable

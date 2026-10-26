@@ -28,6 +28,7 @@
 import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
+import { getChariotPart } from '../data/chariotParts';
 import { getStorefrontStock } from '../data/shops';
 import { VISITORS } from '../data/visitors';
 import { createNewProfile } from '../services/storage';
@@ -190,8 +191,10 @@ describe('§B eligibility', () => {
     expect(view).not.toBeNull();
     expect(view?.visitor.id).toBe(BLADESMITH);
     expect(view?.seen).toBe(false);
-    expect(view?.offerItemId).toBeString();
-    expect(view?.item?.id).toBe(view?.offerItemId as string);
+    // L16B — the view names exactly one offer, and its resolved entry agrees with
+    // the id the schedule classified (an `ITEMS_DB` item, or a chariot part).
+    expect([view?.offerItemId, view?.offerPartId].filter(Boolean)).toHaveLength(1);
+    expect(view?.item?.id ?? view?.part?.id).toBe(view?.offerItemId ?? view?.offerPartId);
 
     expect(resolveVisitorEncounter(today, ARMORER)).toBeNull();
     expect(resolveVisitorEncounter(onDay(1), BLADESMITH)).toBeNull();
@@ -299,10 +302,19 @@ describe('§E the neighbours', () => {
     expect(resolveCityDay(profile)).toBe(ARRIVAL_DAY);
   });
 
-  test('the catalogue is untouched: no visitor-exclusive item, no new price', () => {
+  test('the item catalogue is untouched: no visitor-exclusive ITEM, no new price', () => {
+    const spine = [...getStorefrontStock('forge'), ...getStorefrontStock('armorer')];
     for (const visitor of VISITORS) {
       for (const id of visitor.offer.pool) {
-        const spine = [...getStorefrontStock('forge'), ...getStorefrontStock('armorer')];
+        // L16B's one exception is a COSMETIC CHARIOT PART, never an item: the
+        // permanent item spine keeps its monopoly, so nothing a player needs to
+        // progress is reachable only through a visitor.
+        const part = getChariotPart(id);
+        if (part) {
+          expect(part.partClass).toBe('cosmetic');
+          expect(spine).not.toContain(id);
+          continue;
+        }
         expect(spine).toContain(id);
       }
     }

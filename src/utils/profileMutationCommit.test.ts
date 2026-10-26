@@ -158,11 +158,14 @@ function createHarness(initial: PlayerProfile | null, source = HANDLER_SOURCE) {
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 /**
- * Day 5: the Numidian bladesmith is in town, offering `dirk_desert` — canonical
+ * Day 10: the Numidian bladesmith is in town, offering `dirk_desert` — canonical
  * 170, and since L15 charged at his own bargain rate (0.70 → **119**). These
  * assertions read the price from the shared resolver rather than restating it.
+ * (Day 5 was this fixture before L16B, whose chariot finish rotates into the
+ * bladesmith's pool and IS the day's offer there; day 10 is his first
+ * `dirk_desert` day under the shipped rotation.)
  */
-const ARRIVAL_DAY = 5;
+const ARRIVAL_DAY = 10;
 const BLADESMITH = 'numidian_bladesmith';
 const BLADESMITH_ITEM = 'dirk_desert';
 const BLADESMITH_BARGAIN = resolveVisitorBargainPrice(
