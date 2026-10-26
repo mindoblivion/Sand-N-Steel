@@ -46,6 +46,7 @@ import {
   resolveRetreatTargetZ,
 } from '../../utils/duelGeometry';
 import { describeMoveReport } from '../../utils/duelMoveReport';
+import { shieldGuardFeedback, weaponCarriesShield } from '../../utils/guardFeedback';
 import {
   canAffordAttack,
   chooseAITacticalAction,
@@ -775,8 +776,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             isBlocking: true,
           }));
         }
-        addLog(`${attacker.name} braces behind their shield.`, isActorPlayer ? 'player' : 'opponent');
-        spawnDamageText('BRACED!', 'blocked', attacker.position);
+        // C-8.84D — the copy names what the fighter actually raised. This branch is
+        // shared by every loadout, and C-8.84B's zero-cost fallback sends a Dodge the
+        // opponent could not pay for here, so a `dual_blades` / spear / mace fighter
+        // used to be told it had braced behind a shield it does not carry. The
+        // wording now follows the loadout (shield-equipped copy unchanged); the
+        // stance, its zero cost and the `blocked` damage-text channel are untouched.
+        const guardFeedback = shieldGuardFeedback(
+          attacker.name,
+          weaponCarriesShield(attacker.loadout.weapon),
+        );
+        addLog(guardFeedback.log, isActorPlayer ? 'player' : 'opponent');
+        spawnDamageText(guardFeedback.cue, 'blocked', attacker.position);
       } else if (actionType === 'dodge') {
         sounds.playDodge();
         if (isActorPlayer) {

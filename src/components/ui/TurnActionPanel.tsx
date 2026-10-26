@@ -20,6 +20,7 @@ import {
   isAttackInRange,
   DODGE_STAMINA_COST,
   DODGE_EVADE_PERCENT,
+  canAffordDodge,
 } from '../../utils/combatCalculations';
 
 export type CombatActionType =
@@ -91,6 +92,12 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   // Weapon-specific stamina costs (shared with combat resolution)
   const quickStaminaCost = getStaminaCost(weapon, true);
   const powerStaminaCost = getStaminaCost(weapon, false);
+
+  // C-8.84D — the Dodge card answers to the SAME predicate the turn resolution
+  // enforces (`canAffordDodge`, C-8.84A), so the button and the handler agree for
+  // every stamina, including a non-finite one (which reads as unaffordable). The
+  // turn action always charges, so there is no held-stance exemption here.
+  const dodgeUnaffordable = !canAffordDodge(player.stamina);
 
   return (
     // `tactic-panel` is the C-8.80N hook: the panel is now DuelScene's own flex
@@ -296,9 +303,9 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 4. DODGE / EVASION STANCE */}
           <button
             onClick={() => onExecuteAction('dodge')}
-            disabled={!isPlayerTurn || isExecuting || player.stamina < DODGE_STAMINA_COST}
+            disabled={!isPlayerTurn || isExecuting || dodgeUnaffordable}
             className={`p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
-              !isPlayerTurn || isExecuting || player.stamina < DODGE_STAMINA_COST
+              !isPlayerTurn || isExecuting || dodgeUnaffordable
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
                 : 'bg-gradient-to-br from-teal-950 via-neutral-900 to-emerald-950 border-teal-500 hover:border-teal-300 text-teal-100 shadow-lg'
             }`}

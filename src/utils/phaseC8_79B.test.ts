@@ -187,9 +187,12 @@ describe('§B — the rendered cue reports the stance it was given', () => {
     // C-8.83B — the control is still gated on the cost, but a dodge the player
     // ALREADY holds is re-armed for free, so that stance keeps it usable at any
     // stamina. Both operands are pinned, so neither half can be dropped.
+    // C-8.84D — the cost half is now the shared `canAffordDodge` predicate (the
+    // engine's own), so the held-stance operand is the only literal left here.
     expect(hudSource).toContain(
-      'disabled={player.stamina < DODGE_STAMINA_COST && !player.isInvulnerable}',
+      'const reactionDodgeBlocked = !canAffordDodge(player.stamina) && !player.isInvulnerable;',
     );
+    expect(hudSource).toContain('disabled={reactionDodgeBlocked}');
     expect(ENEMY_ATTACK_WINDUP_MS).toBe(700);
     expect(DODGE_STAMINA_COST).toBe(12);
   });

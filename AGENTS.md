@@ -10521,3 +10521,63 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   so this is a contract proof, not live-duel or device acceptance. Both AI defects were also closed
   at the selection boundary only in the sense that resolution is a backstop: after this phase no
   reachable AI path selects an unaffordable Dodge, so the resolution refusal is defence in depth.
+
+## Dodge UI and feedback consistency (Phase C-8.84D — implemented)
+
+- **Two defects confirmed in source before anything was edited; both were real, neither was already
+  fixed.** (1) The player's two Dodge controls compared stamina directly —
+  `CombatHUD`'s reaction button `player.stamina < DODGE_STAMINA_COST && !player.isInvulnerable` and
+  `TurnActionPanel`'s Dodge card `player.stamina < DODGE_STAMINA_COST` — while C-8.84A/B's engine
+  guard answers to `canAffordDodge`. The two agree for every finite stamina ≥ 0, which is why the
+  divergence was invisible, and disagree exactly where the predicate was written for: `NaN`,
+  `+Infinity` and a non-numeric `stamina` all compare FALSE against 12, so both controls offered a
+  stance the engine then refuses. (`-Infinity` compares low, so it was already gated.) (2) The shared
+  `shield_block` branch logged `"<name> braces behind their shield."` and cued `BRACED!` for every
+  loadout, so the shield-less fighters C-8.84B's fallback sends there (the roster's `dual_blades`
+  Flaccus and Ignis, plus spear and mace opponents) were told about a shield they do not carry.
+- **The affordability fix is the shared predicate at both gates and nothing else.**
+  `CombatHUD` derives `reactionDodgeBlocked = !canAffordDodge(player.stamina) && !player.isInvulnerable`
+  (the `isInvulnerable` operand is what keeps C-8.83B's free reaffirmation alive, including at 0 SP and
+  at a non-finite stamina — `planDodgeReaction` charges a held stance nothing), and
+  `TurnActionPanel` derives `dodgeUnaffordable = !canAffordDodge(player.stamina)` (the turn action
+  always charges, so there is no held-stance exemption). The 12 SP cost, the 88 % evade chance,
+  `planDodgeReaction`, stance lifetime, `enforceAffordableAIAction` and the engine's own refusal are
+  untouched.
+- **The feedback fix is a small pure module, `src/utils/guardFeedback.ts`.** `weaponCarriesShield`
+  reads the SAME rule `GladiatorMesh` uses to attach the scutum (`sword_shield`, a weapon whose name
+  or id names a shield, or no resolved weapon at all — keep the two in step), and
+  `shieldGuardFeedback(name, carriesShield)` returns the chronicle line plus cue: the shield-equipped
+  pair is the shipped copy word for word (`braces behind their shield.` / `BRACED!`), the shield-less
+  pair is `sets a tight guard.` / `GUARD!`. `DuelScene`'s branch reads it for `addLog` and
+  `spawnDamageText` only — the stance (`action: 'block', isBlocking: true`), the zero stamina cost,
+  block mitigation, the `'blocked'` damage-text channel and turn timing are untouched.
+- **Suite: `src/utils/phaseC8_84D.test.ts`** (29 tests / 427 `expect()`) — A/B render the SHIPPED
+  `CombatHUD` and `TurnActionPanel` through `react-dom/server` and read `disabled` out of the real
+  markup (0-11 refused, 12+ allowed, `NaN`/±`Infinity`/`'60'` refused, held stance reaffirmable at 0 SP
+  and at a non-finite stamina, plus a control replaying the pre-fix expression); C executes the copy
+  module over every catalogue weapon and the whole roster; D binds the shipped branch by source (helper
+  used, no shield literal left in the scene, `isBlocking: true` and no `isInvulnerable`, still no
+  stamina write once comments are stripped); E drives the real fallback and stance helper
+  (`enforceAffordableAIAction('dodge', 0-11, daggers) === 'shield_block'` → `{isBlocking: true,
+  isInvulnerable: false}`); F pins the constants and the engine guard.
+- **Rebased, not weakened: one site that pinned the old gate.** `phaseC8_79B`'s §B "cue keeps its own
+  window and its own reaction cost" pinned the literal `disabled={player.stamina <
+  DODGE_STAMINA_COST && !player.isInvulnerable}`; it now pins the derived `reactionDodgeBlocked`
+  expression and its use, so its property (a held dodge stays free) is unchanged. No other suite
+  pinned either gate.
+- **Verified 2026-10-26** in the dev container (branch `development-focus-strategy`, HEAD
+  `2fb003ef8764cd3d589ec56d08680cca47e63072`, tree clean at start): the 43 suites that reference
+  `CombatHUD` / `TurnActionPanel` / `DuelScene` / `guardFeedback` → **1057 pass / 0 fail**;
+  `bun run scripts/combatTests.ts` → **69 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0;
+  `bun run build` → exit 0 (startup asset check: 8 assets); `git diff --check` → clean; `bun test` →
+  **3897 pass / 0 fail (139 files, 169 184 `expect()`)**. The dev server serves all four edited
+  modules (HTTP 200, the new identifiers present, the old comparison absent from `CombatHUD`), and the
+  app boots to its title screen with **0 console errors and 0 failed requests**.
+- **Not automatically verified — the Dodge controls and the guard copy inside a live duel, and
+  Android.** The gates are proven on the real rendered markup and the copy on the real module, but no
+  duel was driven here: the HUD sits behind character creation, the 3D city hub and the arena, which
+  render through SwiftShader at ~2 fps. **Android check (when a device is available):** spend a
+  fighter below 12 SP and confirm both Dodge controls are refused while a held stance stays usable, and
+  take a `dual_blades` opponent (Flaccus or Ignis) to the point where its Dodge is unaffordable and
+  confirm the chronicle reads "sets a tight guard." / `GUARD!` rather than mentioning a shield. The
+  shield-equipped wording (Marcus, Drusus) must be unchanged.

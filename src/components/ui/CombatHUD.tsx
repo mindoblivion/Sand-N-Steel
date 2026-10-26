@@ -4,6 +4,7 @@ import { Swords, Flame, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCir
 import {
   DODGE_EVADE_PERCENT,
   DODGE_STAMINA_COST,
+  canAffordDodge,
   ENEMY_ATTACK_WINDUP_MS,
   PLAYER_ATTACK_WINDUP_MS,
 } from '../../utils/combatCalculations';
@@ -78,6 +79,12 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   );
   const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
   const playerStaminaPct = Math.max(0, Math.min(100, (player.stamina / player.stats.staminaMax) * 100));
+  // C-8.84D — the reaction's Dodge gate is the SAME predicate the turn handler
+  // enforces (`canAffordDodge`), not a bare `stamina < cost` comparison, so a
+  // non-finite stamina cannot offer a stance the engine would refuse. C-8.83B is
+  // preserved: a stance the player ALREADY holds is re-armed for free, so only a
+  // new dodge is gated and the held reaction stays usable at any stamina.
+  const reactionDodgeBlocked = !canAffordDodge(player.stamina) && !player.isInvulnerable;
 
   const opponentHpPct = Math.max(0, Math.min(100, (opponent.health / opponent.stats.healthMax) * 100));
   const opponentStaminaPct = Math.max(0, Math.min(100, (opponent.stamina / opponent.stats.staminaMax) * 100));
@@ -323,10 +330,12 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                   data-reaction="dodge"
                   onClick={() => onReactToPendingAttack('dodge')}
                   // C-8.83B — a held stance is re-armed for free, so the cost gate
-                  // refuses only a NEW dodge.
-                  disabled={player.stamina < DODGE_STAMINA_COST && !player.isInvulnerable}
+                  // refuses only a NEW dodge. C-8.84D — that gate is the shared
+                  // `canAffordDodge` predicate, which also reads a non-finite
+                  // stamina as unaffordable.
+                  disabled={reactionDodgeBlocked}
                   className={`min-h-[44px] px-2 py-2 rounded-lg border text-[11px] sm:text-xs font-serif font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
-                    player.stamina < DODGE_STAMINA_COST && !player.isInvulnerable
+                    reactionDodgeBlocked
                       ? 'bg-neutral-900/70 border-neutral-700 text-neutral-500 cursor-not-allowed'
                       : 'bg-teal-950/80 hover:bg-teal-900 border-teal-500/70 text-teal-100 cursor-pointer'
                   }`}
