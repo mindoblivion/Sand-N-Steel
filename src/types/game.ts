@@ -340,6 +340,38 @@ export interface YokedBrothersConfig {
   withdrawalAtHealthFraction: number;
 }
 
+/**
+ * D-5 — Hermas's long memory, as data (boss-rosters.md Part A, as published in
+ * the Director addendum).
+ *
+ * He reads the PLAYER'S OWN offensive mix at two HP thresholds and sets himself
+ * against whatever class the player leaned on. The values are the published
+ * pattern's bounds rather than a second set of numbers: the power read's +0.10
+ * blockChance is B4's own example, the quick read's mirror is AUTHORED (B4
+ * publishes only the power case — see `utils/longMemory.ts`), and the caps are
+ * the design's: no single adoption moves a value more than ±0.15, and every
+ * effective value stays inside `clamp`.
+ */
+export interface LongMemoryConfig {
+  /** The HP fractions he reads the mix at, highest first (0.66, then 0.33). */
+  readAtHealthFractions: number[];
+  /** A class must EXCEED this share of the player's offensive actions (0.60). */
+  dominanceThreshold: number;
+  /**
+   * The blockChance move for the class the player leaned on. `power` is B4's
+   * published +0.10; `quick` is the AUTHORED mirror (−0.15, so that Old Craft's
+   * +0.05 leaves a net −0.10 per adoption, the same visible size the power read
+   * leaves after its own stacking).
+   */
+  blockChanceDelta: { power: number; quick: number };
+  /** Old Craft: the blockChance every adoption carries on top of its shift (+0.05). */
+  oldCraftBlockChancePerAdoption: number;
+  /** The cap on how far ANY single adoption may move a value (0.15). */
+  maxDeltaPerAdoption: number;
+  /** The absolute clamp on every effective value ([0.05, 0.95]). */
+  clamp: { min: number; max: number };
+}
+
 export interface OpponentConfig {
   id: string;
   name: string;
@@ -398,6 +430,13 @@ export interface OpponentConfig {
    * fights as one standard fighter no matter what sub-data it carries.
    */
   brothers?: YokedBrothersConfig;
+  /**
+   * D-5 — Hermas's long memory, for a `the_long_memory` Feature Bout only.
+   * `utils/longMemory.ts`'s fence is what decides whether it can ever be used: a
+   * row without the mechanic, the feature flag or the boss flag never reads a
+   * mix, no matter what sub-data it carries.
+   */
+  longMemory?: LongMemoryConfig;
   /**
    * D-1 — a Feature Bout: a boss faced outside the tier ladder. Appended to the
    * roster so saves keep their ids; it is NOT a ladder rung (`fightIndex` 0), it
@@ -458,6 +497,14 @@ export interface DuelStatistics {
    * and is never written to a profile (nothing saves `DuelStatistics`).
    */
   beastEpilogue?: string;
+  /**
+   * D-5 — Hermas's adaptation log, computed IN MEMORY at result time from the
+   * duel's own live mix counter and adaptation state: one line per threshold he
+   * read, in numbers (what the mix was, and what it did to him). Like
+   * `beastEpilogue` it rides this object to the result modal and is never
+   * written to a profile — nothing saves `DuelStatistics`.
+   */
+  adaptationLines?: string[];
 }
 
 /**

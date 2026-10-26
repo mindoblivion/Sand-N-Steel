@@ -246,6 +246,29 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
         {/* D-2 — the beast hunt's own epilogue, computed in the duel from its
             duel-session state alone (no save field): the beast driven off or gone
             with its master's fall. Absent on every other result. */}
+        {/* D-5 — Hermas's adaptation log: computed IN MEMORY at result time from
+            the duel's own live mix counter and adaptation state, and carried on
+            the statistics object exactly as the beast's epilogue is. One line per
+            threshold he read, in numbers; absent on every other result. */}
+        {stats.adaptationLines && stats.adaptationLines.length > 0 && (
+          <div
+            data-long-memory-lines={stats.adaptationLines.length}
+            className="bg-neutral-950/80 border border-amber-800/50 rounded-2xl p-3 mb-4 flex flex-col gap-1.5"
+          >
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
+              The long memory
+            </div>
+            {stats.adaptationLines.map((line) => (
+              <p
+                key={line}
+                className="text-xs sm:text-[13px] font-mono text-amber-100/90 leading-relaxed"
+              >
+                {line}
+              </p>
+            ))}
+          </div>
+        )}
+
         {stats.beastEpilogue && (
           <p
             data-beast-epilogue="1"

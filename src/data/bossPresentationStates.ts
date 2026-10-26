@@ -79,6 +79,12 @@ export interface BossPresentationDelta {
   ambientIntensity?: number;
   /** The sand haze behind the fighters. */
   fogColor?: string;
+  /**
+   * D-5 — the arena's eight bronze brazier embers, as an emissive intensity for
+   * the material they already use (the shipped value is 3). A MATERIAL PROPERTY
+   * on a mesh the arena already draws, so still +0 draw calls.
+   */
+  emberEmissive?: number;
 }
 
 /**
@@ -129,6 +135,24 @@ export const BOSS_PRESENTATION_DELTAS: Partial<
     ambientIntensity: 0.62,
     fogColor: '#b8863b',
   },
+  // D-5 — Hermas's state, per Part A's own brief: "The long light of a career
+  // ending, and the crowd knowing it." A DEEPENED dusk: the key light sunk low and
+  // reddened far past `dawn`'s, the ambient dropped so the sand goes the colour of
+  // old bronze rather than staying lit, and the haze pulled down with it. The
+  // braziers are raised (ember emissive 3 → 5.4) because at this hour they are the
+  // only light the crowd has — again a MATERIAL PROPERTY on the embers the arena
+  // already draws, so +0 draw calls. His banner rides the same single heraldic
+  // cloth D-3/D-4 established (a dusk wine canopy with a tarnished-bronze trim);
+  // a SECOND cloth "beside the player's" would be +1 draw call, which this slice's
+  // budget does not allow, so the state is carried as the one cloth's tones.
+  dusk: {
+    sunColor: '#c2703f',
+    sunIntensity: 1.05,
+    ambientColor: '#a98a6d',
+    ambientIntensity: 0.34,
+    fogColor: '#7d5a3f',
+    emberEmissive: 5.4,
+  },
 };
 
 /**
@@ -139,7 +163,7 @@ export const BOSS_PRESENTATION_DELTAS: Partial<
  */
 export function bossSceneDeltas(
   opponent: Pick<OpponentConfig, 'isBoss' | 'featureBout' | 'presentationState'> | null | undefined
-): { sunColor?: string; sunIntensity?: number; ambientColor?: string; ambientIntensity?: number; fogColor?: string } | null {
+): BossPresentationDelta | null {
   const state = authoredPresentationState(opponent);
   if (!state) return null;
   const delta = BOSS_PRESENTATION_DELTAS[state];

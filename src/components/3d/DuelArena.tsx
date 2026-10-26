@@ -18,11 +18,24 @@ export interface DuelArenaProps {
    * has always worn, and it is what flies once the third piece breaks (the
    * allegiance swap). A MATERIAL PROPERTY change on the existing canopy mesh —
    * no new mesh, no new draw call. Absent = the shipped crimson.
+   * D-5 — `'dusk'` is Hermas's: a deep wine cloth under a tarnished bronze trim,
+   * the same two material properties on the same two meshes (+0 draw calls).
    */
-  bannerAllegiance?: 'gilded' | 'player' | 'brothers';
+  bannerAllegiance?: 'gilded' | 'player' | 'brothers' | 'dusk';
+  /**
+   * D-5 — the eight bronze braziers' ember emissive intensity. A MATERIAL
+   * PROPERTY on the ember spheres the arena already draws (the shipped value is
+   * 3), so it costs no mesh and no draw call; absent leaves them exactly as they
+   * have always been.
+   */
+  emberEmissive?: number;
 }
 
-export const DuelArena: React.FC<DuelArenaProps> = ({ crowdPulseRef, bannerAllegiance }) => {
+export const DuelArena: React.FC<DuelArenaProps> = ({
+  crowdPulseRef,
+  bannerAllegiance,
+  emberEmissive,
+}) => {
   const crowdGroupRef = useRef<THREE.Group>(null);
   // Seeded from the counter's current value, so the first frame never mistakes
   // a pulse that happened before this arena existed for a fresh one.
@@ -118,7 +131,11 @@ export const DuelArena: React.FC<DuelArenaProps> = ({ crowdPulseRef, bannerAlleg
             {/* Glowing Embers */}
             <mesh position={[0, 0.45, 0]}>
               <sphereGeometry args={[0.3, 10, 10]} />
-              <meshStandardMaterial color="#ff5722" emissive="#f97316" emissiveIntensity={3} />
+              <meshStandardMaterial
+                color="#ff5722"
+                emissive="#f97316"
+                emissiveIntensity={emberEmissive ?? 3}
+              />
             </mesh>
             <pointLight color="#f97316" intensity={3.5} distance={12} position={[0, 0.6, 0]} />
           </group>
@@ -144,6 +161,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({ crowdPulseRef, bannerAlleg
                 ? '#eab308'
                 : bannerAllegiance === 'brothers'
                 ? '#7f1d1d'
+                : bannerAllegiance === 'dusk'
+                ? '#4c0519'
                 : '#881337'
             }
             roughness={0.5}
@@ -153,7 +172,13 @@ export const DuelArena: React.FC<DuelArenaProps> = ({ crowdPulseRef, bannerAlleg
         <mesh position={[0, 4.8, 2.5]}>
           <boxGeometry args={[11.2, 0.3, 0.2]} />
           <meshStandardMaterial
-            color={bannerAllegiance === 'brothers' ? '#dc2626' : '#f59e0b'}
+            color={
+              bannerAllegiance === 'brothers'
+                ? '#dc2626'
+                : bannerAllegiance === 'dusk'
+                ? '#a16207'
+                : '#f59e0b'
+            }
             metalness={0.9}
             roughness={0.2}
           />

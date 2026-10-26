@@ -290,9 +290,19 @@ describe('D-1 §B — the five mechanics live only on feature bosses', () => {
     // other three remain inert data, and NONE of the five owns a presentation
     // moment — which is the property this test exists to pin.
     const duel = code('src/components/duel/DuelScene.tsx');
-    // D-4 wired the third (`yoked_brothers`), behind its own branch in the duel;
-    // the other two remain inert data.
-    const wiredByD3 = new Set(['false_telegraph', 'unbroken_panoply', 'yoked_brothers']);
+    // D-4 wired the third (`yoked_brothers`), behind its own branch in the duel.
+    // D-5 wired the fourth (`the_long_memory`) the same way; the fifth
+    // (`beast_hunt`) was wired by D-2. All five are wired now, so the set is the
+    // whole list — and the duel still names no mechanic string of its own: each
+    // fence lives in its module (`beastHunt`, `falseTelegraph`, `panoply`,
+    // `yokedBrothers`, `longMemory`) and the scene only calls it.
+    const wiredByD3 = new Set([
+      'beast_hunt',
+      'false_telegraph',
+      'unbroken_panoply',
+      'yoked_brothers',
+      'the_long_memory',
+    ]);
     for (const mechanic of FEATURE_MECHANICS) {
       if (wiredByD3.has(mechanic)) continue;
       expect(duel, mechanic).not.toContain(`'${mechanic}'`);
@@ -824,6 +834,14 @@ describe('D-1 §H — the five state names are data; the AI-4 key map is deferre
         // `bossSceneDeltas`.
         expect(mentions).toHaveLength(1);
         expect(duel).toContain("? 'brothers'");
+        expect(duel).toContain('bannerAllegiance={');
+      } else if (state.name === 'dusk') {
+        // D-5 rebased this half the same way D-4 rebased `brothers`: Hermas's
+        // LOGE BANNER allegiance shares the state's name and is the only
+        // occurrence. No presentation STATE is named here either — his light rig
+        // is read through `bossSceneDeltas`.
+        expect(mentions).toHaveLength(1);
+        expect(duel).toContain("? 'dusk'");
         expect(duel).toContain('bannerAllegiance={');
       } else {
         expect(mentions, state.name).toHaveLength(0);

@@ -139,6 +139,22 @@ import {
   type BrothersStage,
   type CrossingAnswer,
 } from '../../utils/yokedBrothers';
+// ── D-5 — HERMAS'S LONG MEMORY ──────────────────────────────────────────────
+// Every rule, fence and word lives in `utils/longMemory.ts`; this scene counts
+// the player's own attacks in the module's live counter, calls it at each HP
+// threshold, reads the resulting blockChance into the AI's chooser, and hands the
+// result screen the module's in-memory lines. It builds no second combat log.
+import {
+  applyLongMemoryRead,
+  createLongMemoryState,
+  dueLongMemoryReads,
+  longMemoryBaseProfile,
+  longMemoryBlockChance,
+  longMemoryConfigFor,
+  longMemoryResultLines,
+  notePlayerAction,
+  type LongMemoryState,
+} from '../../utils/longMemory';
 import { BrothersPair } from '../3d/BrothersPair';
 import { BeastFigure } from '../3d/BeastFigure';
 import { crowdHypeTier, detectCrowdHypeCrossing } from '../../utils/crowdHype';
@@ -740,6 +756,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // The rear brother's flank strike is queued and takes the pair's next slot.
   const flankStrikeRef = useRef(false);
 
+  // ── D-5 — HERMAS'S LONG MEMORY ────────────────────────────────────────────
+  // Same fence, same shape as D-2/D-3/D-4: the config is `null` for every
+  // opponent that is not a `the_long_memory` Feature Bout, so no mix is counted
+  // and no threshold can fire in any other duel. The counter and the reads are
+  // duel-session only and are never written to a save. A REF, not React state:
+  // nothing draws the counter (his announcements are log lines, which re-render
+  // anyway), so a count costs no render of its own.
+  const longMemoryCfg = useMemo(() => longMemoryConfigFor(opponent), [opponent]);
+  const longMemoryBase = useMemo(() => longMemoryBaseProfile(opponent), [opponent]);
+  const longMemoryRef = useRef<LongMemoryState>(createLongMemoryState());
+  const commitLongMemory = useCallback((next: LongMemoryState) => {
+    longMemoryRef.current = next;
+  }, []);
+
   // Shared impact feedback (the hit-stop clock and the shake energy) — see the
   // tables at the top of this file. Written once per hit resolution and read
   // every frame by the camera rig and both GladiatorMesh instances, so the
@@ -932,6 +962,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       setIsExecuting(true);
       const isActorPlayer = actor === 'player';
+
+      // ── D-5 — THE LIVE OFFENSIVE MIX ─────────────────────────────────────
+      // One count per PLAYER attack, taken from the dispatch that resolves the
+      // turn (the same source the combat log is written from — no second log is
+      // built). A strike aimed at a beast is not this bout's mix, and a block, a
+      // dodge, an advance, a taunt, a rest or a net is not an offensive action at
+      // all, so the counter is a count of exactly the two attacks.
+      if (longMemoryCfg && isActorPlayer && target === 'master') {
+        commitLongMemory(notePlayerAction(longMemoryRef.current, actionType));
+      }
 
       // CL-3 — a shown beat is dismissed by the action it teaches, or once
       // BEAT_EXPIRY_ACTIONS further actions have resolved. Either way it is
@@ -2172,11 +2212,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           : panoplyCfg
           ? panoplyAggression(opponent.aggression, panoplyCfg, panoplyRef.current)
           : opponent.aggression;
+      // D-5 — Hermas chooses with his LIVE blockChance: the row's value plus
+      // whatever his adaptations have already done to it. Every other row reads
+      // its own published value exactly as it always has.
       const aiBlockChance =
         brothersCfg && brothersSlotActor
           ? brotherBlockChance(brothersCfg, brothersSlotActor)
           : panoplyCfg
           ? panoplyBlockChance(opponent.blockChance, panoplyCfg, panoplyRef.current)
+          : longMemoryCfg
+          ? longMemoryBlockChance(longMemoryCfg, longMemoryBase, longMemoryRef.current)
           : opponent.blockChance;
 
       let chosenAction: CombatActionType = 'quick_attack';
@@ -2224,7 +2269,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   masterAloneAggression(opponent.aggression, beastCfg.masterAloneAggressionBonus),
                   aiBlockChance,
                 )
-              : panoplyCfg
+              : panoplyCfg || longMemoryCfg
               ? chooseAIStandardAction(aiAggression, aiBlockChance)
               : chooseAIStandardAction(opponent.aggression, opponent.blockChance);
         }
@@ -2276,6 +2321,48 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     panoplyCfg,
     brothersCfg,
     commitBrothers,
+    longMemoryCfg,
+    longMemoryBase,
+  ]);
+
+  // ── D-5 — HERMAS READS THE MIX (66 %, then 33 %) ───────────────────────────
+  // The HP crossing is only WHEN he looks; WHAT he reads is the player's own
+  // offensive mix from the live counter, and nothing else — never his HP, the
+  // clock or a roll. Each threshold fires once (`reads` records them), and the
+  // read is deferred while his announced heavy is still standing so his numbers
+  // can never change in the middle of a wind-up the player is answering; the
+  // effect re-runs the moment that banner clears. A read on the killing blow is
+  // skipped: the bout is over (and the victory effect is about to run).
+  useEffect(() => {
+    if (!longMemoryCfg || isMatchOver.current) return;
+    if (opp.health <= 0) return;
+    if (opp.telegraphText || pendingHeavyAttackRef.current) return;
+    const due = dueLongMemoryReads(
+      longMemoryCfg,
+      longMemoryRef.current,
+      opp.health,
+      opp.stats.healthMax,
+    );
+    if (due.length === 0) return;
+    let state = longMemoryRef.current;
+    for (const threshold of due) {
+      const read = applyLongMemoryRead(longMemoryCfg, longMemoryBase, state, threshold);
+      state = read.state;
+      if (read.adaptation.words) {
+        addLog(read.adaptation.words, 'opponent');
+        spawnDamageText('HE HAS READ YOU', 'crit', opp.position);
+      }
+    }
+    commitLongMemory(state);
+  }, [
+    opp.health,
+    opp.telegraphText,
+    opp.stats.healthMax,
+    longMemoryCfg,
+    longMemoryBase,
+    addLog,
+    spawnDamageText,
+    commitLongMemory,
   ]);
 
   // Check victory / defeat conditions
@@ -2315,6 +2402,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         );
         commitBeast(beastFleesWithMaster(beastRef.current));
       }
+      // D-5 — Hermas's adaptation log, computed at result time from this duel's
+      // own counter and reads and riding the in-memory statistics object: no save
+      // field, no profile write, and the result flow is unchanged.
+      if (longMemoryCfg) {
+        statsRef.current.adaptationLines = longMemoryResultLines(
+          longMemoryCfg,
+          longMemoryBase,
+          longMemoryRef.current,
+        );
+      }
       setTimeout(() => {
         onMatchComplete(statsRef.current, true);
       }, 1400);
@@ -2339,11 +2436,30 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         );
         commitBeast(beastFleesWithMaster(beastRef.current));
       }
+      // D-5 — same in-memory adaptation log on a defeat: what he read, it did.
+      if (longMemoryCfg) {
+        statsRef.current.adaptationLines = longMemoryResultLines(
+          longMemoryCfg,
+          longMemoryBase,
+          longMemoryRef.current,
+        );
+      }
       setTimeout(() => {
         onMatchComplete(statsRef.current, false);
       }, 1400);
     }
-  }, [opp.health, player.health, player.name, opp.name, addLog, onMatchComplete, beastCfg, commitBeast]);
+  }, [
+    opp.health,
+    player.health,
+    player.name,
+    opp.name,
+    addLog,
+    onMatchComplete,
+    beastCfg,
+    commitBeast,
+    longMemoryCfg,
+    longMemoryBase,
+  ]);
 
   // Boss phase-2 weapon switch (Ignis: dual_blades → mace at 50% health).
   // One-time: guarded by phaseSwitchedRef so the effect cannot re-trigger
@@ -2548,8 +2664,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                     ? panoply.humiliated
                       ? 'player'
                       : 'gilded'
+                    : longMemoryCfg
+                    ? 'dusk'
                     : undefined
                 }
+                emberEmissive={sceneDeltas?.emberEmissive}
               />
             </ThreeComponentErrorBoundary>
 
