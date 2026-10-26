@@ -10,6 +10,7 @@ import {
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
 import { RomanBench } from './CivicFurnishingProps';
+import { LandmarkSign } from './LandmarkSign';
 
 export const RecordsLibrary = React.memo(() => {
   return (
@@ -121,6 +122,8 @@ export const RecordsLibrary = React.memo(() => {
 
       {/* 5. SCHOLAR TRAVERTINE READING BENCH (PHASE 26) */}
       <RomanBench position={[0, 0, 3.2]} rotationY={0} stoneColor="#e2e8f0" />
+      {/* L17B — landmark sign: south (portico) apron.  Data: src/data/landmarkSigns.ts */}
+      <LandmarkSign id="records_library" />
     </group>
   );
 });

@@ -10,6 +10,7 @@ import {
   WallCornice,
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
+import { LandmarkSign } from './LandmarkSign';
 
 export const ArenaMedicalHouse = React.memo(() => {
   return (
@@ -143,6 +144,8 @@ export const ArenaMedicalHouse = React.memo(() => {
           <meshStandardMaterial color="#b91c1c" roughness={0.5} />
         </mesh>
       </group>
+      {/* L17B — landmark sign: south (porch) apron.  Data: src/data/landmarkSigns.ts */}
+      <LandmarkSign id="arena_medical" />
     </group>
   );
 });

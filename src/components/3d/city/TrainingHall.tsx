@@ -10,6 +10,7 @@ import {
   WallCornice,
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE, ROMAN_PALETTE } from './RomanMaterials';
+import { LandmarkSign } from './LandmarkSign';
 
 // ── Phase 27.3.4 — western annex (TrainingYard parent at [-18,0,0]) ──
 // Centre: yard-local [-12.35,0,3] → world [-30.35,0,3]; yaw +π/2.
@@ -322,6 +323,8 @@ export const TrainingHall: React.FC = React.memo(() => {
           <meshStandardMaterial color="#4a3220" roughness={0.85} />
         </mesh>
       </group>
+      {/* L17B — landmark sign: east (veranda) apron.  Data: src/data/landmarkSigns.ts */}
+      <LandmarkSign id="training_hall" />
     </group>
   );
 });

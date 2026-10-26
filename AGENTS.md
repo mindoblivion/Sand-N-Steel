@@ -11495,3 +11495,97 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the transaction it drives is fully covered. **No physical Android acceptance was performed** — no
   device was available in this environment, and the finish's colour reading on the target GPU stays
   pending with the C-8.66B/C-8.66C wheel-fit checks.
+
+## Living City landmark signage (L17B — implemented; Android acceptance PENDING)
+
+- **What shipped.** The nine delivered landmark sign GLBs (`public/signs/<id>/<id>.glb`) are mounted
+  into their own city buildings through ONE shared component, `src/components/3d/city/LandmarkSign.tsx`,
+  driven by ONE typed data map, `src/data/landmarkSigns.ts`. Each building mounts it as a single
+  `<LandmarkSign id="…" />` child of its root group, so a sign moves with its building. The Grand
+  Colosseum keeps its own `ColosseumSignPrototype` mount (Phase 29.3D, plate-only at scale 1.35 on the
+  entrance steps) and is deliberately **not** re-signed.
+
+- **The assets are floor-standing post signs, not wall plaques — and they are cut-out plates.** Every
+  GLB shares one construction: an iron post (local X −1.12 … −0.72) with a bracket arm at Y 2.53 … 2.63
+  from which the plate hangs at Y 0.79 … 2.34 on six chain links, 2.86 tall over a 0.398 depth
+  envelope. Nothing is textured, so the lettering is the plate's own silhouette — which is why the
+  Colosseum sign's dark walnut backing panel is reused verbatim (margin 0.03, depth 0.015, centre
+  Y 1.565 / Z −0.060; width per sign = `plateWidth + 2 × margin`, so no plate is stretched). Only the
+  plate's X extent differs per sign (0.878 … 1.265) and it is measured, not assumed.
+
+- **Mounting rule, and the two places it needed a judgement call.** Every sign stands on the apron of
+  the facade the player enters — the door / awning / portico face — turned so the plate's readable
+  front (local +Z, the thick side at Z 0.061) faces that approach, and offset along the facade so the
+  doorway's walking line stays clear. Measured clearances to the building's own collider: Tavern 0.501,
+  Forge 0.501, Store 0.751, Library 0.401, Medical 0.351, Barracks 0.351, Academy 0.351, Veteran Hall
+  0.151 (its plate stands just off the 0.16-high bottom step), Training Hall 3.201 (its apron is the
+  veranda, which — like every building's posts and awnings — carries no collider; the plate is 0.55
+  from the veranda's outer edge). Two faces are bespoke rather than the doorway's: the **Gladiator
+  Academy** reads SOUTH off its undecorated south frontage (its west portal is a 3.9-wide pocket
+  between two columns and the `[25.5, −23]` arrival sits on that walk line), and every sign on a
+  building whose fast-travel arrival is on another face (Barracks: arrival east, door south; Veteran
+  Hall: arrival north, door south) stays on the **entrance** face rather than a blank rear wall.
+
+- **Coordinates live in the building's own frame.** `position` / `rotationY` are local to the building
+  root group, with `buildingRoot` / `buildingYaw` recorded so world placement is derivable:
+  `world = root + R_y(yaw) · local`, `worldYaw = yaw + rotationY`. Only the Training Hall is rotated
+  (parent yaw +π/2), which is why its local rotation is 0 while it reads east. In this city +X is
+  east, −X west, +Z south, −Z north.
+
+- **Nothing was added to the movement or interaction systems.** The signs are decoration with no
+  collider — exactly like the buildings' barrels, crates and benches — so `CITY_COLLIDERS` is still
+  **142 colliders / 32 rectangles / 46 `colo-*`**, `HUB_LOCATIONS` and `FAST_TRAVEL_ARRIVALS` are still
+  **21 each**, and `cityClock.ts`, the visitor systems, the save format and every gameplay module are
+  untouched. `src/data/landmarkSigns.ts` imports nothing at all, and `LandmarkSign.tsx` imports only
+  react / three / drei / its own data: no per-frame work, no lights, no animation, no eager preload of
+  the other models, and each sign owns its `Suspense` so a loading GLB cannot blank its building.
+
+- **Draw-call cost, stated honestly.** Each GLB is 13 meshes (plate, post, base, cap, arm, brace,
+  scroll, six chain links) plus the backing panel — **14 draw calls and ~4.6–5.2 k triangles per sign,
+  ≈126 draw calls and ≈45 k triangles for the nine**. That is the same construction the shipped
+  Colosseum sign already renders, and the assets were reused unmodified as instructed; a future
+  optimisation (not done here) could merge each sign's meshes by its two materials (plate gold +
+  dark iron) to 3 draws per sign.
+
+- **Regression suite: `src/utils/l17bLandmarkSigns.test.ts` — 28 tests / 2 271 `expect()` calls.**
+  §A the data (nine unique ids, nine stable `/signs/<id>/<id>.glb` paths, explicit finite mounting
+  parameters, facing derived from the world yaw, plate front pointing away from the building, per-sign
+  backing widths); §B the assets (every GLB re-parsed with `@gltf-transform/core`: the plate's width,
+  its 0.79 … 2.34 Y band, its X centring, the backing sitting behind the plate's back face, the
+  assembly's 0 ground contact / 2.86 height / 0.398 depth); §C the mounts (exactly one
+  `<LandmarkSign>` per target building and never more than one in any city file, the Colosseum's own
+  sign still mounted once, every sign footprint disjoint from all 142 colliders, each sign flanking
+  its own facade inside a measured 0.15 … 3.5 band, inside the movement boundary, and clear of every
+  hub centre and arrival); §D the contract (the data module imports nothing, the component imports
+  only four specifiers, the registry/hub radii are what C-8.64B/C-8.47 left, no sign covers a hub).
+
+- **Verified 2026-10-26** in the dev container: focused `bun test src/utils/l17bLandmarkSigns.test.ts`
+  → **28 pass / 0 fail**; relevant city/collision regressions
+  `bun test src/utils/phaseC8_{47,64a,64b,65}.test.ts src/utils/cityClock.test.ts` → **159 pass /
+  0 fail**; `bun test` → **4 056 pass / 0 fail (145 files)**; `bun run lint` (`tsc --noEmit`) → exit 0;
+  `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only, startup assets ✓);
+  `git diff --check` → clean. The checkout was `development-focus-strategy` at `f8dae23aa0` with an
+  empty `git status` before the first edit; the phase's diff is 9 building components (2 lines each)
+  plus the three new files.
+
+- **Live evidence, and what it does and does not prove.** Driven in the preview browser: title → PLAY
+  → character creation → the 3D city hub, and the network log shows **all ten sign GLBs requested and
+  answered HTTP 200** (`grand_colosseum`, `city_tavern`, `smithing_forge`, `general_store`,
+  `training_hall`, `records_library`, `arena_medical`, `gladiator_barracks`, `gladiator_academy`,
+  `veteran_hall`) with **0 failed requests** — i.e. the city scene really instantiated all nine signs.
+  **No legible frame of a sign was obtained**, and that is an environment limit: the sandbox has no GPU
+  (SwiftShader, ~1.5–2 fps in the hub), the preview browser restarts from the title screen on every
+  fresh load with **no saved profile**, and each entry costs a character-creation pass plus the
+  four-to-five-hold gladiator oath (`OATH_HOLD_MS` 1 500) before the player can walk or fast-travel —
+  more than one script budget. **Android visual acceptance is therefore PENDING** for: each sign's
+  approach-side reading, its legibility at a plausible distance, facade/awning clearance, ground and
+  navigation clearance, whether it reads as belonging to that building, and whether nine extra
+  cut-out plates cost frame time on the target GPU.
+
+- **Reproduction steps for the device pass.** Fast travel puts the player on each sign's own approach:
+  Tavern `[-10, 14]` → sign 2.1 south of the door's centre; Forge `[11.5, 2.6]` → sign at the north end
+  of the colonnade front; Store `[17, −5]` → sign 2.0 south of the storefront; Training Yard
+  `[-18, 2]` → walk west to the hall's veranda; Library `[23.1, −26]`, Medical `[-29, −9]`, Barracks
+  `[-22, −14]`, Academy `[25.5, −23]`, Veteran Hall `[-24, −29]` (its sign is on the south entrance
+  face, so it is met walking round the building). All nine are at the coordinates recorded in
+  `src/data/landmarkSigns.ts`, which is the file to edit if a mount needs moving.

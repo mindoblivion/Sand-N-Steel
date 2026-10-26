@@ -11,6 +11,7 @@ import {
 import { TimberCrate, WineBarrel } from './CivicFurnishingProps';
 import { ForgeSmoke } from './EnvironmentalMotion';
 import { NOISE_TEXTURE } from './RomanMaterials';
+import { LandmarkSign } from './LandmarkSign';
 
 export const SmithingForge = React.memo(() => {
   // Phase C-8.19: root moved +0.60 in Z (2 → 2.6) to clear the General Store
@@ -180,6 +181,9 @@ export const SmithingForge = React.memo(() => {
         </mesh>
         <pointLight color="#f59e0b" intensity={3} distance={7} position={[0, -0.1, 0]} />
       </group>
+
+      {/* L17B — landmark sign on the west (colonnade) apron.  Data: src/data/landmarkSigns.ts */}
+      <LandmarkSign id="smithing_forge" />
     </group>
   );
 });

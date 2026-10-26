@@ -10,6 +10,7 @@ import {
 } from './ClassicalArchitecture';
 import { RomanAmphora, WineBarrel } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
+import { LandmarkSign } from './LandmarkSign';
 
 export const CityTavern = React.memo(() => {
   return (
@@ -160,6 +161,9 @@ export const CityTavern = React.memo(() => {
           <pointLight color="#f59e0b" intensity={3.5} distance={8} position={[0.2, 0, 0]} />
         </group>
       ))}
+
+      {/* L17B — landmark sign on the east (door) apron.  Data: src/data/landmarkSigns.ts */}
+      <LandmarkSign id="city_tavern" />
     </group>
   );
 });

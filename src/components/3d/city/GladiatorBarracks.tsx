@@ -10,6 +10,7 @@ import {
   WallCornice,
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
+import { LandmarkSign } from './LandmarkSign';
 
 export const GladiatorBarracks = React.memo(() => {
   const bannerRef = useRef<THREE.Group>(null);
@@ -179,6 +180,8 @@ export const GladiatorBarracks = React.memo(() => {
           <meshStandardMaterial color="#ca8a04" roughness={0.4} />
         </mesh>
       </group>
+      {/* L17B — landmark sign: south (door) apron.  Data: src/data/landmarkSigns.ts */}
+      <LandmarkSign id="gladiator_barracks" />
     </group>
   );
 });

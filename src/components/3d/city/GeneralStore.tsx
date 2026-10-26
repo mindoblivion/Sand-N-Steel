@@ -5,6 +5,7 @@ import { BuildingFoundation } from './BuildingFoundation';
 import { RomanGabledRoof, CornerQuoins, WallCornice } from './ClassicalArchitecture';
 import { TimberCrate, RomanAmphora, WineBarrel } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
+import { LandmarkSign } from './LandmarkSign';
 
 export const GeneralStore = React.memo(() => {
   const canopyRef = useRef<THREE.Group>(null);
@@ -116,6 +117,8 @@ export const GeneralStore = React.memo(() => {
         </mesh>
         <pointLight color="#f59e0b" intensity={3} distance={7} position={[0, -0.1, 0]} />
       </group>
+      {/* L17B — landmark sign: west (awning) frontage.  Data: src/data/landmarkSigns.ts */}
+      <LandmarkSign id="general_store" />
     </group>
   );
 });

@@ -11,6 +11,7 @@ import {
   WallCornice,
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
+import { LandmarkSign } from './LandmarkSign';
 
 export const VeteranGladiatorHall = React.memo(() => {
   const bannerLeftRef = useRef<THREE.Group>(null);
@@ -232,6 +233,8 @@ export const VeteranGladiatorHall = React.memo(() => {
           </mesh>
         </group>
       </group>
+      {/* L17B — landmark sign: south (portico) apron.  Data: src/data/landmarkSigns.ts */}
+      <LandmarkSign id="veteran_hall" />
     </group>
   );
 });

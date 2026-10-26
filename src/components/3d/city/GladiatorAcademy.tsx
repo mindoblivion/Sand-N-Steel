@@ -11,6 +11,7 @@ import {
   WallCornice,
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
+import { LandmarkSign } from './LandmarkSign';
 
 export const GladiatorAcademy = React.memo(() => {
   const bannerRef = useRef<THREE.Group>(null);
@@ -129,6 +130,8 @@ export const GladiatorAcademy = React.memo(() => {
           <meshStandardMaterial color="#dc2626" roughness={0.7} />
         </mesh>
       </group>
+      {/* L17B — landmark sign: south frontage.  Data: src/data/landmarkSigns.ts */}
+      <LandmarkSign id="gladiator_academy" />
     </group>
   );
 });
