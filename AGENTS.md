@@ -10666,3 +10666,86 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   (`CombatHUD`, `TurnActionPanel`) for a shield-less fighter. That is the action's established proper
   name, the card body already reads weapon-neutrally ("Brace to absorb N %"), and renaming it would
   churn the terminology and several suites — the C-8.84E audit recommended leaving it.
+
+## Dodge vs Shield Guard balance audit (Phase C-8.85A — read-only, no production change)
+
+- **Preflight, as measured (differs from the requested baseline, and preserved rather than restored).**
+  Branch `development-focus-strategy`, HEAD **`befccc30b56d31b782277b35d31165e2fe657258`**, `git status
+  --short` **empty** before and after. The brief expected HEAD `6a35b904` with the C-8.84F work
+  uncommitted; in fact C-8.84F is **`befccc3` "Implement shield-feedback logic for dual guard states"**,
+  whose parent is exactly `6a35b904`. The change set is intact — nothing was reset, stashed, discarded,
+  rebased, committed, pushed, merged or deployed, and **no production file was edited**.
+
+- **Verdict: Shield Guard dominates Dodge over realistic bouts, and the cause is the resource rule, not
+  the evade rate.** The C-8.82B pass fixed the *damage* axis correctly and its conclusion still holds
+  (Dodge's per-strike mitigation beats a shield's block). What it could not see — because it compared a
+  single hit with `hit%` cancelled — is that **Guard is free and profitable while Dodge costs a fixed
+  12 SP per announcement against a pool that pays for 11**. Evidence below is a deterministic model
+  driving the shipped `calculateAttackDamage`, `calculateHitChance`, `shieldGuardStaminaGain`,
+  `canAffordDodge`, `chooseAITacticalAction` and `calculateTotalStats` (throwaway scripts, container
+  `/tmp` only: `c885a-audit.ts`, `c885a-model2.ts`, `c885a-cand.ts`).
+
+- **Path A — the reaction window (the dominant path).** `CombatHUD`'s Shield Guard reaction button
+  carries **no `disabled` at all** (the Dodge button carries `reactionDodgeBlocked`), so it can be
+  raised at **0 SP, every announcement, without spending the turn action**. It writes
+  `isBlocking`, and the shared impact branch then credits `shieldGuardStaminaGain` on the stopped
+  blow. Dodge pays 12 SP from the same window (`planDodgeReaction`), refunds nothing, and is refused
+  below 12. So on the player's side the two answers are **free-and-profitable vs 12-SP-and-capped**.
+- **Path B — the turn action.** Guard costs 0 and credits nothing on the raise; Dodge costs 12.
+  Guard additionally feeds the AI's branch 1 (`playerIsBlocking`): measured over a 2000-point sweep of
+  the shipped `chooseAITacticalAction`, holding a guard drops P(attack) from **85 / 90 / 95 %** to
+  **45 %** for Ignis / Valéria / Aurelius (unchanged 45 % for Cassius). The turn-action **Dodge is
+  strictly dominated by the reaction Dodge** — same 12 SP price, but it can be wasted whenever the
+  enemy taunts or braces instead of striking, because the stance is consumed by the player's own next
+  action. The turn-action Guard is *not* dominated by the reaction Guard, because only it bends the
+  AI's branch.
+
+- **The arithmetic, measured.** Shield kit (gladius 0.82, def 51, agi 18, hp 321, pool 140, regen
+  34.6, all through `calculateTotalStats`) against the whole roster, per announced strike:
+  guard **1.4–6.5 HP and +8.0…+13.6 SP**; dodge **0.8–4.3 HP and −12 SP**. Over the C-8.82B
+  configuration sweep, Dodge's *expected damage* is lower in **63/64** shield-tier pairs and **96/96**
+  shield-less pairs — the one exception is a `Math.max(1, …)` floor artefact (Marcus quick vs spatha:
+  guard 0.73 vs dodge 0.88). Yet HP saved per announcement is **0.42–2.21** for a **20–23 SP swing**,
+  which is **1.9–2.1 light gladius strikes ≈ 43–53 enemy HP forgone** — one to two orders of magnitude
+  the wrong way. Worst case also favours Guard: Aurelius heavy vs spatha, guard 8 (**12** on a crit)
+  against dodge's **55** (**83** on a crit) when the 12 % fails.
+- **Capacity is the ceiling no evade rate can lift.** `staminaMax / DODGE_STAMINA_COST` allows **11**
+  paid answers (10 for the skirmish kit, 10 for a starter), while the roster's later bouts present
+  **~12–33** announcements. Past eleven, Dodge is simply refused and the fighter eats the blow
+  unmitigated, while Guard is still free and still crediting.
+
+- **Bout projection (EV model, player attacks light every turn and answers every announcement).**
+  Shipped behaviour, HP remaining out of 321: Dodge wins only the two shortest bouts by **+2 HP**
+  (Marcus 319 v 317, Flaccus 316 v 314), ties Cassius (314 v 314), and loses everywhere longer —
+  Goliath 301 v 305, Ignis 284 v 294, Drusus 275 v 299, Valéria 227 v 271, **Aurelius 90 v 183**. Dodging
+  also starves the offence: the Aurelius bout stretches from **30 to 48 rounds**, so the defence that
+  saves 1.7 HP per announcement costs two-and-a-half strikes of stamina and lengthens the fight that
+  generates the attacks. The one place Dodge is meaningfully better is the **shield-less** build
+  (0.35–0.52 block), where it saves 3.6–14.1 HP per announcement — the archetype split C-8.72B
+  intended, and it survives intact.
+
+- **Recommendation (finding 3, minimal adjustment justified — NOT implemented).** The smallest lever
+  that needs no tuned value changed is to **settle the reaction Dodge's 12 SP at impact, against the
+  blow it had to evade, instead of unconditionally at the announcement** — the mirror of the rule the
+  guard already follows (`shieldGuardStaminaGain` pays only when a blow is actually stopped). Only the
+  `activate` kind is affected (`planDodgeReaction`'s free `reaffirm` stays free), and the price, the
+  88 % rate, `blockReduction`, the guard's credit, the damage formula and every AI weight are
+  untouched. Measured in the same model this cuts Dodge's expected price to `12 × hit%` (**7.4–9.4 SP**
+  rather than 12), lifts its capacity from 11 to ~17 announcements, flips Goliath and Drusus to
+  Dodge and narrows the Aurelius HP gap from **93 to 28**. **It narrows, it does not reverse**: closing
+  the remainder needs the price-side lever this phase forbids touching, so a follow-up phase is where
+  that decision belongs. Withdrawing the reaction guard's stamina credit (candidate C1) was modelled
+  and **rejected** — it hurts Guard more than Dodge (Aurelius 156 v 90) and leaves the dominance
+  intact. Regression risks for the proposed change: the debit moves out of `reactToPendingAttack` into
+  the impact branch, so `defensiveBalance` §C's "debits it once, before any roll" pin and the HUD's
+  "12 SP spent" cue both need rebasing; `dodgesPerformed` must still count once; affordability must
+  still be settled at the claim (nothing else can spend inside the locked window).
+
+- **Verified / not verified.** Focused `bun test` over `phaseC8_82b`, `defensiveBalance`, `phaseC8_83B`,
+  `phaseC8_84A`, `phaseC8_84B`, `phaseC8_84D`, `phaseC8_84F`, `combatResponsiveness`, `phaseC8_75E` →
+  **267 pass / 0 fail** (9 files, 76642 `expect()`). The full suite was **not** run (read-only audit).
+  No production value, test or source file changed, so no behaviour moved. Every combat number here is
+  from **unit-level production helpers plus a deterministic EV model** — **not** from a live duel, and
+  the model assumes a steady-state AI stance mix, light attacks every turn, no potions and a single
+  attacker; it is a comparative instrument, not a forecast of a specific bout. **No live-duel or
+  Android acceptance is claimed.**
