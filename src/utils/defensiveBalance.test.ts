@@ -150,7 +150,11 @@ describe('§A — Shield Guard credits half a stopped blow (C-8.72B)', () => {
     // One production call site, and it passes the fighter's own stat.
     const calls = duelSource.split('shieldGuardStaminaGain(').length - 1;
     expect(calls).toBe(1);
-    expect(duelSource).toContain('shieldGuardStaminaGain(true, defender.stats.staminaRegen)');
+    // C-8.85E added the loadout-eligibility argument; the credit's own inputs are
+    // unchanged and are still the fighter's own stat.
+    expect(duelSource).toMatch(
+      /shieldGuardStaminaGain\(\s*true,\s*defender\.stats\.staminaRegen,\s*carriesShieldForGuardCredit\(defender\.loadout\?\.weapon\),\s*\)/,
+    );
     // No call site restates the halving.
     expect(duelSource).not.toContain('SHIELD_GUARD_REGEN_MULTIPLIER');
     expect(duelSource).not.toContain('staminaRegen * 0.5');

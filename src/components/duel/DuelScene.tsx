@@ -32,6 +32,7 @@ import {
   updateHypePeak,
   isAttackInRange,
   shieldGuardStaminaGain,
+  carriesShieldForGuardCredit,
   DODGE_STAMINA_COST,
   DODGE_EVADE_CHANCE,
   applyDefensiveAction,
@@ -1005,7 +1006,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               // blow. Applied here (and only here) so raising a shield that
               // nothing hits recovers nothing, and so one blocked strike can
               // never credit the regen twice.
-              const guardGain = shieldGuardStaminaGain(true, defender.stats.staminaRegen);
+              // C-8.85E — the credit is the SHIELD's reward (C-8.85D Package D):
+              // only a defender whose equipped weapon carries a board earns it.
+              // `carriesShieldForGuardCredit` is the canonical `weaponCarriesShield`
+              // rule plus a presence check, so one line decides it for a player and
+              // an AI defender alike (both reach this single blocked branch).
+              const guardGain = shieldGuardStaminaGain(
+                true,
+                defender.stats.staminaRegen,
+                carriesShieldForGuardCredit(defender.loadout?.weapon),
+              );
               if (isActorPlayer) {
                 setOpp((prev) => ({
                   ...prev,

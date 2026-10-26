@@ -350,7 +350,11 @@ describe('G - affordability, damage, stamina and timing are untouched', () => {
     expect(DUEL_SOURCE.split('shieldGuardStaminaGain(').length - 1).toBe(1);
     const start = DUEL_CODE.indexOf('if (isBlocked) {');
     const branch = DUEL_CODE.slice(start, start + 900);
-    expect(branch).toContain('shieldGuardStaminaGain(true, defender.stats.staminaRegen)');
+    // C-8.85E added the loadout-eligibility argument (the shield gate); the
+    // credit's own inputs are unchanged.
+    expect(branch).toMatch(
+      /shieldGuardStaminaGain\(\s*true,\s*defender\.stats\.staminaRegen,\s*carriesShieldForGuardCredit\(defender\.loadout\?\.weapon\),\s*\)/,
+    );
   });
 
   test('the module cannot spend, deal, heal or randomise anything', () => {

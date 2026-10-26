@@ -14,6 +14,7 @@
  * estimates and the real combat pipeline can never drift apart.
  */
 import { WeaponItem } from '../types/game';
+import { weaponCarriesShield, type ShieldBearingWeapon } from './guardFeedback';
 
 /**
  * Scaling constant for the defense-mitigation curve.
@@ -253,11 +254,45 @@ export function applyStaminaRegen(
  * C-8.72B scales that credit by {@link SHIELD_GUARD_REGEN_MULTIPLIER}: the full
  * regen stat was measured at 31.9 SP per blocked exchange against Dodge's 12 SP,
  * so the guard's recovery is halved and its mitigation left exactly as it was.
+ *
+ * C-8.85E gates the credit on the DEFENDER'S OWN LOADOUT (C-8.85D Package D):
+ * only a weapon that carries a shield earns it. The `shield_block` stance is
+ * shared by every weapon, so before this gate a spear or twin-blade brace
+ * stopped the blow, took the 82-85 % mitigation AND minted the same stamina a
+ * scutum did — a shield's reward paid to a fighter with no shield. The shielded
+ * formula, its multiplier and its clamp are untouched, so a shield carrier's
+ * credit is byte-identical to what C-8.72B shipped.
  */
-export function shieldGuardStaminaGain(didStopBlow: boolean, regen: number): number {
+export function shieldGuardStaminaGain(
+  didStopBlow: boolean,
+  regen: number,
+  carriesShield: boolean = true,
+): number {
   if (!didStopBlow) return 0;
+  // C-8.85E — no board, no credit. The default keeps this helper's other callers
+  // (the regression suites and `scripts/combatTests.ts`) describing the SHIELDED
+  // formula; the one production call site in `DuelScene` always passes the
+  // resolved answer, so no live fighter can reach the default.
+  if (!carriesShield) return 0;
   if (typeof regen !== 'number' || !Number.isFinite(regen) || regen <= 0) return 0;
   return regen * SHIELD_GUARD_REGEN_MULTIPLIER;
+}
+
+/**
+ * C-8.85E — may this defender earn the stopped-blow Guard credit?
+ *
+ * The credit's eligibility is the shield rule and nothing else: this asks the
+ * ONE canonical detector (`weaponCarriesShield`, the same one the shield copy
+ * and the rendered scutum use) and adds only the presence requirement — an
+ * unresolved weapon is not a shield, so a partial or hand-edited loadout cannot
+ * mint stamina out of nothing. There is no second classification of which
+ * weapons carry a board anywhere in the codebase.
+ *
+ * @param weapon the defender's equipped weapon, if resolved
+ */
+export function carriesShieldForGuardCredit(weapon?: ShieldBearingWeapon | null): boolean {
+  if (!weapon) return false;
+  return weaponCarriesShield(weapon);
 }
 
 /**

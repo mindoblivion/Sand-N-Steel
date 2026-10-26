@@ -11149,3 +11149,134 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   baseline it reasons about is intact. The full suite was not run (read-only design gate; CI owns it).
   **No live-duel, no Android and no visual acceptance is claimed**, and none of the four packages was
   implemented.
+
+## Shield-specific Guard stamina credit (Phase C-8.85E — implemented)
+
+- **Preflight (differs from the brief's expected HEAD; preserved, not restored).** Branch
+  `development-focus-strategy`, starting HEAD **`404d8ea3a708affe1cb99384cfddd7bba4cd89a8`** "Update
+  shield-specific credit logic in AGENTS.md" — ONE commit on top of the brief's expected
+  `00c006bf9995bcd3cc1a915c144006d1971b7161` (C-8.85D), its parent and intact; that commit adds the
+  C-8.85D record verbatim (178 lines, `AGENTS.md` only), i.e. the previous phase's own uncommitted work
+  was committed by the platform at the end of that turn — nothing else. `git status --porcelain` **empty**
+  before the work. The C-8.85A (L10670), C-8.85B (L10753), C-8.85C (L10862) and C-8.85D (L10975) records
+  are present and were re-read; nothing was reset, stashed, amended, discarded, merged, pushed or
+  deployed, and the existing `AGENTS.md` content is preserved below this section unedited.
+
+- **Trace of the credit before the change, verified in source.**
+  - The rule lives in ONE pure helper, `combatCalculations.ts`'s `shieldGuardStaminaGain(didStopBlow,
+    regen)` = `didStopBlow ? regen * SHIELD_GUARD_REGEN_MULTIPLIER : 0` (0.5), clamped by
+    `applyStaminaRegen` to `staminaMax`.
+  - It has exactly ONE production call site: the resolution's `else if (roll <= hitPct)` →
+    `if (isBlocked)` branch of `DuelScene.tsx` (the point at which a blow is considered successfully
+    stopped). `isBlocked` is `defender.isBlocking`, so a landed blow against a held guard is always
+    blocked; the credit is therefore paid once per **resolved, landed, blocked** strike — never on a
+    miss, never on an evade, and once per resolution rather than per callback.
+  - Player and AI defenders share that one site: `isActorPlayer ? setOpp(...) : setPlayer(...)` — the
+    defender is whichever fighter is not the attacker. **Both were loadout-blind.**
+  - `defender.loadout.weapon` (a required `WeaponItem`) is available at that point and was already read
+    there for `blockReduction` and for the C-8.84F shield-accuracy of the blocked-strike line.
+  - The canonical shield classification already exists: `guardFeedback.ts`'s
+    `weaponCarriesShield(weapon)` — the one detector the three feedback builders and the rendered scutum
+    (`GladiatorMesh`) also use. **No second definition was created.**
+
+- **The change — three production/test lines and nothing else.** `shieldGuardStaminaGain` gains a third,
+  defaulted parameter `carriesShield = true` and returns 0 when it is false; a new pure predicate
+  `carriesShieldForGuardCredit(weapon)` in the same module asks `weaponCarriesShield` and adds only the
+  presence requirement (an unresolved weapon is not a shield, so a partial loadout cannot mint stamina);
+  and the one call site passes
+  `carriesShieldForGuardCredit(defender.loadout?.weapon)`. The default keeps the helper's other callers
+  (`scripts/combatTests.ts` and four suites that assert the SHIELDED formula) describing what they always
+  described — the shielded magnitude — while no live fighter can reach it, because the only production
+  caller passes the answer explicitly. **The authoritative eligibility point is therefore the helper's
+  contract plus that single call site; nothing is duplicated across callers.** The shield rule is asked,
+  never restated: the credit module contains no `includes('shield')` and no `=== 'sword_shield'`.
+
+- **What did not move, and is asserted unchanged.** The shielded formula, multiplier (0.5) and clamp;
+  block mitigation and the damage formula; `DODGE_EVADE_CHANCE` 0.88 and `DODGE_STAMINA_COST` 12;
+  activation-time charging and held-stance reaffirmation (`planDodgeReaction`); the AI affordability
+  guards (`canAffordDodge`, `enforceAffordableAIAction`); turn-action Dodge; attack costs; AI weights;
+  taunt/step recovery; and every shield-feedback string and HUD label.
+
+- **Regression suite: `src/utils/phaseC8_85E.test.ts`** — 23 tests / 188 assertions across 9 sections,
+  running the real helpers over the real catalogue and roster: **A** eligibility (every `sword_shield`
+  weapon eligible, every `spear`/`dual_blades`/`mace` weapon not, `undefined`/`null`/`{}`/unknown-type/
+  blank-name all ineligible, and eligibility shown to equal `weaponCarriesShield` for all 10 catalogue
+  weapons plus a source check that the credit module implements no second rule); **B** the shielded credit
+  unchanged (14.85 for the C-8.85D gladius kit regen 29.7, and the pre-existing two-argument contract
+  12 / 2.5 / 15.95); **C** a shield-less defender earning 0 for the same stopped blow, its stamina left
+  exactly where it was, and its `blockReduction` still absorbing; **D** the unblocked strike (both
+  loadouts) plus the unblocked resolution branch carrying no stamina write; **E** the evade branch and
+  the `shield_block` stance branches carrying no credit, 12 SP / 0.88 re-pinned, `canAffordDodge`
+  thresholds intact; **F** exactly one credit call site inside `if (isBlocked)`, `guardGain` computed
+  once and applied once through the two mutually exclusive defender arms, and one application adding
+  exactly one credit rather than two; **G** the cap for both loadouts (including a shield-less defender
+  never being pushed over it) and malformed regen crediting nothing; **H** the resolution reading the
+  DEFENDER's weapon at that one site, every one of the 8 opponents resolving under the same rule
+  (`sword_shield` iff eligible), and a player and an AI carrying the same weapon treated identically;
+  **I** the shared feedback seam — shield wording exactly when eligible, over every catalogue weapon,
+  with the shielded strings byte-identical to the shipped ones.
+
+- **Two existing pins were rebased, not weakened.** `defensiveBalance`'s "the rule lives in the shared
+  helper and nowhere else" and `phaseC8_84F`'s "the guard credit is still the blocked branch's only
+  stamina write" both asserted the literal single-line call
+  `shieldGuardStaminaGain(true, defender.stats.staminaRegen)`; each now matches the same call with its new
+  eligibility argument (a regex over the same two unchanged inputs), so the claims — one call site, inside
+  the blocked branch, the fighter's own stat — are intact and the eligibility argument is now positively
+  pinned too. No assertion was deleted or relaxed anywhere, and the 2-argument form remains valid and
+  asserted in `defensiveBalance`, `combatResponsiveness`, `phaseC8_84A`, `phaseC8_75B` and `phaseC8_75F`.
+
+- **Before → after, measured with production helpers** (throwaway model in the container's `/tmp` only;
+  `calculateTotalStats`, `calculateAttackDamage`, `calculateHitChance`, `shieldGuardStaminaGain`,
+  `carriesShieldForGuardCredit`, `applyStaminaRegen`, the real catalogue and roster). Player kit = the
+  C-8.85D one (`baseStats` 14/12/10/10 + `helm_centurion`, `chest_lorica_segmentata`, `arms_manica`,
+  `legs_greaves_bronze`); opponents' weapons resolved by `weaponType`; a held guard stops every landed
+  blow, so credit per announcement = hit% × credit and per AI turn = 0.45 × that.
+
+  | quantity | gladius + scutum | twin sicae |
+  |---|---|---|
+  | carries a shield / `blockReduction` | yes / 0.82 | **no** / 0.40 |
+  | DEF 47, HP 289, pool 120, regen 29.7 | — | DEF 45, HP 283, pool 120, regen 34.5 |
+  | credit per stopped blow | **14.85 → 14.85** | **17.25 → 0** |
+  | vs Drusus: blocked 5 v unblocked 25 (80 % mitigation) | credit/announcement 8.91 → 8.91 | blocked 15 v 26 (42.3 %): 9.14 → **0** |
+  | vs Aurelius: blocked 9 v unblocked 52 (82.7 %) | 9.95 → 9.95; per AI turn 4.48 → 4.48 | blocked 32 v 53 (39.6 %): 10.35 → **0**; per AI turn 4.66 → **0** |
+  | stamina over 8 guarded exchanges from 60 SP (vs Aurelius) | 95.82 → 95.82 (**Δ 0**) | 97.26 → 60.00 (**Δ −37.26**) |
+  | light attacks affordable after those exchanges | 7 → 7 | 10 → 6 |
+  | cap trace from 115 SP | 119.48, 120, 120 … (unchanged) | 119.66 → **115 flat** (no credit, no clamp pressure) |
+
+  So the shield archetype is **numerically identical** — C-8.85D predicted a mathematical no-op for
+  shields and the model confirms it to the SP — while the shield-less brace stops paying itself and
+  becomes, as C-8.72B documented, the weaker defensive answer than its own Dodge. Those magnitudes
+  reproduce C-8.85D's per-announcement band (4.77–11.80) and per-AI-turn band (3.47–4.68).
+  **Assumptions:** one attacker, no potions, no withdraw, player guards every AI turn (P(strike) 0.45,
+  branch-1 strikes are power attacks), a held guard stops every landed blow, defender at half stamina,
+  expected values rather than sampled RNG, and the AI's own stamina, taunts and braces not modelled (the
+  AI also collects the credit when it blocks, and now only if it carries a shield — Mace and
+  dual-blade opponents no longer do).
+
+- **Verified (2026-10-26, dev container).** `bun test src/utils/phaseC8_85E.test.ts` → **23 pass / 0
+  fail** (188 expect()); the focused existing set — `defensiveBalance`, `combatResponsiveness`,
+  `phaseC8_82b`, `phaseC8_84A`, `phaseC8_84B`, `phaseC8_84D`, `phaseC8_84F`, `phaseC8_83B`,
+  `combatActionOrder`, `phaseC8_75B`, `phaseC8_75F` → **286 pass / 0 fail** (76237 expect()) after the
+  two rebased pins, **284 pass / 2 fail** before them and both failures the old literal call string;
+  `bun run scripts/combatTests.ts` → **69 passed, 0 failed**; `bun test` (full) → **3954 pass / 0 fail,
+  141 files, 169532 expect()**; `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit
+  0** (the pre-existing >500 kB chunk warning only; `dist/` is gitignored); `git diff --check` → **clean**.
+  The dev server answers `HTTP 200` on `/`, serves the changed modules **live** (the transpiled
+  `combatCalculations.ts` and `DuelScene.tsx` both carry `carriesShieldForGuardCredit`), and logged the
+  HMR update of `DuelScene.tsx`. **The phase's changes are left uncommitted in the working tree** (the
+  platform's end-of-turn commit owns them); nothing was pushed, merged, reset, stashed or deployed.
+
+- **NOT verified — no live duel, no device, no visual claim.** No duel was played: the container renders
+  the arena through SwiftShader at ~1–2 fps, which cannot produce reaction-timed input, so the credit was
+  verified through the production helpers and the resolution's own source structure, not by blocking a
+  blow. **No Android acceptance is claimed** — the shield/shield-less stamina difference on a real device
+  is unobserved. Two consequences worth a device look: (a) a shield-less fighter now gains nothing on a
+  stopped blow while still absorbing, so the difference should show as a stamina bar that stops climbing
+  while guarding; (b) the tactic grid's `SP on block` label (`TurnActionPanel.tsx` L299) is **still
+  unconditional**, so a spear or twin-blade fighter is promised stamina it will not receive.
+- **Deliberately left for an explicitly authorized phase: the HUD label.** C-8.85D recommended making
+  that `<span>` loadout-aware through the existing `weaponCarriesShield`/`shieldGuardFeedback` seam; this
+  phase's brief forbids altering shield-feedback copy or HUD labels, so the label is untouched and the
+  mismatch is recorded here rather than fixed. Also unchanged by design: the AI's own credit is gated by
+  the same rule (a mace/dual-blade opponent never earned a shield's stamina now), and no AI weight, cost
+  or bout projection was re-tuned — the brief's scope.
