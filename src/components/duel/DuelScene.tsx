@@ -37,6 +37,7 @@ import {
   applyDefensiveAction,
   clearDefensiveStance,
   planDodgeReaction,
+  canAffordDodge,
 } from '../../utils/combatCalculations';
 import { CROWD_HYPE_MAX, crowdMomentumReward } from '../../utils/crowdMomentum';
 import {
@@ -637,6 +638,22 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           }
           return;
         }
+      }
+
+      // C-8.84A — the authoritative DODGE affordability guard, beside the strike
+      // guards above and for the same reason: `DODGE_STAMINA_COST` buys the evasion
+      // STANCE, so a fighter who cannot pay for it is refused BEFORE the stance
+      // pre-clear below, before `dodgesPerformed` moves and before `resolvingRef`
+      // commits the turn. The branch's own `Math.max(0, stamina - DODGE_STAMINA_COST)`
+      // cannot do this: it clamps an unaffordable dodge to 0 SP while still handing
+      // out the stance and counting the dodge. The tactic panel disables the button
+      // below 12 SP, so a stale panel was the remaining way in — the same hole
+      // C-8.75E closed for strikes. Player-only in this phase: the opponent's Dodge
+      // affordability is a separate audit (`chooseAITacticalAction` still offers
+      // Dodge without a stamina test), so AI behaviour is unchanged here.
+      if (actionType === 'dodge' && isActorPlayer && !canAffordDodge(attackerNow.stamina)) {
+        addLog(`${attackerNow.name} is too winded to take an evasion stance.`, 'system');
+        return;
       }
 
       resolvingRef.current = true;

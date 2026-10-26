@@ -10420,3 +10420,48 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   SwiftShader here (the standing limit since C-8.81). **Android check:** dodge on your turn, let
   the enemy wind up, and select Dodge again — stamina must not move a second time, the chronicle
   must say the stance is held, and the blow must still resolve against the 88 % roll.
+
+## Turn-action Dodge affordability (Phase C-8.84A — implemented)
+
+- **The defect was real and confirmed in source, one step short of a live one.** The player's
+  turn-action Dodge had no affordability guard: `executeCombatTurn`'s dodge branch billed with
+  `Math.max(0, prev.stamina - DODGE_STAMINA_COST)` (twice — once per fighter), which CLAMPS rather
+  than refuses. Invoked at 0-11 SP it set `isInvulnerable`, incremented
+  `statsRef.current.dodgesPerformed` and consumed the turn for a partial or zero charge. It was not
+  reachable by an ordinary tap — `TurnActionPanel` already disables the Dodge button below 12 SP —
+  so the hole was the same class C-8.75E closed for strikes: a stale panel, or any direct call to
+  `executeCombatTurn('player', 'dodge')`, could still buy a stance it had not paid for.
+- **The fix is one predicate and one guard.** `canAffordDodge(stamina)` sits beside
+  `planDodgeReaction` in `combatCalculations.ts` (same 12 SP threshold, non-finite stamina reads as
+  unaffordable exactly like `canAffordAttack`). `executeCombatTurn` now refuses a player Dodge the
+  same way it refuses an unaffordable strike — after the range and strike-affordability guards,
+  **before `resolvingRef.current = true`, before the stance pre-clear and before the counter** — and
+  logs `${name} is too winded to take an evasion stance.` to the existing `'system'` channel. A
+  refused Dodge therefore leaves the turn, a held stance and `dodgesPerformed` untouched.
+- **Deliberately unchanged.** The branch keeps its clamp (C-8.75E left the strike branch the same
+  way; the guard upstream is what makes it unreachable below the cost). `planDodgeReaction` keeps
+  its own `stamina < DODGE_STAMINA_COST` test, so the C-8.83B reaction path and its free
+  reaffirmation are untouched — including reaffirming a held stance at 0 SP. **The opponent's Dodge
+  is NOT guarded in this phase** (`chooseAITacticalAction` still offers it with no stamina test), so
+  the pre-existing ROSTER asymmetry — the AI can buy the 88 % evade for less than 12 SP — remains
+  open and is the next audit in this workstream.
+- **Suite: `src/utils/phaseC8_84A.test.ts`** (23 tests / 159 `expect()`) — section A the guard's
+  placement (player-only, after the strike guards, before the commit, the pre-clear and the counter)
+  and the branch's kept clamp; B the 0-11 / 12 / above threshold plus the non-finite case; C the turn
+  action end to end at every stamina including the negative control that reproduces the pre-fix free
+  stance; D the reaction path and the zero-cost reaffirmation; E Shield Guard, strike affordability
+  and both refusal copies. The driver uses the real helpers and section A binds its write order to
+  the shipped handler.
+- **Verified 2026-10-26** in the dev container: focused
+  `bun test` over C-8.83B, C-8.83D, `defensiveBalance`, `combatActionOrder`, `combatResponsiveness`,
+  `playerStrikeWindup`, C-8.79A/C, C-8.75B/F, C-8.76, C-8.5 and `duelResultLifecycle` →
+  **283 pass / 0 fail (13 files)**; `bun test` → **3834 pass / 0 fail (137 files, 94 395
+  `expect()`)**; `bun run scripts/combatTests.ts` → **69 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check passing (8
+  assets); `git diff --check` → clean. The dev server still serves the edited module (HTTP 200) and
+  HMR applied it.
+- **Not automatically verified — the refusal in a live duel.** The tactic panel disables Dodge below
+  12 SP, so the guarded path has no gesture that reaches it without a stale panel; the behaviour is
+  proven by the suite, not by a duel. **Android check (when a device is available):** spend down
+  below 12 SP, confirm the Dodge button stays disabled, and confirm no other control can raise a
+  Dodge stance that was not paid for.

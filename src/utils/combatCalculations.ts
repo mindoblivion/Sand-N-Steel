@@ -470,6 +470,28 @@ export function planDodgeReaction(
 }
 
 /**
+ * Can this fighter pay to enter a NEW Dodge stance on their own turn? (C-8.84A)
+ *
+ * The turn-action twin of {@link planDodgeReaction}'s refusal, and the same
+ * contract `canAffordAttack` already enforces for strikes: the cost is settled
+ * BEFORE the action mutates anything. `DODGE_STAMINA_COST` buys the dodge STANCE,
+ * so a fighter short of it must not receive the stance at all. The turn branch
+ * bills with `Math.max(0, stamina - DODGE_STAMINA_COST)`, which cannot enforce
+ * this by itself -- it clamps an unaffordable dodge to 0 SP while still setting
+ * `isInvulnerable` and counting a dodge.
+ *
+ * A non-finite stamina reads as unaffordable, exactly like `canAffordAttack`.
+ * `planDodgeReaction` keeps its own `stamina < DODGE_STAMINA_COST` test, so the
+ * reaction path's behaviour (C-8.83B) is untouched by this predicate.
+ *
+ * Pure and side-effect-free -- the caller owns the React state.
+ */
+export function canAffordDodge(stamina: number): boolean {
+  if (typeof stamina !== 'number' || !Number.isFinite(stamina)) return false;
+  return stamina >= DODGE_STAMINA_COST;
+}
+
+/**
  * Choose the AI's out-of-range movement action.
  *
  * When the opponent is beyond strike range, it either advances (82 %) or
