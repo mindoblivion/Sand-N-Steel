@@ -40,6 +40,8 @@ import {
   landmarkSignWorldMount,
 } from '../data/landmarkSigns';
 import { CITY_COLLIDERS } from './collisionShapes';
+// L21B — the unclamped rectangle-separation predicate both sign suites share.
+import { rectsClear } from './landmarkSignClearance';
 import { HUB_LOCATIONS, FAST_TRAVEL_ARRIVALS, BOUNDARY_X, BOUNDARY_Z_MAX, BOUNDARY_Z_MIN } from './cityCollisions';
 
 const CITY_DIR = new URL('../components/3d/city/', import.meta.url);
@@ -248,8 +250,15 @@ describe('L17B §C — the mounts', () => {
       const fp = landmarkSignWorldFootprint(sign);
       for (const collider of CITY_COLLIDERS) {
         if (collider.type === 'rect') {
-          const gap = gapBetween(fp, rectOf(collider.id));
-          expect({ sign: sign.id, collider: collider.id, clear: gap >= 0 }).toEqual({ sign: sign.id, collider: collider.id, clear: true });
+          // L21B — the unclamped separating-axis test.  This used to read
+          // `gapBetween(...) >= 0`, i.e. `Math.hypot(dx, dz) >= 0` on clamped (so
+          // non-negative) separations: it could not fail, and every overlap read as
+          // clear.  Two rectangles are disjoint only when ONE axis is strictly apart.
+          expect({ sign: sign.id, collider: collider.id, clear: rectsClear(fp, rectOf(collider.id)) }).toEqual({
+            sign: sign.id,
+            collider: collider.id,
+            clear: true,
+          });
         } else if (collider.type === 'circle') {
           const nearestX = Math.min(Math.max(collider.cx, fp.minX), fp.maxX);
           const nearestZ = Math.min(Math.max(collider.cz, fp.minZ), fp.maxZ);

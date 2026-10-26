@@ -11691,3 +11691,110 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   its real state transition, and pins the mount structure, which is the mechanism React uses on a
   rejected `useGLTF`; the end-to-end 404 → isolated-sign behaviour needs a device/browser run with an
   asset removed or blocked. No production asset was renamed or blocked to force it.
+
+## Living City visitor herald (L21B — implemented; visual/device acceptance PENDING)
+
+- **Preflight.** Branch `development-focus-strategy`, HEAD **`8c464116543007a77b534dbcecafe4cc99339ab9`**
+  (the audit's baseline), `git status --short` empty and `git diff` empty. Nothing was reset, stashed or
+  discarded; the work is additive on that tip. No deploy, no push, no commit, and the running `web`
+  container was not restarted.
+
+- **What shipped — the herald calls the day's visitors.** `src/utils/visitorHerald.ts` is a pure module:
+  `visitorHeraldCry(visitor)` (the established `The herald cries: …` voice, using the catalogue's `name`
+  and `title` only), `visitorHeraldKey(day, visitorId)` = `${day}:${visitorId}`, and
+  `createVisitorHeraldLedger()` whose one `announce(profile)` reads **`resolveVisitorSchedule(profile)`**
+  — the canonical resolver, untouched — and records each key in a `Set` **before** returning its cry.
+  There is no second hash, no window arithmetic, no completion filter and no ordering of its own: the
+  arrivals, their order and `completedVisitors` are whatever that resolver answers, and `seenVisitors` is
+  never read, so being seen cannot suppress a call. Nothing is written anywhere: no profile field, no
+  schema version, no migration, no `localStorage`/`sessionStorage`, no timer, no per-frame work, no mesh,
+  prompt, collider, encounter, offer or price.
+
+- **The wiring is one `useRef` and one `useEffect` in `App.tsx`.** `visitorHeraldRef` sits beside
+  `heraldCries`; the effect is gated `if (currentScreen !== 'city_3d' || !profile || oathBeatMode) return;`
+  with deps `[currentScreen, profile, oathBeatMode]`, and appends through the existing channel —
+  `setHeraldCries((previous) => [...previous, ...cries])` — so `HeraldToast` is still the one surface and
+  unrelated cries are preserved. Depending on `profile` (not on `enterCity`) is what announces a day
+  turned while the city stays mounted: lodging (`handleLodging` sets a new profile literal) and a settled
+  duel both re-run the effect, while a day whose arrivals were already called answers `[]`.
+
+- **Dedup lifecycle, stated as behaviour.** One `(day, visitorId)` is called once per session: a
+  re-render, an unrelated profile update, a city exit/re-entry on the same day and React StrictMode's
+  double effect invocation are all silent; a later day is a new key and speaks again (day 15 announces
+  both visitors, day 21 announces the bladesmith again). A **reload** announces the current day's
+  arrivals once more — deliberate, documented, and the reason no `sessionStorage` was added: nothing in
+  the source requires persistence for this cry, which is a presentation of a derived schedule.
+
+- **Cry copy.** `The herald cries: Hanno of Cirta, the Wandering Bladesmith, walks the city today!` /
+  `… Vibius the Campanian, the Itinerant Armorer …`. The suite asserts the name and title are present and
+  that **no** day offer id, pool id, `offer.summary`, visitor id, `gold` or `finish_ventive` appears, so a
+  rare item can never be spoiled by the announcement.
+
+- **The three vacuous signage assertions are repaired, and the repair is shown to bite.**
+  `src/utils/landmarkSignClearance.ts` (new, imports nothing, used by the tests only) replaces the clamped
+  `Math.hypot(...) >= 0` idiom with the standard separating-axis test on **unclamped** separations:
+  `rectsClear(a, b)` is true only when `max(bMinX − aMaxX, aMinX − bMaxX) > 0` or the same on Z —
+  touching exactly (separation 0) is **not** clear. The three sites now use it:
+  `l17bLandmarkSigns.test.ts` §C "every sign stands clear of every collider" (was `gapBetween(...) >= 0`),
+  and `l17dLandmarkSignReliability.test.ts` §B (was `Math.hypot(dx, dz) >= 0`) and §D (the same). The
+  measured own-building clearance band, every circle collider check, the segment checks, the hub/arrival
+  distances and the flanking-facade `gapBetween` measurement are all unchanged — `gapBetween` survives for
+  the distance it really measures, and no production collider, sign placement or registry value moved
+  (still 142 colliders / 32 rectangles / 46 `colo-*` / 21 hubs / 21 arrivals).
+
+- **The regression control, with measured evidence.** The Barracks sign clears `gladiator-barracks` by the
+  recorded **0.351** in Z (footprint Z −10.599 … −10.201 against the plinth's −17.05 … −10.95), the
+  tightest rectangle band any sign has. A new test in `l17dLandmarkSignReliability.test.ts` §B shifts that
+  mount **0.50 north** (local Z 3.6 → 3.1): the separations measure **x < 0** and **z = −0.149**, i.e. the
+  footprint sits 0.149 inside the plinth's Z band and between its X sides. The shipped fixture is asserted
+  clear, the shifted one asserted **rejected** (`rectsClear` false), and the old form is shown to have
+  accepted it (`dx === 0`, `dz === 0`, `Math.hypot(0, 0) >= 0`). **Mutation check:** restoring the clamped
+  predicate in `landmarkSignClearance.ts` makes exactly that one test fail (17 pass / 1 fail) and the
+  corrected file restores it (18 pass / 0 fail, `cmp` clean) — the control is sensitive to the predicate,
+  not to itself. No production geometry was touched to make it pass.
+
+- **New suite: `src/utils/visitorHerald.test.ts` — 23 tests / 95 `expect()`.** §A determinism (fresh
+  ledgers agree; the resolver is stable; the key is the schedule's own pair); §B empty days (day 1 and 16
+  say nothing and do not poison day 5); §C lifecycle (a completed visitor is excluded by the resolver,
+  seen-but-incomplete is still called, and days **4** and **9** — days whose hash matches the armorer and
+  the trader but precede their windows — announce nobody); §D multi-arrival days (day 15 calls both, once
+  each, in resolver/catalogue order); §E dedup (repeated calls, an unrelated richer profile, city
+  exit/re-entry, StrictMode-style double invocation, and a later day 21 speaking again); §F purity
+  (unmutated profile, frozen profile and city, a fresh returned array, and total answers for `{}`/`null`/
+  `undefined`); §G copy; §H the wiring contract. **§H is source-level on purpose and narrow**: the repo's
+  bun harness has no DOM renderer and no `@testing-library/react`, so a behavioural mount of `App` is not
+  available; it pins the one `useRef` ledger, the one gated effect and its dep list, the single
+  `announce(` call site, the append-not-replace update and the existing `HeraldToast` feed, plus the
+  absence of timers/storage/React imports in the utility. The behaviour itself is covered by §A–§G
+  directly against the real resolver.
+
+- **Files changed.** New: `src/utils/visitorHerald.ts`, `src/utils/visitorHerald.test.ts`,
+  `src/utils/landmarkSignClearance.ts`. Modified: `src/App.tsx` (one import, one ref, one effect),
+  `src/utils/l17bLandmarkSigns.test.ts` (one import, one assertion),
+  `src/utils/l17dLandmarkSignReliability.test.ts` (one import, two assertions, the control test), and this
+  record. **No production collider, sign placement, registry, save field, price, offer or visitor mesh
+  changed, and no unrelated cleanup was done.**
+
+- **Verified 2026-10-26** in the existing healthy `web` container (no restart, no rebuild of the image):
+  focused `bun test src/utils/visitorHerald.test.ts` → **23 pass / 0 fail** (95 expect);
+  `bun test src/utils/l17bLandmarkSigns.test.ts src/utils/l17dLandmarkSignReliability.test.ts` → **46 pass
+  / 0 fail** (3639 expect; 45 before, +1 control); visitor lifecycle and day advance
+  `bun test src/utils/{visitorHerald,visitorSchedule,visitorPresence,visitorEncounter,visitorPurchase,visitorChariotFinish,l16dVisitorHarness,lodging,cityClock,restRecovery,gladiatorOath,roadMilestones}.test.ts`
+  → **416 pass / 0 fail** (5712 expect, 12 files); city/collision
+  `bun test src/utils/phaseC8_{45,47,64a,64b,65}.test.ts` → **161 pass / 0 fail** (14275 expect);
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun test` → **4097 pass / 0 fail
+  (147 files, 174 356 expect() calls)** (L17D left 4073 / 146; the delta is this phase's 23 tests plus the
+  1 signage control); `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** (the
+  pre-existing >500 kB chunk warning only, startup assets ✓ 8/8); `git diff --check` → **clean**.
+
+- **Not automatically verified — no rendered announcement, and no Android pass.** The cry is raised on
+  `city_3d`, and a **fresh save is city day 1, which has no arrivals**, so an announcement cannot be
+  produced without seeding a profile at a visitor day; the phase reports that limitation rather than
+  fabricating a save. What the environment can support was checked instead: the dev server serves the new
+  module and the edited `App.tsx` (transformed, HTTP 200) and the app boots with no console errors. The
+  appearance of the toast with a visitor line, the arrival order read on screen, and the announcement
+  after a night's lodging on a visitor day remain **PENDING for a device (Android) run with real play
+  progress**. Still open from earlier phases: the C-8.57/C-8.60/C-8.62 pediment and wreath readings, the
+  C-8.53 lean-to, the C-8.52 veranda canopy, the C-8.49 wall-to-gable junctions, the C-8.51 awning, the
+  C-8.41 kerb, the C-8.38 northern approach, the C-8.28 bowl cut, the C-8.29 junction, the C-8.31/C-8.33
+  rear-gate stonework, and the L17B/L17D sign placements. Do not claim visual or device acceptance.

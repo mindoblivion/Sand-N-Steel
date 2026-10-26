@@ -34,6 +34,8 @@ import { lodgeAtCaravanserai, type LodgingResult } from './utils/lodging';
 import { recordVisitorEncounter } from './utils/visitorEncounter';
 // L12 — the ONE visitor purchase transaction: buying the day's offer completes the visitor.
 import { purchaseVisitorOffer, type VisitorPurchaseResult } from './utils/visitorPurchase';
+// L21B — the herald's call for the day's visitors: one in-memory ledger, no save.
+import { createVisitorHeraldLedger } from './utils/visitorHerald';
 import type { TrainingStat } from './data/training';
 import { createDuelSettlementLatch } from './utils/duelSettlement';
 import type { BannerDevice } from './utils/heraldry';
@@ -145,6 +147,12 @@ export function App() {
    * state only: the road's own writes go through `profile.road`, saved the normal way.
    */
   const [heraldCries, setHeraldCries] = useState<string[]>([]);
+  /**
+   * L21B — what the herald has already called, keyed `(city day, visitor id)`. In
+   * memory only, for the life of the session: nothing here reaches a save, and a
+   * reload announces the day's arrivals once more.
+   */
+  const visitorHeraldRef = useRef(createVisitorHeraldLedger());
   const [deviceChoiceOpen, setDeviceChoiceOpen] = useState(false);
   const [showDriveSync, setShowDriveSync] = useState(false);
   /**
@@ -276,6 +284,25 @@ export function App() {
       music.stop();
     }
   }, [currentScreen, duelResult, activeOpponent, activeHubTab]);
+
+  /**
+   * L21B — THE HERALD CALLS THE ARRIVALS. One effect and one in-memory ledger: while
+   * the city is on screen and the oath beat is not holding it, ask the ONE visitor
+   * schedule who is in town on the profile's current city day and append the cries it
+   * has not raised yet through the same `heraldCries` channel the road milestones use.
+   *
+   * The effect runs on a profile update as well as on a screen change, which is what
+   * lets a day turned by a night's lodging (or by a settled duel) be announced while
+   * the city stays mounted; the ledger is what keeps a re-render, StrictMode's double
+   * invocation and a second visit on the same day silent. A later day is a new key, so
+   * it speaks again. Nothing here writes a profile, advances the clock or touches an
+   * encounter — the schedule is read, never changed.
+   */
+  useEffect(() => {
+    if (currentScreen !== 'city_3d' || !profile || oathBeatMode) return;
+    const cries = visitorHeraldRef.current.announce(profile);
+    if (cries.length > 0) setHeraldCries((previous) => [...previous, ...cries]);
+  }, [currentScreen, profile, oathBeatMode]);
 
   /**
    * C-8.70B §SET-1 — Lefty Mode is a preference now, so the toggle routes through

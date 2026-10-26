@@ -38,6 +38,8 @@ import {
   type LandmarkSignMount,
 } from '../data/landmarkSigns';
 import { CITY_COLLIDERS } from './collisionShapes';
+// L21B — the one unclamped rectangle-separation predicate, shared with the L17B suite.
+import { rectSeparations, rectsClear } from './landmarkSignClearance';
 import { HUB_LOCATIONS, FAST_TRAVEL_ARRIVALS } from './cityCollisions';
 
 const CITY_DIR = new URL('../components/3d/city/', import.meta.url);
@@ -335,12 +337,50 @@ describe('L17D §B — the Barracks sign clears the doorway', () => {
     // Still clear of every collider in the city.
     for (const collider of CITY_COLLIDERS) {
       if (collider.type === 'rect') {
-        const other = rectOf(collider.id);
-        const dx = Math.max(other.minX - fp.maxX, fp.minX - other.maxX, 0);
-        const dz = Math.max(other.minZ - fp.maxZ, fp.minZ - other.maxZ, 0);
-        expect({ collider: collider.id, clear: Math.hypot(dx, dz) >= 0 }).toEqual({ collider: collider.id, clear: true });
+        // L21B — unclamped separating-axis test; the clamped `Math.hypot(...) >= 0`
+        // this replaced was true for every pair, overlapping or not.
+        expect({ collider: collider.id, clear: rectsClear(fp, rectOf(collider.id)) }).toEqual({
+          collider: collider.id,
+          clear: true,
+        });
       }
     }
+  });
+
+  /**
+   * L21B — the clearance predicate's own control, on the tightest rectangle band any
+   * sign has. The Barracks sign clears its plinth by the measured 0.351 in Z, so
+   * shifting the mount 0.50 NORTH crosses that band by 0.149 while the footprint
+   * stays inside the plinth's X span — a deliberate, minimal overlap of the
+   * `gladiator-barracks` rectangle. The corrected predicate must refuse it, and the
+   * clamped form this phase replaced must be shown to accept it (it always did).
+   */
+  test('the corrected clearance predicate rejects a northward-shifted Barracks sign (control)', () => {
+    const r = rectOf('gladiator-barracks');
+
+    // The shipped fixture: clear, and clear by the measured band.
+    const shipped = landmarkSignWorldFootprint(BARRACKS);
+    expect(shipped.minZ - r.maxZ).toBeCloseTo(0.351, 3);
+    expect(rectsClear(shipped, r)).toBe(true);
+
+    // The control: the same sign 0.50 north (local Z 3.6 → 3.1), 0.149 inside the
+    // plinth's Z band and still between the plinth's X sides.
+    const shifted = landmarkSignWorldFootprint({
+      ...BARRACKS,
+      position: [BARRACKS.position[0], BARRACKS.position[1], BARRACKS.position[2] - 0.5],
+    });
+    const separations = rectSeparations(shifted, r);
+    expect(separations.x).toBeLessThan(0);
+    expect(separations.z).toBeCloseTo(-0.149, 3);
+    expect(rectsClear(shifted, r)).toBe(false);
+
+    // The tautology this phase repaired would have called the overlapping fixture
+    // clear: clamped separations are never negative, so `Math.hypot(...) >= 0`.
+    const dx = Math.max(r.minX - shifted.maxX, shifted.minX - r.maxX, 0);
+    const dz = Math.max(r.minZ - shifted.maxZ, shifted.minZ - r.maxZ, 0);
+    expect(dx).toBe(0);
+    expect(dz).toBe(0);
+    expect(Math.hypot(dx, dz) >= 0).toBe(true);
   });
 
   test('the Medical House porch has no measurable overlap, so its mount is unchanged', () => {
@@ -471,10 +511,8 @@ describe('L17D §D — the registries and the presentation contract', () => {
       const fp = landmarkSignWorldFootprint(sign);
       for (const collider of CITY_COLLIDERS) {
         if (collider.type === 'rect') {
-          const r = rectOf(collider.id);
-          const dx = Math.max(r.minX - fp.maxX, fp.minX - r.maxX, 0);
-          const dz = Math.max(r.minZ - fp.maxZ, fp.minZ - r.maxZ, 0);
-          expect({ sign: sign.id, collider: collider.id, clear: Math.hypot(dx, dz) >= 0 }).toEqual({
+          // L21B — unclamped separating-axis test (see `landmarkSignClearance`).
+          expect({ sign: sign.id, collider: collider.id, clear: rectsClear(fp, rectOf(collider.id)) }).toEqual({
             sign: sign.id,
             collider: collider.id,
             clear: true,
