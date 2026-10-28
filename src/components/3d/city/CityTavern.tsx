@@ -11,6 +11,7 @@ import {
 import { RomanAmphora, WineBarrel } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
 import { CityFixtureMaterial } from './CityFixtureMaterial';
+import { CityFixtureLight } from './CityFixtureLight';
 
 export const CityTavern = React.memo(() => {
   return (
@@ -158,7 +159,7 @@ export const CityTavern = React.memo(() => {
             <cylinderGeometry args={[0.18, 0.24, 0.6, 8]} />
             <CityFixtureMaterial fixture="lamp" base={2} color="#78350f" emissive="#f59e0b" metalness={0.7} />
           </mesh>
-          <pointLight color="#f59e0b" intensity={3.5} distance={8} position={[0.2, 0, 0]} />
+          <CityFixtureLight fixture="lamp" base={3.5} color="#f59e0b" distance={8} position={[0.2, 0, 0]} />
         </group>
       ))}
     </group>

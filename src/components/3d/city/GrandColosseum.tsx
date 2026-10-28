@@ -6,6 +6,7 @@ import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { Banner } from './EnvironmentalMotion';
 import { ColosseumSignPrototype } from './ColosseumSignPrototype';
 import { CityFixtureMaterial } from './CityFixtureMaterial';
+import { CityFixtureLight } from './CityFixtureLight';
 
 // ---------------------------------------------------------------------------
 // Phase 25.7 — Unified angular convention
@@ -666,7 +667,7 @@ export const GrandColosseum = React.memo(() => {
               <sphereGeometry args={[0.35, 12, 12]} />
               <CityFixtureMaterial fixture="brazier" base={3} color="#ff5722" emissive="#f97316" />
             </mesh>
-            <pointLight color="#f97316" intensity={4} distance={12} position={[0, 1.8, 0]} />
+            <CityFixtureLight fixture="brazier" base={4} color="#f97316" distance={12} position={[0, 1.8, 0]} />
           </group>
         ))}
 

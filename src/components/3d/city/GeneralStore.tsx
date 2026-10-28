@@ -6,6 +6,7 @@ import { RomanGabledRoof, CornerQuoins, WallCornice } from './ClassicalArchitect
 import { TimberCrate, RomanAmphora, WineBarrel } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
 import { CityFixtureMaterial } from './CityFixtureMaterial';
+import { CityFixtureLight } from './CityFixtureLight';
 
 export const GeneralStore = React.memo(() => {
   const canopyRef = useRef<THREE.Group>(null);
@@ -115,7 +116,7 @@ export const GeneralStore = React.memo(() => {
           <cylinderGeometry args={[0.16, 0.22, 0.55, 8]} />
           <meshStandardMaterial color="#78350f" metalness={0.7} />
         </mesh>
-        <pointLight color="#f59e0b" intensity={3} distance={7} position={[0, -0.1, 0]} />
+        <CityFixtureLight fixture="lamp" base={3} color="#f59e0b" distance={7} position={[0, -0.1, 0]} />
       </group>
     </group>
   );
