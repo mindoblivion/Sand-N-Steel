@@ -487,14 +487,43 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
     // Suites are not consumers either: since GC20-X the save corpus drives
     // `resolveTimeState` over every fixture (a test, not a screen).
     //
-    // DAY/NIGHT T1 REBASE, determined by the evidence: rendering now reads this
-    // module's phase VOCABULARY (`TIME_PHASES`, `TimePhase`, `TIME_PHASE_NAMES`), so
-    // "no shipped source names the module" is no longer true and could not be made
-    // true without undoing the slice. The property this guard exists for still holds
-    // and is pinned harder: no shipped source consumes T0's clock MODEL
-    // (`PHASE_PROFILES` / `getPhaseProfile`) or anything that advances the clock
-    // (`resolveTimeState`, `advanceTimeBy`, `advanceToNextDawn`) — nothing paints the
-    // clock yet — and the vocabulary consumers are exactly the seven files listed.
+    // DAY/NIGHT T1 REBASE, determined by the evidence: rendering reads this module's phase
+    // VOCABULARY (`TIME_PHASES`, `TimePhase`, `TIME_PHASE_NAMES`), so "no shipped source
+    // names the module" could not stay true without undoing that slice. The property the
+    // guard exists for held and was pinned harder: nothing consumed T0's clock MODEL
+    // (`PHASE_PROFILES` / `getPhaseProfile`) and nothing advanced the clock, because
+    // nothing painted it yet.
+    //
+    // DAY/NIGHT T2 RE-SCOPE — DIRECTOR RULING B, recorded here as the ruling requires, and
+    // the reason this is a re-scope rather than a deletion. T2 legitimately lifts T1's ban
+    // on the clock APIs for THE SEAM FILES ONLY: the duel-resolution handler, the training
+    // handler and the Rest handler (all three in `App.tsx`, the single write point of each),
+    // the two scene phase reads (`CityHubScene`, `DuelScene`), and the day-boundary seam
+    // module (`utils/dayRollover.ts`, which owns the rollover test and the duel's
+    // transaction-scoped settlement). Those four files and no others may call
+    // `resolveTimeState` / `advanceTimeBy` / `advanceToNextDawn` / `advanceForStoryBeat`.
+    //
+    // Two halves are NOT lifted, and one is strengthened:
+    //   • the ban on consuming the clock MODEL (`PHASE_PROFILES`, `getPhaseProfile`) outside
+    //     this module stands at FULL strength — it is checked over every source, seams
+    //     included;
+    //   • the ban on any other writer of the time field is strengthened from "the storage
+    //     layer does not write it" to "no shipped source outside the seam allowlist writes
+    //     it at all".
+    const CLOCK_SEAMS = [
+      'App.tsx',
+      'components/3d/city/CityHubScene.tsx',
+      'components/duel/DuelScene.tsx',
+      'utils/dayRollover.ts',
+    ];
+    const CLOCK_APIS = [
+      'resolveTimeState',
+      'advanceTimeBy',
+      'advanceToNextDawn',
+      'advanceForStoryBeat',
+    ];
+    const CLOCK_MODEL = ['PHASE_PROFILES', 'getPhaseProfile'];
+
     const srcRoot = path('..');
     const sources = filesUnder(srcRoot).filter(
       (file) =>
@@ -507,23 +536,37 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       .map((file) => file.slice(srcRoot.length + 1))
       .sort();
     expect(consumers).toEqual([
+      'App.tsx',
       'components/3d/PhaseSkyDome.tsx',
+      'components/3d/RaceScene.tsx',
       'components/3d/city/CityAtmosphere.tsx',
+      'components/3d/city/CityHubScene.tsx',
       'components/dev/PhaseLightHarness.tsx',
+      'components/duel/DuelScene.tsx',
       'components/hub/SettingsModal.tsx',
       'utils/atmosphere.ts',
       'utils/currentPhase.ts',
+      'utils/dayRollover.ts',
       'utils/duelPhaseLight.ts',
       'utils/racePhaseLight.ts',
     ]);
     for (const file of sources) {
+      const rel = file.slice(srcRoot.length + 1);
       const text = code(file);
-      for (const clockApi of ['PHASE_PROFILES', 'getPhaseProfile', 'resolveTimeState', 'advanceTimeBy', 'advanceToNextDawn']) {
-        expect(text).not.toContain(clockApi);
+      // The clock MODEL is not consumed anywhere outside this module — seams included.
+      for (const modelApi of CLOCK_MODEL) {
+        expect(text, `${rel} must not consume ${modelApi}`).not.toContain(modelApi);
       }
+      if (CLOCK_SEAMS.includes(rel)) continue;
+      for (const clockApi of CLOCK_APIS) {
+        expect(text, `${rel} must not call ${clockApi}`).not.toContain(clockApi);
+      }
+      // …and no other writer of the field: the clock's own shape is the marker, so a shader
+      // uniform that happens to be called `time` is not mistaken for the save's clock.
+      expect(text, `${rel} must not write the clock`).not.toMatch(/time:\s*\{\s*total/);
     }
-    // no shipped source writes the field either — T0 adds no profile write
     expect(code('../services/storage.ts')).not.toContain('time:');
+    expect(code('../services/storage.ts')).not.toContain('resolveTimeState');
   });
 
   test('the declaration is optional on PlayerProfile, and the module reads no save', () => {

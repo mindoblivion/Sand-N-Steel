@@ -2,13 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
+  DEFAULT_PHASE,
   applyPhaseLight,
   clearAtmosphere,
   getPhaseLight,
   type PhaseLight,
 } from '../../utils/atmosphere';
 import { resolveDuelPhaseLight } from '../../utils/duelPhaseLight';
-import { CURRENT_PHASE } from '../../utils/currentPhase';
 import { TIME_PHASE_NAMES, TIME_PHASES, type TimePhase } from '../../utils/timeState';
 
 /**
@@ -142,7 +142,7 @@ function resolveReadout(mode: HarnessMode, phase: TimePhase): Readout {
 
 export const PhaseLightHarness: React.FC = () => {
   const [mode, setMode] = useState<HarnessMode>('city');
-  const [phase, setPhase] = useState<TimePhase>(CURRENT_PHASE);
+  const [phase, setPhase] = useState<TimePhase>(DEFAULT_PHASE);
   const readout = useMemo(() => resolveReadout(mode, phase), [mode, phase]);
 
   return (
