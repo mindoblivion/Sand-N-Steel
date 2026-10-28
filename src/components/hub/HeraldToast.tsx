@@ -15,6 +15,15 @@ import { X } from 'lucide-react';
 export interface HeraldToastProps {
   cries: string[];
   onDismiss: () => void;
+  /**
+   * FIRST SIXTY SECONDS — fired by the player's own ✕ ONLY, never by `durationMs`.
+   *
+   * The one §5 pointer line rides this same surface, and §5 must be able to tell a
+   * DISMISSAL from the stack's own timeout: the timeout is the line going away, not the
+   * player answering it, so only this callback silences the slice. Optional, so every
+   * existing caller (road milestones, the circus pointer) behaves exactly as before.
+   */
+  onExplicitDismiss?: () => void;
   /** How long the stack stays up, in ms. Long enough to read two lines on a phone. */
   durationMs?: number;
 }
@@ -22,6 +31,7 @@ export interface HeraldToastProps {
 export const HeraldToast: React.FC<HeraldToastProps> = ({
   cries,
   onDismiss,
+  onExplicitDismiss,
   durationMs = 7000,
 }) => {
   useEffect(() => {
@@ -49,7 +59,11 @@ export const HeraldToast: React.FC<HeraldToastProps> = ({
           <p className="flex-1 text-sm leading-snug text-amber-100">{cry}</p>
           <button
             type="button"
-            onClick={onDismiss}
+            onClick={() => {
+              // The player's own answer — reported before the stack clears.
+              onExplicitDismiss?.();
+              onDismiss();
+            }}
             aria-label="Dismiss the herald"
             className="shrink-0 p-1 text-amber-600/70 hover:text-amber-300"
           >

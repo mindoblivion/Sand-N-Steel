@@ -129,6 +129,10 @@ import {
   actaDismissedThisSession,
   dismissActaThisSession,
 } from '../../hub/ActaCard';
+// FIRST SIXTY SECONDS — §5's copy rules (the card's one unfinished-business line, R-UNFINISHED).
+// Pure reads over live profile state; the session facts live in `firstSixtySeconds.ts` and
+// are owned by `App`, which hands this scene the silence flag and the pointer's target.
+import { unfinishedBusinessLine } from '../../../utils/firstSixtySeconds';
 // DAY/NIGHT T3's display reader — the sanctioned way a scene reads the clock without
 // adding a second `resolveTimeState` call of its own (see `utils/dayRollover.ts`).
 import { resolveDisplayClock } from '../../../utils/dayRollover';
@@ -254,6 +258,26 @@ interface CityHubSceneProps {
   /** The herald's pointer, when the herald is pointing somewhere (see `utils/cityHerald`). */
   heraldAim?: HeraldAim | null;
   /**
+   * FIRST SIXTY SECONDS (§5, retention build-order step 4) — the ONE pointer's target,
+   * as a `HUB_LOCATIONS` id resolved by `utils/heraldPointer.ts` at city entry. `null`
+   * draws no marker at all, so the district marker exists only while the pointer is live.
+   * The id is looked up in the city's own registry here, exactly as the herald's aim is:
+   * an id the registry does not know renders nothing rather than a broken marker.
+   */
+  firstSixtyPointerTarget?: string | null;
+  /**
+   * FIRST SIXTY SECONDS — §6's session silence, read from the session scratch module.
+   * Once the player has answered the morning or walked off, the Acta card stays shut for
+   * the rest of the session. The card's own Phase A rule is untouched; this is the one
+   * gate §5 adds (see `showActaThisSession` below).
+   */
+  firstSixtySilenced?: boolean;
+  /**
+   * FIRST SIXTY SECONDS — the card's own ✕ is one of the two dismissals that silence
+   * §5 for the session; `App` owns the session fact, so this screen only reports it.
+   */
+  onFirstSixtySilence?: () => void;
+  /**
    * S5 — the two cures. `App` owns the transaction and the save write; this screen
    * only reports which service the player chose. Each answers whether the gold
    * actually changed hands, so a refusal leaves the panel open on its own reason.
@@ -374,6 +398,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   lightProfile,
   movementLocked,
   heraldAim,
+  firstSixtyPointerTarget,
+  firstSixtySilenced,
+  onFirstSixtySilence,
   onTreatInjury,
   onRestAtInn,
   onUseConsumable,
@@ -540,6 +567,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    * day is the exertion day, and the session memory keeps a dismissed Acta dismissed.
    */
   const showActa = actaDay !== cityDay && !actaDismissedThisSession(cityDay) && !movementLocked;
+  /**
+   * FIRST SIXTY SECONDS — §6's session silence (`firstSixtySilenced`, from
+   * `utils/firstSixtySeconds.ts`'s session scratch). The Phase A rule above is used
+   * VERBATIM and unchanged; §5 adds exactly one gate on top of it, so one dismissal — or
+   * one walk-off into a bout, a panel or a race — keeps every §5 surface shut for the rest
+   * of the session, and the next session greets again. Nothing here is saved.
+   */
+  const showActaThisSession = showActa && !firstSixtySilenced;
   const cityPhaseLight = getPhaseLight(cityPhase);
   const isOathRig = lightProfile === 'oathDawn';
 
@@ -1150,6 +1185,21 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   );
 
   /**
+   * FIRST SIXTY SECONDS — §5's district marker target: the pointer's own id, resolved
+   * against the city's registry. `null` whenever the pointer is not live (no pointer, or
+   * the session has been silenced), and `HUB_LOCATIONS`' `position`/`radius`/`color` are
+   * the disc this marker draws — the same interaction disc the player walks into, so the
+   * marker's target id and the pointer's `targetLocationId` cannot drift.
+   */
+  const firstSixtyMarker = useMemo(
+    () =>
+      firstSixtyPointerTarget
+        ? HUB_LOCATIONS.find((location) => location.id === firstSixtyPointerTarget) ?? null
+        : null,
+    [firstSixtyPointerTarget]
+  );
+
+  /**
    * S5 — the treatment panel's own reading of the profile: which place is open, the
    * wound it would treat and whether the purse covers it.  All derived, so `App`'s
    * write is the only thing that ever changes them.
@@ -1495,6 +1545,34 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                   utils/circusDistrictGeometry.ts. */}
               <EastCircusDistrict />
             </ThreeComponentErrorBoundary>
+
+            {/* FIRST SIXTY SECONDS — THE POINTER'S DISTRICT MARKER (§5, item 5).
+                ONE static ring on the target location's OWN disc: the position, radius
+                and colour are `HUB_LOCATIONS`' (the interaction disc that already exists
+                in the registry), so no new system, no new asset, no new material and no
+                new light is introduced — a single flat ring at the disc's own edge, drawn
+                only while the pointer is live. The marker is the emphasised edge of a disc
+                the player already walks into, not a second wayfinding layer. */}
+            {firstSixtyMarker && (
+              <mesh
+                position={[firstSixtyMarker.position[0], 0.02, firstSixtyMarker.position[2]]}
+                rotation={[-Math.PI / 2, 0, 0]}
+              >
+                <ringGeometry
+                  args={[
+                    Math.max(0.6, firstSixtyMarker.radius - 0.35),
+                    firstSixtyMarker.radius,
+                    48,
+                  ]}
+                />
+                <meshBasicMaterial
+                  color={firstSixtyMarker.color}
+                  transparent
+                  opacity={0.5}
+                  depthWrite={false}
+                />
+              </mesh>
+            )}
 
             {/* 3D Player Gladiator Model Wrapped in Error Boundary */}
             <ThreeComponentErrorBoundary componentName="CityPlayerGladiator">
@@ -1942,12 +2020,18 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       {/* LUDI PHASE A — THE MORNING ACTA. The city's day has a character, posted at dawn:
           the day's name, its one line, and the three deeds with what is paid and what is
           still owed. Dismissible, and remembered for the session only. */}
-      {showActa && (
+      {showActaThisSession && (
         <ActaCard
           profile={playerProfile}
+          /* FIRST SIXTY SECONDS — §5's ONE unfinished-business line, resolved from LIVE
+             state (grudge → unviewed triumph → none). Director ruling R-UNFINISHED. */
+          unfinished={unfinishedBusinessLine(playerProfile)}
           onDismiss={() => {
             dismissActaThisSession(cityDay);
             setActaDay(cityDay);
+            /* §6 — the player has answered the morning: every §5 surface shuts up for
+               the rest of the session (App owns the session fact and the pointer). */
+            onFirstSixtySilence?.();
           }}
         />
       )}
