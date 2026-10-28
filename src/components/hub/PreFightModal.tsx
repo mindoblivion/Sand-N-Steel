@@ -14,6 +14,11 @@ import type { BeatLine, DoctoreTestRestriction } from '../../utils/storyBeats';
 import { doctoreRestrictionSpec } from '../../utils/storyBeats';
 import { getArmatura } from '../../data/armaturae';
 import { getPalma, type Palma } from '../../data/palmae';
+// Day/Night T3 — the hour the bout is fought in, as FLAVOUR COPY: the duel card's own
+// Latin phase line. Availability, mode and every figure on this card are untouched.
+import { DEFAULT_PHASE } from '../../utils/atmosphere';
+import { duelPhaseLine } from '../../utils/phaseFlavor';
+import type { TimePhase } from '../../utils/timeState';
 // C-8.70C — the grudge's two sentences, built from the generated row itself.
 import {
   grudgeProfileLine,
@@ -38,6 +43,11 @@ interface PreFightModalProps {
    * they step into the sand (the Clarity law).
    */
   restriction?: DoctoreTestRestriction | null;
+  /**
+   * Day/Night T3 — the clock's phase when the card was opened. Optional: a caller that
+   * passes nothing shows the staging default's line, exactly as the city does.
+   */
+  phase?: TimePhase;
 }
 
 export const PreFightModal: React.FC<PreFightModalProps> = ({
@@ -46,7 +56,11 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
   onCancel,
   narration,
   restriction,
+  phase = DEFAULT_PHASE,
 }) => {
+  // T3 — a boss card always reads as an evening spectacle; every other hour names the
+  // light, and a regular bout at Nox offers the torches in words.
+  const hourLine = duelPhaseLine(phase, opponent.isBoss === true);
   // Session-only, defaulting to Sand on every opening (no preference exists to
   // remember this in the profile).
   const [boutMode, setBoutMode] = useState<BoutMode>(DEFAULT_BOUT_MODE);
@@ -81,6 +95,27 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
             {opponent.name}
           </h3>
           <p className="text-xs font-serif text-neutral-400 italic">{opponent.title}</p>
+        </div>
+
+        {/* Day/Night T3 — THE HOUR. Flavour copy only: the light the bout will be
+            fought in, in the design's own Latin card line. Nothing here offers, gates or
+            prices anything. */}
+        <div
+          data-prefight-phase={phase}
+          data-prefight-night-state={opponent.isBoss === true ? 'spectacle' : phase === 'night' ? 'torchlit' : 'day'}
+          className="bg-neutral-950 border border-amber-700/50 rounded-2xl px-4 py-3 mb-4"
+        >
+          <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400 mb-1">
+            The Hour
+          </div>
+          <p className="text-xs sm:text-[13px] font-serif italic text-amber-100/90 leading-relaxed">
+            {hourLine.headline}
+          </p>
+          {hourLine.offer && (
+            <p className="mt-1 text-[11px] font-serif text-neutral-300 leading-relaxed">
+              {hourLine.offer}
+            </p>
+          )}
         </div>
 
         {/* STORY-2 — the beat's framing: voices, not statistics. */}

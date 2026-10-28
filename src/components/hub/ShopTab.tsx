@@ -2,7 +2,15 @@ import React from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
 import { getItemById, isWeapon } from '../../data/itemsDB';
 import { getVisibleStorefrontStock, StorefrontId } from '../../data/shops';
-import { getKeeperForStorefront, resolveSeenKeepers, selectRepeatLine } from '../../data/keepers';
+import {
+  getKeeperForStorefront,
+  nightClerkLine,
+  resolveSeenKeepers,
+  selectRepeatLine,
+} from '../../data/keepers';
+// Day/Night T3 — the counter's line follows the clock's phase. Display only, read
+// through the day-boundary seam's own display reader.
+import { resolveDisplayClock } from '../../utils/dayRollover';
 import { KeeperPlate } from './KeeperPlate';
 import { CONSUMABLES, ConsumableItem } from '../../data/consumables';
 import { getConsumableCount } from '../../utils/consumables';
@@ -105,6 +113,14 @@ export const ShopTab: React.FC<ShopTabProps> = ({
       ? selectRepeatLine(keeper, 2)
       : keeper.firstVisitLine
     : '';
+  /**
+   * Day/Night T3 — after dark the stall is kept by the NIGHT CLERK, so the plate speaks
+   * his line instead of the keeper's. Only the line swaps: the same stock, the same
+   * prices, the same buttons, and no keeper visit is un-recorded by the hour.
+   */
+  const shopIsNight = resolveDisplayClock(profile).phase === 'night';
+  const nightLine = keeper ? nightClerkLine(keeper) : '';
+  const displayedKeeperLine = shopIsNight && nightLine ? nightLine : keeperLine;
   const keeperId = keeper?.id;
 
   // K1 — the first visit is recorded once per mount, at the moment the plate is
@@ -134,7 +150,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-12">
       {/* K1 — the keeper's plate heads the storefront; the market tab has none. */}
-      {keeper && <KeeperPlate keeper={keeper} line={keeperLine} />}
+      {keeper && <KeeperPlate keeper={keeper} line={displayedKeeperLine} />}
       <div className="bg-neutral-900/80 border-2 border-yellow-500/60 rounded-3xl p-6 shadow-xl flex justify-between items-center">
         <div>
           <h3 className="font-serif font-black text-2xl text-amber-100 uppercase mb-1">

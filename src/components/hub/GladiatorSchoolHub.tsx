@@ -26,6 +26,7 @@ import { CoachCard } from '../ui/CoachCard';
 import { HUB_FIRST_OPEN_CARD_ID, getCoachCard, hasSeenCard } from '../../utils/coachMarks';
 import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
+import { resolveDisplayClock } from '../../utils/dayRollover';
 
 interface GladiatorSchoolHubProps {
   playerProfile: PlayerProfile;
@@ -342,6 +343,8 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
       {selectedOpponent && (
         <PreFightModal
           opponent={selectedOpponent}
+          /* Day/Night T3 — the hour the card is opened in, for its phase line. */
+          phase={resolveDisplayClock(playerProfile).phase}
           /* STORY-2 — the novice bout's framing, fresh profiles only. */
           narration={
             isNoviceBoutOpponent(selectedOpponent) && isNoviceBoutDue(playerProfile)

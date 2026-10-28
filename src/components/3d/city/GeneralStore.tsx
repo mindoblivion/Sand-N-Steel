@@ -5,6 +5,7 @@ import { BuildingFoundation } from './BuildingFoundation';
 import { RomanGabledRoof, CornerQuoins, WallCornice } from './ClassicalArchitecture';
 import { TimberCrate, RomanAmphora, WineBarrel } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
+import { CityFixtureMaterial } from './CityFixtureMaterial';
 
 export const GeneralStore = React.memo(() => {
   const canopyRef = useRef<THREE.Group>(null);
@@ -101,7 +102,7 @@ export const GeneralStore = React.memo(() => {
         <group position={[0.2, 1.38, 0.8]}>
           <mesh castShadow>
             <sphereGeometry args={[0.12, 8, 8]} />
-            <meshStandardMaterial color="#06b6d4" emissive="#0891b2" emissiveIntensity={1.5} roughness={0.1} />
+            <CityFixtureMaterial fixture="lamp" base={1.5} color="#06b6d4" emissive="#0891b2" roughness={0.1} />
           </mesh>
           <pointLight color="#06b6d4" intensity={1.5} distance={4} position={[0, 0.3, 0]} />
         </group>

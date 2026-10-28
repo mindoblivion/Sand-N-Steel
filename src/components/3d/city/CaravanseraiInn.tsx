@@ -10,6 +10,7 @@ import {
   WallCornice,
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
+import { CityFixtureMaterial } from './CityFixtureMaterial';
 
 export const CaravanseraiInn = React.memo(() => {
   return (
@@ -108,7 +109,7 @@ export const CaravanseraiInn = React.memo(() => {
         </mesh>
         <mesh position={[0, 1.3, 0]}>
           <sphereGeometry args={[0.25, 8, 8]} />
-          <meshStandardMaterial color="#ff5722" emissive="#f97316" emissiveIntensity={3} />
+          <CityFixtureMaterial fixture="brazier" base={3} color="#ff5722" emissive="#f97316" />
         </mesh>
         <pointLight color="#f97316" intensity={3.5} distance={9} position={[0, 1.5, 0]} />
       </group>

@@ -49,6 +49,12 @@ export interface Keeper {
   firstVisitLine: string;
   /** Said on every later visit, chosen deterministically by visit count. */
   repeatLines: string[];
+  /**
+   * Day/Night T3 — what the counter says after dark, when the stall is kept by the
+   * night clerk. Optional: a keeper without one simply keeps saying his own lines, and
+   * nothing about stock, prices or availability changes with the hour.
+   */
+  nightLine?: string;
 }
 
 /**
@@ -71,6 +77,8 @@ export const KEEPERS: Keeper[] = [
     repeatLines: [
       "Your edge is nicked again. You block with the sharp side, boy — that's what the flat is for.",
     ],
+    nightLine:
+      "Sextus has banked the forge and gone up. I'm the night clerk — the blades are his, the prices are his, and the lamp is mine.",
   },
   {
     id: 'salvia_coriaria',
@@ -82,6 +90,8 @@ export const KEEPERS: Keeper[] = [
     repeatLines: [
       "You've filled out since the last fitting. Winning suits you. The straps remember, even if you don't.",
     ],
+    nightLine:
+      "Salvia's asleep and the straps can wait till morning — but I'm the night clerk, and the rack is open. Fittings by lamplight, same as by day.",
   },
   {
     id: 'pasion_of_alexandria',
@@ -93,6 +103,8 @@ export const KEEPERS: Keeper[] = [
     repeatLines: [
       'You walk like a man shopping for a poultice. Twenty gold, and you walk out like a statue.',
     ],
+    nightLine:
+      "The stall is kept by the night clerk now. Poultices and salves are exactly where Pasion left them, at exactly his prices.",
   },
   {
     id: 'gaius_norbanus_sura',
@@ -102,6 +114,8 @@ export const KEEPERS: Keeper[] = [
     firstVisitLine:
       'You are expected — eventually, everyone with gold is. This house keeps only the rare and the legendary. If you must ask a price twice, it is not for you.',
     repeatLines: ['The Vipers are still here. They wait better than you do.'],
+    nightLine:
+      "The factor keeps civilised hours; I don't. I'm the night clerk — the rare shelf is locked, not closed, and I know where he keeps the key.",
   },
   {
     id: 'antiochis_of_pergamon',
@@ -272,6 +286,15 @@ export const KEEPERS: Keeper[] = [
     ],
   },
 ];
+
+/**
+ * Day/Night T3 — the line the counter speaks after dark: the night clerk's, when the
+ * keeper has one, and the keeper's own line otherwise. Empty for a keeper with neither.
+ * Display only: it changes no stock, no price and no availability.
+ */
+export function nightClerkLine(keeper: Keeper): string {
+  return keeper.nightLine ?? '';
+}
 
 /** The registry by id, so a plate and the save agree on one lookup. */
 const KEEPERS_BY_ID = new Map(KEEPERS.map((keeper) => [keeper.id, keeper]));

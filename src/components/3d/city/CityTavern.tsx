@@ -10,6 +10,7 @@ import {
 } from './ClassicalArchitecture';
 import { RomanAmphora, WineBarrel } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
+import { CityFixtureMaterial } from './CityFixtureMaterial';
 
 export const CityTavern = React.memo(() => {
   return (
@@ -155,7 +156,7 @@ export const CityTavern = React.memo(() => {
         <group key={`tav-light-${li}`} position={[4.4, 3.6, lz]}>
           <mesh castShadow>
             <cylinderGeometry args={[0.18, 0.24, 0.6, 8]} />
-            <meshStandardMaterial color="#78350f" metalness={0.7} />
+            <CityFixtureMaterial fixture="lamp" base={2} color="#78350f" emissive="#f59e0b" metalness={0.7} />
           </mesh>
           <pointLight color="#f59e0b" intensity={3.5} distance={8} position={[0.2, 0, 0]} />
         </group>

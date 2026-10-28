@@ -423,7 +423,10 @@ describe('K1 §G the storefront renders the plate', () => {
   test('ShopTab heads a storefront with it, and the market tab gets none', () => {
     const shop = code('components/hub/ShopTab.tsx');
     expect(shop).toContain('getKeeperForStorefront(shopId)');
-    expect(shop).toContain('{keeper && <KeeperPlate keeper={keeper} line={keeperLine} />}');
+    // DAY/NIGHT T3 REBASE — the plate still heads the storefront with the keeper's line;
+    // what it is handed is now the DISPLAYED line, which is the keeper's by day and the
+    // night clerk's after dark. The greeting rules this test protects are unchanged.
+    expect(shop).toContain('{keeper && <KeeperPlate keeper={keeper} line={displayedKeeperLine} />}');
     expect(shop).toContain('keeper.firstVisitLine');
     expect(shop).toContain('selectRepeatLine(keeper, 2)');
     // The greeting is decided once per counter, so the save landing mid-visit

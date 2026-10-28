@@ -5,6 +5,7 @@ import { CornerSandDrift } from './GroundWearSystem';
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { RomanPavedStreet } from './RomanStreetPavement';
 import { ItalianCypress } from './MediterraneanFoliage';
+import { CityFixtureMaterial } from './CityFixtureMaterial';
 
 /**
  * Roman Carved Stone Fire Brazier
@@ -34,12 +35,7 @@ const StreetBrazier: React.FC<{ position: [number, number, number] }> = ({ posit
       {/* Glowing Coals & Fire Embers */}
       <mesh position={[0, 1.3, 0]}>
         <sphereGeometry args={[0.32, 10, 10]} />
-        <meshStandardMaterial
-          color="#ff5722"
-          emissive="#f97316"
-          emissiveIntensity={2.5}
-          roughness={0.2}
-        />
+        <CityFixtureMaterial fixture="brazier" base={2.5} color="#ff5722" emissive="#f97316" roughness={0.2} />
       </mesh>
       <pointLight color="#f97316" intensity={2.8} distance={9} position={[0, 1.6, 0]} />
     </group>

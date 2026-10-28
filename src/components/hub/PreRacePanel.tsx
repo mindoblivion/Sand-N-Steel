@@ -4,6 +4,9 @@ import { Coins, Eye, Flag, Info, Wrench } from 'lucide-react';
 import { getSelectedRacingConfig } from '../../utils/racingProgression';
 import { resolveChariotLoadout } from '../../utils/chariotLoadout';
 import { getChariotPart } from '../../data/chariotParts';
+// Day/Night T3 — the race card names the light it will run under. Copy only.
+import { racePhaseLine } from '../../utils/phaseFlavor';
+import { resolveDisplayClock } from '../../utils/dayRollover';
 
 interface PreRacePanelProps {
   profile: PlayerProfile;
@@ -47,6 +50,9 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
   const team = useMemo(() => getSelectedRacingConfig(profile), [profile]);
   const loadout = useMemo(() => resolveChariotLoadout(profile), [profile]);
 
+  // T3 — the hour, from the clock. Dusk renders golden and night renders dawn in the
+  // ring (`utils/racePhaseLight.ts`), so those two read as last and first light.
+  const racePhase = resolveDisplayClock(profile).phase;
   const wheels = getChariotPart(loadout.equipped.wheels);
   const finish = getChariotPart(loadout.equipped.finish);
   const wheelsName = wheels?.name ?? 'Standard Wheel Set';
@@ -67,6 +73,12 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
           </h3>
           <p className="text-xs font-serif text-neutral-400 italic">
             {team.horses} horses on the yoke
+          </p>
+          <p
+            data-race-phase={racePhase}
+            className="mt-1 text-[11px] font-mono uppercase tracking-wider text-amber-300/90"
+          >
+            {racePhaseLine(racePhase)}
           </p>
         </div>
 

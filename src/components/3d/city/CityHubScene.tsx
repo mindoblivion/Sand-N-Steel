@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Sparkles as DreiSparkles, Sky, Environment, Lightformer, useGLTF } from '@react-three/drei';
 import { PlayerProfile, OpponentConfig, FighterState } from '../../../types/game';
@@ -33,6 +33,11 @@ import { EastCircusArena } from './EastCircusArena';
 import { EastCircusDistrict } from './EastCircusDistrict';
 import { CityCamera } from './CityCamera';
 import { CityAtmosphere } from './CityAtmosphere';
+// Day/Night T3 — the ONE emissive driver the city's fixtures register with, the two
+// dressing meshes that had no mesh to ride, and the HUD's phase medallion.
+import { CityNightDressing } from './CityNightDressing';
+import { applyCityFixtureGlow } from '../../../utils/cityFixtureGlow';
+import { PhaseMedallion } from '../../ui/PhaseMedallion';
 import { resolveTimeState } from '../../../utils/timeState';
 import { getPhaseLight } from '../../../utils/atmosphere';
 import { SceneBrightness } from '../SceneBrightness';
@@ -373,6 +378,19 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const cityPhase = resolveTimeState(playerProfile).phase;
   const cityPhaseLight = getPhaseLight(cityPhase);
   const isOathRig = lightProfile === 'oathDawn';
+
+  /**
+   * Day/Night T3 — ONE emissive driver for the city's lamps, braziers and lanterns.
+   *
+   * The row's own `lampGlow` (0 at midday = unlit, 1.0 at night = streets lamplit) is
+   * written into every fixture material registered with `utils/cityFixtureGlow.ts`. It
+   * runs in a LAYOUT effect — children register theirs before this one — so the first
+   * painted frame is already at the right hour, and it re-runs only when the hour
+   * changes: nothing here touches a frame. No mesh, no light and no draw call is added.
+   */
+  useLayoutEffect(() => {
+    applyCityFixtureGlow(cityPhaseLight.lampGlow);
+  }, [cityPhaseLight.lampGlow]);
 
   /**
    * SF-1 — the Canvas's DPR is STATE now, not a constant: the tier sets its starting
@@ -1097,6 +1115,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <NorthernMotte />
               <Drawbridge />
               <NorthernFortress />
+              {/* Day/Night T3 — the fortress watch-fire (night) and the shrine's smoke
+                  (dawn on Dies Fortunae). Both are conditionally mounted, so at every
+                  other hour the city draws exactly the meshes it always did. */}
+              <CityNightDressing phase={cityPhase} profile={playerProfile} />
               {/* Phase C-8.64A — East Circus District: the chariot arena's
                   placement prototype, east of the city (X 37.6 … 66.3).  Its own
                   Suspense (the Colosseum sign's pattern) keeps the GLB's first
@@ -1132,6 +1154,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       {/* TOP STATUS HEADER BAR */}
       <header className="absolute top-0 left-0 right-0 p-3 sm:p-5 pointer-events-none flex justify-between items-start z-10">
         <div className="pointer-events-auto flex flex-col items-start gap-2">
+        {/* Day/Night T3 — the phase medallion: the sun-arc, seven notches, and the disc
+            at the clock's hour, in the phase's own class colour. Display only. */}
+        <PhaseMedallion phase={cityPhase} />
         <div className="flex items-center gap-2 bg-neutral-950/85 border border-amber-600/50 p-2 sm:p-3 rounded-2xl backdrop-blur-md shadow-2xl">
           <button
             onClick={() => setShowNavDrawer(!showNavDrawer)}
