@@ -55,6 +55,30 @@ export interface Keeper {
    * nothing about stock, prices or availability changes with the hour.
    */
   nightLine?: string;
+  /**
+   * K4 — the states this counter speaks to instead of its own greeting
+   * (building-keepers.md §4.1(c)). A state line overrides BOTH the first-visit
+   * and the repeat line, and the night clerk's too: STATE > NIGHT > own.
+   * Optional: a keeper without one simply keeps its own lines, and no plate ever
+   * blocks its panel's business — the plate is a header, not a modal.
+   */
+  stateLines?: KeeperStateLines;
+}
+
+/**
+ * K4 — the optional per-state lines.  Each state line is AUTHORED for this
+ * slice, not design-transcribed: the design file defines the rule
+ * (§4.1(c)) and writes no pool of words, so the prose below is each keeper's
+ * own voice, naming the state plainly and pointing at the counter's service.
+ * A broke line commiserates and points — it NEVER offers a discount.
+ */
+export interface KeeperStateLines {
+  /** A live injury (`resolveActiveInjury` is present). */
+  injured?: string;
+  /** No live injury, where that itself is worth saying (Barates only). */
+  uninjured?: string;
+  /** The purse is below this counter's lowest purchasable price. */
+  broke?: string;
 }
 
 /**
@@ -79,6 +103,11 @@ export const KEEPERS: Keeper[] = [
     ],
     nightLine:
       "Sextus has banked the forge and gone up. I'm the night clerk — the blades are his, the prices are his, and the lamp is mine.",
+    // K4 — authored, not design-transcribed.
+    stateLines: {
+      broke:
+        'Empty purse, is it? Then test the edges and come back with gold — honest steel at an honest price keeps. I would sooner you know a blade than owe me for one.',
+    },
   },
   {
     id: 'salvia_coriaria',
@@ -92,6 +121,11 @@ export const KEEPERS: Keeper[] = [
     ],
     nightLine:
       "Salvia's asleep and the straps can wait till morning — but I'm the night clerk, and the rack is open. Fittings by lamplight, same as by day.",
+    // K4 — authored, not design-transcribed.
+    stateLines: {
+      broke:
+        "You've come to look, then, not to buy — the rack is open, every tag on it is honest, and your purse has the last word. Stand and look; when the gold comes, we fit it properly.",
+    },
   },
   {
     id: 'pasion_of_alexandria',
@@ -105,6 +139,11 @@ export const KEEPERS: Keeper[] = [
     ],
     nightLine:
       "The stall is kept by the night clerk now. Poultices and salves are exactly where Pasion left them, at exactly his prices.",
+    // K4 — authored, not design-transcribed.
+    stateLines: {
+      broke:
+        'Ah — a man who comes to look! The poultice is twenty, the salve ninety, and the purse says not today. Browse, friend, browse; a bargain keeps better than a promise.',
+    },
   },
   {
     id: 'gaius_norbanus_sura',
@@ -116,6 +155,12 @@ export const KEEPERS: Keeper[] = [
     repeatLines: ['The Vipers are still here. They wait better than you do.'],
     nightLine:
       "The factor keeps civilised hours; I don't. I'm the night clerk — the rare shelf is locked, not closed, and I know where he keeps the key.",
+    // K4 — authored, not design-transcribed. Sura is never hostile: a customer
+    // without gold is simply early.
+    stateLines: {
+      broke:
+        'You are early, that is all — the rare and the legendary keep, and so do I. Come back when the purse has caught up with the taste; the Vipers will still be waiting.',
+    },
   },
   {
     id: 'antiochis_of_pergamon',
@@ -127,6 +172,12 @@ export const KEEPERS: Keeper[] = [
     repeatLines: [
       'Back again. At this rate I should charge the Colosseum rent — you are here more often than its statues.',
     ],
+    // K4 — authored, not design-transcribed. Her panel opens ONLY with a live
+    // injury, so she has no uninjured line: one would be dead content.
+    stateLines: {
+      injured:
+        'Injured, then — I can see it from here. 75 gold, and I close it whole and clean; by supper neither of us will remember it.',
+    },
   },
   {
     id: 'barates_of_palmyra',
@@ -138,6 +189,14 @@ export const KEEPERS: Keeper[] = [
     repeatLines: [
       'Your usual pallet is free, and I have kept the noisy Romans at the far end. You are welcome.',
     ],
+    // K4 — authored, not design-transcribed. The Inn opens awake and wounded, so
+    // the host speaks to both states.
+    stateLines: {
+      injured:
+        'Hurt, are you, friend? Twenty-five gold and a night on the pallet takes two fights off that wound — no problem, and no lie in it: the Medica is quicker, I am cheaper.',
+      uninjured:
+        'Nothing to mend tonight, friend, so rest is just rest — the pallet, the quiet, the road off your feet by morning. Twenty-five gold, and the noisy Romans stay at the far end.',
+    },
   },
   {
     id: 'hanno_of_carthage',

@@ -11,6 +11,9 @@ import {
 // Day/Night T3 — the counter's line follows the clock's phase. Display only, read
 // through the day-boundary seam's own display reader.
 import { resolveDisplayClock } from '../../utils/dayRollover';
+// K4 — the storefront's STATE line (a purse below the shelves' cheapest price).
+// Inserted at the top of the line precedence below; it reads no price of its own.
+import { keeperStateLineFor } from '../../utils/keeperStateLines';
 import { KeeperPlate } from './KeeperPlate';
 import { CONSUMABLES, ConsumableItem } from '../../data/consumables';
 import { getConsumableCount } from '../../utils/consumables';
@@ -120,7 +123,14 @@ export const ShopTab: React.FC<ShopTabProps> = ({
    */
   const shopIsNight = resolveDisplayClock(profile).phase === 'night';
   const nightLine = keeper ? nightClerkLine(keeper) : '';
-  const displayedKeeperLine = shopIsNight && nightLine ? nightLine : keeperLine;
+  /**
+   * K4 — STATE > NIGHT > own: a broke purse is the most specific thing a counter
+   * can be told, so its line overrides both the greeting and the night clerk.
+   * Evaluated per render, like the hour above; the visit record below is
+   * untouched, and nothing here reaches a price or a button.
+   */
+  const stateLine = keeper ? keeperStateLineFor(keeper, profile, shopId) : '';
+  const displayedKeeperLine = stateLine || (shopIsNight && nightLine ? nightLine : keeperLine);
   const keeperId = keeper?.id;
 
   // K1 — the first visit is recorded once per mount, at the moment the plate is
