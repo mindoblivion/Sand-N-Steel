@@ -549,6 +549,12 @@ describe('PITCH A1 §F — the bout index, replacement, and what may consume an 
       }
     };
     walk(SRC_ROOT);
+    // REBASED, not weakened — STORY-3 added one consumer: the campaign's own
+    // read path (`utils/storyState.ts`) reads Beat 3's evidence through
+    // `resolveOmen` / `isTrickleClaimed`, because a live omen OR the decline
+    // marker is what completes Chapter 2's omen gate. It is a pure reader with no
+    // writer and no UI, and the list is still exhaustive: the exact set, not a
+    // filter, so a sixth consumer still fails this test.
     expect(importers.sort()).toEqual([
       'App.tsx',
       'components/3d/city/CityHubScene.tsx',
@@ -557,6 +563,7 @@ describe('PITCH A1 §F — the bout index, replacement, and what may consume an 
       'components/hub/PreFightModal.tsx',
       'utils/fortunasOmen.test.ts',
       'utils/saveCorpus.test.ts',
+      'utils/storyState.ts',
     ]);
   });
 });

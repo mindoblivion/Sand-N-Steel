@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from '../../types/game';
 import { TournamentTab } from './TournamentTab';
 import { TrainingTab } from './TrainingTab';
@@ -29,6 +29,9 @@ import { sounds } from '../../audio/soundEffects';
 import { resolveDisplayClock } from '../../utils/dayRollover';
 // PITCH A1 — the omen line the pre-fight card prints, read lazily from the save.
 import { resolveOmen } from '../../utils/omens';
+// STORY-3 — Chapter 2's Beat 3: Postumia's briefing on the tournament final, and
+// the herald's circus pointer while the chapter's District race gate is unmet.
+import { FORTUNA_SHRINE_BRIEFING, isFortunaBriefingDue } from '../../utils/storyChapterTwo';
 
 interface GladiatorSchoolHubProps {
   playerProfile: PlayerProfile;
@@ -75,6 +78,14 @@ interface GladiatorSchoolHubProps {
   onMarkCardSeen?: (id: string) => void;
   /** RG-3 — opens the Device Choosing panel from the banner row. */
   onOpenDeviceChoice?: () => void;
+  /**
+   * STORY-3 — the herald's circus pointer, already resolved by `App` from the
+   * campaign's own state: shown when the Colosseum tab opens while Chapter 2 is
+   * open and its race gate is unmet, and `null` otherwise.
+   */
+  heraldCircusCry?: string | null;
+  /** STORY-3 — hands that cry to `App`, which owns the herald's toast. */
+  onHeraldCry?: (cry: string) => void;
   /**
    * STORY-2 — the Doctore House's duel entry. `App` receives the restriction the
    * player chose together with the opponent, so the result write can judge the
@@ -127,6 +138,8 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onOpenSettings,
   onMarkCardSeen,
   onOpenDeviceChoice,
+  heraldCircusCry = null,
+  onHeraldCry,
   onEnterDoctoreTest,
   onPurchaseTriumph,
   onTemperItem,
@@ -145,6 +158,21 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
    */
   const [testRestriction, setTestRestriction] = useState<DoctoreTestRestriction | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+
+  /**
+   * STORY-3 — the herald's circus pointer (Director ruling 3). It is raised when
+   * the Colosseum tab opens, and only then. `HeraldToast` clears it on its own
+   * dismiss or timer, and a LATER open raises it again for as long as the
+   * cross-gate condition holds ("keeps mentioning"). The callback is held in a
+   * ref so an ordinary re-render of the hub can never re-raise the same cry.
+   */
+  const raiseHeraldCry = useRef(onHeraldCry);
+  raiseHeraldCry.current = onHeraldCry;
+  useEffect(() => {
+    if (activeTab !== 'tournament') return;
+    if (!heraldCircusCry) return;
+    raiseHeraldCry.current?.(heraldCircusCry);
+  }, [activeTab, heraldCircusCry]);
 
   /**
    * CL-2 — the first-open coach card, decided once from the profile the hub was
@@ -347,11 +375,15 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           opponent={selectedOpponent}
           /* Day/Night T3 — the hour the card is opened in, for its phase line. */
           phase={resolveDisplayClock(playerProfile).phase}
-          /* STORY-2 — the novice bout's framing, fresh profiles only. */
+          /* STORY-2 — the novice bout's framing, fresh profiles only.
+             STORY-3 — BEAT 3 rides the same surface: Postumia's briefing on the
+             chapter's tournament final, until the omen is taken or declined. */
           narration={
             isNoviceBoutOpponent(selectedOpponent) && isNoviceBoutDue(playerProfile)
               ? NOVICE_BOUT_BRIEFING
-              : undefined
+              : isFortunaBriefingDue(playerProfile, selectedOpponent)
+                ? FORTUNA_SHRINE_BRIEFING
+                : undefined
           }
           /* STORY-2 — the Test prints the rule the player chose (and its reason). */
           restriction={isDoctoreTestOpponent(selectedOpponent) ? testRestriction : null}
