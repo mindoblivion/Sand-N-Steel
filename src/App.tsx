@@ -24,6 +24,7 @@ import { purchaseItem } from './utils/itemPurchase';
 import { withArmaturaPledge } from './utils/armaturaPledge';
 import { applyPalmaEarns, equipPalma, purchaseDoctorePalma, unequipPalma } from './utils/palmaeState';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
+import { recordKeeperVisit } from './data/keepers';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
 // city hub and the duel arena are: one more screen value, one more lazy import
@@ -607,6 +608,20 @@ export function App() {
     if (!marked || marked === profile) return;
     setProfile(marked);
     saveProfile(marked);
+  };
+
+  /**
+   * K1 — the one place `seenKeepers` is written.  `recordKeeperVisit` is pure and
+   * returns the SAME profile for a keeper already met (and for an id the registry
+   * does not know), so a repeat visit or a stale call neither re-renders nor
+   * reaches `saveProfile`: only a real first visit is persisted, and only this
+   * field changes.
+   */
+  const handleRecordKeeperVisit = (keeperId: string) => {
+    const visited = recordKeeperVisit(profile, keeperId);
+    if (!visited || visited === profile) return;
+    setProfile(visited);
+    saveProfile(visited);
   };
 
   /**
@@ -1213,6 +1228,7 @@ export function App() {
             gearView={gearView}
             onGearViewChange={setGearView}
             shopId={shopId}
+            onRecordKeeperVisit={handleRecordKeeperVisit}
             onBuyChariotPart={handleBuyChariotPart}
             onEquipChariotPart={handleEquipChariotPart}
             onBuyRacingConfig={handleBuyRacingConfig}

@@ -42,6 +42,7 @@ import stableEraProfile from './stableEraProfile.json';
 import facilitiesEraProfile from './facilitiesEraProfile.json';
 import armaturaPalmaeProfile from './armaturaPalmaeProfile.json';
 import grudgeEraProfile from './grudgeEraProfile.json';
+import keepersEraProfile from './keepersEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -248,6 +249,18 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every older fixture omits the field, the legacy shape a load must survive',
     ],
     profile: asProfile(grudgeEraProfile),
+  },
+  {
+    id: 'keepers-era',
+    file: 'keepersEraProfile.json',
+    provenance:
+      'The C-8.70C grudge-era save with the K1 keeper record hand-aged on: two keepers met at their counters (the forge and the armorer) — the exact shape a first storefront visit persists.',
+    covers: [
+      'the `seenKeepers` record populated (K1): two keeper ids, in the order they were met',
+      'every post-GC20 optional field populated, seenKeepers included',
+      'every older fixture omits the field, the legacy shape a load must survive',
+    ],
+    profile: asProfile(keepersEraProfile),
   },
 ];
 

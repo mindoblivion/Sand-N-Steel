@@ -131,8 +131,10 @@ import { resolveStableState } from './stableProgression';
 import { resolveFacilities } from './facilityProgression';
 // CH-1 — the class and the palmae, read the way a later class screen would.
 import { resolveArmatura, resolvePalmae } from './traitModifiers';
-// C-8.70C — the grudge record's lazy reader (the newest optional field).
+// C-8.70C — the grudge record's lazy reader.
 import { resolveGrudges } from './grudgeBouts';
+// K1 — the keepers met, read the way a storefront's plate reads them.
+import { resolveSeenKeepers } from '../data/keepers';
 
 // ── The corpus on disk ─────────────────────────────────────────────────────
 const FIXTURE_DIR = fileURLToPath(new URL('./saveFixtures/', import.meta.url));
@@ -158,6 +160,8 @@ const REQUIRED_FIXTURE_IDS = [
   'facilities-era',
   'armatura-palmae',
   'grudge-era',
+  // K1 — the first-visit keeper record.
+  'keepers-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -236,6 +240,8 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const palmae = resolvePalmae(profile);
   // C-8.70C — the grudge record, read the way the Colosseum tab reads it.
   const grudges = resolveGrudges(profile);
+  // K1 — the keepers this gladiator has met, read the way a storefront does.
+  const seenKeepers = resolveSeenKeepers(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -261,6 +267,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     armatura,
     palmae,
     grudges,
+    seenKeepers,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -519,6 +526,11 @@ for (const fixture of SAVE_FIXTURES) {
         // C-8.70C — a save written before the field reads as "no grudges".
         expect(resolveGrudges(profile)).toEqual({});
       }
+      if (!('seenKeepers' in raw) || raw.seenKeepers === null) {
+        absentFields += 1;
+        // K1 — a save written before the field reads as "met nobody".
+        expect(resolveSeenKeepers(profile)).toEqual([]);
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -541,6 +553,7 @@ for (const fixture of SAVE_FIXTURES) {
         'armatura',
         'palmae',
         'grudges',
+        'seenKeepers',
       ];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
@@ -768,6 +781,18 @@ describe('GC20 §F — what each shape resolves to', () => {
     expect(resolveGrudges(fixtureById('minimal-legacy').profile)).toEqual({});
     expect('grudges' in rawOf(fixtureById('current-fresh'))).toBe(false);
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('grudges');
+  });
+
+  test('the K1 keeper record resolves to what it stores, and no factory save carries it', () => {
+    const profile = fixtureById('keepers-era').profile;
+    // Two counters opened, in the order the player met them.
+    expect(resolveSeenKeepers(profile)).toEqual(['sextus_ferratus', 'salvia_coriaria']);
+
+    // Lazy: a save written before this slice has met nobody, and the factory
+    // writes no field at all — the shape a later load must keep surviving.
+    expect(resolveSeenKeepers(fixtureById('minimal-legacy').profile)).toEqual([]);
+    expect('seenKeepers' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('seenKeepers');
   });
 
   test('null where an object is expected resolves to both defaults', () => {
@@ -1029,8 +1054,9 @@ describe('GC20 §J — the corpus rule', () => {
       'facilities',
       'armatura',
       'palmae',
-      // C-8.70C — the grudge record, appended last in `game.ts` declaration order.
       'grudges',
+      // K1 — the keepers met, appended last in `game.ts` declaration order.
+      'seenKeepers',
     ]);
 
     // Every optional field with a resolver has a fixture for both its absent and
@@ -1052,6 +1078,7 @@ describe('GC20 §J — the corpus rule', () => {
       'armatura',
       'palmae',
       'grudges',
+      'seenKeepers',
     ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);
