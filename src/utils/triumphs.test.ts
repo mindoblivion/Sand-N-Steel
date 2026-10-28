@@ -85,7 +85,7 @@ const ludiProfile = (patch: Partial<LudiProgress>): PlayerProfile =>
       favour: 0,
       lastAlmsDay: 0,
       fameBaseline: 0,
-      visitsToday: 0,
+      visitsToday: [],
       ...patch,
     },
   });

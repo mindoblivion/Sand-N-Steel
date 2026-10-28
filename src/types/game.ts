@@ -968,7 +968,8 @@ export interface OmenState {
  * belongs to, so the calendar never reads a wall clock; `deedsDone` holds the ids paid
  * today; `favour` is the persistent daily currency; `lastAlmsDay` is the day the shrine's
  * alms was last taken (the once-a-day guard); `fameBaseline` is the fame the gladiator woke
- * with (the 100-fame deed's own mark) and `visitsToday` counts named places walked into.
+ * with (the 100-fame deed's own mark) and `visitsToday` lists the `HUB_LOCATIONS` ids walked
+ * into today (deduped, in visit order) — the evidence the day's ONE named visit deed reads.
  *
  * Optional and LAZY, exactly like `chariot`, `racing` and `records`: a save written before
  * this slice has no field and must keep loading, so `resolveLudiProgress`
@@ -988,8 +989,12 @@ export interface LudiProgress {
   lastAlmsDay: number;
   /** The `fame` the gladiator woke with on `day` — the 100-fame deed's baseline. */
   fameBaseline: number;
-  /** Named `HUB_LOCATIONS` walked into today. */
-  visitsToday: number;
+  /**
+   * The `HUB_LOCATIONS` ids walked into today, deduped, in visit order. A PRE-CORRECTION save
+   * stored a count here instead; a stored number reads as `[]`, because a count says nothing
+   * about which districts were walked (`resolveLudiProgress`).
+   */
+  visitsToday: string[];
 }
 
 export interface PlayerProfile {

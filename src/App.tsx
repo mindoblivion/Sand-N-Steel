@@ -882,11 +882,11 @@ export function App() {
    */
   const handleVisitLocation = (locationId: string) => {
     if (!profile) return;
-    // LUDI PHASE A — the city's visit seam is one of the calendar's three: a named
-    // `HUB_LOCATIONS` interaction is the "walk the city" deed's whole evidence, and the
-    // settlement counts the visit even on a day that does not ask for one. Both helpers
-    // are identity-stable, so an ordinary repeat visit still saves nothing.
-    const ludi = settleLudiDeeds(withCodexLocation(profile, locationId), { visited: true });
+    // LUDI PHASE A — the city's visit seam is one of the calendar's three: the location id
+    // is the visit deed's whole evidence. The settlement records the place in the day's list
+    // and pays the deed only when it is the ONE district today's Acta asks for. Both helpers
+    // are identity-stable, so a repeat visit to the same place still saves nothing.
+    const ludi = settleLudiDeeds(withCodexLocation(profile, locationId), { locationId });
     if (ludi.profile === profile) return;
     setProfile(ludi.profile);
     saveProfile(ludi.profile);

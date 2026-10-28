@@ -20,6 +20,14 @@
  *     player who may not be able to do it yet. A progress-scaled pool is the design's long
  *     shape; Phase A's pool is the always-available five.
  *
+ *   • THE VISIT DEED NAMES ITS PLACE. Four of the five shapes ask the same thing every day;
+ *     the visit deed asks for ONE NAMED `HUB_LOCATIONS` — one of the city's twenty-one —
+ *     hash-picked per day in the same FNV-1a family as the deed draw (`ludiVisitLocationForDay`)
+ *     and printed with that place's own display name (`ludiDeedLabel`). A visit SOMEWHERE ELSE
+ *     is recorded in `visitsToday` (the day's list of ids, deduped, in visit order) and does
+ *     NOT pay the deed: only the day's own district does. The place and its name come from
+ *     `cityCollisions.ts`, so a renamed building renames its deed.
+ *
  *   • EACH DEED PAYS 5 FAME + 10 GOLD, once, in the SAME save as the act that completed it.
  *     `settleLudiDeeds` is the one settlement: it reads the profile as it stands, decides
  *     which of today's unfinished deeds the event satisfies, pays them all in ONE
@@ -37,8 +45,8 @@
  *     it once per exertion day. The Omen's price, its effects and its expiry are untouched.
  *
  *   • THE ROLLOVER resets the day's own state and keeps the rest: `applyLudiRollover` clears
- *     `deedsDone` / `fameBaseline` / `visitsToday` and re-bases the fame baseline on the fame
- *     the gladiator wakes with. `favour` and `records.laudes` persist.
+ *     `deedsDone` / `fameBaseline` / `visitsToday` (to an empty list) and re-bases the fame
+ *     baseline on the fame the gladiator wakes with. `favour` and `records.laudes` persist.
  *
  * ── WHAT IS NOT HERE ─────────────────────────────────────────────────────────
  * No gameplay modifier of any kind (Phase B), no Grand Deed, no First Sixty Seconds. Nothing
@@ -50,7 +58,12 @@
  * `PlayerProfile.ludi` (`LudiProgress`, `types/game.ts`). A save written before this slice
  * has no field at all and must keep loading, so `resolveLudiProgress` reads a missing, null
  * or malformed field as a fresh day rather than repairing it — the same total-reader
- * contract `resolveRacingState` and `resolveRecords` keep. Nothing migrates.
+ * contract `resolveRacingState` and `resolveRecords` keep. Nothing migrates. The field has
+ * one tolerance: a PRE-CORRECTION save stored `visitsToday` as a COUNT, which says nothing
+ * about WHICH districts were walked, so a stored number reads as `[]` (the game is unshipped
+ * and only dev saves hold that shape). `deedsDone` is left exactly as stored — a visit deed
+ * paid under the old rule stays paid, because rewriting a save's history is a migration and
+ * this module migrates nothing.
  */
 import type { LudiProgress, PlayerProfile } from '../types/game';
 import {
@@ -61,6 +74,7 @@ import {
 } from './dayRollover';
 import { resolveTimeState } from './timeState';
 import { resolveLaudes, withLaudes } from './diceTrail';
+import { HUB_LOCATIONS } from './cityCollisions';
 
 /* ── The five deed shapes ─────────────────────────────────────────────────── */
 
@@ -78,13 +92,25 @@ export interface LudiDeed {
 }
 
 /** The pool, in its frozen order (the hash draws indexes into this list). */
-export const LUDI_DEEDS: readonly LudiDeed[] = [
-  { id: 'win_duel', label: 'Take a victory on the sand.' },
-  { id: 'peak_hype', label: 'Win a bout with the crowd above 40 hype.' },
-  { id: 'train', label: 'Put in one session at the training yard.' },
-  { id: 'visit_hub', label: 'Walk the city and visit a named place.' },
-  { id: 'earn_fame', label: 'Earn 100 fame over the mark you woke with.' },
+export const LUDI_DEEDS: readonly LudiDeedId[] = [
+  'win_duel',
+  'peak_hype',
+  'train',
+  'visit_hub',
+  'earn_fame',
 ];
+
+/**
+ * The four shapes that ask the same thing every day. `visit_hub` is deliberately ABSENT:
+ * that deed names the one district today's Acta asks for, which is a property of the DAY and
+ * so cannot live in a fixed table — `ludiDeedLabel` is the one way any deed is printed.
+ */
+const LUDI_FIXED_LABELS: Readonly<Record<Exclude<LudiDeedId, 'visit_hub'>, string>> = {
+  win_duel: 'Take a victory on the sand.',
+  peak_hype: 'Win a bout with the crowd above 40 hype.',
+  train: 'Put in one session at the training yard.',
+  earn_fame: 'Earn 100 fame over the mark you woke with.',
+};
 
 /** How many deeds a day's Acta posts. */
 export const LUDI_DEED_COUNT = 3;
@@ -104,11 +130,6 @@ export const LUDI_LAUREL_FAVOUR = 1;
 
 /** What one alms-day pays into Favour. */
 export const LUDI_ALMS_FAVOUR = 1;
-
-/** A deed by id — the pool is closed, so an unknown id has no entry. */
-export const LUDI_DEED_BY_ID: ReadonlyMap<LudiDeedId, LudiDeed> = new Map(
-  LUDI_DEEDS.map((deed) => [deed.id, deed]),
-);
 
 /* ── The seven days' characters ───────────────────────────────────────────── */
 
@@ -145,6 +166,11 @@ function fnv1a(key: string): number {
   return hash >>> 0;
 }
 
+/** The exertion day as the draws see it: whole, and never non-finite. */
+function wholeDay(day: number): number {
+  return Number.isFinite(day) ? Math.floor(day) : 1;
+}
+
 /**
  * The three deeds of one exertion day.
  *
@@ -155,8 +181,8 @@ function fnv1a(key: string): number {
  * same exertion day read the same Acta.
  */
 export function ludiDeedsForDay(day: number): LudiDeedId[] {
-  const whole = Number.isFinite(day) ? Math.floor(day) : 1;
-  const pool: LudiDeedId[] = LUDI_DEEDS.map((deed) => deed.id);
+  const whole = wholeDay(day);
+  const pool: LudiDeedId[] = [...LUDI_DEEDS];
   const picked: LudiDeedId[] = [];
   let hash = fnv1a(`ludi:${whole}`);
   while (picked.length < LUDI_DEED_COUNT && pool.length > 0) {
@@ -165,6 +191,51 @@ export function ludiDeedsForDay(day: number): LudiDeedId[] {
     hash = fnv1a(`ludi:${hash}`);
   }
   return picked;
+}
+
+/** Every `HUB_LOCATIONS` id, in the registry's own order — the Acta's pool of places. */
+export const LUDI_VISIT_LOCATION_IDS: readonly string[] = HUB_LOCATIONS.map(
+  (location) => location.id,
+);
+
+/**
+ * THE DAY'S ONE PLACE — the district the visit deed names.
+ *
+ * The same FNV-1a family as the deed draw, on its own key, so the place is as deterministic
+ * as the deed set and the two draws never shadow each other: the same exertion day names the
+ * same district on every device, in every session, and it is always a place the city has.
+ * PURE, and no clock: the day is the only input.
+ */
+export function ludiVisitLocationForDay(day: number): string {
+  const span = LUDI_VISIT_LOCATION_IDS.length;
+  return LUDI_VISIT_LOCATION_IDS[fnv1a(`ludi:visit:${wholeDay(day)}`) % span];
+}
+
+/** That place's display name, exactly as the city's registry spells it. */
+export function ludiVisitLocationName(day: number): string {
+  const id = ludiVisitLocationForDay(day);
+  return HUB_LOCATIONS.find((location) => location.id === id)?.name ?? id;
+}
+
+/**
+ * The Acta's visit line for the day: it NAMES the district, in the gazette's voice. A name
+ * that already leads with its article keeps it ("The Grand Colosseum" becomes "Visit the
+ * Grand Colosseum."); every other name takes the definite article ("Visit the Ludus Martial
+ * Yard.").
+ */
+export function ludiVisitLabelForDay(day: number): string {
+  const name = ludiVisitLocationName(day);
+  return name.startsWith('The ') ? `Visit the ${name.slice(4)}.` : `Visit the ${name}.`;
+}
+
+/** One deed as the Acta prints it on `day` — the visit deed carries that day's district. */
+export function ludiDeedLabel(id: LudiDeedId, day: number): string {
+  return id === 'visit_hub' ? ludiVisitLabelForDay(day) : LUDI_FIXED_LABELS[id];
+}
+
+/** Today's three deeds, LABELLED — the one way a surface should print them. */
+export function ludiDeedsOfDay(day: number): LudiDeed[] {
+  return ludiDeedsForDay(day).map((id) => ({ id, label: ludiDeedLabel(id, day) }));
 }
 
 /* ── The lazy reader ──────────────────────────────────────────────────────── */
@@ -186,12 +257,41 @@ function knownDeeds(value: unknown): LudiDeedId[] {
   const seen = new Set<string>();
   const out: LudiDeedId[] = [];
   for (const entry of value) {
-    if (typeof entry !== 'string' || !LUDI_DEED_BY_ID.has(entry as LudiDeedId)) continue;
+    if (typeof entry !== 'string' || !LUDI_DEEDS.includes(entry as LudiDeedId)) continue;
     if (seen.has(entry)) continue;
     seen.add(entry);
     out.push(entry as LudiDeedId);
   }
   return out;
+}
+
+/**
+ * A stored visit list: non-empty ids only, deduped, in STORED (visit) order.
+ *
+ * The tolerance rule lives here: a pre-correction save stored a COUNT, and a number says
+ * nothing about which districts were walked — so anything that is not an array reads as `[]`.
+ */
+function knownVisits(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string' || entry.length === 0) continue;
+    if (seen.has(entry)) continue;
+    seen.add(entry);
+    out.push(entry);
+  }
+  return out;
+}
+
+/**
+ * The day's visit list with `locationId` appended once: a repeat visit to the same place is
+ * not a second entry, and no id leaves the list as the SAME array (so the settlement's
+ * identity-stability check keeps working).
+ */
+function recordVisit(list: string[], locationId: string | undefined): string[] {
+  if (typeof locationId !== 'string' || locationId.length === 0) return list;
+  return list.includes(locationId) ? list : [...list, locationId];
 }
 
 /**
@@ -207,7 +307,7 @@ export function resolveLudiProgress(profile: PlayerProfile | null | undefined): 
     favour: Math.max(0, finiteOr(field?.favour, 0)),
     lastAlmsDay: Math.max(0, finiteOr(field?.lastAlmsDay, 0)),
     fameBaseline: Math.max(0, finiteOr(field?.fameBaseline, 0)),
-    visitsToday: Math.max(0, finiteOr(field?.visitsToday, 0)),
+    visitsToday: knownVisits(field?.visitsToday),
   };
 }
 
@@ -231,7 +331,7 @@ function todayProgress(profile: PlayerProfile, day: number): LudiProgress {
     favour: field.favour,
     lastAlmsDay: field.lastAlmsDay,
     fameBaseline: 0,
-    visitsToday: 0,
+    visitsToday: [],
   };
 }
 
@@ -251,8 +351,10 @@ export interface ResolvedLudiState {
   dayName: string;
   /** The day's one line of character. */
   characterLine: string;
-  /** The three deeds, in the order the hash drew them, each with its state. */
+  /** The three deeds, in the order the hash drew them, each with its LABELLED text. */
   deeds: ResolvedLudiDeed[];
+  /** The one district the day's visit deed names (`HUB_LOCATIONS` id). */
+  visitLocation: string;
   /** The ids already paid today (today's only — a stale day's list never leaks in). */
   deedsDone: LudiDeedId[];
   /** How many of today's deeds are still owed. */
@@ -269,8 +371,8 @@ export interface ResolvedLudiState {
   laudes: number;
   /** The fame this gladiator woke with today. */
   fameBaseline: number;
-  /** Named places walked into today. */
-  visitsToday: number;
+  /** The `HUB_LOCATIONS` ids walked into today, deduped, in visit order. */
+  visitsToday: string[];
 }
 
 /** Today's Acta, resolved. PURE and total, like every resolver in this repo. */
@@ -279,16 +381,14 @@ export function resolveLudiState(profile: PlayerProfile | null | undefined): Res
   const day = resolveLudiDay(source);
   const field = todayProgress(source, day);
   const done = new Set(field.deedsDone);
-  const deeds = ludiDeedsForDay(day).map((id) => ({
-    deed: LUDI_DEED_BY_ID.get(id) as LudiDeed,
-    done: done.has(id),
-  }));
+  const deeds = ludiDeedsOfDay(day).map((deed) => ({ deed, done: done.has(deed.id) }));
   const remaining = deeds.filter((entry) => !entry.done).length;
   return {
     day,
     dayName: ludiDayName(day),
     characterLine: LUDI_DAY_CHARACTER[ludiIndexForDay(day)],
     deeds,
+    visitLocation: ludiVisitLocationForDay(day),
     deedsDone: deeds.filter((entry) => entry.done).map((entry) => entry.deed.id),
     remaining,
     allDone: deeds.length > 0 && remaining === 0,
@@ -321,8 +421,12 @@ export interface LudiDeedEvent {
   crowdHypePeak?: number;
   /** A training session was paid for. */
   trained?: boolean;
-  /** A named `HUB_LOCATIONS` interaction fired. */
-  visited?: boolean;
+  /**
+   * The `HUB_LOCATIONS` id of a named interaction that just fired. It is RECORDED on every
+   * day (the day's list of places walked) but pays the visit deed only when it names the
+   * district today's Acta asks for.
+   */
+  locationId?: string;
   /**
    * This settlement is the DUEL RESULT's own, i.e. `fame` has just been recomputed by the
    * purse and the bounty. Only that seam may decide the 100-fame deed — which is why the
@@ -351,11 +455,19 @@ const NOTHING = (profile: PlayerProfile): LudiSettlement => ({
 });
 
 /** Does this event satisfy this deed, reading the profile the transaction ARRIVED with? */
+/**
+ * Does this event satisfy this deed, reading the profile the transaction ARRIVED with?
+ * `visitsToday` is the day's list INCLUDING the visit this transaction just made, and
+ * `visitTarget` is the one district the day's visit deed names — so a visit anywhere else
+ * can never pay it.
+ */
 function deedSatisfied(
   id: LudiDeedId,
   profile: PlayerProfile,
   field: LudiProgress,
   event: LudiDeedEvent,
+  visitsToday: string[],
+  visitTarget: string,
 ): boolean {
   switch (id) {
     case 'win_duel':
@@ -365,7 +477,7 @@ function deedSatisfied(
     case 'train':
       return event.trained === true;
     case 'visit_hub':
-      return event.visited === true || field.visitsToday > 0;
+      return visitsToday.includes(visitTarget);
     case 'earn_fame':
       return (
         event.atDuelResult === true &&
@@ -381,15 +493,16 @@ function deedSatisfied(
  * THE ONE SETTLEMENT — a deed (or a hub visit) completed inside an existing save path.
  *
  * Called by the three shipped seams and nothing else: the duel result, `handleTrainStat` and
- * the city's `handleVisitLocation`. It
+ * the city's `handleVisitLocation` (which passes the location id it already resolved). It
  *
- *   1. resolves today's Acta and the stored day-state;
- *   2. decides which of today's UNPAID deeds the event satisfies, ONCE, from the profile as
+ *   1. resolves today's Acta, the stored day-state and the day's one visit district;
+ *   2. records the visit this transaction made in `visitsToday` (deduped, in visit order);
+ *   3. decides which of today's UNPAID deeds the event satisfies, ONCE, from the profile as
  *      it arrived — never from the profile it is about to write;
- *   3. pays every completed deed `LUDI_DEED_FAME` fame and `LUDI_DEED_GOLD` gold;
- *   4. if that completed the day, adds ONE Laurel through the shared `withLaudes` counter and
+ *   4. pays every completed deed `LUDI_DEED_FAME` fame and `LUDI_DEED_GOLD` gold;
+ *   5. if that completed the day, adds ONE Laurel through the shared `withLaudes` counter and
  *      ONE Favour (no extra gold, no extra fame);
- *   5. records the visit count and the paid ids.
+ *   6. records the paid ids.
  *
  * It is IDENTITY-STABLE when nothing moved (no deed, no visit, the stored day already today),
  * so a caller can compare object identity to decide whether a save is needed — the same
@@ -406,18 +519,20 @@ export function settleLudiDeeds(
   const raw = resolveLudiProgress(profile);
   const field = todayProgress(profile, day);
   const drawn = ludiDeedsForDay(day);
+  const visitTarget = ludiVisitLocationForDay(day);
   const done = new Set(field.deedsDone);
+  // The visit is recorded FIRST, so the deed reads the list the day will actually hold.
+  const visitsToday = recordVisit(field.visitsToday, event.locationId);
 
   // ONE pass, over the profile as it arrived: paying a deed cannot open another.
   const completed: LudiDeed[] = [];
   for (const id of drawn) {
     if (done.has(id)) continue;
-    if (!deedSatisfied(id, profile, field, event)) continue;
-    completed.push(LUDI_DEED_BY_ID.get(id) as LudiDeed);
+    if (!deedSatisfied(id, profile, field, event, visitsToday, visitTarget)) continue;
+    completed.push({ id, label: ludiDeedLabel(id, day) });
     done.add(id);
   }
 
-  const visitsToday = event.visited ? field.visitsToday + 1 : field.visitsToday;
   if (completed.length === 0 && visitsToday === field.visitsToday && raw.day === day) {
     return NOTHING(profile);
   }
@@ -502,7 +617,7 @@ export function applyLudiRollover(profile: PlayerProfile, day: number): PlayerPr
         typeof profile.fame === 'number' && Number.isFinite(profile.fame)
           ? Math.max(0, Math.floor(profile.fame))
           : 0,
-      visitsToday: 0,
+      visitsToday: [],
     },
   };
 }

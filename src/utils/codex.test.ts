@@ -518,7 +518,7 @@ describe('A5 §K — the surfaces and the wiring', () => {
     // LUDI PHASE A REBASE, not a weakening: the same ONE hub-interaction write now also
     // settles the Acta's visit on the codex-composed profile, so the visit is composed
     // first and the settlement's answer is what the single save pair carries.
-    expect(app).toContain('settleLudiDeeds(withCodexLocation(profile, locationId), { visited: true })');
+    expect(app).toContain('settleLudiDeeds(withCodexLocation(profile, locationId), { locationId })');
     expect(app).toContain('if (ludi.profile === profile) return;');
     expect(app).toContain('saveProfile(ludi.profile);');
     expect(app).toContain('onVisitLocation={handleVisitLocation}');

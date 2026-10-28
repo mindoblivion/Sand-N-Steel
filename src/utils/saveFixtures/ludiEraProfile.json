@@ -379,7 +379,9 @@
     "favour": 2,
     "lastAlmsDay": 12,
     "fameBaseline": 785,
-    "visitsToday": 1
+    "visitsToday": [
+      "arena_medical_house"
+    ]
   },
   "records": {
     "peakGold": 600,

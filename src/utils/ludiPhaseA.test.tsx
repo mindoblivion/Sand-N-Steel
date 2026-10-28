@@ -49,8 +49,13 @@ import {
   LUDI_DEED_GOLD,
   LUDI_LAUREL_FAVOUR,
   LUDI_PEAK_HYPE_TARGET,
+  LUDI_VISIT_LOCATION_IDS,
   applyLudiRollover,
+  ludiDeedLabel,
   ludiDeedsForDay,
+  ludiVisitLabelForDay,
+  ludiVisitLocationForDay,
+  ludiVisitLocationName,
   ludiSessionsRefreshed,
   resolveLudiDay,
   resolveLudiProgress,
@@ -108,12 +113,18 @@ const ludi = (patch: Partial<LudiProgress> = {}): LudiProgress => ({
   favour: 0,
   lastAlmsDay: 0,
   fameBaseline: 0,
-  visitsToday: 0,
+  visitsToday: [],
   ...patch,
 });
 
 /** A day whose Acta is known to draw exactly these ids (pinned by §B's own table). */
 const DAY_WITH = { winAndTrain: 10, trainHypeVisit: 12, winDuelOnly: 2 };
+
+/** Day 12's ONE named district, pinned by §B — the only place that pays its visit deed. */
+const DAY12_DISTRICT = 'arena_medical_house';
+
+/** A district day 12 does NOT ask for: a visit there is recorded and pays nothing. */
+const OTHER_DISTRICT = 'bathhouse';
 
 // ── §A the day's identity ─────────────────────────────────────────────────
 describe('LUDI A §A — the day is the exertion day, never a clock', () => {
@@ -173,7 +184,7 @@ describe('LUDI A §A — the day is the exertion day, never a clock', () => {
       favour: 0,
       lastAlmsDay: 0,
       fameBaseline: 0,
-      visitsToday: 0,
+      visitsToday: [],
     });
   });
 
@@ -189,6 +200,39 @@ describe('LUDI A §A — the day is the exertion day, never a clock', () => {
     const state = resolveLudiState({ ...onDay(3), ludi: ludi({ day: 3, deedsDone: ['nope', 'train', 'train'] }) });
     expect(resolveLudiProgress({ ...onDay(3), ludi: ludi({ day: 3, deedsDone: ['nope', 'train', 'train'] }) }).deedsDone).toEqual(['train']);
     expect(state.deeds.length).toBe(LUDI_DEED_COUNT);
+    // A visit list keeps only non-empty string ids, deduped, in its own order.
+    expect(
+      resolveLudiProgress({
+        ...onDay(12),
+        ludi: ludi({ day: 12, visitsToday: ['bathhouse', 'bathhouse', 7, '', 'tavern'] as unknown as string[] }),
+      }).visitsToday,
+    ).toEqual(['bathhouse', 'tavern']);
+  });
+
+  test('a pre-correction save’s NUMERIC visitsToday reads as [] and keeps its deedsDone', () => {
+    // The old rule stored a COUNT, which says nothing about WHICH districts were walked, so
+    // the districts are unknown and the list resolves empty. `deedsDone` is NOT rewritten: a
+    // visit deed paid under the old rule stays paid (a dev-save edge; the game is unshipped).
+    const legacy = {
+      ...onDay(12),
+      ludi: {
+        day: 12,
+        deedsDone: ['visit_hub'],
+        favour: 1,
+        lastAlmsDay: 12,
+        fameBaseline: 0,
+        visitsToday: 3,
+      } as unknown as LudiProgress,
+    };
+    const resolved = resolveLudiProgress(legacy);
+    expect(resolved.visitsToday).toEqual([]);
+    expect(resolved.deedsDone).toEqual(['visit_hub']);
+    expect(resolveLudiState(legacy).visitsToday).toEqual([]);
+    expect(resolveLudiState(legacy).deedsDone).toEqual(['visit_hub']);
+    // And the field is repaired by being READ in no way at all.
+    const before = JSON.stringify(legacy);
+    resolveLudiProgress(legacy);
+    expect(JSON.stringify(legacy)).toBe(before);
   });
 });
 
@@ -196,15 +240,21 @@ describe('LUDI A §A — the day is the exertion day, never a clock', () => {
 describe('LUDI B §B — three distinct deeds, drawn by the day alone', () => {
   test('the pool is the five shapes and holds no race deed and no boss deed', () => {
     expect(LUDI_DEEDS.length).toBe(5);
-    const ids = LUDI_DEEDS.map((deed) => deed.id);
-    expect(ids).toEqual(['win_duel', 'peak_hype', 'train', 'visit_hub', 'earn_fame']);
-    for (const deed of LUDI_DEEDS) {
+    expect([...LUDI_DEEDS]).toEqual(['win_duel', 'peak_hype', 'train', 'visit_hub', 'earn_fame']);
+    for (const id of LUDI_DEEDS) {
       for (const forbidden of ['race', 'chariot', 'circus', 'boss', 'champion']) {
-        expect(deed.id.toLowerCase()).not.toContain(forbidden);
-        expect(deed.label.toLowerCase()).not.toContain(forbidden);
+        expect(id.toLowerCase()).not.toContain(forbidden);
       }
-      expect(deed.label.endsWith('.')).toBe(true);
+      // Every shape prints one sentence per day, and it ends in a full stop.
+      for (let day = 1; day <= 7; day += 1) {
+        const label = ludiDeedLabel(id, day);
+        expect(label.length).toBeGreaterThan(10);
+        expect(label.endsWith('.')).toBe(true);
+      }
     }
+    // Only the FOUR fixed shapes are fixed — the visit deed is a day's own sentence.
+    expect(ludiDeedLabel('win_duel', 12)).toBe(ludiDeedLabel('win_duel', 3));
+    expect(ludiDeedLabel('visit_hub', 12)).toContain(ludiVisitLocationName(12));
   });
 
   test('every day draws three DISTINCT deeds from the pool', () => {
@@ -212,7 +262,7 @@ describe('LUDI B §B — three distinct deeds, drawn by the day alone', () => {
       const drawn = ludiDeedsForDay(day);
       expect(drawn.length).toBe(LUDI_DEED_COUNT);
       expect(new Set(drawn).size).toBe(LUDI_DEED_COUNT);
-      for (const id of drawn) expect(LUDI_DEEDS.map((deed) => deed.id)).toContain(id);
+      for (const id of drawn) expect(LUDI_DEEDS).toContain(id);
     }
   });
 
@@ -237,7 +287,7 @@ describe('LUDI B §B — three distinct deeds, drawn by the day alone', () => {
       drawn.forEach((id) => seen.add(id));
     }
     expect(signatures.size).toBeGreaterThanOrEqual(7);
-    expect([...seen].sort()).toEqual(LUDI_DEEDS.map((deed) => deed.id).sort());
+    expect([...seen].sort()).toEqual([...LUDI_DEEDS].sort());
   });
 
   test('the pinned draws the suite builds on are what the shipped hash answers', () => {
@@ -245,6 +295,47 @@ describe('LUDI B §B — three distinct deeds, drawn by the day alone', () => {
     expect(ludiDeedsForDay(2)).toEqual(['peak_hype', 'earn_fame', 'win_duel']);
     expect(ludiDeedsForDay(10)).toEqual(['earn_fame', 'win_duel', 'train']);
     expect(ludiDeedsForDay(12)).toEqual(['train', 'peak_hype', 'visit_hub']);
+  });
+
+  test('the day names ONE district, drawn from the city’s own twenty-one', () => {
+    expect(LUDI_VISIT_LOCATION_IDS.length).toBe(21);
+    for (let day = 1; day <= 70; day += 1) {
+      const id = ludiVisitLocationForDay(day);
+      expect(LUDI_VISIT_LOCATION_IDS).toContain(id);
+      // The place is the DAY's, not the save's: same day, same district, and a fractional
+      // day is the same day.
+      expect(ludiVisitLocationForDay(day)).toBe(id);
+      expect(ludiVisitLocationForDay(day + 0.9)).toBe(id);
+    }
+    // Recorded so a change to the hash is a deliberate, visible decision.
+    expect(ludiVisitLocationForDay(12)).toBe(DAY12_DISTRICT);
+    expect(ludiVisitLocationName(12)).toBe('Arena Medical House');
+    expect(ludiVisitLabelForDay(12)).toBe('Visit the Arena Medical House.');
+    // The pick is genuinely spread over the city, not the same place every day.
+    const picks = new Set(Array.from({ length: 14 }, (_, index) => ludiVisitLocationForDay(index + 1)));
+    expect(picks.size).toBeGreaterThanOrEqual(7);
+    // An article the name already carries is not doubled.
+    for (let day = 1; day <= 70; day += 1) {
+      const label = ludiVisitLabelForDay(day);
+      expect(label.startsWith('Visit the ')).toBe(true);
+      expect(label).not.toContain('the The ');
+      expect(label.endsWith('.')).toBe(true);
+    }
+  });
+
+  test('the Acta’s visit line names that district, and only that district’s deed', () => {
+    for (let day = 1; day <= 21; day += 1) {
+      const state = resolveLudiState(onDay(day));
+      const visit = state.deeds.find((entry) => entry.deed.id === 'visit_hub');
+      if (!visit) continue;
+      expect(state.visitLocation).toBe(ludiVisitLocationForDay(day));
+      expect(visit.deed.label).toBe(`Visit the ${ludiVisitLocationName(day)}.`.replace('the The ', 'the '));
+      expect(visit.deed.label).toContain(ludiVisitLocationName(day));
+    }
+    const day12 = resolveLudiState(onDay(12));
+    expect(day12.deeds.find((entry) => entry.deed.id === 'visit_hub')?.deed.label).toBe(
+      'Visit the Arena Medical House.',
+    );
   });
 
   test('a non-finite or fractional day is normalised, never an empty Acta', () => {
@@ -298,17 +389,47 @@ describe('LUDI C §C — deed completion inside the shipped save paths', () => {
     expect(trained.profile.fame).toBe(LUDI_DEED_FAME);
   });
 
-  test('a named hub visit is counted every time and pays the deed once', () => {
+  test('the visit deed needs the day’s OWN district — a visit elsewhere is recorded, not paid', () => {
     const start = onDay(DAY_WITH.trainHypeVisit, { ludi: ludi({ day: DAY_WITH.trainHypeVisit }) });
-    const first = settleLudiDeeds(start, { visited: true });
-    expect(first.completed.map((deed) => deed.id)).toEqual(['visit_hub']);
-    expect(resolveLudiProgress(first.profile).visitsToday).toBe(1);
-    const second = settleLudiDeeds(first.profile, { visited: true });
-    expect(second.completed).toEqual([]);
-    expect(resolveLudiProgress(second.profile).visitsToday).toBe(2);
-    expect(second.profile.fame).toBe(first.profile.fame);
-    // An unrelated settlement with no visit changes nothing at all.
-    expect(settleLudiDeeds(second.profile, {}).profile).toBe(second.profile);
+    expect(resolveLudiState(start).visitLocation).toBe(DAY12_DISTRICT);
+
+    // A visit SOMEWHERE ELSE is still a visit: it is recorded, and it pays nothing.
+    const elsewhere = settleLudiDeeds(start, { locationId: OTHER_DISTRICT });
+    expect(elsewhere.completed).toEqual([]);
+    expect(resolveLudiProgress(elsewhere.profile).visitsToday).toEqual([OTHER_DISTRICT]);
+    expect(elsewhere.profile.fame).toBe(start.fame);
+    expect(elsewhere.profile.gold).toBe(start.gold);
+
+    // The day's own district pays the deed — once — on top of the visit already recorded.
+    const right = settleLudiDeeds(elsewhere.profile, { locationId: DAY12_DISTRICT });
+    expect(right.completed.map((deed) => deed.id)).toEqual(['visit_hub']);
+    expect(right.completed[0].label).toBe('Visit the Arena Medical House.');
+    expect(resolveLudiProgress(right.profile).visitsToday).toEqual([OTHER_DISTRICT, DAY12_DISTRICT]);
+    expect(right.profile.fame).toBe(start.fame + LUDI_DEED_FAME);
+    expect(right.profile.gold).toBe(start.gold + LUDI_DEED_GOLD);
+
+    // A REPEAT visit to the same district is not a second entry and pays nothing — and the
+    // settlement hands back the caller's own object, so no save is written.
+    const again = settleLudiDeeds(right.profile, { locationId: DAY12_DISTRICT });
+    expect(again.completed).toEqual([]);
+    expect(again.profile).toBe(right.profile);
+    expect(resolveLudiProgress(again.profile).visitsToday).toEqual([OTHER_DISTRICT, DAY12_DISTRICT]);
+
+    // No id is not a visit; an unrelated settlement changes nothing at all.
+    expect(settleLudiDeeds(again.profile, { locationId: '' }).profile).toBe(again.profile);
+    expect(settleLudiDeeds(again.profile, {}).profile).toBe(again.profile);
+  });
+
+  test('the visit deed is paid on the DAY it names, and not on a day that names another place', () => {
+    // Day 11's Acta asks for a different district: visiting day 12's place there pays nothing.
+    const day11 = onDay(11);
+    expect(resolveLudiState(day11).visitLocation).not.toBe(DAY12_DISTRICT);
+    expect(settleLudiDeeds(day11, { locationId: DAY12_DISTRICT }).completed).toEqual([]);
+    // The same visit on day 12's Acta does pay it.
+    const day12 = onDay(DAY_WITH.trainHypeVisit);
+    expect(settleLudiDeeds(day12, { locationId: DAY12_DISTRICT }).completed.map((deed) => deed.id)).toEqual([
+      'visit_hub',
+    ]);
   });
 
   test('the 100-fame day is decided at a duel result, over the day’s own baseline', () => {
@@ -356,7 +477,7 @@ describe('LUDI D §D — the day’s third deed pays one Laurel and one Favour',
       records: { laudes: 4 },
       ludi: ludi({ day: DAY_WITH.trainHypeVisit, fameBaseline: 10 }),
     });
-    const done = settleLudiDeeds(start, { won: true, crowdHypePeak: 70, trained: true, visited: true, atDuelResult: true });
+    const done = settleLudiDeeds(start, { won: true, crowdHypePeak: 70, trained: true, locationId: DAY12_DISTRICT, atDuelResult: true });
     expect(done.completed.map((deed) => deed.id).sort()).toEqual(['peak_hype', 'train', 'visit_hub']);
     expect(done.laurelEarned).toBe(true);
     expect(done.favourEarned).toBe(LUDI_LAUREL_FAVOUR);
@@ -369,7 +490,7 @@ describe('LUDI D §D — the day’s third deed pays one Laurel and one Favour',
     expect(done.profile.ludi?.favour).toBe(1);
     expect(resolveLudiState(done.profile).allDone).toBe(true);
     // And it never pays twice.
-    const again = settleLudiDeeds(done.profile, { won: true, crowdHypePeak: 70, trained: true, visited: true });
+    const again = settleLudiDeeds(done.profile, { won: true, crowdHypePeak: 70, trained: true, locationId: DAY12_DISTRICT });
     expect(again.laurelEarned).toBe(false);
     expect(resolveLaudes(again.profile)).toBe(5);
     expect(again.profile.ludi?.favour).toBe(1);
@@ -381,7 +502,7 @@ describe('LUDI D §D — the day’s third deed pays one Laurel and one Favour',
       gold: 0,
       ludi: ludi({ day: DAY_WITH.trainHypeVisit, fameBaseline: 900 }),
     });
-    const two = settleLudiDeeds(start, { trained: true, visited: true });
+    const two = settleLudiDeeds(start, { trained: true, locationId: DAY12_DISTRICT });
     expect(two.completed.length).toBe(2);
     expect(two.laurelEarned).toBe(false);
     expect(resolveLaudes(two.profile)).toBe(0);
@@ -390,7 +511,7 @@ describe('LUDI D §D — the day’s third deed pays one Laurel and one Favour',
 
   test('the Laurel is the counter `withLaudes` writes — never a forked field', () => {
     const start = onDay(DAY_WITH.trainHypeVisit, { records: { laudes: 7 }, ludi: ludi({ day: DAY_WITH.trainHypeVisit }) });
-    const done = settleLudiDeeds(start, { won: true, crowdHypePeak: 90, trained: true, visited: true });
+    const done = settleLudiDeeds(start, { won: true, crowdHypePeak: 90, trained: true, locationId: DAY12_DISTRICT });
     expect(resolveLaudes(done.profile)).toBe(8);
     expect(resolveLaudes(withLaudes(start, 1))).toBe(8);
     // No other key of the profile carries a Laurel count.
@@ -446,7 +567,14 @@ describe('LUDI F §F — the rollover resets the day’s own state and keeps the
     const before = onDay(3, {
       fame: 260,
       records: { laudes: 9 },
-      ludi: ludi({ day: 3, deedsDone: ['train', 'visit_hub'], favour: 4, lastAlmsDay: 3, fameBaseline: 40, visitsToday: 2 }),
+      ludi: ludi({
+        day: 3,
+        deedsDone: ['train', 'visit_hub'],
+        favour: 4,
+        lastAlmsDay: 3,
+        fameBaseline: 40,
+        visitsToday: ['bathhouse', 'tavern'],
+      }),
     });
     // `onDayRollover` hands the rollover the profile the clock step already produced,
     // so the day is read from `time` and `ludi.day` is its bookkeeping.
@@ -459,7 +587,7 @@ describe('LUDI F §F — the rollover resets the day’s own state and keeps the
       favour: 4,
       lastAlmsDay: 3,
       fameBaseline: 260,
-      visitsToday: 0,
+      visitsToday: [],
     });
     expect(resolveLaudes(after)).toBe(9);
     expect(resolveLudiState(after).dayName).toBe(ludiDayName(4));
@@ -551,7 +679,9 @@ describe('LUDI H §H — where the settlement lives', () => {
     expect(train).toContain('trained: true');
     expect(train).toContain('advanceTimeBy(trained, 1)');
     const visit = APP.slice(APP.indexOf('const handleVisitLocation'));
-    expect(visit.slice(0, visit.indexOf('};') + 2)).toContain('{ visited: true }');
+    const body = visit.slice(0, visit.indexOf('};') + 2);
+    // The seam hands the settlement the id already in scope — the deed can tell WHICH place.
+    expect(body).toContain('settleLudiDeeds(withCodexLocation(profile, locationId), { locationId })');
   });
 
   test('no gameplay formula is touched by this slice', () => {
@@ -585,6 +715,8 @@ describe('LUDI I §I — the Acta card, Felix’s board section, the yard and th
     expect(html).toContain(LUDI_DAY_CHARACTER[ludiIndexForDay(12)].replace(/'/g, '&#x27;'));
     expect(html.match(/data-acta-deed=/g)?.length).toBe(LUDI_DEED_COUNT);
     expect(html).toContain('data-acta-deed="train" data-acta-deed-done="true"');
+    // The visit deed names the district day 12's Acta asks for.
+    expect(html).toContain('Visit the Arena Medical House.');
     expect(html.match(/data-acta-deed-done="false"/g)?.length).toBe(LUDI_DEED_COUNT - 1);
     expect(html).toContain('done');
     expect(html).toContain('todo');
@@ -700,6 +832,7 @@ describe('LUDI J §J — the save corpus covers the new field', () => {
     const field = raw.ludi as LudiProgress;
     expect(field.day).toBe(resolveTimeState(fixture!.profile).day);
     expect(field.deedsDone.length).toBe(3);
+    expect(field.visitsToday).toEqual([DAY12_DISTRICT]);
     expect(field.favour).toBe(2);
     expect(field.lastAlmsDay).toBe(field.day);
     expect(resolveLaudes(fixture!.profile)).toBe(6);
