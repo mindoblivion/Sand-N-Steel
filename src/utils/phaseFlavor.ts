@@ -50,9 +50,9 @@ export const DUEL_PHASE_LINE: Readonly<Record<TimePhase, PhaseCardLine>> = {
   dawn: { name: 'Prima Luce', note: 'the sand is cold and clean' },
   morning: { name: 'Mane', note: 'the sun climbs the cavea' },
   midday: { name: 'Meridies', note: 'the sun stands high' },
-  afternoon: { name: 'Meridies', note: 'the day turns west' },
+  afternoon: { name: 'Postmeridies', note: 'the day turns west' },
   golden: { name: 'Hora Aurea', note: 'the light is kind' },
-  dusk: { name: 'Last Light', note: 'the light fails' },
+  dusk: { name: 'Crepusculum', note: 'the light fails' },
   night: { name: 'Nox', note: 'torchlit' },
 };
 
@@ -78,7 +78,7 @@ export const RACE_PHASE_NAME: Readonly<Record<TimePhase, string>> = {
   dawn: 'First Light',
   morning: 'Mane',
   midday: 'Meridies',
-  afternoon: 'Meridies',
+  afternoon: 'Postmeridies',
   golden: 'Hora Aurea',
   dusk: 'Last Light',
   night: 'First Light',
