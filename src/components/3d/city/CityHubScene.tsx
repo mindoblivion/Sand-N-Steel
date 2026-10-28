@@ -33,6 +33,8 @@ import { EastCircusArena } from './EastCircusArena';
 import { EastCircusDistrict } from './EastCircusDistrict';
 import { CityCamera } from './CityCamera';
 import { CityAtmosphere } from './CityAtmosphere';
+import { CURRENT_PHASE } from '../../../utils/currentPhase';
+import { getPhaseLight } from '../../../utils/atmosphere';
 import { SceneBrightness } from '../SceneBrightness';
 import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
@@ -352,13 +354,17 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const sparklesCount = atmosphericMotion ? cityTier.sparkles : 0;
 
   /**
-   * Atmosphere A1 — the city is drawn under the profile the Lighting setting names
-   * (`goldenHour` by default), applied by one `applyAtmosphere` call from
-   * `CityAtmosphere`. While the oath owns the screen the UNTOUCHED
-   * `cityLightProfile` rig draws its dawn instead, because A1's table ships no dawn
-   * profile and inventing one would fabricate values the design never gave.
+   * Day/Night T1 — the city is drawn under the CURRENT phase's row (one of the seven
+   * in `utils/atmosphere.ts`'s `PHASE_LIGHT`), applied by one `createAtmosphereRig`
+   * call from `CityAtmosphere`. The phase still comes from the module-level
+   * `CURRENT_PHASE` constant in this slice; T2 wires the real clock through that same
+   * name. A1's Lighting setting is inert now — the toggle is retired in favour of the
+   * cycle — so this scene reads no `cityLighting` at all.
+   *
+   * While the oath owns the screen the UNTOUCHED `cityLightProfile` rig draws its
+   * dawn instead, exactly as A1 shipped it.
    */
-  const cityLighting = settings.cityLighting;
+  const cityPhaseLight = getPhaseLight(CURRENT_PHASE);
   const isOathRig = lightProfile === 'oathDawn';
 
   /**
@@ -920,12 +926,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
             <SceneBrightness />
 
-            {/* ATMOSPHERE A1 — the city's own sky, sun and haze. One `applyAtmosphere`
-                call (see `utils/atmosphere.ts` / `CityAtmosphere`) builds the gradient
-                sky dome, sets the profile's fog, adds the single shadow-casting sun and
-                the hemisphere bounce, and writes ACES at the profile's exposure. The
-                Lighting setting swaps the profile live. The block below is the oath
-                beat's own rig, unchanged: A1 ships no dawn profile. */}
+            {/* DAY/NIGHT T1 — the city's own sky, key light and haze, one row per phase.
+                One `createAtmosphereRig` call (see `utils/atmosphere.ts` /
+                `CityAtmosphere`) builds the gradient dome (with its star term and the
+                key light's disc — the moon at night), sets the row's fog, adds the single
+                shadow-casting key light and the hemisphere bounce, and writes ACES at the
+                row's exposure. The block below is the oath beat's own rig, unchanged:
+                the oath still paints `cityLightProfile`'s dawn values. */}
             {isOathRig ? (
               <>
             {/* Atmospheric Mediterranean Horizon Fog — and, at dawn, the oath's own
@@ -969,7 +976,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
               </>
             ) : (
-              <CityAtmosphere profile={cityLighting} />
+              <CityAtmosphere phase={CURRENT_PHASE} />
             )}
 
             {/* Phase 2B — Scene-level PBR environment for metallic/physical material reflections.
@@ -980,7 +987,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 subtle so warm Roman material colors remain readable. No external HDR files.
                 Atmosphere A1 keeps this rig for BOTH profiles: the gradient dome replaced the
                 SKY, not the reflections, so no material's specular response changed. */}
-            <Environment resolution={256} frames={1} environmentIntensity={lights.environmentIntensity}>
+            <Environment
+              resolution={256}
+              frames={1}
+              environmentIntensity={isOathRig ? lights.environmentIntensity : cityPhaseLight.envIntensity}
+            >
               {environmentLightformers}
             </Environment>
 

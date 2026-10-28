@@ -151,13 +151,23 @@ describe('C-8.69D isolation and lighting parity', () => {
     // parity is compared by VALUE, not by spelling: every attribute of every tag is
     // evaluated with `lights` bound to the day rig exactly as the scene resolves it, and
     // the two lists must match — shorthands included, so nothing is dropped from the check.
+    // DAY/NIGHT T1 REBASE: the city's `<Environment>` intensity is now selected by
+    // `isOathRig` (the `cityLightProfile` rig the oath beat draws) against the phase
+    // row's own value. This diagnostic copies the `lights` RIG, so the selector is
+    // bound to that branch and the row is bound to the day rig — the comparison is
+    // still by VALUE, and the phase rig (a dome + row values) is not what this
+    // diagnostic models. Nothing was relaxed: every attribute is still evaluated.
     const props = (source: string, tag: string) =>
       [...source.matchAll(new RegExp(`<${tag}\\s([^>]*?)(?:/?>)`, 'g'))]
         .map((m) =>
           m[1]
             .replace(/([A-Za-z][\w-]*)=(\{[^}]*\}|"[^"]*")/g, (_all, name, raw) => {
               const value = raw.startsWith('{')
-                ? Function('lights', `return (${raw.slice(1, -1)});`)(DAY_LIGHT)
+                ? Function('lights', 'isOathRig', 'cityPhaseLight', `return (${raw.slice(1, -1)});`)(
+                    DAY_LIGHT,
+                    true,
+                    DAY_LIGHT,
+                  )
                 : raw.slice(1, -1);
               return `${name}=${JSON.stringify(value)}`;
             })
