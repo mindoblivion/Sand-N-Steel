@@ -11496,7 +11496,11 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Not automatically verified.** The visitor panel's part row was not driven live: the preview save
   carries 100 gold and its own city day, so the bladesmith's day-5 630-gold offer is not reachable
   there without fabricating a save (explicitly out of scope); its rendering is pinned by the suite and
-  the transaction it drives is fully covered. **No physical Android acceptance was performed** — no
+  the transaction it drives is fully covered. **L22B (below) later drove that row live** with the
+  L16D visitor harness — the day-5 630-gold offer, the disabled insufficient-funds gate and a real
+  purchase (2000 -> 1370 gold, `finish_ventive` owned, the visitor completed, the real save key
+  absent before and after) are browser-observed there; equip-after-purchase and physical Android
+  acceptance still are not. **No physical Android acceptance was performed** — no
   device was available in this environment, and the finish's colour reading on the target GPU stays
   pending with the C-8.66B/C-8.66C wheel-fit checks.
 
@@ -12150,3 +12154,86 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   work). (b) No duel was fought, so the credit was exercised by executing App's real handler source,
   not by playing a bout at the hub's ~2 fps. (c) Android remains outstanding for every screen. The
   display guard itself **is** verified by rendering the real component.
+
+## Visitor rare-finish acceptance evidence (L22B — documentation + browser evidence; no production change)
+
+- **Why this phase exists.** The L22A final audit confirmed the L17B signage guidance but found the L16B
+  visitor acceptance **undocumented**: no L22/L22A record existed anywhere in the checkout (`git grep
+  "L22"` matched only `bun.lock` and binaries; nothing in `/tmp` or `.base44/*.md`), and no run log or
+  capture survived. Nothing from the earlier session was recoverable, so **every check below was
+  reproduced in this phase**, not recovered.
+- **Starting state.** `development-focus-strategy` at `ebc39d65dc`, 0 ahead / 0 behind
+  `origin/development-focus-strategy`, `git status --short` empty.
+- **Historical Git metadata issue (not a functional defect).** `ebc39d6`'s message reads "Mark
+  inconclusive URL check as skipped instead of retrying", but its diff is a single hunk: the L17B signage
+  guidance correction (`AGENTS.md` +30 / -7). The message describes a change that commit does not
+  contain; it is left as committed, and the signage figures it *does* carry were recomputed from source
+  and confirmed by the L22A audit.
+- **What was driven, and how.** The L16D harness (`src/components/dev/VisitorHarness.tsx`, mounted by
+  `src/main.tsx` only under `import.meta.env.DEV` plus `?devHarness=visitor`) in the preview browser, as
+  two **genuinely new documents** (fresh browsing context, no prior harness record) loaded from
+  `/?devHarness=visitor&gold=100&run=select` and `/?devHarness=visitor&gold=2000&run=select`. Every
+  gesture was a shipping control: `run=select` presses the real visitor row, and the purchase was a real
+  click on `[data-testid="visitor-buy-button"]`, whose handler is `purchaseVisitorOffer` exactly as
+  `App.handleVisitorPurchase` calls it. Nothing was faked, and no save was fabricated.
+- **Environment limit, stated precisely.** A top-level cold reload with a query could not be produced in
+  this preview: the platform's route opening reaches the app as `/` (the query is stripped) and an
+  in-script top-level navigation was ignored, so the two cold loads above are **per-document, inside one
+  script**. URL seeding was still exercised only from a first-load document — never by resetting an
+  already-mounted harness.
+- **Observed — insufficient-funds gate (`gold=100`).** City day `5`, arrivals "Hanno of Cirta"; `gold: 100`
+  came from the URL (the harness default is 2000); the offer "Ventive Blue & Gilt" is on screen with
+  "630 gold" and the purple "CHARIOT FINISH — BROUGHT BY A VISITOR" line; the button reads **"Not enough
+  gold"**, `disabled: true`, with "You carry 100 gold." beneath it.
+- **Observed — affordable offer (`gold=2000`).** City day `5`, `gold: 2000` from the URL, `chariot owned:
+  wheels_standard, finish_stock` (the finish is **not** owned), `completed visitors: none`, the same offer
+  at "630 gold", and the button **"Buy for 630 gold"**, `disabled: false`.
+- **Observed — successful purchase (real click).** `gold: 1370` (2000 - 630), `chariot owned:
+  wheels_standard, finish_stock, finish_ventive`, `completed visitors: numidian_bladesmith`,
+  `last transaction: bought finish_ventive (chariot part) for 630 gold`, the visitor's row gone, and the
+  panel's own empty state: "Hanno of Cirta has departed — the trade is complete." / "No visitors are in
+  the city today."
+- **Observed — save isolation by key comparison, not by inference.** `sand_and_steel_gladiator_save_v2`
+  (`PROFILE_STORAGE_KEY` in `src/services/storage.ts`) was **absent before and absent after** the trade
+  (`present: false`, `length: 0`; `Object.keys(localStorage)` was `[]` at both points). The run's only
+  write is the harness's own `sand_and_steel_visitor_harness_v1`:
+  `{ gold: 1370, day: 5, owned: [wheels_standard, finish_stock, finish_ventive],
+  equipped: { wheels: wheels_standard, finish: finish_stock } }`. That record was deleted and every
+  harness key/flag cleared afterwards; the real save key was never created, so nothing was left behind.
+- **Rendered evidence (browser-observed).** Three captured frames: the disabled "NOT ENOUGH GOLD" state
+  with "You carry 100 gold." and the 630-gold price; the enabled "BUY FOR 630 GOLD" state at 2000 gold
+  with "MET" on the visitor's row; and the post-trade empty state carrying the departure line. The purple
+  finish badge is visible in the first frame — the script's own case-sensitive `innerText` probe missed it
+  only because the panel uppercases through CSS.
+- **Equip after purchase — NOT VERIFIED in the browser, and why.** After the trade the profile owns
+  `finish_ventive` while `equipped.finish` is still `finish_stock` (a purchase does not equip), but the
+  harness renders only `VisitorPanel`: it carries no finish-selection control. The supported equip path is
+  the hub's Gear → Chariot Workshop finish list (`equipChariotPart` via `ChariotWorkshopTab`), which needs
+  the 3D city hub and a day-5 profile on the real save — the save fabrication L16D exists to avoid. Only
+  the automated pin (`visitorChariotFinish.test.ts` §D, "equipping afterwards") covers it.
+- **Tests actually run.** `bun test src/utils/l16dVisitorHarness.test.ts src/utils/visitorPurchase.test.ts
+  src/utils/visitorChariotFinish.test.ts` inside the existing healthy `web` container → **103 pass /
+  0 fail, 925 expect() calls, 3 files (119 ms)**, exit 0. No broad suite and no build were run; the diff
+  is documentation only.
+
+| # | check | verdict | basis |
+|---|---|---|---|
+| 1 | affordable offer: day-5 visitor, 630-gold price, purse shown | **PASS — browser-observed** | 2000-gold document: "Buy for 630 gold", enabled |
+| 2 | insufficient-funds gate (disabled + explanation) | **PASS — browser-observed** | 100-gold document: "Not enough gold", `disabled: true`, "You carry 100 gold." |
+| 3 | successful purchase: charge, ownership, completion/departure | **PASS — browser-observed** | 2000 → 1370, `finish_ventive` owned, `numidian_bladesmith` completed, row gone, departure line |
+| 4 | save isolation on `sand_and_steel_gladiator_save_v2` | **PASS — browser-observed** | key absent before and after; only the harness key written |
+| 5 | equip after purchase | **NOT VERIFIED** (browser) / **PASS — automated test only** | no equip control in the harness; `visitorChariotFinish.test.ts` §D |
+| 6 | cold-load URL seeding (`?gold=`, `?run=`) | **PASS — browser-observed**, per-document | 100 and 2000 honoured from the URL on first loads; `run=select` pressed the row |
+| 7 | rendered visitor + finish-panel visuals | **PASS — browser-observed** | the three frames above |
+| 8 | physical Android acceptance | **PENDING** | no device available in this environment |
+
+- **Remaining limitations.** (a) A top-level cold reload carrying a query is **BLOCKED** by the preview
+  mechanism (query stripped at route opening, in-script navigation ignored); the per-document loads above
+  are the substitute and should not be read as a tab-level reload test. (b) Equip-after-purchase is
+  unverified in the browser, for the reason stated above. (c) Physical Android acceptance of the visitor
+  panel, the finish card and the departure state is still outstanding — only the desktop preview browser
+  was observed. (d) The finish's colour on the target GPU stays pending with the C-8.66B/C-8.66C wheel-fit
+  checks, exactly as L16B recorded.
+- **No code changed.** Production gameplay, the L16D harness, the visitor transactions, the save format
+  and the L17B signage data are untouched: this phase adds this record and the cross-reference sentence in
+  L16B.
