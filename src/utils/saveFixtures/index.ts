@@ -44,6 +44,7 @@ import armaturaPalmaeProfile from './armaturaPalmaeProfile.json';
 import grudgeEraProfile from './grudgeEraProfile.json';
 import keepersEraProfile from './keepersEraProfile.json';
 import omenEraProfile from './omenEraProfile.json';
+import mercyEraProfile from './mercyEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -274,6 +275,19 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every post-GC20 optional field populated, omen and the trickle marker included',
     ],
     profile: asProfile(omenEraProfile),
+  },
+  {
+    id: 'mercy-era',
+    file: 'mercyEraProfile.json',
+    provenance:
+      'The Pitch A1 omen-era save with STORY-4a\'s two mercy shapes hand-aged on: a SPARED Tier-2 regular (Cassius, beaten, his grudge kept exactly as C-8.70C recorded it, and `spared[rivalId] = true`), and a FINISHED Tier-2 regular (Brutus, beaten with no grudge record left and no flag) — the two shapes `spareRival` / `finishRival` persist.',
+    covers: [
+      'the `spared` map populated (STORY-4a): one spared rival, keyed by base roster id',
+      'a spared rival keeps his grudge (the grudge bout is the return path)',
+      'a finished rival: beaten, grudge removed, no flag (derived, not stored)',
+      'every post-GC20 optional field populated, spared included',
+    ],
+    profile: asProfile(mercyEraProfile),
   },
 ];
 

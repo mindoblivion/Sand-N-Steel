@@ -9,6 +9,16 @@ import { grudgeResultLine, grudgeRewardLine } from '../../utils/grudgeBouts';
 // C-8.70C — the bout mode's own purse and renown lines, from the same data the
 // pre-fight card promised them with.
 import { BOUT_MODES } from '../../data/boutModes';
+// STORY-4a — MERCY OR GLORY (Pitch A9, duel form only): the keeper's flavor
+// lines, the teaching lines of the first offer, and each answer's consequence
+// line.  The choice's WRITE never happens here — App owns it, through the
+// normal save path, exactly once per answer.
+import {
+  MERCY_TEACHING_LINES,
+  mercyChoiceLine,
+  mercyKeeperLine,
+  type MercyChoice,
+} from '../../utils/mercyBouts';
 import { CoachCard } from '../ui/CoachCard';
 import { getCoachCard } from '../../utils/coachMarks';
 import confetti from 'canvas-confetti';
@@ -53,6 +63,23 @@ interface DuelResultModalProps {
    * unpaid. Absent on every bout fought with no omen live.
    */
   omenLine?: string | null;
+  /**
+   * STORY-4a — the mercy offer riding an ELIGIBLE victory (Pitch A9), decided at
+   * the same write that settled the duel: the named rival it is asked of, whether
+   * this is the profile's first offer (the Chapter 3 teaching firing), and — once
+   * answered — which answer was taken and what it added.  Absent on every
+   * ineligible victory and on every defeat, so the modal renders exactly as it
+   * always has.
+   */
+  mercy?: {
+    rivalId: string;
+    rivalName: string;
+    teaching: boolean;
+    chosen?: MercyChoice;
+    extraFame?: number;
+  } | null;
+  /** The answer.  App writes it once; the modal never writes anything. */
+  onMercyChoice?: (choice: MercyChoice) => void;
   onContinue: () => void;
 }
 
@@ -91,6 +118,8 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   onCoachCardDismiss,
   palmaEarned,
   omenLine,
+  mercy,
+  onMercyChoice,
   onContinue,
 }) => {
   const pace = didWin ? 1 : DEFEAT_PACE;
@@ -534,6 +563,95 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
           )}
         </div>
 
+        {/* STORY-4a — MERCY OR GLORY (Pitch A9, duel form only).  An eligible
+            victory HOLDS the result open: the two answers stand where the return
+            button would be, and the button only appears once one is chosen.  The
+            copy states each answer's rule and its reason (the Clarity law); the
+            numbers below come from `mercyBouts`, never from this component. */}
+        {mercy && !mercy.chosen && (
+          <div
+            data-duel-mercy-offer={mercy.rivalId}
+            className="mb-4 rounded-2xl border border-rose-700/70 bg-neutral-950/90 p-4"
+          >
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-rose-300 mb-2">
+              Mercy or glory
+            </div>
+            <p
+              data-duel-mercy-keeper="offer"
+              className="text-xs sm:text-[13px] font-serif italic text-amber-100/90 leading-relaxed mb-2"
+            >
+              {mercyKeeperLine('offer', mercy.rivalName)}
+            </p>
+            {mercy.teaching && (
+              <div
+                data-duel-mercy-teaching={MERCY_TEACHING_LINES.length}
+                className="mb-3 flex flex-col gap-1.5 border-l border-amber-700/70 pl-3"
+              >
+                {MERCY_TEACHING_LINES.map((line) => (
+                  <p
+                    key={line}
+                    className="text-[11px] sm:text-xs font-serif text-amber-200/80 leading-relaxed"
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                data-duel-mercy="spare"
+                onClick={() => onMercyChoice?.('spare')}
+                className="btn-press min-h-[48px] py-3 px-3 rounded-2xl text-left cursor-pointer border border-emerald-500/70 bg-emerald-950/50 hover:bg-emerald-900/60 active:scale-95 transition-all"
+              >
+                <span className="block font-serif font-black text-sm uppercase tracking-wider text-emerald-200">
+                  Spare
+                </span>
+                <span className="block text-[10px] font-serif text-emerald-100/80 leading-snug mt-1">
+                  He may come back — a grudge bout, one tier higher and having studied you. You keep the fame you won.
+                </span>
+              </button>
+              <button
+                type="button"
+                data-duel-mercy="finish"
+                onClick={() => onMercyChoice?.('finish')}
+                className="btn-press min-h-[48px] py-3 px-3 rounded-2xl text-left cursor-pointer border border-red-500/70 bg-red-950/50 hover:bg-red-900/60 active:scale-95 transition-all"
+              >
+                <span className="block font-serif font-black text-sm uppercase tracking-wider text-red-200">
+                  Finish
+                </span>
+                <span className="block text-[10px] font-serif text-red-100/80 leading-snug mt-1">
+                  A quarter more fame now, counted once. He does not come back.
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mercy && mercy.chosen && (
+          <div
+            data-duel-mercy-chosen={mercy.chosen}
+            className="mb-4 rounded-2xl border border-amber-600/70 bg-neutral-950/90 p-4 flex flex-col gap-2"
+          >
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
+              {mercy.chosen === 'spare' ? 'Mercy shown' : 'Glory taken'}
+            </div>
+            <p
+              data-duel-mercy-keeper={mercy.chosen}
+              className="text-xs sm:text-[13px] font-serif italic text-amber-100/90 leading-relaxed"
+            >
+              {mercyKeeperLine(mercy.chosen, mercy.rivalName)}
+            </p>
+            <p
+              data-duel-mercy-line
+              className="text-[11px] sm:text-xs font-mono text-neutral-200 leading-relaxed"
+            >
+              {mercyChoiceLine(mercy.chosen, mercy.rivalName, mercy.extraFame ?? 0)}
+            </p>
+          </div>
+        )}
+
+        {(!mercy || mercy.chosen) && (
         <button
           onClick={handleContinue}
           className={`btn-press w-full py-4 rounded-2xl font-serif font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl flex items-center justify-center gap-2 ${
@@ -545,6 +663,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
           <span>Return to Metropolis [Town Gate]</span>
           <ArrowRight className="w-4 h-4" />
         </button>
+        )}
       </div>
     </div>
   );

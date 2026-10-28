@@ -109,6 +109,18 @@ legacy shape a load must survive (no omen, trickle still owed), and
 `saveCorpus.test.ts` §J's expected optional set now ends with `omen`,
 `omenTrickleClaimed` in `src/types/game.ts` declaration order.
 
+**Extended by STORY-4a (Mercy or Glory — Pitch A9).** `PlayerProfile.spared` — the
+rivals the player has spared, keyed by base roster id in the pitch's exact shape
+`{ [rivalId: string]: true }` — is the newest optional field, so it gets both halves
+of the rule in the same slice: `mercy-era`, the `omen-era` save carrying a SPARED
+Tier-2 regular (Cassius the Phalanx beaten, his C-8.70C grudge kept exactly as the
+duel-result write records it, and `spared["opp_hoplite"] = true`) and a FINISHED one
+(Brutus "The Anvil" beaten with no grudge record left and no flag — Finish writes no
+flag; a finished rival is derived from the absence of his grudge). Every older
+fixture keeps **omitting** the field, which is the legacy shape a load must survive
+(nobody spared), and `saveCorpus.test.ts` §J's expected optional set now ends with
+`spared` in `src/types/game.ts` declaration order — twenty-one fields.
+
 ## Corpus rule
 
 **A slice that adds a field to the save adds a fixture for the shape it writes, in
@@ -143,6 +155,7 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `armatura-palmae` | `armaturaPalmaeProfile.json` | The fully-populated shape with the CH-1 class and palmae filled: `armatura: "retiarius"`, `palmae` with two unlocked (`iron_lungs`, `second_wind`) and one equipped (`iron_lungs`), plus every earlier optional field. | The `facilities-era` save hand-aged with the two field shapes a later class choice and palma earn/equip write; frozen, and never written by `createNewProfile`. |
 | `keepers-era` | `keepersEraProfile.json` | The fully-populated shape with the K1 keeper record filled: `seenKeepers` naming the two keepers met, in the order the counters were opened (`sextus_ferratus`, `salvia_coriaria`), plus every earlier optional field. | The `grudge-era` save hand-aged with the record a first storefront visit persists through `recordKeeperVisit`; frozen, and never written by `createNewProfile`. |
 | `omen-era` | `omenEraProfile.json` | The fully-populated shape with Fortuna's omen live and the decline trickle claimed: `omen: { "kind": "kind", "expiresAtBout": 9 }` (the record's 8 fought bouts + 1) and `omenTrickleClaimed: true`, plus every earlier optional field. | The `keepers-era` save hand-aged with the two field shapes the shrine's offering and its first decline persist (Pitch A1); frozen, and never written by `createNewProfile`. |
+| `mercy-era` | `mercyEraProfile.json` | The fully-populated shape with STORY-4a's two mercy shapes: `spared: { "opp_hoplite": true }` on a beaten Tier-2 regular whose grudge is kept, and a second beaten Tier-2 regular (`opp_brutus_anvil`) with no grudge record left — the two shapes `spareRival` / `finishRival` persist. | The `omen-era` save hand-aged with the shapes the result surface's Spare and Finish answers write (STORY-4a, Pitch A9); frozen, and never written by `createNewProfile`. |
 
 ### Shapes each fixture covers
 
@@ -165,6 +178,7 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `stable-era` | `stable` populated — quality 3 and conditioning 5, no team size stored · every post-GC20 optional field populated · every earlier fixture omits the field |
 | `keepers-era` | `seenKeepers` populated — two keepers met, in the order their counters were opened · every post-GC20 optional field populated · every earlier fixture omits the field |
 | `omen-era` | `omen` populated — a live kind omen waiting on the record's next bout · `omenTrickleClaimed` populated — the once-ever decline trickle already paid · every post-GC20 optional field populated · every earlier fixture omits both fields |
+| `mercy-era` | `spared` populated — one spared rival, keyed by base roster id · a spared rival keeps his grudge (the return path) · a finished rival: beaten, grudge removed, no flag · every post-GC20 optional field populated · every earlier fixture omits `spared` |
 
 ## What the corpus proves
 

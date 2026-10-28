@@ -136,6 +136,8 @@ import { resolveFacilities } from './facilityProgression';
 import { resolveArmatura, resolvePalmae } from './traitModifiers';
 // C-8.70C — the grudge record's lazy reader.
 import { resolveGrudges } from './grudgeBouts';
+// STORY-4a — the spared map's lazy reader (Pitch A9).
+import { resolveSpared } from './mercyBouts';
 // K1 — the keepers met, read the way a storefront's plate reads them.
 import { resolveSeenKeepers } from '../data/keepers';
 
@@ -167,6 +169,8 @@ const REQUIRED_FIXTURE_IDS = [
   'keepers-era',
   // PITCH A1 — Fortuna's omen and the once-ever decline marker.
   'omen-era',
+  // STORY-4a — the spared map (Pitch A9).
+  'mercy-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -251,6 +255,8 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   // panel and the duel entry read them.
   const omen = resolveOmen(profile);
   const omenTrickleClaimed = isTrickleClaimed(profile);
+  // STORY-4a — the spared map, read the way the mercy offer and the board read it.
+  const spared = resolveSpared(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -279,6 +285,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     seenKeepers,
     omen,
     omenTrickleClaimed,
+    spared,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -434,6 +441,12 @@ for (const fixture of SAVE_FIXTURES) {
             resolved.omen.expiresAtBout >= 1),
       ).toBe(true);
       expect(typeof resolved.omenTrickleClaimed).toBe('boolean');
+      // STORY-4a — the spared map resolves to `true` entries keyed by roster id.
+      expect(typeof resolved.spared).toBe('object');
+      for (const rivalId of Object.keys(resolved.spared)) {
+        expect(OPPONENT_IDS, `unknown spared rival '${rivalId}'`).toContain(rivalId);
+        expect(resolved.spared[rivalId]).toBe(true);
+      }
     });
 
     test('resolution does not mutate the fixture’s stored JSON (byte compare)', () => {
@@ -561,6 +574,11 @@ for (const fixture of SAVE_FIXTURES) {
         // PITCH A1 — an absent marker reads as "the trickle is still owed".
         expect(isTrickleClaimed(profile)).toBe(false);
       }
+      if (!('spared' in raw) || raw.spared === null) {
+        absentFields += 1;
+        // STORY-4a — a save written before the field reads as "spared nobody".
+        expect(resolveSpared(profile)).toEqual({});
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -586,6 +604,7 @@ for (const fixture of SAVE_FIXTURES) {
         'seenKeepers',
         'omen',
         'omenTrickleClaimed',
+        'spared',
       ];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
@@ -1110,6 +1129,8 @@ describe('GC20 §J — the corpus rule', () => {
       // last in `game.ts` declaration order.
       'omen',
       'omenTrickleClaimed',
+      // STORY-4a — the spared map (Pitch A9), appended last in declaration order.
+      'spared',
     ]);
 
     // Every optional field with a resolver has a fixture for both its absent and
@@ -1134,6 +1155,7 @@ describe('GC20 §J — the corpus rule', () => {
       'seenKeepers',
       'omen',
       'omenTrickleClaimed',
+      'spared',
     ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);
@@ -1141,6 +1163,49 @@ describe('GC20 §J — the corpus rule', () => {
       expect(withoutField.length, `no fixture omits '${field}'`).toBeGreaterThan(0);
     }
     expect(SAVE_FIXTURES.some((fixture) => rawOf(fixture).isLeftyMode === false)).toBe(true);
+  });
+
+  /**
+   * STORY-4a — THE CONTROL.  §J is only a rule if it FAILS on a field nobody
+   * accounted for, so the same scan is re-run over a doctored copy of the type:
+   * one extra optional member appended after `spared`.  The shipped list must
+   * differ from the pinned one and must gain the unaccounted name, which proves
+   * the assertion above is sensitive to the declaration it reads rather than
+   * restating itself.
+   */
+  test('the rule still fails on a field nobody accounted for', () => {
+    const types = readFileSync(join(SOURCE_DIR, 'types/game.ts'), 'utf8');
+    const scanned = (source: string): string[] => {
+      const start = source.indexOf('export interface PlayerProfile {');
+      expect(start).toBeGreaterThan(-1);
+      let depth = 0;
+      let end = start;
+      for (let i = source.indexOf('{', start); i < source.length; i += 1) {
+        if (source[i] === '{') depth += 1;
+        if (source[i] === '}') {
+          depth -= 1;
+          if (depth === 0) {
+            end = i;
+            break;
+          }
+        }
+      }
+      const body = source.slice(start, end);
+      return [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\?:/gm)].map((match) => match[1]);
+    };
+    const shipped = scanned(types);
+    expect(shipped.length).toBe(21);
+    expect(shipped.slice(-2)).toEqual(['omenTrickleClaimed', 'spared']);
+
+    const doctored = types.replace(
+      '  spared?: { [rivalId: string]: true };',
+      '  spared?: { [rivalId: string]: true };\n  unaccounted?: string;',
+    );
+    expect(doctored).not.toBe(types);
+    const withNew = scanned(doctored);
+    expect(withNew).not.toEqual(shipped);
+    expect(withNew).toContain('unaccounted');
+    expect(withNew.length).toBe(22);
   });
 });
 
