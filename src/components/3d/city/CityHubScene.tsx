@@ -132,6 +132,12 @@ import {
   isRumourServiceClosed,
   type DiceChoice,
 } from '../../../utils/diceTrail';
+// STORY-5b — the three Legend stops' conversations. `legendStopConversation` is a
+// pure read: it answers the chain's closing backstory at the Library while the
+// return is owed, the stop's fragment once the sequence is open, and `null` (the
+// stop's NORMAL content) in every other case — Director ruling R1.
+import { legendStopConversation, type LegendStopConversation } from '../../../utils/librarianChain';
+import { LegendStopPanel } from '../../hub/LegendStopPanel';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../../ui/ThreeComponentErrorBoundary';
@@ -293,6 +299,18 @@ interface CityHubSceneProps {
   onEnterDiceTrailBout?: (opponent: OpponentConfig) => void;
   /** STORY-5a — answer Piso.  `App` owns the flag and the 300 g of a 'cut'. */
   onChooseDiceEnding?: (choice: DiceChoice) => void;
+  /**
+   * STORY-5b — the return to Dionysios at the Library: the Librarian chain's step
+   * 3, owed once its first two steps are done and the city calls the player
+   * Veteran. `App` owns that one write and is identity-stable, so every other
+   * visit to the Library writes nothing.
+   */
+  onReturnToLibrarian?: () => void;
+  /**
+   * STORY-5b — a fragment was read at its stop. `App` composes the one
+   * identity-stable write; the panel itself writes nothing.
+   */
+  onReadLegendFragment?: (fragmentId: string) => void;
 }
 
 /**
@@ -358,6 +376,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onVisitLocation,
   onOfferOmen,
   onDeclineOmen,
+  onReturnToLibrarian,
+  onReadLegendFragment,
 }) => {
   // The rig this screen is drawn under. `resolveCityLightProfile` answers module
   // constants, so `lights` keeps its reference across re-renders and the Environment
@@ -439,6 +459,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // STORY-4b — the Bounty Hall's board. Local view state only: the bout entry is
   // `onEnterDuel` and every write is `App`'s.
   const [bountyPanel, setBountyPanel] = useState(false);
+  /**
+   * STORY-5b — one of the three Legend stops' conversations (the Librarian chain's
+   * close at the Library, then a fragment at its own door).  Local view state
+   * only: both writes (`withLibrarianChainClosed`, `withFragmentFound`) belong to
+   * `App` and are identity-stable, so re-opening a stop saves nothing.
+   */
+  const [legendPanel, setLegendPanel] = useState<LegendStopConversation | null>(null);
   const [omenResult, setOmenResult] = useState<string | null>(null);
   /**
    * K2 — the greeting of the counter that is open, decided ONCE when it opens,
@@ -620,6 +647,27 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     // A5 — THE CODEX: every hub interaction reports its location id, and only the
     // FIRST trigger of that id reaches a save (App's handler drops the rest).
     onVisitLocation?.(nearbyLoc.id);
+
+    /**
+     * STORY-5b — THE THREE LEGEND STOPS.  Director ruling R1: before the
+     * Librarian chain completes these doors show their NORMAL content, and
+     * `legendStopConversation` answers `null` for that.  Once it does answer, the
+     * stop's own conversation takes the door: the Library's closing backstory
+     * while the return is owed (and `App` records the chain's completion in the
+     * same click), then each stop's fragment — which `App` records as read.
+     */
+    if (nearbyLoc.id === 'records_house') {
+      // Step 3's trigger. Identity-stable: every visit that is not the owed
+      // return writes nothing.
+      onReturnToLibrarian?.();
+    }
+    const legendTalk = legendStopConversation(playerProfile, nearbyLoc.id);
+    if (legendTalk) {
+      if (legendTalk.fragment) onReadLegendFragment?.(legendTalk.fragment.id);
+      setLegendPanel(legendTalk);
+      return;
+    }
+
     if (nearbyLoc.id === 'east_circus_arena') {
       // Phase C-8.70B — the district's race entry opens the pre-race panel
       // rather than a hub tab.  Read-only: the panel takes the profile and
@@ -718,6 +766,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     onVisitLocation,
     onOpenDiceBoard,
     primeKeeperGreeting,
+    playerProfile,
+    onReturnToLibrarian,
+    onReadLegendFragment,
   ]);
 
   /**
@@ -749,13 +800,22 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
     // A presented panel is up: E/Space and the action button are its own.
-    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel) return;
+    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel) return;
     if (nearbyLoc) {
       handleInteract();
     } else {
       handleAttack();
     }
-  }, [nearbyLoc, handleInteract, handleAttack, treatmentPanel, intelPanel, shrinePanel, bountyPanel]);
+  }, [
+    nearbyLoc,
+    handleInteract,
+    handleAttack,
+    treatmentPanel,
+    intelPanel,
+    shrinePanel,
+    bountyPanel,
+    legendPanel,
+  ]);
 
   /**
    * S5 — one visit.  The transaction and its save write live in `App`; this screen
@@ -838,6 +898,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       }
       if (bountyPanel) {
         if (code === 'Escape' || key === 'escape') setBountyPanel(false);
+        return;
+      }
+      // STORY-5b — a stop's conversation owns the screen while it is up.
+      if (legendPanel) {
+        if (code === 'Escape' || key === 'escape') setLegendPanel(null);
         return;
       }
 
@@ -1865,6 +1930,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           onRecordKeeperVisit={onRecordKeeperVisit}
           onClose={() => setBountyPanel(false)}
         />
+      )}
+
+      {/* STORY-5b — one of the three Legend stops' conversations: the chain's close
+          at the Library, then a fragment at its own door.  Pure presentation of the
+          module's resolved conversation; the writes are `App`'s. */}
+      {legendPanel && (
+        <LegendStopPanel conversation={legendPanel} onClose={() => setLegendPanel(null)} />
       )}
 
       {/* PITCH A1 — THE SHRINE OF FORTUNA: the pre-fight ritual stop.  It shows

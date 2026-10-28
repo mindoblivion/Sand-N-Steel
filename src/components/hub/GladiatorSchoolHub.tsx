@@ -105,6 +105,13 @@ interface GladiatorSchoolHubProps {
   onViewTriumphs?: () => void;
   /** A8 — put an owned title on the record; `App` writes it through the save path. */
   onSelectTitle?: (titleId: string) => void;
+  /**
+   * STORY-5b — a Legend Bout (the staged row dressed in its era kit). `App` marks
+   * it as an exhibition, so the duel result path is fenced for it (R4).
+   */
+  onEnterLegendBout?: (opp: OpponentConfig) => void;
+  /** STORY-5b — the Librarian chain's step 1: the Codex page was opened. */
+  onViewCodex?: () => void;
   /** CH-5 — the Palmae panel's two taps; `App` runs the validated transaction. */
   onEquipPalma?: (palmaId: string) => void;
   onUnequipPalma?: (palmaId: string) => void;
@@ -155,6 +162,8 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onBuyPalma,
   onViewTriumphs,
   onSelectTitle,
+  onEnterLegendBout,
+  onViewCodex,
 }) => {
   const [selectedOpponent, setSelectedOpponent] = useState<OpponentConfig | null>(null);
   /**
@@ -336,7 +345,14 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             tempering, the stable's ladders and the forge's stock. */}
         <FacilitiesPanel profile={playerProfile} onBuyFacility={onBuyFacility} />
         {activeTab === 'tournament' && (
-          <TournamentTab profile={playerProfile} onSelectOpponent={(opp) => setSelectedOpponent(opp)} />
+          <TournamentTab
+            profile={playerProfile}
+            onSelectOpponent={(opp) => setSelectedOpponent(opp)}
+            /* STORY-5b — a legend bout is entered directly: it is an exhibition of an
+               existing row, not a ladder card, and its omen/mercy/ladder bookkeeping
+               is fenced in `App`. */
+            onEnterLegendBout={onEnterLegendBout}
+          />
         )}
         {activeTab === 'training' && (
           <TrainingTab
@@ -394,6 +410,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onPageChange={setLibraryPage}
             onViewTriumphs={onViewTriumphs}
             onSelectTitle={onSelectTitle}
+            onViewCodex={onViewCodex}
           />
         )}
       </main>

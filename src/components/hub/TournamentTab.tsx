@@ -5,6 +5,8 @@ import { featureBoutStatuses } from '../../utils/featureBouts';
 import { Swords, Trophy, Skull, Play, Lock, CheckCircle, Shield } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { PrimusPalusBoard } from './PrimusPalusBoard';
+// STORY-5b — the Legend Bouts section (Beat 4's slot, built by this slice).
+import { LegendBoutsSection } from './LegendBoutsSection';
 // S7 — whether the player has bought the tavern's rumour on this opponent.  The
 // dossier below is READ from OpponentConfig; intel changes nothing a fight computes.
 import { hasIntel } from '../../utils/intel';
@@ -45,9 +47,19 @@ const BOSS_MECHANIC_LABELS: Record<NonNullable<OpponentConfig['bossMechanic']>, 
 interface TournamentTabProps {
   profile: PlayerProfile;
   onSelectOpponent: (opp: OpponentConfig) => void;
+  /**
+   * STORY-5b — enter a LEGEND BOUT: the staged row already dressed in its era
+   * kit. `App` marks the bout as an exhibition, so its result rides the duel path
+   * with the ladder bookkeeping fenced (Director ruling R4).
+   */
+  onEnterLegendBout?: (opp: OpponentConfig) => void;
 }
 
-export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectOpponent }) => {
+export const TournamentTab: React.FC<TournamentTabProps> = ({
+  profile,
+  onSelectOpponent,
+  onEnterLegendBout,
+}) => {
   const currentTierInfo = TOURNAMENT_TIERS.find((t) => t.tier === profile.currentTier) || TOURNAMENT_TIERS[0];
   // D-1 — the ladder list is the ladder only: a Feature Bout is never a rung of
   // the tier the player is fighting in, and it is listed in its own section.
@@ -425,6 +437,14 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
             ))}
           </div>
         </div>
+      )}
+
+      {/* STORY-5b — LEGEND BOUTS. Director ruling R6: this slice builds Beat 4's
+          slot on this tab (the slot did not exist); it builds the slot, not Beat
+          4's story content. The section renders nothing until the Librarian chain
+          has opened the fragment sequence, and it holds no rule of its own. */}
+      {onEnterLegendBout && (
+        <LegendBoutsSection profile={profile} onEnterBout={onEnterLegendBout} />
       )}
     </div>
   );

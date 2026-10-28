@@ -22,10 +22,20 @@
  * on the FIRST trigger of an existing hub interaction only: a repeat visit
  * returns the same profile object, so nothing is saved twice.
  *
+ * ── THE FRAGMENTS PAGE (STORY-5b) ──────────────────────────────────────────
+ * A5 ruled "no Fragments page: an empty shell would advertise unbuilt story".
+ * STORY-5b keeps that property and adds the page: `fragments` is present in the
+ * snapshot ONLY once the Librarian chain has closed and opened the fragment
+ * sequence (`utils/librarianChain.ts`), so a profile that has not walked the
+ * chain sees exactly the five pages it always saw, and no empty shell exists.
+ * It is a LORE page, not a counted one: it carries no percentage, no laurel and
+ * no denominator, and it is deliberately outside `pages` so the Saga capstone's
+ * condition (every SHIPPED page at 100%) is unchanged — re-gating a shipped
+ * triumph is not this slice's to do.
+ *
  * ── WHAT IS DELIBERATELY ABSENT ────────────────────────────────────────────
- *   • No Fragments page (A5 — Director ruling R5): an empty shell would advertise
- *     unbuilt story.  STORY-5 adds the page with the 3C content, and the page list
- *     here is data-driven so that is a clean addition.
+ *   • No horse-tiers section (A5 — Director ruling R2): no studio horse tiers are
+ *     integrated yet, so the page shows teams and parts only.
  *   • No horse-tiers section (A5 — Director ruling R2): no studio horse tiers are
  *     integrated yet, so the page shows teams and parts only.
  *   • No "best hype" column (A5 — Director ruling R3a): hype is transient per duel
@@ -63,6 +73,10 @@ import { resolveRacingState } from './racingProgression';
 // INSIDE a function — never at this module's top level — and both directions are
 // safe to initialize in either order.
 import { GEAR_SETS } from './triumphs';
+// STORY-5b — the Fragments page's gate and rows.  Read-only and one-directional
+// (librarianChain never imports this module), so this edge closes no cycle; the
+// page is only ever built INSIDE `fragmentsPage`.
+import { legendFragmentsOpen, legendFragmentsView } from './librarianChain';
 
 /** The five shipped pages, in reading order. */
 export type CodexPageId = 'gladiators' | 'bosses' | 'horses' | 'arms' | 'city';
@@ -110,6 +124,33 @@ export interface CodexSnapshot {
   /** How many page marks are lit (0 … 5).  A derived display count only — the
    *  Codex keeps no record of it and writes nothing. */
   laurelCount: number;
+  /**
+   * STORY-5b — the Fragments page, present ONLY once the Librarian chain has
+   * opened the fragment sequence.  Absent on every profile that has not walked
+   * the chain (so no empty shell is ever advertised), and never one of the
+   * counted `pages` above (a lore page is not a completeness denominator).
+   */
+  fragments?: CodexFragmentsPage;
+}
+
+/** One fragment row on the Fragments page.  `text` is present only when found. */
+export interface CodexFragmentsEntry {
+  id: string;
+  order: number;
+  title: string;
+  /** The authored fragment, present ONLY once the player has found it. */
+  text?: string;
+  found: boolean;
+}
+
+/** STORY-5b — the Codex's lore page: the erased champion's three fragments. */
+export interface CodexFragmentsPage {
+  id: 'fragments';
+  label: string;
+  blurb: string;
+  entries: CodexFragmentsEntry[];
+  found: number;
+  total: number;
 }
 
 // ── The datasets (A5 — Director ruling R1) ─────────────────────────────────
@@ -505,6 +546,8 @@ export function buildCodex(profile: PlayerProfile | null | undefined): CodexSnap
   const total = pages.reduce((sum, page) => sum + page.total, 0);
   const touched = pages.reduce((sum, page) => sum + page.touched, 0);
   const laurelCount = pages.filter((page) => page.laurel).length;
+  // STORY-5b — the lore page rides the snapshot, never the counted `pages`.
+  const fragments = fragmentsPage(source);
 
   return {
     pages,
@@ -513,6 +556,36 @@ export function buildCodex(profile: PlayerProfile | null | undefined): CodexSnap
     percent: total === 0 ? 0 : Math.floor((touched / total) * 100),
     complete: pages.every((page) => page.laurel),
     laurelCount,
+    ...(fragments ? { fragments } : {}),
+  };
+}
+
+/**
+ * STORY-5b — THE FRAGMENTS PAGE, as data.  `undefined` until the Librarian chain
+ * closes (the fragment sequence has not opened), so the page simply does not
+ * exist for a profile that has not walked the chain — A5's "no empty shell"
+ * property, kept.
+ *
+ * A found fragment carries its AUTHORED text; an unfound one carries none at all
+ * (title and seal only), so the payload itself cannot spoil the reveal — the
+ * surface is not the only guard.
+ */
+function fragmentsPage(profile: PlayerProfile): CodexFragmentsPage | undefined {
+  if (!legendFragmentsOpen(profile)) return undefined;
+  const entries: CodexFragmentsEntry[] = legendFragmentsView(profile).entries.map((entry) => ({
+    id: entry.fragment.id,
+    order: entry.fragment.order,
+    title: entry.found ? entry.fragment.title : `Fragment ${entry.fragment.order}`,
+    ...(entry.found ? { text: entry.fragment.text } : {}),
+    found: entry.found,
+  }));
+  return {
+    id: 'fragments',
+    label: 'Fragments',
+    blurb: 'What three old counters remember of a name the stone no longer holds.',
+    entries,
+    found: entries.filter((entry) => entry.found).length,
+    total: entries.length,
   };
 }
 
