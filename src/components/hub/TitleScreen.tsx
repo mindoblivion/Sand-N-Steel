@@ -3,6 +3,7 @@ import { PlayerProfile } from '../../types/game';
 import { sounds } from '../../audio/soundEffects';
 import { armTitleAudioUnlock } from '../../audio/titleAudio';
 import { preloadTapStage } from '../../utils/preloadAssets';
+import { runTitlePrimaryAction } from '../../utils/titleAction';
 import { useTitlePhaseBackdrop } from '../../hooks/useTitlePhaseBackdrop';
 import { TITLE_BACKDROP_CLASS } from '../../utils/startupAssets';
 import { TitleAccountPanel } from './TitleAccountPanel';
@@ -108,25 +109,27 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
    * The ONE primary action. A returning gladiator continues; a fresh one starts
    * creation. Unchanged from the tap-to-start behaviour it replaces, except that the
    * preload it triggers is now stage 2 (stage 1 ran when the title mounted).
+   *
+   * L21I — the sequence lives in `runTitlePrimaryAction` so it can be tested without a
+   * DOM. It still decides AFTER the fullscreen attempt; what makes that safe is that
+   * `savedProfile` comes from App's state initializer, so this render — the first one
+   * included — already carries the saved profile.
    */
   const handlePrimaryAction = async () => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-
-    // Attempt fullscreen. Orientation is left to the device's own controls.
-    try {
-      if (document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
-      }
-    } catch (e) {
-      // Graceful fail
-    }
-
-    sounds.playClick();
-    preloadTapStage();
-
-    if (savedProfile) onContinueAdventure();
-    else onNewCharacter();
+    await runTitlePrimaryAction({
+      savedProfile,
+      started: startedRef,
+      requestFullscreen: () =>
+        document.documentElement.requestFullscreen
+          ? document.documentElement.requestFullscreen()
+          : Promise.resolve(),
+      playFeedback: () => {
+        sounds.playClick();
+        preloadTapStage();
+      },
+      onContinueAdventure,
+      onNewCharacter,
+    });
   };
 
   const handleOpenAccount = () => {

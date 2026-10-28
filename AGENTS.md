@@ -129,9 +129,13 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `Enter Arena Duel` → `Step into Sand` → **3D duel arena**. The 3D scenes are heavy to build, so give them a
   few seconds after navigating.
 - Landing on the title screen with a save already in `localStorage`, the tap should go straight to the city
-  hub (the artwork's "CONTINUE" path), not to character creation. `TitleScreen` runs the tap handler from both
-  a React `onClick` and a `window` listener, guarded by a ref; if a future edit re-introduces a double-fire,
-  the symptom is a returning player dumped into character creation.
+  hub (the artwork's "CONTINUE" path), not to character creation. `TitleScreen` runs the tap handler from ONE
+  React `onClick` (`onClick={handlePrimaryAction}`, guarded by a ref) — the old second binding through a
+  `window` tap listener was removed in `61b9b67`, so a double-fire cannot come back that way. What that path
+  depends on is **App hydrating the save in its state initializer** (L21I: `useState(() => loadSavedProfile())`,
+  not a mount effect), because the primary action reads the `savedProfile` its render captured and only decides
+  AFTER awaiting fullscreen; if hydration moves back into a passive effect the first paint carries `null`, and
+  the symptom is a returning player dumped into character creation. Pinned by `bun test src/utils/l21i.test.ts`.
 - **Short-landscape duel HUD.** On a phone held sideways (or any window flatter than tall with a height of
   520px or less) the duel HUD's stacked content (~400px) exceeded the viewport and pushed the bottom of the
   tactic dashboard below the fold. `src/index.css` carries an `@media (orientation: landscape) and

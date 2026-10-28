@@ -99,7 +99,22 @@ interface CityExitPose {
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
-  const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  /**
+   * L21I — the save is read in the state INITIALIZER, so hydration is part of the
+   * first render rather than a passive effect that lands a frame later.
+   *
+   * `TitleScreen` chooses Play vs Continue from this prop and the primary action reads
+   * the value its render captured, after awaiting fullscreen. While this was
+   * `useState(null)` + a mount effect, the first paint carried `null`: a tap in that
+   * window (and every tap whose handler had already been created from that paint) took
+   * the character-creation branch and dumped a returning player into a new gladiator.
+   *
+   * `loadSavedProfile()` is a pure read with its own try/catch — it answers `null` for
+   * "no save" and for "unreadable save", and it removes nothing — so React's StrictMode
+   * double-invoking the initializer in development is harmless (it is read twice, never
+   * written). `null` now means only "there is no save"; it never means "not loaded yet".
+   */
+  const [profile, setProfile] = useState<PlayerProfile | null>(() => loadSavedProfile());
   /**
    * L4 — the newest committed profile, which is the ONE base a purchase reads.
    * React state only changes on the next render, so two purchase callbacks in the
@@ -233,12 +248,12 @@ export function App() {
   // effect's cleanup).
   useEffect(() => subscribeAuthUser(setAuthUser), []);
 
-  // Load saved profile on boot
+  // Title-mount boot: the audio engine and the stage-1 preload. The saved profile is
+  // NOT loaded here — L21I reads it in the state initializer above, so the first paint
+  // already carries it (see that comment).
   useEffect(() => {
     try { music.init(sounds.getAudioContext()); } catch (e) {}
 
-    const saved = loadSavedProfile();
-    if (saved) setProfile(saved);
     // START-1 — preload stage 1. This effect runs at title mount, which is the beat
     // the startup sequence warms the first tier on; stage 2 fires on the tap.
     preloadTitleStage();
