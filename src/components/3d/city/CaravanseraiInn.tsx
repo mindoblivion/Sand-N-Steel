@@ -11,6 +11,7 @@ import {
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
 import { CityFixtureMaterial } from './CityFixtureMaterial';
+import { CityFixtureLight } from './CityFixtureLight';
 
 export const CaravanseraiInn = React.memo(() => {
   return (
@@ -111,7 +112,7 @@ export const CaravanseraiInn = React.memo(() => {
           <sphereGeometry args={[0.25, 8, 8]} />
           <CityFixtureMaterial fixture="brazier" base={3} color="#ff5722" emissive="#f97316" />
         </mesh>
-        <pointLight color="#f97316" intensity={3.5} distance={9} position={[0, 1.5, 0]} />
+        <CityFixtureLight fixture="brazier" base={3.5} color="#f97316" distance={9} position={[0, 1.5, 0]} />
       </group>
     </group>
   );

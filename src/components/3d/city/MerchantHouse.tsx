@@ -11,6 +11,7 @@ import {
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
 import { CityFixtureMaterial } from './CityFixtureMaterial';
+import { CityFixtureLight } from './CityFixtureLight';
 
 export const MerchantHouse = React.memo(() => {
   return (
@@ -142,7 +143,7 @@ export const MerchantHouse = React.memo(() => {
           <sphereGeometry args={[0.18, 8, 8]} />
           <CityFixtureMaterial fixture="lamp" base={2} color="#ef4444" emissive="#f97316" />
         </mesh>
-        <pointLight color="#f97316" intensity={1.8} distance={7} position={[0, 1.2, 0]} />
+        <CityFixtureLight fixture="lamp" base={1.8} color="#f97316" distance={7} position={[0, 1.2, 0]} />
       </group>
     </group>
   );

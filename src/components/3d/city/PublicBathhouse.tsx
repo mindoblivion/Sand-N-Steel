@@ -12,6 +12,7 @@ import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
 import { SteamParticles } from './EnvironmentalMotion';
 import { CityFixtureMaterial } from './CityFixtureMaterial';
+import { CityFixtureLight } from './CityFixtureLight';
 
 export const PublicBathhouse = React.memo(() => {
   return (
@@ -98,7 +99,7 @@ export const PublicBathhouse = React.memo(() => {
           <sphereGeometry args={[0.2, 8, 8]} />
           <CityFixtureMaterial fixture="lamp" base={2.2} color="#ef4444" emissive="#f97316" />
         </mesh>
-        <pointLight color="#f97316" intensity={1.5} distance={7} position={[0, 1.2, 0]} />
+        <CityFixtureLight fixture="lamp" base={1.5} color="#f97316" distance={7} position={[0, 1.2, 0]} />
       </group>
 
       {/* 5. RELAXATION MARBLE BENCH & SCENTED OIL AMPHORAE (PHASE 26) */}
