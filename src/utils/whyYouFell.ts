@@ -81,10 +81,12 @@ export function whyYouFellLines(input: WhyYouFellInput): string[] {
   const total = quick + power;
 
   // 1. the heaviest class of blow, and (bosses) the mechanic behind it
+  // The amount is that class's own damage, not the bout total.
   if (total > 0) {
     const words =
       quick === power ? 'attacks' : power > quick ? 'heavy attacks' : 'quick attacks';
-    let line = `${name}'s ${words} dealt ${total} damage`;
+    const amount = quick === power ? total : Math.max(quick, power);
+    let line = `${name}'s ${words} dealt ${amount} damage`;
     const tally = input.mechanic;
     const landings = count(tally?.landings ?? 0);
     if (tally && landings > 0) {
