@@ -321,6 +321,27 @@ export function getKeeperForStorefront(shopId: StorefrontId): Keeper | undefined
   return id === undefined ? undefined : KEEPERS_BY_ID.get(id);
 }
 
+/**
+ * K2 — which keeper stands at each SERVICE counter in the 3D city: the Medical
+ * House's cure, the Caravanserai's rest and the Golden Palm Tavern's rumours.
+ * Keyed by `buildingId` rather than by storefront, because these three sell a
+ * service and not a catalogue.  Same registry, same one-to-one rule as the four
+ * storefront plates above: a building not listed here has no keeper and shows no
+ * plate.  (The Bounty Hall, which hosts two boards, is deliberately absent — it
+ * has no service surface of its own.)
+ */
+const SERVICE_BUILDING_KEEPERS: Partial<Record<string, string>> = {
+  arena_medical_house: 'antiochis_of_pergamon',
+  caravanserai: 'barates_of_palmyra',
+  tavern: 'aelia_prisca',
+};
+
+/** The keeper who keeps a service counter, or `undefined` for any other building. */
+export function getKeeperForBuilding(buildingId: string): Keeper | undefined {
+  const id = SERVICE_BUILDING_KEEPERS[buildingId];
+  return id === undefined ? undefined : KEEPERS_BY_ID.get(id);
+}
+
 /* ── the save, read lazily ───────────────────────────────────────────────── */
 
 /** The field this module reads, so a bare literal in a suite satisfies it. */

@@ -97,6 +97,13 @@ import {
   intelTargets,
   INTEL_PRICE,
 } from '../../../utils/intel';
+// K2 — the three service counters' keepers (the Medical House's Medica, the inn's
+// host, the Golden Palm's keeper), the plate that heads them, and the one line
+// each is saying.  Display and a first-visit record only: no price, no effect and
+// no purchase rule is read here.
+import { getKeeperForBuilding, nightClerkLine, resolveSeenKeepers, selectRepeatLine } from '../../../data/keepers';
+import type { Keeper } from '../../../data/keepers';
+import { KeeperPlate } from '../../hub/KeeperPlate';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../../ui/ThreeComponentErrorBoundary';
@@ -221,6 +228,12 @@ interface CityHubSceneProps {
    * refusal leaves the panel open on its own reason. INTEL IS INFORMATION ONLY.
    */
   onBuyIntel: (opponentId: string) => boolean;
+  /**
+   * K2 — a service counter's keeper was met for the first time.  `App` owns the
+   * one `seenKeepers` write (`handleRecordKeeperVisit`), exactly as it does for a
+   * storefront's plate; this screen only reports the visit.
+   */
+  onRecordKeeperVisit?: (keeperId: string) => void;
 }
 
 /**
@@ -249,6 +262,16 @@ const TREATMENT_SITES: Record<
   },
 };
 
+/**
+ * K2 — the `HUB_LOCATIONS` building each treatment panel belongs to, so the panel
+ * can ask the keeper registry who stands there.  The Medical House's service name
+ * and its building id differ; the inn's are the same word.
+ */
+const TREATMENT_BUILDING: Record<TreatmentService, string> = {
+  medical_house: 'arena_medical_house',
+  caravanserai: 'caravanserai',
+};
+
 export const CityHubScene: React.FC<CityHubSceneProps> = ({
   playerProfile,
   onOpenTab,
@@ -269,6 +292,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onRestAtInn,
   onUseConsumable,
   onBuyIntel,
+  onRecordKeeperVisit,
 }) => {
   // The rig this screen is drawn under. `resolveCityLightProfile` answers module
   // constants, so `lights` keeps its reference across re-renders and the Environment
@@ -343,6 +367,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // S7 — the Golden Palm Tavern's rumour panel.  Local view state only: the
   // purchase and its save belong to `App`.
   const [intelPanel, setIntelPanel] = useState(false);
+  /**
+   * K2 — the greeting of the counter that is open, decided ONCE when it opens,
+   * from the profile the visit started with.  The first-visit save lands a frame
+   * later and this scene re-renders on the new profile, so reading it live would
+   * swap the greeting for the repeat line under the player's eyes — `ShopTab`
+   * freezes its own reading the same way.
+   */
+  const keeperGreetingRef = useRef<{ keeperId: string; seen: boolean } | null>(null);
 
   /**
    * SF-1 — the quality preset arrives as a setting, not as a prop: the panel writes
@@ -485,6 +517,20 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     return () => sounds.stopAmbient(); // Cleanup on unmount
   }, [nearbyLoc]);
 
+  /**
+   * K2 — freeze the greeting of the counter the player is opening: who keeps it,
+   * and whether this gladiator had already met them at the moment of opening.
+   */
+  const primeKeeperGreeting = useCallback(
+    (buildingId: string) => {
+      const keeper = getKeeperForBuilding(buildingId);
+      keeperGreetingRef.current = keeper
+        ? { keeperId: keeper.id, seen: resolveSeenKeepers(playerProfile).includes(keeper.id) }
+        : null;
+    },
+    [playerProfile]
+  );
+
   // Handle interaction with nearby landmark
   const handleInteract = useCallback(() => {
     if (!nearbyLoc) return;
@@ -509,7 +555,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       else onOpenTab('tournament');
     } else if (nearbyLoc.id === 'tavern') {
       // S7 — the tavern sells information: the panel lists every tournament
-      // opponent the player has not yet bought a rumour on.
+      // opponent the player has not yet bought a rumour on.  K2 — the keeper's
+      // plate heads it, so the greeting is frozen as the panel opens.
+      primeKeeperGreeting('tavern');
       setIntelPanel(true);
     } else if (nearbyLoc.tabKey) {
       onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
@@ -538,6 +586,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         // Day/Night T2 — the Inn's night is offered to EVERY visitor (a night's sleep is
         // not a cure, so no wound is required); the Medical House still needs a live one.
         if (service === 'caravanserai' || resolveActiveInjury(playerProfile.injury)) {
+          // K2 — same for the two treatment counters: the keeper who sells the
+          // cure is on the panel, so the greeting freezes here.  A healthy visit
+          // falls through to the notice above and opens no counter at all.
+          primeKeeperGreeting(TREATMENT_BUILDING[service]);
           setTreatmentPanel(service);
         } else {
           setStableNotice(TREATMENT_SITES[service].notice);
@@ -561,6 +613,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     playerProfile.defeatedOpponentIds,
     playerProfile.injury,
     onOpenTab,
+    primeKeeperGreeting,
   ]);
 
   /**
@@ -905,6 +958,47 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    */
   const tavernTargets = intelPanel ? intelTargets(playerProfile) : [];
   const tavernPurseShort = intelPanel && playerProfile.gold < INTEL_PRICE;
+  /**
+   * K2 — the two service counters' keepers, resolved from the registry: the
+   * Medical House's Medica (or the inn's host) and the Golden Palm's keeper.
+   * `undefined` while the panel is shut, so a closed counter shows no plate and
+   * records nothing.
+   */
+  const treatmentKeeper = treatmentPanel
+    ? getKeeperForBuilding(TREATMENT_BUILDING[treatmentPanel])
+    : undefined;
+  const intelKeeper = intelPanel ? getKeeperForBuilding('tavern') : undefined;
+
+  /**
+   * K2 — the one line the plate is saying, by the same rules `ShopTab` uses: the
+   * greeting on a first visit, `selectRepeatLine` at visit two on every later one,
+   * and the night clerk's line after dark only when the keeper has one (these
+   * three have none, so their own line shows at every hour).
+   */
+  const keeperLineFor = (keeper: Keeper): string => {
+    const frozen = keeperGreetingRef.current;
+    const seen =
+      frozen?.keeperId === keeper.id
+        ? frozen.seen
+        : resolveSeenKeepers(playerProfile).includes(keeper.id);
+    const own = seen ? selectRepeatLine(keeper, 2) : keeper.firstVisitLine;
+    return cityPhase === 'night' ? nightClerkLine(keeper) || own : own;
+  };
+
+  /**
+   * K2 — a counter that actually opened records its keeper through `App`'s one
+   * write path, at most once per visit.  The id is `undefined` while every panel
+   * is shut, so a panel that never opened records nothing; `App`'s
+   * `handleRecordKeeperVisit` returns the SAME profile for an id already saved, so
+   * a re-render or a second open cannot write the save twice.
+   */
+  const openCounterKeeperId = (treatmentKeeper ?? intelKeeper)?.id;
+  useEffect(() => {
+    if (!openCounterKeeperId) return;
+    const frozen = keeperGreetingRef.current;
+    if (frozen?.keeperId === openCounterKeeperId && frozen.seen) return;
+    onRecordKeeperVisit?.(openCounterKeeperId);
+  }, [openCounterKeeperId]);
 
   // Phase 26.1: Memoized so it doesn't change reference on unrelated
   // re-renders (e.g. setKnobPos). Position/rotation are overridden by
@@ -1392,6 +1486,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           data-treatment-panel={treatmentPanel}
           className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
         >
+          {/* K2 — the Medica (or the inn's host) heads the counter.  A header only:
+              the plate adds no control, so the panel's one button is unchanged. */}
+          {treatmentKeeper && (
+            <div className="mb-3">
+              <KeeperPlate keeper={treatmentKeeper} line={keeperLineFor(treatmentKeeper)} />
+            </div>
+          )}
           <div className="flex justify-between items-start gap-3">
             <div className="flex-1">
               <h4 className="font-serif font-black text-amber-200 text-xs sm:text-sm uppercase tracking-wider mb-1 flex items-center gap-1.5">
@@ -1478,6 +1579,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           data-intel-panel
           className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
         >
+          {/* K2 — the keeper of the Palm heads her rumour counter.  A header only:
+              no control is added, so the purchase list below it is unchanged. */}
+          {intelKeeper && (
+            <div className="mb-3">
+              <KeeperPlate keeper={intelKeeper} line={keeperLineFor(intelKeeper)} />
+            </div>
+          )}
           <div className="flex justify-between items-start gap-3">
             <div className="flex-1">
               <h4 className="font-serif font-black text-amber-200 text-xs sm:text-sm uppercase tracking-wider mb-1 flex items-center gap-1.5">
