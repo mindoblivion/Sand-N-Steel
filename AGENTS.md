@@ -12205,12 +12205,31 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   with "MET" on the visitor's row; and the post-trade empty state carrying the departure line. The purple
   finish badge is visible in the first frame — the script's own case-sensitive `innerText` probe missed it
   only because the panel uppercases through CSS.
-- **Equip after purchase — NOT VERIFIED in the browser, and why.** After the trade the profile owns
+- **Equip after purchase — the obstacle was the vehicle, not the code (below); the gesture itself was
+  browser-verified afterwards (L22C bullet).** After the trade the profile owns
   `finish_ventive` while `equipped.finish` is still `finish_stock` (a purchase does not equip), but the
   harness renders only `VisitorPanel`: it carries no finish-selection control. The supported equip path is
   the hub's Gear → Chariot Workshop finish list (`equipChariotPart` via `ChariotWorkshopTab`), which needs
   the 3D city hub and a day-5 profile on the real save — the save fabrication L16D exists to avoid. Only
   the automated pin (`visitorChariotFinish.test.ts` §D, "equipping afterwards") covers it.
+- **L22C — the equip gesture, browser-verified at last.** Driven in the already-shipped dev-only
+  `?devHarness=chariot` harness (`src/components/dev/ChariotWorkshopHarness.tsx`), which mounts the REAL
+  `GearTab` -> `ChariotWorkshopTab` with `handleBuyPart`/`handleEquipPart` identical to `App`'s, against its
+  own disposable key (`sand_and_steel_chariot_workshop_harness_v1`). `finish_ventive` is `visitorOnly`, so
+  the workshop refuses to sell it at any price: only OWNERSHIP is a fixture there, seeded to exactly the
+  post-trade state above (`owned: [wheels_standard, finish_stock, finish_ventive]`, `equipped.finish`
+  still `finish_stock`, gold 600) — the acquisition itself is the real purchase recorded above, and the
+  gesture below is a shipping control. **Observed:** the Ventive card showed "Owned" with its purchase
+  slot replaced by an ENABLED "Equip"; a real pointer+click on it turned the card to "Equipped", the
+  harness panel from `finish=finish_stock` to `finish=finish_ventive`, and the disposable record's
+  `chariot.equipped.finish` to `finish_ventive`, with `gold` still 600 and `wheels` still
+  `wheels_standard`; `sand_and_steel_gladiator_save_v2` stayed absent before and after. The record, the
+  dev flag and the harness frame were then removed, and all four harness/save keys read absent.
+  **By design, not a defect:** `ChariotWorkshopTab` seeds its preview from the equipped loadout once and
+  keeps it local, so equipping a part that was NOT the one being previewed leaves the viewport on the old
+  preview with the header "Previewing (not equipped)" and its reset control; equipping the previewed card
+  ends on "Currently equipped". **Still open:** the same equip on the player's own save at the real hub,
+  and physical Android acceptance.
 - **Tests actually run.** `bun test src/utils/l16dVisitorHarness.test.ts src/utils/visitorPurchase.test.ts
   src/utils/visitorChariotFinish.test.ts` inside the existing healthy `web` container → **103 pass /
   0 fail, 925 expect() calls, 3 files (119 ms)**, exit 0. No broad suite and no build were run; the diff
@@ -12222,15 +12241,15 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 | 2 | insufficient-funds gate (disabled + explanation) | **PASS — browser-observed** | 100-gold document: "Not enough gold", `disabled: true`, "You carry 100 gold." |
 | 3 | successful purchase: charge, ownership, completion/departure | **PASS — browser-observed** | 2000 → 1370, `finish_ventive` owned, `numidian_bladesmith` completed, row gone, departure line |
 | 4 | save isolation on `sand_and_steel_gladiator_save_v2` | **PASS — browser-observed** | key absent before and after; only the harness key written |
-| 5 | equip after purchase | **NOT VERIFIED** (browser) / **PASS — automated test only** | no equip control in the harness; `visitorChariotFinish.test.ts` §D |
+| 5 | equip after purchase | **PASS — browser-observed** (L22C, workshop harness) / **PASS — automated test only** | real `Equip` click -> `equipped.finish = finish_ventive`, gold unchanged; `visitorChariotFinish.test.ts` §D |
 | 6 | cold-load URL seeding (`?gold=`, `?run=`) | **PASS — browser-observed**, per-document | 100 and 2000 honoured from the URL on first loads; `run=select` pressed the row |
 | 7 | rendered visitor + finish-panel visuals | **PASS — browser-observed** | the three frames above |
 | 8 | physical Android acceptance | **PENDING** | no device available in this environment |
 
 - **Remaining limitations.** (a) A top-level cold reload carrying a query is **BLOCKED** by the preview
   mechanism (query stripped at route opening, in-script navigation ignored); the per-document loads above
-  are the substitute and should not be read as a tab-level reload test. (b) Equip-after-purchase is
-  unverified in the browser, for the reason stated above. (c) Physical Android acceptance of the visitor
+  are the substitute and should not be read as a tab-level reload test. (b) Equip-after-purchase is now browser-verified in the `?devHarness=chariot` workshop
+  harness (L22C), not on the player's own save at the real hub. (c) Physical Android acceptance of the visitor
   panel, the finish card and the departure state is still outstanding — only the desktop preview browser
   was observed. (d) The finish's colour on the target GPU stays pending with the C-8.66B/C-8.66C wheel-fit
   checks, exactly as L16B recorded.
