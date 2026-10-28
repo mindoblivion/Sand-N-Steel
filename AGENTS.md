@@ -7914,3 +7914,50 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   shadow usable at 2048² across ±90/±70, with no acne or peter-panning on the buildings; (d) does the
   Lighting swap feel like a change of hour rather than a filter; (e) does the city hold its frame rate
   with the 2048 shadow map on a mid-range phone.
+
+## Day/Night T2 — the clock's seams (implemented; Android look PENDING)
+
+- **What ships.** The clock T0/T1 built now paints and advances. `src/utils/dayRollover.ts`
+  (new) owns the day-boundary data and effects — the Ludi rotation, the banner line
+  (`dayBannerText`), `dayRolledTo`, `applyDayRollover`, and `settleDuelClock`, the
+  duel result's transaction-scoped one-phase settlement. `src/components/ui/DayBanner.tsx` (new)
+  is the 600 ms sleep veil + `Dies <name> · Prima Luce` banner. `src/utils/currentPhase.ts`'s
+  staging constant `CURRENT_PHASE` is **removed**: `CityHubScene` and `DuelScene` resolve
+  `resolveTimeState(profile).phase` (the duel freezes its hour at entry, so the result write
+  cannot relight the arena), `RaceScene` takes the phase as a prop, and the Settings row is handed
+  the phase it reports. Advance seams, all in `App.tsx`: the duel result (`handleMatchComplete`,
+  the ONE write point — one `saveProfile`), the training session (`handleTrainStat`, after its
+  gold refusal), and the night at the Caravanserai (`handleRestAtInn`: `restAtInn` + the dawn jump
+  in ONE save). `advanceForStoryBeat` in `timeState.ts` is the story valve; nothing calls it yet.
+- **Non-obvious, and load-bearing for the next slice.** (1) **`trainingSessionsLeft` is DEAD in the
+  shipped tree** — it is written as `2` at creation and by the storage fallback, and NOTHING
+  decrements or reads it, so the training seam is the gold-gated stat purchase
+  (`trainingCost`), not a session counter; the rollover's "refresh to full" (`TRAINING_SESSIONS_FULL`
+  = 2, +1 on Dies Quietus) is therefore a no-op today and becomes real only when a slice consumes
+  sessions. (2) **`advanceToNextDawn` is the IDENTITY from dawn** (T0's pinned rule), while the
+  Rest offer must still promise tomorrow's dawn from Prima Luce — so the Rest seam steps a whole
+  cycle (`advanceTimeBy(night, PHASES_PER_DAY)`) in that one case rather than changing the pinned
+  function. (3) `restAtInn` refuses without a live wound, so the uninjured night's 25g is charged
+  at the App seam from `REST_PRICE`; S5's module and numbers are untouched. (4) **The RACE row of
+  the advance table is PENDING** — Stage 1 races are saves-read-only, `finishRace` still has no
+  caller and `handleExitRace` writes nothing, so there is no profile-writing race seam to wire.
+- **The guard re-scope (DIRECTOR RULING B).** `src/utils/timeState.test.ts` §G no longer bans all
+  shipped clock consumers: an exact allowlist (`App.tsx`, `CityHubScene`, `DuelScene`,
+  `utils/dayRollover.ts`) may call `resolveTimeState` / `advanceTimeBy` / `advanceToNextDawn` /
+  `advanceForStoryBeat`. The ban on consuming the clock MODEL (`PHASE_PROFILES` / `getPhaseProfile`)
+  stands over every source, and the ban on other writers of the time field is strengthened to "no
+  file outside the allowlist writes `time: { total`".
+- **Verified 2026-10-28** in the dev container: `bun test` → **4160 pass / 0 fail (136 files)**
+  (the tip's 4130 / 135 plus this slice's 30 tests); `bun run scripts/collisionTests.ts` → **123
+  passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the
+  startup-asset check passing (8 assets); `git diff --check` → clean. Rebased, not weakened:
+  `injury.test.ts`'s "one write per outcome" now pins ONE write for either outcome,
+  `palmaeState.test.ts`'s earn-before-save order reads the new save name, and the T1/atmosphere
+  wiring pins moved onto the clock reads they now protect.
+- **Live evidence.** One real training session driven through the UI (`TRAINING YARD` →
+  `TRAIN (+1 STRENGTH)`) read the save before and after: gold 100 → 75, strength 12 → 13 and
+  `time.total` absent → **1**, all in the same stored profile. **Not automatically verified:** the
+  duel advance, the Rest composition, the day banner and the Settings row — the 3D city is gated
+  behind the Oath's hold gesture and renders at ~2 fps through SwiftShader, so the visit could not
+  be driven; they are pinned by `src/utils/dayNightT2.test.ts` and by source. Visual acceptance
+  defers to a real Android device.

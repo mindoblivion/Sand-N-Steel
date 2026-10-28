@@ -57,7 +57,6 @@ import {
   sunDirection,
 } from './atmosphere';
 import { DEFAULT_SETTINGS, resolveSettings } from '../services/settings';
-import { CURRENT_PHASE } from './currentPhase';
 import { TIME_PHASES } from './timeState';
 
 const path = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -371,9 +370,13 @@ describe('F. The wiring, and the settings record that carries the choice', () =>
     // T1 REBASE (was "driven by the Lighting setting"): the city renders the phase
     // row; A1's stored setting is inert, so the scene no longer reads it at all.
     expect(CITY).toContain("import { CityAtmosphere } from './CityAtmosphere';");
-    expect(CITY).toContain('import { CURRENT_PHASE } from');
-    expect(CITY).toContain('<CityAtmosphere phase={CURRENT_PHASE} />');
-    expect(CITY).toContain('const cityPhaseLight = getPhaseLight(CURRENT_PHASE);');
+    // DAY/NIGHT T2 REBASE: the city resolves the clock itself (T1's constant is removed), and
+    // the one row it draws is read from that resolution.
+    expect(CITY).toContain('import { resolveTimeState }');
+    expect(CITY).toContain('const cityPhase = resolveTimeState(playerProfile).phase;');
+    expect(CITY).toContain('<CityAtmosphere phase={cityPhase} />');
+    expect(CITY).toContain('const cityPhaseLight = getPhaseLight(cityPhase);');
+    expect(CITY).not.toContain('CURRENT_PHASE');
     expect(CITY).not.toContain('settings.cityLighting');
     expect(CITY).toContain("const isOathRig = lightProfile === 'oathDawn';");
   });
@@ -415,7 +418,11 @@ describe('F. The wiring, and the settings record that carries the choice', () =>
     // draw the day from this table rather than from their own literals, which is the
     // point of the slice. What must stay true is that they read it, not restate it.
     expect(DUEL).toContain("from '../../utils/duelPhaseLight'");
-    expect(DUEL).toContain('resolveDuelPhaseLight(CURRENT_PHASE, opponent.isBoss === true)');
+    // DAY/NIGHT T2 REBASE: the duel resolves the clock at entry and freezes the hour for the
+    // bout, so its read is `entryPhase` — still the ONE table, still one row per entry.
+    expect(DUEL).toContain('const [entryPhase] = useState(() => resolveTimeState(playerProfile).phase);');
+    expect(DUEL).toContain('resolveDuelPhaseLight(entryPhase, opponent.isBoss === true)');
+    expect(DUEL).not.toContain('CURRENT_PHASE');
     expect(DUEL).toContain('<PhaseSkyDome phase={duelLight.phase} />');
     expect(RACE).toContain("from '../../utils/atmosphere'");
     expect(RACE).toContain('const raceLight = getPhaseLight(racePhase);');
@@ -440,16 +447,23 @@ describe('F. The wiring, and the settings record that carries the choice', () =>
     // toggle is retired because the cycle is the lighting story now. The row is
     // read-only and names the current phase.
     expect(MODAL).toContain('label="Lighting"');
-    expect(MODAL).toContain('TIME_PHASE_NAMES[CURRENT_PHASE]');
+    // DAY/NIGHT T2 REBASE: the row reports the phase `App` resolves and hands in.
+    expect(MODAL).toContain('TIME_PHASE_NAMES[phase]');
     expect(MODAL).toContain('CURRENT_PHASE_SOURCE');
     expect(MODAL).not.toContain("value: 'goldenHour', label: 'Golden Hour'");
     expect(MODAL).not.toContain('onChange={(cityLighting) => set({ cityLighting })}');
   });
 
-  test('the current phase is a constant, so nothing in this slice reads a save', () => {
-    expect(CURRENT_PHASE).toBe('golden');
+  test('the staging default is golden hour, and the seam module reads no save', () => {
+    // DAY/NIGHT T2 REBASE (was "the current phase is a constant, so nothing in this slice
+    // reads a save"): T2 legitimately reads the save at the seam files, so that half of the
+    // claim could not survive the slice. What remains — and is what this pin is for — is
+    // that the DEFAULT row is still A1's golden hour and that the presentation seam itself
+    // reaches no storage.
+    expect(DEFAULT_PHASE).toBe('golden');
     expect(code('./currentPhase.ts')).not.toContain('localStorage');
-    expect(getPhaseLight(CURRENT_PHASE)).toBe(PHASE_LIGHT.golden);
+    expect(code('./currentPhase.ts')).not.toContain('saveProfile');
+    expect(getPhaseLight(DEFAULT_PHASE)).toBe(PHASE_LIGHT.golden);
   });
 
   test('the settings path never touches the player save', () => {

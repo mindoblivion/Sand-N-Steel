@@ -337,9 +337,16 @@ describe('§H the one call site: the result transaction', () => {
     expect(write.match(/afterInjury/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
-  test('it rides the existing save — one write per outcome', () => {
-    expect(write.match(/saveProfile\(settledProfile\)/g)?.length).toBe(2);
+  test('it rides the existing save — ONE write, whichever outcome', () => {
+    // DAY/NIGHT T2 REBASE (was "one write per outcome", pinning `saveProfile(settledProfile)`
+    // twice — once inside each branch): the resolution write now composes the win and the
+    // loss into `settledProfile` and saves ONCE after the clock seam, so the property this
+    // pins is stronger than the pin it replaces — a single write carries the injury result
+    // for a win and for a loss alike, and the injury is still never saved on its own.
+    expect(write.match(/saveProfile\(/g)?.length).toBe(1);
+    expect(write).toContain('saveProfile(timedProfile)');
     expect(write).not.toContain('saveProfile(afterInjury)');
+    expect(write).not.toContain('saveProfile(settledProfile)');
   });
 
   test('the result screen is handed the event from the same write', () => {

@@ -4,10 +4,12 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Settings as SettingsIcon, XCircle } from 'lucide-react';
 import { Environment, Lightformer, useGLTF } from '@react-three/drei';
 import { EastCircusArena } from './city/EastCircusArena';
-// Day/Night T1 — the city's phase table, the circus's display-only override, and
-// the shared sky dome that replaces drei's `<Sky>`.
-import { CURRENT_PHASE } from '../../utils/currentPhase';
-import { getPhaseLight, sunDirection } from '../../utils/atmosphere';
+// Day/Night T1/T2 — the city's phase table, the circus's display-only override, and the
+// shared sky dome that replaces drei's `<Sky>`. T2 hands the phase IN from the clock (the
+// `phase` prop); this scene reads no phase constant and no save, and its override stays
+// display-only.
+import { DEFAULT_PHASE, getPhaseLight, sunDirection } from '../../utils/atmosphere';
+import type { TimePhase } from '../../utils/timeState';
 import { resolveRacePhase } from '../../utils/racePhaseLight';
 import { PhaseSkyDome } from './PhaseSkyDome';
 import { RaceTouchControls } from '../ui/RaceTouchControls';
@@ -178,6 +180,12 @@ export interface RaceSceneProps {
    * untouched (`raceState` only ever moves through `utils/raceState.ts`).
    */
   frozen?: boolean;
+  /**
+   * Day/Night T2 — the phase the player's clock resolves to when the race is entered.
+   * Optional: a caller that passes nothing gets the staging default (`golden`), which is
+   * exactly the hour T1 drew the circus under.
+   */
+  phase?: TimePhase;
 }
 
 // Preload the chariot at module import (the EastCircusArena pattern).  The
@@ -497,6 +505,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   chaseDistancePreset,
   onOpenSettings,
   frozen = false,
+  phase = DEFAULT_PHASE,
 }) => {
   const [raceState, setRaceState] = useState<RaceState>(RACE_INITIAL_STATE);
   const [countdownStep, setCountdownStep] = useState<CountdownStep | null>(COUNTDOWN_STEPS[0]);
@@ -508,11 +517,12 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const [showHints, setShowHints] = useState(!hasRacedThisSession);
 
   /**
-   * Day/Night T1 — the circus draws the CITY's table (no race-only sun), with two
+   * Day/Night T1/T2 — the circus draws the CITY's table (no race-only sun), with two
    * DISPLAY-ONLY substitutions: entered at dusk it renders golden, entered at night it
-   * renders dawn. `CURRENT_PHASE` itself is unchanged by the override.
+   * renders dawn. The phase arrives as a prop and the substitution is display-only, so the
+   * clock itself is untouched by the race.
    */
-  const racePhase = resolveRacePhase(CURRENT_PHASE);
+  const racePhase = resolveRacePhase(phase);
   const raceLight = getPhaseLight(racePhase);
   // The key light stands along the row's own elevation/bearing, 52 units out — the
   // distance the shipped circus sun already stood from the start line.

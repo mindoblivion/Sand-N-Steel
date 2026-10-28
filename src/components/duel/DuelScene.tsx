@@ -143,7 +143,7 @@ import {
 } from '../../utils/panoply';
 import { bossSceneDeltas } from '../../data/bossPresentationStates';
 // Day/Night T1 — the phase table, the duel's own mapping of it, and the shared sky dome.
-import { CURRENT_PHASE } from '../../utils/currentPhase';
+import { resolveTimeState } from '../../utils/timeState';
 import { resolveDuelPhaseLight } from '../../utils/duelPhaseLight';
 import { PhaseSkyDome } from '../3d/PhaseSkyDome';
 // D-4 — the Cotta pair. Every rule, fence and word lives in that module; this
@@ -1155,13 +1155,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // Marcellin, nothing for anyone else). Property values only: no light, mesh or
   // material is added, so the draw-call count is unchanged.
   const sceneDeltas = useMemo(() => bossSceneDeltas(opponent), [opponent]);
-  // Day/Night T1 — the duel's scaled read of the phase table. A BOSS bout is the
-  // Night Spectacle at any phase; a regular bout is Torchlit only at `night`; every
-  // other case is the row's day mapping (fog 25…65). The phase itself is the
-  // module-level constant until T2 wires the clock.
+  // Day/Night T2 — the duel's scaled read of the phase table, resolved ONCE at entry from
+  // the clock the player carries and then FROZEN for the bout: the result write advances
+  // that clock while this scene is still mounted behind the result modal, and the arena's
+  // light must not change mid-duel. A BOSS bout is the Night Spectacle at any phase; a
+  // regular bout is Torchlit only at `night`; every other case is the row's day mapping
+  // (fog 25…65).
+  const [entryPhase] = useState(() => resolveTimeState(playerProfile).phase);
   const duelLight = useMemo(
-    () => resolveDuelPhaseLight(CURRENT_PHASE, opponent.isBoss === true),
-    [opponent.isBoss],
+    () => resolveDuelPhaseLight(entryPhase, opponent.isBoss === true),
+    [entryPhase, opponent.isBoss],
   );
   // D-2's authored presentation state still wins on the values it authors (its fog
   // colour included); everything it says nothing about comes from the phase row.
