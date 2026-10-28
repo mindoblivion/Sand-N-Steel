@@ -29,12 +29,20 @@ export interface DuelArenaProps {
    * have always been.
    */
   emberEmissive?: number;
+  /**
+   * Day/Night T1 — the braziers' POINT-LIGHT intensity, scaled by the phase row's
+   * `lampGlow` (brighter at night, dimmer by day). A property on the eight point
+   * lights the arena already draws, so still +0 lights and +0 draw calls; absent
+   * leaves them at the shipped 3.5.
+   */
+  brazierIntensity?: number;
 }
 
 export const DuelArena: React.FC<DuelArenaProps> = ({
   crowdPulseRef,
   bannerAllegiance,
   emberEmissive,
+  brazierIntensity,
 }) => {
   const crowdGroupRef = useRef<THREE.Group>(null);
   // Seeded from the counter's current value, so the first frame never mistakes
@@ -137,7 +145,12 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
                 emissiveIntensity={emberEmissive ?? 3}
               />
             </mesh>
-            <pointLight color="#f97316" intensity={3.5} distance={12} position={[0, 0.6, 0]} />
+            <pointLight
+              color="#f97316"
+              intensity={brazierIntensity ?? 3.5}
+              distance={12}
+              position={[0, 0.6, 0]}
+            />
           </group>
         );
       })}

@@ -485,18 +485,43 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       }
     }
     // Suites are not consumers either: since GC20-X the save corpus drives
-    // `resolveTimeState` over every fixture (a test, not a screen).  The guard's
-    // property is that no SHIPPED source reads the module while nothing paints it.
-    const sources = filesUnder(path('..')).filter(
+    // `resolveTimeState` over every fixture (a test, not a screen).
+    //
+    // DAY/NIGHT T1 REBASE, determined by the evidence: rendering now reads this
+    // module's phase VOCABULARY (`TIME_PHASES`, `TimePhase`, `TIME_PHASE_NAMES`), so
+    // "no shipped source names the module" is no longer true and could not be made
+    // true without undoing the slice. The property this guard exists for still holds
+    // and is pinned harder: no shipped source consumes T0's clock MODEL
+    // (`PHASE_PROFILES` / `getPhaseProfile`) or anything that advances the clock
+    // (`resolveTimeState`, `advanceTimeBy`, `advanceToNextDawn`) — nothing paints the
+    // clock yet — and the vocabulary consumers are exactly the seven files listed.
+    const srcRoot = path('..');
+    const sources = filesUnder(srcRoot).filter(
       (file) =>
         /\.(ts|tsx)$/.test(file) &&
         !/\.test\.tsx?$/.test(file) &&
         !file.endsWith('timeState.ts')
     );
-    // `code`, not `load`: a prose mention of the module (e.g. the cross-reference
-    // in `types/game.ts`) is not a consumer — only real source is scanned.
-    const consumers = sources.filter((file) => /timeState/.test(code(file)));
-    expect(consumers).toEqual([]);
+    const consumers = sources
+      .filter((file) => /timeState/.test(code(file)))
+      .map((file) => file.slice(srcRoot.length + 1))
+      .sort();
+    expect(consumers).toEqual([
+      'components/3d/PhaseSkyDome.tsx',
+      'components/3d/city/CityAtmosphere.tsx',
+      'components/dev/PhaseLightHarness.tsx',
+      'components/hub/SettingsModal.tsx',
+      'utils/atmosphere.ts',
+      'utils/currentPhase.ts',
+      'utils/duelPhaseLight.ts',
+      'utils/racePhaseLight.ts',
+    ]);
+    for (const file of sources) {
+      const text = code(file);
+      for (const clockApi of ['PHASE_PROFILES', 'getPhaseProfile', 'resolveTimeState', 'advanceTimeBy', 'advanceToNextDawn']) {
+        expect(text).not.toContain(clockApi);
+      }
+    }
     // no shipped source writes the field either — T0 adds no profile write
     expect(code('../services/storage.ts')).not.toContain('time:');
   });

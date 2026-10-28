@@ -2,8 +2,14 @@ import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } fr
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Settings as SettingsIcon, XCircle } from 'lucide-react';
-import { Environment, Lightformer, Sky, useGLTF } from '@react-three/drei';
+import { Environment, Lightformer, useGLTF } from '@react-three/drei';
 import { EastCircusArena } from './city/EastCircusArena';
+// Day/Night T1 — the city's phase table, the circus's display-only override, and
+// the shared sky dome that replaces drei's `<Sky>`.
+import { CURRENT_PHASE } from '../../utils/currentPhase';
+import { getPhaseLight, sunDirection } from '../../utils/atmosphere';
+import { resolveRacePhase } from '../../utils/racePhaseLight';
+import { PhaseSkyDome } from './PhaseSkyDome';
 import { RaceTouchControls } from '../ui/RaceTouchControls';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
@@ -502,6 +508,22 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const [showHints, setShowHints] = useState(!hasRacedThisSession);
 
   /**
+   * Day/Night T1 — the circus draws the CITY's table (no race-only sun), with two
+   * DISPLAY-ONLY substitutions: entered at dusk it renders golden, entered at night it
+   * renders dawn. `CURRENT_PHASE` itself is unchanged by the override.
+   */
+  const racePhase = resolveRacePhase(CURRENT_PHASE);
+  const raceLight = getPhaseLight(racePhase);
+  // The key light stands along the row's own elevation/bearing, 52 units out — the
+  // distance the shipped circus sun already stood from the start line.
+  const raceKeyDirection = sunDirection(raceLight.sunElevationDeg, raceLight.sunAzimuthDeg);
+  const raceKeyPosition: [number, number, number] = [
+    raceKeyDirection[0] * 52,
+    raceKeyDirection[1] * 52,
+    raceKeyDirection[2] * 52,
+  ];
+
+  /**
    * C-8.70B §SET-1 — the freeze's own bookkeeping.  While the settings panel is
    * open the clock's origin is left alone and no race time accrues anywhere; the
    * moment it closes, the origin moves forward by exactly the frozen interval, so
@@ -746,13 +768,18 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
             <SceneBrightness />
 
-            <fog attach="fog" args={['#e3dbc6', 45, 160]} />
-            <Sky sunPosition={[30, 42, 22]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
-            <hemisphereLight color="#fef3c7" groundColor="#8a7a5f" intensity={0.45} />
+            {/* Day/Night T1 — the circus's hour comes from the city's own table. */}
+            <fog attach="fog" args={[raceLight.fogColor, raceLight.fogNear, raceLight.fogFar]} />
+            <PhaseSkyDome phase={racePhase} />
+            <hemisphereLight
+              color={raceLight.hemiSky}
+              groundColor={raceLight.hemiGround}
+              intensity={raceLight.hemiIntensity}
+            />
             <directionalLight
-              position={[30, 42, 22]}
-              intensity={2.15}
-              color="#fffbeb"
+              position={raceKeyPosition}
+              intensity={raceLight.sunIntensity}
+              color={raceLight.sunColor}
               castShadow
               shadow-mapSize={[2048, 2048]}
               shadow-camera-left={-70}
@@ -764,9 +791,13 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
               shadow-bias={-0.0004}
               shadow-normalBias={0.02}
             />
-            <directionalLight position={[-25, 20, -25]} intensity={0.28} color="#7dd3fc" />
+            <directionalLight
+              position={[-25, 20, -25]}
+              intensity={0.28 * (raceLight.hemiIntensity / 0.45)}
+              color={raceLight.hemiSky}
+            />
 
-            <Environment resolution={256} frames={1} environmentIntensity={0.35}>
+            <Environment resolution={256} frames={1} environmentIntensity={raceLight.envIntensity}>
               {environmentLightformers}
             </Environment>
 

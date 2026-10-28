@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Sparkles, useGLTF, Sky, Html } from '@react-three/drei';
+import { Sparkles, useGLTF, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumber, BoutMode } from '../../types/game';
 import { DuelArena } from '../3d/DuelArena';
@@ -142,6 +142,10 @@ import {
   type PanoplyState,
 } from '../../utils/panoply';
 import { bossSceneDeltas } from '../../data/bossPresentationStates';
+// Day/Night T1 — the phase table, the duel's own mapping of it, and the shared sky dome.
+import { CURRENT_PHASE } from '../../utils/currentPhase';
+import { resolveDuelPhaseLight } from '../../utils/duelPhaseLight';
+import { PhaseSkyDome } from '../3d/PhaseSkyDome';
 // D-4 — the Cotta pair. Every rule, fence and word lives in that module; this
 // scene only calls it, which is what keeps a non-pair row from ever fielding two
 // men, a second HP pool or a second result flow.
@@ -1151,9 +1155,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // Marcellin, nothing for anyone else). Property values only: no light, mesh or
   // material is added, so the draw-call count is unchanged.
   const sceneDeltas = useMemo(() => bossSceneDeltas(opponent), [opponent]);
+  // Day/Night T1 — the duel's scaled read of the phase table. A BOSS bout is the
+  // Night Spectacle at any phase; a regular bout is Torchlit only at `night`; every
+  // other case is the row's day mapping (fog 25…65). The phase itself is the
+  // module-level constant until T2 wires the clock.
+  const duelLight = useMemo(
+    () => resolveDuelPhaseLight(CURRENT_PHASE, opponent.isBoss === true),
+    [opponent.isBoss],
+  );
+  // D-2's authored presentation state still wins on the values it authors (its fog
+  // colour included); everything it says nothing about comes from the phase row.
   const fogArgs = useMemo<[string, number, number]>(
-    () => [sceneDeltas?.fogColor ?? '#d4a373', 25, 65],
-    [sceneDeltas],
+    () => [sceneDeltas?.fogColor ?? duelLight.fogColor, duelLight.fogNear, duelLight.fogFar],
+    [sceneDeltas, duelLight],
   );
 
   // Core Turn Execution Function
@@ -3068,24 +3082,36 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
             <SceneBrightness />
 
-            <Sky sunPosition={[40, 25, 20]} turbidity={7} rayleigh={1.8} mieCoefficient={0.005} />
+            {/* Day/Night T1 — the city's own sky shader at duel scale: the row's
+                gradient, its procedural stars and its key-light disc, which is the MOON
+                in both night states. One mesh, one draw call — exactly what drei's
+                `<Sky>` cost, and the only way to ship a night bout with a night sky.
+                The phase here is the row the duel mapping resolved (`night` whenever a
+                night state is in force). */}
+            <PhaseSkyDome phase={duelLight.phase} />
             {/* D-2 — the authored presentation state's PROPERTY deltas. Only the
                 values of the rig that already exists change, so this costs no draw
                 call; an opponent with no authored state passes `null` and the
-                arena is exactly the one it has always been. */}
+                arena takes the phase row's own values. */}
             <fog attach="fog" args={fogArgs} />
             <ambientLight
-              intensity={sceneDeltas?.ambientIntensity ?? 0.65}
-              color={sceneDeltas?.ambientColor ?? '#fef3c7'}
+              intensity={sceneDeltas?.ambientIntensity ?? duelLight.ambientIntensity}
+              color={sceneDeltas?.ambientColor ?? duelLight.ambientColor}
             />
             <directionalLight
-              position={[15, 25, 15]}
-              intensity={sceneDeltas?.sunIntensity ?? 1.9}
-              color={sceneDeltas?.sunColor ?? '#fffbeb'}
+              position={duelLight.keyPosition}
+              intensity={sceneDeltas?.sunIntensity ?? duelLight.keyIntensity}
+              color={sceneDeltas?.sunColor ?? duelLight.keyColor}
               castShadow
               shadow-mapSize={[1024, 1024]}
             />
-            <directionalLight position={[-15, 10, -15]} intensity={0.5} color="#38bdf8" />
+            {/* The cool fill follows the row's bounce strength — dimmer at night, so
+                the braziers are the light the crowd has. No new light is added. */}
+            <directionalLight
+              position={[-15, 10, -15]}
+              intensity={duelLight.fillIntensity}
+              color={duelLight.fillColor}
+            />
             <Sparkles count={50} scale={[20, 10, 20]} size={2} color="#fef08a" opacity={0.5} />
 
             <ThreeComponentErrorBoundary componentName="DuelArenaArchitecture">
@@ -3102,7 +3128,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                     ? 'dusk'
                     : undefined
                 }
-                emberEmissive={sceneDeltas?.emberEmissive}
+                emberEmissive={sceneDeltas?.emberEmissive ?? duelLight.emberEmissive}
+                brazierIntensity={duelLight.brazierIntensity}
               />
             </ThreeComponentErrorBoundary>
 

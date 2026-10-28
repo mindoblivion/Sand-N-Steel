@@ -32,7 +32,10 @@ import type {
   Settings as SettingsRecord,
 } from '../../services/settings';
 import { useSettings } from '../../hooks/useSettings';
-import type { AtmosphereProfileName } from '../../utils/atmosphere';
+// Day/Night T1 — the Lighting row now REPORTS the day's phase instead of choosing
+// a profile, so it reads the one constant and the phase labels themselves.
+import { CURRENT_PHASE, CURRENT_PHASE_SOURCE } from '../../utils/currentPhase';
+import { TIME_PHASE_NAMES } from '../../utils/timeState';
 
 /** The five sections of §1.3, in the design's order. */
 export type SettingsCategory = 'picture' | 'controls' | 'sound' | 'game' | 'accessibility';
@@ -349,15 +352,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   ];
 
   /**
-   * Atmosphere A1 — the city's two sky/sun/fog profiles. The row only offers what
-   * the module ships; the city scene reads the stored name and swaps the rig live.
-   */
-  const lightingOptions: ReadonlyArray<{ value: AtmosphereProfileName; label: string }> = [
-    { value: 'goldenHour', label: 'Golden Hour' },
-    { value: 'midday', label: 'Midday' },
-  ];
-
-  /**
    * SF-1 — the picture-quality preset's three names.  §SET-1 carried the field as a
    * named attachment point with no consumer, which is why it had no row; the city's
    * DPR band and dust budget read it now, and that is what makes this row a wired one.
@@ -468,17 +462,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   value={settings.brightness}
                   onChange={(brightness) => set({ brightness })}
                 />
-                {/* Atmosphere A1 — Golden Hour (the default) or Midday. Writes the one
-                    settings record; the city scene swaps the sky, sun and fog live. */}
-                <ChoiceRow
-                  label="Lighting"
-                  description="Golden Hour is the city's low, warm sun; Midday is its high, clear light."
-                  icon={<Sunset className="w-5 h-5" />}
-                  options={lightingOptions}
-                  value={settings.cityLighting}
-                  onChange={(cityLighting) => set({ cityLighting })}
-                  columns={2}
-                />
+                {/* Day/Night T1 — A1's Lighting toggle is RETIRED: the day's own cycle
+                    is the lighting story now, so this row only reports the hour the city
+                    is drawn under. Read-only; the stored `cityLighting` field stays inert
+                    in storage (nothing renders it). */}
+                <RowCard>
+                  <RowLabel
+                    label="Lighting"
+                    description={`${TIME_PHASE_NAMES[CURRENT_PHASE]} — ${CURRENT_PHASE_SOURCE}`}
+                    icon={<Sunset className="w-5 h-5" />}
+                  />
+                </RowCard>
                 <ChoiceRow
                   label="City Camera Distance"
                   description="How far the camera sits behind your gladiator in the city."

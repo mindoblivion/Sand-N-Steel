@@ -441,7 +441,10 @@ describe('D-5 §G — the dusk state costs no draw call', () => {
     expect((ARENA.match(/<mesh/g) ?? []).length).toBe(32);
     // The scene passes both, on the same two props.
     expect(DUEL).toContain("? 'dusk'");
-    expect(DUEL).toContain('emberEmissive={sceneDeltas?.emberEmissive}');
+    // DAY/NIGHT T1 REBASE: the authored delta still WINS on the ember property (the
+    // left side of the `??` is unchanged); the row's own scaled value is only the
+    // fallback when the opponent authors nothing. +0 meshes either way.
+    expect(DUEL).toContain('emberEmissive={sceneDeltas?.emberEmissive ?? duelLight.emberEmissive}');
   });
 
   test('"his banner beside the player’s" is the one heraldic cloth’s tones', () => {
