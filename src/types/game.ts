@@ -415,11 +415,13 @@ export interface GrudgeBoutConfig {
   /** The class the rival studied — the player's dominant mix in the bout he lost. */
   studied: DominantOffensiveClass;
   /**
-   * THE EVOLVED-TRAIT SLOT. `null` until the characters-and-systems trait pool
-   * lands (Director addendum A): this is NOT the palmae ladder, and the fight
-   * card omits the slot entirely while it is null.
+   * THE EVOLVED-TRAIT SLOT — never null (design C3b; the Oct 19 QA amendment
+   * retires addendum A's null fallback). A `Palma.id` from the safe subset,
+   * resolved by `utils/extraPalmae.ts` from the BASE row at generation time and
+   * ALSO appended to the generated row's own `palmae` array. Derived, never
+   * stored: no save field carries it.
    */
-  evolvedTrait: null;
+  evolvedTrait: string;
   /** The base row's profile, before the studied shift. */
   baseProfile: GrudgeProfileValues;
   /** The profile the AI actually reads. */

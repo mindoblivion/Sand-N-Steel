@@ -15,7 +15,12 @@ import { doctoreRestrictionSpec } from '../../utils/storyBeats';
 import { getArmatura } from '../../data/armaturae';
 import { getPalma, type Palma } from '../../data/palmae';
 // C-8.70C — the grudge's two sentences, built from the generated row itself.
-import { grudgeProfileLine, grudgeStudiedLine } from '../../utils/grudgeBouts';
+import {
+  grudgeProfileLine,
+  grudgeRewardLine,
+  grudgeStudiedLine,
+  grudgeTraitLine,
+} from '../../utils/grudgeBouts';
 
 interface PreFightModalProps {
   opponent: OpponentConfig;
@@ -97,11 +102,11 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
           </div>
         )}
 
-        {/* C-8.70C — A GRUDGE BOUT, in plain language: that this is a grudge,
-            what the rival studied (from his generated row), and his profile
-            before → after, in his own numbers. The evolved-trait slot ships
-            NULL (Director addendum A), so the card OMITS it: there is no row to
-            print while the slot is empty. */}
+        {/* C-8.70C + C-TRAIT — A GRUDGE BOUT, in plain language: that this is a
+            grudge, what the rival studied (from his generated row), his profile
+            before → after, the EVOLVED TRAIT he now carries (design C3b — the
+            slot is never null, so its row is printed by name and effect), and the
+            purse the venue tier pays before the chosen mode multiplies it. */}
         {opponent.grudge && (
           <div
             data-prefight-grudge={opponent.grudge.baseId}
@@ -115,6 +120,18 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
             </p>
             <div className="mt-2 text-[11px] font-mono text-neutral-300">
               {grudgeProfileLine(opponent.grudge)}
+            </div>
+            <div
+              data-prefight-grudge-trait={opponent.grudge.evolvedTrait}
+              className="mt-1 text-[11px] font-mono text-rose-200"
+            >
+              {grudgeTraitLine(opponent)}
+            </div>
+            <div
+              data-prefight-grudge-purse={boutMode}
+              className="mt-1 text-[11px] font-mono text-neutral-300"
+            >
+              {grudgeRewardLine(opponent, boutMode)}
             </div>
           </div>
         )}

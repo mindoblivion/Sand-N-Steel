@@ -19,11 +19,15 @@
  * The default delta is the ONLY value every row carries; a row with a different
  * `steelDelta` is an AUTHORED variation and is flagged in that row.
  *
- * ── THE TRAIT GRANT IS OMITTED (Director addendum A) ───────────────────────
+ * ── THE TRAIT GRANT IS THE EXTRA PALMA (design C3b, addendum A RETIRED) ────
  * Steel says a regular opponent "carries the trait it would hold one tier
- * higher". The characters-and-systems trait pool has NOT landed in this tree —
- * the palmae are the CH doctrinae/palmae ladder, a DIFFERENT system — so the
- * grant is omitted and the card says "profile only". No palma is bound to it.
+ * higher". The Oct 19 QA amendment resolves what that trait is: the next entry,
+ * cyclically, in the safe-subset order that the rival does not already carry —
+ * `utils/extraPalmae.ts`'s ONE shared resolver, the same one the Grudge Bout's
+ * evolved-trait slot reads. The granted id is APPENDED to the row's own `palmae`
+ * array in `resolveBoutOpponent`, so it resolves through the EXISTING
+ * `mergeModifiers` block like any carried palma. Sand grants nothing, and a boss
+ * or Feature Bout row never receives one (the resolver's own fence).
  *
  * ── THE TELEGRAPH FLOOR IS STEEL-ONLY, AND NEVER BELOW 0.8 s ───────────────
  * `telegraphFloorSeconds` is the charter floor. A boss telegraph window longer
@@ -41,6 +45,7 @@
  */
 import { CROWD_CONFIG, crowdTierTuning, type CrowdConfig, type CrowdVenueTier } from './crowdConfig';
 import type { BoutMode, OpponentConfig, SteelDelta } from '../types/game';
+import { extraPalmaFor, extraPalmaLine, withExtraPalma } from '../utils/extraPalmae';
 
 /** The mode a fresh pre-fight card starts on. Session-only, never saved. */
 export const DEFAULT_BOUT_MODE: BoutMode = 'sand';
@@ -91,10 +96,11 @@ export interface BoutModeDefinition {
   fameMultiplier: number;
   goldMultiplier: number;
   /**
-   * Director addendum A — always `null`: the characters-and-systems trait pool
-   * has not landed, and the palmae ladder is a different system. Profile only.
+   * C3b — Steel and Invictus grant the rival the safe-subset extra palma; Sand
+   * grants none. WHICH palma is per row, so it comes from the shared resolver
+   * (`utils/extraPalmae.ts`), never from this table.
    */
-  traitGrant: null;
+  grantsExtraPalma: boolean;
 }
 
 export const BOUT_MODES: Record<BoutMode, BoutModeDefinition> = {
@@ -107,7 +113,7 @@ export const BOUT_MODES: Record<BoutMode, BoutModeDefinition> = {
     crowdDecay: 'venue',
     fameMultiplier: 1,
     goldMultiplier: 1,
-    traitGrant: null,
+    grantsExtraPalma: false,
   },
   steel: {
     id: 'steel',
@@ -118,7 +124,7 @@ export const BOUT_MODES: Record<BoutMode, BoutModeDefinition> = {
     crowdDecay: 'venue',
     fameMultiplier: 1.5,
     goldMultiplier: 1.25,
-    traitGrant: null,
+    grantsExtraPalma: true,
   },
   invictus: {
     id: 'invictus',
@@ -129,7 +135,7 @@ export const BOUT_MODES: Record<BoutMode, BoutModeDefinition> = {
     crowdDecay: 'next',
     fameMultiplier: 2,
     goldMultiplier: 1.5,
-    traitGrant: null,
+    grantsExtraPalma: true,
   },
 };
 
@@ -212,8 +218,12 @@ export function resolveBoutOpponent(
   opponent: OpponentConfig,
 ): OpponentConfig {
   const profile = resolveBoutProfile(mode, opponent);
+  // C3b — the mode's trait grant, appended to the row's OWN `palmae` array so the
+  // existing modifier merge reads it. The resolver's fence keeps bosses and
+  // Feature Bouts untouched; Sand appends nothing.
+  const row = BOUT_MODES[mode]?.grantsExtraPalma ? withExtraPalma(opponent) : opponent;
   return {
-    ...opponent,
+    ...row,
     aggression: profile.aggression,
     blockChance: profile.blockChance,
     stats: { ...opponent.stats },
@@ -342,16 +352,23 @@ export function boutModeEffectLines(mode: BoutMode, opponent: OpponentConfig): s
   lines.push(boutModeProfileLine(mode, opponent));
 
   if (def.sharpenedProfile) {
+    // C3b — the grant, by name and effect. A boss or Feature Bout row is fenced
+    // out of the grant, and the card says exactly that rather than inventing a trait.
+    const granted = extraPalmaLine(extraPalmaFor(opponent));
     lines.push(
-      'Profile only — no trait grant: the characters-and-systems trait pool has not landed ' +
-        '(the palmae ladder is a different system).',
+      granted
+        ? `Trait grant — the rival gains ${granted}`
+        : 'No trait grant: this opponent never receives an extra palma.',
     );
     lines.push(
       `Boss telegraphs shorten to no less than the ${TELEGRAPH_FLOOR_SECONDS.toFixed(1)}s floor; ` +
         'quick and heavy strikes keep their shipped pacing.',
     );
   } else {
-    lines.push('No profile shift, no trait grant. Boss telegraphs keep their shipped length.');
+    lines.push(
+      'No profile shift and no trait grant — Sand is the old terms. ' +
+        'Boss telegraphs keep their shipped length.',
+    );
   }
 
   if (mode === 'invictus') {

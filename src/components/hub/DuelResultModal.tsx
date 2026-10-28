@@ -5,7 +5,7 @@ import { getPalma } from '../../data/palmae';
 import { injuryBannerLine, type DuelInjuryEvent } from '../../utils/injury';
 // C-8.70C — what the grudge's own result was, decided at the same write that
 // recorded it (settled on a win, closed until the tier's next standard win).
-import { grudgeResultLine } from '../../utils/grudgeBouts';
+import { grudgeResultLine, grudgeRewardLine } from '../../utils/grudgeBouts';
 // C-8.70C — the bout mode's own purse and renown lines, from the same data the
 // pre-fight card promised them with.
 import { BOUT_MODES } from '../../data/boutModes';
@@ -282,12 +282,22 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
             leaves it standing until a standard bout at its tier is won. Read
             from the row this duel was fought with. */}
         {opponent.grudge && (
-          <p
-            data-duel-grudge={didWin ? 'settled' : 'open'}
-            className="text-xs sm:text-[13px] font-serif italic text-amber-200/90 leading-relaxed mb-4"
-          >
-            {grudgeResultLine(opponent, didWin)}
-          </p>
+          <div className="mb-4">
+            <p
+              data-duel-grudge={didWin ? 'settled' : 'open'}
+              className="text-xs sm:text-[13px] font-serif italic text-amber-200/90 leading-relaxed"
+            >
+              {grudgeResultLine(opponent, didWin)}
+            </p>
+            {/* C-TRAIT — the purse the grudge paid, composed from the venue tier's
+                floor regular x this bout's mode multipliers (design C3d). */}
+            <p
+              data-duel-grudge-purse={stats.boutMode ?? 'sand'}
+              className="mt-1 text-[11px] font-mono text-neutral-300 leading-relaxed"
+            >
+              {grudgeRewardLine(opponent, stats.boutMode ?? 'sand')}
+            </p>
+          </div>
         )}
 
         {/* D-2 — the beast hunt's own epilogue, computed in the duel from its
