@@ -353,9 +353,20 @@ describe('§F — boss-only mechanics stay boss-only (the enforcement pass)', ()
       opp_aurelius_boss: 'rage_mode_colossus',
     };
     for (const [id, mechanic] of Object.entries(mechanicByBossId)) {
-      const carriers = ALL_OPPONENTS.filter((row) => row.bossMechanic === mechanic);
+      // STORY-4b — the mechanic belongs to exactly one LADDER boss ROW. The Bounty
+      // Hall's Deserter REUSES `heavy_telegraph` (no new mechanic exists), so the
+      // ladder population is asserted here and that single reuse is pinned below.
+      const carriers = ALL_OPPONENTS.filter(
+        (row) => row.bossMechanic === mechanic && row.bountyBout !== true,
+      );
       expect(carriers.map((row) => row.id)).toEqual([id]);
     }
+    // The one reuse in the roster, named: a fenced bounty boss, no phase ladder.
+    expect(
+      ALL_OPPONENTS.filter((row) => row.bossMechanic === 'heavy_telegraph' && row.bountyBout === true)
+        .map((row) => row.id),
+    ).toEqual(['opp_bounty_deserter']);
+    expect(bossPhaseLadderFor(ALL_OPPONENTS.find((row) => row.id === 'opp_bounty_deserter'))).toBeNull();
   });
 
   test('the phase helpers are the ONLY gate the duel uses for phase behaviour', () => {

@@ -52,7 +52,9 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
   // D-1 — the ladder list is the ladder only: a Feature Bout is never a rung of
   // the tier the player is fighting in, and it is listed in its own section.
   const tierOpponents = ALL_OPPONENTS.filter(
-    (o) => o.tier === profile.currentTier && o.featureBout !== true
+    // STORY-4b — the board's rungs are not tier rungs: they are entered from the
+    // Bounty Hall's panel (which owns their order and their gates), never from here.
+    (o) => o.tier === profile.currentTier && o.featureBout !== true && o.bountyBout !== true
   );
   const featureBouts = featureBoutStatuses(profile);
   // C-8.70C — a rival's grudge appears in the tier it was earned (his own tier +

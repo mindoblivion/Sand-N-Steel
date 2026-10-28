@@ -346,8 +346,13 @@ describe('CH-4 §B — the eight originals are byte-for-byte their pre-CH-4 selv
 
 // The LADDER's roster of a tier: D-1 appended five feature bouts, which are
 // bosses of a VENUE tier but not rungs of it, so they are listed separately.
+// STORY-4b — the Bounty Hall's rows are not tier rungs, so the ladder order is
+// asserted over the ladder proper (`bountyBout` excluded) and their absence from it
+// is pinned in `bountyLadder.test.ts` §A.
 const tierRoster = (tier: number) =>
-  ALL_OPPONENTS.filter((opponent) => opponent.tier === tier && opponent.featureBout !== true)
+  ALL_OPPONENTS.filter(
+    (opponent) => opponent.tier === tier && opponent.featureBout !== true && opponent.bountyBout !== true,
+  )
     .slice()
     .sort((a, b) => a.fightIndex - b.fightIndex)
     .map((opponent) => opponent.id);
@@ -493,7 +498,10 @@ describe('CH-4 §C — the ladder order the design intends', () => {
 
   test('the roster grew by the four rivals and D-1 five feature bouts — nothing was removed', () => {
     // 12 ladder rows (the CH-4 roster) + D-1's five feature bouts, appended.
-    expect(ALL_OPPONENTS.length).toBe(17);
+    // STORY-4b — the Bounty Hall board appends six rows to the roster (five rungs
+    // plus the Deserter). `LADDER_OPPONENTS` and `FEATURE_BOUT_OPPONENTS` are
+    // unchanged: both fences now exclude `bountyBout` rows.
+    expect(ALL_OPPONENTS.length).toBe(23);
     expect(LADDER_OPPONENTS.length).toBe(12);
     const ids = ALL_OPPONENTS.map((opponent) => opponent.id);
     expect(new Set(ids).size).toBe(ids.length);

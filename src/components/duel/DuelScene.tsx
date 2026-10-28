@@ -667,6 +667,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     // retiarius (the opponent config lands in CH-4; the read is already here).
     netAvailable: opponentMods.armaturaId === 'retiarius',
     entangledTurns: 0,
+    // STORY-4b — Director ruling R5: a LEFT-HANDED opponent (the board's Rung II)
+    // is the shipped lefty stance, read from the row's own flag. `GladiatorMesh`
+    // falls back to this field for the opponent mesh (it is rendered without an
+    // explicit `isLeftyMode` prop), so the sword and shield swap hands. No stat,
+    // formula or reward reads it.
+    isLeftyMode: opponent.leftHanded === true,
   });
 
   // Swords & Sandals Turn-Based State Machine
@@ -810,6 +816,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     // `pStats.staminaMax` (see the player factory above), so nothing has been
     // spent until the first action does.
     lowestStaminaFraction: 1,
+    // STORY-4b — the health low-water mark (see the effect below), 1 = never dropped.
+    lowestHealthFraction: 1,
     crowdHypePeak: openingHype,
     durationSeconds: 0,
     // C-8.70C — the row's own base, already multiplied by the mode (×1.00 on
@@ -1071,6 +1079,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       fraction
     );
   }, [player.stamina, player.stats.staminaMax]);
+
+  // STORY-4b — the health low-water mark, tracked exactly as the stamina one is:
+  // a Math.min over the duel, so it only ever falls, against the maximum the player
+  // entered with. The Unscarred's "never below half" twist is its one consumer, and
+  // it is a READING of the fight — no formula above consults it.
+  useEffect(() => {
+    const max = player.stats.healthMax;
+    if (!Number.isFinite(max) || max <= 0) return;
+    const fraction = Math.max(0, Math.min(1, player.health / max));
+    statsRef.current.lowestHealthFraction = Math.min(
+      statsRef.current.lowestHealthFraction ?? 1,
+      fraction
+    );
+  }, [player.health, player.stats.healthMax]);
 
   // Distance in 3D arena
   const currentDistance = Math.abs(player.position[2] - opp.position[2]);

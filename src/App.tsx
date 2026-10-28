@@ -98,6 +98,18 @@ import {
   type DoctoreTestRestriction,
 } from './utils/storyBeats';
 import { resolveVictoryTier } from './utils/tierAdvancement';
+// STORY-4b — THE DESERTER'S PRICE. One pure module owns the ladder's rules; this
+// file is where its two writes land, inside the duel-result write every bout
+// already uses (a rung clear rides the victory write; the Deserter's answer is its
+// own exactly-once write, the same shape STORY-4a's mercy answer takes).
+import {
+  applyDeserterChoice,
+  BOUNTY_FINAL,
+  resolveBountyVictory,
+  withRungCleared,
+  type BountyVictory,
+  type DeserterChoice,
+} from './utils/bountyLadder';
 // C-8.70C — the grudge record's writes. A grudge's own result is recorded here in
 // the SAME result write every duel uses; nothing on the grudge surfaces writes.
 import {
@@ -171,6 +183,13 @@ export function App() {
    * Session only — never saved.
    */
   const mercyWrittenRef = useRef<string | null>(null);
+  /**
+   * STORY-4b — the Deserter answer's ONCE guard, session only: a double tap (or a
+   * stale control) cannot pay the bounty twice. `story.deserterChoice` is the real
+   * record and the module refuses a second answer on its own; this ref keeps the
+   * tap itself from reaching a second `saveProfile`.
+   */
+  const deserterWrittenRef = useRef(false);
   /** DAY/NIGHT T2 — the day-boundary beat the city plays (sleep veil + the new day's name). */
   const [dayBanner, setDayBanner] = useState<{ day: number; text: string } | null>(null);
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
@@ -229,6 +248,23 @@ export function App() {
       finalFame: number;
       chosen?: MercyChoice;
       extraFame?: number;
+    } | null;
+    /**
+     * STORY-4b — what this bout did for the Bounty Hall's board, decided at the same
+     * write: a rung's clear (and the bounty it paid), or the Deserter's final, whose
+     * answer is taken here and paid when it lands. Absent on every non-bounty bout.
+     */
+    bounty?: {
+      kind: 'rung' | 'final';
+      line: string;
+      gold: number;
+      fame: number;
+      chosen?: DeserterChoice;
+      /** The final's two postings, so the modal prints the numbers it will pay. */
+      capturedGold: number;
+      capturedFame: number;
+      takenGold: number;
+      takenFame: number;
     } | null;
   } | null>(null);
   /**
@@ -818,14 +854,25 @@ export function App() {
       ? { ...stats, fameEarned: omenSettled.fame, goldEarned: omenSettled.gold }
       : stats;
 
+    /**
+     * STORY-4b — the bounty board's answer to this bout, decided ONCE here from the
+     * record the bout was fought with: a rung's clear (paid in the same victory
+     * write below), a rung's miss (the standard purse only — R4), or the Deserter's
+     * final (paid at the capture-or-kill answer, so nothing is paid here).
+     */
+    const bounty: BountyVictory = resolveBountyVictory(profile, activeOpponent, stats, didWin);
+
     /** CH-5 — what this victory unlocked, decided at the write and told to the result. */
     let palmaEarned: string[] | undefined;
 
     let settledProfile: PlayerProfile;
 
     if (didWin) {
-      const nextGold = profile.gold + resultStats.goldEarned;
-      const nextFame = profile.fame + resultStats.fameEarned;
+      // STORY-4b — a CLEARED posting pays its full bounty in this same write; a
+      // victory that missed the printed rule adds nothing (the duel's own purse
+      // above is already the standard one).
+      const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;
+      const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;
       const nextXp = profile.xp + stats.xpEarned;
 
       let nextLevel = profile.level;
@@ -910,6 +957,11 @@ export function App() {
 
       // The just-fought opponent is what names the boss cry — first defeat or rematch.
       settledProfile = evaluateRituals(profile, earned.profile, activeOpponent);
+      // STORY-4b — the rung's CLEAR rides the same write, inside the existing
+      // `story` object (no new top-level field; §J stays at twenty-one).
+      if (bounty.clearedRungId) {
+        settledProfile = withRungCleared(settledProfile, bounty.clearedRungId);
+      }
     } else {
       // C-8.70C — a lost GRUDGE closes: it stays shut until the player wins any
       // standard bout at that grudge's own tier (the anti-farm rule). Nothing
@@ -948,6 +1000,7 @@ export function App() {
      */
     const mercy = mercyOfferFor(profile, activeOpponent, didWin);
     mercyWrittenRef.current = null;
+    deserterWrittenRef.current = false;
 
     setDuelResult({
       didWin,
@@ -961,6 +1014,22 @@ export function App() {
       // STORY-4a — the offer carries the duel's FINAL fame (post mode / crowd /
       // omen, in C-C's order), which is the basis Finish's R1 rule reads.
       ...(mercy ? { mercy: { ...mercy, finalFame: resultStats.fameEarned } } : {}),
+      // STORY-4b — the board's own line for this bout (the clear, the miss, or the
+      // final's question), so the result screen and the save cannot disagree.
+      ...(bounty.kind !== 'none'
+        ? {
+            bounty: {
+              kind: bounty.kind,
+              line: bounty.line,
+              gold: bounty.gold,
+              fame: bounty.fame,
+              capturedGold: BOUNTY_FINAL.capturedGold,
+              capturedFame: BOUNTY_FINAL.capturedFame,
+              takenGold: BOUNTY_FINAL.takenGold,
+              takenFame: BOUNTY_FINAL.takenFame,
+            },
+          }
+        : {}),
     });
   };
 
@@ -1026,6 +1095,44 @@ export function App() {
     );
   };
 
+
+  /**
+   * STORY-4b — THE DESERTER'S ANSWER, written exactly once.
+   *
+   * STORY-4b — Director ruling R7: the choice lives in `story.deserterChoice` and
+   * nowhere else (he is a bounty row, not a mercy-eligible ladder regular). The
+   * bounty is paid HERE, not at the victory write, because the two answers pay
+   * different purses (R1): captured 550 g / 90 f, killed 350 g / 180 f. The module
+   * refuses a second answer on its own, and the ref keeps a double tap from even
+   * reaching a second save.
+   */
+  const handleDeserterChoice = (choice: DeserterChoice) => {
+    if (!profile || !duelResult?.bounty || duelResult.bounty.kind !== 'final') return;
+    if (duelResult.bounty.chosen || deserterWrittenRef.current) return;
+    deserterWrittenRef.current = true;
+
+    const outcome = applyDeserterChoice(profile, choice);
+    if (outcome.profile !== profile) {
+      setProfile(outcome.profile);
+      saveProfile(outcome.profile);
+    }
+    if (outcome.alreadyAnswered) return;
+
+    setDuelResult((previous) =>
+      previous && previous.bounty
+        ? {
+            ...previous,
+            bounty: {
+              ...previous.bounty,
+              chosen: choice,
+              gold: outcome.gold,
+              fame: outcome.fame,
+              line: outcome.line,
+            },
+          }
+        : previous
+    );
+  };
 
   /**
    * RG-3 — the Device Choosing panel's one write. `chooseBannerDevice` refuses a second
@@ -1573,6 +1680,8 @@ export function App() {
             omenLine={duelResult.omenLine}
             mercy={duelResult.mercy ?? null}
             onMercyChoice={handleMercyChoice}
+            bounty={duelResult.bounty ?? null}
+            onDeserterChoice={handleDeserterChoice}
             goldTotal={profile?.gold}
             coachCardId={
               profile

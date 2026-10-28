@@ -304,12 +304,24 @@ describe('CF-6 §A — boss gating', () => {
   test('the roster’s four moment owners are exactly the four LADDER bosses', () => {
     // D-1 — a FEATURE bout is a boss but owns NO presentation moment, so the
     // owners are the LADDER's four; the feature five are asserted separately.
+    // STORY-4b — the Bounty Hall's Deserter carries Goliath's `heavy_telegraph`, so
+    // the gate (isBoss ∧ mechanic ownership) admits him too: FIVE owners, the four
+    // ladder bosses plus that one fenced bounty row. Nothing else is admitted.
     const ladderBosses = ALL_OPPONENTS.filter(
-      (o) => o.isBoss === true && o.featureBout !== true
+      (o) => o.isBoss === true && o.featureBout !== true && o.bountyBout !== true
     );
     const owners = ALL_OPPONENTS.filter((o) => bossPresentationMoments(o).length > 0);
-    expect(owners.map((o) => o.id).sort()).toEqual(ladderBosses.map((o) => o.id).sort());
-    expect(owners).toHaveLength(4);
+    expect(owners.map((o) => o.id).sort()).toEqual(
+      [...ladderBosses.map((o) => o.id), 'opp_bounty_deserter'].sort(),
+    );
+    expect(ladderBosses).toHaveLength(4);
+    expect(owners).toHaveLength(5);
+    // The Deserter's one moment is the telegraph, and it is the mechanic's own gate
+    // (never an opponent-id special case).
+    const deserter = ALL_OPPONENTS.find((o) => o.id === 'opp_bounty_deserter')!;
+    expect(bossPresentationMoments(deserter)).toEqual(['telegraph']);
+    expect(bossPresentsMoment(deserter, 'heavy_telegraph')).toBe(true);
+    expect(bossPresentsMoment(deserter, 'rage_mode_colossus')).toBe(false);
     // Each owns exactly ONE moment — no boss gets a second boss's moment.
     for (const owner of owners) expect(bossPresentationMoments(owner)).toHaveLength(1);
     // …and every FEATURE boss presents nothing at all, though it is a boss.

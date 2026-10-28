@@ -83,8 +83,11 @@ function victoryWrite(profile: PlayerProfile, opponent: OpponentConfig): PlayerP
 // deliberately NOT campaign kills (see `nextBossKills`'s own rule), so this
 // sweep is the ladder's five — and the suite's own feature-bout case below
 // asserts the exclusion from the other side.
+// STORY-4b — the LADDER bosses are the campaign's kills. The Bounty Hall's Deserter
+// is a boss row too, but a bounty win is not a campaign kill; his own case is pinned
+// in its own test below and in `bossKills.ts`'s fence.
 const BOSSES = ALL_OPPONENTS.filter(
-  (opponent) => opponent.isBoss === true && opponent.featureBout !== true
+  (opponent) => opponent.isBoss === true && opponent.featureBout !== true && opponent.bountyBout !== true
 );
 const TIER_FOUR_BOSS = ALL_OPPONENTS.find(
   (opponent) => opponent.isBoss === true && opponent.tier === 4
@@ -110,6 +113,18 @@ describe('§A — a first boss defeat raises the count by exactly one', () => {
       // The record itself is untouched: exactly the ids it already had, plus this one.
       expect(after.defeatedOpponentIds).toEqual([boss.id]);
     }
+  });
+
+  test('STORY-4b — a BOUNTY boss is never a campaign kill', () => {
+    const deserter = ALL_OPPONENTS.find((opponent) => opponent.id === 'opp_bounty_deserter')!;
+    expect(deserter.isBoss).toBe(true);
+    const before = base();
+    const after = victoryWrite(before, deserter);
+    // The id is still recorded by the ordinary victory write…
+    expect(after.defeatedOpponentIds).toContain(deserter.id);
+    // …and the count does not move, first defeat or rematch.
+    expect(after.bossKills).toBe(0);
+    expect(victoryWrite(after, deserter).bossKills).toBe(0);
   });
 
   test('each further first kill adds exactly one, one at a time', () => {

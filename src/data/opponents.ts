@@ -3,6 +3,10 @@ import { OpponentConfig } from '../types/game';
 // No row below carries a different value: any variation would be an AUTHORED one
 // and must be flagged on that row's own comment.
 import { DEFAULT_STEEL_DELTA } from './boutModes';
+// STORY-4b — the Bounty Hall board's six rows, appended to `ALL_OPPONENTS` below.
+// They live in their own data module so the ladder's rules (`utils/bountyLadder.ts`)
+// and the rows it posts have one owner each.
+import { BOUNTY_BOARD_OPPONENTS } from './bountyBoard';
 
 /**
  * D-1 — is this opponent a boss OF THE TIER LADDER?
@@ -21,9 +25,17 @@ import { DEFAULT_STEEL_DELTA } from './boutModes';
  * a ladder boss.
  */
 export function isLadderBoss(
-  opponent: Pick<OpponentConfig, 'isBoss' | 'featureBout'> | null | undefined
+  opponent: Pick<OpponentConfig, 'isBoss' | 'featureBout' | 'bountyBout'> | null | undefined
 ): boolean {
-  return opponent?.isBoss === true && opponent.featureBout !== true;
+  // STORY-4b — a BOUNTY BOUT is fenced here exactly as a Feature Bout is: the
+  // Deserter is `isBoss` (telegraph machine, Spectacle dress) but he is not a rung
+  // of any tier, so beating him can never advance `currentTier`, never satisfy a
+  // gate that means "the ladder's champion of tier N fell", and never add a stripe.
+  return (
+    opponent?.isBoss === true &&
+    opponent.featureBout !== true &&
+    opponent.bountyBout !== true
+  );
 }
 
 export const TOURNAMENT_TIERS = [
@@ -919,20 +931,40 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     },
     characterModel: 'roman_warrior',
   },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // STORY-4b — THE DESERTER'S PRICE (the Bounty Hall board). APPENDED ONLY: every
+  // row above this line is byte-identical, so every save's ids still resolve. The
+  // six rows live in `data/bountyBoard.ts`; each carries `bountyBout: true` and
+  // `fightIndex: 0`, and the fences below keep them out of every ladder consumer —
+  // they are not rungs, not tier bosses and not Feature Bouts.
+  // ══════════════════════════════════════════════════════════════════════════
+  ...BOUNTY_BOARD_OPPONENTS,
 ];
 
 /**
  * The ladder proper — every opponent that is a rung or a tier's boss. The
  * feature bouts are NOT here: they are their own list, and `fightIndex: 0` keeps
  * them out of any tier's rung order.
+ *
+ * STORY-4b — nor are the BOUNTY BOUTS: the board's six rows are appended to the
+ * roster so their ids resolve, but a bounty win is not a ladder win, so they are
+ * excluded here exactly as Feature Bouts are. The exclusion is the ONLY change to
+ * this resolver; the twelve ladder rows it answers are unchanged.
  */
 export const LADDER_OPPONENTS: OpponentConfig[] = ALL_OPPONENTS.filter(
-  (opponent) => opponent.featureBout !== true
+  (opponent) => opponent.featureBout !== true && opponent.bountyBout !== true
 );
 
-/** D-1 — the five Feature Bouts, in the order Part A presents them. */
+/**
+ * D-1 — the five Feature Bouts, in the order Part A presents them.
+ *
+ * STORY-4b — the `bountyBout` term is belt-and-braces (no bounty row carries
+ * `featureBout`), and it keeps the two outside-the-ladder populations from ever
+ * meeting in this list: the Feature Bouts section renders exactly these five.
+ */
 export const FEATURE_BOUT_OPPONENTS: OpponentConfig[] = ALL_OPPONENTS.filter(
-  (opponent) => opponent.featureBout === true
+  (opponent) => opponent.featureBout === true && opponent.bountyBout !== true
 );
 
 /**

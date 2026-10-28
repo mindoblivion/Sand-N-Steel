@@ -130,8 +130,12 @@ describe('C-8.70C §A — the three modes, as data', () => {
 
 describe('C-8.70C §B — every row’s base stats are identical in all three modes', () => {
   test('the roster is the full cast (17 ladder/feature rows + the Doctore’s champion)', () => {
-    expect(ALL_OPPONENTS.length).toBe(17);
-    expect(ROSTER.length).toBe(18);
+    // STORY-4b — the Bounty Hall board appends six rows to the roster (five rungs
+    // plus the Deserter). `LADDER_OPPONENTS` and `FEATURE_BOUT_OPPONENTS` are
+    // unchanged: both fences now exclude `bountyBout` rows.
+    expect(ALL_OPPONENTS.length).toBe(23);
+    // STORY-4b — six more rows, so the full cast plus the Doctore's champion is 24.
+    expect(ROSTER.length).toBe(24);
   });
 
   test('every opponent’s stat block deep-equals across Sand/Steel/Invictus', () => {

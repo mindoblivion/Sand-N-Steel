@@ -40,6 +40,8 @@ export interface BossOpponent {
   isBoss?: boolean;
   /** D-1 — carried so the rule can tell a LADDER boss from a Feature Bout. */
   featureBout?: true;
+  /** STORY-4b — a BOUNTY BOUT is not a campaign kill either (the Deserter is a boss). */
+  bountyBout?: true;
 }
 
 /** A missing, non-finite or negative count reads as zero — never as NaN. */
@@ -75,7 +77,11 @@ export function nextBossKills(
   // player chose to face OUTSIDE the ladder, so it adds no stripe (and can never
   // satisfy a rank or campaign gate that reads the count). The check is local on
   // purpose: this module keeps its zero-import, pure contract.
-  if (opponent?.isBoss !== true || opponent.featureBout === true) return stored;
+  // STORY-4b — and neither is a BOUNTY BOUT: the Deserter is a boss, but the
+  // board's ladder is not the campaign's, so his fall adds no stripe.
+  if (opponent?.isBoss !== true || opponent.featureBout === true || opponent.bountyBout === true) {
+    return stored;
+  }
   const id = opponent.id;
   if (typeof id !== 'string' || id === '') return stored;
 
