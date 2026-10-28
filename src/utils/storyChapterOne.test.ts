@@ -304,7 +304,10 @@ describe('P4 — the Doctore reads the first attempt, win or lose', () => {
       code.indexOf('const handleDuelResultDismiss')
     );
     const loseBranch = write.slice(write.lastIndexOf('} else {'));
-    expect(loseBranch).toContain('fightsLost: profile.fightsLost + 1');
+    // STORY-5b REBASE, not a weakening: the counter is written only for a bout in
+    // the city's book, so the literal is the fenced arm. The property this pins —
+    // a loss records the loss and nothing else — is unchanged.
+    expect(loseBranch).toContain('fightsLost: exhibition ? profile.fightsLost : profile.fightsLost + 1,');
     expect(loseBranch).not.toContain('fightsWon');
     expect(loseBranch).not.toContain('doctoreTestPassed');
   });

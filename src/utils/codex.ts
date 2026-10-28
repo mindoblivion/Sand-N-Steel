@@ -36,8 +36,6 @@
  * ── WHAT IS DELIBERATELY ABSENT ────────────────────────────────────────────
  *   • No horse-tiers section (A5 — Director ruling R2): no studio horse tiers are
  *     integrated yet, so the page shows teams and parts only.
- *   • No horse-tiers section (A5 — Director ruling R2): no studio horse tiers are
- *     integrated yet, so the page shows teams and parts only.
  *   • No "best hype" column (A5 — Director ruling R3a): hype is transient per duel
  *     and has no persistent per-opponent record.  DEFERRED until the save carries
  *     one — never invented.

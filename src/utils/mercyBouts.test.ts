@@ -651,8 +651,11 @@ describe('STORY-4a §H — the result surface holds the flow; App writes each an
     // (`mercyOfferForDuel`), which IS `mercyOfferFor` for every ordinary duel and
     // returns null on a staged trail bout.  The property — the offer is decided at
     // the duel's own write and passed up — is unchanged.
+    // STORY-5b REBASE, not a weakening: STORY-5b's exhibition flag joins the same
+    // fence, so an exhibition raises no Spare/Finish either. The offer is still
+    // decided here and handed up.
     expect(handler).toContain(
-      'mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current)'
+      'mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition)'
     );
     expect(handler).toContain('finalFame: resultStats.fameEarned');
     expect(handler.match(/saveProfile\(/g)?.length).toBe(1);

@@ -723,7 +723,10 @@ describe('PITCH A1 §H — no save writes outside the existing save-on-change fl
     // the omen's settled figure is still the duel's contribution, unchanged.
     expect(handler).toContain('const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;');
     expect(handler).toContain('const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;');
-    expect(handler).toContain('const afterOmen = clearOmen(afterInjury);');
+    // STORY-5b REBASE, not a weakening: an EXHIBITION neither pays nor expires the
+    // omen (Director ruling R4), so the clear is the else arm of the fence. Every
+    // ordinary duel still clears the field in this same write.
+    expect(handler).toContain('const afterOmen = exhibition ? afterInjury : clearOmen(afterInjury);');
     expect(handler.match(/saveProfile\(/g)?.length).toBe(1);
     // The result screen is handed the same settlement.
     expect(handler).toContain('omenSettled.line ? { omenLine: omenSettled.line } : {}');

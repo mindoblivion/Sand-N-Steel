@@ -8523,3 +8523,133 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Live status:** the board and the chain are UNGATED (R3) — playable immediately wherever the tavern
   and S7's rumour counter are. The completion flag is what Chapter 4's gate will read once Chapter 4
   exists.
+
+## STORY-5b — The Erased Champion (Story §3C) + "The Name in the Stone" (keeper-lives §2.2) (implemented, validated)
+
+- **What ships, and what deliberately does not.** The SECOND HALF of STORY-5: ONE pure module
+  (`src/utils/librarianChain.ts`) owns the whole arc, three surfaces draw it
+  (`components/hub/LegendBoutsSection.tsx` on the tournament tab, `components/hub/LegendStopPanel.tsx`
+  in the city, `components/hub/FragmentsPage.tsx` plus `LibrarianChainCard.tsx` on the Library rack),
+  and every write is at `App.tsx`'s existing save path. It is the Erased Champion's fragments, the
+  three exhibitions, the echo bout and the Librarian chain ONLY — no dice-trail content (STORY-5a is
+  untouched and its board/chain behave exactly as it left them), no tavern servers, no cheap-talk
+  tier, no race bout, no Chapter 4 gate.
+- **THE CHAIN (§2.2), in order, and where each step is derived from.**
+  **Step 1 — "Read the Codex."** The `'codex'` page of the Library rack: `LibraryTab` already
+  distinguishes its pages (`'road' | 'triumphs' | 'codex'`), so **the page-open IS the read** — the
+  `'codex'` page counts and no other rack page does. DERIVED from ONE recorded boundary
+  (`story.librarianChain.codexRead` + `felledAtRead`, the count `defeatedOpponentIds` held at that
+  moment); there is no per-row click and no second "read" gesture.
+  **Step 2 — "Beat a name the lists did not hold."** A FIRST defeat AFTER that boundary
+  (`felledIds.length > felledAtRead`) — the same lazy evidence the Doctore's Test uses, never per-bout
+  tracking. **Step 3 — "Come back to me."** The return to Dionysios at the Library at
+  **Veteran** (`deriveRank`: fame ≥ 150 AND Tier 2); that ONE write (`withLibrarianChainClosed`) tells
+  the backstory, pays **5 Laudes** into STORY-5a's SHARED `records.laudes` (`withLaudes` — never a
+  second counter), marks the chain closed, earns the vellum and OPENS the fragment sequence.
+  `story.librarianChain` is a subfield of the EXISTING story object (STORY-4b's `story.bountyRungs`
+  and STORY-5a's `story.diceTrail` precedent), so **§J stays at 22 optional top-level fields with
+  `records` last** and `createNewProfile()` still writes neither container.
+- **THE FRAGMENTS (§3C), in the design's fixed order — the BATHHOUSE IS THIRD.** F1 the Library
+  (Dionysios of Athens), F2 the Barracks (Titus Aufidius, the lanista), F3 the Bathhouse (Straton of
+  Corinth); each is stored in §9's own `story.fragmentsFound`, in order, capped at three, and
+  `fragmentAvailable` enforces the sequence in ONE place (F2 locked until F1, F3 until F2). Each
+  stop's keeper/building pairing is read from the shipped `data/keepers.ts` registry (every keeper
+  carries its own `buildingId`) and never restated. **The reveal fires on F3:** the erased champion is
+  **FELIX, the Lucky** — champion of both arenas a generation ago, chiselled out of the Hall's stone by
+  decree for refusing a fixed final.
+- **FELIX IS A COGNOMEN AND NOTHING MORE — every string in the module and on every surface styles him
+  `FELIX` or `FELIX, the Lucky`, and no fuller name is invented anywhere** (pinned by §G, which scans
+  the module and all four surfaces for any capitalized continuation after the name). F1 and F2 never
+  spell it at all: the sequence IS the reveal.
+- **THE FOUR STAGED ROWS ARE EXISTING ROSTER ROWS — no row was added** (`ALL_OPPONENTS` is still 23).
+  STORY-5b — authored staging and era kits (R5): **exhibition 1 — Marcus the Rookie** (`opp_marcus`,
+  T1 sword & shield, 35 g) in `helm_murmillo` + `arms_manica` + `legs_greaves_bronze` with the
+  `gladius_standard`; **exhibition 2 — Cassius the Phalanx** (`opp_hoplite`, T2 spear, 90 g) in
+  `helm_galea_iron` + `chest_lorica_hamata` + `arms_manica` + `legs_greaves_bronze` with the
+  `hoplite_spear`; **exhibition 3 — Brutus "The Anvil"** (`opp_brutus_anvil`, T2 sword & shield, 125 g)
+  in `helm_galea_iron` + `chest_lorica_hamata` + `arms_manica_iron` + `legs_greaves_iron` with the
+  `gladius_standard`; **the echo — Centurion Drusus** (`opp_centurion_drusus`, T3 sword & shield, 260 g)
+  in `helm_centurion` + `chest_lorica_hamata` + `arms_manica_iron` + `legs_greaves_iron` with the
+  `gladius_standard`. Every kit resolves through `getItemById` (no stat, name or colour restated) and
+  each kit's weapon is the row's OWN weapon family, so reach and class stay the row's; the purse is the
+  row's own `rewardGold`, printed and never restated. None of the four is a boss (no `isBoss`, no
+  `bossMechanic`), so every staged bout is a STANDARD duel and no boss HUD or mechanic can fire.
+- **The exhibitions unlock one-per-fragment** (exhibition N by fragment N) and are **repeatable**; the
+  **echo bout is unlocked by 3/3 fragments and by NOTHING else** — no rank, fame, tier, chapter or
+  Vexus state is read (`legendBoutsView`'s echo arm is `open && allFragmentsFound(profile)`, pinned).
+  Its FIRST victory speaks `ECHO_FIRST_VICTORY_LINE` ONCE — `story.echoWon` is written in the SAME save
+  as the win that earned it (`withEchoWon`, identity-stable), the bout stays repeatable, and the result
+  line is pushed only when `echoRevealOwed` still holds. The card records that the line was spoken; it
+  never repeats it.
+- **THE EXHIBITION FENCE IS LOAD-BEARING (R4), and it is what the shipped rows make necessary.** Every
+  staged row is an ordinary ladder row, so the result path would otherwise append it to
+  `defeatedOpponentIds` (corrupting the Librarian chain's own step 2, STORY-4a's first-defeat rule and
+  the Codex's faced-states), open a grudge, record a studied mix, advance the tier, evaluate A8's
+  triumphs, consume PITCH A1's omen, read the bounty board, and count a fight. `App` sets a session
+  flag at the Legend Bouts entrance (`exhibitionBoutRef`, exactly like STORY-5a's
+  `diceTrailBoutRef`) and consumes it at the result. **SKIPPED for an exhibition: the felled id, the
+  grudge ledger, the tier advance, the triumph evaluation, the omen (neither paid nor expired), the
+  bounty board, `fightsWon` / `fightsLost`, and STORY-4a's mercy offer** (`mercyOfferForDuel`'s
+  `trailStaged` argument is now `diceTrailBoutRef.current || exhibition`, still the ONE call site).
+  **KEPT: the purse (gold / fame / xp / level), the crowd's own peak-hype record, the injury on a loss
+  (it is a real bout) and the duel's ONE time advance** — and the result is still ONE `saveProfile`.
+  The flag is also dropped in `handleOpenHubTab`, the ONE way out of a duel without a result (the WebGL
+  fallback), so a staged bout can never leave the fence armed on the next duel.
+- **The vellum SHIPPED, not deferred.** It is a class set on the Codex page's own wrapper
+  (`data-codex-vellum`) gated on the chain's completion (`hasVellum`) — one conditional class string,
+  no new node, no provider, no theme system to extend. It changes no count, no unlock and no save:
+  `buildCodex` answers the same `pages`, `percent`, `total` and `laurelCount` with or without it.
+- **The Fragments page is the Codex's LORE page, and it exists only after the chain.** `buildCodex`
+  carries `fragments` ONLY once `legendFragmentsOpen` (the chain closed), so a profile that has not
+  walked the chain sees exactly the five pages it always saw — A5's "no empty shell" property, kept —
+  and the page is deliberately OUTSIDE the counted `pages`, so the Saga capstone's condition (every
+  shipped page at 100%) is unchanged. A found fragment carries its authored text; an unfound one is
+  SEALED and its payload carries NO text at all (`Fragment 1/2/3` + a seal), so the snapshot itself
+  cannot spoil the reveal. The page is never a completeness denominator.
+- **No chapter gate, and no mechanical timing gate (R2/R3).** The chain's Veteran step already paces
+  the slice to Chapter-3-era play; the design's "after Vexus + dice gold" is narrative order, not a
+  lock, and no Vexus state exists to gate on.
+- **Rebased, not weakened: six pins that read the shipped result transaction.** STORY-5b changed four
+  expressions in `App.tsx` (the felled id, the tier, the awards, the mercy call) and one counter in the
+  loss branch, and each rebase keeps the property its suite exists to protect:
+  `storyChapterOne.test.ts` §P4 (`fightsLost: exhibition ? profile.fightsLost : profile.fightsLost + 1,`
+  — the loss still records only the loss), `diceTrail.test.ts` §G and `mercyBouts.test.ts` §H (the ONE
+  `mercyOfferForDuel(...)` call, now `… || exhibition`), `fortunasOmen.test.ts` §H
+  (`const afterOmen = exhibition ? afterInjury : clearOmen(afterInjury);` — every ordinary duel still
+  clears the field in the same write) and `tierAdvancement.test.ts` §D (`const tierAfterVictory =
+  exhibition … : resolveVictoryTier({` — still the only composer of the tier). Everything else —
+  `applyTriumphAwards(trailProfile, duelTriumphStats)`, `setProfile(awards.profile)` /
+  `saveProfile(awards.profile)`, the ONE `settleDuelClock(settledProfile, …)`, the omen's settled
+  numbers and `omenSettled.line` — was left in its SHIPPED shape on purpose, so those pins never moved:
+  the fence is added around them, not instead of them.
+- **A5 §K was rebased too:** the Codex suite no longer asserts "no Fragments page" (none existed when
+  A5 ruled); it now pins that the page is GATED (absent on a fresh save, five pages exactly) and
+  `librarianChain.test.ts` §F pins both halves of the behaviour.
+- **The new suite: `src/utils/librarianChain.test.ts` (35 tests, 448 assertions, §A–§H):** the chain in
+  order and its identity-stable writers; the three stops with the BATHHOUSE THIRD and the sequence
+  enforced; the exhibition unlocks, the staged rows, their kits and their purses (= the rows' own); the
+  echo gated by 3/3 and by nothing else, its line once; **the exhibition fence item by item, win and
+  loss, every skipped and every kept thing, read out of the shipped `App.tsx`**; the Fragments page
+  hidden pre-chain and SEALED-unfound after opening, and the vellum iff the chain is complete; FELIX
+  cognomen-only; and the save (§J still 22 with `records` last, no new top-level field, the chain's
+  state nested in `story` plus the shared Laudes). The surfaces are rendered with
+  `react-dom/server` from a `.ts` file (`React.createElement`), so no `.tsx` suite was needed.
+- **Verified 2026-10-28** in the dev container: `bun test` (bare, repo-wide) → **4643 pass / 0 fail
+  (152 files, 122,041 `expect()` calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0
+  failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset
+  check passing (8 assets); `git diff --check` → clean. `combatCalculations.ts` was not touched, the
+  timeState clock ban is untouched (the module imports no storage, calls no clock, and reads no
+  `Math.random`), and this document is append-only.
+- **Live status and what is NOT automatically verified.** The chain is UNGATED beyond its own Veteran
+  step (R2): wherever the Library, the Barracks and the Bathhouse doors are, a Veteran can walk it.
+  The interactive flow was **not driven in the preview browser** this pass, and that is an environment
+  limit, re-confirmed rather than assumed: the preview session has no account and no save, and the
+  platform's fresh load CLEARS browser storage (a seeded closed-chain save written on one call was gone
+  on the next), so the game starts at character creation and reaching Veteran + three stops inside the
+  city is a 3D walk at ~2 fps through SwiftShader. What IS verified here: the dev server serves every
+  changed module (`/src/utils/librarianChain.ts` answers 200), the app boots to its title screen with
+  zero console errors, the full suite (including the server-rendered Codex page, Legend Bouts section
+  and stop panel at every state) passes, and the type check and production build are green. **A device
+  (Android) look is still owed for:** the Legend Bouts cards on the tournament tab, the three stop
+  panels, the Codex's Fragments page (found vs sealed rows and the vellum skin), and the exhibition
+  bout's era kit on the duel screen.
