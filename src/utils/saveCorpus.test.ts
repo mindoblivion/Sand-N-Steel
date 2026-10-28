@@ -140,6 +140,8 @@ import { resolveGrudges } from './grudgeBouts';
 import { resolveSpared } from './mercyBouts';
 // K1 — the keepers met, read the way a storefront's plate reads them.
 import { resolveSeenKeepers } from '../data/keepers';
+// A8 — the Triumphs record, read the way the evaluator and the Library read it.
+import { resolveRecords } from './triumphs';
 
 // ── The corpus on disk ─────────────────────────────────────────────────────
 const FIXTURE_DIR = fileURLToPath(new URL('./saveFixtures/', import.meta.url));
@@ -171,6 +173,8 @@ const REQUIRED_FIXTURE_IDS = [
   'omen-era',
   // STORY-4a — the spared map (Pitch A9).
   'mercy-era',
+  // A8 — the retained Triumphs record.
+  'records-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -257,6 +261,8 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const omenTrickleClaimed = isTrickleClaimed(profile);
   // STORY-4a — the spared map, read the way the mercy offer and the board read it.
   const spared = resolveSpared(profile);
+  // A8 — the retained deeds, read the way the evaluator and the Library read them.
+  const records = resolveRecords(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -286,6 +292,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     omen,
     omenTrickleClaimed,
     spared,
+    records,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -441,6 +448,16 @@ for (const fixture of SAVE_FIXTURES) {
             resolved.omen.expiresAtBout >= 1),
       ).toBe(true);
       expect(typeof resolved.omenTrickleClaimed).toBe('boolean');
+      // A8 — the Triumphs record resolves to shaped state: known ids only, and a
+      // peak purse that is never negative.
+      expect(Array.isArray(resolved.records.earnedTriumphs)).toBe(true);
+      expect(resolved.records.earnedTriumphs.every((id) => typeof id === 'string')).toBe(true);
+      expect(new Set(resolved.records.earnedTriumphs).size).toBe(
+        resolved.records.earnedTriumphs.length,
+      );
+      expect(Array.isArray(resolved.records.viewedTriumphs)).toBe(true);
+      expect(Number.isFinite(resolved.records.peakGold)).toBe(true);
+      expect(resolved.records.peakGold).toBeGreaterThanOrEqual(0);
       // STORY-4a — the spared map resolves to `true` entries keyed by roster id.
       expect(typeof resolved.spared).toBe('object');
       for (const rivalId of Object.keys(resolved.spared)) {
@@ -579,6 +596,16 @@ for (const fixture of SAVE_FIXTURES) {
         // STORY-4a — a save written before the field reads as "spared nobody".
         expect(resolveSpared(profile)).toEqual({});
       }
+      if (!('records' in raw) || raw.records === null) {
+        absentFields += 1;
+        // A8 — a save written before the field reads as "nothing earned, nothing
+        // read, no purse recorded", and gains no field by being read.
+        expect(resolveRecords(profile)).toEqual({
+          earnedTriumphs: [],
+          viewedTriumphs: [],
+          peakGold: 0,
+        });
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -605,6 +632,7 @@ for (const fixture of SAVE_FIXTURES) {
         'omen',
         'omenTrickleClaimed',
         'spared',
+        'records',
       ];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
@@ -861,6 +889,47 @@ describe('GC20 §F — what each shape resolves to', () => {
     expect('omenTrickleClaimed' in rawOf(fixtureById('current-fresh'))).toBe(false);
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('omen');
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('omenTrickleClaimed');
+  });
+
+  test('the A8 record resolves to what it stores, and no factory save carries it', () => {
+    const profile = fixtureById('records-era').profile;
+    // Seven deeds earned by one real `applyTriumphAwards` run, none of them read
+    // yet, and the purse it recorded on the same write.
+    expect(resolveRecords(profile)).toEqual({
+      earnedTriumphs: [
+        'sand_first_blood',
+        'coin_quadra',
+        'steel_wheels',
+        'saga_veteran',
+        'saga_champion',
+        'saga_tier_one',
+        'saga_tier_two',
+      ],
+      viewedTriumphs: [],
+      peakGold: 600,
+    });
+    // The one-time grants paid in that same write: six standard at 10 plus the
+    // Quadra capstone at 25.
+    expect(profile.fame).toBe(785);
+    // The three titles it earned sit beside the bought ones, and the Saga title
+    // is still absent — it is capstone-gated on Legend.
+    expect(profile.laurels?.titles).toEqual([
+      'title_crowd_favourite',
+      'title_champion_of_the_sands',
+      'title_living_legend',
+      'title_blood_of_the_sands',
+      'title_fortunes_favourite',
+      'title_iron_bound',
+    ]);
+
+    // Lazy: a legacy save has earned nothing, and creation writes no field.
+    expect(resolveRecords(fixtureById('minimal-legacy').profile)).toEqual({
+      earnedTriumphs: [],
+      viewedTriumphs: [],
+      peakGold: 0,
+    });
+    expect('records' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('records');
   });
 
   test('null where an object is expected resolves to both defaults', () => {
@@ -1131,6 +1200,8 @@ describe('GC20 §J — the corpus rule', () => {
       'omenTrickleClaimed',
       // STORY-4a — the spared map (Pitch A9), appended last in declaration order.
       'spared',
+      // A8 — the retained Triumphs record, appended last in declaration order.
+      'records',
     ]);
 
     // Every optional field with a resolver has a fixture for both its absent and
@@ -1156,6 +1227,7 @@ describe('GC20 §J — the corpus rule', () => {
       'omen',
       'omenTrickleClaimed',
       'spared',
+      'records',
     ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);
@@ -1194,18 +1266,20 @@ describe('GC20 §J — the corpus rule', () => {
       return [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\?:/gm)].map((match) => match[1]);
     };
     const shipped = scanned(types);
-    expect(shipped.length).toBe(21);
-    expect(shipped.slice(-2)).toEqual(['omenTrickleClaimed', 'spared']);
+    // A8 REBASE, not a weakening: the set is 22 now because this slice appended
+    // `records` after `spared`, and §J above carries the same one-field extension.
+    expect(shipped.length).toBe(22);
+    expect(shipped.slice(-2)).toEqual(['spared', 'records']);
 
     const doctored = types.replace(
-      '  spared?: { [rivalId: string]: true };',
-      '  spared?: { [rivalId: string]: true };\n  unaccounted?: string;',
+      '  records?: {',
+      '  unaccounted?: string;\n  records?: {',
     );
     expect(doctored).not.toBe(types);
     const withNew = scanned(doctored);
     expect(withNew).not.toEqual(shipped);
     expect(withNew).toContain('unaccounted');
-    expect(withNew.length).toBe(22);
+    expect(withNew.length).toBe(23);
   });
 });
 

@@ -733,6 +733,11 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
       'components/hub/PreRacePanel.tsx',
       'components/hub/RacingConfigSection.tsx',
       'utils/stableProgression.ts',
+      // A8 — the Triumphs evaluator reads the racing state for the Coin capstone
+      // ("Buy the Quadra team").  A READ of `resolveRacingState().unlocked`; it
+      // writes nothing, and the allowlist stays narrow: a gameplay file still
+      // cannot import the module without failing here.
+      'utils/triumphs.ts',
     ]);
     expect(code('./racingProgression.ts').length).toBeGreaterThan(1000);
   });

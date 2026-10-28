@@ -593,10 +593,11 @@ describe('CH-5 §G — the wiring', () => {
       APP.indexOf('fightsWon: profile.fightsWon + 1'),
     );
     // DAY/NIGHT T2 REBASE: the resolution's single save is now `saveProfile(timedProfile)`
-    // (the clock seam runs on the composed profile); the ORDER this pins is unchanged —
-    // the earn check still sits before the write.
+    // (the clock seam runs on the composed profile), and A8 REBASED it once more: the
+    // award composition runs on that profile and the one save is `awards.profile`.  The
+    // ORDER this pins is unchanged — the earn check still sits before the write.
     expect(APP.indexOf('applyPalmaEarns(updatedProfile)')).toBeLessThan(
-      APP.indexOf('saveProfile(timedProfile)'),
+      APP.indexOf('saveProfile(awards.profile)'),
     );
     // The result screen is told what unlocked.
     expect(APP).toContain('palmaEarned={duelResult.palmaEarned}');

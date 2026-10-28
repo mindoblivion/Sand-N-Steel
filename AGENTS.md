@@ -8336,3 +8336,59 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the paid figures match 550/90 and 350/180; (e) confirm the tavern's rumour list does not advertise
   the board's names as a shortcut around its gate — it does list them today (they are roster rows),
   which is recorded as an open design question rather than a defect.
+
+## A8 — Triumphs evaluator, Records state and the Library's deeds view (implemented, validated; live drive not obtained)
+
+- **What ships.** One new pure module (`src/utils/triumphs.ts`), one new suite
+  (`src/utils/triumphs.test.ts`), the `records` save field, one new fixture, and the Library
+  extension. **`utils/combatCalculations.ts` is untouched** and nothing here reads a formula: the
+  evaluator reads counters (`fightsWon`, `bossKills`, `defeatedOpponentIds`, `currentTier`, the
+  chariot loadout, the racing record, owned/worn gear) and one duel's transient reading.
+- **The catalogue is 23 shipped + 6 dormant.** Sand 7 (`sand_first_blood`, `sand_ten_victories`,
+  `sand_fifty_victories`, `sand_hundred_victories`*, `sand_missio_denied`†, `sand_crowd_chants`†,
+  `sand_every_boss`*), Coin 5 (`coin_1000_gold`, `coin_5000_gold`, `coin_25000_gold`*,
+  `coin_full_chariot`, `coin_quadra`*), Steel 4 (`steel_full_set`, `steel_wheels`, `steel_finishes`,
+  `steel_gilded_loadout`*), Saga 7 (`saga_veteran`, `saga_champion`, `saga_legend`*,
+  `saga_tier_one`…`saga_tier_three`, `saga_tier_four` = Aurelius). `*` = capstone (25 fame, else 10),
+  `†` = transient (needs `DuelTriumphStats`). Dormant: three Circus, `saga_rudis_granted` and two
+  NG+ rows — defined with their unblocker, never evaluated, never rendered.
+- **`evaluateTriumphs(profile, duelStats?)`** returns shipped entries whose `holds(facts)` is true AND
+  whose id is not in `records.earnedTriumphs`. `duelStats` is `{ won, lowestHealthFraction?,
+  crowdHypePeak? }` — **`won` is the one field the brief's "lowestHealthFraction, peak hype" did not
+  name, and it is required** because "Missio Denied" is a VICTORY at 10% or less; a defeat also ends
+  at 0% and must not earn it.
+- **The one shipped call site** is `App.handleMatchComplete`, inside the duel's existing single write:
+  `applyTriumphAwards(timedProfile, duelTriumphStats)` → `setProfile(awards.profile)` +
+  `saveProfile(awards.profile)`, then one `HeraldToast` line per earn
+  (`The scribes record a new triumph: <name>`). Counter-based deeds therefore catch up at the next
+  duel result; transient moments earned before this slice are not retro-credited (R5).
+- **`withPeakGold` is the single records updater** and rides every write that RAISES gold — the duel,
+  a sale (`withPeakGold(sellItem(...))`) and the Deserter's bounty. It is identity-stable when the
+  peak does not move.
+- **Titles (R2)** live in `EARNED_TITLES` in `utils/laurels.ts` because that module owns the record's
+  legal id set; `resolveLaurels` now keeps earned ids as well as catalogue ids (so a later P2 purchase
+  cannot wipe them), and `grantTitle` / `ownedTitleOptions` / `selectDisplayedTitle` are the writers.
+  'Living Legend' (2,000 fame) and 'Living Legend of the Ludus' are different ids and strings.
+- **Gear sets** are derived from `ALL_ARMORS` by the catalogue's own `color` (the material ladder);
+  only materials with a piece in all four slots become sets, so iron and gilded ship and bronze/steel
+  do not (a triumph nobody can earn would be worse than none). A5's Codex reuses `GEAR_SETS`.
+- **The Library extension** is inside the existing surfaces: `TriumphsPage` gained the Deeds list
+  (four categories, every requirement printed) and a title row; `StatsTab` gained a conditional
+  "View Triumphs" button; `GladiatorSchoolHub` holds `libraryPage` so the sheet's door opens the rack
+  on its Triumphs page; `LibraryTab` marks all earned viewed in ONE save when that page opens (R7);
+  `CityHubScene` puts `✦ ` on the `records_house` prompt while earned-minus-viewed is non-empty.
+- **Rebased, not weakened (all documented in place):** `saveCorpus` §J 21 → 22 and its control; the
+  duplicate field-count pins in `fortunasOmen`, `storyChapterTwo`, `bountyLadder` and `mercyBouts`;
+  the single-write pins in `injury`, `palmaeState` and `dayNightT2` (`saveProfile(timedProfile)` →
+  `saveProfile(awards.profile)`, still exactly one write); `laurels.test.ts` §F's exact file allowlist
+  (+ `utils/triumphs.ts`, `utils/triumphs.test.ts`); `phaseC8_67b` §D's racing-consumer list
+  (+ `utils/triumphs.ts`); `triumphsSurface` §E's LibraryTab pin (it now carries four props).
+- **Verified 2026-10-28** in the dev container: `bun test` → **4528 pass / 0 fail (148 files,
+  121,046 `expect()` calls)** — this slice adds 78 tests in `src/utils/triumphs.test.ts` and 4 in
+  `triumphsSurface.test.tsx` §F, so the branch tip before it was 4446 pass / 0 fail (147 files);
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0 (startup asset check: 8 assets); `git diff --check` → clean.
+  **Not automatically verified:** the Library's rendered deeds list/title row and the character
+  sheet's new button in the running app — they are pinned by `renderToStaticMarkup` in
+  `triumphsSurface.test.tsx` §F, not by a live drive, and the ✦ marker lives on the 3D city's prompt
+  (source-pinned only).

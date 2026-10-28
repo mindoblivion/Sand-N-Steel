@@ -103,6 +103,53 @@ export const TRIUMPHS: readonly Laurel[] = [
 /** The statue's owned line — the one line the design fixes word for word. */
 export const STATUE_OWNED_LINE = 'Your statue stands at the ludus.';
 
+/**
+ * A8 — Director ruling R2: ONE earned title per shipped Triumph category, and it
+ * lives in the SAME record a purchased title does (`laurels.titles`, the P2
+ * model), so it stays owned permanently and is selectable exactly like a bought
+ * one.  The catalogue is declared here because this module owns the record's
+ * legal id set — the evaluator (`utils/triumphs.ts`) decides WHEN each is
+ * granted and is the only writer that grants them, but it cannot widen what the
+ * record may hold.
+ *
+ * NAMES ARE DELIBERATELY NOT THE PURCHASABLE ONES.  "Living Legend" (2,000 fame,
+ * `title_living_legend`) and "Living Legend of the Ludus" (earned at Legend
+ * rank, `title_living_legend_of_the_ludus`) are different strings and different
+ * ids; both stay selectable if owned, and `triumphs.test.ts` pins that they are
+ * distinct.
+ */
+export type EarnedTitleCategory = 'sand' | 'coin' | 'steel' | 'saga';
+
+export interface EarnedTitle {
+  id: string;
+  /** The display string `profile.title` becomes when this title is chosen. */
+  name: string;
+  category: EarnedTitleCategory;
+}
+
+/**
+ * A8 — Director ruling R2, in full:
+ *   • Sand  → 'Blood of the Sands' on the FIRST Sand triumph (design example);
+ *   • Coin  → "Fortune's Favourite" on the FIRST Coin triumph (authored);
+ *   • Steel → 'Iron-Bound' on the FIRST Steel triumph (authored);
+ *   • Saga  → 'Living Legend of the Ludus' ONLY at Legend rank (design example,
+ *             capstone-gated — never on the first Saga triumph).
+ */
+export const EARNED_TITLES: readonly EarnedTitle[] = [
+  { id: 'title_blood_of_the_sands', name: 'Blood of the Sands', category: 'sand' },
+  { id: 'title_fortunes_favourite', name: "Fortune's Favourite", category: 'coin' },
+  { id: 'title_iron_bound', name: 'Iron-Bound', category: 'steel' },
+  {
+    id: 'title_living_legend_of_the_ludus',
+    name: 'Living Legend of the Ludus',
+    category: 'saga',
+  },
+];
+
+const EARNED_TITLE_BY_ID: ReadonlyMap<string, EarnedTitle> = new Map(
+  EARNED_TITLES.map((title) => [title.id, title]),
+);
+
 const TRIUMPH_BY_ID: ReadonlyMap<string, Laurel> = new Map(
   TRIUMPHS.map((triumph) => [triumph.id, triumph]),
 );
@@ -117,9 +164,17 @@ export function getTriumph(ref: unknown): Laurel | undefined {
   return TRIUMPH_BY_ID.get(ref);
 }
 
-/** What a profile owns: the title ids (catalogue order) and the statue flag. */
+/**
+ * What a profile owns: the title ids (catalogue order — the purchasable titles
+ * first, then the earned ones) and the statue flag.
+ *
+ * A8 — the record holds BOTH kinds of title: the ones P2 sells (`LaurelId`) and
+ * the ones the Triumphs evaluator EARNS (`EARNED_TITLES`).  The array is typed
+ * `string[]` for exactly that reason — the record is the union of the two
+ * catalogues, and both stay owned permanently (the P2 model).
+ */
 export interface TriumphState {
-  titles: LaurelId[];
+  titles: string[];
   statue: boolean;
 }
 
@@ -148,10 +203,20 @@ export function resolveLaurels(profile: PlayerProfile | null | undefined): Trium
   const rawTitles = Array.isArray(stored?.titles) ? (stored!.titles as unknown[]) : [];
   const owned = new Set(rawTitles.filter((entry): entry is string => typeof entry === 'string'));
 
+  // A8 — the record may hold two kinds of id: the purchasable titles (P2) and the
+  // earned ones (A8).  Both survive the read, in catalogue order — purchased
+  // first, earned second — and anything else is still dropped.  This is what
+  // keeps a P2 purchase from wiping the titles A8 earned: `purchaseLaurel` below
+  // composes its write from THIS list.
+  const purchasable = TRIUMPHS.filter(
+    (triumph) => triumph.kind === 'title' && owned.has(triumph.id),
+  ).map((triumph) => triumph.id as string);
+  const earnedTitles = EARNED_TITLES.filter((title) => owned.has(title.id)).map(
+    (title) => title.id,
+  );
+
   return {
-    titles: TRIUMPHS.filter(
-      (triumph) => triumph.kind === 'title' && owned.has(triumph.id),
-    ).map((triumph) => triumph.id),
+    titles: [...purchasable, ...earnedTitles],
     statue: stored?.statue === true,
   };
 }
@@ -172,6 +237,85 @@ export function ownedTriumphs(profile: PlayerProfile | null | undefined): Laurel
   return TRIUMPHS.filter((triumph) =>
     triumph.kind === 'title' ? state.titles.includes(triumph.id) : state.statue,
   );
+}
+
+/**
+ * One selectable title, whichever catalogue it came from — a P2 purchase or an
+ * A8 earn.  The surface offers no distinction: owning it is what makes it
+ * selectable.
+ */
+export interface TitleOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * A8 — every title this profile OWNS, purchasable first then earned, in
+ * catalogue order.  Read-only; it repairs nothing.
+ */
+export function ownedTitleOptions(
+  profile: PlayerProfile | null | undefined,
+): TitleOption[] {
+  const state = resolveLaurels(profile);
+  const owned = new Set(state.titles);
+  return [
+    ...TRIUMPHS.filter((triumph) => triumph.kind === 'title' && owned.has(triumph.id)).map(
+      (triumph) => ({ id: triumph.id as string, name: triumph.name }),
+    ),
+    ...EARNED_TITLES.filter((title) => owned.has(title.id)).map((title) => ({
+      id: title.id,
+      name: title.name,
+    })),
+  ];
+}
+
+/** The earned title a shipped category grants — `undefined` for anything else. */
+export function earnedTitleForCategory(category: unknown): EarnedTitle | undefined {
+  return EARNED_TITLES.find((title) => title.category === category);
+}
+
+/**
+ * A8 — GRANT an earned title: append its id to `laurels.titles` and change
+ * nothing else.  Pure, and idempotent: a title already owned, an unknown id, or
+ * no profile at all returns the SAME profile object, so a caller can compare
+ * identity to know whether to save.
+ *
+ * Director ruling R2's shape: the title is OWNED, not displayed.  The displayed
+ * title stays whatever the player chose last — a title is a laurel he can wear,
+ * not one put on him — and the Library's title row is where he puts it on.
+ */
+export function grantTitle(
+  profile: PlayerProfile | null | undefined,
+  titleId: unknown,
+): PlayerProfile {
+  if (!profile) return profile as unknown as PlayerProfile;
+  const title = typeof titleId === 'string' ? EARNED_TITLE_BY_ID.get(titleId) : undefined;
+  if (!title) return profile;
+  const state = resolveLaurels(profile);
+  if (state.titles.includes(title.id)) return profile;
+
+  return {
+    ...profile,
+    laurels: { titles: [...state.titles, title.id], statue: state.statue },
+  };
+}
+
+/**
+ * A8 — DISPLAY one owned title: point `profile.title` at that title's own name
+ * and change nothing else.  Both catalogues are searched, so a purchased title
+ * and an earned one are selected the same way; a title the profile does not own,
+ * an unknown id, or the title already displayed returns the same profile object
+ * (no save).  The record is untouched — ownership and display stay separate, the
+ * P2 model.
+ */
+export function selectDisplayedTitle(
+  profile: PlayerProfile | null | undefined,
+  titleId: unknown,
+): PlayerProfile {
+  if (!profile) return profile as unknown as PlayerProfile;
+  const option = ownedTitleOptions(profile).find((title) => title.id === titleId);
+  if (!option || profile.title === option.name) return profile;
+  return { ...profile, title: option.name };
 }
 
 /** Why a purchase was refused.  `ok: true` never carries a reason. */

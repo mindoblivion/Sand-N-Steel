@@ -405,6 +405,14 @@ describe('P2 §F — zero power', () => {
     'utils/saveCorpus.test.ts',
     'utils/saveFixtures/index.ts',
     'utils/triumphsSurface.test.tsx',
+    // A8 — the Triumphs EVALUATOR is the record's second writer: it appends the
+    // earned ids and the earned titles through this module's own helpers
+    // (`grantTitle`, `ownedTitleOptions`), so it names the record.  REBASED, not
+    // weakened: the exact-list guard below still holds, and the forbidden list in
+    // the next test is unchanged — no combat, reward, price or gate module reads
+    // the record.
+    'utils/triumphs.test.ts',
+    'utils/triumphs.ts',
   ].sort();
 
   const code = (path: string): string =>

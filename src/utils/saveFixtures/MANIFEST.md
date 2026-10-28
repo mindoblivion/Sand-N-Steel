@@ -279,3 +279,19 @@ documented defaults — so this slice reports no failing fixture.
   the objects a save holds, not lookups into `ITEMS_DB`, so the corpus keeps
   working when the catalogue changes — and does not assert that a fixture's item
   stats equal today's catalogue values.
+
+**Extended by A8 (Triumphs evaluator).** `PlayerProfile.records` — the retained
+deeds: the earned triumph ids, the ones the player has read, and the highest purse
+ever held — is the newest optional field, so it gets both halves of the rule in the
+same slice: `records-era`, the STORY-4a mercy-era save driven **once** through the
+shipped `applyTriumphAwards` transaction with no duel reading (so no transient
+deed), which is byte-for-byte what that write persists. It carries seven earned
+deeds and none read yet, `peakGold: 600`, the three earned titles appended beside
+the four bought ones (Saga's stays capstone-gated, so it is correctly absent), and
+`fame` 700 → 785 — six standard grants at 10 plus the Quadra capstone at 25, all in
+that one write. Every older fixture keeps **omitting** the field, which is the
+legacy shape a load must survive: `resolveRecords` reads it as nothing earned,
+nothing read, no purse recorded, and gains no field by being read.
+`saveCorpus.test.ts` §J's expected optional set now ends with `records` in
+`src/types/game.ts` declaration order — **21 → 22, one field, appended last** — and
+§J's control still proves the rule fails on a field nobody accounted for.

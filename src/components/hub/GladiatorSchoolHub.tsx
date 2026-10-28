@@ -5,7 +5,7 @@ import { TrainingTab } from './TrainingTab';
 import { ShopTab } from './ShopTab';
 import { GearView, GearTab } from './GearTab';
 import { StatsTab } from './StatsTab';
-import { LibraryTab } from './LibraryTab';
+import { LibraryTab, type LibraryPageId } from './LibraryTab';
 import { BannerRow } from './BannerRow';
 import type { StorefrontId } from '../../data/shops';
 import type { ConsumableItem } from '../../data/consumables';
@@ -101,6 +101,10 @@ interface GladiatorSchoolHubProps {
   onBuyStableConditioning?: (level: number) => void;
   /** P6 — the Facilities panel; `App` runs `purchaseFacility` and writes. */
   onBuyFacility?: (id: FacilityId) => void;
+  /** A8 — the character sheet's second door onto the Library's Triumphs page. */
+  onViewTriumphs?: () => void;
+  /** A8 — put an owned title on the record; `App` writes it through the save path. */
+  onSelectTitle?: (titleId: string) => void;
   /** CH-5 — the Palmae panel's two taps; `App` runs the validated transaction. */
   onEquipPalma?: (palmaId: string) => void;
   onUnequipPalma?: (palmaId: string) => void;
@@ -149,6 +153,8 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onEquipPalma,
   onUnequipPalma,
   onBuyPalma,
+  onViewTriumphs,
+  onSelectTitle,
 }) => {
   const [selectedOpponent, setSelectedOpponent] = useState<OpponentConfig | null>(null);
   /**
@@ -158,6 +164,18 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
    */
   const [testRestriction, setTestRestriction] = useState<DoctoreTestRestriction | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  /**
+   * A8 — which page the Records & Lore rack is showing.  It is held HERE because
+   * the character sheet's "View Triumphs" button opens the same rack on a
+   * different page: one surface, two doors, and no second Triumphs screen.
+   */
+  const [libraryPage, setLibraryPage] = useState<LibraryPageId>('road');
+
+  /** A8 — the sheet's door: open the Library on its Triumphs page. */
+  const openTriumphs = () => {
+    setLibraryPage('triumphs');
+    onTabChange('library');
+  };
 
   /**
    * STORY-3 — the herald's circus pointer (Director ruling 3). It is raised when
@@ -294,6 +312,9 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
               key={tab.key}
               onClick={() => {
                 sounds.playClick();
+                // A8 — the rack's own tab opens it on page one; only the character
+                // sheet's door asks for the Triumphs page.
+                if (tab.key === 'library') setLibraryPage('road');
                 onTabChange(tab.key as 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library');
               }}
               className={`min-h-[48px] py-2 px-3 sm:px-4 rounded-xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
@@ -362,10 +383,18 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onRepledgeArmatura={onRepledgeArmatura}
             onEquipPalma={onEquipPalma}
             onUnequipPalma={onUnequipPalma}
+            onOpenTriumphs={onViewTriumphs ? openTriumphs : undefined}
           />
         )}
         {activeTab === 'library' && (
-          <LibraryTab profile={playerProfile} onPurchaseTriumph={onPurchaseTriumph} />
+          <LibraryTab
+            profile={playerProfile}
+            onPurchaseTriumph={onPurchaseTriumph}
+            page={libraryPage}
+            onPageChange={setLibraryPage}
+            onViewTriumphs={onViewTriumphs}
+            onSelectTitle={onSelectTitle}
+          />
         )}
       </main>
 

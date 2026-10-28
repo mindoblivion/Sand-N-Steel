@@ -30,22 +30,50 @@ import {
   TRIUMPHS,
   describeTriumphRejection,
   getTriumphPurchaseEligibility,
+  ownedTitleOptions,
   resolveLaurels,
 } from '../../utils/laurels';
+// A8 — the DEEDS this page also lists: every shipped triumph, its plain-language
+// requirement, and the record of which of them are earned.  Read-only here; the
+// evaluation itself happens at a duel result, never on opening this page.
+import {
+  SHIPPED_TRIUMPHS,
+  TRIUMPH_CATEGORIES,
+  resolveRecords,
+  triumphFame,
+  triumphsInCategory,
+} from '../../utils/triumphs';
 
 interface TriumphsPageProps {
   profile: PlayerProfile;
   /** `App`'s one write: `purchaseLaurel` then `setProfile` + `saveProfile`. */
   onPurchase?: (laurelId: string) => LaurelResult;
+  /**
+   * A8 — put an OWNED title on the record.  Purchased and earned titles are
+   * selected the same way (one tap), and `App` writes `profile.title` through the
+   * normal save path.  Absent handler = the row still lists them, read-only.
+   */
+  onSelectTitle?: (titleId: string) => void;
 }
 
 /** Fame prices are read at a glance, so they print with their thousands separated. */
 const fameLabel = (value: number): string => value.toLocaleString('en-US');
 
-export const TriumphsPage: React.FC<TriumphsPageProps> = ({ profile, onPurchase }) => {
+export const TriumphsPage: React.FC<TriumphsPageProps> = ({
+  profile,
+  onPurchase,
+  onSelectTitle,
+}) => {
   const [notice, setNotice] = useState<{ id: string; text: string } | null>(null);
   const rank = deriveRank(profile);
   const owned = resolveLaurels(profile);
+  /**
+   * A8 — the deeds record (read-only) and every title the player owns, purchased
+   * or earned.  The record is read through the pure resolver, so a legacy save
+   * (no `records` field) lists every deed as locked and shows no title row.
+   */
+  const records = resolveRecords(profile);
+  const ownedTitles = ownedTitleOptions(profile);
   /**
    * P-BANNER — the Triumph banner set is a chariot cosmetic: its ownership lives
    * in the chariot record exactly like every other part's, so this page only
@@ -85,6 +113,12 @@ export const TriumphsPage: React.FC<TriumphsPageProps> = ({ profile, onPurchase 
           </span>
           <span className="px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-700 text-neutral-300">
             Owned: {owned.titles.length + (owned.statue ? 1 : 0)} / {TRIUMPHS.length}
+          </span>
+          <span
+            data-earned-count={records.earnedTriumphs.length}
+            className="px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-700 text-neutral-300"
+          >
+            Deeds: {records.earnedTriumphs.length} / {SHIPPED_TRIUMPHS.length}
           </span>
         </div>
       </header>
@@ -175,6 +209,93 @@ export const TriumphsPage: React.FC<TriumphsPageProps> = ({ profile, onPurchase 
           );
         })}
       </div>
+
+      {/* A8 — THE EARNED DEEDS, grouped by the four SHIPPED categories.  No
+          Circus section renders while racing is dormant, and every row prints its
+          requirement: there are no secret achievements in this game. */}
+      <section data-earned-triumphs className="flex flex-col gap-3" aria-label="Deeds">
+        <div>
+          <h4 className="font-serif font-black text-base sm:text-lg text-amber-100 uppercase tracking-wider">
+            Deeds
+          </h4>
+          <p className="text-xs font-serif italic text-neutral-400 mt-1">
+            Won in the sand, not bought with fame. Each one names what it asks of you.
+          </p>
+        </div>
+        {TRIUMPH_CATEGORIES.map((category) => (
+          <div key={category.id} data-triumph-category={category.id} className="rounded-2xl border border-neutral-700 bg-neutral-900/70 px-3 py-3">
+            <h5 className="font-serif font-bold text-xs uppercase tracking-wider text-amber-300">
+              {category.label}
+            </h5>
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {triumphsInCategory(category.id).map((triumph) => {
+                const isEarned = records.earnedTriumphs.includes(triumph.id);
+                return (
+                  <li
+                    key={triumph.id}
+                    data-earned-triumph={triumph.id}
+                    data-earned={isEarned ? 'true' : 'false'}
+                    className={`rounded-xl border px-2.5 py-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 ${
+                      isEarned ? 'border-amber-500/60 bg-amber-500/10' : 'border-neutral-800 bg-neutral-950/60'
+                    }`}
+                  >
+                    <span
+                      className={`font-serif font-bold text-xs uppercase tracking-wider ${
+                        isEarned ? 'text-amber-200' : 'text-neutral-400'
+                      }`}
+                    >
+                      {triumph.name}
+                    </span>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">
+                      {isEarned ? 'Earned' : 'Locked'} · +{triumphFame(triumph)} Fame
+                    </span>
+                    <span className="w-full text-[11px] font-serif italic text-neutral-400">
+                      {triumph.requirement}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </section>
+
+      {/* A8 — TITLES: one tap puts an OWNED title on the record, whether it was
+          bought (P2) or earned (A8).  The displayed one is marked; the record
+          keeps every title owned either way. */}
+      {ownedTitles.length > 0 && (
+        <section data-title-selection className="flex flex-col gap-2">
+          <h4 className="font-serif font-bold text-xs uppercase tracking-wider text-amber-300">
+            Titles you own
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {ownedTitles.map((title) => {
+              const isDisplayed = profile.title === title.name;
+              return (
+                <button
+                  key={title.id}
+                  type="button"
+                  data-title-option={title.id}
+                  data-title-selected={isDisplayed ? 'true' : 'false'}
+                  onClick={() => onSelectTitle?.(title.id)}
+                  disabled={!onSelectTitle || isDisplayed}
+                  aria-pressed={isDisplayed}
+                  className={`min-h-[44px] px-3 rounded-xl border font-serif font-bold text-xs uppercase tracking-wider transition-all ${
+                    isDisplayed
+                      ? 'bg-amber-500 text-neutral-950 border-amber-300'
+                      : onSelectTitle
+                        ? 'bg-neutral-900 border-amber-500/50 text-amber-200 cursor-pointer active:scale-95'
+                        : 'bg-neutral-900 border-neutral-700 text-neutral-400'
+                  }`}
+                >
+                  {title.name}
+                  {isDisplayed ? ' · shown' : ''}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {bannersOwned && (
         <div

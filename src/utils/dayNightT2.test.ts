@@ -282,11 +282,14 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     expect(DUEL.match(/settleDuelClock\(/g) ?? []).toHaveLength(1);
     expect(DUEL).toContain('settleDuelClock(settledProfile, duelTimeSteppedRef.current)');
     expect(DUEL).toContain('const timedProfile = onDayRollover(profile, clock.profile);');
-    expect(DUEL).toContain('setProfile(timedProfile);');
-    expect(DUEL).toContain('saveProfile(timedProfile);');
+    // A8 REBASE, not a weakening: the awards are composed onto `timedProfile` and the
+    // transaction's ONE set/save pair carries the awarded profile.  Still one write.
+    expect(DUEL).toContain('applyTriumphAwards(timedProfile, duelTriumphStats)');
+    expect(DUEL).toContain('setProfile(awards.profile);');
+    expect(DUEL).toContain('saveProfile(awards.profile);');
     // The advance is INSIDE the transaction: after the win/loss composition, before the save.
     expect(DUEL.indexOf('} else {')).toBeLessThan(DUEL.indexOf('settleDuelClock('));
-    expect(DUEL.indexOf('settleDuelClock(')).toBeLessThan(DUEL.indexOf('saveProfile(timedProfile)'));
+    expect(DUEL.indexOf('settleDuelClock(')).toBeLessThan(DUEL.indexOf('saveProfile(awards.profile)'));
     // Nothing on entry, in a render or in an effect can advance it.
     expect(DUEL).not.toContain('advanceTimeBy');
   });
