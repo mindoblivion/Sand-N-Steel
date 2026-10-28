@@ -28,11 +28,30 @@
  * malformed profile — resolves to the defaults rather than throwing, exactly as
  * `resolveRacingState` does for `racing`.  The input is only ever read: nothing
  * here mutates it, and the module imports no storage.
+ *
+ * ── STORY-3 — CHAPTER TWO ("Fortuna's Coin, the Second Sand") ─────────────
+ * This module is EXTENDED, never replaced, by Chapter 2's slice.  Its chapter
+ * rule is STORY-2's, exactly as STORY-2 left it: Chapter 2 opens the moment
+ * Chapter 1's gates are met, and no chapter and no beat is stored (this slice
+ * adds no profile field at all).  Chapter 2's two gates and Beat 3 are derived
+ * from the record the save already carries:
+ *   • BEAT 3 (Fortuna's Coin) completes on STATE, never on a stored beat flag:
+ *     a live omen (`profile.omen`) OR the once-ever decline marker
+ *     (`profile.omenTrickleClaimed`).  A decline leaves NO omen field behind, so
+ *     the marker is the only record of it; the shrine panel carries no chapter
+ *     gate, so a shrine visit made BEFORE Chapter 2 opened counts the same.
+ *   • the DUEL gate is the Tier-1 boss in `defeatedOpponentIds`.
+ *   • the RACE gate (a finished District race, any placing) is still `'pending'`
+ *     with `holdsChapterOpen`: the race system's results write has not landed, so
+ *     there is no evidence to read (STORY-1's graceful-degradation rule) and the
+ *     chapter REFUSES TO CLOSE ON DUELS ALONE.  The campaign is therefore held at
+ *     Chapter 2, in words rather than as a failure, until that write lands.
  */
 
 import { PlayerProfile, StoryProgress } from '../types/game';
 import { ALL_OPPONENTS } from '../data/opponents';
 import { DOCTORE_TEST_OPPONENT_ID } from './storyBeats';
+import { isTrickleClaimed, resolveOmen } from './omens';
 import { GladiatorRank, rankAtLeast, deriveRank } from './rank';
 
 /** A gate's state: met by evidence, not yet met, or waiting on a later slice. */
@@ -78,6 +97,13 @@ export interface StoryGate {
    * the card prints `PENDING_GATE_LINES[pendingKind]` and never the requirement.
    */
   pendingKind?: StoryPendingKind;
+  /**
+   * STORY-3 — this gate must be MET before its chapter can close, even while its
+   * owning system is unlanded.  Absent on every other gate: a pending gate never
+   * holds a chapter shut (STORY-1's standing law), and Chapter 2's District race
+   * is the one designed exception (the Director's ruling of record).
+   */
+  holdsChapterOpen?: boolean;
   state: StoryGateState;
 }
 
@@ -166,7 +192,12 @@ export interface StoryState {
   chapter: number;
   title: string;
   beat: string;
-  /** Every chapter closed on its available gates — the Legend state. */
+  /**
+   * Every chapter closed on its available gates — the Legend state.  STORY-3:
+   * Chapter 2's race gate is the one pending gate that holds a chapter open, so
+   * no record reaches this state until that gate has evidence (the documented
+   * deferral), and `LEGEND_LINE` stays unwritten on the card until then.
+   */
   complete: boolean;
   /** The current chapter's gates, in table order, each with its state. */
   gates: StoryGate[];
@@ -184,6 +215,8 @@ interface StoryEvidence {
   rank: GladiatorRank;
   /** The ids of the bosses who have fallen. */
   defeatedIds: string[];
+  /** STORY-3 — Beat 3's state: a live omen or the once-ever decline marker. */
+  omenTaken: boolean;
   flags: ResolvedStoryFlags;
 }
 
@@ -194,6 +227,8 @@ interface GateDefinition {
   /** The check the available evidence answers; absent for a pending gate. */
   met?: (evidence: StoryEvidence) => boolean;
   pendingKind?: StoryPendingKind;
+  /** See `StoryGate.holdsChapterOpen`. */
+  holdsChapterOpen?: boolean;
 }
 
 /** A finite number, or `null` — a string, NaN or a missing field is not a total. */
@@ -273,9 +308,16 @@ function pendingGate(
   id: StoryGateId,
   requirement: string,
   confirmation: string,
-  pendingKind: StoryPendingKind
+  pendingKind: StoryPendingKind,
+  holdsChapterOpen = false
 ): GateDefinition {
-  return { id, requirement, confirmation, pendingKind };
+  return {
+    id,
+    requirement,
+    confirmation,
+    pendingKind,
+    holdsChapterOpen: holdsChapterOpen || undefined,
+  };
 }
 
 /** The chapters' gates, in table order.  This is the campaign's one rule table. */
@@ -313,16 +355,42 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
         evidence.flags.doctoreTestPassed && evidence.defeatedIds.includes(DOCTORE_TEST_OPPONENT_ID),
     },
   ],
-  // 2 — Fortuna's Coin: Goliath, the first District race (pending), the omen (pending).
+  // 2 — Fortuna's Coin: Goliath, the first District race (HELD OPEN — see
+  // `holdsChapterOpen`), and Beat 3's omen, which reads STATE rather than a flag.
+  //
+  // ── TWO DEFERRALS THIS CHAPTER CARRIES, RECORDED HERE ────────────────────
+  // (a) The District's own introduction lines on the pre-race card — the rival
+  //     charioteer the chapter opens on — belong to Stage 2's 2A data build and
+  //     are NOT built here: no line, no data row and no pre-race card change for
+  //     that rival ships in this slice.  The keeper registry holds that rival as
+  //     DATA only, and no shrine or keeper plate is built here either (the
+  //     plates belong to their own slice).
+  // (b) "Answer the Rein" steps 1 and 2 are NOT built here; they ride the racing
+  //     and keeper-lives work.  This slice is Beat 3, the cross-gate pointer and
+  //     the chapter's own state, and nothing else.
   [
     tierBossGate(1, 'tier-1-boss'),
     pendingGate(
       'district-race',
       'Finish your first District race',
       'Your first District race is run.',
-      'race'
+      'race',
+      // STORY-3 — Director ruling 4: the chapter REFUSES TO CLOSE ON DUELS
+      // ALONE.  The race system's results write has not landed, so the gate has
+      // no evidence to read and says "not yet" (STORY-1's graceful degradation)
+      // — but it is the one gate whose pending state HOLDS its chapter open.
+      // That is the documented deferral, not a failure.
+      true
     ),
-    pendingGate('omen', 'Face the reading of the omen', 'The omen has been read.', 'omen'),
+    {
+      id: 'omen',
+      requirement: 'Face the reading of the omen',
+      confirmation: 'The omen has been read.',
+      // STORY-3 — Director ruling 1: Beat 3 is STATE-BASED.  A live omen taken at
+      // Postumia's shrine, or the once-ever decline marker, completes it; there is
+      // no stored beat flag, and a pre-chapter shrine visit counts identically.
+      met: (evidence) => evidence.omenTaken,
+    },
   ],
   // 3 — The Name in the Records: Veteran, Ignis, the District final (pending), the Library.
   [
@@ -435,6 +503,7 @@ function readEvidence(profile: PlayerProfile | null | undefined): StoryEvidence 
     defeatedIds: Array.isArray(defeated)
       ? defeated.filter((id): id is string => typeof id === 'string')
       : [],
+    omenTaken: isFortunaOmenTaken(profile),
     flags: resolveFlags(profile),
   };
 }
@@ -451,13 +520,23 @@ function resolveGate(definition: GateDefinition, evidence: StoryEvidence): Story
     requirement: definition.requirement,
     confirmation: definition.confirmation,
     pendingKind: definition.pendingKind,
+    holdsChapterOpen: definition.holdsChapterOpen,
     state,
   };
 }
 
-/** A chapter is closed once every gate whose evidence can exist is met. */
+/**
+ * A chapter is closed once every gate whose evidence can exist is met — and once
+ * every gate that DECLARES it must be met is met, however unlanded its system is.
+ *
+ * STORY-3 — Chapter 2's District race is that gate (Director ruling 4), so the
+ * chapter cannot be closed by its duel alone.  Every other pending gate keeps
+ * STORY-1's law untouched: it never holds a chapter shut.
+ */
 function isClosed(gates: readonly StoryGate[]): boolean {
-  return gates.every((gate) => gate.state !== 'unmet');
+  return gates.every(
+    (gate) => gate.state !== 'unmet' && !(gate.holdsChapterOpen === true && gate.state === 'pending')
+  );
 }
 
 /**
@@ -489,6 +568,56 @@ export function resolveStoryState(profile: PlayerProfile | null | undefined): St
     gates: resolved[chapter],
     flags: evidence.flags,
   };
+}
+
+/** Chapter 2's index — "Fortuna's Coin, the Second Sand". */
+export const STORY_CHAPTER_FORTUNA = 2;
+
+/**
+ * STORY-3 — BEAT 3 (Fortuna's Coin) as STATE, never as a stored flag.
+ *
+ * The beat is complete when the profile carries Fortuna's word (a live `omen`)
+ * or the once-ever decline marker (`omenTrickleClaimed`): the shrine offers both
+ * answers, and a decline leaves no omen field behind, so the marker is the only
+ * record of it.  Both are read lazily through the omen module, so a malformed
+ * field resolves as "not taken" rather than throwing.
+ */
+export function isFortunaOmenTaken(profile: PlayerProfile | null | undefined): boolean {
+  return resolveOmen(profile) !== null || isTrickleClaimed(profile);
+}
+
+/**
+ * STORY-3 — the cross-gate pointer's TRIGGER (Director ruling 3): true while
+ * Chapter 2 is open AND its District race gate is not met.
+ *
+ * It is a pointer and nothing else — no gate, price or reward reads it; the
+ * herald's words live in `utils/storyChapterTwo.ts`, beside the beat's briefing.
+ */
+export function circusPointerDue(state: StoryState): boolean {
+  if (state.chapter !== STORY_CHAPTER_FORTUNA) return false;
+  const race = state.gates.find((gate) => gate.id === 'district-race');
+  return !!race && race.state !== 'met';
+}
+
+/**
+ * One chapter's gates, resolved — the seam the whole table is read through.
+ *
+ * `resolveStoryState` hands back only the CURRENT chapter's gates, which is all
+ * the card needs.  Because Chapter 2's race gate now holds the campaign open
+ * (STORY-3), the later chapters can no longer be reached by walking a record, so
+ * their authored gates would otherwise stop being measured at all.  This reader
+ * keeps every chapter's table addressed from the SAME record and the SAME
+ * definitions: it invents no evidence, writes nothing, and answers an unknown
+ * chapter index with an empty list.
+ */
+export function resolveChapterGates(
+  profile: PlayerProfile | null | undefined,
+  chapter: number
+): StoryGate[] {
+  const definitions = CHAPTER_GATES[chapter];
+  if (!definitions) return [];
+  const evidence = readEvidence(profile);
+  return definitions.map((definition) => resolveGate(definition, evidence));
 }
 
 /**

@@ -32,6 +32,8 @@ const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m
 const RaceScene = React.lazy(() => import('./components/3d/RaceScene').then((m) => ({ default: m.RaceScene })));
 import { DuelResultModal } from './components/hub/DuelResultModal';
 import { HeraldToast } from './components/hub/HeraldToast';
+// STORY-3 — the herald's circus pointer while Chapter 2's race gate is unmet.
+import { circusPointerCry } from './utils/storyChapterTwo';
 import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
 import type { BannerDevice } from './utils/heraldry';
@@ -393,6 +395,15 @@ export function App() {
    * hands back the profile to save — it is the only writer of `road.milestonesSeen` —
    * together with the cries the herald should raise and whether the device panel is owed.
    */
+  /**
+   * STORY-3 — the herald's circus pointer, raised by the hub when the Colosseum
+   * tab opens. Text only: it appends one cry to the toast's own list (and never
+   * the same one twice in a row), and writes nothing to a profile.
+   */
+  const handleHeraldCry = (cry: string) => {
+    setHeraldCries((previous) => (previous.includes(cry) ? previous : [...previous, cry]));
+  };
+
   const evaluateRituals = (
     before: PlayerProfile,
     after: PlayerProfile,
@@ -1374,6 +1385,8 @@ export function App() {
             <GladiatorSchoolHub
             playerProfile={profile}
             onOpenDeviceChoice={() => setDeviceChoiceOpen(true)}
+            heraldCircusCry={circusPointerCry(profile)}
+            onHeraldCry={handleHeraldCry}
             activeTab={activeHubTab}
             onTabChange={handleHubTabChange}
             onEnterCity3D={() => { if (profile) enterCity(profile); }}
