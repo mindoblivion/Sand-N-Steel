@@ -13,8 +13,15 @@
  * The copy is the day's own: its name from `LUDI_ROTATION`, one line of character, and the
  * three deeds with their done/todo state. The card also states how many training sessions
  * the new day handed back — read from `ludiSessionsRefreshed`, the same number the rollover
- * applied. There is NO modifier line (Phase A ships no gameplay modifier) and NO
- * unfinished-business line (an uncompleted Acta is owed nothing).
+ * applied. There is NO modifier line (Phase A ships no gameplay modifier).
+ *
+ * FIRST SIXTY SECONDS (§5, retention build-order step 4) adds ONE line to this card and
+ * changes nothing else about it: the `unfinished` prop, filled by
+ * `utils/firstSixtySeconds.ts`'s `unfinishedBusinessLine` with a live open loop — a waiting
+ * grudge, else an unviewed triumph — or `null`. First Sixty Seconds — Director ruling
+ * R-UNFINISHED: an uncompleted Acta is still owed NOTHING (the deeds print no line of their
+ * own), and a profile with no open loop prints no line at all. The show rule, the draw and
+ * the dismissal below are Phase A's, untouched.
  *
  * READ ONLY: it takes the profile, resolves the Acta once and renders. It writes nothing.
  */
@@ -102,6 +109,13 @@ export const ActaDeeds: React.FC<{ state: ResolvedLudiState; className?: string 
 
 interface ActaCardProps {
   profile: PlayerProfile;
+  /**
+   * FIRST SIXTY SECONDS — §5's ONE unfinished-business line, resolved from LIVE state by
+   * `utils/firstSixtySeconds.ts` (`unfinishedBusinessLine`): 'A grudge waits: <rival>',
+   * else 'A triumph waits unviewed', else `null`. `null`/absent prints nothing at all —
+   * the card never invents an open loop. Director ruling R-UNFINISHED.
+   */
+  unfinished?: string | null;
   /** Dismiss this morning's Acta. The card owns no write of any kind. */
   onDismiss: () => void;
 }
@@ -111,7 +125,7 @@ interface ActaCardProps {
  * control the player needs and closes with its own button (or the day's own dismissal is
  * remembered for the session).
  */
-export const ActaCard: React.FC<ActaCardProps> = ({ profile, onDismiss }) => {
+export const ActaCard: React.FC<ActaCardProps> = ({ profile, unfinished, onDismiss }) => {
   const state = resolveLudiState(profile);
   const sessions = ludiSessionsRefreshed(state.day);
 
@@ -145,6 +159,18 @@ export const ActaCard: React.FC<ActaCardProps> = ({ profile, onDismiss }) => {
       </div>
 
       <ActaDeeds state={state} className="mt-2" />
+
+      {/* FIRST SIXTY SECONDS — the ONE unfinished-business line (R-UNFINISHED). It is
+          resolved from live state and printed only when there is an open loop, so a card
+          with nothing waiting is exactly Phase A's card. */}
+      {unfinished ? (
+        <p
+          data-acta-unfinished
+          className="mt-3 font-serif text-[11px] sm:text-xs leading-snug text-amber-200"
+        >
+          {unfinished}
+        </p>
+      ) : null}
 
       <p
         data-acta-sessions

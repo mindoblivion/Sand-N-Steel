@@ -731,14 +731,23 @@ describe('LUDI I §I — the Acta card, Felix’s board section, the yard and th
     expect(quietus).toContain('Training sessions refreshed: 3');
   });
 
-  test('the card carries no modifier line and no unfinished-business line', () => {
+  test('the card carries no modifier line, and its ONE unfinished-business line only when a loop is open', () => {
+    // FIRST SIXTY SECONDS RE-SCOPE, property-preserving and required by a Director ruling:
+    // Phase A's rule — an uncompleted Acta is owed nothing, and there is no modifier line —
+    // is untouched. §5 adds exactly ONE line to this card, resolved from LIVE state
+    // (`utils/firstSixtySeconds.ts`, R-UNFINISHED), so 'unfinished' is now a prop of the
+    // card and can no longer be forbidden as a string. What the pin still asserts, and
+    // harder than before, is the property it exists for: a profile with NOTHING open gets
+    // Phase A's card exactly — no unfinished-business line at all.
     const source = code('components/hub/ActaCard.tsx');
-    for (const forbidden of ['modifier', 'unfinished', 'owed', 'bonus to']) {
+    for (const forbidden of ['modifier', 'owed', 'bonus to']) {
       expect(source.toLowerCase()).not.toContain(forbidden);
     }
     const html = card(onDay(3)).toLowerCase();
     expect(html).not.toContain('modifier');
-    expect(html).not.toContain('unfinished');
+    expect(html).not.toContain('data-acta-unfinished');
+    expect(html).not.toContain('a grudge waits');
+    expect(html).not.toContain('a triumph waits');
   });
 
   test('the city card waits while a presented scene owns the screen', () => {
