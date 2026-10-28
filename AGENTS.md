@@ -8140,3 +8140,53 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   line mid-visit; (c) re-open after leaving and confirm the repeat line, with the save's
   `seenKeepers` gaining `postumia` exactly once; (d) at night confirm the line is still hers (no
   night clerk); (e) confirm the offering still costs 25 g and the panel's buttons are unchanged.
+
+## STORY-4a — Mercy or Glory, duel form only (Pitch A9 — implemented; offers DORMANT until Chapter 3 opens)
+
+- **What ships.** One slice, one new save field. `src/utils/mercyBouts.ts` (new, pure) owns the whole
+  rule: the offer (`mercyOfferFor`), the two writes (`spareRival` / `finishRival`), the derived
+  "finished" reading (`isRivalFinished` / `hasFinishedAnyRival`), the board cards
+  (`boardGrudgeCards`) and every line of flavor. `DuelResultModal` gains an OPTIONAL `mercy` prop and
+  draws the Spare / Finish choice — **an eligible victory cannot be dismissed past the choice** (the
+  return button is absent until one is answered); `App.handleMatchComplete` decides the offer at the
+  duel's own write and `App.handleMercyChoice` writes the answer exactly once (a session ref guards a
+  double tap). `PrimusPalusBoard` prints a grudge card on every challenger whose grudge is live.
+  `types/game.ts` gains `spared?: { [rivalId: string]: true }` as the LAST optional member, and
+  `saveCorpus` gains the `mercy-era` fixture (§J is now twenty-one fields, with a control proving the
+  rule still fails on an unaccounted field).
+- **The rules live in one place each.** Eligibility (R5/R7) is derived from the roster — Tier 2+,
+  not a boss, not a Feature Bout, not a generated grudge, not Sextus — and requires the rival's FIRST
+  defeat, so a Spared or Finished rival can never be offered again (R4's no-retroactive rule falls out
+  of the same check). The chapter gate (R6) reads `resolveStoryState` on the record the bout was
+  FOUGHT with. Spare keeps the C-A grudge (the grudge bout is the return path) and writes the flag
+  idempotently; Finish removes that defeat's grudge and pays the duel's final fame × 1.25, rounded,
+  once; gold is untouched by mercy. Shift values are never recomputed here — the board card reads
+  `grudgeProfileLine` / `grudgeTraitLine`.
+- **Finish writes no flag, and that is by design.** A finished rival is DERIVED: beaten, no grudge
+  record left, not spared. C-8.70C records a grudge for every first victory over a regular and this
+  slice's Finish is the only writer that removes one, so the absence is the record. Known edge, stated
+  in the module: a pre-C-8.70C save could read a beaten regular as finished, which can only suppress
+  the first-Finish herald line once.
+- **DORMANT, and that is R6's stated consequence.** `resolveStoryState` holds the campaign at Chapter
+  2 until Stage 2 lands its race-results write, so no live bout can offer mercy yet. The code is
+  landed and tested: `mercyBouts.test.ts` exercises the Chapter 3+ branch through
+  `mercyOfferFor`'s explicit chapter argument and pins the shipped dormancy separately. The board
+  cards (§5) are visible immediately — live grudges exist now.
+- **Director rulings, each flagged `STORY-4a — Director ruling` at the code it governs.** R1 the
+  ×1.25 finish fame; R2 the grudge interplay (keep on Spare, remove on Finish); R3 the house mark is
+  FLAVOR ONLY — the shop-price effect and Scribonia's revenge bounty are DEFERRED (no rival→house
+  mapping and no bounty-hunter design exist), so the keeper's line promises nothing mechanical. R4-R8
+  are the eligibility, chapter, roster and "deferred return paths" rules above.
+- **Not built, deliberately:** the Deserter's Price ladder and its `deserterChoice` write, the bounty
+  board panel (STORY-4b), and the circus form of mercy / the post-race Vexus card (STORY-6). Nothing
+  in `src/data/keepers.ts` changed — the keeper's mercy lines are flavor on the result modal only.
+- **Two field-set guards were REBASED, not weakened** (and are reported, not hidden): the optional
+  field list is pinned in `fortunasOmen.test.ts` §I and in `storyChapterTwo.test.ts` §G G1, both of
+  which counted twenty fields. Each now counts twenty-one with `spared` appended, and each control
+  that relied on "the omen pair is last" now states the last three. `saveCorpus.test.ts` §J carries
+  the same twenty-one plus the new fixture, as the standing rule requires.
+- **Verified:** see the branch's own close-out in the conversation record — `bun test` (repo-wide),
+  `bun run scripts/collisionTests.ts`, `bun run lint`, `bun run build` and `git diff --check`.
+  **Not automatically verified:** no mercy offer can be reached through the live app yet (Chapter 3
+  is unreachable), so the choice was exercised by rendering the result modal and by driving the pure
+  module, not by a played bout; the board cards ARE reachable now and render on the Colosseum tab.

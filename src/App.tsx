@@ -36,6 +36,17 @@ import { HeraldToast } from './components/hub/HeraldToast';
 import { circusPointerCry } from './utils/storyChapterTwo';
 import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
+// STORY-4a — MERCY OR GLORY (Pitch A9, duel form only).  The offer is decided at
+// the duel's own write; the answer writes exactly once, through this file's normal
+// save path.  Nothing in the module touches storage.
+import {
+  finishRival,
+  isFirstMercyOfKind,
+  mercyHeraldCries,
+  mercyOfferFor,
+  spareRival,
+  type MercyChoice,
+} from './utils/mercyBouts';
 import type { BannerDevice } from './utils/heraldry';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
@@ -153,6 +164,13 @@ export function App() {
    * clock twice. Session only — never saved, and never a profile field.
    */
   const duelTimeSteppedRef = useRef(false);
+  /**
+   * STORY-4a — the mercy answer's ONCE guard for the current result.  It is the
+   * rival id the answer has already been written for, so a double tap (or a stale
+   * control) cannot write a second time; it is cleared when a new result is set.
+   * Session only — never saved.
+   */
+  const mercyWrittenRef = useRef<string | null>(null);
   /** DAY/NIGHT T2 — the day-boundary beat the city plays (sleep veil + the new day's name). */
   const [dayBanner, setDayBanner] = useState<{ day: number; text: string } | null>(null);
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
@@ -198,6 +216,20 @@ export function App() {
      * result screen cannot disagree with the save.
      */
     omenLine?: string | null;
+    /**
+     * STORY-4a — the mercy offer riding this result (Pitch A9), decided at the
+     * same write, plus the answer once it is taken.  Absent on every ineligible
+     * victory and every defeat.
+     */
+    mercy?: {
+      rivalId: string;
+      rivalName: string;
+      teaching: boolean;
+      /** The duel's FINAL fame (after mode, crowd and omen multipliers). */
+      finalFame: number;
+      chosen?: MercyChoice;
+      extraFame?: number;
+    } | null;
   } | null>(null);
   /**
    * STORY-2 — the rule chosen for the Doctore's Test. Held for the length of the
@@ -907,6 +939,16 @@ export function App() {
     setProfile(timedProfile);
     saveProfile(timedProfile);
 
+    /**
+     * STORY-4a — MERCY OR GLORY (Pitch A9, duel form only).  The offer is asked
+     * ONCE, here, from the record the bout was FOUGHT with: the rival fence, the
+     * first-defeat rule, the spared map and Chapter 3 (R4-R7 in `mercyBouts.ts`).
+     * R6's stated consequence — Chapter 3 is unreachable until Stage 2 lands its
+     * race-results write, so this is DORMANT and tested, not broken.
+     */
+    const mercy = mercyOfferFor(profile, activeOpponent, didWin);
+    mercyWrittenRef.current = null;
+
     setDuelResult({
       didWin,
       // PITCH A1 — the settled numbers (omen multiplier included when it paid), so
@@ -916,6 +958,9 @@ export function App() {
       injuryEvent,
       ...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),
       ...(omenSettled.line ? { omenLine: omenSettled.line } : {}),
+      // STORY-4a — the offer carries the duel's FINAL fame (post mode / crowd /
+      // omen, in C-C's order), which is the basis Finish's R1 rule reads.
+      ...(mercy ? { mercy: { ...mercy, finalFame: resultStats.fameEarned } } : {}),
     });
   };
 
@@ -926,6 +971,61 @@ export function App() {
     if (profile) enterCity(profile);
     else setCurrentScreen('city_3d');
   };
+
+  /**
+   * STORY-4a — THE MERCY ANSWER, written exactly once.
+   *
+   * SPARE writes `spared[rivalId] = true` and touches nothing else: the rival
+   * KEEPS his C-A grudge, because the grudge bout is the return path (R2).
+   * FINISH pays the duel's final fame x 1.25, rounded, once (R1 — Director
+   * ruling) and REMOVES that defeat's grudge (R2 — Director ruling), so the rival
+   * never comes back; it writes no flag.  Gold is untouched by either answer.
+   */
+  const handleMercyChoice = (choice: MercyChoice) => {
+    if (!profile || !duelResult?.mercy || duelResult.mercy.chosen) return;
+    const offer = duelResult.mercy;
+    if (mercyWrittenRef.current === offer.rivalId) return;
+    mercyWrittenRef.current = offer.rivalId;
+
+    // The herald's one-line cry is for the FIRST of each answer, read from the
+    // record before this answer's own write.
+    const first = isFirstMercyOfKind(profile, choice);
+
+    let next = profile;
+    let extraFame = 0;
+    if (choice === 'spare') {
+      next = spareRival(profile, offer.rivalId);
+    } else {
+      const outcome = finishRival(profile, offer.rivalId, offer.finalFame);
+      next = outcome.profile;
+      extraFame = outcome.extraFame;
+    }
+    if (next !== profile) {
+      setProfile(next);
+      saveProfile(next);
+    }
+
+    const cries = mercyHeraldCries(choice, first);
+    if (cries.length > 0) {
+      setHeraldCries((previous) => [...previous, ...cries]);
+    }
+
+    // The result surface is told what the save now carries, so the two cannot
+    // disagree: Finish's fame figure becomes the boosted total it paid.
+    setDuelResult((previous) =>
+      previous && previous.mercy
+        ? {
+            ...previous,
+            stats:
+              choice === 'finish' && extraFame > 0
+                ? { ...previous.stats, fameEarned: previous.stats.fameEarned + extraFame }
+                : previous.stats,
+            mercy: { ...previous.mercy, chosen: choice, extraFame },
+          }
+        : previous
+    );
+  };
+
 
   /**
    * RG-3 — the Device Choosing panel's one write. `chooseBannerDevice` refuses a second
@@ -1471,6 +1571,8 @@ export function App() {
             injuryEvent={duelResult.injuryEvent}
             palmaEarned={duelResult.palmaEarned}
             omenLine={duelResult.omenLine}
+            mercy={duelResult.mercy ?? null}
+            onMercyChoice={handleMercyChoice}
             goldTotal={profile?.gold}
             coachCardId={
               profile
