@@ -438,7 +438,10 @@ describe('D-5 §G — the dusk state costs no draw call', () => {
     expect(ARENA).toContain('emberEmissive ?? 3');
     // The mesh count is the pre-D-5 one: this state changes two material colours
     // and one emissive intensity on meshes the arena already draws.
-    expect((ARENA.match(/<mesh/g) ?? []).length).toBe(32);
+    // AI-1 rebased the figure 32 → 34: each gate's solid grate box became a
+    // merged bar grille (one-for-one) plus ONE merged dressing mesh (+2), and
+    // this state's own property-only claim is unchanged — dusk adds no mesh.
+    expect((ARENA.match(/<mesh/g) ?? []).length).toBe(34);
     // The scene passes both, on the same two props.
     expect(DUEL).toContain("? 'dusk'");
     // DAY/NIGHT T1 REBASE: the authored delta still WINS on the ember property (the
