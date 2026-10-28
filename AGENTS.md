@@ -11592,13 +11592,36 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   navigation clearance, whether it reads as belonging to that building, and whether nine extra
   cut-out plates cost frame time on the target GPU.
 
-- **Reproduction steps for the device pass.** Fast travel puts the player on each sign's own approach:
-  Tavern `[-10, 14]` → sign 2.1 south of the door's centre; Forge `[11.5, 2.6]` → sign at the north end
-  of the colonnade front; Store `[17, −5]` → sign 2.0 south of the storefront; Training Yard
-  `[-18, 2]` → walk west to the hall's veranda; Library `[23.1, −26]`, Medical `[-29, −9]`, Barracks
-  `[-22, −14]`, Academy `[25.5, −23]`, Veteran Hall `[-24, −29]` (its sign is on the south entrance
-  face, so it is met walking round the building). All nine are at the coordinates recorded in
-  `src/data/landmarkSigns.ts`, which is the file to edit if a mount needs moving.
+- **Reproduction steps for the device pass — inspect the ARRIVAL VIEW and the DOOR APPROACH.** Fast
+  travel does **not** put the player on each sign's own approach. `FAST_TRAVEL_ARRIVALS`
+  (`src/utils/cityCollisions.ts`) lands the player at the nearest verified collision-free point outside
+  the building — frequently a corner or an edge of a facade, and on three buildings on the opposite side
+  of the building from the sign. **The plates are oriented toward their building's door approach** (the
+  door / awning / portico / veranda face — `position` + `rotationY` in `src/data/landmarkSigns.ts`), not
+  toward the fast-travel point, so an arriving player can find the plate edge-on or out of sight. The
+  Android tester should therefore look at BOTH: (a) the view from the fast-travel arrival, and (b) the
+  walk up to the building's door, where the plate is meant to read.
+
+  | building | plate faces | fast-travel arrival (world XZ) | arrival → plate, XZ | arrival off the plate's front axis* |
+  |---|---|---|---|---|
+  | The Golden Palm Tavern | east | `[-10, 14]` | 2.93 | 73° — beside the plate, nearly edge-on |
+  | Imperial Smithing Forge | west | `[11.5, 2.6]` | 3.37 | 72° — beside the plate, nearly edge-on |
+  | Bazaar & General Store | west | `[17, −5]` | 2.01 | 84° — beside the plate, edge-on |
+  | Ludus Training Hall | east | `[-18, 2]` | 8.33 | 24° — the one roughly front-on arrival; the sign sits across the yard |
+  | Records & Lore Library | south | `[23.1, −26]` | 2.56 | 78° — beside the plate, nearly edge-on |
+  | Arena Medical House | south | `[-29, −9]` | 7.61 | 164° — arrival is NORTH, door south: the building is between them |
+  | Gladiator Barracks | south | `[-22, −14]` | 4.47 | 144° — arrival is EAST: the sign is met rounding the south-east corner |
+  | Gladiator Ludus Academy | south | `[25.5, −23]` | 2.81 | 94° — arrival is the north-west corner: the south frontage is in view but the plate is edge-on |
+  | Veteran Gladiator Hall | south | `[-24, −29]` | 7.95 | 159° — arrival is NORTH, door south: the sign is read walking round |
+
+  *Every table figure is a **source-derived calculation, not a rendered visual measurement**:
+  `landmarkSignWorldMount()` plus the `FAST_TRAVEL_ARRIVALS` entry. "Off the front axis" is the angle
+  between the plate's readable front — world `(sin yaw, cos yaw)` from `worldYaw = buildingYaw +
+  rotationY` — and the line from the plate to the arrival: 0° square-on, 90° edge-on, beyond 90° the
+  arrival is behind the plate. Distances are XZ only, plate origin to arrival. Sign-relative placements
+  (Tavern 2.8 NORTH of its door's centre, Forge at the SOUTH end of the colonnade front, Barracks post
+  0.48 clear of the east jamb, …) are recorded per sign in `src/data/landmarkSigns.ts`, which is the file
+  to edit if a mount needs moving.
 
 ## Living City landmark signage reliability (L17D — implemented; Android acceptance PENDING)
 
