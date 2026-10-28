@@ -592,8 +592,11 @@ describe('CH-5 §G — the wiring', () => {
     expect(APP.indexOf('applyPalmaEarns(updatedProfile)')).toBeGreaterThan(
       APP.indexOf('fightsWon: profile.fightsWon + 1'),
     );
+    // DAY/NIGHT T2 REBASE: the resolution's single save is now `saveProfile(timedProfile)`
+    // (the clock seam runs on the composed profile); the ORDER this pins is unchanged —
+    // the earn check still sits before the write.
     expect(APP.indexOf('applyPalmaEarns(updatedProfile)')).toBeLessThan(
-      APP.indexOf('saveProfile(settledProfile)'),
+      APP.indexOf('saveProfile(timedProfile)'),
     );
     // The result screen is told what unlocked.
     expect(APP).toContain('palmaEarned={duelResult.palmaEarned}');

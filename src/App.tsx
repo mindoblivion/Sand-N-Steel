@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from './types/game';
 import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
 import type { StoredProfileSummary } from './services/storage';
@@ -93,7 +93,24 @@ import {
   recordStandardVictory,
   settleGrudge,
 } from './utils/grudgeBouts';
-import { resolveInjuryAfterDuel, restAtInn, treatInjury, type DuelInjuryEvent } from './utils/injury';
+import { REST_PRICE, resolveInjuryAfterDuel, restAtInn, treatInjury, type DuelInjuryEvent } from './utils/injury';
+// DAY/NIGHT T2 — the clock's reads at the seams, and the day-boundary seam's own module.
+// Only the seam files in this slice may touch these (see the re-scoped T0 guard in
+// `utils/timeState.test.ts`): the duel result, the training session, the night at the inn,
+// and the scene phase reads.
+import {
+  PHASES_PER_DAY,
+  advanceTimeBy,
+  advanceToNextDawn,
+  resolveTimeState,
+} from './utils/timeState';
+import {
+  applyDayRollover,
+  dayBannerText,
+  dayRolledTo,
+  settleDuelClock,
+} from './utils/dayRollover';
+import { DayBanner } from './components/ui/DayBanner';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
 import { preloadTitleStage } from './utils/preloadAssets';
@@ -114,6 +131,15 @@ interface CityExitPose {
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  /**
+   * DAY/NIGHT T2 — the duel result's ONE time settlement is transaction-scoped: this flag
+   * is armed when a bout is entered and consumed by the resolution write, so a second call
+   * into the same resolution (a re-fired `onMatchComplete`, a stale control) cannot walk the
+   * clock twice. Session only — never saved, and never a profile field.
+   */
+  const duelTimeSteppedRef = useRef(false);
+  /** DAY/NIGHT T2 — the day-boundary beat the city plays (sleep veil + the new day's name). */
+  const [dayBanner, setDayBanner] = useState<{ day: number; text: string } | null>(null);
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
   /** C-8.70C — session-only: set by the pre-fight card, read by the duel, never saved. */
   const [boutMode, setBoutMode] = useState<BoutMode>(DEFAULT_BOUT_MODE);
@@ -550,6 +576,9 @@ export function App() {
     // A ladder bout carries no restriction: the Test's rule is set by its own
     // entry, and a stale one must never judge a different fight.
     setDoctoreRestriction(null);
+    // DAY/NIGHT T2 — arm this bout's ONE clock settlement. It advances nothing by itself;
+    // the resolution write below consumes it.
+    duelTimeSteppedRef.current = false;
     sounds.playClick();
     setCurrentScreen('duel');
   };
@@ -658,6 +687,26 @@ export function App() {
     saveProfile(result.profile);
   };
 
+  /**
+   * DAY/NIGHT T2 — THE DAY-BOUNDARY SEAM, and the one place a rollover is detected.
+   *
+   * Every advance in this file hands its composed profile through here before it is saved.
+   * When the step crossed a boundary (night → dawn, so the resolved `day` changed) the
+   * rollover fires ONCE with the new day and applies this slice's effects: the sleep veil +
+   * day banner in the city, and the training-session refresh (Dies Quietus granting the
+   * rotation's extra session). Nothing expires, nothing is owed, and no injury is touched —
+   * injuries count down in fights only.
+   *
+   * The Acta / deed systems are NOT built in this slice: they hang off this seam when they
+   * arrive, through `dayRolledTo` and the day it answers.
+   */
+  const onDayRollover = (before: PlayerProfile, advanced: PlayerProfile): PlayerProfile => {
+    const rolledTo = dayRolledTo(before, advanced);
+    if (rolledTo === null) return advanced;
+    setDayBanner({ day: rolledTo, text: dayBannerText(rolledTo) });
+    return applyDayRollover(advanced, rolledTo);
+  };
+
   const handleMatchComplete = (stats: DuelStatistics, didWin: boolean) => {
     if (!profile) return;
 
@@ -692,6 +741,8 @@ export function App() {
 
     /** CH-5 — what this victory unlocked, decided at the write and told to the result. */
     let palmaEarned: string[] | undefined;
+
+    let settledProfile: PlayerProfile;
 
     if (didWin) {
       const nextGold = profile.gold + stats.goldEarned;
@@ -779,9 +830,7 @@ export function App() {
       palmaEarned = earned.earned.map((palma) => palma.id);
 
       // The just-fought opponent is what names the boss cry — first defeat or rematch.
-      const settledProfile = evaluateRituals(profile, earned.profile, activeOpponent);
-      setProfile(settledProfile);
-      saveProfile(settledProfile);
+      settledProfile = evaluateRituals(profile, earned.profile, activeOpponent);
     } else {
       // C-8.70C — a lost GRUDGE closes: it stays shut until the player wins any
       // standard bout at that grudge's own tier (the anti-farm rule). Nothing
@@ -794,10 +843,22 @@ export function App() {
         fightsLost: profile.fightsLost + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
-      const settledProfile = evaluateRituals(profile, updatedProfile);
-      setProfile(settledProfile);
-      saveProfile(settledProfile);
+      settledProfile = evaluateRituals(profile, updatedProfile);
     }
+
+    /**
+     * DAY/NIGHT T2 — THE DUEL'S ONE ADVANCE. A duel that reached a result advances the
+     * clock one phase, win or lose, and it does so HERE, inside the single resolution
+     * transaction, so no render, no panel and no entry path can advance anything. The
+     * bout's session flag is consumed by `settleDuelClock`, which is what makes a second
+     * call into this path unable to walk the clock twice; the rollover seam then fires at
+     * most once. This is still the ONE write of the result: one `saveProfile`.
+     */
+    const clock = settleDuelClock(settledProfile, duelTimeSteppedRef.current);
+    duelTimeSteppedRef.current = clock.stepped;
+    const timedProfile = onDayRollover(profile, clock.profile);
+    setProfile(timedProfile);
+    saveProfile(timedProfile);
 
     setDuelResult({
       didWin,
@@ -845,12 +906,28 @@ export function App() {
     return true;
   };
 
+  /**
+   * T2 — a night's board for a gladiator with NO wound: S5's own 25g, and nothing else.
+   * A wounded player's price and injury effect belong to `restAtInn` itself.
+   */
+  const payForNight = (subject: PlayerProfile): PlayerProfile | null =>
+    subject.gold >= REST_PRICE ? { ...subject, gold: subject.gold - REST_PRICE } : null;
+
   const handleRestAtInn = (): boolean => {
     if (!profile) return false;
-    const rested = restAtInn(profile);
-    if (rested === profile) return false;
-    setProfile(rested);
-    saveProfile(rested);
+    // S5 treats the wound; T2 owns the night. ONE transaction, ONE saveProfile: the injury
+    // clock moves only inside `restAtInn`, and the dawn jump rides the same write.
+    const treated = restAtInn(profile);
+    const night = treated !== profile ? treated : payForNight(profile);
+    if (!night) return false;
+    // From Prima Luce the night sleeps a FULL cycle: `advanceToNextDawn` keeps a dawn where
+    // it stands (T0's pinned rule), so this seam steps a whole day instead — tomorrow's
+    // dawn, which is exactly the price the panel's label states.
+    const atDawn = resolveTimeState(night).phaseIndex === 0;
+    const toDawn = atDawn ? advanceTimeBy(night, PHASES_PER_DAY) : advanceToNextDawn(night);
+    const settled = onDayRollover(profile, toDawn);
+    setProfile(settled);
+    saveProfile(settled);
     return true;
   };
 
@@ -899,7 +976,7 @@ export function App() {
     const cost = trainingCost(profile);
     if (profile.gold < cost) return;
 
-    const updated: PlayerProfile = {
+    const trained: PlayerProfile = {
       ...profile,
       gold: profile.gold - cost,
       baseStats: {
@@ -907,8 +984,12 @@ export function App() {
         [stat]: profile.baseStats[stat] + 1,
       },
     };
-    setProfile(updated);
-    saveProfile(updated);
+    // DAY/NIGHT T2 — a training session CONSUMED advances the clock one phase, in this
+    // session's own transaction. The refusal above returns before this line, so a session
+    // that could not be paid for advances nothing. One save.
+    const timed = onDayRollover(profile, advanceTimeBy(trained, 1));
+    setProfile(timed);
+    saveProfile(timed);
   };
 
   /**
@@ -1207,6 +1288,18 @@ export function App() {
               closing vow. It owns the screen while it is up (the city reads no controls),
               so a new gladiator's arrival is the beat and never free roam. */}
           {oathBeatMode && <OathBeat mode={oathBeatMode} onComplete={handleOathComplete} />}
+
+          {/* DAY/NIGHT T2 — the day-boundary beat: a 600 ms sleep veil and the new day's
+              name. It is only ever drawn over the city, so a rollover earned in the arena
+              plays when the player walks back in. */}
+          {dayBanner && (
+            <DayBanner
+              key={dayBanner.day}
+              day={dayBanner.day}
+              text={dayBanner.text}
+              onDone={() => setDayBanner(null)}
+            />
+          )}
           </>
         )}
 
@@ -1282,6 +1375,7 @@ export function App() {
               chaseDistancePreset={settings.raceCamDistance}
               onOpenSettings={() => handleOpenSettings(undefined, 'race')}
               frozen={settingsOpen}
+              phase={resolveTimeState(profile).phase}
             />
           </React.Suspense>
           </LazySceneBoundary>
@@ -1344,6 +1438,7 @@ export function App() {
             onClose={() => setSettingsOpen(false)}
             initialCategory={settingsCategory}
             context={settingsContext}
+            phase={resolveTimeState(profile).phase}
             onOpenCloudSave={() => {
               setSettingsOpen(false);
               setShowDriveSync(true);

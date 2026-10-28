@@ -181,8 +181,27 @@ export function advanceToNextDawn(profile: PlayerProfile): PlayerProfile {
   return { ...profile, time: { total: next } };
 }
 
+/**
+ * DAY/NIGHT T2 — THE STORY VALVE: one story or quest beat moves the clock one phase.
+ *
+ * This is the ONLY sanctioned way a story beat advances time, and the reason it is a
+ * named function rather than a bare `advanceTimeBy` is the director's advance table: the
+ * clock has exactly one row per event, and the story row reads "major story/quest beat
+ * +1 — via the valve below only". A story file calls this, hands the answer to the
+ * seam's own `saveProfile()`, and can neither pick another step nor reach the clock any
+ * other way.
+ *
+ * No story content is wired to it in this slice: the valve ships alone so the first beat
+ * that needs it has one obvious door, already inside the seam allowlist.
+ *
+ * PURE: the argument is never mutated and nothing is persisted here.
+ */
+export function advanceForStoryBeat(profile: PlayerProfile): PlayerProfile {
+  return advanceTimeBy(profile, 1);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase presentation profiles (DATA — no scene reads these yet)
+// Phase presentation profiles (DATA — T2 paints them through `PHASE_LIGHT`)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** One phase's lighting / fog / sky values, as plain data. */

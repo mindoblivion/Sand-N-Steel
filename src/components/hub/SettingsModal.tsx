@@ -32,10 +32,12 @@ import type {
   Settings as SettingsRecord,
 } from '../../services/settings';
 import { useSettings } from '../../hooks/useSettings';
-// Day/Night T1 — the Lighting row now REPORTS the day's phase instead of choosing
-// a profile, so it reads the one constant and the phase labels themselves.
-import { CURRENT_PHASE, CURRENT_PHASE_SOURCE } from '../../utils/currentPhase';
-import { TIME_PHASE_NAMES } from '../../utils/timeState';
+// Day/Night T1/T2 — the Lighting row REPORTS the day's phase instead of choosing a
+// profile. T2 removed the staging constant: the phase is HANDED IN by `App`, which
+// resolves it from the player's clock, so this panel reads no save and keeps no copy of
+// the hour itself.
+import { CURRENT_PHASE_SOURCE } from '../../utils/currentPhase';
+import { TIME_PHASE_NAMES, type TimePhase } from '../../utils/timeState';
 
 /** The five sections of §1.3, in the design's order. */
 export type SettingsCategory = 'picture' | 'controls' | 'sound' | 'game' | 'accessibility';
@@ -49,6 +51,8 @@ interface SettingsModalProps {
   /** The section to open on; defaults to the last one this session. */
   initialCategory?: SettingsCategory;
   context?: SettingsContext;
+  /** Day/Night T2 — the hour the city is drawn under, resolved by `App` from the clock. */
+  phase: TimePhase;
   /** Row 16 — the existing Drive sync modal, opened by `App`. */
   onOpenCloudSave?: () => void;
   /** Row 18 — `App`'s existing reset, reached only through the armed two-step tap. */
@@ -294,6 +298,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   initialCategory,
   context = 'menu',
+  phase,
   onOpenCloudSave,
   onResetSave,
   onDeleteAccount,
@@ -469,7 +474,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <RowCard>
                   <RowLabel
                     label="Lighting"
-                    description={`${TIME_PHASE_NAMES[CURRENT_PHASE]} — ${CURRENT_PHASE_SOURCE}`}
+                    description={`${TIME_PHASE_NAMES[phase]} — ${CURRENT_PHASE_SOURCE}`}
                     icon={<Sunset className="w-5 h-5" />}
                   />
                 </RowCard>

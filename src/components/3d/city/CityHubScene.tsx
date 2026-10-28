@@ -33,7 +33,7 @@ import { EastCircusArena } from './EastCircusArena';
 import { EastCircusDistrict } from './EastCircusDistrict';
 import { CityCamera } from './CityCamera';
 import { CityAtmosphere } from './CityAtmosphere';
-import { CURRENT_PHASE } from '../../../utils/currentPhase';
+import { resolveTimeState } from '../../../utils/timeState';
 import { getPhaseLight } from '../../../utils/atmosphere';
 import { SceneBrightness } from '../SceneBrightness';
 import { GladiatorMesh } from '../GladiatorMesh';
@@ -53,6 +53,7 @@ import { PreRacePanel } from '../../hub/PreRacePanel';
 // S5 — the two cures: the Medical House's price and the inn's rest are the injury
 // module's own numbers, and this screen writes no save (App owns the transaction).
 import {
+  REST_PRICE,
   getTreatmentEligibility,
   injuryBannerLine,
   resolveActiveInjury,
@@ -236,7 +237,8 @@ const TREATMENT_SITES: Record<
   caravanserai: {
     title: 'Caravanserai Inn',
     notice: 'Caravanserai Inn: Rest & Quarters. Nothing to trade here yet.',
-    service: 'A night under the arches, broth and a clean bed: two fights come off the wound.',
+    service:
+      'A night under the arches, broth and a clean bed: the city wakes at its next dawn, and two fights come off any wound.',
     action: 'Rest a Night',
   },
 };
@@ -354,17 +356,22 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const sparklesCount = atmosphericMotion ? cityTier.sparkles : 0;
 
   /**
-   * Day/Night T1 — the city is drawn under the CURRENT phase's row (one of the seven
-   * in `utils/atmosphere.ts`'s `PHASE_LIGHT`), applied by one `createAtmosphereRig`
-   * call from `CityAtmosphere`. The phase still comes from the module-level
-   * `CURRENT_PHASE` constant in this slice; T2 wires the real clock through that same
-   * name. A1's Lighting setting is inert now — the toggle is retired in favour of the
-   * cycle — so this scene reads no `cityLighting` at all.
+   * Day/Night T2 — the city is drawn under the CLOCK's phase, read from the save the
+   * player is holding (`resolveTimeState(profile).phase`). The row is one of the seven in
+   * `utils/atmosphere.ts`'s `PHASE_LIGHT`, applied by one `createAtmosphereRig` call from
+   * `CityAtmosphere`.
    *
-   * While the oath owns the screen the UNTOUCHED `cityLightProfile` rig draws its
-   * dawn instead, exactly as A1 shipped it.
+   * The light is applied at ENTRY and at a SEAM, never per frame: `playerProfile` changes
+   * only when App saves an advance (a duel result, a training session, a night's rest),
+   * and `CityAtmosphere` crossfades from the previous row when that happens. A1's Lighting
+   * setting is still inert — the toggle is retired in favour of the cycle — so this scene
+   * reads no `cityLighting` at all.
+   *
+   * While the oath owns the screen the UNTOUCHED `cityLightProfile` rig draws its dawn
+   * instead, exactly as A1 shipped it.
    */
-  const cityPhaseLight = getPhaseLight(CURRENT_PHASE);
+  const cityPhase = resolveTimeState(playerProfile).phase;
+  const cityPhaseLight = getPhaseLight(cityPhase);
   const isOathRig = lightProfile === 'oathDawn';
 
   /**
@@ -502,7 +509,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         // hub has always printed, with no buttons at all.
         const service: TreatmentService =
           nearbyLoc.id === 'arena_medical_house' ? 'medical_house' : 'caravanserai';
-        if (resolveActiveInjury(playerProfile.injury)) {
+        // Day/Night T2 — the Inn's night is offered to EVERY visitor (a night's sleep is
+        // not a cure, so no wound is required); the Medical House still needs a live one.
+        if (service === 'caravanserai' || resolveActiveInjury(playerProfile.injury)) {
           setTreatmentPanel(service);
         } else {
           setStableNotice(TREATMENT_SITES[service].notice);
@@ -841,8 +850,20 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    */
   const treatmentSite = treatmentPanel ? TREATMENT_SITES[treatmentPanel] : null;
   const treatmentInjury = resolveActiveInjury(playerProfile.injury);
+  /**
+   * T2 — the INN's night is gated by the purse alone (S5's own 25g), because a night's
+   * sleep is not a cure and is offered to a whole gladiator too. The Medical House keeps
+   * S5's eligibility, which needs a live wound. The label names the dawn it sleeps to —
+   * and from Prima Luce itself it sleeps to TOMORROW's dawn, a full cycle, which is the
+   * price the label states.
+   */
+  const restToTomorrow = cityPhase === 'dawn';
   const treatmentEligibility = treatmentPanel
-    ? getTreatmentEligibility(playerProfile, treatmentPanel)
+    ? treatmentPanel === 'caravanserai'
+      ? playerProfile.gold >= REST_PRICE
+        ? { ok: true as const, price: REST_PRICE }
+        : { ok: false as const, reason: 'insufficient-gold' as const }
+      : getTreatmentEligibility(playerProfile, treatmentPanel)
     : null;
   /**
    * S6 — what the panel can offer from the player's own satchel. Empty when the
@@ -976,7 +997,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
               </>
             ) : (
-              <CityAtmosphere phase={CURRENT_PHASE} />
+              <CityAtmosphere phase={cityPhase} />
             )}
 
             {/* Phase 2B — Scene-level PBR environment for metallic/physical material reflections.
@@ -1363,7 +1384,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             </button>
           </div>
 
-          {treatmentInjury && (
+          {(treatmentInjury || treatmentPanel === 'caravanserai') && (
             <div className="mt-3 flex flex-col gap-2">
               <button
                 type="button"
@@ -1373,7 +1394,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               >
                 <Coins className="w-4 h-4" />
                 <span>
-                  {treatmentSite.action} — {treatmentPrice(treatmentPanel)}g
+                  {treatmentPanel === 'caravanserai'
+                    ? `${restToTomorrow ? "Rest until tomorrow's dawn" : 'Rest until dawn'} — ${REST_PRICE}g`
+                    : `${treatmentSite.action} — ${treatmentPrice(treatmentPanel)}g`}
                 </span>
               </button>
               {treatmentEligibility && !treatmentEligibility.ok && (

@@ -19,7 +19,8 @@
  *       over a daytime sky — with the brazier accounting brighter at night;
  *   §F  the RACE override: dusk renders golden, night renders dawn, everything else is
  *       identity, and the canonical phase is unchanged;
- *   §G  the wiring: the city renders `CURRENT_PHASE`, both other scenes reuse the one
+ *   §G  the wiring: the city renders the CLOCK's phase (T2 removed `CURRENT_PHASE`), both
+ *       other scenes reuse the one
  *       dome and no longer ship drei's `<Sky>`, the settings row is read-only, and the
  *       dynamic-light count of each scene is unchanged;
  *   §H  the dev stepper route, its DEV gate, and the Colosseum rear route untouched;
@@ -61,7 +62,7 @@ import {
   resolveDuelPhaseLight,
 } from './duelPhaseLight';
 import { RACE_PHASE_OVERRIDES, resolveRacePhase } from './racePhaseLight';
-import { CURRENT_PHASE, CURRENT_PHASE_SOURCE } from './currentPhase';
+import { CURRENT_PHASE_SOURCE } from './currentPhase';
 import { TIME_PHASE_NAMES, TIME_PHASES } from './timeState';
 
 const path = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -591,16 +592,25 @@ describe('F. The RACE override', () => {
     const canonical = 'night';
     expect(resolveRacePhase(canonical)).toBe('dawn');
     expect(canonical).toBe('night');
-    expect(CURRENT_PHASE).toBe('golden');
+    // DAY/NIGHT T2 REBASE: the staging constant this read is gone; the staging DEFAULT
+    // (`utils/atmosphere.ts`'s `DEFAULT_PHASE`) is the same hour, and the override still
+    // moves nothing but the drawn row.
+    expect(DEFAULT_PHASE).toBe('golden');
     const module = code('./racePhaseLight.ts');
     expect(module).not.toContain('localStorage');
-    expect(module).not.toContain('CURRENT_PHASE =');
+    expect(module).not.toContain('CURRENT_PHASE');
   });
 
   test("the race draws the city's table — no second table, no race-only sun", () => {
     const race = code('../components/3d/RaceScene.tsx');
-    expect(race).toContain("import { getPhaseLight, sunDirection } from '../../utils/atmosphere'");
-    expect(race).toContain('const racePhase = resolveRacePhase(CURRENT_PHASE);');
+    // DAY/NIGHT T2 REBASE: the phase is a PROP now (App resolves it from the clock), so the
+    // scene names no phase constant of its own; the table read is unchanged.
+    expect(race).toContain(
+      "import { DEFAULT_PHASE, getPhaseLight, sunDirection } from '../../utils/atmosphere'"
+    );
+    expect(race).toContain('const racePhase = resolveRacePhase(phase);');
+    expect(race).toContain('phase = DEFAULT_PHASE,');
+    expect(race).not.toContain('CURRENT_PHASE');
     expect(race).toContain('const raceLight = getPhaseLight(racePhase);');
     expect(race).toContain('args={[raceLight.fogColor, raceLight.fogNear, raceLight.fogFar]}');
     expect(race).toContain('intensity={raceLight.sunIntensity}');
@@ -620,15 +630,23 @@ describe('G. Wiring, and the dynamic-light / draw-call budget', () => {
   const MODAL = code('../components/hub/SettingsModal.tsx');
   const DOME = code('../components/3d/PhaseSkyDome.tsx');
 
-  test('the city renders CURRENT_PHASE and the module-level constant is the seam', () => {
-    expect(CURRENT_PHASE).toBe('golden');
-    expect(CITY).toContain('import { CURRENT_PHASE }');
-    expect(CITY).toContain('<CityAtmosphere phase={CURRENT_PHASE} />');
-    expect(code('./currentPhase.ts')).toContain("export const CURRENT_PHASE: TimePhase = 'golden';");
-    // A constant, not per-frame state: the module holds no React and no clock read.
+  test('the city renders the CLOCK’s phase, and the staging constant is gone', () => {
+    // DAY/NIGHT T2 REBASE (was "the city renders CURRENT_PHASE and the module-level
+    // constant is the seam"): the slice's own instruction was to REMOVE that constant, so
+    // this pin moved with it. What it protects is stronger than before — the scene reads
+    // the save's clock once, hands the SAME value to the rig and to the dome, and no
+    // module-level phase exists anywhere for a surface to fall back to.
+    expect(CITY).toContain('import { resolveTimeState }');
+    expect(CITY).toContain('const cityPhase = resolveTimeState(playerProfile).phase;');
+    expect(CITY).toContain('const cityPhaseLight = getPhaseLight(cityPhase);');
+    expect(CITY).toContain('<CityAtmosphere phase={cityPhase} />');
+    expect(CITY).not.toContain('CURRENT_PHASE');
+    expect(code('./currentPhase.ts')).not.toContain('CURRENT_PHASE:');
+    // Still no per-frame state in the seam module: it holds no React and no clock read.
     const current = code('./currentPhase.ts');
     expect(current).not.toContain('useState');
     expect(current).not.toContain('setInterval');
+    expect(current).not.toContain('resolveTimeState');
   });
 
   test('the shared dome is ONE mesh and replaces drei Sky one-for-one', () => {
@@ -643,7 +661,7 @@ describe('G. Wiring, and the dynamic-light / draw-call budget', () => {
     expect(code('./atmosphere.ts')).toContain('new THREE.SphereGeometry(SKY_DOME_RADIUS, 16, 12)');
     // The city's own dome and its key light are the whole city rig.
     const scene = new THREE.Scene();
-    applyPhaseLight(scene, CURRENT_PHASE);
+    applyPhaseLight(scene, DEFAULT_PHASE);
     expect(lightsOf(scene).all).toHaveLength(2);
     expect(scene.children.filter((child) => (child as THREE.Mesh).isMesh)).toHaveLength(1);
     clearAtmosphere(scene);
@@ -668,9 +686,11 @@ describe('G. Wiring, and the dynamic-light / draw-call budget', () => {
 
   test('the Settings row reports the phase instead of offering a profile', () => {
     expect(CURRENT_PHASE_SOURCE).toBe('set by the day');
-    expect(TIME_PHASE_NAMES[CURRENT_PHASE]).toBe('Golden Hour');
+    expect(TIME_PHASE_NAMES[DEFAULT_PHASE]).toBe('Golden Hour');
     expect(MODAL).toContain('label="Lighting"');
-    expect(MODAL).toContain('TIME_PHASE_NAMES[CURRENT_PHASE]');
+    // DAY/NIGHT T2 REBASE: the row reports the phase App hands it (`phase`), not a constant.
+    expect(MODAL).toContain('TIME_PHASE_NAMES[phase]');
+    expect(MODAL).toContain('phase: TimePhase;');
     expect(MODAL).toContain('CURRENT_PHASE_SOURCE');
     expect(MODAL).not.toContain('lightingOptions');
     expect(MODAL).not.toContain('onChange={(cityLighting) => set({ cityLighting })}');
