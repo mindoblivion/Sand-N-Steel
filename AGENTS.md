@@ -7841,3 +7841,76 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   need a full boss fight driven into the second half and then lost, which the sandbox's software
   renderer (~2 fps) cannot do inside a script budget. The transition is pinned by the data/source tests
   and the breakdown by synthetic-log tests; neither was seen rendered.
+
+## Atmosphere A1 — sky, sun & fog foundation for the CITY (implemented, validated; device look PENDING)
+
+- **What ships.** `src/utils/atmosphere.ts` (new) — `ATMOSPHERE_PROFILES` with two COMPLETE profiles
+  (`goldenHour`, the default, and `midday`) carrying `skyZenith`/`skyMid`/`skyHorizon`/`sunGlow`/
+  `fogColor`/`fogNear`/`fogFar`/`sunColor`/`sunIntensity`/`sunElevationDeg`/`sunAzimuthDeg`/
+  `hemiSky`/`hemiGround`/`hemiIntensity`/`exposure`, all at the brief's exact values (WSW = 247.5°,
+  SSW = 202.5° compass bearings), plus `sunDirection`, `createSkyDome`, `createSunLight`,
+  `createHemisphereLight`, `clearAtmosphere` and the ONE entry point `applyAtmosphere(scene,
+  profileName, renderer?)`. `src/components/3d/city/CityAtmosphere.tsx` (new) is the only caller:
+  it applies the profile on mount and on the Lighting setting, and composes
+  `profile.exposure × BRIGHTNESS_EXPOSURE[brightness]` so the profile's 1.10 is exact at the
+  default Standard.
+- **Where the old rig lived, and what replaced it (CityHubScene only).** The `<fog>`, drei `<Sky>`,
+  `<hemisphereLight>`, the shadow-casting key `<directionalLight>`, the cool fill
+  `<directionalLight>` and the `<Environment>`/Lightformer memo all sat inline in the Canvas
+  (≈lines 905–975) reading `resolveCityLightProfile(lightProfile)`. The DEFAULT path is now
+  `<CityAtmosphere profile={settings.cityLighting} />`: the fog (THREE.Fog from `fogColor/near/far`),
+  the dome (SphereGeometry(400,16,12), BackSide ShaderMaterial, three-stop gradient + sun disc/halo
+  from the profile direction, `fog:false`, `depthWrite:false`, `renderOrder: -1`, `gl_Position.z = w`
+  so a 400-radius sphere survives the Canvas's `far: 180`), ONE `DirectionalLight` (profile colour/
+  intensity, placed 120 from a shadow target at `[0,0,-30]`, 2048² map, ortho ±90 × ±70, near 10 /
+  far 320) and ONE `HemisphereLight`. **The fill directional is retired** (that is the dynamic-light
+  delta: 3 → 2). **`<Environment>` moved OUTSIDE the branch and is kept for both rigs** — the dome
+  replaced the sky, not the reflections, so no material's specular response changed.
+- **The oath beat is NOT migrated.** `lightProfile === 'oathDawn'` still renders the untouched
+  `cityLightProfile` rig (`<fog>` + `<Sky>` + hemi + 2 directionals), because A1's table has no dawn
+  profile and inventing one would fabricate values. `const lights = resolveCityLightProfile(...)`
+  stays, so `gladiatorOath.test.ts`'s pins hold. The Environment/`environmentLightformers` memo is
+  shared by both paths.
+- **Renderer.** Verified first: R3F already defaults to `SRGBColorSpace` + `ACESFilmicToneMapping`.
+  `applyAtmosphere` writes all three explicitly anyway (sRGB, ACES, the profile's exposure).
+- **The settings row.** `Settings.cityLighting: AtmosphereProfileName` (default `'goldenHour'`,
+  resolved by `oneOf(record.cityLighting, ATMOSPHERE_NAMES, …)`), shown in Picture & Camera as
+  **Lighting: Golden Hour / Midday** through the existing `ChoiceRow` (which gained an optional
+  `columns` so a binary row lays out two chips; every chip is 48px). It is a SETTINGS write only —
+  the profile/save is never read or written by this slice.
+- **Discrepancy handled as instructed.** The brief's "dust fog matched to the horizon" is contradicted
+  by its own table (goldenHour fog #E8C9A0 vs horizon #F4C078; midday #E3D3AC vs #E9DDBE). No value
+  was changed: `fogColor` drives the fog, `skyHorizon` drives the dome, and the mismatch is left for a
+  design ruling (pinned by a test that asserts the two differ).
+- **Adaptations (with reasons).** (1) The dome's vertex shader forces `gl_Position.z = w` — the camera
+  far plane stays 180 (raising it would have changed CityCamera's framing for no gain), and this is
+  the same trick drei's `<Sky>` used. (2) The dome bypasses three's tone-mapping/colour-space chunks
+  and is handed raw sRGB components (a `THREE.Color` would be converted to linear and render dark);
+  `material.toneMapped = false`, as drei's sky does. (3) The brightness row multiplies the profile's
+  exposure instead of being replaced by it. (4) The old rig's shadow bias pair (−0.0004 / 0.02) was
+  carried onto the new 2048 map.
+- **Budget.** Sky: 1 mesh, 1 material, 1 draw call (drei's `<Sky>` was also 1/1 → **draw-call delta 0**).
+  Lights: 3 → 2 dynamic. The shadow map is the only render target and it grew 1024² → 2048²; no
+  post-processing, no per-frame React work, no per-frame allocation in the component.
+- **Validation (2026-10-28, `web` container).** `bun test` (bare, repo-wide) → **4089 pass / 0 fail
+  (134 files, 114,842 expect())** — +30 from the tip's 4059, all in the new `atmosphere.test.ts`
+  (29 tests) plus the one `settings.test.ts` default-record rebase (`cityLighting: 'goldenHour'`);
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets); `git diff --check`
+  → clean.
+- **Live evidence.** Settings: the Lighting row renders with Golden Hour active, clicking Golden Hour /
+  Midday writes `cityLighting` to `sand_and_steel_settings_v1` and moves `aria-pressed`, chips measure
+  48px, no sideways scroll, Done closes, 0 console errors. City: the hub mounted behind the oath and,
+  once the oath closed, rendered under A1's `goldenHour` (warm low light); switching to **Midday in the
+  live panel re-applied the rig** (brighter daylight frame) with 0 console errors. Every test record
+  this run wrote (the guest profile and the settings row) was removed afterwards.
+- **NOT automatically verified — the look, and that is a device question.** The sandbox has no GPU
+  (SwiftShader, ~1–2 fps), so **no browser frame here adjudicates the atmosphere's appearance or its
+  frame cost**; the A1 frames also precede the final `<Environment>` relocation, after which the scene
+  was re-mounted and rendered error-free but not re-captured in the A1 state. The acceptance this slice
+  hands to Walter's Android device: (a) does golden hour read as a low warm sun with long city shadows
+  and dust haze, and midday as high clear light; (b) are the dome's horizon band and the fog's band
+  close enough not to read as two seams (the table's deliberate mismatch); (c) is the 14° sun's long
+  shadow usable at 2048² across ±90/±70, with no acne or peter-panning on the buildings; (d) does the
+  Lighting swap feel like a change of hour rather than a filter; (e) does the city hold its frame rate
+  with the 2048 shadow map on a mid-range phone.
