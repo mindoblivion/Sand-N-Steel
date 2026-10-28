@@ -322,7 +322,7 @@ describe('E. The duel card and the race card', () => {
     expect(racePhaseLine('dawn')).toBe('First Light');
     expect(racePhaseLine('morning')).toBe('Mane');
     expect(racePhaseLine('midday')).toBe('Meridies');
-    expect(racePhaseLine('afternoon')).toBe('Meridies');
+    expect(racePhaseLine('afternoon')).toBe('Postmeridies');
     expect(racePhaseLine('golden')).toBe('Hora Aurea');
   });
 
