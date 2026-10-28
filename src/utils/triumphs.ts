@@ -63,7 +63,18 @@ import { CHARIOT_PARTS } from '../data/chariotParts';
 import { resolveChariotLoadout } from './chariotLoadout';
 import { resolveRacingState } from './racingProgression';
 import { deriveRank, rankAtLeast, type GladiatorRank } from './rank';
-import { earnedTitleForCategory, grantTitle, ownedTitleOptions } from './laurels';
+import {
+  CODEX_CHRONICLER_TITLE_ID,
+  earnedTitleForCategory,
+  getEarnedTitle,
+  grantTitle,
+  ownedTitleOptions,
+} from './laurels';
+// A5 — the full-Codex capstone's condition is a pure derivation over the profile,
+// read as ONE more fact by this evaluator (there is no second evaluator).  The
+// import is a cycle in the other direction (codex.ts reads A8's `GEAR_SETS`), and
+// both sides are safe because each usage happens inside a function.
+import { isCodexComplete } from './codex';
 import type { EarnedTitle } from './laurels';
 
 // ── The shipped categories ─────────────────────────────────────────────────
@@ -113,6 +124,9 @@ export interface TriumphFacts {
   rank: GladiatorRank;
   currentTier: number;
   felledIds: readonly string[];
+  /** A5 — every Codex page at 100%: the full-Codex capstone's whole condition. */
+  codexComplete: boolean;
+  /** Absent when the evaluation has no result screen behind it. */
   /** Absent when the evaluation has no result screen behind it. */
   duel: DuelTriumphStats | undefined;
 }
@@ -220,10 +234,20 @@ export const TIER_FOUR_FINAL_BOSS_ID = TIER_FOUR_FINAL_BOSS?.id ?? 'opp_aurelius
 export const SAGA_LEGEND_TRIUMPH_ID = 'saga_legend';
 
 /**
+ * A5 — the FULL-CODEX capstone's id.  Its condition is `isCodexComplete`, a pure
+ * derivation over the profile (no transient stat), and its one reward beyond the
+ * fame grant is the authored title 'Chronicler of the Ludus' (R4).  It is the
+ * Codex's whole reward sink: per-page 100% earns the display laurel and nothing
+ * else, so the design's "a title from the Triumphs ladder" is honoured once.
+ */
+export const CODEX_COMPLETE_TRIUMPH_ID = 'saga_codex_complete';
+
+/**
  * The catalogue, in display order.
  *
- * Sand (7) · Coin (5) · Steel (4) · Saga (7) = **23 shipped**, then the six
- * dormant rows.  Every threshold is a shipped number already in the save; none is
+ * Sand (7) · Coin (5) · Steel (4) · Saga (8) = **24 shipped**, then the six
+ * dormant rows (A5 appended `saga_codex_complete` to Saga; every A8 row is
+ * unchanged and in its place).  Every threshold is a shipped number already in the save; none is
  * invented here.  A8's fame grants and titles are Director rulings, flagged as
  * such, and are not design values.
  */
@@ -415,6 +439,19 @@ export const TRIUMPH_CATALOGUE: readonly Triumph[] = [
     requirement: 'Defeat Aurelius, the Tier 4 champion.',
     holds: (facts) => facts.felledIds.includes(TIER_FOUR_FINAL_BOSS_ID),
   },
+  // A5 — THE CODEX CAPSTONE (A5 — Director ruling R4).  Counter-based like every
+  // other Saga row: it is decided at a duel result from the profile alone, because
+  // its whole condition is the derivation `isCodexComplete`.  Honest counting,
+  // stated on the row: the six bounty rows are Chapter-3-gated today, so no
+  // profile can reach Gladiators 100% — and therefore this triumph — before Stage 2.
+  {
+    id: CODEX_COMPLETE_TRIUMPH_ID,
+    category: 'saga',
+    name: 'Codex Complete — The Whole City Knows Your Name',
+    requirement: 'Fill every page of the Codex — every rival, every boss, every team, every blade and every street.',
+    capstone: true,
+    holds: (facts) => facts.codexComplete,
+  },
 
   // ── DORMANT — defined, never evaluated, never rendered ────────────────────
   // A8: no Circus triumph ships before racing exists, the rudis is STORY-8's
@@ -519,6 +556,12 @@ function titlesDueFor(earned: readonly Triumph[]): EarnedTitle[] {
   }
   if (earned.some((triumph) => triumph.id === SAGA_LEGEND_TRIUMPH_ID)) {
     const title = earnedTitleForCategory('saga');
+    if (title) due.push(title);
+  }
+  // A5 — the full-Codex capstone grants its OWN authored title, by id, because it
+  // is not a category rule (the Saga category's title is the Legend one above).
+  if (earned.some((triumph) => triumph.id === CODEX_COMPLETE_TRIUMPH_ID)) {
+    const title = getEarnedTitle(CODEX_CHRONICLER_TITLE_ID);
     if (title) due.push(title);
   }
   return due;
@@ -692,6 +735,7 @@ export function resolveTriumphFacts(
     rank: deriveRank(source),
     currentTier: finiteOrNull(source.currentTier) ?? 0,
     felledIds,
+    codexComplete: isCodexComplete(source),
     duel: duel ?? undefined,
   };
 }

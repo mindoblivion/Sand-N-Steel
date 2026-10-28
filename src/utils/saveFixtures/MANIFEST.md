@@ -295,3 +295,7 @@ nothing read, no purse recorded, and gains no field by being read.
 `saveCorpus.test.ts` §J's expected optional set now ends with `records` in
 `src/types/game.ts` declaration order — **21 → 22, one field, appended last** — and
 §J's control still proves the rule fails on a field nobody accounted for.
+**A5** extends this same fixture's `records` object with `codexLocations` (three
+hubs walked: `records_house`, `colosseum`, `training_yard`) — the Codex's one lazy
+field lives INSIDE `records` (A5 — Director ruling R6), so §J stays at 22 optional
+top-level fields with `records` last, and no new fixture is needed for it.

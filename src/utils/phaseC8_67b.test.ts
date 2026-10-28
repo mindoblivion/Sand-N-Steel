@@ -732,6 +732,10 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
       'components/dev/RacingConfigHarness.tsx',
       'components/hub/PreRacePanel.tsx',
       'components/hub/RacingConfigSection.tsx',
+      // A5 — the Codex's Horses & Teams page READS the unlocked team sizes (the
+      // same read-only `resolveRacingState` read the pre-race panel makes); it
+      // buys, selects and writes nothing.
+      'utils/codex.ts',
       'utils/stableProgression.ts',
       // A8 — the Triumphs evaluator reads the racing state for the Coin capstone
       // ("Buy the Quadra team").  A READ of `resolveRacingState().unlocked`; it

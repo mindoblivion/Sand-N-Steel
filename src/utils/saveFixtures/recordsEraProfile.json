@@ -380,6 +380,11 @@
       "saga_tier_one",
       "saga_tier_two"
     ],
-    "viewedTriumphs": []
+    "viewedTriumphs": [],
+    "codexLocations": [
+      "records_house",
+      "colosseum",
+      "training_yard"
+    ]
   }
 }

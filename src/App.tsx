@@ -21,6 +21,9 @@ import {
   withPeakGold,
   type DuelTriumphStats,
 } from './utils/triumphs';
+// A5 — THE CODEX: the one new record is a hub location's FIRST visit, written
+// inside `records.codexLocations` and only when the id is not already there.
+import { withCodexLocation } from './utils/codex';
 import { consumeItem, purchaseConsumable } from './utils/consumables';
 import { purchaseIntel } from './utils/intel';
 import type { ConsumableItem } from './data/consumables';
@@ -756,6 +759,20 @@ export function App() {
   const handleRecordKeeperVisit = (keeperId: string) => {
     const visited = recordKeeperVisit(profile, keeperId);
     if (!visited || visited === profile) return;
+    setProfile(visited);
+    saveProfile(visited);
+  };
+
+  /**
+   * A5 — the CODEX's City page: a hub location's FIRST interaction records its id
+   * in `records.codexLocations`.  `withCodexLocation` is identity-stable for an
+   * unknown id, a malformed save or an already-recorded visit, so a repeat visit
+   * (or a stale click) never reaches `saveProfile` — no save spam, pinned by suite.
+   */
+  const handleVisitLocation = (locationId: string) => {
+    if (!profile) return;
+    const visited = withCodexLocation(profile, locationId);
+    if (visited === profile) return;
     setProfile(visited);
     saveProfile(visited);
   };
@@ -1633,6 +1650,7 @@ export function App() {
             onUseConsumable={handleUseConsumable}
             onBuyIntel={handleBuyIntel}
             onRecordKeeperVisit={handleRecordKeeperVisit}
+            onVisitLocation={handleVisitLocation}
             onOfferOmen={handleOfferOmen}
             onDeclineOmen={handleDeclineOmen}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}

@@ -299,6 +299,10 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'the `records` record populated (A8): seven earned deeds, none read yet, and the peak purse',
       'the earned titles appended beside the bought ones (Sand, Coin and Steel; Saga stays capstone-gated)',
       'the one-time fame grants paid in the same write (700 -> 785: six standard at 10 plus one capstone at 25)',
+      // A5 — the same fixture carries the Codex's ONE lazy field, so the records
+      // object is exercised with every member it can hold. §J is unchanged: the
+      // array lives INSIDE `records`, and `records` is still the 22nd (last) field.
+      'the A5 `codexLocations` visits nested inside the same records object (three hubs walked)',
     ],
     profile: asProfile(recordsEraProfile),
   },
