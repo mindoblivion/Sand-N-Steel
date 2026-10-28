@@ -261,6 +261,14 @@ interface CityHubSceneProps {
    * storefront's plate; this screen only reports the visit.
    */
   onRecordKeeperVisit?: (keeperId: string) => void;
+  /**
+   * A5 — the CODEX's one new record: this hub location's interaction fired.  The
+   * screen only REPORTS the id (this scene writes no save); `App` composes
+   * `withCodexLocation` and its one `setProfile` + `saveProfile` pair, which is
+   * identity-stable for a repeat visit — so a first visit writes once and every
+   * later visit writes nothing.
+   */
+  onVisitLocation?: (locationId: string) => void;
 }
 
 /**
@@ -320,6 +328,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onUseConsumable,
   onBuyIntel,
   onRecordKeeperVisit,
+  onVisitLocation,
   onOfferOmen,
   onDeclineOmen,
 }) => {
@@ -581,6 +590,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const handleInteract = useCallback(() => {
     if (!nearbyLoc) return;
     sounds.playClick();
+    // A5 — THE CODEX: every hub interaction reports its location id, and only the
+    // FIRST trigger of that id reaches a save (App's handler drops the rest).
+    onVisitLocation?.(nearbyLoc.id);
     if (nearbyLoc.id === 'east_circus_arena') {
       // Phase C-8.70B — the district's race entry opens the pre-race panel
       // rather than a hub tab.  Read-only: the panel takes the profile and
@@ -671,6 +683,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     playerProfile.defeatedOpponentIds,
     playerProfile.injury,
     onOpenTab,
+    onVisitLocation,
     primeKeeperGreeting,
   ]);
 

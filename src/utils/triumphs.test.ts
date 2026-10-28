@@ -4,7 +4,8 @@
  * Run with: `bun test src/utils/triumphs.test.ts`
  *
  * ── WHAT THIS SUITE PINS ──────────────────────────────────────────────────
- *   §A  every SHIPPED catalogue entry — 23 of them — has a condition that holds
+ *   §A  every SHIPPED catalogue entry — A8's 23 plus A5's Codex capstone — has a
+ *       condition that holds
  *       when the profile satisfies it and does not hold on a fresh gladiator;
  *   §B  the boundaries: fightsWon 9/10, 49/50, 99/100; peak gold 999/1,000,
  *       4,999/5,000, 24,999/25,000; hype 89/90; health 0.11/0.10; boss kills
@@ -43,6 +44,7 @@ import {
   DORMANT_TRIUMPHS,
   GEAR_SETS,
   SHIPPED_TRIUMPHS,
+  CODEX_COMPLETE_TRIUMPH_ID,
   TIER_FOUR_FINAL_BOSS_ID,
   TRIUMPH_CATALOGUE,
   TRIUMPH_CATEGORIES,
@@ -157,17 +159,21 @@ describe('A8 §A — every shipped triumph, condition by condition', () => {
     { id: 'saga_tier_four', profile: () => profileWith({ defeatedOpponentIds: [TIER_FOUR_FINAL_BOSS_ID] }) },
   ];
 
-  test('the shipped catalogue is exactly the 23 rows this table covers', () => {
-    expect(SHIPPED_TRIUMPHS.length).toBe(23);
+  test('the shipped catalogue is the 23 A8 rows this table covers, plus A5\'s Codex capstone', () => {
+    // A5 REBASE, not a weakening: A5 appends ONE Saga capstone
+    // (`saga_codex_complete`, the full-Codex triumph) to the catalogue and touches
+    // no A8 row, so the table's 23 rows are asserted unchanged and the new id is
+    // named explicitly beside them.
+    expect(SHIPPED_TRIUMPHS.length).toBe(24);
     expect(ROWS.length).toBe(23);
     expect(SHIPPED_TRIUMPHS.map((triumph) => triumph.id).sort()).toEqual(
-      ROWS.map((row) => row.id).sort(),
+      [...ROWS.map((row) => row.id), CODEX_COMPLETE_TRIUMPH_ID].sort(),
     );
-    // 7 Sand, 5 Coin, 4 Steel, 7 Saga — the brief's own split.
+    // 7 Sand, 5 Coin, 4 Steel, 8 Saga — the brief's own split, plus A5's capstone.
     expect(triumphsInCategory('sand').length).toBe(7);
     expect(triumphsInCategory('coin').length).toBe(5);
     expect(triumphsInCategory('steel').length).toBe(4);
-    expect(triumphsInCategory('saga').length).toBe(7);
+    expect(triumphsInCategory('saga').length).toBe(8);
   });
 
   test('every shipped triumph has a plain-language requirement — no secret deeds', () => {
@@ -389,10 +395,11 @@ describe('A8 §E — the one-time fame grants (Director ruling R1)', () => {
     for (const triumph of SHIPPED_TRIUMPHS) {
       expect(triumphFame(triumph), triumph.id).toBe(triumph.capstone ? 25 : 10);
     }
-    // The capstones are the six the brief names.
+    // The capstones are the six the brief names, plus A5's Codex capstone.
     expect(SHIPPED_TRIUMPHS.filter((triumph) => triumph.capstone).map((t) => t.id).sort()).toEqual([
       'coin_25000_gold',
       'coin_quadra',
+      'saga_codex_complete',
       'saga_legend',
       'sand_every_boss',
       'sand_hundred_victories',
@@ -469,12 +476,16 @@ describe('A8 §F — peakGold rises and never falls', () => {
 
 // ── §G the titles ─────────────────────────────────────────────────────────
 describe('A8 §G — one earned title per category (Director ruling R2)', () => {
-  test('the four earned titles, and their categories', () => {
+  test('the earned titles, and their categories', () => {
+    // A5 REBASE, not a weakening: A5 appends its own capstone title by id (granted
+    // only by `saga_codex_complete`, never by a category rule), so the four A8
+    // titles keep their order and the fifth is named after them.
     expect(EARNED_TITLES.map((title) => title.id)).toEqual([
       'title_blood_of_the_sands',
       'title_fortunes_favourite',
       'title_iron_bound',
       'title_living_legend_of_the_ludus',
+      'title_chronicler_of_the_ludus',
     ]);
   });
 

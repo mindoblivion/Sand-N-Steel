@@ -411,6 +411,10 @@ describe('P2 §F — zero power', () => {
     // weakened: the exact-list guard below still holds, and the forbidden list in
     // the next test is unchanged — no combat, reward, price or gate module reads
     // the record.
+    // A5 — the Codex suite drives the full-Codex capstone THROUGH this record (the
+    // title is granted via `laurels.titles` and put on the profile with
+    // `selectDisplayedTitle`), so it names it.  The forbidden list is unchanged.
+    'utils/codex.test.ts',
     'utils/triumphs.test.ts',
     'utils/triumphs.ts',
   ].sort();
