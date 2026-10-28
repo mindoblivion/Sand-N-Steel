@@ -21,6 +21,8 @@ import React from 'react';
 import { Award, Compass, ScrollText } from 'lucide-react';
 import { PlayerProfile } from '../../types/game';
 import { buildCodex, type CodexEntry, type CodexPage as CodexPageData } from '../../utils/codex';
+import { hasVellum } from '../../utils/librarianChain';
+import { FragmentsPage } from './FragmentsPage';
 
 interface CodexPageProps {
   profile: PlayerProfile;
@@ -123,12 +125,27 @@ const PageSection: React.FC<{ page: CodexPageData }> = ({ page }) => (
 
 export const CodexPage: React.FC<CodexPageProps> = ({ profile }) => {
   const codex = buildCodex(profile);
+  /**
+   * STORY-5b — THE VELLUM: a Library/Codex page style variant, gated on the
+   * Librarian chain's completion (the same flag that opens the fragment
+   * sequence). It is a class set on this page's own wrapper and NOTHING else —
+   * the repository has no theme system to extend, so this is the smallest
+   * honest way to give the page a second skin: one conditional class string on
+   * the existing section, no new node, no provider, no token rewrite. Pure
+   * presentation: it changes no count, no unlock and no save.
+   */
+  const vellum = hasVellum(profile);
 
   return (
     <section
-      className="flex flex-col gap-4 max-w-2xl mx-auto w-full"
+      className={`flex flex-col gap-4 max-w-2xl mx-auto w-full ${
+        vellum
+          ? 'rounded-3xl border border-amber-600/40 bg-[#2b1d0f]/60 p-3 shadow-[inset_0_0_40px_rgba(180,120,40,0.25)]'
+          : ''
+      }`}
       aria-label="The Codex"
       data-codex
+      data-codex-vellum={vellum ? 'true' : 'false'}
       data-codex-complete={codex.complete ? 'true' : 'false'}
       data-codex-marks={codex.laurelCount}
       data-codex-percent={codex.percent}
@@ -157,6 +174,10 @@ export const CodexPage: React.FC<CodexPageProps> = ({ profile }) => {
       {codex.pages.map((page) => (
         <PageSection key={page.id} page={page} />
       ))}
+
+      {/* STORY-5b — the Fragments page: present only once the Librarian chain has
+          opened the sequence, so no empty shell is ever advertised. */}
+      {codex.fragments && <FragmentsPage page={codex.fragments} />}
 
       <p className="text-[10px] font-serif italic text-neutral-500 flex items-start gap-1.5">
         <Compass className="w-3 h-3 mt-0.5 shrink-0" aria-hidden="true" />

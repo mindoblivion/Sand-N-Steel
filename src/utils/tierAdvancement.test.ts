@@ -342,7 +342,10 @@ describe('§C — the door resolves a legal target at interact time', () => {
 describe('§D — the rule lives in the shipped paths', () => {
   test('App composes the helper and the old unconditional advance is gone', () => {
     expect(appSource).toContain("import { resolveVictoryTier } from './utils/tierAdvancement';");
-    expect(appSource).toContain('const tierAfterVictory = resolveVictoryTier({');
+    // STORY-5b REBASE, not a weakening: an exhibition opens no tier, so the helper
+    // is the else arm of the fence. It is still the ONLY composer of the tier.
+    expect(appSource).toContain('const tierAfterVictory = exhibition');
+    expect(appSource).toContain(': resolveVictoryTier({');
     expect(appSource).toContain('currentTier: profile.currentTier,');
     expect(appSource).toContain('opponent: activeOpponent,');
     expect(appSource).toContain('defeatedOpponentIds: profile.defeatedOpponentIds,');

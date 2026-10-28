@@ -19,6 +19,7 @@ import { LaurelResult } from '../../utils/laurels';
 import { RoadOfGloryPage } from './RoadOfGloryPage';
 import { TriumphsPage } from './TriumphsPage';
 import { CodexPage } from './CodexPage';
+import { LibrarianChainCard } from './LibrarianChainCard';
 
 /**
  * The library's pages, in reading order.  The Road is page one.
@@ -55,6 +56,12 @@ interface LibraryTabProps {
   onViewTriumphs?: () => void;
   /** A8 — put an owned title (bought or earned) on the record. */
   onSelectTitle?: (titleId: string) => void;
+  /**
+   * STORY-5b — the Librarian chain's STEP 1: opening the Codex page IS reading
+   * it. The rack reports that here, once per open; `App` composes the one
+   * identity-stable write (`withCodexRead`), so a later open saves nothing.
+   */
+  onViewCodex?: () => void;
 }
 
 export const LibraryTab: React.FC<LibraryTabProps> = ({
@@ -64,6 +71,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
   onPageChange,
   onViewTriumphs,
   onSelectTitle,
+  onViewCodex,
 }) => {
   const [ownPage, setOwnPage] = useState<LibraryPageId>('road');
   const page = controlledPage ?? ownPage;
@@ -84,6 +92,22 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
   useEffect(() => {
     if (page !== 'triumphs') return;
     markViewed.current?.();
+  }, [page]);
+
+  /**
+   * STORY-5b — STEP 1 of the Librarian chain, the same one-view-mark pattern the
+   * Triumphs page uses: the moment the Codex page becomes the page on screen, the
+   * rack reports it. The Codex is ONE page holding every section (LibraryTab's
+   * `LIBRARY_PAGES` distinguishes the rack's pages, not the Codex's sections), so
+   * the page-open is the read — there is no per-entry gesture to count. The
+   * callback is identity-stable in `App` (its writer refuses a second read), so
+   * this fires at most one write per profile.
+   */
+  const readCodex = useRef(onViewCodex);
+  readCodex.current = onViewCodex;
+  useEffect(() => {
+    if (page !== 'codex') return;
+    readCodex.current?.();
   }, [page]);
 
   return (
@@ -119,6 +143,11 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
           })}
         </nav>
       </div>
+
+      {/* STORY-5b — the Librarian chain's card, on this view and nowhere else. It
+          retires itself once the chain closes (the fragments then live on the
+          Codex's own Fragments page). */}
+      <LibrarianChainCard profile={profile} />
 
       {page === 'road' && <RoadOfGloryPage profile={profile} />}
       {page === 'triumphs' && (

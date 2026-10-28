@@ -838,6 +838,42 @@ export interface StoryProgress {
    * §9's own name for it — which this slice writes and Chapter 4 will read.
    */
   diceTrail?: DiceTrailProgress;
+  /**
+   * STORY-5b — THE NAME IN THE STONE: the Librarian chain's own record
+   * (`utils/librarianChain.ts`), kept INSIDE this existing object exactly as
+   * `bountyRungs` and `diceTrail` are, so NO top-level profile field is added
+   * (§J stays at 22) and `createNewProfile()` still writes no `story` field.
+   * Only the chain's boundary and its completion are stored; step 2 is DERIVED
+   * from `defeatedOpponentIds` against that boundary, and the fragments ride
+   * §9's `fragmentsFound` below.
+   */
+  librarianChain?: LibrarianChainProgress;
+  /**
+   * STORY-5b — the echo bout's FIRST victory has been spoken (the reveal line is
+   * owed once). A story subfield, not a top-level field; the bout itself stays
+   * repeatable afterwards.
+   */
+  echoWon?: boolean;
+}
+
+/**
+ * STORY-5b — the Librarian chain's stored state (see
+ * `StoryProgress.librarianChain`). Every member is optional: a partial record is
+ * a normal state, and `resolveLibrarianChain` reads anything missing or
+ * malformed as "not read, no boundary, not closed".
+ *
+ * STEP 1 (the Codex was opened) is the one recorded boundary — `felledAtRead` is
+ * how many names `defeatedOpponentIds` held at that moment, which is what makes
+ * STEP 2 ("a FIRST defeat after step 1") derivable without per-bout tracking.
+ * STEP 3 is `closed`, and it opens the fragment sequence.
+ */
+export interface LibrarianChainProgress {
+  /** The Codex page of the Library rack has been opened (step 1). */
+  codexRead?: boolean;
+  /** How many felled ids the record held when the Codex was read (step 2's boundary). */
+  felledAtRead?: number;
+  /** The return to Dionysios at Veteran was made — the chain is complete (step 3). */
+  closed?: boolean;
 }
 
 /**

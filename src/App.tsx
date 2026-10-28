@@ -20,6 +20,7 @@ import {
   markTriumphsViewed,
   withPeakGold,
   type DuelTriumphStats,
+  type TriumphAwardOutcome,
 } from './utils/triumphs';
 // A5 — THE CODEX: the one new record is a hub location's FIRST visit, written
 // inside `records.codexLocations` and only when the id is not already there.
@@ -154,6 +155,7 @@ import {
   settleOmenRewards,
   type OmenDeclineOutcome,
   type OmenOfferOutcome,
+  type OmenSettlement,
 } from './utils/omens';
 // DAY/NIGHT T2 — the clock's reads at the seams, and the day-boundary seam's own module.
 // Only the seam files in this slice may touch these (see the re-scoped T0 guard in
@@ -171,6 +173,18 @@ import {
   dayRolledTo,
   settleDuelClock,
 } from './utils/dayRollover';
+// STORY-5b — THE ERASED CHAMPION: the Librarian chain's three read-triggered
+// writes, the fragment read, the echo's once-ever line, and the exhibition fence
+// (Director ruling R4) that this file's duel result honours.
+import {
+  ECHO_FIRST_VICTORY_LINE,
+  LEGEND_ECHO_BOUT,
+  echoRevealOwed,
+  withCodexRead,
+  withEchoWon,
+  withFragmentFound,
+  withLibrarianChainClosed,
+} from './utils/librarianChain';
 import { DayBanner } from './components/ui/DayBanner';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
@@ -221,6 +235,15 @@ export function App() {
    * and cleared at the result, so a later ordinary duel is unaffected.
    */
   const diceTrailBoutRef = useRef(false);
+  /**
+   * STORY-5b — is the bout on screen a LEGEND BOUT (an exhibition or the echo)?
+   * Session only, exactly like `diceTrailBoutRef`: set at the Legend Bouts entry,
+   * consumed and cleared at the result. Director ruling R4 reads it to fence the
+   * ladder-identity bookkeeping (no felled id, no grudge, no mercy, no triumph
+   * evaluation, no fight counters, no omen consumption) while keeping the purse,
+   * the duel's one time advance and the injury on a loss.
+   */
+  const exhibitionBoutRef = useRef(false);
   /** DAY/NIGHT T2 — the day-boundary beat the city plays (sleep veil + the new day's name). */
   const [dayBanner, setDayBanner] = useState<{ day: number; text: string } | null>(null);
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
@@ -724,6 +747,16 @@ export function App() {
   };
 
   /**
+   * STORY-5b — enter a LEGEND BOUT.  The row handed up is already the staged
+   * roster row dressed in its era kit; the only addition is the session flag,
+   * which the result write reads to fence the ladder's bookkeeping (R4).
+   */
+  const handleEnterLegendBout = (opponent: OpponentConfig) => {
+    exhibitionBoutRef.current = true;
+    handleEnterDuel(opponent);
+  };
+
+  /**
    * STORY-2 — enter the Doctore's Test with the rule the player chose. The rule
    * rides beside the opponent (it is not a save field); the result write reads it
    * to judge the win, and the result screen clears it.
@@ -734,6 +767,36 @@ export function App() {
   ) => {
     handleEnterDuel(DOCTORE_TEST_OPPONENT, mode);
     setDoctoreRestriction(restriction);
+  };
+
+  /**
+   * STORY-5b — the Librarian chain's three triggers, each ONE identity-stable
+   * write through the same `setProfile` + `saveProfile` pair every profile change
+   * uses. A repeat read, a second visit or a click while nothing applies returns
+   * the caller's own profile, so nothing is saved twice.
+   */
+  const handleViewCodex = () => {
+    if (!profile) return;
+    const read = withCodexRead(profile);
+    if (read === profile) return;
+    setProfile(read);
+    saveProfile(read);
+  };
+
+  const handleReturnToLibrarian = () => {
+    if (!profile) return;
+    const closed = withLibrarianChainClosed(profile);
+    if (closed === profile) return;
+    setProfile(closed);
+    saveProfile(closed);
+  };
+
+  const handleReadLegendFragment = (fragmentId: string) => {
+    if (!profile) return;
+    const read = withFragmentFound(profile, fragmentId);
+    if (read === profile) return;
+    setProfile(read);
+    saveProfile(read);
   };
 
   /**
@@ -761,6 +824,13 @@ export function App() {
     gearSubview?: GearView,
     shopStorefront?: StorefrontId
   ) => {
+    /**
+     * STORY-5b — the WebGL fallback is the ONE way out of a duel without a
+     * result, and it lands here. A bout that never reached its result still owns a
+     * session flag, so the flag is dropped with the bout: returning to the hub can
+     * never leave an exhibition's fence armed on the NEXT duel.
+     */
+    exhibitionBoutRef.current = false;
     setActiveHubTab(tab);
     if (tab === 'gear') setGearView(gearSubview ?? 'armory');
     if (tab === 'shop') setShopId(shopStorefront ?? 'market');
@@ -891,6 +961,14 @@ export function App() {
      * decrements or clears an injury — duels are the only thing that touches it,
      * and a race never does.
      */
+    /**
+     * STORY-5b — Director ruling R4: is this bout an EXHIBITION (or the echo)?
+     * The flag is set at the Legend Bouts entrance and consumed at the end of this
+     * result, so it can never leak onto a later bout. Read once, here, because
+     * every fenced branch below consults the same decision.
+     */
+    const exhibition = exhibitionBoutRef.current;
+
     const { profile: afterInjury, event: injuryEvent } = resolveInjuryAfterDuel(profile, didWin);
 
     /**
@@ -899,13 +977,19 @@ export function App() {
      * fame and gold C-C's composition order already produced (mode → crowd peak →
      * crowd turning) — and the field is cleared whether it paid or expired unpaid.
      * The result screen is handed the settled numbers, so it and the save agree.
+     *
+     * STORY-5b — Director ruling R4: an EXHIBITION consumes no omen at all. It
+     * neither pays it nor expires it, and the field is left exactly as it stands,
+     * so a staged bout can never eat the omen the player bought for a real one.
      */
     const omenBefore = resolveOmen(profile);
-    const omenSettled = settleOmenRewards(omenBefore, didWin, {
-      fame: stats.fameEarned,
-      gold: stats.goldEarned,
-    });
-    const afterOmen = clearOmen(afterInjury);
+    const omenSettled: OmenSettlement = exhibition
+      ? { fame: 0, gold: 0, fameBonus: 0, goldBonus: 0, paid: false, line: null }
+      : settleOmenRewards(omenBefore, didWin, {
+          fame: stats.fameEarned,
+          gold: stats.goldEarned,
+        });
+    const afterOmen = exhibition ? afterInjury : clearOmen(afterInjury);
     const resultStats: DuelStatistics = omenSettled.paid
       ? { ...stats, fameEarned: omenSettled.fame, goldEarned: omenSettled.gold }
       : stats;
@@ -916,7 +1000,10 @@ export function App() {
      * write below), a rung's miss (the standard purse only — R4), or the Deserter's
      * final (paid at the capture-or-kill answer, so nothing is paid here).
      */
-    const bounty: BountyVictory = resolveBountyVictory(profile, activeOpponent, stats, didWin);
+    // STORY-5b — R4: an exhibition is not a posting, so no bounty is read for it.
+    const bounty: BountyVictory = exhibition
+      ? { kind: 'none', clearedRungId: null, gold: 0, fame: 0, line: '' }
+      : resolveBountyVictory(profile, activeOpponent, stats, didWin);
 
     /** CH-5 — what this victory unlocked, decided at the write and told to the result. */
     let palmaEarned: string[] | undefined;
@@ -945,7 +1032,15 @@ export function App() {
       // victory settles the grudge and records no new felled id. A standard
       // victory keeps the shipped rule exactly.
       const isGrudge = isGrudgeBout(activeOpponent);
-      const defeated = isGrudge
+      /**
+       * STORY-5b — R4: an exhibition win records NO felled id. The staged row is an
+       * ordinary ladder row, so appending it would corrupt first-defeat semantics
+       * (the Librarian chain's step 2 and STORY-4a's mercy both read that record)
+       * and the Codex's faced-states. The purse and the time advance are kept.
+       */
+      const defeated = exhibition
+        ? profile.defeatedOpponentIds
+        : isGrudge
         ? profile.defeatedOpponentIds
         : profile.defeatedOpponentIds.includes(activeOpponent.id)
         ? profile.defeatedOpponentIds
@@ -956,7 +1051,11 @@ export function App() {
       // at a grudge's tier re-opens that tier's closed grudges, and a grudge
       // victory settles it. All three helpers are pure and return the profile
       // unchanged when nothing applies.
-      const grudgeProfile = isGrudge
+      // STORY-5b — R4: an exhibition generates no grudge and records no studied
+      // mix, so the row is left unrecorded in the grudge ledger.
+      const grudgeProfile = exhibition
+        ? afterOmen
+        : isGrudge
         ? settleGrudge(afterOmen, activeOpponent)
         : recordStandardVictory(
             afterOmen,
@@ -969,11 +1068,15 @@ export function App() {
       // always did, but it proves nothing new, so it never opens the next tier (see
       // `utils/tierAdvancement.ts`: one boss could otherwise carry a gladiator through
       // tiers whose champions were never faced).
-      const tierAfterVictory = resolveVictoryTier({
-        currentTier: profile.currentTier,
-        opponent: activeOpponent,
-        defeatedOpponentIds: profile.defeatedOpponentIds,
-      });
+      // STORY-5b — R4: an exhibition opens no tier (and no boss id entered the
+      // record to open one anyway).
+      const tierAfterVictory = exhibition
+        ? { currentTier: profile.currentTier, firstDefeat: false, advanced: false }
+        : resolveVictoryTier({
+            currentTier: profile.currentTier,
+            opponent: activeOpponent,
+            defeatedOpponentIds: profile.defeatedOpponentIds,
+          });
 
       const updatedProfile: PlayerProfile = {
         ...grudgeProfile,
@@ -997,7 +1100,11 @@ export function App() {
         ...(testWon
           ? { story: { ...(profile.story ?? {}), doctoreTestPassed: true } }
           : {}),
-        fightsWon: profile.fightsWon + 1,
+        // STORY-5b — R4: an exhibition is not a fight in the city's book, so it
+        // advances neither counter and earns no triumph evaluation. KEPT: the
+        // purse (gold / fame / xp / level), the crowd's own peak record, and the
+        // duel's one time advance below.
+        fightsWon: exhibition ? profile.fightsWon : profile.fightsWon + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
 
@@ -1027,10 +1134,27 @@ export function App() {
         : afterOmen;
       const updatedProfile: PlayerProfile = {
         ...grudgeProfile,
-        fightsLost: profile.fightsLost + 1,
+        // STORY-5b — R4: a defeat in an exhibition costs the injury the duel gave
+        // and the duel's one time advance, and is entered in no ledger.
+        fightsLost: exhibition ? profile.fightsLost : profile.fightsLost + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
       settledProfile = evaluateRituals(profile, updatedProfile);
+    }
+
+    /**
+     * STORY-5b — THE ECHO'S FIRST VICTORY. The echo bout is the ONLY bout that
+     * writes `story.echoWon`: the reveal line is owed once, and it is spoken in
+     * the SAME save as the victory that earned it. `echoRevealOwed` already
+     * requires all three fragments, so this can never fire early, and
+     * `withEchoWon` is identity-stable — a re-fight writes nothing and says
+     * nothing.
+     */
+    const echoBout = activeOpponent.id === LEGEND_ECHO_BOUT.opponentId;
+    const echoOwed = didWin && echoBout && echoRevealOwed(profile);
+    if (echoOwed) {
+      settledProfile = withEchoWon(settledProfile);
+      storyLines.push(ECHO_FIRST_VICTORY_LINE);
     }
 
     /**
@@ -1079,7 +1203,12 @@ export function App() {
       diceTrailBoutRef.current && didWin
         ? withDiceTrailVictory(timedProfile, activeOpponent.id)
         : timedProfile;
-    const awards = applyTriumphAwards(trailProfile, duelTriumphStats);
+    // STORY-5b — R4: an exhibition is judged by no herald, so no triumph is
+    // evaluated for it and no praise is raised. The profile written is the same
+    // one this transaction composed; nothing is skipped but the evaluation.
+    const awards: TriumphAwardOutcome = exhibition
+      ? { profile: trailProfile, earned: [], titles: [] }
+      : applyTriumphAwards(trailProfile, duelTriumphStats);
     setProfile(awards.profile);
     saveProfile(awards.profile);
 
@@ -1105,12 +1234,16 @@ export function App() {
      * the five staged rows ARE mercy-eligible regulars when fought normally, so
      * this is load-bearing, not decoration).
      */
-    const mercy = mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current);
+    // STORY-5b — R4: an exhibition is not in the arena's book either, so
+    // STORY-4a's Spare/Finish is never offered on one — the same fence the
+    // trail's bouts use (`mercyOfferForDuel` answers null for a staged bout).
+    const mercy = mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition);
     mercyWrittenRef.current = null;
     deserterWrittenRef.current = false;
     // The entrance flag is consumed by this result: it can never leak onto a
     // later bout entered from the tournament, the board or a door.
     diceTrailBoutRef.current = false;
+    exhibitionBoutRef.current = false;
 
     setDuelResult({
       didWin,
@@ -1748,6 +1881,11 @@ export function App() {
             onChooseDiceEnding={handleChooseDiceEnding}
             onOfferOmen={handleOfferOmen}
             onDeclineOmen={handleDeclineOmen}
+            /* STORY-5b — the three Legend stops: the Librarian chain's return at the
+               Library, and each stop's fragment at its own door. Both writers are
+               identity-stable, so an ordinary visit saves nothing. */
+            onReturnToLibrarian={handleReturnToLibrarian}
+            onReadLegendFragment={handleReadLegendFragment}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
             movementLocked={!!oathBeatMode}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
@@ -1819,6 +1957,10 @@ export function App() {
             onBuyPalma={handleBuyPalma}
             onViewTriumphs={handleViewTriumphs}
             onSelectTitle={handleSelectTitle}
+            /* STORY-5b — the Library rack's Codex page (step 1) and the Legend Bouts
+               on the tournament tab (the staged rows, entered as exhibitions). */
+            onViewCodex={handleViewCodex}
+            onEnterLegendBout={handleEnterLegendBout}
             />
         )}
 
