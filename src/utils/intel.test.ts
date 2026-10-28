@@ -97,14 +97,24 @@ describe('S7 §A the tavern’s price and its list', () => {
     // D-1 — the LADDER rows still read tier then fight index (the list reads down
     // the ladder); the five feature bouts are APPENDED with `fightIndex: 0` ("no
     // rung"), so they are their own block at the end rather than a rung of a tier.
-    const ladder = targets.filter((opponent) => opponent.featureBout !== true);
+    // STORY-4b — the roster also carries the Bounty Hall's six rows, appended
+    // after the Feature Bouts with `fightIndex: 0`. They are not tournament
+    // opponents, so the ladder-ordering property is asserted over the ladder
+    // proper and the bounty block is pinned where it actually sits: at the tail.
+    const ladder = targets.filter(
+      (opponent) => opponent.featureBout !== true && opponent.bountyBout !== true,
+    );
     const ranks = ladder.map((opponent) => opponent.tier * 10 + opponent.fightIndex);
     expect([...ranks].sort((a, b) => a - b)).toEqual(ranks);
     const feature = targets.filter((opponent) => opponent.featureBout === true);
     expect(feature.map((opponent) => opponent.id)).toEqual(
       FEATURE_BOUT_OPPONENTS.map((opponent) => opponent.id),
     );
-    expect(targets.slice(ladder.length)).toEqual(feature);
+    const bountyBlock = targets.slice(ladder.length + feature.length);
+    expect(bountyBlock.every((opponent) => opponent.bountyBout === true)).toBe(true);
+    expect(bountyBlock.map((opponent) => opponent.id)).toEqual(
+      ALL_OPPONENTS.filter((opponent) => opponent.bountyBout === true).map((opponent) => opponent.id),
+    );
   });
 
   test('only ladder opponents are on sale — never the off-ladder Doctore test', () => {

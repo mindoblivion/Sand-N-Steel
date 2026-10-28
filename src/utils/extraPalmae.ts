@@ -44,6 +44,8 @@ export interface PalmaCarrier {
   palmae?: string[];
   isBoss?: boolean;
   featureBout?: boolean;
+  /** STORY-4b — a BOUNTY BOUT is fenced here too: the board's rows earn no extras. */
+  bountyBout?: boolean;
 }
 
 /**
@@ -60,7 +62,9 @@ export function extraPalmaFor(
   row: PalmaCarrier | null | undefined
 ): SafeSubsetPalmaId | null {
   if (!row) return null;
-  if (row.isBoss === true || row.featureBout === true) return null;
+  // STORY-4b — a BOUNTY BOUT never receives an extra palma, boss or rung alike:
+  // the board's rows are the board's, not the grudge roster's.
+  if (row.isBoss === true || row.featureBout === true || row.bountyBout === true) return null;
   const carried = new Set(
     Array.isArray(row.palmae) ? row.palmae.filter((id): id is string => typeof id === 'string') : []
   );

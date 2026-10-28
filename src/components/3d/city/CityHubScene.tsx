@@ -117,6 +117,10 @@ import { getKeeperForBuilding, nightClerkLine, resolveSeenKeepers, selectRepeatL
 import { keeperStateLineFor } from '../../../utils/keeperStateLines';
 import type { Keeper } from '../../../data/keepers';
 import { KeeperPlate } from '../../hub/KeeperPlate';
+// STORY-4b — the Bounty Hall's board panel. It owns the ladder's reading, the
+// printed rules and the keeper's plate; this scene only raises it and hands the
+// chosen row to `onEnterDuel`, exactly as the treatment/shrine panels work.
+import { BountyBoardPanel } from '../../hub/BountyBoardPanel';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../../ui/ThreeComponentErrorBoundary';
@@ -394,6 +398,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // what the last offering or decline did.  Local view state only: both
   // transactions and their save belong to `App`.
   const [shrinePanel, setShrinePanel] = useState(false);
+  // STORY-4b — the Bounty Hall's board. Local view state only: the bout entry is
+  // `onEnterDuel` and every write is `App`'s.
+  const [bountyPanel, setBountyPanel] = useState(false);
   const [omenResult, setOmenResult] = useState<string | null>(null);
   /**
    * K2 — the greeting of the counter that is open, decided ONCE when it opens,
@@ -577,6 +584,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // rather than a hub tab.  Read-only: the panel takes the profile and
       // returns control to the city unchanged.
       setShowRaceEntry(true);
+    } else if (nearbyLoc.id === 'bounty_hall') {
+      // STORY-4b — the hall's door opens the Bounty BOARD rather than routing to
+      // the tournament tab (its old flavour-only `tabKey`). K3-BOARDS — Scribonia
+      // keeps this counter, so her greeting freezes here, exactly as the tavern's
+      // and the shrine's do; the panel records the visit through the same relay.
+      primeKeeperGreeting('bounty_hall');
+      setBountyPanel(true);
     } else if (nearbyLoc.tabKey === 'tournament') {
       // The door resolves its own ticket HERE, when the player interacts: the
       // current tier's first UNDEFEATED boss, which is the same boss the tournament
@@ -687,13 +701,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
     // A presented panel is up: E/Space and the action button are its own.
-    if (treatmentPanel || intelPanel || shrinePanel) return;
+    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel) return;
     if (nearbyLoc) {
       handleInteract();
     } else {
       handleAttack();
     }
-  }, [nearbyLoc, handleInteract, handleAttack, treatmentPanel, intelPanel, shrinePanel]);
+  }, [nearbyLoc, handleInteract, handleAttack, treatmentPanel, intelPanel, shrinePanel, bountyPanel]);
 
   /**
    * S5 — one visit.  The transaction and its save write live in `App`; this screen
@@ -774,6 +788,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         if (code === 'Escape' || key === 'escape') setShrinePanel(false);
         return;
       }
+      if (bountyPanel) {
+        if (code === 'Escape' || key === 'escape') setBountyPanel(false);
+        return;
+      }
 
       if (code === 'KeyW' || key === 'w' || code === 'ArrowUp') keysPressed.current['w'] = true;
       if (code === 'KeyS' || key === 's' || code === 'ArrowDown') keysPressed.current['s'] = true;
@@ -802,7 +820,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel]);
 
   // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
@@ -1740,6 +1758,23 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {/* STORY-4b — THE BOUNTY BOARD: the hall's own panel, raised by the door.
+          Scribonia's plate heads it, the five postings and the Deserter's entry are
+          listed with their prices and their printed twists, and nothing here writes:
+          the bout is handed to `onEnterDuel` and the clear lands in App's write. */}
+      {bountyPanel && (
+        <BountyBoardPanel
+          profile={playerProfile}
+          night={cityPhase === 'night'}
+          onEnterBout={(opponent) => {
+            sounds.playClick();
+            onEnterDuel(opponent);
+          }}
+          onRecordKeeperVisit={onRecordKeeperVisit}
+          onClose={() => setBountyPanel(false)}
+        />
       )}
 
       {/* PITCH A1 — THE SHRINE OF FORTUNA: the pre-fight ritual stop.  It shows

@@ -719,8 +719,10 @@ describe('PITCH A1 §H — no save writes outside the existing save-on-change fl
   test('the result write credits the settled numbers and clears the field in one save', () => {
     const at = APP_SOURCE.indexOf('const handleMatchComplete');
     const handler = APP_SOURCE.slice(at, APP_SOURCE.indexOf('const handleDuelResultDismiss', at));
-    expect(handler).toContain('const nextGold = profile.gold + resultStats.goldEarned;');
-    expect(handler).toContain('const nextFame = profile.fame + resultStats.fameEarned;');
+    // STORY-4b — a CLEARED bounty posting adds its own gold/fame in the same write;
+    // the omen's settled figure is still the duel's contribution, unchanged.
+    expect(handler).toContain('const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;');
+    expect(handler).toContain('const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;');
     expect(handler).toContain('const afterOmen = clearOmen(afterInjury);');
     expect(handler.match(/saveProfile\(/g)?.length).toBe(1);
     // The result screen is handed the same settlement.
