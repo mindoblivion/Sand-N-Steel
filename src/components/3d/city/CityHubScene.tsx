@@ -32,6 +32,7 @@ import { Drawbridge } from './Drawbridge';
 import { EastCircusArena } from './EastCircusArena';
 import { EastCircusDistrict } from './EastCircusDistrict';
 import { CityCamera } from './CityCamera';
+import { CityAtmosphere } from './CityAtmosphere';
 import { SceneBrightness } from '../SceneBrightness';
 import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
@@ -349,6 +350,16 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    */
   const atmosphericMotion = getEffectiveAtmosphereMotion(settings);
   const sparklesCount = atmosphericMotion ? cityTier.sparkles : 0;
+
+  /**
+   * Atmosphere A1 — the city is drawn under the profile the Lighting setting names
+   * (`goldenHour` by default), applied by one `applyAtmosphere` call from
+   * `CityAtmosphere`. While the oath owns the screen the UNTOUCHED
+   * `cityLightProfile` rig draws its dawn instead, because A1's table ships no dawn
+   * profile and inventing one would fabricate values the design never gave.
+   */
+  const cityLighting = settings.cityLighting;
+  const isOathRig = lightProfile === 'oathDawn';
 
   /**
    * SF-1 — the Canvas's DPR is STATE now, not a constant: the tier sets its starting
@@ -909,6 +920,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
             <SceneBrightness />
 
+            {/* ATMOSPHERE A1 — the city's own sky, sun and haze. One `applyAtmosphere`
+                call (see `utils/atmosphere.ts` / `CityAtmosphere`) builds the gradient
+                sky dome, sets the profile's fog, adds the single shadow-casting sun and
+                the hemisphere bounce, and writes ACES at the profile's exposure. The
+                Lighting setting swaps the profile live. The block below is the oath
+                beat's own rig, unchanged: A1 ships no dawn profile. */}
+            {isOathRig ? (
+              <>
             {/* Atmospheric Mediterranean Horizon Fog — and, at dawn, the oath's own
                 shorter band.  Both come from the named light profile. */}
             <fog attach="fog" args={[lights.fogColor, lights.fogNear, lights.fogFar]} />
@@ -948,12 +967,19 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               color={lights.fillColor}
             />
 
+              </>
+            ) : (
+              <CityAtmosphere profile={cityLighting} />
+            )}
+
             {/* Phase 2B — Scene-level PBR environment for metallic/physical material reflections.
-                The visible <Sky> is a mesh, not an environment map; without this, materials with
+                The visible sky is a mesh, not an environment map; without this, materials with
                 metalness > 0 (darkIron, agedBronze, goldAccent) render flat black with no specular.
                 Procedural Lightformers are rendered ONCE into a 256px cubemap, PMREM-processed,
                 and assigned to scene.environment. environmentIntensity=0.35 keeps reflections
-                subtle so warm Roman material colors remain readable. No external HDR files. */}
+                subtle so warm Roman material colors remain readable. No external HDR files.
+                Atmosphere A1 keeps this rig for BOTH profiles: the gradient dome replaced the
+                SKY, not the reflections, so no material's specular response changed. */}
             <Environment resolution={256} frames={1} environmentIntensity={lights.environmentIntensity}>
               {environmentLightformers}
             </Environment>
