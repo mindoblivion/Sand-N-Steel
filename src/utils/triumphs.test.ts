@@ -776,7 +776,10 @@ describe('A8 §K — the one call site, the two doors, the one view mark', () =>
     const end = handler.indexOf('const handleDuelResultDismiss');
     const body = end > 0 ? handler.slice(0, end) : handler;
     expect((app.match(/applyTriumphAwards\(/g) ?? []).length).toBe(1);
-    expect(body).toContain('applyTriumphAwards(timedProfile, duelTriumphStats)');
+    // STORY-5a REBASE, not a weakening: the dice trail's record is composed onto
+    // `timedProfile` first, so the ONE shipped evaluation is handed `trailProfile`.
+    // One call site, one save, the same transient reading — all still asserted.
+    expect(body).toContain('applyTriumphAwards(trailProfile, duelTriumphStats)');
     expect(body).toContain('won: didWin');
     expect(body).toContain('lowestHealthFraction: resultStats.lowestHealthFraction');
     expect(body).toContain('crowdHypePeak: resultStats.crowdHypePeak');

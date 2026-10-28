@@ -284,7 +284,11 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     expect(DUEL).toContain('const timedProfile = onDayRollover(profile, clock.profile);');
     // A8 REBASE, not a weakening: the awards are composed onto `timedProfile` and the
     // transaction's ONE set/save pair carries the awarded profile.  Still one write.
-    expect(DUEL).toContain('applyTriumphAwards(timedProfile, duelTriumphStats)');
+    // STORY-5a REBASE, same rule: the dice trail's own record is composed onto
+    // `timedProfile` first (its bout's win must ride the same save), so the awards
+    // are applied to `trailProfile` — still inside the one transaction, still one
+    // write, and the clock still advances before it.
+    expect(DUEL).toContain('applyTriumphAwards(trailProfile, duelTriumphStats)');
     expect(DUEL).toContain('setProfile(awards.profile);');
     expect(DUEL).toContain('saveProfile(awards.profile);');
     // The advance is INSIDE the transaction: after the win/loss composition, before the save.

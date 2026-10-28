@@ -123,6 +123,15 @@ import { KeeperPlate } from '../../hub/KeeperPlate';
 // printed rules and the keeper's plate; this scene only raises it and hands the
 // chosen row to `onEnterDuel`, exactly as the treatment/shrine panels work.
 import { BountyBoardPanel } from '../../hub/BountyBoardPanel';
+// STORY-5a — THE DICE TRAIL: the panel section that rides under Aelia's plate,
+// and the two pure reads it needs (her rumour service's closure, the answer's
+// type). Nothing here writes: every transaction is `App`'s.
+import { DiceTrailSection } from '../../hub/DiceTrailSection';
+import {
+  RUMOURS_CLOSED_LINE,
+  isRumourServiceClosed,
+  type DiceChoice,
+} from '../../../utils/diceTrail';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../../ui/ThreeComponentErrorBoundary';
@@ -269,6 +278,21 @@ interface CityHubSceneProps {
    * later visit writes nothing.
    */
   onVisitLocation?: (locationId: string) => void;
+  /**
+   * STORY-5a — the return to Aelia's counter AFTER his champion falls: her
+   * closing line is owed, and opening the panel is what speaks it, opens the
+   * rumor board and pays the chain.  `App` owns that one write and is
+   * identity-stable for every other open, so a repeat visit writes nothing.
+   */
+  onOpenDiceBoard?: () => void;
+  /**
+   * STORY-5a — enter a trail bout: a staged ladder ROW fought as a tavern bout
+   * entry.  `App` marks it as the trail's own (the card's win is recorded in the
+   * same save as the victory, and STORY-4a's mercy never fires on one).
+   */
+  onEnterDiceTrailBout?: (opponent: OpponentConfig) => void;
+  /** STORY-5a — answer Piso.  `App` owns the flag and the 300 g of a 'cut'. */
+  onChooseDiceEnding?: (choice: DiceChoice) => void;
 }
 
 /**
@@ -328,6 +352,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onUseConsumable,
   onBuyIntel,
   onRecordKeeperVisit,
+  onOpenDiceBoard,
+  onEnterDiceTrailBout,
+  onChooseDiceEnding,
   onVisitLocation,
   onOfferOmen,
   onDeclineOmen,
@@ -623,6 +650,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // opponent the player has not yet bought a rumour on.  K2 — the keeper's
       // plate heads it, so the greeting is frozen as the panel opens.
       primeKeeperGreeting('tavern');
+      // STORY-5a — STEP 3: coming back to her counter after his champion fell IS
+      // the return the chain asks for, so the write happens as the panel opens.
+      // `App` composes it and is identity-stable, so every other open writes
+      // nothing; the panel then draws the board her closing line has opened.
+      onOpenDiceBoard?.();
       setIntelPanel(true);
     } else if (nearbyLoc.id === 'shrine_temple') {
       // PITCH A1 — Fortuna's shrine is the pre-fight ritual stop: its panel offers
@@ -684,6 +716,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     playerProfile.injury,
     onOpenTab,
     onVisitLocation,
+    onOpenDiceBoard,
     primeKeeperGreeting,
   ]);
 
@@ -1063,6 +1096,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    */
   const tavernTargets = intelPanel ? intelTargets(playerProfile) : [];
   const tavernPurseShort = intelPanel && playerProfile.gold < INTEL_PRICE;
+  /**
+   * STORY-5a — 'cut' closes her rumour service PERMANENTLY: the list above is
+   * replaced by the closure and no purchase is offered again (App refuses the
+   * transaction too). There is no un-close path.
+   */
+  const tavernRumoursClosed = intelPanel && isRumourServiceClosed(playerProfile);
   /**
    * K2 — the two service counters' keepers, resolved from the registry: the
    * Medical House's Medica (or the inn's host) and the Golden Palm's keeper.
@@ -1712,7 +1751,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       {intelPanel && (
         <div
           data-intel-panel
-          className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
+          /* STORY-5a — the dice trail rides UNDER this panel's list (R6), so the
+             panel itself is capped and scrolls: on a phone the section would
+             otherwise fall below the viewport and never be reachable. */
+          className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] max-h-[80vh] overflow-y-auto bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
         >
           {/* K2 — the keeper of the Palm heads her rumour counter.  A header only:
               no control is added, so the purchase list below it is unchanged. */}
@@ -1745,7 +1787,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           </div>
 
           <div className="mt-3 flex flex-col gap-2 max-h-[52vh] overflow-y-auto pr-1">
-            {tavernTargets.length === 0 ? (
+            {tavernRumoursClosed ? (
+              <p
+                data-tavern-rumours-closed
+                className="text-[11px] sm:text-xs font-serif text-rose-200/90 leading-relaxed"
+              >
+                {RUMOURS_CLOSED_LINE}
+              </p>
+            ) : tavernTargets.length === 0 ? (
               <p className="text-[11px] sm:text-xs font-mono text-neutral-400">
                 You have bought every rumour the tavern keeps.
               </p>
@@ -1781,6 +1830,23 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               </p>
             )}
           </div>
+
+          {/* STORY-5a — THE DICE TRAIL: §2.4's Quiet Dice chain and §3A's rumor
+              board, as a SECTION of this one panel (Director ruling R6) under
+              Aelia's existing plate.  It holds no rule and writes nothing: the
+              trail's bout is handed to `onEnterDiceTrailBout` and the answer
+              to `onChooseDiceEnding`, both `App`'s. */}
+          <DiceTrailSection
+            profile={playerProfile}
+            onEnterBout={(opponent) => {
+              sounds.playClick();
+              (onEnterDiceTrailBout ?? onEnterDuel)(opponent);
+            }}
+            onChooseEnding={(choice) => {
+              sounds.playClick();
+              onChooseDiceEnding?.(choice);
+            }}
+          />
         </div>
       )}
 
