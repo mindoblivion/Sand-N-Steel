@@ -39,6 +39,10 @@
  */
 
 import { getLeftyMode, setLeftyMode } from './storage';
+// Atmosphere A1 — the city's two sky/sun/fog profiles. The names and the default live
+// in `utils/atmosphere.ts`, so this record stores a choice and never restates a value.
+import { ATMOSPHERE_NAMES, DEFAULT_ATMOSPHERE } from '../utils/atmosphere';
+import type { AtmosphereProfileName } from '../utils/atmosphere';
 
 /** The one settings record. */
 export const SETTINGS_STORAGE_KEY = 'sand_and_steel_settings_v1';
@@ -68,6 +72,11 @@ export interface Settings {
   qualityPreset: QualityPreset;
   /** Scene exposure: 0.9 / 1.0 / 1.1. */
   brightness: Brightness;
+  /**
+   * Atmosphere A1 — which sky/sun/fog profile the CITY scene is drawn under
+   * (Golden Hour, the default, or Midday). City-only: no other scene reads it.
+   */
+  cityLighting: AtmosphereProfileName;
   /** How far behind the gladiator the city chase camera sits. */
   cityCamDistance: CameraDistance;
   /** How far behind the chariot the race chase camera sits. */
@@ -151,6 +160,7 @@ export const CAMERA_SHAKE_LEVELS: readonly CameraShake[] = ['full', 'reduced', '
 export const DEFAULT_SETTINGS: Settings = {
   qualityPreset: 'balanced',
   brightness: 'standard',
+  cityLighting: DEFAULT_ATMOSPHERE,
   cityCamDistance: 'standard',
   raceCamDistance: 'standard',
   atmosphereMotion: true,
@@ -240,6 +250,7 @@ export function resolveSettings(
   const resolved: Settings = {
     qualityPreset: resolveQualityPreset(record.qualityPreset, device),
     brightness: oneOf(record.brightness, BRIGHTNESS_LEVELS, DEFAULT_SETTINGS.brightness),
+    cityLighting: oneOf(record.cityLighting, ATMOSPHERE_NAMES, DEFAULT_SETTINGS.cityLighting),
     cityCamDistance: oneOf(record.cityCamDistance, CAMERA_DISTANCES, DEFAULT_SETTINGS.cityCamDistance),
     raceCamDistance: oneOf(record.raceCamDistance, CAMERA_DISTANCES, DEFAULT_SETTINGS.raceCamDistance),
     atmosphereMotion: bool(record.atmosphereMotion, DEFAULT_SETTINGS.atmosphereMotion),

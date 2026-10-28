@@ -91,6 +91,8 @@ describe('A. resolveSettings — pure and total', () => {
     expect(DEFAULT_SETTINGS).toEqual({
       qualityPreset: 'balanced',
       brightness: 'standard',
+      // Atmosphere A1 — the city's sky/sun/fog profile, Golden Hour by default.
+      cityLighting: 'goldenHour',
       cityCamDistance: 'standard',
       raceCamDistance: 'standard',
       atmosphereMotion: true,

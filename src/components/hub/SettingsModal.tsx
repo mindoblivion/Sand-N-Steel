@@ -7,6 +7,7 @@ import {
   VolumeX,
   Accessibility,
   Sun,
+  Sunset,
   Camera,
   Move,
   Music,
@@ -31,6 +32,7 @@ import type {
   Settings as SettingsRecord,
 } from '../../services/settings';
 import { useSettings } from '../../hooks/useSettings';
+import type { AtmosphereProfileName } from '../../utils/atmosphere';
 
 /** The five sections of §1.3, in the design's order. */
 export type SettingsCategory = 'picture' | 'controls' | 'sound' | 'game' | 'accessibility';
@@ -152,6 +154,7 @@ function ChoiceRow<T extends string>({
   options,
   value,
   onChange,
+  columns,
 }: {
   label: string;
   description?: string;
@@ -159,11 +162,16 @@ function ChoiceRow<T extends string>({
   options: ReadonlyArray<{ value: T; label: string }>;
   value: T;
   onChange: (next: T) => void;
+  /** How many chips the row lays out: three by default, two for a binary choice. */
+  columns?: 2 | 3;
 }) {
   return (
     <RowCard>
       <RowLabel label={label} description={description} icon={icon} />
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div
+        className="mt-3 grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${columns ?? 3}, minmax(0, 1fr))` }}
+      >
         {options.map((option) => {
           const active = option.value === value;
           return (
@@ -341,6 +349,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   ];
 
   /**
+   * Atmosphere A1 — the city's two sky/sun/fog profiles. The row only offers what
+   * the module ships; the city scene reads the stored name and swaps the rig live.
+   */
+  const lightingOptions: ReadonlyArray<{ value: AtmosphereProfileName; label: string }> = [
+    { value: 'goldenHour', label: 'Golden Hour' },
+    { value: 'midday', label: 'Midday' },
+  ];
+
+  /**
    * SF-1 — the picture-quality preset's three names.  §SET-1 carried the field as a
    * named attachment point with no consumer, which is why it had no row; the city's
    * DPR band and dust budget read it now, and that is what makes this row a wired one.
@@ -450,6 +467,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   options={brightnessOptions}
                   value={settings.brightness}
                   onChange={(brightness) => set({ brightness })}
+                />
+                {/* Atmosphere A1 — Golden Hour (the default) or Midday. Writes the one
+                    settings record; the city scene swaps the sky, sun and fog live. */}
+                <ChoiceRow
+                  label="Lighting"
+                  description="Golden Hour is the city's low, warm sun; Midday is its high, clear light."
+                  icon={<Sunset className="w-5 h-5" />}
+                  options={lightingOptions}
+                  value={settings.cityLighting}
+                  onChange={(cityLighting) => set({ cityLighting })}
+                  columns={2}
                 />
                 <ChoiceRow
                   label="City Camera Distance"
