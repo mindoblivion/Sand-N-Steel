@@ -23,6 +23,10 @@
  *       dismiss handler calls), and the newer cry is what the real toast renders next.
  *   §E  STORAGE ISOLATION — every read, write and removal touches the harness's own
  *       key; the real save key is never named and its value never changes.
+ *   §F  THE TOAST'S PROPS — the harness hands the shipping `HeraldToast` its own
+ *       dismissal callback and its own timer override. The wiring itself is pinned at
+ *       SOURCE level (there is no DOM renderer here to click the toast), while the
+ *       behaviour that callback performs is driven through the harness helper.
  *
  * `removeDisplayedCries` itself is pinned by `heraldQueue.test.ts`; the state
  * transitions here are only run through the harness's own helpers, with the ledger
@@ -55,6 +59,7 @@ import {
 import { HeraldToast } from '../components/hub/HeraldToast';
 import { createVisitorHeraldLedger, visitorHeraldCry } from './visitorHerald';
 import { resolveVisitorSchedule } from './visitorSchedule';
+import { removeDisplayedCries } from './heraldQueue';
 import { PROFILE_STORAGE_KEY } from '../services/storage';
 
 // ── Sources ────────────────────────────────────────────────────────────────
@@ -65,6 +70,19 @@ const code = (rel: string): string =>
 
 const MAIN = code('../main.tsx');
 const HARNESS = code('../components/dev/HeraldHarness.tsx');
+
+/**
+ * One top-level `const NAME = …` statement of the harness source, sliced up to the
+ * next top-level declaration. The source is comment-stripped, so prose can never
+ * satisfy a pin.
+ */
+const harnessStatement = (name: string): string => {
+  const start = HARNESS.indexOf(`const ${name} =`);
+  expect(start).toBeGreaterThan(-1);
+  const rest = HARNESS.slice(start + 1);
+  const next = rest.search(/\n {2}const [A-Za-z]/);
+  return next === -1 ? rest : rest.slice(0, next);
+};
 
 // ── The production answers every assertion below is built from ─────────────
 const scheduleOfDay = (day: number) => resolveVisitorSchedule({ city: { day } });
@@ -308,12 +326,15 @@ describe('L21M §D — dismissing the displayed snapshot preserves the newer cry
   });
 
   test('control — dismissing the CURRENT stack removes both, because both were displayed', () => {
-    const { run } = appendedRun();
+    const { cries, second, run } = appendedRun();
     const cleared = dismissDisplayed(run, run.queue);
+    // Every row of the live stack was displayed, so the production helper removes the
+    // whole queue and both cries are recorded as dismissed — the reference case the
+    // stale-snapshot path above must NOT reproduce.
     expect(cleared.queue).toEqual([]);
-    // The pre-L21D whole-queue clear loses the newer cry exactly the same way; the
-    // difference is that the stale-snapshot path (above) does not reach this state.
-    expect([...[]]).toEqual([]);
+    expect(cleared.dismissed).toEqual([cries[0], second.cry]);
+    expect(cleared.preservedNewer).toBe(false);
+    expect(cleared.priorSnapshot).toBeNull();
   });
 });
 
@@ -382,5 +403,87 @@ describe('L21M §E — reset touches only the harness key and its own state', ()
       preservedNewer: false,
       reseeded: true,
     });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+describe('L21M §F — the harness hands the shipping toast its own dismissal and timer', () => {
+  /**
+   * These are SOURCE pins, and they say so: this environment has no DOM renderer, so
+   * nothing here clicks the toast. What they guarantee is that the component's props
+   * are the harness's own callback — routed through the helper §D drives behaviourally
+   * — and not a wholesale clear, and that the timer is the diagnostic override.
+   */
+  test('the toast is given the live queue and the harness’s own dismissal callback', () => {
+    expect(HARNESS).toContain('onDismiss={handleDismiss}');
+    expect(HARNESS).toContain('cries={run.queue}');
+
+    const dismissHandler = harnessStatement('handleDismiss');
+    // It routes through the harness helper — the one §D drives, which calls the
+    // production `removeDisplayedCries` — rather than clearing the queue itself.
+    expect(dismissHandler).toContain('dismissDisplayed(previousRun, displayed)');
+    // Not the pre-L21D whole-queue clear, and not a whole-run reset.
+    expect(dismissHandler).not.toContain('createHeraldHarnessRun');
+    expect(dismissHandler).not.toContain('resetHeraldHarnessRun');
+    expect(dismissHandler).not.toContain('removeDisplayedCries');
+    // Stable identity: it is the toast timer's dependency, exactly as in App.tsx.
+    expect(dismissHandler).toContain('}, []);');
+  });
+
+  test('that callback removes exactly what was displayed — the production helper’s answer', () => {
+    const second = resolveSecondCry(HARNESS_CITY_DAY)!;
+    const { cries, run } = emitFirstCry();
+    const appended = appendSecondCry(run, second);
+    // The helper the handler calls answers identically to the production rule, in both
+    // the stale-snapshot case and the whole-stack case.
+    expect(dismissDisplayed(appended, [cries[0]]).queue).toEqual(
+      removeDisplayedCries(appended.queue, [cries[0]])
+    );
+    expect(dismissDisplayed(appended, appended.queue).queue).toEqual(
+      removeDisplayedCries(appended.queue, appended.queue)
+    );
+    // …and it is a prefix rule, not a length rule: a non-prefix snapshot changes nothing.
+    expect(removeDisplayedCries(appended.queue, [second.cry])).toBe(appended.queue);
+  });
+
+  test('the diagnostic timer is the harness’s own override, and the 7 s default is untouched', () => {
+    expect(HARNESS).toContain('durationMs={DIAGNOSTIC_TOAST_MS}');
+    expect(HARNESS).toContain('const DIAGNOSTIC_TOAST_MS = 60_000;');
+    // The harness never falls back to the production default by accident…
+    expect(HARNESS).not.toContain('7000');
+    expect(HARNESS).not.toContain('durationMs = ');
+    // …and the shipping default itself is exactly what it was.
+    expect(code('../components/hub/HeraldToast.tsx')).toContain('durationMs = 7000');
+  });
+
+  test('reset clears only the harness record and reseeds — it never clears storage', () => {
+    const resetHandler = harnessStatement('handleReset');
+    expect(resetHandler).toContain('clearHarnessRecord()');
+    expect(resetHandler).toContain('resetHeraldHarnessRun()');
+    expect(resetHandler).toContain('createVisitorHeraldLedger()');
+    for (const banned of [
+      '.clear(',
+      'clearSavedProfile',
+      'saveProfile',
+      'loadSavedProfile',
+      'PROFILE_STORAGE_KEY',
+      'localStorage',
+      'sessionStorage',
+    ]) {
+      expect(resetHandler).not.toContain(banned);
+    }
+
+    // The state transition the handler performs, driven for real: a fresh ledger
+    // re-emits the same first cry, so reset restores the initial run.
+    const { profile, cries } = emitFirstCry();
+    const afterReset = appendEmittedCries(
+      resetHeraldHarnessRun(),
+      createVisitorHeraldLedger().announce(profile)
+    );
+    expect(afterReset.queue).toEqual(cries);
+    expect(afterReset.emitted).toEqual(cries);
+    expect(afterReset.reseeded).toBe(true);
+    expect(afterReset.dismissed).toEqual([]);
+    expect(afterReset.preservedNewer).toBe(false);
   });
 });

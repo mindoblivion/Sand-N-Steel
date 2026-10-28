@@ -11885,13 +11885,22 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   is off `city_3d` and turned again before returning is still only announced for the day they stand
   in, which is L21B's documented behaviour and is unchanged here.
 
-## Isolated visitor-herald runtime harness (L21M — implemented; browser-verified)
+## Isolated visitor-herald runtime harness (L21M — implemented; browser-verified; committed `56d6b7a`)
 
-- **Preflight.** Branch `development-focus-strategy`, HEAD **`c02d5b81e91314f9a4d338ce218fdf0e887abaea`**,
-  `git status --porcelain` empty and the working tree clean; `docker compose ps` showed `app-web-1`
-  `running (healthy)` and `curl localhost:3000/` answered **200** — the running `web` container was not
-  restarted, rebuilt or otherwise touched. Nothing was reset, stashed, discarded, committed, pushed or
-  deployed.
+- **Final committed state (verified by L21O).** The implementation is **committed as
+  `56d6b7ac56728ec4bcdaf7f50ec09dd4c3d581cc`** — *Implement L21M herald dev harness and diagnostics*,
+  4 files with **+907 / −0** (`HeraldHarness.tsx` and its suite new, one gate constant plus one branch
+  in `src/main.tsx`, this record) — and that commit is **pushed**: HEAD and
+  `origin/development-focus-strategy` are the same commit, 0 ahead / 0 behind, working tree clean. The
+  L21M work below is therefore history, not an uncommitted tree.
+
+- **Preflight as recorded at the time (historical — the tree was uncommitted then).** Branch
+  `development-focus-strategy`, HEAD **`c02d5b81e91314f9a4d338ce218fdf0e887abaea`**, `git status
+  --porcelain` empty and the working tree clean *before* L21M's files were written; `docker compose ps`
+  showed `app-web-1` `running (healthy)` and `curl localhost:3000/` answered **200** — the running
+  `web` container was not restarted, rebuilt or otherwise touched. Nothing was reset, stashed,
+  discarded, committed, pushed or deployed during that phase; the commit above is the platform's
+  end-of-turn commit, made afterwards.
 
 - **Why a harness instead of a test.** L21B (the herald calls the day's visitors) and L21D (a dismissal
   removes only what the toast displayed) are pinned by pure suites, but the cry had never been read off
@@ -11992,3 +12001,71 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   herald in isolation; it does not mount the city, so no visual acceptance of the city hub is implied.
   (c) Physical Android acceptance remains outstanding for the whole herald feature. (d) The suite pins
   route selection at source level (the repo's convention), not by booting `main.tsx` in a DOM.
+
+## Visitor-herald harness test pins (L21O — implemented)
+
+- **What this phase is: tests and documentation only.** L21N's read-only audit of L21M found the
+  harness isolation sound but three test-quality gaps and one stale record. L21O closes exactly those:
+  `src/utils/l21mHeraldHarness.test.ts` (19 → **23 tests**) and this document. **No production file
+  changed** — not `App.tsx`, `HeraldToast.tsx`, `heraldQueue.ts`, the visitor schedule, the ledger,
+  `HeraldHarness.tsx`, `main.tsx`, any save field, any collider, and no package was added.
+
+- **Preflight / final state.** Branch `development-focus-strategy`, HEAD
+  **`56d6b7ac56728ec4bcdaf7f50ec09dd4c3d581cc`** (= `origin/development-focus-strategy`, 0 ahead /
+  0 behind, clean tree, no untracked files) — i.e. the L21M commit is the current target and no newer
+  work exists. Nothing was reset, stashed, restarted, committed, pushed or deployed. The running
+  `app-web-1` was only used for `exec` (tests, `tsc`, `git`), never restarted.
+
+- **§F — the toast's props (4 new tests; the file goes 19 tests / 93 `expect`s → 23 / 127).** The harness's own props were the one
+  place a future refactor could bypass the production dismissal helper without any test noticing, so
+  they are now pinned. Where a pin is a source pin it says so, because this environment has no DOM
+  renderer and nothing here clicks the toast:
+  1. `onDismiss={handleDismiss}` and `cries={run.queue}` are asserted on the `HeraldToast` element,
+     and `handleDismiss`'s own statement (sliced out of the comment-stripped source by
+     `harnessStatement`) is shown to call `dismissDisplayed(previousRun, displayed)`, to be stable
+     (`}, []);` — the toast timer's dependency, as in `App`), and **not** to contain
+     `createHeraldHarnessRun`, `resetHeraldHarnessRun` or a direct `removeDisplayedCries` call — the
+     three ways the pre-L21D whole-queue clear could come back.
+  2. Behaviourally, the helper that handler calls is shown to answer **identically to the production
+     `removeDisplayedCries`** for both the stale-snapshot case and the whole-stack case, and to be a
+     prefix rule rather than a length rule (a non-prefix snapshot returns the same array).
+  3. `durationMs={DIAGNOSTIC_TOAST_MS}` is pinned, `DIAGNOSTIC_TOAST_MS = 60_000` is pinned, the
+     harness is shown to contain no `7000` and no `durationMs = ` assignment, and
+     `HeraldToast.tsx` still carries `durationMs = 7000` — so the production default is untested-and-
+     unchanged rather than untested-and-free-to-drift.
+  4. `handleReset` is shown to call `clearHarnessRecord()`, `resetHeraldHarnessRun()` and
+     `createVisitorHeraldLedger()`, and to contain **none** of `.clear(`, `clearSavedProfile`,
+     `saveProfile`, `loadSavedProfile`, `PROFILE_STORAGE_KEY`, `localStorage`, `sessionStorage`; then
+     the transition it performs is driven for real — a fresh ledger re-emits the day-5 cry, so the
+     reset state is the initial run (`reseeded: true`, nothing dismissed, nothing preserved).
+
+- **§D5 corrected.** The control test ended with `expect([...[]]).toEqual([])` — a tautology — under a
+  title claiming both cries were removed. It now asserts what it claims: the whole live stack is
+  dismissed (`queue` empty), **both** cries are recorded in `dismissed`, `preservedNewer` is `false`
+  and the stale snapshot is cleared. Title and assertions agree.
+
+- **The pins are shown to bite (mutation check, each restored byte-for-byte — `cmp` clean).** Three
+  single-line mutations of `HeraldHarness.tsx`, run against the suite and then reverted:
+  `onDismiss={handleDismiss}` → `onDismiss={() => setRun(createHeraldHarnessRun())}` **fails 1**
+  (§F1 — the pre-L21D bypass would otherwise have stayed green); `durationMs={DIAGNOSTIC_TOAST_MS}` →
+  `durationMs={7000}` **fails 1** (§F3); `clearHarnessRecord();` → `window.sessionStorage.clear();`
+  **fails 2** (§F4 and §E1). With the file restored, all 23 pass.
+
+- **Verified 2026-10-28** in the existing healthy `web` container (no restart, no rebuild):
+  `bun test src/utils/l21mHeraldHarness.test.ts` → **23 pass / 0 fail** (127 `expect()` calls);
+  `bun test src/utils/heraldQueue.test.ts` → **15 pass / 0 fail** (34); `bun test
+  src/utils/visitorHerald.test.ts` → **23 pass / 0 fail** (95); the three files together → **61
+  pass / 0 fail / 256 expect() calls**; `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `git diff --check` → **clean**. The diff is exactly two files: this suite and this record.
+
+- **Remaining limitations — unchanged by this phase, and none of them implied covered.** (a) There is
+  still **no DOM renderer** and no `@testing-library/react` here, so no test clicks the toast, runs the
+  timer or mounts the harness; §F's prop pins are source assertions and are labelled as such, while
+  the behaviour behind them is driven through the harness helper. (b) The **seven-second timer firing
+  into a grown stack** is pinned only by `heraldQueue.test.ts`'s pure contract — the harness holds the
+  toast for 60 s on purpose, so nothing at runtime exercises the 7 s path; the browser acceptance in
+  the L21M record used the toast's ✕ control and the replay button, not the timer. (c) **Physical
+  Android acceptance** of the herald toast remains outstanding, as does the device checklist from the
+  other phases. (d) The harness's own panel still reports "the toast rendered it" from
+  `emitted.length > 0`, so that step is a report of state, not proof of a paint — the browser evidence,
+  not the panel, is what established the render.
