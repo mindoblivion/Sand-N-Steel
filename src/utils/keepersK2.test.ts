@@ -150,7 +150,12 @@ describe('K2 §B the three panels render the plate', () => {
 
   test('each panel heads with its plate, ABOVE its transaction controls', () => {
     const city = code(CITY);
-    expect(city.match(/<KeeperPlate /g)?.length).toBe(2);
+    // RE-SCOPED, not weakened — K3-SHRINE plated the Shrine of Fortuna's panel, so
+    // the city scene now carries THREE plates: these two counters plus the shrine's.
+    // The property this test exists for (one plate per plated panel, each above its
+    // own transaction controls) is unchanged and is checked below and in
+    // `keepersK3shrine.test.ts` §B; the count moved because a panel was added.
+    expect(city.match(/<KeeperPlate /g)?.length).toBe(3);
 
     const treatmentPanelAt = city.indexOf('data-treatment-panel={treatmentPanel}');
     const treatmentPlateAt = city.indexOf('<KeeperPlate keeper={treatmentKeeper}');
@@ -199,7 +204,13 @@ describe('K2 §C the visit is recorded through the single write path', () => {
   test('the scene reports at most one visit, and only while a counter is open', () => {
     const city = code(CITY);
     expect(city.match(/onRecordKeeperVisit\?\.\(/g)?.length).toBe(1);
-    expect(city).toContain('const openCounterKeeperId = (treatmentKeeper ?? intelKeeper)?.id;');
+    // RE-SCOPED, not weakened — K3-SHRINE's priestess joins the SAME single record
+    // path, so the expression gained a third term. The property pinned here (one
+    // open-counter id, one call site, one write) is unchanged: there is still
+    // exactly one `onRecordKeeperVisit?.()` call, asserted just above.
+    expect(city).toContain(
+      'const openCounterKeeperId = (treatmentKeeper ?? intelKeeper ?? shrineKeeper)?.id;'
+    );
     expect(city).toContain('if (!openCounterKeeperId) return;');
   });
 

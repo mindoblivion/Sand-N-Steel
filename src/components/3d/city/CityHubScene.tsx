@@ -589,6 +589,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // PITCH A1 — Fortuna's shrine is the pre-fight ritual stop: its panel offers
       // her word for 25 gold, or the player declines.  The result line starts
       // empty; every offering or decline sets it from the transaction's answer.
+      // K3-SHRINE — Postumia keeps the shrine's counter, so her greeting freezes
+      // here, exactly as the tavern's and the two treatment counters' do.
+      primeKeeperGreeting('shrine_temple');
       setOmenResult(null);
       setShrinePanel(true);
     } else if (nearbyLoc.tabKey) {
@@ -1020,6 +1023,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     ? getKeeperForBuilding(TREATMENT_BUILDING[treatmentPanel])
     : undefined;
   const intelKeeper = intelPanel ? getKeeperForBuilding('tavern') : undefined;
+  /**
+   * K3-SHRINE — the priestess who keeps Fortuna's counter, resolved from the same
+   * registry. `undefined` while the panel is shut, so a closed shrine shows no
+   * plate and records nothing.
+   */
+  const shrineKeeper = shrinePanel ? getKeeperForBuilding('shrine_temple') : undefined;
 
   /**
    * PITCH A1 — Fortuna's word, read the way every other lazy profile field is.
@@ -1053,7 +1062,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    * `handleRecordKeeperVisit` returns the SAME profile for an id already saved, so
    * a re-render or a second open cannot write the save twice.
    */
-  const openCounterKeeperId = (treatmentKeeper ?? intelKeeper)?.id;
+  // K3-SHRINE — the shrine's counter joins the SAME single record path, so
+  // Postumia's first visit is written by `App.handleRecordKeeperVisit` and by
+  // nothing else; there is still exactly one `onRecordKeeperVisit` call site.
+  const openCounterKeeperId = (treatmentKeeper ?? intelKeeper ?? shrineKeeper)?.id;
   useEffect(() => {
     if (!openCounterKeeperId) return;
     const frozen = keeperGreetingRef.current;
@@ -1720,6 +1732,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           data-shrine-panel
           className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
         >
+          {/* K3-SHRINE — Postumia heads her own counter. A header only: no control
+              is added, so the offering and the decline below it are exactly the
+              ones A1 shipped, at the same price. */}
+          {shrineKeeper && (
+            <div className="mb-3">
+              <KeeperPlate keeper={shrineKeeper} line={keeperLineFor(shrineKeeper)} />
+            </div>
+          )}
           <div className="flex justify-between items-start gap-3">
             <div className="flex-1">
               <h4 className="font-serif font-black text-amber-200 text-xs sm:text-sm uppercase tracking-wider mb-1 flex items-center gap-1.5">
