@@ -906,7 +906,7 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
     expect(/from\s+'three'/.test(MODULE_CODE)).toBe(false);
   });
 
-  test('nothing in the shipping game consumes the module — only the dev-only C-8.68C prototype', () => {
+  test('nothing in the shipping game consumes the module — only the dev-only fit prototypes', () => {
     const files: string[] = [];
     const walk = (dir: string) => {
       for (const entry of readdirSync(dir)) {
@@ -931,8 +931,18 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
     // `main.tsx`'s `import.meta.env.DEV` branch, which dynamically imports the component
     // (so neither is in a production build; `phaseC8_68c.test.ts` §F pins that).  A
     // gameplay file still cannot start importing the plan without failing here.
+    // REBASED by S8, not weakened, and by exactly one dev-only consumer.  The S8 wheel-fit
+    // slice was ordered to re-run this module's clearance checks at the withheld wheel
+    // variants' larger radii, and it did so in `utils/chariotWheelFit.ts` — a numbers-only
+    // util that, like C-8.68C's, is reached only through the same dev-gated fit prototype
+    // (`?devHarness=horsefit`, dynamically imported inside `main.tsx`'s
+    // `import.meta.env.DEV` branch; `phaseS8WheelFit.test.ts` §D pins that it is report-only
+    // and consumes no catalogue entry).  The property this guard protects is unchanged: no
+    // screen, city, arena or hub file may import the plan.  The list stays an EXACT
+    // `toEqual`, so a fourth consumer — of any kind — still fails here.
     expect(consumers).toEqual([
       'components/dev/HorseChariotFitPrototype.tsx',
+      'utils/chariotWheelFit.ts',
       'utils/horseFitPrototype.ts',
     ]);
     // The app's own entry points still name it nowhere.
@@ -943,6 +953,21 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
     expect(code('./horseFitPrototype.ts')).not.toContain('@react-three');
     expect(code('../components/dev/HorseChariotFitPrototype.tsx')).toContain('import.meta.env.DEV');
     expect(code('../main.tsx')).toContain("'horsefit'");
+    // …and the S8 consumer is held to exactly the same dev-only rule: a numbers-only module
+    // that knows no renderer, reached only from the dev-gated prototype and the suite.
+    expect(code('./chariotWheelFit.ts')).not.toContain('@react-three');
+    const wheelFitImporters = files
+      .filter((f) => !/chariotWheelFit\.ts$/.test(f) && !/\.test\.tsx?$/.test(f))
+      .filter((f) => /from\s+'[^']*chariotWheelFit'/.test(readFileSync(f, 'utf8')))
+      .map((f) => f.replace(repo('src/'), ''))
+      .sort();
+    expect(wheelFitImporters).toEqual(['components/dev/HorseChariotFitPrototype.tsx']);
+    // No production screen, city, arena or hub file names it in any form at all.
+    const wheelFitProductionSurfaces = files
+      .map((f) => f.replace(repo('src/'), ''))
+      .filter((n) => /^(App\.tsx|main\.tsx|components\/(3d|duel|hub|ui|legal|screens)\/|services\/)/.test(n))
+      .filter((n) => readFileSync(repo(`src/${n}`), 'utf8').includes('chariotWheelFit'));
+    expect(wheelFitProductionSurfaces).toEqual([]);
   });
 
   test('no horse asset, mesh, animation or instance was added by this phase', () => {

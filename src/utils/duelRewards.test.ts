@@ -150,7 +150,9 @@ describe('§G wiring', () => {
 
   test('the duel pays the purse onto the stats object it reports', () => {
     expect(scene).toContain("import { calculateDuelGold } from '../../utils/duelRewards';");
-    expect(scene).toContain('baseGold: opponent.rewardGold');
+    // C-8.70C rebased the first pin (not weakened): the purse is computed on the
+    // MODE-adjusted base, which on Sand is `opponent.rewardGold` exactly.
+    expect(scene).toContain('baseGold: modeReward.goldBase');
     expect(scene).toContain('statsRef.current.goldEarned = purse.total;');
     expect(scene).toContain('statsRef.current.goldBreakdown = purse;');
   });

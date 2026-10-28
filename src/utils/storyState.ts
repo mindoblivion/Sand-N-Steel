@@ -12,8 +12,8 @@
  *   • A gate whose owning system has not landed is `'pending'`, not `'unmet'`: its
  *     evidence cannot exist yet, so the card says so instead of telling the
  *     player they are behind (the design's graceful-degradation rule).  No gate
- *     for an unlanded system is ever invented here — there is no race-results
- *     field and no omen field, so the race and omen beats resolve as pending.
+ *     reads evidence that does not exist: the race, omen and story-beat gates all
+ *     resolve as pending until the slice that writes their evidence lands.
  *   • A chapter is closed when every gate whose evidence CAN exist is met, so a
  *     profile whose record already passes a chapter's available gates resolves
  *     that chapter closed (the grandfather rule).
@@ -32,18 +32,20 @@
 
 import { PlayerProfile, StoryProgress } from '../types/game';
 import { ALL_OPPONENTS } from '../data/opponents';
+import { DOCTORE_TEST_OPPONENT_ID } from './storyBeats';
 import { GladiatorRank, rankAtLeast, deriveRank } from './rank';
 
 /** A gate's state: met by evidence, not yet met, or waiting on a later slice. */
 export type StoryGateState = 'met' | 'unmet' | 'pending';
 
-/** The two kinds of gate whose owning system has not landed yet. */
-export type StoryPendingKind = 'race' | 'omen';
+/** The kinds of gate whose owning system has not landed yet. */
+export type StoryPendingKind = 'race' | 'omen' | 'beat';
 
 /** The ids every gate is addressed by; stable, so the card and tests can name one. */
 export type StoryGateId =
   | 'oath-sworn'
   | 'first-duel-won'
+  | 'doctore-test'
   | 'tier-1-boss'
   | 'district-race'
   | 'omen'
@@ -53,6 +55,7 @@ export type StoryGateId =
   | 'library-seen'
   | 'tier-3'
   | 'league-promotion'
+  | 'vexus-race'
   | 'dice-ending'
   | 'rank-champion'
   | 'tier-3-boss'
@@ -61,6 +64,7 @@ export type StoryGateId =
   | 'tier-4-boss'
   | 'league-final'
   | 'summit-seen'
+  | 'statue-ceremony'
   | 'rank-legend';
 
 export interface StoryGate {
@@ -80,6 +84,7 @@ export interface StoryGate {
 export const PENDING_GATE_LINES: Record<StoryPendingKind, string> = {
   race: 'The Circus has not opened its books yet.',
   omen: 'The omens have not been read yet.',
+  beat: 'That hour has not been written yet.',
 };
 
 /** The line the card reads once every available chapter is closed. */
@@ -142,6 +147,13 @@ export const STORY_FINAL_CHAPTER = STORY_CHAPTERS[STORY_CHAPTERS.length - 1].ind
 /** The story flags, resolved: every field present, nothing invented. */
 export interface ResolvedStoryFlags {
   librarySeen: boolean;
+  /**
+   * STORY-2 — the Doctore's Test was won under its chosen restriction
+   * (`story.doctoreTestPassed`). It is only ever TRUE with the test opponent's
+   * id in `defeatedOpponentIds` too: the gate reads both, because the id alone
+   * cannot tell a compliant win from a plain one.
+   */
+  doctoreTestPassed: boolean;
   fragmentsFound: string[];
   trialDone: boolean;
   diceEnding?: 'cut' | 'refused';
@@ -218,6 +230,7 @@ function resolveFlags(profile: PlayerProfile | null | undefined): ResolvedStoryF
 
   return {
     librarySeen: stored?.librarySeen === true,
+    doctoreTestPassed: stored?.doctoreTestPassed === true,
     fragmentsFound: Array.isArray(fragments)
       ? fragments.filter((fragment): fragment is string => typeof fragment === 'string')
       : [],
@@ -276,13 +289,28 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       met: (evidence) => evidence.oathSworn || evidence.fightsWon > 0,
     },
   ],
-  // 1 — First Sand: the first win, which is the evidence that exists today.
+  // 1 — First Sand: the first win, and the Doctore's Test (STORY-2 made real).
   [
     {
       id: 'first-duel-won',
       requirement: 'Win your first duel',
       confirmation: 'Your first duel is won.',
       met: (evidence) => evidence.fightsWon >= 1,
+    },
+    {
+      id: 'doctore-test',
+      requirement: "Pass the Doctore's test under the restricted rules",
+      confirmation: "The Doctore's test is passed.",
+      /**
+       * STORY-2 — DERIVED from the record, never stored as a verdict: the test
+       * opponent's id has to be in the book (he was faced and beaten) AND the
+       * pass flag has to be set (that win met the restriction the player chose).
+       * The flag is written by the same victory write that records the id, so a
+       * legacy save — which has neither — simply has not passed yet and can,
+       * whenever it takes the Test. The entry is a permanent place in the world.
+       */
+      met: (evidence) =>
+        evidence.flags.doctoreTestPassed && evidence.defeatedIds.includes(DOCTORE_TEST_OPPONENT_ID),
     },
   ],
   // 2 — Fortuna's Coin: Goliath, the first District race (pending), the omen (pending).
@@ -332,6 +360,12 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       'Your League promotion is taken.',
       'race'
     ),
+    pendingGate(
+      'vexus-race',
+      'Run the Vexus incident race',
+      'The Vexus incident race is run.',
+      'beat'
+    ),
     {
       id: 'dice-ending',
       requirement: "Reach the vulture's dice and let them fall",
@@ -372,7 +406,7 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       met: (evidence) => evidence.flags.summitSeen,
     },
   ],
-  // 7 — Legend, and the Open Road: the rank itself, and nothing else.
+  // 7 — Legend, and the Open Road: the rank itself, and the statue ceremony (pending).
   [
     {
       id: 'rank-legend',
@@ -380,6 +414,12 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       confirmation: 'You have reached Legend.',
       met: (evidence) => rankAtLeast(evidence.rank, 'Legend'),
     },
+    pendingGate(
+      'statue-ceremony',
+      'See the statue ceremony played',
+      'The statue ceremony is played.',
+      'beat'
+    ),
   ],
 ];
 

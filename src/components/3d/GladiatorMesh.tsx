@@ -4,6 +4,10 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
+import { TELEGRAPH_GLOW_COLOR, telegraphGlowIntensity } from '../../utils/bossPresentation';
+// D-3 — the feet-tell type only: the cue itself is a static stance on this
+// component's own root group, so the 3D layer needs no rule from the mechanic.
+import type { FeetTell } from '../../utils/falseTelegraph';
 
 /**
  * Shared impact feedback for the duel: one mutable object, owned by
@@ -41,7 +45,36 @@ interface GladiatorMeshProps {
   rotationRef?: React.MutableRefObject<number>;
   /** Hit-stop / shake state shared with the duel's camera rig (optional). */
   impactRef?: React.MutableRefObject<ImpactState>;
+  /**
+   * CF-6 — a boss's telegraph. While true, the mesh's OWN emissive path pulses
+   * `TELEGRAPH_GLOW_COLOR` at 2 Hz, so a wound-up boss reads at a glance without
+   * a second highlight system. Boss presentation only: `DuelScene` gates it on
+   * `bossPresentsMoment(opponent, 'heavy_telegraph') && Boolean(opp.telegraphText)`,
+   * so a standard fighter never sets it. Consumed by the rigged GLB path's
+   * materials; the procedural fallback has no emissive materials and ignores it.
+   */
+  telegraphGlow?: boolean;
+  /**
+   * D-3 — Varro's feet-tell. `'light'` is weight forward (a lie); `'planted'` is
+   * the real heavy's stance. A PROPERTY-ONLY cue on the model's own root group —
+   * no mesh, no particle, no draw call — and weight-based, never side-based, so
+   * Lefty Mode cannot change what the player reads.
+   */
+  feetTell?: FeetTell;
 }
+
+/**
+ * D-3 — the stance the feet-tell cue applies to the existing model group.
+ *
+ * Weight forward tips the whole figure about its feet (the model root sits on
+ * the ground plane) and drops it a hair, so "his foot stayed light" reads from
+ * the chase camera without a new mesh or an animation clip. `planted` is the
+ * model exactly as it always was, which is what makes the two distinguishable.
+ */
+const FEET_TELL_STANCE: Record<FeetTell, { leanX: number; forward: number; drop: number }> = {
+  light: { leanX: 0.12, forward: 0.06, drop: -0.03 },
+  planted: { leanX: 0, forward: 0, drop: 0 },
+};
 
 // Per-URL cache for GLB file presence & validity check
 const glbStatusCacheMap = new Map<string, 'unknown' | 'valid' | 'invalid'>();
@@ -507,6 +540,8 @@ export function resolveActionClip(action: FighterAction, clipNames: readonly str
 // own emissive Color via .copy(), so no shared mutable references exist.
 const HIT_FLASH_COLOR = new THREE.Color('#ff0000');
 const HIT_FLASH_RESET_COLOR = new THREE.Color('#000000');
+// CF-6 — the boss telegraph's emissive, on the same path as the hit flash.
+const TELEGRAPH_GLOW_COLOR_VALUE = new THREE.Color(TELEGRAPH_GLOW_COLOR);
 
 /**
  * 1. High-Detail Rigged GLB Model Loader with Bone-Attached Equipment
@@ -520,6 +555,8 @@ const RomanWarriorGLB: React.FC<{
   positionRef?: React.MutableRefObject<[number, number, number]>;
   rotationRef?: React.MutableRefObject<number>;
   impactRef?: React.MutableRefObject<ImpactState>;
+  telegraphGlow?: boolean;
+  feetTell?: FeetTell;
 }> = ({
   fighter,
   overrideAction,
@@ -529,11 +566,20 @@ const RomanWarriorGLB: React.FC<{
   positionRef,
   rotationRef,
   impactRef,
+  telegraphGlow = false,
+  feetTell,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const currentActionName = useRef<string>('');
   const flashTimerRef = useRef(0);
-  const wasFlashActiveRef = useRef<boolean | null>(null);
+  // 0 = resting, 1 = CF-6 telegraph glow, 2 = hit flash — the emissive mode the
+  // materials were last written with (null on the first frame, so the resting
+  // values are written once at init).
+  const wasFlashActiveRef = useRef<number | null>(null);
+  // CF-6 — the materials this instance's emissive path has already collected, so
+  // the 2 Hz telegraph pulse is a loop over a short array instead of a per-frame
+  // traverse of the whole character.
+  const emissiveMaterialsRef = useRef<THREE.MeshStandardMaterial[] | null>(null);
   const lastActionRef = useRef<string>('');
   const shieldGroupRef = useRef<THREE.Group>(null);
   const shieldStrengthRef = useRef(0);
@@ -624,7 +670,7 @@ const RomanWarriorGLB: React.FC<{
     currentActionName.current = targetClip;
   }, [targetClip, actions, activeAction]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (!groupRef.current) return;
 
     // Hit-stop. This fighter's animation time is held while a blow is landing:
@@ -657,23 +703,53 @@ const RomanWarriorGLB: React.FC<{
     }
 
     const isHit = flashTimerRef.current > 0;
-    // Phase 2B.58: only traverse and update emissive materials when the flash
-    // state *changes* (activates, expires, or first-frame init), not every
-    // frame. The emissive color is constant while the flash is active, so
-    // re-setting it each frame was wasted work; while inactive the materials
-    // are already at their resting values. Pre-allocated Color instances
-    // replace the per-frame new THREE.Color allocations.
-    if (isHit !== wasFlashActiveRef.current) {
-      wasFlashActiveRef.current = isHit;
+    // CF-6 — the boss's telegraph glow rides this SAME emissive path: while the
+    // telegraph is up the materials pulse TELEGRAPH_GLOW_COLOR at 2 Hz. A landed
+    // blow always wins, because it is the brighter, redder flash — so the two can
+    // never fight over one material, and a standard fighter (`telegraphGlow`
+    // false, no hit) is written exactly as it always was: once, back to rest.
+    const isTelegraphing = !isHit && telegraphGlow === true;
+    const emissiveMode = isHit ? 2 : isTelegraphing ? 1 : 0;
+    // Phase 2B.58: only traverse and update emissive materials when the mode
+    // *changes* (activates, expires, or first-frame init), not every frame. The
+    // emissive colour is constant while a mode holds, so re-setting it each frame
+    // was wasted work; while inactive the materials are already at their resting
+    // values. Pre-allocated Color instances replace the per-frame allocations.
+    if (emissiveMode !== wasFlashActiveRef.current) {
+      wasFlashActiveRef.current = emissiveMode;
+      const collected: THREE.MeshStandardMaterial[] = [];
       clonedScene.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
           const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
           if (mat) {
-            mat.emissive.copy(isHit ? HIT_FLASH_COLOR : HIT_FLASH_RESET_COLOR);
-            mat.emissiveIntensity = isHit ? 0.8 : 0;
+            mat.emissive.copy(
+              emissiveMode === 2
+                ? HIT_FLASH_COLOR
+                : emissiveMode === 1
+                ? TELEGRAPH_GLOW_COLOR_VALUE
+                : HIT_FLASH_RESET_COLOR,
+            );
+            mat.emissiveIntensity =
+              emissiveMode === 2
+                ? 0.8
+                : emissiveMode === 1
+                ? telegraphGlowIntensity(state.clock.elapsedTime)
+                : 0;
+            collected.push(mat);
           }
         }
       });
+      emissiveMaterialsRef.current = collected;
+    } else if (isTelegraphing) {
+      // The pulse proper: the mode is already held, only the intensity moves.
+      // A short loop over the collected materials, no traverse and no allocation.
+      const mats = emissiveMaterialsRef.current;
+      if (mats) {
+        const intensity = telegraphGlowIntensity(state.clock.elapsedTime);
+        for (let i = 0; i < mats.length; i += 1) {
+          mats[i].emissiveIntensity = intensity;
+        }
+      }
     }
 
     // --- Phase 111: Shield orientation constraint (disabled by default) ---
@@ -937,9 +1013,17 @@ const RomanWarriorGLB: React.FC<{
       rotation={[0, fighter.rotationY, 0]}
       scale={[scale, scale, scale]}
     >
-      <primitive object={clonedScene} />
-      {rightHandBone && createPortal(rightHandEquipment, rightHandBone)}
-      {leftHandBone && createPortal(leftHandEquipment, leftHandBone)}
+      {/* D-3 — the feet-tell stance. A group's transform costs no draw call and
+          adds no mesh: `light` tips the figure forward about its own feet while
+          the wind-up is live, `planted` leaves it exactly as it has always been. */}
+      <group
+        position={[0, feetTell ? FEET_TELL_STANCE[feetTell].drop : 0, feetTell ? FEET_TELL_STANCE[feetTell].forward : 0]}
+        rotation={[feetTell ? FEET_TELL_STANCE[feetTell].leanX : 0, 0, 0]}
+      >
+        <primitive object={clonedScene} />
+        {rightHandBone && createPortal(rightHandEquipment, rightHandBone)}
+        {leftHandBone && createPortal(leftHandEquipment, leftHandBone)}
+      </group>
     </group>
   );
 };
@@ -958,7 +1042,8 @@ const ProceduralGladiator: React.FC<{
   positionRef?: React.MutableRefObject<[number, number, number]>;
   rotationRef?: React.MutableRefObject<number>;
   impactRef?: React.MutableRefObject<ImpactState>;
-}> = ({ fighter, overrideAction, isLeftyMode = false, positionRef, rotationRef, impactRef }) => {
+  feetTell?: FeetTell;
+}> = ({ fighter, overrideAction, isLeftyMode = false, positionRef, rotationRef, impactRef, feetTell }) => {
   const rootRef = useRef<THREE.Group>(null);
   const hipsRef = useRef<THREE.Group>(null);
   const torsoRef = useRef<THREE.Group>(null);
@@ -1221,6 +1306,10 @@ const ProceduralGladiator: React.FC<{
 
   return (
     <group
+      position={[0, feetTell ? FEET_TELL_STANCE[feetTell].drop : 0, feetTell ? FEET_TELL_STANCE[feetTell].forward : 0]}
+      rotation={[feetTell ? FEET_TELL_STANCE[feetTell].leanX : 0, 0, 0]}
+    >
+    <group
       ref={rootRef}
       position={fighter.position}
       rotation={[0, fighter.rotationY, 0]}
@@ -1475,6 +1564,7 @@ const ProceduralGladiator: React.FC<{
         </group>
       </group>
     </group>
+    </group>
   );
 };
 
@@ -1505,7 +1595,7 @@ class GLTFErrorBoundary extends React.Component<
 }
 
 // 4. Main GladiatorMesh Component
-export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef, impactRef }: GladiatorMeshProps) => {
+export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef, impactRef, telegraphGlow, feetTell }: GladiatorMeshProps) => {
   const modelUrl = fighter.characterModel === 'amazonian'
     ? '/models/amazonian.glb'
     : fighter.characterModel === 'retiarius'
@@ -1533,6 +1623,7 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
         positionRef={positionRef}
         rotationRef={rotationRef}
         impactRef={impactRef}
+        feetTell={feetTell}
       />
     );
   }
@@ -1548,6 +1639,7 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
           positionRef={positionRef}
           rotationRef={rotationRef}
           impactRef={impactRef}
+          feetTell={feetTell}
         />
       }
     >
@@ -1560,6 +1652,8 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
         positionRef={positionRef}
         rotationRef={rotationRef}
         impactRef={impactRef}
+        telegraphGlow={telegraphGlow}
+        feetTell={feetTell}
       />
     </GLTFErrorBoundary>
   );

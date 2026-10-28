@@ -7,7 +7,8 @@
  *   §A a newly reached stage fires once and its id is recorded, and a seen id
  *      suppresses its refire;
  *   §B the rank-gate cries carry the gladiator's own name;
- *   §C a boss kill names the boss from the roster, and a mook says nothing;
+ *   §C a boss kill names the boss from the roster — at every boss win, first defeat or
+ *      rematch, and exactly once — while a mook says nothing;
  *   §D the Device Choosing write happens once and can never be rewritten;
  *   §E the boss stripes are derived from `bossKills` (0 / 1 / 4);
  *   §F a save with no `milestonesSeen` at all resolves cleanly;
@@ -162,6 +163,36 @@ describe('§C — a boss kill is named from the roster', () => {
     const after = { ...before, bossKills: 2 };
 
     expect(evaluateRoadMilestones(before, after).cries).toEqual([]);
+  });
+
+  // CORR-BATCH-2 — road-of-glory §4: the cry sounds at each boss defeat, "then each",
+  // so the duel's own opponent is what names it.  A rematch is no longer silent.
+  test('a rematch win cries the boss again, passed in from the duel', () => {
+    const before = base({ defeatedOpponentIds: [AURELIUS!.id], bossKills: 1 });
+    const after = { ...before, bossKills: 2 };
+
+    expect(evaluateRoadMilestones(before, after, AURELIUS!).cries).toEqual([
+      `${AURELIUS!.name} has fallen to Test!`,
+    ]);
+  });
+
+  test('a first defeat cries the boss exactly once when the opponent is passed in', () => {
+    const before = base();
+    const after = { ...before, defeatedOpponentIds: [AURELIUS!.id], bossKills: 1 };
+
+    const bossCry = `${AURELIUS!.name} has fallen to Test!`;
+    const cries = evaluateRoadMilestones(before, after, AURELIUS!).cries;
+    // One boss cry — never a second, and the rank gates behind it are untouched.
+    expect(cries.filter((cry) => cry === bossCry)).toHaveLength(1);
+  });
+
+  test('a non-boss win says nothing when the opponent is passed in', () => {
+    const mook = ALL_OPPONENTS.find((opponent) => opponent.isBoss !== true);
+    expect(mook).toBeDefined();
+    const before = base();
+    const after = { ...before, defeatedOpponentIds: [mook!.id] };
+
+    expect(evaluateRoadMilestones(before, after, mook!).cries).toEqual([]);
   });
 });
 

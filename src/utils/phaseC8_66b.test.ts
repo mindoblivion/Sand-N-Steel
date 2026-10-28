@@ -278,7 +278,7 @@ describe('C-8.66B §A — catalogue, slots and isolation from the item database'
     expect(CHARIOT_PARTS.length).toBeGreaterThan(2);
     for (const part of CHARIOT_PARTS) {
       expect(ids.filter((id) => id === part.id)).toHaveLength(1);
-      expect(['wheels', 'finish']).toContain(part.slot);
+      expect(['wheels', 'finish', 'axle', 'harness', 'chassis']).toContain(part.slot);
       expect(part.name.length).toBeGreaterThan(2);
       expect(part.description.length).toBeGreaterThan(10);
       expect(Number.isInteger(part.price)).toBe(true);
@@ -356,7 +356,7 @@ describe('C-8.66B §B — legacy, partial and damaged saves', () => {
   test('a new profile has no chariot field at all, and resolves to the stock chariot', () => {
     expect(profile.chariot).toBeUndefined();
     const loadout = resolveChariotLoadout(profile);
-    expect(loadout.equipped).toEqual({ wheels: 'wheels_standard', finish: 'finish_stock' });
+    expect(loadout.equipped).toEqual({ wheels: 'wheels_standard', finish: 'finish_stock', axle: 'axle_stock', harness: 'harness_stock', chassis: 'chassis_stock' });
     expect(ownsChariotPart(profile, 'wheels_standard')).toBe(true);
     expect(ownsChariotPart(profile, 'finish_stock')).toBe(true);
     expect(ownsChariotPart(profile, 'wheels_reinforced')).toBe(false);
@@ -390,7 +390,7 @@ describe('C-8.66B §B — legacy, partial and damaged saves', () => {
       ['finish_stock', 'wheels_reinforced', 'wheels_standard'].sort()
     );
     // A wheel slot holding a finish id, and an unknown finish, both fall back.
-    expect(loadout.equipped).toEqual({ wheels: 'wheels_standard', finish: 'finish_stock' });
+    expect(loadout.equipped).toEqual({ wheels: 'wheels_standard', finish: 'finish_stock', axle: 'axle_stock', harness: 'harness_stock', chassis: 'chassis_stock' });
   });
 
   test('an equipped part that is no longer owned falls back to the slot default', () => {
@@ -402,7 +402,7 @@ describe('C-8.66B §B — legacy, partial and damaged saves', () => {
       },
     };
     const loadout = resolveChariotLoadout(stale);
-    expect(loadout.equipped).toEqual({ wheels: 'wheels_standard', finish: 'finish_stock' });
+    expect(loadout.equipped).toEqual({ wheels: 'wheels_standard', finish: 'finish_stock', axle: 'axle_stock', harness: 'harness_stock', chassis: 'chassis_stock' });
     // ...and the resolution does not repair the save behind the player's back.
     expect(stale.chariot?.equipped.wheels).toBe('wheels_reinforced');
   });
@@ -430,8 +430,11 @@ describe('C-8.66B §C — purchase: one deduction, no duplicates, no mutation', 
     expect(
       resolveChariotLoadout(result.profile).owned.filter((id) => id === 'wheels_reinforced')
     ).toHaveLength(1);
-    // A purchase never equips.
-    expect(result.profile.chariot?.equipped.wheels).toBe('wheels_standard');
+    // A purchase never equips.  P6 — the stored record now carries only a
+    // NON-stock fit, so a still-stock wheels slot is absent from it and the
+    // resolver is what answers the question.
+    expect(resolveChariotLoadout(result.profile).equipped.wheels).toBe('wheels_standard');
+    expect(result.profile.chariot?.equipped.wheels).toBeUndefined();
   });
 
   test('the original profile and its nested loadout are untouched by a purchase', () => {
@@ -626,7 +629,7 @@ describe('C-8.66B §D — equip: ownership required, never a gold movement', () 
     const loaded = loadSavedProfile() as PlayerProfile;
 
     const loadout = resolveChariotLoadout(loaded);
-    expect(loadout.equipped).toEqual({ wheels: 'wheels_reinforced', finish: 'finish_gilded' });
+    expect(loadout.equipped).toEqual({ wheels: 'wheels_reinforced', finish: 'finish_gilded', axle: 'axle_stock', harness: 'harness_stock', chassis: 'chassis_stock' });
     expect(loadout.owned).toEqual(expect.arrayContaining([
       'wheels_standard',
       'wheels_reinforced',

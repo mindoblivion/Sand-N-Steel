@@ -1,6 +1,16 @@
 import React from 'react';
 import { DuelStatistics, OpponentConfig } from '../../types/game';
-import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight } from 'lucide-react';
+import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight, HeartPulse, Award } from 'lucide-react';
+import { getPalma } from '../../data/palmae';
+import { injuryBannerLine, type DuelInjuryEvent } from '../../utils/injury';
+// C-8.70C — what the grudge's own result was, decided at the same write that
+// recorded it (settled on a win, closed until the tier's next standard win).
+import { grudgeResultLine } from '../../utils/grudgeBouts';
+// C-8.70C — the bout mode's own purse and renown lines, from the same data the
+// pre-fight card promised them with.
+import { BOUT_MODES } from '../../data/boutModes';
+import { CoachCard } from '../ui/CoachCard';
+import { getCoachCard } from '../../utils/coachMarks';
 import confetti from 'canvas-confetti';
 import { sounds } from '../../audio/soundEffects';
 
@@ -8,8 +18,35 @@ interface DuelResultModalProps {
   didWin: boolean;
   opponent: OpponentConfig;
   stats: DuelStatistics;
+  /**
+   * STORY-2 — the beats' own lines for this result, decided at the write: the
+   * Doctore's reading of a first novice bout, and the Doctore's Test's verdict
+   * (a win outside the chosen rule says so plainly). Empty or absent on every
+   * other duel, so the modal renders exactly as it always has.
+   */
+  storyLines?: string[];
+  /**
+   * S4 — what this duel did to the injury, decided at the same write that saved
+   * the profile: a fresh wound on a loss (the banner names its own numbers), or
+   * the wound this duel closed. A duel that only advances a live injury's clock
+   * carries `null` and adds nothing.
+   */
+  injuryEvent?: DuelInjuryEvent | null;
   /** The player's purse after the duel, so the reward reads as spendable gold. */
   goldTotal?: number;
+  /**
+   * CL-3 — the Doctore's beat for this result (D8, on a profile's first loss),
+   * already decided and seen-gated by App through `evaluateBeats`. Absent on
+   * every other result, so the modal renders exactly as it always has.
+   */
+  coachCardId?: string | null;
+  onCoachCardDismiss?: (id: string) => void;
+  /**
+   * CH-5 — the palma ids this victory newly unlocked, decided at the same write
+   * that saved them.  Empty or absent on every other duel (and always on a
+   * defeat), so the modal renders exactly as it always has.
+   */
+  palmaEarned?: string[];
   onContinue: () => void;
 }
 
@@ -41,7 +78,12 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   didWin,
   opponent,
   stats,
+  storyLines,
+  injuryEvent,
   goldTotal,
+  coachCardId,
+  onCoachCardDismiss,
+  palmaEarned,
   onContinue,
 }) => {
   const pace = didWin ? 1 : DEFEAT_PACE;
@@ -145,8 +187,35 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
     return Math.round((remaining / maxHp) * 100);
   }, [didWin, opponent.stats?.healthMax, stats.damageDealt]);
 
+  // CH-5 — the palms this victory unlocked, resolved from the palmae data by id.
+  const earnedPalmae = (palmaEarned ?? [])
+    .map((id) => getPalma(id))
+    .filter((palma) => palma !== undefined);
+
+  // C-8.70C — the mode this victory was fought under. It rides the in-memory
+  // statistics object; a Sand win shows no mode line, because ×1.00 is no change.
+  const boutModeDef = stats.boutMode ? BOUT_MODES[stats.boutMode] : undefined;
+  const showsModeLines = Boolean(boutModeDef && boutModeDef.id !== 'sand');
+
+  // CL-3 — the first loss's beat. It is dismissed by its ✕ (App records it seen
+  // through the same `markSeen` write the hub uses) or by continuing past it, and
+  // never before it has rendered: both handlers run from the card itself.
+  const resultBeatCard = coachCardId ? getCoachCard(coachCardId) : undefined;
+  const handleContinue = () => {
+    if (resultBeatCard && coachCardId) onCoachCardDismiss?.(coachCardId);
+    onContinue();
+  };
+
   return (
     <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md z-40 flex items-center justify-center p-4">
+      {resultBeatCard && coachCardId && (
+        <CoachCard
+          id={coachCardId}
+          card={resultBeatCard}
+          placement="top"
+          onDismiss={() => onCoachCardDismiss?.(coachCardId)}
+        />
+      )}
       <div
         className={`border-2 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl animate-fadeIn text-amber-100 ${
           didWin
@@ -163,13 +232,117 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
             {didWin ? <Trophy className="w-8 h-8 text-yellow-400" /> : <Skull className="w-8 h-8 text-red-400" />}
           </div>
 
-          <h3 className="font-serif font-black text-3xl sm:text-4xl uppercase tracking-wider mb-1">
+          <h3 className="anim-stamp font-serif font-black text-3xl sm:text-4xl uppercase tracking-wider mb-1">
             {didWin ? 'VICTORY!' : 'DEFEAT'}
           </h3>
           <p className="text-xs font-serif text-neutral-400">
             {didWin ? `You defeated ${opponent.name} in the sand!` : `Felled by ${opponent.name}. Recover your strength!`}
           </p>
         </div>
+
+        {/* STORY-2 — the beats' lines: the Doctore speaking over the result. */}
+        {storyLines && storyLines.length > 0 && (
+          <div
+            data-duel-story-lines={storyLines.length}
+            className="bg-neutral-950/80 border border-amber-700/50 rounded-2xl p-4 mb-4 flex flex-col gap-2"
+          >
+            {storyLines.map((line) => (
+              <p key={line} className="text-xs sm:text-[13px] font-serif italic text-amber-100/90 leading-relaxed">
+                {line}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* C-8.70C — THE GRUDGE'S OWN RESULT. A win settles it for good; a loss
+            leaves it standing until a standard bout at its tier is won. Read
+            from the row this duel was fought with. */}
+        {opponent.grudge && (
+          <p
+            data-duel-grudge={didWin ? 'settled' : 'open'}
+            className="text-xs sm:text-[13px] font-serif italic text-amber-200/90 leading-relaxed mb-4"
+          >
+            {grudgeResultLine(opponent, didWin)}
+          </p>
+        )}
+
+        {/* D-2 — the beast hunt's own epilogue, computed in the duel from its
+            duel-session state alone (no save field): the beast driven off or gone
+            with its master's fall. Absent on every other result. */}
+        {/* D-5 — Hermas's adaptation log: computed IN MEMORY at result time from
+            the duel's own live mix counter and adaptation state, and carried on
+            the statistics object exactly as the beast's epilogue is. One line per
+            threshold he read, in numbers; absent on every other result. */}
+        {stats.adaptationLines && stats.adaptationLines.length > 0 && (
+          <div
+            data-long-memory-lines={stats.adaptationLines.length}
+            className="bg-neutral-950/80 border border-amber-800/50 rounded-2xl p-3 mb-4 flex flex-col gap-1.5"
+          >
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
+              The long memory
+            </div>
+            {stats.adaptationLines.map((line) => (
+              <p
+                key={line}
+                className="text-xs sm:text-[13px] font-mono text-amber-100/90 leading-relaxed"
+              >
+                {line}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {stats.beastEpilogue && (
+          <p
+            data-beast-epilogue="1"
+            className="text-xs sm:text-[13px] font-serif italic text-amber-200/90 leading-relaxed mb-4"
+          >
+            {stats.beastEpilogue}
+          </p>
+        )}
+
+        {/* CH-5 — PALMA EARNED.  Outside the staged reveal: a new palm is the
+            consequence of the fight, not one of its reward figures. */}
+        {earnedPalmae.length > 0 && (
+          <div
+            data-duel-palma-earned={earnedPalmae.map((palma) => palma.id).join(',')}
+            className="bg-amber-950/40 border border-amber-500/70 rounded-2xl p-4 mb-4 flex items-start gap-2 font-serif text-xs sm:text-[13px] leading-relaxed text-amber-100"
+          >
+            <Award className="w-4 h-4 mt-0.5 shrink-0 text-amber-300" />
+            <span>
+              <strong className="text-amber-300 uppercase tracking-wider">Palma earned</strong>
+              {' — '}
+              {earnedPalmae.map((palma) => palma.name).join(', ')}.
+              <span className="block text-[11px] italic text-amber-200/80 mt-0.5">
+                Wear it in Gladiator Stats, as far as your tier allows.
+              </span>
+            </span>
+          </div>
+        )}
+
+        {/* S4 — the wound this duel dealt (or closed).  Outside the staged
+            reveal: it is the consequence of the fight, not a reward line. */}
+        {injuryEvent && (
+          <div
+            data-duel-injury={injuryEvent.kind}
+            className={`rounded-2xl border p-4 mb-4 flex items-start gap-2 font-serif text-xs sm:text-[13px] leading-relaxed ${
+              injuryEvent.kind === 'inflicted'
+                ? 'bg-red-950/50 border-red-600/60 text-red-200'
+                : 'bg-emerald-950/40 border-emerald-600/50 text-emerald-200'
+            }`}
+          >
+            <HeartPulse
+              className={`w-4 h-4 mt-0.5 shrink-0 ${
+                injuryEvent.kind === 'inflicted' ? 'text-red-400' : 'text-emerald-400'
+              }`}
+            />
+            <span>
+              {injuryEvent.kind === 'inflicted'
+                ? injuryBannerLine(injuryEvent.injury)
+                : 'Injury healed.'}
+            </span>
+          </div>
+        )}
 
         {/* COMBAT RECAP — in at 250ms (350 on a defeat) */}
         <div
@@ -220,6 +393,16 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
               </div>
               {stats.goldBreakdown && (
                 <div className="pl-3 ml-1 flex flex-col gap-1 text-[11px] text-neutral-400 border-l border-amber-900/70">
+                  {/* C-8.70C — the mode line, before the bounty it multiplied. */}
+                  {showsModeLines && boutModeDef && (
+                    <div
+                      className="flex justify-between text-amber-300"
+                      data-duel-bout-mode-gold={boutModeDef.id}
+                    >
+                      <span>{boutModeDef.name} purse</span>
+                      <span>×{boutModeDef.goldMultiplier.toFixed(2)} gold</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span>Victory Bounty</span>
                     <span>+{stats.goldBreakdown.base}</span>
@@ -242,12 +425,48 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
                       <span>+{stats.goldBreakdown.flawless}</span>
                     </div>
                   )}
+                  {/* C-8.70C — the crowd's peak bonus, its own line item. It is
+                      already inside the Gold Earned total above. */}
+                  {typeof stats.crowdPeakGoldBonus === 'number' && stats.crowdPeakGoldBonus > 0 && (
+                    <div className="flex justify-between" data-duel-crowd-peak-gold={stats.crowdPeakGoldBonus}>
+                      <span>Crowd Peak</span>
+                      <span>+{stats.crowdPeakGoldBonus}</span>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="flex justify-between font-bold">
                 <span className="text-purple-400">Fame Gained:</span>
                 <span data-testid="duel-reward-fame" className="text-purple-400">+{counted.fame}</span>
               </div>
+              {/* C-8.70C — the crowd's own fame line items. Both are already
+                  inside Fame Gained above; these say WHERE it came from. */}
+              {typeof stats.crowdPeakFameBonus === 'number' && stats.crowdPeakFameBonus > 0 && (
+                <div
+                  className="text-[11px] text-purple-300/90 pl-3 ml-1 border-l border-purple-900/60"
+                  data-duel-crowd-peak-fame={stats.crowdPeakFameBonus}
+                >
+                  Crowd&apos;s favor: +{stats.crowdPeakFameBonus} fame
+                </div>
+              )}
+              {stats.crowdTurned && (
+                <div
+                  className="text-[11px] text-red-300 pl-3 ml-1 border-l border-red-900/60"
+                  data-duel-crowd-turned="1"
+                >
+                  The crowd turned — fame reduced
+                </div>
+              )}
+              {/* C-8.70C — the mode's renown multiplier, the figure the card
+                  promised; the crowd's peak/turned lines above already compose it. */}
+              {showsModeLines && boutModeDef && (
+                <div
+                  className="text-[11px] text-amber-300 pl-3 ml-1 border-l border-amber-900/60"
+                  data-duel-bout-mode-fame={boutModeDef.id}
+                >
+                  {boutModeDef.name} renown: ×{boutModeDef.fameMultiplier.toFixed(2)} fame
+                </div>
+              )}
               <div className="flex justify-between font-bold">
                 <span className="text-cyan-400">XP Earned:</span>
                 <span data-testid="duel-reward-xp" className="text-cyan-400">+{counted.xp}</span>
@@ -263,8 +482,8 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
         </div>
 
         <button
-          onClick={onContinue}
-          className={`w-full py-4 rounded-2xl font-serif font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${
+          onClick={handleContinue}
+          className={`btn-press w-full py-4 rounded-2xl font-serif font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl flex items-center justify-center gap-2 ${
             didWin
               ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 text-neutral-950 border border-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.5)]'
               : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-600'

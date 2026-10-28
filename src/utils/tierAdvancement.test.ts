@@ -92,7 +92,11 @@ describe('§A — a tier advances only on a boss first defeat', () => {
   test('the roster has exactly one boss in every tier, and they are the four champions', () => {
     expect(TOURNAMENT_TIERS.map((t) => t.tier)).toEqual([1, 2, 3, 4]);
     for (const tier of TOURNAMENT_TIERS.map((t) => t.tier)) {
-      expect(ALL_OPPONENTS.filter((o) => o.tier === tier && o.isBoss === true)).toHaveLength(1);
+      // D-1 — the LADDER's boss, which is one per tier; the feature bouts of
+      // that venue tier are bosses too, and are counted separately below.
+      expect(
+        ALL_OPPONENTS.filter((o) => o.tier === tier && o.isBoss === true && o.featureBout !== true)
+      ).toHaveLength(1);
     }
     expect([GOLIATH.id, IGNIS.id, VALERIA.id, AURELIUS.id]).toEqual([
       'opp_goliath_boss',
@@ -392,6 +396,6 @@ describe('§D — the rule lives in the shipped paths', () => {
     expect(moduleSource).not.toContain('localStorage');
     expect(moduleSource).not.toContain('Date.now');
     expect(moduleSource).not.toContain('Math.random');
-    expect(moduleSource).toContain("import { ALL_OPPONENTS } from '../data/opponents';");
+    expect(moduleSource).toContain("import { ALL_OPPONENTS, isLadderBoss } from '../data/opponents';");
   });
 });

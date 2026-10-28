@@ -214,7 +214,8 @@ describe('C. The startup assets', () => {
   });
 
   test('the build runs the startup-asset check, and the check reads the registry', () => {
-    expect(packageJson.scripts.build).toContain('scripts/startupAssetCheck.ts');
+    // Build invokes the check indirectly (main's npm-compatible form): build -> check:startup-assets -> scripts/startupAssetCheck.ts. The next assertion pins the second link.
+    expect(packageJson.scripts.build).toContain('check:startup-assets');
     expect(packageJson.scripts['check:startup-assets']).toContain('scripts/startupAssetCheck.ts');
     expect(assetCheckSrc).toContain("from '../src/utils/startupAssets'");
     // It fails the build rather than warning into a log nobody reads.

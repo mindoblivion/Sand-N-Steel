@@ -1,16 +1,20 @@
 import React from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
 import { getItemById, isWeapon } from '../../data/itemsDB';
-import { getStorefrontStock, StorefrontId } from '../../data/shops';
-import { getSellEligibility, getSellValue } from '../../utils/selling';
-import { ShoppingCart, Coins, Shield, Swords, Check } from 'lucide-react';
+import { getVisibleStorefrontStock, StorefrontId } from '../../data/shops';
+import { CONSUMABLES, ConsumableItem } from '../../data/consumables';
+import { getConsumableCount } from '../../utils/consumables';
+import { ShoppingCart, Coins, Shield, Swords, Check, FlaskConical } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 
 interface ShopTabProps {
   profile: PlayerProfile;
   onBuyItem: (item: WeaponItem | ArmorItem) => void;
-  /** P1 sell — the market pays the item's sellPrice plus any temper refund. */
-  onSellItem?: (item: WeaponItem | ArmorItem) => void;
+  /**
+   * S6 — the Bazaar's counted consumables. Bought through `App`'s transaction like
+   * every other purchase; this screen writes no save and deducts no gold itself.
+   */
+  onBuyConsumable?: (item: ConsumableItem) => void;
   /**
    * Phase SHOP-2 — which storefront is open.  A city building the player walked
    * into passes its own id; the hub's own Bazaar & Forge tab uses the default,
@@ -31,10 +35,11 @@ const STOREFRONT_COPY: Record<
   forge: { title: 'Imperial Smithing Forge', subtitle: 'Weapons & Armaments' },
   armorer: { title: 'Armor & Leather Workshop', subtitle: 'Armor, Helmets & Accessories' },
   merchant: { title: 'Elite Merchant House', subtitle: 'Rare & Legendary Wares' },
+  // S6 — the potions have arrived: the Bazaar's stock is the consumables
+  // catalogue (not `ITEMS_DB`), so it is never "empty" and carries no `empty` line.
   bazaar: {
     title: 'Bazaar & General Store',
     subtitle: 'Potions & Trade Wares',
-    empty: "The Bazaar's potion stock arrives with the medicus trade",
   },
   market: {
     title: 'Imperial Smithing Forge & Bazaar',
@@ -42,10 +47,15 @@ const STOREFRONT_COPY: Record<
   },
 };
 
+/**
+ * C-2 — the Bazaar is where a gladiator spends; selling lives in the Armory
+ * (`GearTab`), which owns the cards for what the player actually carries.  This
+ * catalogue therefore offers no sell control at all.
+ */
 export const ShopTab: React.FC<ShopTabProps> = ({
   profile,
   onBuyItem,
-  onSellItem,
+  onBuyConsumable,
   shopId = 'market',
 }) => {
   const ownedItemIds = new Set([
@@ -58,10 +68,16 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   ]);
 
   const copy = STOREFRONT_COPY[shopId];
+  /**
+   * S6 — only the Bazaar sells consumables. The hub's own market tab keeps the whole
+   * GEAR catalogue, and the other three storefronts keep their own stock, so no other
+   * storefront's list changes.
+   */
+  const showsConsumables = shopId === 'bazaar';
   // The storefront's own stock, resolved to the catalogue entries behind it.
   // `getStorefrontStock` hands back ids from `ITEMS_DB` and `getItemById` reads
   // that same table, so every id resolves; the guard keeps the array typed.
-  const stock = getStorefrontStock(shopId)
+  const stock = getVisibleStorefrontStock(shopId, profile)
     .map((id) => getItemById(id))
     .filter((item): item is WeaponItem | ArmorItem => item !== undefined);
   const weapons = stock.filter(isWeapon);
@@ -82,11 +98,70 @@ export const ShopTab: React.FC<ShopTabProps> = ({
         </div>
       </div>
 
-      {stock.length === 0 && (
+      {stock.length === 0 && !showsConsumables && (
         <div className="bg-neutral-900/80 border border-amber-700/40 rounded-3xl p-8 text-center shadow-lg">
           <p className="font-serif text-amber-100 text-base sm:text-lg">
             {copy.empty ?? 'No wares are on offer here yet.'}
           </p>
+        </div>
+      )}
+
+      {/* S6 — THE BAZAAR'S POTIONS: the counter's stock, with the count already
+          owned. These are their own catalogue, never `ITEMS_DB` entries, so
+          `getStorefrontStock('bazaar')` stays empty of gear and nothing here can
+          enter the gear inventory. */}
+      {showsConsumables && (
+        <div>
+          <h4 className="font-serif font-bold text-lg text-amber-300 mb-3 flex items-center gap-2">
+            <FlaskConical className="w-5 h-5" />
+            <span>Potions & Salves</span>
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {CONSUMABLES.map((item) => {
+              const owned = getConsumableCount(profile, item.id);
+              const canAfford = profile.gold >= item.price;
+
+              return (
+                <div
+                  key={item.id}
+                  data-consumable={item.id}
+                  data-owned={owned}
+                  className="p-5 rounded-3xl bg-neutral-900/80 border border-amber-700/40 hover:border-amber-500/80 transition-all flex flex-col justify-between shadow-lg"
+                >
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <h5 className="font-serif font-bold text-base text-amber-100">{item.name}</h5>
+                      <span className="font-mono text-xs font-bold text-yellow-400 bg-amber-950 px-2 py-0.5 rounded border border-amber-700">
+                        {item.price} Gold
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-400 mb-3">{item.description}</p>
+                    <div className="text-xs font-mono text-neutral-300 flex items-center gap-3 mb-4">
+                      <span>
+                        Owned: <strong className="text-amber-300">{owned}</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      sounds.playCoin();
+                      onBuyConsumable?.(item);
+                    }}
+                    disabled={!canAfford}
+                    className={`w-full min-h-[48px] py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
+                      canAfford
+                        ? 'bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-neutral-950 border border-yellow-300'
+                        : 'bg-neutral-900 text-neutral-600 border border-neutral-800 opacity-50'
+                    }`}
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    <span>Buy ({item.price} Gold)</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -101,8 +176,6 @@ export const ShopTab: React.FC<ShopTabProps> = ({
             {weapons.map((wpn) => {
               const isOwned = ownedItemIds.has(wpn.id);
               const canAfford = profile.gold >= wpn.price;
-              const sellable = getSellEligibility(profile, wpn.id).ok;
-              const sellValue = getSellValue(profile, wpn.id);
 
               return (
                 <div
@@ -130,7 +203,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
                       onBuyItem(wpn);
                     }}
                     disabled={isOwned || !canAfford}
-                    className={`w-full py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
+                    className={`w-full min-h-[48px] py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
                       isOwned
                         ? 'bg-neutral-800 text-neutral-500 border border-neutral-700'
                         : canAfford
@@ -150,18 +223,6 @@ export const ShopTab: React.FC<ShopTabProps> = ({
                       </>
                     )}
                   </button>
-                  {isOwned && sellable && onSellItem && (
-                    <button
-                      onClick={() => {
-                        sounds.playCoin();
-                        onSellItem?.(wpn);
-                      }}
-                      className="w-full mt-2 py-2.5 rounded-2xl font-serif font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 bg-neutral-950 text-red-300 border border-red-900/70 hover:text-red-200 hover:border-red-700"
-                    >
-                      <Coins className="w-4 h-4" />
-                      <span>Sell for {sellValue} Gold</span>
-                    </button>
-                  )}
                 </div>
               );
             })}
@@ -180,8 +241,6 @@ export const ShopTab: React.FC<ShopTabProps> = ({
             {armors.map((arm) => {
               const isOwned = ownedItemIds.has(arm.id);
               const canAfford = profile.gold >= arm.price;
-              const sellable = getSellEligibility(profile, arm.id).ok;
-              const sellValue = getSellValue(profile, arm.id);
 
               return (
                 <div
@@ -208,7 +267,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
                       onBuyItem(arm);
                     }}
                     disabled={isOwned || !canAfford}
-                    className={`w-full py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
+                    className={`w-full min-h-[48px] py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
                       isOwned
                         ? 'bg-neutral-800 text-neutral-500 border border-neutral-700'
                         : canAfford
@@ -228,18 +287,6 @@ export const ShopTab: React.FC<ShopTabProps> = ({
                       </>
                     )}
                   </button>
-                  {isOwned && sellable && onSellItem && (
-                    <button
-                      onClick={() => {
-                        sounds.playCoin();
-                        onSellItem?.(arm);
-                      }}
-                      className="w-full mt-2 py-2.5 rounded-2xl font-serif font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 bg-neutral-950 text-red-300 border border-red-900/70 hover:text-red-200 hover:border-red-700"
-                    >
-                      <Coins className="w-4 h-4" />
-                      <span>Sell for {sellValue} Gold</span>
-                    </button>
-                  )}
                 </div>
               );
             })}

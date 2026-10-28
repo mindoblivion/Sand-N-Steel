@@ -527,7 +527,9 @@ describe('C-8.66D §D — the shipped workshop is unchanged', () => {
   });
 
   test('the finishes are the four shipped ones at their shipped prices', () => {
-    expect(chariotPartsBySlot('finish').map((part) => [part.id, part.price])).toEqual([
+    // P-BANNER appends the fame-priced Triumph banner set after them; the four
+    // shipped recolours — the ones this phase's fit work is about — are the prefix.
+    expect(chariotPartsBySlot('finish').slice(0, 4).map((part) => [part.id, part.price])).toEqual([
       ['finish_stock', 0],
       ['finish_charred', 180],
       ['finish_gilded', 320],

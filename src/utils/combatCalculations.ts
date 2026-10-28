@@ -14,6 +14,7 @@
  * estimates and the real combat pipeline can never drift apart.
  */
 import { WeaponItem } from '../types/game';
+import type { TraitModifierBlock } from './traitModifiers';
 
 /**
  * Scaling constant for the defense-mitigation curve.
@@ -66,6 +67,18 @@ export function getStaminaCost(weapon: WeaponItem, isQuick: boolean): number {
 }
 
 /**
+ * The clamp `calculateHitChance` applies, per attack type.
+ *
+ * Exported only so a caller that adjusts the RESULT — CH-3b's entangle penalty
+ * is subtracted from the returned percentage — can floor at the very same
+ * limits the formula itself uses instead of restating them.
+ */
+export const HIT_CHANCE_BOUNDS = {
+  quick: { floor: 50, ceiling: 95 },
+  power: { floor: 35, ceiling: 80 },
+} as const;
+
+/**
  * Hit-probability percentage for a quick or power attack.
  *
  * Quick:  high floor (50 %), high ceiling (95 %) — fast, reliable.
@@ -80,9 +93,21 @@ export function calculateHitChance(
   defenderAgi: number,
 ): number {
   if (isQuick) {
-    return Math.max(50, Math.min(95, Math.round(80 + attackerAgi * 1.5 - defenderAgi * 1.2)));
+    return Math.max(
+      HIT_CHANCE_BOUNDS.quick.floor,
+      Math.min(
+        HIT_CHANCE_BOUNDS.quick.ceiling,
+        Math.round(80 + attackerAgi * 1.5 - defenderAgi * 1.2),
+      ),
+    );
   }
-  return Math.max(35, Math.min(80, Math.round(60 + attackerAgi * 1.2 - defenderAgi * 1.2)));
+  return Math.max(
+    HIT_CHANCE_BOUNDS.power.floor,
+    Math.min(
+      HIT_CHANCE_BOUNDS.power.ceiling,
+      Math.round(60 + attackerAgi * 1.2 - defenderAgi * 1.2),
+    ),
+  );
 }
 
 /**
@@ -104,6 +129,11 @@ export function calculateHitChance(
  * @param isBlocked    true when the defender chose Shield Guard this turn
  * @param blockReduction   defender's weapon.blockReduction (0–1 fraction absorbed)
  * @param rageMultiplier  damage multiplier for rage mode (default 1.0 = no rage)
+ * @param traitMult       CH-3a — the armatura/palma damage signature
+ *                        (attacker `damageDealtMult` ÷ defender
+ *                        `damageTakenMult`), multiplied at the same stage as
+ *                        the rage multiplier.  Defaults to 1.0, which is the
+ *                        identity: every pre-CH-3a expectation is unchanged.
  */
 export function calculateAttackDamage(
   baseDamage: number,
@@ -113,10 +143,11 @@ export function calculateAttackDamage(
   isBlocked: boolean,
   blockReduction: number,
   rageMultiplier: number = 1.0,
+  traitMult: number = 1.0,
 ): number {
   const strBonus = 1 + attackerStrength * STRENGTH_BONUS_PER_POINT;
   const critMult = isCrit ? CRIT_MULTIPLIER : 1.0;
-  const rawDamage = baseDamage * strBonus * critMult * rageMultiplier;
+  const rawDamage = baseDamage * strBonus * critMult * rageMultiplier * traitMult;
 
   // Defense mitigation — diminishing returns, never reaches 100 %
   const defenseMultiplier = 100 / (100 + defenderDefense * DEFENSE_MITIGATION_FACTOR);
@@ -216,6 +247,62 @@ export function applyComboEvent(currentCombo: number, event: ComboEvent): number
     case 'player_damaged':  return 0;
     case 'blocked':         return currentCombo;
     case 'none':            return currentCombo;
+  }
+}
+
+/**
+ * CH-3a — the combat events a `TraitModifierBlock` can answer (design §2.4's
+ * event stage).
+ *
+ *   'block' — the fighter blocked an attack   → `onBlockStamina`
+ *   'taunt' — the fighter taunted              → `hypeAdd`
+ *   'crit'  — the fighter landed a critical    → `hypeAdd`
+ *   'rest'  — the fighter caught their breath  → `restStaminaAdd`
+ *   'miss'  — the fighter's attack missed      → `comboShield`
+ */
+export type PalmaEvent = 'block' | 'taunt' | 'crit' | 'rest' | 'miss';
+
+/** What one event grants.  Zero/false is the identity. */
+export interface PalmaEventEffect {
+  /** Stamina the event's owner recovers; the caller clamps to staminaMax. */
+  staminaAdd: number;
+  /** Extra crowd hype the event grants. */
+  hypeAdd: number;
+  /** `true` when a miss does not reset the combo (the caller owns "once per fight"). */
+  comboShield: boolean;
+}
+
+/**
+ * Read one event's effect out of a merged modifier block.
+ *
+ * Pure and side-effect-free: it computes nothing about state and reports only
+ * what the block carries, so `DuelScene` owns the stamina clamp, the hype
+ * update and the once-per-fight flag exactly as it owns the combo counter for
+ * `applyComboEvent`.  An absent, partial or non-finite field reads as the
+ * identity, so the empty block `{}` — every fighter with no palmae and no
+ * doctrina — answers every event with nothing.
+ *
+ * @param block  the fighter's merged modifier block (see `mergeModifiers`)
+ * @param event  the event that just resolved for that fighter
+ */
+export function applyPalmaEvent(
+  block: TraitModifierBlock | null | undefined,
+  event: PalmaEvent,
+): PalmaEventEffect {
+  const source = block ?? {};
+  const finite = (value: unknown): number =>
+    typeof value === 'number' && Number.isFinite(value) ? value : 0;
+
+  switch (event) {
+    case 'block':
+      return { staminaAdd: finite(source.onBlockStamina), hypeAdd: 0, comboShield: false };
+    case 'rest':
+      return { staminaAdd: finite(source.restStaminaAdd), hypeAdd: 0, comboShield: false };
+    case 'taunt':
+    case 'crit':
+      return { staminaAdd: 0, hypeAdd: finite(source.hypeAdd), comboShield: false };
+    case 'miss':
+      return { staminaAdd: 0, hypeAdd: 0, comboShield: source.comboShield === true };
   }
 }
 

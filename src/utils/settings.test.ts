@@ -442,7 +442,9 @@ describe('E. The wiring — every consumer, read out of the shipped sources', ()
   test('the duel orbits at the sensitivity and buzzes exactly twice', () => {
     const duel = source('src/components/duel/DuelScene.tsx');
     expect(duel).toContain('getCameraSensitivityScale(useSettings())');
-    expect(duel.match(/vibrate\(/g)?.length).toBe(2);
+    // D-2 — a third site: a landed strike on the crouching beast is the player's
+    // blade landing, so it takes the same hit haptic (two hit sites, one defeat).
+    expect(duel.match(/vibrate\(/g)?.length).toBe(3);
     expect(duel).toContain('vibrate(HAPTIC_HIT_LANDED_MS)');
     expect(duel).toContain('vibrate(HAPTIC_DEFEAT_PATTERN)');
     expect(duel).toContain('if (isActorPlayer) vibrate(HAPTIC_HIT_LANDED_MS);');
@@ -475,7 +477,10 @@ describe('E. The wiring — every consumer, read out of the shipped sources', ()
     // text-[Npx] rule below the 10px floor.
     expect(modal).toContain('min-h-[48px]');
     expect(modal).toContain('min-h-[56px]');
-    expect(modal).toContain('w-12 h-12');
+    // UI-1 moved the header ✕ onto the shared close class, which is the same 48×48
+    // target this assertion has always pinned: the shape lives in one place now.
+    expect(modal).toContain('CLOSE_BUTTON_CLASS');
+    expect(source('src/components/ui/controlStyles.ts')).toContain('w-12 h-12');
     expect(modal).toContain("width: 'min(940px, 94vw)'");
     expect(modal).toMatch(/sm:flex-row/);
     expect(modalCode.match(/text-\[\d+px\]/g) ?? []).toEqual([]);

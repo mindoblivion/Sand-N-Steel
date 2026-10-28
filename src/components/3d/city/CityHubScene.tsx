@@ -37,6 +37,7 @@ import { GladiatorMesh } from '../GladiatorMesh';
 import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
 import { CORE_3D_ASSETS } from '../../../utils/preloadAssets';
 import { Banner, SteamParticles, ForgeSmoke, SandDrift } from './EnvironmentalMotion';
+import { CLOSE_BUTTON_CLASS } from '../../ui/controlStyles';
 // SF-1 — the city's picture budget: the tier table and the adaptive engine that
 // steps inside a tier's DPR band, plus the one settings reader the drifting dust
 // obeys (the preset itself arrives through `useSettings`).
@@ -46,6 +47,15 @@ import type { QualityPreset } from '../../../services/settings';
 import { useSettings } from '../../../hooks/useSettings';
 // Phase C-8.70B — the East Circus District's read-only pre-race entry panel.
 import { PreRacePanel } from '../../hub/PreRacePanel';
+// S5 — the two cures: the Medical House's price and the inn's rest are the injury
+// module's own numbers, and this screen writes no save (App owns the transaction).
+import {
+  getTreatmentEligibility,
+  injuryBannerLine,
+  resolveActiveInjury,
+  treatmentPrice,
+  type TreatmentService,
+} from '../../../utils/injury';
 
 // Preload 3D models for instant, seamless city rendering
 try {
@@ -62,12 +72,21 @@ import {
   InteractiveLocation,
 } from '../../../utils/cityCollisions';
 import { getTerrainY } from '../../../utils/terrainHeight';
+import { applyDeadZone } from '../../../utils/joystickDeadZone';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
 import type { StorefrontId } from '../../../data/shops';
 import { calculateTotalStats } from '../../../services/storage';
 import { sounds } from '../../../audio/soundEffects';
+import { getConsumableCount, ownedConsumables } from '../../../utils/consumables';
+// S7 — the tavern's rumour list and its one price.  Information only: nothing
+// in the combat path reads this module.
+import {
+  getIntelPurchaseEligibility,
+  intelTargets,
+  INTEL_PRICE,
+} from '../../../utils/intel';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../../ui/ThreeComponentErrorBoundary';
@@ -88,6 +107,7 @@ import {
   Volume2,
   VolumeX,
   Compass,
+  FlaskConical,
   MapPin,
   ChevronRight,
   Menu,
@@ -173,7 +193,50 @@ interface CityHubSceneProps {
   movementLocked?: boolean;
   /** The herald's pointer, when the herald is pointing somewhere (see `utils/cityHerald`). */
   heraldAim?: HeraldAim | null;
+  /**
+   * S5 — the two cures. `App` owns the transaction and the save write; this screen
+   * only reports which service the player chose. Each answers whether the gold
+   * actually changed hands, so a refusal leaves the panel open on its own reason.
+   */
+  onTreatInjury: () => boolean;
+  onRestAtInn: () => boolean;
+  /**
+   * S6 — one-tap use of an owned consumable from the treatment panel. `App` owns
+   * the transaction and the save write; the answer says whether it applied.
+   */
+  onUseConsumable?: (itemId: string) => boolean;
+  /**
+   * S7 — one tavern rumour, at the tavern's own price. `App` owns the transaction
+   * and the save write; the answer says whether the gold changed hands, so a
+   * refusal leaves the panel open on its own reason. INTEL IS INFORMATION ONLY.
+   */
+  onBuyIntel: (opponentId: string) => boolean;
 }
+
+/**
+ * S5 — the two places that sell a cure, and the copy each one speaks.  `notice` is
+ * the flavour line the hub has always printed for the place when the player is not
+ * hurt (unchanged, so a healthy visit reads exactly as it did); `service` is the one
+ * line the panel adds above its price and its single button.
+ */
+const TREATMENT_SITES: Record<
+  TreatmentService,
+  { title: string; notice: string; service: string; action: string }
+> = {
+  medical_house: {
+    title: 'Arena Medical House',
+    notice:
+      "Arena Medical House: Bandages, ceramic vessels, and surgical tools are prepared for the arena's wounded.",
+    service: 'The medicus cleans, stitches and binds the wound — and takes it off you entirely.',
+    action: 'Treat Wound',
+  },
+  caravanserai: {
+    title: 'Caravanserai Inn',
+    notice: 'Caravanserai Inn: Rest & Quarters. Nothing to trade here yet.',
+    service: 'A night under the arches, broth and a clean bed: two fights come off the wound.',
+    action: 'Rest a Night',
+  },
+};
 
 export const CityHubScene: React.FC<CityHubSceneProps> = ({
   playerProfile,
@@ -191,6 +254,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   lightProfile,
   movementLocked,
   heraldAim,
+  onTreatInjury,
+  onRestAtInn,
+  onUseConsumable,
+  onBuyIntel,
 }) => {
   // The rig this screen is drawn under. `resolveCityLightProfile` answers module
   // constants, so `lights` keeps its reference across re-renders and the Environment
@@ -259,6 +326,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // Phase C-8.70B — the East Circus District's race entry panel.  Local view
   // state only: opening it and leaving it change no game data.
   const [showRaceEntry, setShowRaceEntry] = useState(false);
+  // S5 — which treatment panel is up (null = none).  Local view state only: the
+  // transaction and its save belong to `App`.
+  const [treatmentPanel, setTreatmentPanel] = useState<TreatmentService | null>(null);
+  // S7 — the Golden Palm Tavern's rumour panel.  Local view state only: the
+  // purchase and its save belong to `App`.
+  const [intelPanel, setIntelPanel] = useState(false);
 
   /**
    * SF-1 — the quality preset arrives as a setting, not as a prop: the panel writes
@@ -384,15 +457,17 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       );
       if (target) onEnterDuel(target.opponent);
       else onOpenTab('tournament');
+    } else if (nearbyLoc.id === 'tavern') {
+      // S7 — the tavern sells information: the panel lists every tournament
+      // opponent the player has not yet bought a rumour on.
+      setIntelPanel(true);
     } else if (nearbyLoc.tabKey) {
       onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
       // Elegant immersive fallback notification for locations with no immediate tab key
-      if (nearbyLoc.id === 'doctore_house') {
-        setStableNotice(
-          "Doctore Tactical House: Chief Doctore is currently supervising advanced conditioning. Train hard, fight well, and Rome will learn your name."
-        );
-      } else if (nearbyLoc.id === 'shrine_temple') {
+      // (STORY-2: the Doctore House now carries `tabKey: 'training'`, so it opens
+      // the ludus rather than falling through to a notice.)
+      if (nearbyLoc.id === 'shrine_temple') {
         setStableNotice(
           "Shrine of Fortuna: You offer a quiet prayer at the ancient shrine. The sacred precinct remains still and watchful."
         );
@@ -404,10 +479,17 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         setStableNotice(
           "Veteran Gladiator Hall: Old trophies and worn shields line the walls, honoring fighters who survived the arena."
         );
-      } else if (nearbyLoc.id === 'arena_medical_house') {
-        setStableNotice(
-          "Arena Medical House: Bandages, ceramic vessels, and surgical tools are prepared for the arena's wounded."
-        );
+      } else if (nearbyLoc.id === 'arena_medical_house' || nearbyLoc.id === 'caravanserai') {
+        // S5 — the two treatment sites.  A live injury opens the panel (a service
+        // with a price and one button); a healthy visit keeps the flavour notice the
+        // hub has always printed, with no buttons at all.
+        const service: TreatmentService =
+          nearbyLoc.id === 'arena_medical_house' ? 'medical_house' : 'caravanserai';
+        if (resolveActiveInjury(playerProfile.injury)) {
+          setTreatmentPanel(service);
+        } else {
+          setStableNotice(TREATMENT_SITES[service].notice);
+        }
       } else {
         // Phase C-8.66B: the stable no longer falls through to this branch — its
         // interaction opens the Chariot Workshop through the gear tab's own
@@ -425,6 +507,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     onEnterDuel,
     playerProfile.currentTier,
     playerProfile.defeatedOpponentIds,
+    playerProfile.injury,
     onOpenTab,
   ]);
 
@@ -456,12 +539,50 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
+    // A presented panel is up: E/Space and the action button are its own.
+    if (treatmentPanel || intelPanel) return;
     if (nearbyLoc) {
       handleInteract();
     } else {
       handleAttack();
     }
-  }, [nearbyLoc, handleInteract, handleAttack]);
+  }, [nearbyLoc, handleInteract, handleAttack, treatmentPanel, intelPanel]);
+
+  /**
+   * S5 — one visit.  The transaction and its save write live in `App`; this screen
+   * only reports the choice, and a refusal (no gold) leaves the panel up on its own
+   * reason.  The panel then re-renders from the profile `App` handed back.
+   */
+  const handleTreatment = useCallback(
+    (service: TreatmentService) => {
+      sounds.playClick();
+      const applied = service === 'medical_house' ? onTreatInjury() : onRestAtInn();
+      if (applied) setStableNotice(null);
+    },
+    [onRestAtInn, onTreatInjury]
+  );
+
+  /**
+   * S7 — one rumour.  The transaction and the save write live in `App`; a refusal
+   * (the purse cannot cover it, or the opponent is already known) leaves the panel
+   * up, and the list re-renders from the profile `App` handed back.
+   */
+  const handleBuyIntel = useCallback(
+    (opponentId: string) => {
+      sounds.playClick();
+      onBuyIntel(opponentId);
+    },
+    [onBuyIntel]
+  );
+
+  /** S6 — one consumable from the satchel; the panel re-renders from the profile. */
+  const handleUseConsumable = useCallback(
+    (itemId: string) => {
+      sounds.playClick();
+      onUseConsumable?.(itemId);
+    },
+    [onUseConsumable]
+  );
 
   // Cross-platform PC Keyboard input listeners
   useEffect(() => {
@@ -471,6 +592,17 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       if (inputLockedRef.current) return;
       const code = e.code;
       const key = e.key.toLowerCase();
+
+      // S5 / S7 — a presented panel owns the screen: Esc closes it, and no other
+      // key (no movement, no interaction) is read while it is up.
+      if (treatmentPanel) {
+        if (code === 'Escape' || key === 'escape') setTreatmentPanel(null);
+        return;
+      }
+      if (intelPanel) {
+        if (code === 'Escape' || key === 'escape') setIntelPanel(false);
+        return;
+      }
 
       if (code === 'KeyW' || key === 'w' || code === 'ArrowUp') keysPressed.current['w'] = true;
       if (code === 'KeyS' || key === 's' || code === 'ArrowDown') keysPressed.current['s'] = true;
@@ -499,7 +631,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel]);
 
   // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
@@ -531,11 +663,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
         setKnobPos({ x: dx, y: dy });
 
-        // Normalize direction (Left is negative x, Right is positive x)
-        touchVectorRef.current = {
-          x: dx / maxDist,
-          z: dy / maxDist,
-        };
+        // Normalize direction (Left is negative x, Right is positive x), then read it
+        // through the joystick's radial dead zone: a resting thumb's small offset is no
+        // input, and anything past the dead zone is rescaled so there is no jump at the
+        // boundary (see utils/joystickDeadZone.ts for the constant to tune).
+        const vec = applyDeadZone(dx / maxDist, dy / maxDist);
+        touchVectorRef.current = { x: vec.x, z: vec.z };
         break;
       }
     }
@@ -683,6 +816,31 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     () => (heraldAim ? HUB_LOCATIONS.find((location) => location.id === heraldAim.id) ?? null : null),
     [heraldAim]
   );
+
+  /**
+   * S5 — the treatment panel's own reading of the profile: which place is open, the
+   * wound it would treat and whether the purse covers it.  All derived, so `App`'s
+   * write is the only thing that ever changes them.
+   */
+  const treatmentSite = treatmentPanel ? TREATMENT_SITES[treatmentPanel] : null;
+  const treatmentInjury = resolveActiveInjury(playerProfile.injury);
+  const treatmentEligibility = treatmentPanel
+    ? getTreatmentEligibility(playerProfile, treatmentPanel)
+    : null;
+  /**
+   * S6 — what the panel can offer from the player's own satchel. Empty when the
+   * panel is closed, when there is no live wound, or when nothing is carried, so a
+   * use button never appears without something to use it on.
+   */
+  const treatmentConsumables =
+    treatmentPanel && treatmentInjury ? ownedConsumables(playerProfile) : [];
+  /**
+   * S7 — what the tavern can still sell: every tournament opponent the player has
+   * not bought a rumour on. Empty when the panel is closed, so the surface adds
+   * nothing to any other interaction.
+   */
+  const tavernTargets = intelPanel ? intelTargets(playerProfile) : [];
+  const tavernPurseShort = intelPanel && playerProfile.gold < INTEL_PRICE;
 
   // Phase 26.1: Memoized so it doesn't change reference on unrelated
   // re-renders (e.g. setKnobPos). Position/rotation are overridden by
@@ -919,8 +1077,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         <div className="flex items-center gap-2 bg-neutral-950/85 border border-amber-600/50 p-2 sm:p-3 rounded-2xl backdrop-blur-md shadow-2xl">
           <button
             onClick={() => setShowNavDrawer(!showNavDrawer)}
-            className="p-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer active:scale-95 transition-all"
-            title="City Map & Navigation"
+            aria-label="City Map & Fast Travel"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer active:scale-95 transition-all"
+            title="City Map & Fast Travel"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -1001,23 +1160,25 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
           <button
             onClick={onOpenDriveSync}
-            className="p-2.5 rounded-2xl bg-neutral-950/85 border border-cyan-500/50 text-cyan-300 hover:text-cyan-100 backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all"
+            className="min-h-[48px] min-w-[48px] px-2.5 rounded-2xl bg-neutral-950/85 border border-cyan-500/50 text-cyan-300 hover:text-cyan-100 backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all flex items-center justify-center gap-1.5 font-serif font-bold text-xs uppercase tracking-wider"
             title="Google Drive Cloud Saves"
           >
             <Cloud className="w-4 h-4" />
+            <span>Drive</span>
           </button>
 
           <button
             onClick={onToggleMute}
-            className="p-2.5 rounded-2xl bg-neutral-950/85 border border-amber-600/50 text-amber-300 hover:text-amber-100 backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all"
+            className="min-h-[48px] min-w-[48px] px-2.5 rounded-2xl bg-neutral-950/85 border border-amber-600/50 text-amber-300 hover:text-amber-100 backdrop-blur-md cursor-pointer active:scale-95 shadow-xl transition-all flex items-center justify-center gap-1.5 font-serif font-bold text-xs uppercase tracking-wider"
             title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
+            <span>{isMuted ? 'Unmute' : 'Mute'}</span>
           </button>
 
           <button
             onClick={onReturnToMainMenu}
-            className="px-3 py-2 rounded-2xl bg-neutral-900/90 border border-neutral-700 hover:border-amber-500/60 text-neutral-300 hover:text-amber-200 text-xs font-serif font-bold backdrop-blur-md cursor-pointer active:scale-95 transition-all shadow-xl"
+            className="min-h-[48px] px-3 py-2 rounded-2xl bg-neutral-900/90 border border-neutral-700 hover:border-amber-500/60 text-neutral-300 hover:text-amber-200 text-xs font-serif font-bold backdrop-blur-md cursor-pointer active:scale-95 transition-all shadow-xl"
           >
             Main Menu
           </button>
@@ -1052,6 +1213,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-200/90"></div>
               </div>
             </div>
+            {/* UI-1 (B-15) — the stick's own caption, styled like the hub's micro-labels,
+                so the control is never an unlabelled shape under a thumb. */}
+            <span className="mt-1 font-mono text-[10px] uppercase tracking-wider text-amber-300/80">
+              Move
+            </span>
           </div>
 
           {/* 2-IN-1 ATTACK / INTERACT ACTION BUTTON */}
@@ -1117,10 +1283,167 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             </div>
             <button
               onClick={() => setStableNotice(null)}
-              className="text-neutral-400 hover:text-amber-200 font-bold text-sm cursor-pointer select-none"
+              aria-label="Dismiss announcement"
+              className={CLOSE_BUTTON_CLASS}
             >
               ✕
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* S5 — THE TREATMENT PANEL: the Medical House's cure and the inn's rest.  The
+          same surface as the notice above, but its one button is the player's way to
+          spend the gold; the transaction itself lives in `App`, so this screen writes
+          no save.  A refusal keeps the panel up and states its own reason. */}
+      {treatmentPanel && treatmentSite && (
+        <div
+          data-treatment-panel={treatmentPanel}
+          className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
+        >
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex-1">
+              <h4 className="font-serif font-black text-amber-200 text-xs sm:text-sm uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <Compass className="w-4 h-4 text-amber-400" />
+                <span>{treatmentSite.title}</span>
+              </h4>
+              <p className="text-[11px] sm:text-xs text-neutral-300 font-sans leading-relaxed">
+                {treatmentSite.service}
+              </p>
+              <p
+                data-injury={treatmentInjury ? treatmentInjury.fightsRemaining : 'none'}
+                className="mt-2 text-[11px] sm:text-xs font-mono text-amber-300"
+              >
+                {treatmentInjury ? injuryBannerLine(treatmentInjury) : 'The wound is closed.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setTreatmentPanel(null)}
+              aria-label="Close treatment panel"
+              className={CLOSE_BUTTON_CLASS}
+            >
+              ✕
+            </button>
+          </div>
+
+          {treatmentInjury && (
+            <div className="mt-3 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => handleTreatment(treatmentPanel)}
+                disabled={!treatmentEligibility?.ok}
+                className="w-full min-h-[48px] rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg border-2 border-amber-200 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Coins className="w-4 h-4" />
+                <span>
+                  {treatmentSite.action} — {treatmentPrice(treatmentPanel)}g
+                </span>
+              </button>
+              {treatmentEligibility && !treatmentEligibility.ok && (
+                <p
+                  data-treatment-refusal={treatmentEligibility.reason}
+                  className="text-[10px] sm:text-[11px] font-mono text-red-300"
+                >
+                  Not enough gold. You carry {playerProfile.gold}g.
+                </p>
+              )}
+
+              {/* S6 — the satchel's own remedies, offered on the same surface as the
+                  services above: one tap spends one item and the wound changes. */}
+              {treatmentConsumables.length > 0 && (
+                <div className="flex flex-col gap-2 pt-2 border-t border-amber-800/40">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400/80">
+                    From your satchel
+                  </span>
+                  {treatmentConsumables.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      data-use-consumable={item.id}
+                      onClick={() => handleUseConsumable(item.id)}
+                      className="w-full min-h-[42px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-amber-100 font-serif font-bold text-[11px] sm:text-xs uppercase tracking-wider border border-amber-600/70 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <FlaskConical className="w-3.5 h-3.5 text-amber-400" />
+                      <span>
+                        Use {item.name} ({getConsumableCount(playerProfile, item.id)})
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* S7 — THE TAVERN RUMOUR PANEL: the Golden Palm sells information.  The same
+          surface as the notice and the treatment panel, and its copy says plainly
+          that a rumour changes nothing a fight computes.  The transaction lives in
+          `App`, so this screen writes no save. */}
+      {intelPanel && (
+        <div
+          data-intel-panel
+          className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
+        >
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex-1">
+              <h4 className="font-serif font-black text-amber-200 text-xs sm:text-sm uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <Beer className="w-4 h-4 text-amber-400" />
+                <span>The Golden Palm Tavern</span>
+              </h4>
+              <p className="text-[11px] sm:text-xs text-neutral-300 font-sans leading-relaxed">
+                A coin buys a word. The keeper knows the names on the sand — how they fight,
+                what they carry, and what they do when it turns against them.
+              </p>
+              <p className="mt-2 text-[10px] sm:text-[11px] font-mono text-amber-300/90">
+                Information only — a rumour changes no stat, no formula and no reward.
+              </p>
+            </div>
+            <button
+              onClick={() => setIntelPanel(false)}
+              aria-label="Close tavern panel"
+              className={CLOSE_BUTTON_CLASS}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-2 max-h-[52vh] overflow-y-auto pr-1">
+            {tavernTargets.length === 0 ? (
+              <p className="text-[11px] sm:text-xs font-mono text-neutral-400">
+                You have bought every rumour the tavern keeps.
+              </p>
+            ) : (
+              tavernTargets.map((opponent) => {
+                const eligibility = getIntelPurchaseEligibility(playerProfile, opponent.id);
+                return (
+                  <button
+                    key={opponent.id}
+                    type="button"
+                    data-buy-intel={opponent.id}
+                    onClick={() => handleBuyIntel(opponent.id)}
+                    disabled={!eligibility.ok}
+                    className="w-full min-h-[48px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-amber-100 font-serif font-bold text-[11px] sm:text-xs uppercase tracking-wider border border-amber-600/70 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-between gap-2 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Coins className="w-3.5 h-3.5 text-amber-400" />
+                      <span>
+                        {opponent.name} — {opponent.isBoss ? 'Boss' : `Tier ${opponent.tier}`}
+                      </span>
+                    </span>
+                    <span className="font-mono text-amber-300">{INTEL_PRICE}g</span>
+                  </button>
+                );
+              })
+            )}
+            {tavernPurseShort && tavernTargets.length > 0 && (
+              <p
+                data-intel-refusal="insufficient-gold"
+                className="text-[10px] sm:text-[11px] font-mono text-red-300"
+              >
+                Not enough gold. You carry {playerProfile.gold}g.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -1150,7 +1473,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                   sounds.playClick();
                   onOpenTab(item.id as 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library');
                 }}
-                className="flex-1 min-w-[54px] py-1.5 sm:py-2 px-1 rounded-xl hover:bg-amber-500/20 text-neutral-300 hover:text-amber-200 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all active:scale-95 cursor-pointer"
+                className="flex-1 min-w-[54px] min-h-[48px] py-1.5 sm:py-2 px-1 rounded-xl hover:bg-amber-500/20 text-neutral-300 hover:text-amber-200 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all active:scale-95 cursor-pointer"
               >
                 <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${item.color}`} />
                 <span className="text-[10px] sm:text-[11px] font-serif font-bold tracking-tight truncate">
@@ -1169,11 +1492,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-serif font-black text-amber-200 text-lg flex items-center gap-2">
                 <Compass className="w-5 h-5 text-amber-400" />
-                <span>City Map &amp; Settings</span>
+                <span>City Map &amp; Fast Travel</span>
               </h3>
               <button
                 onClick={() => setShowNavDrawer(false)}
-                className="p-1 rounded-lg text-neutral-400 hover:text-amber-200 cursor-pointer"
+                aria-label="Close city map"
+                className={CLOSE_BUTTON_CLASS}
               >
                 ✕
               </button>

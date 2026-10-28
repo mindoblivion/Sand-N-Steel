@@ -10,6 +10,7 @@ import {
   getRacingSelectionEligibility,
   resolveRacingState,
 } from '../../utils/racingProgression';
+import { StablePanel } from './StablePanel';
 
 interface RacingConfigSectionProps {
   profile: PlayerProfile;
@@ -17,6 +18,13 @@ interface RacingConfigSectionProps {
   onBuyConfig?: (horses: ChariotTeamSize) => void;
   /** Select an unlocked team.  App wires this to `selectRacingConfig` + `saveProfile`. */
   onSelectConfig?: (horses: ChariotTeamSize) => void;
+  /**
+   * P6 — the Imperial Stable panel's two actions.  App wires them to
+   * `purchaseStableQuality` / `purchaseStableConditioning` and the existing
+   * save path; this section computes no price and no eligibility of its own.
+   */
+  onBuyStableQuality?: (grade: number) => void;
+  onBuyStableConditioning?: (level: number) => void;
 }
 
 /**
@@ -53,6 +61,8 @@ export const RacingConfigSection: React.FC<RacingConfigSectionProps> = ({
   profile,
   onBuyConfig,
   onSelectConfig,
+  onBuyStableQuality,
+  onBuyStableConditioning,
 }) => {
   const racing = resolveRacingState(profile);
 
@@ -149,7 +159,7 @@ export const RacingConfigSection: React.FC<RacingConfigSectionProps> = ({
             onClick={() => handleSelect(config)}
             disabled={isSelected}
             title={isSelected ? `${config.name} is already your selected team` : `Select ${config.name}`}
-            className={`w-full py-2.5 px-2 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+            className={`w-full min-h-[48px] py-2.5 px-2 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
               isSelected
                 ? 'bg-green-800 text-green-200 cursor-default'
                 : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 cursor-pointer active:scale-95'
@@ -159,24 +169,36 @@ export const RacingConfigSection: React.FC<RacingConfigSectionProps> = ({
             <span>{isSelected ? 'Selected team' : 'Select team'}</span>
           </button>
         ) : (
-          <button
-            data-racing-action="buy"
-            onClick={() => handleBuy(config)}
-            disabled={!purchase.ok}
-            title={
-              purchase.ok
-                ? `Buy the ${config.name} team for ${config.price} gold`
-                : describeRacingRejection(purchase.reason)
-            }
-            className={`w-full py-2.5 px-2 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-              purchase.ok
-                ? 'bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-neutral-950 border border-yellow-300 cursor-pointer active:scale-95'
-                : 'bg-neutral-900 text-neutral-600 border border-neutral-800 cursor-not-allowed'
-            }`}
-          >
-            <ShoppingCart className="w-3.5 h-3.5" />
-            <span>{`Buy (${config.price})`}</span>
-          </button>
+          <>
+            <button
+              data-racing-action="buy"
+              onClick={() => handleBuy(config)}
+              disabled={!purchase.ok}
+              title={
+                purchase.ok
+                  ? `Buy the ${config.name} team for ${config.price} gold`
+                  : describeRacingRejection(purchase.reason)
+              }
+              className={`w-full min-h-[48px] py-2.5 px-2 rounded-2xl font-serif font-black text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                purchase.ok
+                  ? 'bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-500 hover:to-amber-500 text-neutral-950 border border-yellow-300 cursor-pointer active:scale-95'
+                  : 'bg-neutral-900 text-neutral-600 border border-neutral-800 cursor-not-allowed'
+              }`}
+            >
+              <ShoppingCart className="w-3.5 h-3.5" />
+              <span>{`Buy (${config.price})`}</span>
+            </button>
+            {/* UI-1 (B-17) — a touch player never sees a title attribute, so the
+                rejection is printed under the disabled control as well. */}
+            {!purchase.ok && (
+              <p
+                data-racing-rejection="1"
+                className="text-[11px] font-serif leading-snug text-red-300"
+              >
+                {describeRacingRejection(purchase.reason)}
+              </p>
+            )}
+          </>
         )}
       </div>
     );
@@ -212,6 +234,13 @@ export const RacingConfigSection: React.FC<RacingConfigSectionProps> = ({
 
       {/* TEAMS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{RACING_CONFIGS.map(renderCard)}</div>
+
+      {/* P6 — the stable that trains the team: quality grade and conditioning. */}
+      <StablePanel
+        profile={profile}
+        onBuyQuality={onBuyStableQuality}
+        onBuyConditioning={onBuyStableConditioning}
+      />
     </div>
   );
 };

@@ -11,15 +11,26 @@
  *     (no `chariot` field), a partial loadout or an id that no longer exists in
  *     the catalogue all resolve to the standard chariot instead of throwing.
  *
- * The persistence path is deliberately the existing one: `profile.gold` and the
- * existing `saveProfile()` / `PROFILE_STORAGE_KEY`.  There is no second currency,
- * no second storage key and no parallel purchase system.
+ * The persistence path is deliberately the existing one: the profile's own
+ * `gold` (or, for the one fame-priced part, its own `fame`) and the existing
+ * `saveProfile()` / `PROFILE_STORAGE_KEY`.  There is no second storage key and
+ * no parallel purchase system: `currency` on the catalogue row is the design's
+ * single deliberate extension of the purchase pattern, and a part that declares
+ * none is gold-priced and behaves exactly as it always has.
  */
 
-import { PlayerProfile, ChariotLoadout, ChariotSlot } from '../types/game';
 import {
+  PlayerProfile,
+  ChariotLoadout,
+  ChariotSlot,
+  ChariotEquippedResolved,
+} from '../types/game';
+import {
+  CHARIOT_SLOTS,
+  DEFAULT_CHARIOT_PART_IDS,
   DEFAULT_CHARIOT_WHEELS,
   DEFAULT_CHARIOT_FINISH,
+  chariotPartCurrency,
   getChariotPart,
 } from '../data/chariotParts';
 
@@ -30,11 +41,13 @@ export type ChariotRejectionReason =
   | 'slot-mismatch'
   | 'already-owned'
   | 'insufficient-gold'
+  | 'insufficient-fame'
   | 'not-owned';
 
 export type ChariotLoadoutState = {
   owned: string[];
-  equipped: { wheels: string; finish: string };
+  /** P3 — one resolved part id for EVERY slot, filled in at read time. */
+  equipped: ChariotEquippedResolved;
 };
 
 export type ChariotPurchaseResult =
@@ -49,13 +62,13 @@ export type ChariotEquipResult =
 export function defaultChariotLoadout(): ChariotLoadoutState {
   return {
     owned: [DEFAULT_CHARIOT_WHEELS, DEFAULT_CHARIOT_FINISH],
-    equipped: { wheels: DEFAULT_CHARIOT_WHEELS, finish: DEFAULT_CHARIOT_FINISH },
+    equipped: { ...DEFAULT_CHARIOT_PART_IDS },
   };
 }
 
 /** The slot's stock part id — the fallback a missing or stale entry resolves to. */
 function defaultPartId(slot: ChariotSlot): string {
-  return slot === 'wheels' ? DEFAULT_CHARIOT_WHEELS : DEFAULT_CHARIOT_FINISH;
+  return DEFAULT_CHARIOT_PART_IDS[slot];
 }
 
 /**
@@ -67,8 +80,14 @@ function defaultPartId(slot: ChariotSlot): string {
  *   • ids the catalogue no longer knows are dropped from `owned`;
  *   • a slot whose equipped entry is missing, unknown or unowned falls back to
  *     that slot's stock part;
- *   • the two slot defaults are always present in `owned`, and no duplicate
- *     survives.
+ *   • the two original slot defaults (wheels, finish) are always present in
+ *     `owned`, and no duplicate survives;
+ *   • P3 — `equipped` carries EVERY catalogue slot.  A slot the stored record
+ *     does not carry (every legacy save has only wheels/finish) resolves to its
+ *     stock part at read time.  Resolution is read-only: the stored record is
+ *     never mutated and nothing is written back, so the saved shape is unchanged
+ *     and `owned` is untouched by the newer slots (their stock parts are free
+ *     and implicit, never listed).
  */
 export function resolveChariotLoadout(
   profile: PlayerProfile | null | undefined
@@ -81,14 +100,18 @@ export function resolveChariotLoadout(
     if (typeof id === 'string' && getChariotPart(id)) owned.add(id);
   }
 
-  const equipped = {
-    wheels: resolveEquippedId(stored.equipped?.wheels, 'wheels', owned),
-    finish: resolveEquippedId(stored.equipped?.finish, 'finish', owned),
-  };
+  // The stored record may carry only the original two slots (or be partial or
+  // null), so read it through an index that tolerates absent keys.
+  const storedIds = (stored.equipped ?? {}) as Partial<Record<ChariotSlot, string>>;
+  const equipped = {} as ChariotEquippedResolved;
+  for (const slot of CHARIOT_SLOTS) {
+    equipped[slot] = resolveEquippedId(storedIds[slot], slot, owned);
+  }
 
   // The stock parts are always owned, so an equipped id inside `owned` is
   // always legal; re-adding here keeps `owned` and `equipped` consistent even
-  // if a save was hand-edited.
+  // if a save was hand-edited.  Only the original two slots are re-added:
+  // the P3 stock parts are implicit and never listed in `owned`.
   owned.add(equipped.wheels);
   owned.add(equipped.finish);
 
@@ -105,13 +128,48 @@ function resolveEquippedId(
   return part.id;
 }
 
-/** Does the profile own this part?  Unknown ids are not owned; stock parts always are. */
+/**
+ * The STORED form of a resolved loadout's `equipped` block.
+ *
+ * P6 widened this from P3's wheels + finish only: now that the workshop sells
+ * the axle, harness and chassis slots, a non-stock fit in ANY slot has to
+ * survive a save.  The rule is stated once, here:
+ *
+ *   • a slot whose equipped part is NOT its stock part is persisted;
+ *   • a slot sitting on its stock part is omitted — the resolver restores it at
+ *     read (`DEFAULT_CHARIOT_PART_IDS`), so nothing is lost;
+ *   • a legacy wheels/finish-only record therefore reads exactly as it did, and
+ *     a stock chariot still writes no `equipped` entry at all.
+ *
+ * The property P3 cared about is preserved and widened: whatever this writes
+ * round-trips through `resolveChariotLoadout` to the same resolved loadout.
+ */
+function storedEquipped(resolved: ChariotEquippedResolved): ChariotLoadout['equipped'] {
+  const stored: ChariotLoadout['equipped'] = {};
+  for (const slot of CHARIOT_SLOTS) {
+    const partId = resolved[slot];
+    if (partId && partId !== DEFAULT_CHARIOT_PART_IDS[slot]) stored[slot] = partId;
+  }
+  return stored;
+}
+
+/**
+ * Does the profile own this part?  Unknown ids are not owned; EVERY slot's stock
+ * part always is.
+ *
+ * P3 kept `owned` to the two original stock ids, and the newer slots' stock
+ * parts are implicit — never listed in a save.  P6's workshop renders all five
+ * slots, so ownership is read off the catalogue here (`defaultOwned`) instead:
+ * the stock axle, harness and tub are "included with every chariot" and must be
+ * equippable back to, while the stored `owned` array keeps its P3 meaning.
+ */
 export function ownsChariotPart(
   profile: PlayerProfile | null | undefined,
   partId: string
 ): boolean {
   const part = getChariotPart(partId);
   if (!part) return false;
+  if (part.defaultOwned) return true;
   return resolveChariotLoadout(profile).owned.includes(part.id);
 }
 
@@ -145,6 +203,18 @@ export function getChariotPurchaseEligibility(
   const part = getChariotPart(partId);
   if (!part) return { ok: false, reason: 'unknown-part' };
   if (ownsChariotPart(profile, part.id)) return { ok: false, reason: 'already-owned' };
+
+  if (chariotPartCurrency(part) === 'fame') {
+    // Fame is the profile's own existing field (the Triumphs' currency).  A
+    // missing or non-finite balance can afford nothing, so a malformed save can
+    // never produce a NaN balance by subtraction.
+    const fame = profile.fame;
+    if (typeof fame !== 'number' || !Number.isFinite(fame) || fame < part.price) {
+      return { ok: false, reason: 'insufficient-fame' };
+    }
+    return { ok: true };
+  }
+
   if (profile.gold < part.price) return { ok: false, reason: 'insufficient-gold' };
   return { ok: true };
 }
@@ -162,11 +232,17 @@ export function getChariotEquipEligibility(
 }
 
 /**
- * Buy a chariot part with the player's existing gold.
+ * Buy a chariot part with the currency its catalogue row declares.
  *
- * Deducts `part.price` exactly once and adds ownership without duplicates.
- * Refuses, with the caller's profile returned unchanged, when there is no
- * profile, the id is unknown, the part is already owned, or gold is short.
+ * A gold-priced part — every shipped part but the Triumph banner set — deducts
+ * `part.price` from `gold` exactly as it always has.  A fame-priced part
+ * deducts the same amount from `profile.fame` and never touches gold: the two
+ * are separate fields, so a fame purchase leaves `gold` byte-identical and a
+ * gold purchase leaves `fame` byte-identical.
+ *
+ * Deducts the price exactly once and adds ownership without duplicates.
+ * Refuses, with no profile returned, when there is no profile, the id is
+ * unknown, the part is already owned, or the part's own currency is short.
  * Equipping is a separate step: a purchase never changes what is equipped.
  */
 export function purchaseChariotPart(
@@ -179,17 +255,21 @@ export function purchaseChariotPart(
 
   const part = getChariotPart(partId)!;
   const loadout = resolveChariotLoadout(profile);
+  const chariot: ChariotLoadout = {
+    owned: [...loadout.owned, part.id],
+    equipped: storedEquipped(loadout.equipped),
+  };
+
+  if (chariotPartCurrency(part) === 'fame') {
+    return {
+      ok: true,
+      profile: { ...profile, fame: profile.fame - part.price, chariot },
+    };
+  }
 
   return {
     ok: true,
-    profile: {
-      ...profile,
-      gold: profile.gold - part.price,
-      chariot: {
-        owned: [...loadout.owned, part.id],
-        equipped: { ...loadout.equipped },
-      },
-    },
+    profile: { ...profile, gold: profile.gold - part.price, chariot },
   };
 }
 
@@ -219,7 +299,7 @@ export function equipChariotPart(
       gold: profile.gold,
       chariot: {
         owned: [...loadout.owned],
-        equipped: { ...loadout.equipped, [part.slot]: part.id },
+        equipped: storedEquipped({ ...loadout.equipped, [part.slot]: part.id }),
       },
     },
   };
@@ -238,6 +318,8 @@ export function describeChariotRejection(reason: ChariotRejectionReason): string
       return 'Already owned — equip it without paying again.';
     case 'insufficient-gold':
       return 'Not enough gold.';
+    case 'insufficient-fame':
+      return 'Not enough fame.';
     case 'not-owned':
       return 'Buy this part before equipping it.';
   }

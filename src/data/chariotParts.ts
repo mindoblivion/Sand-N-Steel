@@ -17,6 +17,12 @@
  * No racing or combat number is derived from it: no racing gameplay consumes
  * chariot stats yet, so every part is presented as a fit or cosmetic upgrade
  * and never as a stat change.
+ *
+ * Currency (P-BANNER): every part is priced in gold by default — a row simply
+ * omits `currency`, which is the shipped purchase path — and the one deliberate
+ * extension is `currency: 'fame'`, spent from the profile's existing `fame`
+ * field.  The Triumph banner set is the only fame-priced row, and the catalogue
+ * suites pin that it stays the only one.
  */
 
 import { ChariotSlot } from '../types/game';
@@ -25,9 +31,35 @@ import { ChariotSlot } from '../types/game';
 export type ChariotWheelVariantKey = 'standard' | 'reinforced';
 
 /** Finish keys.  `stock` keeps the asset's own materials untouched. */
-export type ChariotFinishKey = 'stock' | 'charred' | 'gilded' | 'oxblood';
+export type ChariotFinishKey = 'stock' | 'charred' | 'gilded' | 'oxblood' | 'triumph';
+
+/**
+ * P-BANNER — the currency a part's `price` is denominated in.
+ *
+ * `gold` is the shipped default: a part that names no currency is priced in
+ * gold, and the gold purchase path is the unchanged one.  `fame` is the design's
+ * single deliberate extension of the purchase pattern, spent from the profile's
+ * existing `fame` field (the Triumphs' currency) — never from gold.
+ */
+export type ChariotCurrency = 'gold' | 'fame';
 
 export type ChariotPartClass = 'performance' | 'cosmetic';
+
+/**
+ * P3 — the race effect a racing part will carry, as plain numbers.
+ *
+ * INERT DATA.  Nothing in production reads this: racing Stage 3 owns its
+ * consumption.  It is not a live stat, is not shown by any screen, and no
+ * gameplay number is derived from it in this slice (`chariotPartsSlice.test.ts`
+ * sweeps every non-test module to prove it).  Keys are the design's effect names.
+ */
+export interface ChariotRaceEffect {
+  durability?: number;
+  grip?: number;
+  horseComfort?: number;
+  stability?: number;
+  weight?: number;
+}
 
 /** One finish override: which of the chariot's own material names it recolors, and to what. */
 export interface ChariotFinishOverride {
@@ -44,8 +76,14 @@ export interface ChariotPart {
   slot: ChariotSlot;
   name: string;
   description: string;
-  /** Gold price.  0 = free, and the slot's default is always owned. */
+  /** Price in `currency` — gold unless the part names another.  0 = free, and the slot's default is always owned. */
   price: number;
+  /**
+   * The currency `price` is denominated in.  Absent on every gold-priced part
+   * (the shipped default), so the gold purchase path stays the common one and
+   * behaves exactly as it did before the fame extension.
+   */
+  currency?: ChariotCurrency;
   /**
    * Cosmetic/performance classification.  Purely descriptive: it selects the
    * card's label and nothing else (there is no racing stat to apply it to).
@@ -59,6 +97,8 @@ export interface ChariotPart {
   finish?: ChariotFinishKey;
   /** Set for `finish` parts: what the finish recolors, in catalogue order. */
   overrides?: ChariotFinishOverride[];
+  /** Declared by the P3 axle/harness/chassis parts.  Inert data — see `ChariotRaceEffect`. */
+  raceEffect?: ChariotRaceEffect;
 }
 
 /**
@@ -152,7 +192,125 @@ export const CHARIOT_PARTS: ChariotPart[] = [
       { material: 'Wood', color: '#c9a86b', roughness: 0.65 },
     ],
   },
+
+  // ── Slot: axle (P3 — catalogue data only; no screen sells these yet) ───
+  {
+    id: 'axle_stock',
+    slot: 'axle',
+    name: 'Ash Axle',
+    description: 'The plain ash axle every chariot leaves the bench with.',
+    price: 0,
+    partClass: 'performance',
+    defaultOwned: true,
+    raceEffect: {},
+  },
+  {
+    id: 'axle_ironbound',
+    slot: 'axle',
+    name: 'Iron-Bound Axle',
+    description: 'An ash axle banded in iron where the wheels bear on it.',
+    price: 260,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { durability: 2 },
+  },
+  {
+    id: 'axle_bronzehub',
+    slot: 'axle',
+    name: 'Bronze-Hub Racing Axle',
+    description: 'A racing axle with bronze-sleeved hubs for a truer, longer-lived turn.',
+    price: 520,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { durability: 4, grip: 1 },
+  },
+
+  // ── Slot: harness (P3) ────────────────────────────────────────────────
+  {
+    id: 'harness_stock',
+    slot: 'harness',
+    name: 'Hide Harness',
+    description: 'Plain hide traces and yoke, as issued with the stock chariot.',
+    price: 0,
+    partClass: 'performance',
+    defaultOwned: true,
+    raceEffect: {},
+  },
+  {
+    id: 'harness_padded',
+    slot: 'harness',
+    name: 'Padded Draft Harness',
+    description: 'A draft harness with wool-padded collars to spare the team\'s shoulders.',
+    price: 300,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { horseComfort: 2 },
+  },
+  {
+    id: 'harness_russata',
+    slot: 'harness',
+    name: 'Russata Racing Harness',
+    description: 'A light racing harness in the russata team\'s red leather, cut for a free stride.',
+    price: 580,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { horseComfort: 4 },
+  },
+
+  // ── Slot: chassis (P3) ────────────────────────────────────────────────
+  {
+    id: 'chassis_stock',
+    slot: 'chassis',
+    name: 'Ash Tub',
+    description: 'The stock ash tub the driver stands in.',
+    price: 0,
+    partClass: 'performance',
+    defaultOwned: true,
+    raceEffect: {},
+  },
+  {
+    id: 'chassis_reinforced',
+    slot: 'chassis',
+    name: 'Reinforced War Tub',
+    description: 'A heavier tub with iron-strapped sides, built to take a knock.',
+    price: 350,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { stability: 2 },
+  },
+  {
+    id: 'chassis_lightweight',
+    slot: 'chassis',
+    name: 'Lightweight Racing Tub',
+    description: 'A stripped-back racing tub: less wood, less weight, a livelier ride.',
+    price: 700,
+    partClass: 'performance',
+    defaultOwned: false,
+    raceEffect: { stability: 3, weight: -2 },
+  },
+
+  // ── Slot: finish (P-BANNER — the Triumph banner set, priced in FAME) ───
+  {
+    id: 'finish_triumph_banners',
+    slot: 'finish',
+    name: 'Triumph Banners',
+    description:
+      'The livery a champion carries home from the games: white-dyed cloth over the ash, crimson hide binding and bright gilded fittings. Worn for the procession, never for an edge in the race.',
+    price: 500,
+    currency: 'fame',
+    partClass: 'cosmetic',
+    defaultOwned: false,
+    finish: 'triumph',
+    overrides: [
+      { material: 'Wood', color: '#e8dec4', roughness: 0.9 },
+      { material: 'Leather', color: '#7a1520', roughness: 0.7 },
+      { material: 'Bronze', color: '#e6c169', roughness: 0.2, metalness: 1 },
+    ],
+  },
 ];
+
+/** P-BANNER — the Triumph banner set's stable id, for surfaces that only READ it. */
+export const TRIUMPH_BANNER_PART_ID = 'finish_triumph_banners';
 
 const PARTS_BY_ID: ReadonlyMap<string, ChariotPart> = new Map(
   CHARIOT_PARTS.map((part) => [part.id, part])
@@ -180,5 +338,30 @@ export const chariotPartsBySlot = (slot: ChariotSlot): ChariotPart[] =>
 export const DEFAULT_CHARIOT_WHEELS = getDefaultChariotPart('wheels').id;
 export const DEFAULT_CHARIOT_FINISH = getDefaultChariotPart('finish').id;
 
+/**
+ * P3 — every slot the catalogue sells, in catalogue (first-seen) order.  The
+ * loadout resolver iterates this, so a slot added to the catalogue is resolved
+ * without touching the resolver.
+ */
+export const CHARIOT_SLOTS: readonly ChariotSlot[] = [
+  ...new Set(CHARIOT_PARTS.map((part) => part.slot)),
+];
+
+/**
+ * P3 — the per-slot stock defaults: slot → the id of its one `defaultOwned`
+ * part.  Replaces the old two-way `wheels ? … : …` branch in the resolver.
+ */
+export const DEFAULT_CHARIOT_PART_IDS: Readonly<Record<ChariotSlot, string>> = Object.fromEntries(
+  CHARIOT_SLOTS.map((slot) => [slot, getDefaultChariotPart(slot).id])
+) as Record<ChariotSlot, string>;
+
 /** Does this part id exist in the catalogue? */
 export const isChariotPartId = (id: string): boolean => PARTS_BY_ID.has(id);
+
+/**
+ * P-BANNER — the currency a part is priced in.  Gold is the default and the
+ * only meaning of an absent field, so a part that says nothing keeps the
+ * shipped behaviour.
+ */
+export const chariotPartCurrency = (part: ChariotPart): ChariotCurrency =>
+  part.currency ?? 'gold';

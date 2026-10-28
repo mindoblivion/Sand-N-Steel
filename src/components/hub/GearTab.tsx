@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem, ChariotTeamSize } from '../../types/game';
-import { Layers, Shield, Swords, Check, Wrench } from 'lucide-react';
+import { Layers, Shield, Swords, Check, Wrench, Coins } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
+import { getTemperSellValue } from '../../utils/tempering';
+import { TemperControl } from './TemperControl';
 import { ChariotWorkshopTab } from './ChariotWorkshopTab';
 import { RacingConfigSection } from './RacingConfigSection';
 
@@ -12,6 +14,12 @@ interface GearTabProps {
   profile: PlayerProfile;
   onEquipWeapon: (wpn: WeaponItem) => void;
   onEquipArmor: (armor: ArmorItem) => void;
+  /**
+   * C-2 — the Armory is the one sell surface: a spare card sells for its
+   * `sellPrice` plus 25 % of the temper gold sunk into it (`getTemperSellValue`),
+   * through App's existing sell path.  Optional so the tab works unwired.
+   */
+  onSellItem?: (item: WeaponItem | ArmorItem) => void;
   /** Which subview is open.  Optional so the tab works with no chariot wiring. */
   gearView?: GearView;
   onGearViewChange?: (view: GearView) => void;
@@ -25,7 +33,43 @@ interface GearTabProps {
    */
   onBuyRacingConfig?: (horses: ChariotTeamSize) => void;
   onSelectRacingConfig?: (horses: ChariotTeamSize) => void;
+  /**
+   * P6 — the temper row on every owned card.  `App` runs `purchaseTemper` and
+   * the existing save path; this tab never computes a level, a price or a cap.
+   */
+  onTemperItem?: (itemId: string) => void;
+  /** P6 — the Stable panel inside the workshop subview; `App` runs the P4 helpers. */
+  onBuyStableQuality?: (grade: number) => void;
+  onBuyStableConditioning?: (level: number) => void;
 }
+
+/** C-2 — how long a Sell control stays armed before its confirmation lapses. */
+const SELL_CONFIRM_ARM_MS = 3000;
+
+/**
+ * C-2 — the Armory's two-tap sell control.  The first tap arms it (the label turns
+ * into `Confirm?` and the control goes red), the second sells; a single tap never
+ * removes an item.
+ */
+const SellButton: React.FC<{
+  value: number;
+  armed: boolean;
+  onArm: () => void;
+  onSell: () => void;
+}> = ({ value, armed, onArm, onSell }) => (
+  <button
+    onClick={() => (armed ? onSell() : onArm())}
+    title={armed ? 'Tap again to sell' : `Sell for ${value} Gold`}
+    className={`px-3 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all active:scale-95 border flex items-center gap-1.5 ${
+      armed
+        ? 'bg-red-600 border-red-300 text-white shadow-lg'
+        : 'bg-neutral-950 text-red-300 border-red-900/70 hover:text-red-200 hover:border-red-700'
+    }`}
+  >
+    <Coins className="w-3.5 h-3.5" />
+    <span>{armed ? 'Confirm?' : `Sell for ${value} Gold`}</span>
+  </button>
+);
 
 const GEAR_VIEWS: { key: GearView; label: string; icon: typeof Layers }[] = [
   { key: 'armory', label: 'Gladiator Loadout', icon: Layers },
@@ -36,12 +80,16 @@ export const GearTab: React.FC<GearTabProps> = ({
   profile,
   onEquipWeapon,
   onEquipArmor,
+  onSellItem,
   gearView = 'armory',
   onGearViewChange,
   onBuyChariotPart,
   onEquipChariotPart,
   onBuyRacingConfig,
   onSelectRacingConfig,
+  onTemperItem,
+  onBuyStableQuality,
+  onBuyStableConditioning,
 }) => {
   const currentWeapon = profile.equipped.weapon;
   const currentHelm = profile.equipped.helm;
@@ -49,6 +97,25 @@ export const GearTab: React.FC<GearTabProps> = ({
 
   const inventoryWeapons = profile.inventory.filter((i): i is WeaponItem => 'damageLight' in i);
   const inventoryArmors = profile.inventory.filter((i): i is ArmorItem => 'defense' in i);
+
+  // C-2 — which card is armed for its confirming second tap.
+  const [armedSell, setArmedSell] = useState<string | null>(null);
+
+  // The arm lapses on its own after ~3 s, and it never outlives the card it was
+  // armed on: any profile write (a sale, an equip, a purchase) clears it.
+  useEffect(() => {
+    if (!armedSell) return;
+    const timer = window.setTimeout(() => setArmedSell(null), SELL_CONFIRM_ARM_MS);
+    return () => window.clearTimeout(timer);
+  }, [armedSell]);
+
+  useEffect(() => {
+    setArmedSell(null);
+  }, [profile]);
+
+  // C-4 — the carried copy an equipped id explains is the first one; a second copy
+  // of that id is a spare, so it keeps its Equip/Sell card.
+  const equippedWeaponIndex = inventoryWeapons.findIndex((w) => w.id === currentWeapon?.id);
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-12">
@@ -65,7 +132,7 @@ export const GearTab: React.FC<GearTabProps> = ({
                 onGearViewChange?.(view.key);
               }}
               disabled={isActive}
-              className={`py-2.5 px-4 rounded-2xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+              className={`min-h-[48px] py-2.5 px-4 rounded-2xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
                 isActive
                   ? 'bg-amber-500/20 border border-amber-400 text-amber-200 shadow-md cursor-default'
                   : 'bg-neutral-900/80 border border-neutral-800 text-neutral-400 hover:text-amber-200'
@@ -90,6 +157,8 @@ export const GearTab: React.FC<GearTabProps> = ({
             profile={profile}
             onBuyConfig={onBuyRacingConfig}
             onSelectConfig={onSelectRacingConfig}
+            onBuyStableQuality={onBuyStableQuality}
+            onBuyStableConditioning={onBuyStableConditioning}
           />
         </>
       ) : (
@@ -109,35 +178,57 @@ export const GearTab: React.FC<GearTabProps> = ({
         </h4>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-          {inventoryWeapons.map((wpn) => {
-            const isEquipped = currentWeapon?.id === wpn.id;
+          {inventoryWeapons.map((wpn, index) => {
+            const isEquipped = currentWeapon?.id === wpn.id && index === equippedWeaponIndex;
+            const sellKey = `weapon#${index}`;
             return (
               <div
-                key={wpn.id}
-                className={`p-4 rounded-2xl border transition-all flex justify-between items-center ${
+                key={`${wpn.id}-${index}`}
+                className={`p-4 rounded-2xl border transition-all flex flex-col gap-3 ${
                   isEquipped ? 'bg-amber-950/60 border-amber-400' : 'bg-neutral-950/80 border-neutral-800'
                 }`}
               >
+                <div className="flex justify-between items-center gap-2">
                 <div>
                   <div className="font-serif font-bold text-sm text-amber-100">{wpn.name}</div>
                   <div className="text-xs font-mono text-neutral-400">
                     Dmg: {wpn.damageLight}/{wpn.damageHeavy} • Range: {wpn.range}m
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    onEquipWeapon(wpn);
-                  }}
-                  disabled={isEquipped}
-                  className={`px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
-                    isEquipped
-                      ? 'bg-green-800 text-green-200 cursor-default'
-                      : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'
-                  }`}
-                >
-                  {isEquipped ? 'Equipped' : 'Equip'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      onEquipWeapon(wpn);
+                    }}
+                    disabled={isEquipped}
+                    className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
+                      isEquipped
+                        ? 'bg-green-800 text-green-200 cursor-default'
+                        : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'
+                    }`}
+                  >
+                    {isEquipped ? 'Equipped' : 'Equip'}
+                  </button>
+                  {!isEquipped && onSellItem && (
+                    <SellButton
+                      value={getTemperSellValue(profile, wpn)}
+                      armed={armedSell === sellKey}
+                      onArm={() => {
+                        sounds.playClick();
+                        setArmedSell(sellKey);
+                      }}
+                      onSell={() => {
+                        sounds.playCoin();
+                        setArmedSell(null);
+                        onSellItem(wpn);
+                      }}
+                    />
+                  )}
+                </div>
+                </div>
+                {/* P6 — the item's temper level and its one action. */}
+                <TemperControl profile={profile} item={wpn} onTemper={onTemperItem} />
               </div>
             );
           })}
@@ -176,15 +267,20 @@ export const GearTab: React.FC<GearTabProps> = ({
           <p className="text-xs text-neutral-500 italic">No armor owned yet. Visit the Armorer in the Market.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {inventoryArmors.map((arm) => {
-              const isEquipped = profile.equipped[arm.slot]?.id === arm.id;
+            {inventoryArmors.map((arm, index) => {
+              const equippedArmorId = profile.equipped[arm.slot]?.id;
+              const isEquipped =
+                equippedArmorId === arm.id &&
+                index === inventoryArmors.findIndex((a) => a.id === equippedArmorId);
+              const sellKey = `armor#${index}`;
               return (
                 <div
-                  key={arm.id}
-                  className={`p-4 rounded-2xl border transition-all flex justify-between items-center ${
+                  key={`${arm.id}-${index}`}
+                  className={`p-4 rounded-2xl border transition-all flex flex-col gap-3 ${
                     isEquipped ? 'bg-amber-950/60 border-amber-400' : 'bg-neutral-950/80 border-neutral-800'
                   }`}
                 >
+                  <div className="flex justify-between items-center gap-2">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-serif font-bold text-sm text-amber-100">{arm.name}</span>
@@ -196,20 +292,40 @@ export const GearTab: React.FC<GearTabProps> = ({
                       Def: +{arm.defense} {arm.healthBonus ? `• HP: +${arm.healthBonus}` : ''}
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      onEquipArmor(arm);
-                    }}
-                    disabled={isEquipped}
-                    className={`px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
-                      isEquipped
-                        ? 'bg-green-800 text-green-200 cursor-default'
-                        : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'
-                    }`}
-                  >
-                    {isEquipped ? 'Equipped' : 'Equip'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        onEquipArmor(arm);
+                      }}
+                      disabled={isEquipped}
+                      className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
+                        isEquipped
+                          ? 'bg-green-800 text-green-200 cursor-default'
+                          : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'
+                      }`}
+                    >
+                      {isEquipped ? 'Equipped' : 'Equip'}
+                    </button>
+                    {!isEquipped && onSellItem && (
+                      <SellButton
+                        value={getTemperSellValue(profile, arm)}
+                        armed={armedSell === sellKey}
+                        onArm={() => {
+                          sounds.playClick();
+                          setArmedSell(sellKey);
+                        }}
+                        onSell={() => {
+                          sounds.playCoin();
+                          setArmedSell(null);
+                          onSellItem(arm);
+                        }}
+                      />
+                    )}
+                  </div>
+                  </div>
+                  {/* P6 — the piece's temper level and its one action. */}
+                  <TemperControl profile={profile} item={arm} onTemper={onTemperItem} />
                 </div>
               );
             })}

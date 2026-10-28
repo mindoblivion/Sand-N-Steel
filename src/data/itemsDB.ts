@@ -110,7 +110,7 @@ export const ALL_WEAPONS: WeaponItem[] = [
   },
   {
     id: 'trident_retarius',
-    name: 'Barbed Retiarius Trident',
+    name: 'Retiarius Trident',
     type: 'spear',
     rarity: 'rare',
     description: 'Three-pronged steel trident designed to disarm and impale.',

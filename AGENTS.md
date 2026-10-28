@@ -5204,6 +5204,118 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the breakdown rows were seen rendered. They are pinned by the suite above; confirm by winning one
   Colosseum duel on a device.
 
+## CORR-2 — the three unlanded story gates as pending (C-1; implemented)
+
+- **What shipped.** `StoryPendingKind` gained a third member, `'beat'`, with its own authored pending
+  line `PENDING_GATE_LINES.beat` = "That hour has not been written yet." Three design gates that were
+  absent from the chapter table are now present as pending, in their chapters: `doctore-test` in
+  Chapter 1 (First Sand), `vexus-race` in Chapter 4 (The Vulture's Wheel, beside the pending
+  `league-promotion` gate) and `statue-ceremony` in Chapter 7 (Legend). Each is authored through the
+  same `pendingGate()` helper the race gates use, so the day its beat lands the entry becomes a
+  `{ id, requirement, confirmation, met }` gate in one line — no table restructuring, no new field.
+- **The rules did not move.** Pending still never blocks: a chapter closes when every gate whose
+  evidence can exist is met, so Chapters 1, 4 and 7 close exactly as before and the Legend state
+  stays reachable (`complete` true with the statue ceremony pending). No gate reads evidence that
+  does not exist — no profile field, writer, threshold, chapter or save was added or changed, and
+  the resolver stays pure and writes nothing. The only existing assertion that moved is §B6's gate
+  list for Chapter 7 (`['met']` → `['met', 'pending']`), because the chapter now carries its
+  ceremony beat; nothing was weakened.
+- **Regression suite: `src/utils/storyState.test.ts` §G** — G1 the three gates exist in their
+  chapters with `pendingKind: 'beat'` and `state: 'pending'`; G2 each renders
+  `PENDING_GATE_LINES.beat` through `storyGateLine`, and the card prints that line (never the
+  requirement it stands in for); G3 a profile meeting every available gate still closes Chapters 1,
+  4 and 7 (Legend complete); G4 pending gates are never `'unmet'` and a fresh profile is still held
+  at Chapter 0.
+- **Verified 2026-10-20** in the dev container: `bun test src/utils/storyState.test.ts` → 38 pass /
+  0 fail (227 expect() calls); `bun test` → 2404 pass / 0 fail (79 files, 79155 expect() calls);
+  `bun run scripts/collisionTests.ts` → 123 passed, 0 failed; `bun run lint` (`tsc --noEmit`) → exit
+  0; `bun run build` → exit 0; `git diff --check` → clean.
+- **Not automatically verified — the card's live appearance.** The campaign card is rendered through
+  `renderToStaticMarkup` in §G2 (the beat line, `data-state="pending"`, `data-story-gate="doctore-test"`,
+  requirement never printed), but the running hub was not re-walked: it renders at ~2 fps through
+  SwiftShader and the library view was last reached under the STORY-1 budget. The card's on-screen
+  look with the added rows is a device (Android) check, together with the open C-8.28/C-8.29/
+  C-8.31/C-8.33/C-8.38/C-8.41 items.
+
+## UI-1 — button & safe-area sweep (implemented)
+
+- **Scope.** Presentation only: class names, two labels/captions (B-15's "Move", B-18's "Hold"),
+  one retitle (B-16) and one printed sentence (B-17). No handler, route, save or layout change;
+  Lefty/Righty parity untouched.
+- **The shared control.** `src/components/ui/controlStyles.ts` exports `CLOSE_BUTTON_CLASS` — the
+  C-8.70B §SET-1 header ✕ lifted out of `SettingsModal` (`w-12 h-12` + `min-h-[48px] min-w-[48px]`).
+  Every close control now uses it with its own `aria-label`: HelpModal, GoogleDriveSyncModal, the
+  city drawer and its notice banner, DeleteAccountModal, the offline banner (GameFailureSurface) and
+  SettingsModal itself. `settings.test.ts`'s `w-12 h-12` assertion now reads that one constant,
+  because the literal moved there — the 48×48 guarantee is unchanged, not relaxed.
+- **What the sweep touched.** CombatHUD (utility cluster at 48dp, camera state label at all widths,
+  own safe-area gutter), TurnActionPanel movement strip, CityHubScene + GladiatorSchoolHub headers,
+  both tab bars, CharacterCreation steppers (48px, real disabled state at the stat floor),
+  GoogleDriveSyncModal (labelled Refresh / Sign out / Delete / Load), the four OAuth buttons
+  (compact 48×48), TitleScreen account pill + privacy link, the tab primaries and Equip/Buy rows,
+  RaceTouchControls (permanent "Hold" micro-label under each gait word, 48px floor + `max()` on the
+  steer/brake sizing), RaceScene's Abort (now carries its icon), and the SettingsModal privacy row
+  (the panel's last icon-less row).
+- **B-14.** `src/components/ui/TouchControls.tsx` was deleted. Fresh grep before deleting:
+  no `from '…/TouchControls'` and no `ui/TouchControls.tsx` import anywhere in `src/`, `scripts/`
+  (only prose mentions in `phaseC8_70bStage1Slice2.test.ts`, which name the idiom, not the module).
+  `RaceTouchControls.tsx` is now the tree's only touch-control implementation.
+- **Not applicable here.** `CoachCard.tsx` does not exist on this branch (S-1's second half lands
+  with the onboarding branch). S-5 (the city's double bottom inset) was left alone, by instruction.
+- **Regression suite: `src/utils/uiControls.test.ts`** — §A the shared close class and its
+  labelled sites, §B the 48dp floor per audited file plus the negative pins (no `w-7 h-7`, no
+  `w-8 h-8 rounded-xl`, no `w-9 h-9`, no `min-h-[44px]`, no `hidden sm:inline capitalize`), §C
+  B-14 against the tree, §D the copy items (B-15 … B-19), §E the safe-area items (S-1 … S-4).
+  Assertions match class *names*, not whole class strings, so reformatting does not break them.
+- **Verified 2026-10-20** in the dev container: `bun test` → **2424 pass / 0 fail (80 files,
+  79,245 expect())**, `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, `bun run lint`
+  (`tsc --noEmit`) → exit 0, `bun run build` → exit 0, `git diff --check` → clean.
+- **Preview evidence.** Title screen: the account pill, the privacy link and the settings entry all
+  measure 48px (`min-height: 48px`). Account panel: `← Back` and the submit 48px, and the four
+  compact OAuth circles are 48×48, still one row with 0 horizontal overflow at 375×812. Settings
+  panel: the close is 48×48 with `aria-label="Close settings"`, and all four Game rows (Cloud save,
+  Reset save, Privacy policy, Erase device data) now carry an icon. 0 console errors throughout.
+- **Not automatically verified.** The city, hub, duel and race screens were not rendered here —
+  the sandbox draws them through SwiftShader at ~2 fps — so their 48dp/inset changes rest on the
+  class pins above and need the on-device (Android) look, together with the still-open northern
+  approach and Colosseum checks recorded above.
+
+## Boss-kill counter writer (FIX-A — implemented, validated; the win path itself not driven live)
+
+- **The defect was a field with readers and no writer.** `PlayerProfile.bossKills` was written only
+  as `0` by the two creation paths (`services/storage.ts` `createNewProfile`, `hub/CharacterCreation`),
+  so everything reading it was silently dead: `utils/heraldry.ts`'s `bannerStripeCount` never drew a
+  stripe, and `rank.ts`'s `bossKills` half of the Legend gate was only ever satisfied by its
+  `defeatedOpponentIds` evidence path (untouched here).
+- **The one writer is `src/utils/bossKills.ts` → `nextBossKills(before, after, opponent)`.** It is
+  pure (types only, no storage, clock or randomness) and reads the write it is handed: the count rises
+  by exactly one only when `opponent.isBoss === true` **and** the opponent's id was absent from
+  `before.defeatedOpponentIds` **and** present in `after.defeatedOpponentIds` — i.e. the id newly
+  entering the record in that same write. Rematches, non-boss wins, losses and malformed saves all
+  return the stored count unchanged (a non-finite or negative count reads as 0).
+- **The single call site is `App.handleMatchComplete`'s victory write**, one line beside the existing
+  `defeatedOpponentIds: defeated` it reads:
+  `bossKills: nextBossKills(profile, { defeatedOpponentIds: defeated }, activeOpponent)`. The defeat
+  branch is untouched and never mentions the field. Every other value of that write — gold, fame, XP,
+  level, tier, `fightsWon`, the hype peak and the `defeatedOpponentIds` expression itself — is
+  byte-for-byte as it was, and `evaluateRoadMilestones` still receives the same `before`/`after` pair.
+- **The invariant is pinned, not assumed:** `src/utils/bossKills.test.ts` (22 tests) sweeps the whole
+  roster for a first kill, drives rematches, non-boss wins, loss writes and malformed saves, derives
+  Legend from one Tier-4 boss's first defeat (count and felled id agreeing), checks the stripes at
+  0 / 1 / 4, and **scans every shipped `.ts`/`.tsx` under `src/`** to prove no file but `bossKills.ts`
+  adds to the field and that `App`'s handler names it exactly once, in the win branch.
+- **Validation (2026-10-20, `web` container):** `bun test` → **2422 pass / 0 fail (80 files, 79,188
+  `expect()`)** (the branch tip read 2400 / 79 before this suite's 22); `bun run
+  scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `bun run build` → **exit 0** with the startup-asset check passing (8 assets); `git diff --check` →
+  clean.
+- **Not automatically verified — the win path in a running game.** A first boss defeat cannot be
+  driven here: it needs a duel won in the 3D arena, which renders through SwiftShader at ~1–2 fps (the
+  duel-mount attempts recorded in earlier phases exceed the script budget), and the dev character
+  harness deliberately uses its own in-memory `onMatchComplete` rather than App's write. The rule, its
+  one caller and the stripes it feeds are pinned by the suite; confirm on device by putting a boss
+  down and checking the ludus banner gains a stripe (and that a rematch adds none).
+
 ## Duel result screen staged reveal — implemented (one file; ceremony not automatically verified)
 
 - **What ships: one production file.** `src/components/hub/DuelResultModal.tsx` is the whole code
@@ -5266,6 +5378,72 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   run stopped at the creation screen, so no profile was written and no fight was fought — no
   gold/fame/xp was awarded or persisted.
 
+## Motion foundation corrections (CORR-3 — implemented)
+
+- **Four conformance corrections, one new settings row; no architecture change.** The MO-1 motion
+  system (`src/index.css`'s Screen Motion section, `src/utils/motionTokens.test.ts`, App's root
+  `data-motion` effect, `settings.screenMotion`) was already shipped; this slice brought four
+  declarations back to the design and closed the missing consumer.
+- **C-1 — `--ease-inout` is `cubic-bezier(0.65, 0, 0.35, 1)`** (it read `…, 0`, a curve that never
+  reaches its endpoint). The suite pin that ratified the wrong value was changed in the same
+  commit, so the pin and the declaration can no longer disagree.
+- **C-3 — `.anim-stamp` runs on `--dur-ceremony` (700 ms), not `--dur-panel` (220 ms).** A new pin
+  asserts the class contains `var(--dur-ceremony)` and explicitly not `var(--dur-panel)`.
+- **C-4 — the geometry values.** Every `anim-panel-in*` origin travels **12 px** (was 10 vertical /
+  14 horizontal) with `from` scale **0.97** (was 0.985); the `center` variant keeps its transport-free
+  `scale(0.97)`, so all five origins now share one starting scale. `.btn-press:active` is
+  **`scale(0.95)`** (was 0.97) and the press transition splits its durations: the base rule
+  releases on `var(--dur-micro)` (160 ms), the `:active` rule presses in on `var(--dur-press)`
+  (90 ms). Three pins were added beside the existing ones (`animate-panel` travel/scale per origin,
+  the press scale, both press durations), read from the base rules above the reduced blocks.
+- **C-2 — the Screen Motion row.** `SettingsModal`'s Accessibility section now carries a
+  `ChoiceRow` — the panel's existing SET-1 segmented-rail control, the same one Picture Quality and
+  Brightness use — with **Auto / Full / Reduced** and a `Waves` icon. `auto` is not a fourth stored
+  value: it is the DEFAULT state, and choosing it clears the field
+  (`set({ screenMotion: undefined })`, which `updateSettings` already deletes), so the root
+  attribute is removed and the device's own `prefers-reduced-motion` governs again. The field's
+  shape, the resolver and App's effect are untouched. The Accessibility placeholder card
+  ("Nothing to set here yet") was replaced by the row it was standing in for — no other row moved.
+- **Untouched by design:** the transform/opacity-only law (still no `transition-all`, `.btn-press`
+  still names `transform, opacity, color`), both reduced-motion blocks and their 60 % columns, every
+  other token, the save/profile path, and every consumer of `screenMotion`.
+- **Validation (2026-10-20, dev container — all five commands run):** `bun test` → **2403 pass /
+  0 fail (79 files, 79,152 expect() calls)**, the delta being three new tests in
+  `motionTokens.test.ts`; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup asset
+  check passing (8 assets in `public/` and `dist/`; the pre-existing >500 kB chunk warning only);
+  `git diff --check` → **clean**.
+- **Live evidence (preview browser, anonymous visitor — no session replayed).** From the title
+  screen's own Settings entry: the Accessibility section renders the row with its icon, label,
+  description and the three chips (Auto painted as the default on a record that carries no
+  `screenMotion`); choosing **Reduced** writes `screenMotion: 'reduced'` into
+  `sand_and_steel_settings_v1` **and** sets `data-motion="reduced"` on the document root within
+  ~200 ms; choosing **Auto** removes the field from the stored record and removes the root
+  attribute (checked by presence, not by value). The storage the check found was restored
+  afterwards (there was no record, so the key was removed again). No console errors. The animation
+  values themselves are pinned by the suite, not by eye — the sandbox renders through SwiftShader,
+  so the curve/travel/scale change is not visually adjudicated here.
+
+## Motion token adoption — duel flow (CORR-4 — implemented)
+
+- **Two files, class names only.** `PreFightModal`'s dialog card carries `.anim-panel` with
+  `data-origin="center"` (replacing `animate-fadeIn`) and both of its buttons carry `.btn-press`
+  (`active:scale-95` dropped: the token rule presses to `scale(0.95)` on `--dur-press` and releases on
+  `--dur-micro`). `DuelResultModal`'s verdict heading carries `.anim-stamp`, and its Continue button
+  carries `.btn-press` in place of `transition-all active:scale-95`; the staged reveal, the count-up,
+  the copy and the card layout are untouched. No props, state or gameplay changed.
+- **Verified live 2026-10-20** (preview browser, anonymous visitor): title → Play → creation →
+  "Apply Points & Enter Metropolis" → the 3D city hub's Colosseum shortcut → the tournament list's
+  "Enter Arena Duel" → the Arena Challenge modal rendered with computed
+  `animation-name: anim-panel-in-center`, `animation-duration: 0.22s`,
+  `cubic-bezier(0.22, 1, 0.36, 1)`, `fill-mode: both`, and both buttons
+  `transition-property: transform, opacity, color` at `0.16s`; Retreat closed it. `bun test` →
+  2403 pass / 0 fail, `bun run lint` (`tsc --noEmit`) → exit 0, `bun run build` → exit 0 with the
+  startup-asset check passing. The test save this run created was removed afterwards.
+- **Not automatically verified:** `.anim-stamp` on a real result card. Reaching one needs a full
+  turn-based duel, and the sandbox renders the arena at ~1–2 fps through SwiftShader; the class and
+  its 700 ms ceremony beat are pinned by `motionTokens.test.ts`, and the pacing still wants an
+  on-device look.
 ## Payload trim — `public/` workspace scratch (branch `payload-trim` — implemented)
 
 - **Branch.** The slice's branch `payload-trim` was forked from `colosseum-exterior-architecture`
@@ -5601,3 +5779,1981 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   - Main's optimized models and music (`public/models/*`, `public/music/*`) are taken as-is.
 - Verified after the merge: `bun run lint` exit 0, `bun run build` exit 0 (startup asset check: 8 assets),
   `bun test` → 2473 pass / 0 fail (83 files), `bun run scripts/collisionTests.ts` → 123 passed.
+
+## Onboarding coach marks — foundation and creation/hub walk-through (CL-1 + CL-2 — implemented)
+
+- **What ships.** `src/utils/coachMarks.ts` (new) — the whole data + helper layer: `COACH_CARDS`
+  (the one registry of card copy), `getCoachCard`, `resolveSeenState`, `hasSeenCard` and `markSeen`.
+  `src/data/glossary.ts` (new) — the glossary appendix as data (`GLOSSARY`, `GLOSSARY_SECTIONS`,
+  `getGlossaryEntry`, `getGlossaryGloss`), no UI. `src/components/ui/CoachCard.tsx` (new) — one
+  presentational card, non-modal, at a screen edge by `placement`, 44px ✕. `src/types/game.ts` —
+  the optional `seen?: Record<string, true>` field. `CharacterCreation.tsx` — the label/sub-line
+  work, "Stat Points", and the live derived preview. `GladiatorSchoolHub.tsx` — the first-open
+  `HUB-1` card and its one-off Help mark. `HelpModal.tsx` — "Combat Notes" + its header line.
+  `App.tsx` — the single seen-write. `src/utils/coachMarks.test.ts` (new suite, 21 tests).
+
+- **The `seen` field is written ONLY on display, and only by `markSeen`.** `resolveSeenState` is the
+  `resolveRacingState` idiom: `seen` absent (every pre-CL save), partial, or of the wrong type
+  (string, number, `null`, array) all resolve to `{}`, an entry that is not exactly `true` is
+  dropped, the returned record is a fresh object, and the input profile is never mutated. `markSeen`
+  returns a NEW profile carrying the existing ids plus this one and returns the SAME reference when
+  the card is already recorded, so the hub's mount effect (and a double-mounted dev render) is a
+  true no-op that never reaches `saveProfile`. `createNewProfile()` does not set the field and no
+  migration touches it — a legacy save JSON without `seen` round-trips byte-identical.
+
+- **`COACH_CARDS` is the single source of truth for card copy** — 37 entries: `D1`–`D9`, `S1`–`S7`,
+  `HUB-1` and 20 `BRIEF_<building slug>` briefings (the slug is the building's own `HUB_LOCATIONS`
+  id). Every entry carries `codexEntry` (the id, its future Codex page stem); no trigger is wired
+  for the `D`/`S`/briefing cards in this slice — registry data only. The suite asserts the id set,
+  the verbatim copy, ≤ 48 words per entry, the no-speaker cards, and that neither
+  `GladiatorSchoolHub.tsx` nor `CoachCard.tsx` repeats the `HUB-1` sentence (comments stripped
+  first) while `App.tsx` is the one `markSeen(` caller.
+
+- **Creation-screen state found for the "Fighter's Look" copy:** this screen has **no** armatura /
+  class selection — the six-button picker is `appearance.characterModel` only, and the fighting
+  class is earned in the ludus later — so the plain branch was taken: the label became
+  "Fighter's Look" with the one sub-line, and no class pick / doctrina gloss exists to relabel. (The
+  glossary module carries `Armatura`/`Doctrina` for the future class work.)
+
+- **The derived preview reads the SAME object creation submits.** `CharacterCreation` now builds the
+  profile once (`buildProfile()` — the exact literal `handleFinish` used to inline) and runs
+  `calculateTotalStats` on it for the preview, so the creation screen and the camp's own
+  "Derived Combat Statistics" can never disagree. With the starter gladius equipped (`+2` Defense)
+  the default reading is **Health 138 · Stamina 120**; the appendix's 132 is the same formula on
+  base stats alone (`80 + 10×4 + 12`), i.e. without the weapon's own bonus. No formula, pool or
+  floor changed — the 10-point pool, the `10/10/10/4` bases and the `≤10` / `≤4` decrement floors
+  are untouched.
+
+- **The `HUB-1` card and its Help mark.** `GladiatorSchoolHub` decides once per mount from the
+  profile it was opened with: a profile that already carries `HUB-1` shows no card and no mark; a
+  first-time profile shows the card at the bottom edge and marks the header's `?` control
+  (`data-help-marked="1"`, amber ring + dot). The mark clears when Help is opened or the card is
+  dismissed. The card is non-modal (wrapper `pointer-events-none`, card `pointer-events-auto`), so
+  the camp stays usable while it is up.
+  - **Mobile note (a real finding, fixed in the same slice):** on the session's first camp open the
+    post-Oath nudge (`PostOathNudge`, `z-[65]`, bottom-centred under 640px) occupies the same bottom
+    band as the card, and the mobile capture showed it covering the card. The card's bottom
+    placement therefore lifts by 8rem under 640px (`max-sm:bottom-32`); above 640px the nudge sits
+    at the bottom-right corner and the edge is free.
+
+- **Verified 2026-10-20** in the dev container: `bun test` → **2156 pass / 0 fail (69 files)** (the
+  new suite contributes 21); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB
+  chunk warning only); `git diff --check` → clean. Live in the preview browser, driving the real
+  screens: a stranger's creation screen reads "Fighter's Look" + the sub-line, "Stat Points" and the
+  preview at **Health 138 · Stamina 120**, and two Strength points moved it to **146 · 120** with
+  the pool at 8; creating that fighter and opening the camp showed the `HUB-1` card with the
+  registry copy verbatim, `data-help-marked="1"`, `seen: {"HUB-1": true}` in `localStorage`, the
+  camp's own Stats tab still switching while the card was up (non-modal), the ✕ measuring 44×44, and
+  dismissal clearing both the card and the mark; leaving the camp and re-entering it with that
+  profile showed **no card, no mark**, with `seen` still recorded — the "once per profile" rule
+  driven end to end. At a 375×812 viewport the creation screen and the camp both report no
+  horizontal overflow. Test fighters were removed afterwards.
+
+- **Not verified:** the 3D city itself is untouched by this slice and the camp was reached through
+  its existing shortcut bar, so nothing here re-tests the city; the post-Oath nudge's own overlap
+  with the card was confirmed at 375px and fixed by the offset above, but the desktop capture (where
+  the two sit side by side) is the only frame of the two notices together. Signed-in (account) paths
+  are untouched: the preview browser runs as an anonymous visitor.
+
+## Golden save corpus — fixture profiles and load-compatibility tests (GC20 — implemented, tests + fixtures only)
+
+- **What ships, and what deliberately did not.** The corpus that proves the save's lazy-resolution
+  design still holds for every shape the game has shipped: **`src/utils/saveFixtures/`** (eight frozen
+  profile `.json` files, an `index.ts` registry carrying each fixture's one-line provenance and the
+  shapes it covers, and `MANIFEST.md`) and **`src/utils/saveCorpus.test.ts`** (80 tests / 400
+  `expect()` calls). **Zero production changes and zero changes to existing tests** — `git status
+  --short` names only the new directory and the new suite. No new dependency, no dev-harness change,
+  no save format change, and no fixture derived from a real player's data: every one is synthetic,
+  built in this repository.
+- **Why it exists.** The profile is whole-profile JSON under `sand_and_steel_gladiator_save_v2`
+  (`services/storage.ts`) with **no version field and no migration**; new fields (`chariot` in
+  C-8.66B, `racing` in C-8.67B) resolve lazily through `resolveRacingState` / `resolveChariotLoadout`
+  and nothing proved that a historical shape keeps resolving. It does — the whole corpus is green —
+  but the design was resting on an unproven assumption until now.
+- **The eight fixtures.** `minimal-legacy` (the import-era creation shape, reconstructed from git
+  `76984d6`), `current-fresh` (generated from `createNewProfile('Tester')` at HEAD and frozen),
+  `mid-career` (hand-aged through the fields the shipped handlers advance), `racing-era` (the
+  mid-career save driven through the real `purchaseChariotPart` / `equipChariotPart` /
+  `purchaseRacingConfig` / `selectRacingConfig` transactions, so it is byte-for-byte what those
+  handlers persist), and four malformed-adjacent shapes: `null` where an object is expected, a
+  partial `racing` record (`unlocked: [4]`, `selected: 3`), a partial `chariot` record (no `equipped`,
+  a retired id), and unknown extra fields.
+- **What the suite drives.** For each fixture: the fixture's own bytes are put under the real save key
+  and read back through `loadSavedProfile()` exactly as `App` calls it; **every profile-facing lazy
+  resolver in the tree** runs (`resolveRacingState`, `resolveChariotLoadout` and every pure reader
+  built on them — `getSelectedRacingConfig`, `isRacingConfigUnlocked`, the four eligibility readers,
+  `ownsChariotPart`, `isChariotPartEquipped`, `equippedChariotPartId`) plus the boot-path
+  `calculateTotalStats`; the serialized bytes are compared before and after (resolution never mutates
+  a save, and never rewrites the stored JSON); and every absent field is shown to resolve to its
+  documented default (absent `racing` → Biga, Triga and Quadra locked; absent `chariot` → the stock
+  loadout; absent `injury` → no penalty). The other resolvers in the tree are not profile-shaped and
+  are listed as out of scope in the manifest.
+- **Findings recorded, production untouched (each pinned by an assertion).**
+  (1) **`bossKills`, `tierProgress`, `newGamePlus` and `trainingSessionsLeft` are written once at
+  creation and never advanced** — nothing in `src/` increments `bossKills`, and tier advancement is
+  `currentTier += 1` on a boss kill, so **no played save can carry a non-zero `bossKills`**; the
+  mid-career fixture keeps the creation values for exactly that reason.
+  (2) **The shipped creation and the factory write different shapes**: `CharacterCreation.handleFinish`
+  (the path a real player's save comes from) writes `isLeftyMode`; `createNewProfile()` does not — so a
+  fixture built from the factory alone does not represent a real save, and the suite pins the
+  difference.
+  (3) **`profile.isLeftyMode` is read by no production code any more** (`App` reads `settings.lefty`);
+  the field is still written at creation and stays in the corpus as a shape to keep loadable.
+  (4) **No `road`, `story`, `seen`, `temper` or `stable` state exists in this tree** — the only save
+  fields added since import are `chariot` and `racing`, and the corpus covers both.
+- **The corpus rule, and how it is enforced.** A slice that adds a field to the save adds a fixture for
+  the shape it writes **in the same PR that adds the field** (stated in the manifest and the registry).
+  `saveCorpus.test.ts` §J makes that mechanical: it parses `PlayerProfile`'s optional members out of
+  `src/types/game.ts` and fails unless the set is exactly `injury`, `isLeftyMode`, `chariot`, `racing`
+  — each with a fixture carrying it and a fixture omitting it. §A fails if a `.json` file in the
+  directory is unregistered or a registered one is missing, so a fixture cannot be silently dropped;
+  §H proves no production file imports the corpus, that every fixture is synthetic, and that the only
+  storage key the suite ever writes is the real save key.
+- **Open risks, recorded not covered.** A `null` in a field **no resolver guards** (`equipped`,
+  `appearance`, `baseStats`) is not exercised — the corpus's null coverage is the optional object
+  fields the load path resolves, which is what this slice's brief specifies — and the Google Drive
+  cloud-save client is not driven (it needs an account and a network; the stored shape it writes is
+  covered by the same load path).
+- **Verified 2026-10-20** in the dev container: focused `bun test src/utils/saveCorpus.test.ts` →
+  **80 pass / 0 fail** (400 `expect()`), then `bun test` → **2233 pass / 0 fail (70 files, 65,967
+  `expect()` calls)** — the branch tip read 2153 / 69 files / 65,567 `expect()` before this suite, so
+  this suite's 80 tests and 400 `expect()` calls are the whole delta; `bun run
+  scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0; `bun run lint` (`tsc --noEmit`) →
+  **exit 0**; `bun run build` → **exit 0** with the startup-asset check passing (8 assets); `git diff
+  --check` → clean. The validation's starting point was 3 failing assertions in the new suite — all
+  three mine, in the suite's own checks (the racing invariant did not yet reject an orphan Quadra, and
+  one eligibility expectation ignored the fixture's 100 gold) — **no production file and no other
+  suite was touched to make anything pass**.
+- **Not applicable / nothing visual, and not attempted.** This slice ships no screen, no scene and no
+  style: the app's own boot path is unchanged, so there is no appearance to accept and no new Android
+  item. The corpus's verification is the `bun test` run above. The preview browser was opened once on
+  the fresh tree to confirm the app itself is undisturbed — the dev server answers HTTP 200 for the
+  shell and the title screen renders (PLAY, PRESS TO START, ACCOUNT, SETTINGS) with **0 console
+  errors** and no horizontal overflow — which is the only app-level claim this slice makes.
+
+## Day/night cycle T0 — the clock's data model, resolver and phase table (implemented, validated; nothing consumes it yet)
+
+- **What ships: one optional field, one pure module and one suite — and no call site anywhere** (on
+  branch `day-night-cycle`, off `colosseum-exterior-architecture`). `PlayerProfile.time?: { total:
+  number }` (`src/types/game.ts`, optional exactly like `chariot` and `racing`),
+  `src/utils/timeState.ts` (new) and `src/utils/timeState.test.ts` (new, 36 tests). **No screen, no
+  scene, no renderer, no collider, no save write, no new dependency and no existing behaviour
+  changed:** nothing advances the clock, no scene reads the phase table, and `createNewProfile()`
+  still writes no `time` field, so a legacy save round-trips byte-identical. The suite asserts the
+  module is consumed by nothing (a `src/` sweep) and that no shipped file writes `time:` to a
+  profile — the same scope-guard discipline `racingProgression` was held to.
+
+- **ONE lazily-advanced integer drives everything: `total` counts phases from the save's
+  beginning.** `resolveTimeState(profile)` returns `{ total, day, phaseIndex, phase,
+  phasesUntilDawn, isNight }` with `phaseIndex = total % PHASES_PER_DAY` and
+  `day = floor(total / PHASES_PER_DAY) + 1`, so **Day 1 is the first seven phases and the day
+  increments at night → dawn**.
+
+- **The seven phases, in cycle order: `dawn, morning, midday, afternoon, golden, dusk, night`**
+  (labels Dawn … Golden Hour … Night). **No day/night design sheet is committed in this
+  repository** — the `day-night-cycle.md` the brief points at does not exist here and a `git grep`
+  finds no other phase list — so these ids are the ones this slice states and pins. The suite writes
+  its own `EXPECTED_PHASES` / `EXPECTED_NAMES` out as the specification rather than reading them back
+  from the module, so a future slice adopting a different naming sheet rebases those two literals and
+  nothing else. (The title's phase resolver, `useTitlePhaseBackdrop` from START-1, already records
+  that "nothing under `src/` resolves a day/night state" and returns the dawn variant; that named
+  stub is now one consumer away from this module.)
+
+- **The resolver's discipline, pinned the way `resolveRacingState` is: a LAZY, forgiving read —
+  never validated, never repaired, never migrated.** Absent (every pre-T0 save), `null`, non-number,
+  `NaN`, `±Infinity` and any **negative** `total` all resolve to **0** — Day 1, dawn — and a
+  **fractional** value is floored (`6.99` is night of Day 1; `7.1` is dawn of Day 2). A legacy save
+  therefore wakes on Day 1 at dawn and is deliberately **not** retro-credited for the time it was
+  played before this slice. `phasesUntilDawn` is `7 − phaseIndex` — **7 at dawn, 1 at night** — and
+  `isNight` is the `night` phase only; both are stated as conventions in the module and pinned as
+  such.
+
+- **The two advance functions are PURE: they RETURN a new profile and never mutate or persist.**
+  `advanceTimeBy(profile, steps)` steps by whole phases — a negative, fractional or nonsense `steps`
+  is normalised to a whole non-negative count, so the clock can only move forward, and a malformed
+  save advances from 0 rather than from garbage. `advanceToNextDawn(profile)` rounds up to the next
+  multiple of seven and is the **identity from dawn** (the pinned dawn-stay rule: there is no "next"
+  dawn without spending a whole cycle). Both are driven against **deep-frozen** inputs in the suite,
+  so an in-place write would throw rather than pass quietly. T0 wires neither to anything —
+  persisting the returned profile stays a later slice's job through the existing `saveProfile()`.
+
+- **`PHASE_PROFILES` is DATA, interpolated between two anchors, and it renders nowhere.** There is
+  no atmosphere package in the repo, so the anchors are the *shipped* ones rather than documented
+  ones: the midday anchor is `CityHubScene`'s own calibrated noon rig value for value (sun `#fffbeb`
+  at 2.15, hemisphere `#fef3c7` / `#8a7a5f` at 0.45, fog `#e3dbc6` at 45…160, sky dome `#fef3c7` at
+  0.35), and the night anchor — a cool moonlight key over a dark warm ground with a warm torch key —
+  is **authored here and flagged proposed, not measured**, because no shipped scene paints night
+  yet. The seven phases are a linear sRGB interpolation of those two, driven by per-phase daylight
+  weights. **It is Director-reviewable data, not settled art direction**, and the suite pins its
+  *shape* (the anchors exact in both directions, every value between them field by field, a
+  monotonic key light, every colour a well-formed hex) rather than its taste.
+
+- **Validation (2026-10-20, dev container — all five commands run, every one green):** focused
+  `bun test src/utils/timeState.test.ts` → **36 pass / 0 fail** (784 `expect()` calls); `bun test` →
+  **2189 pass / 0 fail (70 files, 66,351 `expect()` calls)** — the branch tip read 2153 / 69, so
+  this suite's 36 tests and its file are the whole delta; `bun run scripts/collisionTests.ts` →
+  **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` →
+  **exit 0** with the startup asset check passing (8 assets; the pre-existing >500 kB chunk warning
+  only); `git diff --check` → **clean**. The dev server still answers HTTP 200 for the shell and
+  serves the new module transformed.
+
+- **One test-side repair this turn, determined by the evidence rather than by weakening a check.**
+  The suite's §G "no scene consumes it in T0" guard swept `src/` for the module's name over **raw**
+  source, so the cross-reference comment this phase adds in `types/game.ts` counted as a consumer and
+  the suite failed 1 of 36. It now reads **comment-stripped** through the suite's own `code()` helper
+  — the helper that exists precisely so "prose can never satisfy (or defeat) an assertion" — so it
+  still fails on a real import while a documentation mention is not a consumer. No assertion was
+  removed or relaxed, and the module itself was unchanged by the repair.
+
+- **Not automatically verified — and there is nothing to see, by construction.** This slice renders
+  no pixel and advances no clock: the module has no call site, no scene reads `PHASE_PROFILES`, and
+  no screen shows `day` or `phase`. So there is no appearance to accept and **no new Android item**;
+  the visual acceptance of the seven phases belongs to the slice that wires this resolver to the
+  title background and the scene lighting. Still open from earlier phases: the C-8.41 kerb, the
+  C-8.64A/B district, the C-8.65 apron and the rest of the device checklist this file carries.
+## Selling corrections — CORR-1 (C-2 / C-3 / C-4 / C-6 — implemented)
+
+- **A sale is one instance (C-3).** `utils/selling.ts`'s `sellItem()` no longer filters every
+  entry of the sold id: it finds the FIRST matching index and removes only that entry, paying once.
+  Two copies of one id therefore leave one copy and one credit.
+- **Eligibility counts copies, it does not look the id up (C-4).** `getSellEligibility()` is
+  `carried > equipped`, where `equipped` is how many equipped slots hold that id. The starter
+  gladius sits in BOTH `equipped.weapon` and `inventory`, so the worn copy explains one entry and
+  any further entry is a spare that sells; when the inventory holds no more copies than the
+  equipment explains, the only copy left is the worn one and the refusal stays `equipped`. The same
+  rule covers the four armor slots. Prices, `sellPrice` values, the 25 % temper refund rate and the
+  refusal set are unchanged; `sellItem` is still pure and still writes only through `saveProfile()`.
+- **The sell surface moved to the Armory (C-2, one surface only).** `components/hub/GearTab.tsx`
+  puts a two-tap Sell control on every carried weapon/armor card that is not the worn copy, showing
+  `getTemperSellValue(profile, item)` (`sellPrice` + 25 % of temper gold). The first tap arms it
+  (`Confirm?`, red), the second sells through the existing `onSellItem → App.handleSellItem →
+  saveProfile` path; the arm lapses after `SELL_CONFIRM_ARM_MS` (3 s) or when the profile changes
+  under it. Cards are keyed `id#index` and the worn copy is resolved by index, so a spare with the
+  worn id renders as a spare (Equip + Sell) instead of a second `Equipped`. `ShopTab`'s catalogue
+  cards no longer offer any sell control and its `onSellItem` prop is gone — the Bazaar buys only,
+  and every other ShopTab behaviour is untouched. **After the update from `colosseum-exterior-architecture`
+  the Bazaar keeps its SHOP-2 storefront resolution (`shopId`, `getStorefrontStock`) and its
+  `min-h-[48px]` buy controls, so a city building still opens its own stock and the open market still
+  shows the whole catalogue; only the sell controls are absent.**
+- **Purse wording (C-6).** `PreFightModal`'s "Base Bounty" row and `TournamentTab`'s reward row now
+  read `from {rewardGold} Gold`; the bounty has been a floor rather than the payout since the
+  performance purse landed. Layout and every other line are unchanged; no test pinned the old
+  string.
+- **Tests.** `src/utils/selling.test.ts` gained the S3 cases (two copies → one sale → one copy and
+  one credit; starter gladius worn + a spare → the spare sells; the armor-slot equivalent).
+  `src/utils/sellingSurface.test.ts` (new) renders the real components with `react-dom/server`:
+  the Bazaar markup carries no sell control, the Armory offers one control per spare at its
+  effective value (temper refund included) and none on the worn card, a second copy of the worn id
+  is a spare, and both purse surfaces read "from N Gold".
+- **Validation.** `bun test` → **2413 pass / 0 fail (80 files)** and `bun run lint` (`tsc --noEmit`)
+  → exit 0 were run on this branch before the update from `colosseum-exterior-architecture`; the
+  merged state is re-validated in the merge commit, which is the count to trust.
+- **Not automatically verified — the browser gesture.** The Armory is only reachable through
+  title → character creation → the oath beat → the city, and this sandbox renders those 3D screens
+  through SwiftShader, so the two-tap confirm (arm → sell, and the 3 s lapse), the gold credit and
+  the saved-inventory shrink were **not** dispatched in a browser. They are pinned by the suites
+  above plus the shipped `sellItem`/`onSellItem` path; confirm on a device by selling a spare from
+  the Armory.
+
+## STORY-2 — Arrival, Oath, First Sand (Chapters 0–1) — implemented
+
+- **What ships, in the design's three beats.** BEAT 1 — the novice bout's framing:
+  `src/utils/storyBeats.ts` (new, pure) holds `NOVICE_BOUT_BRIEFING` (Niger names the bout, Marcus
+  answers) and `isNoviceBoutDue()`, wired into `PreFightModal` as a `narration` prop that draws a
+  voices-only block above the shipped intel rows; `App.handleMatchComplete` reads the FIRST attempt
+  before the write and sends `doctoreAttemptLine(didWin)` to `DuelResultModal`. BEAT 2 — the
+  Doctore's Test: `src/components/hub/DoctoreTestCard.tsx` offers the two restrictions (each with
+  its rule AND its reason, the Clarity law) at the Doctore House (`tabKey: 'training'`, above the
+  conditioning cards); the chosen rule travels through the hub's `PreFightModal` (printed back on
+  the card) and into `App`, where the victory write judges it off the duel's own
+  `DuelStatistics`. BEAT 3 — `src/components/hub/PrimusPalusBoard.tsx` sits in the Colosseum's
+  Tournament tab beside the tournament card.
+- **The ladder fight is untouched; the Test is off-ladder.** `opp_marcus` is still Tier 1, Fight 1
+  in `ALL_OPPONENTS`. The Test is fought against `DOCTORE_TEST_OPPONENT` (`opp_doctore_sextus`,
+  "Sextus the Yard Measure"), declared in `src/data/opponents.ts` and deliberately NOT in
+  `ALL_OPPONENTS`/`PRIMUS_PALUS_LADDER`: `fightIndex: 0`, no `isBoss`, so `tierAdvancement`,
+  `bossKills` and the banner's stripes cannot be moved by taking it, while the ordinary victory
+  write still records his id — which is the evidence the campaign gate needs.
+- **Fresh-profile-only, both halves of the predicate.** `isNoviceBoutDue()` is true while the
+  record has won NO duel and has not put Marcus down; a profile that lost to him has no win and so
+  is still due on the next attempt ("a loss costs nothing and ends nothing" — the defeat branch of
+  the write still only increments `fightsLost`). A legacy save with any win, or with the Marcus id
+  already in the record, never sees the framing again.
+- **The campaign gate STORY-1 left `'pending'` is now real, and that is the one behavioural change
+  to chapter resolution.** Chapter 1's `doctore-test` gate was already in the table with
+  `pendingKind: 'beat'`; STORY-2 lands its owning system, so the gate reads evidence —
+  the test opponent's id in `defeatedOpponentIds` AND `story.doctoreTestPassed` — and a record that
+  has only won a duel waits in Chapter 1 until it takes the Test. The two rules above it are
+  unchanged: the id alone is not a pass (every win records it), the flag alone is not either, and
+  neither is a stored verdict. A legacy save simply has not passed yet, and the entry stays open in
+  the world so it can.
+- **Save shape — no new top-level field.** The pass lives in the existing lazy `story` object as
+  `story.doctoreTestPassed?: boolean` (`src/types/game.ts`), written by the same victory update that
+  records the id, so the two can never disagree. `DuelStatistics` gained
+  `lowestStaminaFraction: number` — the stamina low-water mark, tracked exactly the way `maxCombo`
+  is (`Math.min` over the duel, initialised to 1, expressed as a fraction of the maximum the player
+  entered with, clamped to 0…1). It is a reading of the fight, not a rule of it: no combat formula
+  consults it. `createNewProfile()` still writes neither `story` nor anything else new.
+- **Primus Palus is a derivative, not a record.** The board reads only the profile it is handed and
+  the roster it imports: Aurelius's plaque (the roster's tier-4 boss, found by data not by an id
+  literal), the challengers' row in ladder order with the champion excluded, and the player's line
+  at the bottom — an UNCHALKED blank until `fightsWon >= 1`, then the gladiator's name with
+  `road.bannerDevice` (or "No device sworn"). No state, no storage, no save field, no per-frame
+  work.
+- **Suites: the existing story suite was REBASED, not weakened.** `src/utils/storyState.test.ts`
+  (39 tests / 226 `expect()` calls) gained two fixtures — `withDoctoreTest()` (the id *and* the
+  flag, written the way the victory write writes them) and `withStory()` (a story patch that keeps
+  the other flags) — and every boundary assertion still measures the boundary it names: B2 now
+  shows a legacy win closing Chapter 0 and waiting in Chapter 1, with the Test's evidence advancing
+  it to 2; B3 splits into "the win meets one half" + "win and Test close it"; B4 re-reads Chapter 2's
+  duel gate before Goliath falls and lists Chapter 3's states after; B5/B6/B7/B9 carry the evidence
+  instead of restating the record, and B5's "missing Ignis" case now filters the id out rather than
+  replacing the array (which would have dropped the Test's). §C's resolved-flag objects gained
+  `doctoreTestPassed: false`, §E's import list gained `./storyBeats`, and §F's fixtures carry the
+  evidence so the card assertions still test the chapter they name. §G was retitled and re-framed:
+  two beats are still unlanded (`vexus-race`, `statue-ceremony`; G1/G2 assert them pending), the
+  third landed (new G3 asserts no pending kind and both halves of its evidence), and G4/G5 keep the
+  "pending never holds a chapter shut / nothing closes early" properties.
+- **New suite: `src/utils/storyChapterOne.test.ts` — 30 tests / 165 `expect()` calls, seven
+  proofs.** P1 the bout is the shipped rung and the Test is off-ladder; P2 the framing is
+  fresh-profile-only (won a duel / already faced Marcus / a loss / a malformed record); P3 it is
+  narration, not intel (two speakers, no digit in either line, the narration block reads no
+  `opponent.` field, the intel rows are still exactly three); P4 the Doctore reads the first attempt
+  win or lose, the line is decided before the write, and a loss records only `fightsLost`; P5
+  exactly two rules, each printed with its reason, one choice each, and a passed Test still offered
+  as a bout; P6 the verdict reads `maxCombo` / `lowestStaminaFraction` (at target yes, one below no;
+  0.5 yes, 0.49 no; unknown rule or no reading passes nothing), the result line names the shortfall,
+  the low-water mark is the only new reading in `DuelScene`, and the gate needs both pieces of
+  evidence; P7 the board's champion/challengers/player line and its statelessness.
+- **Verified 2026-10-21** in the dev container: `bun test src/utils/storyState.test.ts` → **39 pass
+  / 0 fail** (226 expect()); `bun test src/utils/storyChapterOne.test.ts` → **30 pass / 0 fail**
+  (165 expect()); `bun test` → **2784 pass / 0 fail (93 files, 82692 expect() calls)**; `bun run
+  scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0;
+  `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only); `git diff --check` → clean.
+- **Not automatically verified — the rendered surface and the in-browser gesture.** No frame of the
+  Doctore's Test card, the narrated pre-fight card, the result lines or the Primus Palus board was
+  captured this phase: all four sit behind the 3D city hub (title → character creation → the oath →
+  the city → a hub building), which this sandbox renders through SwiftShader at ~2 fps, and the
+  static markup above is `react-dom/server` output rather than a browser paint. **Android check,
+  pending:** open the Doctore House's Training Yard and confirm both rules read with their reasons
+  and one button each, take one and confirm the rule is reprinted on the pre-fight card, read the
+  Doctore's line on the result, then confirm the Tournament tab's Primus Palus board shows the
+  champion's plaque, the ladder row, and the player's own line still blank before the first win and
+  chalked after it. The Test's combat difficulty against a fresh gladiator is a balance question
+  this suite does not measure.
+
+## CL-3 — the Doctore's guided beats engine (implemented, verified live)
+
+- **The pure engine lives in `src/utils/coachMarks.ts`** (the CL-1 registry module, extended —
+  no card copy changed). `evaluateBeats(snapshot, seen)` returns the ONE beat to show next or
+  `null`: the lowest-numbered unseen beat whose state is true. `CombatSnapshot` is a union —
+  `FightSnapshot` (everything DuelScene already holds: `phase`, `opponentId`, `isBoss`,
+  `playerTurn`, `playerActing`, `inReach`, `playerStamina`/`Max`, `quick`/`powerStaminaCost`,
+  `lastPlayerStrike`, `opponentHealth`/`Max`, `hype`, `telegraph`) and `ResultSnapshot`
+  (`phase: 'result'`, `result`, `losses`). D1–D7 never fire on the result screen and D8 never
+  fires in a fight.
+- **D5 is "low", not "staggered or low" — a deliberate, reported limit.** Nothing in the shipped
+  combat produces a staggered state (no `FighterState` field, no action, no AI branch produces
+  one), so the "staggered" half cannot be evaluated from state DuelScene holds. It was **not**
+  approximated with an invented flag: D5 fires on `playerStamina >= playerStaminaMax` plus
+  `opponentHealth / opponentHealthMax <= OPPONENT_REELING_HEALTH_FRACTION` (0.25). D6 uses
+  `HYPE_HIGH` (40) with the HUD's own `> 40` HIGH reading.
+- **DuelScene supplies the snapshot** in one effect keyed on the combat state it already keeps
+  plus two counters it now holds (`playerTurnCount`, incremented when the AI hands the turn back;
+  `resolvedActionCount`, incremented in the 1100 ms resolution tail) and `lastPlayerStrike`, set
+  in the three places a player strike resolves (out of range / blocked / landed). Nothing pauses,
+  queues or blocks: an action that resolves while a card is up behaves exactly as before.
+- **Dismissal is the only writer, and it runs after the card has rendered:** the ✕, the action the
+  beat teaches (`beatDismissesOn`: D1 quick, D2 advance, D3 guard/taunt, D4 power, D5 power,
+  D6 taunt, D7 dodge), or `BEAT_EXPIRY_ACTIONS` (2) further resolved actions. DuelScene keeps its
+  own seeded `SeenState` (`seenBeatsRef`) so a card cannot re-fire before App's profile update
+  lands, and records through App's single `markSeen` write (`onMarkCardSeen`).
+- **`CoachCard` gained a fifth placement, `panel`** — the duel's own edge, `bottom-[19rem]` with
+  `max-sm:bottom-[24rem]`. Measured live (DOM rects, not by eye): the card's bottom sits 31 px
+  above the action grid at 1280×800 and 58 px above it at 375×812, so it never covers a control;
+  its wrapper stays `pointer-events-none`, so the fight is not intercepted even where it overlays
+  the arena floor. The UI-1 safe-area guard's four `max(0.75rem,env(safe-area-inset-*))` insets
+  are unchanged (the panel edge is not a device edge).
+- **D8 is decided by App, not the modal:** App runs `evaluateBeats({ phase: 'result', result,
+  losses: profile.fightsLost }, resolveSeenState(profile))` and passes the id to
+  `DuelResultModal`, which renders the registry card at the top edge and reports its ✕ (and
+  Continue) to the same `handleMarkCardSeen`. `losses === 1` is the "first loss" reading, so a
+  second loss can never show it.
+- **CombatHUD's hype meter is labelled "CROWD HYPE"** (it read "CROWD FAVOR"); no other markup,
+  no layout change, and `crowdFavorTier` keeps its own HIGH/LOW wording.
+- **Suite: `src/utils/coachMarks.beats.test.ts`** (25 tests, 102 assertions) — per-beat
+  fires/doesn't-fire/never-re-fires, priority (lowest number, one at a time, D1 outranks all),
+  purity (same inputs, no snapshot/seen/profile mutation), D8 first-loss-only, a full simulated
+  turn sequence (D1–D7 in order for a fresh profile, **zero** cards once every D-beat is seen) and
+  the dismissal map. No storage is read or written by it.
+- **Verified 2026-10-21:** `bun test` → **2809 pass / 0 fail (94 files, 82 794 expect())**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`)
+  → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only);
+  `git diff --check` → clean. Live in the preview browser (the dev character harness, driven in an
+  in-page frame so no save is touched): D1 renders the registry copy verbatim on Marcus's opening
+  turn, one card only; ✕ dismisses it; an out-of-range Quick Strike raises D2; Advance (its taught
+  action) dismisses it and nothing comes back; the card clears the action grid at both 1280×800 and
+  375×812 with no sideways scroll; the meter reads CROWD HYPE. **Not automatically verified:** D8 on
+  the result screen — it needs a profile's first real loss in App's own duel flow, which the harness
+  does not mount (its result screen is its own), so that card is covered by the engine suite and the
+  wiring only; check it on device on a first defeat.
+
+## P2 — Triumphs and the derived rank (implemented, validated)
+
+- **What shipped.** One optional save field, one pure transaction, one Library page and one sheet panel.
+  `PlayerProfile.laurels?: { titles?: string[]; statue?: boolean }` (`src/types/game.ts`) is **optional and
+  never backfilled** — a pre-Triumphs save has no field and `resolveLaurels` reads it as "owns nothing".
+  `src/utils/laurels.ts` holds the four-honour catalogue (Crowd Favourite 300 fame, Champion of the Sands
+  800, Living Legend 2,000, Ludus Statue 1,200 — **fame only, never gold**) and the pure
+  `purchaseLaurel` / `getTriumphPurchaseEligibility` / `resolveLaurels` / `ownsTriumph` /
+  `ownedTriumphs`, in the `racingProgression.ts` / `chariotLoadout.ts` idiom: success returns a NEW profile,
+  refusal returns `{ ok: false, reason }` and no profile. A title buy also points `profile.title` at the
+  title's own name; owning is permanent, the displayed title is a pointer. **Zero power** — nothing here
+  touches a stat, price, reward or gate, pinned by `laurels.test.ts` §F, which also allowlists the only
+  files permitted to name the field.
+- **Surface naming: the umbrella is "Triumphs".** "Laurel" belongs to the palma (the day's golden laurel),
+  so no string either surface prints uses it; `laurels` / `purchaseLaurel` are the design's own code
+  identifiers (§11 C1d renames the surface, not the field).
+- **Where it is.** `TriumphsPage.tsx` is the second page of the **Records & Lore** tab's own rack (beside
+  the Road) — it adds **no** hub tab and no nav entry. `StatsTab.tsx` gains a **Career** panel: the
+  **derived** rank from `deriveRank` (`utils/rank.ts`, the Road page's own answer — never the stored
+  `rank` field), the fame balance, and the owned Triumphs with the statue's fixed line.
+- **Corpus discipline.** The added optional field fired the GC20 tripwire by design: `saveCorpus.test.ts`
+  §J's optional-field list now includes `laurels` in `game.ts` declaration order, and a new **triumphs-era**
+  fixture (`saveFixtures/triumphsEraProfile.json`, registered in `saveFixtures/index.ts` and `MANIFEST.md`)
+  carries three owned titles plus the statue and displays the newest. Every pre-existing fixture still
+  resolves as before, and no factory save writes the field.
+- **Suites.** `src/utils/laurels.test.ts` (transactions, refusals, purity, the naming law, §F's zero-power
+  sweep) and `src/utils/triumphsSurface.test.tsx` (server-rendered Library page and sheet: prices, refusal
+  copy, owned/displayed/statue states, the derived rank over deliberately stale stored values, the empty
+  state, the wiring read out of the sources). **The surface suite is `.tsx`, not `.ts`** — it renders JSX and
+  bun's `.ts` transform rejects it; a `.ts` name silently becomes an unhandled parse error.
+- **Validated 2026-10-21** in the dev container: focused
+  `bun test src/utils/{laurels,triumphsSurface,saveCorpus,rank,roadOfGlory,roadMilestones,saveValidation,phaseC8_67b,phaseC8_66b}.test.*`
+  → **337 pass / 0 fail** (3,101 expect() calls); `bun run scripts/collisionTests.ts` → **123 passed,
+  0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the pre-existing >500 kB
+  chunk warning only); `git diff --check` → clean. This turn changed **test-side code only** — the feature
+  commit was already in place; the fixes were the suite's `.tsx` naming, §F's allowlist (its walk now
+  descends into `saveFixtures` so the registry's own `index.ts` is accounted for like any source), §D
+  narrowed to the Triumphs page (**the Library rack opens on the Road, whose pre-existing palma copy
+  legitimately says "the laurel hill" — that is not the surface this naming law governs**), and one
+  `as unknown as` cast in the malformed-save test that had made `lint` fail.
+- **Preview evidence.** Live in the hub on a fresh profile: **Records & Lore → Triumphs** renders all four
+  honours with their fame prices, the `RANK: ROOKIE` badge, `Fame: 0`, `Owned: 0 / 4`, and a disabled buy
+  plus `Not enough fame.` on every card; **Gladiator Stats → Career** shows `RANK Rookie`, `FAME 0`,
+  `TRIUMPHS OWNED` / `No Triumphs yet.`; no sideways scroll at 1280 or 375. **Not automatically verified:**
+  the **owned** states on the live surfaces (a title owned/displayed and the statue's line) — a fresh
+  profile has 0 fame and the cheapest Triumph costs 300, so no purchase could be driven; those states are
+  covered by `triumphsSurface.test.tsx` §A/§C against the same components. **Android visual acceptance
+  remains pending** for the two surfaces. The verification profile exists only in the preview browser's
+  own storage; nothing in the repo, the user's save or the user's preview was touched.
+
+## S4 — injuries happen (disease before cures — implemented)
+
+- **The defect was one end of a finished loop.** `PlayerInjury { fightsRemaining, penaltyStrength,
+  penaltyAgility }` has existed on the profile since import, `createNewProfile()` writes `injury:
+  null`, and `calculateTotalStats` has always subtracted the penalties (floored at 1) — but nothing
+  in the game ever wrote a non-null injury, so the penalty branch was dead. This slice writes the
+  missing inflictor. **No new save field and no migration:** the existing field is written through
+  the existing `saveProfile` path, so the save format is unchanged.
+- **The helper is `src/utils/injury.ts` (pure, deterministic, no RNG).**
+  `resolveInjuryAfterDuel(profile, won)` returns `{ profile, event }` with a NEW profile: a loss with
+  no active injury sets `{ fightsRemaining: 3, penaltyStrength: 2, penaltyAgility: 2 }`; ANY completed
+  duel (win or loss) with a live injury decrements `fightsRemaining` by 1 and clears to `null` at 0; a
+  loss while injured neither stacks nor refreshes. Order of operations is explicit — the fresh
+  infliction branch returns before the decrement, so a new wound starts at the full 3. `event` is
+  `{ kind: 'inflicted', injury }`, `{ kind: 'healed' }` or `null` (a plain decrement says nothing).
+  `resolveActiveInjury()` is the one "is the wound live" read; `injuryBannerLine()` is the one
+  player-facing line, built from the injury's own numbers. The module never reads
+  `calculateTotalStats` or `combatCalculations` (pinned).
+- **One call site: `App.handleMatchComplete` (src/App.tsx:648).** The helper is resolved ONCE before
+  the win/loss branch, and both branches spread `...afterInjury` into the `updatedProfile` they commit
+  through the existing `setProfile` + `saveProfile(settledProfile)` pair — the same transaction that
+  credits gold/fame/xp and records story progress. Wins and losses both run it; racing and every
+  other handler never touch the field. The outcome travels to the result modal in the same
+  `setDuelResult` payload, so the screen and the save cannot disagree. Boss fights and the Doctore's
+  Test go through that one handler, so the rule is uniform — no boss-only exception, no Test exception.
+- **Surfaces.** `DuelResultModal` shows a red banner on an inflicting loss ("Injured: −2 STR / −2 AGI
+  for 3 fights", from the injury written) and a short emerald "Injury healed." line when a duel closes
+  one; a plain decrement adds nothing. `StatsTab` shows an "Injured" block with the penalties and
+  fights remaining above Primary Attributes, only while `resolveActiveInjury` says the wound is live —
+  this is where the player sees why the stats `calculateTotalStats` renders are netted. Neither
+  surface restates the penalty numbers; both read the helper.
+- **Tests.** `src/utils/injury.test.ts` (30 tests / 71 `expect()`) — §A infliction on a loss only,
+  §B a fresh wound starts at 3 and is not decremented by its own duel, §C the cadence across
+  subsequent duels (win or loss), §D clear at 0 → `null`, §E no stacking/refreshing, §F
+  `calculateTotalStats` applies −2/−2 floored at 1 (the first non-null-injury coverage in the repo),
+  §G purity (frozen input, no mutation; a no-op returns the caller's object), §H the wiring (one call
+  site, before the branch, both writes, the result payload, no other caller in `src/`).
+  `src/utils/injurySurface.test.tsx` (6 tests / 15 `expect()`) renders the real components with
+  `react-dom/server`: the modal's three states and the stats tab's live/absent/cleared states.
+  One existing assertion was **rebased, not weakened**: `storyChapterOne.test.ts`'s exact
+  `setDuelResult({ didWin, stats, storyLines })` now includes `injuryEvent`, which is the same
+  payload it exists to pin.
+- **Validated 2026-10-21** in the dev container (all five, on the final tree): `bun test` → **2896
+  pass / 0 fail (98 files, 83,796 `expect()` calls)**; `bun run scripts/collisionTests.ts` → **123
+  passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (the
+  pre-existing >500 kB chunk warning; startup asset check 8 assets); `git diff --check` → clean.
+  The one startup failure was mine — `const { injuryEvent }` read a property the helper calls
+  `event`, caught by `tsc` and fixed by `event: injuryEvent`.
+- **Preview evidence.** Live in the preview browser (anonymous visitor, no session): title → PLAY →
+  creation → the city hub → the footer's **Gladiator Stats** tab renders the full stats screen with
+  **no "Injured" block** (`data-injury` absent), no sideways scroll at 1280, and 0 console errors —
+  the no-injury state. **Not automatically verified: the injury states in the running UI.** Putting a
+  wound on a live profile needs a *duel loss* in App's own flow (the 3D city → arena at ~2 fps
+  through SwiftShader), and seeding `localStorage` cannot survive the app's next fresh load, so the
+  positive states are covered by `injurySurface.test.tsx` against the real components instead. Check
+  on device: lose one duel and confirm the red banner's numbers, then open Gladiator Stats and watch
+  the wound's count fall across three duels and the block disappear when it heals. **Android visual
+  acceptance remains pending.** The guest profile this live run wrote was deleted from the preview
+  browser's storage afterwards; the repo, the user's save and the user's preview were not touched.
+## S5 — the cures: the Medical House treats, the Caravanserai rests (implemented)
+
+- **The other half of S4's loop, and it writes the same one field.** S4 made a loss inflict
+  `{ fightsRemaining: 3, penaltyStrength: 2, penaltyAgility: 2 }`; this slice sells the cures.
+  **No new save field and no migration:** the existing `injury` field is cleared or shortened and
+  `gold` is deducted through the existing `setProfile` + `saveProfile` pair, so the save format is
+  unchanged, `createNewProfile()` is untouched and a legacy save round-trips byte-identical.
+- **Both helpers live in `src/utils/injury.ts`, beside the inflictor, and both are pure.** The
+  prices are the design's §1.6 values: `TREAT_PRICE` **75**, `REST_PRICE` **25**,
+  `REST_FIGHTS_RESTORED` **2**. `treatmentPrice(service)` is the one reader of the two prices;
+  `getTreatmentEligibility(profile, service)` returns `{ ok: true, price }` or
+  `{ ok: false, reason: 'no-injury' | 'insufficient-gold' }`. `treatInjury(profile)` clears the
+  wound outright; `restAtInn(profile)` takes two fights off its clock and clears it to `null` at
+  zero (the floor is zero, never a wound worth nothing) with the penalties riding along until then.
+  **A refusal returns the caller's own profile object and never charges**, and a missing or
+  non-finite `gold` can afford nothing, so a malformed save cannot produce a NaN balance. Neither
+  helper reads or advances the day/time — rest is a treatment service here, not the exertion
+  clock — and neither imports the combat formulas or storage (all pinned).
+- **App transacts; the city only reports the choice.** `App.tsx` holds the only two call sites:
+  `handleTreatInjury` and `handleRestAtInn` each call the helper once, treat a returned-same-reference
+  as a refusal (`return false`, no `saveProfile`), and on success write the new profile through
+  `setProfile` + `saveProfile` exactly once. `CityHubScene` declares `onTreatInjury` / `onRestAtInn`
+  as `() => boolean` props, calls them from its one treatment panel, and names neither `setProfile`
+  nor `saveProfile` — no transaction is re-implemented on the screen.
+- **The panel is the injury module's own reading.** `HUB_LOCATIONS`' `arena_medical_house` and
+  `caravanserai` have **no `tabKey`**, so `handleInteract` reaches its own branch: with a live injury
+  (`resolveActiveInjury`) it opens the panel keyed `data-treatment-panel={service}`; a healthy visit
+  keeps the flavour notice the hub has always printed, with no buttons at all. The panel prints
+  `injuryBannerLine(injury)` and `treatmentPrice(service)`, shows the refusal as
+  `data-treatment-refusal={reason}`, and its one action is a `min-h-[48px]` target. Esc closes it,
+  and no other key is read while it is up.
+- **The Caravanserai's Armory redirect is gone.** Its `tabKey` was removed (it pointed at the gear
+  tab), so it can never open a tab again; its service is rest, and its `actionPrompt` reads
+  `Rest at the Inn`. Centre, radius, icon, colour, district and fast-travel arrival are unchanged,
+  and the four other flavour notices (shrine, barracks, veteran hall, the neutral fallback) are
+  untouched.
+- **Tests: `src/utils/treatment.test.ts` — 29 tests / 110 `expect()` calls.** §A treat (the 75 gold
+  price, an outright cure, exactly one deduction, a purse exactly at the price paying to zero,
+  nothing else on the profile moving, a second visit refused); §B rest (25 gold / two fights,
+  3→1, 2→null, 1→null, no negatives, two rests taking 3→null for 50, the clock field
+  untouched); §C both refusals with the profile untouched (no injury, an exhausted or malformed
+  wound, a purse one gold short, a malformed balance, and the eligible path answering its price);
+  §D purity (frozen inputs, no mutation, a refusal returning the caller's own object, two calls
+  agreeing but not sharing); §E the wiring (App the only caller and each handler saving once, the
+  scene passing both callbacks and writing no save, the panel's own reads and its 48dp button, the
+  Inn's removed redirect, the untouched notices, and racing never treating or resting).
+- **Two test-side repairs this turn — the production wiring was already correct.** §E's
+  "hands both callbacks through" test asserted `onTreatInjury={handleTreatInjury}` in the *scene*
+  source, where that pass-through legitimately lives in `App.tsx`; it now reads the props off
+  `APP_SOURCE` and the scene's own declaration and call off `SCENE_SOURCE` (four assertions became
+  six). The "racing never treats or rests" test contradicted itself — `not.toContain('restAtInn(')`
+  followed by `match(/restAtInn\(/g).length === 1` — so it now keeps the single-call-site counts and
+  asserts neither call appears inside a racing handler. No production file was touched to make
+  either pass.
+- **Validated 2026-10-21** in the dev container, on the final tree: focused
+  `bun test src/utils/{treatment,injury}.test.ts src/utils/injurySurface.test.tsx` → **65 pass / 0 fail**
+  (196 `expect()`); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → **exit 0**; `git diff --check` → clean. The full `bun test` suite and
+  `bun run build` were **not re-run here** (the sandbox's CPU also runs the preview, so only the
+  suites covering this change were run); CI runs both on the pull request.
+- **Not automatically verified — the panel in the running hub.** The panel only opens on a live
+  injury, and a live injury needs a *duel loss* in App's own flow: the preview session restores the
+  account's save and clears browser storage on every fresh load, so a seeded `injury` cannot survive
+  the reload the city needs, and no dev harness mounts the city hub. Both services' logic, refusals and
+  purity are covered by the suite and the wiring is pinned in source, but the gold deduction, the save
+  write and the panel itself through the UI **remain a device check**: lose one duel, walk to the
+  Arena Medical House, confirm the 75 g button cures the wound and the stats penalties disappear,
+  then take a second injury and confirm a night's rest shows 25 g and takes two fights off the clock.
+
+## S7 — tavern rumours: intel as a service (implemented)
+
+- **One module owns the rules: `src/utils/intel.ts`.** `INTEL_PRICE = 15`, `resolveIntel` (a save with
+  no/null/malformed `intel` reads `[]`; unknown ids and duplicates are dropped), `hasIntel`,
+  `intelTargets` (roster order, minus what is owned), `getIntelPurchaseEligibility` and
+  `purchaseIntel` — pure, a NEW profile, refusals (`unknown-opponent` / `already-owned` /
+  `insufficient-gold`) carry no profile, so a refused buy can never reach `saveProfile()`.
+  `PlayerProfile.intel?: string[]` is optional exactly like `chariot`/`racing`/`consumables`: nothing
+  migrates it and `createNewProfile()` never writes it.
+- **INTEL IS INFORMATION ONLY.** No file in the combat path imports `intel.ts`; the write touches
+  `gold` and `intel` and nothing else. The tavern panel and the tournament card both say so in words.
+- **Wiring:** `App.handleBuyIntel` is the only caller of the purchase (one `setProfile` +
+  `saveProfile`) and hands the answer back; `CityHubScene` adds the `intelPanel` view state beside
+  `treatmentPanel` (Esc closes it, the primary action is its own while it is up) and opens it for the
+  `tavern` location, whose `tabKey: 'stats'` redirect is gone. `TournamentTab` renders the opposing
+  dossier only when `hasIntel(profile, opp.id)`.
+- **Validated 2026-10-22** in the dev container, on the final tree: `bun test` → **3008 pass / 0 fail
+  (103 files)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → built + startup asset check passed; `git diff --check`
+  → clean.
+- **Verified live 2026-10-22** in the preview (anonymous visitor, a gladiator created through the
+  real creation screen, oath skipped by holding): quick-travel to the Golden Palm → "Hear Rumors"
+  opened the panel listing **8 opponents at 15 g** with the "Information only" line; six purchases
+  moved gold **85 → 70 → 55 → 40 → 25 → 10** (exactly 15 each) and removed each bought name from the
+  list; at 10 g every remaining row was disabled and the panel printed "Not enough gold. You carry
+  10g."; the stored save carried `intel: [opp_marcus … opp_centurion_drusus]`. The Colosseum tab then
+  showed rumour blocks on exactly the three tier-1 cards bought (`opp_marcus`, `opp_flaccus`,
+  `opp_goliath_boss`) reading `Aggressive fighter · Sword & Shield · STR 8 · AGI 8 · STA 80 · REG 14 ·
+  DEF 2 · HP 90`. The bought save was removed afterwards; the browser's storage is cleared per fresh
+  load anyway, so a seeded save cannot survive one.
+- **Not visually captured:** the card-level screenshot was taken with the Colosseum page at the top, so
+  the rumour block's own frame was asserted in the DOM (text and `data-intel` ids) but not seen in a
+  capture — a one-glance device check.
+
+## S8 — Spiked & Bladed wheels: the measured fit pass (report only; nothing admitted)
+
+- **The slice was measurement-gated and the measurement FAILED, so the catalogue is untouched.** A full
+  record lives in [.base44/wheel-fit-s8.md](.base44/wheel-fit-s8.md); keep S8 detail there. The wheels
+  slot still sells exactly `wheels_standard` (0) and `wheels_reinforced` (450), and
+  `ChariotWheelVariantKey` still admits only `'standard' | 'reinforced'`.
+- **The numbers, re-derived from the shipping kit's own vertices** through the shipped mount (the two
+  shipping variants reproduce `getChariotWheelPlacement` to 12 dp, which is the control): spiked
+  **radius 0.7940**, tyre bottom **−0.1440** (0.1090 deeper than standard), wheel-Z clearance
+  **−0.0090**; bladed **radius 1.0947**, tyre bottom **−0.2429** (0.2079 deeper), wheel-Z **−0.3097**
+  — both against a 0.100 rule. Hubs land on (±0.70, 0.65, 0) exactly for both, so the stop is ground
+  penetration plus the inner horse's rear envelope, not the mount. The withheld comments' 0.8025 /
+  0.8429 were unmeasured guesses; the asset says 0.7940 / **1.0947** (the bladed wheel is 2.19 across,
+  60 % larger than the stock 1.37).
+- **The reinforced set that ships is already 0.0175 short on the same recomputed rule** — that is the
+  recorded fit discrepancy, and it is why the gate is read as diagnostic rather than binary.
+- **The bladed set's mirror seam is `scale: [1, 1, −1]` on the right-hand wrapper, i.e. the kit frame's
+  Z** (the disc normal, hence the axle after the yaw) — **not X**, which would leave both blades raked
+  the same way. Measured on the real vertices: the mirrored side is the left side reflected through the
+  chariot's centre plane and the blades' rake sign reverses while its magnitude holds to 1e-6.
+- **`src/utils/chariotWheelFit.ts` is the dev-only measuring module** (its own `WheelFitVariantKey`, so
+  the catalogue's type is untouched); its only consumer is `components/dev/HorseChariotFitPrototype.tsx`,
+  whose `?devHarness=horsefit` screen now carries a wheel-set selector and the fit readout.
+  `src/utils/phaseS8WheelFit.test.ts` (21 tests) pins §A the fit, §B the mirror, §C the radius
+  consumption trace (one stock radius in `chariotMovement.ts`, a hub-centred workshop mount, a race
+  scene that never mounts the kit) and §D report-only.
+- **Verified 2026-10-22** in the dev container: `bun test src/utils/phaseS8WheelFit.test.ts` → 21 pass /
+  0 fail (217 expect); `bun run scripts/collisionTests.ts` → 123 passed / 0 failed; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check passing;
+  `git diff --check` → clean. Live in the dev harness: spiked and bladed mounted through the shipping
+  transform, the readout printing exactly the figures above (including `mirror right wheel (scale.z −1)`
+  for the bladed pair) and the standard set reproducing 0.6850 / −0.0350 / 0.1000 as the control.
+- **Not automatically verified — the rendered reading.** The sandbox has no GPU (SwiftShader), so
+  whether the spikes and the mirrored blades *read* correctly at a glance is an on-device (Android)
+  check. Making either variant shippable needs a ride lift / hub drop of exactly the measured
+  penetration, a decision on the horse's rear envelope, and a variant-aware roll radius — none of which
+  this slice was authorised to change.
+
+## P3 — chariot catalogue expansion (types + data + resolver; NO UI — implemented, validated)
+
+- **What ships.** `ChariotSlot` widens to `'wheels' | 'finish' | 'axle' | 'harness' | 'chassis'`
+  (`src/types/game.ts`); nine parts are APPENDED to `CHARIOT_PARTS` (`src/data/chariotParts.ts`) after the
+  six shipped rows, each declaring an inert `raceEffect` of plain numbers; and `resolveChariotLoadout`
+  (`src/utils/chariotLoadout.ts`) iterates the catalogue's slot list so a legacy save resolves each newer
+  slot to its stock part at READ time. Prices (pinned from the brief): `axle_stock` / `harness_stock` /
+  `chassis_stock` free; `axle_ironbound` 260, `axle_bronzehub` 520, `harness_padded` 300,
+  `harness_russata` 580, `chassis_reinforced` 350, `chassis_lightweight` 700.
+- **The defaults map.** `DEFAULT_CHARIOT_PART_IDS: Record<ChariotSlot, string>` (+ `CHARIOT_SLOTS`) in
+  `chariotParts.ts` replaces the resolver's old `slot === 'wheels' ? … : …` branch:
+  `{ wheels: wheels_standard, finish: finish_stock, axle: axle_stock, harness: harness_stock,
+  chassis: chassis_stock }`. Both are derived from the catalogue, so a future slot needs no resolver edit.
+- **Stored shape unchanged — the load-bearing decision.** `ChariotLoadout.equipped` (STORED) is still
+  `{ wheels; finish }`; the five-key record is a separate read-side type, `ChariotEquippedResolved`
+  (`Record<ChariotSlot, string>`), returned by the resolver as `ChariotLoadoutState.equipped`. No profile
+  field was added and the corpus stays green. **Trap found and closed:** `purchaseChariotPart` and
+  `equipChariotPart` used to spread `loadout.equipped` into the stored record; with a five-key resolved
+  record that would have WRITTEN `axle/harness/chassis` into every save on the next buy or equip. They now
+  persist through `storedEquipped()` (wheels + finish only). A mutation that removes it fails
+  `phaseP3ChariotCatalogue.test.ts` §D.
+- **`owned` keeps its pre-P3 meaning.** The two original stock parts are always owned and the new stock
+  parts are implicit — never listed in `owned` — because the pinned corpus assertion
+  (`saveCorpus.test.ts` §F) and every purchase/equip test compare `owned` exactly. A paid new-slot part
+  still needs to be in `owned` to resolve as equipped.
+- **`raceEffect` is inert.** Only `data/chariotParts.ts` names it; `phaseP3ChariotCatalogue.test.ts` §E
+  sweeps every non-test module under `src/` (comments stripped) and fails if any other one mentions it or
+  reads an effect key. Racing Stage 3 owns consumption.
+- **Exclusions held.** No UI (the workshop still queries `chariotPartsBySlot('wheels')` and `('finish')`
+  only, pinned in §G — it mentions "axle" in prose about wheel height, so the guard pins the slot QUERIES,
+  not the word); the wheels slot is exactly as shipped (no Spiked/Bladed; no 480/620/600/800 price); no
+  Triumph banner parts.
+- **Existing assertions widened, not weakened.** The old tests pinned a 6-part, 2-slot world:
+  `phaseC8_66b` (slot allow-list; resolved `equipped` now carries the three stock ids),
+  `phaseC8_67b` (the six shipped price rows are now pinned as a `slice(0, 6)` prefix),
+  `phaseS8WheelFit` (15 parts; the wheels/finish rows still exactly 6, wheels still exactly 2) and
+  `saveCorpus` (resolved `equipped` includes the stock ids). Every wheels/finish value is still asserted.
+- **Corpus note.** `saveCorpus.test.ts` §H pins that ONLY that file imports `saveFixtures`, so the
+  corpus-wide P3 checks are `saveCorpus.test.ts` §K (additive), not in the P3 suite — found by the bare
+  repo-wide run, which an isolated run of the new suite could not have shown.
+- **Verified 2026-10-22** in the dev container: `bun test` → **3067 pass / 0 fail (105 files)** (baseline
+  3029 / 104); `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0, 0 TS errors; `bun run build` → exit 0, startup-asset check passing (8 assets);
+  `git diff --check` → clean. Four single-literal mutations (transactions leak the 5-key record; resolver
+  iterates only wheels/finish; a price off by 50; production reads `raceEffect`) each fail exactly the
+  intended tests, with the files restored byte-identical. **Not verified:** nothing visual — no pixel changes.
+
+## P5 — facility progression (implemented, validated)
+
+- **What shipped.** One optional save field, one pure module and four read-time gates — no screen.
+  `src/utils/facilityProgression.ts` follows the `stableProgression.ts` / `racingProgression.ts`
+  idiom (catalogue → resolve → eligibility → purchase, a NEW profile on success, a refusal that
+  carries no profile): `FACILITIES` (Imperial Stable 500 / 1,200 — Stone Stalls, Stud & Training
+  Paddock; Ludus Training Yard 500 / 1,200 — Doctore's Yard, Master's Ludus; Smithing Workshop
+  600 / 1,400 — Master's Forge, Imperial Armoury), bought IN ORDER — only the level above the one
+  owned is ever offered, so a skipped level is a level that does not exist to buy. The whole ludus
+  costs 5,400 gold.
+- **The save field.** `PlayerProfile.facilities?: { stable?: number; yard?: number; workshop?: number }`
+  (`src/types/game.ts`), optional and **never backfilled**: absent, partial and malformed values all
+  resolve to level 0 per building, and `createNewProfile()` still writes nothing. `purchaseFacility`
+  is the single writer.
+- **The gates are read-time facts, restated nowhere.** `tempering.ts` asks
+  `getFacilityLevel(profile, 'workshop')` for temper levels 2–3; `stableProgression.ts` asks
+  `getFacilityLevel(profile, 'stable')` for quality grades 2–3 and conditioning levels **4 and 5**
+  (both need the L2 paddock); `data/shops.ts`'s `getVisibleStorefrontStock` withholds exactly the
+  two `GILDED_FORGE_ITEM_IDS` rows (`chest_champion_gilded`, `helm_champion_gilded`) until workshop
+  L2 — the gilded galerus and greaves stay on sale at every level; and the yard sets **stat
+  training's price** at a flat 25 / 22 / 20 gold per character level through
+  `trainingCost(profile)`, the one call shape in both consumers (`App.tsx`'s `handleTrainStat` and
+  `components/hub/TrainingTab.tsx`). A gate outranks the purse and never charges. The buy path
+  re-checks the gate: `src/utils/itemPurchase.ts` (`getItemPurchaseEligibility` / `purchaseItem`,
+  the `selling.ts` idiom — a new profile on success, a refusal that carries none) is what
+  `App.handleBuyItem` now calls, so a stock list cannot be bypassed.
+- **Corpus discipline.** The new optional field fired the GC20 tripwire by design: `saveCorpus.test.ts`
+  §J's optional-field list ends with `facilities` in `game.ts` declaration order, a **facilities-era**
+  fixture (`saveFixtures/facilitiesEraProfile.json`, registered in `saveFixtures/index.ts` and
+  `MANIFEST.md`) carries all three buildings at L2 with 600 gold, and every pre-existing fixture still
+  resolves as before.
+- **Suites.** `src/utils/phaseP5FacilityProgression.test.ts` — §A the catalogue, §B the resolver over
+  absent / partial / malformed shapes, §C the in-order purchase with refusals that move nothing and
+  frozen-profile purity, §D the four gates, §E the flat 25 / 22 / 20 training price and its
+  consumers, §F the two-row Master Forge stock gate, **§F2 the purchase refusal layer**
+  (`purchaseItem` refuses a gated row below workshop L2 and an unaffordable one without charging,
+  never mutating its input), §G the profile field and the corpus, §H the scope guards (one writer,
+  one consumer set, no facility screen yet).
+- **Scope guards worth knowing.** §E is a **repo-wide sweep**, not a hand-written list: every
+  non-test source file naming `trainingCost` must be exactly `App.tsx`,
+  `components/hub/TrainingTab.tsx` and `utils/facilityProgression.ts`, so a new gold sink that
+  reaches for the helper fails without the suite naming it. The P2 `laurels.test.ts` §F allowlist is
+  untouched — the sweep keeps this suite from writing another module's name.
+- **One open design item, deliberately not invented.** The yard L2 brief mentions a "+1
+  creation-style point" that no shipped system consumes; nothing implements it, because no system
+  reads such a point today. Every price and name lives in `FACILITIES` and every consumer reads the
+  constants rather than duplicating a price — change them in the module, nowhere else.
+- **Repaired 2026-10-22 (build error this turn).** `src/App.tsx` imported
+  `./utils/itemPurchase`, which had never been committed, so the dev server failed to resolve it and
+  the app could not render. The module is now written (the pure transaction described above) and
+  the P5 suite — which still pinned the pre-update values — was rebased, not weakened: the workshop
+  rows 500 / 1,200 → **600 / 1,400** (total 5,400, the frozen workshop purchase 5,000 → 4,400), the
+  conditioning table's level 4 **1 → 2** (both levels need the paddock), the 0 / 10 / 25 % discount
+  → the flat **25 / 22 / 20** base with a malformed-level case, the four `_gilded` rows → the two
+  `GILDED_FORGE_ITEM_IDS` (arms/legs asserted to stay on sale), and `shops.ts`'s gate read
+  `gildedUnlocked` → `isItemUnlocked`. **Verified:** `tsc --noEmit` exit 0 (it reported 10 stale-pin
+  errors before); the P5 suite 50 pass / 0 fail (331 `expect()`); the repo-sweeping guards
+  (`storefrontCatalogue`, `storefrontWiring`, `saveCorpus`, `laurels`, `phaseP3ChariotCatalogue`)
+  237 pass / 0 fail; the dev server serves `/src/utils/itemPurchase.ts` and `/src/App.tsx` HTTP 200
+  with no further resolve error, and the app boots to the title with 0 console errors and 0 failed
+  requests. **Driven live in the preview** (guest profile): market at workshop 0 shows the gilded
+  galerus and greaves and **not** the gilded cuirass or galea; buying the 90 g pugio through the real
+  button moved gold 100 → 10, added exactly one `dagger_pugio` to a 2 → 3-entry inventory, and
+  persisted it to the save key — the `purchaseItem` path end to end. The disposable guest save was
+  removed afterwards.
+- **Verified 2026-10-22** in the dev container, on the final tree: `bun test` → **3181 pass / 0 fail
+  (107 files, 87,044 `expect()` calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0
+  failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset
+  check passing (8 assets); `git diff --check` → clean. **Not verified:** nothing visual — this slice
+  ships no screen and changes no pixel, so there is no appearance to accept on device.
+- **Six single-literal mutations, each caught (2026-10-22, throwaway harness in `/tmp`, nothing added
+  to the repo).** Applied one at a time to `facilityProgression.ts`, reverted and compared
+  byte-identical (sha256) before the next: temper L3's workshop requirement 2 → 1 (**2 fails**, §D);
+  conditioning's `level === 4 || level === 5` → `level === 5` (**2**, §D); the yard's 20 base → 25
+  (**3**, §E); the helm gilded id struck from `GILDED_FORGE_ITEM_IDS` (**1**, §F); `levels[level]` →
+  `levels[MAX_FACILITY_LEVEL - 1]`, i.e. a skippable level (**4**, §C); the workshop's L2 price
+  1,400 → 1,200 (**2**, §A/§C). Every gate, the price ladder, the in-order rule and the training
+  curve therefore fail a test when broken — none is pinned only by agreeing with its own constant.
+  Post-restore run: **288 pass / 0 fail** across the five suites the gates reach (P5, P4 stable,
+  tempering, storefront wiring, save corpus).
+
+## P6 — progression UI wiring (tempering, chariot slots, stable, facilities) — implemented, validated
+
+- **What shipped (surfaces only; every transaction still lives in `App`).** The four progression
+  slices that had shipped data + pure logic and no screen now have one each:
+  `components/hub/TemperControl.tsx` (mounted on BOTH Armory cards — weapon and armour — through
+  `GearTab`'s one `onTemperItem` callback); `ChariotWorkshopTab` renders one section per
+  `CHARIOT_SLOTS` entry from `chariotPartsBySlot`, with a Preview control only on the parts the 3D
+  kit can show (`part.wheelVariant !== undefined || part.finish !== undefined`); `StablePanel.tsx`
+  mounted in `RacingConfigSection` under the team cards; `FacilitiesPanel.tsx` mounted in
+  `GladiatorSchoolHub` above every tab. `ChariotLoadout.equipped` widened to
+  `Partial<Record<ChariotSlot, string>>` (`storedEquipped()` persists only non-stock slots), and
+  `ownsChariotPart` treats the new stock axle/harness/chassis as implicitly owned, so a legacy save
+  still stores nothing.
+- **The rule the suite pins: a surface DERIVES, `App` WRITES.** Every price, cap, gate and refusal
+  sentence is read from the owning module (`getTemperCost`, `TEMPERS_MAX_LEVEL`,
+  `getStableQualityEligibility`, `nextConditioningCost`, `getFacilityUpgradeEligibility`, …); no
+  surface names `saveProfile`, `localStorage` or `setProfile`, and no surface restates a catalogue
+  price. `src/utils/phaseP6UiWiring.test.ts` (19 tests) holds both halves, plus save/load round
+  trips for a five-slot non-stock chariot.
+- **Three test-side corrections this pass — each determined by the shipped data, none by weakening a
+  check.** (1) The stable refusal case assumed grade 1 costs 500; the catalogue's `STABLE_QUALITIES`
+  says **400**, so the test now reads `getStableQuality(1).price` and asserts one gold short fails
+  and exactly the price succeeds. (2) The "no surface re-states a price" sweep flagged `300` inside
+  the workshop's `text-amber-300` Tailwind token, so it now matches a **standalone** number
+  (`(?<![\w-])300(?![\w-])`) — a class token is not a price, a literal is. (3) `phaseC8_67c`'s
+  `RacingConfigSection` guard pinned its exact import list; P6 legitimately adds
+  `./StablePanel`, so that list gained the entry with a comment naming this phase. The P6 suite also
+  needed the repo's `// @ts-ignore — bun:test is available at runtime via bun test` line above its
+  `bun:test` import, which is what made `bun run lint` exit 0 again.
+- **Verified 2026-10-23** in the dev container, on the final tree: `bun test` → **3207 pass / 0 fail
+  (108 files, 87,136 `expect()` calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0
+  failed**; `bunx tsc --noEmit` → **exit 0**; `bun run build` → exit 0 with the startup-asset check
+  passing (8 assets); `git diff --check` → clean.
+- **Live evidence (preview browser, anonymous visitor — no session replayed, so the run used the
+  app's own guest path and wrote the guest profile it normally writes).** Driven through the real
+  route — title → `Play` → creation → `Apply Points` → the camp: `LUDUS FACILITIES` renders all three
+  buildings at `LV 0 / 2` with the catalogue's own next rung and price (500 / 500 / 600) and a
+  disabled BUILD plus "Not enough gold." on a 100-gold profile; the Armory carries **2**
+  `[data-temper-level]` rows (weapon and armour); the Chariot Workshop subview opens and the stable
+  panel below it mounts with `data-stable-quality="0"`, `data-stable-conditioning="0"`,
+  `data-conditioning-price="120"`, both actions present, the refusal `data-stable-rejection` on both,
+  and its own copy reading `Next: Trained Team · 400 Gold` — i.e. the 400 my corrected test now
+  reads. `scrollWidth === clientWidth` at 1280, 0 console errors.
+- **Not automatically verified.** (a) **Buying through the UI** — every paid rung costs more than the
+  guest profile's 100 gold, so only the refusal paths were exercised; the transactions themselves are
+  pinned by the phase suites and the P1/P4/P5 suites they build on. (b) **The stable panel's position
+  under the team cards** — pinned by source contract in the suite, not read from the live DOM in that
+  run. (c) The panels' rendered look on the target device (SwiftShader here, ~2 fps in the 3D hub),
+  together with the device checklist this file already carries.
+
+## P-BANNER — Triumph banner set, priced in FAME (implemented)
+
+- **One catalogue row, and the design's one deliberate currency extension.** `finish_triumph_banners`
+  is a finish-slot cosmetic in `CHARIOT_PARTS` (finish key `triumph`: bleached ash wood, oxblood hide,
+  gilded bronze). Its row names `currency: 'fame'`; every other row omits the field, which means gold —
+  `chariotPartCurrency(part)` is the single reader of that default, so a gold part behaves exactly as
+  it always has (the sweep in `phasePBannerTriumphSet.test.tsx` pins that this stays the only fame row).
+- **Price: 500 FAME.** The design lists the set among the §3.6 fame sinks but never prices it (titles
+  300 / 800 / 2,000 + statue 1,200 = 4,300); 500 is the director's ruling for this slice and the suite
+  pins the literal `500`, not a value read back from the catalogue.
+- **`purchaseChariotPart` spends the row's own currency.** A fame row deducts from `profile.fame` and
+  leaves `gold` byte-identical (and a gold row leaves `fame` byte-identical); the refusal is
+  `insufficient-fame` and, per the house idiom, returns **no profile at all**, so a short balance can
+  never reach a writer. Malformed (`NaN` / `Infinity` / missing) fame affords nothing. `App`'s
+  `handleBuyChariotPart` still holds no currency logic — it persists what the transaction returns.
+- **Ownership stays in the one chariot record.** No second storage key and no second ownership field:
+  the Triumphs page only READS the set through `ownsChariotPart` and offers no buy control — the
+  Chariot Workshop is the only seller, through the existing data-driven finish section.
+- **The workshop reads, never restates, the currency.** Badge and buy button print `${price} Fame` with
+  a violet palette (`text-violet-300 bg-violet-950/70 border-violet-700`) where gold rows keep
+  amber/yellow, and the refusal sentence is `Insufficient fame` (`Not enough fame.` on the button).
+- **Verified 2026-10-23** in the dev container on the final tree: `bun test` → **3224 pass / 0 fail
+  (109 files, 87,315 `expect()` calls)**; `bun run lint` (`tsc --noEmit`) → **exit 0**; `git diff
+  --check` clean. **Live evidence** (preview browser, anonymous visitor): driven through the app's own
+  guest route — title → `Play` → `Apply Points & Enter Metropolis` → city hub `Armory` → `Chariot
+  Workshop` — the finish section renders **Triumph Banners** with a violet `500 Fame` badge (computed
+  `oklch(0.811 0.111 293.571)`) beside the unchanged gold rows (`450 Gold` at
+  `oklch(0.852 0.199 91.936)`), the card's state line reads **Insufficient fame** and its buy button is
+  **disabled** reading **Not enough fame.**; `scrollWidth === clientWidth` at 1280. The console shows
+  only the pre-existing React unmount warning recorded elsewhere in this file. The guest save the walk
+  wrote was removed afterwards.
+- **Not automatically verified.** (a) **The fame purchase CLICK** — the preview profile carries 0 fame
+  and the preview session replays its own save on every fresh load, the same limit C-8.66B recorded for
+  gold; the transaction, both refusals, the idempotence and a real `saveProfile()` / `loadSavedProfile()`
+  round trip are pinned by `src/utils/phasePBannerTriumphSet.test.tsx`. (b) The set's **rendered
+  appearance on the chariot** (the `triumph` finish's three material overrides) — SwiftShader only
+  here, so it needs the on-device look. (c) The Triumphs page row, verified by markup assertions (it
+  only appears once the set is owned, which the guest profile never is).
+
+## CH-1 — Armatura & palmae data (implemented, data only)
+
+- **What shipped, and what deliberately did not.** The seven classes and the sixteen
+  palmae as data, two optional profile fields, and the pure read model a later
+  combat slice will consume. **No combat, `DuelScene`, `App.tsx`, storage behaviour
+  or UI changed**, `createNewProfile()` writes neither field (they are written only
+  by later successful actions, exactly like `racing`), and the only `itemsDB.ts`
+  edit is the trident's display name (`Barbed Retiarius Trident` → `Retiarius
+  Trident`; id, stats and array order untouched — `ALL_WEAPONS[2]` is still the
+  spare starter weapon).
+- **The type seam** (`src/types/game.ts`): `ArmaturaId` (the seven ids),
+  `PalmaeState { unlocked?, equipped? }`, and `PlayerProfile.armatura?` /
+  `PlayerProfile.palmae?` appended last, so GC20 §J's optional-field list ends
+  `…, 'facilities', 'armatura', 'palmae'`. No save-version field was added; no
+  existing field or type changed.
+- **`src/data/armaturae.ts`** — `ARMATURAE` (id, name, fantasy, stat template,
+  doctrina, starting kit, `forgeKit: 'kit_<id>'`), `ARMATURA_IDS`,
+  `DEFAULT_ARMATURA_ID` (`murmillo`), `getArmatura`, `isArmaturaId`. Kits:
+  murmillo/secutor/provocator `gladius_standard`; retiarius `trident_retarius`
+  equipped + `gladius_standard` carried; thraex `shamshir_curved` (the file's only
+  curved `sword_shield`); hoplomachus `hoplite_spear`; dimachaerus
+  `dual_sicae_daggers` + `dagger_pugio` (two `dual_blades`-family items, one
+  equipped, one carried).
+- **Doctrinae — block-expressible vs noted.** `onBlockStamina: 6` (murmillo),
+  `staminaCostMult: 0.85` (secutor), `damageTakenMult: 0.92` (provocator) live in
+  `doctrina.modifiers`. Retiarius (net), thraex (`blockPenetration 0.40`),
+  hoplomachus (distance-band damage) and dimachaerus (twin strike) carry empty
+  blocks with the magnitude/condition named in `doctrina.notes` — no new formula
+  hook was invented.
+- **`src/data/palmae.ts`** — `PALMAE` (16), `PALMAE_PLAYER_POOL` (12, derived by
+  filtering), `PALMAE_BOSS_ONLY` (4), `getPalma`. Each row carries `id` (snake_case
+  from the name), `name`, `description`, `source` + `sourceDetail`, `hookStages`,
+  an `effect: TraitModifierBlock`, and `notes` for what the block cannot hold.
+  `bossOnly` rows are structurally excluded from the pool (tested), and
+  `resolvePalmae` also drops them from a hand-edited save.
+- **`src/utils/traitModifiers.ts`** — `TraitModifierBlock` (the design §2.4 field
+  set; `statFlat {str,agi,sta,def}`), `mergeModifiers`, `applyBlockReduction`,
+  `BLOCK_REDUCTION_CAP` (0.90), `MAX_EQUIPPED_PALMAE` (3), `resolvePalmae`,
+  `resolveArmatura`. Merge rules: adds add, multipliers multiply, `statFlat` adds
+  per stat, `comboShield` ORs, and the pooled `blockReductionAdd` is clamped to
+  0.90 — `applyBlockReduction(base, add)` is the call-site half that clamps the
+  weapon's own base plus the add to the same 0.90. `resolvePalmae` accepts the
+  profile or the raw record, reads absent/null/garbage as
+  `{ unlocked: [], equipped: [] }`, keeps only strings the player pool offers,
+  de-duplicates, filters `equipped` to `unlocked` and caps it at 3.
+  `resolveArmatura`: explicit valid `armatura` wins, else `characterModel`
+  `retiarius` / `dimachaerus`, else `murmillo`.
+- **Findings (effects the block shape cannot express):** the retiarius net and
+  dimachaerus's twin strike are stateful; thraex's 0.40 block penetration has no
+  field at all; hoplomachus's distance-band damage is a table, not a multiplier;
+  secutor's stamina discount is power-attack-only and its entangle immunity has no
+  field; provocator's and Viper's Patience's per-attack-type / post-counter
+  conditions ride as notes; Pyre Brand's heal and Pit Bellower's stamina drain
+  have no field either. `Heavy Hand` keeps its two multipliers but notes the
+  power-attack restriction. All fifteen other effects are fully expressible.
+- **Corpus (GC20-X style).** New fixture `armatura-palmae`
+  (`armaturaPalmaeProfile.json`) — the `facilities-era` save plus `armatura:
+  "retiarius"` and `palmae { unlocked: [iron_lungs, second_wind], equipped:
+  [iron_lungs] }` — registered in `saveFixtures/index.ts`, added to
+  `REQUIRED_FIXTURE_IDS` (count now 17) and documented in
+  `saveFixtures/MANIFEST.md`. `saveCorpus.test.ts` now drives `resolveArmatura` /
+  `resolvePalmae` from `driveEveryResolver`, asserts their shaped state per
+  fixture, their absent-field defaults in §E and the new fixture's own values in
+  §F, and §J's expected optional list gained exactly `'armatura'`, `'palmae'`
+  (both also added to §J's with/without-fixture loop). No §J assertion weakened.
+- **Tests:** `src/utils/traitModifiers.test.ts` (46 tests / 7 sections) — resolver
+  defaults on undefined/garbage, the 3-cap and unlocked filter, unknown/boss-only
+  dropping, purity, merge identity + arithmetic + the 0.90 cap +
+  `applyBlockReduction`, the `resolveArmatura` table, all seven classes (stats,
+  fantasy, doctrinae, kit ids verified against `itemsDB`, retiarius/dimachaerus
+  kit rules, Forge kit names), all sixteen palmae (snake_case ids, 12/4 split,
+  boss-only never in the pool, every effect magnitude), and a pre-CH-1 save
+  (`createNewProfile` → `saveProfile` → `loadSavedProfile`) resolving to Murmillo +
+  empty palmae with no console errors.
+- **Verified 2026-10-23** in the dev container on the final tree: `bun test` →
+  **3277 pass / 0 fail (110 files, 87,861 `expect()` calls)**; `bun run
+  scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0** with the startup
+  asset check passing (8 assets); `git diff --check` → clean. The corpus suite
+  gained the new fixture's five per-fixture cases plus one §F case, and this slice
+  adds one test file and one fixture.
+- **Not attempted, and why:** no preview/visual check — this slice changes no
+  rendered pixel, no route and no interaction, so there is nothing on screen to
+  accept. The dev server still serves the shell (HTTP 200) and the build is clean.
+
+## CH-2 — creation & roster wiring (armatura picker, templates, legacy re-pledge)
+
+- **What ships.** The seven classes are now chosen at creation, the choice sets the stat
+  template the ten points are spent on, the class kit replaces the one-size starter for NEW
+  profiles, and a legacy save can re-pledge its inferred class once. Five production files:
+  `utils/characterCreation.ts` (new — the pure creation write path + the two picker reducers),
+  `utils/armaturaPledge.ts` (new — the one-time re-pledge), `components/hub/CharacterCreation.tsx`
+  (the seven-card picker), `components/hub/StatsTab.tsx` (+ hub/App prop chain), `services/storage.ts`
+  (the factory's optional class argument). Three suites: `characterCreation.test.ts`,
+  `armaturaPledge.test.ts`, `armaturaSurface.test.tsx`.
+- **The creation write path is pure and shared.** `buildCreatedProfile({name, appearance, armatura,
+  allocation})` is what `onComplete` receives and what the screen's live derived preview runs
+  `calculateTotalStats` on; `baseStats` = the class template + the points SPENT (the allocation is
+  held as deltas, so the template IS the per-stat floor and the pool is still ten). The profile is
+  written WITH `armatura` and never with `palmae`. Retiarius pins: 9/13/11/1, trident equipped,
+  gladius carried, HP 119 from the base stats alone (135 once the trident's +4 STR is counted —
+  `calculateTotalStats` reads equipment, which is why the two numbers differ).
+- **The factory's argument.** `createNewProfile(name, model = 'roman_warrior', armatura?)`:
+  with NO argument the output is byte-identical to pre-CH-2 (the frozen `PRE_CH2_FACTORY_JSON`
+  literal in `characterCreation.test.ts` compares the serialised bytes, including key order), and
+  an unknown id writes nothing. With a valid id it writes that class, its template and its kit, so
+  the added keys are exactly `armatura` and the class values.
+- **The re-pledge.** `withArmaturaPledge(profile, id)` returns a NEW profile whose only difference
+  is `armatura` (nested objects are shared references) and refuses `already-pledged` /
+  `unknown-armatura` / `no-profile` with no profile at all. `App.handleRepledgeArmatura` is the only
+  caller and the only save writer; `StatsTab` offers it only while `canRepledgeArmatura(profile)`
+  AND a handler is wired, so an explicit class hides it. No other existing-profile field is written.
+- **Picker independence.** `selectArmatura` moves the look only to the class's natural model
+  (retiarius / dimachaerus) while `modelPicked` is false; `selectCharacterModel` only sets the look.
+  Verified live: choosing Retiarius suggested its rig, then choosing Amazonian kept the class.
+- **Not touched:** `createNewProfile()`'s no-argument shape, the ten-point pool, `calculateTotalStats`'
+  formula, combat, Lefty mode, the save key, `palmae`, and every existing profile's stats/gear/gold.
+- **Verified 2026-10-23**: `bun test` → **3313 pass / 0 fail (113 files, 88,238 expect())**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0 (startup check, 8 assets); `git diff --check` → clean.
+- **Preview evidence (anonymous visitor, 0 console errors).** Through the real UI: the picker renders
+  seven cards with Murmillo selected (Health 152 · Stamina 120); choosing Retiarius moved the derived
+  read to **135 · 125** and the rig label to The Retiarius; choosing Amazonian left the class card
+  selected; +1 STR read **139 · 125** with 9 points left; finishing persisted
+  `armatura: "retiarius"`, `baseStats {10,13,11,1}`, the trident equipped, the gladius carried,
+  `unspentStatPoints: 9`, no `palmae`. A second creation (Murmillo) was carried through the oath into
+  the hub: Gladiator Stats rendered `data-armatura="murmillo"` / `data-doctrina="fish_scale_wall"`
+  and offered **no** re-pledge. Both preview saves were deleted afterwards.
+- **NOT automatically verified:** the re-pledge button in a running hub (it needs a save with no
+  `armatura`, and a seeded save does not survive this environment's fresh load — server-rendered
+  `armaturaSurface.test.tsx` covers the offered/hidden states); the class cards' rendered look,
+  touch feel and landscape framing on the target device (SwiftShader here — **visual acceptance
+  defers to Walter's Android device**); and the class-argument factory path, which no production
+  caller passes yet (the Google/cloud new-profile path is its intended consumer).
+
+## CH-3a — combat plumbing (palmae + passive doctrinae through the hooks; NO new action)
+
+- **What ships.** One merged block per fighter, read at every combat stage. New
+  `utils/combatModifiers.ts` (the block builders plus one pure helper per stage);
+  `utils/combatCalculations.ts` gains ONE optional trailing parameter and ONE helper;
+  `services/storage.ts` folds the stat stage; `components/duel/DuelScene.tsx` resolves with it;
+  `components/ui/CombatHUD.tsx` + `TurnActionPanel.tsx` estimate with the SAME block objects;
+  `types/game.ts` adds `MirrorDrillLedger` / `FighterState.mirrorDrillTypes` (runtime only, never
+  saved). Suites: `combatPlumbing.test.ts` (64 tests) and three CH-3a assertions in
+  `scripts/combatTests.ts`.
+- **The formulas are frozen.** No constant in `combatCalculations.ts` changed and no stage moved:
+  `calculateAttackDamage` gained a trailing `traitMult: number = 1.0` multiplied at the rage stage
+  (`rawDamage = base × strBonus × critMult × rageMultiplier × traitMult`), and `applyPalmaEvent`
+  sits beside `applyComboEvent`. The default is the identity, so every pre-CH-3a expectation and
+  every fixed-seed trace reproduces exactly (§R of the suite pins both).
+- **The block.** `buildPlayerModifiers(profile)` = `mergeModifiers([...equipped palma effects,
+  class doctrina])`, read through the SAME resolvers the save uses, so locked/boss-only palma ids
+  never arrive. `buildOpponentModifiers(config)` is deliberately tolerant (a bare id list or the
+  save's `{equipped: [...]}`, unknown ids dropped, three max) because **opponent `armatura`/`palmae`
+  do not exist until CH-4**: every opponent resolves to the empty block today, which is the
+  identity. `DuelScene` builds both ONCE per duel with `useMemo` and hands the same objects to the HUD.
+- **Stage order, and where the conditions live.** Weapon: `staminaCostMult` is a POWER-attack
+  discount only (secutor 0.85 × Heavy Hand 0.90), `blockReductionAdd` capped at 0.90, and the
+  thraex's 0.40 block penetration (CH-1 could only record it in `notes`) keeps `(1 − 0.40)` of a
+  block. Hit: effective AGI = AGI + `hitAgiAdd`; crit = 0.25 + `critChanceAdd`, capped at 0.60.
+  Evasion: `passiveEvadeAdd` applies only OUT of the dodge stance (`isInvulnerable`) and the draw is
+  skipped at 0, so a fighter with no palma consumes exactly the same randomness as before. Damage:
+  attacker `damageDealtMult` ÷ defender `damageTakenMult`, passed as `traitMult`. Conditions a
+  `TraitModifierBlock` cannot express are evaluated at the call site: health thresholds (Executioner
+  <25 % target, Blood Price <40 % self), the boss flag (Colossus Bane), quick-vs-power (Heavy Hand,
+  Colossus Hide), Mirror Drill's per-type ledger (`recordHitType`: the first hit of a type at full
+  damage, later ones ×0.92) and the hoplomachus distance bands (§2.2 exactly: outer third of reach, ratio ≥ 2/3 → ×1.15; inside half reach, ratio < 0.5 → ×0.90; the span between is neutral → ×1.00 — there is no middle modifier. **Corrected after review:** the slice first shipped an invented table (0.75 → 1.15, 0.45 → 1.05, else 0.90), which drifted on all three boundaries; `spearmansGroundMult` now pins 0.49 → 0.90, 0.50 → 1.00, 0.66 → 1.00, exactly 2/3 → 1.15 and 0.75 → 1.15 in §P of the suite).
+  Viper's Patience stays inert — it needs the counter state CH-4 lands.
+- **The event stage.** `applyPalmaEvent(block, event)` returns data only; `DuelScene` owns the clamp,
+  the hype update and the once-per-fight flag. Block → `onBlockStamina` (Fish-Scale Wall +6), rest →
+  `restStaminaAdd` (Second Wind: 40 + 15), taunt (+20 base) and crit → `hypeAdd` (First Palm +4),
+  miss → `comboShield` (Phoenix Nerves, guarded by a ref).
+- **The stat stage.** `calculateTotalStats` folds `statFlat`, `healthMaxAdd`, `staminaMaxAdd` and
+  `staminaRegenAdd` right after the equipment bonuses and BEFORE the injury penalty, through the same
+  `buildPlayerModifiers` the duel reads. With no palmae every term is the identity — the suite pins
+  the output against the pre-CH-3a numbers byte for byte, and no CH-1 doctrina carries a stat-stage
+  field, so legacy saves read exactly as before.
+- **HUD parity by construction.** `TurnActionPanel` receives `playerModifiers` / `opponentModifiers`
+  through `CombatHUD` and calls `staminaCostWithModifiers`, `hitAgilityFor`, `resolveTraitMult` and
+  `blockReductionFor` — the raw-field estimates (`getStaminaCost(weapon, …)`,
+  `Math.round(weapon.blockReduction * 100)`) are gone, so an estimate cannot drift from resolution.
+- **Not touched:** the duel's action set (still the same nine), every formula constant, the save shape
+  and key, boss passives, and the AI branch, which still picks with the raw stamina costs.
+- **Verified 2026-10-23 (inside the compose `web` service — bun is not on the sandbox host, so use
+  `docker compose -f docker-compose.base44.yml exec web …`):** `combatPlumbing.test.ts` → **64 pass /
+  0 fail**; the combat-related subset (`traitModifiers`, `characterCreation`, `saveCorpus`, `injury`,
+  `consumables`, `phase36`, plus the above) → **345 pass / 0 fail (2,700 expect())**;
+  `scripts/combatTests.ts` → **67 pass, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0;
+  `bun run build` → exit 0 (startup check, 8 assets).
+- **Preview evidence:** the title screen loads with **0 console errors** at this commit.
+- **NOT automatically verified — no duel was driven live this slice.** A palmae-equipped corpus
+  fixture (`armaturaPalmaeProfile.json`, retiarius + Iron Lungs) was seeded into
+  `sand_and_steel_gladiator_save_v2` and was gone by the next call — the app's own save validation
+  discards it — so the hub never carried palmae and neither the palmae-equipped stat readout nor a
+  palmae duel could be exercised. The stage arithmetic, the fixed-seed traces and the wiring are
+  covered by the suites above; the arena's feel with palmae equipped, and its render on the target
+  device, defer to manual play. Nothing was left behind: no save key remained in the preview.
+
+## CH-4 — opponents & ladder (identities, boss palmae, four new rivals)
+
+- **What ships.** `OpponentConfig` gains two optional fields — `armatura?: ArmaturaId` and
+  `palmae?: string[]` (`types/game.ts`) — and `data/opponents.ts` uses them. No second resolver was
+  written: CH-3a's `buildOpponentModifiers` already read exactly these two keys off a config
+  (tolerant: a bare id list or `{equipped: […]}`), so it needed only its stale "do not exist until
+  CH-4" doc comment replaced. `DuelScene` builds that block once per duel with `useMemo`, and it now
+  carries a class and palmae for the AI, the doctrina branches and the HUD.
+- **The roster's identities.** Every existing config keeps its id, name, tier, stats, rewards,
+  weapon, personality and difficulty exactly; the only additions are the two new fields.
+
+  | opponent | tier / rung | armatura | palma | doctrina / boss mechanic |
+  |---|---|---|---|---|
+  | Marcus the Rookie | 1 / 1 | `murmillo` | — (tutorial) | — |
+  | Flaccus the Nimble | 1 / 2 | `thraex` | `sand_sprinter` | 0.40 block penetration |
+  | Goliath the Pit Behemoth (BOSS) | 1 / 3 | `provocator` | `pit_bellower` | Mirror Drill + bellow drain |
+  | Cassius the Phalanx | 2 / 1 | `hoplomachus` | `shieldwall_discipline` | Spearman's Ground |
+  | Ignis the Pyre Champion (BOSS) | 2 / **4** | `dimachaerus` | `pyre_brand` | Twin Fangs + phase-switch heal |
+  | Centurion Drusus | 3 / 1 | `murmillo` | `iron_lungs` | — |
+  | Valéria the Viper Queen (BOSS) | 3 / **4** | `retiarius` | `vipers_patience` | net + counter bonus |
+  | Aurelius the Invincible Titan (BOSS) | 4 / 1 | `murmillo` | `colossus_hide` | quick-attack mitigation |
+
+- **Four new rivals, appended inside their tier** (`fightIndex` is ordering/display only): tier 2
+  = Cassius (1) → **Brutus "The Anvil"** (2, `provocator`, Mirror Drill) → **Naija the Fisher**
+  (3, `retiarius`, the CH-3b net) → Ignis (4); tier 3 = Drusus (1) → **Kallias of Sparta** (2,
+  `hoplomachus`, Spearman's Ground) → **The Pale Twins** (3, `dimachaerus`,
+  `characterModel: 'dimachaerus'`, one config fought as a single opponent) → Valéria (4). None
+  ships a `loadout`, so each resolves its weapon through `getWeaponByType` as every other config
+  does.
+- **Director ruling — Ignis and Valéria move `fightIndex` 2 → 4, and that is the only rung change
+  in the roster.** The six other pre-existing rungs are untouched (Marcus 1, Flaccus 2, Goliath 3,
+  Cassius 1, Drusus 1, Aurelius 1; the Doctore's 0 means "no rung"). Safe because **tier
+  advancement keys on boss identity, not on the rung** — the unlock reads `isBoss` plus
+  `defeatedOpponentIds`, so no save's progress changes meaning (§D of the suite pins it against
+  the real `tierAdvancement` / `intel` helpers).
+- **`utils/bossPalmae.ts` (new) owns the two event-shaped boss palmae's magnitudes and clamping**,
+  so the mechanic sites stay a call and the arithmetic stays testable without a browser.
+  `PIT_BELLOWER_STAMINA_DRAIN` = 8 stamina; `PYRE_BRAND_HEAL_FRACTION` = 0.1 (rounded to a whole
+  point, as every health value in the duel is). `applyPitBellowerDrain` floors at 0;
+  `applyPyreBrandHeal` caps at `healthMax`; a non-boss can never reach either, because `bossOnly`
+  rows are structurally excluded from non-boss configs (§A asserts that sweep).
+- **The four boss palmae, at their existing mechanic sites — palmae ADD, nothing was replaced.**
+  1. **Pit Bellower** (Goliath) — the `heavy_telegraph` announce branch in `executeCombatTurn`
+     drains 8 stamina from the defending side and logs it. The telegraph, the pending heavy and its
+     landing are untouched.
+  2. **Pyre Brand** (Ignis) — inside the `phase_weapon_switch` effect, after `phaseSwitchedRef` is
+     set, the boss heals 10 % of maximum health. "Once per fight" IS that ref: it is set before the
+     heal and the effect returns early while set. `opponentMods` joined the effect's dep array.
+  3. **Viper's Patience** (Valéria) — CH-3a shipped the row inert (`() => false`). The AI's
+     `counter_dodge` branch now sets `counterStrikeRef`; `executeCombatTurn` read-and-clears it into
+     the new `DamageContext.isCounterAttack` exactly as `telegraphLandingRef` works, so the +20 %
+     lands on that one resolution and on nothing else (a miss or evade cannot carry it forward).
+  4. **Colossus Hide** (Aurelius) — no new site needed: it is a `damageTakenMult` already evaluated
+     in `damageTakenMultiplier` for quick attacks only, which CH-3a shipped.
+- **Regression suite: `src/utils/opponentsLadder.test.ts`** — 36 tests across 7 sections: §A the
+  config shape and the structural sweep (palma ids are real rows, no non-boss carries a boss
+  mechanic or a boss-only palma, one boss-only palma per boss, no opponent hands out Lefty mode);
+  §B the eight originals frozen against their pre-CH-4 values plus the Director ruling
+  (`fightIndex` 2 → 4 and nothing else); §C the ladder order, the four new rivals' identities, and
+  `PRIMUS_PALUS_LADDER` still the whole roster tier-then-rung; §D old saves (same ids, same
+  advancement); §E every new config's weapon resolving through `getWeaponByType`; §F the new
+  classes reaching the CH-3a stage helpers through `buildOpponentModifiers`; §G each boss palma
+  firing at its own site, never on a non-boss, plus a source read showing `DuelScene` calls each
+  helper at the intended branch. `combatPlumbing.test.ts` went 64 → 65 for `isCounterAttack`.
+- **Verified 2026-10-24** in the dev container
+  (`docker compose -f docker-compose.base44.yml exec web …`): `opponentsLadder` → **36 pass /
+  0 fail**, `combatPlumbing` → **65 pass / 0 fail**, the roster-dependent suites (`bossKills`,
+  `intel`, `intelSurface`, `injurySurface`, `phase37`, `roadMilestones`, `roadOfGlory`,
+  `saveCorpus`, `sellingSurface`, `storyChapterOne`, `storyState`, `tierAdvancement`) → **383
+  pass / 0 fail (11 files)**, `scripts/combatTests.ts` → **67 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (startup check, 8 assets);
+  `git diff --check` → clean.
+- **Not automatically verified — no boss fight was driven live.** The sandbox preview has no GPU
+  (SwiftShader) and the dev harness's duel is hard-wired to `ALL_OPPONENTS[0]` (Marcus, no palma),
+  so Goliath's drain, Ignis's heal and Valéria's counter bonus could not be exercised in the arena
+  here. Their arithmetic and clamping are covered by the pure helpers and the suites above; the
+  on-device feel of the four boss palmae defers to manual play. Nothing is persisted by any of
+  this: the modifiers live in `useMemo` for the duel's lifetime only.
+
+## CF-3 — the crowd reacts to hype (implemented, validated; device feel PENDING)
+
+- **The tier rule is CombatHUD's, not a second one.** `src/utils/crowdHype.ts` (new, pure,
+  dependency-free) reads `> 75 → MAX` / `> 40 → HIGH` — both STRICT, exactly
+  `CombatHUD`'s `crowdHype > 75 ? 'MAX' : crowdHype > 40 ? 'HIGH' : 'LOW'`. So hype **40 is still
+  LOW and 75 is still HIGH**: an upward crossing fires on the value that PASSES the boundary
+  (41 / 76), and the crowd and the meter change together. The suite reads the HUD expression from
+  its source, so the two cannot drift.
+- **The one detection point is inside `DuelScene`'s existing `updateCrowdHype`** — the only place
+  hype changes. It reads the previous value (already mirrored in `crowdHypeRef`), calls
+  `detectCrowdHypeCrossing(prev, next)` and, on a crossing, `sounds.setCrowdLevel(level)`; on an
+  UPWARD crossing it adds `sounds.playCrowdSwell()` and `crowdPulseRef.current += 1`. Downward
+  crossings only set the level (no swell, no bounce). **No hype value, award site or
+  `combatCalculations.ts` line changed** — 18 / 8 / 20 / TWIN_FANGS / the 25 seed are byte-identical.
+- **`src/audio/soundEffects.ts` gained the bed**: one looping 2 s generated brown-noise
+  `AudioBufferSourceNode` → 500 Hz lowpass `BiquadFilter` → **level gain** → **swell gain** →
+  destination. Two gain nodes, not one, so a 0.4 s tier ramp and a 350 ms swell never cancel each
+  other's automation. `CROWD_BED_GAINS` = **0.015 / 0.04 / 0.075** with 0.4 s ramps;
+  `playCrowdSwell()` is 1.8× for 350 ms. `startCrowdBed` is idempotent and no-ops while muted;
+  `toggleMute` now tears the bed down (keeping it "wanted") and restores it on unmute; the bed is
+  started at the opening tier (hype 25 = LOW) on `DuelScene` mount and stopped on unmount.
+- **The arena bounce owns `position.y` of ONE group.** `DuelArena` wraps both 56 spectator meshes in
+  a single `<group ref={crowdGroupRef}>`; a `useFrame` advances `stepCrowdBounce` with the frame
+  delta and writes only that group's `position.y`. The curve is 600 ms, two hops, first hop's crown
+  exactly **0.12** at 150 ms, second 0.042 at 450 ms, exactly 0 elsewhere. The `crowdPulseRef` prop
+  is optional, so an arena without a duel never celebrates. Walls, cavea, braziers, loge and gates
+  are outside the group and unmoved.
+- **Regression suite: `src/utils/crowdHype.test.ts`** — 38 tests / 16,158 `expect()` calls: §A the
+  tier reading and crossings (including the no-event-at-the-boundary cases from both sides), §B the
+  gain table and the bed's whole lifecycle against a recording fake `AudioContext` (one shared
+  context — two engine instances build two contexts and read the wrong one), §C the bounce curve and
+  the pulse step, §D the scene wiring plus the byte-identical hype numbers, §E the arena's structure
+  (one group, balanced tags, one `position.y` assignment, unchanged geometry).
+- **Two production defects found by the suite and fixed, not worked around**: the first bounce curve
+  normalised by the sine crown and actually peaked at **0.1226** (now each hop is its own half-sine
+  scaled by `CROWD_BOUNCE_HOP_DECAY`, so the peak is exactly the design's 0.12); and
+  `setCrowdLevel`'s "clamp" was a whitelist that mapped 7 → LOW (now it saturates to the nearest
+  tier).
+- **Verified 2026-10-24** in the dev container, the full battery on the final tree: `bun test` →
+  **3530 pass / 0 fail (118 files, 106,201 `expect()`)**; `bun run scripts/collisionTests.ts` →
+  **123 passed, 0 failed** (exit 0); `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` →
+  exit 0 with the startup-asset check passing (8 assets); `git diff --check` → clean.
+- **Not automatically verified — the crowd's feel, and that is a device question.** The sandbox has
+  no GPU (SwiftShader) and no way to capture Web Audio, so **browser preview proves nothing about
+  the crowd feel on a real device**: whether the 0.12 bounce reads as a surge rather than a jitter,
+  whether the bed is audible under combat at 0.015/0.04/0.075, whether the swell is a swell and not
+  a clip, and how tier-up feels on a phone's speakers. That acceptance is Walter's Android device
+  check. The suite pins the arithmetic; it cannot pin the feel.
+
+## CF-4 — impact particles (sparks + sand), pooled (implemented, validated; device feel PENDING)
+
+- **What ships: one new component and one file's wiring.** `src/components/3d/ImpactParticles.tsx`
+  (new) and `src/components/duel/DuelScene.tsx` (an import, one `useRef`, one mount inside the
+  existing `Suspense`, and three `burst()` calls). `src/utils/impactParticles.test.ts` (new, 41
+  tests) + this note. **No combat outcome, timing, formula, `combatCalculations.ts`, `GladiatorMesh`,
+  handedness, save field or dependency was touched**, and the component is imported by `DuelScene`
+  alone (asserted over the whole tree), so nothing renders outside the duel.
+- **The budget is exact: ONE `THREE.Points` = +1 draw call.** 128 pre-allocated particles in one
+  `BufferGeometry` with only `position` + `color` (no index), one `PointsMaterial` (`size` 0.06,
+  `sizeAttenuation`, `vertexColors`, `AdditiveBlending`, `depthWrite: false`, `transparent: true`),
+  rendered as a single `<primitive object={points} />`. No second object, no per-burst mesh, no
+  React state (`useRef` + `useImperativeHandle` + one `useFrame` only).
+- **Recipes, as briefed and pinned:** spark 14 particles, `#fff7cc`→`#f97316` lerp, speed 2.2–3.6,
+  gravity −4, life 0.35 s; sand 10 particles, `#c29b62`, speed 0.6–1.2 upward cone, gravity −1.5,
+  life 0.5 s; crit 28 spark-recipe particles + 6 `#fbbf24`, life 0.5 s, wider cone (34 slots).
+- **Emission axis (the brief's implementer choice, documented in the module):** sparks and crit open
+  their cone along a caller-supplied direction, and `DuelScene` passes **the blow's own axis** — the
+  sign of `defender.position[2] − attacker.position[2]`, i.e. from the attacker toward the defender,
+  so the spray is biased away from the attacker. The duel's fighters only ever separate along Z, so
+  that sign is the whole axis; with no direction the cone points at world +Z. **Sand is the
+  exception**: it always fountains along world up (a dust kick, not a ricochet).
+- **Zero per-frame allocation, structurally and behaviourally.** The update path is
+  `integrateImpactPool(pool, dt)` — semi-implicit Euler over the fixed 128 slots, reading and writing
+  only the typed arrays it is handed, with no `new`, no literal, no collection-returning array method
+  and no `Math.random`. The spawn path is allocation-free too: module-scope temps (`_axis`, `_dir`,
+  two tangents, three scratch `THREE.Color`s) mirror `GladiatorMesh`'s house pattern, and
+  `createImpactPool` / `createImpactPoints` allocate exactly once per instance inside `useMemo`. The
+  suite pins both halves: 600 steps keep every array identity, byte length and the pool's key set,
+  and a source scan of the function body finds no allocating construct.
+- **Dead particles sit at `y = IMPACT_PARKED_Y` (−10)** and are skipped; a spent burst frees its
+  slots, and a full pool recycles its oldest slot through a round-robin cursor rather than growing.
+- **Two non-obvious implementation requirements, both found while building it.**
+  (1) **`points.frustumCulled = false` is mandatory.** A `Points`' bounding sphere is computed from
+  its position data and never refreshed, and every slot starts parked at y = −10 — so with culling on
+  the whole pool would be rejected the moment it left those initial bounds and no burst would ever
+  draw. (2) **The frame delta is clamped** at `IMPACT_MAX_STEP_SECONDS` (0.1 s): a backgrounded tab
+  hands back a multi-second delta, and without the clamp a burst teleports off-screen on the first
+  frame after the tab returns. Neither is a preference; both are load-bearing.
+- **Call sites: exactly three, all in the landed branch of `executeCombatTurn`**, beside the
+  pre-existing feedback lines and replacing none of them: blocked → `burst('spark', …)`;
+  unblocked crit → `burst('crit', …)` **instead of** sand; unblocked non-crit → `burst('sand', …)`.
+  The impact point is `defender.position + [0, 1.2, 0]`, computed once per landed blow. Nothing is
+  awaited or assigned, so a burst cannot influence an outcome; the twin-fangs bonus strike and every
+  other resolution point deliberately have no call site (per the brief).
+- **Regression suite: `src/utils/impactParticles.test.ts` — 41 tests / 1,026 expect() calls**, eight
+  sections: §A the pool budget and the single-Points/single-material/single-draw-call shape plus the
+  material props and the component's one-element tree; §B the recipes' counts, colours, speed bands,
+  gravity and life; §C a burst's shape (slot count, spawn point, speed band, cone axis for sparks and
+  up for sand, the colour lerp, the degenerate-axis fallback); §D gravity/life integration per
+  recipe, the Euler order and the per-particle gravity that lets sand and sparks share one pool;
+  §E parking, slot reuse and in-place recycling; §F the zero-allocation proofs above; §G the three
+  call sites read out of `DuelScene` (branch by branch, `'crit'` in place of `'sand'`, the import, the
+  single mount inside `Suspense`, and the tree-wide sweep that finds no other importer); §H the
+  hit-stop table, the single 1100 ms resolution window and `combatCalculations.ts` unchanged, plus
+  the structural proof that every call is fire-and-forget. Because the pool's arrays are
+  `Float32Array`, stored-value comparisons use precision 4 and speed/colour bounds 1e-4 — far below
+  the quantities asserted and far above the storage's own rounding (the suite says so in its header).
+- **Validated 2026-10-24** in the dev container, the full battery on the final tree:
+  `bun test` → **3571 pass / 0 fail (119 files, 107,231 `expect()` calls)** — the branch tip read
+  3530 / 118 before this suite, so the 41 new tests and one new file are the whole delta, and the
+  existing outcome/timing suites pass unchanged; `bun run scripts/collisionTests.ts` → **123 passed,
+  0 failed** (exit 0); `bun run lint` (`tsc --noEmit`) → **exit 0**; `bun run build` → **exit 0**
+  with the startup-asset check passing (8 assets in `public/` and `dist/`; the pre-existing >500 kB
+  chunk warning only); `git diff --check` → **clean (exit 0)**. The only production file the phase
+  edits is the duel scene; the rest is the new component and the new suite.
+- **Live evidence, and its limits.** The real route was driven in the preview browser (anonymous
+  visitor, no session replayed): title → `PLAY` → creation defaults → the Oath's four space-bar holds
+  → the 3D city hub → the Colosseum tab → `Enter Arena Duel` → `Step into Sand`. The duel's canvas
+  mounted with the pooled `Points` in the scene graph, turns resolved both ways (the player's
+  out-of-range swings, and Marcus's landed blows that took 152 → 136 HP), and there were **0 console
+  errors** throughout — no error boundary, no exception, no scene-graph complaint.
+  **The particles themselves were NOT seen in a frame, and that is why no visual claim is made**:
+  the sandbox has no GPU (SwiftShader, ~1–2 fps in the arena), and a 0.06-unit point with a 0.35–0.5 s
+  life is not reliably catchable at that frame rate. **Browser preview proves nothing about particle
+  feel on a real device — that is Walter's device check:** whether sparks read as sparks at the
+  briefed size, whether the sand kick is visible at the fighters' feet, whether the crit's gold
+  flakes separate from the orange, and whether the +1 draw call and the 128-slot pool cost anything
+  measurable on a phone.
+- **Finding worth carrying forward — the character dev harness is unreachable in this preview.** The
+  platform's navigation rewrites the query string, so `?devHarness=character` never reaches the app
+  (the preview tool's own `search` carries only `_preview_token` / `base44_data_env` / …), and unlike
+  `race`, `chariot` and `horsefit` the character harness has **no `sand_and_steel_dev_harness` scratch
+  fallback**. A future phase that needs a live `DuelScene` either adds that flag or accepts the long
+  route above, which cost several preview calls to reach one resolved hit.
+
+## CF-5 — turn pacing by action weight (implemented, validated; pacing feel is a device question)
+
+- **What ships: one production file, and only the timing seam inside it.** `DuelScene.tsx` gains
+  `TURN_RESOLUTION_MS` (a `Record<CombatActionType, number>`), `TURN_RESOLUTION_DEATH_MS` and the two
+  exported resolvers `turnResolutionMs(actionType, fightEnded)` / `aiTurnDelayMs(afterTelegraphedHeavy)`,
+  plus one ref (`telegraphAftermathRef`). The fixed `setTimeout(…, 1100)` at the end of
+  `executeCombatTurn` now reads `turnResolutionMs(actionType, fightEnded)`, and the AI effect's fixed
+  `750` reads `aiTurnDelayMs(telegraphAftermathRef.current)`. **No outcome, formula, stamina value,
+  state write, `combatCalculations.ts` line, Lefty path, save field or profile field changed**, and
+  the CF-3 crowd pulse, CF-4 particles, CH-4 boss palmae and the modifier blocks are untouched.
+- **The table, as implemented:** `quick_attack` 880, `power_attack` 1300, `telegraph` 1450,
+  `advance`/`retreat`/`shield_block`/`dodge`/`taunt`/`rest` 800, **`cast_net` 880** — the net throw
+  postdates the design, so a Director ruling placed it with `quick_attack`: an offensive action with a
+  throw animation and a land/miss resolution is not an 800 ms utility beat — and
+  **1600 for any turn that leaves a fighter at 0 health**, whatever the action was.
+- **`fightEnded` is a READ, not a rule.** It is assigned from the same arithmetic the damage branches
+  apply (`defender.health - rawDamage <= 0`, and the twin's `- bonusDamage`). It must be computed
+  BEFORE the timer is scheduled: the timeout callback's own `opp.health <= 0 || player.health <= 0`
+  check reads the closure's pre-resolution state, so it cannot answer "did this turn kill".
+- **The AI's 900 ms beat is the turn AFTER the telegraph resolves**, not the resolving turn. The
+  `pendingHeavyAttackRef` branch sets `telegraphAftermathRef` beside `telegraphLandingRef`; the AI
+  effect reads it when it schedules and clears it inside the callback (before the AI chooses), so the
+  next AI turn is back to 750. A boolean read-once-and-clear, exactly like the landing marker.
+- **Regression suite: `src/utils/duelTurnPacing.test.ts`** — 21 tests: §A the table (every
+  `CombatActionType`, the weight order, the shared 800 beat, the death override for all ten actions),
+  §B the AI delay (750 / 900 / back to 750, and the source order of the read-then-clear), §C the
+  full-fight bound (standard 24-turn duel 26,400 → 23,160 ms = **0.877×**, power-heavy 0.95×,
+  telegraph-heavy boss 1.03× — all ≤ the design's ~8 % ceiling; the standard hand-off with AI delays
+  is 32.2 s, under a 45 s bound), §D the seam (one scheduling call, no `}, 1100);` left, the timer
+  body still only resets and toggles, the repo sweep finds no second pacing system).
+- **`src/utils/impactParticles.test.ts` §H carried the one 1100 ms assertion** (CF-4 pinned
+  `duel.match(/\}, 1100\);/g)?.length === 1`); it is **updated to pin the shipped CF-5 call** instead,
+  and that is the only pre-existing assertion this phase touched.
+- **Verified 2026-10-25** in the dev container: `bun test` → **3592 pass / 0 fail (120 files, 107,339
+  `expect()`)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets);
+  `git diff --check` → clean.
+- **Not automatically verified — the pacing itself, and that is Walter's Android device check.** The
+  sandbox has no GPU (SwiftShader, ~1–2 fps in the arena), so how an 880 ms quick strike, a 1300 ms
+  power blow, a 1450 ms telegraph and the 1600 ms death beat *feel* cannot be judged from a frame
+  rate that coarse; the arithmetic is pinned by the suite. The one game-rule consequence to watch on
+  device: `turnResolutionMs` is also the window `isExecuting` covers, and the CF-4 hit-stop (≤200 ms)
+  plus trauma decay (0.44 s for a crit) still fit inside the shortest 800 ms hold — so no shake or
+  freeze can now outlive the resolution it belongs to.
+
+## CF-6 — boss moments get boss treatment (implemented, validated; boss-moment feel is a device question)
+
+- **What ships — and what deliberately did not.** Presentation only, on the merged tree, for the four
+  boss mechanics that had a log line and a sound apiece. `src/components/duel/DuelScene.tsx` (four
+  gated call sites), `src/audio/soundEffects.ts` (`playWeaponDraw()`), `src/components/ui/CombatHUD.tsx`
+  (the `bossVignettePulse` prop and its div), `src/components/3d/GladiatorMesh.tsx` (the
+  `telegraphGlow` prop, consumed by the mesh's EXISTING emissive path), `src/index.css` (one keyframe
+  family), `src/utils/bossPresentation.ts` (new: the gate, the numbers, the pulse curve) and
+  `src/utils/bossPresentation.test.ts` (new suite, 35 tests). **No mechanic trigger, rate, damage,
+  threshold or timing changed; no `combatCalculations.ts` line; no handedness code; no new profile
+  field, save write, collider, dependency or timer.**
+- **The gate is one pure function, and it is the acceptance core.** `bossPresentsMoment(opponent,
+  mechanic)` answers true only when `isBoss === true` AND the config owns that mechanic;
+  `bossPresentationMoments(opponent)` is the same rule read as "which moments does this identity own"
+  and answers `[]` for a standard opponent. All four sites are wrapped: the rage effect
+  (`rage_mode_colossus`), the phase-switch effect (`phase_weapon_switch`), the evasion branch that
+  queues `pendingCounterRef` (`counter_dodge`) and the render's telegraph prop (`heavy_telegraph`).
+  Standard opponents were already excluded by the mechanics' own guards; the gate makes that explicit
+  and testable as a NEGATIVE, and it costs one comparison per site.
+- **The four moments, as wired.**
+  1. **Rage (Aurelius)** — after `shouldActivateRage` has resolved (so `isRaged` is already set):
+     `impactRef.current.trauma = Math.min(1, trauma + 0.5)` into **CF-1's** own ref (the rig's 1.6/s
+     decay spends it in ~0.31 s), `sounds.playCrowdSwell()` on **CF-3's** bed, and
+     `setBossVignettePulse(Date.now())` — the HUD's red vignette pulse. The div is keyed by the
+     timestamp (a second pulse restarts the animation), `pointer-events: none`, and its keyframes
+     declare **opacity only** (the house motion law). `BOSS_VIGNETTE_MS` = 700.
+  2. **Telegraph (Goliath)** — `<GladiatorMesh fighter={opp} telegraphGlow={Boolean(opp.telegraphText)
+     && bossPresentsMoment(opponent, 'heavy_telegraph')} />`. The mesh writes
+     `TELEGRAPH_GLOW_COLOR` (#ff2222) into the materials it already flashes, and pulses
+     `emissiveIntensity` on a 2 Hz sine (`telegraphGlowIntensity`, `TELEGRAPH_GLOW_MIN` 0.25 →
+     `MAX` 0.8 — the same peak the hit flash uses). The existing "write on change" optimisation is
+     kept: the traverse happens once per mode change, the per-frame pulse is a loop over the
+     materials it collected, so idle fighters cost exactly what they did before. A landed blow always
+     wins (`!isHit && telegraphGlow`), so the flash and the glow cannot fight over one material. The
+     prop is derived from `opp.telegraphText`, the field the telegraph is the only writer of, so it
+     clears exactly when the telegraph clears; **the telegraph's timing is untouched** (no new flag,
+     timer or delay in the announce branch or the AI's resolution), so the player still has exactly
+     one full turn.
+  3. **Phase switch (Ignis)** — `sounds.playWeaponDraw()` inside the `phaseSwitchedRef` effect, gated.
+     The sound is procedural in the engine's existing style: a 0.25 s white-noise draw through a
+     highpass whose corner sweeps 600 → 6000 Hz, with one 1200 Hz sine ping (0.2 gain, 0.4 s decay)
+     on top. **The 300 ms WHITE flash was SKIPPED, and the reason is a property of the shipped mesh,
+     not a choice:** `GladiatorMesh`'s flash is the fixed red hit reaction
+     (`HIT_FLASH_COLOR = '#ff0000'`) fired only by an action transition to `'hit'`. The phase switch
+     is triggered by the health drop of a blow that is *already* flashing red, so a white flash would
+     need a second trigger AND a colour override — i.e. a fork of the flash system, which the brief
+     forbids. Nothing was faked (no `action: 'hit'`, no `hitFlashTimer`) and the suite pins that.
+  4. **Counter-dodge (Valéria)** — in the branch that queues `pendingCounterRef` (the turn her passive
+     dodge actually succeeded), `impactParticlesRef.current?.burst('sand', boss position + 1.2 m)` —
+     **CF-4's** pool, its own sand recipe, fire-and-forget, so a burst cannot influence the
+     counterattack queued beside it.
+- **Two existing suites were rebased, not weakened.** CF-4's `impactParticles.test.ts` pinned
+  "exactly three bursts". The truth is now four (spark 1, crit 1, sand 2 — one outcome, one
+  boss-gated), and its scope guard went 5 → 6 `impactParticlesRef` occurrences; the outcome-sand
+  assertion now uses `lastIndexOf`, because CF-6's call site sits earlier in the file. Each rebase
+  carries a comment naming CF-6, and the count test additionally asserts the fourth call sits behind
+  the counter gate. No assertion was deleted or relaxed.
+- **`src/utils/bossPresentation.test.ts` — 35 tests / 1,263 `expect()` calls, six sections:**
+  §A the gate (each boss on its own mechanic and on no other's; **the whole roster swept for
+  standard opponents, each proving ZERO of the four moments and `[]` from the identity read**; a
+  non-boss carrying a mechanic still presenting nothing; `isBoss` alone; `undefined`/`null`; the four
+  moment owners are exactly the four bosses, one moment each; the four call sites and each effect
+  inside its own gate block); §B rage (the exact `+0.5` write, one `trauma:` in the scene, no
+  `setTimeout`, CF-3's own swell, the timestamp state and the HUD prop, the order after the mechanic,
+  and the CSS — 700 ms, opacity-only keyframes, `pointer-events: none`, the keyed div); §C the glow
+  (colour/rate, a 2 Hz periodic curve with eight crests in 4 s and never outside its band, a
+  non-finite clock reading as the trough, the boss-only prop derivation, the player's mesh untouched,
+  ONE `.emissive.copy(` and two intensity writers, `isTelegraphing` precedence, the clearing path, and
+  the telegraph's own timing/pace pins); §D the draw (driven against a recording fake
+  `AudioContext`: one source, one `highpass` sweeping to the target over exactly 0.25 s, one sine at
+  1200 Hz; muted plays nothing; the call site inside the phase effect; and the skipped flash, with the
+  mesh's fixed red path pinned as the reason); §E the counter (sand at `defender.position + 1.2`, no
+  direction, no allocation; the gate inside the queueing branch; the counter itself unchanged);
+  §F the mechanics (telegraph 30 % and its four guards, both 50 % thresholds, the CF-5 pace table and
+  AI delays, the CF-1 hit-stop/trauma tables, the damage call untouched by any presentation token, and
+  the new module's purity — no storage, no clock, no randomness).
+- **Validation (2026-10-25, dev container — all five commands on the final tree):**
+  `bun test` → **3627 pass / 0 fail (121 files, 108,613 `expect()` calls)** (the branch tip read 3592 /
+  120; the delta is this suite's 35 tests and its file, with the four CF-4 tests rebased in place);
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  **exit 0**; `bun run build` → **exit 0** with the startup-asset check passing (8 assets in
+  `public/` and `dist/`); `git diff --check` → **clean (exit 0)**.
+- **Live evidence (preview browser, anonymous visitor — no session replayed; 0 console errors).**
+  Read out of the running document: the vignette's stylesheet contract is real —
+  a probe carrying `.boss-vignette-pulse` computes `animation-name: boss-vignette-pulse`,
+  `animation-duration: 0.7s`, `pointer-events: none`, `position: absolute` and a radial-gradient
+  background. The shipping `DuelScene` was then mounted through the dev character harness
+  (`?devHarness=character` in an in-page frame, the C-8.66C technique) and driven with real clicks:
+  creation → `Start Test Duel` → the combat HUD reading **SPARTACUS 152 / 152 · MARCUS THE ROOKIE
+  90 / 90**, and one turn resolved (`Advance`: the Arena Chronicle gained
+  "Spartacus advances 1.8m toward their opponent.", the distance readout 7.0 m → 5.2 m). Across that
+  standard duel the HUD held **zero** `[data-boss-vignette]` elements and no telegraph banner — the
+  live form of the negative the acceptance core asks for — and the frame loops (the mesh's new
+  emissive path included) ran with no console error.
+- **NOT automatically verified — the four boss moments' rendered behaviour, and it is a device
+  question.** The dev harness's duel is hard-wired to `ALL_OPPONENTS[0]` (Marcus, a standard
+  opponent), and reaching Goliath, Ignis, Valéria or Aurelius needs a levelled save, so **no boss
+  fight was driven here**: the 0.5 shake, the crowd swell, the red vignette, the #ff2222 telegraph
+  pulse, the weapon-draw sound and the counter's dust are pinned by the suite and by their gating,
+  not seen. The sandbox also has no GPU (SwiftShader, ~1–2 fps in the arena), so no frame could
+  adjudicate a 700 ms pulse or a 2 Hz emissive in any case. **Boss-moment FEEL — whether the rage
+  lands as a punch, whether the telegraph glow reads at a glance without obscuring the boss, whether
+  the draw is audible under the crowd bed — is Walter's Android device check.** Do not claim it.
+- **Open device checklist for this phase:** (a) Aurelius's rage: one clean camera kick, a crowd
+  swell and a single red vignette that never dims the sand or the fighters; (b) Goliath's telegraph:
+  a red pulse you can read from the chase camera while you still have the full turn to answer it;
+  (c) Ignis's switch: the draw audible over the crowd bed (and no flash — see above); (d) Valéria's
+  slip: sand at her feet as the counter is queued; (e) a standard duel (Marcus, Flaccus) producing
+  none of it. Still open from earlier phases: C-8.28, C-8.29, C-8.31/C-8.33, C-8.38, C-8.41,
+  C-8.64A/B, C-8.65 and the CL-1/CL-2 coach-mark readings.
+
+## Boss rosters — Feature Bouts framework and boss data (Slice D-1 — implemented)
+
+- **What ships.** Five Feature Bout bosses appended to `src/data/opponents.ts`, the ten palms that go
+  with them (`src/data/palmae.ts`), a pure availability resolver (`src/utils/featureBouts.ts`), the
+  five authored presentation-state NAMES (`src/data/bossPresentationStates.ts`), a Feature Bouts
+  section on the Colosseum tab and the boss card line on the pre-fight card.
+- **The one structural rule: `isLadderBoss()`** (`src/data/opponents.ts`, also exported as
+  `LADDER_OPPONENTS` / `FEATURE_BOUT_OPPONENTS`). A feature bout carries `isBoss: true` **and**
+  `featureBout: true`; every ladder consumer asks the predicate rather than `isBoss` alone —
+  `resolveVictoryTier` + `resolveDoorDuelTarget` (`utils/tierAdvancement.ts`), `nextBossKills`
+  (`utils/bossKills.ts`, which keeps its zero-import purity and therefore repeats the two-line test)
+  and `deriveRank`'s tier-4 evidence (`utils/rank.ts`). Otherwise a tier-2 feature win would advance
+  `currentTier` to 3 with Ignis still standing. `PRIMUS_PALUS_LADDER` is the ladder only.
+- **Feature mechanics are INERT data this slice.** `BossMechanic` is now
+  `LadderBossMechanic | FeatureBossMechanic`; `DuelScene` branches on the four ladder literals and
+  ignores the rest, `bossPresentation`'s moment table and gate are keyed on
+  `isLadderBossMechanic`, and `TournamentTab`'s `BOSS_MECHANIC_LABELS` needs a text for all nine
+  because the record is exhaustive. A feature bout duels as a clean standard boss fight.
+- **Carried palms are EMPTY blocks on purpose.** `blood_scent`, `two_faces`, `vainheart`,
+  `survivors_oath`, `old_craft` are `bossOnly: true` with `effect: {}` and their magnitude in
+  `notes`, because `buildOpponentModifiers` merges a carried palm's block unconditionally — a
+  magnitude there would be a live combat change. The five drops (`hunters_patience`, `wards_breath`,
+  `shieldbreaker`, `the_open_flank`, `undying_name`) DO carry block data at their §2.4 stage, with
+  the sequence/attack-type/stance/class condition flagged in `notes`; `the_open_flank` is the only
+  row in the game carrying `critChanceAdd`.
+- **Gates are data.** `OpponentConfig.gate` is `{ rank, bossDefeatedId?, tierReached? }`;
+  `featureBoutGateText` builds Part A's sentence from `RANK_THRESHOLDS` and the roster, so no gate
+  wording or purse lives in a component. Gnaeus's gate names no boss — it is `tierReached: 4`, per the
+  design.
+- **Deferred, deliberately:** the **AI-4 presentation key map**. The five state names are stored
+  (`authorPresentationState`), every boss stands in `STANDARD_BOSS_AMBIENT_STATE`
+  (`presentationStateInForce`), and nothing in the tree dresses an authored name yet.
+- **Verify with** `bun test src/utils/featureBouts.test.ts` — it deep-equals the twelve pre-D-1 rows
+  against `src/utils/preD1Opponents.ts` (a generated fixture: **do not edit it**; a change means a
+  pre-existing row moved), drives the gate matrix, and asserts the result-flow invariants above.
+  `opponentsLadder`, `bossKills`, `tierAdvancement`, `palmaeState`, `traitModifiers`,
+  `combatPlumbing`, `intel`, `bossPresentation` and `storyChapterOne`'s P7 counts were rebased to
+  the new roster (12 ladder + 5 feature bouts; 26 palms = 17 pool + 9 carried).
+
+## Beast Hunt (D-2) — validation status and the harness opponent parameter
+
+- **The dev character harness takes an optional `?opponent=<id>`** (`src/components/dev/CharacterTestHarness.tsx`),
+  defaulting to `ALL_OPPONENTS[0]` exactly as before. It exists so one boss bout can be mounted without
+  climbing the ladder: `/?devHarness=character&opponent=opp_marcellin_boss` (Marcellin / Ferrum). The gate is
+  unchanged and still **query-only** (`phaseC8_66d.test.ts` §A pins that), and an unknown id falls back to the
+  default — the harness never invents an opponent.
+- **D-2 validation, 2026-10-25:** `bun test` → 3710 pass / 0 fail (123 files; the beast suite
+  `src/utils/beastHunt.test.ts` is 45 of them), `bun run lint` (`tsc --noEmit`) → clean, `bun run build` → ok.
+- **NOT automatically verified — the live arena interaction.** The whole beast cycle (crouch telegraph → target
+  control → strike at the crouch → wound pip → pounce / flight) is covered by the suite and by
+  `DuelScene`'s own code paths, but it has **not** been driven in the preview browser: the Base44 preview
+  reloads every preview call at the home route and clears `localStorage` between calls, so a
+  `?devHarness=` deep route cannot be held from one call to the next, and the beast bout sits behind a
+  ladder gate. Do the by-hand check with the URL above (creation → **Start Test Duel**); the states to look
+  for are Ferrum standing beside the master, the three wound pips beside Marcellin's name, the
+  `FERRUM CROUCHES — POUNCE INCOMING` banner at the third boss action with the Master / Ferrum target
+  buttons, one pip lighting on a landed strike, a third wound driving the beast off, and its absence from
+  the arena afterwards.
+- **Authored (not design) numbers.** `boss-rosters.md` Part A carries no beast values, so Ferrum's row in
+  `src/data/opponents.ts` is authored against the tier-2 band and says so in its own comment: agility 18
+  (one above Ignis' 17), strength 12 (below Cassius' 13), pounce damage 24 (the tier's light-damage ceiling),
+  `quick` hit profile, cadence 3 and 3 wounds (the card line's own words).
+- **D-2 live pass (2026-10-25) — two defects the arena showed, both fixed in the same two files, and the
+  full beast cycle then driven end to end.** (a) **The reach warning covered a beast strike.**
+  `TurnActionPanel` painted the "Out of Range (Advance)" overlay from `!isInWeaponRange` alone, but
+  `isBeastStrike` resolves with no range gate, so a strike aimed at a crouching Ferrum was shown as
+  impossible — it is now a single derived `strikeOutOfRange = !isInWeaponRange && !targetingBeast`, used by
+  both attack cards' overlay and their out-of-range styling. (b) **The crouch banner outlived the leap.** The
+  `FERRUM CROUCHES — POUNCE INCOMING` telegraph was cleared only in the pounce's LANDED branch, so a pounce
+  that was evaded, missed or fell short left the banner standing over a beast that was no longer crouched
+  (until the next crouch or a strike at it). It is now cleared — with the "springs out of the crouch" line
+  written beside it — where the pounce is DISPATCHED (the AI's `plan === 'pounce'` branch), so it comes down
+  however the blow ends; only Blood-Scent still rides the landed branch. That same branch's miss log read
+  `${attacker.name}`, i.e. "Marcellin the Beastmaster's attack MISSED!" for the beast's own whiff — it now
+  reads `attackerLabel`. **No cadence, formula, damage, wound, target-gate or pipeline stage changed**, and
+  `beastHunt.test.ts`'s source pins still hold (its `if (isBeastPounce) {` anchor now finds the landed
+  block, whose Blood-Scent lines are what it asserts). Suites re-run green: `beastHunt`, `statefulDoctrinae`,
+  `duelTurnPacing`, `impactParticles`, `bossPresentation`, `uiControls`, `combatPlumbing` → 311 pass / 0 fail;
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (startup asset check, 8 assets).
+  **Driven live** in the dev harness (`?devHarness=character&opponent=opp_marcellin_boss`, mounted in an
+  in-page frame — the C-8.66C technique, since the preview rewrites a top-level query string), Retiarius
+  creation → `Start Test Duel`: at the first crouch the cards read `Out of Range (Advance)` while the master
+  was targeted and **none** after switching to Ferrum (`84% Hit · 1 WOUND`), the net card re-worded to "Net
+  the beast … No helm to refuse it" and spent on the cast, a missed net logged "The net flies wide of Ferrum
+  — it is still crouched!" and the following spring logged "**Ferrum** springs out of the crouch!" / "Ferrum
+  strikes with Quick Slash, but is OUT OF RANGE!" with the banner gone; wounds then went 0/3 → 1/3 → 2/3 →
+  **3/3**, the third logging "Ferrum is struck a third time — it clears the wall and the crowd roars!" plus
+  `BEAST_FLIGHT_WORDS`, the arena frame showing the sand empty of the beast afterwards. **Still NOT
+  automatically verified:** the beast's rendered flight animation on a real GPU (SwiftShader here), and the
+  `3/3` pip row, which stays visible beside Marcellin's name after the flight — a HUD reading worth a
+  Director's look rather than a silent change.
+
+## Boss rosters — false telegraph (Varro) and unbroken panoply (Gnaeus) (Slice D-3 — implemented)
+
+- **The two hinges, inspected first and reported as the prompt asks.** Heavies are telegraphed by
+  Goliath's mechanic: the AI may choose the existing `'telegraph'` action (30 %, three guards), which
+  sets `pendingHeavyAttackRef` + `opp.telegraphText`; on the boss's next turn the AI effect's
+  `pendingHeavyAttackRef` branch clears the banner, sets `telegraphLandingRef` (the long hit-stop) and
+  `telegraphAftermathRef` (the 900 ms beat), and calls `executeCombatTurn('opponent', 'power_attack')`
+  — the standard power pipeline, one full turn later. The pace table is untouched
+  (`telegraph: 1450`, `quick_attack: 880`, `power_attack: 1300`). A blocked power attack reaches the
+  landed branch with `isBlocked = defender.isBlocking` and is reported there as
+  `BLOCKED by …` / `notePlayerStrike('blocked')` / sparks; a missed, evaded or out-of-range blow never
+  enters it. That landed branch is the event stage both mechanics hang off.
+- **`false_telegraph` (Varro), gated `isBoss && featureBout && bossMechanic === 'false_telegraph'`
+  and a valid `falseTelegraph` block** (`utils/falseTelegraph.ts`). Every heavy he chooses is announced
+  rather than thrown silently (the wind-up is where the tell lives); `initiateHeavy` decides the kind at
+  the ANNOUNCE with a deterministic seed drawn once per duel (`seededRoll`, murmur-family integer
+  avalanche), the teaching pair forced first, and publishes `tell` (`light` for a feint, `planted` for a
+  true heavy). At resolution `falseTelegraphAction(kind)` dispatches `quick_attack` (feint — standard
+  quick profile, damage, stamina, 880 ms) or `power_attack` (true heavy — byte-identical to a normal
+  heavy). The tell is cleared in `executeCombatTurn` whatever the blow becomes; the announce is the
+  shipped telegraph action, so its 1450 ms turn is never shortened. The tell is WEIGHT-based:
+  `tellFor(kind)` takes no side input and the stance cue is a transform on the model group, so Lefty
+  mode cannot change it.
+- **`unbroken_panoply` (Gnaeus), same fence** (`utils/panoply.ts`). Three pieces with 2 cracks each;
+  **there is no strike-line model in this combat system, so the design's fallback ships: cracks accrue
+  to the first unbroken piece in the row's order `facing → crest → pauldron`**, one per player POWER
+  attack that lands (hit or blocked), never on a quick. While a piece shines: crest `+0.10` aggression
+  (0.60 → 0.70), facing `+0.10` blockChance (0.75 → 0.85), pauldron `damageTakenMult 0.90`. Each break
+  removes exactly that benefit, pays the player `breakHype` 15, speaks
+  `His {piece} splits — the crowd loves it.`, and arms Vainheart (his own palma) for his next 2 attacks
+  at `×1.12`. All three broken: **Humiliated** — blockChance `−0.10` (0.65), aggression `+0.10` (0.70),
+  permanent, announced once (`The gold is gone — Gnaeus stands humiliated before the crowd.`). The AI
+  reads the live values through `panoplyAggression` / `panoplyBlockChance`; the player's blows read
+  `panoplyDamageTakenMult` into the same `traitMult` every other modifier uses. No formula changed.
+- **Naming note, stated rather than silently resolved:** the prompt's item 3 is headed "Vainheart" but
+  describes the effect `palmae.ts` gives **Two Faces** ("after a feint, his next true heavy +15 %"), and
+  item 4 attributes "Vainheart" to Gnaeus — which is what his row carries ("a break arms his next two
+  attacks at +12 %"). Both shipped under the palma each row actually carries: Varro's `two_faces`
+  (1.15 via `followUpMultiplier`, spent on the next TRUE heavy, win or lose the exchange) and Gnaeus's
+  `vainheart` (1.12 for two attacks). This is the only reading in which both the ids and the
+  descriptions are true.
+- **Presentation, property-only.** `high-noon` (hard white sun, low ambient) and `gilded` (warm gold key)
+  joined `BOSS_PRESENTATION_DELTAS` — the arena's existing light/fog properties, +0 draw calls. The
+  duel arena holds no standalone banner, so Gnaeus's third break swaps the **imperial loge canopy's
+  colour** (`#eab308` → the house `#881337`) through a `bannerAllegiance` prop — one material property,
+  no new mesh. The panoply's crack pips render beside the boss name in D-2's pip language
+  (`data-panoply-pips` / `data-panoply-humiliated`), in the vital card, so they cannot crowd
+  `TurnActionPanel`.
+- **Suites:** `src/utils/falseTelegraph.test.ts` (25 tests) and `src/utils/panoply.test.ts` (26 tests)
+  cover the fence (including string-copy and every non-boss row), the teaching pair, the seeded roll's
+  determinism, feint-vs-quick and true-vs-heavy profile equality, the telegraph duration, the tell's
+  lefty-independence, Two Faces, cracks on power-only (hit or blocked), the crack order, each benefit's
+  removal, the Humiliated values, Vainheart's two attacks, the presentation deltas/banner/pips, and that
+  no duel state reaches a save. **Rebased, not weakened:** `beastHunt.test.ts`'s presentation-delta keys
+  (`['dawn']` → the three authored states) and its `executeCombatTurn(` count (6 → 7, Varro's resolution);
+  `crowdHype.test.ts`'s arena mount (now also carries the banner allegiance) and its hype-award count
+  (4 → 5, the panoply break's row value); `duelTurnPacing.test.ts`'s aftermath-marker count (1 → 2, the
+  second telegraph branch); `featureBouts.test.ts`'s D-1 inertness sweep (the two mechanics D-3 wires are
+  named, the other three stay inert, and **no feature mechanic still owns a presentation moment**) and
+  its DuelScene state-name sweep (`'gilded'` now appears once, structurally as the banner's allegiance,
+  the other four names still absent).
+- **Verified 2026-10-25** in the dev container: `bun test` → **3759 pass / 0 fail (125 files, 110 144
+  `expect()`)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets);
+  `git diff --check` → clean.
+- **Live evidence (preview browser, anonymous visitor, dev harness in an in-page frame).** vs Varro
+  (`?devHarness=character&opponent=opp_varro_boss`): creation → Start Test Duel mounted on
+  `VARRO "THE MIRAGE" 300/300`, turns resolved, and on the fifth exchange he **wound up** — the
+  `HEAVY ATTACK INCOMING` banner up with the Doctore's telegraph beat, **0 console errors** — proving
+  the announce path runs for a feature bout through the shipped telegraph action. vs Gnaeus: the HUD
+  read `data-panoply-pips="shield facing:0/2|crest:0/2|pauldron:0/2"`, `data-panoply-humiliated="0"`,
+  boss name present, 0 console errors, no sideways scroll at 1280. The frames are SwiftShader
+  (~1–2 fps).
+- **NOT automatically verified — the human checks the prompt asks for.** (a) Whether a player can call
+  feint-vs-true from the feet tell alone by the third heavy: the tell is a 0.12 rad forward lean plus a
+  0.03 dip on the model group, which a software-rendered, ~2 fps frame at this subject size cannot
+  adjudicate; it is a Director/device reading. (b) Whether the first-feint words read well and whether
+  the teaching pair is unmistakable. (c) Gnaeus's deliberate power-into-block strip, the per-break
+  announcements and the Humiliated shift in play (unit-pinned; no fight was driven to six landed power
+  attacks). (d) The gilded/high-noon lighting and the banner swap's look. The harness cannot seed a
+  levelled save, so these belong to the Android pass.
+- **Open risks:** the panoply's benefit values and Varro's `feintChance 0.45` are AUTHORED (Part A
+  carries no numbers) and want a balance pass; a feint still costs Varro the heavy's announced turn, so
+  a feint-heavy streak is tempo-negative for him (measured by feel, not tuned); the seed is drawn once
+  per duel, so a rematch replays a different sequence; and the Humiliated blockChance/aggression values
+  ride the AI's standard chooser only — the player-blocking branch's fixed 0.45/0.30 split is unchanged.
+
+## Boss rosters — the Cotta brothers (Slice D-4 — implemented; live arena pass PENDING)
+
+- **What ships.** One boss row (the D-1 `opp_cotta_boss` entry, unchanged in every
+  field it already had) gains its pair sub-data; a pure module (`src/utils/yokedBrothers.ts`)
+  owns the fence, the alternation, the Crossing, the withdrawal and the Oath; the duel mounts
+  the pair as two models; the HUD and the tavern's deep card read the published numbers.
+  Files: `types/game.ts` (`YokedBrotherProfile`, `YokedBrothersConfig`, `OpponentConfig.brothers`),
+  `data/opponents.ts` (the authored sub-data), `utils/yokedBrothers.ts` (+ its suite),
+  `components/duel/DuelScene.tsx`, `components/3d/BrothersPair.tsx` (new),
+  `components/ui/CombatHUD.tsx`, `components/hub/TournamentTab.tsx`,
+  `data/bossPresentationStates.ts` (`brothers` deltas), `components/3d/DuelArena.tsx`
+  (the banner's third tone), `components/ui/TurnActionPanel.tsx` (`brothers_recovery`).
+
+- **What the Pale Twins precedent gave for free, and what was genuinely new.** The Twins are
+  ONE `OpponentConfig` fought as a single opponent: `DuelScene` already binds an opponent row to
+  a `FighterState` + one model, and the duel already resolves every strike through one pipeline
+  with per-attacker values. So the row, the purse, the gate, the result flow, the boss HUD,
+  `getWeaponByType` weapon resolution, the `traitMult` damage hook and the AI's chooser all came
+  free — D-4 adds no second roster entry, no second HP pool and no new damage formula. What was
+  new: (a) a SECOND rendered fighter, which the Twins never had; (b) per-brother profiles
+  (weapon + aggression + blockChance) that change between slots; (c) a slot-level state machine
+  (alternation, the Crossing's cadence, the Exposed recovery, the survivor phase); (d) a
+  second-strike dispatch at exchange end; (e) a withdrawal that changes the pair's numbers.
+
+- **The mechanic, as shipped.** One row, one pool (`healthMax` 195). Every boss action is one of
+  four slots: an ordinary **act** by the brother whose turn it is (his published aggression,
+  blockChance and weapon — reach, stamina and base damage all follow the man), the **Crossing**
+  on every fourth slot while both stand and in reach (the front telegraphs a standard heavy and
+  the rear traverses to the flank), the Crossing's **resolution** (the heavy through the normal
+  power-attack branch; at exchange end a dodge auto-misses the flank and leaves the pair
+  **Exposed**, otherwise the rear's flank strikes through the normal quick-attack branch with
+  Gaius's sicae), and the Exposed **recovery** (`brothers_recovery`, resolves nothing — a tempo
+  beat, 1000 ms AUTHORED pacing). At half the pair the front brother is withdrawn (attendants),
+  the rear becomes the survivor with **+15 % damage** (one more factor on the existing
+  `traitMult`) and **+0.10 aggression**, the Crossing never fires again, and both announcements
+  are one-shot. Cast the Net suppresses the next Crossing (an entangled front cannot lead it).
+
+- **The reading taken where the prompt was ambiguous, stated rather than silently resolved.**
+  "If the player BLOCKS the front heavy … UNLESS the player is in dodge stance, in which case it
+  misses by the standard evasion rule; if the player DODGES … the flank strike auto-misses and the
+  pair enters Exposed (dodge stance OR the evasion resolves)" is read as ONE condition — the
+  player's evasion stance at the front heavy's resolution is the dodge that takes both blades and
+  exposes the pair. A block or an unshielded answer sends the flank through the pipeline, where
+  the standard block reduction still applies (a blocked flank is chip damage, floored at 1 by the
+  shipped formula — the trap punishes blocking, it does not ignore the shield).
+
+- **Sub-data as landed — every value AUTHORED.** Part A fixes the rule and the names, not the
+  numbers, so the row says so: Lucius (front, `sword_shield`, aggression 0.72, block 0.50) and
+  Gaius (rear, `dual_blades`, aggression 0.88, block 0.20) average exactly to the row's own
+  published 0.80 / 0.35 (pinned in the suite); `crossingEveryNthAction` 4, `survivorDamageMult`
+  1.15, `survivorAggressionBonus` 0.10, `withdrawalAtHealthFraction` 0.5.
+
+- **Presentation, and the honest cost.** The `brothers` state joins
+  `BOSS_PRESENTATION_DELTAS` (sun/ambient/fog only — **+0 draw calls**), and the loge's heraldic
+  cloth gains a third tone (`bannerAllegiance: 'brothers'` → canopy `#7f1d1d`, trim `#dc2626`):
+  two MATERIAL PROPERTY changes on meshes the arena already draws, so still **+0**. "Twin
+  banners" as two separate cloths is **+2 draw calls and was not shipped** — the arena has one
+  heraldic cloth, and the state's twin-ness is carried by the low hard side sun (one long shadow
+  per brother) plus the pair's two tones. The second FIGHTER model is the real cost: one extra
+  `GladiatorMesh` = **11 meshes / 11 draw calls in the main pass** (1 skinned GLB body — one
+  primitive, one material — + 5 weapon meshes + 5 shield meshes) plus **6 shadow-map draws**
+  (the body and five equipment meshes are `castShadow`), i.e. **~17 draws** for the rear brother.
+  No new asset is fetched: the pair's two models are `arena_roman.glb` (already in
+  `CORE_3D_ASSETS` for the player) and `dimachaerus.glb` (the row's own `characterModel`).
+  **`performance-budget.md` is not in this repository**, so the budget this must fit could not be
+  read or compared: the delta is reported above, measured from the render tree and the GLBs, not
+  from a GPU. The primary (two live models) shipped; the presentation-only fallback was not used.
+
+- **Suites.** `src/utils/yokedBrothers.test.ts` — **38 tests**: §A the fence (including the
+  string-copy row that must fight as ONE standard man), §B the alternation and the slot
+  sequence, §C the two profiles, §D the cadence (every fourth, both-standing only, in reach,
+  never re-planned), §E the three answers, §F the withdrawal line, §G the Oath, §H the net,
+  §I presentation (the flank mirroring with Lefty Mode, the deltas, the deep-card line), §J the
+  wiring. **Rebased, not weakened:** `duelTurnPacing` (the twelfth action type and the marker
+  count), `beastHunt` (the deltas' key list, the dispatch count 7 → 11), `bossPresentation` (the
+  announce's banner ternary), `featureBouts` (the third wired mechanic and the `'brothers'`
+  banner mention), `panoply` and `featureBouts`'s loge pin (the canopy's three arms),
+  `combatPlumbing` (the chooser's named reads), `tempering` (the one `attackerWeapon` variable).
+
+- **Verified 2026-10-26** in the dev container: `bun test` → **3796 pass / 0 fail (126 files)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`)
+  → exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets);
+  `git diff --check` → clean.
+
+- **NOT automatically verified — the live bout.** The dev harness route
+  (`?devHarness=character&opponent=opp_cotta_boss`) mounts only through the preview tool's FIRST
+  navigation of a turn (a query string is stripped otherwise, and any shell command reloads the
+  home route). Two attempts inside an in-page frame reached the harness but not a duel: its
+  creation form must be submitted before the harness renders its `Start Test Duel` control, and
+  the sandbox renders the 3D screens through SwiftShader (~1–2 fps), so the budget went on the
+  form. **The Crossing's telegraph, the Exposed tempo, the withdrawal and the survivor phase were
+  therefore not seen in the arena** — they are pinned by the suite and by the source, and the
+  device checklist is: (a) does the pair read as two men with one HP pool; (b) does the Crossing
+  read as a built trap a full telegraph ahead (banner + the front's glow + the rear's traverse to
+  the flank); (c) does dodging it produce a visible Exposed beat and a free tempo; (d) does the
+  survivor phase read as a distinct, angrier single fight; (e) does the whole bout hold the duel
+  frame budget on a mid-range Android device. Do not claim device acceptance.
+
+- **Open risks.** (1) The second model's device cost is unmeasured (no GPU here) — the report's
+  ~17 draws is a render-tree count; if it breaks the duel budget, the presentation-only rear
+  presence is the prepared fallback. (2) Every pair number is authored and wants a balance pass.
+  (3) A blocked flank is chip damage because the standard block reduction applies — the trap's
+  teeth are its tempo loss (Exposed) more than its damage. (4) The alternation hands the slot
+  after a Crossing resolution to the brother who did NOT lead it, so the front can act three
+  slots running across a Crossing (telegraph, heavy, next act); this is pinned by the suite and
+  reads as the pair committing to the trap.
+
+## Boss rosters — Hermas's long memory (Slice D-5 — implemented; the arena read itself PENDING)
+
+- **What ships.** The D-1 `opp_hermas_boss` row (unchanged in every field it already
+  had) gains its `longMemory` sub-data; a pure module (`src/utils/longMemory.ts`) owns the
+  fence, the **LIVE OFFENSIVE-MIX COUNTER (built new in this slice — the tree had none)**,
+  the two thresholds, the counter-shift, its caps and every word; the duel counts the
+  player's attacks and reads the effective block value into the AI's own chooser; the
+  result modal prints the adaptation log in numbers; the tavern's deep card prints his
+  base profile and labels the one honest unknown. Files: `types/game.ts`
+  (`LongMemoryConfig`, `OpponentConfig.longMemory`, `DuelStatistics.adaptationLines`),
+  `data/opponents.ts` (the authored sub-data), `utils/longMemory.ts` (+ its suite),
+  `components/duel/DuelScene.tsx`, `components/hub/DuelResultModal.tsx`,
+  `components/hub/TournamentTab.tsx`, `data/bossPresentationStates.ts` (`dusk` +
+  `emberEmissive`), `components/3d/DuelArena.tsx` (the banner's fourth tone, the ember
+  property).
+
+- **What the engine already gave, and what is genuinely new.** The duel already hands
+  `executeCombatTurn` the player's `CombatActionType` on every resolved action, and its
+  combat log is prose — so the ACTION STREAM was there and the DATA was not. This slice
+  adds (a) a counts-only live mix in memory (`notePlayerAction` → `{ quick, power }`, no
+  second log, nothing saved), (b) the threshold read + counter-shift rule, (c) one extra
+  named read in the AI chooser (`aiBlockChance`, exactly where D-3's panoply and D-4's
+  brothers already sit), (d) the in-memory result log, (e) a fourth banner tone and one
+  emissive property. **Nothing was imported from the Grudge Bouts slice: C-A is not
+  merged, there is no grudge shift and no mix counter in the tree, and D-5 builds its
+  counter fresh.** C-D is likewise not merged: the "explainable lines" are a small
+  addition to the EXISTING `DuelResultModal` (a `data-long-memory-lines` block fed by
+  `DuelStatistics.adaptationLines`, the same in-memory pattern D-2's `beastEpilogue` uses),
+  not C-D machinery.
+
+- **The mechanic, as shipped.** At Hermas's HP crossing 66 % and again at 33 % (each once,
+  never mid-telegraphed-action — the read is deferred while `opp.telegraphText` or the
+  pending-heavy marker stands, and re-runs when the banner clears; a read on the killing
+  blow is skipped) he reads the player's offensive mix from the live counter. A class past
+  60 % of that mix triggers its counter-shift plus Old Craft; neither past 60 % triggers
+  nothing. Only `blockChance` moves — the one knob `chooseAIStandardAction` reads — and the
+  dodge share is its exact complement (`1 − blockChance` of his defensive actions), which
+  is what B4's "the dodge share falls" names. Hermas's `dodgeChance` row field is untouched
+  because a non-`counter_dodge` opponent never reads it.
+
+- **The values as landed, and which ones are whose.** `readAtHealthFractions` `[0.66,
+  0.33]`, `dominanceThreshold` 0.60, `maxDeltaPerAdoption` 0.15, `clamp` `[0.05, 0.95]` —
+  the design's. `blockChanceDelta.power` **+0.10 — PUBLISHED** (B4's own example).
+  `blockChanceDelta.quick` **−0.15 — AUTHORED** (B4 publishes no quick-spam mirror; it is
+  authored inside the same cap, and its size is chosen so that after Old Craft's +0.05 the
+  net is −0.10 per adoption). `oldCraftBlockChancePerAdoption` **+0.05** (his carried
+  `old_craft` palma). **The cap is read PER ADOPTION** — that is the only reading under
+  which the mechanic's second beat is real: two power adoptions take block **0.65 → 0.80 →
+  0.95** (exactly the published clamp ceiling) with the dodge share **35 % → 20 % → 5 %**,
+  and two quick adoptions take it **0.65 → 0.55 → 0.45** with the dodge share **35 % → 45 %
+  → 55 %**. Under a cumulative reading the second adoption could add nothing at all, which
+  would make the card line's "twice" dead. His base stats never change — the suite pins all
+  seventeen rows byte-identical across a full power-spam bout.
+
+- **The balanced rule, and the boundary.** A 50/50 synthetic mix produces a Hermas whose
+  profile equals his row at BOTH thresholds (block 0.65, aggression 0.70, dodgeChance 0.50,
+  dodge share 35 %), with no shift, no Old Craft, an empty HUD line, and a result line that
+  says so. A mix sitting **exactly** on 60 % is balanced too (the rule is "past
+  three-in-five"); one extra action past it is not — both cases pinned.
+
+- **The words print his real row values.** The announcement is built from the computed
+  before/after pair, e.g. *"The old man has seen enough of your power attacks — he sets
+  himself to block. Old Craft settles his guard. (Block 0.65 → 0.80; his dodge share 35% →
+  20%)"*. The staged prompt's `0.60 → 0.70` is asserted **absent** from every shipped line,
+  and the module carries no bare decimal pair in its prose. The line goes through
+  `addLog` — the duel log `.combat-log-items` that `index.css` already compacts for a short
+  landscape phone — plus one floating `HE HAS READ YOU` tag, so the touch HUD reads the same
+  words as the desktop one.
+
+- **Presentation: `dusk`, property-only, +0 draw calls.** `BOSS_PRESENTATION_DELTAS.dusk`
+  is a DEEPENED dusk (sun `#c2703f` at 1.05, ambient `#a98a6d` at 0.34, fog `#7d5a3f`) and
+  raises the eight existing braziers' ember emissive **3 → 5.4** through a new
+  `emberEmissive` delta on the arena's existing material. The loge's one heraldic cloth
+  gains a fourth tone (`bannerAllegiance: 'dusk'` → canopy `#4c0519`, trim `#a16207`).
+  **"His banner beside the player's" is carried as that one cloth's tones, not a second
+  cloth:** the arena has a single heraldic cloth (D-3/D-4's finding) and a second one would
+  be **+1 draw call**, which this slice's "+0 calls" constraint forbids. The arena's mesh
+  count is unchanged (32 `<mesh>` nodes, pinned by the suite).
+
+- **The honesty re-run (scope 5).** The suite extends the roster-wide assertions to the
+  FINAL nine-mechanic table: each of the four ladder + five feature mechanics resolves on
+  exactly one row and that row is `isBoss`; every feature mechanic additionally requires
+  `featureBout`; no non-boss row carries a mechanic; no ladder boss carries a feature one;
+  and all seventeen rows survive a full power-spam bout byte-identical. **The staged
+  prompt's "Sand/Steel/Invictus" honour suite does not exist in this repository** — a
+  case-insensitive sweep of the whole tree returns nothing for "Invictus" — so there was no
+  such suite to re-run; the roster-wide assertions that DO exist (D-1's byte-identical row
+  check plus these) are what was extended.
+
+- **Suites.** `src/utils/longMemory.test.ts` — **38 tests / 371 expect() calls**: §A the
+  fence (including the sub-data copied onto a standard man, a ladder boss, another mechanic
+  and a row with no sub-data, plus nine malformed shapes), §B the live counter (only the
+  two attacks count; a class dominates only when it EXCEEDS the threshold; immutability),
+  §C the thresholds (450 max, 297 / 148.5, each once, both from one blow, junk health), §D
+  the values and the caps (the published power pattern, the authored mirror, the per-
+  adoption cap, the clamp ceiling, base stats untouched), §E the balanced rule (§above),
+  §F the words, §G the presentation, §H the result lines, §I the wiring, §J the roster-wide
+  honesty. **Rebased, not weakened:** `beastHunt.test.ts`'s presentation-delta key list
+  (four → five entries, `dusk` appended) and `featureBouts.test.ts` (the fifth wired
+  mechanic in the inertness sweep, and the DuelScene state-name sweep now allowing `'dusk'`
+  once, structurally as the banner's allegiance — exactly as D-4 rebased `'brothers'`).
+
+- **Verified 2026-10-26** in the dev container: `bun test` → **3835 pass / 0 fail (127
+  files, 372 `expect()` in this suite)**; `bun run scripts/collisionTests.ts` → **123
+  passed, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0
+  with the startup-asset check passing (8 assets); `git diff --check` → clean.
+
+- **Live evidence, and what is NOT automatically verified.** The dev harness route
+  (`?devHarness=character&opponent=opp_hermas_boss`, mounted in an in-page frame — the
+  C-8.66C technique) drove the real `DuelScene` against Hermas: creation → **Start Test
+  Duel (opponent: Hermas the Legend Returned)** → `harness-stage="duel"`, the HUD reading
+  `HERMAS THE LEGEND RETURNED 450/450`, the tactical cards in strike range, **0 console
+  errors** — so the new module, its memos, the counting call and the threshold effect all
+  initialise and run in the real scene. **The adaptation announcement itself was NOT
+  observed:** a level-1 harness profile deals 29–44 on 41 %-hit power slashes into a
+  450 HP / defense-17 boss, so reaching 66 % (153 damage) needs roughly ten landed heavies
+  and the run instead spent its budget missing while Spartacus fell to 62/152; the sandbox
+  also renders the arena through SwiftShader (~1–2 fps). **So the on-device check stands:**
+  take a power-spam build into the bout and watch for the block line at 66 %, a varied
+  build all the way down for silence, and the result card's "The long memory" block naming
+  which happened — in numbers.
+
+- **Open risks.** (1) The cap is read per adoption (stated above); a Director who meant a
+  CUMULATIVE ±0.15 would make the second adoption a no-op, and that is a one-constant
+  decision in the row. (2) The quick mirror's −0.15 is authored and wants a balance pass
+  (its net −0.10 per adoption is the authored choice, not a published one). (3) The
+  announcement is a log line plus a floating tag; whether the block pair reads clearly on a
+  phone is a device question. (4) The live counter counts a swing that falls short of range
+  (it is still an offensive action) — pinned, but it means a whiffed approach can feed the
+  read. (5) His `dodgeChance` row field stays 0.50 although his live dodge share is derived
+  from block; that is a pre-existing row/datum mismatch this slice deliberately does not
+  "fix".
+
+## C-8.70C — two-edged crowd hype (Slice C-B — implemented; device feel PENDING)
+
+- **What ships, and what deliberately did not.** `src/data/crowdConfig.ts` (new — the tuning, one
+  place), `src/utils/crowdDynamics.ts` (new — the pure rule), `src/utils/crowdHypeDynamics.test.ts`
+  (new suite, 41 tests), and four touched files: `components/duel/DuelScene.tsx` (the live loops),
+  `components/ui/CombatHUD.tsx` (the two lines), `components/hub/DuelResultModal.tsx` (the reward
+  lines), `index.css` (one compact-landscape rule). `services/duelRewards.ts` changed by one
+  value-identical migration (below) and `types/game.ts` gained three OPTIONAL read-only stats fields.
+  **`utils/combatCalculations.ts` is byte-identical: no formula, no threshold, no selection math.** No
+  save field, no profile write, no collider, no new asset, no dependency, no handedness change.
+
+- **The config, every value marked design or authored. DESIGN (the brief's own numbers):** embolden
+  threshold **70**, cap **0.15**, full threshold **90**, floor shift **0.05**, turned threshold **20**.
+  **AUTHORED (anchored where a number existed):** decay per second **1.0 / 1.2 / 1.4 / 1.6** (tiers
+  1–4; 1.0 is one landed blow's +8 over a CF-5 exchange's ≈1.85 s), passive multiplier **2.0**,
+  passive window **6 s** (two exchanges), expected duel **90 s** (so the second half starts at 45 s —
+  the duration the phase-39C fixtures already use), turned fame factor **0.8**, peak fame factor
+  **0.25**, peak gold factor **0.1** (one favour step), rage feed factor **0.5**, rage accumulation
+  **0.5/s**. **Value-identical migrations:** the hype ceiling **100** and the purse's crowd-favour
+  ladder **50 / 25 / 0.1**, which `duelRewards.ts` now re-exports from the config
+  (`PURSE_HYPE_*` keep their names and values, so no caller or test moved).
+
+- **What was NOT migrated, on purpose (a move would have changed a value or a pinned reading):** the
+  opening seed `25`, the award magnitudes `+8 / +18 / +20` and the beast/panoply/flight awards (award
+  EVENTS, pinned byte-identical by the CF-3 suite), the tier boundaries `40 / 75` (CombatHUD's own
+  meter reading, pinned from its source) and the CF-3 crowd-audio gains `0.015 / 0.04 / 0.075`.
+
+- **The live loop.** The duel's existing 1 s match-timer tick now also runs the crowd's clock:
+  `applyCrowdHypeDecay` at the tier's rate (× the passive multiplier while
+  `Date.now() − lastOffensiveActionAtRef ≥ the window`), floored at 0; a downward tier crossing lowers
+  CF-3's bed level and nothing else; `crowdHypePeak` still only rises, and only `updateCrowdHype`
+  raises it. `lastOffensiveActionAtRef` is stamped at the TOP of `executeCombatTurn` for
+  `quick_attack` / `power_attack` only (both fighters, one dispatch). **Hype awards and the 100 cap are
+  untouched.**
+
+- **Embolden enters as an INPUT, in `DuelScene`, and `combatCalculations.ts` was not opened.** The
+  shift is folded into the `aiAggression` VALUE the existing chooser is handed (`let aiAggression`,
+  then `crowdEmboldenedAggression(aiAggression, crowdHypeRef.current, CROWD_CONFIG)`), and an
+  emboldened opponent takes the named-read branch (`panoplyCfg || longMemoryCfg || emboldenShift > 0`)
+  — so the shipped `chooseAIStandardAction(aiAggression, aiBlockChance)` and
+  `chooseAIStandardAction(opponent.aggression, opponent.blockChance)` calls are both still present,
+  unchanged, and a cold crowd is byte-identical to before. The beast branch's
+  `masterAloneAggression(…)` is wrapped by the same helper. The HUD shows
+  **"The crowd roars — {name} fights emboldened"** plus the shift (`data-crowd-embolden`, and
+  "+N% aggression" in words) inside the hype meter it describes.
+
+- **The crowd turns: the second half is ELAPSED TIME, not HP.** `expectedDuelSeconds / 2` = **45 s**
+  against `statsRef.durationSeconds`. `crowdTurnsNow` needs BOTH the second half and
+  `hype < 20` (strict), the flag latches in `crowdTurnedRef`, and the result flow multiplies FAME only
+  (`crowdDuelReward`). **Gold is never reduced.** The peak bonus is its own line item:
+  `round(base × peak/100 × factor)` for fame and for gold, computed in the existing victory effect
+  after the shipped purse write (`statsRef.current.goldEarned = purse.total;` is unchanged; the peak
+  gold is added immediately after), reported through `crowdPeakFameBonus` / `crowdPeakGoldBonus` /
+  `crowdTurned`. `DuelResultModal` prints **"Crowd's favor: +N fame"** and
+  **"The crowd turned — fame reduced"** (plus a "Crowd Peak" gold row). No other reward math changed.
+
+- **Rage feed — the rate is NEW, and that is the honest finding (addendum D).** CF-6's rage is a
+  TRIGGER (`shouldActivateRage`, 50 % health, once), and **no accumulation-rate variable existed**
+  anywhere in the tree. The minimal definition added on top of those trigger semantics: on ignition
+  `rageChargeRef` starts at 0 and builds at `0.5/s × (1 + hype/100 × 0.5)` (2 s to full at hype 0,
+  ≈1.33 s at hype 100), and the charge ramps the EXISTING `RAGE_DAMAGE_MULTIPLIER` input from 1.0 to
+  the shipped 1.25 — no second rage system, no formula change, and the 50 % trigger is untouched. The
+  fence is `crowdRageFeedApplies`: `isBoss === true` AND `bossMechanic === 'rage_mode_colossus'`, so
+  Aurelius alone reads hype as power; Goliath (another boss) and a regular row are the suite's
+  controls, and a non-boss carrying the copied string is refused. The HUD shows
+  **"The roar feeds his rage"** for that mechanic while hype ≥ 70.
+
+- **Touch layout.** Both lines sit INSIDE `.hype-meter` (one line each, 11px → `sm:text-xs`), so they
+  cannot overlap the vital cards or `TurnActionPanel`; the short-landscape block
+  (`orientation: landscape and max-height: 520px`) tightens them to 10px — the size the boss pair line
+  already uses there — rather than hiding required information.
+
+- **Verified 2026-10-26** in the dev container, the full battery on the final tree:
+  `bun test` (repo-wide, bare) → **3926 pass / 0 fail (129 files, 112,195 `expect()`)**;
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint` (`tsc --noEmit`) →
+  exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets); `git diff --check`
+  → clean. **Every existing hype test passed UNMODIFIED** (`crowdHype` 38, `phase39c`, `phase39b`,
+  `phase37`, `phase38`, `duelRewards`, `beastHunt`, `combatPlumbing`, `longMemory`,
+  `statefulDoctrinae`, `yokedBrothers`, `settings`) — no pin was rebased and no assertion weakened.
+
+- **Live evidence in the preview browser (anonymous visitor — no session replayed, 0 console errors).**
+  The real duel was driven end to end: title → creation → city hub → `Colosseum` → `Enter Arena Duel`
+  → `Step into Sand` → the duel arena, where the HUD read `CROWD HYPE · LOW 25%`.
+  **The decay is VERIFIED LIVE:** with neither fighter attacking, the meter fell **25 % → 0 %** over
+  ~23 s (6 s of window, then ≈2/s), and five taunts each moved it by exactly **+20** with decay
+  resuming between them (0 → 20 → 30 → 40 → 50 → 60 → 52). At **375 px** the layout has **no sideways
+  overflow** (`scrollWidth − clientWidth = 0`).
+
+- **NOT automatically verified, and why.** (1) **The embolden line and the rage line were not observed
+  in band:** reaching hype ≥ 70 needs ~7 taunts at the preview's ~1–2 fps turn cadence and the run's
+  budget peaked at 60; their markup, wording, shift attribute and the `≥ 70` gate are pinned by the
+  suite and by the HUD source. (2) **The result screen's two lines and the reward arithmetic** need a
+  WON duel (the boss/regular bouts here are long at that frame rate); the math and the wiring are
+  unit-pinned, the modal render is not. (3) **Aurelius's rage feed in the arena** needs his 50 %-health
+  trigger plus a high-hype band, so it is unit-pinned only. (4) The **feel** of the cooling crowd and
+  of the embolden shift is a device question, like every other feel item in this file.
+
+- **Open risks.** (a) The rage ramp means Aurelius's rage damage RISES over ~2 s from ignition instead
+  of being instantly 1.25× — the one shipped behaviour this slice genuinely changes, chosen because a
+  rate was requested and a cosmetic meter would have been a decoy; flag it if instant rage is
+  preferred. (b) Decay runs on the 1 s timer, so the passive window and rates are quantised to 1 s.
+  (c) `expectedDuelSeconds` 90 is a guess at the venue's pace; it only decides when the turning is
+  possible, never the rewards' correctness. (d) The turned verdict is latched for the whole bout, so a
+  crowd that goes cold at 45 s and roars back still pays the turned fame.

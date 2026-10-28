@@ -1,7 +1,59 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { createCrowdBounce, stepCrowdBounce, type CrowdBounce } from '../../utils/crowdHype';
 
-export const DuelArena: React.FC = () => {
+export interface DuelArenaProps {
+  /**
+   * CF-3 — the duel's crowd-pulse counter. DuelScene bumps it when the hype
+   * crosses a tier upward, and the crowd answers with one bounce per change.
+   * It is a ref rather than state on purpose: a celebration must not cost a
+   * React render of the whole scene. Optional — an arena rendered without it
+   * simply never celebrates.
+   */
+  crowdPulseRef?: React.RefObject<number>;
+  /**
+   * D-3 — the heraldic cloth over the imperial loge. `'gilded'` flies Gnaeus's
+   * own gold while his panoply shines; `'player'` is the house crimson the arena
+   * has always worn, and it is what flies once the third piece breaks (the
+   * allegiance swap). A MATERIAL PROPERTY change on the existing canopy mesh —
+   * no new mesh, no new draw call. Absent = the shipped crimson.
+   * D-5 — `'dusk'` is Hermas's: a deep wine cloth under a tarnished bronze trim,
+   * the same two material properties on the same two meshes (+0 draw calls).
+   */
+  bannerAllegiance?: 'gilded' | 'player' | 'brothers' | 'dusk';
+  /**
+   * D-5 — the eight bronze braziers' ember emissive intensity. A MATERIAL
+   * PROPERTY on the ember spheres the arena already draws (the shipped value is
+   * 3), so it costs no mesh and no draw call; absent leaves them exactly as they
+   * have always been.
+   */
+  emberEmissive?: number;
+}
+
+export const DuelArena: React.FC<DuelArenaProps> = ({
+  crowdPulseRef,
+  bannerAllegiance,
+  emberEmissive,
+}) => {
+  const crowdGroupRef = useRef<THREE.Group>(null);
+  // Seeded from the counter's current value, so the first frame never mistakes
+  // a pulse that happened before this arena existed for a fresh one.
+  const crowdBounceRef = useRef<CrowdBounce>(createCrowdBounce(crowdPulseRef?.current ?? 0));
+
+  // CF-3 — the celebration is the crowd group's `position.y` and nothing else.
+  // It idles at exactly 0, so the walls, braziers and loge are not affected even
+  // implicitly; `stepCrowdBounce` returns 0 unless a pulse is playing.
+  useFrame((_, delta) => {
+    const group = crowdGroupRef.current;
+    if (!group) return;
+    group.position.y = stepCrowdBounce(
+      crowdBounceRef.current,
+      crowdPulseRef?.current ?? 0,
+      delta * 1000,
+    );
+  });
+
   return (
     <group>
       {/* 1. ARENA CIRCULAR SAND PIT (WARM GOLDEN BLOOD-STAINED ARENA SAND) */}
@@ -39,24 +91,30 @@ export const DuelArena: React.FC = () => {
         <meshStandardMaterial color="#854d0e" roughness={0.85} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* Spectator Crowd Silhouettes */}
-      {Array.from({ length: 28 }).map((_, ci) => {
-        const angle = (ci / 28) * Math.PI * 2;
-        const rad1 = 22.2;
-        const rad2 = 25.8;
-        return (
-          <group key={`crowd-${ci}`}>
-            <mesh position={[Math.cos(angle) * rad1, 7.8, Math.sin(angle) * rad1]}>
-              <boxGeometry args={[1.2, 1.4, 0.8]} />
-              <meshStandardMaterial color={ci % 3 === 0 ? '#991b1b' : ci % 2 === 0 ? '#f5f5f4' : '#78350f'} roughness={0.9} />
-            </mesh>
-            <mesh position={[Math.cos(angle) * rad2, 11.2, Math.sin(angle) * rad2]}>
-              <boxGeometry args={[1.4, 1.5, 0.8]} />
-              <meshStandardMaterial color={ci % 2 === 0 ? '#b45309' : '#e5e5e5'} roughness={0.9} />
-            </mesh>
-          </group>
-        );
-      })}
+      {/* CF-3 — SPECTATOR CROWD SILHOUETTES. Both rings live in ONE group so a
+          hype celebration can bounce the crowd alone: the podium wall, the
+          cavea, the braziers and the imperial loge all stay outside it. The 28
+          spectators per ring (56 meshes), their radii, sizes and materials are
+          exactly what they were. */}
+      <group ref={crowdGroupRef}>
+        {Array.from({ length: 28 }).map((_, ci) => {
+          const angle = (ci / 28) * Math.PI * 2;
+          const rad1 = 22.2;
+          const rad2 = 25.8;
+          return (
+            <group key={`crowd-${ci}`}>
+              <mesh position={[Math.cos(angle) * rad1, 7.8, Math.sin(angle) * rad1]}>
+                <boxGeometry args={[1.2, 1.4, 0.8]} />
+                <meshStandardMaterial color={ci % 3 === 0 ? '#991b1b' : ci % 2 === 0 ? '#f5f5f4' : '#78350f'} roughness={0.9} />
+              </mesh>
+              <mesh position={[Math.cos(angle) * rad2, 11.2, Math.sin(angle) * rad2]}>
+                <boxGeometry args={[1.4, 1.5, 0.8]} />
+                <meshStandardMaterial color={ci % 2 === 0 ? '#b45309' : '#e5e5e5'} roughness={0.9} />
+              </mesh>
+            </group>
+          );
+        })}
+      </group>
 
       {/* 4. ROARING BRONZE ARENA FIRE BRAZIERS */}
       {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
@@ -73,7 +131,11 @@ export const DuelArena: React.FC = () => {
             {/* Glowing Embers */}
             <mesh position={[0, 0.45, 0]}>
               <sphereGeometry args={[0.3, 10, 10]} />
-              <meshStandardMaterial color="#ff5722" emissive="#f97316" emissiveIntensity={3} />
+              <meshStandardMaterial
+                color="#ff5722"
+                emissive="#f97316"
+                emissiveIntensity={emberEmissive ?? 3}
+              />
             </mesh>
             <pointLight color="#f97316" intensity={3.5} distance={12} position={[0, 0.6, 0]} />
           </group>
@@ -87,15 +149,39 @@ export const DuelArena: React.FC = () => {
           <boxGeometry args={[10, 3.6, 4.5]} />
           <meshStandardMaterial color="#ecd9be" roughness={0.4} />
         </mesh>
-        {/* Imperial Velvet Canopy (Velarium) */}
+        {/* Imperial Velvet Canopy (Velarium) — D-3: the arena's only heraldic
+            cloth, so it is where an allegiance shows. The house crimson is what
+            it has always been; Gnaeus's bout flies his gold until the panoply
+            breaks, and the swap is this one material property. */}
         <mesh position={[0, 4.4, 0]}>
           <boxGeometry args={[10.8, 0.5, 5.2]} />
-          <meshStandardMaterial color="#881337" roughness={0.5} />
+          <meshStandardMaterial
+            color={
+              bannerAllegiance === 'gilded'
+                ? '#eab308'
+                : bannerAllegiance === 'brothers'
+                ? '#7f1d1d'
+                : bannerAllegiance === 'dusk'
+                ? '#4c0519'
+                : '#881337'
+            }
+            roughness={0.5}
+          />
         </mesh>
         {/* Gold Trim & Imperial Eagle */}
         <mesh position={[0, 4.8, 2.5]}>
           <boxGeometry args={[11.2, 0.3, 0.2]} />
-          <meshStandardMaterial color="#f59e0b" metalness={0.9} roughness={0.2} />
+          <meshStandardMaterial
+            color={
+              bannerAllegiance === 'brothers'
+                ? '#dc2626'
+                : bannerAllegiance === 'dusk'
+                ? '#a16207'
+                : '#f59e0b'
+            }
+            metalness={0.9}
+            roughness={0.2}
+          />
         </mesh>
         {/* Flanking Corinthian Columns */}
         {[-4.6, 4.6].map((cx, ci) => (

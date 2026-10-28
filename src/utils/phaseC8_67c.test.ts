@@ -95,6 +95,21 @@ const WORKSHOP = code('../components/hub/ChariotWorkshopTab.tsx');
 const SECTION = code('../components/hub/RacingConfigSection.tsx');
 const HARNESS = code('../components/dev/RacingConfigHarness.tsx');
 
+/**
+ * One component-level handler's exact body — from its `const <name> =` up to the
+ * next component-level declaration.  Handlers sit at two-space indent inside `App`,
+ * so a `const` nested inside a handler (four spaces) can never end the slice early.
+ *
+ * Throws when the handler is absent rather than returning `''`: an empty slice would
+ * let every `not.toContain` assertion below pass vacuously.
+ */
+const handlerOf = (source: string, name: string): string => {
+  const start = source.indexOf(`const ${name} =`);
+  if (start < 0) throw new Error(`no ${name} handler in App.tsx`);
+  const next = source.indexOf('\n  const ', start + 1);
+  return source.slice(start, next === -1 ? source.length : next);
+};
+
 /** The player's own save key — the one the harness must never touch. */
 const REAL_PROFILE_KEY = 'sand_and_steel_gladiator_save_v2';
 
@@ -253,22 +268,48 @@ describe('C-8.67C §A — reachable from the Imperial Stable route, and nothing 
     expect(GEAR_TAB).not.toContain("key: 'racing'");
   });
 
-  test('App buys and selects only through the pure C-8.67B helpers', () => {
+  // Each racing handler's OWN body, measured whole: pure helper → refusal bail →
+  // state → save.  Per-handler scoping is what keeps these guards honest now that
+  // an unrelated handler lives between the two racing ones (P2's
+  // `handlePurchaseTriumph`): one buy→`handleTrainStat` span counted that feature's
+  // write as a racing write.  Nothing is weakened — every byte of the handler being
+  // measured is still in scope, so it cannot gain a helper bypass or a balance tweak.
+  test('App buys racing configs only through the pure C-8.67B purchase helper', () => {
     expect(APP).toContain("from './utils/racingProgression'");
     expect(APP).toContain('purchaseRacingConfig');
+    const buyHandler = handlerOf(APP, 'handleBuyRacingConfig');
+    expect(buyHandler).toContain('purchaseRacingConfig(profile, horses)');
+    expect(buyHandler).not.toContain('selectRacingConfig');
+    expect(buyHandler).toContain('if (!result.ok) return;');
+    expect(buyHandler.split('saveProfile(result.profile)')).toHaveLength(2);
+    // The handler never touches the balance itself — the helper moves the purse.
+    expect(buyHandler).not.toContain('gold');
+  });
+
+  test('App selects racing configs only through the pure C-8.67B selection helper', () => {
     expect(APP).toContain('selectRacingConfig');
-    // The two handlers, scoped: pure helper → refusal bail → state → save.
-    const handlers = APP.slice(
+    const selectHandler = handlerOf(APP, 'handleSelectRacingConfig');
+    expect(selectHandler).toContain('selectRacingConfig(profile, horses)');
+    expect(selectHandler).not.toContain('purchaseRacingConfig');
+    expect(selectHandler).toContain('if (!result.ok) return;');
+    expect(selectHandler.split('saveProfile(result.profile)')).toHaveLength(2);
+    expect(selectHandler).not.toContain('gold');
+  });
+
+  test('the two racing handlers are measured alone, so a neighbour cannot count as one', () => {
+    const buyHandler = handlerOf(APP, 'handleBuyRacingConfig');
+    const selectHandler = handlerOf(APP, 'handleSelectRacingConfig');
+    // Exactly two writes across the racing pair...
+    expect((buyHandler + selectHandler).split('saveProfile(result.profile)')).toHaveLength(3);
+    // ...while the span this guard used to measure — from the buy handler through to
+    // the next UNRELATED handler — holds three, because a neighbouring feature's
+    // handler writes the save between them.  That third write is what made the guard
+    // stale; the per-handler slices above exclude it, which is what this pins.
+    const staleSpan = APP.slice(
       APP.indexOf('const handleBuyRacingConfig'),
       APP.indexOf('const handleTrainStat')
     );
-    expect(handlers).toContain('purchaseRacingConfig(profile, horses)');
-    expect(handlers).toContain('selectRacingConfig(profile, horses)');
-    expect(handlers).toContain('if (!result.ok) return;');
-    expect(handlers).toContain('saveProfile(result.profile)');
-    expect(handlers.split('saveProfile(result.profile)')).toHaveLength(3);
-    // Neither handler touches the balance itself — the helper moves the purse.
-    expect(handlers).not.toContain('gold');
+    expect(staleSpan.split('saveProfile(result.profile)')).toHaveLength(4);
   });
 
   test('the section owns no mutation path and reads no storage', () => {
@@ -282,11 +323,13 @@ describe('C-8.67C §A — reachable from the Imperial Stable route, and nothing 
     expect(SECTION).not.toContain('saveProfile');
     expect(SECTION).not.toContain('localStorage');
     expect(SECTION).not.toContain('sessionStorage');
-    // It reads the profile and the catalogue — nothing else.
+    // It reads the profile and the catalogue, and mounts the Imperial Stable
+    // panel P6 gave it (a read-only surface of its own) — nothing else.
     expect(SECTION.match(/from '[^']+'/g)?.sort()).toEqual([
       "from '../../audio/soundEffects'",
       "from '../../types/game'",
       "from '../../utils/racingProgression'",
+      "from './StablePanel'",
       "from 'lucide-react'",
       "from 'react'",
     ]);

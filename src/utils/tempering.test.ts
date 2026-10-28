@@ -77,6 +77,9 @@ function profile(mutate: (p: PlayerProfile) => void = () => {}): PlayerProfile {
     newGamePlus: 0,
     trainingSessionsLeft: 2,
     injury: null,
+    // P5 — the workshop stands at L2 so these tests measure the temper cost curve
+    // itself; the workshop gates are `phaseP5FacilityProgression.test.ts`'s.
+    facilities: { workshop: 2 },
     equipped: { weapon: GLADIUS, helm: MURMILLO },
     inventory: [GLADIUS, TITAN],
     fightsWon: 0,
@@ -467,7 +470,12 @@ describe('P1 §F — the duel reads the effective weapon', () => {
   });
 
   test('attack resolution still reads the fighter loadout, so the tempered damage is what lands', () => {
-    expect(duelSource).toContain('attacker.loadout.weapon.damageLight');
-    expect(duelSource).toContain('attacker.loadout.weapon.damageHeavy');
+    // D-4 rebased this pin, not weakened it: the resolution reads ONE variable,
+    // `attackerWeapon`, which is the fighter's own loadout weapon for every
+    // fighter except the Cotta pair (whose acting brother carries his own). The
+    // player's tempered weapon still reaches the damage through that variable.
+    expect(duelSource).toContain('const attackerWeapon = brothersWeapon ?? attacker.loadout.weapon;');
+    expect(duelSource).toContain('? attackerWeapon.damageLight');
+    expect(duelSource).toContain(': attackerWeapon.damageHeavy');
   });
 });

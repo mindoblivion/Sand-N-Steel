@@ -1,15 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize } from './types/game';
-import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats } from './services/storage';
+import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from './types/game';
+import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
+import type { StoredProfileSummary } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
 import { CharacterCreation } from './components/hub/CharacterCreation';
+import { NewCharacterOverwriteModal } from './components/hub/NewCharacterOverwriteModal';
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
 import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
+import { purchaseLaurel, type LaurelResult } from './utils/laurels';
+import { consumeItem, purchaseConsumable } from './utils/consumables';
+import { purchaseIntel } from './utils/intel';
+import type { ConsumableItem } from './data/consumables';
 import { sellItem } from './utils/selling';
+import { nextBossKills } from './utils/bossKills';
+import { purchaseFacility, trainingCost, type FacilityId } from './utils/facilityProgression';
+import { purchaseTemper } from './utils/tempering';
+import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
+import { purchaseItem } from './utils/itemPurchase';
+import { withArmaturaPledge } from './utils/armaturaPledge';
+import { applyPalmaEarns, equipPalma, purchaseDoctorePalma, unequipPalma } from './utils/palmaeState';
+import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
 // city hub and the duel arena are: one more screen value, one more lazy import
@@ -56,8 +70,29 @@ import { facebookSignIn } from './services/facebookAuth';
 import { appleSignIn } from './services/appleAuth';
 import { microsoftSignIn } from './services/microsoftAuth';
 import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
-import { ALL_OPPONENTS } from './data/opponents';
+import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT } from './data/opponents';
+// C-8.70C — the bout mode is chosen on the pre-fight card and held for the
+// length of the bout only: it is never written to the profile.
+import { DEFAULT_BOUT_MODE } from './data/boutModes';
+import {
+  doctoreAttemptLine,
+  doctoreTestResultLine,
+  isDoctoreTestOpponent,
+  isNoviceBoutDue,
+  isNoviceBoutOpponent,
+  meetsDoctoreRestriction,
+  type DoctoreTestRestriction,
+} from './utils/storyBeats';
 import { resolveVictoryTier } from './utils/tierAdvancement';
+// C-8.70C — the grudge record's writes. A grudge's own result is recorded here in
+// the SAME result write every duel uses; nothing on the grudge surfaces writes.
+import {
+  closeGrudge,
+  isGrudgeBout,
+  recordStandardVictory,
+  settleGrudge,
+} from './utils/grudgeBouts';
+import { resolveInjuryAfterDuel, restAtInn, treatInjury, type DuelInjuryEvent } from './utils/injury';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
 import { preloadTitleStage } from './utils/preloadAssets';
@@ -79,6 +114,8 @@ export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
+  /** C-8.70C — session-only: set by the pre-fight card, read by the duel, never saved. */
+  const [boutMode, setBoutMode] = useState<BoutMode>(DEFAULT_BOUT_MODE);
   const [activeHubTab, setActiveHubTab] = useState<'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library'>('tournament');
   // Phase C-8.66B: the Armory's own subview. The Imperial Stable's city
   // interaction opens the gear tab with this set to 'chariot'; the tab's own
@@ -92,7 +129,33 @@ export function App() {
   // after a race. Set when the race is entered, read when the city remounts,
   // in memory only.
   const [cityReturnPose, setCityReturnPose] = useState<CityExitPose | null>(null);
-  const [duelResult, setDuelResult] = useState<{ didWin: boolean; stats: DuelStatistics } | null>(null);
+  const [duelResult, setDuelResult] = useState<{
+    didWin: boolean;
+    stats: DuelStatistics;
+    /**
+     * STORY-2 — the beat's own lines for this result, decided at the write (the
+     * novice bout's reading, and the Doctore's Test verdict) so the screen and
+     * the save cannot disagree about what happened.
+     */
+    storyLines: string[];
+    /**
+     * S4 — what this duel did to the injury, decided at the same write, so the
+     * result screen cannot disagree with the save: a fresh wound on a loss, or the
+     * wound this duel closed. A duel that only advances a live injury's clock has
+     * nothing new to say and carries `null`.
+     */
+    injuryEvent: DuelInjuryEvent | null;
+    /**
+     * CH-5 — the palma ids this victory NEWLY unlocked (empty on a defeat), so the
+     * result screen announces exactly what the save already carries.
+     */
+    palmaEarned?: string[];
+  } | null>(null);
+  /**
+   * STORY-2 — the rule chosen for the Doctore's Test. Held for the length of the
+   * duel only (set on entry, cleared when the result is dismissed), in memory.
+   */
+  const [doctoreRestriction, setDoctoreRestriction] = useState<DoctoreTestRestriction | null>(null);
   /**
    * RG-3 — the herald's cries and the one-time Device Choosing panel. Both are view
    * state only: the road's own writes go through `profile.road`, saved the normal way.
@@ -130,6 +193,23 @@ export function App() {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
 
   /**
+   * Save-safety — the New Character overwrite confirmation.  Set when the New
+   * Character flow begins while a gladiator is already stored on this device: the
+   * player sees what would be lost and has to arm the erase (two taps) before
+   * creation starts.  `null` means nothing is pending.  View state only — no save is
+   * touched by showing, arming or cancelling this dialog.
+   */
+  const [overwriteConfirm, setOverwriteConfirm] = useState<StoredProfileSummary | null>(null);
+
+  /**
+   * Save-safety — the stored save could not be read this boot and its original bytes
+   * were quarantined rather than dropped.  The title screen says so in plain
+   * language; nothing is repaired, rewritten or deleted, and the game starts on the
+   * same path it takes with no save at all.
+   */
+  const [saveQuarantineNotice, setSaveQuarantineNotice] = useState(false);
+
+  /**
    * Who is signed in.  The panel needs one thing from auth: whether there IS an
    * account, because a signed-in player deletes an account and a guest erases the
    * device's data instead.  Nothing here is saved; it follows Firebase's own session.
@@ -165,6 +245,9 @@ export function App() {
 
     const saved = loadSavedProfile();
     if (saved) setProfile(saved);
+    // Save-safety — an unreadable stored save was kept verbatim under the quarantine
+    // key instead of being lost; the title states it once.
+    if (wasStoredSaveQuarantined()) setSaveQuarantineNotice(true);
     // START-1 — preload stage 1. This effect runs at title mount, which is the beat
     // the startup sequence warms the first tier on; stage 2 fires on the tap.
     preloadTitleStage();
@@ -264,8 +347,12 @@ export function App() {
    * hands back the profile to save — it is the only writer of `road.milestonesSeen` —
    * together with the cries the herald should raise and whether the device panel is owed.
    */
-  const evaluateRituals = (before: PlayerProfile, after: PlayerProfile): PlayerProfile => {
-    const evaluation = evaluateRoadMilestones(before, after);
+  const evaluateRituals = (
+    before: PlayerProfile,
+    after: PlayerProfile,
+    justFought?: OpponentConfig | null
+  ): PlayerProfile => {
+    const evaluation = evaluateRoadMilestones(before, after, justFought);
     if (evaluation.cries.length > 0) {
       setHeraldCries((previous) => [...previous, ...evaluation.cries]);
     }
@@ -298,9 +385,29 @@ export function App() {
     enterCity(profile);
   };
 
+  /**
+   * Save-safety — enter the New Character flow.
+   *
+   * A new gladiator REPLACES the one stored on this device when creation completes
+   * (the write happens on completion, exactly as it always has), so when a save is
+   * stored the player first confirms it: `NewCharacterOverwriteModal` names what
+   * would be lost and requires a deliberate two-step arm.  With NO save stored this
+   * is byte-for-byte the old behaviour — straight into creation, no added friction.
+   * Every route into creation (the title's tap, and after signing in) comes through
+   * here.
+   */
+  const beginCharacterCreation = () => {
+    const stored = readStoredProfileSummary();
+    if (stored) {
+      setOverwriteConfirm(stored);
+      return;
+    }
+    setCurrentScreen('create_character');
+  };
+
   const handleNewCharacter = () => {
     sounds.playClick();
-    setCurrentScreen('create_character');
+    beginCharacterCreation();
   };
 
   // "Continue with Google" — sign in, then restore a cloud save if one exists.
@@ -331,7 +438,7 @@ export function App() {
         if (profile) {
           enterCity(profile);
         } else {
-          setCurrentScreen('create_character');
+          beginCharacterCreation();
         }
       }
     } catch (e) {
@@ -351,7 +458,7 @@ export function App() {
       if (profile) {
         enterCity(profile);
       } else {
-        setCurrentScreen('create_character');
+        beginCharacterCreation();
       }
     } catch (e) {
       console.error('[FacebookSignIn] failed:', e);
@@ -369,7 +476,7 @@ export function App() {
       if (profile) {
         enterCity(profile);
       } else {
-        setCurrentScreen('create_character');
+        beginCharacterCreation();
       }
     } catch (e) {
       console.error('[AppleSignIn] failed:', e);
@@ -387,7 +494,7 @@ export function App() {
       if (profile) {
         enterCity(profile);
       } else {
-        setCurrentScreen('create_character');
+        beginCharacterCreation();
       }
     } catch (e) {
       console.error('[MicrosoftSignIn] failed:', e);
@@ -401,7 +508,7 @@ export function App() {
     if (profile) {
       enterCity(profile);
     } else {
-      setCurrentScreen('create_character');
+      beginCharacterCreation();
     }
   };
 
@@ -435,10 +542,28 @@ export function App() {
     postOathNudge.offer();
   };
 
-  const handleEnterDuel = (opp: OpponentConfig) => {
+  const handleEnterDuel = (opp: OpponentConfig, mode: BoutMode = DEFAULT_BOUT_MODE) => {
     setActiveOpponent(opp);
+    // C-8.70C — the mode the card was committed on, for this bout only.
+    setBoutMode(mode);
+    // A ladder bout carries no restriction: the Test's rule is set by its own
+    // entry, and a stale one must never judge a different fight.
+    setDoctoreRestriction(null);
     sounds.playClick();
     setCurrentScreen('duel');
+  };
+
+  /**
+   * STORY-2 — enter the Doctore's Test with the rule the player chose. The rule
+   * rides beside the opponent (it is not a save field); the result write reads it
+   * to judge the win, and the result screen clears it.
+   */
+  const handleEnterDoctoreTest = (
+    restriction: DoctoreTestRestriction,
+    mode: BoutMode = DEFAULT_BOUT_MODE,
+  ) => {
+    handleEnterDuel(DOCTORE_TEST_OPPONENT, mode);
+    setDoctoreRestriction(restriction);
   };
 
   /**
@@ -473,6 +598,18 @@ export function App() {
   };
 
   /**
+   * CL-2 — the one place the coach-mark `seen` field is written.  `markSeen` is pure
+   * and returns the SAME profile when the card is already recorded, so a repeated or
+   * stale call neither re-renders nor reaches `saveProfile`.
+   */
+  const handleMarkCardSeen = (id: string) => {
+    const marked = markSeen(profile, id);
+    if (!marked || marked === profile) return;
+    setProfile(marked);
+    saveProfile(marked);
+  };
+
+  /**
    * Phase SHOP-2 — the hub's own navigation row.  Choosing the Bazaar & Forge
    * tab from the hub always means the open market; a city building's own
    * storefront only ever arrives through `handleOpenHubTab`.
@@ -485,10 +622,11 @@ export function App() {
   };
 
   /**
-   * Phase C-8.66B — buy a chariot part with the player's existing gold.
-   * `purchaseChariotPart` is pure and re-checks every rule (ownership, price,
-   * unknown id), so a rejected buy leaves gold, ownership and the equipped
-   * choice exactly as they were and never reaches `saveProfile`.
+   * Phase C-8.66B — buy a chariot part, in the currency its catalogue row
+   * declares (gold for every shipped part; fame for the P-BANNER Triumph banner
+   * set).  `purchaseChariotPart` is pure and re-checks every rule (ownership,
+   * price, currency balance, unknown id), so a rejected buy leaves the profile —
+   * both balances included — exactly as it was and never reaches `saveProfile`.
    */
   const handleBuyChariotPart = (partId: string) => {
     const result = purchaseChariotPart(profile, partId);
@@ -508,6 +646,38 @@ export function App() {
   const handleMatchComplete = (stats: DuelStatistics, didWin: boolean) => {
     if (!profile) return;
 
+    /**
+     * STORY-2 — the chapter-one beats read the duel ONCE, here, before the write:
+     * a fresh profile's FIRST attempt at the novice bout gets the Doctore's
+     * reading of it (win or lose — a loss costs nothing and ends nothing), and a
+     * Test bout that was won is judged against the rule the player chose. The
+     * pass itself is written below, in the same update that records the duel.
+     */
+    const storyLines: string[] = [];
+    if (isNoviceBoutOpponent(activeOpponent) && isNoviceBoutDue(profile)) {
+      storyLines.push(doctoreAttemptLine(didWin));
+    }
+    const testWon =
+      didWin &&
+      isDoctoreTestOpponent(activeOpponent) &&
+      doctoreRestriction !== null &&
+      meetsDoctoreRestriction(doctoreRestriction, stats);
+    if (isDoctoreTestOpponent(activeOpponent) && didWin && doctoreRestriction) {
+      storyLines.push(doctoreTestResultLine(doctoreRestriction, stats));
+    }
+
+    /**
+     * S4 — INJURIES: one rule, resolved ONCE in this transaction, for a win and a
+     * loss alike.  The helper returns the profile this write is composed from plus
+     * what the result screen should say.  Nothing else in the game inflicts,
+     * decrements or clears an injury — duels are the only thing that touches it,
+     * and a race never does.
+     */
+    const { profile: afterInjury, event: injuryEvent } = resolveInjuryAfterDuel(profile, didWin);
+
+    /** CH-5 — what this victory unlocked, decided at the write and told to the result. */
+    let palmaEarned: string[] | undefined;
+
     if (didWin) {
       const nextGold = profile.gold + stats.goldEarned;
       const nextFame = profile.fame + stats.fameEarned;
@@ -523,9 +693,28 @@ export function App() {
         nextUnspentPoints += 2;
       }
 
-      const defeated = profile.defeatedOpponentIds.includes(activeOpponent.id)
+      // C-8.70C — a GRUDGE BOUT is a GENERATED rematch row, not a roster id: its
+      // victory settles the grudge and records no new felled id. A standard
+      // victory keeps the shipped rule exactly.
+      const isGrudge = isGrudgeBout(activeOpponent);
+      const defeated = isGrudge
+        ? profile.defeatedOpponentIds
+        : profile.defeatedOpponentIds.includes(activeOpponent.id)
         ? profile.defeatedOpponentIds
         : [...profile.defeatedOpponentIds, activeOpponent.id];
+
+      // C-8.70C — the grudge record rides this same write: the FIRST victory over
+      // a regular opponent records the mix's dominant class, any standard victory
+      // at a grudge's tier re-opens that tier's closed grudges, and a grudge
+      // victory settles it. All three helpers are pure and return the profile
+      // unchanged when nothing applies.
+      const grudgeProfile = isGrudge
+        ? settleGrudge(afterInjury, activeOpponent)
+        : recordStandardVictory(
+            afterInjury,
+            activeOpponent,
+            stats.dominantOffensiveClass ?? 'even'
+          );
 
       // The tier moves only on a boss's FIRST defeat — the boss's id newly entering
       // `defeatedOpponentIds` in this write. A rematch pays its rewards exactly as it
@@ -539,7 +728,7 @@ export function App() {
       });
 
       const updatedProfile: PlayerProfile = {
-        ...profile,
+        ...grudgeProfile,
         gold: nextGold,
         fame: nextFame,
         xp: nextXp,
@@ -548,16 +737,45 @@ export function App() {
         unspentStatPoints: nextUnspentPoints,
         currentTier: tierAfterVictory.currentTier,
         defeatedOpponentIds: defeated,
+        // FIX-A — the kill count rides this same write: `nextBossKills` reads the record
+        // being saved, so it can only rise for a boss whose id is newly entering it.
+        bossKills: nextBossKills(profile, { defeatedOpponentIds: defeated }, activeOpponent),
+        // STORY-2 — the Doctore's Test's pass rides THIS write: the id enters
+        // `defeatedOpponentIds` through the ordinary victory above and the flag
+        // records that the win met the chosen restriction. Both pieces of the
+        // campaign gate's evidence therefore land together or not at all, and the
+        // flag lives inside the existing lazy `story` object (no new top-level
+        // field).
+        ...(testWon
+          ? { story: { ...(profile.story ?? {}), doctoreTestPassed: true } }
+          : {}),
         fightsWon: profile.fightsWon + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
 
-      const settledProfile = evaluateRituals(profile, updatedProfile);
+      /**
+       * CH-5 — THE EARN CHECKS, inside the victory write.  They read the profile
+       * this same write is about to save (gold, fame, xp, the tier, the felled
+       * ids, `fightsWon` and the hype peak are all already on it), and the helper
+       * appends only ids the save does not already carry — so re-winning a fight
+       * can never duplicate an unlock.  Unlocking is never equipping.
+       */
+      const earned = applyPalmaEarns(updatedProfile);
+      palmaEarned = earned.earned.map((palma) => palma.id);
+
+      // The just-fought opponent is what names the boss cry — first defeat or rematch.
+      const settledProfile = evaluateRituals(profile, earned.profile, activeOpponent);
       setProfile(settledProfile);
       saveProfile(settledProfile);
     } else {
+      // C-8.70C — a lost GRUDGE closes: it stays shut until the player wins any
+      // standard bout at that grudge's own tier (the anti-farm rule). Nothing
+      // else about a defeat changes.
+      const grudgeProfile = isGrudgeBout(activeOpponent)
+        ? closeGrudge(afterInjury, activeOpponent)
+        : afterInjury;
       const updatedProfile: PlayerProfile = {
-        ...profile,
+        ...grudgeProfile,
         fightsLost: profile.fightsLost + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
@@ -566,11 +784,19 @@ export function App() {
       saveProfile(settledProfile);
     }
 
-    setDuelResult({ didWin, stats });
+    setDuelResult({
+      didWin,
+      stats,
+      storyLines,
+      injuryEvent,
+      ...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),
+    });
   };
 
   const handleDuelResultDismiss = () => {
     setDuelResult(null);
+    // The Test's rule judged one duel; it does not outlive it.
+    setDoctoreRestriction(null);
     if (profile) enterCity(profile);
     else setCurrentScreen('city_3d');
   };
@@ -589,6 +815,31 @@ export function App() {
   };
 
   /**
+   * S5 — the Arena Medical House's cure (75 gold) and the Caravanserai Inn's rest
+   * (25 gold).  Both helpers are pure and re-check every rule against the profile
+   * they are handed — a live injury, and a purse that covers the price — so a
+   * refusal returns the caller's own profile and never reaches `saveProfile`.  The
+   * answer says whether the gold changed hands, which is what closes the city panel.
+   */
+  const handleTreatInjury = (): boolean => {
+    if (!profile) return false;
+    const treated = treatInjury(profile);
+    if (treated === profile) return false;
+    setProfile(treated);
+    saveProfile(treated);
+    return true;
+  };
+
+  const handleRestAtInn = (): boolean => {
+    if (!profile) return false;
+    const rested = restAtInn(profile);
+    if (rested === profile) return false;
+    setProfile(rested);
+    saveProfile(rested);
+    return true;
+  };
+
+  /**
    * Phase C-8.67C — buy a racing team (Triga 750, Quadra 1,500) with the
    * player's existing purse.  `purchaseRacingConfig` is pure and re-checks every
    * rule against the profile it is handed — prerequisite, ownership, price — so a
@@ -603,6 +854,21 @@ export function App() {
     saveProfile(result.profile);
   };
 
+  /**
+   * P2 — buy a Triumph (a title, or the ludus statue) with fame.  `purchaseLaurel`
+   * is pure and re-checks every rule against the profile it is handed — price,
+   * ownership, and that fame is the only currency — so a refusal returns no profile,
+   * leaves the caller's own object untouched and never reaches `saveProfile`.  The
+   * refusal is handed back to the Library's Triumphs page so it can print the reason.
+   */
+  const handlePurchaseTriumph = (laurelId: string): LaurelResult => {
+    const result = purchaseLaurel(profile, laurelId);
+    if (!result.ok) return result;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+    return result;
+  };
+
   /** Select an unlocked team: free, and it only records the player's preference. */
   const handleSelectRacingConfig = (horses: ChariotTeamSize) => {
     const result = selectRacingConfig(profile, horses);
@@ -614,7 +880,8 @@ export function App() {
   // Profile mutations
   const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
     if (!profile) return;
-    const cost = 25 * profile.level;
+    // P5 — the Ludus Training Yard sets stat training's price, and nothing else.
+    const cost = trainingCost(profile);
     if (profile.gold < cost) return;
 
     const updated: PlayerProfile = {
@@ -629,16 +896,61 @@ export function App() {
     saveProfile(updated);
   };
 
+  /**
+   * P5 — `purchaseItem` re-checks the item's gate and the purse, so a Master
+   * Forge piece bought below workshop L2 is refused here even if a stock list
+   * were bypassed.  A refusal returns no profile and never reaches `saveProfile`.
+   */
   const handleBuyItem = (item: WeaponItem | ArmorItem) => {
-    if (!profile || profile.gold < item.price) return;
+    if (!profile) return;
+    const result = purchaseItem(profile, item);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
 
-    const updated: PlayerProfile = {
-      ...profile,
-      gold: profile.gold - item.price,
-      inventory: [...profile.inventory, item],
-    };
-    setProfile(updated);
-    saveProfile(updated);
+  /**
+   * S6 — buy a Bazaar consumable. `purchaseConsumable` is pure and re-checks the
+   * price against the purse, so a refused buy leaves gold, counts and the GEAR
+   * inventory exactly as they were and never reaches `saveProfile`. A consumable is
+   * counted in `profile.consumables`; it is never pushed into `profile.inventory`.
+   */
+  const handleBuyConsumable = (item: ConsumableItem) => {
+    if (!profile) return;
+    const result = purchaseConsumable(profile, item.id);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /**
+   * S6 — one-tap use on the live injury, from the treatment surfaces or the stats
+   * tab. Same contract as the two cures above: a refusal (no wound, none owned)
+   * returns no profile and never saves; the answer closes the city panel.
+   */
+  const handleUseConsumable = (itemId: string): boolean => {
+    if (!profile) return false;
+    const result = consumeItem(profile, itemId);
+    if (!result.ok) return false;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+    return true;
+  };
+
+  /**
+   * S7 — buy one tavern rumour (15 gold). `purchaseIntel` is pure and re-checks
+   * every rule against the profile it is handed — a real opponent, not already
+   * owned, a purse that covers the price — so a refusal returns no profile and
+   * never reaches `saveProfile`. INTEL IS INFORMATION ONLY: the write touches
+   * `gold` and `intel`, and no stat, formula or reward.
+   */
+  const handleBuyIntel = (opponentId: string): boolean => {
+    if (!profile) return false;
+    const result = purchaseIntel(profile, opponentId);
+    if (!result.ok) return false;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+    return true;
   };
 
   // P1 sell — the market buys a carried, unequipped item back for its
@@ -650,6 +962,51 @@ export function App() {
     if (updated === profile) return;
     setProfile(updated);
     saveProfile(updated);
+  };
+
+  /**
+   * P6 — temper an owned item.  `purchaseTemper` is pure and re-checks every
+   * rule (ownership, the level cap, the Smithing Workshop's gate, the purse), so
+   * a refusal hands back the caller's own profile object and never reaches
+   * `saveProfile`.
+   */
+  const handleTemperItem = (itemId: string) => {
+    if (!profile) return;
+    const updated = purchaseTemper(profile, itemId);
+    if (updated === profile) return;
+    setProfile(updated);
+    saveProfile(updated);
+  };
+
+  /** P6 — the Imperial Stable's quality ladder, through the P4 transaction. */
+  const handleBuyStableQuality = (grade: number) => {
+    if (!profile) return;
+    const result = purchaseStableQuality(profile, grade);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /** P6 — the Imperial Stable's conditioning ladder, through the P4 transaction. */
+  const handleBuyStableConditioning = (level: number) => {
+    if (!profile) return;
+    const result = purchaseStableConditioning(profile, level);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /**
+   * P6 — build the next level of a ludus facility.  `purchaseFacility` is pure
+   * and re-checks the order and the purse, and a refusal carries no profile at
+   * all, so nothing is charged and nothing is saved.
+   */
+  const handleBuyFacility = (id: FacilityId) => {
+    if (!profile) return;
+    const result = purchaseFacility(profile, id);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
   };
 
   const handleEquipWeapon = (wpn: WeaponItem) => {
@@ -693,6 +1050,54 @@ export function App() {
     saveProfile(updated);
   };
 
+  /**
+   * CH-2 — the legacy re-pledge.  A save written before the classes existed has no
+   * `armatura` field, so its class is only inferred; this writes the chosen id and
+   * NOTHING else (no stat, item, gold or palma), through the same
+   * `setProfile` + `saveProfile` pair every other profile change uses.  The helper
+   * refuses an already-pledged profile, so the tap can only ever happen once.
+   */
+  const handleRepledgeArmatura = (armatura: ArmaturaId) => {
+    if (!profile) return;
+    const result = withArmaturaPledge(profile, armatura);
+    if (!result.ok) return;
+    sounds.playClick();
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /**
+   * CH-5 — the palmae's three writes, and the only ones besides the victory
+   * write's earn checks.  Each runs the pure transaction in `utils/palmaeState.ts`,
+   * which re-checks every rule against the profile it is handed — unlocked, not
+   * boss-only, the tier's slot ladder, the purse — and hands back NO profile on a
+   * refusal, so a stale tap can neither charge twice nor wear an unearned palm.
+   */
+  const handleEquipPalma = (palmaId: string) => {
+    if (!profile) return;
+    const result = equipPalma(profile, palmaId);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  const handleUnequipPalma = (palmaId: string) => {
+    if (!profile) return;
+    const result = unequipPalma(profile, palmaId);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /** A purchase UNLOCKS the palm; it is worn later, in the Gladiator Stats panel. */
+  const handleBuyPalma = (palmaId: string) => {
+    if (!profile) return;
+    const result = purchaseDoctorePalma(profile, palmaId);
+    if (!result.ok) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
   const handleResetGame = () => {
     clearSavedProfile();
     setProfile(null);
@@ -725,6 +1130,7 @@ export function App() {
         {currentScreen === 'title' && (
             <TitleScreen
                 savedProfile={profile}
+                saveQuarantineNotice={saveQuarantineNotice}
                 onContinueAdventure={handleContinueAdventure}
                 onNewCharacter={handleNewCharacter}
                 onOpenDriveSync={() => setShowDriveSync(true)}
@@ -770,6 +1176,10 @@ export function App() {
             initialPosition={oathBeatMode ? OATH_YARD_SPAWN.position : cityReturnPose?.position}
             initialRotationY={oathBeatMode ? OATH_YARD_SPAWN.rotationY : cityReturnPose?.rotationY}
             onStartRace={handleStartRace}
+            onTreatInjury={handleTreatInjury}
+            onRestAtInn={handleRestAtInn}
+            onUseConsumable={handleUseConsumable}
+            onBuyIntel={handleBuyIntel}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
             movementLocked={!!oathBeatMode}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
@@ -795,6 +1205,8 @@ export function App() {
             onSelectOpponent={handleEnterDuel}
             onTrainStat={handleTrainStat}
             onBuyItem={handleBuyItem}
+            onBuyConsumable={handleBuyConsumable}
+            onUseConsumable={handleUseConsumable}
             onSellItem={handleSellItem}
             onEquipWeapon={handleEquipWeapon}
             onEquipArmor={handleEquipArmor}
@@ -806,11 +1218,22 @@ export function App() {
             onBuyRacingConfig={handleBuyRacingConfig}
             onSelectRacingConfig={handleSelectRacingConfig}
             onAllocateStatPoint={handleAllocateStatPoint}
+            onRepledgeArmatura={handleRepledgeArmatura}
             onOpenDriveSync={() => setShowDriveSync(true)}
             onToggleMute={handleToggleMute}
             isMuted={isMuted}
             onResetGame={handleResetGame}
             onOpenSettings={() => handleOpenSettings()}
+            onMarkCardSeen={handleMarkCardSeen}
+            onEnterDoctoreTest={handleEnterDoctoreTest}
+            onPurchaseTriumph={handlePurchaseTriumph}
+            onTemperItem={handleTemperItem}
+            onBuyStableQuality={handleBuyStableQuality}
+            onBuyStableConditioning={handleBuyStableConditioning}
+            onBuyFacility={handleBuyFacility}
+            onEquipPalma={handleEquipPalma}
+            onUnequipPalma={handleUnequipPalma}
+            onBuyPalma={handleBuyPalma}
             />
         )}
 
@@ -820,6 +1243,7 @@ export function App() {
             <DuelScene
             playerProfile={profile}
             opponent={activeOpponent}
+            boutMode={boutMode}
             onMatchComplete={handleMatchComplete}
             onOpenArmory={() => handleOpenHubTab('tournament')}
             onOpenHelp={() => handleOpenSettings('controls', 'duel')}
@@ -827,6 +1251,7 @@ export function App() {
             isMuted={isMuted}
             isLeftyMode={isLeftyMode}
             onOpenSettings={() => handleOpenSettings(undefined, 'duel')}
+            onMarkCardSeen={handleMarkCardSeen}
             />
           </React.Suspense>
           </LazySceneBoundary>
@@ -852,8 +1277,38 @@ export function App() {
             didWin={duelResult.didWin}
             opponent={activeOpponent}
             stats={duelResult.stats}
+            storyLines={duelResult.storyLines}
+            injuryEvent={duelResult.injuryEvent}
+            palmaEarned={duelResult.palmaEarned}
             goldTotal={profile?.gold}
+            coachCardId={
+              profile
+                ? evaluateBeats(
+                    {
+                      phase: 'result',
+                      result: duelResult.didWin ? 'win' : 'loss',
+                      losses: profile.fightsLost,
+                    },
+                    resolveSeenState(profile)
+                  )
+                : null
+            }
+            onCoachCardDismiss={handleMarkCardSeen}
             onContinue={handleDuelResultDismiss}
+            />
+        )}
+
+        {/* SAVE-SAFETY — the New Character overwrite confirmation.  It sits above every
+            screen and holds the flow until the player decides; nothing is erased, and
+            the stored profile is only replaced when a new creation completes. */}
+        {overwriteConfirm && (
+            <NewCharacterOverwriteModal
+            existing={overwriteConfirm}
+            onCancel={() => setOverwriteConfirm(null)}
+            onConfirm={() => {
+              setOverwriteConfirm(null);
+              setCurrentScreen('create_character');
+            }}
             />
         )}
 

@@ -244,7 +244,9 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     // arrival stays 0.25 outside it, one walk step.
     radius: 5.75,
     icon: 'Beer',
-    tabKey: 'stats',
+    // S7 — the tavern sells INTEL, not a tab: its interaction opens the tavern
+    // panel (opponents the player has not bought a rumour on).  With no `tabKey`
+    // it can never open the stats tab it used to redirect to.
     actionPrompt: 'Hear Rumors',
     color: '#9333ea',
     district: 'SOUTH',
@@ -263,8 +265,10 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     // player's 0.80 diameter (0.80 here); the arrival sits 0.25 outside, one step.
     radius: 5.75,
     icon: 'Home',
-    tabKey: 'gear',
-    actionPrompt: 'Equip Loadout',
+    // S5 — the inn's service is REST, not an Armory redirect: a live injury opens its
+    // treatment panel (25 gold, two fights off the wound), and loadout lives in the
+    // hub's own Armory tab.  No tabKey, so it can never open a tab again.
+    actionPrompt: 'Rest at the Inn',
     color: '#0891b2',
     district: 'EAST',
   },
@@ -355,6 +359,11 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     // footprint, so the hub follows it.
     position: [28, 0, -18.875],
     radius: 4.5,
+    // STORY-2 — the Doctore House is the ludus, so it opens the school's own
+    // Training Yard: that is where the Doctore's Test entry now stands (a
+    // restricted-rules duel beside the conditioning cards). It used to fall
+    // through to a plain notice.
+    tabKey: 'training',
     icon: 'Compass',
     actionPrompt: 'Consult Doctore',
     color: '#ea580c',
