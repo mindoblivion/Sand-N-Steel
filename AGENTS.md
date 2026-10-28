@@ -8024,3 +8024,62 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   first decline pays +5 fame and the second pays nothing; (d) the pre-fight card shows kind/ill +
   "next bout (#N)" and an ill bout's opponent reads sharper; (e) the result screen prints the omen's
   line on a win and on a loss, and gold/fame match it; (f) no hub button got smaller.
+
+## STORY-3 — Chapter 2, "Fortuna's Coin, the Second Sand" (Beat 3 + cross-gate + chapter state — implemented)
+
+- **What ships, and what deliberately did not.** The chapter's state, its Beat 3 staging and the
+  cross-gate pointer, and nothing else. `src/utils/storyState.ts` was EXTENDED (never replaced):
+  Chapter 2's omen gate now reads STATE, its District race gate declares `holdsChapterOpen`, the
+  closure rule honours that one declaration, and three readers were added (`isFortunaOmenTaken`,
+  `circusPointerDue`, `resolveChapterGates`). `src/utils/storyChapterTwo.ts` (new) holds the two
+  things the chapter says out loud — Postumia's briefing and the herald's pointer cry.
+  `GladiatorSchoolHub.tsx` feeds the briefing into STORY-2's EXISTING `PreFightModal` narration
+  surface and raises the pointer when the Colosseum tab opens; `App.tsx` owns the cry's toast. **No
+  new panel, no shrine plate, no new profile field, no stored chapter and no stored beat flag.**
+- **The rules as implemented.** Chapter 2 opens by STORY-2's rule exactly (§A of the new suite).
+  Beat 3 completes when `profile.omen` resolves to a live omen OR `omenTrickleClaimed` is true —
+  whichever came first, including a shrine visit made before the chapter opened (the shrine panel
+  has no chapter gate). The duel gate is Tier 1's boss read from the roster. The race gate stays
+  `'pending'`/`'race'` and prints STORY-1's "not yet" line; it is the ONE gate in the table that
+  holds its chapter open, so **the campaign is held at Chapter 2 and the card's Legend state is not
+  claimed until Stage 2 lands the race-results write** — the documented deferral, asserted as a
+  property (§D, §B4/B6/B9 of `storyState.test.ts`) rather than assumed.
+- **The two deferrals, recorded on the chapter's gate table** (`storyState.ts`, descriptively and
+  without the character's name): (a) the District's pre-race introduction lines belong to Stage 2's
+  2A data build — no line, data row or card change ships here, and the keeper registry keeps that
+  rival as DATA only; (b) "Answer the Rein" steps 1-2 ride the racing/keeper-lives work. A test
+  sweeps `src/` and shows the name appears in no non-test source but `data/keepers.ts`.
+- **Cross-gate pointer.** `circusPointerDue(state)` (trigger) + `CIRCUS_POINTER_CRY` (words). The hub
+  raises it in an effect gated on `activeTab === 'tournament'`, through a ref so a re-render cannot
+  re-raise it; `HeraldToast` dismisses it (button or 7 s timer) and a later open raises it again
+  while the condition holds. Text only: no gate, price or reward reads it (§E).
+- **Suites.** `src/utils/storyChapterTwo.test.ts` (new) — 26 tests / 134 `expect()` in eight
+  sections (derivation, Beat 3's three states, the duel gate, the race gate's "not yet" and the
+  no-invented-evidence pins, the pointer's four cases, the deferred-name sweep, the 20-field pin,
+  the briefing). `storyState.test.ts` was **rebased, not weakened** — 39 tests / 298 `expect()` (was
+  226): B3/B4 measure Chapter 2's new gate states and the hold, B5-B9 and §G read chapters 3-7
+  through `resolveChapterGates`, §F states that the Legend card is unreachable while the race gate
+  is unlanded, and §E gained the `./omens` import plus a purity check on that module.
+  `fortunasOmen.test.ts` §F's consumer list gained `utils/storyState.ts` (one pure reader, exact set
+  still exhaustive).
+- **Verified 2026-10-28** in the dev container: `bun test` (bare, repo-wide) → **4294 pass / 0 fail
+  (141 files, 118,526 `expect()`)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (`✓ built in 8.21s`, the
+  startup-asset check passing 8 assets, the pre-existing >500 kB chunk warning only);
+  `git diff --check` → clean. The existing guards (timeState §G, the keepers plate, saveCorpus §J's
+  20-field list) needed no change: this slice reads no clock, adds no keeper and adds no field.
+- **NOT automatically verified — every new surface.** The preview browser is an anonymous visitor
+  and the campaign's surfaces sit behind a save: the title screen boots with **0 console errors** and
+  the dev server serves the new modules, but the Chapter-2 card, Postumia's pre-fight briefing and
+  the herald's circus pointer have **not been seen rendered**, and no gesture was driven. Their copy
+  and wiring are pinned by the server-rendered suite and the source pins. **Android checklist:** on a
+  profile in Chapter 2 — (a) the Records & Lore card reads `Campaign · Chapter 2` with the race gate
+  as "The Circus has not opened its books yet." and the omen gate as "Face the reading of the omen";
+  (b) opening the Colosseum tab raises the herald's one-line circus pointer, the X dismisses it, and
+  a later open raises it again; (c) the pre-fight card for the Tier-1 final shows Postumia's blessing
+  above the intel rows, and stops showing it once the omen is taken or declined; (d) the pointer
+  never appears before Chapter 2 opens.
+- **Open risk.** Because Chapter 2's race gate must be MET, no record reaches Chapters 3-7 (or the
+  Legend state) until Stage 2 writes race results. That is the ruling, not a defect — but it means
+  the CampaignCard's Legend branch is unexercised in this build, and Stage 2 must either give the
+  gate evidence or revisit the hold.
