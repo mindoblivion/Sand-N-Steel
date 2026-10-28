@@ -30,6 +30,7 @@ import {
   modeCrowdDecayTier,
   modeCrowdStartHype,
   modeRewardBases,
+  resolveBoutOpponent,
   resolveBoutProfile,
   steelDeltaFor,
 } from '../../data/boutModes';
@@ -560,7 +561,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // receives these SAME objects through the HUD, so its cost/hit/damage estimates
   // and the resolution below read one block and can never drift apart.
   const playerMods = useMemo(() => buildPlayerModifiers(playerProfile), [playerProfile]);
-  const opponentMods = useMemo(() => buildOpponentModifiers(opponent), [opponent]);
+  // C-TRAIT — the mode's trait grant (C3b) travels on the row's `palmae`, so the
+  // modifiers are built from the MODE-RESOLVED row: Sand resolves to the row
+  // itself, Steel/Invictus append the extra palma, and a grudge row already
+  // carries its evolved trait from generation.
+  const opponentMods = useMemo(
+    () => buildOpponentModifiers(resolveBoutOpponent(boutMode, opponent)),
+    [boutMode, opponent],
+  );
 
   // D1 fix: the opponent fights with ITS OWN configured weapon, never the
   // player's equipped gear. An explicit per-opponent loadout (if one is ever

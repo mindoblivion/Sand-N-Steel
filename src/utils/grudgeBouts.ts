@@ -20,9 +20,12 @@
  *       even   → blockChance  0.00, aggression +0.05  (he simply comes out harder)
  *     No value moves more than ±0.15 from base and every value stays inside
  *     [0.05, 0.95]. `stats` is copied byte-identically and never touched.
- *   • THE SLOT     — `evolvedTrait: null` (Director addendum A). The
- *     characters-and-systems trait pool has not landed, the palmae ladder is a
- *     DIFFERENT system, and the fight card therefore omits the slot entirely.
+ *   • THE SLOT     — the EXTRA PALMA (design C3b, Oct 19 QA amendment: the null
+ *     fallback is RETIRED). `evolvedTrait` carries a `Palma.id` from the safe
+ *     subset, resolved by `utils/extraPalmae.ts`'s ONE shared resolver and
+ *     APPENDED to the generated row's own `palmae` array, so it lands through
+ *     the existing combat-modifier merge — no second effect system. Bosses are
+ *     excluded by the resolver's own fence.
  *   • AVAILABILITY — the grudge appears at the base's tier + 1, only while the
  *     player's `currentTier` reaches it, and is closed after a loss until the
  *     player wins ANY standard bout at that same tier (the anti-farm rule).
@@ -47,6 +50,7 @@
  * is `even`. That keeps the grudge's reading and Hermas's reading consistent.
  */
 import type {
+  BoutMode,
   DominantOffensiveClass,
   GrudgeBoutConfig,
   GrudgeProfileValues,
@@ -56,8 +60,15 @@ import type {
   PlayerProfile,
 } from '../types/game';
 import { LADDER_OPPONENTS } from '../data/opponents';
+import { BOUT_MODES, modeRewardBases } from '../data/boutModes';
 import { FINAL_TIER } from './tierAdvancement';
 import type { LiveMixCounter } from './longMemory';
+import {
+  SAFE_SUBSET_PALMAE_ORDER,
+  extraPalmaFor,
+  extraPalmaLine,
+  withExtraPalma,
+} from './extraPalmae';
 
 /* ── THE CAPS AND THE SHIFTS (published) ─────────────────────────────────── */
 
@@ -80,18 +91,57 @@ export const GRUDGE_SHIFTS: Record<DominantOffensiveClass, GrudgeProfileValues> 
 };
 
 /**
- * C-8.70C — GRUDGE BOUT REWARDS, one exported object.
+ * C-TRAIT — THE GRUDGE PURSE IS THE VENUE TIER'S FLOOR REGULAR (design C3d).
  *
- * The design publishes NO premium value for a grudge victory, so `famePremium`
- * is AUTHORED in this slice: it has not been play-tested against the ladder's own
- * fame income and is **TUNING-PENDING** — it may change without notice, and it is
- * not a design value. Gold is deliberately absent: a grudge pays the base row's
- * ordinary purse through the existing result flow.
+ * The authored fame premium is DELETED and there is NO separate grudge price
+ * table: C3d states that "a Grudge Bout pays the tier+1 reward row from
+ * Progression section 1.3's published table (the premium IS the higher tier's
+ * purse)". The published per-fight gold/fame figures ARE the tier's floor
+ * regular — the first regular roster row of that tier (T2: Cassius 90 g / 25
+ * fame, T3: Drusus 260 g / 90 fame) — so the purse is DERIVED from the roster
+ * itself, never re-authored here.
+ *
+ * SUMMIT EXCEPTION (flagged, not hidden): a T3-base grudge is fought at venue
+ * T4, and T4 has NO regular row — its only rows are bosses. Those grudges pay
+ * the home floor (T3: 260 g / 90 fame); there is no gold/fame step at the summit.
  */
-export const GRUDGE_REWARDS = {
-  /** Extra fame a grudge victory pays on top of the base row's `rewardFame`. TUNING-PENDING. */
-  famePremium: 20,
-} as const;
+export interface GrudgePurse {
+  /** The venue tier the grudge is actually fought at (the base's tier + 1). */
+  venueTier: number;
+  /** The tier whose floor regular's purse is paid (equals `venueTier` except at the summit). */
+  purseTier: number;
+  purseGold: number;
+  purseFame: number;
+  /** True when the venue has no regular row and the home floor is paid instead. */
+  summit: boolean;
+}
+
+/** The first REGULAR row of a tier — that tier's published floor purse. */
+function floorRegularOf(tier: number): OpponentConfig | undefined {
+  return LADDER_OPPONENTS.find((row) => isGrudgeBase(row) && Math.floor(row.tier) === tier);
+}
+
+/**
+ * The purse a grudge fought at `grudgeTier` pays, x the C-C mode multipliers
+ * through the EXISTING `modeRewardBases` (mode first, then C-B's crowd factors —
+ * the composition order C-C documents and `boutModes.ts` implements).
+ */
+export function grudgePurseFor(grudgeTier: number): GrudgePurse | null {
+  if (!finite(grudgeTier)) return null;
+  const venueTier = Math.floor(grudgeTier);
+  for (let tier = venueTier; tier >= 1; tier -= 1) {
+    const row = floorRegularOf(tier);
+    if (!row) continue;
+    return {
+      venueTier,
+      purseTier: tier,
+      purseGold: row.rewardGold,
+      purseFame: row.rewardFame,
+      summit: tier !== venueTier,
+    };
+  }
+  return null;
+}
 
 /**
  * The dominance line the three-way summary is read against — D-5's published
@@ -237,11 +287,17 @@ export function buildGrudgeOpponent(
     aggression: shifted(base.aggression, shift.aggression),
     blockChance: shifted(base.blockChance, shift.blockChance),
   };
+  // C3b — the evolved-trait slot is never null: the shared resolver names the
+  // extra palma, and the row's own `palmae` array carries it into the existing
+  // combat-modifier merge. `?? SAFE_SUBSET_PALMAE_ORDER[0]` is defensive only:
+  // `isGrudgeBase` already excludes bosses and Feature Bouts, which are the only
+  // rows the resolver refuses.
+  const extraPalma = extraPalmaFor(base) ?? SAFE_SUBSET_PALMAE_ORDER[0];
+  const purse = grudgePurseFor(grudgeTierOf(base));
   const grudge: GrudgeBoutConfig = {
     baseId: base.id,
     studied: dominant,
-    // Director addendum A — the slot ships NULL; the trait pool has not landed.
-    evolvedTrait: null,
+    evolvedTrait: extraPalma,
     baseProfile,
     adjustedProfile,
   };
@@ -267,9 +323,13 @@ export function buildGrudgeOpponent(
     ...regular,
     id: grudgeIdOf(base.id),
     stats: { ...base.stats },
+    palmae: withExtraPalma(base).palmae,
     aggression: adjustedProfile.aggression,
     blockChance: adjustedProfile.blockChance,
-    rewardFame: base.rewardFame + GRUDGE_REWARDS.famePremium,
+    // C3d — the VENUE tier's floor regular purse, not the base row's. The mode
+    // multiplies these through `modeRewardBases` exactly as it does any row.
+    rewardGold: purse ? purse.purseGold : base.rewardGold,
+    rewardFame: purse ? purse.purseFame : base.rewardFame,
     grudge,
   };
 }
@@ -468,4 +528,41 @@ export function grudgeResultLine(
   return tier
     ? `The grudge stands: ${name} keeps it until you win any standard bout at Tier ${tier}.`
     : `The grudge stands: ${name} keeps it until you win a standard bout at his tier.`;
+}
+
+/**
+ * C-TRAIT — the grudge card's TRAIT row (design C3b/C3d). The evolved-trait slot
+ * is no longer omitted and no longer says "profile only": the card prints the
+ * granted palma by name with its effect, read from the palma's own row.
+ */
+export function grudgeTraitLine(opponent: OpponentConfig | null | undefined): string {
+  const line = extraPalmaLine(opponent?.grudge?.evolvedTrait);
+  return line ? `Evolved trait — ${line}` : '';
+}
+
+/**
+ * C-TRAIT — the grudge card's PURSE row, composed exactly as the duel pays it:
+ * the venue tier's floor regular (or the home floor at the summit) multiplied by
+ * the chosen mode's C-C multipliers. The crowd's peak/turning factors then apply
+ * on top, in C-C's documented order — hence "before the crowd's adjustments".
+ */
+export function grudgeRewardLine(
+  opponent: OpponentConfig | null | undefined,
+  mode: BoutMode
+): string {
+  if (!opponent?.grudge) return '';
+  const purse = grudgePurseFor(grudgeTierOf(opponent));
+  if (!purse) return '';
+  const def = BOUT_MODES[mode] ?? BOUT_MODES.sand;
+  const bases = modeRewardBases(mode, opponent);
+  const floor =
+    `Tier ${purse.purseTier} floor (${purse.purseGold} gold / ${purse.purseFame} fame) ` +
+    `× ${def.name} (×${def.goldMultiplier.toFixed(2)} gold, ×${def.fameMultiplier.toFixed(2)} fame)`;
+  const summit = purse.summit
+    ? ` The summit has no regular row — the Tier ${purse.venueTier} grudge pays its home floor.`
+    : '';
+  return (
+    `Purse: ${bases.goldBase} gold · ${bases.fameBase} fame — ${floor}, ` +
+    `before the crowd's adjustments.${summit}`
+  );
 }
