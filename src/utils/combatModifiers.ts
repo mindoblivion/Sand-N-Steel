@@ -8,8 +8,11 @@
  *
  *   • `buildPlayerModifiers` / `buildOpponentModifiers` — the ONE merged block
  *     each fighter reads for the whole duel (`mergeModifiers([...palmae,
- *     doctrina])`).  A fighter with no palmae and no doctrina resolves to the
- *     empty block, which is the identity.
+ *     doctrina, origin])`).  A fighter with no palmae, no doctrina and no Origo
+ *     passive resolves to the empty block, which is the identity.  PITCH A4 adds
+ *     the third source on the PLAYER side only: `origin` carries the birth
+ *     province's one small passive (`utils/originPassive.ts`), and the opponent
+ *     builder never supplies one, so every opponent block is unchanged.
  *   • the weapon stage  — `staminaCostWithModifiers`, `blockReductionFor`,
  *     `blockPenetrationFor`, `effectiveBlockReduction`
  *   • the hit stage     — `hitAgilityFor`, `critChanceFor`
@@ -40,6 +43,7 @@ import {
   resolvePalmae,
   type TraitModifierBlock,
 } from './traitModifiers';
+import { originPassiveBlock } from './originPassive';
 
 /** A power attack's base critical chance — the frozen roll `DuelScene` makes. */
 export const BASE_CRIT_CHANCE = 0.25;
@@ -83,21 +87,34 @@ export const SPEARMANS_GROUND_BANDS: readonly SpearmansGroundBand[] = [
 
 /** One fighter's modifiers for the whole duel. */
 export interface FighterModifiers {
-  /** `mergeModifiers([...palmae, doctrina])` — the identity when both are empty. */
+  /**
+   * `mergeModifiers([...palmae, doctrina, origin])` — the identity when all three
+   * are empty.  This is the block every generic stage reader (stat, weapon, hit,
+   * evasion) consumes.
+   */
   block: TraitModifierBlock;
   /** The class's own block, kept apart for the doctrina's conditional stages. */
   doctrina: TraitModifierBlock;
   /** The equipped palma rows, in equip order (conditions are read off these). */
   palmae: readonly Palma[];
+  /**
+   * PITCH A4 — the Origo passive, kept apart for the same reason `doctrina` is:
+   * the damage stage multiplies its own per-row, condition-aware factors, and a
+   * pre-merged `damageDealtMult` there would double-count a conditional palma.
+   * The PLAYER's alone — `buildOpponentModifiers` never supplies one, so every
+   * opponent block is exactly what it was before this slice.
+   */
+  origin?: TraitModifierBlock;
   /** The fighter's class, when it has one. */
   armaturaId?: ArmaturaId;
 }
 
-/** The empty block — every fighter with no palmae and no armatura. */
+/** The empty block — every fighter with no palmae, no armatura and no origo. */
 export const EMPTY_MODIFIERS: FighterModifiers = Object.freeze({
   block: {},
   doctrina: {},
   palmae: [],
+  origin: {},
 });
 
 const isFiniteNumber = (value: unknown): value is number =>
@@ -106,27 +123,38 @@ const isFiniteNumber = (value: unknown): value is number =>
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-/** Assemble one fighter's block from already-resolved rows. */
+/**
+ * Assemble one fighter's block from already-resolved rows.
+ *
+ * `origin` is the PLAYER-only Origo passive (Pitch A4); the opponent path passes
+ * nothing, so its merged block is byte-identical to the pre-A4 one.
+ */
 function assembleModifiers(
   palmae: readonly Palma[],
   doctrina: TraitModifierBlock | undefined,
   armaturaId: ArmaturaId | undefined,
+  origin?: TraitModifierBlock,
 ): FighterModifiers {
   const doctrinaBlock = doctrina ?? {};
+  const originBlock = origin ?? {};
   return {
-    block: mergeModifiers([...palmae.map((palma) => palma.effect), doctrinaBlock]),
+    block: mergeModifiers([...palmae.map((palma) => palma.effect), doctrinaBlock, originBlock]),
     doctrina: doctrinaBlock,
     palmae,
+    origin: originBlock,
     ...(armaturaId ? { armaturaId } : {}),
   };
 }
 
 /**
- * The PLAYER's merged block: the class's doctrina plus the equipped palmae.
+ * The PLAYER's merged block: the class's doctrina, the equipped palmae, and —
+ * since Pitch A4 — the birth province's one small passive.
  *
- * Reads the same resolvers the save does (`resolveArmatura`, `resolvePalmae`),
- * so a legacy save with neither field resolves to a Murmillo with no palmae and
- * an unknown or boss-only palma id is dropped exactly as the hub drops it.
+ * Reads the same resolvers the save does (`resolveArmatura`, `resolvePalmae`,
+ * `originPassiveBlock`), so a legacy save with none of those fields resolves to a
+ * Murmillo with no palmae and NO Origo passive, which is the identity; an unknown
+ * or boss-only palma id and an unknown province are dropped exactly as the hub
+ * drops them.
  */
 export function buildPlayerModifiers(
   profile: PlayerProfile | null | undefined,
@@ -138,7 +166,7 @@ export function buildPlayerModifiers(
     .map((id) => PALMAE.find((palma) => palma.id === id))
     .filter((palma): palma is Palma => palma !== undefined);
 
-  return assembleModifiers(palmae, doctrina, armaturaId);
+  return assembleModifiers(palmae, doctrina, armaturaId, originPassiveBlock(profile));
 }
 
 /**
@@ -330,6 +358,11 @@ export function damageDealtMultiplier(
     if (!condition || condition(ctx)) mult *= own;
   }
   if (isFiniteNumber(attacker.doctrina.damageDealtMult)) mult *= attacker.doctrina.damageDealtMult;
+  // PITCH A4 — the Origo passive's damage channel, when the province carries one
+  // (Italia, ×1.05).  It is unconditional, so it is read here rather than through
+  // the per-row condition table; `origin` is empty for every opponent.
+  const originDealt = attacker.origin?.damageDealtMult;
+  if (isFiniteNumber(originDealt)) mult *= originDealt;
   if (attacker.armaturaId === 'hoplomachus') {
     mult *= spearmansGroundMult(ctx.distance, ctx.effectiveRange);
   }
@@ -366,6 +399,9 @@ export function damageTakenMultiplier(
         : true;
     if (applies) mult *= doctrinaOwn;
   }
+  // PITCH A4 — the Origo passive's damage-taken channel (Thracia, ×0.95).
+  const originTaken = defender.origin?.damageTakenMult;
+  if (isFiniteNumber(originTaken)) mult *= originTaken;
   return mult;
 }
 

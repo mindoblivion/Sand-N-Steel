@@ -178,9 +178,11 @@ describe('STORY-4a §A — `spared` is one lazy optional map and nothing else', 
     // tail moved by one.  STORY-4a's own property (`spared` is a lazy map appended
     // after the omen pair) is unchanged.
     // LUDI PHASE A REBASE: `ludi` sits between `spared` and `records`; the omen pair is
-    // still the field before it, and `records` still ends the set.
-    expect(optional.length).toBe(23);
-    expect(optional.slice(-3)).toEqual(['spared', 'ludi', 'records']);
+    // still the field before it, and `records` still ends the set.  PITCH A4 REBASE:
+    // the Corpus et Origo `identity` field joined the set between them, so the tail
+    // this pins is four long.
+    expect(optional.length).toBe(24);
+    expect(optional.slice(-4)).toEqual(['spared', 'identity', 'ludi', 'records']);
   });
 });
 
@@ -712,6 +714,8 @@ describe('STORY-4a §H — the result surface holds the flow; App writes each an
     // same slice; `spared` is still in it, immediately before.
     // LUDI PHASE A REBASE: the corpus list now carries the calendar's field between the
     // two, so the pin names the pair that still sits together.
-    expect(read('utils/saveCorpus.test.ts')).toContain("      'spared',\n      // LUDI PHASE A");
+    // PITCH A4 REBASE: the list gained `identity` after `spared`, so the pin names
+    // the neighbour that now follows it.
+    expect(read('utils/saveCorpus.test.ts')).toContain("      'spared',\n      // PITCH A4");
   });
 });

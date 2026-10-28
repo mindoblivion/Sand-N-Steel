@@ -783,10 +783,11 @@ describe('A8 §J — the corpus keeps its rule at 22', () => {
 
   test('records is still the LAST optional field, in declaration order', () => {
     // LUDI PHASE A REBASE, not a weakening: the calendar's `ludi` is declared between
-    // `spared` and `records`, so the set is 23 and `records` still closes it — the
+    // `spared` and `records`.  PITCH A4 REBASE: the Corpus et Origo `identity` field
+    // joined the set before `ludi`, so it is 24 and `records` still closes it — the
     // invariant this test exists for is unchanged.
     const optional = scanOptional(read('types/game.ts'));
-    expect(optional.length).toBe(23);
+    expect(optional.length).toBe(24);
     expect(optional.slice(-2)).toEqual(['ludi', 'records']);
   });
 

@@ -957,6 +957,38 @@ export interface PalmaeState {
 }
 
 /**
+ * PITCH A4 — CORPUS ET ORIGO: the gladiator's life before the sand.
+ *
+ * Build (the body he grew into), Origo (the province he came from) and Vitium
+ * (the one flaw he carried in with him) are chosen at creation and frozen.  The
+ * ids are a closed authored set (`src/data/corpusEtOrigo.ts`); every list and
+ * every value there is a Director ruling, not a design transcription
+ * (Pitch A4 — Director ruling R-BUILD / R-ORIGO / R-VITIUM).
+ */
+export type BuildId = 'even' | 'sturdy' | 'swift';
+export type ProvinceId =
+  | 'italia'
+  | 'hispania'
+  | 'gallia'
+  | 'graecia'
+  | 'aegyptus'
+  | 'thracia';
+export type VitiumId = 'old_knee' | 'quick_temper' | 'superstitious' | 'night_terrors';
+
+/**
+ * PITCH A4 — Director ruling R-FIELD: ONE lazy top-level profile field holding
+ * all three choices, never three separate fields.  Every member is optional,
+ * because a save written before this slice has no `identity` at all and must keep
+ * loading — no build delta, no Origo passive, pool 10, no retroactive changes
+ * (Pitch A4 — Director ruling R-DEFAULTS).
+ */
+export interface CorpusEtOrigoIdentity {
+  build?: BuildId;
+  origo?: ProvinceId;
+  vitium?: VitiumId;
+}
+
+/**
  * PITCH A1 — FORTUNA'S OMEN: the two words her shrine can give, as the design
  * published them (`ideas-story.md` §5 Hook A: a kind omen or an ill one).
  */
@@ -1227,6 +1259,23 @@ export interface PlayerProfile {
    * migration, and never by Finish.
    */
   spared?: { [rivalId: string]: true };
+  /**
+   * PITCH A4 — CORPUS ET ORIGO: the three creation choices that made this
+   * gladiator who he is before he ever reached the sand — his Build, his Origo
+   * (birth province, its favoured god and its one small passive) and his Vitium
+   * (the flaw that bought him two more creation points).  Declared here, between
+   * `spared` and `ludi`, so `records` stays the LAST optional member (§J).
+   *
+   * Optional and LAZY, exactly like `chariot` and `racing`: a save written before
+   * this slice has no `identity` at all and must keep loading, so
+   * `resolveCorpusIdentity` (`utils/originPassive.ts`) reads a missing, partial or
+   * malformed field as "nothing recorded" — no build delta, no Origo passive,
+   * pool 10 — rather than repairing or backfilling it.  Written ONLY at creation
+   * (`buildCreatedProfile`, and only when the choices are passed) — never by
+   * `createNewProfile()`, never by a migration, and immutable afterwards (a
+   * Vitium is permanent; there is no respec system).
+   */
+  identity?: CorpusEtOrigoIdentity;
   /**
    * A8 — TRIUMPHS: the record of what the gladiator has EARNED by doing, as
    * distinct from the fame honours he BUYS (`laurels` above).  `earnedTriumphs`

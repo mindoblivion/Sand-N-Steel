@@ -818,7 +818,8 @@ describe('STORY-5b §H — the save carries no new top-level field', () => {
   test('§J is still 22 optional fields, with `records` last', () => {
     const fields = optionalFields();
     // LUDI PHASE A REBASE: the calendar's `ludi` joined the set; `records` still closes it.
-    expect(fields.length).toBe(23);
+    // PITCH A4 REBASE: `identity` joined it before `ludi`, so the set is 24.
+    expect(fields.length).toBe(24);
     expect(fields[fields.length - 1]).toBe('records');
     for (const name of ['librarianChain', 'echoWon', 'fragmentsFound', 'laudes']) {
       expect(fields).not.toContain(name);

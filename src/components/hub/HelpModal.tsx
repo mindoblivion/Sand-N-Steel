@@ -227,6 +227,22 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
                   yours; what you wear is limited by your tier, and changed in Gladiator Stats.
                 </dd>
               </div>
+              {/* PITCH A4 — the two new terms.  The glosses promise exactly what
+                  this slice ships: no naming in the Doctore's Test (deferred) and
+                  no favours from the gods (Favores Deorum is not built). */}
+              <div data-help-corpus-et-origo>
+                <dt className="text-amber-200 font-bold">Corpus et Origo</dt>
+                <dd className="text-neutral-400">
+                  Your life before the sand: build, birthplace, and flaw, chosen at creation.
+                </dd>
+              </div>
+              <div data-help-vitium>
+                <dt className="text-amber-200 font-bold">Vitium</dt>
+                <dd className="text-neutral-400">
+                  A chosen flaw, taken at creation, worth two creation points. Yours alone, and
+                  permanent.
+                </dd>
+              </div>
             </dl>
           </div>
         </div>

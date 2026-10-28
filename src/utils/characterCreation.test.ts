@@ -301,7 +301,15 @@ describe('CH-2 §D — the class picker and the model picker are independent', (
 
   test('the screen finishes through the pure creation module', () => {
     const source = creationSource();
-    expect(source).toContain('buildCreatedProfile({ name, appearance, armatura: selection.armatura, allocation })');
+    // PITCH A4 REBASE: the call is written across lines now that it carries the
+    // three Corpus et Origo choices; the property — the screen finishes through the
+    // pure creation module — is unchanged.
+    expect(source).toContain('buildCreatedProfile({');
+    expect(source).toContain('armatura: selection.armatura,');
+    expect(source).toContain('allocation,');
+    expect(source).toContain('build: corpus.build,');
+    expect(source).toContain('origo: corpus.origo,');
+    expect(source).toContain('vitium: corpus.vitium,');
     expect(source).toContain('const draftStats = calculateTotalStats(buildProfile());');
     expect(source).toContain("disabled={stat.val <= statFloor}");
     expect(source).toContain('selectArmatura(current, id)');
