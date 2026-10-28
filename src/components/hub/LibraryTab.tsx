@@ -16,6 +16,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen } from 'lucide-react';
 import { PlayerProfile } from '../../types/game';
 import { LaurelResult } from '../../utils/laurels';
+// LUDI PHASE A — the library's two tallies, read from the ONE counter each: the shared
+// `records.laudes` (`resolveLaudes`) and the calendar's persistent Favour. The honour
+// counter is printed in its own word, "Laudes": P2's naming law reserves the palma's word
+// for the fame honours bought here, and the rack must not print it.
+import { resolveLaudes } from '../../utils/diceTrail';
+import { resolveLudiState } from '../../utils/ludiCalendar';
 import { RoadOfGloryPage } from './RoadOfGloryPage';
 import { TriumphsPage } from './TriumphsPage';
 import { CodexPage } from './CodexPage';
@@ -74,6 +80,9 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
   onViewCodex,
 }) => {
   const [ownPage, setOwnPage] = useState<LibraryPageId>('road');
+  /** LUDI PHASE A — the two lifetime tallies the header prints. */
+  const laudes = resolveLaudes(profile);
+  const ludi = resolveLudiState(profile);
   const page = controlledPage ?? ownPage;
   const setPage = (next: LibraryPageId) => {
     setOwnPage(next);
@@ -121,6 +130,17 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
         </div>
         <p className="mt-1 text-xs font-serif italic text-purple-200/80">
           Ancient parchments, records, and the deeds of the sand.
+        </p>
+
+        {/* LUDI PHASE A — THE ACTA'S TALLY, on this existing surface: the Laudes the daily
+            third deed has paid (the shared counter, never a second one) and the Favour the
+            city keeps for him. Read-only: this rack writes nothing here. */}
+        <p
+          data-library-ludi
+          className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] uppercase tracking-wider text-amber-200/90"
+        >
+          <span data-library-laudes={laudes}>Laudes {laudes}</span>
+          <span data-library-favour={ludi.favour}>Favour {ludi.favour}</span>
         </p>
 
         <nav className="mt-4 flex flex-wrap gap-1.5" aria-label="Library pages">

@@ -962,6 +962,41 @@ export interface OmenState {
   expiresAtBout: number;
 }
 
+/**
+ * LUDI PHASE A — THE LUDI CALENDAR's one lazy field: the whole day-state of the Acta in a
+ * single object. `day` is the EXERTION DAY (`resolveTimeState(profile).day`) the state
+ * belongs to, so the calendar never reads a wall clock; `deedsDone` holds the ids paid
+ * today; `favour` is the persistent daily currency; `lastAlmsDay` is the day the shrine's
+ * alms was last taken (the once-a-day guard); `fameBaseline` is the fame the gladiator woke
+ * with (the 100-fame deed's own mark) and `visitsToday` lists the `HUB_LOCATIONS` ids walked
+ * into today (deduped, in visit order) — the evidence the day's ONE named visit deed reads.
+ *
+ * Optional and LAZY, exactly like `chariot`, `racing` and `records`: a save written before
+ * this slice has no field and must keep loading, so `resolveLudiProgress`
+ * (`utils/ludiCalendar.ts`) reads a missing, null or malformed field as a fresh day rather
+ * than repairing it. Written ONLY by the calendar's own three seams (a deed settlement, the
+ * shrine's alms, the day rollover) — never by `createNewProfile()` and never by a migration.
+ * The day's Laurel is NOT here: it is `records.laudes`, the shared counter, never a second one.
+ */
+export interface LudiProgress {
+  /** The exertion day (`resolveTimeState(profile).day`) this state belongs to. */
+  day: number;
+  /** The deed ids already paid TODAY, in the order they completed. */
+  deedsDone: string[];
+  /** The cumulative Favour total — persists across days. */
+  favour: number;
+  /** The exertion day the shrine's alms was last taken on (0 = never). */
+  lastAlmsDay: number;
+  /** The `fame` the gladiator woke with on `day` — the 100-fame deed's baseline. */
+  fameBaseline: number;
+  /**
+   * The `HUB_LOCATIONS` ids walked into today, deduped, in visit order. A PRE-CORRECTION save
+   * stored a count here instead; a stored number reads as `[]`, because a count says nothing
+   * about which districts were walked (`resolveLudiProgress`).
+   */
+  visitsToday: string[];
+}
+
 export interface PlayerProfile {
   name: string;
   title: string;
@@ -1197,6 +1232,7 @@ export interface PlayerProfile {
    * and the Library's one view mark) — never by `createNewProfile()` and never
    * by a migration.
    */
+  ludi?: LudiProgress;
   records?: {
     earnedTriumphs?: string[];
     viewedTriumphs?: string[];

@@ -488,8 +488,9 @@ describe('STORY-5a §E — backstory, Laudes and the house cup', () => {
 describe('STORY-5a §F — the guards', () => {
   test('§J stays at 22 optional top-level fields, `records` last', () => {
     const optional = optionalProfileFields();
-    expect(optional.length).toBe(22);
-    expect(optional.slice(-2)).toEqual(['spared', 'records']);
+    // LUDI PHASE A REBASE: `ludi` sits between `spared` and `records`; `records` is last.
+    expect(optional.length).toBe(23);
+    expect(optional.slice(-2)).toEqual(['ludi', 'records']);
   });
 
   test('no top-level field is added by any write of this slice', () => {
@@ -613,7 +614,10 @@ describe('STORY-5a §G — a trail bout is not a mercy bout', () => {
   test('the trail’s victory is recorded in the same save as the win', () => {
     const app = code('App.tsx');
     const winAt = app.indexOf('const trailProfile =');
-    const awardsAt = app.indexOf('applyTriumphAwards(trailProfile, duelTriumphStats)');
+    // LUDI PHASE A REBASE, not a weakening: the trail's record is still composed onto the
+    // victory BEFORE the awards, and the Acta's settlement now sits between them — the
+    // ordering property this test exists for (trail -> awards -> one save) is unchanged.
+    const awardsAt = app.indexOf('applyTriumphAwards(ludi.profile, duelTriumphStats)');
     const saveAt = app.indexOf('saveProfile(awards.profile);');
     expect(winAt).toBeGreaterThan(-1);
     expect(awardsAt).toBeGreaterThan(winAt);

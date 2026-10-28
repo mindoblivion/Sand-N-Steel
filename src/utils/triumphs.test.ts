@@ -34,7 +34,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PlayerProfile, ArmorItem, WeaponItem } from '../types/game';
+import { PlayerProfile, ArmorItem, WeaponItem, LudiProgress } from '../types/game';
 import { createNewProfile } from '../services/storage';
 import { ALL_ARMORS, ITEMS_DB, getItemById } from '../data/itemsDB';
 import { getStorefrontStock } from '../data/shops';
@@ -75,6 +75,20 @@ const profileWith = (patch: Partial<PlayerProfile> = {}): PlayerProfile => ({
 });
 
 const armour = (id: string): ArmorItem => ALL_ARMORS.find((item) => item.id === id) as ArmorItem;
+
+/** LUDI PHASE A — a profile carrying the calendar's day-state, for the favour rows. */
+const ludiProfile = (patch: Partial<LudiProgress>): PlayerProfile =>
+  profileWith({
+    ludi: {
+      day: 3,
+      deedsDone: [],
+      favour: 0,
+      lastAlmsDay: 0,
+      fameBaseline: 0,
+      visitsToday: [],
+      ...patch,
+    },
+  });
 
 /** A profile holding one item (carried). */
 const carrying = (...ids: string[]): PlayerProfile => {
@@ -157,23 +171,33 @@ describe('A8 §A — every shipped triumph, condition by condition', () => {
     { id: 'saga_tier_two', profile: () => profileWith({ currentTier: 3 }) },
     { id: 'saga_tier_three', profile: () => profileWith({ currentTier: 4 }) },
     { id: 'saga_tier_four', profile: () => profileWith({ defeatedOpponentIds: [TIER_FOUR_FINAL_BOSS_ID] }) },
+    // LUDI PHASE A — the six fame-only calendar rows. Every one reads a counter the
+    // Acta writes (`records.laudes` through `withLaudes`, and `ludi.favour`), so the
+    // satisfied profiles are the counters themselves and nothing else.
+    { id: 'saga_laurel_7', profile: () => profileWith({ records: { laudes: 7 } }) },
+    { id: 'saga_laurel_30', profile: () => profileWith({ records: { laudes: 30 } }) },
+    { id: 'saga_laurel_100', profile: () => profileWith({ records: { laudes: 100 } }) },
+    { id: 'saga_favour_7', profile: () => ludiProfile({ favour: 7 }) },
+    { id: 'saga_favour_30', profile: () => ludiProfile({ favour: 30 }) },
+    { id: 'saga_favour_100', profile: () => ludiProfile({ favour: 100 }) },
   ];
 
-  test('the shipped catalogue is the 23 A8 rows this table covers, plus A5\'s Codex capstone', () => {
+  test('the shipped catalogue is the 29 rows this table covers, plus A5\'s Codex capstone', () => {
     // A5 REBASE, not a weakening: A5 appends ONE Saga capstone
-    // (`saga_codex_complete`, the full-Codex triumph) to the catalogue and touches
-    // no A8 row, so the table's 23 rows are asserted unchanged and the new id is
-    // named explicitly beside them.
-    expect(SHIPPED_TRIUMPHS.length).toBe(24);
-    expect(ROWS.length).toBe(23);
+    // (`saga_codex_complete`, the full-Codex triumph) to the catalogue, and LUDI
+    // PHASE A appends the six calendar rows above. The table carries all 29 of those
+    // rows and the Codex capstone is named explicitly beside them.
+    expect(SHIPPED_TRIUMPHS.length).toBe(30);
+    expect(ROWS.length).toBe(29);
     expect(SHIPPED_TRIUMPHS.map((triumph) => triumph.id).sort()).toEqual(
       [...ROWS.map((row) => row.id), CODEX_COMPLETE_TRIUMPH_ID].sort(),
     );
-    // 7 Sand, 5 Coin, 4 Steel, 8 Saga — the brief's own split, plus A5's capstone.
+    // 7 Sand, 5 Coin, 4 Steel, 14 Saga — the brief's own split, plus A5's capstone and
+    // LUDI PHASE A's six calendar rows.
     expect(triumphsInCategory('sand').length).toBe(7);
     expect(triumphsInCategory('coin').length).toBe(5);
     expect(triumphsInCategory('steel').length).toBe(4);
-    expect(triumphsInCategory('saga').length).toBe(8);
+    expect(triumphsInCategory('saga').length).toBe(14);
   });
 
   test('every shipped triumph has a plain-language requirement — no secret deeds', () => {
@@ -395,11 +419,14 @@ describe('A8 §E — the one-time fame grants (Director ruling R1)', () => {
     for (const triumph of SHIPPED_TRIUMPHS) {
       expect(triumphFame(triumph), triumph.id).toBe(triumph.capstone ? 25 : 10);
     }
-    // The capstones are the six the brief names, plus A5's Codex capstone.
+    // The capstones are the six the brief names, plus A5's Codex capstone, plus LUDI
+    // PHASE A's two hundred-mark calendar rows.
     expect(SHIPPED_TRIUMPHS.filter((triumph) => triumph.capstone).map((t) => t.id).sort()).toEqual([
       'coin_25000_gold',
       'coin_quadra',
       'saga_codex_complete',
+      'saga_favour_100',
+      'saga_laurel_100',
       'saga_legend',
       'sand_every_boss',
       'sand_hundred_victories',
@@ -754,10 +781,13 @@ describe('A8 §J — the corpus keeps its rule at 22', () => {
     );
   };
 
-  test('records is the twenty-second optional field, last in declaration order', () => {
+  test('records is still the LAST optional field, in declaration order', () => {
+    // LUDI PHASE A REBASE, not a weakening: the calendar's `ludi` is declared between
+    // `spared` and `records`, so the set is 23 and `records` still closes it — the
+    // invariant this test exists for is unchanged.
     const optional = scanOptional(read('types/game.ts'));
-    expect(optional.length).toBe(22);
-    expect(optional.slice(-2)).toEqual(['spared', 'records']);
+    expect(optional.length).toBe(23);
+    expect(optional.slice(-2)).toEqual(['ludi', 'records']);
   });
 
   test('the records-era fixture is registered, and the manifest names it', () => {
@@ -779,7 +809,9 @@ describe('A8 §K — the one call site, the two doors, the one view mark', () =>
     // STORY-5a REBASE, not a weakening: the dice trail's record is composed onto
     // `timedProfile` first, so the ONE shipped evaluation is handed `trailProfile`.
     // One call site, one save, the same transient reading — all still asserted.
-    expect(body).toContain('applyTriumphAwards(trailProfile, duelTriumphStats)');
+    // LUDI PHASE A REBASE, not a weakening: the duel result now hands the triumph
+    // evaluator the profile the Acta's settlement composed, in the same save.
+    expect(body).toContain('applyTriumphAwards(ludi.profile, duelTriumphStats)');
     expect(body).toContain('won: didWin');
     expect(body).toContain('lowestHealthFraction: resultStats.lowestHealthFraction');
     expect(body).toContain('crowdHypePeak: resultStats.crowdHypePeak');

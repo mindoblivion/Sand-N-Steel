@@ -8,6 +8,8 @@ import {
   type Keeper,
 } from '../../data/keepers';
 import { keeperStateLineFor } from '../../utils/keeperStateLines';
+import { resolveLudiState } from '../../utils/ludiCalendar';
+import { ActaDeeds } from './ActaCard';
 import {
   bountyBoardState,
   DESERTER_CHOICE_LINES,
@@ -50,6 +52,19 @@ interface BountyBoardPanelProps {
 const BOARD_KEEPER: Keeper | undefined = getKeeper('scribonia');
 
 /**
+ * LUDI PHASE A — THE HALL'S SECOND COUNTER: Cornelius Felix, called "the agent", whose own
+ * notice board posts the city's daily three deeds (his first-visit line is the Acta's own
+ * promise: "three fresh deeds on my board every morning"). Read from the registry BY ID for
+ * exactly the reason above — the hall hosts two boards, so `getKeeperForBuilding` still
+ * answers nothing for it and neither plate is reached through a building map.
+ *
+ * This is the K2 freeze pattern: who is at the counter and whether this gladiator had already
+ * met him when the panel opened, frozen at open so the first-visit save landing a frame later
+ * cannot swap his greeting under the player's eyes.
+ */
+const ACTA_KEEPER: Keeper | undefined = getKeeper('cornelius_felix');
+
+/**
  * STORY-4b — THE BOUNTY BOARD, the panel the Bounty Hall's door opens.
  *
  * The same surface as a treatment counter, the tavern's rumours and Fortuna's
@@ -82,6 +97,12 @@ export const BountyBoardPanel: React.FC<BountyBoardPanelProps> = ({
   const seenAtOpenRef = React.useRef<boolean>(
     BOARD_KEEPER ? resolveSeenKeepers(profile).includes(BOARD_KEEPER.id) : false
   );
+  /** LUDI PHASE A — Felix's own greeting, frozen at open exactly like Scribonia's. */
+  const felixSeenAtOpenRef = React.useRef<boolean>(
+    ACTA_KEEPER ? resolveSeenKeepers(profile).includes(ACTA_KEEPER.id) : false
+  );
+  /** LUDI PHASE A — today's Acta, resolved once for the hall's own section. */
+  const acta = resolveLudiState(profile);
 
   React.useEffect(() => {
     if (!BOARD_KEEPER) return;
@@ -90,8 +111,16 @@ export const BountyBoardPanel: React.FC<BountyBoardPanelProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const keeperLine = (keeper: Keeper): string => {
-    const own = seenAtOpenRef.current ? selectRepeatLine(keeper, 2) : keeper.firstVisitLine;
+  React.useEffect(() => {
+    if (!ACTA_KEEPER) return;
+    // The agate board's keeper is met the same way, once per open.
+    onRecordKeeperVisit?.(ACTA_KEEPER.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const keeperLine = (keeper: Keeper, seenAtOpen?: boolean): string => {
+    const seen = seenAtOpen ?? seenAtOpenRef.current;
+    const own = seen ? selectRepeatLine(keeper, 2) : keeper.firstVisitLine;
     // K4 — STATE > NIGHT > own, the same order every plated counter uses.
     const stateLine = keeperStateLineFor(keeper, profile);
     if (stateLine) return stateLine;
@@ -111,6 +140,29 @@ export const BountyBoardPanel: React.FC<BountyBoardPanelProps> = ({
       {BOARD_KEEPER && (
         <div className="mb-3">
           <KeeperPlate keeper={BOARD_KEEPER} line={keeperLine(BOARD_KEEPER)} />
+        </div>
+      )}
+
+      {/* LUDI PHASE A — FELIX'S ACTA, headed by his own plate. The hall's second board:
+          the city's three deeds for the day, with what is paid and what is still owed. A
+          SECTION, not a second panel — nothing here is enterable, so no control is added
+          and the bounty rows below are untouched. */}
+      {ACTA_KEEPER && (
+        <div
+          data-acta-section
+          data-acta-section-day={acta.day}
+          className="mb-3 rounded-2xl border border-amber-700/30 bg-neutral-900/40 p-3"
+        >
+          <KeeperPlate
+            keeper={ACTA_KEEPER}
+            line={keeperLine(ACTA_KEEPER, felixSeenAtOpenRef.current)}
+          />
+          <div className="mt-3">
+            <h4 className="font-serif font-black text-amber-200 text-xs sm:text-sm uppercase tracking-wider mb-1">
+              The Acta — {acta.dayName}
+            </h4>
+            <ActaDeeds state={acta} />
+          </div>
         </div>
       )}
 
