@@ -37,6 +37,7 @@ import { CityAtmosphere } from './CityAtmosphere';
 // dressing meshes that had no mesh to ride, and the HUD's phase medallion.
 import { CityNightDressing } from './CityNightDressing';
 import { applyCityFixtureGlow } from '../../../utils/cityFixtureGlow';
+import { applyCityFixtureLightGlow } from '../../../utils/cityFixtureLight';
 import { PhaseMedallion } from '../../ui/PhaseMedallion';
 import { resolveTimeState } from '../../../utils/timeState';
 import { getPhaseLight } from '../../../utils/atmosphere';
@@ -387,9 +388,16 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    * runs in a LAYOUT effect — children register theirs before this one — so the first
    * painted frame is already at the right hour, and it re-runs only when the hour
    * changes: nothing here touches a frame. No mesh, no light and no draw call is added.
+   *
+   * Day/Night T3-F — the city's eleven WARM POINT LIGHTS read the SAME row in the same
+   * single write, through the companion registry in `utils/cityFixtureLight.ts` (`authored
+   * × fixtureScale`, so a brazier's light and its coals dim together and every warm light
+   * is dark at midday). Still one write per phase change, no light added or removed, and
+   * the forge's fire and the store's cyan lamp are deliberately not registered.
    */
   useLayoutEffect(() => {
     applyCityFixtureGlow(cityPhaseLight.lampGlow);
+    applyCityFixtureLightGlow(cityPhaseLight.lampGlow);
   }, [cityPhaseLight.lampGlow]);
 
   /**

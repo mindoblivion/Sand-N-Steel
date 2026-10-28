@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
+import { CityFixtureMaterial } from './CityFixtureMaterial';
 
 // ---------------------------------------------------------------------------
 // 1. ROMAN GABLED / HIP ROOF SYSTEM
@@ -503,6 +504,16 @@ export const ClassicalDoorway: React.FC<ClassicalDoorwayProps> = ({
 // 5. ARCHITECTURAL WINDOW (STONE FRAME, SILL & RECESSED VOID)
 // ---------------------------------------------------------------------------
 
+/**
+ * Day/Night T3-F — the window pane's authored NIGHT glow (`lampGlow` 1). The pane is
+ * registered with the shared fixture driver under the `window` class, so by day
+ * `emissiveIntensity` is written to 0 and the pane is exactly the stone recess it has
+ * always been; at night it reads as a lit room. The amber is the city's own lamp colour
+ * at a lower weight, because a window is a room seen from outside, not a lantern.
+ */
+export const WINDOW_PANE_EMISSIVE = '#f59e0b';
+export const WINDOW_PANE_GLOW = 1.2;
+
 interface ClassicalWindowProps {
   position: [number, number, number];
   rotation?: [number, number, number];
@@ -524,10 +535,21 @@ export const ClassicalWindow: React.FC<ClassicalWindowProps> = ({
 
   return (
     <group position={position} rotation={rotation}>
-      {/* RECESSED DARK VOID */}
+      {/* RECESSED DARK VOID — the pane. Day/Night T3-F: this is the mesh that READS as the
+          pane, so it is the one registered with the `window` fixture class — the shared
+          driver writes its emissiveIntensity from the phase row's `lampGlow` (0 by day,
+          warm at night) without touching its colour, its geometry or this recess tone.
+          The `WARM INTERIOR BACK WALL` below sits entirely behind this box (its front face
+          is this box's own back face), so an emissive there could never be seen. */}
       <mesh position={[0, 0, -0.06]}>
         <boxGeometry args={[width, height, 0.14]} />
-        <meshStandardMaterial color={recessColor} roughness={0.96} />
+        <CityFixtureMaterial
+          fixture="window"
+          base={WINDOW_PANE_GLOW}
+          color={recessColor}
+          emissive={WINDOW_PANE_EMISSIVE}
+          roughness={0.96}
+        />
       </mesh>
 
       {/* WARM INTERIOR BACK WALL — suggests depth beyond the opening */}
