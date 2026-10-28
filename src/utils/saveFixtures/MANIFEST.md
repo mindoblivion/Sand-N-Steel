@@ -306,3 +306,24 @@ closed chain — so the records object is exercised with every member it can hol
 Nothing migrates and no fixture is added: the field is NESTED, so `saveCorpus` §J
 stays at **22 optional top-level fields with `records` last**, and every older
 fixture keeps omitting it (a load reads `0` and gains no field by being read).
+
+**Extended by LUDI PHASE A (the Ludi Calendar).** `PlayerProfile.ludi` — the calendar's whole
+day-state: the exertion day it belongs to, that day's paid deed ids, the persistent Favour total,
+the day the shrine's alms was last taken, the fame the gladiator woke with and how many named
+places he has visited today — is the newest optional field, so it gets both halves of the corpus
+rule in the same slice. `ludi-era` is the A8 `records-era` save **woken on exertion day 12**
+(`time.total` 79 = eleven whole days plus midday) and driven through the shipped LUDI PHASE A
+transactions in order: `applyLudiRollover` (which clears the day's own state and re-bases
+`fameBaseline` on the waking fame, 785), then ONE `settleLudiDeeds` carrying a won bout at 60
+crowd peak, a training session and a named hub visit — day 12's Acta draws exactly
+`train + peak_hype + visit_hub`, so that single non-recursive pass completes all three and pays
+the day's Laurel — then `withLudiAlms` for the shrine's once-a-day Favour. The frozen bytes are
+therefore exactly what those writes persist: `ludi.day` 12, three `deedsDone`, `favour` 2,
+`lastAlmsDay` 12, `fameBaseline` 785, `visitsToday` 1; fame 785 → **800** and gold 600 → **630**
+(three deeds at 5 fame + 10 gold each, and the third deed adds no extra gold or fame);
+`records.laudes` 5 → **6**, the SHARED Laurel counter (`withLaudes`), never a second field.
+Every older fixture keeps **omitting** the field, which is the legacy shape a load must survive:
+`resolveLudiProgress` reads it as a fresh day and gains no field by being read. `saveCorpus.test.ts`
+§J's expected optional set now carries `ludi` **between `spared` and `records`, in
+`src/types/game.ts` declaration order** — **22 → 23, one field, with `records` still last** — and
+§J's control still proves the rule fails on a field nobody accounted for (23 → 24).

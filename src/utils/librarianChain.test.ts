@@ -584,8 +584,10 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
 
   test('SKIPPED on a win: the triumph evaluation, the omen and the bounty', () => {
     expect(result).toContain('const awards: TriumphAwardOutcome = exhibition');
-    expect(result).toContain(': applyTriumphAwards(trailProfile, duelTriumphStats);');
-    expect(result).toContain("{ profile: trailProfile, earned: [], titles: [] }");
+    // LUDI PHASE A REBASE, not a weakening: the Acta's settlement composes its profile
+    // before the evaluation, so both the fence and the one evaluation read `ludi.profile`.
+    expect(result).toContain(': applyTriumphAwards(ludi.profile, duelTriumphStats);');
+    expect(result).toContain("{ profile: ludi.profile, earned: [], titles: [] }");
     expect(result).toContain('if (awards.earned.length > 0) {');
     expect((app.match(/applyTriumphAwards\(/g) ?? []).length).toBe(1);
     // A no-op settlement: the omen neither pays nor expires on an exhibition.
@@ -815,7 +817,8 @@ describe('STORY-5b §H — the save carries no new top-level field', () => {
 
   test('§J is still 22 optional fields, with `records` last', () => {
     const fields = optionalFields();
-    expect(fields.length).toBe(22);
+    // LUDI PHASE A REBASE: the calendar's `ludi` joined the set; `records` still closes it.
+    expect(fields.length).toBe(23);
     expect(fields[fields.length - 1]).toBe('records');
     for (const name of ['librarianChain', 'echoWon', 'fragmentsFound', 'laudes']) {
       expect(fields).not.toContain(name);

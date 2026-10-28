@@ -460,9 +460,11 @@ describe('STORY-4b §G — no new profile field', () => {
     // the profile — is unchanged; the set legitimately grew by A8's one `records`
     // field, which `saveCorpus.test.ts` §J carries in the same slice.
     const optional = optionalProfileFields();
-    expect(optional.length).toBe(22);
+    // LUDI PHASE A REBASE: the calendar's `ludi` joined the set; `records` still ends it
+    // and no BOUNTY field exists.
+    expect(optional.length).toBe(23);
     expect(optional[optional.length - 1]).toBe('records');
-    expect(optional[optional.length - 2]).toBe('spared');
+    expect(optional[optional.length - 2]).toBe('ludi');
     expect(optional.some((name) => /bounty|deserter/i.test(name))).toBe(false);
   });
 

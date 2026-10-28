@@ -160,8 +160,11 @@ describe('STORY-4b §C — the panel writes nothing', () => {
 
   test('it relays ONE keeper visit and owns no transaction', () => {
     const panelSource = code('components/hub/BountyBoardPanel.tsx');
-    expect(panelSource.match(/onRecordKeeperVisit\?\.\(/g)?.length).toBe(1);
+    // LUDI PHASE A REBASE, not a weakening: the hall now has TWO counters, so the panel
+    // relays one visit per plate — Scribonia's and Felix's — and still writes nothing.
+    expect(panelSource.match(/onRecordKeeperVisit\?\.\(/g)?.length).toBe(2);
     expect(panelSource).toContain('onRecordKeeperVisit?.(BOARD_KEEPER.id)');
+    expect(panelSource).toContain('onRecordKeeperVisit?.(ACTA_KEEPER.id)');
     expect(panelSource).toContain("getKeeper('scribonia')");
     for (const forbidden of ['saveProfile', 'recordKeeperVisit(', 'localStorage', 'bountyBoardState(profile) ']) {
       expect(panelSource).not.toContain(forbidden);

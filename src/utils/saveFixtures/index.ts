@@ -46,6 +46,7 @@ import keepersEraProfile from './keepersEraProfile.json';
 import omenEraProfile from './omenEraProfile.json';
 import mercyEraProfile from './mercyEraProfile.json';
 import recordsEraProfile from './recordsEraProfile.json';
+import ludiEraProfile from './ludiEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -305,6 +306,21 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'the A5 `codexLocations` visits nested inside the same records object (three hubs walked)',
     ],
     profile: asProfile(recordsEraProfile),
+  },
+  {
+    id: 'ludi-era',
+    file: 'ludiEraProfile.json',
+    provenance:
+      'The A8 records-era save woken on exertion day 12 (total 79) and driven through the shipped LUDI PHASE A transactions in order — `applyLudiRollover`, then one `settleLudiDeeds` carrying a won bout at 60 crowd peak, a training session and a named hub visit, then `withLudiAlms` — so it is byte-for-byte what those writes persist.',
+    covers: [
+      'the `ludi` record populated (LUDI PHASE A): day 12, all three of that day\'s deeds paid, one visit today',
+      'the day the Acta draws (train + peak_hype + visit_hub) completed in ONE non-recursive settlement',
+      'the third deed paying the SHARED Laurel (records.laudes 5 -> 6) and one Favour, with no extra gold or fame',
+      'the deeds\' own 5 fame / 10 gold each (785 -> 800 fame, 600 -> 630 gold) in the same write',
+      'the shrine\'s alms-day Favour, once (favour 2, lastAlmsDay 12)',
+      'every post-GC20 optional field populated, `ludi` included, with `records` still last',
+    ],
+    profile: asProfile(ludiEraProfile),
   },
 ];
 
