@@ -113,6 +113,8 @@ import type { OmenDeclineOutcome, OmenOfferOutcome } from '../../../utils/omens'
 // each is saying.  Display and a first-visit record only: no price, no effect and
 // no purchase rule is read here.
 import { getKeeperForBuilding, nightClerkLine, resolveSeenKeepers, selectRepeatLine } from '../../../data/keepers';
+// K4 — the treatment counters' STATE lines (a live injury, or its absence at the Inn).
+import { keeperStateLineFor } from '../../../utils/keeperStateLines';
 import type { Keeper } from '../../../data/keepers';
 import { KeeperPlate } from '../../hub/KeeperPlate';
 import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
@@ -403,6 +405,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const keeperGreetingRef = useRef<{ keeperId: string; seen: boolean } | null>(null);
 
   /**
+   * K4 — the STATE line of the counter that is open, frozen at the same moment as
+   * the greeting above: buying the cure mid-panel clears the wound, and a live
+   * reading would swap the plate's line under the player's eyes.
+   */
+  const keeperStateLineRef = useRef<string>('');
+
+  /**
    * SF-1 — the quality preset arrives as a setting, not as a prop: the panel writes
    * the one settings record and this scene subscribes to it, exactly as it does for
    * brightness.  A preset change re-applies the whole tier.
@@ -553,6 +562,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       keeperGreetingRef.current = keeper
         ? { keeperId: keeper.id, seen: resolveSeenKeepers(playerProfile).includes(keeper.id) }
         : null;
+      // K4 — the state line freezes with the greeting (STATE > NIGHT > own).
+      keeperStateLineRef.current = keeper ? keeperStateLineFor(keeper, playerProfile) : '';
     },
     [playerProfile]
   );
@@ -1052,6 +1063,15 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         ? frozen.seen
         : resolveSeenKeepers(playerProfile).includes(keeper.id);
     const own = seen ? selectRepeatLine(keeper, 2) : keeper.firstVisitLine;
+    /**
+     * K4 — STATE > NIGHT > own: the state line frozen when this counter opened is
+     * the most specific thing the plate can say, so it wins after dark as well.
+     */
+    const stateLine =
+      frozen?.keeperId === keeper.id
+        ? keeperStateLineRef.current
+        : keeperStateLineFor(keeper, playerProfile);
+    if (stateLine) return stateLine;
     return cityPhase === 'night' ? nightClerkLine(keeper) || own : own;
   };
 

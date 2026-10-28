@@ -8190,3 +8190,38 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   **Not automatically verified:** no mercy offer can be reached through the live app yet (Chapter 3
   is unreachable), so the choice was exercised by rendering the result modal and by driving the pure
   module, not by a played bout; the board cards ARE reachable now and render on the Colosseum tab.
+
+## Keeper state lines (slice K4-STATE — partial K4, implemented)
+
+- **What shipped.** `data/keepers.ts` gained ONE optional field on `Keeper` (`stateLines?:
+  { injured?, uninjured?, broke? }`) carrying seven AUTHORED lines on six registry rows — the
+  Medica (injured), the Inn host (injured + uninjured) and the four storefront keepers (broke) —
+  and `utils/keeperStateLines.ts` is the trigger: a live injury (`resolveActiveInjury`), its
+  absence where a keeper speaks to it, or a purse below the counter's own cheapest purchasable
+  price. `ShopTab` and `CityHubScene` insert it at the TOP of their existing line computation:
+  **STATE > NIGHT > own (seen/repeat/first-visit)**, a Director ruling. Existing first-visit,
+  repeat and night lines are byte-for-byte unchanged, no profile field was added, and no
+  transaction (75g cure, 25g rest, 20g poultice, 90g salve) moved.
+- **The design file writes no state-line pool.** building-keepers.md §4.1(c) defines the RULE,
+  so every line here is flagged in code as "K4 — authored, not design-transcribed". Race-day and
+  live-bounty lines are DEFERRED (Mappa's PreRacePanel plate and any Hall panel are unbuilt) and
+  no panel was invented for them.
+- **Antiochis has no uninjured line, and that is not an omission.** The Medical House panel opens
+  ONLY with a live injury (`if (service === 'caravanserai' || resolveActiveInjury(...))`), so a
+  healthy visit can never show her plate — an uninjured line would be dead content. The Inn opens
+  regardless, which is why Barates carries both.
+- **A storefront's floor is data, never a constant.** `storefrontStock` reads the same
+  `getVisibleStorefrontStock` list the surface renders, EXCEPT the Bazaar, whose gear stock is
+  empty by design (S6): its stock is the two consumables, so its floor is 20. `lowestStockPrice([])`
+  is `null`, and `purseBelowFloor(gold, null)` is `false` — a counter that sells nothing can never
+  call a purse too small.
+- **Freeze points follow each surface.** `CityHubScene` primes the state line in the SAME
+  `primeKeeperGreeting` callback that freezes `seen` (buying the cure mid-panel must not swap the
+  plate's line); `ShopTab` evaluates it per render, like the clock. The visit record
+  (`seenKeepers`, one write path per surface) is untouched.
+- **Suites:** `keepersK4.test.ts` (registry, precedence incl. source pins for both surfaces,
+  triggers, the empty-shelf rule, unchanged recording, zero transaction change) and
+  `keepersK4Surface.test.tsx` (server-renders the SHIPPED `ShopTab` for all four storefronts and
+  reads the plate's `data-keeper-line`: broke on the line, broke still wins at night, greeting /
+  repeat / night clerk unchanged otherwise, no plate on the market tab). No K1/K2/K3 pin needed a
+  rebase — no existing fixture met a state condition.
