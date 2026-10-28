@@ -1276,6 +1276,7 @@ export function App() {
             onRestAtInn={handleRestAtInn}
             onUseConsumable={handleUseConsumable}
             onBuyIntel={handleBuyIntel}
+            onRecordKeeperVisit={handleRecordKeeperVisit}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
             movementLocked={!!oathBeatMode}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
