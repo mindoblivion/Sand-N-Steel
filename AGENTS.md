@@ -8083,3 +8083,60 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   Legend state) until Stage 2 writes race results. That is the ruling, not a defect — but it means
   the CampaignCard's Legend branch is unexercised in this build, and Stage 2 must either give the
   gate evidence or revisit the hold.
+
+## Postumia's KeeperPlate on the Fortuna shrine panel (K3-SHRINE — partial K3, implemented)
+
+- **Scope, stated honestly.** This is a PARTIAL K3: it builds ONLY the shrine plate. The board plates
+  (Scribonia, Felix) and the hall plates are **not** in it, because their panels do not exist — the
+  Bounty Hall's board is a rendered 3D mesh, no mercenary board surface exists, and no hall has a
+  plate surface — so `getKeeperForBuilding` still answers `undefined` for `bounty_hall`,
+  `veteran_gladiator_hall` and `gladiator_barracks` and no panel was invented for them.
+- **What shipped (two production files, one new suite, two re-scoped K2 pins).**
+  `src/data/keepers.ts` gained exactly one map entry — `shrine_temple: 'postumia'` in
+  `SERVICE_BUILDING_KEEPERS`, the K2 lookup extended rather than duplicated; Postumia's own registry
+  row is untouched. `src/components/3d/city/CityHubScene.tsx` primes the greeting at the shrine
+  interaction (`primeKeeperGreeting('shrine_temple')`, before `setShrinePanel(true)`), resolves
+  `shrineKeeper` only while the panel is open, joins it to the existing
+  `openCounterKeeperId = (treatmentKeeper ?? intelKeeper ?? shrineKeeper)?.id` chain, and heads the
+  panel with `{shrineKeeper && <KeeperPlate … />}`. New suite `src/utils/keepersK3shrine.test.ts`
+  (21 tests).
+- **The rules are K2's, unchanged.** The greeting is frozen once per open through the existing
+  `keeperGreetingRef` (a seen keeper → `selectRepeatLine(postumia, 2)`, a first visit →
+  `firstVisitLine`); Postumia has **no** `nightLine`, so `nightClerkLine(postumia) || own` is always
+  her own lines and no night line was invented. The visit records through the ONE existing
+  `onRecordKeeperVisit?.(openCounterKeeperId)` call site, i.e. `App.handleRecordKeeperVisit`, which is
+  still the tree's only `recordKeeperVisit(profile, …)` call; `recordKeeperVisit` returns the SAME
+  profile for an id already met, so a repeat open is a true no-op (no save, no re-render).
+- **Zero transaction changes.** `OMEN_PRICE` still comes from `utils/omens.ts` (the panel prints
+  `Offer {OMEN_PRICE}g for an omen` and writes no second price), the kind draw, the fame multipliers,
+  the decline's trickle and the expiry are untouched, both handlers still call `onOfferOmen()` /
+  `onDeclineOmen()` and name no keeper, and the panel still has exactly its three controls, each at
+  the 48px floor — the plate adds no tap target. No new profile field: `saveCorpus.test.ts` §J's
+  20-field list is untouched.
+- **Two K2 pins were RE-SCOPED, not weakened, and the sensitivity is proven by mutation.**
+  `keepersK2.test.ts` §B's plate count moved 2 → 3 (a third panel is now plated — the property it
+  exists for, one plate per plated panel above that panel's controls, is unchanged) and §C's
+  `openCounterKeeperId` literal gained the `?? shrineKeeper` term (the single-call-site property it
+  protects is asserted just above it and still holds). Both carry a comment naming this slice.
+  Mutation proof, each applied to the production/test file, run, then restored byte-identical
+  (`cmp` clean): plate count 3 → 2 → **1 fail**; the chain without `shrineKeeper` → **2 fails**;
+  the registry entry removed → **2 fails** in the new suite (21 tests, 19 pass). `keepers.test.ts`
+  needed no change at all.
+- **Guards that were checked and NOT touched:** `timeState.test.ts` §G (this slice reads no clock and
+  no clock API), `saveCorpus.test.ts` §J (no field added), `combatCalculations.ts` (not opened), and
+  every price/trickle/kind pin in `fortunasOmen.test.ts` (no value restated).
+- **Verified 2026-10-28** in the dev container: `bun test` (bare, repo-wide) → **4315 pass / 0 fail
+  (142 files, 118,629 `expect()`)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check
+  passing (8 assets); `git diff --check` → clean.
+- **Not automatically verified — the rendered plate, and that is a device question.** The preview
+  browser boots the title screen with **0 console errors** and the dev server serves the transformed
+  `CityHubScene` carrying the new chain, so the slice compiles and mounts cleanly; but the shrine
+  panel itself sits behind creation → the Oath's holds → the 3D city (SwiftShader, ~2 fps) → the map,
+  which the A1 record already recorded as beyond one script budget, so **the plate has not been seen
+  rendered and no click was driven through it**. Android checklist: (a) open the Shrine of Fortuna and
+  confirm Postumia's plate heads the panel — name, `the priestess`, her greeting — above the omen
+  copy and both buttons; (b) close and re-open it and confirm the greeting has not become the repeat
+  line mid-visit; (c) re-open after leaving and confirm the repeat line, with the save's
+  `seenKeepers` gaining `postumia` exactly once; (d) at night confirm the line is still hers (no
+  night clerk); (e) confirm the offering still costs 25 g and the panel's buttons are unchanged.

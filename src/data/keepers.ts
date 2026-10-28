@@ -329,11 +329,19 @@ export function getKeeperForStorefront(shopId: StorefrontId): Keeper | undefined
  * storefront plates above: a building not listed here has no keeper and shows no
  * plate.  (The Bounty Hall, which hosts two boards, is deliberately absent — it
  * has no service surface of its own.)
+ *
+ * K3-SHRINE — the Shrine of Fortuna's ritual counter is the fourth plated
+ * surface, and Postumia keeps it.  This is the only entry K3 adds: the Bounty
+ * Hall's two boards are still absent because its board is a rendered 3D mesh and
+ * no interactive board panel exists to head, and no hall (the Veteran Gladiator
+ * Hall, the Gladiator Barracks) has a plate surface yet.  Mapping them here would
+ * invent a panel, so they are deliberately left out.
  */
 const SERVICE_BUILDING_KEEPERS: Partial<Record<string, string>> = {
   arena_medical_house: 'antiochis_of_pergamon',
   caravanserai: 'barates_of_palmyra',
   tavern: 'aelia_prisca',
+  shrine_temple: 'postumia',
 };
 
 /** The keeper who keeps a service counter, or `undefined` for any other building. */
