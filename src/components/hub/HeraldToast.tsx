@@ -4,7 +4,7 @@
  * `src/utils/roadMilestones.ts` decides what is said and when; this component only
  * shows it, above whatever screen the player is on (the duel ends into the city, so the
  * cry has to be able to outlive the screen it was raised from).  It owns no state and
- * writes nothing: the caller hands it the cries and clears them on dismissal.
+ * writes nothing: the caller hands it the cries, and removes exactly the ones it showed.
  *
  * Touch and narrow screens: the stack sits above the bottom controls, one cry per line,
  * and the whole toast can be dismissed by tapping it.
@@ -14,7 +14,12 @@ import { X } from 'lucide-react';
 
 export interface HeraldToastProps {
   cries: string[];
-  onDismiss: () => void;
+  /**
+   * L21D — called with EXACTLY the cries this render displayed, so the caller can
+   * remove those and leave anything raised since the stack was drawn. A toast can
+   * never dismiss a cry it never showed.
+   */
+  onDismiss: (displayed: readonly string[]) => void;
   /** How long the stack stays up, in ms. Long enough to read two lines on a phone. */
   durationMs?: number;
 }
@@ -26,7 +31,9 @@ export const HeraldToast: React.FC<HeraldToastProps> = ({
 }) => {
   useEffect(() => {
     if (cries.length === 0) return;
-    const timer = window.setTimeout(onDismiss, durationMs);
+    // L21D — the snapshot, not a bare call: a cry appended after this render keeps
+    // its place when this timer fires.
+    const timer = window.setTimeout(() => onDismiss(cries), durationMs);
     return () => window.clearTimeout(timer);
   }, [cries, durationMs, onDismiss]);
 
@@ -49,7 +56,7 @@ export const HeraldToast: React.FC<HeraldToastProps> = ({
           <p className="flex-1 text-sm leading-snug text-amber-100">{cry}</p>
           <button
             type="button"
-            onClick={onDismiss}
+            onClick={() => onDismiss(cries)}
             aria-label="Dismiss the herald"
             className="shrink-0 p-1 text-amber-600/70 hover:text-amber-300"
           >

@@ -11798,3 +11798,85 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   C-8.53 lean-to, the C-8.52 veranda canopy, the C-8.49 wall-to-gable junctions, the C-8.51 awning, the
   C-8.41 kerb, the C-8.38 northern approach, the C-8.28 bowl cut, the C-8.29 junction, the C-8.31/C-8.33
   rear-gate stonework, and the L17B/L17D sign placements. Do not claim visual or device acceptance.
+
+## Scoped herald dismissal (L21D — implemented; runtime/visual acceptance PENDING)
+
+- **Preflight.** Repo root `/app`, branch `development-focus-strategy`, HEAD
+  **`a9246405a28eb7e1b9054df70188e7d19fe0da1c`** (`Implement L21B visitor arrival herald system`),
+  `git status --short` empty and `git diff` empty. L21B is committed at that tip — it is not in the
+  working tree and not split across commits. Nothing was reset, stashed, discarded, deployed, pushed
+  or restarted; the L21C audit's HEAD was the same commit and its working tree was clean too.
+  **The L21B record's own preflight line is left exactly as written** (it names `8c46411`, the tip
+  that phase began on) because each record in this file states *its own* phase's baseline; editing it
+  would misreport which commit the work was built on. L21B stands committed as `a924640`.
+
+- **The defect, confirmed from the audit rather than assumed.** `HeraldToast` dismissed with
+  `onDismiss={() => setHeraldCries([])}` — a **whole-queue replace** — while the L21B visitor ledger
+  records its `(day, visitorId)` key *before* it returns the cry (`utils/visitorHerald.ts`, `called.add`
+  ahead of `cries.push`). A cry appended between the toast's render and its dismissal landing (the
+  seven-second timer of a stack that had grown, or a tap on a stack a newer cry had just joined) was
+  destroyed with its key already spent, so that day's call was silently lost for the rest of the
+  session. Both cry writers — the visitor effect and `evaluateRituals` — only ever APPEND, which is
+  what makes the fix below exact.
+
+- **The rule (`src/utils/heraldQueue.ts`, new, 46 lines, pure).** `removeDisplayedCries(queue,
+  displayed)` removes exactly the cries a toast **displayed** from the front of the live queue and
+  nothing else. Because the queue is append-only, the displayed snapshot is always a **prefix**, so a
+  cry appended after that render stays queued and visible. It is deliberately **not** a blind
+  `slice(displayed.length)`: every displayed position is compared first, and a queue that does not
+  begin with the snapshot is returned **untouched** (a stale cry left up is a far smaller failure than
+  deleting a newer one whose key is spent). It returns the **same array** when nothing matched, so
+  React bails out. No storage, no React, no timer, no clock, no save field.
+
+- **The wiring — two files, three call sites, no new state.** `HeraldToast` now takes
+  `onDismiss: (displayed: readonly string[]) => void` and passes **the snapshot it rendered**, from
+  both of its paths: the timer (`window.setTimeout(() => onDismiss(cries), durationMs)`) and the
+  dismiss control (`onClick={() => onDismiss(cries)}`). `App` routes that through one stable handler,
+  `const handleHeraldDismiss = useCallback((displayed) => setHeraldCries((previous) =>
+  removeDisplayedCries(previous, displayed)), [])`, and the toast is mounted as
+  `<HeraldToast cries={heraldCries} onDismiss={handleHeraldDismiss} />`. The stable identity is also
+  the timer's dependency, so the seven seconds now run from the **last cry** rather than from the last
+  App render (previously any App re-render restarted it); the 7 s `durationMs` default is unchanged.
+  `heraldCries` remains the same `string[]` App state, so **the road-milestone channel
+  (`[...previous, ...evaluation.cries]`), the visitor channel (`[...previous, ...cries]`), their copy,
+  their order and the append semantics are untouched**, as are the visitor ledger, its keys, the
+  StrictMode behaviour and the save schema. No new timer, no persistent state, no save field, no
+  per-frame work; `App.tsx` gained one import of `useCallback` and one of the helper.
+
+- **Regression suite: `src/utils/heraldQueue.test.ts` — 15 tests / 34 `expect()`**, covering the
+  audit's five required cases plus the controls: §A snapshot removal (whole stack, leading snapshot);
+  §B cries appended after the snapshot survive (one append, several); §C the old timer's callback
+  firing after a newer cry arrives leaves it queued, and a **control** replays the pre-fix
+  whole-queue clear and shows it losing that cry; §D consecutive/stale dismissals are no-ops and the
+  re-rendered stack still dismisses; §E ordering preserved, empty dismissal and a non-prefix snapshot
+  returning the **same array**, duplicate text dismissed once per displayed row; §F the toast itself —
+  **rendered with `react-dom/server`** (the repo's convention; there is no DOM renderer or
+  `@testing-library/react` here) asserting every cry in order, `role="status"`,
+  `aria-live="polite"`, one labelled dismiss control per cry, and `''` for an empty queue, plus a
+  narrow source pin of the two payload sites; §G App's wiring — the helper call, the absence of any
+  `setHeraldCries([])`, the toast mount, both append lines and the untouched visitor ledger ref.
+  App's queue is modelled as its real writers leave it (two functional appends), so every state
+  transition the suite exercises is one App can actually perform.
+
+- **Verified 2026-10-28** in the existing healthy `web` container (no restart, no rebuild): focused
+  `bun test src/utils/heraldQueue.test.ts` → **15 pass / 0 fail** (34 expect); herald/road/signage
+  `bun test src/utils/{visitorHerald,roadMilestones,roadOfGlory,l17bLandmarkSigns,l17dLandmarkSignReliability}.test.ts`
+  → **125 pass / 0 fail** (4018 expect, 5 files — the L21B and L21C baselines intact, including
+  `visitorHerald`'s §H wiring pins, which needed no change because the append line it pins is
+  unchanged); `bun test` → **4112 pass / 0 fail (148 files, 174 390 expect() calls)** (L21B left
+  4097 / 147; the delta is this suite's 15 tests and its file); `bun run lint` (`tsc --noEmit`) →
+  **exit 0**; `bun run build` → **exit 0** (the pre-existing >500 kB chunk warning only; startup
+  assets ✓ 8/8); `git diff --check` → **clean**. Reviewed for scope: no change to visitor scheduling,
+  profile mutation, save schema, cry copy or order, the 7 s duration, the road-milestone call sites,
+  or `visitorHerald.ts` itself.
+
+- **Not automatically verified — the live toast.** A cry (road milestone or visitor arrival) needs a
+  save standing on a qualifying day or a settled duel, and this phase does not seed or fabricate one;
+  the sandbox also renders the city hub at ~2 fps through SwiftShader. What could be checked is that
+  the changed `App.tsx` still boots; **the dismissal race itself is covered by the suite's state
+  transitions, not by a browser gesture**, and no visual or Android acceptance is claimed. Two
+  remaining limitations worth knowing: (a) identity is (position, text), which is sufficient because
+  each toast instance dismisses at most once — both of its paths fire once — so a snapshot is never
+  reused against a queue that has since grown the same text again; (b) a day turned while the player
+  is off `city_3d` and turned again before returning is still only announced for the day they stand
+  in, which is L21B's documented behaviour and is unchanged here.

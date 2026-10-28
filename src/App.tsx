@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize, PlayerInjury } from './types/game';
 import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
@@ -36,6 +36,8 @@ import { recordVisitorEncounter } from './utils/visitorEncounter';
 import { purchaseVisitorOffer, type VisitorPurchaseResult } from './utils/visitorPurchase';
 // L21B — the herald's call for the day's visitors: one in-memory ledger, no save.
 import { createVisitorHeraldLedger } from './utils/visitorHerald';
+// L21D — a dismissal removes the cries the toast showed, never the whole queue.
+import { removeDisplayedCries } from './utils/heraldQueue';
 import type { TrainingStat } from './data/training';
 import { createDuelSettlementLatch } from './utils/duelSettlement';
 import type { BannerDevice } from './utils/heraldry';
@@ -153,6 +155,19 @@ export function App() {
    * reload announces the day's arrivals once more.
    */
   const visitorHeraldRef = useRef(createVisitorHeraldLedger());
+  /**
+   * L21D — A DISMISSAL REMOVES ONLY WHAT THE TOAST SHOWED. `HeraldToast` hands back
+   * the cries it rendered, and the queue is append-only, so those cries are its
+   * prefix: removing exactly that prefix leaves anything raised since it was drawn
+   * queued and visible. The visitor ledger spends its `(day, visitorId)` key BEFORE
+   * the cry is returned, so a whole-queue clear here could destroy a call the player
+   * would never hear again in this session. Stable identity, because it is the
+   * toast's timer dependency: the seven seconds run from the last cry, not from the
+   * last App render.
+   */
+  const handleHeraldDismiss = useCallback((displayed: readonly string[]) => {
+    setHeraldCries((previous) => removeDisplayedCries(previous, displayed));
+  }, []);
   const [deviceChoiceOpen, setDeviceChoiceOpen] = useState(false);
   const [showDriveSync, setShowDriveSync] = useState(false);
   /**
@@ -1130,7 +1145,7 @@ export function App() {
 
         {/* RG-3 — THE HERALD, and the one-time device choice. Both sit above every screen:
             a duel ends into the city, so a cry raised by the result has to outlive it. */}
-        <HeraldToast cries={heraldCries} onDismiss={() => setHeraldCries([])} />
+        <HeraldToast cries={heraldCries} onDismiss={handleHeraldDismiss} />
         {deviceChoiceOpen && profile && (
             <DeviceChoosingPanel
             onChoose={handleChooseBannerDevice}
