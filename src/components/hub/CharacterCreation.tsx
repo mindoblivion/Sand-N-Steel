@@ -5,18 +5,28 @@ import { sounds } from '../../audio/soundEffects';
 import { ARMATURAE } from '../../data/armaturae';
 import { calculateTotalStats } from '../../services/storage';
 import {
-  CREATION_POINTS,
+  DEFAULT_CORPUS,
   DEFAULT_SELECTION,
   NO_ALLOCATION,
   armaturaKit,
   buildCreatedProfile,
+  buildStatDelta,
+  creationPoints,
   selectArmatura,
   selectCharacterModel,
   unspentPoints,
   type AllocationStat,
   type CreationAllocation,
+  type CreationCorpus,
   type CreationSelection,
 } from '../../utils/characterCreation';
+import {
+  BUILDS,
+  PROVINCES,
+  VITIA,
+  VITIUM_CREATION_POINTS,
+} from '../../data/corpusEtOrigo';
+import type { BuildId, ProvinceId, VitiumId } from '../../types/game';
 import { Sparkles, Swords, Shield, Heart, Zap, Check, ArrowLeft, Settings, Activity } from 'lucide-react';
 import { GoogleSignInButton } from '../ui/GoogleSignInButton';
 interface CharacterCreationProps {
@@ -46,9 +56,17 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
    * IS the template and the pool is the same ten points it has always been.
    */
   const [allocation, setAllocation] = useState<CreationAllocation>(NO_ALLOCATION);
+  /**
+   * PITCH A4 — Corpus et Origo: the build, the birth province and the flaw.  The
+   * defaults are Even + Italia + no flaw (all changeable), and a chosen flaw raises
+   * the pool from ten points to twelve (Director ruling R-DEFAULTS / R-VITIUM).
+   */
+  const [corpus, setCorpus] = useState<CreationCorpus>(DEFAULT_CORPUS);
 
   const armatura = ARMATURAE.find((row) => row.id === selection.armatura) ?? ARMATURAE[0];
-  const pointsLeft = unspentPoints(allocation);
+  const pointsLeft = unspentPoints(allocation, corpus.vitium);
+  /** The build's delta — applied before allocation, so it moves the stat floor. */
+  const buildDelta = buildStatDelta(corpus.build);
 
   const appearance: PlayerAppearance = {
     skinColor,
@@ -85,7 +103,31 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
    * on it, so the two can never disagree.
    */
   const buildProfile = (): PlayerProfile =>
-    buildCreatedProfile({ name, appearance, armatura: selection.armatura, allocation });
+    buildCreatedProfile({
+      name,
+      appearance,
+      armatura: selection.armatura,
+      allocation,
+      build: corpus.build,
+      origo: corpus.origo,
+      vitium: corpus.vitium,
+    });
+
+  /** Pitch A4 — the three pickers' only writers. */
+  const handleBuildSelect = (id: BuildId) => {
+    sounds.playClick();
+    setCorpus((current) => ({ ...current, build: id }));
+  };
+
+  const handleOrigoSelect = (id: ProvinceId) => {
+    sounds.playClick();
+    setCorpus((current) => ({ ...current, origo: id }));
+  };
+
+  const handleVitiumSelect = (id: VitiumId | null) => {
+    sounds.playClick();
+    setCorpus((current) => ({ ...current, vitium: id }));
+  };
 
   /** CL-2 — the live derived numbers shown under the stat allocation. */
   const draftStats = calculateTotalStats(buildProfile());
@@ -97,11 +139,19 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
 
   // CH-2 — each row's floor is the class template's own value, so the − control is
   // really disabled at the value `handleStatChange` already refuses to cross.
+  // PITCH A4 — the floor is the template PLUS the build's delta, because the delta
+  // is applied before allocation (Director ruling R-BUILD); `handleStatChange`
+  // holds the spend at zero per stat, so this row's floor is what the − control
+  // reads and the two cannot disagree.
+  const strengthFloor = armatura.stats.strength + (buildDelta.str ?? 0);
+  const agilityFloor = armatura.stats.agility + (buildDelta.agi ?? 0);
+  const staminaFloor = armatura.stats.stamina + (buildDelta.sta ?? 0);
+  const defenseFloor = armatura.stats.defense + (buildDelta.def ?? 0);
   const statRows = [
-    { key: 'strength' as AllocationStat, label: 'Strength (Damage)', val: armatura.stats.strength + allocation.strength, statFloor: armatura.stats.strength, icon: Swords, color: 'text-red-400' },
-    { key: 'agility' as AllocationStat, label: 'Agility (Speed & Dodge)', val: armatura.stats.agility + allocation.agility, statFloor: armatura.stats.agility, icon: Zap, color: 'text-yellow-400' },
-    { key: 'stamina' as AllocationStat, label: 'Stamina (Endurance)', val: armatura.stats.stamina + allocation.stamina, statFloor: armatura.stats.stamina, icon: Heart, color: 'text-green-400' },
-    { key: 'defense' as AllocationStat, label: 'Defense (Armor & Block)', val: armatura.stats.defense + allocation.defense, statFloor: armatura.stats.defense, icon: Shield, color: 'text-blue-400' },
+    { key: 'strength' as AllocationStat, label: 'Strength (Damage)', val: strengthFloor + allocation.strength, statFloor: strengthFloor, icon: Swords, color: 'text-red-400' },
+    { key: 'agility' as AllocationStat, label: 'Agility (Speed & Dodge)', val: agilityFloor + allocation.agility, statFloor: agilityFloor, icon: Zap, color: 'text-yellow-400' },
+    { key: 'stamina' as AllocationStat, label: 'Stamina (Endurance)', val: staminaFloor + allocation.stamina, statFloor: staminaFloor, icon: Heart, color: 'text-green-400' },
+    { key: 'defense' as AllocationStat, label: 'Defense (Armor & Block)', val: defenseFloor + allocation.defense, statFloor: defenseFloor, icon: Shield, color: 'text-blue-400' },
   ];
 
   return (
@@ -296,6 +346,151 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
             </div>
           </div>
 
+          {/* PITCH A4 — CORPUS ET ORIGO: the life before the sand.  Three cheap
+              pickers, rendered from the authored data (never a copy of it):
+              Build moves the stat floor, Origo carries one small passive and its
+              favoured god, and a Vitium buys two more creation points.  Every card
+              is a ≥48px touch target, like the class cards above. */}
+          <div>
+            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+              Corpus — Your Build
+            </label>
+            <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
+              The body you grew into. It moves your stat floor before you spend a point.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" data-corpus-build-picker>
+              {BUILDS.map((row) => {
+                const selected = row.id === corpus.build;
+                const delta = buildStatDelta(row.id);
+                const deltaLine = [
+                  delta.str ? `STR ${delta.str > 0 ? '+' : ''}${delta.str}` : null,
+                  delta.agi ? `AGI ${delta.agi > 0 ? '+' : ''}${delta.agi}` : null,
+                  delta.sta ? `STA ${delta.sta > 0 ? '+' : ''}${delta.sta}` : null,
+                  delta.def ? `DEF ${delta.def > 0 ? '+' : ''}${delta.def}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+                return (
+                  <button
+                    key={row.id}
+                    type="button"
+                    data-corpus-build-card={row.id}
+                    aria-pressed={selected}
+                    onClick={() => handleBuildSelect(row.id)}
+                    className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                      selected
+                        ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
+                        : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
+                      {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
+                    </div>
+                    <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.text}</p>
+                    <p className="text-[10px] font-mono text-amber-400/80 mt-1">
+                      {deltaLine || 'No stat change'}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+              Origo — Your Province
+            </label>
+            <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
+              Where you were born. One small passive, and the god you favour.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-corpus-origo-picker>
+              {PROVINCES.map((row) => {
+                const selected = row.id === corpus.origo;
+                return (
+                  <button
+                    key={row.id}
+                    type="button"
+                    data-corpus-origo-card={row.id}
+                    aria-pressed={selected}
+                    onClick={() => handleOrigoSelect(row.id)}
+                    className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                      selected
+                        ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
+                        : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
+                      {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
+                    </div>
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 mt-0.5">
+                      Favoured god: <span className="text-amber-300">{row.god}</span>
+                    </p>
+                    <p className="text-[10px] font-mono text-amber-400/80 mt-1">{row.passive.text}</p>
+                    <p className="text-[11px] font-serif italic text-neutral-400 mt-1">{row.flavour}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+              Vitium — Your Flaw
+            </label>
+            <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
+              One flaw, taken at creation, is worth {VITIUM_CREATION_POINTS} more creation points. Yours
+              alone, and permanent — there is no way to put it down.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-corpus-vitium-picker>
+              <button
+                type="button"
+                data-corpus-vitium-card="none"
+                aria-pressed={corpus.vitium === null}
+                onClick={() => handleVitiumSelect(null)}
+                className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                  corpus.vitium === null
+                    ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
+                    : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-serif font-bold text-sm text-amber-200">None</span>
+                  {corpus.vitium === null && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
+                </div>
+                <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">
+                  No flaw. You keep the ten points and nothing follows you into the sand.
+                </p>
+              </button>
+              {VITIA.map((row) => {
+                const selected = row.id === corpus.vitium;
+                return (
+                  <button
+                    key={row.id}
+                    type="button"
+                    data-corpus-vitium-card={row.id}
+                    aria-pressed={selected}
+                    onClick={() => handleVitiumSelect(row.id)}
+                    className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                      selected
+                        ? 'bg-red-500/20 border-red-400 text-red-100 shadow-md'
+                        : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-red-600/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
+                      <span className="text-[10px] font-mono text-red-300 shrink-0">
+                        +{VITIUM_CREATION_POINTS}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.text}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* SKILL POINT ALLOCATION */}
           <div>
             <div className="flex justify-between items-center mb-3">
@@ -345,7 +540,8 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               })}
             </div>
             <p className="text-[10px] font-mono text-neutral-500 mt-2">
-              {CREATION_POINTS} points to spend · your class template is the floor.
+              {creationPoints(corpus.vitium)} points to spend · your class template plus your build is
+              the floor.
             </p>
           </div>
 

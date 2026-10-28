@@ -784,17 +784,20 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     // legitimately grew by the one field that slice added — the same extension
     // `saveCorpus.test.ts` §J carries.
     'spared',
+    // PITCH A4 — the Corpus et Origo identity, declared between `spared` and `ludi`.
+    'identity',
     // LUDI PHASE A — the calendar's day-state, declared between `spared` and `records`.
     'ludi',
     // A8 — the retained Triumphs record, still last in declaration order.
     'records',
   ];
 
-  test('the merged type declares exactly the twenty-three optional fields, in order', () => {
+  test('the merged type declares exactly the twenty-four optional fields, in order', () => {
     const types = readFileSync(join(SRC_ROOT, 'types/game.ts'), 'utf8');
     const optional = scanOptional(types);
     expect(optional).toEqual(EXPECTED);
-    expect(optional.length).toBe(23);
+    // PITCH A4 REBASE: the Corpus et Origo `identity` field is the newest member.
+    expect(optional.length).toBe(24);
   });
 
   test('the rule still fails on a field nobody accounted for', () => {
