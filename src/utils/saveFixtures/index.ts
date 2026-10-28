@@ -43,6 +43,7 @@ import facilitiesEraProfile from './facilitiesEraProfile.json';
 import armaturaPalmaeProfile from './armaturaPalmaeProfile.json';
 import grudgeEraProfile from './grudgeEraProfile.json';
 import keepersEraProfile from './keepersEraProfile.json';
+import omenEraProfile from './omenEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -261,6 +262,18 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every older fixture omits the field, the legacy shape a load must survive',
     ],
     profile: asProfile(keepersEraProfile),
+  },
+  {
+    id: 'omen-era',
+    file: 'omenEraProfile.json',
+    provenance:
+      'The K1 keepers-era save with Fortuna\'s omen hand-aged on: a live kind omen waiting on the next bout (bout index 9 = the record\'s 8 fought bouts + 1) and the once-ever decline marker claimed — the exact shape the shrine\'s offering and first decline persist (Pitch A1).',
+    covers: [
+      'the `omen` object populated (Pitch A1): a live kind omen with its next-bout index',
+      'the `omenTrickleClaimed` marker populated (Pitch A1): the decline trickle already paid',
+      'every post-GC20 optional field populated, omen and the trickle marker included',
+    ],
+    profile: asProfile(omenEraProfile),
   },
 ];
 

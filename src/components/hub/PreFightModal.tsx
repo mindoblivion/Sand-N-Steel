@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BoutMode, OpponentConfig } from '../../types/game';
+import { BoutMode, OpponentConfig, OmenState } from '../../types/game';
 import { Swords, Trophy, Coins, Zap, Shield, Skull } from 'lucide-react';
 // C-8.70C — the three bout modes and the plain-language list of EVERY effect,
 // built from the same data the duel reads. The choice is session-only: it starts
@@ -19,6 +19,9 @@ import { getPalma, type Palma } from '../../data/palmae';
 import { DEFAULT_PHASE } from '../../utils/atmosphere';
 import { duelPhaseLine } from '../../utils/phaseFlavor';
 import type { TimePhase } from '../../utils/timeState';
+// PITCH A1 — Fortuna's omen, when one waits on this bout.  The line is the shrine
+// module's own copy, so the card and the shrine cannot word it differently.
+import { omenLine } from '../../utils/omens';
 // C-8.70C — the grudge's two sentences, built from the generated row itself.
 import {
   grudgeProfileLine,
@@ -48,6 +51,13 @@ interface PreFightModalProps {
    * passes nothing shows the staging default's line, exactly as the city does.
    */
   phase?: TimePhase;
+  /**
+   * PITCH A1 — the omen waiting on this bout (kind or ill, with the bout it is
+   * kept for), or null/absent when no omen is live.  Read-only: the card only
+   * states what Fortuna's word will do, and the duel result that consumes it is
+   * the only thing that settles it.
+   */
+  omen?: OmenState | null;
 }
 
 export const PreFightModal: React.FC<PreFightModalProps> = ({
@@ -57,6 +67,7 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
   narration,
   restriction,
   phase = DEFAULT_PHASE,
+  omen,
 }) => {
   // T3 — a boss card always reads as an evening spectacle; every other hour names the
   // light, and a regular bout at Nox offers the torches in words.
@@ -117,6 +128,23 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
             </p>
           )}
         </div>
+
+        {/* PITCH A1 — FORTUNA'S OMEN, in the shrine's own words: which word waits
+            and which bout it is kept for, so the player can see the promise before
+            they step into the sand. */}
+        {omen && (
+          <div
+            data-prefight-omen={omen.kind}
+            className="bg-amber-950/30 border border-amber-700/50 rounded-2xl px-4 py-3 mb-4"
+          >
+            <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400 mb-1">
+              Fortuna's Omen
+            </div>
+            <p className="text-xs sm:text-[13px] font-serif italic text-amber-100/90 leading-relaxed">
+              {omenLine(omen)}
+            </p>
+          </div>
+        )}
 
         {/* STORY-2 — the beat's framing: voices, not statistics. */}
         {narration && narration.length > 0 && (

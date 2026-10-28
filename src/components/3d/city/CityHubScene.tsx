@@ -97,6 +97,17 @@ import {
   intelTargets,
   INTEL_PRICE,
 } from '../../../utils/intel';
+// PITCH A1 — Fortuna's shrine: the omen's price, its lazy read, and the copy the
+// panel prints.  The transactions live in `App`; this screen only reports the
+// player's choice and writes no save.
+import {
+  OMEN_PRICE,
+  omenDeclineResultLine,
+  omenLine,
+  omenOfferResultLine,
+  resolveOmen,
+} from '../../../utils/omens';
+import type { OmenDeclineOutcome, OmenOfferOutcome } from '../../../utils/omens';
 // K2 — the three service counters' keepers (the Medical House's Medica, the inn's
 // host, the Golden Palm's keeper), the plate that heads them, and the one line
 // each is saying.  Display and a first-visit record only: no price, no effect and
@@ -229,6 +240,14 @@ interface CityHubSceneProps {
    */
   onBuyIntel: (opponentId: string) => boolean;
   /**
+   * PITCH A1 — the Shrine of Fortuna's offering and its decline.  `App` owns both
+   * transactions and the save write; an offering that cannot be paid for returns a
+   * refusal (no omen, no write), and a decline that pays nothing returns the
+   * reason, so the panel never invents a result.
+   */
+  onOfferOmen: () => OmenOfferOutcome | null;
+  onDeclineOmen: () => OmenDeclineOutcome | null;
+  /**
    * K2 — a service counter's keeper was met for the first time.  `App` owns the
    * one `seenKeepers` write (`handleRecordKeeperVisit`), exactly as it does for a
    * storefront's plate; this screen only reports the visit.
@@ -293,6 +312,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onUseConsumable,
   onBuyIntel,
   onRecordKeeperVisit,
+  onOfferOmen,
+  onDeclineOmen,
 }) => {
   // The rig this screen is drawn under. `resolveCityLightProfile` answers module
   // constants, so `lights` keeps its reference across re-renders and the Environment
@@ -367,6 +388,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // S7 — the Golden Palm Tavern's rumour panel.  Local view state only: the
   // purchase and its save belong to `App`.
   const [intelPanel, setIntelPanel] = useState(false);
+  // PITCH A1 — the Shrine of Fortuna's omen panel, and the one line announcing
+  // what the last offering or decline did.  Local view state only: both
+  // transactions and their save belong to `App`.
+  const [shrinePanel, setShrinePanel] = useState(false);
+  const [omenResult, setOmenResult] = useState<string | null>(null);
   /**
    * K2 — the greeting of the counter that is open, decided ONCE when it opens,
    * from the profile the visit started with.  The first-visit save lands a frame
@@ -559,17 +585,19 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // plate heads it, so the greeting is frozen as the panel opens.
       primeKeeperGreeting('tavern');
       setIntelPanel(true);
+    } else if (nearbyLoc.id === 'shrine_temple') {
+      // PITCH A1 — Fortuna's shrine is the pre-fight ritual stop: its panel offers
+      // her word for 25 gold, or the player declines.  The result line starts
+      // empty; every offering or decline sets it from the transaction's answer.
+      setOmenResult(null);
+      setShrinePanel(true);
     } else if (nearbyLoc.tabKey) {
       onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
       // Elegant immersive fallback notification for locations with no immediate tab key
       // (STORY-2: the Doctore House now carries `tabKey: 'training'`, so it opens
       // the ludus rather than falling through to a notice.)
-      if (nearbyLoc.id === 'shrine_temple') {
-        setStableNotice(
-          "Shrine of Fortuna: You offer a quiet prayer at the ancient shrine. The sacred precinct remains still and watchful."
-        );
-      } else if (nearbyLoc.id === 'gladiator_barracks') {
+      if (nearbyLoc.id === 'gladiator_barracks') {
         setStableNotice(
           "Gladiator Barracks: Recruits rest here between training sessions, keeping their equipment prepared for the arena."
         );
@@ -645,13 +673,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
     // A presented panel is up: E/Space and the action button are its own.
-    if (treatmentPanel || intelPanel) return;
+    if (treatmentPanel || intelPanel || shrinePanel) return;
     if (nearbyLoc) {
       handleInteract();
     } else {
       handleAttack();
     }
-  }, [nearbyLoc, handleInteract, handleAttack, treatmentPanel, intelPanel]);
+  }, [nearbyLoc, handleInteract, handleAttack, treatmentPanel, intelPanel, shrinePanel]);
 
   /**
    * S5 — one visit.  The transaction and its save write live in `App`; this screen
@@ -680,6 +708,26 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     [onBuyIntel]
   );
 
+  /**
+   * PITCH A1 — one offering of 25 gold, and one decline.  `App` owns both
+   * transactions and the save write; the panel re-renders from the profile it
+   * hands back, so a paid offering shows the live omen and a refusal shows the
+   * panel's own short-purse line (the button is disabled at that point too).
+   */
+  const handleOfferOmen = useCallback(() => {
+    sounds.playClick();
+    const outcome = onOfferOmen();
+    if (!outcome) return;
+    setOmenResult(outcome.ok ? omenOfferResultLine(outcome.omen) : null);
+  }, [onOfferOmen]);
+
+  const handleDeclineOmen = useCallback(() => {
+    sounds.playClick();
+    const outcome = onDeclineOmen();
+    if (!outcome) return;
+    setOmenResult(omenDeclineResultLine(outcome));
+  }, [onDeclineOmen]);
+
   /** S6 — one consumable from the satchel; the panel re-renders from the profile. */
   const handleUseConsumable = useCallback(
     (itemId: string) => {
@@ -706,6 +754,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       }
       if (intelPanel) {
         if (code === 'Escape' || key === 'escape') setIntelPanel(false);
+        return;
+      }
+      if (shrinePanel) {
+        if (code === 'Escape' || key === 'escape') setShrinePanel(false);
         return;
       }
 
@@ -736,7 +788,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction, treatmentPanel, intelPanel]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel]);
 
   // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
@@ -968,6 +1020,15 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     ? getKeeperForBuilding(TREATMENT_BUILDING[treatmentPanel])
     : undefined;
   const intelKeeper = intelPanel ? getKeeperForBuilding('tavern') : undefined;
+
+  /**
+   * PITCH A1 — Fortuna's word, read the way every other lazy profile field is.
+   * `null` means no omen is live (absent or malformed reads as none), and the
+   * purse check mirrors the transaction's own refusal so the button and the
+   * refusal line agree.
+   */
+  const liveOmen = resolveOmen(playerProfile);
+  const omenPurseShort = playerProfile.gold < OMEN_PRICE;
 
   /**
    * K2 — the one line the plate is saying, by the same rules `ShopTab` uses: the
@@ -1645,6 +1706,82 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 Not enough gold. You carry {playerProfile.gold}g.
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* PITCH A1 — THE SHRINE OF FORTUNA: the pre-fight ritual stop.  It shows
+          the omen already resting on the gladiator (kind or ill, and which bout it
+          waits for), offers her word for 25 gold, and offers the decline.  Both
+          transactions and their save live in `App`, so this screen writes nothing;
+          a purse under the price disables the offering and says so. */}
+      {shrinePanel && (
+        <div
+          data-shrine-panel
+          className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
+        >
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex-1">
+              <h4 className="font-serif font-black text-amber-200 text-xs sm:text-sm uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <Compass className="w-4 h-4 text-amber-400" />
+                <span>Shrine of Fortuna</span>
+              </h4>
+              <p className="text-[11px] sm:text-xs text-neutral-300 font-sans leading-relaxed">
+                Fortuna gives what she gives. A small offering of {OMEN_PRICE} gold buys her word on
+                your next bout — kind or ill — or you decline and trust your own arm.
+              </p>
+              <p
+                data-shrine-omen={liveOmen ? liveOmen.kind : 'none'}
+                className="mt-2 text-[11px] sm:text-xs font-mono text-amber-300 leading-relaxed"
+              >
+                {liveOmen ? omenLine(liveOmen) : 'No omen rests on you.'}
+              </p>
+              {omenResult && (
+                <p
+                  data-omen-result
+                  className="mt-2 text-[11px] sm:text-xs font-sans text-amber-200/90 leading-relaxed"
+                >
+                  {omenResult}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => setShrinePanel(false)}
+              aria-label="Close shrine panel"
+              className={CLOSE_BUTTON_CLASS}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-2">
+            <button
+              type="button"
+              data-offer-omen
+              onClick={handleOfferOmen}
+              disabled={omenPurseShort}
+              className="w-full min-h-[48px] rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg border-2 border-amber-200 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Coins className="w-4 h-4" />
+              <span>Offer {OMEN_PRICE}g for an omen</span>
+            </button>
+            {omenPurseShort && (
+              <p
+                data-omen-refusal="insufficient-gold"
+                className="text-[10px] sm:text-[11px] font-mono text-red-300"
+              >
+                Not enough gold. You carry {playerProfile.gold}g.
+              </p>
+            )}
+            <button
+              type="button"
+              data-decline-omen
+              onClick={handleDeclineOmen}
+              className="w-full min-h-[48px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-amber-100 font-serif font-bold text-[11px] sm:text-xs uppercase tracking-wider border border-amber-600/70 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
+            >
+              <SparklesIcon className="w-3.5 h-3.5 text-amber-400" />
+              <span>Decline — trust your own arm</span>
+            </button>
           </div>
         </div>
       )}
