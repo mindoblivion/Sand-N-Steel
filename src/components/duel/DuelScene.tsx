@@ -34,6 +34,9 @@ import {
   resolveBoutProfile,
   steelDeltaFor,
 } from '../../data/boutModes';
+// PITCH A1 — Fortuna's ill omen hardens THIS bout's opponent at the same
+// duel-entry layer as the mode delta, after it, and outside C-C's ±0.20 cap.
+import { applyIllOmenToBoutProfile, illOmenDelta, isIllOmenPending } from '../../utils/omens';
 import {
   advanceCrowdRageCharge,
   applyCrowdHypeDecay,
@@ -549,6 +552,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // reward row), the crowd's opening hype and cooling tier, and the mode-adjusted
   // bases every reward line is computed from.
   const modeProfile = useMemo(() => resolveBoutProfile(boutMode, opponent), [boutMode, opponent]);
+  // PITCH A1 — Director ruling 4: an ill omen waiting on this bout hardens the
+  // opponent's two AI values (+0.10 aggression / +0.05 blockChance, clamped into
+  // [0.05, 0.95]) AFTER the mode delta, and it is NOT part of C-C's ±0.20
+  // grudge+mode budget — a separate shrine effect.  No ill omen: the mode's own
+  // composed profile, byte for byte.
+  const omenIll = isIllOmenPending(playerProfile);
+  const omenShift = useMemo(() => illOmenDelta(omenIll), [omenIll]);
+  const boutProfile = useMemo(
+    () => applyIllOmenToBoutProfile(modeProfile, omenIll),
+    [modeProfile, omenIll],
+  );
   const modeReward = useMemo(() => modeRewardBases(boutMode, opponent), [boutMode, opponent]);
   const openingHype = useMemo(() => modeCrowdStartHype(boutMode), [boutMode]);
   const crowdDecayTier = useMemo(
@@ -924,8 +938,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // sharpen the block value his adaptations then move; Sand resolves the row's
   // value exactly (the composed profile equals the row's on Sand).
   const longMemoryBase = useMemo(
-    () => longMemoryBaseProfile({ ...opponent, blockChance: modeProfile.blockChance }),
-    [opponent, modeProfile.blockChance],
+    () => longMemoryBaseProfile({ ...opponent, blockChance: boutProfile.blockChance }),
+    [opponent, boutProfile.blockChance],
   );
   const longMemoryRef = useRef<LongMemoryState>(createLongMemoryState());
   const commitLongMemory = useCallback((next: LongMemoryState) => {
@@ -2522,17 +2536,30 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // exactly 0, so every branch below is the shipped value.
       const modeSteel = steelDeltaFor(boutMode);
       const brotherAggressionForSlot = (slot: 'front' | 'rear'): number =>
-        clampBoutProfileValue(brotherAggression(brothersCfg!, brothersRef.current, slot) + modeSteel.aggression);
+        clampBoutProfileValue(
+          brotherAggression(brothersCfg!, brothersRef.current, slot) +
+            modeSteel.aggression +
+            omenShift.aggression,
+        );
       const brotherBlockForSlot = (slot: 'front' | 'rear'): number =>
-        clampBoutProfileValue(brotherBlockChance(brothersCfg!, slot) + modeSteel.blockChance);
+        clampBoutProfileValue(
+          brotherBlockChance(brothersCfg!, slot) + modeSteel.blockChance + omenShift.blockChance,
+        );
       // ── C-8.70C Slice C-D — THE BOSS'S PHASE-2 PROFILE (Ignis) ───────────
       // In Phase 2 a `phase_weapon_switch` boss chooses with the row its phase
       // publishes, composed with the mode's own Steel delta exactly as his row is.
       // Every other boss, and his own Phase 1, answers `null`, so the shipped
       // `modeProfile` stands unchanged.
       const phaseProfile = bossPhaseProfileFor(opponent, opp.health, opp.stats.healthMax, boutMode);
-      const baseAggression = phaseProfile ? phaseProfile.aggression : modeProfile.aggression;
-      const baseBlockChance = phaseProfile ? phaseProfile.blockChance : modeProfile.blockChance;
+      // PITCH A1 — a phase-2 profile is composed with the mode's delta already; the
+      // ill omen's shift is added on top of whichever base is chosen, so it hardens
+      // the bout the player actually meets.
+      const baseAggression = phaseProfile
+        ? clampBoutProfileValue(phaseProfile.aggression + omenShift.aggression)
+        : boutProfile.aggression;
+      const baseBlockChance = phaseProfile
+        ? clampBoutProfileValue(phaseProfile.blockChance + omenShift.blockChance)
+        : boutProfile.blockChance;
       let aiAggression =
         brothersCfg && brothersSlotActor
           ? brotherAggressionForSlot(brothersSlotActor)
@@ -2674,7 +2701,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     commitBrothers,
     longMemoryCfg,
     longMemoryBase,
-    modeProfile,
+    boutProfile,
+    omenShift,
     boutMode,
   ]);
 

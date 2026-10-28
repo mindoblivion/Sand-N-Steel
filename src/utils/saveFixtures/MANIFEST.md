@@ -97,6 +97,18 @@ keeps **omitting** the field, which is the legacy shape a load must survive (a
 gladiator who has met nobody), and `saveCorpus.test.ts` §J's expected optional set
 now ends with `seenKeepers` in `src/types/game.ts` declaration order.
 
+**Extended by Pitch A1 (Fortuna's Omen).** `PlayerProfile.omen` — the word taken
+at Fortuna's shrine before a bout (`{ kind: 'kind' | 'ill', expiresAtBout }`) —
+and `PlayerProfile.omenTrickleClaimed` — the once-ever "self-reliant" decline
+marker — are the two newest optional fields, so they get both halves of the rule
+in the same slice: `omen-era`, the `keepers-era` save carrying a live kind omen
+waiting on the next bout (index 9 = its 8 fought bouts + 1) with the decline
+trickle already claimed, which is the exact shape the shrine's offering and first
+decline persist. Every older fixture keeps **omitting** both fields, which is the
+legacy shape a load must survive (no omen, trickle still owed), and
+`saveCorpus.test.ts` §J's expected optional set now ends with `omen`,
+`omenTrickleClaimed` in `src/types/game.ts` declaration order.
+
 ## Corpus rule
 
 **A slice that adds a field to the save adds a fixture for the shape it writes, in
@@ -130,6 +142,7 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `stable-era` | `stableEraProfile.json` | The fully-populated shape with the stable's two ladders topped out: quality 3 (Champion Bloodline) and conditioning 5, bought for the Quadra team the save races, with 500 gold left of 7,000. No team size is stored — the horse count stays the racing record's fact. | The `intel-era` save with its purse hand-aged to 7,000 and then driven through the real P4 transactions — `purchaseStableQuality` ×3 (400 + 900 + 1,600) and `purchaseStableConditioning` ×5 (240 + 480 + 720 + 960 + 1,200 at the Quadra's four-horse rate) — and frozen; never written by `createNewProfile`. |
 | `armatura-palmae` | `armaturaPalmaeProfile.json` | The fully-populated shape with the CH-1 class and palmae filled: `armatura: "retiarius"`, `palmae` with two unlocked (`iron_lungs`, `second_wind`) and one equipped (`iron_lungs`), plus every earlier optional field. | The `facilities-era` save hand-aged with the two field shapes a later class choice and palma earn/equip write; frozen, and never written by `createNewProfile`. |
 | `keepers-era` | `keepersEraProfile.json` | The fully-populated shape with the K1 keeper record filled: `seenKeepers` naming the two keepers met, in the order the counters were opened (`sextus_ferratus`, `salvia_coriaria`), plus every earlier optional field. | The `grudge-era` save hand-aged with the record a first storefront visit persists through `recordKeeperVisit`; frozen, and never written by `createNewProfile`. |
+| `omen-era` | `omenEraProfile.json` | The fully-populated shape with Fortuna's omen live and the decline trickle claimed: `omen: { "kind": "kind", "expiresAtBout": 9 }` (the record's 8 fought bouts + 1) and `omenTrickleClaimed: true`, plus every earlier optional field. | The `keepers-era` save hand-aged with the two field shapes the shrine's offering and its first decline persist (Pitch A1); frozen, and never written by `createNewProfile`. |
 
 ### Shapes each fixture covers
 
@@ -151,6 +164,7 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `intel-era` | `intel` populated — two rumours bought, information only · every post-GC20 optional field populated · every earlier fixture omits the field |
 | `stable-era` | `stable` populated — quality 3 and conditioning 5, no team size stored · every post-GC20 optional field populated · every earlier fixture omits the field |
 | `keepers-era` | `seenKeepers` populated — two keepers met, in the order their counters were opened · every post-GC20 optional field populated · every earlier fixture omits the field |
+| `omen-era` | `omen` populated — a live kind omen waiting on the record's next bout · `omenTrickleClaimed` populated — the once-ever decline trickle already paid · every post-GC20 optional field populated · every earlier fixture omits both fields |
 
 ## What the corpus proves
 
@@ -181,8 +195,9 @@ For every fixture, `src/utils/saveCorpus.test.ts` runs:
    absent `temper` to level 0 on every owned item, an absent `road` to unsworn with
    no device and no milestones, an absent `seen` to nothing seen, an absent `time`
    to Day 1 at dawn, an absent `laurels` to owning no titles and no statue, an
-   absent `consumables` to an empty satchel, and an absent `intel` to no rumour
-   bought.
+   absent `consumables` to an empty satchel, an absent `intel` to no rumour
+   bought, an absent `omen` to no omen and an absent `omenTrickleClaimed` to a
+   trickle still owed.
 
 The other resolvers in the tree are not profile-shaped and are out of scope here:
 `resolveSettings` (the separate settings record, `sand_and_steel_settings_v1`, with

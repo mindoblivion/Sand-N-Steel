@@ -842,6 +842,23 @@ export interface PalmaeState {
   equipped?: string[];
 }
 
+/**
+ * PITCH A1 — FORTUNA'S OMEN: the two words her shrine can give, as the design
+ * published them (`ideas-story.md` §5 Hook A: a kind omen or an ill one).
+ */
+export type OmenKind = 'kind' | 'ill';
+
+/**
+ * PITCH A1 — the omen's published field shape, a LAZY optional object on
+ * `PlayerProfile`: absent = no omen.  `expiresAtBout` is the bout the omen waits
+ * for — total bouts (`fightsWon + fightsLost`) + 1 at the moment of offering, so
+ * it is always the next duel the player fights.
+ */
+export interface OmenState {
+  kind: OmenKind;
+  expiresAtBout: number;
+}
+
 export interface PlayerProfile {
   name: string;
   title: string;
@@ -1027,4 +1044,24 @@ export interface PlayerProfile {
    * `createNewProfile()`, never by a migration, and never on a repeat visit.
    */
   seenKeepers?: string[];
+  /**
+   * PITCH A1 — FORTUNA'S OMEN: the word taken at her shrine before a bout, and
+   * the bout it is kept for. Optional and LAZY, exactly like `chariot` and
+   * `racing`: a save written before this slice has no field at all and must keep
+   * loading, so `resolveOmen` (`utils/omens.ts`) reads a missing, null or
+   * malformed field as "no omen" rather than repairing it. Written ONLY by the
+   * shrine's offering and cleared by the duel result that consumes it — never by
+   * `createNewProfile()` and never by a migration.
+   *
+   * `expiresAtBout` is the bout index the omen waits for: total bouts
+   * (`fightsWon + fightsLost`) + 1 at the moment of offering, i.e. the next duel.
+   */
+  omen?: OmenState;
+  /**
+   * PITCH A1 — the once-ever "self-reliant" trickle: has this gladiator ever
+   * declined Fortuna's omen? Absent/false means the +5 fame is still owed to
+   * him. Written ONLY by the first decline (`declineOmen`) — never by
+   * `createNewProfile()` and never by a migration.
+   */
+  omenTrickleClaimed?: boolean;
 }

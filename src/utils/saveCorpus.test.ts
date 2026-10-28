@@ -127,6 +127,9 @@ import { resolveConsumables } from './consumables';
 // tournament card read it.
 import { resolveIntel } from './intel';
 import { resolveStableState } from './stableProgression';
+// PITCH A1 — Fortuna's omen and the once-ever decline marker, read the way the
+// shrine panel and the duel entry read them.
+import { isTrickleClaimed, resolveOmen } from './omens';
 // P5 — the ludus's three buildings, read the way a facility screen would.
 import { resolveFacilities } from './facilityProgression';
 // CH-1 — the class and the palmae, read the way a later class screen would.
@@ -162,6 +165,8 @@ const REQUIRED_FIXTURE_IDS = [
   'grudge-era',
   // K1 — the first-visit keeper record.
   'keepers-era',
+  // PITCH A1 — Fortuna's omen and the once-ever decline marker.
+  'omen-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -242,6 +247,10 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const grudges = resolveGrudges(profile);
   // K1 — the keepers this gladiator has met, read the way a storefront does.
   const seenKeepers = resolveSeenKeepers(profile);
+  // PITCH A1 — Fortuna's omen and the decline marker, read the way the shrine
+  // panel and the duel entry read them.
+  const omen = resolveOmen(profile);
+  const omenTrickleClaimed = isTrickleClaimed(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -268,6 +277,8 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     palmae,
     grudges,
     seenKeepers,
+    omen,
+    omenTrickleClaimed,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -414,6 +425,15 @@ for (const fixture of SAVE_FIXTURES) {
       expect(Array.isArray(palmae.equipped)).toBe(true);
       expect((palmae.equipped ?? []).length).toBeLessThanOrEqual(3);
       expect((palmae.equipped ?? []).every((id) => (palmae.unlocked ?? []).includes(id))).toBe(true);
+      // PITCH A1 — the omen resolves to a shaped word (or to nothing), and the
+      // decline marker to a boolean.
+      expect(
+        resolved.omen === null ||
+          (['kind', 'ill'].includes(resolved.omen.kind) &&
+            Number.isInteger(resolved.omen.expiresAtBout) &&
+            resolved.omen.expiresAtBout >= 1),
+      ).toBe(true);
+      expect(typeof resolved.omenTrickleClaimed).toBe('boolean');
     });
 
     test('resolution does not mutate the fixture’s stored JSON (byte compare)', () => {
@@ -531,6 +551,16 @@ for (const fixture of SAVE_FIXTURES) {
         // K1 — a save written before the field reads as "met nobody".
         expect(resolveSeenKeepers(profile)).toEqual([]);
       }
+      if (!('omen' in raw) || raw.omen === null) {
+        absentFields += 1;
+        // PITCH A1 — a save written before the omen reads as "no omen".
+        expect(resolveOmen(profile)).toBeNull();
+      }
+      if (!('omenTrickleClaimed' in raw) || raw.omenTrickleClaimed === null) {
+        absentFields += 1;
+        // PITCH A1 — an absent marker reads as "the trickle is still owed".
+        expect(isTrickleClaimed(profile)).toBe(false);
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -554,6 +584,8 @@ for (const fixture of SAVE_FIXTURES) {
         'palmae',
         'grudges',
         'seenKeepers',
+        'omen',
+        'omenTrickleClaimed',
       ];
       expect(absentFields).toBe(
         resolverBacked.filter((field) => !(field in raw) || raw[field] === null).length,
@@ -793,6 +825,23 @@ describe('GC20 §F — what each shape resolves to', () => {
     expect(resolveSeenKeepers(fixtureById('minimal-legacy').profile)).toEqual([]);
     expect('seenKeepers' in rawOf(fixtureById('current-fresh'))).toBe(false);
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('seenKeepers');
+  });
+
+  test('the Pitch A1 omen record resolves to what it stores, and no factory save carries it', () => {
+    const profile = fixtureById('omen-era').profile;
+    // A live kind omen waiting on the record's next bout (8 fought + 1), and the
+    // once-ever decline marker already claimed.
+    expect(resolveOmen(profile)).toEqual({ kind: 'kind', expiresAtBout: 9 });
+    expect(isTrickleClaimed(profile)).toBe(true);
+
+    // Lazy: a save written before this slice has no omen and owes the trickle, and
+    // the factory writes neither field — the shape a later load must keep surviving.
+    expect(resolveOmen(fixtureById('minimal-legacy').profile)).toBeNull();
+    expect(isTrickleClaimed(fixtureById('minimal-legacy').profile)).toBe(false);
+    expect('omen' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect('omenTrickleClaimed' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('omen');
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('omenTrickleClaimed');
   });
 
   test('null where an object is expected resolves to both defaults', () => {
@@ -1055,8 +1104,12 @@ describe('GC20 §J — the corpus rule', () => {
       'armatura',
       'palmae',
       'grudges',
-      // K1 — the keepers met, appended last in `game.ts` declaration order.
+      // K1 — the keepers met.
       'seenKeepers',
+      // PITCH A1 — Fortuna's omen and the once-ever decline marker, appended
+      // last in `game.ts` declaration order.
+      'omen',
+      'omenTrickleClaimed',
     ]);
 
     // Every optional field with a resolver has a fixture for both its absent and
@@ -1079,6 +1132,8 @@ describe('GC20 §J — the corpus rule', () => {
       'palmae',
       'grudges',
       'seenKeepers',
+      'omen',
+      'omenTrickleClaimed',
     ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);

@@ -1065,8 +1065,12 @@ describe('CH-3a §X — wiring', () => {
     expect(duel).toContain('chooseAIStandardAction(aiAggression, aiBlockChance)');
     // C-8.70C rebased these two fallbacks (not weakened): the AI reads the
     // MODE's composed profile, which on Sand is the row's own published value.
-    expect(duel).toContain(': modeProfile.aggression;');
-    expect(duel).toContain(': modeProfile.blockChance;');
+    // PITCH A1 — the reads now come off `boutProfile`, which IS the mode's composed
+    // profile with the ill omen's shift applied after it (identity when no ill omen
+    // waits), and a phase-2 boss profile is hardened by the same shift.
+    expect(duel).toContain(': boutProfile.aggression;');
+    expect(duel).toContain(': boutProfile.blockChance;');
+    expect(duel).toContain('const boutProfile = useMemo(');
     expect(duel).toContain('const oppLightCost = getStaminaCost(slotWeapon, true);');
     expect(duel).toContain('const oppHeavyCost = getStaminaCost(slotWeapon, false);');
     expect(duel).toContain(

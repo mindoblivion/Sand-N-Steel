@@ -282,9 +282,16 @@ describe('P4 — the Doctore reads the first attempt, win or lose', () => {
     const callStart = write.indexOf('setDuelResult({');
     expect(callStart).toBeGreaterThan(-1);
     const resultCall = write.slice(callStart, write.indexOf('});', callStart));
-    for (const field of ['didWin', 'stats', 'storyLines', 'injuryEvent']) {
+    for (const field of ['didWin', 'storyLines', 'injuryEvent']) {
       expect(resultCall).toContain(`${field},`);
     }
+    // PITCH A1 — the payload carries the stats object the write SETTLED (the omen's
+    // multipliers applied last), so the screen and the save agree. Rebasing the
+    // literal from `stats` to `stats: resultStats` strengthens what is pinned.
+    expect(resultCall).toContain('stats: resultStats,');
+    expect(resultCall).toContain(
+      '...(omenSettled.line ? { omenLine: omenSettled.line } : {}),',
+    );
     expect(resultCall).toContain(
       '...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),',
     );
