@@ -1,9 +1,20 @@
 /**
- * Atmosphere A1 — the city's sky, sun and fog foundation. Regression suite.
+ * Atmosphere — the city's sky, key light (sun/moon) and fog. Regression suite.
+ *
+ * DAY/NIGHT T1 NOTE: A1's two profiles are now two ROWS of the seven-phase table
+ * (`PHASE_LIGHT.golden`, `PHASE_LIGHT.midday`), value for value. Everything this
+ * suite pinned about them is preserved — the values, the resolver, the sun's
+ * direction, the one dome, the one shadow-casting light, the hemisphere bounce, the
+ * renderer settings, the replace-don't-stack behaviour and the settings record.
+ * Three things were REBASED rather than weakened (each with a comment below): the
+ * table's shape (7 rows, not 2), the settings panel's Lighting row (A1's toggle is
+ * retired in favour of the cycle), and the "no other scene imports this module"
+ * guard (the duel and the race now read the same one table).
  *
  * ── WHAT IT PINS ──────────────────────────────────────────────────────────
- *   §A  the table, value for value — both profiles complete, and the fog/horizon
- *       discrepancy the design's own numbers contain left exactly as written;
+ *   §A  the table, value for value — all seven rows complete, A1's two anchor rows
+ *       exactly as they shipped, and the fog/horizon ruling pinned in BOTH halves
+ *       (the anchors stay separated; the five authored rows equal their horizons);
  *   §B  the total resolver — an unknown or missing name is the golden-hour default;
  *   §C  the sun's direction from elevation + compass bearing (north is −Z, so the
  *       golden-hour sun stands west and slightly south, the midday sun high and SSW);
@@ -14,10 +25,10 @@
  *       renderer's sRGB / ACES / exposure;
  *   §E  re-applying a profile replaces the rig instead of stacking it, and
  *       `clearAtmosphere` removes every object it added;
- *   §F  the wiring — one `applyAtmosphere` call site in `CityAtmosphere`, mounted
- *       from `CityHubScene` alone, with the oath beat's `cityLightProfile` rig kept
- *       untouched and no other scene importing the module; and the settings record
- *       that carries the player's choice.
+ *   §F  the wiring — the one rig build in `CityAtmosphere`, mounted from
+ *       `CityHubScene` alone, with the oath beat's `cityLightProfile` rig kept
+ *       untouched, the duel and the race reading the same table; and the settings
+ *       record whose `cityLighting` field is now inert.
  */
 
 // @ts-ignore — bun:test is available at runtime via bun test
@@ -28,11 +39,12 @@ import * as THREE from 'three';
 
 import {
   ATMOSPHERE_NAMES,
-  ATMOSPHERE_PROFILES,
+  PHASE_LIGHT,
   ATMOSPHERE_SHADOW_HALF_DEPTH,
   ATMOSPHERE_SHADOW_HALF_EXTENT,
   ATMOSPHERE_SHADOW_MAP_SIZE,
   DEFAULT_ATMOSPHERE,
+  DEFAULT_PHASE,
   HEMI_LIGHT_NAME,
   SKY_DOME_NAME,
   SKY_DOME_RADIUS,
@@ -40,10 +52,13 @@ import {
   SUN_TARGET_NAME,
   applyAtmosphere,
   clearAtmosphere,
+  getPhaseLight,
   resolveAtmosphere,
   sunDirection,
 } from './atmosphere';
 import { DEFAULT_SETTINGS, resolveSettings } from '../services/settings';
+import { CURRENT_PHASE } from './currentPhase';
+import { TIME_PHASES } from './timeState';
 
 const path = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 const load = (rel: string): string => readFileSync(path(rel), 'utf8');
@@ -53,16 +68,24 @@ const code = (rel: string): string =>
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '');
 
-const GOLDEN = ATMOSPHERE_PROFILES.goldenHour;
-const MIDDAY = ATMOSPHERE_PROFILES.midday;
+// A1's two profiles, now rows of the phase table (T1's mapping).
+const GOLDEN = PHASE_LIGHT.golden;
+const MIDDAY = PHASE_LIGHT.midday;
+/** The five rows T1 authored (everything but A1's two anchors). */
+const AUTHORED_ROWS = TIME_PHASES.filter((phase) => phase !== 'golden' && phase !== 'midday');
 
 const rendererStub = () => ({ outputColorSpace: '', toneMapping: -1, toneMappingExposure: 0 });
 const hexOf = (value: string) => new THREE.Color(value).getHex();
 
 describe('A. The table — the design values, verbatim', () => {
-  test('exactly two profiles, goldenHour first (the settings order)', () => {
+  test('seven rows, keyed by the clock\'s own phase ids, in cycle order', () => {
+    // T1 REBASE (was "exactly two profiles"): A1's two profiles are two rows now and
+    // the table is the day's seven phases, keyed by `timeState.ts`'s own ids. The two
+    // legacy settings spellings still exist for the inert stored field.
+    expect(Object.keys(PHASE_LIGHT)).toEqual([...TIME_PHASES]);
+    expect(TIME_PHASES).toEqual(['dawn', 'morning', 'midday', 'afternoon', 'golden', 'dusk', 'night']);
+    expect(DEFAULT_PHASE).toBe('golden');
     expect([...ATMOSPHERE_NAMES]).toEqual(['goldenHour', 'midday']);
-    expect(Object.keys(ATMOSPHERE_PROFILES).sort()).toEqual(['goldenHour', 'midday']);
     expect(DEFAULT_ATMOSPHERE).toBe('goldenHour');
   });
 
@@ -83,6 +106,10 @@ describe('A. The table — the design values, verbatim', () => {
       hemiGround: '#B98A5E',
       hemiIntensity: 0.45,
       exposure: 1.1,
+      envIntensity: 0.30,
+      starAmount: 0.05,
+      lampGlow: 0.35,
+      keyLight: 'sun',
     });
   });
 
@@ -103,6 +130,10 @@ describe('A. The table — the design values, verbatim', () => {
       hemiGround: '#C2A878',
       hemiIntensity: 0.55,
       exposure: 1.1,
+      envIntensity: 0.35,
+      starAmount: 0,
+      lampGlow: 0,
+      keyLight: 'sun',
     });
   });
 
@@ -112,13 +143,22 @@ describe('A. The table — the design values, verbatim', () => {
     expect(MIDDAY.exposure).toBe(1.1);
   });
 
-  test('the fog colour is NOT forced onto the horizon colour (the design table governs)', () => {
+  test('DIRECTOR RULING A — the anchors stay separated, the five authored rows equal', () => {
     // The brief's "fog matched to the horizon" sentence is contradicted by its own
-    // table; the table won, and no value was bent to make the two agree.
+    // table; the table won, and no value was bent to make the two agree. T1 extends
+    // the fence: the two A1 ANCHOR rows must keep A1's shipped, separated fog (so
+    // those phases still render identically to A1), and the five AUTHORED rows must
+    // use their own horizon as the fog colour.
     expect(GOLDEN.fogColor).not.toBe(GOLDEN.skyHorizon);
     expect(MIDDAY.fogColor).not.toBe(MIDDAY.skyHorizon);
     expect(GOLDEN.skyHorizon).toBe('#F4C078');
     expect(GOLDEN.fogColor).toBe('#E8C9A0');
+    expect(MIDDAY.skyHorizon).toBe('#E9DDBE');
+    expect(MIDDAY.fogColor).toBe('#E3D3AC');
+    expect(AUTHORED_ROWS).toHaveLength(5);
+    for (const phase of AUTHORED_ROWS) {
+      expect(PHASE_LIGHT[phase].fogColor).toBe(PHASE_LIGHT[phase].skyHorizon);
+    }
   });
 });
 
@@ -327,10 +367,14 @@ describe('F. The wiring, and the settings record that carries the choice', () =>
   const DUEL = code('../components/duel/DuelScene.tsx');
   const RACE = code('../components/3d/RaceScene.tsx');
 
-  test('the city mounts CityAtmosphere, driven by the Lighting setting', () => {
+  test('the city mounts CityAtmosphere, driven by the current phase row', () => {
+    // T1 REBASE (was "driven by the Lighting setting"): the city renders the phase
+    // row; A1's stored setting is inert, so the scene no longer reads it at all.
     expect(CITY).toContain("import { CityAtmosphere } from './CityAtmosphere';");
-    expect(CITY).toContain('<CityAtmosphere profile={cityLighting} />');
-    expect(CITY).toContain('const cityLighting = settings.cityLighting;');
+    expect(CITY).toContain('import { CURRENT_PHASE } from');
+    expect(CITY).toContain('<CityAtmosphere phase={CURRENT_PHASE} />');
+    expect(CITY).toContain('const cityPhaseLight = getPhaseLight(CURRENT_PHASE);');
+    expect(CITY).not.toContain('settings.cityLighting');
     expect(CITY).toContain("const isOathRig = lightProfile === 'oathDawn';");
   });
 
@@ -348,29 +392,41 @@ describe('F. The wiring, and the settings record that carries the choice', () =>
     // A1 replaced the SKY, not the reflections: the PMREM Lightformer rig the city has
     // used since Phase 2B is mounted for both rigs, so no material's specular response
     // moved. (`environmentLightformers` is memoised against the day rig's own values.)
-    expect(CITY).toContain(
-      '<Environment resolution={256} frames={1} environmentIntensity={lights.environmentIntensity}>',
-    );
+    // T1: the row's own environment intensity is what the city rig applies now; the
+    // oath beat keeps its `cityLightProfile` value.
+    expect(CITY).toContain('environmentIntensity={isOathRig ? lights.environmentIntensity : cityPhaseLight.envIntensity}');
     expect(CITY).toContain('{environmentLightformers}');
     expect(CITY).toContain('const environmentLightformers = useMemo(');
   });
 
-  test('applyAtmosphere is called from exactly one place', () => {
-    const calls = MOUNT.match(/applyAtmosphere\(/g) ?? [];
-    expect(calls).toHaveLength(1);
-    expect(MOUNT).toContain('applyAtmosphere(scene, profile, gl)');
+  test('the rig is built from exactly one place, and the scene never builds it', () => {
+    // T1 REBASE (was "applyAtmosphere is called from exactly one place"): the mount
+    // now builds the rig itself so its entry crossfade can hold the live objects.
+    expect(MOUNT).toContain('createAtmosphereRig(scene, phase)');
     expect(MOUNT).toContain('clearAtmosphere(scene)');
-    // The scene itself never calls the helper directly — the component is the seam.
-    expect(CITY).not.toContain('applyAtmosphere(');
+    expect(MOUNT).not.toContain('applyPhaseLight(');
+    // The scene itself never builds a rig — the component is the seam.
+    expect(CITY).not.toContain('createAtmosphereRig(');
+    expect(CITY).not.toContain('applyPhaseLight(');
   });
 
-  test('no other scene imports the atmosphere module', () => {
-    expect(DUEL).not.toContain('atmosphere');
-    expect(RACE).not.toContain('atmosphere');
+  test('the duel and the race read the SAME one table — no second source of truth', () => {
+    // T1 REBASE (was "no other scene imports the atmosphere module"): both scenes now
+    // draw the day from this table rather than from their own literals, which is the
+    // point of the slice. What must stay true is that they read it, not restate it.
+    expect(DUEL).toContain("from '../../utils/duelPhaseLight'");
+    expect(DUEL).toContain('resolveDuelPhaseLight(CURRENT_PHASE, opponent.isBoss === true)');
+    expect(DUEL).toContain('<PhaseSkyDome phase={duelLight.phase} />');
+    expect(RACE).toContain("from '../../utils/atmosphere'");
+    expect(RACE).toContain('const raceLight = getPhaseLight(racePhase);');
+    expect(RACE).toContain('<PhaseSkyDome phase={racePhase} />');
+    // Neither scene may reintroduce a sky literal or a second sun table.
+    expect(DUEL).not.toContain("'#d4a373'");
+    expect(RACE).not.toContain("'#e3dbc6'");
     expect(code('../components/3d/city/CityCamera.tsx')).not.toContain('atmosphere');
   });
 
-  test('the settings record carries the choice, defaulting to golden hour', () => {
+  test('the settings record still carries the (now inert) choice, defaulting to golden hour', () => {
     expect(DEFAULT_SETTINGS.cityLighting).toBe('goldenHour');
     expect(resolveSettings({}).cityLighting).toBe('goldenHour');
     expect(resolveSettings({ cityLighting: 'midday' }).cityLighting).toBe('midday');
@@ -379,12 +435,21 @@ describe('F. The wiring, and the settings record that carries the choice', () =>
     expect(resolveSettings({ cityLighting: 7 }).cityLighting).toBe('goldenHour');
   });
 
-  test('the settings panel offers Lighting: Golden Hour / Midday and writes it', () => {
+  test('the settings panel REPORTS the phase instead of choosing a profile', () => {
+    // T1 REBASE, by the slice's own scope note (it amends A1's item 6): the Lighting
+    // toggle is retired because the cycle is the lighting story now. The row is
+    // read-only and names the current phase.
     expect(MODAL).toContain('label="Lighting"');
-    expect(MODAL).toContain("value: 'goldenHour', label: 'Golden Hour'");
-    expect(MODAL).toContain("value: 'midday', label: 'Midday'");
-    expect(MODAL).toContain('value={settings.cityLighting}');
-    expect(MODAL).toContain('onChange={(cityLighting) => set({ cityLighting })}');
+    expect(MODAL).toContain('TIME_PHASE_NAMES[CURRENT_PHASE]');
+    expect(MODAL).toContain('CURRENT_PHASE_SOURCE');
+    expect(MODAL).not.toContain("value: 'goldenHour', label: 'Golden Hour'");
+    expect(MODAL).not.toContain('onChange={(cityLighting) => set({ cityLighting })}');
+  });
+
+  test('the current phase is a constant, so nothing in this slice reads a save', () => {
+    expect(CURRENT_PHASE).toBe('golden');
+    expect(code('./currentPhase.ts')).not.toContain('localStorage');
+    expect(getPhaseLight(CURRENT_PHASE)).toBe(PHASE_LIGHT.golden);
   });
 
   test('the settings path never touches the player save', () => {
@@ -397,8 +462,13 @@ describe('F. The wiring, and the settings record that carries the choice', () =>
   });
 
   test('the sky dome budget is one draw call and the shadow map is the only new render target', () => {
-    // No post-processing, no second mesh, no per-frame React work.
-    expect(MOUNT).not.toContain('useFrame');
+    // No post-processing, no second mesh, no React state.
+    // T1 REBASE: the mount now has ONE `useFrame`, owned by the bounded entry
+    // crossfade, which returns immediately when no fade is in flight.
+    expect(MOUNT.match(/useFrame\(/g) ?? []).toHaveLength(1);
+    expect(MOUNT).toContain('if (!fade) return;');
+    expect(MOUNT).toContain('PHASE_CROSSFADE_MS');
+    expect(MOUNT).not.toContain('useState');
     expect(MOUNT).not.toContain('setState');
     expect(code('../utils/atmosphere.ts')).not.toContain('EffectComposer');
     expect(code('../utils/atmosphere.ts')).not.toContain('WebGLRenderTarget');

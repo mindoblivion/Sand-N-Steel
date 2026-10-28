@@ -90,6 +90,17 @@ const useColosseumRearHarness =
   (new URLSearchParams(window.location.search).get('devHarness') === 'colosseum-rear' ||
     window.location.pathname === '/__dev/colosseum-rear');
 
+// Day/Night T1 — development-only PHASE LIGHT stepper. Reachable ONLY in a Vite dev
+// build, through the exact `?devHarness=phases` query parameter or the route
+// `/__dev/phases` (the C-8.69D rear-diagnostic pattern). It mounts INSTEAD of the
+// game, reads no save and writes none, and exists so all seven phases plus both duel
+// night states can be inspected on a device. It is imported dynamically INSIDE the
+// `import.meta.env.DEV` gate, so a production build contains none of it.
+const usePhaseLightHarness =
+  import.meta.env.DEV &&
+  (new URLSearchParams(window.location.search).get('devHarness') === 'phases' ||
+    window.location.pathname === '/__dev/phases');
+
 // Phase C-8.70B Stage 1, Slice 2 — development-only RACE harness.  Reachable
 // ONLY in a Vite dev build, through the exact `?devHarness=race` query parameter
 // or the equivalent dev-only scratch-storage flag `sand_and_steel_dev_harness =
@@ -118,6 +129,14 @@ if (useColosseumRearHarness) {
     mountRoot(
       <React.StrictMode>
         <ColosseumRearDiagnostic />
+      </React.StrictMode>,
+    );
+  });
+} else if (usePhaseLightHarness) {
+  void import('./components/dev/PhaseLightHarness').then(({ PhaseLightHarness }) => {
+    mountRoot(
+      <React.StrictMode>
+        <PhaseLightHarness />
       </React.StrictMode>,
     );
   });
