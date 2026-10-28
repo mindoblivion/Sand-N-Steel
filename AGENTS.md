@@ -7961,3 +7961,66 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   behind the Oath's hold gesture and renders at ~2 fps through SwiftShader, so the visit could not
   be driven; they are pinned by `src/utils/dayNightT2.test.ts` and by source. Visual acceptance
   defers to a real Android device.
+
+## Pitch A1 — Fortuna's Omen (the shrine's pre-fight ritual — implemented; device look PENDING)
+
+- **What ships.** Two LAZY optional profile fields — `omen?: { kind: 'kind' | 'ill';
+  expiresAtBout: number }` and `omenTrickleClaimed?: boolean` (`src/types/game.ts`) — the pure
+  module that owns their rules (`src/utils/omens.ts`), the shrine panel in the 3D city
+  (`CityHubScene`, opened from the existing `shrine_temple` interaction), the omen line on the
+  pre-fight card (`PreFightModal`, fed by `GladiatorSchoolHub`), the ill omen's hardening at duel
+  entry (`DuelScene`), and the settlement inside `App.handleMatchComplete`'s EXISTING write (one
+  `saveProfile`, as before), whose outcome the result screen prints (`DuelResultModal`).
+  `createNewProfile()` writes neither field and there is no migration.
+- **The Director rulings, as implemented.** Price **25 gold**, refused before any arithmetic when
+  the purse cannot cover it (`insufficient-gold`, no omen, no write) · kind determined **50/50** at
+  offering through an **injectable RNG** (`offerOmen(profile, random = Math.random)`) · the kind omen
+  multiplies the **next duel win's fame ×1.25 APPLIED LAST** (after the mode multiplier, the crowd's
+  peak bonus and the crowd-turned factor) and never touches gold · the ill omen adds **+0.10
+  aggression / +0.05 blockChance** at duel entry, AFTER the mode delta, clamped into [0.05, 0.95] and
+  **outside C-C's ±0.20 grudge+mode cap**, and a win pays **gold ×1.25 AND fame ×1.25 applied last**
+  · the **first-ever decline** pays **+5 fame** and records `omenTrickleClaimed`, later declines write
+  nothing, and a decline while an omen is live leaves it untouched and spends no trickle ·
+  `expiresAtBout = fightsWon + fightsLost + 1` at offering, consumed at the next duel result (pay on a
+  win, expire unpaid on a loss), a new offering substituting for a live one with no refund · ANY duel
+  win counts (ladder, Feature Bout, grudge); races, training, story beats and Rest never consume.
+- **Out of this slice, recorded in the module.** Event A's doubling, the retention doc's random
+  flavour-modifier variant (Hook A governs A1), Fortunae-day doubling and K3's Postumia plate.
+- **Corpus.** `saveFixtures/omenEraProfile.json` (`omen-era`: the `keepers-era` save with a live kind
+  omen at bout index 9 and the trickle claimed), registered in `saveFixtures/index.ts` and
+  `MANIFEST.md`; `saveCorpus.test.ts` §J's optional list is now the merged **20 fields** ending
+  `…, 'seenKeepers', 'omen', 'omenTrickleClaimed'`, §E gained both absent-field defaults, §C drives
+  `resolveOmen` / `isTrickleClaimed`, and §F pins the fixture's own shape. The rule was not weakened:
+  `utils/fortunasOmen.test.ts` §I **controls** the same scan and shows it still fails on a field
+  nobody accounted for.
+- **The suite: `src/utils/fortunasOmen.test.ts` — 34 tests / 216 expect() calls** in nine sections
+  (field round-trip through the real save key and clearing; the draw across 100 seeds and the price
+  refusal; the kind multiplier composed on real `modeRewardBases` + `crowdDuelReward` numbers,
+  including a control proving it is applied after the crowd's turning; the ill shift's clamp, its
+  placement outside the ±0.20 cap, and the ×1.25 win / unpaid loss; the decline's three outcomes;
+  expiry, replacement and the module's exact consumer list; the rendered card and result lines; the
+  write-site pins — the module is pure and only `App` writes, once per handler).
+- **Rebased, not weakened (six source pins).** `storyChapterOne` and `injury` now assert
+  `stats: resultStats,` in the result payload (the settled object) instead of the bare `stats,`;
+  `injury` also follows the `afterInjury → afterOmen → grudgeProfile` chain; `combatPlumbing` and
+  `longMemory` read `boutProfile` (the mode profile with the ill shift after it, identity without
+  one); `duelRewards` reads `resultStats.goldEarned` (the figure App both credits and shows);
+  `laurels`' exact allowlist gained this suite, which must name `laurels` to pin the 20-field order.
+- **Verified 2026-10-28** in the dev container: `bun test` (bare, repo-wide) → **4268 pass / 0 fail
+  (140 files, 118,309 `expect()`)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check
+  passing (8 assets); `git diff --check` → clean. Existing guards (timeState §G, the keepers plate)
+  needed no re-scope — the omen reads no clock and no keeper.
+- **NOT automatically verified — every new surface, and that is the device's job.** The preview
+  browser boots the title screen with 0 console errors, but driving title → creation → the Oath's
+  four press-and-holds → the 3D city (SwiftShader, ~2 fps) → the map → the shrine does not fit one
+  script's 30 s budget: the attempt reached the third oath line and timed out, so **the shrine panel,
+  the pre-fight omen line and the result-screen omen line have not been seen rendered**, and the
+  offering/decline clicks have not been driven through the UI. Their copy and wiring are pinned by
+  the server-rendered suites and the source pins, and the transactions by the pure ones (including a
+  real `saveProfile` / `loadSavedProfile` round trip). Android checklist: (a) the shrine panel opens
+  on `Offer Alms to Fortuna` and shows the live word with its bout number; (b) a 25 g offering writes
+  the omen and deducts once, and the purse-short state disables the button with its line; (c) the
+  first decline pays +5 fame and the second pays nothing; (d) the pre-fight card shows kind/ill +
+  "next bout (#N)" and an ill bout's opponent reads sharper; (e) the result screen prints the omen's
+  line on a win and on a loss, and gold/fame match it; (f) no hub button got smaller.

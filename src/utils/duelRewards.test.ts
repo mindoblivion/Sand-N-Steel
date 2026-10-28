@@ -163,7 +163,12 @@ describe('§G wiring', () => {
   });
 
   test('App credits the same figure it saved — the reward path is unchanged', () => {
-    expect(app).toContain('const nextGold = profile.gold + stats.goldEarned;');
+    // PITCH A1 — the credited figure is `resultStats.goldEarned`, which IS
+    // `stats.goldEarned` unless an omen paid (then it is the settled figure — the
+    // one the result screen shows). The property pinned here is unchanged: the gold
+    // App saves is the gold it credits.
+    expect(app).toContain('const nextGold = profile.gold + resultStats.goldEarned;');
+    expect(app).toContain('const resultStats: DuelStatistics = omenSettled.paid');
     expect(app).toContain('gold: nextGold');
     expect(app).toContain('goldTotal={profile?.gold}');
   });

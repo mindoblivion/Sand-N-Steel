@@ -47,6 +47,12 @@ interface DuelResultModalProps {
    * defeat), so the modal renders exactly as it always has.
    */
   palmaEarned?: string[];
+  /**
+   * PITCH A1 — what Fortuna's omen did in this bout, decided at the same write
+   * that consumed it: the fame (or gold and fame) it added, or that it was spent
+   * unpaid. Absent on every bout fought with no omen live.
+   */
+  omenLine?: string | null;
   onContinue: () => void;
 }
 
@@ -84,6 +90,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   coachCardId,
   onCoachCardDismiss,
   palmaEarned,
+  omenLine,
   onContinue,
 }) => {
   const pace = didWin ? 1 : DEFEAT_PACE;
@@ -276,6 +283,18 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
               </p>
             ))}
           </div>
+        )}
+
+        {/* PITCH A1 — FORTUNA'S OMEN.  One line, outside the staged reveal, on a
+            win and a defeat alike: the fame (or gold and fame) the omen added, or
+            that it was spent unpaid.  Decided at the write that consumed it. */}
+        {omenLine && (
+          <p
+            data-duel-omen
+            className="text-xs sm:text-[13px] font-serif italic text-amber-200/90 leading-relaxed mb-4"
+          >
+            {omenLine}
+          </p>
         )}
 
         {/* C-8.70C — THE GRUDGE'S OWN RESULT. A win settles it for good; a loss

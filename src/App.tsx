@@ -94,6 +94,19 @@ import {
   settleGrudge,
 } from './utils/grudgeBouts';
 import { REST_PRICE, resolveInjuryAfterDuel, restAtInn, treatInjury, type DuelInjuryEvent } from './utils/injury';
+// PITCH A1 — Fortuna's Omen.  The shrine's two words, the decline's once-ever
+// trickle, and the duel result that consumes them: the settlement is applied
+// inside `handleMatchComplete`'s existing write, and the offering/decline writes
+// travel the same save-on-change path every other hub transaction uses.
+import {
+  clearOmen,
+  declineOmen,
+  offerOmen,
+  resolveOmen,
+  settleOmenRewards,
+  type OmenDeclineOutcome,
+  type OmenOfferOutcome,
+} from './utils/omens';
 // DAY/NIGHT T2 — the clock's reads at the seams, and the day-boundary seam's own module.
 // Only the seam files in this slice may touch these (see the re-scoped T0 guard in
 // `utils/timeState.test.ts`): the duel result, the training session, the night at the inn,
@@ -177,6 +190,12 @@ export function App() {
      * result screen announces exactly what the save already carries.
      */
     palmaEarned?: string[];
+    /**
+     * PITCH A1 — what Fortuna's omen did in this bout (paid, expired unpaid), or
+     * `null`/absent when no omen was live. Decided at the same write, so the
+     * result screen cannot disagree with the save.
+     */
+    omenLine?: string | null;
   } | null>(null);
   /**
    * STORY-2 — the rule chosen for the Doctore's Test. Held for the length of the
@@ -739,14 +758,31 @@ export function App() {
      */
     const { profile: afterInjury, event: injuryEvent } = resolveInjuryAfterDuel(profile, didWin);
 
+    /**
+     * PITCH A1 — Director rulings 3, 4 and 6: the omen is CONSUMED by this duel
+     * result, inside this same write.  Its multipliers are applied LAST — to the
+     * fame and gold C-C's composition order already produced (mode → crowd peak →
+     * crowd turning) — and the field is cleared whether it paid or expired unpaid.
+     * The result screen is handed the settled numbers, so it and the save agree.
+     */
+    const omenBefore = resolveOmen(profile);
+    const omenSettled = settleOmenRewards(omenBefore, didWin, {
+      fame: stats.fameEarned,
+      gold: stats.goldEarned,
+    });
+    const afterOmen = clearOmen(afterInjury);
+    const resultStats: DuelStatistics = omenSettled.paid
+      ? { ...stats, fameEarned: omenSettled.fame, goldEarned: omenSettled.gold }
+      : stats;
+
     /** CH-5 — what this victory unlocked, decided at the write and told to the result. */
     let palmaEarned: string[] | undefined;
 
     let settledProfile: PlayerProfile;
 
     if (didWin) {
-      const nextGold = profile.gold + stats.goldEarned;
-      const nextFame = profile.fame + stats.fameEarned;
+      const nextGold = profile.gold + resultStats.goldEarned;
+      const nextFame = profile.fame + resultStats.fameEarned;
       const nextXp = profile.xp + stats.xpEarned;
 
       let nextLevel = profile.level;
@@ -775,9 +811,9 @@ export function App() {
       // victory settles it. All three helpers are pure and return the profile
       // unchanged when nothing applies.
       const grudgeProfile = isGrudge
-        ? settleGrudge(afterInjury, activeOpponent)
+        ? settleGrudge(afterOmen, activeOpponent)
         : recordStandardVictory(
-            afterInjury,
+            afterOmen,
             activeOpponent,
             stats.dominantOffensiveClass ?? 'even'
           );
@@ -836,8 +872,8 @@ export function App() {
       // standard bout at that grudge's own tier (the anti-farm rule). Nothing
       // else about a defeat changes.
       const grudgeProfile = isGrudgeBout(activeOpponent)
-        ? closeGrudge(afterInjury, activeOpponent)
-        : afterInjury;
+        ? closeGrudge(afterOmen, activeOpponent)
+        : afterOmen;
       const updatedProfile: PlayerProfile = {
         ...grudgeProfile,
         fightsLost: profile.fightsLost + 1,
@@ -862,10 +898,13 @@ export function App() {
 
     setDuelResult({
       didWin,
-      stats,
+      // PITCH A1 — the settled numbers (omen multiplier included when it paid), so
+      // the result screen and the save cannot disagree.
+      stats: resultStats,
       storyLines,
       injuryEvent,
       ...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),
+      ...(omenSettled.line ? { omenLine: omenSettled.line } : {}),
     });
   };
 
@@ -1047,6 +1086,31 @@ export function App() {
     setProfile(result.profile);
     saveProfile(result.profile);
     return true;
+  };
+
+  /**
+   * PITCH A1 — the Shrine of Fortuna's two words.  Both transactions are pure and
+   * re-check their own rules (`offerOmen` refuses a purse under 25 gold before any
+   * arithmetic; `declineOmen` writes only the first-ever decline), so a refusal
+   * returns no profile and never reaches `saveProfile`.  The city screen only
+   * reports the choice; this is the one place either write happens.
+   */
+  const handleOfferOmen = (): OmenOfferOutcome | null => {
+    if (!profile) return null;
+    const result = offerOmen(profile);
+    if (!result.ok) return result;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+    return result;
+  };
+
+  const handleDeclineOmen = (): OmenDeclineOutcome | null => {
+    if (!profile) return null;
+    const result = declineOmen(profile);
+    if (!result.wrote) return result;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+    return result;
   };
 
   // P1 sell — the market buys a carried, unequipped item back for its
@@ -1277,6 +1341,8 @@ export function App() {
             onUseConsumable={handleUseConsumable}
             onBuyIntel={handleBuyIntel}
             onRecordKeeperVisit={handleRecordKeeperVisit}
+            onOfferOmen={handleOfferOmen}
+            onDeclineOmen={handleDeclineOmen}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
             movementLocked={!!oathBeatMode}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
@@ -1391,6 +1457,7 @@ export function App() {
             storyLines={duelResult.storyLines}
             injuryEvent={duelResult.injuryEvent}
             palmaEarned={duelResult.palmaEarned}
+            omenLine={duelResult.omenLine}
             goldTotal={profile?.gold}
             coachCardId={
               profile

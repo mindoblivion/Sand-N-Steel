@@ -27,6 +27,8 @@ import { HUB_FIRST_OPEN_CARD_ID, getCoachCard, hasSeenCard } from '../../utils/c
 import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { resolveDisplayClock } from '../../utils/dayRollover';
+// PITCH A1 — the omen line the pre-fight card prints, read lazily from the save.
+import { resolveOmen } from '../../utils/omens';
 
 interface GladiatorSchoolHubProps {
   playerProfile: PlayerProfile;
@@ -353,6 +355,8 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           }
           /* STORY-2 — the Test prints the rule the player chose (and its reason). */
           restriction={isDoctoreTestOpponent(selectedOpponent) ? testRestriction : null}
+          /* PITCH A1 — Fortuna's word on this bout, if one waits on it. */
+          omen={resolveOmen(playerProfile)}
           onConfirm={(mode) => {
             const opp = selectedOpponent;
             const restriction = isDoctoreTestOpponent(opp) ? testRestriction : null;

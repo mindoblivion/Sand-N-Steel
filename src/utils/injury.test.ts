@@ -333,8 +333,13 @@ describe('§H the one call site: the result transaction', () => {
     // `afterInjury`) instead of `afterInjury` itself. The property this test
     // pins — the resolution happens before the branch and feeds BOTH writes —
     // is unchanged; the literal moved one step down the chain.
-    expect(write.match(/\.\.\.(?:afterInjury|grudgeProfile),/g)?.length).toBe(2);
-    expect(write.match(/afterInjury/g)?.length).toBeGreaterThanOrEqual(3);
+    // PITCH A1 — the omen is settled from the injury-resolved profile in the same
+    // transaction, so the chain is afterInjury → afterOmen → grudgeProfile → both
+    // writes. The property — the resolution happens before the branch and feeds
+    // BOTH writes — is unchanged; the literal moved one step down the chain.
+    expect(write.match(/\.\.\.(?:afterOmen|grudgeProfile),/g)?.length).toBe(2);
+    expect(write.match(/clearOmen\(afterInjury\)/g)?.length).toBe(1);
+    expect(write.match(/afterOmen/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
   test('it rides the existing save — ONE write, whichever outcome', () => {
@@ -359,9 +364,12 @@ describe('§H the one call site: the result transaction', () => {
     const resultCallStart = write.indexOf('setDuelResult({');
     expect(resultCallStart).toBeGreaterThan(-1);
     const resultCall = write.slice(resultCallStart, write.indexOf('});', resultCallStart));
-    for (const field of ['didWin', 'stats', 'storyLines', 'injuryEvent']) {
+    for (const field of ['didWin', 'storyLines', 'injuryEvent']) {
       expect(resultCall).toContain(`${field},`);
     }
+    // PITCH A1 — the payload carries the stats object this write settled (the omen's
+    // multipliers applied last), so the screen and the save cannot disagree.
+    expect(resultCall).toContain('stats: resultStats,');
     expect(resultCall).toContain(
       '...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),',
     );
