@@ -162,7 +162,9 @@ describe('§G wiring', () => {
 
   test('App credits the same figure it saved — the reward path is unchanged', () => {
     // REBASED (L13A): the credit adds to the settlement's newest-committed base.
-    expect(app).toContain('const nextGold = base.gold + stats.goldEarned;');
+    // REBASED (Gold/NaN): both sides are normalized (`utils/currency.ts`), so a save whose
+    // `gold` is missing or corrupt pays its purse instead of writing `NaN` into the profile.
+    expect(app).toContain('const nextGold = normalizeGold(base.gold) + normalizeGold(stats.goldEarned);');
     expect(app).toContain('gold: nextGold');
     expect(app).toContain('goldTotal={profile?.gold}');
   });

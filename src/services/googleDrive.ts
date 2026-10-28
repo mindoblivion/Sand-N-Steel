@@ -1,5 +1,6 @@
 import { PlayerProfile } from '../types/game';
 import { getAccessToken } from './googleAuth';
+import { normalizeGold } from '../utils/currency';
 
 export interface DriveSaveFile {
   id: string;
@@ -197,7 +198,10 @@ export async function loadProfileFromDrive(fileId: string): Promise<PlayerProfil
   }
 
   const profile: PlayerProfile = await response.json();
-  return profile;
+  // Gold/NaN — the same boundary `loadSavedProfile` applies locally: a cloud save written
+  // by another build can carry no `gold` at all, and an unusable purse must read as 0
+  // rather than reach the duel settlement as `undefined` (see utils/currency.ts).
+  return { ...profile, gold: normalizeGold(profile.gold) };
 }
 
 /**

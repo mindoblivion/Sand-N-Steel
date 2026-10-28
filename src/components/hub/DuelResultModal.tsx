@@ -281,7 +281,8 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
                 <span className="text-cyan-400">XP Earned:</span>
                 <span data-testid="duel-reward-xp" className="text-cyan-400">+{counted.xp}</span>
               </div>
-              {typeof goldTotal === 'number' && (
+              {/* Gold/NaN — `typeof` alone lets NaN through, which printed "NaN Gold". */}
+              {Number.isFinite(goldTotal) && (
                 <div className="flex justify-between">
                   <span className="text-neutral-400">Purse Now:</span>
                   <span className="text-yellow-300">{goldTotal} Gold</span>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize, PlayerInjury } from './types/game';
 import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats } from './services/storage';
+import { normalizeGold } from './utils/currency';
 import { TitleScreen } from './components/hub/TitleScreen';
 import { CharacterCreation } from './components/hub/CharacterCreation';
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
@@ -679,7 +680,13 @@ export function App() {
     const injury = settleInjury(base, didWin).injury ?? null;
 
     if (didWin) {
-      const nextGold = base.gold + stats.goldEarned;
+      // Gold/NaN — BOTH sides are normalized. A save whose `gold` is missing or
+      // corrupt used to make this sum `NaN`, which was then written into the profile and
+      // persisted, so every gold readout (the hub header, the shop, the result screen's
+      // "Purse Now") printed NaN from then on. `normalizeGold` is the one reader of a
+      // purse (utils/currency.ts): an unusable stored value reads as 0, so a victory pays
+      // its own purse instead of poisoning the save.
+      const nextGold = normalizeGold(base.gold) + normalizeGold(stats.goldEarned);
       const nextFame = base.fame + stats.fameEarned;
       const nextXp = base.xp + stats.xpEarned;
 

@@ -54,6 +54,7 @@ import { ALL_OPPONENTS, TOURNAMENT_TIERS } from '../data/opponents';
 import { createNewProfile } from '../services/storage';
 import { advanceCityDay } from './cityClock';
 import { createDuelSettlementLatch } from './duelSettlement';
+import { normalizeGold } from './currency';
 import { settleInjury } from './injurySettlement';
 import { evaluateRoadMilestones } from './roadMilestones';
 import {
@@ -154,6 +155,7 @@ function settleFight(profile: PlayerProfile, opponent: OpponentConfig): PlayerPr
     'evaluateRoadMilestones',
     'setHeraldCries',
     'setDeviceChoiceOpen',
+    'normalizeGold',
     'advanceCityDay',
     'settleInjury',
     'resolveVictoryTier',
@@ -174,6 +176,7 @@ function settleFight(profile: PlayerProfile, opponent: OpponentConfig): PlayerPr
     evaluateRoadMilestones,
     noop,
     noop,
+    normalizeGold,
     advanceCityDay,
     settleInjury,
     resolveVictoryTier,

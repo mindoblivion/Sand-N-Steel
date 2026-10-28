@@ -56,6 +56,7 @@ import { advanceCityDay } from './cityClock';
 import { settleInjury } from './injurySettlement';
 import { resolveVictoryTier } from './tierAdvancement';
 import { createDuelSettlementLatch } from './duelSettlement';
+import { normalizeGold } from './currency';
 import { evaluateRoadMilestones } from './roadMilestones';
 import { VETERAN_FAME, VETERAN_TIER, deriveRank } from './rank';
 
@@ -185,6 +186,7 @@ function createHarness(
     'evaluateRoadMilestones',
     'setHeraldCries',
     'setDeviceChoiceOpen',
+    'normalizeGold',
     'advanceCityDay',
     'settleInjury',
     'resolveVictoryTier',
@@ -203,6 +205,7 @@ function createHarness(
     evaluateRoadMilestones,
     setHeraldCries,
     setDeviceChoiceOpen,
+    normalizeGold,
     advanceCityDay,
     settleInjury,
     resolveVictoryTier,
@@ -583,5 +586,51 @@ describe('§G the settlement is what raises the herald’s cry', () => {
     expect(harness.saves.length).toBe(2);
     expect(harness.cries.length).toBe(1);
     expect(harness.cries[0]).toEqual([VETERAN_CRY]);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+describe('§H Gold/NaN — a corrupt purse settles to a real number', () => {
+  /**
+   * The defect this closes: with `gold` missing from the save, App's real credit
+   * (`base.gold + stats.goldEarned`) answered `NaN`, which was written into the profile and
+   * persisted — so the result screen's "Purse Now" printed "NaN Gold" and every later gold
+   * readout did too. Both sides are now normalized (`utils/currency.ts`), which the handler
+   * this suite executes closes over exactly as App does.
+   */
+  test('a save with no gold credits the fight’s own purse instead of NaN', () => {
+    const broken = { ...fresh(), gold: undefined as unknown as number };
+    const harness = createHarness(broken, broken);
+    const bout = harness.latch.arm();
+
+    harness.handlers.handleMatchComplete(STATS, true, bout);
+
+    const settled = harness.ref.current!;
+    expect(Number.isFinite(settled.gold)).toBe(true);
+    expect(settled.gold).toBe(STATS.goldEarned);
+    // …and the figure that reaches the disk is the same finite number.
+    expect(harness.saves.length).toBe(1);
+    expect(harness.saves[0].gold).toBe(STATS.goldEarned);
+  });
+
+  test('a purse already poisoned with NaN is healed the same way', () => {
+    const broken = { ...fresh(), gold: Number.NaN };
+    const harness = createHarness(broken, broken);
+    const bout = harness.latch.arm();
+
+    harness.handlers.handleMatchComplete(STATS, true, bout);
+
+    expect(harness.ref.current!.gold).toBe(STATS.goldEarned);
+    expect(Number.isNaN(harness.saves[0].gold)).toBe(false);
+  });
+
+  test('a whole purse still adds the purse to it, exactly as before', () => {
+    const intact = fresh();
+    const harness = createHarness(intact, intact);
+    const bout = harness.latch.arm();
+
+    harness.handlers.handleMatchComplete(STATS, true, bout);
+
+    expect(harness.ref.current!.gold).toBe(500 + STATS.goldEarned);
   });
 });

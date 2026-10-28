@@ -12069,3 +12069,61 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   other phases. (d) The harness's own panel still reports "the toast rendered it" from
   `emitted.length > 0`, so that step is a report of state, not proof of a paint — the browser evidence,
   not the panel, is what established the render.
+
+## Gold/NaN — one reader of the purse (implemented)
+
+- **Symptom.** Straight after a fight, the result screen's **"Purse Now"** row read **"NaN Gold"**, and
+  from then on so did the city hub's purse chip, the shop, the workshop, the pre-race panel and the
+  academy header — the `NaN` was in the save. Nothing threw: the figure is only ever *printed*.
+- **Root cause, measured on the shipped code.** Gold was never normalized at any boundary.
+  `loadSavedProfile` returned `JSON.parse(raw)` untouched, so a profile whose `gold` is missing or
+  unusable (an older schema, a hand-edited file, a cloud save from another build) carried
+  `undefined`. App's victory settlement then computed `base.gold + stats.goldEarned` → **`NaN`**, which
+  was written into `updatedProfile` and `saveProfile`d, so every later read was `NaN` too. The result
+  screen's guard was `typeof goldTotal === 'number'`, which **`NaN` satisfies**, so the row rendered the
+  broken figure instead of hiding it. (The arena purse itself was already NaN-safe:
+  `calculateDuelGold` clamps every input through `toCount`.)
+- **The fix — one helper, four boundaries, no new behaviour.**
+  - `src/utils/currency.ts` (new) — `normalizeGold(value)`: a finite number passes through unchanged
+    (never re-rounded), anything else (`NaN`, `±Infinity`, `undefined`, `null`, a string, `true`, an
+    object) reads as `0`, and a negative purse is floored at `0`. It is the ONE reader, in the same
+    spirit as `normalizeInjury` for the injury slot.
+  - `src/services/storage.ts` — `loadSavedProfile` normalizes `gold` on the way in (and returns `null`
+    for a JSON value that is not a record, instead of spreading a primitive). A valid purse is
+    untouched, and the read still writes nothing.
+  - `src/App.tsx` — the victory credit is now
+    `normalizeGold(base.gold) + normalizeGold(stats.goldEarned)`, so a victory pays its own purse
+    instead of poisoning the save. This also closes the documented gate issue (a `NaN` purse passed
+    every `gold < price` comparison) at the source, without touching a single gate.
+  - `src/services/googleDrive.ts` — `loadProfileFromDrive` normalizes at the same boundary, so a cloud
+    restore cannot reintroduce an unusable purse.
+  - `src/components/hub/DuelResultModal.tsx` — the "Purse Now" guard is `Number.isFinite(goldTotal)`
+    instead of `typeof goldTotal === 'number'`, so the row is withheld rather than printed wrong.
+- **Regression suite: `src/utils/currency.test.ts`** — 13 tests / 43 assertions. §A the reader's
+  contract; §B the **rendered** result screen (`react-dom/server`, the repo's convention for a repo
+  with no DOM test library): a `NaN` purse prints no "NaN" and no "Purse Now", a real purse still reads
+  "135 Gold", an absent purse keeps the row out; §C the wiring — the exact credit expression, and a
+  save whose `gold` is `undefined` / `null` / `"120"` / `true` loading as `0` while the rest of the
+  record is untouched and the stored bytes are not rewritten. Plus **§H in
+  `duelSettlementCommit.test.ts`**, which executes App's OWN `handleMatchComplete` source: a profile
+  with `gold` missing settles to exactly the fight's purse (90), the saved object is finite, a purse
+  already poisoned with `NaN` is healed the same way, and an intact 500 still becomes 590.
+- **Before / after, verbatim.** The suite was run against the unfixed tree first: **8 pass / 5 fail**
+  (the rendered "NaN Gold", the guard, the credit, the load boundary and the cloud boundary), then
+  **13 pass / 0 fail** after the fix. Nothing was weakened to get there.
+- **Rebased, not weakened (test-only):** `duelRewards.test.ts` and `duelResultLifecycle.test.ts` pinned
+  the bare credit expression and now pin the normalized one, each with a comment naming this change;
+  `duelSettlementCommit.test.ts` and `arenaReachability.test.ts` **execute App's handler source** and
+  therefore had to be handed the shipped `normalizeGold` as a `new Function` parameter (without it the
+  executed handler threw `ReferenceError`, which is what those two suites caught).
+- **Verified 2026-10-28** in the existing healthy `web` container (no restart): `bun test` over the 41
+  files that touch the changed modules (`storage`, `App`, `DuelResultModal`, `googleDrive` — every
+  suite that names `loadSavedProfile`, `handleMatchComplete`, `goldTotal` or executes App's source) →
+  **1152 pass / 0 fail / 10778 expect() calls**; `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `git diff --check` → clean.
+- **Not automatically verified, and why.** (a) The **in-game** purse readout was not observed in the
+  sandbox browser: this environment clears `localStorage` on a full document load, so a seeded
+  corrupt save cannot be re-hydrated for a visual check (the same limit recorded for earlier preview
+  work). (b) No duel was fought, so the credit was exercised by executing App's real handler source,
+  not by playing a bout at the hub's ~2 fps. (c) Android remains outstanding for every screen. The
+  display guard itself **is** verified by rendering the real component.

@@ -6,6 +6,7 @@ import {
   getEffectiveArmorStats,
 } from '../utils/tempering';
 import { normalizeInjury } from '../utils/injurySettlement';
+import { normalizeGold } from '../utils/currency';
 
 /**
  * The one local-save key.  Exported so the two things that remove it — `Reset save`
@@ -124,7 +125,15 @@ export function loadSavedProfile(): PlayerProfile | null {
   try {
     const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw) as PlayerProfile | null;
+    // A save that parses but is not a record is no save (unchanged contract: an
+    // unreadable save reads as `null`, and nothing is written here).
+    if (!parsed || typeof parsed !== 'object') return null;
+    // Gold/NaN — the purse is the ONE field normalized on the way in, so a save written
+    // by an older schema (or hand-edited) lands as a real number instead of `undefined`,
+    // which the duel settlement would turn into `NaN` and persist. A valid purse passes
+    // through unchanged, and this read never writes.
+    return { ...parsed, gold: normalizeGold(parsed.gold) };
   } catch (e) {
     console.error('Failed to load profile:', e);
     return null;

@@ -219,7 +219,12 @@ describe('§C — App credits a finished fight once, by the existing rules', () 
     // REBASED (L13A): the credit now adds to the settlement's newest-committed base
     // (`profileRef.current ?? profile`) instead of the render's snapshot. The rule
     // this pins — one credit per currency, from the stats object, once — is unchanged.
-    expect(creditHandler.match(/base\.gold \+ stats\.goldEarned/g)?.length).toBe(1);
+    // REBASED (Gold/NaN): both sides of the gold credit are normalized, so an unusable
+    // stored purse pays the fight's own purse instead of writing `NaN` into the profile.
+    // The rule this pins — one gold credit, from the stats object, once — is unchanged.
+    expect(
+      creditHandler.match(/normalizeGold\(base\.gold\) \+ normalizeGold\(stats\.goldEarned\)/g)?.length
+    ).toBe(1);
     expect(creditHandler.match(/base\.fame \+ stats\.fameEarned/g)?.length).toBe(1);
     expect(creditHandler.match(/base\.xp \+ stats\.xpEarned/g)?.length).toBe(1);
   });
