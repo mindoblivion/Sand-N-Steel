@@ -76,6 +76,11 @@ import {
 // both sides are safe because each usage happens inside a function.
 import { isCodexComplete } from './codex';
 import type { EarnedTitle } from './laurels';
+// LUDI PHASE A — the two counters its six fame-only rows read. Both are read INSIDE
+// `resolveTriumphFacts` (never at module scope), so the existing cycle discipline holds:
+// `ludiCalendar` never imports this module, and `diceTrail` reaches it nowhere.
+import { resolveLaudes } from './diceTrail';
+import { resolveLudiProgress } from './ludiCalendar';
 
 // ── The shipped categories ─────────────────────────────────────────────────
 
@@ -126,6 +131,10 @@ export interface TriumphFacts {
   felledIds: readonly string[];
   /** A5 — every Codex page at 100%: the full-Codex capstone's whole condition. */
   codexComplete: boolean;
+  /** LUDI PHASE A — the SHARED Laurel total (`records.laudes`, `resolveLaudes`). */
+  laurels: number;
+  /** LUDI PHASE A — the persistent Favour total (`resolveLudiProgress`). */
+  favour: number;
   /** Absent when the evaluation has no result screen behind it. */
   /** Absent when the evaluation has no result screen behind it. */
   duel: DuelTriumphStats | undefined;
@@ -245,7 +254,8 @@ export const CODEX_COMPLETE_TRIUMPH_ID = 'saga_codex_complete';
 /**
  * The catalogue, in display order.
  *
- * Sand (7) · Coin (5) · Steel (4) · Saga (8) = **24 shipped**, then the six
+ * Sand (7) · Coin (5) · Steel (4) · Saga (14) = **30 shipped** (LUDI PHASE A appended
+ * the six calendar rows below to Saga), then the six
  * dormant rows (A5 appended `saga_codex_complete` to Saga; every A8 row is
  * unchanged and in its place).  Every threshold is a shipped number already in the save; none is
  * invented here.  A8's fame grants and titles are Director rulings, flagged as
@@ -451,6 +461,60 @@ export const TRIUMPH_CATALOGUE: readonly Triumph[] = [
     requirement: 'Fill every page of the Codex — every rival, every boss, every team, every blade and every street.',
     capstone: true,
     holds: (facts) => facts.codexComplete,
+  },
+
+  // LUDI PHASE A — THE CALENDAR'S SIX SAGA ROWS.  Fame-only deeds, counter-based, decided
+  // at a duel result like every other Saga row: `records.laudes` (the shared honour the
+  // Acta's third deed pays) and `ludi.favour` (the alms-day and third-deed currency). A7 —
+  // Director ruling: 10 fame at 7 and 30, 25 at 100 (`capstone`), and NO titles — the Saga
+  // title stays gated on `saga_legend` alone, which `titlesDueFor` enforces by id.
+  // The copy names the SHARED counter in its own word, "Laudes": P2's naming law reserves
+  // "laurel" for the palma the fame honours are bought with, and the Triumphs page must not
+  // print it (`triumphsSurface.test.tsx` §D). The ids keep the design's `saga_laurel_*`
+  // names because they are the catalogue's keys, not copy.
+  {
+    id: 'saga_laurel_7',
+    category: 'saga',
+    name: 'Seven Laudes',
+    requirement: 'Hold 7 Laudes from the Acta, the daily gazette.',
+    holds: (facts) => facts.laurels >= 7,
+  },
+  {
+    id: 'saga_laurel_30',
+    category: 'saga',
+    name: 'Thirty Laudes',
+    requirement: 'Hold 30 Laudes from the Acta, the daily gazette.',
+    holds: (facts) => facts.laurels >= 30,
+  },
+  {
+    id: 'saga_laurel_100',
+    category: 'saga',
+    name: 'A Hundred Laudes',
+    requirement: 'Hold 100 Laudes from the Acta, the daily gazette.',
+    capstone: true,
+    holds: (facts) => facts.laurels >= 100,
+  },
+  {
+    id: 'saga_favour_7',
+    category: 'saga',
+    name: 'Favour of the City',
+    requirement: 'Hold 7 Favour from the third deed and the shrine alms.',
+    holds: (facts) => facts.favour >= 7,
+  },
+  {
+    id: 'saga_favour_30',
+    category: 'saga',
+    name: 'Kept in the Favour of the City',
+    requirement: 'Hold 30 Favour from the third deed and the shrine alms.',
+    holds: (facts) => facts.favour >= 30,
+  },
+  {
+    id: 'saga_favour_100',
+    category: 'saga',
+    name: 'The City Favourite',
+    requirement: 'Hold 100 Favour from the third deed and the shrine alms.',
+    capstone: true,
+    holds: (facts) => facts.favour >= 100,
   },
 
   // ── DORMANT — defined, never evaluated, never rendered ────────────────────
@@ -736,6 +800,8 @@ export function resolveTriumphFacts(
     currentTier: finiteOrNull(source.currentTier) ?? 0,
     felledIds,
     codexComplete: isCodexComplete(source),
+    laurels: resolveLaudes(source),
+    favour: resolveLudiProgress(source).favour,
     duel: duel ?? undefined,
   };
 }

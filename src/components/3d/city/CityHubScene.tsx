@@ -123,6 +123,15 @@ import { KeeperPlate } from '../../hub/KeeperPlate';
 // printed rules and the keeper's plate; this scene only raises it and hands the
 // chosen row to `onEnterDuel`, exactly as the treatment/shrine panels work.
 import { BountyBoardPanel } from '../../hub/BountyBoardPanel';
+// LUDI PHASE A — the morning Acta: a dismissible city card, session-scoped, read-only.
+import {
+  ActaCard,
+  actaDismissedThisSession,
+  dismissActaThisSession,
+} from '../../hub/ActaCard';
+// DAY/NIGHT T3's display reader — the sanctioned way a scene reads the clock without
+// adding a second `resolveTimeState` call of its own (see `utils/dayRollover.ts`).
+import { resolveDisplayClock } from '../../../utils/dayRollover';
 // STORY-5a — THE DICE TRAIL: the panel section that rides under Aelia's plate,
 // and the two pure reads it needs (her rumour service's closure, the answer's
 // type). Nothing here writes: every transaction is `App`'s.
@@ -460,6 +469,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // `onEnterDuel` and every write is `App`'s.
   const [bountyPanel, setBountyPanel] = useState(false);
   /**
+   * LUDI PHASE A — the morning Acta's dismissal, held as the DAY it was dismissed on rather
+   * than a boolean: the card comes back by itself on a new exertion day (a night at the
+   * Caravanserai can turn the day without leaving the city), and module memory keeps a
+   * dismissal across re-entries in the same page session. Nothing is saved.
+   */
+  const [actaDay, setActaDay] = useState<number | null>(null);
+  /**
    * STORY-5b — one of the three Legend stops' conversations (the Librarian chain's
    * close at the Library, then a fragment at its own door).  Local view state
    * only: both writes (`withLibrarianChainClosed`, `withFragmentFound`) belong to
@@ -516,6 +532,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    * instead, exactly as A1 shipped it.
    */
   const cityPhase = resolveTimeState(playerProfile).phase;
+  /** LUDI PHASE A — the exertion day the Acta is read against (never a wall clock). */
+  const cityDay = resolveDisplayClock(playerProfile).day;
+  /**
+   * The Acta waits its turn: a PRESENTED scene owns the screen (`movementLocked` is the
+   * OathBeat's own lock), so a new gladiator swears first and reads the gazette after. The
+   * day is the exertion day, and the session memory keeps a dismissed Acta dismissed.
+   */
+  const showActa = actaDay !== cityDay && !actaDismissedThisSession(cityDay) && !movementLocked;
   const cityPhaseLight = getPhaseLight(cityPhase);
   const isOathRig = lightProfile === 'oathDawn';
 
@@ -1913,6 +1937,19 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             }}
           />
         </div>
+      )}
+
+      {/* LUDI PHASE A — THE MORNING ACTA. The city's day has a character, posted at dawn:
+          the day's name, its one line, and the three deeds with what is paid and what is
+          still owed. Dismissible, and remembered for the session only. */}
+      {showActa && (
+        <ActaCard
+          profile={playerProfile}
+          onDismiss={() => {
+            dismissActaThisSession(cityDay);
+            setActaDay(cityDay);
+          }}
+        />
       )}
 
       {/* STORY-4b — THE BOUNTY BOARD: the hall's own panel, raised by the door.

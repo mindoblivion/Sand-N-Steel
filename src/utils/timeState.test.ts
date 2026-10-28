@@ -515,6 +515,11 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'components/3d/city/CityHubScene.tsx',
       'components/duel/DuelScene.tsx',
       'utils/dayRollover.ts',
+      // LUDI PHASE A — the Ludi Calendar's day IS the clock's day: the whole slice reads
+      // `resolveTimeState(profile).day` rather than a wall clock, and it writes nothing to
+      // the clock (`ludi` is its own field). Added here as a READER, on the same terms as
+      // the day-boundary seam beside it.
+      'utils/ludiCalendar.ts',
     ];
     const CLOCK_APIS = [
       'resolveTimeState',
@@ -561,6 +566,8 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/currentPhase.ts',
       'utils/dayRollover.ts',
       'utils/duelPhaseLight.ts',
+      // LUDI PHASE A — the calendar reads the clock's DAY (never its phase table).
+      'utils/ludiCalendar.ts',
       'utils/nightDressing.ts',
       'utils/phaseFlavor.ts',
       'utils/racePhaseLight.ts',

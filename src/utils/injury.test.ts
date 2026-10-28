@@ -359,7 +359,9 @@ describe('§H the one call site: the result transaction', () => {
     // the SAME save), so the profile the one write carries is `trailProfile`.  The
     // property this pins — ONE save, injury included, for a win and a loss alike —
     // is unchanged, and the counts above still prove it.
-    expect(write).toContain('applyTriumphAwards(trailProfile, duelTriumphStats)');
+    // LUDI PHASE A REBASE, not a weakening: the Acta's settlement composes onto the same
+    // profile the awards are then applied to, and the one save still carries everything.
+    expect(write).toContain('applyTriumphAwards(ludi.profile, duelTriumphStats)');
     expect(write).toContain('saveProfile(awards.profile)');
     expect(write).not.toContain('saveProfile(afterInjury)');
     expect(write).not.toContain('saveProfile(settledProfile)');

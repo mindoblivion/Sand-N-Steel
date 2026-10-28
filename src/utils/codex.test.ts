@@ -450,8 +450,10 @@ describe('A5 §J — the save corpus keeps its rule', () => {
 
   test('§J stays at 22 optional fields, with `records` last', () => {
     const optional = scanOptional(read('types/game.ts'));
-    expect(optional.length).toBe(22);
-    expect(optional.slice(-2)).toEqual(['spared', 'records']);
+    // LUDI PHASE A REBASE: the calendar's `ludi` is declared between `spared` and
+    // `records`, so the set is 23 and `records` still closes it.
+    expect(optional.length).toBe(23);
+    expect(optional.slice(-2)).toEqual(['ludi', 'records']);
     // The Codex's field is NESTED inside records, never a top-level one (R6).
     expect(optional).not.toContain('codexLocations');
   });
@@ -513,9 +515,12 @@ describe('A5 §K — the surfaces and the wiring', () => {
     expect(city).toContain('onVisitLocation?.(nearbyLoc.id)');
     const app = code('App.tsx');
     expect((app.match(/withCodexLocation\(/g) ?? []).length).toBe(1);
-    expect(app).toContain('const visited = withCodexLocation(profile, locationId);');
-    expect(app).toContain('if (visited === profile) return;');
-    expect(app).toContain('saveProfile(visited);');
+    // LUDI PHASE A REBASE, not a weakening: the same ONE hub-interaction write now also
+    // settles the Acta's visit on the codex-composed profile, so the visit is composed
+    // first and the settlement's answer is what the single save pair carries.
+    expect(app).toContain('settleLudiDeeds(withCodexLocation(profile, locationId), { locationId })');
+    expect(app).toContain('if (ludi.profile === profile) return;');
+    expect(app).toContain('saveProfile(ludi.profile);');
     expect(app).toContain('onVisitLocation={handleVisitLocation}');
     // The codex module itself never touches storage or the clock.
     const module = code('utils/codex.ts');

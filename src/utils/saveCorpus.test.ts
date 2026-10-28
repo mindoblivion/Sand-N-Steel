@@ -175,6 +175,8 @@ const REQUIRED_FIXTURE_IDS = [
   'mercy-era',
   // A8 — the retained Triumphs record.
   'records-era',
+  // LUDI PHASE A — the calendar's day-state.
+  'ludi-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -1048,6 +1050,9 @@ describe('GC20 §H — scope guards', () => {
       // field A5 nests inside `records` (`codexLocations`).  Still suites only:
       // no production source imports the corpus.
       'utils/codex.test.ts',
+      // LUDI PHASE A — the calendar's suite reads `ludi-era` to pin the field it writes.
+      // Still suites only: nothing under `services/`, `components/` or `App.tsx` reaches it.
+      'utils/ludiPhaseA.test.tsx',
       'utils/phaseP4StableProgression.test.ts',
       'utils/phaseP5FacilityProgression.test.ts',
       'utils/saveCorpus.test.ts',
@@ -1204,7 +1209,9 @@ describe('GC20 §J — the corpus rule', () => {
       'omenTrickleClaimed',
       // STORY-4a — the spared map (Pitch A9), appended last in declaration order.
       'spared',
-      // A8 — the retained Triumphs record, appended last in declaration order.
+      // LUDI PHASE A — the calendar's one lazy field, declared just before `records`.
+      'ludi',
+      // A8 — the retained Triumphs record, still the LAST member (§J).
       'records',
     ]);
 
@@ -1232,6 +1239,7 @@ describe('GC20 §J — the corpus rule', () => {
       'omenTrickleClaimed',
       'spared',
       'records',
+      'ludi',
     ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);
@@ -1270,10 +1278,11 @@ describe('GC20 §J — the corpus rule', () => {
       return [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\?:/gm)].map((match) => match[1]);
     };
     const shipped = scanned(types);
-    // A8 REBASE, not a weakening: the set is 22 now because this slice appended
-    // `records` after `spared`, and §J above carries the same one-field extension.
-    expect(shipped.length).toBe(22);
-    expect(shipped.slice(-2)).toEqual(['spared', 'records']);
+    // LUDI PHASE A REBASE, not a weakening: the set is 23 now because this slice
+    // inserted `ludi` between `spared` and `records` (so `records` stays last), and
+    // §J above carries the same one-field extension.
+    expect(shipped.length).toBe(23);
+    expect(shipped.slice(-2)).toEqual(['ludi', 'records']);
 
     const doctored = types.replace(
       '  records?: {',
@@ -1283,7 +1292,7 @@ describe('GC20 §J — the corpus rule', () => {
     const withNew = scanned(doctored);
     expect(withNew).not.toEqual(shipped);
     expect(withNew).toContain('unaccounted');
-    expect(withNew.length).toBe(23);
+    expect(withNew.length).toBe(24);
   });
 });
 

@@ -173,6 +173,17 @@ import {
   dayRolledTo,
   settleDuelClock,
 } from './utils/dayRollover';
+// LUDI PHASE A — THE LUDI CALENDAR. One settlement, run INSIDE the three existing save
+// paths below (the duel result, a training session, a named hub visit), plus the shrine's
+// alms and the day rollover. It reads the EXERTION day (`resolveTimeState(profile).day`)
+// and never a wall clock; it pays the deeds' fame and gold, and the day's Laurel through
+// the shared `records.laudes` counter — there is no second Laurel field.
+import {
+  applyLudiRollover,
+  settleLudiDeeds,
+  withLudiAlms,
+  type LudiSettlement,
+} from './utils/ludiCalendar';
 // STORY-5b — THE ERASED CHAMPION: the Librarian chain's three read-triggered
 // writes, the fragment read, the echo's once-ever line, and the exhibition fence
 // (Director ruling R4) that this file's duel result honours.
@@ -871,10 +882,14 @@ export function App() {
    */
   const handleVisitLocation = (locationId: string) => {
     if (!profile) return;
-    const visited = withCodexLocation(profile, locationId);
-    if (visited === profile) return;
-    setProfile(visited);
-    saveProfile(visited);
+    // LUDI PHASE A — the city's visit seam is one of the calendar's three: the location id
+    // is the visit deed's whole evidence. The settlement records the place in the day's list
+    // and pays the deed only when it is the ONE district today's Acta asks for. Both helpers
+    // are identity-stable, so a repeat visit to the same place still saves nothing.
+    const ludi = settleLudiDeeds(withCodexLocation(profile, locationId), { locationId });
+    if (ludi.profile === profile) return;
+    setProfile(ludi.profile);
+    saveProfile(ludi.profile);
   };
 
   /**
@@ -928,7 +943,11 @@ export function App() {
     const rolledTo = dayRolledTo(before, advanced);
     if (rolledTo === null) return advanced;
     setDayBanner({ day: rolledTo, text: dayBannerText(rolledTo) });
-    return applyDayRollover(advanced, rolledTo);
+    // LUDI PHASE A — the new day's Acta in the SAME save: the day's deeds and visit count
+    // are cleared and the fame baseline is re-based on the fame the gladiator wakes with,
+    // while Favour and the shared Laurel total persist. This save is also the one that
+    // makes the next settlement write against the new day.
+    return applyLudiRollover(applyDayRollover(advanced, rolledTo), rolledTo);
   };
 
   const handleMatchComplete = (stats: DuelStatistics, didWin: boolean) => {
@@ -1203,12 +1222,26 @@ export function App() {
       diceTrailBoutRef.current && didWin
         ? withDiceTrailVictory(timedProfile, activeOpponent.id)
         : timedProfile;
+    /**
+     * LUDI PHASE A — THE DUEL RESULT'S OWN SETTLEMENT. The two combat deeds ("take a
+     * victory", "win above 40 hype") and the day's 100-fame deed are decided HERE, from the
+     * profile this transaction has just composed (the purse and any bounty are on it), and
+     * the deeds' fame/gold and the day's Laurel ride the SAME save. The settlement is ONE
+     * non-recursive pass: the fame it pays can never satisfy another deed in this
+     * transaction, and the ids it records make a repeat call pay nothing. An exhibition is
+     * still a bout the Acta counts — it is a victory on the sand like any other.
+     */
+    const ludi: LudiSettlement = settleLudiDeeds(trailProfile, {
+      won: didWin,
+      crowdHypePeak: resultStats.crowdHypePeak,
+      atDuelResult: true,
+    });
     // STORY-5b — R4: an exhibition is judged by no herald, so no triumph is
     // evaluated for it and no praise is raised. The profile written is the same
     // one this transaction composed; nothing is skipped but the evaluation.
     const awards: TriumphAwardOutcome = exhibition
-      ? { profile: trailProfile, earned: [], titles: [] }
-      : applyTriumphAwards(trailProfile, duelTriumphStats);
+      ? { profile: ludi.profile, earned: [], titles: [] }
+      : applyTriumphAwards(ludi.profile, duelTriumphStats);
     setProfile(awards.profile);
     saveProfile(awards.profile);
 
@@ -1515,9 +1548,13 @@ export function App() {
     // DAY/NIGHT T2 — a training session CONSUMED advances the clock one phase, in this
     // session's own transaction. The refusal above returns before this line, so a session
     // that could not be paid for advances nothing. One save.
-    const timed = onDayRollover(profile, advanceTimeBy(trained, 1));
-    setProfile(timed);
-    saveProfile(timed);
+    // LUDI PHASE A — the session is a deed of its own, settled AFTER the clock step so the
+    // Acta it counts against is the day the session actually landed on. One save.
+    const timed = settleLudiDeeds(onDayRollover(profile, advanceTimeBy(trained, 1)), {
+      trained: true,
+    });
+    setProfile(timed.profile);
+    saveProfile(timed.profile);
   };
 
   /**
@@ -1630,9 +1667,14 @@ export function App() {
     if (!profile) return null;
     const result = offerOmen(profile);
     if (!result.ok) return result;
-    setProfile(result.profile);
-    saveProfile(result.profile);
-    return result;
+    // LUDI PHASE A — THE ALMS-DAY: one Favour for the day's first SUCCESSFUL offering. The
+    // refusal above returns before this line, so the favour is paid for the alms and never
+    // for the click; `withLudiAlms` is identity-stable for a second alms on the same day.
+    // The Omen's price, its effects and its expiry are untouched.
+    const alms = withLudiAlms(result.profile);
+    setProfile(alms);
+    saveProfile(alms);
+    return { ...result, profile: alms };
   };
 
   const handleDeclineOmen = (): OmenDeclineOutcome | null => {

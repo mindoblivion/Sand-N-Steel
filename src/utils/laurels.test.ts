@@ -417,6 +417,10 @@ describe('P2 §F — zero power', () => {
     'utils/codex.test.ts',
     'utils/triumphs.test.ts',
     'utils/triumphs.ts',
+    // LUDI PHASE A — the calendar's suite proves the daily honour rides `records.laudes`
+    // and that NO second laurel-shaped field exists, so it names the palma's field to
+    // assert it is untouched. It reads no palma transaction and buys nothing.
+    'utils/ludiPhaseA.test.tsx',
   ].sort();
 
   const code = (path: string): string =>

@@ -450,8 +450,10 @@ describe('§G no new profile field', () => {
     // appended its `spared` map after the omen pair, and A8 REBASED it again to
     // 22 by appending its own `records` field last.  What this guard exists to
     // pin — Chapter 2 added no chapter/beat/race field — is unchanged below.
-    expect(fields.length).toBe(22);
-    expect(fields.slice(-2)).toEqual(['spared', 'records']);
+    // LUDI PHASE A REBASE: the calendar's `ludi` joined the set between `spared` and
+    // `records`; Chapter 2 still added no chapter/beat/race field.
+    expect(fields.length).toBe(23);
+    expect(fields.slice(-2)).toEqual(['ludi', 'records']);
     // Nothing race-, beat- or chapter-shaped was added by this slice.
     for (const forbidden of ['chapter', 'beat', 'beatThree', 'raceResults', 'omenTaken']) {
       expect(fields).not.toContain(forbidden);

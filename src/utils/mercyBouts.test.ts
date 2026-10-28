@@ -177,8 +177,10 @@ describe('STORY-4a §A — `spared` is one lazy optional map and nothing else', 
     // A8 REBASE: `records` was appended after `spared`, so the set is 22 and the
     // tail moved by one.  STORY-4a's own property (`spared` is a lazy map appended
     // after the omen pair) is unchanged.
-    expect(optional.length).toBe(22);
-    expect(optional.slice(-3)).toEqual(['omenTrickleClaimed', 'spared', 'records']);
+    // LUDI PHASE A REBASE: `ludi` sits between `spared` and `records`; the omen pair is
+    // still the field before it, and `records` still ends the set.
+    expect(optional.length).toBe(23);
+    expect(optional.slice(-3)).toEqual(['spared', 'ludi', 'records']);
   });
 });
 
@@ -708,6 +710,8 @@ describe('STORY-4a §H — the result surface holds the flow; App writes each an
     // §J's list, as the corpus suite reads it out of `types/game.ts`.
     // A8 REBASE: §J's list now ends with `records`, which that suite added in the
     // same slice; `spared` is still in it, immediately before.
-    expect(read('utils/saveCorpus.test.ts')).toContain("      'spared',\n      // A8 — the retained Triumphs record");
+    // LUDI PHASE A REBASE: the corpus list now carries the calendar's field between the
+    // two, so the pin names the pair that still sits together.
+    expect(read('utils/saveCorpus.test.ts')).toContain("      'spared',\n      // LUDI PHASE A");
   });
 });
