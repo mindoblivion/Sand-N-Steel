@@ -88,6 +88,8 @@ import type { HeraldAim } from '../../../utils/cityHerald';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
 import type { StorefrontId } from '../../../data/shops';
 import { calculateTotalStats } from '../../../services/storage';
+// A8 — the Library building's own prompt carries a ✦ while earned deeds are unread.
+import { hasUnviewedTriumphs } from '../../../utils/triumphs';
 import { sounds } from '../../../audio/soundEffects';
 import { getConsumableCount, ownedConsumables } from '../../../utils/consumables';
 // S7 — the tavern's rumour list and its one price.  Information only: nothing
@@ -993,6 +995,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // RG-3 — the gladiator's banner, derived: no device means no banner, and the champion
   // stage is what raises it at the gate. Nothing here writes the save.
   const championBanner = useMemo(() => resolveBanner(playerProfile), [playerProfile]);
+  /**
+   * A8 — Director ruling R7: the Records & Lore Library's prompt wears a ✦ while
+   * the record holds a deed the player has not read.  Read-only here; the view's
+   * own opening is what marks them read (one save, once).
+   */
+  const unreadDeeds = useMemo(() => hasUnviewedTriumphs(playerProfile), [playerProfile]);
 
   /**
    * The herald's destination, resolved against the city's own registry: the pointer
@@ -1535,7 +1543,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 <>
                   <SparklesIcon className="w-6 h-6 sm:w-8 sm:h-8 fill-neutral-950 text-neutral-950" />
                   <span className="text-[9px] sm:text-xs font-serif font-black uppercase tracking-wider mt-0.5">
-                    ENTER [E]
+                    {nearbyLoc.id === 'records_house' && unreadDeeds ? '✦ ' : ''}ENTER [E]
                   </span>
                 </>
               ) : (
@@ -1558,7 +1566,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_25px_rgba(245,158,11,0.7)] border-2 border-amber-200 transition-all active:scale-95 cursor-pointer flex items-center gap-2"
           >
             <SparklesIcon className="w-4 h-4 fill-neutral-950 text-neutral-950" />
-            <span>{nearbyLoc.actionPrompt} [E / Space]</span>
+            <span>
+              {nearbyLoc.id === 'records_house' && unreadDeeds ? '✦ ' : ''}
+              {nearbyLoc.actionPrompt} [E / Space]
+            </span>
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>

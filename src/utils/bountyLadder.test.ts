@@ -455,10 +455,14 @@ describe('STORY-4b §G — no new profile field', () => {
     return [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\?:/gm)].map((match) => match[1]);
   };
 
-  test('§J stays at twenty-one fields, `spared` last, and no bounty field appears', () => {
+  test('§J stays at twenty-two fields, `records` last, and no bounty field appears', () => {
+    // A8 REBASE, not a weakening: STORY-4b's property — no BOUNTY field is added to
+    // the profile — is unchanged; the set legitimately grew by A8's one `records`
+    // field, which `saveCorpus.test.ts` §J carries in the same slice.
     const optional = optionalProfileFields();
-    expect(optional.length).toBe(21);
-    expect(optional[optional.length - 1]).toBe('spared');
+    expect(optional.length).toBe(22);
+    expect(optional[optional.length - 1]).toBe('records');
+    expect(optional[optional.length - 2]).toBe('spared');
     expect(optional.some((name) => /bounty|deserter/i.test(name))).toBe(false);
   });
 

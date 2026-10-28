@@ -29,6 +29,12 @@ interface StatsTabProps {
    */
   onEquipPalma?: (palmaId: string) => void;
   onUnequipPalma?: (palmaId: string) => void;
+  /**
+   * A8 — the second door onto the Library's Triumphs page.  One surface, two
+   * doors: this button routes to the same view the Records & Lore rack shows.
+   * Absent handler = no button (this sheet is then exactly what it was).
+   */
+  onOpenTriumphs?: () => void;
 }
 
 export const StatsTab: React.FC<StatsTabProps> = ({
@@ -38,6 +44,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   onRepledgeArmatura,
   onEquipPalma,
   onUnequipPalma,
+  onOpenTriumphs,
 }) => {
   const total = calculateTotalStats(profile);
   /**
@@ -224,6 +231,20 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <p className="mt-2 font-serif text-xs text-amber-200" data-statue-line>
               {STATUE_OWNED_LINE}
             </p>
+          )}
+
+          {/* A8 — the deeds live in the Library's Triumphs page, and this is the
+              second door onto that ONE surface (the Records & Lore building is
+              the first).  It routes; it writes nothing. */}
+          {onOpenTriumphs && (
+            <button
+              type="button"
+              data-open-triumphs
+              onClick={onOpenTriumphs}
+              className="mt-3 min-h-[44px] w-full px-3 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400 text-purple-100 font-serif font-bold text-xs uppercase tracking-wider cursor-pointer active:scale-[0.98] transition-all"
+            >
+              View Triumphs
+            </button>
           )}
         </div>
       </div>

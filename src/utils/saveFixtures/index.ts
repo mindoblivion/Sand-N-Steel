@@ -45,6 +45,7 @@ import grudgeEraProfile from './grudgeEraProfile.json';
 import keepersEraProfile from './keepersEraProfile.json';
 import omenEraProfile from './omenEraProfile.json';
 import mercyEraProfile from './mercyEraProfile.json';
+import recordsEraProfile from './recordsEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -288,6 +289,18 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every post-GC20 optional field populated, spared included',
     ],
     profile: asProfile(mercyEraProfile),
+  },
+  {
+    id: 'records-era',
+    file: 'recordsEraProfile.json',
+    provenance:
+      'The STORY-4a mercy-era save driven once through the shipped A8 `applyTriumphAwards` transaction (no duel reading, so no transient deed), so it is byte-for-byte what that write persists.',
+    covers: [
+      'the `records` record populated (A8): seven earned deeds, none read yet, and the peak purse',
+      'the earned titles appended beside the bought ones (Sand, Coin and Steel; Saga stays capstone-gated)',
+      'the one-time fame grants paid in the same write (700 -> 785: six standard at 10 plus one capstone at 25)',
+    ],
+    profile: asProfile(recordsEraProfile),
   },
 ];
 

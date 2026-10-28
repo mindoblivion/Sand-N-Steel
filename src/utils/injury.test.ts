@@ -349,9 +349,16 @@ describe('§H the one call site: the result transaction', () => {
     // pins is stronger than the pin it replaces — a single write carries the injury result
     // for a win and for a loss alike, and the injury is still never saved on its own.
     expect(write.match(/saveProfile\(/g)?.length).toBe(1);
-    expect(write).toContain('saveProfile(timedProfile)');
+    // A8 REBASE, not a weakening: the clock seam still runs on the composed profile
+    // (`timedProfile`), and the A8 award composition is applied to THAT profile, so
+    // the one save is `awards.profile`.  The property — a single write carries the
+    // injury result for a win and a loss alike — is unchanged and still asserted by
+    // the count above.
+    expect(write).toContain('applyTriumphAwards(timedProfile, duelTriumphStats)');
+    expect(write).toContain('saveProfile(awards.profile)');
     expect(write).not.toContain('saveProfile(afterInjury)');
     expect(write).not.toContain('saveProfile(settledProfile)');
+    expect(write).not.toContain('saveProfile(timedProfile)');
   });
 
   test('the result screen is handed the event from the same write', () => {

@@ -447,10 +447,11 @@ describe('§G no new profile field', () => {
   test('G1 — the field list ends with the omen pair, and only STORY-4a follows it', () => {
     const fields = optionalProfileFields();
     // STORY-4a REBASE (not a weakening): the set is 21 now because PITCH A9
-    // appended its `spared` map after the omen pair.  What this guard exists to
+    // appended its `spared` map after the omen pair, and A8 REBASED it again to
+    // 22 by appending its own `records` field last.  What this guard exists to
     // pin — Chapter 2 added no chapter/beat/race field — is unchanged below.
-    expect(fields.length).toBe(21);
-    expect(fields.slice(-3)).toEqual(['omen', 'omenTrickleClaimed', 'spared']);
+    expect(fields.length).toBe(22);
+    expect(fields.slice(-2)).toEqual(['spared', 'records']);
     // Nothing race-, beat- or chapter-shaped was added by this slice.
     for (const forbidden of ['chapter', 'beat', 'beatThree', 'raceResults', 'omenTaken']) {
       expect(fields).not.toContain(forbidden);

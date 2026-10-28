@@ -781,13 +781,16 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     // legitimately grew by the one field that slice added — the same extension
     // `saveCorpus.test.ts` §J carries.
     'spared',
+    // A8 — the retained Triumphs record, appended last in declaration order.
+    // REBASED again for the same reason: one more field in the same set.
+    'records',
   ];
 
-  test('the merged type declares exactly the twenty-one optional fields, in order', () => {
+  test('the merged type declares exactly the twenty-two optional fields, in order', () => {
     const types = readFileSync(join(SRC_ROOT, 'types/game.ts'), 'utf8');
     const optional = scanOptional(types);
     expect(optional).toEqual(EXPECTED);
-    expect(optional.length).toBe(21);
+    expect(optional.length).toBe(22);
   });
 
   test('the rule still fails on a field nobody accounted for', () => {
@@ -803,6 +806,7 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     // fixture the absent half — the shape the corpus rule demands of a new field.
     // STORY-4a REBASE: the pair is no longer last — PITCH A9's `spared` map is
     // appended after it — so the same property is stated over the last three.
-    expect(EXPECTED.slice(-3)).toEqual(['omen', 'omenTrickleClaimed', 'spared']);
+    // A8 REBASE: `records` is now last, so the pair this pins is the tail of the set.
+    expect(EXPECTED.slice(-2)).toEqual(['spared', 'records']);
   });
 });
