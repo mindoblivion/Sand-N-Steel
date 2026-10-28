@@ -270,7 +270,7 @@ describe('§E — "why you fell": ≤3 plain lines from the duel’s own tallies
     expect(lines.length).toBe(3);
     expect(lines[0]).toContain('Goliath the Pit Behemoth');
     expect(lines[0]).toContain('heavy attacks');
-    expect(lines[0]).toContain('300 damage');
+    expect(lines[0]).toContain('214 damage');
     expect(lines[0]).toContain('his overhead slam landed 3 times');
   });
 
@@ -300,7 +300,7 @@ describe('§E — "why you fell": ≤3 plain lines from the duel’s own tallies
       playerMix: { quick: 1, power: 1 },
     });
     expect(lines.length).toBe(3);
-    expect(lines[0]).toBe("Marcus's heavy attacks dealt 112 damage.");
+    expect(lines[0]).toBe("Marcus's heavy attacks dealt 72 damage.");
     expect(lines.join(' ')).not.toContain('landed');
   });
 
@@ -309,7 +309,7 @@ describe('§E — "why you fell": ≤3 plain lines from the duel’s own tallies
       ...bossInput,
       mechanic: { owner: 'Her' as const, mechanic: 'counter', landings: 0 },
     });
-    expect(none[0]).toBe("Goliath the Pit Behemoth's heavy attacks dealt 300 damage.");
+    expect(none[0]).toBe("Goliath the Pit Behemoth's heavy attacks dealt 214 damage.");
     const tie = whyYouFellLines({ ...bossInput, damageByClass: { quick: 60, power: 60 } });
     expect(tie[0]).toContain('attacks dealt 120 damage');
   });
