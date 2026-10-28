@@ -39,6 +39,13 @@ interface CombatHUDProps {
    */
   bossVignettePulse?: number;
   /**
+   * C-8.70C Slice C-D — the boss's live phase, on a LADDER boss only. `undefined`
+   * on every other bout (and on every duel that has no phases), so a standard
+   * fight's HUD is exactly what it always was. The chip sits beside the boss's
+   * own name, which is the "boss name banner" the phase change raises.
+   */
+  bossPhase?: 1 | 2;
+  /**
    * D-2 — the beast, when a bout fields one. Drives the wound pips beside the
    * boss's name and the panel's target choice; `null`/absent on every other duel.
    */
@@ -120,6 +127,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   opponentModifiers,
   opponentIsBoss,
   bossVignettePulse,
+  bossPhase,
   beast = null,
   panoply = null,
   brothers = null,
@@ -340,6 +348,26 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                     : brothers.crossing === 'exposed'
                     ? 'the pair is exposed'
                     : `${brothers.activeName} · pair`}
+                </span>
+              )}
+              {/* Slice C-D — the phase marker. Beside the boss's name, in the
+                  hazard colour the telegraph banner already uses; it reads I then
+                  II so the change is a visible state, not a surprise. */}
+              {bossPhase !== undefined && (
+                <span
+                  data-boss-phase={bossPhase}
+                  title={
+                    bossPhase === 2
+                      ? 'Second phase — the signature mechanic is intensified'
+                      : 'First phase'
+                  }
+                  className={`ml-1.5 shrink-0 rounded-sm border px-1 py-0.5 font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-wide ${
+                    bossPhase === 2
+                      ? 'border-red-500/80 bg-red-950/70 text-red-200'
+                      : 'border-amber-700/60 bg-neutral-950/70 text-amber-300/90'
+                  }`}
+                >
+                  PHASE {bossPhase === 2 ? 'II' : 'I'}
                 </span>
               )}
               <span className="text-xs font-mono font-bold text-red-300">

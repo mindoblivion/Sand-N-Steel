@@ -625,6 +625,15 @@ export interface DuelStatistics {
    * so the mode is session-only (see `data/boutModes.ts`).
    */
   boutMode?: BoutMode;
+  /**
+   * C-8.70C Slice C-D — "why you fell": at most three plain-language lines
+   * computed IN MEMORY from this defeat's own tallies (`utils/whyYouFell.ts`).
+   * Absent on every victory — the result screen is unchanged for a win except
+   * where Slice C-B already added its crowd lines. Like `adaptationLines` it
+   * rides this object to the result modal and is never written to a profile:
+   * nothing saves `DuelStatistics`, so no save format changes.
+   */
+  whyYouFell?: string[];
 }
 
 /**

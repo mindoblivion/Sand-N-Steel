@@ -533,7 +533,10 @@ describe('D-2 §H — the master alone fights at the row’s own shift', () => {
     expect(DUEL_SCENE).toContain("beastCfg && beastRef.current.pose === 'fled'");
     // C-8.70C rebased this pin (not weakened): the master-alone shift reads the
     // MODE's composed aggression, which on Sand is the row's own value exactly.
-    expect(DUEL_SCENE).toContain('masterAloneAggression(modeProfile.aggression, beastCfg.masterAloneAggressionBonus)');
+    // Slice C-D rebased this pin (not weakened): the master-alone shift reads the
+    // live base aggression, which is the mode's composed value in Phase 1 and the
+    // boss's published Phase-2 row when a ladder boss has one (Ignis only).
+    expect(DUEL_SCENE).toContain('masterAloneAggression(baseAggression, beastCfg.masterAloneAggressionBonus)');
     // The standard call is preserved verbatim for every other bout.
     expect(DUEL_SCENE).toContain('chooseAIStandardAction(opponent.aggression, opponent.blockChance)');
   });
@@ -817,7 +820,11 @@ describe('D-2 §J — nothing persists, and no pipeline stage was added', () => 
     // strike and the Exposed recovery — each an EXISTING action dispatched into
     // the same resolution function, so the count grows and the stage count does
     // not.
-    expect((DUEL_SCENE.match(/executeCombatTurn\(/g) ?? []).length).toBe(11);
+    // C-8.70C Slice C-D rebased this count by one: Goliath's Phase-2 CHAIN
+    // dispatches one more EXISTING action (`telegraph`) into the same resolution
+    // function. The stage count does not grow — the chain is an announce, not a
+    // mechanic — so the count grows by one and this pin moves with it.
+    expect((DUEL_SCENE.match(/executeCombatTurn\(/g) ?? []).length).toBe(12);
   });
 
   test('the fence gates the panel, the figure, the pips and every rule', () => {

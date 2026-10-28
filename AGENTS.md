@@ -7757,3 +7757,87 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   (c) `expectedDuelSeconds` 90 is a guess at the venue's pace; it only decides when the turning is
   possible, never the rewards' correctness. (d) The turned verdict is latched for the whole bout, so a
   crowd that goes cold at 45 s and roars back still pays the turned fame.
+
+## Boss phases and explainable defeats (Slice C-D — implemented)
+
+- **What ships.** Two phases for the four LADDER bosses, as data, plus a defeat breakdown. New files:
+  `src/data/bossPhases.ts` (the ladders, the floor resolver, the fenced lookups) and
+  `src/utils/whyYouFell.ts` (≤3 plain lines); the duel consumes them
+  (`src/components/duel/DuelScene.tsx`), the HUD draws a phase chip (`src/components/ui/CombatHUD.tsx`),
+  the result screen prints the breakdown on a defeat (`src/components/hub/DuelResultModal.tsx`,
+  `DuelStatistics.whyYouFell` in `src/types/game.ts`). Suite: `src/utils/bossPhases.test.ts` (34 tests).
+  Phase 1 of every ladder reproduces today's behaviour value for value; Phase 2 intensifies the SIGNATURE
+  mechanic only. No save changes — `isPhase2` and the breakdown live for one duel.
+
+- **Pre-change telegraph durations found (and kept).** Goliath's `heavy_telegraph` announce held
+  `TURN_RESOLUTION_MS.telegraph` **1450 ms** at a **30 %** announce rate, resolving as a standard
+  `power_attack` on his next slot; the beast crouch (`beast_crouch`) held **1000 ms**; Slice C-C's floor
+  (`TELEGRAPH_FLOOR_SECONDS = 0.8`, `modeTelegraphWindowMs`) shortened those holds to **800 ms** on
+  Steel/Invictus only. Ignis switched blades → mace at **50 %** HP (Pyre Brand heal); Valéria's
+  `counter_dodge` evaded at her `dodgeChance` (0.75) and resolved her counter on her very next turn;
+  Aurelius raged once at **50 %** HP with `RAGE_DAMAGE_MULTIPLIER` reached only at a full C-B charge.
+
+- **The four ladders.** Goliath: Phase 1 `{telegraphChance 0.30, chainHeavies 1}` → Phase 2 the SAME
+  chance and `chainHeavies 2` (a second announced heavy after the first, announced through the same
+  `telegraph` action so it is answered with the same full hold). Ignis: Phase 1 his row `0.85 / 0.45` →
+  Phase 2 `0.90 / 0.40` (**AUTHORED**: the row moved by the published Steel delta's own 0.05 step),
+  composed with the mode's Steel delta exactly as his row is. Valéria: Phase 1 `counterWindowTurns 0`
+  (today) → Phase 2 `2` (**AUTHORED**: the two-slot span every telegraphed threat already uses) — the
+  armed counter waits up to two of her turns for the player to return to her reach, spending ONE turn per
+  slot, then lapses; its damage source is still her existing quick attack. Aurelius: Phase 1
+  `rageChargeThreshold 1` (full charge for the published 1.25) → Phase 2 `0.5` (**AUTHORED**: C-B's 0→1
+  charge model's midpoint), read at the damage site through C-B's own `crowdRageDamageMultiplier`.
+  The 50 % phase line and the 0.8 s floor are the GIVEN values and were not re-authored.
+
+- **Mechanic extensions needed (stated per mechanic).** Goliath's chain and Valéria's window are the only
+  two behaviour additions, and both are *parameter* reads on existing branches: the chain dispatches the
+  EXISTING `telegraph` action once more (one more `executeCombatTurn` site, no new stage), and the window
+  only decides *whether* the existing pending-counter branch resolves now or holds. Ignis's profile swap
+  and Aurelius's charge threshold are value substitutions into the calls that already existed. No combat
+  formula was rewritten.
+
+- **The floor at the point of use.** `turnResolutionMs` now resolves every `telegraph` / `beast_crouch`
+  hold through `bossTelegraphHoldMs(mode, shipped)` — Slice C-C's own `modeTelegraphWindowMs` first, then
+  `Math.max(TELEGRAPH_FLOOR_SECONDS * 1000, …)`, so a hold can only ever be raised back onto the floor.
+  **No second floor constant and no `clampTelegraphSeconds` of its own exists** (asserted in the suite).
+  Sand still returns 1450 / 1000 exactly; Steel/Invictus still sit on 800.
+
+- **Presentation.** On the phase change each ladder boss sets `isPhase2`, logs one line, floats a
+  `PHASE II` banner over the boss (`spawnDamageText`), and fires the mechanic's EXISTING visual language
+  intensified (CF-1 trauma into the same `impactRef`, CF-3 crowd swell, CF-6 vignette pulse). The HUD shows
+  a `PHASE I` / `PHASE II` chip beside the boss's name, from `isPhase2`, on ladder bosses only
+  (`bossPhase` is `undefined` everywhere else). One-shot: `phaseAnnouncedRef`.
+
+- **Addendum D — the transition waits for the telegraph.** Both phase effects (the announce and Ignis's
+  weapon switch) return early while `opp.telegraphText || pendingHeavyAttackRef.current`, and re-run when
+  the banner clears, so a phase never interrupts an action in flight. Asserted on the shipped source
+  (§G) — mounting the scene is not possible in a suite.
+
+- **"Why you fell".** Computed in the defeat branch from the duel's own tallies and put on the in-memory
+  statistics: damage the opponent landed split by action class, the boss mechanic's landings (telegraph
+  landings, counter landings, Ignis's switch, Aurelius's rage), the crowd's verdict and the second it
+  latched, and the player's mix — read through the EXISTING `dominantClassOfMix` (D-5/C-A), never a second
+  counter. Three lines maximum; victory results unchanged.
+
+- **Boss gating.** No regular row carries a `bossMechanic`, and a phase ladder resolves only for
+  `isBoss` + a ladder mechanic + the mechanic's registered boss id — a grudge copy of a boss, a feature
+  bout's inert mechanic and a non-boss carrying the string all resolve to `null` and every helper answers
+  its Phase-1 value (swept over `ALL_OPPONENTS` + `DOCTORE_TEST_OPPONENT`).
+
+- **Rebased, not weakened (six existing pins).** `bossPresentation.test.ts` (the vignette pulse count 1 → 2
+  with the new site asserted inside its ladder fence; the announce-rate pin now reads the 0.30 out of the
+  phase data), `opponentsLadder.test.ts` (the same 0.30), `beastHunt.test.ts` (the master-alone pin reads
+  `baseAggression`; the dispatch count 11 → 12 for the chained announce), `panoply.test.ts` (the panoply's
+  live reads seeded from `baseAggression` / `baseBlockChance`), `crowdHypeDynamics.test.ts` (the same
+  master-alone pin).
+
+- **Verified 2026-10-28** in the dev container: `bun test` → **3995 pass / 0 fail (131 files, 116,244
+  expect() calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets);
+  `git diff --check` → clean. Live: the dev-only character harness dueled the real
+  `opp_goliath_boss` and the boss HUD rendered its phase marker (`data-boss-phase="1"`, `PHASE I`,
+  title "First phase"); 0 console errors.
+- **Not automatically verified.** The phase TRANSITION at 50 % and the defeat breakdown on screen: both
+  need a full boss fight driven into the second half and then lost, which the sandbox's software
+  renderer (~2 fps) cannot do inside a script budget. The transition is pinned by the data/source tests
+  and the breakdown by synthetic-log tests; neither was seen rendered.
