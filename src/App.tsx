@@ -197,6 +197,19 @@ import {
   withLibrarianChainClosed,
 } from './utils/librarianChain';
 import { DayBanner } from './components/ui/DayBanner';
+// FIRST SIXTY SECONDS (§5, retention build-order step 4: CORE ONLY) — the session's
+// opening beat and its two one-line surfaces. Sequencing only: it reads the systems
+// sections 2–4 already shipped and writes nothing.
+import { SessionGreetingBanner } from './components/ui/SessionGreetingBanner';
+import { resolveHeraldPointer, type HeraldPointer } from './utils/heraldPointer';
+import {
+  firstSixtySilencedThisSession,
+  greetingFor,
+  greetingShownThisSession,
+  markGreetingShown,
+  silenceFirstSixtyForSession,
+  walkedOffCity,
+} from './utils/firstSixtySeconds';
 import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
 import { preloadTitleStage } from './utils/preloadAssets';
@@ -257,6 +270,22 @@ export function App() {
   const exhibitionBoutRef = useRef(false);
   /** DAY/NIGHT T2 — the day-boundary beat the city plays (sleep veil + the new day's name). */
   const [dayBanner, setDayBanner] = useState<{ day: number; text: string } | null>(null);
+  /**
+   * FIRST SIXTY SECONDS — §5's session-scoped surfaces. All three are VIEW state over
+   * `utils/firstSixtySeconds.ts`'s session scratch (the Acta-dismissal pattern): no
+   * profile field, no save, no wall clock. The greeting shows once per session (the
+   * module remembers), the pointer is resolved at city entry, and `firstSixtySilenced`
+   * mirrors the module fact so the city can re-render the marker away.
+   */
+  const [firstSixtyGreeting, setFirstSixtyGreeting] = useState<{ day: number; text: string } | null>(null);
+  const [firstSixtyPointer, setFirstSixtyPointer] = useState<HeraldPointer | null>(null);
+  const [firstSixtySilenced, setFirstSixtySilenced] = useState(() => firstSixtySilencedThisSession());
+  /**
+   * The pointer's own line, held in a ref as well as in state: the greeting's `onDone`
+   * and the herald's ✕ both read it outside the render that set it (the `DayBanner`
+   * pattern already holds its callback this way). Session only, never saved.
+   */
+  const firstSixtyPointerRef = useRef<HeraldPointer | null>(null);
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
   /** C-8.70C — session-only: set by the pre-fight card, read by the duel, never saved. */
   const [boutMode, setBoutMode] = useState<BoutMode>(DEFAULT_BOUT_MODE);
@@ -550,6 +579,79 @@ export function App() {
     return evaluation.profile;
   };
 
+  /**
+   * FIRST SIXTY SECONDS — the ONE pointer line, raised through the EXISTING herald surface
+   * (`heraldCries` → `HeraldToast`). One line, never two: a duplicate is a no-op, and
+   * nothing is raised while the session is silenced. `App` is the only caller.
+   */
+  const raiseFirstSixtyPointer = (pointer: HeraldPointer | null) => {
+    if (!pointer) return;
+    setHeraldCries((previous) =>
+      previous.includes(pointer.line) ? previous : [...previous, pointer.line]
+    );
+  };
+
+  /**
+   * FIRST SIXTY SECONDS — §6's session silence. One call shuts EVERY §5 surface for the
+   * rest of the page session: the greeting, the Acta card, the pointer line and its
+   * district marker. The session fact is `firstSixtySeconds.ts`'s module memory (the
+   * Acta-dismissal pattern — never a profile field), and the pointer line leaves a toast
+   * that may also be carrying the herald's other cries.
+   */
+  const silenceFirstSixty = () => {
+    silenceFirstSixtyForSession();
+    const line = firstSixtyPointerRef.current?.line;
+    if (line) setHeraldCries((cries) => cries.filter((cry) => cry !== line));
+    firstSixtyPointerRef.current = null;
+    setFirstSixtyPointer(null);
+    setFirstSixtyGreeting(null);
+    setFirstSixtySilenced(true);
+  };
+
+  /**
+   * FIRST SIXTY SECONDS — the WALK-OFF trigger, in one place so the suite can pin it:
+   * leaving the city flow for a bout, one of the hub's panels or a race silences §5 for
+   * the session (see `walkedOffCity` in `utils/firstSixtySeconds.ts`).
+   */
+  const noticeCityFlowExit = (next: 'duel' | 'hub_2d' | 'race') => {
+    if (walkedOffCity(next)) silenceFirstSixty();
+  };
+
+  /**
+   * FIRST SIXTY SECONDS — the city's arrival beat, in the design's ORDER and nothing more
+   * (R-TIMING: beat order, not seconds):
+   *   1. the greeting banner, once per session, on the first city entry — unless a
+   *      PRESENTED scene owns the screen (the oath), in which case it is owed at the first
+   *      free entry, exactly as the Acta card waits for `movementLocked`;
+   *   2. the Acta card, which is already Phase A's own rule and mounts behind the banner;
+   *   3. the pointer line + marker, raised when the banner's own fade hands over.
+   * The pointer is resolved HERE, from the profile the entry was handed, so both surfaces
+   * of the session speak about the same save state.
+   */
+  const openFirstSixty = (arrival: PlayerProfile, presented = false) => {
+    if (firstSixtySilencedThisSession()) {
+      firstSixtyPointerRef.current = null;
+      setFirstSixtyPointer(null);
+      setFirstSixtyGreeting(null);
+      setFirstSixtySilenced(true);
+      return;
+    }
+    setFirstSixtySilenced(false);
+    const pointer = resolveHeraldPointer(arrival);
+    firstSixtyPointerRef.current = pointer;
+    setFirstSixtyPointer(pointer);
+    // A presented scene owns the screen: the greeting is owed at the first free entry.
+    if (presented) return;
+    if (greetingShownThisSession()) {
+      // Already greeted this session — the pointer is the only thing left to say, and the
+      // Acta card speaks for itself.
+      raiseFirstSixtyPointer(pointer);
+      return;
+    }
+    markGreetingShown();
+    setFirstSixtyGreeting(greetingFor(arrival));
+  };
+
   const enterCity = (forProfile: PlayerProfile) => {
     // City entry is the second milestone call site. Nothing new has happened here, so
     // this records at most a stage the save already earned — never a watcher's guess.
@@ -559,13 +661,18 @@ export function App() {
       saveProfile(arrivalProfile);
     }
 
-    if (shouldPlayOathBeat(arrivalProfile)) {
+    const presented = shouldPlayOathBeat(arrivalProfile);
+    if (presented) {
       setHerald(suppressHeraldForEntry());
       setOathBeatMode(resolveOathBeatMode(arrivalProfile));
     } else {
       setHerald(releaseHeraldForEntry());
       setOathBeatMode(null);
     }
+    // FIRST SIXTY SECONDS — the session's opening beat waits for free roam: while the oath
+    // owns the screen there is nothing to sequence, so the greeting is owed at the first
+    // entry the player actually walks into (see `handleOathComplete`).
+    openFirstSixty(arrivalProfile, presented);
     setCurrentScreen('city_3d');
   };
 
@@ -730,6 +837,10 @@ export function App() {
     setHerald(aimHerald(HERALD_COLOSSEUM));
     // The Oath has just been sworn: offer the once-a-session save-progress nudge.
     postOathNudge.offer();
+    // FIRST SIXTY SECONDS — free roam begins here, so this is the session's first real
+    // entry: the greeting, the Acta card and the pointer are sequenced from this profile.
+    const entryProfile = sworn ?? profile;
+    if (entryProfile) openFirstSixty(entryProfile, false);
   };
 
   const handleEnterDuel = (opp: OpponentConfig, mode: BoutMode = DEFAULT_BOUT_MODE) => {
@@ -743,6 +854,8 @@ export function App() {
     // the resolution write below consumes it.
     duelTimeSteppedRef.current = false;
     sounds.playClick();
+    // FIRST SIXTY SECONDS — a bout is walking off: §5 shuts up for the session.
+    noticeCityFlowExit('duel');
     setCurrentScreen('duel');
   };
 
@@ -818,6 +931,8 @@ export function App() {
    */
   const handleStartRace = (pose: CityExitPose) => {
     setCityReturnPose(pose);
+    // FIRST SIXTY SECONDS — the Circus is walking off too: §5 shuts up for the session.
+    noticeCityFlowExit('race');
     setCurrentScreen('race');
   };
 
@@ -845,6 +960,8 @@ export function App() {
     setActiveHubTab(tab);
     if (tab === 'gear') setGearView(gearSubview ?? 'armory');
     if (tab === 'shop') setShopId(shopStorefront ?? 'market');
+    // FIRST SIXTY SECONDS — a hub panel is walking off: §5 shuts up for the session.
+    noticeCityFlowExit('hub_2d');
     setCurrentScreen('hub_2d');
   };
 
@@ -1931,6 +2048,11 @@ export function App() {
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
             movementLocked={!!oathBeatMode}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
+            /* FIRST SIXTY SECONDS — the ONE pointer's target (the marker's id IS
+               this id) and §6's session silence. */
+            firstSixtyPointerTarget={firstSixtyPointer?.targetLocationId ?? null}
+            firstSixtySilenced={firstSixtySilenced}
+            onFirstSixtySilence={silenceFirstSixty}
             />
           </React.Suspense>
           </LazySceneBoundary>
@@ -1950,6 +2072,25 @@ export function App() {
               day={dayBanner.day}
               text={dayBanner.text}
               onDone={() => setDayBanner(null)}
+            />
+          )}
+
+          {/* FIRST SIXTY SECONDS — THE SESSION'S OPENING BEAT (§5, item 1). The same
+              pattern as the day banner (fade, hold, lift, `onDone` → null), once per
+              session on the first free city entry. It is the ONLY choreography in this
+              slice: when it lifts, the Acta card is already behind it and the pointer line
+              is raised — banner first, then the card, then one line (R-TIMING). */}
+          {firstSixtyGreeting && (
+            <SessionGreetingBanner
+              key={`first-sixty-${firstSixtyGreeting.day}`}
+              day={firstSixtyGreeting.day}
+              text={firstSixtyGreeting.text}
+              onDone={() => {
+                setFirstSixtyGreeting(null);
+                if (!firstSixtySilencedThisSession()) {
+                  raiseFirstSixtyPointer(firstSixtyPointerRef.current);
+                }
+              }}
             />
           )}
           </>
@@ -2089,7 +2230,17 @@ export function App() {
 
         {/* RG-3 — THE HERALD, and the one-time device choice. Both sit above every screen:
             a duel ends into the city, so a cry raised by the result has to outlive it. */}
-        <HeraldToast cries={heraldCries} onDismiss={() => setHeraldCries([])} />
+        <HeraldToast
+          cries={heraldCries}
+          onDismiss={() => setHeraldCries([])}
+          /* FIRST SIXTY SECONDS — the player's own ✕ on the stack (never its timer)
+             is the pointer's dismissal: if the §5 pointer line is among the cries, the
+             whole slice goes quiet for the session. */
+          onExplicitDismiss={() => {
+            const pointer = firstSixtyPointerRef.current;
+            if (pointer && heraldCries.includes(pointer.line)) silenceFirstSixty();
+          }}
+        />
         {deviceChoiceOpen && profile && (
             <DeviceChoosingPanel
             onChoose={handleChooseBannerDevice}
