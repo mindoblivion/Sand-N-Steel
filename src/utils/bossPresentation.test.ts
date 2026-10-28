@@ -58,6 +58,8 @@ import {
   WEAPON_DRAW_SWEEP_TO_HZ,
 } from '../audio/soundEffects';
 import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT } from '../data/opponents';
+// Slice C-D — the boss phase data the rebased announce-rate pins read.
+import { BOSS_PHASES } from '../data/bossPhases';
 import type { BossMechanic } from '../types/game';
 
 // ── Sources ────────────────────────────────────────────────────────────────
@@ -342,10 +344,24 @@ describe('CF-6 §A — boss gating', () => {
     ).toContain('sounds.playWeaponDraw();');
     expect(phaseSite).toBeGreaterThan(-1);
 
-    expect((DUEL_SCENE.match(/setBossVignettePulse\(Date\.now\(\)\)/g) ?? []).length).toBe(1);
+    // Slice C-D rebased this pin (not weakened): the phase change adds a SECOND
+    // pulse of the SAME CF-6 prop — the phase transition is a boss moment too —
+    // and it is gated by the ladder-boss fence (`bossPhaseLadderFor`). Both sites
+    // are asserted, so an ungated third site still fails this test.
+    expect((DUEL_SCENE.match(/setBossVignettePulse\(Date\.now\(\)\)/g) ?? []).length).toBe(2);
     expect(
       blockAfter(DUEL_SCENE, "if (bossPresentsMoment(opponent, 'rage_mode_colossus'))"),
     ).toContain('setBossVignettePulse(Date.now());');
+    // (`DUEL_SCENE` is comment-stripped here, so the block is delimited by the
+    // fence's own code and the start of the next effect.)
+    const ladderFence = DUEL_SCENE.indexOf('if (!bossPhaseLadderFor(opponent)) return;');
+    expect(ladderFence).toBeGreaterThan(-1);
+    const phaseAnnounceBlock = DUEL_SCENE.slice(
+      ladderFence,
+      DUEL_SCENE.indexOf('phaseSwitchedRef.current || isMatchOver.current', ladderFence),
+    );
+    expect(phaseAnnounceBlock).toContain('if (!bossPhaseLadderFor(opponent)) return;');
+    expect(phaseAnnounceBlock).toContain('setBossVignettePulse(Date.now());');
 
     // The counter's burst is the scene's fourth `burst('sand'` — the three CF-4
     // call sites are untouched — and it sits inside the counter gate.
@@ -641,7 +657,12 @@ describe('CF-6 §E — the counter-dodge', () => {
 // ══════════════════════════════════════════════════════════════════════════
 describe('CF-6 §F — mechanics, rates and timing unchanged', () => {
   test('the telegraph announce rate is still ~30 % and its own guards are unchanged', () => {
-    expect(DUEL_SCENE).toContain('Math.random() < 0.30');
+    // Slice C-D rebased this pin (not weakened): the 0.30 literal moved into the
+    // boss phase data, where both of Goliath's phases carry it unchanged, and the
+    // duel reads it from there. The roll and every guard are byte-identical.
+    expect(BOSS_PHASES.heavy_telegraph.phases[0].params.telegraphChance).toBe(0.3);
+    expect(BOSS_PHASES.heavy_telegraph.phases[1].params.telegraphChance).toBe(0.3);
+    expect(DUEL_SCENE).toContain('Math.random() < telegraphChance');
     expect(DUEL_SCENE).toContain("opponent.bossMechanic === 'heavy_telegraph' &&");
     expect(DUEL_SCENE).toContain('!pendingHeavyAttackRef.current &&');
     expect(DUEL_SCENE).toContain('dist <= effectiveRange &&');

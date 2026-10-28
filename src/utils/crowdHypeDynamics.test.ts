@@ -403,7 +403,11 @@ describe('C-8.70C §G — the wiring', () => {
     // … and both shipped chooser calls are still there, by the same names.
     expect(DUEL_SCENE).toContain('chooseAIStandardAction(aiAggression, aiBlockChance)');
     expect(DUEL_SCENE).toContain('chooseAIStandardAction(opponent.aggression, opponent.blockChance)');
-    expect(DUEL_SCENE).toContain('masterAloneAggression(modeProfile.aggression, beastCfg.masterAloneAggressionBonus)');
+    // Slice C-D rebased this pin (not weakened): the master-alone shift reads the
+    // live base aggression — the mode's composed value in Phase 1, a ladder boss's
+    // published Phase-2 row when it has one — so the crowd's shift still lands on
+    // the value the chooser is actually handed.
+    expect(DUEL_SCENE).toContain('masterAloneAggression(baseAggression, beastCfg.masterAloneAggressionBonus)');
     // The named-read branch is what carries the shift for a plain row.
     expect(DUEL_SCENE).toContain('panoplyCfg || longMemoryCfg || emboldenShift > 0');
   });

@@ -212,8 +212,11 @@ describe('D-3 §D — each break removes exactly its own benefit', () => {
   test('the AI reads the live values rather than the row', () => {
     // C-8.70C rebased these pins (not weakened): the panoply's live reads are
     // seeded from the MODE's composed profile, which on Sand equals the row.
-    expect(DUEL_SCENE).toContain('panoplyAggression(modeProfile.aggression, panoplyCfg, panoplyRef.current)');
-    expect(DUEL_SCENE).toContain('panoplyBlockChance(modeProfile.blockChance, panoplyCfg, panoplyRef.current)');
+    // Slice C-D rebased these two pins (not weakened): the panoply's live reads
+    // are seeded from the base profile, which is the mode's composed value in
+    // Phase 1 and a ladder boss's Phase-2 row when it has one.
+    expect(DUEL_SCENE).toContain('panoplyAggression(baseAggression, panoplyCfg, panoplyRef.current)');
+    expect(DUEL_SCENE).toContain('panoplyBlockChance(baseBlockChance, panoplyCfg, panoplyRef.current)');
     expect(DUEL_SCENE).toContain('panoplyDamageTakenMult(panoplyCfg, panoplyRef.current)');
   });
 });

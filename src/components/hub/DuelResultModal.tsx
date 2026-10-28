@@ -254,6 +254,30 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
           </div>
         )}
 
+        {/* C-8.70C Slice C-D — WHY YOU FELL. A DEFEAT only: at most three
+            plain, factual lines computed in the duel from its own tallies (the
+            damage by class, the mechanic that landed, the crowd's verdict, the
+            player's mix). In memory only — nothing here was saved. Victory
+            results are unchanged. */}
+        {!didWin && stats.whyYouFell && stats.whyYouFell.length > 0 && (
+          <div
+            data-why-you-fell={stats.whyYouFell.length}
+            className="bg-neutral-950/80 border border-neutral-700/70 rounded-2xl p-4 mb-4 flex flex-col gap-1.5"
+          >
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-400">
+              How it went
+            </div>
+            {stats.whyYouFell.map((line) => (
+              <p
+                key={line}
+                className="text-xs sm:text-[13px] font-serif text-neutral-200 leading-relaxed"
+              >
+                {line}
+              </p>
+            ))}
+          </div>
+        )}
+
         {/* C-8.70C — THE GRUDGE'S OWN RESULT. A win settles it for good; a loss
             leaves it standing until a standard bout at its tier is won. Read
             from the row this duel was fought with. */}
