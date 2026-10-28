@@ -35,6 +35,11 @@ import { LibraryTab } from '../components/hub/LibraryTab';
 import { StatsTab } from '../components/hub/StatsTab';
 import { TriumphsPage } from '../components/hub/TriumphsPage';
 import { purchaseLaurel } from './laurels';
+import {
+  DORMANT_TRIUMPHS,
+  SHIPPED_TRIUMPHS,
+  TRIUMPH_CATEGORIES,
+} from './triumphs';
 
 const SOURCE_DIR = fileURLToPath(new URL('../', import.meta.url));
 const read = (path: string): string => readFileSync(join(SOURCE_DIR, path), 'utf8');
@@ -244,8 +249,71 @@ describe('P2 §E — the wiring, from the shipped sources', () => {
 
     // And the hub is handed it, the library passes it on, the page calls it.
     expect(app).toContain('onPurchaseTriumph={handlePurchaseTriumph}');
-    expect(code('components/hub/GladiatorSchoolHub.tsx')).toContain(
-      '<LibraryTab profile={playerProfile} onPurchaseTriumph={onPurchaseTriumph} />',
+    // A8 REBASE, not a weakening: the rack now also takes the page it is showing
+    // and the two A8 hand-offs (the one view mark and title selection), so the
+    // literal one-line pin became the four props it must carry — the purchase
+    // handler included, which is what this assertion exists for.
+    const hub = code('components/hub/GladiatorSchoolHub.tsx');
+    const libraryBlock = hub.slice(hub.indexOf('<LibraryTab'), hub.indexOf('/>', hub.indexOf('<LibraryTab')) + 2);
+    expect(libraryBlock).toContain('profile={playerProfile}');
+    expect(libraryBlock).toContain('onPurchaseTriumph={onPurchaseTriumph}');
+    expect(libraryBlock).toContain('onViewTriumphs={onViewTriumphs}');
+    expect(libraryBlock).toContain('onSelectTitle={onSelectTitle}');
+  });
+});
+
+// ── §F A8 — the deeds list, the title row and the second door ──────────────
+describe('A8 §F — the deeds list, the title row and the second door', () => {
+  test('the four shipped categories render, and no dormant row does', () => {
+    const profile = profileWith({
+      records: { earnedTriumphs: ['sand_first_blood'], viewedTriumphs: [] },
+    });
+    const markup = markupOf(<TriumphsPage profile={profile} onSelectTitle={() => {}} />);
+    const text = textOf(markup);
+
+    for (const category of TRIUMPH_CATEGORIES) {
+      expect(markup).toContain(`data-triumph-category="${category.id}"`);
+    }
+    expect(markup).not.toContain('data-triumph-category="circus"');
+    expect(markup.split('data-earned-triumph=').length - 1).toBe(SHIPPED_TRIUMPHS.length);
+
+    for (const triumph of DORMANT_TRIUMPHS) {
+      expect(markup, triumph.id).not.toContain(`data-earned-triumph="${triumph.id}"`);
+      expect(text, triumph.id).not.toContain(triumph.name);
+    }
+    // Every shipped row prints its requirement — no secret achievements.
+    for (const triumph of SHIPPED_TRIUMPHS) {
+      expect(text, triumph.id).toContain(triumph.requirement);
+    }
+    // The earned one reads as earned; the rest as locked.
+    expect(markup).toContain('data-earned-triumph="sand_first_blood" data-earned="true"');
+    expect(markup).toContain('data-earned-triumph="sand_ten_victories" data-earned="false"');
+  });
+
+  test('one tap on an owned title selects it, and the displayed one is marked', () => {
+    const profile = profileWith({
+      title: 'Iron-Bound',
+      laurels: { titles: ['title_crowd_favourite', 'title_iron_bound'] },
+    });
+    const markup = markupOf(<TriumphsPage profile={profile} onSelectTitle={() => {}} />);
+    expect(markup).toContain('data-title-option="title_iron_bound" data-title-selected="true"');
+    expect(markup).toContain('data-title-option="title_crowd_favourite" data-title-selected="false"');
+    expect(textOf(markup)).toContain('Iron-Bound');
+    expect(textOf(markup)).toContain('Crowd Favourite');
+  });
+
+  test('with no owned title the title row is not drawn at all', () => {
+    const markup = markupOf(<TriumphsPage profile={profileWith({})} onSelectTitle={() => {}} />);
+    expect(markup).not.toContain('data-title-selection');
+  });
+
+  test('the character sheet\'s route button appears only when it is wired', () => {
+    const withHandler = markupOf(
+      <StatsTab profile={profileWith({})} onAllocatePoint={() => {}} onOpenTriumphs={() => {}} />,
     );
+    expect(withHandler).toContain('data-open-triumphs');
+    expect(textOf(withHandler)).toContain('View Triumphs');
+    const without = markupOf(<StatsTab profile={profileWith({})} onAllocatePoint={() => {}} />);
+    expect(without).not.toContain('data-open-triumphs');
   });
 });

@@ -12,7 +12,7 @@
  * it is showing, and every other page writes nothing.  A Triumph purchase is handed
  * up to `onPurchaseTriumph` (`App`'s one write) and this view stores nothing.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen } from 'lucide-react';
 import { PlayerProfile } from '../../types/game';
 import { LaurelResult } from '../../utils/laurels';
@@ -31,10 +31,51 @@ interface LibraryTabProps {
   profile: PlayerProfile;
   /** P2 — a Triumph buy, routed to `App`'s `purchaseLaurel` + save path. */
   onPurchaseTriumph?: (laurelId: string) => LaurelResult;
+  /**
+   * A8 — the page the rack is showing, when a surface outside the rack routes
+   * into it (the character sheet's "View Triumphs" button, one surface with two
+   * doors).  Absent = the rack keeps its own state, opening on The Road.
+   */
+  page?: LibraryPageId;
+  onPageChange?: (page: LibraryPageId) => void;
+  /**
+   * A8 — Director ruling R7: opening the Triumphs page marks every earned deed
+   * as read, in ONE save (`App` owns the write).  The ✦ on the Library building's
+   * prompt clears from that same write.
+   */
+  onViewTriumphs?: () => void;
+  /** A8 — put an owned title (bought or earned) on the record. */
+  onSelectTitle?: (titleId: string) => void;
 }
 
-export const LibraryTab: React.FC<LibraryTabProps> = ({ profile, onPurchaseTriumph }) => {
-  const [page, setPage] = useState<LibraryPageId>('road');
+export const LibraryTab: React.FC<LibraryTabProps> = ({
+  profile,
+  onPurchaseTriumph,
+  page: controlledPage,
+  onPageChange,
+  onViewTriumphs,
+  onSelectTitle,
+}) => {
+  const [ownPage, setOwnPage] = useState<LibraryPageId>('road');
+  const page = controlledPage ?? ownPage;
+  const setPage = (next: LibraryPageId) => {
+    setOwnPage(next);
+    onPageChange?.(next);
+  };
+
+  /**
+   * A8 — the one view mark.  It fires when the Triumphs page becomes the page on
+   * screen, including when a route from the character sheet opens it directly.
+   * `markTriumphsViewed` is identity-stable once everything is read, so the write
+   * happens ONCE and never repeats; the callback is held in a ref so an ordinary
+   * re-render of this view can never re-raise it.
+   */
+  const markViewed = useRef(onViewTriumphs);
+  markViewed.current = onViewTriumphs;
+  useEffect(() => {
+    if (page !== 'triumphs') return;
+    markViewed.current?.();
+  }, [page]);
 
   return (
     <div className="flex flex-col gap-5 max-w-3xl mx-auto w-full pb-12">
@@ -72,7 +113,11 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ profile, onPurchaseTrium
 
       {page === 'road' && <RoadOfGloryPage profile={profile} />}
       {page === 'triumphs' && (
-        <TriumphsPage profile={profile} onPurchase={onPurchaseTriumph} />
+        <TriumphsPage
+          profile={profile}
+          onPurchase={onPurchaseTriumph}
+          onSelectTitle={onSelectTitle}
+        />
       )}
     </div>
   );

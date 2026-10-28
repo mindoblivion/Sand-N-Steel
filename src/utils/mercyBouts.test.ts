@@ -174,8 +174,11 @@ describe('STORY-4a §A — `spared` is one lazy optional map and nothing else', 
     }
     const body = types.slice(start, end);
     const optional = [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\?:/gm)].map((m) => m[1]);
-    expect(optional.length).toBe(21);
-    expect(optional.slice(-2)).toEqual(['omenTrickleClaimed', 'spared']);
+    // A8 REBASE: `records` was appended after `spared`, so the set is 22 and the
+    // tail moved by one.  STORY-4a's own property (`spared` is a lazy map appended
+    // after the omen pair) is unchanged.
+    expect(optional.length).toBe(22);
+    expect(optional.slice(-3)).toEqual(['omenTrickleClaimed', 'spared', 'records']);
   });
 });
 
@@ -694,6 +697,8 @@ describe('STORY-4a §H — the result surface holds the flow; App writes each an
     expect(isRivalFinished(raw as unknown as PlayerProfile, 'opp_brutus_anvil')).toBe(true);
     expect(isRivalSpared(raw as unknown as PlayerProfile, cassius().id)).toBe(true);
     // §J's list, as the corpus suite reads it out of `types/game.ts`.
-    expect(read('utils/saveCorpus.test.ts')).toContain("      'spared',\n    ]);");
+    // A8 REBASE: §J's list now ends with `records`, which that suite added in the
+    // same slice; `spared` is still in it, immediately before.
+    expect(read('utils/saveCorpus.test.ts')).toContain("      'spared',\n      // A8 — the retained Triumphs record");
   });
 });

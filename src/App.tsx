@@ -11,7 +11,16 @@ import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
-import { purchaseLaurel, type LaurelResult } from './utils/laurels';
+import { purchaseLaurel, selectDisplayedTitle, type LaurelResult } from './utils/laurels';
+// A8 — TRIUMPHS: the retained deeds. The evaluator is pure and the ONE shipped
+// call site is the duel result below (A8 — Director ruling R5); `withPeakGold` is
+// the single records updater this file's save path uses wherever gold rises.
+import {
+  applyTriumphAwards,
+  markTriumphsViewed,
+  withPeakGold,
+  type DuelTriumphStats,
+} from './utils/triumphs';
 import { consumeItem, purchaseConsumable } from './utils/consumables';
 import { purchaseIntel } from './utils/intel';
 import type { ConsumableItem } from './data/consumables';
@@ -988,8 +997,42 @@ export function App() {
     const clock = settleDuelClock(settledProfile, duelTimeSteppedRef.current);
     duelTimeSteppedRef.current = clock.stepped;
     const timedProfile = onDayRollover(profile, clock.profile);
-    setProfile(timedProfile);
-    saveProfile(timedProfile);
+
+    /**
+     * A8 — THE ONE SHIPPED TRIUMPH CALL SITE (A8 — Director ruling R5/R6).
+     *
+     * Evaluation happens at a RESULT SCREEN and nowhere else: never on Library
+     * open, never from a watcher. The race result's site is DEFERRED (R6 — no
+     * profile-writing race seam exists, and every Circus triumph is dormant).
+     *
+     * The transient reading is this duel's own, unchanged from `DuelStatistics`:
+     * `lowestHealthFraction` (STORY-4b) and the crowd's peak hype. `won` rides
+     * with them because "Missio Denied" is a VICTORY at 10% health or less — a
+     * defeat also ends at 0% and must not earn it.
+     *
+     * The awards — the peak-gold record, the earned ids, the one-time fame grants
+     * and the earned titles — are composed into the SAME profile, so this stays
+     * the duel's one `saveProfile`. Counter-based triumphs therefore catch up HERE
+     * (the counters persist); transient moments earned before this slice are not
+     * retro-credited, which is the design's rule, not a bug.
+     */
+    const duelTriumphStats: DuelTriumphStats = {
+      won: didWin,
+      lowestHealthFraction: resultStats.lowestHealthFraction,
+      crowdHypePeak: resultStats.crowdHypePeak,
+    };
+    const awards = applyTriumphAwards(timedProfile, duelTriumphStats);
+    setProfile(awards.profile);
+    saveProfile(awards.profile);
+
+    // The herald reads what the scribes just recorded, in the city after the
+    // result — the same toast STORY-4a's lines and STORY-3's pointer use.
+    if (awards.earned.length > 0) {
+      const lines = awards.earned.map(
+        (triumph) => `The scribes record a new triumph: ${triumph.name}`
+      );
+      setHeraldCries((previous) => [...previous, ...lines]);
+    }
 
     /**
      * STORY-4a — MERCY OR GLORY (Pitch A9, duel form only).  The offer is asked
@@ -1111,10 +1154,12 @@ export function App() {
     if (duelResult.bounty.chosen || deserterWrittenRef.current) return;
     deserterWrittenRef.current = true;
 
+    // A8 — the bounty pays gold, so the peak-gold updater rides this write.
     const outcome = applyDeserterChoice(profile, choice);
-    if (outcome.profile !== profile) {
-      setProfile(outcome.profile);
-      saveProfile(outcome.profile);
+    const settled = withPeakGold(outcome.profile);
+    if (settled !== profile) {
+      setProfile(settled);
+      saveProfile(settled);
     }
     if (outcome.alreadyAnswered) return;
 
@@ -1210,6 +1255,32 @@ export function App() {
    * leaves the caller's own object untouched and never reaches `saveProfile`.  The
    * refusal is handed back to the Library's Triumphs page so it can print the reason.
    */
+  /**
+   * A8 — Director ruling R7: opening the Triumphs page marks every earned deed as
+   * read, in ONE save. `markTriumphsViewed` is identity-stable once nothing is
+   * unread, so the Library's effect cannot write twice.
+   */
+  const handleViewTriumphs = () => {
+    if (!profile) return;
+    const viewed = markTriumphsViewed(profile);
+    if (viewed === profile) return;
+    setProfile(viewed);
+    saveProfile(viewed);
+  };
+
+  /**
+   * A8 — one tap on an OWNED title (bought via P2 or earned via A8) puts it on the
+   * record. `selectDisplayedTitle` refuses a title the profile does not own and is
+   * identity-stable for the one already shown, so a repeat tap never saves.
+   */
+  const handleSelectTitle = (titleId: string) => {
+    if (!profile) return;
+    const titled = selectDisplayedTitle(profile, titleId);
+    if (titled === profile) return;
+    setProfile(titled);
+    saveProfile(titled);
+  };
+
   const handlePurchaseTriumph = (laurelId: string): LaurelResult => {
     const result = purchaseLaurel(profile, laurelId);
     if (!result.ok) return result;
@@ -1336,7 +1407,10 @@ export function App() {
   // pure: a refusal hands back the same profile object, so nothing is saved.
   const handleSellItem = (item: WeaponItem | ArmorItem) => {
     if (!profile) return;
-    const updated = sellItem(profile, item.id);
+    // A8 — selling RAISES gold, so the peak-gold records updater rides this save
+    // too. It is identity-stable when nothing moved, so a refused sale still
+    // returns before any write.
+    const updated = withPeakGold(sellItem(profile, item.id));
     if (updated === profile) return;
     setProfile(updated);
     saveProfile(updated);
@@ -1630,6 +1704,8 @@ export function App() {
             onEquipPalma={handleEquipPalma}
             onUnequipPalma={handleUnequipPalma}
             onBuyPalma={handleBuyPalma}
+            onViewTriumphs={handleViewTriumphs}
+            onSelectTitle={handleSelectTitle}
             />
         )}
 

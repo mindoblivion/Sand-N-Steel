@@ -1114,4 +1114,25 @@ export interface PlayerProfile {
    * migration, and never by Finish.
    */
   spared?: { [rivalId: string]: true };
+  /**
+   * A8 — TRIUMPHS: the record of what the gladiator has EARNED by doing, as
+   * distinct from the fame honours he BUYS (`laurels` above).  `earnedTriumphs`
+   * and `viewedTriumphs` hold catalogue ids from `utils/triumphs.ts`; `peakGold`
+   * is the high-water mark of `gold`, so a Coin deed ("a purse of 1,000") is
+   * never lost by spending afterwards.
+   *
+   * Optional and LAZY, exactly like `chariot` and `racing`: a save written
+   * before this slice has no field at all and must keep loading, so
+   * `resolveRecords` (`utils/triumphs.ts`) reads a missing, null or malformed
+   * field as "nothing earned, nothing read, no purse recorded" rather than
+   * repairing it.  Written ONLY at a duel result (`applyTriumphAwards`) and by
+   * the two records writes that ride the same save path (the peak-gold updater
+   * and the Library's one view mark) — never by `createNewProfile()` and never
+   * by a migration.
+   */
+  records?: {
+    earnedTriumphs?: string[];
+    viewedTriumphs?: string[];
+    peakGold?: number;
+  };
 }
