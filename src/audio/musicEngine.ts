@@ -47,8 +47,14 @@ export class MusicEngine {
         
         this.fadeIn(options.fadeMs || 2000);
     } catch (e) {
-        // Assets may be missing during development; log as a warning rather than a critical error
-        console.warn(`MusicEngine: Skipping track ${trackId} (file not found or unsupported)`);
+        // Browsers commonly reject autoplay before the first user gesture. Keep that
+        // expected state distinct from a missing or unsupported audio asset.
+        const errorName = e instanceof DOMException ? e.name : '';
+        if (errorName === 'NotAllowedError') {
+          console.info(`MusicEngine: Waiting for user gesture before playing ${trackId}`);
+        } else {
+          console.warn(`MusicEngine: Skipping track ${trackId} (file not found or unsupported)`);
+        }
         this.currentTrackId = null;
     }
   }

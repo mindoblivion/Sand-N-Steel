@@ -343,7 +343,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 1. QUICK STRIKE */}
           <button
             onClick={() => onExecuteAction('quick_attack', attackTarget)}
-            disabled={!isPlayerTurn || isExecuting || player.stamina < quickStaminaCost}
+            disabled={!isPlayerTurn || isExecuting || player.stamina < quickStaminaCost || strikeOutOfRange}
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < quickStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
@@ -383,7 +383,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 2. POWER SLASH / HEAVY ATTACK */}
           <button
             onClick={() => onExecuteAction('power_attack', attackTarget)}
-            disabled={!isPlayerTurn || isExecuting || player.stamina < powerStaminaCost}
+            disabled={!isPlayerTurn || isExecuting || player.stamina < powerStaminaCost || strikeOutOfRange}
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < powerStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
