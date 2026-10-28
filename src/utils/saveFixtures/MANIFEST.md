@@ -299,3 +299,10 @@ nothing read, no purse recorded, and gains no field by being read.
 hubs walked: `records_house`, `colosseum`, `training_yard`) — the Codex's one lazy
 field lives INSIDE `records` (A5 — Director ruling R6), so §J stays at 22 optional
 top-level fields with `records` last, and no new fixture is needed for it.
+**STORY-5a** adds the last member of the same object: `records.laudes`, the shared
+honour counter (`withLaudes` / `resolveLaudes`, `utils/diceTrail.ts`), written the
+first time the Quiet Dice chain closes. This fixture now carries `laudes: 5` — one
+closed chain — so the records object is exercised with every member it can hold.
+Nothing migrates and no fixture is added: the field is NESTED, so `saveCorpus` §J
+stays at **22 optional top-level fields with `records` last**, and every older
+fixture keeps omitting it (a load reads `0` and gains no field by being read).

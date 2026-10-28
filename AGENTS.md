@@ -8457,3 +8457,69 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   121,253 `expect()` calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
   `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check
   passing (8 assets); `git diff --check` → clean.
+
+## STORY-5a — The Loaded Dice (Story §3A) + the Quiet Dice chain (§2.4) (implemented, validated)
+
+- **What ships, and what deliberately does not.** ONE module owns the whole arc
+  (`src/utils/diceTrail.ts`, pure), ONE surface (`src/components/hub/DiceTrailSection.tsx`), and every
+  write at `App.tsx`'s existing save path. It is the FIRST HALF of STORY-5: the dice arc only — no
+  Erased Champion fragments/echo bout (STORY-5b), no Librarian chain, no tavern servers, no cheap-talk
+  tier, no race bout, no Chapter 4 gate logic. Piso (Titus Piso, called the Smiler) is a NAME in the
+  fiction and is never an opponent row.
+- **The chain, in order, and where it lives.** Step 1 (a deep card) is DERIVED from `intel`;
+  step 2 (his champion beaten) from `defeatedOpponentIds` — the same lazy evidence the Doctore's Test
+  uses; step 3 (the return to her counter) is `story.diceTrail.boardOpen`, and that ONE write is also
+  the chain's completion. `story.diceTrail` is a subfield of the EXISTING story object (STORY-4b's
+  `story.bountyRungs` precedent), so **§J stays at 22 optional top-level fields with `records` last**
+  and `createNewProfile()` still writes neither container.
+- **The board rides under Aelia's plate** (Director ruling R6): `DiceTrailSection` renders INSIDE the
+  tavern intel panel, after the rumour list, and the panel is still raised only by the tavern's door.
+  Card 1 unlocks at board-open, card N only after card N-1 is WON; `withDiceTrailVictory` records a
+  card's win in the SAME save as the victory that won it (`App`'s one transaction), and is
+  identity-stable for a re-fight or a row the board has moved past.
+- **The five staged rows are EXISTING ladder rows — no row was added** (`ALL_OPPONENTS` is still 23).
+  STORY-5a — authored staging (R5): the chain's champion **Flaccus the Nimble** (`opp_flaccus`), the
+  three cards' champions **Cassius the Phalanx** (`opp_hoplite`), **Brutus "The Anvil"**
+  (`opp_brutus_anvil`) and **Naija the Fisher** (`opp_naija_fisher`), and the ending champion
+  **Kallias of Sparta** (`opp_kallias_sparta`). None is a boss (no `isBoss`, no `bossMechanic`, no
+  `falseTelegraph`, no `panoply`), so every trail bout is a STANDARD duel; the three rumor texts and
+  every line of voice are authored here, flagged in code.
+- **The ending is ONE binary flag: `story.diceEnding` ('cut' | 'refused')** — the name Story-design
+  §9's Chapter 4 row already uses and the one `resolveStoryState`'s `dice-ending` gate reads. This
+  slice WRITES it and builds no gate logic. 'cut' pays `DICE_CUT_GOLD` **300 g** in the same write (a
+  raise, so `withPeakGold` rides it) and closes her rumour service permanently: the panel replaces its
+  list with `RUMOURS_CLOSED_LINE` (`data-tavern-rumours-closed`) and `App.handleBuyIntel` refuses
+  BEFORE `purchaseIntel` is called, so no gold moves and no `intel` is written. There is no un-close
+  path. 'refused' pays nothing here (R2): his champion is an ordinary duel and its own row's standard
+  purse is the honest purse.
+- **The reward that is a counter: `records.laudes`.** The chain pays `DICE_CHAIN_LAUDES` = **5** into
+  a NEW nested records field plus the house cup (`story.diceTrail.cup`). `withLaudes` / `resolveLaudes`
+  are the ONE writer and reader: **LUDI PHASE A MUST REUSE THEM for its daily Laurels** — do not add a
+  second counter. The cup is PURE FLAVOUR: the tavern section's wine line flips to `HOUSE_CUP_LINE`
+  ("noticeably less watered") iff the cup is owned, and no mechanic wears it. The records-era fixture
+  now carries `records.laudes: 5` (the array/field is nested, so §J's list is untouched).
+- **The mercy fence is load-bearing, not decoration.** Four of the five staged rows are Tier 2+ named
+  regulars, so STORY-4a WOULD offer Spare/Finish on their first defeat. `App` now asks through
+  `mercyOfferForDuel(..., trailStaged)` — the ONLY call site — which returns null for a trail bout and
+  forwards to `mercyOfferFor` unchanged otherwise (`chapterOverride` forwarded for 4a's dormant seam).
+  The session flag `diceTrailBoutRef` is set at the trail's own entrance and consumed by the result,
+  so it can never leak onto an ordinary bout.
+- **Rebased, not weakened (four pins that read the shipped transaction):** `injury.test.ts` §H,
+  `dayNightT2.test.ts` §E and `triumphs.test.ts` §K now pin `applyTriumphAwards(trailProfile, …)` (the
+  trail's record is composed onto `timedProfile` first, so a card's win rides the same save), and
+  `mercyBouts.test.ts` §H pins the fenced call. Every property those tests exist to protect — ONE
+  write, ONE evaluation, ONE offer decided at the result — is unchanged and still asserted.
+- **Not built, on purpose:** no opponent row, no new top-level profile field, no new panel, no race
+  bout (§3A's "a duel or a race" resolves to duels until Stage 2 lands a race-results seam — flagged in
+  code), no servers/cheap-talk (R4), no Chapter 4 gate (the flag is what that gate will read).
+- **Verified 2026-10-28** in the dev container: `bun test` → **4607 pass / 0 fail (151 files,
+  121,537 `expect()`)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check
+  passing (8 assets); `git diff --check` → clean. `combatCalculations.ts` was not opened, the timeState
+  clock ban is untouched (the module imports no storage and calls no clock), and the new suite is
+  `src/utils/diceTrail.test.ts` (41 tests, sections §A–§H: the chain in order, the board's sequence,
+  the offer's exclusivity, both purses, the rewards, the guards, the mercy fence, and the shipped panel
+  server-rendered at every state).
+- **Live status:** the board and the chain are UNGATED (R3) — playable immediately wherever the tavern
+  and S7's rumour counter are. The completion flag is what Chapter 4's gate will read once Chapter 4
+  exists.

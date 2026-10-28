@@ -354,7 +354,12 @@ describe('§H the one call site: the result transaction', () => {
     // the one save is `awards.profile`.  The property — a single write carries the
     // injury result for a win and a loss alike — is unchanged and still asserted by
     // the count above.
-    expect(write).toContain('applyTriumphAwards(timedProfile, duelTriumphStats)');
+    // STORY-5a REBASE, not a weakening: the QUIET DICE chain's own record is
+    // composed onto the victory BEFORE the awards (a trail bout's win has to ride
+    // the SAME save), so the profile the one write carries is `trailProfile`.  The
+    // property this pins — ONE save, injury included, for a win and a loss alike —
+    // is unchanged, and the counts above still prove it.
+    expect(write).toContain('applyTriumphAwards(trailProfile, duelTriumphStats)');
     expect(write).toContain('saveProfile(awards.profile)');
     expect(write).not.toContain('saveProfile(afterInjury)');
     expect(write).not.toContain('saveProfile(settledProfile)');
