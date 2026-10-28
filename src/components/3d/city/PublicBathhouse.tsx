@@ -11,6 +11,7 @@ import {
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
 import { SteamParticles } from './EnvironmentalMotion';
+import { CityFixtureMaterial } from './CityFixtureMaterial';
 
 export const PublicBathhouse = React.memo(() => {
   return (
@@ -95,7 +96,7 @@ export const PublicBathhouse = React.memo(() => {
         {/* Fire embers */}
         <mesh position={[0, 1.05, 0]}>
           <sphereGeometry args={[0.2, 8, 8]} />
-          <meshStandardMaterial color="#ef4444" emissive="#f97316" emissiveIntensity={2.2} />
+          <CityFixtureMaterial fixture="lamp" base={2.2} color="#ef4444" emissive="#f97316" />
         </mesh>
         <pointLight color="#f97316" intensity={1.5} distance={7} position={[0, 1.2, 0]} />
       </group>

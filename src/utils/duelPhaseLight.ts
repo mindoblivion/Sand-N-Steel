@@ -19,6 +19,21 @@
  * Lighting only: nothing here reads or writes a save, and nothing adds a light. The
  * duel's existing ambient, two directionals and eight brazier point lights are given
  * new PROPERTY values.
+ *
+ * ── T3 — THE NIGHT FIXTURE STATES, AND THE JOINT FENCE ───────────────────
+ * T1 shipped the LIGHT states (sky, key, fog, brazier light, ember emissive). T3 adds
+ * the FIXTURE states on top of them — the bronze bowls' own glow at night, and the
+ * spectator rings' dress for the Night Spectacle — as more material properties on
+ * meshes the arena already draws (+0 meshes, +0 lights, +0 draw calls).
+ *
+ * THE FENCE, stated once and binding: **Challenge owns boss mechanics; CF-6 owns boss
+ * moments (shake / swell / glow / sting); this slice owns the boss BASE LIGHT STATE and
+ * DRESSING.** Nothing here reads a boss's health, phases or telegraphs, and the only
+ * input is the opponent's own `isBoss`, which the caller passes to `resolveDuelPhaseLight`
+ * as `bossBout`. The spectacle is therefore reachable by a boss bout and BY NOTHING ELSE:
+ * a regular bout's `nightState` is `'torchlit'` at the night phase and `null` at every
+ * other phase, and `crowdDress` is 0 in both. Do not extend the spectacle to a non-boss
+ * fight, and do not move a boss moment into this module.
  */
 import { PHASE_LIGHT, sunDirection, type PhaseLight } from './atmosphere';
 import type { TimePhase } from './timeState';
@@ -34,6 +49,10 @@ export const DUEL_KEY_DISTANCE = 48;
 /** The shipped duel rig's own bases — the values these scales multiply. */
 export const DUEL_BRAZIER_LIGHT = 3.5;
 export const DUEL_EMBER_EMISSIVE = 3;
+/** T3 — the bronze bowls' warm emissive at full dress (a material property on meshes already drawn). */
+export const DUEL_BOWL_EMISSIVE = 0.9;
+/** T3 — the spectator rings' dress emissive for the Night Spectacle alone. */
+export const DUEL_CROWD_DRESS_EMISSIVE = 0.28;
 export const DUEL_FILL_INTENSITY = 0.5;
 /** The hemisphere intensity the shipped fill was calibrated against (the golden row). */
 export const DUEL_FILL_REFERENCE_HEMI = 0.45;
@@ -60,6 +79,17 @@ export interface DuelPhaseLight {
   brazierIntensity: number;
   /** The braziers' ember emissive (a material property on meshes already drawn). */
   emberEmissive: number;
+  /**
+   * T3 — the bronze bowls' own warm emissive. 0 by day: a cold bowl is what daylight
+   * looks like, and the embers above it still carry the fire.
+   */
+  bowlEmissive: number;
+  /**
+   * T3 — the SPECTACLE RING'S DRESS: the spectator silhouettes' own emissive, so the
+   * crowd is read in the dark. Non-zero ONLY for a boss bout (see the joint fence
+   * below); a regular bout can never reach it.
+   */
+  crowdDress: number;
 }
 
 /**
@@ -116,5 +146,10 @@ export function resolveDuelPhaseLight(phase: TimePhase, bossBout: boolean): Duel
     fillIntensity: DUEL_FILL_INTENSITY * (row.hemiIntensity / DUEL_FILL_REFERENCE_HEMI),
     brazierIntensity: DUEL_BRAZIER_LIGHT * scale,
     emberEmissive: DUEL_EMBER_EMISSIVE * scale,
+    // T3 — the bowls glow only in a night state, at the same accounting as the embers.
+    bowlEmissive: nightState ? DUEL_BOWL_EMISSIVE * scale : 0,
+    // T3 — the ring is dressed for the SPECTACLE only; `nightState` is 'spectacle'
+    // exactly when `bossBout` is true, so a regular bout can never reach this.
+    crowdDress: nightState === 'spectacle' ? DUEL_CROWD_DRESS_EMISSIVE * scale : 0,
   };
 }

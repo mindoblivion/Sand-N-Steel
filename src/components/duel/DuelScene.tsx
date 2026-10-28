@@ -3133,6 +3133,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 }
                 emberEmissive={sceneDeltas?.emberEmissive ?? duelLight.emberEmissive}
                 brazierIntensity={duelLight.brazierIntensity}
+                /* Day/Night T3 — the night FIXTURE states on top of T1's light states:
+                   the bronze bowls glow, and the spectacle ring is dressed. Both are
+                   material properties on meshes already drawn (+0 draw calls), and both
+                   are 0 for a regular bout (see the joint fence in `duelPhaseLight.ts`). */
+                bowlEmissive={duelLight.bowlEmissive}
+                crowdDress={duelLight.crowdDress}
               />
             </ThreeComponentErrorBoundary>
 

@@ -535,19 +535,34 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       .filter((file) => /timeState/.test(code(file)))
       .map((file) => file.slice(srcRoot.length + 1))
       .sort();
+    // DAY/NIGHT T3 REBASE — determined by the evidence, and the fence is NOT relaxed.
+    // T3 adds four files that read this module's VOCABULARY and nothing else: the
+    // medallion's phase list and labels, the two dressing predicates' `TimePhase` type,
+    // and the duel card's `TimePhase` prop type. None of them calls a clock API — that
+    // ban below still runs over every file, seams included, and T3's three display
+    // readers (`CityNightDressing`, `ShopTab`, `PreRacePanel`/`GladiatorSchoolHub`) go
+    // through `utils/dayRollover.ts`'s `resolveDisplayClock`, which is already a seam.
+    // So the property this guard exists for — one clock model, one write point per seam,
+    // no surface of its own reaching the clock — is unchanged.
     expect(consumers).toEqual([
       'App.tsx',
       'components/3d/PhaseSkyDome.tsx',
       'components/3d/RaceScene.tsx',
       'components/3d/city/CityAtmosphere.tsx',
       'components/3d/city/CityHubScene.tsx',
+      'components/3d/city/CityNightDressing.tsx',
       'components/dev/PhaseLightHarness.tsx',
       'components/duel/DuelScene.tsx',
+      'components/hub/PreFightModal.tsx',
       'components/hub/SettingsModal.tsx',
+      'components/ui/PhaseMedallion.tsx',
       'utils/atmosphere.ts',
+      'utils/cityFixtureGlow.ts',
       'utils/currentPhase.ts',
       'utils/dayRollover.ts',
       'utils/duelPhaseLight.ts',
+      'utils/nightDressing.ts',
+      'utils/phaseFlavor.ts',
       'utils/racePhaseLight.ts',
     ]);
     for (const file of sources) {

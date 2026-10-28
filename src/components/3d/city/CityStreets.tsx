@@ -12,6 +12,7 @@ import {
   WineBarrel,
 } from './CivicFurnishingProps';
 import { RomanPavedStreet, RomanPedestrianCrossing } from './RomanStreetPavement';
+import { CityFixtureMaterial } from './CityFixtureMaterial';
 
 /**
  * Roman Street Lamp / Torch Brazier
@@ -37,7 +38,7 @@ const StreetLamp: React.FC<{ position: [number, number, number] }> = ({ position
       {/* Emissive Fire Coals */}
       <mesh position={[0, 2.32, 0]}>
         <sphereGeometry args={[0.22, 8, 8]} />
-        <meshStandardMaterial color="#ff5722" emissive="#f97316" emissiveIntensity={2.2} />
+        <CityFixtureMaterial fixture="brazier" base={2.2} color="#ff5722" emissive="#f97316" />
       </mesh>
       <pointLight color="#f97316" intensity={2.2} distance={8} position={[0, 2.5, 0]} />
     </group>
