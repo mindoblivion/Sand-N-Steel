@@ -1064,4 +1064,18 @@ export interface PlayerProfile {
    * `createNewProfile()` and never by a migration.
    */
   omenTrickleClaimed?: boolean;
+  /**
+   * PITCH A9 (STORY-4a) — the rivals this gladiator has SPARED, by base roster
+   * id, in the exact shape the pitch gives the field:
+   * `{ [rivalId: string]: true }`.  A rival who is absent was never offered
+   * mercy, or was FINISHED (Finish writes no flag — the rival is gone).
+   *
+   * Optional and LAZY, exactly like `chariot` and `racing`: a save written
+   * before this slice has no field at all and must keep loading, so
+   * `resolveSpared` (`utils/mercyBouts.ts`) reads a missing, null or malformed
+   * field as "spared nobody" rather than repairing it.  Written ONLY by the
+   * result surface's Spare answer — never by `createNewProfile()`, never by a
+   * migration, and never by Finish.
+   */
+  spared?: { [rivalId: string]: true };
 }

@@ -444,10 +444,13 @@ describe('§G no new profile field', () => {
     return [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\?:/gm)].map((match) => match[1]);
   };
 
-  test('G1 — the field list is unchanged at twenty, ending with the omen pair', () => {
+  test('G1 — the field list ends with the omen pair, and only STORY-4a follows it', () => {
     const fields = optionalProfileFields();
-    expect(fields.length).toBe(20);
-    expect(fields.slice(-2)).toEqual(['omen', 'omenTrickleClaimed']);
+    // STORY-4a REBASE (not a weakening): the set is 21 now because PITCH A9
+    // appended its `spared` map after the omen pair.  What this guard exists to
+    // pin — Chapter 2 added no chapter/beat/race field — is unchanged below.
+    expect(fields.length).toBe(21);
+    expect(fields.slice(-3)).toEqual(['omen', 'omenTrickleClaimed', 'spared']);
     // Nothing race-, beat- or chapter-shaped was added by this slice.
     for (const forbidden of ['chapter', 'beat', 'beatThree', 'raceResults', 'omenTaken']) {
       expect(fields).not.toContain(forbidden);
