@@ -144,11 +144,29 @@ export const EARNED_TITLES: readonly EarnedTitle[] = [
     name: 'Living Legend of the Ludus',
     category: 'saga',
   },
+  // A5 — THE CODEX's authored capstone title (A5 — Director ruling R4).  It is
+  // granted ONLY by the full-Codex triumph (`saga_codex_complete`,
+  // `utils/triumphs.ts`), never by a category rule — which is why it is declared
+  // AFTER the Saga title: `earnedTitleForCategory('saga')` still answers the
+  // Legend title, and this one is appended by its own id.
+  {
+    id: 'title_chronicler_of_the_ludus',
+    name: 'Chronicler of the Ludus',
+    category: 'saga',
+  },
 ];
+
+/** A5 — the id the full-Codex triumph grants (read by `utils/triumphs.ts`). */
+export const CODEX_CHRONICLER_TITLE_ID = 'title_chronicler_of_the_ludus';
 
 const EARNED_TITLE_BY_ID: ReadonlyMap<string, EarnedTitle> = new Map(
   EARNED_TITLES.map((title) => [title.id, title]),
 );
+
+/** A5 — one earned title by id.  Unknown ids answer `undefined`, never a guess. */
+export function getEarnedTitle(ref: unknown): EarnedTitle | undefined {
+  return typeof ref === 'string' ? EARNED_TITLE_BY_ID.get(ref) : undefined;
+}
 
 const TRIUMPH_BY_ID: ReadonlyMap<string, Laurel> = new Map(
   TRIUMPHS.map((triumph) => [triumph.id, triumph]),

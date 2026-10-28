@@ -1134,5 +1134,14 @@ export interface PlayerProfile {
     earnedTriumphs?: string[];
     viewedTriumphs?: string[];
     peakGold?: number;
+    /**
+     * A5 — THE CODEX's one lazy field (A5 — Director ruling R6).  The
+     * `HUB_LOCATIONS` ids this gladiator has walked into, in first-visit order,
+     * written by `withCodexLocation` (`utils/codex.ts`) when an existing hub
+     * interaction fires for the first time.  It lives INSIDE `records` — the one
+     * home for records-state — so the profile keeps its 22 optional top-level
+     * fields and `records` stays last (§J).
+     */
+    codexLocations?: string[];
   };
 }

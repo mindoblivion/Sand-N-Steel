@@ -1044,6 +1044,10 @@ describe('GC20 §H — scope guards', () => {
     // `facilities-era` the same way).  Nothing under `services/`, `components/`
     // or `App.tsx` may reach the corpus.
     expect(offenders.sort()).toEqual([
+      // A5 — the Codex suite reads the records-era fixture to pin the ONE lazy
+      // field A5 nests inside `records` (`codexLocations`).  Still suites only:
+      // no production source imports the corpus.
+      'utils/codex.test.ts',
       'utils/phaseP4StableProgression.test.ts',
       'utils/phaseP5FacilityProgression.test.ts',
       'utils/saveCorpus.test.ts',

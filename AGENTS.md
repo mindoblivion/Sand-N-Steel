@@ -8392,3 +8392,68 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   sheet's new button in the running app — they are pinned by `renderToStaticMarkup` in
   `triumphsSurface.test.tsx` §F, not by a live drive, and the ✦ marker lives on the 3D city's prompt
   (source-pinned only).
+
+## A5 — The Codex (ideas-retention.md §3, System 2 — implemented)
+
+- **What ships.** `src/utils/codex.ts` (new, PURE: every page is a derivation over the profile —
+  no new system, no counter, no currency), `src/components/hub/CodexPage.tsx` (new, read-only), the
+  Library rack's third page, ONE lazy save field nested inside `records`, and ONE new Saga capstone
+  in A8's catalogue. The suites are `src/utils/codex.test.ts` (30 tests) and
+  `src/utils/codexSurface.test.tsx` (8 tests, `react-dom/server`).
+- **The path to it, stated once:** the city's Records & Lore Library (`records_house`) → the stats
+  sheet (`StatsTab`, the Library view's head) → **'View Triumphs'** → `LibraryTab` → the **Codex**
+  tab, which sits BESIDE The Road and Triumphs in the same rack. **No new StatsTab button and no new
+  navigation entry**: the sheet's route still lands on Triumphs, and the Codex is reached on the rack
+  itself (the design's two-page Library view is one rack with more than one page).
+- **The datasets and denominators (A5 — Director ruling R1), as built and pinned:**
+  **Gladiators 24** = `ALL_OPPONENTS` (23 rows: 12 ladder incl. the 4 champions, 5 Feature Bouts, 6
+  bounty rows) **plus `DOCTORE_TEST_OPPONENT`** — the Doctore's Test story bout is its own export,
+  NOT an `ALL_OPPONENTS` row, and the brief's 24 is the authoritative total; **Bosses 9** = the four
+  tier champions + the five Feature Bout bosses, the Deserter EXCLUDED (he is `isBoss` but posted on
+  the bounty board); **Horses & Teams 19** = 3 team sizes + all 16 `CHARIOT_PARTS` (incl.
+  `finish_triumph_banners`); **Arms & Armor 27** = `ITEMS_DB`; **The City 21** = `HUB_LOCATIONS`.
+  Percentages are `floor(touched / total * 100)` so 23 of 24 reads 95%, and a page's laurel is lit
+  only at exactly 100% (R4: a display mark, no title, no triumph, no state).
+- **The boss kill mark — and the one place the brief's wording and the code differ.** The brief
+  describes `bossKills` as something an id can be "in". It is a **COUNT** of ladder champions
+  (`utils/bossKills.ts`, written once per first kill), not an id list. A row's mark is therefore read
+  from **`defeatedOpponentIds`** — the same victory write appends the id there before it raises the
+  count — which is exactly the behaviour the brief's pins require: **feature bosses show as killed
+  while `bossKills` is still 0**, ladder champions show from their recorded ids, and `bossKills`
+  alone names no row (pinned). The Deserter is on no boss page.
+- **The one new save field (R6).** `records.codexLocations?: string[]` — nested INSIDE `records`, so
+  **§J stays at 22 optional top-level fields with `records` last** (pinned by the new suite and by
+  `saveCorpus` §J, which needed no change). Written by `withCodexLocation`, which is identity-stable
+  for a repeat visit / unknown id / no profile, so `App.handleVisitLocation` never reaches
+  `saveProfile` twice; `CityHubScene.handleInteract` reports `nearbyLoc.id` at the TOP of the
+  interaction (deduped, no save spam). `markTriumphsViewed` / `applyTriumphAwards` / `withPeakGold`
+  all spread the stored record, so the visits survive every other records write. The records-era
+  fixture now carries three visits (`records_house`, `colosseum`, `training_yard`).
+- **The reward sink (R4).** `saga_codex_complete` ("Codex Complete — The Whole City Knows Your
+  Name", Saga, capstone, 25 fame) is decided by A8's EXISTING evaluator from one new fact,
+  `TriumphFacts.codexComplete = isCodexComplete(profile)` — no second evaluator, no transient stat.
+  Its authored title **'Chronicler of the Ludus'** is appended to `EARNED_TITLES` and granted BY ID
+  (`getEarnedTitle`), never by a category rule; it is owned permanently and selectable like any other
+  title. Stage-2 consequence, stated in code and copy: the six bounty rows are Chapter-3-gated, so
+  Gladiators 100% — and therefore this triumph — is unreachable until Stage 2 (a profile missing only
+  the bounty rows does NOT earn it; pinned).
+- **Deliberately absent (R2/R3/R5).** No Fragments page (STORY-5 adds it with the 3C content; the
+  page list is data-driven). No horse-tiers section (studio tiers are not integrated). No "best hype"
+  column (hype is transient and has no persistent per-opponent record — flagged DEFERRED). No
+  portraits: a rival's mark is an initials seal, the K1 `KeeperPlate` pattern.
+- **Guards honoured, and the rebases stated.** `combatCalculations.ts` untouched; the timeState clock
+  ban untouched; `triumphs.ts`'s catalogue changes are ADDITIVE (A8's 23 shipped + 6 dormant rows are
+  unchanged, with `saga_codex_complete` appended to the Saga block). Four exact-list / count pins were
+  **rebased, not weakened**: `triumphs.test.ts` §A's shipped count 23 → 24 (naming the one new id),
+  §E's capstone list, §G's earned-title list; `laurels.test.ts` §F's file allowlist (+
+  `utils/codex.test.ts`); `phaseC8_67b.test.ts` §D's racing-consumer list (+ `utils/codex.ts`, a
+  read-only `resolveRacingState` consumer); `saveCorpus.test.ts` §H's corpus-reader list (+ the Codex
+  suite). None was relaxed or deleted.
+- **Open note for a later slice (NOT this one):** `utils/roadOfGlory.ts` carries a comment saying the
+  Legend stage's Codex condition is unimplemented because no Codex module existed. `codex.ts` now
+  exists and offers `isCodexComplete`; wiring it into the road would change the Road's Legend gate,
+  which this slice deliberately did not do.
+- **Verified 2026-10-28** in the dev container: `bun test` → **4566 pass / 0 fail (150 files,
+  121,253 `expect()` calls)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**;
+  `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check
+  passing (8 assets); `git diff --check` → clean.

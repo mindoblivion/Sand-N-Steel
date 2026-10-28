@@ -18,13 +18,22 @@ import { PlayerProfile } from '../../types/game';
 import { LaurelResult } from '../../utils/laurels';
 import { RoadOfGloryPage } from './RoadOfGloryPage';
 import { TriumphsPage } from './TriumphsPage';
+import { CodexPage } from './CodexPage';
 
-/** The library's pages, in reading order.  The Road is page one. */
-export type LibraryPageId = 'road' | 'triumphs';
+/**
+ * The library's pages, in reading order.  The Road is page one.
+ *
+ * A5 — 'Codex' is the fourth entry, beside The Road and Triumphs, inside this same
+ * rack: the design's two-page Library view is one rack with more than one page, and
+ * the Codex adds no navigation entry of its own (the character sheet's route lands
+ * on Triumphs; the Codex tab is reached on the rack itself).
+ */
+export type LibraryPageId = 'road' | 'triumphs' | 'codex';
 
 export const LIBRARY_PAGES: { id: LibraryPageId; label: string }[] = [
   { id: 'road', label: 'The Road' },
   { id: 'triumphs', label: 'Triumphs' },
+  { id: 'codex', label: 'Codex' },
 ];
 
 interface LibraryTabProps {
@@ -119,6 +128,9 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
           onSelectTitle={onSelectTitle}
         />
       )}
+      {/* A5 — the Codex is READ-ONLY: it derives every mark from the profile and
+          writes nothing, so it takes no handler and no save path. */}
+      {page === 'codex' && <CodexPage profile={profile} />}
     </div>
   );
 };
