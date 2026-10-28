@@ -1,5 +1,5 @@
 import React from 'react';
-import { DuelStatistics, OpponentConfig } from '../../types/game';
+import { DuelStatistics, OpponentConfig, PlayerProfile } from '../../types/game';
 import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight, HeartPulse, Award } from 'lucide-react';
 import { getPalma } from '../../data/palmae';
 import { injuryBannerLine, type DuelInjuryEvent } from '../../utils/injury';
@@ -23,11 +23,22 @@ import { CoachCard } from '../ui/CoachCard';
 import { getCoachCard } from '../../utils/coachMarks';
 import confetti from 'canvas-confetti';
 import { sounds } from '../../audio/soundEffects';
+// PITCH A6 — the Roman-poster result card: the pure composer below, and the
+// poster section that displays it (canvas + the OS share sheet).
+import { composeVictoryCard } from '../../utils/victoryCard';
+import { VictoryPoster } from './VictoryPoster';
 
 interface DuelResultModalProps {
   didWin: boolean;
   opponent: OpponentConfig;
   stats: DuelStatistics;
+  /**
+   * PITCH A6 — the profile the result card prints: the player's name and the
+   * class (armatura) he fights as.  READ ONLY: the poster writes nothing, and
+   * this slice adds no profile field.  Absent only in a test that does not pass
+   * one, where the composer falls back to its defensive labels.
+   */
+  profile?: PlayerProfile | null;
   /**
    * STORY-2 — the beats' own lines for this result, decided at the write: the
    * Doctore's reading of a first novice bout, and the Doctore's Test's verdict
@@ -131,6 +142,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   didWin,
   opponent,
   stats,
+  profile,
   storyLines,
   injuryEvent,
   goldTotal,
@@ -252,6 +264,16 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
 
   // C-8.70C — the mode this victory was fought under. It rides the in-memory
   // statistics object; a Sand win shows no mode line, because ×1.00 is no change.
+  // PITCH A6 — the poster's own content, composed purely from this bout: the
+  // profile's name and class, the opponent, the in-memory statistics, the result.
+  // Nothing here reads storage and nothing writes: the card is a display of the
+  // bout just fought (R-SCOPE), available on every duel result including
+  // exhibitions and independent of the mercy choice's state.
+  const victoryCard = React.useMemo(
+    () => composeVictoryCard(profile, opponent, stats, didWin),
+    [profile, opponent, stats, didWin],
+  );
+
   const boutModeDef = stats.boutMode ? BOUT_MODES[stats.boutMode] : undefined;
   const showsModeLines = Boolean(boutModeDef && boutModeDef.id !== 'sand');
 
@@ -584,6 +606,13 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
             </div>
           )}
         </div>
+
+        {/* PITCH A6 — THE VICTORY CARD (duel card only).  Below the result
+            lines: the fixed 1080x1350 poster, and a Share button that is drawn
+            only when the OS share sheet accepts files.  Outside the staged
+            reveal and outside the mercy/bounty answer state, so the poster of
+            the bout just fought is always there. */}
+        <VictoryPoster data={victoryCard} />
 
         {/* STORY-4a — MERCY OR GLORY (Pitch A9, duel form only).  An eligible
             victory HOLDS the result open: the two answers stand where the return

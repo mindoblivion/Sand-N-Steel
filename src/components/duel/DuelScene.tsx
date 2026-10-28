@@ -220,6 +220,9 @@ import {
 // Three factual lines on a defeat, from this duel's own tallies (no save, no
 // second mix counter).
 import { whyYouFellLines } from '../../utils/whyYouFell';
+// Pitch A6 — the victory card's winner-remaining-health reading (in memory only;
+// the card's margin, never a combat input).
+import { winnerHealthFraction } from '../../utils/victoryCard';
 import { BrothersPair } from '../3d/BrothersPair';
 import { BeastFigure } from '../3d/BeastFigure';
 import { crowdHypeTier, detectCrowdHypeCrossing } from '../../utils/crowdHype';
@@ -2777,6 +2780,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+      // Pitch A6 — Director ruling R-MARGIN: the WINNER's remaining health, read
+      // HERE from the player's live HP exactly as `lowestHealthFraction` is (a
+      // reading of the fight, never read by a combat formula). It rides the
+      // in-memory statistics object to the victory card and is never saved.
+      statsRef.current.winnerHealthFraction = winnerHealthFraction(
+        player.health,
+        player.stats.healthMax,
+      );
       sounds.playVictory();
       addLog(`VICTORY! ${player.name} has vanquished ${opp.name}!`, 'crit');
       // The purse the crowd actually pays for this fight: the opponent's own
@@ -2849,6 +2860,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+      // Pitch A6 — Director ruling R-MARGIN: on a defeat the WINNER is the
+      // opponent, so his remaining health is the card's margin — the same
+      // reading of the fight, taken the same way, in memory only.
+      statsRef.current.winnerHealthFraction = winnerHealthFraction(
+        opp.health,
+        opp.stats.healthMax,
+      );
       // C-8.70B §SET-1 — the player has fallen: the defeat pattern.
       vibrate(HAPTIC_DEFEAT_PATTERN);
       addLog(`DEFEAT! ${player.name} has fallen in the sand.`, 'opponent');

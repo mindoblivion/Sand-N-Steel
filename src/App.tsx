@@ -2188,6 +2188,8 @@ export function App() {
             didWin={duelResult.didWin}
             opponent={activeOpponent}
             stats={duelResult.stats}
+            /* PITCH A6 — the name and class the result card prints. Read only. */
+            profile={profile}
             storyLines={duelResult.storyLines}
             injuryEvent={duelResult.injuryEvent}
             palmaEarned={duelResult.palmaEarned}
