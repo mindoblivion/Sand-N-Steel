@@ -23,8 +23,10 @@
  *   §J  the save corpus: §J stays at 22 optional fields with `records` last, and
  *       the records-era fixture carries the new array;
  *   §K  the surfaces and the wiring, read out of the shipped sources: the Codex
- *       tab in the Library rack, no Fragments page, no horse tiers, no best-hype
- *       column, and the one hub-visit write through App's save pair.
+ *       tab in the Library rack, no horse tiers, no best-hype column, and the one
+ *       hub-visit write through App's save pair.  The Fragments page is STORY-5b's
+ *       and is pinned where it belongs (`librarianChain.test.ts` §F): absent
+ *       until the Librarian chain closes, so A5's "no empty shell" property holds.
  *
  * The components are not rendered here (JSX needs a .tsx file) — the rendered
  * pins live in `codexSurface.test.tsx`; this suite reads their sources only where
@@ -477,14 +479,33 @@ describe('A5 §K — the surfaces and the wiring', () => {
     expect(page).not.toContain('applyTriumphAwards');
   });
 
-  test('no Fragments page, no horse tiers and no best-hype column', () => {
+  /**
+   * STORY-5b — REBASED, NOT WEAKENED.  A5 pinned "no Fragments page" because none
+   * existed: an empty shell would have advertised unbuilt story.  The page now
+   * exists and is gated on the Librarian chain (§F of `librarianChain.test.ts`
+   * pins both halves — absent before the chain, SEALED rows after it), so the
+   * property A5 was protecting is unchanged and the remaining pins are the two
+   * sections that are still deliberately absent.
+   */
+  test('no horse tiers and no best-hype column', () => {
     for (const path of ['utils/codex.ts', 'components/hub/CodexPage.tsx']) {
-      const source = code(path);
-      expect(source.toLowerCase()).not.toContain('fragment');
-      expect(source.toLowerCase()).not.toContain('horse tier');
-      expect(source.toLowerCase()).not.toContain('best hype');
-      expect(source.toLowerCase()).not.toContain('best-hype');
+      const source = code(path).toLowerCase();
+      expect(source).not.toContain('horse tier');
+      expect(source).not.toContain('best hype');
+      expect(source).not.toContain('best-hype');
     }
+  });
+
+  test('the Fragments page is gated, never an empty shell', () => {
+    const fresh = buildCodex(createNewProfile('Codex Tester'));
+    expect(fresh.fragments).toBeUndefined();
+    expect(fresh.pages.map((page) => page.id)).toEqual([
+      'gladiators',
+      'bosses',
+      'horses',
+      'arms',
+      'city',
+    ]);
   });
 
   test('the ONE Codex write rides the existing hub interaction and App\'s save pair', () => {
