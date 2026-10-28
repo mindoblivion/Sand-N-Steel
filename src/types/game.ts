@@ -541,6 +541,24 @@ export interface OpponentConfig {
    * satisfies another bout's boss gate (`isLadderBoss` in this module's data).
    */
   featureBout?: true;
+  /**
+   * STORY-4b — a BOUNTY BOUT: a rung of the Deserter's Price ladder (or its
+   * final), fought from the Bounty Hall's board rather than a tier rung.
+   * Appended to the roster so a save's ids resolve; `fightIndex` 0 (no rung).
+   * Every ladder consumer fences it exactly as it fences a Feature Bout: it
+   * never advances `currentTier`, never adds a `bossKills` stripe, never
+   * generates a grudge, never earns an extra palma, never satisfies another
+   * bout's gate and is never offered STORY-4a mercy. Read by
+   * `utils/bountyLadder.ts` only.
+   */
+  bountyBout?: true;
+  /**
+   * STORY-4b — Director ruling R5: this opponent fights LEFT-HANDED. Implemented
+   * with the shipped lefty stance (`FighterState.isLeftyMode` → `GladiatorMesh`
+   * swaps the sword and shield hands), never as a stat change: the row carries no
+   * phantom modifier and the duel computes exactly what it always computed.
+   */
+  leftHanded?: true;
   /** D-1 — the bout's gate, as data. Read by `utils/featureBouts.ts` only. */
   gate?: FeatureBoutGate;
   /**
@@ -579,6 +597,16 @@ export interface DuelStatistics {
    * The Doctore's "win fresh" restriction is the one consumer.
    */
   lowestStaminaFraction: number;
+  /**
+   * STORY-4b — the player's health low-water mark, tracked exactly the way
+   * `lowestStaminaFraction` is: a `Math.min` over the player's live health each
+   * time it moves, expressed as a fraction of the maximum he entered the duel
+   * with (1 = never dropped). It is a reading of the fight, not a rule of it: no
+   * combat formula reads it. The Unscarred's "never below half" bounty twist is
+   * the one consumer. IN-MEMORY only — nothing saves `DuelStatistics`, so no save
+   * format and no profile field changes; absent reads as 1 (never dropped).
+   */
+  lowestHealthFraction?: number;
   crowdHypePeak: number;
   durationSeconds: number;
   goldEarned: number;
@@ -790,6 +818,14 @@ export interface StoryProgress {
    * passed yet — and can, whenever it takes the Test.
    */
   doctoreTestPassed?: boolean;
+  /**
+   * STORY-4b — the Deserter's Price rungs CLEARED, by opponent id, in the order
+   * they were cleared. A rung is only cleared by a victory that also met its
+   * twist, and `defeatedOpponentIds` cannot say that (it records every win,
+   * clearing or not), so the clear is a separate record — kept INSIDE this
+   * existing object so no top-level profile field is added (§J stays at 21).
+   */
+  bountyRungs?: string[];
 }
 
 /**

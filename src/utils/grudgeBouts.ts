@@ -185,6 +185,9 @@ export function isGrudgeBase(
   if (typeof opponent.id !== 'string' || opponent.id === '') return false;
   if (opponent.isBoss === true) return false;
   if (opponent.featureBout === true) return false;
+  // STORY-4b — and never a BOUNTY BOUT: a board rung is fought from the board, so a
+  // bounty victory generates no grudge and no rematch (fence (f)).
+  if (opponent.bountyBout === true) return false;
   if (opponent.grudge !== undefined) return false;
   return finite(opponent.tier) && finite(opponent.aggression) && finite(opponent.blockChance);
 }

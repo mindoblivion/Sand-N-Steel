@@ -80,6 +80,26 @@ interface DuelResultModalProps {
   } | null;
   /** The answer.  App writes it once; the modal never writes anything. */
   onMercyChoice?: (choice: MercyChoice) => void;
+  /**
+   * STORY-4b — what this bout did for the Bounty Hall's board, decided at the same
+   * write: a rung's clear or miss (a line, and the bounty the save already paid), or
+   * the Deserter's final, whose CAPTURE-or-KILL answer is taken HERE and paid by
+   * App when it lands. Separate UI from STORY-4a's mercy: a bounty bout never
+   * offers Spare/Finish, and a mercy-eligible victory never offers this.
+   */
+  bounty?: {
+    kind: 'rung' | 'final';
+    line: string;
+    gold: number;
+    fame: number;
+    chosen?: 'spared' | 'taken';
+    capturedGold: number;
+    capturedFame: number;
+    takenGold: number;
+    takenFame: number;
+  } | null;
+  /** The Deserter's answer.  App writes it once; this component never writes. */
+  onDeserterChoice?: (choice: 'spared' | 'taken') => void;
   onContinue: () => void;
 }
 
@@ -120,6 +140,8 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   omenLine,
   mercy,
   onMercyChoice,
+  bounty,
+  onDeserterChoice,
   onContinue,
 }) => {
   const pace = didWin ? 1 : DEFEAT_PACE;
@@ -651,7 +673,98 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
           </div>
         )}
 
-        {(!mercy || mercy.chosen) && (
+        {/* STORY-4b — THE BOUNTY BOARD'S LINE. A rung prints what its posting did
+            (cleared and paid, or still posted); the Deserter's final HOLDS the
+            result open until the board's question is answered, exactly as 4a's
+            mercy offer holds its own — and the two never appear together. */}
+        {bounty && bounty.kind === 'rung' && (
+          <div
+            data-duel-bounty={bounty.gold > 0 ? 'cleared' : 'missed'}
+            className={`mb-4 rounded-2xl border p-4 ${
+              bounty.gold > 0
+                ? 'border-amber-600/70 bg-neutral-950/90'
+                : 'border-neutral-700/70 bg-neutral-950/90'
+            }`}
+          >
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 mb-1">
+              The Bounty Hall
+            </div>
+            <p
+              data-duel-bounty-line
+              className="text-[11px] sm:text-xs font-serif text-neutral-200 leading-relaxed"
+            >
+              {bounty.line}
+            </p>
+            {bounty.gold > 0 && (
+              <p className="mt-1 text-[11px] font-mono text-amber-300">
+                Bounty paid: +{bounty.gold}g · +{bounty.fame}f
+              </p>
+            )}
+          </div>
+        )}
+
+        {bounty && bounty.kind === 'final' && !bounty.chosen && (
+          <div
+            data-deserter-offer={bounty.capturedGold}
+            className="mb-4 rounded-2xl border border-rose-700/70 bg-neutral-950/90 p-4"
+          >
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-rose-300 mb-2">
+              The Oathbreaker&apos;s price
+            </div>
+            <p className="text-xs sm:text-[13px] font-serif italic text-amber-100/90 leading-relaxed mb-3">
+              {bounty.line}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                data-deserter-choice="spared"
+                onClick={() => onDeserterChoice?.('spared')}
+                className="btn-press min-h-[48px] py-3 px-3 rounded-2xl text-left cursor-pointer border border-emerald-500/70 bg-emerald-950/50 hover:bg-emerald-900/60 active:scale-95 transition-all"
+              >
+                <span className="block font-serif font-black text-sm uppercase tracking-wider text-emerald-200">
+                  Capture
+                </span>
+                <span className="block text-[10px] font-serif text-emerald-100/80 leading-snug mt-1">
+                  Taken alive: +{bounty.capturedGold}g and +{bounty.capturedFame}f fame. He can still
+                  speak for the board.
+                </span>
+              </button>
+              <button
+                type="button"
+                data-deserter-choice="taken"
+                onClick={() => onDeserterChoice?.('taken')}
+                className="btn-press min-h-[48px] py-3 px-3 rounded-2xl text-left cursor-pointer border border-red-500/70 bg-red-950/50 hover:bg-red-900/60 active:scale-95 transition-all"
+              >
+                <span className="block font-serif font-black text-sm uppercase tracking-wider text-red-200">
+                  Kill
+                </span>
+                <span className="block text-[10px] font-serif text-red-100/80 leading-snug mt-1">
+                  Killed outright: +{bounty.takenGold}g and +{bounty.takenFame}f fame. The road is
+                  shown the body.
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {bounty && bounty.kind === 'final' && bounty.chosen && (
+          <div
+            data-deserter-chosen={bounty.chosen}
+            className="mb-4 rounded-2xl border border-amber-600/70 bg-neutral-950/90 p-4 flex flex-col gap-2"
+          >
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
+              {bounty.chosen === 'spared' ? 'Taken alive' : 'Killed outright'}
+            </div>
+            <p className="text-[11px] sm:text-xs font-serif text-neutral-200 leading-relaxed">
+              {bounty.line}
+            </p>
+            <p className="text-[11px] font-mono text-amber-300">
+              Bounty paid: +{bounty.gold}g · +{bounty.fame}f
+            </p>
+          </div>
+        )}
+
+        {(!mercy || mercy.chosen) && (!bounty || bounty.kind === 'rung' || bounty.chosen) && (
         <button
           onClick={handleContinue}
           className={`btn-press w-full py-4 rounded-2xl font-serif font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl flex items-center justify-center gap-2 ${

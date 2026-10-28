@@ -191,16 +191,23 @@ function base(overrides: Partial<PlayerProfile> = {}): PlayerProfile {
 describe('D-1 §A — the append touched no pre-existing row', () => {
   test('the roster is the twelve pre-D-1 rows followed by exactly five feature bouts', () => {
     expect(PRE_D1_OPPONENTS.length).toBe(12);
-    expect(ALL_OPPONENTS.length).toBe(17);
+    // STORY-4b — the Bounty Hall board appends six rows to the roster (five rungs
+    // plus the Deserter). `LADDER_OPPONENTS` and `FEATURE_BOUT_OPPONENTS` are
+    // unchanged: both fences now exclude `bountyBout` rows.
+    expect(ALL_OPPONENTS.length).toBe(23);
     expect(LADDER_OPPONENTS.length).toBe(12);
     expect(FEATURE_BOUT_OPPONENTS.length).toBe(5);
     // The order is the append: the first twelve ARE the old roster, in order.
     expect(ALL_OPPONENTS.slice(0, 12).map((opponent) => opponent.id)).toEqual(
       (PRE_D1_OPPONENTS as OpponentConfig[]).map((opponent) => opponent.id),
     );
-    expect(ALL_OPPONENTS.slice(12).map((opponent) => opponent.id)).toEqual(
+    // STORY-4b — the Feature Bouts are still the block immediately after the old
+    // roster, in Part A's order; the Bounty Hall's six rows follow them.
+    expect(ALL_OPPONENTS.slice(12, 17).map((opponent) => opponent.id)).toEqual(
       PART_A.map((bout) => bout.id),
     );
+    expect(ALL_OPPONENTS.slice(17)).toHaveLength(6);
+    expect(ALL_OPPONENTS.slice(17).every((opponent) => opponent.bountyBout === true)).toBe(true);
   });
 
   test('every pre-existing row is byte-identical apart from C-8.70C’s steelDelta', () => {

@@ -291,14 +291,29 @@ export function phaseParams<P>(ladder: BossPhaseLadder<P>, phase: 1 | 2): P {
   return entry.params;
 }
 
-/** Goliath's announce rate: Phase 1's 30 % in every phase. 0 without a ladder. */
+/**
+ * Goliath's announce rate: Phase 1's 30 % in every phase. 0 without a ladder.
+ *
+ * STORY-4b — the gate is the MECHANIC, not the row id. A boss that carries
+ * `heavy_telegraph` but owns no registered ladder is a SINGLE-PHASE fight (the
+ * Deserter is the only such row), and a single-phase fight reads the mechanic's
+ * Phase-1 rate in every phase — the same 0.30 Goliath announces at, since Phase 2
+ * never quickens the wind-up. Nothing else about this helper moved: a row that is
+ * not a boss, or a boss whose mechanic is another one, still answers 0.
+ */
 export function bossTelegraphChance(
   opponent: OpponentConfig | null | undefined,
   health: number,
   healthMax: number,
 ): number {
   const ladder = bossPhaseLadderFor(opponent);
-  if (!ladder || ladder.mechanic !== 'heavy_telegraph') return 0;
+  if (!ladder) {
+    if (opponent?.isBoss === true && opponent.bossMechanic === 'heavy_telegraph') {
+      return BOSS_PHASES.heavy_telegraph.phases[0].params.telegraphChance;
+    }
+    return 0;
+  }
+  if (ladder.mechanic !== 'heavy_telegraph') return 0;
   return phaseParams(ladder, bossPhaseAt(opponent, health, healthMax)).telegraphChance;
 }
 

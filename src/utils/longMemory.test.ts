@@ -588,11 +588,20 @@ describe('D-5 §J — the whole roster, after every D-slice', () => {
   ];
 
   test('the nine mechanics in the game resolve only on isBoss rows, once each', () => {
+    // STORY-4b — the counts are of the roster's LADDER/FEATURE owners; the Bounty
+    // Hall's Deserter reuses `heavy_telegraph` and is fenced out of them (pinned in
+    // the last assertion here and in `bossPhases.test.ts` §F).
     for (const mechanic of [...LADDER_MECHANICS, ...FEATURE_MECHANICS]) {
-      const carriers = ALL_OPPONENTS.filter((opponent) => opponent.bossMechanic === mechanic);
+      const carriers = ALL_OPPONENTS.filter(
+        (opponent) => opponent.bossMechanic === mechanic && opponent.bountyBout !== true,
+      );
       expect(carriers.length, mechanic).toBe(1);
       expect(carriers[0].isBoss, mechanic).toBe(true);
     }
+    expect(
+      ALL_OPPONENTS.filter((opponent) => opponent.bountyBout === true && opponent.bossMechanic !== undefined)
+        .map((opponent) => opponent.id),
+    ).toEqual(['opp_bounty_deserter']);
     // No non-boss row carries a mechanic at all.
     for (const opponent of ALL_OPPONENTS) {
       if (opponent.isBoss === true) continue;
@@ -622,7 +631,10 @@ describe('D-5 §J — the whole roster, after every D-slice', () => {
     const profile = longMemoryProfile(cfg(), base(), state);
     expect(profile.blockChance).toBe(0.95);
     expect(JSON.stringify(ALL_OPPONENTS)).toBe(before);
-    expect(ALL_OPPONENTS.length).toBe(17);
+    // STORY-4b — the Bounty Hall board appends six rows to the roster (five rungs
+    // plus the Deserter). `LADDER_OPPONENTS` and `FEATURE_BOUT_OPPONENTS` are
+    // unchanged: both fences now exclude `bountyBout` rows.
+    expect(ALL_OPPONENTS.length).toBe(23);
     expect(LADDER_OPPONENTS.length).toBe(12);
     expect(FEATURE_BOUT_OPPONENTS.length).toBe(5);
   });

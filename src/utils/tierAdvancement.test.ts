@@ -94,8 +94,12 @@ describe('§A — a tier advances only on a boss first defeat', () => {
     for (const tier of TOURNAMENT_TIERS.map((t) => t.tier)) {
       // D-1 — the LADDER's boss, which is one per tier; the feature bouts of
       // that venue tier are bosses too, and are counted separately below.
+      // STORY-4b — the Bounty Hall's Deserter stands in tier 3 as a boss but is not
+      // a ladder boss, so the LADDER population is asserted with the bounty fence.
       expect(
-        ALL_OPPONENTS.filter((o) => o.tier === tier && o.isBoss === true && o.featureBout !== true)
+        ALL_OPPONENTS.filter(
+          (o) => o.tier === tier && o.isBoss === true && o.featureBout !== true && o.bountyBout !== true,
+        )
       ).toHaveLength(1);
     }
     expect([GOLIATH.id, IGNIS.id, VALERIA.id, AURELIUS.id]).toEqual([

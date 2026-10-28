@@ -8225,3 +8225,114 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   reads the plate's `data-keeper-line`: broke on the line, broke still wins at night, greeting /
   repeat / night clerk unchanged otherwise, no plate on the market tab). No K1/K2/K3 pin needed a
   rebase — no existing fixture met a state condition.
+
+## STORY-4b — The Deserter's Price: the bounty ladder and the Bounty Hall board (implemented)
+
+- **What ships: the board, the six rows, the rules and the two writes.** The Bounty Hall's door
+  (`cityCollisions.ts` id `bounty_hall`) now opens a real PANEL instead of routing to the tournament
+  tab. `src/data/bountyBoard.ts` (new) holds the five rung ROWS plus the Deserter as `OpponentConfig`
+  rows appended to `ALL_OPPONENTS`; `src/utils/bountyLadder.ts` (new, pure) owns every rule;
+  `src/components/hub/BountyBoardPanel.tsx` (new) is the board surface; `App.tsx` lands the two
+  writes; `DuelResultModal.tsx` draws the rung's line and the Deserter's capture-or-kill. The six
+  existing rows above the append are byte-identical.
+- **K3-BOARDS is complete for Scribonia.** This slice builds the bounty board's plate — the clerk who
+  keeps it heads the panel, her greeting freezes once per open (K2's `keeperGreetingRef` pattern), and
+  the visit is recorded through App's ONE write path (`handleRecordKeeperVisit` →
+  `recordKeeperVisit`) via a relay prop, exactly as the shrine's plate does. The board panel lives in
+  its own component, so `CityHubScene` still carries its three `<KeeperPlate>` uses and its
+  `openCounterKeeperId` chain is unchanged; `data/keepers.ts`'s registry rows are untouched, and
+  `getKeeperForBuilding('bounty_hall')` is still `undefined` on purpose — the hall hosts TWO boards
+  (Scribonia's, and Cornelius Felix's mercenary board, which this slice does NOT build), so a
+  building→keeper map entry would name the wrong one. The panel reads its keeper by id
+  (`getKeeper('scribonia')`). **Felix's board is not built.**
+- **The ladder, as data (Director rulings flagged in code).** R1 the rung bounties are 280/95,
+  300/100, 320/110, 340/115, 380/125 gold/fame; the final pays 550 g / 90 f captured and 350 g / 180 f
+  killed. R2/Five twists, in order: `combo` (victory AND `maxCombo >= DOCTORE_TEST_COMBO_TARGET`,
+  the constant reused), `left_handed`, `stamina_war`, `crowd` (victory AND `crowdHypePeak >=
+  CROWD_HYPE_TIER_MAX`, C-B's own 75), `clean` (victory AND `lowestHealthFraction >= 0.5`). R3
+  sequential unlock (rung n needs 1…n-1 cleared) and repeats free after clear, paying the FULL bounty
+  every time. R4 a victory that misses its printed rule pays the ordinary duel purse, clears nothing
+  and pays no bounty — the board prints that rule. R6 the whole ladder opens at Chapter 3 (the panel
+  and the plate render before it, and nothing is enterable). The five rung NAMES and every stat are
+  AUTHORED (`STORY-4b — authored, not design-transcribed`, in each row) at Tier-3 scale, anchored to
+  the shipped Tier-3 regulars and, for the Deserter, to Valéria's boss row.
+- **The payouts are two numbers, not one.** Each row's own `rewardGold`/`rewardFame` is a small
+  authored CONTRACT PURSE (the standard duel purse a non-clearing victory keeps); the posted BOUNTY
+  is credited separately by `App`'s victory write when a rung clears, so "the standard purse but not
+  the bounty" is literally true and testable.
+- **The Deserter.** `opp_bounty_deserter` — "Lucius Cassius, called the Oathbreaker" — `isBoss: true`
+  (boss HUD, boss music/card, CF-6 telegraph) and `bountyBout: true`, `fightIndex: 0`, mechanic
+  `heavy_telegraph` REUSED from Goliath, `meshScale` 1.12, NO phase data (single-phase). He is
+  enterable only at Chapter 3+ with all five rungs cleared.
+- **One minimal extension, with a test pin.** CF-6's presentation gate was already mechanic-keyed
+  (`bossPresentsMoment(opponent, mechanic)`), so the telegraph GLOW needed nothing; but
+  `bossTelegraphChance` was keyed on the boss's registered phase ladder, so a boss with the mechanic
+  and no phase data announced nothing. It now answers the mechanic's own Phase-1 rate for such a boss
+  (`isBoss ∧ bossMechanic === 'heavy_telegraph' ∧ no ladder`) — one branch, no new mechanic, pinned
+  in `bountyLadder.test.ts` §A/§F and `bossPhases.test.ts` §F.
+- **The left-handed twist, as actually built (R5).** The row carries `leftHanded: true`; `DuelScene`
+  seeds the opponent fighter's `isLeftyMode` from it, so the SHIPPED lefty stance renders the model
+  with the sword in the left hand and the shield in the right (the same path the player's own lefty
+  mode uses). The board prints "fights left-handed" on that rung. No stat, formula, reward or AI
+  value changed — there is no phantom mechanic.
+- **The capture-or-kill UI is separate from STORY-4a mercy.** On a Deserter victory the result modal
+  holds itself open (`CAPTURE` / `KILL` in place of the return button) until answered, then shows the
+  answer and the paid bounty. Capture writes `story.deserterChoice='spared'` and pays 550/90; kill
+  writes `'taken'` and pays 350/180 — once, through `applyDeserterChoice`, which refuses a second
+  answer off the field itself (plus a session ref for the tap). R7: the choice stays in
+  `story.deserterChoice` and does NOT enter A9's `spared` map; the Deserter is a bounty row, not a
+  mercy-eligible regular, and 4a's mercy never fires on him (boss fence, pinned).
+- **Where the state lives — stated plainly.** A RUNG CLEAR is `story.bountyRungs` (rung ids, clear
+  order). It is NOT derivable from `defeatedOpponentIds`: the ordinary victory write records every
+  win, and R4 says a non-clearing win clears nothing, so the two would disagree on the first missed
+  twist. The array lives inside the existing `story` object, so **no top-level profile field was
+  added** and `saveCorpus` §J stays at twenty-one fields with `spared` last (pinned in
+  `bountyLadder.test.ts` §G). The Deserter's choice is the pre-existing `story.deserterChoice`.
+- **All seven fences are test-pinned** (`bountyLadder.test.ts` §F): (a) tier advancement and every
+  tier-keyed gate — `isLadderBoss` now excludes `bountyBout` exactly as it excludes `featureBout`,
+  and `resolveVictoryTier` is driven on all six rows; (b) `bossKills` — `nextBossKills` carries the
+  same fence locally; (c) `extraPalmaFor` returns null for any bounty row; (d) the Feature Bouts
+  section (`FEATURE_BOUT_OPPONENTS` / `featureBoutStatuses`) excludes them; (e) STORY-4a mercy never
+  offers (`MERCY_ROSTER` derives from `LADDER_OPPONENTS`, which excludes them); (f) no grudge is
+  generated (`isGrudgeBase` fences them); (g) no ladder win (`LADDER_OPPONENTS`, `PRIMUS_PALUS_LADDER`
+  and every `fightIndex`-keyed list exclude them, `fightIndex: 0`). `TournamentTab`'s ladder list also
+  excludes them, so the board is the only entry point.
+- **Rebased, not weakened, because the roster genuinely grew by six rows (five rungs + one boss).**
+  The `ALL_OPPONENTS.length` pins 17 → 23 (`featureBouts`, `boutModes`, `opponentsLadder`,
+  `longMemory`) with `LADDER_OPPONENTS` still 12 and `FEATURE_BOUT_OPPONENTS` still 5; `boutModes`'
+  ROSTER 18 → 24; `intel.test.ts`'s ladder-ordering split now excludes the bounty block and pins it
+  at the tail; `bossPhases` §F, `bossPresentation` §A/CF-6, `longMemory` §J and `bossKills`' `BOSSES`
+  now assert the LADDER population and then assert the Deserter's own fenced reuse explicitly;
+  `tierAdvancement` §A and `opponentsLadder`'s `tierRoster` exclude `bountyBout`; two App source pins
+  (`fortunasOmen` §H, `duelRewards` §G) now read the victory write's new expression. Every one keeps
+  the property it existed for; none was deleted or relaxed.
+- **Guards honoured:** `combatCalculations.ts` untouched (the twists read `DuelStatistics`);
+  `DuelStatistics` gained only the in-memory `lowestHealthFraction` (nothing saves it); `timeState`'s
+  clock ban untouched; `types/game.ts`'s `StoryProgress` gained `bountyRungs` (inside `story`);
+  `keepers.ts` untouched; this file append-only.
+- **Tests.** `src/utils/bountyLadder.test.ts` (new, 35 tests: ladder data, gate, order, repeats,
+  twists, resolver, the two writes, all seven fences, §J, the wiring) and
+  `src/utils/bountyBoardPanel.test.tsx` (new, 8 tests: SSR of the real panel — locked pre-Chapter 3
+  with Scribonia's plate, prices and twists printed, rung-by-rung opening, the left-handed note, a
+  cleared rung, the open final, the answered final, and the panel's own no-write contract).
+- **Verified 2026-10-28** in the dev container: `bun test` → **4439 pass / 0 fail (147 files, 120,281
+  `expect()`)**; `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the startup-asset check passing (8 assets);
+  `git diff --check` → clean.
+- **Not automatically verified — the panel in a running hub, and the ladder's live play.** The preview
+  browser drove title → `Play` → character creation → the Oath's holds and stopped there: the script's
+  30 s budget ran out before the 3D city mounted (SwiftShader, ~2 fps), so the hall's prompt, the
+  panel's rendered frame and any bout were NOT reached. The panel's markup, the door's wiring and the
+  result-modal gate are pinned by the two new suites (the panel is rendered with `react-dom/server`),
+  and the dev server serves all five changed modules transformed. **The ladder is also DORMANT in
+  play** for the same reason STORY-4a's mercy is: `resolveStoryState` holds the campaign at Chapter 2
+  until Stage 2 lands its race-results write, so no live record can reach Chapter 3 and every player
+  sees the board shut with its line. The open ladder is driven through the module's `chapterOverride`
+  seam (the same one `mercyOfferFor` carries). Android checklist when Stage 2 lands: (a) walk to the
+  Bounty Hall and confirm the door opens the board, not the tournament tab; (b) confirm Scribonia's
+  plate heads it and does not swap to the repeat line mid-visit; (c) clear a rung and confirm the
+  result screen prints the bounty paid, and that missing the twist prints the posting-stood line with
+  no bounty; (d) beat the Deserter and confirm the result holds open until CAPTURE or KILL, and that
+  the paid figures match 550/90 and 350/180; (e) confirm the tavern's rumour list does not advertise
+  the board's names as a shortcut around its gate — it does list them today (they are roster rows),
+  which is recorded as an open design question rather than a defect.
