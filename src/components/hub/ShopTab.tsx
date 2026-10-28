@@ -2,6 +2,8 @@ import React from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
 import { getItemById, isWeapon } from '../../data/itemsDB';
 import { getVisibleStorefrontStock, StorefrontId } from '../../data/shops';
+import { getKeeperForStorefront, resolveSeenKeepers, selectRepeatLine } from '../../data/keepers';
+import { KeeperPlate } from './KeeperPlate';
 import { CONSUMABLES, ConsumableItem } from '../../data/consumables';
 import { getConsumableCount } from '../../utils/consumables';
 import { ShoppingCart, Coins, Shield, Swords, Check, FlaskConical } from 'lucide-react';
@@ -21,6 +23,13 @@ interface ShopTabProps {
    * the open market (the whole catalogue, as it has always shown).
    */
   shopId?: StorefrontId;
+  /**
+   * K1 — the keeper's first visit, recorded through `App`'s existing save path
+   * (the same shape as CL-2's `onMarkCardSeen`).  Called at most once per mount,
+   * and only when this profile has not met the keeper before; a repeat visit
+   * saves nothing at all.
+   */
+  onRecordKeeperVisit?: (keeperId: string) => void;
 }
 
 /**
@@ -57,6 +66,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   onBuyItem,
   onBuyConsumable,
   shopId = 'market',
+  onRecordKeeperVisit,
 }) => {
   const ownedItemIds = new Set([
     profile.equipped.weapon?.id,
@@ -68,6 +78,44 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   ]);
 
   const copy = STOREFRONT_COPY[shopId];
+  /**
+   * K1 — who stands behind this counter.  The hub's own market tab trades from
+   * no one counter, so `keeper` is undefined there and nothing is shown or
+   * recorded.  A first visit shows the greeting; every later visit shows the
+   * keeper's repeat line, chosen by `selectRepeatLine` and not by chance.  The
+   * save stores the ids met and not a count, so a repeat open is visit two — and
+   * with one repeat line per keeper that is the same line at any count.
+   */
+  const keeper = getKeeperForStorefront(shopId);
+
+  /**
+   * K1 — whether this gladiator had already met the keeper when the counter was
+   * opened.  Decided ONCE per keeper, from the profile the visit started with:
+   * the first-visit save lands a frame later, and reading the live profile would
+   * otherwise swap the greeting for the repeat line under the player's eyes.  A
+   * different storefront is a different keeper and decides again.
+   */
+  const keeperMetRef = React.useRef<{ id: string; met: boolean } | null>(null);
+  if (keeper && keeperMetRef.current?.id !== keeper.id) {
+    keeperMetRef.current = { id: keeper.id, met: resolveSeenKeepers(profile).includes(keeper.id) };
+  }
+  const keeperMet = keeper ? keeperMetRef.current?.met === true : false;
+  const keeperLine = keeper
+    ? keeperMet
+      ? selectRepeatLine(keeper, 2)
+      : keeper.firstVisitLine
+    : '';
+  const keeperId = keeper?.id;
+
+  // K1 — the first visit is recorded once per mount, at the moment the plate is
+  // on screen, and never on a repeat.  `keeperMet` is the frozen reading above
+  // and App's handler returns the SAME profile for an id already saved, so a
+  // re-render, a second mount or a stale click cannot write the save twice.
+  React.useEffect(() => {
+    if (!keeperId || keeperMet) return;
+    onRecordKeeperVisit?.(keeperId);
+    // The profile is deliberately read at counter-open time, not per render.
+  }, [keeperId]);
   /**
    * S6 — only the Bazaar sells consumables. The hub's own market tab keeps the whole
    * GEAR catalogue, and the other three storefronts keep their own stock, so no other
@@ -85,6 +133,8 @@ export const ShopTab: React.FC<ShopTabProps> = ({
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-12">
+      {/* K1 — the keeper's plate heads the storefront; the market tab has none. */}
+      {keeper && <KeeperPlate keeper={keeper} line={keeperLine} />}
       <div className="bg-neutral-900/80 border-2 border-yellow-500/60 rounded-3xl p-6 shadow-xl flex justify-between items-center">
         <div>
           <h3 className="font-serif font-black text-2xl text-amber-100 uppercase mb-1">

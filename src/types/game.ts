@@ -1017,4 +1017,14 @@ export interface PlayerProfile {
    * `createNewProfile()`, never by a migration, and never on display or selection.
    */
   grudges?: GrudgeState;
+  /**
+   * K1 — the keepers the player has actually met, by keeper id
+   * (`data/keepers.ts`).  Optional on purpose, exactly like `chariot`, `racing`
+   * and `intel`: a save written before this slice has no field at all and must
+   * keep loading, so `resolveSeenKeepers` reads a missing, null or malformed
+   * field as "met nobody" rather than repairing the save.  Written ONLY when a
+   * storefront's keeper is opened for the first time — never by
+   * `createNewProfile()`, never by a migration, and never on a repeat visit.
+   */
+  seenKeepers?: string[];
 }

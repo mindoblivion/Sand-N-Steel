@@ -52,6 +52,8 @@ interface GladiatorSchoolHubProps {
    * catalogue the hub's own Bazaar & Forge tab has always shown.
    */
   shopId?: StorefrontId;
+  /** K1 — the storefront keeper's first visit; `App` writes it, this screen only relays. */
+  onRecordKeeperVisit?: (keeperId: string) => void;
   onGearViewChange?: (view: GearView) => void;
   onBuyChariotPart?: (partId: string) => void;
   onEquipChariotPart?: (partId: string) => void;
@@ -107,6 +109,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onEquipArmor,
   gearView = 'armory',
   shopId = 'market',
+  onRecordKeeperVisit,
   onGearViewChange,
   onBuyChariotPart,
   onEquipChariotPart,
@@ -300,6 +303,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onBuyItem={onBuyItem}
             onBuyConsumable={onBuyConsumable}
             shopId={shopId}
+            onRecordKeeperVisit={onRecordKeeperVisit}
           />
         )}
         {activeTab === 'gear' && (

@@ -87,6 +87,16 @@ fixture keeps **omitting** the field, which is the legacy shape a load must
 survive (a gladiator with no grudges), and `saveCorpus.test.ts` §J's expected
 optional set now ends with `grudges` in `src/types/game.ts` declaration order.
 
+**Extended by K1 (city keepers).** `PlayerProfile.seenKeepers` — the keeper ids
+(`src/data/keepers.ts`) a gladiator has actually met at a storefront counter — is
+the newest optional field, so it gets both halves of the rule in the same slice:
+`keepers-era`, the `grudge-era` save hand-aged with two keepers met (the forge's
+`sextus_ferratus`, then the armorer's `salvia_coriaria`), which is the exact shape
+a first storefront open persists through `recordKeeperVisit`. Every older fixture
+keeps **omitting** the field, which is the legacy shape a load must survive (a
+gladiator who has met nobody), and `saveCorpus.test.ts` §J's expected optional set
+now ends with `seenKeepers` in `src/types/game.ts` declaration order.
+
 ## Corpus rule
 
 **A slice that adds a field to the save adds a fixture for the shape it writes, in
@@ -119,6 +129,7 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `intel-era` | `intelEraProfile.json` | The fully-populated shape with the tavern's rumour record filled: two opponents bought at 15 gold each (`opp_ignis_boss`, `opp_centurion_drusus`), plus every earlier optional field. | The `consumables-era` save with the `intel` list a successful `purchaseIntel` writes (S7); frozen, and never written by `createNewProfile`. |
 | `stable-era` | `stableEraProfile.json` | The fully-populated shape with the stable's two ladders topped out: quality 3 (Champion Bloodline) and conditioning 5, bought for the Quadra team the save races, with 500 gold left of 7,000. No team size is stored — the horse count stays the racing record's fact. | The `intel-era` save with its purse hand-aged to 7,000 and then driven through the real P4 transactions — `purchaseStableQuality` ×3 (400 + 900 + 1,600) and `purchaseStableConditioning` ×5 (240 + 480 + 720 + 960 + 1,200 at the Quadra's four-horse rate) — and frozen; never written by `createNewProfile`. |
 | `armatura-palmae` | `armaturaPalmaeProfile.json` | The fully-populated shape with the CH-1 class and palmae filled: `armatura: "retiarius"`, `palmae` with two unlocked (`iron_lungs`, `second_wind`) and one equipped (`iron_lungs`), plus every earlier optional field. | The `facilities-era` save hand-aged with the two field shapes a later class choice and palma earn/equip write; frozen, and never written by `createNewProfile`. |
+| `keepers-era` | `keepersEraProfile.json` | The fully-populated shape with the K1 keeper record filled: `seenKeepers` naming the two keepers met, in the order the counters were opened (`sextus_ferratus`, `salvia_coriaria`), plus every earlier optional field. | The `grudge-era` save hand-aged with the record a first storefront visit persists through `recordKeeperVisit`; frozen, and never written by `createNewProfile`. |
 
 ### Shapes each fixture covers
 
@@ -139,6 +150,7 @@ gets a **new** fixture (and, if the old shape is still shipped, the old one stay
 | `consumables-era` | `consumables` populated — the counted satchel (2 × Field Poultice, 1 × Medicus Salve) · every post-GC20 optional field populated · every earlier fixture omits the field |
 | `intel-era` | `intel` populated — two rumours bought, information only · every post-GC20 optional field populated · every earlier fixture omits the field |
 | `stable-era` | `stable` populated — quality 3 and conditioning 5, no team size stored · every post-GC20 optional field populated · every earlier fixture omits the field |
+| `keepers-era` | `seenKeepers` populated — two keepers met, in the order their counters were opened · every post-GC20 optional field populated · every earlier fixture omits the field |
 
 ## What the corpus proves
 
