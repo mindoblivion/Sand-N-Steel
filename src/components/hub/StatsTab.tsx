@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { PlayerProfile, ArmaturaId } from '../../types/game';
 import { calculateTotalStats } from '../../services/storage';
-import { Swords, Shield, Heart, Zap, Flame, Activity, Crown, HeartPulse, FlaskConical, ScrollText } from 'lucide-react';
+import { Swords, Shield, Heart, Zap, Flame, Activity, Crown, HeartPulse, FlaskConical, ScrollText, Compass } from 'lucide-react';
 import { ARMATURAE, getArmatura } from '../../data/armaturae';
+import { getBuild, getProvince, getVitium } from '../../data/corpusEtOrigo';
+import { resolveBuildId, resolveProvinceId, resolveVitiumId } from '../../utils/originPassive';
 import { resolveArmatura } from '../../utils/traitModifiers';
 import { canRepledgeArmatura } from '../../utils/armaturaPledge';
 import { resolveActiveInjury } from '../../utils/injury';
@@ -79,6 +81,15 @@ export const StatsTab: React.FC<StatsTabProps> = ({
    * profile (or an empty satchel) adds nothing at all.
    */
   const usableConsumables = activeInjury ? ownedConsumables(profile) : [];
+  /**
+   * PITCH A4 — Corpus et Origo, read through the one resolver.  A save written
+   * before this slice has no `identity`, and the defaults are stated rather than
+   * invented: the build reads as Even (whose delta is the identity anyway), a
+   * province is ABSENT rather than Italia, and the flaw reads as None.
+   */
+  const corpusBuild = getBuild(resolveBuildId(profile));
+  const corpusProvince = getProvince(resolveProvinceId(profile) ?? undefined);
+  const corpusVitium = getVitium(resolveVitiumId(profile) ?? undefined);
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto w-full pb-12">
@@ -173,6 +184,66 @@ export const StatsTab: React.FC<StatsTabProps> = ({
           )}
         </div>
       )}
+
+      {/* PITCH A4 — CORPUS ET ORIGO (read-only).  The life before the sand: the
+          body, the birthplace with its favoured god and one small passive, and the
+          flaw that bought two creation points.  A legacy save renders the defaults
+          — Even / no province / None — and no value is invented for it. */}
+      <div
+        data-corpus-identity
+        data-corpus-build={corpusBuild?.id ?? 'even'}
+        data-corpus-origo={corpusProvince?.id ?? 'none'}
+        data-corpus-vitium={corpusVitium?.id ?? 'none'}
+        className="bg-neutral-900/80 border border-amber-600/50 rounded-3xl p-6 shadow-lg"
+      >
+        <h4 className="font-serif font-bold text-sm text-amber-300 mb-4 uppercase tracking-wider flex items-center gap-2">
+          <Compass className="w-4 h-4 text-amber-400" />
+          <span>Corpus et Origo</span>
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 bg-neutral-950/80 border border-neutral-800 rounded-2xl">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Build</div>
+            <div className="font-serif font-black text-xl text-amber-200 mt-1">
+              {corpusBuild?.name ?? 'Even'}
+            </div>
+            <p className="text-[11px] font-serif italic text-neutral-400 mt-1">
+              {corpusBuild?.text ?? 'No build recorded.'}
+            </p>
+          </div>
+          <div className="p-4 bg-neutral-950/80 border border-neutral-800 rounded-2xl">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Origo</div>
+            <div className="font-serif font-black text-xl text-amber-200 mt-1">
+              {corpusProvince?.name ?? 'No province recorded'}
+            </div>
+            {corpusProvince ? (
+              <>
+                <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 mt-1">
+                  Favoured god: <span className="text-amber-300">{corpusProvince.god}</span>
+                </div>
+                <p className="text-[10px] font-mono text-amber-400/70 mt-1">
+                  {corpusProvince.passive.text}
+                </p>
+                <p className="text-[11px] font-serif italic text-neutral-400 mt-1">
+                  {corpusProvince.flavour}
+                </p>
+              </>
+            ) : (
+              <p className="text-[11px] font-serif italic text-neutral-500 mt-1">
+                This record names no birthplace, and no god.
+              </p>
+            )}
+          </div>
+          <div className="p-4 bg-neutral-950/80 border border-neutral-800 rounded-2xl">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Vitium</div>
+            <div className="font-serif font-black text-xl text-amber-200 mt-1">
+              {corpusVitium?.name ?? 'None'}
+            </div>
+            <p className="text-[11px] font-serif italic text-neutral-400 mt-1">
+              {corpusVitium?.text ?? 'You carry no chosen flaw.'}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* CH-5 — THE PALMAE.  The palms earned against the slots the tier allows;
           the panel's two taps are the only write this screen offers here. */}

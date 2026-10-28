@@ -142,6 +142,8 @@ import { resolveSpared } from './mercyBouts';
 import { resolveSeenKeepers } from '../data/keepers';
 // A8 — the Triumphs record, read the way the evaluator and the Library read it.
 import { resolveRecords } from './triumphs';
+// PITCH A4 — the Corpus et Origo identity and the Origo passive block.
+import { originPassiveBlock, resolveCorpusIdentity } from './originPassive';
 
 // ── The corpus on disk ─────────────────────────────────────────────────────
 const FIXTURE_DIR = fileURLToPath(new URL('./saveFixtures/', import.meta.url));
@@ -177,6 +179,8 @@ const REQUIRED_FIXTURE_IDS = [
   'records-era',
   // LUDI PHASE A — the calendar's day-state.
   'ludi-era',
+  // PITCH A4 — the Corpus et Origo identity field.
+  'corpus-et-origo',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -265,6 +269,10 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const spared = resolveSpared(profile);
   // A8 — the retained deeds, read the way the evaluator and the Library read them.
   const records = resolveRecords(profile);
+  // PITCH A4 — the Corpus et Origo identity, and the Origo passive block the
+  // player's merged combat block is built from.
+  const identity = resolveCorpusIdentity(profile);
+  const originPassive = originPassiveBlock(profile);
   const equipped = profile.equipped;
   const temperedWeapon = getEffectiveWeaponStats(
     equipped.weapon,
@@ -295,6 +303,8 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     omenTrickleClaimed,
     spared,
     records,
+    identity,
+    originPassive,
     temperedWeapon,
     temperedArmor,
     selectedConfig: getSelectedRacingConfig(profile),
@@ -466,6 +476,12 @@ for (const fixture of SAVE_FIXTURES) {
         expect(OPPONENT_IDS, `unknown spared rival '${rivalId}'`).toContain(rivalId);
         expect(resolved.spared[rivalId]).toBe(true);
       }
+      // PITCH A4 — the identity resolves to known ids only (an empty record for a
+      // legacy save), and the Origo passive is at most ONE channel — nothing at all
+      // when the record names no province.
+      expect(typeof resolved.identity).toBe('object');
+      expect(Object.keys(resolved.identity).length).toBeLessThanOrEqual(3);
+      expect(Object.keys(resolved.originPassive).length).toBeLessThanOrEqual(1);
     });
 
     test('resolution does not mutate the fixture’s stored JSON (byte compare)', () => {
@@ -608,6 +624,13 @@ for (const fixture of SAVE_FIXTURES) {
           peakGold: 0,
         });
       }
+      if (!('identity' in raw) || raw.identity === null) {
+        absentFields += 1;
+        // PITCH A4 — a save written before this slice reads as "nothing recorded":
+        // no build delta, no Origo passive and no retroactive assignment of one.
+        expect(resolveCorpusIdentity(profile)).toEqual({});
+        expect(originPassiveBlock(profile)).toEqual({});
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -634,6 +657,8 @@ for (const fixture of SAVE_FIXTURES) {
         'omen',
         'omenTrickleClaimed',
         'spared',
+        // PITCH A4 — declared before `ludi`, so `records` stays last.
+        'identity',
         'records',
       ];
       expect(absentFields).toBe(
@@ -934,6 +959,28 @@ describe('GC20 §F — what each shape resolves to', () => {
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('records');
   });
 
+  test('the Pitch A4 identity resolves to what it stores, and no factory save carries it', () => {
+    const profile = fixtureById('corpus-et-origo').profile;
+    // The three choices, in the ONE lazy field, exactly as creation wrote them.
+    expect(resolveCorpusIdentity(profile)).toEqual({
+      build: 'sturdy',
+      origo: 'hispania',
+      vitium: 'old_knee',
+    });
+    // A chosen vitium buys two points; the build's delta is already in baseStats.
+    expect(profile.unspentStatPoints).toBe(12);
+    expect(profile.baseStats).toEqual({ strength: 12, agility: 7, stamina: 11, defense: 6 });
+    // Hispania's passive is ONE channel, and it is Diana's.
+    expect(originPassiveBlock(profile)).toEqual({ hitAgiAdd: 1 });
+
+    // Lazy: a legacy save records nothing and gains no field by being read, and
+    // the factory writes no identity at all — the shape a later load must survive.
+    expect(resolveCorpusIdentity(fixtureById('minimal-legacy').profile)).toEqual({});
+    expect(originPassiveBlock(fixtureById('minimal-legacy').profile)).toEqual({});
+    expect('identity' in rawOf(fixtureById('current-fresh'))).toBe(false);
+    expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('identity');
+  });
+
   test('null where an object is expected resolves to both defaults', () => {
     const profile = fixtureById('malformed-null-objects').profile;
     expect(resolveRacingState(profile)).toEqual(defaultRacingState());
@@ -1209,6 +1256,9 @@ describe('GC20 §J — the corpus rule', () => {
       'omenTrickleClaimed',
       // STORY-4a — the spared map (Pitch A9), appended last in declaration order.
       'spared',
+      // PITCH A4 — the Corpus et Origo identity, declared between `spared` and
+      // `ludi` so `records` stays the LAST optional member.
+      'identity',
       // LUDI PHASE A — the calendar's one lazy field, declared just before `records`.
       'ludi',
       // A8 — the retained Triumphs record, still the LAST member (§J).
@@ -1238,6 +1288,7 @@ describe('GC20 §J — the corpus rule', () => {
       'omen',
       'omenTrickleClaimed',
       'spared',
+      'identity',
       'records',
       'ludi',
     ]) {
@@ -1278,10 +1329,10 @@ describe('GC20 §J — the corpus rule', () => {
       return [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\?:/gm)].map((match) => match[1]);
     };
     const shipped = scanned(types);
-    // LUDI PHASE A REBASE, not a weakening: the set is 23 now because this slice
-    // inserted `ludi` between `spared` and `records` (so `records` stays last), and
+    // LUDI PHASE A REBASE, then PITCH A4's: the set is 24 now because A4 inserted
+    // `identity` between `spared` and `ludi` (so `records` still stays last), and
     // §J above carries the same one-field extension.
-    expect(shipped.length).toBe(23);
+    expect(shipped.length).toBe(24);
     expect(shipped.slice(-2)).toEqual(['ludi', 'records']);
 
     const doctored = types.replace(
@@ -1292,7 +1343,7 @@ describe('GC20 §J — the corpus rule', () => {
     const withNew = scanned(doctored);
     expect(withNew).not.toEqual(shipped);
     expect(withNew).toContain('unaccounted');
-    expect(withNew.length).toBe(24);
+    expect(withNew.length).toBe(25);
   });
 });
 

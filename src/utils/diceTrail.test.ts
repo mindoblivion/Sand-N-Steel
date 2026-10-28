@@ -489,7 +489,8 @@ describe('STORY-5a §F — the guards', () => {
   test('§J stays at 22 optional top-level fields, `records` last', () => {
     const optional = optionalProfileFields();
     // LUDI PHASE A REBASE: `ludi` sits between `spared` and `records`; `records` is last.
-    expect(optional.length).toBe(23);
+    // PITCH A4 REBASE: `identity` joined the set before `ludi`, so it is 24.
+    expect(optional.length).toBe(24);
     expect(optional.slice(-2)).toEqual(['ludi', 'records']);
   });
 
