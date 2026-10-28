@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { Banner } from './EnvironmentalMotion';
 import { TrainingHall } from './TrainingHall';
+import { CityFixtureMaterial } from './CityFixtureMaterial';
 
 // ── Shared timber materials (created once, reused across all equipment) ──
 const timberPost = new THREE.MeshStandardMaterial({
@@ -424,7 +425,7 @@ export const TrainingYard = React.memo(() => {
         </mesh>
         <mesh position={[0, 1.5, 0]}>
           <sphereGeometry args={[0.25, 8, 8]} />
-          <meshStandardMaterial color="#ff5722" emissive="#f97316" emissiveIntensity={3} />
+          <CityFixtureMaterial fixture="brazier" base={3} color="#ff5722" emissive="#f97316" />
         </mesh>
         <pointLight color="#f97316" intensity={3.2} distance={8} position={[0, 1.8, 0]} />
       </group>

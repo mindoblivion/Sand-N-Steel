@@ -22,7 +22,7 @@
  */
 
 import type { PlayerProfile } from '../types/game';
-import { advanceTimeBy, resolveTimeState } from './timeState';
+import { advanceTimeBy, resolveTimeState, type TimePhase } from './timeState';
 
 /**
  * The seven Ludi, in rotation order — Day 1 is Market Day. The director's table, verbatim:
@@ -43,6 +43,13 @@ export const LUDI_ROTATION: readonly string[] = [
 export const LUDI_QUIETUS_INDEX = 6;
 
 /**
+ * The rotation slot of Dies Fortunae — the shrine's one smoke day in Day/Night T3
+ * (`utils/nightDressing.ts`). Day identity is `(day - 1) mod 7`, so this is the slot
+ * the predicate compares against.
+ */
+export const LUDI_FORTUNAE_INDEX = 2;
+
+/**
  * A day's rotation slot: `(day - 1) mod 7`, kept non-negative so a malformed day can
  * never index outside `LUDI_ROTATION`.
  */
@@ -55,6 +62,17 @@ export function ludiIndexForDay(day: number): number {
 /** The day's own name (`Dies Mercatus` on Day 1, `Dies Quietus` on Day 7, ...). */
 export function ludiDayName(day: number): string {
   return LUDI_ROTATION[ludiIndexForDay(day)];
+}
+
+/**
+ * DAY/NIGHT T3 — the DISPLAY reading of the clock, for the city's dressing and its card
+ * copy. READ ONLY: it resolves the same state the scenes do and hands back the two fields
+ * a display needs, so the clock API's seam allowlist (`timeState.test.ts`) is unchanged —
+ * no surface added by T3 calls `resolveTimeState` itself.
+ */
+export function resolveDisplayClock(profile: PlayerProfile): { phase: TimePhase; day: number } {
+  const state = resolveTimeState(profile);
+  return { phase: state.phase, day: state.day };
 }
 
 /** The banner's one line: the new day's name and the dawn that opened it. */

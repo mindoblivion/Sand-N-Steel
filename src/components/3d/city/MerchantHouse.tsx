@@ -10,6 +10,7 @@ import {
   WallCornice,
 } from './ClassicalArchitecture';
 import { NOISE_TEXTURE } from './RomanMaterials';
+import { CityFixtureMaterial } from './CityFixtureMaterial';
 
 export const MerchantHouse = React.memo(() => {
   return (
@@ -139,7 +140,7 @@ export const MerchantHouse = React.memo(() => {
         </mesh>
         <mesh position={[0, 1.05, 0]}>
           <sphereGeometry args={[0.18, 8, 8]} />
-          <meshStandardMaterial color="#ef4444" emissive="#f97316" emissiveIntensity={2.0} />
+          <CityFixtureMaterial fixture="lamp" base={2} color="#ef4444" emissive="#f97316" />
         </mesh>
         <pointLight color="#f97316" intensity={1.8} distance={7} position={[0, 1.2, 0]} />
       </group>

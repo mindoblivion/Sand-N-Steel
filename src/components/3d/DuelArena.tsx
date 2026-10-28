@@ -36,6 +36,18 @@ export interface DuelArenaProps {
    * leaves them at the shipped 3.5.
    */
   brazierIntensity?: number;
+  /**
+   * Day/Night T3 — the bronze bowls' own warm emissive at night (0 by day, hotter for
+   * the Night Spectacle). A MATERIAL PROPERTY on the eight bowls the arena already
+   * draws, so still +0 meshes and +0 draw calls; absent leaves them exactly as shipped.
+   */
+  bowlEmissive?: number;
+  /**
+   * Day/Night T3 — the spectator RINGS' dress emissive, non-zero only for the Night
+   * Spectacle. A material property on the 56 crowd silhouettes already drawn (CF-3's
+   * group), so it costs no mesh; absent (or 0) leaves the crowd exactly as it was.
+   */
+  crowdDress?: number;
 }
 
 export const DuelArena: React.FC<DuelArenaProps> = ({
@@ -43,6 +55,8 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   bannerAllegiance,
   emberEmissive,
   brazierIntensity,
+  bowlEmissive,
+  crowdDress,
 }) => {
   const crowdGroupRef = useRef<THREE.Group>(null);
   // Seeded from the counter's current value, so the first frame never mistakes
@@ -113,11 +127,11 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             <group key={`crowd-${ci}`}>
               <mesh position={[Math.cos(angle) * rad1, 7.8, Math.sin(angle) * rad1]}>
                 <boxGeometry args={[1.2, 1.4, 0.8]} />
-                <meshStandardMaterial color={ci % 3 === 0 ? '#991b1b' : ci % 2 === 0 ? '#f5f5f4' : '#78350f'} roughness={0.9} />
+                <meshStandardMaterial color={ci % 3 === 0 ? '#991b1b' : ci % 2 === 0 ? '#f5f5f4' : '#78350f'} roughness={0.9} emissive="#f59e0b" emissiveIntensity={crowdDress ?? 0} />
               </mesh>
               <mesh position={[Math.cos(angle) * rad2, 11.2, Math.sin(angle) * rad2]}>
                 <boxGeometry args={[1.4, 1.5, 0.8]} />
-                <meshStandardMaterial color={ci % 2 === 0 ? '#b45309' : '#e5e5e5'} roughness={0.9} />
+                <meshStandardMaterial color={ci % 2 === 0 ? '#b45309' : '#e5e5e5'} roughness={0.9} emissive="#f59e0b" emissiveIntensity={crowdDress ?? 0} />
               </mesh>
             </group>
           );
@@ -134,7 +148,12 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             {/* Bronze Bowl */}
             <mesh castShadow>
               <cylinderGeometry args={[0.55, 0.35, 0.8, 10]} />
-              <meshStandardMaterial color="#78350f" metalness={0.7} />
+              <meshStandardMaterial
+                color="#78350f"
+                metalness={0.7}
+                emissive="#f97316"
+                emissiveIntensity={bowlEmissive ?? 0}
+              />
             </mesh>
             {/* Glowing Embers */}
             <mesh position={[0, 0.45, 0]}>

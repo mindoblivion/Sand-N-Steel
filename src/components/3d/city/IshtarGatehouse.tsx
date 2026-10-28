@@ -4,6 +4,7 @@ import { BuildingFoundation } from './BuildingFoundation';
 import { ClassicalColumn, WallCornice } from './ClassicalArchitecture';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { Banner } from './EnvironmentalMotion';
+import { CityFixtureMaterial } from './CityFixtureMaterial';
 
 export const IshtarGatehouse = React.memo(() => {
   // Phase 2B.22: Dedicated bump-map for the central arch facade.
@@ -145,7 +146,7 @@ export const IshtarGatehouse = React.memo(() => {
           </mesh>
           <mesh position={[0, 0.45, 0]}>
             <sphereGeometry args={[0.25, 8, 8]} />
-            <meshStandardMaterial color="#ff5722" emissive="#f97316" emissiveIntensity={3} />
+            <CityFixtureMaterial fixture="brazier" base={3} color="#ff5722" emissive="#f97316" />
           </mesh>
           <pointLight color="#f97316" intensity={3} distance={8} position={[0, 0.6, 0]} />
         </group>

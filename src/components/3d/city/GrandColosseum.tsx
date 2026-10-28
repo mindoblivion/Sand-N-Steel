@@ -5,6 +5,7 @@ import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { Banner } from './EnvironmentalMotion';
 import { ColosseumSignPrototype } from './ColosseumSignPrototype';
+import { CityFixtureMaterial } from './CityFixtureMaterial';
 
 // ---------------------------------------------------------------------------
 // Phase 25.7 — Unified angular convention
@@ -663,7 +664,7 @@ export const GrandColosseum = React.memo(() => {
             </mesh>
             <mesh position={[0, 1.35, 0]}>
               <sphereGeometry args={[0.35, 12, 12]} />
-              <meshStandardMaterial color="#ff5722" emissive="#f97316" emissiveIntensity={3} />
+              <CityFixtureMaterial fixture="brazier" base={3} color="#ff5722" emissive="#f97316" />
             </mesh>
             <pointLight color="#f97316" intensity={4} distance={12} position={[0, 1.8, 0]} />
           </group>
