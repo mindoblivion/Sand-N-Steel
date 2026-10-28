@@ -11884,3 +11884,111 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   reused against a queue that has since grown the same text again; (b) a day turned while the player
   is off `city_3d` and turned again before returning is still only announced for the day they stand
   in, which is L21B's documented behaviour and is unchanged here.
+
+## Isolated visitor-herald runtime harness (L21M — implemented; browser-verified)
+
+- **Preflight.** Branch `development-focus-strategy`, HEAD **`c02d5b81e91314f9a4d338ce218fdf0e887abaea`**,
+  `git status --porcelain` empty and the working tree clean; `docker compose ps` showed `app-web-1`
+  `running (healthy)` and `curl localhost:3000/` answered **200** — the running `web` container was not
+  restarted, rebuilt or otherwise touched. Nothing was reset, stashed, discarded, committed, pushed or
+  deployed.
+
+- **Why a harness instead of a test.** L21B (the herald calls the day's visitors) and L21D (a dismissal
+  removes only what the toast displayed) are pinned by pure suites, but the cry had never been read off
+  a screen: it only exists while the 3D city hub is mounted on a day the schedule resolves, and this
+  sandbox renders that hub at a few frames per second — reaching an arrival day by playing means
+  fabricating a save, which risks the player's progress. L21M adds a disposable diagnostic route and
+  nothing else.
+
+- **The route.** `?devHarness=herald`, plus the repo's existing dev-only scratch flag
+  `sand_and_steel_dev_harness = 'herald'`, behind the same `import.meta.env.DEV &&` gate every other
+  harness uses. `src/main.tsx` gained one gate constant and one `} else if (useHeraldHarness) {` branch
+  that dynamically imports the component and mounts it **instead of** `<App />`; the branch sits before
+  the app fallback, so the title screen, the save loader and the city hub never run. The component
+  self-guards with `if (!import.meta.env.DEV) return null;`.
+
+- **`src/components/dev/HeraldHarness.tsx` (new, ~391 lines) — everything it shows is production.**
+  (1) The profile is a minimal fixture `{ city: { day: 5 } }` held in component state; the module does
+  **not** import `services/storage` at all, so `loadSavedProfile` / `saveProfile` /
+  `PROFILE_STORAGE_KEY` are unreachable rather than merely unused. (2) Arrivals come from
+  `resolveVisitorSchedule(profile)`, and the panel **reports** whether that answer contains
+  `numidian_bladesmith` instead of asserting him. (3) The first cry comes from
+  `createVisitorHeraldLedger().announce(profile)` — no cry text exists in the component's source.
+  (4) The toast is the shipping `HeraldToast`, handed the live queue and an `onDismiss` that is the
+  production `removeDisplayedCries` helper (same snapshot semantics as `App.handleHeraldDismiss`).
+  (5) The second cry is a **second** real ledger's answer for the first later day the schedule resolves
+  anyone (day 8 today — walked by `resolveSecondCry`, never hard-coded), because the L21B ledger is
+  one-shot per `(day, visitorId)`. (6) "Dismiss previous snapshot" hands the stack the toast rendered
+  **before** the append to the same production dismissal path — the exact L21D stale-snapshot case — so
+  the newer cry stays queued and is then what the toast shows. (7) Reset clears only
+  `HERALD_HARNESS_KEY` and the in-memory run, then re-emits through a fresh ledger. The toast uses
+  `durationMs = 60_000` so a human can drive the two steps; the dismissal path is the component's own
+  `onDismiss(cries)` either way.
+
+- **Storage isolation.** The only storage the harness touches is the new scratch key
+  `HERALD_HARNESS_KEY = 'sand_and_steel_herald_harness_v1'` (sessionStorage first, localStorage only as
+  a fallback), holding `{ day, firstCry }` — what this tab last emitted. No game-save key is read,
+  written, migrated or cleared, and nothing calls `sessionStorage.clear()` / `localStorage.clear()`.
+  Measured live after a full run: `sessionStorage` held exactly `sand_and_steel_herald_harness_v1` (plus
+  the platform's own `__b44_seed_applied`) and `localStorage` was **empty** — the save key
+  `sand_and_steel_gladiator_save_v2` never appeared.
+
+- **New suite: `src/utils/l21mHeraldHarness.test.ts` — 19 tests / 93 `expect()`.** §A the route (the
+  DEV-first gate and its exact token, the single dynamic import site, the branch before the app
+  fallback, the self-guard, no `App` import, and no shipping file naming the harness or its key);
+  §B the fixture and the first cry (the fixture is exactly `{ city: { day: 5 } }`, the production
+  resolver returns the bladesmith, the report is derived not asserted, the emitted cry equals
+  `visitorHeraldCry(visitor)` from the catalogue **and** the ledger's own answer, the component's
+  source contains neither the cry nor the visitor's name, and the ledger is shown one-shot — which is
+  why a second instance supplies the second cry); §C the second cry (a later day the schedule resolves,
+  every intervening day answers nobody, the append keeps both cries and records the pre-append
+  snapshot, only one append possible); §D the queue rule (dismissing the older snapshot leaves the newer
+  cry queued and `preservedNewer` true, the real `HeraldToast` **renders that newer cry next** via
+  `react-dom/server`, it can then be dismissed to an empty queue and `''` markup, a non-matching
+  dismissal returns the same object, and a control shows the current stack dismissal removing both
+  because both were displayed); §E storage isolation (the key is its own, none of
+  `PROFILE_STORAGE_KEY` / `saveProfile` / `loadSavedProfile` / `clearSavedProfile` /
+  `services/storage` / `*.clear` appear in the component, save+load touch only the harness key in
+  sessionStorage first, a malformed record reads as none, and reset removes only that key with the real
+  save byte-identical afterwards). **This environment has no DOM renderer and no
+  `@testing-library/react`, so the suite does not verify button clicks or timer behaviour** — the
+  browser checks below do, and the state transitions a click performs are covered directly.
+
+- **Files changed.** New: `src/components/dev/HeraldHarness.tsx`,
+  `src/utils/l21mHeraldHarness.test.ts`. Modified: `src/main.tsx` (one gate constant, one comment
+  block, one branch) and this record. **No change to `App.tsx`, the visitor schedule, the herald copy,
+  the ledger, `heraldQueue`, the toast, any save field or schema, or any other harness.**
+
+- **Verified 2026-10-28** in the existing healthy `web` container (no restart, no rebuild):
+  `bun test src/utils/l21mHeraldHarness.test.ts` → **19 pass / 0 fail** (93 expect);
+  `bun test src/utils/{visitorHerald,heraldQueue,visitorPresence,l16dVisitorHarness}.test.ts` →
+  **86 pass / 0 fail** (941 expect, 4 files); `bun run lint` (`tsc --noEmit`) → **exit 0**;
+  `git diff --check` → **clean**.
+
+- **Browser runtime acceptance — every criterion passed, on the diagnostic route only** (the normal
+  game route was never opened and no save was inspected or mutated; the path stayed
+  `/?devHarness=herald`, `#root` held exactly **one** child — the diagnostic panel — with **zero**
+  `<canvas>` elements and none of the title screen's copy ("Sand & Steel", "Continue", "Play as
+  Guest", "Create your gladiator", "Main menu"), so `<App />` and its save-loading path are
+  demonstrably not mounted):
+  1. the route loads the harness instead of the game;
+  2. resolved day **5**;
+  3. the real schedule returns `numidian_bladesmith` ("present: yes");
+  4. the real ledger emitted `The herald cries: Hanno of Cirta, the Wandering Bladesmith, walks the city
+     today!` on the first pass, no further cry on a repeat;
+  5. the shipping `HeraldToast` visibly rendered that cry (`role="status"`, one row);
+  6. the toast's own dismiss control emptied the queue and removed the toast;
+  7. "Append second cry" put the day-8 cry (`… Vibius the Campanian, the Itinerant Armorer …`) in the
+     same stack (two visible rows), and "Dismiss previous snapshot" then left **only the newer cry**
+     queued and displayed — `preserved: true`;
+  8. "Reset harness" restored the initial state (queue = the day-5 cry only, "dismissed: none",
+     re-emitted through a fresh ledger) and touched no game storage.
+  Console errors: **none**. The screenshots show the panel, the two-cry stack, the preserved newer cry
+  and the post-reset state.
+
+- **Remaining limitations.** (a) A toast dismissal can also happen by the component's 7 s default timer
+  in the real app; the harness holds it for 60 s on purpose, so the timer *firing* itself is not
+  exercised here — only the same `onDismiss(cries)` path the timer calls. (b) The harness shows the
+  herald in isolation; it does not mount the city, so no visual acceptance of the city hub is implied.
+  (c) Physical Android acceptance remains outstanding for the whole herald feature. (d) The suite pins
+  route selection at source level (the repo's convention), not by booting `main.tsx` in a DOM.

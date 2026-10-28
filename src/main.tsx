@@ -133,6 +133,20 @@ const useVisitorHarness =
   (new URLSearchParams(window.location.search).get('devHarness') === 'visitor' ||
     readDevHarnessFlag() === 'visitor');
 
+// L21M — development-only VISITOR HERALD diagnostic.  Reachable ONLY in a Vite dev
+// build, through the exact `?devHarness=herald` query parameter or the equivalent
+// dev-only scratch-storage flag `sand_and_steel_dev_harness = 'herald'`.  It mounts a
+// DISPOSABLE diagnostic screen INSTEAD OF `<App />`: the real visitor schedule, the
+// real herald ledger (`createVisitorHeraldLedger`) and the shipping `HeraldToast`, on
+// a seeded day-5 profile held in component state, so the herald's cry can be read and
+// dismissed without the title screen, the save loader or the 3D city — and without
+// touching the player's save.  Removal: delete the component, revert this gate and its
+// branch, and delete `src/utils/l21mHeraldHarness.test.ts`.
+const useHeraldHarness =
+  import.meta.env.DEV &&
+  (new URLSearchParams(window.location.search).get('devHarness') === 'herald' ||
+    readDevHarnessFlag() === 'herald');
+
 // The two PUBLIC pages — `/delete-account` and `/privacy` — are the opposite of the
 // harnesses above: they must exist in EVERY build, including a production one, and
 // they need no session at all.  `/delete-account` is the URL a store listing is given,
@@ -204,6 +218,14 @@ if (useColosseumRearHarness) {
     mountRoot(
       <React.StrictMode>
         <VisitorHarness />
+      </React.StrictMode>,
+    );
+  });
+} else if (useHeraldHarness) {
+  void import('./components/dev/HeraldHarness').then(({ HeraldHarness }) => {
+    mountRoot(
+      <React.StrictMode>
+        <HeraldHarness />
       </React.StrictMode>,
     );
   });
