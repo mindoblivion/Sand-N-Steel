@@ -40,6 +40,8 @@ import {
 import { ARMATURA_IDS, getArmatura } from '../data/armaturae';
 import { PALMAE, PALMAE_BOSS_ONLY, getPalma } from '../data/palmae';
 import { getWeaponByType } from '../data/itemsDB';
+// Slice C-D — the boss phase data the rebased announce-rate pins read.
+import { BOSS_PHASES } from '../data/bossPhases';
 import {
   EMPTY_MODIFIERS,
   buildOpponentModifiers,
@@ -762,7 +764,13 @@ describe('CH-4 §G — the boss palmae, at their sites', () => {
     // The telegraph itself is unchanged: pending heavy, the announcement, the 30 % gate.
     expect(telegraph).toContain('pendingHeavyAttackRef.current = true');
     expect(telegraph).toContain('HEAVY ATTACK INCOMING');
-    expect(source).toContain('Math.random() < 0.30');
+    // Slice C-D rebased this pin (not weakened): the 0.30 literal moved into the
+    // boss phase data, where BOTH of Goliath's phases still carry it, and the duel
+    // reads that value. The gate itself is the same roll on the same guards.
+    expect(BOSS_PHASES.heavy_telegraph.phases[0].params.telegraphChance).toBe(0.3);
+    expect(BOSS_PHASES.heavy_telegraph.phases[1].params.telegraphChance).toBe(0.3);
+    expect(source).toContain('const telegraphChance = bossTelegraphChance(');
+    expect(source).toContain('Math.random() < telegraphChance');
     // Pyre Brand inside the phase-2 effect.
     const phase = source.slice(source.indexOf('Boss phase-2 weapon switch'), source.indexOf('Aurelius rage_mode_colossus'));
     expect(phase).toContain('pyreBrandHealAmount(opponentMods');

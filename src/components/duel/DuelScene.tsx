@@ -30,7 +30,6 @@ import {
   modeCrowdDecayTier,
   modeCrowdStartHype,
   modeRewardBases,
-  modeTelegraphWindowMs,
   resolveBoutProfile,
   steelDeltaFor,
 } from '../../data/boutModes';
@@ -193,6 +192,26 @@ import {
 // the in-memory statistics object, which App persists on the first victory over a
 // regular opponent.
 import { dominantClassOfMix } from '../../utils/grudgeBouts';
+// ── C-8.70C Slice C-D — BOSS PHASES ─────────────────────────────────────────
+// The four ladder bosses' two phases, as data: Phase 1 is today's behaviour, and
+// Phase 2 only selects parameters the mechanic this file already runs accepts.
+// `bossTelegraphHoldMs` is the floor enforcement at the point of use — it reads
+// Slice C-C's `TELEGRAPH_FLOOR_SECONDS` and defines no second floor.
+import {
+  bossChainHeavies,
+  bossCounterWindowTurns,
+  bossPhaseAt,
+  bossPhaseLadderFor,
+  bossPhaseProfileFor,
+  bossRageChargeThreshold,
+  bossTelegraphChance,
+  bossTelegraphHoldMs,
+  rageChargeAtThreshold,
+} from '../../data/bossPhases';
+// ── C-8.70C Slice C-D — "why you fell" ──────────────────────────────────────
+// Three factual lines on a defeat, from this duel's own tallies (no save, no
+// second mix counter).
+import { whyYouFellLines } from '../../utils/whyYouFell';
 import { BrothersPair } from '../3d/BrothersPair';
 import { BeastFigure } from '../3d/BeastFigure';
 import { crowdHypeTier, detectCrowdHypeCrossing } from '../../utils/crowdHype';
@@ -347,8 +366,13 @@ export const turnResolutionMs = (
 ): number => {
   if (fightEnded) return TURN_RESOLUTION_DEATH_MS;
   const shipped = TURN_RESOLUTION_MS[actionType];
+  // Slice C-D — the floor is enforced for EVERY boss telegraph, in every phase
+  // and every mode, at this one point of use: Slice C-C's own resolver first
+  // (Steel/Invictus shorten a longer hold TO the floor; Sand keeps it exactly),
+  // then the floor read from `TELEGRAPH_FLOOR_SECONDS` — no second constant, and
+  // a hold can only ever be raised back up to it.
   return TELEGRAPH_HOLD_ACTIONS.includes(actionType)
-    ? modeTelegraphWindowMs(mode, shipped)
+    ? bossTelegraphHoldMs(mode, shipped)
     : shipped;
 };
 
@@ -775,6 +799,25 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const pendingCounterRef = useRef(false);
   const rageActivatedRef = useRef(false);
 
+  // ── C-8.70C Slice C-D — the phase slice's own duel-session state ───────────
+  //   • `phaseAnnouncedRef` latches the ONE phase change, so the banner and the
+  //     intensified presentation cannot fire twice.
+  //   • `chainedHeavyPendingRef` / `chainedHeavyArmedRef` are Goliath's Phase-2
+  //     chain: the first heavy of a burst queues one more, and the chained heavy
+  //     is flagged so a burst is exactly two.
+  //   • `counterWindowLeftRef` is the turns left in Valéria's Phase-2 counter
+  //     window (0 in Phase 1 and every other bout).
+  //   • `damageTakenByClassRef` and `mechanicLandingsRef` are the defeat
+  //     breakdown's tallies, read at result time and never persisted.
+  const phaseAnnouncedRef = useRef(false);
+  const chainedHeavyPendingRef = useRef(false);
+  const chainedHeavyArmedRef = useRef(false);
+  const counterWindowLeftRef = useRef(0);
+  const damageTakenByClassRef = useRef<{ quick: number; power: number }>({ quick: 0, power: 0 });
+  const mechanicLandingsRef = useRef(0);
+  // The second the crowd turned (Slice C-B's latch is the verdict; this is when).
+  const crowdTurnedAtRef = useRef<number | undefined>(undefined);
+
   // ── D-2 — THE BEAST HUNT (Marcellin the Beastmaster's Ferrum) ──────────────
   // The fence is `utils/beastHunt.ts`'s: this scene asks it for a config and gets
   // `null` for every opponent that is not a boss feature bout carrying that
@@ -966,6 +1009,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           crowdTurnsNow(crowdHypeRef.current, statsRef.current.durationSeconds)
         ) {
           crowdTurnedRef.current = true;
+          crowdTurnedAtRef.current = statsRef.current.durationSeconds;
         }
 
         // Aurelius's rage charge (the trigger below is what sets `rageActivatedRef`).
@@ -1725,6 +1769,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // counter must NOT chain into another counter.
             if (isActorPlayer && opponent.bossMechanic === 'counter_dodge') {
               pendingCounterRef.current = true;
+              // Slice C-D — the counter's WINDOW: 0 in Phase 1 (today: her very
+              // next turn), her phase's published turns in Phase 2.
+              counterWindowLeftRef.current = bossCounterWindowTurns(
+                opponent,
+                opp.health,
+                opp.stats.healthMax,
+              );
               // CF-6 — boss moment (bosses only): the Viper's slip kicks up the
               // sand she left behind. CF-4's pool, the same point convention the
               // landed blows use, and fire-and-forget — a burst cannot influence
@@ -1763,9 +1814,21 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // (`calculateAttackDamage`) and its `rageMultiplier` parameter are
             // untouched; only a raged attacker can reach this branch, and only
             // `rage_mode_colossus` can rage.
+            // Slice C-D — Phase 2 lowers the CHARGE this published multiplier
+            // needs (1 = today's full charge); the curve itself is Slice C-B's,
+            // unchanged.
             const rageMult =
               !isActorPlayer && attacker.isRaged && !isBeastPounce
-                ? crowdRageDamageMultiplier(rageChargeRef.current)
+                ? crowdRageDamageMultiplier(
+                    rageChargeAtThreshold(
+                      rageChargeRef.current,
+                      bossRageChargeThreshold(
+                        opponent,
+                        attacker.health,
+                        attacker.stats.healthMax,
+                      ),
+                    ),
+                  )
                 : 1.0;
             // CH-3a weapon stage — the defender's own blockReduction plus the
             // block's add (capped at 0.90 by applyBlockReduction), less the
@@ -1930,6 +1993,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               updateCrowdHype((prev) => Math.min(100, prev + (isCrit ? 18 + critHype : 8)));
             } else {
               statsRef.current.damageTaken += rawDamage;
+              // Slice C-D — the class of the blow that landed, for the defeat
+              // breakdown (the SAME point that records the damage; no new count
+              // of the player's own attacks, which stays D-5's counter).
+              if (isQuick) damageTakenByClassRef.current.quick += rawDamage;
+              else damageTakenByClassRef.current.power += rawDamage;
+              // …and the signature mechanic, when THIS resolution was its landing.
+              if (isTelegraphedHeavy || isCounterAttack) mechanicLandingsRef.current += 1;
             }
 
             // ── Impact feedback: hit-stop + screen shake ──────────────────
@@ -2061,6 +2131,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                     };
                   });
                   statsRef.current.damageTaken += bonusDamage;
+                  damageTakenByClassRef.current.quick += bonusDamage;
                 }
               } else {
                 sounds.playSlash();
@@ -2307,6 +2378,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       if (opponent.bossMechanic === 'heavy_telegraph' && pendingHeavyAttackRef.current) {
         pendingHeavyAttackRef.current = false;
         setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+        // Slice C-D — Goliath's Phase-2 chain is armed HERE, on the landing: the
+        // FIRST heavy of a burst queues one more (announced on his next slot, at
+        // the same full hold); the chained heavy closes the burst, so it can
+        // never run on. Phase 1's chain count is 1, so nothing is set there.
+        const chainHeavies = bossChainHeavies(opponent, opp.health, opp.stats.healthMax);
+        if (chainHeavies > 1) {
+          if (chainedHeavyArmedRef.current) {
+            chainedHeavyArmedRef.current = false;
+          } else {
+            chainedHeavyPendingRef.current = true;
+          }
+        }
         // Mark THIS resolution as the wind-up's landing, so it takes the longest
         // hit-stop. Cleared by executeCombatTurn as it resolves.
         telegraphLandingRef.current = true;
@@ -2317,6 +2400,24 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         return;
       }
 
+      // ── C-8.70C Slice C-D — GOLIATH'S CHAINED HEAVY (Phase 2) ────────────
+      // The queued second heavy is ANNOUNCED like the first: a `telegraph` slot,
+      // so it is answered with the same full hold (never shortened, and the
+      // charter floor applies at that point of use). Out of reach or spent, the
+      // chain simply lapses into his normal slot.
+      if (
+        opponent.bossMechanic === 'heavy_telegraph' &&
+        chainedHeavyPendingRef.current &&
+        !pendingHeavyAttackRef.current
+      ) {
+        chainedHeavyPendingRef.current = false;
+        if (dist <= effectiveRange && opp.stamina >= oppHeavyCost) {
+          chainedHeavyArmedRef.current = true;
+          executeCombatTurn('opponent', 'telegraph');
+          return;
+        }
+      }
+
       // Resolve pending counterattack (Valéria counter_dodge). The
       // counter was queued when Valéria evaded a player attack on the
       // previous turn. Clear the ref before resolving so it cannot fire
@@ -2324,13 +2425,26 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // — reusing all existing range, stamina, block, invulnerability,
       // and damage logic.
       if (opponent.bossMechanic === 'counter_dodge' && pendingCounterRef.current) {
-        pendingCounterRef.current = false;
-        // CH-4 — Viper's Patience: mark THIS resolution as the counterattack, so
-        // its +20 % lands here and nowhere else. Read-and-cleared at the top of
-        // executeCombatTurn, exactly like the telegraph landing marker.
-        counterStrikeRef.current = true;
-        executeCombatTurn('opponent', 'quick_attack');
-        return;
+        // Slice C-D — her counter WINDOW. Phase 1's window is 0, so the counter
+        // resolves on her very next turn whatever the range: today, exactly. In
+        // Phase 2 the armed counter waits up to her published number of turns for
+        // the player to come back into her reach, spending one turn per slot, and
+        // lapses when the window closes. Its damage source is still her own quick
+        // attack — no new damage type.
+        const counterWindow = bossCounterWindowTurns(opponent, opp.health, opp.stats.healthMax);
+        if (counterWindow > 0 && dist > effectiveRange && counterWindowLeftRef.current > 1) {
+          counterWindowLeftRef.current -= 1;
+          // She holds it and takes her normal slot (advance / taunt at distance).
+        } else {
+          pendingCounterRef.current = false;
+          counterWindowLeftRef.current = 0;
+          // CH-4 — Viper's Patience: mark THIS resolution as the counterattack, so
+          // its +20 % lands here and nowhere else. Read-and-cleared at the top of
+          // executeCombatTurn, exactly like the telegraph landing marker.
+          counterStrikeRef.current = true;
+          executeCombatTurn('opponent', 'quick_attack');
+          return;
+        }
       }
 
       // ── D-2 BEAST HUNT — THE BEAST RIDES THE BOSS'S OWN ACTION SLOT ──────
@@ -2386,12 +2500,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         clampBoutProfileValue(brotherAggression(brothersCfg!, brothersRef.current, slot) + modeSteel.aggression);
       const brotherBlockForSlot = (slot: 'front' | 'rear'): number =>
         clampBoutProfileValue(brotherBlockChance(brothersCfg!, slot) + modeSteel.blockChance);
+      // ── C-8.70C Slice C-D — THE BOSS'S PHASE-2 PROFILE (Ignis) ───────────
+      // In Phase 2 a `phase_weapon_switch` boss chooses with the row its phase
+      // publishes, composed with the mode's own Steel delta exactly as his row is.
+      // Every other boss, and his own Phase 1, answers `null`, so the shipped
+      // `modeProfile` stands unchanged.
+      const phaseProfile = bossPhaseProfileFor(opponent, opp.health, opp.stats.healthMax, boutMode);
+      const baseAggression = phaseProfile ? phaseProfile.aggression : modeProfile.aggression;
+      const baseBlockChance = phaseProfile ? phaseProfile.blockChance : modeProfile.blockChance;
       let aiAggression =
         brothersCfg && brothersSlotActor
           ? brotherAggressionForSlot(brothersSlotActor)
           : panoplyCfg
-          ? panoplyAggression(modeProfile.aggression, panoplyCfg, panoplyRef.current)
-          : modeProfile.aggression;
+          ? panoplyAggression(baseAggression, panoplyCfg, panoplyRef.current)
+          : baseAggression;
       // D-5 — Hermas chooses with his LIVE blockChance: the row's (mode-composed)
       // value plus whatever his adaptations have already done to it. Every other
       // row reads its own published value, sharpened by the mode exactly as the
@@ -2400,10 +2522,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         brothersCfg && brothersSlotActor
           ? brotherBlockForSlot(brothersSlotActor)
           : panoplyCfg
-          ? panoplyBlockChance(modeProfile.blockChance, panoplyCfg, panoplyRef.current)
+          ? panoplyBlockChance(baseBlockChance, panoplyCfg, panoplyRef.current)
           : longMemoryCfg
           ? longMemoryBlockChance(longMemoryCfg, longMemoryBase, longMemoryRef.current)
-          : modeProfile.blockChance;
+          : baseBlockChance;
 
       // C-8.70C — THE CROWD EMBOLDENS THE OPPONENT, AS AN INPUT. The shift is
       // folded into the aggression VALUE the existing chooser is handed — never
@@ -2458,7 +2580,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             beastCfg && beastRef.current.pose === 'fled'
               ? chooseAIStandardAction(
                   crowdEmboldenedAggression(
-                    masterAloneAggression(modeProfile.aggression, beastCfg.masterAloneAggressionBonus),
+                    masterAloneAggression(baseAggression, beastCfg.masterAloneAggressionBonus),
                     crowdHypeRef.current,
                     CROWD_CONFIG,
                   ),
@@ -2480,12 +2602,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // with enough stamina for the follow-up power attack (22 SP), and
       // no pending telegraph already queued. ~30% rate keeps the boss
       // threatening without making every turn a telegraph.
+      // Slice C-D — the rate is the phase's DATA (`telegraphChance`), which is
+      // today's 0.30 in both phases; it is 0 for everything without a ladder.
+      const telegraphChance = bossTelegraphChance(opponent, opp.health, opp.stats.healthMax);
       if (
-        opponent.bossMechanic === 'heavy_telegraph' &&
+        telegraphChance > 0 &&
         !pendingHeavyAttackRef.current &&
+        !chainedHeavyPendingRef.current &&
         dist <= effectiveRange &&
         opp.stamina >= oppHeavyCost &&
-        Math.random() < 0.30
+        Math.random() < telegraphChance
       ) {
         chosenAction = 'telegraph';
       }
@@ -2653,6 +2779,28 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       addLog(`DEFEAT! ${player.name} has fallen in the sand.`, 'opponent');
       // The arena only feeds a winner: a defeat pays no purse at all.
       statsRef.current.goldEarned = 0;
+      // ── C-8.70C Slice C-D — WHY YOU FELL ─────────────────────────────────
+      // At most three factual lines, computed HERE from the finished duel's own
+      // tallies: the class of blow that did the damage (plus the signature
+      // mechanic, in a boss fight), the crowd's one-shot verdict and when it
+      // latched, and the player's own mix — read from D-5's live counter through
+      // the SHARED `dominantClassOfMix`, never a second counter or a second
+      // breakdown. In memory only: `DuelStatistics` is never saved.
+      const ladder = bossPhaseLadderFor(opponent);
+      statsRef.current.whyYouFell = whyYouFellLines({
+        opponentName: opp.name,
+        mechanic: ladder
+          ? {
+              owner: ladder.whyYouFell.owner,
+              mechanic: ladder.whyYouFell.mechanic,
+              landings: mechanicLandingsRef.current,
+            }
+          : null,
+        damageByClass: damageTakenByClassRef.current,
+        crowdTurned: crowdTurnedRef.current,
+        crowdTurnedAtSeconds: crowdTurnedAtRef.current,
+        playerMix: longMemoryRef.current.mix,
+      });
       // D-2 — the player fell with the beast standing: same in-memory epilogue,
       // same unchanged result flow.
       if (beastCfg) {
@@ -2691,6 +2839,42 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     boutMode,
   ]);
 
+  // ── C-8.70C Slice C-D — THE PHASE CHANGE AND ITS ONE-SHOT SIGNAL ─────────
+  // Every ladder boss crosses into Phase 2 at the given 50 % line. This effect is
+  // the STATE plus the BANNER HOOK only: it flips `isPhase2` (which the HUD reads
+  // as its phase marker) and fires the mechanic's EXISTING visual language,
+  // intensified — CF-1's trauma into the same `impactRef`, CF-3's crowd swell and
+  // CF-6's vignette pulse. No new feedback system, no new timer, and nothing that
+  // can change when or how hard a mechanic lands.
+  //
+  // ADDENDUM D — a phase change NEVER interrupts a telegraphed action in flight:
+  // while an announce is standing (the banner is up or a heavy is queued) the
+  // transition waits, and this effect re-runs the moment that banner clears.
+  useEffect(() => {
+    if (phaseAnnouncedRef.current || isMatchOver.current) return;
+    if (!bossPhaseLadderFor(opponent)) return;
+    // A killing blow does not announce a phase (the result flow is about to run).
+    if (opp.health <= 0) return;
+    if (opp.telegraphText || pendingHeavyAttackRef.current) return;
+    if (bossPhaseAt(opponent, opp.health, opp.stats.healthMax) < 2) return;
+    phaseAnnouncedRef.current = true;
+    setOpp((prev) => (prev.isPhase2 ? prev : { ...prev, isPhase2: true }));
+    addLog(`${opp.name} will not break — the second phase begins.`, 'crit');
+    spawnDamageText('PHASE II', 'crit', opp.position);
+    impactRef.current.trauma = Math.min(1, impactRef.current.trauma + BOSS_RAGE_TRAUMA);
+    sounds.playCrowdSwell();
+    setBossVignettePulse(Date.now());
+  }, [
+    opp.health,
+    opp.stats.healthMax,
+    opp.telegraphText,
+    opp.name,
+    opp.position,
+    opponent,
+    addLog,
+    spawnDamageText,
+  ]);
+
   // Boss phase-2 weapon switch (Ignis: dual_blades → mace at 50% health).
   // One-time: guarded by phaseSwitchedRef so the effect cannot re-trigger
   // even if React re-renders before the state update settles. Also guarded
@@ -2700,6 +2884,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   useEffect(() => {
     if (phaseSwitchedRef.current || isMatchOver.current) return;
     if (opponent.bossMechanic !== 'phase_weapon_switch' || !opponent.phase2WeaponType) return;
+    // Slice C-D (addendum D) — the switch NEVER interrupts a telegraphed action
+    // in flight. It waits for the announce to clear and then runs; the effect's
+    // own dependency on `telegraphText` re-runs it the moment it does.
+    if (opp.telegraphText || pendingHeavyAttackRef.current) return;
     const threshold = opp.stats.healthMax * 0.5;
     if (opp.health > 0 && opp.health <= threshold) {
       phaseSwitchedRef.current = true;
@@ -2716,6 +2904,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           : {}),
         loadout: { ...prev.loadout, weapon: getWeaponByType(opponent.phase2WeaponType!) },
       }));
+      // Slice C-D — the signature mechanic landed (it is the phase switch).
+      mechanicLandingsRef.current += 1;
       addLog(`${opp.name} discards their blades and draws a heavy war mace!`, 'system');
       if (pyreHeal > 0) {
         addLog(`${opp.name}'s Pyre Brand flares — ${pyreHeal} health restored.`, 'system');
@@ -2739,6 +2929,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     opponent.isBoss,
     opponent.phase2WeaponType,
     opp.name,
+    opp.telegraphText,
     opponentMods,
     addLog,
   ]);
@@ -2758,6 +2949,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     // rate in the 1 s clock above. The TRIGGER (50 % health, once) is unchanged.
     rageChargeRef.current = 0;
     setOpp((prev) => ({ ...prev, isRaged: true }));
+    // Slice C-D — the signature mechanic landed (it is the rage itself).
+    mechanicLandingsRef.current += 1;
     addLog(`${opp.name} enters a devastating RAGE! Attack power surged!`, 'system');
     spawnDamageText('RAGE MODE!', 'crit', opp.position);
     // CF-6 — boss moment (bosses only): the arena FEELS the rage. The shake goes
@@ -3004,6 +3197,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         playerModifiers={playerMods}
         opponentModifiers={opponentMods}
         opponentIsBoss={opponent.isBoss === true}
+        // Slice C-D — the phase marker, on a ladder boss only (`undefined` on
+        // every other bout, so the HUD draws exactly what it always drew).
+        bossPhase={bossPhaseLadderFor(opponent) ? (opp.isPhase2 ? 2 : 1) : undefined}
         bossVignettePulse={bossVignettePulse}
         crowdEmbolden={
           crowdHypeState.isEmboldened
