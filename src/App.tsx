@@ -55,10 +55,21 @@ import {
   finishRival,
   isFirstMercyOfKind,
   mercyHeraldCries,
-  mercyOfferFor,
   spareRival,
   type MercyChoice,
 } from './utils/mercyBouts';
+// STORY-5a — THE LOADED DICE + the QUIET DICE chain.  The module owns every
+// rule; this file owns the writes, exactly as it does for S7's intel.  It also
+// carries the STORY-4a fence: `mercyOfferForDuel` is the ONLY way this file asks
+// for an offer, so a trail bout can never raise Spare/Finish.
+import {
+  applyDiceChoice,
+  isRumourServiceClosed,
+  mercyOfferForDuel,
+  withDiceChainClosed,
+  withDiceTrailVictory,
+  type DiceChoice,
+} from './utils/diceTrail';
 import type { BannerDevice } from './utils/heraldry';
 import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
 import { SettingsModal } from './components/hub/SettingsModal';
@@ -202,6 +213,14 @@ export function App() {
    * tap itself from reaching a second `saveProfile`.
    */
   const deserterWrittenRef = useRef(false);
+  /**
+   * STORY-5a — is the bout on screen a DICE TRAIL bout?  Session only (it is a
+   * fact about the entrance, not about the save): set when the tavern hands a
+   * staged row up, read once in the victory write to record the card won, and
+   * read by the mercy fence so Spare/Finish is never offered on one.  Consumed
+   * and cleared at the result, so a later ordinary duel is unaffected.
+   */
+  const diceTrailBoutRef = useRef(false);
   /** DAY/NIGHT T2 — the day-boundary beat the city plays (sleep veil + the new day's name). */
   const [dayBanner, setDayBanner] = useState<{ day: number; text: string } | null>(null);
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
@@ -694,6 +713,17 @@ export function App() {
   };
 
   /**
+   * STORY-5a — enter a DICE TRAIL bout.  It is an ordinary ladder row and an
+   * ordinary duel (no boss mechanics, no special mode): the only difference is
+   * the session flag, which the victory write reads to record the card won and
+   * the mercy fence reads to withhold STORY-4a's offer.
+   */
+  const handleEnterDiceTrailBout = (opponent: OpponentConfig) => {
+    diceTrailBoutRef.current = true;
+    handleEnterDuel(opponent);
+  };
+
+  /**
    * STORY-2 — enter the Doctore's Test with the rule the player chose. The rule
    * rides beside the opponent (it is not a save field); the result write reads it
    * to judge the win, and the result screen clears it.
@@ -1038,7 +1068,18 @@ export function App() {
       lowestHealthFraction: resultStats.lowestHealthFraction,
       crowdHypePeak: resultStats.crowdHypePeak,
     };
-    const awards = applyTriumphAwards(timedProfile, duelTriumphStats);
+    /**
+     * STORY-5a — the trail's own record, in the SAME save as the victory: a card's
+     * bout being WON is what unlocks the next card, and the ordinary victory write
+     * cannot know the bout was the trail's (the row is an ordinary ladder row).
+     * The helper is identity-stable, so the chain's bout, a re-fight and a win on
+     * a row the board has moved past all write nothing.
+     */
+    const trailProfile =
+      diceTrailBoutRef.current && didWin
+        ? withDiceTrailVictory(timedProfile, activeOpponent.id)
+        : timedProfile;
+    const awards = applyTriumphAwards(trailProfile, duelTriumphStats);
     setProfile(awards.profile);
     saveProfile(awards.profile);
 
@@ -1058,9 +1099,18 @@ export function App() {
      * R6's stated consequence — Chapter 3 is unreachable until Stage 2 lands its
      * race-results write, so this is DORMANT and tested, not broken.
      */
-    const mercy = mercyOfferFor(profile, activeOpponent, didWin);
+    /**
+     * STORY-5a — the fence: a trail bout is fought at Aelia's asking, not in the
+     * arena's book, so STORY-4a's Spare/Finish is never offered on one (four of
+     * the five staged rows ARE mercy-eligible regulars when fought normally, so
+     * this is load-bearing, not decoration).
+     */
+    const mercy = mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current);
     mercyWrittenRef.current = null;
     deserterWrittenRef.current = false;
+    // The entrance flag is consumed by this result: it can never leak onto a
+    // later bout entered from the tournament, the board or a door.
+    diceTrailBoutRef.current = false;
 
     setDuelResult({
       didWin,
@@ -1387,11 +1437,53 @@ export function App() {
    */
   const handleBuyIntel = (opponentId: string): boolean => {
     if (!profile) return false;
+    /**
+     * STORY-5a — a 'cut' answer closes her rumour service PERMANENTLY: the panel
+     * replaces its list with the closure, and this is the choke point that makes
+     * it true — no gold moves and no intel is written (the refusal is pure, so
+     * nothing reaches `saveProfile`).  S7's own flow is otherwise untouched.
+     */
+    if (isRumourServiceClosed(profile)) return false;
     const result = purchaseIntel(profile, opponentId);
     if (!result.ok) return false;
     setProfile(result.profile);
     saveProfile(result.profile);
     return true;
+  };
+
+  /**
+   * STORY-5a — STEP 3 of the Quiet Dice chain: the player has come back to her
+   * counter after his champion fell, so her closing line is spoken, the rumor
+   * board opens and the chain PAYS (backstory + 5 Laudes + the house cup).  One
+   * write, `App`'s as always; `withDiceChainClosed` is identity-stable for every
+   * other open of the panel, so a repeat visit writes nothing and cannot pay
+   * twice.
+   */
+  const handleOpenDiceBoard = () => {
+    if (!profile) return;
+    const opened = withDiceChainClosed(profile);
+    if (opened === profile) return;
+    setProfile(opened);
+    saveProfile(opened);
+  };
+
+  /**
+   * STORY-5a — Piso's offer, answered.  ONE binary flag (`story.diceEnding`),
+   * both answers reachable and mutually exclusive: the module refuses a second
+   * answer off the field itself, so the offer cannot be taken twice and 'cut'
+   * can never be followed by 'refused'.  'cut' pays 300 g in the same write (a
+   * raise, so the peak-gold records updater rides it); 'refused' pays nothing
+   * here — his champion is a standard duel and its own row's purse is the honest
+   * purse, paid by that duel's victory write.
+   */
+  const handleChooseDiceEnding = (choice: DiceChoice) => {
+    if (!profile) return;
+    const outcome = applyDiceChoice(profile, choice);
+    if (!outcome.ok) return;
+    const settled = withPeakGold(outcome.profile);
+    if (settled === profile) return;
+    setProfile(settled);
+    saveProfile(settled);
   };
 
   /**
@@ -1651,6 +1743,9 @@ export function App() {
             onBuyIntel={handleBuyIntel}
             onRecordKeeperVisit={handleRecordKeeperVisit}
             onVisitLocation={handleVisitLocation}
+            onOpenDiceBoard={handleOpenDiceBoard}
+            onEnterDiceTrailBout={handleEnterDiceTrailBout}
+            onChooseDiceEnding={handleChooseDiceEnding}
             onOfferOmen={handleOfferOmen}
             onDeclineOmen={handleDeclineOmen}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}

@@ -826,6 +826,37 @@ export interface StoryProgress {
    * existing object so no top-level profile field is added (§J stays at 21).
    */
   bountyRungs?: string[];
+  /**
+   * STORY-5a — THE LOADED DICE: the Quiet Dice chain's and the rumour board's
+   * own state (`utils/diceTrail.ts`), kept INSIDE this existing object exactly as
+   * `bountyRungs` is, so NO top-level profile field is added (§J stays at 22) and
+   * `createNewProfile()` still writes no `story` field at all. Chain steps 1 and
+   * 2 are DERIVED (the deep card in `intel`, the champion in
+   * `defeatedOpponentIds`) and stored nowhere; only `boardOpen` (step 3's return,
+   * which is also the chain's completion), the cards won and the house cup are
+   * written. The ending is the sibling `diceEnding` flag below — Story-design
+   * §9's own name for it — which this slice writes and Chapter 4 will read.
+   */
+  diceTrail?: DiceTrailProgress;
+}
+
+/**
+ * STORY-5a — the dice trail's stored state (see `StoryProgress.diceTrail`).
+ *
+ * Optional throughout, exactly like every other story subfield: a partial record
+ * is a normal state, not a corrupt one, and `resolveDiceTrail` reads anything
+ * missing or malformed as "not opened, no card won, no cup".
+ */
+export interface DiceTrailProgress {
+  /** The Quiet Dice chain is complete: her closing line was spoken, the board open. */
+  boardOpen?: boolean;
+  /** The rumour cards WON, by id ('rumor1' | 'rumor2' | 'rumor3'), in clear order. */
+  rumorsWon?: string[];
+  /**
+   * The house cup (keeper-lives §2.4's cosmetic). A flag and nothing else: it
+   * wears NO mechanic — the tavern's watered-wine line changes, and that is all.
+   */
+  cup?: boolean;
 }
 
 /**
@@ -1143,5 +1174,17 @@ export interface PlayerProfile {
      * fields and `records` stays last (§J).
      */
     codexLocations?: string[];
+    /**
+     * STORY-5a — LAUDES: the SHARED honour counter (Story-design §5's Laudes),
+     * nested INSIDE `records` so the profile keeps its 22 optional top-level
+     * fields and `records` stays last (§J).
+     *
+     * Written ONLY by `withLaudes` and read ONLY by `resolveLaudes`
+     * (`utils/diceTrail.ts`), which are identity-stable for a non-positive amount.
+     * LUDI PHASE A MUST REUSE THOSE TWO — its daily Laurels are this same number,
+     * and a second counter would be a second truth. STORY-5a is its first
+     * writer (the Quiet Dice chain's 5 Laudes).
+     */
+    laudes?: number;
   };
 }
