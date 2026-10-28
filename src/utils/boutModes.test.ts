@@ -58,6 +58,7 @@ import { CROWD_CONFIG } from '../data/crowdConfig';
 import { applyCrowdHypeDecay, crowdDuelReward } from './crowdDynamics';
 import { calculateDuelGold } from './duelRewards';
 import { buildGrudgeOpponent } from './grudgeBouts';
+import { SAFE_SUBSET_PALMAE_ORDER, extraPalmaFor } from './extraPalmae';
 import { turnResolutionMs } from '../components/duel/DuelScene';
 import type { BoutMode, OpponentConfig } from '../types/game';
 
@@ -79,6 +80,12 @@ const withoutProfile = (row: OpponentConfig) => {
   return rest;
 };
 
+/** `palmae` is carved out separately: C3b's grant is the one legal mode change. */
+const withoutProfileAndPalmae = (row: OpponentConfig) => {
+  const { aggression: _a, blockChance: _b, stats: _s, palmae: _p, ...rest } = row;
+  return rest;
+};
+
 describe('C-8.70C §A — the three modes, as data', () => {
   test('Sand is the default and the selector starts with it', () => {
     expect(DEFAULT_BOUT_MODE).toBe('sand');
@@ -95,10 +102,12 @@ describe('C-8.70C §A — the three modes, as data', () => {
     expect(BOUT_MODES.invictus.fameMultiplier).toBe(2);
   });
 
-  test('the trait grant is OMITTED on every mode (addendum A: profile only)', () => {
-    for (const mode of MODES) {
-      expect(BOUT_MODES[mode].traitGrant).toBeNull();
-    }
+  test('the trait grant is Steel/Invictus only — Sand grants nothing (design C3b)', () => {
+    expect(BOUT_MODES.sand.grantsExtraPalma).toBe(false);
+    expect(BOUT_MODES.steel.grantsExtraPalma).toBe(true);
+    expect(BOUT_MODES.invictus.grantsExtraPalma).toBe(true);
+    // The retired null fallback is gone from the data, not merely unused.
+    expect(Object.keys(BOUT_MODES.steel)).not.toContain('traitGrant');
   });
 
   test('Invictus opens hot at 40; Sand and Steel keep the venue default (25)', () => {
@@ -138,16 +147,31 @@ describe('C-8.70C §B — every row’s base stats are identical in all three mo
     }
   });
 
-  test('every OTHER field — gear, palmae, rewards, tier, mechanic — is unchanged by a mode', () => {
+  test('every OTHER field — gear, rewards, tier, mechanic — is unchanged by a mode', () => {
     for (const row of ROSTER) {
-      const baseline = withoutProfile(row);
+      const baseline = withoutProfileAndPalmae(row);
       for (const mode of MODES) {
         const resolved = resolveBoutOpponent(mode, row);
-        expect(withoutProfile(resolved)).toEqual(baseline);
+        expect(withoutProfileAndPalmae(resolved)).toEqual(baseline);
         expect(resolved.rewardGold).toBe(row.rewardGold);
         expect(resolved.rewardFame).toBe(row.rewardFame);
         expect(resolved.rewardXp).toBe(row.rewardXp);
-        expect(resolved.palmae).toEqual(row.palmae);
+      }
+    }
+  });
+
+  test('`palmae` is the ONE field a mode may touch — and only by C3b’s grant', () => {
+    for (const row of ROSTER) {
+      const extra = extraPalmaFor(row);
+      for (const mode of MODES) {
+        const resolved = resolveBoutOpponent(mode, row);
+        const expected =
+          BOUT_MODES[mode].grantsExtraPalma && extra
+            ? [...(row.palmae ?? []), extra]
+            : row.palmae;
+        expect(resolved.palmae, `${row.id}/${mode}`).toEqual(expected);
+        // Sand never appends, and no row's array is mutated in place.
+        if (!BOUT_MODES[mode].grantsExtraPalma) expect(resolved.palmae).toEqual(row.palmae);
       }
     }
   });
@@ -474,7 +498,8 @@ describe('C-8.70C §H — the selector defaults to Sand and lists every effect',
     const steel = boutModeEffectLines('steel', byId('opp_marcus')).join('\n');
     expect(steel).toContain('×1.25 gold');
     expect(steel).toContain('×1.50 fame');
-    expect(steel).toContain('Profile only — no trait grant');
+    expect(steel).toContain('Trait grant — the rival gains Sand Sprinter');
+    expect(steel).toContain('Gain 1 effective agility in hit-chance calculations only.');
     expect(steel).toContain('0.8s floor');
     expect(steel).toContain('Aggression 0.50 → 0.55');
 
@@ -488,16 +513,37 @@ describe('C-8.70C §H — the selector defaults to Sand and lists every effect',
     expect(sand).toContain('×1.00 fame');
   });
 
-  test('the mode never names or binds a palma (no trait exists to grant)', () => {
+  test('the mode names the granted palma by name and effect (C3b), and only that one', () => {
     for (const row of ROSTER) {
+      const granted = extraPalmaFor(row);
       for (const mode of MODES) {
-        const lines = boutModeEffectLines(mode, row).join(' ');
-        for (const palma of PALMAE) {
-          expect(lines).not.toContain(palma.id);
-          expect(lines).not.toContain(`Palma · ${palma.name}`);
-        }
+        const lines = boutModeEffectLines(mode, row).join('\n');
         const resolved = resolveBoutOpponent(mode, row);
-        expect(resolved.palmae).toEqual(row.palmae);
+        const extra = (resolved.palmae ?? []).filter((id) => !(row.palmae ?? []).includes(id));
+        if (!BOUT_MODES[mode].grantsExtraPalma || !granted) {
+          // Sand, and every fenced-out row: nothing granted, and nothing named.
+          expect(extra).toEqual([]);
+          expect(lines).not.toContain('Trait grant — the rival gains');
+          continue;
+        }
+        // Exactly one extra, from the safe subset, and the card names it.
+        expect(extra).toEqual([granted]);
+        expect(SAFE_SUBSET_PALMAE_ORDER).toContain(granted as never);
+        const palma = PALMAE.find((row) => row.id === granted)!;
+        expect(lines).toContain(`Trait grant — the rival gains ${palma.name} — ${palma.description}`);
+      }
+    }
+  });
+
+  test('BOSSES AND FEATURE BOUTS NEVER RECEIVE AN EXTRA (the resolver’s fence)', () => {
+    const fenced = ROSTER.filter((row) => row.isBoss === true || row.featureBout === true);
+    expect(fenced.length).toBeGreaterThan(0);
+    for (const row of fenced) {
+      expect(extraPalmaFor(row), row.id).toBeNull();
+      for (const mode of MODES) {
+        const resolved = resolveBoutOpponent(mode, row);
+        expect(resolved.palmae, `${row.id}/${mode}`).toEqual(row.palmae);
+        expect(boutModeEffectLines(mode, row).join('\n')).not.toContain('Trait grant — the rival gains');
       }
     }
   });

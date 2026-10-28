@@ -1035,7 +1035,10 @@ describe('CH-3a §X — wiring', () => {
 
   test('DuelScene builds each fighter\u2019s block once and reads it every stage', () => {
     expect(duel).toContain('buildPlayerModifiers(playerProfile)');
-    expect(duel).toContain('buildOpponentModifiers(opponent)');
+    // C-TRAIT — the opponent's block is built from the MODE-RESOLVED row, because
+    // the Steel/Invictus trait grant travels on `palmae` (design C3b). It is still
+    // built ONCE, inside the same `useMemo`.
+    expect(duel).toContain('buildOpponentModifiers(resolveBoutOpponent(boutMode, opponent))');
     expect(duel).toContain('useMemo(');
     for (const call of [
       'staminaCostWithModifiers(',

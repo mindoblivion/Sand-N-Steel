@@ -15,10 +15,10 @@
  *      re-opens it, a won grudge settles for good;
  *   §E the FIRST-VICTORY record — the mix is recorded once, on the bout the
  *      rival's id enters the book, and never on a rematch;
- *   §F the REWARDS — one exported config, the fame premium folded into the row,
- *      gold untouched, and the TUNING-PENDING mark in the source;
+ *   §F the REWARDS — C3d: the venue tier's floor regular (no premium, no price
+ *      table), with the summit's home-floor exception and the mode composition;
  *   §G the SURFACES — the tournament card, the pre-fight card (with the evolved
- *      trait slot OMITTED) and the result line;
+ *      trait printed by name and the composed purse line) and the result line;
  *   §H the SAVE — lazy resolution, nothing invented, the generated row never in
  *      the roster.
  *
@@ -26,7 +26,7 @@
  */
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
@@ -41,11 +41,12 @@ import type {
 import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT, LADDER_OPPONENTS } from '../data/opponents';
 import { createNewProfile } from '../services/storage';
 import { FINAL_TIER } from './tierAdvancement';
+import { BOUT_MODES, modeRewardBases } from '../data/boutModes';
+import { SAFE_SUBSET_PALMAE_ORDER, extraPalmaFor } from './extraPalmae';
 import { createLongMemoryState, notePlayerAction } from './longMemory';
 import {
   GRUDGE_CAPS,
   GRUDGE_MIX_THRESHOLD,
-  GRUDGE_REWARDS,
   GRUDGE_SHIFTS,
   buildGrudgeOpponent,
   closeGrudge,
@@ -53,7 +54,10 @@ import {
   grudgeBoutStatuses,
   grudgeIdOf,
   grudgeProfileLine,
+  grudgePurseFor,
   grudgeResultLine,
+  grudgeRewardLine,
+  grudgeTraitLine,
   grudgeStudiedLine,
   grudgeTierOf,
   isGrudgeBase,
@@ -135,9 +139,9 @@ describe('C-8.70C §A — the rematch is GENERATED from the base row', () => {
         // Byte-identical, not merely equal: the whole stat block is copied.
         expect(JSON.stringify(generated!.stats), `${row.id}/${cls}`).toBe(JSON.stringify(row.stats));
         expect(generated!.stats).toEqual(row.stats);
-        // Same kit, same purse base, same identity — only the profile moves.
+        // Same kit and identity; the purse is the VENUE tier's floor (C3d) and the
+        // profile is the only other thing that moves.
         expect(generated!.weaponType).toBe(row.weaponType);
-        expect(generated!.rewardGold).toBe(row.rewardGold);
         expect(generated!.rewardXp).toBe(row.rewardXp);
         expect(generated!.name).toBe(row.name);
         expect(generated!.id).toBe(grudgeIdOf(row.id));
@@ -212,11 +216,17 @@ describe('C-8.70C §A — the rematch is GENERATED from the base row', () => {
     expect(quickened.aggression).toBe(GRUDGE_CAPS.max);
   });
 
-  test('THE EVOLVED-TRAIT SLOT SHIPS NULL (Director addendum A)', () => {
+  test('THE EVOLVED-TRAIT SLOT IS NEVER NULL — it is C3b\'s safe-subset extra', () => {
+    // Every regular, every studied class: the slot names one of the four and the
+    // SAME id is appended to the generated row's own `palmae`.
     for (const row of REGULARS) {
       for (const cls of CLASSES) {
         const generated = buildGrudgeOpponent(row, cls)!;
-        expect(generated.grudge!.evolvedTrait).toBeNull();
+        const trait = generated.grudge!.evolvedTrait;
+        expect(typeof trait).toBe('string');
+        expect(SAFE_SUBSET_PALMAE_ORDER).toContain(trait as never);
+        expect(generated.palmae).toEqual([...(row.palmae ?? []), trait]);
+        expect(trait).toBe(extraPalmaFor(row));
       }
     }
   });
@@ -495,25 +505,112 @@ describe('C-8.70C §E — the mix is recorded on the FIRST victory over a rival'
 // §F — rewards
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('C-8.70C §F — the fame premium and the standard purse', () => {
-  test('the generated row pays the base fame plus the premium, and the same gold', () => {
-    for (const row of REGULARS) {
-      const generated = buildGrudgeOpponent(row, 'power')!;
-      expect(generated.rewardFame).toBe(row.rewardFame + GRUDGE_REWARDS.famePremium);
-      expect(generated.rewardGold).toBe(row.rewardGold);
-      expect(generated.rewardXp).toBe(row.rewardXp);
-    }
-    expect(Number.isFinite(GRUDGE_REWARDS.famePremium)).toBe(true);
-    expect(GRUDGE_REWARDS.famePremium).toBeGreaterThan(0);
+describe('C-TRAIT §F — the grudge purse is the venue tier floor (design C3d)', () => {
+  test('the floor regulars: T2 Cassius 90 g / 25 fame, T3 Drusus 260 g / 90 fame', () => {
+    expect(grudgePurseFor(2)).toEqual({
+      venueTier: 2,
+      purseTier: 2,
+      purseGold: 90,
+      purseFame: 25,
+      summit: false,
+    });
+    expect(grudgePurseFor(3)).toEqual({
+      venueTier: 3,
+      purseTier: 3,
+      purseGold: 260,
+      purseFame: 90,
+      summit: false,
+    });
+    expect(grudgePurseFor(1)).toEqual({
+      venueTier: 1,
+      purseTier: 1,
+      purseGold: 35,
+      purseFame: 10,
+      summit: false,
+    });
+    expect(grudgePurseFor(Number.NaN)).toBeNull();
   });
 
-  test('the premium is marked TUNING-PENDING in the code (it is not a design value)', () => {
+  test('SUMMIT EXCEPTION — venue T4 has no regular row, so it pays the home T3 floor', () => {
+    expect(grudgePurseFor(FINAL_TIER)).toEqual({
+      venueTier: 4,
+      purseTier: 3,
+      purseGold: 260,
+      purseFame: 90,
+      summit: true,
+    });
+  });
+
+  test('the generated row adopts the venue purse, never the base row’s own', () => {
+    const row = buildGrudgeOpponent(marcus(), 'power')!;
+    expect(row.rewardGold).toBe(90);
+    expect(row.rewardFame).toBe(25);
+    expect(row.rewardXp).toBe(marcus().rewardXp);
+
+    // Drusus is a T3 regular: his grudge is fought at the summit and pays T3's floor.
+    const drusus = buildGrudgeOpponent(byId('opp_centurion_drusus'), 'even')!;
+    expect(drusus.rewardGold).toBe(260);
+    expect(drusus.rewardFame).toBe(90);
+
+    for (const base of REGULARS) {
+      const purse = grudgePurseFor(grudgeTierOf(base))!;
+      const generated = buildGrudgeOpponent(base, 'power')!;
+      expect(generated.rewardGold, base.id).toBe(purse.purseGold);
+      expect(generated.rewardFame, base.id).toBe(purse.purseFame);
+    }
+  });
+
+  test('the composed examples, one per venue tier × mode (mode first, crowd after)', () => {
+    // T2 venue — Cassius's 90 / 25 row, multiplied by each mode.
+    const t2 = buildGrudgeOpponent(marcus(), 'power')!;
+    expect(modeRewardBases('sand', t2)).toEqual({ goldBase: 90, fameBase: 25 });
+    expect(modeRewardBases('steel', t2)).toEqual({ goldBase: 113, fameBase: 38 });
+    expect(modeRewardBases('invictus', t2)).toEqual({ goldBase: 135, fameBase: 50 });
+
+    // T3 venue — Drusus's own 260 / 90 row (and his grudge is the summit case).
+    const drususGrudge = buildGrudgeOpponent(byId('opp_centurion_drusus'), 'power')!;
+    expect(modeRewardBases('sand', drususGrudge)).toEqual({ goldBase: 260, fameBase: 90 });
+    expect(modeRewardBases('steel', drususGrudge)).toEqual({ goldBase: 325, fameBase: 135 });
+    expect(modeRewardBases('invictus', drususGrudge)).toEqual({ goldBase: 390, fameBase: 180 });
+
+    // The card line states the same composition, not a second set of numbers.
+    expect(grudgeRewardLine(t2, 'steel')).toContain('113 gold · 38 fame');
+    expect(grudgeRewardLine(t2, 'steel')).toContain(`× ${BOUT_MODES.steel.name}`);
+    expect(grudgeRewardLine(drususGrudge, 'invictus')).toContain('390 gold · 180 fame');
+    expect(grudgeRewardLine(drususGrudge, 'invictus')).toContain('home floor');
+  });
+
+  test('THE AUTHORED PREMIUM AND ANY GRUDGE PRICE TABLE ARE GONE (repo-wide grep)', () => {
+    // The needles are COMPOSED so this suite never contains the literal it greps
+    // for — otherwise the sweep would always find itself.
+    const PREMIUM = 'fame' + 'Premium';
+    const OLD_CONFIG = 'GRUDGE_' + 'REWARDS';
+
+    // 1 — the shipped source names neither the old constant nor the premium field.
     const source = readSource('src/utils/grudgeBouts.ts');
-    expect(source).toContain('TUNING-PENDING');
-    // The comment and the constant sit together, in the rewards object's own doc.
-    const index = source.indexOf('export const GRUDGE_REWARDS');
-    expect(index).toBeGreaterThan(-1);
-    expect(source.slice(Math.max(0, index - 900), index)).toContain('TUNING-PENDING');
+    expect(source).not.toContain(PREMIUM);
+    expect(source).not.toContain(OLD_CONFIG);
+    expect(source).not.toContain('TUNING-PENDING');
+    // 2 — no price table: the purse is DERIVED from the roster floor rows.
+    expect(source).not.toContain('GRUDGE_PRICES');
+    expect(source).not.toContain('grudgePrice');
+
+    // 3 — repo-wide: no file under src/ mentions the deleted value at all.
+    const offenders: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(repoPath(dir), { withFileTypes: true })) {
+        const rel = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          walk(rel);
+          continue;
+        }
+        if (!/\.(ts|tsx)$/.test(entry.name)) continue;
+        const text = readFileSync(repoPath(rel), 'utf8');
+        if (text.includes(PREMIUM) || text.includes(OLD_CONFIG)) offenders.push(rel);
+      }
+    };
+    walk('src');
+    expect(offenders).toEqual([]);
   });
 
   test('nothing else writes gold or fame', () => {
@@ -542,7 +639,8 @@ describe('C-8.70C §G — the tournament card, the pre-fight card and the result
     expect(markup).toContain(grudgeStudiedLine(buildGrudgeOpponent(marcus(), 'power')));
     expect(markup).toContain(grudgeProfileLine(buildGrudgeOpponent(marcus(), 'power')!.grudge));
     expect(markup).toContain('Enter Grudge Bout');
-    expect(markup).toContain(`from ${marcus().rewardGold} Gold`);
+    // C3d — the card prints the GENERATED row's purse (the venue tier's floor).
+    expect(markup).toContain(`from ${buildGrudgeOpponent(marcus(), 'power')!.rewardGold} Gold`);
   });
 
   test('a closed grudge is listed, says why, and cannot be entered', () => {
@@ -586,9 +684,41 @@ describe('C-8.70C §G — the tournament card, the pre-fight card and the result
     expect(markup).toContain('Grudge Bout');
     expect(markup).toContain(grudgeStudiedLine(row));
     expect(markup).toContain(grudgeProfileLine(row.grudge));
-    // Director addendum A — the evolved-trait slot ships null, so no row prints it.
-    expect(markup).not.toContain('data-grudge-trait');
-    expect(markup.toLowerCase()).not.toContain('evolved trait');
+    // C-TRAIT — the slot is never null, so the card prints the granted palma by
+    // name with its effect, plus the composed purse line.
+    expect(markup).toContain(`data-prefight-grudge-trait="${row.grudge!.evolvedTrait}"`);
+    expect(markup).toContain(grudgeTraitLine(row));
+    // (The static markup HTML-escapes the apostrophe, so the line is matched by
+    // its own numbers rather than byte-for-byte.)
+    expect(markup).toContain('data-prefight-grudge-purse="sand"');
+    expect(markup).toContain('Tier 2 floor (90 gold / 25 fame)');
+    expect(markup).toContain('90 gold · 25 fame');
+    expect(grudgeRewardLine(row, 'steel')).toContain('113 gold · 38 fame');
+  });
+
+  test('both cards compose the purse line from the CHOSEN mode, in the component', () => {
+    // The pre-fight card re-reads the purse on every mode toggle (session state),
+    // and the result card reads the mode the duel actually fought.
+    const preFight = code('src/components/hub/PreFightModal.tsx');
+    expect(preFight).toContain('grudgeRewardLine(opponent, boutMode)');
+    expect(preFight).toContain('grudgeTraitLine(opponent)');
+    const result = code('src/components/hub/DuelResultModal.tsx');
+    expect(result).toContain('grudgeRewardLine(opponent, stats.boutMode ?? \'sand\')');
+  });
+
+  test('the result card prints the grudge purse it paid', () => {
+    const row = buildGrudgeOpponent(marcus(), 'power')!;
+    const markup = renderToStaticMarkup(
+      React.createElement(DuelResultModal, {
+        didWin: true,
+        opponent: row,
+        stats: { ...stats(), boutMode: 'steel' },
+        onContinue: () => {},
+      })
+    );
+    expect(markup).toContain('data-duel-grudge-purse="steel"');
+    expect(markup).toContain('113 gold');
+    expect(markup).toContain('Tier 2 floor (90 gold / 25 fame)');
   });
 
   test('the result card records a settled grudge, or an open one', () => {
@@ -649,7 +779,8 @@ describe('C-8.70C §G — the tournament card, the pre-fight card and the result
       const source = code(path);
       expect(source, `${path}: studied line`).not.toContain('has learned to fear your power attacks');
       expect(source, `${path}: shift`).not.toContain('blockChance: 0.1');
-      expect(source, `${path}: premium`).not.toContain('famePremium');
+      // Composed, so this suite never holds the literal it greps for.
+      expect(source, `${path}: premium`).not.toContain('fame' + 'Premium');
     }
   });
 });

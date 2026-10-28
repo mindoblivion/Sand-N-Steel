@@ -228,8 +228,8 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({ profile, onSelectO
       {/* C-8.70C — GRUDGE BOUTS. A rival the player has beaten, back one tier up
           and having studied how they won it. Every sentence and number is read
           from the generated row (`utils/grudgeBouts.ts`): what he studied, base →
-          adjusted, and the purse (the base bounty plus the TUNING-PENDING fame
-          premium). A closed grudge is still listed, so the player can see why. */}
+          adjusted, and the purse (design C3d — the VENUE tier's floor regular, no
+          premium table). A closed grudge is still listed, so the player can see why. */}
       {grudgeBouts.length > 0 && (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
