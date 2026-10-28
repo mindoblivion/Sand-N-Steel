@@ -607,6 +607,17 @@ export interface DuelStatistics {
    * format and no profile field changes; absent reads as 1 (never dropped).
    */
   lowestHealthFraction?: number;
+  /**
+   * PITCH A6 — the WINNER's remaining health, read at result time by `DuelScene`
+   * exactly the way `lowestHealthFraction` is: the player's own fraction on a
+   * player win, the opponent's on a player defeat, against the maximum that
+   * fighter entered the duel with (1 = untouched).  It is the victory card's
+   * margin (Director ruling R-MARGIN) and nothing else: a READING of the fight,
+   * never consulted by any combat formula. IN-MEMORY only — nothing saves
+   * `DuelStatistics`, so no save format and no profile field changes, and an
+   * absent value simply omits the card's margin line.
+   */
+  winnerHealthFraction?: number;
   crowdHypePeak: number;
   durationSeconds: number;
   goldEarned: number;
