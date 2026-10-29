@@ -82,6 +82,7 @@ import {
   InteractiveLocation,
 } from '../../../utils/cityCollisions';
 import { getTerrainY } from '../../../utils/terrainHeight';
+import { checkMoatRespawn } from '../../../utils/drawbridge';
 import { applyDeadZone } from '../../../utils/joystickDeadZone';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
@@ -649,6 +650,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const playerPosRef = useRef<[number, number, number]>(initialPosition ?? [0, 0, 16]);
   const playerRotYRef = useRef<number>(initialRotationY ?? Math.PI);
   const cameraYawRef = useRef<number>(initialRotationY ?? Math.PI);
+    const drawbridgeRaisedRef = useRef<boolean>(false);
   const lastNearbyIdRef = useRef<string | null>(null);
 
   // Mobile Virtual Joystick State
@@ -1099,6 +1101,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         // getTerrainY returns 0 on flat city ground, so existing
         // movement is unaffected outside the motte area.
         nextPos[1] = getTerrainY(nextPos[0], nextPos[2]);
+      // DB-1: Respawn the player if they end up in the moat water.
+      const moatRespawn = checkMoatRespawn(nextPos[0], nextPos[1], nextPos[2], drawbridgeRaisedRef.current);
+      if (moatRespawn) {
+        nextPos[0] = moatRespawn[0];
+        nextPos[1] = moatRespawn[1];
+        nextPos[2] = moatRespawn[2];
+      }
         playerPosRef.current = nextPos;
 
         // Smooth angle rotation towards target movement direction
@@ -1527,7 +1536,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <VeteranGladiatorHall />
               <ArenaMedicalHouse />
               <NorthernMotte />
-              <Drawbridge />
+            <Drawbridge raised={drawbridgeRaisedRef.current} />
               <NorthernFortress />
               {/* Day/Night T3 — the fortress watch-fire (night) and the shrine's smoke
                   (dawn on Dies Fortunae). Both are conditionally mounted, so at every

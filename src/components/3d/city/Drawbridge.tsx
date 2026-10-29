@@ -51,13 +51,19 @@
  * motte perimeter opening covers it) and the terrain is flat at Y=0.
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import {
   BRIDGE_HALF_WIDTH,
   BRIDGE_Z_OUTER,
   BRIDGE_Z_INNER,
 } from '../../../utils/terrainHeight';
+import {
+  DRAWBRIDGE_ANIM_DURATION,
+  DRAWBRIDGE_CHAIN_SAG,
+  DRAWBRIDGE_RAISED_ANGLE,
+} from '../../../utils/drawbridge';
 
 // ── Deck vertical placement ─────────────────────────────────────────────────
 // The visible moat water ring sits at Y = 0.06 (MOAT_WATER_Y, NorthernMotte).
@@ -109,35 +115,97 @@ const ironMaterial = new THREE.MeshStandardMaterial({
   metalness: 0.7,
 });
 
-export const Drawbridge: React.FC = () => {
+/** Props for the working drawbridge (DB-1). */
+interface DrawbridgeProps {
+  /** When true, the bridge animates to the raised position. Defaults to false. */
+  raised?: boolean;
+}
+
+/** easeInOutCubic easing for the raise/lower animation. */
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+export const Drawbridge: React.FC<DrawbridgeProps> = ({ raised = false }) => {
+  const hingeRef = useRef<THREE.Group>(null);
+  const progressRef = useRef(0);
+  const chainProgressRef = useRef(-1);
+  const chainMeshesRef = useRef<Array<THREE.Mesh | null>>([null, null]);
+
+  /** Rebuilds both chain tube geometries for the given animation progress. */
+  const rebuildChains = (progress: number) => {
+    const hinge = hingeRef.current;
+    if (!hinge) return;
+    hinge.updateWorldMatrix(true, false);
+    ([-1, 1] as const).forEach((side, index) => {
+      const mesh = chainMeshesRef.current[index];
+      if (!mesh) return;
+      const start = new THREE.Vector3(side * 2.5, 3.0, -49.5);
+      const end = hinge.localToWorld(new THREE.Vector3(side * 1.5, DECK_TOP_Y, DECK_LENGTH));
+      const control = start.clone().add(end).multiplyScalar(0.5);
+      control.y -= (1 - progress) * DRAWBRIDGE_CHAIN_SAG;
+      const curve = new THREE.QuadraticBezierCurve3(start, control, end);
+      mesh.geometry.dispose();
+      mesh.geometry = new THREE.TubeGeometry(curve, 20, 0.03, 8, false);
+    });
+  };
+
+  useFrame((_, delta) => {
+    const target = raised ? 1 : 0;
+    const current = progressRef.current;
+    if (current !== target) {
+      const step = delta / DRAWBRIDGE_ANIM_DURATION;
+      progressRef.current =
+        current < target ? Math.min(target, current + step) : Math.max(target, current - step);
+    }
+    const eased = easeInOutCubic(progressRef.current);
+    if (hingeRef.current) {
+      hingeRef.current.rotation.x = -eased * DRAWBRIDGE_RAISED_ANGLE;
+    }
+    if (Math.abs(progressRef.current - chainProgressRef.current) > 0.01) {
+      chainProgressRef.current = progressRef.current;
+      rebuildChains(progressRef.current);
+    }
+  });
+
+  useEffect(() => {
+    return () => {
+      chainMeshesRef.current.forEach((mesh) => {
+        if (mesh) mesh.geometry.dispose();
+      });
+    };
+  }, []);
+
   return (
     <group position={[0, 0, DECK_CENTER_Z]}>
-      {/* Plank deck */}
-      <mesh position={[0, DECK_Y, 0]} castShadow receiveShadow>
-        <boxGeometry
-          args={[BRIDGE_HALF_WIDTH * 2, DECK_THICKNESS, DECK_LENGTH]}
-        />
-        <primitive object={woodMaterial} attach="material" />
-      </mesh>
-
-      {/* Left side beam (underside flush with the deck underside) */}
-      <mesh
-        position={[-BRIDGE_HALF_WIDTH, DECK_UNDERSIDE_Y + BEAM_HEIGHT / 2, 0]}
-        castShadow
-      >
-        <boxGeometry args={[BEAM_WIDTH, BEAM_HEIGHT, DECK_LENGTH]} />
-        <primitive object={woodMaterial} attach="material" />
-      </mesh>
-
-      {/* Right side beam */}
-      <mesh
-        position={[BRIDGE_HALF_WIDTH, DECK_UNDERSIDE_Y + BEAM_HEIGHT / 2, 0]}
-        castShadow
-      >
-        <boxGeometry args={[BEAM_WIDTH, BEAM_HEIGHT, DECK_LENGTH]} />
-        <primitive object={woodMaterial} attach="material" />
-      </mesh>
-
+      {/* Hinge group: deck and beams rotate about the north-end hinge (world Z -56.5). */}
+      <group ref={hingeRef} position={[0, 0, -DECK_LENGTH / 2]}>
+        <group position={[0, 0, DECK_LENGTH / 2]}>
+          {/* Plank deck */}
+          <mesh position={[0, DECK_Y, 0]} castShadow receiveShadow>
+            <boxGeometry
+              args={[BRIDGE_HALF_WIDTH * 2, DECK_THICKNESS, DECK_LENGTH]}
+            />
+            <primitive object={woodMaterial} attach="material" />
+          </mesh>
+          {/* Left side beam (underside flush with the deck underside) */}
+          <mesh
+            position={[-BRIDGE_HALF_WIDTH, DECK_UNDERSIDE_Y + BEAM_HEIGHT / 2, 0]}
+            castShadow
+          >
+            <boxGeometry args={[BEAM_WIDTH, BEAM_HEIGHT, DECK_LENGTH]} />
+            <primitive object={woodMaterial} attach="material" />
+          </mesh>
+          {/* Right side beam */}
+          <mesh
+            position={[BRIDGE_HALF_WIDTH, DECK_UNDERSIDE_Y + BEAM_HEIGHT / 2, 0]}
+            castShadow
+          >
+            <boxGeometry args={[BEAM_WIDTH, BEAM_HEIGHT, DECK_LENGTH]} />
+            <primitive object={woodMaterial} attach="material" />
+          </mesh>
+        </group>
+      </group>
       {/* Iron hinge — left (at motte end) */}
       <mesh
         position={[
@@ -151,7 +219,6 @@ export const Drawbridge: React.FC = () => {
         <cylinderGeometry args={[HINGE_RADIUS, HINGE_RADIUS, BEAM_WIDTH * 1.4, 8]} />
         <primitive object={ironMaterial} attach="material" />
       </mesh>
-
       {/* Iron hinge — right */}
       <mesh
         position={[
@@ -163,6 +230,32 @@ export const Drawbridge: React.FC = () => {
         castShadow
       >
         <cylinderGeometry args={[HINGE_RADIUS, HINGE_RADIUS, BEAM_WIDTH * 1.4, 8]} />
+        <primitive object={ironMaterial} attach="material" />
+      </mesh>
+      {/* Anchor posts (DB-1). */}
+      <mesh key="anchor-post-left" position={[-2.5, 1.5, -49.5]} castShadow>
+        <boxGeometry args={[0.3, 3.0, 0.3]} />
+        <primitive object={woodMaterial} attach="material" />
+      </mesh>
+      <mesh key="anchor-post-right" position={[2.5, 1.5, -49.5]} castShadow>
+        <boxGeometry args={[0.3, 3.0, 0.3]} />
+        <primitive object={woodMaterial} attach="material" />
+      </mesh>
+      {/* Chains (DB-1): tube geometry rebuilt as the bridge moves. */}
+      <mesh
+        key="chain-left"
+        ref={(mesh) => {
+          chainMeshesRef.current[0] = mesh;
+        }}
+      >
+        <primitive object={ironMaterial} attach="material" />
+      </mesh>
+      <mesh
+        key="chain-right"
+        ref={(mesh) => {
+          chainMeshesRef.current[1] = mesh;
+        }}
+      >
         <primitive object={ironMaterial} attach="material" />
       </mesh>
     </group>
