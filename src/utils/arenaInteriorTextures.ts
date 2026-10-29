@@ -2,13 +2,15 @@
  * ===========================================================================
  * AI-1 — THE ARENA INTERIOR'S CANVAS-TEXTURE FACTORY
  * ===========================================================================
- * The duel arena's three flat zones (sand, podium wall, cavea tiers) and the
- * combat ring's worn paint are painted here, procedurally, at load time —
- * no asset files, no network cost.
+ * The duel arena's three flat zones (sand, podium wall, cavea tiers), the
+ * combat ring's worn paint, the velarium's linen awning and the podium's
+ * inscription band are painted here, procedurally, at load time — no asset
+ * files, no network cost.
  *
  * ── ONE GENERATOR ────────────────────────────────────────────────────────
  * There is exactly ONE canvas factory in this module — `paintArenaTexture` —
- * and all four textures come out of it. Nothing here creates a canvas any
+ * and all SIX textures come out of it (AI-1's four, plus AI-2's linen and
+ * inscription). Nothing here creates a canvas any
  * other way, and no other module paints arena sand: the A3 "ground-texture
  * factory" this slice was asked to build on does not exist in the tree, so the
  * same shape is implemented locally (a cached getter per texture, each one a
@@ -52,6 +54,14 @@ export const ARENA_WALL_TEXTURE_HEIGHT = 512;
 export const ARENA_TIER_TEXTURE_SIZE = 1024;
 /** The combat ring's chipped-paint alpha map. */
 export const ARENA_RING_ALPHA_SIZE = 512;
+/** The velarium's linen awning: 360° of circumference by the awning's height. */
+export const ARENA_LINEN_TEXTURE_WIDTH = 1024;
+export const ARENA_LINEN_TEXTURE_HEIGHT = 256;
+/** The podium inscription band: 360° of circumference by 0.9 units of height. */
+export const ARENA_INSCRIPTION_TEXTURE_WIDTH = 1024;
+export const ARENA_INSCRIPTION_TEXTURE_HEIGHT = 128;
+/** The linen's radial stripe pitch, in the awning map's own pixels. */
+export const ARENA_LINEN_STRIPE_PITCH = 64;
 
 /** The ring mesh's own radii — the alpha map is an annulus in its UV space. */
 export const ARENA_RING_INNER_RADIUS = 7.8;
@@ -89,7 +99,31 @@ export const ARENA_INTERIOR_COLORS = {
   goldTrim: '#C9A227',
   /** Dark iron — the portcullis bars (the shipped gate steel). */
   iron: '#292524',
+  /** Linen — the velarium awning's own ground. */
+  linen: '#E7DCC4',
+  /** Linen stripe — the awning's radial bands. */
+  linenStripe: '#D9C9A8',
 } as const;
+
+/**
+ * A4 — the podium's block courses, in the wall map's own pixels. The map is
+ * 0.062 world units per pixel across (2048 px round a 20.2-radius drum), so
+ * 48…97 px is the 3…6 units a course should read as; the shipped 190…420 px
+ * courses read as striping.
+ */
+export const PODIUM_BLOCK_WIDTH_MIN_PX = 48;
+export const PODIUM_BLOCK_WIDTH_MAX_PX = 97;
+
+/**
+ * A3 — the fresco figure's own proportions, in the wall map's pixels. The map
+ * stretches ~6.35 : 1 across the drum against its height (2048 px over 126.9
+ * units versus 512 px over 5.0), which is what stretched the shipped
+ * silhouette ~6.4 : 1. A figure at natural human proportion — world width :
+ * height = 1 : 2.4 — is therefore a tall, narrow silhouette in canvas space:
+ * 107 px tall against 7 px wide.
+ */
+export const FRESCO_FIGURE_HEIGHT_PX = 107;
+export const FRESCO_FIGURE_WIDTH_PX = 7;
 
 export type ArenaInteriorColorName = keyof typeof ARENA_INTERIOR_COLORS;
 
@@ -100,8 +134,12 @@ export interface ArenaTextureOptions {
 
 type Painter = (ctx: CanvasRenderingContext2D, width: number, height: number) => void;
 
-/** Deterministic PRNG (mulberry32) so a texture looks the same on every load. */
-function seeded(seed: number): () => number {
+/**
+ * Deterministic PRNG (mulberry32) so a texture looks the same on every load.
+ * Exported since AI-2: the arena's crowd is placed with this same generator,
+ * so "seeded" means one implementation across the whole interior.
+ */
+export function seeded(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -288,7 +326,11 @@ function blockWidths(rand: () => number, width: number): number[] {
   const widths: number[] = [];
   let remaining = width;
   while (remaining > 0) {
-    const w = Math.min(remaining, 190 + rand() * 230);
+    const w = Math.min(
+      remaining,
+      PODIUM_BLOCK_WIDTH_MIN_PX +
+        rand() * (PODIUM_BLOCK_WIDTH_MAX_PX - PODIUM_BLOCK_WIDTH_MIN_PX),
+    );
     widths.push(w);
     remaining -= w;
   }
@@ -392,39 +434,40 @@ function paintPodiumWall(ctx: CanvasRenderingContext2D, width: number, height: n
     ctx.lineWidth = 3;
     ctx.strokeRect(px + 4.5, frescoTop + 10.5, pw - 9, frescoH - 21);
 
-    // The silhouette: abstract fresco figure — head, torso, legs, a sword arm.
+    // A3 — the silhouette at natural proportions (world width : height =
+    // 1 : 2.4, see FRESCO_FIGURE_*): a striding figure drawn inside a 7 x 107
+    // px box standing on the panel's foot. Abstract Bone-tone strokes only.
     const fx = px + pw / 2;
-    const fy = frescoTop + 18;
+    const footY = frescoBottom - 12;
+    const topY = footY - FRESCO_FIGURE_HEIGHT_PX;
+    const reach = FRESCO_FIGURE_WIDTH_PX / 2;
     ctx.globalAlpha = 0.5;
     ctx.fillStyle = color.bone;
     ctx.strokeStyle = color.bone;
-    ctx.beginPath();
-    ctx.arc(fx, fy + 10, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(fx - 15, fy + 24);
-    ctx.lineTo(fx + 15, fy + 24);
-    ctx.lineTo(fx + 9, fy + 62);
-    ctx.lineTo(fx - 9, fy + 62);
-    ctx.closePath();
-    ctx.fill();
-    ctx.lineWidth = 7;
     ctx.lineCap = 'round';
+    // The head.
     ctx.beginPath();
-    ctx.moveTo(fx, fy + 62);
-    ctx.lineTo(fx - 11, fy + 92);
-    ctx.moveTo(fx, fy + 62);
-    ctx.lineTo(fx + 12, fy + 92);
-    ctx.stroke();
+    ctx.arc(fx, topY + 6, 3.6, 0, Math.PI * 2);
+    ctx.fill();
+    // The torso: one stroke from the shoulders to the hips.
     ctx.lineWidth = 5;
     ctx.beginPath();
-    ctx.moveTo(fx - 13, fy + 32);
-    ctx.lineTo(fx - 27, fy + 52);
+    ctx.moveTo(fx, topY + 12);
+    ctx.lineTo(fx + 1, topY + 60);
     ctx.stroke();
+    // Legs, striding: one forward, one trailing.
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(fx - 27, fy + 52);
-    ctx.lineTo(fx - 31, fy + 24);
+    ctx.moveTo(fx + 1, topY + 60);
+    ctx.lineTo(fx - reach, topY + 100);
+    ctx.moveTo(fx + 1, topY + 60);
+    ctx.lineTo(fx + reach, topY + 100);
+    ctx.stroke();
+    // The sword arm, raised across the body.
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(fx + 1, topY + 24);
+    ctx.lineTo(fx + reach, topY + 10);
     ctx.stroke();
 
     // Worn edges: the plaster has flaked back to stone along the panel edges.
@@ -512,12 +555,90 @@ function paintArenaTiers(ctx: CanvasRenderingContext2D, width: number, height: n
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
+   5. THE VELARIUM'S LINEN — the awning's own canvas: a warm linen ground and
+      radial stripe bands every 64 px. Canvas x wraps once round the cone and
+      canvas y runs up it, so a vertical band IS a stripe running out from the
+      centre ring toward the masts.
+   ───────────────────────────────────────────────────────────────────────── */
+function paintLinen(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = ARENA_INTERIOR_COLORS.linen;
+  ctx.fillRect(0, 0, width, height);
+
+  // One band per 64 px of pitch, half a pitch wide — the awning's own seams.
+  ctx.fillStyle = ARENA_INTERIOR_COLORS.linenStripe;
+  for (let x = 0; x < width; x += ARENA_LINEN_STRIPE_PITCH) {
+    ctx.fillRect(x, 0, ARENA_LINEN_STRIPE_PITCH / 2, height);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   6. THE PODIUM INSCRIPTION — travertine with a row of recessed panels, each
+      carrying abstract chisel strokes. Strokes, never letters: the look of
+      lettering at a distance, with no alphabet anywhere in it.
+   ───────────────────────────────────────────────────────────────────────── */
+function paintPodiumInscription(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): void {
+  const rand = seeded(0x4e57);
+  const color = ARENA_INTERIOR_COLORS;
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = color.travertine;
+  ctx.fillRect(0, 0, width, height);
+
+  const panels = 16;
+  const panelW = width / panels;
+  for (let p = 0; p < panels; p += 1) {
+    const px = p * panelW + 5;
+    const pw = panelW - 10;
+
+    // The recess: the panel's field a shade below the face, with a drawn lip.
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = color.travertineDark;
+    ctx.fillRect(px, 14, pw, height - 28);
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = color.travertineDark;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(px + 1.5, 15.5, pw - 3, height - 31);
+
+    // Two courses of chisel strokes, grouped into word-length runs.
+    for (let row = 0; row < 2; row += 1) {
+      const baseline = 44 + row * 32;
+      let x = px + 8;
+      while (x < px + pw - 12) {
+        const run = 2 + Math.floor(rand() * 3);
+        for (let m = 0; m < run && x < px + pw - 12; m += 1) {
+          const mark = 5 + rand() * 11;
+          ctx.globalAlpha = 0.35 + rand() * 0.25;
+          ctx.strokeStyle = color.travertineDark;
+          ctx.lineWidth = 2 + rand() * 1.6;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(x, baseline + (rand() - 0.5) * 5);
+          ctx.lineTo(x + mark, baseline + (rand() - 0.5) * 7);
+          ctx.stroke();
+          x += mark + 3 + rand() * 3;
+        }
+        x += 9 + rand() * 6;
+      }
+    }
+  }
+
+  ctx.globalAlpha = 1;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
    The cached getters — one texture each, generated once per session.
    ───────────────────────────────────────────────────────────────────────── */
 let sandTexture: THREE.CanvasTexture | null = null;
 let ringPaintTexture: THREE.CanvasTexture | null = null;
 let podiumWallTexture: THREE.CanvasTexture | null = null;
 let arenaTierTexture: THREE.CanvasTexture | null = null;
+let linenTexture: THREE.CanvasTexture | null = null;
+let inscriptionTexture: THREE.CanvasTexture | null = null;
 
 /** Sand: the pit's own 1024² rake pattern. Clamped — it never tiles. */
 export function getArenaSandTexture(options?: ArenaTextureOptions): THREE.CanvasTexture | null {
@@ -574,4 +695,64 @@ export function getArenaTierTexture(options?: ArenaTextureOptions): THREE.Canvas
     arenaTierTexture = texture;
   }
   return texture;
+}
+
+/** The velarium's linen: the awning's 1024x256 canvas, wrapping once round it. */
+export function getArenaLinenTexture(options?: ArenaTextureOptions): THREE.CanvasTexture | null {
+  if (linenTexture) return linenTexture;
+  const texture = paintArenaTexture(
+    ARENA_LINEN_TEXTURE_WIDTH,
+    ARENA_LINEN_TEXTURE_HEIGHT,
+    paintLinen,
+    options,
+  );
+  if (texture) {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.name = 'arena-velarium-linen';
+    linenTexture = texture;
+  }
+  return texture;
+}
+
+/** The podium inscription band: 1024x128, wrapping once round the drum. */
+export function getPodiumInscriptionTexture(
+  options?: ArenaTextureOptions,
+): THREE.CanvasTexture | null {
+  if (inscriptionTexture) return inscriptionTexture;
+  const texture = paintArenaTexture(
+    ARENA_INSCRIPTION_TEXTURE_WIDTH,
+    ARENA_INSCRIPTION_TEXTURE_HEIGHT,
+    paintPodiumInscription,
+    options,
+  );
+  if (texture) {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.name = 'arena-podium-inscription';
+    inscriptionTexture = texture;
+  }
+  return texture;
+}
+
+/** The renderer capability this module needs — a real WebGLRenderer satisfies it. */
+export interface AnisotropySource {
+  capabilities: { getMaxAnisotropy: () => number };
+}
+
+/**
+ * A6 — anisotropy is applied HERE rather than at module load, because this
+ * module must stay import-safe (no top-level DOM access). Called once from the
+ * DuelArena call site with the live renderer, it gives every canvas texture the
+ * module has created the renderer's own cap, up to 8. Head-on it changes
+ * nothing; it is what keeps the sand and the tiers readable at grazing angles.
+ */
+export function applyArenaTextureAnisotropy(renderer: AnisotropySource): void {
+  const max = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  if (sandTexture) sandTexture.anisotropy = max;
+  if (ringPaintTexture) ringPaintTexture.anisotropy = max;
+  if (podiumWallTexture) podiumWallTexture.anisotropy = max;
+  if (arenaTierTexture) arenaTierTexture.anisotropy = max;
+  if (linenTexture) linenTexture.anisotropy = max;
+  if (inscriptionTexture) inscriptionTexture.anisotropy = max;
 }

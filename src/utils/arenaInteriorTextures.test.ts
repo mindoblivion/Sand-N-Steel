@@ -2,9 +2,10 @@
  * AI-1 — the arena interior's canvas-texture factory, tested where it is pure.
  *
  * WHAT THIS PINS: the factory's contract only — import safety, dimensions,
- * colour-space and wrap modes, the four cached getters returning the SAME
- * instance, and the single-generator rule (one canvas factory in the module,
- * one place a canvas is made). The pixels themselves are NOT unit-tested:
+ * colour-space and wrap modes, the SIX cached getters (AI-1's four, plus
+ * AI-2's linen and inscription) returning the SAME instance, the A6 anisotropy
+ * application, the A3/A4 repaint proportions, and the single-generator rule
+ * (one canvas factory in the module, one place a canvas is made). The pixels themselves are NOT unit-tested:
  * a rake pattern, a block course and a fresco band are S24-accepted on a
  * device — this sandbox has no GPU and cannot judge them.
  */
@@ -16,6 +17,11 @@ import * as THREE from 'three';
 
 import {
   ARENA_INTERIOR_COLORS,
+  ARENA_INSCRIPTION_TEXTURE_HEIGHT,
+  ARENA_INSCRIPTION_TEXTURE_WIDTH,
+  ARENA_LINEN_STRIPE_PITCH,
+  ARENA_LINEN_TEXTURE_HEIGHT,
+  ARENA_LINEN_TEXTURE_WIDTH,
   ARENA_RING_ALPHA_SIZE,
   ARENA_RING_INNER_RADIUS,
   ARENA_RING_OUTER_RADIUS,
@@ -24,9 +30,16 @@ import {
   ARENA_TIER_TEXTURE_SIZE,
   ARENA_WALL_TEXTURE_HEIGHT,
   ARENA_WALL_TEXTURE_WIDTH,
+  FRESCO_FIGURE_HEIGHT_PX,
+  FRESCO_FIGURE_WIDTH_PX,
+  PODIUM_BLOCK_WIDTH_MAX_PX,
+  PODIUM_BLOCK_WIDTH_MIN_PX,
+  applyArenaTextureAnisotropy,
+  getArenaLinenTexture,
   getArenaRingPaintTexture,
   getArenaSandTexture,
   getArenaTierTexture,
+  getPodiumInscriptionTexture,
   getPodiumWallTexture,
 } from './arenaInteriorTextures';
 import { ROMAN_PALETTE } from '../components/3d/city/RomanMaterials';
@@ -89,8 +102,11 @@ describe('AI-1 §A — import safety (nothing touches document above a call)', (
 });
 
 // ══════════════════════════════════════════════════════════════════════════
+/** One fake document for the whole file: the getters cache per session. */
+const textureDoc = fakeDocument();
+
 describe('AI-1 §B — dimensions, colour space and one cached instance each', () => {
-  const { doc, canvases } = fakeDocument();
+  const { doc } = textureDoc;
 
   test('the sand is a 1024² pit-shaped map: clamped, repeat 1, sRGB', () => {
     const sand = getArenaSandTexture({ document: doc });
@@ -138,8 +154,8 @@ describe('AI-1 §B — dimensions, colour space and one cached instance each', (
     expect(getPodiumWallTexture({ document: doc })).toBe(getPodiumWallTexture({ document: doc }));
     expect(getArenaRingPaintTexture({ document: doc })).toBe(getArenaRingPaintTexture({ document: doc }));
     expect(getArenaTierTexture({ document: doc })).toBe(getArenaTierTexture({ document: doc }));
-    // Four textures, four canvases — no texture was painted twice.
-    expect(canvases.length).toBe(4);
+    // No texture is painted twice: four canvases for four getters.
+    expect(textureDoc.canvases.length).toBe(4);
   });
 });
 
@@ -149,8 +165,8 @@ describe('AI-1 §C — one generator, not two', () => {
     expect((MODULE_CODE.match(/createElement\('canvas'\)/g) ?? []).length).toBe(1);
     expect((MODULE_CODE.match(/new THREE\.CanvasTexture\(/g) ?? []).length).toBe(1);
     expect((MODULE_CODE.match(/function paintArenaTexture\(/g) ?? []).length).toBe(1);
-    // Every texture goes through it: four getters, four calls.
-    expect((MODULE_CODE.match(/paintArenaTexture\(/g) ?? []).length).toBe(5); // 1 definition + 4 calls
+    // Every texture goes through it: six getters, six calls.
+    expect((MODULE_CODE.match(/paintArenaTexture\(/g) ?? []).length).toBe(7); // 1 definition + 6 calls
     // The colour table is the only thing the module exports besides the getters.
     expect((MODULE_CODE.match(/new THREE\.CanvasTexture\(/g) ?? []).length).toBe(1);
   });
@@ -181,8 +197,105 @@ describe('AI-1 §D — the palette: no new hex value', () => {
 
   test('every colour is a well-formed hex and the table is exhaustive', () => {
     const values = Object.values(ARENA_INTERIOR_COLORS);
-    expect(values).toHaveLength(14);
+    expect(values).toHaveLength(16);
     for (const value of values) expect(value).toMatch(/^#[0-9a-fA-F]{6}$/);
     expect(ARENA_SAND_PIT_RADIUS).toBe(20);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+describe('AI-2 §E — the velarium linen and the podium inscription', () => {
+  const { doc, canvases } = textureDoc;
+
+  test('the linen is a 1024×256 canvas in the two pinned tones', () => {
+    const linen = getArenaLinenTexture({ document: doc });
+    expect(linen).not.toBeNull();
+    expect((linen as THREE.CanvasTexture).image.width).toBe(ARENA_LINEN_TEXTURE_WIDTH);
+    expect((linen as THREE.CanvasTexture).image.height).toBe(ARENA_LINEN_TEXTURE_HEIGHT);
+    expect(ARENA_LINEN_TEXTURE_WIDTH).toBe(1024);
+    expect(ARENA_LINEN_TEXTURE_HEIGHT).toBe(256);
+    expect(ARENA_LINEN_STRIPE_PITCH).toBe(64);
+    expect(ARENA_INTERIOR_COLORS.linen).toBe('#E7DCC4');
+    expect(ARENA_INTERIOR_COLORS.linenStripe).toBe('#D9C9A8');
+    // Wrapping once round the awning, sRGB like every other map here.
+    expect((linen as THREE.CanvasTexture).wrapS).toBe(THREE.RepeatWrapping);
+    expect((linen as THREE.CanvasTexture).wrapT).toBe(THREE.ClampToEdgeWrapping);
+    expect((linen as THREE.CanvasTexture).colorSpace).toBe(THREE.SRGBColorSpace);
+    expect((linen as THREE.CanvasTexture).name).toBe('arena-velarium-linen');
+  });
+
+  test('the inscription is a 1024×128 canvas on the travertine tone', () => {
+    const inscription = getPodiumInscriptionTexture({ document: doc });
+    expect(inscription).not.toBeNull();
+    expect((inscription as THREE.CanvasTexture).image.width).toBe(ARENA_INSCRIPTION_TEXTURE_WIDTH);
+    expect((inscription as THREE.CanvasTexture).image.height).toBe(ARENA_INSCRIPTION_TEXTURE_HEIGHT);
+    expect(ARENA_INSCRIPTION_TEXTURE_WIDTH).toBe(1024);
+    expect(ARENA_INSCRIPTION_TEXTURE_HEIGHT).toBe(128);
+    expect(ARENA_INTERIOR_COLORS.travertine).toBe(ROMAN_PALETTE.travertine.color);
+    expect((inscription as THREE.CanvasTexture).name).toBe('arena-podium-inscription');
+    // Abstract chisel marks, never text: the painter draws strokes only.
+    const painter = MODULE_CODE.slice(MODULE_CODE.indexOf('function paintPodiumInscription'));
+    expect(painter).toContain('strokeRect(');
+    expect(painter).not.toContain('fillText');
+    expect(painter).not.toContain('strokeText');
+  });
+
+  test('both new getters are cached exactly like the shipped four', () => {
+    expect(getArenaLinenTexture({ document: doc })).toBe(getArenaLinenTexture({ document: doc }));
+    expect(getPodiumInscriptionTexture({ document: doc })).toBe(
+      getPodiumInscriptionTexture({ document: doc }),
+    );
+    // Six textures, six canvases across the whole session — none painted twice.
+    expect(canvases.length).toBe(6);
+  });
+
+  test('A6 — anisotropy reaches all six textures, capped at 8', () => {
+    applyArenaTextureAnisotropy({ capabilities: { getMaxAnisotropy: () => 16 } });
+    for (const texture of [
+      getArenaSandTexture({ document: doc }),
+      getArenaRingPaintTexture({ document: doc }),
+      getPodiumWallTexture({ document: doc }),
+      getArenaTierTexture({ document: doc }),
+      getArenaLinenTexture({ document: doc }),
+      getPodiumInscriptionTexture({ document: doc }),
+    ]) {
+      expect((texture as THREE.CanvasTexture).anisotropy).toBe(8);
+    }
+    // A weaker renderer's own cap is honoured rather than overridden.
+    applyArenaTextureAnisotropy({ capabilities: { getMaxAnisotropy: () => 4 } });
+    expect((getArenaSandTexture({ document: doc }) as THREE.CanvasTexture).anisotropy).toBe(4);
+
+    // The module stays import-safe: one line per texture, applied by a call.
+    expect((MODULE_CODE.match(/\.anisotropy = max;/g) ?? []).length).toBe(6);
+    expect(MODULE_CODE).toContain('Math.min(8, renderer.capabilities.getMaxAnisotropy())');
+    const body = MODULE_CODE.slice(MODULE_CODE.indexOf('export function applyArenaTextureAnisotropy'));
+    expect(body.indexOf('getMaxAnisotropy')).toBeGreaterThan(-1);
+    // …and nothing runs it at module load: the name appears once, as its own
+    // declaration, and never as a call in this module.
+    expect((MODULE_CODE.match(/applyArenaTextureAnisotropy/g) ?? []).length).toBe(1);
+  });
+
+  test('A3/A4 — the repaint proportions are the brief’s, in world units', () => {
+    // The wall map: 2048 px round a 20.2-radius drum, 512 px over 5.0 units.
+    const unitsPerPxAcross = (2 * Math.PI * 20.2) / ARENA_WALL_TEXTURE_WIDTH;
+    const unitsPerPxUp = 5.0 / ARENA_WALL_TEXTURE_HEIGHT;
+
+    // A3 — natural human proportion: world height : width ≈ 2.4 : 1.
+    expect(FRESCO_FIGURE_HEIGHT_PX).toBe(107);
+    expect(FRESCO_FIGURE_WIDTH_PX).toBe(7);
+    const figureWidth = FRESCO_FIGURE_WIDTH_PX * unitsPerPxAcross;
+    const figureHeight = FRESCO_FIGURE_HEIGHT_PX * unitsPerPxUp;
+    expect(figureHeight / figureWidth).toBeCloseTo(2.4, 1);
+    // The shipped silhouette's 6.4:1 stretch is gone (it read ~4.4:1 wide).
+    expect(figureHeight).toBeLessThan(figureWidth * 3);
+
+    // A4 — block courses read 3…6 world units wide, not 12…26.
+    expect(PODIUM_BLOCK_WIDTH_MIN_PX).toBe(48);
+    expect(PODIUM_BLOCK_WIDTH_MAX_PX).toBe(97);
+    expect(PODIUM_BLOCK_WIDTH_MIN_PX * unitsPerPxAcross).toBeCloseTo(3, 1);
+    expect(PODIUM_BLOCK_WIDTH_MAX_PX * unitsPerPxAcross).toBeCloseTo(6, 1);
+    const blockWidths = MODULE_CODE.slice(MODULE_CODE.indexOf('function blockWidths'));
+    expect(blockWidths).toContain('PODIUM_BLOCK_WIDTH_MIN_PX');
+    expect(blockWidths).not.toContain('190');
   });
 });

@@ -330,7 +330,12 @@ describe('D-3 §H — the presentation is property-only', () => {
     expect(DUEL_SCENE).toContain('? panoply.humiliated');
     expect(DUEL_SCENE).toContain(": 'gilded'");
     // No new mesh or material was introduced by the swap.
-    const canopy = ARENA.slice(ARENA.indexOf('Velarium'), ARENA.indexOf('Gold Trim'));
+    // AI-2 REBASE: the arena now also carries the velarium awning, so the
+    // slice is anchored on the canopy's own comment, not the word 'Velarium'.
+    const canopy = ARENA.slice(
+      ARENA.indexOf('Imperial Velvet Canopy'),
+      ARENA.indexOf('Gold Trim & Imperial Eagle'),
+    );
     expect((canopy.match(/<mesh /g) ?? []).length).toBe(1);
   });
 

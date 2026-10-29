@@ -620,11 +620,15 @@ describe('CF-3 §E — DuelArena structure', () => {
     const braziers = DUEL_ARENA.indexOf('4. ROARING BRONZE ARENA FIRE BRAZIERS');
     expect(open).toBeGreaterThan(-1);
     expect(braziers).toBeGreaterThan(open);
-    const crowd = DUEL_ARENA.slice(open, braziers);
-    // The crowd's own pieces are inside ...
-    expect(crowd).toContain('const rad1 = 22.2;');
-    expect(crowd).toContain('const rad2 = 25.8;');
-    expect(crowd).toContain('length: 28');
+    // AI-2 REBASE: the crowd is two InstancedMeshes now, so the slice is the
+    // group's own span (its closing tag), not "everything up to the braziers".
+    const crowd = DUEL_ARENA.slice(open, DUEL_ARENA.indexOf('\n      </group>', open) + 15);
+    // The crowd's own pieces are inside: the two instanced layers and their
+    // shipped geometries …
+    expect(crowd).toContain('<instancedMesh');
+    expect(crowd).toContain('CROWD_COUNT');
+    expect(crowd).toContain('<boxGeometry args={[1.2, 1.4, 0.8]} />');
+    expect(crowd).toContain('<sphereGeometry args={[CROWD_HEAD_RADIUS, 8, 6]} />');
     // ... and no arena element is: no brazier light, no wall/cavea cylinder,
     // no loge, no gate.
     expect(crowd).not.toContain('pointLight');
@@ -634,28 +638,40 @@ describe('CF-3 §E — DuelArena structure', () => {
     expect(crowd).not.toContain('boxGeometry args={[10, 3.6, 4.5]}');
   });
 
-  test('the group is balanced — one wrapper, one per-spectator group', () => {
+  test('the group is balanced — one wrapper, and the crowd inside it', () => {
     const open = DUEL_ARENA.indexOf('<group ref={crowdGroupRef}>');
-    const braziers = DUEL_ARENA.indexOf('4. ROARING BRONZE ARENA FIRE BRAZIERS');
-    const crowd = DUEL_ARENA.slice(open, braziers);
+    const crowd = DUEL_ARENA.slice(open, DUEL_ARENA.indexOf('\n      </group>', open) + 15);
+    // AI-2 REBASE: the per-spectator <group> template is gone with the loop;
+    // exactly one <group> opens and closes — the wrapper itself.
     const opens = (crowd.match(/<group\b/g) ?? []).length;
     const closes = (crowd.match(/<\/group>/g) ?? []).length;
-    expect(opens).toBe(2); // the wrapper + the per-spectator template
-    expect(closes).toBe(2);
+    expect(opens).toBe(1);
+    expect(closes).toBe(1);
+    // …and it holds exactly the two instanced layers.
+    expect((crowd.match(/<instancedMesh/g) ?? []).length).toBe(2);
   });
 
-  test('only the crowd group’s Y is animated, and the 56 meshes are unchanged', () => {
+  test('only the crowd group’s Y is animated, and the crowd is two instances', () => {
     // One and only one position assignment in the whole arena.
     const assignments = code.match(/\.position\.y\s*=/g) ?? [];
     expect(assignments).toHaveLength(1);
-    // The crowd's own geometry: two boxes per spectator, 28 spectators.
+    // AI-2 REBASE: the 56 per-spectator boxes became TWO InstancedMeshes. The
+    // shipped body box survives as the body layer's geometry; the second
+    // box (1.4 x 1.5 x 0.8) is gone with the loop, replaced by the head sphere.
+    expect((code.match(/<instancedMesh/g) ?? []).length).toBe(2);
     expect(code).toContain('<boxGeometry args={[1.2, 1.4, 0.8]} />');
-    expect(code).toContain('<boxGeometry args={[1.4, 1.5, 0.8]} />');
-    expect(code).toContain('Math.cos(angle) * rad1, 7.8, Math.sin(angle) * rad1');
-    expect(code).toContain('Math.cos(angle) * rad2, 11.2, Math.sin(angle) * rad2');
-    // Materials untouched.
-    expect(code).toContain("ci % 3 === 0 ? '#991b1b' : ci % 2 === 0 ? '#f5f5f4' : '#78350f'");
-    expect(code).toContain("ci % 2 === 0 ? '#b45309' : '#e5e5e5'");
+    expect(code).not.toContain('<boxGeometry args={[1.4, 1.5, 0.8]} />');
+    // Its two ring radii — 22.2 on tier 1 and 25.8 on tier 2 — are still the
+    // shipped values, now rows of the pinned six-ring table.
+    expect(code).toContain('{ tier: 0, radius: 22.2, y: 7.8 }');
+    expect(code).toContain('{ tier: 1, radius: 25.8, y: 11.2 }');
+    // The tunic and head tones are still the shipped palette, now pinned as
+    // the per-instance colour table.
+    expect(code).toContain("'#991b1b'");
+    expect(code).toContain("'#f5f5f4'");
+    expect(code).toContain("'#78350f'");
+    expect(code).toContain("'#b45309'");
+    expect(code).toContain("'#e5e5e5'");
   });
 
   test('the arena still renders every non-crowd element', () => {

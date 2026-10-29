@@ -1,14 +1,18 @@
-import React, { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { createCrowdBounce, stepCrowdBounce, type CrowdBounce } from '../../utils/crowdHype';
 import {
   ARENA_INTERIOR_COLORS,
+  applyArenaTextureAnisotropy,
+  getArenaLinenTexture,
   getArenaRingPaintTexture,
   getArenaSandTexture,
   getArenaTierTexture,
+  getPodiumInscriptionTexture,
   getPodiumWallTexture,
+  seeded,
 } from '../../utils/arenaInteriorTextures';
 
 export interface DuelArenaProps {
@@ -205,6 +209,319 @@ export function buildLibitinariaDressingGeometry(): THREE.BufferGeometry {
   return mergeParts([colorizeGeometry(plaque, ARENA_INTERIOR_COLORS.bronzeAged)]);
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   AI-2 — THE LIVING CAVEA
+   ══════════════════════════════════════════════════════════════════════════
+   The crowd, the velarium, the podium's inscription band, the baltei walls,
+   the brazier stands and the pulvinar's dressing. Everything is procedural —
+   canvas maps and primitives — and everything is merged, so the slice is a
+   draw-call NEGATIVE against AI-1's ground.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/** The crowd's one seed: the same 480 people arrive on every mount. */
+export const CROWD_SEED = 7;
+/** Spectators in each seating ring. */
+export const CROWD_PER_RING = 80;
+/** Bodies drawn per ring stack, i.e. one per spectator. */
+export const CROWD_COUNT = CROWD_PER_RING * 6;
+
+/** The two cavea cones the crowd sits on — the same slopes the tier meshes draw. */
+export const CROWD_TIERS = [
+  { innerRadius: 20.6, baseY: 5.2, rise: 3.2, run: 3.4 },
+  { innerRadius: 24.2, baseY: 8.4, rise: 4.0, run: 3.8 },
+] as const;
+
+/**
+ * The six seating rings. `y` is the shipped ring-centre convention — the tier
+ * slope at that radius plus 1.1 — kept verbatim (the two shipped rings are
+ * still exactly 7.8 and 11.2). A5 seats each body ON its step, i.e. on the
+ * slope surface under that centre, rather than on the centre the shipped boxes
+ * floated on.
+ */
+export const CROWD_RINGS = [
+  { tier: 0, radius: 21.4, y: 7.05 },
+  { tier: 0, radius: 22.2, y: 7.8 },
+  { tier: 0, radius: 23.0, y: 8.56 },
+  { tier: 1, radius: 25.0, y: 10.34 },
+  { tier: 1, radius: 25.8, y: 11.2 },
+  { tier: 1, radius: 26.6, y: 12.03 },
+] as const;
+
+/** The body box's height — the shipped geometry, 1.2 x 1.4 x 0.8. */
+export const CROWD_BODY_HEIGHT = 1.4;
+/** The head sphere's radius, and how far its centre sits above the body's. */
+export const CROWD_HEAD_RADIUS = 0.28;
+export const CROWD_HEAD_LIFT = 0.95;
+/** A spectator's seed-jitter envelope and its scale range. */
+export const CROWD_RADIUS_JITTER = 0.25;
+export const CROWD_Y_JITTER = 0.15;
+export const CROWD_SCALE_MIN = 0.92;
+export const CROWD_SCALE_MAX = 1.08;
+
+/** Per-instance tunic colours: AI-1's five shipped tones plus three more. */
+export const CROWD_TUNIC_COLORS = [
+  '#991b1b',
+  '#f5f5f4',
+  '#78350f',
+  '#b45309',
+  '#e5e5e5',
+  '#3f3a34',
+  '#8a6f4d',
+  '#5b6b7a',
+] as const;
+/** The two shipped head tones, alternating by seeded coin. */
+export const CROWD_HEAD_COLORS = ['#b45309', '#e5e5e5'] as const;
+
+export interface CrowdSpectator {
+  x: number;
+  /** The step surface the spectator's feet stand on, jitter included. */
+  seatY: number;
+  z: number;
+  /** The seated radius, after the radial jitter. */
+  radius: number;
+  scale: number;
+  /** Yaw that turns the body's +Z face toward the arena's centre. */
+  yaw: number;
+  tunic: string;
+  head: string;
+}
+
+/** The tier cone's surface height at `radius` — the step a spectator sits on. */
+export function crowdStepY(tier: 0 | 1, radius: number): number {
+  const { innerRadius, baseY, rise, run } = CROWD_TIERS[tier];
+  return baseY + (radius - innerRadius) * (rise / run);
+}
+
+/**
+ * A5 — seat every spectator ON its step. The feet ride the tier's own surface
+ * at the spectator's SEATED radius, so the ±0.25 radial jitter cannot unseat
+ * anyone; the body is drawn from that foot upward. The ±0.15 y jitter is a
+ * seated-height variance on top of it and stays well inside the ~0.27 tread the
+ * smooth cone stands in for — where the shipped boxes floated 0.4 above it.
+ */
+export function buildCrowdPlacement(): CrowdSpectator[] {
+  const rand = seeded(CROWD_SEED);
+  const spectators: CrowdSpectator[] = [];
+  for (const ring of CROWD_RINGS) {
+    for (let i = 0; i < CROWD_PER_RING; i += 1) {
+      const angle = (i / CROWD_PER_RING) * Math.PI * 2;
+      const radius = ring.radius + (rand() * 2 - 1) * CROWD_RADIUS_JITTER;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const seatY = crowdStepY(ring.tier, radius) + (rand() * 2 - 1) * CROWD_Y_JITTER;
+      const scale = CROWD_SCALE_MIN + rand() * (CROWD_SCALE_MAX - CROWD_SCALE_MIN);
+      const tunic = CROWD_TUNIC_COLORS[Math.floor(rand() * CROWD_TUNIC_COLORS.length)];
+      const head = CROWD_HEAD_COLORS[rand() < 0.5 ? 0 : 1];
+      spectators.push({ x, seatY, z, radius, scale, yaw: Math.atan2(-x, -z), tunic, head });
+    }
+  }
+  return spectators;
+}
+
+/* ── THE VELARIUM ─────────────────────────────────────────────────────────
+   24 masts for performance (the real awning had ~240), the tension ring they
+   are roped to, and the linen awning itself. The inner opening stays open to
+   the sky: the awning covers the cavea, never the sand. */
+export const VELARIUM_MAST_COUNT = 24;
+export const VELARIUM_MAST_RADIUS = 29.2;
+export const VELARIUM_MAST_BOTTOM_Y = 12.2;
+export const VELARIUM_MAST_TOP_Y = 17.0;
+export const VELARIUM_RING_RADIUS = 13;
+export const VELARIUM_RING_TUBE = 0.06;
+export const VELARIUM_RING_Y = 14.3;
+export const VELARIUM_AWNING_Y = 15.5;
+export const VELARIUM_ROPE_SEGMENTS = 24;
+export const VELARIUM_ROPE_MAST_Y = 16.9;
+export const VELARIUM_WOOD = '#6b4a2f';
+export const VELARIUM_ROPE = '#8a6f4d';
+
+/**
+ * The 24 masts and the inner tension ring, merged into ONE vertex-coloured
+ * geometry (+1 draw call; the ring rides along for free). Exported so the suite
+ * builds the real merge rather than grepping for it.
+ */
+export function buildVelariumMastGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const height = VELARIUM_MAST_TOP_Y - VELARIUM_MAST_BOTTOM_Y;
+  const midY = (VELARIUM_MAST_TOP_Y + VELARIUM_MAST_BOTTOM_Y) / 2;
+  for (let i = 0; i < VELARIUM_MAST_COUNT; i += 1) {
+    const angle = (i / VELARIUM_MAST_COUNT) * Math.PI * 2;
+    const mast = new THREE.CylinderGeometry(0.09, 0.09, height, 6);
+    mast.translate(
+      Math.cos(angle) * VELARIUM_MAST_RADIUS,
+      midY,
+      Math.sin(angle) * VELARIUM_MAST_RADIUS,
+    );
+    parts.push(colorizeGeometry(mast, VELARIUM_WOOD));
+  }
+
+  // The inner tension ring the masts are roped to — same mesh, so +0 calls.
+  const ring = new THREE.TorusGeometry(VELARIUM_RING_RADIUS, VELARIUM_RING_TUBE, 6, 48);
+  ring.rotateX(Math.PI / 2);
+  ring.translate(0, VELARIUM_RING_Y, 0);
+  parts.push(colorizeGeometry(ring, VELARIUM_ROPE));
+
+  return mergeParts(parts);
+}
+
+/**
+ * One rope per mast, mast top to the inner ring, as ONE LineSegments buffer
+ * (+1 draw call for all 24).
+ */
+export function buildVelariumRopeGeometry(): THREE.BufferGeometry {
+  const positions = new Float32Array(VELARIUM_ROPE_SEGMENTS * 2 * 3);
+  for (let i = 0; i < VELARIUM_ROPE_SEGMENTS; i += 1) {
+    const angle = (i / VELARIUM_ROPE_SEGMENTS) * Math.PI * 2;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    positions.set(
+      [
+        cos * VELARIUM_MAST_RADIUS,
+        VELARIUM_ROPE_MAST_Y,
+        sin * VELARIUM_MAST_RADIUS,
+        cos * VELARIUM_RING_RADIUS,
+        VELARIUM_RING_Y,
+        sin * VELARIUM_RING_RADIUS,
+      ],
+      i * 6,
+    );
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  return geometry;
+}
+
+/* ── THE PULVINAR'S DRESSING ──────────────────────────────────────────────
+   A throne on the loge's own podium top (local y 3.6), its two steps toward
+   the sand, and two flanking banners — all ONE vertex-coloured geometry, so
+   the whole dressing is +1 draw call. The marble podium, the D-3 canopy and
+   the columns are untouched. */
+export const PULVINAR_DRESSING = {
+  /** D-3's shipped house crimson, as the throne's cushion. */
+  cushion: '#881337',
+  /** The loge's own marble. */
+  marble: '#ecd9be',
+  /** The loge columns' bone, for the banners. */
+  bone: '#f5ede0',
+  /** The shipped gold trim. */
+  goldTrim: '#C9A227',
+} as const;
+
+export function buildPulvinarDressingGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const c = PULVINAR_DRESSING;
+
+  // The throne: a crimson cushion on the podium's top face (y 3.6).
+  const seat = new THREE.BoxGeometry(1.6, 0.5, 1.4);
+  seat.translate(0, 3.85, 0);
+  parts.push(colorizeGeometry(seat, c.cushion));
+
+  // The backrest rises out of the cushion and stops exactly at the D-3
+  // canopy's own top plane (4.65), so it can never pierce the cloth.
+  const back = new THREE.BoxGeometry(1.6, 1.6, 0.3);
+  back.translate(0, 3.85, -0.85);
+  parts.push(colorizeGeometry(back, c.marble));
+
+  // Two marble steps in front of the throne, descending toward the sand.
+  for (const step of [
+    { y: 3.475, z: 1.0 },
+    { y: 3.225, z: 1.8 },
+  ]) {
+    const box = new THREE.BoxGeometry(2.4, 0.25, 0.9);
+    box.translate(0, step.y, step.z);
+    parts.push(colorizeGeometry(box, c.marble));
+  }
+
+  // Two flanking banners: a bone cloth with a gold rod above and hem below.
+  for (const side of [-1, 1]) {
+    const cloth = new THREE.PlaneGeometry(1.2, 2.4);
+    cloth.translate(side * 5.5, 4.8, 0);
+    parts.push(colorizeGeometry(cloth, c.bone));
+
+    const rod = new THREE.BoxGeometry(1.4, 0.08, 0.08);
+    rod.translate(side * 5.5, 6.04, 0);
+    parts.push(colorizeGeometry(rod, c.goldTrim));
+
+    const hem = new THREE.BoxGeometry(1.2, 0.12, 0.04);
+    hem.translate(side * 5.5, 3.66, 0);
+    parts.push(colorizeGeometry(hem, c.goldTrim));
+  }
+
+  return mergeParts(parts);
+}
+
+/* ── THE BALTEI ───────────────────────────────────────────────────────────
+   Two thin open cylinders dividing the cavea's levels, merged into ONE mesh
+   (+1 draw call). Flat travertine — a wall, not a band. */
+export const BALTEI_RADII = [24.15, 28.15] as const;
+export const BALTEI_Y = [8.75, 12.75] as const;
+
+export function buildBalteiGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  BALTEI_RADII.forEach((radius, i) => {
+    const wall = new THREE.CylinderGeometry(radius, radius, 0.7, 36, 1, true);
+    wall.translate(0, BALTEI_Y[i], 0);
+    parts.push(wall);
+  });
+  return mergeParts(parts);
+}
+
+/* ── A1 — THE BRAZIERS' STANDS ────────────────────────────────────────────
+   The eight braziers hung in mid-air (their bowls sit at y 4.8). Each gets a
+   dark-iron tripod from the sand to a small cradle bowl, all eight merged into
+   ONE mesh (+1 draw call). brazierIntensity / emberEmissive are untouched. */
+export const BRAZIER_STAND_COUNT = 8;
+/** The brazier ring's own radius — the braziers' own placement. */
+export const BRAZIER_STAND_RADIUS = 19.8;
+/** The bronze bowl's underside, which the cradle meets. */
+export const BRAZIER_STAND_TOP_Y = 4.8;
+
+export function buildBrazierStandGeometry(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const legSpread = 0.55;
+  const legTop = BRAZIER_STAND_TOP_Y;
+
+  for (let idx = 0; idx < BRAZIER_STAND_COUNT; idx += 1) {
+    const angle = (idx / BRAZIER_STAND_COUNT) * Math.PI * 2;
+    const cx = Math.cos(angle) * BRAZIER_STAND_RADIUS;
+    const cz = Math.sin(angle) * BRAZIER_STAND_RADIUS;
+
+    for (let leg = 0; leg < 3; leg += 1) {
+      const lean = angle + (leg / 3) * Math.PI * 2;
+      const foot = new THREE.Vector3(
+        cx + Math.cos(lean) * legSpread,
+        0,
+        cz + Math.sin(lean) * legSpread,
+      );
+      const head = new THREE.Vector3(
+        cx + Math.cos(lean) * 0.08,
+        legTop,
+        cz + Math.sin(lean) * 0.08,
+      );
+      const direction = new THREE.Vector3().subVectors(head, foot);
+      const length = direction.length();
+      const cylinder = new THREE.CylinderGeometry(0.05, 0.05, length, 5);
+      cylinder.translate(0, length / 2, 0);
+      cylinder.applyQuaternion(
+        new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          direction.normalize(),
+        ),
+      );
+      cylinder.translate(foot.x, foot.y, foot.z);
+      parts.push(cylinder);
+    }
+
+    // The cradle bowl the tripod carries the brazier in, meeting its underside.
+    const cradle = new THREE.CylinderGeometry(0.42, 0.26, 0.3, 8);
+    cradle.translate(cx, legTop - 0.15, cz);
+    parts.push(cradle);
+  }
+
+  return mergeParts(parts);
+}
+
 export const DuelArena: React.FC<DuelArenaProps> = ({
   crowdPulseRef,
   bannerAllegiance,
@@ -218,18 +535,72 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
   // a pulse that happened before this arena existed for a fresh one.
   const crowdBounceRef = useRef<CrowdBounce>(createCrowdBounce(crowdPulseRef?.current ?? 0));
 
-  // AI-1 — the four interior textures (one shared factory, cached in the
-  // module). `undefined` when there is no canvas, which simply leaves the
-  // material on its flat colour.
+  // AI-1 — the four interior textures, and AI-2's two (one shared factory,
+  // cached in the module). `undefined` when there is no canvas, which simply
+  // leaves the material on its flat colour.
   const arenaTextures = useMemo(
     () => ({
       sand: getArenaSandTexture() ?? undefined,
       ringPaint: getArenaRingPaintTexture() ?? undefined,
       wall: getPodiumWallTexture() ?? undefined,
       tiers: getArenaTierTexture() ?? undefined,
+      linen: getArenaLinenTexture() ?? undefined,
+      inscription: getPodiumInscriptionTexture() ?? undefined,
     }),
     [],
   );
+
+  // A6 — anisotropy is a renderer property, so it is applied here rather than
+  // in the (import-safe) texture module. One call covers all six textures.
+  const gl = useThree((state) => state.gl);
+  useEffect(() => {
+    applyArenaTextureAnisotropy(gl);
+  }, [gl]);
+
+  // AI-2 — the crowd's 480 seats, deterministic and built once per mount, and
+  // the four merged AI-2/A1 geometries (velarium, baltei, stands, dressing).
+  const crowd = useMemo(() => buildCrowdPlacement(), []);
+  const crowdBodiesRef = useRef<THREE.InstancedMesh>(null);
+  const crowdHeadsRef = useRef<THREE.InstancedMesh>(null);
+  const arenaGeometry = useMemo(
+    () => ({
+      masts: buildVelariumMastGeometry(),
+      ropes: buildVelariumRopeGeometry(),
+      baltei: buildBalteiGeometry(),
+      brazierStands: buildBrazierStandGeometry(),
+      pulvinar: buildPulvinarDressingGeometry(),
+    }),
+    [],
+  );
+
+  // Fill both instanced meshes once: body at the seat with its feet on the
+  // step, head 0.95 above the body's centre, per-spectator tunic and head tone
+  // through instance colours (so the emissive stays a MATERIAL property).
+  useLayoutEffect(() => {
+    const bodies = crowdBodiesRef.current;
+    const heads = crowdHeadsRef.current;
+    if (!bodies || !heads) return;
+    const dummy = new THREE.Object3D();
+    const tint = new THREE.Color();
+    crowd.forEach((spectator, i) => {
+      const { scale } = spectator;
+      dummy.position.set(spectator.x, spectator.seatY + (CROWD_BODY_HEIGHT / 2) * scale, spectator.z);
+      dummy.rotation.set(0, spectator.yaw, 0);
+      dummy.scale.setScalar(scale);
+      dummy.updateMatrix();
+      bodies.setMatrixAt(i, dummy.matrix);
+      bodies.setColorAt(i, tint.set(spectator.tunic));
+
+      dummy.position.y += CROWD_HEAD_LIFT * scale;
+      dummy.updateMatrix();
+      heads.setMatrixAt(i, dummy.matrix);
+      heads.setColorAt(i, tint.set(spectator.head));
+    });
+    bodies.instanceMatrix.needsUpdate = true;
+    heads.instanceMatrix.needsUpdate = true;
+    if (bodies.instanceColor) bodies.instanceColor.needsUpdate = true;
+    if (heads.instanceColor) heads.instanceColor.needsUpdate = true;
+  }, [crowd]);
 
   // AI-1 — the gates' three merged geometries, built once per mount.
   const gateGeometry = useMemo(
@@ -258,9 +629,11 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
     <group>
       {/* 1. ARENA CIRCULAR SAND PIT (WARM GOLDEN BLOOD-STAINED ARENA SAND).
           AI-1: the pit carries its own pit-shaped rake map — repeat 1, clamped,
-          so the concentric rings are centred on the sand and nothing tiles. */}
+          so the concentric rings are centred on the sand and nothing tiles.
+          A2: a 72-segment rim, extended to the podium wall's own radius, so
+          the disc meets the wall with no dark gap from the default camera. */}
       <mesh receiveShadow position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[20, 36]} />
+        <circleGeometry args={[20.2, 72]} />
         <meshStandardMaterial map={arenaTextures.sand} roughness={0.92} />
       </mesh>
 
@@ -309,30 +682,65 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
         />
       </mesh>
 
-      {/* CF-3 — SPECTATOR CROWD SILHOUETTES. Both rings live in ONE group so a
-          hype celebration can bounce the crowd alone: the podium wall, the
-          cavea, the braziers and the imperial loge all stay outside it. The 28
-          spectators per ring (56 meshes), their radii, sizes and materials are
-          exactly what they were. */}
+      {/* AI-2 — THE BALTEI: the tier-divider walls between the cavea's levels
+          and the wall crowning it. One merged mesh, flat travertine. */}
+      <mesh geometry={arenaGeometry.baltei}>
+        <meshStandardMaterial
+          color={ARENA_INTERIOR_COLORS.travertine}
+          roughness={0.8}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* CF-3 + AI-2 — THE LIVING CROWD. Both spectator layers live in ONE
+          group so a hype celebration still bounces the crowd alone (the podium
+          wall, the cavea, the braziers and the loge stay outside it). AI-2
+          replaces the 112 per-spectator box meshes with exactly TWO
+          InstancedMeshes — bodies, then heads — 6 rings x 80 spectators,
+          deterministic from CROWD_SEED, seated on their steps (A5). Dress
+          emissive stays a MATERIAL property of these two materials, and
+          castShadow is off on both: 480 shadow casters buy nothing here. */}
       <group ref={crowdGroupRef}>
-        {Array.from({ length: 28 }).map((_, ci) => {
-          const angle = (ci / 28) * Math.PI * 2;
-          const rad1 = 22.2;
-          const rad2 = 25.8;
-          return (
-            <group key={`crowd-${ci}`}>
-              <mesh position={[Math.cos(angle) * rad1, 7.8, Math.sin(angle) * rad1]}>
-                <boxGeometry args={[1.2, 1.4, 0.8]} />
-                <meshStandardMaterial color={ci % 3 === 0 ? '#991b1b' : ci % 2 === 0 ? '#f5f5f4' : '#78350f'} roughness={0.9} emissive="#f59e0b" emissiveIntensity={crowdDress ?? 0} />
-              </mesh>
-              <mesh position={[Math.cos(angle) * rad2, 11.2, Math.sin(angle) * rad2]}>
-                <boxGeometry args={[1.4, 1.5, 0.8]} />
-                <meshStandardMaterial color={ci % 2 === 0 ? '#b45309' : '#e5e5e5'} roughness={0.9} emissive="#f59e0b" emissiveIntensity={crowdDress ?? 0} />
-              </mesh>
-            </group>
-          );
-        })}
+        {/* The 480 bodies — the shipped 1.2 x 1.4 x 0.8 box, instanced. */}
+        <instancedMesh
+          ref={crowdBodiesRef}
+          args={[undefined, undefined, CROWD_COUNT]}
+          castShadow={false}
+          frustumCulled={false}
+        >
+          <boxGeometry args={[1.2, 1.4, 0.8]} />
+          <meshStandardMaterial
+            roughness={0.9}
+            emissive="#f59e0b"
+            emissiveIntensity={crowdDress ?? 0}
+          />
+        </instancedMesh>
+        {/* …and the 480 heads, +0.95 above each body's centre. */}
+        <instancedMesh
+          ref={crowdHeadsRef}
+          args={[undefined, undefined, CROWD_COUNT]}
+          castShadow={false}
+          frustumCulled={false}
+        >
+          <sphereGeometry args={[CROWD_HEAD_RADIUS, 8, 6]} />
+          <meshStandardMaterial
+            roughness={0.9}
+            emissive="#f59e0b"
+            emissiveIntensity={crowdDress ?? 0}
+          />
+        </instancedMesh>
       </group>
+
+      {/* A1 — THE BRAZIERS' STANDS: eight dark-iron tripods on the sand,
+          merged into ONE mesh. The braziers, their embers and their point
+          lights are untouched. */}
+      <mesh geometry={arenaGeometry.brazierStands} receiveShadow>
+        <meshStandardMaterial
+          color={ARENA_INTERIOR_COLORS.iron}
+          metalness={0.8}
+          roughness={0.4}
+        />
+      </mesh>
 
       {/* 4. ROARING BRONZE ARENA FIRE BRAZIERS */}
       {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
@@ -418,7 +826,49 @@ export const DuelArena: React.FC<DuelArenaProps> = ({
             <meshStandardMaterial color="#f5ede0" roughness={0.4} />
           </mesh>
         ))}
+        {/* AI-2 — THE IMPERIAL BOX, DRESSED: a throne on the podium's own top,
+            its two steps toward the sand, and two flanking banners. ONE merged
+            vertex-coloured mesh (+1 draw call); the podium, the D-3 canopy and
+            the columns above are untouched. */}
+        <mesh geometry={arenaGeometry.pulvinar} castShadow receiveShadow>
+          <meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={0.6} />
+        </mesh>
       </group>
+
+      {/* AI-2 — THE PODIUM'S INSCRIPTION BAND. A thin open cylinder on the
+          upper wall (the wall spans y 0-5.0) wearing the travertine panel map:
+          a row of recessed panels carrying abstract chisel strokes, never
+          legible text. +1 draw call. */}
+      <mesh position={[0, 4.45, 0]}>
+        <cylinderGeometry args={[20.25, 20.25, 0.9, 36, 1, true]} />
+        <meshStandardMaterial
+          map={arenaTextures.inscription}
+          side={THREE.DoubleSide}
+          roughness={0.85}
+        />
+      </mesh>
+
+      {/* AI-2 — THE VELARIUM. 24 wooden masts on the rim and the tension ring
+          they are roped to (ONE merged mesh), the linen awning over the cavea,
+          and the 24 ropes as ONE LineSegments — +3 draw calls in total. The
+          inner opening stays open to the sky, exactly as the real awning left
+          the arena, and everything here sits above y = 14, outside the duel
+          camera's framing band. The awning is a standard material, so it
+          catches the braziers and the crowd dress like every other surface. */}
+      <mesh geometry={arenaGeometry.masts}>
+        <meshStandardMaterial vertexColors roughness={0.85} />
+      </mesh>
+      <mesh position={[0, VELARIUM_AWNING_Y, 0]}>
+        <cylinderGeometry args={[13, 29.2, 2.6, 48, 1, true]} />
+        <meshStandardMaterial
+          map={arenaTextures.linen}
+          side={THREE.DoubleSide}
+          roughness={0.9}
+        />
+      </mesh>
+      <lineSegments geometry={arenaGeometry.ropes}>
+        <lineBasicMaterial color={VELARIUM_ROPE} />
+      </lineSegments>
 
       {/* 6. GLADIATOR ENTRANCE GATES — AI-1: the two gates are told apart.
           The −Z gate is PORTA TRIUMPHALIS (dressed: laurel swag, one gold boss,
