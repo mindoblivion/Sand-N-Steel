@@ -276,8 +276,11 @@ test('boundary: +X clamped to 35 outside the East Circus District band', () => {
 test('boundary: +X reaches the district envelope inside the band', () => {
   // Inside the band the same +X push runs past the city square to the
   // district's own hard limit — the extension that makes the district walkable.
-  const pos: [number, number, number] = [34, 0, 0];
-  const result = resolveCityMovement(pos, 1, 0, 3.8, 1.0);
+  // Walk +X in clamped 0.1s steps (0.38m each): the delta clamp inside
+  // resolveCityMovement no longer permits the old single 3.8-unit teleport-step.
+  let pos: [number, number, number] = [34, 0, 0];
+  for (let i = 0; i < 60; i++) pos = resolveCityMovement(pos, 1, 0, 3.8, 0.1);
+  const result = pos;
   assert.ok(result[0] <= CIRCUS_ENVELOPE_X_EAST,
     `Expected x <= ${CIRCUS_ENVELOPE_X_EAST}, got ${result[0]}`);
   assert.ok(result[0] > BOUNDARY_X,
@@ -299,12 +302,15 @@ test('boundary: +Z clamped to 35', () => {
 test('boundary: -Z clamped to the northern limit (extended north for the motte perimeter)', () => {
   // Start one step short of the live north boundary (BOUNDARY_Z_MIN = -101,
   // i.e. MOTTE_CENTER_Z - 22 + 2.5, extended north from -35 to reach the motte
-  // perimeter of the northern group).  [0, -100] is collision-free: the motte
-  // perimeter chords sit at radius ≈21.75 around [0, -81.5] since Phase
-  // C-8.38, so the start is 18.5 inside them, and the single 3.8-unit step
-  // north is clamped at the boundary rather than crossing the ring.
-  const pos: [number, number, number] = [0, 0, BOUNDARY_Z_MIN + 1];
-  const result = resolveCityMovement(pos, 0, -1, 3.8, 1.0);
+  // perimeter of the northern group). [0, -100] is collision-free: the motte
+  // perimeter chords sit at radius ~21.75 around [0, -81.5] since Phase
+  // C-8.38, so the start is 18.5 inside them. Walk north in clamped 0.1s
+  // steps (0.38m each): the delta clamp inside resolveCityMovement no longer
+  // permits the old single 3.8-unit teleport-step, so the boundary is reached
+  // over repeated steps and clamps there rather than crossing the ring.
+  let pos: [number, number, number] = [0, 0, BOUNDARY_Z_MIN + 1];
+  for (let i = 0; i < 20; i++) pos = resolveCityMovement(pos, 0, -1, 3.8, 0.1);
+  const result = pos;
   assert.strictEqual(result[2], BOUNDARY_Z_MIN,
     `Expected the north boundary clamp ${BOUNDARY_Z_MIN}, got ${result[2]}`);
 });
@@ -514,12 +520,18 @@ test('recovery: escaping an overlap through a safe route', () => {
 test('recovery: open ground → building is blocked', () => {
   // Player at (12, 0, 2) is just west of smithing forge (west edge x=13).
   // Moving +X should be blocked.
-  const pos: [number, number, number] = [12, 0, 2];
-  assert.ok(!collidesWith(12, 2, R, CITY_COLLIDERS), 'Setup: should start clear');
-  const result = resolveCityMovement(pos, 1, 0, 3.8, 0.5);
-  // testX = 12 + 1.9 = 13.9 → collides. Current (12, 2) → clear. Blocked.
-  assert.ok(result[0] <= 12 + 0.01,
-    `Should be blocked, got x=${result[0]}`);
+  let pos: [number, number, number] = [12, 0, 2];
+  assert.ok(collidesWith(12, 2, R, CITY_COLLIDERS) === false, 'Setup: should start clear');
+  // Walk +X in clamped 0.1s steps (0.38m each): the delta clamp inside
+  // resolveCityMovement no longer permits the old single 1.9m teleport-step.
+  for (let i = 0; i < 20; i++) pos = resolveCityMovement(pos, 1, 0, 3.8, 0.1);
+  const result = pos;
+  // The forge still blocks entry: the player advances to the wall but never
+  // collides with or enters the building.
+  assert.ok(collidesWith(result[0], result[2], R, CITY_COLLIDERS) === false,
+    'Should never enter the forge, got x=' + result[0]);
+  assert.ok(result[0] < 13,
+    'Should be stopped west of the forge west edge (x=13), got x=' + result[0]);
 });
 
 // 13e. Moving away from a wall and sliding along it.
