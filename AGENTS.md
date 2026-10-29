@@ -11499,8 +11499,9 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the transaction it drives is fully covered. **L22B (below) later drove that row live** with the
   L16D visitor harness — the day-5 630-gold offer, the disabled insufficient-funds gate and a real
   purchase (2000 -> 1370 gold, `finish_ventive` owned, the visitor completed, the real save key
-  absent before and after) are browser-observed there; equip-after-purchase and physical Android
-  acceptance still are not. **No physical Android acceptance was performed** — no
+  absent before and after) are browser-observed there; equip-after-purchase was later browser-observed
+  too, in the chariot-workshop harness (L22C, below). Physical Android
+  acceptance still is not. **No physical Android acceptance was performed** — no
   device was available in this environment, and the finish's colour reading on the target GPU stays
   pending with the C-8.66B/C-8.66C wheel-fit checks.
 
@@ -12210,15 +12211,17 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `finish_ventive` while `equipped.finish` is still `finish_stock` (a purchase does not equip), but the
   harness renders only `VisitorPanel`: it carries no finish-selection control. The supported equip path is
   the hub's Gear → Chariot Workshop finish list (`equipChariotPart` via `ChariotWorkshopTab`), which needs
-  the 3D city hub and a day-5 profile on the real save — the save fabrication L16D exists to avoid. Only
-  the automated pin (`visitorChariotFinish.test.ts` §D, "equipping afterwards") covers it.
+  the 3D city hub and a day-5 profile on the real save — the save fabrication L16D exists to avoid. That
+  gap was closed in the browser afterwards (L22C below, the same shipping control); the automated pin
+  (`visitorChariotFinish.test.ts` §D, "equipping afterwards") still covers the transaction itself.
 - **L22C — the equip gesture, browser-verified at last.** Driven in the already-shipped dev-only
   `?devHarness=chariot` harness (`src/components/dev/ChariotWorkshopHarness.tsx`), which mounts the REAL
   `GearTab` -> `ChariotWorkshopTab` with `handleBuyPart`/`handleEquipPart` identical to `App`'s, against its
   own disposable key (`sand_and_steel_chariot_workshop_harness_v1`). `finish_ventive` is `visitorOnly`, so
-  the workshop refuses to sell it at any price: only OWNERSHIP is a fixture there, seeded to exactly the
-  post-trade state above (`owned: [wheels_standard, finish_stock, finish_ventive]`, `equipped.finish`
-  still `finish_stock`, gold 600) — the acquisition itself is the real purchase recorded above, and the
+  the workshop refuses to sell it at any price: only OWNERSHIP is a fixture there, seeded to the above
+  post-trade ownership and loadout (`owned: [wheels_standard, finish_stock, finish_ventive]`,
+  `equipped.finish` still `finish_stock`) on the harness's own 600-gold purse, not the 1370 recorded
+  above — the acquisition itself is the real purchase recorded above, and the
   gesture below is a shipping control. **Observed:** the Ventive card showed "Owned" with its purchase
   slot replaced by an ENABLED "Equip"; a real pointer+click on it turned the card to "Equipped", the
   harness panel from `finish=finish_stock` to `finish=finish_ventive`, and the disposable record's
@@ -12229,7 +12232,19 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   keeps it local, so equipping a part that was NOT the one being previewed leaves the viewport on the old
   preview with the header "Previewing (not equipped)" and its reset control; equipping the previewed card
   ends on "Currently equipped". **Still open:** the same equip on the player's own save at the real hub,
-  and physical Android acceptance.
+  and physical Android acceptance — this sandbox has no device, no `adb` and no USB bus, so a device pass
+  cannot be performed here.
+- **L22D — mobile-width proxy, browser only (NOT Android acceptance).** The SHIPPING workshop at a
+  375 x 812 CSS viewport (the player's own save, the finish therefore still locked) rendered the Ventive
+  card 343 x 235 with **no horizontal overflow** (`scrollWidth` == `clientWidth` == 375), the exact
+  "Brought by a visitor." status line, a **disabled** "BROUGHT BY A VISITOR." control and two
+  **151 x 55** controls — above the 44 x 44 touch minimum — with zero console errors from the card.
+  This is a layout and touch-target measurement at phone width, not device acceptance, and it did **not**
+  exercise the owned/equipped states: reaching those needs the workshop harness, whose `?devHarness=`
+  query and dev flag both fail in this preview (the query is stripped at route opening and storage is
+  reset on every document load), so only the L22C desktop run recorded those states. A device pass still
+  has to confirm the owned/Equip/Equipped card states, the "Previewing (not equipped)" header and the
+  finish card's colour on the target GPU.
 - **Tests actually run.** `bun test src/utils/l16dVisitorHarness.test.ts src/utils/visitorPurchase.test.ts
   src/utils/visitorChariotFinish.test.ts` inside the existing healthy `web` container → **103 pass /
   0 fail, 925 expect() calls, 3 files (119 ms)**, exit 0. No broad suite and no build were run; the diff
