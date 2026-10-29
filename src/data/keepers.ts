@@ -33,6 +33,7 @@
  */
 
 import type { PlayerProfile } from '../types/game';
+import { getProvince } from './corpusEtOrigo';
 import type { StorefrontId } from './shops';
 
 /** One keeper: who they are, where they stand, and what they say. */
@@ -63,6 +64,14 @@ export interface Keeper {
    * blocks its panel's business — the plate is a header, not a modal.
    */
   stateLines?: KeeperStateLines;
+  /**
+   * A4 follow-up — the keeper's repeat greeting when the player's home province is
+   * known: ONE template per keeper, carrying both `{province}` and `{god}`.
+   * `selectOrigoLine` fills them from the ORIGIN table (`data/corpusEtOrigo.ts`,
+   * Director ruling R-ORIGO) and answers `undefined` for an unknown origo, so no
+   * counter ever guesses a province.  Part of "own": STATE and NIGHT still win.
+   */
+  origoLine?: string;
 }
 
 /**
@@ -96,6 +105,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'smithing_forge',
     name: 'Sextus Ferratus',
     title: 'weaponsmith',
+    origoLine:
+      "So it's {province} iron in you, and {god} watching the swing. Good — then put the flat where it belongs, boy, and let the edge do the rest.",
     firstVisitLine:
       "Grip it like you mean it. Every blade here is honest steel at an honest price — the Forge sells weapons, nothing else. Armor is across the way, at Salvia's.",
     repeatLines: [
@@ -114,6 +125,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'armor_workshop',
     name: 'Salvia Coriaria',
     title: 'armorer',
+    origoLine:
+      "A {province} frame, and {god} to keep it standing. Stand still — the straps will remember the shape you came in with.",
     firstVisitLine:
       'Stand still — a cuirass fitted by eye is a coffin fitted by guess. Every piece of armor in the city is sold here, and the fitting is free.',
     repeatLines: [
@@ -132,6 +145,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'general_store',
     name: 'Pasion of Alexandria',
     title: 'Bazaar keeper',
+    origoLine:
+      "Ah, a {province} man under {god}'s eye! The poultice is twenty, the salve ninety, and my best counsel is free — buy the salve.",
     firstVisitLine:
       "Poultices, salves, and small mercies! A poultice eases a hurt by one fight for 20 — and my salve ends it whole for 90. The Medica's own receipt, bottled by me.",
     repeatLines: [
@@ -150,6 +165,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'merchant_house',
     name: 'Gaius Norbanus Sura',
     title: 'the factor',
+    origoLine:
+      "A {province} pedigree, with {god} on the coin. That buys you my attention; the rare shelf still asks for gold.",
     firstVisitLine:
       'You are expected — eventually, everyone with gold is. This house keeps only the rare and the legendary. If you must ask a price twice, it is not for you.',
     repeatLines: ['The Vipers are still here. They wait better than you do.'],
@@ -167,6 +184,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'arena_medical_house',
     name: 'Antiochis of Pergamon',
     title: 'the Medica',
+    origoLine:
+      "A {province} frame, and {god} named on it — I know how it mends. Sit. I have stitched worse and sent them back to the sand.",
     firstVisitLine:
       'Sit — before you fall and make it two injuries. A lost fight leaves you hurt: weaker and slower for three fights after. I end it here for 75 gold, whole and clean.',
     repeatLines: [
@@ -184,6 +203,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'caravanserai',
     name: 'Barates of Palmyra',
     title: 'the host',
+    origoLine:
+      "A {province} traveller, and {god} keep you — the east knows your road. The pallet's free, friend, and the noisy Romans are at the far end.",
     firstVisitLine:
       'Rest, friend — real rest. Twenty-five gold, and your hurt fades two fights sooner. The Medica is quicker; I am cheaper. We are both honest.',
     repeatLines: [
@@ -203,6 +224,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'stable',
     name: 'Hanno of Carthage',
     title: 'the stablemaster',
+    origoLine:
+      "A {province} hand on the rein, with {god} over the team. The horses will judge it before I do — speak low.",
     firstVisitLine:
       'Easy — speak low. The horses judge you before I do. Biga is yours by right; Triga is 750 when your team is ready, Quadra 1,500 after. I will teach you the rein myself.',
     repeatLines: [
@@ -214,6 +237,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'chariot_workshop',
     name: 'Decimus Rotarius',
     title: 'the faber',
+    origoLine:
+      "A {province} wheel and {god}'s own line, is it? Then she rolls true or she doesn't. I don't sell maybes.",
     firstVisitLine:
       "Mind the shavings. Wheels and finishes are mine — Reinforced at 450, fitted while you watch. The spiked ones? Not until they measure true. I don't sell maybes.",
     repeatLines: [
@@ -225,6 +250,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'gladiator_academy',
     name: 'Aulus Galerius Rufus',
     title: 'the Doctore',
+    origoLine:
+      "A {province} man, and {god} at your back. Good. Then we learn what the gods left you — again.",
     firstVisitLine:
       "I am Rufus. I don't train names I expect to bury — so we will learn what you are. A session costs 25 times your level, and buys one point of strength, speed, or staying power.",
     repeatLines: ['Again. The sand remembers your feet better than your head remembers my lessons.'],
@@ -234,6 +261,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'tavern',
     name: 'Aelia Prisca',
     title: 'keeper of the Palm',
+    origoLine:
+      "A {province} tongue and {god}'s own luck. Sit — talk is gold, and 15 buys the deep truth on any fighter in the lists.",
     firstVisitLine:
       'Sit where I can see you. Wine is coin, but talk is gold: 15 buys you the deep truth on any fighter in the lists — habits, tricks, breaking points.',
     repeatLines: [
@@ -245,6 +274,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'records_house',
     name: 'Dionysios of Athens',
     title: 'the librarian',
+    origoLine:
+      "A {province} name — I have seen it written in three alphabets, with {god}'s mark beside it. Earn me a reason to move it to the first page.",
     firstVisitLine:
       'Careful — some of these names are older than the stones. Earn triumphs and I will write them here myself. I keep the lists, the titles — and one name someone paid to erase.',
     repeatLines: [
@@ -256,6 +287,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'bounty_hall',
     name: 'Scribonia, called "the Ledger"',
     title: 'the clerk',
+    origoLine:
+      "A {province} account, and {god} in the margin. Noted. The board pays to the copper, whatever god you keep.",
     firstVisitLine:
       "Read the board; sign nothing you haven't read twice. Five names, five purses — the deserter last, and he pays best taken alive.",
     repeatLines: ['Paid to the copper, as always. The board has a new name, if your sword is bored.'],
@@ -265,6 +298,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'bounty_hall',
     name: 'Cornelius Felix',
     title: 'the agent',
+    origoLine:
+      "A {province} man, with {god} in the story. I can sell that name twice before noon — ten percent of whatever comes of it, as always.",
     firstVisitLine:
       'Contracts, notices, honest work for dishonest hours. Three fresh deeds on my board every morning — small gold, steady fame, no questions either way.',
     repeatLines: [
@@ -276,6 +311,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'shrine_temple',
     name: 'Postumia',
     title: 'the priestess',
+    origoLine:
+      "You come from {province}, and {god} has had an eye on you since the cradle. Leave an offering — take the omen she gives, kind or ill.",
     firstVisitLine:
       'Fortuna hears everyone; she answers those who pay attention. Leave an offering before a great fight and take the omen she gives — kind or ill, it is yours.',
     repeatLines: [
@@ -287,6 +324,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'colosseum',
     name: 'Quintus Caecilius Niger',
     title: 'Editor of the Games',
+    origoLine:
+      "A {province} name and {god}'s favour — the crowd will chant both by nightfall. Fight well, and I will see to it.",
     firstVisitLine:
       'Every laurel in this city passes through my hands. Fight well, and I will make sure the crowd knows your name before you do.',
     repeatLines: ['The crowd asked for you by name today. By name, gladiator. Do not waste it.'],
@@ -296,6 +335,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'east_circus_arena',
     name: 'Gnaeus Octavius, called "Mappa"',
     title: 'the starter',
+    origoLine:
+      "A {province} line, with {god} watching the cloth. When it falls, the gates open — and they open for everyone alike.",
     firstVisitLine:
       'When my cloth falls, the gates open — not a breath before. Twelve gates, one signal, no favourites. Not even you.',
     repeatLines: [
@@ -307,6 +348,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'bathhouse',
     name: 'Straton of Corinth',
     title: 'the bathkeeper',
+    origoLine:
+      "A {province} back, and {god} knows the knots in it. Sit — the steam forgets everything, and so, by law, do I.",
     firstVisitLine:
       "Water's hot, oil's fresh, and everything said in my steam is forgotten by law — mine. Rest your bones; the Thermae ask nothing of you but the dirt.",
     repeatLines: [
@@ -318,6 +361,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'veteran_gladiator_hall',
     name: 'Gaius Pontius, called "the Old Wolf"',
     title: 'keeper of the rudis',
+    origoLine:
+      "A {province} pup, with {god} on the shield. I have buried better and worse. Beat the best this city has, and the rudis is yours.",
     firstVisitLine:
       'I won that, and stayed anyway. Beat the best this city has, then come back. The wooden sword is freedom, and freedom is heavier than it looks.',
     repeatLines: [
@@ -329,6 +374,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'town_gate',
     name: 'Belibni of Babylon',
     title: 'the warden',
+    origoLine:
+      "A {province} road brought you here, and {god} with you at the gate. Colosseum north, markets east, the fountain at the heart of it — welcome to the sand.",
     firstVisitLine:
       'New to the city? The gate sees it kindly. Colosseum north, markets east, the fountain at the heart of it — welcome to the sand.',
     repeatLines: ['Out and back in one piece. The tally likes you.'],
@@ -338,6 +385,8 @@ export const KEEPERS: Keeper[] = [
     buildingId: 'gladiator_barracks',
     name: 'Titus Aufidius',
     title: 'the lanista',
+    origoLine:
+      "A {province} fighter, with {god} in the bill of sale. My ledger does not care for gods — it cares whether you win.",
     firstVisitLine:
       'You cost me money, so we understand each other. I bought a fighter, not a corpse — make me rich slowly: win, and live to win again.',
     repeatLines: [
@@ -470,4 +519,31 @@ export function selectRepeatLine(keeper: Keeper, visitCount: number): string {
   if (lines.length === 0) return '';
   const count = Number.isFinite(visitCount) ? Math.trunc(Math.abs(visitCount)) : 0;
   return lines[count % lines.length];
+}
+
+/** What `selectOrigoLine` reads off a profile: the home province, when it is known. */
+export interface KeeperOrigoRecord {
+  identity?: { origo?: unknown } | null;
+}
+
+/**
+ * A4 follow-up — the repeat greeting a keeper gives when the player's home
+ * province is known: that keeper's ONE `origoLine` template, with `{province}` and
+ * `{god}` filled from the ORIGIN table (`data/corpusEtOrigo.ts`, Director ruling
+ * R-ORIGO) through its own `getProvince` lookup.
+ *
+ * `undefined` means "fall back to the old repeat line", and nothing else: no
+ * identity, an identity with no origo, an origo the table does not know, or a
+ * keeper with no line all answer it.  A province is never defaulted or guessed, so
+ * no raw `{province}` or `{god}` token can ever reach the screen.
+ */
+export function selectOrigoLine(
+  keeper: Keeper | null | undefined,
+  profile: KeeperOrigoRecord | null | undefined
+): string | undefined {
+  const line = keeper?.origoLine;
+  if (!line) return undefined;
+  const province = getProvince(profile?.identity?.origo);
+  if (!province) return undefined;
+  return line.split('{province}').join(province.name).split('{god}').join(province.god);
 }

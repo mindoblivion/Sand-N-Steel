@@ -6,6 +6,7 @@ import {
   getKeeperForStorefront,
   nightClerkLine,
   resolveSeenKeepers,
+  selectOrigoLine,
   selectRepeatLine,
 } from '../../data/keepers';
 // Day/Night T3 — the counter's line follows the clock's phase. Display only, read
@@ -113,7 +114,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   const keeperMet = keeper ? keeperMetRef.current?.met === true : false;
   const keeperLine = keeper
     ? keeperMet
-      ? selectRepeatLine(keeper, 2)
+      ? selectOrigoLine(keeper, profile) ?? selectRepeatLine(keeper, 2)
       : keeper.firstVisitLine
     : '';
   /**

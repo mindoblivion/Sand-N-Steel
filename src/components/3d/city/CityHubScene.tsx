@@ -114,7 +114,7 @@ import type { OmenDeclineOutcome, OmenOfferOutcome } from '../../../utils/omens'
 // host, the Golden Palm's keeper), the plate that heads them, and the one line
 // each is saying.  Display and a first-visit record only: no price, no effect and
 // no purchase rule is read here.
-import { getKeeperForBuilding, nightClerkLine, resolveSeenKeepers, selectRepeatLine } from '../../../data/keepers';
+import { getKeeperForBuilding, nightClerkLine, resolveSeenKeepers, selectOrigoLine, selectRepeatLine } from '../../../data/keepers';
 // K4 — the treatment counters' STATE lines (a live injury, or its absence at the Inn).
 import { keeperStateLineFor } from '../../../utils/keeperStateLines';
 import type { Keeper } from '../../../data/keepers';
@@ -1279,7 +1279,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       frozen?.keeperId === keeper.id
         ? frozen.seen
         : resolveSeenKeepers(playerProfile).includes(keeper.id);
-    const own = seen ? selectRepeatLine(keeper, 2) : keeper.firstVisitLine;
+    const own = seen
+      ? selectOrigoLine(keeper, playerProfile) ?? selectRepeatLine(keeper, 2)
+      : keeper.firstVisitLine;
     /**
      * K4 — STATE > NIGHT > own: the state line frozen when this counter opened is
      * the most specific thing the plate can say, so it wins after dark as well.
