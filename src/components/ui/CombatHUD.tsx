@@ -96,6 +96,15 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   // no timer, no layout change, and the badge's own animate-pulse is untouched.
   const comboMomentumLit = isCrowdMomentumMilestone(comboCount);
 
+  // MO-2 — ONE touch-target contract for every HUD control: 44x44 CSS px, the
+  // Android accessibility minimum, applied as min-w/min-h rather than padding so an
+  // icon-only control is as easy to hit as a labelled one. The row's labels already
+  // drop on phones (C-8.80N), so the icons alone carry the action there — which is
+  // why each icon-only control also has its own `aria-label`.
+  const hudButton =
+    'min-w-[44px] min-h-[44px] px-2 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-colors active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-xs';
+  const hudIconButton = `${hudButton} font-semibold tracking-wide`;
+
   return (
     <div className="combat-hud absolute inset-0 pointer-events-none flex flex-col p-2.5 sm:p-5 select-none z-10">
       {/* TOP HEADER: HEALTH, STAMINA, HYPE & UTILITY BUTTONS */}
@@ -107,39 +116,43 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
               Knowing your weapon is worth it; leaving the sand is a decision, so the badge
               no longer exits and the Withdraw action below is the one deliberate way out. */}
           <div
-            className="flex items-center gap-2 bg-black/60 border border-amber-600/50 text-amber-200 px-3 py-1.5 rounded-lg shadow-lg backdrop-blur-md text-xs sm:text-sm font-semibold tracking-wide"
+            className="flex items-center gap-2 bg-black/60 border border-amber-600/50 text-amber-200 px-3 py-1.5 rounded-lg shadow-lg backdrop-blur-md text-xs sm:text-sm font-semibold tracking-wide min-w-0 shrink"
             title="Your equipped weapon"
             data-combat-weapon-badge="true"
           >
-            <Swords className="w-4 h-4 text-amber-400" />
+            <Swords className="w-4 h-4 text-amber-400 shrink-0" />
             <span data-hud-label="armed" className="hidden sm:inline">Armed:</span>
-            <span data-hud-label="weapon" className="text-amber-100 font-bold">{player.loadout.weapon.name}</span>
+            {/* MO-2 — a long weapon name truncates instead of widening the utility
+                row past the viewport (it is the one variable-length item here). */}
+            <span data-hud-label="weapon" className="text-amber-100 font-bold truncate">{player.loadout.weapon.name}</span>
           </div>
 
           {/* ARENA MATCH TIMER */}
-          <div className="bg-black/60 border border-amber-700/40 px-3 py-1 rounded-md text-amber-300 font-mono text-sm tracking-widest backdrop-blur-sm">
+          <div className="combat-timer bg-black/60 border border-amber-700/40 px-3 py-1 rounded-md text-amber-300 font-mono text-sm tracking-widest backdrop-blur-sm shrink-0">
             {formattedTime}
           </div>
 
           {/* ACTION BUTTONS (WITHDRAW, CAMERA, HELP, AUDIO) */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="combat-utility flex items-center gap-1 sm:gap-1.5">
             {/* C-8.80B — the one deliberate way out: it asks for confirmation, and only the
                 confirmed answer forfeits the bout (as a defeat). Nothing here settles. */}
             <button
               onClick={onWithdraw}
               data-withdraw="true"
-              className="min-h-[44px] px-2.5 rounded-lg bg-black/60 hover:bg-red-950/70 border border-red-700/60 text-red-300 hover:text-red-200 transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-semibold tracking-wide"
+              aria-label="Withdraw from the bout"
+              className={`${hudIconButton} bg-black/60 hover:bg-red-950/70 border-red-700/60 text-red-300 hover:text-red-200`}
               title="Withdraw from the bout (counts as a defeat)"
             >
-              <Flag className="w-4 h-4 text-red-400" />
+              <Flag className="w-4 h-4 text-red-400 shrink-0" />
               <span data-hud-label="withdraw" className="hidden sm:inline">Withdraw</span>
             </button>
             <button
               onClick={onCycleCameraMode}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer text-xs font-mono"
+              aria-label="Switch camera"
+              className={`${hudButton} font-mono`}
               title={`Camera: ${cameraMode.replace('_', ' ')} (Tap to switch / press C)`}
             >
-              <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
+              <Camera className="w-4 h-4 text-cyan-400 shrink-0" />
               <span data-hud-label="camera" className="hidden sm:inline capitalize">
                 {cameraMode === 'cinematic' ? '3/4 Duel' : cameraMode === 'over_shoulder' ? 'Shoulder' : 'Isometric'}
               </span>
@@ -147,26 +160,29 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             {onOpenSettings && (
               <button
                 onClick={onOpenSettings}
-                className="min-h-[48px] px-2.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-semibold tracking-wide"
+                aria-label="Game settings"
+                className={`${hudIconButton} min-h-[48px]`}
                 title="Game Settings"
               >
-                <Settings className="w-4 h-4 text-amber-400" />
+                <Settings className="w-4 h-4 text-amber-400 shrink-0" />
                 <span data-hud-label="settings" className="hidden sm:inline">Settings</span>
               </button>
             )}
             <button
               onClick={onOpenHelp}
-              className="p-1.5 sm:p-2 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer"
+              aria-label="Controls and instructions"
+              className={hudButton}
               title="Controls & Instructions"
             >
-              <HelpCircle className="w-4 h-4" />
+              <HelpCircle className="w-4 h-4 shrink-0" />
             </button>
             <button
               onClick={onToggleMute}
-              className="p-1.5 sm:p-2 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer"
+              aria-label={isMuted ? 'Unmute sound' : 'Mute sound'}
+              className={hudButton}
               title={isMuted ? 'Unmute Sound' : 'Mute Sound'}
             >
-              {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
+              {isMuted ? <VolumeX className="w-4 h-4 text-red-400 shrink-0" /> : <Volume2 className="w-4 h-4 text-amber-400 shrink-0" />}
             </button>
           </div>
         </div>

@@ -192,6 +192,36 @@
   .combat-hud [data-hud-label] {
     display: none;
   }
+  /* MO-2 — TOUCH TARGETS ON A PHONE. Every HUD control is 44x44 (the Android
+     accessibility minimum, set in the component), and five of them plus the timer
+     do not fit 344px of content beside the weapon badge, which wrapped the utility
+     bar onto a second 48px row and took that height straight out of the arena.
+     The badge is information, not a control, and the equipped weapon is named in
+     the tactic cards' damage figures and visible in the fighter's hand, so on a
+     portrait phone it steps aside and the bar stays one row. The timer keeps its
+     value and drops only its padding. */
+  .combat-hud [data-combat-weapon-badge] {
+    display: none;
+  }
+  .combat-hud .combat-timer {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.6875rem;
+  }
+  .combat-hud .combat-utility {
+    gap: 0.25rem;
+  }
+  /* MO-2 — the three movement controls keep their names and their 44px hit area;
+     the parenthesised delta is the one thing that does not fit three buttons on one
+     row at 320...412px, and the `title` still states it in full. */
+  .duel-command .tactic-dx {
+    display: none;
+  }
+  /* 320px: three named movement controls still need 290px of a 292px strip, so
+     they keep the full 44px height and give up one step of horizontal padding. */
+  .duel-command .tactic-strip button {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
   .duel-command .tactic-panel {
     gap: 0.25rem;
     padding-bottom: 0;
@@ -418,6 +448,22 @@
      stage width instead of wrapping to two (48px of the 347px stage). */
   .combat-hud [data-hud-label] {
     display: none;
+  }
+  /* MO-2 — the same 44px touch targets, on a 352px-wide stage. Five 44px controls,
+     the timer and the weapon badge do not fit 336px, and a second 44px utility row is
+     40px taken straight out of a 375px-tall stage — so the badge (information, not a
+     control: the equipped weapon is named in the tactic cards' damage figures and
+     visible in the fighter's hand) steps aside, exactly as it does in portrait. The
+     timer drops one step of padding and the row's gaps tighten. */
+  .combat-hud [data-combat-weapon-badge] {
+    display: none;
+  }
+  .combat-hud .combat-timer {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.6875rem;
+  }
+  .combat-hud .combat-utility {
+    gap: 0.25rem;
   }
   /* The strike tiles already say "Out of range — Advance to strike", so the
      chronicle's own range row is redundant at this height. */

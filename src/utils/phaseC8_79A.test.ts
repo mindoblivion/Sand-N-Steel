@@ -266,12 +266,16 @@ describe('§C — the rendered tactic panel refuses the strike it cannot land', 
     // are the disabled ones. In reach it inverts, so the fighters cannot be
     // walked through one another.
     const far = renderPanel({ distance: gladius.range + 1 });
-    expect(buttonFor(far, 'Advance (+1.8m)').open).not.toContain('disabled');
+    // REBASED (MO-2): the Advance control's delta is its own `tactic-dx` span so a
+    // phone can drop it, so the rendered label is no longer one text run. The
+    // control is located by the delta itself, which no other control carries; the
+    // labels are pinned by the layout suites instead.
+    expect(buttonFor(far, '(+1.8m)').open).not.toContain('disabled');
     expect(buttonFor(far, 'Shield Guard').open).not.toContain('disabled');
     expect(buttonFor(far, 'Quick Strike').open).toContain('disabled');
 
     const near = renderPanel({ distance: 1.2 });
-    expect(buttonFor(near, 'Advance (+1.8m)').open).toContain('disabled');
+    expect(buttonFor(near, '(+1.8m)').open).toContain('disabled');
     expect(buttonFor(near, 'Quick Strike').open).not.toContain('disabled');
   });
 

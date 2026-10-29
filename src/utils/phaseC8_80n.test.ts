@@ -158,11 +158,17 @@ describe('C-8.80N §B every core action and readout is still there', () => {
       'Shield Guard',
       'Dodge',
       'Arena Taunt',
-      'Advance (+1.8m)',
-      'Retreat (-1.8m)',
-      'Catch Breath (+40 SP)',
+      // REBASED (MO-2): the three movement controls keep their names; each one's
+      // parenthesised delta is its own `tactic-dx` span (hidden on a portrait phone
+      // so the strip still fits one row) and stays in the control's `title`.
+      'Advance',
+      'Retreat',
+      'Catch Breath',
     ]) {
       expect(panelSource).toContain(label);
+    }
+    for (const delta of ['(+1.8m)', '(-1.8m)', '+40 Stamina']) {
+      expect(panelSource).toContain(delta);
     }
     expect(hudSource).toContain('data-withdraw="true"');
   });
@@ -394,6 +400,8 @@ describe('C-8.80N §E no camera, combat, canvas or timing value changed', () => 
     // own shipped padding; no phone rule resizes a control.
     expect(hudSource.split('min-h-[44px]').length - 1).toBe(3);
     expect(hudSource).toContain('min-h-[48px]');
-    expect(panelSource).toContain('px-3 py-1.5 rounded-lg border text-xs font-serif font-bold');
+    // REBASED (MO-2): the movement strip's buttons now carry the same 44px floor as
+    // every other HUD control, ahead of their unchanged shipped padding.
+    expect(panelSource).toContain('min-h-[44px] px-3 py-1.5 rounded-lg border text-xs font-serif font-bold');
   });
 });

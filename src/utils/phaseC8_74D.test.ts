@@ -205,11 +205,16 @@ describe('C-8.74D-A §D scope guard — no control, cue or timing changed', () =
       'Shield Guard',
       'Dodge',
       'Arena Taunt',
-      'Advance (+1.8m)',
-      'Retreat (-1.8m)',
-      'Catch Breath (+40 SP)',
+      // REBASED (MO-2): each movement control keeps its name; its delta is its own
+      // `tactic-dx` span (dropped on a portrait phone, still in the `title`).
+      'Advance',
+      'Retreat',
+      'Catch Breath',
     ]) {
       expect(panelSource).toContain(label);
+    }
+    for (const delta of ['(+1.8m)', '(-1.8m)', '+40 Stamina']) {
+      expect(panelSource).toContain(delta);
     }
   });
 
@@ -220,9 +225,13 @@ describe('C-8.74D-A §D scope guard — no control, cue or timing changed', () =
     // scroll container is the command column itself.
     const bare = landscape.replace(/\/\*[\s\S]*?\*\//g, '');
     const hidden = [...bare.matchAll(/([^{}]+)\{\s*display: none;/g)].map((m) => m[1].trim());
+    // REBASED (MO-2): a fifth informational surface — the weapon badge — steps aside
+    // so five 44px controls and the timer stay on one row inside the 375px-tall
+    // column's 352px stage. Like the other four it is not a control.
     expect(hidden).toEqual([
       '.combat-hud .hype-meter',
       '.combat-hud [data-hud-label]',
+      '.combat-hud [data-combat-weapon-badge]',
       '.duel-command .chronicle-range',
       '.duel-command .tactic-desc',
     ]);

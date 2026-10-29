@@ -124,10 +124,17 @@ describe('C-8.80P §A the portrait panel budget', () => {
   });
 
   test('the movement strip keeps its full-size buttons', () => {
-    // Only the strip's own top padding tightens; its buttons are untouched, so the
-    // three controls stay 46px tall (measured) instead of dropping under 44px.
+    // REBASED (MO-2): the strip's own top padding still tightens exactly as before,
+    // and the three controls now carry the same 44px floor as every HUD control
+    // (`min-h-[44px]` in TurnActionPanel) so they are taller than the 46px measured
+    // here, never shorter. One further rule narrows their HORIZONTAL padding by 8px
+    // each, which is what keeps three named controls on one row at 320px; their
+    // height, hit area and labels are untouched.
     expect(ruleBody(portrait, '.duel-command .tactic-strip')).toBe('padding-top: 0.125rem;');
-    expect(bare(portrait)).not.toContain('.tactic-strip button');
+    expect(ruleBody(portrait, '.duel-command .tactic-strip button')).toBe(
+      'padding-left: 0.5rem; padding-right: 0.5rem;',
+    );
+    expect(panelSource.split('min-h-[44px]').length - 1).toBe(3);
   });
 
   // Every required portrait viewport, with the panel at its worst case (338) and the
@@ -295,9 +302,11 @@ describe('C-8.80P §D every control and readout survives', () => {
       'Shield Guard',
       'Dodge',
       'Arena Taunt',
-      'Advance (+1.8m)',
-      'Retreat (-1.8m)',
-      'Catch Breath (+40 SP)',
+      // REBASED (MO-2): names only — each movement control's delta is its own
+      // `tactic-dx` span, hidden on a portrait phone, still in the control's `title`.
+      'Advance',
+      'Retreat',
+      'Catch Breath',
       'ARENA CHRONICLE',
       'YOUR TURN — CHOOSE TACTIC',
     ]) {
@@ -373,6 +382,8 @@ describe('C-8.80P §E no camera, combat, timing or save value moved', () => {
       const props = [...bare(block).matchAll(/([a-z][a-z-]*)\s*:\s*[^;{}]+;/g)].map((m) => m[1]);
       const allowed = new Set([
         'display', 'position', 'inset', 'left', 'right', 'bottom', 'height', 'width',
+        // MO-2: the timer's type step on a phone is chrome, like its padding.
+        'font-size',
         'min-height', 'max-height', 'min-width', 'flex', 'flex-direction', 'padding',
         'padding-top', 'padding-bottom', 'padding-left', 'padding-right', 'margin',
         'margin-bottom', 'margin-top', 'gap', 'overflow-y', 'grid-template-columns',

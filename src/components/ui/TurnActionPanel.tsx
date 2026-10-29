@@ -374,13 +374,13 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
         </div>
 
         {/* MOVEMENT & UTILITY SECONDARY STRIP */}
-        <div className="tactic-strip flex items-center justify-between gap-2 pt-1 border-t border-amber-900/40">
-          <div className="flex items-center gap-1.5">
+        <div className="tactic-strip flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 pt-1 border-t border-amber-900/40">
+          <div className="flex flex-wrap items-center gap-1.5">
             {/* ADVANCE */}
             <button
               onClick={() => onExecuteAction('advance')}
               disabled={!isPlayerTurn || isExecuting || isInWeaponRange}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
+              className={`min-h-[44px] px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
                 !isPlayerTurn || isExecuting || isInWeaponRange
                   ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
                   : 'bg-amber-950/80 hover:bg-amber-900 border-amber-600 text-amber-200'
@@ -388,14 +388,14 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
               title="Step forward towards opponent (+1.8m)"
             >
               <Footprints className="w-3.5 h-3.5 text-amber-400" />
-              <span>Advance (+1.8m)</span>
+              <span className="whitespace-nowrap">Advance<span className="tactic-dx"> (+1.8m)</span></span>
             </button>
 
             {/* RETREAT */}
             <button
               onClick={() => onExecuteAction('retreat')}
               disabled={!isPlayerTurn || isExecuting || distance >= 9.0}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
+              className={`min-h-[44px] px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
                 !isPlayerTurn || isExecuting || distance >= 9.0
                   ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
                   : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-700 text-neutral-300'
@@ -403,7 +403,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
               title="Step backward away from opponent (-1.8m)"
             >
               <Footprints className="w-3.5 h-3.5 text-neutral-400 transform rotate-180" />
-              <span>Retreat (-1.8m)</span>
+              <span className="whitespace-nowrap">Retreat<span className="tactic-dx"> (-1.8m)</span></span>
             </button>
           </div>
 
@@ -411,7 +411,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           <button
             onClick={() => onExecuteAction('rest')}
             disabled={!isPlayerTurn || isExecuting || player.stamina >= player.stats.staminaMax}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
+            className={`min-h-[44px] px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
               !isPlayerTurn || isExecuting || player.stamina >= player.stats.staminaMax
                 ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
                 : 'bg-emerald-950/80 hover:bg-emerald-900 border-emerald-600 text-emerald-200'
@@ -419,7 +419,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             title="Catch breath to recover +40 Stamina"
           >
             <BatteryCharging className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Catch Breath (+40 SP)</span>
+            <span className="whitespace-nowrap">Catch Breath<span className="tactic-dx"> (+40 SP)</span></span>
           </button>
         </div>
       </div>

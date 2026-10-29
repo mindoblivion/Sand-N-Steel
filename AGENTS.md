@@ -12458,3 +12458,54 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   automatically verified (the fetch tool failed 3× on that URL; both legal pages share one code path and both
   pass `renderToStaticMarkup`). Nothing is packaged for Android (no Capacitor/Cordova project, no AAB), and
   physical-device acceptance is still pending for every earlier phase. `dist/` was left from a ROOT build.
+
+## Mobile HUD audit + dead-code cleanup (MO-2 — implemented)
+
+- **The audit was measured, not eyeballed.** The dev HUD harness (`?devHarness=hud`) mounts the real
+  `CombatHUD` + `TurnActionPanel` in DuelScene's own `.duel-root` / `.duel-stage` / `.duel-command`
+  composition without paying for the 3D arena, so it can be opened inside a **sized same-origin
+  iframe** — which is its own media-query viewport — and measured at exact Android sizes in one
+  preview call. Baseline at 320/360/375/390/412/812x375/1024x768: no horizontal overflow anywhere,
+  but **every HUD control was below the 44x44 touch minimum** (Withdraw 38x44, camera 36x28,
+  Settings 38x48, Help and Mute 30x30, the three movement controls 30px tall), and at 320px the
+  utility bar wrapped to two rows (84px).
+- **The contract now: every HUD control is 44x44 CSS px**, set as `min-w-[44px] min-h-[44px]` in
+  `CombatHUD` (one shared `hudButton` / `hudIconButton` string; Settings keeps its older 48px floor)
+  and `min-h-[44px]` on the three movement controls in `TurnActionPanel`. Icon-only controls carry
+  their own `aria-label` (Withdraw, Switch camera, Game settings, Controls and instructions,
+  Mute/Unmute) because their `data-hud-label` text is hidden on phones. `transition-all` on those
+  buttons became `transition-colors` (the MO-1 motion law).
+- **What paid for the extra width, and why it is not a removed feature.** At a portrait phone the
+  five 44px controls plus the timer do not fit beside the weapon badge, which wrapped the bar onto a
+  second 48px row taken straight out of the arena; the short-landscape stage has the same problem at
+  352px. The **weapon badge** — information, not a control, and the equipped weapon is named in the
+  tactic cards' damage figures and visible in the fighter's hand — is therefore hidden in the
+  `(max-width: 520px) and (orientation: portrait)` block and in the short-landscape block, exactly
+  as the labels and the crowd meter already are. The timer keeps its value and drops one step of
+  padding; the row's gap tightens to 4px. The movement controls keep their names and hide only their
+  parenthesised delta (`<span class="tactic-dx">`, still in each control's `title`), and their
+  horizontal padding narrows by 8px, so three named controls stay on one row at 320px.
+- **Measured after (same script, same sizes).** Utility bar 48px = ONE row at 320…412, 812x375,
+  1024x768 and 1280x800; movement strip 47px = one row at every portrait size (97px at 320 before
+  the label/padding step); controls under 44px: **0** at every size; no horizontal overflow and no
+  clipped control text anywhere. Command panel 336px at 360…412 (was 338), stage 331px at 375x667
+  and 508px at 390x844 (unchanged to +2px), so the phone composition's measured budget is intact.
+- **Rebased, not weakened:** `phaseC8_79A` (the rendered Advance control is located by its delta
+  `'(+1.8m)'`, since the label is no longer one text run), `phaseC8_80n` / `phaseC8_80p` /
+  `phaseC8_74D` (label lists → names + the deltas still present in the source; the strip's class pin
+  now includes `min-h-[44px]`; `phaseC8_80p` §A pins the new narrow-padding rule *and* the 44px
+  floor; §E's declaration whitelist gained `font-size`; `phaseC8_74D` §D's hidden-selector list is
+  five surfaces instead of four). `bun test` → **4201 pass / 0 fail (153 files)**, `bun run lint`
+  (`tsc --noEmit`) → exit 0, `bun run build` → exit 0 (the pre-existing >500 kB chunk warning only).
+- **Not verified here:** the touch feel on hardware. Every figure above is a layout measurement in
+  the preview browser (SwiftShader, no GPU for the arena), so **Android acceptance of the 44px
+  targets, the one-row bars and the hidden badge is still the device check** — the same pending
+  device list the phases above carry.
+- **Dead code removed (unreferenced, no import anywhere in `src/`, `scripts/` or the suites):**
+  `src/components/dev/ShieldDiagnostics.tsx` (2,000+ lines; `App.tsx` no longer mounts it — the
+  earlier "mounted when `import.meta.env.DEV`" note is history), `src/components/ui/TouchControls.tsx`
+  (superseded by `RaceTouchControls` and the turn-based `TurnActionPanel`; the duel has no joystick),
+  and twelve one-off `.c881d-*.ts` analysis scripts at the repo root that were committed by accident.
+  Production build verified after removal; `public/README.md`, `public/README2.md`,
+  `public/signs/manifest.json` and `public/icons/icon-source.svg` are unreferenced by the app but are
+  authoring documentation/sources for shipped assets, so they were left alone.
