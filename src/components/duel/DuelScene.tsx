@@ -3169,12 +3169,24 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               intensity={sceneDeltas?.ambientIntensity ?? duelLight.ambientIntensity}
               color={sceneDeltas?.ambientColor ?? duelLight.ambientColor}
             />
+            {/* A7 — the shadow camera fitted to the arena floor. The default
+                ±5 bounds dropped every fighter's shadow outside the pit centre;
+                these cover the 20.2-radius sand plus the wall band, with the
+                city scene's own bias pair (no new light). */}
             <directionalLight
               position={duelLight.keyPosition}
               intensity={sceneDeltas?.sunIntensity ?? duelLight.keyIntensity}
               color={sceneDeltas?.sunColor ?? duelLight.keyColor}
               castShadow
               shadow-mapSize={[1024, 1024]}
+              shadow-camera-left={-22}
+              shadow-camera-right={22}
+              shadow-camera-top={22}
+              shadow-camera-bottom={-22}
+              shadow-camera-near={1}
+              shadow-camera-far={120}
+              shadow-bias={-0.0004}
+              shadow-normalBias={0.02}
             />
             {/* The cool fill follows the row's bounce strength — dimmer at night, so
                 the braziers are the light the crowd has. No new light is added. */}
