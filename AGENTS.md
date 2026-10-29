@@ -12254,12 +12254,24 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `finish_oxblood`, gold still 360 and the wheel slot unchanged). No horizontal overflow
   (`scrollWidth` == `clientWidth` == 375); the card measured 351 x 202. `finish_ventive` cannot be
   bought at any price, so the ordinary 240-gold finish reaches the same owned/Equip/Equipped card
-  states at phone width; the ventive-owned state remains L22C's desktop record. **Finding, not fixed
-  (needs approval, it is a UI change):** the two card controls measure 156 x 39 and 154 x 39 — under
-  the 44 px touch minimum — because a single-line card button is `py-2.5` only; L22D's 55-tall buttons
-  were the same style, made taller by the locked card's long "BROUGHT BY A VISITOR." label wrapping to
-  two lines. A device pass still has to confirm these card states on real hardware and the finish
-  card's colour on the target GPU.
+  states at phone width; the ventive-owned state remains L22C's desktop record. **Finding:** the two
+  card controls measured 156 x 39 and 154 x 39 — under the 44 px touch minimum — because a
+  single-line card button was `py-2.5` only; L22D's 55-tall buttons were the same style, made taller by
+  the locked card's long "BROUGHT BY A VISITOR." label wrapping to two lines. **Fixed in L22F.** A device
+  pass still has to confirm these card states on real hardware and the finish card's colour on the
+  target GPU.
+- **L22F — the finish card's 44 px button floor.** `src/components/hub/ChariotWorkshopTab.tsx`'s shared
+  card renderer (wheels and finishes alike) gained `min-h-[44px]` on all three action buttons — Preview,
+  Equip/Equipped and Buy/blocked-reason — alongside the existing `py-2.5`, so the floor holds whatever the
+  label does and whether or not the control is enabled. Applied at every width, matching CombatHUD's
+  `min-h-[44px]` convention rather than a phone-only media query; desktop cards grow 39 -> 44 px. No
+  gameplay, purchase, equip or save logic touched. **Observed** at 375 x 812 in the preview browser, on
+  the SHIPPING workshop reached through Continue -> Armory -> Chariot Workshop on the player's own save
+  (100 gold, so three finishes read "Not enough gold."): every finish card control measured 44 px tall
+  (Preview 151 x 44, blocked Buy 151 x 44, Equipped 150 x 44) and the locked Ventive card's two-line
+  label stayed 55; `scrollWidth` == `clientWidth` == 375 (no horizontal overflow) and zero console
+  errors. The enabled Buy and Equip variants share the same class string; the enabled Equip click itself
+  stays L22C/L22E's record. **PENDING:** physical Android acceptance.
 - **Tests actually run.** `bun test src/utils/l16dVisitorHarness.test.ts src/utils/visitorPurchase.test.ts
   src/utils/visitorChariotFinish.test.ts` inside the existing healthy `web` container → **103 pass /
   0 fail, 925 expect() calls, 3 files (119 ms)**, exit 0. No broad suite and no build were run; the diff
