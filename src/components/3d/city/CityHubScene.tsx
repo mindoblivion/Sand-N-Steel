@@ -29,6 +29,7 @@ import { ArenaMedicalHouse } from './ArenaMedicalHouse';
 import { NorthernFortress } from './NorthernFortress';
 import { NorthernMotte } from './NorthernMotte';
 import { Drawbridge } from './Drawbridge';
+import { BridgeGuards } from './BridgeGuards';
 import { EastCircusArena } from './EastCircusArena';
 import { EastCircusDistrict } from './EastCircusDistrict';
 import { CityCamera } from './CityCamera';
@@ -1537,6 +1538,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <ArenaMedicalHouse />
               <NorthernMotte />
             <Drawbridge raised={drawbridgeRaisedRef.current} />
+      <BridgeGuards />
               <NorthernFortress />
               {/* Day/Night T3 — the fortress watch-fire (night) and the shrine's smoke
                   (dawn on Dies Fortunae). Both are conditionally mounted, so at every
