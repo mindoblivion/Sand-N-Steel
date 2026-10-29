@@ -1,0 +1,72 @@
+# Sand & Steel — publish the production build to GitHub Pages.
+#
+# Runs the same gates the release checklist uses (suite, typecheck, build), then
+# uploads `dist/` as the Pages artifact. Nothing is published unless all three pass.
+#
+# IMPORTANT — serving path
+# GitHub Pages serves a *project* site from a subpath (https://<owner>.github.io/<repo>/),
+# and this app still references its models/audio/icons from the site root ('/models/...').
+# So a project-site deploy only resolves those assets once ONE of these is true:
+#   * the site is served from the domain root (a custom domain), or
+#   * the app's asset references are made base-relative (tracked separately).
+# `PAGES_BASE_PATH` is a repository variable, so the base can change without a code
+# edit. It defaults to '/' — a root-served site, the only correct configuration today.
+name: Deploy alpha to GitHub Pages
+
+on:
+  # Deliberately `main` only: pushing a feature branch must never publish.
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install from the committed lockfile
+        run: bun install --frozen-lockfile
+
+      - name: Test suite
+        run: bun test
+
+      - name: Typecheck
+        run: bun run lint
+
+      # BUILD_COMMIT freezes this exact revision into the bundle, so the title
+      # screen prints "Alpha 1.0 · <sha>" for the commit that produced it.
+      - name: Build
+        env:
+          BUILD_COMMIT: ${{ github.sha }}
+          BASE_PATH: ${{ vars.PAGES_BASE_PATH || '/' }}
+        run: bun run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

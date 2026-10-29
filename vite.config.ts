@@ -20,6 +20,10 @@ import { resolveBuildId } from './scripts/buildId';
 export default defineConfig(() => {
   return {
     plugins: [tailwindcss(), react()],
+    // The publish target sets BASE_PATH (the Pages workflow passes its site path).
+    // Every other build - dev server, sandbox preview, a plain `bun run build` -
+    // stays at the root, so this changes nothing unless the variable is set.
+    base: process.env.BASE_PATH || '/',
     define: {
       __BUILD_ID__: JSON.stringify(resolveBuildId(import.meta.dirname)),
     },
