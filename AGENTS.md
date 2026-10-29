@@ -12298,3 +12298,78 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **No code changed.** Production gameplay, the L16D harness, the visitor transactions, the save format
   and the L17B signage data are untouched: this phase adds this record and the cross-reference sentence in
   L16B.
+
+## Alpha build identifier — resolver audit and correction (L23 — implemented)
+
+- **The audit found three real defects in the build id that the title screen prints.** The resolver lived
+  inline in `vite.config.ts` and was only *grepped* by its own tests (source-substring assertions), so no
+  branch had ever been exercised. Driving it against throwaway `.git` fixtures in `/tmp` measured, with the
+  container's own missing git binary (`sh: git: not found`):
+  (1) **a malformed `HEAD` was sliced into the label** — `HEAD` = `not-a-commit` produced the id
+  `not-a-c`, because any non-`ref:` line was treated as a detached sha;
+  (2) **a malformed `BUILD_COMMIT`/`GIT_COMMIT` reached the label verbatim** —
+  `/home/me/secret path\nX` produced `/home/me/sec`, i.e. a filesystem path (and, with a longer value, a
+  pasted token) baked into a user-visible label; there was no validation at all;
+  (3) **a linked worktree resolved to `dev`** although the comment claimed worktree coverage — the
+  `.git`-file pointer was followed, but the refs and `packed-refs` were then looked for in the worktree's
+  own git dir instead of the repository's common dir (named by its `commondir` file).
+  Also measured: the same revision produced **different ids by route** (12 chars from an env sha, 7 from
+  git/refs), so the label was not deterministic across build environments.
+- **The correction is one extracted, validated resolver — no behaviour change for a good build.**
+  `scripts/buildId.ts` (new, type-checked because `tsconfig.include` already covers `scripts`) now owns the
+  whole chain: `BUILD_COMMIT` / `GIT_COMMIT` → `git rev-parse --short HEAD` (run with `cwd` = the checkout
+  root, not the build's cwd) → the checkout's own `.git` ref files → `dev`. Every route is validated before
+  it may reach the label — a commit must match `^[0-9a-f]{7,64}$/i`, an explicit builder id must match
+  `^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$` (so no whitespace, no path separator, no newline) — every sha route
+  answers the same `BUILD_ID_LENGTH` (7) characters, a non-sha builder id (a tag such as `v1.2.3-alpha`) is
+  carried verbatim, a malformed env value is ignored and announced **without echoing it**, a HEAD ref must
+  live in the `refs/` namespace, and nothing ever throws: the last answer is the documented `dev`.
+  `vite.config.ts` now only wires it (`resolveBuildId(import.meta.dirname)`, so the ref files are read from
+  the checkout the config was loaded from — Vite bundles the config to a temp file, which is why the root is
+  passed in rather than derived inside the module). `src/utils/buildInfo.ts`, `src/vite-env.d.ts` and
+  `TitleScreen.tsx` are unchanged: the client still reads only the literal Vite bakes in.
+- **Regression suite: `src/utils/buildInfo.test.ts` — 26 tests / 66 assertions**, rewritten from source
+  substring checks into fixtures under `os.tmpdir()` (the repo's own git metadata is never touched, and no
+  test manufactures a passing result by editing it): §A the label contract; §B the ref-file branches —
+  symbolic HEAD, detached HEAD, packed refs *with* a peeled `^sha` line, a linked worktree (`gitdir:` file
+  plus `commondir`), no `.git`, malformed HEAD, empty HEAD, unreadable HEAD, dangling ref, a HEAD escaping
+  `refs/`, and a loose ref holding garbage — each asserted to resolve to the short sha or to `dev`, plus
+  determinism; §C the git route through an injected runner (valid output shortened, junk/empty output falling
+  through); §D precedence and rejection (`BUILD_COMMIT` over `GIT_COMMIT`, over git, over refs; a full sha
+  shortening to the same 7; a tag verbatim; four malformed values each rejected with a warning that contains
+  none of them; blank treated as absent); §E one resolver, no runtime git — `vite.config.ts` must reference
+  `resolveBuildId` and must contain neither `execSync` nor `packed-refs`, `buildInfo.ts` must not touch
+  `child_process`/`execSync`/`localStorage`, and a sweep of every `.ts`/`.tsx` under `src/` must find **no**
+  import of `scripts/buildId`; §F the title screen wiring.
+- **Verified 2026-10-29** in the dev container: focused `bun test src/utils/buildInfo.test.ts` → **26 pass /
+  0 fail**; `bun test` → **4190 pass / 0 fail (152 files, 174672 expect() calls)**; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 (startup asset check passed, the pre-existing
+  >500 kB chunk warning only); `git diff --check` → clean. The scenario matrix was re-run through the
+  **real** `vite.config.ts` after the fix (copies of the config and the resolver in `/tmp`, the checkout
+  excluded): symbolic 4104a13 · detached 4104a13 · packed 4104a13 · **worktree 4104a13** (was `dev`) ·
+  no `.git` `dev` · **malformed HEAD `dev`** (was `not-a-c`) · empty/unreadable/dangling `dev` ·
+  `BUILD_COMMIT` abc1234 · `GIT_COMMIT` def5678 · both → abc1234 · full sha → **4104a13** (was 12 chars) ·
+  **junk path → 4104a13** (was `/home/me/sec`) · blank → falls through · tag `v1.2.3-alpha` verbatim ·
+  and the real checkout (no git binary) → **4104a13**, which is `git rev-parse --short HEAD`.
+- **Bundle and display agree, checked both ways.** The production bundle (`bun run build`, `dist/` gitignored)
+  compiles the label as `const F9="Alpha 1.0",z9="dev";function H9(){return"4104a13"}…${F9} · ${e||z9}` —
+  one baked id, `4104a13`, no path or environment text — and the running preview's title screen renders
+  `Alpha 1.0 · 4104a13`. The dev server restarted itself on the config change (`vite.config.ts changed,
+  restarting server…`) and serves the new code.
+- **Save integrity — NOT VERIFIED as a restoration; the profile itself is intact.** The real key
+  `sand_and_steel_gladiator_save_v2` was read only (`getItem`, no writes, no gameplay, no settlements) and
+  holds one 2,013-character record that **parses** (`JSON.parse` clean) with 25 top-level fields, all at
+  fresh-game values: `name: "Spartacus"` (the `createNewProfile` default for a blank name), level 1, xp 0,
+  gold 100, fame 0, tier 1, 0/0 fights, 2 inventory entries, `gladius_standard` equipped, no injuries, no
+  `chariot`, no defeated opponents, `trainingSessionsLeft` 2. There is **no authoritative pre-test snapshot
+  of this key anywhere** — a repo-wide and `/tmp` sweep finds only `/tmp/l16-base.json` (a 2026-10-22 harness
+  fixture named "Audit", not this save's baseline) and the documented L22C state (a *disposable* harness key
+  in which the real save was absent) — so whether this record is a successful restoration or a freshly
+  created profile **cannot be decided here**: every gameplay field is indistinguishable from
+  `createNewProfile`, and the only difference from the fixture is the name. It was left untouched. Read-only
+  hydration is the reason a preview load cannot have altered it: `App` hydrates through
+  `useState(() => loadSavedProfile())`, and `loadSavedProfile` never writes.
+- **Not applicable / not attempted:** no gameplay action, settlement, storage write or second restoration
+  was run; no browser other than the replayed preview session could be inspected, so the player's own
+  device save is unverified. **Physical Android acceptance remains PENDING** for every earlier item, and
+  `dist/` was produced by the build and left in place (gitignored).
