@@ -294,7 +294,8 @@ describe('D. Slice boundary — no dev harness, no arena change', () => {
 
   test('the arena GLB, its transform and the closed ring are untouched', () => {
     const arena = load('../components/3d/city/EastCircusArena.tsx');
-    expect(arena.includes("CIRCUS_ARENA_URL = '/_workspace_arena.glb'")).toBe(true);
+    // L25 — the same GLB, now resolved through the deploy base (identity at the root).
+    expect(arena.includes("CIRCUS_ARENA_URL = assetUrl('/_workspace_arena.glb')")).toBe(true);
     expect(arena.includes('CIRCUS_ARENA_POSITION')).toBe(true);
     expect(arena.includes('CIRCUS_ARENA_YAW = Math.PI / 2')).toBe(true);
     expect(arena.includes('CIRCUS_ARENA_SCALE = 0.2')).toBe(true);

@@ -37,19 +37,38 @@ const SHELL_CACHE = `sand-steel-shell-${VERSION}`;
 const ACTIVE_CACHES = [SHELL_CACHE];
 const CACHE_PREFIX = 'sand-steel-';
 
-const SHELL_URL = '/index.html';
-const OFFLINE_URL = '/offline.html';
+/**
+ * The base this worker was served from — `'/'` at a domain root, `'/repo/'` for a
+ * GitHub Pages project site. It is read from the worker's OWN script URL, because
+ * this file is copied verbatim into the build and cannot ask Vite for
+ * `BASE_URL`. Derived once, so a subpath deploy precaches and serves the same
+ * files the page loads instead of 404ing on the root-absolute ones.
+ */
+const BASE = (() => {
+  const path = (self.location && self.location.pathname) || '/sw.js';
+  const cut = path.lastIndexOf('/');
+  return cut >= 0 ? path.slice(0, cut + 1) : '/';
+})();
+
+/** A public file path as the URL it is fetched from, under this worker's base. */
+const baseUrl = (path) => `${BASE}${String(path).replace(/^\/+/, '')}`;
+
+/** The app's root under the base: `'/'` or `'/repo/'`. */
+const SHELL_ROOT = BASE;
+
+const SHELL_URL = baseUrl('index.html');
+const OFFLINE_URL = baseUrl('offline.html');
 
 /** Cached on install, before the first request is ever handled. */
 const SHELL_ASSETS = [
-  '/',
+  SHELL_ROOT,
   SHELL_URL,
   OFFLINE_URL,
-  '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/icon-maskable-512.png',
-  '/icons/apple-touch-icon.png',
+  baseUrl('manifest.webmanifest'),
+  baseUrl('icons/icon-192.png'),
+  baseUrl('icons/icon-512.png'),
+  baseUrl('icons/icon-maskable-512.png'),
+  baseUrl('icons/apple-touch-icon.png'),
 ];
 
 /**
@@ -139,9 +158,9 @@ const shouldBypass = (url) => {
   if (BYPASS_PATH_PARTS.some((part) => url.pathname.includes(part))) return true;
   // Dev harness entry points stay exactly as they are: never cached and never
   // served from the shell (they are eliminated from production builds anyway).
-  if (url.pathname.startsWith('/__dev/')) return true;
+  if (url.pathname.startsWith(baseUrl('__dev/'))) return true;
   // The browser must always fetch this worker's own script from the network.
-  if (url.pathname === '/sw.js') return true;
+  if (url.pathname === baseUrl('sw.js')) return true;
   return false;
 };
 
@@ -211,7 +230,7 @@ async function handleNavigation(request) {
     const cached =
       (await cache.match(request)) ||
       (await cache.match(SHELL_URL)) ||
-      (await cache.match('/')) ||
+      (await cache.match(SHELL_ROOT)) ||
       (await cache.match(OFFLINE_URL));
     if (cached) return cached;
     return new Response(FALLBACK_DOCUMENT, {

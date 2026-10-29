@@ -41,6 +41,7 @@
  * rendered at scale 1.35, and it is not re-mounted here.
  */
 
+import { assetUrl } from '../utils/assetUrl';
 export type LandmarkSignId =
   | 'city_tavern'
   | 'smithing_forge'
@@ -126,7 +127,7 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     id: 'city_tavern',
     building: 'CityTavern.tsx',
     label: 'The Golden Palm Tavern',
-    assetPath: '/signs/city_tavern/city_tavern.glb',
+    assetPath: assetUrl('/signs/city_tavern/city_tavern.glb'),
     plateWidth: 1.265,
     buildingRoot: [-16, 14],
     buildingYaw: 0,
@@ -145,7 +146,7 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     id: 'smithing_forge',
     building: 'SmithingForge.tsx',
     label: 'Imperial Smithing Forge',
-    assetPath: '/signs/smithing_forge/smithing_forge.glb',
+    assetPath: assetUrl('/signs/smithing_forge/smithing_forge.glb'),
     plateWidth: 0.974,
     buildingRoot: [18, 2.6],
     buildingYaw: 0,
@@ -164,7 +165,7 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     id: 'general_store',
     building: 'GeneralStore.tsx',
     label: 'Bazaar & General Store',
-    assetPath: '/signs/general_store/general_store.glb',
+    assetPath: assetUrl('/signs/general_store/general_store.glb'),
     plateWidth: 1.116,
     buildingRoot: [22, -5],
     buildingYaw: 0,
@@ -188,7 +189,7 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     id: 'training_hall',
     building: 'TrainingHall.tsx',
     label: 'Ludus Training Hall',
-    assetPath: '/signs/training_hall/training_hall.glb',
+    assetPath: assetUrl('/signs/training_hall/training_hall.glb'),
     plateWidth: 0.976,
     buildingRoot: [-30.35, 3.0],
     buildingYaw: Math.PI / 2,
@@ -208,7 +209,7 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     id: 'records_library',
     building: 'RecordsLibrary.tsx',
     label: 'Records & Lore Library',
-    assetPath: '/signs/records_library/records_library.glb',
+    assetPath: assetUrl('/signs/records_library/records_library.glb'),
     plateWidth: 0.914,
     buildingRoot: [23.1, -30],
     buildingYaw: 0,
@@ -227,7 +228,7 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     id: 'arena_medical',
     building: 'ArenaMedicalHouse.tsx',
     label: 'Arena Medical House',
-    assetPath: '/signs/arena_medical/arena_medical.glb',
+    assetPath: assetUrl('/signs/arena_medical/arena_medical.glb'),
     plateWidth: 1.166,
     buildingRoot: [-29, -5],
     buildingYaw: 0,
@@ -255,7 +256,7 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     id: 'gladiator_barracks',
     building: 'GladiatorBarracks.tsx',
     label: 'Gladiator Barracks',
-    assetPath: '/signs/gladiator_barracks/gladiator_barracks.glb',
+    assetPath: assetUrl('/signs/gladiator_barracks/gladiator_barracks.glb'),
     plateWidth: 0.878,
     buildingRoot: [-27, -14],
     buildingYaw: 0,
@@ -276,7 +277,7 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     id: 'gladiator_academy',
     building: 'GladiatorAcademy.tsx',
     label: 'Gladiator Ludus Academy',
-    assetPath: '/signs/gladiator_academy/gladiator_academy.glb',
+    assetPath: assetUrl('/signs/gladiator_academy/gladiator_academy.glb'),
     plateWidth: 0.879,
     buildingRoot: [30.5, -27],
     buildingYaw: 0,
@@ -298,7 +299,7 @@ export const LANDMARK_SIGNS: LandmarkSignMount[] = [
     id: 'veteran_hall',
     building: 'VeteranGladiatorHall.tsx',
     label: 'Veteran Gladiator Hall',
-    assetPath: '/signs/veteran_hall/veteran_hall.glb',
+    assetPath: assetUrl('/signs/veteran_hall/veteran_hall.glb'),
     plateWidth: 1.17,
     buildingRoot: [-24, -25],
     buildingYaw: 0,

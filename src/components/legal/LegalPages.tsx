@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { assetUrl } from '../../utils/assetUrl';
 import {
   CONTACT_EMAIL,
   POLICY_LAST_UPDATED,
@@ -132,10 +133,10 @@ export const PrivacyPolicyPage: React.FC = () => {
         </p>
         <p>Last updated: {POLICY_LAST_UPDATED}</p>
         <p>
-          Deleting your account: <LegalLink href="/delete-account">the account deletion page</LegalLink>
+          Deleting your account: <LegalLink href={assetUrl('/delete-account')}>the account deletion page</LegalLink>
         </p>
         <p>
-          <LegalLink href="/">Back to the game</LegalLink>
+          <LegalLink href={assetUrl('/')}>Back to the game</LegalLink>
         </p>
       </LegalFooter>
     </LegalPageFrame>
@@ -213,10 +214,10 @@ export const DeleteAccountPage: React.FC = () => {
           Deletion requests: <LegalLink href={`mailto:${DELETION_REQUEST_EMAIL}`}>{DELETION_REQUEST_EMAIL}</LegalLink>
         </p>
         <p>
-          <LegalLink href="/privacy">Privacy policy</LegalLink>
+          <LegalLink href={assetUrl('/privacy')}>Privacy policy</LegalLink>
         </p>
         <p>
-          <LegalLink href="/">Back to the game</LegalLink>
+          <LegalLink href={assetUrl('/')}>Back to the game</LegalLink>
         </p>
       </LegalFooter>
     </LegalPageFrame>

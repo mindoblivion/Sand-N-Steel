@@ -362,6 +362,7 @@ describe('E. The public surfaces', () => {
     expect(deletion).toContain('Google Firebase Authentication');
     expect(deletion).toContain('Google Drive');
     // Both pages link to each other and back to the game.
+    // Rendered markup, at the root build's base — the links resolve inside it.
     expect(privacy).toContain('href="/delete-account"');
     expect(deletion).toContain('href="/privacy"');
     expect(privacy).toContain('href="/"');
@@ -390,7 +391,7 @@ describe('E. The public surfaces', () => {
     const publicDeclaration = main.split('\n').find((line) => line.includes('const publicPage ='));
     expect(publicDeclaration).toBeDefined();
     expect(publicDeclaration).not.toContain('import.meta.env.DEV');
-    expect(main).toContain('resolvePublicPage(window.location.pathname)');
+    expect(main).toContain('resolvePublicPage(stripSiteBase(window.location.pathname))');
     expect(main).toContain("void import('./components/legal/LegalPages')");
     // Dynamic only — a static import would ship both pages in the game's chunk.
     expect(main).not.toContain("import { DeleteAccountPage }");
@@ -410,7 +411,7 @@ describe('E. The public surfaces', () => {
     expect(modal).toContain("context === 'menu' && onDeleteAccount");
     expect(modal).toContain("context === 'menu' && !onDeleteAccount && onEraseDeviceData");
     // The policy is reachable from the panel too.
-    expect(modal).toContain('href="/privacy"');
+    expect(modal).toContain("href={assetUrl('/privacy')}");
     // …and a duel or a race never renders either destructive row.
     expect(modal.split("context === 'menu'").length - 1).toBeGreaterThanOrEqual(3);
   });
@@ -429,7 +430,7 @@ describe('E. The public surfaces', () => {
   test('the title screen carries the policy link as well', () => {
     const title = code('../components/hub/TitleScreen.tsx');
     expect(title).toContain('data-title-action="privacy"');
-    expect(title).toContain('href="/privacy"');
+    expect(title).toContain("href={assetUrl('/privacy')}");
     expect(title).toContain('rel="noopener noreferrer"');
   });
 

@@ -90,6 +90,7 @@ import {
   getTeamWidth,
 } from './chariotTeamFormation';
 
+import { assetUrl } from './assetUrl';
 export type Vec3 = [number, number, number];
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -102,7 +103,7 @@ export type Vec3 = [number, number, number];
  * deliberately absent from `utils/preloadAssets.ts`, so its 15.2 MB never joins
  * any production payload — and it is never written to, renamed or modified.
  */
-export const HORSE_FIT_ASSET_URL = '/_workspace_dist_horse_weak.glb';
+export const HORSE_FIT_ASSET_URL = assetUrl('/_workspace_dist_horse_weak.glb');
 
 /** Byte size and hash, so a re-export of the asset fails loudly rather than silently. */
 export const HORSE_FIT_ASSET_BYTES = 15_248_136;

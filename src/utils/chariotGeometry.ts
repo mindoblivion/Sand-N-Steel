@@ -91,18 +91,19 @@
  *      as the stock one and its tyre sinks past it by that much.
  */
 
+import { assetUrl } from './assetUrl';
 import * as THREE from 'three';
 import { ChariotWheelVariantKey, ChariotFinishOverride } from '../data/chariotParts';
 
 /** The modular chariot model (the fitted stock wheels are hidden when a kit set is mounted). */
-export const CHARIOT_MODEL_URL = '/_workspace_chariot_model_RomanChariot.glb';
+export const CHARIOT_MODEL_URL = assetUrl('/_workspace_chariot_model_RomanChariot.glb');
 
 /**
  * The wheel kit.  Loaded ON DEMAND by the workshop preview only — it is
  * deliberately NOT in `utils/preloadAssets.ts`' CORE_3D_ASSETS, so its 304 KB
  * never joins the startup payload.
  */
-export const CHARIOT_WHEEL_KIT_URL = '/_workspace_chariot_model_RomanChariot_WheelKit.glb';
+export const CHARIOT_WHEEL_KIT_URL = assetUrl('/_workspace_chariot_model_RomanChariot_WheelKit.glb');
 
 /** The measured game scale for both assets (1 world unit = 1 metre; neither is rescaled). */
 export const CHARIOT_MODEL_SCALE = 1;

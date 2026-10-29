@@ -12407,3 +12407,54 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Not verified / still open:** no Pages deployment has been run (nothing is published), so the
   workflow's own runner behaviour (`oven-sh/setup-bun`, `configure-pages`, artifact upload) is unproven;
   physical Android acceptance remains pending for every earlier phase.
+
+## L25 — Base-relative asset paths (Pages project site + a Play Store WebView)
+
+- **One helper, one rule.** `src/utils/assetUrl.ts` owns the deploy base: `assetUrl(path)` is the URL a
+  public file is fetched from, `stripSiteBase(pathname)` the inverse for `location.pathname`. It is the
+  IDENTITY at the root (`BASE_URL = '/'`), so every existing literal, GLTF cache key and suite keeps its
+  meaning. **The base must be read as the exact expression `import.meta.env.BASE_URL`** — written through a
+  destructured `env` or an optional chain it is NOT substituted by the build, the value is `undefined`, and
+  every asset silently falls back to the root (this happened; the artifact looked fine and was still broken).
+- **Wrapped at the fetch boundary:** `itemsDB.WEAPON_MODEL_PATHS`, `musicTracks.MUSIC_TRACKS`,
+  `landmarkSigns[].assetPath`, `preloadAssets.CORE_3D_ASSETS`, `chariotGeometry`'s two URLs,
+  `horseFitPrototype.HORSE_FIT_ASSET_URL`, `GladiatorMesh` (preload, default param, the five archetype URLs,
+  the weapon allowlist Set and the rotation-table key), `NorthernMotte` / `NorthernFortress` /
+  `EastCircusArena` / `ColosseumSignPrototype`, the four legal links + "Back to the game", and the service
+  worker registration. `startupAssets.ts` deliberately keeps CANONICAL (`/…`) paths — it is the registry the
+  build check compares against `public/`.
+- **Keep `GladiatorMesh`'s `SUPPORTED_WEAPON_MODEL_PATHS` / `WEAPON_MODEL_ROTATIONS` in lockstep with
+  `itemsDB`'s `WEAPON_MODEL_PATHS`.** They are looked up with the wrapped value; wrapping one side only makes
+  the `has()` check fail and silently drops the weapon mesh at a subpath.
+- **A grep of `dist/` for `/models/` proves nothing.** `assetUrl('/models/x.glb')` keeps its argument
+  literal; only the composed URL is runtime. Check that the base itself was baked (`const R4="/Sand-N-Steel/"`).
+- **Shell paths:** `index.html` uses `%BASE_URL%` (Vite substitutes it while building the HTML); the web app
+  manifest uses `start_url`/`scope` `"./"` and relative icon `src`s, because files in `public/` are copied
+  verbatim and never token-substituted; `public/sw.js` derives `BASE` from `self.location.pathname` and
+  prefixes every precache/bypass path through `baseUrl()` / `SHELL_ROOT`. `vite.config.ts` normalizes
+  `BASE_PATH` to a leading+trailing-slash base.
+- **Pages workflow:** `BASE_PATH` defaults to `format('/{0}/', github.event.repository.name)` (project site)
+  and `PAGES_BASE_PATH` overrides it (`/` for a custom domain). A guard fails the build if `%BASE_URL%`
+  survives into `dist/`, and `dist/index.html` is copied to `dist/404.html` — the app has no router, and
+  `/privacy` and `/delete-account` are resolved from the address at load time, so on Pages they arrive as
+  `404.html` (status 404, the app inside it).
+- **Suites updated to the new contract:** `serviceWorker.test.ts` (§G drives the shipped worker with a
+  `/sand-and-steel/` scope and asserts nothing is cached root-absolutely), `start1.test.ts` (a `bootUrl()`
+  helper for the `%BASE_URL%` form), `l17b`/`l17d` purity (exactly the one helper import is allowed),
+  `phaseC8_68c` (import list), `phaseC8_70b` (arena URL literal), `accountDeletion` (rendered markup still
+  asserts `href="/privacy"`; the source greps assert the `assetUrl(...)` form). New: `assetUrl.test.ts`.
+- **Verified 2026-10-29, this container:** `bun run lint` exit 0; `bun test` **4201 pass / 0 fail (153 files)**;
+  root build → `dist/index.html` byte-for-byte the same shape (`url(/title_screen.png)`, `/icons/…`);
+  subpath build (`BASE_PATH=/Sand-N-Steel/ BUILD_COMMIT=654b71c`) → base baked in the bundle and
+  `654b71c` in the title label, no unresolved `%BASE_URL%`; a Pages-like server returned **200** for
+  `/Sand-N-Steel/{,manifest.webmanifest,sw.js,title_screen.webp,icons/icon-192.png,models/arena_roman.glb,
+  models/weapons/gladius.glb,signs/city_tavern/city_tavern.glb,music/title_main.ogg}`, served the shell body
+  for `/Sand-N-Steel/privacy` and `/delete-account`, and 404'd the old root path `/models/arena_roman.glb`.
+  Live: the title screen boots at the root base with no failed requests and build label `654b71c`; `/privacy`
+  renders on a real document load.
+- **NOT verified / still open:** **no CI has ever run** — `gh` reports `actions/workflows` total 0, Pages
+  `has_pages: false` and `gh run list` empty, so `.github/workflows/deploy-pages.yml` only takes effect once
+  it reaches `main`; the workflow's own runner steps are therefore unproven. `/delete-account` is not
+  automatically verified (the fetch tool failed 3× on that URL; both legal pages share one code path and both
+  pass `renderToStaticMarkup`). Nothing is packaged for Android (no Capacitor/Cordova project, no AAB), and
+  physical-device acceptance is still pending for every earlier phase. `dist/` was left from a ROOT build.

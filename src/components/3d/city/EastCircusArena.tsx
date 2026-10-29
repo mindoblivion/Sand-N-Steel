@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { assetUrl } from '../../../utils/assetUrl';
 import { useGLTF } from '@react-three/drei';
 import { GROUND_PLANE_ELEVATION_Y } from './ProcessionAvenue';
 
@@ -70,7 +71,7 @@ import { GROUND_PLANE_ELEVATION_Y } from './ProcessionAvenue';
  * changes neither the scene's shadow frustum nor the sun.
  */
 
-export const CIRCUS_ARENA_URL = '/_workspace_arena.glb';
+export const CIRCUS_ARENA_URL = assetUrl('/_workspace_arena.glb');
 
 /**
  * Phase C-8.69B — the arena's ground clearance.

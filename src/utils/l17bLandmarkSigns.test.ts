@@ -317,9 +317,14 @@ describe('L17B §C — the mounts', () => {
 });
 
 describe('L17B §D — presentation only', () => {
-  test('the data module imports nothing at all', () => {
+  test('the data module imports nothing but the base-aware URL helper', () => {
     const source = code(readFileSync(new URL('../data/landmarkSigns.ts', import.meta.url), 'utf8'));
-    expect(source.split('\n').filter((line) => line.trimStart().startsWith('import '))).toHaveLength(0);
+    // L25 — the ONE exception, and it is pure: `assetUrl()` only prepends the
+    // deploy base, so a sign's `assetPath` is the URL it is actually fetched from
+    // at a subpath deploy. Still no React, no three, no component, no storage.
+    expect(source.split('\n').filter((line) => line.trimStart().startsWith('import '))).toEqual([
+      "import { assetUrl } from '../utils/assetUrl';",
+    ]);
   });
 
   test('the component imports only react, three, drei, its own data and the shared 3D boundary', () => {

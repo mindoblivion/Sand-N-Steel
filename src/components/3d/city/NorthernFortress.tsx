@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
+import { assetUrl } from '../../../utils/assetUrl';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
@@ -42,7 +43,7 @@ import { MOTTE_CENTER_Z, SUMMIT_Y } from '../../../utils/terrainHeight';
  * is 1.35 units wide at this scale; collision is intentionally more forgiving.
  */
 
-const FORTRESS_URL = '/_workspace_roman_fortress_normals_candidate.glb';
+const FORTRESS_URL = assetUrl('/_workspace_roman_fortress_normals_candidate.glb');
 
 // Preload at module import time (same pattern as GladiatorMesh).
 try {

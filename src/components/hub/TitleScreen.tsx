@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { PlayerProfile } from '../../types/game';
+import { assetUrl } from '../../utils/assetUrl';
 import { sounds } from '../../audio/soundEffects';
 import { armTitleAudioUnlock } from '../../audio/titleAudio';
 import { preloadTapStage } from '../../utils/preloadAssets';
@@ -276,7 +277,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             session in progress.  No `text-[10px]` floor here — this is a label a
             player has to be able to read. */}
         <a
-          href="/privacy"
+          href={assetUrl('/privacy')}
           target="_blank"
           rel="noopener noreferrer"
           data-title-action="privacy"

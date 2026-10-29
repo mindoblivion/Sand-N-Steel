@@ -1,3 +1,4 @@
+import { assetUrl } from '../utils/assetUrl';
 import { WeaponItem, ArmorItem, WeaponType } from '../types/game';
 
 /**
@@ -27,11 +28,11 @@ export type GameItem = WeaponItem | ArmorItem;
  * band of the weapons below.
  */
 export const WEAPON_MODEL_PATHS = {
-  gladius: '/models/weapons/gladius.glb',
-  spatha: '/models/weapons/spatha.glb',
-  dagger: '/models/weapons/dagger.glb',
-  dirk: '/models/weapons/dirk.glb',
-  shamshir: '/models/weapons/shamshir.glb',
+  gladius: assetUrl('/models/weapons/gladius.glb'),
+  spatha: assetUrl('/models/weapons/spatha.glb'),
+  dagger: assetUrl('/models/weapons/dagger.glb'),
+  dirk: assetUrl('/models/weapons/dirk.glb'),
+  shamshir: assetUrl('/models/weapons/shamshir.glb'),
 } as const;
 
 /** The weapon every new gladiator starts equipped with. */

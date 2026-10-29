@@ -3,14 +3,18 @@
 # Runs the same gates the release checklist uses (suite, typecheck, build), then
 # uploads `dist/` as the Pages artifact. Nothing is published unless all three pass.
 #
-# IMPORTANT — serving path
-# GitHub Pages serves a *project* site from a subpath (https://<owner>.github.io/<repo>/),
-# and this app still references its models/audio/icons from the site root ('/models/...').
-# So a project-site deploy only resolves those assets once ONE of these is true:
-#   * the site is served from the domain root (a custom domain), or
-#   * the app's asset references are made base-relative (tracked separately).
-# `PAGES_BASE_PATH` is a repository variable, so the base can change without a code
-# edit. It defaults to '/' — a root-served site, the only correct configuration today.
+# SERVING PATH (L25 — every asset is base-relative now)
+# GitHub Pages serves a *project* site from a subpath (https://<owner>.github.io/<repo>/).
+# The app no longer assumes it owns the domain root: `src/utils/assetUrl.ts` prefixes
+# every model/audio/sign/icon URL with the build's base, `index.html` and the manifest
+# use the same base, and the service worker derives it from its own script URL. Either
+# target works, and no code change is needed to switch between them:
+#
+#   * project site (the default below) — base `/<repo>/`, no DNS or cost;
+#   * custom domain or a user/org site (`<owner>.github.io`) — set the repository
+#     variable `PAGES_BASE_PATH` to `/`.
+#
+# `PAGES_BASE_PATH` still wins when set, so a custom domain needs a setting, not an edit.
 name: Deploy alpha to GitHub Pages
 
 on:
@@ -52,8 +56,25 @@ jobs:
       - name: Build
         env:
           BUILD_COMMIT: ${{ github.sha }}
-          BASE_PATH: ${{ vars.PAGES_BASE_PATH || '/' }}
+          BASE_PATH: ${{ vars.PAGES_BASE_PATH || format('/{0}/', github.event.repository.name) }}
         run: bun run build
+
+      # Fails the build rather than shipping a site whose icon and title art 404:
+      # `%BASE_URL%` is a build-time token, so any that survives into `dist/` means
+      # the base never reached the HTML.
+      - name: Assert the base token was resolved
+        run: |
+          if grep -q '%BASE_URL%' dist/index.html; then
+            echo 'index.html still contains %BASE_URL% — the build base did not resolve.'
+            exit 1
+          fi
+
+      # GitHub Pages answers an unknown path with 404.html. The game has no router —
+      # `src/main.tsx` decides what to mount from the address — and /privacy and
+      # /delete-account are the two URLs a store listing points at, so publishing the
+      # shell as 404.html keeps both alive at a subpath (and at the root).
+      - name: Publish the shell for deep links
+        run: cp dist/index.html dist/404.html
 
       - uses: actions/configure-pages@v5
 

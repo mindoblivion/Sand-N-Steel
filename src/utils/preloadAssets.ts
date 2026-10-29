@@ -1,3 +1,4 @@
+import { assetUrl } from './assetUrl';
 import { useGLTF } from '@react-three/drei';
 
 /**
@@ -8,7 +9,7 @@ import { useGLTF } from '@react-three/drei';
 // alternative character models (amazonian, netfighter, minotaur, dimachaerus)
 // load on demand via useGLTF(modelUrl) when their archetype is selected.
 export const CORE_3D_ASSETS = [
-  '/models/arena_roman.glb',
+  assetUrl('/models/arena_roman.glb'),
 ] as const;
 
 export type Core3DAssetPath = typeof CORE_3D_ASSETS[number];

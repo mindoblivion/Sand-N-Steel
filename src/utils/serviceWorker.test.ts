@@ -63,17 +63,34 @@ describe('A. One versioned cache, precached shell and a version sweep', () => {
     expect(swCode).toContain('const ACTIVE_CACHES = [SHELL_CACHE]');
   });
 
-  test('the shell precache list covers /, the shell document, offline.html, the manifest and the icons', () => {
+  test('the shell precache list covers the app root, the shell document, offline.html, the manifest and the icons', () => {
     const list = swCode.slice(swCode.indexOf('const SHELL_ASSETS'), swCode.indexOf('const BYPASS_HOST_SUFFIXES'));
-    expect(list).toContain("'/'");
+    expect(list).toContain('SHELL_ROOT');
     expect(list).toContain('SHELL_URL');
     expect(list).toContain('OFFLINE_URL');
-    expect(list).toContain("'/manifest.webmanifest'");
-    for (const icon of ['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png']) {
-      expect(list).toContain(`/icons/${icon}`);
+    for (const entry of [
+      'manifest.webmanifest',
+      'icons/icon-192.png',
+      'icons/icon-512.png',
+      'icons/icon-maskable-512.png',
+      'icons/apple-touch-icon.png',
+    ]) {
+      expect(list).toContain(`baseUrl('${entry}')`);
     }
-    expect(swCode).toContain("const SHELL_URL = '/index.html'");
-    expect(swCode).toContain("const OFFLINE_URL = '/offline.html'");
+    expect(swCode).toContain("const SHELL_URL = baseUrl('index.html')");
+    expect(swCode).toContain("const OFFLINE_URL = baseUrl('offline.html')");
+  });
+
+  test('every precached entry is addressed inside the base, never at the site root', () => {
+    // L25 — the worker is copied verbatim into the build, so it cannot ask Vite for
+    // the base: it derives it from its OWN script URL and prefixes every entry.
+    // A project-site deploy (a subpath) therefore precaches what the page loads.
+    expect(swCode).toContain('self.location && self.location.pathname');
+    expect(swCode).toContain('const SHELL_ROOT = BASE;');
+    const list = swCode.slice(swCode.indexOf('const SHELL_ASSETS'), swCode.indexOf('const BYPASS_HOST_SUFFIXES'));
+    expect(list).not.toContain("'/index.html'");
+    expect(list).not.toContain("'/offline.html'");
+    expect(list).not.toContain("'/icons/");
   });
 
   test('install caches the shell and takes over immediately, tolerating a missing entry', () => {
@@ -113,7 +130,7 @@ describe('B. Navigations network-first, then the shell, then the offline page', 
 
   test('the fallback chain is request → shell → "/" → the designed offline page', () => {
     const navigation = swCode.slice(swCode.indexOf('async function handleNavigation'), swCode.indexOf('async function handleAsset'));
-    const order = ['cache.match(request)', 'cache.match(SHELL_URL)', "cache.match('/')", 'cache.match(OFFLINE_URL)'];
+    const order = ['cache.match(request)', 'cache.match(SHELL_URL)', 'cache.match(SHELL_ROOT)', 'cache.match(OFFLINE_URL)'];
     let cursor = -1;
     for (const step of order) {
       const at = navigation.indexOf(step);
@@ -170,8 +187,8 @@ describe('C. Auth, Drive, Firebase, dev routes and the worker itself pass throug
   });
 
   test('the dev-harness routes and the worker script are never intercepted', () => {
-    expect(swCode).toContain("if (url.pathname.startsWith('/__dev/')) return true;");
-    expect(swCode).toContain("if (url.pathname === '/sw.js') return true;");
+    expect(swCode).toContain("if (url.pathname.startsWith(baseUrl('__dev/'))) return true;");
+    expect(swCode).toContain("if (url.pathname === baseUrl('sw.js')) return true;");
   });
 
   test('only a fresh same-origin 200 is ever stored', () => {
@@ -187,17 +204,17 @@ describe('C. Auth, Drive, Firebase, dev routes and the worker itself pass throug
 
 describe('D. The worker registers in production builds only', () => {
   test('there is exactly one registration, and it is gated on import.meta.env.PROD', () => {
-    const registrations = mainCode.split("navigator.serviceWorker.register('/sw.js')").length - 1;
+    const registrations = mainCode.split("navigator.serviceWorker.register(assetUrl('/sw.js'))").length - 1;
     expect(registrations).toBe(1);
     expect(mainCode).toContain("if (import.meta.env.PROD && 'serviceWorker' in navigator)");
   });
 
   test('registration is fire-and-forget, so a failure cannot break boot', () => {
-    expect(mainCode).toMatch(/navigator\.serviceWorker\.register\('\/sw\.js'\)\.catch\(/);
+    expect(mainCode).toMatch(/navigator\.serviceWorker\.register\(assetUrl\('\/sw\.js'\)\)\.catch\(/);
   });
 
   test('the registration is not inside any dev-harness branch', () => {
-    const registration = mainCode.indexOf("navigator.serviceWorker.register('/sw.js')");
+    const registration = mainCode.indexOf("navigator.serviceWorker.register(assetUrl('/sw.js'))");
     const lastBranch = mainCode.lastIndexOf('} else if (useRaceHarness) {');
     const guard = mainCode.lastIndexOf('if (import.meta.env.PROD', registration);
     expect(registration).toBeGreaterThan(lastBranch);
@@ -302,12 +319,14 @@ const makeResponse = (body: string, url: string, status = 200) => ({
   text: async () => body,
 });
 
-const createWorker = (fetchImpl: (input: any, init?: any) => Promise<any>) => {
+const createWorker = (fetchImpl: (input: any, init?: any) => Promise<any>, scriptPath = '/sw.js') => {
   const handlers = new Map<string, (event: any) => void>();
   const storage = new FakeCacheStorage();
   const counts = { skipped: 0, claimed: 0 };
   const self = {
-    location: { origin: ORIGIN },
+    // `pathname` is the worker's own script URL — the one input L25 derives the
+    // deploy base from, exactly as a real ServiceWorkerGlobalScope reports it.
+    location: { origin: ORIGIN, pathname: scriptPath },
     addEventListener: (type: string, handler: (event: any) => void) => {
       handlers.set(type, handler);
     },
@@ -347,12 +366,15 @@ const navigationRequest = (path: string) => {
 };
 
 /** A worker installed against a network that serves every shell entry. */
-const installedWorker = async (offlineBody = '<!doctype html><title>offline</title>') =>
+const installedWorker = async (
+  offlineBody = '<!doctype html><title>offline</title>',
+  scriptPath = '/sw.js',
+) =>
   createWorker(async (input: any) => {
     const url = typeof input === 'string' ? input : input.url;
     const body = url.includes('offline.html') ? offlineBody : '<!doctype html><title>shell</title>';
     return makeResponse(body, new URL(url, ORIGIN).href);
-  });
+  }, scriptPath);
 
 /** The route an offline launch lands on. */
 const OFFLINE_ROUTE = '/some/route';
@@ -362,14 +384,14 @@ const OFFLINE_ROUTE = '/some/route';
  * connection at all. Only a navigation fails afterwards, which is exactly what an
  * offline launch looks like once the shell is already on the device.
  */
-const installedWorkerGoneOffline = async (offlineBody: string) => {
+const installedWorkerGoneOffline = async (offlineBody: string, scriptPath = '/sw.js') => {
   const worker = createWorker(async (input: any) => {
     const url = typeof input === 'string' ? input : input.url;
     const path = new URL(url, ORIGIN).pathname;
-    if (path === OFFLINE_ROUTE) throw new Error('offline');
-    const body = path === '/offline.html' ? offlineBody : '<!doctype html><title>shell</title>';
+    if (path.endsWith(OFFLINE_ROUTE)) throw new Error('offline');
+    const body = path.endsWith('/offline.html') ? offlineBody : '<!doctype html><title>shell</title>';
     return makeResponse(body, new URL(url, ORIGIN).href);
-  });
+  }, scriptPath);
   await runLifecycle(worker.handlers.get('install')!);
   return worker;
 };
@@ -510,5 +532,92 @@ describe('F. The shipped worker, driven', () => {
     expect(await dispatchFetch(worker.handlers, new Request(`${ORIGIN}/`, { method: 'POST' }))).toBeNull();
 
     expect(cache.entries.size).toBe(before);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// G. The same worker, served from a SUBPATH (a GitHub Pages project site)
+// ══════════════════════════════════════════════════════════════════════════
+
+/**
+ * The deploy this suite covers: the app is built with `BASE_PATH='/sand-and-steel/'`
+ * and served from `https://<owner>.github.io/sand-and-steel/`. Everything the
+ * worker precaches, and every path it bypasses, must live inside that base — the
+ * root-absolute `/index.html`, `/offline.html` and `/icons/…` would 404 there, and
+ * an offline launch would fall through to the browser's error page.
+ */
+const SUBPATH = '/sand-and-steel/';
+const SUBPATH_SCRIPT = `${SUBPATH}sw.js`;
+
+describe('G. Served from a subpath, the worker stays inside its own base', () => {
+  test('install precaches every shell entry under the base, and nothing at the root', async () => {
+    const worker = await installedWorker('<!doctype html><title>offline</title>', SUBPATH_SCRIPT);
+    await runLifecycle(worker.handlers.get('install')!);
+    const cache = worker.storage.stores.get('sand-steel-shell-v1')!;
+
+    for (const path of [
+      SUBPATH,
+      `${SUBPATH}index.html`,
+      `${SUBPATH}offline.html`,
+      `${SUBPATH}manifest.webmanifest`,
+      `${SUBPATH}icons/icon-192.png`,
+      `${SUBPATH}icons/apple-touch-icon.png`,
+    ]) {
+      expect(cache.entries.has(keyOf(path)), path).toBe(true);
+    }
+    // Not one root-absolute duplicate: the cache holds only what the page loads.
+    expect(cache.entries.has(keyOf('/index.html'))).toBe(false);
+    expect(cache.entries.has(keyOf('/offline.html'))).toBe(false);
+    expect(cache.entries.has(keyOf('/icons/icon-192.png'))).toBe(false);
+    expect(cache.entries.has(keyOf('/'))).toBe(false);
+  });
+
+  test('an offline navigation at the subpath falls back to the base shell, answered 200', async () => {
+    const worker = await installedWorkerGoneOffline(
+      '<!doctype html><title>offline</title>',
+      SUBPATH_SCRIPT,
+    );
+    const response = await dispatchFetch(
+      worker.handlers,
+      navigationRequest(`${SUBPATH}some/route`),
+    );
+    expect(response).not.toBeNull();
+    expect(response.status).toBe(200);
+    // The app itself, not the offline screen: the shell was precached inside the base.
+    expect(await response.text()).toContain('shell');
+  });
+
+  test('the worker script and the dev routes are bypassed at the subpath too', async () => {
+    const worker = await installedWorker('<!doctype html><title>offline</title>', SUBPATH_SCRIPT);
+    await runLifecycle(worker.handlers.get('install')!);
+    for (const path of [`${SUBPATH}sw.js`, `${SUBPATH}__dev/colosseum-rear`]) {
+      expect(await dispatchFetch(worker.handlers, new Request(`${ORIGIN}${path}`)), path).toBeNull();
+    }
+  });
+
+  test('the registration and the asset URLs the client builds use the same base', async () => {
+    // The client half: `assetUrl()` reads the base Vite froze into the bundle, so
+    // the worker is registered inside it and the models/audio/signs follow it.
+    const helper = load('./assetUrl.ts');
+    expect(mainSrc).toContain("navigator.serviceWorker.register(assetUrl('/sw.js'))");
+    expect(helper).toContain('import.meta.env');
+    expect(helper).toContain('BASE_URL');
+    // No module may still hardcode a root-absolute model or sign path.
+    const leaks: string[] = [];
+    for (const source of [
+      '../data/itemsDB.ts',
+      '../data/landmarkSigns.ts',
+      '../data/musicTracks.ts',
+      '../utils/preloadAssets.ts',
+      '../components/3d/GladiatorMesh.tsx',
+      '../utils/startupAssets.ts',
+    ]) {
+      // Wrapped paths are the contract; only an UNWRAPPED literal is a leak.
+      const text = load(source).replace(/assetUrl\(\s*'[^']*'\s*\)/g, 'assetUrl()');
+      for (const match of text.matchAll(/(\/(?:models|signs|music)\/[A-Za-z0-9_.\/-]+\.(?:glb|ogg))/g)) {
+        leaks.push(`${source}: ${match[1]}`);
+      }
+    }
+    expect(leaks).toEqual([]);
   });
 });

@@ -19,6 +19,7 @@ import {
   Gauge,
 } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
+import { assetUrl } from '../../utils/assetUrl';
 import { VOLUME_MAX, VOLUME_MIN, updateSettings } from '../../services/settings';
 import type {
   Brightness,
@@ -578,7 +579,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     anchor and not a panel route — and a new tab keeps the game (and
                     anything unsaved in a session) exactly where it was. */}
                 <a
-                  href="/privacy"
+                  href={assetUrl('/privacy')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full min-h-[56px] rounded-2xl bg-neutral-950/90 border border-neutral-700 hover:border-amber-500 px-4 py-3 shadow-lg cursor-pointer transition-colors flex items-center justify-between gap-3"

@@ -57,6 +57,14 @@ import {
 
 const load = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
+/**
+ * L25 — how `index.html` names a public file now: through Vite's `%BASE_URL%`
+ * token, which the build replaces with the deploy base (`/`, or `/repo/` for a
+ * project-site Pages deploy). Read as the served URL it becomes, this is exactly
+ * the registered asset path.
+ */
+const bootUrl = (path: string): string => `%BASE_URL%${path.replace(/^\//, '')}`;
+
 /** A source with its comments stripped, so prose can neither satisfy nor defeat a check. */
 const code = (source: string): string =>
   source
@@ -116,11 +124,13 @@ describe('A. The boot shell', () => {
     const setStart = bootStyle.indexOf('image-set(');
     const setEnd = bootStyle.indexOf(')', bootStyle.indexOf('type("image/png")'));
     const imageSet = bootStyle.slice(setStart, setEnd);
-    expect(imageSet.indexOf(TITLE_BACKDROP_WEBP)).toBeGreaterThan(-1);
-    expect(imageSet.indexOf(TITLE_BACKDROP_PNG)).toBeGreaterThan(-1);
-    expect(imageSet.indexOf(TITLE_BACKDROP_WEBP)).toBeLessThan(imageSet.indexOf(TITLE_BACKDROP_PNG));
-    // A browser without `image-set` support still gets the picture.
-    expect(bootStyle).toContain(`background-image: url(${TITLE_BACKDROP_PNG});`);
+    // Addressed through the build's base (L25), so the pair cannot 404 at a subpath.
+    expect(imageSet.indexOf(bootUrl(TITLE_BACKDROP_WEBP))).toBeGreaterThan(-1);
+    expect(imageSet.indexOf(bootUrl(TITLE_BACKDROP_PNG))).toBeGreaterThan(-1);
+    expect(imageSet.indexOf(bootUrl(TITLE_BACKDROP_WEBP))).toBeLessThan(imageSet.indexOf(bootUrl(TITLE_BACKDROP_PNG)));
+    // A browser without `image-set` support still gets the picture — from the build's
+    // own base, so the boot shell cannot go blank on a subpath deploy.
+    expect(bootStyle).toContain(`background-image: url(${bootUrl(TITLE_BACKDROP_PNG)});`);
     // The art fills the frame at any aspect.
     expect(bootStyle).toContain('background-size: cover;');
     expect(bootStyle).toContain('background-position: center;');
@@ -198,8 +208,10 @@ describe('C. The startup assets', () => {
 
   test('index.html names the art; TitleScreen names neither file', () => {
     // One source of truth for the picture: the shared rule in index.html.
-    expect(indexHtml).toContain(TITLE_BACKDROP_WEBP);
-    expect(indexHtml).toContain(TITLE_BACKDROP_PNG);
+    // L25 — both files, addressed through the deploy base rather than the site root.
+    expect(indexHtml).toContain(bootUrl(TITLE_BACKDROP_WEBP));
+    expect(indexHtml).toContain(bootUrl(TITLE_BACKDROP_PNG));
+    expect(indexHtml).not.toMatch(/url\(\/title_screen\.(webp|png)\)/);
     expect(titleSrc).toContain(TITLE_BACKDROP_CLASS);
     expect(titleSrc).not.toContain(TITLE_BACKDROP_WEBP);
     expect(titleSrc).not.toContain(TITLE_BACKDROP_PNG);

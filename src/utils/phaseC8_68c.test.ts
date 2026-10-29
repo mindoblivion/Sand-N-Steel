@@ -658,7 +658,9 @@ describe('C-8.68C §F — scope: numbers only, dev only, nothing moved', () => {
 
   test('the prototype module is numbers only and imports the plan and nothing else', () => {
     const imports = MODULE.match(/from '[^']+'/g)?.sort();
-    expect(imports).toEqual(["from './chariotTeamFormation'"]);
+    // L25 — plus the base-aware URL helper, which is a pure string function: the
+    // prototype still fetches nothing itself and still carries numbers only.
+    expect(imports).toEqual(["from './assetUrl'", "from './chariotTeamFormation'"]);
     const codeOnly = MODULE_CODE.replace(/^\s*import[\s\S]*?from '[^']+';\s*$/gm, '');
     for (const forbidden of [
       '@react-three',

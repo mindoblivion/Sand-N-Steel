@@ -4,6 +4,7 @@ import App from './App';
 import './index.css';
 import { dismissBootShell } from './utils/bootShell';
 import { resolvePublicPage } from './components/legal/publicPages';
+import { assetUrl, stripSiteBase } from './utils/assetUrl';
 
 // START-1 — mount the app into #root and hand the inline boot shell over to React.
 //
@@ -156,7 +157,7 @@ const useHeraldHarness =
 // so it cannot be dev-gated and cannot depend on a sign-in.  The route table itself
 // lives in `components/legal/publicPages.ts`, so the address a listing points at and
 // the address this entry point resolves cannot drift apart.
-const publicPage = resolvePublicPage(window.location.pathname);
+const publicPage = resolvePublicPage(stripSiteBase(window.location.pathname));
 
 if (useColosseumRearHarness) {
   void import('./components/dev/ColosseumRearDiagnostic').then(({ ColosseumRearDiagnostic }) => {
@@ -261,7 +262,9 @@ if (useColosseumRearHarness) {
 // failure (unsupported browser, private mode, blocked storage) is swallowed so it
 // can never break boot.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {
+  // Registered under the build's own base, so the worker's scope — and every path
+  // it precaches — covers the files the page actually loads at a subpath deploy.
+  navigator.serviceWorker.register(assetUrl('/sw.js')).catch(() => {
     // Offline support is unavailable; the game continues to run online as before.
   });
 }

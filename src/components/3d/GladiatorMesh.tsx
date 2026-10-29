@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
 import { attachmentScaleForModelCorrection } from '../../utils/weaponAttachment';
+import { assetUrl } from '../../utils/assetUrl';
 import { attackPlaybackRateForAction } from '../../utils/attackContact';
 
 /**
@@ -123,7 +124,7 @@ export function useGlbAvailability(url: string): boolean {
 // models (amazonian, netfighter, minotaur, dimachaerus) load on demand via
 // useGLTF(modelUrl) inside RomanWarriorGLB when their archetype is selected.
 try {
-  useGLTF.preload('/models/arena_roman.glb');
+  useGLTF.preload(assetUrl('/models/arena_roman.glb'));
 } catch (e) {
   // Silent fallback
 }
@@ -195,11 +196,11 @@ const WeaponModel: React.FC<{ weaponType: string; goldColor: string }> = ({ weap
 // each non-gladius model still requires visual verification on a real GPU.
 // ---------------------------------------------------------------------------
 const SUPPORTED_WEAPON_MODEL_PATHS = new Set<string>([
-  '/models/weapons/gladius.glb',
-  '/models/weapons/spatha.glb',
-  '/models/weapons/dagger.glb',
-  '/models/weapons/dirk.glb',
-  '/models/weapons/shamshir.glb',
+  assetUrl('/models/weapons/gladius.glb'),
+  assetUrl('/models/weapons/spatha.glb'),
+  assetUrl('/models/weapons/dagger.glb'),
+  assetUrl('/models/weapons/dirk.glb'),
+  assetUrl('/models/weapons/shamshir.glb'),
 ]);
 
 // Per-model orientation correction. The four +Y-axis models (gladius, spatha,
@@ -210,7 +211,7 @@ const SUPPORTED_WEAPON_MODEL_PATHS = new Set<string>([
 // symmetric about the origin, so its grip placement relative to the hand is not
 // yet established and still requires visual verification on a real device.
 const WEAPON_MODEL_ROTATIONS: Record<string, [number, number, number]> = {
-  '/models/weapons/shamshir.glb': [0, 0, 0],
+  [assetUrl('/models/weapons/shamshir.glb')]: [0, 0, 0],
 };
 const DEFAULT_WEAPON_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0];
 
@@ -544,7 +545,7 @@ const RomanWarriorGLB: React.FC<{
   overrideAction,
   isLeftyMode,
   onInvalidModel,
-  modelUrl = '/models/arena_roman.glb',
+  modelUrl = assetUrl('/models/arena_roman.glb'),
   positionRef,
   rotationRef,
   impactRef,
@@ -1540,14 +1541,14 @@ class GLTFErrorBoundary extends React.Component<
 // 4. Main GladiatorMesh Component
 export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef, impactRef }: GladiatorMeshProps) => {
   const modelUrl = fighter.characterModel === 'amazonian'
-    ? '/models/amazonian.glb'
+    ? assetUrl('/models/amazonian.glb')
     : fighter.characterModel === 'retiarius'
-    ? '/models/netfighter.glb'
+    ? assetUrl('/models/netfighter.glb')
     : fighter.characterModel === 'minotaur'
-    ? '/models/minotaur.glb'
+    ? assetUrl('/models/minotaur.glb')
     : fighter.characterModel === 'dimachaerus'
-    ? '/models/dimachaerus.glb'
-    : '/models/arena_roman.glb';
+    ? assetUrl('/models/dimachaerus.glb')
+    : assetUrl('/models/arena_roman.glb');
   const isGlbAvailable = useGlbAvailability(modelUrl);
   const [loadFailed, setLoadFailed] = useState(false);
 

@@ -537,7 +537,10 @@ describe('L17D §D — the registries and the presentation contract', () => {
 
   test('the data module is still pure and the component gained only the boundary', () => {
     const dataCode = code(DATA_SOURCE);
-    expect(dataCode.split('\n').filter((line) => line.trimStart().startsWith('import '))).toHaveLength(0);
+    // L25 — the base-aware URL helper is the single, pure import a sign record needs.
+    expect(dataCode.split('\n').filter((line) => line.trimStart().startsWith('import '))).toEqual([
+      "import { assetUrl } from '../utils/assetUrl';",
+    ]);
     const specifiers = [...code(SIGN_SOURCE).matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]).sort();
     expect(specifiers).toEqual(
       ['../../../data/landmarkSigns', '../../ui/ThreeComponentErrorBoundary', '@react-three/drei', 'react', 'three'].sort(),

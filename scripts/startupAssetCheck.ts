@@ -51,31 +51,54 @@ function sizeOf(relPath: string): number {
   return statSync(resolve(ROOT, relPath)).size;
 }
 
-/** Every `/asset` URL an inline `<style>` block references. */
+/** The token Vite replaces with the deploy base while it builds `index.html` (L25). */
+const BASE_TOKEN = '%BASE_URL%';
+
+/**
+ * L25 — the boot path no longer names a public file from the site root. It names it
+ * from the BUILD'S OWN BASE, in one of three shapes:
+ *
+ *   `index.html`      `url(%BASE_URL%title_screen.webp)`, `href="%BASE_URL%icons/…"`
+ *   the manifest      `"src": "icons/…"` (relative to the manifest's own URL)
+ *   the worker        `baseUrl('icons/…')`
+ *
+ * All three resolve to the same file under `public/`, so the check reads each as
+ * the served path it becomes and compares it with the registry's canonical form.
+ */
+function asServedPath(reference: string): string {
+  const trimmed = reference.trim();
+  const withoutToken = trimmed.startsWith(BASE_TOKEN) ? trimmed.slice(BASE_TOKEN.length) : trimmed;
+  return withoutToken.startsWith('/') ? withoutToken : `/${withoutToken}`;
+}
+
+/** Every public-file URL an inline `<style>` block references. */
 function styleUrls(html: string): string[] {
   const found: string[] = [];
   const styleBlocks = html.match(/<style[\s\S]*?<\/style>/g) ?? [];
   for (const block of styleBlocks) {
-    for (const match of block.matchAll(/url\(\s*['"]?(\/[^'")]+)['"]?\s*\)/g)) {
-      found.push(match[1]);
+    for (const match of block.matchAll(/url\(\s*['"]?((?:%BASE_URL%|\/)[^'")]*)['"]?\s*\)/g)) {
+      found.push(asServedPath(match[1]));
     }
   }
   return found;
 }
 
-/** Every `/asset` URL an element attribute references (link/script/img/source). */
+/** Every public-file URL an element attribute references (link/script/img/source). */
 function attributeUrls(html: string): string[] {
   const found: string[] = [];
-  for (const match of html.matchAll(/(?:href|src)\s*=\s*['"](\/[^'"]+)['"]/g)) {
-    found.push(match[1]);
+  for (const match of html.matchAll(/(?:href|src)\s*=\s*['"]((?:%BASE_URL%|\/)[^'"]*)['"]/g)) {
+    found.push(asServedPath(match[1]));
   }
   return found;
 }
 
-/** Every `"src": "/..."` in the web app manifest's icon list. */
+/** Every icon `"src"` in the web app manifest — relative to the manifest's own URL. */
 function manifestIconUrls(manifest: string): string[] {
   const icons = JSON.parse(manifest).icons ?? [];
-  return icons.map((icon: { src?: string }) => icon?.src).filter((src: unknown): src is string => typeof src === 'string');
+  return icons
+    .map((icon: { src?: string }) => icon?.src)
+    .filter((src: unknown): src is string => typeof src === 'string' && !/^[a-z]+:/i.test(src))
+    .map(asServedPath);
 }
 
 /** The service worker's precache list, read as the string literals it is written as. */
@@ -83,7 +106,7 @@ function shellAssetUrls(sw: string): string[] {
   const block = sw.match(/const SHELL_ASSETS\s*=\s*\[([\s\S]*?)\]/);
   if (!block) return [];
   const found: string[] = [];
-  for (const match of block[1].matchAll(/'([^']+)'/g)) found.push(match[1]);
+  for (const match of block[1].matchAll(/'([^']+)'/g)) found.push(asServedPath(match[1]));
   return found;
 }
 

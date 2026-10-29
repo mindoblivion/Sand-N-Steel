@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
+import { assetUrl } from '../../../utils/assetUrl';
 import { useGLTF } from '@react-three/drei';
 
 /**
@@ -23,7 +24,7 @@ import { useGLTF } from '@react-three/drei';
  * tight backing because the panel silhouette extends beyond the sign edges.
  */
 
-const SIGN_GLB_PATH = '/signs/grand_colosseum/grand_colosseum.glb';
+const SIGN_GLB_PATH = assetUrl('/signs/grand_colosseum/grand_colosseum.glb');
 
 // Backing panel dimensions — ~30mm margin around the sign silhouette.
 const BACKING_WIDTH = 0.958; // sign width 0.898 + 2 × 0.030 margin

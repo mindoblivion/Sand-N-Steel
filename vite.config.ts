@@ -4,6 +4,14 @@ import path from 'path';
 import { defineConfig } from 'vite';
 import { resolveBuildId } from './scripts/buildId';
 
+/** `'/repo'`, `'repo/'`, `''`, `undefined` → a Vite-legal `'/repo/'` / `'/'`. */
+function normalizeBasePath(raw: string | undefined): string {
+  if (typeof raw !== 'string' || raw.trim() === '') return '/';
+  const trimmed = raw.trim();
+  const rooted = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return rooted.endsWith('/') ? rooted : `${rooted}/`;
+}
+
 /**
  * Alpha build identification (see src/utils/buildInfo.ts) — resolved ONCE, while
  * this config loads, and frozen into the bundle as `__BUILD_ID__`. The shipped
@@ -20,10 +28,13 @@ import { resolveBuildId } from './scripts/buildId';
 export default defineConfig(() => {
   return {
     plugins: [tailwindcss(), react()],
-    // The publish target sets BASE_PATH (the Pages workflow passes its site path).
-    // Every other build - dev server, sandbox preview, a plain `bun run build` -
-    // stays at the root, so this changes nothing unless the variable is set.
-    base: process.env.BASE_PATH || '/',
+    // The publish target sets BASE_PATH (the Pages workflow passes its site path,
+    // e.g. '/sand-and-steel/'). Every other build - dev server, sandbox preview, a
+    // plain `bun run build` - stays at the root, so this changes nothing unless the
+    // variable is set. Normalized to a leading+trailing slash because Vite requires
+    // that shape and a hand-set '/repo' would otherwise emit broken URLs; the SAME
+    // base reaches the client as `import.meta.env.BASE_URL` (see utils/assetUrl.ts).
+    base: normalizeBasePath(process.env.BASE_PATH),
     define: {
       __BUILD_ID__: JSON.stringify(resolveBuildId(import.meta.dirname)),
     },

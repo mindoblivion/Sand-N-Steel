@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
+import { assetUrl } from '../../../utils/assetUrl';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
@@ -84,7 +85,7 @@ import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
  * The motte is mounted once in CityHubScene via this component.
  */
 
-const MOTTE_URL = '/_workspace_motte_normals.glb';
+const MOTTE_URL = assetUrl('/_workspace_motte_normals.glb');
 
 // Preload at module import time (same pattern as NorthernFortress / GladiatorMesh).
 try {
