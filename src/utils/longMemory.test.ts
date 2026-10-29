@@ -441,7 +441,13 @@ describe('D-5 §G — the dusk state costs no draw call', () => {
     // AI-1 rebased the figure 32 → 34: each gate's solid grate box became a
     // merged bar grille (one-for-one) plus ONE merged dressing mesh (+2), and
     // this state's own property-only claim is unchanged — dusk adds no mesh.
-    expect((ARENA.match(/<mesh/g) ?? []).length).toBe(34);
+    // AI-2 REBASE: 44. The crowd's 56 per-spectator boxes are now two
+    // `<instancedMesh>` elements (which `/ <mesh/` does not match), while AI-2
+    // adds the baltei, the brazier stands, the pulvinar dressing, the velarium
+    // masts and awning, and the inscription band — six `<mesh>` elements and
+    // seven `<meshStandardMaterial>`s more than AI-1's 34. This state's own
+    // property-only claim is unchanged: dusk adds no mesh.
+    expect((ARENA.match(/<mesh/g) ?? []).length).toBe(44);
     // The scene passes both, on the same two props.
     expect(DUEL).toContain("? 'dusk'");
     // DAY/NIGHT T1 REBASE: the authored delta still WINS on the ember property (the

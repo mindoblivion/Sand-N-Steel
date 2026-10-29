@@ -570,7 +570,10 @@ describe('E. The DUEL mapping', () => {
     expect(duel.match(/<pointLight/g) ?? []).toHaveLength(0);
     // The arena's eight braziers are one point light in one map — still eight at run time.
     expect(arena.match(/<pointLight/g) ?? []).toHaveLength(1);
-    expect(arena).toContain('Array.from({ length: 28 })');
+    // AI-2 REBASE: the per-spectator loop is gone; the crowd is two
+    // InstancedMeshes of CROWD_COUNT, and still the only point light is one.
+    expect(arena).toContain('<instancedMesh');
+    expect(arena).toContain('CROWD_COUNT');
     expect(arena).toContain('[0, 1, 2, 3, 4, 5, 6, 7].map');
     // The two sky meshes swapped one for one: drei's `<Sky>` is gone.
     expect(duel).not.toMatch(/<Sky\b/);
