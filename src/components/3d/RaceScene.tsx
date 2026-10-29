@@ -4,6 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Settings as SettingsIcon, XCircle } from 'lucide-react';
 import { Environment, Lightformer, useGLTF } from '@react-three/drei';
 import { EastCircusArena } from './city/EastCircusArena';
+import { CircusCrowd } from './city/CircusCrowd';
 // Day/Night T1/T2 — the city's phase table, the circus's display-only override, and the
 // shared sky dome that replaces drei's `<Sky>`. T2 hands the phase IN from the clock (the
 // `phase` prop); this scene reads no phase constant and no save, and its override stays
@@ -814,6 +815,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             <ThreeComponentErrorBoundary componentName="RaceArenaAndChariot">
               <Suspense fallback={<CanvasLoadingFallback />}>
                 <EastCircusArena />
+        <CircusCrowd />
                 <RaceChariot
                   motion={motion}
                   input={input}
