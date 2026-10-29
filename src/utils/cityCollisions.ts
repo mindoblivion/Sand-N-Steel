@@ -613,6 +613,17 @@ export function resolveCityMovement(
   speed: number,
   delta: number
 ): [number, number, number] {
+  // Clamp the timestep so a low-framerate hitch cannot tunnel through walls.
+  // At ~1 FPS (or any device hitch) a single frame step of dx*speed*delta is
+  // meters long: the player teleports from one side of a building collider to
+  // the other in one step. 0.1s is the 10fps floor the test suite simulates at;
+  // at the 3.8 m/s stride speed the longest single step becomes 0.38m, under
+  // 2*PLAYER_RADIUS (0.8m), so every collider crossing lands a tested position
+  // inside the overlap capture zone and tunneling is impossible. Tradeoff:
+  // below 10fps the game time-dilates slightly instead of teleporting the
+  // player. That is the correct behavior. Clamped here (inside the resolver,
+  // not at call sites) so all current and future callers are protected.
+  delta = Math.min(delta, 0.1);
   const r = PLAYER_RADIUS;
   let x = currentPos[0];
   let z = currentPos[2];
