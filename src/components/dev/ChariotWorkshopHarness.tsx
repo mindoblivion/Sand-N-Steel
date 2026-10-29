@@ -34,8 +34,13 @@ import { purchaseChariotPart, equipChariotPart, resolveChariotLoadout } from '..
  *     (`purchaseChariotPart` / `equipChariotPart` → state → save), so the UI path
  *     under test is the shipping one.
  *
- * Removal: delete this file and revert the `?devHarness=chariot` branch in
- * `src/main.tsx` (the import + the conditional).  No other file references it.
+ * Reachable three ways, all inside the `import.meta.env.DEV` gate: the exact
+ * `?devHarness=chariot` query, the dev-only `sand_and_steel_dev_harness = 'chariot'`
+ * flag, or the PATH `/__dev/chariot` (for a preview browser that delivers neither a
+ * query nor a persisted flag across a load — the route phone-width checks use).
+ *
+ * Removal: delete this file and revert the `?devHarness=chariot` / `/__dev/chariot`
+ * branch in `src/main.tsx` (the import + the conditional).  No other file references it.
  *
  * Phase C-8.66D audited this file: a production build contains neither it nor its
  * chunk, so the harness is absent from a production runtime rather than merely

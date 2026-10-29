@@ -30,10 +30,12 @@ const useCharacterHarness =
   new URLSearchParams(window.location.search).get('devHarness') === 'character';
 
 // Phase C-8.66C — development-only Chariot Workshop transaction harness.
-// Reachable ONLY in a Vite dev build, either through the exact
-// `?devHarness=chariot` query parameter or — for a preview browser that cannot
-// deliver a query parameter on a reload — through the equivalent dev-only
-// scratch-storage flag `sand_and_steel_dev_harness = 'chariot'`.  It drives the REAL
+// Reachable ONLY in a Vite dev build, through the exact `?devHarness=chariot`
+// query parameter, the dev-only scratch-storage flag
+// `sand_and_steel_dev_harness = 'chariot'`, or the path `/__dev/chariot` — the
+// same path route ColosseumRearDiagnostic uses, for a preview browser that
+// delivers neither a query nor a persisted flag across a load (phone-width
+// checks).  It drives the REAL
 // workshop UI against a DISPOSABLE profile stored under its own storage key,
 // so a purchase and an equip can be exercised end to end without touching the
 // player's save.  `?gold=<n>` sets the disposable profile's starting purse when
@@ -54,7 +56,8 @@ const readDevHarnessFlag = (): string | null => {
 const useChariotHarness =
   import.meta.env.DEV &&
   (new URLSearchParams(window.location.search).get('devHarness') === 'chariot' ||
-    readDevHarnessFlag() === 'chariot');
+    readDevHarnessFlag() === 'chariot' ||
+    window.location.pathname === '/__dev/chariot');
 
 // Phase C-8.67C — development-only Racing Configuration transaction harness.
 // Reachable ONLY in a Vite dev build, through the exact `?devHarness=racing`

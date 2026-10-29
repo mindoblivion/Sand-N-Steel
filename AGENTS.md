@@ -12239,12 +12239,27 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   card 343 x 235 with **no horizontal overflow** (`scrollWidth` == `clientWidth` == 375), the exact
   "Brought by a visitor." status line, a **disabled** "BROUGHT BY A VISITOR." control and two
   **151 x 55** controls — above the 44 x 44 touch minimum — with zero console errors from the card.
-  This is a layout and touch-target measurement at phone width, not device acceptance, and it did **not**
-  exercise the owned/equipped states: reaching those needs the workshop harness, whose `?devHarness=`
-  query and dev flag both fail in this preview (the query is stripped at route opening and storage is
-  reset on every document load), so only the L22C desktop run recorded those states. A device pass still
-  has to confirm the owned/Equip/Equipped card states, the "Previewing (not equipped)" header and the
-  finish card's colour on the target GPU.
+  This is a layout and touch-target measurement at phone width, not device acceptance.
+- **L22E — `/__dev/chariot`: the harness reachable by PATH, and the phone-width equip states.** The
+  `?devHarness=` query and the `sand_and_steel_dev_harness` flag both fail in this preview (the query is
+  stripped at route opening, storage is reset on every document load), so `src/main.tsx`'s chariot gate
+  gained a third route — `window.location.pathname === '/__dev/chariot'`, the same shape as
+  `/__dev/colosseum-rear` and still inside `import.meta.env.DEV`, so production is unaffected and the
+  query and flag routes are unchanged. `public/sw.js` already bypasses every `/__dev/*` path, so no
+  worker change was needed. Driven there at 375 x 812 with the SHIPPING card controls: BUY the 240-gold
+  Oxblood finish (gold 600 -> 360, card state "Owned", Equip enabled) -> PREVIEW (header "Previewing
+  (not equipped)") -> EQUIP (header "Currently equipped", card "Equipped" and disabled, harness panel
+  `finish=finish_oxblood`, the disposable sessionStorage record persisted as
+  `equipped: { wheels: wheels_standard, finish: finish_oxblood }` with `owned` gaining
+  `finish_oxblood`, gold still 360 and the wheel slot unchanged). No horizontal overflow
+  (`scrollWidth` == `clientWidth` == 375); the card measured 351 x 202. `finish_ventive` cannot be
+  bought at any price, so the ordinary 240-gold finish reaches the same owned/Equip/Equipped card
+  states at phone width; the ventive-owned state remains L22C's desktop record. **Finding, not fixed
+  (needs approval, it is a UI change):** the two card controls measure 156 x 39 and 154 x 39 — under
+  the 44 px touch minimum — because a single-line card button is `py-2.5` only; L22D's 55-tall buttons
+  were the same style, made taller by the locked card's long "BROUGHT BY A VISITOR." label wrapping to
+  two lines. A device pass still has to confirm these card states on real hardware and the finish
+  card's colour on the target GPU.
 - **Tests actually run.** `bun test src/utils/l16dVisitorHarness.test.ts src/utils/visitorPurchase.test.ts
   src/utils/visitorChariotFinish.test.ts` inside the existing healthy `web` container → **103 pass /
   0 fail, 925 expect() calls, 3 files (119 ms)**, exit 0. No broad suite and no build were run; the diff
