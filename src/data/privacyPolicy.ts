@@ -22,23 +22,23 @@
  *     anywhere in `src/` — the only third parties are Google Firebase
  *     (authentication) and Google Drive (the player-directed backup).
  *
- * ── The placeholders ─────────────────────────────────────────────────────
- * `DEVELOPER_NAME`, `CONTACT_EMAIL` and `POLICY_LAST_UPDATED` are deliberately
- * unfinished: they are facts only the developer holds, and inventing them would
- * publish a false statement.  They are marked so a reader of the live page sees
- * at once that they still need setting, and setting them is a change to this
- * file alone.  `src/components/legal/LegalPages.tsx` re-uses `CONTACT_EMAIL` for
- * deletion requests rather than declaring a second address.
+ * ── The developer-supplied facts ─────────────────────────────────────────
+ * `DEVELOPER_NAME`, `CONTACT_EMAIL` and `POLICY_LAST_UPDATED` are the three
+ * things the policy cannot derive from code: who publishes the game, where a
+ * privacy or deletion request reaches them, and when the text last changed.
+ * They are set here, in this file alone.
+ * `src/components/legal/LegalPages.tsx` re-uses `CONTACT_EMAIL` for deletion
+ * requests rather than declaring a second address.
  */
 
-/** Developer: the name that publishes the game. Set before publishing. */
-export const DEVELOPER_NAME = '[DEVELOPER NAME — set before publishing]';
+/** Developer: the name that publishes the game. */
+export const DEVELOPER_NAME = 'Phatass';
 
-/** Developer: the address that privacy and deletion requests reach. Set before publishing. */
-export const CONTACT_EMAIL = '[CONTACT EMAIL — set before publishing]';
+/** Developer: the address that privacy and deletion requests reach. */
+export const CONTACT_EMAIL = 'phatass731@gmail.com';
 
-/** Developer: the date this policy last changed. Set before publishing. */
-export const POLICY_LAST_UPDATED = '[DATE — set before publishing]';
+/** Developer: the date this policy last changed. */
+export const POLICY_LAST_UPDATED = '29 October 2026';
 
 /** One section of the policy: a heading and its paragraphs, in order. */
 export interface PrivacyPolicySection {

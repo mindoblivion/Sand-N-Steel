@@ -485,11 +485,14 @@ describe('F. The privacy text', () => {
     expect(deletion).toContain(RETENTION_STATEMENT.slice(0, 45));
   });
 
-  test('the developer-supplied facts are marked placeholders, never invented', () => {
+  test('the developer-supplied facts are set, never left as placeholders', () => {
     for (const value of [DEVELOPER_NAME, CONTACT_EMAIL, POLICY_LAST_UPDATED]) {
-      expect(value).toContain('set before publishing');
+      expect(value).not.toContain('set before publishing');
+      expect(value.trim().length).toBeGreaterThan(0);
     }
-    expect(CONTACT_EMAIL).not.toMatch(/@(gmail|outlook|yahoo|hotmail|icloud)\./i);
+    expect(CONTACT_EMAIL).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+    expect(DEVELOPER_NAME).toBe('Phatass');
+    expect(POLICY_LAST_UPDATED).toBe('29 October 2026');
     // The deletion page re-uses the policy's own address rather than a second one.
     expect(DELETION_REQUEST_EMAIL).toBe(CONTACT_EMAIL);
   });
