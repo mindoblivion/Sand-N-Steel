@@ -2143,6 +2143,34 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <span>Decline — trust your own arm</span>
             </button>
           </div>
+
+          {/* NEMESIS-1 — THE ALTAR OF NEMESIS, the shrine's second altar, kept by
+              Postumia beside Fortuna's.  Content only: Nemesis takes no gold, gives
+              no words and draws no omen, so this section adds no control, no price
+              and no roll.  It READS the live omen for her one reactive beat and
+              writes nothing.  Iron and bone, never Fortuna's amber. */}
+          <div data-nemesis-altar className="mt-4 pt-3 border-t border-neutral-600/70">
+            <h5 className="font-serif font-black text-stone-200 text-[11px] sm:text-xs uppercase tracking-[0.15em] mb-1.5">
+              Altar of Nemesis
+            </h5>
+            <p className="text-[11px] sm:text-xs font-serif text-stone-300 leading-relaxed border-l-2 border-neutral-500/80 pl-2">
+              NEMESIS — who weighs the sand. Fortuna gives what she gives. Nemesis gives what is deserved.
+            </p>
+            <p className="mt-2 text-[10px] sm:text-[11px] font-sans text-neutral-300 leading-relaxed">
+              Nemesis keeps the other altar. She takes no gold and gives no words — she only watches, and her scales never lie.
+              <span className="block mt-1 font-serif uppercase tracking-[0.15em] text-[9px] sm:text-[10px] text-stone-400">
+                — Postumia
+              </span>
+            </p>
+            {liveOmen?.kind === 'ill' && (
+              <p
+                data-nemesis-ill-omen
+                className="mt-2 text-[10px] sm:text-[11px] font-serif text-stone-200 leading-relaxed border-l-2 border-stone-500/80 pl-2"
+              >
+                Nemesis has weighed you and found you wanting. Win anyway, and the scales tip back.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
