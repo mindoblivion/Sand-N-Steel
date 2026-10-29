@@ -12373,3 +12373,37 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   was run; no browser other than the replayed preview session could be inspected, so the player's own
   device save is unverified. **Physical Android acceptance remains PENDING** for every earlier item, and
   `dist/` was produced by the build and left in place (gitignored).
+
+## Production build → GitHub Pages (L24 — infrastructure added, root-serving only)
+
+- **What exists:** `.github/workflows/deploy-pages.yml` (push to `main` or manual dispatch) runs the
+  release gates — `bun test`, `bun run lint`, `bun run build` — and uploads `dist/` as the Pages
+  artifact; nothing deploys unless all three pass. `BUILD_COMMIT: ${{ github.sha }}` freezes the exact
+  revision into the title-screen label, and `BASE_PATH: ${{ vars.PAGES_BASE_PATH || '/' }}` feeds
+  `vite.config.ts`'s `base`. Enabling Pages still needs the repository setting *Settings → Pages →
+  Source: GitHub Actions*; no site is live today.
+- **Verified 2026-10-29 in the dev container (no source changed for this record):**
+  `bun run lint` → exit 0; `bun test` → **4190 pass / 0 fail (152 files)**
+  (the two gates the workflow runs); `bun run build` (no `BASE_PATH`) → exit 0, startup-asset check
+  passed, `dist/index.html` still root-relative (`/assets/...`, `/icons/...`, `/title_screen.webp`) — the
+  `base` addition is inert for every non-Pages build. A second build with
+  `BASE_PATH=/sand-and-steel/` → exit 0, and Vite did rewrite the bundle, CSS, icons, manifest and title
+  art to `/sand-and-steel/...`, and the startup-asset check still passed (it reads `index.html` from the
+  source tree and `public/`-relative files from `dist/`, so a base prefix does not break it).
+- **Why a project-site URL still does not work — measured from that subpath build, not assumed:** the
+  emitted bundle keeps **10 root-absolute model URLs** (`/models/arena_roman.glb`, `amazonian`,
+  `netfighter`, `minotaur`, `dimachaerus`, and the five `/models/weapons/*.glb`), sourced from
+  `src/data/itemsDB.ts` (`modelPath`), `src/utils/preloadAssets.ts` and `GladiatorMesh`'s loader/preload
+  list; and `src/main.tsx` registers the worker at `/sw.js`, with `public/sw.js` precaching `/`,
+  `/index.html`, `/offline.html`, the manifest and the icons root-absolutely. On a subpath deploy those
+  404 (blocky procedural fallback instead of the rigged gladiator, no offline shell) while the page
+  itself loads — the failure mode that reads as "the game looks broken" rather than "wrong path".
+- **Decision, deliberately not taken in this slice:** making those references base-relative (a small
+  `import.meta.env.BASE_URL` helper at the three model-loading boundaries, plus a base-aware service
+  worker registration/scope) touches the START-1 registry contract in `src/utils/startupAssets.ts`,
+  `scripts/startupAssetCheck.ts` and the `serviceWorker`/`start1` suites, which pin the root-absolute
+  strings today. Until that is approved as its own phase, deploy only to a **domain root** (a custom
+  domain or a `https://<owner>.github.io` user/org site), where the current build is correct as-is.
+- **Not verified / still open:** no Pages deployment has been run (nothing is published), so the
+  workflow's own runner behaviour (`oven-sh/setup-bun`, `configure-pages`, artifact upload) is unproven;
+  physical Android acceptance remains pending for every earlier phase.
