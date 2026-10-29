@@ -617,7 +617,10 @@ describe('E. The arrival', () => {
     // It is mounted with the city, not with any other screen.
     const city = appCode.indexOf("currentScreen === 'city_3d'");
     const beat = appCode.indexOf('{oathBeatMode && <OathBeat');
-    const hub = appCode.indexOf("currentScreen === 'hub_2d' && profile");
+    // Rebased by PLAY-1, not weakened: App's back-button wiring names the screen
+    // earlier in the component body, so the RENDER anchor is the last occurrence —
+    // which is the one this ordering check is about (the markup, not the handler).
+    const hub = appCode.lastIndexOf("currentScreen === 'hub_2d' && profile");
     expect(city).toBeGreaterThan(-1);
     expect(beat).toBeGreaterThan(city);
     expect(beat).toBeLessThan(hub);

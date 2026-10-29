@@ -85,7 +85,11 @@ import { sounds } from './audio/soundEffects';
 import { music } from './audio/musicEngine';
 import { preloadTitleStage } from './utils/preloadAssets';
 
-type GameScreen = 'title' | 'create_character' | 'city_3d' | 'hub_2d' | 'duel' | 'race';
+// PLAY-1 — the screen ids and what the browser/Android BACK button does with each of
+// them live in ONE contract module (`utils/screenHistory`), so the history guard and the
+// screen tree can never disagree about where back goes.
+import type { GameScreen } from './utils/screenHistory';
+import { useBackNavigation } from './hooks/useBackNavigation';
 
 /**
  * Phase C-8.70B Stage 1, Slice 1 — the city pose a race has to return the player
@@ -995,6 +999,40 @@ export function App() {
     saveProfile(lodged);
     return lodging;
   };
+
+  /**
+   * PLAY-1 — THE BACK BUTTON IS APP NAVIGATION, and this is the whole of its wiring.
+   *
+   * `overlayOpen` / `closeTopOverlay` are the topmost-first overlay chain: a back press
+   * closes what is actually on top (the duel result card, then account deletion, then
+   * settings, then the cloud-save panel, then the one-time banner choice) before it
+   * touches the screen underneath. Each entry is the same state setter the overlay's
+   * own close control calls, so back and the visible X can never disagree.
+   *
+   * `handleHistoryBack` is the screen step. The Ludus re-enters the city through the
+   * city's own entry path and a finished race leaves through the race's own exit, so a
+   * back press restores exactly what the screen's own button restores; everything else
+   * is the plain screen change. `duelResult` is cleared on the way out so a dismissed
+   * bout's card cannot reappear over the city.
+   */
+  const overlayOpen = duelResult !== null || deleteAccountOpen || settingsOpen || showDriveSync || deviceChoiceOpen;
+  const closeTopOverlay = (): boolean => {
+    if (duelResult) { handleDuelResultDismiss(); return true; }
+    if (deleteAccountOpen) { setDeleteAccountOpen(false); return true; }
+    if (settingsOpen) { setSettingsOpen(false); return true; }
+    if (showDriveSync) { setShowDriveSync(false); return true; }
+    if (deviceChoiceOpen) { setDeviceChoiceOpen(false); return true; }
+    return false;
+  };
+  const handleHistoryBack = (target: GameScreen) => {
+    if (target === 'city_3d') {
+      if (currentScreen === 'race') { handleExitRace(); return; }
+      if (currentScreen === 'hub_2d' && profile) { setDuelResult(null); enterCity(profile); return; }
+    }
+    setDuelResult(null);
+    setCurrentScreen(target);
+  };
+  useBackNavigation({ screen: currentScreen, goTo: handleHistoryBack, overlayOpen, closeTopOverlay });
 
   // A device that cannot draw the 3D world gets one plain-language surface and a retry,
   // never a scene that fails to render.

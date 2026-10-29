@@ -47,6 +47,8 @@ const sceneSrc = load('../components/3d/RaceScene.tsx');
 const citySrc = load('../components/3d/city/CityHubScene.tsx');
 const panelSrc = load('../components/hub/PreRacePanel.tsx');
 const arenaSrc = load('../components/3d/city/EastCircusArena.tsx');
+// PLAY-1: the screen union moved into the back-button contract module.
+const screenHistorySrc = load('./screenHistory.ts');
 
 /** A source with its comments stripped, so prose cannot satisfy (or defeat) a check. */
 const code = (source: string): string =>
@@ -71,7 +73,14 @@ const handlerBody = (source: string, name: string): string => {
 
 describe('A. The race is a screen of the existing machine', () => {
   test('App gains one screen value and one lazy import — no router', () => {
-    expect(appSrc).toContain("'duel' | 'race'");
+    // Rebased by PLAY-1, not weakened: the one screen union moved into
+    // `utils/screenHistory.ts` (the back button's contract), and App imports it. The
+    // property pinned is unchanged — the race is ONE value of the one screen union,
+    // mounted from a lazy import, with no router and no second scene manager.
+    expect(screenHistorySrc).toContain(
+      "export type GameScreen = 'title' | 'create_character' | 'city_3d' | 'hub_2d' | 'duel' | 'race';"
+    );
+    expect(appSrc).toContain("import type { GameScreen } from './utils/screenHistory';");
     expect(appSrc).toContain("import('./components/3d/RaceScene')");
     // Rebased by Slice 2 (driving): the race screen now also receives the
     // handedness flag, so its touch cluster can mirror in Lefty Mode.  The

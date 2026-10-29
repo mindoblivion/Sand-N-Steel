@@ -12509,3 +12509,52 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   Production build verified after removal; `public/README.md`, `public/README2.md`,
   `public/signs/manifest.json` and `public/icons/icon-source.svg` are unreferenced by the app but are
   authoring documentation/sources for shipped assets, so they were left alone.
+
+## Store-readiness Phase 1 — back button, mobile layout, e-commerce audit (PLAY-1 — implemented)
+
+- **The one real gap was navigation and it is now closed: the browser/Android BACK button
+  was pure document navigation.** The game has no router (`App.tsx` switches a `GameScreen`
+  value), so the history stack held exactly one entry and a back press from the arena,
+  character creation, the Ludus or the city left the document outright. New
+  `src/utils/screenHistory.ts` is the ONE contract: `SCREEN_BACK_TARGET` maps every screen to
+  its parent (`create_character` → `title`, `city_3d` → `title`, `hub_2d` / `duel` / `race` →
+  `city_3d`, `title` → `null` = leave the app), and the module keeps exactly ONE guard
+  history entry (never one per screen) that a back press pops. The handler closes the
+  topmost overlay first, then steps to the parent and re-arms — except when it lands on the
+  title, which re-arms nothing so the next press is the app's own exit. No URL is pushed, so
+  a back press never reloads the game.
+- **Wiring is two hooks' worth of code in `App.tsx`** (`src/hooks/useBackNavigation.ts` binds
+  the module to React state through a ref, so the pop listener is installed once):
+  `overlayOpen` / `closeTopOverlay` are the topmost-first chain — duel result → account
+  deletion → settings → cloud save → the one-time banner choice, each the same setter its own
+  close control calls — and `handleHistoryBack` mirrors the screens' own exits (a race leaves
+  through `handleExitRace`, the Ludus through `enterCity`, and `duelResult` is cleared on the
+  way out).
+- **`bun test src/utils/screenHistory.test.ts` — 13 driven cases** (the module takes its
+  browser surface as an `env`, so no DOM is needed): the screen tree, one-guard arming, the
+  walk upwards (Ludus → city → title, arena/circus → city, creation → title), the title as
+  the only exit, overlays closing before any screen step, the guard being dropped through our
+  own `history.back()` when the title is reached (and swallowed, and re-armed by the pop if
+  the player moved on meanwhile), install/dispose, and a control. Three source pins were
+  **rebased, not weakened**: `phaseC8_67c` and `phaseC8_70bStage1` now read the screen union
+  from its new owner in `utils/screenHistory.ts` (and pin that App imports it), and
+  `gladiatorOath`'s "the beat sits between the city and the hub markup" anchor uses
+  `lastIndexOf` because App's handler names the hub screen earlier in the body.
+- **E-commerce audit — nothing to remove.** A repo-wide sweep finds no third-party checkout,
+  no payment SDK, no `stripe`/`paypal`/IAP integration and no real-money purchase path: the
+  game sells nothing, and its gold, weapons, chariot parts and racing teams are bought with
+  in-game currency. The only outbound links are the privacy policy and the deletion page
+  (both own-origin, `target="_blank"`), so no critical link breaks out of the app frame.
+- **Verified 2026-10-29** in the dev container: `bun test` → **4214 pass / 0 fail (154
+  files)**, `bun run lint` (`tsc --noEmit`) → exit 0. Live preview (the user's session
+  replayed, so their save was read but **restored byte-for-byte** after the checks):
+  title → Settings opens → one `history.back()` closes the panel and the title stays; title →
+  Continue (3D city mounts) → one `history.back()` returns to the title; no console errors,
+  no failed requests. Layout at 375 / 768 / 1280 px: `scrollWidth == clientWidth` on the
+  title at all three, and the settings panel fits 353 × 763 inside 375 × 812 with every
+  category and its Done control reachable.
+- **Not automatically verified:** the back press from a **duel** and from a **race** were not
+  driven live (both need a bout/race to be entered, and entering the city writes the road
+  milestones of the replayed save); their mapping is covered by the driven suite, not by the
+  running app. The short-landscape (≈812 × 375) preview still needs a sized same-origin
+  iframe, as earlier phases recorded.

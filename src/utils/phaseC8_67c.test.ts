@@ -88,6 +88,8 @@ const code = (rel: string): string =>
     .replace(/^\s*\/\/.*$/gm, '');
 
 const APP = code('../App.tsx');
+/** Rebased by PLAY-1: the screen union moved into the back-button contract module. */
+const SCREEN_HISTORY = code('./screenHistory.ts');
 const MAIN = code('../main.tsx');
 const GEAR_TAB = code('../components/hub/GearTab.tsx');
 const HUB = code('../components/hub/GladiatorSchoolHub.tsx');
@@ -240,9 +242,15 @@ describe('C-8.67C §A — reachable from the Imperial Stable route, and nothing 
     // still has no screen, no tab and no subview of its own, and the hub's tab set
     // and the Armory's two subviews are exactly what they were.
     // App's screen union and the hub's tab union are the shipped ones.
-    expect(APP).toContain(
-      "type GameScreen = 'title' | 'create_character' | 'city_3d' | 'hub_2d' | 'duel' | 'race';"
+    // Rebased by PLAY-1, not weakened.  The union itself now lives in the back-button's
+    // one contract module (`utils/screenHistory.ts`) so the history guard and the screen
+    // tree cannot drift; App imports it.  The property this guard exists to pin is
+    // unchanged — the Racing Configuration still has no screen, no tab and no subview of
+    // its own — so the union pin follows its new owner and App is pinned to import it.
+    expect(SCREEN_HISTORY).toContain(
+      "export type GameScreen = 'title' | 'create_character' | 'city_3d' | 'hub_2d' | 'duel' | 'race';"
     );
+    expect(APP).toContain("import type { GameScreen } from './utils/screenHistory';");
     expect(APP).not.toContain("'racing'");
     const tabs = HUB.match(/key: '(tournament|training|shop|gear|stats)'/g) ?? [];
     expect(tabs).toHaveLength(5);
