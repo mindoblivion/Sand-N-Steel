@@ -4,6 +4,7 @@ import {
   getKeeper,
   nightClerkLine,
   resolveSeenKeepers,
+  selectOrigoLine,
   selectRepeatLine,
   type Keeper,
 } from '../../data/keepers';
@@ -120,7 +121,9 @@ export const BountyBoardPanel: React.FC<BountyBoardPanelProps> = ({
 
   const keeperLine = (keeper: Keeper, seenAtOpen?: boolean): string => {
     const seen = seenAtOpen ?? seenAtOpenRef.current;
-    const own = seen ? selectRepeatLine(keeper, 2) : keeper.firstVisitLine;
+    const own = seen
+      ? selectOrigoLine(keeper, profile) ?? selectRepeatLine(keeper, 2)
+      : keeper.firstVisitLine;
     // K4 — STATE > NIGHT > own, the same order every plated counter uses.
     const stateLine = keeperStateLineFor(keeper, profile);
     if (stateLine) return stateLine;
