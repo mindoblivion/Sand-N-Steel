@@ -18,5 +18,10 @@
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <!-- Android 12+ draws its own system splash from this attribute; without it the launch
+             shows the platform's white backdrop before the game's dark title screen. -->
+        <item name="android:windowSplashScreenBackground">@color/colorPrimaryDark</item>
+        <!-- Pre-Android 12 window backdrop: the generated splash artwork for this orientation. -->
+        <item name="android:windowBackground">@drawable/splash</item>
     </style>
 </resources>
