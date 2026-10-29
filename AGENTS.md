@@ -12558,3 +12558,40 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   milestones of the replayed save); their mapping is covered by the driven suite, not by the
   running app. The short-landscape (≈812 × 375) preview still needs a sized same-origin
   iframe, as earlier phases recorded.
+
+## Android packaging (Capacitor) — see `docs/ANDROID_RELEASE.md`
+
+- **The Play package name is `com.phatass.sandandsteel` and is PERMANENT** once the first
+  `.aab` is uploaded. It is repeated in `capacitor.config.ts` (`appId`),
+  `android/app/build.gradle` (`applicationId` + `namespace`) and
+  `android/app/src/main/res/values/strings.xml`. Never "tidy" or rename any of them; a
+  change creates a new listing and orphans every existing install. Warn the user before
+  any edit that touches those three files.
+- The native project `android/` is checked in and ships the **prebuilt** `dist/` bundle
+  copied into `android/app/src/main/assets/public` (git-ignored). So a native build is
+  always `bun run cap:sync` first, then `./gradlew bundleRelease` from `android/`.
+  `bun run cap:open` opens it in Android Studio.
+- **Gradle cannot run in this sandbox** (no JDK, no Android SDK). `./gradlew` is therefore
+  never verified here — `bun run cap:sync` succeeds and proves the web bundle copies, the
+  AAB compile happens on `.github/workflows/android-release.yml` or on the user's machine.
+  Do not claim an Android build passed without that CI run.
+- **Release signing** reads `android/keystore.properties` (git-ignored, see
+  `android/keystore.properties.example`); without it the release build is unsigned rather
+  than failing. The user's upload key is `Sand-and-Steel.keystore` + `keystore.pass`, held
+  outside the repo — never ask for it, never commit it, and remind them to back it up.
+- **Static check that catches what Gradle would**: every `@color/…`, `@drawable/…`,
+  `@mipmap/…` and `@xml/…` reference under `android/app/src/main/res` must resolve to a
+  file or a `<color>`/`<string>` definition. The Capacitor 8 template shipped
+  `styles.xml` referencing `@color/colorPrimary` / `colorPrimaryDark` / `colorAccent` with
+  no `values/colors.xml`, which is an AAPT "resource not found" build failure; it was
+  fixed by adding that file. Re-run this check after any resource edit.
+- Icons and splashes are generated from `resources/icon.png` + `splash(-dark).png` (made
+  from `public/icons/icon-source.svg`) with
+  `bunx capacitor-assets generate --android --iconBackgroundColor '#0c0a09' --splashBackgroundColor '#0c0a09'`.
+  Do not hand-edit `android/app/src/main/res/mipmap-*` or `drawable*` — regenerate instead.
+- **Known Android limitation: cloud-save sign-in does not work in the WebView.** All auth
+  goes through the Firebase **web** SDK (`signInWithPopup`/redirect), which cannot complete
+  inside a Capacitor WebView. The game plays fully offline; fixes need a native auth plugin
+  plus `google-services.json` (package `com.phatass.sandandsteel`) and the build's SHA-1
+  registered in Firebase. `android/app/build.gradle` already applies the google-services
+  plugin automatically if that file is ever added.

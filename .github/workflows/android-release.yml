@@ -1,0 +1,90 @@
+# Sand & Steel — build a signed Android App Bundle for Google Play.
+#
+# Manual only (Actions → this workflow → Run workflow) or on a `v*` tag: a feature branch
+# must never produce a store artifact. The web bundle is rebuilt from the checkout, copied
+# into `android/`, and signed with the upload keystore supplied as repository secrets.
+#
+# The package name is com.phatass.sandandsteel — see docs/ANDROID_RELEASE.md before changing
+# anything here.
+name: Build Android bundle
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install from the committed lockfile
+        run: bun install --frozen-lockfile
+
+      - name: Test suite
+        run: bun test
+
+      - name: Typecheck
+        run: bun run lint
+
+      # Builds dist/ and copies it into the native project.
+      - name: Sync web build into android/
+        env:
+          BUILD_COMMIT: ${{ github.sha }}
+        run: bun run cap:sync
+
+      - name: Restore the upload keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing repository secret $name — see docs/ANDROID_RELEASE.md."
+              exit 1
+            fi
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/app/Sand-and-Steel.keystore
+          cat > android/keystore.properties <<PROPS
+          storeFile=Sand-and-Steel.keystore
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          PROPS
+
+      - name: Build release bundle
+        working-directory: android
+        run: ./gradlew bundleRelease --no-daemon
+
+      - name: Upload the .aab
+        uses: actions/upload-artifact@v4
+        with:
+          name: sand-and-steel-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Forget the signing material
+        if: always()
+        run: rm -f android/app/Sand-and-Steel.keystore android/keystore.properties
