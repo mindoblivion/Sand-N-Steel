@@ -4,6 +4,7 @@ import { sounds } from '../../audio/soundEffects';
 import { armTitleAudioUnlock } from '../../audio/titleAudio';
 import { preloadTapStage } from '../../utils/preloadAssets';
 import { runTitlePrimaryAction } from '../../utils/titleAction';
+import { buildLabel } from '../../utils/buildInfo';
 import { useTitlePhaseBackdrop } from '../../hooks/useTitlePhaseBackdrop';
 import { TITLE_BACKDROP_CLASS } from '../../utils/startupAssets';
 import { TitleAccountPanel } from './TitleAccountPanel';
@@ -262,9 +263,11 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </button>
         </div>
 
-        {/* Version label */}
+        {/* Version label — the release name plus the build id this bundle was
+            compiled with (src/utils/buildInfo.ts), so a screenshot or a report names
+            the exact build and nothing here has to be kept in sync by hand. */}
         <div className="absolute bottom-2 left-2 z-10 font-serif text-[10px] text-amber-200/40 tracking-wider pointer-events-none select-none">
-          Alpha 1.0
+          {buildLabel()}
         </div>
 
         {/* The title's own footer entry: the privacy policy, at a public URL that needs
