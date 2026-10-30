@@ -72,6 +72,10 @@ const FORGE_IDS = [
   'dirk_desert',
   'shamshir_curved',
   'wooden_sword_shield',
+  'wpn_pilum',
+  'wpn_hasta',
+  'shd_scutum_gladius',
+  'shd_parma_pugio',
 ];
 
 const ARMORER_IDS = [
@@ -143,8 +147,8 @@ describe('SHOP-1 §A — the resolver is pure and order-preserving', () => {
 
 // ══════════════════════════════════════════════════════════════════════════
 describe('SHOP-1 §B — each storefront offers exactly its own set', () => {
-  test('forge offers 11 weapons', () => {
-    expect(getStorefrontStock('forge')).toHaveLength(11);
+  test('forge offers 15 weapons', () => {
+    expect(getStorefrontStock('forge')).toHaveLength(15);
     expect(new Set(getStorefrontStock('forge'))).toEqual(new Set(FORGE_IDS));
   });
 
@@ -224,9 +228,9 @@ describe('SHOP-1 §E — forge + armorer partition the market minus the starter'
 // ══════════════════════════════════════════════════════════════════════════
 describe('SHOP-1 §F — the item catalogue itself is untouched', () => {
   test('the database keeps its weapon and armor counts', () => {
-    expect(ALL_WEAPONS).toHaveLength(12);
+    expect(ALL_WEAPONS).toHaveLength(16);
     expect(ALL_ARMORS).toHaveLength(16);
-    expect(ITEMS_DB).toHaveLength(28);
+    expect(ITEMS_DB).toHaveLength(32);
   });
 
   test('the load-bearing ALL_WEAPONS order is intact', () => {
