@@ -203,12 +203,12 @@ test('collidesWith: mixed array, early exit', () => {
 // ════════════════════════════════════════════════════════════════════════════
 
 test('movement: X blocked by fountain', () => {
-  // Fountain at (0,0) r=3.6. Player at (5, 0) moving -X toward fountain.
-  // Collision boundary: 3.6 + 0.4 = 4.0 from center. Player should stop at x ≥ 4.0.
+  // Fountain at (0,0) r=4.0 (imperial fountain, 8 m base). Player at (5, 0) moving -X.
+  // Collision boundary: 4.0 + 0.4 = 4.4 from center. Player should stop at x ≥ 4.4.
   const pos: [number, number, number] = [5, 0, 0];
   const result = resolveCityMovement(pos, -1, 0, 3.8, 0.5);
-  // testX = 5 - 1.9 = 3.1 → collides (dist 3.1 < 4.0). Current (5,0) → dist 5 > 4.0 → no collision → blocked.
-  assert.ok(result[0] >= 4.0, `Expected x >= 4.0, got ${result[0]}`);
+  // testX = 5 - 1.9 = 3.1 → collides (dist 3.1 < 4.4). Current (5,0) → dist 5 > 4.4 → no collision → blocked.
+  assert.ok(result[0] >= 4.4, `Expected x >= 4.4, got ${result[0]}`);
 });
 
 test('movement: Z blocked by building rect', () => {
@@ -236,14 +236,14 @@ test('movement: diagonal into wall → slides along Z', () => {
 });
 
 test('movement: diagonal into fountain → slides along Z', () => {
-  // Fountain at (0,0) r=3.6. Player at (4.1, 0) moving -X and +Z.
-  // Collision boundary: 4.0 from center. Player at 4.1 is just outside.
-  // Moving -X: testX = 4.1 - 0.19 = 3.91 → collides (3.91 < 4.0). X blocked.
-  // Moving +Z: testZ = 0 + 0.19 = 0.19 → at (4.1, 0.19), dist = sqrt(4.1² + 0.19²) ≈ 4.10 > 4.0 → no collision. Z allowed.
-  const pos: [number, number, number] = [4.1, 0, 0];
+  // Fountain at (0,0) r=4.0 (imperial fountain, 8 m base). Player at (4.5, 0) moving -X and +Z.
+  // Collision boundary: 4.4 from center. Player at 4.5 is just outside.
+  // Moving -X: testX = 4.5 - 0.19 = 4.31 → collides (4.31 < 4.4). X blocked.
+  // Moving +Z: testZ = 0 + 0.19 = 0.19 → at (4.5, 0.19), dist ≈ 4.504 > 4.4 → no collision. Z allowed.
+  const pos: [number, number, number] = [4.5, 0, 0];
   const result = resolveCityMovement(pos, -1, 1, 3.8, 0.05);
-  // X should be blocked (stays ≈ 4.1)
-  approx(result[0], 4.1, 0.01);
+  // X should be blocked (stays ≈ 4.5)
+  approx(result[0], 4.5, 0.01);
   // Z should have moved (slide along Z)
   assert.ok(result[2] > 0, `Expected z > 0, got ${result[2]}`);
 });
@@ -358,7 +358,7 @@ test('spawn: [0, 0, 16] is collision-free', () => {
 // ════════════════════════════════════════════════════════════════════════════
 
 test('colosseum: approach from avenue is clear (at X=5, avoiding fountain)', () => {
-  // The fountain at (0,0) r=3.6 blocks the centerline. Approach at X=5 to go around it.
+  // The fountain at (0,0) r=4.0 blocks the centerline. Approach at X=5 to go around it.
   for (let z = 16; z >= -5; z -= 1) {
     assert.ok(!collidesWith(5, z, R, CITY_COLLIDERS),
       `Blocked at (5, ${z}) on approach`);

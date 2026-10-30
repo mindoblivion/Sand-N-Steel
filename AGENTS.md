@@ -12658,3 +12658,47 @@ Four requests, one pass. Every claim below was run in the dev container unless i
   (`model/gltf-binary`, 15,248,136 bytes). `dist/`: 120 MB → **73 MB**. The `pruneDevOnlyPublicFiles`
   plugin an intermediate pass added to `vite.config.ts` was **removed** — moving the files made it
   dead code, and the config is back to `plugins: [tailwindcss(), react()]`.
+
+## Plaza fountain — imperial fountain replacement (implemented)
+
+- **What changed.** `ProcessionAvenue`'s section 6 (`CENTRAL PLAZA MONUMENTAL NAVE FOUNTAIN`, a
+  4-cylinder placeholder + one bronze sphere) is gone; the plaza now mounts `<CivicFountain />`
+  from `src/components/3d/city/CivicFountain.tsx`. Nothing else in the plaza moved except the four
+  innermost forum benches (below).
+- **Modular by construction.** Five separately exported parts hang from one `<group name="Fountain_Root">`,
+  so any tier can be hidden, LOD-ed or instanced on its own:
+  `FountainBasePool` (tier 1, lion-head spouts + relief band), `FountainColumnTier` (8 Corinthian
+  columns, carved pedestal, middle basin), `FountainTopBasin` (dolphin rim), `FountainStatue`
+  (emperor, 2.2 m, `tone="marble" | "bronze"`) and `FountainWater`. There is no mega-mesh and no
+  runtime GLB.
+- **Real-world scale lives in `src/utils/fountainSpec.ts`** — `FOUNTAIN_SPEC` (6.5 m tall, 8.0 m
+  base diameter, 1.0 m pool wall, 2.2 m statue, statue base 4.30) and `FOUNTAIN_PBR` (marble
+  roughness 0.30, weathered marble 0.75, water 0.08, bronze patina metalness 1.0). The rendered build
+  and `collisionShapes.ts` both read that module, so the collider cannot drift from the mesh.
+- **Collision is one analytic cylinder** (`fountain`, circle at the origin, `r = FOUNTAIN_SPEC.baseRadius`
+  = 4.0, was 3.6). `FOUNTAIN_COLLISION` records the two upper tier boxes, but they are **not**
+  registered: both sit inside the base cylinder (1.98 and 1.08 against 4.0) and the resolver is 2-D
+  at ground level, so a box up there could never change a movement result. Never a mesh collider.
+- **Rebased, not weakened, by the 0.4 m larger footprint:** the `r: 3.6` pins in
+  `phaseC8_27/28/31.test.ts`; `scripts/collisionTests.ts`'s two fountain movement tests (start x 4.1 →
+  4.5, boundary 4.0 → 4.4); and one sample point in `phaseC8_33.test.ts` (z −4.0 → −4.5), because the
+  fountain's blocked edge moved 0.4 north and the old sample now sits inside the fountain itself. The
+  Colosseum doorway corridor between that edge (−4.4) and the portal face (−5.7) is still 1.3 m of
+  clear walking.
+- **The four forum benches** stepped out from `[±4.8, 1.0] / [±4.8, 4.8]` to `[±5.2, 1.1] / [±5.2, 5.2]`:
+  their yawed seat slab (AABB half 0.937) cleared the old 3.6 m rim by 0.30 and would have overlapped
+  the new 4.0 m foundation by 0.10. Measured margin now 0.38.
+- **Performance.** Everything repeated is instanced (dentils, relief panels, shields, all lion spouts,
+  the eight columns in four parts, dolphin carvings, both cascades), and all geometry/material/texture
+  objects are module singletons or memoised with disposal on unmount. The diagnostic measures
+  **49 meshes / 12,300 triangles** for the whole fountain.
+- **Dev harness:** `?devHarness=fountain` (`src/components/dev/FountainDiagnostic.tsx`) mounts the real
+  `ProcessionAvenue` behind three fixed cameras and reports the fountain's measured world bounds and
+  mesh cost — the city hub renders at ~2 fps through SwiftShader, which is too slow to orbit a 6.5 m
+  asset. Dev-gated in `src/main.tsx` like every other harness; reads no save.
+- **Verified 2026-10-30** in the dev container: `bun test` → 4234 pass / 0 fail (156 files);
+  `bun run scripts/collisionTests.ts` → 123 passed, 0 failed; `bun run lint` (`tsc --noEmit`) → exit 0.
+  Preview (dev harness, production plaza): measured **height 6.50 m, width 8.00 × 8.00 m**, captured at
+  desktop and mobile (400 px) from the player-eye, hero 3/4 and plan cameras; no console errors.
+  **Not verified:** the fountain through the in-game chase camera (same scene, different camera) and
+  any on-device look — the Android preview check remains open.

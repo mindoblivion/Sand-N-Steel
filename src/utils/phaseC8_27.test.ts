@@ -636,7 +636,8 @@ describe('F. Nothing else about the Colosseum or the city moved', () => {
       if (!c) throw new Error(`collider '${id}' missing`);
       return c;
     };
-    expect(byId('fountain')).toMatchObject({ type: 'circle', cx: 0, cz: 0, r: 3.6 });
+    // Imperial fountain replacement: 8 m base diameter → radius 4.0 (was 3.6).
+    expect(byId('fountain')).toMatchObject({ type: 'circle', cx: 0, cz: 0, r: 4.0 });
     expect(byId('smithing-forge')).toMatchObject({ cx: 18, cz: 2.6, hw: 9.5 / 2, hd: 8.0 / 2 });
     expect(byId('general-store')).toMatchObject({ cx: 22, cz: -5, hw: 7.7 / 2, hd: 6.3 / 2 });
     expect(byId('merchant-house')).toMatchObject({ cx: 26, cz: -13, hw: 7.7 / 2, hd: 7.0 / 2 });

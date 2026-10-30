@@ -626,7 +626,8 @@ describe('F. Nothing else about the Colosseum moved', () => {
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('motte-wall')).length).toBe(20);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('fortress-')).length).toBe(5);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('yard-wall')).length).toBe(14);
-    expect(CITY_COLLIDERS.find((c) => c.id === 'fountain')).toMatchObject({ cx: 0, cz: 0, r: 3.6 });
+    // Imperial fountain replacement: 8 m base diameter → radius 4.0 (was 3.6).
+    expect(CITY_COLLIDERS.find((c) => c.id === 'fountain')).toMatchObject({ cx: 0, cz: 0, r: 4.0 });
     expect(CITY_COLLIDERS.find((c) => c.id === 'general-store')).toMatchObject({ cx: 22, cz: -5 });
   });
 

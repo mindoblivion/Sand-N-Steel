@@ -11,6 +11,7 @@
  */
 
 import { MOTTE_CENTER_Z } from './terrainHeight';
+import { FOUNTAIN_SPEC } from './fountainSpec';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -411,8 +412,13 @@ const buildingRects: RectCollider[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fountain — central plaza, ProcessionAvenue.tsx root [0, 0, 0]
-// Tier 1 outer basin: cylinderGeometry [3.2, 3.6, 0.7] → outer radius 3.6
+// Fountain — central plaza, CivicFountain.tsx `Fountain_Root` at [0, 0, 0]
+// The imperial fountain's footprint is 8 m across, so the base cylinder is
+// radius 4.0 (its stepped foundation's outer edge), 1.0 m of pool wall tall.
+// Its upper tiers are recorded in `FOUNTAIN_COLLISION` but are NOT registered:
+// they sit inside this cylinder's footprint (radius 1.98 and 1.08 against 4.0)
+// and the resolver is 2D, so a box collider up there could never change a
+// movement result. Never a mesh collider.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const fountainCircle: CircleCollider = {
@@ -420,8 +426,9 @@ const fountainCircle: CircleCollider = {
   id: 'fountain',
   cx: 0,
   cz: 0,
-  r: 3.6,
+  r: FOUNTAIN_SPEC.baseRadius,
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Colosseum Curved Exterior Wall — GrandColosseum.tsx, root [0, 0, -25]

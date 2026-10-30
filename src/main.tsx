@@ -94,6 +94,14 @@ const useColosseumRearHarness =
   (new URLSearchParams(window.location.search).get('devHarness') === 'colosseum-rear' ||
     window.location.pathname === '/__dev/colosseum-rear');
 
+// Plaza fountain diagnostic — development-only, `?devHarness=fountain`.  Mounts
+// the production plaza (and therefore the real fountain) behind fixed cameras so
+// the asset can be inspected in a few frames; the city hub itself runs at ~2 fps
+// in this sandbox.
+const useFountainHarness =
+  import.meta.env.DEV &&
+  new URLSearchParams(window.location.search).get('devHarness') === 'fountain';
+
 // Phase C-8.70B Stage 1, Slice 2 — development-only RACE harness.  Reachable
 // ONLY in a Vite dev build, through the exact `?devHarness=race` query parameter
 // or the equivalent dev-only scratch-storage flag `sand_and_steel_dev_harness =
@@ -159,7 +167,15 @@ const useHeraldHarness =
 // the address this entry point resolves cannot drift apart.
 const publicPage = resolvePublicPage(stripSiteBase(window.location.pathname));
 
-if (useColosseumRearHarness) {
+if (useFountainHarness) {
+  void import('./components/dev/FountainDiagnostic').then(({ FountainDiagnostic }) => {
+    mountRoot(
+      <React.StrictMode>
+        <FountainDiagnostic />
+      </React.StrictMode>,
+    );
+  });
+} else if (useColosseumRearHarness) {
   void import('./components/dev/ColosseumRearDiagnostic').then(({ ColosseumRearDiagnostic }) => {
     mountRoot(
       <React.StrictMode>

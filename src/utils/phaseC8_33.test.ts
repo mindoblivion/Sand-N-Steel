@@ -521,7 +521,12 @@ describe('E. The front portal and the C-8.27 closures are exactly as they were',
 
   test('the courtyard doorway is still collision-free right through the bowl', () => {
     for (const x of [-2.0, -1.0, 0, 1.0, 2.0]) {
-      for (const z of [-4.0, -6.5, -7.5, -9.925, -12.0, -16.0]) {
+      // Sample starts at z = -4.5, not -4.0: the plaza fountain was replaced with the
+      // 8 m-diameter imperial fountain (base radius 4.0, was 3.6), so its blocked edge
+      // moved 0.4 north and the old -4.0 samples now sit inside its own footprint.
+      // The doorway corridor itself is unchanged and still 1.3 m of clear walking
+      // between that edge (-4.4) and the portal face (-5.7).
+      for (const z of [-4.5, -6.5, -7.5, -9.925, -12.0, -16.0]) {
         expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), `doorway (${x}, ${z})`).toBe(false);
       }
     }
