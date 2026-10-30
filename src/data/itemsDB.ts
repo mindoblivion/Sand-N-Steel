@@ -58,6 +58,29 @@ export const DEFAULT_PLAYER_WEAPON: WeaponItem = {
   bonusDefense: 2,
 };
 
+export const WOODEN_SWORD_SHIELD: WeaponItem = {
+  id: 'wooden_sword_shield',
+  name: 'Wooden Sword & Shield',
+  type: 'sword_shield',
+  rarity: 'common',
+  description: 'Practice arms of pine and wicker. Every champion starts somewhere.',
+  damageLight: 8,
+  damageHeavy: 15,
+  staminaLight: 10,
+  staminaHeavy: 20,
+  range: 2.0,
+  speed: 0.36,
+  blockReduction: 0.6,
+  price: 10,
+  sellPrice: 4,
+  color: '#92400e',
+  metalColor: '#d6a679',
+  icon: 'Shield',
+  modelPath: WEAPON_MODEL_PATHS.gladius,
+  bonusStrength: 0,
+  bonusDefense: 0,
+};
+
 /**
  * EVERY ACQUIRABLE WEAPON.
  *
@@ -276,6 +299,7 @@ export const ALL_WEAPONS: WeaponItem[] = [
     bonusStrength: 4,
     bonusAgility: 3,
   },
+  WOODEN_SWORD_SHIELD,
 ];
 
 /** Spare weapon granted to every new gladiator alongside the default gladius. */

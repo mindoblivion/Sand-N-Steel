@@ -414,7 +414,7 @@ describe('P5 §D — the gates the buildings hold', () => {
       reason: 'facility-required',
     });
     expect(purchaseTemper(l1, gladius)).toBe(l1);
-    expect(l1.gold).toBe(980);
+    expect(l1.gold).toBe(995);
 
     const bench = { ...l1, facilities: { workshop: 1 } } as PlayerProfile;
     const l2 = purchaseTemper(bench, gladius);
@@ -428,7 +428,7 @@ describe('P5 §D — the gates the buildings hold', () => {
     const forge = { ...l2, facilities: { workshop: 2 } } as PlayerProfile;
     const l3 = purchaseTemper(forge, gladius);
     expect(resolveTemperLevel(l3, gladius)).toBe(3);
-    expect(l3.gold).toBe(980 - 40 - 70);
+    expect(l3.gold).toBe(970);
   });
 
   test('stable quality: Racing Bred needs stable L1 and Champion Bloodline L2', () => {

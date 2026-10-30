@@ -44,6 +44,7 @@ const withInventory = (inventory: WeaponItem[], gold = 100): PlayerProfile => ({
   ...createNewProfile('Surface Tester'),
   gold,
   inventory,
+  equipped: { weapon: inventory[0] },
 });
 
 const markupOf = (element: React.ReactElement): string => renderToStaticMarkup(element);

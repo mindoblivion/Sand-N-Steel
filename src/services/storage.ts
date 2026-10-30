@@ -1,5 +1,5 @@
 import { PlayerProfile, FighterStats, ArmaturaId } from '../types/game';
-import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON } from '../data/itemsDB';
+import { DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON, WOODEN_SWORD_SHIELD } from '../data/itemsDB';
 import { getArmatura } from '../data/armaturae';
 import { armaturaKit } from '../utils/characterCreation';
 import {
@@ -150,9 +150,9 @@ export function createNewProfile(
     trainingSessionsLeft: 2,
     injury: null,
     equipped: {
-      weapon: DEFAULT_PLAYER_WEAPON,
+      weapon: WOODEN_SWORD_SHIELD,
     },
-    inventory: [DEFAULT_PLAYER_WEAPON, STARTING_SPARE_WEAPON], // includes spear
+    inventory: [WOODEN_SWORD_SHIELD, STARTING_SPARE_WEAPON], // includes spear
     fightsWon: 0,
     fightsLost: 0,
     peakCrowdHypeOverall: 0,
