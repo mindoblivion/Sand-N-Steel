@@ -12583,10 +12583,22 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   copied into `android/app/src/main/assets/public` (git-ignored). So a native build is
   always `bun run cap:sync` first, then `./gradlew bundleRelease` from `android/`.
   `bun run cap:open` opens it in Android Studio.
-- **Gradle cannot run in this sandbox** (no JDK, no Android SDK). `./gradlew` is therefore
-  never verified here — `bun run cap:sync` succeeds and proves the web bundle copies, the
-  AAB compile happens on `.github/workflows/android-release.yml` or on the user's machine.
-  Do not claim an Android build passed without that CI run.
+- **Gradle CAN run here through a container — `bundleRelease` was verified 2026-10-30.** The
+  host and the `web` service have no JDK/Android SDK, but `eclipse-temurin:21-jdk` is available:
+  install the SDK once into a host dir (`/tmp/android-sdk`, from
+  `commandlinetools-linux-*_latest.zip`; `chmod -R +x .../bin` after extracting it), accept the
+  licences and `sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"`,
+  then run Gradle from a container mounting `/app`, that SDK dir (`ANDROID_HOME`) and a persistent
+  `GRADLE_USER_HOME`. **Mount the `app_web_node_modules` volume at `/app/node_modules` too** —
+  `android/capacitor.settings.gradle` resolves `:capacitor-android` from
+  `../node_modules/@capacitor/android/capacitor`, and without it Gradle dies with "No matching
+  variant of project :capacitor-android was found". Run `bun run cap:sync` in the `web` service
+  first, then `./gradlew bundleRelease --no-daemon` in `android/`. Result that build produced:
+  `app-release.aab` 48.3 MB / 523 entries, horse models absent, current icons and the lazy
+  `LegalPages` (terms) chunk inside. **Without `android/keystore.properties` that bundle is
+  unsigned (no `META-INF/`) and Play Console will reject it** — the store artifact still has to
+  come from `.github/workflows/android-release.yml` (four repo secrets) or the user's machine.
+  Never claim a signed/store-ready bundle without that signed run.
 - **Release signing** reads `android/keystore.properties` (git-ignored, see
   `android/keystore.properties.example`); without it the release build is unsigned rather
   than failing. The user's upload key is `Sand-and-Steel.keystore` + `keystore.pass`, held
