@@ -7,7 +7,7 @@ packaged into the APK/AAB, so these files are listing material only.
 
 | Play Console field | file | spec | status |
 |---|---|---|---|
-| Store listing → App icon | `public/icons/icon-512.png` | 512×512 PNG, opaque (no alpha) | ready |
+| Store listing → App icon | `store/play/icon-512.png` | 512×512 PNG, opaque RGB (no alpha) | ready |
 | Store listing → Feature graphic | `store/play/feature-graphic-1024x500.png` | 1024×500, 24-bit PNG (no alpha), 1.2 MB | ready |
 | Store listing → Phone screenshots | `store/play/screenshot-phone-01-1080x2160.jpg`, `store/play/screenshot-phone-02-1080x2160.jpg` | 1080×2160 (2.000:1), 24-bit JPEG, no alpha | ready |
 

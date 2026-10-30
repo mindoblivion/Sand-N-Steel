@@ -25,7 +25,7 @@
  *
  * ── WHAT IS MEASURED, AND WHAT IS DERIVED ────────────────────────────────
  * MEASURED — `HORSE_FIT_MEASURED` below, re-read from
- * `public/_workspace_dist_horse_weak.glb` (15,248,136 bytes, sha256
+ * `src/assets/dev/horses/_workspace_dist_horse_weak.glb` (15,248,136 bytes, sha256
  * 0a00300e…) in the rest pose, in the frame GLTFLoader hands back (the file's
  * single parentless node carries the identity matrix, so its own +X/+Y/Z frame
  * IS the rendered frame).  The C-8.68A audit recorded the same figures; this
@@ -102,8 +102,20 @@ export type Vec3 = [number, number, number];
  * three uploads.  It is loaded ON DEMAND by the dev harness only — it is
  * deliberately absent from `utils/preloadAssets.ts`, so its 15.2 MB never joins
  * any production payload — and it is never written to, renamed or modified.
+ *
+ * ── Why it lives in `src/assets/dev/horses/`, not `public/` ──────────────
+ * Vite copies EVERY file in `public/` into the build, imported or not, so living
+ * there put all 47.4 MB of horse uploads into `dist/`, `cap sync` and the Play AAB —
+ * download weight for art that only this prototype ever opens.  Under `src/` a file
+ * reaches a build only by being imported, and nothing imports these: this module is
+ * reached exclusively from `main.tsx`'s `import.meta.env.DEV` branch
+ * (`?devHarness=horsefit`), which a production bundle drops.  The dev server serves
+ * the file at the URL below (checked: 200, `model/gltf-binary`, 15,248,136 bytes);
+ * a production build emits nothing.  The other two uploads sit beside it and are
+ * referenced by hash only.  A new asset of this kind belongs here, not in `public/`.
  */
-export const HORSE_FIT_ASSET_URL = assetUrl('/_workspace_dist_horse_weak.glb');
+export const HORSE_FIT_ASSET_PATH = '/src/assets/dev/horses/_workspace_dist_horse_weak.glb';
+export const HORSE_FIT_ASSET_URL = assetUrl(HORSE_FIT_ASSET_PATH);
 
 /** Byte size and hash, so a re-export of the asset fails loudly rather than silently. */
 export const HORSE_FIT_ASSET_BYTES = 15_248_136;

@@ -575,6 +575,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </RowCard>
                 )}
+                {/* The terms of service live at their own public URL too, built exactly
+                    like the privacy row below it: an anchor, opened in a new tab. */}
+                <a
+                  href={assetUrl('/terms')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full min-h-[56px] rounded-2xl bg-neutral-950/90 border border-neutral-700 hover:border-amber-500 px-4 py-3 shadow-lg cursor-pointer transition-colors flex items-center justify-between gap-3"
+                >
+                  <RowLabel
+                    label="Terms of service"
+                    description="The rules for playing: your account, your save, and what is — and is not — for sale."
+                  />
+                  <span className="shrink-0 font-serif font-bold text-xs uppercase tracking-wider text-amber-300">
+                    Read
+                  </span>
+                </a>
+
                 {/* The privacy policy lives at its own public URL, so this row is an
                     anchor and not a panel route — and a new tab keeps the game (and
                     anything unsaved in a session) exactly where it was. */}

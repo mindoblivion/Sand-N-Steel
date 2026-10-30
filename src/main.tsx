@@ -238,7 +238,12 @@ if (useColosseumRearHarness) {
   // no sign-in.  Dynamically imported (like every branch above) so neither page lands
   // in the game's own chunk.
   void import('./components/legal/LegalPages').then((pages) => {
-    const Page = publicPage === 'privacy' ? pages.PrivacyPolicyPage : pages.DeleteAccountPage;
+    const Page =
+      publicPage === 'privacy'
+        ? pages.PrivacyPolicyPage
+        : publicPage === 'terms'
+          ? pages.TermsOfServicePage
+          : pages.DeleteAccountPage;
     mountRoot(
       <React.StrictMode>
         <Page />

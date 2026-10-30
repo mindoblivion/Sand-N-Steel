@@ -703,7 +703,8 @@ describe('C-8.67D §F — three abreast on the centre line is geometrically impo
 describe('C-8.67D §G — the horse-asset inventory: what exists, and what it is', () => {
   // REBASED by C-8.68A, not weakened.  When this suite was written the repo held no
   // horse file at all, so "there are none" was the true statement.  Three horse GLBs
-  // were uploaded afterwards (`public/_workspace_dist_horse_{weak,better,great}.glb`),
+  // were uploaded afterwards (now `src/assets/dev/horses/_workspace_dist_horse_{weak,better,great}.glb`
+  // — moved out of `public/` so a production build stops copying them; see C-8.70c packaging),
   // so the property this section exists to protect is restated exactly: those three
   // are the ONLY horse files in the project, they are byte-identical to the copies the
   // C-8.68A audit measured, and no source file references them — nothing horse-shaped
@@ -739,9 +740,9 @@ describe('C-8.67D §G — the horse-asset inventory: what exists, and what it is
       .sort();
     expect(matches).toEqual(
       [
-        'public/_workspace_dist_horse_better.glb',
-        'public/_workspace_dist_horse_great.glb',
-        'public/_workspace_dist_horse_weak.glb',
+        'src/assets/dev/horses/_workspace_dist_horse_better.glb',
+        'src/assets/dev/horses/_workspace_dist_horse_great.glb',
+        'src/assets/dev/horses/_workspace_dist_horse_weak.glb',
         ...C8_68C_PROTOTYPE,
       ].sort()
     );
@@ -750,13 +751,13 @@ describe('C-8.67D §G — the horse-asset inventory: what exists, and what it is
     // cite (the proportions, the 31-joint rig, the three clip names and durations).
     // C-8.68C reads the same three files and modifies none of them.
     const sha256 = (p: string) => createHash('sha256').update(readFileSync(p)).digest('hex');
-    expect(sha256(repo('public/_workspace_dist_horse_weak.glb'))).toBe(
+    expect(sha256(repo('src/assets/dev/horses/_workspace_dist_horse_weak.glb'))).toBe(
       '0a00300e57892e30a6b5a186a37b1c1a6ec1aeb8b21cd952036d38250e3c9d58'
     );
-    expect(sha256(repo('public/_workspace_dist_horse_better.glb'))).toBe(
+    expect(sha256(repo('src/assets/dev/horses/_workspace_dist_horse_better.glb'))).toBe(
       '639b75d53607d3560267970507bc4451badb6160cece47a0354eb62dc180fed8'
     );
-    expect(sha256(repo('public/_workspace_dist_horse_great.glb'))).toBe(
+    expect(sha256(repo('src/assets/dev/horses/_workspace_dist_horse_great.glb'))).toBe(
       'f7e1b698fef8e95e5fd7d7b70a2c5640965b8121f1a0f541bacbaa4b1b6f2aa0'
     );
     // Unreferenced by PRODUCTION: no `.ts`/`.tsx` file that can ship names any of the
@@ -779,7 +780,8 @@ describe('C-8.67D §G — the horse-asset inventory: what exists, and what it is
       .map((f) => f.replace(repo(''), ''))
       .sort();
     expect(referencing).toEqual(C8_68C_NAMES_THE_ASSET);
-    // The model assets in public/ are the character, weapon, sign, city and horse files.
+    // The model assets in public/ are the character, weapon, sign and city files (the horse
+    // uploads moved to src/assets/dev/horses/, where only the dev harness reaches them).
     expect(names.filter((f) => /\.glb$/.test(f)).length).toBeGreaterThan(0);
   });
 

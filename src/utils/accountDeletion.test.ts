@@ -57,6 +57,7 @@ import {
   DELETION_REQUEST_EMAIL,
   DeleteAccountPage,
   PrivacyPolicyPage,
+  TermsOfServicePage,
 } from '../components/legal/LegalPages';
 import {
   CONTACT_EMAIL,
@@ -65,6 +66,7 @@ import {
   PRIVACY_POLICY_SECTIONS,
   RETENTION_STATEMENT,
 } from '../data/privacyPolicy';
+import { TERMS_OF_SERVICE_SECTIONS } from '../data/termsOfService';
 
 const load = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
@@ -330,8 +332,16 @@ describe('D. The provider dispatch', () => {
 });
 
 describe('E. The public surfaces', () => {
-  test('the route table is the two addresses, and a trailing slash is the same address', () => {
-    expect(PUBLIC_PAGE_PATHS).toEqual({ 'delete-account': '/delete-account', privacy: '/privacy' });
+  test('the route table is the public addresses, and a trailing slash is the same address', () => {
+    // REBASED, not weakened: `/terms` joins the two store-facing addresses, and every
+    // property this test made about the first two is made about it too.
+    expect(PUBLIC_PAGE_PATHS).toEqual({
+      'delete-account': '/delete-account',
+      privacy: '/privacy',
+      terms: '/terms',
+    });
+    expect(resolvePublicPage('/terms')).toBe('terms');
+    expect(resolvePublicPage('/terms/')).toBe('terms');
     expect(resolvePublicPage('/privacy')).toBe('privacy');
     expect(resolvePublicPage('/privacy/')).toBe('privacy');
     expect(resolvePublicPage('/delete-account')).toBe('delete-account');
@@ -347,9 +357,19 @@ describe('E. The public surfaces', () => {
 
     const privacy = renderToStaticMarkup(React.createElement(PrivacyPolicyPage));
     const deletion = renderToStaticMarkup(React.createElement(DeleteAccountPage));
+    const terms = renderToStaticMarkup(React.createElement(TermsOfServicePage));
 
     expect(privacy).toContain('Privacy policy');
     expect(deletion).toContain('Delete your account');
+    expect(terms).toContain('Terms of service');
+    // Every section of the terms is on the page, with its heading.
+    for (const section of TERMS_OF_SERVICE_SECTIONS) {
+      expect(terms, section.heading).toContain(section.heading);
+    }
+    expect(terms).toContain(CONTACT_EMAIL);
+    expect(terms).toContain('href="/privacy"');
+    expect(terms).toContain('href="/delete-account"');
+    expect(terms).toContain('href="/"');
     // Every section of the policy is on the page, with its heading.
     for (const section of PRIVACY_POLICY_SECTIONS) {
       expect(privacy, section.heading).toContain(section.heading);
@@ -368,7 +388,7 @@ describe('E. The public surfaces', () => {
     expect(privacy).toContain('href="/"');
     expect(deletion).toContain('href="/"');
     // Neither page renders a control that needs a session.
-    for (const markup of [privacy, deletion]) {
+    for (const markup of [privacy, deletion, terms]) {
       expect(markup).not.toContain('Sign out');
       expect(markup).not.toContain('Delete my account');
     }
@@ -482,6 +502,7 @@ describe('F. The privacy text', () => {
     expect(RETENTION_STATEMENT).toContain('until you erase them in the app');
 
     const deletion = renderToStaticMarkup(React.createElement(DeleteAccountPage));
+    const terms = renderToStaticMarkup(React.createElement(TermsOfServicePage));
     expect(deletion).toContain(RETENTION_STATEMENT.slice(0, 45));
   });
 

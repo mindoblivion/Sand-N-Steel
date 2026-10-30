@@ -1,5 +1,5 @@
 /**
- * publicPages.ts — the two public routes, stated in ONE place.
+ * publicPages.ts — the public routes, stated in ONE place.
  *
  * The game has no router: `src/App.tsx` is one screen-switching component and
  * `src/main.tsx` decides what to mount from the address.  These two pages are
@@ -9,7 +9,8 @@
  *
  *   • `/delete-account` — the deletion-request page Google Play asks of every app
  *     that creates accounts;
- *   • `/privacy` — the privacy policy.
+ *   • `/privacy` — the privacy policy;
+ *   • `/terms` — the terms of service.
  *
  * This module holds only the ROUTE TABLE (no React, no components), so `main.tsx`
  * can name the routes without pulling either page into the game's own chunk: the
@@ -17,11 +18,12 @@
  */
 
 /** The public pages, by their route. */
-export type PublicPageId = 'delete-account' | 'privacy';
+export type PublicPageId = 'delete-account' | 'privacy' | 'terms';
 
 export const PUBLIC_PAGE_PATHS: Readonly<Record<PublicPageId, string>> = {
   'delete-account': '/delete-account',
   privacy: '/privacy',
+  terms: '/terms',
 };
 
 /**

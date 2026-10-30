@@ -8,6 +8,11 @@ import {
   PRIVACY_POLICY_SECTIONS,
   RETENTION_STATEMENT,
 } from '../../data/privacyPolicy';
+import {
+  TERMS_LAST_UPDATED,
+  TERMS_OF_SERVICE_INTRO,
+  TERMS_OF_SERVICE_SECTIONS,
+} from '../../data/termsOfService';
 
 /**
  * Developer: the address a deletion request is sent to.  It is the SAME placeholder
@@ -133,7 +138,55 @@ export const PrivacyPolicyPage: React.FC = () => {
         </p>
         <p>Last updated: {POLICY_LAST_UPDATED}</p>
         <p>
+          Terms of service: <LegalLink href={assetUrl('/terms')}>the terms of service</LegalLink>
+        </p>
+        <p>
           Deleting your account: <LegalLink href={assetUrl('/delete-account')}>the account deletion page</LegalLink>
+        </p>
+        <p>
+          <LegalLink href={assetUrl('/')}>Back to the game</LegalLink>
+        </p>
+      </LegalFooter>
+    </LegalPageFrame>
+  );
+};
+
+/**
+ * `/terms` — the terms of service, rendered from `src/data/termsOfService.ts`.
+ *
+ * A store listing needs a public terms address and a player needs to be able to read
+ * the rules without an account, so this page is built exactly like the policy above:
+ * the same frame, the same section list, the wording held as data.
+ */
+export const TermsOfServicePage: React.FC = () => {
+  useEffect(() => {
+    const previous = document.title;
+    document.title = 'Terms of service — Sand & Steel';
+    return () => {
+      document.title = previous;
+    };
+  }, []);
+
+  return (
+    <LegalPageFrame title="Terms of service" lede={TERMS_OF_SERVICE_INTRO}>
+      {TERMS_OF_SERVICE_SECTIONS.map((section) => (
+        <LegalSection key={section.heading} heading={section.heading}>
+          {section.body.map((paragraph, index) => (
+            <LegalParagraph key={index}>{paragraph}</LegalParagraph>
+          ))}
+        </LegalSection>
+      ))}
+
+      <LegalFooter>
+        <p>
+          Contact:{' '}
+          <LegalLink href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</LegalLink>
+        </p>
+        <p>Last updated: {TERMS_LAST_UPDATED}</p>
+        <p>
+          <LegalLink href={assetUrl('/privacy')}>Privacy policy</LegalLink>
+          {' · '}
+          <LegalLink href={assetUrl('/delete-account')}>Account deletion</LegalLink>
         </p>
         <p>
           <LegalLink href={assetUrl('/')}>Back to the game</LegalLink>

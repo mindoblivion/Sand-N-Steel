@@ -99,7 +99,7 @@ const code = (rel: string) => readFileSync(here(rel), 'utf8');
 // The path is DERIVED from the module's own URL constant rather than restated, so this
 // suite never becomes a second place that names a horse asset — C-8.67D §G sweeps `src/`
 // for exactly that, and its allowance for this phase is the prototype's own files.
-const HORSE_GLB = repo(`public${HORSE_FIT_ASSET_URL}`);
+const HORSE_GLB = repo(HORSE_FIT_ASSET_URL);
 
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 
@@ -168,7 +168,7 @@ describe('C-8.68C §A — the asset: byte-identical, and its proportions re-deri
     expect(createHash('sha256').update(bytes).digest('hex')).toBe(HORSE_FIT_ASSET_SHA256);
     // The module states the same two facts it is pinned to.
     expect(HORSE_FIT_ASSET_BYTES).toBe(15_248_136);
-    expect(HORSE_FIT_ASSET_URL).toBe('/_workspace_dist_horse_weak.glb');
+    expect(HORSE_FIT_ASSET_URL).toBe('/src/assets/dev/horses/_workspace_dist_horse_weak.glb');
     // …and it is the untacked candidate C-8.68B recommended.
     expect(HORSE_FIT_ASSET_URL).toContain('weak');
   });
@@ -762,7 +762,7 @@ describe('C-8.68C §F — scope: numbers only, dev only, nothing moved', () => {
     expect(planLanes).not.toContain(BESIDE_STAGING_X);
   });
 
-  test('the phase added no model file and no new asset to public/', () => {
+  test('the phase added no model file, and no horse file is left in public/', () => {
     expect(readdirSync(repo('public/models')).sort()).toEqual([
       'amazonian.glb',
       'arena_roman.glb',
@@ -771,20 +771,31 @@ describe('C-8.68C §F — scope: numbers only, dev only, nothing moved', () => {
       'netfighter.glb',
       'weapons',
     ]);
-    // `public/` gained nothing: the three horse uploads are the only horse files, and
-    // they are the ones C-8.68A pinned (the byte-for-byte check lives in §A).
-    const names: string[] = [];
-    const walk = (dir: string) => {
-      for (const entry of readdirSync(dir)) {
-        const full = `${dir}/${entry}`;
-        if (statSync(full).isDirectory()) walk(full);
-        else names.push(full.replace(repo(''), ''));
-      }
+    // REBASED by the C-8.70c packaging move, not weakened.  This section used to assert
+    // that the only horse files were the three uploads sitting in `public/`.  They now live
+    // in `src/assets/dev/horses/`, which is the whole point of the move: **Vite copies every
+    // file in `public/` into the build**, imported or not, so the uploads were being shipped
+    // in every `dist/`, `cap sync` and AAB.  The property is restated two-sided, which is
+    // stronger than the one it replaces: `public/` holds NO horse file at all, and the three
+    // uploads exist exactly once, in the directory only the dev harness reaches.
+    const horseFilenames = (dir: string): string[] => {
+      const names: string[] = [];
+      const walk = (d: string) => {
+        for (const entry of readdirSync(d)) {
+          const full = `${d}/${entry}`;
+          if (statSync(full).isDirectory()) walk(full);
+          else if (/horse/i.test(entry)) names.push(full.replace(repo(''), ''));
+        }
+      };
+      walk(dir);
+      return names.sort();
     };
-    walk(repo('public'));
-    const horseFiles = names.filter((f) => /horse/i.test(f)).sort();
-    expect(horseFiles.length).toBe(3);
-    expect(horseFiles.every((f) => f.includes('_workspace_dist_'))).toBe(true);
+    expect(horseFilenames(repo('public'))).toEqual([]);
+    expect(horseFilenames(repo('src/assets/dev/horses'))).toEqual([
+      'src/assets/dev/horses/_workspace_dist_horse_better.glb',
+      'src/assets/dev/horses/_workspace_dist_horse_great.glb',
+      'src/assets/dev/horses/_workspace_dist_horse_weak.glb',
+    ]);
   });
 });
 

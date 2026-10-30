@@ -5353,14 +5353,18 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   consumer is the dev-only `HorseChariotFitPrototype.tsx` reached through `main.tsx`'s
   `import.meta.env.DEV` branch — so no production build loads them. They stay because three suites hash
   them; shrinking or dropping them is a test-decision, not a payload-trim one.
-  **Superseded on the payload question (C-8.70c-era packaging fix):** `vite.config.ts` now lists them in
-  `DEV_ONLY_PUBLIC_FILES` and the `pruneDevOnlyPublicFiles()` plugin (`apply: 'build'`,
-  `closeBundle`) deletes them from the build output, so they no longer reach `dist/`, `cap sync` or
-  the AAB. **Vite copies every file in `public/` regardless of imports** — that, not any import, is
-  why they were in the bundle. The files, `HORSE_FIT_ASSET_URL`, the dev harness and all three
-  hash-pinning suites are unchanged, and the dev server still serves the asset
-  (`curl localhost:3000/_workspace_dist_horse_weak.glb` → 200). Measured: `dist/` 120 MB → **73 MB**.
-  If a large dev-only asset is added to `public/` again, add it to that list rather than moving it.
+  **Superseded on the payload question — the uploads were RELOCATED, not deleted:** they now live in
+  `src/assets/dev/horses/_workspace_dist_horse_{weak,better,great}.glb` and `HORSE_FIT_ASSET_URL` is
+  `assetUrl('/src/assets/dev/horses/_workspace_dist_horse_weak.glb')`. **Vite copies every file in
+  `public/` into the build regardless of imports**, which is why they were shipping in every `dist/`,
+  `cap sync` and AAB; under `src/` a file is emitted only if something imports it, and nothing imports
+  these (only the DEV-gated harness reaches the module). Measured: `dist/` 120 MB → **73 MB**. The
+  dev server still serves the file (`curl localhost:3000/src/assets/dev/horses/_workspace_dist_horse_weak.glb`
+  → 200, `model/gltf-binary`), so the harness is unaffected. `phaseC8_67d` §G and `phaseC8_68c` were
+  rebased onto the new paths and the same hashes; `phaseC8_68c` §F now asserts the two-sided property
+  (`public/` holds no horse file at all, and the three exist exactly once). **A dev-only asset belongs
+  in `src/`, never in `public/`** — the `vite.config.ts` prune plugin an earlier pass added is gone,
+  because moving the files made it unnecessary.
 - **Verified 2026-10-20 in the dev container, all five commands on the post-deletion tree** (with the
   same five re-run on the pre-deletion tree as a baseline, so any failure could be attributed to a
   deletion rather than inherited): `bun test` → **2153 pass / 0 fail (69 files)** — identical to the
@@ -12593,13 +12597,52 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `styles.xml` referencing `@color/colorPrimary` / `colorPrimaryDark` / `colorAccent` with
   no `values/colors.xml`, which is an AAPT "resource not found" build failure; it was
   fixed by adding that file. Re-run this check after any resource edit.
-- Icons and splashes are generated from `resources/icon.png` + `splash(-dark).png` (made
-  from `public/icons/icon-source.svg`) with
-  `bunx capacitor-assets generate --android --iconBackgroundColor '#0c0a09' --splashBackgroundColor '#0c0a09'`.
-  Do not hand-edit `android/app/src/main/res/mipmap-*` or `drawable*` — regenerate instead.
+- Icons and splashes are generated from `resources/icon.png` (1024×1024) and
+  `resources/splash(-dark).png` (2732×2732) — the supplied branding artwork, NOT the legacy
+  `public/icons/icon-source.svg`. One command regenerates every surface:
+  `bun run brand:assets` (`@capacitor/assets` for Android + iOS, then
+  `scripts/generateBrandAssets.ts` for `public/icons/` and `store/play/icon-512.png`). Add
+  `--iconBackgroundColor '#0c0a09' --splashBackgroundColor '#0c0a09'` only if the artwork must be
+  padded onto the theme colour; the current sources already carry their own background.
+  Do not hand-edit `android/app/src/main/res/mipmap-*`, `drawable*` or
+  `ios/App/App/Assets.xcassets/` — regenerate instead.
 - **Known Android limitation: cloud-save sign-in does not work in the WebView.** All auth
   goes through the Firebase **web** SDK (`signInWithPopup`/redirect), which cannot complete
   inside a Capacitor WebView. The game plays fully offline; fixes need a native auth plugin
   plus `google-services.json` (package `com.phatass.sandandsteel`) and the build's SHA-1
   registered in Firebase. `android/app/build.gradle` already applies the google-services
   plugin automatically if that file is ever added.
+
+## C-8.70c-era packaging pass — /terms, iOS, desktop, branding, horse relocation (2026-10-30)
+
+Four requests, one pass. Every claim below was run in the dev container unless it says otherwise.
+
+- **`/terms` exists and is public.** `src/data/termsOfService.ts` holds the wording (imports
+  `DEVELOPER_NAME`/`CONTACT_EMAIL` from `privacyPolicy.ts` so the two documents cannot disagree);
+  `src/components/legal/LegalPages.tsx` exports `TermsOfServicePage` (same frame as `/privacy`);
+  `components/legal/publicPages.ts` gained the `terms` route; `main.tsx` mounts it in the same
+  production-safe, dynamically-imported public branch. **Entry points:** the title-screen footer
+  (`data-title-action="terms"`, beside Privacy) and a Settings → Game row. `src/utils/termsOfService.test.ts`
+  covers address resolution, every section reaching the page, the footer facts and both entry points;
+  `src/utils/accountDeletion.test.ts` §E was rebased (route table now three addresses) rather than
+  loosened. The copy repeats only code facts: single-player, no real-money purchase or billing SDK,
+  save in `localStorage`, opt-in Google Drive backup.
+- **iOS target added.** `@capacitor/ios@8.6.0` + `ios/` (SPM based — `bunx cap add ios` works on
+  Linux because no CocoaPods are needed). `bun run cap:sync:ios` builds `dist/` and copies it to
+  `ios/App/App/public`. **Not verified:** any Xcode build, signing or App Store upload — needs macOS
+  and an Apple Developer account. See `docs/PLATFORMS.md`.
+- **Windows/macOS are served by the installable PWA**, not a native wrapper: manifest + service worker
+  already met the install criteria, and the icons were regenerated from the branding artwork for every
+  size including a properly padded maskable. **Not verified:** an actual install prompt or offline
+  launch on a physical desktop browser. No `.exe`/`.dmg` exists — that needs Electron/Tauri plus code
+  signing, and is a separate decision.
+- **Branding artwork applied everywhere.** `resources/icon.png` + `splash(-dark).png` (supplied
+  2026-10-29) are the single source; `bun run brand:assets` regenerates Android (100 files), iOS (13
+  files), the four web icons and the opaque 512×512 Play listing icon. The Play listing icon moved to
+  its own file, `store/play/icon-512.png`, because the manifest icon keeps its alpha for the maskable
+  copy while the listing wants opaque RGB.
+- **Horse uploads relocated to `src/assets/dev/horses/`** — `HORSE_FIT_ASSET_URL` is now
+  `assetUrl('/src/assets/dev/horses/_workspace_dist_horse_weak.glb')`, verified served in dev
+  (`model/gltf-binary`, 15,248,136 bytes). `dist/`: 120 MB → **73 MB**. The `pruneDevOnlyPublicFiles`
+  plugin an intermediate pass added to `vite.config.ts` was **removed** — moving the files made it
+  dead code, and the config is back to `plugins: [tailwindcss(), react()]`.

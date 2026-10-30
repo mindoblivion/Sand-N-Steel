@@ -101,17 +101,22 @@ Then re-run `bun run cap:sync` (or simply rebuild) so the native project carries
 
 ### Bundle size note
 
-`bun run build` now produces **~73 MB** of `dist/` (it was ~120 MB). The difference is the
-three dev-only horse uploads — **47.4 MB** of `public/_workspace_dist_horse_{weak,better,great}.glb`
-— which `vite.config.ts`'s `pruneDevOnlyPublicFiles()` plugin deletes from the BUILD output.
+`bun run build` produces **~73 MB** of `dist/` (it was ~120 MB before the horse models were
+relocated). The difference is three dev-only horse uploads totalling **47.4 MB**, which now live in
+`src/assets/dev/horses/` instead of `public/`.
 
-They stay in the repo because nothing else can replace them: the dev-only fit prototype
-(`?devHarness=horsefit` → `src/components/dev/HorseChariotFitPrototype.tsx`) is the tool that
-measures horse scale/alignment for the future racing feature, and three suites hash-pin their exact
-bytes (`phaseC8_67d` §G, `phaseC8_68c`, `phaseC8_70bStage1`). Vite copies every file in `public/`
-into the build regardless of imports, which is why they used to reach `dist/`, `cap sync` and the AAB
-even though no production code path loads one — the plugin removes them there and nowhere else. The
-dev server still serves them, so the harness is unaffected.
+That move is the whole fix, and it is worth understanding why: **Vite copies every file in
+`public/` into the build, imported or not**, so any art parked there ships to `dist/`, `cap sync`,
+the AAB and both store bundles. Under `src/`, a file reaches a build only by being imported, and
+nothing imports these — only the dev-only fit prototype does (`?devHarness=horsefit` →
+`src/components/dev/HorseChariotFitPrototype.tsx` → `src/utils/horseFitPrototype.ts`), through
+`main.tsx`'s `import.meta.env.DEV` branch, which a production bundle drops.
+
+They stay in the repository because nothing replaces them: that prototype is the tool that measures
+horse scale and alignment for the racing feature, and three suites hash-pin their exact bytes
+(`phaseC8_67d` §G, `phaseC8_68c`, `phaseC8_70bStage1`). The dev server still serves the file
+(`/src/assets/dev/horses/_workspace_dist_horse_weak.glb`, `model/gltf-binary`, 200). Rule of thumb:
+**a dev-only asset belongs in `src/`, never in `public/`.**
 
 `public/README.md` and `README2.md` are still packaged (a few KB — not worth a rule). Play's
 base-module limit is 200 MB, so nothing here blocks a submission.

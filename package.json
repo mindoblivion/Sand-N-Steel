@@ -13,10 +13,13 @@
     "optimize:glb": "node scripts/optimize-glb.js",
     "compress:glb": "node scripts/gltf-transform-optimize.js",
     "cap:sync": "bun run build && cap sync android",
+    "cap:sync:ios": "bun run build && cap sync ios",
+    "brand:assets": "bunx capacitor-assets generate --android --ios && bun run scripts/generateBrandAssets.ts",
     "cap:open": "cap open android"
   },
   "dependencies": {
     "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
     "@google/genai": "^2.4.0",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",

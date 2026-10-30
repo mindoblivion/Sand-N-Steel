@@ -271,20 +271,34 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           {buildLabel()}
         </div>
 
-        {/* The title's own footer entry: the privacy policy, at a public URL that needs
-            no sign-in (Play asks every app that creates accounts to make its policy
-            reachable inside the app).  A new tab, so reading it cannot disturb a
-            session in progress.  No `text-[10px]` floor here — this is a label a
-            player has to be able to read. */}
-        <a
-          href={assetUrl('/privacy')}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-title-action="privacy"
-          className="absolute bottom-1 right-2 z-10 min-h-[44px] px-2 flex items-center font-serif text-xs uppercase tracking-[0.2em] text-amber-200/70 hover:text-amber-100 underline decoration-dotted underline-offset-4 transition-colors cursor-pointer"
-        >
-          Privacy
-        </a>
+        {/* The title's own footer entries: the terms of service and the privacy policy,
+            each at a public URL that needs no sign-in (Play asks every app that creates
+            accounts to make its policy reachable inside the app).  A new tab, so reading
+            either cannot disturb a session in progress.  No `text-[10px]` floor here —
+            these are labels a player has to be able to read. */}
+        <div className="absolute bottom-1 right-2 z-10 flex items-center gap-1">
+          <a
+            href={assetUrl('/terms')}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-title-action="terms"
+            className="min-h-[44px] px-2 flex items-center font-serif text-xs uppercase tracking-[0.2em] text-amber-200/70 hover:text-amber-100 underline decoration-dotted underline-offset-4 transition-colors cursor-pointer"
+          >
+            Terms
+          </a>
+          <span aria-hidden="true" className="font-serif text-xs text-amber-200/40">
+            ·
+          </span>
+          <a
+            href={assetUrl('/privacy')}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-title-action="privacy"
+            className="min-h-[44px] px-2 flex items-center font-serif text-xs uppercase tracking-[0.2em] text-amber-200/70 hover:text-amber-100 underline decoration-dotted underline-offset-4 transition-colors cursor-pointer"
+          >
+            Privacy
+          </a>
+        </div>
 
         {/* The account panel: the existing auth screen and the existing social
             buttons, mounted unchanged, only once the player asks for them. */}

@@ -1,15 +1,18 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 /**
- * Android shell configuration for Sand & Steel.
+ * Native shell configuration for Sand & Steel — one config, two platforms: the
+ * Android project in `android/` and the iOS project in `ios/`.
  *
  * appId is the Google Play package name and is PERMANENT once the first build is
  * uploaded to the Play Console — changing it later creates a brand-new listing and
  * orphans every existing install. Do not edit it; `docs/ANDROID_RELEASE.md` records
  * the same value for humans.
  *
- * The native project in `android/` ships the contents of `dist/`, so a build is
- * always: `bun run cap:sync` -> build the AAB from `android/`.
+ * Both native projects ship the contents of `dist/`, so a build is always the same
+ * shape: sync first, then build with the platform's own toolchain.
+ *   Android: `bun run cap:sync`      -> build the AAB from `android/` (docs/ANDROID_RELEASE.md)
+ *   iOS:     `bun run cap:sync:ios`  -> build in Xcode from `ios/` (docs/PLATFORMS.md, needs macOS)
  */
 const config: CapacitorConfig = {
   appId: 'com.phatass.sandandsteel',
