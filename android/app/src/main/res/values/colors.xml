@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Referenced by AppTheme in styles.xml; without these the Android build fails with
+         "resource color/colorPrimary not found". Values follow the game's palette. -->
+    <color name="colorPrimary">#b45309</color>
+    <color name="colorPrimaryDark">#0c0a09</color>
+    <color name="colorAccent">#f59e0b</color>
+</resources>
