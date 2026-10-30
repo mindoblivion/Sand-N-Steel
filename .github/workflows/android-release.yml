@@ -60,7 +60,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # ── REHEARSAL ─────────────────────────────────────────────────────────────────────────────────
+  # ── REHEARSAL ──────────────────────────────────────────────────────────�[...]
   # No `secrets.*` reference may appear in this job, and its `if:` refuses every trigger except a
   # manual rehearsal run. It proves the whole pipeline — tests, web build, Capacitor sync, Gradle
   # packaging AND signature verification — while signing with a key it generates itself, so no ref
@@ -68,7 +68,7 @@ jobs:
   rehearsal:
     name: Rehearsal — validate the Android build (no production secrets)
     if: github.event_name == 'workflow_dispatch' && inputs.mode == 'rehearsal'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -139,7 +139,7 @@ jobs:
         if: always()
         run: rm -f android/app/rehearsal.keystore android/keystore.properties
 
-  # ── RELEASE ───────────────────────────────────────────────────────────────────────────────────
+  # ── RELEASE ──────────────────────────────────────────────────────────��[...]
   # The ONLY job that may use the upload keystore, and the only job whose `if:` admits a tag push.
   # Order matters: provenance, then every gate, then signing material, then build, then verification
   # (signature + signer identity), then the upload — which no step can be reached around, since
@@ -149,7 +149,7 @@ jobs:
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
       || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release' && github.ref == 'refs/heads/main')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # Full history: tag provenance compares the tagged commit against `main`.
       - uses: actions/checkout@v4
