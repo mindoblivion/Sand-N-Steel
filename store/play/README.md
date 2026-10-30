@@ -9,7 +9,7 @@ packaged into the APK/AAB, so these files are listing material only.
 |---|---|---|---|
 | Store listing → App icon | `public/icons/icon-512.png` | 512×512 PNG, opaque (no alpha) | ready |
 | Store listing → Feature graphic | `store/play/feature-graphic-1024x500.png` | 1024×500, 24-bit PNG (no alpha), 1.2 MB | ready |
-| Store listing → Phone screenshots | — | see below | not yet |
+| Store listing → Phone screenshots | `store/play/screenshot-phone-01-1080x2160.jpg`, `store/play/screenshot-phone-02-1080x2160.jpg` | 1080×2160 (2.000:1), 24-bit JPEG, no alpha | ready |
 
 The feature graphic is derived mechanically from the supplied artwork
 (`store/play/source/artwork-1488x720.jpg`): the 1488×720 source is 2.0667:1 and Play wants exactly
@@ -26,22 +26,36 @@ await s("/tmp/art.jpg").extract({left:Math.round((m.width-w)/2),top:0,width:w,he
   .resize(1024,500,{fit:"fill"}).removeAlpha().png({compressionLevel:9}).toFile("store/play/feature-graphic-1024x500.png")'
 ```
 
-## Phone screenshots — what is wrong with the two supplied
+## Phone screenshots — ready to upload
 
-Both supplied files are 1080×2340 (2.17:1) and both carry non-game pixels, so neither can be
-uploaded as given.
+| file | spec | scene |
+|---|---|---|
+| `store/play/screenshot-phone-01-1080x2160.jpg` | 1080×2160 (2.000:1), 24-bit JPEG, no alpha, 194 KB | arena with the fountain |
+| `store/play/screenshot-phone-02-1080x2160.jpg` | 1080×2160 (2.000:1), 24-bit JPEG, no alpha, 293 KB | desert gate, shield raised |
 
-| file | problem |
-|---|---|
-| `store/play/source/screenshot-phone-01-1080x2340.jpg` | 2.17:1 is over Play's 2:1 limit, and the top ~144 px is non-game chrome (status bar plus a uniform white strip that ends at y ≈ 144). |
-| second supplied screenshot (not imported) | Same 2:1 problem, and it contains Base44 development UI: URL bar, Preview/Dashboard tabs, "Create PR", plus the in-game "Chat to Edit" pill. Never usable on a public listing. |
+Both come from Chrome captures on a 20:9 phone, so the raw files are 1080×2340 (2.17:1) — over Play's
+2:1 ceiling. **A retake cannot fix that: 2340 is the phone's native height, so every capture on this
+device is 2.17:1.** The crop is the fix, and it is purely mechanical:
 
-Play's rules: JPEG or 24-bit PNG (no alpha), 320–3840 px per side, and the long side no more than
-twice the short side. Two screenshots minimum; 1080×1920 (16:9) is the safe capture size.
+- **105 px off the top.** Rows 0–104 are dead black in both captures (pure `#0B0A08`, no status icons,
+  no URL bar) — the browser's hidden-chrome area, not game pixels.
+- **Then down to y = 2265.** That stops 3 px above the in-game bottom navigation strip (2268–2339), so
+  the six-icon nav bar is dropped and the frame ends on scene. Nothing interactive is clipped: a
+  bounding-box scan of the cropped files finds no crimson (ATTACK) or yellow (joystick) control pixel
+  past y = 2075, and the top profile card, currency counters and SETTINGS button are all inside.
+- Result: 1080×2160, exactly 2.000:1, JPEG, no alpha, well inside Play's 320–3840 px and 8 MB limits.
 
-The clean way to satisfy all of it: install the current build on the phone, take the captures in the
-app itself (no browser or dev chrome) framed at 16:9. That yields 1080×1920, which passes validation
-with no cropping.
+Regenerate (inside the `web` container, `sharp` is already installed there):
+
+```bash
+bun -e 'const s=require("sharp");await s("store/play/source/screenshot-phone-02-arena-1080x2340-chrome.jpg")
+  .extract({left:0,top:105,width:1080,height:2160})
+  .jpeg({quality:92,mozjpeg:true,chromaSubsampling:"4:4:4"}).toFile("store/play/screenshot-phone-01-1080x2160.jpg")'
+```
+
+Play's rules: JPEG or 24-bit PNG (no alpha), 320–3840 px per side, long side no more than twice the
+short side, two screenshots minimum. 1080×1920 (16:9) is still the ideal; a 16:9 capture needs a
+camera that renders 16:9 rather than the device screen's 20:9.
 
 ## Source files
 
