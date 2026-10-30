@@ -87,12 +87,16 @@ npx @capacitor/assets generate --android   # reads resources/icon.png + splash*.
 
 Then re-run `bun run cap:sync` (or simply rebuild) so the native project carries the new files.
 
-### Still needed before submitting the listing (design assets, not build files)
+### Store listing assets
 
-- **Feature graphic 1024×500** (PNG or JPEG, no alpha) — not in the repo; Play requires it on the
-  store listing. It is artwork, not something the build can generate.
-- **At least two phone screenshots** taken from a real device or emulator (Play's minimum is 2;
-  320–3840 px per side). The sandbox cannot produce these — its WebGL runs on SwiftShader at ~2 fps.
+`store/play/` holds the Play Console uploads and their specs — see its README.
+
+- **Feature graphic**: `store/play/feature-graphic-1024x500.png` (1024×500, 24-bit PNG, no alpha),
+  derived from the supplied 1488×720 artwork by a 7 px-per-side trim and a scale.
+- **App icon**: `public/icons/icon-512.png` (512×512, opaque).
+- **Phone screenshots**: still missing. The two supplied captures are 1080×2340 (2.17:1, over
+  Play's 2:1 limit); one of them also shows Base44 development UI. They need a retake in the
+  installed app framed at 16:9 (1080×1920).
 - Tablet screenshots are only needed if tablet support is declared.
 
 ### Bundle size note
