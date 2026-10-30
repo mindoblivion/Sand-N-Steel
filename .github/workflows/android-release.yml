@@ -1,15 +1,38 @@
-# Sand & Steel — build a signed Android App Bundle for Google Play.
+# Sand & Steel — the ONE workflow that can build Android bundles.
 #
-# Manual only (Actions → this workflow → Run workflow) or on a `v*` tag: a feature branch
-# must never produce a store artifact. The web bundle is rebuilt from the checkout, copied
-# into `android/`, and signed with the upload keystore supplied as repository secrets.
+# TWO JOBS, TWO PURPOSES
+#   `rehearsal` — runs for EVERY trigger. Suite, typecheck, web build, `cap sync`, then a release
+#                 Gradle build signed with a THROWAWAY key generated on the runner. It references
+#                 no production secret and its artifact is named as a rehearsal.
+#   `release`   — runs only after `rehearsal` passed AND only on an approved release ref. It is
+#                 the only job that may see the upload keystore; it verifies the bundle's JAR
+#                 signature, and it uploads only after that verification succeeds.
 #
-# The package name is com.phatass.sandandsteel — see docs/ANDROID_RELEASE.md before changing
-# anything here.
-name: Build Android bundle
+# APPROVED RELEASE REFS (the only refs that may produce a signed, uploadable bundle)
+#   * `refs/heads/main` — the protected release branch
+#   * `refs/tags/v*`    — release tags, e.g. `v1.0.0`, `v1.0.0-alpha.1`
+# Everything else — a feature branch, a pull-request ref, any other tag — is refused by the
+# `release` job's JOB-LEVEL `if:`. That placement is the point: a skipped job never starts a
+# runner, so GitHub never injects the signing secrets for it. A shell test inside the job would
+# run after the secrets were already in that runner's environment, which is too late.
+#
+# `workflow_dispatch` cannot bypass the rule: the guard reads `github.ref`, so dispatching from a
+# feature branch evaluates to that branch and the job is skipped. Tag pushes are subject to the
+# same guard, so a tag-triggered run is release-eligible exactly when it starts with `v`.
+#
+# Keep this file in step with docs/ANDROID_RELEASE.md ("Which refs may create signed artifacts").
+name: Build Android bundle (rehearsal or release)
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'rehearsal = validate only, never uses the upload key. release = signed bundle (main or a v* tag only).'
+        type: choice
+        options:
+          - rehearsal
+          - release
+        default: rehearsal
   push:
     tags: ['v*']
 
@@ -21,7 +44,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  bundle:
+  # ── REHEARSAL ─────────────────────────────────────────────────────────────────────────────────
+  # No `secrets.*` reference may appear in this job. It proves the whole pipeline — tests, web
+  # build, Capacitor sync, Gradle packaging AND signature verification — while signing with a key
+  # it generates itself, so an unapproved ref can never touch the upload key.
+  rehearsal:
+    name: Rehearsal — validate the Android build (no production secrets)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,51 +68,130 @@ jobs:
       - name: Install from the committed lockfile
         run: bun install --frozen-lockfile
 
-      - name: Test suite
+      - name: Test suite (rehearsal)
         run: bun test
 
-      - name: Typecheck
+      - name: Typecheck (rehearsal)
         run: bun run lint
 
-      # Builds dist/ and copies it into the native project.
+      # Builds dist/ from this checkout and copies it into android/.
+      - name: Sync web build into android/ (rehearsal)
+        env:
+          BUILD_COMMIT: ${{ github.sha }}
+        run: bun run cap:sync
+
+      - name: Generate a throwaway signing key (rehearsal only)
+        run: |
+          set -euo pipefail
+          umask 077
+          KEYPASS="$(openssl rand -hex 24)"
+          echo "::notice::REHEARSAL — this bundle is signed with a throwaway key generated in this run. It is NOT a release candidate and can never update the Play listing."
+          keytool -genkeypair -noprompt \
+            -keystore android/app/rehearsal.keystore \
+            -storetype PKCS12 \
+            -alias rehearsal \
+            -storepass "$KEYPASS" \
+            -keypass "$KEYPASS" \
+            -keyalg RSA -keysize 2048 -validity 30 \
+            -dname "CN=REHEARSAL ONLY DO NOT UPLOAD, OU=Rehearsal, O=Sand and Steel, C=US"
+          KEYSTORE_STORE_FILE=rehearsal.keystore \
+          KEYSTORE_STORE_PASSWORD="$KEYPASS" \
+          KEYSTORE_KEY_ALIAS=rehearsal \
+          KEYSTORE_KEY_PASSWORD="$KEYPASS" \
+            bun run scripts/writeKeystoreProperties.ts android/keystore.properties
+
+      - name: Build the practice bundle (rehearsal)
+        working-directory: android
+        run: ./gradlew bundleRelease --no-daemon
+
+      - name: Verify the practice bundle signature (rehearsal)
+        run: bun run scripts/verifyBundleSignature.ts android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload the REHEARSAL bundle (never a release candidate)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rehearsal-aab-do-not-upload
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove signing material (rehearsal, always)
+        if: always()
+        run: rm -f android/app/rehearsal.keystore android/keystore.properties
+
+  # ── RELEASE ───────────────────────────────────────────────────────────────────────────────────
+  # The ONLY job that may use the upload keystore. Both halves of the guard are required: an
+  # approved ref, and — for a manual run — an explicit `release` mode. Tests already ran in
+  # `rehearsal` on this same commit, hence `needs:`; this job rebuilds and signs from the checkout.
+  release:
+    name: Release — signed AAB for an approved release ref
+    needs: rehearsal
+    if: |
+      needs.rehearsal.result == 'success'
+      && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+      && (github.event_name != 'workflow_dispatch' || inputs.mode == 'release')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install from the committed lockfile
+        run: bun install --frozen-lockfile
+
+      # dist/ is rebuilt from this checkout; the committed android/ project receives it.
       - name: Sync web build into android/
         env:
           BUILD_COMMIT: ${{ github.sha }}
         run: bun run cap:sync
 
-      - name: Restore the upload keystore
+      # The keystore and its properties live only for the length of this job (removed below).
+      # The properties file is written by the script, so no password is ever interpolated by a
+      # shell heredoc; the script escapes the values for java.util.Properties and prints nothing.
+      - name: Restore the upload keystore (approved refs only)
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_STORE_FILE: Sand-and-Steel.keystore
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+          umask 077
+          for name in KEYSTORE_BASE64 KEYSTORE_STORE_PASSWORD KEYSTORE_KEY_ALIAS KEYSTORE_KEY_PASSWORD; do
             if [ -z "${!name:-}" ]; then
-              echo "::error::Missing repository secret $name — see docs/ANDROID_RELEASE.md."
+              echo "::error::Missing repository secret for $name — see docs/ANDROID_RELEASE.md."
               exit 1
             fi
           done
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/app/Sand-and-Steel.keystore
-          cat > android/keystore.properties <<PROPS
-          storeFile=Sand-and-Steel.keystore
-          storePassword=$KEYSTORE_PASSWORD
-          keyAlias=$KEY_ALIAS
-          keyPassword=$KEY_PASSWORD
-          PROPS
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "android/app/$KEYSTORE_STORE_FILE"
+          bun run scripts/writeKeystoreProperties.ts android/keystore.properties
 
       - name: Build release bundle
         working-directory: android
         run: ./gradlew bundleRelease --no-daemon
 
-      - name: Upload the .aab
+      # Nothing is uploaded until this passes: an unsigned AAB builds successfully and Play
+      # Console rejects it, so the signature is verified here, not trusted.
+      - name: Verify the release bundle signature
+        run: bun run scripts/verifyBundleSignature.ts android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload the signed .aab
         uses: actions/upload-artifact@v4
         with:
           name: sand-and-steel-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
-      - name: Forget the signing material
+      - name: Remove signing material (always)
         if: always()
         run: rm -f android/app/Sand-and-Steel.keystore android/keystore.properties

@@ -51,9 +51,83 @@ cd android && ./gradlew bundleRelease
 # → android/app/build/outputs/bundle/release/app-release.aab
 ```
 
-CI: `.github/workflows/android-release.yml` does the same on GitHub's runners and uploads
-the `.aab` as a downloadable artifact. It needs four repository secrets you create yourself
-(Settings → Secrets and variables → Actions):
+## CI: rehearsal and release
+
+`.github/workflows/android-release.yml` has **two jobs, and only one of them can sign**.
+
+| job | runs on | signing | artifact |
+|---|---|---|---|
+| `rehearsal` | **every** trigger (a dispatch from any branch, any `v*` tag) | a throwaway RSA key generated on the runner | `rehearsal-aab-do-not-upload` (7-day retention) |
+| `release` | **`main` or a `v*` tag only** | your upload keystore | `sand-and-steel-aab` |
+
+### Which refs may create signed artifacts
+
+Only two refs may reach the upload keystore:
+
+- **`refs/heads/main`** — the protected release branch (the repository default).
+- **`refs/tags/v*`** — a release tag whose name starts with `v`, e.g. `v1.0.0`, `v1.0.0-alpha.1`.
+
+Everything else is refused: a feature branch, a pull-request ref, any other tag name. The refusal
+is a **job-level `if:` on the `release` job**, which also requires
+`needs.rehearsal.result == 'success'`. That placement is deliberate — a skipped job never starts a
+runner, so GitHub never injects the four signing secrets into a runner for an unapproved ref. A
+shell check inside the job would run *after* the secrets were already in that runner's environment.
+
+`workflow_dispatch` cannot bypass the rule. The guard reads `github.ref`, so dispatching the
+workflow "from" a feature branch evaluates to that branch's ref and the `release` job is skipped;
+a manual run must also pass `mode: release`. A manual run from `main` with the default
+`mode: rehearsal` validates without signing.
+
+Tag pushes obey the same guard: `push: tags: ['v*']` only starts the workflow at all for a `v*`
+tag, and the job's `if:` then applies the same main/`v*` test.
+
+### Running a safe rehearsal
+
+Actions → **Build Android bundle (rehearsal or release)** → **Run workflow** → pick any branch →
+leave `mode` at `rehearsal`.
+
+The rehearsal job:
+
+1. installs from the committed lockfile (`bun install --frozen-lockfile`);
+2. runs the suite (`bun test`) and the typecheck (`bun run lint`);
+3. builds the web app and syncs it into `android/` (`bun run cap:sync`, with `BUILD_COMMIT` set to
+   the run's commit);
+4. generates a **throwaway** PKCS12 key as `android/app/rehearsal.keystore` and writes the matching
+   `android/keystore.properties`;
+5. runs `./gradlew bundleRelease --no-daemon`;
+6. verifies that bundle's signature with the same check the release job uses;
+7. uploads it as **`rehearsal-aab-do-not-upload`** and then deletes both signing files.
+
+It reads no secret, so it cannot become a store bundle: the practice bundle is signed with a key
+that exists only for the length of that run and cannot update the Play listing. It is labelled a
+rehearsal in its logs (`::notice::REHEARSAL`) and in its artifact name.
+
+### How signing verification works
+
+An unsigned `.aab` builds **successfully** — `android/app/build.gradle` applies the release
+`signingConfig` only when `android/keystore.properties` exists — so "Gradle exited 0" is not
+evidence that a bundle can be uploaded. Both jobs therefore run
+`bun run scripts/verifyBundleSignature.ts <path-to.aab>`, which:
+
+- lists the bundle's entries with `jar tf` and requires a JAR signature block
+  (`META-INF/*.RSA`, `.DSA` or `.EC`) — an unsigned build has none;
+- runs `jarsigner -verify -certs` (the right verifier for an `.aab`, which uses the JAR signature
+  scheme; `apksigner` verifies APKs, not bundles) and requires **both** a zero exit status and the
+  `jar verified` line, so a silent exit 0 is not accepted as proof;
+- fails with an `::error::` line naming the reason otherwise.
+
+In the release job the verification step runs **before** the upload step and carries no
+`continue-on-error`, so the artifact is uploaded only once the signature verifies. A failed check
+stops the job and produces no artifact.
+
+**What verification does not prove:** that the signer is *your* upload key. That needs the
+certificate fingerprint, which is deliberately not stored in this repository — confirm it by hand
+once, with `jarsigner -verify -certs` on the first release bundle, or against Play Console →
+App integrity.
+
+### Required secrets
+
+Create these yourself in Settings → Secrets and variables → Actions:
 
 | secret | value |
 |---|---|
@@ -63,6 +137,14 @@ the `.aab` as a downloadable artifact. It needs four repository secrets you crea
 | `ANDROID_KEY_PASSWORD` | the key password |
 
 On macOS/Linux: `base64 -i Sand-and-Steel.keystore | pbcopy` (or `base64 -w0` on Linux).
+
+All four are required. The release job checks that each one is non-empty before writing anything and
+fails with `::error::Missing repository secret for …` if one is absent. The values reach Gradle only
+through `scripts/writeKeystoreProperties.ts`, which reads them from the environment, escapes them for
+`java.util.Properties` (backslash, newline, non-ASCII, leading spaces) and prints neither the values
+nor a derived form of them. The old workflow wrote the file with an unquoted shell heredoc, which
+interpolated the password verbatim and silently corrupted any password containing a backslash, `$`,
+a backtick, a newline or a leading space.
 
 ## Native assets (Play Console "Configure assets and build")
 
@@ -139,7 +221,26 @@ used by the optional cloud-save sign-in — see the sign-in limitation at the en
 1. Raise `versionCode` by at least 1 in `android/app/build.gradle` (Play rejects a lower or
    repeated code) and update `versionName` to whatever the player should see.
 2. Run `bun run cap:sync` so the web build in `android/` matches the code.
-3. Build the `.aab` (locally or via the workflow) and upload it in Play Console.
+3. Tag the release commit `v<versionName>` (e.g. `v1.0.1`) and push the tag, or dispatch the
+   workflow from `main` with `mode: release`. **Only those refs can sign** — see
+   "Which refs may create signed artifacts".
+4. Download `sand-and-steel-aab` from the run and upload it in Play Console.
+
+### Before the first (or next) upload: check the versionCode
+
+The repository's `versionCode` is **1** (`android/app/build.gradle`). Do **not** assume that number
+is still available:
+
+- **First upload ever:** confirm no bundle or APK has been uploaded for `com.phatass.sandandsteel`.
+  If the listing already exists, Play Console → *Test and release* → the track's bundle list shows
+  the highest `versionCode` already accepted.
+- **Every later upload:** the new `versionCode` must be **strictly greater** than the highest one
+  Play has accepted. Play rejects a lower or repeated code, and a rejected bundle cannot be
+  replaced — it can only be re-uploaded with a higher code.
+
+Check this **before** tagging: raising `versionCode` after a tagged release means a second build.
+The CI signature check covers whether the bundle is signed, **not** whether Play will accept its
+`versionCode`.
 
 ## What is verified, and what is not
 
