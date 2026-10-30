@@ -53,33 +53,51 @@ cd android && ./gradlew bundleRelease
 
 ## CI: rehearsal and release
 
-`.github/workflows/android-release.yml` has **two jobs, and only one of them can sign**.
+`.github/workflows/android-release.yml` has **two jobs whose triggers are mutually exclusive**: no
+single event can start both, and only one of them can ever sign.
 
-| job | runs on | signing | artifact |
+| job | starts on | signing | artifact |
 |---|---|---|---|
-| `rehearsal` | **every** trigger (a dispatch from any branch, any `v*` tag) | a throwaway RSA key generated on the runner | `rehearsal-aab-do-not-upload` (7-day retention) |
-| `release` | **`main` or a `v*` tag only** | your upload keystore | `sand-and-steel-aab` |
+| `rehearsal` | `workflow_dispatch` with `mode: rehearsal` — from **any** branch | a throwaway RSA key generated on the runner | `rehearsal-aab-do-not-upload` (7-day retention) |
+| `release` | a `push` of an approved **`v*` tag**, or `workflow_dispatch` with `mode: release` **from `main`** | your upload keystore, and only if the bundle's signer certificate matches the configured fingerprint | `sand-and-steel-aab` |
 
-### Which refs may create signed artifacts
+### Trigger matrix
 
-Only two refs may reach the upload keystore:
+| trigger | `rehearsal` | `release` | what happens |
+|---|---|---|---|
+| push of tag `v1.0.0` | — | **runs** | suite + typecheck + build, then a signed, fingerprint-verified bundle — **only if the tagged commit is on `main`** |
+| push of tag `v1.0.0-alpha.1` | — | **runs** | same; any tag whose name starts with `v` |
+| push of tag `release-1.0.0` | — | — | the workflow does not start: `push` matches `v*` tags only |
+| push of a branch (including `main`) | — | — | the workflow does not start: there is no `branches:` filter |
+| dispatch, `mode: rehearsal`, any ref | **runs** | — | practice bundle signed with a throwaway key; the upload key is never touched |
+| dispatch, `mode: release`, `main` | — | **runs** | signed, fingerprint-verified bundle |
+| dispatch, `mode: release`, any other ref | — | — | refused: the release job's `if:` requires `refs/heads/main` |
+| dispatch from a tag with `mode: release` | — | — | refused: a manual release is main-only; tags release by being pushed |
+| dispatch with no `mode`, or any other value | — | — | nothing runs |
 
-- **`refs/heads/main`** — the protected release branch (the repository default).
-- **`refs/tags/v*`** — a release tag whose name starts with `v`, e.g. `v1.0.0`, `v1.0.0-alpha.1`.
+**Why the rule lives in job-level `if:`s.** A skipped job never starts a runner, so GitHub never
+injects that job's secrets into one. A shell test inside a job would run *after* the secrets were
+already in that runner's environment, which is too late.
 
-Everything else is refused: a feature branch, a pull-request ref, any other tag name. The refusal
-is a **job-level `if:` on the `release` job**, which also requires
-`needs.rehearsal.result == 'success'`. That placement is deliberate — a skipped job never starts a
-runner, so GitHub never injects the four signing secrets into a runner for an unapproved ref. A
-shell check inside the job would run *after* the secrets were already in that runner's environment.
+`release` deliberately has **no `needs:`** on `rehearsal`: a dependency on a job that a tag push
+skips would skip the release too, and a tag push is the release path alone. For that reason the
+release job runs the test suite and the typecheck **itself**, before any signing material is
+restored, so a tagged commit is still never signed untested.
 
-`workflow_dispatch` cannot bypass the rule. The guard reads `github.ref`, so dispatching the
-workflow "from" a feature branch evaluates to that branch's ref and the `release` job is skipped;
-a manual run must also pass `mode: release`. A manual run from `main` with the default
-`mode: rehearsal` validates without signing.
+### Tag provenance — a release tag must be on `main`
 
-Tag pushes obey the same guard: `push: tags: ['v*']` only starts the workflow at all for a `v*`
-tag, and the job's `if:` then applies the same main/`v*` test.
+A `v*` tag is release-eligible only when the commit it points at is **reachable from
+`refs/heads/main`**. The check is the first step after checkout, before any secret-bearing step and
+before anything is built:
+
+1. `git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'`;
+2. `git merge-base --is-ancestor HEAD refs/remotes/origin/main`.
+
+It **fails closed**: a fetch failure, a missing `main`, or a non-ancestor commit ends the job with an
+`::error::` line. A tag on a feature-branch commit is therefore refused even though its name matches
+`v*`, and so is a tag whose commit was dropped from `main` by a rewrite — retag a commit that is on
+`main` instead. **The workflow never creates, moves or pushes a tag.** A manual `mode: release` run
+needs no provenance step because its guard already pins `refs/heads/main`.
 
 ### Running a safe rehearsal
 
@@ -95,35 +113,74 @@ The rehearsal job:
 4. generates a **throwaway** PKCS12 key as `android/app/rehearsal.keystore` and writes the matching
    `android/keystore.properties`;
 5. runs `./gradlew bundleRelease --no-daemon`;
-6. verifies that bundle's signature with the same check the release job uses;
+6. verifies that bundle's signature with the same script the release job uses, passing
+   `--signature-only` because a key that exists for one run has no identity to pin;
 7. uploads it as **`rehearsal-aab-do-not-upload`** and then deletes both signing files.
 
-It reads no secret, so it cannot become a store bundle: the practice bundle is signed with a key
+It references no secret, so it cannot become a store bundle: the practice bundle is signed with a key
 that exists only for the length of that run and cannot update the Play listing. It is labelled a
-rehearsal in its logs (`::notice::REHEARSAL`) and in its artifact name.
+rehearsal in its logs (`::notice::REHEARSAL`) and in its artifact name. A rehearsal never uploads
+`sand-and-steel-aab`, and a tag push never produces the rehearsal artifact.
 
 ### How signing verification works
 
 An unsigned `.aab` builds **successfully** — `android/app/build.gradle` applies the release
 `signingConfig` only when `android/keystore.properties` exists — so "Gradle exited 0" is not
-evidence that a bundle can be uploaded. Both jobs therefore run
-`bun run scripts/verifyBundleSignature.ts <path-to.aab>`, which:
+evidence that a bundle can be uploaded. `bun run scripts/verifyBundleSignature.ts <path-to.aab>`
+makes **two** checks:
 
-- lists the bundle's entries with `jar tf` and requires a JAR signature block
-  (`META-INF/*.RSA`, `.DSA` or `.EC`) — an unsigned build has none;
-- runs `jarsigner -verify -certs` (the right verifier for an `.aab`, which uses the JAR signature
-  scheme; `apksigner` verifies APKs, not bundles) and requires **both** a zero exit status and the
-  `jar verified` line, so a silent exit 0 is not accepted as proof;
-- fails with an `::error::` line naming the reason otherwise.
+1. **Signature.** Lists the bundle's entries with `jar tf` and requires a JAR signature block
+   (`META-INF/*.RSA`, `.DSA` or `.EC`); then runs `jarsigner -verify -certs` (the right verifier for
+   an `.aab`, which uses the JAR signature scheme — `apksigner` verifies APKs, not bundles) and
+   requires **both** a zero exit status and the `jar verified` line.
+2. **Signer identity.** Runs `keytool -printcert -jarfile` and compares the SHA-256 fingerprint of
+   **every** signer certificate against `EXPECTED_SIGNER_SHA256` (fed from the
+   `ANDROID_UPLOAD_CERT_SHA256` secret). A certificate chain contributes only its signer, and a
+   second, unexpected signer is enough to fail the bundle.
+
+This second check is what a valid signature alone cannot give you: **any** key produces a perfectly
+valid signature. The identity check is fail-closed — no configured fingerprint, a malformed one, a
+keytool failure, or any mismatch ends the release with an `::error::` line, and no fingerprint value
+is ever printed (only counts such as `1 of 1 signer certificate(s) do not match`). The rehearsal is
+the only caller allowed to skip it, and it must say so explicitly with `--signature-only`.
 
 In the release job the verification step runs **before** the upload step and carries no
-`continue-on-error`, so the artifact is uploaded only once the signature verifies. A failed check
-stops the job and produces no artifact.
+`continue-on-error`, so the artifact is uploaded only once both checks pass. A failed check stops the
+job and produces no artifact.
 
-**What verification does not prove:** that the signer is *your* upload key. That needs the
-certificate fingerprint, which is deliberately not stored in this repository — confirm it by hand
-once, with `jarsigner -verify -certs` on the first release bundle, or against Play Console →
-App integrity.
+### Signing identity — obtaining and confirming the fingerprint
+
+The pin is the SHA-256 fingerprint of **your upload certificate** — the certificate in
+`Sand-and-Steel.keystore`, i.e. the key CI signs with. With Play App Signing enabled (the default for
+new apps) Google holds a separate *app signing key* and re-signs the distributed APKs/App Bundles
+with it, so the two fingerprints are **different**: Play Console → *Test and release* → *App
+integrity* shows the app signing certificate, which is **not** the value to pin here. Pin the upload
+certificate.
+
+An administrator obtains it from material they already hold, and confirms it against a bundle CI
+actually produced:
+
+1. **From the keystore** (authoritative — it describes what CI will sign with):
+   ```bash
+   keytool -list -v -keystore Sand-and-Steel.keystore -alias <your-alias> | grep 'SHA256:'
+   ```
+   (`keytool -list -keystore … ` without `-v` prints only SHA-1/SHA-256 in some JDK builds; `-v`
+   always prints the fingerprint block. If you don't know the alias, omit `-alias` and read the one
+   entry it prints.)
+2. **Confirm against a real bundle** — download `sand-and-steel-aab` from a release run, or use a
+   local `./gradlew bundleRelease` output, and run:
+   ```bash
+   keytool -printcert -jarfile app-release.aab
+   ```
+   The `SHA256:` line under `Certificate #1` of `Signer #1` must be the same value. If the two
+   disagree, the bundle was not signed with that keystore — stop and find out why before uploading.
+3. **Store it** in Settings → Secrets and variables → Actions as **`ANDROID_UPLOAD_CERT_SHA256`**.
+   The colon form (`AB:CD:…`, 95 characters) and the 64 hex digits are both accepted, in either
+   case; the script normalizes before comparing.
+4. **On rotation:** if the upload key is ever rotated, update this secret in the same change that
+   installs the new keystore. A stale pin fails the release closed — by design.
+
+Never commit a fingerprint to the repository and never paste a keystore or password into a chat.
 
 ### Required secrets
 
@@ -135,16 +192,22 @@ Create these yourself in Settings → Secrets and variables → Actions:
 | `ANDROID_KEYSTORE_PASSWORD` | the store password |
 | `ANDROID_KEY_ALIAS` | the key alias |
 | `ANDROID_KEY_PASSWORD` | the key password |
+| `ANDROID_UPLOAD_CERT_SHA256` | SHA-256 fingerprint of the upload certificate (see above) |
 
 On macOS/Linux: `base64 -i Sand-and-Steel.keystore | pbcopy` (or `base64 -w0` on Linux).
 
-All four are required. The release job checks that each one is non-empty before writing anything and
-fails with `::error::Missing repository secret for …` if one is absent. The values reach Gradle only
-through `scripts/writeKeystoreProperties.ts`, which reads them from the environment, escapes them for
-`java.util.Properties` (backslash, newline, non-ASCII, leading spaces) and prints neither the values
-nor a derived form of them. The old workflow wrote the file with an unquoted shell heredoc, which
-interpolated the password verbatim and silently corrupted any password containing a backslash, `$`,
-a backtick, a newline or a leading space.
+All five are required by the release path. The four keystore values are checked for non-emptiness
+before anything is written (`::error::Missing repository secret for …`), and the fingerprint is
+checked by the verification step, which fails closed when it is absent. The keystore values reach
+Gradle only through `scripts/writeKeystoreProperties.ts`, which reads them from the environment,
+escapes them for `java.util.Properties` (backslash, newline, non-ASCII, leading spaces) and prints
+neither the values nor a derived form of them. The old workflow wrote the file with an unquoted shell
+heredoc, which interpolated the password verbatim and silently corrupted any password containing a
+backslash, `$`, a backtick, a newline or a leading space.
+
+**The rehearsal job references none of these five secrets.** That is enforced structurally: it has
+no `secrets.*` reference at all, and its job-level `if:` refuses every trigger except a manual
+`mode: rehearsal` run, so it never starts a runner on a tag push.
 
 ## Native assets (Play Console "Configure assets and build")
 
@@ -221,9 +284,9 @@ used by the optional cloud-save sign-in — see the sign-in limitation at the en
 1. Raise `versionCode` by at least 1 in `android/app/build.gradle` (Play rejects a lower or
    repeated code) and update `versionName` to whatever the player should see.
 2. Run `bun run cap:sync` so the web build in `android/` matches the code.
-3. Tag the release commit `v<versionName>` (e.g. `v1.0.1`) and push the tag, or dispatch the
-   workflow from `main` with `mode: release`. **Only those refs can sign** — see
-   "Which refs may create signed artifacts".
+3. Tag a commit that is **on `main`** as `v<versionName>` (e.g. `v1.0.1`) and push the tag, or
+   dispatch the workflow from `main` with `mode: release`. **Only those paths can sign**, and a tag
+   whose commit is not reachable from `main` is refused — see "Trigger matrix" and "Tag provenance".
 4. Download `sand-and-steel-aab` from the run and upload it in Play Console.
 
 ### Before the first (or next) upload: check the versionCode
@@ -260,6 +323,21 @@ The CI signature check covers whether the bundle is signed, **not** whether Play
   workflow or your machine. That scratch container is not part of the dev stack: the `web`
   service still has no JDK, and nothing in `docker-compose.base44.yml` builds Android.
 - **Not verified here:** anything on a physical device (touch feel, HUD, frame rate).
+
+- **Workflow structure verified 2026-10-30 (AR-3), without dispatching a run.** The workflow YAML
+  parses, and every `run:` block passes `bash -n`. `bun test` covers the trigger matrix (the jobs'
+  real `if:` expressions are evaluated for 16 event/ref/mode combinations, proving that no event
+  starts both jobs and that a feature-branch, tag or unauthorized-mode dispatch can never reach the
+  release path), the secret isolation, the verify-before-upload ordering and the fingerprint logic.
+  The provenance block was driven against a real throwaway repository in three scenarios — an
+  approved tag (exit 0), a tag on a feature-branch commit (exit 1) and an unfetchable `main`
+  (exit 1) — and `scripts/verifyBundleSignature.ts` was run end to end against a real JAR-signed
+  bundle with a real JDK: unpinned → exit 1, wrong fingerprint → exit 1, correct fingerprint (colon
+  form, colon-less form and lowercase) → exit 0, unsigned bundle → exit 1.
+- **Still CI-only (not verified here):** that GitHub itself evaluates these guards the same way, that
+  the five secrets are populated in the repository, that `setup-java`/Gradle produce a signable
+  bundle on `ubuntu-latest`, and the upload to Play Console. The first `workflow_dispatch` rehearsal
+  and the first tagged release are the checks that close them.
 
 ## Known Android limitation: cloud-save sign-in
 

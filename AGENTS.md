@@ -12597,8 +12597,23 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `app-release.aab` 48.3 MB / 523 entries, horse models absent, current icons and the lazy
   `LegalPages` (terms) chunk inside. **Without `android/keystore.properties` that bundle is
   unsigned (no `META-INF/`) and Play Console will reject it** — the store artifact still has to
-  come from `.github/workflows/android-release.yml` (four repo secrets) or the user's machine.
+  come from `.github/workflows/android-release.yml` (five repo secrets) or the user's machine.
   Never claim a signed/store-ready bundle without that signed run.
+- **The Android workflow's two jobs are MUTUALLY EXCLUSIVE by trigger (AR-3, 2026-10-30).**
+  `rehearsal` starts only for `workflow_dispatch` with `mode: rehearsal` — any branch, a throwaway
+  key generated on the runner, artifact `rehearsal-aab-do-not-upload`. `release` starts only for a
+  pushed `v*` tag or a `mode: release` dispatch **from `main`** — upload keystore, artifact
+  `sand-and-steel-aab`. No event starts both, and the refusal is a JOB-LEVEL `if:` (a skipped job
+  never starts a runner, so its secrets are never injected). `release` has no `needs:`, so it runs
+  the suite and typecheck itself; a tag push is additionally checked for provenance (the tagged
+  commit must be reachable from `refs/heads/main`, failing closed if `main` cannot be fetched), and
+  the bundle's signer certificate must match the fifth secret `ANDROID_UPLOAD_CERT_SHA256` before
+  anything is uploaded. Trigger matrix, fingerprint procedure and required secrets:
+  `docs/ANDROID_RELEASE.md`. Structural suites: `src/utils/phaseAndroidRelease{Workflow,Signing,
+  Separation}.test.ts` (the separation suite evaluates the real `if:` expressions across a trigger
+  matrix, runs `bash -n` on every `run:` block, and drives the provenance shell against a real
+  throwaway repository when `git` is available — the `web` container has no `git`, so those three
+  cases SKIP here and run in CI).
 - **Release signing** reads `android/keystore.properties` (git-ignored, see
   `android/keystore.properties.example`); without it the release build is unsigned rather
   than failing. The user's upload key is `Sand-and-Steel.keystore` + `keystore.pass`, held

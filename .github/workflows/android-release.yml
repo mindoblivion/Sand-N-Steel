@@ -1,33 +1,49 @@
 # Sand & Steel — the ONE workflow that can build Android bundles.
 #
-# TWO JOBS, TWO PURPOSES
-#   `rehearsal` — runs for EVERY trigger. Suite, typecheck, web build, `cap sync`, then a release
-#                 Gradle build signed with a THROWAWAY key generated on the runner. It references
-#                 no production secret and its artifact is named as a rehearsal.
-#   `release`   — runs only after `rehearsal` passed AND only on an approved release ref. It is
-#                 the only job that may see the upload keystore; it verifies the bundle's JAR
-#                 signature, and it uploads only after that verification succeeds.
+# TWO JOBS, MUTUALLY EXCLUSIVE BY TRIGGER
+#   `rehearsal` — `workflow_dispatch` with `mode: rehearsal`, from ANY ref. Suite, typecheck, web
+#                 build, `cap sync`, then a release Gradle build signed with a THROWAWAY key
+#                 generated on the runner. It references no production secret, its artifact is named
+#                 as a rehearsal, and it CANNOT start the release job.
+#   `release`   — a `push` of an approved `v*` tag, or `workflow_dispatch` with `mode: release` from
+#                 `refs/heads/main` only. It is the only job that may see the upload keystore; it
+#                 proves a tag is an approved commit on `main`, runs the same gates itself, signs,
+#                 verifies the bundle's signature AND the signer's certificate fingerprint, and only
+#                 then uploads. It never runs the rehearsal path and never produces a rehearsal
+#                 artifact.
 #
-# APPROVED RELEASE REFS (the only refs that may produce a signed, uploadable bundle)
-#   * `refs/heads/main` — the protected release branch
-#   * `refs/tags/v*`    — release tags, e.g. `v1.0.0`, `v1.0.0-alpha.1`
-# Everything else — a feature branch, a pull-request ref, any other tag — is refused by the
-# `release` job's JOB-LEVEL `if:`. That placement is the point: a skipped job never starts a
-# runner, so GitHub never injects the signing secrets for it. A shell test inside the job would
-# run after the secrets were already in that runner's environment, which is too late.
+# WHY THE TRIGGER MATRIX LIVES IN JOB-LEVEL `if:`s
+#   Each job's `if:` is satisfiable only by its own trigger combination, so no single event starts
+#   both. That placement is the point: a skipped job never starts a runner, so GitHub never injects
+#   that job's secrets into a runner. A shell test inside a job would run after the secrets were
+#   already in that runner's environment, which is too late.
 #
-# `workflow_dispatch` cannot bypass the rule: the guard reads `github.ref`, so dispatching from a
-# feature branch evaluates to that branch and the job is skipped. Tag pushes are subject to the
-# same guard, so a tag-triggered run is release-eligible exactly when it starts with `v`.
+#   rehearsal: dispatch AND mode == rehearsal
+#              → false for every tag push, for mode release, and for any other mode.
+#   release:   (push AND refs/tags/v*)
+#              OR (dispatch AND mode == release AND refs/heads/main)
+#              → false for a feature-branch dispatch, a non-v tag, a pull-request ref, a dispatch
+#                from a tag, mode rehearsal and any unauthorized mode.
 #
-# Keep this file in step with docs/ANDROID_RELEASE.md ("Which refs may create signed artifacts").
+#   `release` deliberately has NO `needs:` on `rehearsal`: a skipped dependency would skip the
+#   release too, and a tag run is the release path alone. The test gate therefore runs inside
+#   `release` as well (suite + typecheck) BEFORE any signing material is restored, so a tagged
+#   commit is still never signed untested.
+#
+# TAG PROVENANCE
+#   A `v*` tag is only release-eligible when the commit it points at is reachable from `main` — a
+#   tag on a feature-branch commit is refused. The check runs immediately after checkout and before
+#   any secret-bearing step, and fails closed if `main` cannot be fetched. No tag is ever created or
+#   pushed here.
+#
+# Keep this file in step with docs/ANDROID_RELEASE.md ("Trigger matrix", "Signing identity").
 name: Build Android bundle (rehearsal or release)
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'rehearsal = validate only, never uses the upload key. release = signed bundle (main or a v* tag only).'
+        description: 'rehearsal = validate only, never uses the upload key. release = signed bundle (main only).'
         type: choice
         options:
           - rehearsal
@@ -45,11 +61,13 @@ concurrency:
 
 jobs:
   # ── REHEARSAL ─────────────────────────────────────────────────────────────────────────────────
-  # No `secrets.*` reference may appear in this job. It proves the whole pipeline — tests, web
-  # build, Capacitor sync, Gradle packaging AND signature verification — while signing with a key
-  # it generates itself, so an unapproved ref can never touch the upload key.
+  # No `secrets.*` reference may appear in this job, and its `if:` refuses every trigger except a
+  # manual rehearsal run. It proves the whole pipeline — tests, web build, Capacitor sync, Gradle
+  # packaging AND signature verification — while signing with a key it generates itself, so no ref
+  # can touch the upload key through this path.
   rehearsal:
     name: Rehearsal — validate the Android build (no production secrets)
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'rehearsal'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -104,8 +122,10 @@ jobs:
         working-directory: android
         run: ./gradlew bundleRelease --no-daemon
 
+      # `--signature-only`: the rehearsal key exists for one run, so there is no identity to pin.
+      # The flag makes that skip explicit; a release run never passes it and fails closed instead.
       - name: Verify the practice bundle signature (rehearsal)
-        run: bun run scripts/verifyBundleSignature.ts android/app/build/outputs/bundle/release/app-release.aab
+        run: bun run scripts/verifyBundleSignature.ts android/app/build/outputs/bundle/release/app-release.aab --signature-only
 
       - name: Upload the REHEARSAL bundle (never a release candidate)
         uses: actions/upload-artifact@v4
@@ -120,19 +140,42 @@ jobs:
         run: rm -f android/app/rehearsal.keystore android/keystore.properties
 
   # ── RELEASE ───────────────────────────────────────────────────────────────────────────────────
-  # The ONLY job that may use the upload keystore. Both halves of the guard are required: an
-  # approved ref, and — for a manual run — an explicit `release` mode. Tests already ran in
-  # `rehearsal` on this same commit, hence `needs:`; this job rebuilds and signs from the checkout.
+  # The ONLY job that may use the upload keystore, and the only job whose `if:` admits a tag push.
+  # Order matters: provenance, then every gate, then signing material, then build, then verification
+  # (signature + signer identity), then the upload — which no step can be reached around, since
+  # nothing here may fail softly.
   release:
     name: Release — signed AAB for an approved release ref
-    needs: rehearsal
     if: |
-      needs.rehearsal.result == 'success'
-      && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-      && (github.event_name != 'workflow_dispatch' || inputs.mode == 'release')
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
+      # Full history: tag provenance compares the tagged commit against `main`.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # First step after checkout, and before any secret reaches this runner: an unapproved commit
+      # must not be built at all. Fails CLOSED — an unfetchable `main` is an error, not a pass.
+      - name: Verify the release tag is an approved commit on main (tag pushes only)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          if ! git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'; then
+            echo "::error::Could not fetch refs/heads/main — tag provenance cannot be verified, refusing to build."
+            exit 1
+          fi
+          if ! git rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}' >/dev/null; then
+            echo "::error::refs/heads/main is missing after the fetch — tag provenance cannot be verified, refusing to build."
+            exit 1
+          fi
+          TAG_COMMIT="$(git rev-parse HEAD)"
+          if ! git merge-base --is-ancestor "$TAG_COMMIT" refs/remotes/origin/main; then
+            echo "::error::$GITHUB_REF points at $TAG_COMMIT, which is not reachable from refs/heads/main — only a tag on an approved main commit may produce a store bundle."
+            exit 1
+          fi
+          echo "::notice::$GITHUB_REF -> $TAG_COMMIT is reachable from refs/heads/main."
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -147,6 +190,14 @@ jobs:
 
       - name: Install from the committed lockfile
         run: bun install --frozen-lockfile
+
+      # This job no longer inherits the rehearsal's gates, so it runs them itself — before any
+      # signing material exists in the runner.
+      - name: Test suite (release gate)
+        run: bun test
+
+      - name: Typecheck (release gate)
+        run: bun run lint
 
       # dist/ is rebuilt from this checkout; the committed android/ project receives it.
       - name: Sync web build into android/
@@ -180,9 +231,13 @@ jobs:
         working-directory: android
         run: ./gradlew bundleRelease --no-daemon
 
-      # Nothing is uploaded until this passes: an unsigned AAB builds successfully and Play
-      # Console rejects it, so the signature is verified here, not trusted.
-      - name: Verify the release bundle signature
+      # Nothing is uploaded until this passes. An unsigned AAB builds successfully, and a signed one
+      # may carry ANY certificate, so the check is two-fold: the signature must verify, and every
+      # signer must match the configured upload-certificate fingerprint. With no fingerprint
+      # configured the script fails closed rather than accepting an arbitrary signer.
+      - name: Verify the release bundle signature and signer identity
+        env:
+          EXPECTED_SIGNER_SHA256: ${{ secrets.ANDROID_UPLOAD_CERT_SHA256 }}
         run: bun run scripts/verifyBundleSignature.ts android/app/build/outputs/bundle/release/app-release.aab
 
       - name: Upload the signed .aab

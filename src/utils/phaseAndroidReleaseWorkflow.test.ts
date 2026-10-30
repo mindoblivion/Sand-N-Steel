@@ -17,6 +17,12 @@
  *   F. keystore handling                   — no shell heredoc; the escaping script is used
  *   G. cleanup                             — signing material removed unconditionally
  *
+ * Phase AR-3 made the two jobs MUTUALLY EXCLUSIVE by trigger: a `v*` tag push runs the release path
+ * alone, a rehearsal dispatch runs the rehearsal path alone. This file's assertions that described
+ * the old `needs:` dependency and the old single-clause ref guard were REBASED to that structure
+ * (not weakened); the full trigger matrix, the tag-provenance step and the signer-identity pin are
+ * pinned in `phaseAndroidReleaseSeparation.test.ts`.
+ *
  * The workflow YAML is parsed with Bun's own parser (`Bun.YAML.parse`), so the assertions read the
  * structure GitHub reads, not a text match on the file.
  */
@@ -132,9 +138,12 @@ describe('A. permitted triggers', () => {
 // ── B. the job-level release guard ───────────────────────────────────────────────────────────
 
 describe('B. the release guard is job-level and ref-based', () => {
-  test('two jobs, and the signing job depends on the rehearsal passing', () => {
+  // AR-3 replaced `needs: rehearsal` with mutually exclusive job-level guards: a `needs:` on a job
+  // that a tag push skips would skip the release too, and a tag push must reach the release path.
+  test('two jobs, and neither depends on the other', () => {
     expect(Object.keys(workflow.jobs ?? {}).sort()).toEqual(['rehearsal', 'release']);
-    expect(job('release').needs).toBe('rehearsal');
+    expect(job('release').needs).toBeUndefined();
+    expect(job('rehearsal').needs).toBeUndefined();
   });
 
   test('the approved refs are exactly the protected branch and the v* tag convention', () => {
@@ -143,14 +152,15 @@ describe('B. the release guard is job-level and ref-based', () => {
     expect(guard).toContain("startsWith(github.ref, 'refs/tags/v')");
   });
 
-  test('a manual run must also ask for release mode, so dispatch cannot bypass the ref rule', () => {
+  test('a manual run must also ask for release mode from main, so dispatch cannot bypass the ref rule', () => {
     const guard = job('release').if ?? '';
-    expect(guard).toContain("github.event_name != 'workflow_dispatch'");
+    // AR-3's matrix: a tag push, OR a `release` dispatch pinned to main. Every term is ANDed inside
+    // its own clause, so a feature-branch dispatch fails on the ref. Evaluated per trigger in
+    // `phaseAndroidReleaseSeparation.test.ts` §A.
+    expect(guard).toContain("github.event_name == 'push'");
+    expect(guard).toContain("github.event_name == 'workflow_dispatch'");
     expect(guard).toContain("inputs.mode == 'release'");
-    // The ref check and the mode check are ANDed, so a feature-branch dispatch fails on the ref.
-    const refClause = guard.slice(guard.indexOf('('), guard.indexOf(')') + 1);
-    expect(refClause).toContain('refs/heads/main');
-    expect(refClause).toContain('refs/tags/v');
+    expect(guard).toContain("github.ref == 'refs/heads/main'");
   });
 
   test('the guard is on the JOB, not merely on its steps — a skipped job never starts a runner', () => {
@@ -160,8 +170,13 @@ describe('B. the release guard is job-level and ref-based', () => {
     expect(job('release').if ?? '').not.toContain('always()');
   });
 
-  test('the rehearsal job is NOT ref-restricted (it is the safe path for every ref)', () => {
-    expect(job('rehearsal').if).toBeUndefined();
+  test('the rehearsal job is the safe path for every REF, and only for a manual rehearsal run', () => {
+    // It carries no ref term at all — any branch may rehearse — but AR-3 gates it to a manual
+    // `mode: rehearsal` dispatch so a tag push runs the release path alone.
+    expect(job('rehearsal').if).toBe(
+      "github.event_name == 'workflow_dispatch' && inputs.mode == 'rehearsal'",
+    );
+    expect(job('rehearsal').if ?? '').not.toContain('github.ref');
   });
 });
 
@@ -173,8 +188,9 @@ describe('C. production secrets are unreachable outside the release job', () => 
     expect(JSON.stringify(job('rehearsal'))).not.toContain('secrets.');
   });
 
-  test('the release job references exactly the four documented secrets', () => {
-    expect(secretNamesIn('release')).toEqual(RELEASE_SECRETS);
+  test('the release job references exactly the four keystore secrets plus the signer fingerprint', () => {
+    // AR-3 added the upload certificate's fingerprint as the fifth, release-only secret.
+    expect(secretNamesIn('release')).toEqual([...RELEASE_SECRETS, 'ANDROID_UPLOAD_CERT_SHA256'].sort());
   });
 
   test('no secret is lifted into a job-level env, so a skipped job cannot resolve one', () => {
@@ -183,7 +199,9 @@ describe('C. production secrets are unreachable outside the release job', () => 
   });
 
   test('the keystore secrets are confined to the one restore step', () => {
-    const holders = steps('release').filter((entry) => JSON.stringify(entry).includes('secrets.'));
+    const holders = steps('release').filter((entry) =>
+      RELEASE_SECRETS.some((name) => JSON.stringify(entry).includes(name)),
+    );
     expect(holders).toHaveLength(1);
     expect(holders[0].name).toContain('Restore the upload keystore');
   });
@@ -264,9 +282,16 @@ describe('E. the release upload depends on a passing signature verification', ()
     expect(JSON.stringify(job('release'))).not.toContain('continue-on-error');
   });
 
-  test('the release job waits for a successful rehearsal (tests gate the signing job)', () => {
-    expect(job('release').if ?? '').toContain("needs.rehearsal.result == 'success'");
-    expect(steps('release').map((entry) => entry.run ?? '').join('\n')).toContain('bun run cap:sync');
+  // AR-3 removed `needs: rehearsal` so a tag push can run the release path alone; the release job
+  // therefore runs the same gates itself, before any signing material is restored.
+  test('the release job runs its own gates before signing', () => {
+    const runs = steps('release').map((entry) => entry.run ?? '').join('\n');
+    expect(runs).toContain('bun test');
+    expect(runs).toContain('bun run lint');
+    expect(runs).toContain('bun run cap:sync');
+    expect(stepNamed('release', 'Test suite').index).toBeLessThan(
+      stepNamed('release', 'Restore the upload keystore').index,
+    );
   });
 });
 
