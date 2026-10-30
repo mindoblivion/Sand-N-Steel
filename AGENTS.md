@@ -5353,6 +5353,14 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   consumer is the dev-only `HorseChariotFitPrototype.tsx` reached through `main.tsx`'s
   `import.meta.env.DEV` branch — so no production build loads them. They stay because three suites hash
   them; shrinking or dropping them is a test-decision, not a payload-trim one.
+  **Superseded on the payload question (C-8.70c-era packaging fix):** `vite.config.ts` now lists them in
+  `DEV_ONLY_PUBLIC_FILES` and the `pruneDevOnlyPublicFiles()` plugin (`apply: 'build'`,
+  `closeBundle`) deletes them from the build output, so they no longer reach `dist/`, `cap sync` or
+  the AAB. **Vite copies every file in `public/` regardless of imports** — that, not any import, is
+  why they were in the bundle. The files, `HORSE_FIT_ASSET_URL`, the dev harness and all three
+  hash-pinning suites are unchanged, and the dev server still serves the asset
+  (`curl localhost:3000/_workspace_dist_horse_weak.glb` → 200). Measured: `dist/` 120 MB → **73 MB**.
+  If a large dev-only asset is added to `public/` again, add it to that list rather than moving it.
 - **Verified 2026-10-20 in the dev container, all five commands on the post-deletion tree** (with the
   same five re-run on the pre-deletion tree as a baseline, so any failure could be attributed to a
   deletion rather than inherited): `bun test` → **2153 pass / 0 fail (69 files)** — identical to the

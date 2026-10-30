@@ -101,13 +101,20 @@ Then re-run `bun run cap:sync` (or simply rebuild) so the native project carries
 
 ### Bundle size note
 
-The release bundle is ~89 MB, and roughly **47 MB of that is three dev-only horse models**
-(`public/_workspace_dist_horse_{weak,better,great}.glb`, used only by
-`src/components/dev/HorseChariotFitPrototype.tsx`). `public/README.md` and `README2.md` are
-packaged too. Play's base-module limit is 200 MB, so nothing blocks a submission, but if the
-download size ever matters those files are the first thing to drop — note that
-`src/utils/phaseC8_67d.test.ts` pins their SHA-256 hashes, so removing them means rebasing that
-suite (an explicit decision, not a packaging tweak).
+`bun run build` now produces **~73 MB** of `dist/` (it was ~120 MB). The difference is the
+three dev-only horse uploads — **47.4 MB** of `public/_workspace_dist_horse_{weak,better,great}.glb`
+— which `vite.config.ts`'s `pruneDevOnlyPublicFiles()` plugin deletes from the BUILD output.
+
+They stay in the repo because nothing else can replace them: the dev-only fit prototype
+(`?devHarness=horsefit` → `src/components/dev/HorseChariotFitPrototype.tsx`) is the tool that
+measures horse scale/alignment for the future racing feature, and three suites hash-pin their exact
+bytes (`phaseC8_67d` §G, `phaseC8_68c`, `phaseC8_70bStage1`). Vite copies every file in `public/`
+into the build regardless of imports, which is why they used to reach `dist/`, `cap sync` and the AAB
+even though no production code path loads one — the plugin removes them there and nowhere else. The
+dev server still serves them, so the harness is unaffected.
+
+`public/README.md` and `README2.md` are still packaged (a few KB — not worth a rule). Play's
+base-module limit is 200 MB, so nothing here blocks a submission.
 
 ### Push notifications (Firebase)
 
