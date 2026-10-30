@@ -132,8 +132,9 @@ const APPROACH: Record<string, { dir: [number, number]; collider: string; source
   // colonnade portico group at local [0, 0, -3.4]
   bathhouse: { dir: [0, -1], collider: 'bathhouse', source: 'PublicBathhouse.tsx (portico local Z −3.4)' },
   shrine_temple: { dir: [0, 1], collider: 'roman-shrine', source: 'RomanShrine.tsx (front on +Z)' },
-  // heavy timber doorway at local [-1.2, 0.6, 2.52] → +Z
-  bounty_hall: { dir: [0, 1], collider: 'bounty-hall', source: 'BountyHall.tsx (doorway local Z +2.52)' },
+  // heavy timber doorway at local [-1.2, 0.6, 2.52]; Phase P1 yaws the root 180°
+  // about Y, so that local +Z front now faces the forum side (−Z)
+  bounty_hall: { dir: [0, -1], collider: 'bounty-hall', source: 'BountyHall.tsx (doorway local Z +2.52, root yaw π)' },
   // heavy timber doorway at local [0, 0, 2.82] → +Z
   gladiator_barracks: { dir: [0, 1], collider: 'gladiator-barracks', source: 'GladiatorBarracks.tsx (doorway local Z +2.82)' },
   // framed doorway at local [0, 0.32, 2.58] → +Z
@@ -646,7 +647,9 @@ describe('E. The thirteen unaffected hubs are untouched and still work', () => {
     expect(FAST_TRAVEL_ARRIVALS.doctore_house).toEqual([23.5, -18.875]);
     expect(FAST_TRAVEL_ARRIVALS.records_house).toEqual([23.1, -26]);
     expect(FAST_TRAVEL_ARRIVALS.shrine_temple).toEqual([-22.5, 11]);
-    expect(FAST_TRAVEL_ARRIVALS.bounty_hall).toEqual([-15, 30]);
+    // Phase P1: the hall was turned 180° to face the forum, so its arrival moved
+    // from behind the building ([-15, 30]) to 1.0 south of the new front face.
+    expect(FAST_TRAVEL_ARRIVALS.bounty_hall).toEqual([-15, 22]);
     expect(FAST_TRAVEL_ARRIVALS.gladiator_barracks).toEqual([-22, -14]);
     expect(FAST_TRAVEL_ARRIVALS.veteran_gladiator_hall).toEqual([-24, -29]);
     expect(FAST_TRAVEL_ARRIVALS.arena_medical_house).toEqual([-29, -9]);

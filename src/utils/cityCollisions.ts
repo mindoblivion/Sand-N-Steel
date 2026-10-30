@@ -741,7 +741,11 @@ export function resolveCityMovement(
 //                                  (24 → 23.10); the 1.15-offset is unchanged.
 //   bathhouse         [-21, 25]  — 1.0 E of bathhouse east edge (x=-22.0)
 //   shrine_temple     [-22.5, 11]— 1.35 E of shrine east edge (x=-23.85)
-//   bounty_hall       [-15, 30]  — 1.0 S of bounty south edge (z=29.0)
+//   bounty_hall       [-15, 22]  — 1.0 S of the bounty hall's FORUM-side south
+//                                  face (z=23.0).  Phase P1 turned the hall's
+//                                  front (doorway, notice board) to −Z, so the
+//                                  arrival follows the entrance; the old
+//                                  [−15, 30] sat behind the building.
 //   gladiator_barracks[-22, -14] — 1.45 E of barracks east edge (x=-23.45)
 //   veteran_gladiator_hall [-24, -29] — 0.95 N of veteran north edge (z=-28.05)
 //   arena_medical_house[-29, -9] — 1.25 N of medical north edge (z=-7.75)
@@ -763,7 +767,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   records_house:      [23.1, -26],
   bathhouse:          [-21, 25],
   shrine_temple:      [-22.5, 11],
-  bounty_hall:        [-15, 30],
+  bounty_hall:        [-15, 22],
   gladiator_barracks: [-22, -14],
   veteran_gladiator_hall: [-24, -29],
   arena_medical_house:[-29, -9],

@@ -12702,3 +12702,55 @@ Four requests, one pass. Every claim below was run in the dev container unless i
   desktop and mobile (400 px) from the player-eye, hero 3/4 and plan cameras; no console errors.
   **Not verified:** the fountain through the in-game chase camera (same scene, different camera) and
   any on-device look — the Android preview check remains open.
+
+## Bounty Hall orientation correction (P1 — implemented, live-verified from the chase camera)
+
+- **The defect.** `BountyHall.tsx`'s root group carried no rotation, so the hall's whole front —
+  the recessed timber doorway at local Z +2.52, the contract notice board at local Z +2.6, the
+  crate/spear display and the crimson banner — faced **+Z**, away from the Forum Socialis and the
+  city centre. Fast travel compounded it: `FAST_TRAVEL_ARRIVALS.bounty_hall` was `[-15, 30]`, 1.0
+  north of the hall's **rear** collider face (Z 29.0), so the arrival and every approach from the
+  forum met a windowless back wall.
+- **The fix is two production literals.** (1) the root gains `rotation={[0, Math.PI, 0]}` at its
+  existing position `[-15, 0, 26]`; (2) the arrival becomes `[-15, 22]`, 1.0 south of the
+  collider's new front face (Z 23.0), with its rationale comment rewritten. Nothing else changed:
+  `RECT('bounty-hall', -15, 26, 7.0, 6.0)`, the hub (centre `[-15, 0, 26]`, radius 4.5), the
+  fountain, the gatehouse, the forum, the paving and every other building's transform and footprint
+  are exactly as they were. A 180° yaw is a rigid motion of a rotationally symmetric massing
+  (6.0 × 5.0 walls on a 6.5 × 5.5 foundation, ridge roof centred), so no footprint can grow — only
+  the front-side props change face.
+- **Measured after the yaw** (local → world under `[-15, 0, 26]` + π): doorway `[-1.2, 0.6, 2.52]`
+  → **`[-13.8, 0.6, 23.48]`** facing −Z (0.02 proud of the south wall face at 23.50); notice board
+  group `[1.8, 0.3, 2.6]` → **`[-16.8, 0.3, 23.4]`** facing −Z (0.10 proud); window `[-3.02, 2.2, 0]`
+  with its own −π/2 → **`[-11.98, 2.2, 26]`** facing +X on the east wall (world yaw +π/2). Arrival
+  `[-15, 22]`: 4.0 from the hub centre (inside the 4.5 disc, so the prompt is up on landing), 1.0
+  from the collider face (the 0.9 invariant), inside `BOUNDARY_X` / `BOUNDARY_Z_MAX`. Front
+  standoff `hd + R` = 3.4, leaving a **1.10** doorway band (≥ the 0.80 player diameter).
+- **Regression suite: `src/utils/phaseBountyHallOrientation.test.ts`** — 29 tests / 521 assertions,
+  every value parsed from `BountyHall.tsx` and transformed by the root's own yaw the way three.js
+  composes it: §A the root position and the single yaw declaration; §B the door, board and window
+  world positions and facings, plus the props staying inside the footprint; §C the collider's
+  centre/half-extents/faces; §D the hub centre, radius and doorway band; §E the arrival's
+  clearance, boundary legality, radius membership and prompt; §F a Forum Socialis → doorway walk
+  driven with the real `resolveCityMovement` (unblocked, prompt up) and a 400-step push into the
+  front face that never enters the footprint; §G the fast-travel table against
+  `scripts/collisionTests.ts`' pins, one arrival per hub, and the 0.9 clearance re-checked for all
+  21. Two pre-existing pins were **rebased, not weakened**: `phaseC8_47.test.ts`'s `APPROACH`
+  direction `[0, 1] → [0, -1]` (its resolver now measures the −Z front) and its unaffected-hub
+  arrival pin `[-15, 30] → [-15, 22]`, and `scripts/collisionTests.ts`'s expected table row.
+- **Verified 2026-10-30** in the dev container: `bun test` → **4263 pass / 0 fail** (157 files,
+  175507 expect() calls; the accepted baseline was 4234, the delta is this suite's 29);
+  `bun run scripts/collisionTests.ts` → **123 passed, 0 failed**, exit 0; `bun run lint`
+  (`tsc --noEmit`) → exit 0; `bun run build` → exit 0 with the **8/8** startup assets check
+  passed (pre-existing >500 kB chunk warning only).
+- **Live verification from the normal player camera (preview browser, 400 px):** `Continue` →
+  city hub → `City Map & Navigation` → *Bounty & Mercenary Hall* fast-travel. The arrival raises
+  **`CONSULT MERCENARY BOARD`** on landing (the disc is reached from `[-15, 22]`) and two chase-
+  camera captures read clean: the recessed timber doorway straight ahead, the **notice board with
+  its two papyrus notices** beside it, the barrel/crate display to its left, the crimson banner,
+  and no console errors. The camera orbit used for the second frame is the shipped
+  `useCameraDrag` hold-and-drag (0.0055 rad/px), dispatched as pointer events on the canvas.
+  **Not visually verified, and reported rather than claimed:** the east-wall window's appearance
+  (the hall left the frame on a second, three-quarter orbit at ~2 fps), and the wider
+  fountain/gatehouse/forum frame — neither was captured, so no visual acceptance is claimed for
+  them. No visual defect was seen; no window, prop or paving change was made.

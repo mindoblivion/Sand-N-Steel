@@ -12,8 +12,10 @@ import { TimberCrate, WineBarrel } from './CivicFurnishingProps';
 import { NOISE_TEXTURE } from './RomanMaterials';
 
 export const BountyHall = React.memo(() => {
+  // Phase P1: the hall's entrance and notice board face the forum side (-Z);
+  // a 180 deg yaw about Y turns the local +Z front toward the city, root unchanged.
   return (
-    <group position={[-15, 0, 26]}>
+    <group position={[-15, 0, 26]} rotation={[0, Math.PI, 0]}>
       {/* 0. STEPPED STONE FOUNDATION PODIUM */}
       <BuildingFoundation size={[6.5, 5.5]} height={0.3} projection={0.25} color="#44403c" capColor="#57534e" />
 

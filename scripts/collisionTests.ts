@@ -675,7 +675,7 @@ test('fast-travel: arrival positions match documented coordinates', () => {
     records_house: [23.1, -26],
     bathhouse: [-21, 25],
     shrine_temple: [-22.5, 11],
-    bounty_hall: [-15, 30],
+    bounty_hall: [-15, 22], // P1: hall faces the forum (−Z); 1.0 S of z=23.0
     gladiator_barracks: [-22, -14],
     veteran_gladiator_hall: [-24, -29],
     arena_medical_house: [-29, -9],
