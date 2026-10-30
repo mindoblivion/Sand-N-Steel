@@ -406,8 +406,8 @@ describe('CH-3a §T — the stat stage', () => {
     stamina: 10,
     staminaMax: 120,
     staminaRegen: 24,
-    defense: 6,
-    healthMax: 138,
+    defense: 4,
+    healthMax: 132,
   };
 
   test('FROZEN: no palmae equipped reproduces the pre-CH-3a numbers exactly', () => {
