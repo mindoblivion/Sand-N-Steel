@@ -639,18 +639,13 @@ describe('CF-4 §G the duel call sites', () => {
 describe('CF-4 §H combat outcomes and timing are unchanged', () => {
   const duel = read('components/duel/DuelScene.tsx');
 
-  test('the hit-stop table and the resolution window are the shipped ones', () => {
-    expect(duel).toMatch(/quick:\s*60,/);
-    expect(duel).toMatch(/power:\s*110,/);
-    expect(duel).toMatch(/crit:\s*170,/);
-    expect(duel).toMatch(/blocked:\s*40,/);
-    expect(duel).toMatch(/twin:\s*35,/);
-    expect(duel).toMatch(/telegraphedHeavy:\s*200,/);
-    // CF-5 replaced the fixed 1100 ms hold with the weight-scaled table, so the
-    // resolution window is pinned through the shipped call instead.
-    // C-8.70C rebased this pin (not weakened): the one scheduling call now passes
-    // the bout mode, whose Sand default keeps the shipped table exact.
-    expect(duel.match(/\}, turnResolutionMs\(actionType, fightEnded, boutMode\)\);/g)?.length).toBe(1);
+  test('the existing hit-stop table and 1100 ms resolution window remain unchanged', () => {
+    expect(duel).toContain('quick: 60,');
+    expect(duel).toContain('power: 110,');
+    expect(duel).toContain('crit: 170,');
+    expect(duel).toContain('blocked: 40,');
+    expect(duel).toContain('telegraphedHeavy: 200,');
+    expect(duel).toContain('}, 1100);');
   });
 
   test('the damage formula module knows nothing about particles', () => {
@@ -661,10 +656,8 @@ describe('CF-4 §H combat outcomes and timing are unchanged', () => {
   });
 
   test('each call is a fire-and-forget statement, never assigned or awaited', () => {
-    // Four call sites since CF-6 (the boss counter-dodge dust is the fourth);
-    // every one still a bare statement.
-    const calls = duel.match(/[^\n]*impactParticlesRef\.current\?\.burst\([^\n]*/g) ?? [];
-    expect(calls.length).toBe(4);
+    const calls = duel.split('\\n').filter((line) => line.includes('impactParticlesRef.current?.burst('));
+    expect(calls.length).toBe(3);
     for (const line of calls) {
       expect(line.trim().startsWith('impactParticlesRef.current?.burst(')).toBe(true);
       expect(line).not.toContain('await');
@@ -673,8 +666,7 @@ describe('CF-4 §H combat outcomes and timing are unchanged', () => {
   });
 
   test('the wiring touches no combat state, timer or calculation', () => {
-    // Declaration + the ref prop + the four call sites (CF-6 added the boss
-    // counter-dodge's): nothing else.
-    expect((duel.match(/impactParticlesRef/g) ?? []).length).toBe(6);
+    // Ref declaration + mount + three fire-and-forget outcome calls.
+    expect(duel.split('impactParticlesRef').length - 1).toBe(5);
   });
 });

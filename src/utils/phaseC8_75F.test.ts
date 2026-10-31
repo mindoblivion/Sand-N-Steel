@@ -317,6 +317,8 @@ function createHarness(options: HarnessOptions) {
       },
     },
     impactRef: { current: { freezeUntil: 0, trauma: 0 } },
+    // CF-4 visual-only side effect; the production strike harness keeps it inert.
+    impactParticlesRef: { current: { burst: () => {} } },
     telegraphLandingRef: { current: false },
     pendingHeavyAttackRef: { current: false },
     pendingCounterRef: { current: false },
