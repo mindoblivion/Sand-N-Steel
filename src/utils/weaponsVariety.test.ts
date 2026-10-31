@@ -47,12 +47,12 @@ describe('WEAPONS-1 weapons variety', () => {
     expect(hasta.range).toBe(Math.max(...ALL_WEAPONS.map((weapon) => weapon.range)));
   });
 
-  test('Scutum & Gladius is the strongest shield block', () => {
+  test('Scutum & Gladius matches the audited strongest shield block', () => {
     const scutum = ALL_WEAPONS[13];
     expect(scutum.name).toBe('Scutum & Gladius');
     expect(scutum.type).toBe('sword_shield');
-    expect(scutum.blockReduction).toBe(0.9);
-    expect(scutum.blockReduction).toBe(Math.max(...ALL_WEAPONS.map((weapon) => weapon.blockReduction)));
+    expect(scutum.blockReduction).toBe(0.85);
+    expect(Math.max(...ALL_WEAPONS.map((weapon) => weapon.blockReduction))).toBe(0.85);
     expect(scutum.bonusDefense).toBe(4);
   });
 

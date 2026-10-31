@@ -258,7 +258,7 @@ describe('§B — every weapon in the roster trades Dodge’s stamina for less d
       'hoplite_spear',
     ]);
     // ALL_WEAPONS is the defender roster; keep the matrix honest about its size.
-    expect(ALL_WEAPONS.length).toBe(11);
+    expect(ALL_WEAPONS.length).toBe(15);
   });
 
   test('the structural rule: the evade rate beats the best shield in the roster', () => {

@@ -329,7 +329,7 @@ export const ALL_WEAPONS: WeaponItem[] = [
     staminaHeavy: 22,
     range: 2.1,
     speed: 0.40,
-    blockReduction: 0.90,
+    blockReduction: 0.85,
     price: 220,
     sellPrice: 95,
     color: '#991b1b',
