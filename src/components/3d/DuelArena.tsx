@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
@@ -143,6 +143,78 @@ export function buildLibitinariaDressingGeometry(): THREE.BufferGeometry {
   return mergeParts([colorizeGeometry(plaque, ARENA_INTERIOR_COLORS.bronzeAged)]);
 }
 
+export const ARENA_CROWD_SILHOUETTE_COUNT = 56;
+
+export interface ArenaCrowdSilhouette {
+  position: readonly [number, number, number];
+  size: readonly [number, number, number];
+  color: string;
+}
+
+/** Preserve the shipped 28-per-tier crowd positions, sizes and tunic colours. */
+export function buildArenaCrowdSilhouettePlacement(): ArenaCrowdSilhouette[] {
+  const spectators: ArenaCrowdSilhouette[] = [];
+  for (let ci = 0; ci < 28; ci += 1) {
+    const angle = (ci / 28) * Math.PI * 2;
+    const rad1 = 22.2;
+    const rad2 = 25.8;
+    spectators.push({
+      position: [Math.cos(angle) * rad1, 7.8, Math.sin(angle) * rad1],
+      size: [1.2, 1.4, 0.8],
+      color: ci % 3 === 0 ? '#991b1b' : ci % 2 === 0 ? '#f5f5f4' : '#78350f',
+    });
+    spectators.push({
+      position: [Math.cos(angle) * rad2, 11.2, Math.sin(angle) * rad2],
+      size: [1.4, 1.5, 0.8],
+      color: ci % 2 === 0 ? '#b45309' : '#e5e5e5',
+    });
+  }
+  return spectators;
+}
+
+/** Fill one instanced mesh: same silhouettes, one draw call instead of 56. */
+export function fillArenaCrowdInstances(
+  mesh: THREE.InstancedMesh,
+  spectators: readonly ArenaCrowdSilhouette[],
+): void {
+  const dummy = new THREE.Object3D();
+  const tint = new THREE.Color();
+  spectators.forEach((spectator, index) => {
+    dummy.position.set(...spectator.position);
+    dummy.scale.set(...spectator.size);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(index, dummy.matrix);
+    mesh.setColorAt(index, tint.set(spectator.color));
+  });
+  mesh.count = spectators.length;
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+  mesh.frustumCulled = false;
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+}
+
+/** The old 56 separate crowd boxes, consolidated into one managed R3F draw call. */
+const ArenaCrowd: React.FC = () => {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const spectators = useMemo(() => buildArenaCrowdSilhouettePlacement(), []);
+  useLayoutEffect(() => {
+    if (meshRef.current) fillArenaCrowdInstances(meshRef.current, spectators);
+  }, [spectators]);
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[null!, null!, ARENA_CROWD_SILHOUETTE_COUNT]}
+      castShadow={false}
+      receiveShadow={false}
+      frustumCulled={false}
+    >
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial roughness={0.9} />
+    </instancedMesh>
+  );
+};
+
 export const DuelArena: React.FC = () => {
   const arenaTextures = useMemo(
     () => ({
@@ -199,24 +271,9 @@ export const DuelArena: React.FC = () => {
         <meshStandardMaterial map={arenaTextures.tiers} color={arenaTextures.tiers ? ARENA_INTERIOR_COLORS.limestone : '#854d0e'} roughness={0.85} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* Spectator Crowd Silhouettes */}
-      {Array.from({ length: 28 }).map((_, ci) => {
-        const angle = (ci / 28) * Math.PI * 2;
-        const rad1 = 22.2;
-        const rad2 = 25.8;
-        return (
-          <group key={`crowd-${ci}`}>
-            <mesh position={[Math.cos(angle) * rad1, 7.8, Math.sin(angle) * rad1]}>
-              <boxGeometry args={[1.2, 1.4, 0.8]} />
-              <meshStandardMaterial color={ci % 3 === 0 ? '#991b1b' : ci % 2 === 0 ? '#f5f5f4' : '#78350f'} roughness={0.9} />
-            </mesh>
-            <mesh position={[Math.cos(angle) * rad2, 11.2, Math.sin(angle) * rad2]}>
-              <boxGeometry args={[1.4, 1.5, 0.8]} />
-              <meshStandardMaterial color={ci % 2 === 0 ? '#b45309' : '#e5e5e5'} roughness={0.9} />
-            </mesh>
-          </group>
-        );
-      })}
+      {/* Spectator Crowd Silhouettes — exact positions, sizes and colours,
+          now instanced into one draw call instead of 56 individual meshes. */}
+      <ArenaCrowd />
 
       {/* 4. ROARING BRONZE ARENA FIRE BRAZIERS */}
       {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
