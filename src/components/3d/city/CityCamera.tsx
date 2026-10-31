@@ -8,6 +8,8 @@ import {
 } from '../../../hooks/useCameraDrag';
 import { CITY_CAMERA_DISTANCES, getCameraSensitivityScale } from '../../../services/settings';
 import { useSettings } from '../../../hooks/useSettings';
+import { resolveCameraCollision, CAMERA_HEAD_HEIGHT } from '../../../utils/cameraCollision';
+import { CITY_COLLIDERS } from '../../../utils/collisionShapes';
 
 interface CityCameraProps {
   targetPosition: [number, number, number];
@@ -110,6 +112,15 @@ export const CityCamera: React.FC<CityCameraProps> = ({
     const desiredY = pY + currentHeight;
 
     const desiredCamPos = desiredCamPosRef.current.set(desiredX, desiredY, desiredZ);
+
+    // Keep the chase camera out of city buildings while preserving the existing
+    // smooth lerp and all camera distance/sensitivity settings.
+    const safeCamPos = resolveCameraCollision(
+      { x: pX, y: pY + CAMERA_HEAD_HEIGHT, z: pZ },
+      { x: desiredCamPos.x, y: desiredCamPos.y, z: desiredCamPos.z },
+      CITY_COLLIDERS,
+    );
+    desiredCamPos.set(safeCamPos.x, safeCamPos.y, safeCamPos.z);
 
     // Smooth camera position lerp
     camera.position.lerp(desiredCamPos, Math.min(1, delta * 7.5));
