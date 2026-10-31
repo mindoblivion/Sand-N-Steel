@@ -9,3 +9,11 @@ node_modules/
 
 # Core dumps
 core
+
+# One package manager only (bun.lock is the committed lockfile)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Terminal dumps pasted into a Codespace session
+codespace-diagnostics.txt

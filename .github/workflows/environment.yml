@@ -1,0 +1,70 @@
+# Sand & Steel — the environment gate.
+#
+# WHAT IT IS
+#   The workflow that runs on every pull request and every push to `main`. It exists
+#   because the project had NO continuous gate on its own development environment: the only
+#   other workflow (`android-release.yml`) runs on a manual dispatch or an approved `v*` tag,
+#   so a broken typecheck, a failing suite, a bad collision table or a build that cannot emit
+#   `dist/` could sit on `main` unnoticed until someone cut a release or opened the preview.
+#
+# WHAT IT RUNS, IN ORDER
+#   1. `bun install --frozen-lockfile` — proves `bun.lock` is the tree's single source of
+#      truth and still resolves. A stray `package-lock.json` or an unlocked version bump
+#      fails here instead of on a runner at release time.
+#   2. `bun run lint`        — `tsc --noEmit` over `src/` and `scripts/`.
+#   3. `bun test`            — the repo-wide suite, including `src/utils/devEnvironment.test.ts`,
+#                              which pins this workflow's own gates and the compose wiring.
+#   4. `scripts/collisionTests.ts` — the city-collision contract checks (separate harness).
+#   5. `scripts/combatTests.ts`    — the combat-math contract checks (separate harness).
+#   6. `bun run build`       — the production build AND `scripts/startupAssetCheck.ts`, so a
+#                              missing startup asset fails before it reaches a device.
+#
+# WHY IT IS NOT PART OF `android-release.yml`
+#   That workflow's job-level `if:`s deliberately admit only a rehearsal dispatch or an
+#   approved release ref, and it must not gain a trigger that starts a runner on a PR. This
+#   gate is the PR-side complement: it never touches a signing key or an artifact.
+#
+# Keep this file in step with `src/utils/devEnvironment.test.ts` §F and AGENTS.md
+# ("Environment gate").
+name: Environment gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: environment-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Environment gate — typecheck, suites and production build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install from the committed lockfile
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run lint
+
+      - name: Unit and surface suite
+        run: bun test
+
+      - name: Collision harness
+        run: bun run scripts/collisionTests.ts
+
+      - name: Combat harness
+        run: bun run scripts/combatTests.ts
+
+      - name: Production build and startup asset check
+        run: bun run build
