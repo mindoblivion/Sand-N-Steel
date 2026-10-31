@@ -97,6 +97,10 @@ const OPPONENT_WEAPONS: WeaponItem[] = OPPONENT_WEAPON_TYPES.map((type) =>
   getWeaponByType(type),
 );
 
+// The pre-WEAPONS-1 roster is retained only for historical 11-weapon balance
+// measurements below. The full matrix defaults to all current catalogue weapons.
+const ORIGINAL_WEAPONS: WeaponItem[] = ALL_WEAPONS.slice(0, 11);
+
 /** Damage a blow of `base` does when it lands unguarded (defence only). */
 const openDamage = (base: number): number =>
   calculateAttackDamage(base, ATTACKER.strength, false, DEFENDER.defense, false, 0, 1);
@@ -126,9 +130,9 @@ interface Config {
 }
 
 /** The whole roster matrix at a given evade rate. */
-function matrix(rate: number): Config[] {
+function matrix(rate: number, defenders: readonly WeaponItem[] = ALL_WEAPONS): Config[] {
   const rows: Config[] = [];
-  for (const defender of ALL_WEAPONS) {
+  for (const defender of defenders) {
     for (const attacker of OPPONENT_WEAPONS) {
       for (const [kind, base] of [
         ['quick', attacker.damageLight],
@@ -258,7 +262,7 @@ describe('§B — every weapon in the roster trades Dodge’s stamina for less d
       'hoplite_spear',
     ]);
     // ALL_WEAPONS is the defender roster; keep the matrix honest about its size.
-    expect(ALL_WEAPONS.length).toBe(11);
+    expect(ALL_WEAPONS.length).toBe(15);
   });
 
   test('the structural rule: the evade rate beats the best shield in the roster', () => {
@@ -268,7 +272,7 @@ describe('§B — every weapon in the roster trades Dodge’s stamina for less d
     expect(1 - DODGE_EVADE_CHANCE).toBeLessThan(1 - bestBlock);
   });
 
-  test('no configuration makes Dodge worse on damage than Shield Guard (0 of 88)', () => {
+  test('no configuration makes Dodge worse on damage than Shield Guard (0 of 120)', () => {
     const rows = matrix(DODGE_EVADE_CHANCE);
     expect(rows.length).toBe(ALL_WEAPONS.length * OPPONENT_WEAPONS.length * 2);
     const dominated = rows.filter((row) => row.dodge >= row.guard);
@@ -281,7 +285,7 @@ describe('§B — every weapon in the roster trades Dodge’s stamina for less d
   });
 
   test('the pre-fix 0.75 DID dominate — 30 of 88 configurations', () => {
-    const legacy = matrix(0.75);
+    const legacy = matrix(0.75, ORIGINAL_WEAPONS);
     const dominated = legacy.filter((row) => row.dodge >= row.guard);
     expect(dominated.length).toBe(30);
     // The worst case was the spatha's guard against a standard gladius heavy.
@@ -293,9 +297,9 @@ describe('§B — every weapon in the roster trades Dodge’s stamina for less d
   });
 
   test('light weapons keep the trade-off the right way round — a bigger, not smaller, dodge dividend', () => {
-    const rows = matrix(DODGE_EVADE_CHANCE);
-    const lightWeapons = ALL_WEAPONS.filter((w) => w.blockReduction < 0.5);
-    const shieldWeapons = ALL_WEAPONS.filter((w) => w.blockReduction >= 0.75);
+    const rows = matrix(DODGE_EVADE_CHANCE, ORIGINAL_WEAPONS);
+    const lightWeapons = ORIGINAL_WEAPONS.filter((w) => w.blockReduction < 0.5);
+    const shieldWeapons = ORIGINAL_WEAPONS.filter((w) => w.blockReduction >= 0.75);
     expect(lightWeapons.length).toBe(5);
     expect(shieldWeapons.length).toBe(4);
 
