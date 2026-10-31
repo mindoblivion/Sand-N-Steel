@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumber } from '../../types/game';
 import { DuelArena } from '../3d/DuelArena';
 import { GladiatorMesh, type ImpactState } from '../3d/GladiatorMesh';
+import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticles';
 import { CombatHUD } from '../ui/CombatHUD';
 import { WithdrawConfirmModal } from './WithdrawConfirmModal';
 import { withdrawFromDuel } from '../../utils/duelWithdrawal';
@@ -467,6 +468,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // every frame by the camera rig and both GladiatorMesh instances, so the
   // feedback costs no re-render and no React state.
   const impactRef = useRef<ImpactState>({ freezeUntil: 0, trauma: 0 });
+  // One pooled Points object; fire-and-forget feedback only, never combat state.
+  const impactParticlesRef = useRef<ImpactParticlesHandle>(null);
   // Marks the ONE resolution that is a telegraphed heavy landing, so it can take
   // the longest hit-stop. Set by the AI branch that resolves the telegraph, then
   // read-and-cleared at the top of executeCombatTurn — a miss, an evade or an
@@ -984,6 +987,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               rageMult,
             );
 
+            // CF-4 — one impact point and the blow's own Z axis for the pooled effect.
+            /** @type {[number, number, number]} */
+            const impactPoint = [
+              defender.position[0],
+              defender.position[1] + 1.2,
+              defender.position[2],
+            ];
+            /** @type {[number, number, number]} */
+            const impactDir = [
+              0,
+              0,
+              Math.sign(defender.position[2] - attacker.position[2]) || 1,
+            ];
+
             if (isBlocked) {
               sounds.playBlock();
               if (!isActorPlayer) statsRef.current.perfectBlocks += 1;
@@ -1002,6 +1019,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 'system',
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
+              impactParticlesRef.current?.burst('spark', impactPoint, impactDir);
               // C-8.70B §R2 — Shield Guard's ONLY recovery: the guard stopped a
               // blow. Applied here (and only here) so raising a shield that
               // nothing hits recovers nothing, and so one blocked strike can
@@ -1044,10 +1062,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 sounds.playHeavyImpact();
                 addLog(strikeLine, 'crit');
                 spawnDamageText(`-${rawDamage} CRIT!`, 'crit', defender.position);
+                impactParticlesRef.current?.burst('crit', impactPoint, impactDir);
               } else {
                 sounds.playSlash();
                 addLog(strikeLine, isActorPlayer ? 'player' : 'opponent');
                 spawnDamageText(`-${rawDamage}`, 'damage', defender.position);
+                impactParticlesRef.current?.burst('sand', impactPoint, impactDir);
               }
               // C-8.70B §SET-1 — the player's blade landed: one short buzz, on the
               // device's own haptics and only when the Vibration row is on.
@@ -1671,6 +1691,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 <GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} />
                 <GladiatorMesh fighter={opp} impactRef={impactRef} />
                 <FloatingDamage3D damages={damageNumbers} />
+                <ImpactParticles ref={impactParticlesRef} />
               </Suspense>
             </ThreeComponentErrorBoundary>
 
