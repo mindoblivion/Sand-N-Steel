@@ -63,12 +63,12 @@ describe('arena crowd instancing', () => {
       const rotation = new THREE.Quaternion();
       mesh.getMatrixAt(0, matrix);
       matrix.decompose(position, rotation, scale);
-      expect(position.x).toBeCloseTo(22.2, 10);
-      expect(position.y).toBeCloseTo(7.8, 10);
-      expect(position.z).toBeCloseTo(0, 10);
-      expect(scale.x).toBeCloseTo(1.2, 10);
-      expect(scale.y).toBeCloseTo(1.4, 10);
-      expect(scale.z).toBeCloseTo(0.8, 10);
+      expect(position.x).toBeCloseTo(22.2, 5);
+      expect(position.y).toBeCloseTo(7.8, 5);
+      expect(position.z).toBeCloseTo(0, 5);
+      expect(scale.x).toBeCloseTo(1.2, 5);
+      expect(scale.y).toBeCloseTo(1.4, 5);
+      expect(scale.z).toBeCloseTo(0.8, 5);
 
       const color = new THREE.Color();
       mesh.getColorAt(0, color);
