@@ -10,7 +10,7 @@ export const VISITOR_CADENCE_MAX = 7;
 export const VISITOR_WINDOW_MAX_DAY = 365;
 export const VISITOR_OFFER_SLOTS = 1;
 export const VISITORS: readonly Visitor[] = Object.freeze([
-  Object.freeze({ id: 'numidian_bladesmith', name: 'Hanno of Cirta', title: 'Wandering Bladesmith',
+  Object.freeze({ id: 'numidian_bladesmith', name: 'Bostar of Cirta', title: 'Wandering Bladesmith',
     description: 'A Numidian smith who follows the games and grinds a fine edge in the shade of the gate.',
     cadence: 3, bargainRate: 0.7, window: Object.freeze({ from: 1, to: 150 }),
     offer: Object.freeze({ summary: 'A short blade ground on the whetstone of his own camp.',

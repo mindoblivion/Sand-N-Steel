@@ -571,6 +571,8 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/nightDressing.ts',
       'utils/phaseFlavor.ts',
       'utils/racePhaseLight.ts',
+      // L10 visitor scheduling is a pure reader of the existing seven-phase clock.
+      'utils/visitorSchedule.ts',
     ]);
     for (const file of sources) {
       const rel = file.slice(srcRoot.length + 1);

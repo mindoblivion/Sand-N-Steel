@@ -19,7 +19,7 @@ describe('Living City visitor catalogue', () => {
       expect(visitor.window.to).toBeLessThanOrEqual(365);
       expect(visitor.offer.pool.length).toBeGreaterThan(0);
     }
-    expect(getVisitor('numidian_bladesmith')?.name).toBe('Hanno of Cirta');
+    expect(getVisitor('numidian_bladesmith')?.name).toBe('Bostar of Cirta');
     expect(getVisitor('unknown')).toBeUndefined();
   });
   test('schedule is deterministic, ordered and bounded by each arrival window', () => {
