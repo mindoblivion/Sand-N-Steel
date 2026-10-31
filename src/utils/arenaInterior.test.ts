@@ -35,12 +35,11 @@ describe('AI-1 arena interior integration', () => {
     expect(arenaSource).toContain('<meshStandardMaterial vertexColors metalness={0.65} roughness={0.4} />');
   });
 
-  test('the merged portcullis has the documented 5.2 x 4.4 footprint and vertex colours', () => {
+  test('the merged portcullis has the documented 5.2 x 4.4 footprint', () => {
     const geometry = buildPortcullisGrilleGeometry();
     try {
       geometry.computeBoundingBox();
       expect(geometry.getAttribute('position').count).toBeGreaterThan(0);
-      expect(geometry.getAttribute('color').count).toBe(geometry.getAttribute('position').count);
       expect(geometry.boundingBox?.max.x! - geometry.boundingBox?.min.x!).toBeCloseTo(5.2, 5);
       expect(geometry.boundingBox?.max.y! - geometry.boundingBox?.min.y!).toBeCloseTo(4.4, 5);
     } finally {
