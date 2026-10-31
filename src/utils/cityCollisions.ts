@@ -607,6 +607,11 @@ export function resolveCityMovement(
   speed: number,
   delta: number
 ): [number, number, number] {
+  // Clamp the timestep so a low-framerate hitch cannot tunnel through walls.
+  // At ~1 FPS a raw frame step can move several metres and skip a collider.
+  // 0.1s caps the 3.8 m/s stride to 0.38m, below the 0.8m overlap capture width.
+  // Below 10fps the game time-dilates rather than teleporting through buildings.
+  delta = Math.min(delta, 0.1);
   const r = PLAYER_RADIUS;
   let x = currentPos[0];
   let z = currentPos[2];
