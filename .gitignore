@@ -9,3 +9,7 @@ node_modules/
 
 # Core dumps
 core
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+codespace-diagnostics.txt
