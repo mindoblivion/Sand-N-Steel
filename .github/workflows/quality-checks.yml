@@ -1,0 +1,43 @@
+name: Quality Checks
+
+on:
+  push:
+    branches:
+      - recovery-living-city
+  pull_request:
+    branches:
+      - main
+      - recovery-living-city
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    name: Tests, TypeScript, and production build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run test suite
+        run: bun test
+
+      - name: Check TypeScript
+        run: bun run lint
+
+      - name: Build production app and verify startup assets
+        run: bun run build
