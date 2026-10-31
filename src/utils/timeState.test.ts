@@ -520,6 +520,8 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       // the clock (`ludi` is its own field). Added here as a READER, on the same terms as
       // the day-boundary seam beside it.
       'utils/ludiCalendar.ts',
+      // L10 visitor scheduling reads the existing day; it adds no clock writer or second counter.
+      'utils/visitorSchedule.ts',
     ];
     const CLOCK_APIS = [
       'resolveTimeState',
