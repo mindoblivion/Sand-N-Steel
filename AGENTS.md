@@ -142,10 +142,9 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   browser only offers fixed viewport presets (no ~812x375), so the compacted layout was measured by replaying
   those declarations unconditionally over the live duel HUD — content dropped from 403px to 347px against a
   365px budget. A true 812x375 render is not reproducible here; check it on a real landscape phone.
-- `bun run lint` (`tsc --noEmit`) reports several **pre-existing** type errors inherited from the AI Studio export
-  (e.g. `screen.orientation.lock` missing from the DOM lib, extra fields on `FighterStats`/`WeaponItem`,
-  `isBone` on `Object3D`). Vite's dev server does not type-check, so they do not block the app — don't chase
-  them as setup failures.
+- `bun run lint` (`tsc --noEmit`) was **clean on 2026-10-31** (exit 0), so the AI Studio export's old type
+  errors are gone — a lint failure is now a real regression, not setup noise. Vite's dev server does not
+  type-check, which is why `bun run lint` and the CI gate (`.github/workflows/environment.yml`) exist.
 
 ## Development-only character test harness (Phase 4)
 
@@ -8718,3 +8717,35 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   the new cards on the target device is an Android question, as with every surface in this file.
   Nothing promises the Doctore's naming of a Vitium (deferred), the keeper greetings that would
   reference province or god (deferred), silhouette geometry, or Favores Deorum.
+
+## Environment gate — recovery and reinforcing (implemented, validated)
+
+- **What this phase is.** A recovery of the workspace state plus the guards that keep the development
+  environment from failing silently. No gameplay, no rendered surface, no save format and no asset changed.
+- **Recovered.** `codespace-diagnostics.txt` — a terminal-escape dump of `git status`/log committed three
+  times (`c9acf62`, `eacb840`, `677d6c9`) and referenced by nothing — is removed. `.gitignore` now ignores
+  the stray lockfiles a wrong package manager writes (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`)
+  and that dump's name, so neither can be committed again.
+- **Reinforced — `src/utils/devEnvironment.test.ts` (15 tests).** Pins the environment's own contract: the
+  compose maps host 3000 and runs `bun run dev` from the bind-mounted source on a runtime image (never
+  `vite preview` or a prebuilt app image), installs with `--frozen-lockfile`, keeps `node_modules` in the
+  named volume, probes `127.0.0.1:3000` and restarts on failure; `.base44/environment.json` agrees (port
+  3000, `/`, the compose file); Vite binds `0.0.0.0:3000`; `dev` / `build` / `lint` still mean what the
+  gate calls; every registered startup asset exists in `public/`; the root carries no stray lockfile, core
+  dump or terminal dump; and the workflow still runs every gate below.
+- **Reinforced — `.github/workflows/environment.yml`.** The repo had no PR gate at all
+  (`android-release.yml` runs only on a `workflow_dispatch` or an approved `v*` tag). The new gate runs on
+  `pull_request` and on `push` to `main`, on `ubuntu-24.04`: `bun install --frozen-lockfile`,
+  `bun run lint`, `bun test`, `scripts/collisionTests.ts`, `scripts/combatTests.ts`, and `bun run build`
+  (which includes `scripts/startupAssetCheck.ts`). It touches no signing key and produces no artifact, so
+  it does not interact with the Android release's trigger matrix.
+- **Verified 2026-10-31** in the dev container on the final tree: `bun test` → **5136 pass / 0 fail
+  (173 files)**; `bun run scripts/collisionTests.ts` → 123 passed, 0 failed; `bun run
+  scripts/combatTests.ts` → 67 passed, 0 failed; `bun run lint` (`tsc --noEmit`) → exit 0; `bun run build`
+  → exit 0 with the 8-asset startup check; the dev server answers HTTP 200 on `/`, `/src/main.tsx` and
+  `/src/index.css?direct`; the preview boots to the title screen with 0 console errors and 0 failed
+  requests.
+- **Not verified.** The new workflow has not run on GitHub (there is no runner here), so its YAML is
+  covered by the suite's structural checks rather than by a parser or a real run. The environment was
+  already green when this phase started, so this is prevention, not the repair of a live failure; the
+  Android rehearsal and any Codespaces run were not exercised.
