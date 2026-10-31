@@ -99,7 +99,8 @@ describe('§B — the preview metadata and the Vite bind agree', () => {
 describe('§C — the commands the environment depends on exist', () => {
   test('the scripts the compose command, the guard and CI call are present and honest', () => {
     expect(pkg.scripts.build).toContain('vite build');
-    expect(pkg.scripts.build).toContain('check:startup-assets');
+    // This branch invokes the startup checker directly rather than through an npm script alias.
+    expect(pkg.scripts.build).toContain('scripts/startupAssetCheck.ts');
     expect(pkg.scripts.lint).toBe('tsc --noEmit');
   });
 
@@ -152,10 +153,10 @@ describe('§E — the repository root stays clean of environment artifacts', () 
 });
 
 describe('§F — the CI gate runs the environment and gameplay suites', () => {
-  test('the gate runs on pull requests and on main, on the pinned runner', () => {
+  test('the gate runs on pull requests into development-focus-strategy and pushes to the development/recovery branches', () => {
     expect(workflow).toMatch(/^on:\s*$/m);
     expect(workflow).toContain('pull_request:');
-    expect(workflow).toMatch(/push:[\s\S]*?branches:\s*\[main\]/);
+    expect(workflow).toMatch(/push:[\s\S]*?branches:\s*\[development-focus-strategy,\s*recovery-development-validation\]/);
     expect(workflow).toContain('runs-on: ubuntu-24.04');
   });
 

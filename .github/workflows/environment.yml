@@ -5,7 +5,7 @@
 #   because the project had NO continuous gate on its own development environment: the only
 #   other workflow (`android-release.yml`) runs on a manual dispatch or an approved `v*` tag,
 #   so a broken typecheck, a failing suite, a bad collision table or a build that cannot emit
-#   `dist/` could sit on `main` unnoticed until someone cut a release or opened the preview.
+#   `dist/` could sit on `development-focus-strategy` unnoticed until someone cut a release or opened the preview.
 #
 # WHAT IT RUNS, IN ORDER
 #   1. `bun install --frozen-lockfile` — proves `bun.lock` is the tree's single source of
@@ -30,6 +30,7 @@ name: Environment gate
 
 on:
   pull_request:
+    branches: [development-focus-strategy]
   push:
     branches: [development-focus-strategy, recovery-development-validation]
 
