@@ -808,14 +808,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     return () => sounds.stopCrowdBed();
   }, []);
 
-  // Cancel an in-flight recovery callback when the arena scene is exited.
-  useEffect(() => () => {
-    if (turnResolutionTimerRef.current !== null) {
-      clearTimeout(turnResolutionTimerRef.current);
-      turnResolutionTimerRef.current = null;
-    }
-  }, []);
-
   const statsRef = useRef<DuelStatistics>({
     damageDealt: 0,
     damageTaken: 0,
@@ -841,6 +833,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const isMatchOver = useRef(false);
   // Own the active turn-resolution timer so leaving the duel cannot fire a stale state update.
   const turnResolutionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cancel an in-flight recovery callback when the arena scene is exited.
+  useEffect(() => () => {
+    if (turnResolutionTimerRef.current !== null) {
+      clearTimeout(turnResolutionTimerRef.current);
+      turnResolutionTimerRef.current = null;
+    }
+  }, []);
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
   const pendingCounterRef = useRef(false);
