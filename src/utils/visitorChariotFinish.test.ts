@@ -1,8 +1,11 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { createNewProfile } from '../services/storage';
 import { VISITORS } from '../data/visitors';
 import { purchaseVisitorOffer } from './visitorPurchase';
+
+const WORKSHOP = readFileSync(new URL('../components/hub/ChariotWorkshopTab.tsx', import.meta.url), 'utf8');
 import { CHARIOT_PARTS, chariotPartsBySlot, getChariotPart, getChariotPartByFinish } from '../data/chariotParts';
 import {
   describeChariotRejection,
@@ -23,8 +26,8 @@ describe('Living City L16B — Ventive visitor livery', () => {
     expect(part?.price).toBe(900);
     expect(part?.visitorOnly).toBe(true);
     expect(getChariotPartByFinish('ventive')).toBe(part);
-    expect(chariotPartsBySlot('finish').some((entry) => entry.id === part?.id)).toBe(false);
-    expect(chariotPartsBySlot('finish', true).some((entry) => entry.id === part?.id)).toBe(true);
+    expect(chariotPartsBySlot('finish').some((entry) => entry.id === part?.id)).toBe(true);
+    expect(WORKSHOP).toContain('parts.filter((part) => !part.visitorOnly || ownsChariotPart(profile, part.id)).map(renderCard)');
     expect(CHARIOT_PARTS[CHARIOT_PARTS.length - 1].id).toBe('finish_triumph_banners');
   });
 
