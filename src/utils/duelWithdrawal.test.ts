@@ -1,3 +1,4 @@
+// @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import type { DuelStatistics } from '../types/game';
