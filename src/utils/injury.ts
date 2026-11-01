@@ -36,9 +36,18 @@
  */
 
 import type { PlayerInjury, PlayerProfile } from '../types/game';
+import {
+  INJURY_FIGHTS_REMAINING,
+  INJURY_PENALTY_AGILITY,
+  INJURY_PENALTY_STRENGTH,
+  normalizeInjury,
+  settleInjury,
+} from './injurySettlement';
+
+export { INJURY_PENALTY_AGILITY, INJURY_PENALTY_STRENGTH };
 
 /** A fresh injury lasts this many completed duels. */
-export const INJURY_FIGHTS = 3;
+export const INJURY_FIGHTS = INJURY_FIGHTS_REMAINING;
 
 /** S5 — the Arena Medical House's price for a full cure, in gold (design §1.6). */
 export const TREAT_PRICE = 75;
@@ -48,10 +57,6 @@ export const REST_PRICE = 25;
 
 /** S5 — one night's rest takes this many fights off the injury's clock. */
 export const REST_FIGHTS_RESTORED = 2;
-/** A fresh injury costs this much strength … */
-export const INJURY_PENALTY_STRENGTH = 2;
-/** … and this much agility. */
-export const INJURY_PENALTY_AGILITY = 2;
 
 /**
  * What this duel did to the injury, for the result screen to say:
@@ -77,16 +82,7 @@ export interface InjuryRecord {
 export function resolveActiveInjury(
   raw: PlayerInjury | null | undefined,
 ): PlayerInjury | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const remaining = raw.fightsRemaining;
-  if (typeof remaining !== 'number' || !Number.isFinite(remaining) || remaining <= 0) {
-    return null;
-  }
-  return {
-    fightsRemaining: Math.floor(remaining),
-    penaltyStrength: raw.penaltyStrength,
-    penaltyAgility: raw.penaltyAgility,
-  };
+  return normalizeInjury(raw);
 }
 
 /**
@@ -102,23 +98,17 @@ export function resolveInjuryAfterDuel<T extends InjuryRecord>(
   won: boolean,
 ): { profile: T; event: DuelInjuryEvent | null } {
   const current = resolveActiveInjury(profile.injury);
+  // Preserve the no-op identity of an uninjured victory.
+  if (won && !current) return { profile, event: null };
 
-  if (current) {
-    const fightsRemaining = current.fightsRemaining - 1;
-    if (fightsRemaining <= 0) {
-      return { profile: { ...profile, injury: null }, event: { kind: 'healed' } };
-    }
-    return { profile: { ...profile, injury: { ...current, fightsRemaining } }, event: null };
-  }
+  const settled = settleInjury(profile, won);
+  const next = resolveActiveInjury(settled.injury);
 
-  if (won) return { profile, event: null };
-
-  const injury: PlayerInjury = {
-    fightsRemaining: INJURY_FIGHTS,
-    penaltyStrength: INJURY_PENALTY_STRENGTH,
-    penaltyAgility: INJURY_PENALTY_AGILITY,
-  };
-  return { profile: { ...profile, injury }, event: { kind: 'inflicted', injury } };
+  // A defeat always leaves a fresh/refreshed injury to announce.
+  if (!won && next) return { profile: settled, event: { kind: 'inflicted', injury: next } };
+  // A victory announces only the duel that spends the final remaining fight.
+  if (current && !next) return { profile: settled, event: { kind: 'healed' } };
+  return { profile: settled, event: null };
 }
 
 /** The one player-facing line a fresh injury prints, from the injury's own numbers. */
