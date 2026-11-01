@@ -20,7 +20,7 @@ describe('C-8.75C — Valéria counter response window', () => {
     expect(branch).toContain("counterStep === 'announce'");
     expect(branch).toContain("runCounterTurn('opponent', 'telegraph')");
     expect(branch).toContain("counterStep === 'resolve'");
-    expect(branch).toContain("runCounterTurn('opponent', 'quick_attack')");
+    expect(branch).toContain("executeCombatTurn('opponent', 'quick_attack')");
     expect(branch.indexOf("counterStep === 'announce'")).toBeLessThan(branch.indexOf("counterStep === 'resolve'"));
   });
 
