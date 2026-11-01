@@ -9,13 +9,11 @@
  *
  * The rule, in full:
  *
- *   • a LOSS with no active injury inflicts a fresh one: 3 fights, −2 STR, −2 AGI;
- *   • ANY completed duel (win or loss) while injured decrements `fightsRemaining`
- *     by one, and the injury clears to `null` when that reaches zero;
- *   • a loss while already injured neither stacks nor refreshes — it only
- *     decrements, like every other completed duel;
- *   • a fresh infliction is NOT decremented by the duel that inflicted it, so a new
- *     injury always starts at the full 3 fights.
+ *   • a LOSS inflicts or refreshes the one injury slot: 2 fights, −2 STR, −2 AGI;
+ *   • every completed duel first spends one fight from the injury carried into it;
+ *   • a loss then refreshes the single slot to its full 2 fights, never stacking;
+ *   • a victory spends one fight and clears the injury when that reaches zero;
+ *   • the defeat's own fresh/refresh injury is not decremented by that same duel.
  *
  * It is deterministic — no clock, no randomness, no storage — and pure: it reads
  * the profile it is handed and returns a NEW profile (the input is never mutated).
@@ -23,7 +21,7 @@
  * `tempering.ts`): the caller hands the result to the existing
  * `setProfile()` + `saveProfile()` pair.
  *
- * The penalties are applied by the existing `calculateTotalStats` (floored at 1);
+ * The canonical malformed-save reader is shared with `calculateTotalStats`, which applies the penalties (floored at 1);
  * this module never touches that function or any combat formula.
  *
  * S5 — THE CURES live here too, because they write the same one field: the Arena
