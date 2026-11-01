@@ -402,7 +402,7 @@ describe('§H the one call site: the result transaction', () => {
     expect(MODAL_SOURCE).toContain('Injury healed.');
     expect(MODAL_SOURCE).toContain('data-duel-injury={injuryEvent.kind}');
     expect(STATS_SOURCE).toContain('resolveActiveInjury(profile.injury)');
-    expect(STATS_SOURCE).toContain('data-injury={activeInjury.fightsRemaining}');
+    expect(STATS_SOURCE).toContain('data-injury={injuryStatus.fightsRemaining}');
   });
 
   test('combat formulas are untouched: the helper never reads the stat path', () => {
