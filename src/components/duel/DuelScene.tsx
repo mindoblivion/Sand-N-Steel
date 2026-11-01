@@ -989,8 +989,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
             // CF-4 — one impact point and the blow's own Z axis for the pooled effect.
             /** @type {[number, number, number]} */
-            /** @type {[number, number, number]} */
-            const impactPoint = [
+            const impactPoint: [number, number, number] = [
               defender.position[0],
               defender.position[1] + 1.2,
               defender.position[2],
