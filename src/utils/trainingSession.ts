@@ -52,7 +52,9 @@ export function trainStat(
   if (!isTrainingActionScheduled(profile, action.id)) return { ok: false, reason: 'not-scheduled' };
 
   const cost = trainingCost(profile.level);
-  if (profile.gold < cost) return { ok: false, reason: 'insufficient-gold' };
+  if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < cost) {
+    return { ok: false, reason: 'insufficient-gold' };
+  }
 
   return {
     ok: true,
