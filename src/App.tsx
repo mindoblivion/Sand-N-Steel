@@ -34,6 +34,7 @@ import { purchaseFacility, trainingCost, type FacilityId } from './utils/facilit
 import { purchaseTemper } from './utils/tempering';
 import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
 import { purchaseItem } from './utils/itemPurchase';
+import { isStorefrontItemOnOffer } from './utils/cityRotation';
 import { withArmaturaPledge } from './utils/armaturaPledge';
 import { applyPalmaEarns, equipPalma, purchaseDoctorePalma, unequipPalma } from './utils/palmaeState';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
@@ -1701,7 +1702,7 @@ export function App() {
    * were bypassed.  A refusal returns no profile and never reaches `saveProfile`.
    */
   const handleBuyItem = (item: WeaponItem | ArmorItem) => {
-    if (!profile) return;
+    if (!profile || !isStorefrontItemOnOffer(profile, shopId, item.id)) return;
     const result = purchaseItem(profile, item);
     if (!result.ok) return;
     setProfile(result.profile);
