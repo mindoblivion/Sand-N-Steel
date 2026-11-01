@@ -2,7 +2,7 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { getStorefrontStock } from '../data/shops';
+import { getStorefrontStock, getVisibleStorefrontStock } from '../data/shops';
 import { resolveTimeState } from './timeState';
 import {
   MERCHANT_ROTATION_SLOTS,
@@ -11,6 +11,7 @@ import {
   resolveDailyStorefrontRotation,
   resolveStorefrontOffer,
   rotateStorefrontStock,
+  selectDailyWindow,
 } from './cityRotation';
 
 const DAY_ONE = [
@@ -38,16 +39,20 @@ describe('L2 — deterministic daily storefront rotation', () => {
     expect(resolveTimeState({ time: { total: 0 } } as never).day).toBe(1);
     expect(resolveTimeState({ time: { total: 6 } } as never).day).toBe(1);
     expect(resolveTimeState({ time: { total: 7 } } as never).day).toBe(2);
-    expect(resolveStorefrontOffer({ time: { total: 0 } } as never, 'merchant')).toEqual(DAY_ONE);
+    expect(resolveStorefrontOffer({ time: { total: 0 } } as never, 'merchant')).toEqual(
+      selectDailyWindow(getVisibleStorefrontStock('merchant', { time: { total: 0 } } as never), 4, 'merchant', 1)
+    );
     expect(resolveStorefrontOffer({ time: { total: 7 } } as never, 'merchant')).toEqual(
-      rotateStorefrontStock('merchant', 2)
+      selectDailyWindow(getVisibleStorefrontStock('merchant', { time: { total: 7 } } as never), 4, 'merchant', 2)
     );
   });
 
   test('legacy and malformed clock values safely resolve to day one', () => {
     for (const profile of [undefined, null, {}, { time: { total: NaN } }, { time: { total: -1 } }]) {
       expect(resolveDailyStorefrontRotation(profile as never).day).toBe(1);
-      expect(resolveStorefrontOffer(profile as never, 'merchant')).toEqual(DAY_ONE);
+      expect(resolveStorefrontOffer(profile as never, 'merchant')).toEqual(
+        selectDailyWindow(getVisibleStorefrontStock('merchant', profile as never), 4, 'merchant', 1)
+      );
     }
   });
 
@@ -78,7 +83,9 @@ describe('L2 — deterministic daily storefront rotation', () => {
   test('daily resolver reports a coherent set of storefront offers', () => {
     const result = resolveDailyStorefrontRotation({ time: { total: 14 } } as never);
     expect(result.day).toBe(3);
-    expect(result.storefronts.merchant.itemIds).toEqual(rotateStorefrontStock('merchant', 3));
+    expect(result.storefronts.merchant.itemIds).toEqual(
+      selectDailyWindow(getVisibleStorefrontStock('merchant', { time: { total: 14 } } as never), 4, 'merchant', 3)
+    );
     expect(result.storefronts.merchant.slots).toBe(4);
     expect(result.storefronts.forge.rotates).toBe(false);
   });
