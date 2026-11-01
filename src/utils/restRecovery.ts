@@ -10,11 +10,11 @@
  * Pure: no React, persistence, wall clock, timers, randomness or mutation.
  */
 import type { PlayerProfile } from '../types/game';
-import { advanceTimeBy, resolveTimeState } from './timeState';
+import { advanceTimeBy, resolveTimeState, PHASES_PER_DAY } from './timeState';
 import { normalizeInjury } from './injurySettlement';
 
 export const REST_DAY_FIELD = 'restDay' as const;
-export const REST_DAY_PHASES = 7;
+export const REST_DAY_PHASES = PHASES_PER_DAY;
 export const REST_BASE_COST = 25;
 
 export type RestRefusal =
