@@ -831,6 +831,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   });
 
   const isMatchOver = useRef(false);
+  // Own the active turn-resolution timer so leaving the duel cannot fire a stale state update.
+  const turnResolutionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cancel an in-flight recovery callback when the arena scene is exited.
+  useEffect(() => () => {
+    if (turnResolutionTimerRef.current !== null) {
+      clearTimeout(turnResolutionTimerRef.current);
+      turnResolutionTimerRef.current = null;
+    }
+  }, []);
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
   const pendingCounterRef = useRef(false);
@@ -2238,7 +2248,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // The hold is the ONLY thing this timer decides: every outcome above is
       // already resolved, and the callback below only resets the animations,
       // ticks the entangle and hands the turn over. See TURN_RESOLUTION_MS.
-      setTimeout(() => {
+      turnResolutionTimerRef.current = setTimeout(() => {
+        turnResolutionTimerRef.current = null;
         // Reset action animations back to idle
         if (isActorPlayer) {
           setPlayer((prev) => ({

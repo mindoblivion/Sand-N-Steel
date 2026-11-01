@@ -399,3 +399,22 @@ describe('CF-5 §D the timing seam is the only thing that moved', () => {
     expect(named).toEqual(['components/duel/DuelScene.tsx']);
   });
 });
+
+
+// ── §E RESOLUTION TIMER LIFECYCLE ──────────────────────────────────────────
+describe('CF-5 §E resolution timer lifecycle', () => {
+  test('the active resolution timer is owned by the duel scene', () => {
+    expect(duel).toMatch(/const turnResolutionTimerRef = useRef<ReturnType<typeof setTimeout> \| null>\(null\);/);
+    expect(duel).toMatch(/turnResolutionTimerRef\.current = setTimeout\(\(\) => \{/);
+    expect(duel).toMatch(/turnResolutionTimerRef\.current = null;/);
+  });
+
+  test('unmount cancels and clears an outstanding resolution callback', () => {
+    const cleanup = duel.indexOf('if (turnResolutionTimerRef.current !== null)');
+    const clear = duel.indexOf('clearTimeout(turnResolutionTimerRef.current);', cleanup);
+    const reset = duel.indexOf('turnResolutionTimerRef.current = null;', clear);
+    expect(cleanup).toBeGreaterThan(-1);
+    expect(clear).toBeGreaterThan(cleanup);
+    expect(reset).toBeGreaterThan(clear);
+  });
+});
