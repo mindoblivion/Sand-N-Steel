@@ -7,7 +7,7 @@
  */
 import type { FighterState, PlayerProfile } from '../types/game';
 import { DEFAULT_PLAYER_WEAPON } from '../data/itemsDB';
-import { resolveVisitorSchedule, type VisitorArrival } from './visitorSchedule';
+import { resolveVisitorSchedule } from './visitorSchedule';
 import type { Visitor } from '../data/visitors';
 import type { InteractiveLocation } from './cityCollisions';
 
