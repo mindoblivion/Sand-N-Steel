@@ -1,4 +1,5 @@
 import { describe, test, expect } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import type { DuelStatistics } from '../types/game';
 import { withdrawFromDuel } from './duelWithdrawal';
 
@@ -58,5 +59,28 @@ describe('C-8.80B — confirmed duel withdrawal', () => {
     expect(calls).toBe(0);
     expect(resultStats.goldEarned).toBe(125);
     expect(resultStats.outcome).toBeUndefined();
+  });
+});
+
+describe('C-8.80B — scene and HUD wiring', () => {
+  test('weapon badge is informational and withdrawal is the deliberate exit', () => {
+    const hud = readFileSync(new URL('../components/ui/CombatHUD.tsx', import.meta.url), 'utf8');
+    expect(hud).toContain('onWithdraw');
+    expect(hud).toContain('data-withdraw="true"');
+    expect(hud).toContain('data-combat-weapon-badge="true"');
+    expect(hud).not.toContain('onOpenArmory');
+  });
+  test('the scene settles through App and cancels active turn timers', () => {
+    const scene = readFileSync(new URL('../components/duel/DuelScene.tsx', import.meta.url), 'utf8');
+    expect(scene).toContain('withdrawFromDuel({');
+    expect(scene).toContain('settle: onMatchComplete');
+    expect(scene).toContain('clearTimeout(aiTurnTimerRef.current)');
+    expect(scene).toContain('clearTimeout(turnResolutionTimerRef.current)');
+    expect(scene).toContain('onFallbackTo2D={onOpenArmory}');
+  });
+  test('the result card labels a forfeit accurately', () => {
+    const modal = readFileSync(new URL('../components/hub/DuelResultModal.tsx', import.meta.url), 'utf8');
+    expect(modal).toContain("stats.outcome === 'withdrawn' ? 'WITHDRAWN'");
+    expect(modal).toContain('You raised the flag against');
   });
 });
