@@ -179,6 +179,8 @@ const REQUIRED_FIXTURE_IDS = [
   'records-era',
   // LUDI PHASE A — the calendar's day-state.
   'ludi-era',
+  // L9 — the Medical House rest marker, separate from the authoritative time clock.
+  'medical-house-rest-era',
   // PITCH A4 — the Corpus et Origo identity field.
   'corpus-et-origo',
 ];
@@ -1240,6 +1242,7 @@ describe('GC20 §J — the corpus rule', () => {
       'road',
       'seen',
       'time',
+      'city',
       'laurels',
       'consumables',
       'intel',
@@ -1276,6 +1279,7 @@ describe('GC20 §J — the corpus rule', () => {
       'road',
       'seen',
       'time',
+      'city',
       'laurels',
       'consumables',
       'intel',
