@@ -268,7 +268,7 @@ describe('§D the helpers are pure', () => {
   });
 
   test('two calls on the same input agree and do not share an object', () => {
-    const hurt = bareProfile({ injury: FRESH });
+    const hurt = bareProfile({ injury: { ...FRESH, fightsRemaining: 3 } });
     const a = restAtInn(hurt);
     const b = restAtInn(hurt);
     expect(a.injury).toEqual(b.injury);
