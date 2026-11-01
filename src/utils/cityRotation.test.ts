@@ -91,11 +91,12 @@ describe('L2 — deterministic daily storefront rotation', () => {
   });
 });
 
-describe('L2 — App transaction boundary', () => {
-  test('the purchase handler re-checks the same storefront offer before saving', () => {
+describe('L2/L4 — App transaction boundary', () => {
+  test('the purchase handler delegates to the shared transaction before saving', () => {
     const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
-    expect(app).toContain('isStorefrontItemOnOffer(profile, shopId, item.id)');
-    expect(app.indexOf('isStorefrontItemOnOffer(profile, shopId, item.id)'))
-      .toBeLessThan(app.indexOf('const result = purchaseItem(profile, item)'));
+    expect(app).toContain('purchaseStorefrontItem(base, shopId, item.id)');
+    expect(app).toContain('profileRef.current = result.profile');
+    expect(app.indexOf('profileRef.current = result.profile'))
+      .toBeLessThan(app.indexOf('saveProfile(result.profile)'));
   });
 });
