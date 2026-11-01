@@ -1,4 +1,5 @@
 import React from 'react';
+import { LandmarkSign } from './LandmarkSign';
 import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
 import {
@@ -180,6 +181,7 @@ export const SmithingForge = React.memo(() => {
         </mesh>
         <pointLight color="#f59e0b" intensity={3} distance={7} position={[0, -0.1, 0]} />
       </group>
+          <LandmarkSign id="smithing_forge" />
     </group>
   );
 });
