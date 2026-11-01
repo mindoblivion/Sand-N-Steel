@@ -1584,7 +1584,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               : `${attacker.name} winds up a devastating overhead smash!`,
           'opponent',
         );
-        spawnDamageText('\u26A0 HEAVY!', 'crit', attacker.position);
+        spawnDamageText(isCounterWindup ? '\u26A0 COUNTER!' : '\u26A0 HEAVY!', 'crit', attacker.position);
         // CH-4 — Pit Bellower: the bellow behind the wind-up also drains stamina
         // (floored at 0). Palmae ADD to the mechanic — the announce, the pending
         // heavy and its landing below are untouched.
