@@ -1,12 +1,10 @@
 import React from 'react';
 import { PlayerProfile } from '../../types/game';
-import { Dumbbell, Swords, Shield, Heart, Zap, Award, Moon } from 'lucide-react';
+import { Dumbbell, Swords, Shield, Heart, Zap, Award } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { DoctoreTestCard } from './DoctoreTestCard';
 import type { DoctoreTestRestriction } from '../../utils/storyBeats';
 import { trainingCost } from '../../utils/facilityProgression';
-import { TRAINING_ACTIONS, type TrainingStat } from '../../data/training';
-import { resolveTrainingSchedule } from '../../utils/trainingSchedule';
 import { resolvePalmae } from '../../utils/traitModifiers';
 import { DOCTORE_PALMAE, palmaPrice } from '../../utils/palmaeState';
 
@@ -35,23 +33,15 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
   // P5 — the Ludus Training Yard sets stat training's price (and only that).
   const cost = trainingCost(profile);
   const canAfford = Number.isFinite(profile.gold) && profile.gold >= cost;
-  const schedule = resolveTrainingSchedule(profile);
-  const scheduledIds = new Set(schedule.actions.map((action) => action.id));
   // CH-5 — the Doctore's palms: ownership and prices read from the palmae data.
   const ownedPalmae = resolvePalmae(profile).unlocked ?? [];
 
-  const disciplineLook = {
-    strength: { icon: Swords, color: 'text-red-400' },
-    agility: { icon: Zap, color: 'text-yellow-400' },
-    stamina: { icon: Heart, color: 'text-green-400' },
-    defense: { icon: Shield, color: 'text-blue-400' },
-  };
-  const trainingOptions = TRAINING_ACTIONS.map((action) => ({
-    key: action.id,
-    name: action.name,
-    desc: action.description,
-    ...disciplineLook[action.id],
-  }));
+  const trainingOptions = [
+    { key: 'strength', name: 'Heavy Log Sleds', desc: 'Increases light & heavy attack damage.', icon: Swords, color: 'text-red-400' },
+    { key: 'agility', name: 'Reflex Speed Target', desc: 'Increases movement speed & dodge recovery.', icon: Zap, color: 'text-yellow-400' },
+    { key: 'stamina', name: 'Sand Endurance Drills', desc: 'Increases maximum stamina capacity & regen.', icon: Heart, color: 'text-green-400' },
+    { key: 'defense', name: 'Shield Deflection Stance', desc: 'Reduces damage taken and strengthens block.', icon: Shield, color: 'text-blue-400' },
+  ];
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto w-full pb-12">
@@ -66,10 +56,6 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
         </h3>
         <p className="text-sm text-neutral-300 font-serif">
           Condition your body for the arena. Training costs <strong className="text-yellow-300">{cost} Gold</strong> per session.
-        </p>
-        <p className="text-xs text-neutral-400 font-serif mt-2">
-          Day {schedule.day} — {schedule.actions.length} of {TRAINING_ACTIONS.length} disciplines drill today
-          {schedule.resting.length > 0 && <>; <span className="text-amber-200/80">{schedule.resting.map((action) => action.name).join(', ')}</span> rests</>}.
         </p>
         {/* LUDI PHASE A — THE DAY'S SESSIONS, shown and NOT enforced. The Acta's rollover
             refreshes them (two, or three on Dies Quietus), and this row is the read that
@@ -89,8 +75,6 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {trainingOptions.map((opt) => {
           const Icon = opt.icon;
-          const scheduled = scheduledIds.has(opt.key as TrainingStat);
-          const enabled = scheduled && canAfford;
           return (
             <div
               key={opt.key}
@@ -98,11 +82,10 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
             >
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <Icon className={`w-5 h-5 ${scheduled ? opt.color : 'text-neutral-500'}`} />
-                  <h4 className={`font-serif font-bold text-base ${scheduled ? 'text-amber-100' : 'text-neutral-500'}`}>{opt.name}</h4>
+                  <Icon className={`w-5 h-5 ${opt.color}`} />
+                  <h4 className="font-serif font-bold text-base text-amber-100">{opt.name}</h4>
                 </div>
                 <p className="text-xs text-neutral-400 mb-4">{opt.desc}</p>
-                {!scheduled && <p className="text-xs text-neutral-500 font-serif mb-3 flex items-center gap-1.5"><Moon className="w-3.5 h-3.5" />Resting today — the yard runs this drill another day.</p>}
               </div>
 
               <button
@@ -110,7 +93,7 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
                   sounds.playClick();
                   onTrainStat(opt.key as 'strength' | 'agility' | 'stamina' | 'defense');
                 }}
-                disabled={!enabled}
+                disabled={!canAfford}
                 className="w-full min-h-[48px] py-3 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 disabled:opacity-40 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md"
               >
                 Train (+1 {opt.key.toUpperCase()})
