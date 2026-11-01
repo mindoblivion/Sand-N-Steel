@@ -1,6 +1,7 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
 import { ITEMS_DB } from '../data/itemsDB';
+import { getChariotPart, isChariotPartId } from '../data/chariotParts';
 import { VISITORS, getVisitor } from '../data/visitors';
 import type { PlayerProfile } from '../types/game';
 import { resolveTimeState } from './timeState';
@@ -39,7 +40,10 @@ describe('main Living City visitor schedule', () => {
       expect(visitor.window.from).toBeLessThanOrEqual(visitor.window.to);
       expect(Object.isFrozen(visitor.offer.pool)).toBe(true);
       expect(visitor.offer.pool.length).toBeGreaterThan(0);
-      for (const id of visitor.offer.pool) expect(itemIds.has(id)).toBe(true);
+      for (const id of visitor.offer.pool) {
+        if (itemIds.has(id)) continue;
+        expect(getChariotPart(id)?.visitorOnly).toBe(true);
+      }
     }
     expect(getVisitor('not-a-visitor')).toBeUndefined();
   });
@@ -56,6 +60,11 @@ describe('main Living City visitor schedule', () => {
       expect(scheduleVisitorDay(VISITORS, day)).toEqual(scheduleVisitorDay(VISITORS, day));
     }
     expect(visitorHash('1:numidian_bladesmith')).toBe(independentHash('1:numidian_bladesmith'));
+    const finishDay = scheduleVisitorDay(VISITORS, 5).arrivals.find(
+      (arrival) => arrival.visitor.id === 'numidian_bladesmith',
+    );
+    expect(finishDay?.offerItemId).toBeNull();
+    expect(finishDay?.offerPartId).toBe('finish_ventive');
   });
 
   test('arrival windows are inclusive and completed visitors stay excluded', () => {
@@ -103,10 +112,12 @@ describe('main Living City visitor schedule', () => {
     );
   });
 
-  test('every returned offer references a real main-branch item', () => {
+  test('every returned offer is classified as one real item or one visitor-only part', () => {
     for (let day = 1; day <= 365; day += 1) {
       for (const arrival of scheduleVisitorDay(VISITORS, day).arrivals) {
-        expect(itemIds.has(arrival.offerItemId)).toBe(true);
+        expect((arrival.offerItemId !== null) !== (arrival.offerPartId !== null)).toBe(true);
+        if (arrival.offerItemId) expect(itemIds.has(arrival.offerItemId)).toBe(true);
+        if (arrival.offerPartId) expect(getChariotPart(arrival.offerPartId)?.visitorOnly).toBe(true);
       }
     }
   });
@@ -114,11 +125,11 @@ describe('main Living City visitor schedule', () => {
   test('daily offer selection matches the established L2 city-rotation namespace', () => {
     for (let day = 1; day <= 365; day += 1) {
       for (const arrival of scheduleVisitorDay(VISITORS, day).arrivals) {
-        const pool = arrival.visitor.offer.pool.filter((id) => itemIds.has(id));
+        const pool = arrival.visitor.offer.pool.filter((id) => itemIds.has(id) || isChariotPartId(id));
         const index = independentHash(
           'sand-and-steel:city-rotation:' + arrival.visitor.id + ':' + day,
         ) % pool.length;
-        expect(arrival.offerItemId).toBe(pool[index]);
+        expect(arrival.offerItemId ?? arrival.offerPartId).toBe(pool[index]);
       }
     }
   });
