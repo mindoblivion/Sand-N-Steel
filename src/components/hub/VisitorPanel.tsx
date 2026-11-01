@@ -5,7 +5,6 @@ import { getItemById } from '../../data/itemsDB';
 import { readSeenVisitors, resolveVisitorSchedule } from '../../utils/visitorSchedule';
 import { resolveVisitorEncounter } from '../../utils/visitorEncounter';
 import {
-  purchaseVisitorOffer,
   resolveVisitorBargainPrice,
   type VisitorPurchaseRejectionReason,
   type VisitorPurchaseResult,
