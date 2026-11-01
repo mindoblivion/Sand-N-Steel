@@ -1350,7 +1350,7 @@ describe('GC20 §J — the corpus rule', () => {
     const withNew = scanned(doctored);
     expect(withNew).not.toEqual(shipped);
     expect(withNew).toContain('unaccounted');
-    expect(withNew.length).toBe(25);
+    expect(withNew.length).toBe(26);
   });
 });
 
