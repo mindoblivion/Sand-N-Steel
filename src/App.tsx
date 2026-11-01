@@ -34,6 +34,7 @@ import { purchaseFacility, trainingCost, type FacilityId } from './utils/facilit
 import { purchaseTemper } from './utils/tempering';
 import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
 import { purchaseItem } from './utils/itemPurchase';
+import { purchaseStorefrontItem } from './utils/storefrontPurchase';
 import { withArmaturaPledge } from './utils/armaturaPledge';
 import { applyPalmaEarns, equipPalma, purchaseDoctorePalma, unequipPalma } from './utils/palmaeState';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
@@ -232,6 +233,11 @@ interface CityExitPose {
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  // L4 — keep the latest committed save visible to duplicate purchase callbacks in the same tick.
+  const profileRef = useRef<PlayerProfile | null>(null);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
   /**
    * DAY/NIGHT T2 — the duel result's ONE time settlement is transaction-scoped: this flag
    * is armed when a bout is entered and consumed by the resolution write, so a second call
@@ -1701,9 +1707,12 @@ export function App() {
    * were bypassed.  A refusal returns no profile and never reaches `saveProfile`.
    */
   const handleBuyItem = (item: WeaponItem | ArmorItem) => {
-    if (!profile) return;
-    const result = purchaseItem(profile, item);
+    const base = profileRef.current ?? profile;
+    if (!base) return;
+    const result = purchaseStorefrontItem(base, shopId, item.id);
     if (!result.ok) return;
+    // Update the ref synchronously: a second callback before React renders sees the spend.
+    profileRef.current = result.profile;
     setProfile(result.profile);
     saveProfile(result.profile);
   };

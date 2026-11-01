@@ -164,7 +164,9 @@ describe('SHOP-2 §C — the storefront id is threaded from the city to the scre
 describe('SHOP-2 §D — the shop screen renders a storefront, not the catalogue', () => {
   test('the screen resolves its list through the catalogue layer', () => {
     // P5 — the screen now asks the GATED view, so the workshop level is applied.
-    expect(SHOP_SRC).toContain('getVisibleStorefrontStock(shopId, profile)');
+    expect(SHOP_SRC).toContain('resolveStorefrontOffer(profile, shopId)');
+    expect(SHOP_SRC).toContain("from '../../utils/cityRotation'");
+    expect(SHOP_SRC).toContain('isMerchantPurchaseSpent(profile)');
     expect(SHOP_SRC).toContain("shopId = 'market'");
     // The storefront's list replaces the old "render every weapon and every armor" screen.
     expect(SHOP_SRC).not.toContain('ALL_WEAPONS');

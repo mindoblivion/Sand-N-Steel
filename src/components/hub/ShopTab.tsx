@@ -1,7 +1,9 @@
 import React from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
 import { getItemById, isWeapon } from '../../data/itemsDB';
-import { getVisibleStorefrontStock, StorefrontId } from '../../data/shops';
+import { StorefrontId } from '../../data/shops';
+import { resolveStorefrontOffer } from '../../utils/cityRotation';
+import { isMerchantPurchaseSpent } from '../../utils/storefrontPurchase';
 import {
   getKeeperForStorefront,
   nightClerkLine,
@@ -90,6 +92,8 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   ]);
 
   const copy = STOREFRONT_COPY[shopId];
+  // L4 — the Elite Merchant House closes after one successful purchase this day.
+  const merchantSpentToday = shopId === 'merchant' && isMerchantPurchaseSpent(profile);
   /**
    * K1 — who stands behind this counter.  The hub's own market tab trades from
    * no one counter, so `keeper` is undefined there and nothing is shown or
@@ -152,7 +156,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   // The storefront's own stock, resolved to the catalogue entries behind it.
   // `getStorefrontStock` hands back ids from `ITEMS_DB` and `getItemById` reads
   // that same table, so every id resolves; the guard keeps the array typed.
-  const stock = getVisibleStorefrontStock(shopId, profile)
+  const stock = resolveStorefrontOffer(profile, shopId)
     .map((id) => getItemById(id))
     .filter((item): item is WeaponItem | ArmorItem => item !== undefined);
   const weapons = stock.filter(isWeapon);
@@ -161,6 +165,13 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-12">
       {/* K1 — the keeper's plate heads the storefront; the market tab has none. */}
+      {merchantSpentToday && (
+        <div className="rounded-2xl border border-amber-700/40 bg-neutral-900/80 p-4 text-center">
+          <p className="font-serif text-amber-100 text-sm sm:text-base">
+            The merchant has closed his purse for today — one purchase per day. His wares turn over at dawn.
+          </p>
+        </div>
+      )}
       {keeper && <KeeperPlate keeper={keeper} line={displayedKeeperLine} />}
       <div className="bg-neutral-900/80 border-2 border-yellow-500/60 rounded-3xl p-6 shadow-xl flex justify-between items-center">
         <div>
@@ -279,7 +290,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
                       sounds.playCoin();
                       onBuyItem(wpn);
                     }}
-                    disabled={isOwned || !canAfford}
+                    disabled={isOwned || !canAfford || merchantSpentToday}
                     className={`w-full min-h-[48px] py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
                       isOwned
                         ? 'bg-neutral-800 text-neutral-500 border border-neutral-700'
@@ -343,7 +354,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
                       sounds.playCoin();
                       onBuyItem(arm);
                     }}
-                    disabled={isOwned || !canAfford}
+                    disabled={isOwned || !canAfford || merchantSpentToday}
                     className={`w-full min-h-[48px] py-3 rounded-2xl font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md flex items-center justify-center gap-2 ${
                       isOwned
                         ? 'bg-neutral-800 text-neutral-500 border border-neutral-700'

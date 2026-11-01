@@ -1328,5 +1328,7 @@ export interface PlayerProfile {
      * Kept distinct from visitorsSeen; only a successful purchase writes this list.
      */
     visitorsCompleted?: string[];
+    /** L4 — the in-game day of the last successful Elite Merchant House purchase. */
+    merchantPurchaseDay?: number;
   };
 }
