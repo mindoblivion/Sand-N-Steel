@@ -1837,7 +1837,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 <>
                   <SparklesIcon className="w-6 h-6 sm:w-8 sm:h-8 fill-neutral-950 text-neutral-950" />
                   <span className="text-[9px] sm:text-xs font-serif font-black uppercase tracking-wider mt-0.5">
-                    {nearbyVisitor && !nearbyLoc ? 'VISIT [E]' : nearbyLoc?.id === 'records_house' && unreadDeeds ? '✦ ENTER [E]' : 'ENTER [E]'}
+                    {nearbyLoc && nearbyLoc.id === 'records_house' && unreadDeeds ? '✦ ENTER [E]' : nearbyVisitor && !nearbyLoc ? 'VISIT [E]' : 'ENTER [E]'}
                   </span>
                 </>
               ) : (
@@ -1861,7 +1861,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           >
             <SparklesIcon className="w-4 h-4 fill-neutral-950 text-neutral-950" />
             <span>
-              {nearbyLoc?.id === 'records_house' && unreadDeeds ? '✦ ' : ''}
+              {nearbyLoc && nearbyLoc.id === 'records_house' && unreadDeeds ? '✦ ' : ''}
               {nearbyLoc ? nearbyLoc.actionPrompt : nearbyVisitor ? visitorPrompt(nearbyVisitor) : ''} [E / Space]
             </span>
             <ChevronRight className="w-4 h-4" />
