@@ -13,6 +13,14 @@ import {
 } from './visitorSchedule';
 
 const itemIds = new Set(ITEMS_DB.map((item) => item.id));
+function independentHash(value: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
 const profile = (total: unknown, records?: unknown): PlayerProfile =>
   ({ time: { total }, records } as unknown as PlayerProfile);
 
@@ -36,11 +44,18 @@ describe('main Living City visitor schedule', () => {
     expect(getVisitor('not-a-visitor')).toBeUndefined();
   });
 
-  test('hash and schedule are deterministic', () => {
-    expect(visitorHash('1:numidian_bladesmith')).toBe(visitorHash('1:numidian_bladesmith'));
+  test('arrival schedule matches an independent FNV-1a implementation over the full horizon', () => {
     for (let day = 1; day <= 365; day += 1) {
+      const actual = scheduleVisitorDay(VISITORS, day).arrivals.map((arrival) => arrival.visitor.id);
+      const expected = VISITORS.filter((visitor) =>
+        day >= visitor.window.from &&
+        day <= visitor.window.to &&
+        independentHash(day + ':' + visitor.id) % visitor.cadence === 0,
+      ).map((visitor) => visitor.id);
+      expect(actual).toEqual(expected);
       expect(scheduleVisitorDay(VISITORS, day)).toEqual(scheduleVisitorDay(VISITORS, day));
     }
+    expect(visitorHash('1:numidian_bladesmith')).toBe(independentHash('1:numidian_bladesmith'));
   });
 
   test('arrival windows are inclusive and completed visitors stay excluded', () => {
