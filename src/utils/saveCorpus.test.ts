@@ -121,6 +121,7 @@ import {
 import { resolveRoadProgress, resolveRoadState } from './roadOfGlory';
 import { resolveSeenState } from './coachMarks';
 import { TIME_PHASES, resolveTimeState } from './timeState';
+import { resolveRestDay } from './restRecovery';
 import { resolveLaurels } from './laurels';
 import { resolveConsumables } from './consumables';
 // S7 — the tavern's rumour record, read the way the tavern panel and the
@@ -245,6 +246,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const roadState = resolveRoadState(profile);
   const seen = resolveSeenState(profile);
   const time = resolveTimeState(profile);
+  const restDay = resolveRestDay(profile);
   // P2 — the Triumph record, read the way the Library and the character sheet do.
   const laurels = resolveLaurels(profile);
   // S6 — the Bazaar satchel, read the way the shop and the use surfaces do.
@@ -292,6 +294,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     roadState,
     seen,
     time,
+    restDay,
     laurels,
     consumables,
     intel,
