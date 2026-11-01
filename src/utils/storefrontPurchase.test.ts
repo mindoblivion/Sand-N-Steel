@@ -409,3 +409,15 @@ describe('§I the wiring', () => {
     expect(PURCHASE_SRC).toContain("from '../data/itemsDB'");
   });
 });
+
+describe('§J malformed purse values fail closed', () => {
+  test('NaN and infinities cannot buy an otherwise eligible merchant offer', () => {
+    for (const gold of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const base = { ...profileAt(RICH, 3), gold };
+      const before = snapshot(base);
+      const result = purchaseStorefrontItem(base, 'merchant', DAY_ONE_ITEM.id);
+      expect(result).toEqual({ ok: false, reason: 'insufficient-gold' });
+      expect(snapshot(base)).toBe(before);
+    }
+  });
+});
