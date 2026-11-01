@@ -538,20 +538,11 @@ describe('CF-4 §F the update path allocates nothing', () => {
 describe('CF-4 §G the duel call sites', () => {
   const duel = read('components/duel/DuelScene.tsx');
 
-  test('exactly four bursts: the three outcomes plus CF-6’s boss counter dust', () => {
-    // REBASED (not weakened) by CF-6: the boss moment layer adds ONE call site —
-    // Valéria's counter-dodge kicks up sand at her own position — so the four
-    // calls are spark 1, crit 1, and sand 2 (one outcome, one boss-gated). The
-    // outcome trio is still exactly one call per outcome, asserted below.
-    expect(duel.match(/impactParticlesRef\.current\?\.burst\(/g)?.length).toBe(4);
+  test('exactly three outcome bursts: blocked, crit and regular hit', () => {
+    expect(duel.match(/impactParticlesRef\.current\?\.burst\(/g)?.length).toBe(3);
     expect(duel.match(/\.burst\('spark'/g)?.length).toBe(1);
-    expect(duel.match(/\.burst\('sand'/g)?.length).toBe(2);
+    expect(duel.match(/\.burst\('sand'/g)?.length).toBe(1);
     expect(duel.match(/\.burst\('crit'/g)?.length).toBe(1);
-    // The fourth is the boss's, and it is behind CF-6's gate.
-    const counter = duel.slice(
-      duel.indexOf("if (bossPresentsMoment(opponent, 'counter_dodge'))"),
-    );
-    expect(counter.indexOf("burst('sand'")).toBeGreaterThan(-1);
   });
 
   test('blocked → spark, and only spark, inside the isBlocked branch', () => {
