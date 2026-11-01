@@ -526,6 +526,8 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/ludiCalendar.ts',
       // Living City visitor scheduling reads the authoritative day without advancing it.
       'utils/visitorSchedule.ts',
+      // L9 rest advances one full day inside its pure treatment transaction.
+      'utils/restRecovery.ts',
     ];
     const CLOCK_APIS = [
       'resolveTimeState',
@@ -579,6 +581,7 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/nightDressing.ts',
       'utils/phaseFlavor.ts',
       'utils/racePhaseLight.ts',
+      'utils/restRecovery.ts',
       'utils/storefrontPurchase.ts',
       'utils/visitorSchedule.ts',
     ]);
