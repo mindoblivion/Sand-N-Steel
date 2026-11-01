@@ -8,7 +8,7 @@ import {
   AttackTarget,
   BeastPanelInfo,
 } from './TurnActionPanel';
-import { Swords, Flame, Sparkles, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle } from 'lucide-react';
+import { Swords, Flame, Sparkles, Volume2, VolumeX, HelpCircle, Camera, Settings, AlertCircle, Flag } from 'lucide-react';
 
 interface CombatHUDProps {
   player: FighterState;
@@ -18,7 +18,7 @@ interface CombatHUDProps {
   matchTimer: number;
   isMuted: boolean;
   onToggleMute: () => void;
-  onOpenArmory: () => void;
+  onWithdraw: () => void;
   onOpenHelp: () => void;
   cameraMode: string;
   onCycleCameraMode: () => void;
@@ -114,7 +114,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   matchTimer,
   isMuted,
   onToggleMute,
-  onOpenArmory,
+  onWithdraw,
   onOpenHelp,
   cameraMode,
   onCycleCameraMode,
@@ -164,16 +164,16 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
       <div className="combat-top w-full flex flex-col gap-2">
         {/* TOP UTILITY BAR */}
         <div className="w-full flex flex-wrap items-center justify-between gap-1.5 pointer-events-auto">
-          {/* PLAYER WEAPON BADGE & ARMORY SHORTCUT */}
-          <button
-            onClick={onOpenArmory}
-            className="flex items-center gap-2 bg-black/60 hover:bg-neutral-900 border border-amber-600/50 hover:border-amber-400 text-amber-200 px-3 py-1.5 rounded-lg shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer text-xs sm:text-sm font-semibold tracking-wide"
-            title="Armory & Opponents"
+          {/* C-8.80B — equipped weapon is information only; leaving requires a confirmed forfeit. */}
+          <div
+            className="flex items-center gap-2 bg-black/60 border border-amber-600/50 text-amber-200 px-3 py-1.5 rounded-lg shadow-lg backdrop-blur-md text-xs sm:text-sm font-semibold tracking-wide min-w-0 shrink"
+            title="Your equipped weapon"
+            data-combat-weapon-badge="true"
           >
-            <Swords className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">Armory:</span>
-            <span className="text-amber-100 font-bold">{player.loadout.weapon.name}</span>
-          </button>
+            <Swords className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="hidden sm:inline">Armed:</span>
+            <span className="text-amber-100 font-bold truncate">{player.loadout.weapon.name}</span>
+          </div>
 
           {/* ARENA MATCH TIMER */}
           <div className="bg-black/60 border border-amber-700/40 px-3 py-1 rounded-md text-amber-300 font-mono text-sm tracking-widest backdrop-blur-sm">
@@ -182,6 +182,16 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
 
           {/* ACTION BUTTONS (CAMERA, HELP, AUDIO) */}
           <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              onClick={onWithdraw}
+              data-withdraw="true"
+              aria-label="Withdraw from the bout"
+              className="min-h-[48px] min-w-[48px] px-2 rounded-lg bg-black/60 hover:bg-red-950/70 border border-red-700/60 text-red-300 hover:text-red-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide"
+              title="Withdraw from the bout (counts as a defeat)"
+            >
+              <Flag className="w-4 h-4" />
+              <span className="hidden sm:inline">Withdraw</span>
+            </button>
             <button
               onClick={onCycleCameraMode}
               className="flex items-center justify-center gap-1 min-h-[48px] min-w-[48px] px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer text-xs font-mono"
