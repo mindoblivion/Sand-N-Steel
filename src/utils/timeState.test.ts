@@ -517,6 +517,8 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/dayRollover.ts',
       // L2 daily storefront offers read the authoritative day but never advance it.
       'utils/cityRotation.ts',
+      // L4 purchase transaction reads the same day and never advances the clock.
+      'utils/storefrontPurchase.ts',
       // LUDI PHASE A — the Ludi Calendar's day IS the clock's day: the whole slice reads
       // `resolveTimeState(profile).day` rather than a wall clock, and it writes nothing to
       // the clock (`ludi` is its own field). Added here as a READER, on the same terms as
