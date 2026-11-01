@@ -313,10 +313,10 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
           </div>
 
           <h3 className="anim-stamp font-serif font-black text-3xl sm:text-4xl uppercase tracking-wider mb-1">
-            {didWin ? 'VICTORY!' : 'DEFEAT'}
+            {didWin ? 'VICTORY!' : stats.outcome === 'withdrawn' ? 'WITHDRAWN' : 'DEFEAT'}
           </h3>
           <p className="text-xs font-serif text-neutral-400">
-            {didWin ? `You defeated ${opponent.name} in the sand!` : `Felled by ${opponent.name}. Recover your strength!`}
+            {didWin ? `You defeated ${opponent.name} in the sand!` : stats.outcome === 'withdrawn' ? `You raised the flag against ${opponent.name}. The forfeit is recorded as a defeat.` : `Felled by ${opponent.name}. Recover your strength!`}
           </p>
         </div>
 

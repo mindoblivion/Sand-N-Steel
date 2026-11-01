@@ -237,6 +237,8 @@ import {
   subscribeSettings,
 } from '../../services/settings';
 import { vibrate, HAPTIC_HIT_LANDED_MS, HAPTIC_DEFEAT_PATTERN } from '../../utils/haptics';
+import { WithdrawConfirmModal } from './WithdrawConfirmModal';
+import { withdrawFromDuel } from '../../utils/duelWithdrawal';
 import { CoachCard } from '../ui/CoachCard';
 import {
   BEAT_EXPIRY_ACTIONS,
@@ -788,6 +790,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   );
 
   const [matchTimer, setMatchTimer] = useState(0);
+  const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false);
   const [cameraMode, setCameraMode] = useState<'cinematic' | 'over_shoulder' | 'isometric'>('cinematic');
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
 
@@ -831,8 +834,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   });
 
   const isMatchOver = useRef(false);
+  // If a knockout resolves while the confirmation is open, the result takes precedence.
+  useEffect(() => {
+    if (isMatchOver.current) setWithdrawConfirmOpen(false);
+  }, [player.health, opp.health]);
   // Own the active turn-resolution timer so leaving the duel cannot fire a stale state update.
   const turnResolutionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const aiTurnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cancel an in-flight recovery callback when the arena scene is exited.
   useEffect(() => () => {
@@ -844,6 +852,35 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
   const pendingCounterRef = useRef(false);
+  const handleConfirmWithdrawal = useCallback(() => {
+    withdrawFromDuel({
+      isMatchOver,
+      stats: statsRef.current,
+      pending: {
+        cancelEnemyStrike: () => {
+          pendingHeavyAttackRef.current = false;
+          pendingCounterRef.current = false;
+          setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+        },
+        // Player actions resolve synchronously; return the fighter to idle before
+        // the result transition so no stale pose reads as a pending strike.
+        cancelPlayerStrike: () => setPlayer((prev) => ({ ...prev, action: 'idle' })),
+        clearTurnTimer: () => {
+          if (turnResolutionTimerRef.current !== null) {
+            clearTimeout(turnResolutionTimerRef.current);
+            turnResolutionTimerRef.current = null;
+          }
+          if (aiTurnTimerRef.current !== null) {
+            clearTimeout(aiTurnTimerRef.current);
+            aiTurnTimerRef.current = null;
+          }
+        },
+      },
+      settle: onMatchComplete,
+    });
+    setWithdrawConfirmOpen(false);
+  }, [onMatchComplete]);
+
   const rageActivatedRef = useRef(false);
 
   // ── C-8.70C Slice C-D — the phase slice's own duel-session state ───────────
@@ -2359,6 +2396,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     const aiDelayMs = aiTurnDelayMs(telegraphAftermathRef.current);
 
     const aiTimer = setTimeout(() => {
+      aiTurnTimerRef.current = null;
+      if (isMatchOver.current) return;
       telegraphAftermathRef.current = false;
       const dist = Math.abs(player.position[2] - opp.position[2]);
 
@@ -2724,8 +2763,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
       executeCombatTurn('opponent', chosenAction);
     }, aiDelayMs);
+    aiTurnTimerRef.current = aiTimer;
 
-    return () => clearTimeout(aiTimer);
+    return () => {
+      clearTimeout(aiTimer);
+      if (aiTurnTimerRef.current === aiTimer) aiTurnTimerRef.current = null;
+    };
   }, [
     isPlayerTurn,
     isExecuting,
@@ -3320,7 +3363,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         matchTimer={matchTimer}
         isMuted={isMuted}
         onToggleMute={onToggleMute}
-        onOpenArmory={onOpenArmory}
+        onWithdraw={() => setWithdrawConfirmOpen(true)}
         onOpenHelp={onOpenHelp}
         cameraMode={cameraMode}
         onCycleCameraMode={() =>
@@ -3397,6 +3440,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           card={getCoachCard(activeBeat)!}
           placement="panel"
           onDismiss={() => dismissBeat(activeBeat)}
+        />
+      )}
+      {withdrawConfirmOpen && (
+        <WithdrawConfirmModal
+          onStay={() => setWithdrawConfirmOpen(false)}
+          onConfirm={handleConfirmWithdrawal}
         />
       )}
     </div>

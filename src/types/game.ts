@@ -674,6 +674,8 @@ export interface DuelStatistics {
    * rides this object to the result modal and is never written to a profile:
    * nothing saves `DuelStatistics`, so no save format changes.
    */
+  /** Set only when the player explicitly confirms a forfeit; in-memory result data. */
+  outcome?: 'withdrawn';
   whyYouFell?: string[];
 }
 
