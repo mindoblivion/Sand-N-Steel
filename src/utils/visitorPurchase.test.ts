@@ -75,6 +75,7 @@ describe('Living City L12 — visitor item purchase', () => {
     const visitor = VISITORS[0];
     const p = profileWithVisitor(visitor.id);
     const arrival = resolveVisitorSchedule(p).arrivals.find((a) => a.visitor.id === visitor.id)!;
+    if (!arrival.offerItemId) throw new Error('Expected item offer');
     const item = getItemById(arrival.offerItemId)!;
     const expectedPrice = resolveVisitorBargainPrice(item, visitor.bargainRate)!;
     const beforeInventory = p.inventory.slice();
