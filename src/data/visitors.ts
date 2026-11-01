@@ -44,7 +44,7 @@ export const VISITORS: readonly Visitor[] = Object.freeze([
     window: Object.freeze({ from: 1, to: 150 }),
     offer: Object.freeze({
       summary: 'A short blade ground on the whetstone of his own camp.',
-      pool: Object.freeze(['dagger_pugio', 'dirk_desert']),
+      pool: Object.freeze(['dagger_pugio', 'dirk_desert', 'finish_ventive']),
     }),
   }),
   Object.freeze({
