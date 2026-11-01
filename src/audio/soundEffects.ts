@@ -153,10 +153,20 @@ export class SoundFXEngine {
     // ±1. It is the low, rounded rumble a crowd produces — white noise through
     // the lowpass below reads as wind, this reads as a filled arena.
     let last = 0;
+    let peak = 0;
     for (let i = 0; i < length; i += 1) {
       const white = Math.random() * 2 - 1;
       last = (last + 0.02 * white) / 1.02;
-      data[i] = last * 3.5;
+      const sample = last * 3.5;
+      data[i] = sample;
+      peak = Math.max(peak, Math.abs(sample));
+    }
+    // Integrated noise can exceed the Float32 audio rails on some random
+    // sequences. Apply one buffer-wide gain only when needed, preserving the
+    // generated spectrum while guaranteeing headroom for every sample.
+    if (peak > 0.999) {
+      const normalise = 0.999 / peak;
+      for (let i = 0; i < length; i += 1) data[i] *= normalise;
     }
     return buffer;
   }
