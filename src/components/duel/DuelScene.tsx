@@ -1018,7 +1018,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 'system',
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
-              impactParticlesRef.current?.burst('spark', impactPoint, impactDir);
+              impactParticlesRef.current?.burst('spark', impactPoint as [number, number, number], impactDir as [number, number, number]);
               // C-8.70B §R2 — Shield Guard's ONLY recovery: the guard stopped a
               // blow. Applied here (and only here) so raising a shield that
               // nothing hits recovers nothing, and so one blocked strike can
@@ -1061,12 +1061,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 sounds.playHeavyImpact();
                 addLog(strikeLine, 'crit');
                 spawnDamageText(`-${rawDamage} CRIT!`, 'crit', defender.position);
-                impactParticlesRef.current?.burst('crit', impactPoint, impactDir);
+                impactParticlesRef.current?.burst('crit', impactPoint as [number, number, number], impactDir as [number, number, number]);
               } else {
                 sounds.playSlash();
                 addLog(strikeLine, isActorPlayer ? 'player' : 'opponent');
                 spawnDamageText(`-${rawDamage}`, 'damage', defender.position);
-                impactParticlesRef.current?.burst('sand', impactPoint, impactDir);
+                impactParticlesRef.current?.burst('sand', impactPoint as [number, number, number], impactDir as [number, number, number]);
               }
               // C-8.70B §SET-1 — the player's blade landed: one short buzz, on the
               // device's own haptics and only when the Vibration row is on.
