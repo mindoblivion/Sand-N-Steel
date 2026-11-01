@@ -348,9 +348,18 @@ export const getChariotPart = (id: string): ChariotPart | undefined => PARTS_BY_
 export const getChariotPartByFinish = (finish: ChariotFinishKey): ChariotPart | undefined =>
   CHARIOT_PARTS.find((part) => part.slot === 'finish' && part.finish === finish);
 
-/** Every catalogue entry for one slot, in catalogue order. */
-export const chariotPartsBySlot = (slot: ChariotSlot): ChariotPart[] =>
-  CHARIOT_PARTS.filter((part) => part.slot === slot);
+/**
+ * Workshop-visible entries for one slot, in catalogue order. Visitor-only
+ * parts stay in CHARIOT_PARTS for ownership/rendering, but are not workshop stock.
+ * Pass true only for catalogue audits that intentionally need every entry.
+ */
+export const chariotPartsBySlot = (
+  slot: ChariotSlot,
+  includeVisitorOnly = false
+): ChariotPart[] =>
+  CHARIOT_PARTS.filter((part) =>
+    part.slot === slot && (includeVisitorOnly || !part.visitorOnly)
+  );
 
 /**
  * The stock part ids.  `wheels_standard` and `finish_stock` are the fallbacks a
