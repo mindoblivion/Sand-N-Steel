@@ -6,7 +6,6 @@ import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumb
 import { DuelArena } from '../3d/DuelArena';
 import { GladiatorMesh, type ImpactState } from '../3d/GladiatorMesh';
 import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticles';
-import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticles';
 import { CombatHUD } from '../ui/CombatHUD';
 import { CombatActionType, CombatLogEntry, AttackTarget } from '../ui/TurnActionPanel';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
@@ -973,8 +972,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // every frame by the camera rig and both GladiatorMesh instances, so the
   // feedback costs no re-render and no React state.
   const impactRef = useRef<ImpactState>({ freezeUntil: 0, trauma: 0 });
-  // One pooled Points object; feedback only, never combat state.
-  const impactParticlesRef = useRef<ImpactParticlesHandle>(null);
 
   // Marks the ONE resolution that is a telegraphed heavy landing, so it can take
   // the longest hit-stop. Set by the AI branch that resolves the telegraph, then
@@ -992,11 +989,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // telegraph marker above.
   const counterStrikeRef = useRef(false);
 
-  // CF-4 — the impact-particle pool's imperative handle. One pooled THREE.Points
-  // lives inside the Canvas below; `burst()` is called from the landed branches of
-  // executeCombatTurn. A ref, so a burst re-renders nothing and no timer or combat
-  // value is involved.
-  const impactParticlesRef = useRef<ImpactParticlesHandle>(null);
 
   // C-8.70B §SET-1 — the Camera Shake row's consumer contract. The rig reads the
   // multiplier from this ref every frame; it is refreshed through the settings
@@ -2016,7 +2008,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 'system'
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
-              impactParticlesRef.current?.burst('spark', impactPoint, impactDir);
               if (isActorPlayer) notePlayerStrike('blocked');
               // CF-4 — a shield stops the blow: sparks, no dust.
               impactParticlesRef.current?.burst('spark', impactPoint, impactDir);
@@ -2027,7 +2018,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 sounds.playCrowdSwell();
                 addLog(`CRITICAL BLOW! ${attackerLabel} struck ${defender.name} for ${rawDamage} DAMAGE!`, 'crit');
                 spawnDamageText(`-${rawDamage} CRIT!`, 'crit', defender.position);
-                impactParticlesRef.current?.burst('crit', impactPoint, impactDir);
                 // CF-4 — a crit gets the larger spark burst plus the gold flakes,
                 // in place of the plain sand dust.
                 impactParticlesRef.current?.burst('crit', impactPoint, impactDir);
@@ -2035,7 +2025,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 sounds.playSlash();
                 addLog(`${attackerLabel} struck ${defender.name} for ${rawDamage} damage.`, isActorPlayer ? 'player' : 'opponent');
                 spawnDamageText(`-${rawDamage}`, 'damage', defender.position);
-                impactParticlesRef.current?.burst('sand', impactPoint, impactDir);
                 // CF-4 — an unblocked, non-crit hit kicks up sand.
                 impactParticlesRef.current?.burst('sand', impactPoint, impactDir);
               }
@@ -3309,7 +3298,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   />
                 )}
                 <FloatingDamage3D damages={damageNumbers} />
-                <ImpactParticles ref={impactParticlesRef} />
                 {/* CF-4 — one pooled Points, one draw call, mounted only here. */}
                 <ImpactParticles ref={impactParticlesRef} />
               </Suspense>
