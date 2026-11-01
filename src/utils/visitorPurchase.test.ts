@@ -204,7 +204,7 @@ describe('Living City L12 — visitor item purchase', () => {
     });
     const malformedEquipped = {
       ...base,
-      chariot: { owned: [], equipped: 'broken' as unknown as PlayerProfile['chariot'] extends infer T ? T : never },
+      chariot: { owned: [], equipped: 'broken' as unknown as NonNullable<PlayerProfile['chariot']>['equipped'] },
     };
     expect(purchaseVisitorOffer(malformedEquipped, visitor.id)).toEqual({
       ok: false, reason: 'invalid-ownership',
