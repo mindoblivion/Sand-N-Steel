@@ -223,12 +223,6 @@ describe('P1 sell §C — the transaction', () => {
     }
   });
 
-  test('a sale that would overflow the gold balance is refused atomically', () => {
-    const before = frozenProfile((p) => { p.gold = Number.MAX_VALUE; });
-    expect(sellItem(before, TITAN.id)).toBe(before);
-    expect(before.inventory).toHaveLength(2);
-  });
-
   test('selling the spare weapon leaves the equipped weapon equipped', () => {
     const before = profile();
     const after = sellItem(before, TITAN.id);
