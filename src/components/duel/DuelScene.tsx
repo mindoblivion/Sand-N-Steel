@@ -6,6 +6,7 @@ import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumb
 import { DuelArena } from '../3d/DuelArena';
 import { GladiatorMesh, type ImpactState } from '../3d/GladiatorMesh';
 import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticles';
+import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticles';
 import { CombatHUD } from '../ui/CombatHUD';
 import { CombatActionType, CombatLogEntry, AttackTarget } from '../ui/TurnActionPanel';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
@@ -972,6 +973,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // every frame by the camera rig and both GladiatorMesh instances, so the
   // feedback costs no re-render and no React state.
   const impactRef = useRef<ImpactState>({ freezeUntil: 0, trauma: 0 });
+  // One pooled Points object; feedback only, never combat state.
+  const impactParticlesRef = useRef<ImpactParticlesHandle>(null);
 
   // Marks the ONE resolution that is a telegraphed heavy landing, so it can take
   // the longest hit-stop. Set by the AI branch that resolves the telegraph, then
@@ -1981,6 +1984,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               Math.sign(defender.position[2] - attacker.position[2]) || 1,
             ];
 
+            // CF-4 — feedback at the defender, with sparks directed along the blow.
+            const impactPoint: [number, number, number] = [
+              defender.position[0], defender.position[1] + 1.2, defender.position[2],
+            ];
+            const impactDir: [number, number, number] = [
+              0, 0, Math.sign(defender.position[2] - attacker.position[2]) || 1,
+            ];
+
             if (isBlocked) {
               sounds.playBlock();
               if (!isActorPlayer) statsRef.current.perfectBlocks += 1;
@@ -2005,6 +2016,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 'system'
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
+              impactParticlesRef.current?.burst('spark', impactPoint, impactDir);
               if (isActorPlayer) notePlayerStrike('blocked');
               // CF-4 — a shield stops the blow: sparks, no dust.
               impactParticlesRef.current?.burst('spark', impactPoint, impactDir);
@@ -2015,6 +2027,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 sounds.playCrowdSwell();
                 addLog(`CRITICAL BLOW! ${attackerLabel} struck ${defender.name} for ${rawDamage} DAMAGE!`, 'crit');
                 spawnDamageText(`-${rawDamage} CRIT!`, 'crit', defender.position);
+                impactParticlesRef.current?.burst('crit', impactPoint, impactDir);
                 // CF-4 — a crit gets the larger spark burst plus the gold flakes,
                 // in place of the plain sand dust.
                 impactParticlesRef.current?.burst('crit', impactPoint, impactDir);
@@ -2022,6 +2035,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 sounds.playSlash();
                 addLog(`${attackerLabel} struck ${defender.name} for ${rawDamage} damage.`, isActorPlayer ? 'player' : 'opponent');
                 spawnDamageText(`-${rawDamage}`, 'damage', defender.position);
+                impactParticlesRef.current?.burst('sand', impactPoint, impactDir);
                 // CF-4 — an unblocked, non-crit hit kicks up sand.
                 impactParticlesRef.current?.burst('sand', impactPoint, impactDir);
               }
@@ -3295,6 +3309,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   />
                 )}
                 <FloatingDamage3D damages={damageNumbers} />
+                <ImpactParticles ref={impactParticlesRef} />
                 {/* CF-4 — one pooled Points, one draw call, mounted only here. */}
                 <ImpactParticles ref={impactParticlesRef} />
               </Suspense>
