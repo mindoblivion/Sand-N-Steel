@@ -345,6 +345,19 @@ describe('STORY-4b §E — the two writes', () => {
     expect(killed.profile.fame).toBe(180);
   });
 
+  test('malformed, overflowing, and precision-lost gold refuses the choice without consuming it', () => {
+    for (const gold of [NaN, Infinity, -1, '100' as unknown as number, Number.MAX_VALUE]) {
+      const before = profile({ gold });
+      const outcome = applyDeserterChoice(before, 'spared');
+      expect(outcome.rejected).toBe(true);
+      expect(outcome.alreadyAnswered).toBe(false);
+      expect(outcome.profile).toBe(before);
+      expect(outcome.gold).toBe(0);
+      expect(outcome.fame).toBe(0);
+      expect(outcome.profile.story?.deserterChoice).toBeUndefined();
+    }
+  });
+
   test('the answer is exactly once: a second call writes nothing and pays nothing', () => {
     const first = applyDeserterChoice(profile(), 'spared');
     const second = applyDeserterChoice(first.profile, 'taken');
