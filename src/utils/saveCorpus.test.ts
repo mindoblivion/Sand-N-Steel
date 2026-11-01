@@ -1339,7 +1339,7 @@ describe('GC20 §J — the corpus rule', () => {
     // LUDI PHASE A REBASE, then PITCH A4's: the set is 24 now because A4 inserted
     // `identity` between `spared` and `ludi` (so `records` still stays last), and
     // §J above carries the same one-field extension.
-    expect(shipped.length).toBe(24);
+    expect(shipped.length).toBe(25);
     expect(shipped.slice(-2)).toEqual(['ludi', 'records']);
 
     const doctored = types.replace(
