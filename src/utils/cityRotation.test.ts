@@ -95,8 +95,9 @@ describe('L2/L4 — App transaction boundary', () => {
   test('the purchase handler delegates to the shared transaction before saving', () => {
     const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
     expect(app).toContain('purchaseStorefrontItem(base, shopId, item.id)');
-    expect(app).toContain('profileRef.current = result.profile');
-    expect(app.indexOf('profileRef.current = result.profile'))
-      .toBeLessThan(app.indexOf('saveProfile(result.profile)'));
+    const handler = app.slice(app.indexOf('const handleBuyItem'), app.indexOf('const handleBuyConsumable'));
+    expect(handler).toContain('profileRef.current = result.profile');
+    expect(handler.indexOf('profileRef.current = result.profile'))
+      .toBeLessThan(handler.indexOf('saveProfile(result.profile)'));
   });
 });
