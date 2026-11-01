@@ -412,7 +412,7 @@ const buildingRects: RectCollider[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fountain — central plaza, CivicFountain.tsx `Fountain_Root` at [0, 0, 0]
+// Fountain — central plaza, CivicFountain.tsx `Fountain_Root` at [0, 0, 0.6]
 // The imperial fountain's footprint is 8 m across, so the base cylinder is
 // ─────────────────────────────────────────────────────────────────────────────
 
