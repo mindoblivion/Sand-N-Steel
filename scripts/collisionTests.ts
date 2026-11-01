@@ -203,9 +203,9 @@ test('collidesWith: mixed array, early exit', () => {
 // ════════════════════════════════════════════════════════════════════════════
 
 test('movement: X blocked by fountain', () => {
-  // Fountain at (0,0) r=4.0. Player at (5, 0) moving -X toward fountain.
+  // Fountain at (0,0.6) r=4.0. Player at (5, 0.6) moving -X toward fountain.
   // Collision boundary: 4.0 + 0.4 = 4.4 from center. Player should stop at x ≥ 4.4.
-  const pos: [number, number, number] = [5, 0, 0];
+  const pos: [number, number, number] = [5, 0, 0.6];
   const result = resolveCityMovement(pos, -1, 0, 3.8, 0.5);
   // testX = 5 - 1.9 = 3.1 → collides (dist 3.1 < 4.4). Current (5,0) → dist 5 > 4.4 → no collision → blocked.
   assert.ok(result[0] >= 4.4, `Expected x >= 4.4, got ${result[0]}`);
@@ -236,11 +236,11 @@ test('movement: diagonal into wall → slides along Z', () => {
 });
 
 test('movement: diagonal into fountain → slides along Z', () => {
-  // Fountain at (0,0) r=4.0. Player at (4.5, 0) moving -X and +Z.
+  // Fountain at (0,0.6) r=4.0. Player at (4.5, 0.6) moving -X and +Z.
   // Collision boundary: 4.4 from center. Player at 4.5 is just outside.
   // Moving -X: testX = 4.5 - 0.19 = 4.31 → collides (4.31 < 4.4). X blocked.
   // Moving +Z: testZ = 0 + 0.19 = 0.19 → at (4.5, 0.19), dist = sqrt(4.5² + 0.19²) ≈ 4.50 > 4.4 → no collision. Z allowed.
-  const pos: [number, number, number] = [4.5, 0, 0];
+  const pos: [number, number, number] = [4.5, 0, 0.6];
   const result = resolveCityMovement(pos, -1, 1, 3.8, 0.05);
   // X should be blocked (stays ≈ 4.1)
   approx(result[0], 4.5, 0.01);
