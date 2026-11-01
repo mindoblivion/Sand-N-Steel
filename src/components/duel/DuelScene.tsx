@@ -994,8 +994,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               defender.position[1] + 1.2,
               defender.position[2],
             ];
-            /** @type {[number, number, number]} */
-            const impactDir = [
+            const impactDir: [number, number, number] = [
               0,
               0,
               Math.sign(defender.position[2] - attacker.position[2]) || 1,
