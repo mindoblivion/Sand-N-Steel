@@ -8,6 +8,7 @@ import {
   getEffectiveArmorStats,
 } from '../utils/tempering';
 import { buildPlayerModifiers } from '../utils/combatModifiers';
+import { normalizeInjury } from '../utils/injurySettlement';
 
 /**
  * The one local-save key.  Exported so the two things that remove it — `Reset save`
@@ -80,10 +81,11 @@ export function calculateTotalStats(profile: PlayerProfile): FighterStats {
     def += statFlat.def ?? 0;
   }
 
-  // Apply injury penalty if any
-  if (profile.injury && profile.injury.fightsRemaining > 0) {
-    str = Math.max(1, str - profile.injury.penaltyStrength);
-    agi = Math.max(1, agi - profile.injury.penaltyAgility);
+  // L7 — the stat calculation and every injury surface share the same total reader.
+  const injury = normalizeInjury(profile.injury);
+  if (injury) {
+    str = Math.max(1, str - injury.penaltyStrength);
+    agi = Math.max(1, agi - injury.penaltyAgility);
   }
 
   const healthMax = 80 + str * 4 + def * 3 + (traitBlock.healthMaxAdd ?? 0);
