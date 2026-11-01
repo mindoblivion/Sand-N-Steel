@@ -463,7 +463,7 @@ describe('STORY-4b §G — no new profile field', () => {
     // LUDI PHASE A REBASE: the calendar's `ludi` joined the set; `records` still ends it
     // and no BOUNTY field exists.  PITCH A4 REBASE: the Corpus et Origo `identity`
     // field joined it between `spared` and `ludi` — still no BOUNTY field.
-    expect(optional.length).toBe(24);
+    expect(optional.length).toBe(25);
     expect(optional[optional.length - 1]).toBe('records');
     expect(optional[optional.length - 2]).toBe('ludi');
     expect(optional.some((name) => /bounty|deserter/i.test(name))).toBe(false);
