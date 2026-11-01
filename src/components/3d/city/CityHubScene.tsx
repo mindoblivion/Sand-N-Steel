@@ -2,6 +2,8 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMe
 import { Canvas } from '@react-three/fiber';
 import { Sparkles as DreiSparkles, Sky, Environment, Lightformer, useGLTF } from '@react-three/drei';
 import { PlayerProfile, OpponentConfig, FighterState } from '../../../types/game';
+import { VisitorPanel } from '../../hub/VisitorPanel';
+import type { VisitorPurchaseResult } from '../../../utils/visitorPurchase';
 import { IshtarGatehouse } from './IshtarGatehouse';
 import { ProcessionAvenue } from './ProcessionAvenue';
 import { CityStreets } from './CityStreets';
@@ -311,6 +313,9 @@ interface CityHubSceneProps {
    * storefront's plate; this screen only reports the visit.
    */
   onRecordKeeperVisit?: (keeperId: string) => void;
+  /** Living City L11/L12 — App owns the encounter and purchase save transactions. */
+  onEncounterVisitor: (visitorId: string) => void;
+  onPurchaseVisitor: (visitorId: string) => VisitorPurchaseResult;
   /**
    * A5 — the CODEX's one new record: this hub location's interaction fired.  The
    * screen only REPORTS the id (this scene writes no save); `App` composes
@@ -408,6 +413,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onUseConsumable,
   onBuyIntel,
   onRecordKeeperVisit,
+  onEncounterVisitor,
+  onPurchaseVisitor,
   onOpenDiceBoard,
   onEnterDiceTrailBout,
   onChooseDiceEnding,
@@ -490,6 +497,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // S7 — the Golden Palm Tavern's rumour panel.  Local view state only: the
   // purchase and its save belong to `App`.
   const [intelPanel, setIntelPanel] = useState(false);
+  // Living City L11/L12 — visitor panel; all profile writes remain in App.
+  const [visitorPanel, setVisitorPanel] = useState(false);
   // PITCH A1 — the Shrine of Fortuna's omen panel, and the one line announcing
   // what the last offering or decline did.  Local view state only: both
   // transactions and their save belong to `App`.
@@ -1612,6 +1621,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         <PhaseMedallion phase={cityPhase} />
         <div className="flex items-center gap-2 bg-neutral-950/85 border border-amber-600/50 p-2 sm:p-3 rounded-2xl backdrop-blur-md shadow-2xl">
           <button
+            onClick={() => setVisitorPanel(true)}
+            aria-label="Visitors in the City"
+            className="min-h-[48px] px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer active:scale-95 transition-all font-serif font-bold text-[10px] uppercase tracking-wider"
+            title="See today's visitors and their offers"
+          >
+            Visitors
+          </button>
+          <button
             onClick={() => setShowNavDrawer(!showNavDrawer)}
             aria-label="City Map & Fast Travel"
             className="min-h-[48px] min-w-[48px] flex items-center justify-center rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer active:scale-95 transition-all"
@@ -1720,6 +1737,15 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           </button>
         </div>
       </header>
+
+      {visitorPanel && (
+        <VisitorPanel
+          profile={playerProfile}
+          onEncounter={onEncounterVisitor}
+          onPurchase={onPurchaseVisitor}
+          onClose={() => setVisitorPanel(false)}
+        />
+      )}
 
         {/* MOBILE & PC TOUCH CONTROLS OVERLAY */}
         <div className="absolute inset-0 pointer-events-none z-20 flex justify-between items-end p-4 sm:p-6 pb-[calc(env(safe-area-inset-bottom)+var(--hub-footer-h)+1rem)] sm:pb-[calc(env(safe-area-inset-bottom)+var(--hub-footer-h)+1.5rem)] flex-row">
