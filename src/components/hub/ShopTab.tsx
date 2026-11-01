@@ -1,7 +1,8 @@
 import React from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
 import { getItemById, isWeapon } from '../../data/itemsDB';
-import { getVisibleStorefrontStock, StorefrontId } from '../../data/shops';
+import { StorefrontId } from '../../data/shops';
+import { resolveStorefrontOffer } from '../../utils/cityRotation';
 import {
   getKeeperForStorefront,
   nightClerkLine,
@@ -152,7 +153,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
   // The storefront's own stock, resolved to the catalogue entries behind it.
   // `getStorefrontStock` hands back ids from `ITEMS_DB` and `getItemById` reads
   // that same table, so every id resolves; the guard keeps the array typed.
-  const stock = getVisibleStorefrontStock(shopId, profile)
+  const stock = resolveStorefrontOffer(profile, shopId)
     .map((id) => getItemById(id))
     .filter((item): item is WeaponItem | ArmorItem => item !== undefined);
   const weapons = stock.filter(isWeapon);
