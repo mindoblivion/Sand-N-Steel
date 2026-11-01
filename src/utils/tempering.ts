@@ -199,7 +199,10 @@ export function getTemperPurchaseEligibility(
   if (!ownsItem(profile, itemId)) return { ok: false, reason: 'not-owned' };
   const level = resolveTemperLevel(profile, itemId);
   if (level >= TEMPER_MAX_LEVEL) return { ok: false, reason: 'max-level' };
-  if (profile.gold < getTemperCost(item, level)) return { ok: false, reason: 'insufficient-gold' };
+  const cost = getTemperCost(item, level);
+  if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < cost) {
+    return { ok: false, reason: 'insufficient-gold' };
+  }
   return { ok: true };
 }
 

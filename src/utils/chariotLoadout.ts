@@ -150,7 +150,9 @@ export function getChariotPurchaseEligibility(
   // L16B — a visitor-acquired part is not for sale here, at any price. Ownership
   // comes from the visitor trade alone, so the workshop can only show the goal.
   if (part.visitorOnly) return { ok: false, reason: 'visitor-only' };
-  if (profile.gold < part.price) return { ok: false, reason: 'insufficient-gold' };
+  if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < part.price) {
+    return { ok: false, reason: 'insufficient-gold' };
+  }
   return { ok: true };
 }
 

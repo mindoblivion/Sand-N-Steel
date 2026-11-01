@@ -112,7 +112,9 @@ export function purchaseStorefrontItem(
 
   const item = getItemById(itemId);
   if (!item) return { ok: false, reason: 'unknown-item' };
-  if (profile.gold < item.price) return { ok: false, reason: 'insufficient-gold' };
+  if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < item.price) {
+    return { ok: false, reason: 'insufficient-gold' };
+  }
   if (!isStorefrontItemOnOffer(profile, storefront, itemId)) {
     return { ok: false, reason: 'not-on-offer' };
   }

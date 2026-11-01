@@ -616,3 +616,15 @@ describe('§G — one rest path, and the clock call sites stay where they were',
     expect(CITY_SCENE_CODE).toContain("nearbyLoc.id === 'caravanserai'");
   });
 });
+
+describe('§H malformed purse values fail closed', () => {
+  test('NaN and infinities cannot buy rest or advance the city day', () => {
+    for (const gold of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const profile = woundedOn(1, { gold });
+      const before = snapshot(profile);
+      const result = restAtMedicalHouse(profile);
+      expect(result).toEqual({ ok: false, reason: 'insufficient-gold' });
+      expect(snapshot(profile)).toBe(before);
+    }
+  });
+});
