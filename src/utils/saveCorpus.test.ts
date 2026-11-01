@@ -112,6 +112,7 @@ import {
 import { ITEMS_DB } from '../data/itemsDB';
 import { ALL_OPPONENTS } from '../data/opponents';
 import { SAVE_FIXTURES, SaveFixture } from './saveFixtures';
+import { readCompletedVisitors, readSeenVisitors } from './visitorSchedule';
 import { STORY_FINAL_CHAPTER, resolveStoryState } from './storyState';
 import {
   getEffectiveArmorStats,
@@ -1386,5 +1387,18 @@ describe('GC20 §K — P3 chariot catalogue (read-time slots, nothing stored)', 
         for (const slot of NEW_SLOTS) expect(slot in stored, `${fixture.id} ${slot}`).toBe(false);
       }
     }
+  });
+});
+
+// L10 — visitor history must resolve from a complete synthetic save fixture.
+describe('GC20 L10 — visitor ledger save compatibility', () => {
+  test('resolves valid visitor history without mutating the stored profile', () => {
+    const fixture = SAVE_FIXTURES.find((candidate) => candidate.id === 'visitor-ledger');
+    expect(fixture).toBeDefined();
+    if (!fixture) throw new Error('visitor-ledger fixture is not registered');
+    const before = JSON.stringify(fixture.profile);
+    expect(readSeenVisitors(fixture.profile)).toEqual(['numidian_bladesmith', 'emesan_weapon_trader']);
+    expect(readCompletedVisitors(fixture.profile)).toEqual(['emesan_weapon_trader']);
+    expect(JSON.stringify(fixture.profile)).toBe(before);
   });
 });
