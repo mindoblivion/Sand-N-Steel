@@ -8,6 +8,7 @@ import { GladiatorMesh, type ImpactState } from '../3d/GladiatorMesh';
 import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticles';
 import { CombatHUD } from '../ui/CombatHUD';
 import { CombatActionType, CombatLogEntry, AttackTarget } from '../ui/TurnActionPanel';
+import { nextCounterWindupStep } from '../../utils/counterWindup';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
@@ -852,6 +853,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
   const pendingCounterRef = useRef(false);
+  // A queued Valéria counter gets one readable turn before its ordinary quick-attack resolution.
+  const pendingCounterWindupRef = useRef(false);
   const handleConfirmWithdrawal = useCallback(() => {
     withdrawFromDuel({
       isMatchOver,
@@ -860,6 +863,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         cancelEnemyStrike: () => {
           pendingHeavyAttackRef.current = false;
           pendingCounterRef.current = false;
+          pendingCounterWindupRef.current = false;
           setOpp((prev) => ({ ...prev, telegraphText: undefined }));
         },
         // Player actions resolve synchronously; return the fighter to idle before
@@ -1548,14 +1552,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // or reposition) before the attack resolves on the boss's next
       // turn via the AI effect reading pendingHeavyAttackRef.
       else if (actionType === 'telegraph') {
+        const isCounterWindup = pendingCounterWindupRef.current;
         sounds.playHeavyImpact();
         pendingHeavyAttackRef.current = true;
         // D-3 — Varro's wind-up is decided HERE, on the announce, so its feet
-        // tell can be shown for the whole turn the player is given. The seeded
-        // roll (or the forced teaching pair) answers true-vs-feint; the tell is
-        // weight-forward (`light`) for a lie and planted for the real heavy.
-        // Goliath's wind-up is untouched: he carries no false-telegraph config.
-        if (falseTelegraphCfg) {
+        // tell can be shown for the whole turn the player is given. A counter
+        // wind-up is a separate quick-attack tell and must not roll this heavy feint.
+        if (falseTelegraphCfg && !isCounterWindup) {
           const begun = initiateHeavy(
             falseTelegraphRef.current,
             falseTelegraphCfg,
@@ -1568,7 +1571,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         // crossing is what makes the rear's flank the second half of one tell.
         setOpp((prev) => ({
           ...prev,
-          telegraphText: brothersCfg ? CROSSING_TELEGRAPH_WORDS : 'HEAVY ATTACK INCOMING',
+          telegraphText: brothersCfg ? CROSSING_TELEGRAPH_WORDS : isCounterWindup ? 'COUNTER ATTACK INCOMING' : 'HEAVY ATTACK INCOMING',
         }));
         addLog(
           brothersCfg
@@ -1576,14 +1579,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 brothersCfg,
                 'rear',
               ).name} circles to the flank!`
-            : `${attacker.name} winds up a devastating overhead smash!`,
+            : isCounterWindup
+              ? `${attacker.name} reads your opening and prepares a counterattack!`
+              : `${attacker.name} winds up a devastating overhead smash!`,
           'opponent',
         );
         spawnDamageText('\u26A0 HEAVY!', 'crit', attacker.position);
         // CH-4 — Pit Bellower: the bellow behind the wind-up also drains stamina
         // (floored at 0). Palmae ADD to the mechanic — the announce, the pending
         // heavy and its landing below are untouched.
-        const bellowerDrain = pitBellowerStaminaDrain(attackerMods);
+        const bellowerDrain = isCounterWindup ? 0 : pitBellowerStaminaDrain(attackerMods);
         if (bellowerDrain > 0) {
           const drainStamina = (prev: FighterState) => ({
             ...prev,
@@ -2554,14 +2559,32 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           counterWindowLeftRef.current -= 1;
           // She holds it and takes her normal slot (advance / taunt at distance).
         } else {
-          pendingCounterRef.current = false;
-          counterWindowLeftRef.current = 0;
-          // CH-4 — Viper's Patience: mark THIS resolution as the counterattack, so
-          // its +20 % lands here and nowhere else. Read-and-cleared at the top of
-          // executeCombatTurn, exactly like the telegraph landing marker.
-          counterStrikeRef.current = true;
-          executeCombatTurn('opponent', 'quick_attack');
-          return;
+          const counterStep = nextCounterWindupStep(
+            pendingCounterRef.current,
+            pendingCounterWindupRef.current,
+          );
+          if (counterStep === 'announce') {
+            // Reuse the established boss-telegraph turn: the player receives a
+            // complete action window to guard, dodge or reposition before impact.
+            pendingCounterWindupRef.current = true;
+            executeCombatTurn('opponent', 'telegraph');
+            return;
+          }
+          if (counterStep === 'resolve') {
+            pendingCounterRef.current = false;
+            pendingCounterWindupRef.current = false;
+            pendingHeavyAttackRef.current = false;
+            counterWindowLeftRef.current = 0;
+            setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+            // CH-4 — Viper's Patience: mark THIS resolution as the counterattack,
+            // so its +20 % lands here and nowhere else. Damage, range, stamina,
+            // block and dodge remain in the ordinary quick-attack pipeline.
+            counterStrikeRef.current = true;
+            telegraphLandingRef.current = true;
+            telegraphAftermathRef.current = true;
+            executeCombatTurn('opponent', 'quick_attack');
+            return;
+          }
         }
       }
 
@@ -2837,6 +2860,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       isMatchOver.current = true;
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
+      pendingCounterWindupRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // Pitch A6 — Director ruling R-MARGIN: the WINNER's remaining health, read
       // HERE from the player's live HP exactly as `lowestHealthFraction` is (a
@@ -2917,6 +2941,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       isMatchOver.current = true;
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
+      pendingCounterWindupRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // Pitch A6 — Director ruling R-MARGIN: on a defeat the WINNER is the
       // opponent, so his remaining health is the card's margin — the same
