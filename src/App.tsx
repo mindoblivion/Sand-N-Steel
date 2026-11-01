@@ -1588,8 +1588,8 @@ export function App() {
   };
 
   /**
-   * T2 — a night's board for a gladiator with NO wound: S5's own 25g, and nothing else.
-   * A wounded player's price and injury effect belong to `restAtInn` itself.
+   * T2 — the Caravanserai's night service. An unwounded guest pays 25g for the
+   * dawn jump; a wounded guest also receives the Inn's existing two-fight recovery.
    */
   const payForNight = (subject: PlayerProfile): PlayerProfile | null =>
     Number.isFinite(subject.gold) && subject.gold >= REST_PRICE
@@ -1598,8 +1598,8 @@ export function App() {
 
   const handleRestAtInn = (): boolean => {
     if (!profile) return false;
-    // S5 treats the wound; T2 owns the night. ONE transaction, ONE saveProfile: the injury
-    // clock moves only inside `restAtInn`, and the dawn jump rides the same write.
+    // T2 owns the night. ONE transaction, ONE saveProfile: the Inn's injury recovery
+    // and the dawn jump ride the same write.
     const treated = restAtInn(profile);
     const night = treated !== profile ? treated : payForNight(profile);
     if (!night) return false;
