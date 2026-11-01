@@ -419,8 +419,8 @@ const buildingRects: RectCollider[] = [
 const fountainCircle: CircleCollider = {
   type: 'circle',
   id: 'fountain',
-  cx: 0,
-  cz: 0,
+  cx: FOUNTAIN_SPEC.center.x,
+  cz: FOUNTAIN_SPEC.center.z,
   r: FOUNTAIN_SPEC.baseRadius,
 };
 
