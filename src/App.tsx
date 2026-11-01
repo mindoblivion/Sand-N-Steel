@@ -326,6 +326,8 @@ export function App() {
      * nothing new to say and carries `null`.
      */
     injuryEvent: DuelInjuryEvent | null;
+    /** L8 — the injury after settlement, captured with this result's one save. */
+    injury: PlayerProfile['injury'] | null;
     /**
      * CH-5 — the palma ids this victory NEWLY unlocked (empty on a defeat), so the
      * result screen announces exactly what the save already carries.
@@ -1427,6 +1429,7 @@ export function App() {
       stats: resultStats,
       storyLines,
       injuryEvent,
+      injury: afterInjury.injury ?? null,
       ...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),
       ...(omenSettled.line ? { omenLine: omenSettled.line } : {}),
       // STORY-4a — the offer carries the duel's FINAL fame (post mode / crowd /
@@ -2224,6 +2227,7 @@ export function App() {
             profile={profile}
             storyLines={duelResult.storyLines}
             injuryEvent={duelResult.injuryEvent}
+            injury={duelResult.injury}
             palmaEarned={duelResult.palmaEarned}
             omenLine={duelResult.omenLine}
             mercy={duelResult.mercy ?? null}
