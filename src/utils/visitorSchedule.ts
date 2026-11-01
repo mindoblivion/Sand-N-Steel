@@ -66,7 +66,10 @@ function arrives(visitor: Visitor, day: number): boolean {
 function offer(visitor: Visitor, day: number): string {
   const pool = visitor.offer.pool.filter((id) => ITEM_IDS.has(id));
   if (!pool.length) return '';
-  return pool[visitorHash('visitor-offer:' + visitor.id + ':' + day) % pool.length];
+  // Match the Living City L2 rotation namespace and one-slot selection exactly.
+  // Main does not yet carry cityRotation.ts, so preserve its established rule here.
+  const start = visitorHash('sand-and-steel:city-rotation:' + visitor.id + ':' + day) % pool.length;
+  return pool[start];
 }
 
 /** Resolve any supplied day without reading or writing storage. */
