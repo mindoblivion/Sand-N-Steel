@@ -530,7 +530,7 @@ describe('CF-6 §C — the telegraph glow', () => {
     // as the ternary's other arm and the crossing line as a module constant —
     // exactly one standard banner and one crossing banner exist.
     expect(DUEL_SCENE.match(/'HEAVY ATTACK INCOMING'/g) ?? []).toHaveLength(1);
-    expect(DUEL_SCENE).toContain("telegraphText: brothersCfg ? CROSSING_TELEGRAPH_WORDS : 'HEAVY ATTACK INCOMING'");
+    expect(DUEL_SCENE).toContain("telegraphText: brothersCfg ? CROSSING_TELEGRAPH_WORDS : isCounterWindup ? 'COUNTER ATTACK INCOMING' : 'HEAVY ATTACK INCOMING'");
     // The emissive mode falls back to resting (0) the moment the prop is false.
     expect(GLADIATOR_MESH).toContain('const emissiveMode = isHit ? 2 : isTelegraphing ? 1 : 0;');
     expect(GLADIATOR_MESH).toContain('HIT_FLASH_RESET_COLOR');
