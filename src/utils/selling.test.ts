@@ -214,6 +214,21 @@ describe('P1 sell §C — the transaction', () => {
     expect(TITAN.sellPrice).toBe(450);
   });
 
+
+  test('malformed gold refuses the sale without changing inventory or temper state', () => {
+    for (const malformed of [Number.NaN, Number.POSITIVE_INFINITY, -1, '100'] as unknown[]) {
+      const before = frozenProfile((p) => { (p as unknown as { gold: unknown }).gold = malformed; });
+      expect(sellItem(before, TITAN.id)).toBe(before);
+      expect(before.inventory).toHaveLength(2);
+    }
+  });
+
+  test('a sale that would overflow the gold balance is refused atomically', () => {
+    const before = frozenProfile((p) => { p.gold = Number.MAX_VALUE; });
+    expect(sellItem(before, TITAN.id)).toBe(before);
+    expect(before.inventory).toHaveLength(2);
+  });
+
   test('selling the spare weapon leaves the equipped weapon equipped', () => {
     const before = profile();
     const after = sellItem(before, TITAN.id);
