@@ -88,6 +88,10 @@ function purchaseVisitorPart(
     if (stored.owned !== undefined && !Array.isArray(stored.owned)) {
       return { ok: false, reason: 'invalid-ownership' };
     }
+    if (stored.equipped !== undefined &&
+      (!stored.equipped || typeof stored.equipped !== 'object' || Array.isArray(stored.equipped))) {
+      return { ok: false, reason: 'invalid-ownership' };
+    }
   }
 
   const loadout = resolveChariotLoadout(profile);
