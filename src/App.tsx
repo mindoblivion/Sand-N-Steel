@@ -35,6 +35,7 @@ import { purchaseTemper } from './utils/tempering';
 import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
 import { purchaseItem } from './utils/itemPurchase';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
+import { isTrainingActionScheduled } from './utils/trainingSchedule';
 import { withArmaturaPledge } from './utils/armaturaPledge';
 import { applyPalmaEarns, equipPalma, purchaseDoctorePalma, unequipPalma } from './utils/palmaeState';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
@@ -1676,7 +1677,7 @@ export function App() {
 
   // Profile mutations
   const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
-    if (!profile) return;
+    if (!profile || !isTrainingActionScheduled(profile, stat)) return;
     // P5 — the Ludus Training Yard sets stat training's price, and nothing else.
     const cost = trainingCost(profile);
     if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < cost) return;
