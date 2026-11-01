@@ -4,6 +4,12 @@ import { Sparkles as DreiSparkles, Sky, Environment, Lightformer, useGLTF } from
 import { PlayerProfile, OpponentConfig, FighterState } from '../../../types/game';
 import { VisitorPanel } from '../../hub/VisitorPanel';
 import type { VisitorPurchaseResult } from '../../../utils/visitorPurchase';
+import {
+  createVisitorFighter,
+  resolveVisitorPresence,
+  resolveVisitorTarget,
+  visitorPrompt,
+} from '../../../utils/visitorPresence';
 import { IshtarGatehouse } from './IshtarGatehouse';
 import { ProcessionAvenue } from './ProcessionAvenue';
 import { CityStreets } from './CityStreets';
@@ -428,6 +434,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // constants, so `lights` keeps its reference across re-renders and the Environment
   // cubemap below is not re-captured on every player-movement render.
   const lights = resolveCityLightProfile(lightProfile);
+  // Living City L17 — bodies and targets are derived from the existing day clock.
+  // No frame-level profile reads and no second schedule/clock are introduced.
+  const visitorPresence = useMemo(() => resolveVisitorPresence(playerProfile), [playerProfile]);
+  const visitorFighters = useMemo(
+    () => visitorPresence.map(createVisitorFighter),
+    [visitorPresence],
+  );
   // Stabilize the Environment cubemap's Lightformer children across player-movement re-renders.
   // Without this, each setPlayerPos / setPlayerRotY / setIsMoving call creates a new children
   // reference, which can re-trigger drei's Environment layout effect and recapture the cubemap.
@@ -485,6 +498,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const [isMoving, setIsMoving] = useState(false);
   const [isAttacking, setIsAttacking] = useState(false);
   const [nearbyLoc, setNearbyLoc] = useState<InteractiveLocation | null>(null);
+  const [nearbyVisitor, setNearbyVisitor] = useState<ReturnType<typeof resolveVisitorTarget>>(null);
   const [showNavDrawer, setShowNavDrawer] = useState(false);
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
   const [stableNotice, setStableNotice] = useState<string | null>(null);
@@ -662,6 +676,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const cameraYawRef = useRef<number>(initialRotationY ?? Math.PI);
     const drawbridgeRaisedRef = useRef<boolean>(false);
   const lastNearbyIdRef = useRef<string | null>(null);
+  const lastNearbyVisitorIdRef = useRef<string | null>(null);
 
   // Mobile Virtual Joystick State
   const joystickRef = useRef<HTMLDivElement>(null);
@@ -871,14 +886,19 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
     // A presented panel is up: E/Space and the action button are its own.
-    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel) return;
+    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel) return;
     if (nearbyLoc) {
       handleInteract();
+    } else if (nearbyVisitor) {
+      sounds.playClick();
+      setVisitorPanel(true);
     } else {
       handleAttack();
     }
   }, [
     nearbyLoc,
+    nearbyVisitor,
+    visitorPanel,
     handleInteract,
     handleAttack,
     treatmentPanel,
@@ -1150,13 +1170,21 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         lastNearbyIdRef.current = foundId;
         setNearbyLoc(found);
       }
+      // A visitor only owns the action when their person-sized disc contains the
+      // player AND they are strictly nearer than the already-resolved hub.
+      const visitorTarget = resolveVisitorTarget(playerPosRef.current, visitorPresence, found);
+      const visitorId = visitorTarget?.presence.visitor.id ?? null;
+      if (visitorId !== lastNearbyVisitorIdRef.current) {
+        lastNearbyVisitorIdRef.current = visitorId;
+        setNearbyVisitor(visitorTarget);
+      }
 
       animId = requestAnimationFrame(loop);
     };
 
     animId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animId);
-  }, []);
+  }, [visitorPresence]);
 
   // Fast Travel teleport — Phase 31D: uses verified exterior arrival points
   const handleFastTravel = (loc: InteractiveLocation) => {
@@ -1604,6 +1632,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 {AMBIENT_CHARACTERS.map(fighter => (
                     <GladiatorMesh key={fighter.id} fighter={fighter} />
                 ))}
+                {/* Living City L17 — scheduled traders reuse the existing fighter mesh. */}
+                {visitorFighters.map((fighter) => (
+                  <GladiatorMesh key={fighter.id} fighter={fighter} />
+                ))}
               </Suspense>
             </ThreeComponentErrorBoundary>
 
@@ -1791,17 +1823,17 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               }}
               onClick={handlePrimaryAction}
               className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 flex flex-col items-center justify-center shadow-2xl active:scale-90 transition-all cursor-pointer ${
-                nearbyLoc
+                nearbyLoc || nearbyVisitor
                   ? 'bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-600 border-yellow-300 text-neutral-950 shadow-[0_0_25px_rgba(245,158,11,0.8)] animate-pulse'
                   : 'bg-gradient-to-br from-red-600 via-rose-700 to-red-900 border-red-300 text-white shadow-[0_0_20px_rgba(225,29,72,0.6)]'
               }`}
-              title={nearbyLoc ? `Interact with ${nearbyLoc.name} [E / Space]` : 'Attack with Weapon [Space / E]'}
+              title={nearbyLoc ? `Interact with ${nearbyLoc.name} [E / Space]` : nearbyVisitor ? visitorPrompt(nearbyVisitor) : 'Attack with Weapon [Space / E]'}
             >
-              {nearbyLoc ? (
+              {nearbyLoc || nearbyVisitor ? (
                 <>
                   <SparklesIcon className="w-6 h-6 sm:w-8 sm:h-8 fill-neutral-950 text-neutral-950" />
                   <span className="text-[9px] sm:text-xs font-serif font-black uppercase tracking-wider mt-0.5">
-                    {nearbyLoc.id === 'records_house' && unreadDeeds ? '✦ ' : ''}ENTER [E]
+                    {nearbyVisitor && !nearbyLoc ? 'VISIT [E]' : nearbyLoc?.id === 'records_house' && unreadDeeds ? '✦ ENTER [E]' : 'ENTER [E]'}
                   </span>
                 </>
               ) : (
@@ -1817,7 +1849,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         </div>
 
       {/* PROXIMITY INTERACTION BANNER (CENTER DESKTOP POPUP) */}
-      {nearbyLoc && (
+      {(nearbyLoc || nearbyVisitor) && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto animate-bounce hidden sm:block">
           <button
             onClick={handleInteract}
@@ -1826,7 +1858,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             <SparklesIcon className="w-4 h-4 fill-neutral-950 text-neutral-950" />
             <span>
               {nearbyLoc.id === 'records_house' && unreadDeeds ? '✦ ' : ''}
-              {nearbyLoc.actionPrompt} [E / Space]
+              {nearbyLoc ? nearbyLoc.actionPrompt : nearbyVisitor ? visitorPrompt(nearbyVisitor) : ''} [E / Space]
             </span>
             <ChevronRight className="w-4 h-4" />
           </button>
