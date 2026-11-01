@@ -145,7 +145,8 @@ import {
   recordStandardVictory,
   settleGrudge,
 } from './utils/grudgeBouts';
-import { REST_PRICE, resolveInjuryAfterDuel, restAtInn, treatInjury, type DuelInjuryEvent } from './utils/injury';
+import { REST_PRICE, resolveInjuryAfterDuel, restAtInn, type DuelInjuryEvent } from './utils/injury';
+import { restAtMedicalHouse } from './utils/restRecovery';
 // PITCH A1 — Fortuna's Omen.  The shrine's two words, the decline's once-ever
 // trickle, and the duel result that consumes them: the settlement is applied
 // inside `handleMatchComplete`'s existing write, and the offering/decline writes
