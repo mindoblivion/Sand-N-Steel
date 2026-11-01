@@ -69,12 +69,11 @@ import { PreRacePanel } from '../../hub/PreRacePanel';
 // module's own numbers, and this screen writes no save (App owns the transaction).
 import {
   REST_PRICE,
-  getTreatmentEligibility,
   injuryBannerLine,
   resolveActiveInjury,
-  treatmentPrice,
   type TreatmentService,
 } from '../../../utils/injury';
+import { getRestEligibility, restCost } from '../../../utils/restRecovery';
 
 // Preload 3D models for instant, seamless city rendering
 try {
@@ -373,8 +372,8 @@ const TREATMENT_SITES: Record<
     title: 'Arena Medical House',
     notice:
       "Arena Medical House: Bandages, ceramic vessels, and surgical tools are prepared for the arena's wounded.",
-    service: 'The medicus cleans, stitches and binds the wound — and takes it off you entirely.',
-    action: 'Treat Wound',
+    service: 'The medicus cleans, stitches and binds the wound. Rest for the day, and return to the arena healed.',
+    action: 'Rest for the Day',
   },
   caravanserai: {
     title: 'Caravanserai Inn',
@@ -917,7 +916,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     (service: TreatmentService) => {
       sounds.playClick();
       const applied = service === 'medical_house' ? onTreatInjury() : onRestAtInn();
-      if (applied) setStableNotice(null);
+      if (applied) {
+        setStableNotice(null);
+        if (service === 'medical_house') setTreatmentPanel(null);
+      }
     },
     [onRestAtInn, onTreatInjury]
   );
@@ -1270,7 +1272,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       ? playerProfile.gold >= REST_PRICE
         ? { ok: true as const, price: REST_PRICE }
         : { ok: false as const, reason: 'insufficient-gold' as const }
-      : getTreatmentEligibility(playerProfile, treatmentPanel)
+      : getRestEligibility(playerProfile)
     : null;
   /**
    * S6 — what the panel can offer from the player's own satchel. Empty when the
@@ -1946,7 +1948,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 <span>
                   {treatmentPanel === 'caravanserai'
                     ? `${restToTomorrow ? "Rest until tomorrow's dawn" : 'Rest until dawn'} — ${REST_PRICE}g`
-                    : `${treatmentSite.action} — ${treatmentPrice(treatmentPanel)}g`}
+                    : `${treatmentSite.action} — ${restCost(playerProfile)}g`}
                 </span>
               </button>
               {treatmentEligibility && !treatmentEligibility.ok && (
@@ -1954,7 +1956,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                   data-treatment-refusal={treatmentEligibility.reason}
                   className="text-[10px] sm:text-[11px] font-mono text-red-300"
                 >
-                  Not enough gold. You carry {playerProfile.gold}g.
+                  {treatmentEligibility.reason === 'already-rested'
+                    ? 'You have already rested at the Medical House today.'
+                    : `Not enough gold. You carry ${playerProfile.gold}g; this rest costs ${restCost(playerProfile)}g.`}
                 </p>
               )}
 
