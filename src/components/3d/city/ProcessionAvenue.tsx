@@ -7,6 +7,7 @@ import { RomanPavedStreet } from './RomanStreetPavement';
 import { ItalianCypress } from './MediterraneanFoliage';
 import { CityFixtureMaterial } from './CityFixtureMaterial';
 import { CityFixtureLight } from './CityFixtureLight';
+import { CivicFountain } from './CivicFountain';
 
 /**
  * Roman Carved Stone Fire Brazier
@@ -371,61 +372,21 @@ export const ProcessionAvenue = React.memo(() => {
         ))
       )}
 
-      {/* 6. CENTRAL PLAZA MONUMENTAL NAVE FOUNTAIN */}
-      <group position={[0, 0, 0]}>
-        {/* Tier 1 - Outer Marble Water Basin */}
-        <mesh castShadow receiveShadow position={[0, 0.35, 0]}>
-          <cylinderGeometry args={[3.2, 3.6, 0.7, 24]} />
-          <meshStandardMaterial
-            color={ROMAN_PALETTE.travertine.color}
-            roughness={0.72}
-            bumpMap={NOISE_TEXTURE || undefined}
-            bumpScale={0.012}
-          />
-        </mesh>
-        {/* Shimmering Aqueduct Water Pool */}
-        <mesh position={[0, 0.72, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[2.9, 24]} />
-          <meshStandardMaterial color="#0284c7" roughness={0.1} metalness={0.8} />
-        </mesh>
-        {/* Tier 2 - Central Marble Shaft */}
-        <mesh castShadow position={[0, 1.4, 0]}>
-          <cylinderGeometry args={[1.0, 1.3, 1.6, 16]} />
-          <meshStandardMaterial color={ROMAN_PALETTE.marbleWhite.color} roughness={0.55} />
-        </mesh>
-        {/* Tier 3 - Upper Cascade Basin */}
-        <mesh castShadow position={[0, 2.3, 0]}>
-          <cylinderGeometry args={[1.6, 1.2, 0.4, 16]} />
-          <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.65} />
-        </mesh>
-        {/* Gilded Roman Bronze Eagle (Aquila) on Spire - Authentically Patinated Bronze */}
-        <mesh castShadow position={[0, 3.1, 0]}>
-          <sphereGeometry args={[0.55, 12, 12]} />
-          <meshStandardMaterial
-            color={ROMAN_PALETTE.agedBronze.color}
-            metalness={0.76}
-            roughness={0.42}
-          />
-        </mesh>
-        <mesh castShadow position={[0, 3.8, 0]}>
-          <cylinderGeometry args={[0.08, 0.16, 1.2, 8]} />
-          <meshStandardMaterial
-            color={ROMAN_PALETTE.agedBronze.color}
-            metalness={0.76}
-            roughness={0.42}
-          />
-        </mesh>
-      </group>
+      {/* 6. CENTRAL PLAZA IMPERIAL FOUNTAIN */}
+      {/* Modular, instanced marble tiers, imperial statue and animated water.
+          Scale and the one ground-level collider share FOUNTAIN_SPEC; the base
+          grows to an 8 m diameter, so the four inner benches move outward below. */}
+      <CivicFountain />
 
       {/* 7. CIVIC FORUM SEATING & PUBLIC GATHERING BENCHES (PHASE 26) */}
       {/* Placed at comfortable radial distances (r ~ 6.5m) facing the central fountain without blocking 4 cardinal avenues.
           Phase 1A.2: north pair moved from z=-1 to z=1. At z=-1 the 45°-rotated bench
           (2.0×0.65m) clipped the Colosseum foundation by ~0.71m (north corner at z≈-1.94
           vs foundation z≈-1.23 at that x). At z=1 the min clearance is 1.29m. */}
-      <RomanBench position={[-4.8, 0, 1.0]} rotationY={Math.PI / 4} />
-      <RomanBench position={[4.8, 0, 1.0]} rotationY={-Math.PI / 4} />
-      <RomanBench position={[-4.8, 0, 4.8]} rotationY={(3 * Math.PI) / 4} />
-      <RomanBench position={[4.8, 0, 4.8]} rotationY={(-3 * Math.PI) / 4} />
+      <RomanBench position={[-5.2, 0, 1.1]} rotationY={Math.PI / 4} />
+      <RomanBench position={[5.2, 0, 1.1]} rotationY={-Math.PI / 4} />
+      <RomanBench position={[-5.2, 0, 5.2]} rotationY={(3 * Math.PI) / 4} />
+      <RomanBench position={[5.2, 0, 5.2]} rotationY={(-3 * Math.PI) / 4} />
 
       {/* Colonnade Resting Benches tucked between column bays */}
       {/* North-side pair at z=4 (bay between z=-1 and z=8 columns; original z=-12 was inside
