@@ -30,12 +30,11 @@ import { purchaseIntel } from './utils/intel';
 import type { ConsumableItem } from './data/consumables';
 import { sellItem } from './utils/selling';
 import { nextBossKills } from './utils/bossKills';
-import { purchaseFacility, type FacilityId } from './utils/facilityProgression';
+import { purchaseFacility, trainingCost, type FacilityId } from './utils/facilityProgression';
 import { purchaseTemper } from './utils/tempering';
 import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
 import { purchaseItem } from './utils/itemPurchase';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
-import { trainStat } from './utils/trainingSession';
 import { withArmaturaPledge } from './utils/armaturaPledge';
 import { applyPalmaEarns, equipPalma, purchaseDoctorePalma, unequipPalma } from './utils/palmaeState';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
@@ -1677,15 +1676,27 @@ export function App() {
 
   // Profile mutations
   const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
-    const base = profileRef.current ?? profile;
-    if (!base) return;
-    const result = trainStat(base, stat);
-    if (!result.ok) return;
-    // Preserve main's existing successful-session clock step and Ludi deed settlement.
-    const timed = settleLudiDeeds(onDayRollover(base, advanceTimeBy(result.profile, 1)), {
+    if (!profile) return;
+    // P5 — the Ludus Training Yard sets stat training's price, and nothing else.
+    const cost = trainingCost(profile);
+    if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < cost) return;
+
+    const trained: PlayerProfile = {
+      ...profile,
+      gold: profile.gold - cost,
+      baseStats: {
+        ...profile.baseStats,
+        [stat]: profile.baseStats[stat] + 1,
+      },
+    };
+    // DAY/NIGHT T2 — a training session CONSUMED advances the clock one phase, in this
+    // session's own transaction. The refusal above returns before this line, so a session
+    // that could not be paid for advances nothing. One save.
+    // LUDI PHASE A — the session is a deed of its own, settled AFTER the clock step so the
+    // Acta it counts against is the day the session actually landed on. One save.
+    const timed = settleLudiDeeds(onDayRollover(profile, advanceTimeBy(trained, 1)), {
       trained: true,
     });
-    profileRef.current = timed.profile;
     setProfile(timed.profile);
     saveProfile(timed.profile);
   };
