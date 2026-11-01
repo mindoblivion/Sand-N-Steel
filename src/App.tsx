@@ -1571,18 +1571,18 @@ export function App() {
   };
 
   /**
-   * S5 — the Arena Medical House's cure (75 gold) and the Caravanserai Inn's rest
-   * (25 gold).  Both helpers are pure and re-check every rule against the profile
-   * they are handed — a live injury, and a purse that covers the price — so a
-   * refusal returns the caller's own profile and never reaches `saveProfile`.  The
-   * answer says whether the gold changed hands, which is what closes the city panel.
+   * L9 — the Arena Medical House's once-per-day rest (25 × level), plus the
+   * Caravanserai Inn's existing night service. The Medical House transaction clears
+   * the wound and advances one full timeState day; this handler composes the existing
+   * day-boundary effects and performs the one profile save.
    */
   const handleTreatInjury = (): boolean => {
     if (!profile) return false;
-    const treated = treatInjury(profile);
-    if (treated === profile) return false;
-    setProfile(treated);
-    saveProfile(treated);
+    const result = restAtMedicalHouse(profile);
+    if (!result.ok) return false;
+    const settled = onDayRollover(profile, result.profile);
+    setProfile(settled);
+    saveProfile(settled);
     return true;
   };
 
