@@ -222,7 +222,7 @@ describe('P1 sell §C — the transaction', () => {
     }
   });
 
-  test('a sale that would overflow the gold balance is refused atomically', () => {
+  test('a sale is refused when its credit cannot be represented at the current balance', () => {
     const before = frozenProfile((p) => { p.gold = Number.MAX_VALUE; });
     expect(sellItem(before, TITAN.id)).toBe(before);
     expect(before.gold).toBe(Number.MAX_VALUE);
