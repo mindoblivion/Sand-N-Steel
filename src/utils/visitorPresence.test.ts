@@ -1,7 +1,8 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
 import { createNewProfile } from '../services/storage';
-import { CITY_COLLIDERS, PLAYER_RADIUS, collidesWith, HUB_LOCATIONS, FAST_TRAVEL_ARRIVALS } from './cityCollisions';
+import { CITY_COLLIDERS, PLAYER_RADIUS, collidesWith } from './collisionShapes';
+import { HUB_LOCATIONS, FAST_TRAVEL_ARRIVALS } from './cityCollisions';
 import { resolveVisitorSchedule } from './visitorSchedule';
 import {
   VISITOR_STALLS,
@@ -58,8 +59,7 @@ describe('Living City L17 — visitor presence', () => {
         const distance = Math.hypot(stall.x - hub.position[0], stall.z - hub.position[2]);
         expect(distance - hub.radius).toBeGreaterThanOrEqual(VISITOR_INTERACTION_RADIUS);
       }
-      for (const [id, [x, z]] of Object.entries(FAST_TRAVEL_ARRIVALS)) {
-        void id;
+      for (const [, [x, z]] of Object.entries(FAST_TRAVEL_ARRIVALS)) {
         expect(Math.hypot(stall.x - x, stall.z - z)).toBeGreaterThan(VISITOR_INTERACTION_RADIUS);
       }
     }
