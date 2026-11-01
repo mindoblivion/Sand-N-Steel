@@ -65,9 +65,8 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
           Condition your body for the arena. Training costs <strong className="text-yellow-300">{cost} Gold</strong> per session.
         </p>
         {/* LUDI PHASE A — THE DAY'S SESSIONS, shown and NOT enforced. The Acta's rollover
-            refreshes them (two, or three on Dies Quietus), and this row is the read that
-            makes the number visible; gold stays the only gate, so a spent session never
-            stops a training and no control below is ever disabled by it. */}
+            refreshes them (two, or three on Dies Quietus), and this row remains informational.
+            L5's separate deterministic timetable governs which drill is resting today. */}
         <p
           data-training-sessions={profile.trainingSessionsLeft}
           className="mt-2 text-[11px] sm:text-xs font-mono uppercase tracking-wider text-orange-300/90"
