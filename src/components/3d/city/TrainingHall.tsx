@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { LandmarkSign } from './LandmarkSign';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
@@ -322,6 +323,7 @@ export const TrainingHall: React.FC = React.memo(() => {
           <meshStandardMaterial color="#4a3220" roughness={0.85} />
         </mesh>
       </group>
+          <LandmarkSign id="training_hall" />
     </group>
   );
 });
