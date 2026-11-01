@@ -972,6 +972,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // every frame by the camera rig and both GladiatorMesh instances, so the
   // feedback costs no re-render and no React state.
   const impactRef = useRef<ImpactState>({ freezeUntil: 0, trauma: 0 });
+  // CF-4 — one pooled particle handle; visual feedback only, not combat state.
+  const impactParticlesRef = useRef<ImpactParticlesHandle>(null);
 
   // Marks the ONE resolution that is a telegraphed heavy landing, so it can take
   // the longest hit-stop. Set by the AI branch that resolves the telegraph, then
