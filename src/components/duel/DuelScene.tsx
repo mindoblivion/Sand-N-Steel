@@ -834,6 +834,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   });
 
   const isMatchOver = useRef(false);
+  // If a knockout resolves while the confirmation is open, the result takes precedence.
+  useEffect(() => {
+    if (isMatchOver.current) setWithdrawConfirmOpen(false);
+  }, [player.health, opp.health]);
   // Own the active turn-resolution timer so leaving the duel cannot fire a stale state update.
   const turnResolutionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiTurnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
