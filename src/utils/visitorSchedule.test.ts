@@ -1,7 +1,7 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
 import { ITEMS_DB } from '../data/itemsDB';
-import { getChariotPart, isChariotPartId } from '../data/chariotParts';
+import { getChariotPart } from '../data/chariotParts';
 import { VISITORS, getVisitor } from '../data/visitors';
 import type { PlayerProfile } from '../types/game';
 import { resolveTimeState } from './timeState';
@@ -125,7 +125,7 @@ describe('main Living City visitor schedule', () => {
   test('daily offer selection matches the established L2 city-rotation namespace', () => {
     for (let day = 1; day <= 365; day += 1) {
       for (const arrival of scheduleVisitorDay(VISITORS, day).arrivals) {
-        const pool = arrival.visitor.offer.pool.filter((id) => itemIds.has(id) || isChariotPartId(id));
+        const pool = arrival.visitor.offer.pool.filter((id) => itemIds.has(id) || getChariotPart(id)?.visitorOnly === true);
         const index = independentHash(
           'sand-and-steel:city-rotation:' + arrival.visitor.id + ':' + day,
         ) % pool.length;
