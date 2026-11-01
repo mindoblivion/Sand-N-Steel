@@ -493,15 +493,15 @@ describe('P3 §G — the exclusions hold', () => {
   });
 
   test('the finish slot keeps its four shipped finishes, then the P-BANNER banner set', () => {
-    const finish = chariotPartsBySlot('finish');
+    const finish = chariotPartsBySlot('finish').filter((part) => !part.visitorOnly);
     expect(finish.slice(0, 4).map((p) => [p.id, p.price])).toEqual([
       ['finish_stock', 0],
       ['finish_charred', 180],
       ['finish_gilded', 320],
       ['finish_oxblood', 240],
     ]);
-    // P-BANNER appended exactly one row, priced in fame; its own suite pins the
-    // amount and the currency behaviour.
+    // The workshop still exposes its four standard finishes and P-BANNER's
+    // fame-priced set; the visitor-only livery is acquired outside this stock list.
     expect(finish.slice(4).map((p) => [p.id, p.currency])).toEqual([
       ['finish_triumph_banners', 'fame'],
     ]);
