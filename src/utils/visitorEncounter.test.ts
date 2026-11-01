@@ -54,7 +54,7 @@ describe('Living City L11 — visitor encounter', () => {
     const p = profileWithVisitor(VISITORS[0].id);
     const view = resolveVisitorEncounter(p, VISITORS[0].id);
     expect(view?.visitor).toBe(VISITORS[0]);
-    expect(view?.offerItemId).toBeTruthy();
+    expect((view?.offerItemId !== null) !== (view?.offerPartId !== null)).toBe(true);
     expect(view?.seen).toBe(false);
     expect(resolveVisitorEncounter(p, 'unknown_visitor')).toBeNull();
   });
