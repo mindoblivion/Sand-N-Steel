@@ -612,7 +612,7 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
   });
 
   test('KEPT on a win: the purse, the level, the peak and the one write', () => {
-    expect(result).toContain('const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;');
+    expect(result).toContain('const nextGold = creditDuelGold(profile.gold, resultStats.goldEarned, bounty.gold);');
     expect(result).toContain('const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;');
     expect(result).toContain('const nextXp = profile.xp + stats.xpEarned;');
     expect(result).toContain('peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),');
