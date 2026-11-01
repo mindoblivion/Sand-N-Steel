@@ -18,9 +18,9 @@ describe('C-8.75C — Valéria counter response window', () => {
     const end = scene.indexOf('// ── D-2 BEAST HUNT', start);
     const branch = scene.slice(start, end);
     expect(branch).toContain("counterStep === 'announce'");
-    expect(branch).toContain("executeCombatTurn('opponent', 'telegraph')");
+    expect(branch).toContain("runCounterTurn('opponent', 'telegraph')");
     expect(branch).toContain("counterStep === 'resolve'");
-    expect(branch).toContain("executeCombatTurn('opponent', 'quick_attack')");
+    expect(branch).toContain("runCounterTurn('opponent', 'quick_attack')");
     expect(branch.indexOf("counterStep === 'announce'")).toBeLessThan(branch.indexOf("counterStep === 'resolve'"));
   });
 
@@ -28,9 +28,11 @@ describe('C-8.75C — Valéria counter response window', () => {
     const start = scene.indexOf("else if (actionType === 'telegraph')");
     const end = scene.indexOf('// 2c. STATEFUL DOCTRINA', start);
     const block = scene.slice(start, end);
-    expect(block).toContain("'COUNTER ATTACK INCOMING'");
+    expect(block).toContain("telegraphText: 'COUNTER ATTACK INCOMING'");
+    expect(block).toContain("telegraphText: brothersCfg ? CROSSING_TELEGRAPH_WORDS : 'HEAVY ATTACK INCOMING'");
     expect(block).toContain("'\\u26A0 COUNTER!'");
     expect(block).toContain('isCounterWindup ? 0 : pitBellowerStaminaDrain');
+    expect(block).not.toContain('telegraphAftermathRef.current = true;');
   });
 
   test('withdrawal and both knockout paths clear the pending counter tell', () => {
