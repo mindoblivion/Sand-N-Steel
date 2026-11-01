@@ -1724,12 +1724,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           attackerMods,
         );
 
-        // Deduct stamina & set attack animation
+        // Set the attack animation at dispatch, but charge the player's stamina
+        // only when the strike is in range. The action panel normally blocks an
+        // out-of-range tap; this guard also protects stale or direct dispatches.
         if (isActorPlayer) {
           setPlayer((prev) => ({
             ...prev,
             action: isQuick ? 'attack_light' : 'attack_heavy',
-            stamina: Math.max(0, prev.stamina - staminaCost),
+            stamina: dist > effectiveRange
+              ? prev.stamina
+              : Math.max(0, prev.stamina - staminaCost),
           }));
         } else {
           setOpp((prev) => ({
