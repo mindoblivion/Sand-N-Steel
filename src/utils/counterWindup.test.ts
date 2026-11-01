@@ -35,7 +35,7 @@ describe('C-8.75C — Valéria counter response window', () => {
 
   test('withdrawal and both knockout paths clear the pending counter tell', () => {
     expect(scene).toContain('pendingCounterWindupRef.current = false;');
-    expect(scene.match(/pendingCounterWindupRef\\.current = false;/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(scene.match(/pendingCounterWindupRef\.current = false;/g)?.length).toBeGreaterThanOrEqual(4);
   });
 
   test('the counter still uses the existing damage bonus marker and ordinary quick attack', () => {
