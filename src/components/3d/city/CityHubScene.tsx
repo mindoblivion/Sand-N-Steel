@@ -413,6 +413,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onUseConsumable,
   onBuyIntel,
   onRecordKeeperVisit,
+  onEncounterVisitor,
+  onPurchaseVisitor,
   onOpenDiceBoard,
   onEnterDiceTrailBout,
   onChooseDiceEnding,
@@ -494,7 +496,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const [treatmentPanel, setTreatmentPanel] = useState<TreatmentService | null>(null);
   // S7 — the Golden Palm Tavern's rumour panel.  Local view state only: the
   // purchase and its save belong to `App`.
-  const [intelPanel, setIntelPanel] = useState(false);\n  // Living City L11/L12 — visitor panel; all profile writes remain in App.\n  const [visitorPanel, setVisitorPanel] = useState(false);
+  const [intelPanel, setIntelPanel] = useState(false);
+  // Living City L11/L12 — visitor panel; all profile writes remain in App.
+  const [visitorPanel, setVisitorPanel] = useState(false);
   // PITCH A1 — the Shrine of Fortuna's omen panel, and the one line announcing
   // what the last offering or decline did.  Local view state only: both
   // transactions and their save belong to `App`.
