@@ -520,6 +520,8 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       // the clock (`ludi` is its own field). Added here as a READER, on the same terms as
       // the day-boundary seam beside it.
       'utils/ludiCalendar.ts',
+      // Living City visitor scheduling reads the authoritative day without advancing it.
+      'utils/visitorSchedule.ts',
     ];
     const CLOCK_APIS = [
       'resolveTimeState',
@@ -571,6 +573,7 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/nightDressing.ts',
       'utils/phaseFlavor.ts',
       'utils/racePhaseLight.ts',
+      'utils/visitorSchedule.ts',
     ]);
     for (const file of sources) {
       const rel = file.slice(srcRoot.length + 1);
