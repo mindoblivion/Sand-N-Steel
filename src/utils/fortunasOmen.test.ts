@@ -721,7 +721,7 @@ describe('PITCH A1 §H — no save writes outside the existing save-on-change fl
     const handler = APP_SOURCE.slice(at, APP_SOURCE.indexOf('const handleDuelResultDismiss', at));
     // STORY-4b — a CLEARED bounty posting adds its own gold/fame in the same write;
     // the omen's settled figure is still the duel's contribution, unchanged.
-    expect(handler).toContain('const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;');
+    expect(handler).toContain('const nextGold = creditDuelGold(profile.gold, resultStats.goldEarned, bounty.gold);');
     expect(handler).toContain('const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;');
     // STORY-5b REBASE, not a weakening: an EXHIBITION neither pays nor expires the
     // omen (Director ruling R4), so the clear is the else arm of the fence. Every
