@@ -182,6 +182,8 @@ const REQUIRED_FIXTURE_IDS = [
   'ludi-era',
   // PITCH A4 — the Corpus et Origo identity field.
   'corpus-et-origo',
+  // L10 — the visitor-history save shape.
+  'visitor-ledger',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
