@@ -592,7 +592,7 @@ export const FountainWater = React.memo(() => {
 // ── Assembly: the single root the tiers hang from ───────────────────────────
 
 export const CivicFountain: React.FC<{ statueTone?: 'marble' | 'bronze' }> = ({ statueTone }) => (
-  <group name="Fountain_Root" position={[0, 0, 0]}>
+  <group name="Fountain_Root" position={[FOUNTAIN_SPEC.center.x, 0, FOUNTAIN_SPEC.center.z]}>
     <FountainBasePool />
     <FountainColumnTier />
     <FountainTopBasin />
