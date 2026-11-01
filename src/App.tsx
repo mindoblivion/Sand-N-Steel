@@ -38,6 +38,8 @@ import { withArmaturaPledge } from './utils/armaturaPledge';
 import { applyPalmaEarns, equipPalma, purchaseDoctorePalma, unequipPalma } from './utils/palmaeState';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
 import { recordKeeperVisit } from './data/keepers';
+import { recordVisitorEncounter } from './utils/visitorEncounter';
+import { purchaseVisitorOffer, type VisitorPurchaseResult } from './utils/visitorPurchase';
 const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m) => ({ default: m.DuelScene })));
 // Phase C-8.70B Stage 1, Slice 1 — the race scene, reached exactly the way the
 // city hub and the duel arena are: one more screen value, one more lazy import
@@ -989,6 +991,23 @@ export function App() {
     if (!visited || visited === profile) return;
     setProfile(visited);
     saveProfile(visited);
+  };
+
+  /** Living City L11 — record only a first meeting; repeat selections save nothing. */
+  const handleVisitorEncounter = (visitorId: string) => {
+    const result = recordVisitorEncounter(profile, visitorId);
+    if (!result.ok || !result.recorded) return;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+  };
+
+  /** Living City L12 — the purchase helper rechecks today's offer and owns all trade rules. */
+  const handleVisitorPurchase = (visitorId: string): VisitorPurchaseResult => {
+    const result = purchaseVisitorOffer(profile, visitorId);
+    if (!result.ok) return result;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+    return result;
   };
 
   /**
@@ -2036,6 +2055,8 @@ export function App() {
             onUseConsumable={handleUseConsumable}
             onBuyIntel={handleBuyIntel}
             onRecordKeeperVisit={handleRecordKeeperVisit}
+            onEncounterVisitor={handleVisitorEncounter}
+            onPurchaseVisitor={handleVisitorPurchase}
             onVisitLocation={handleVisitLocation}
             onOpenDiceBoard={handleOpenDiceBoard}
             onEnterDiceTrailBout={handleEnterDiceTrailBout}
