@@ -259,7 +259,7 @@ describe('§D the helpers are pure', () => {
     const rested = restAtInn(hurt);
 
     expect(JSON.stringify(hurt)).toBe(snapshot);
-    expect(hurt.injury).toEqual(FRESH);
+    expect(hurt.injury).toEqual({ ...FRESH, fightsRemaining: 3 });
     expect(hurt.gold).toBe(100);
     expect(cured).not.toBe(hurt);
     expect(rested).not.toBe(hurt);
