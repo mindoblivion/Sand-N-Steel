@@ -824,7 +824,8 @@ describe('D-2 §J — nothing persists, and no pipeline stage was added', () => 
     // dispatches one more EXISTING action (`telegraph`) into the same resolution
     // function. The stage count does not grow — the chain is an announce, not a
     // mechanic — so the count grows by one and this pin moves with it.
-    expect((DUEL_SCENE.match(/executeCombatTurn\(/g) ?? []).length).toBe(12);
+    // C-8.75C adds two existing-pipeline dispatches: counter announce and quick-attack resolution.
+    expect((DUEL_SCENE.match(/executeCombatTurn\(/g) ?? []).length).toBe(14);
   });
 
   test('the fence gates the panel, the figure, the pips and every rule', () => {
