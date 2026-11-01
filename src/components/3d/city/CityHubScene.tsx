@@ -996,6 +996,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         if (code === 'Escape' || key === 'escape') setLegendPanel(null);
         return;
       }
+      if (visitorPanel) {
+        if (code === 'Escape' || key === 'escape') setVisitorPanel(false);
+        return;
+      }
 
       if (code === 'KeyW' || key === 'w' || code === 'ArrowUp') keysPressed.current['w'] = true;
       if (code === 'KeyS' || key === 's' || code === 'ArrowDown') keysPressed.current['s'] = true;
@@ -1024,7 +1028,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, visitorPanel]);
 
   // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
@@ -1852,12 +1856,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       {(nearbyLoc || nearbyVisitor) && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto animate-bounce hidden sm:block">
           <button
-            onClick={handleInteract}
+            onClick={handlePrimaryAction}
             className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_25px_rgba(245,158,11,0.7)] border-2 border-amber-200 transition-all active:scale-95 cursor-pointer flex items-center gap-2"
           >
             <SparklesIcon className="w-4 h-4 fill-neutral-950 text-neutral-950" />
             <span>
-              {nearbyLoc.id === 'records_house' && unreadDeeds ? '✦ ' : ''}
+              {nearbyLoc?.id === 'records_house' && unreadDeeds ? '✦ ' : ''}
               {nearbyLoc ? nearbyLoc.actionPrompt : nearbyVisitor ? visitorPrompt(nearbyVisitor) : ''} [E / Space]
             </span>
             <ChevronRight className="w-4 h-4" />
