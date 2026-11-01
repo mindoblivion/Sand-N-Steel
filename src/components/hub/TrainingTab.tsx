@@ -85,7 +85,7 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
           const resting = restingIds.has(opt.id);
           return (
             <div
-              key={opt.key}
+              key={opt.id}
               className="p-5 rounded-3xl bg-neutral-900/80 border border-amber-700/40 hover:border-amber-500/80 transition-all flex flex-col justify-between shadow-lg"
             >
               <div>
@@ -93,7 +93,7 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
                   <Icon className={`w-5 h-5 ${opt.color}`} />
                   <h4 className="font-serif font-bold text-base text-amber-100">{opt.name}</h4>
                 </div>
-                <p className="text-xs text-neutral-400 mb-4">{opt.desc}</p>
+                <p className="text-xs text-neutral-400 mb-4">{opt.description}</p>
               </div>
 
               <button
