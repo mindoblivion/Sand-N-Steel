@@ -95,7 +95,12 @@ export function sellItem(profile: PlayerProfile, itemId: string): PlayerProfile 
   }
   const saleValue = getTemperSellValue(profile, item);
   const nextGold = profile.gold + saleValue;
-  if (!Number.isFinite(saleValue) || saleValue < 0 || !Number.isFinite(nextGold)) {
+  if (
+    !Number.isFinite(saleValue) ||
+    saleValue < 0 ||
+    !Number.isFinite(nextGold) ||
+    (saleValue > 0 && nextGold <= profile.gold)
+  ) {
     return profile;
   }
 
