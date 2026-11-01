@@ -2588,8 +2588,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // block and dodge remain in the ordinary quick-attack pipeline.
             counterStrikeRef.current = true;
             telegraphLandingRef.current = true;
-            telegraphAftermathRef.current = true;
-            runCounterTurn('opponent', 'quick_attack');
+            executeCombatTurn('opponent', 'quick_attack');
             return;
           }
         }
