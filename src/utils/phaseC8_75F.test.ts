@@ -138,7 +138,9 @@ function localConst(name: string): Record<string, number> {
   return new Function(`return (${DUEL_SOURCE.slice(open, close + 1)});`)();
 }
 
-const RESOLVE_BODY = callbackBody('const executeCombatTurn = useCallback(');
+const RESOLVE_BODY = callbackBody('const executeCombatTurn = useCallback(')
+  .replaceAll(': [number, number, number]', '')
+  .replaceAll(' as [number, number, number]', '');
 const ANNOUNCE_BODY = callbackBody('const announceEnemyAttack = useCallback(');
 const HIT_STOP_MS = localConst('HIT_STOP_MS');
 const SHAKE_TRAUMA = localConst('SHAKE_TRAUMA');
