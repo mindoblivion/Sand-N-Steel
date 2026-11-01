@@ -4,7 +4,7 @@
  * ── WHAT THIS SUITE PINS ──────────────────────────────────────────────────
  *   §A  treat: a live injury clears outright and costs exactly 75 gold — once;
  *   §B  rest: two fights come off the clock for exactly 25 gold, and the wound
- *       clears to `null` at zero (from 3 → 1, from 2 → null, from 1 → null) —
+ *       clears to `null` at zero (from 3 → 1 for a legacy wound, from 2 → null, from 1 → null) —
  *       it never goes negative and the penalties ride along until it clears;
  *   §C  both refusals, each with the profile untouched: no live injury (absent,
  *       null, exhausted, malformed) and a purse below the price (a balance that is
@@ -39,7 +39,7 @@ import { HUB_LOCATIONS } from './cityCollisions';
 
 const SRC_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-const FRESH: PlayerInjury = { fightsRemaining: 3, penaltyStrength: 2, penaltyAgility: 2 };
+const FRESH: PlayerInjury = { fightsRemaining: 2, penaltyStrength: 2, penaltyAgility: 2 };
 
 function bareProfile(over: Partial<PlayerProfile> = {}): PlayerProfile {
   return {
@@ -133,8 +133,8 @@ describe('§B rest takes two fights off the clock for 25 gold', () => {
     expect(REST_FIGHTS_RESTORED).toBe(2);
   });
 
-  test('3 fights → 1 fight, exactly 25 gold deducted, penalties intact', () => {
-    const rested = restAtInn(bareProfile({ injury: FRESH, gold: 100 }));
+  test('a legacy 3-fight wound → 1 fight, exactly 25 gold deducted, penalties intact', () => {
+    const rested = restAtInn(bareProfile({ injury: { ...FRESH, fightsRemaining: 3 }, gold: 100 }));
     expect(rested.injury).toEqual({ fightsRemaining: 1, penaltyStrength: 2, penaltyAgility: 2 });
     expect(rested.gold).toBe(75); // 100 − 25
   });
@@ -155,13 +155,13 @@ describe('§B rest takes two fights off the clock for 25 gold', () => {
     expect(rested.gold).toBe(75);
   });
 
-  test('rest is not a cure: a fresh 3-fight wound still has a fight left', () => {
-    const rested = restAtInn(bareProfile({ injury: FRESH }));
+  test('rest retains its two-fight reduction for a longer legacy wound', () => {
+    const rested = restAtInn(bareProfile({ injury: { ...FRESH, fightsRemaining: 3 } }));
     expect(rested.injury?.fightsRemaining).toBe(1);
   });
 
   test('two rests take the same wound from 3 to null, 50 gold in total', () => {
-    const first = restAtInn(bareProfile({ injury: FRESH, gold: 60 }));
+    const first = restAtInn(bareProfile({ injury: { ...FRESH, fightsRemaining: 3 }, gold: 60 }));
     expect(first.injury?.fightsRemaining).toBe(1);
     expect(first.gold).toBe(35);
     const second = restAtInn(first);
