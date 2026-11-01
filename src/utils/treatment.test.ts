@@ -250,7 +250,7 @@ describe('§C both services refuse, and the profile is untouched', () => {
 describe('§D the helpers are pure', () => {
   test('frozen inputs survive both helpers and are not mutated', () => {
     const hurt = bareProfile({
-      injury: Object.freeze({ ...FRESH }) as PlayerInjury,
+      injury: Object.freeze({ ...FRESH, fightsRemaining: 3 }) as PlayerInjury,
       equipped: Object.freeze({ weapon: DEFAULT_PLAYER_WEAPON }) as PlayerProfile['equipped'],
     });
     const snapshot = JSON.stringify(hurt);
