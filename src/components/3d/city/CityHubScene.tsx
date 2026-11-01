@@ -65,8 +65,8 @@ import type { QualityPreset } from '../../../services/settings';
 import { useSettings } from '../../../hooks/useSettings';
 // Phase C-8.70B — the East Circus District's read-only pre-race entry panel.
 import { PreRacePanel } from '../../hub/PreRacePanel';
-// S5 — the two cures: the Medical House's price and the inn's rest are the injury
-// module's own numbers, and this screen writes no save (App owns the transaction).
+// L9 — the Medical House's day-rest price and the inn's night-rest price are read
+// from their pure transaction helpers; this screen writes no save (App owns it).
 import {
   REST_PRICE,
   injuryBannerLine,
@@ -359,7 +359,7 @@ interface CityHubSceneProps {
 }
 
 /**
- * S5 — the two places that sell a cure, and the copy each one speaks.  `notice` is
+ * L9 — the Medical House's day-rest and the Caravanserai's night-rest, and their copy. `notice` is
  * the flavour line the hub has always printed for the place when the player is not
  * hurt (unchanged, so a healthy visit reads exactly as it did); `service` is the one
  * line the panel adds above its price and its single button.
@@ -1895,7 +1895,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         </div>
       )}
 
-      {/* S5 — THE TREATMENT PANEL: the Medical House's cure and the inn's rest.  The
+      {/* L9 — THE TREATMENT PANEL: the Medical House's day-rest and the inn's night rest. The
           same surface as the notice above, but its one button is the player's way to
           spend the gold; the transaction itself lives in `App`, so this screen writes
           no save.  A refusal keeps the panel up and states its own reason. */}
