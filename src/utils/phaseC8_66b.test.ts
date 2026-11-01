@@ -1015,3 +1015,19 @@ describe('C-8.66B §H — the uploaded assets are byte-identical', () => {
     }
   });
 });
+
+describe('C-8.66B §I — malformed purse values fail closed', () => {
+  test('NaN and infinities cannot buy a non-default chariot part', () => {
+    for (const gold of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const base = { ...createNewProfile('Chariot tester'), gold };
+      const before = JSON.stringify(base);
+      expect(getChariotPurchaseEligibility(base, 'wheels_reinforced')).toEqual({
+        ok: false,
+        reason: 'insufficient-gold',
+      });
+      const result = purchaseChariotPart(base, 'wheels_reinforced');
+      expect(result).toEqual({ ok: false, reason: 'insufficient-gold' });
+      expect(JSON.stringify(base)).toBe(before);
+    }
+  });
+});
