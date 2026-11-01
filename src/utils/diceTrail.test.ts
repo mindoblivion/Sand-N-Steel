@@ -490,7 +490,7 @@ describe('STORY-5a §F — the guards', () => {
     const optional = optionalProfileFields();
     // LUDI PHASE A REBASE: `ludi` sits between `spared` and `records`; `records` is last.
     // PITCH A4 REBASE: `identity` joined the set before `ludi`, so it is 24.
-    expect(optional.length).toBe(24);
+    expect(optional.length).toBe(25);
     expect(optional.slice(-2)).toEqual(['ludi', 'records']);
   });
 
