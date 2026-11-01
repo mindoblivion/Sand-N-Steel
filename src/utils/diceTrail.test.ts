@@ -357,6 +357,19 @@ describe('STORY-5a §C — Piso’s offer', () => {
 
 // ── §D 'cut' and the honest purse ──────────────────────────────────────────
 describe('STORY-5a §D — the two purses', () => {
+  test("'cut' refuses malformed, overflowing, or precision-lost balances without consuming the offer", () => {
+    const ready = withCardsWon(boardOpen(), 3);
+    for (const gold of [NaN, Infinity, -1, '100' as unknown as number, Number.MAX_VALUE]) {
+      const before = { ...ready, gold };
+      expect(applyDiceChoice(before, 'cut')).toEqual({
+        ok: false,
+        reason: 'invalid-balance',
+      });
+      expect(before.story?.diceEnding).toBeUndefined();
+      expect(applyDiceChoice(before, 'refused').ok).toBe(true);
+    }
+  });
+
   test("'cut' pays exactly 300 gold, once, in the same write as the flag", () => {
     const ready = withCardsWon(boardOpen(), 3);
     const cut = applyDiceChoice(ready, 'cut');
