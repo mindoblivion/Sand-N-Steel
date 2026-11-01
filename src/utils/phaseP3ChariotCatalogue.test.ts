@@ -84,8 +84,8 @@ describe('P3 §A — the nine appended parts', () => {
   });
 
   test('they are APPENDED: the catalogue is the six shipped rows then these nine, in order', () => {
-    // P-BANNER appends one more row after these nine; the prefix this test
-    // protects is unchanged, so the window is stated rather than the length.
+    // The visitor-only finish and P-BANNER row are additional entries; the P3
+    // prefix and its nine appended parts remain unchanged.
     expect(CHARIOT_PARTS).toHaveLength(17);
     expect(CHARIOT_PARTS.slice(0, 6).map((p) => [p.id, p.price])).toEqual([
       ['wheels_standard', 0],
