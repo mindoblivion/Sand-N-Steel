@@ -330,9 +330,9 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     expect(REST).toContain('subject.gold >= REST_PRICE');
   });
 
-  test('the rollover seam is defined once and called by the three advance seams', () => {
+  test('the rollover seam is defined once and called by all four advance seams', () => {
     expect(APP.match(/const onDayRollover =/g) ?? []).toHaveLength(1);
-    expect(APP.match(/onDayRollover\(profile,/g) ?? []).toHaveLength(3);
+    expect(APP.match(/onDayRollover\(profile,/g) ?? []).toHaveLength(4);
   });
 
   test('the banner is driven by the seam and drawn over the city only', () => {
