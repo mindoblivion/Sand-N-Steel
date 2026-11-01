@@ -1128,6 +1128,8 @@ export interface PlayerProfile {
    * NEW profile and leave persisting it to a later slice.
    */
   time?: { total: number };
+  /** L9 — last in-game day a Medical House rest was used; the day itself comes from time.total. */
+  city?: { restDay?: number };
   /**
    * P2 — TRIUMPHS (the fame honours the player buys; the player-facing name is
    * never "Laurel", which belongs to the palma).  Optional on purpose, exactly like
