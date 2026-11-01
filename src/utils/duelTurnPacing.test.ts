@@ -355,7 +355,7 @@ describe('CF-5 §D the timing seam is the only thing that moved', () => {
     // The HUD disables this action, but the scene must still defend against a
     // stale/direct dispatch. The opponent's stamina branch remains unchanged.
     expect(duel).toMatch(
-      /stamina:\\s*dist\\s*>\\s*effectiveRange\\s*\\?\\s*prev\\.stamina\\s*:\\s*Math\\.max\\(0,\\s*prev\\.stamina\\s*-\\s*staminaCost\\)/,
+      /stamina:\s*dist\s*>\s*effectiveRange\s*\?\s*prev\.stamina\s*:\s*Math\.max\(0,\s*prev\.stamina\s*-\s*staminaCost\)/,
     );
   });
 
