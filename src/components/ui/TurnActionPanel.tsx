@@ -68,8 +68,6 @@ export type CombatActionType =
   | 'taunt'
   | 'rest'
   | 'telegraph'
-  // Valéria's queued counter is announced separately; it resolves as her normal quick attack next slot.
-  | 'counter_telegraph'
   // CH-3b — the retiarius' Cast the Net (once per fight).
   | 'cast_net'
   // D-2 — the beast's crouch, the boss's own action for that slot. It resolves
