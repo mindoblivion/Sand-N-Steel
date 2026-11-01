@@ -351,6 +351,14 @@ describe('CF-5 §D the timing seam is the only thing that moved', () => {
     expect(duel.match(/turnResolutionMs\(/g)?.length).toBe(1); // the one call site
   });
 
+  test('an out-of-range player strike does not charge stamina before the miss resolves', () => {
+    // The HUD disables this action, but the scene must still defend against a
+    // stale/direct dispatch. The opponent's stamina branch remains unchanged.
+    expect(duel).toMatch(
+      /stamina:\\s*dist\\s*>\\s*effectiveRange\\s*\\?\\s*prev\\.stamina\\s*:\\s*Math\\.max\\(0,\\s*prev\\.stamina\\s*-\\s*staminaCost\\)/,
+    );
+  });
+
   test('the timer still only resets the animations and hands the turn over', () => {
     const schedule = duel.indexOf('}, turnResolutionMs(actionType, fightEnded, boutMode));');
     const open = duel.lastIndexOf('setTimeout(() => {', schedule);
