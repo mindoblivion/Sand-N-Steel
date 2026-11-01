@@ -1,8 +1,8 @@
 // L5 — authoritative training transaction.
 import { describe, test, expect } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { createNewProfile } from '../services/storage';
 import type { PlayerProfile } from '../types/game';
-import { TRAINING_ACTIONS } from '../data/training';
 import { trainingCost } from './facilityProgression';
 import { resolveTrainingSchedule } from './trainingSchedule';
 import { trainStat } from './trainingSession';
@@ -42,7 +42,7 @@ describe('L5 — training transaction', () => {
     expect(JSON.stringify(base)).toBe(before);
   });
   test('App preserves the established one-phase successful-training settlement', () => {
-    const app = require('node:fs').readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+    const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
     const handler = app.slice(app.indexOf('const handleTrainStat'), app.indexOf('const handleBuyItem'));
     expect(handler).toContain('trainStat(base, stat)');
     expect(handler).toContain('advanceTimeBy(result.profile, 1)');
