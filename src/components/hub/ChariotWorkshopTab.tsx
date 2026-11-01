@@ -336,7 +336,7 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
             {SLOT_META[slot].icon}
             <span>{SLOT_META[slot].title}</span>
           </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{parts.map(renderCard)}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{parts.filter((part) => !part.visitorOnly || ownsChariotPart(profile, part.id)).map(renderCard)}</div>
         </div>
       ))}
     </div>
