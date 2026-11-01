@@ -796,7 +796,7 @@ describe('LUDI I §I — the Acta card, Felix’s board section, the yard and th
     expect(code('components/hub/BountyBoardPanel.tsx')).not.toContain("getKeeperForBuilding('bounty_hall')");
   });
 
-  test('the training yard shows the day’s sessions as a READ — the gold gate is unchanged', () => {
+  test('the training yard shows session count as a READ and enforces the daily drill timetable', () => {
     const yard = (profile: PlayerProfile) =>
       renderToStaticMarkup(<TrainingTab profile={profile} onTrainStat={() => {}} />);
 
@@ -804,16 +804,17 @@ describe('LUDI I §I — the Acta card, Felix’s board section, the yard and th
     expect(fresh).toContain('data-training-sessions="2"');
     expect(fresh).toContain('Sessions left today: 2');
 
-    // No sessions left and plenty of gold: every train control still works.
+    // Session count remains informational, while the one scheduled resting drill is disabled.
     const spent = yard(onDay(1, { gold: 100000, trainingSessionsLeft: 0 }));
     expect(spent).toContain('data-training-sessions="0"');
-    expect(spent).not.toContain('disabled=""');
+    expect(spent).toContain('Resting today');
+    expect(spent.match(/disabled=""/g)?.length).toBe(1);
 
-    // Gold is still the only gate.
+    // Insufficient gold disables every drill; session count is not the gate.
     const broke = yard(onDay(1, { gold: 0, trainingSessionsLeft: 2 }));
-    expect(broke).toContain('disabled=""');
+    expect(broke.match(/disabled=""/g)?.length).toBe(4);
     const source = code('components/hub/TrainingTab.tsx');
-    expect(source).toContain('disabled={!canAfford}');
+    expect(source).toContain('disabled={!canAfford || resting}');
     expect(source).not.toContain('trainingSessionsLeft >');
   });
 
