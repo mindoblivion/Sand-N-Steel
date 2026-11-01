@@ -6,7 +6,7 @@ import { ITEMS_DB } from '../data/itemsDB';
 import { VISITORS, type Visitor } from '../data/visitors';
 import type { PlayerProfile } from '../types/game';
 import { resolveTimeState } from './timeState';
-import { isChariotPartId } from '../data/chariotParts';
+import { getChariotPart, isChariotPartId } from '../data/chariotParts';
 
 const ITEM_IDS = new Set(ITEMS_DB.map((item) => item.id));
 const VISITOR_IDS = new Set(VISITORS.map((visitor) => visitor.id));
@@ -66,7 +66,9 @@ function arrives(visitor: Visitor, day: number): boolean {
 }
 
 function offer(visitor: Visitor, day: number): string {
-  const pool = visitor.offer.pool.filter((id) => ITEM_IDS.has(id) || isChariotPartId(id));
+  const pool = visitor.offer.pool.filter((id) =>
+    ITEM_IDS.has(id) || getChariotPart(id)?.visitorOnly === true
+  );
   if (!pool.length) return '';
   // Match the Living City L2 rotation namespace and one-slot selection exactly.
   // Main does not yet carry cityRotation.ts, so preserve its established rule here.
