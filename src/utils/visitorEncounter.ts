@@ -17,7 +17,8 @@ export type VisitorEncounterResult =
 
 export interface VisitorEncounterView {
   visitor: Visitor;
-  offerItemId: string;
+  offerItemId: string | null;
+  offerPartId: string | null;
   seen: boolean;
 }
 
@@ -33,6 +34,7 @@ export function resolveVisitorEncounter(
   return {
     visitor: arrival.visitor,
     offerItemId: arrival.offerItemId,
+    offerPartId: arrival.offerPartId,
     seen: readSeenVisitors(profile).includes(visitorId),
   };
 }
