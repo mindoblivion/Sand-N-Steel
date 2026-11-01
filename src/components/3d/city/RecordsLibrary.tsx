@@ -1,4 +1,5 @@
 import React from 'react';
+import { LandmarkSign } from './LandmarkSign';
 import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
 import {
@@ -121,6 +122,7 @@ export const RecordsLibrary = React.memo(() => {
 
       {/* 5. SCHOLAR TRAVERTINE READING BENCH (PHASE 26) */}
       <RomanBench position={[0, 0, 3.2]} rotationY={0} stoneColor="#e2e8f0" />
+          <LandmarkSign id="records_library" />
     </group>
   );
 });
