@@ -364,7 +364,7 @@ test('spawn: [0, 0, 16] is collision-free', () => {
 // ════════════════════════════════════════════════════════════════════════════
 
 test('colosseum: approach from avenue is clear (at X=5, avoiding fountain)', () => {
-  // The fountain at (0,0) r=3.6 blocks the centerline. Approach at X=5 to go around it.
+  // The 8 m fountain is centred at (0,0.6); approach at X=5 to go around it.
   for (let z = 16; z >= -5; z -= 1) {
     assert.ok(!collidesWith(5, z, R, CITY_COLLIDERS),
       `Blocked at (5, ${z}) on approach`);
