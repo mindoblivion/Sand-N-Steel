@@ -1318,5 +1318,15 @@ export interface PlayerProfile {
      * writer (the Quiet Dice chain's 5 Laudes).
      */
     laudes?: number;
+    /**
+     * Living City L11 — visitor encounters actually met by the player.
+     * Lazy, nested history: absent on legacy saves; written only on first encounter.
+     */
+    visitorsSeen?: string[];
+    /**
+     * Living City L12 — visitors whose offered trade was completed.
+     * Kept distinct from visitorsSeen; only a successful purchase writes this list.
+     */
+    visitorsCompleted?: string[];
   };
 }
