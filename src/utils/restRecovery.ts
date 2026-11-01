@@ -86,7 +86,8 @@ export function restAtMedicalHouse(
   profile: PlayerProfile | null | undefined,
 ): RestResult {
   const eligibility = getRestEligibility(profile);
-  if (!eligibility.ok || !profile) return { ok: false, reason: eligibility.reason };
+  if (!eligibility.ok) return { ok: false, reason: eligibility.reason };
+  if (!profile) return { ok: false, reason: 'no-profile' };
 
   const advanced = advanceTimeBy(profile, REST_DAY_PHASES);
   return {
