@@ -86,7 +86,7 @@ describe('P3 §A — the nine appended parts', () => {
   test('they are APPENDED: the catalogue is the six shipped rows then these nine, in order', () => {
     // P-BANNER appends one more row after these nine; the prefix this test
     // protects is unchanged, so the window is stated rather than the length.
-    expect(CHARIOT_PARTS).toHaveLength(16);
+    expect(CHARIOT_PARTS).toHaveLength(17);
     expect(CHARIOT_PARTS.slice(0, 6).map((p) => [p.id, p.price])).toEqual([
       ['wheels_standard', 0],
       ['wheels_reinforced', 450],
@@ -513,7 +513,7 @@ describe('P3 §G — the exclusions hold', () => {
     const banners = CHARIOT_PARTS.filter((p) => /banner|triumph/i.test(p.id)).map((p) => p.id);
     expect(banners).toEqual(['finish_triumph_banners']);
     expect(CHARIOT_PARTS[CHARIOT_PARTS.length - 1].id).toBe('finish_triumph_banners');
-    expect(CHARIOT_PARTS).toHaveLength(16);
+    expect(CHARIOT_PARTS).toHaveLength(17);
   });
 
   test('the workshop derives its sections from the catalogue — no slot list, no part id, no price (P6)', () => {
