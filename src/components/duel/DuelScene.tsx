@@ -2580,8 +2580,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // so its +20 % lands here and nowhere else. Damage, range, stamina,
             // block and dodge remain in the ordinary quick-attack pipeline.
             counterStrikeRef.current = true;
-            telegraphLandingRef.current = true;
-            telegraphAftermathRef.current = true;
+            // It remains a quick strike: no heavy-landing hit-stop or aftermath delay.
             executeCombatTurn('opponent', 'quick_attack');
             return;
           }
