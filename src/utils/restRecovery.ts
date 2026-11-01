@@ -127,7 +127,9 @@ export function restAtMedicalHouse(
   if (!normalizeInjury(profile.injury)) return { ok: false, reason: 'no-injury' };
 
   const cost = restCost(profile);
-  if (profile.gold < cost) return { ok: false, reason: 'insufficient-gold' };
+  if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < cost) {
+    return { ok: false, reason: 'insufficient-gold' };
+  }
 
   // The day the treatment consumes, captured before the clock moves: it is both
   // the result's `day` and the allowance record.
