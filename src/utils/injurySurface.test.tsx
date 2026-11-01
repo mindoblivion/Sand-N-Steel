@@ -88,7 +88,7 @@ function modal(injuryEvent: Parameters<typeof DuelResultModal>[0]['injuryEvent']
 describe('§A the result modal', () => {
   test('an inflicting loss names the numbers that were written', () => {
     const html = modal({ kind: 'inflicted', injury: FRESH });
-    expect(html).toContain('Injured: −2 STR / −2 AGI for 3 fights');
+    expect(html).toContain('Injured: −2 STR / −2 AGI for 2 fights');
     expect(html).toContain('data-duel-injury="inflicted"');
   });
 
@@ -112,8 +112,8 @@ describe('§B the stats tab', () => {
     const html = renderToStaticMarkup(<StatsTab profile={profile({ injury: FRESH })} onAllocatePoint={() => {}} />);
     expect(html).toContain('Injured');
     expect(html).toContain('−2 STR / −2 AGI');
-    expect(html).toContain('3 fights remaining');
-    expect(html).toContain('data-injury="3"');
+    expect(html).toContain('2 fights remaining');
+    expect(html).toContain('data-injury="2"');
   });
 
   test('no injury adds nothing', () => {
