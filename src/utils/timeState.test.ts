@@ -570,10 +570,10 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/duelPhaseLight.ts',
       // LUDI PHASE A — the calendar reads the clock's DAY (never its phase table).
       'utils/ludiCalendar.ts',
-      'utils/visitorSchedule.ts',
       'utils/nightDressing.ts',
       'utils/phaseFlavor.ts',
       'utils/racePhaseLight.ts',
+      'utils/visitorSchedule.ts',
     ]);
     for (const file of sources) {
       const rel = file.slice(srcRoot.length + 1);
