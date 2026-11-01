@@ -526,6 +526,8 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/ludiCalendar.ts',
       // Living City visitor scheduling reads the authoritative day without advancing it.
       'utils/visitorSchedule.ts',
+      // L5 training availability is a pure day resolver; it never advances the clock.
+      'utils/trainingSchedule.ts',
     ];
     const CLOCK_APIS = [
       'resolveTimeState',
@@ -580,6 +582,7 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/phaseFlavor.ts',
       'utils/racePhaseLight.ts',
       'utils/storefrontPurchase.ts',
+      'utils/trainingSchedule.ts',
       'utils/visitorSchedule.ts',
     ]);
     for (const file of sources) {
