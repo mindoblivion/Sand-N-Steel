@@ -1,6 +1,8 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
 import { createNewProfile } from '../services/storage';
+import { VISITORS } from '../data/visitors';
+import { purchaseVisitorOffer } from './visitorPurchase';
 import { CHARIOT_PARTS, chariotPartsBySlot, getChariotPart, getChariotPartByFinish } from '../data/chariotParts';
 import {
   describeChariotRejection,
@@ -43,4 +45,19 @@ describe('Living City L16B — Ventive visitor livery', () => {
     });
     expect(ownsChariotPart(profile, 'finish_ventive')).toBe(false);
   });
+  test('a completed bladesmith trade grants the finish and it can then be equipped', () => {
+    const base = createNewProfile('Ventive equip test');
+    const profile = { ...base, gold: 1000, time: { total: 4 * 7 } };
+    const result = purchaseVisitorOffer(profile, VISITORS[0].id);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.reason);
+    expect(result.kind).toBe('part');
+    const equipped = equipChariotPart(result.profile, 'finish_ventive', 'finish');
+    expect(equipped.ok).toBe(true);
+    if (equipped.ok) {
+      expect(ownsChariotPart(equipped.profile, 'finish_ventive')).toBe(true);
+      expect(equipped.profile.chariot?.equipped.finish).toBe('finish_ventive');
+    }
+  });
+
 });
