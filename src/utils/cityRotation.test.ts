@@ -1,6 +1,7 @@
 // L2 recovery port — daily merchant rotation on main's seven-phase clock.
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { getStorefrontStock } from '../data/shops';
 import { resolveTimeState } from './timeState';
 import {
@@ -80,5 +81,14 @@ describe('L2 — deterministic daily storefront rotation', () => {
     expect(result.storefronts.merchant.itemIds).toEqual(rotateStorefrontStock('merchant', 3));
     expect(result.storefronts.merchant.slots).toBe(4);
     expect(result.storefronts.forge.rotates).toBe(false);
+  });
+});
+
+describe('L2 — App transaction boundary', () => {
+  test('the purchase handler re-checks the same storefront offer before saving', () => {
+    const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+    expect(app).toContain('isStorefrontItemOnOffer(profile, shopId, item.id)');
+    expect(app.indexOf('isStorefrontItemOnOffer(profile, shopId, item.id)'))
+      .toBeLessThan(app.indexOf('const result = purchaseItem(profile, item)'));
   });
 });
