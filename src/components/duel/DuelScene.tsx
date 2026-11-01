@@ -1553,7 +1553,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // turn via the AI effect reading pendingHeavyAttackRef.
       else if (actionType === 'telegraph') {
         const isCounterWindup = pendingCounterWindupRef.current;
-        sounds.playHeavyImpact();
+        if (isCounterWindup) sounds.playWeaponDraw();
+        else sounds.playHeavyImpact();
         pendingHeavyAttackRef.current = true;
         // D-3 — Varro's wind-up is decided HERE, on the announce, so its feet
         // tell can be shown for the whole turn the player is given. A counter
@@ -2587,7 +2588,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // so its +20 % lands here and nowhere else. Damage, range, stamina,
             // block and dodge remain in the ordinary quick-attack pipeline.
             counterStrikeRef.current = true;
-            telegraphLandingRef.current = true;
+            // The queued counter is still a quick strike, not a heavy landing.
             executeCombatTurn('opponent', 'quick_attack');
             return;
           }
