@@ -137,10 +137,10 @@ describe('§B a fresh infliction is not decremented by its own duel', () => {
     expect(profile.injury?.fightsRemaining).toBe(2);
   });
 
-  test('a win immediately after starts the clock at 2, not 3', () => {
+  test('a win immediately after spends one of the two remaining fights', () => {
     const first = resolveInjuryAfterDuel(bareProfile(), false).profile;
     const next = resolveInjuryAfterDuel(first, true);
-    expect(next.profile.injury?.fightsRemaining).toBe(2);
+    expect(next.profile.injury?.fightsRemaining).toBe(1);
   });
 });
 
