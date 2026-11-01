@@ -82,7 +82,7 @@ describe('main Living City visitor schedule', () => {
     const base = scheduleVisitorDay(VISITORS, 90);
     const completed = scheduleVisitorDay(VISITORS, 90, base.arrivals.map((a) => a.visitor.id));
     expect(completed.arrivals).toEqual([]);
-    const p = profile(90 * 7, { visitorsSeen: base.arrivals.map((a) => a.visitor.id) });
+    const p = profile((90 - 1) * 7, { visitorsSeen: base.arrivals.map((a) => a.visitor.id) });
     expect(resolveVisitorSchedule(p).arrivals.map((a) => a.visitor.id)).toEqual(
       base.arrivals.map((a) => a.visitor.id),
     );
