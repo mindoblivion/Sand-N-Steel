@@ -346,3 +346,6 @@ Every older fixture keeps **omitting** the field, which is the legacy shape a lo
 §J's expected optional set now carries `ludi` **between `spared` and `records`, in
 `src/types/game.ts` declaration order** — **22 → 23, one field, with `records` still last** — and
 §J's control still proves the rule fails on a field nobody accounted for (23 → 24).
+
+
+**Extended by L9 (Arena Medical House rest).** `PlayerProfile.city` is one optional allowance marker object containing only `restDay`, the last in-game day consumed by a successful Medical House rest. The actual day remains exclusively `time.total` resolved by `timeState`; there is no `city.day` counter and no migration. `medical-house-rest-era` is a synthetic current-fresh profile after a level-1 rest on day 1: 25 gold paid, the injury cleared, `time.total` advanced to day 2, and `city.restDay` set to 1. Every older fixture omits `city`, proving legacy saves still resolve with no rest marker. `saveCorpus.test.ts` §J now carries `city` immediately after `time` in declaration order, and the corpus has a fixture for both present and absent shapes.
