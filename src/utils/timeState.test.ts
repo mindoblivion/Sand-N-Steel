@@ -519,6 +519,8 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/cityRotation.ts',
       // L4 purchase transaction reads the same day and never advances the clock.
       'utils/storefrontPurchase.ts',
+      // L5 training timetable reads the same day without advancing the clock.
+      'utils/trainingSchedule.ts',
       // LUDI PHASE A — the Ludi Calendar's day IS the clock's day: the whole slice reads
       // `resolveTimeState(profile).day` rather than a wall clock, and it writes nothing to
       // the clock (`ludi` is its own field). Added here as a READER, on the same terms as
@@ -580,6 +582,7 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/phaseFlavor.ts',
       'utils/racePhaseLight.ts',
       'utils/storefrontPurchase.ts',
+      'utils/trainingSchedule.ts',
       'utils/visitorSchedule.ts',
     ]);
     for (const file of sources) {
