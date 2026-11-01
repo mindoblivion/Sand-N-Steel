@@ -7,6 +7,8 @@ import type { DoctoreTestRestriction } from '../../utils/storyBeats';
 import { trainingCost } from '../../utils/facilityProgression';
 import { resolvePalmae } from '../../utils/traitModifiers';
 import { DOCTORE_PALMAE, palmaPrice } from '../../utils/palmaeState';
+import { TRAINING_ACTIONS, type TrainingStat } from '../../data/training';
+import { resolveTrainingSchedule } from '../../utils/trainingSchedule';
 
 interface TrainingTabProps {
   profile: PlayerProfile;
@@ -33,15 +35,20 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
   // P5 — the Ludus Training Yard sets stat training's price (and only that).
   const cost = trainingCost(profile);
   const canAfford = Number.isFinite(profile.gold) && profile.gold >= cost;
-  // CH-5 — the Doctore's palms: ownership and prices read from the palmae data.
+  // L5 — the same timeState-derived timetable drives the cards and App's transaction gate.
+  const trainingSchedule = resolveTrainingSchedule(profile);
+  const restingIds = new Set(trainingSchedule.resting.map((action) => action.id));
   const ownedPalmae = resolvePalmae(profile).unlocked ?? [];
-
-  const trainingOptions = [
-    { key: 'strength', name: 'Heavy Log Sleds', desc: 'Increases light & heavy attack damage.', icon: Swords, color: 'text-red-400' },
-    { key: 'agility', name: 'Reflex Speed Target', desc: 'Increases movement speed & dodge recovery.', icon: Zap, color: 'text-yellow-400' },
-    { key: 'stamina', name: 'Sand Endurance Drills', desc: 'Increases maximum stamina capacity & regen.', icon: Heart, color: 'text-green-400' },
-    { key: 'defense', name: 'Shield Deflection Stance', desc: 'Reduces damage taken and strengthens block.', icon: Shield, color: 'text-blue-400' },
-  ];
+  const iconByStat = {
+    strength: { icon: Swords, color: 'text-red-400' },
+    agility: { icon: Zap, color: 'text-yellow-400' },
+    stamina: { icon: Heart, color: 'text-green-400' },
+    defense: { icon: Shield, color: 'text-blue-400' },
+  } satisfies Record<TrainingStat, { icon: typeof Swords; color: string }>;
+  const trainingOptions = TRAINING_ACTIONS.map((action) => ({
+    ...action,
+    ...iconByStat[action.id],
+  }));
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto w-full pb-12">
@@ -68,13 +75,14 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
           Sessions left today: {profile.trainingSessionsLeft}
         </p>
         <p className="mt-1 text-[10px] sm:text-[11px] font-serif text-neutral-400">
-          Gold is the only gate — a spent session never stops you training.
+          One drill rests each day; today's timetable is shared across saves.
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {trainingOptions.map((opt) => {
           const Icon = opt.icon;
+          const resting = restingIds.has(opt.id);
           return (
             <div
               key={opt.key}
@@ -91,12 +99,12 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
               <button
                 onClick={() => {
                   sounds.playClick();
-                  onTrainStat(opt.key as 'strength' | 'agility' | 'stamina' | 'defense');
+                  onTrainStat(opt.id);
                 }}
-                disabled={!canAfford}
+                disabled={!canAfford || resting}
                 className="w-full min-h-[48px] py-3 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 disabled:opacity-40 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md"
               >
-                Train (+1 {opt.key.toUpperCase()})
+                {resting ? 'Resting today' : `Train (+1 ${opt.id.toUpperCase()})`}
               </button>
             </div>
           );
