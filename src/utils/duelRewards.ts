@@ -96,3 +96,14 @@ export function calculateDuelGold(input: DuelPurseInput): DuelGoldBreakdown {
 
   return { base, hype, precision, flawless, total: base + hype + precision + flawless };
 }
+
+
+/** Credit duel rewards only when the entire gold increase is representable. */
+export function creditDuelGold(currentGold: number, duelGold: number, bountyGold: number): number {
+  if (!Number.isFinite(currentGold) || currentGold < 0 || !Number.isFinite(duelGold) || duelGold < 0 || !Number.isFinite(bountyGold) || bountyGold < 0) return currentGold;
+  const credit = duelGold + bountyGold;
+  if (!Number.isFinite(credit) || credit < 0) return currentGold;
+  if (credit === 0) return currentGold;
+  const nextGold = currentGold + credit;
+  return Number.isFinite(nextGold) && nextGold > currentGold ? nextGold : currentGold;
+}
