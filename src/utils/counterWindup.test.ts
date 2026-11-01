@@ -32,7 +32,14 @@ describe('C-8.75C — Valéria counter response window', () => {
     expect(block).toContain("telegraphText: brothersCfg ? CROSSING_TELEGRAPH_WORDS : 'HEAVY ATTACK INCOMING'");
     expect(block).toContain("'\\u26A0 COUNTER!'");
     expect(block).toContain('isCounterWindup ? 0 : pitBellowerStaminaDrain');
+    expect(block).toContain('if (isCounterWindup) sounds.playWeaponDraw();');
     expect(block).not.toContain('telegraphAftermathRef.current = true;');
+
+    const startResolution = scene.indexOf("if (counterStep === 'resolve')");
+    const endResolution = scene.indexOf('// ── D-2 BEAST HUNT', startResolution);
+    const resolution = scene.slice(startResolution, endResolution);
+    expect(resolution).toContain('counterStrikeRef.current = true;');
+    expect(resolution).not.toContain('telegraphLandingRef.current = true;');
   });
 
   test('withdrawal and both knockout paths clear the pending counter tell', () => {
