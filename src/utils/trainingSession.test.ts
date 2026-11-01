@@ -312,3 +312,17 @@ describe('§F the wiring', () => {
     expect(SESSION_CODE).toContain('trainingCost');
   });
 });
+
+describe('§G malformed purse values fail closed', () => {
+  test('NaN and infinities cannot train a scheduled stat or mutate the profile', () => {
+    const day = 3;
+    const stat = scheduledIdOn(day);
+    for (const gold of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const profile = profileOn(day, gold);
+      const before = JSON.stringify(profile);
+      const result = trainStat(profile, stat);
+      expect(result).toEqual({ ok: false, reason: 'insufficient-gold' });
+      expect(JSON.stringify(profile)).toBe(before);
+    }
+  });
+});
