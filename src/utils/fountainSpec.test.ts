@@ -76,11 +76,13 @@ describe('B. PBR breakdown (brief step C)', () => {
 
 describe('C. collision (brief step D: one cylinder, no mesh collider)', () => {
   test('the registered cylinder is the base, at the spec radius', () => {
-    expect(fountainCollider).toMatchObject({ type: 'circle', id: 'fountain', cx: 0, cz: 0 });
+    expect(fountainCollider).toMatchObject({ type: 'circle', id: 'fountain', cx: 0, cz: 0.6 });
     expect(fountainCollider?.type === 'circle' && fountainCollider.r).toBe(FOUNTAIN_SPEC.baseRadius);
     expect(FOUNTAIN_COLLISION.base.radius).toBe(FOUNTAIN_SPEC.baseRadius);
     expect(FOUNTAIN_COLLISION.base.height).toBe(FOUNTAIN_SPEC.baseWallHeight);
     expect(CITY_COLLIDERS.filter((collider) => collider.id === 'fountain')).toHaveLength(1);
+    expect(resolveCityMovement([-1, 0, -4], 0, -1, 3.8, 0.5)[2]).toBeLessThan(-4);
+    expect(fountainSource).toContain('position={[FOUNTAIN_SPEC.center.x, 0, FOUNTAIN_SPEC.center.z]}');
   });
 
   test('upper tiers are recorded but lie inside the base footprint', () => {
