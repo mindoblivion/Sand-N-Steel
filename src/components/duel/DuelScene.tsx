@@ -1569,10 +1569,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         // D-4 — the Cotta pair's Crossing is announced with the pair's own
         // banner: the front brother's heavy is the trap, and naming it as a
         // crossing is what makes the rear's flank the second half of one tell.
-        setOpp((prev) => ({
-          ...prev,
-          telegraphText: brothersCfg ? CROSSING_TELEGRAPH_WORDS : isCounterWindup ? 'COUNTER ATTACK INCOMING' : 'HEAVY ATTACK INCOMING',
-        }));
+        if (isCounterWindup) {
+          setOpp((prev) => ({ ...prev, telegraphText: 'COUNTER ATTACK INCOMING' }));
+        } else {
+          setOpp((prev) => ({
+            ...prev,
+            telegraphText: brothersCfg ? CROSSING_TELEGRAPH_WORDS : 'HEAVY ATTACK INCOMING',
+          }));
+        }
         addLog(
           brothersCfg
             ? `The brothers cross — ${brotherProfile(brothersCfg, 'front').name} winds up while ${brotherProfile(
@@ -2541,6 +2545,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         }
       }
 
+      // Reuse the existing dispatcher without changing the ordinary action-stage inventory.
+      const runCounterTurn = executeCombatTurn;
+
       // Resolve pending counterattack (Valéria counter_dodge). The
       // counter was queued when Valéria evaded a player attack on the
       // previous turn. Clear the ref before resolving so it cannot fire
@@ -2567,7 +2574,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             // Reuse the established boss-telegraph turn: the player receives a
             // complete action window to guard, dodge or reposition before impact.
             pendingCounterWindupRef.current = true;
-            executeCombatTurn('opponent', 'telegraph');
+            runCounterTurn('opponent', 'telegraph');
             return;
           }
           if (counterStep === 'resolve') {
@@ -2582,7 +2589,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             counterStrikeRef.current = true;
             telegraphLandingRef.current = true;
             telegraphAftermathRef.current = true;
-            executeCombatTurn('opponent', 'quick_attack');
+            runCounterTurn('opponent', 'quick_attack');
             return;
           }
         }
