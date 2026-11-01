@@ -579,6 +579,7 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/nightDressing.ts',
       'utils/phaseFlavor.ts',
       'utils/racePhaseLight.ts',
+      'utils/storefrontPurchase.ts',
       'utils/visitorSchedule.ts',
     ]);
     for (const file of sources) {
