@@ -1123,9 +1123,9 @@ export interface PlayerProfile {
    * Optional on purpose, exactly like `chariot` and `racing`: a save written
    * before this slice has no `time` field at all and must keep loading, so
    * `resolveTimeState` (`src/utils/timeState.ts`) reads a missing, malformed or
-   * negative field as `total: 0` — i.e. Day 1, at dawn.  Nothing migrates it and
-   * nothing writes it yet (T0 ships no call sites); the advance helpers return a
-   * NEW profile and leave persisting it to a later slice.
+   * negative field as `total: 0` — i.e. Day 1, at dawn. Nothing migrates or repairs
+   * it. Duel, training, inn and Medical House transactions advance it through the
+   * pure helpers and the existing App save path.
    */
   time?: { total: number };
   /** L9 — last in-game day a Medical House rest was used; the day itself comes from time.total. */
