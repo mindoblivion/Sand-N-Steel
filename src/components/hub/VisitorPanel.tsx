@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Backpack, Coins, UserRound } from 'lucide-react';
 import type { PlayerProfile } from '../../types/game';
 import { getItemById } from '../../data/itemsDB';
+import { getChariotPart } from '../../data/chariotParts';
 import { readSeenVisitors, resolveVisitorSchedule } from '../../utils/visitorSchedule';
 import { resolveVisitorEncounter } from '../../utils/visitorEncounter';
 import {
@@ -36,9 +37,15 @@ export const VisitorPanel: React.FC<VisitorPanelProps> = ({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const selected = selectedId ? resolveVisitorEncounter(profile, selectedId) : null;
-  const item = selected ? getItemById(selected.offerItemId) ?? null : null;
-  const price = selected && item
-    ? resolveVisitorBargainPrice(item, selected.visitor.bargainRate)
+  const offered = selected
+    ? selected.offerItemId
+      ? getItemById(selected.offerItemId) ?? null
+      : selected.offerPartId
+        ? getChariotPart(selected.offerPartId) ?? null
+        : null
+    : null;
+  const price = selected && offered
+    ? resolveVisitorBargainPrice(offered, selected.visitor.bargainRate)
     : null;
   const affordable = price !== null &&
     Number.isFinite(profile.gold) &&
@@ -125,7 +132,7 @@ export const VisitorPanel: React.FC<VisitorPanelProps> = ({
           </div>
         )}
 
-        {selected && item && (
+        {selected && offered && (
           <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-3">
             <h3 className="font-serif text-sm font-black uppercase">{selected.visitor.name}</h3>
             <p className="mb-3 text-xs text-neutral-400">{selected.visitor.description}</p>
@@ -133,8 +140,13 @@ export const VisitorPanel: React.FC<VisitorPanelProps> = ({
               <Backpack className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] uppercase tracking-wider text-amber-400">Brought to trade</div>
-                <div className="font-serif text-sm font-bold">{item.name}</div>
-                <p className="text-[11px] text-neutral-400">{item.description}</p>
+                <div className="font-serif text-sm font-bold">{offered.name}</div>
+                {selected.offerPartId && (
+                  <p className="mt-1 text-[10px] uppercase tracking-wider text-purple-300">
+                    Visitor-only chariot finish
+                  </p>
+                )}
+                <p className="text-[11px] text-neutral-400">{offered.description}</p>
                 <div className="mt-2 flex items-center gap-1 text-xs text-amber-200">
                   <Coins className="h-3.5 w-3.5" />
                   {price === null ? 'Price unavailable' : `${price} gold`}

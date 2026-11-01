@@ -42,7 +42,8 @@ export type ChariotRejectionReason =
   | 'already-owned'
   | 'insufficient-gold'
   | 'insufficient-fame'
-  | 'not-owned';
+  | 'not-owned'
+  | 'visitor-only';
 
 export type ChariotLoadoutState = {
   owned: string[];
@@ -202,6 +203,7 @@ export function getChariotPurchaseEligibility(
   if (!profile) return { ok: false, reason: 'no-profile' };
   const part = getChariotPart(partId);
   if (!part) return { ok: false, reason: 'unknown-part' };
+  if (part.visitorOnly) return { ok: false, reason: 'visitor-only' };
   if (ownsChariotPart(profile, part.id)) return { ok: false, reason: 'already-owned' };
 
   if (chariotPartCurrency(part) === 'fame') {
@@ -324,5 +326,7 @@ export function describeChariotRejection(reason: ChariotRejectionReason): string
       return 'Not enough fame.';
     case 'not-owned':
       return 'Buy this part before equipping it.';
+    case 'visitor-only':
+      return 'This livery is only offered by travelling visitors.';
   }
 }

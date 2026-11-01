@@ -90,7 +90,7 @@ describe('A5 §A — the datasets and the R1 denominators', () => {
     // The measured sizes this branch ships (a change here is a real dataset change).
     expect(ALL_OPPONENTS.length).toBe(23);
     expect(CODEX_GLADIATOR_ROWS.length).toBe(ALL_OPPONENTS.length + 1);
-    expect(CHARIOT_PARTS.length).toBe(16);
+    expect(CHARIOT_PARTS.length).toBe(17);
     expect(ITEMS_DB.length).toBe(32);
     expect(HUB_LOCATIONS.length).toBe(21);
   });

@@ -29,7 +29,8 @@ export const VISITOR_CREST_COLOR = '#d4a017';
 
 export interface VisitorPresence {
   readonly visitor: Visitor;
-  readonly offerItemId: string;
+  readonly offerItemId: string | null;
+  readonly offerPartId: string | null;
   readonly stall: VisitorStall;
 }
 
@@ -54,6 +55,7 @@ export function resolveVisitorPresence(
     if (stall) result.push({
       visitor: arrival.visitor,
       offerItemId: arrival.offerItemId,
+      offerPartId: arrival.offerPartId,
       stall,
     });
   }

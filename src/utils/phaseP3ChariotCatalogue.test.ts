@@ -84,9 +84,9 @@ describe('P3 §A — the nine appended parts', () => {
   });
 
   test('they are APPENDED: the catalogue is the six shipped rows then these nine, in order', () => {
-    // P-BANNER appends one more row after these nine; the prefix this test
-    // protects is unchanged, so the window is stated rather than the length.
-    expect(CHARIOT_PARTS).toHaveLength(16);
+    // The visitor-only finish and P-BANNER row are additional entries; the P3
+    // prefix and its nine appended parts remain unchanged.
+    expect(CHARIOT_PARTS).toHaveLength(17);
     expect(CHARIOT_PARTS.slice(0, 6).map((p) => [p.id, p.price])).toEqual([
       ['wheels_standard', 0],
       ['wheels_reinforced', 450],
@@ -493,15 +493,15 @@ describe('P3 §G — the exclusions hold', () => {
   });
 
   test('the finish slot keeps its four shipped finishes, then the P-BANNER banner set', () => {
-    const finish = chariotPartsBySlot('finish');
+    const finish = chariotPartsBySlot('finish').filter((part) => !part.visitorOnly);
     expect(finish.slice(0, 4).map((p) => [p.id, p.price])).toEqual([
       ['finish_stock', 0],
       ['finish_charred', 180],
       ['finish_gilded', 320],
       ['finish_oxblood', 240],
     ]);
-    // P-BANNER appended exactly one row, priced in fame; its own suite pins the
-    // amount and the currency behaviour.
+    // The workshop still exposes its four standard finishes and P-BANNER's
+    // fame-priced set; the visitor-only livery is acquired outside this stock list.
     expect(finish.slice(4).map((p) => [p.id, p.currency])).toEqual([
       ['finish_triumph_banners', 'fame'],
     ]);
@@ -513,7 +513,7 @@ describe('P3 §G — the exclusions hold', () => {
     const banners = CHARIOT_PARTS.filter((p) => /banner|triumph/i.test(p.id)).map((p) => p.id);
     expect(banners).toEqual(['finish_triumph_banners']);
     expect(CHARIOT_PARTS[CHARIOT_PARTS.length - 1].id).toBe('finish_triumph_banners');
-    expect(CHARIOT_PARTS).toHaveLength(16);
+    expect(CHARIOT_PARTS).toHaveLength(17);
   });
 
   test('the workshop derives its sections from the catalogue — no slot list, no part id, no price (P6)', () => {

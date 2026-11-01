@@ -4,6 +4,7 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
 import { DEFAULT_PLAYER_WEAPON, getItemById } from '../data/itemsDB';
+import { getChariotPart } from '../data/chariotParts';
 import type { PlayerProfile } from '../types/game';
 import { VISITORS } from '../data/visitors';
 import { resolveVisitorSchedule, readCompletedVisitors, readSeenVisitors } from './visitorSchedule';
@@ -42,11 +43,22 @@ function profileWithVisitor(visitorId: string, gold = 1000): PlayerProfile {
   const base = profile({ gold });
   for (let day = 1; day <= 365; day += 1) {
     const candidate = { ...base, time: { total: (day - 1) * 7 } };
-    if (resolveVisitorSchedule(candidate).arrivals.some((a) => a.visitor.id === visitorId)) {
+    if (resolveVisitorSchedule(candidate).arrivals.some((a) => a.visitor.id === visitorId && a.offerItemId !== null)) {
       return candidate;
     }
   }
   throw new Error('No arrival found in the visitor window: ' + visitorId);
+}
+
+function profileWithPart(visitorId: string, gold = 1000): PlayerProfile {
+  const base = profile({ gold });
+  for (let day = 1; day <= 365; day += 1) {
+    const candidate = { ...base, time: { total: (day - 1) * 7 } };
+    if (resolveVisitorSchedule(candidate).arrivals.some((a) => a.visitor.id === visitorId && a.offerPartId !== null)) {
+      return candidate;
+    }
+  }
+  throw new Error('No chariot-part arrival found for visitor: ' + visitorId);
 }
 
 describe('Living City L12 — visitor item purchase', () => {
@@ -63,6 +75,7 @@ describe('Living City L12 — visitor item purchase', () => {
     const visitor = VISITORS[0];
     const p = profileWithVisitor(visitor.id);
     const arrival = resolveVisitorSchedule(p).arrivals.find((a) => a.visitor.id === visitor.id)!;
+    if (!arrival.offerItemId) throw new Error('Expected item offer');
     const item = getItemById(arrival.offerItemId)!;
     const expectedPrice = resolveVisitorBargainPrice(item, visitor.bargainRate)!;
     const beforeInventory = p.inventory.slice();
@@ -71,6 +84,7 @@ describe('Living City L12 — visitor item purchase', () => {
     const result = purchaseVisitorOffer(p, visitor.id);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.reason);
+    if (result.kind !== 'item') throw new Error('Expected item offer');
     expect(result.item).toBe(item);
     expect(result.price).toBe(expectedPrice);
     expect(result.profile.gold).toBe(p.gold - expectedPrice);
@@ -148,4 +162,54 @@ describe('Living City L12 — visitor item purchase', () => {
       expect(result.profile.records?.visitorsCompleted).toEqual([visitor.id]);
     }
   });
+  test('visitor-only chariot finish is bought into chariot ownership, never item inventory', () => {
+    const visitor = VISITORS[0];
+    const p = profileWithPart(visitor.id, 1000);
+    const arrival = resolveVisitorSchedule(p).arrivals.find((a) => a.visitor.id === visitor.id)!;
+    expect(arrival.offerItemId).toBeNull();
+    expect(arrival.offerPartId).toBe('finish_ventive');
+    const part = getChariotPart(arrival.offerPartId!)!;
+    const expectedPrice = Math.ceil(part.price * visitor.bargainRate!);
+    const beforeInventory = p.inventory.slice();
+
+    const result = purchaseVisitorOffer(p, visitor.id);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.reason);
+    if (result.kind !== 'part') throw new Error('Expected chariot-part offer');
+    expect(result.part).toBe(part);
+    expect(result.price).toBe(expectedPrice);
+    expect(result.profile.gold).toBe(p.gold - expectedPrice);
+    expect(result.profile.chariot?.owned).toContain(part.id);
+    expect(result.profile.inventory).toEqual(beforeInventory);
+    expect(readCompletedVisitors(result.profile)).toEqual([visitor.id]);
+    expect(p.gold).toBe(1000);
+    expect(p.inventory).toEqual(beforeInventory);
+  });
+
+  test('refuses an already-owned visitor finish and malformed ownership without mutation', () => {
+    const visitor = VISITORS[0];
+    const base = profileWithPart(visitor.id, 1000);
+    const owned = { ...base, chariot: { owned: ['finish_ventive'], equipped: {} } };
+    const before = JSON.stringify(owned);
+    expect(purchaseVisitorOffer(owned, visitor.id)).toEqual({
+      ok: false, reason: 'already-owned',
+    });
+    expect(JSON.stringify(owned)).toBe(before);
+
+    const malformed = {
+      ...base,
+      chariot: { owned: null as unknown as string[], equipped: {} },
+    };
+    expect(purchaseVisitorOffer(malformed, visitor.id)).toEqual({
+      ok: false, reason: 'invalid-ownership',
+    });
+    const malformedEquipped = {
+      ...base,
+      chariot: { owned: [], equipped: 'broken' as unknown as NonNullable<PlayerProfile['chariot']>['equipped'] },
+    };
+    expect(purchaseVisitorOffer(malformedEquipped, visitor.id)).toEqual({
+      ok: false, reason: 'invalid-ownership',
+    });
+  });
+
 });

@@ -31,7 +31,7 @@ import { ChariotSlot } from '../types/game';
 export type ChariotWheelVariantKey = 'standard' | 'reinforced';
 
 /** Finish keys.  `stock` keeps the asset's own materials untouched. */
-export type ChariotFinishKey = 'stock' | 'charred' | 'gilded' | 'oxblood' | 'triumph';
+export type ChariotFinishKey = 'stock' | 'charred' | 'gilded' | 'oxblood' | 'triumph' | 'ventive';
 
 /**
  * P-BANNER — the currency a part's `price` is denominated in.
@@ -99,6 +99,8 @@ export interface ChariotPart {
   overrides?: ChariotFinishOverride[];
   /** Declared by the P3 axle/harness/chassis parts.  Inert data — see `ChariotRaceEffect`. */
   raceEffect?: ChariotRaceEffect;
+  /** Acquired only through a scheduled visitor trade, never from the workshop. */
+  visitorOnly?: boolean;
 }
 
 /**
@@ -287,6 +289,25 @@ export const CHARIOT_PARTS: ChariotPart[] = [
     partClass: 'performance',
     defaultOwned: false,
     raceEffect: { stability: 3, weight: -2 },
+  },
+
+  // ── Slot: finish — visitor-acquired cosmetic livery ───────────────────
+  {
+    id: 'finish_ventive',
+    slot: 'finish',
+    name: 'Ventive Blue & Gilt',
+    description:
+      'Faction blue laid over the hide binding, bronze fittings gilded to a dull shine and the ash darkened to walnut. Brought by a travelling trader, never sold from the workshop bench.',
+    price: 900,
+    partClass: 'cosmetic',
+    defaultOwned: false,
+    visitorOnly: true,
+    finish: 'ventive',
+    overrides: [
+      { material: 'Leather', color: '#1e3a8a', roughness: 0.62 },
+      { material: 'Bronze', color: '#d4af37', roughness: 0.28, metalness: 1 },
+      { material: 'DarkWood', color: '#2b1d12', roughness: 0.85 },
+    ],
   },
 
   // ── Slot: finish (P-BANNER — the Triumph banner set, priced in FAME) ───

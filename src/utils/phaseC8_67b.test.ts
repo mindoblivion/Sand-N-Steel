@@ -627,7 +627,7 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
     // Gold-priced parts only: P-BANNER's fame-priced set is bought from fame,
     // and this profile carries none — its own suite covers that path.
     for (const part of CHARIOT_PARTS.filter(
-      (p) => p.price > 0 && chariotPartCurrency(p) === 'gold'
+      (p) => p.price > 0 && chariotPartCurrency(p) === 'gold' && !p.visitorOnly
     )) {
       const bought = purchaseChariotPart(profile, part.id);
       expect(bought.ok).toBe(true);

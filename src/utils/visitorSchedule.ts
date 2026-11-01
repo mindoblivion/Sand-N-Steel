@@ -6,6 +6,7 @@ import { ITEMS_DB } from '../data/itemsDB';
 import { VISITORS, type Visitor } from '../data/visitors';
 import type { PlayerProfile } from '../types/game';
 import { resolveTimeState } from './timeState';
+import { getChariotPart, isChariotPartId } from '../data/chariotParts';
 
 const ITEM_IDS = new Set(ITEMS_DB.map((item) => item.id));
 const VISITOR_IDS = new Set(VISITORS.map((visitor) => visitor.id));
@@ -20,7 +21,8 @@ function historyValue(profile: HistoryProfile, key: 'visitorsSeen' | 'visitorsCo
 
 export interface VisitorArrival {
   visitor: Visitor;
-  offerItemId: string;
+  offerItemId: string | null;
+  offerPartId: string | null;
 }
 
 export interface VisitorSchedule {
@@ -64,7 +66,9 @@ function arrives(visitor: Visitor, day: number): boolean {
 }
 
 function offer(visitor: Visitor, day: number): string {
-  const pool = visitor.offer.pool.filter((id) => ITEM_IDS.has(id));
+  const pool = visitor.offer.pool.filter((id) =>
+    ITEM_IDS.has(id) || getChariotPart(id)?.visitorOnly === true
+  );
   if (!pool.length) return '';
   // Match the Living City L2 rotation namespace and one-slot selection exactly.
   // Main does not yet carry cityRotation.ts, so preserve its established rule here.
@@ -88,8 +92,14 @@ export function scheduleVisitorDay(
     if (!visitor || !visitor.id || seen.has(visitor.id)) continue;
     seen.add(visitor.id);
     if (completed.has(visitor.id) || !arrives(visitor, safeDay)) continue;
-    const offerItemId = offer(visitor, safeDay);
-    if (offerItemId) arrivals.push({ visitor, offerItemId });
+    const offerId = offer(visitor, safeDay);
+    if (!offerId) continue;
+    const isPart = isChariotPartId(offerId);
+    arrivals.push({
+      visitor,
+      offerItemId: isPart ? null : offerId,
+      offerPartId: isPart ? offerId : null,
+    });
   }
   return { day: safeDay, arrivals };
 }
