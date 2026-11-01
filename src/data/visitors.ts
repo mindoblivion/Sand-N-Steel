@@ -36,7 +36,7 @@ export const VISITOR_OFFER_SLOTS = 1;
 export const VISITORS: readonly Visitor[] = Object.freeze([
   Object.freeze({
     id: 'numidian_bladesmith',
-    name: 'Hanno of Cirta',
+    name: 'Mattan of Cirta',
     title: 'Wandering Bladesmith',
     description: 'A Numidian smith who follows the games and grinds a fine edge in the shade of the gate.',
     cadence: 3,
