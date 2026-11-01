@@ -7,6 +7,7 @@ import { VISITORS, type Visitor } from '../data/visitors';
 import type { PlayerProfile } from '../types/game';
 import { resolveTimeState } from './timeState';
 import { getChariotPart, isChariotPartId } from '../data/chariotParts';
+import { selectDailyWindow } from './cityRotation';
 
 const ITEM_IDS = new Set(ITEMS_DB.map((item) => item.id));
 const VISITOR_IDS = new Set(VISITORS.map((visitor) => visitor.id));
@@ -70,10 +71,9 @@ function offer(visitor: Visitor, day: number): string {
     ITEM_IDS.has(id) || getChariotPart(id)?.visitorOnly === true
   );
   if (!pool.length) return '';
-  // Match the Living City L2 rotation namespace and one-slot selection exactly.
-  // Main does not yet carry cityRotation.ts, so preserve its established rule here.
-  const start = visitorHash('sand-and-steel:city-rotation:' + visitor.id + ':' + day) % pool.length;
-  return pool[start];
+  // Use the same daily-window selector as storefront stock; one slot preserves
+  // the visitor's existing offer semantics and hash namespace.
+  return selectDailyWindow(pool, 1, visitor.id, day)[0] ?? '';
 }
 
 /** Resolve any supplied day without reading or writing storage. */
