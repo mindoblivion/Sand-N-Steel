@@ -171,7 +171,7 @@ describe('§C every completed duel advances a live injury by one', () => {
     expect(current.injury?.fightsRemaining).toBe(2);
   });
 
-  test('a duel that only advances the clock reports no event', () => {
+  test('a victory only spends the existing injury; a defeat refresh is announced', () => {
     const hurt = bareProfile({ injury: FRESH });
     expect(resolveInjuryAfterDuel(hurt, true).event).toBeNull();
     expect(resolveInjuryAfterDuel(hurt, false).event).toEqual({ kind: 'inflicted', injury: FRESH });
@@ -206,7 +206,7 @@ describe('§D the injury clears at zero', () => {
   });
 });
 
-// ── §E no stacking, no refreshing ──────────────────────────────────────────
+// ── §E one slot, refreshed on defeat ────────────────────────────────────────
 describe('§E a loss while injured refreshes one injury without stacking', () => {
   test('the penalties stay −2 / −2 and the single injury refreshes to two', () => {
     const hurt = bareProfile({ injury: FRESH });
