@@ -15,6 +15,8 @@ export const FOUNTAIN_SPEC = {
   /** The main (bottom) basin, measured across its foundation. */
   baseDiameter: 8.0,
   baseRadius: 4.0,
+  /** Slight northward offset preserves the Colosseum's south approach lane. */
+  center: { x: 0, z: 0.6 },
   /** Height of the base pool wall — the volume the player can collide with. */
   baseWallHeight: 1.0,
   baseWallTop: 1.32,
