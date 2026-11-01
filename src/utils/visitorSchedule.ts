@@ -10,12 +10,13 @@ import { resolveTimeState } from './timeState';
 const ITEM_IDS = new Set(ITEMS_DB.map((item) => item.id));
 const VISITOR_IDS = new Set(VISITORS.map((visitor) => visitor.id));
 
-type HistoryProfile = {
-  records?: {
-    visitorsSeen?: unknown;
-    visitorsCompleted?: unknown;
-  } | null;
-};
+type HistoryProfile = { records?: unknown } | null | undefined;
+
+function historyValue(profile: HistoryProfile, key: 'visitorsSeen' | 'visitorsCompleted'): unknown {
+  const records = profile?.records;
+  if (!records || typeof records !== 'object' || Array.isArray(records)) return undefined;
+  return (records as Record<string, unknown>)[key];
+}
 
 export interface VisitorArrival {
   visitor: Visitor;
@@ -47,11 +48,11 @@ function validIds(value: unknown, allowed: ReadonlySet<string>): string[] {
 }
 
 export function readSeenVisitors(profile?: HistoryProfile | null): string[] {
-  return validIds(profile?.records?.visitorsSeen, VISITOR_IDS);
+  return validIds(historyValue(profile, 'visitorsSeen'), VISITOR_IDS);
 }
 
 export function readCompletedVisitors(profile?: HistoryProfile | null): string[] {
-  return validIds(profile?.records?.visitorsCompleted, VISITOR_IDS);
+  return validIds(historyValue(profile, 'visitorsCompleted'), VISITOR_IDS);
 }
 
 function arrives(visitor: Visitor, day: number): boolean {
@@ -92,7 +93,7 @@ export function scheduleVisitorDay(
 
 /** Resolve today's schedule using main's existing clock and completion history. */
 export function resolveVisitorSchedule(
-  profile?: (Pick<PlayerProfile, 'time' | 'records'> & HistoryProfile) | null,
+  profile?: Pick<PlayerProfile, 'time' | 'records'> | null,
 ): VisitorSchedule {
   const day = resolveTimeState(profile as PlayerProfile | null | undefined).day;
   return scheduleVisitorDay(VISITORS, day, readCompletedVisitors(profile));
