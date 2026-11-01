@@ -110,4 +110,16 @@ describe('main Living City visitor schedule', () => {
       }
     }
   });
+
+  test('daily offer selection matches the established L2 city-rotation namespace', () => {
+    for (let day = 1; day <= 365; day += 1) {
+      for (const arrival of scheduleVisitorDay(VISITORS, day).arrivals) {
+        const pool = arrival.visitor.offer.pool.filter((id) => itemIds.has(id));
+        const index = independentHash(
+          'sand-and-steel:city-rotation:' + arrival.visitor.id + ':' + day,
+        ) % pool.length;
+        expect(arrival.offerItemId).toBe(pool[index]);
+      }
+    }
+  });
 });
