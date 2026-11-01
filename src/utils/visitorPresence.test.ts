@@ -59,7 +59,7 @@ describe('Living City L17 — visitor presence', () => {
         expect(distance - hub.radius).toBeGreaterThanOrEqual(VISITOR_INTERACTION_RADIUS);
       }
       for (const [id, [x, z]] of Object.entries(FAST_TRAVEL_ARRIVALS)) {
-        expect(`${visitor.id}:${id}`).toBeTruthy();
+        void id;
         expect(Math.hypot(stall.x - x, stall.z - z)).toBeGreaterThan(VISITOR_INTERACTION_RADIUS);
       }
     }
@@ -94,7 +94,10 @@ describe('Living City L17 — visitor presence', () => {
     const id = resolveVisitorSchedule(p).arrivals[0].visitor.id;
     const seen = { ...p, records: { visitorsSeen: [id] } };
     expect(resolveVisitorPresence(seen).some(v => v.visitor.id === id)).toBe(true);
-    expect(resolveVisitorPresence(p, { [id]: { x: Number.NaN, z: 0, facing: 0 } })).toEqual([]);
+    const invalidStalls = Object.fromEntries(
+      resolveVisitorSchedule(p).arrivals.map(a => [a.visitor.id, { x: Number.NaN, z: 0, facing: 0 }]),
+    );
+    expect(resolveVisitorPresence(p, invalidStalls)).toEqual([]);
     expect(sample.time?.total).toBe(0);
   });
 
@@ -114,8 +117,7 @@ describe('Living City L17 — visitor presence', () => {
     expect(visitorPrompt(target!)).toContain(entry.visitor.name);
     expect(resolveVisitorTarget([entry.stall.x + 10, 0, entry.stall.z], [entry])).toBeNull();
     expect(resolveVisitorTarget([Number.NaN, 0, 0], [entry])).toBeNull();
-    expect(resolveVisitorTarget(pos, [entry], {
-      position: [entry.stall.x + 0.5, 0, entry.stall.z],
-    } as any)).toBeNull();
+    const nearerHub = { position: [entry.stall.x + 0.5, 0, entry.stall.z] as [number, number, number] };
+    expect(resolveVisitorTarget(pos, [entry], nearerHub)).toBeNull();
   });
 });
