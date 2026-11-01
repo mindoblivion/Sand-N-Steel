@@ -20,6 +20,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { DuelStatistics, PlayerProfile } from '../types/game';
 import { DuelResultModal } from '../components/hub/DuelResultModal';
 import { StatsTab } from '../components/hub/StatsTab';
+import { PreFightModal } from '../components/hub/PreFightModal';
 import { ALL_OPPONENTS } from '../data/opponents';
 import { INJURY_FIGHTS, INJURY_PENALTY_STRENGTH, INJURY_PENALTY_AGILITY } from './injury';
 
@@ -73,15 +74,22 @@ const FRESH = {
   penaltyAgility: INJURY_PENALTY_AGILITY,
 };
 
-function modal(injuryEvent: Parameters<typeof DuelResultModal>[0]['injuryEvent']) {
+function modal(injuryEvent: Parameters<typeof DuelResultModal>[0]['injuryEvent'], injury?: PlayerProfile['injury']) {
   return renderToStaticMarkup(
     <DuelResultModal
-      didWin={false}
+      didWin={injuryEvent?.kind !== 'inflicted'}
       opponent={ALL_OPPONENTS[0]}
       stats={STATS}
       injuryEvent={injuryEvent}
+      injury={injury}
       onContinue={() => {}}
     />,
+  );
+}
+
+function preFight(injury?: PlayerProfile['injury']) {
+  return renderToStaticMarkup(
+    <PreFightModal opponent={ALL_OPPONENTS[0]} onConfirm={() => {}} onCancel={() => {}} injury={injury} />,
   );
 }
 
@@ -112,7 +120,7 @@ describe('§B the stats tab', () => {
     const html = renderToStaticMarkup(<StatsTab profile={profile({ injury: FRESH })} onAllocatePoint={() => {}} />);
     expect(html).toContain('Injured');
     expect(html).toContain('−2 STR / −2 AGI');
-    expect(html).toContain('2 fights remaining');
+    expect(html).toContain('Affects the next 2 completed duels');
     expect(html).toContain('data-injury="2"');
   });
 
@@ -127,5 +135,34 @@ describe('§B the stats tab', () => {
       <StatsTab profile={profile({ injury: { ...FRESH, fightsRemaining: 0 } })} onAllocatePoint={() => {}} />,
     );
     expect(html).not.toContain('data-injury');
+  });
+});
+
+
+describe('§C the pre-fight warning', () => {
+  test('an active injury warns with penalties and duration', () => {
+    const html = preFight(FRESH);
+    expect(html).toContain('data-testid="prefight-injury-status"');
+    expect(html).toContain('Injured');
+    expect(html).toContain('-2 STR · -2 AGI');
+    expect(html).toContain('Affects the next 2 completed duels');
+  });
+
+  test('no injury renders no warning container', () => {
+    expect(preFight(null)).not.toContain('prefight-injury-status');
+  });
+});
+
+describe('§D the result status after settlement', () => {
+  test('a surviving injury after victory is reported with its remaining duration', () => {
+    const html = modal(null, { ...FRESH, fightsRemaining: 1 });
+    expect(html).toContain('data-testid="duel-injury-status"');
+    expect(html).toContain('Still injured');
+    expect(html).toContain('Affects the next completed duel');
+  });
+
+  test('a cleared injury produces no stale status', () => {
+    const html = modal({ kind: 'healed' }, null);
+    expect(html).not.toContain('duel-injury-status');
   });
 });
