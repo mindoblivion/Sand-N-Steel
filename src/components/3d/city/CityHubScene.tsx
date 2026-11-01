@@ -1275,7 +1275,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    * refusal line agree.
    */
   const liveOmen = resolveOmen(playerProfile);
-  const omenPurseShort = playerProfile.gold < OMEN_PRICE;
+  const omenPurseShort = !Number.isFinite(playerProfile.gold) || playerProfile.gold < OMEN_PRICE;
 
   /**
    * K2 — the one line the plate is saying, by the same rules `ShopTab` uses: the

@@ -1563,7 +1563,9 @@ export function App() {
    * A wounded player's price and injury effect belong to `restAtInn` itself.
    */
   const payForNight = (subject: PlayerProfile): PlayerProfile | null =>
-    subject.gold >= REST_PRICE ? { ...subject, gold: subject.gold - REST_PRICE } : null;
+    Number.isFinite(subject.gold) && subject.gold >= REST_PRICE
+      ? { ...subject, gold: subject.gold - REST_PRICE }
+      : null;
 
   const handleRestAtInn = (): boolean => {
     if (!profile) return false;
@@ -1652,7 +1654,7 @@ export function App() {
     if (!profile) return;
     // P5 — the Ludus Training Yard sets stat training's price, and nothing else.
     const cost = trainingCost(profile);
-    if (profile.gold < cost) return;
+    if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < cost) return;
 
     const trained: PlayerProfile = {
       ...profile,

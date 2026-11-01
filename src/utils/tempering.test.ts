@@ -479,3 +479,18 @@ describe('P1 §F — the duel reads the effective weapon', () => {
     expect(duelSource).toContain(': attackerWeapon.damageHeavy');
   });
 });
+
+describe('P1 §G — malformed gold is refused', () => {
+  test('NaN and infinities cannot temper an owned item', () => {
+    for (const gold of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const base = profile((p) => { p.gold = gold; });
+      const before = JSON.stringify(base);
+      expect(getTemperPurchaseEligibility(base, GLADIUS.id)).toEqual({
+        ok: false,
+        reason: 'insufficient-gold',
+      });
+      expect(purchaseTemper(base, GLADIUS.id)).toBe(base);
+      expect(JSON.stringify(base)).toBe(before);
+    }
+  });
+});

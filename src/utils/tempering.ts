@@ -207,7 +207,10 @@ export function getTemperPurchaseEligibility(
   if (requiredWorkshop > 0 && getFacilityLevel(profile, 'workshop') < requiredWorkshop) {
     return { ok: false, reason: 'facility-required' };
   }
-  if (profile.gold < getTemperCost(item, level)) return { ok: false, reason: 'insufficient-gold' };
+  const cost = getTemperCost(item, level);
+  if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < cost) {
+    return { ok: false, reason: 'insufficient-gold' };
+  }
   return { ok: true };
 }
 

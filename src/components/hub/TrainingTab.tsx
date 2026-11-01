@@ -32,7 +32,7 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
 }) => {
   // P5 — the Ludus Training Yard sets stat training's price (and only that).
   const cost = trainingCost(profile);
-  const canAfford = profile.gold >= cost;
+  const canAfford = Number.isFinite(profile.gold) && profile.gold >= cost;
   // CH-5 — the Doctore's palms: ownership and prices read from the palmae data.
   const ownedPalmae = resolvePalmae(profile).unlocked ?? [];
 
@@ -126,7 +126,7 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
             {DOCTORE_PALMAE.map((palma) => {
               const price = palmaPrice(palma);
               const owned = ownedPalmae.includes(palma.id);
-              const affordable = price !== null && profile.gold >= price;
+              const affordable = price !== null && Number.isFinite(profile.gold) && profile.gold >= price;
               return (
                 <div
                   key={palma.id}
