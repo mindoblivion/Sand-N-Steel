@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { LandmarkSign } from './LandmarkSign';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
@@ -118,6 +119,7 @@ export const GeneralStore = React.memo(() => {
         </mesh>
         <CityFixtureLight fixture="lamp" base={3} color="#f59e0b" distance={7} position={[0, -0.1, 0]} />
       </group>
+          <LandmarkSign id="general_store" />
     </group>
   );
 });

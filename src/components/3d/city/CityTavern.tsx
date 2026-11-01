@@ -1,4 +1,5 @@
 import React from 'react';
+import { LandmarkSign } from './LandmarkSign';
 import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
 import {
@@ -162,6 +163,7 @@ export const CityTavern = React.memo(() => {
           <CityFixtureLight fixture="lamp" base={3.5} color="#f59e0b" distance={8} position={[0.2, 0, 0]} />
         </group>
       ))}
+          <LandmarkSign id="city_tavern" />
     </group>
   );
 });

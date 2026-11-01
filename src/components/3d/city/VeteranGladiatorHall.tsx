@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { LandmarkSign } from './LandmarkSign';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
@@ -232,6 +233,7 @@ export const VeteranGladiatorHall = React.memo(() => {
           </mesh>
         </group>
       </group>
+          <LandmarkSign id="veteran_hall" />
     </group>
   );
 });

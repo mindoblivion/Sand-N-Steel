@@ -1,4 +1,5 @@
 import React from 'react';
+import { LandmarkSign } from './LandmarkSign';
 import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
 import {
@@ -143,6 +144,7 @@ export const ArenaMedicalHouse = React.memo(() => {
           <meshStandardMaterial color="#b91c1c" roughness={0.5} />
         </mesh>
       </group>
+          <LandmarkSign id="arena_medical" />
     </group>
   );
 });
