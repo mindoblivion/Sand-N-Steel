@@ -647,7 +647,7 @@ describe('CF-4 §H combat outcomes and timing are unchanged', () => {
   });
 
   test('each call is a fire-and-forget statement, never assigned or awaited', () => {
-    const calls = duel.split('\\n').filter((line) => line.includes('impactParticlesRef.current?.burst('));
+    const calls = duel.split(/\r?\n/).filter((line) => line.includes('impactParticlesRef.current?.burst('));
     expect(calls.length).toBe(3);
     for (const line of calls) {
       expect(line.trim().startsWith('impactParticlesRef.current?.burst(')).toBe(true);
