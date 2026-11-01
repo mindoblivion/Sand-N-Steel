@@ -146,7 +146,7 @@ describe('P-BANNER §A — the catalogue row and the currency extension', () => 
     }
 
     // The row is appended, so the shipped prefix is what it was.
-    expect(CHARIOT_PARTS).toHaveLength(16);
+    expect(CHARIOT_PARTS).toHaveLength(17);
     expect(CHARIOT_PARTS[CHARIOT_PARTS.length - 1].id).toBe('finish_triumph_banners');
     expect(chariotPartsBySlot('finish').at(-1)?.id).toBe('finish_triumph_banners');
   });
