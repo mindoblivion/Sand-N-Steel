@@ -768,6 +768,7 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     'road',
     'seen',
     'time',
+    'city',
     'laurels',
     'consumables',
     'intel',
@@ -792,12 +793,12 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     'records',
   ];
 
-  test('the merged type declares exactly the twenty-four optional fields, in order', () => {
+  test('the merged type declares all twenty-five optional fields, in order', () => {
     const types = readFileSync(join(SRC_ROOT, 'types/game.ts'), 'utf8');
     const optional = scanOptional(types);
     expect(optional).toEqual(EXPECTED);
     // PITCH A4 REBASE: the Corpus et Origo `identity` field is the newest member.
-    expect(optional.length).toBe(24);
+    expect(optional.length).toBe(25);
   });
 
   test('the rule still fails on a field nobody accounted for', () => {
