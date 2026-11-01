@@ -47,6 +47,7 @@ import omenEraProfile from './omenEraProfile.json';
 import mercyEraProfile from './mercyEraProfile.json';
 import recordsEraProfile from './recordsEraProfile.json';
 import ludiEraProfile from './ludiEraProfile.json';
+import medicalHouseRestEraProfile from './medicalHouseRestEraProfile.json';
 // PITCH A4 — Corpus et Origo (`identity`).
 import corpusEtOrigoProfile from './corpusEtOrigoProfile.json';
 
@@ -323,6 +324,18 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every post-GC20 optional field populated, `ludi` included, with `records` still last',
     ],
     profile: asProfile(ludiEraProfile),
+  },
+  {
+    id: 'medical-house-rest-era',
+    file: 'medicalHouseRestEraProfile.json',
+    provenance:
+      'The current-fresh shape after a level-1 Arena Medical House rest on day 1: 25 gold paid, the injury cleared, time.total advanced to day 2, and city.restDay records the consumed entry day.',
+    covers: [
+      'the optional city.restDay marker populated without adding a second day counter',
+      'time.total stands on day 2 while city.restDay records day 1',
+      'the Medical House rest leaves injury null and the reduced purse persisted',
+    ],
+    profile: asProfile(medicalHouseRestEraProfile),
   },
   {
     id: 'corpus-et-origo',
