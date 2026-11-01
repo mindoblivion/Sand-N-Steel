@@ -89,7 +89,7 @@ const SCENE_SOURCE = code(
 const INJURY_SOURCE = code(readFileSync(join(SRC_ROOT, 'utils', 'injury.ts'), 'utf8'));
 
 // ── §A the Medical House ───────────────────────────────────────────────────
-describe('§A treat clears a live injury for 75 gold', () => {
+describe('§A legacy pure cure helper (the live Medical House is L9 restRecovery)', () => {
   test('the price is the design’s 75 gold', () => {
     expect(treatmentPrice('medical_house')).toBe(75);
   });
@@ -280,10 +280,11 @@ describe('§D the helpers are pure', () => {
 // ── §E the wiring ──────────────────────────────────────────────────────────
 describe('§E the wiring: App transacts, the city reports the choice', () => {
   test('App is the only caller, and each handler saves exactly once', () => {
-    expect(APP_SOURCE.match(/treatInjury\(profile\)/g)?.length).toBe(1);
+    expect(APP_SOURCE.match(/restAtMedicalHouse\(profile\)/g)?.length).toBe(1);
     expect(APP_SOURCE.match(/restAtInn\(profile\)/g)?.length).toBe(1);
+    expect(APP_SOURCE.match(/treatInjury\(profile\)/g)?.length ?? 0).toBe(0);
 
-    for (const helper of ['treatInjury', 'restAtInn']) {
+    for (const helper of ['restAtMedicalHouse', 'restAtInn']) {
       const at = APP_SOURCE.indexOf(`${helper}(profile)`);
       const block = APP_SOURCE.slice(at, APP_SOURCE.indexOf('};', at));
       expect(block).toContain('setProfile(');
@@ -308,9 +309,9 @@ describe('§E the wiring: App transacts, the city reports the choice', () => {
 
   test('the panel is the injury module’s own reading, with one 48dp button', () => {
     expect(SCENE_SOURCE).toContain('data-treatment-panel={treatmentPanel}');
-    expect(SCENE_SOURCE).toContain('getTreatmentEligibility(playerProfile, treatmentPanel)');
+    expect(SCENE_SOURCE).toContain('getRestEligibility(playerProfile)');
     expect(SCENE_SOURCE).toContain('injuryBannerLine(treatmentInjury)');
-    expect(SCENE_SOURCE).toContain('treatmentPrice(treatmentPanel)');
+    expect(SCENE_SOURCE).toContain('restCost(playerProfile)');
     expect(SCENE_SOURCE).toContain('data-treatment-refusal={treatmentEligibility.reason}');
     expect(SCENE_SOURCE).toContain('min-h-[48px]');
     // Esc closes it and no other key is read while it is up.
@@ -350,13 +351,15 @@ describe('§E the wiring: App transacts, the city reports the choice', () => {
   test('racing never treats or rests', () => {
     // The two handlers' own call sites are the only ones in App…
     expect(APP_SOURCE.match(/restAtInn\(/g)?.length).toBe(1);
-    expect(APP_SOURCE.match(/treatInjury\(/g)?.length).toBe(1);
+    expect(APP_SOURCE.match(/restAtMedicalHouse\(/g)?.length).toBe(1);
+    expect(APP_SOURCE).not.toContain('treatInjury(');
     // …and neither sits inside a racing handler.
     for (const racing of ['handleStartRace', 'handleBuyRacingConfig']) {
       const at = APP_SOURCE.indexOf(`const ${racing}`);
       expect(at).toBeGreaterThan(-1);
       const block = APP_SOURCE.slice(at, APP_SOURCE.indexOf('};', at));
       expect(block).not.toContain('restAtInn(');
+      expect(block).not.toContain('restAtMedicalHouse(');
       expect(block).not.toContain('treatInjury(');
     }
   });
