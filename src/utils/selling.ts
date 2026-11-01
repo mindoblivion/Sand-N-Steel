@@ -88,12 +88,23 @@ export function sellItem(profile: PlayerProfile, itemId: string): PlayerProfile 
   const item = getItemById(itemId);
   if (!item) return profile; // unreachable: eligibility already resolved it
 
+  // A malformed save must not turn a sale into string concatenation, NaN, or
+  // Infinity. Refuse atomically and preserve the caller's exact profile.
+  if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < 0) {
+    return profile;
+  }
+  const saleValue = getTemperSellValue(profile, item);
+  const nextGold = profile.gold + saleValue;
+  if (!Number.isFinite(saleValue) || saleValue < 0 || !Number.isFinite(nextGold)) {
+    return profile;
+  }
+
   const soldAt = profile.inventory.findIndex((owned) => owned?.id === itemId);
   const inventory = profile.inventory.filter((_, index) => index !== soldAt);
 
   const next: PlayerProfile = {
     ...profile,
-    gold: profile.gold + getTemperSellValue(profile, item),
+    gold: nextGold,
     inventory,
   };
 
