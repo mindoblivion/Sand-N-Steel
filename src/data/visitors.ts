@@ -1,9 +1,9 @@
 /**
  * Main-branch Living City visitor catalogue.
  *
- * This recovery slice deliberately contains only item offers already present in
- * main's ITEMS_DB. The development-only visitor chariot finish is excluded until
- * its asset, ownership and save contracts can be recovered independently.
+ * Item offers use the existing ITEMS_DB catalogue. The bladesmith also carries one
+ * visitor-only cosmetic chariot finish, which is acquired into the existing chariot
+ * ownership record and is never sold by the workshop.
  *
  * Pure data: no clock, storage, React or randomness.
  */
@@ -14,6 +14,7 @@ export interface VisitorWindow {
 
 export interface VisitorOffer {
   readonly summary: string;
+  /** ITEMS_DB ids or explicitly visitor-only CHARIOT_PARTS ids; one is selected per day. */
   readonly pool: readonly string[];
 }
 
