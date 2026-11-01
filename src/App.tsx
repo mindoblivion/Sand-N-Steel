@@ -30,7 +30,7 @@ import { purchaseIntel } from './utils/intel';
 import type { ConsumableItem } from './data/consumables';
 import { sellItem } from './utils/selling';
 import { nextBossKills } from './utils/bossKills';
-import { purchaseFacility, trainingCost, type FacilityId } from './utils/facilityProgression';
+import { purchaseFacility, type FacilityId } from './utils/facilityProgression';
 import { purchaseTemper } from './utils/tempering';
 import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
 import { purchaseItem } from './utils/itemPurchase';
