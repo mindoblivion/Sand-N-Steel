@@ -419,6 +419,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
       {selectedOpponent && (
         <PreFightModal
           opponent={selectedOpponent}
+          injury={playerProfile.injury}
           /* Day/Night T3 — the hour the card is opened in, for its phase line. */
           phase={resolveDisplayClock(playerProfile).phase}
           /* STORY-2 — the novice bout's framing, fresh profiles only.

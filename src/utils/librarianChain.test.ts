@@ -612,7 +612,7 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
   });
 
   test('KEPT on a win: the purse, the level, the peak and the one write', () => {
-    expect(result).toContain('const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;');
+    expect(result).toContain('const nextGold = creditDuelGold(profile.gold, resultStats.goldEarned, bounty.gold);');
     expect(result).toContain('const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;');
     expect(result).toContain('const nextXp = profile.xp + stats.xpEarned;');
     expect(result).toContain('peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),');
@@ -815,11 +815,11 @@ describe('STORY-5b §H — the save carries no new top-level field', () => {
     return [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\?:/gm)].map((match) => match[1]);
   };
 
-  test('§J is still 22 optional fields, with `records` last', () => {
+  test('§J includes the city rest marker, with `records` last', () => {
     const fields = optionalFields();
     // LUDI PHASE A REBASE: the calendar's `ludi` joined the set; `records` still closes it.
-    // PITCH A4 REBASE: `identity` joined it before `ludi`, so the set is 24.
-    expect(fields.length).toBe(24);
+    // PITCH A4 added `identity`; L9 added the optional `city` rest marker, so the set is 25.
+    expect(fields.length).toBe(25);
     expect(fields[fields.length - 1]).toBe('records');
     for (const name of ['librarianChain', 'echoWon', 'fragmentsFound', 'laudes']) {
       expect(fields).not.toContain(name);

@@ -8,6 +8,7 @@ import { resolveBuildId, resolveProvinceId, resolveVitiumId } from '../../utils/
 import { resolveArmatura } from '../../utils/traitModifiers';
 import { canRepledgeArmatura } from '../../utils/armaturaPledge';
 import { resolveActiveInjury } from '../../utils/injury';
+import { describeInjury } from '../../utils/injuryStatus';
 import { getConsumableCount, ownedConsumables } from '../../utils/consumables';
 import { CampaignCard } from './CampaignCard';
 import { PalmaePanel } from './PalmaePanel';
@@ -75,6 +76,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
    * Read-only; no injury means nothing is added here.
    */
   const activeInjury = resolveActiveInjury(profile.injury);
+  const injuryStatus = describeInjury(profile.injury);
   /**
    * S6 — the consumables this gladiator could use RIGHT NOW. The row exists only
    * while there is a live wound and at least one item is owned, so a healthy
@@ -330,9 +332,9 @@ export const StatsTab: React.FC<StatsTabProps> = ({
       )}
 
       {/* S4 — THE INJURY */}
-      {activeInjury && (
+      {injuryStatus && (
         <div
-          data-injury={activeInjury.fightsRemaining}
+          data-injury={injuryStatus.fightsRemaining}
           className="bg-red-950/40 border border-red-600/60 rounded-2xl p-4 flex flex-wrap items-center gap-3"
         >
           <HeartPulse className="w-5 h-5 text-red-400 shrink-0" />
@@ -341,9 +343,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               Injured
             </div>
             <p className="text-xs font-mono text-red-300/90 mt-0.5">
-              −{activeInjury.penaltyStrength} STR / −{activeInjury.penaltyAgility} AGI ·{' '}
-              {activeInjury.fightsRemaining}{' '}
-              {activeInjury.fightsRemaining === 1 ? 'fight' : 'fights'} remaining
+              −{injuryStatus.penaltyStrength} STR / −{injuryStatus.penaltyAgility} AGI ·{' '}
+              {injuryStatus.durationLabel}
             </p>
           </div>
 

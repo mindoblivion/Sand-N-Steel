@@ -841,7 +841,7 @@ describe('P4 §G — the exclusions hold', () => {
 
   test('the module imports only the profile type, the racing resolver and P5\'s gate readers', () => {
     const imports = [...MODULE.matchAll(/^import .*?from '(.+?)';$/gm)].map((match) => match[1]);
-    expect(imports.sort()).toEqual(['../types/game', './facilityProgression', './racingProgression']);
+    expect(imports.sort()).toEqual(['../types/game', './facilityProgression', './goldTransactions', './racingProgression']);
     expect(MODULE).not.toContain('localStorage');
     expect(MODULE).not.toContain('saveProfile');
   });

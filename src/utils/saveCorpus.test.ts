@@ -112,6 +112,7 @@ import {
 import { ITEMS_DB } from '../data/itemsDB';
 import { ALL_OPPONENTS } from '../data/opponents';
 import { SAVE_FIXTURES, SaveFixture } from './saveFixtures';
+import { readCompletedVisitors, readSeenVisitors } from './visitorSchedule';
 import { STORY_FINAL_CHAPTER, resolveStoryState } from './storyState';
 import {
   getEffectiveArmorStats,
@@ -121,6 +122,7 @@ import {
 import { resolveRoadProgress, resolveRoadState } from './roadOfGlory';
 import { resolveSeenState } from './coachMarks';
 import { TIME_PHASES, resolveTimeState } from './timeState';
+import { resolveRestDay } from './restRecovery';
 import { resolveLaurels } from './laurels';
 import { resolveConsumables } from './consumables';
 // S7 — the tavern's rumour record, read the way the tavern panel and the
@@ -179,8 +181,12 @@ const REQUIRED_FIXTURE_IDS = [
   'records-era',
   // LUDI PHASE A — the calendar's day-state.
   'ludi-era',
+  // L9 — the Medical House rest marker, separate from the authoritative time clock.
+  'medical-house-rest-era',
   // PITCH A4 — the Corpus et Origo identity field.
   'corpus-et-origo',
+  // L10 — visitor-history save shape.
+  'visitor-ledger',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -243,6 +249,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const roadState = resolveRoadState(profile);
   const seen = resolveSeenState(profile);
   const time = resolveTimeState(profile);
+  const restDay = resolveRestDay(profile);
   // P2 — the Triumph record, read the way the Library and the character sheet do.
   const laurels = resolveLaurels(profile);
   // S6 — the Bazaar satchel, read the way the shop and the use surfaces do.
@@ -290,6 +297,7 @@ const driveEveryResolver = (profile: PlayerProfile) => {
     roadState,
     seen,
     time,
+    restDay,
     laurels,
     consumables,
     intel,
@@ -1240,6 +1248,7 @@ describe('GC20 §J — the corpus rule', () => {
       'road',
       'seen',
       'time',
+      'city',
       'laurels',
       'consumables',
       'intel',
@@ -1276,6 +1285,7 @@ describe('GC20 §J — the corpus rule', () => {
       'road',
       'seen',
       'time',
+      'city',
       'laurels',
       'consumables',
       'intel',
@@ -1332,7 +1342,7 @@ describe('GC20 §J — the corpus rule', () => {
     // LUDI PHASE A REBASE, then PITCH A4's: the set is 24 now because A4 inserted
     // `identity` between `spared` and `ludi` (so `records` still stays last), and
     // §J above carries the same one-field extension.
-    expect(shipped.length).toBe(24);
+    expect(shipped.length).toBe(25);
     expect(shipped.slice(-2)).toEqual(['ludi', 'records']);
 
     const doctored = types.replace(
@@ -1343,7 +1353,7 @@ describe('GC20 §J — the corpus rule', () => {
     const withNew = scanned(doctored);
     expect(withNew).not.toEqual(shipped);
     expect(withNew).toContain('unaccounted');
-    expect(withNew.length).toBe(25);
+    expect(withNew.length).toBe(26);
   });
 });
 
@@ -1386,5 +1396,19 @@ describe('GC20 §K — P3 chariot catalogue (read-time slots, nothing stored)', 
         for (const slot of NEW_SLOTS) expect(slot in stored, `${fixture.id} ${slot}`).toBe(false);
       }
     }
+  });
+});
+
+
+// L10 — visitor history must resolve from a complete synthetic save fixture.
+describe('GC20 L10 — visitor ledger save compatibility', () => {
+  test('resolves valid visitor history without mutating the stored profile', () => {
+    const fixture = SAVE_FIXTURES.find((candidate) => candidate.id === 'visitor-ledger');
+    expect(fixture).toBeDefined();
+    if (!fixture) throw new Error('visitor-ledger fixture is not registered');
+    const before = JSON.stringify(fixture.profile);
+    expect(readSeenVisitors(fixture.profile)).toEqual(['numidian_bladesmith', 'emesan_weapon_trader']);
+    expect(readCompletedVisitors(fixture.profile)).toEqual(['emesan_weapon_trader']);
+    expect(JSON.stringify(fixture.profile)).toBe(before);
   });
 });

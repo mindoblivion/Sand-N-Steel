@@ -181,7 +181,7 @@ describe('STORY-4a §A — `spared` is one lazy optional map and nothing else', 
     // still the field before it, and `records` still ends the set.  PITCH A4 REBASE:
     // the Corpus et Origo `identity` field joined the set between them, so the tail
     // this pins is four long.
-    expect(optional.length).toBe(24);
+    expect(optional.length).toBe(25);
     expect(optional.slice(-4)).toEqual(['spared', 'identity', 'ludi', 'records']);
   });
 });

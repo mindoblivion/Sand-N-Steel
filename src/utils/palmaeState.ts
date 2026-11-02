@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * ===========================================================================
  * CH-5 — THE PALMAE'S OWN WRITERS (equip, earn, buy)
@@ -100,13 +101,7 @@ const resolvedPalmae = (profile: PlayerProfile): ResolvedPalmae => readPalmae(pr
 
 /** A profile whose gold is missing or not finite can afford nothing. */
 function canAfford(profile: PlayerProfile, price: number): boolean {
-  return (
-    typeof profile.gold === 'number' &&
-    Number.isFinite(profile.gold) &&
-    typeof price === 'number' &&
-    Number.isFinite(price) &&
-    profile.gold >= price
-  );
+  return canDebitGold(profile.gold, price);
 }
 
 // ── §3 equip / unequip — the StatsTab panel's one write ────────────────────

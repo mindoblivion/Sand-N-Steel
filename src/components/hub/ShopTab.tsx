@@ -1,3 +1,4 @@
+import { canDebitGold } from '../../utils/goldTransactions';
 import React from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem } from '../../types/game';
 import { getItemById, isWeapon } from '../../data/itemsDB';
@@ -207,7 +208,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {CONSUMABLES.map((item) => {
               const owned = getConsumableCount(profile, item.id);
-              const canAfford = Number.isFinite(profile.gold) && profile.gold >= item.price;
+              const canAfford = canDebitGold(profile.gold, item.price);
 
               return (
                 <div
@@ -263,7 +264,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {weapons.map((wpn) => {
               const isOwned = ownedItemIds.has(wpn.id);
-              const canAfford = Number.isFinite(profile.gold) && profile.gold >= wpn.price;
+              const canAfford = canDebitGold(profile.gold, wpn.price);
 
               return (
                 <div
@@ -328,7 +329,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {armors.map((arm) => {
               const isOwned = ownedItemIds.has(arm.id);
-              const canAfford = Number.isFinite(profile.gold) && profile.gold >= arm.price;
+              const canAfford = canDebitGold(profile.gold, arm.price);
 
               return (
                 <div
