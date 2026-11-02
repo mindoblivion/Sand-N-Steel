@@ -1,3 +1,4 @@
+// @ts-ignore — bun:test is available at runtime via bun test
 import { describe, expect, test } from 'bun:test';
 import { canDebitGold } from './goldTransactions';
 
