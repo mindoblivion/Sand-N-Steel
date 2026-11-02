@@ -800,6 +800,11 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
     expect(DRIVE).toContain('const profile: unknown = await response.json();');
     expect(DRIVE).toContain('if (!isValidStoredProfile(profile))');
     expect(DRIVE).toContain('Your current local progress was not changed.');
+    expect(DRIVE).toContain('confirmedReplaceModifiedTime?: string');
+    expect(DRIVE).toContain('existingFile.modifiedTime !== confirmedModifiedTime');
+    expect(MODAL).toContain("save.name === 'Sand_And_Steel_Gladiator_Save.json'");
+    expect(MODAL).toContain('confirmedReplaceModifiedTime: confirmedSave.modifiedTime');
+
     // …and the import path hands that profile straight to the existing save.
     expect(APP).toContain('saveProfile(loadedProfile);');
     expect(String(STORAGE.match(/JSON\.parse\(raw\)/) !== null)).toBe('true');
