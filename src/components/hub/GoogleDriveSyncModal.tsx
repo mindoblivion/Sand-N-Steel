@@ -44,6 +44,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [savesLoaded, setSavesLoaded] = useState(false);
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const [pendingRestoreFileId, setPendingRestoreFileId] = useState<string | null>(null);
   const signOutRef = useRef(false);
 
   useEffect(() => {
@@ -207,8 +208,8 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
     await performBackup(saves[0]?.id);
   };
 
-  const handleLoadFromDrive = async (fileId: string) => {
-    sounds.playClick();
+  const restoreFromDrive = async (fileId: string) => {
+    setPendingRestoreFileId(null);
     setIsLoading(true);
     setStatusMessage(null);
     try {
@@ -226,6 +227,21 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleLoadFromDrive = async (fileId: string) => {
+    sounds.playClick();
+    if (currentProfile) {
+      setPendingRestoreFileId(fileId);
+      return;
+    }
+    await restoreFromDrive(fileId);
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!pendingRestoreFileId) return;
+    sounds.playClick();
+    await restoreFromDrive(pendingRestoreFileId);
   };
 
   const handleDeleteConfirm = async (fileId: string) => {
@@ -465,6 +481,56 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
                   className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 text-xs font-bold font-serif cursor-pointer active:scale-95"
                 >
                   Replace Cloud Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* LOCAL-PROGRESS RESTORE CONFIRMATION */}
+        {pendingRestoreFileId && currentProfile && (
+          <div className="fixed inset-0 bg-neutral-950/90 z-[60] flex items-center justify-center p-4">
+            <div className="bg-neutral-900 border-2 border-amber-500 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
+              <div className="w-12 h-12 rounded-full bg-amber-900/50 border border-amber-500 flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle className="w-6 h-6 text-amber-400" />
+              </div>
+              <h4 className="font-serif font-bold text-base text-amber-300 uppercase mb-2">
+                Replace Local Progress?
+              </h4>
+              <p className="text-xs text-neutral-300 mb-3">
+                Loading this cloud save will replace the gladiator currently on this device.
+              </p>
+              <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-3 mb-3 text-left">
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">This device</div>
+                <div className="text-sm font-bold text-amber-200">{currentProfile.name} · LVL {currentProfile.level}</div>
+                <div className="text-xs text-neutral-400">{currentProfile.gold.toLocaleString()} gold</div>
+              </div>
+              <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-3 mb-5 text-left">
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">Selected cloud save</div>
+                <div className="text-sm font-bold text-cyan-200">
+                  {saves.find((file) => file.id === pendingRestoreFileId)?.profilePreview?.name || 'Cloud gladiator'}
+                  {saves.find((file) => file.id === pendingRestoreFileId)?.profilePreview?.level != null
+                    ? ` · LVL ${saves.find((file) => file.id === pendingRestoreFileId)!.profilePreview!.level}`
+                    : ''}
+                </div>
+                <div className="text-xs text-neutral-400">
+                  {saves.find((file) => file.id === pendingRestoreFileId)?.profilePreview?.gold?.toLocaleString() ?? 'Unknown'} gold
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPendingRestoreFileId(null)}
+                  disabled={isLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-neutral-300 text-xs font-bold font-serif cursor-pointer"
+                >
+                  Keep Local Save
+                </button>
+                <button
+                  onClick={handleConfirmRestore}
+                  disabled={isLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 text-xs font-bold font-serif cursor-pointer active:scale-95"
+                >
+                  {isLoading ? 'Loading…' : 'Replace Local Save'}
                 </button>
               </div>
             </div>
