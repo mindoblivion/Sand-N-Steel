@@ -601,8 +601,8 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
   test('SKIPPED on both sides: the fight counters and the mercy offer', () => {
     expect(result).toContain('fightsWon: exhibition ? profile.fightsWon : profile.fightsWon + 1,');
     expect(result).toContain('fightsLost: exhibition ? profile.fightsLost : profile.fightsLost + 1,');
-    // One write of each counter in the whole file, and both are the fenced arm.
-    expect((app.match(/profile\.fightsWon \+ 1/g) ?? []).length).toBe(1);
+    // Both the paid-win and refused-reward-win paths record the combat result.
+    expect((app.match(/profile\.fightsWon \+ 1/g) ?? []).length).toBe(2);
     expect((app.match(/profile\.fightsLost \+ 1/g) ?? []).length).toBe(1);
     // The loss branch writes no felled id and opens no grudge of its own.
     expect(lossBranch).not.toContain('defeatedOpponentIds');
