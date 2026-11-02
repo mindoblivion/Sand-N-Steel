@@ -811,6 +811,10 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
     expect(MODAL).toContain('Replace Local Progress?');
     expect(MODAL).toContain('onClick={handleConfirmRestore}');
     expect(MODAL).toContain('Replace Local Save');
+    expect(MODAL).toContain('This device');
+    expect(MODAL).toContain('Selected cloud save');
+    expect(MODAL).toContain('currentProfile.gold');
+    expect(MODAL).toContain('preview.gold');
 
     // …and the import path hands that profile straight to the existing save.
     expect(APP).toContain('saveProfile(loadedProfile);');
