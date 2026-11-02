@@ -390,6 +390,22 @@ describe('LUDI C §C — deed completion inside the shipped save paths', () => {
     }
   });
 
+  test('malformed, overflowing, or precision-lost fame refuses the whole deed settlement', () => {
+    for (const fame of [Number.NaN, Number.POSITIVE_INFINITY, -1, '100' as unknown as number, Number.MAX_VALUE]) {
+      const start = onDay(DAY_WITH.winDuelOnly, {
+        fame,
+        gold: 100,
+        ludi: ludi({ day: DAY_WITH.winDuelOnly, fameBaseline: 900 }),
+      });
+      const refused = settleLudiDeeds(start, { won: true, atDuelResult: true });
+      expect(refused.profile).toBe(start);
+      expect(refused.completed).toEqual([]);
+      expect(refused.profile.fame).toBe(fame);
+      expect(refused.profile.gold).toBe(100);
+      expect(resolveLudiProgress(start).deedsDone).toEqual([]);
+    }
+  });
+
   test('the peak-hype deed needs a WIN above 40 hype — 40 exactly is not enough', () => {
     const withHype = (peak: number) =>
       settleLudiDeeds(
