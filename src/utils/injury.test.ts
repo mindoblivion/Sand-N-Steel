@@ -331,7 +331,7 @@ describe('§H the one call site: the result transaction', () => {
 
   test('the resolution happens before the win/loss branch and feeds both writes', () => {
     expect(write.indexOf('resolveInjuryAfterDuel(profile, didWin)')).toBeLessThan(
-      write.indexOf('if (didWin) {'),
+      write.indexOf('if (didWin && rewardSettlementAccepted) {'),
     );
     // C-8.70C — the grudge record is composed ON TOP of the injury-resolved
     // profile, so both writes now spread `grudgeProfile` (built from
@@ -343,7 +343,8 @@ describe('§H the one call site: the result transaction', () => {
     // writes. The property — the resolution happens before the branch and feeds
     // BOTH writes — is unchanged; the literal moved one step down the chain.
     expect(write.match(/\.\.\.(?:afterOmen|grudgeProfile),/g)?.length).toBe(2);
-    expect(write.match(/clearOmen\(afterInjury\)/g)?.length).toBe(1);
+    expect(write).toContain('const afterOmen = exhibition || (didWin && !rewardSettlementAccepted)');
+    expect(write).toContain(': clearOmen(afterInjury);');
     expect(write.match(/afterOmen/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
@@ -367,6 +368,7 @@ describe('§H the one call site: the result transaction', () => {
     // LUDI PHASE A REBASE, not a weakening: the Acta's settlement composes onto the same
     // profile the awards are then applied to, and the one save still carries everything.
     expect(write).toContain('applyTriumphAwards(ludi.profile, duelTriumphStats)');
+    expect(write).toContain('exhibition || !rewardSettlementAccepted');
     expect(write).toContain('saveProfile(awards.profile)');
     expect(write).not.toContain('saveProfile(afterInjury)');
     expect(write).not.toContain('saveProfile(settledProfile)');
@@ -388,7 +390,7 @@ describe('§H the one call site: the result transaction', () => {
     }
     // PITCH A1 — the payload carries the stats object this write settled (the omen's
     // multipliers applied last), so the screen and the save cannot disagree.
-    expect(resultCall).toContain('stats: resultStats,');
+    expect(resultCall).toContain('stats: displayedStats,');
     expect(resultCall).toContain(
       '...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),',
     );
