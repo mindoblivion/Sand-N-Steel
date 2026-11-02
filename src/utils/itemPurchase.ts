@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * Buying a weapon or a piece of armour from a storefront.
  *
@@ -35,13 +36,7 @@ export type PurchaseResult =
 
 /** A profile whose gold is missing or not finite can afford nothing. */
 function canAfford(profile: PlayerProfile, price: number): boolean {
-  return (
-    typeof profile.gold === 'number' &&
-    Number.isFinite(profile.gold) &&
-    typeof price === 'number' &&
-    Number.isFinite(price) &&
-    profile.gold >= price
-  );
+  return canDebitGold(profile.gold, price);
 }
 
 /**

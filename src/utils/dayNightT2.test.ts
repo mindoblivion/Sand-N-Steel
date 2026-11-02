@@ -290,7 +290,7 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     // write, and the clock still advances before it.
     // LUDI PHASE A REBASE, not a weakening: the Acta's settlement rides between the trail
     // and the awards, and the clock still advances before the transaction's ONE write.
-    expect(DUEL).toContain('const ludi: LudiSettlement = settleLudiDeeds(trailProfile, {');
+    expect(DUEL).toContain('const ludi: LudiSettlement = rewardSettlementAccepted ? settleLudiDeeds(trailProfile, {');
     expect(DUEL).toContain('applyTriumphAwards(ludi.profile, duelTriumphStats)');
     expect(DUEL).toContain('setProfile(awards.profile);');
     expect(DUEL).toContain('saveProfile(awards.profile);');
@@ -314,8 +314,8 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     expect(TRAIN.match(/saveProfile\(/g) ?? []).toHaveLength(1);
     // The gold refusal RETURNS before the advance: a session that cannot be paid for
     // changes neither gold, nor stats, nor the clock.
-    expect(TRAIN.indexOf('profile.gold < cost')).toBeGreaterThan(-1);
-    expect(TRAIN.indexOf('profile.gold < cost')).toBeLessThan(TRAIN.indexOf('advanceTimeBy('));
+    expect(TRAIN.indexOf('canDebitGold(profile.gold, cost)')).toBeGreaterThan(-1);
+    expect(TRAIN.indexOf('canDebitGold(profile.gold, cost)')).toBeLessThan(TRAIN.indexOf('advanceTimeBy('));
     expect(TRAIN.indexOf('return;')).toBeLessThan(TRAIN.indexOf('advanceTimeBy('));
   });
 
@@ -327,12 +327,12 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     expect(REST).toContain('setProfile(settled);');
     expect(REST).toContain('saveProfile(settled);');
     // An unwounded gladiator still buys the night, at S5's own price and nothing else.
-    expect(REST).toContain('subject.gold >= REST_PRICE');
+    expect(REST).toContain('canDebitGold(subject.gold, REST_PRICE)');
   });
 
-  test('the rollover seam is defined once and called by the three advance seams', () => {
+  test('the rollover seam is defined once and called by all four advance seams', () => {
     expect(APP.match(/const onDayRollover =/g) ?? []).toHaveLength(1);
-    expect(APP.match(/onDayRollover\(profile,/g) ?? []).toHaveLength(3);
+    expect(APP.match(/onDayRollover\(profile,/g) ?? []).toHaveLength(4);
   });
 
   test('the banner is driven by the seam and drawn over the city only', () => {
@@ -416,16 +416,19 @@ describe('G. The scenes read the clock; the staging constant is gone', () => {
 
 describe('S5 — malformed gold cannot pass affordability gates', () => {
   test('rest, training, shop, and omen UI require a finite purse', () => {
-    expect(APP).toContain('Number.isFinite(subject.gold)');
-    expect(APP).toContain('Number.isFinite(profile.gold)');
+    expect(APP).toContain('canDebitGold(subject.gold, REST_PRICE)');
+    expect(APP).toContain('canDebitGold(profile.gold, cost)');
     expect(code('../components/hub/TrainingTab.tsx')).toContain(
-      'Number.isFinite(profile.gold) && profile.gold >= cost',
+      'canDebitGold(profile.gold, cost)',
     );
     expect(code('../components/hub/ShopTab.tsx')).toContain(
-      'Number.isFinite(profile.gold) && profile.gold >= item.price',
+      'canDebitGold(profile.gold, item.price)',
     );
     expect(code('../components/3d/city/CityHubScene.tsx')).toContain(
-      '!Number.isFinite(playerProfile.gold)',
+      '!canDebitGold(playerProfile.gold, INTEL_PRICE)',
+    );
+    expect(code('../components/3d/city/CityHubScene.tsx')).toContain(
+      'canDebitGold(playerProfile.gold, REST_PRICE)',
     );
   });
 });

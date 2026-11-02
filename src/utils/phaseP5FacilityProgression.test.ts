@@ -748,7 +748,7 @@ describe('P5 §G — the profile field and the GC20 corpus', () => {
 describe('P5 §H — the scope guards', () => {
   test('the module imports only the profile type: no storage, no second save path', () => {
     const imports = [...MODULE.matchAll(/^import .*?from '(.+?)';$/gm)].map((match) => match[1]);
-    expect(imports).toEqual(['../types/game']);
+    expect(imports.sort()).toEqual(['../types/game', './goldTransactions']);
     expect(MODULE).not.toContain('localStorage');
     expect(MODULE).not.toContain('saveProfile');
   });

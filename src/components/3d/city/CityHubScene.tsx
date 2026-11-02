@@ -1,3 +1,4 @@
+import { canDebitGold } from '../../../utils/goldTransactions';
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Sparkles as DreiSparkles, Sky, Environment, Lightformer, useGLTF } from '@react-three/drei';
@@ -65,16 +66,15 @@ import type { QualityPreset } from '../../../services/settings';
 import { useSettings } from '../../../hooks/useSettings';
 // Phase C-8.70B — the East Circus District's read-only pre-race entry panel.
 import { PreRacePanel } from '../../hub/PreRacePanel';
-// S5 — the two cures: the Medical House's price and the inn's rest are the injury
-// module's own numbers, and this screen writes no save (App owns the transaction).
+// L9 — the Medical House's day-rest price and the inn's night-rest price are read
+// from their pure transaction helpers; this screen writes no save (App owns it).
 import {
   REST_PRICE,
-  getTreatmentEligibility,
   injuryBannerLine,
   resolveActiveInjury,
-  treatmentPrice,
   type TreatmentService,
 } from '../../../utils/injury';
+import { getRestEligibility, restCost } from '../../../utils/restRecovery';
 
 // Preload 3D models for instant, seamless city rendering
 try {
@@ -360,7 +360,7 @@ interface CityHubSceneProps {
 }
 
 /**
- * S5 — the two places that sell a cure, and the copy each one speaks.  `notice` is
+ * L9 — the Medical House's day-rest and the Caravanserai's night-rest, and their copy. `notice` is
  * the flavour line the hub has always printed for the place when the player is not
  * hurt (unchanged, so a healthy visit reads exactly as it did); `service` is the one
  * line the panel adds above its price and its single button.
@@ -373,8 +373,8 @@ const TREATMENT_SITES: Record<
     title: 'Arena Medical House',
     notice:
       "Arena Medical House: Bandages, ceramic vessels, and surgical tools are prepared for the arena's wounded.",
-    service: 'The medicus cleans, stitches and binds the wound — and takes it off you entirely.',
-    action: 'Treat Wound',
+    service: 'The medicus cleans, stitches and binds the wound. Rest for the day, and return to the arena healed.',
+    action: 'Rest for the Day',
   },
   caravanserai: {
     title: 'Caravanserai Inn',
@@ -917,7 +917,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     (service: TreatmentService) => {
       sounds.playClick();
       const applied = service === 'medical_house' ? onTreatInjury() : onRestAtInn();
-      if (applied) setStableNotice(null);
+      if (applied) {
+        setStableNotice(null);
+        if (service === 'medical_house') setTreatmentPanel(null);
+      }
     },
     [onRestAtInn, onTreatInjury]
   );
@@ -1267,10 +1270,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const restToTomorrow = cityPhase === 'dawn';
   const treatmentEligibility = treatmentPanel
     ? treatmentPanel === 'caravanserai'
-      ? playerProfile.gold >= REST_PRICE
+      ? canDebitGold(playerProfile.gold, REST_PRICE)
         ? { ok: true as const, price: REST_PRICE }
         : { ok: false as const, reason: 'insufficient-gold' as const }
-      : getTreatmentEligibility(playerProfile, treatmentPanel)
+      : getRestEligibility(playerProfile)
     : null;
   /**
    * S6 — what the panel can offer from the player's own satchel. Empty when the
@@ -1285,7 +1288,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    * nothing to any other interaction.
    */
   const tavernTargets = intelPanel ? intelTargets(playerProfile) : [];
-  const tavernPurseShort = intelPanel && playerProfile.gold < INTEL_PRICE;
+  const tavernPurseShort = intelPanel && !canDebitGold(playerProfile.gold, INTEL_PRICE);
   /**
    * STORY-5a — 'cut' closes her rumour service PERMANENTLY: the list above is
    * replaced by the closure and no purchase is offered again (App refuses the
@@ -1893,7 +1896,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         </div>
       )}
 
-      {/* S5 — THE TREATMENT PANEL: the Medical House's cure and the inn's rest.  The
+      {/* L9 — THE TREATMENT PANEL: the Medical House's day-rest and the inn's night rest. The
           same surface as the notice above, but its one button is the player's way to
           spend the gold; the transaction itself lives in `App`, so this screen writes
           no save.  A refusal keeps the panel up and states its own reason. */}
@@ -1946,7 +1949,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 <span>
                   {treatmentPanel === 'caravanserai'
                     ? `${restToTomorrow ? "Rest until tomorrow's dawn" : 'Rest until dawn'} — ${REST_PRICE}g`
-                    : `${treatmentSite.action} — ${treatmentPrice(treatmentPanel)}g`}
+                    : `${treatmentSite.action} — ${restCost(playerProfile)}g`}
                 </span>
               </button>
               {treatmentEligibility && !treatmentEligibility.ok && (
@@ -1954,7 +1957,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                   data-treatment-refusal={treatmentEligibility.reason}
                   className="text-[10px] sm:text-[11px] font-mono text-red-300"
                 >
-                  Not enough gold. You carry {playerProfile.gold}g.
+                  {treatmentEligibility.reason === 'already-rested'
+                    ? 'You have already rested at the Medical House today.'
+                    : `Not enough gold. You carry ${playerProfile.gold}g; this rest costs ${restCost(playerProfile)}g.`}
                 </p>
               )}
 

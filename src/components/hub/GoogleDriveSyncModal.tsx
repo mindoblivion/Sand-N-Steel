@@ -44,6 +44,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [savesLoaded, setSavesLoaded] = useState(false);
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const [restoreConfirmId, setRestoreConfirmId] = useState<string | null>(null);
   const signOutRef = useRef(false);
 
   useEffect(() => {
@@ -161,7 +162,8 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
     }
 
     // If existing cloud saves exist, ask for confirmation before overwriting
-    if (saves.length > 0) {
+    const canonicalSave = saves.find((save) => save.name === 'Sand_And_Steel_Gladiator_Save.json');
+    if (canonicalSave) {
       setShowOverwriteConfirm(true);
       return;
     }
@@ -170,14 +172,19 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
     await performBackup();
   };
 
-  const performBackup = async (confirmedReplaceFileId?: string) => {
+  const performBackup = async (confirmedSave?: Pick<DriveSaveFile, 'id' | 'modifiedTime'>) => {
     if (!currentProfile) return;
     setIsLoading(true);
     setStatusMessage(null);
     try {
       await saveProfileToDrive(
         currentProfile,
-        confirmedReplaceFileId ? { confirmedReplaceFileId } : undefined
+        confirmedSave
+          ? {
+              confirmedReplaceFileId: confirmedSave.id,
+              confirmedReplaceModifiedTime: confirmedSave.modifiedTime,
+            }
+          : undefined
       );
       setStatusMessage({ type: 'success', text: `Saved "${currentProfile.name}" to Google Drive successfully!` });
       await fetchDriveSaves();
@@ -204,7 +211,19 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const handleConfirmOverwrite = async () => {
     sounds.playClick();
     setShowOverwriteConfirm(false);
-    await performBackup(saves[0]?.id);
+    const canonicalSave = saves.find((save) => save.name === 'Sand_And_Steel_Gladiator_Save.json');
+    if (!canonicalSave) {
+      setStatusMessage({ type: 'error', text: 'The cloud save list changed. Refresh the list and try again.' });
+      return;
+    }
+    await performBackup(canonicalSave);
+  };
+
+  const handleConfirmRestore = async () => {
+    const fileId = restoreConfirmId;
+    if (!fileId) return;
+    setRestoreConfirmId(null);
+    await handleLoadFromDrive(fileId);
   };
 
   const handleLoadFromDrive = async (fileId: string) => {
@@ -410,7 +429,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
 
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => handleLoadFromDrive(file.id)}
+                          onClick={() => setRestoreConfirmId(file.id)}
                           disabled={isLoading}
                           className="min-h-[48px] px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 font-serif font-bold text-xs uppercase cursor-pointer flex items-center gap-1 active:scale-95"
                           title="Restore this save"
@@ -448,8 +467,8 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
               </h4>
               <p className="text-xs text-neutral-300 mb-5">
                 An existing cloud save
-                {saves[0]?.profilePreview
-                  ? ` (${saves[0].profilePreview.name}, LVL ${saves[0].profilePreview.level})`
+                {saves.find((save) => save.name === 'Sand_And_Steel_Gladiator_Save.json')?.profilePreview
+                  ? ` (${saves.find((save) => save.name === 'Sand_And_Steel_Gladiator_Save.json')!.profilePreview!.name}, LVL ${saves.find((save) => save.name === 'Sand_And_Steel_Gladiator_Save.json')!.profilePreview!.level})`
                   : ''}
                 {' '}was found on your Google Drive. Backing up will permanently replace it with your current local progress. This action cannot be undone.
               </p>
@@ -465,6 +484,56 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
                   className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 text-xs font-bold font-serif cursor-pointer active:scale-95"
                 >
                   Replace Cloud Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RESTORE CONFIRMATION DIALOG */}
+        {restoreConfirmId && (
+          <div className="fixed inset-0 bg-neutral-950/90 z-50 flex items-center justify-center p-4">
+            <div className="bg-neutral-900 border-2 border-amber-500 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
+              <div className="w-12 h-12 rounded-full bg-amber-900/50 border border-amber-500 flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle className="w-6 h-6 text-amber-400" />
+              </div>
+              <h4 className="font-serif font-bold text-base text-amber-300 uppercase mb-2">
+                Replace Local Progress?
+              </h4>
+              <p className="text-xs text-neutral-300 mb-5">
+                <span className="block font-bold text-neutral-100">This device</span>
+                <span className="block mb-2">
+                  {currentProfile
+                    ? `${currentProfile.name} — LVL ${currentProfile.level}, ${currentProfile.gold} gold`
+                    : 'No active local gladiator'}
+                </span>
+                <span className="block font-bold text-neutral-100">Selected cloud save</span>
+                <span className="block mb-2">
+                  {(() => {
+                    const selected = saves.find((save) => save.id === restoreConfirmId);
+                    if (!selected) return 'Selected save (details unavailable)';
+                    const preview = selected.profilePreview;
+                    return preview
+                      ? `${preview.name} — LVL ${preview.level}, ${preview.gold} gold`
+                      : selected.name;
+                  })()}
+                </span>
+                Replacing will overwrite the active local progress. Make sure the cloud save is the one you want before continuing.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setRestoreConfirmId(null)}
+                  disabled={isLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-neutral-300 text-xs font-bold font-serif cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmRestore}
+                  disabled={isLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 text-xs font-bold font-serif cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  Replace Local Save
                 </button>
               </div>
             </div>

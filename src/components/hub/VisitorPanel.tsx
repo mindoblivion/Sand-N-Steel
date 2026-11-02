@@ -1,3 +1,4 @@
+import { canDebitGold } from '../../utils/goldTransactions';
 import React, { useMemo, useState } from 'react';
 import { Backpack, Coins, UserRound } from 'lucide-react';
 import type { PlayerProfile } from '../../types/game';
@@ -47,9 +48,7 @@ export const VisitorPanel: React.FC<VisitorPanelProps> = ({
   const price = selected && offered
     ? resolveVisitorBargainPrice(offered, selected.visitor.bargainRate)
     : null;
-  const affordable = price !== null &&
-    Number.isFinite(profile.gold) &&
-    profile.gold >= price;
+  const affordable = price !== null && canDebitGold(profile.gold, price);
 
   const buy = () => {
     if (!selected) return;

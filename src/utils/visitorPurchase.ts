@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * Living City L12/L16B — the one visitor trade transaction.
  *
@@ -76,7 +77,7 @@ function purchaseVisitorPart(
   if (price === null) return { ok: false, reason: 'invalid-price' };
 
   const gold = profile.gold;
-  if (typeof gold !== 'number' || !Number.isFinite(gold) || gold < 0) {
+  if (!canDebitGold(gold, 0)) {
     return { ok: false, reason: 'invalid-gold' };
   }
 
@@ -96,7 +97,7 @@ function purchaseVisitorPart(
 
   const loadout = resolveChariotLoadout(profile);
   if (loadout.owned.includes(partId)) return { ok: false, reason: 'already-owned' };
-  if (gold < price) return { ok: false, reason: 'insufficient-gold' };
+  if (!canDebitGold(gold, price)) return { ok: false, reason: 'insufficient-gold' };
 
   const chariot: ChariotLoadout = {
     owned: [...loadout.owned, part.id],
@@ -155,7 +156,7 @@ export function purchaseVisitorOffer(
     return { ok: false, reason: 'invalid-gold' };
   }
   if (!Array.isArray(profile.inventory)) return { ok: false, reason: 'invalid-inventory' };
-  if (gold < price) return { ok: false, reason: 'insufficient-gold' };
+  if (!canDebitGold(gold, price)) return { ok: false, reason: 'insufficient-gold' };
 
   return {
     ok: true,

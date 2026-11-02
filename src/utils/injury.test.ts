@@ -3,11 +3,11 @@
  *
  * ── WHAT THIS SUITE PINS ──────────────────────────────────────────────────
  *   §A  a loss with no active injury inflicts one; a win never does;
- *   §B  a fresh infliction starts at the full 3 fights and is NOT decremented
+ *   §B  a fresh infliction starts at the full 2 fights and is NOT decremented
  *       by the duel that inflicted it;
  *   §C  the decrement cadence across subsequent duels — win or loss alike;
  *   §D  the injury clears to `null` exactly when the clock reaches zero;
- *   §E  a loss while already injured neither stacks nor refreshes;
+ *   §E  a loss while already injured refreshes the single injury slot;
  *   §F  `calculateTotalStats` applies the −2 / −2, floored at 1 (the first
  *       non-null-injury coverage in the repo);
  *   §G  the helper is pure: the input profile is not mutated, and a duel that
@@ -108,8 +108,8 @@ describe('§A a loss is the only thing that inflicts', () => {
     expect(event).toEqual({ kind: 'inflicted', injury: FRESH });
   });
 
-  test('the constants are the design’s: 3 fights, −2 STR, −2 AGI', () => {
-    expect(INJURY_FIGHTS).toBe(3);
+  test('the constants are the design’s: 2 fights, −2 STR, −2 AGI', () => {
+    expect(INJURY_FIGHTS).toBe(2);
     expect(INJURY_PENALTY_STRENGTH).toBe(2);
     expect(INJURY_PENALTY_AGILITY).toBe(2);
   });
@@ -132,64 +132,62 @@ describe('§A a loss is the only thing that inflicts', () => {
 
 // ── §B order of operations ─────────────────────────────────────────────────
 describe('§B a fresh infliction is not decremented by its own duel', () => {
-  test('the inflicting loss leaves the full 3 fights — not 2', () => {
+  test('the inflicting loss leaves the full 2 fights', () => {
     const { profile } = resolveInjuryAfterDuel(bareProfile(), false);
-    expect(profile.injury?.fightsRemaining).toBe(3);
+    expect(profile.injury?.fightsRemaining).toBe(2);
   });
 
-  test('a win immediately after starts the clock at 2, not 3', () => {
+  test('a win immediately after spends one of the two remaining fights', () => {
     const first = resolveInjuryAfterDuel(bareProfile(), false).profile;
     const next = resolveInjuryAfterDuel(first, true);
-    expect(next.profile.injury?.fightsRemaining).toBe(2);
+    expect(next.profile.injury?.fightsRemaining).toBe(1);
   });
 });
 
 // ── §C the cadence ─────────────────────────────────────────────────────────
 describe('§C every completed duel advances a live injury by one', () => {
-  test('loss, win, loss, win: 3 → 2 → 1 → healed', () => {
+  test('loss, win, win: 2 → 1 → healed', () => {
     let current = bareProfile();
     const readings: (number | null)[] = [];
 
-    current = resolveInjuryAfterDuel(current, false).profile; // inflicts 3
+    current = resolveInjuryAfterDuel(current, false).profile; // inflicts 2
     readings.push(current.injury?.fightsRemaining ?? null);
 
-    current = resolveInjuryAfterDuel(current, true).profile; // 2
-    readings.push(current.injury?.fightsRemaining ?? null);
-
-    current = resolveInjuryAfterDuel(current, false).profile; // 1, a loss does not refresh
+    current = resolveInjuryAfterDuel(current, true).profile; // 1
     readings.push(current.injury?.fightsRemaining ?? null);
 
     const last = resolveInjuryAfterDuel(current, true);
     readings.push(last.profile.injury?.fightsRemaining ?? null);
 
-    expect(readings).toEqual([3, 2, 1, null]);
+    expect(readings).toEqual([2, 1, null]);
     expect(last.event).toEqual({ kind: 'healed' });
   });
 
-  test('consecutive losses still each advance by exactly one', () => {
+  test('consecutive losses refresh the single injury to two fights', () => {
     let current = resolveInjuryAfterDuel(bareProfile(), false).profile;
     current = resolveInjuryAfterDuel(current, false).profile;
     expect(current.injury?.fightsRemaining).toBe(2);
     current = resolveInjuryAfterDuel(current, false).profile;
-    expect(current.injury?.fightsRemaining).toBe(1);
+    expect(current.injury?.fightsRemaining).toBe(2);
   });
 
-  test('a duel that only advances the clock reports no event', () => {
+  test('a victory only spends the existing injury; a defeat refresh is announced', () => {
     const hurt = bareProfile({ injury: FRESH });
     expect(resolveInjuryAfterDuel(hurt, true).event).toBeNull();
-    expect(resolveInjuryAfterDuel(hurt, false).event).toBeNull();
+    expect(resolveInjuryAfterDuel(hurt, false).event).toEqual({ kind: 'inflicted', injury: FRESH });
   });
 });
 
 // ── §D the clear ───────────────────────────────────────────────────────────
 describe('§D the injury clears at zero', () => {
-  test('one fight remaining → the next completed duel clears it to null', () => {
-    for (const won of [true, false]) {
-      const hurt = bareProfile({ injury: { ...FRESH, fightsRemaining: 1 } });
-      const { profile, event } = resolveInjuryAfterDuel(hurt, won);
-      expect(profile.injury).toBeNull();
-      expect(event).toEqual({ kind: 'healed' });
-    }
+  test('one fight remaining clears on victory, but a defeat refreshes to two', () => {
+    const hurt = bareProfile({ injury: { ...FRESH, fightsRemaining: 1 } });
+    const victory = resolveInjuryAfterDuel(hurt, true);
+    expect(victory.profile.injury).toBeNull();
+    expect(victory.event).toEqual({ kind: 'healed' });
+    const defeat = resolveInjuryAfterDuel(hurt, false);
+    expect(defeat.profile.injury).toEqual(FRESH);
+    expect(defeat.event).toEqual({ kind: 'inflicted', injury: FRESH });
   });
 
   test('a stored injury already at zero is not an injury and is never decremented below it', () => {
@@ -208,21 +206,21 @@ describe('§D the injury clears at zero', () => {
   });
 });
 
-// ── §E no stacking, no refreshing ──────────────────────────────────────────
-describe('§E a loss while injured neither stacks nor refreshes', () => {
-  test('the penalties stay −2 / −2 and the clock only moves down', () => {
+// ── §E one slot, refreshed on defeat ────────────────────────────────────────
+describe('§E a loss while injured refreshes one injury without stacking', () => {
+  test('the penalties stay −2 / −2 and the single injury refreshes to two', () => {
     const hurt = bareProfile({ injury: FRESH });
     const { profile } = resolveInjuryAfterDuel(hurt, false);
-    expect(profile.injury).toEqual({ ...FRESH, fightsRemaining: 2 });
+    expect(profile.injury).toEqual(FRESH);
     expect(profile.injury?.penaltyStrength).toBe(2);
     expect(profile.injury?.penaltyAgility).toBe(2);
   });
 
-  test('a loss at the last fight clears the wound instead of re-inflicting it', () => {
+  test('a loss at the last fight refreshes the wound instead of clearing it', () => {
     const hurt = bareProfile({ injury: { ...FRESH, fightsRemaining: 1 } });
     const { profile, event } = resolveInjuryAfterDuel(hurt, false);
-    expect(profile.injury).toBeNull();
-    expect(event).toEqual({ kind: 'healed' });
+    expect(profile.injury).toEqual(FRESH);
+    expect(event).toEqual({ kind: 'inflicted', injury: FRESH });
   });
 });
 
@@ -242,6 +240,13 @@ describe('§F the existing stat path applies the penalties (first non-null cover
     const hurt = calculateTotalStats({ ...weak, injury: FRESH });
     expect(hurt.strength).toBe(1);
     expect(hurt.agility).toBe(1);
+  });
+
+  test('malformed penalties resolve to the canonical 2 / 2 before affecting stats', () => {
+    const malformed = { ...FRESH, penaltyStrength: Number.NaN, penaltyAgility: Number.POSITIVE_INFINITY } as PlayerInjury;
+    const hurt = calculateTotalStats(bareProfile({ injury: malformed }));
+    expect(hurt.strength).toBe(8);
+    expect(hurt.agility).toBe(8);
   });
 
   test('the penalties flow into the derived pools', () => {
@@ -292,7 +297,7 @@ describe('§G the helper is pure', () => {
   });
 
   test('the banner line is built from the injury’s own numbers', () => {
-    expect(injuryBannerLine(FRESH)).toBe('Injured: −2 STR / −2 AGI for 3 fights');
+    expect(injuryBannerLine(FRESH)).toBe('Injured: −2 STR / −2 AGI for 2 fights');
     expect(injuryBannerLine({ fightsRemaining: 1, penaltyStrength: 3, penaltyAgility: 1 })).toBe(
       'Injured: −3 STR / −1 AGI for 1 fight',
     );
@@ -326,7 +331,7 @@ describe('§H the one call site: the result transaction', () => {
 
   test('the resolution happens before the win/loss branch and feeds both writes', () => {
     expect(write.indexOf('resolveInjuryAfterDuel(profile, didWin)')).toBeLessThan(
-      write.indexOf('if (didWin) {'),
+      write.indexOf('if (didWin && rewardSettlementAccepted) {'),
     );
     // C-8.70C — the grudge record is composed ON TOP of the injury-resolved
     // profile, so both writes now spread `grudgeProfile` (built from
@@ -338,7 +343,8 @@ describe('§H the one call site: the result transaction', () => {
     // writes. The property — the resolution happens before the branch and feeds
     // BOTH writes — is unchanged; the literal moved one step down the chain.
     expect(write.match(/\.\.\.(?:afterOmen|grudgeProfile),/g)?.length).toBe(2);
-    expect(write.match(/clearOmen\(afterInjury\)/g)?.length).toBe(1);
+    expect(write).toContain('const afterOmen = exhibition || (didWin && !rewardSettlementAccepted)');
+    expect(write).toContain(': clearOmen(afterInjury);');
     expect(write.match(/afterOmen/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
@@ -362,6 +368,7 @@ describe('§H the one call site: the result transaction', () => {
     // LUDI PHASE A REBASE, not a weakening: the Acta's settlement composes onto the same
     // profile the awards are then applied to, and the one save still carries everything.
     expect(write).toContain('applyTriumphAwards(ludi.profile, duelTriumphStats)');
+    expect(write).toContain('exhibition || !rewardSettlementAccepted');
     expect(write).toContain('saveProfile(awards.profile)');
     expect(write).not.toContain('saveProfile(afterInjury)');
     expect(write).not.toContain('saveProfile(settledProfile)');
@@ -383,7 +390,7 @@ describe('§H the one call site: the result transaction', () => {
     }
     // PITCH A1 — the payload carries the stats object this write settled (the omen's
     // multipliers applied last), so the screen and the save cannot disagree.
-    expect(resultCall).toContain('stats: resultStats,');
+    expect(resultCall).toContain('stats: displayedStats,');
     expect(resultCall).toContain(
       '...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),',
     );
@@ -397,7 +404,7 @@ describe('§H the one call site: the result transaction', () => {
     expect(MODAL_SOURCE).toContain('Injury healed.');
     expect(MODAL_SOURCE).toContain('data-duel-injury={injuryEvent.kind}');
     expect(STATS_SOURCE).toContain('resolveActiveInjury(profile.injury)');
-    expect(STATS_SOURCE).toContain('data-injury={activeInjury.fightsRemaining}');
+    expect(STATS_SOURCE).toContain('data-injury={injuryStatus.fightsRemaining}');
   });
 
   test('combat formulas are untouched: the helper never reads the stat path', () => {

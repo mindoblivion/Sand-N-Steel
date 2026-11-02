@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * Phase C-8.67B — pure Biga / Triga / Quadra racing-progression helpers.
  *
@@ -195,7 +196,7 @@ export type RacingResult =
  * balance by subtraction.
  */
 function canAfford(profile: PlayerProfile, price: number): boolean {
-  return typeof profile.gold === 'number' && Number.isFinite(profile.gold) && profile.gold >= price;
+  return canDebitGold(profile.gold, price);
 }
 
 /**

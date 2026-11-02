@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * S6 — BAZAAR CONSUMABLES: the counted inventory, the buy and the use.
  *
@@ -124,8 +125,8 @@ export function purchaseConsumable(
   const item = getConsumableById(itemId);
   if (!item) return { ok: false, reason: 'unknown-item' };
 
-  const gold = (profile as ConsumableRecord | null)?.gold;
-  if (typeof gold !== 'number' || !Number.isFinite(gold) || gold < item.price) {
+  const gold = profile.gold;
+  if (!canDebitGold(gold, item.price)) {
     return { ok: false, reason: 'insufficient-gold' };
   }
 

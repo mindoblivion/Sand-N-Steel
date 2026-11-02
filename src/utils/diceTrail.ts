@@ -544,7 +544,7 @@ export function withDiceTrailVictory(
 }
 
 /** A refused answer, with no profile — so it can never be handed to a save writer. */
-export type DiceChoiceRejectionReason = 'not-open' | 'already-answered';
+export type DiceChoiceRejectionReason = 'not-open' | 'already-answered' | 'invalid-balance';
 
 export type DiceChoiceResult =
   | { ok: true; profile: PlayerProfile; choice: DiceChoice }
@@ -574,13 +574,30 @@ export function applyDiceChoice(
     return { ok: false, reason: 'not-open' };
   }
 
-  const gold = typeof profile.gold === 'number' && Number.isFinite(profile.gold) ? profile.gold : 0;
+  let nextGold: number | undefined;
+  if (choice === 'cut') {
+    const currentGold = profile.gold;
+    const creditedGold = currentGold + DICE_CUT_GOLD;
+    // The permanent answer and its payment are one transaction. Refuse the
+    // whole write if the purse is malformed, overflows, or loses the credit
+    // to floating-point precision; the offer remains available for a retry.
+    if (
+      typeof currentGold !== 'number' ||
+      !Number.isFinite(currentGold) ||
+      currentGold < 0 ||
+      !Number.isFinite(creditedGold) ||
+      creditedGold <= currentGold
+    ) {
+      return { ok: false, reason: 'invalid-balance' };
+    }
+    nextGold = creditedGold;
+  }
   return {
     ok: true,
     choice,
     profile: {
       ...profile,
-      ...(choice === 'cut' ? { gold: gold + DICE_CUT_GOLD } : {}),
+      ...(nextGold === undefined ? {} : { gold: nextGold }),
       story: { ...storedStory(profile), diceEnding: choice },
     },
   };

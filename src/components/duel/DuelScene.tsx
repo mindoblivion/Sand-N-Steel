@@ -9,6 +9,7 @@ import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticl
 import { CombatHUD } from '../ui/CombatHUD';
 import { CombatActionType, CombatLogEntry, AttackTarget } from '../ui/TurnActionPanel';
 import { nextCounterWindupStep } from '../../utils/counterWindup';
+import { ATTACK_WINDUP_MS } from '../../utils/attackWindup';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
@@ -841,10 +842,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   }, [player.health, opp.health]);
   // Own the active turn-resolution timer so leaving the duel cannot fire a stale state update.
   const turnResolutionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const executeCombatTurnRef = useRef<((actor: 'player' | 'opponent', actionType: CombatActionType, target: AttackTarget, afterWindup: boolean) => void) | null>(null);
+  const attackWindupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiTurnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cancel an in-flight recovery callback when the arena scene is exited.
   useEffect(() => () => {
+    if (attackWindupTimerRef.current !== null) {
+      clearTimeout(attackWindupTimerRef.current);
+      attackWindupTimerRef.current = null;
+    }
     if (turnResolutionTimerRef.current !== null) {
       clearTimeout(turnResolutionTimerRef.current);
       turnResolutionTimerRef.current = null;
@@ -870,10 +877,15 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         // the result transition so no stale pose reads as a pending strike.
         cancelPlayerStrike: () => setPlayer((prev) => ({ ...prev, action: 'idle' })),
         clearTurnTimer: () => {
+          if (attackWindupTimerRef.current !== null) {
+            clearTimeout(attackWindupTimerRef.current);
+            attackWindupTimerRef.current = null;
+          }
           if (turnResolutionTimerRef.current !== null) {
             clearTimeout(turnResolutionTimerRef.current);
             turnResolutionTimerRef.current = null;
           }
+          setIsExecuting(false);
           if (aiTurnTimerRef.current !== null) {
             clearTimeout(aiTurnTimerRef.current);
             aiTurnTimerRef.current = null;
@@ -1271,11 +1283,37 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // D-2 — which fighter a PLAYER attack is aimed at. The panel only offers
       // 'beast' while the crouch is live; anything else reads as the master.
       target: AttackTarget = 'master',
+      afterWindup = false,
     ) => {
-      if (isExecuting || isMatchOver.current) return;
+      const isActorPlayer = actor === 'player';
+      const isAttackAction = actionType === 'quick_attack' || actionType === 'power_attack';
+      if (isMatchOver.current || (!afterWindup && (isExecuting || attackWindupTimerRef.current !== null))) {
+        return;
+      }
+
+      // The visible strike animation starts now, but no stamina, hit roll or
+      // damage is resolved until its pre-impact tell has completed. The ref
+      // re-enters this same pipeline with an explicit bypass of the busy guard.
+      if (isAttackAction && !afterWindup) {
+        setIsExecuting(true);
+        const action = actionType === 'quick_attack' ? 'attack_light' : 'attack_heavy';
+        if (isActorPlayer) {
+          setPlayer((prev) => ({ ...prev, action }));
+        } else {
+          setOpp((prev) => ({ ...prev, action }));
+        }
+        attackWindupTimerRef.current = setTimeout(() => {
+          attackWindupTimerRef.current = null;
+          if (isMatchOver.current) {
+            setIsExecuting(false);
+            return;
+          }
+          executeCombatTurnRef.current?.(actor, actionType, target, true);
+        }, ATTACK_WINDUP_MS);
+        return;
+      }
 
       setIsExecuting(true);
-      const isActorPlayer = actor === 'player';
 
       // C-8.70C — an OFFENSIVE action is either fighter's quick or power attack;
       // it is the crowd's passive window's only input, and it is stamped at the
@@ -2393,6 +2431,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       commitBrothers,
     ]
   );
+
+  // Keep the latest dispatcher available to the pre-impact timer without
+  // capturing a stale render or creating a self-referential callback dependency.
+  executeCombatTurnRef.current = executeCombatTurn;
 
   // OPPONENT AI TURN STRATEGY ENGINE
   useEffect(() => {
