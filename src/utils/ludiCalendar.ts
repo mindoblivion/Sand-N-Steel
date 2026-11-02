@@ -1,3 +1,4 @@
+import { creditGold } from './goldTransactions';
 /**
  * LUDI PHASE A — THE LUDI CALENDAR: the day's name, the Acta's three deeds, and Favour.
  *
@@ -544,8 +545,17 @@ export function settleLudiDeeds(
 
   const fame = (typeof profile.fame === 'number' && Number.isFinite(profile.fame) ? profile.fame : 0)
     + completed.length * LUDI_DEED_FAME;
-  const gold = (typeof profile.gold === 'number' && Number.isFinite(profile.gold) ? profile.gold : 0)
-    + completed.length * LUDI_DEED_GOLD;
+  let gold = profile.gold;
+  if (completed.length > 0) {
+    const balance = typeof profile.gold === 'number' && Number.isFinite(profile.gold) && profile.gold >= 0
+      ? profile.gold
+      : 0;
+    const credited = creditGold(balance, completed.length * LUDI_DEED_GOLD);
+    // A deed and its gold reward settle together. If a positive reward would
+    // overflow or disappear at this balance, leave the deed available to retry.
+    if (credited === null) return NOTHING(profile);
+    gold = credited;
+  }
 
   let next: PlayerProfile = {
     ...profile,
