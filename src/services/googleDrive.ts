@@ -75,7 +75,7 @@ export async function listDriveSaves(): Promise<DriveSaveFile[]> {
  */
 export async function saveProfileToDrive(
   profile: PlayerProfile,
-  options?: { confirmedReplaceFileId?: string }
+  options?: { confirmedReplaceFileId?: string; confirmedReplaceModifiedTime?: string }
 ): Promise<DriveSaveFile> {
   const token = await getAccessToken();
   if (!token) throw new Error('Not authenticated with Google Drive.');
@@ -87,22 +87,26 @@ export async function saveProfileToDrive(
   // provides the specific file ID the user explicitly confirmed to replace.
   if (existingFile) {
     const confirmedId = options?.confirmedReplaceFileId;
-    if (!confirmedId) {
+    const confirmedModifiedTime = options?.confirmedReplaceModifiedTime;
+    if (!confirmedId || !confirmedModifiedTime) {
       // Ordinary backup discovered an unexpected save — refuse to overwrite.
       throw new DriveApiError(
         'A cloud save already exists on your Google Drive. Refresh your save list and confirm the replacement before backing up.',
         409
       );
     }
-    if (existingFile.id !== confirmedId) {
-      // The save found by the fresh lookup differs from what the user confirmed
-      // (another device may have created or replaced it). Refuse to overwrite.
+    if (
+      existingFile.id !== confirmedId ||
+      existingFile.modifiedTime !== confirmedModifiedTime
+    ) {
+      // The file identity or revision changed since the user reviewed it.
+      // Refuse to overwrite a cloud save that may contain newer progress.
       throw new DriveApiError(
         'A different cloud save was found on your Google Drive since you last refreshed. Refresh your save list and confirm the replacement before backing up.',
         409
       );
     }
-  } else if (options?.confirmedReplaceFileId) {
+  } else if (options?.confirmedReplaceFileId || options?.confirmedReplaceModifiedTime) {
     // The user confirmed replacing a specific file, but the fresh lookup
     // found no matching save. Don't silently create a new file — the user
     // authorized a replacement, not a new save. Raise a conflict so the
