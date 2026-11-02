@@ -29,6 +29,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { aiTurnDelayMs, turnResolutionMs } from '../components/duel/DuelScene';
+import { ATTACK_WINDUP_MS } from './attackWindup';
 import type { CombatActionType } from '../components/ui/TurnActionPanel';
 
 const SRC_DIR = fileURLToPath(new URL('../', import.meta.url));
@@ -341,6 +342,20 @@ describe('CF-5 §C full-fight duration', () => {
 
 // ── §D THE PACING IS PRESENTATION, NOT GAME LOGIC ───────────────────────────
 describe('CF-5 §D the timing seam is the only thing that moved', () => {
+  test('offensive strikes animate before their hit roll and damage resolve', () => {
+    expect(ATTACK_WINDUP_MS).toBe(650);
+    const gate = duel.indexOf('if (isAttackAction && !afterWindup)');
+    const animation = duel.indexOf("const action = actionType === 'quick_attack' ? 'attack_light' : 'attack_heavy';", gate);
+    const schedule = duel.indexOf('attackWindupTimerRef.current = setTimeout', gate);
+    const damage = duel.indexOf('const rawDamage = calculateAttackDamage(', schedule);
+    expect(gate).toBeGreaterThan(-1);
+    expect(animation).toBeGreaterThan(gate);
+    expect(schedule).toBeGreaterThan(animation);
+    expect(damage).toBeGreaterThan(schedule);
+    expect(duel).toContain('executeCombatTurnRef.current?.(actor, actionType, target, true)');
+    expect(duel).toContain('clearTimeout(attackWindupTimerRef.current)');
+  });
+
   test('the resolution timer is scheduled from the table, exactly once', () => {
     // C-8.70C rebased the call (not the seam): the mode is the one new argument,
     // and Sand is its default, so the shipped pacing is unchanged.
