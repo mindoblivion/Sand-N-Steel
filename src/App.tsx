@@ -1440,22 +1440,25 @@ export function App() {
     diceTrailBoutRef.current = false;
     exhibitionBoutRef.current = false;
 
+    const displayedStats: DuelStatistics = didWin && !rewardSettlementAccepted
+      ? { ...stats, goldEarned: 0, fameEarned: 0, xpEarned: 0 }
+      : resultStats;
     setDuelResult({
       didWin,
       // PITCH A1 — the settled numbers (omen multiplier included when it paid), so
       // the result screen and the save cannot disagree.
-      stats: resultStats,
+      stats: displayedStats,
       storyLines,
       injuryEvent,
       injury: afterInjury.injury ?? null,
       ...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),
-      ...(omenSettled.line ? { omenLine: omenSettled.line } : {}),
+      ...(rewardSettlementAccepted && omenSettled.line ? { omenLine: omenSettled.line } : {}),
       // STORY-4a — the offer carries the duel's FINAL fame (post mode / crowd /
       // omen, in C-C's order), which is the basis Finish's R1 rule reads.
       ...(mercy ? { mercy: { ...mercy, finalFame: resultStats.fameEarned } } : {}),
       // STORY-4b — the board's own line for this bout (the clear, the miss, or the
       // final's question), so the result screen and the save cannot disagree.
-      ...(bounty.kind !== 'none'
+      ...(rewardSettlementAccepted && bounty.kind !== 'none'
         ? {
             bounty: {
               kind: bounty.kind,
