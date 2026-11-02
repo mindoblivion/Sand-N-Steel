@@ -26,3 +26,24 @@ export function canDebitGold(balance: unknown, price: unknown): boolean {
     (price === 0 || remainder < balance)
   );
 }
+
+/**
+ * Credit a non-negative gold reward only when the increase is representable.
+ * Returns null for malformed inputs, overflow, or a positive reward erased by
+ * floating-point precision at the current balance.
+ */
+export function creditGold(balance: unknown, amount: unknown): number | null {
+  if (
+    typeof balance !== 'number' ||
+    !Number.isFinite(balance) ||
+    balance < 0 ||
+    typeof amount !== 'number' ||
+    !Number.isFinite(amount) ||
+    amount < 0
+  ) {
+    return null;
+  }
+  if (amount === 0) return balance;
+  const next = balance + amount;
+  return Number.isFinite(next) && next > balance ? next : null;
+}
