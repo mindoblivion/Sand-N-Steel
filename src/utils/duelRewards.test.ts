@@ -19,6 +19,7 @@ import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import {
   calculateDuelGold,
+  creditDuelGold,
   PURSE_FLAWLESS_RATE,
   PURSE_HYPE_FLOOR,
   PURSE_HYPE_STEP,
@@ -143,7 +144,25 @@ describe('§F totals', () => {
   });
 });
 
-describe('§G wiring', () => {
+describe('§G atomic reward credit', () => {
+  test('credits valid duel and bounty awards together', () => {
+    expect(creditDuelGold(100, 35, 20)).toBe(155);
+  });
+  test('refuses malformed balances and awards', () => {
+    for (const balance of [Number.NaN, Number.POSITIVE_INFINITY, -1]) expect(creditDuelGold(balance, 35, 20)).toBe(balance);
+    expect(creditDuelGold(100, Number.NaN, 20)).toBe(100);
+    expect(creditDuelGold(100, 35, Number.POSITIVE_INFINITY)).toBe(100);
+  });
+  test('refuses overflow and positive credits lost to floating-point precision', () => {
+    expect(creditDuelGold(Number.MAX_VALUE, 35, 20)).toBe(Number.MAX_VALUE);
+    expect(creditDuelGold(Number.MAX_VALUE / 2, Number.MAX_VALUE, 0)).toBe(Number.MAX_VALUE / 2);
+  });
+  test('zero rewards leave the balance unchanged', () => {
+    expect(creditDuelGold(100, 0, 0)).toBe(100);
+  });
+});
+
+describe('§H wiring', () => {
   const scene = readFileSync('src/components/duel/DuelScene.tsx', 'utf8');
   const app = readFileSync('src/App.tsx', 'utf8');
   const modal = readFileSync('src/components/hub/DuelResultModal.tsx', 'utf8');
@@ -169,7 +188,7 @@ describe('§G wiring', () => {
     // App saves is the gold it credits.
     // STORY-4b — the duel's own purse is credited exactly as it was; a cleared
     // bounty posting adds its bounty beside it in the same write.
-    expect(app).toContain('const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;');
+    expect(app).toContain('const nextGold = creditDuelGold(profile.gold, resultStats.goldEarned, bounty.gold);');
     expect(app).toContain('const resultStats: DuelStatistics = omenSettled.paid');
     expect(app).toContain('gold: nextGold');
     expect(app).toContain('goldTotal={profile?.gold}');
