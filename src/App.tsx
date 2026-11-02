@@ -10,6 +10,7 @@ import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
+import { creditDuelGold } from './utils/duelRewards';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 import { purchaseLaurel, selectDisplayedTitle, type LaurelResult } from './utils/laurels';
 // A8 — TRIUMPHS: the retained deeds. The evaluator is pure and the ONE shipped
@@ -1179,7 +1180,7 @@ export function App() {
       // STORY-4b — a CLEARED posting pays its full bounty in this same write; a
       // victory that missed the printed rule adds nothing (the duel's own purse
       // above is already the standard one).
-      const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;
+      const nextGold = creditDuelGold(profile.gold, resultStats.goldEarned, bounty.gold);
       const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;
       const nextXp = profile.xp + stats.xpEarned;
 
