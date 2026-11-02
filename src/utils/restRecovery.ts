@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * L9 — the Arena Medical House's one-rest-per-day transaction.
  *
@@ -71,7 +72,7 @@ export function getRestEligibility(
   if (!profile) return { ok: false, reason: 'no-profile', cost, day };
   if (isRestSpentToday(profile)) return { ok: false, reason: 'already-rested', cost, day };
   if (!normalizeInjury(profile.injury)) return { ok: false, reason: 'no-injury', cost, day };
-  if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < cost) {
+  if (!canDebitGold(profile.gold, cost)) {
     return { ok: false, reason: 'insufficient-gold', cost, day };
   }
   return { ok: true, cost, day };
