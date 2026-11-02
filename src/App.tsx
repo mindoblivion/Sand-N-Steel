@@ -1537,6 +1537,10 @@ export function App() {
 
     // A8 — the bounty pays gold, so the peak-gold updater rides this write.
     const outcome = applyDeserterChoice(profile, choice);
+    if (outcome.rejected) {
+      deserterWrittenRef.current = false;
+      return;
+    }
     const settled = withPeakGold(outcome.profile);
     if (settled !== profile) {
       setProfile(settled);
