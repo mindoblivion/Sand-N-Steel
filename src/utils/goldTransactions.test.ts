@@ -1,6 +1,6 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, expect, test } from 'bun:test';
-import { canDebitGold } from './goldTransactions';
+import { canDebitGold, creditGold } from './goldTransactions';
 
 describe('shared gold debit validation', () => {
   test('allows exact, partial, and zero-cost debits', () => {
