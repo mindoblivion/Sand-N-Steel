@@ -225,7 +225,7 @@ describe('§I explicit duel gold settlement outcome', () => {
     expect(settleDuelGold(100, 0, Number.POSITIVE_INFINITY)).toEqual({ ok: false, reason: 'invalid-award' });
   });
   test('rejects overflow and positive credits lost to precision', () => {
-    expect(settleDuelGold(Number.MAX_VALUE, 1, 0)).toEqual({ ok: false, reason: 'overflow' });
+    expect(settleDuelGold(Number.MAX_VALUE, 1, 0)).toEqual({ ok: false, reason: 'precision-loss' });
     expect(settleDuelGold(Number.MAX_VALUE / 2, Number.MAX_VALUE, 0)).toEqual({ ok: false, reason: 'overflow' });
     expect(settleDuelGold(2 ** 53, 1, 0)).toEqual({ ok: false, reason: 'precision-loss' });
   });
