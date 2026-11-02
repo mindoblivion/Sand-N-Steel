@@ -10,7 +10,7 @@ import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
-import { creditDuelGold } from './utils/duelRewards';
+import { settleDuelGold } from './utils/duelRewards';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 import { purchaseLaurel, selectDisplayedTitle, type LaurelResult } from './utils/laurels';
 // A8 — TRIUMPHS: the retained deeds. The evaluator is pure and the ONE shipped
@@ -1155,7 +1155,7 @@ export function App() {
           fame: stats.fameEarned,
           gold: stats.goldEarned,
         });
-    const afterOmen = exhibition ? afterInjury : clearOmen(afterInjury);
+    // Omen consumption is deferred until the complete reward settlement is accepted.
     const resultStats: DuelStatistics = omenSettled.paid
       ? { ...stats, fameEarned: omenSettled.fame, goldEarned: omenSettled.gold }
       : stats;
@@ -1174,13 +1174,23 @@ export function App() {
     /** CH-5 — what this victory unlocked, decided at the write and told to the result. */
     let palmaEarned: string[] | undefined;
 
+    // Decide whether the gold leg can be represented before any victory reward
+    // progression is applied. A refusal is not a combat defeat.
+    const goldSettlement = didWin
+      ? settleDuelGold(profile.gold, resultStats.goldEarned, bounty.gold)
+      : null;
+    const rewardSettlementAccepted = !didWin || goldSettlement?.ok === true;
+    const afterOmen = exhibition || (didWin && !rewardSettlementAccepted)
+      ? afterInjury
+      : clearOmen(afterInjury);
+
     let settledProfile: PlayerProfile;
 
-    if (didWin) {
+    if (didWin && rewardSettlementAccepted) {
       // STORY-4b — a CLEARED posting pays its full bounty in this same write; a
       // victory that missed the printed rule adds nothing (the duel's own purse
       // above is already the standard one).
-      const nextGold = creditDuelGold(profile.gold, resultStats.goldEarned, bounty.gold);
+      const nextGold = goldSettlement!.balance;
       const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;
       const nextXp = profile.xp + stats.xpEarned;
 
@@ -1291,21 +1301,26 @@ export function App() {
       if (bounty.clearedRungId) {
         settledProfile = withRungCleared(settledProfile, bounty.clearedRungId);
       }
-    } else {
-      // C-8.70C — a lost GRUDGE closes: it stays shut until the player wins any
-      // standard bout at that grudge's own tier (the anti-farm rule). Nothing
-      // else about a defeat changes.
+    } else if (!didWin) {
+      // A genuine defeat follows the ordinary loss path.
       const grudgeProfile = isGrudgeBout(activeOpponent)
         ? closeGrudge(afterOmen, activeOpponent)
         : afterOmen;
       const updatedProfile: PlayerProfile = {
         ...grudgeProfile,
-        // STORY-5b — R4: a defeat in an exhibition costs the injury the duel gave
-        // and the duel's one time advance, and is entered in no ledger.
         fightsLost: exhibition ? profile.fightsLost : profile.fightsLost + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
       settledProfile = evaluateRituals(profile, updatedProfile);
+    } else {
+      // The fight was won, but its reward transaction was refused. Preserve
+      // combat history, injury, and crowd record without granting progression.
+      settledProfile = {
+        ...afterInjury,
+        fightsWon: exhibition ? profile.fightsWon : profile.fightsWon + 1,
+        peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
+      };
+      storyLines.push('Victory recorded; rewards withheld because the purse could not be settled safely.');
     }
 
     /**
@@ -1317,7 +1332,7 @@ export function App() {
      * nothing.
      */
     const echoBout = activeOpponent.id === LEGEND_ECHO_BOUT.opponentId;
-    const echoOwed = didWin && echoBout && echoRevealOwed(profile);
+    const echoOwed = didWin && rewardSettlementAccepted && echoBout && echoRevealOwed(profile);
     if (echoOwed) {
       settledProfile = withEchoWon(settledProfile);
       storyLines.push(ECHO_FIRST_VICTORY_LINE);
@@ -1366,7 +1381,7 @@ export function App() {
      * a row the board has moved past all write nothing.
      */
     const trailProfile =
-      diceTrailBoutRef.current && didWin
+      diceTrailBoutRef.current && didWin && rewardSettlementAccepted
         ? withDiceTrailVictory(timedProfile, activeOpponent.id)
         : timedProfile;
     /**
@@ -1378,15 +1393,15 @@ export function App() {
      * transaction, and the ids it records make a repeat call pay nothing. An exhibition is
      * still a bout the Acta counts — it is a victory on the sand like any other.
      */
-    const ludi: LudiSettlement = settleLudiDeeds(trailProfile, {
+    const ludi: LudiSettlement = rewardSettlementAccepted ? settleLudiDeeds(trailProfile, {
       won: didWin,
       crowdHypePeak: resultStats.crowdHypePeak,
       atDuelResult: true,
-    });
+    }) : { profile: trailProfile, earned: [], laurelEarned: false } as LudiSettlement;
     // STORY-5b — R4: an exhibition is judged by no herald, so no triumph is
     // evaluated for it and no praise is raised. The profile written is the same
     // one this transaction composed; nothing is skipped but the evaluation.
-    const awards: TriumphAwardOutcome = exhibition
+    const awards: TriumphAwardOutcome = exhibition || !rewardSettlementAccepted
       ? { profile: ludi.profile, earned: [], titles: [] }
       : applyTriumphAwards(ludi.profile, duelTriumphStats);
     setProfile(awards.profile);
@@ -1417,7 +1432,7 @@ export function App() {
     // STORY-5b — R4: an exhibition is not in the arena's book either, so
     // STORY-4a's Spare/Finish is never offered on one — the same fence the
     // trail's bouts use (`mercyOfferForDuel` answers null for a staged bout).
-    const mercy = mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition);
+    const mercy = rewardSettlementAccepted ? mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition) : null;
     mercyWrittenRef.current = null;
     deserterWrittenRef.current = false;
     // The entrance flag is consumed by this result: it can never leak onto a
