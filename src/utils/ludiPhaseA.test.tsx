@@ -363,6 +363,18 @@ describe('LUDI C §C — deed completion inside the shipped save paths', () => {
     expect(again.profile.fame).toBe(LUDI_DEED_FAME);
   });
 
+  test('a deed remains available when its positive gold reward cannot be represented', () => {
+    const start = onDay(DAY_WITH.winDuelOnly, {
+      fame: 0,
+      gold: Number.MAX_VALUE,
+      ludi: ludi({ day: DAY_WITH.winDuelOnly, fameBaseline: 900 }),
+    });
+    const refused = settleLudiDeeds(start, { won: true, atDuelResult: true });
+    expect(refused.profile).toBe(start);
+    expect(refused.completed).toEqual([]);
+    expect(resolveLudiProgress(start).deedsDone).toEqual([]);
+  });
+
   test('the peak-hype deed needs a WIN above 40 hype — 40 exactly is not enough', () => {
     const withHype = (peak: number) =>
       settleLudiDeeds(
