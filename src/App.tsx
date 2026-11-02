@@ -4,8 +4,8 @@ import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, C
 import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
 import type { StoredProfileSummary } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
-import { CharacterCreation } from './components/hub/CharacterCreation';
-import { NewCharacterOverwriteModal } from './components/hub/NewCharacterOverwriteModal';
+
+
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
 import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
 import type { GearView } from './components/hub/GearTab';
@@ -49,11 +49,11 @@ const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m
 // city hub and the duel arena are: one more screen value, one more lazy import
 // and one more conditional render. No router and no second scene manager.
 const RaceScene = React.lazy(() => import('./components/3d/RaceScene').then((m) => ({ default: m.RaceScene })));
-import { DuelResultModal } from './components/hub/DuelResultModal';
+
 import { HeraldToast } from './components/hub/HeraldToast';
 // STORY-3 — the herald's circus pointer while Chapter 2's race gate is unmet.
 import { circusPointerCry } from './utils/storyChapterTwo';
-import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
+
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
 // STORY-4a — MERCY OR GLORY (Pitch A9, duel form only).  The offer is decided at
 // the duel's own write; the answer writes exactly once, through this file's normal
@@ -78,8 +78,8 @@ import {
   type DiceChoice,
 } from './utils/diceTrail';
 import type { BannerDevice } from './utils/heraldry';
-import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
-import { SettingsModal } from './components/hub/SettingsModal';
+
+
 import type { SettingsCategory, SettingsContext } from './components/hub/SettingsModal';
 import { useSettings } from './hooks/useSettings';
 import { resolveMotionAttribute, updateSettings } from './services/settings';
@@ -88,7 +88,7 @@ import { WaitSurface } from './components/ui/WaitSurface';
 import { LazySceneBoundary } from './components/ui/LazySceneBoundary';
 import { OfflineNotice } from './components/ui/GameFailureSurface';
 import { PostOathNudge, usePostOathNudge } from './components/hub/PostOathNudge';
-import { OathBeat } from './components/hub/OathBeat';
+
 import {
   OATH_YARD_SPAWN,
   oathWriteOnCompletion,
@@ -109,7 +109,7 @@ import {
 } from './utils/cityHerald';
 import { googleSignIn, subscribeAuthUser } from './services/googleAuth';
 import type { User } from 'firebase/auth';
-import { DeleteAccountModal } from './components/hub/DeleteAccountModal';
+
 import { facebookSignIn } from './services/facebookAuth';
 import { appleSignIn } from './services/appleAuth';
 import { microsoftSignIn } from './services/microsoftAuth';
@@ -203,7 +203,7 @@ import {
   withFragmentFound,
   withLibrarianChainClosed,
 } from './utils/librarianChain';
-import { DayBanner } from './components/ui/DayBanner';
+
 // FIRST SIXTY SECONDS (§5, retention build-order step 4: CORE ONLY) — the session's
 // opening beat and its two one-line surfaces. Sequencing only: it reads the systems
 // sections 2–4 already shipped and writes nothing.
@@ -233,6 +233,16 @@ interface CityExitPose {
   position: [number, number, number];
   rotationY: number;
 }
+
+const CharacterCreation = React.lazy(() => import('./components/hub/CharacterCreation').then((module) => ({ default: module.CharacterCreation })));
+const NewCharacterOverwriteModal = React.lazy(() => import('./components/hub/NewCharacterOverwriteModal').then((module) => ({ default: module.NewCharacterOverwriteModal })));
+const DuelResultModal = React.lazy(() => import('./components/hub/DuelResultModal').then((module) => ({ default: module.DuelResultModal })));
+const DeviceChoosingPanel = React.lazy(() => import('./components/hub/DeviceChoosingPanel').then((module) => ({ default: module.DeviceChoosingPanel })));
+const GoogleDriveSyncModal = React.lazy(() => import('./components/hub/GoogleDriveSyncModal').then((module) => ({ default: module.GoogleDriveSyncModal })));
+const SettingsModal = React.lazy(() => import('./components/hub/SettingsModal').then((module) => ({ default: module.SettingsModal })));
+const DeleteAccountModal = React.lazy(() => import('./components/hub/DeleteAccountModal').then((module) => ({ default: module.DeleteAccountModal })));
+const OathBeat = React.lazy(() => import('./components/hub/OathBeat').then((module) => ({ default: module.OathBeat })));
+const DayBanner = React.lazy(() => import('./components/ui/DayBanner').then((module) => ({ default: module.DayBanner })));
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
@@ -2062,6 +2072,7 @@ export function App() {
         )}
 
         {currentScreen === 'create_character' && (
+          <React.Suspense fallback={<div className="w-full h-full min-h-[100dvh] bg-neutral-950" aria-busy="true" />}>
             <CharacterCreation
             onComplete={handleCharacterCreated}
             onCancel={() => setCurrentScreen('title')}
@@ -2069,6 +2080,7 @@ export function App() {
             isGoogleLoading={isGoogleLoading}
             onOpenSettings={() => handleOpenSettings()}
             />
+          </React.Suspense>
         )}
 
         {currentScreen === 'city_3d' && profile && (
@@ -2122,18 +2134,24 @@ export function App() {
               Doctore's framing line, the four lines each in Latin with its gloss, and the
               closing vow. It owns the screen while it is up (the city reads no controls),
               so a new gladiator's arrival is the beat and never free roam. */}
-          {oathBeatMode && <OathBeat mode={oathBeatMode} onComplete={handleOathComplete} />}
+          {oathBeatMode && (
+            <React.Suspense fallback={<div className="fixed inset-0 z-[80] bg-neutral-950/95" aria-busy="true" />}>
+              <OathBeat mode={oathBeatMode} onComplete={handleOathComplete} />
+            </React.Suspense>
+        )}
 
           {/* DAY/NIGHT T2 — the day-boundary beat: a 600 ms sleep veil and the new day's
               name. It is only ever drawn over the city, so a rollover earned in the arena
               plays when the player walks back in. */}
           {dayBanner && (
-            <DayBanner
+            <React.Suspense fallback={null}>
+              <DayBanner
               key={dayBanner.day}
               day={dayBanner.day}
               text={dayBanner.text}
               onDone={() => setDayBanner(null)}
-            />
+              />
+            </React.Suspense>
           )}
 
           {/* FIRST SIXTY SECONDS — THE SESSION'S OPENING BEAT (§5, item 1). The same
@@ -2245,6 +2263,7 @@ export function App() {
 
         {/* DUEL RESULT MODAL */}
         {duelResult && (
+          <React.Suspense fallback={<div className="fixed inset-0 z-[80] bg-neutral-950/95" aria-busy="true" />}>
             <DuelResultModal
             didWin={duelResult.didWin}
             opponent={activeOpponent}
@@ -2276,12 +2295,14 @@ export function App() {
             onCoachCardDismiss={handleMarkCardSeen}
             onContinue={handleDuelResultDismiss}
             />
+          </React.Suspense>
         )}
 
         {/* SAVE-SAFETY — the New Character overwrite confirmation.  It sits above every
             screen and holds the flow until the player decides; nothing is erased, and
             the stored profile is only replaced when a new creation completes. */}
         {overwriteConfirm && (
+          <React.Suspense fallback={null}>
             <NewCharacterOverwriteModal
             existing={overwriteConfirm}
             onCancel={() => setOverwriteConfirm(null)}
@@ -2290,6 +2311,7 @@ export function App() {
               setCurrentScreen('create_character');
             }}
             />
+          </React.Suspense>
         )}
 
         {/* RG-3 — THE HERALD, and the one-time device choice. Both sit above every screen:
@@ -2306,14 +2328,18 @@ export function App() {
           }}
         />
         {deviceChoiceOpen && profile && (
+          <React.Suspense fallback={null}>
             <DeviceChoosingPanel
             onChoose={handleChooseBannerDevice}
             onDismiss={() => setDeviceChoiceOpen(false)}
             />
+          </React.Suspense>
         )}
 
         {/* GAME SETTINGS MODAL — one panel, five sections, every wired row live */}
-        <SettingsModal
+        {settingsOpen && (
+          <React.Suspense fallback={null}>
+            <SettingsModal
             isOpen={settingsOpen}
             onClose={() => setSettingsOpen(false)}
             initialCategory={settingsCategory}
@@ -2326,11 +2352,14 @@ export function App() {
             onResetSave={handleResetGame}
             onDeleteAccount={authUser ? () => setDeleteAccountOpen(true) : undefined}
             onEraseDeviceData={authUser ? undefined : handleResetGame}
-        />
+            />
+          </React.Suspense>
+        )}
 
         {/* ACCOUNT DELETION — the confirmation flow the settings panel opens.  It sits
             above the panel, so cancelling returns to Settings. */}
         {deleteAccountOpen && authUser && (
+          <React.Suspense fallback={null}>
             <DeleteAccountModal
             isOpen={deleteAccountOpen}
             user={{
@@ -2346,10 +2375,12 @@ export function App() {
               handleResetGame();
             }}
             />
+          </React.Suspense>
         )}
 
         {/* GOOGLE DRIVE CLOUD SYNC MODAL */}
         {showDriveSync && (
+          <React.Suspense fallback={null}>
             <GoogleDriveSyncModal
             currentProfile={profile}
             onProfileLoaded={(loadedProfile) => {
@@ -2360,6 +2391,7 @@ export function App() {
             }}
             onClose={() => setShowDriveSync(false)}
             />
+          </React.Suspense>
         )}
     </div>
   );
