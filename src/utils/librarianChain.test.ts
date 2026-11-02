@@ -525,7 +525,7 @@ describe('STORY-5b §D — the echo bout, gated by three fragments and nothing e
     // already composes, and tells the result screen the one line.
     const app = code('App.tsx');
     expect(app).toContain('const echoBout = activeOpponent.id === LEGEND_ECHO_BOUT.opponentId;');
-    expect(app).toContain('const echoOwed = didWin && echoBout && echoRevealOwed(profile);');
+    expect(app).toContain('const echoOwed = didWin && rewardSettlementAccepted && echoBout && echoRevealOwed(profile);');
     // The win is composed onto the profile this transaction already writes, so the
     // echo's flag and the victory land in ONE save.
     expect(app).toContain('settledProfile = withEchoWon(settledProfile);');
@@ -593,7 +593,7 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
     // A no-op settlement: the omen neither pays nor expires on an exhibition.
     expect(result).toContain('const omenSettled: OmenSettlement = exhibition');
     expect(result).toContain('{ fame: 0, gold: 0, fameBonus: 0, goldBonus: 0, paid: false, line: null }');
-    expect(result).toContain('const afterOmen = exhibition ? afterInjury : clearOmen(afterInjury);');
+    expect(result).toContain('const afterOmen = exhibition || (didWin && !rewardSettlementAccepted)');
     expect(result).toContain('const bounty: BountyVictory = exhibition');
     expect(result).toContain("{ kind: 'none', clearedRungId: null, gold: 0, fame: 0, line: '' }");
   });
@@ -612,7 +612,7 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
   });
 
   test('KEPT on a win: the purse, the level, the peak and the one write', () => {
-    expect(result).toContain('const nextGold = creditDuelGold(profile.gold, resultStats.goldEarned, bounty.gold);');
+    expect(result).toContain('const nextGold = goldSettlement?.ok ? goldSettlement.balance : profile.gold;');
     expect(result).toContain('const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;');
     expect(result).toContain('const nextXp = profile.xp + stats.xpEarned;');
     expect(result).toContain('peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),');
