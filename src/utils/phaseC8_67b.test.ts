@@ -795,7 +795,11 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
   test('the cloud path serializes the whole profile — no field whitelist', () => {
     // The upload body's own expression, read out of the shipped service…
     expect(DRIVE).toContain('const fileContent = JSON.stringify(profile, null, 2);');
-    expect(DRIVE).toContain('const profile: PlayerProfile = await response.json();');
+    // Downloaded cloud JSON must pass the same structural gate as local saves
+    // before it can be returned to App and written over the current profile.
+    expect(DRIVE).toContain('const profile: unknown = await response.json();');
+    expect(DRIVE).toContain('if (!isValidStoredProfile(profile))');
+    expect(DRIVE).toContain('Your current local progress was not changed.');
     // …and the import path hands that profile straight to the existing save.
     expect(APP).toContain('saveProfile(loadedProfile);');
     expect(String(STORAGE.match(/JSON\.parse\(raw\)/) !== null)).toBe('true');
