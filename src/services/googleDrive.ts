@@ -1,4 +1,5 @@
 import { PlayerProfile } from '../types/game';
+import { isValidStoredProfile } from './storage';
 import { getAccessToken } from './googleAuth';
 
 export interface DriveSaveFile {
@@ -196,7 +197,13 @@ export async function loadProfileFromDrive(fileId: string): Promise<PlayerProfil
     throw new DriveApiError(`Failed to download save from Google Drive: ${errText}`, response.status);
   }
 
-  const profile: PlayerProfile = await response.json();
+  const profile: unknown = await response.json();
+  if (!isValidStoredProfile(profile)) {
+    throw new DriveApiError(
+      'The selected Google Drive file is not a valid Sand & Steel save. Your current local progress was not changed.',
+      422
+    );
+  }
   return profile;
 }
 
