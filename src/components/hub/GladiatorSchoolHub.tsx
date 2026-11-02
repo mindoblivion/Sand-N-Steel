@@ -2,12 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from '../../types/game';
 import type { GearView } from './GearTab';
 import type { LibraryPageId } from './LibraryTab';
-const TournamentTab = React.lazy(() => import('./TournamentTab').then((module) => ({ default: module.TournamentTab })));
-const TrainingTab = React.lazy(() => import('./TrainingTab').then((module) => ({ default: module.TrainingTab })));
-const ShopTab = React.lazy(() => import('./ShopTab').then((module) => ({ default: module.ShopTab })));
-const GearTab = React.lazy(() => import('./GearTab').then((module) => ({ default: module.GearTab })));
-const StatsTab = React.lazy(() => import('./StatsTab').then((module) => ({ default: module.StatsTab })));
-const LibraryTab = React.lazy(() => import('./LibraryTab').then((module) => ({ default: module.LibraryTab })));
 import { BannerRow } from './BannerRow';
 import type { StorefrontId } from '../../data/shops';
 import type { ConsumableItem } from '../../data/consumables';
@@ -23,7 +17,6 @@ import {
   isNoviceBoutOpponent,
   type DoctoreTestRestriction,
 } from '../../utils/storyBeats';
-const HelpModal = React.lazy(() => import('./HelpModal').then((module) => ({ default: module.HelpModal })));
 import { CoachCard } from '../ui/CoachCard';
 import { HUB_FIRST_OPEN_CARD_ID, getCoachCard, hasSeenCard } from '../../utils/coachMarks';
 import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
@@ -34,6 +27,14 @@ import { resolveOmen } from '../../utils/omens';
 // STORY-3 — Chapter 2's Beat 3: Postumia's briefing on the tournament final, and
 // the herald's circus pointer while the chapter's District race gate is unmet.
 import { FORTUNA_SHRINE_BRIEFING, isFortunaBriefingDue } from '../../utils/storyChapterTwo';
+
+const TournamentTab = React.lazy(() => import('./TournamentTab').then((module) => ({ default: module.TournamentTab })));
+const TrainingTab = React.lazy(() => import('./TrainingTab').then((module) => ({ default: module.TrainingTab })));
+const ShopTab = React.lazy(() => import('./ShopTab').then((module) => ({ default: module.ShopTab })));
+const GearTab = React.lazy(() => import('./GearTab').then((module) => ({ default: module.GearTab })));
+const StatsTab = React.lazy(() => import('./StatsTab').then((module) => ({ default: module.StatsTab })));
+const LibraryTab = React.lazy(() => import('./LibraryTab').then((module) => ({ default: module.LibraryTab })));
+const HelpModal = React.lazy(() => import('./HelpModal').then((module) => ({ default: module.HelpModal })));
 
 interface GladiatorSchoolHubProps {
   playerProfile: PlayerProfile;
