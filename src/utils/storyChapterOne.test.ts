@@ -288,9 +288,9 @@ describe('P4 — the Doctore reads the first attempt, win or lose', () => {
     // PITCH A1 — the payload carries the stats object the write SETTLED (the omen's
     // multipliers applied last), so the screen and the save agree. Rebasing the
     // literal from `stats` to `stats: resultStats` strengthens what is pinned.
-    expect(resultCall).toContain('stats: resultStats,');
+    expect(resultCall).toContain('stats: displayedStats,');
     expect(resultCall).toContain(
-      '...(omenSettled.line ? { omenLine: omenSettled.line } : {}),',
+      '...(rewardSettlementAccepted && omenSettled.line ? { omenLine: omenSettled.line } : {}),',
     );
     expect(resultCall).toContain(
       '...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),',
@@ -303,7 +303,7 @@ describe('P4 — the Doctore reads the first attempt, win or lose', () => {
       code.indexOf('const handleMatchComplete'),
       code.indexOf('const handleDuelResultDismiss')
     );
-    const loseBranch = write.slice(write.lastIndexOf('} else {'));
+    const loseBranch = write.slice(write.indexOf('} else if (!didWin) {'));
     // STORY-5b REBASE, not a weakening: the counter is written only for a bout in
     // the city's book, so the literal is the fenced arm. The property this pins —
     // a loss records the loss and nothing else — is unchanged.
