@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * S4 — INJURIES HAPPEN (disease before cures).
  *
@@ -152,7 +153,7 @@ export function getTreatmentEligibility(
 
   const price = treatmentPrice(service);
   const gold = profile.gold;
-  if (typeof gold !== 'number' || !Number.isFinite(gold) || gold < price) {
+  if (!canDebitGold(gold, price)) {
     return { ok: false, reason: 'insufficient-gold' };
   }
   return { ok: true, price };
