@@ -44,6 +44,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [savesLoaded, setSavesLoaded] = useState(false);
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const [restoreConfirmId, setRestoreConfirmId] = useState<string | null>(null);
   const signOutRef = useRef(false);
 
   useEffect(() => {
@@ -216,6 +217,13 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
       return;
     }
     await performBackup(canonicalSave);
+  };
+
+  const handleConfirmRestore = async () => {
+    const fileId = restoreConfirmId;
+    if (!fileId) return;
+    setRestoreConfirmId(null);
+    await handleLoadFromDrive(fileId);
   };
 
   const handleLoadFromDrive = async (fileId: string) => {
@@ -421,7 +429,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
 
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => handleLoadFromDrive(file.id)}
+                          onClick={() => setRestoreConfirmId(file.id)}
                           disabled={isLoading}
                           className="min-h-[48px] px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 font-serif font-bold text-xs uppercase cursor-pointer flex items-center gap-1 active:scale-95"
                           title="Restore this save"
@@ -476,6 +484,39 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
                   className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 text-xs font-bold font-serif cursor-pointer active:scale-95"
                 >
                   Replace Cloud Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RESTORE CONFIRMATION DIALOG */}
+        {restoreConfirmId && (
+          <div className="fixed inset-0 bg-neutral-950/90 z-50 flex items-center justify-center p-4">
+            <div className="bg-neutral-900 border-2 border-amber-500 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
+              <div className="w-12 h-12 rounded-full bg-amber-900/50 border border-amber-500 flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle className="w-6 h-6 text-amber-400" />
+              </div>
+              <h4 className="font-serif font-bold text-base text-amber-300 uppercase mb-2">
+                Replace Local Progress?
+              </h4>
+              <p className="text-xs text-neutral-300 mb-5">
+                {`The cloud save ${saves.find((save) => save.id === restoreConfirmId)?.profilePreview?.name || saves.find((save) => save.id === restoreConfirmId)?.name || 'selected'} will replace the game progress currently on this device. This cannot be undone from here. Only continue if this is the save you want to restore.`}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setRestoreConfirmId(null)}
+                  disabled={isLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-neutral-300 text-xs font-bold font-serif cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmRestore}
+                  disabled={isLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 text-xs font-bold font-serif cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  Replace Local Save
                 </button>
               </div>
             </div>
