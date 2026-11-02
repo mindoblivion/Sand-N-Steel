@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from '../../types/game';
-import { TournamentTab } from './TournamentTab';
-import { TrainingTab } from './TrainingTab';
-import { ShopTab } from './ShopTab';
-import { GearView, GearTab } from './GearTab';
-import { StatsTab } from './StatsTab';
-import { LibraryTab, type LibraryPageId } from './LibraryTab';
+const TournamentTab = React.lazy(() => import('./TournamentTab').then((module) => ({ default: module.TournamentTab })));
+const TrainingTab = React.lazy(() => import('./TrainingTab').then((module) => ({ default: module.TrainingTab })));
+const ShopTab = React.lazy(() => import('./ShopTab').then((module) => ({ default: module.ShopTab })));
+import type { GearView } from './GearTab';
+const GearTab = React.lazy(() => import('./GearTab').then((module) => ({ default: module.GearTab })));
+const StatsTab = React.lazy(() => import('./StatsTab').then((module) => ({ default: module.StatsTab })));
+import type { LibraryPageId } from './LibraryTab';
+const LibraryTab = React.lazy(() => import('./LibraryTab').then((module) => ({ default: module.LibraryTab })));
 import { BannerRow } from './BannerRow';
 import type { StorefrontId } from '../../data/shops';
 import type { ConsumableItem } from '../../data/consumables';
@@ -21,7 +23,7 @@ import {
   isNoviceBoutOpponent,
   type DoctoreTestRestriction,
 } from '../../utils/storyBeats';
-import { HelpModal } from './HelpModal';
+const HelpModal = React.lazy(() => import('./HelpModal').then((module) => ({ default: module.HelpModal })));
 import { CoachCard } from '../ui/CoachCard';
 import { HUB_FIRST_OPEN_CARD_ID, getCoachCard, hasSeenCard } from '../../utils/coachMarks';
 import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
@@ -341,6 +343,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
 
       {/* MAIN TAB CONTENT */}
       <main className="flex-1 p-4 sm:p-8">
+        <React.Suspense fallback={<div className="min-h-[12rem]" aria-busy="true" />}>
         {/* P6 — the ludus's three buildings, above every tab: their levels gate
             tempering, the stable's ladders and the forge's stock. */}
         <FacilitiesPanel profile={playerProfile} onBuyFacility={onBuyFacility} />
@@ -413,6 +416,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onViewCodex={onViewCodex}
           />
         )}
+        </React.Suspense>
       </main>
 
       {/* PRE-FIGHT MODAL */}
@@ -453,12 +457,14 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
 
       {/* HELP MODAL */}
       {showHelp && (
-        <HelpModal
+        <React.Suspense fallback={null}>
+          <HelpModal
           onClose={() => {
             setShowHelp(false);
             setHelpMarked(false);
           }}
-        />
+          />
+        </React.Suspense>
       )}
 
       {/* CL-2 — the first-open coach card.  Non-modal: the camp underneath stays usable. */}
