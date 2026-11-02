@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from '../../types/game';
+import type { GearView } from './GearTab';
+import type { LibraryPageId } from './LibraryTab';
 const TournamentTab = React.lazy(() => import('./TournamentTab').then((module) => ({ default: module.TournamentTab })));
 const TrainingTab = React.lazy(() => import('./TrainingTab').then((module) => ({ default: module.TrainingTab })));
 const ShopTab = React.lazy(() => import('./ShopTab').then((module) => ({ default: module.ShopTab })));
-import type { GearView } from './GearTab';
 const GearTab = React.lazy(() => import('./GearTab').then((module) => ({ default: module.GearTab })));
 const StatsTab = React.lazy(() => import('./StatsTab').then((module) => ({ default: module.StatsTab })));
-import type { LibraryPageId } from './LibraryTab';
 const LibraryTab = React.lazy(() => import('./LibraryTab').then((module) => ({ default: module.LibraryTab })));
 import { BannerRow } from './BannerRow';
 import type { StorefrontId } from '../../data/shops';
@@ -343,10 +343,9 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
 
       {/* MAIN TAB CONTENT */}
       <main className="flex-1 p-4 sm:p-8">
-        <React.Suspense fallback={<div className="min-h-[12rem]" aria-busy="true" />}>
-        {/* P6 — the ludus's three buildings, above every tab: their levels gate
-            tempering, the stable's ladders and the forge's stock. */}
+        {/* P6 — the facilities remain immediately available above every tab. */}
         <FacilitiesPanel profile={playerProfile} onBuyFacility={onBuyFacility} />
+        <React.Suspense fallback={<div className="min-h-[12rem]" aria-busy="true" />}>
         {activeTab === 'tournament' && (
           <TournamentTab
             profile={playerProfile}
@@ -459,10 +458,10 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
       {showHelp && (
         <React.Suspense fallback={null}>
           <HelpModal
-          onClose={() => {
-            setShowHelp(false);
-            setHelpMarked(false);
-          }}
+            onClose={() => {
+              setShowHelp(false);
+              setHelpMarked(false);
+            }}
           />
         </React.Suspense>
       )}
