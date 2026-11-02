@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * Living City L12/L16B — the one visitor trade transaction.
  *
@@ -96,7 +97,7 @@ function purchaseVisitorPart(
 
   const loadout = resolveChariotLoadout(profile);
   if (loadout.owned.includes(partId)) return { ok: false, reason: 'already-owned' };
-  if (gold < price) return { ok: false, reason: 'insufficient-gold' };
+  if (!canDebitGold(gold, price)) return { ok: false, reason: 'insufficient-gold' };
 
   const chariot: ChariotLoadout = {
     owned: [...loadout.owned, part.id],
