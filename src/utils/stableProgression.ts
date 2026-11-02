@@ -1,5 +1,4 @@
 import { canDebitGold } from './goldTransactions';
-import { canDebitGold } from './goldTransactions';
 /**
  * P4 — STABLE PROGRESSION: the horse team's bought QUALITY and CONDITIONING.
  *
