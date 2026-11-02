@@ -327,7 +327,7 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     expect(REST).toContain('setProfile(settled);');
     expect(REST).toContain('saveProfile(settled);');
     // An unwounded gladiator still buys the night, at S5's own price and nothing else.
-    expect(REST).toContain('subject.gold >= REST_PRICE');
+    expect(REST).toContain('canDebitGold(subject.gold, REST_PRICE)');
   });
 
   test('the rollover seam is defined once and called by all four advance seams', () => {
@@ -416,7 +416,7 @@ describe('G. The scenes read the clock; the staging constant is gone', () => {
 
 describe('S5 — malformed gold cannot pass affordability gates', () => {
   test('rest, training, shop, and omen UI require a finite purse', () => {
-    expect(APP).toContain('Number.isFinite(subject.gold)');
+    expect(APP).toContain('canDebitGold(subject.gold, REST_PRICE)');
     expect(APP).toContain('canDebitGold(profile.gold, cost)');
     expect(code('../components/hub/TrainingTab.tsx')).toContain(
       'canDebitGold(profile.gold, cost)',
@@ -425,7 +425,10 @@ describe('S5 — malformed gold cannot pass affordability gates', () => {
       'canDebitGold(profile.gold, item.price)',
     );
     expect(code('../components/3d/city/CityHubScene.tsx')).toContain(
-      '!Number.isFinite(playerProfile.gold)',
+      '!canDebitGold(playerProfile.gold, INTEL_PRICE)',
+    );
+    expect(code('../components/3d/city/CityHubScene.tsx')).toContain(
+      'canDebitGold(playerProfile.gold, REST_PRICE)',
     );
   });
 });
