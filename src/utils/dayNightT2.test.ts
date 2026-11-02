@@ -419,10 +419,10 @@ describe('S5 — malformed gold cannot pass affordability gates', () => {
     expect(APP).toContain('Number.isFinite(subject.gold)');
     expect(APP).toContain('canDebitGold(profile.gold, cost)');
     expect(code('../components/hub/TrainingTab.tsx')).toContain(
-      'Number.isFinite(profile.gold) && profile.gold >= cost',
+      'canDebitGold(profile.gold, cost)',
     );
     expect(code('../components/hub/ShopTab.tsx')).toContain(
-      'Number.isFinite(profile.gold) && profile.gold >= item.price',
+      'canDebitGold(profile.gold, item.price)',
     );
     expect(code('../components/3d/city/CityHubScene.tsx')).toContain(
       '!Number.isFinite(playerProfile.gold)',
