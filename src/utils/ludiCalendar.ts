@@ -554,7 +554,9 @@ export function settleLudiDeeds(
     const nextFame = currentFame + fameReward;
     if (!Number.isFinite(nextFame) || nextFame <= currentFame) return NOTHING(profile);
   }
-  const fame = completed.length > 0 ? currentFame + fameReward : currentFame;
+  const fame = completed.length > 0
+    ? currentFame + fameReward
+    : typeof currentFame === 'number' && Number.isFinite(currentFame) ? currentFame : 0;
   let gold = profile.gold;
   if (completed.length > 0) {
     // Do not silently repair a malformed purse to zero: the deed and its
