@@ -77,7 +77,7 @@ function purchaseVisitorPart(
   if (price === null) return { ok: false, reason: 'invalid-price' };
 
   const gold = profile.gold;
-  if (typeof gold !== 'number' || !Number.isFinite(gold) || gold < 0) {
+  if (!canDebitGold(gold, 0)) {
     return { ok: false, reason: 'invalid-gold' };
   }
 
@@ -156,7 +156,7 @@ export function purchaseVisitorOffer(
     return { ok: false, reason: 'invalid-gold' };
   }
   if (!Array.isArray(profile.inventory)) return { ok: false, reason: 'invalid-inventory' };
-  if (gold < price) return { ok: false, reason: 'insufficient-gold' };
+  if (!canDebitGold(gold, price)) return { ok: false, reason: 'insufficient-gold' };
 
   return {
     ok: true,
