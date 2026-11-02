@@ -1,3 +1,4 @@
+import { canDebitGold } from '../../utils/goldTransactions';
 import React from 'react';
 import { PlayerProfile } from '../../types/game';
 import { Dumbbell, Swords, Shield, Heart, Zap, Award } from 'lucide-react';
@@ -34,7 +35,7 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
 }) => {
   // P5 — the Ludus Training Yard sets stat training's price (and only that).
   const cost = trainingCost(profile);
-  const canAfford = Number.isFinite(profile.gold) && profile.gold >= cost;
+  const canAfford = canDebitGold(profile.gold, cost);
   // L5 — the same timeState-derived timetable drives the cards and App's transaction gate.
   const trainingSchedule = resolveTrainingSchedule(profile);
   const restingIds = new Set(trainingSchedule.resting.map((action) => action.id));
@@ -133,7 +134,7 @@ export const TrainingTab: React.FC<TrainingTabProps> = ({
             {DOCTORE_PALMAE.map((palma) => {
               const price = palmaPrice(palma);
               const owned = ownedPalmae.includes(palma.id);
-              const affordable = price !== null && Number.isFinite(profile.gold) && profile.gold >= price;
+              const affordable = price !== null && canDebitGold(profile.gold, price);
               return (
                 <div
                   key={palma.id}
