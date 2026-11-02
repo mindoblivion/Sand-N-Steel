@@ -1,3 +1,4 @@
+import { canDebitGold } from './utils/goldTransactions';
 import React, { useState, useEffect, useRef } from 'react';
 import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from './types/game';
 import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
@@ -1689,7 +1690,7 @@ export function App() {
     if (!profile || !isTrainingActionScheduled(profile, stat)) return;
     // P5 — the Ludus Training Yard sets stat training's price, and nothing else.
     const cost = trainingCost(profile);
-    if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < cost) return;
+    if (!canDebitGold(profile.gold, cost)) return;
 
     const trained: PlayerProfile = {
       ...profile,
