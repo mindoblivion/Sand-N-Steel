@@ -417,7 +417,7 @@ describe('G. The scenes read the clock; the staging constant is gone', () => {
 describe('S5 — malformed gold cannot pass affordability gates', () => {
   test('rest, training, shop, and omen UI require a finite purse', () => {
     expect(APP).toContain('Number.isFinite(subject.gold)');
-    expect(APP).toContain('Number.isFinite(profile.gold)');
+    expect(APP).toContain('canDebitGold(profile.gold, cost)');
     expect(code('../components/hub/TrainingTab.tsx')).toContain(
       'Number.isFinite(profile.gold) && profile.gold >= cost',
     );
