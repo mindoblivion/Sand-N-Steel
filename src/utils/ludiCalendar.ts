@@ -547,10 +547,12 @@ export function settleLudiDeeds(
     + completed.length * LUDI_DEED_FAME;
   let gold = profile.gold;
   if (completed.length > 0) {
-    const balance = typeof profile.gold === 'number' && Number.isFinite(profile.gold) && profile.gold >= 0
-      ? profile.gold
-      : 0;
-    const credited = creditGold(balance, completed.length * LUDI_DEED_GOLD);
+    // Do not silently repair a malformed purse to zero: the deed and its
+    // reward are one transaction, so invalid balances refuse the whole write.
+    if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < 0) {
+      return NOTHING(profile);
+    }
+    const credited = creditGold(profile.gold, completed.length * LUDI_DEED_GOLD);
     // A deed and its gold reward settle together. If a positive reward would
     // overflow or disappear at this balance, leave the deed available to retry.
     if (credited === null) return NOTHING(profile);
