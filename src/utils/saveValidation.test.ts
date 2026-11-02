@@ -415,3 +415,38 @@ describe('§E the title states a quarantined save, once, in plain language', () 
     expect(title).toContain('asks before it replaces anything');
   });
 });
+
+
+describe('§F Google Drive restore — local progress is never replaced on the first tap', () => {
+  test('a selected cloud save is held for confirmation when a local profile exists', () => {
+    const modal = code(load('../components/hub/GoogleDriveSyncModal.tsx'));
+    expect(modal).toContain('const [pendingRestoreFileId, setPendingRestoreFileId] = useState<string | null>(null);');
+    expect(modal).toContain('if (currentProfile) {');
+    expect(modal).toContain('setPendingRestoreFileId(fileId);');
+    expect(modal).toContain('const handleConfirmRestore = async () => {');
+    expect(modal).toContain('await restoreFromDrive(pendingRestoreFileId);');
+    expect(modal).toContain('Replace Local Progress?');
+    expect(modal).toContain('Keep Local Save');
+    expect(modal).toContain('Replace Local Save');
+  });
+
+  test('the initial Load handler cannot call the profile replacement callback', () => {
+    const modal = code(load('../components/hub/GoogleDriveSyncModal.tsx'));
+    const handler = modal.slice(
+      modal.indexOf('const handleLoadFromDrive'),
+      modal.indexOf('const handleConfirmRestore')
+    );
+    expect(handler).toContain('setPendingRestoreFileId(fileId);');
+    expect(handler).not.toContain('onProfileLoaded(');
+    expect(handler).not.toContain('loadProfileFromDrive(');
+  });
+
+  test('the restore dialog names both saves before the explicit destructive action', () => {
+    const modal = load('../components/hub/GoogleDriveSyncModal.tsx');
+    expect(modal).toContain('This device');
+    expect(modal).toContain('Selected cloud save');
+    expect(modal).toContain('currentProfile.name');
+    expect(modal).toContain('profilePreview');
+    expect(modal).toContain('onClick={handleConfirmRestore}');
+  });
+});
