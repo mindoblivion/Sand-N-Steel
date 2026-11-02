@@ -290,7 +290,7 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     // write, and the clock still advances before it.
     // LUDI PHASE A REBASE, not a weakening: the Acta's settlement rides between the trail
     // and the awards, and the clock still advances before the transaction's ONE write.
-    expect(DUEL).toContain('const ludi: LudiSettlement = settleLudiDeeds(trailProfile, {');
+    expect(DUEL).toContain('const ludi: LudiSettlement = rewardSettlementAccepted ? settleLudiDeeds(trailProfile, {');
     expect(DUEL).toContain('applyTriumphAwards(ludi.profile, duelTriumphStats)');
     expect(DUEL).toContain('setProfile(awards.profile);');
     expect(DUEL).toContain('saveProfile(awards.profile);');
