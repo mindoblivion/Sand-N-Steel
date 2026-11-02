@@ -109,7 +109,7 @@ export function sellItem(profile: PlayerProfile, itemId: string): PlayerProfile 
 
   const next: PlayerProfile = {
     ...profile,
-    gold: profile.gold + getTemperSellValue(profile, item),
+    gold: nextGold,
     inventory,
   };
 
