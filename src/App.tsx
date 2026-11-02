@@ -1190,7 +1190,7 @@ export function App() {
       // STORY-4b — a CLEARED posting pays its full bounty in this same write; a
       // victory that missed the printed rule adds nothing (the duel's own purse
       // above is already the standard one).
-      const nextGold = goldSettlement!.balance;
+      const nextGold = goldSettlement?.ok ? goldSettlement.balance : profile.gold;
       const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;
       const nextXp = profile.xp + stats.xpEarned;
 
