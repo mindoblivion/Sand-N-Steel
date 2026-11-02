@@ -125,7 +125,7 @@ export function purchaseConsumable(
   const item = getConsumableById(itemId);
   if (!item) return { ok: false, reason: 'unknown-item' };
 
-  const gold = (profile as ConsumableRecord | null)?.gold;
+  const gold = profile.gold;
   if (!canDebitGold(gold, item.price)) {
     return { ok: false, reason: 'insufficient-gold' };
   }
