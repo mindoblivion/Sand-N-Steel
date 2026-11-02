@@ -609,13 +609,13 @@ describe('E. The arrival', () => {
   });
 
   test('the beat owns the screen, and free roam begins when it ends', () => {
-    expect(appSrc).toContain("import { OathBeat } from './components/hub/OathBeat';");
-    expect(appCode).toContain(
-      '{oathBeatMode && <OathBeat mode={oathBeatMode} onComplete={handleOathComplete} />}',
-    );
+    expect(appSrc).toContain("const OathBeat = React.lazy(() => import('./components/hub/OathBeat').then((module) => ({ default: module.OathBeat })));");
+    expect(appCode).toContain('{oathBeatMode && (');
+    expect(appCode).toContain('<OathBeat mode={oathBeatMode} onComplete={handleOathComplete} />');
+    expect(appCode).toContain('React.Suspense fallback={<div className="fixed inset-0 z-[80] bg-neutral-950/95" aria-busy="true" />}');
     // It is mounted with the city, not with any other screen.
     const city = appCode.indexOf("currentScreen === 'city_3d'");
-    const beat = appCode.indexOf('{oathBeatMode && <OathBeat');
+    const beat = appCode.indexOf('{oathBeatMode && (');
     const hub = appCode.indexOf("currentScreen === 'hub_2d' && profile");
     expect(city).toBeGreaterThan(-1);
     expect(beat).toBeGreaterThan(city);

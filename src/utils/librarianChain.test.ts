@@ -525,7 +525,7 @@ describe('STORY-5b §D — the echo bout, gated by three fragments and nothing e
     // already composes, and tells the result screen the one line.
     const app = code('App.tsx');
     expect(app).toContain('const echoBout = activeOpponent.id === LEGEND_ECHO_BOUT.opponentId;');
-    expect(app).toContain('const echoOwed = didWin && echoBout && echoRevealOwed(profile);');
+    expect(app).toContain('const echoOwed = didWin && rewardSettlementAccepted && echoBout && echoRevealOwed(profile);');
     // The win is composed onto the profile this transaction already writes, so the
     // echo's flag and the victory land in ONE save.
     expect(app).toContain('settledProfile = withEchoWon(settledProfile);');
@@ -593,7 +593,7 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
     // A no-op settlement: the omen neither pays nor expires on an exhibition.
     expect(result).toContain('const omenSettled: OmenSettlement = exhibition');
     expect(result).toContain('{ fame: 0, gold: 0, fameBonus: 0, goldBonus: 0, paid: false, line: null }');
-    expect(result).toContain('const afterOmen = exhibition ? afterInjury : clearOmen(afterInjury);');
+    expect(result).toContain('const afterOmen = exhibition || (didWin && !rewardSettlementAccepted)');
     expect(result).toContain('const bounty: BountyVictory = exhibition');
     expect(result).toContain("{ kind: 'none', clearedRungId: null, gold: 0, fame: 0, line: '' }");
   });
@@ -601,8 +601,8 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
   test('SKIPPED on both sides: the fight counters and the mercy offer', () => {
     expect(result).toContain('fightsWon: exhibition ? profile.fightsWon : profile.fightsWon + 1,');
     expect(result).toContain('fightsLost: exhibition ? profile.fightsLost : profile.fightsLost + 1,');
-    // One write of each counter in the whole file, and both are the fenced arm.
-    expect((app.match(/profile\.fightsWon \+ 1/g) ?? []).length).toBe(1);
+    // Both the paid-win and refused-reward-win paths record the combat result.
+    expect((app.match(/profile\.fightsWon \+ 1/g) ?? []).length).toBe(2);
     expect((app.match(/profile\.fightsLost \+ 1/g) ?? []).length).toBe(1);
     // The loss branch writes no felled id and opens no grudge of its own.
     expect(lossBranch).not.toContain('defeatedOpponentIds');
@@ -612,7 +612,7 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
   });
 
   test('KEPT on a win: the purse, the level, the peak and the one write', () => {
-    expect(result).toContain('const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;');
+    expect(result).toContain('const nextGold = goldSettlement?.ok ? goldSettlement.balance : profile.gold;');
     expect(result).toContain('const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;');
     expect(result).toContain('const nextXp = profile.xp + stats.xpEarned;');
     expect(result).toContain('peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),');
@@ -815,11 +815,11 @@ describe('STORY-5b §H — the save carries no new top-level field', () => {
     return [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\?:/gm)].map((match) => match[1]);
   };
 
-  test('§J is still 22 optional fields, with `records` last', () => {
+  test('§J includes the city rest marker, with `records` last', () => {
     const fields = optionalFields();
     // LUDI PHASE A REBASE: the calendar's `ludi` joined the set; `records` still closes it.
-    // PITCH A4 REBASE: `identity` joined it before `ludi`, so the set is 24.
-    expect(fields.length).toBe(24);
+    // PITCH A4 added `identity`; L9 added the optional `city` rest marker, so the set is 25.
+    expect(fields.length).toBe(25);
     expect(fields[fields.length - 1]).toBe('records');
     for (const name of ['librarianChain', 'echoWon', 'fragmentsFound', 'laudes']) {
       expect(fields).not.toContain(name);

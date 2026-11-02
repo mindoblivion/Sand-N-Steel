@@ -415,3 +415,16 @@ describe('§E the title states a quarantined save, once, in plain language', () 
     expect(title).toContain('asks before it replaces anything');
   });
 });
+
+
+describe('§F Google Drive restore — cloud saves use the same structural gate', () => {
+  test('a downloaded profile is validated before it can be returned to the live game', () => {
+    const drive = code(load('../services/googleDrive.ts'));
+    expect(drive).toContain("import { isValidStoredProfile } from './storage';");
+    expect(drive).toContain('const profile: unknown = await response.json();');
+    expect(drive).toContain('if (!isValidStoredProfile(profile))');
+    expect(drive).toContain('Your current local progress was not changed.');
+    expect(drive).toContain('throw new DriveApiError(');
+    expect(drive).toContain('      422');
+  });
+});

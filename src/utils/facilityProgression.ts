@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * P5 — FACILITY PROGRESSION: the ludus's three buildings and the gates they hold.
  *
@@ -197,7 +198,7 @@ export type FacilityResult =
 
 /** A profile whose gold is missing or not finite can afford nothing. */
 function canAfford(profile: PlayerProfile, price: number): boolean {
-  return typeof profile.gold === 'number' && Number.isFinite(profile.gold) && profile.gold >= price;
+  return canDebitGold(profile.gold, price);
 }
 
 /**

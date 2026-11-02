@@ -384,7 +384,8 @@ describe('D. Storage — the record round-trips, and the save is untouched', () 
 describe('E. The wiring — every consumer, read out of the shipped sources', () => {
   test('App owns one panel, passes the context, and freezes the race', () => {
     const app = source('src/App.tsx');
-    expect(app).toContain("import { SettingsModal } from './components/hub/SettingsModal';");
+    expect(app).toContain("const SettingsModal = React.lazy(() => import('./components/hub/SettingsModal').then((module) => ({ default: module.SettingsModal })));");
+    expect(app).toContain('{settingsOpen && (');
     expect(app).toContain("onOpenHelp={() => handleOpenSettings('controls', 'duel')}");
     expect(app).toContain("onOpenSettings={() => handleOpenSettings(undefined, 'race')}");
     expect(app).toContain('frozen={settingsOpen}');

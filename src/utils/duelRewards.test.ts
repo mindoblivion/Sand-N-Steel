@@ -19,6 +19,8 @@ import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import {
   calculateDuelGold,
+  creditDuelGold,
+  settleDuelGold,
   PURSE_FLAWLESS_RATE,
   PURSE_HYPE_FLOOR,
   PURSE_HYPE_STEP,
@@ -143,7 +145,25 @@ describe('§F totals', () => {
   });
 });
 
-describe('§G wiring', () => {
+describe('§G atomic reward credit', () => {
+  test('credits valid duel and bounty awards together', () => {
+    expect(creditDuelGold(100, 35, 20)).toBe(155);
+  });
+  test('refuses malformed balances and awards', () => {
+    for (const balance of [Number.NaN, Number.POSITIVE_INFINITY, -1]) expect(creditDuelGold(balance, 35, 20)).toBe(balance);
+    expect(creditDuelGold(100, Number.NaN, 20)).toBe(100);
+    expect(creditDuelGold(100, 35, Number.POSITIVE_INFINITY)).toBe(100);
+  });
+  test('refuses overflow and positive credits lost to floating-point precision', () => {
+    expect(creditDuelGold(Number.MAX_VALUE, 35, 20)).toBe(Number.MAX_VALUE);
+    expect(creditDuelGold(Number.MAX_VALUE / 2, Number.MAX_VALUE, 0)).toBe(Number.MAX_VALUE / 2);
+  });
+  test('zero rewards leave the balance unchanged', () => {
+    expect(creditDuelGold(100, 0, 0)).toBe(100);
+  });
+});
+
+describe('§H wiring', () => {
   const scene = readFileSync('src/components/duel/DuelScene.tsx', 'utf8');
   const app = readFileSync('src/App.tsx', 'utf8');
   const modal = readFileSync('src/components/hub/DuelResultModal.tsx', 'utf8');
@@ -162,17 +182,23 @@ describe('§G wiring', () => {
     expect(defeat.slice(0, 220)).toContain('statsRef.current.goldEarned = 0;');
   });
 
-  test('App credits the same figure it saved — the reward path is unchanged', () => {
+  test('App gates progression on an explicit safe settlement result', () => {
     // PITCH A1 — the credited figure is `resultStats.goldEarned`, which IS
     // `stats.goldEarned` unless an omen paid (then it is the settled figure — the
     // one the result screen shows). The property pinned here is unchanged: the gold
     // App saves is the gold it credits.
-    // STORY-4b — the duel's own purse is credited exactly as it was; a cleared
-    // bounty posting adds its bounty beside it in the same write.
-    expect(app).toContain('const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;');
+    // STORY-4b — the duel purse and bounty are validated together before the
+    // victory progression branch is allowed to run.
+    expect(app).toContain('const goldSettlement = didWin');
+    expect(app).toContain('settleDuelGold(profile.gold, resultStats.goldEarned, bounty.gold)');
+    expect(app).toContain('if (didWin && rewardSettlementAccepted)');
+    expect(app).toContain('else if (!didWin)');
+    expect(app).toContain('gold: nextGold');
     expect(app).toContain('const resultStats: DuelStatistics = omenSettled.paid');
     expect(app).toContain('gold: nextGold');
     expect(app).toContain('goldTotal={profile?.gold}');
+    expect(app).toContain('goldEarned: 0, fameEarned: 0, xpEarned: 0');
+    expect(app).toContain('rewardSettlementAccepted && omenSettled.line');
   });
 
   test('the result screen renders the breakdown', () => {
@@ -181,5 +207,26 @@ describe('§G wiring', () => {
     expect(modal).toContain('Perfect Blocks');
     expect(modal).toContain('Flawless Victory');
     expect(modal).toContain('Purse Now:');
+  });
+});
+
+
+describe('§I explicit duel gold settlement outcome', () => {
+  test('distinguishes a valid zero reward from refusal', () => {
+    expect(settleDuelGold(100, 0, 0)).toEqual({ ok: true, balance: 100, credited: 0 });
+    expect(settleDuelGold(Number.NaN, 0, 0)).toEqual({ ok: false, reason: 'invalid-balance' });
+  });
+  test('accepts a complete valid credit', () => {
+    expect(settleDuelGold(100, 35, 20)).toEqual({ ok: true, balance: 155, credited: 55 });
+  });
+  test('rejects malformed awards and balances explicitly', () => {
+    expect(settleDuelGold(-1, 1, 0)).toEqual({ ok: false, reason: 'invalid-balance' });
+    expect(settleDuelGold(100, Number.NaN, 0)).toEqual({ ok: false, reason: 'invalid-award' });
+    expect(settleDuelGold(100, 0, Number.POSITIVE_INFINITY)).toEqual({ ok: false, reason: 'invalid-award' });
+  });
+  test('rejects overflow and positive credits lost to precision', () => {
+    expect(settleDuelGold(Number.MAX_VALUE, 1, 0)).toEqual({ ok: false, reason: 'precision-loss' });
+    expect(settleDuelGold(Number.MAX_VALUE / 2, Number.MAX_VALUE, 0)).toEqual({ ok: false, reason: 'overflow' });
+    expect(settleDuelGold(2 ** 53, 1, 0)).toEqual({ ok: false, reason: 'precision-loss' });
   });
 });

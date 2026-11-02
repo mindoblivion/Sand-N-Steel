@@ -1,3 +1,4 @@
+import { canDebitGold } from '../../utils/goldTransactions';
 import React, { useMemo, useState } from 'react';
 import { ChariotSlot, PlayerProfile } from '../../types/game';
 import { Coins, Check, Lock, Eye, Wrench, RotateCcw, Info, ShoppingCart } from 'lucide-react';
@@ -139,7 +140,7 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
     // so a fame-priced row neither prints gold nor compares against the purse.
     const currency = chariotPartCurrency(part);
     const balance = currency === 'fame' ? profile.fame : profile.gold;
-    const affordable = balance >= part.price;
+    const affordable = currency === 'fame' ? balance >= part.price : canDebitGold(balance, part.price);
     const stateLabel = isEquipped
       ? 'Equipped'
       : isOwned

@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * P4 — STABLE PROGRESSION: the horse team's bought QUALITY and CONDITIONING.
  *
@@ -279,7 +280,7 @@ export type StableResult =
  * balance by subtraction.
  */
 function canAfford(profile: PlayerProfile, price: number): boolean {
-  return typeof profile.gold === 'number' && Number.isFinite(profile.gold) && profile.gold >= price;
+  return canDebitGold(profile.gold, price);
 }
 
 /**

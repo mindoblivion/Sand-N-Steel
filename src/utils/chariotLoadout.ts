@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * Phase C-8.66B — pure chariot loadout helpers.
  *
@@ -217,7 +218,7 @@ export function getChariotPurchaseEligibility(
     return { ok: true };
   }
 
-  if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < part.price) {
+  if (!canDebitGold(profile.gold, part.price)) {
     return { ok: false, reason: 'insufficient-gold' };
   }
   return { ok: true };

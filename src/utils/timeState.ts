@@ -27,10 +27,12 @@
  * ── The advance functions are PURE ────────────────────────────────────────
  * `advanceTimeBy` and `advanceToNextDawn` RETURN a new profile for the caller to
  * hand to the existing `saveProfile()` path; they never mutate their argument and
- * they never write anything themselves.  A negative or nonsense `steps` is
- * treated as 0.  **T0 ships NO call sites**: nothing advances the clock yet, no
- * scene reads the profiles yet, and no profile write is added anywhere in this
- * slice.
+ * they never write anything themselves. A negative or nonsense `steps` is treated
+ * as 0. Production advancement is confined to completed-duel settlement, successful
+ * training, the Caravanserai night service and the Medical House's one-day rest.
+ * App composes each transaction through the existing save path and day-boundary
+ * seam. Read-only consumers resolve phase/day here; no panel or scene owns a second
+ * clock or advances time merely by rendering.
  *
  * ── The phase profiles are DATA ───────────────────────────────────────────
  * `PHASE_PROFILES` is a plain lookup table — no scene, no renderer and no

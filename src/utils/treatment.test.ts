@@ -4,7 +4,7 @@
  * ── WHAT THIS SUITE PINS ──────────────────────────────────────────────────
  *   §A  treat: a live injury clears outright and costs exactly 75 gold — once;
  *   §B  rest: two fights come off the clock for exactly 25 gold, and the wound
- *       clears to `null` at zero (from 3 → 1, from 2 → null, from 1 → null) —
+ *       clears to `null` at zero (from 3 → 1 for a legacy wound, from 2 → null, from 1 → null) —
  *       it never goes negative and the penalties ride along until it clears;
  *   §C  both refusals, each with the profile untouched: no live injury (absent,
  *       null, exhausted, malformed) and a purse below the price (a balance that is
@@ -39,7 +39,7 @@ import { HUB_LOCATIONS } from './cityCollisions';
 
 const SRC_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-const FRESH: PlayerInjury = { fightsRemaining: 3, penaltyStrength: 2, penaltyAgility: 2 };
+const FRESH: PlayerInjury = { fightsRemaining: 2, penaltyStrength: 2, penaltyAgility: 2 };
 
 function bareProfile(over: Partial<PlayerProfile> = {}): PlayerProfile {
   return {
@@ -89,7 +89,7 @@ const SCENE_SOURCE = code(
 const INJURY_SOURCE = code(readFileSync(join(SRC_ROOT, 'utils', 'injury.ts'), 'utf8'));
 
 // ── §A the Medical House ───────────────────────────────────────────────────
-describe('§A treat clears a live injury for 75 gold', () => {
+describe('§A legacy pure cure helper (the live Medical House is L9 restRecovery)', () => {
   test('the price is the design’s 75 gold', () => {
     expect(treatmentPrice('medical_house')).toBe(75);
   });
@@ -133,8 +133,8 @@ describe('§B rest takes two fights off the clock for 25 gold', () => {
     expect(REST_FIGHTS_RESTORED).toBe(2);
   });
 
-  test('3 fights → 1 fight, exactly 25 gold deducted, penalties intact', () => {
-    const rested = restAtInn(bareProfile({ injury: FRESH, gold: 100 }));
+  test('a legacy 3-fight wound → 1 fight, exactly 25 gold deducted, penalties intact', () => {
+    const rested = restAtInn(bareProfile({ injury: { ...FRESH, fightsRemaining: 3 }, gold: 100 }));
     expect(rested.injury).toEqual({ fightsRemaining: 1, penaltyStrength: 2, penaltyAgility: 2 });
     expect(rested.gold).toBe(75); // 100 − 25
   });
@@ -155,13 +155,13 @@ describe('§B rest takes two fights off the clock for 25 gold', () => {
     expect(rested.gold).toBe(75);
   });
 
-  test('rest is not a cure: a fresh 3-fight wound still has a fight left', () => {
-    const rested = restAtInn(bareProfile({ injury: FRESH }));
+  test('rest retains its two-fight reduction for a longer legacy wound', () => {
+    const rested = restAtInn(bareProfile({ injury: { ...FRESH, fightsRemaining: 3 } }));
     expect(rested.injury?.fightsRemaining).toBe(1);
   });
 
   test('two rests take the same wound from 3 to null, 50 gold in total', () => {
-    const first = restAtInn(bareProfile({ injury: FRESH, gold: 60 }));
+    const first = restAtInn(bareProfile({ injury: { ...FRESH, fightsRemaining: 3 }, gold: 60 }));
     expect(first.injury?.fightsRemaining).toBe(1);
     expect(first.gold).toBe(35);
     const second = restAtInn(first);
@@ -250,7 +250,7 @@ describe('§C both services refuse, and the profile is untouched', () => {
 describe('§D the helpers are pure', () => {
   test('frozen inputs survive both helpers and are not mutated', () => {
     const hurt = bareProfile({
-      injury: Object.freeze({ ...FRESH }) as PlayerInjury,
+      injury: Object.freeze({ ...FRESH, fightsRemaining: 3 }) as PlayerInjury,
       equipped: Object.freeze({ weapon: DEFAULT_PLAYER_WEAPON }) as PlayerProfile['equipped'],
     });
     const snapshot = JSON.stringify(hurt);
@@ -259,7 +259,7 @@ describe('§D the helpers are pure', () => {
     const rested = restAtInn(hurt);
 
     expect(JSON.stringify(hurt)).toBe(snapshot);
-    expect(hurt.injury).toEqual(FRESH);
+    expect(hurt.injury).toEqual({ ...FRESH, fightsRemaining: 3 });
     expect(hurt.gold).toBe(100);
     expect(cured).not.toBe(hurt);
     expect(rested).not.toBe(hurt);
@@ -268,7 +268,7 @@ describe('§D the helpers are pure', () => {
   });
 
   test('two calls on the same input agree and do not share an object', () => {
-    const hurt = bareProfile({ injury: FRESH });
+    const hurt = bareProfile({ injury: { ...FRESH, fightsRemaining: 3 } });
     const a = restAtInn(hurt);
     const b = restAtInn(hurt);
     expect(a.injury).toEqual(b.injury);
@@ -280,10 +280,11 @@ describe('§D the helpers are pure', () => {
 // ── §E the wiring ──────────────────────────────────────────────────────────
 describe('§E the wiring: App transacts, the city reports the choice', () => {
   test('App is the only caller, and each handler saves exactly once', () => {
-    expect(APP_SOURCE.match(/treatInjury\(profile\)/g)?.length).toBe(1);
+    expect(APP_SOURCE.match(/restAtMedicalHouse\(profile\)/g)?.length).toBe(1);
     expect(APP_SOURCE.match(/restAtInn\(profile\)/g)?.length).toBe(1);
+    expect(APP_SOURCE.match(/treatInjury\(profile\)/g)?.length ?? 0).toBe(0);
 
-    for (const helper of ['treatInjury', 'restAtInn']) {
+    for (const helper of ['restAtMedicalHouse', 'restAtInn']) {
       const at = APP_SOURCE.indexOf(`${helper}(profile)`);
       const block = APP_SOURCE.slice(at, APP_SOURCE.indexOf('};', at));
       expect(block).toContain('setProfile(');
@@ -308,9 +309,9 @@ describe('§E the wiring: App transacts, the city reports the choice', () => {
 
   test('the panel is the injury module’s own reading, with one 48dp button', () => {
     expect(SCENE_SOURCE).toContain('data-treatment-panel={treatmentPanel}');
-    expect(SCENE_SOURCE).toContain('getTreatmentEligibility(playerProfile, treatmentPanel)');
+    expect(SCENE_SOURCE).toContain('getRestEligibility(playerProfile)');
     expect(SCENE_SOURCE).toContain('injuryBannerLine(treatmentInjury)');
-    expect(SCENE_SOURCE).toContain('treatmentPrice(treatmentPanel)');
+    expect(SCENE_SOURCE).toContain('restCost(playerProfile)');
     expect(SCENE_SOURCE).toContain('data-treatment-refusal={treatmentEligibility.reason}');
     expect(SCENE_SOURCE).toContain('min-h-[48px]');
     // Esc closes it and no other key is read while it is up.
@@ -350,13 +351,15 @@ describe('§E the wiring: App transacts, the city reports the choice', () => {
   test('racing never treats or rests', () => {
     // The two handlers' own call sites are the only ones in App…
     expect(APP_SOURCE.match(/restAtInn\(/g)?.length).toBe(1);
-    expect(APP_SOURCE.match(/treatInjury\(/g)?.length).toBe(1);
+    expect(APP_SOURCE.match(/restAtMedicalHouse\(/g)?.length).toBe(1);
+    expect(APP_SOURCE).not.toContain('treatInjury(');
     // …and neither sits inside a racing handler.
     for (const racing of ['handleStartRace', 'handleBuyRacingConfig']) {
       const at = APP_SOURCE.indexOf(`const ${racing}`);
       expect(at).toBeGreaterThan(-1);
       const block = APP_SOURCE.slice(at, APP_SOURCE.indexOf('};', at));
       expect(block).not.toContain('restAtInn(');
+      expect(block).not.toContain('restAtMedicalHouse(');
       expect(block).not.toContain('treatInjury(');
     }
   });

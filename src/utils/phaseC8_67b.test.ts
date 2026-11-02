@@ -88,6 +88,7 @@ const code = (rel: string): string =>
 const GAME_TYPES = code('../types/game.ts');
 const STORAGE = code('../services/storage.ts');
 const DRIVE = code('../services/googleDrive.ts');
+const MODAL = code('../components/hub/GoogleDriveSyncModal.tsx');
 const APP = code('../App.tsx');
 const MODULE = code('./racingProgression.ts');
 
@@ -795,7 +796,26 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
   test('the cloud path serializes the whole profile — no field whitelist', () => {
     // The upload body's own expression, read out of the shipped service…
     expect(DRIVE).toContain('const fileContent = JSON.stringify(profile, null, 2);');
-    expect(DRIVE).toContain('const profile: PlayerProfile = await response.json();');
+    // Downloaded cloud JSON must pass the same structural gate as local saves
+    // before it can be returned to App and written over the current profile.
+    expect(DRIVE).toContain('const profile: unknown = await response.json();');
+    expect(DRIVE).toContain('if (!isValidStoredProfile(profile))');
+    expect(DRIVE).toContain('Your current local progress was not changed.');
+    expect(DRIVE).toContain('confirmedReplaceModifiedTime?: string');
+    expect(DRIVE).toContain('existingFile.modifiedTime !== confirmedModifiedTime');
+    expect(MODAL).toContain("save.name === 'Sand_And_Steel_Gladiator_Save.json'");
+    expect(MODAL).toContain('confirmedReplaceModifiedTime: confirmedSave.modifiedTime');
+    // Restoring a cloud save must be an explicit second action because it replaces local progress.
+    expect(MODAL).toContain('const [restoreConfirmId, setRestoreConfirmId] = useState<string | null>(null);');
+    expect(MODAL).toContain('onClick={() => setRestoreConfirmId(file.id)}');
+    expect(MODAL).toContain('Replace Local Progress?');
+    expect(MODAL).toContain('onClick={handleConfirmRestore}');
+    expect(MODAL).toContain('Replace Local Save');
+    expect(MODAL).toContain('This device');
+    expect(MODAL).toContain('Selected cloud save');
+    expect(MODAL).toContain('currentProfile.gold');
+    expect(MODAL).toContain('preview.gold');
+
     // …and the import path hands that profile straight to the existing save.
     expect(APP).toContain('saveProfile(loadedProfile);');
     expect(String(STORAGE.match(/JSON\.parse\(raw\)/) !== null)).toBe('true');

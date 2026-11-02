@@ -293,7 +293,7 @@ describe('K2 §E the transactions are untouched', () => {
     expect(city).toContain('onClick={() => handleTreatment(treatmentPanel)}');
     expect(city).toContain('onClick={() => handleBuyIntel(opponent.id)}');
     expect(city).toContain('getIntelPurchaseEligibility(playerProfile, opponent.id)');
-    expect(city).toContain('${treatmentPrice(treatmentPanel)}g');
+    expect(city).toContain('${restCost(playerProfile)}g');
     expect(city).toContain('${REST_PRICE}g');
     expect(city).toContain('{INTEL_PRICE}g');
 
@@ -315,8 +315,8 @@ describe('K2 §E the transactions are untouched', () => {
   test('`App` still runs each transaction through its own pure module', () => {
     const app = code(APP);
     const treat = block(app, 'const handleTreatInjury = ');
-    expect(treat).toContain('treatInjury(profile)');
-    expect(treat).toContain('saveProfile(treated);');
+    expect(treat).toContain('restAtMedicalHouse(profile)');
+    expect(treat).toContain('saveProfile(settled);');
 
     const rest = block(app, 'const handleRestAtInn = ');
     expect(rest).toContain('restAtInn(profile)');

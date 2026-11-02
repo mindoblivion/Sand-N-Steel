@@ -426,6 +426,6 @@ describe('S7 §F no combat-path module imports the intel helper', () => {
     expect(INTEL_SOURCE).not.toContain('Math.random');
     // It reads the roster (ids and names) and the type file — nothing else.
     const imports = [...INTEL_SOURCE.matchAll(/from\s+'([^']+)'/g)].map((match) => match[1]);
-    expect(imports.sort()).toEqual(['../data/opponents', '../types/game']);
+    expect(imports.sort()).toEqual(['../data/opponents', '../types/game', './goldTransactions']);
   });
 });
