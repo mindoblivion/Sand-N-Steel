@@ -1599,7 +1599,7 @@ export function App() {
    * dawn jump; a wounded guest also receives the Inn's existing two-fight recovery.
    */
   const payForNight = (subject: PlayerProfile): PlayerProfile | null =>
-    Number.isFinite(subject.gold) && subject.gold >= REST_PRICE
+    canDebitGold(subject.gold, REST_PRICE)
       ? { ...subject, gold: subject.gold - REST_PRICE }
       : null;
 
