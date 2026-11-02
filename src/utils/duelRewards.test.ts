@@ -182,17 +182,23 @@ describe('§H wiring', () => {
     expect(defeat.slice(0, 220)).toContain('statsRef.current.goldEarned = 0;');
   });
 
-  test('App credits the same figure it saved — the reward path is unchanged', () => {
+  test('App gates progression on an explicit safe settlement result', () => {
     // PITCH A1 — the credited figure is `resultStats.goldEarned`, which IS
     // `stats.goldEarned` unless an omen paid (then it is the settled figure — the
     // one the result screen shows). The property pinned here is unchanged: the gold
     // App saves is the gold it credits.
-    // STORY-4b — the duel's own purse is credited exactly as it was; a cleared
-    // bounty posting adds its bounty beside it in the same write.
-    expect(app).toContain('const nextGold = creditDuelGold(profile.gold, resultStats.goldEarned, bounty.gold);');
+    // STORY-4b — the duel purse and bounty are validated together before the
+    // victory progression branch is allowed to run.
+    expect(app).toContain('const goldSettlement = didWin');
+    expect(app).toContain('settleDuelGold(profile.gold, resultStats.goldEarned, bounty.gold)');
+    expect(app).toContain('if (didWin && rewardSettlementAccepted)');
+    expect(app).toContain('else if (!didWin)');
+    expect(app).toContain('gold: nextGold');
     expect(app).toContain('const resultStats: DuelStatistics = omenSettled.paid');
     expect(app).toContain('gold: nextGold');
     expect(app).toContain('goldTotal={profile?.gold}');
+    expect(app).toContain('goldEarned: 0, fameEarned: 0, xpEarned: 0');
+    expect(app).toContain('rewardSettlementAccepted && omenSettled.line');
   });
 
   test('the result screen renders the breakdown', () => {
