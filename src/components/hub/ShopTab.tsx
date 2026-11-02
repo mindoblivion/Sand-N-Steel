@@ -329,7 +329,7 @@ export const ShopTab: React.FC<ShopTabProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {armors.map((arm) => {
               const isOwned = ownedItemIds.has(arm.id);
-              const canAfford = Number.isFinite(profile.gold) && profile.gold >= arm.price;
+              const canAfford = canDebitGold(profile.gold, arm.price);
 
               return (
                 <div
