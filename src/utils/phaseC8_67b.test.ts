@@ -88,6 +88,7 @@ const code = (rel: string): string =>
 const GAME_TYPES = code('../types/game.ts');
 const STORAGE = code('../services/storage.ts');
 const DRIVE = code('../services/googleDrive.ts');
+const MODAL = code('../components/hub/GoogleDriveSyncModal.tsx');
 const APP = code('../App.tsx');
 const MODULE = code('./racingProgression.ts');
 
