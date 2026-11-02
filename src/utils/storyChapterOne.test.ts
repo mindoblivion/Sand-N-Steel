@@ -303,7 +303,9 @@ describe('P4 — the Doctore reads the first attempt, win or lose', () => {
       code.indexOf('const handleMatchComplete'),
       code.indexOf('const handleDuelResultDismiss')
     );
-    const loseBranch = write.slice(write.indexOf('} else if (!didWin) {'));
+    const loseStart = write.indexOf('} else if (!didWin) {');
+    const loseEnd = write.indexOf('} else {', loseStart);
+    const loseBranch = write.slice(loseStart, loseEnd);
     // STORY-5b REBASE, not a weakening: the counter is written only for a bout in
     // the city's book, so the literal is the fenced arm. The property this pins —
     // a loss records the loss and nothing else — is unchanged.
