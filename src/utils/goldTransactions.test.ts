@@ -25,3 +25,21 @@ describe('shared gold debit validation', () => {
     expect(canDebitGold(Number.MAX_VALUE / 2, 900)).toBe(false);
   });
 });
+
+describe('shared gold credit validation', () => {
+  test('credits representable rewards and preserves zero rewards', () => {
+    expect(creditGold(100, 10)).toBe(110);
+    expect(creditGold(100, 0)).toBe(100);
+  });
+
+  test('rejects malformed, negative, non-finite, overflow and precision-lost credits', () => {
+    for (const balance of [undefined, null, '100', Number.NaN, Infinity, -1]) {
+      expect(creditGold(balance, 10)).toBeNull();
+    }
+    for (const amount of [undefined, null, '10', Number.NaN, Infinity, -1]) {
+      expect(creditGold(100, amount)).toBeNull();
+    }
+    expect(creditGold(Number.MAX_VALUE, 10)).toBeNull();
+    expect(creditGold(Number.MAX_VALUE / 2, Number.MAX_VALUE)).toBeNull();
+  });
+});
