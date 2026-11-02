@@ -161,7 +161,8 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
     }
 
     // If existing cloud saves exist, ask for confirmation before overwriting
-    if (saves.length > 0) {
+    const canonicalSave = saves.find((save) => save.name === 'Sand_And_Steel_Gladiator_Save.json');
+    if (canonicalSave) {
       setShowOverwriteConfirm(true);
       return;
     }
@@ -170,14 +171,19 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
     await performBackup();
   };
 
-  const performBackup = async (confirmedReplaceFileId?: string) => {
+  const performBackup = async (confirmedSave?: Pick<DriveSaveFile, 'id' | 'modifiedTime'>) => {
     if (!currentProfile) return;
     setIsLoading(true);
     setStatusMessage(null);
     try {
       await saveProfileToDrive(
         currentProfile,
-        confirmedReplaceFileId ? { confirmedReplaceFileId } : undefined
+        confirmedSave
+          ? {
+              confirmedReplaceFileId: confirmedSave.id,
+              confirmedReplaceModifiedTime: confirmedSave.modifiedTime,
+            }
+          : undefined
       );
       setStatusMessage({ type: 'success', text: `Saved "${currentProfile.name}" to Google Drive successfully!` });
       await fetchDriveSaves();
@@ -204,7 +210,12 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const handleConfirmOverwrite = async () => {
     sounds.playClick();
     setShowOverwriteConfirm(false);
-    await performBackup(saves[0]?.id);
+    const canonicalSave = saves.find((save) => save.name === 'Sand_And_Steel_Gladiator_Save.json');
+    if (!canonicalSave) {
+      setStatusMessage({ type: 'error', text: 'The cloud save list changed. Refresh the list and try again.' });
+      return;
+    }
+    await performBackup(canonicalSave);
   };
 
   const handleLoadFromDrive = async (fileId: string) => {
