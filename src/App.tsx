@@ -7,7 +7,7 @@ import { TitleScreen } from './components/hub/TitleScreen';
 
 
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
-import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
+
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
@@ -243,6 +243,8 @@ const SettingsModal = React.lazy(() => import('./components/hub/SettingsModal').
 const DeleteAccountModal = React.lazy(() => import('./components/hub/DeleteAccountModal').then((module) => ({ default: module.DeleteAccountModal })));
 const OathBeat = React.lazy(() => import('./components/hub/OathBeat').then((module) => ({ default: module.OathBeat })));
 const DayBanner = React.lazy(() => import('./components/ui/DayBanner').then((module) => ({ default: module.DayBanner })));
+
+const GladiatorSchoolHub = React.lazy(() => import('./components/hub/GladiatorSchoolHub').then((module) => ({ default: module.GladiatorSchoolHub })));
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
@@ -2176,6 +2178,7 @@ export function App() {
         )}
 
         {currentScreen === 'hub_2d' && profile && (
+          <React.Suspense fallback={<div className="w-full h-full min-h-[100dvh] bg-neutral-950" aria-busy="true" />}>
             <GladiatorSchoolHub
             playerProfile={profile}
             onOpenDeviceChoice={() => setDeviceChoiceOpen(true)}
@@ -2224,6 +2227,7 @@ export function App() {
             onViewCodex={handleViewCodex}
             onEnterLegendBout={handleEnterLegendBout}
             />
+          </React.Suspense>
         )}
 
         {currentScreen === 'duel' && profile && (

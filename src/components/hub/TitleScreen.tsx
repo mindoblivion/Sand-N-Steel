@@ -5,8 +5,10 @@ import { armTitleAudioUnlock } from '../../audio/titleAudio';
 import { preloadTapStage } from '../../utils/preloadAssets';
 import { useTitlePhaseBackdrop } from '../../hooks/useTitlePhaseBackdrop';
 import { TITLE_BACKDROP_CLASS } from '../../utils/startupAssets';
-import { TitleAccountPanel } from './TitleAccountPanel';
+
 import { AlertTriangle, Settings as SettingsIcon, X } from 'lucide-react';
+
+const TitleAccountPanel = React.lazy(() => import('./TitleAccountPanel').then((module) => ({ default: module.TitleAccountPanel })));
 
 interface TitleScreenProps {
   savedProfile: PlayerProfile | null;
@@ -339,7 +341,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         {/* The account panel: the existing auth screen and the existing social
             buttons, mounted unchanged, only once the player asks for them. */}
         {isAccountOpen && (
-          <TitleAccountPanel
+          <React.Suspense fallback={null}>
+            <TitleAccountPanel
             onClose={handleCloseAccount}
             onGoogleSignIn={onGoogleSignIn}
             isGoogleLoading={isGoogleLoading}
@@ -350,7 +353,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             onMicrosoftSignIn={onMicrosoftSignIn}
             isMicrosoftLoading={isMicrosoftLoading}
             onEmailSignIn={onEmailSignIn}
-          />
+            />
+          </React.Suspense>
         )}
     </div>
   );
