@@ -459,8 +459,8 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
               </h4>
               <p className="text-xs text-neutral-300 mb-5">
                 An existing cloud save
-                {saves[0]?.profilePreview
-                  ? ` (${saves[0].profilePreview.name}, LVL ${saves[0].profilePreview.level})`
+                {saves.find((save) => save.name === 'Sand_And_Steel_Gladiator_Save.json')?.profilePreview
+                  ? ` (${saves.find((save) => save.name === 'Sand_And_Steel_Gladiator_Save.json')!.profilePreview!.name}, LVL ${saves.find((save) => save.name === 'Sand_And_Steel_Gladiator_Save.json')!.profilePreview!.level})`
                   : ''}
                 {' '}was found on your Google Drive. Backing up will permanently replace it with your current local progress. This action cannot be undone.
               </p>
