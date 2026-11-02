@@ -314,8 +314,8 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     expect(TRAIN.match(/saveProfile\(/g) ?? []).toHaveLength(1);
     // The gold refusal RETURNS before the advance: a session that cannot be paid for
     // changes neither gold, nor stats, nor the clock.
-    expect(TRAIN.indexOf('profile.gold < cost')).toBeGreaterThan(-1);
-    expect(TRAIN.indexOf('profile.gold < cost')).toBeLessThan(TRAIN.indexOf('advanceTimeBy('));
+    expect(TRAIN.indexOf('canDebitGold(profile.gold, cost)')).toBeGreaterThan(-1);
+    expect(TRAIN.indexOf('canDebitGold(profile.gold, cost)')).toBeLessThan(TRAIN.indexOf('advanceTimeBy('));
     expect(TRAIN.indexOf('return;')).toBeLessThan(TRAIN.indexOf('advanceTimeBy('));
   });
 
