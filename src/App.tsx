@@ -1397,7 +1397,7 @@ export function App() {
       won: didWin,
       crowdHypePeak: resultStats.crowdHypePeak,
       atDuelResult: true,
-    }) : { profile: trailProfile, earned: [], laurelEarned: false } as LudiSettlement;
+    }) : { profile: trailProfile, completed: [], laurelEarned: false, favourEarned: 0 };
     // STORY-5b — R4: an exhibition is judged by no herald, so no triumph is
     // evaluated for it and no praise is raised. The profile written is the same
     // one this transaction composed; nothing is skipped but the evaluation.
