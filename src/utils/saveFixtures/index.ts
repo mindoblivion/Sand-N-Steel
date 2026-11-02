@@ -46,6 +46,7 @@ import keepersEraProfile from './keepersEraProfile.json';
 import omenEraProfile from './omenEraProfile.json';
 import mercyEraProfile from './mercyEraProfile.json';
 import recordsEraProfile from './recordsEraProfile.json';
+import visitorLedgerProfile from './visitorLedgerProfile.json';
 import ludiEraProfile from './ludiEraProfile.json';
 import medicalHouseRestEraProfile from './medicalHouseRestEraProfile.json';
 // PITCH A4 — Corpus et Origo (`identity`).
@@ -309,6 +310,18 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'the A5 `codexLocations` visits nested inside the same records object (three hubs walked)',
     ],
     profile: asProfile(recordsEraProfile),
+  },
+  {
+    id: 'visitor-ledger',
+    file: 'visitorLedgerProfile.json',
+    provenance:
+      'The current records-era synthetic save with visitor history hand-aged to two visitors seen and one completed, preserving all current optional fields.',
+    covers: [
+      'records.visitorsSeen populated with valid visitor ids',
+      'records.visitorsCompleted populated as a subset of visitors seen',
+      'existing records-era fields retained alongside visitor history',
+    ],
+    profile: asProfile(visitorLedgerProfile),
   },
   {
     id: 'ludi-era',
