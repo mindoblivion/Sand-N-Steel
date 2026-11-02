@@ -501,7 +501,24 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
                 Replace Local Progress?
               </h4>
               <p className="text-xs text-neutral-300 mb-5">
-                {`The cloud save ${saves.find((save) => save.id === restoreConfirmId)?.profilePreview?.name || saves.find((save) => save.id === restoreConfirmId)?.name || 'selected'} will replace the game progress currently on this device. This cannot be undone from here. Only continue if this is the save you want to restore.`}
+                <span className="block font-bold text-neutral-100">This device</span>
+                <span className="block mb-2">
+                  {currentProfile
+                    ? `${currentProfile.name} — LVL ${currentProfile.level}, ${currentProfile.gold} gold`
+                    : 'No active local gladiator'}
+                </span>
+                <span className="block font-bold text-neutral-100">Selected cloud save</span>
+                <span className="block mb-2">
+                  {(() => {
+                    const selected = saves.find((save) => save.id === restoreConfirmId);
+                    if (!selected) return 'Selected save (details unavailable)';
+                    const preview = selected.profilePreview;
+                    return preview
+                      ? `${preview.name} — LVL ${preview.level}, ${preview.gold} gold`
+                      : selected.name;
+                  })()}
+                </span>
+                Replacing will overwrite the active local progress. Make sure the cloud save is the one you want before continuing.
               </p>
               <div className="flex gap-2">
                 <button
