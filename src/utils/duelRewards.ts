@@ -96,3 +96,48 @@ export function calculateDuelGold(input: DuelPurseInput): DuelGoldBreakdown {
 
   return { base, hype, precision, flawless, total: base + hype + precision + flawless };
 }
+
+
+/** Credit duel rewards only when the entire gold increase is representable. */
+export function creditDuelGold(currentGold: number, duelGold: number, bountyGold: number): number {
+  if (!Number.isFinite(currentGold) || currentGold < 0 || !Number.isFinite(duelGold) || duelGold < 0 || !Number.isFinite(bountyGold) || bountyGold < 0) return currentGold;
+  const credit = duelGold + bountyGold;
+  if (!Number.isFinite(credit) || credit < 0) return currentGold;
+  if (credit === 0) return currentGold;
+  const nextGold = currentGold + credit;
+  return Number.isFinite(nextGold) && nextGold > currentGold ? nextGold : currentGold;
+}
+
+
+/** A distinguishable outcome for the duel's all-or-nothing gold settlement. */
+export type DuelGoldSettlement =
+  | { ok: true; balance: number; credited: number }
+  | { ok: false; reason: 'invalid-balance' | 'invalid-award' | 'overflow' | 'precision-loss' };
+
+/**
+ * Validate the complete gold credit without mutating a profile. A successful
+ * zero-value settlement is distinct from a refused transaction.
+ */
+export function settleDuelGold(
+  currentGold: number,
+  duelGold: number,
+  bountyGold: number,
+): DuelGoldSettlement {
+  if (!Number.isFinite(currentGold) || currentGold < 0) {
+    return { ok: false, reason: 'invalid-balance' };
+  }
+  if (
+    !Number.isFinite(duelGold) || duelGold < 0 ||
+    !Number.isFinite(bountyGold) || bountyGold < 0
+  ) {
+    return { ok: false, reason: 'invalid-award' };
+  }
+  const credited = duelGold + bountyGold;
+  if (!Number.isFinite(credited)) return { ok: false, reason: 'overflow' };
+  const balance = currentGold + credited;
+  if (!Number.isFinite(balance)) return { ok: false, reason: 'overflow' };
+  if (credited > 0 && balance <= currentGold) {
+    return { ok: false, reason: 'precision-loss' };
+  }
+  return { ok: true, balance, credited };
+}

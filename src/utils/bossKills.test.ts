@@ -369,7 +369,9 @@ describe('§G — exactly one writer, called from the victory write', () => {
     expect(handler).toContain('bossKills: nextBossKills(');
 
     // The defeat branch (everything after the win branch's `} else {`) never names it.
-    const defeatBranch = handler.slice(handler.indexOf('} else {'));
+    const defeatStart = handler.indexOf('} else if (!didWin) {');
+    const defeatEnd = handler.indexOf('} else {', defeatStart);
+    const defeatBranch = handler.slice(defeatStart, defeatEnd);
     expect(defeatBranch).toContain('fightsLost');
     expect(defeatBranch).not.toContain('bossKills');
   });

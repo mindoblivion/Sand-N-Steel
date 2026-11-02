@@ -721,15 +721,15 @@ describe('PITCH A1 §H — no save writes outside the existing save-on-change fl
     const handler = APP_SOURCE.slice(at, APP_SOURCE.indexOf('const handleDuelResultDismiss', at));
     // STORY-4b — a CLEARED bounty posting adds its own gold/fame in the same write;
     // the omen's settled figure is still the duel's contribution, unchanged.
-    expect(handler).toContain('const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;');
+    expect(handler).toContain('const nextGold = goldSettlement?.ok ? goldSettlement.balance : profile.gold;');
     expect(handler).toContain('const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;');
     // STORY-5b REBASE, not a weakening: an EXHIBITION neither pays nor expires the
     // omen (Director ruling R4), so the clear is the else arm of the fence. Every
     // ordinary duel still clears the field in this same write.
-    expect(handler).toContain('const afterOmen = exhibition ? afterInjury : clearOmen(afterInjury);');
+    expect(handler).toContain('const afterOmen = exhibition || (didWin && !rewardSettlementAccepted)');
     expect(handler.match(/saveProfile\(/g)?.length).toBe(1);
     // The result screen is handed the same settlement.
-    expect(handler).toContain('omenSettled.line ? { omenLine: omenSettled.line } : {}');
+    expect(handler).toContain('rewardSettlementAccepted && omenSettled.line ? { omenLine: omenSettled.line } : {}');
     expect(APP_SOURCE).toContain("omenLine={duelResult.omenLine}");
   });
 });
@@ -768,6 +768,7 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     'road',
     'seen',
     'time',
+    'city',
     'laurels',
     'consumables',
     'intel',
@@ -792,12 +793,12 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     'records',
   ];
 
-  test('the merged type declares exactly the twenty-four optional fields, in order', () => {
+  test('the merged type declares all twenty-five optional fields, in order', () => {
     const types = readFileSync(join(SRC_ROOT, 'types/game.ts'), 'utf8');
     const optional = scanOptional(types);
     expect(optional).toEqual(EXPECTED);
     // PITCH A4 REBASE: the Corpus et Origo `identity` field is the newest member.
-    expect(optional.length).toBe(24);
+    expect(optional.length).toBe(25);
   });
 
   test('the rule still fails on a field nobody accounted for', () => {

@@ -357,6 +357,19 @@ describe('STORY-5a §C — Piso’s offer', () => {
 
 // ── §D 'cut' and the honest purse ──────────────────────────────────────────
 describe('STORY-5a §D — the two purses', () => {
+  test("'cut' refuses malformed, overflowing, or precision-lost balances without consuming the offer", () => {
+    const ready = withCardsWon(boardOpen(), 3);
+    for (const gold of [NaN, Infinity, -1, '100' as unknown as number, Number.MAX_VALUE]) {
+      const before = { ...ready, gold };
+      expect(applyDiceChoice(before, 'cut')).toEqual({
+        ok: false,
+        reason: 'invalid-balance',
+      });
+      expect(before.story?.diceEnding).toBeUndefined();
+      expect(applyDiceChoice(before, 'refused').ok).toBe(true);
+    }
+  });
+
   test("'cut' pays exactly 300 gold, once, in the same write as the flag", () => {
     const ready = withCardsWon(boardOpen(), 3);
     const cut = applyDiceChoice(ready, 'cut');
@@ -490,7 +503,7 @@ describe('STORY-5a §F — the guards', () => {
     const optional = optionalProfileFields();
     // LUDI PHASE A REBASE: `ludi` sits between `spared` and `records`; `records` is last.
     // PITCH A4 REBASE: `identity` joined the set before `ludi`, so it is 24.
-    expect(optional.length).toBe(24);
+    expect(optional.length).toBe(25);
     expect(optional.slice(-2)).toEqual(['ludi', 'records']);
   });
 

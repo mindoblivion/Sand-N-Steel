@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * P1 — pure tempering (weapon/armor upgrade) helpers.
  *
@@ -208,7 +209,7 @@ export function getTemperPurchaseEligibility(
     return { ok: false, reason: 'facility-required' };
   }
   const cost = getTemperCost(item, level);
-  if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < cost) {
+  if (!canDebitGold(profile.gold, cost)) {
     return { ok: false, reason: 'insufficient-gold' };
   }
   return { ok: true };

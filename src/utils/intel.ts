@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * S7 — TAVERN RUMOURS: intel as a service.
  *
@@ -118,7 +119,7 @@ export function getIntelPurchaseEligibility(
   if (!opponent) return { ok: false, reason: 'unknown-opponent' };
   if (hasIntel(profile, opponent.id)) return { ok: false, reason: 'already-owned' };
   const gold = (profile as IntelRecord | null)?.gold;
-  if (typeof gold !== 'number' || !Number.isFinite(gold) || gold < INTEL_PRICE) {
+  if (!canDebitGold(gold, INTEL_PRICE)) {
     return { ok: false, reason: 'insufficient-gold' };
   }
   return { ok: true, opponent };

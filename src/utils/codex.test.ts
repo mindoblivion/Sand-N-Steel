@@ -453,7 +453,7 @@ describe('A5 §J — the save corpus keeps its rule', () => {
     // LUDI PHASE A REBASE: the calendar's `ludi` is declared between `spared` and
     // `records`.  PITCH A4 REBASE: the Corpus et Origo `identity` field joined the
     // set before `ludi`, so it is 24 and `records` still closes it.
-    expect(optional.length).toBe(24);
+    expect(optional.length).toBe(25);
     expect(optional.slice(-2)).toEqual(['ludi', 'records']);
     // The Codex's field is NESTED inside records, never a top-level one (R6).
     expect(optional).not.toContain('codexLocations');

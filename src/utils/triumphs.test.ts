@@ -787,7 +787,7 @@ describe('A8 §J — the corpus keeps its rule at 22', () => {
     // joined the set before `ludi`, so it is 24 and `records` still closes it — the
     // invariant this test exists for is unchanged.
     const optional = scanOptional(read('types/game.ts'));
-    expect(optional.length).toBe(24);
+    expect(optional.length).toBe(25);
     expect(optional.slice(-2)).toEqual(['ludi', 'records']);
   });
 
