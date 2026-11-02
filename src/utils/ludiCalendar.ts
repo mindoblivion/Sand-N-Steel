@@ -543,8 +543,18 @@ export function settleLudiDeeds(
   const laurelEarned = allDone && !wasComplete;
   const favourEarned = laurelEarned ? LUDI_LAUREL_FAVOUR : 0;
 
-  const fame = (typeof profile.fame === 'number' && Number.isFinite(profile.fame) ? profile.fame : 0)
-    + completed.length * LUDI_DEED_FAME;
+  const fameReward = completed.length * LUDI_DEED_FAME;
+  const currentFame = profile.fame;
+  // Fame and gold are both part of the deed's reward. Never settle the deed
+  // ledger or one currency if the other currency cannot represent its credit.
+  if (completed.length > 0) {
+    if (typeof currentFame !== 'number' || !Number.isFinite(currentFame) || currentFame < 0) {
+      return NOTHING(profile);
+    }
+    const nextFame = currentFame + fameReward;
+    if (!Number.isFinite(nextFame) || nextFame <= currentFame) return NOTHING(profile);
+  }
+  const fame = completed.length > 0 ? currentFame + fameReward : currentFame;
   let gold = profile.gold;
   if (completed.length > 0) {
     // Do not silently repair a malformed purse to zero: the deed and its
