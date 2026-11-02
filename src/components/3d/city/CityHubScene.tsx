@@ -1,3 +1,4 @@
+import { canDebitGold } from '../../../utils/goldTransactions';
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Sparkles as DreiSparkles, Sky, Environment, Lightformer, useGLTF } from '@react-three/drei';
@@ -1269,7 +1270,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const restToTomorrow = cityPhase === 'dawn';
   const treatmentEligibility = treatmentPanel
     ? treatmentPanel === 'caravanserai'
-      ? playerProfile.gold >= REST_PRICE
+      ? canDebitGold(playerProfile.gold, REST_PRICE)
         ? { ok: true as const, price: REST_PRICE }
         : { ok: false as const, reason: 'insufficient-gold' as const }
       : getRestEligibility(playerProfile)
@@ -1287,7 +1288,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    * nothing to any other interaction.
    */
   const tavernTargets = intelPanel ? intelTargets(playerProfile) : [];
-  const tavernPurseShort = intelPanel && playerProfile.gold < INTEL_PRICE;
+  const tavernPurseShort = intelPanel && !canDebitGold(playerProfile.gold, INTEL_PRICE);
   /**
    * STORY-5a — 'cut' closes her rumour service PERMANENTLY: the list above is
    * replaced by the closure and no purchase is offered again (App refuses the
