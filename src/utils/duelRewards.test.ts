@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs';
 import {
   calculateDuelGold,
   creditDuelGold,
+  settleDuelGold,
   PURSE_FLAWLESS_RATE,
   PURSE_HYPE_FLOOR,
   PURSE_HYPE_STEP,
@@ -200,5 +201,26 @@ describe('§H wiring', () => {
     expect(modal).toContain('Perfect Blocks');
     expect(modal).toContain('Flawless Victory');
     expect(modal).toContain('Purse Now:');
+  });
+});
+
+
+describe('§I explicit duel gold settlement outcome', () => {
+  test('distinguishes a valid zero reward from refusal', () => {
+    expect(settleDuelGold(100, 0, 0)).toEqual({ ok: true, balance: 100, credited: 0 });
+    expect(settleDuelGold(Number.NaN, 0, 0)).toEqual({ ok: false, reason: 'invalid-balance' });
+  });
+  test('accepts a complete valid credit', () => {
+    expect(settleDuelGold(100, 35, 20)).toEqual({ ok: true, balance: 155, credited: 55 });
+  });
+  test('rejects malformed awards and balances explicitly', () => {
+    expect(settleDuelGold(-1, 1, 0)).toEqual({ ok: false, reason: 'invalid-balance' });
+    expect(settleDuelGold(100, Number.NaN, 0)).toEqual({ ok: false, reason: 'invalid-award' });
+    expect(settleDuelGold(100, 0, Number.POSITIVE_INFINITY)).toEqual({ ok: false, reason: 'invalid-award' });
+  });
+  test('rejects overflow and positive credits lost to precision', () => {
+    expect(settleDuelGold(Number.MAX_VALUE, 1, 0)).toEqual({ ok: false, reason: 'overflow' });
+    expect(settleDuelGold(Number.MAX_VALUE / 2, Number.MAX_VALUE, 0)).toEqual({ ok: false, reason: 'overflow' });
+    expect(settleDuelGold(2 ** 53, 1, 0)).toEqual({ ok: false, reason: 'precision-loss' });
   });
 });
