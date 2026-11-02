@@ -2432,6 +2432,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     ]
   );
 
+  // Keep the latest dispatcher available to the pre-impact timer without
+  // capturing a stale render or creating a self-referential callback dependency.
+  executeCombatTurnRef.current = executeCombatTurn;
+
   // OPPONENT AI TURN STRATEGY ENGINE
   useEffect(() => {
     if (isPlayerTurn || isExecuting || isMatchOver.current || opp.health <= 0) return;
@@ -2584,9 +2588,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }
 
       // Reuse the existing dispatcher without changing the ordinary action-stage inventory.
-      executeCombatTurnRef.current = executeCombatTurn;
-
-  const runCounterTurn = executeCombatTurn;
+      const runCounterTurn = executeCombatTurn;
 
       // Resolve pending counterattack (Valéria counter_dodge). The
       // counter was queued when Valéria evaded a player attack on the
