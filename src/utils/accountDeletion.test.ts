@@ -10,9 +10,8 @@
  *      re-confirm or a Drive failure deletes NOTHING, that a failed account deletion
  *      never wipes the device, and that a sign-out hiccup cannot turn a completed
  *      deletion into a failure;
- *   §B the DEVICE WIPE — one key, the save's own, and nothing else (not the settings
- *      record, not a Drive file, not a session); and the two erase paths in the game
- *      naming that same single key;
+ *   §B the DEVICE WIPE — the active save and its quarantined original, but nothing else
+ *      (not the settings record, not a Drive file, not a session);
  *   §C the ERROR COPY — every message a sentence, never a raw code;
  *   §D the PROVIDER DISPATCH — password vs popup, the provider's plain name, and who
  *      can be offered the Drive cloud save at all;
@@ -284,6 +283,8 @@ describe('B. The device wipe — one key, and nothing else', () => {
     // The unreadable-save quarantine contains original gladiator bytes and must be
     // erased with the active profile; preferences remain a separate record.
     expect(code('../services/storage.ts')).toContain('localStorage.removeItem(PROFILE_STORAGE_KEY)');
+    expect(code('../services/storage.ts')).toContain('PROFILE_QUARANTINE_KEY');
+    expect(code('../services/storage.ts')).toContain('clearSavedProfile');
     expect(code('../services/accountDeletion.ts')).toContain('LOCAL_SAVE_KEYS');
     expect(code('../services/accountDeletion.ts')).toContain('PROFILE_QUARANTINE_KEY');
     expect(code('../components/hub/SettingsModal.tsx')).toContain('onEraseDeviceData');
