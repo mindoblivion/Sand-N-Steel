@@ -1,6 +1,10 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { getBodyDamageProfile } from './injuryAppearance';
+
+const HUD = readFileSync(new URL('../components/ui/CombatHUD.tsx', import.meta.url), 'utf8');
+const MESH = readFileSync(new URL('../components/3d/GladiatorMesh.tsx', import.meta.url), 'utf8');
 
 describe('body-visible injury and damage profile', () => {
   test('a healthy fighter has no visible damage', () => {
@@ -49,5 +53,22 @@ describe('body-visible injury and damage profile', () => {
       penaltyStrength: 2,
       penaltyAgility: 2,
     }).stage).toBe('clear');
+  });
+
+  test('combat HUD keeps stamina but no longer displays a visible health bar or HP number', () => {
+    expect(HUD).not.toContain('playerHpPct');
+    expect(HUD).not.toContain('opponentHpPct');
+    expect(HUD).not.toContain('Health Bar');
+    expect(HUD).not.toContain('Math.round(player.health)');
+    expect(HUD).not.toContain('Math.round(opponent.health)');
+    expect(HUD).toContain('playerStaminaPct');
+    expect(HUD).toContain('opponentStaminaPct');
+  });
+
+  test('both character render paths translate health into visible body marks', () => {
+    expect(MESH).toContain('getBodyDamageProfile(fighter.health, fighter.stats.healthMax, fighter.injury)');
+    expect(MESH).toContain('BodyDamagePatch');
+    expect(MESH).toContain('marker.bruise.material.opacity = damageProfile.bruiseIntensity * 0.72');
+    expect(MESH).toContain('marker.swelling.material.opacity = damageProfile.swellingIntensity * 0.24');
   });
 });
