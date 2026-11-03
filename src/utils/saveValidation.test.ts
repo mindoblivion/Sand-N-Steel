@@ -37,6 +37,7 @@ import {
   readStoredProfileSummary,
   wasStoredSaveQuarantined,
   saveProfile,
+  clearSavedProfile,
 } from '../services/storage';
 
 const load = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
@@ -337,6 +338,38 @@ describe('saveProfile — persistence is verified, not assumed', () => {
     };
     withStore(hostile, () => {
       expect(saveProfile(validStoredProfile() as never)).toBe(false);
+    });
+  });
+});
+
+describe('clearSavedProfile — reset is confirmed before discarding the active profile', () => {
+  test('returns true only after the stored profile key is absent', () => {
+    const store = makeStore({ [PROFILE_STORAGE_KEY]: JSON.stringify(validStoredProfile()) });
+    withStore(store, () => {
+      expect(clearSavedProfile()).toBe(true);
+      expect(store.data.has(PROFILE_STORAGE_KEY)).toBe(false);
+    });
+  });
+
+  test('returns false when storage rejects deletion', () => {
+    const hostile = {
+      getItem: () => 'still saved',
+      setItem: () => {},
+      removeItem: () => { throw new Error('storage unavailable'); },
+    };
+    withStore(hostile, () => {
+      expect(clearSavedProfile()).toBe(false);
+    });
+  });
+
+  test('returns false when storage silently retains the profile', () => {
+    const hostile = {
+      getItem: () => 'still saved',
+      setItem: () => {},
+      removeItem: () => {},
+    };
+    withStore(hostile, () => {
+      expect(clearSavedProfile()).toBe(false);
     });
   });
 });
