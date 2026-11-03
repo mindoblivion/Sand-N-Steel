@@ -153,6 +153,27 @@ export function unspentPoints(allocation: CreationAllocation, vitium?: VitiumId 
 }
 
 /**
+ * Keep an allocation valid when a player removes the Vitium that supplied two
+ * bonus points. Excess is trimmed from the last-listed defensive stats first,
+ * preserving Strength and Agility whenever possible; no stat can become negative.
+ */
+export function trimAllocationToPool(
+  allocation: CreationAllocation,
+  vitium?: VitiumId | null,
+): CreationAllocation {
+  const next = { ...allocation };
+  let excess = Math.max(0, allocatedPoints(next) - creationPoints(vitium));
+  const trimOrder: AllocationStat[] = ['defense', 'stamina', 'agility', 'strength'];
+  for (const stat of trimOrder) {
+    if (excess <= 0) break;
+    const removed = Math.min(next[stat], excess);
+    next[stat] -= removed;
+    excess -= removed;
+  }
+  return next;
+}
+
+/**
  * The model a class naturally suggests.  Only two classes ARE a model in this
  * build; the rest suggest nothing, and a suggestion is never applied once the
  * player has chosen a look.
