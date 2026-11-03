@@ -2048,7 +2048,11 @@ export function App() {
   };
 
   const handleResetGame = () => {
-    clearSavedProfile();
+    if (!clearSavedProfile()) {
+      setSaveError('Could not erase the saved gladiator from this device. Your current game has been kept open; check device storage and try again.');
+      return;
+    }
+    setSaveError(null);
     setProfile(null);
     setCurrentScreen('title');
   };
