@@ -93,6 +93,23 @@ describe('full oval lap checkpoints', () => {
     expect(advanceRaceLap(finish.tracker, sample(axis, RACE_FINISH_LINE_Z + 1)).finishedNow).toBe(false);
   });
 
+  test('keeps a valid southern lane change when frame samples cross the center strip', () => {
+    let tracker = createRaceLapTracker();
+    for (const position of [
+      sample(axis, 20),
+      sample(axis + 9, RACE_NORTH_TURN_Z - 1),
+      sample(axis + 9, -5),
+      sample(axis + 9, 15),
+      sample(axis + 9, RACE_SOUTH_TURN_Z + 1),
+      sample(axis + 4, RACE_SOUTH_TURN_Z + 1),
+      sample(axis - 4, RACE_SOUTH_TURN_Z + 1),
+      sample(axis - 9, RACE_SOUTH_TURN_Z + 1),
+    ]) tracker = advanceRaceLap(tracker, position).tracker;
+    expect(tracker.southTurnCompleted).toBe(true);
+    const beforeFinish = advanceRaceLap(tracker, sample(axis - 9, RACE_FINISH_LINE_Z - 0.1)).tracker;
+    expect(advanceRaceLap(beforeFinish, sample(axis - 9, RACE_FINISH_LINE_Z + 0.1)).finishedNow).toBe(true);
+  });
+
   test('supports the mirrored lane direction and ignores malformed samples', () => {
     let tracker = createRaceLapTracker();
     for (const position of [
