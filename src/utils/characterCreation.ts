@@ -280,8 +280,6 @@ export function buildCreatedProfile(input: {
     title: 'The Sandborn Rebel',
     rank: 'Rookie',
     appearance: input.appearance,
-    // New profiles start at the neutral body-weight baseline; older factory saves remain untouched.
-    weight: 180,
     level: 1,
     xp: 0,
     xpToNextLevel: 100,
