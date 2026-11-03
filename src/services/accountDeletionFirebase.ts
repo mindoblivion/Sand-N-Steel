@@ -121,10 +121,22 @@ export async function deleteSignedInAccount(options: {
       reauthenticate: () => reauthenticateSignedInUser(options.password),
       deleteDriveSave: async () => {
         const saves = await listDriveSaves();
-        for (const save of saves) await deleteDriveSaveFile(save.id);
-        // A successful lookup with no backup is not a deletion. Report the
-        // actual result so the confirmation UI never overstates what happened.
-        return saves.length > 0;
+        let deletedCount = 0;
+        for (const save of saves) {
+          try {
+            await deleteDriveSaveFile(save.id);
+            deletedCount += 1;
+          } catch (error) {
+            // If Drive accepted earlier deletes but a later one failed, do not
+            // tell the player that nothing changed. A retry lists only what remains.
+            if (deletedCount > 0) {
+              throw deletionError('account-deletion/drive-save-partially-deleted');
+            }
+            throw error;
+          }
+        }
+        // A successful lookup with no backup is not a deletion.
+        return deletedCount > 0;
       },
       deleteUser: async () => {
         const user = auth.currentUser;
