@@ -153,6 +153,7 @@ const DELETION_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   'account-deletion/unsupported-provider':
     "We can't confirm this sign-in method in the app. Write to us and we'll delete the account for you.",
   'account-deletion/drive-save-deleted-account-remains': 'Your Google Drive backup was deleted, but your account was not. The account is still active. Try again with cloud-save deletion turned off.',
+  'account-deletion/drive-save-partially-deleted': 'Some Google Drive backup files were deleted, but your account was not. Your account is still active. Try again to remove the remaining backups, or turn off cloud-save deletion.',
 };
 
 /** One sentence the player can act on, for any failure — and never the raw code. */
