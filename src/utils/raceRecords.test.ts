@@ -48,6 +48,16 @@ describe('race best-time transaction', () => {
     }
   });
 
+  test('invalid runtime team sizes cannot create unsupported best-time keys', () => {
+    const profile = createNewProfile('Record Keeper');
+    for (const teamSize of [0, 1, 2.5, 5, '2', null] as unknown[]) {
+      const result = recordRaceBestTime(profile, teamSize as 2, 12345);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('invalid-team-size');
+      expect(profile.racing).toBeUndefined();
+    }
+  });
+
   test('malformed previous time is replaced by a valid finish', () => {
     const profile = { ...createNewProfile('Record Keeper'), racing: { selected: 2, bestTimes: { 2: Number.NaN, 3: 'bad' } } } as unknown as ReturnType<typeof createNewProfile>;
     const result = recordRaceBestTime(profile, 2, 12345);
