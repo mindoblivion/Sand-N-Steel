@@ -248,6 +248,8 @@ export interface FighterState {
    * state only — never written to a profile or a save.
    */
   entangledTurns?: number;
+  /** Body mass drives the player's rig-based silhouette; absent opponents use the neutral baseline. */
+  bodyWeightLb?: number;
   /** CH-3b — the retiarius' net is still in hand this fight (runtime only). */
   netAvailable?: boolean;
   telegraphTimer?: number;
