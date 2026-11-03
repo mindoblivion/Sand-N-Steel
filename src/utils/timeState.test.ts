@@ -548,6 +548,8 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/restRecovery.ts',
       // L5 training availability reads the canonical day without advancing it.
       'utils/trainingSchedule.ts',
+      // Physical development keys completed training/recovery history to the entry day.
+      'utils/physicalDevelopment.ts',
     ];
     const CLOCK_APIS = [
       'resolveTimeState',
