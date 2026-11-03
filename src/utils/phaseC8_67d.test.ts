@@ -737,11 +737,15 @@ describe('C-8.67D §G — the horse-asset inventory: what exists, and what it is
       .filter((f) => horseish.test(f.replace(repo(''), '')))
       .map((f) => f.replace(repo(''), ''))
       .sort();
+    // The two new horse-named source files are the procedural shipping renderer and its
+    // test. They use primitives only; neither names or loads any of the three GLB uploads.
     expect(matches).toEqual(
       [
         'public/_workspace_dist_horse_better.glb',
         'public/_workspace_dist_horse_great.glb',
         'public/_workspace_dist_horse_weak.glb',
+        'src/components/3d/RaceHorseTeam.tsx',
+        'src/components/3d/raceHorseTeam.test.ts',
         ...C8_68C_PROTOTYPE,
       ].sort()
     );
@@ -931,16 +935,11 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
     // `main.tsx`'s `import.meta.env.DEV` branch, which dynamically imports the component
     // (so neither is in a production build; `phaseC8_68c.test.ts` §F pins that).  A
     // gameplay file still cannot start importing the plan without failing here.
-    // REBASED by S8, not weakened, and by exactly one dev-only consumer.  The S8 wheel-fit
-    // slice was ordered to re-run this module's clearance checks at the withheld wheel
-    // variants' larger radii, and it did so in `utils/chariotWheelFit.ts` — a numbers-only
-    // util that, like C-8.68C's, is reached only through the same dev-gated fit prototype
-    // (`?devHarness=horsefit`, dynamically imported inside `main.tsx`'s
-    // `import.meta.env.DEV` branch; `phaseS8WheelFit.test.ts` §D pins that it is report-only
-    // and consumes no catalogue entry).  The property this guard protects is unchanged: no
-    // screen, city, arena or hub file may import the plan.  The list stays an EXACT
-    // `toEqual`, so a fourth consumer — of any kind — still fails here.
+    // Racing now has one deliberate production consumer: RaceHorseTeam reads the measured
+    // station plan to place the selected Biga / Triga / Quadra. The plan remains pure and
+    // renderer-free; only the consumer renders it. The dev-only fit tooling remains isolated.
     expect(consumers).toEqual([
+      'components/3d/RaceHorseTeam.tsx',
       'components/dev/HorseChariotFitPrototype.tsx',
       'utils/chariotWheelFit.ts',
       'utils/horseFitPrototype.ts',
