@@ -331,6 +331,8 @@ describe('C. The error copy — plain words, never a raw code', () => {
   });
 
   test('the two provider-less failures hand the job to the developer', () => {
+    expect(deletionErrorMessage(authError('account-deletion/drive-save-partially-deleted'))).toContain('Some Google Drive backup files were deleted');
+    expect(deletionErrorMessage(authError('account-deletion/drive-save-partially-deleted'))).toContain('account was not');
     expect(deletionErrorMessage(authError('account-deletion/unsupported-provider'))).toContain('Write to us');
     expect(deletionErrorMessage(authError('auth/operation-not-allowed'))).toContain('Write to us');
   });
@@ -497,6 +499,7 @@ describe('E. The public surfaces', () => {
     // The Drive work goes through the EXISTING service — no second client.
     expect(wiring).toContain('listDriveSaves');
     expect(wiring).toContain('deleteDriveSaveFile');
+    expect(wiring).toContain('account-deletion/drive-save-partially-deleted');
     expect(wiring).not.toContain('googleapis.com');
     // Re-confirmation only: signing IN is the game's own sign-in path, not this flow.
     expect(wiring).not.toContain('signInWithPopup');
