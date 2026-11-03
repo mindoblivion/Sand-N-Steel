@@ -16,7 +16,13 @@ export const RACE_HORSE_FIT_SCALE = 0.5530;
 export const RACE_HORSE_WITHERS_X = 0.42598;
 export const RACE_HORSE_YAW = Math.PI / 2;
 
-const coat = new THREE.MeshStandardMaterial({ color: '#68432e', roughness: 0.88 });
+const coats = [
+  new THREE.MeshStandardMaterial({ color: '#68432e', roughness: 0.88 }),
+  new THREE.MeshStandardMaterial({ color: '#80553a', roughness: 0.9 }),
+  new THREE.MeshStandardMaterial({ color: '#4a3025', roughness: 0.9 }),
+  new THREE.MeshStandardMaterial({ color: '#77503a', roughness: 0.9 }),
+];
+const coat = coats[0];
 const darkCoat = new THREE.MeshStandardMaterial({ color: '#35251f', roughness: 0.92 });
 const maneCoat = new THREE.MeshStandardMaterial({ color: '#241b18', roughness: 0.96 });
 const hoofCoat = new THREE.MeshStandardMaterial({ color: '#282523', roughness: 0.86 });
@@ -49,35 +55,36 @@ const HorseLeg: React.FC<LegProps> = ({ x, z, phase, speed, hind = false }) => {
 };
 
 const RaceHorse: React.FC<{ speed: number; coatOffset: number }> = ({ speed, coatOffset }) => {
-  const bodyMaterial = useMemo(() => {
-    if (coatOffset === 0) return coat;
-    return new THREE.MeshStandardMaterial({
-      color: coatOffset === 1 ? '#80553a' : coatOffset === 2 ? '#4a3025' : '#77503a',
-      roughness: 0.9,
-    });
-  }, [coatOffset]);
-
+  const bodyMaterial = coats[coatOffset % coats.length];
   return (
-    <group scale={RACE_HORSE_FIT_SCALE} rotation={[0, RACE_HORSE_YAW, 0]}>
+    <group scale={RACE_HORSE_FIT_SCALE} rotation={[0, RACE_HORSE_YAW, 0} dispose={null}>
       {/* Barrel, chest, raised neck and head keep the silhouette readable from the chase camera. */}
       <mesh position={[-0.22, 1.30, 0]} material={bodyMaterial} castShadow={false}>
         <sphereGeometry args={[1, 10, 7]} />
-        <scale args={[0.68, 0.39, 0.28]} />
+      </mesh>
+      <mesh position={[-0.22, 1.30, 0]} scale={[0.68, 0.39, 0.28]} material={bodyMaterial} castShadow={false}>
+        <sphereGeometry args={[1, 10, 7]} />
       </mesh>
       <mesh position={[0.28, 1.31, 0]} material={bodyMaterial} castShadow={false}>
         <sphereGeometry args={[1, 8, 6]} />
-        <scale args={[0.31, 0.36, 0.25]} />
+      </mesh>
+      <mesh position={[0.28, 1.31, 0]} scale={[0.31, 0.36, 0.25]} material={bodyMaterial} castShadow={false}>
+        <sphereGeometry args={[1, 8, 6]} />
       </mesh>
       <mesh position={[0.48, 1.54, 0]} rotation={[0, 0, -0.28]} material={bodyMaterial} castShadow={false}>
         <capsuleGeometry args={[0.17, 0.48, 3, 7]} />
       </mesh>
       <mesh position={[0.70, 1.78, 0]} rotation={[0, 0, -0.18]} material={bodyMaterial} castShadow={false}>
         <sphereGeometry args={[1, 8, 6]} />
-        <scale args={[0.20, 0.29, 0.15]} />
+      </mesh>
+      <mesh position={[0.70, 1.78, 0]} rotation={[0, 0, -0.18]} scale={[0.20, 0.29, 0.15]} material={bodyMaterial} castShadow={false}>
+        <sphereGeometry args={[1, 8, 6]} />
       </mesh>
       <mesh position={[0.88, 1.66, 0]} material={darkCoat} castShadow={false}>
         <sphereGeometry args={[1, 7, 5]} />
-        <scale args={[0.16, 0.095, 0.12]} />
+      </mesh>
+      <mesh position={[0.88, 1.66, 0]} scale={[0.16, 0.095, 0.12]} material={darkCoat} castShadow={false}>
+        <sphereGeometry args={[1, 7, 5]} />
       </mesh>
       <mesh position={[0.47, 1.78, 0]} rotation={[0, 0, -0.25]} material={maneCoat} castShadow={false}>
         <capsuleGeometry args={[0.07, 0.35, 2, 5]} />
@@ -106,7 +113,6 @@ export const RaceHorseTeam: React.FC<{ teamSize: ChariotTeamSize; speed: number 
         <group
           key={station.lane}
           position={[station.x, station.groundY, station.z + RACE_HORSE_WITHERS_X * RACE_HORSE_FIT_SCALE]}
-          data-horse-lane={station.lane}
         >
           <RaceHorse speed={speed} coatOffset={index} />
         </group>
