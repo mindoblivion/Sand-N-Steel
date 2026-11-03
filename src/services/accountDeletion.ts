@@ -122,6 +122,18 @@ export function accountCanDeleteDriveSave(providerIds: readonly string[]): boole
   return providerIds.includes('google.com');
 }
 
+/**
+ * Drive deletion needs a fresh Google OAuth token even when the Firebase
+ * account also has a password provider; Firebase reauthentication alone does
+ * not populate the Drive client's in-memory token cache.
+ */
+export function requiresGoogleDriveReauthentication(
+  providerIds: readonly string[],
+  deleteDriveSave: boolean,
+): boolean {
+  return deleteDriveSave && providerIds.includes('google.com');
+}
+
 /** The account is stale: the player confirms it is them, then tries once more. */
 export const REAUTH_REQUIRED_MESSAGE = "Sign in again to confirm it's you.";
 
