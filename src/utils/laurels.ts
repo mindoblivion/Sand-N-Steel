@@ -42,6 +42,7 @@
  */
 
 import { PlayerProfile } from '../types/game';
+import { canDebitGold } from './goldTransactions';
 
 /** A Triumph's two shapes: a title (a display string) or the ludus statue (a flag). */
 export type LaurelKind = 'title' | 'statue';
@@ -374,7 +375,9 @@ export function getTriumphPurchaseEligibility(
   if (ownsTriumph(profile, triumph.id)) return { ok: false, reason: 'already-owned' };
 
   const fame = fameOf(profile);
-  if (fame === null || fame < triumph.price) return { ok: false, reason: 'insufficient-fame' };
+  if (fame === null || !canDebitGold(fame, triumph.price)) {
+    return { ok: false, reason: 'insufficient-fame' };
+  }
 
   return { ok: true };
 }
