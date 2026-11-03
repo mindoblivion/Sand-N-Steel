@@ -1150,6 +1150,46 @@ const RomanWarriorGLB: React.FC<{
  * - Default: Right hand holds Gladius weapon, Left hand holds Scutum shield.
  * - Lefty Mode: Left hand holds Gladius weapon, Right hand holds Scutum shield.
  */
+const BodyDamagePatch: React.FC<{
+  bruiseIntensity: number;
+  swellingIntensity: number;
+  skinColor: string;
+  position: [number, number, number];
+  scale: [number, number, number];
+}> = ({ bruiseIntensity, swellingIntensity, skinColor, position, scale }) => {
+  if (bruiseIntensity <= 0 && swellingIntensity <= 0) return null;
+  return (
+    <group position={position}>
+      {swellingIntensity > 0 && (
+        <mesh scale={[scale[0] * 1.15, scale[1] * 1.15, scale[2] * 2.2]} renderOrder={3}>
+          <sphereGeometry args={[1, 14, 10]} />
+          <meshStandardMaterial
+            color={new THREE.Color(skinColor).lerp(new THREE.Color('#a86a78'), 0.18)}
+            roughness={0.95}
+            transparent
+            opacity={swellingIntensity * 0.24}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
+      {bruiseIntensity > 0 && (
+        <mesh scale={scale} renderOrder={4}>
+          <sphereGeometry args={[1, 14, 10]} />
+          <meshStandardMaterial
+            color="#4b293d"
+            roughness={1}
+            transparent
+            opacity={bruiseIntensity * 0.72}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
+    </group>
+  );
+};
+
 const ProceduralGladiator: React.FC<{
   fighter: FighterState;
   overrideAction?: FighterState['action'];
@@ -1318,6 +1358,7 @@ const ProceduralGladiator: React.FC<{
 
   const scale = fighter.meshScale || 1.0;
   const bodyProfile = getGladiatorBodyRigProfile(fighter.bodyWeightLb, fighter.physique);
+  const damageProfile = getBodyDamageProfile(fighter.health, fighter.stats.healthMax, fighter.injury);
   const coreScale = bodyProfile.coreScale;
   const limbScale = bodyProfile.limbScale;
   const isHit = flashActive;
