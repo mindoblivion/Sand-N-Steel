@@ -47,3 +47,20 @@ export function meetsWeaponStrengthRequirement(
     Number.isFinite(requiredStrength) &&
     strength >= requiredStrength;
 }
+
+
+/**
+ * Scale only the player's ordinary attack-resolution beat. Death holds and
+ * non-attack actions are deliberately invariant; boss telegraphs are not attacks.
+ */
+export function scalePlayerAttackResolutionMs(
+  durationMs: number,
+  weight: unknown,
+  isPlayerAttack: boolean,
+  fightEnded: boolean,
+): number {
+  if (!isPlayerAttack || fightEnded || !Number.isFinite(durationMs) || durationMs <= 0) {
+    return durationMs;
+  }
+  return Math.round(durationMs / getWeightCombatProfile(weight).attackSpeedMultiplier);
+}
