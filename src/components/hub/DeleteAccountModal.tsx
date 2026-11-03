@@ -219,8 +219,14 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
                   />
                 ) : (
                   <p className="text-xs text-neutral-400 leading-relaxed">
-                    We&apos;ll open {providerLabel}&apos;s sign-in window so {providerLabel} can confirm
-                    it&apos;s you before anything is deleted.
+                    {deleteDriveSave
+                      ? 'We’ll open Google’s sign-in window to confirm your Google account and refresh access to your Drive backup before anything is deleted.'
+                      : <>We&apos;ll open {providerLabel}&apos;s sign-in window so {providerLabel} can confirm it&apos;s you before anything is deleted.</>}
+                  </p>
+                )}
+                {method === 'password' && deleteDriveSave && (
+                  <p className="text-xs text-neutral-400 leading-relaxed">
+                    After your password is confirmed, we&apos;ll also open Google&apos;s sign-in window to refresh access to your Drive backup.
                   </p>
                 )}
               </div>
