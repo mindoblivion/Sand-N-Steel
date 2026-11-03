@@ -8839,8 +8839,8 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Validation.** Tests cover legacy saves, team-specific records, faster/equal/slower laps, malformed prior records, invalid elapsed times, and no-op identity. Automated CI and device validation remain required.
 
 
-## Racing — require a full oval route
+## Racing — require a complete oval route
 
-- **Correction to the first finish-line slice.** A far-Z threshold alone allowed a straight drive and reverse to look like a lap. The tracker now requires a north-end turn on one side, a south-end turn on the opposite side, then a return crossing of the start/finish line.
-- **Source of geometry.** The start line, oval flank, south edge and axis are imported from the existing surveyed circus layout/collision constants. Checkpoints are pure and do not touch save state.
-- **Validation.** Tests reject near-start reversals, straight shortcuts, and an early lane swap well before the southern curve; they cover both mirrored directions and require the opposite-side checkpoint near the surveyed south edge before the finish.
+- **Correction.** A single north checkpoint plus a south lane swap can still count a half-lap. The tracker now captures the opening lane on the start straight, requires a lane change at the north curve, then requires a change back at the southern curve, followed by a finish-line crossing.
+- **Source of geometry.** Start line, oval flank, south edge and axis come from the existing surveyed circus geometry/collision constants. The pure tracker does not touch save state.
+- **Validation.** Tests reject reversals, half-laps, early south lane swaps and malformed samples; they cover both mirrored routes and a lane transition sampled across the centre strip.
