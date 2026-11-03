@@ -1,7 +1,7 @@
 import { canDebitGold } from './utils/goldTransactions';
 import React, { useState, useEffect, useRef } from 'react';
 import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from './types/game';
-import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
+import { loadSavedProfile, saveProfile as writeSavedProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
 import type { StoredProfileSummary } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
 
@@ -246,6 +246,12 @@ export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saveProfile = (next: PlayerProfile): boolean => {
+    const saved = writeSavedProfile(next);
+    setSaveError(saved ? null : 'Progress is not saved on this device. Free up storage or use Save Progress to create a cloud backup.');
+    return saved;
+  };
   // L4 — keep the latest committed save visible to duplicate purchase callbacks in the same tick.
   const profileRef = useRef<PlayerProfile | null>(null);
   useEffect(() => {
@@ -2067,6 +2073,13 @@ export function App() {
             }}
             onDismiss={postOathNudge.dismiss}
           />
+        )}
+
+        {saveError && (
+          <div role="alert" className="fixed inset-x-3 top-3 z-[100] mx-auto max-w-xl rounded-xl border border-red-700 bg-red-950/95 p-3 text-sm font-semibold text-red-100 shadow-xl">
+            {saveError}
+            <button type="button" onClick={() => setSaveError(null)} aria-label="Dismiss save warning" className="ml-3 min-h-10 rounded-lg px-3 underline">Dismiss</button>
+          </div>
         )}
 
         {/* GAME SCREENS */}
