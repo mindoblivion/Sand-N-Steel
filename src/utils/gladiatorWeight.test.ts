@@ -14,21 +14,20 @@ describe('gladiator weight combat profile', () => {
     expect(normalizeGladiatorWeight('200')).toBe(DEFAULT_GLADIATOR_WEIGHT_LB);
     expect(getWeightCombatProfile(undefined)).toEqual({
       weightLb: 180,
-      attackSpeedMultiplier: 1,
       impactMultiplier: 1,
     });
   });
 
-  test('lighter build profile expresses the planned speed-for-impact trade-off', () => {
+  test('lighter builds reduce impact without changing the combat timing contract', () => {
     const light = getWeightCombatProfile(140);
-    expect(light.attackSpeedMultiplier).toBeGreaterThan(1);
     expect(light.impactMultiplier).toBeLessThan(1);
+    expect(Object.keys(light)).toEqual(['weightLb', 'impactMultiplier']);
   });
 
-  test('heavier build profile expresses the planned impact-for-speed trade-off', () => {
+  test('heavier builds increase impact without changing the combat timing contract', () => {
     const heavy = getWeightCombatProfile(300);
-    expect(heavy.attackSpeedMultiplier).toBeLessThan(1);
     expect(heavy.impactMultiplier).toBeGreaterThan(1);
+    expect(Object.keys(heavy)).toEqual(['weightLb', 'impactMultiplier']);
   });
 
   test('weight is clamped and strength alone determines strength requirement', () => {
