@@ -41,3 +41,15 @@ describe('gladiator weight combat profile', () => {
     expect(getWeightCombatProfile(300).weightLb).toBe(300);
   });
 });
+
+
+describe('scalePlayerAttackResolutionMs', () => {
+  it('shortens light-build attack recovery and lengthens heavy-build recovery', () => {
+    expect(scalePlayerAttackResolutionMs(1000, 140, true, false)).toBe(952);
+    expect(scalePlayerAttackResolutionMs(1000, 300, true, false)).toBe(1176);
+  });
+  it('leaves death holds and non-attack actions untouched', () => {
+    expect(scalePlayerAttackResolutionMs(1600, 300, true, true)).toBe(1600);
+    expect(scalePlayerAttackResolutionMs(800, 300, false, false)).toBe(800);
+  });
+});
