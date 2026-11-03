@@ -36,6 +36,7 @@ import {
   loadSavedProfile,
   readStoredProfileSummary,
   wasStoredSaveQuarantined,
+  saveProfile,
 } from '../services/storage';
 
 const load = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
@@ -303,6 +304,39 @@ describe('§B loadSavedProfile — a good save is returned untouched, a bad one 
     };
     withStore(hostile, () => {
       expect(loadSavedProfile()).toBeNull();
+    });
+  });
+});
+
+describe('saveProfile — persistence is verified, not assumed', () => {
+  test('returns true only after the exact serialized profile is stored', () => {
+    const profile = validStoredProfile();
+    const store = makeStore();
+    withStore(store, () => {
+      expect(saveProfile(profile as never)).toBe(true);
+      expect(store.data.get(PROFILE_STORAGE_KEY)).toBe(JSON.stringify(profile));
+    });
+  });
+
+  test('returns false when storage rejects a write', () => {
+    const hostile = {
+      getItem: () => null,
+      setItem: () => { throw new Error('quota exceeded'); },
+      removeItem: () => {},
+    };
+    withStore(hostile, () => {
+      expect(saveProfile(validStoredProfile() as never)).toBe(false);
+    });
+  });
+
+  test('returns false when storage silently fails to retain a write', () => {
+    const hostile = {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    };
+    withStore(hostile, () => {
+      expect(saveProfile(validStoredProfile() as never)).toBe(false);
     });
   });
 });
