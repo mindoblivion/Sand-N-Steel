@@ -68,6 +68,7 @@ describe('body-visible injury and damage profile', () => {
   test('both character render paths translate health into visible body marks', () => {
     expect(MESH).toContain('getBodyDamageProfile(fighter.health, fighter.stats.healthMax, fighter.injury)');
     expect(MESH).toContain('BodyDamagePatch');
+    expect(MESH).toContain('[bodyRigBones, fighter.bodyWeightLb, fighter.physique]');
     expect(MESH).toContain('marker.bruise.material.opacity = damageProfile.bruiseIntensity * 0.72');
     expect(MESH).toContain('marker.swelling.material.opacity = damageProfile.swellingIntensity * 0.24');
   });
