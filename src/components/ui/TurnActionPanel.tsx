@@ -100,6 +100,8 @@ interface TurnActionPanelProps {
    */
   playerModifiers?: FighterModifiers;
   opponentModifiers?: FighterModifiers;
+  /** Matches the player-only weight multiplier used by combat resolution. */
+  playerWeightImpactMultiplier?: number;
   opponentIsBoss?: boolean;
   /** D-2 — the beast, while one is in the arena. Absent on every other duel. */
   beast?: BeastPanelInfo | null;
@@ -115,6 +117,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   combatLog,
   playerModifiers = EMPTY_MODIFIERS,
   opponentModifiers = EMPTY_MODIFIERS,
+  playerWeightImpactMultiplier = 1,
   opponentIsBoss = false,
   beast = null,
   onExecuteAction,
@@ -198,15 +201,15 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
     });
 
   const quickDmgMin = calculateAttackDamage(
-    weapon.damageLight, str, false, oppDef, false, 0, 1.0, estimateTraitMult(true),
+    weapon.damageLight, str, false, oppDef, false, 0, 1.0, estimateTraitMult(true) * playerWeightImpactMultiplier,
   );
   const quickDmgMax = quickDmgMin;
 
   const powerDmgMin = calculateAttackDamage(
-    weapon.damageHeavy, str, false, oppDef, false, 0, 1.0, estimateTraitMult(false),
+    weapon.damageHeavy, str, false, oppDef, false, 0, 1.0, estimateTraitMult(false) * playerWeightImpactMultiplier,
   );
   const powerDmgMax = calculateAttackDamage(
-    weapon.damageHeavy, str, true, oppDef, false, 0, 1.0, estimateTraitMult(false),
+    weapon.damageHeavy, str, true, oppDef, false, 0, 1.0, estimateTraitMult(false) * playerWeightImpactMultiplier,
   );
 
   // Weapon-specific stamina costs (shared with combat resolution) — CH-3a: the

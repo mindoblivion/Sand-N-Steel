@@ -53,6 +53,7 @@ import {
   readCrowdHypeState,
 } from '../../utils/crowdDynamics';
 import { getWeaponByType } from '../../data/itemsDB';
+import { getWeightCombatProfile } from '../../utils/gladiatorWeight';
 import {
   getWeaponRange,
   getStaminaCost,
@@ -378,6 +379,7 @@ export const turnResolutionMs = (
   actionType: CombatActionType,
   fightEnded = false,
   mode: BoutMode = DEFAULT_BOUT_MODE,
+  playerRecoveryMultiplier = 1,
 ): number => {
   if (fightEnded) return TURN_RESOLUTION_DEATH_MS;
   const shipped = TURN_RESOLUTION_MS[actionType];
@@ -386,9 +388,18 @@ export const turnResolutionMs = (
   // (Steel/Invictus shorten a longer hold TO the floor; Sand keeps it exactly),
   // then the floor read from `TELEGRAPH_FLOOR_SECONDS` — no second constant, and
   // a hold can only ever be raised back up to it.
-  return TELEGRAPH_HOLD_ACTIONS.includes(actionType)
-    ? bossTelegraphHoldMs(mode, shipped)
-    : shipped;
+  if (TELEGRAPH_HOLD_ACTIONS.includes(actionType)) {
+    return bossTelegraphHoldMs(mode, shipped);
+  }
+  // Body weight affects only the PLAYER's ordinary quick/power attack recovery.
+  // Utility actions, special telegraphs, AI turns and the death hold stay fixed.
+  if (actionType === 'quick_attack' || actionType === 'power_attack') {
+    const scale = Number.isFinite(playerRecoveryMultiplier)
+      ? Math.max(0.85, Math.min(1.15, playerRecoveryMultiplier))
+      : 1;
+    return Math.round(shipped * scale);
+  }
+  return shipped;
 };
 
 // The opponent's think time. Unchanged at 750 ms, except on the AI turn that
@@ -2043,7 +2054,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               isBlocked,
               blockReduction,
               rageMult,
-              traitMult,
+              traitMult * (isActorPlayer ? getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).impactMultiplier : 1),
             );
 
             // CF-5 — the same subtraction the damage branch below applies, read
@@ -2249,7 +2260,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   isBlocked,
                   blockReduction,
                   rageMult,
-                  traitMult,
+                  traitMult * (isActorPlayer ? getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).impactMultiplier : 1),
                 );
 
                 // CF-5 — the second blade can be the killing blow.
@@ -2412,7 +2423,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         if (flankPending) return;
         if (!isActorPlayer) setPlayerTurnCount((count) => count + 1);
         setIsPlayerTurn(!isActorPlayer);
-      }, turnResolutionMs(actionType, fightEnded, boutMode));
+      }, turnResolutionMs(
+        actionType,
+        fightEnded,
+        boutMode,
+        isActorPlayer && isAttackAction
+          ? getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).recoveryMultiplier
+          : 1,
+      ));
     },
     [
       isExecuting,
@@ -3451,6 +3469,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         combatLog={combatLog}
         playerModifiers={playerMods}
         opponentModifiers={opponentMods}
+        playerWeightImpactMultiplier={getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).impactMultiplier}
         opponentIsBoss={opponent.isBoss === true}
         // Slice C-D — the phase marker, on a ladder boss only (`undefined` on
         // every other bout, so the HUD draws exactly what it always drew).

@@ -157,11 +157,19 @@ describe('CF-5 §A the duration table', () => {
     expect(turnResolutionMs('power_attack', false)).toBe(1300);
   });
 
-  test('the resolution hold is independent of WHO acted', () => {
-    // The resolver takes no actor: pacing is the action's weight, and the same
-    // action holds the same time for the player and for the AI.
-    expect(turnResolutionMs.length).toBeLessThanOrEqual(2); // (actionType, fightEnded = false)
-    expect(turnResolutionMs('power_attack')).toBe(turnResolutionMs('power_attack', false));
+  test('weight scales only the player attack recovery, not AI or utility pacing', () => {
+    // The default remains the shared AI/neutral schedule; App passes a weight
+    // multiplier only for the player's ordinary quick/power attacks.
+    expect(turnResolutionMs.length).toBeLessThanOrEqual(2);
+    expect(turnResolutionMs('quick_attack')).toBe(880);
+    expect(turnResolutionMs('quick_attack', false, 'sand', 0.95)).toBe(836);
+    expect(turnResolutionMs('power_attack', false, 'sand', 0.95)).toBe(1235);
+    expect(turnResolutionMs('quick_attack', false, 'sand', 1.15)).toBe(1012);
+    expect(turnResolutionMs('power_attack', false, 'sand', 1.15)).toBe(1495);
+    expect(turnResolutionMs('advance', false, 'sand', 1.15)).toBe(800);
+    expect(turnResolutionMs('telegraph', false, 'steel', 1.15)).toBe(800);
+    expect(turnResolutionMs('power_attack', true, 'sand', 1.15)).toBe(DEATH_MS);
+    expect(turnResolutionMs('power_attack', false, 'sand', Number.NaN)).toBe(1300);
   });
 });
 
@@ -359,7 +367,7 @@ describe('CF-5 §D the timing seam is the only thing that moved', () => {
   test('the resolution timer is scheduled from the table, exactly once', () => {
     // C-8.70C rebased the call (not the seam): the mode is the one new argument,
     // and Sand is its default, so the shipped pacing is unchanged.
-    expect(duel.match(/\}, turnResolutionMs\(actionType, fightEnded, boutMode\)\);/g)?.length).toBe(1);
+    expect(duel.match(/\}, turnResolutionMs\(\s*actionType,\s*fightEnded,\s*boutMode,\s*isActorPlayer && isAttackAction/g)?.length).toBe(1);
     // The old fixed hold is no longer a timer argument anywhere, and no 1100 ms
     // literal survives in the scene at all — `cast_net` now carries 880.
     expect(duel).not.toMatch(/\}, 1100\);/);
@@ -375,7 +383,7 @@ describe('CF-5 §D the timing seam is the only thing that moved', () => {
   });
 
   test('the timer still only resets the animations and hands the turn over', () => {
-    const schedule = duel.indexOf('}, turnResolutionMs(actionType, fightEnded, boutMode));');
+    const schedule = duel.indexOf('}, turnResolutionMs(');
     const open = duel.lastIndexOf('setTimeout(() => {', schedule);
     const body = duel.slice(open, schedule);
     expect(body).toMatch(/setIsExecuting\(false\);/);

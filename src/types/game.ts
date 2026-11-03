@@ -713,6 +713,8 @@ export interface ArenaTheme {
 }
 
 export interface PlayerAppearance {
+  /** Body mass in pounds; kept with appearance so legacy top-level save shape remains stable. */
+  bodyWeightLb?: number;
   skinColor: string;
   hairColor: string;
   tunicColor: string;

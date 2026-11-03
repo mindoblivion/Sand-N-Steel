@@ -652,7 +652,7 @@ describe('CF-4 §H combat outcomes and timing are unchanged', () => {
     // resolution window is pinned through the shipped call instead.
     // C-8.70C rebased this pin (not weakened): the one scheduling call now passes
     // the bout mode, whose Sand default keeps the shipped table exact.
-    expect(duel.match(/\}, turnResolutionMs\(actionType, fightEnded, boutMode\)\);/g)?.length).toBe(1);
+    expect(duel.match(/\}, turnResolutionMs\(\s*actionType,\s*fightEnded,\s*boutMode,\s*isActorPlayer && isAttackAction/g)?.length).toBe(1);
   });
 
   test('the damage formula module knows nothing about particles', () => {
