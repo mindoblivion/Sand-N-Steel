@@ -53,7 +53,7 @@ import {
   readCrowdHypeState,
 } from '../../utils/crowdDynamics';
 import { getWeaponByType } from '../../data/itemsDB';
-import { getWeightCombatProfile } from '../../utils/gladiatorWeight';
+import { getWeightCombatProfile, scalePlayerAttackResolutionMs } from '../../utils/gladiatorWeight';
 import {
   getWeaponRange,
   getStaminaCost,
@@ -2413,7 +2413,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         if (flankPending) return;
         if (!isActorPlayer) setPlayerTurnCount((count) => count + 1);
         setIsPlayerTurn(!isActorPlayer);
-      }, turnResolutionMs(actionType, fightEnded, boutMode));
+      }, scalePlayerAttackResolutionMs(
+        turnResolutionMs(actionType, fightEnded, boutMode),
+        playerProfile.weight,
+        isActorPlayer && (actionType === 'quick_attack' || actionType === 'power_attack'),
+        fightEnded,
+      ));
     },
     [
       isExecuting,
