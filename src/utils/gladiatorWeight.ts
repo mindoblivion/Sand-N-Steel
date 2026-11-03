@@ -20,9 +20,12 @@ export function normalizeGladiatorWeight(weight: unknown): number {
 }
 
 /**
- * Weight changes attack tempo and impact in opposite directions.
- * At the 180 lb baseline both multipliers are exactly 1.
- * The bounded ±15% range avoids extreme builds becoming mandatory.
+ * Defines the intended tempo/impact trade-off for future combat tuning.
+ * Only impactMultiplier is currently consumed by live combat; attack tempo is
+ * deliberately not applied because the established turn-resolution schedule
+ * is pinned by combat timing tests.
+ * At the 180 lb baseline both multipliers are exactly 1. The bounded ±15%
+ * range avoids extreme builds becoming mandatory.
  */
 export function getWeightCombatProfile(weight: unknown): {
   weightLb: number;
