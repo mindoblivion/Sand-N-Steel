@@ -5,6 +5,8 @@ import { getBodyDamageProfile } from './injuryAppearance';
 
 const HUD = readFileSync(new URL('../components/ui/CombatHUD.tsx', import.meta.url), 'utf8');
 const MESH = readFileSync(new URL('../components/3d/GladiatorMesh.tsx', import.meta.url), 'utf8');
+const CITY = readFileSync(new URL('../components/3d/city/CityHubScene.tsx', import.meta.url), 'utf8');
+const DUEL = readFileSync(new URL('../components/duel/DuelScene.tsx', import.meta.url), 'utf8');
 
 describe('body-visible injury and damage profile', () => {
   test('a healthy fighter has no visible damage', () => {
@@ -63,6 +65,11 @@ describe('body-visible injury and damage profile', () => {
     expect(HUD).not.toContain('Math.round(opponent.health)');
     expect(HUD).toContain('playerStaminaPct');
     expect(HUD).toContain('opponentStaminaPct');
+  });
+
+  test('the active profile injury reaches city and duel player models', () => {
+    expect(CITY).toContain('injury: playerProfile.injury');
+    expect(DUEL).toContain('injury: playerProfile.injury');
   });
 
   test('both character render paths translate health into visible body marks', () => {
