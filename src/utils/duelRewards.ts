@@ -141,3 +141,38 @@ export function settleDuelGold(
   }
   return { ok: true, balance, credited };
 }
+
+
+/** A distinguishable outcome for the duel's all-or-nothing fame settlement. */
+export type DuelFameSettlement =
+  | { ok: true; balance: number; credited: number }
+  | { ok: false; reason: 'invalid-balance' | 'invalid-award' | 'overflow' | 'precision-loss' };
+
+/**
+ * Validate the complete fame credit without mutating a profile. Fame and gold
+ * rewards are accepted together by App, so a corrupt or unrepresentable fame
+ * credit cannot silently erase a reward or write Infinity into a save.
+ */
+export function settleDuelFame(
+  currentFame: number,
+  duelFame: number,
+  bountyFame: number,
+): DuelFameSettlement {
+  if (!Number.isFinite(currentFame) || currentFame < 0) {
+    return { ok: false, reason: 'invalid-balance' };
+  }
+  if (
+    !Number.isFinite(duelFame) || duelFame < 0 ||
+    !Number.isFinite(bountyFame) || bountyFame < 0
+  ) {
+    return { ok: false, reason: 'invalid-award' };
+  }
+  const credited = duelFame + bountyFame;
+  if (!Number.isFinite(credited)) return { ok: false, reason: 'overflow' };
+  const balance = currentFame + credited;
+  if (!Number.isFinite(balance)) return { ok: false, reason: 'overflow' };
+  if (credited > 0 && balance <= currentFame) {
+    return { ok: false, reason: 'precision-loss' };
+  }
+  return { ok: true, balance, credited };
+}

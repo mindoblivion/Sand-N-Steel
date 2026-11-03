@@ -21,6 +21,7 @@ import {
   calculateDuelGold,
   creditDuelGold,
   settleDuelGold,
+  settleDuelFame,
   PURSE_FLAWLESS_RATE,
   PURSE_HYPE_FLOOR,
   PURSE_HYPE_STEP,
@@ -163,6 +164,24 @@ describe('§G atomic reward credit', () => {
   });
 });
 
+
+describe('explicit duel fame settlement outcome', () => {
+  test('credits valid duel and bounty fame awards together', () => {
+    expect(settleDuelFame(100, 12, 5)).toEqual({ ok: true, balance: 117, credited: 17 });
+  });
+  test('refuses malformed balances and awards', () => {
+    expect(settleDuelFame(Number.NaN, 12, 5)).toEqual({ ok: false, reason: 'invalid-balance' });
+    expect(settleDuelFame(100, Number.NaN, 5)).toEqual({ ok: false, reason: 'invalid-award' });
+  });
+  test('refuses overflow and positive credits lost to floating-point precision', () => {
+    expect(settleDuelFame(Number.MAX_VALUE, 12, 5)).toEqual({ ok: false, reason: 'precision-loss' });
+    expect(settleDuelFame(Number.MAX_VALUE, Number.MAX_VALUE, 0)).toEqual({ ok: false, reason: 'overflow' });
+  });
+  test('zero rewards leave a valid balance unchanged', () => {
+    expect(settleDuelFame(100, 0, 0)).toEqual({ ok: true, balance: 100, credited: 0 });
+  });
+});
+
 describe('§H wiring', () => {
   const scene = readFileSync('src/components/duel/DuelScene.tsx', 'utf8');
   const app = readFileSync('src/App.tsx', 'utf8');
@@ -190,6 +209,9 @@ describe('§H wiring', () => {
     // STORY-4b — the duel purse and bounty are validated together before the
     // victory progression branch is allowed to run.
     expect(app).toContain('const goldSettlement = didWin');
+    expect(app).toContain('const fameSettlement = didWin');
+    expect(app).toContain('settleDuelFame(profile.fame, resultStats.fameEarned, bounty.fame)');
+    expect(app).toContain('goldSettlement?.ok === true && fameSettlement?.ok === true');
     expect(app).toContain('settleDuelGold(profile.gold, resultStats.goldEarned, bounty.gold)');
     expect(app).toContain('if (didWin && rewardSettlementAccepted)');
     expect(app).toContain('else if (!didWin)');

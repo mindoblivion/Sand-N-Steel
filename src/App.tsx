@@ -11,7 +11,7 @@ const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene'
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
-import { settleDuelGold } from './utils/duelRewards';
+import { settleDuelFame, settleDuelGold } from './utils/duelRewards';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 import { purchaseLaurel, selectDisplayedTitle, type LaurelResult } from './utils/laurels';
 // A8 — TRIUMPHS: the retained deeds. The evaluator is pure and the ONE shipped
@@ -1197,7 +1197,11 @@ export function App() {
     const goldSettlement = didWin
       ? settleDuelGold(profile.gold, resultStats.goldEarned, bounty.gold)
       : null;
-    const rewardSettlementAccepted = !didWin || goldSettlement?.ok === true;
+    const fameSettlement = didWin
+      ? settleDuelFame(profile.fame, resultStats.fameEarned, bounty.fame)
+      : null;
+    const rewardSettlementAccepted =
+      !didWin || (goldSettlement?.ok === true && fameSettlement?.ok === true);
     const afterOmen = exhibition || (didWin && !rewardSettlementAccepted)
       ? afterInjury
       : clearOmen(afterInjury);
@@ -1209,7 +1213,7 @@ export function App() {
       // victory that missed the printed rule adds nothing (the duel's own purse
       // above is already the standard one).
       const nextGold = goldSettlement?.ok ? goldSettlement.balance : profile.gold;
-      const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;
+      const nextFame = fameSettlement?.ok ? fameSettlement.balance : profile.fame;
       const nextXp = profile.xp + stats.xpEarned;
 
       let nextLevel = profile.level;
