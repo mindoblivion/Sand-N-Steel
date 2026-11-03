@@ -6,6 +6,7 @@ import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
 import { TELEGRAPH_GLOW_COLOR, telegraphGlowIntensity } from '../../utils/bossPresentation';
 import { getGladiatorBodyRigProfile } from '../../utils/gladiatorBodyRig';
+import { getBodyDamageProfile } from '../../utils/injuryAppearance';
 // D-3 — the feet-tell type only: the cue itself is a static stance on this
 // component's own root group, so the 3D layer needs no rule from the mechanic.
 import type { FeetTell } from '../../utils/falseTelegraph';
@@ -649,6 +650,90 @@ const RomanWarriorGLB: React.FC<{
     return bones;
   }, [clonedScene]);
 
+  const damageProfile = useMemo(
+    () => getBodyDamageProfile(fighter.health, fighter.stats.healthMax, fighter.injury),
+    [fighter.health, fighter.stats.healthMax, fighter.injury],
+  );
+
+  const damageMarkers = useMemo(() => {
+    const definitions = [
+      { boneName: 'upperarm_l', position: [0.035, 0.075, 0.025] as [number, number, number], scale: [0.055, 0.035, 0.009] as [number, number, number] },
+      { boneName: 'spine_01', position: [0.04, 0.12, 0.025] as [number, number, number], scale: [0.065, 0.042, 0.009] as [number, number, number] },
+      { boneName: 'thigh_r', position: [0.03, 0.085, 0.022] as [number, number, number], scale: [0.055, 0.04, 0.01] as [number, number, number] },
+    ];
+    const skin = new THREE.Color(fighter.skinColor || '#f6d8b8');
+    return definitions.map((definition) => {
+      const bruise = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 14, 10),
+        new THREE.MeshStandardMaterial({
+          color: '#4b293d',
+          roughness: 1,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          side: THREE.DoubleSide,
+        }),
+      );
+      bruise.position.set(...definition.position);
+      bruise.scale.set(...definition.scale);
+      bruise.renderOrder = 4;
+      bruise.castShadow = false;
+
+      const swelling = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 14, 10),
+        new THREE.MeshStandardMaterial({
+          color: skin.clone().lerp(new THREE.Color('#a86a78'), 0.18),
+          roughness: 0.95,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          side: THREE.DoubleSide,
+        }),
+      );
+      swelling.position.copy(bruise.position);
+      swelling.scale.set(
+        definition.scale[0] * 1.12,
+        definition.scale[1] * 1.12,
+        definition.scale[2] * 2.2,
+      );
+      swelling.renderOrder = 3;
+      swelling.castShadow = false;
+      return { boneName: definition.boneName, bruise, swelling };
+    });
+  }, [clonedScene, fighter.skinColor]);
+
+  useEffect(() => {
+    for (const marker of damageMarkers) {
+      const bone = clonedScene.getObjectByName(marker.boneName);
+      if (!bone || (bone as THREE.Bone).isBone !== true) continue;
+      bone.add(marker.swelling);
+      bone.add(marker.bruise);
+    }
+    return () => {
+      for (const marker of damageMarkers) {
+        marker.swelling.parent?.remove(marker.swelling);
+        marker.bruise.parent?.remove(marker.bruise);
+        marker.swelling.geometry.dispose();
+        marker.bruise.geometry.dispose();
+        marker.swelling.material.dispose();
+        marker.bruise.material.dispose();
+      }
+    };
+  }, [clonedScene, damageMarkers]);
+
+  useEffect(() => {
+    for (const marker of damageMarkers) {
+      marker.bruise.visible = damageProfile.bruiseIntensity > 0;
+      marker.bruise.material.opacity = damageProfile.bruiseIntensity * 0.72;
+      marker.swelling.visible = damageProfile.swellingIntensity > 0;
+      marker.swelling.material.opacity = damageProfile.swellingIntensity * 0.24;
+    }
+  }, [damageMarkers, damageProfile]);
+
   // The shipped rig has no morph targets and none of its 178 clips animate bone
   // scale. Use its named anatomical joints for a small transverse-only silhouette
   // adjustment; preserve each bone's authored length axis and base scale.
@@ -658,7 +743,7 @@ const RomanWarriorGLB: React.FC<{
       const width = group === 'core' ? profile.coreScale : profile.limbScale;
       bone.scale.set(baseScale.x * width, baseScale.y, baseScale.z * width);
     }
-  }, [bodyRigBones, fighter.bodyWeightLb]);
+  }, [bodyRigBones, fighter.bodyWeightLb, fighter.physique]);
 
   // `mixer` is the AnimationMixer drei updates each frame; its own `timeScale`
   // is how the hit-stop holds the animation clock (see the frame loop below).
@@ -1062,6 +1147,46 @@ const RomanWarriorGLB: React.FC<{
  * - Default: Right hand holds Gladius weapon, Left hand holds Scutum shield.
  * - Lefty Mode: Left hand holds Gladius weapon, Right hand holds Scutum shield.
  */
+const BodyDamagePatch: React.FC<{
+  bruiseIntensity: number;
+  swellingIntensity: number;
+  skinColor: string;
+  position: [number, number, number];
+  scale: [number, number, number];
+}> = ({ bruiseIntensity, swellingIntensity, skinColor, position, scale }) => {
+  if (bruiseIntensity <= 0 && swellingIntensity <= 0) return null;
+  return (
+    <group position={position}>
+      {swellingIntensity > 0 && (
+        <mesh scale={[scale[0] * 1.15, scale[1] * 1.15, scale[2] * 2.2]} renderOrder={3}>
+          <sphereGeometry args={[1, 14, 10]} />
+          <meshStandardMaterial
+            color={new THREE.Color(skinColor).lerp(new THREE.Color('#a86a78'), 0.18)}
+            roughness={0.95}
+            transparent
+            opacity={swellingIntensity * 0.24}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
+      {bruiseIntensity > 0 && (
+        <mesh scale={scale} renderOrder={4}>
+          <sphereGeometry args={[1, 14, 10]} />
+          <meshStandardMaterial
+            color="#4b293d"
+            roughness={1}
+            transparent
+            opacity={bruiseIntensity * 0.72}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
+    </group>
+  );
+};
+
 const ProceduralGladiator: React.FC<{
   fighter: FighterState;
   overrideAction?: FighterState['action'];
@@ -1230,6 +1355,7 @@ const ProceduralGladiator: React.FC<{
 
   const scale = fighter.meshScale || 1.0;
   const bodyProfile = getGladiatorBodyRigProfile(fighter.bodyWeightLb, fighter.physique);
+  const damageProfile = getBodyDamageProfile(fighter.health, fighter.stats.healthMax, fighter.injury);
   const coreScale = bodyProfile.coreScale;
   const limbScale = bodyProfile.limbScale;
   const isHit = flashActive;
@@ -1465,6 +1591,7 @@ const ProceduralGladiator: React.FC<{
 
           {/* LEFT ARM */}
           <group ref={leftArmRef} position={[-0.44 * coreScale, 0.45, 0]}>
+            <BodyDamagePatch bruiseIntensity={damageProfile.bruiseIntensity} swellingIntensity={damageProfile.swellingIntensity} skinColor={skinColor} position={[0, -0.12, 0.105]} scale={[0.055, 0.04, 0.012]} />
             {isLefty ? (
               // LEFTY MODE: WEAPON IN LEFT HAND WITH SEGMENTED MANICA ARMOR
               <>
@@ -1508,6 +1635,7 @@ const ProceduralGladiator: React.FC<{
 
           {/* RIGHT ARM */}
           <group ref={rightArmRef} position={[0.44 * coreScale, 0.45, 0]}>
+            <BodyDamagePatch bruiseIntensity={damageProfile.bruiseIntensity * 0.8} swellingIntensity={damageProfile.swellingIntensity * 0.8} skinColor={skinColor} position={[0, -0.12, 0.105]} scale={[0.055, 0.04, 0.012]} />
             {isLefty ? (
               // LEFTY MODE: SHIELD IN RIGHT HAND
               <>
@@ -1552,6 +1680,7 @@ const ProceduralGladiator: React.FC<{
 
         {/* LEGS & CALIGAE SANDALS */}
         <group ref={leftLegRef} position={[-0.2 * coreScale, 0.95, 0]}>
+          <BodyDamagePatch bruiseIntensity={damageProfile.bruiseIntensity * 0.85} swellingIntensity={damageProfile.swellingIntensity * 0.85} skinColor={skinColor} position={[0, -0.22, 0.13]} scale={[0.065, 0.05, 0.014]} />
           <mesh castShadow position={[0, -0.22, 0]}>
             <cylinderGeometry args={[0.15 * limbScale, 0.13 * limbScale, 0.42, 12]} />
             <meshStandardMaterial color={skinColor} roughness={0.6} />
@@ -1573,6 +1702,7 @@ const ProceduralGladiator: React.FC<{
         </group>
 
         <group ref={rightLegRef} position={[0.2 * coreScale, 0.95, 0]}>
+          <BodyDamagePatch bruiseIntensity={damageProfile.bruiseIntensity} swellingIntensity={damageProfile.swellingIntensity} skinColor={skinColor} position={[0, -0.22, 0.13]} scale={[0.065, 0.05, 0.014]} />
           <mesh castShadow position={[0, -0.22, 0]}>
             <cylinderGeometry args={[0.15 * limbScale, 0.13 * limbScale, 0.42, 12]} />
             <meshStandardMaterial color={skinColor} roughness={0.6} />

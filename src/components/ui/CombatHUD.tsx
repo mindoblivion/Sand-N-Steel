@@ -138,10 +138,8 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   bossRageFed = false,
   onExecuteAction,
 }) => {
-  const playerHpPct = Math.max(0, Math.min(100, (player.health / player.stats.healthMax) * 100));
   const playerStaminaPct = Math.max(0, Math.min(100, (player.stamina / player.stats.staminaMax) * 100));
 
-  const opponentHpPct = Math.max(0, Math.min(100, (opponent.health / opponent.stats.healthMax) * 100));
   const opponentStaminaPct = Math.max(0, Math.min(100, (opponent.stamina / opponent.stats.staminaMax) * 100));
 
   const formattedTime = `${Math.floor(matchTimer / 60)}:${(matchTimer % 60).toString().padStart(2, '0')}`;
@@ -235,7 +233,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
           </div>
         </div>
 
-        {/* GLADIATOR VITAL BARS (PLAYER vs OPPONENT) */}
+        {/* GLADIATOR CONDITION & STAMINA (HEALTH IS BODY-VISIBLE) */}
         <div className="grid grid-cols-2 gap-2 sm:gap-6 mt-0.5 sm:mt-1">
           {/* PLAYER VITAL CARD */}
           <div className="vital-card bg-gradient-to-r from-neutral-950/90 via-neutral-900/85 to-transparent border-l-2 sm:border-l-4 border-amber-500 rounded-r-xl p-2 sm:p-3 shadow-2xl backdrop-blur-md">
@@ -251,17 +249,6 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-xs font-mono font-bold text-amber-300">
-                {Math.round(player.health)} / {player.stats.healthMax}
-              </span>
-            </div>
-
-            {/* Health Bar */}
-            <div className="w-full bg-neutral-950 h-3 sm:h-4 rounded border border-red-900/60 overflow-hidden mb-1 p-0.5">
-              <div
-                className="h-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-400 rounded transition-all duration-300 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
-                style={{ width: `${playerHpPct}%` }}
-              ></div>
             </div>
 
             {/* Stamina Bar */}
@@ -383,17 +370,6 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
                   PHASE {bossPhase === 2 ? 'II' : 'I'}
                 </span>
               )}
-              <span className="text-xs font-mono font-bold text-red-300">
-                {Math.round(opponent.health)} / {opponent.stats.healthMax}
-              </span>
-            </div>
-
-            {/* Health Bar */}
-            <div className="w-full bg-neutral-950 h-3 sm:h-4 rounded border border-red-900/60 overflow-hidden mb-1 p-0.5">
-              <div
-                className="h-full bg-gradient-to-l from-red-600 via-rose-500 to-amber-400 rounded transition-all duration-300 shadow-[0_0_10px_rgba(239,68,68,0.5)] ml-auto"
-                style={{ width: `${opponentHpPct}%` }}
-              ></div>
             </div>
 
             {/* Stamina Bar */}

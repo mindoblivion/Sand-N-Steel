@@ -252,6 +252,8 @@ export interface FighterState {
   bodyWeightLb?: number;
   /** Accumulated training/recovery history for visible physical evolution. */
   physique?: PhysicalDevelopment;
+  /** Active injury state drives temporary body-visible bruising and swelling. */
+  injury?: PlayerInjury | null;
   /** CH-3b — the retiarius' net is still in hand this fight (runtime only). */
   netAvailable?: boolean;
   telegraphTimer?: number;

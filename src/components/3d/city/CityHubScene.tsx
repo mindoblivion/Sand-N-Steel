@@ -1388,6 +1388,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     comboCount: 0,
     bodyWeightLb: playerProfile.appearance.bodyWeightLb,
     physique: playerProfile.appearance.physique,
+    injury: playerProfile.injury,
     skinColor: playerProfile.appearance.skinColor,
     hairColor: playerProfile.appearance.hairColor,
     tunicColor: playerProfile.appearance.tunicColor,
