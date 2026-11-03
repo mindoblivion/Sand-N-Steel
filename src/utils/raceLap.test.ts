@@ -12,6 +12,23 @@ import {
 const axis = 52.34;
 const sample = (x: number, z: number) => ({ x, z });
 
+const validRoute = (startSide: -1 | 1) => {
+  const opposite = -startSide as -1 | 1;
+  return [
+    sample(axis, 20),
+    sample(axis + startSide * 9, 10),
+    sample(axis + startSide * 9, RACE_NORTH_TURN_Z - 1),
+    sample(axis + opposite * 9, RACE_NORTH_TURN_Z - 1),
+    sample(axis + opposite * 9, -5),
+    sample(axis + opposite * 9, 15),
+    sample(axis + opposite * 9, RACE_SOUTH_TURN_Z + 1),
+    sample(axis + startSide * 4, RACE_SOUTH_TURN_Z + 1),
+    sample(axis - startSide * 4, RACE_SOUTH_TURN_Z + 1),
+    sample(axis + startSide * 9, RACE_SOUTH_TURN_Z + 1),
+    sample(axis + startSide * 9, RACE_FINISH_LINE_Z - 0.1),
+  ];
+};
+
 describe('full oval lap checkpoints', () => {
   test('does not finish on the initial line or after reversing near the start', () => {
     let tracker = createRaceLapTracker();
@@ -29,7 +46,28 @@ describe('full oval lap checkpoints', () => {
       tracker = update.tracker;
       expect(update.finishedNow).toBe(false);
     }
-    expect(tracker.northTurnSide).toBeNull();
+    expect(tracker.startSide).toBeNull();
+    expect(tracker.northTurnCompleted).toBe(false);
+    expect(tracker.southTurnCompleted).toBe(false);
+  });
+
+  test('requires a lane change at the north curve before the south checkpoint can count', () => {
+    let tracker = createRaceLapTracker();
+    for (const position of [
+      sample(axis, 10),
+      sample(axis + 9, RACE_NORTH_TURN_Z - 1),
+      sample(axis + 9, -5),
+      sample(axis + 9, 15),
+      sample(axis + 9, RACE_SOUTH_TURN_Z + 1),
+      sample(axis - 9, RACE_SOUTH_TURN_Z + 1),
+      sample(axis - 9, RACE_FINISH_LINE_Z + 0.1),
+    ]) {
+      const update = advanceRaceLap(tracker, position);
+      tracker = update.tracker;
+      expect(update.finishedNow).toBe(false);
+    }
+    expect(tracker.startSide).toBe(1);
+    expect(tracker.northTurnCompleted).toBe(false);
     expect(tracker.southTurnCompleted).toBe(false);
   });
 
@@ -37,92 +75,42 @@ describe('full oval lap checkpoints', () => {
     let tracker = createRaceLapTracker();
     for (const position of [
       sample(axis, 20),
+      sample(axis + 9, 10),
       sample(axis + 9, RACE_NORTH_TURN_Z - 1),
-      sample(axis + 9, -5),
-      sample(axis + 9, 15),
-      sample(axis + 9, 26),
+      sample(axis - 9, RACE_NORTH_TURN_Z - 1),
+      sample(axis - 9, -5),
+      sample(axis - 9, 15),
       sample(axis - 9, 26),
-      sample(axis - 9, 35),
-      sample(axis - 9, RACE_FINISH_LINE_Z + 0.1),
+      sample(axis + 9, 26),
+      sample(axis + 9, 35),
+      sample(axis + 9, RACE_FINISH_LINE_Z + 0.1),
     ]) {
       const update = advanceRaceLap(tracker, position);
       tracker = update.tracker;
       expect(update.finishedNow).toBe(false);
     }
+    expect(tracker.northTurnCompleted).toBe(true);
     expect(tracker.southTurnCompleted).toBe(false);
   });
 
-  test('requires a north turn and a south turn on the opposite side', () => {
+  test('finishes only after north and south lane changes on the full route', () => {
     let tracker = createRaceLapTracker();
-    const route = [
-      sample(axis, 20),
-      sample(axis + RACE_TURN_LANE_OFFSET + 1, RACE_NORTH_TURN_Z - 1),
-      sample(axis + 9, -5),
-      sample(axis + 9, 10),
-      sample(axis + 9, RACE_SOUTH_TURN_Z + 1),
-      sample(axis + 9, 35),
-      sample(axis + 9, RACE_FINISH_LINE_Z + 0.1),
-    ];
-    for (const position of route) {
-      const update = advanceRaceLap(tracker, position);
-      tracker = update.tracker;
-      expect(update.finishedNow).toBe(false);
-    }
-    expect(tracker.northTurnSide).toBe(1);
-    expect(tracker.southTurnCompleted).toBe(false);
-  });
-
-  test('finishes after rounding both ends in opposite lanes', () => {
-    let tracker = createRaceLapTracker();
-    const route = [
-      sample(axis, 20),
-      sample(axis + 9, RACE_NORTH_TURN_Z - 1),
-      sample(axis + 9, -5),
-      sample(axis + 9, 15),
-      sample(axis + 9, RACE_SOUTH_TURN_Z + 1),
-      sample(axis - 9, RACE_SOUTH_TURN_Z + 1),
-      sample(axis - 9, 35),
-      sample(axis - 9, RACE_FINISH_LINE_Z - 0.1),
-    ];
-    for (const position of route) tracker = advanceRaceLap(tracker, position).tracker;
-    expect(tracker.northTurnSide).toBe(1);
+    for (const position of validRoute(1)) tracker = advanceRaceLap(tracker, position).tracker;
+    expect(tracker.startSide).toBe(1);
+    expect(tracker.northTurnCompleted).toBe(true);
     expect(tracker.southTurnCompleted).toBe(true);
-    const finish = advanceRaceLap(tracker, sample(axis - 9, RACE_FINISH_LINE_Z + 0.1));
+    const finish = advanceRaceLap(tracker, sample(axis + 9, RACE_FINISH_LINE_Z + 0.1));
     expect(finish.finishedNow).toBe(true);
     expect(finish.tracker.finished).toBe(true);
     expect(advanceRaceLap(finish.tracker, sample(axis, RACE_FINISH_LINE_Z + 1)).finishedNow).toBe(false);
   });
 
-  test('keeps a valid southern lane change when frame samples cross the center strip', () => {
+  test('supports the mirrored route and ignores malformed samples', () => {
     let tracker = createRaceLapTracker();
-    for (const position of [
-      sample(axis, 20),
-      sample(axis + 9, RACE_NORTH_TURN_Z - 1),
-      sample(axis + 9, -5),
-      sample(axis + 9, 15),
-      sample(axis + 9, RACE_SOUTH_TURN_Z + 1),
-      sample(axis + 4, RACE_SOUTH_TURN_Z + 1),
-      sample(axis - 4, RACE_SOUTH_TURN_Z + 1),
-      sample(axis - 9, RACE_SOUTH_TURN_Z + 1),
-    ]) tracker = advanceRaceLap(tracker, position).tracker;
+    for (const position of validRoute(-1)) tracker = advanceRaceLap(tracker, position).tracker;
+    expect(tracker.northTurnCompleted).toBe(true);
     expect(tracker.southTurnCompleted).toBe(true);
-    const beforeFinish = advanceRaceLap(tracker, sample(axis - 9, RACE_FINISH_LINE_Z - 0.1)).tracker;
-    expect(advanceRaceLap(beforeFinish, sample(axis - 9, RACE_FINISH_LINE_Z + 0.1)).finishedNow).toBe(true);
-  });
-
-  test('supports the mirrored lane direction and ignores malformed samples', () => {
-    let tracker = createRaceLapTracker();
-    for (const position of [
-      sample(axis, 20),
-      sample(axis - 9, RACE_NORTH_TURN_Z - 1),
-      sample(axis - 9, -5),
-      sample(axis - 9, 15),
-      sample(axis - 9, RACE_SOUTH_TURN_Z + 1),
-      sample(axis + 9, RACE_SOUTH_TURN_Z + 1),
-      sample(axis + 9, 35),
-      sample(axis + 9, RACE_FINISH_LINE_Z - 0.1),
-    ]) tracker = advanceRaceLap(tracker, position).tracker;
     expect(advanceRaceLap(tracker, { x: Number.NaN, z: 43 }).tracker).toBe(tracker);
-    expect(advanceRaceLap(tracker, sample(axis + 9, RACE_FINISH_LINE_Z + 0.1)).finishedNow).toBe(true);
+    expect(advanceRaceLap(tracker, sample(axis - 9, RACE_FINISH_LINE_Z + 0.1)).finishedNow).toBe(true);
   });
 });
