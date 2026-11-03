@@ -60,7 +60,7 @@ describe('gladiator body rig profile', () => {
 
   test('both the skinned rig and procedural fallback consume the body profile', () => {
     const source = readFileSync(fileURLToPath(new URL('../components/3d/GladiatorMesh.tsx', import.meta.url)), 'utf8');
-    expect(source).toContain('getGladiatorBodyRigProfile(fighter.bodyWeightLb)');
+    expect(source).toContain('getGladiatorBodyRigProfile(fighter.bodyWeightLb, fighter.physique)');
     expect(source).toContain('bone.scale.set(baseScale.x * width, baseScale.y, baseScale.z * width)');
     expect(source).toContain('0.36 * coreScale');
     expect(source).toContain('0.15 * limbScale');
