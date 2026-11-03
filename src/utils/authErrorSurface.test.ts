@@ -49,6 +49,13 @@ describe('authentication failure feedback', () => {
     expect(titleAccountPanel).toContain('{authError}');
   });
 
+  test('multiple cloud saves require an explicit selection even without a local profile', () => {
+    const googleHandler = handlerBetween('const handleGoogleSignIn = async () => {', 'const handleFacebookSignIn');
+    expect(googleHandler).toContain('if (profile || saves.length > 1)');
+    expect(googleHandler).toContain('setShowDriveSync(true)');
+    expect(googleHandler).toContain('loadProfileFromDrive(saves[0].id)');
+  });
+
   test('character creation receives the shared error and renders it as an alert', () => {
     expect(characterCreation).toContain('authError?: string | null');
     expect(characterCreation).toContain('role="alert"');
