@@ -707,13 +707,11 @@ const RomanWarriorGLB: React.FC<{
   }, [clonedScene, fighter.skinColor]);
 
   useEffect(() => {
-    const attached: THREE.Bone[] = [];
     for (const marker of damageMarkers) {
       const bone = clonedScene.getObjectByName(marker.boneName);
       if (!bone || (bone as THREE.Bone).isBone !== true) continue;
       bone.add(marker.swelling);
       bone.add(marker.bruise);
-      attached.push(bone as THREE.Bone);
     }
     return () => {
       for (const marker of damageMarkers) {
@@ -724,7 +722,6 @@ const RomanWarriorGLB: React.FC<{
         marker.swelling.material.dispose();
         marker.bruise.material.dispose();
       }
-      void attached;
     };
   }, [clonedScene, damageMarkers]);
 
@@ -746,7 +743,7 @@ const RomanWarriorGLB: React.FC<{
       const width = group === 'core' ? profile.coreScale : profile.limbScale;
       bone.scale.set(baseScale.x * width, baseScale.y, baseScale.z * width);
     }
-  }, [bodyRigBones, fighter.bodyWeightLb]);
+  }, [bodyRigBones, fighter.bodyWeightLb, fighter.physique]);
 
   // `mixer` is the AnimationMixer drei updates each frame; its own `timeScale`
   // is how the hit-stop holds the animation clock (see the frame loop below).
