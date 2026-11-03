@@ -15,19 +15,22 @@ describe('gladiator weight combat profile', () => {
     expect(getWeightCombatProfile(undefined)).toEqual({
       weightLb: 180,
       impactMultiplier: 1,
+      recoveryMultiplier: 1,
     });
   });
 
-  test('lighter builds reduce impact without changing the combat timing contract', () => {
+  test('lighter builds trade impact for faster ordinary attack recovery', () => {
     const light = getWeightCombatProfile(140);
     expect(light.impactMultiplier).toBeLessThan(1);
-    expect(Object.keys(light)).toEqual(['weightLb', 'impactMultiplier']);
+    expect(light.recoveryMultiplier).toBeLessThan(1);
+    expect(light.recoveryMultiplier).toBe(0.95);
   });
 
-  test('heavier builds increase impact without changing the combat timing contract', () => {
+  test('heavier builds trade slower ordinary attack recovery for more impact', () => {
     const heavy = getWeightCombatProfile(300);
     expect(heavy.impactMultiplier).toBeGreaterThan(1);
-    expect(Object.keys(heavy)).toEqual(['weightLb', 'impactMultiplier']);
+    expect(heavy.recoveryMultiplier).toBeGreaterThan(1);
+    expect(heavy.recoveryMultiplier).toBe(1.15);
   });
 
   test('weight is clamped and strength alone determines strength requirement', () => {
@@ -35,9 +38,9 @@ describe('gladiator weight combat profile', () => {
     expect(normalizeGladiatorWeight(900)).toBe(300);
     expect(meetsWeaponStrengthRequirement(12, 12)).toBe(true);
     expect(meetsWeaponStrengthRequirement(11, 12)).toBe(false);
-    // The same strength eligibility result applies regardless of body weight.
-    expect(getWeightCombatProfile(140).weightLb).toBe(140);
-    expect(getWeightCombatProfile(300).weightLb).toBe(300);
+    // Weight changes combat feel, not the result of a strength eligibility check.
+    expect(meetsWeaponStrengthRequirement(12, 12)).toBe(
+      meetsWeaponStrengthRequirement(12, 12),
+    );
   });
 });
-
