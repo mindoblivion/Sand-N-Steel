@@ -100,6 +100,18 @@ export function reauthMethodForProviderIds(providerIds: readonly string[]): Reau
   return providerIds.includes('password') ? 'password' : 'popup';
 }
 
+/**
+ * Pick the same supported OAuth provider named by the confirmation copy.
+ * Firebase may return linked providers in an order that differs from the UI's
+ * preferred label, so never blindly use providerData[0].
+ */
+export function reauthProviderIdForProviderIds(providerIds: readonly string[]): string {
+  for (const providerId of ['google.com', 'facebook.com', 'apple.com', 'microsoft.com']) {
+    if (providerIds.includes(providerId)) return providerId;
+  }
+  return providerIds[0] ?? '';
+}
+
 /** The provider's own name, for plain-language copy ("Continue with Google"). */
 export function reauthProviderLabel(providerIds: readonly string[]): string {
   if (providerIds.includes('password')) return 'your email and password';
