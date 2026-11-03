@@ -600,10 +600,10 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/duelPhaseLight.ts',
       // LUDI PHASE A — the calendar reads the clock's DAY (never its phase table).
       'utils/ludiCalendar.ts',
-      // Physical development keys training/recovery counters to the in-game entry day.
-      'utils/physicalDevelopment.ts',
       'utils/nightDressing.ts',
       'utils/phaseFlavor.ts',
+      // Physical development keys training/recovery counters to the in-game entry day.
+      'utils/physicalDevelopment.ts',
       'utils/racePhaseLight.ts',
       'utils/restRecovery.ts',
       'utils/storefrontPurchase.ts',
