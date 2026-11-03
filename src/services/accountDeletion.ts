@@ -152,6 +152,7 @@ const DELETION_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   'account-deletion/not-signed-in': "You're not signed in any more. Sign in again, then try once more.",
   'account-deletion/unsupported-provider':
     "We can't confirm this sign-in method in the app. Write to us and we'll delete the account for you.",
+  'account-deletion/drive-save-deleted-account-remains': 'Your Google Drive backup was deleted, but your account was not. The account is still active. Try again with cloud-save deletion turned off.',
 };
 
 /** One sentence the player can act on, for any failure — and never the raw code. */
@@ -211,8 +212,19 @@ export async function runAccountDeletion(
     driveSaveDeleted = true;
   }
 
-  // 3. The account itself.
-  await steps.deleteUser();
+  // 3. The account itself. If the optional Drive deletion already succeeded,
+  // report that partial outcome accurately so the UI can retry without trying
+  // to delete the now-missing backup a second time.
+  try {
+    await steps.deleteUser();
+  } catch (error) {
+    if (driveSaveDeleted) {
+      const partial = new Error('account-deletion/drive-save-deleted-account-remains') as Error & { code?: string };
+      partial.code = 'account-deletion/drive-save-deleted-account-remains';
+      throw partial;
+    }
+    throw error;
+  }
 
   // 4. This device's local saves — only now that the account is gone.
   let localDataErased = false;
