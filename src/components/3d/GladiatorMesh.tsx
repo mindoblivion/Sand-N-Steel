@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
 import { TELEGRAPH_GLOW_COLOR, telegraphGlowIntensity } from '../../utils/bossPresentation';
+import { getGladiatorBodyRigProfile } from '../../utils/gladiatorBodyRig';
 // D-3 — the feet-tell type only: the cue itself is a static stance on this
 // component's own root group, so the 3D layer needs no rule from the mechanic.
 import type { FeetTell } from '../../utils/falseTelegraph';
@@ -602,6 +603,32 @@ const RomanWarriorGLB: React.FC<{
       onInvalidModel();
     }
   }, [hasRiggedCharacter, onInvalidModel]);
+
+  const bodyRigBones = useMemo(() => {
+    const coreNames = new Set(['pelvis', 'spine_01']);
+    const limbNames = new Set(['upperarm_l', 'upperarm_r', 'thigh_l', 'thigh_r']);
+    const bones: Array<{ bone: THREE.Bone; baseScale: THREE.Vector3; group: 'core' | 'limb' }> = [];
+    clonedScene.traverse((object) => {
+      if ((object as THREE.Bone).isBone !== true) return;
+      if (coreNames.has(object.name)) {
+        bones.push({ bone: object as THREE.Bone, baseScale: object.scale.clone(), group: 'core' });
+      } else if (limbNames.has(object.name)) {
+        bones.push({ bone: object as THREE.Bone, baseScale: object.scale.clone(), group: 'limb' });
+      }
+    });
+    return bones;
+  }, [clonedScene]);
+
+  // The shipped rig has no morph targets and none of its 178 clips animate bone
+  // scale. Use its named anatomical joints for a small transverse-only silhouette
+  // adjustment; preserve each bone's authored length axis and base scale.
+  useEffect(() => {
+    const profile = getGladiatorBodyRigProfile(fighter.bodyWeightLb);
+    for (const { bone, baseScale, group } of bodyRigBones) {
+      const width = group === 'core' ? profile.coreScale : profile.limbScale;
+      bone.scale.set(baseScale.x * width, baseScale.y, baseScale.z * width);
+    }
+  }, [bodyRigBones, fighter.bodyWeightLb]);
 
   const { clonedScene, rightHandBone, leftHandBone } = useMemo(() => {
     const clone = SkeletonUtils.clone(gltf.scene);
