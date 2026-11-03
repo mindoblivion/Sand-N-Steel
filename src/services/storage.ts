@@ -11,9 +11,8 @@ import { buildPlayerModifiers } from '../utils/combatModifiers';
 import { normalizeInjury } from '../utils/injurySettlement';
 
 /**
- * The one local-save key.  Exported so the two things that remove it — `Reset save`
- * here in storage, and the account-deletion flow's device wipe
- * (`services/accountDeletion.ts`) — cannot drift apart.
+ * The local gladiator save and its unreadable-save quarantine. Exported so the
+ * reset-save and account-deletion paths remove the same player data.
  */
 export const PROFILE_STORAGE_KEY = 'sand_and_steel_gladiator_save_v2';
 
@@ -355,13 +354,17 @@ export function saveProfile(profile: PlayerProfile): boolean {
 }
 
 export function clearSavedProfile(): boolean {
-  try {
-    localStorage.removeItem(PROFILE_STORAGE_KEY);
-    return localStorage.getItem(PROFILE_STORAGE_KEY) === null;
-  } catch (e) {
-    console.error('Failed to clear profile:', e);
-    return false;
+  let cleared = true;
+  for (const key of [PROFILE_STORAGE_KEY, PROFILE_QUARANTINE_KEY]) {
+    try {
+      localStorage.removeItem(key);
+      if (localStorage.getItem(key) !== null) cleared = false;
+    } catch (e) {
+      console.error(`Failed to clear profile data at ${key}:`, e);
+      cleared = false;
+    }
   }
+  return cleared;
 }
 
 const LEFTY_MODE_KEY = 'sand_and_steel_lefty_mode';
