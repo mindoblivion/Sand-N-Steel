@@ -98,7 +98,11 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
       setOutcome(result);
       setStep('done');
     } catch (e) {
-      // Plain words, never a raw code — and nothing was deleted.
+      // A selected Drive backup may have been deleted before Firebase refused
+      // account deletion. Turn that option off so a retry does not delete it twice.
+      if ((e as { code?: unknown } | null)?.code === 'account-deletion/drive-save-deleted-account-remains') {
+        setDeleteDriveSave(false);
+      }
       setError(deletionErrorMessage(e));
       setStep('confirm');
     }
@@ -215,8 +219,14 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
                   />
                 ) : (
                   <p className="text-xs text-neutral-400 leading-relaxed">
-                    We&apos;ll open {providerLabel}&apos;s sign-in window so {providerLabel} can confirm
-                    it&apos;s you before anything is deleted.
+                    {deleteDriveSave
+                      ? 'We’ll open Google’s sign-in window to confirm your Google account and refresh access to your Drive backup before anything is deleted.'
+                      : <>We&apos;ll open {providerLabel}&apos;s sign-in window so {providerLabel} can confirm it&apos;s you before anything is deleted.</>}
+                  </p>
+                )}
+                {method === 'password' && deleteDriveSave && (
+                  <p className="text-xs text-neutral-400 leading-relaxed">
+                    After your password is confirmed, we&apos;ll also open Google&apos;s sign-in window to refresh access to your Drive backup.
                   </p>
                 )}
               </div>
@@ -259,12 +269,21 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
 
           {step === 'done' && (
             <>
-              <p className="flex items-start gap-2 text-sm text-emerald-200 leading-relaxed">
-                <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <span className="min-w-0">
-                  Done. The sign-in account is gone, and the gladiators saved on this device were erased.
-                </span>
-              </p>
+              {outcome?.localDataErased ? (
+                <p className="flex items-start gap-2 text-sm text-emerald-200 leading-relaxed">
+                  <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <span className="min-w-0">
+                    Done. Your sign-in account is deleted, and the gladiators saved on this device were erased.
+                  </span>
+                </p>
+              ) : (
+                <p role="alert" className="flex items-start gap-2 text-sm text-amber-200 leading-relaxed rounded-2xl bg-amber-950/40 border border-amber-700/60 px-4 py-3">
+                  <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <span className="min-w-0">
+                    Your sign-in account was deleted, but this device could not confirm that its saved gladiator was erased. The game will close its active profile; before sharing or disposing of this device, clear this app&apos;s site data in your browser or device settings.
+                  </span>
+                </p>
+              )}
 
               {outcome?.driveSaveDeleted && (
                 <p className="text-sm text-neutral-300 leading-relaxed">
@@ -274,8 +293,9 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
 
               {!outcome?.driveSaveDeleted && offersDriveSave && (
                 <p className="text-sm text-neutral-400 leading-relaxed">
-                  Your Google Drive backup was left where it is. You can delete it from Drive at any
-                  time.
+                  {deleteDriveSave
+                    ? 'No Google Drive backup was found, so there was nothing to delete.'
+                    : 'Your Google Drive backup was left where it is. You can delete it from Drive at any time.'}
                 </p>
               )}
 

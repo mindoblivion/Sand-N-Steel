@@ -1,5 +1,7 @@
 import { PlayerProfile } from '../types/game';
+import { isValidStoredProfile } from './storage';
 import { getAccessToken } from './googleAuth';
+import { fetchAllDriveFilePages } from './driveFilePagination';
 
 export interface DriveSaveFile {
   id: string;
@@ -33,22 +35,28 @@ export async function listDriveSaves(): Promise<DriveSaveFile[]> {
   const token = await getAccessToken();
   if (!token) throw new Error('Not authenticated with Google Drive.');
 
-  const query = encodeURIComponent(`name contains 'Sand_And_Steel' and trashed = false`);
-  const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime,size,description)&orderBy=modifiedTime desc`;
+  const query = encodeURIComponent(`name = '${SAVE_FILE_NAME}' and trashed = false`);
+  const files = await fetchAllDriveFilePages(async (pageToken) => {
+    const pageParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&pageSize=100&fields=nextPageToken,files(id,name,modifiedTime,size,description)&orderBy=modifiedTime desc${pageParam}`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new DriveApiError(`Failed to list Google Drive files: ${errorText}`, response.status);
+    }
+
+    return response.json() as Promise<{
+      files?: { id: string; name: string; modifiedTime: string; size?: string; description?: string }[];
+      nextPageToken?: string;
+    }>;
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new DriveApiError(`Failed to list Google Drive files: ${errorText}`, response.status);
-  }
-
-  const data = await response.json();
-  const files: DriveSaveFile[] = (data.files || []).map((f: { id: string; name: string; modifiedTime: string; size?: string; description?: string }) => {
+  return files.map((f) => {
     let preview;
     if (f.description) {
       try {
@@ -65,8 +73,6 @@ export async function listDriveSaves(): Promise<DriveSaveFile[]> {
       profilePreview: preview,
     };
   });
-
-  return files;
 }
 
 /**
@@ -74,7 +80,7 @@ export async function listDriveSaves(): Promise<DriveSaveFile[]> {
  */
 export async function saveProfileToDrive(
   profile: PlayerProfile,
-  options?: { confirmedReplaceFileId?: string }
+  options?: { confirmedReplaceFileId?: string; confirmedReplaceModifiedTime?: string }
 ): Promise<DriveSaveFile> {
   const token = await getAccessToken();
   if (!token) throw new Error('Not authenticated with Google Drive.');
@@ -86,22 +92,26 @@ export async function saveProfileToDrive(
   // provides the specific file ID the user explicitly confirmed to replace.
   if (existingFile) {
     const confirmedId = options?.confirmedReplaceFileId;
-    if (!confirmedId) {
+    const confirmedModifiedTime = options?.confirmedReplaceModifiedTime;
+    if (!confirmedId || !confirmedModifiedTime) {
       // Ordinary backup discovered an unexpected save — refuse to overwrite.
       throw new DriveApiError(
         'A cloud save already exists on your Google Drive. Refresh your save list and confirm the replacement before backing up.',
         409
       );
     }
-    if (existingFile.id !== confirmedId) {
-      // The save found by the fresh lookup differs from what the user confirmed
-      // (another device may have created or replaced it). Refuse to overwrite.
+    if (
+      existingFile.id !== confirmedId ||
+      existingFile.modifiedTime !== confirmedModifiedTime
+    ) {
+      // The file identity or revision changed since the user reviewed it.
+      // Refuse to overwrite a cloud save that may contain newer progress.
       throw new DriveApiError(
         'A different cloud save was found on your Google Drive since you last refreshed. Refresh your save list and confirm the replacement before backing up.',
         409
       );
     }
-  } else if (options?.confirmedReplaceFileId) {
+  } else if (options?.confirmedReplaceFileId || options?.confirmedReplaceModifiedTime) {
     // The user confirmed replacing a specific file, but the fresh lookup
     // found no matching save. Don't silently create a new file — the user
     // authorized a replacement, not a new save. Raise a conflict so the
@@ -196,7 +206,13 @@ export async function loadProfileFromDrive(fileId: string): Promise<PlayerProfil
     throw new DriveApiError(`Failed to download save from Google Drive: ${errText}`, response.status);
   }
 
-  const profile: PlayerProfile = await response.json();
+  const profile: unknown = await response.json();
+  if (!isValidStoredProfile(profile)) {
+    throw new DriveApiError(
+      'The selected Google Drive file is not a valid Sand & Steel save. Your current local progress was not changed.',
+      422
+    );
+  }
   return profile;
 }
 

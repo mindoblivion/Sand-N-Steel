@@ -39,6 +39,8 @@ import { deleteDriveSaveFile, listDriveSaves } from './googleDrive';
 import {
   eraseLocalDeviceData,
   reauthMethodForProviderIds,
+  reauthProviderIdForProviderIds,
+  requiresGoogleDriveReauthentication,
   runAccountDeletion,
   type SignedInUserSummary,
 } from './accountDeletion';
@@ -84,23 +86,36 @@ export function currentSignedInUser(): SignedInUserSummary | null {
 }
 
 /** Re-confirm the signed-in player, by the method their account actually uses. */
-export async function reauthenticateSignedInUser(password?: string): Promise<void> {
+export async function reauthenticateSignedInUser(
+  password?: string,
+  requireGoogleDriveAccess = false,
+): Promise<void> {
   const user = auth.currentUser;
   if (!user) throw deletionError('account-deletion/not-signed-in');
 
   const providerIds = user.providerData.map((provider) => provider.providerId);
+  const needsGooglePopup = requireGoogleDriveAccess && providerIds.includes('google.com');
 
   if (reauthMethodForProviderIds(providerIds) === 'password') {
     if (!user.email || !password) throw deletionError('account-deletion/password-required');
     await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
-    return;
+    if (!needsGooglePopup) return;
   }
 
-  const provider = popupProviderFor(providerIds[0] ?? '');
-  if (!provider) throw deletionError('account-deletion/unsupported-provider');
+  // A Drive opt-in needs a fresh Google OAuth token, including for accounts
+  // that also use a password. Firebase password reauthentication alone does
+  // not refresh the Drive client's in-memory access-token cache.
+  const providerId = needsGooglePopup ? 'google.com' : reauthProviderIdForProviderIds(providerIds);
+  const provider = popupProviderFor(providerId);
+  if (!provider) {
+    throw deletionError(
+      requireGoogleDriveAccess && !providerIds.includes('google.com')
+        ? 'account-deletion/drive-provider-unavailable'
+        : 'account-deletion/unsupported-provider',
+    );
+  }
 
   const result = await reauthenticateWithPopup(user, provider);
-  // A fresh Google confirmation hands the Drive client a usable token.
   const credential = GoogleAuthProvider.credentialFromResult(result);
   if (credential?.accessToken) setAccessToken(credential.accessToken);
 }
@@ -118,10 +133,31 @@ export async function deleteSignedInAccount(options: {
 }): Promise<DeletionOutcome> {
   return runAccountDeletion(
     {
-      reauthenticate: () => reauthenticateSignedInUser(options.password),
+      reauthenticate: () => reauthenticateSignedInUser(
+        options.password,
+        requiresGoogleDriveReauthentication(
+          auth.currentUser?.providerData.map((provider) => provider.providerId) ?? [],
+          options.deleteDriveSave,
+        ),
+      ),
       deleteDriveSave: async () => {
         const saves = await listDriveSaves();
-        for (const save of saves) await deleteDriveSaveFile(save.id);
+        let deletedCount = 0;
+        for (const save of saves) {
+          try {
+            await deleteDriveSaveFile(save.id);
+            deletedCount += 1;
+          } catch (error) {
+            // If Drive accepted earlier deletes but a later one failed, do not
+            // tell the player that nothing changed. A retry lists only what remains.
+            if (deletedCount > 0) {
+              throw deletionError('account-deletion/drive-save-partially-deleted');
+            }
+            throw error;
+          }
+        }
+        // A successful lookup with no backup is not a deletion.
+        return deletedCount > 0;
       },
       deleteUser: async () => {
         const user = auth.currentUser;

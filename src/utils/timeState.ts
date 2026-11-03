@@ -27,10 +27,12 @@
  * ── The advance functions are PURE ────────────────────────────────────────
  * `advanceTimeBy` and `advanceToNextDawn` RETURN a new profile for the caller to
  * hand to the existing `saveProfile()` path; they never mutate their argument and
- * they never write anything themselves.  A negative or nonsense `steps` is
- * treated as 0.  **T0 ships NO call sites**: nothing advances the clock yet, no
- * scene reads the profiles yet, and no profile write is added anywhere in this
- * slice.
+ * they never write anything themselves. A negative or nonsense `steps` is treated
+ * as 0. Production advancement is confined to completed-duel settlement, successful
+ * training, the Caravanserai night service and the Medical House's one-day rest.
+ * App composes each transaction through the existing save path and day-boundary
+ * seam. Read-only consumers resolve phase/day here; no panel or scene owns a second
+ * clock or advances time merely by rendering.
  *
  * ── The phase profiles are DATA ───────────────────────────────────────────
  * `PHASE_PROFILES` is a plain lookup table — no scene, no renderer and no
@@ -114,9 +116,13 @@ export interface ResolvedTimeState {
  * The clock's value, normalised: absent / malformed / negative / non-finite all
  * read as 0, and a fractional value is floored.  Total by construction.
  */
+// Keep the clock within exact-integer arithmetic. The cap is a dawn boundary,
+// so every derived day/phase remains coherent even for corrupted or hand-edited saves.
+const MAX_CLOCK_TOTAL = Number.MAX_SAFE_INTEGER - (Number.MAX_SAFE_INTEGER % PHASES_PER_DAY);
+
 function normalizeTotal(raw: unknown): number {
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0;
-  return Math.floor(raw);
+  return Math.min(Math.floor(raw), MAX_CLOCK_TOTAL);
 }
 
 /**
@@ -144,7 +150,7 @@ export function resolveTimeState(
 /** A step count, normalised: absent / negative / non-finite read as 0, floored. */
 function normalizeSteps(raw: unknown): number {
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0;
-  return Math.floor(raw);
+  return Math.min(Math.floor(raw), MAX_CLOCK_TOTAL);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -162,7 +168,7 @@ function normalizeSteps(raw: unknown): number {
  */
 export function advanceTimeBy(profile: PlayerProfile, steps: number): PlayerProfile {
   const { total } = resolveTimeState(profile);
-  return { ...profile, time: { total: total + normalizeSteps(steps) } };
+  return { ...profile, time: { total: Math.min(total + normalizeSteps(steps), MAX_CLOCK_TOTAL) } };
 }
 
 /**
@@ -177,7 +183,7 @@ export function advanceTimeBy(profile: PlayerProfile, steps: number): PlayerProf
  */
 export function advanceToNextDawn(profile: PlayerProfile): PlayerProfile {
   const { total, phaseIndex } = resolveTimeState(profile);
-  const next = phaseIndex === 0 ? total : total + (PHASES_PER_DAY - phaseIndex);
+  const next = phaseIndex === 0 ? total : Math.min(total + (PHASES_PER_DAY - phaseIndex), MAX_CLOCK_TOTAL);
   return { ...profile, time: { total: next } };
 }
 

@@ -1,3 +1,4 @@
+import { canDebitGold } from './goldTransactions';
 /**
  * Phase C-8.66B — pure chariot loadout helpers.
  *
@@ -207,17 +208,16 @@ export function getChariotPurchaseEligibility(
   if (ownsChariotPart(profile, part.id)) return { ok: false, reason: 'already-owned' };
 
   if (chariotPartCurrency(part) === 'fame') {
-    // Fame is the profile's own existing field (the Triumphs' currency).  A
-    // missing or non-finite balance can afford nothing, so a malformed save can
-    // never produce a NaN balance by subtraction.
-    const fame = profile.fame;
-    if (typeof fame !== 'number' || !Number.isFinite(fame) || fame < part.price) {
+    // Use the same representable-debit guard as gold. Besides rejecting malformed
+    // balances, this prevents a positive fame price disappearing at extreme
+    // IEEE-754 magnitudes (which would otherwise grant the banner for free).
+    if (!canDebitGold(profile.fame, part.price)) {
       return { ok: false, reason: 'insufficient-fame' };
     }
     return { ok: true };
   }
 
-  if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < part.price) {
+  if (!canDebitGold(profile.gold, part.price)) {
     return { ok: false, reason: 'insufficient-gold' };
   }
   return { ok: true };

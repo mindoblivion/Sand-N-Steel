@@ -35,6 +35,7 @@ import { ALL_OPPONENTS } from '../data/opponents';
 import { BOUNTY_DESERTER, BOUNTY_RUNG_OPPONENTS } from '../data/bountyBoard';
 import { CROWD_HYPE_TIER_MAX } from './crowdHype';
 import { resolveStoryState } from './storyState';
+import { creditGold } from './goldTransactions';
 import { DOCTORE_TEST_COMBO_TARGET } from './storyBeats';
 
 /* ── THE GATE ────────────────────────────────────────────────────────────── */
@@ -442,6 +443,8 @@ export interface DeserterOutcome {
   fame: number;
   /** The answer was already on the record, so nothing was written or paid. */
   alreadyAnswered: boolean;
+  /** The balance could not safely accept the payout; no choice was recorded. */
+  rejected: boolean;
   line: string;
 }
 
@@ -462,23 +465,40 @@ export function applyDeserterChoice(
   choice: DeserterChoice
 ): DeserterOutcome {
   if (!profile) {
-    return { profile: profile as unknown as PlayerProfile, gold: 0, fame: 0, alreadyAnswered: true, line: '' };
+    return { profile: profile as unknown as PlayerProfile, gold: 0, fame: 0, alreadyAnswered: true, rejected: true, line: '' };
   }
   if (profile.story?.deserterChoice !== undefined) {
-    return { profile, gold: 0, fame: 0, alreadyAnswered: true, line: '' };
+    return { profile, gold: 0, fame: 0, alreadyAnswered: true, rejected: false, line: '' };
   }
   const gold = choice === 'spared' ? BOUNTY_FINAL.capturedGold : BOUNTY_FINAL.takenGold;
   const fame = choice === 'spared' ? BOUNTY_FINAL.capturedFame : BOUNTY_FINAL.takenFame;
+  const currentGold = profile.gold;
+  const nextGold = currentGold + gold;
+  const nextFame = creditGold(profile.fame, fame);
+  // Refuse the whole choice transaction if either currency is malformed,
+  // overflows, or the positive award disappears at this magnitude. Crucially,
+  // do not write the one-time choice, so the player can retry after repair.
+  if (
+    typeof currentGold !== 'number' ||
+    !Number.isFinite(currentGold) ||
+    currentGold < 0 ||
+    !Number.isFinite(nextGold) ||
+    nextGold <= currentGold ||
+    nextFame === null
+  ) {
+    return { profile, gold: 0, fame: 0, alreadyAnswered: false, rejected: true, line: '' };
+  }
   return {
     profile: {
       ...profile,
-      gold: profile.gold + gold,
-      fame: profile.fame + fame,
+      gold: nextGold,
+      fame: nextFame,
       story: { ...(profile.story ?? {}), deserterChoice: choice },
     },
     gold,
     fame,
     alreadyAnswered: false,
+    rejected: false,
     line: DESERTER_CHOICE_LINES[choice],
   };
 }

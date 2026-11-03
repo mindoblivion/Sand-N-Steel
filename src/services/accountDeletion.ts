@@ -29,7 +29,7 @@
  *      account is already deleted, and reporting a failure then would be a lie.
  */
 
-import { PROFILE_STORAGE_KEY } from './storage';
+import { PROFILE_QUARANTINE_KEY, PROFILE_STORAGE_KEY } from './storage';
 
 /**
  * The keys a device-local wipe removes: the gladiator save, and nothing else.
@@ -39,15 +39,17 @@ import { PROFILE_STORAGE_KEY } from './storage';
  * not touch them.  The key itself is imported rather than re-typed, so this list
  * cannot drift away from the key `storage.ts` writes.
  */
-export const LOCAL_SAVE_KEYS: readonly string[] = [PROFILE_STORAGE_KEY];
+export const LOCAL_SAVE_KEYS: readonly string[] = [PROFILE_STORAGE_KEY, PROFILE_QUARANTINE_KEY];
 
 /** Remove one key, and never throw: a browser refusing storage must not turn a
  *  completed deletion into an error. */
-function removeLocalKey(key: string): void {
+function removeLocalKey(key: string): boolean {
   try {
     localStorage.removeItem(key);
+    return localStorage.getItem(key) === null;
   } catch {
-    // Storage is unavailable on this device; there is nothing else to remove.
+    // A thrown removal or verification read means erasure is unconfirmed.
+    return false;
   }
 }
 
@@ -59,8 +61,16 @@ function removeLocalKey(key: string): void {
  * default is this device's own `localStorage`, and the wipe is pure bookkeeping —
  * no network, no Drive, no account.
  */
-export function eraseLocalDeviceData(remove: (key: string) => void = removeLocalKey): void {
-  for (const key of LOCAL_SAVE_KEYS) remove(key);
+export function eraseLocalDeviceData(remove: (key: string) => boolean = removeLocalKey): boolean {
+  let erased = true;
+  for (const key of LOCAL_SAVE_KEYS) {
+    try {
+      if (!remove(key)) erased = false;
+    } catch {
+      erased = false;
+    }
+  }
+  return erased;
 }
 
 /**
@@ -90,6 +100,18 @@ export function reauthMethodForProviderIds(providerIds: readonly string[]): Reau
   return providerIds.includes('password') ? 'password' : 'popup';
 }
 
+/**
+ * Pick the same supported OAuth provider named by the confirmation copy.
+ * Firebase may return linked providers in an order that differs from the UI's
+ * preferred label, so never blindly use providerData[0].
+ */
+export function reauthProviderIdForProviderIds(providerIds: readonly string[]): string {
+  for (const providerId of ['google.com', 'facebook.com', 'apple.com', 'microsoft.com']) {
+    if (providerIds.includes(providerId)) return providerId;
+  }
+  return providerIds[0] ?? '';
+}
+
 /** The provider's own name, for plain-language copy ("Continue with Google"). */
 export function reauthProviderLabel(providerIds: readonly string[]): string {
   if (providerIds.includes('password')) return 'your email and password';
@@ -110,6 +132,18 @@ export function reauthProviderLabel(providerIds: readonly string[]): string {
  */
 export function accountCanDeleteDriveSave(providerIds: readonly string[]): boolean {
   return providerIds.includes('google.com');
+}
+
+/**
+ * Drive deletion needs a fresh Google OAuth token even when the Firebase
+ * account also has a password provider; Firebase reauthentication alone does
+ * not populate the Drive client's in-memory token cache.
+ */
+export function requiresGoogleDriveReauthentication(
+  providerIds: readonly string[],
+  deleteDriveSave: boolean,
+): boolean {
+  return deleteDriveSave && providerIds.includes('google.com');
 }
 
 /** The account is stale: the player confirms it is them, then tries once more. */
@@ -142,6 +176,8 @@ const DELETION_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   'account-deletion/not-signed-in': "You're not signed in any more. Sign in again, then try once more.",
   'account-deletion/unsupported-provider':
     "We can't confirm this sign-in method in the app. Write to us and we'll delete the account for you.",
+  'account-deletion/drive-save-deleted-account-remains': 'Your Google Drive backup was deleted, but your account was not. The account is still active. Try again with cloud-save deletion turned off.',
+  'account-deletion/drive-save-partially-deleted': 'Some Google Drive backup files were deleted, but your account was not. Your account is still active. Try again to remove the remaining backups, or turn off cloud-save deletion.',
 };
 
 /** One sentence the player can act on, for any failure — and never the raw code. */
@@ -164,11 +200,11 @@ export interface DeletionSteps {
   /** Confirm it is the player, before anything is removed. */
   reauthenticate: () => Promise<void>;
   /** Delete the player's own Drive backup, through the existing Drive service. */
-  deleteDriveSave?: () => Promise<void>;
+  deleteDriveSave?: () => Promise<boolean>;
   /** Delete the sign-in account itself. */
   deleteUser: () => Promise<void>;
   /** Wipe this device's local saves. */
-  eraseLocalData: () => void;
+  eraseLocalData: () => boolean;
   /** End the provider session. */
   signOut: () => Promise<void>;
 }
@@ -197,15 +233,31 @@ export async function runAccountDeletion(
   // 2. The Drive backup, while the confirmed session can still reach Drive.
   let driveSaveDeleted = false;
   if (options.deleteDriveSave && steps.deleteDriveSave) {
-    await steps.deleteDriveSave();
-    driveSaveDeleted = true;
+    driveSaveDeleted = await steps.deleteDriveSave();
   }
 
-  // 3. The account itself.
-  await steps.deleteUser();
+  // 3. The account itself. If the optional Drive deletion already succeeded,
+  // report that partial outcome accurately so the UI can retry without trying
+  // to delete the now-missing backup a second time.
+  try {
+    await steps.deleteUser();
+  } catch (error) {
+    if (driveSaveDeleted) {
+      const partial = new Error('account-deletion/drive-save-deleted-account-remains') as Error & { code?: string };
+      partial.code = 'account-deletion/drive-save-deleted-account-remains';
+      throw partial;
+    }
+    throw error;
+  }
 
   // 4. This device's local saves — only now that the account is gone.
-  steps.eraseLocalData();
+  let localDataErased = false;
+  try {
+    localDataErased = steps.eraseLocalData();
+  } catch {
+    // The account is already gone; report the local wipe as unverified rather
+    // than throwing and leaving the UI in its pre-deletion state.
+  }
 
   // 5. Sign out. The account is already deleted, so a hiccup here is not a failure
   //    and must never be reported as one.
@@ -215,5 +267,5 @@ export async function runAccountDeletion(
     // The session will end on its own; the deletion has already succeeded.
   }
 
-  return { accountDeleted: true, driveSaveDeleted, localDataErased: true };
+  return { accountDeleted: true, driveSaveDeleted, localDataErased };
 }

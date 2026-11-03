@@ -8,11 +8,11 @@ import {
   getEffectiveArmorStats,
 } from '../utils/tempering';
 import { buildPlayerModifiers } from '../utils/combatModifiers';
+import { normalizeInjury } from '../utils/injurySettlement';
 
 /**
- * The one local-save key.  Exported so the two things that remove it — `Reset save`
- * here in storage, and the account-deletion flow's device wipe
- * (`services/accountDeletion.ts`) — cannot drift apart.
+ * The local gladiator save and its unreadable-save quarantine. Exported so the
+ * reset-save and account-deletion paths remove the same player data.
  */
 export const PROFILE_STORAGE_KEY = 'sand_and_steel_gladiator_save_v2';
 
@@ -80,10 +80,11 @@ export function calculateTotalStats(profile: PlayerProfile): FighterStats {
     def += statFlat.def ?? 0;
   }
 
-  // Apply injury penalty if any
-  if (profile.injury && profile.injury.fightsRemaining > 0) {
-    str = Math.max(1, str - profile.injury.penaltyStrength);
-    agi = Math.max(1, agi - profile.injury.penaltyAgility);
+  // L7 — the stat calculation and every injury surface share the same total reader.
+  const injury = normalizeInjury(profile.injury);
+  if (injury) {
+    str = Math.max(1, str - injury.penaltyStrength);
+    agi = Math.max(1, agi - injury.penaltyAgility);
   }
 
   const healthMax = 80 + str * 4 + def * 3 + (traitBlock.healthMaxAdd ?? 0);
@@ -340,20 +341,30 @@ export function loadSavedProfile(): PlayerProfile | null {
   return parsed;
 }
 
-export function saveProfile(profile: PlayerProfile): void {
+export function saveProfile(profile: PlayerProfile): boolean {
   try {
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    const serialized = JSON.stringify(profile);
+    if (typeof serialized !== 'string') return false;
+    localStorage.setItem(PROFILE_STORAGE_KEY, serialized);
+    return localStorage.getItem(PROFILE_STORAGE_KEY) === serialized;
   } catch (e) {
     console.error('Failed to save profile:', e);
+    return false;
   }
 }
 
-export function clearSavedProfile(): void {
-  try {
-    localStorage.removeItem(PROFILE_STORAGE_KEY);
-  } catch (e) {
-    console.error('Failed to clear profile:', e);
+export function clearSavedProfile(): boolean {
+  let cleared = true;
+  for (const key of [PROFILE_STORAGE_KEY, PROFILE_QUARANTINE_KEY]) {
+    try {
+      localStorage.removeItem(key);
+      if (localStorage.getItem(key) !== null) cleared = false;
+    } catch (e) {
+      console.error(`Failed to clear profile data at ${key}:`, e);
+      cleared = false;
+    }
   }
+  return cleared;
 }
 
 const LEFTY_MODE_KEY = 'sand_and_steel_lefty_mode';

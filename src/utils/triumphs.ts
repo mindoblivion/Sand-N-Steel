@@ -866,15 +866,32 @@ export function applyTriumphAwards(
   const earned = evaluateTriumphs(withPeak, duelStats);
   if (earned.length === 0) return { profile: withPeak, earned, titles: [] };
 
-  const records = resolveRecords(withPeak);
+  const currentFame = finiteOrNull(withPeak.fame);
   const fame = earned.reduce((sum, triumph) => sum + triumphFame(triumph), 0);
+  const nextFame = currentFame === null ? null : currentFame + fame;
+  // Never record a one-time triumph (or grant its title) unless the fame part
+  // of that same reward is valid and representable. This leaves the award
+  // eligible to retry after a malformed or extreme balance is repaired.
+  if (
+    currentFame === null ||
+    currentFame < 0 ||
+    !Number.isFinite(fame) ||
+    fame < 0 ||
+    nextFame === null ||
+    !Number.isFinite(nextFame) ||
+    (fame > 0 && nextFame <= currentFame)
+  ) {
+    return { profile: withPeak, earned: [], titles: [] };
+  }
+
+  const records = resolveRecords(withPeak);
   const due = titlesDueFor(earned);
   const ownedTitles = new Set(ownedTitleOptions(withPeak).map((title) => title.id));
   const granted = due.filter((title) => !ownedTitles.has(title.id));
 
   let next: PlayerProfile = {
     ...withPeak,
-    fame: (finiteOrNull(withPeak.fame) ?? 0) + fame,
+    fame: nextFame,
     records: {
       ...(storedRecords(withPeak) ?? {}),
       earnedTriumphs: [...records.earnedTriumphs, ...earned.map((triumph) => triumph.id)],

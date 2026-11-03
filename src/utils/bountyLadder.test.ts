@@ -345,6 +345,32 @@ describe('STORY-4b §E — the two writes', () => {
     expect(killed.profile.fame).toBe(180);
   });
 
+  test('malformed, overflowing, and precision-lost gold refuses the choice without consuming it', () => {
+    for (const gold of [NaN, Infinity, -1, '100' as unknown as number, Number.MAX_VALUE]) {
+      const before = profile({ gold });
+      const outcome = applyDeserterChoice(before, 'spared');
+      expect(outcome.rejected).toBe(true);
+      expect(outcome.alreadyAnswered).toBe(false);
+      expect(outcome.profile).toBe(before);
+      expect(outcome.gold).toBe(0);
+      expect(outcome.fame).toBe(0);
+      expect(outcome.profile.story?.deserterChoice).toBeUndefined();
+    }
+  });
+
+  test('malformed, overflowing, and precision-lost fame refuses the choice without consuming it', () => {
+    for (const fame of [NaN, Infinity, -1, '100' as unknown as number, Number.MAX_VALUE]) {
+      const before = profile({ fame });
+      const outcome = applyDeserterChoice(before, 'spared');
+      expect(outcome.rejected).toBe(true);
+      expect(outcome.alreadyAnswered).toBe(false);
+      expect(outcome.profile).toBe(before);
+      expect(outcome.gold).toBe(0);
+      expect(outcome.fame).toBe(0);
+      expect(outcome.profile.story?.deserterChoice).toBeUndefined();
+    }
+  });
+
   test('the answer is exactly once: a second call writes nothing and pays nothing', () => {
     const first = applyDeserterChoice(profile(), 'spared');
     const second = applyDeserterChoice(first.profile, 'taken');
@@ -463,7 +489,7 @@ describe('STORY-4b §G — no new profile field', () => {
     // LUDI PHASE A REBASE: the calendar's `ludi` joined the set; `records` still ends it
     // and no BOUNTY field exists.  PITCH A4 REBASE: the Corpus et Origo `identity`
     // field joined it between `spared` and `ludi` — still no BOUNTY field.
-    expect(optional.length).toBe(24);
+    expect(optional.length).toBe(25);
     expect(optional[optional.length - 1]).toBe('records');
     expect(optional[optional.length - 2]).toBe('ludi');
     expect(optional.some((name) => /bounty|deserter/i.test(name))).toBe(false);

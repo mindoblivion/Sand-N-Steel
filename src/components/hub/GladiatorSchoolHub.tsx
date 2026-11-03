@@ -1,11 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PlayerProfile, OpponentConfig, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from '../../types/game';
-import { TournamentTab } from './TournamentTab';
-import { TrainingTab } from './TrainingTab';
-import { ShopTab } from './ShopTab';
-import { GearView, GearTab } from './GearTab';
-import { StatsTab } from './StatsTab';
-import { LibraryTab, type LibraryPageId } from './LibraryTab';
+import type { GearView } from './GearTab';
+import type { LibraryPageId } from './LibraryTab';
 import { BannerRow } from './BannerRow';
 import type { StorefrontId } from '../../data/shops';
 import type { ConsumableItem } from '../../data/consumables';
@@ -21,7 +17,6 @@ import {
   isNoviceBoutOpponent,
   type DoctoreTestRestriction,
 } from '../../utils/storyBeats';
-import { HelpModal } from './HelpModal';
 import { CoachCard } from '../ui/CoachCard';
 import { HUB_FIRST_OPEN_CARD_ID, getCoachCard, hasSeenCard } from '../../utils/coachMarks';
 import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
@@ -32,6 +27,14 @@ import { resolveOmen } from '../../utils/omens';
 // STORY-3 — Chapter 2's Beat 3: Postumia's briefing on the tournament final, and
 // the herald's circus pointer while the chapter's District race gate is unmet.
 import { FORTUNA_SHRINE_BRIEFING, isFortunaBriefingDue } from '../../utils/storyChapterTwo';
+
+const TournamentTab = React.lazy(() => import('./TournamentTab').then((module) => ({ default: module.TournamentTab })));
+const TrainingTab = React.lazy(() => import('./TrainingTab').then((module) => ({ default: module.TrainingTab })));
+const ShopTab = React.lazy(() => import('./ShopTab').then((module) => ({ default: module.ShopTab })));
+const GearTab = React.lazy(() => import('./GearTab').then((module) => ({ default: module.GearTab })));
+const StatsTab = React.lazy(() => import('./StatsTab').then((module) => ({ default: module.StatsTab })));
+const LibraryTab = React.lazy(() => import('./LibraryTab').then((module) => ({ default: module.LibraryTab })));
+const HelpModal = React.lazy(() => import('./HelpModal').then((module) => ({ default: module.HelpModal })));
 
 interface GladiatorSchoolHubProps {
   playerProfile: PlayerProfile;
@@ -341,9 +344,9 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
 
       {/* MAIN TAB CONTENT */}
       <main className="flex-1 p-4 sm:p-8">
-        {/* P6 — the ludus's three buildings, above every tab: their levels gate
-            tempering, the stable's ladders and the forge's stock. */}
+        {/* P6 — the facilities remain immediately available above every tab. */}
         <FacilitiesPanel profile={playerProfile} onBuyFacility={onBuyFacility} />
+        <React.Suspense fallback={<div className="min-h-[12rem]" aria-busy="true" />}>
         {activeTab === 'tournament' && (
           <TournamentTab
             profile={playerProfile}
@@ -413,12 +416,14 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onViewCodex={onViewCodex}
           />
         )}
+        </React.Suspense>
       </main>
 
       {/* PRE-FIGHT MODAL */}
       {selectedOpponent && (
         <PreFightModal
           opponent={selectedOpponent}
+          injury={playerProfile.injury}
           /* Day/Night T3 — the hour the card is opened in, for its phase line. */
           phase={resolveDisplayClock(playerProfile).phase}
           /* STORY-2 — the novice bout's framing, fresh profiles only.
@@ -452,12 +457,14 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
 
       {/* HELP MODAL */}
       {showHelp && (
-        <HelpModal
-          onClose={() => {
-            setShowHelp(false);
-            setHelpMarked(false);
-          }}
-        />
+        <React.Suspense fallback={null}>
+          <HelpModal
+            onClose={() => {
+              setShowHelp(false);
+              setHelpMarked(false);
+            }}
+          />
+        </React.Suspense>
       )}
 
       {/* CL-2 — the first-open coach card.  Non-modal: the camp underneath stays usable. */}

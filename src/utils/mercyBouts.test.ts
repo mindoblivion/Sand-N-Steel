@@ -181,7 +181,7 @@ describe('STORY-4a §A — `spared` is one lazy optional map and nothing else', 
     // still the field before it, and `records` still ends the set.  PITCH A4 REBASE:
     // the Corpus et Origo `identity` field joined the set between them, so the tail
     // this pins is four long.
-    expect(optional.length).toBe(24);
+    expect(optional.length).toBe(25);
     expect(optional.slice(-4)).toEqual(['spared', 'identity', 'ludi', 'records']);
   });
 });
@@ -347,6 +347,21 @@ describe('STORY-4a §D — Spare writes the flag and keeps the grudge (R2)', () 
 // §E — Finish
 // ════════════════════════════════════════════════════════════════════════════
 describe('STORY-4a §E — Finish pays x1.25 once and removes the grudge (R1, R2)', () => {
+  test('an unrepresentable fame increment refuses Finish without removing the grudge', () => {
+    const normal = afterBeatingCassius();
+    const extremeProfile = { ...normal, fame: Number.MAX_VALUE };
+    const balanceRefusal = finishRival(extremeProfile, cassius().id, 40);
+    expect(balanceRefusal.rejected).toBe(true);
+    expect(balanceRefusal.profile).toBe(extremeProfile);
+    expect(balanceRefusal.extraFame).toBe(0);
+    expect(balanceRefusal.profile.grudges?.[cassius().id]).toBeDefined();
+
+    const overflowRefusal = finishRival(normal, cassius().id, Number.MAX_VALUE);
+    expect(overflowRefusal.rejected).toBe(true);
+    expect(overflowRefusal.profile).toBe(normal);
+    expect(overflowRefusal.profile.grudges?.[cassius().id]).toBeDefined();
+  });
+
   test('it pays the final fame x1.25, rounded, as one increment', () => {
     expect(FINISH_FAME_MULTIPLIER).toBe(1.25);
     const before = afterBeatingCassius();

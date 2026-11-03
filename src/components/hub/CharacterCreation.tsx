@@ -34,11 +34,12 @@ interface CharacterCreationProps {
   onCancel: () => void;
   onGoogleSignIn?: () => void;
   isGoogleLoading?: boolean;
+  authError?: string | null;
   /** C-8.70B §SET-1 — the creation screen's own way into the settings panel. */
   onOpenSettings?: () => void;
 }
 
-export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, onOpenSettings }) => {
+export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, authError, onOpenSettings }) => {
   const [name, setName] = useState('Spartacus');
   /**
    * CH-2 — the class is chosen here and the LOOK is chosen beside it; the two are
@@ -183,6 +184,11 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               <Settings className="w-5 h-5" />
               <span>Settings</span>
             </button>
+          )}
+          {authError && (
+            <p role="alert" className="max-w-sm rounded-lg border border-red-500/50 bg-red-950/90 px-3 py-2 text-center text-xs text-red-100">
+              {authError}
+            </p>
           )}
           {onGoogleSignIn && (
             <GoogleSignInButton

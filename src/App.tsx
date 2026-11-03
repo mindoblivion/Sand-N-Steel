@@ -1,15 +1,17 @@
+import { canDebitGold } from './utils/goldTransactions';
 import React, { useState, useEffect, useRef } from 'react';
 import { PlayerProfile, OpponentConfig, DuelStatistics, WeaponItem, ArmorItem, ChariotTeamSize, ArmaturaId, BoutMode } from './types/game';
-import { loadSavedProfile, saveProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
+import { loadSavedProfile, saveProfile as writeSavedProfile, clearSavedProfile, createNewProfile, calculateTotalStats, readStoredProfileSummary, wasStoredSaveQuarantined } from './services/storage';
 import type { StoredProfileSummary } from './services/storage';
 import { TitleScreen } from './components/hub/TitleScreen';
-import { CharacterCreation } from './components/hub/CharacterCreation';
-import { NewCharacterOverwriteModal } from './components/hub/NewCharacterOverwriteModal';
+
+
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
-import { GladiatorSchoolHub } from './components/hub/GladiatorSchoolHub';
+
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
+import { settleDuelFame, settleDuelGold } from './utils/duelRewards';
 import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
 import { purchaseLaurel, selectDisplayedTitle, type LaurelResult } from './utils/laurels';
 // A8 — TRIUMPHS: the retained deeds. The evaluator is pure and the ONE shipped
@@ -35,6 +37,7 @@ import { purchaseTemper } from './utils/tempering';
 import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
 import { purchaseItem } from './utils/itemPurchase';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
+import { isTrainingActionScheduled } from './utils/trainingSchedule';
 import { withArmaturaPledge } from './utils/armaturaPledge';
 import { applyPalmaEarns, equipPalma, purchaseDoctorePalma, unequipPalma } from './utils/palmaeState';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
@@ -46,11 +49,11 @@ const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m
 // city hub and the duel arena are: one more screen value, one more lazy import
 // and one more conditional render. No router and no second scene manager.
 const RaceScene = React.lazy(() => import('./components/3d/RaceScene').then((m) => ({ default: m.RaceScene })));
-import { DuelResultModal } from './components/hub/DuelResultModal';
+
 import { HeraldToast } from './components/hub/HeraldToast';
 // STORY-3 — the herald's circus pointer while Chapter 2's race gate is unmet.
 import { circusPointerCry } from './utils/storyChapterTwo';
-import { DeviceChoosingPanel } from './components/hub/DeviceChoosingPanel';
+
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
 // STORY-4a — MERCY OR GLORY (Pitch A9, duel form only).  The offer is decided at
 // the duel's own write; the answer writes exactly once, through this file's normal
@@ -75,8 +78,8 @@ import {
   type DiceChoice,
 } from './utils/diceTrail';
 import type { BannerDevice } from './utils/heraldry';
-import { GoogleDriveSyncModal } from './components/hub/GoogleDriveSyncModal';
-import { SettingsModal } from './components/hub/SettingsModal';
+
+
 import type { SettingsCategory, SettingsContext } from './components/hub/SettingsModal';
 import { useSettings } from './hooks/useSettings';
 import { resolveMotionAttribute, updateSettings } from './services/settings';
@@ -85,7 +88,7 @@ import { WaitSurface } from './components/ui/WaitSurface';
 import { LazySceneBoundary } from './components/ui/LazySceneBoundary';
 import { OfflineNotice } from './components/ui/GameFailureSurface';
 import { PostOathNudge, usePostOathNudge } from './components/hub/PostOathNudge';
-import { OathBeat } from './components/hub/OathBeat';
+
 import {
   OATH_YARD_SPAWN,
   oathWriteOnCompletion,
@@ -106,11 +109,7 @@ import {
 } from './utils/cityHerald';
 import { googleSignIn, subscribeAuthUser } from './services/googleAuth';
 import type { User } from 'firebase/auth';
-import { DeleteAccountModal } from './components/hub/DeleteAccountModal';
-import { facebookSignIn } from './services/facebookAuth';
-import { appleSignIn } from './services/appleAuth';
-import { microsoftSignIn } from './services/microsoftAuth';
-import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
+
 import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT } from './data/opponents';
 // C-8.70C — the bout mode is chosen on the pre-fight card and held for the
 // length of the bout only: it is never written to the profile.
@@ -145,7 +144,8 @@ import {
   recordStandardVictory,
   settleGrudge,
 } from './utils/grudgeBouts';
-import { REST_PRICE, resolveInjuryAfterDuel, restAtInn, treatInjury, type DuelInjuryEvent } from './utils/injury';
+import { REST_PRICE, resolveInjuryAfterDuel, restAtInn, type DuelInjuryEvent } from './utils/injury';
+import { restAtMedicalHouse } from './utils/restRecovery';
 // PITCH A1 — Fortuna's Omen.  The shrine's two words, the decline's once-ever
 // trickle, and the duel result that consumes them: the settlement is applied
 // inside `handleMatchComplete`'s existing write, and the offering/decline writes
@@ -199,7 +199,7 @@ import {
   withFragmentFound,
   withLibrarianChainClosed,
 } from './utils/librarianChain';
-import { DayBanner } from './components/ui/DayBanner';
+
 // FIRST SIXTY SECONDS (§5, retention build-order step 4: CORE ONLY) — the session's
 // opening beat and its two one-line surfaces. Sequencing only: it reads the systems
 // sections 2–4 already shipped and writes nothing.
@@ -230,9 +230,28 @@ interface CityExitPose {
   rotationY: number;
 }
 
+const CharacterCreation = React.lazy(() => import('./components/hub/CharacterCreation').then((module) => ({ default: module.CharacterCreation })));
+const NewCharacterOverwriteModal = React.lazy(() => import('./components/hub/NewCharacterOverwriteModal').then((module) => ({ default: module.NewCharacterOverwriteModal })));
+const DuelResultModal = React.lazy(() => import('./components/hub/DuelResultModal').then((module) => ({ default: module.DuelResultModal })));
+const DeviceChoosingPanel = React.lazy(() => import('./components/hub/DeviceChoosingPanel').then((module) => ({ default: module.DeviceChoosingPanel })));
+const GoogleDriveSyncModal = React.lazy(() => import('./components/hub/GoogleDriveSyncModal').then((module) => ({ default: module.GoogleDriveSyncModal })));
+const SettingsModal = React.lazy(() => import('./components/hub/SettingsModal').then((module) => ({ default: module.SettingsModal })));
+const DeleteAccountModal = React.lazy(() => import('./components/hub/DeleteAccountModal').then((module) => ({ default: module.DeleteAccountModal })));
+const OathBeat = React.lazy(() => import('./components/hub/OathBeat').then((module) => ({ default: module.OathBeat })));
+const DayBanner = React.lazy(() => import('./components/ui/DayBanner').then((module) => ({ default: module.DayBanner })));
+
+const GladiatorSchoolHub = React.lazy(() => import('./components/hub/GladiatorSchoolHub').then((module) => ({ default: module.GladiatorSchoolHub })));
+
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saveProfile = (next: PlayerProfile): boolean => {
+    const saved = writeSavedProfile(next);
+    setSaveError(saved ? null : 'Progress is not saved on this device. Free up storage or use Save Progress to create a cloud backup.');
+    return saved;
+  };
   // L4 — keep the latest committed save visible to duplicate purchase callbacks in the same tick.
   const profileRef = useRef<PlayerProfile | null>(null);
   useEffect(() => {
@@ -326,6 +345,8 @@ export function App() {
      * nothing new to say and carries `null`.
      */
     injuryEvent: DuelInjuryEvent | null;
+    /** L8 — the injury after settlement, captured with this result's one save. */
+    injury: PlayerProfile['injury'] | null;
     /**
      * CH-5 — the palma ids this victory NEWLY unlocked (empty on a defeat), so the
      * result screen announces exactly what the save already carries.
@@ -718,20 +739,21 @@ export function App() {
   // "Continue with Google" — sign in, then restore a cloud save if one exists.
   // Used on both the title (sign-in) and character-creation (register) screens.
   const handleGoogleSignIn = async () => {
+    setAuthError(null);
     setIsGoogleLoading(true);
     try {
       const res = await googleSignIn();
       if (!res) return;
 
+      const { listDriveSaves, loadProfileFromDrive } = await import('./services/googleDrive');
       const saves = await listDriveSaves();
       if (saves.length > 0) {
-        if (profile) {
-          // A local save already exists — don't silently overwrite it.
-          // Open the sync modal so the player explicitly chooses whether
-          // to load the cloud save or keep their local progress.
+        if (profile || saves.length > 1) {
+          // Existing local progress or multiple cloud saves: let the player
+          // explicitly choose instead of silently replacing or guessing.
           setShowDriveSync(true);
         } else {
-          // No local save — safe to load the cloud save directly.
+          // A single cloud save and no local progress is unambiguous.
           const cloudProfile = await loadProfileFromDrive(saves[0].id);
           setProfile(cloudProfile);
           saveProfile(cloudProfile);
@@ -748,6 +770,7 @@ export function App() {
       }
     } catch (e) {
       console.error('[GoogleSignIn] failed:', e);
+      setAuthError('Sign-in failed. Check your connection or account settings, then try again.');
     } finally {
       setIsGoogleLoading(false);
     }
@@ -757,9 +780,10 @@ export function App() {
   // Facebook doesn't provide Google Drive access, so after sign-in we proceed
   // like the normal tap-to-start: continue a local save or start a new gladiator.
   const handleFacebookSignIn = async () => {
+    setAuthError(null);
     setIsFacebookLoading(true);
     try {
-      await facebookSignIn();
+      await (await import('./services/facebookAuth')).facebookSignIn();
       if (profile) {
         enterCity(profile);
       } else {
@@ -767,6 +791,7 @@ export function App() {
       }
     } catch (e) {
       console.error('[FacebookSignIn] failed:', e);
+      setAuthError('Sign-in failed. Check your connection or account settings, then try again.');
     } finally {
       setIsFacebookLoading(false);
     }
@@ -775,9 +800,10 @@ export function App() {
   // "Continue with Apple" — sign in via Firebase Sign in with Apple.
   // Like Facebook, no Google Drive access; proceed with local save or new gladiator.
   const handleAppleSignIn = async () => {
+    setAuthError(null);
     setIsAppleLoading(true);
     try {
-      await appleSignIn();
+      await (await import('./services/appleAuth')).appleSignIn();
       if (profile) {
         enterCity(profile);
       } else {
@@ -785,6 +811,7 @@ export function App() {
       }
     } catch (e) {
       console.error('[AppleSignIn] failed:', e);
+      setAuthError('Sign-in failed. Check your connection or account settings, then try again.');
     } finally {
       setIsAppleLoading(false);
     }
@@ -793,9 +820,10 @@ export function App() {
   // "Continue with Microsoft" — sign in via Firebase Microsoft auth.
   // Like Apple/Facebook, no Google Drive access; proceed with local save or new gladiator.
   const handleMicrosoftSignIn = async () => {
+    setAuthError(null);
     setIsMicrosoftLoading(true);
     try {
-      await microsoftSignIn();
+      await (await import('./services/microsoftAuth')).microsoftSignIn();
       if (profile) {
         enterCity(profile);
       } else {
@@ -803,6 +831,7 @@ export function App() {
       }
     } catch (e) {
       console.error('[MicrosoftSignIn] failed:', e);
+      setAuthError('Sign-in failed. Check your connection or account settings, then try again.');
     } finally {
       setIsMicrosoftLoading(false);
     }
@@ -1150,7 +1179,7 @@ export function App() {
           fame: stats.fameEarned,
           gold: stats.goldEarned,
         });
-    const afterOmen = exhibition ? afterInjury : clearOmen(afterInjury);
+    // Omen consumption is deferred until the complete reward settlement is accepted.
     const resultStats: DuelStatistics = omenSettled.paid
       ? { ...stats, fameEarned: omenSettled.fame, goldEarned: omenSettled.gold }
       : stats;
@@ -1169,14 +1198,28 @@ export function App() {
     /** CH-5 — what this victory unlocked, decided at the write and told to the result. */
     let palmaEarned: string[] | undefined;
 
+    // Decide whether the gold leg can be represented before any victory reward
+    // progression is applied. A refusal is not a combat defeat.
+    const goldSettlement = didWin
+      ? settleDuelGold(profile.gold, resultStats.goldEarned, bounty.gold)
+      : null;
+    const fameSettlement = didWin
+      ? settleDuelFame(profile.fame, resultStats.fameEarned, bounty.fame)
+      : null;
+    const rewardSettlementAccepted =
+      !didWin || (goldSettlement?.ok === true && fameSettlement?.ok === true);
+    const afterOmen = exhibition || (didWin && !rewardSettlementAccepted)
+      ? afterInjury
+      : clearOmen(afterInjury);
+
     let settledProfile: PlayerProfile;
 
-    if (didWin) {
+    if (didWin && rewardSettlementAccepted) {
       // STORY-4b — a CLEARED posting pays its full bounty in this same write; a
       // victory that missed the printed rule adds nothing (the duel's own purse
       // above is already the standard one).
-      const nextGold = profile.gold + resultStats.goldEarned + bounty.gold;
-      const nextFame = profile.fame + resultStats.fameEarned + bounty.fame;
+      const nextGold = goldSettlement?.ok ? goldSettlement.balance : profile.gold;
+      const nextFame = fameSettlement?.ok ? fameSettlement.balance : profile.fame;
       const nextXp = profile.xp + stats.xpEarned;
 
       let nextLevel = profile.level;
@@ -1286,21 +1329,26 @@ export function App() {
       if (bounty.clearedRungId) {
         settledProfile = withRungCleared(settledProfile, bounty.clearedRungId);
       }
-    } else {
-      // C-8.70C — a lost GRUDGE closes: it stays shut until the player wins any
-      // standard bout at that grudge's own tier (the anti-farm rule). Nothing
-      // else about a defeat changes.
+    } else if (!didWin) {
+      // A genuine defeat follows the ordinary loss path.
       const grudgeProfile = isGrudgeBout(activeOpponent)
         ? closeGrudge(afterOmen, activeOpponent)
         : afterOmen;
       const updatedProfile: PlayerProfile = {
         ...grudgeProfile,
-        // STORY-5b — R4: a defeat in an exhibition costs the injury the duel gave
-        // and the duel's one time advance, and is entered in no ledger.
         fightsLost: exhibition ? profile.fightsLost : profile.fightsLost + 1,
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
       settledProfile = evaluateRituals(profile, updatedProfile);
+    } else {
+      // The fight was won, but its reward transaction was refused. Preserve
+      // combat history, injury, and crowd record without granting progression.
+      settledProfile = {
+        ...afterInjury,
+        fightsWon: exhibition ? profile.fightsWon : profile.fightsWon + 1,
+        peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
+      };
+      storyLines.push('Victory recorded; rewards withheld because the purse could not be settled safely.');
     }
 
     /**
@@ -1312,7 +1360,7 @@ export function App() {
      * nothing.
      */
     const echoBout = activeOpponent.id === LEGEND_ECHO_BOUT.opponentId;
-    const echoOwed = didWin && echoBout && echoRevealOwed(profile);
+    const echoOwed = didWin && rewardSettlementAccepted && echoBout && echoRevealOwed(profile);
     if (echoOwed) {
       settledProfile = withEchoWon(settledProfile);
       storyLines.push(ECHO_FIRST_VICTORY_LINE);
@@ -1361,7 +1409,7 @@ export function App() {
      * a row the board has moved past all write nothing.
      */
     const trailProfile =
-      diceTrailBoutRef.current && didWin
+      diceTrailBoutRef.current && didWin && rewardSettlementAccepted
         ? withDiceTrailVictory(timedProfile, activeOpponent.id)
         : timedProfile;
     /**
@@ -1373,15 +1421,15 @@ export function App() {
      * transaction, and the ids it records make a repeat call pay nothing. An exhibition is
      * still a bout the Acta counts — it is a victory on the sand like any other.
      */
-    const ludi: LudiSettlement = settleLudiDeeds(trailProfile, {
+    const ludi: LudiSettlement = rewardSettlementAccepted ? settleLudiDeeds(trailProfile, {
       won: didWin,
       crowdHypePeak: resultStats.crowdHypePeak,
       atDuelResult: true,
-    });
+    }) : { profile: trailProfile, completed: [], laurelEarned: false, favourEarned: 0 };
     // STORY-5b — R4: an exhibition is judged by no herald, so no triumph is
     // evaluated for it and no praise is raised. The profile written is the same
     // one this transaction composed; nothing is skipped but the evaluation.
-    const awards: TriumphAwardOutcome = exhibition
+    const awards: TriumphAwardOutcome = exhibition || !rewardSettlementAccepted
       ? { profile: ludi.profile, earned: [], titles: [] }
       : applyTriumphAwards(ludi.profile, duelTriumphStats);
     setProfile(awards.profile);
@@ -1412,7 +1460,7 @@ export function App() {
     // STORY-5b — R4: an exhibition is not in the arena's book either, so
     // STORY-4a's Spare/Finish is never offered on one — the same fence the
     // trail's bouts use (`mercyOfferForDuel` answers null for a staged bout).
-    const mercy = mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition);
+    const mercy = rewardSettlementAccepted ? mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition) : null;
     mercyWrittenRef.current = null;
     deserterWrittenRef.current = false;
     // The entrance flag is consumed by this result: it can never leak onto a
@@ -1420,21 +1468,25 @@ export function App() {
     diceTrailBoutRef.current = false;
     exhibitionBoutRef.current = false;
 
+    const displayedStats: DuelStatistics = didWin && !rewardSettlementAccepted
+      ? { ...stats, goldEarned: 0, fameEarned: 0, xpEarned: 0 }
+      : resultStats;
     setDuelResult({
       didWin,
       // PITCH A1 — the settled numbers (omen multiplier included when it paid), so
       // the result screen and the save cannot disagree.
-      stats: resultStats,
+      stats: displayedStats,
       storyLines,
       injuryEvent,
+      injury: afterInjury.injury ?? null,
       ...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),
-      ...(omenSettled.line ? { omenLine: omenSettled.line } : {}),
+      ...(rewardSettlementAccepted && omenSettled.line ? { omenLine: omenSettled.line } : {}),
       // STORY-4a — the offer carries the duel's FINAL fame (post mode / crowd /
       // omen, in C-C's order), which is the basis Finish's R1 rule reads.
       ...(mercy ? { mercy: { ...mercy, finalFame: resultStats.fameEarned } } : {}),
       // STORY-4b — the board's own line for this bout (the clear, the miss, or the
       // final's question), so the result screen and the save cannot disagree.
-      ...(bounty.kind !== 'none'
+      ...(rewardSettlementAccepted && bounty.kind !== 'none'
         ? {
             bounty: {
               kind: bounty.kind,
@@ -1484,6 +1536,16 @@ export function App() {
       next = spareRival(profile, offer.rivalId);
     } else {
       const outcome = finishRival(profile, offer.rivalId, offer.finalFame);
+      if (outcome.rejected) {
+        // Do not consume the choice latch or mark the result chosen when the
+        // fame part of Finish could not be settled atomically.
+        mercyWrittenRef.current = null;
+        setHeraldCries((previous) => [
+          ...previous,
+          'Finish was not saved because the fame reward could not be recorded safely. Your profile was left unchanged.',
+        ]);
+        return;
+      }
       next = outcome.profile;
       extraFame = outcome.extraFame;
     }
@@ -1531,6 +1593,10 @@ export function App() {
 
     // A8 — the bounty pays gold, so the peak-gold updater rides this write.
     const outcome = applyDeserterChoice(profile, choice);
+    if (outcome.rejected) {
+      deserterWrittenRef.current = false;
+      return;
+    }
     const settled = withPeakGold(outcome.profile);
     if (settled !== profile) {
       setProfile(settled);
@@ -1568,34 +1634,34 @@ export function App() {
   };
 
   /**
-   * S5 — the Arena Medical House's cure (75 gold) and the Caravanserai Inn's rest
-   * (25 gold).  Both helpers are pure and re-check every rule against the profile
-   * they are handed — a live injury, and a purse that covers the price — so a
-   * refusal returns the caller's own profile and never reaches `saveProfile`.  The
-   * answer says whether the gold changed hands, which is what closes the city panel.
+   * L9 — the Arena Medical House's once-per-day rest (25 × level), plus the
+   * Caravanserai Inn's existing night service. The Medical House transaction clears
+   * the wound and advances one full timeState day; this handler composes the existing
+   * day-boundary effects and performs the one profile save.
    */
   const handleTreatInjury = (): boolean => {
     if (!profile) return false;
-    const treated = treatInjury(profile);
-    if (treated === profile) return false;
-    setProfile(treated);
-    saveProfile(treated);
+    const result = restAtMedicalHouse(profile);
+    if (!result.ok) return false;
+    const settled = onDayRollover(profile, result.profile);
+    setProfile(settled);
+    saveProfile(settled);
     return true;
   };
 
   /**
-   * T2 — a night's board for a gladiator with NO wound: S5's own 25g, and nothing else.
-   * A wounded player's price and injury effect belong to `restAtInn` itself.
+   * T2 — the Caravanserai's night service. An unwounded guest pays 25g for the
+   * dawn jump; a wounded guest also receives the Inn's existing two-fight recovery.
    */
   const payForNight = (subject: PlayerProfile): PlayerProfile | null =>
-    Number.isFinite(subject.gold) && subject.gold >= REST_PRICE
+    canDebitGold(subject.gold, REST_PRICE)
       ? { ...subject, gold: subject.gold - REST_PRICE }
       : null;
 
   const handleRestAtInn = (): boolean => {
     if (!profile) return false;
-    // S5 treats the wound; T2 owns the night. ONE transaction, ONE saveProfile: the injury
-    // clock moves only inside `restAtInn`, and the dawn jump rides the same write.
+    // T2 owns the night. ONE transaction, ONE saveProfile: the Inn's injury recovery
+    // and the dawn jump ride the same write.
     const treated = restAtInn(profile);
     const night = treated !== profile ? treated : payForNight(profile);
     if (!night) return false;
@@ -1676,10 +1742,10 @@ export function App() {
 
   // Profile mutations
   const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
-    if (!profile) return;
+    if (!profile || !isTrainingActionScheduled(profile, stat)) return;
     // P5 — the Ludus Training Yard sets stat training's price, and nothing else.
     const cost = trainingCost(profile);
-    if (typeof profile.gold !== 'number' || !Number.isFinite(profile.gold) || profile.gold < cost) return;
+    if (!canDebitGold(profile.gold, cost)) return;
 
     const trained: PlayerProfile = {
       ...profile,
@@ -1982,7 +2048,11 @@ export function App() {
   };
 
   const handleResetGame = () => {
-    clearSavedProfile();
+    if (!clearSavedProfile()) {
+      setSaveError('Could not erase the saved gladiator from this device. Your current game has been kept open; check device storage and try again.');
+      return;
+    }
+    setSaveError(null);
     setProfile(null);
     setCurrentScreen('title');
   };
@@ -2009,10 +2079,18 @@ export function App() {
           />
         )}
 
+        {saveError && (
+          <div role="alert" className="fixed inset-x-3 top-3 z-[100] mx-auto max-w-xl rounded-xl border border-red-700 bg-red-950/95 p-3 text-sm font-semibold text-red-100 shadow-xl">
+            {saveError}
+            <button type="button" onClick={() => setSaveError(null)} aria-label="Dismiss save warning" className="ml-3 min-h-10 rounded-lg px-3 underline">Dismiss</button>
+          </div>
+        )}
+
         {/* GAME SCREENS */}
         {currentScreen === 'title' && (
             <TitleScreen
                 savedProfile={profile}
+                authError={authError}
                 saveQuarantineNotice={saveQuarantineNotice}
                 onContinueAdventure={handleContinueAdventure}
                 onNewCharacter={handleNewCharacter}
@@ -2033,13 +2111,16 @@ export function App() {
         )}
 
         {currentScreen === 'create_character' && (
+          <React.Suspense fallback={<div className="w-full h-full min-h-[100dvh] bg-neutral-950" aria-busy="true" />}>
             <CharacterCreation
             onComplete={handleCharacterCreated}
             onCancel={() => setCurrentScreen('title')}
             onGoogleSignIn={handleGoogleSignIn}
             isGoogleLoading={isGoogleLoading}
+            authError={authError}
             onOpenSettings={() => handleOpenSettings()}
             />
+          </React.Suspense>
         )}
 
         {currentScreen === 'city_3d' && profile && (
@@ -2093,18 +2174,24 @@ export function App() {
               Doctore's framing line, the four lines each in Latin with its gloss, and the
               closing vow. It owns the screen while it is up (the city reads no controls),
               so a new gladiator's arrival is the beat and never free roam. */}
-          {oathBeatMode && <OathBeat mode={oathBeatMode} onComplete={handleOathComplete} />}
+          {oathBeatMode && (
+            <React.Suspense fallback={<div className="fixed inset-0 z-[80] bg-neutral-950/95" aria-busy="true" />}>
+              <OathBeat mode={oathBeatMode} onComplete={handleOathComplete} />
+            </React.Suspense>
+        )}
 
           {/* DAY/NIGHT T2 — the day-boundary beat: a 600 ms sleep veil and the new day's
               name. It is only ever drawn over the city, so a rollover earned in the arena
               plays when the player walks back in. */}
           {dayBanner && (
-            <DayBanner
+            <React.Suspense fallback={null}>
+              <DayBanner
               key={dayBanner.day}
               day={dayBanner.day}
               text={dayBanner.text}
               onDone={() => setDayBanner(null)}
-            />
+              />
+            </React.Suspense>
           )}
 
           {/* FIRST SIXTY SECONDS — THE SESSION'S OPENING BEAT (§5, item 1). The same
@@ -2129,6 +2216,7 @@ export function App() {
         )}
 
         {currentScreen === 'hub_2d' && profile && (
+          <React.Suspense fallback={<div className="w-full h-full min-h-[100dvh] bg-neutral-950" aria-busy="true" />}>
             <GladiatorSchoolHub
             playerProfile={profile}
             onOpenDeviceChoice={() => setDeviceChoiceOpen(true)}
@@ -2177,6 +2265,7 @@ export function App() {
             onViewCodex={handleViewCodex}
             onEnterLegendBout={handleEnterLegendBout}
             />
+          </React.Suspense>
         )}
 
         {currentScreen === 'duel' && profile && (
@@ -2216,6 +2305,7 @@ export function App() {
 
         {/* DUEL RESULT MODAL */}
         {duelResult && (
+          <React.Suspense fallback={<div className="fixed inset-0 z-[80] bg-neutral-950/95" aria-busy="true" />}>
             <DuelResultModal
             didWin={duelResult.didWin}
             opponent={activeOpponent}
@@ -2224,6 +2314,7 @@ export function App() {
             profile={profile}
             storyLines={duelResult.storyLines}
             injuryEvent={duelResult.injuryEvent}
+            injury={duelResult.injury}
             palmaEarned={duelResult.palmaEarned}
             omenLine={duelResult.omenLine}
             mercy={duelResult.mercy ?? null}
@@ -2246,12 +2337,14 @@ export function App() {
             onCoachCardDismiss={handleMarkCardSeen}
             onContinue={handleDuelResultDismiss}
             />
+          </React.Suspense>
         )}
 
         {/* SAVE-SAFETY — the New Character overwrite confirmation.  It sits above every
             screen and holds the flow until the player decides; nothing is erased, and
             the stored profile is only replaced when a new creation completes. */}
         {overwriteConfirm && (
+          <React.Suspense fallback={null}>
             <NewCharacterOverwriteModal
             existing={overwriteConfirm}
             onCancel={() => setOverwriteConfirm(null)}
@@ -2260,6 +2353,7 @@ export function App() {
               setCurrentScreen('create_character');
             }}
             />
+          </React.Suspense>
         )}
 
         {/* RG-3 — THE HERALD, and the one-time device choice. Both sit above every screen:
@@ -2276,14 +2370,18 @@ export function App() {
           }}
         />
         {deviceChoiceOpen && profile && (
+          <React.Suspense fallback={null}>
             <DeviceChoosingPanel
             onChoose={handleChooseBannerDevice}
             onDismiss={() => setDeviceChoiceOpen(false)}
             />
+          </React.Suspense>
         )}
 
         {/* GAME SETTINGS MODAL — one panel, five sections, every wired row live */}
-        <SettingsModal
+        {settingsOpen && (
+          <React.Suspense fallback={null}>
+            <SettingsModal
             isOpen={settingsOpen}
             onClose={() => setSettingsOpen(false)}
             initialCategory={settingsCategory}
@@ -2296,11 +2394,14 @@ export function App() {
             onResetSave={handleResetGame}
             onDeleteAccount={authUser ? () => setDeleteAccountOpen(true) : undefined}
             onEraseDeviceData={authUser ? undefined : handleResetGame}
-        />
+            />
+          </React.Suspense>
+        )}
 
         {/* ACCOUNT DELETION — the confirmation flow the settings panel opens.  It sits
             above the panel, so cancelling returns to Settings. */}
         {deleteAccountOpen && authUser && (
+          <React.Suspense fallback={null}>
             <DeleteAccountModal
             isOpen={deleteAccountOpen}
             user={{
@@ -2308,18 +2409,25 @@ export function App() {
               providerIds: authUser.providerData.map((provider) => provider.providerId),
             }}
             onClose={() => setDeleteAccountOpen(false)}
-            onDeleted={() => {
+            onDeleted={(outcome) => {
               setDeleteAccountOpen(false);
               setSettingsOpen(false);
-              // The account and this device's save are already gone by now; App only
-              // has to drop its own copy of the profile and return to the title.
-              handleResetGame();
+              // The account is gone regardless of whether localStorage confirmed its
+              // own deletion. Drop the in-memory profile either way; never route this
+              // through Reset, which correctly preserves a profile on wipe failure.
+              setProfile(null);
+              setCurrentScreen('title');
+              setSaveError(outcome?.localDataErased === false
+                ? 'Your account was deleted, but this device could not confirm that its saved gladiator was erased. Clear this app’s site data in browser or device settings before sharing or disposing of this device.'
+                : null);
             }}
             />
+          </React.Suspense>
         )}
 
         {/* GOOGLE DRIVE CLOUD SYNC MODAL */}
         {showDriveSync && (
+          <React.Suspense fallback={null}>
             <GoogleDriveSyncModal
             currentProfile={profile}
             onProfileLoaded={(loadedProfile) => {
@@ -2330,6 +2438,7 @@ export function App() {
             }}
             onClose={() => setShowDriveSync(false)}
             />
+          </React.Suspense>
         )}
     </div>
   );

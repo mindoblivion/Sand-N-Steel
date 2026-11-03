@@ -8749,3 +8749,13 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   covered by the suite's structural checks rather than by a parser or a real run. The environment was
   already green when this phase started, so this is prevention, not the repair of a live failure; the
   Android rehearsal and any Codespaces run were not exercised.
+
+
+## Recovery integration — atomic rewards and representable gold transactions
+
+- **Piso's permanent choice (stacked draft PR #192).** The cut answer and its 300-gold payment are one transaction. Malformed, negative, non-finite, overflowing and precision-lost balances refuse the whole answer, leaving the offer available; refused remains a no-payment answer.
+- **Shared debit guard (stacked draft PR #193).** src/utils/goldTransactions.ts centralizes canDebitGold: a positive debit must leave a strictly smaller finite balance. The guard now protects storefront items, tempering, chariot parts, racing teams, stable quality/conditioning, facilities, Doctore palms, visitor trades, consumables, intel, treatment, rest and training. The related shop, training, visitor, chariot and city controls use the same affordability rule.
+- **Ludi reward credit (stacked draft PR #194).** creditGold refuses a reward that overflows or disappears at the current balance. settleLudiDeeds keeps deed completion and its gold payout atomic: an unrepresentable positive payout leaves the deed available for retry. Malformed, negative, and non-finite balances refuse settlement without changing the purse; the deed and reward remain atomic.
+- **Final validation on PR #193 head f2507e4b92c1641030f90f9d51d8f32bf4469fd8:** GitHub Actions environment gate passed; TypeScript passed; 5,337 tests passed / 0 failed across 190 files; collision harness passed; combat harness passed; production build and startup-asset verification passed.
+- **Validation recorded before the latest PR #194 update on head 844fc0f53ef9d939c879b720cb2dbbed250bb9f4:** GitHub Actions environment gate passed; TypeScript passed; 5,340 tests passed / 0 failed across 190 files; collision harness passed; combat harness passed; production build and startup-asset verification passed.
+- **Scope and release status.** These are stacked draft pull requests on recovery-integration-market-sale-guard → recovery-integration-dice-cut-guard → recovery-integration-gold-debit-guards → recovery-integration-ludi-gold-credit-guard. Nothing was merged to main; no Android device test was performed by these CI runs.

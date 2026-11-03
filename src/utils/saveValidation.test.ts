@@ -36,6 +36,8 @@ import {
   loadSavedProfile,
   readStoredProfileSummary,
   wasStoredSaveQuarantined,
+  saveProfile,
+  clearSavedProfile,
 } from '../services/storage';
 
 const load = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
@@ -307,6 +309,75 @@ describe('§B loadSavedProfile — a good save is returned untouched, a bad one 
   });
 });
 
+describe('saveProfile — persistence is verified, not assumed', () => {
+  test('returns true only after the exact serialized profile is stored', () => {
+    const profile = validStoredProfile();
+    const store = makeStore();
+    withStore(store, () => {
+      expect(saveProfile(profile as never)).toBe(true);
+      expect(store.data.get(PROFILE_STORAGE_KEY)).toBe(JSON.stringify(profile));
+    });
+  });
+
+  test('returns false when storage rejects a write', () => {
+    const hostile = {
+      getItem: () => null,
+      setItem: () => { throw new Error('quota exceeded'); },
+      removeItem: () => {},
+    };
+    withStore(hostile, () => {
+      expect(saveProfile(validStoredProfile() as never)).toBe(false);
+    });
+  });
+
+  test('returns false when storage silently fails to retain a write', () => {
+    const hostile = {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    };
+    withStore(hostile, () => {
+      expect(saveProfile(validStoredProfile() as never)).toBe(false);
+    });
+  });
+});
+
+describe('clearSavedProfile — reset removes active and quarantined gladiator data', () => {
+  test('returns true only after both save keys are absent', () => {
+    const store = makeStore({
+      [PROFILE_STORAGE_KEY]: JSON.stringify(validStoredProfile()),
+      [PROFILE_QUARANTINE_KEY]: '{unreadable original save bytes',
+    });
+    withStore(store, () => {
+      expect(clearSavedProfile()).toBe(true);
+      expect(store.data.has(PROFILE_STORAGE_KEY)).toBe(false);
+      expect(store.data.has(PROFILE_QUARANTINE_KEY)).toBe(false);
+    });
+  });
+
+  test('returns false when storage rejects deletion', () => {
+    const hostile = {
+      getItem: () => 'still saved',
+      setItem: () => {},
+      removeItem: () => { throw new Error('storage unavailable'); },
+    };
+    withStore(hostile, () => {
+      expect(clearSavedProfile()).toBe(false);
+    });
+  });
+
+  test('returns false when storage silently retains either save key', () => {
+    const hostile = {
+      getItem: () => 'still saved',
+      setItem: () => {},
+      removeItem: () => {},
+    };
+    withStore(hostile, () => {
+      expect(clearSavedProfile()).toBe(false);
+    });
+  });
+});
+
 describe('§C readStoredProfileSummary — what the overwrite dialog names', () => {
   test('nothing stored is null — there is no gladiator to warn about', () => {
     const store = makeStore();
@@ -413,5 +484,18 @@ describe('§E the title states a quarantined save, once, in plain language', () 
     expect(title).toContain('A saved gladiator couldn&rsquo;t be read');
     expect(title).toContain('Nothing has been deleted');
     expect(title).toContain('asks before it replaces anything');
+  });
+});
+
+
+describe('§F Google Drive restore — cloud saves use the same structural gate', () => {
+  test('a downloaded profile is validated before it can be returned to the live game', () => {
+    const drive = code(load('../services/googleDrive.ts'));
+    expect(drive).toContain("import { isValidStoredProfile } from './storage';");
+    expect(drive).toContain('const profile: unknown = await response.json();');
+    expect(drive).toContain('if (!isValidStoredProfile(profile))');
+    expect(drive).toContain('Your current local progress was not changed.');
+    expect(drive).toContain('throw new DriveApiError(');
+    expect(drive).toContain('      422');
   });
 });

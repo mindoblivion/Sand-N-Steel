@@ -20,6 +20,7 @@ import { MicrosoftSignInButton } from '../ui/MicrosoftSignInButton';
  */
 
 export interface TitleAccountPanelProps {
+  authError?: string | null;
   onClose: () => void;
   onGoogleSignIn: () => void;
   isGoogleLoading: boolean;
@@ -34,6 +35,7 @@ export interface TitleAccountPanelProps {
 }
 
 export const TitleAccountPanel: React.FC<TitleAccountPanelProps> = ({
+  authError,
   onClose,
   onGoogleSignIn,
   isGoogleLoading,
@@ -46,6 +48,11 @@ export const TitleAccountPanel: React.FC<TitleAccountPanelProps> = ({
   onEmailSignIn,
 }) => (
   <div data-title-account-panel="1">
+    {authError && (
+      <p role="alert" className="absolute top-4 left-1/2 z-[70] w-[min(92vw,32rem)] -translate-x-1/2 rounded-lg border border-red-500/50 bg-red-950/95 px-4 py-3 text-center text-sm text-red-100">
+        {authError}
+      </p>
+    )}
     {/* The email/password half — the repo's own auth screen, unmodified. */}
     <EmailAuthScreen onAuthSuccess={onEmailSignIn} onBack={onClose} />
 

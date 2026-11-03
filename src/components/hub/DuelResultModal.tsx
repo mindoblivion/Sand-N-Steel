@@ -1,8 +1,9 @@
 import React from 'react';
-import { DuelStatistics, OpponentConfig, PlayerProfile } from '../../types/game';
+import { DuelStatistics, OpponentConfig, PlayerProfile, PlayerInjury } from '../../types/game';
 import { Trophy, Skull, Coins, Sparkles, Swords, ArrowRight, HeartPulse, Award } from 'lucide-react';
 import { getPalma } from '../../data/palmae';
 import { injuryBannerLine, type DuelInjuryEvent } from '../../utils/injury';
+import { describeInjury } from '../../utils/injuryStatus';
 // C-8.70C — what the grudge's own result was, decided at the same write that
 // recorded it (settled on a win, closed until the tier's next standard win).
 import { grudgeResultLine, grudgeRewardLine } from '../../utils/grudgeBouts';
@@ -53,6 +54,8 @@ interface DuelResultModalProps {
    * carries `null` and adds nothing.
    */
   injuryEvent?: DuelInjuryEvent | null;
+  /** L8 — the settled injury after this duel, never inferred from its outcome. */
+  injury?: PlayerInjury | null;
   /** The player's purse after the duel, so the reward reads as spendable gold. */
   goldTotal?: number;
   /**
@@ -145,6 +148,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   profile,
   storyLines,
   injuryEvent,
+  injury,
   goldTotal,
   coachCardId,
   onCoachCardDismiss,
@@ -157,6 +161,7 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   onContinue,
 }) => {
   const pace = didWin ? 1 : DEFEAT_PACE;
+  const injuryStatus = describeInjury(injury);
   // 0 = header only, 1 = recap, 2 = the two extra recap lines, 3 = rewards.
   const [stage, setStage] = React.useState(0);
   const [counted, setCounted] = React.useState({ gold: 0, fame: 0, xp: 0 });
@@ -467,6 +472,24 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
                 ? injuryBannerLine(injuryEvent.injury)
                 : 'Injury healed.'}
             </span>
+          </div>
+        )}
+
+        {/* L8 — a surviving injury after a victory. Defeat refreshes already have the
+            result event banner above, so this does not duplicate that same warning. */}
+        {injuryStatus && injuryEvent?.kind !== 'inflicted' && (
+          <div
+            data-testid="duel-injury-status"
+            className="mb-6 rounded-2xl border border-red-500/50 bg-red-950/40 p-3 flex items-start gap-2"
+          >
+            <HeartPulse className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+            <p className="text-[11px] font-mono text-red-200 leading-relaxed">
+              <span className="font-serif font-bold uppercase tracking-wider text-red-300">
+                {didWin ? 'Still injured' : 'Injured'}
+              </span>{' '}
+              -{injuryStatus.penaltyStrength} STR · -{injuryStatus.penaltyAgility} AGI ·{' '}
+              {injuryStatus.durationLabel}.
+            </p>
           </div>
         )}
 

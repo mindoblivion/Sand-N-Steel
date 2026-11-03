@@ -10,9 +10,8 @@
  *      re-confirm or a Drive failure deletes NOTHING, that a failed account deletion
  *      never wipes the device, and that a sign-out hiccup cannot turn a completed
  *      deletion into a failure;
- *   §B the DEVICE WIPE — one key, the save's own, and nothing else (not the settings
- *      record, not a Drive file, not a session); and the two erase paths in the game
- *      naming that same single key;
+ *   §B the DEVICE WIPE — the active save and its quarantined original, but nothing else
+ *      (not the settings record, not a Drive file, not a session);
  *   §C the ERROR COPY — every message a sentence, never a raw code;
  *   §D the PROVIDER DISPATCH — password vs popup, the provider's plain name, and who
  *      can be offered the Drive cloud save at all;
@@ -45,12 +44,14 @@ import {
   deletionErrorMessage,
   eraseLocalDeviceData,
   reauthMethodForProviderIds,
+  reauthProviderIdForProviderIds,
   reauthProviderLabel,
+  requiresGoogleDriveReauthentication,
   runAccountDeletion,
   type DeletionSteps,
   type SignedInUserSummary,
 } from '../services/accountDeletion';
-import { PROFILE_STORAGE_KEY } from '../services/storage';
+import { PROFILE_QUARANTINE_KEY, PROFILE_STORAGE_KEY } from '../services/storage';
 import { PUBLIC_PAGE_PATHS, resolvePublicPage } from '../components/legal/publicPages';
 import {
   DELETION_IN_APP_PATH,
@@ -71,8 +72,9 @@ const load = (rel: string): string => readFileSync(new URL(rel, import.meta.url)
 /** A source with its comments stripped, so prose can neither satisfy nor defeat a check. */
 const code = (rel: string): string => load(rel).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
-/** The saved profile this flow must know about — and the ONLY local key it may touch. */
+/** The local gladiator save and its unreadable-save quarantine; both are account data. */
 const SAVE_KEY = 'sand_and_steel_gladiator_save_v2';
+const QUARANTINE_KEY = 'sand_and_steel_gladiator_save_v2_quarantine';
 const SETTINGS_KEY = 'sand_and_steel_settings_v1';
 
 /** A recording set of deletion steps: the order they ran in, and nothing real. */
@@ -84,12 +86,14 @@ function recordingSteps(overrides: Partial<DeletionSteps> = {}) {
     },
     deleteDriveSave: async () => {
       calls.push('deleteDriveSave');
+      return true;
     },
     deleteUser: async () => {
       calls.push('deleteUser');
     },
     eraseLocalData: () => {
       calls.push('eraseLocalData');
+      return true;
     },
     signOut: async () => {
       calls.push('signOut');
@@ -103,7 +107,7 @@ function recordingSteps(overrides: Partial<DeletionSteps> = {}) {
 const authError = (codeName: string) => Object.assign(new Error(codeName), { code: codeName });
 
 /** Run `body` with a throwaway `localStorage`, restoring whatever was there. */
-function withFakeLocalStorage<T>(store: { removeItem: (key: string) => void }, body: () => T): T {
+function withFakeLocalStorage<T>(store: { removeItem: (key: string) => void; getItem: (key: string) => string | null }, body: () => T): T {
   const globalStore = globalThis as { localStorage?: unknown };
   const original = globalStore.localStorage;
   globalStore.localStorage = store;
@@ -135,6 +139,12 @@ describe('A. The deletion contract — the one safe order', () => {
     expect(calls.indexOf('deleteDriveSave')).toBeGreaterThan(calls.indexOf('reauthenticate'));
     expect(calls.indexOf('deleteDriveSave')).toBeLessThan(calls.indexOf('deleteUser'));
     expect(outcome.driveSaveDeleted).toBe(true);
+  });
+
+  test('a successful Drive lookup with no backup does not claim a deletion', async () => {
+    const { steps } = recordingSteps({ deleteDriveSave: async () => false });
+    const outcome = await runAccountDeletion(steps, { deleteDriveSave: true });
+    expect(outcome).toEqual({ accountDeleted: true, driveSaveDeleted: false, localDataErased: true });
   });
 
   test('an account with nothing to delete on Drive still completes', async () => {
@@ -192,6 +202,32 @@ describe('A. The deletion contract — the one safe order', () => {
     expect(calls).not.toContain('eraseLocalData');
   });
 
+  test('a failed account deletion after Drive removal reports the partial result and preserves local data', async () => {
+    const { steps, calls } = recordingSteps({
+      deleteUser: async () => {
+        calls.push('deleteUser');
+        throw authError('auth/network-request-failed');
+      },
+    });
+    let thrown: unknown;
+    try {
+      await runAccountDeletion(steps, { deleteDriveSave: true });
+    } catch (error) {
+      thrown = error;
+    }
+    expect((thrown as { code?: unknown } | null)?.code).toBe('account-deletion/drive-save-deleted-account-remains');
+    expect(deletionErrorMessage(thrown)).toContain('Your Google Drive backup was deleted');
+    expect(deletionErrorMessage(thrown)).toContain('your account was not');
+    expect(calls).toEqual(['reauthenticate', 'deleteDriveSave', 'deleteUser']);
+    expect(calls).not.toContain('eraseLocalData');
+  });
+
+  test('account deletion completes but reports an unverified local wipe', async () => {
+    const { steps } = recordingSteps({ eraseLocalData: () => false });
+    const outcome = await runAccountDeletion(steps, { deleteDriveSave: false });
+    expect(outcome).toEqual({ accountDeleted: true, driveSaveDeleted: false, localDataErased: false });
+  });
+
   test('a sign-out hiccup cannot turn a completed deletion into a failure', async () => {
     const { steps, calls } = recordingSteps({
       signOut: async () => {
@@ -210,19 +246,24 @@ describe('A. The deletion contract — the one safe order', () => {
 describe('B. The device wipe — one key, and nothing else', () => {
   test('it removes the save key and only the save key', () => {
     const removed: string[] = [];
-    eraseLocalDeviceData((key) => removed.push(key));
+    expect(eraseLocalDeviceData((key) => { removed.push(key); return true; })).toBe(true);
 
-    expect(removed).toEqual([SAVE_KEY]);
+    expect(removed).toEqual([SAVE_KEY, QUARANTINE_KEY]);
     expect(removed).not.toContain(SETTINGS_KEY);
-    expect(LOCAL_SAVE_KEYS).toEqual([PROFILE_STORAGE_KEY]);
-    expect(LOCAL_SAVE_KEYS.length).toBe(1);
+    expect(LOCAL_SAVE_KEYS).toEqual([PROFILE_STORAGE_KEY, PROFILE_QUARANTINE_KEY]);
+    expect(LOCAL_SAVE_KEYS.length).toBe(2);
     expect(PROFILE_STORAGE_KEY).toBe(SAVE_KEY);
+    expect(PROFILE_QUARANTINE_KEY).toBe(QUARANTINE_KEY);
   });
 
   test('the default wipe goes through the device\'s own localStorage', () => {
     const removed: string[] = [];
-    withFakeLocalStorage({ removeItem: (key) => removed.push(key) }, () => eraseLocalDeviceData());
-    expect(removed).toEqual([SAVE_KEY]);
+    withFakeLocalStorage({ removeItem: (key) => removed.push(key), getItem: () => null }, () => eraseLocalDeviceData());
+    expect(removed).toEqual([SAVE_KEY, QUARANTINE_KEY]);
+  });
+
+  test('a silent storage failure is reported as an incomplete wipe', () => {
+    expect(eraseLocalDeviceData(() => false)).toBe(false);
   });
 
   test('a browser that refuses storage cannot break the wipe', () => {
@@ -232,17 +273,21 @@ describe('B. The device wipe — one key, and nothing else', () => {
           removeItem: () => {
             throw new Error('storage denied');
           },
+          getItem: () => 'still saved',
         },
-        () => eraseLocalDeviceData(),
+        () => expect(eraseLocalDeviceData()).toBe(false),
       ),
     ).not.toThrow();
   });
 
-  test('both of the game\'s erase paths name the same single key', () => {
-    // The guest row reaches the game's existing reset, and the deletion flow reaches
-    // this contract's wipe; both must remove the same one key and nothing else.
-    expect(code('../services/storage.ts')).toContain('localStorage.removeItem(PROFILE_STORAGE_KEY)');
+  test('the account wipe includes both the active save and quarantined save copy', () => {
+    // The unreadable-save quarantine contains original gladiator bytes and must be
+    // erased with the active profile; preferences remain a separate record.
+    expect(code('../services/storage.ts')).toContain('for (const key of [PROFILE_STORAGE_KEY, PROFILE_QUARANTINE_KEY])');
+    expect(code('../services/storage.ts')).toContain('PROFILE_QUARANTINE_KEY');
+    expect(code('../services/storage.ts')).toContain('clearSavedProfile');
     expect(code('../services/accountDeletion.ts')).toContain('LOCAL_SAVE_KEYS');
+    expect(code('../services/accountDeletion.ts')).toContain('PROFILE_QUARANTINE_KEY');
     expect(code('../components/hub/SettingsModal.tsx')).toContain('onEraseDeviceData');
   });
 });
@@ -292,6 +337,8 @@ describe('C. The error copy — plain words, never a raw code', () => {
   });
 
   test('the two provider-less failures hand the job to the developer', () => {
+    expect(deletionErrorMessage(authError('account-deletion/drive-save-partially-deleted'))).toContain('Some Google Drive backup files were deleted');
+    expect(deletionErrorMessage(authError('account-deletion/drive-save-partially-deleted'))).toContain('account was not');
     expect(deletionErrorMessage(authError('account-deletion/unsupported-provider'))).toContain('Write to us');
     expect(deletionErrorMessage(authError('auth/operation-not-allowed'))).toContain('Write to us');
   });
@@ -310,6 +357,13 @@ describe('D. The provider dispatch', () => {
     expect(reauthMethodForProviderIds([])).toBe('popup');
   });
 
+  test('OAuth dispatch uses the same supported provider that the copy names', () => {
+    expect(reauthProviderIdForProviderIds(['facebook.com', 'google.com'])).toBe('google.com');
+    expect(reauthProviderIdForProviderIds(['microsoft.com', 'apple.com'])).toBe('apple.com');
+    expect(reauthProviderIdForProviderIds(['github.com'])).toBe('github.com');
+    expect(reauthProviderIdForProviderIds([])).toBe('');
+  });
+
   test('the copy names the provider the player actually used', () => {
     expect(reauthProviderLabel(['password'])).toBe('your email and password');
     expect(reauthProviderLabel(['google.com'])).toBe('Google');
@@ -321,6 +375,10 @@ describe('D. The provider dispatch', () => {
 
   test('only a Google account can be offered the Drive cloud save', () => {
     expect(accountCanDeleteDriveSave(['google.com'])).toBe(true);
+    expect(requiresGoogleDriveReauthentication(['google.com'], true)).toBe(true);
+    expect(requiresGoogleDriveReauthentication(['password', 'google.com'], true)).toBe(true);
+    expect(requiresGoogleDriveReauthentication(['google.com'], false)).toBe(false);
+    expect(requiresGoogleDriveReauthentication(['password'], true)).toBe(false);
     expect(accountCanDeleteDriveSave(['password'])).toBe(false);
     expect(accountCanDeleteDriveSave(['facebook.com'])).toBe(false);
     expect(accountCanDeleteDriveSave(['apple.com'])).toBe(false);
@@ -423,7 +481,8 @@ describe('E. The public surfaces', () => {
     expect(app).toContain('<DeleteAccountModal');
     expect(app).toContain('providerIds: authUser.providerData.map((provider) => provider.providerId)');
     // Success drops App's own profile state and returns to the title.
-    expect(app).toContain('handleResetGame();');
+    expect(app).toContain('localDataErased');
+    expect(app).not.toContain('handleResetGame();');
   });
 
   test('the title screen carries the policy link as well', () => {
@@ -439,6 +498,9 @@ describe('E. The public surfaces', () => {
     expect(dialog).not.toContain('googleDrive');
     expect(dialog).toContain('deleteSignedInAccount');
     expect(dialog).toContain('deletionErrorMessage(e)');
+    expect(dialog).toContain('outcome?.localDataErased');
+    expect(dialog).toContain('No Google Drive backup was found, so there was nothing to delete.');
+    expect(dialog).toContain('could not confirm that its saved gladiator was erased');
     expect(dialog).not.toContain('e.message');
     expect(dialog).not.toContain('window.confirm');
     // The opt-in is a real checkbox-shaped control, and it is the ONLY thing that
@@ -451,10 +513,13 @@ describe('E. The public surfaces', () => {
     const wiring = code('../services/accountDeletionFirebase.ts');
     expect(wiring).toContain('reauthenticateWithCredential');
     expect(wiring).toContain('reauthenticateWithPopup');
+    expect(wiring).toContain("needsGooglePopup ? 'google.com'");
+    expect(wiring).toContain('requiresGoogleDriveReauthentication(');
     expect(wiring).toContain('firebaseDeleteUser(user)');
     // The Drive work goes through the EXISTING service — no second client.
     expect(wiring).toContain('listDriveSaves');
     expect(wiring).toContain('deleteDriveSaveFile');
+    expect(wiring).toContain('account-deletion/drive-save-partially-deleted');
     expect(wiring).not.toContain('googleapis.com');
     // Re-confirmation only: signing IN is the game's own sign-in path, not this flow.
     expect(wiring).not.toContain('signInWithPopup');
@@ -468,6 +533,15 @@ describe('E. The public surfaces', () => {
     for (const token of ['firebase', 'googleDrive', 'googleapis', 'signIn', 'localStorage.setItem']) {
       expect(contract, token).not.toContain(token);
     }
+  });
+});
+
+describe('G. Google Drive backup scope', () => {
+  test('Drive listing only returns the exact filename written by this game', () => {
+    const drive = code('../services/googleDrive.ts');
+    expect(drive).toContain("const SAVE_FILE_NAME = 'Sand_And_Steel_Gladiator_Save.json'");
+    expect(drive).toContain("name = '${SAVE_FILE_NAME}' and trashed = false");
+    expect(drive).not.toContain("name contains 'Sand_And_Steel'");
   });
 });
 

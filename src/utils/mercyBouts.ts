@@ -214,6 +214,8 @@ export interface FinishOutcome {
   totalFame: number;
   /** The increment this choice added on top of the fame the duel already paid. */
   extraFame: number;
+  /** Present only when the fame credit could not be represented; no state was changed. */
+  rejected?: true;
 }
 
 /**
@@ -239,6 +241,24 @@ export function finishRival(
   const totalFame = Math.round(baseFame * FINISH_FAME_MULTIPLIER);
   const extraFame = Math.max(0, totalFame - baseFame);
 
+  if (extraFame > 0) {
+    const currentFame = profile.fame;
+    const nextFame = currentFame + extraFame;
+    if (
+      !Number.isFinite(totalFame) ||
+      !Number.isFinite(extraFame) ||
+      typeof currentFame !== 'number' ||
+      !Number.isFinite(currentFame) ||
+      currentFame < 0 ||
+      !Number.isFinite(nextFame) ||
+      nextFame <= currentFame
+    ) {
+      // Finish removes the grudge and pays the increment as one transaction.
+      // If fame cannot be credited, leave the rival and the profile untouched.
+      return { profile, totalFame, extraFame: 0, rejected: true };
+    }
+  }
+
   let next = profile;
   // Remove the one key from the STORED record, leaving every other entry exactly
   // as it was saved — a resolver read here would rewrite the map into its own
@@ -248,7 +268,7 @@ export function finishRival(
     const { [rivalId]: _removed, ...rest } = stored as Record<string, GrudgeRecord>;
     next = { ...next, grudges: rest };
   }
-  if (extraFame > 0) next = { ...next, fame: (next.fame ?? 0) + extraFame };
+  if (extraFame > 0) next = { ...next, fame: profile.fame + extraFame };
   return { profile: next, totalFame, extraFame };
 }
 

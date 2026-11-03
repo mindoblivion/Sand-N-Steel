@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { BoutMode, OpponentConfig, OmenState } from '../../types/game';
-import { Swords, Trophy, Coins, Zap, Shield, Skull } from 'lucide-react';
+import { BoutMode, OpponentConfig, OmenState, PlayerInjury } from '../../types/game';
+import { Swords, Trophy, Coins, Zap, Shield, Skull, Bandage } from 'lucide-react';
+import { describeInjury } from '../../utils/injuryStatus';
 // C-8.70C — the three bout modes and the plain-language list of EVERY effect,
 // built from the same data the duel reads. The choice is session-only: it starts
 // on Sand every time and is never written to a save.
@@ -58,6 +59,8 @@ interface PreFightModalProps {
    * the only thing that settles it.
    */
   omen?: OmenState | null;
+  /** L8 — the settled injury, so a wound is visible before the next bout. */
+  injury?: PlayerInjury | null;
 }
 
 export const PreFightModal: React.FC<PreFightModalProps> = ({
@@ -68,10 +71,12 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
   restriction,
   phase = DEFAULT_PHASE,
   omen,
+  injury,
 }) => {
   // T3 — a boss card always reads as an evening spectacle; every other hour names the
   // light, and a regular bout at Nox offers the torches in words.
   const hourLine = duelPhaseLine(phase, opponent.isBoss === true);
+  const injuryStatus = describeInjury(injury);
   // Session-only, defaulting to Sand on every opening (no preference exists to
   // remember this in the profile).
   const [boutMode, setBoutMode] = useState<BoutMode>(DEFAULT_BOUT_MODE);
@@ -315,6 +320,20 @@ export const PreFightModal: React.FC<PreFightModalProps> = ({
                 <span className="text-right text-neutral-300 text-[11px] font-serif">{palma.description}</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {injuryStatus && (
+          <div
+            data-testid="prefight-injury-status"
+            className="mb-6 rounded-2xl border border-red-500/60 bg-red-950/50 p-3 flex items-start gap-2"
+          >
+            <Bandage className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+            <p className="text-[11px] font-mono text-red-200 leading-relaxed">
+              <span className="font-serif font-bold uppercase tracking-wider text-red-300">Injured</span>{' '}
+              -{injuryStatus.penaltyStrength} STR · -{injuryStatus.penaltyAgility} AGI ·{' '}
+              {injuryStatus.durationLabel}.
+            </p>
           </div>
         )}
 

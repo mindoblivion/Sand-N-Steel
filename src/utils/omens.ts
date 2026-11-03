@@ -193,7 +193,7 @@ export function offerOmen(
   };
 }
 
-export type OmenDeclineRejectionReason = 'omen-live' | 'already-claimed';
+export type OmenDeclineRejectionReason = 'omen-live' | 'already-claimed' | 'invalid-fame';
 
 /**
  * `wrote: false` carries the reason and no profile — nothing is paid and nothing
@@ -212,13 +212,21 @@ export function declineOmen(profile: PlayerProfile): OmenDeclineOutcome {
   if (resolveOmen(profile)) return { wrote: false, reason: 'omen-live' };
   if (isTrickleClaimed(profile)) return { wrote: false, reason: 'already-claimed' };
   const fame = (profile as OmenRecord | null)?.fame;
-  const base = typeof fame === 'number' && Number.isFinite(fame) ? Math.max(0, fame) : 0;
+  // Do not repair malformed fame to zero or consume the once-ever marker when
+  // the promised credit cannot be represented. The player can retry after repair.
+  if (typeof fame !== 'number' || !Number.isFinite(fame) || fame < 0) {
+    return { wrote: false, reason: 'invalid-fame' };
+  }
+  const nextFame = fame + OMEN_TRICKLE_FAME;
+  if (!Number.isFinite(nextFame) || nextFame <= fame) {
+    return { wrote: false, reason: 'invalid-fame' };
+  }
   return {
     wrote: true,
     famePaid: OMEN_TRICKLE_FAME,
     profile: {
       ...profile,
-      fame: base + OMEN_TRICKLE_FAME,
+      fame: nextFame,
       omenTrickleClaimed: true,
     },
   };
@@ -334,7 +342,7 @@ export function omenOfferResultLine(omen: OmenState): string {
 /** What the panel says once the player declines. */
 export function omenDeclineResultLine(outcome: OmenDeclineOutcome): string {
   if (outcome.wrote) return `You decline and trust your own arm. +${outcome.famePaid} fame.`;
-  return outcome.reason === 'omen-live'
-    ? "You decline. Fortuna's omen already rests on you, untouched."
-    : 'You decline. Your own arm is all the luck you take.';
+  if (outcome.reason === 'omen-live') return "You decline. Fortuna's omen already rests on you, untouched.";
+  if (outcome.reason === 'invalid-fame') return 'You decline. Your renown cannot be settled safely; no reward was claimed.';
+  return 'You decline. Your own arm is all the luck you take.';
 }
