@@ -204,8 +204,6 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         </div>
       </div>
 
-
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto w-full my-auto">
         {/* 3D CHARACTER PREVIEW */}
         <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[360px] shadow-2xl relative overflow-hidden">
@@ -535,7 +533,6 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
                   })}
                 </div>
               </div>
-
 
             </div>
           </details>
