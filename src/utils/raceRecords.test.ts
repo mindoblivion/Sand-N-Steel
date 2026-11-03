@@ -1,6 +1,7 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
 import { createNewProfile } from '../services/storage';
+import { readFileSync } from 'node:fs';
 import { recordRaceBestTime, MAX_RECORDED_RACE_TIME_MS } from './raceRecords';
 
 describe('race best-time transaction', () => {
@@ -48,9 +49,19 @@ describe('race best-time transaction', () => {
   });
 
   test('malformed previous time is replaced by a valid finish', () => {
-    const profile = { ...createNewProfile('Record Keeper'), racing: { selected: 2, bestTimes: { 2: Number.NaN, 3: 'bad' } } };
+    const profile = { ...createNewProfile('Record Keeper'), racing: { selected: 2, bestTimes: { 2: Number.NaN, 3: 'bad' } } } as unknown as ReturnType<typeof createNewProfile>;
     const result = recordRaceBestTime(profile, 2, 12345);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.profile.racing?.bestTimes).toEqual({ 2: 12345, 3: 'bad' });
+  });
+
+  test('only the finish transition requests a record write; abort stays read-only', () => {
+    const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+    const scene = readFileSync(new URL('../components/3d/RaceScene.tsx', import.meta.url), 'utf8');
+    expect(app.includes('onRecordBestTime={handleRecordRaceBestTime}')).toBe(true);
+    expect(scene.includes('onRecordBestTime(teamSize, elapsedMs)')).toBe(true);
+    const exit = app.slice(app.indexOf('const handleExitRace'), app.indexOf('const handleOpenHubTab'));
+    expect(exit.includes('recordRaceBestTime')).toBe(false);
+    expect(exit.includes('saveProfile')).toBe(false);
   });
 });
