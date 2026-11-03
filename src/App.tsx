@@ -742,13 +742,12 @@ export function App() {
       const { listDriveSaves, loadProfileFromDrive } = await import('./services/googleDrive');
       const saves = await listDriveSaves();
       if (saves.length > 0) {
-        if (profile) {
-          // A local save already exists — don't silently overwrite it.
-          // Open the sync modal so the player explicitly chooses whether
-          // to load the cloud save or keep their local progress.
+        if (profile || saves.length > 1) {
+          // Existing local progress or multiple cloud saves: let the player
+          // explicitly choose instead of silently replacing or guessing.
           setShowDriveSync(true);
         } else {
-          // No local save — safe to load the cloud save directly.
+          // A single cloud save and no local progress is unambiguous.
           const cloudProfile = await loadProfileFromDrive(saves[0].id);
           setProfile(cloudProfile);
           saveProfile(cloudProfile);
