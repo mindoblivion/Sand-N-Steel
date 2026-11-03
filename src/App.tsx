@@ -12,7 +12,7 @@ import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { settleDuelFame, settleDuelGold } from './utils/duelRewards';
-import { purchaseRacingConfig, selectRacingConfig } from './utils/racingProgression';
+import { purchaseRacingConfig, selectRacingConfig, resolveRacingState } from './utils/racingProgression';
 import { purchaseLaurel, selectDisplayedTitle, type LaurelResult } from './utils/laurels';
 // A8 — TRIUMPHS: the retained deeds. The evaluator is pure and the ONE shipped
 // call site is the duel result below (A8 — Director ruling R5); `withPeakGold` is
@@ -2301,6 +2301,7 @@ export function App() {
               onOpenSettings={() => handleOpenSettings(undefined, 'race')}
               frozen={settingsOpen}
               phase={resolveTimeState(profile).phase}
+              teamSize={profile ? resolveRacingState(profile).horses : 2}
             />
           </React.Suspense>
           </LazySceneBoundary>
