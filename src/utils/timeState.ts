@@ -116,9 +116,13 @@ export interface ResolvedTimeState {
  * The clock's value, normalised: absent / malformed / negative / non-finite all
  * read as 0, and a fractional value is floored.  Total by construction.
  */
+// Keep the clock within exact-integer arithmetic. The cap is a dawn boundary,
+// so every derived day/phase remains coherent even for corrupted or hand-edited saves.
+const MAX_CLOCK_TOTAL = Number.MAX_SAFE_INTEGER - (Number.MAX_SAFE_INTEGER % PHASES_PER_DAY);
+
 function normalizeTotal(raw: unknown): number {
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0;
-  return Math.floor(raw);
+  return Math.min(Math.floor(raw), MAX_CLOCK_TOTAL);
 }
 
 /**
@@ -146,7 +150,7 @@ export function resolveTimeState(
 /** A step count, normalised: absent / negative / non-finite read as 0, floored. */
 function normalizeSteps(raw: unknown): number {
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0;
-  return Math.floor(raw);
+  return Math.min(Math.floor(raw), MAX_CLOCK_TOTAL);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,7 +168,7 @@ function normalizeSteps(raw: unknown): number {
  */
 export function advanceTimeBy(profile: PlayerProfile, steps: number): PlayerProfile {
   const { total } = resolveTimeState(profile);
-  return { ...profile, time: { total: total + normalizeSteps(steps) } };
+  return { ...profile, time: { total: Math.min(total + normalizeSteps(steps), MAX_CLOCK_TOTAL) } };
 }
 
 /**
@@ -179,7 +183,7 @@ export function advanceTimeBy(profile: PlayerProfile, steps: number): PlayerProf
  */
 export function advanceToNextDawn(profile: PlayerProfile): PlayerProfile {
   const { total, phaseIndex } = resolveTimeState(profile);
-  const next = phaseIndex === 0 ? total : total + (PHASES_PER_DAY - phaseIndex);
+  const next = phaseIndex === 0 ? total : Math.min(total + (PHASES_PER_DAY - phaseIndex), MAX_CLOCK_TOTAL);
   return { ...profile, time: { total: next } };
 }
 

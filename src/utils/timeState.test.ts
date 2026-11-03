@@ -247,7 +247,18 @@ describe('T0 §C — phase and day derivation', () => {
     expect(resolveTimeState(profileWith(14)).day).toBe(3);
   });
 
-  test('a large total still derives a phase and a day', () => {
+  test('huge finite totals clamp to the greatest exact dawn boundary', () => {
+    const cap = Number.MAX_SAFE_INTEGER - (Number.MAX_SAFE_INTEGER % PHASES_PER_DAY);
+    for (const value of [Number.MAX_SAFE_INTEGER, Number.MAX_VALUE]) {
+      const state = resolveTimeState(profileWith(value));
+      expect(state.total).toBe(cap);
+      expect(state.phaseIndex).toBe(0);
+      expect(state.phase).toBe('dawn');
+      expect(Number.isSafeInteger(state.day)).toBe(true);
+    }
+  });
+
+  test('a large ordinary total still derives its phase and day', () => {
     const state = resolveTimeState(profileWith(1000));
     expect(state.phaseIndex).toBe(1000 % 7);
     expect(state.day).toBe(Math.floor(1000 / 7) + 1);
@@ -326,6 +337,13 @@ describe('T0 §E — advanceTimeBy is pure', () => {
   test('a fractional step count is floored', () => {
     expect(advanceTimeBy(richProfile(1), 2.9).time?.total).toBe(3);
     expect(advanceTimeBy(richProfile(1), 0.5).time?.total).toBe(1);
+  });
+
+  test('clock advancement saturates at the greatest exact dawn boundary', () => {
+    const cap = Number.MAX_SAFE_INTEGER - (Number.MAX_SAFE_INTEGER % PHASES_PER_DAY);
+    expect(advanceTimeBy(profileWith(cap - 1), 100).time?.total).toBe(cap);
+    expect(advanceTimeBy(profileWith(cap), 1).time?.total).toBe(cap);
+    expect(advanceToNextDawn(profileWith(cap - 1)).time?.total).toBe(cap);
   });
 
   test('a malformed or absent clock advances from 0, not from garbage', () => {
