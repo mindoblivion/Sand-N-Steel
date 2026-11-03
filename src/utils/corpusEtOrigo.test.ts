@@ -608,6 +608,12 @@ describe('PITCH A4 §J — the creation screen and the sheet', () => {
     expect(screen).toContain('data-corpus-vitium-picker');
     expect(screen).toContain('data-corpus-vitium-card="none"');
     expect(screen).toContain('data-corpus-vitium-card={row.id}');
+    // Birthplace and flaw stay selectable, but no longer crowd the primary creator flow.
+    expect(screen).toContain('data-optional-background');
+    expect(screen).toContain('Background choices (optional)');
+    expect(screen).toContain('{selectedProvinceName} · {selectedVitiumName}');
+    const disclosure = screen.slice(screen.indexOf('<details'), screen.indexOf('</details>'));
+    expect(disclosure).not.toContain(' open');
     // Touch parity: every new card is at the 48px floor, like the class cards.
     expect(screen.split('min-h-[48px]').length).toBeGreaterThan(4);
     // The province card shows the god AND the flavour line.

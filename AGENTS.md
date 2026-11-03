@@ -8769,3 +8769,13 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Tests.** `src/utils/gladiatorBodyRig.test.ts` covers legacy/invalid defaults, 140/180/300 lb endpoints, monotonicity, clamping, and the asset contract (one skinned mesh, six named joints present, 66 joints total, no morph targets, 178 clips and no scale tracks).
 - **Files changed.** `src/types/game.ts`, `src/components/3d/GladiatorMesh.tsx`, `src/components/3d/GladiatorPreview.tsx`, `src/components/3d/city/CityHubScene.tsx`, `src/components/duel/DuelScene.tsx`, `src/components/hub/CharacterCreation.tsx`, `src/utils/gladiatorBodyRig.ts`, `src/utils/gladiatorBodyRig.test.ts`.
 - **Acceptance boundary.** CI can verify the rig structure and logic but cannot judge the visual silhouette. Physical Android acceptance is still required before treating the body-shape tuning as final; no device screenshot or performance claim is implied by the automated gates.
+
+
+## Character creator simplification — optional birthplace and flaw disclosure (implemented; device layout acceptance pending)
+
+- **Primary flow stays focused.** The existing seven Armaturae, their stat templates, starting kits and signature doctrinae remain on the main creation surface. The existing Fighter's Look choices, Body Weight control, Corpus build choice and stat allocation remain visible in the primary flow.
+- **Secondary choices move, not disappear.** Origo (birth province) and Vitium (personal flaw) are now inside a native `<details>` disclosure labelled **Background choices (optional)**. It is closed by default, so its six province cards and five flaw choices no longer lengthen the opening screen. Its summary always shows the current province and flaw (e.g. Italia · No flaw), so the defaults remain visible without opening it.
+- **No gameplay or save changes.** The same `handleOrigoSelect` / `handleVitiumSelect` writers, `CreationCorpus` state, `buildCreatedProfile` call and `identity` save field remain in place. Origo passives, Vitium's +2 creation points, legacy defaults and class mechanics are unchanged.
+- **Regression coverage.** `src/utils/corpusEtOrigo.test.ts` continues to pin data-driven province/flaw cards and profile serialization, and now asserts the optional disclosure is present and closed by default. The existing 48px minimum touch targets are preserved.
+- **Files changed.** `src/components/hub/CharacterCreation.tsx`, `src/utils/corpusEtOrigo.test.ts`.
+- **Acceptance boundary.** The disclosure is semantic and keyboard-operable; physical Android acceptance is still needed to judge the reduced scroll length and tap flow on the target device.
