@@ -22,6 +22,8 @@ import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { SceneBrightness } from './SceneBrightness';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
 import { CHARIOT_MODEL_SCALE, CHARIOT_MODEL_URL } from '../../utils/chariotGeometry';
+import { RaceHorseTeam } from './RaceHorseTeam';
+import type { ChariotTeamSize } from '../../types/game';
 import { CIRCUS_RACE_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry';
 import {
   CHARIOT_MOVEMENT,
@@ -189,6 +191,8 @@ export interface RaceSceneProps {
    * exactly the hour T1 drew the circus under.
    */
   phase?: TimePhase;
+  /** The profile's already-resolved Biga / Triga / Quadra selection. */
+  teamSize?: ChariotTeamSize;
 }
 
 // Preload the chariot at module import (the EastCircusArena pattern).  The
@@ -349,8 +353,9 @@ const RaceChariot: React.FC<{
   raceState: RaceState;
   startedAt: number | null;
   frozen: boolean;
+  teamSize: ChariotTeamSize;
   onFinish: () => void;
-}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, onFinish }) => {
+}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, onFinish }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
 
   // Clone: `useGLTF` caches one scene per URL and the workshop holds the same
@@ -426,6 +431,7 @@ const RaceChariot: React.FC<{
       scale={CHARIOT_MODEL_SCALE}
     >
       <primitive object={body.scene} />
+      <RaceHorseTeam teamSize={teamSize} speed={raceState === 'racing' && !frozen ? motion.speed : 0} />
     </group>
   );
 };
@@ -514,6 +520,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   onOpenSettings,
   frozen = false,
   phase = DEFAULT_PHASE,
+  teamSize = 2,
 }) => {
   const [raceState, setRaceState] = useState<RaceState>(RACE_INITIAL_STATE);
   const [countdownStep, setCountdownStep] = useState<CountdownStep | null>(COUNTDOWN_STEPS[0]);
@@ -833,6 +840,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   raceState={raceState}
                   startedAt={raceStartedAt}
                   frozen={frozen}
+                  teamSize={teamSize}
                   onFinish={() => {
                     setRaceFinishElapsed(raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt));
                     setRaceState((state) => finishRace(state));
