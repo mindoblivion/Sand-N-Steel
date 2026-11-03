@@ -47,8 +47,13 @@ test('the shipped humanoid rig supports transverse-only appearance deformation',
     new Uint8Array(readFileSync(path)),
   );
   const root = doc.getRoot();
+  expect(root.listMeshes()).toHaveLength(1);
   expect(root.listSkins()).toHaveLength(1);
-  expect(root.listSkins()[0].listJoints()).toHaveLength(66);
+  const jointNames = root.listSkins()[0].listJoints().map((joint) => joint.getName());
+  expect(jointNames).toHaveLength(66);
+  for (const name of ['pelvis', 'spine_01', 'upperarm_l', 'upperarm_r', 'thigh_l', 'thigh_r']) {
+    expect(jointNames).toContain(name);
+  }
   const morphTargets = root.listMeshes().flatMap((mesh) =>
     mesh.listPrimitives().flatMap((primitive) => primitive.listTargets()),
   );
