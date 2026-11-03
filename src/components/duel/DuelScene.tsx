@@ -2260,7 +2260,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   isBlocked,
                   blockReduction,
                   rageMult,
-                  traitMult,
+                  traitMult * (isActorPlayer ? getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).impactMultiplier : 1),
                 );
 
                 // CF-5 — the second blade can be the killing blow.
@@ -3469,6 +3469,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         combatLog={combatLog}
         playerModifiers={playerMods}
         opponentModifiers={opponentMods}
+        playerWeightImpactMultiplier={getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).impactMultiplier}
         opponentIsBoss={opponent.isBoss === true}
         // Slice C-D — the phase marker, on a ladder boss only (`undefined` on
         // every other bout, so the HUD draws exactly what it always drew).
