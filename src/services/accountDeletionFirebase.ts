@@ -39,6 +39,7 @@ import { deleteDriveSaveFile, listDriveSaves } from './googleDrive';
 import {
   eraseLocalDeviceData,
   reauthMethodForProviderIds,
+  reauthProviderIdForProviderIds,
   requiresGoogleDriveReauthentication,
   runAccountDeletion,
   type SignedInUserSummary,
@@ -104,7 +105,7 @@ export async function reauthenticateSignedInUser(
   // A Drive opt-in needs a fresh Google OAuth token, including for accounts
   // that also use a password. Firebase password reauthentication alone does
   // not refresh the Drive client's in-memory access-token cache.
-  const providerId = needsGooglePopup ? 'google.com' : (providerIds[0] ?? '');
+  const providerId = needsGooglePopup ? 'google.com' : reauthProviderIdForProviderIds(providerIds);
   const provider = popupProviderFor(providerId);
   if (!provider) {
     throw deletionError(
