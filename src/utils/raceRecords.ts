@@ -4,7 +4,7 @@ export const MAX_RECORDED_RACE_TIME_MS = 86_400_000;
 
 export type RaceBestTimeResult =
   | { ok: true; profile: PlayerProfile; improved: boolean; bestTimeMs: number }
-  | { ok: false; reason: 'invalid-profile' | 'invalid-time'; profile: PlayerProfile };
+  | { ok: false; reason: 'invalid-profile' | 'invalid-time'; profile: PlayerProfile | null | undefined };
 
 /**
  * Record a faster completed lap for the selected team size.
@@ -19,7 +19,7 @@ export function recordRaceBestTime(
   elapsedMs: number,
 ): RaceBestTimeResult {
   if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
-    return { ok: false, reason: 'invalid-profile', profile: profile as PlayerProfile };
+    return { ok: false, reason: 'invalid-profile', profile };
   }
   if (!Number.isFinite(elapsedMs) || elapsedMs <= 0 || elapsedMs > MAX_RECORDED_RACE_TIME_MS) {
     return { ok: false, reason: 'invalid-time', profile };
