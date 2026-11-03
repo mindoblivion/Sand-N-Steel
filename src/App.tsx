@@ -13,6 +13,7 @@ import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
 import { settleDuelFame, settleDuelGold } from './utils/duelRewards';
 import { purchaseRacingConfig, selectRacingConfig, resolveRacingState } from './utils/racingProgression';
+import { recordRaceBestTime } from './utils/raceRecords';
 import { purchaseLaurel, selectDisplayedTitle, type LaurelResult } from './utils/laurels';
 // A8 — TRIUMPHS: the retained deeds. The evaluator is pure and the ONE shipped
 // call site is the duel result below (A8 — Director ruling R5); `withPeakGold` is
@@ -975,8 +976,24 @@ export function App() {
   };
 
   /**
-   * Leave the race — aborting, or (in a later slice) crossing the finish line.
-   * The city remounts and puts the player back at the pose captured on entry.
+   * Stage 2 — a completed lap may improve only its selected team's best-time field.
+   * Persistence stays here in App; abort/exit never calls this transaction.
+   */
+  const handleRecordRaceBestTime = (teamSize: ChariotTeamSize, elapsedMs: number): 'new-best' | 'not-best' | 'save-failed' => {
+    const current = profileRef.current ?? profile;
+    if (!current) return 'save-failed';
+    const result = recordRaceBestTime(current, teamSize, elapsedMs);
+    if (!result.ok) return 'save-failed';
+    if (!result.improved) return 'not-best';
+    if (!saveProfile(result.profile)) return 'save-failed';
+    profileRef.current = result.profile;
+    setProfile(result.profile);
+    return 'new-best';
+  };
+
+  /**
+   * Leave the race — aborting or returning after the finish screen. Aborting does not
+   * record a time; a completed lap's best time was settled at the finish transition.
    */
   const handleExitRace = () => {
     if (profile) enterCity(profile);
@@ -2302,6 +2319,7 @@ export function App() {
               frozen={settingsOpen}
               phase={resolveTimeState(profile).phase}
               teamSize={profile ? resolveRacingState(profile).horses : 2}
+              onRecordBestTime={handleRecordRaceBestTime}
             />
           </React.Suspense>
           </LazySceneBoundary>
