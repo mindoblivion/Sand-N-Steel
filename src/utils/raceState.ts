@@ -114,8 +114,8 @@ export function markCountdownElapsed(state: RaceState): RaceState {
 
 /**
  * The finish API: `racing` → `finished`, and from any other state a no-op — a
- * race can only be finished while it is actually running.  Nothing calls this
- * yet; Stage 2's finish line will.
+ * race can only be finished while it is actually running. RaceScene calls this
+ * only after the lap tracker validates the far-turn and return crossing.
  */
 export function finishRace(state: RaceState): RaceState {
   return raceTransition(state, 'finish');
