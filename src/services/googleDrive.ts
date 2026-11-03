@@ -35,7 +35,7 @@ export async function listDriveSaves(): Promise<DriveSaveFile[]> {
   const token = await getAccessToken();
   if (!token) throw new Error('Not authenticated with Google Drive.');
 
-  const query = encodeURIComponent(`name contains 'Sand_And_Steel' and trashed = false`);
+  const query = encodeURIComponent(`name = '${SAVE_FILE_NAME}' and trashed = false`);
   const files = await fetchAllDriveFilePages(async (pageToken) => {
     const pageParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
     const url = `https://www.googleapis.com/drive/v3/files?q=${query}&pageSize=100&fields=nextPageToken,files(id,name,modifiedTime,size,description)&orderBy=modifiedTime desc${pageParam}`;
