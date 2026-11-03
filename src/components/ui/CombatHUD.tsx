@@ -233,7 +233,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
           </div>
         </div>
 
-        {/* GLADIATOR VITAL BARS (PLAYER vs OPPONENT) */}
+        {/* GLADIATOR CONDITION & STAMINA (HEALTH IS BODY-VISIBLE) */}
         <div className="grid grid-cols-2 gap-2 sm:gap-6 mt-0.5 sm:mt-1">
           {/* PLAYER VITAL CARD */}
           <div className="vital-card bg-gradient-to-r from-neutral-950/90 via-neutral-900/85 to-transparent border-l-2 sm:border-l-4 border-amber-500 rounded-r-xl p-2 sm:p-3 shadow-2xl backdrop-blur-md">
