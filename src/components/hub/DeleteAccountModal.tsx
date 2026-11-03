@@ -287,8 +287,9 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
 
               {!outcome?.driveSaveDeleted && offersDriveSave && (
                 <p className="text-sm text-neutral-400 leading-relaxed">
-                  Your Google Drive backup was left where it is. You can delete it from Drive at any
-                  time.
+                  {deleteDriveSave
+                    ? 'No Google Drive backup was found, so there was nothing to delete.'
+                    : 'Your Google Drive backup was left where it is. You can delete it from Drive at any time.'}
                 </p>
               )}
 
