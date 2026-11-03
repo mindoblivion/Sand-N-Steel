@@ -8823,3 +8823,10 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Safety.** The tracker is read-only with respect to profile/save data. It does not award gold, unlocks, or best-time records; those remain a separately reviewed progression transaction.
 - **Integration.** `RaceScene.tsx` advances the tracker from live chariot Z and dispatches the existing `racing → finished` transition exactly once. The result overlay displays elapsed time and returns to the city without writing progression.
 - **Validation.** `src/utils/raceLap.test.ts` covers start-line false positives, far-turn requirement, missing far turn, malformed samples, and exactly-once finish semantics. Automated CI passed on the prior integration commit; physical Android gameplay/visual acceptance remains pending.
+
+
+## Racing — lightweight selected horse teams
+
+- **Scope.** Render Biga/Triga/Quadra using the existing measured formation stations and a low-cost procedural horse silhouette. The 15 MB development horse GLBs remain excluded from the shipping race scene; their supplied clips do not provide a usable gallop.
+- **Fit.** Use the measured 0.553 scale, +90° yaw (+X horse forward to −Z track forward), and withers anchor to place hooves on the chariot ground plane. The team is a child of the moving chariot root, so it follows heading and motion without a second movement simulation.
+- **Performance.** No external horse asset loads. Simple low-poly primitives and a speed-gated leg cycle provide motion; the leg cycle idles at zero speed. Automated CI and mobile visual acceptance are required before merge.
