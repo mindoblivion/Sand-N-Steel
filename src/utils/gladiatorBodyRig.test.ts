@@ -39,6 +39,16 @@ describe('gladiator body rig profile', () => {
     expect(getGladiatorBodyRigProfile(1)).toEqual(getGladiatorBodyRigProfile(140));
     expect(getGladiatorBodyRigProfile(900)).toEqual(getGladiatorBodyRigProfile(300));
   });
+
+  test('both the skinned rig and procedural fallback consume the body profile', () => {
+    const source = readFileSync(fileURLToPath(new URL('../components/3d/GladiatorMesh.tsx', import.meta.url)), 'utf8');
+    expect(source).toContain('getGladiatorBodyRigProfile(fighter.bodyWeightLb)');
+    expect(source).toContain('bone.scale.set(baseScale.x * width, baseScale.y, baseScale.z * width)');
+    expect(source).toContain('0.36 * coreScale');
+    expect(source).toContain('0.15 * limbScale');
+    expect(source).toContain('0.44 * coreScale');
+    expect(source).toContain('0.2 * coreScale');
+  });
 });
 
 test('the shipped humanoid rig supports transverse-only appearance deformation', async () => {
