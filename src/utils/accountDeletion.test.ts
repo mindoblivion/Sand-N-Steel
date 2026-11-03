@@ -282,7 +282,7 @@ describe('B. The device wipe — one key, and nothing else', () => {
   test('the account wipe includes both the active save and quarantined save copy', () => {
     // The unreadable-save quarantine contains original gladiator bytes and must be
     // erased with the active profile; preferences remain a separate record.
-    expect(code('../services/storage.ts')).toContain('localStorage.removeItem(PROFILE_STORAGE_KEY)');
+    expect(code('../services/storage.ts')).toContain('for (const key of [PROFILE_STORAGE_KEY, PROFILE_QUARANTINE_KEY])');
     expect(code('../services/storage.ts')).toContain('PROFILE_QUARANTINE_KEY');
     expect(code('../services/storage.ts')).toContain('clearSavedProfile');
     expect(code('../services/accountDeletion.ts')).toContain('LOCAL_SAVE_KEYS');
