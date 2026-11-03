@@ -9,6 +9,9 @@ import {
 } from './physicalDevelopment';
 
 const APP = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+const PREVIEW = readFileSync(new URL('../components/3d/GladiatorPreview.tsx', import.meta.url), 'utf8');
+const CITY = readFileSync(new URL('../components/3d/city/CityHubScene.tsx', import.meta.url), 'utf8');
+const DUEL = readFileSync(new URL('../components/duel/DuelScene.tsx', import.meta.url), 'utf8');
 
 describe('physical development history', () => {
   test('legacy saves resolve to neutral development without being migrated', () => {
@@ -124,6 +127,12 @@ describe('physical development history', () => {
     expect(trained.inventory).toBe(profile.inventory);
     expect(trained.baseStats).toBe(profile.baseStats);
     expect(trained.appearance).not.toBe(profile.appearance);
+  });
+
+  test('the creation preview, city player and duel player all receive physique history', () => {
+    expect(PREVIEW).toContain('physique: appearance.physique');
+    expect(CITY).toContain('physique: playerProfile.appearance.physique');
+    expect(DUEL).toContain('physique: playerProfile.appearance.physique');
   });
 
   test('App records completed training and rest without adding a second save path', () => {
