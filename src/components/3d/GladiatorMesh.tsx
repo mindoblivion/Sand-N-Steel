@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
 import { getEnemyCharacterAsset } from '../../data/enemyCharacterAssets';
+import { responseHasGlbMagic } from '../../utils/glbHeader';
 import { TELEGRAPH_GLOW_COLOR, telegraphGlowIntensity } from '../../utils/bossPresentation';
 import { getGladiatorBodyRigProfile } from '../../utils/gladiatorBodyRig';
 import { getBodyDamageProfile } from '../../utils/injuryAppearance';
@@ -105,13 +106,7 @@ export async function isRealGlbFile(url: string): Promise<boolean> {
           glbStatusCacheMap.set(url, 'invalid');
           return false;
         }
-        const buf = await res.arrayBuffer();
-        if (buf.byteLength < 4) {
-          glbStatusCacheMap.set(url, 'invalid');
-          return false;
-        }
-        const view = new DataView(buf);
-        const isGlb = view.getUint32(0, true) === 0x46546C67;
+        const isGlb = await responseHasGlbMagic(res);
         glbStatusCacheMap.set(url, isGlb ? 'valid' : 'invalid');
         return isGlb;
       } catch {
