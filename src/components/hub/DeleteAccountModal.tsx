@@ -98,7 +98,11 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
       setOutcome(result);
       setStep('done');
     } catch (e) {
-      // Plain words, never a raw code — and nothing was deleted.
+      // A selected Drive backup may have been deleted before Firebase refused
+      // account deletion. Turn that option off so a retry does not delete it twice.
+      if ((e as { code?: unknown } | null)?.code === 'account-deletion/drive-save-deleted-account-remains') {
+        setDeleteDriveSave(false);
+      }
       setError(deletionErrorMessage(e));
       setStep('confirm');
     }
