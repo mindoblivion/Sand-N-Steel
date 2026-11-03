@@ -12,6 +12,7 @@ const TitleAccountPanel = React.lazy(() => import('./TitleAccountPanel').then((m
 
 interface TitleScreenProps {
   savedProfile: PlayerProfile | null;
+  authError?: string | null;
   /**
    * Save-safety — the stored save could not be read this boot and its original bytes
    * were kept on the device under the quarantine key instead of being dropped.  Stated
@@ -87,6 +88,7 @@ const DUST_PARTICLES = [
  */
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   savedProfile,
+  authError,
   saveQuarantineNotice,
   onContinueAdventure,
   onNewCharacter,
@@ -343,6 +345,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         {isAccountOpen && (
           <React.Suspense fallback={null}>
             <TitleAccountPanel
+            authError={authError}
             onClose={handleCloseAccount}
             onGoogleSignIn={onGoogleSignIn}
             isGoogleLoading={isGoogleLoading}
