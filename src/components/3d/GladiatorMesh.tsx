@@ -6,6 +6,7 @@ import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
 import { TELEGRAPH_GLOW_COLOR, telegraphGlowIntensity } from '../../utils/bossPresentation';
 import { getGladiatorBodyRigProfile } from '../../utils/gladiatorBodyRig';
+import { getBodyDamageProfile } from '../../utils/injuryAppearance';
 // D-3 — the feet-tell type only: the cue itself is a static stance on this
 // component's own root group, so the 3D layer needs no rule from the mechanic.
 import type { FeetTell } from '../../utils/falseTelegraph';
@@ -648,6 +649,93 @@ const RomanWarriorGLB: React.FC<{
     });
     return bones;
   }, [clonedScene]);
+
+  const damageProfile = useMemo(
+    () => getBodyDamageProfile(fighter.health, fighter.stats.healthMax, fighter.injury),
+    [fighter.health, fighter.stats.healthMax, fighter.injury],
+  );
+
+  const damageMarkers = useMemo(() => {
+    const definitions = [
+      { boneName: 'upperarm_l', position: [0.035, 0.075, 0.025] as [number, number, number], scale: [0.055, 0.035, 0.009] as [number, number, number] },
+      { boneName: 'spine_01', position: [0.04, 0.12, 0.025] as [number, number, number], scale: [0.065, 0.042, 0.009] as [number, number, number] },
+      { boneName: 'thigh_r', position: [0.03, 0.085, 0.022] as [number, number, number], scale: [0.055, 0.04, 0.01] as [number, number, number] },
+    ];
+    const skin = new THREE.Color(fighter.skinColor || '#f6d8b8');
+    return definitions.map((definition) => {
+      const bruise = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 14, 10),
+        new THREE.MeshStandardMaterial({
+          color: '#4b293d',
+          roughness: 1,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          side: THREE.DoubleSide,
+        }),
+      );
+      bruise.position.set(...definition.position);
+      bruise.scale.set(...definition.scale);
+      bruise.renderOrder = 4;
+      bruise.castShadow = false;
+
+      const swelling = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 14, 10),
+        new THREE.MeshStandardMaterial({
+          color: skin.clone().lerp(new THREE.Color('#a86a78'), 0.18),
+          roughness: 0.95,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          side: THREE.DoubleSide,
+        }),
+      );
+      swelling.position.copy(bruise.position);
+      swelling.scale.set(
+        definition.scale[0] * 1.12,
+        definition.scale[1] * 1.12,
+        definition.scale[2] * 2.2,
+      );
+      swelling.renderOrder = 3;
+      swelling.castShadow = false;
+      return { boneName: definition.boneName, bruise, swelling };
+    });
+  }, [clonedScene, fighter.skinColor]);
+
+  useEffect(() => {
+    const attached: THREE.Bone[] = [];
+    for (const marker of damageMarkers) {
+      const bone = clonedScene.getObjectByName(marker.boneName);
+      if (!bone || (bone as THREE.Bone).isBone !== true) continue;
+      bone.add(marker.swelling);
+      bone.add(marker.bruise);
+      attached.push(bone as THREE.Bone);
+    }
+    return () => {
+      for (const marker of damageMarkers) {
+        marker.swelling.parent?.remove(marker.swelling);
+        marker.bruise.parent?.remove(marker.bruise);
+        marker.swelling.geometry.dispose();
+        marker.bruise.geometry.dispose();
+        marker.swelling.material.dispose();
+        marker.bruise.material.dispose();
+      }
+      void attached;
+    };
+  }, [clonedScene, damageMarkers]);
+
+  useEffect(() => {
+    for (const marker of damageMarkers) {
+      marker.bruise.visible = damageProfile.bruiseIntensity > 0;
+      marker.bruise.material.opacity = damageProfile.bruiseIntensity * 0.72;
+      marker.swelling.visible = damageProfile.swellingIntensity > 0;
+      marker.swelling.material.opacity = damageProfile.swellingIntensity * 0.24;
+    }
+  }, [damageMarkers, damageProfile]);
 
   // The shipped rig has no morph targets and none of its 178 clips animate bone
   // scale. Use its named anatomical joints for a small transverse-only silhouette
