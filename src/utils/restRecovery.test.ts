@@ -181,7 +181,8 @@ describe('L9 — Arena Medical House rest and recovery', () => {
 
   test('App owns the day rollover and the single save after the pure transaction', () => {
     expect(APP).toContain('restAtMedicalHouse(profile)');
-    expect(APP).toContain('onDayRollover(profile, result.profile)');
+    expect(APP).toContain('recordPhysicalRecovery(result.profile, resolveTimeState(profile).day)');
+    expect(APP).toContain('onDayRollover(profile, recovered)');
     const handlerStart = APP.indexOf('const handleTreatInjury');
     const handlerEnd = APP.indexOf('const payForNight', handlerStart);
     const handler = APP.slice(handlerStart, handlerEnd);
