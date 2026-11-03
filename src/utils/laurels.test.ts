@@ -289,6 +289,22 @@ describe('P2 §D — fame can never go negative', () => {
     expect(result.profile.fame).toBe(0);
   });
 
+  test('a positive fame debit that disappears at extreme balance magnitudes is refused', () => {
+    const profile = withFame(Number.MAX_VALUE);
+    const before = JSON.stringify(profile);
+    for (const triumph of TRIUMPHS) {
+      expect(purchaseLaurel(profile, triumph.id)).toEqual({
+        ok: false,
+        reason: 'insufficient-fame',
+      });
+      expect(getTriumphPurchaseEligibility(profile, triumph.id)).toEqual({
+        ok: false,
+        reason: 'insufficient-fame',
+      });
+    }
+    expect(JSON.stringify(profile)).toBe(before);
+  });
+
   test('a negative or non-finite balance can afford nothing', () => {
     // A negative balance is never affordable, and a balance that is not a finite
     // number is read as unaffordable rather than producing a NaN by subtraction.
