@@ -817,6 +817,8 @@ export interface RacingProgression {
   unlocked?: number[];
   /** The team size the player races with.  2 | 3 | 4; anything else resolves to Biga. */
   selected?: number;
+  /** Best completed lap, in milliseconds, keyed by team size. Absent on older saves. */
+  bestTimes?: Partial<Record<ChariotTeamSize, number>>;
 }
 
 /**
