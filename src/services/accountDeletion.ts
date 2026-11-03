@@ -29,7 +29,7 @@
  *      account is already deleted, and reporting a failure then would be a lie.
  */
 
-import { PROFILE_STORAGE_KEY } from './storage';
+import { PROFILE_QUARANTINE_KEY, PROFILE_STORAGE_KEY } from './storage';
 
 /**
  * The keys a device-local wipe removes: the gladiator save, and nothing else.
@@ -39,7 +39,7 @@ import { PROFILE_STORAGE_KEY } from './storage';
  * not touch them.  The key itself is imported rather than re-typed, so this list
  * cannot drift away from the key `storage.ts` writes.
  */
-export const LOCAL_SAVE_KEYS: readonly string[] = [PROFILE_STORAGE_KEY];
+export const LOCAL_SAVE_KEYS: readonly string[] = [PROFILE_STORAGE_KEY, PROFILE_QUARANTINE_KEY];
 
 /** Remove one key, and never throw: a browser refusing storage must not turn a
  *  completed deletion into an error. */
