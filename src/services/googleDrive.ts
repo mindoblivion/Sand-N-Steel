@@ -1,6 +1,7 @@
 import { PlayerProfile } from '../types/game';
 import { isValidStoredProfile } from './storage';
 import { getAccessToken } from './googleAuth';
+import { fetchAllDriveFilePages } from './driveFilePagination';
 
 export interface DriveSaveFile {
   id: string;
@@ -35,21 +36,27 @@ export async function listDriveSaves(): Promise<DriveSaveFile[]> {
   if (!token) throw new Error('Not authenticated with Google Drive.');
 
   const query = encodeURIComponent(`name contains 'Sand_And_Steel' and trashed = false`);
-  const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,modifiedTime,size,description)&orderBy=modifiedTime desc`;
+  const files = await fetchAllDriveFilePages(async (pageToken) => {
+    const pageParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&pageSize=100&fields=nextPageToken,files(id,name,modifiedTime,size,description)&orderBy=modifiedTime desc${pageParam}`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new DriveApiError(`Failed to list Google Drive files: ${errorText}`, response.status);
+    }
+
+    return response.json() as Promise<{
+      files?: { id: string; name: string; modifiedTime: string; size?: string; description?: string }[];
+      nextPageToken?: string;
+    }>;
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new DriveApiError(`Failed to list Google Drive files: ${errorText}`, response.status);
-  }
-
-  const data = await response.json();
-  const files: DriveSaveFile[] = (data.files || []).map((f: { id: string; name: string; modifiedTime: string; size?: string; description?: string }) => {
+  return files.map((f) => {
     let preview;
     if (f.description) {
       try {
@@ -66,8 +73,6 @@ export async function listDriveSaves(): Promise<DriveSaveFile[]> {
       profilePreview: preview,
     };
   });
-
-  return files;
 }
 
 /**
