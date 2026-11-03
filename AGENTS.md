@@ -8821,4 +8821,5 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 
 - **Scope.** Add a pure lap tracker for the East Circus race: it cannot finish at the start line, by reversing near the start, or until the chariot has reached the far end and crossed the finish plane on the return leg.
 - **Safety.** The tracker is read-only with respect to profile/save data. It does not award gold, unlocks, or best-time records; those remain a separately reviewed progression transaction.
-- **Validation.** `src/utils/raceLap.test.ts` covers start-line false positives, far-turn requirement, missing far turn, malformed samples, and exactly-once finish semantics. Integration with the live race scene and automated CI remain required before merge.
+- **Integration.** `RaceScene.tsx` advances the tracker from live chariot Z and dispatches the existing `racing → finished` transition exactly once. The result overlay displays elapsed time and returns to the city without writing progression.
+- **Validation.** `src/utils/raceLap.test.ts` covers start-line false positives, far-turn requirement, missing far turn, malformed samples, and exactly-once finish semantics. Automated CI passed on the prior integration commit; physical Android gameplay/visual acceptance remains pending.
