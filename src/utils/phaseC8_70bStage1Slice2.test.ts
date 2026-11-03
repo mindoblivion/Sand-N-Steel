@@ -261,7 +261,8 @@ describe('F. Clean Start is a modifier, not a state', () => {
   test('the machine still has exactly its five states and knows nothing of a launch', () => {
     expect(RACE_STATES).toEqual(['idle', 'countdown', 'racing', 'finished', 'aborted']);
     expect(code(load('./raceState.ts'))).not.toContain('launch');
-    expect(sceneCode).not.toContain('finishRace');
+    // Lap completion now uses the existing finish event; launch remains outside the machine.
+    expect(sceneCode).toContain('finishRace');
   });
 
   test('the scene dispatches only Slice 1’s own three events', () => {
