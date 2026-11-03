@@ -33,6 +33,25 @@ describe('full oval lap checkpoints', () => {
     expect(tracker.southTurnCompleted).toBe(false);
   });
 
+  test('does not accept a lane swap well before the southern curve', () => {
+    let tracker = createRaceLapTracker();
+    for (const position of [
+      sample(axis, 20),
+      sample(axis + 9, RACE_NORTH_TURN_Z - 1),
+      sample(axis + 9, -5),
+      sample(axis + 9, 15),
+      sample(axis + 9, 26),
+      sample(axis - 9, 26),
+      sample(axis - 9, 35),
+      sample(axis - 9, RACE_FINISH_LINE_Z + 0.1),
+    ]) {
+      const update = advanceRaceLap(tracker, position);
+      tracker = update.tracker;
+      expect(update.finishedNow).toBe(false);
+    }
+    expect(tracker.southTurnCompleted).toBe(false);
+  });
+
   test('requires a north turn and a south turn on the opposite side', () => {
     let tracker = createRaceLapTracker();
     const route = [
