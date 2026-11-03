@@ -249,7 +249,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               aria-describedby="gladiator-weight-guidance"
             />
             <p id="gladiator-weight-guidance" className="text-[11px] leading-relaxed text-neutral-400">
-              Heavier builds hit harder but recover more slowly; lighter builds recover faster but hit lighter. Weight never restricts weapon choice; Strength may govern weapon requirements.
+              Body weight changes your gladiator's build, attack impact and recovery. Heavier builds hit harder but recover more slowly; lighter builds recover faster but hit lighter. Weight never restricts weapon choice—Strength governs weapon requirements.
             </p>
           </div>
 
