@@ -19,13 +19,13 @@ describe('gladiator weight combat profile', () => {
     });
   });
 
-  test('lighter builds trade impact for faster attacks', () => {
+  test('lighter build profile expresses the planned speed-for-impact trade-off', () => {
     const light = getWeightCombatProfile(140);
     expect(light.attackSpeedMultiplier).toBeGreaterThan(1);
     expect(light.impactMultiplier).toBeLessThan(1);
   });
 
-  test('heavier builds trade attack speed for greater impact', () => {
+  test('heavier build profile expresses the planned impact-for-speed trade-off', () => {
     const heavy = getWeightCombatProfile(300);
     expect(heavy.attackSpeedMultiplier).toBeLessThan(1);
     expect(heavy.impactMultiplier).toBeGreaterThan(1);
