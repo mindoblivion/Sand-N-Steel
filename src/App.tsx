@@ -2409,12 +2409,17 @@ export function App() {
               providerIds: authUser.providerData.map((provider) => provider.providerId),
             }}
             onClose={() => setDeleteAccountOpen(false)}
-            onDeleted={() => {
+            onDeleted={(outcome) => {
               setDeleteAccountOpen(false);
               setSettingsOpen(false);
-              // The account and this device's save are already gone by now; App only
-              // has to drop its own copy of the profile and return to the title.
-              handleResetGame();
+              // The account is gone regardless of whether localStorage confirmed its
+              // own deletion. Drop the in-memory profile either way; never route this
+              // through Reset, which correctly preserves a profile on wipe failure.
+              setProfile(null);
+              setCurrentScreen('title');
+              setSaveError(outcome?.localDataErased === false
+                ? 'Your account was deleted, but this device could not confirm that its saved gladiator was erased. Clear this app’s site data in browser or device settings before sharing or disposing of this device.'
+                : null);
             }}
             />
           </React.Suspense>

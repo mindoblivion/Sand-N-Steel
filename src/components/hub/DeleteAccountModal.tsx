@@ -259,12 +259,21 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ isOpen, 
 
           {step === 'done' && (
             <>
-              <p className="flex items-start gap-2 text-sm text-emerald-200 leading-relaxed">
-                <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <span className="min-w-0">
-                  Done. The sign-in account is gone, and the gladiators saved on this device were erased.
-                </span>
-              </p>
+              {outcome?.localDataErased ? (
+                <p className="flex items-start gap-2 text-sm text-emerald-200 leading-relaxed">
+                  <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <span className="min-w-0">
+                    Done. Your sign-in account is deleted, and the gladiators saved on this device were erased.
+                  </span>
+                </p>
+              ) : (
+                <p role="alert" className="flex items-start gap-2 text-sm text-amber-200 leading-relaxed rounded-2xl bg-amber-950/40 border border-amber-700/60 px-4 py-3">
+                  <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <span className="min-w-0">
+                    Your sign-in account was deleted, but this device could not confirm that its saved gladiator was erased. The game will close its active profile; before sharing or disposing of this device, clear this app&apos;s site data in your browser or device settings.
+                  </span>
+                </p>
+              )}
 
               {outcome?.driveSaveDeleted && (
                 <p className="text-sm text-neutral-300 leading-relaxed">
