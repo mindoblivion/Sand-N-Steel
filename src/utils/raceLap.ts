@@ -91,7 +91,9 @@ export function advanceRaceLap(
   const next: RaceLapTracker = {
     lastZ: z,
     farthestZ: Math.min(tracker.farthestZ, z),
-    lastSide: side,
+    // Preserve the last known lane through the centre strip so crossing the
+    // axis between frame samples does not erase a genuine lane transition.
+    lastSide: side ?? tracker.lastSide,
     northTurnSide,
     southTurnCompleted,
     finished: finishedNow,
