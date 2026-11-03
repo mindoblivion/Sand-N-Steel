@@ -75,7 +75,7 @@ describe('CH-2 §A — a new Retiarius, before and after allocation', () => {
 
   test('the template is the brief\'s own 9 / 13 / 11 / 1, before any allocation', () => {
     expect(retiarius.baseStats).toEqual({ strength: 9, agility: 13, stamina: 11, defense: 1 });
-    expect(retiarius.weight).toBe(180);
+    expect(retiarius.appearance.bodyWeightLb).toBeUndefined();
     expect(retiarius.unspentStatPoints).toBe(CREATION_POINTS);
   });
 
