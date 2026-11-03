@@ -249,7 +249,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               aria-describedby="gladiator-weight-guidance"
             />
             <p id="gladiator-weight-guidance" className="text-[11px] leading-relaxed text-neutral-400">
-              Lighter builds favor quicker attacks; heavier builds trade speed for greater impact. Strength—not weight—governs weapon requirements.
+              Heavier builds deliver greater impact. Strength—not weight—governs weapon requirements.
             </p>
           </div>
 
