@@ -24,16 +24,19 @@ export function getGladiatorBodyRigProfile(
   const staminaWork = Math.min(physique.staminaSessions / 60, 1);
   const defenseWork = Math.min(physique.defenseSessions / 60, 1);
   const consistency = Math.min(physique.trainingStreak / 14, 1);
+  const accumulatedTraining = Math.min(physique.trainingDays / 60, 1);
   const recovery = Math.min(physique.recoveryDays / 30, 1);
 
   const coreDevelopment =
     staminaWork * 0.02 +
     defenseWork * 0.01 +
+    accumulatedTraining * 0.01 +
     consistency * 0.005 +
     recovery * 0.005;
   const limbDevelopment =
     strengthWork * 0.04 +
     staminaWork * 0.015 +
+    accumulatedTraining * 0.01 +
     consistency * 0.005 +
     recovery * 0.005;
 
