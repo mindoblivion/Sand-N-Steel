@@ -69,6 +69,8 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
   const pointsLeft = unspentPoints(allocation, corpus.vitium);
   /** The build's delta — applied before allocation, so it moves the stat floor. */
   const buildDelta = buildStatDelta(corpus.build);
+  const selectedProvinceName = PROVINCES.find((row) => row.id === corpus.origo)?.name ?? 'None';
+  const selectedVitiumName = VITIA.find((row) => row.id === corpus.vitium)?.name ?? 'None';
 
   const appearance: PlayerAppearance = {
     bodyWeightLb,
@@ -429,99 +431,114 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-              Origo — Your Province
-            </label>
-            <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
-              Where you were born. One small passive, and the god you favour.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-corpus-origo-picker>
-              {PROVINCES.map((row) => {
-                const selected = row.id === corpus.origo;
-                return (
-                  <button
-                    key={row.id}
-                    type="button"
-                    data-corpus-origo-card={row.id}
-                    aria-pressed={selected}
-                    onClick={() => handleOrigoSelect(row.id)}
-                    className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
-                      selected
-                        ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
-                        : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
-                      {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
-                    </div>
-                    <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 mt-0.5">
-                      Favoured god: <span className="text-amber-300">{row.god}</span>
-                    </p>
-                    <p className="text-[10px] font-mono text-amber-400/80 mt-1">{row.passive.text}</p>
-                    <p className="text-[11px] font-serif italic text-neutral-400 mt-1">{row.flavour}</p>
-                  </button>
-                );
-              })}
+          <details
+            data-optional-background
+            className="rounded-xl border border-amber-700/40 bg-neutral-950/40"
+          >
+            <summary className="min-h-[48px] cursor-pointer px-4 py-3 font-serif text-sm font-bold text-amber-200 marker:text-amber-400">
+              <span>Background choices (optional)</span>
+              <span className="ml-2 text-[11px] font-mono font-normal text-neutral-400">
+                {selectedProvinceName} · {selectedVitiumName}
+              </span>
+            </summary>
+            <div className="flex flex-col gap-5 border-t border-amber-700/30 p-4">
+            <div>
+              <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+                Origo — Your Province
+              </label>
+              <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
+                Where you were born. One small passive, and the god you favour.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-corpus-origo-picker>
+                {PROVINCES.map((row) => {
+                  const selected = row.id === corpus.origo;
+                  return (
+                    <button
+                      key={row.id}
+                      type="button"
+                      data-corpus-origo-card={row.id}
+                      aria-pressed={selected}
+                      onClick={() => handleOrigoSelect(row.id)}
+                      className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                        selected
+                          ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
+                          : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
+                        {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
+                      </div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 mt-0.5">
+                        Favoured god: <span className="text-amber-300">{row.god}</span>
+                      </p>
+                      <p className="text-[10px] font-mono text-amber-400/80 mt-1">{row.passive.text}</p>
+                      <p className="text-[11px] font-serif italic text-neutral-400 mt-1">{row.flavour}</p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-              Vitium — Your Flaw
-            </label>
-            <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
-              One flaw, taken at creation, is worth {VITIUM_CREATION_POINTS} more creation points. Yours
-              alone, and permanent — there is no way to put it down.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-corpus-vitium-picker>
-              <button
-                type="button"
-                data-corpus-vitium-card="none"
-                aria-pressed={corpus.vitium === null}
-                onClick={() => handleVitiumSelect(null)}
-                className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
-                  corpus.vitium === null
-                    ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
-                    : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-serif font-bold text-sm text-amber-200">None</span>
-                  {corpus.vitium === null && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
-                </div>
-                <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">
-                  No flaw. You keep the ten points and nothing follows you into the sand.
-                </p>
-              </button>
-              {VITIA.map((row) => {
-                const selected = row.id === corpus.vitium;
-                return (
-                  <button
-                    key={row.id}
-                    type="button"
-                    data-corpus-vitium-card={row.id}
-                    aria-pressed={selected}
-                    onClick={() => handleVitiumSelect(row.id)}
-                    className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
-                      selected
-                        ? 'bg-red-500/20 border-red-400 text-red-100 shadow-md'
-                        : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-red-600/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
-                      <span className="text-[10px] font-mono text-red-300 shrink-0">
-                        +{VITIUM_CREATION_POINTS}
-                      </span>
-                    </div>
-                    <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.text}</p>
-                  </button>
-                );
-              })}
+  
+            <div>
+              <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+                Vitium — Your Flaw
+              </label>
+              <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
+                One flaw, taken at creation, is worth {VITIUM_CREATION_POINTS} more creation points. Yours
+                alone, and permanent — there is no way to put it down.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-corpus-vitium-picker>
+                <button
+                  type="button"
+                  data-corpus-vitium-card="none"
+                  aria-pressed={corpus.vitium === null}
+                  onClick={() => handleVitiumSelect(null)}
+                  className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                    corpus.vitium === null
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
+                      : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-serif font-bold text-sm text-amber-200">None</span>
+                    {corpus.vitium === null && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
+                  </div>
+                  <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">
+                    No flaw. You keep the ten points and nothing follows you into the sand.
+                  </p>
+                </button>
+                {VITIA.map((row) => {
+                  const selected = row.id === corpus.vitium;
+                  return (
+                    <button
+                      key={row.id}
+                      type="button"
+                      data-corpus-vitium-card={row.id}
+                      aria-pressed={selected}
+                      onClick={() => handleVitiumSelect(row.id)}
+                      className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                        selected
+                          ? 'bg-red-500/20 border-red-400 text-red-100 shadow-md'
+                          : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-red-600/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
+                        <span className="text-[10px] font-mono text-red-300 shrink-0">
+                          +{VITIUM_CREATION_POINTS}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.text}</p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+  
+  
+            </div>
+          </details>
 
           {/* SKILL POINT ALLOCATION */}
           <div>
