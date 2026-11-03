@@ -1,6 +1,9 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { createNewProfile } from '../services/storage';
+
+const APP = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
 import {
   recordPhysicalRecovery,
   recordPhysicalTraining,
@@ -119,5 +122,27 @@ describe('physical development history', () => {
     expect(trained.inventory).toBe(profile.inventory);
     expect(trained.baseStats).toBe(profile.baseStats);
     expect(trained.appearance).not.toBe(profile.appearance);
+  });
+
+  test('App records completed training and rest without adding a second save path', () => {
+    const trainStart = APP.indexOf('const handleTrainStat');
+    const trainEnd = APP.indexOf('const handleBuyItem', trainStart);
+    const train = APP.slice(trainStart, trainEnd);
+    expect(train).toContain('isTrainingActionScheduled(profile, stat)');
+    expect(train).toContain('recordPhysicalTraining({');
+    expect(train).toContain('advanceTimeBy(trained, 1)');
+    expect(train.match(/saveProfile\\(/g)?.length).toBe(1);
+
+    const medicalStart = APP.indexOf('const handleTreatInjury');
+    const medicalEnd = APP.indexOf('const handleRestAtInn', medicalStart);
+    const medical = APP.slice(medicalStart, medicalEnd);
+    expect(medical).toContain('recordPhysicalRecovery(result.profile, resolveTimeState(profile).day)');
+    expect(medical.match(/saveProfile\\(/g)?.length).toBe(1);
+
+    const innStart = APP.indexOf('const handleRestAtInn');
+    const innEnd = APP.indexOf('const handleBuyRacingConfig', innStart);
+    const inn = APP.slice(innStart, innEnd);
+    expect(inn).toContain('recordPhysicalRecovery(toDawn, resolveTimeState(profile).day)');
+    expect(inn.match(/saveProfile\\(/g)?.length).toBe(1);
   });
 });
