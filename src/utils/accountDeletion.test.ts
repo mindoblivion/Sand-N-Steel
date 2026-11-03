@@ -84,6 +84,7 @@ function recordingSteps(overrides: Partial<DeletionSteps> = {}) {
     },
     deleteDriveSave: async () => {
       calls.push('deleteDriveSave');
+      return true;
     },
     deleteUser: async () => {
       calls.push('deleteUser');
@@ -136,6 +137,12 @@ describe('A. The deletion contract — the one safe order', () => {
     expect(calls.indexOf('deleteDriveSave')).toBeGreaterThan(calls.indexOf('reauthenticate'));
     expect(calls.indexOf('deleteDriveSave')).toBeLessThan(calls.indexOf('deleteUser'));
     expect(outcome.driveSaveDeleted).toBe(true);
+  });
+
+  test('a successful Drive lookup with no backup does not claim a deletion', async () => {
+    const { steps } = recordingSteps({ deleteDriveSave: async () => false });
+    const outcome = await runAccountDeletion(steps, { deleteDriveSave: true });
+    expect(outcome).toEqual({ accountDeleted: true, driveSaveDeleted: false, localDataErased: true });
   });
 
   test('an account with nothing to delete on Drive still completes', async () => {
