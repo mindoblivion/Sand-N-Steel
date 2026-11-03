@@ -1,6 +1,7 @@
 # Roman City Layout — Transform and Route Audit
 
-**Audit baseline:** `main` at `3af1c9c781832cbc5a5bc1b0d18c306b5c3a52ae`  
+**Original inventory baseline:** `3af1c9c781832cbc5a5bc1b0d18c306b5c3a52ae`  
+**Latest validation baseline:** `main` at `e36786dd2989ad3ff7bc5fb229493b62c5615d1f`  
 **Scope:** source-level transform, interaction, approach, and street inventory for issue #232.  
 **Status:** inventory complete for primary mounted buildings; no transforms changed. This is not a visual acceptance sign-off.
 
@@ -60,7 +61,9 @@
 ## Validation record
 
 - Source inspected: `CityHubScene.tsx`, `cityCollisions.ts`, `CityStreets.tsx`, `ProcessionAvenue.tsx`, and the primary building component files listed above.
-- Confirmed main baseline: `3af1c9c781832cbc5a5bc1b0d18c306b5c3a52ae`.
-- Automated tests: not run; this documentation-only audit changes no runtime code.
-- Mobile landscape visual review: not performed in this source-only pass.
-- Physical Android acceptance: not performed.
+- Original source inventory confirmed at `3af1c9c781832cbc5a5bc1b0d18c306b5c3a52ae`.
+- Follow-up navigation regression: `src/utils/cityRouteReachability.test.ts` rasterizes the live collision registry at 0.25 m, flood-fills from the normal spawn, and verifies every registered hub arrival is in the same reachable component. PR #239 merged at `93415d40f85c74d67e3c0eab53ccf32e353cc035`; both independent CI workflows passed.
+- Follow-up foundation regression: `src/utils/cityBuildingFootprints.test.ts` verifies 20 named building footprints exist and that only the two intentional Ishtar arch/tower intersections remain. PR #240 merged at `e36786dd2989ad3ff7bc5fb229493b62c5615d1f`; both independent CI workflows passed.
+- The two follow-up tests are automated source-level safeguards. They do not validate visible doorway alignment, upper-floor/roof/prop overlap, paving continuity, or actual device movement.
+- Mobile landscape visual review: still outstanding; the source-only audits do not substitute for a live scene review.
+- Physical Android acceptance: still outstanding; no device test is claimed.
