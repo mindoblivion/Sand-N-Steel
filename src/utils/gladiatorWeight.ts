@@ -2,7 +2,7 @@
  * Gladiator body-weight rules.
  *
  * Weight is a combat-style modifier, never a weapon permission check.
- * Weapon eligibility remains governed by the existing Strength/weapon rules.
+ * Weapon eligibility remains governed by Strength/weapon requirements.
  * Legacy profiles omit weight and resolve to the neutral 180 lb baseline.
  */
 export const DEFAULT_GLADIATOR_WEIGHT_LB = 180;
@@ -20,19 +20,24 @@ export function normalizeGladiatorWeight(weight: unknown): number {
 }
 
 /**
- * Weight currently changes attack impact only. Attack timing remains governed
- * by the established combat-resolution schedule and is intentionally untouched.
- * The bounded ±15% impact range avoids extreme builds becoming mandatory.
+ * Resolve the two sides of the weight trade-off from one normalized value.
+ *
+ * The 180 lb default is neutral. Lighter builds lose a little impact but recover
+ * sooner; heavier builds hit harder but take longer to recover. Both effects are
+ * bounded by the authored 140–300 lb creation range. Weight never gates weapons.
  */
 export function getWeightCombatProfile(weight: unknown): {
   weightLb: number;
   impactMultiplier: number;
+  recoveryMultiplier: number;
 } {
   const weightLb = normalizeGladiatorWeight(weight);
   const offset = (weightLb - DEFAULT_GLADIATOR_WEIGHT_LB) / 120;
+  const tradeoff = offset * 0.15;
   return {
     weightLb,
-    impactMultiplier: 1 + offset * 0.15,
+    impactMultiplier: 1 + tradeoff,
+    recoveryMultiplier: 1 + tradeoff,
   };
 }
 
