@@ -1594,6 +1594,7 @@ const ProceduralGladiator: React.FC<{
 
           {/* LEFT ARM */}
           <group ref={leftArmRef} position={[-0.44 * coreScale, 0.45, 0]}>
+            <BodyDamagePatch bruiseIntensity={damageProfile.bruiseIntensity} swellingIntensity={damageProfile.swellingIntensity} skinColor={skinColor} position={[0, -0.12, 0.105]} scale={[0.055, 0.04, 0.012]} />
             {isLefty ? (
               // LEFTY MODE: WEAPON IN LEFT HAND WITH SEGMENTED MANICA ARMOR
               <>
@@ -1637,6 +1638,7 @@ const ProceduralGladiator: React.FC<{
 
           {/* RIGHT ARM */}
           <group ref={rightArmRef} position={[0.44 * coreScale, 0.45, 0]}>
+            <BodyDamagePatch bruiseIntensity={damageProfile.bruiseIntensity * 0.8} swellingIntensity={damageProfile.swellingIntensity * 0.8} skinColor={skinColor} position={[0, -0.12, 0.105]} scale={[0.055, 0.04, 0.012]} />
             {isLefty ? (
               // LEFTY MODE: SHIELD IN RIGHT HAND
               <>
@@ -1681,6 +1683,7 @@ const ProceduralGladiator: React.FC<{
 
         {/* LEGS & CALIGAE SANDALS */}
         <group ref={leftLegRef} position={[-0.2 * coreScale, 0.95, 0]}>
+          <BodyDamagePatch bruiseIntensity={damageProfile.bruiseIntensity * 0.85} swellingIntensity={damageProfile.swellingIntensity * 0.85} skinColor={skinColor} position={[0, -0.22, 0.13]} scale={[0.065, 0.05, 0.014]} />
           <mesh castShadow position={[0, -0.22, 0]}>
             <cylinderGeometry args={[0.15 * limbScale, 0.13 * limbScale, 0.42, 12]} />
             <meshStandardMaterial color={skinColor} roughness={0.6} />
@@ -1702,6 +1705,7 @@ const ProceduralGladiator: React.FC<{
         </group>
 
         <group ref={rightLegRef} position={[0.2 * coreScale, 0.95, 0]}>
+          <BodyDamagePatch bruiseIntensity={damageProfile.bruiseIntensity} swellingIntensity={damageProfile.swellingIntensity} skinColor={skinColor} position={[0, -0.22, 0.13]} scale={[0.065, 0.05, 0.014]} />
           <mesh castShadow position={[0, -0.22, 0]}>
             <cylinderGeometry args={[0.15 * limbScale, 0.13 * limbScale, 0.42, 12]} />
             <meshStandardMaterial color={skinColor} roughness={0.6} />
