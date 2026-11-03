@@ -87,6 +87,8 @@ describe('physical development history', () => {
     expect(first.time).toEqual(profile.time);
     const later = recordPhysicalRecovery(first, 3);
     expect(later.appearance.physique).toMatchObject({ recoveryDays: 2, lastRecoveryDay: 3 });
+    expect(recordPhysicalRecovery(later, Number.NaN)).toBe(later);
+    expect(recordPhysicalRecovery(later, 0)).toBe(later);
   });
 
   test('malformed counters normalize safely and do not leak through the save', () => {
