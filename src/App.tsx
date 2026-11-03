@@ -1530,6 +1530,16 @@ export function App() {
       next = spareRival(profile, offer.rivalId);
     } else {
       const outcome = finishRival(profile, offer.rivalId, offer.finalFame);
+      if (outcome.rejected) {
+        // Do not consume the choice latch or mark the result chosen when the
+        // fame part of Finish could not be settled atomically.
+        mercyWrittenRef.current = null;
+        setHeraldCries((previous) => [
+          ...previous,
+          'Finish was not saved because the fame reward could not be recorded safely. Your profile was left unchanged.',
+        ]);
+        return;
+      }
       next = outcome.profile;
       extraFame = outcome.extraFame;
     }
