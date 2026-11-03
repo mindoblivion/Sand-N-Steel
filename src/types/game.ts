@@ -713,6 +713,8 @@ export interface ArenaTheme {
 }
 
 export interface PlayerAppearance {
+  /** Body mass in pounds; kept with appearance so legacy top-level save shape remains stable. */
+  bodyWeightLb?: number;
   skinColor: string;
   hairColor: string;
   tunicColor: string;
@@ -1043,8 +1045,6 @@ export interface LudiProgress {
 }
 
 export interface PlayerProfile {
-  /** Persistent body mass in pounds; independent of weapon eligibility. Legacy saves default to 180 lb. */
-  weight?: number;
   name: string;
   title: string;
   rank: 'Rookie' | 'Veteran' | 'Champion' | 'Legend';
