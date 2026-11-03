@@ -122,6 +122,9 @@ export async function deleteSignedInAccount(options: {
       deleteDriveSave: async () => {
         const saves = await listDriveSaves();
         for (const save of saves) await deleteDriveSaveFile(save.id);
+        // A successful lookup with no backup is not a deletion. Report the
+        // actual result so the confirmation UI never overstates what happened.
+        return saves.length > 0;
       },
       deleteUser: async () => {
         const user = auth.currentUser;
