@@ -175,7 +175,7 @@ export interface DeletionSteps {
   /** Confirm it is the player, before anything is removed. */
   reauthenticate: () => Promise<void>;
   /** Delete the player's own Drive backup, through the existing Drive service. */
-  deleteDriveSave?: () => Promise<void>;
+  deleteDriveSave?: () => Promise<boolean>;
   /** Delete the sign-in account itself. */
   deleteUser: () => Promise<void>;
   /** Wipe this device's local saves. */
@@ -208,8 +208,7 @@ export async function runAccountDeletion(
   // 2. The Drive backup, while the confirmed session can still reach Drive.
   let driveSaveDeleted = false;
   if (options.deleteDriveSave && steps.deleteDriveSave) {
-    await steps.deleteDriveSave();
-    driveSaveDeleted = true;
+    driveSaveDeleted = await steps.deleteDriveSave();
   }
 
   // 3. The account itself. If the optional Drive deletion already succeeded,
