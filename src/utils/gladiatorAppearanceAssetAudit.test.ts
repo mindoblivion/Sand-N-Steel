@@ -30,6 +30,14 @@ test('report shipped gladiator geometry and rig capabilities', async () => {
     name: skin.getName(),
     joints: skin.listJoints().map((joint) => joint.getName()),
   }));
+  const scaleAnimationTargets = root.listAnimations().flatMap((animation) =>
+    animation.listChannels()
+      .filter((channel) => channel.getTargetPath() === 'scale')
+      .map((channel) => ({
+        animation: animation.getName(),
+        node: channel.getTargetNode()?.getName() ?? null,
+      })),
+  );
   const nodes = root.listNodes().map((node) => ({
     name: node.getName(),
     mesh: node.getMesh()?.getName() ?? null,
@@ -42,6 +50,7 @@ test('report shipped gladiator geometry and rig capabilities', async () => {
     morphTargetCount: meshes.reduce((sum, mesh) => sum + mesh.primitives.reduce((n, primitive) => n + primitive.morphTargets.length, 0), 0),
     meshDetails: meshes,
     skins,
+    scaleAnimationTargets,
     nodes,
   }));
   expect(root.listSkins().length).toBeGreaterThan(0);
