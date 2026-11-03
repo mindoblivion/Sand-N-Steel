@@ -245,6 +245,7 @@ const GladiatorSchoolHub = React.lazy(() => import('./components/hub/GladiatorSc
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   // L4 — keep the latest committed save visible to duplicate purchase callbacks in the same tick.
   const profileRef = useRef<PlayerProfile | null>(null);
   useEffect(() => {
@@ -732,6 +733,7 @@ export function App() {
   // "Continue with Google" — sign in, then restore a cloud save if one exists.
   // Used on both the title (sign-in) and character-creation (register) screens.
   const handleGoogleSignIn = async () => {
+    setAuthError(null);
     setIsGoogleLoading(true);
     try {
       const res = await googleSignIn();
@@ -763,6 +765,7 @@ export function App() {
       }
     } catch (e) {
       console.error('[GoogleSignIn] failed:', e);
+      setAuthError('Sign-in failed. Check your connection or account settings, then try again.');
     } finally {
       setIsGoogleLoading(false);
     }
@@ -772,6 +775,7 @@ export function App() {
   // Facebook doesn't provide Google Drive access, so after sign-in we proceed
   // like the normal tap-to-start: continue a local save or start a new gladiator.
   const handleFacebookSignIn = async () => {
+    setAuthError(null);
     setIsFacebookLoading(true);
     try {
       await (await import('./services/facebookAuth')).facebookSignIn();
@@ -782,6 +786,7 @@ export function App() {
       }
     } catch (e) {
       console.error('[FacebookSignIn] failed:', e);
+      setAuthError('Sign-in failed. Check your connection or account settings, then try again.');
     } finally {
       setIsFacebookLoading(false);
     }
@@ -790,6 +795,7 @@ export function App() {
   // "Continue with Apple" — sign in via Firebase Sign in with Apple.
   // Like Facebook, no Google Drive access; proceed with local save or new gladiator.
   const handleAppleSignIn = async () => {
+    setAuthError(null);
     setIsAppleLoading(true);
     try {
       await (await import('./services/appleAuth')).appleSignIn();
@@ -800,6 +806,7 @@ export function App() {
       }
     } catch (e) {
       console.error('[AppleSignIn] failed:', e);
+      setAuthError('Sign-in failed. Check your connection or account settings, then try again.');
     } finally {
       setIsAppleLoading(false);
     }
@@ -808,6 +815,7 @@ export function App() {
   // "Continue with Microsoft" — sign in via Firebase Microsoft auth.
   // Like Apple/Facebook, no Google Drive access; proceed with local save or new gladiator.
   const handleMicrosoftSignIn = async () => {
+    setAuthError(null);
     setIsMicrosoftLoading(true);
     try {
       await (await import('./services/microsoftAuth')).microsoftSignIn();
@@ -818,6 +826,7 @@ export function App() {
       }
     } catch (e) {
       console.error('[MicrosoftSignIn] failed:', e);
+      setAuthError('Sign-in failed. Check your connection or account settings, then try again.');
     } finally {
       setIsMicrosoftLoading(false);
     }
@@ -2051,6 +2060,7 @@ export function App() {
         {currentScreen === 'title' && (
             <TitleScreen
                 savedProfile={profile}
+                authError={authError}
                 saveQuarantineNotice={saveQuarantineNotice}
                 onContinueAdventure={handleContinueAdventure}
                 onNewCharacter={handleNewCharacter}
@@ -2077,6 +2087,7 @@ export function App() {
             onCancel={() => setCurrentScreen('title')}
             onGoogleSignIn={handleGoogleSignIn}
             isGoogleLoading={isGoogleLoading}
+            authError={authError}
             onOpenSettings={() => handleOpenSettings()}
             />
           </React.Suspense>
