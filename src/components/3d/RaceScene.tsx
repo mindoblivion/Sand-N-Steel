@@ -193,6 +193,8 @@ export interface RaceSceneProps {
   phase?: TimePhase;
   /** The profile's already-resolved Biga / Triga / Quadra selection. */
   teamSize?: ChariotTeamSize;
+  /** App-owned persistence callback, called only after a valid lap finishes. */
+  onRecordBestTime?: (teamSize: ChariotTeamSize, elapsedMs: number) => 'new-best' | 'not-best' | 'save-failed';
 }
 
 // Preload the chariot at module import (the EastCircusArena pattern).  The
@@ -521,12 +523,14 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   frozen = false,
   phase = DEFAULT_PHASE,
   teamSize = 2,
+  onRecordBestTime,
 }) => {
   const [raceState, setRaceState] = useState<RaceState>(RACE_INITIAL_STATE);
   const [countdownStep, setCountdownStep] = useState<CountdownStep | null>(COUNTDOWN_STEPS[0]);
   const [showGo, setShowGo] = useState(false);
   const [raceStartedAt, setRaceStartedAt] = useState<number | null>(null);
   const [raceFinishElapsed, setRaceFinishElapsed] = useState<number | null>(null);
+  const [raceRecordStatus, setRaceRecordStatus] = useState<'new-best' | 'not-best' | 'save-failed' | null>(null);
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
   const [revving, setRevving] = useState(false);
   const [launchQuality, setLaunchQuality] = useState<ChariotLaunchQuality | null>(null);
@@ -842,7 +846,9 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   frozen={frozen}
                   teamSize={teamSize}
                   onFinish={() => {
-                    setRaceFinishElapsed(raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt));
+                    const elapsedMs = raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt);
+                    setRaceFinishElapsed(elapsedMs);
+                    setRaceRecordStatus(onRecordBestTime ? onRecordBestTime(teamSize, elapsedMs) : 'not-best');
                     setRaceState((state) => finishRace(state));
                   }}
                 />
@@ -955,7 +961,10 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             <h2 className="mt-3 font-serif text-4xl font-black text-amber-100">Lap Finished</h2>
             <p className="mt-4 text-sm uppercase tracking-widest text-neutral-400">Elapsed time</p>
             <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-lime-300" data-race-finish-time={formatRaceElapsed(raceFinishElapsed ?? 0)}>{formatRaceElapsed(raceFinishElapsed ?? 0)}</p>
-            <p className="mt-4 text-sm leading-relaxed text-neutral-300">You reached the far turn and crossed the finish line. Race rewards and saved records are not yet enabled.</p>
+            <p className="mt-4 text-sm leading-relaxed text-neutral-300">You reached the far turn and crossed the finish line. Currency rewards are not awarded yet.</p>
+            {raceRecordStatus === 'new-best' && <p className="mt-3 text-sm font-bold text-lime-300" role="status" data-race-record-status="new-best">New personal best saved for this team.</p>}
+            {raceRecordStatus === 'not-best' && <p className="mt-3 text-sm text-amber-200" role="status" data-race-record-status="not-best">Personal best unchanged.</p>}
+            {raceRecordStatus === 'save-failed' && <p className="mt-3 text-sm text-red-300" role="status" data-race-record-status="save-failed">Lap finished, but the record could not be saved. Your existing best time was kept.</p>}
             <button type="button" onClick={handleAbort} data-race-action="return-city" className="mt-6 min-h-12 w-full rounded-2xl border-2 border-amber-400 bg-amber-700 px-5 py-3 font-serif text-sm font-black uppercase tracking-widest text-amber-50 active:scale-[0.98]">Return to City</button>
           </div>
         </div>
