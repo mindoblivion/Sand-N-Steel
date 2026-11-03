@@ -1386,6 +1386,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     stats: calculatedStats,
     loadout: { weapon: playerProfile.equipped.weapon || DEFAULT_PLAYER_WEAPON },
     comboCount: 0,
+    bodyWeightLb: playerProfile.appearance.bodyWeightLb,
     skinColor: playerProfile.appearance.skinColor,
     hairColor: playerProfile.appearance.hairColor,
     tunicColor: playerProfile.appearance.tunicColor,
