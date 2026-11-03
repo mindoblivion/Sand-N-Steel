@@ -46,6 +46,7 @@ import {
   eraseLocalDeviceData,
   reauthMethodForProviderIds,
   reauthProviderLabel,
+  requiresGoogleDriveReauthentication,
   runAccountDeletion,
   type DeletionSteps,
   type SignedInUserSummary,
@@ -362,6 +363,10 @@ describe('D. The provider dispatch', () => {
 
   test('only a Google account can be offered the Drive cloud save', () => {
     expect(accountCanDeleteDriveSave(['google.com'])).toBe(true);
+    expect(requiresGoogleDriveReauthentication(['google.com'], true)).toBe(true);
+    expect(requiresGoogleDriveReauthentication(['password', 'google.com'], true)).toBe(true);
+    expect(requiresGoogleDriveReauthentication(['google.com'], false)).toBe(false);
+    expect(requiresGoogleDriveReauthentication(['password'], true)).toBe(false);
     expect(accountCanDeleteDriveSave(['password'])).toBe(false);
     expect(accountCanDeleteDriveSave(['facebook.com'])).toBe(false);
     expect(accountCanDeleteDriveSave(['apple.com'])).toBe(false);
@@ -496,6 +501,8 @@ describe('E. The public surfaces', () => {
     const wiring = code('../services/accountDeletionFirebase.ts');
     expect(wiring).toContain('reauthenticateWithCredential');
     expect(wiring).toContain('reauthenticateWithPopup');
+    expect(wiring).toContain("needsGooglePopup ? 'google.com'");
+    expect(wiring).toContain('requiresGoogleDriveReauthentication(');
     expect(wiring).toContain('firebaseDeleteUser(user)');
     // The Drive work goes through the EXISTING service — no second client.
     expect(wiring).toContain('listDriveSaves');
