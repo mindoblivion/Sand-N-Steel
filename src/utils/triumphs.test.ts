@@ -413,6 +413,19 @@ describe('A8 §D — newlyEarned is condition-holds minus already-earned', () =>
 
 // ── §E the fame grants ────────────────────────────────────────────────────
 describe('A8 §E — the one-time fame grants (Director ruling R1)', () => {
+  test('malformed or unrepresentable fame refuses the entire triumph award and leaves it eligible', () => {
+    for (const fame of [NaN, Infinity, -1, Number.MAX_VALUE]) {
+      const start = profileWith({ fame, fightsWon: 1, currentTier: 2 });
+      const beforeEarned = resolveRecords(start).earnedTriumphs;
+      const outcome = applyTriumphAwards(start);
+      expect(outcome.earned).toEqual([]);
+      expect(outcome.titles).toEqual([]);
+      expect(outcome.profile.fame).toBe(fame);
+      expect(resolveRecords(outcome.profile).earnedTriumphs).toEqual(beforeEarned);
+      expect(evaluateTriumphs(outcome.profile).length).toBeGreaterThan(0);
+    }
+  });
+
   test('10 for a standard triumph and 25 for a capstone', () => {
     expect(TRIUMPH_FAME_STANDARD).toBe(10);
     expect(TRIUMPH_FAME_CAPSTONE).toBe(25);
