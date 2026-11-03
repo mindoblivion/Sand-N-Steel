@@ -57,7 +57,7 @@ const HorseLeg: React.FC<LegProps> = ({ x, z, phase, speed, hind = false }) => {
 const RaceHorse: React.FC<{ speed: number; coatOffset: number }> = ({ speed, coatOffset }) => {
   const bodyMaterial = coats[coatOffset % coats.length];
   return (
-    <group scale={RACE_HORSE_FIT_SCALE} rotation={[0, RACE_HORSE_YAW, 0} dispose={null}>
+    <group scale={RACE_HORSE_FIT_SCALE} rotation={[0, RACE_HORSE_YAW, 0]} dispose={null}>
       {/* Barrel, chest, raised neck and head keep the silhouette readable from the chase camera. */}
       <mesh position={[-0.22, 1.30, 0]} scale={[0.68, 0.39, 0.28]} material={bodyMaterial} castShadow={false}>
         <sphereGeometry args={[1, 10, 7]} />
