@@ -22,6 +22,11 @@ function readCounter(value: unknown): number {
   return Math.max(0, Math.min(MAX_COUNTER, Math.floor(value)));
 }
 
+function readDay(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(Number.MAX_SAFE_INTEGER, Math.floor(value)));
+}
+
 /** Read the optional nested appearance history without migrating or mutating a save. */
 export function resolvePhysicalDevelopment(value: unknown): PhysicalDevelopment {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -36,9 +41,9 @@ export function resolvePhysicalDevelopment(value: unknown): PhysicalDevelopment 
     defenseSessions: readCounter(raw.defenseSessions),
     trainingDays,
     trainingStreak: Math.min(trainingDays, readCounter(raw.trainingStreak)),
-    lastTrainingDay: readCounter(raw.lastTrainingDay),
+    lastTrainingDay: readDay(raw.lastTrainingDay),
     recoveryDays: readCounter(raw.recoveryDays),
-    lastRecoveryDay: readCounter(raw.lastRecoveryDay),
+    lastRecoveryDay: readDay(raw.lastRecoveryDay),
   };
 }
 
@@ -89,7 +94,7 @@ export function recordPhysicalRecovery(
       physique: {
         ...current,
         recoveryDays: readCounter(current.recoveryDays + 1),
-        lastRecoveryDay: readCounter(entryDay),
+        lastRecoveryDay: readDay(entryDay),
       },
     },
   };
