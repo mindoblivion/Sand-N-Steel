@@ -2413,12 +2413,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         if (flankPending) return;
         if (!isActorPlayer) setPlayerTurnCount((count) => count + 1);
         setIsPlayerTurn(!isActorPlayer);
-      }, scalePlayerAttackResolutionMs(
-        turnResolutionMs(actionType, fightEnded, boutMode),
-        playerProfile.weight,
-        isActorPlayer && (actionType === 'quick_attack' || actionType === 'power_attack'),
-        fightEnded,
-      ));
+      }, turnResolutionMs(actionType, fightEnded, boutMode));
     },
     [
       isExecuting,
