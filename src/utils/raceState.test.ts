@@ -258,12 +258,9 @@ describe('D. The finish API', () => {
     expect(finishRace('aborted')).toBe('aborted');
   });
 
-  test('nothing in the shipped game calls it yet — only the module and this suite', () => {
-    // Stage 2's finish line is the intended caller. Until it exists, the two
-    // production files that drive the race must not name it at all.
-    for (const file of ['../App.tsx', '../components/3d/RaceScene.tsx']) {
-      expect(load(file).includes('finishRace'), file).toBe(false);
-    }
+  test('the live race scene calls the finish API; App remains uninvolved', () => {
+    expect(load('../App.tsx').includes('finishRace')).toBe(false);
+    expect(load('../components/3d/RaceScene.tsx').includes('finishRace')).toBe(true);
     expect(moduleCode.includes('export function finishRace')).toBe(true);
     expect(suiteSource.includes('finishRace')).toBe(true);
   });
