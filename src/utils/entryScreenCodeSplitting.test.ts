@@ -18,4 +18,17 @@ describe('deferred title and Ludus screens', () => {
     expect(title).toContain('{isAccountOpen && (');
     expect(title).toContain('<React.Suspense fallback={null}>');
   });
+  test('secondary identity providers and Drive restore are deferred until invoked', () => {
+    expect(app).not.toContain("import { facebookSignIn } from './services/facebookAuth';");
+    expect(app).not.toContain("import { appleSignIn } from './services/appleAuth';");
+    expect(app).not.toContain("import { microsoftSignIn } from './services/microsoftAuth';");
+    expect(app).not.toContain("import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';");
+    expect(app).toContain("await (await import('./services/facebookAuth')).facebookSignIn();");
+    expect(app).toContain("await (await import('./services/appleAuth')).appleSignIn();");
+    expect(app).toContain("await (await import('./services/microsoftAuth')).microsoftSignIn();");
+    expect(app).toContain("const { listDriveSaves, loadProfileFromDrive } = await import('./services/googleDrive');");
+    // Google auth remains eagerly available for Firebase session observation and Drive token state.
+    expect(app).toContain("import { googleSignIn, subscribeAuthUser } from './services/googleAuth';");
+  });
+
 });

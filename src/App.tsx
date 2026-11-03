@@ -110,10 +110,6 @@ import {
 import { googleSignIn, subscribeAuthUser } from './services/googleAuth';
 import type { User } from 'firebase/auth';
 
-import { facebookSignIn } from './services/facebookAuth';
-import { appleSignIn } from './services/appleAuth';
-import { microsoftSignIn } from './services/microsoftAuth';
-import { listDriveSaves, loadProfileFromDrive } from './services/googleDrive';
 import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT } from './data/opponents';
 // C-8.70C — the bout mode is chosen on the pre-fight card and held for the
 // length of the bout only: it is never written to the profile.
@@ -741,6 +737,7 @@ export function App() {
       const res = await googleSignIn();
       if (!res) return;
 
+      const { listDriveSaves, loadProfileFromDrive } = await import('./services/googleDrive');
       const saves = await listDriveSaves();
       if (saves.length > 0) {
         if (profile) {
@@ -777,7 +774,7 @@ export function App() {
   const handleFacebookSignIn = async () => {
     setIsFacebookLoading(true);
     try {
-      await facebookSignIn();
+      await (await import('./services/facebookAuth')).facebookSignIn();
       if (profile) {
         enterCity(profile);
       } else {
@@ -795,7 +792,7 @@ export function App() {
   const handleAppleSignIn = async () => {
     setIsAppleLoading(true);
     try {
-      await appleSignIn();
+      await (await import('./services/appleAuth')).appleSignIn();
       if (profile) {
         enterCity(profile);
       } else {
@@ -813,7 +810,7 @@ export function App() {
   const handleMicrosoftSignIn = async () => {
     setIsMicrosoftLoading(true);
     try {
-      await microsoftSignIn();
+      await (await import('./services/microsoftAuth')).microsoftSignIn();
       if (profile) {
         enterCity(profile);
       } else {
