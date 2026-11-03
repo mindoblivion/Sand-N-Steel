@@ -2,13 +2,13 @@
 import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { createNewProfile } from '../services/storage';
-
-const APP = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
 import {
   recordPhysicalRecovery,
   recordPhysicalTraining,
   resolvePhysicalDevelopment,
 } from './physicalDevelopment';
+
+const APP = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
 
 describe('physical development history', () => {
   test('legacy saves resolve to neutral development without being migrated', () => {
