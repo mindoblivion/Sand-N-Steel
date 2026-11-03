@@ -653,7 +653,7 @@ const RomanWarriorGLB: React.FC<{
   // scale. Use its named anatomical joints for a small transverse-only silhouette
   // adjustment; preserve each bone's authored length axis and base scale.
   useEffect(() => {
-    const profile = getGladiatorBodyRigProfile(fighter.bodyWeightLb);
+    const profile = getGladiatorBodyRigProfile(fighter.bodyWeightLb, fighter.physique);
     for (const { bone, baseScale, group } of bodyRigBones) {
       const width = group === 'core' ? profile.coreScale : profile.limbScale;
       bone.scale.set(baseScale.x * width, baseScale.y, baseScale.z * width);
@@ -1229,7 +1229,7 @@ const ProceduralGladiator: React.FC<{
   });
 
   const scale = fighter.meshScale || 1.0;
-  const bodyProfile = getGladiatorBodyRigProfile(fighter.bodyWeightLb);
+  const bodyProfile = getGladiatorBodyRigProfile(fighter.bodyWeightLb, fighter.physique);
   const coreScale = bodyProfile.coreScale;
   const limbScale = bodyProfile.limbScale;
   const isHit = flashActive;
