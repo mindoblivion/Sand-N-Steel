@@ -482,6 +482,7 @@ describe('E. The public surfaces', () => {
     expect(dialog).toContain('deleteSignedInAccount');
     expect(dialog).toContain('deletionErrorMessage(e)');
     expect(dialog).toContain('outcome?.localDataErased');
+    expect(dialog).toContain('No Google Drive backup was found, so there was nothing to delete.');
     expect(dialog).toContain('could not confirm that its saved gladiator was erased');
     expect(dialog).not.toContain('e.message');
     expect(dialog).not.toContain('window.confirm');
