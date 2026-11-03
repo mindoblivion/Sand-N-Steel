@@ -179,13 +179,17 @@ describe('B. The pre-race pose, in memory only', () => {
     }
   });
 
-  test('the race scene finishes a lap but does not award or persist rewards', () => {
-    for (const token of ['saveProfile', 'gold:', 'fame:', 'xpEarned', 'raceResults', 'bestTime']) {
+  test('the finish delegates only the best-time transaction; race currency rewards remain disabled', () => {
+    for (const token of ['saveProfile', 'localStorage', 'gold:', 'fame:', 'xpEarned', 'raceResults']) {
       expect(code(sceneSrc), token).not.toContain(token);
     }
     expect(code(sceneSrc)).toContain('finishRace');
     expect(code(sceneSrc)).toContain('advanceRaceLap');
-    expect(sceneSrc).toContain('Race rewards and saved records are not yet enabled');
+    expect(code(sceneSrc)).toContain('onRecordBestTime(teamSize, elapsedMs)');
+    expect(sceneSrc).toContain('Currency rewards are not awarded yet');
+    // The app owns the one profile mutation and it is not part of abort/return.
+    expect(appSrc).toContain('recordRaceBestTime(current, teamSize, elapsedMs)');
+    expect(appSrc).toContain('onRecordBestTime={handleRecordRaceBestTime}');
   });
 });
 
