@@ -14,6 +14,7 @@ import {
   creationPoints,
   selectArmatura,
   selectCharacterModel,
+  trimAllocationToPool,
   unspentPoints,
   type AllocationStat,
   type CreationAllocation,
@@ -39,9 +40,12 @@ interface CharacterCreationProps {
   onOpenSettings?: () => void;
 }
 
+type CreationStep = 0 | 1 | 2;
+
 export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, authError, onOpenSettings }) => {
   const [name, setName] = useState('Spartacus');
   const [bodyWeightLb, setBodyWeightLb] = useState(180);
+  const [creationStep, setCreationStep] = useState<CreationStep>(0);
   /**
    * CH-2 — the class is chosen here and the LOOK is chosen beside it; the two are
    * independent.  `selectArmatura` / `selectCharacterModel` are the only two
@@ -129,7 +133,20 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
 
   const handleVitiumSelect = (id: VitiumId | null) => {
     sounds.playClick();
+    // A Vitium grants two extra points. If the player removes it after spending
+    // those points, trim the excess before the profile can be confirmed.
+    setAllocation((current) => trimAllocationToPool(current, id));
     setCorpus((current) => ({ ...current, vitium: id }));
+  };
+
+  const handleNextStep = () => {
+    sounds.playClick();
+    setCreationStep((current) => (current === 2 ? current : (current + 1) as CreationStep));
+  };
+
+  const handlePreviousStep = () => {
+    sounds.playClick();
+    setCreationStep((current) => (current === 0 ? current : (current - 1) as CreationStep));
   };
 
   /** CL-2 — the live derived numbers shown under the stat allocation. */
@@ -215,6 +232,35 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
 
         {/* CUSTOMIZATION & STAT POINTS */}
         <div className="flex flex-col gap-6 bg-neutral-900/60 border border-amber-700/40 rounded-3xl p-6 shadow-xl">
+          <div data-creation-stepper aria-label="Character creation progress" className="grid grid-cols-3 gap-2">
+            {(['Fighter', 'Origins', 'Attributes'] as const).map((label, index) => (
+              <div
+                key={label}
+                aria-current={creationStep === index ? 'step' : undefined}
+                className={`rounded-lg border px-2 py-2 text-center text-[10px] sm:text-xs font-serif font-bold uppercase tracking-wider transition-colors ${
+                  creationStep === index
+                    ? 'border-amber-400 bg-amber-500/20 text-amber-100'
+                    : creationStep > index
+                    ? 'border-emerald-700/50 bg-emerald-950/40 text-emerald-300'
+                    : 'border-neutral-700 bg-neutral-950/70 text-neutral-500'
+                }`}
+              >
+                <span className="block text-[9px] opacity-70">0{index + 1}</span>
+                {label}
+              </div>
+            ))}
+          </div>
+          <div aria-live="polite" className="flex items-end justify-between gap-3 border-b border-amber-900/50 pb-3">
+            <div>
+              <p className="font-serif text-[10px] uppercase tracking-[0.2em] text-amber-500">Forge Your Legend</p>
+              <h3 className="font-serif text-lg font-black text-amber-100">
+                {creationStep === 0 ? 'Choose Your Fighter' : creationStep === 1 ? 'Life Before the Sand' : 'Set Your Attributes'}
+              </h3>
+            </div>
+            <span className="shrink-0 font-mono text-[10px] text-neutral-400">STEP {creationStep + 1} / 3</span>
+          </div>
+          {creationStep === 0 && (
+          <div data-creation-step="fighter" className="flex flex-col gap-6">
           {/* NAME INPUT */}
           <div>
             <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
@@ -378,6 +424,10 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
             </div>
           </div>
 
+          </div>
+          )}
+          {creationStep === 1 && (
+          <div data-creation-step="origins" className="flex flex-col gap-6">
           {/* PITCH A4 — CORPUS ET ORIGO: the life before the sand.  Three cheap
               pickers, rendered from the authored data (never a copy of it):
               Build moves the stat floor, Origo carries one small passive and its
@@ -523,6 +573,10 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
             </div>
           </div>
 
+          </div>
+          )}
+          {creationStep === 2 && (
+          <div data-creation-step="attributes" className="flex flex-col gap-6">
           {/* SKILL POINT ALLOCATION */}
           <div>
             <div className="flex justify-between items-center mb-3">
@@ -595,14 +649,38 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
             </p>
           </div>
 
-          {/* CONFIRM BUTTON */}
-          <button
-            onClick={handleFinish}
-            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-sm uppercase tracking-wider shadow-[0_0_25px_rgba(245,158,11,0.6)] border-2 border-amber-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2 mt-2"
-          >
-            <Check className="w-5 h-5" />
-            <span>Apply Points & Enter Metropolis [Town Gate]</span>
-          </button>
+          </div>
+          )}
+
+          <div className="flex gap-3 mt-1">
+            {creationStep > 0 && (
+              <button
+                type="button"
+                onClick={handlePreviousStep}
+                className="min-h-[48px] flex-1 rounded-xl border border-neutral-600 bg-neutral-950 text-neutral-200 font-serif font-bold text-xs uppercase tracking-wider hover:border-amber-500/70 cursor-pointer"
+              >
+                Back
+              </button>
+            )}
+            {creationStep < 2 ? (
+              <button
+                type="button"
+                onClick={handleNextStep}
+                className="min-h-[48px] flex-1 rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-600 to-yellow-500 text-neutral-950 font-serif font-black text-xs uppercase tracking-wider shadow-lg hover:from-amber-500 hover:to-yellow-400 cursor-pointer"
+              >
+                Continue
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleFinish}
+                className="min-h-[48px] flex-1 rounded-xl border-2 border-amber-200 bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 px-4 text-neutral-950 font-serif font-black text-xs uppercase tracking-wider shadow-[0_0_25px_rgba(245,158,11,0.45)] hover:from-amber-500 hover:to-yellow-400 cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Check className="w-5 h-5" />
+                <span>Create Gladiator & Enter Metropolis</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
