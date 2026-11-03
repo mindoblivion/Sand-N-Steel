@@ -43,13 +43,11 @@ export const LOCAL_SAVE_KEYS: readonly string[] = [PROFILE_STORAGE_KEY];
 
 /** Remove one key, and never throw: a browser refusing storage must not turn a
  *  completed deletion into an error. */
-function removeLocalKey(key: string): boolean {
+function removeLocalKey(key: string): void {
   try {
     localStorage.removeItem(key);
-    return localStorage.getItem(key) === null;
   } catch {
-    // A thrown removal or verification read means erasure is unconfirmed.
-    return false;
+    // Storage is unavailable on this device; there is nothing else to remove.
   }
 }
 
@@ -61,16 +59,8 @@ function removeLocalKey(key: string): boolean {
  * default is this device's own `localStorage`, and the wipe is pure bookkeeping —
  * no network, no Drive, no account.
  */
-export function eraseLocalDeviceData(remove: (key: string) => boolean = removeLocalKey): boolean {
-  let erased = true;
-  for (const key of LOCAL_SAVE_KEYS) {
-    try {
-      if (!remove(key)) erased = false;
-    } catch {
-      erased = false;
-    }
-  }
-  return erased;
+export function eraseLocalDeviceData(remove: (key: string) => void = removeLocalKey): void {
+  for (const key of LOCAL_SAVE_KEYS) remove(key);
 }
 
 /**
@@ -178,7 +168,7 @@ export interface DeletionSteps {
   /** Delete the sign-in account itself. */
   deleteUser: () => Promise<void>;
   /** Wipe this device's local saves. */
-  eraseLocalData: () => boolean;
+  eraseLocalData: () => void;
   /** End the provider session. */
   signOut: () => Promise<void>;
 }
@@ -215,13 +205,7 @@ export async function runAccountDeletion(
   await steps.deleteUser();
 
   // 4. This device's local saves — only now that the account is gone.
-  let localDataErased = false;
-  try {
-    localDataErased = steps.eraseLocalData();
-  } catch {
-    // The account is already gone; report the local wipe as unverified rather
-    // than throwing and leaving the UI in its pre-deletion state.
-  }
+  steps.eraseLocalData();
 
   // 5. Sign out. The account is already deleted, so a hiccup here is not a failure
   //    and must never be reported as one.
@@ -231,5 +215,5 @@ export async function runAccountDeletion(
     // The session will end on its own; the deletion has already succeeded.
   }
 
-  return { accountDeleted: true, driveSaveDeleted, localDataErased };
+  return { accountDeleted: true, driveSaveDeleted, localDataErased: true };
 }

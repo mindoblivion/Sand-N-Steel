@@ -90,6 +90,7 @@ function recordingSteps(overrides: Partial<DeletionSteps> = {}) {
     },
     eraseLocalData: () => {
       calls.push('eraseLocalData');
+      return true;
     },
     signOut: async () => {
       calls.push('signOut');
@@ -210,7 +211,7 @@ describe('A. The deletion contract — the one safe order', () => {
 describe('B. The device wipe — one key, and nothing else', () => {
   test('it removes the save key and only the save key', () => {
     const removed: string[] = [];
-    eraseLocalDeviceData((key) => removed.push(key));
+    expect(eraseLocalDeviceData((key) => { removed.push(key); return true; })).toBe(true);
 
     expect(removed).toEqual([SAVE_KEY]);
     expect(removed).not.toContain(SETTINGS_KEY);
