@@ -133,18 +133,18 @@ describe('physical development history', () => {
     expect(train).toContain('isTrainingActionScheduled(profile, stat)');
     expect(train).toContain('recordPhysicalTraining({');
     expect(train).toContain('advanceTimeBy(trained, 1)');
-    expect(train.match(/saveProfile\\(/g)?.length).toBe(1);
+    expect(train.match(/saveProfile\(/g)?.length).toBe(1);
 
     const medicalStart = APP.indexOf('const handleTreatInjury');
     const medicalEnd = APP.indexOf('const handleRestAtInn', medicalStart);
     const medical = APP.slice(medicalStart, medicalEnd);
     expect(medical).toContain('recordPhysicalRecovery(result.profile, resolveTimeState(profile).day)');
-    expect(medical.match(/saveProfile\\(/g)?.length).toBe(1);
+    expect(medical.match(/saveProfile\(/g)?.length).toBe(1);
 
     const innStart = APP.indexOf('const handleRestAtInn');
     const innEnd = APP.indexOf('const handleBuyRacingConfig', innStart);
     const inn = APP.slice(innStart, innEnd);
     expect(inn).toContain('recordPhysicalRecovery(toDawn, resolveTimeState(profile).day)');
-    expect(inn.match(/saveProfile\\(/g)?.length).toBe(1);
+    expect(inn.match(/saveProfile\(/g)?.length).toBe(1);
   });
 });
