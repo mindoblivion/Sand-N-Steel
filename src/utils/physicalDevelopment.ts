@@ -86,7 +86,8 @@ export function recordPhysicalRecovery(
   entryDay = resolveTimeState(profile).day,
 ): PlayerProfile {
   const current = resolvePhysicalDevelopment(profile.appearance.physique);
-  if (entryDay <= current.lastRecoveryDay) return profile;
+  const day = readDay(entryDay);
+  if (day < 1 || day <= current.lastRecoveryDay) return profile;
   return {
     ...profile,
     appearance: {
@@ -94,7 +95,7 @@ export function recordPhysicalRecovery(
       physique: {
         ...current,
         recoveryDays: readCounter(current.recoveryDays + 1),
-        lastRecoveryDay: readDay(entryDay),
+        lastRecoveryDay: day,
       },
     },
   };
