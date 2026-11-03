@@ -32,6 +32,8 @@ import { readFileSync } from 'node:fs';
 
 const WORKFLOW_PATH = new URL('../../.github/workflows/android-release.yml', import.meta.url);
 const RAW = readFileSync(WORKFLOW_PATH, 'utf8');
+const DOCS_PATH = new URL('../../docs/ANDROID_RELEASE.md', import.meta.url);
+const DOCS = readFileSync(DOCS_PATH, 'utf8');
 
 interface WorkflowStep {
   name?: string;
@@ -235,6 +237,28 @@ describe('D. the rehearsal path cannot produce or masquerade as a release', () =
     expect(runs).toContain('bun run cap:sync');
     expect(runs).toContain('./gradlew bundleRelease');
     expect(runs).toContain('verifyBundleSignature.ts');
+  });
+
+  test('it builds and verifies a directly installable APK before uploading both Android outputs', () => {
+    const build = stepNamed('rehearsal', 'Build the practice APK');
+    expect(build.step.run).toContain('./gradlew assembleRelease --no-daemon');
+
+    const verify = stepNamed('rehearsal', 'Verify the practice APK signature');
+    expect(verify.step.run).toContain('set -euo pipefail');
+    expect(verify.step.run).toContain('apksigner');
+    expect(verify.step.run).toContain('app-release.apk');
+    expect(build.index).toBeLessThan(verify.index);
+
+    const upload = stepNamed('rehearsal', 'Upload the REHEARSAL bundle');
+    const paths = String((upload.step.with ?? {})['path'] ?? '');
+    expect(verify.index).toBeLessThan(upload.index);
+    expect(paths).toContain('app-release.aab');
+    expect(paths).toContain('app-release.apk');
+    expect(DOCS).toContain('`apk/release/app-release.apk`');
+    expect(DOCS).toContain('`android/app/build/outputs/` is their common root');
+    expect(DOCS).not.toContain('`android/app/build/outputs/apk/release/app-release.apk`');
+    expect(verify.step.if).toBeUndefined();
+    expect(verify.step['continue-on-error' as keyof WorkflowStep]).toBeUndefined();
   });
 
   test('its artifact is clearly labelled and is not the release name', () => {

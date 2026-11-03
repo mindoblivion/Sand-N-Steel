@@ -58,7 +58,7 @@ single event can start both, and only one of them can ever sign.
 
 | job | starts on | signing | artifact |
 |---|---|---|---|
-| `rehearsal` | `workflow_dispatch` with `mode: rehearsal` — from **any** branch | a throwaway RSA key generated on the runner | `rehearsal-aab-do-not-upload` (7-day retention) |
+| `rehearsal` | `workflow_dispatch` with `mode: rehearsal` — from **any** branch | a throwaway RSA key generated on the runner | `rehearsal-aab-do-not-upload` — signed AAB + directly installable APK (7-day retention) |
 | `release` | a `push` of an approved **`v*` tag**, or `workflow_dispatch` with `mode: release` **from `main`** | your upload keystore, and only if the bundle's signer certificate matches the configured fingerprint | `sand-and-steel-aab` |
 
 ### Trigger matrix
@@ -112,15 +112,30 @@ The rehearsal job:
    the run's commit);
 4. generates a **throwaway** PKCS12 key as `android/app/rehearsal.keystore` and writes the matching
    `android/keystore.properties`;
-5. runs `./gradlew bundleRelease --no-daemon`;
-6. verifies that bundle's signature with the same script the release job uses, passing
-   `--signature-only` because a key that exists for one run has no identity to pin;
-7. uploads it as **`rehearsal-aab-do-not-upload`** and then deletes both signing files.
+5. runs `./gradlew bundleRelease --no-daemon` and verifies the AAB signature with the same script
+   the release job uses, passing `--signature-only` because a key that exists for one run has no
+   identity to pin;
+6. runs `./gradlew assembleRelease --no-daemon` with the same throwaway key, then verifies the
+   resulting APK with the Android SDK's `apksigner`;
+7. uploads both `app-release.aab` and `app-release.apk` as
+   **`rehearsal-aab-do-not-upload`**, then deletes both signing files.
 
 It references no secret, so it cannot become a store bundle: the practice bundle is signed with a key
 that exists only for the length of that run and cannot update the Play listing. It is labelled a
 rehearsal in its logs (`::notice::REHEARSAL`) and in its artifact name. A rehearsal never uploads
 `sand-and-steel-aab`, and a tag push never produces the rehearsal artifact.
+
+### Installing the rehearsal APK on a Samsung device
+
+After the manual rehearsal workflow finishes successfully:
+
+1. Open the completed Actions run and confirm its checked-out commit SHA is the exact candidate you intend to test. Do not use an older run's artifact.
+2. Download the **`rehearsal-aab-do-not-upload`** artifact and extract the ZIP.
+3. Use **`apk/release/app-release.apk`** from the extracted artifact. Because the workflow uploads both files together, `android/app/build/outputs/` is their common root and is stripped from the ZIP paths. The AAB appears at `bundle/release/app-release.aab` and is included for bundle-level validation; the APK is the file to install directly.
+4. Transfer the APK to the Samsung device (for example, with USB) and open it from the device's file manager. If Android prompts, allow that file manager to install unknown apps, then retry the installation.
+5. Launch **Sand & Steel** and record the device model, Android version, install/launch result, orientation, local save/restore, arena entry, crashes, and observed performance.
+
+**Important signing constraint:** this APK uses a one-run rehearsal certificate, not the Play upload/app-signing certificate. Android will not install it as an update over a Play-installed copy of the same package. Prefer a spare test device. If you must use your primary device, first ensure your progress is backed up and understand that uninstalling the Play copy can erase its local app data. The rehearsal APK cannot update the Play listing and must never be uploaded to Play Console.
 
 ### How signing verification works
 
