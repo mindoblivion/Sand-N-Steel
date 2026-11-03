@@ -349,12 +349,13 @@ describe('CF-6 §A — boss gating', () => {
   test('no effect is reachable outside its gate', () => {
     // Each effect appears exactly once in the scene, and each time inside the
     // block its own gate opens.
-    expect((DUEL_SCENE.match(/sounds\.playWeaponDraw\(\)/g) ?? []).length).toBe(1);
+    expect((DUEL_SCENE.match(/sounds\.playWeaponDraw\(\)/g) ?? []).length).toBe(2);
     const phaseSite = DUEL_SCENE.indexOf('sounds.playWeaponDraw();');
     expect(
       blockAfter(DUEL_SCENE, "if (bossPresentsMoment(opponent, 'phase_weapon_switch'))"),
     ).toContain('sounds.playWeaponDraw();');
     expect(phaseSite).toBeGreaterThan(-1);
+    expect(blockAfter(DUEL_SCENE, "else if (actionType === 'telegraph')")).toContain('if (isCounterWindup) sounds.playWeaponDraw();');
 
     // Slice C-D rebased this pin (not weakened): the phase change adds a SECOND
     // pulse of the SAME CF-6 prop — the phase transition is a boss moment too —
