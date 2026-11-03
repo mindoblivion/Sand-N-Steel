@@ -38,9 +38,7 @@ describe('gladiator weight combat profile', () => {
     expect(normalizeGladiatorWeight(900)).toBe(300);
     expect(meetsWeaponStrengthRequirement(12, 12)).toBe(true);
     expect(meetsWeaponStrengthRequirement(11, 12)).toBe(false);
-    // Weight changes combat feel, not the result of a strength eligibility check.
-    expect(meetsWeaponStrengthRequirement(12, 12)).toBe(
-      meetsWeaponStrengthRequirement(12, 12),
-    );
+    // The eligibility API accepts only Strength and the weapon's requirement.
+    expect(meetsWeaponStrengthRequirement.length).toBe(2);
   });
 });
