@@ -446,6 +446,17 @@ describe('PITCH A1 §E — the decline trickle is paid once per profile, ever', 
     expect(omenDeclineResultLine(outcome)).toContain('+5 fame');
   });
 
+  test('malformed or unrepresentable fame refuses the trickle without consuming its marker', () => {
+    for (const fame of [NaN, Infinity, -1, '40' as unknown as number, Number.MAX_VALUE]) {
+      const subject = profile({ fame });
+      const before = { ...subject };
+      const outcome = declineOmen(subject);
+      expect(outcome).toEqual({ wrote: false, reason: 'invalid-fame' });
+      expect(subject).toEqual(before);
+      expect(isTrickleClaimed(subject)).toBe(false);
+    }
+  });
+
   test('the second decline pays nothing and writes nothing', () => {
     const first = declineOmen(profile({ fame: 40 }));
     expect(first.wrote).toBe(true);
