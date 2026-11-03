@@ -41,7 +41,7 @@ export function getBodyDamageProfile(
 
   const bruiseIntensity = Math.max(bruiseFromDamage, hasActiveInjury ? 0.55 : 0);
   const swellingIntensity = Math.max(swellingFromDamage, hasActiveInjury ? 0.25 : 0);
-  const stage: BodyDamageStage = swellingIntensity >= 0.35
+  const stage: BodyDamageStage = swellingIntensity >= 0.25
     ? 'swollen'
     : bruiseIntensity > 0
       ? 'bruised'
