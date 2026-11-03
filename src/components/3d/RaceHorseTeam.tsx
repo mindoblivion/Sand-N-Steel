@@ -59,14 +59,8 @@ const RaceHorse: React.FC<{ speed: number; coatOffset: number }> = ({ speed, coa
   return (
     <group scale={RACE_HORSE_FIT_SCALE} rotation={[0, RACE_HORSE_YAW, 0} dispose={null}>
       {/* Barrel, chest, raised neck and head keep the silhouette readable from the chase camera. */}
-      <mesh position={[-0.22, 1.30, 0]} material={bodyMaterial} castShadow={false}>
-        <sphereGeometry args={[1, 10, 7]} />
-      </mesh>
       <mesh position={[-0.22, 1.30, 0]} scale={[0.68, 0.39, 0.28]} material={bodyMaterial} castShadow={false}>
         <sphereGeometry args={[1, 10, 7]} />
-      </mesh>
-      <mesh position={[0.28, 1.31, 0]} material={bodyMaterial} castShadow={false}>
-        <sphereGeometry args={[1, 8, 6]} />
       </mesh>
       <mesh position={[0.28, 1.31, 0]} scale={[0.31, 0.36, 0.25]} material={bodyMaterial} castShadow={false}>
         <sphereGeometry args={[1, 8, 6]} />
@@ -74,14 +68,8 @@ const RaceHorse: React.FC<{ speed: number; coatOffset: number }> = ({ speed, coa
       <mesh position={[0.48, 1.54, 0]} rotation={[0, 0, -0.28]} material={bodyMaterial} castShadow={false}>
         <capsuleGeometry args={[0.17, 0.48, 3, 7]} />
       </mesh>
-      <mesh position={[0.70, 1.78, 0]} rotation={[0, 0, -0.18]} material={bodyMaterial} castShadow={false}>
-        <sphereGeometry args={[1, 8, 6]} />
-      </mesh>
       <mesh position={[0.70, 1.78, 0]} rotation={[0, 0, -0.18]} scale={[0.20, 0.29, 0.15]} material={bodyMaterial} castShadow={false}>
         <sphereGeometry args={[1, 8, 6]} />
-      </mesh>
-      <mesh position={[0.88, 1.66, 0]} material={darkCoat} castShadow={false}>
-        <sphereGeometry args={[1, 7, 5]} />
       </mesh>
       <mesh position={[0.88, 1.66, 0]} scale={[0.16, 0.095, 0.12]} material={darkCoat} castShadow={false}>
         <sphereGeometry args={[1, 7, 5]} />
