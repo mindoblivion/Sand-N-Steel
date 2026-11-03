@@ -536,6 +536,15 @@ describe('E. The public surfaces', () => {
   });
 });
 
+describe('G. Google Drive backup scope', () => {
+  test('Drive listing only returns the exact filename written by this game', () => {
+    const drive = code('../services/googleDrive.ts');
+    expect(drive).toContain("const SAVE_FILE_NAME = 'Sand_And_Steel_Gladiator_Save.json'");
+    expect(drive).toContain("name = '${SAVE_FILE_NAME}' and trashed = false");
+    expect(drive).not.toContain("name contains 'Sand_And_Steel'");
+  });
+});
+
 describe('F. The privacy text', () => {
   test('the retention statement is one statement, quoted by both surfaces', () => {
     const retentionSection = PRIVACY_POLICY_SECTIONS.find((section) => section.heading === 'How long we keep it');
