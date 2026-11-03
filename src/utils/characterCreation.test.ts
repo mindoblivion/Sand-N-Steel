@@ -41,6 +41,7 @@ import {
   buildCreatedProfile,
   selectArmatura,
   selectCharacterModel,
+  trimAllocationToPool,
   unspentPoints,
 } from './characterCreation';
 
@@ -125,6 +126,15 @@ describe('CH-2 §A — a new Retiarius, before and after allocation', () => {
     expect(allocated.unspentStatPoints).toBe(0);
     expect(allocatedPoints(allocation)).toBe(10);
     expect(unspentPoints(NO_ALLOCATION)).toBe(10);
+  });
+
+  test('removing a Vitium trims only the excess points from defense first', () => {
+    const allocation = { strength: 4, agility: 3, stamina: 3, defense: 2 };
+    const trimmed = trimAllocationToPool(allocation, null);
+    expect(trimmed).toEqual({ strength: 4, agility: 3, stamina: 3, defense: 0 });
+    expect(allocatedPoints(trimmed)).toBe(CREATION_POINTS);
+    expect(unspentPoints(trimmed, null)).toBe(0);
+    expect(allocation).toEqual({ strength: 4, agility: 3, stamina: 3, defense: 2 });
   });
 
   test('creation writes the class and never a palma', () => {
