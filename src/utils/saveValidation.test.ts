@@ -342,12 +342,16 @@ describe('saveProfile — persistence is verified, not assumed', () => {
   });
 });
 
-describe('clearSavedProfile — reset is confirmed before discarding the active profile', () => {
-  test('returns true only after the stored profile key is absent', () => {
-    const store = makeStore({ [PROFILE_STORAGE_KEY]: JSON.stringify(validStoredProfile()) });
+describe('clearSavedProfile — reset removes active and quarantined gladiator data', () => {
+  test('returns true only after both save keys are absent', () => {
+    const store = makeStore({
+      [PROFILE_STORAGE_KEY]: JSON.stringify(validStoredProfile()),
+      [PROFILE_QUARANTINE_KEY]: '{unreadable original save bytes',
+    });
     withStore(store, () => {
       expect(clearSavedProfile()).toBe(true);
       expect(store.data.has(PROFILE_STORAGE_KEY)).toBe(false);
+      expect(store.data.has(PROFILE_QUARANTINE_KEY)).toBe(false);
     });
   });
 
@@ -362,7 +366,7 @@ describe('clearSavedProfile — reset is confirmed before discarding the active 
     });
   });
 
-  test('returns false when storage silently retains the profile', () => {
+  test('returns false when storage silently retains either save key', () => {
     const hostile = {
       getItem: () => 'still saved',
       setItem: () => {},
