@@ -8815,3 +8815,11 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Regression coverage.** `src/utils/injuryAppearance.test.ts` covers healthy, damaged, critical, active-injury and malformed inputs, HUD health-bar removal, stamina retention and injury propagation into city/duel renderers. Automated CI must pass before merge.
 - **Acceptance boundary.** The marks need physical Android visual review for placement/readability and performance. Do not treat the intensity thresholds as final until device feedback confirms they are legible at the game's mobile camera distance.
 - **Files changed.** `src/utils/injuryAppearance.ts`, `src/utils/injuryAppearance.test.ts`, `src/types/game.ts`, `src/components/3d/GladiatorMesh.tsx`, `src/components/3d/city/CityHubScene.tsx`, `src/components/duel/DuelScene.tsx`, `src/components/ui/CombatHUD.tsx`.
+
+
+## Racing — first real finish-line slice
+
+- **Scope.** Add a pure lap tracker for the East Circus race: it cannot finish at the start line, by reversing near the start, or until the chariot has reached the far end and crossed the finish plane on the return leg.
+- **Safety.** The tracker is read-only with respect to profile/save data. It does not award gold, unlocks, or best-time records; those remain a separately reviewed progression transaction.
+- **Integration.** `RaceScene.tsx` advances the tracker from live chariot Z and dispatches the existing `racing → finished` transition exactly once. The result overlay displays elapsed time and returns to the city without writing progression.
+- **Validation.** `src/utils/raceLap.test.ts` covers start-line false positives, far-turn requirement, missing far turn, malformed samples, and exactly-once finish semantics. Automated CI passed on the prior integration commit; physical Android gameplay/visual acceptance remains pending.

@@ -179,10 +179,13 @@ describe('B. The pre-race pose, in memory only', () => {
     }
   });
 
-  test('the race scene has no finish-line writer and no rewards', () => {
-    for (const token of ['saveProfile', 'gold:', 'fame:', 'xpEarned', 'rewards', 'finishRace']) {
+  test('the race scene finishes a lap but does not award or persist rewards', () => {
+    for (const token of ['saveProfile', 'gold:', 'fame:', 'xpEarned', 'raceResults', 'bestTime']) {
       expect(code(sceneSrc), token).not.toContain(token);
     }
+    expect(code(sceneSrc)).toContain('finishRace');
+    expect(code(sceneSrc)).toContain('advanceRaceLap');
+    expect(sceneSrc).toContain('Race rewards and saved records are not yet enabled');
   });
 });
 
