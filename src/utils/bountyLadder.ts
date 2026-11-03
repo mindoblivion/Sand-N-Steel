@@ -35,6 +35,7 @@ import { ALL_OPPONENTS } from '../data/opponents';
 import { BOUNTY_DESERTER, BOUNTY_RUNG_OPPONENTS } from '../data/bountyBoard';
 import { CROWD_HYPE_TIER_MAX } from './crowdHype';
 import { resolveStoryState } from './storyState';
+import { creditGold } from './goldTransactions';
 import { DOCTORE_TEST_COMBO_TARGET } from './storyBeats';
 
 /* ── THE GATE ────────────────────────────────────────────────────────────── */
@@ -473,15 +474,17 @@ export function applyDeserterChoice(
   const fame = choice === 'spared' ? BOUNTY_FINAL.capturedFame : BOUNTY_FINAL.takenFame;
   const currentGold = profile.gold;
   const nextGold = currentGold + gold;
-  // Refuse the whole choice transaction if gold is malformed, overflows, or the
-  // positive award disappears at this magnitude. Crucially, do not write the
-  // one-time choice, so the player can retry after the balance is repaired.
+  const nextFame = creditGold(profile.fame, fame);
+  // Refuse the whole choice transaction if either currency is malformed,
+  // overflows, or the positive award disappears at this magnitude. Crucially,
+  // do not write the one-time choice, so the player can retry after repair.
   if (
     typeof currentGold !== 'number' ||
     !Number.isFinite(currentGold) ||
     currentGold < 0 ||
     !Number.isFinite(nextGold) ||
-    nextGold <= currentGold
+    nextGold <= currentGold ||
+    nextFame === null
   ) {
     return { profile, gold: 0, fame: 0, alreadyAnswered: false, rejected: true, line: '' };
   }
@@ -489,7 +492,7 @@ export function applyDeserterChoice(
     profile: {
       ...profile,
       gold: nextGold,
-      fame: profile.fame + fame,
+      fame: nextFame,
       story: { ...(profile.story ?? {}), deserterChoice: choice },
     },
     gold,
