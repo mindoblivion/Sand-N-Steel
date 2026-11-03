@@ -40,9 +40,27 @@ describe('gladiator body rig profile', () => {
     expect(getGladiatorBodyRigProfile(900)).toEqual(getGladiatorBodyRigProfile(300));
   });
 
+  test('training volume, consistency and recovery gradually develop the silhouette', () => {
+    const developed = getGladiatorBodyRigProfile(180, {
+      strengthSessions: 60,
+      agilitySessions: 0,
+      staminaSessions: 60,
+      defenseSessions: 60,
+      trainingDays: 60,
+      trainingStreak: 14,
+      lastTrainingDay: 60,
+      recoveryDays: 30,
+      lastRecoveryDay: 60,
+    });
+    expect(developed.coreScale).toBe(1.05);
+    expect(developed.limbScale).toBe(1.075);
+    expect(developed.coreScale).toBeGreaterThan(getGladiatorBodyRigProfile(180).coreScale);
+    expect(developed.limbScale).toBeGreaterThan(getGladiatorBodyRigProfile(180).limbScale);
+  });
+
   test('both the skinned rig and procedural fallback consume the body profile', () => {
     const source = readFileSync(fileURLToPath(new URL('../components/3d/GladiatorMesh.tsx', import.meta.url)), 'utf8');
-    expect(source).toContain('getGladiatorBodyRigProfile(fighter.bodyWeightLb)');
+    expect(source).toContain('getGladiatorBodyRigProfile(fighter.bodyWeightLb, fighter.physique)');
     expect(source).toContain('bone.scale.set(baseScale.x * width, baseScale.y, baseScale.z * width)');
     expect(source).toContain('0.36 * coreScale');
     expect(source).toContain('0.15 * limbScale');

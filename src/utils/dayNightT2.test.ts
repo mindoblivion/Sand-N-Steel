@@ -323,7 +323,8 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     expect(REST.match(/restAtInn\(profile\)/g) ?? []).toHaveLength(1);
     expect(REST.match(/advanceToNextDawn\(/g) ?? []).toHaveLength(1);
     expect(REST.match(/saveProfile\(/g) ?? []).toHaveLength(1);
-    expect(REST).toContain('const settled = onDayRollover(profile, toDawn);');
+    expect(REST).toContain('recordPhysicalRecovery(toDawn, resolveTimeState(profile).day)');
+    expect(REST).toContain('const settled = onDayRollover(profile, recovered);');
     expect(REST).toContain('setProfile(settled);');
     expect(REST).toContain('saveProfile(settled);');
     // An unwounded gladiator still buys the night, at S5's own price and nothing else.

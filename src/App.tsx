@@ -38,6 +38,7 @@ import { purchaseStableConditioning, purchaseStableQuality } from './utils/stabl
 import { purchaseItem } from './utils/itemPurchase';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
 import { isTrainingActionScheduled } from './utils/trainingSchedule';
+import { recordPhysicalRecovery, recordPhysicalTraining } from './utils/physicalDevelopment';
 import { withArmaturaPledge } from './utils/armaturaPledge';
 import { applyPalmaEarns, equipPalma, purchaseDoctorePalma, unequipPalma } from './utils/palmaeState';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
@@ -1643,7 +1644,8 @@ export function App() {
     if (!profile) return false;
     const result = restAtMedicalHouse(profile);
     if (!result.ok) return false;
-    const settled = onDayRollover(profile, result.profile);
+    const recovered = recordPhysicalRecovery(result.profile, resolveTimeState(profile).day);
+    const settled = onDayRollover(profile, recovered);
     setProfile(settled);
     saveProfile(settled);
     return true;
@@ -1670,7 +1672,8 @@ export function App() {
     // dawn, which is exactly the price the panel's label states.
     const atDawn = resolveTimeState(night).phaseIndex === 0;
     const toDawn = atDawn ? advanceTimeBy(night, PHASES_PER_DAY) : advanceToNextDawn(night);
-    const settled = onDayRollover(profile, toDawn);
+    const recovered = recordPhysicalRecovery(toDawn, resolveTimeState(profile).day);
+    const settled = onDayRollover(profile, recovered);
     setProfile(settled);
     saveProfile(settled);
     return true;
@@ -1747,14 +1750,14 @@ export function App() {
     const cost = trainingCost(profile);
     if (!canDebitGold(profile.gold, cost)) return;
 
-    const trained: PlayerProfile = {
+    const trained: PlayerProfile = recordPhysicalTraining({
       ...profile,
       gold: profile.gold - cost,
       baseStats: {
         ...profile.baseStats,
         [stat]: profile.baseStats[stat] + 1,
       },
-    };
+    }, stat);
     // DAY/NIGHT T2 — a training session CONSUMED advances the clock one phase, in this
     // session's own transaction. The refusal above returns before this line, so a session
     // that could not be paid for advances nothing. One save.

@@ -250,6 +250,8 @@ export interface FighterState {
   entangledTurns?: number;
   /** Body mass drives the player's rig-based silhouette; absent opponents use the neutral baseline. */
   bodyWeightLb?: number;
+  /** Accumulated training/recovery history for visible physical evolution. */
+  physique?: PhysicalDevelopment;
   /** CH-3b — the retiarius' net is still in hand this fight (runtime only). */
   netAvailable?: boolean;
   telegraphTimer?: number;
@@ -714,7 +716,24 @@ export interface ArenaTheme {
   crowdCount: number;
 }
 
+export interface PhysicalDevelopment {
+  strengthSessions: number;
+  agilitySessions: number;
+  staminaSessions: number;
+  defenseSessions: number;
+  /** Number of distinct in-game days with at least one completed training session. */
+  trainingDays: number;
+  /** Consecutive in-game training days, incremented at most once per day. */
+  trainingStreak: number;
+  lastTrainingDay: number;
+  /** Distinct in-game days on which a rest/recovery action completed. */
+  recoveryDays: number;
+  lastRecoveryDay: number;
+}
+
 export interface PlayerAppearance {
+  /** Optional accumulated physical development; absent on legacy saves until first training/rest. */
+  physique?: PhysicalDevelopment;
   /** Body mass in pounds; kept with appearance so legacy top-level save shape remains stable. */
   bodyWeightLb?: number;
   skinColor: string;
