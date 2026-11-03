@@ -283,7 +283,7 @@ describe('P-BANNER §B — buying the set with fame', () => {
   });
 
   test('a malformed fame balance can afford nothing', () => {
-    for (const fame of [NaN, Infinity, undefined as unknown as number]) {
+    for (const fame of [NaN, Infinity, Number.MAX_VALUE, undefined as unknown as number]) {
       const broken = fanProfile({ fame });
       expect(getChariotPurchaseEligibility(broken, TRIUMPH_BANNER_PART_ID)).toEqual({
         ok: false,
