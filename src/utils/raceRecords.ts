@@ -26,10 +26,10 @@ export function recordRaceBestTime(
   }
 
   const rounded = Math.round(elapsedMs);
-  const currentRacing = profile.racing && typeof profile.racing === 'object' && !Array.isArray(profile.racing)
+  const currentRacing: RacingProgression = profile.racing && typeof profile.racing === 'object' && !Array.isArray(profile.racing)
     ? profile.racing as RacingProgression
     : {};
-  const currentTimes = currentRacing.bestTimes && typeof currentRacing.bestTimes === 'object' && !Array.isArray(currentRacing.bestTimes)
+  const currentTimes: Partial<Record<ChariotTeamSize, number>> = currentRacing.bestTimes && typeof currentRacing.bestTimes === 'object' && !Array.isArray(currentRacing.bestTimes)
     ? currentRacing.bestTimes
     : {};
   const previous = currentTimes[teamSize];
