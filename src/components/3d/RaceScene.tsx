@@ -60,6 +60,7 @@ import {
   GO_LABEL,
   RACE_INITIAL_STATE,
   abortRace,
+  finishRace,
   formatRaceElapsed,
   getCountdownStep,
   isRaceRunning,
@@ -67,6 +68,7 @@ import {
   startRace,
 } from '../../utils/raceState';
 import type { CountdownStep, RaceState } from '../../utils/raceState';
+import { advanceRaceLap, createRaceLapTracker } from '../../utils/raceLap';
 
 /**
  * RaceScene.tsx — Phase C-8.70B Stage 1, Slice 1 (the race scene and its state
@@ -347,7 +349,8 @@ const RaceChariot: React.FC<{
   raceState: RaceState;
   startedAt: number | null;
   frozen: boolean;
-}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen }) => {
+  onFinish: () => void;
+}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, onFinish }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
 
   // Clone: `useGLTF` caches one scene per URL and the workshop holds the same
@@ -377,6 +380,7 @@ const RaceChariot: React.FC<{
     return { scene, wheels };
   }, [gltf.scene]);
   const roll = useRef(0);
+  const lapTracker = useRef(createRaceLapTracker());
   const group = useRef<THREE.Group>(null);
 
   useFrame((_state, delta) => {
@@ -393,6 +397,9 @@ const RaceChariot: React.FC<{
 
     if (racing) {
       advanceChariot(motion, input, delta, launchAccelScale(launch, elapsedSinceGoMs));
+      const lap = advanceRaceLap(lapTracker.current, motion.z);
+      lapTracker.current = lap.tracker;
+      if (lap.finishedNow) onFinish();
     }
 
     const chassis = group.current;
@@ -512,6 +519,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const [countdownStep, setCountdownStep] = useState<CountdownStep | null>(COUNTDOWN_STEPS[0]);
   const [showGo, setShowGo] = useState(false);
   const [raceStartedAt, setRaceStartedAt] = useState<number | null>(null);
+  const [raceFinishElapsed, setRaceFinishElapsed] = useState<number | null>(null);
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
   const [revving, setRevving] = useState(false);
   const [launchQuality, setLaunchQuality] = useState<ChariotLaunchQuality | null>(null);
@@ -825,6 +833,10 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   raceState={raceState}
                   startedAt={raceStartedAt}
                   frozen={frozen}
+                  onFinish={() => {
+                    setRaceFinishElapsed(raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt));
+                    setRaceState((state) => finishRace(state));
+                  }}
                 />
               </Suspense>
             </ThreeComponentErrorBoundary>
@@ -924,6 +936,19 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             className="animate-fadeIn font-serif font-black text-amber-200 leading-none text-[26vmin] drop-shadow-[0_6px_24px_rgba(0,0,0,0.9)]"
           >
             {countdownStep}
+          </div>
+        </div>
+      )}
+
+      {raceState === 'finished' && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-neutral-950/75 p-6" data-race-overlay="finished">
+          <div className="w-full max-w-md rounded-3xl border-2 border-amber-500/70 bg-neutral-950/95 p-7 text-center shadow-2xl">
+            <p className="font-serif text-xs font-black uppercase tracking-[0.25em] text-amber-400">East Circus · Race Complete</p>
+            <h2 className="mt-3 font-serif text-4xl font-black text-amber-100">Lap Finished</h2>
+            <p className="mt-4 text-sm uppercase tracking-widest text-neutral-400">Elapsed time</p>
+            <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-lime-300" data-race-finish-time={formatRaceElapsed(raceFinishElapsed ?? 0)}>{formatRaceElapsed(raceFinishElapsed ?? 0)}</p>
+            <p className="mt-4 text-sm leading-relaxed text-neutral-300">You reached the far turn and crossed the finish line. Race rewards and saved records are not yet enabled.</p>
+            <button type="button" onClick={handleAbort} data-race-action="return-city" className="mt-6 min-h-12 w-full rounded-2xl border-2 border-amber-400 bg-amber-700 px-5 py-3 font-serif text-sm font-black uppercase tracking-widest text-amber-50 active:scale-[0.98]">Return to City</button>
           </div>
         </div>
       )}
