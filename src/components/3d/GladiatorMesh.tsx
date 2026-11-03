@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
 import { TELEGRAPH_GLOW_COLOR, telegraphGlowIntensity } from '../../utils/bossPresentation';
+import { getGladiatorBodyRigProfile } from '../../utils/gladiatorBodyRig';
 // D-3 — the feet-tell type only: the cue itself is a static stance on this
 // component's own root group, so the 3D layer needs no rule from the mechanic.
 import type { FeetTell } from '../../utils/falseTelegraph';
@@ -633,6 +634,32 @@ const RomanWarriorGLB: React.FC<{
     return { clonedScene: clone, rightHandBone: rHand, leftHandBone: lHand };
   }, [gltf.scene]);
 
+  const bodyRigBones = useMemo(() => {
+    const coreNames = new Set(['pelvis', 'spine_01']);
+    const limbNames = new Set(['upperarm_l', 'upperarm_r', 'thigh_l', 'thigh_r']);
+    const bones: Array<{ bone: THREE.Bone; baseScale: THREE.Vector3; group: 'core' | 'limb' }> = [];
+    clonedScene.traverse((object) => {
+      if ((object as THREE.Bone).isBone !== true) return;
+      if (coreNames.has(object.name)) {
+        bones.push({ bone: object as THREE.Bone, baseScale: object.scale.clone(), group: 'core' });
+      } else if (limbNames.has(object.name)) {
+        bones.push({ bone: object as THREE.Bone, baseScale: object.scale.clone(), group: 'limb' });
+      }
+    });
+    return bones;
+  }, [clonedScene]);
+
+  // The shipped rig has no morph targets and none of its 178 clips animate bone
+  // scale. Use its named anatomical joints for a small transverse-only silhouette
+  // adjustment; preserve each bone's authored length axis and base scale.
+  useEffect(() => {
+    const profile = getGladiatorBodyRigProfile(fighter.bodyWeightLb);
+    for (const { bone, baseScale, group } of bodyRigBones) {
+      const width = group === 'core' ? profile.coreScale : profile.limbScale;
+      bone.scale.set(baseScale.x * width, baseScale.y, baseScale.z * width);
+    }
+  }, [bodyRigBones, fighter.bodyWeightLb]);
+
   // `mixer` is the AnimationMixer drei updates each frame; its own `timeScale`
   // is how the hit-stop holds the animation clock (see the frame loop below).
   const { actions, names, mixer } = useAnimations(gltf.animations, groupRef);
@@ -1202,6 +1229,9 @@ const ProceduralGladiator: React.FC<{
   });
 
   const scale = fighter.meshScale || 1.0;
+  const bodyProfile = getGladiatorBodyRigProfile(fighter.bodyWeightLb);
+  const coreScale = bodyProfile.coreScale;
+  const limbScale = bodyProfile.limbScale;
   const isHit = flashActive;
   const tunicColor = isHit ? '#ef4444' : fighter.tunicColor || '#991b1b';
   const bronzeColor = isHit ? '#f87171' : '#b45309';
@@ -1319,25 +1349,25 @@ const ProceduralGladiator: React.FC<{
         {/* LOWER TORSO & PTERUGES LEATHER SKIRT */}
         <group position={[0, 1.05, 0]}>
           <mesh castShadow position={[0, 0, 0]}>
-            <cylinderGeometry args={[0.34, 0.38, 0.35, 16]} />
+            <cylinderGeometry args={[0.34 * coreScale, 0.38 * coreScale, 0.35, 16]} />
             <meshStandardMaterial color={tunicColor} roughness={0.65} />
           </mesh>
 
           <mesh castShadow position={[0, 0.15, 0]}>
-            <cylinderGeometry args={[0.37, 0.37, 0.12, 16]} />
+            <cylinderGeometry args={[0.37 * coreScale, 0.37 * coreScale, 0.12, 16]} />
             <meshStandardMaterial color="#78350f" roughness={0.6} />
           </mesh>
           {[0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4, Math.PI, (5 * Math.PI) / 4, (3 * Math.PI) / 2, (7 * Math.PI) / 4].map((rad, i) => (
-            <mesh key={`stud-${i}`} position={[Math.sin(rad) * 0.38, 0.15, Math.cos(rad) * 0.38]}>
+            <mesh key={`stud-${i}`} position={[Math.sin(rad) * 0.38 * coreScale, 0.15, Math.cos(rad) * 0.38 * coreScale]}>
               <sphereGeometry args={[0.025, 8, 8]} />
               <meshStandardMaterial color={goldColor} metalness={0.8} roughness={0.2} />
             </mesh>
           ))}
 
           {[-0.22, -0.11, 0, 0.11, 0.22].map((xOffset, i) => (
-            <group key={`p-front-${i}`} position={[xOffset, -0.15, 0.36]} rotation={[0.12, 0, 0]}>
+            <group key={`p-front-${i}`} position={[xOffset * coreScale, -0.15, 0.36 * coreScale]} rotation={[0.12, 0, 0]}>
               <mesh castShadow>
-                <boxGeometry args={[0.08, 0.32, 0.02]} />
+                <boxGeometry args={[0.08 * coreScale, 0.32, 0.02]} />
                 <meshStandardMaterial color="#451a03" roughness={0.7} />
               </mesh>
               <mesh position={[0, -0.14, 0.015]}>
@@ -1351,25 +1381,25 @@ const ProceduralGladiator: React.FC<{
         {/* CHEST & UPPER BODY (LORICA SEGMENTATA) */}
         <group ref={torsoRef} position={[0, 1.25, 0]}>
           <mesh castShadow position={[0, 0.26, 0]}>
-            <cylinderGeometry args={[0.36, 0.33, 0.56, 16]} />
+            <cylinderGeometry args={[0.36 * coreScale, 0.33 * coreScale, 0.56, 16]} />
             <meshStandardMaterial color={bronzeColor} metalness={0.85} roughness={0.25} />
           </mesh>
 
           <mesh castShadow position={[0, 0.34, 0.18]}>
-            <boxGeometry args={[0.42, 0.22, 0.14]} />
+            <boxGeometry args={[0.42 * coreScale, 0.22, 0.14 * coreScale]} />
             <meshStandardMaterial color={bronzeColor} metalness={0.85} roughness={0.25} />
           </mesh>
           <mesh position={[0, 0.36, 0.26]}>
-            <boxGeometry args={[0.14, 0.1, 0.02]} />
+            <boxGeometry args={[0.14 * coreScale, 0.1, 0.02]} />
             <meshStandardMaterial color={goldColor} metalness={0.95} roughness={0.15} />
           </mesh>
 
           <mesh castShadow position={[-0.38, 0.52, 0]} rotation={[0, 0, 0.25]}>
-            <cylinderGeometry args={[0.16, 0.2, 0.18, 12]} />
+            <cylinderGeometry args={[0.16 * limbScale, 0.2 * limbScale, 0.18, 12]} />
             <meshStandardMaterial color={bronzeColor} metalness={0.85} roughness={0.25} />
           </mesh>
           <mesh castShadow position={[0.38, 0.52, 0]} rotation={[0, 0, -0.25]}>
-            <cylinderGeometry args={[0.16, 0.2, 0.18, 12]} />
+            <cylinderGeometry args={[0.16 * limbScale, 0.2 * limbScale, 0.18, 12]} />
             <meshStandardMaterial color={bronzeColor} metalness={0.85} roughness={0.25} />
           </mesh>
 
@@ -1434,17 +1464,17 @@ const ProceduralGladiator: React.FC<{
           </group>
 
           {/* LEFT ARM */}
-          <group ref={leftArmRef} position={[-0.44, 0.45, 0]}>
+          <group ref={leftArmRef} position={[-0.44 * coreScale, 0.45, 0]}>
             {isLefty ? (
               // LEFTY MODE: WEAPON IN LEFT HAND WITH SEGMENTED MANICA ARMOR
               <>
                 <mesh castShadow position={[0, -0.12, 0]}>
-                  <cylinderGeometry args={[0.12, 0.11, 0.28, 12]} />
+                  <cylinderGeometry args={[0.12 * limbScale, 0.11 * limbScale, 0.28, 12]} />
                   <meshStandardMaterial color={bronzeColor} metalness={0.85} roughness={0.25} />
                 </mesh>
                 <group position={[0, -0.28, 0]}>
                   <mesh castShadow position={[0, -0.16, 0]}>
-                    <cylinderGeometry args={[0.1, 0.09, 0.32, 12]} />
+                    <cylinderGeometry args={[0.1 * limbScale, 0.09 * limbScale, 0.32, 12]} />
                     <meshStandardMaterial color={bronzeColor} metalness={0.85} roughness={0.25} />
                   </mesh>
                   <mesh castShadow position={[0, -0.34, 0]}>
@@ -1458,12 +1488,12 @@ const ProceduralGladiator: React.FC<{
               // DEFAULT (RIGHTY): SHIELD IN ANATOMICAL LEFT HAND
               <>
                 <mesh castShadow position={[0, -0.12, 0]}>
-                  <cylinderGeometry args={[0.11, 0.1, 0.28, 12]} />
+                  <cylinderGeometry args={[0.11 * limbScale, 0.1 * limbScale, 0.28, 12]} />
                   <meshStandardMaterial color={skinColor} roughness={0.6} />
                 </mesh>
                 <group position={[0, -0.28, 0]}>
                   <mesh castShadow position={[0, -0.16, 0]}>
-                    <cylinderGeometry args={[0.09, 0.08, 0.32, 12]} />
+                    <cylinderGeometry args={[0.09 * limbScale, 0.08 * limbScale, 0.32, 12]} />
                     <meshStandardMaterial color="#78350f" roughness={0.7} />
                   </mesh>
                   <mesh castShadow position={[0, -0.34, 0]}>
@@ -1477,17 +1507,17 @@ const ProceduralGladiator: React.FC<{
           </group>
 
           {/* RIGHT ARM */}
-          <group ref={rightArmRef} position={[0.44, 0.45, 0]}>
+          <group ref={rightArmRef} position={[0.44 * coreScale, 0.45, 0]}>
             {isLefty ? (
               // LEFTY MODE: SHIELD IN RIGHT HAND
               <>
                 <mesh castShadow position={[0, -0.12, 0]}>
-                  <cylinderGeometry args={[0.11, 0.1, 0.28, 12]} />
+                  <cylinderGeometry args={[0.11 * limbScale, 0.1 * limbScale, 0.28, 12]} />
                   <meshStandardMaterial color={skinColor} roughness={0.6} />
                 </mesh>
                 <group position={[0, -0.28, 0]}>
                   <mesh castShadow position={[0, -0.16, 0]}>
-                    <cylinderGeometry args={[0.09, 0.08, 0.32, 12]} />
+                    <cylinderGeometry args={[0.09 * limbScale, 0.08 * limbScale, 0.32, 12]} />
                     <meshStandardMaterial color="#78350f" roughness={0.7} />
                   </mesh>
                   <mesh castShadow position={[0, -0.34, 0]}>
@@ -1501,12 +1531,12 @@ const ProceduralGladiator: React.FC<{
               // DEFAULT (RIGHTY): WEAPON IN ANATOMICAL RIGHT HAND WITH SEGMENTED MANICA ARMOR
               <>
                 <mesh castShadow position={[0, -0.12, 0]}>
-                  <cylinderGeometry args={[0.12, 0.11, 0.28, 12]} />
+                  <cylinderGeometry args={[0.12 * limbScale, 0.11 * limbScale, 0.28, 12]} />
                   <meshStandardMaterial color={bronzeColor} metalness={0.85} roughness={0.25} />
                 </mesh>
                 <group position={[0, -0.28, 0]}>
                   <mesh castShadow position={[0, -0.16, 0]}>
-                    <cylinderGeometry args={[0.1, 0.09, 0.32, 12]} />
+                    <cylinderGeometry args={[0.1 * limbScale, 0.09 * limbScale, 0.32, 12]} />
                     <meshStandardMaterial color={bronzeColor} metalness={0.85} roughness={0.25} />
                   </mesh>
                   <mesh castShadow position={[0, -0.34, 0]}>
@@ -1521,18 +1551,18 @@ const ProceduralGladiator: React.FC<{
         </group>
 
         {/* LEGS & CALIGAE SANDALS */}
-        <group ref={leftLegRef} position={[-0.2, 0.95, 0]}>
+        <group ref={leftLegRef} position={[-0.2 * coreScale, 0.95, 0]}>
           <mesh castShadow position={[0, -0.22, 0]}>
-            <cylinderGeometry args={[0.15, 0.13, 0.42, 12]} />
+            <cylinderGeometry args={[0.15 * limbScale, 0.13 * limbScale, 0.42, 12]} />
             <meshStandardMaterial color={skinColor} roughness={0.6} />
           </mesh>
           <group ref={leftKneeRef} position={[0, -0.42, 0]}>
             <mesh castShadow position={[0, 0, 0.04]}>
-              <sphereGeometry args={[0.09, 10, 10]} />
+              <sphereGeometry args={[0.09 * limbScale, 10, 10]} />
               <meshStandardMaterial color={skinColor} roughness={0.6} />
             </mesh>
             <mesh castShadow position={[0, -0.22, 0.02]}>
-              <cylinderGeometry args={[0.11, 0.09, 0.42, 12]} />
+              <cylinderGeometry args={[0.11 * limbScale, 0.09 * limbScale, 0.42, 12]} />
               <meshStandardMaterial color={bronzeColor} metalness={0.85} roughness={0.25} />
             </mesh>
             <mesh castShadow position={[0, -0.46, 0.08]}>
@@ -1542,18 +1572,18 @@ const ProceduralGladiator: React.FC<{
           </group>
         </group>
 
-        <group ref={rightLegRef} position={[0.2, 0.95, 0]}>
+        <group ref={rightLegRef} position={[0.2 * coreScale, 0.95, 0]}>
           <mesh castShadow position={[0, -0.22, 0]}>
-            <cylinderGeometry args={[0.15, 0.13, 0.42, 12]} />
+            <cylinderGeometry args={[0.15 * limbScale, 0.13 * limbScale, 0.42, 12]} />
             <meshStandardMaterial color={skinColor} roughness={0.6} />
           </mesh>
           <group ref={rightKneeRef} position={[0, -0.42, 0]}>
             <mesh castShadow position={[0, 0, 0.04]}>
-              <sphereGeometry args={[0.09, 10, 10]} />
+              <sphereGeometry args={[0.09 * limbScale, 10, 10]} />
               <meshStandardMaterial color={skinColor} roughness={0.6} />
             </mesh>
             <mesh castShadow position={[0, -0.22, 0.02]}>
-              <cylinderGeometry args={[0.11, 0.09, 0.42, 12]} />
+              <cylinderGeometry args={[0.11 * limbScale, 0.09 * limbScale, 0.42, 12]} />
               <meshStandardMaterial color={bronzeColor} metalness={0.85} roughness={0.25} />
             </mesh>
             <mesh castShadow position={[0, -0.46, 0.08]}>
