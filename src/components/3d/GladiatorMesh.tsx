@@ -604,32 +604,6 @@ const RomanWarriorGLB: React.FC<{
     }
   }, [hasRiggedCharacter, onInvalidModel]);
 
-  const bodyRigBones = useMemo(() => {
-    const coreNames = new Set(['pelvis', 'spine_01']);
-    const limbNames = new Set(['upperarm_l', 'upperarm_r', 'thigh_l', 'thigh_r']);
-    const bones: Array<{ bone: THREE.Bone; baseScale: THREE.Vector3; group: 'core' | 'limb' }> = [];
-    clonedScene.traverse((object) => {
-      if ((object as THREE.Bone).isBone !== true) return;
-      if (coreNames.has(object.name)) {
-        bones.push({ bone: object as THREE.Bone, baseScale: object.scale.clone(), group: 'core' });
-      } else if (limbNames.has(object.name)) {
-        bones.push({ bone: object as THREE.Bone, baseScale: object.scale.clone(), group: 'limb' });
-      }
-    });
-    return bones;
-  }, [clonedScene]);
-
-  // The shipped rig has no morph targets and none of its 178 clips animate bone
-  // scale. Use its named anatomical joints for a small transverse-only silhouette
-  // adjustment; preserve each bone's authored length axis and base scale.
-  useEffect(() => {
-    const profile = getGladiatorBodyRigProfile(fighter.bodyWeightLb);
-    for (const { bone, baseScale, group } of bodyRigBones) {
-      const width = group === 'core' ? profile.coreScale : profile.limbScale;
-      bone.scale.set(baseScale.x * width, baseScale.y, baseScale.z * width);
-    }
-  }, [bodyRigBones, fighter.bodyWeightLb]);
-
   const { clonedScene, rightHandBone, leftHandBone } = useMemo(() => {
     const clone = SkeletonUtils.clone(gltf.scene);
     clone.traverse((child) => {
@@ -659,6 +633,32 @@ const RomanWarriorGLB: React.FC<{
 
     return { clonedScene: clone, rightHandBone: rHand, leftHandBone: lHand };
   }, [gltf.scene]);
+
+  const bodyRigBones = useMemo(() => {
+    const coreNames = new Set(['pelvis', 'spine_01']);
+    const limbNames = new Set(['upperarm_l', 'upperarm_r', 'thigh_l', 'thigh_r']);
+    const bones: Array<{ bone: THREE.Bone; baseScale: THREE.Vector3; group: 'core' | 'limb' }> = [];
+    clonedScene.traverse((object) => {
+      if ((object as THREE.Bone).isBone !== true) return;
+      if (coreNames.has(object.name)) {
+        bones.push({ bone: object as THREE.Bone, baseScale: object.scale.clone(), group: 'core' });
+      } else if (limbNames.has(object.name)) {
+        bones.push({ bone: object as THREE.Bone, baseScale: object.scale.clone(), group: 'limb' });
+      }
+    });
+    return bones;
+  }, [clonedScene]);
+
+  // The shipped rig has no morph targets and none of its 178 clips animate bone
+  // scale. Use its named anatomical joints for a small transverse-only silhouette
+  // adjustment; preserve each bone's authored length axis and base scale.
+  useEffect(() => {
+    const profile = getGladiatorBodyRigProfile(fighter.bodyWeightLb);
+    for (const { bone, baseScale, group } of bodyRigBones) {
+      const width = group === 'core' ? profile.coreScale : profile.limbScale;
+      bone.scale.set(baseScale.x * width, baseScale.y, baseScale.z * width);
+    }
+  }, [bodyRigBones, fighter.bodyWeightLb]);
 
   // `mixer` is the AnimationMixer drei updates each frame; its own `timeScale`
   // is how the hit-stop holds the animation clock (see the frame loop below).
