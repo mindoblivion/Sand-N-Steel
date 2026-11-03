@@ -75,7 +75,9 @@ export function advanceRaceLap(
   const southTurnCompleted = tracker.southTurnCompleted ||
     (northTurnSide !== null && z >= RACE_SOUTH_TURN_Z && side === -northTurnSide);
   const crossedFinish = tracker.lastZ < RACE_FINISH_LINE_Z && z >= RACE_FINISH_LINE_Z;
-  const finishedNow = crossedFinish && southTurnCompleted;
+  // The south checkpoint must be complete BEFORE this crossing sample; the
+  // finish line itself cannot satisfy both conditions in one frame.
+  const finishedNow = crossedFinish && tracker.southTurnCompleted;
 
   const next: RaceLapTracker = {
     lastZ: z,
