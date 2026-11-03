@@ -20,23 +20,18 @@ export function normalizeGladiatorWeight(weight: unknown): number {
 }
 
 /**
- * Defines the intended tempo/impact trade-off for future combat tuning.
- * Only impactMultiplier is currently consumed by live combat; attack tempo is
- * deliberately not applied because the established turn-resolution schedule
- * is pinned by combat timing tests.
- * At the 180 lb baseline both multipliers are exactly 1. The bounded ±15%
- * range avoids extreme builds becoming mandatory.
+ * Weight currently changes attack impact only. Attack timing remains governed
+ * by the established combat-resolution schedule and is intentionally untouched.
+ * The bounded ±15% impact range avoids extreme builds becoming mandatory.
  */
 export function getWeightCombatProfile(weight: unknown): {
   weightLb: number;
-  attackSpeedMultiplier: number;
   impactMultiplier: number;
 } {
   const weightLb = normalizeGladiatorWeight(weight);
   const offset = (weightLb - DEFAULT_GLADIATOR_WEIGHT_LB) / 120;
   return {
     weightLb,
-    attackSpeedMultiplier: 1 - offset * 0.15,
     impactMultiplier: 1 + offset * 0.15,
   };
 }
