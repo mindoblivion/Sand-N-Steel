@@ -42,7 +42,6 @@
  */
 
 import { PlayerProfile } from '../types/game';
-import { canDebitGold } from './goldTransactions';
 
 /** A Triumph's two shapes: a title (a display string) or the ludus statue (a flag). */
 export type LaurelKind = 'title' | 'statue';
@@ -359,6 +358,24 @@ function fameOf(profile: PlayerProfile): number | null {
 }
 
 /**
+ * A positive fame debit must remain visible in IEEE-754 arithmetic. Kept local
+ * because this module's purity contract intentionally permits no runtime imports.
+ */
+function canDebitFame(balance: number, price: number): boolean {
+  if (
+    !Number.isFinite(balance) ||
+    balance < 0 ||
+    !Number.isFinite(price) ||
+    price < 0 ||
+    balance < price
+  ) {
+    return false;
+  }
+  const remainder = balance - price;
+  return Number.isFinite(remainder) && remainder >= 0 && (price === 0 || remainder < balance);
+}
+
+/**
  * Can the player buy this Triumph right now?  A surface uses it to state the
  * reason on the card; the purchase re-checks the same rules, so a stale or
  * repeated click is refused exactly as a first one would be.
@@ -375,7 +392,7 @@ export function getTriumphPurchaseEligibility(
   if (ownsTriumph(profile, triumph.id)) return { ok: false, reason: 'already-owned' };
 
   const fame = fameOf(profile);
-  if (fame === null || !canDebitGold(fame, triumph.price)) {
+  if (fame === null || !canDebitFame(fame, triumph.price)) {
     return { ok: false, reason: 'insufficient-fame' };
   }
 
