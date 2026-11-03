@@ -342,11 +342,15 @@ export function loadSavedProfile(): PlayerProfile | null {
   return parsed;
 }
 
-export function saveProfile(profile: PlayerProfile): void {
+export function saveProfile(profile: PlayerProfile): boolean {
   try {
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    const serialized = JSON.stringify(profile);
+    if (typeof serialized !== 'string') return false;
+    localStorage.setItem(PROFILE_STORAGE_KEY, serialized);
+    return localStorage.getItem(PROFILE_STORAGE_KEY) === serialized;
   } catch (e) {
     console.error('Failed to save profile:', e);
+    return false;
   }
 }
 
