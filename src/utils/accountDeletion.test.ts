@@ -44,6 +44,7 @@ import {
   deletionErrorMessage,
   eraseLocalDeviceData,
   reauthMethodForProviderIds,
+  reauthProviderIdForProviderIds,
   reauthProviderLabel,
   requiresGoogleDriveReauthentication,
   runAccountDeletion,
@@ -354,6 +355,13 @@ describe('D. The provider dispatch', () => {
     // No provider at all resolves to the popup path, which the wiring refuses in
     // plain words rather than guessing a method.
     expect(reauthMethodForProviderIds([])).toBe('popup');
+  });
+
+  test('OAuth dispatch uses the same supported provider that the copy names', () => {
+    expect(reauthProviderIdForProviderIds(['facebook.com', 'google.com'])).toBe('google.com');
+    expect(reauthProviderIdForProviderIds(['microsoft.com', 'apple.com'])).toBe('apple.com');
+    expect(reauthProviderIdForProviderIds(['github.com'])).toBe('github.com');
+    expect(reauthProviderIdForProviderIds([])).toBe('');
   });
 
   test('the copy names the provider the player actually used', () => {
