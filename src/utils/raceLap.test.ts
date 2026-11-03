@@ -54,7 +54,7 @@ describe('full oval lap checkpoints', () => {
   test('requires a lane change at the north curve before the south checkpoint can count', () => {
     let tracker = createRaceLapTracker();
     for (const position of [
-      sample(axis, 10),
+      sample(axis + 9, 10),
       sample(axis + 9, RACE_NORTH_TURN_Z - 1),
       sample(axis + 9, -5),
       sample(axis + 9, 15),
