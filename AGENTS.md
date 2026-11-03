@@ -8830,3 +8830,10 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Scope.** Render Biga/Triga/Quadra using the existing measured formation stations and a low-cost procedural horse silhouette. The 15 MB development horse GLBs remain excluded from the shipping race scene; their supplied clips do not provide a usable gallop.
 - **Fit.** Use the measured 0.553 scale, +90° yaw (+X horse forward to −Z track forward), and withers anchor to place hooves on the chariot ground plane. The team is a child of the moving chariot root, so it follows heading and motion without a second movement simulation.
 - **Performance.** No external horse asset loads. Simple low-poly primitives and a speed-gated leg cycle provide motion; the leg cycle idles at zero speed. Automated CI and mobile visual acceptance are required before merge.
+
+
+## Racing — best lap records
+
+- **Scope.** The first intentional race save is limited to `racing.bestTimes[teamSize]`, stored in milliseconds. A valid finish updates a record only when the completed lap is faster; aborts and incomplete races never call the writer.
+- **Transaction boundary.** `recordRaceBestTime` is pure and preserves unlocks, selected team, currency, story and all unrelated profile fields. `App` owns the sole save call and only adopts the new in-memory profile when persistence succeeds.
+- **Validation.** Tests cover legacy saves, team-specific records, faster/equal/slower laps, malformed prior records, invalid elapsed times, and no-op identity. Automated CI and device validation remain required.
