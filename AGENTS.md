@@ -8837,3 +8837,10 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Scope.** The first intentional race save is limited to `racing.bestTimes[teamSize]`, stored in milliseconds. A valid finish updates a record only when the completed lap is faster; aborts and incomplete races never call the writer.
 - **Transaction boundary.** `recordRaceBestTime` is pure and preserves unlocks, selected team, currency, story and all unrelated profile fields. `App` owns the sole save call and only adopts the new in-memory profile when persistence succeeds.
 - **Validation.** Tests cover legacy saves, team-specific records, faster/equal/slower laps, malformed prior records, invalid elapsed times, and no-op identity. Automated CI and device validation remain required.
+
+
+## Racing — require a full oval route
+
+- **Correction to the first finish-line slice.** A far-Z threshold alone allowed a straight drive and reverse to look like a lap. The tracker now requires a north-end turn on one side, a south-end turn on the opposite side, then a return crossing of the start/finish line.
+- **Source of geometry.** The start line, oval flank, south edge and axis are imported from the existing surveyed circus layout/collision constants. Checkpoints are pure and do not touch save state.
+- **Validation.** Tests reject near-start reversals, straight shortcuts, and an early lane swap well before the southern curve; they cover both mirrored directions and require the opposite-side checkpoint near the surveyed south edge before the finish.

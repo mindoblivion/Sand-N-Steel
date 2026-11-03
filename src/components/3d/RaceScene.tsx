@@ -404,7 +404,7 @@ const RaceChariot: React.FC<{
 
     if (racing) {
       advanceChariot(motion, input, delta, launchAccelScale(launch, elapsedSinceGoMs));
-      const lap = advanceRaceLap(lapTracker.current, motion.z);
+      const lap = advanceRaceLap(lapTracker.current, { x: motion.x, z: motion.z });
       lapTracker.current = lap.tracker;
       if (lap.finishedNow) onFinish();
     }
