@@ -215,7 +215,13 @@ export async function runAccountDeletion(
   await steps.deleteUser();
 
   // 4. This device's local saves — only now that the account is gone.
-  const localDataErased = steps.eraseLocalData();
+  let localDataErased = false;
+  try {
+    localDataErased = steps.eraseLocalData();
+  } catch {
+    // The account is already gone; report the local wipe as unverified rather
+    // than throwing and leaving the UI in its pre-deletion state.
+  }
 
   // 5. Sign out. The account is already deleted, so a hiccup here is not a failure
   //    and must never be reported as one.

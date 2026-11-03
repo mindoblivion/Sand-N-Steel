@@ -90,7 +90,6 @@ function recordingSteps(overrides: Partial<DeletionSteps> = {}) {
     },
     eraseLocalData: () => {
       calls.push('eraseLocalData');
-      return true;
     },
     signOut: async () => {
       calls.push('signOut');
@@ -104,7 +103,7 @@ function recordingSteps(overrides: Partial<DeletionSteps> = {}) {
 const authError = (codeName: string) => Object.assign(new Error(codeName), { code: codeName });
 
 /** Run `body` with a throwaway `localStorage`, restoring whatever was there. */
-function withFakeLocalStorage<T>(store: { removeItem: (key: string) => void; getItem: (key: string) => string | null }, body: () => T): T {
+function withFakeLocalStorage<T>(store: { removeItem: (key: string) => void }, body: () => T): T {
   const globalStore = globalThis as { localStorage?: unknown };
   const original = globalStore.localStorage;
   globalStore.localStorage = store;
@@ -193,12 +192,6 @@ describe('A. The deletion contract — the one safe order', () => {
     expect(calls).not.toContain('eraseLocalData');
   });
 
-  test('account deletion completes but reports an unverified local wipe', async () => {
-    const { steps } = recordingSteps({ eraseLocalData: () => false });
-    const outcome = await runAccountDeletion(steps, { deleteDriveSave: false });
-    expect(outcome).toEqual({ accountDeleted: true, driveSaveDeleted: false, localDataErased: false });
-  });
-
   test('a sign-out hiccup cannot turn a completed deletion into a failure', async () => {
     const { steps, calls } = recordingSteps({
       signOut: async () => {
@@ -217,7 +210,7 @@ describe('A. The deletion contract — the one safe order', () => {
 describe('B. The device wipe — one key, and nothing else', () => {
   test('it removes the save key and only the save key', () => {
     const removed: string[] = [];
-    expect(eraseLocalDeviceData((key) => { removed.push(key); return true; })).toBe(true);
+    eraseLocalDeviceData((key) => removed.push(key));
 
     expect(removed).toEqual([SAVE_KEY]);
     expect(removed).not.toContain(SETTINGS_KEY);
@@ -228,12 +221,8 @@ describe('B. The device wipe — one key, and nothing else', () => {
 
   test('the default wipe goes through the device\'s own localStorage', () => {
     const removed: string[] = [];
-    withFakeLocalStorage({ removeItem: (key) => removed.push(key), getItem: () => null }, () => eraseLocalDeviceData());
+    withFakeLocalStorage({ removeItem: (key) => removed.push(key) }, () => eraseLocalDeviceData());
     expect(removed).toEqual([SAVE_KEY]);
-  });
-
-  test('a silent storage failure is reported as an incomplete wipe', () => {
-    expect(eraseLocalDeviceData(() => false)).toBe(false);
   });
 
   test('a browser that refuses storage cannot break the wipe', () => {
@@ -243,9 +232,8 @@ describe('B. The device wipe — one key, and nothing else', () => {
           removeItem: () => {
             throw new Error('storage denied');
           },
-          getItem: () => 'still saved',
         },
-        () => expect(eraseLocalDeviceData()).toBe(false),
+        () => eraseLocalDeviceData(),
       ),
     ).not.toThrow();
   });
@@ -435,8 +423,7 @@ describe('E. The public surfaces', () => {
     expect(app).toContain('<DeleteAccountModal');
     expect(app).toContain('providerIds: authUser.providerData.map((provider) => provider.providerId)');
     // Success drops App's own profile state and returns to the title.
-    expect(app).toContain('localDataErased');
-    expect(app).not.toContain('handleResetGame();');
+    expect(app).toContain('handleResetGame();');
   });
 
   test('the title screen carries the policy link as well', () => {
@@ -452,8 +439,6 @@ describe('E. The public surfaces', () => {
     expect(dialog).not.toContain('googleDrive');
     expect(dialog).toContain('deleteSignedInAccount');
     expect(dialog).toContain('deletionErrorMessage(e)');
-    expect(dialog).toContain('outcome?.localDataErased');
-    expect(dialog).toContain('could not confirm that its saved gladiator was erased');
     expect(dialog).not.toContain('e.message');
     expect(dialog).not.toContain('window.confirm');
     // The opt-in is a real checkbox-shaped control, and it is the ONLY thing that
