@@ -337,7 +337,7 @@ The CI signature check covers whether the bundle is signed, **not** whether Play
   `keystore.properties` existed — so it cannot be uploaded; a signed one still comes from the CI
   workflow or your machine. That scratch container is not part of the dev stack: the `web`
   service still has no JDK, and nothing in `docker-compose.base44.yml` builds Android.
-- **Not verified here:** anything on a physical device (touch feel, HUD, frame rate).
+- **Physical-device rehearsal verified (Samsung, 2026-11-03):** the owner installed the workflow-generated rehearsal APK, launched Sand & Steel, walked around the Roman city, and reported that the game looked good, played well, and had no crashes or freezes during the smoke test. The owner also reported substantially better playability than the Base44 preview. This is a successful initial install/launch/gameplay smoke test, **not** exhaustive acceptance: save persistence/restore, arena entry, orientation edge cases, app lifecycle, offline behavior, long sessions, frame-rate measurements, and other Android models remain unverified. The rehearsal APK is throwaway-signed and must never be uploaded to Play Console.
 
 - **Workflow structure verified 2026-10-30 (AR-3), without dispatching a run.** The workflow YAML
   parses, and every `run:` block passes `bash -n`. `bun test` covers the trigger matrix (the jobs'
