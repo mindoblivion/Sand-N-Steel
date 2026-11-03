@@ -4,6 +4,7 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { FighterAction, FighterState } from '../../types/game';
+import { getEnemyCharacterAsset } from '../../data/enemyCharacterAssets';
 import { TELEGRAPH_GLOW_COLOR, telegraphGlowIntensity } from '../../utils/bossPresentation';
 import { getGladiatorBodyRigProfile } from '../../utils/gladiatorBodyRig';
 import { getBodyDamageProfile } from '../../utils/injuryAppearance';
@@ -1756,15 +1757,7 @@ class GLTFErrorBoundary extends React.Component<
 
 // 4. Main GladiatorMesh Component
 export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef, impactRef, telegraphGlow, feetTell }: GladiatorMeshProps) => {
-  const modelUrl = fighter.characterModel === 'amazonian'
-    ? '/models/amazonian.glb'
-    : fighter.characterModel === 'retiarius'
-    ? '/models/netfighter.glb'
-    : fighter.characterModel === 'minotaur'
-    ? '/models/minotaur.glb'
-    : fighter.characterModel === 'dimachaerus'
-    ? '/models/dimachaerus.glb'
-    : '/models/arena_roman.glb';
+  const modelUrl = getEnemyCharacterAsset(fighter.characterModel);
   const isGlbAvailable = useGlbAvailability(modelUrl);
   const [loadFailed, setLoadFailed] = useState(false);
 
