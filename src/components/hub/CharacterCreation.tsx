@@ -70,7 +70,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
   /** The build's delta — applied before allocation, so it moves the stat floor. */
   const buildDelta = buildStatDelta(corpus.build);
   const selectedProvinceName = PROVINCES.find((row) => row.id === corpus.origo)?.name ?? 'None';
-  const selectedVitiumName = VITIA.find((row) => row.id === corpus.vitium)?.name ?? 'None';
+  const selectedVitiumName = VITIA.find((row) => row.id === corpus.vitium)?.name ?? 'No flaw';
 
   const appearance: PlayerAppearance = {
     bodyWeightLb,
