@@ -41,6 +41,7 @@ interface CharacterCreationProps {
 
 export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, authError, onOpenSettings }) => {
   const [name, setName] = useState('Spartacus');
+  const [bodyWeightLb, setBodyWeightLb] = useState(180);
   /**
    * CH-2 — the class is chosen here and the LOOK is chosen beside it; the two are
    * independent.  `selectArmatura` / `selectCharacterModel` are the only two
@@ -70,6 +71,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
   const buildDelta = buildStatDelta(corpus.build);
 
   const appearance: PlayerAppearance = {
+    bodyWeightLb,
     skinColor,
     hairColor: '#3e2723',
     tunicColor,
@@ -225,6 +227,30 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               className="w-full bg-neutral-950 border border-amber-600/60 rounded-xl px-4 py-2.5 text-amber-100 font-serif font-bold text-sm focus:outline-none focus:border-amber-400"
               maxLength={20}
             />
+          </div>
+
+          {/* BODY WEIGHT — affects attack impact, never weapon eligibility. */}
+          <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-4">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <label htmlFor="gladiator-body-weight" className="text-xs font-serif uppercase tracking-wider text-amber-300">
+                Body Weight
+              </label>
+              <span className="text-sm font-serif font-bold text-amber-100 tabular-nums">{bodyWeightLb} lb</span>
+            </div>
+            <input
+              id="gladiator-body-weight"
+              type="range"
+              min={140}
+              max={300}
+              step={5}
+              value={bodyWeightLb}
+              onChange={(event) => setBodyWeightLb(Number(event.target.value))}
+              className="w-full min-h-[44px] accent-amber-500"
+              aria-describedby="gladiator-weight-guidance"
+            />
+            <p id="gladiator-weight-guidance" className="text-[11px] leading-relaxed text-neutral-400">
+              Lighter builds favor quicker attacks; heavier builds trade speed for greater impact. Strength—not weight—governs weapon requirements.
+            </p>
           </div>
 
           {/* CH-2 — THE ARMATURA PICKER.  Seven cards rendered from `data/armaturae.ts`
