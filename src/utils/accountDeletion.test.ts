@@ -51,7 +51,7 @@ import {
   type DeletionSteps,
   type SignedInUserSummary,
 } from '../services/accountDeletion';
-import { PROFILE_STORAGE_KEY } from '../services/storage';
+import { PROFILE_QUARANTINE_KEY, PROFILE_STORAGE_KEY } from '../services/storage';
 import { PUBLIC_PAGE_PATHS, resolvePublicPage } from '../components/legal/publicPages';
 import {
   DELETION_IN_APP_PATH,
@@ -72,8 +72,9 @@ const load = (rel: string): string => readFileSync(new URL(rel, import.meta.url)
 /** A source with its comments stripped, so prose can neither satisfy nor defeat a check. */
 const code = (rel: string): string => load(rel).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
-/** The saved profile this flow must know about — and the ONLY local key it may touch. */
+/** The local gladiator save and its unreadable-save quarantine; both are account data. */
 const SAVE_KEY = 'sand_and_steel_gladiator_save_v2';
+const QUARANTINE_KEY = 'sand_and_steel_gladiator_save_v2_quarantine';
 const SETTINGS_KEY = 'sand_and_steel_settings_v1';
 
 /** A recording set of deletion steps: the order they ran in, and nothing real. */
@@ -247,17 +248,18 @@ describe('B. The device wipe — one key, and nothing else', () => {
     const removed: string[] = [];
     expect(eraseLocalDeviceData((key) => { removed.push(key); return true; })).toBe(true);
 
-    expect(removed).toEqual([SAVE_KEY]);
+    expect(removed).toEqual([SAVE_KEY, QUARANTINE_KEY]);
     expect(removed).not.toContain(SETTINGS_KEY);
-    expect(LOCAL_SAVE_KEYS).toEqual([PROFILE_STORAGE_KEY]);
-    expect(LOCAL_SAVE_KEYS.length).toBe(1);
+    expect(LOCAL_SAVE_KEYS).toEqual([PROFILE_STORAGE_KEY, PROFILE_QUARANTINE_KEY]);
+    expect(LOCAL_SAVE_KEYS.length).toBe(2);
     expect(PROFILE_STORAGE_KEY).toBe(SAVE_KEY);
+    expect(PROFILE_QUARANTINE_KEY).toBe(QUARANTINE_KEY);
   });
 
   test('the default wipe goes through the device\'s own localStorage', () => {
     const removed: string[] = [];
     withFakeLocalStorage({ removeItem: (key) => removed.push(key), getItem: () => null }, () => eraseLocalDeviceData());
-    expect(removed).toEqual([SAVE_KEY]);
+    expect(removed).toEqual([SAVE_KEY, QUARANTINE_KEY]);
   });
 
   test('a silent storage failure is reported as an incomplete wipe', () => {
@@ -278,11 +280,12 @@ describe('B. The device wipe — one key, and nothing else', () => {
     ).not.toThrow();
   });
 
-  test('both of the game\'s erase paths name the same single key', () => {
-    // The guest row reaches the game's existing reset, and the deletion flow reaches
-    // this contract's wipe; both must remove the same one key and nothing else.
+  test('the account wipe includes both the active save and quarantined save copy', () => {
+    // The unreadable-save quarantine contains original gladiator bytes and must be
+    // erased with the active profile; preferences remain a separate record.
     expect(code('../services/storage.ts')).toContain('localStorage.removeItem(PROFILE_STORAGE_KEY)');
     expect(code('../services/accountDeletion.ts')).toContain('LOCAL_SAVE_KEYS');
+    expect(code('../services/accountDeletion.ts')).toContain('PROFILE_QUARANTINE_KEY');
     expect(code('../components/hub/SettingsModal.tsx')).toContain('onEraseDeviceData');
   });
 });
