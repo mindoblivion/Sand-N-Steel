@@ -8843,4 +8843,4 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 
 - **Correction to the first finish-line slice.** A far-Z threshold alone allowed a straight drive and reverse to look like a lap. The tracker now requires a north-end turn on one side, a south-end turn on the opposite side, then a return crossing of the start/finish line.
 - **Source of geometry.** The start line, oval flank, south edge and axis are imported from the existing surveyed circus layout/collision constants. Checkpoints are pure and do not touch save state.
-- **Validation.** Tests reject near-start reversals and straight shortcuts, cover both mirrored directions, and require the opposite-side south checkpoint before the finish.
+- **Validation.** Tests reject near-start reversals, straight shortcuts, and an early lane swap well before the southern curve; they cover both mirrored directions and require the opposite-side checkpoint near the surveyed south edge before the finish.
