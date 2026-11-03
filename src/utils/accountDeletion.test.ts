@@ -193,6 +193,21 @@ describe('A. The deletion contract — the one safe order', () => {
     expect(calls).not.toContain('eraseLocalData');
   });
 
+  test('a failed account deletion after Drive removal reports the partial result and preserves local data', async () => {
+    const { steps, calls } = recordingSteps({
+      deleteUser: async () => {
+        calls.push('deleteUser');
+        throw authError('auth/network-request-failed');
+      },
+    });
+    const error = await runAccountDeletion(steps, { deleteDriveSave: true }).catch((value) => value as { code?: string });
+    expect(error.code).toBe('account-deletion/drive-save-deleted-account-remains');
+    expect(deletionErrorMessage(error)).toContain('Your Google Drive backup was deleted');
+    expect(deletionErrorMessage(error)).toContain('your account was not');
+    expect(calls).toEqual(['reauthenticate', 'deleteDriveSave', 'deleteUser']);
+    expect(calls).not.toContain('eraseLocalData');
+  });
+
   test('account deletion completes but reports an unverified local wipe', async () => {
     const { steps } = recordingSteps({ eraseLocalData: () => false });
     const outcome = await runAccountDeletion(steps, { deleteDriveSave: false });
