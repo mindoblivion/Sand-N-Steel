@@ -1043,6 +1043,8 @@ export interface LudiProgress {
 }
 
 export interface PlayerProfile {
+  /** Persistent body mass in pounds; independent of weapon eligibility. Legacy saves default to 180 lb. */
+  weight?: number;
   name: string;
   title: string;
   rank: 'Rookie' | 'Veteran' | 'Champion' | 'Legend';
