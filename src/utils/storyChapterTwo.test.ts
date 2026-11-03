@@ -313,7 +313,8 @@ describe('§D the race gate resolves "not yet" and holds the chapter open', () =
       racing: { unlocked: [3, 4], selected: 4 },
     } as unknown as PlayerProfile;
     expect(gateOfChapter(racer, 2, 'district-race').state).toBe('pending');
-    // The race scene's finish-line API is still uncalled by any production source.
+    // The finish API is now called by the race scene, but completion remains
+    // presentation-only: it does not write story evidence or a saved race record.
     const finishCallers = readdirSync(SRC_DIR, { recursive: true })
       .map(String)
       .filter((entry) => /\.(ts|tsx)$/.test(entry) && !/\.test\.tsx?$/.test(entry))
@@ -321,7 +322,7 @@ describe('§D the race gate resolves "not yet" and holds the chapter open', () =
         const text = readFileSync(join(SRC_DIR, entry), 'utf8');
         return /finishRace\s*\(/.test(text) && !/export function finishRace/.test(text);
       });
-    expect(finishCallers).toEqual([]);
+    expect(finishCallers).toEqual(['components/3d/RaceScene.tsx']);
   });
 });
 
