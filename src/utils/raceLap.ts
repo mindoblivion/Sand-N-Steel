@@ -32,7 +32,7 @@ export const RACE_FINISH_LINE_Z = CIRCUS_RACE_START.z;
 /** Past the oval's straight-flank start, into the north sphendone. */
 export const RACE_NORTH_TURN_Z = CIRCUS_OVAL_START_Z - 5;
 /** The racer must reach the southern curve before the finish line. */
-export const RACE_SOUTH_TURN_Z = CIRCUS_SOUTH_Z - 18;
+export const RACE_SOUTH_TURN_Z = CIRCUS_SOUTH_Z - 3;
 /** Minimum lateral offset from the surveyed axis to count as rounding a turn. */
 export const RACE_TURN_LANE_OFFSET = 7.5;
 
