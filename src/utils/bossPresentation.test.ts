@@ -605,9 +605,9 @@ describe('CF-6 §D — the phase switch', () => {
     expect(ctx.filters).toHaveLength(0);
   });
 
-  test('it is called once, inside the phase-switch effect, for the boss only', () => {
-    expect((DUEL_SCENE.match(/sounds\.playWeaponDraw\(\)/g) ?? []).length).toBe(1);
+  test('the phase-switch effect calls the draw once, for the boss only', () => {
     const effect = DUEL_SCENE.slice(DUEL_SCENE.indexOf('phaseSwitchedRef.current = true;'));
+    expect((effect.match(/sounds\.playWeaponDraw\(\)/g) ?? []).length).toBe(1);
     expect(effect).toContain('sounds.playWeaponDraw();');
     const gate = effect.indexOf("if (bossPresentsMoment(opponent, 'phase_weapon_switch'))");
     expect(gate).toBeGreaterThan(-1);
