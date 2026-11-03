@@ -354,11 +354,13 @@ export function saveProfile(profile: PlayerProfile): boolean {
   }
 }
 
-export function clearSavedProfile(): void {
+export function clearSavedProfile(): boolean {
   try {
     localStorage.removeItem(PROFILE_STORAGE_KEY);
+    return localStorage.getItem(PROFILE_STORAGE_KEY) === null;
   } catch (e) {
     console.error('Failed to clear profile:', e);
+    return false;
   }
 }
 
