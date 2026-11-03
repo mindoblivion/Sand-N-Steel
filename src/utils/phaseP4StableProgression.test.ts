@@ -815,12 +815,12 @@ describe('P4 §G — the exclusions hold', () => {
     expect(components).toEqual(['/App.tsx', '/components/hub/StablePanel.tsx']);
   });
 
-  test('the racing state shape is untouched: still unlocked + selected, and nothing new stored', () => {
+  test('racing adds only the optional best-time record alongside unlocks and selection', () => {
     const start = GAME_TYPES.indexOf('export interface RacingProgression {');
     const body = GAME_TYPES.slice(start, GAME_TYPES.indexOf('}', start));
     const fields = [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\??:/gm)].map((match) => match[1]);
-    expect(fields).toEqual(['unlocked', 'selected']);
-    // The racing module gained nothing from this phase.
+    expect(fields).toEqual(['unlocked', 'selected', 'bestTimes']);
+    // The stable module adds no stable-specific fields to racing.
     for (const token of ['quality', 'conditioning', 'stableTeamSize']) {
       expect(RACING.includes(token), token).toBe(false);
     }
