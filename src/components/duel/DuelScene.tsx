@@ -53,7 +53,7 @@ import {
   readCrowdHypeState,
 } from '../../utils/crowdDynamics';
 import { getWeaponByType } from '../../data/itemsDB';
-import { getWeightCombatProfile, scalePlayerAttackResolutionMs } from '../../utils/gladiatorWeight';
+import { getWeightCombatProfile } from '../../utils/gladiatorWeight';
 import {
   getWeaponRange,
   getStaminaCost,
@@ -2044,7 +2044,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               isBlocked,
               blockReduction,
               rageMult,
-              traitMult * (isActorPlayer ? getWeightCombatProfile(playerProfile.weight).impactMultiplier : 1),
+              traitMult * (isActorPlayer ? getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).impactMultiplier : 1),
             );
 
             // CF-5 — the same subtraction the damage branch below applies, read
