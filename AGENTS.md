@@ -8852,8 +8852,9 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Merged fixes.**
   - PR #247: non-zero bottom safe-area fallback for city touch controls.
   - PR #248: compact city HUD labels/counters on short landscape viewports while preserving access to actions.
-  - PR #250: correct city player facing yaw for the Roman rig's local −Z forward axis; movement vector/speed/collision logic unchanged. Cardinal and diagonal regression tests added.
+  - PR #250 / PR #255: extracted and regression-tested city facing math. A deeper camera audit caught that the shipped convention is local +Z forward (yaw 0), with the chase camera at player position minus the forward vector; PR #255 corrects the interim −Z assumption and locks the matching `atan2(dx, dz)` mapping. Subjective movement feel remains unverified on device.
   - PR #251: constrain the app root on short landscape touch viewports so the scene cannot paint under the bottom Android navigation/gesture region.
+  - PR #255: camera-convention correction for player facing passed the same full CI gates; do not call movement feel resolved until physical gameplay acceptance.
   - PR #252: compact combat HUD on short landscape viewports; preserve health/stamina, crowd hype, tactical values, 48px touch targets, and accessible names.
   - PR #253: move Armor & Leather Workshop fast-travel arrival from the south side to a one-step standoff on the north-arch side; building geometry, collider, interaction center, and radius unchanged. Hub-arrival/collision harness expectations updated.
 - **Validation.** All required PR checks passed for these changes: unit/surface tests, TypeScript, city collision and route harnesses, combat harness, and production build. The merged main environment gate also passed after PR #253.
