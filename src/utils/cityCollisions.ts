@@ -523,7 +523,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'bibliotheca',
     name: 'Bibliotheca',
     subtitle: 'Grand Library',
-    position: [12, 0, 30],
+    position: [18, 0, 30],
     radius: 6,
     icon: 'BookOpen',
     actionPrompt: 'Enter Library',
@@ -861,7 +861,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
     CIRCUS_RACE_ENTRY.x, CIRCUS_RACE_ENTRY.z - 2],
   forum:               [15, 27],
   macellum:            [-5, 28],
-  bibliotheca:         [12, 23],
+  bibliotheca:         [18, 23],
   pistrinum: [-20, 25],  
   triumphal_arch:      [5, 34],
 };
