@@ -498,7 +498,7 @@ describe('E. Walkability, collision and navigation are untouched', () => {
     const hub = HUB_LOCATIONS.find((h) => h.id === 'armor_workshop');
     expect(hub?.position).toEqual([28.2, 0, 1]);
     expect(hub?.radius).toBe(4.5);
-    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, 5.5]);
+    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, -3.55]);
     // a standable point north of the plinth still raises the workshop's own prompt
     expect(getNearbyHubLocation([28.2, 0, 4.25])?.id).toBe('armor_workshop');
   });
