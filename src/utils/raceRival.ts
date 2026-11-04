@@ -63,26 +63,27 @@ function routeFor(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
   const otherX = CIRCUS_AXIS_X + otherSide * LANE_OFFSET;
   const northZ = RACE_NORTH_TURN_Z;
   const southZ = RACE_SOUTH_TURN_Z;
-  const northApexZ = northZ - 5.5;
-  const southApexZ = CIRCUS_RACE_START.z + 1.0;
+  const northEntryZ = northZ - 1;
+  const northApexZ = northZ - 6.5;
+  const southExitZ = CIRCUS_RACE_START.z - 0.1;
   return [
     [startX, CIRCUS_RACE_START.z],
-    [startX, northZ],
+    [startX, northEntryZ],
     ...sampleCurve(
-      [startX, northZ],
+      [startX, northEntryZ],
       [startX, northApexZ],
       [otherX, northApexZ],
-      [otherX, northZ],
+      [otherX, northEntryZ],
     ),
-    [otherX, northZ],
+    [otherX, northEntryZ],
     [otherX, southZ],
     ...sampleCurve(
       [otherX, southZ],
-      [otherX, southApexZ],
-      [startX, southApexZ],
-      [startX, southZ],
+      [otherX, southZ + 0.55],
+      [startX, southExitZ - 0.55],
+      [startX, southExitZ],
     ),
-    [startX, southZ],
+    [startX, southExitZ],
     [startX, CIRCUS_RACE_START.z],
   ];
 }
