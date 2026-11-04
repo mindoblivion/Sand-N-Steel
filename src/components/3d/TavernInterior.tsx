@@ -239,7 +239,7 @@ function TavernRoom() {
   );
 }
 
-export function TavernInterior({ onExit }: { onExit: () => void }) {
+export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void; onOpenServices: () => void }) {
   return (
     <div className="fixed inset-0 z-[95] bg-[#1b100b] text-amber-100" role="dialog" aria-label="Roman tavern interior">
       <Canvas
@@ -274,6 +274,14 @@ export function TavernInterior({ onExit }: { onExit: () => void }) {
           <div className="text-xs text-amber-100/75">Wine, wagers, and stories from the sands</div>
         </div>
       </div>
+      <button
+        type="button"
+        onClick={onOpenServices}
+        className="absolute left-3 top-3 z-10 min-h-12 rounded-xl border border-amber-200/40 bg-stone-950/90 px-4 text-sm font-bold text-amber-100 shadow-xl hover:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-300"
+        aria-label="Talk to the tavern keeper"
+      >
+        Rumours &amp; Games
+      </button>
       <button
         type="button"
         onClick={onExit}
