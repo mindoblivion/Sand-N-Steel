@@ -4,11 +4,12 @@ import { readFileSync } from 'node:fs';
 
 const css = readFileSync('src/index.css', 'utf8');
 const city = readFileSync('src/components/3d/city/CityHubScene.tsx', 'utf8');
+const html = readFileSync('index.html', 'utf8');
 
 describe('mobile city safe-area layout', () => {
   test('defines a non-zero fallback when Android reports no bottom safe-area inset', () => {
     expect(css).toContain('--hub-safe-bottom: max(env(safe-area-inset-bottom, 0px), 1.5rem);');
-    expect(css).toContain('viewport-fit=cover');
+    expect(html).toContain('viewport-fit=cover');
   });
 
   test('keeps joystick and action controls above the district footer and system navigation region', () => {
