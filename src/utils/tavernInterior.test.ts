@@ -10,7 +10,7 @@ describe('immersive Roman tavern scene', () => {
   test('the tavern is a separate, lazy-loaded full-screen scene', () => {
     expect(app).toContain("const TavernInterior = React.lazy(() => import('./components/3d/TavernInterior').then((m) => ({ default: m.TavernInterior })));");
     expect(app).toContain('{currentScreen === \'city_3d\' && tavernOpen && (');
-    expect(app).toContain('movementLocked={!!oathBeatMode || tavernOpen}');
+    expect(app).toContain('movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen}');
     expect(app).toContain('<TavernInterior onExit={() => setTavernOpen(false)}');
     expect(city).toContain("onEnterTavern(() => {");
   });
