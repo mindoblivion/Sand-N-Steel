@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
 import {
   RomanGabledRoof,
@@ -43,9 +45,119 @@ const MarketStall: React.FC<StallProps> = ({ position, awningColor }) => {
   );
 };
 
-export const ForumFountain = React.memo(() => {
+/**
+ * Animated flowing water stream — a vertical cylinder with scrolling opacity
+ * to simulate falling water. Cheap, mobile-friendly, no shaders.
+ */
+const WaterStream: React.FC<{
+  position: [number, number, number];
+  height: number;
+  radius?: number;
+}> = ({ position, height, radius = 0.08 }) => {
+  const ref = useRef<THREE.Mesh>(null);
+
+  useFrame((state) => {
+    if (ref.current) {
+      const mat = ref.current.material as THREE.MeshStandardMaterial;
+      // Animate opacity to simulate flowing water
+      mat.opacity = 0.5 + 0.2 * Math.sin(state.clock.elapsedTime * 8 + position[0]);
+    }
+  });
+
   return (
-    <group position={[0, 0,31}>
+    <mesh ref={ref} position={position} castShadow={false}>
+      <cylinderGeometry args={[radius, radius * 1.3, height, 8]} />
+      <meshStandardMaterial
+        color="#7ec8e3"
+        transparent
+        opacity={0.6}
+        roughness={0.1}
+        metalness={0.1}
+      />
+    </mesh>
+  );
+};
+
+/**
+ * Arcing water jet — from the central column outward to the basin.
+ * Uses a curved tube for the arc shape.
+ */
+const WaterArc: React.FC<{
+  start: [number, number, number];
+  end: [number, number, number];
+}> = ({ start, end }) => {
+  const ref = useRef<THREE.Mesh>(null);
+
+  const curve = React.useMemo(() => {
+    const s = new THREE.Vector3(...start);
+    const e = new THREE.Vector3(...end);
+    const mid = s.clone().lerp(e, 0.5);
+    mid.y += 0.8; // Arc peak
+    return new THREE.QuadraticBezierCurve3(s, mid, e);
+  }, [start, end]);
+
+  useFrame((state) => {
+    if (ref.current) {
+      const mat = ref.current.material as THREE.MeshStandardMaterial;
+      mat.opacity = 0.45 + 0.15 * Math.sin(state.clock.elapsedTime * 6 + start[0] * 2);
+    }
+  });
+
+  return (
+    <mesh ref={ref} castShadow={false}>
+      <tubeGeometry args={[curve, 12, 0.06, 6, false]} />
+      <meshStandardMaterial
+        color="#8ed6f2"
+        transparent
+        opacity={0.5}
+        roughness={0.1}
+      />
+    </mesh>
+  );
+};
+
+/**
+ * Splash particles — small spheres at the water impact points, bobbing.
+ */
+const Splash: React.FC<{ position: [number, number, number] }> = ({ position }) => {
+  const ref = useRef<THREE.Group>(null);
+
+  useFrame((state) => {
+    if (ref.current) {
+      ref.current.children.forEach((child, i) => {
+        const t = state.clock.elapsedTime * 3 + i * 1.5;
+        child.position.y = Math.abs(Math.sin(t)) * 0.25;
+        const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+        mat.opacity = 0.7 - 0.3 * Math.abs(Math.sin(t));
+      });
+    }
+  });
+
+  return (
+    <group ref={ref} position={position}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <mesh key={i} position={[(Math.random() - 0.5) * 0.4, 0, (Math.random() - 0.5) * 0.4]} castShadow={false}>
+          <sphereGeometry args={[0.05, 6, 6]} />
+          <meshStandardMaterial color="#b8e6f5" transparent opacity={0.7} roughness={0.1} />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
+export const ForumFountain: React.FC = () => {
+  const waterRef = useRef<THREE.Mesh>(null);
+
+  // Gentle ripple on the basin water surface
+  useFrame((state) => {
+    if (waterRef.current) {
+      const s = 1 + 0.02 * Math.sin(state.clock.elapsedTime * 2);
+      waterRef.current.scale.set(s, s, 1);
+    }
+  });
+
+  return (
+    <group position={[0, 0, 31]}>
       {/* Stone plaza */}
       <mesh receiveShadow position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[7, 24]} />
@@ -54,18 +166,39 @@ export const ForumFountain = React.memo(() => {
       {/* Fountain basin */}
       <mesh castShadow receiveShadow position={[0, 0.6, 0]}>
         <cylinderGeometry args={[2.2, 2.5, 1.2, 16]} />
-        <meshStandardMaterial color="#ebdcb9" roughness={0.6} bumpMap={NOISE_TEXTURE || undefined} bumpScale={0.012} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.6} />
       </mesh>
-      {/* Water disc */}
-      <mesh position={[0, 1.15, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      {/* Water surface with ripple */}
+      <mesh ref={waterRef} position={[0, 1.15, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[1.9, 16]} />
-        <meshStandardMaterial color="#4a90d9" roughness={0.2} metalness={0.3} transparent opacity={0.8} />
+        <meshStandardMaterial color="#4a90d9" roughness={0.2} metalness={0.3} transparent opacity={0.85} />
       </mesh>
       {/* Central column */}
       <mesh castShadow position={[0, 1.8, 0]}>
         <cylinderGeometry args={[0.3, 0.4, 1.5, 12]} />
         <meshStandardMaterial color="#d4a373" roughness={0.6} />
       </mesh>
+      {/* Top bowl */}
+      <mesh castShadow position={[0, 2.7, 0]}>
+        <cylinderGeometry args={[0.8, 0.5, 0.4, 12]} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.6} />
+      </mesh>
+
+      {/* FLOWING WATER */}
+      {/* Central vertical stream from top bowl */}
+      <WaterStream position={[0, 2.2, 0]} height={1.0} radius={0.1} />
+      {/* Four arcing jets from top bowl to basin */}
+      <WaterArc start={[0.5, 2.7, 0]} end={[1.5, 1.2, 0]} />
+      <WaterArc start={[-0.5, 2.7, 0]} end={[-1.5, 1.2, 0]} />
+      <WaterArc start={[0, 2.7, 0.5]} end={[0, 1.2, 1.5]} />
+      <WaterArc start={[0, 2.7, -0.5]} end={[0, 1.2, -1.5]} />
+      {/* Splashes where water hits the basin */}
+      <Splash position={[1.5, 1.2, 0]} />
+      <Splash position={[-1.5, 1.2, 0]} />
+      <Splash position={[0, 1.2, 1.5]} />
+      <Splash position={[0, 1.2, -1.5]} />
+      <Splash position={[0, 1.7, 0]} />
+
       {/* Benches */}
       {[[4, 2], [-4, 2], [4, -2], [-4, -2]].map(([x, z], i) => (
         <mesh key={i} castShadow receiveShadow position={[x, 0.3, z]}>
@@ -75,7 +208,7 @@ export const ForumFountain = React.memo(() => {
       ))}
     </group>
   );
-});
+};
 
 export const MacellumMarket = React.memo(() => {
   return (
@@ -154,7 +287,7 @@ export const PistrinumBakery = React.memo(() => {
 
 export const TriumphalArch = React.memo(() => {
   return (
-    <group position={[0, 0,35}>
+    <group position={[0, 0, 35]}>
       {/* Two piers — walk-through gap between them */}
       {[-2.5, 2.5].map((x) => (
         <group key={x} position={[x, 0, 0]}>
