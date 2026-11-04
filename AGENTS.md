@@ -8844,3 +8844,20 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Correction.** A single north checkpoint plus a south lane swap can still count a half-lap. The tracker now captures the opening lane on the start straight, requires a lane change at the north curve, then requires a change back at the southern curve, followed by a finish-line crossing.
 - **Source of geometry.** Start line, oval flank, south edge and axis come from the existing surveyed circus geometry/collision constants. The pure tracker does not touch save state.
 - **Validation.** Tests reject reversals, half-laps, early south lane swaps and malformed samples; they cover both mirrored routes and a lane transition sampled across the centre strip.
+
+
+## Mobile playability recovery — 2026-11-04
+
+- **User-reported priorities.** Keep the game view out of Android system navigation controls; prevent clipped or oversized HUD text; reduce redundant HUD content; correct player movement feel; and verify city building spacing/collision routes.
+- **Merged fixes.**
+  - PR #247: non-zero bottom safe-area fallback for city touch controls.
+  - PR #248: compact city HUD labels/counters on short landscape viewports while preserving access to actions.
+  - PR #250 / PR #255: extracted and regression-tested city facing math. A deeper camera audit caught that the shipped convention is local +Z forward (yaw 0), with the chase camera at player position minus the forward vector; PR #255 corrects the interim −Z assumption and locks the matching `atan2(dx, dz)` mapping. Subjective movement feel remains unverified on device.
+  - PR #251: constrain the app root on short landscape touch viewports so the scene cannot paint under the bottom Android navigation/gesture region.
+  - PR #255: camera-convention correction for player facing passed the same full CI gates; do not call movement feel resolved until physical gameplay acceptance.
+  - PR #252: compact combat HUD on short landscape viewports; preserve health/stamina, crowd hype, tactical values, 48px touch targets, and accessible names.
+  - PR #253: move Armor & Leather Workshop fast-travel arrival from the south side to a one-step standoff on the north-arch side; building geometry, collider, interaction center, and radius unchanged. Hub-arrival/collision harness expectations updated.
+- **Validation.** All required PR checks passed for these changes: unit/surface tests, TypeScript, city collision and route harnesses, combat harness, and production build. The merged main environment gate also passed after PR #253.
+- **Unverified acceptance.** No physical Samsung device was attached to the development environment. Do not claim visual/device acceptance until the current Android build is tested on the user's phone in both gesture and three-button navigation modes, short landscape dimensions, and with HUD/interaction screenshots.
+- **Remaining city-layout task.** User reports buildings colliding. Existing source-level footprint/route tests cover the registered lower-step colliders and several previously corrected roof clearances, but they do not establish which visible structure is overlapping in the user's current build. A trial 2m workshop relocation was rejected and fully reverted after the existing detailed geometry tests showed the foundation gap alone did not prove a rendered intersection. Do not move buildings speculatively; isolate a reproducible visible overlap or blocked corridor, then update both rendered geometry and collision/route regression coverage.
+- **Next acceptance order.** (1) Install latest Android build and test system-bar overlap; (2) check city and combat HUD clipping/scale at real phone resolution; (3) test joystick cardinal/diagonal travel and facing against the camera; (4) inspect the reported building intersection and validate entrance approach/collision in-scene; (5) rerun the Android acceptance suite after any device-driven adjustments.
