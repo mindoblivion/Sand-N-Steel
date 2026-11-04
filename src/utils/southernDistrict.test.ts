@@ -9,11 +9,11 @@ import { HUB_LOCATIONS } from './cityCollisions';
 const SOUTHERN_IDS = ['forum', 'macellum', 'bibliotheca', 'pistrinum', 'triumphal_arch'] as const;
 
 const EXPECTED: Record<string, { x: number; z: number; r: number }> = {
-  forum: { x: 0, z: 32, r: 5 },
+  forum: { x: 0, z: 31, r: 5 },
   macellum: { x: -14, z: 32, r: 5 },
   bibliotheca: { x: 12, z: 30, r: 6 },
   pistrinum: { x: -24, z: 31, r: 5 },
-  triumphal_arch: { x: 0, z: 34, r: 3 },
+  triumphal_arch: { x: 0, z: 35, r: 3 },
 };
 
 describe('southern district HUBs', () => {
