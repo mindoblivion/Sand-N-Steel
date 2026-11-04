@@ -42,7 +42,7 @@ function sampleCurve(
   steps = 32,
 ): Array<readonly [number, number]> {
   const points: Array<readonly [number, number]> = [];
-  for (let i = 1; i <= steps; i += 1) {
+  for (let i = 1; i < steps; i += 1) {
     const t = i / steps;
     const u = 1 - t;
     points.push([
@@ -74,6 +74,7 @@ function routeFor(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
       [otherX, northApexZ],
       [otherX, northZ],
     ),
+    [otherX, northZ],
     [otherX, southZ],
     ...sampleCurve(
       [otherX, southZ],
@@ -81,6 +82,7 @@ function routeFor(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
       [startX, southApexZ],
       [startX, southZ],
     ),
+    [startX, southZ],
     [startX, CIRCUS_RACE_START.z],
   ];
 }
