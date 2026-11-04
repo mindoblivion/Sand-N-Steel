@@ -63,7 +63,7 @@
  *      its order-based tie-break) at every arrival and entrance, and the alley
  *      the old first-match rule answered wrongly;
  *   E. the thirteen unaffected hubs keep their radii, arrivals and selection;
- *   F. all 21 triggers are reachable and all 21 arrivals are collision-free and
+ *   F. all 26 triggers are reachable and all 26 arrivals are collision-free and
  *      lead to their own prompt, driven with the shipped resolver;
  *   G. everything the phase must not touch is unchanged — the Training Hall
  *      collider and its narrow passage, the C-8.43 widths, the Forge's 9.5,
@@ -679,11 +679,11 @@ describe('E. The unaffected radii and remaining arrivals still work', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-// F. All 21 triggers and all 21 arrivals
+// F. All 26 triggers and all 26 arrivals
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('F. Every trigger and every arrival', () => {
-  test('all 21 hub triggers are reachable: each arrival walks to its own prompt', () => {
+  test('all 26 hub triggers are reachable: each arrival walks to its own prompt', () => {
     const failures: string[] = [];
     for (const id of HUB_IDS) {
       const { result } = arrivalWalk(id);
