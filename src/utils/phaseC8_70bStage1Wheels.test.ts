@@ -54,6 +54,15 @@ describe('A. The wheels turn with the ground, not with the clock', () => {
     expect(CHARIOT_WHEEL_RADIUS).toBeCloseTo(0.685, 9);
   });
 
+  test('an equipped wheel can supply its measured radius without changing the stock default', () => {
+    const speed = 6;
+    const dt = 1 / 60;
+    const reinforcedRadius = 0.7025;
+    expect(advanceWheelRoll(0, speed, dt, reinforcedRadius)).toBeCloseTo(-(speed * dt) / reinforcedRadius, 12);
+    expect(advanceWheelRoll(0, speed, dt)).toBeCloseTo(-(speed * dt) / CHARIOT_WHEEL_RADIUS, 12);
+    expect(advanceWheelRoll(0, speed, dt, 0)).toBeCloseTo(-(speed * dt) / CHARIOT_WHEEL_RADIUS, 12);
+  });
+
   test('forward motion turns the wheels backwards about +X', () => {
     // The model's forward is −Z, and +X carries the crown toward +Z: rolling
     // forward is therefore a NEGATIVE change.
