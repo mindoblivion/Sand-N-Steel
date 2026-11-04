@@ -142,6 +142,18 @@ describe('A. The tier table — one row per preset', () => {
     expect(CITY_TIERS.cinematic.dpr.min).toBe(CITY_TIERS.balanced.dpr.max);
   });
 
+  test('shadow-map resolution descends with quality without disabling fighter or city shadows', () => {
+    expect(CITY_TIERS.cinematic.shadows).toBe(1024);
+    expect(CITY_TIERS.balanced.shadows).toBe(768);
+    expect(CITY_TIERS.swift.shadows).toBe(512);
+    expect(CITY_TIERS.cinematic.shadows).toBeGreaterThan(CITY_TIERS.balanced.shadows);
+    expect(CITY_TIERS.balanced.shadows).toBeGreaterThan(CITY_TIERS.swift.shadows);
+    expect(sceneCode).toContain('shadow-mapSize={[cityTier.shadows, cityTier.shadows]}');
+    expect(duelCode).toContain('shadow-mapSize={[CITY_TIERS[qualityPreset].shadows, CITY_TIERS[qualityPreset].shadows]}');
+    expect(sceneCode).toContain('castShadow');
+    expect(duelCode).toContain('castShadow');
+  });
+
   test('the dust budget descends with the tier, and Cinematic is the count the city had', () => {
     expect(CITY_TIERS.cinematic.sparkles).toBe(90);
     expect(CITY_TIERS.balanced.sparkles).toBe(60);
