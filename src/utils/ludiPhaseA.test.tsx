@@ -446,7 +446,7 @@ describe('LUDI C §C — deed completion inside the shipped save paths', () => {
     // The day's own district pays the deed — once — on top of the visit already recorded.
     const right = settleLudiDeeds(elsewhere.profile, { locationId: DAY12_DISTRICT });
     expect(right.completed.map((deed) => deed.id)).toEqual(['visit_hub']);
-    expect(right.completed[0].label).toBe('Visit the Arena Medical House.');
+    expect(right.completed[0].label).toBe('Visit the Triumphal Arch.');
     expect(resolveLudiProgress(right.profile).visitsToday).toEqual([OTHER_DISTRICT, DAY12_DISTRICT]);
     expect(right.profile.fame).toBe(start.fame + LUDI_DEED_FAME);
     expect(right.profile.gold).toBe(start.gold + LUDI_DEED_GOLD);
@@ -759,7 +759,7 @@ describe('LUDI I §I — the Acta card, Felix’s board section, the yard and th
     expect(html.match(/data-acta-deed=/g)?.length).toBe(LUDI_DEED_COUNT);
     expect(html).toContain('data-acta-deed="train" data-acta-deed-done="true"');
     // The visit deed names the district day 12's Acta asks for.
-    expect(html).toContain('Visit the Arena Medical House.');
+    expect(html).toContain('Visit the Triumphal Arch.');
     expect(html.match(/data-acta-deed-done="false"/g)?.length).toBe(LUDI_DEED_COUNT - 1);
     expect(html).toContain('done');
     expect(html).toContain('todo');
