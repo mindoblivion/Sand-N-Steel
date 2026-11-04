@@ -89,6 +89,20 @@
   }
 }
 
+/* ANDROID LANDSCAPE VIEWPORT — the WebView can report a full-height viewport while
+   Android draws its navigation/gesture bar over the bottom edge. The root must stop at
+   the safe boundary; otherwise its min-height:100dvh and fixed scene layers paint beneath
+   the system buttons even when the HUD itself has been moved up. The body background fills
+   the reserved strip. Touch controls already use --hub-safe-bottom. */
+@media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
+  #root {
+    height: calc(100dvh - var(--hub-safe-bottom));
+    min-height: 0;
+    max-height: calc(100dvh - var(--hub-safe-bottom));
+    overflow: hidden;
+  }
+}
+
 /* CITY HUD COMPACTION — preserve access to every action, but remove secondary text
    and counters on short landscape phone screens so the game view and touch controls
    have breathing room. Icons retain title/aria labels; desktop and tall layouts stay full. */
