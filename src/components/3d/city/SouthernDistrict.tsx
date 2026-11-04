@@ -45,7 +45,7 @@ const MarketStall: React.FC<StallProps> = ({ position, awningColor }) => {
 
 export const ForumFountain = React.memo(() => {
   return (
-    <group position={[0, 0, 30]}>
+    <group position={[0, 0, 32]}>
       {/* Stone plaza */}
       <mesh receiveShadow position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[7, 24]} />
@@ -79,7 +79,7 @@ export const ForumFountain = React.memo(() => {
 
 export const MacellumMarket = React.memo(() => {
   return (
-    <group position={[-12, 0, 30]}>
+    <group position={[-14, 0, 32]}>
       <BuildingFoundation size={[10, 8]} height={0.25} projection={0.2} />
       {/* Four market stalls with alternating awnings */}
       <MarketStall position={[-3, 0, -2]} awningColor="#991b1b" />
