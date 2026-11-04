@@ -38,6 +38,7 @@ import { nextBossKills } from './utils/bossKills';
 import { purchaseFacility, trainingCost, type FacilityId } from './utils/facilityProgression';
 import { purchaseTemper } from './utils/tempering';
 import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
+import { resolveChariotLoadout } from './utils/chariotLoadout';
 import { purchaseItem } from './utils/itemPurchase';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
 import { isTrainingActionScheduled } from './utils/trainingSchedule';
@@ -2341,6 +2342,7 @@ export function App() {
               frozen={settingsOpen}
               phase={resolveTimeState(profile).phase}
               teamSize={profile ? resolveRacingState(profile).horses : 2}
+              chariotLoadout={resolveChariotLoadout(profile).equipped}
               onRecordBestTime={handleRecordRaceBestTime}
             />
           </React.Suspense>
