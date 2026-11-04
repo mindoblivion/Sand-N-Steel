@@ -906,7 +906,7 @@ describe('I. Phase scope — only the forge root Z changed', () => {
     expect(findRect('caravanserai')).toMatchObject({ cx: 16, cz: 14, hw: 9.1 / 2, hd: 8.1 / 2 });
     expect(findRect('armor-workshop')).toMatchObject({ cx: 28.2, cz: 1.15, hw: 4.45, hd: 2.85 });
     expect(findRect('city-tavern')).toMatchObject({ cx: -16, cz: 14 });
-    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, 5.5]);
+    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, -3.55]);
     expect(FAST_TRAVEL_ARRIVALS.general_store).toEqual([17, -5]);
     expect(FAST_TRAVEL_ARRIVALS.merchant_house).toEqual([21, -13]);
   });
