@@ -181,3 +181,36 @@ export function getRaceRivalPose(
     progress,
   };
 }
+
+
+export interface RaceRivalOutcome {
+  outcome: 'victory' | 'defeat' | 'photo-finish';
+  marginMs: number;
+}
+
+/**
+ * Compare the player's validated finish with the rival's scheduled finish.
+ * A difference of one displayed tenth or less is reported as a photo finish.
+ * Invalid timings return null and can never create a false result.
+ */
+export function resolveRaceRivalOutcome(
+  playerElapsedMs: number,
+  rivalElapsedMs: number,
+): RaceRivalOutcome | null {
+  if (
+    !Number.isFinite(playerElapsedMs) ||
+    playerElapsedMs < 0 ||
+    !Number.isFinite(rivalElapsedMs) ||
+    rivalElapsedMs < 0
+  ) {
+    return null;
+  }
+
+  const difference = playerElapsedMs - rivalElapsedMs;
+  const marginMs = Math.abs(difference);
+  if (marginMs <= 100) return { outcome: 'photo-finish', marginMs };
+  return {
+    outcome: difference < 0 ? 'victory' : 'defeat',
+    marginMs,
+  };
+}
