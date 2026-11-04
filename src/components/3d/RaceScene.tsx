@@ -22,9 +22,10 @@ import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { SceneBrightness } from './SceneBrightness';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
 import {
-  CHARIOT_MODEL_SCALE, CHARIOT_MODEL_URL, CHARIOT_STOCK_WHEEL_NODES,
-  CHARIOT_WHEEL_KIT_URL, CHARIOT_WHEEL_VARIANTS, applyChariotFinish,
-  getChariotWheelPlacement,
+import { CHARIOT_MODEL_SCALE, CHARIOT_MODEL_URL } from '../../utils/chariotGeometry';
+import {
+  CHARIOT_STOCK_WHEEL_NODES, CHARIOT_WHEEL_KIT_URL, CHARIOT_WHEEL_VARIANTS,
+  applyChariotFinish, getChariotWheelPlacement,
 } from '../../utils/chariotGeometry';
 import { getChariotPart, getChariotPartByFinish } from '../../data/chariotParts';
 import type { ChariotEquippedResolved } from '../../types/game';
@@ -357,15 +358,15 @@ const RaceCameraRig: React.FC<{
  */
 /** The reinforced kit is loaded only when that wheel set is equipped. */
 const RaceKitWheelSet: React.FC<{ roll: React.MutableRefObject<number> }> = ({ roll }) => {
-  const gltf = useGLTF(CHARIOT_WHEEL_KIT_URL);
+  const wheelKitGltf = useGLTF(CHARIOT_WHEEL_KIT_URL);
   const wheels = useMemo(() => {
-    const source = gltf.scene.getObjectByName(CHARIOT_WHEEL_VARIANTS.reinforced.node);
+    const source = wheelKitGltf.scene.getObjectByName(CHARIOT_WHEEL_VARIANTS.reinforced.node);
     return (['left', 'right'] as const).map((side) => ({
       side,
       placement: getChariotWheelPlacement('reinforced', side),
       object: source ? source.clone(true) : null,
     }));
-  }, [gltf.scene]);
+  }, [wheelKitGltf.scene]);
   useFrame(() => {
     for (const wheel of wheels) if (wheel.object) wheel.object.rotation.z = roll.current;
   });
