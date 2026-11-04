@@ -511,7 +511,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'macellum',
     name: 'Macellum',
     subtitle: 'Food Market',
-    position: [-14, 0, 32],
+    position: [-8, 0, 33],
     radius: 5,
     icon: 'ShoppingBasket',
     actionPrompt: 'Browse Stalls',
