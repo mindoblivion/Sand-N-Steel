@@ -89,6 +89,26 @@
   }
 }
 
+/* CITY HUD COMPACTION — preserve access to every action, but remove secondary text
+   and counters on short landscape phone screens so the game view and touch controls
+   have breathing room. Icons retain title/aria labels; desktop and tall layouts stay full. */
+@media (orientation: landscape) and (max-height: 520px) {
+  [data-city-top-header="true"] {
+    padding: 0.35rem;
+    gap: 0.35rem;
+  }
+  .city-player-title,
+  .city-fame-counter,
+  .city-utility-label,
+  .city-footer-label {
+    display: none;
+  }
+  [data-city-footer="true"] [data-city-footer-item="true"] {
+    min-width: 0;
+    padding-inline: 0.25rem;
+  }
+}
+
 /* SHORT-LANDSCAPE COMBAT HUD (e.g. 812x375, or a desktop window squashed flat).
    The duel HUD stacks a utility bar, the two vital cards, the crowd meter and the
    tactic dashboard: ~400px of content in a ~375px-tall viewport, which pushes the
