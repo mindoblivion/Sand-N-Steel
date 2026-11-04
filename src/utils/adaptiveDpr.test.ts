@@ -72,11 +72,13 @@ const code = (source: string): string =>
     .join('\n');
 
 const sceneSrc = load('../components/3d/city/CityHubScene.tsx');
+const duelSrc = load('../components/duel/DuelScene.tsx');
 const hookSrc = load('../hooks/useAdaptiveDpr.ts');
 const settingsSrc = load('../services/settings.ts');
 const modalSrc = load('../components/hub/SettingsModal.tsx');
 
 const sceneCode = code(sceneSrc);
+const duelCode = code(duelSrc);
 const hookCode = code(hookSrc);
 const settingsCode = code(settingsSrc);
 const modalCode = code(modalSrc);
@@ -561,5 +563,26 @@ describe('E. The preset — a name, a legacy spelling, or a first-run default', 
     expect(modalCode).toContain('label="Picture Quality"');
     // It is written the moment it is chosen, like every other row in this panel.
     expect(modalSrc).toContain('updateSettings');
+  });
+});
+
+
+describe('F. The duel Canvas — shared quality budget', () => {
+  test('the duel Canvas uses the selected preset and the same adaptive governor', () => {
+    expect(duelCode).toContain('settings.qualityPreset');
+    expect(duelCode).toContain('CITY_TIERS[qualityPreset].dpr.start');
+    expect(duelCode).toContain('dpr={duelDpr}');
+    expect(duelCode).toContain('<DuelAdaptiveDpr');
+    expect(duelCode).toContain('tier={qualityPreset}');
+    expect(duelCode).toContain('onDprChange={setDuelDpr}');
+    expect(duelCode).toContain('useAdaptiveDpr({ tier, suspendedRef, onDprChange })');
+  });
+
+  test('mount warm-up is excluded from measurements and the preset resets its starting DPR', () => {
+    expect(duelCode).toContain('const duelAdaptationSuspendedRef = useRef(true)');
+    expect(duelCode).toContain('duelAdaptationSuspendedRef.current = false');
+    expect(duelCode).toContain('}, POST_TRANSITION_MS);');
+    expect(duelCode).toContain('}, [qualityPreset]);');
+    expect(duelCode).toContain('clearTimeout(timer)');
   });
 });
