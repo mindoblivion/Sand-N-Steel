@@ -702,7 +702,7 @@ describe('F. Every trigger and every arrival', () => {
   });
 
   test('all 21 arrivals are collision-free at the player radius and with clearance', () => {
-    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(21);
+    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(26);
     for (const loc of HUB_LOCATIONS) {
       const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
       expect(collidesWith(ax, az, PLAYER_RADIUS, CITY_COLLIDERS), `${loc.id} at R`).toBe(false);
