@@ -172,12 +172,12 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
             data-combat-weapon-badge="true"
           >
             <Swords className="w-4 h-4 text-amber-400 shrink-0" />
-            <span className="hidden sm:inline">Armed:</span>
-            <span className="text-amber-100 font-bold truncate">{player.loadout.weapon.name}</span>
+            <span className="combat-weapon-label hidden sm:inline">Armed:</span>
+            <span className="combat-weapon-label text-amber-100 font-bold truncate">{player.loadout.weapon.name}</span>
           </div>
 
           {/* ARENA MATCH TIMER */}
-          <div className="bg-black/60 border border-amber-700/40 px-3 py-1 rounded-md text-amber-300 font-mono text-sm tracking-widest backdrop-blur-sm">
+          <div className="combat-match-timer bg-black/60 border border-amber-700/40 px-3 py-1 rounded-md text-amber-300 font-mono text-sm tracking-widest backdrop-blur-sm">
             {formattedTime}
           </div>
 
@@ -191,16 +191,17 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
               title="Withdraw from the bout (counts as a defeat)"
             >
               <Flag className="w-4 h-4" />
-              <span className="hidden sm:inline">Withdraw</span>
+              <span className="combat-utility-label hidden sm:inline">Withdraw</span>
             </button>
             <button
               onClick={onCycleCameraMode}
               className="flex items-center justify-center gap-1 min-h-[48px] min-w-[48px] px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer text-xs font-mono"
+              aria-label={`Camera view: ${cameraMode.replace('_', ' ')}`}
               title={`Camera: ${cameraMode.replace('_', ' ')} (Tap to switch / press C)`}
             >
               <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
               {/* UI-1 (B-1) — the label IS this control's state, so it shows at every width. */}
-              <span className="capitalize">
+              <span className="combat-utility-label capitalize">
                 {cameraMode === 'cinematic' ? '3/4 Duel' : cameraMode === 'over_shoulder' ? 'Shoulder' : 'Isometric'}
               </span>
             </button>
@@ -208,27 +209,30 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
               <button
                 onClick={onOpenSettings}
                 className="min-h-[48px] min-w-[48px] px-2.5 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide"
+                aria-label="Game Settings"
                 title="Game Settings"
               >
                 <Settings className="w-4 h-4 text-amber-400" />
-                <span>Settings</span>
+                <span className="combat-utility-label">Settings</span>
               </button>
             )}
             <button
               onClick={onOpenHelp}
               className="min-h-[48px] min-w-[48px] px-2 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide"
+              aria-label="Controls and instructions"
               title="Controls & Instructions"
             >
               <HelpCircle className="w-4 h-4" />
-              <span>Help</span>
+              <span className="combat-utility-label">Help</span>
             </button>
             <button
               onClick={onToggleMute}
               className="min-h-[48px] min-w-[48px] px-2 rounded-lg bg-black/60 hover:bg-neutral-900 border border-amber-600/40 text-amber-300 hover:text-amber-100 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide"
+              aria-label={isMuted ? 'Unmute sound' : 'Mute sound'}
               title={isMuted ? 'Unmute Sound' : 'Mute Sound'}
             >
               {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
-              <span>{isMuted ? 'Unmute' : 'Mute'}</span>
+              <span className="combat-utility-label">{isMuted ? 'Unmute' : 'Mute'}</span>
             </button>
           </div>
         </div>
