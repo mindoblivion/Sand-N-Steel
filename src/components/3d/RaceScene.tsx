@@ -508,14 +508,10 @@ const RaceRivalChariot: React.FC<{
       scale={CHARIOT_MODEL_SCALE}
     >
       <primitive object={body.scene} />
-      <RaceHorseTeam teamSize={2} speed={raceClockActiveForHorse(raceState, frozen, finished) ? rivalSpeed : 0} />
+      <RaceHorseTeam teamSize={2} speed={(raceState === 'racing' || raceState === 'finished') && startedAt !== null && !frozen && !finished ? rivalSpeed : 0} />
     </group>
   );
 };
-
-function raceClockActiveForHorse(raceState: RaceState, frozen: boolean, finished: boolean): boolean {
-  return (raceState === 'racing' || raceState === 'finished') && !frozen && !finished;
-}
 
 /**
  * The race clock.  It lives in its own component so its tenth-of-a-second ticks
