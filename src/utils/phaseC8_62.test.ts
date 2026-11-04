@@ -36,8 +36,8 @@
  * assertion that every ancestor literal is present, so the frame cannot silently go stale); and the
  * solids are the real ones — Z-rotated boxes tested with a separating-axis test, and the wreath's
  * torus folded against a box's own radial reach about the ring's axis, the same predicate C-8.60
- * uses. The four sites are the Veteran Gladiator Hall, the Roman Shrine, the Records Library and the
- * Grand Colosseum's portal gable, and a repo sweep asserts no other component mounts the pediment.
+ * uses. The five sites are the Veteran Gladiator Hall, the Roman Shrine, the Records Library, the
+ * Grand Colosseum's portal gable and the Southern District, and a repo sweep asserts no other
  *
  * §A the primitive as source · §B gable-edge alignment at all four sites · §C left/right symmetry ·
  * §D finial seating on the crowns · §E the real solids (the apex joint, the bearing on the
@@ -960,7 +960,7 @@ describe('C-8.62 §I — what did not move', () => {
     }
   });
 
-  test('the four sites are every place the primitive is mounted', () => {
+  test('the five sites are every place the primitive is mounted', () => {
     const hits: string[] = [];
     const walk = (dir: string) => {
       for (const entry of readdirSync(dir)) {
@@ -979,7 +979,7 @@ describe('C-8.62 §I — what did not move', () => {
     expect(hits.sort()).toEqual([
       'GrandColosseum.tsx',
       'RecordsLibrary.tsx',
-      'RomanShrine.tsx',
+      'RomanShrine.tsx',    'SouthernDistrict.tsx',
       'VeteranGladiatorHall.tsx',
     ]);
   });

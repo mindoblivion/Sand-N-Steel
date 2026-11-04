@@ -22,7 +22,7 @@ import { creditGold } from './goldTransactions';
  *     shape; Phase A's pool is the always-available five.
  *
  *   • THE VISIT DEED NAMES ITS PLACE. Four of the five shapes ask the same thing every day;
- *     the visit deed asks for ONE NAMED `HUB_LOCATIONS` — one of the city's twenty-one —
+ *     the visit deed asks for ONE NAMED `HUB_LOCATIONS` — one of the city's twenty-six —
  *     hash-picked per day in the same FNV-1a family as the deed draw (`ludiVisitLocationForDay`)
  *     and printed with that place's own display name (`ludiDeedLabel`). A visit SOMEWHERE ELSE
  *     is recorded in `visitsToday` (the day's list of ids, deduped, in visit order) and does

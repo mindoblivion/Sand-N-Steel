@@ -63,7 +63,7 @@
  *      its order-based tie-break) at every arrival and entrance, and the alley
  *      the old first-match rule answered wrongly;
  *   E. the thirteen unaffected hubs keep their radii, arrivals and selection;
- *   F. all 21 triggers are reachable and all 21 arrivals are collision-free and
+ *   F. all 26 triggers are reachable and all 26 arrivals are collision-free and
  *      lead to their own prompt, driven with the shipped resolver;
  *   G. everything the phase must not touch is unchanged — the Training Hall
  *      collider and its narrow passage, the C-8.43 widths, the Forge's 9.5,
@@ -146,6 +146,12 @@ const APPROACH: Record<string, { dir: [number, number]; collider: string; source
   // open forecourt ground — like the arena, courtyard and fortress, the disc
   // needs no entrance ring, so the collider column is not consulted.
   east_circus_arena: { dir: [-1, 0], collider: 'forecourt-parapet', source: 'EastCircusDistrict.tsx (race-entry signpost; carries no collider)' },
+  // southern district — approach from the north (-Z, from city center)
+  forum: { dir: [0, -1], collider: 'forum', source: 'SouthernDistrict.tsx (ForumFountain [10,0,30])' },
+  macellum: { dir: [0, -1], collider: 'macellum', source: 'SouthernDistrict.tsx (MacellumMarket [-8,0,33])' },
+  bibliotheca: { dir: [0, -1], collider: 'bibliotheca', source: 'SouthernDistrict.tsx (BibliothecaLibrary [18,0,30])' },
+  pistrinum: { dir: [0, -1], collider: 'pistrinum', source: 'SouthernDistrict.tsx (PistrinumBakery [-24,0,31])' },
+  triumphal_arch: { dir: [0, -1], collider: 'triumphal-arch', source: 'SouthernDistrict.tsx (TriumphalArch [0,0,35])' },
 };
 
 // ── The measured configuration ──────────────────────────────────────────────
@@ -178,6 +184,11 @@ const UNCHANGED: Record<string, number> = {
   northern_fortress: 10.0,
   // Phase C-8.70B's race entry — open-centre, radius from `CIRCUS_RACE_ENTRY`.
   east_circus_arena: 6.0,
+  forum: 5,
+  macellum: 5,
+  bibliotheca: 6,
+  pistrinum: 5,
+  triumphal_arch: 3,
 };
 
 /** Positions are untouched by this phase — pinned so a move cannot hide here. */
@@ -202,6 +213,11 @@ const POSITIONS: Record<string, [number, number]> = {
   veteran_gladiator_hall: [-24, -25],
   arena_medical_house: [-29, -5],
   northern_fortress: [0, MOTTE_CENTER_Z],
+  forum: [10, 30],
+  macellum: [-8, 33],
+  bibliotheca: [18, 30],
+  pistrinum: [-24, 31],
+  triumphal_arch: [0, 35],
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -321,7 +337,7 @@ describe('A. Hub radii and the standoff rule', () => {
       expect(hub(id).radius, `${id} radius`).toBe(radius);
     }
     const touched = new Set([...Object.keys(CHANGED), ...Object.keys(UNCHANGED)]);
-    expect(touched.size).toBe(21);
+    expect(touched.size).toBe(26);
     expect(HUB_IDS.filter((id) => !touched.has(id))).toEqual([]);
   });
 
@@ -504,9 +520,11 @@ describe('D. Overlapping discs and which hub answers', () => {
     ['merchant_house', 'doctore_house', 6.21],
     ['gladiator_academy', 'doctore_house', 8.5],
     ['gladiator_academy', 'records_house', 7.98],
+    ['bathhouse', 'pistrinum', 6.32],
+        ['forum', 'bibliotheca', 8],
   ];
 
-  test('exactly these nine pairs overlap, at the measured centre distances', () => {
+  test('exactly these eleven pairs overlap, at the measured centre distances', () => {
     const found: Array<[string, string, number]> = [];
     for (let i = 0; i < HUB_LOCATIONS.length; i++) {
       for (let j = i + 1; j < HUB_LOCATIONS.length; j++) {
@@ -679,11 +697,11 @@ describe('E. The unaffected radii and remaining arrivals still work', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-// F. All 21 triggers and all 21 arrivals
+// F. All 26 triggers and all 26 arrivals
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('F. Every trigger and every arrival', () => {
-  test('all 21 hub triggers are reachable: each arrival walks to its own prompt', () => {
+  test('all 26 hub triggers are reachable: each arrival walks to its own prompt', () => {
     const failures: string[] = [];
     for (const id of HUB_IDS) {
       const { result } = arrivalWalk(id);
@@ -702,7 +720,7 @@ describe('F. Every trigger and every arrival', () => {
   });
 
   test('all 21 arrivals are collision-free at the player radius and with clearance', () => {
-    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(21);
+    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(26);
     for (const loc of HUB_LOCATIONS) {
       const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
       expect(collidesWith(ax, az, PLAYER_RADIUS, CITY_COLLIDERS), `${loc.id} at R`).toBe(false);
@@ -730,7 +748,7 @@ describe('F. Every trigger and every arrival', () => {
     }
   });
 
-  test('the eight arrivals that sit outside their disc are outside by one short step', () => {
+  test('the thirteen arrivals that sit outside their disc are outside by one short step', () => {
     // Deliberate standoffs: the prompt appears as the player walks in.  Each is
     // within 2.5 units of the disc, i.e. at most ~40 steps at 0.0633 per step.
     const outside: string[] = [];
@@ -751,6 +769,11 @@ describe('F. Every trigger and every arrival', () => {
         'gladiator_barracks',
         'northern_fortress',
         'armor_workshop',
+        'forum',
+        'macellum',
+        'bibliotheca',
+        'pistrinum',
+        'triumphal_arch',
       ].sort(),
     );
   });

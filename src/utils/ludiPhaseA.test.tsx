@@ -121,7 +121,7 @@ const ludi = (patch: Partial<LudiProgress> = {}): LudiProgress => ({
 const DAY_WITH = { winAndTrain: 10, trainHypeVisit: 12, winDuelOnly: 2 };
 
 /** Day 12's ONE named district, pinned by §B — the only place that pays its visit deed. */
-const DAY12_DISTRICT = 'arena_medical_house';
+const DAY12_DISTRICT = 'triumphal_arch';
 
 /** A district day 12 does NOT ask for: a visit there is recorded and pays nothing. */
 const OTHER_DISTRICT = 'bathhouse';
@@ -297,8 +297,8 @@ describe('LUDI B §B — three distinct deeds, drawn by the day alone', () => {
     expect(ludiDeedsForDay(12)).toEqual(['train', 'peak_hype', 'visit_hub']);
   });
 
-  test('the day names ONE district, drawn from the city’s own twenty-one', () => {
-    expect(LUDI_VISIT_LOCATION_IDS.length).toBe(21);
+  test('the day names ONE district, drawn from the city’s own twenty-six', () => {
+    expect(LUDI_VISIT_LOCATION_IDS.length).toBe(26);
     for (let day = 1; day <= 70; day += 1) {
       const id = ludiVisitLocationForDay(day);
       expect(LUDI_VISIT_LOCATION_IDS).toContain(id);
@@ -309,8 +309,8 @@ describe('LUDI B §B — three distinct deeds, drawn by the day alone', () => {
     }
     // Recorded so a change to the hash is a deliberate, visible decision.
     expect(ludiVisitLocationForDay(12)).toBe(DAY12_DISTRICT);
-    expect(ludiVisitLocationName(12)).toBe('Arena Medical House');
-    expect(ludiVisitLabelForDay(12)).toBe('Visit the Arena Medical House.');
+    expect(ludiVisitLocationName(12)).toBe('Triumphal Arch');
+    expect(ludiVisitLabelForDay(12)).toBe('Visit the Triumphal Arch.');
     // The pick is genuinely spread over the city, not the same place every day.
     const picks = new Set(Array.from({ length: 14 }, (_, index) => ludiVisitLocationForDay(index + 1)));
     expect(picks.size).toBeGreaterThanOrEqual(7);
@@ -334,7 +334,7 @@ describe('LUDI B §B — three distinct deeds, drawn by the day alone', () => {
     }
     const day12 = resolveLudiState(onDay(12));
     expect(day12.deeds.find((entry) => entry.deed.id === 'visit_hub')?.deed.label).toBe(
-      'Visit the Arena Medical House.',
+          'Visit the Triumphal Arch.',
     );
   });
 
@@ -446,7 +446,7 @@ describe('LUDI C §C — deed completion inside the shipped save paths', () => {
     // The day's own district pays the deed — once — on top of the visit already recorded.
     const right = settleLudiDeeds(elsewhere.profile, { locationId: DAY12_DISTRICT });
     expect(right.completed.map((deed) => deed.id)).toEqual(['visit_hub']);
-    expect(right.completed[0].label).toBe('Visit the Arena Medical House.');
+    expect(right.completed[0].label).toBe('Visit the Triumphal Arch.');
     expect(resolveLudiProgress(right.profile).visitsToday).toEqual([OTHER_DISTRICT, DAY12_DISTRICT]);
     expect(right.profile.fame).toBe(start.fame + LUDI_DEED_FAME);
     expect(right.profile.gold).toBe(start.gold + LUDI_DEED_GOLD);
@@ -759,7 +759,7 @@ describe('LUDI I §I — the Acta card, Felix’s board section, the yard and th
     expect(html.match(/data-acta-deed=/g)?.length).toBe(LUDI_DEED_COUNT);
     expect(html).toContain('data-acta-deed="train" data-acta-deed-done="true"');
     // The visit deed names the district day 12's Acta asks for.
-    expect(html).toContain('Visit the Arena Medical House.');
+    expect(html).toContain('Visit the Triumphal Arch.');
     expect(html.match(/data-acta-deed-done="false"/g)?.length).toBe(LUDI_DEED_COUNT - 1);
     expect(html).toContain('done');
     expect(html).toContain('todo');

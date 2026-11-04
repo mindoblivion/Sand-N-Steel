@@ -495,6 +495,66 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     color: '#ca8a04',
     district: 'EAST',
   },
+{
+    id: 'forum',
+    name: 'Forum',
+    subtitle: 'City Center',
+    position: [10, 0, 30],
+    radius: 5,
+    icon: 'Landmark',
+    actionPrompt: 'Visit Forum',
+    color: '#d4a373',
+    district: 'SOUTH',
+    description: 'The beating heart of the southern district. Citizens gather around the great fountain to share news and toss coins for luck.',
+},
+{
+    id: 'macellum',
+    name: 'Macellum',
+    subtitle: 'Food Market',
+    position: [-8, 0, 33],
+    radius: 5,
+    icon: 'ShoppingBasket',
+    actionPrompt: 'Browse Stalls',
+    color: '#b45309',
+    district: 'SOUTH',
+    description: 'A bustling food market. Four stalls offer fresh provisions under striped awnings. The merchants are always ready to haggle.',
+},
+{
+    id: 'bibliotheca',
+    name: 'Bibliotheca',
+    subtitle: 'Grand Library',
+    position: [18, 0, 30],
+    radius: 6,
+    icon: 'BookOpen',
+    actionPrompt: 'Enter Library',
+    color: '#7c3aed',
+    district: 'SOUTH',
+    description: 'A temple of knowledge with Doric columns and a grand pediment. Scrolls of history, tactics, and philosophy line the shelves.',
+},
+{
+    id: 'pistrinum',
+    name: 'Pistrinum',
+    subtitle: 'Bakery',
+    position: [-24, 0, 31],
+    radius: 5,
+    icon: 'Wheat',
+    actionPrompt: 'Buy Bread',
+    color: '#d6a679',
+    district: 'SOUTH',
+    description: 'The district bakery. Stone millstones grind grain while the ovens glow warm. Fresh bread daily.',
+},
+{
+    id: 'triumphal_arch',
+    name: 'Triumphal Arch',
+    subtitle: 'Southern Gate',
+    position: [0, 0, 35],
+    radius: 3,
+    icon: 'Award',
+    actionPrompt: 'Pass Through',
+    color: '#ebdcb9',
+    district: 'SOUTH',
+    description: 'A monumental arch marking the southern gate. Walk through beneath the inscription band celebrating the city\'s triumphs.',
+},
 ];
 
 /**
@@ -797,11 +857,17 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   // the entry disc, so the prompt is up as the player lands; 3.66 clear of the
   // carceres' front face, 4.50 of the arena's south face and 6.20 of the
   // parapet.  Its X/Z come from `CIRCUS_RACE_ENTRY`.
-  east_circus_arena:   [CIRCUS_RACE_ENTRY.x, CIRCUS_RACE_ENTRY.z - 2],
+  east_circus_arena:   [
+    CIRCUS_RACE_ENTRY.x, CIRCUS_RACE_ENTRY.z - 2],
+  forum:               [5, 28],
+  macellum:            [-5, 28],
+  bibliotheca:         [18, 23],
+  pistrinum: [-20, 25],  
+  triumphal_arch:      [5, 34],
 };
 
 /**
- * Nearest-hub lookup for the interaction prompt.
+ * Nearest-hub lookup for the interaction prompt. 
  *
  * Selection is the NEAREST hub whose disc contains `pos` (inclusive of the rim),
  * with an exact tie broken by `HUB_LOCATIONS` order, so the answer is
@@ -819,8 +885,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
  * academy 5.24 — a 1.97-unit error, alone affecting 297 cells of that one lens
  * (300+ across the city).  Nearest-first answers the Doctore House there, and
  * leaves every fast-travel arrival and every doorway answering the building it
- * belongs to (`phaseC8_47.test.ts` §D).
- */
+ * belongs to (`phaseC8_47.test.ts` §D). */
 export function getNearbyHubLocation(
   pos: [number, number, number]
 ): InteractiveLocation | null {
