@@ -490,6 +490,7 @@ describe('C. Smithing Forge fast-travel arrival', () => {
       // Even the best point on the whole doorway side is outside the old disc.
       const measured = measuredApproachPoint({ ...forge, radius: 4.5 } as InteractiveLocation);
       expect(measured!.dist).toBeGreaterThan(4.5);
+    } finally {
       forge.radius = saved;
     }
     expect(hub('smithing_forge').radius).toBe(6.0);
