@@ -356,6 +356,7 @@ const RaceCameraRig: React.FC<{
  * by the scene and mutated in place, so a frame allocates nothing.
  */
 /** The reinforced kit is loaded only when that wheel set is equipped. */
+// Its local XY wheel plane is spun about local Z, then the audited wrapper yaw aligns that axis with the chariot axle.
 const RaceKitWheelSet: React.FC<{ roll: React.MutableRefObject<number> }> = ({ roll }) => {
   const wheelKitGltf = useGLTF(CHARIOT_WHEEL_KIT_URL);
   const wheels = useMemo(() => {
