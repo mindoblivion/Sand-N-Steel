@@ -129,6 +129,9 @@ describe('A. The tier table — one row per preset', () => {
     expect(CITY_TIERS.balanced.dpr.max).toBe(1.5);
     expect(CITY_TIERS.balanced.dpr.start).toBe(1.5);
     expect(CITY_TIERS.cinematic.dpr.max).toBe(2);
+    expect(CITY_TIERS.cinematic.shadows).toBe(1024);
+    expect(CITY_TIERS.balanced.shadows).toBe(768);
+    expect(CITY_TIERS.swift.shadows).toBe(512);
   });
 
   test('the ceilings descend from Cinematic to Swift, and Swift starts at its floor', () => {
