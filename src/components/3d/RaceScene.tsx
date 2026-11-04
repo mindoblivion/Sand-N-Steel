@@ -24,7 +24,6 @@ import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../util
 import {
   CHARIOT_MODEL_SCALE,
   CHARIOT_MODEL_URL,
-  CHARIOT_WHEEL_RADIUS,
   CHARIOT_STOCK_WHEEL_NODES,
   CHARIOT_WHEEL_KIT_URL,
   CHARIOT_WHEEL_VARIANTS,
@@ -38,6 +37,7 @@ import type { ChariotTeamSize } from '../../types/game';
 import { CIRCUS_RACE_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry';
 import {
   CHARIOT_MOVEMENT,
+  CHARIOT_WHEEL_RADIUS,
   CHARIOT_MODEL_YAW_OFFSET,
   advanceChariot,
   advanceWheelRoll,
