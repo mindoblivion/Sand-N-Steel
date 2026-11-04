@@ -233,6 +233,7 @@ import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
 import { SceneBrightness } from '../3d/SceneBrightness';
 import { useSettings } from '../../hooks/useSettings';
+import { useAdaptiveDpr, CITY_TIERS, POST_TRANSITION_MS, type QualityPreset } from '../../hooks/useAdaptiveDpr';
 import {
   getCameraSensitivityScale,
   getCameraShakeMultiplier,
@@ -253,6 +254,18 @@ import {
   type PlayerStrikeResult,
   type SeenState,
 } from '../../utils/coachMarks';
+
+// The duel uses the same player-selected pixel budget as the city. The governor
+// lives inside this Canvas so it measures the duel's actual frame time; its parent
+// owns the DPR value passed back to the Canvas.
+const DuelAdaptiveDpr: React.FC<{
+  tier: QualityPreset;
+  suspendedRef: { readonly current: boolean };
+  onDprChange: (dpr: number) => void;
+}> = ({ tier, suspendedRef, onDprChange }) => {
+  useAdaptiveDpr({ tier, suspendedRef, onDprChange });
+  return null;
+};
 
 // Preload 3D assets for instant duel startup
 try {
@@ -811,6 +824,26 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false);
   const [cameraMode, setCameraMode] = useState<'cinematic' | 'over_shoulder' | 'isometric'>('cinematic');
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
+
+  // Match the duel Canvas to the player's global quality preset. Ignore the
+  // mount/asset-compilation warm-up so transient startup frames cannot lower DPR.
+  const settings = useSettings();
+  const qualityPreset = settings.qualityPreset;
+  const duelSparklesCount = Math.round((CITY_TIERS[qualityPreset].sparkles / 90) * 50);
+  const [duelDpr, setDuelDpr] = useState<number>(() => CITY_TIERS[qualityPreset].dpr.start);
+  const duelAdaptationSuspendedRef = useRef(true);
+
+  useEffect(() => {
+    setDuelDpr(CITY_TIERS[qualityPreset].dpr.start);
+  }, [qualityPreset]);
+
+  useEffect(() => {
+    duelAdaptationSuspendedRef.current = true;
+    const timer = setTimeout(() => {
+      duelAdaptationSuspendedRef.current = false;
+    }, POST_TRANSITION_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -3295,6 +3328,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         >
           <Canvas
             shadows
+            dpr={duelDpr}
             frameloop={frameloopMode}
             camera={{ position: [0, 6, 12], fov: 45, near: 0.1, far: 80 }}
             gl={{ antialias: false, powerPreference: 'high-performance' }}
@@ -3305,6 +3339,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           >
             {/* Active GPU Health & Context Monitor */}
             <CanvasWebGLMonitor sceneName="DuelArena" />
+            {/* The shared adaptive pixel governor respects Cinematic/Balanced/Swift. */}
+            <DuelAdaptiveDpr
+              tier={qualityPreset}
+              suspendedRef={duelAdaptationSuspendedRef}
+              onDprChange={setDuelDpr}
+            />
             {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
             <SceneBrightness />
 
@@ -3333,7 +3373,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               intensity={sceneDeltas?.sunIntensity ?? duelLight.keyIntensity}
               color={sceneDeltas?.sunColor ?? duelLight.keyColor}
               castShadow
-              shadow-mapSize={[1024, 1024]}
+              shadow-mapSize={[CITY_TIERS[qualityPreset].shadows, CITY_TIERS[qualityPreset].shadows]}
               shadow-camera-left={-22}
               shadow-camera-right={22}
               shadow-camera-top={22}
@@ -3350,7 +3390,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               intensity={duelLight.fillIntensity}
               color={duelLight.fillColor}
             />
-            <Sparkles count={50} scale={[20, 10, 20]} size={2} color="#fef08a" opacity={0.5} />
+            {duelSparklesCount > 0 && (
+              <Sparkles count={duelSparklesCount} scale={[20, 10, 20]} size={2} color="#fef08a" opacity={0.5} />
+            )}
 
             <ThreeComponentErrorBoundary componentName="DuelArenaArchitecture">
               <DuelArena
