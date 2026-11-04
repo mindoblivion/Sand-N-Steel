@@ -39,7 +39,7 @@ function sampleCurve(
   p1: readonly [number, number],
   p2: readonly [number, number],
   p3: readonly [number, number],
-  steps = 32,
+  steps = 64,
 ): Array<readonly [number, number]> {
   const points: Array<readonly [number, number]> = [];
   for (let i = 1; i < steps; i += 1) {
