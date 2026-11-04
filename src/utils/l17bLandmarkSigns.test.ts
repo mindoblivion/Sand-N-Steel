@@ -352,9 +352,9 @@ describe('L17B §D — presentation only', () => {
   });
 
   test('the hubs, arrivals and clock contract are untouched by this phase', () => {
-    // 21 hubs / 21 arrivals: C-8.47 left 20, C-8.64A added the East Circus race entry.
-    expect(HUB_LOCATIONS).toHaveLength(21);
-    expect(Object.keys(FAST_TRAVEL_ARRIVALS)).toHaveLength(21);
+    // 26 hubs / 26 arrivals: C-8.47 left 20, C-8.64A added the East Circus race entry, southern district added 5.
+    expect(HUB_LOCATIONS).toHaveLength(26);
+    expect(Object.keys(FAST_TRAVEL_ARRIVALS)).toHaveLength(26);
     // The nine buildings keep the interaction reach C-8.47 derived for them.
     const radii: Record<string, number> = {
       smithing_forge: 6,
