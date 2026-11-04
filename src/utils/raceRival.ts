@@ -151,7 +151,7 @@ export function getRaceRivalPose(
     return points[points.length - 1];
   };
 
-  const position = pointAtDistance(distance);
+  const position = progress >= 1 ? points[points.length - 1] : pointAtDistance(distance);
   const tangentHalfWidth = Math.min(0.2, totalLength / 1000);
   const before = pointAtDistance(distance - tangentHalfWidth);
   const after = pointAtDistance(distance + tangentHalfWidth);
