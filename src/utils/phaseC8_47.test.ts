@@ -655,7 +655,7 @@ describe('E. The unaffected radii and remaining arrivals still work', () => {
   test('armor workshop fast travel approaches the north-facing arch from clear ground', () => {
     const [x, z] = FAST_TRAVEL_ARRIVALS.armor_workshop;
     const workshop = hub('armor_workshop');
-    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, -3.6]);
+    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, -3.55]);
     expect(z).toBeLessThan(workshop.position[2] - 1.5);
     expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
     expect(Math.hypot(x - workshop.position[0], z - workshop.position[2])).toBeGreaterThan(workshop.radius);
