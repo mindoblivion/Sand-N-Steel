@@ -236,6 +236,7 @@ interface CityHubSceneProps {
     shopId?: StorefrontId
   ) => void;
   onEnterTavern: () => void;
+  onOpenTavernServices?: () => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -400,6 +401,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   playerProfile,
   onOpenTab,
   onEnterTavern,
+  onOpenTavernServices,
   onEnterDuel,
   onOpenDriveSync,
   onToggleMute,
@@ -853,6 +855,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     playerProfile.defeatedOpponentIds,
     playerProfile.injury,
     onOpenTab,
+    onEnterTavern,
     onVisitLocation,
     onOpenDiceBoard,
     primeKeeperGreeting,
