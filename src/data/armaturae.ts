@@ -97,7 +97,7 @@ export const ARMATURAE: Armatura[] = [
         'Stateful: once per fight. The net applies an entangle status the block shape cannot express.',
       ],
     },
-    // The trident is EQUIPPED; the gladius is the spare carried in the inventory.
+    // Wooden spear equipped. Steel must be earned.
     startingWeaponId: 'wooden_spear',
     startingInventoryIds: [],
     forgeKit: 'kit_retiarius',
