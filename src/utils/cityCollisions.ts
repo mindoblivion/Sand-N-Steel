@@ -858,8 +858,8 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   // carceres' front face, 4.50 of the arena's south face and 6.20 of the
   // parapet.  Its X/Z come from `CIRCUS_RACE_ENTRY`.
   east_circus_arena:   [CIRCUS_RACE_ENTRY.x, CIRCUS_RACE_ENTRY.z - 2],
-  forum:               [0, 22],
-  macellum:            [-12, 23],
+  forum:               [0, 26],
+  macellum:            [-14, 26],
   bibliotheca:         [12, 23],
   pistrinum:           [-24, 25],
   triumphal_arch:      [5, 34],
