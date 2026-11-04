@@ -578,6 +578,17 @@ describe('F. The duel Canvas — shared quality budget', () => {
     expect(duelCode).toContain('useAdaptiveDpr({ tier, suspendedRef, onDprChange })');
   });
 
+  test('duel ambient particles follow the selected quality budget', () => {
+    const countFor = (preset: QualityPreset) =>
+      Math.round((CITY_TIERS[preset].sparkles / 90) * 50);
+
+    expect(countFor('cinematic')).toBe(50);
+    expect(countFor('balanced')).toBe(33);
+    expect(countFor('swift')).toBe(0);
+    expect(duelCode).toContain('duelSparklesCount > 0 &&');
+    expect(duelCode).toContain('count={duelSparklesCount}');
+  });
+
   test('mount warm-up is excluded from measurements and the preset resets its starting DPR', () => {
     expect(duelCode).toContain('const duelAdaptationSuspendedRef = useRef(true)');
     expect(duelCode).toContain('duelAdaptationSuspendedRef.current = false');
