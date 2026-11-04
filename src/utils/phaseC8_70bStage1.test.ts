@@ -334,6 +334,11 @@ describe('E. Slice boundaries', () => {
     // The rival has no record/reward callback and cannot finish the player's lap.
     expect(rival).not.toContain('onRecordBestTime');
     expect(rival).not.toContain('advanceRaceLap');
+    // The rival uses the same measured hub pivots and fixed-step wheel roll as the player.
+    expect(rival).toContain('RACE_WHEEL_NODE_NAMES');
+    expect(rival).toContain('bounds.getCenter(pivot.position)');
+    expect(rival).toContain('advanceWheelRoll');
+    expect(rival).toContain('CHARIOT_MODEL_YAW_OFFSET');
   });
 
   test('the race scene mounts exactly one Canvas and one camera rig', () => {
