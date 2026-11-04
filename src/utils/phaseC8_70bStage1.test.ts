@@ -344,7 +344,7 @@ describe('E. Slice boundaries', () => {
   test('the race scene mounts exactly one Canvas and one camera rig', () => {
     expect(sceneSrc.split('<Canvas\n').length - 1).toBe(1);
     expect(sceneSrc.split('<RaceCameraRig').length - 1).toBe(1);
-    expect(sceneSrc.split('<RaceChariot').length - 1).toBe(1);
+    expect(sceneSrc.split('<RaceChariot\n').length - 1).toBe(1);
     expect(sceneSrc.split('<RaceRivalChariot').length - 1).toBe(1);
     expect(sceneSrc.split('<RaceClock').length - 1).toBe(1);
   });
