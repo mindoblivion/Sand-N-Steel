@@ -28,7 +28,7 @@ export interface RaceRivalConfig {
 // The measured sand is 16.8 units wide (X 43.940..60.740), so ±7.5
 // keeps the rival's centreline inside the playable surface with 0.9 units
 // of margin while still meeting raceLap.ts's inclusive lane threshold.
-const LANE_OFFSET = 7.5;
+const LANE_OFFSET = 7.8;
 
 /**
  * Sample a cubic Bezier in world space. Sampling keeps distance-based pacing
@@ -62,10 +62,10 @@ function routeFor(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
   const startX = CIRCUS_AXIS_X + startSide * LANE_OFFSET;
   const otherX = CIRCUS_AXIS_X + otherSide * LANE_OFFSET;
   const northZ = RACE_NORTH_TURN_Z;
-  const southZ = RACE_SOUTH_TURN_Z;
   const northEntryZ = northZ - 1;
   const northApexZ = northZ - 6.5;
-  const southExitZ = CIRCUS_RACE_START.z - 0.1;
+  const southEntryZ = 30;
+  const finishApproachZ = CIRCUS_RACE_START.z - 0.1;
   return [
     [startX, CIRCUS_RACE_START.z],
     [startX, northEntryZ],
@@ -76,14 +76,14 @@ function routeFor(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
       [otherX, northEntryZ],
     ),
     [otherX, northEntryZ],
-    [otherX, southZ],
+    [otherX, southEntryZ],
     ...sampleCurve(
-      [otherX, southZ],
-      [otherX, southZ + 0.55],
-      [startX, southExitZ - 0.55],
-      [startX, southExitZ],
+      [otherX, southEntryZ],
+      [otherX, southEntryZ + 6],
+      [startX, finishApproachZ - 0.9],
+      [startX, finishApproachZ],
     ),
-    [startX, southExitZ],
+    [startX, finishApproachZ],
     [startX, CIRCUS_RACE_START.z],
   ];
 }
