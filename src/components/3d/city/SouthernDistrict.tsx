@@ -230,7 +230,7 @@ export const MacellumMarket = React.memo(() => {
 
 export const BibliothecaLibrary = React.memo(() => {
   return (
-    <group position={[12, 0, 30]}>
+    <group position={[18, 0, 30]}>
       <BuildingFoundation size={[9, 7]} height={0.3} projection={0.25} />
       {/* Main hall */}
       <mesh castShadow receiveShadow position={[0, 1.8, 0]}>
