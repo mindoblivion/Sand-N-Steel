@@ -457,7 +457,7 @@ const RaceRivalChariot: React.FC<{
   const finishedRef = useRef(false);
   const [finished, setFinished] = useState(false);
   useEffect(() => {
-    if (raceState !== 'racing') {
+    if (raceState === 'idle' || raceState === 'countdown' || raceState === 'aborted') {
       finishedRef.current = false;
       setFinished(false);
     }
@@ -484,12 +484,14 @@ const RaceRivalChariot: React.FC<{
 
   useFrame((_state, delta) => {
     if (!group.current || frozen) return;
-    const racing = raceState === 'racing' && startedAt !== null;
-    const elapsed = racing ? Math.max(0, performance.now() - startedAt) : 0;
+    // Keep the visual rival on its own clock after the player finishes.
+    // The player finish must not rewind the rival to the starting line.
+    const raceClockActive = (raceState === 'racing' || raceState === 'finished') && startedAt !== null;
+    const elapsed = raceClockActive ? Math.max(0, performance.now() - startedAt) : 0;
     const next = getRaceRivalPose(elapsed, RACE_RIVAL_CONFIG);
     group.current.position.set(next.x, RACE_START_POSITION[1], next.z);
     group.current.rotation.y = next.heading + CHARIOT_MODEL_YAW_OFFSET;
-    const moving = racing && !next.finished;
+    const moving = raceClockActive && !next.finished;
     roll.current = advanceWheelRoll(roll.current, moving ? rivalSpeed : 0, delta);
     for (const wheel of body.wheels) wheel.rotation.x = roll.current;
     if (next.finished && !finishedRef.current) {
@@ -501,7 +503,7 @@ const RaceRivalChariot: React.FC<{
   return (
     <group ref={group} position={[initialPose.x, RACE_START_POSITION[1], initialPose.z]} rotation={[0, initialPose.heading + CHARIOT_MODEL_YAW_OFFSET, 0]} scale={CHARIOT_MODEL_SCALE}>
       <primitive object={body.scene} />
-      <RaceHorseTeam teamSize={2} speed={raceState === 'racing' && !frozen && !finished ? rivalSpeed : 0} />
+      <RaceHorseTeam teamSize={2} speed={(raceState === 'racing' || raceState === 'finished') && !frozen && !finished ? rivalSpeed : 0} />
     </group>
   );
 };
