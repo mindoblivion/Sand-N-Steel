@@ -775,8 +775,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       primeKeeperGreeting('bounty_hall');
       setBountyPanel(true);
     } else if (nearbyLoc.tabKey === 'tournament') {
-            setColosseumPanel(true);
-      else if (nearbyLoc.id === 'tavern') {
+      setColosseumPanel(true);
+    } else if (nearbyLoc.id === 'tavern') {
       onEnterTavern(() => {
         primeKeeperGreeting('tavern');
         onOpenDiceBoard?.();

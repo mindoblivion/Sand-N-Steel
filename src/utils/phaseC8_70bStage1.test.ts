@@ -13,8 +13,8 @@
  *      placed by POSITION only (no collider is touched anywhere);
  *   §D the reused pieces: the shipping `EastCircusArena` and the shipping
  *      chariot model, restated nowhere;
- *   §E Slice 1's boundaries: no dev harness, no horse asset, no opponent, and
- *      nothing in combat, workshop or progression changed.
+ *   §E Slice boundaries: no dev harness or race-specific horse asset; the later
+ *      rival addition is presentation-only and leaves combat/progression untouched.
  *
  * The suite reads the shipped sources; the module-level facts it needs (the
  * start line, the arena's own measured constants) are imported from the pure
@@ -323,17 +323,27 @@ describe('E. Slice boundaries', () => {
     }
   });
 
-  test('no horse and no opponent is mounted in this slice', () => {
-    const scene = code(sceneSrc).toLowerCase();
-    for (const token of ['_workspace_dist_horse', 'chariotteamformation', 'horses', 'rival', 'opponent']) {
-      expect(scene, token).not.toContain(token);
+  test('the rival is visual-only and cannot finish or reward the player', () => {
+    const scene = code(sceneSrc);
+    expect(scene).toContain('const RaceRivalChariot');
+    expect(scene).toContain('getRaceRivalPose');
+    expect(scene).toContain('RaceHorseTeam teamSize={2}');
+    const rivalStart = scene.indexOf('const RaceRivalChariot');
+    const rivalEnd = scene.indexOf('const RaceClock', rivalStart);
+    expect(rivalStart).toBeGreaterThan(-1);
+    expect(rivalEnd).toBeGreaterThan(rivalStart);
+    const rival = scene.slice(rivalStart, rivalEnd);
+    for (const token of ['saveProfile', 'localStorage', 'sessionStorage', 'onFinish', 'finishRace', 'onRecordBestTime', 'gold:', 'fame:']) {
+      expect(rival, token).not.toContain(token);
     }
+    expect(scene).not.toContain('_workspace_dist_horse');
   });
 
   test('the race scene mounts exactly one Canvas and one camera rig', () => {
     expect(sceneSrc.split('<Canvas\n').length - 1).toBe(1);
     expect(sceneSrc.split('<RaceCameraRig').length - 1).toBe(1);
     expect(sceneSrc.split('<RaceChariot').length - 1).toBe(1);
+    expect(sceneSrc.split('<RaceRivalChariot').length - 1).toBe(1);
     expect(sceneSrc.split('<RaceClock').length - 1).toBe(1);
   });
 

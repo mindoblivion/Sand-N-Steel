@@ -1,3 +1,4 @@
+// @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
 import { HUB_LOCATIONS } from './cityCollisions';
 

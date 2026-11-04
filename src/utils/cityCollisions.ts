@@ -122,6 +122,8 @@ export interface InteractiveLocation {
   id: string;
   name: string;
   subtitle: string;
+  /** Optional descriptive copy for district location panels. */
+  description?: string;
   position: [number, number, number];
   radius: number;
   icon: string;
