@@ -466,26 +466,30 @@ const RaceChariotWheelKit: React.FC<{ wheelVariant: ChariotWheelVariantKey; spee
   const gltf = useGLTF(CHARIOT_WHEEL_KIT_URL);
   const wheels = useMemo(() => {
     const source = gltf.scene.getObjectByName(CHARIOT_WHEEL_VARIANTS[wheelVariant].node);
-    return (['left', 'right'] as const).map((side) => ({
-      side,
-      placement: getChariotWheelPlacement(wheelVariant, side),
-      object: source ? source.clone(true) : null,
-    }));
+    if (!source) return [];
+    source.updateWorldMatrix(true, true);
+    const bounds = new THREE.Box3().setFromObject(source);
+    const hub = bounds.getCenter(new THREE.Vector3());
+    return (['left', 'right'] as const).map((side) => {
+      const pivot = new THREE.Group();
+      pivot.position.copy(hub);
+      const object = source.clone(true);
+      pivot.attach(object);
+      return { side, placement: getChariotWheelPlacement(wheelVariant, side), pivot };
+    });
   }, [gltf.scene, wheelVariant]);
   const roll = useRef(0);
   useFrame((_state, delta) => {
     roll.current = advanceWheelRoll(roll.current, speed, delta, CHARIOT_WHEEL_VARIANTS[wheelVariant].radius);
-    for (const wheel of wheels) {
-      if (wheel.object) wheel.object.rotation.z = roll.current;
-    }
+    for (const wheel of wheels) wheel.pivot.rotation.z = roll.current;
   });
   return (
     <>
-      {wheels.map(({ side, placement, object }) => object ? (
+      {wheels.map(({ side, placement, pivot }) => (
         <group key={`race-kit-wheel-${side}`} position={placement.position} rotation={[0, placement.rotationY, 0]}>
-          <primitive object={object} />
+          <primitive object={pivot} />
         </group>
-      ) : null)}
+      ))}
     </>
   );
 };
