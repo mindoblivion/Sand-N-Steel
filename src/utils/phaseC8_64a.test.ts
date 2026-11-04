@@ -1060,11 +1060,11 @@ describe('F. Scope guard', () => {
     expect(GROUND_PLANE_ELEVATION_Y).toBe(-0.05);
     // C-8.64A left 20 hubs; Phase C-8.70B added the East Circus District's race
     // entry — the only circus hub, and the only circus arrival.
-    expect(HUB_LOCATIONS.length).toBe(21);
+    expect(HUB_LOCATIONS.length).toBe(26);
     expect(HUB_LOCATIONS.filter((h) => h.id.includes('circus')).map((h) => h.id)).toEqual([
       'east_circus_arena',
     ]);
-    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(21);
+    expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(26);
     expect(Object.keys(FAST_TRAVEL_ARRIVALS).filter((k) => k.includes('circus'))).toEqual([
       'east_circus_arena',
     ]);
