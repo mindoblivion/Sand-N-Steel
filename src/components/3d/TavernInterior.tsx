@@ -90,6 +90,13 @@ function Patron({ position, tunic = '#8d3e2c', facing = 0 }: {
 }) {
   return (
     <group position={position} rotation={[0, facing, 0]}>
+      {/* Simple full-body silhouette: feet stay on the floor instead of leaving a floating torso. */}
+      {[-0.13, 0.13].map((x) => (
+        <mesh key={x} position={[x, 0.28, 0.04]} castShadow>
+          <capsuleGeometry args={[0.105, 0.34, 3, 6]} />
+          <meshStandardMaterial color={tunic} roughness={0.94} />
+        </mesh>
+      ))}
       <mesh position={[0, 1.12, 0]} castShadow>
         <capsuleGeometry args={[0.27, 0.72, 4, 8]} />
         <meshStandardMaterial color={tunic} roughness={0.92} />
@@ -102,10 +109,17 @@ function Patron({ position, tunic = '#8d3e2c', facing = 0 }: {
         <sphereGeometry args={[0.225, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
         <meshStandardMaterial color="#34251d" roughness={1} />
       </mesh>
-      <mesh position={[0.31, 1.18, -0.08]} rotation={[0, 0, -0.7]}>
-        <capsuleGeometry args={[0.09, 0.48, 3, 6]} />
-        <meshStandardMaterial color={tunic} roughness={0.95} />
-      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh
+          key={side}
+          position={[side * 0.29, 1.2, -0.08]}
+          rotation={[0, 0, side * -0.7]}
+          castShadow
+        >
+          <capsuleGeometry args={[0.09, 0.48, 3, 6]} />
+          <meshStandardMaterial color={tunic} roughness={0.95} />
+        </mesh>
+      ))}
     </group>
   );
 }
