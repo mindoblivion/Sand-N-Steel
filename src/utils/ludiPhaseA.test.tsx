@@ -309,8 +309,8 @@ describe('LUDI B §B — three distinct deeds, drawn by the day alone', () => {
     }
     // Recorded so a change to the hash is a deliberate, visible decision.
     expect(ludiVisitLocationForDay(12)).toBe(DAY12_DISTRICT);
-    expect(ludiVisitLocationName(12)).toBe('Arena Medical House');
-    expect(ludiVisitLabelForDay(12)).toBe('Visit the Arena Medical House.');
+    expect(ludiVisitLocationName(12)).toBe('Triumphal Arch');
+    expect(ludiVisitLabelForDay(12)).toBe('Visit the Triumphal Arch.');
     // The pick is genuinely spread over the city, not the same place every day.
     const picks = new Set(Array.from({ length: 14 }, (_, index) => ludiVisitLocationForDay(index + 1)));
     expect(picks.size).toBeGreaterThanOrEqual(7);
