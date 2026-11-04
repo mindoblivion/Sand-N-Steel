@@ -494,7 +494,7 @@ describe('E. Walkability, collision and navigation are untouched', () => {
     expect(shopSrc).not.toMatch(/collisionShapes|cityCollisions/);
   });
 
-  test('the hub, its radius and its arrival are what C-8.47 left', () => {
+  test('the hub and radius stay fixed while fast travel uses the north-arch approach', () => {
     const hub = HUB_LOCATIONS.find((h) => h.id === 'armor_workshop');
     expect(hub?.position).toEqual([28.2, 0, 1]);
     expect(hub?.radius).toBe(4.5);
