@@ -468,6 +468,7 @@ const RaceChariotKitWheels: React.FC<{
   roll: React.MutableRefObject<number>;
 }> = ({ wheelVariant, roll }) => {
   const wheelKit = useGLTF(CHARIOT_WHEEL_KIT_URL);
+  const wheelPivots = useRef<(THREE.Group | null)[]>([]);
   const wheels = useMemo(() => {
     const source = wheelKit.scene.getObjectByName(CHARIOT_WHEEL_VARIANTS[wheelVariant].node);
     return (['left', 'right'] as const).map((side) => ({
@@ -477,11 +478,17 @@ const RaceChariotKitWheels: React.FC<{
     }));
   }, [wheelKit.scene, wheelVariant]);
 
+  useFrame(() => {
+    for (const pivot of wheelPivots.current) {
+      if (pivot) pivot.rotation.z = roll.current;
+    }
+  });
+
   return (
     <>
-      {wheels.map(({ side, placement, object }) => object && (
+      {wheels.map(({ side, placement, object }, index) => object && (
         <group key={side} position={placement.position} rotation={[0, placement.rotationY, 0]}>
-          <group rotation={[0, 0, roll.current]}>
+          <group ref={(node) => { wheelPivots.current[index] = node; }}>
             <primitive object={object} />
           </group>
         </group>
