@@ -71,6 +71,7 @@ import {
 } from '../../utils/raceState';
 import type { CountdownStep, RaceState } from '../../utils/raceState';
 import { advanceRaceLap, createRaceLapTracker } from '../../utils/raceLap';
+import { getRaceRivalPose } from '../../utils/raceRival';
 
 /**
  * RaceScene.tsx — Phase C-8.70B Stage 1, Slice 1 (the race scene and its state
@@ -434,6 +435,38 @@ const RaceChariot: React.FC<{
     >
       <primitive object={body.scene} />
       <RaceHorseTeam teamSize={teamSize} speed={raceState === 'racing' && !frozen ? motion.speed : 0} />
+    </group>
+  );
+};
+
+/**
+ * A single visual rival on the surveyed racing line. Its pace is deterministic
+ * and independent of player input; it never writes records or rewards.
+ */
+const RaceRivalChariot: React.FC<{
+  raceState: RaceState;
+  startedAt: number | null;
+  frozen: boolean;
+}> = ({ raceState, startedAt, frozen }) => {
+  const gltf = useGLTF(CHARIOT_MODEL_URL);
+  const group = useRef<THREE.Group>(null);
+  const body = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
+  const [pose] = useState(() => getRaceRivalPose(0, { lapDurationMs: 75000, startSide: -1 }));
+
+  useFrame(() => {
+    if (!group.current) return;
+    const elapsed = raceState === 'racing' && !frozen && startedAt !== null
+      ? Math.max(0, performance.now() - startedAt)
+      : 0;
+    const next = getRaceRivalPose(elapsed, { lapDurationMs: 75000, startSide: -1 });
+    group.current.position.set(next.x, RACE_START_POSITION[1], next.z);
+    group.current.rotation.y = next.heading + CHARIOT_MODEL_YAW_OFFSET;
+  });
+
+  return (
+    <group ref={group} position={[pose.x, RACE_START_POSITION[1], pose.z]} rotation={[0, pose.heading, 0]} scale={CHARIOT_MODEL_SCALE}>
+      <primitive object={body} />
+      <RaceHorseTeam teamSize={2} speed={raceState === 'racing' && !frozen ? 3.2 : 0} />
     </group>
   );
 };
@@ -851,6 +884,11 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                     setRaceRecordStatus(onRecordBestTime ? onRecordBestTime(teamSize, elapsedMs) : 'not-best');
                     setRaceState((state) => finishRace(state));
                   }}
+                />
+                <RaceRivalChariot
+                  raceState={raceState}
+                  startedAt={raceStartedAt}
+                  frozen={frozen}
                 />
               </Suspense>
             </ThreeComponentErrorBoundary>
