@@ -859,7 +859,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   // parapet.  Its X/Z come from `CIRCUS_RACE_ENTRY`.
   east_circus_arena:   [
     CIRCUS_RACE_ENTRY.x, CIRCUS_RACE_ENTRY.z - 2],
-  forum:               [5, 27],
+  forum:               [5, 28],
   macellum:            [-5, 28],
   bibliotheca:         [18, 23],
   pistrinum: [-20, 25],  
