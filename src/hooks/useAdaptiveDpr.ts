@@ -58,11 +58,8 @@ export interface CityTier {
   readonly dpr: DprBand;
   /** Dust particles the city draws at this tier (0 = none at all). */
   readonly sparkles: number;
-  /**
-   * SF-1 reserves this row's next field: a later slice attaches its shadow tier
-   * (shadow-map size, or whether the city casts them at all) here, so the scene
-   * reads one table instead of a second set of constants.
-   */
+  /** Square directional-light shadow-map resolution in pixels. */
+  readonly shadows: number;
 }
 
 /**
@@ -75,9 +72,9 @@ export interface CityTier {
  * tier below it.
  */
 export const CITY_TIERS: Record<QualityPreset, CityTier> = {
-  cinematic: { dpr: { min: 1.5, max: 2.0, start: 2.0 }, sparkles: 90 },
-  balanced: { dpr: { min: 1.0, max: 1.5, start: 1.5 }, sparkles: 60 },
-  swift: { dpr: { min: 1.0, max: 1.25, start: 1.0 }, sparkles: 0 },
+  cinematic: { dpr: { min: 1.5, max: 2.0, start: 2.0 }, sparkles: 90, shadows: 1024 },
+  balanced: { dpr: { min: 1.0, max: 1.5, start: 1.5 }, sparkles: 60, shadows: 768 },
+  swift: { dpr: { min: 1.0, max: 1.25, start: 1.0 }, sparkles: 0, shadows: 512 },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
