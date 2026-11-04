@@ -149,6 +149,23 @@
   .combat-hud .tactic-desc {
     display: none;
   }
+  /* The compact HUD keeps the controls, not their repeated labels. Tooltips and
+     accessible names remain available; health, stamina and tactical numbers stay visible. */
+  .combat-hud .combat-utility-label,
+  .combat-hud .combat-weapon-label,
+  .combat-hud .combat-match-timer {
+    display: none;
+  }
+  .combat-hud .combat-top {
+    gap: 0.2rem;
+  }
+  .combat-hud .combat-top [data-combat-weapon-badge="true"] {
+    padding: 0.25rem 0.4rem;
+  }
+  .combat-hud .combat-top button {
+    gap: 0;
+    padding-inline: 0.35rem;
+  }
   .combat-hud .combat-log-items {
     max-height: 4rem;
   }
