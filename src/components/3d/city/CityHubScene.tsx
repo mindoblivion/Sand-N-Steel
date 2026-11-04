@@ -93,6 +93,7 @@ import {
 import { getTerrainY } from '../../../utils/terrainHeight';
 import { checkMoatRespawn } from '../../../utils/drawbridge';
 import { applyDeadZone } from '../../../utils/joystickDeadZone';
+import { getCityFacingYaw } from '../../../utils/cityFacing';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
@@ -1157,7 +1158,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         playerPosRef.current = nextPos;
 
         // Smooth angle rotation towards target movement direction
-        const targetAngle = Math.atan2(worldDx, worldDz);
+        const targetAngle = getCityFacingYaw(worldDx, worldDz);
         let angleDiff = targetAngle - playerRotYRef.current;
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
