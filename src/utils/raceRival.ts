@@ -171,7 +171,7 @@ export function getRaceRivalPose(
   const tangentHalfWidth = Math.min(0.2, totalLength / 1000);
   const before = pointAtDistance(route, distance - tangentHalfWidth);
   const after = pointAtDistance(route, distance + tangentHalfWidth);
-  const heading = Math.atan2(after[0] - before[0], -(after[1] - before[1]));
+  const heading = Math.atan2(-(after[0] - before[0]), -(after[1] - before[1]));
 
   return {
     x: position[0],
