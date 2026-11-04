@@ -323,11 +323,16 @@ describe('E. Slice boundaries', () => {
     }
   });
 
-  test('no horse and no opponent is mounted in this slice', () => {
-    const scene = code(sceneSrc).toLowerCase();
-    for (const token of ['_workspace_dist_horse', 'chariotteamformation', 'horses', 'rival', 'opponent']) {
-      expect(scene, token).not.toContain(token);
-    }
+  test('the rival is a visual-only deterministic participant, not a progression authority', () => {
+    const scene = code(sceneSrc);
+    expect(scene).toContain('const RaceRivalChariot');
+    expect(scene).toContain('getRaceRivalPose');
+    expect(scene).toContain('<RaceRivalChariot');
+    expect(scene).toContain('RaceHorseTeam teamSize={2}');
+    expect(scene).toContain("from '../../utils/raceRival'");
+    // The rival has no record/reward callback and cannot finish the player's lap.
+    expect(scene).not.toContain('onRecordBestTime(');
+    expect(scene).not.toContain('advanceRaceLap(lapTracker.current');
   });
 
   test('the race scene mounts exactly one Canvas and one camera rig', () => {
