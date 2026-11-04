@@ -499,7 +499,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'forum',
     name: 'Forum',
     subtitle: 'City Center',
-    position: [0, 0, 32],
+    position: [0, 0, 331,
     radius: 5,
     icon: 'Landmark',
     actionPrompt: 'Visit Forum',
@@ -547,7 +547,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'triumphal_arch',
     name: 'Triumphal Arch',
     subtitle: 'Southern Gate',
-    position: [0, 0, 34],
+    position: [0, 0, 335,
     radius: 3,
     icon: 'Award',
     actionPrompt: 'Pass Through',
@@ -858,7 +858,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   // carceres' front face, 4.50 of the arena's south face and 6.20 of the
   // parapet.  Its X/Z come from `CIRCUS_RACE_ENTRY`.
   east_circus_arena:   [CIRCUS_RACE_ENTRY.x, CIRCUS_RACE_ENTRY.z - 2],
-  forum:               [0, 26],
+  forum:               [0, 225,
   macellum:            [-14, 26],
   bibliotheca:         [12, 23],
   pistrinum:           [-24, 25],
