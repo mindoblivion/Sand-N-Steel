@@ -450,23 +450,42 @@ const RaceRivalChariot: React.FC<{
 }> = ({ raceState, startedAt, frozen }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
   const group = useRef<THREE.Group>(null);
-  const body = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
-  const [pose] = useState(() => getRaceRivalPose(0, { lapDurationMs: 75000, startSide: -1 }));
+  const roll = useRef(0);
+  const body = useMemo(() => {
+    const scene = gltf.scene.clone(true);
+    const wheels: THREE.Group[] = [];
+    scene.updateMatrixWorld(true);
+    for (const name of RACE_WHEEL_NODE_NAMES) {
+      const node = scene.getObjectByName(name);
+      if (!node) continue;
+      const bounds = new THREE.Box3().setFromObject(node);
+      if (bounds.isEmpty()) continue;
+      const pivot = new THREE.Group();
+      bounds.getCenter(pivot.position);
+      scene.add(pivot);
+      pivot.attach(node);
+      wheels.push(pivot);
+    }
+    return { scene, wheels };
+  }, [gltf.scene]);
+  const initialPose = getRaceRivalPose(0, { lapDurationMs: 75000, startSide: -1 });
+  const rivalSpeed = 2.2;
 
-  useFrame(() => {
+  useFrame((_state, delta) => {
     if (!group.current) return;
-    const elapsed = raceState === 'racing' && !frozen && startedAt !== null
-      ? Math.max(0, performance.now() - startedAt)
-      : 0;
+    const racing = raceState === 'racing' && !frozen && startedAt !== null;
+    const elapsed = racing ? Math.max(0, performance.now() - startedAt!) : 0;
     const next = getRaceRivalPose(elapsed, { lapDurationMs: 75000, startSide: -1 });
     group.current.position.set(next.x, RACE_START_POSITION[1], next.z);
     group.current.rotation.y = next.heading + CHARIOT_MODEL_YAW_OFFSET;
+    roll.current = advanceWheelRoll(roll.current, racing ? rivalSpeed : 0, delta);
+    for (const wheel of body.wheels) wheel.rotation.x = roll.current;
   });
 
   return (
-    <group ref={group} position={[pose.x, RACE_START_POSITION[1], pose.z]} rotation={[0, pose.heading, 0]} scale={CHARIOT_MODEL_SCALE}>
-      <primitive object={body} />
-      <RaceHorseTeam teamSize={2} speed={raceState === 'racing' && !frozen ? 3.2 : 0} />
+    <group ref={group} position={[initialPose.x, RACE_START_POSITION[1], initialPose.z]} rotation={[0, initialPose.heading + CHARIOT_MODEL_YAW_OFFSET, 0]} scale={CHARIOT_MODEL_SCALE}>
+      <primitive object={body.scene} />
+      <RaceHorseTeam teamSize={2} speed={raceState === 'racing' && !frozen ? rivalSpeed : 0} />
     </group>
   );
 };
