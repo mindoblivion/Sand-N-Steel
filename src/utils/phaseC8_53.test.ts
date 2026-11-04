@@ -494,11 +494,11 @@ describe('E. Walkability, collision and navigation are untouched', () => {
     expect(shopSrc).not.toMatch(/collisionShapes|cityCollisions/);
   });
 
-  test('the hub, its radius and its arrival are what C-8.47 left', () => {
+  test('the hub and radius stay fixed while fast travel uses the north-arch approach', () => {
     const hub = HUB_LOCATIONS.find((h) => h.id === 'armor_workshop');
     expect(hub?.position).toEqual([28.2, 0, 1]);
     expect(hub?.radius).toBe(4.5);
-    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, 5.5]);
+    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, -3.55]);
     // a standable point north of the plinth still raises the workshop's own prompt
     expect(getNearbyHubLocation([28.2, 0, 4.25])?.id).toBe('armor_workshop');
   });

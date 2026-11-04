@@ -901,12 +901,12 @@ describe('I. Phase scope — only the forge root Z changed', () => {
     expect(FORGE_ROOF.depth).toBe(7.5);
   });
 
-  test('the neighbouring structures this phase must not touch are unchanged', () => {
+  test('neighbouring geometry stays unchanged and the workshop arrival uses the north approach', () => {
     // Phase C-8.43: caravanserai width corrected 9.6 → 9.1 (hw 4.8 → 4.55); depth 8.1 unchanged.
     expect(findRect('caravanserai')).toMatchObject({ cx: 16, cz: 14, hw: 9.1 / 2, hd: 8.1 / 2 });
     expect(findRect('armor-workshop')).toMatchObject({ cx: 28.2, cz: 1.15, hw: 4.45, hd: 2.85 });
     expect(findRect('city-tavern')).toMatchObject({ cx: -16, cz: 14 });
-    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, 5.5]);
+    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, -3.55]);
     expect(FAST_TRAVEL_ARRIVALS.general_store).toEqual([17, -5]);
     expect(FAST_TRAVEL_ARRIVALS.merchant_house).toEqual([21, -13]);
   });

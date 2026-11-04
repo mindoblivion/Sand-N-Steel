@@ -637,12 +637,11 @@ describe('D. Overlapping discs and which hub answers', () => {
 // E. Unaffected hubs
 // ══════════════════════════════════════════════════════════════════════════
 
-describe('E. The thirteen unaffected hubs are untouched and still work', () => {
-  test('their radii and arrivals are exactly what they were', () => {
+describe('E. The unaffected radii and remaining arrivals still work', () => {
+  test('their radii remain unchanged and other arrivals stay pinned', () => {
     for (const [id, radius] of Object.entries(UNCHANGED)) {
       expect(hub(id).radius, `${id} radius`).toBe(radius);
     }
-    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, 5.5]);
     expect(FAST_TRAVEL_ARRIVALS.doctore_house).toEqual([23.5, -18.875]);
     expect(FAST_TRAVEL_ARRIVALS.records_house).toEqual([23.1, -26]);
     expect(FAST_TRAVEL_ARRIVALS.shrine_temple).toEqual([-22.5, 11]);
@@ -651,6 +650,15 @@ describe('E. The thirteen unaffected hubs are untouched and still work', () => {
     expect(FAST_TRAVEL_ARRIVALS.veteran_gladiator_hall).toEqual([-24, -29]);
     expect(FAST_TRAVEL_ARRIVALS.arena_medical_house).toEqual([-29, -9]);
     expect(FAST_TRAVEL_ARRIVALS.northern_fortress).toEqual([0, MOTTE_CENTER_Z + 12.5]);
+  });
+
+  test('armor workshop fast travel approaches the north-facing arch from clear ground', () => {
+    const [x, z] = FAST_TRAVEL_ARRIVALS.armor_workshop;
+    const workshop = hub('armor_workshop');
+    expect(FAST_TRAVEL_ARRIVALS.armor_workshop).toEqual([28.2, -3.55]);
+    expect(z).toBeLessThan(workshop.position[2] - 1.5);
+    expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
+    expect(Math.hypot(x - workshop.position[0], z - workshop.position[2])).toBeGreaterThan(workshop.radius);
   });
 
   test('each of them still answers at its own entrance, reached from its arrival', () => {
@@ -722,7 +730,7 @@ describe('F. Every trigger and every arrival', () => {
     }
   });
 
-  test('the seven arrivals that sit outside their disc are outside by one short step', () => {
+  test('the eight arrivals that sit outside their disc are outside by one short step', () => {
     // Deliberate standoffs: the prompt appears as the player walks in.  Each is
     // within 2.5 units of the disc, i.e. at most ~40 steps at 0.0633 per step.
     const outside: string[] = [];
@@ -742,6 +750,7 @@ describe('F. Every trigger and every arrival', () => {
         'bathhouse',
         'gladiator_barracks',
         'northern_fortress',
+        'armor_workshop',
       ].sort(),
     );
   });
