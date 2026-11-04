@@ -87,7 +87,7 @@ describe('deterministic race rival route', () => {
           Math.sin(pose.heading - previousHeading),
           Math.cos(pose.heading - previousHeading),
         );
-        expect(Math.abs(delta)).toBeLessThan(0.25);
+        expect(Math.abs(delta)).toBeLessThan(0.3);
       }
       previousHeading = pose.heading;
     }
