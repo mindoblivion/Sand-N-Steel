@@ -62,7 +62,7 @@ function buildRoute(startSide: -1 | 1): ReadonlyArray<readonly [number, number]>
   const startX = CIRCUS_AXIS_X + startSide * LANE_OFFSET;
   const otherX = CIRCUS_AXIS_X + otherSide * LANE_OFFSET;
   const northZ = RACE_NORTH_TURN_Z;
-  const northEntryZ = northZ + 4;
+  const northEntryZ = northZ - 1;
   const northApexZ = northZ - 5.5;
   const southEntryZ = 30;
   const finishApproachZ = CIRCUS_RACE_START.z - 0.1;
@@ -128,39 +128,40 @@ export function getRaceRivalPose(
   const progress = Number.isFinite(elapsedMs)
     ? Math.max(0, Math.min(1, elapsedMs / duration))
     : 0;
-  if (progress >= 1) {
-    const last = points[points.length - 1];
-    const previous = points[points.length - 2];
-    return {
-      x: last[0],
-      z: last[1],
-      heading: Math.atan2(last[0] - previous[0], -(last[1] - previous[1])),
-      finished: true,
-      progress: 1,
-    };
-  }
-  let remaining = totalLength * progress;
+  const distance = totalLength * progress;
 
-  for (let i = 1; i < points.length; i += 1) {
-    const from = points[i - 1];
-    const to = points[i];
-    const dx = to[0] - from[0];
-    const dz = to[1] - from[1];
-    const segmentLength = Math.hypot(dx, dz);
-    if (remaining <= segmentLength || i === points.length - 1) {
-      const t = segmentLength > 0 ? Math.min(1, remaining / segmentLength) : 1;
-      return {
-        x: from[0] + dx * t,
-        z: from[1] + dz * t,
-        // Three.js chariot forward is local -Z.
-        heading: Math.atan2(dx, -dz),
-        finished: progress >= 1,
-        progress,
-      };
+  // Resolve a point by arc distance. Heading uses a short symmetric chord
+  // around the current distance instead of the active polyline segment's
+  // constant direction; this avoids visible steering snaps when a frame
+  // advances across more than one finely sampled curve segment.
+  const pointAtDistance = (target: number): readonly [number, number] => {
+    let remaining = Math.max(0, Math.min(totalLength, target));
+    for (let i = 1; i < points.length; i += 1) {
+      const from = points[i - 1];
+      const to = points[i];
+      const dx = to[0] - from[0];
+      const dz = to[1] - from[1];
+      const segmentLength = Math.hypot(dx, dz);
+      if (remaining <= segmentLength || i === points.length - 1) {
+        const t = segmentLength > 0 ? Math.min(1, remaining / segmentLength) : 1;
+        return [from[0] + dx * t, from[1] + dz * t];
+      }
+      remaining -= segmentLength;
     }
-    remaining -= segmentLength;
-  }
+    return points[points.length - 1];
+  };
 
-  const last = points[points.length - 1];
-  return { x: last[0], z: last[1], heading: 0, finished: true, progress: 1 };
+  const position = pointAtDistance(distance);
+  const tangentHalfWidth = Math.min(0.2, totalLength / 1000);
+  const before = pointAtDistance(distance - tangentHalfWidth);
+  const after = pointAtDistance(distance + tangentHalfWidth);
+  const heading = Math.atan2(after[0] - before[0], -(after[1] - before[1]));
+
+  return {
+    x: position[0],
+    z: position[1],
+    heading,
+    finished: progress >= 1,
+    progress,
+  };
 }
