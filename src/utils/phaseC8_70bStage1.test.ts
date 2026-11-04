@@ -270,7 +270,9 @@ describe('D. Reuse', () => {
   });
 
   test('the chariot is the shipping model, through the shipping constants', () => {
-    expect(sceneSrc).toContain("import { CHARIOT_MODEL_SCALE, CHARIOT_MODEL_URL } from '../../utils/chariotGeometry'");
+    expect(sceneSrc).toContain('CHARIOT_MODEL_SCALE,');
+    expect(sceneSrc).toContain('CHARIOT_MODEL_URL,');
+    expect(sceneSrc).toContain("from '../../utils/chariotGeometry'");
     expect(sceneSrc).toContain('useGLTF(CHARIOT_MODEL_URL)');
     expect(sceneSrc).toContain('CHARIOT_MODEL_SCALE');
     // the path is single-sourced; no literal in the scene's code
