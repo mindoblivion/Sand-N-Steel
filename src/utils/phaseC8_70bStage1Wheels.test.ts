@@ -152,7 +152,9 @@ describe('B. The scene spins both fitted wheels about their own hubs', () => {
 
   test('the cached GLB is cloned before it is touched', () => {
     expect(sceneCode).toContain('const scene = gltf.scene.clone(true);');
-    expect(sceneCode).not.toContain('gltf.scene.getObjectByName');
+    // The wheel-kit scene is read to find a source node, but only a clone is re-parented.
+    expect(sceneCode).toContain('const object = source.clone(true);');
+    expect(sceneCode).not.toContain('gltf.scene.add(');
     expect(sceneCode).toContain('object={body.scene}');
   });
 });
