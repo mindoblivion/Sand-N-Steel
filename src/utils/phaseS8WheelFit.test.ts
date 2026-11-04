@@ -508,7 +508,7 @@ describe('B. The bladed set’s per-side mirror', () => {
 // C. How a variant's radius reaches production today
 // ══════════════════════════════════════════════════════════════════════════
 
-describe('C. The radius-consumption trace: nothing variant-aware exists to break', () => {
+describe('C. The race consumes the selected wheel geometry without changing race physics', () => {
   test('the roll rule owns ONE radius, the stock wheel’s', () => {
     expect(CHARIOT_WHEEL_RADIUS).toBe(0.685);
     // It equals the stock hub height minus the authored tyre sink — not a variant's
@@ -516,11 +516,14 @@ describe('C. The radius-consumption trace: nothing variant-aware exists to break
     expect(CHARIOT_WHEEL_RADIUS).toBeCloseTo(CHARIOT_WHEEL_HUB_Y - CHARIOT_STOCK_WHEEL_BOTTOM_Y, 12);
   });
 
-  test('the race mounts the stock model only, and spins its own two wheel nodes', () => {
+  test('the race uses stock wheels by default and mounts the audited kit only for reinforced equipment', () => {
     expect(RACE_SCENE_SRC).toContain('CHARIOT_MODEL_URL');
-    expect(RACE_SCENE_SRC).not.toContain('CHARIOT_WHEEL_KIT_URL');
+    expect(RACE_SCENE_SRC).toContain('CHARIOT_WHEEL_KIT_URL');
+    expect(RACE_SCENE_SRC).toContain("wheelVariant === 'reinforced'");
+    expect(RACE_SCENE_SRC).toContain('getChariotWheelPlacement(\'reinforced\', side)');
+    expect(RACE_SCENE_SRC).toContain('wheel.object.rotation.z = roll.current');
+    expect(RACE_SCENE_SRC).toContain('applyChariotFinish(scene');
     expect(RACE_SCENE_SRC).not.toContain('WHEEL_FIT_VARIANTS');
-    expect(RACE_SCENE_SRC).not.toContain('getChariotWheelPlacement');
   });
 
   test('the workshop preview mounts hub-centred with no lift and no variant radius', () => {
