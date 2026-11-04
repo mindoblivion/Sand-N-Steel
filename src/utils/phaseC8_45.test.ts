@@ -367,7 +367,7 @@ describe('E. The yard enclosure and its east entrance are unchanged', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('F. Hub triggers and arrivals are unaffected', () => {
-  test('all 21 hub interaction triggers remain reachable', () => {
+  test('all 26 hub interaction triggers remain reachable', () => {
     // C-8.70B added the East Circus District's race entry — the 21st trigger.
     expect(HUB_LOCATIONS.length).toBe(26);
     const unreachable: string[] = [];
@@ -386,7 +386,7 @@ describe('F. Hub triggers and arrivals are unaffected', () => {
     expect(unreachable).toEqual([]);
   });
 
-  test('all 21 fast-travel arrivals are collision-free and have a clear step out', () => {
+  test('all 26 fast-travel arrivals are collision-free and have a clear step out', () => {
     expect(Object.keys(FAST_TRAVEL_ARRIVALS).length).toBe(26);
     for (const loc of HUB_LOCATIONS) {
       const [ax, az] = FAST_TRAVEL_ARRIVALS[loc.id];
