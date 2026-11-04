@@ -114,3 +114,34 @@ describe('deterministic race rival route', () => {
     }
   });
 });
+
+
+describe('race rival finish comparison', () => {
+  test('reports a player victory and the exact winning margin', () => {
+    expect(resolveRaceRivalOutcome(58200, 60000)).toEqual({
+      outcome: 'victory',
+      marginMs: 1800,
+    });
+  });
+
+  test('reports a rival victory and the exact losing margin', () => {
+    expect(resolveRaceRivalOutcome(61800, 60000)).toEqual({
+      outcome: 'defeat',
+      marginMs: 1800,
+    });
+  });
+
+  test('treats finishes within one displayed tenth as a photo finish', () => {
+    expect(resolveRaceRivalOutcome(60099, 60000)).toEqual({
+      outcome: 'photo-finish',
+      marginMs: 99,
+    });
+    expect(resolveRaceRivalOutcome(60000, 60000)?.outcome).toBe('photo-finish');
+  });
+
+  test('rejects invalid finish times instead of inventing a winner', () => {
+    expect(resolveRaceRivalOutcome(Number.NaN, 60000)).toBeNull();
+    expect(resolveRaceRivalOutcome(60000, Number.POSITIVE_INFINITY)).toBeNull();
+    expect(resolveRaceRivalOutcome(-1, 60000)).toBeNull();
+  });
+});
