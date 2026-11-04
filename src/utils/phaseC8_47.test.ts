@@ -146,6 +146,12 @@ const APPROACH: Record<string, { dir: [number, number]; collider: string; source
   // open forecourt ground — like the arena, courtyard and fortress, the disc
   // needs no entrance ring, so the collider column is not consulted.
   east_circus_arena: { dir: [-1, 0], collider: 'forecourt-parapet', source: 'EastCircusDistrict.tsx (race-entry signpost; carries no collider)' },
+  // southern district — approach from the north (-Z, from city center)
+  forum: { dir: [0, -1], collider: 'forum', source: 'SouthernDistrict.tsx (ForumFountain [0,0,31])' },
+  macellum: { dir: [0, -1], collider: 'macellum', source: 'SouthernDistrict.tsx (MacellumMarket [-8,0,33])' },
+  bibliotheca: { dir: [0, -1], collider: 'bibliotheca', source: 'SouthernDistrict.tsx (BibliothecaLibrary [12,0,30])' },
+  pistrinum: { dir: [0, -1], collider: 'pistrinum', source: 'SouthernDistrict.tsx (PistrinumBakery [-24,0,31])' },
+  triumphal_arch: { dir: [0, -1], collider: 'triumphal-arch', source: 'SouthernDistrict.tsx (TriumphalArch [0,0,35])' },
 };
 
 // ── The measured configuration ──────────────────────────────────────────────
@@ -178,6 +184,11 @@ const UNCHANGED: Record<string, number> = {
   northern_fortress: 10.0,
   // Phase C-8.70B's race entry — open-centre, radius from `CIRCUS_RACE_ENTRY`.
   east_circus_arena: 6.0,
+  forum: 5,
+  macellum: 5,
+  bibliotheca: 6,
+  pistrinum: 5,
+  triumphal_arch: 3,
 };
 
 /** Positions are untouched by this phase — pinned so a move cannot hide here. */
@@ -202,6 +213,11 @@ const POSITIONS: Record<string, [number, number]> = {
   veteran_gladiator_hall: [-24, -25],
   arena_medical_house: [-29, -5],
   northern_fortress: [0, MOTTE_CENTER_Z],
+  forum: [0, 31],
+  macellum: [-8, 33],
+  bibliotheca: [12, 30],
+  pistrinum: [-24, 31],
+  triumphal_arch: [0, 35],
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -321,7 +337,7 @@ describe('A. Hub radii and the standoff rule', () => {
       expect(hub(id).radius, `${id} radius`).toBe(radius);
     }
     const touched = new Set([...Object.keys(CHANGED), ...Object.keys(UNCHANGED)]);
-    expect(touched.size).toBe(21);
+    expect(touched.size).toBe(26);
     expect(HUB_IDS.filter((id) => !touched.has(id))).toEqual([]);
   });
 
