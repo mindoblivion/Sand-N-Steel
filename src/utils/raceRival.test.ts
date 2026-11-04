@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import { CIRCUS_AXIS_X } from './collisionShapes';
 import { advanceRaceLap, createRaceLapTracker } from './raceLap';
-import { getRaceRivalPose, getRaceRivalSpeed } from './raceRival';
+import { getRaceRivalPose, getRaceRivalSpeed, resolveRaceRivalOutcome } from './raceRival';
 
 describe('deterministic race rival route', () => {
   test('starts on the selected lane and is deterministic for equal elapsed time', () => {
