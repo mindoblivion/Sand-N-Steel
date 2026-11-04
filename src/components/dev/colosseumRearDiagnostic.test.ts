@@ -163,10 +163,11 @@ describe('C-8.69D isolation and lighting parity', () => {
           m[1]
             .replace(/([A-Za-z][\w-]*)=(\{[^}]*\}|"[^"]*")/g, (_all, name, raw) => {
               const value = raw.startsWith('{')
-                ? Function('lights', 'isOathRig', 'cityPhaseLight', `return (${raw.slice(1, -1)});`)(
+                ? Function('lights', 'isOathRig', 'cityPhaseLight', 'cityTier', `return (${raw.slice(1, -1)});`)(
                     DAY_LIGHT,
                     true,
                     DAY_LIGHT,
+                    { shadows: 1024 },
                   )
                 : raw.slice(1, -1);
               return `${name}=${JSON.stringify(value)}`;
