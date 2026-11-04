@@ -598,7 +598,7 @@ describe('E. The arrival', () => {
 
     // …and App hands the city exactly those three.
     expect(appCode).toContain("lightProfile={oathBeatMode ? 'oathDawn' : undefined}");
-    expect(appCode).toContain('movementLocked={!!oathBeatMode || tavernOpen}');
+    expect(appCode).toContain('movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen}');
     expect(appCode).toContain('heraldAim={heraldPointerVisible(herald) ? herald.aim : null}');
     expect(appCode).toContain(
       'initialPosition={oathBeatMode ? OATH_YARD_SPAWN.position : cityReturnPose?.position}',
