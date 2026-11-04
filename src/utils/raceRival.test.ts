@@ -73,6 +73,18 @@ describe('deterministic race rival route', () => {
     }
   });
 
+  test('heading faces local negative Z through both mirrored lane changes', () => {
+    const eastStart = getRaceRivalPose(0, { lapDurationMs: 36000, startSide: 1 });
+    const eastToWest = getRaceRivalPose(3600, { lapDurationMs: 36000, startSide: 1 });
+    const westStart = getRaceRivalPose(0, { lapDurationMs: 36000, startSide: -1 });
+    const westToEast = getRaceRivalPose(3600, { lapDurationMs: 36000, startSide: -1 });
+
+    expect(eastStart.heading).toBeCloseTo(0, 5);
+    expect(eastToWest.heading).toBeGreaterThan(0);
+    expect(westStart.heading).toBeCloseTo(0, 5);
+    expect(westToEast.heading).toBeLessThan(0);
+  });
+
   test('rounded hairpins stay within the surveyed racing surface and turn smoothly', () => {
     const config = { lapDurationMs: 36000, startSide: -1 as const };
     let previousHeading: number | null = null;
