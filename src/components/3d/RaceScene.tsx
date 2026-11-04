@@ -100,8 +100,9 @@ import { getRaceRivalPose, getRaceRivalSpeed } from '../../utils/raceRival';
  *     the start line `CIRCUS_RACE_START` on the arena's long axis.  The loaded
  *     scene is CLONED (the workshop's own rule — `useGLTF` caches one scene per
  *     URL and the workshop holds the same entry), and its stock wheels are left
- *     fitted: this slice has no wheel kit, no finish selection, NO HORSES and no
- *     rivals;
+ *     fitted. A compact procedural two-horse team drives the player's chariot;
+ *     a second, visual-only chariot follows a deterministic surveyed route. Neither
+ *     rival pacing nor its finish state writes player records, rewards or progression;
  *   • the city hub's own calibrated light rig, value for value (sun, fill,
  *     hemisphere, fog, Sky and the 256 px procedural `Environment`), so the arena
  *     reads here as it reads in the city.
