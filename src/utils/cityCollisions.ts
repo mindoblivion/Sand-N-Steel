@@ -740,7 +740,7 @@ export function resolveCityMovement(
 //   caravanserai      [10, 14]   — 1.45 W of caravanserai west edge (x=11.45)
 //                                  (Phase C-8.43: collider width 9.6 → 9.1)
 //   merchant_house    [21, -13]  — 1.15 W of merchant west edge (x=22.15)
-//   armor_workshop    [28.2, -3.6]— 1.9 N of workshop north plinth edge (z=-1.7), on the north-facing arch side and 0.1m outside its interaction disc
+//   armor_workshop    [28.2, -3.55]— 1.85 N of workshop north plinth edge (z=-1.7), on the north-facing arch side and 0.05m outside its interaction disc
 //   stable            [26, 10]   — 1.15 S of stable south edge (z=11.15)
 //   gladiator_academy [25.5, -23]— 1.15 NW of academy NW corner (x=26.65,z=-23.35)
 //   doctore_house     [23.5, -18.875] — 1.5 W of the doctore west edge
@@ -773,7 +773,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   tavern:             [-10, 14],
   caravanserai:       [10, 14],
   merchant_house:     [21, -13],
-  armor_workshop:     [28.2, -3.6],
+  armor_workshop:     [28.2, -3.55],
   stable:             [26, 10],
   gladiator_academy:  [25.5, -23],
   doctore_house:      [23.5, -18.875],
