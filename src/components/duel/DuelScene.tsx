@@ -441,6 +441,8 @@ const DuelCameraRig: React.FC<{
   shakeMultiplierRef: React.MutableRefObject<number>;
 }> = ({ playerPos, opponentPos, cameraMode, impactRef, shakeMultiplierRef }) => {
   const { camera } = useThree();
+  // Reuse the camera target scratch vector; this rig runs every rendered frame.
+  const targetCamPos = useMemo(() => new THREE.Vector3(), []);
   // C-8.70B §SET-1 — the Camera Sensitivity row scales this orbit, through the
   // settings subscription (a change re-renders the rig; the frame loop is the same).
   const sensitivityScale = getCameraSensitivityScale(useSettings());
@@ -473,7 +475,7 @@ const DuelCameraRig: React.FC<{
     const camX = midX + Math.sin(dragYaw) * currentDist;
     const camZ = midZ + Math.cos(dragYaw) * currentDist;
 
-    const targetCamPos = new THREE.Vector3(camX, currentHeight, camZ);
+    targetCamPos.set(camX, currentHeight, camZ);
 
     camera.position.lerp(targetCamPos, Math.min(1, delta * 6));
 
