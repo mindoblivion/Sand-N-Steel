@@ -235,8 +235,7 @@ interface CityHubSceneProps {
     subTab?: 'chariot',
     shopId?: StorefrontId
   ) => void;
-  onEnterTavern: () => void;
-  onOpenTavernServices?: () => void;
+  onEnterTavern: (openServices: () => void) => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -401,7 +400,6 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   playerProfile,
   onOpenTab,
   onEnterTavern,
-  onOpenTavernServices,
   onEnterDuel,
   onOpenDriveSync,
   onToggleMute,
@@ -784,7 +782,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       if (target) onEnterDuel(target.opponent);
       else onOpenTab('tournament');
     } else if (nearbyLoc.id === 'tavern') {
-      onEnterTavern();
+      onEnterTavern(() => {
+        primeKeeperGreeting('tavern');
+        onOpenDiceBoard?.();
+        setIntelPanel(true);
+      });
       return;
       // S7 — the tavern sells information: the panel lists every tournament
       // opponent the player has not yet bought a rumour on.  K2 — the keeper's
