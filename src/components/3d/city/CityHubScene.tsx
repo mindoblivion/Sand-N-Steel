@@ -1665,7 +1665,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     </WebGLReadyGuard>
 
       {/* TOP STATUS HEADER BAR */}
-      <header className="absolute top-0 left-0 right-0 p-3 sm:p-5 pointer-events-none flex justify-between items-start z-10">
+      <header data-city-top-header="true" className="absolute top-0 left-0 right-0 p-3 sm:p-5 pointer-events-none flex justify-between items-start z-10">
         <div className="pointer-events-auto flex flex-col items-start gap-2">
         {/* Day/Night T3 — the phase medallion: the sun-arc, seven notches, and the disc
             at the clock's hour, in the phase's own class colour. Display only. */}
@@ -1694,7 +1694,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                 LVL {playerProfile.level}
               </span>
             </div>
-            <div className="text-[10px] text-neutral-400 font-serif truncate max-w-[130px] sm:max-w-[200px]">
+            <div className="city-player-title text-[10px] text-neutral-400 font-serif truncate max-w-[130px] sm:max-w-[200px]">
               {playerProfile.title}
             </div>
           </div>
@@ -1745,7 +1745,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               <Coins className="w-4 h-4 text-yellow-400" />
               <span>{playerProfile.gold}</span>
             </div>
-            <div className="flex items-center gap-1 text-xs font-bold text-purple-300">
+            <div className="city-fame-counter flex items-center gap-1 text-xs font-bold text-purple-300">
               <Trophy className="w-4 h-4 text-purple-400" />
               <span>{playerProfile.fame}</span>
             </div>
@@ -1758,7 +1758,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               title="Game Settings (Touch, Sound, Picture)"
             >
               <Settings className="w-5 h-5" />
-              <span>Settings</span>
+              <span className="city-utility-label">Settings</span>
             </button>
           )}
 
@@ -1768,7 +1768,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             title="Google Drive Cloud Saves"
           >
             <Cloud className="w-4 h-4" />
-            <span>Drive</span>
+            <span className="city-utility-label">Drive</span>
           </button>
 
           <button
@@ -1777,14 +1777,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
             title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
-            <span>{isMuted ? 'Unmute' : 'Mute'}</span>
+            <span className="city-utility-label">{isMuted ? 'Unmute' : 'Mute'}</span>
           </button>
 
           <button
             onClick={onReturnToMainMenu}
             className="min-h-[48px] px-3 py-2 rounded-2xl bg-neutral-900/90 border border-neutral-700 hover:border-amber-500/60 text-neutral-300 hover:text-amber-200 text-xs font-serif font-bold backdrop-blur-md cursor-pointer active:scale-95 transition-all shadow-xl"
           >
-            Main Menu
+            <span className="city-utility-label">Main Menu</span>
           </button>
         </div>
       </header>
@@ -2271,7 +2271,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       </div>
 
       {/* BOTTOM DISTRICT FAST-TRAVEL & TAB SHORTCUT BAR */}
-      <footer className="absolute bottom-[calc(var(--hub-safe-bottom)+0.5rem)] left-2 right-2 sm:bottom-[calc(var(--hub-safe-bottom)+1rem)] sm:left-6 sm:right-6 pointer-events-auto z-10">
+      <footer data-city-footer="true" className="absolute bottom-[calc(var(--hub-safe-bottom)+0.5rem)] left-2 right-2 sm:bottom-[calc(var(--hub-safe-bottom)+1rem)] sm:left-6 sm:right-6 pointer-events-auto z-10">
         <div className="max-w-3xl mx-auto bg-neutral-950/90 border border-amber-600/50 rounded-2xl p-1.5 sm:p-2 backdrop-blur-md shadow-2xl flex flex-nowrap items-center justify-between gap-1 overflow-hidden">
           {[
             { id: 'tournament', label: 'Colosseum', icon: Swords, color: 'text-red-400' },
@@ -2289,10 +2289,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
                   sounds.playClick();
                   onOpenTab(item.id as 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library');
                 }}
+                data-city-footer-item="true"
                 className="flex-1 min-w-[54px] min-h-[48px] py-1.5 sm:py-2 px-1 rounded-xl hover:bg-amber-500/20 text-neutral-300 hover:text-amber-200 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all active:scale-95 cursor-pointer"
               >
                 <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${item.color}`} />
-                <span className="text-[10px] sm:text-[11px] font-serif font-bold tracking-tight truncate">
+                <span className="city-footer-label text-[10px] sm:text-[11px] font-serif font-bold tracking-tight truncate">
                   {item.label}
                 </span>
               </button>
