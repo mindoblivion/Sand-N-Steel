@@ -28,6 +28,7 @@ import {
   advanceWheelRoll,
 } from './chariotMovement';
 import { RACE_WHEEL_NODE_NAMES } from '../components/3d/RaceScene';
+import { CHARIOT_WHEEL_VARIANTS } from './chariotGeometry';
 
 const load = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
@@ -73,6 +74,17 @@ describe('A. The wheels turn with the ground, not with the clock', () => {
     let oneTurn = 0;
     for (let i = 0; i < 60; i += 1) oneTurn = advanceWheelRoll(oneTurn, circumference, 1 / 60);
     expect(oneTurn).toBeCloseTo(-2 * Math.PI, 9);
+  });
+
+  test('the reinforced rim uses its measured larger radius for the same ground distance', () => {
+    const radius = CHARIOT_WHEEL_VARIANTS.reinforced.radius;
+    expect(radius).toBeCloseTo(0.7025, 12);
+    const speed = 6.4;
+    const dt = 1 / 60;
+    const turn = advanceWheelRoll(0, speed, dt, radius);
+    expect(Math.abs(turn) * radius).toBeCloseTo(speed * dt, 12);
+    expect(Math.abs(turn)).toBeLessThan(Math.abs(advanceWheelRoll(0, speed, dt)));
+    expect(advanceWheelRoll(0, speed, dt, 0)).toBe(advanceWheelRoll(0, speed, dt));
   });
 
   test('reverse rolls the other way, and the angle stays a continuous reading', () => {
@@ -130,7 +142,8 @@ describe('B. The scene spins both fitted wheels about their own hubs', () => {
   });
 
   test('the spin is the module’s, from the module’s own speed', () => {
-    expect(sceneCode).toContain('advanceWheelRoll(roll.current, racing ? motion.speed : 0, delta)');
+    expect(sceneCode).toContain('advanceWheelRoll(roll.current, racing ? motion.speed : 0, delta, wheelRadius)');
+    expect(sceneCode).toContain('wheelVariant === \'reinforced\'');
     expect(sceneCode).toContain('wheel.rotation.x = roll.current');
   });
 

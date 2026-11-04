@@ -37,6 +37,7 @@ import type { ChariotTeamSize } from '../../types/game';
 import { CIRCUS_RACE_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry';
 import {
   CHARIOT_MOVEMENT,
+  CHARIOT_WHEEL_RADIUS,
   CHARIOT_MODEL_YAW_OFFSET,
   advanceChariot,
   advanceWheelRoll,
@@ -410,6 +411,9 @@ const RaceChariot: React.FC<{
     return { scene, wheels };
   }, [gltf.scene, wheelVariant, finish]);
   const roll = useRef(0);
+  const wheelRadius = wheelVariant === 'reinforced'
+    ? CHARIOT_WHEEL_VARIANTS.reinforced.radius
+    : CHARIOT_WHEEL_RADIUS;
   const lapTracker = useRef(createRaceLapTracker());
   const group = useRef<THREE.Group>(null);
 
@@ -442,7 +446,7 @@ const RaceChariot: React.FC<{
     // the motion module's own speed, and it advances only while the chariot is
     // actually being driven, so a race frozen behind the settings panel or idling
     // on the start line does not spin its wheels.
-    roll.current = advanceWheelRoll(roll.current, racing ? motion.speed : 0, delta);
+    roll.current = advanceWheelRoll(roll.current, racing ? motion.speed : 0, delta, wheelRadius);
     for (const wheel of body.wheels) {
       wheel.rotation.x = roll.current;
     }

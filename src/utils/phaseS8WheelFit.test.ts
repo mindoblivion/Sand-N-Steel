@@ -532,10 +532,12 @@ describe('C. The radius-consumption trace: nothing variant-aware exists to break
     expect(0.65 - 0.75).toBeCloseTo(getChariotWheelPlacement('standard', 'left').position[1], 12);
   });
 
-  test('no ship-path module reads a wheel radius at all', () => {
-    for (const source of [GEOMETRY_SRC, RACE_SCENE_SRC, PREVIEW_SRC]) {
-      expect(source).not.toContain('CHARIOT_WHEEL_RADIUS');
-    }
+  test('the race roll rule uses the equipped wheel radius without changing the workshop fit', () => {
+    expect(RACE_SCENE_SRC).toContain('CHARIOT_WHEEL_RADIUS');
+    expect(RACE_SCENE_SRC).toContain('CHARIOT_WHEEL_VARIANTS.reinforced.radius');
+    expect(RACE_SCENE_SRC).toContain('advanceWheelRoll(roll.current, racing ? motion.speed : 0, delta, wheelRadius)');
+    expect(GEOMETRY_SRC).not.toContain('CHARIOT_WHEEL_RADIUS');
+    expect(PREVIEW_SRC).not.toContain('CHARIOT_WHEEL_RADIUS');
   });
 });
 
