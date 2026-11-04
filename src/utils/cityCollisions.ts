@@ -859,7 +859,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   // parapet.  Its X/Z come from `CIRCUS_RACE_ENTRY`.
   east_circus_arena:   [
     CIRCUS_RACE_ENTRY.x, CIRCUS_RACE_ENTRY.z - 2],
-  forum:               [5, 29],
+  forum:               [15, 27],
   macellum:            [-5, 28],
   bibliotheca:         [12, 23],
   pistrinum: [-20, 25],  
@@ -885,8 +885,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
  * academy 5.24 — a 1.97-unit error, alone affecting 297 cells of that one lens
  * (300+ across the city).  Nearest-first answers the Doctore House there, and
  * leaves every fast-travel arrival and every doorway answering the building it
- * belongs to (`phaseC8_47.test.ts` §D).
- */
+ * belongs to (`phaseC8_47.test.ts` §D). */
 export function getNearbyHubLocation(
   pos: [number, number, number]
 ): InteractiveLocation | null {
