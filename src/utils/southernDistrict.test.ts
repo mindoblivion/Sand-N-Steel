@@ -11,7 +11,7 @@ const SOUTHERN_IDS = ['forum', 'macellum', 'bibliotheca', 'pistrinum', 'triumpha
 const EXPECTED: Record<string, { x: number; z: number; r: number }> = {
   forum: { x: 10, z: 30, r: 5 },
   macellum: { x: -8, z: 33, r: 5 },
-  bibliotheca: { x: 12, z: 30, r: 6 },
+  bibliotheca: { x: 18, z: 30, r: 6 },
   pistrinum: { x: -24, z: 31, r: 5 },
   triumphal_arch: { x: 0, z: 35, r: 3 },
 };
