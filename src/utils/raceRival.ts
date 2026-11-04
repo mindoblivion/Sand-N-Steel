@@ -95,12 +95,49 @@ function routeFor(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
   return startSide === -1 ? WEST_FIRST_ROUTE : EAST_FIRST_ROUTE;
 }
 
-function routeLength(points: ReadonlyArray<readonly [number, number]>): number {
-  let length = 0;
+interface SampledRoute {
+  points: ReadonlyArray<readonly [number, number]>;
+  cumulativeDistances: ReadonlyArray<number>;
+  length: number;
+}
+
+/** Build arc-length metadata once; the animation frame never rescans the route. */
+function prepareRoute(points: ReadonlyArray<readonly [number, number]>): SampledRoute {
+  const cumulativeDistances = [0];
   for (let i = 1; i < points.length; i += 1) {
-    length += Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]);
+    const from = points[i - 1];
+    const to = points[i];
+    cumulativeDistances.push(
+      cumulativeDistances[i - 1] + Math.hypot(to[0] - from[0], to[1] - from[1]),
+    );
   }
-  return length;
+  return { points, cumulativeDistances, length: cumulativeDistances[cumulativeDistances.length - 1] };
+}
+
+const WEST_FIRST_SAMPLED_ROUTE = prepareRoute(WEST_FIRST_ROUTE);
+const EAST_FIRST_SAMPLED_ROUTE = prepareRoute(EAST_FIRST_ROUTE);
+
+function routeFor(startSide: -1 | 1): SampledRoute {
+  return startSide === -1 ? WEST_FIRST_SAMPLED_ROUTE : EAST_FIRST_SAMPLED_ROUTE;
+}
+
+/** Resolve a world-space point with a binary search over precomputed arc lengths. */
+function pointAtDistance(route: SampledRoute, target: number): readonly [number, number] {
+  const distance = Math.max(0, Math.min(route.length, target));
+  const distances = route.cumulativeDistances;
+  let low = 1;
+  let high = distances.length - 1;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (distances[middle] < distance) low = middle + 1;
+    else high = middle;
+  }
+
+  const from = route.points[low - 1];
+  const to = route.points[low];
+  const segmentLength = distances[low] - distances[low - 1];
+  const t = segmentLength > 0 ? (distance - distances[low - 1]) / segmentLength : 1;
+  return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
 }
 
 /**
@@ -111,7 +148,7 @@ export function getRaceRivalSpeed(config: RaceRivalConfig): number {
   const duration = Number.isFinite(config?.lapDurationMs) && config.lapDurationMs > 0
     ? config.lapDurationMs / 1000
     : 0.001;
-  return routeLength(routeFor(config?.startSide === -1 ? -1 : 1)) / duration;
+  return routeFor(config?.startSide === -1 ? -1 : 1).length / duration;
 }
 
 /** Resolve a repeatable rival pose from elapsed race time. */
@@ -123,38 +160,21 @@ export function getRaceRivalPose(
     ? config.lapDurationMs
     : 1;
   const startSide: -1 | 1 = config?.startSide === -1 ? -1 : 1;
-  const points = routeFor(startSide);
-  const totalLength = routeLength(points);
+  const route = routeFor(startSide);
+  const totalLength = route.length;
   const progress = Number.isFinite(elapsedMs)
     ? Math.max(0, Math.min(1, elapsedMs / duration))
     : 0;
   const distance = totalLength * progress;
 
-  // Resolve a point by arc distance. Heading uses a short symmetric chord
-  // around the current distance instead of the active polyline segment's
-  // constant direction; this avoids visible steering snaps when a frame
-  // advances across more than one finely sampled curve segment.
-  const pointAtDistance = (target: number): readonly [number, number] => {
-    let remaining = Math.max(0, Math.min(totalLength, target));
-    for (let i = 1; i < points.length; i += 1) {
-      const from = points[i - 1];
-      const to = points[i];
-      const dx = to[0] - from[0];
-      const dz = to[1] - from[1];
-      const segmentLength = Math.hypot(dx, dz);
-      if (remaining <= segmentLength || i === points.length - 1) {
-        const t = segmentLength > 0 ? Math.min(1, remaining / segmentLength) : 1;
-        return [from[0] + dx * t, from[1] + dz * t];
-      }
-      remaining -= segmentLength;
-    }
-    return points[points.length - 1];
-  };
-
-  const position = progress >= 1 ? points[points.length - 1] : pointAtDistance(distance);
+  // Resolve pose in logarithmic time from precomputed arc-length metadata.
+  // Heading uses a short symmetric chord to avoid steering snaps at hairpins.
+  const position = progress >= 1
+    ? route.points[route.points.length - 1]
+    : pointAtDistance(route, distance);
   const tangentHalfWidth = Math.min(0.2, totalLength / 1000);
-  const before = pointAtDistance(distance - tangentHalfWidth);
-  const after = pointAtDistance(distance + tangentHalfWidth);
+  const before = pointAtDistance(route, distance - tangentHalfWidth);
+  const after = pointAtDistance(route, distance + tangentHalfWidth);
   const heading = Math.atan2(after[0] - before[0], -(after[1] - before[1]));
 
   return {
