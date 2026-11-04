@@ -73,16 +73,25 @@ describe('deterministic race rival route', () => {
     }
   });
 
-  test('heading faces local negative Z through both mirrored lane changes', () => {
-    const eastStart = getRaceRivalPose(0, { lapDurationMs: 36000, startSide: 1 });
-    const eastToWest = getRaceRivalPose(3600, { lapDurationMs: 36000, startSide: 1 });
-    const westStart = getRaceRivalPose(0, { lapDurationMs: 36000, startSide: -1 });
-    const westToEast = getRaceRivalPose(3600, { lapDurationMs: 36000, startSide: -1 });
-
-    expect(eastStart.heading).toBeCloseTo(0, 5);
-    expect(eastToWest.heading).toBeGreaterThan(0);
-    expect(westStart.heading).toBeCloseTo(0, 5);
-    expect(westToEast.heading).toBeLessThan(0);
+  test('heading faces the local negative-Z forward axis along both mirrored routes', () => {
+    const config = { lapDurationMs: 36000, startSide: 1 as const };
+    const mirrored = { ...config, startSide: -1 as const };
+    for (const route of [config, mirrored]) {
+      for (let elapsed = 100; elapsed < route.lapDurationMs - 100; elapsed += 100) {
+        const before = getRaceRivalPose(elapsed - 20, route);
+        const pose = getRaceRivalPose(elapsed, route);
+        const after = getRaceRivalPose(elapsed + 20, route);
+        const dx = after.x - before.x;
+        const dz = after.z - before.z;
+        if (Math.hypot(dx, dz) < 1e-5) continue;
+        const expectedHeading = Math.atan2(-dx, -dz);
+        const difference = Math.atan2(
+          Math.sin(pose.heading - expectedHeading),
+          Math.cos(pose.heading - expectedHeading),
+        );
+        expect(Math.abs(difference)).toBeLessThan(0.02);
+      }
+    }
   });
 
   test('rounded hairpins stay within the surveyed racing surface and turn smoothly', () => {
