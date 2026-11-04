@@ -482,7 +482,7 @@ const RaceChariotWheelKit: React.FC<{ wheelVariant: ChariotWheelVariantKey; spee
   const roll = useRef(0);
   useFrame((_state, delta) => {
     roll.current = advanceWheelRoll(roll.current, speed, delta, CHARIOT_WHEEL_VARIANTS[wheelVariant].radius);
-    for (const wheel of wheels) wheel.pivot.rotation.z = roll.current;
+    for (const wheel of wheels) wheel.pivot.rotation.z = -roll.current;
   });
   return (
     <>
