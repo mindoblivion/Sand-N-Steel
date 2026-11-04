@@ -13,7 +13,7 @@
  *       every catalogue part owned or not (and NO horse-tier section);
  *   §E  Arms & Armor — A8's `GEAR_SETS` first, the loose pieces after, owned lit,
  *       missing dimmed, the selling shop named;
- *   §F  The City — 21 hubs, visited from `records.codexLocations`;
+ *   §F  The City — 26 hubs, visited from `records.codexLocations`;
  *   §G  the percentage arithmetic and the laurel rule (100% exactly, never 99);
  *   §H  the ONE new record: first-visit-only writes, deduped, nested in `records`,
  *       identity-stable so a repeat visit can never save;
@@ -92,7 +92,7 @@ describe('A5 §A — the datasets and the R1 denominators', () => {
     expect(CODEX_GLADIATOR_ROWS.length).toBe(ALL_OPPONENTS.length + 1);
     expect(CHARIOT_PARTS.length).toBe(17);
     expect(ITEMS_DB.length).toBe(32);
-    expect(HUB_LOCATIONS.length).toBe(21);
+    expect(HUB_LOCATIONS.length).toBe(26);
   });
 
   test('Gladiators is every roster row plus the Doctore\'s Test story bout', () => {
