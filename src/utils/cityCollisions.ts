@@ -499,7 +499,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'forum',
     name: 'Forum',
     subtitle: 'City Center',
-    position: [0, 0, 31],
+    position: [0, 0, 32],
     radius: 5,
     icon: 'Landmark',
     actionPrompt: 'Visit Forum',
