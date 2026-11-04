@@ -1478,7 +1478,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
               intensity={lights.keyIntensity}
               color={lights.keyColor}
               castShadow
-              shadow-mapSize={[1024, 1024]}
+              shadow-mapSize={[cityTier.shadows, cityTier.shadows]}
               shadow-camera-left={-70}
               shadow-camera-right={50}
               shadow-camera-top={50}
