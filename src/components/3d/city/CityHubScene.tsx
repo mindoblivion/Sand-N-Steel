@@ -1799,7 +1799,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       )}
 
         {/* MOBILE & PC TOUCH CONTROLS OVERLAY */}
-        <div className="absolute inset-0 pointer-events-none z-20 flex justify-between items-end p-4 sm:p-6 pb-[calc(env(safe-area-inset-bottom)+var(--hub-footer-h)+1rem)] sm:pb-[calc(env(safe-area-inset-bottom)+var(--hub-footer-h)+1.5rem)] flex-row">
+        <div className="absolute inset-0 pointer-events-none z-20 flex justify-between items-end p-4 sm:p-6 pb-[calc(var(--hub-safe-bottom)+var(--hub-footer-h)+0.5rem)] sm:pb-[calc(var(--hub-safe-bottom)+var(--hub-footer-h)+1rem)] flex-row">
           {/* MOBILE VIRTUAL JOYSTICK */}
           <div className="pointer-events-auto touch-none flex flex-col items-center ml-[env(safe-area-inset-left)] mr-[env(safe-area-inset-right)]">
             <div
@@ -2265,13 +2265,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       )}
 
       {/* DESKTOP CONTROLS HELPER BAR */}
-      <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] sm:bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] left-1/2 -translate-x-1/2 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-amber-200/85 bg-neutral-950/80 py-1.5 px-4 rounded-xl border border-amber-800/60 backdrop-blur-sm z-10 shadow-lg">
+      <div className="absolute bottom-[calc(var(--hub-safe-bottom)+4.5rem)] sm:bottom-[calc(var(--hub-safe-bottom)+5.5rem)] left-1/2 -translate-x-1/2 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-amber-200/85 bg-neutral-950/80 py-1.5 px-4 rounded-xl border border-amber-800/60 backdrop-blur-sm z-10 shadow-lg">
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">W A S D / Arrows</kbd> Move</span>
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">Space / E</kbd> 2-in-1 Attack &amp; Interact</span>
       </div>
 
       {/* BOTTOM DISTRICT FAST-TRAVEL & TAB SHORTCUT BAR */}
-      <footer className="absolute bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-2 right-2 sm:bottom-[calc(env(safe-area-inset-bottom)+1rem)] sm:left-6 sm:right-6 pointer-events-auto z-10">
+      <footer className="absolute bottom-[calc(var(--hub-safe-bottom)+0.5rem)] left-2 right-2 sm:bottom-[calc(var(--hub-safe-bottom)+1rem)] sm:left-6 sm:right-6 pointer-events-auto z-10">
         <div className="max-w-3xl mx-auto bg-neutral-950/90 border border-amber-600/50 rounded-2xl p-1.5 sm:p-2 backdrop-blur-md shadow-2xl flex flex-nowrap items-center justify-between gap-1 overflow-hidden">
           {[
             { id: 'tournament', label: 'Colosseum', icon: Swords, color: 'text-red-400' },
