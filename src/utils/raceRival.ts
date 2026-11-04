@@ -62,7 +62,7 @@ function buildRoute(startSide: -1 | 1): ReadonlyArray<readonly [number, number]>
   const startX = CIRCUS_AXIS_X + startSide * LANE_OFFSET;
   const otherX = CIRCUS_AXIS_X + otherSide * LANE_OFFSET;
   const northZ = RACE_NORTH_TURN_Z;
-  const northEntryZ = northZ - 1;
+  const northEntryZ = northZ + 4;
   const northApexZ = northZ - 5.5;
   const southEntryZ = 30;
   const finishApproachZ = CIRCUS_RACE_START.z - 0.1;
