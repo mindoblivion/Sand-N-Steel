@@ -106,11 +106,12 @@ import { getRaceRivalPose, getRaceRivalSpeed, resolveRaceRivalOutcome } from '..
  *     the track);
  *   • the player's chariot: `_workspace_chariot_model_RomanChariot.glb` through
  *     the same `CHARIOT_MODEL_URL` / `CHARIOT_MODEL_SCALE` the workshop uses, at
- *     the start line `CIRCUS_RACE_START` on the arena's long axis.  The loaded
- *     scene is CLONED (the workshop's own rule — `useGLTF` caches one scene per
- *     URL and the workshop holds the same entry), and its stock wheels are left
- *     fitted: this slice has no wheel kit, no finish selection, NO HORSES and no
- *     rivals;
+ *     the start line `CIRCUS_RACE_START` on the arena's long axis. The cloned body
+ *     reads the profile's resolved finish; standard wheels remain on their measured
+ *     pivots, while an equipped reinforced set is demand-loaded from the 304 KB
+ *     wheel kit, mounted at the audited hubs and rolled using its measured radius.
+ *     The rival remains stock, and no chassis/axle/harness performance effects are
+ *     consumed by this visual-only integration;
  *   • the city hub's own calibrated light rig, value for value (sun, fill,
  *     hemisphere, fog, Sky and the 256 px procedural `Environment`), so the arena
  *     reads here as it reads in the city.
