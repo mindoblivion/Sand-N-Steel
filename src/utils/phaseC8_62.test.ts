@@ -979,7 +979,7 @@ describe('C-8.62 §I — what did not move', () => {
     expect(hits.sort()).toEqual([
       'GrandColosseum.tsx',
       'RecordsLibrary.tsx',
-      'RomanShrine.tsx',
+      'RomanShrine.tsx',    'SouthernDistrict.tsx',
       'VeteranGladiatorHall.tsx',
     ]);
   });
