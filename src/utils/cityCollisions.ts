@@ -547,7 +547,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     id: 'triumphal_arch',
     name: 'Triumphal Arch',
     subtitle: 'Southern Gate',
-    position: [0, 0, 335,
+    position: [0, 0, 35],
     radius: 3,
     icon: 'Award',
     actionPrompt: 'Pass Through',
