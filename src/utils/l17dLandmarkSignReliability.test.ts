@@ -502,8 +502,8 @@ describe('L17D §D — the registries and the presentation contract', () => {
     expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(CITY_COLLIDERS.length);
     // Signage is still decoration: no sign collider exists.
     expect(CITY_COLLIDERS.filter((c) => c.id.includes('sign'))).toHaveLength(0);
-    expect(HUB_LOCATIONS).toHaveLength(21);
-    expect(Object.keys(FAST_TRAVEL_ARRIVALS)).toHaveLength(21);
+    expect(HUB_LOCATIONS).toHaveLength(26);
+    expect(Object.keys(FAST_TRAVEL_ARRIVALS)).toHaveLength(26);
   });
 
   test('every sign still stands clear of every collider, hub and arrival', () => {
