@@ -147,9 +147,9 @@ const APPROACH: Record<string, { dir: [number, number]; collider: string; source
   // needs no entrance ring, so the collider column is not consulted.
   east_circus_arena: { dir: [-1, 0], collider: 'forecourt-parapet', source: 'EastCircusDistrict.tsx (race-entry signpost; carries no collider)' },
   // southern district — approach from the north (-Z, from city center)
-  forum: { dir: [0, -1], collider: 'forum', source: 'SouthernDistrict.tsx (ForumFountain [0,0,31])' },
+  forum: { dir: [0, -1], collider: 'forum', source: 'SouthernDistrict.tsx (ForumFountain [10,0,30])' },
   macellum: { dir: [0, -1], collider: 'macellum', source: 'SouthernDistrict.tsx (MacellumMarket [-8,0,33])' },
-  bibliotheca: { dir: [0, -1], collider: 'bibliotheca', source: 'SouthernDistrict.tsx (BibliothecaLibrary [12,0,30])' },
+  bibliotheca: { dir: [0, -1], collider: 'bibliotheca', source: 'SouthernDistrict.tsx (BibliothecaLibrary [18,0,30])' },
   pistrinum: { dir: [0, -1], collider: 'pistrinum', source: 'SouthernDistrict.tsx (PistrinumBakery [-24,0,31])' },
   triumphal_arch: { dir: [0, -1], collider: 'triumphal-arch', source: 'SouthernDistrict.tsx (TriumphalArch [0,0,35])' },
 };
@@ -213,9 +213,9 @@ const POSITIONS: Record<string, [number, number]> = {
   veteran_gladiator_hall: [-24, -25],
   arena_medical_house: [-29, -5],
   northern_fortress: [0, MOTTE_CENTER_Z],
-  forum: [0, 31],
+  forum: [10, 30],
   macellum: [-8, 33],
-  bibliotheca: [12, 30],
+  bibliotheca: [18, 30],
   pistrinum: [-24, 31],
   triumphal_arch: [0, 35],
 };
