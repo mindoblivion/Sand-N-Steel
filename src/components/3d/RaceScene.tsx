@@ -71,6 +71,7 @@ import {
 } from '../../utils/raceState';
 import type { CountdownStep, RaceState } from '../../utils/raceState';
 import { advanceRaceLap, createRaceLapTracker } from '../../utils/raceLap';
+import { getRaceRivalPose, getRaceRivalSpeed } from '../../utils/raceRival';
 
 /**
  * RaceScene.tsx — Phase C-8.70B Stage 1, Slice 1 (the race scene and its state
@@ -437,6 +438,84 @@ const RaceChariot: React.FC<{
     </group>
   );
 };
+
+const RACE_RIVAL_CONFIG = { lapDurationMs: 60_000, startSide: 1 as const };
+
+/** One presentation-only rival. Player lap validation and persistence remain authoritative. */
+const RaceRivalChariot: React.FC<{
+  raceState: RaceState;
+  startedAt: number | null;
+  frozen: boolean;
+}> = ({ raceState, startedAt, frozen }) => {
+  const gltf = useGLTF(CHARIOT_MODEL_URL);
+  const group = useRef<THREE.Group>(null);
+  const roll = useRef(0);
+  const finishedRef = useRef(false);
+  const [finished, setFinished] = useState(false);
+
+  useEffect(() => {
+    if (raceState === 'idle' || raceState === 'countdown' || raceState === 'aborted') {
+      finishedRef.current = false;
+      setFinished(false);
+    }
+  }, [raceState]);
+
+  const body = useMemo(() => {
+    const scene = gltf.scene.clone(true);
+    const wheels: THREE.Group[] = [];
+    scene.updateMatrixWorld(true);
+    for (const name of RACE_WHEEL_NODE_NAMES) {
+      const node = scene.getObjectByName(name);
+      if (!node) continue;
+      const bounds = new THREE.Box3().setFromObject(node);
+      if (bounds.isEmpty()) continue;
+      const pivot = new THREE.Group();
+      bounds.getCenter(pivot.position);
+      scene.add(pivot);
+      pivot.attach(node);
+      wheels.push(pivot);
+    }
+    return { scene, wheels };
+  }, [gltf.scene]);
+
+  const initialPose = getRaceRivalPose(0, RACE_RIVAL_CONFIG);
+  const rivalSpeed = getRaceRivalSpeed(RACE_RIVAL_CONFIG);
+
+  useFrame((_state, delta) => {
+    if (!group.current || frozen) return;
+    // Keep the rival on its own race clock after the player finishes.
+    const raceClockActive = (raceState === 'racing' || raceState === 'finished') && startedAt !== null;
+    const elapsed = raceClockActive ? Math.max(0, performance.now() - startedAt) : 0;
+    const next = getRaceRivalPose(elapsed, RACE_RIVAL_CONFIG);
+    group.current.position.set(next.x, RACE_START_POSITION[1], next.z);
+    group.current.rotation.y = next.heading + CHARIOT_MODEL_YAW_OFFSET;
+
+    const moving = raceClockActive && !next.finished;
+    roll.current = advanceWheelRoll(roll.current, moving ? rivalSpeed : 0, delta);
+    for (const wheel of body.wheels) wheel.rotation.x = roll.current;
+
+    if (next.finished && !finishedRef.current) {
+      finishedRef.current = true;
+      setFinished(true);
+    }
+  });
+
+  return (
+    <group
+      ref={group}
+      position={[initialPose.x, RACE_START_POSITION[1], initialPose.z]}
+      rotation={[0, initialPose.heading + CHARIOT_MODEL_YAW_OFFSET, 0]}
+      scale={CHARIOT_MODEL_SCALE}
+    >
+      <primitive object={body.scene} />
+      <RaceHorseTeam teamSize={2} speed={raceClockActiveForHorse(raceState, frozen, finished) ? rivalSpeed : 0} />
+    </group>
+  );
+};
+
+function raceClockActiveForHorse(raceState: RaceState, frozen: boolean, finished: boolean): boolean {
+  return (raceState === 'racing' || raceState === 'finished') && !frozen && !finished;
+}
 
 /**
  * The race clock.  It lives in its own component so its tenth-of-a-second ticks
@@ -851,6 +930,11 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                     setRaceRecordStatus(onRecordBestTime ? onRecordBestTime(teamSize, elapsedMs) : 'not-best');
                     setRaceState((state) => finishRace(state));
                   }}
+                />
+                <RaceRivalChariot
+                  raceState={raceState}
+                  startedAt={raceStartedAt}
+                  frozen={frozen}
                 />
               </Suspense>
             </ThreeComponentErrorBoundary>
