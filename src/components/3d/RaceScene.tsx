@@ -71,7 +71,7 @@ import {
 } from '../../utils/raceState';
 import type { CountdownStep, RaceState } from '../../utils/raceState';
 import { advanceRaceLap, createRaceLapTracker } from '../../utils/raceLap';
-import { getRaceRivalPose } from '../../utils/raceRival';
+import { getRaceRivalPose, getRaceRivalSpeed } from '../../utils/raceRival';
 
 /**
  * RaceScene.tsx — Phase C-8.70B Stage 1, Slice 1 (the race scene and its state
@@ -443,6 +443,8 @@ const RaceChariot: React.FC<{
  * A single visual rival on the surveyed racing line. Its pace is deterministic
  * and independent of player input; it never writes records or rewards.
  */
+const RACE_RIVAL_CONFIG = { lapDurationMs: 36000, startSide: -1 as const };
+
 const RaceRivalChariot: React.FC<{
   raceState: RaceState;
   startedAt: number | null;
@@ -468,14 +470,14 @@ const RaceRivalChariot: React.FC<{
     }
     return { scene, wheels };
   }, [gltf.scene]);
-  const initialPose = getRaceRivalPose(0, { lapDurationMs: 75000, startSide: -1 });
-  const rivalSpeed = 2.2;
+  const initialPose = getRaceRivalPose(0, RACE_RIVAL_CONFIG);
+  const rivalSpeed = getRaceRivalSpeed(RACE_RIVAL_CONFIG);
 
   useFrame((_state, delta) => {
     if (!group.current) return;
     const racing = raceState === 'racing' && !frozen && startedAt !== null;
     const elapsed = racing ? Math.max(0, performance.now() - startedAt!) : 0;
-    const next = getRaceRivalPose(elapsed, { lapDurationMs: 75000, startSide: -1 });
+    const next = getRaceRivalPose(elapsed, RACE_RIVAL_CONFIG);
     group.current.position.set(next.x, RACE_START_POSITION[1], next.z);
     group.current.rotation.y = next.heading + CHARIOT_MODEL_YAW_OFFSET;
     roll.current = advanceWheelRoll(roll.current, racing ? rivalSpeed : 0, delta);
