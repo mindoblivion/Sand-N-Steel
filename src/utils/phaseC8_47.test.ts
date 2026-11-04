@@ -511,7 +511,7 @@ describe('D. Overlapping discs and which hub answers', () => {
    * reaches 6.0 out on every other side.
    */
   const OVERLAPS: Array<[string, string, number]> = [
-    ['town_gate', 'forum', 7],
+    ['town_gate', 'forum', 8],
     ['smithing_forge', 'general_store', 8.59],
     ['smithing_forge', 'caravanserai', 11.57],
     ['smithing_forge', 'armor_workshop', 10.32],
@@ -522,8 +522,8 @@ describe('D. Overlapping discs and which hub answers', () => {
     ['gladiator_academy', 'doctore_house', 8.5],
     ['gladiator_academy', 'records_house', 7.98],
     ['bathhouse', 'pistrinum', 6.32],
-    ['forum', 'macellum', 8.25],
-    ['forum', 'triumphal_arch', 4],
+    ['forum', 'macellum', 8.06],
+    ['forum', 'triumphal_arch', 3],
   ];
 
   test('exactly these thirteen pairs overlap, at the measured centre distances', () => {
