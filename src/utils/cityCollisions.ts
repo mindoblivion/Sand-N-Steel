@@ -866,8 +866,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
 };
 
 /**
- * Nearest-hub lookup for the interaction prompt.
- 
+ * Nearest-hub lookup for the interaction prompt. 
  *
  * Selection is the NEAREST hub whose disc contains `pos` (inclusive of the rim),
  * with an exact tie broken by `HUB_LOCATIONS` order, so the answer is
