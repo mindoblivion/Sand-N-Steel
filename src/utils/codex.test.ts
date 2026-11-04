@@ -262,7 +262,7 @@ describe('A5 §E — Arms & Armor: A8\'s sets first, then the loose pieces', () 
 });
 
 describe('A5 §F — The City: every hub walked', () => {
-  test('all 21 hubs are listed and only recorded ones are visited', () => {
+  test('all 26 hubs are listed and only recorded ones are visited', () => {
     const page = codexPage(profileWith({ records: { codexLocations: ['colosseum', 'records_house'] } }), 'city')!;
     expect(page.total).toBe(HUB_LOCATIONS.length);
     const entries = page.groups.flatMap((group) => group.entries);
