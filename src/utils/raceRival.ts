@@ -25,9 +25,9 @@ export interface RaceRivalConfig {
   startSide: -1 | 1;
 }
 
-// The measured sand is 16.8 units wide (X 43.940..60.740), so ±7.5
-// keeps the rival's centreline inside the playable surface with 0.9 units
-// of margin while still meeting raceLap.ts's inclusive lane threshold.
+// The measured sand is 16.8 units wide (X 43.940..60.740), so ±7.8
+// keeps the rival's centreline inside the playable surface with 0.6 units
+// of margin while clearing raceLap.ts's inclusive lane threshold.
 const LANE_OFFSET = 7.8;
 
 /**
@@ -39,7 +39,7 @@ function sampleCurve(
   p1: readonly [number, number],
   p2: readonly [number, number],
   p3: readonly [number, number],
-  steps = 64,
+  steps = 256,
 ): Array<readonly [number, number]> {
   const points: Array<readonly [number, number]> = [];
   for (let i = 1; i < steps; i += 1) {
@@ -57,7 +57,7 @@ function sampleCurve(
  * One complete oval-like route. The two cubic hairpins round the surveyed
  * north and south ends; their lateral crossings still satisfy raceLap.ts.
  */
-function routeFor(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
+function buildRoute(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
   const otherSide = -startSide;
   const startX = CIRCUS_AXIS_X + startSide * LANE_OFFSET;
   const otherX = CIRCUS_AXIS_X + otherSide * LANE_OFFSET;
@@ -86,6 +86,13 @@ function routeFor(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
     [startX, finishApproachZ],
     [startX, CIRCUS_RACE_START.z],
   ];
+}
+
+const WEST_FIRST_ROUTE = buildRoute(-1);
+const EAST_FIRST_ROUTE = buildRoute(1);
+
+function routeFor(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
+  return startSide === -1 ? WEST_FIRST_ROUTE : EAST_FIRST_ROUTE;
 }
 
 function routeLength(points: ReadonlyArray<readonly [number, number]>): number {
@@ -121,6 +128,17 @@ export function getRaceRivalPose(
   const progress = Number.isFinite(elapsedMs)
     ? Math.max(0, Math.min(1, elapsedMs / duration))
     : 0;
+  if (progress >= 1) {
+    const last = points[points.length - 1];
+    const previous = points[points.length - 2];
+    return {
+      x: last[0],
+      z: last[1],
+      heading: Math.atan2(last[0] - previous[0], -(last[1] - previous[1])),
+      finished: true,
+      progress: 1,
+    };
+  }
   let remaining = totalLength * progress;
 
   for (let i = 1; i < points.length; i += 1) {
