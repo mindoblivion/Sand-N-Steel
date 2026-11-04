@@ -822,6 +822,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // mount/asset-compilation warm-up so transient startup frames cannot lower DPR.
   const settings = useSettings();
   const qualityPreset = settings.qualityPreset;
+  // Keep the arena's ambient particles inside the same quality budget as the city.
+  // The existing 50-particle presentation is the Cinematic ceiling; Balanced scales
+  // to 33 and Swift removes the animated effect entirely.
+  const duelSparklesCount = Math.round((CITY_TIERS[qualityPreset].sparkles / 90) * 50);
   const [duelDpr, setDuelDpr] = useState<number>(() => CITY_TIERS[qualityPreset].dpr.start);
   const duelAdaptationSuspendedRef = useRef(true);
 
@@ -3387,7 +3391,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               intensity={duelLight.fillIntensity}
               color={duelLight.fillColor}
             />
-            <Sparkles count={50} scale={[20, 10, 20]} size={2} color="#fef08a" opacity={0.5} />
+            {duelSparklesCount > 0 && (
+              <Sparkles count={duelSparklesCount} scale={[20, 10, 20]} size={2} color="#fef08a" opacity={0.5} />
+            )}
 
             <ThreeComponentErrorBoundary componentName="DuelArenaArchitecture">
               <DuelArena
