@@ -157,7 +157,7 @@ export const ForumFountain: React.FC = () => {
   });
 
   return (
-    <group position={[0, 0, 32]}>
+    <group position={[10, 0, 30]}>
       {/* Stone plaza */}
       <mesh receiveShadow position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[7, 24]} />
