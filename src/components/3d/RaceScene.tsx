@@ -71,7 +71,7 @@ import {
 } from '../../utils/raceState';
 import type { CountdownStep, RaceState } from '../../utils/raceState';
 import { advanceRaceLap, createRaceLapTracker } from '../../utils/raceLap';
-import { getRaceRivalPose, getRaceRivalSpeed } from '../../utils/raceRival';
+import { getRaceRivalPose, getRaceRivalSpeed, resolveRaceRivalOutcome } from '../../utils/raceRival';
 
 /**
  * RaceScene.tsx — Phase C-8.70B Stage 1, Slice 1 (the race scene and its state
@@ -610,6 +610,9 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const [revving, setRevving] = useState(false);
   const [launchQuality, setLaunchQuality] = useState<ChariotLaunchQuality | null>(null);
   const [showHints, setShowHints] = useState(!hasRacedThisSession);
+  const rivalResult = raceFinishElapsed === null
+    ? null
+    : resolveRaceRivalOutcome(raceFinishElapsed, RACE_RIVAL_CONFIG.lapDurationMs);
 
   /**
    * Day/Night T1/T2 — the circus draws the CITY's table (no race-only sun), with two
@@ -1038,10 +1041,25 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-neutral-950/75 p-6" data-race-overlay="finished">
           <div className="w-full max-w-md rounded-3xl border-2 border-amber-500/70 bg-neutral-950/95 p-7 text-center shadow-2xl">
             <p className="font-serif text-xs font-black uppercase tracking-[0.25em] text-amber-400">East Circus · Race Complete</p>
-            <h2 className="mt-3 font-serif text-4xl font-black text-amber-100">Lap Finished</h2>
-            <p className="mt-4 text-sm uppercase tracking-widest text-neutral-400">Elapsed time</p>
+            <h2 className="mt-3 font-serif text-4xl font-black text-amber-100">Race Results</h2>
+            <p className="mt-4 text-sm uppercase tracking-widest text-neutral-400">Your time</p>
             <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-lime-300" data-race-finish-time={formatRaceElapsed(raceFinishElapsed ?? 0)}>{formatRaceElapsed(raceFinishElapsed ?? 0)}</p>
-            <p className="mt-4 text-sm leading-relaxed text-neutral-300">You reached the far turn and crossed the finish line. Currency rewards are not awarded yet.</p>
+            {rivalResult && (
+              <div className="mt-5 rounded-2xl border border-amber-700/50 bg-neutral-900/80 px-4 py-3" data-race-result={rivalResult.outcome}>
+                <p className="font-serif text-lg font-black uppercase tracking-wider text-amber-200">
+                  {rivalResult.outcome === 'victory' ? 'Victory' : rivalResult.outcome === 'defeat' ? 'Rival Victory' : 'Photo Finish'}
+                </p>
+                <p className="mt-1 text-sm text-neutral-300" data-race-opponent-time={formatRaceElapsed(RACE_RIVAL_CONFIG.lapDurationMs)}>
+                  Rival time · {formatRaceElapsed(RACE_RIVAL_CONFIG.lapDurationMs)}
+                </p>
+                <p className="mt-1 text-sm text-neutral-400">
+                  {rivalResult.outcome === 'photo-finish'
+                    ? 'Finishes within one tenth of a second.'
+                    : `${rivalResult.outcome === 'victory' ? 'Won by' : 'Beaten by'} ${formatRaceElapsed(rivalResult.marginMs)}`}
+                </p>
+              </div>
+            )}
+            <p className="mt-4 text-sm leading-relaxed text-neutral-300">Currency rewards are not awarded yet.</p>
             {raceRecordStatus === 'new-best' && <p className="mt-3 text-sm font-bold text-lime-300" role="status" data-race-record-status="new-best">New personal best saved for this team.</p>}
             {raceRecordStatus === 'not-best' && <p className="mt-3 text-sm text-amber-200" role="status" data-race-record-status="not-best">Personal best unchanged.</p>}
             {raceRecordStatus === 'save-failed' && <p className="mt-3 text-sm text-red-300" role="status" data-race-record-status="save-failed">Lap finished, but the record could not be saved. Your existing best time was kept.</p>}
