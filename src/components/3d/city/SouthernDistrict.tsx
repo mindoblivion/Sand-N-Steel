@@ -79,7 +79,7 @@ export const ForumFountain = React.memo(() => {
 
 export const MacellumMarket = React.memo(() => {
   return (
-    <group position={[-14, 0, 32]}>
+    <group position={[-8, 0, 33]}>
       <BuildingFoundation size={[10, 8]} height={0.25} projection={0.2} />
       {/* Four market stalls with alternating awnings */}
       <MarketStall position={[-3, 0, -2]} awningColor="#991b1b" />
