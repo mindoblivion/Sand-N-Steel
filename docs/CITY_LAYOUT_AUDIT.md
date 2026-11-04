@@ -24,7 +24,7 @@
 | South-west | Golden Palm Tavern | [-16, 0, 14] | [-16, 0, 14] | Portal on local +X (east); arrival [-10, 14]. |
 | South-east | Caravanserai Inn | [16, 0, 14] | [16, 0, 14] | Portico on local -X (west); arrival [10, 14]. |
 | East | Merchant House | [26, 0, -13] | [26, 0, -13] | Colonnade portal on local -X (west); arrival [21, -13]. |
-| East | Armor & Leather Workshop | [28.2, 0, 1] | [28.2, 0, 1] | Root and interaction agree; entrance-side clearance needs a scene review. |
+| East | Armor & Leather Workshop | [28.2, 0, 3] | [28.2, 0, 3] | North-facing arch; arrival [28.2, -1.2] is 1.5m north of the plinth and clear of the Bazaar footprint. |
 | East | Stable / Chariot Workshop | [26, 0, 15] | [26, 0, 15] | Open front is local -Z (north); arrival [26, 10]. |
 | North-east | Gladiator Academy | [30.5, 0, -27] | [30.5, 0, -27] | Recessed portal on local -X (west); arrival [25.5, -23]. |
 | North-east | Doctore House | [28, 0, -18.875] | [28, 0, -18.875] | West-side doorway; arrival [23.5, -18.875]. |
