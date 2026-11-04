@@ -520,9 +520,13 @@ describe('D. Overlapping discs and which hub answers', () => {
     ['merchant_house', 'doctore_house', 6.21],
     ['gladiator_academy', 'doctore_house', 8.5],
     ['gladiator_academy', 'records_house', 7.98],
+    ['town_gate', 'forum', 7],
+    ['bathhouse', 'pistrinum', 6.32],
+    ['forum', 'macellum', 8.25],
+    ['forum', 'triumphal_arch', 4],
   ];
 
-  test('exactly these nine pairs overlap, at the measured centre distances', () => {
+  test('exactly these thirteen pairs overlap, at the measured centre distances', () => {
     const found: Array<[string, string, number]> = [];
     for (let i = 0; i < HUB_LOCATIONS.length; i++) {
       for (let j = i + 1; j < HUB_LOCATIONS.length; j++) {
