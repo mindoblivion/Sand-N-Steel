@@ -248,6 +248,7 @@ const GladiatorSchoolHub = React.lazy(() => import('./components/hub/GladiatorSc
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   const [tavernOpen, setTavernOpen] = useState(false);
+  const [tavernServices, setTavernServices] = useState<(() => void) | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -2152,7 +2153,7 @@ export function App() {
             <CityHubScene
             playerProfile={profile}
             onOpenTab={handleOpenHubTab}
-            onEnterTavern={() => setTavernOpen(true)}
+            onEnterTavern={(openServices) => { setTavernServices(() => openServices); setTavernOpen(true); }}
             onEnterDuel={handleEnterDuel}
             onOpenDriveSync={() => setShowDriveSync(true)}
             onToggleMute={handleToggleMute}
@@ -2240,7 +2241,7 @@ export function App() {
 
         {currentScreen === 'city_3d' && tavernOpen && (
           <React.Suspense fallback={<div className="fixed inset-0 z-[95] bg-stone-950" aria-busy="true" />}>
-            <TavernInterior onExit={() => setTavernOpen(false)} />
+            <TavernInterior onExit={() => setTavernOpen(false)} onOpenServices={() => { setTavernOpen(false); tavernServices?.(); setTavernServices(null); }} />
           </React.Suspense>
         )}
 
