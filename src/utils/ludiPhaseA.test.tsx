@@ -334,7 +334,7 @@ describe('LUDI B §B — three distinct deeds, drawn by the day alone', () => {
     }
     const day12 = resolveLudiState(onDay(12));
     expect(day12.deeds.find((entry) => entry.deed.id === 'visit_hub')?.deed.label).toBe(
-      'Visit the Arena Medical House.',
+          'Visit the Triumphal Arch.',
     );
   });
 
