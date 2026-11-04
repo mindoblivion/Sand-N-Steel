@@ -51,6 +51,17 @@ function routeLength(points: ReadonlyArray<readonly [number, number]>): number {
   return length;
 }
 
+/**
+ * Constant world-space pace for the configured lap. Deriving this from the
+ * route keeps the horse gait and wheel roll synchronized with the rival pose.
+ */
+export function getRaceRivalSpeed(config: RaceRivalConfig): number {
+  const duration = Number.isFinite(config?.lapDurationMs) && config.lapDurationMs > 0
+    ? config.lapDurationMs / 1000
+    : 0.001;
+  return routeLength(routeFor(config?.startSide === -1 ? -1 : 1)) / duration;
+}
+
 /** Resolve a repeatable rival pose from elapsed race time. */
 export function getRaceRivalPose(
   elapsedMs: number,
