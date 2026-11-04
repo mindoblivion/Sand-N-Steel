@@ -516,11 +516,14 @@ describe('C. The radius-consumption trace: nothing variant-aware exists to break
     expect(CHARIOT_WHEEL_RADIUS).toBeCloseTo(CHARIOT_WHEEL_HUB_Y - CHARIOT_STOCK_WHEEL_BOTTOM_Y, 12);
   });
 
-  test('the race mounts the stock model only, and spins its own two wheel nodes', () => {
+  test('the player race mounts the equipped kit variant on demand and leaves the rival stock', () => {
     expect(RACE_SCENE_SRC).toContain('CHARIOT_MODEL_URL');
-    expect(RACE_SCENE_SRC).not.toContain('CHARIOT_WHEEL_KIT_URL');
-    expect(RACE_SCENE_SRC).not.toContain('WHEEL_FIT_VARIANTS');
-    expect(RACE_SCENE_SRC).not.toContain('getChariotWheelPlacement');
+    expect(RACE_SCENE_SRC).toContain('CHARIOT_WHEEL_KIT_URL');
+    expect(RACE_SCENE_SRC).toContain('getChariotWheelPlacement(wheelVariant, side)');
+    expect(RACE_SCENE_SRC).toContain("wheelVariant === 'reinforced'");
+    const rival = RACE_SCENE_SRC.slice(RACE_SCENE_SRC.indexOf('const RaceRivalChariot'));
+    expect(rival).not.toContain('CHARIOT_WHEEL_KIT_URL');
+    expect(rival).not.toContain('getChariotWheelPlacement');
   });
 
   test('the workshop preview mounts hub-centred with no lift and no variant radius', () => {
