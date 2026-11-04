@@ -10,7 +10,7 @@ describe('deterministic race rival route', () => {
     const a = getRaceRivalPose(0, config);
     const b = getRaceRivalPose(0, config);
     expect(a).toEqual(b);
-    expect(a.x).toBeCloseTo(CIRCUS_AXIS_X + 9, 8);
+    expect(a.x).toBeCloseTo(CIRCUS_AXIS_X + 7.5, 8);
     expect(a.z).toBe(42.5);
     expect(a.finished).toBe(false);
   });
@@ -22,6 +22,8 @@ describe('deterministic race rival route', () => {
       const pose = getRaceRivalPose(i * config.lapDurationMs / 1000, config);
       const update = advanceRaceLap(tracker, pose);
       tracker = update.tracker;
+      expect(pose.x).toBeGreaterThanOrEqual(43.94);
+      expect(pose.x).toBeLessThanOrEqual(60.74);
       if (i < 1000) expect(update.finishedNow).toBe(false);
       else expect(update.finishedNow).toBe(true);
     }
