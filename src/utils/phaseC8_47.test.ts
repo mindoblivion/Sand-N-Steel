@@ -730,7 +730,7 @@ describe('F. Every trigger and every arrival', () => {
     }
   });
 
-  test('the seven arrivals that sit outside their disc are outside by one short step', () => {
+  test('the eight arrivals that sit outside their disc are outside by one short step', () => {
     // Deliberate standoffs: the prompt appears as the player walks in.  Each is
     // within 2.5 units of the disc, i.e. at most ~40 steps at 0.0633 per step.
     const outside: string[] = [];
@@ -750,6 +750,7 @@ describe('F. Every trigger and every arrival', () => {
         'bathhouse',
         'gladiator_barracks',
         'northern_fortress',
+        'armor_workshop',
       ].sort(),
     );
   });
