@@ -13,10 +13,14 @@ Status: research baseline only. No third-party asset files are bundled by this d
 
 | Asset | Official source | Candidate use | Published format/licence | Status |
 |---|---|---|---|---|
-| Quaternius Universal Base Characters | https://quaternius.com/packs/universalbasecharacters.html | Evaluate humanoid base mesh and hairstyles | glTF/GLB-compatible source formats; publisher states CC0 | Research candidate; files not acquired |
-| Quaternius Modular Character Outfits – Fantasy | https://quaternius.com/packs/modularcharacteroutfitsfantasy.html | Evaluate modular clothing/armor attachment and material options | glTF/GLB-compatible source formats; publisher states CC0 | Research candidate; files not acquired |
-| Quaternius Universal Animation Library | https://quaternius.itch.io/universal-animation-library | Evaluate locomotion/combat clips for gaps in current animation set | Publisher states CC0; downloadable formats vary by pack/version | Research candidate; files not acquired |
-| Quaternius Universal Animation Library 2 | https://quaternius.com/packs/universalanimationlibrary2.html | Compare newer combat/parkour clips with existing needs | Verify current page and exact archive licence before use | Research candidate; files not acquired |
+| Quaternius Universal Base Characters | https://quaternius.com/packs/universalbasecharacters.html | Evaluate humanoid base mesh and hairstyles | FBX, OBJ, Blend, glTF; publisher states CC0; page lists six base models and 20 hairstyles | Research candidate; files not acquired |
+| Quaternius Modular Character Outfits – Fantasy | https://quaternius.com/packs/modularcharacteroutfitsfantasy.html | Evaluate modular clothing/armor attachment and material options | FBX, OBJ, Blend, glTF; publisher states CC0; 62 parts across 12 outfits; publisher says compatible with Universal Base Characters | Research candidate; fantasy aesthetic needs Roman-fit review; files not acquired |
+| Quaternius Ultimate Modular Men Pack | https://quaternius.com/packs/ultimatemodularcharacters.html | Compare explicitly swappable character-part approach | FBX, OBJ, Blend, glTF; publisher states CC0; page describes characters divided into four models | Research candidate; rig and actual part boundaries unverified |
+| Quaternius Ultimate Modular Women Pack | https://quaternius.com/packs/ultimatemodularwomen.html | Compare a second modular topology and proportion set | FBX, OBJ, Blend, glTF; publisher states CC0; page describes four swappable models per character | Research candidate; rig and actual part boundaries unverified |
+| Quaternius Universal Animation Library | https://quaternius.com/packs/universalanimationlibrary.html | Evaluate locomotion/combat clips for gaps in current animation set | FBX, GLB, Blend; publisher states CC0; 120+ animations | Research candidate; files not acquired |
+| Quaternius Universal Animation Library 2 | https://quaternius.com/packs/universalanimationlibrary2.html | Compare newer melee combos and recovery clips with existing needs | FBX, GLB, Blend; publisher states CC0; 130+ animations | Research candidate; files not acquired |
+
+The publisher describes the Modular Character Outfits pack as compatible with Universal Base Characters and the Universal Animation Libraries as humanoid-retargetable. Those claims make these candidates worth testing, but they do not prove bone-for-bone compatibility with Sand & Steel's current rig.
 
 Source-page statements are not a substitute for retaining the actual downloaded archive's licence/readme. Recheck the exact file version and licence at acquisition time.
 
@@ -41,10 +45,10 @@ Source-page statements are not a substitute for retaining the actual downloaded 
 
 ## Proposed proof of concept
 
-- One selected base body.
-- Three hairstyles, three headgear options, three torso options, and two weapon appearances, only if the archive actually contains suitable parts.
-- One existing combat sequence and one locomotion sequence.
-- Compare the assembled model against the current Roman model for scale, animation fidelity, mobile load time, and visual clipping.
+- Compare one base body from Universal Base Characters against one character from an explicitly modular pack.
+- Prototype three hairstyles, three headgear options, three torso options, and two weapon appearances only if the actual archives contain suitable parts.
+- Reuse one existing combat sequence and one locomotion sequence.
+- Compare assembled model against the current Roman model for scale, animation fidelity, mobile load time, and visual clipping.
 - No broad character-creation UI expansion until the rig and attachment proof passes.
 
 ## Acquisition log
