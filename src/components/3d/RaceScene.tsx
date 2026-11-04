@@ -454,6 +454,12 @@ const RaceRivalChariot: React.FC<{
   const gltf = useGLTF(CHARIOT_MODEL_URL);
   const group = useRef<THREE.Group>(null);
   const roll = useRef(0);
+  const finishedRef = useRef(false);
+  const [finished, setFinished] = useState(false);
+  useEffect(() => {
+    finishedRef.current = false;
+    setFinished(false);
+  }, [startedAt]);
   const body = useMemo(() => {
     const scene = gltf.scene.clone(true);
     const wheels: THREE.Group[] = [];
@@ -475,20 +481,25 @@ const RaceRivalChariot: React.FC<{
   const rivalSpeed = getRaceRivalSpeed(RACE_RIVAL_CONFIG);
 
   useFrame((_state, delta) => {
-    if (!group.current) return;
-    const racing = raceState === 'racing' && !frozen && startedAt !== null;
-    const elapsed = racing ? Math.max(0, performance.now() - startedAt!) : 0;
+    if (!group.current || frozen) return;
+    const racing = raceState === 'racing' && startedAt !== null;
+    const elapsed = racing ? Math.max(0, performance.now() - startedAt) : 0;
     const next = getRaceRivalPose(elapsed, RACE_RIVAL_CONFIG);
     group.current.position.set(next.x, RACE_START_POSITION[1], next.z);
     group.current.rotation.y = next.heading + CHARIOT_MODEL_YAW_OFFSET;
-    roll.current = advanceWheelRoll(roll.current, racing ? rivalSpeed : 0, delta);
+    const moving = racing && !next.finished;
+    roll.current = advanceWheelRoll(roll.current, moving ? rivalSpeed : 0, delta);
     for (const wheel of body.wheels) wheel.rotation.x = roll.current;
+    if (next.finished && !finishedRef.current) {
+      finishedRef.current = true;
+      setFinished(true);
+    }
   });
 
   return (
     <group ref={group} position={[initialPose.x, RACE_START_POSITION[1], initialPose.z]} rotation={[0, initialPose.heading + CHARIOT_MODEL_YAW_OFFSET, 0]} scale={CHARIOT_MODEL_SCALE}>
       <primitive object={body.scene} />
-      <RaceHorseTeam teamSize={2} speed={raceState === 'racing' && !frozen ? rivalSpeed : 0} />
+      <RaceHorseTeam teamSize={2} speed={raceState === 'racing' && !frozen && !finished ? rivalSpeed : 0} />
     </group>
   );
 };
