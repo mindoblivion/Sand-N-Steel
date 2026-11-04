@@ -654,9 +654,10 @@ export const CHARIOT_WHEEL_RADIUS = 0.685;
  * through a dozen turns on its first frame back; a non-finite speed or angle is
  * read as zero rather than poisoning the rotation.
  */
-export function advanceWheelRoll(roll: number, speed: number, frameDt: number): number {
+export function advanceWheelRoll(roll: number, speed: number, frameDt: number, radius = CHARIOT_WHEEL_RADIUS): number {
   const dt = Number.isFinite(frameDt) ? clampNumber(frameDt, 0, CHARIOT_MOVEMENT.maxFrameDt) : 0;
   const v = Number.isFinite(speed) ? speed : 0;
   const base = Number.isFinite(roll) ? roll : 0;
-  return base - (v * dt) / CHARIOT_WHEEL_RADIUS;
+  const r = Number.isFinite(radius) && radius > 0 ? radius : CHARIOT_WHEEL_RADIUS;
+  return base - (v * dt) / r;
 }
