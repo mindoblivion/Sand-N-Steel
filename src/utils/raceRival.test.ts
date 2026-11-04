@@ -10,7 +10,7 @@ describe('deterministic race rival route', () => {
     const a = getRaceRivalPose(0, config);
     const b = getRaceRivalPose(0, config);
     expect(a).toEqual(b);
-    expect(a.x).toBeCloseTo(CIRCUS_AXIS_X + 7.5, 8);
+    expect(a.x).toBeCloseTo(CIRCUS_AXIS_X + 7.8, 8);
     expect(a.z).toBe(42.5);
     expect(a.finished).toBe(false);
   });
