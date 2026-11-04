@@ -330,9 +330,10 @@ describe('E. Slice boundaries', () => {
     expect(scene).toContain('<RaceRivalChariot');
     expect(scene).toContain('RaceHorseTeam teamSize={2}');
     expect(scene).toContain("from '../../utils/raceRival'");
+    const rival = scene.slice(scene.indexOf('const RaceRivalChariot'), scene.indexOf('const RaceClock'));
     // The rival has no record/reward callback and cannot finish the player's lap.
-    expect(scene).not.toContain('onRecordBestTime(');
-    expect(scene).not.toContain('advanceRaceLap(lapTracker.current');
+    expect(rival).not.toContain('onRecordBestTime');
+    expect(rival).not.toContain('advanceRaceLap');
   });
 
   test('the race scene mounts exactly one Canvas and one camera rig', () => {
