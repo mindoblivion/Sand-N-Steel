@@ -298,7 +298,7 @@ describe('LUDI B §B — three distinct deeds, drawn by the day alone', () => {
   });
 
   test('the day names ONE district, drawn from the city’s own twenty-one', () => {
-    expect(LUDI_VISIT_LOCATION_IDS.length).toBe(21);
+    expect(LUDI_VISIT_LOCATION_IDS.length).toBe(26);
     for (let day = 1; day <= 70; day += 1) {
       const id = ludiVisitLocationForDay(day);
       expect(LUDI_VISIT_LOCATION_IDS).toContain(id);
