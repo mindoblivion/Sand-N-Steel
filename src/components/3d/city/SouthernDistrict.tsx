@@ -247,8 +247,8 @@ export const BibliothecaLibrary = React.memo(() => {
         />
       ))}
       {/* Pediment and roof */}
-      <ClassicalPediment position={[0, 4.2, 3.5]} width={9} />
-      <RomanGabledRoof position={[0, 4.8, 0]} size={[9.5, 7.5]} />
+      <ClassicalPediment position={[0, 4.2, 3.5]} width={9} depth={1.4} />
+      <RomanGabledRoof position={[0, 4.8, 0]} width={9.5} depth={7.5} />
       {/* Grand doorway */}
       <ClassicalDoorway position={[0, 0, 3.51]} width={1.6} height={2.8} />
     </group>
@@ -269,7 +269,7 @@ export const PistrinumBakery = React.memo(() => {
         <boxGeometry args={[6.6, 1.6, 5.6]} />
         <meshStandardMaterial color="#8b5a2b" roughness={0.8} />
       </mesh>
-      <RomanGabledRoof position={[0, 4.8, 0]} size={[7.2, 6.2]} />
+      <RomanGabledRoof position={[0, 4.8, 0]} width={7.2} depth={6.2} />
       {/* Millstone */}
       <mesh castShadow receiveShadow position={[2.5, 0.5, 1.5]} rotation={[0, 0.3, 0]}>
         <cylinderGeometry args={[0.9, 0.9, 0.3, 16]} />
