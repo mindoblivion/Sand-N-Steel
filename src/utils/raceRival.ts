@@ -25,7 +25,10 @@ export interface RaceRivalConfig {
   startSide: -1 | 1;
 }
 
-const LANE_OFFSET = 9;
+// The measured sand is 16.8 units wide (X 43.940..60.740), so ±7.5
+// keeps the rival's centreline inside the playable surface with 0.9 units
+// of margin while still meeting raceLap.ts's inclusive lane threshold.
+const LANE_OFFSET = 7.5;
 
 /**
  * One complete route, including both lane changes required by the lap tracker.
