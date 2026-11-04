@@ -12,7 +12,7 @@ const ColosseumInterior = React.lazy(() => import('./components/3d/ColosseumInte
 
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
-import { purchaseChariotPart, equipChariotPart } from './utils/chariotLoadout';
+import { purchaseChariotPart, equipChariotPart, resolveChariotLoadout } from './utils/chariotLoadout';
 import { settleDuelFame, settleDuelGold } from './utils/duelRewards';
 import { purchaseRacingConfig, selectRacingConfig, resolveRacingState } from './utils/racingProgression';
 import { recordRaceBestTime } from './utils/raceRecords';
@@ -2341,6 +2341,7 @@ export function App() {
               frozen={settingsOpen}
               phase={resolveTimeState(profile).phase}
               teamSize={profile ? resolveRacingState(profile).horses : 2}
+              chariotLoadout={resolveChariotLoadout(profile).equipped}
               onRecordBestTime={handleRecordRaceBestTime}
             />
           </React.Suspense>
