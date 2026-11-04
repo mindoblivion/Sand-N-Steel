@@ -857,11 +857,12 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   // the entry disc, so the prompt is up as the player lands; 3.66 clear of the
   // carceres' front face, 4.50 of the arena's south face and 6.20 of the
   // parapet.  Its X/Z come from `CIRCUS_RACE_ENTRY`.
-  east_circus_arena:   [CIRCUS_RACE_ENTRY.x, CIRCUS_RACE_ENTRY.z - 2],
+  east_circus_arena:   [
+    CIRCUS_RACE_ENTRY.x, CIRCUS_RACE_ENTRY.z - 2],
   forum:               [5, 28],
   macellum:            [-8, 27],
   bibliotheca:         [12, 23],
-  pistrinum:           [-24, 25],
+  pistrinum: [-20, 25],  
   triumphal_arch:      [5, 34],
 };
 
