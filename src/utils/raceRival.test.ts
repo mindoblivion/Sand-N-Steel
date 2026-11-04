@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import { CIRCUS_AXIS_X } from './collisionShapes';
 import { advanceRaceLap, createRaceLapTracker } from './raceLap';
-import { getRaceRivalPose } from './raceRival';
+import { getRaceRivalPose, getRaceRivalSpeed } from './raceRival';
 
 describe('deterministic race rival route', () => {
   test('starts on the selected lane and is deterministic for equal elapsed time', () => {
@@ -50,6 +50,16 @@ describe('deterministic race rival route', () => {
     expect(getRaceRivalPose(Number.NaN, config).progress).toBe(0);
     expect(getRaceRivalPose(2000, config).progress).toBe(1);
     expect(getRaceRivalPose(0, { lapDurationMs: Number.NaN, startSide: 1 }).finished).toBe(false);
+  });
+
+  test('derives a stable world-space pace from the configured lap duration', () => {
+    const config = { lapDurationMs: 36000, startSide: -1 as const };
+    const speed = getRaceRivalSpeed(config);
+    expect(Number.isFinite(speed)).toBe(true);
+    expect(speed).toBeGreaterThan(4);
+    expect(speed).toBeLessThan(6);
+    expect(getRaceRivalSpeed(config)).toBe(speed);
+    expect(getRaceRivalSpeed({ lapDurationMs: 0, startSide: 1 })).toBeGreaterThan(1000);
   });
 
   test('heading remains finite at straight segments and lane transitions', () => {
