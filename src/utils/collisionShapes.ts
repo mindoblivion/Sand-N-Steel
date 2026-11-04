@@ -353,11 +353,9 @@ const buildingRects: RectCollider[] = [
   // north edge (Z=-9.5) — a 1.35 unit gap / 0.55 unit player-center corridor.
   RECT('merchant-house', 26, -13, 7.7, 7.0),
 
-  // ArmorLeatherWorkshop — root [28.2, 0, 3], foundation [8.4, 5.2] proj 0.25
-  // offset [0, 0, 0.15] → center [28.2, 3.15], footprint 8.9 × 5.7.
-  // Shifted 2m south after audit: the previous 0.15m gap to the GeneralStore
-  // left roof/eave interpenetration likely and could not fit a player corridor.
-  RECT('armor-workshop', 28.2, 3.15, 8.9, 5.7),
+  // ArmorLeatherWorkshop — root [28.2, 0, 1], foundation [8.4, 5.2] proj 0.25
+  // offset [0, 0, 0.15] → center [28.2, 1.15], footprint 8.9 × 5.7
+  RECT('armor-workshop', 28.2, 1.15, 8.9, 5.7),
 
   // Stable — root [26, 0, 15], foundation [7.0, 7.2], proj 0.25 → 7.5 × 7.7
   RECT('stable', 26, 15, 7.5, 7.7),
