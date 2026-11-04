@@ -680,7 +680,7 @@ test('fast-travel: arrival positions match documented coordinates', () => {
     tavern: [-10, 14],
     caravanserai: [10, 14],
     merchant_house: [21, -13],
-    armor_workshop: [28.2, 5.5],
+    armor_workshop: [28.2, -3.55],
     stable: [26, 10],
     gladiator_academy: [25.5, -23],
     doctore_house: [23.5, -18.875],
