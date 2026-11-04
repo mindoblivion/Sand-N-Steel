@@ -21,7 +21,13 @@ import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
 import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { SceneBrightness } from './SceneBrightness';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
-import { CHARIOT_MODEL_SCALE, CHARIOT_MODEL_URL } from '../../utils/chariotGeometry';
+import {
+  CHARIOT_MODEL_SCALE, CHARIOT_MODEL_URL, CHARIOT_STOCK_WHEEL_NODES,
+  CHARIOT_WHEEL_KIT_URL, CHARIOT_WHEEL_VARIANTS, applyChariotFinish,
+  getChariotWheelPlacement,
+} from '../../utils/chariotGeometry';
+import { getChariotPart, getChariotPartByFinish } from '../../data/chariotParts';
+import type { ChariotEquippedResolved } from '../../types/game';
 import { RaceHorseTeam } from './RaceHorseTeam';
 import type { ChariotTeamSize } from '../../types/game';
 import { CIRCUS_RACE_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry';
@@ -194,6 +200,8 @@ export interface RaceSceneProps {
   phase?: TimePhase;
   /** The profile's already-resolved Biga / Triga / Quadra selection. */
   teamSize?: ChariotTeamSize;
+  /** Read-only workshop equipment; no performance modifiers are applied here. */
+  equippedChariot?: ChariotEquippedResolved;
   /** App-owned persistence callback, called only after a valid lap finishes. */
   onRecordBestTime?: (teamSize: ChariotTeamSize, elapsedMs: number) => 'new-best' | 'not-best' | 'save-failed';
 }
@@ -347,6 +355,31 @@ const RaceCameraRig: React.FC<{
  * The motion object, the three input objects and the launch state are all owned
  * by the scene and mutated in place, so a frame allocates nothing.
  */
+/** The reinforced kit is loaded only when that wheel set is equipped. */
+const RaceKitWheelSet: React.FC<{ roll: React.MutableRefObject<number> }> = ({ roll }) => {
+  const gltf = useGLTF(CHARIOT_WHEEL_KIT_URL);
+  const wheels = useMemo(() => {
+    const source = gltf.scene.getObjectByName(CHARIOT_WHEEL_VARIANTS.reinforced.node);
+    return (['left', 'right'] as const).map((side) => ({
+      side,
+      placement: getChariotWheelPlacement('reinforced', side),
+      object: source ? source.clone(true) : null,
+    }));
+  }, [gltf.scene]);
+  useFrame(() => {
+    for (const wheel of wheels) if (wheel.object) wheel.object.rotation.z = roll.current;
+  });
+  return (
+    <>
+      {wheels.map(({ side, placement, object }) => object ? (
+        <group key={`race-kit-wheel-${side}`} position={placement.position} rotation={[0, placement.rotationY, 0]}>
+          <primitive object={object} />
+        </group>
+      ) : null)}
+    </>
+  );
+};
+
 const RaceChariot: React.FC<{
   motion: ChariotMotion;
   input: ChariotInput;
@@ -357,8 +390,10 @@ const RaceChariot: React.FC<{
   startedAt: number | null;
   frozen: boolean;
   teamSize: ChariotTeamSize;
+  wheelVariant: 'standard' | 'reinforced';
+  finish: 'stock' | 'charred' | 'gilded' | 'oxblood' | 'triumph' | 'ventive';
   onFinish: () => void;
-}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, onFinish }) => {
+}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, wheelVariant, finish, onFinish }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
 
   // Clone: `useGLTF` caches one scene per URL and the workshop holds the same
@@ -374,19 +409,26 @@ const RaceChariot: React.FC<{
     const scene = gltf.scene.clone(true);
     const wheels: THREE.Group[] = [];
     scene.updateMatrixWorld(true);
-    for (const name of RACE_WHEEL_NODE_NAMES) {
-      const node = scene.getObjectByName(name);
-      if (!node) continue;
-      const bounds = new THREE.Box3().setFromObject(node);
-      if (bounds.isEmpty()) continue;
-      const pivot = new THREE.Group();
-      bounds.getCenter(pivot.position);
-      scene.add(pivot);
-      pivot.attach(node);
-      wheels.push(pivot);
+    if (wheelVariant === 'reinforced') {
+      scene.traverse((object) => {
+        if ((CHARIOT_STOCK_WHEEL_NODES as readonly string[]).includes(object.name)) object.visible = false;
+      });
+    } else {
+      for (const name of RACE_WHEEL_NODE_NAMES) {
+        const node = scene.getObjectByName(name);
+        if (!node) continue;
+        const bounds = new THREE.Box3().setFromObject(node);
+        if (bounds.isEmpty()) continue;
+        const pivot = new THREE.Group();
+        bounds.getCenter(pivot.position);
+        scene.add(pivot);
+        pivot.attach(node);
+        wheels.push(pivot);
+      }
     }
+    applyChariotFinish(scene, getChariotPartByFinish(finish)?.overrides ?? []);
     return { scene, wheels };
-  }, [gltf.scene]);
+  }, [gltf.scene, wheelVariant, finish]);
   const roll = useRef(0);
   const lapTracker = useRef(createRaceLapTracker());
   const group = useRef<THREE.Group>(null);
@@ -434,6 +476,7 @@ const RaceChariot: React.FC<{
       scale={CHARIOT_MODEL_SCALE}
     >
       <primitive object={body.scene} />
+      {wheelVariant === 'reinforced' && <RaceKitWheelSet roll={roll} />}
       <RaceHorseTeam teamSize={teamSize} speed={raceState === 'racing' && !frozen ? motion.speed : 0} />
     </group>
   );
@@ -599,7 +642,10 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   phase = DEFAULT_PHASE,
   teamSize = 2,
   onRecordBestTime,
+  equippedChariot,
 }) => {
+  const wheelVariant = getChariotPart(equippedChariot?.wheels ?? 'wheels_standard')?.wheelVariant ?? 'standard';
+  const finish = getChariotPart(equippedChariot?.finish ?? 'finish_stock')?.finish ?? 'stock';
   const [raceState, setRaceState] = useState<RaceState>(RACE_INITIAL_STATE);
   const [countdownStep, setCountdownStep] = useState<CountdownStep | null>(COUNTDOWN_STEPS[0]);
   const [showGo, setShowGo] = useState(false);
@@ -923,6 +969,8 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   startedAt={raceStartedAt}
                   frozen={frozen}
                   teamSize={teamSize}
+                  wheelVariant={wheelVariant}
+                  finish={finish}
                   onFinish={() => {
                     const elapsedMs = raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt);
                     setRaceFinishElapsed(elapsedMs);
