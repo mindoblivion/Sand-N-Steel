@@ -24,6 +24,7 @@ import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../util
 import {
   CHARIOT_MODEL_SCALE,
   CHARIOT_MODEL_URL,
+  CHARIOT_WHEEL_RADIUS,
   CHARIOT_STOCK_WHEEL_NODES,
   CHARIOT_WHEEL_KIT_URL,
   CHARIOT_WHEEL_VARIANTS,
@@ -410,6 +411,9 @@ const RaceChariot: React.FC<{
     return { scene, wheels };
   }, [gltf.scene, wheelVariant, finish]);
   const roll = useRef(0);
+  const wheelRadius = wheelVariant === 'reinforced'
+    ? CHARIOT_WHEEL_VARIANTS.reinforced.radius
+    : CHARIOT_WHEEL_RADIUS;
   const lapTracker = useRef(createRaceLapTracker());
   const group = useRef<THREE.Group>(null);
 
@@ -442,7 +446,7 @@ const RaceChariot: React.FC<{
     // the motion module's own speed, and it advances only while the chariot is
     // actually being driven, so a race frozen behind the settings panel or idling
     // on the start line does not spin its wheels.
-    roll.current = advanceWheelRoll(roll.current, racing ? motion.speed : 0, delta);
+    roll.current = advanceWheelRoll(roll.current, racing ? motion.speed : 0, delta, wheelRadius);
     for (const wheel of body.wheels) {
       wheel.rotation.x = roll.current;
     }
