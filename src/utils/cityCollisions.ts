@@ -860,7 +860,7 @@ export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   east_circus_arena:   [
     CIRCUS_RACE_ENTRY.x, CIRCUS_RACE_ENTRY.z - 2],
   forum:               [5, 28],
-  macellum:            [-8, 27],
+  macellum:            [-5, 27],
   bibliotheca:         [12, 23],
   pistrinum: [-20, 25],  
   triumphal_arch:      [5, 34],
