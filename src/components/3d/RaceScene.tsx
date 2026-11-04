@@ -457,9 +457,11 @@ const RaceRivalChariot: React.FC<{
   const finishedRef = useRef(false);
   const [finished, setFinished] = useState(false);
   useEffect(() => {
-    finishedRef.current = false;
-    setFinished(false);
-  }, [startedAt]);
+    if (raceState !== 'racing') {
+      finishedRef.current = false;
+      setFinished(false);
+    }
+  }, [raceState]);
   const body = useMemo(() => {
     const scene = gltf.scene.clone(true);
     const wheels: THREE.Group[] = [];
