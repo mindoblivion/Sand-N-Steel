@@ -7,6 +7,7 @@ import { TitleScreen } from './components/hub/TitleScreen';
 
 
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
+const TavernInterior = React.lazy(() => import('./components/3d/TavernInterior').then((m) => ({ default: m.TavernInterior })));
 
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
@@ -246,6 +247,8 @@ const GladiatorSchoolHub = React.lazy(() => import('./components/hub/GladiatorSc
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
+  const [tavernOpen, setTavernOpen] = useState(false);
+  const [tavernServices, setTavernServices] = useState<(() => void) | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -2150,6 +2153,7 @@ export function App() {
             <CityHubScene
             playerProfile={profile}
             onOpenTab={handleOpenHubTab}
+            onEnterTavern={(openServices) => { setTavernServices(() => openServices); setTavernOpen(true); }}
             onEnterDuel={handleEnterDuel}
             onOpenDriveSync={() => setShowDriveSync(true)}
             onToggleMute={handleToggleMute}
@@ -2179,7 +2183,7 @@ export function App() {
             onReturnToLibrarian={handleReturnToLibrarian}
             onReadLegendFragment={handleReadLegendFragment}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
-            movementLocked={!!oathBeatMode}
+            movementLocked={!!oathBeatMode || tavernOpen}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
             /* FIRST SIXTY SECONDS — the ONE pointer's target (the marker's id IS
                this id) and §6's session silence. */
@@ -2233,6 +2237,12 @@ export function App() {
             />
           )}
           </>
+        )}
+
+        {currentScreen === 'city_3d' && tavernOpen && (
+          <React.Suspense fallback={<div className="fixed inset-0 z-[95] bg-stone-950" aria-busy="true" />}>
+            <TavernInterior onExit={() => setTavernOpen(false)} onOpenServices={() => { setTavernOpen(false); tavernServices?.(); setTavernServices(null); }} />
+          </React.Suspense>
         )}
 
         {currentScreen === 'hub_2d' && profile && (
