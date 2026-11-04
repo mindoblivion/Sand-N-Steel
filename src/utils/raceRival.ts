@@ -91,10 +91,6 @@ function buildRoute(startSide: -1 | 1): ReadonlyArray<readonly [number, number]>
 const WEST_FIRST_ROUTE = buildRoute(-1);
 const EAST_FIRST_ROUTE = buildRoute(1);
 
-function routeFor(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
-  return startSide === -1 ? WEST_FIRST_ROUTE : EAST_FIRST_ROUTE;
-}
-
 interface SampledRoute {
   points: ReadonlyArray<readonly [number, number]>;
   cumulativeDistances: ReadonlyArray<number>;
