@@ -31,18 +31,57 @@ export interface RaceRivalConfig {
 const LANE_OFFSET = 7.5;
 
 /**
- * One complete route, including both lane changes required by the lap tracker.
- * The finish is crossed northbound at the same Z plane as the player's start.
+ * Sample a cubic Bezier in world space. Sampling keeps distance-based pacing
+ * deterministic while giving the chariot a continuous tangent through turns.
+ */
+function sampleCurve(
+  p0: readonly [number, number],
+  p1: readonly [number, number],
+  p2: readonly [number, number],
+  p3: readonly [number, number],
+  steps = 32,
+): Array<readonly [number, number]> {
+  const points: Array<readonly [number, number]> = [];
+  for (let i = 1; i <= steps; i += 1) {
+    const t = i / steps;
+    const u = 1 - t;
+    points.push([
+      u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0],
+      u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1],
+    ]);
+  }
+  return points;
+}
+
+/**
+ * One complete oval-like route. The two cubic hairpins round the surveyed
+ * north and south ends; their lateral crossings still satisfy raceLap.ts.
  */
 function routeFor(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
   const otherSide = -startSide;
+  const startX = CIRCUS_AXIS_X + startSide * LANE_OFFSET;
+  const otherX = CIRCUS_AXIS_X + otherSide * LANE_OFFSET;
+  const northZ = RACE_NORTH_TURN_Z;
+  const southZ = RACE_SOUTH_TURN_Z;
+  const northApexZ = northZ - 5.5;
+  const southApexZ = CIRCUS_RACE_START.z + 1.0;
   return [
-    [CIRCUS_AXIS_X + startSide * LANE_OFFSET, CIRCUS_RACE_START.z],
-    [CIRCUS_AXIS_X + startSide * LANE_OFFSET, RACE_NORTH_TURN_Z],
-    [CIRCUS_AXIS_X + otherSide * LANE_OFFSET, RACE_NORTH_TURN_Z],
-    [CIRCUS_AXIS_X + otherSide * LANE_OFFSET, RACE_SOUTH_TURN_Z],
-    [CIRCUS_AXIS_X + startSide * LANE_OFFSET, RACE_SOUTH_TURN_Z],
-    [CIRCUS_AXIS_X + startSide * LANE_OFFSET, CIRCUS_RACE_START.z],
+    [startX, CIRCUS_RACE_START.z],
+    [startX, northZ],
+    ...sampleCurve(
+      [startX, northZ],
+      [startX, northApexZ],
+      [otherX, northApexZ],
+      [otherX, northZ],
+    ),
+    [otherX, southZ],
+    ...sampleCurve(
+      [otherX, southZ],
+      [otherX, southApexZ],
+      [startX, southApexZ],
+      [startX, southZ],
+    ),
+    [startX, CIRCUS_RACE_START.z],
   ];
 }
 
