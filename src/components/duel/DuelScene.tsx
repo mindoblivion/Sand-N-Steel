@@ -3374,7 +3374,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               intensity={sceneDeltas?.sunIntensity ?? duelLight.keyIntensity}
               color={sceneDeltas?.sunColor ?? duelLight.keyColor}
               castShadow
-              shadow-mapSize={[1024, 1024]}
+              shadow-mapSize={[CITY_TIERS[qualityPreset].shadows, CITY_TIERS[qualityPreset].shadows]}
               shadow-camera-left={-22}
               shadow-camera-right={22}
               shadow-camera-top={22}
