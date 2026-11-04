@@ -21,7 +21,6 @@ import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
 import { CanvasWebGLMonitor } from '../ui/CanvasWebGLMonitor';
 import { SceneBrightness } from './SceneBrightness';
 import { logCanvasWebGLCreated, setupCanvasContextRestoration } from '../../utils/webglContext';
-import {
 import { CHARIOT_MODEL_SCALE, CHARIOT_MODEL_URL } from '../../utils/chariotGeometry';
 import {
   CHARIOT_STOCK_WHEEL_NODES, CHARIOT_WHEEL_KIT_URL, CHARIOT_WHEEL_VARIANTS,
