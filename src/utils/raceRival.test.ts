@@ -72,4 +72,24 @@ describe('deterministic race rival route', () => {
       expect(Number.isFinite(pose.z)).toBe(true);
     }
   });
+
+  test('rounded hairpins stay within the surveyed racing surface and turn smoothly', () => {
+    const config = { lapDurationMs: 36000, startSide: -1 as const };
+    let previousHeading: number | null = null;
+    for (let i = 0; i <= 2000; i += 1) {
+      const pose = getRaceRivalPose(i * config.lapDurationMs / 2000, config);
+      expect(pose.x).toBeGreaterThanOrEqual(43.94);
+      expect(pose.x).toBeLessThanOrEqual(60.74);
+      expect(pose.z).toBeGreaterThanOrEqual(-27.66);
+      expect(pose.z).toBeLessThanOrEqual(43.51);
+      if (previousHeading !== null) {
+        const delta = Math.atan2(
+          Math.sin(pose.heading - previousHeading),
+          Math.cos(pose.heading - previousHeading),
+        );
+        expect(Math.abs(delta)).toBeLessThan(0.25);
+      }
+      previousHeading = pose.heading;
+    }
+  });
 });
