@@ -12,6 +12,9 @@
        its inner padding). Used by both the footer and the touch-controls
        overlay so the joystick and attack button always clear it. */
     --hub-footer-h: 5rem;
+    /* Android 15+ can draw edge-to-edge even when WebView safe-area values are zero.
+       Keep touch controls above the system navigation/gesture region on short screens. */
+    --hub-safe-bottom: max(env(safe-area-inset-bottom, 0px), 1.5rem);
   }
 
   html, body, #root {
