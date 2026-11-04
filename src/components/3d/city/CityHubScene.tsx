@@ -17,6 +17,7 @@ import { CityStreets } from './CityStreets';
 import { SmithingForge } from './SmithingForge';
 import { TrainingYard } from './TrainingYard';
 import { CityTavern } from './CityTavern';
+import { ColosseumDoorPanel } from './ColosseumDoorPanel';
 import { GeneralStore } from './GeneralStore';
 import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
@@ -237,6 +238,8 @@ interface CityHubSceneProps {
     shopId?: StorefrontId
   ) => void;
   onEnterTavern: (openServices: () => void) => void;
+    // COLOSSEUM-INTERIOR — open the enterable arena overlay.
+    onEnterColosseum: () => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -401,6 +404,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   playerProfile,
   onOpenTab,
   onEnterTavern,
+    onEnterColosseum,
   onEnterDuel,
   onOpenDriveSync,
   onToggleMute,
@@ -514,6 +518,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // S7 — the Golden Palm Tavern's rumour panel.  Local view state only: the
   // purchase and its save belong to `App`.
   const [intelPanel, setIntelPanel] = useState(false);
+  const [colosseumPanel, setColosseumPanel] = useState(false);
   // Living City L11/L12 — visitor panel; all profile writes remain in App.
   const [visitorPanel, setVisitorPanel] = useState(false);
   // PITCH A1 — the Shrine of Fortuna's omen panel, and the one line announcing
@@ -770,19 +775,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       primeKeeperGreeting('bounty_hall');
       setBountyPanel(true);
     } else if (nearbyLoc.tabKey === 'tournament') {
-      // The door resolves its own ticket HERE, when the player interacts: the
-      // current tier's first UNDEFEATED boss, which is the same boss the tournament
-      // tab presents as the next one to beat. A stored `activeOpponent` is never
-      // used — it can carry a fighter from a tier the player has already left. Once
-      // every boss of the tier is down the door offers that tier's boss rematch,
-      // which pays its rewards but cannot move the tier.
-      const target = resolveDoorDuelTarget(
-        playerProfile.currentTier,
-        playerProfile.defeatedOpponentIds
-      );
-      if (target) onEnterDuel(target.opponent);
-      else onOpenTab('tournament');
-    } else if (nearbyLoc.id === 'tavern') {
+            setColosseumPanel(true);
+      else if (nearbyLoc.id === 'tavern') {
       onEnterTavern(() => {
         primeKeeperGreeting('tavern');
         onOpenDiceBoard?.();
@@ -867,6 +861,21 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     onReadLegendFragment,
   ]);
 
+    const handleColosseumFight = useCallback(() => {
+          sounds.playClick();
+          setColosseumPanel(false);
+          const target = resolveDoorDuelTarget(playerProfile.currentTier, playerProfile.defeatedOpponentIds);
+          if (target) onEnterDuel(target.opponent);
+          else onOpenTab('tournament');
+    }, [playerProfile.currentTier, playerProfile.defeatedOpponentIds, onEnterDuel, onOpenTab]);
+    const handleEnterArena = useCallback(() => {
+          sounds.playClick();
+          setColosseumPanel(false);
+          onEnterColosseum();
+    }, [onEnterColosseum]);
+  
+
+  
   /**
    * Phase C-8.70B Stage 1, Slice 1 — "Start Race" leaves the city for the race
    * scene.  The pose the player has to be returned to is captured HERE, from the
@@ -896,7 +905,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
     // A presented panel is up: E/Space and the action button are its own.
-    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel) return;
+    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel || colosseumPanel) return;
     if (nearbyLoc) {
       handleInteract();
     } else if (nearbyVisitor) {
@@ -916,6 +925,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     shrinePanel,
     bountyPanel,
     legendPanel,
+        colosseumPanel,
   ]);
 
   /**
@@ -1003,7 +1013,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       if (bountyPanel) {
         if (code === 'Escape' || key === 'escape') setBountyPanel(false);
         return;
+        
       }
+            if (colosseumPanel) {
+                      if (code === 'Escape' || key === 'escape') setColosseumPanel(false);
+                      return;
+            }
       // STORY-5b — a stop's conversation owns the screen while it is up.
       if (legendPanel) {
         if (code === 'Escape' || key === 'escape') setLegendPanel(null);
@@ -1041,9 +1056,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, visitorPanel]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel,colosseumPanel, visitorPanel]);
 
-  // Mobile Virtual Joystick Touch Handlers
+        // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
     if (touchIdRef.current !== null) return;
     const touch = e.changedTouches[0];
@@ -2265,7 +2280,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
         </div>
       )}
 
-      {/* DESKTOP CONTROLS HELPER BAR */}
+      
+      {colosseumPanel && (
+              <ColosseumDoorPanel
+                          onEnterArena={handleEnterArena}
+                          onFight={handleColosseumFight}
+                          onClose={() => setColosseumPanel(false)}
+                        />
+            )}{/* DESKTOP CONTROLS HELPER BAR */}
       <div className="absolute bottom-[calc(var(--hub-safe-bottom)+4.5rem)] sm:bottom-[calc(var(--hub-safe-bottom)+5.5rem)] left-1/2 -translate-x-1/2 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-amber-200/85 bg-neutral-950/80 py-1.5 px-4 rounded-xl border border-amber-800/60 backdrop-blur-sm z-10 shadow-lg">
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">W A S D / Arrows</kbd> Move</span>
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">Space / E</kbd> 2-in-1 Attack &amp; Interact</span>
