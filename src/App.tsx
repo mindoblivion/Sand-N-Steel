@@ -8,6 +8,7 @@ import { TitleScreen } from './components/hub/TitleScreen';
 
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
 const TavernInterior = React.lazy(() => import('./components/3d/TavernInterior').then((m) => ({ default: m.TavernInterior })));
+const ColosseumInterior = React.lazy(() => import('./components/3d/ColosseumInterior').then((m) => ({ default: m.ColosseumInterior })));
 
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
@@ -247,11 +248,13 @@ const GladiatorSchoolHub = React.lazy(() => import('./components/hub/GladiatorSc
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
-  const [tavernOpen, setTavernOpen] = useState(false);
+    const [tavernOpen, setTavernOpen] = useState(false);
+  /* COLOSSEUM-INTERIOR — the enterable arena overlay (TavernInterior pattern). */
+  const [colosseumOpen, setColosseumOpen] = useState(false);
   const [tavernServices, setTavernServices] = useState<(() => void) | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);  
   const saveProfile = (next: PlayerProfile): boolean => {
     const saved = writeSavedProfile(next);
     setSaveError(saved ? null : 'Progress is not saved on this device. Free up storage or use Save Progress to create a cloud backup.');
@@ -2157,7 +2160,8 @@ export function App() {
             onEnterDuel={handleEnterDuel}
             onOpenDriveSync={() => setShowDriveSync(true)}
             onToggleMute={handleToggleMute}
-            isMuted={isMuted}
+            isMuted={isMuted}              
+                      onEnterColosseum={() => setColosseumOpen(true)}
             onReturnToMainMenu={() => setCurrentScreen('title')}
             isLeftyMode={isLeftyMode}
             onOpenSettings={() => handleOpenSettings()}
@@ -2183,7 +2187,7 @@ export function App() {
             onReturnToLibrarian={handleReturnToLibrarian}
             onReadLegendFragment={handleReadLegendFragment}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
-            movementLocked={!!oathBeatMode || tavernOpen}
+            movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
             /* FIRST SIXTY SECONDS — the ONE pointer's target (the marker's id IS
                this id) and §6's session silence. */
@@ -2244,6 +2248,14 @@ export function App() {
             <TavernInterior onExit={() => setTavernOpen(false)} onOpenServices={() => { setTavernOpen(false); tavernServices?.(); setTavernServices(null); }} />
           </React.Suspense>
         )}
+      {/* COLOSSEUM-INTERIOR — the empty arena: full-screen overlay while the city stays
+      mounted underneath (so exiting returns the player to the exact spot they left,
+      at the Colosseum door). */}
+      {currentScreen === 'city_3d' && colosseumOpen && (
+        <React.Suspense fallback={<div />}>
+              <ColosseumInterior onExit={() => setColosseumOpen(false)} />
+        </React.Suspense>
+      )}
 
         {currentScreen === 'hub_2d' && profile && (
           <React.Suspense fallback={<div className="w-full h-full min-h-[100dvh] bg-neutral-950" aria-busy="true" />}>
