@@ -8,7 +8,7 @@
  */
 import { CIRCUS_AXIS_X } from './collisionShapes';
 import { CIRCUS_RACE_START } from './circusDistrictGeometry';
-import { RACE_NORTH_TURN_Z, RACE_SOUTH_TURN_Z } from './raceLap';
+import { RACE_NORTH_TURN_Z } from './raceLap';
 
 export interface RaceRivalPose {
   x: number;
