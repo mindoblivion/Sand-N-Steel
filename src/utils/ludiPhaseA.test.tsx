@@ -121,7 +121,7 @@ const ludi = (patch: Partial<LudiProgress> = {}): LudiProgress => ({
 const DAY_WITH = { winAndTrain: 10, trainHypeVisit: 12, winDuelOnly: 2 };
 
 /** Day 12's ONE named district, pinned by §B — the only place that pays its visit deed. */
-const DAY12_DISTRICT = 'arena_medical_house';
+const DAY12_DISTRICT = 'triumphal_arch';
 
 /** A district day 12 does NOT ask for: a visit there is recorded and pays nothing. */
 const OTHER_DISTRICT = 'bathhouse';
