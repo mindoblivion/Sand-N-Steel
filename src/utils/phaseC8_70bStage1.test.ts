@@ -294,15 +294,16 @@ describe('D. Reuse', () => {
   });
 
   test('the race rendering documentation matches the equipped chariot and horse-team implementation', () => {
-    expect(sceneSrc).toContain('finish is applied to cloned body materials');
-    expect(sceneSrc).toContain('reinforced wheel kit is loaded only when that variant is equipped');
-    expect(sceneSrc).toContain('finish is also applied to cloned kit-wheel materials');
-    expect(sceneSrc).toContain('selected Biga / Triga / Quadra');
-    expect(sceneSrc).toContain('one deterministic, presentation-only rival chariot');
+    // Pin the live wiring rather than exact prose wrapping in the explanatory header.
+    expect(sceneSrc).toContain("wheelVariant === 'reinforced' && <RaceChariotKitWheels");
+    expect(sceneSrc).toContain('const wheelKit = useGLTF(CHARIOT_WHEEL_KIT_URL)');
+    expect(sceneSrc).toContain('applyChariotFinish(scene, getChariotPartByFinish(finish)?.overrides ?? [])');
+    expect(sceneSrc).toContain('applyChariotFinish(object, overrides)');
+    expect(sceneSrc).toContain('<RaceHorseTeam teamSize={teamSize}');
+    expect(sceneSrc).toContain('const RaceRivalChariot');
     expect(sceneSrc).not.toContain('this slice has no wheel kit');
     expect(sceneSrc).not.toContain('NO HORSES and no rivals');
-    expect(sceneSrc).toContain("wheelVariant === 'reinforced' && <RaceChariotKitWheels");
-    expect(sceneSrc).toContain('applyChariotFinish(scene, getChariotPartByFinish(finish)?.overrides ?? [])');
+    expect(sceneSrc).toContain('adaptive DPR and a');
   });
 
   test('the start line is read from the layout module, not restated', () => {
