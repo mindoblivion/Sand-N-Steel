@@ -450,7 +450,9 @@ describe('C-8.67C §B — the three cards, rendered from the real component', ()
     const markup = markupFor(profileWithGold(100));
     expect(markup).toContain('Racing Configuration');
     expect(markup).toContain('does not start a race');
-    expect(markup).toContain('racing gameplay is not available yet');
+    expect(markup).toContain('preferred setup for the playable Circus race');
+    expect(markup).toContain('Personal best:');
+    expect(markup).toContain('No recorded lap');
     expect(markup).toContain('never changes your combat stats');
   });
 
