@@ -473,7 +473,7 @@ const RaceChariot: React.FC<{
       scale={CHARIOT_MODEL_SCALE}
     >
       <primitive object={body.scene} />
-      {wheelVariant === 'reinforced' && <RaceChariotKitWheels wheelVariant={wheelVariant} roll={roll} />}
+      {wheelVariant === 'reinforced' && <RaceChariotKitWheels wheelVariant={wheelVariant} roll={roll} finish={finish} />}
       <RaceHorseTeam teamSize={teamSize} speed={raceState === 'racing' && !frozen ? motion.speed : 0} />
     </group>
   );
@@ -483,17 +483,25 @@ const RaceChariot: React.FC<{
 const RaceChariotKitWheels: React.FC<{
   wheelVariant: 'reinforced';
   roll: React.MutableRefObject<number>;
-}> = ({ wheelVariant, roll }) => {
+  finish: 'stock' | 'charred' | 'gilded' | 'oxblood' | 'triumph' | 'ventive';
+}> = ({ wheelVariant, roll, finish }) => {
   const wheelKit = useGLTF(CHARIOT_WHEEL_KIT_URL);
   const wheelPivots = useRef<(THREE.Group | null)[]>([]);
   const wheels = useMemo(() => {
     const source = wheelKit.scene.getObjectByName(CHARIOT_WHEEL_VARIANTS[wheelVariant].node);
-    return (['left', 'right'] as const).map((side) => ({
-      side,
-      placement: getChariotWheelPlacement(wheelVariant, side),
-      object: source?.clone(true) ?? null,
-    }));
-  }, [wheelKit.scene, wheelVariant]);
+    const overrides = getChariotPartByFinish(finish)?.overrides ?? [];
+    return (['left', 'right'] as const).map((side) => {
+      const object = source?.clone(true) ?? null;
+      // Keep wheel hubs and bindings visually consistent with the equipped body
+      // finish without ever mutating the shared useGLTF cache.
+      if (object) applyChariotFinish(object, overrides);
+      return {
+        side,
+        placement: getChariotWheelPlacement(wheelVariant, side),
+        object,
+      };
+    });
+  }, [wheelKit.scene, wheelVariant, finish]);
 
   useFrame(() => {
     for (const pivot of wheelPivots.current) {
