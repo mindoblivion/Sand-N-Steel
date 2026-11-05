@@ -142,6 +142,15 @@ describe('B. The pre-race pose, in memory only', () => {
     expect(panelSrc).not.toContain('setNotice');
   });
 
+  test('the entry panel shows the selected team record and does not mislabel wallet gold as a purse', () => {
+    expect(panelSrc).toContain('profile.racing?.bestTimes?.[team.horses]');
+    expect(panelSrc).toContain('formatRaceElapsed(storedBestTime)');
+    expect(panelSrc).toContain("data-race-field=\"personal-best\"");
+    expect(panelSrc).toContain('No currency is wagered or awarded yet.');
+    expect(panelSrc).not.toContain('Purse:');
+    expect(panelSrc).not.toContain('{profile.gold}');
+  });
+
   test('App holds the pose in state and hands it back to the city', () => {
     expect(appSrc).toContain('const [cityReturnPose, setCityReturnPose] = useState<CityExitPose | null>(null)');
     // The captured pose is what the city is handed — and the ONLY arrival that overrides
