@@ -49,8 +49,8 @@ export interface RacingConfig {
 }
 
 /**
- * The catalogue, in progression order.  750 / 1,500 are the proposed prices and
- * are the single source of truth for the tests and any future screen.
+ * The catalogue, in progression order. Prices are centralized here so the
+ * stable UI and purchase transaction always use the same values.
  */
 export const RACING_CONFIGS: RacingConfig[] = [
   { id: 'biga', horses: 2, name: 'Biga', price: 0 },
