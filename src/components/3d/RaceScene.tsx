@@ -169,12 +169,15 @@ import { getRaceRivalPose, getRaceRivalSpeed, resolveRaceRivalOutcome } from '..
  * elapsed time, it adds no transition to Slice 1's table, and it reaches the
  * physics only as the multiplier `advanceChariot` accepts.
  *
- * ── Save safety ───────────────────────────────────────────────────────────
- * READ-ONLY, like Slice 0's panel and Slice 1: this file imports no storage,
- * names no save writer and writes nothing.  Racing, driving or aborting moves no
- * gold, unlock or progression.  The first race of a session teaches the controls
- * with fading labels on the controls themselves; that is a module-level flag in
- * THIS module's memory, never a save, and a reload simply shows the labels again.
+ * ── Save boundary ─────────────────────────────────────────────────────────
+ * This scene imports no storage service and never writes a profile directly.
+ * After raceLap.ts validates the complete north-turn, south-turn and finish-line
+ * route, the finish transition calls the optional `onRecordBestTime` callback.
+ * App owns that one profile transaction and its existing save path; the scene
+ * receives only the outcome needed to show the result. Aborting or returning to
+ * the city never invokes the callback. Currency, fame, XP and unlock rewards are
+ * not awarded. The first-race control hints remain a module-memory flag, never a
+ * save, and a reload simply shows the labels again.
  */
 export interface RaceSceneProps {
   /** Leave the race and return to the city at the pose captured on entry. */
