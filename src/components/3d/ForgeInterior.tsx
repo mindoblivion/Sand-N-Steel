@@ -550,11 +550,10 @@ function ForgePlayerRig({ onExitRef, keysRef, stickRef, onPosition }: ForgePlaye
     if (keys['KeyA'] || keys['ArrowLeft']) kx -= 1;
     if (keys['KeyD'] || keys['ArrowRight']) kx += 1;
     // Joystick input (dead-zoned).
-    const jx = applyDeadZone(stick.x);
-    const jy = applyDeadZone(stick.y);
+    const joystick = applyDeadZone(stick.x, stick.y);
     // Combine; clamp to the unit circle.
-    let mx = kx + jx;
-    let mz = kz + jy;
+    let mx = kx + joystick.x;
+    let mz = kz + joystick.z;
     const mLen = Math.hypot(mx, mz);
     if (mLen > 1) {
       mx /= mLen;
