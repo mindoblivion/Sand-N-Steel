@@ -9,8 +9,8 @@
  * through `utils/characterCreation.ts` — the same code the screen runs — so this
  * suite pins the three things the slice promises:
  *
- *   §A  the brief's own Retiarius literals (9 / 13 / 11 / 1, the trident equipped,
- *       the gladius carried, 119 HP before any allocation) and the allocation on top;
+ *   §A  the brief's own Retiarius literals (9 / 13 / 11 / 1, the wooden spear equipped,
+ *       no steel carried, 119 HP before any allocation) and the allocation on top;
  *   §B  every class' template lands as `baseStats` with its kit equipped and carried,
  *       and `palmae` is never written at creation;
  *   §C  the factory: `createNewProfile()` with no argument is BYTE-IDENTICAL to the
@@ -93,24 +93,24 @@ describe('CH-2 §A — a new Retiarius, before and after allocation', () => {
     expect(retiarius.unspentStatPoints).toBe(CREATION_POINTS);
   });
 
-  test('the trident is equipped and the gladius is carried in the inventory', () => {
-    expect(retiarius.equipped.weapon.id).toBe('trident_retarius');
-    expect(retiarius.equipped.weapon.name).toBe('Retiarius Trident');
+  test('the wooden spear is equipped and no steel is carried in the inventory', () => {
+    expect(retiarius.equipped.weapon.id).toBe('wooden_spear');
+    expect(retiarius.equipped.weapon.name).toBe('Wooden Training Spear');
     const carried = retiarius.inventory.map((item) => item.id);
-    expect(carried[0]).toBe('trident_retarius');
-    expect(carried).toContain('gladius_standard');
+    expect(carried[0]).toBe('wooden_spear');
+    expect(carried).not.toContain('gladius_standard');
   });
 
   test('HP derives 119 from the template before allocation', () => {
     // The brief's literal: 80 + STR×4 + DEF×3 on the base stats alone.
     expect(80 + retiarius.baseStats.strength * 4 + retiarius.baseStats.defense * 3).toBe(119);
-    // The equipped read adds the trident's own +4 STR, which is why the Stats tab
-    // and the duel show 135 rather than 119.  Both numbers are honest; the 119 is
-    // the class template's own derivation and is the one this slice pins.
+    // The wooden spear adds no stat bonuses, so the equipped read matches the
+    // template's own derivation (119 HP, 9 STR, 13 AGI) rather than exceeding it.
+    // Steel must be earned: the 50g gladius comes after the first duel win.
     const equipped = calculateTotalStats(retiarius);
-    expect(equipped.healthMax).toBe(135);
-    expect(equipped.strength).toBe(13);
-    expect(equipped.agility).toBe(17);
+    expect(equipped.healthMax).toBe(119);
+    expect(equipped.strength).toBe(9);
+    expect(equipped.agility).toBe(13);
   });
 
   test('the allocation lands on top of the template, keeping the ten-point pool', () => {
@@ -157,19 +157,8 @@ describe('CH-2 §B — every class lands its template and its kit', () => {
     }
   });
 
-  test('the retiarius and dimachaerus kits are the two with a carried extra', () => {
-    const extras = (id: 'retiarius' | 'dimachaerus') => {
-      const row = getArmatura(id);
-      if (!row) throw new Error(`no class ${id}`);
-      const kit = armaturaKit(row);
-      return kit.inventory.slice(1).map((item) => item.id);
-    };
-    expect(extras('retiarius')).toEqual(['gladius_standard']);
-    expect(extras('dimachaerus')).toEqual(['dagger_pugio']);
-    for (const row of ARMATURAE) {
-      if (row.id === 'retiarius' || row.id === 'dimachaerus') continue;
-      expect(armaturaKit(row).inventory).toHaveLength(1);
-    }
+  test('no kit carries an extra: every class starts with its wooden weapon alone', () => {
+      expect(ARMATURAE.every((row) => armaturaKit(row).inventory.length === 1)).toBe(true);
   });
 
   test('every kit id is a real catalogue item, and the equipped one is the primary', () => {
@@ -214,15 +203,9 @@ describe('CH-2 §C — createNewProfile', () => {
     expect(Object.keys(withClass).sort()).toEqual([...Object.keys(plain), 'armatura'].sort());
     expect(withClass.armatura).toBe('retiarius');
     expect(withClass.baseStats).toEqual({ strength: 9, agility: 13, stamina: 11, defense: 1 });
-    expect(withClass.equipped.weapon.id).toBe('trident_retarius');
-    expect(withClass.inventory.map((item) => item.id)).toEqual([
-      'trident_retarius',
-      'gladius_standard',
-    ]);
-    expect('palmae' in withClass).toBe(false);
-
-    // Everything the argument does not touch is exactly the factory's own value.
-    expect(withClass.name).toBe(plain.name);
+    expect(withClass.equipped.weapon.id).toBe('wooden_spear');
+    expect(withClass.inventory.map((item) => item.id)).toEqual(['wooden_spear']);
+      expect('palmae' in withClass).toBe(false);
     expect(withClass.appearance).toEqual(plain.appearance);
     expect(withClass.gold).toBe(plain.gold);
     expect(withClass.unspentStatPoints).toBe(plain.unspentStatPoints);
