@@ -11,6 +11,8 @@ import {
   resolveRacingState,
 } from '../../utils/racingProgression';
 import { StablePanel } from './StablePanel';
+import { formatRaceElapsed } from '../../utils/raceState';
+import { MAX_RECORDED_RACE_TIME_MS } from '../../utils/raceRecords';
 
 interface RacingConfigSectionProps {
   profile: PlayerProfile;
@@ -85,6 +87,11 @@ export const RacingConfigSection: React.FC<RacingConfigSectionProps> = ({
     const isUnlocked = racing.unlocked.includes(config.horses);
     const isSelected = racing.selected === config.horses;
     const purchase = getRacingPurchaseEligibility(profile, config.horses);
+    const storedBestTime = profile.racing?.bestTimes?.[config.horses];
+    const hasValidBestTime = typeof storedBestTime === 'number' &&
+      Number.isFinite(storedBestTime) &&
+      storedBestTime > 0 &&
+      storedBestTime <= MAX_RECORDED_RACE_TIME_MS;
 
     const stateLabel = isSelected
       ? 'Your selected team'
@@ -142,6 +149,11 @@ export const RacingConfigSection: React.FC<RacingConfigSectionProps> = ({
           </div>
 
           <p className="text-xs text-neutral-400 mb-2">{CONFIG_BLURBS[config.id]}</p>
+          <p className="mb-2 text-[11px] font-mono text-neutral-400" data-racing-best-time={config.horses}>
+            Personal best: <span className="text-amber-200 tabular-nums">
+              {hasValidBestTime ? formatRaceElapsed(storedBestTime) : 'No recorded lap'}
+            </span>
+          </p>
 
           <div className={`text-[11px] font-mono flex items-start gap-1.5 ${stateTone}`}>
             {isUnlocked ? (
@@ -226,9 +238,8 @@ export const RacingConfigSection: React.FC<RacingConfigSectionProps> = ({
       <div className="flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3">
         <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
         <p>
-          Selecting a team saves it to your gladiator as your preferred racing setup. It does not start a
-          race — racing gameplay is not available yet — and it never changes your combat stats or the parts
-          fitted to your chariot.
+          Selecting a team saves it as your preferred setup for the playable Circus race. It does not
+          start a race, and it never changes your combat stats or the parts fitted to your chariot.
         </p>
       </div>
 
