@@ -9,6 +9,7 @@ import { TitleScreen } from './components/hub/TitleScreen';
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
 const TavernInterior = React.lazy(() => import('./components/3d/TavernInterior').then((m) => ({ default: m.TavernInterior })));
 const ColosseumInterior = React.lazy(() => import('./components/3d/ColosseumInterior').then((m) => ({ default: m.ColosseumInterior })));
+const ForgeInterior = React.lazy(() => import('./components/3d/ForgeInterior').then((m) => ({ default: m.ForgeInterior })));
 
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
@@ -251,6 +252,8 @@ export function App() {
     const [tavernOpen, setTavernOpen] = useState(false);
   /* COLOSSEUM-INTERIOR — the enterable arena overlay (TavernInterior pattern). */
   const [colosseumOpen, setColosseumOpen] = useState(false);
+  /* FORGE-INTERIOR — the smithing forge overlay (ColosseumInterior pattern). */
+  const [forgeOpen, setForgeOpen] = useState(false);
   const [tavernServices, setTavernServices] = useState<(() => void) | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -2162,6 +2165,7 @@ export function App() {
             onToggleMute={handleToggleMute}
             isMuted={isMuted}              
                       onEnterColosseum={() => setColosseumOpen(true)}
+            onEnterForge={() => setForgeOpen(true)}
             onReturnToMainMenu={() => setCurrentScreen('title')}
             isLeftyMode={isLeftyMode}
             onOpenSettings={() => handleOpenSettings()}
@@ -2187,7 +2191,7 @@ export function App() {
             onReturnToLibrarian={handleReturnToLibrarian}
             onReadLegendFragment={handleReadLegendFragment}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
-            movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen}
+            movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
             /* FIRST SIXTY SECONDS — the ONE pointer's target (the marker's id IS
                this id) and §6's session silence. */
@@ -2253,7 +2257,20 @@ export function App() {
       at the Colosseum door). */}
       {currentScreen === 'city_3d' && colosseumOpen && (
         <React.Suspense fallback={<div />}>
-              <ColosseumInterior onExit={() => setColosseumOpen(false)} />
+                        <ColosseumInterior onExit={() => setColosseumOpen(false)} />
+        </React.Suspense>
+      )}
+      {/* FORGE-INTERIOR — the smithing forge: full-screen overlay while the city stays
+          mounted underneath (so exiting returns the player to the exact spot they left,
+          at the forge door). */}
+      {currentScreen === 'city_3d' && forgeOpen && (
+        <React.Suspense fallback={<div />}>
+          <ForgeInterior
+            onExit={() => setForgeOpen(false)}
+            onOpenShop={() => { setForgeOpen(false); handleOpenHubTab('shop', undefined, 'forge'); }}
+            onOpenTemper={() => { setForgeOpen(false); handleOpenHubTab('gear', undefined); }}
+            onRecordKeeperVisit={handleRecordKeeperVisit}
+          />
         </React.Suspense>
       )}
 
