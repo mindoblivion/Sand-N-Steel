@@ -379,6 +379,9 @@ describe('E. Slice boundaries', () => {
     expect(sceneSrc).toContain('getRaceLapStage(lap.tracker)');
     expect(sceneSrc).toContain('if (nextStage !== previousStage) onLapStageChange(nextStage)');
     expect(sceneSrc).toContain('data-race-checkpoint={lapStage}');
+    expect(sceneSrc).toContain('role="status"');
+    expect(sceneSrc).toContain('aria-live="polite"');
+    expect(sceneSrc).toContain('aria-atomic="true"');
     expect(sceneSrc).toContain('Reach far bend');
     expect(sceneSrc).toContain('Round near bend');
     expect(sceneSrc).toContain('Return to finish');
