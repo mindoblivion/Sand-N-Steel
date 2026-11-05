@@ -339,25 +339,23 @@ describe('CH-1 §E — the seven armaturae', () => {
     }
   });
 
-  test('the retiarius starts with the trident EQUIPPED and the gladius carried', () => {
+  test('the retiarius starts with the wooden spear EQUIPPED and no steel carried', () => {
     const retiarius = getArmatura('retiarius')!;
-    expect(retiarius.startingWeaponId).toBe('trident_retarius');
-    expect(retiarius.startingInventoryIds).toEqual(['gladius_standard']);
-    expect(getItemById('trident_retarius')?.name).toBe('Retiarius Trident');
+    expect(retiarius.startingWeaponId).toBe('wooden_spear');
+    expect(retiarius.startingInventoryIds).toEqual([]);
+    expect(getItemById('wooden_spear')?.name).toBe('Wooden Training Spear');
   });
 
-  test('the dimachaerus starts with two dual_blades-family items', () => {
+  test('the dimachaerus starts with wooden daggers and no spare', () => {
     const dimachaerus = getArmatura('dimachaerus')!;
-    const items = [dimachaerus.startingWeaponId, ...dimachaerus.startingInventoryIds].map((id) => getItemById(id));
-    expect(items).toHaveLength(2);
-    for (const item of items) {
-      expect(item && 'type' in item ? item.type : undefined).toBe('dual_blades');
-    }
+    expect(dimachaerus.startingWeaponId).toBe('wooden_daggers');
+    expect(dimachaerus.startingInventoryIds).toEqual([]);
+    const weapon = getItemById(dimachaerus.startingWeaponId);
+      expect(weapon && 'type' in weapon ? weapon.type : undefined).toBe('dual_blades');
   });
 
-  test('every other class starts with exactly its kit primary and no spare', () => {
+  test('every class starts with exactly its kit primary and no spare', () => {
     for (const armatura of ARMATURAE) {
-      if (armatura.id === 'retiarius' || armatura.id === 'dimachaerus') continue;
       expect(armatura.startingInventoryIds, armatura.id).toEqual([]);
     }
   });
