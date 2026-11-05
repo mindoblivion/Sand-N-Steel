@@ -6,7 +6,9 @@ import { HUB_LOCATIONS, FAST_TRAVEL_ARRIVALS } from './cityCollisions';
 import { resolveVisitorSchedule } from './visitorSchedule';
 import {
   VISITOR_STALLS,
+  VISITOR_LIVERIES,
   VISITOR_INTERACTION_RADIUS,
+  createVisitorFighter,
   resolveVisitorPresence,
   resolveVisitorTarget,
   visitorPrompt,
@@ -34,6 +36,28 @@ describe('Living City L17 — visitor presence', () => {
       expect(anchors.has(key)).toBe(false);
       anchors.add(key);
     }
+  });
+
+  test('scheduled traders have distinct valid livery colours on their existing fighter meshes', () => {
+    expect(Object.keys(VISITOR_LIVERIES).sort()).toEqual(VISITORS.map(v => v.id).sort());
+    const tunics = new Set<string>();
+    for (const visitor of VISITORS) {
+      const livery = VISITOR_LIVERIES[visitor.id];
+      expect(livery.tunic).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(livery.crest).toMatch(/^#[0-9a-f]{6}$/i);
+      tunics.add(livery.tunic);
+      const presence = resolveVisitorPresence((() => {
+        for (let day = 1; day <= 365; day += 1) {
+          const profile = onDay(day);
+          if (resolveVisitorSchedule(profile).arrivals.some(a => a.visitor.id === visitor.id)) return profile;
+        }
+        throw new Error(`No arrival for ${visitor.id}`);
+      })()).find(entry => entry.visitor.id === visitor.id)!;
+      const fighter = createVisitorFighter(presence);
+      expect(fighter.tunicColor).toBe(livery.tunic);
+      expect(fighter.crestColor).toBe(livery.crest);
+    }
+    expect(tunics.size).toBe(VISITORS.length);
   });
 
   test('visitor interaction discs are fully standable on the main collision registry', () => {
