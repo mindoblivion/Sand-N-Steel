@@ -81,6 +81,50 @@ export const WOODEN_SWORD_SHIELD: WeaponItem = {
   bonusDefense: 0,
 };
 
+export const WOODEN_SPEAR: WeaponItem = {
+  id: 'wooden_spear',
+  name: 'Wooden Training Spear',
+  type: 'spear',
+  rarity: 'common',
+  description: 'A blunted ash shaft for drill practice. Every spearman starts somewhere.',
+  damageLight: 8,
+  damageHeavy: 15,
+  staminaLight: 10,
+  staminaHeavy: 20,
+  range: 2.9,
+  speed: 0.36,
+  blockReduction: 0.5,
+  price: 10,
+  sellPrice: 4,
+  color: '#92400e',
+  metalColor: '#d6a679',
+  icon: 'Spear',
+  bonusStrength: 0,
+  bonusDefense: 0,
+};
+
+export const WOODEN_DAGGERS: WeaponItem = {
+  id: 'wooden_daggers',
+  name: 'Wooden Practice Daggers',
+  type: 'dual_blades',
+  rarity: 'common',
+  description: 'Twin wooden blades for footwork drills. Every duelist starts somewhere.',
+  damageLight: 7,
+  damageHeavy: 14,
+  staminaLight: 8,
+  staminaHeavy: 16,
+  range: 1.8,
+  speed: 0.40,
+  blockReduction: 0.4,
+  price: 10,
+  sellPrice: 4,
+  color: '#92400e',
+  metalColor: '#d6a679',
+  icon: 'Swords',
+  bonusStrength: 0,
+  bonusDefense: 0,
+};
+
 /**
  * EVERY ACQUIRABLE WEAPON.
  *
@@ -382,6 +426,8 @@ export const ALL_WEAPONS: WeaponItem[] = [
     modelPath: WEAPON_MODEL_PATHS.gladius,
     bonusAgility: 3,
   },
+  WOODEN_SPEAR,
+  WOODEN_DAGGERS,
 ];
 
 /** Spare weapon granted to every new gladiator alongside the default gladius. */

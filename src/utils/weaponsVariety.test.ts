@@ -25,7 +25,7 @@ const NEW_WEAPON_IDS = ['wpn_pilum', 'wpn_hasta', 'shd_scutum_gladius', 'shd_par
 
 describe('WEAPONS-1 weapons variety', () => {
   test('the four new weapons sit at indices 12-15 in order', () => {
-    expect(ALL_WEAPONS).toHaveLength(16);
+    expect(ALL_WEAPONS).toHaveLength(18);
     NEW_WEAPON_IDS.forEach((id, i) => {
       expect(ALL_WEAPONS[12 + i].id).toBe(id);
     });
@@ -86,7 +86,7 @@ describe('WEAPONS-1 weapons variety', () => {
       expect(forge).toContain(id);
       expect(market).toContain(id);
     }
-    expect(forge).toHaveLength(15);
+    expect(forge).toHaveLength(17);
     expect(market).toHaveLength(ITEMS_DB.length);
   });
 });
