@@ -1091,6 +1091,9 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             {raceState === 'racing' && <RaceGaitReadout motion={motion} />}
             {raceState === 'racing' && (
               <span
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
                 className="text-[9px] sm:text-[10px] font-mono uppercase tracking-wider text-amber-300/90 border-l border-amber-700/60 pl-3"
                 data-race-checkpoint={lapStage}
               >
