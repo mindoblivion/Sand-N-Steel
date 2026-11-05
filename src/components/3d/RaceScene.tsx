@@ -33,6 +33,8 @@ import {
 import { getChariotPart, getChariotPartByFinish } from '../../data/chariotParts';
 import type { ChariotEquippedResolved } from '../../types/game';
 import { RaceHorseTeam } from './RaceHorseTeam';
+import { useSettings } from '../../hooks/useSettings';
+import { useAdaptiveDpr, CITY_TIERS, POST_TRANSITION_MS, type QualityPreset } from '../../hooks/useAdaptiveDpr';
 import type { ChariotTeamSize } from '../../types/game';
 import { CIRCUS_RACE_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry';
 import {
@@ -219,6 +221,17 @@ try {
 } catch {
   // Silent fallback — useGLTF will load on demand if preload fails.
 }
+
+// Racing uses the same measured pixel budget as the city and duel. The hook
+// runs inside the race Canvas; this parent owns the DPR value applied to it.
+const RaceAdaptiveDpr: React.FC<{
+  tier: QualityPreset;
+  suspendedRef: { readonly current: boolean };
+  onDprChange: (dpr: number) => void;
+}> = ({ tier, suspendedRef, onDprChange }) => {
+  useAdaptiveDpr({ tier, suspendedRef, onDprChange });
+  return null;
+};
 
 /**
  * The start pose, read from the layout module so the line that is drawn and the
@@ -670,6 +683,26 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const [raceFinishElapsed, setRaceFinishElapsed] = useState<number | null>(null);
   const [raceRecordStatus, setRaceRecordStatus] = useState<'new-best' | 'not-best' | 'save-failed' | null>(null);
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
+
+  // The player's quality preset governs the race's pixel density and key shadow.
+  // A short warm-up window prevents scene compilation from being read as poor FPS.
+  const settings = useSettings();
+  const qualityPreset = settings.qualityPreset;
+  const [raceDpr, setRaceDpr] = useState<number>(() => CITY_TIERS[qualityPreset].dpr.start);
+  const raceAdaptationSuspendedRef = useRef(true);
+
+  useEffect(() => {
+    setRaceDpr(CITY_TIERS[qualityPreset].dpr.start);
+  }, [qualityPreset]);
+
+  useEffect(() => {
+    raceAdaptationSuspendedRef.current = true;
+    if (frozen) return;
+    const timer = setTimeout(() => {
+      raceAdaptationSuspendedRef.current = false;
+    }, POST_TRANSITION_MS);
+    return () => clearTimeout(timer);
+  }, [frozen]);
   const [revving, setRevving] = useState(false);
   const [launchQuality, setLaunchQuality] = useState<ChariotLaunchQuality | null>(null);
   const [showHints, setShowHints] = useState(!hasRacedThisSession);
@@ -927,7 +960,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
           <Canvas
             shadows
             frameloop={frameloopMode}
-            dpr={[1, 2]}
+            dpr={raceDpr}
             camera={{ position: RACE_CAMERA_POSITION, fov: CHARIOT_CHASE_CAMERA.fovAtRest, near: 0.1, far: 160 }}
             gl={{ antialias: false, powerPreference: 'high-performance' }}
             onCreated={(state) => {
@@ -936,6 +969,12 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             }}
           >
             <CanvasWebGLMonitor sceneName="CircusRace" />
+            {/* Shared adaptive pixel governor; suspended while race settings are open. */}
+            <RaceAdaptiveDpr
+              tier={qualityPreset}
+              suspendedRef={raceAdaptationSuspendedRef}
+              onDprChange={setRaceDpr}
+            />
             {/* C-8.70B §SET-1 — the brightness row, applied on creation and live. */}
             <SceneBrightness />
 
@@ -952,7 +991,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
               intensity={raceLight.sunIntensity}
               color={raceLight.sunColor}
               castShadow
-              shadow-mapSize={[2048, 2048]}
+              shadow-mapSize={[CITY_TIERS[qualityPreset].shadows, CITY_TIERS[qualityPreset].shadows]}
               shadow-camera-left={-70}
               shadow-camera-right={50}
               shadow-camera-top={50}
