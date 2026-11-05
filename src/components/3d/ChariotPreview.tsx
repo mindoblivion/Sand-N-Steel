@@ -71,12 +71,20 @@ const ChariotRig: React.FC<ChariotPreviewProps> = ({ wheelVariant, finish }) => 
   // Wheels: ONE CLONE PER SIDE, each with its own wrapper transform.
   const wheels = useMemo(() => {
     const source = wheelKitGltf.scene.getObjectByName(CHARIOT_WHEEL_VARIANTS[wheelVariant].node);
-    return (['left', 'right'] as const).map((side) => ({
-      side,
-      placement: getChariotWheelPlacement(wheelVariant, side),
-      object: source ? source.clone(true) : null,
-    }));
-  }, [wheelKitGltf.scene, wheelVariant]);
+    const overrides = getChariotPartByFinish(finish)?.overrides ?? [];
+    return (['left', 'right'] as const).map((side) => {
+      const object = source ? source.clone(true) : null;
+      // Finish overrides apply to the wheel kit too (notably Bronze hubs and
+      // Leather bindings). applyChariotFinish clones each matched material, so
+      // these per-side clones cannot mutate the cached GLB or each other.
+      if (object) applyChariotFinish(object, overrides);
+      return {
+        side,
+        placement: getChariotWheelPlacement(wheelVariant, side),
+        object,
+      };
+    });
+  }, [wheelKitGltf.scene, wheelVariant, finish]);
 
   return (
     <>

@@ -358,6 +358,19 @@ describe('E. Slice boundaries', () => {
     expect(sceneSrc.split('<RaceClock').length - 1).toBe(1);
   });
 
+  test('the equipped finish reaches reinforced race wheels without changing the rival', () => {
+    expect(sceneSrc).toContain('chariotLoadout');
+    expect(sceneSrc).toContain('finish={finish}');
+    expect(sceneSrc).toContain('const overrides = getChariotPartByFinish(finish)?.overrides ?? []');
+    expect(sceneSrc).toContain('if (object) applyChariotFinish(object, overrides)');
+    expect(sceneSrc).toContain('[wheelKit.scene, wheelVariant, finish]');
+    const rivalStart = sceneSrc.indexOf('const RaceRivalChariot');
+    const rivalEnd = sceneSrc.indexOf('const RaceClock', rivalStart);
+    const rival = sceneSrc.slice(rivalStart, rivalEnd);
+    expect(rival).not.toContain('getChariotPartByFinish');
+    expect(rival).not.toContain('applyChariotFinish');
+  });
+
   test('no collider, movement constant or city geometry changed for this slice', () => {
     // both constants this slice added to the layout module are lifted out first —
     // the start line and the camera derived from it — so what remains is the module
