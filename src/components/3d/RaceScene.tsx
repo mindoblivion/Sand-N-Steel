@@ -83,7 +83,8 @@ import {
   startRace,
 } from '../../utils/raceState';
 import type { CountdownStep, RaceState } from '../../utils/raceState';
-import { advanceRaceLap, createRaceLapTracker } from '../../utils/raceLap';
+import { advanceRaceLap, createRaceLapTracker, getRaceLapStage } from '../../utils/raceLap';
+import type { RaceLapStage } from '../../utils/raceLap';
 import { getRaceRivalPose, getRaceRivalSpeed, resolveRaceRivalOutcome } from '../../utils/raceRival';
 
 /**
@@ -386,7 +387,8 @@ const RaceChariot: React.FC<{
   wheelVariant: 'standard' | 'reinforced';
   finish: 'stock' | 'charred' | 'gilded' | 'oxblood' | 'triumph' | 'ventive';
   onFinish: () => void;
-}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, wheelVariant, finish, onFinish }) => {
+  onLapStageChange: (stage: RaceLapStage) => void;
+}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, wheelVariant, finish, onFinish, onLapStageChange }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
 
   // Clone: `useGLTF` caches one scene per URL and the workshop holds the same
@@ -444,8 +446,12 @@ const RaceChariot: React.FC<{
 
     if (racing) {
       advanceChariot(motion, input, delta, launchAccelScale(launch, elapsedSinceGoMs));
+      const previousStage = getRaceLapStage(lapTracker.current);
       const lap = advanceRaceLap(lapTracker.current, { x: motion.x, z: motion.z });
       lapTracker.current = lap.tracker;
+      const nextStage = getRaceLapStage(lap.tracker);
+      // Notify React only when a real checkpoint transition occurs, never per frame.
+      if (nextStage !== previousStage) onLapStageChange(nextStage);
       if (lap.finishedNow) onFinish();
     }
 
@@ -690,6 +696,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const [raceStartedAt, setRaceStartedAt] = useState<number | null>(null);
   const [raceFinishElapsed, setRaceFinishElapsed] = useState<number | null>(null);
   const [raceRecordStatus, setRaceRecordStatus] = useState<'new-best' | 'not-best' | 'save-failed' | null>(null);
+  const [lapStage, setLapStage] = useState<RaceLapStage>('north-turn');
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
 
   // The player's quality preset governs the race's pixel density and key shadow.
@@ -1035,6 +1042,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   teamSize={teamSize}
                   wheelVariant={getChariotPart(chariotLoadout?.wheels ?? 'wheels_standard')?.wheelVariant ?? 'standard'}
                   finish={getChariotPart(chariotLoadout?.finish ?? 'finish_stock')?.finish ?? 'stock'}
+                  onLapStageChange={setLapStage}
                   onFinish={() => {
                     const elapsedMs = raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt);
                     setRaceFinishElapsed(elapsedMs);
@@ -1073,6 +1081,16 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
               <RaceClock startedAt={raceStartedAt} frozen={frozen} />
             )}
             {raceState === 'racing' && <RaceGaitReadout motion={motion} />}
+            {raceState === 'racing' && (
+              <span
+                className="text-[9px] sm:text-[10px] font-mono uppercase tracking-wider text-amber-300/90 border-l border-amber-700/60 pl-3"
+                data-race-checkpoint={lapStage}
+              >
+                {lapStage === 'north-turn' ? 'Reach far bend' :
+                  lapStage === 'south-turn' ? 'Round near bend' :
+                    lapStage === 'finish-line' ? 'Return to finish' : 'Lap complete'}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

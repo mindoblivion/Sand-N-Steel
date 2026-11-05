@@ -358,6 +358,17 @@ describe('E. Slice boundaries', () => {
     expect(sceneSrc.split('<RaceClock').length - 1).toBe(1);
   });
 
+  test('checkpoint feedback follows the validated lap tracker without per-frame React updates', () => {
+    expect(sceneSrc).toContain('getRaceLapStage(lapTracker.current)');
+    expect(sceneSrc).toContain('getRaceLapStage(lap.tracker)');
+    expect(sceneSrc).toContain('if (nextStage !== previousStage) onLapStageChange(nextStage)');
+    expect(sceneSrc).toContain('data-race-checkpoint={lapStage}');
+    expect(sceneSrc).toContain('Reach far bend');
+    expect(sceneSrc).toContain('Round near bend');
+    expect(sceneSrc).toContain('Return to finish');
+    expect(sceneSrc).toContain('onLapStageChange={setLapStage}');
+  });
+
   test('the equipped finish reaches reinforced race wheels without changing the rival', () => {
     expect(sceneSrc).toContain('chariotLoadout');
     expect(sceneSrc).toContain('finish={finish}');
