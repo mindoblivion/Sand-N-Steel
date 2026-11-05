@@ -37,6 +37,8 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import * as THREE from 'three';
+import { applyChariotFinish } from './chariotGeometry';
 
 // ── In-memory localStorage polyfill (bun's runtime has no DOM) ─────────────
 const _store = new Map<string, string>();
@@ -916,6 +918,34 @@ describe('C-8.66B §F — the audited wheel fit, re-measured from the shipping G
     // The finish recolors a CLONE's materials only.
     expect(chariotGeometrySrc).toContain('material.clone()');
     expect(chariotGeometrySrc).toContain('applyChariotFinish');
+  });
+
+  test('finish overrides clone matching materials and leave cached GLB materials untouched', () => {
+    const cachedBronze = new THREE.MeshStandardMaterial({ color: '#805020', metalness: 0.4 });
+    cachedBronze.name = 'Bronze';
+    const cachedWood = new THREE.MeshStandardMaterial({ color: '#704020' });
+    cachedWood.name = 'Wood';
+    const root = new THREE.Group();
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(), cachedBronze));
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(), [cachedBronze, cachedWood]));
+
+    applyChariotFinish(root, [
+      { material: 'Bronze', color: '#e0b558', roughness: 0.22, metalness: 1 },
+    ]);
+
+    const single = root.children[0] as THREE.Mesh;
+    const multi = root.children[1] as THREE.Mesh;
+    const singleResult = single.material as THREE.MeshStandardMaterial;
+    const multiResult = multi.material as THREE.Material[];
+    expect(singleResult).not.toBe(cachedBronze);
+    expect(multiResult[0]).not.toBe(cachedBronze);
+    expect(multiResult[1]).toBe(cachedWood);
+    expect(singleResult.color.getHexString()).toBe('e0b558');
+    expect(singleResult.roughness).toBe(0.22);
+    expect(singleResult.metalness).toBe(1);
+    expect(cachedBronze.color.getHexString()).toBe('805020');
+    expect(cachedBronze.roughness).not.toBe(0.22);
+    expect(cachedBronze.metalness).toBe(0.4);
   });
 });
 
