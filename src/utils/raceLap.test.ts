@@ -7,6 +7,7 @@ import {
   RACE_NORTH_TURN_Z,
   RACE_SOUTH_TURN_Z,
   RACE_TURN_LANE_OFFSET,
+  getRaceLapStage,
 } from './raceLap';
 
 const axis = 52.34;
@@ -28,6 +29,30 @@ const validRoute = (startSide: -1 | 1) => {
     sample(axis + startSide * 9, RACE_FINISH_LINE_Z - 0.1),
   ];
 };
+
+describe('race checkpoint HUD stage', () => {
+  test('reports north turn, south turn, finish line and finished in route order', () => {
+    let tracker = createRaceLapTracker();
+    expect(getRaceLapStage(tracker)).toBe('north-turn');
+    for (const position of validRoute(1)) {
+      tracker = advanceRaceLap(tracker, position).tracker;
+      if (tracker.northTurnCompleted && !tracker.southTurnCompleted) {
+        expect(getRaceLapStage(tracker)).toBe('south-turn');
+      }
+      if (tracker.southTurnCompleted && !tracker.finished) {
+        expect(getRaceLapStage(tracker)).toBe('finish-line');
+      }
+    }
+    const finish = advanceRaceLap(tracker, sample(axis + 9, RACE_FINISH_LINE_Z + 0.1));
+    expect(getRaceLapStage(finish.tracker)).toBe('finished');
+  });
+
+  test('does not claim a checkpoint from invalid coordinates', () => {
+    const tracker = createRaceLapTracker();
+    const update = advanceRaceLap(tracker, { x: Number.NaN, z: 10 });
+    expect(getRaceLapStage(update.tracker)).toBe('north-turn');
+  });
+});
 
 describe('full oval lap checkpoints', () => {
   test('does not finish on the initial line or after reversing near the start', () => {
