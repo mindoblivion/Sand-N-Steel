@@ -24,8 +24,15 @@ export const VISITOR_STALLS: Readonly<Record<string, VisitorStall>> = Object.fre
 });
 
 export const VISITOR_INTERACTION_RADIUS = 2.5;
-export const VISITOR_TUNIC_COLOR = '#2b3a67';
-export const VISITOR_CREST_COLOR = '#d4a017';
+
+/** Low-cost visual distinction for the three scheduled traders; no extra meshes. */
+export const VISITOR_LIVERIES: Readonly<Record<string, { tunic: string; crest: string }>> = Object.freeze({
+  numidian_bladesmith: Object.freeze({ tunic: '#2b3a67', crest: '#d4a017' }),
+  campanian_armorer: Object.freeze({ tunic: '#713b32', crest: '#c9a66b' }),
+  emesan_weapon_trader: Object.freeze({ tunic: '#31534f', crest: '#c78b3b' }),
+});
+
+const DEFAULT_VISITOR_LIVERY = Object.freeze({ tunic: '#2b3a67', crest: '#d4a017' });
 
 export interface VisitorPresence {
   readonly visitor: Visitor;
@@ -97,6 +104,7 @@ export function visitorPrompt(target: VisitorTarget): string {
 
 /** Reuse the city's existing GladiatorMesh and default character model pipeline. */
 export function createVisitorFighter(entry: VisitorPresence): FighterState {
+  const livery = VISITOR_LIVERIES[entry.visitor.id] ?? DEFAULT_VISITOR_LIVERY;
   return {
     id: `visitor:${entry.visitor.id}`,
     name: entry.visitor.name,
@@ -119,8 +127,8 @@ export function createVisitorFighter(entry: VisitorPresence): FighterState {
     comboCount: 0,
     skinColor: '#d2b48c',
     hairColor: '#4b3621',
-    tunicColor: VISITOR_TUNIC_COLOR,
-    crestColor: VISITOR_CREST_COLOR,
+    tunicColor: livery.tunic,
+    crestColor: livery.crest,
     characterModel: 'roman_warrior',
   };
 }
