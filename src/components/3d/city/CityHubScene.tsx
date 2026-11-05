@@ -18,6 +18,7 @@ import { SmithingForge } from './SmithingForge';
 import { TrainingYard } from './TrainingYard';
 import { CityTavern } from './CityTavern';
 import { ColosseumDoorPanel } from './ColosseumDoorPanel';
+import { ForgeDoorPanel } from './ForgeDoorPanel';
 import { GeneralStore } from './GeneralStore';
 import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
@@ -240,6 +241,7 @@ interface CityHubSceneProps {
   onEnterTavern: (openServices: () => void) => void;
     // COLOSSEUM-INTERIOR — open the enterable arena overlay.
     onEnterColosseum: () => void;
+  onEnterForge: () => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -405,6 +407,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onOpenTab,
   onEnterTavern,
     onEnterColosseum,
+  onEnterForge,
   onEnterDuel,
   onOpenDriveSync,
   onToggleMute,
@@ -519,6 +522,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // purchase and its save belong to `App`.
   const [intelPanel, setIntelPanel] = useState(false);
   const [colosseumPanel, setColosseumPanel] = useState(false);
+  const [forgePanel, setForgePanel] = useState(false);
   // Living City L11/L12 — visitor panel; all profile writes remain in App.
   const [visitorPanel, setVisitorPanel] = useState(false);
   // PITCH A1 — the Shrine of Fortuna's omen panel, and the one line announcing
@@ -802,6 +806,8 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       primeKeeperGreeting('shrine_temple');
       setOmenResult(null);
       setShrinePanel(true);
+    } else if (nearbyLoc.id === 'smithing_forge') {
+      setForgePanel(true);
     } else if (nearbyLoc.tabKey) {
       onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
@@ -868,7 +874,19 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
           if (target) onEnterDuel(target.opponent);
           else onOpenTab('tournament');
     }, [playerProfile.currentTier, playerProfile.defeatedOpponentIds, onEnterDuel, onOpenTab]);
-    const handleEnterArena = useCallback(() => {
+    const handleEnterForge = useCallback(() => {
+    sounds.playClick();
+    setForgePanel(false);
+    onEnterForge();
+}, [onEnterForge]);
+
+const handleForgeShop = useCallback(() => {
+    sounds.playClick();
+    setForgePanel(false);
+    onOpenTab('shop', undefined, 'forge');
+}, [onOpenTab]);
+
+const handleEnterArena = useCallback(() => {
           sounds.playClick();
           setColosseumPanel(false);
           onEnterColosseum();
@@ -2281,7 +2299,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       )}
 
       
-      {colosseumPanel && (
+      {forgePanel && (
+    <ForgeDoorPanel
+        onEnterForge={handleEnterForge}
+        onShop={handleForgeShop}
+        onClose={() => setForgePanel(false)}
+    />
+)}
+{colosseumPanel && (
               <ColosseumDoorPanel
                           onEnterArena={handleEnterArena}
                           onFight={handleColosseumFight}
