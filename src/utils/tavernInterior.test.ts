@@ -9,8 +9,9 @@ const city = readFileSync('src/components/3d/city/CityHubScene.tsx', 'utf8');
 describe('immersive Roman tavern scene', () => {
   test('the tavern is a separate, lazy-loaded full-screen scene', () => {
     expect(app).toContain("const TavernInterior = React.lazy(() => import('./components/3d/TavernInterior').then((m) => ({ default: m.TavernInterior })));");
+    expect(app).toContain("const ForgeInterior = React.lazy(() => import('./components/3d/ForgeInterior').then((m) => ({ default: m.ForgeInterior })));"));
     expect(app).toContain('{currentScreen === \'city_3d\' && tavernOpen && (');
-    expect(app).toContain('movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen}');
+    expect(app).toContain('movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen}');
     expect(app).toContain('<TavernInterior onExit={() => setTavernOpen(false)}');
     expect(city).toContain("onEnterTavern(() => {");
   });
