@@ -30,6 +30,17 @@ export interface RaceLapUpdate {
   finishedNow: boolean;
 }
 
+/** Player-facing checkpoint stage, derived from the authoritative lap tracker. */
+export type RaceLapStage = 'north-turn' | 'south-turn' | 'finish-line' | 'finished';
+
+/** The next required section of the oval; this never changes lap validity. */
+export function getRaceLapStage(tracker: RaceLapTracker): RaceLapStage {
+  if (tracker.finished) return 'finished';
+  if (!tracker.northTurnCompleted) return 'north-turn';
+  if (!tracker.southTurnCompleted) return 'south-turn';
+  return 'finish-line';
+}
+
 export const RACE_FINISH_LINE_Z = CIRCUS_RACE_START.z;
 /** Past the oval's straight-flank start, into the north sphendone. */
 export const RACE_NORTH_TURN_Z = CIRCUS_OVAL_START_Z - 5;
