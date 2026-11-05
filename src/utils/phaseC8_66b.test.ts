@@ -885,6 +885,15 @@ describe('C-8.66B §F — the audited wheel fit, re-measured from the shipping G
     expect(chariotPreviewSrc).toContain('wheelVariant');
   });
 
+  test('the selected finish is applied to cloned wheel-kit materials as well as the body', () => {
+    expect(chariotPreviewSrc).toContain('const overrides = getChariotPartByFinish(finish)?.overrides ?? []');
+    expect(chariotPreviewSrc).toContain('if (object) applyChariotFinish(object, overrides)');
+    expect(chariotPreviewSrc).toContain('[wheelKitGltf.scene, wheelVariant, finish]');
+    // The wheel clone receives the catalogue override; the shared GLB source does not.
+    expect(chariotPreviewSrc).toContain('source ? source.clone(true) : null');
+    expect(chariotGeometrySrc).toContain('material.clone()');
+  });
+
   test('the wheel kit is loaded on demand and is NOT in the global preload registry', () => {
     const preloadSrc = code('./preloadAssets.ts');
     expect(preloadSrc).not.toContain('RomanChariot');
