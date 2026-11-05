@@ -73,12 +73,14 @@ const code = (source: string): string =>
 
 const sceneSrc = load('../components/3d/city/CityHubScene.tsx');
 const duelSrc = load('../components/duel/DuelScene.tsx');
+const raceSrc = load('../components/3d/RaceScene.tsx');
 const hookSrc = load('../hooks/useAdaptiveDpr.ts');
 const settingsSrc = load('../services/settings.ts');
 const modalSrc = load('../components/hub/SettingsModal.tsx');
 
 const sceneCode = code(sceneSrc);
 const duelCode = code(duelSrc);
+const raceCode = code(raceSrc);
 const hookCode = code(hookSrc);
 const settingsCode = code(settingsSrc);
 const modalCode = code(modalSrc);
@@ -580,5 +582,19 @@ describe('F. The duel shares the player quality budget', () => {
     expect(duelCode).toContain('shadow-mapSize={[CITY_TIERS[qualityPreset].shadows, CITY_TIERS[qualityPreset].shadows]}');
     expect(duelCode).toContain('setTimeout(() => {');
     expect(duelCode).toContain('}, POST_TRANSITION_MS)');
+  });
+});
+
+
+describe('G. Circus racing shares the player quality budget', () => {
+  test('Race Canvas adapts DPR and scales the large arena shadow map by tier', () => {
+    expect(raceCode).toContain('dpr={raceDpr}');
+    expect(raceCode).toContain('useAdaptiveDpr({ tier, suspendedRef, onDprChange })');
+    expect(raceCode).toContain('tier={qualityPreset}');
+    expect(raceCode).toContain('CITY_TIERS[qualityPreset].dpr.start');
+    expect(raceCode).toContain('shadow-mapSize={[CITY_TIERS[qualityPreset].shadows, CITY_TIERS[qualityPreset].shadows]}');
+    expect(raceCode).toContain('raceAdaptationSuspendedRef.current = true');
+    expect(raceCode).toContain('if (frozen) return');
+    expect(raceCode).toContain('}, POST_TRANSITION_MS)');
   });
 });

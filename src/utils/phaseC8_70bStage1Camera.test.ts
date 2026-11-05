@@ -125,10 +125,9 @@ describe('B. The FOV is the survey’s, on the running camera', () => {
   });
 
   test('the rig adds nothing to the scene: no geometry, no draw call, no allocation', () => {
-    const rig = sceneCode.slice(
-      sceneCode.indexOf('const RaceCameraRig'),
-      sceneCode.indexOf('};', sceneCode.indexOf('return null;'))
-    );
+    const rigStart = sceneCode.indexOf('const RaceCameraRig');
+    const rigReturn = sceneCode.indexOf('return null;', rigStart);
+    const rig = sceneCode.slice(rigStart, sceneCode.indexOf('};', rigReturn));
     expect(rig).toContain('return null;');
     for (const token of ['new THREE.', 'new ', 'clone(', 'geometry', 'material', '<mesh', '<group']) {
       expect(rig, token).not.toContain(token);
