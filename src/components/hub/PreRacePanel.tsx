@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react';
 import { PlayerProfile } from '../../types/game';
-import { Coins, Eye, Flag, Info, Wrench } from 'lucide-react';
+import { Eye, Flag, Info, Trophy, Wrench } from 'lucide-react';
 import { getSelectedRacingConfig } from '../../utils/racingProgression';
 import { resolveChariotLoadout } from '../../utils/chariotLoadout';
 import { getChariotPart } from '../../data/chariotParts';
 // Day/Night T3 — the race card names the light it will run under. Copy only.
 import { racePhaseLine } from '../../utils/phaseFlavor';
 import { resolveDisplayClock } from '../../utils/dayRollover';
+import { formatRaceElapsed } from '../../utils/raceState';
+import { MAX_RECORDED_RACE_TIME_MS } from '../../utils/raceRecords';
 
 interface PreRacePanelProps {
   profile: PlayerProfile;
@@ -57,6 +59,11 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
   const finish = getChariotPart(loadout.equipped.finish);
   const wheelsName = wheels?.name ?? 'Standard Wheel Set';
   const finishName = finish?.name ?? 'Workshop Stock Finish';
+  const storedBestTime = profile.racing?.bestTimes?.[team.horses];
+  const hasValidBestTime = typeof storedBestTime === 'number' &&
+    Number.isFinite(storedBestTime) &&
+    storedBestTime > 0 &&
+    storedBestTime <= MAX_RECORDED_RACE_TIME_MS;
 
   return (
     <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-40 flex items-center justify-center p-4">
@@ -113,21 +120,22 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
               {finishName}
             </span>
           </div>
-          <div className="flex justify-between border-t border-neutral-800 pt-2 mt-1">
+          <div className="flex justify-between items-center border-t border-neutral-800 pt-2 mt-1">
             <span className="text-neutral-400 flex items-center gap-1.5">
-              <Coins className="w-3.5 h-3.5 text-yellow-400" />
-              <span>Purse:</span>
+              <Trophy className="w-3.5 h-3.5 text-yellow-400" />
+              <span>Personal best:</span>
             </span>
-            <span className="text-yellow-400">{profile.gold}</span>
+            <span className="text-yellow-300 text-right tabular-nums" data-race-field="personal-best">
+              {hasValidBestTime ? formatRaceElapsed(storedBestTime) : 'No recorded lap'}
+            </span>
           </div>
         </div>
 
         <div className="flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4">
           <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
           <p>
-            Nothing is wagered and nothing is written to your gladiator: starting the race takes
-            your chariot out onto the Circus sand, and stepping back to the city leaves your
-            progress exactly as it was.
+            No currency is wagered or awarded yet. A completed lap can update your personal best
+            for this horse team; abandoning the race leaves your records unchanged.
           </p>
         </div>
 
