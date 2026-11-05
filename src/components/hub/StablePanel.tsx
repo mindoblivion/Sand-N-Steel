@@ -230,9 +230,9 @@ export const StablePanel: React.FC<StablePanelProps> = ({
       </div>
 
       <p className="text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3">
-        Quality and conditioning are bought for your one team and are the same for every team you own.
-        Neither is a live racing stat yet — racing gameplay is not available, and nothing here changes your
-        combat numbers.
+        Quality and conditioning are bought for your stable team and apply across every horse count you own.
+        Circus racing is playable, but these stable upgrades do not yet alter race handling or horse performance.
+        They never change your combat numbers.
       </p>
     </div>
   );
