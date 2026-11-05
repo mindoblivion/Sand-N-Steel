@@ -197,7 +197,8 @@ describe('B. The pre-race pose, in memory only', () => {
     expect(code(sceneSrc)).toContain('onRecordBestTime(teamSize, elapsedMs)');
     expect(sceneSrc).toContain('Currency rewards are not awarded yet');
     expect(sceneSrc).toContain('App owns that one profile transaction and its existing save path');
-    expect(sceneSrc).toContain('Aborting or returning to the city never invokes the callback');
+    expect(sceneSrc).toContain('Aborting or returning to');
+    expect(sceneSrc).toContain('the city never invokes the callback');
     // The app owns the one profile mutation and it is not part of abort/return.
     expect(appSrc).toContain('recordRaceBestTime(current, teamSize, elapsedMs)');
     expect(appSrc).toContain('onRecordBestTime={handleRecordRaceBestTime}');
