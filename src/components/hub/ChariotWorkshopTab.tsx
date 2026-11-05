@@ -1,5 +1,5 @@
 import { canDebitGold } from '../../utils/goldTransactions';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ChariotSlot, PlayerProfile } from '../../types/game';
 import { Coins, Check, Lock, Eye, Wrench, RotateCcw, Info, ShoppingCart } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
@@ -90,6 +90,14 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
 
   const [previewWheels, setPreviewWheels] = useState<ChariotWheelVariantKey>(equippedParts.wheels);
   const [previewFinish, setPreviewFinish] = useState<ChariotFinishKey>(equippedParts.finish);
+
+  // An equip is a committed choice, so discard any temporary preview and show
+  // the new live setup. Purchases and unrelated profile updates leave preview
+  // state alone because these dependencies are only the equipped visual parts.
+  useEffect(() => {
+    setPreviewWheels(equippedParts.wheels);
+    setPreviewFinish(equippedParts.finish);
+  }, [equippedParts.wheels, equippedParts.finish]);
 
   const isPreviewing =
     previewWheels !== equippedParts.wheels || previewFinish !== equippedParts.finish;
