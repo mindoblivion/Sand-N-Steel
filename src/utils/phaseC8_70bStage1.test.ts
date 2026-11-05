@@ -293,6 +293,18 @@ describe('D. Reuse', () => {
     expect(sceneSrc).toContain('gltf.scene.clone(true)');
   });
 
+  test('the race rendering documentation matches the equipped chariot and horse-team implementation', () => {
+    expect(sceneSrc).toContain('finish is applied to cloned body materials');
+    expect(sceneSrc).toContain('reinforced wheel kit is loaded only when that variant is equipped');
+    expect(sceneSrc).toContain('finish is also applied to cloned kit-wheel materials');
+    expect(sceneSrc).toContain('selected Biga / Triga / Quadra');
+    expect(sceneSrc).toContain('one deterministic, presentation-only rival chariot');
+    expect(sceneSrc).not.toContain('this slice has no wheel kit');
+    expect(sceneSrc).not.toContain('NO HORSES and no rivals');
+    expect(sceneSrc).toContain("wheelVariant === 'reinforced' && <RaceChariotKitWheels");
+    expect(sceneSrc).toContain('applyChariotFinish(scene, getChariotPartByFinish(finish)?.overrides ?? [])');
+  });
+
   test('the start line is read from the layout module, not restated', () => {
     // the two layout constants the scene needs — the start line and the camera
     // derived from it — arrive in one import from the layout module
