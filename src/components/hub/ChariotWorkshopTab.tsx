@@ -322,10 +322,10 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
         <div className="mt-3 flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3">
           <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
           <p>
-            Drag the model to turn it. Parts are fit and cosmetic upgrades only — no racing gameplay consumes
-            chariot stats yet, so nothing here changes combat. The reinforced rim measures 0.0175 units lower
-            than the standard wheel at the same axle height, so its tyre sits that much deeper at the ground
-            line; the wheel is deliberately left on its axle rather than raised to hide it.
+            Drag the model to turn it. Equipped wheels and finishes are shown on your race chariot, but
+            the catalogue's performance effects are not yet applied to race handling. These parts never change
+            combat. The reinforced rim measures 0.0175 units lower than the standard wheel at the same axle
+            height, so its tyre sits that much deeper at the ground line; it stays on its measured axle height.
           </p>
         </div>
       </div>
