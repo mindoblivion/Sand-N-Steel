@@ -398,6 +398,13 @@ describe('E. Slice boundaries', () => {
     expect(rival).not.toContain('applyChariotFinish');
   });
 
+  test('App hands the profile-resolved equipped loadout into the race scene', () => {
+    expect(appSrc).toContain("import { purchaseChariotPart, equipChariotPart, resolveChariotLoadout } from './utils/chariotLoadout'");
+    expect(appSrc).toContain('chariotLoadout={resolveChariotLoadout(profile).equipped}');
+    expect(sceneSrc).toContain("getChariotPart(chariotLoadout?.wheels ?? 'wheels_standard')?.wheelVariant ?? 'standard'");
+    expect(sceneSrc).toContain("getChariotPart(chariotLoadout?.finish ?? 'finish_stock')?.finish ?? 'stock'");
+  });
+
   test('no collider, movement constant or city geometry changed for this slice', () => {
     // both constants this slice added to the layout module are lifted out first —
     // the start line and the camera derived from it — so what remains is the module
