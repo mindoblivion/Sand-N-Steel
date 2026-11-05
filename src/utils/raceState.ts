@@ -11,9 +11,10 @@
  *              "Start Race" hand-off puts the scene in;
  *   countdown  the 3 · 2 · 1 overlay is running;
  *   racing     the countdown has elapsed; the race clock is running;
- *   finished   the race ended through its own `finish` event.  Nothing calls it
- *              yet: `finishRace` below is the API Stage 2's finish line will
- *              call, and until then only the suite exercises it;
+ *   finished   the race ended through its own `finish` event. RaceScene
+ *              dispatches this transition only after raceLap.ts validates the
+ *              north turn, south turn and return across the finish plane. The
+ *              state machine then prevents a second finish from being recorded;
  *   aborted    the race was abandoned (the Abort race button, or Esc).
  *
  * ── The transitions ───────────────────────────────────────────────────────

@@ -2,33 +2,33 @@ import { canDebitGold } from './goldTransactions';
 /**
  * Phase C-8.67B — pure Biga / Triga / Quadra racing-progression helpers.
  *
- * This module is the whole data model for horse-team progression.  It owns the
- * three configurations, their prices and their order, and the four operations
- * the racing work will need:
+ * This module is the data model for horse-team progression. It owns the three
+ * configurations, their prices and order, and the operations used by the
+ * stable/configuration UI and race-entry handoff:
  *
- *   • `resolveRacingState`  — the effective state of any profile;
- *   • `purchaseRacingConfig`  — buy Triga or Quadra;
- *   • `selectRacingConfig`  — choose an unlocked configuration;
- *   • `getRacingPurchaseEligibility` / `getRacingSelectionEligibility` — the same
+ *   • resolveRacingState — the effective state of any profile;
+ *   • purchaseRacingConfig — buy Triga or Quadra;
+ *   • selectRacingConfig — choose an unlocked configuration;
+ *   • getRacingPurchaseEligibility / getRacingSelectionEligibility — the same
  *     rules, read out before the caller draws a control.
  *
- * Everything here is a pure function of `(profile, config)` and follows the
- * C-8.66B chariot-loadout transaction pattern exactly:
+ * Everything here is a pure function of (profile, config) and follows the
+ * chariot-parts transaction pattern:
  *   • no profile, racing field or nested array is ever mutated in place — a
- *     success returns a NEW `PlayerProfile` for the caller to hand to the
- *     existing `saveProfile()` path;
- *   • a refused call returns `{ ok: false, reason }` and leaves the caller's own
+ *     success returns a NEW PlayerProfile for the caller to hand to the
+ *     existing saveProfile() path;
+ *   • a refused call returns { ok: false, reason } and leaves the caller's own
  *     profile — and its gold — exactly as it was;
- *   • a legacy save (no `racing` field), a partial field and a malformed field
- *     all resolve to "Biga selected, Triga and Quadra locked" instead of
+ *   • a legacy save (no racing field), a partial field and a malformed field
+ *     all resolve to Biga selected, Triga and Quadra locked instead of
  *     throwing, so nothing here can break loading an older save.
  *
- * It reads no storage and no environment: there is no second currency, no second
- * storage key and no parallel save path.  Racing unlocks are deliberately
- * independent of the chariot-parts catalogue — owning a wheel or a finish never
- * unlocks a horse count, and buying a configuration never touches the loadout.
+ * It reads no storage and no environment: there is no second currency, no
+ * second storage key and no parallel save path. Racing unlocks remain
+ * independent of the chariot-parts catalogue — owning a wheel or a finish
+ * never unlocks a horse count, and buying a configuration never touches the
+ * loadout.
  */
-
 import { PlayerProfile, ChariotTeamSize, RacingProgression } from '../types/game';
 
 /** The three configurations by name; `horses` is the size a caller races with. */
@@ -49,8 +49,8 @@ export interface RacingConfig {
 }
 
 /**
- * The catalogue, in progression order.  750 / 1,500 are the proposed prices and
- * are the single source of truth for the tests and any future screen.
+ * The catalogue, in progression order. Prices are centralized here so the
+ * stable UI and purchase transaction always use the same values.
  */
 export const RACING_CONFIGS: RacingConfig[] = [
   { id: 'biga', horses: 2, name: 'Biga', price: 0 },
