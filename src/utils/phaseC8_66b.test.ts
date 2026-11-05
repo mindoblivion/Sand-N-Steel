@@ -724,6 +724,15 @@ describe('C-8.66B §E — cosmetic selection, preview purity and combat isolatio
     expect(workshopSrc).toContain('Reset preview');
   });
 
+  test('a committed wheel or finish equip resets temporary preview state to the new loadout', () => {
+    expect(workshopSrc).toContain('useEffect');
+    expect(workshopSrc).toContain('setPreviewWheels(equippedParts.wheels)');
+    expect(workshopSrc).toContain('setPreviewFinish(equippedParts.finish)');
+    expect(workshopSrc).toContain('[equippedParts.wheels, equippedParts.finish]');
+    // The effect must not key off the whole profile: buying or unrelated saves
+    // should not erase an in-progress preview.
+  });
+
   test('App writes only through the pure helpers and the existing save path', () => {
     expect(appSrc).toContain('purchaseChariotPart');
     expect(appSrc).toContain('equipChariotPart');
