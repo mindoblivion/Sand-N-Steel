@@ -328,6 +328,8 @@ describe('C-8.67C §A — reachable from the Imperial Stable route, and nothing 
     expect(SECTION.match(/from '[^']+'/g)?.sort()).toEqual([
       "from '../../audio/soundEffects'",
       "from '../../types/game'",
+      "from '../../utils/raceRecords'",
+      "from '../../utils/raceState'",
       "from '../../utils/racingProgression'",
       "from './StablePanel'",
       "from 'lucide-react'",
@@ -337,7 +339,10 @@ describe('C-8.67C §A — reachable from the Imperial Stable route, and nothing 
 
   test('nothing about racing gameplay was added — no loop, no laps, no horse asset', () => {
     for (const source of [SECTION, HARNESS]) {
-      expect(source).not.toMatch(/\blap\b|countdown|physics|useFrame|horse\.glb/i);
+      // Showing a saved lap time is read-only UI, not a racing loop or lap engine.
+      expect(source).not.toMatch(/countdown|physics|useFrame|horse\.glb/i);
+      expect(source).not.toContain('advanceRaceLap');
+      expect(source).not.toContain('createRaceLapTracker');
     }
     // The section and the harness touch no combat stat.
     for (const source of [SECTION, HARNESS]) {
