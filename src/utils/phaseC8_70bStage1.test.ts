@@ -293,6 +293,19 @@ describe('D. Reuse', () => {
     expect(sceneSrc).toContain('gltf.scene.clone(true)');
   });
 
+  test('the race rendering documentation matches the equipped chariot and horse-team implementation', () => {
+    // Pin the live wiring rather than exact prose wrapping in the explanatory header.
+    expect(sceneSrc).toContain("wheelVariant === 'reinforced' && <RaceChariotKitWheels");
+    expect(sceneSrc).toContain('const wheelKit = useGLTF(CHARIOT_WHEEL_KIT_URL)');
+    expect(sceneSrc).toContain('applyChariotFinish(scene, getChariotPartByFinish(finish)?.overrides ?? [])');
+    expect(sceneSrc).toContain('applyChariotFinish(object, overrides)');
+    expect(sceneSrc).toContain('<RaceHorseTeam teamSize={teamSize}');
+    expect(sceneSrc).toContain('const RaceRivalChariot');
+    expect(sceneSrc).not.toContain('this slice has no wheel kit');
+    expect(sceneSrc).not.toContain('NO HORSES and no rivals');
+    expect(sceneSrc).toContain('adaptive DPR and a');
+  });
+
   test('the start line is read from the layout module, not restated', () => {
     // the two layout constants the scene needs — the start line and the camera
     // derived from it — arrive in one import from the layout module

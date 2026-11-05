@@ -109,16 +109,19 @@ import { getRaceRivalPose, getRaceRivalSpeed, resolveRaceRivalOutcome } from '..
  *     the player walked in through; the paved district is NOT mounted (roads and
  *     forecourt are a quarter of the city's draw calls and none of them is on
  *     the track);
- *   • the player's chariot: `_workspace_chariot_model_RomanChariot.glb` through
- *     the same `CHARIOT_MODEL_URL` / `CHARIOT_MODEL_SCALE` the workshop uses, at
- *     the start line `CIRCUS_RACE_START` on the arena's long axis.  The loaded
- *     scene is CLONED (the workshop's own rule — `useGLTF` caches one scene per
- *     URL and the workshop holds the same entry), and its stock wheels are left
- *     fitted: this slice has no wheel kit, no finish selection, NO HORSES and no
- *     rivals;
- *   • the city hub's own calibrated light rig, value for value (sun, fill,
- *     hemisphere, fog, Sky and the 256 px procedural `Environment`), so the arena
- *     reads here as it reads in the city.
+ *   • the player's chariot: the workshop's `CHARIOT_MODEL_URL` and measured
+ *     scale, cloned before use so the cached GLB is never mutated. The equipped
+ *     finish is applied to cloned body materials. Standard wheels retain their
+ *     measured stock pivots; the reinforced wheel kit is loaded only when that
+ *     variant is equipped, mounted at its surveyed axle positions and animated
+ *     on its own pivots. The finish is also applied to cloned kit-wheel materials;
+ *   • the player's `RaceHorseTeam`, using the selected Biga / Triga / Quadra
+ *     horse count, plus one deterministic, presentation-only rival chariot and
+ *     its two-horse team. The rival has its own fixed lap clock and cannot finish
+ *     the player's lap or award / persist a record;
+ *   • the city hub's calibrated light rig (sun, fill, hemisphere, fog, Sky and
+ *     procedural `Environment`), with the race Canvas using adaptive DPR and a
+ *     quality-scaled key-light shadow map for mobile performance.
  *
  * ── Driving (Slice 2) ─────────────────────────────────────────────────────
  * `utils/chariotMovement.ts` owns the physics: it is PURE, its constants live in
