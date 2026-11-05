@@ -72,11 +72,13 @@ const code = (source: string): string =>
     .join('\n');
 
 const sceneSrc = load('../components/3d/city/CityHubScene.tsx');
+const duelSrc = load('../components/duel/DuelScene.tsx');
 const hookSrc = load('../hooks/useAdaptiveDpr.ts');
 const settingsSrc = load('../services/settings.ts');
 const modalSrc = load('../components/hub/SettingsModal.tsx');
 
 const sceneCode = code(sceneSrc);
+const duelCode = code(duelSrc);
 const hookCode = code(hookSrc);
 const settingsCode = code(settingsSrc);
 const modalCode = code(modalSrc);
@@ -564,5 +566,19 @@ describe('E. The preset — a name, a legacy spelling, or a first-run default', 
     expect(modalCode).toContain('label="Picture Quality"');
     // It is written the moment it is chosen, like every other row in this panel.
     expect(modalSrc).toContain('updateSettings');
+  });
+});
+
+
+describe('F. The duel shares the player quality budget', () => {
+  test('Duel Canvas adapts DPR, scales ambient particles and keeps shadows at the selected tier', () => {
+    expect(duelCode).toContain('dpr={duelDpr}');
+    expect(duelCode).toContain('useAdaptiveDpr({ tier, suspendedRef, onDprChange })');
+    expect(duelCode).toContain('tier={qualityPreset}');
+    expect(duelCode).toContain('CITY_TIERS[qualityPreset].dpr.start');
+    expect(duelCode).toContain('duelSparklesCount > 0');
+    expect(duelCode).toContain('shadow-mapSize={[CITY_TIERS[qualityPreset].shadows, CITY_TIERS[qualityPreset].shadows]}');
+    expect(duelCode).toContain('setTimeout(() => {');
+    expect(duelCode).toContain('}, POST_TRANSITION_MS)');
   });
 });
