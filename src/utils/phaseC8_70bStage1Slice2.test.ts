@@ -144,6 +144,16 @@ describe('C. The two input paths', () => {
     expect(sceneCode).toContain('heldKeys.clear()');
   });
 
+  test('handled race keys prevent browser defaults such as arrow-key page scrolling', () => {
+    const keydown = sceneCode.slice(
+      sceneCode.indexOf('const handleKeyDown = (event: KeyboardEvent) => {'),
+      sceneCode.indexOf('const handleKeyUp = (event: KeyboardEvent) => {'),
+    );
+    expect(keydown).toContain('if (!action) return;');
+    expect(keydown).toContain('event.preventDefault();');
+    expect(keydown.indexOf('event.preventDefault();')).toBeLessThan(keydown.indexOf('heldKeys.add(action)'));
+  });
+
   test('the touch controls write the same two fields', () => {
     expect(controlsSrc).toContain('input.throttle = value');
     expect(controlsSrc).toContain('input.steer = value');
