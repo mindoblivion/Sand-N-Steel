@@ -914,6 +914,8 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       const action = actions[event.code] ?? actions[event.key];
       if (!action) return;
+      // Arrow keys otherwise scroll the host page while the player is steering.
+      event.preventDefault();
       heldKeys.add(action);
       sync();
     };
