@@ -126,6 +126,17 @@ describe('A. The boot shell', () => {
     expect(bootStyle).toContain('background-position: center;');
   });
 
+  test('the boot shell shows an indeterminate loading bar near the bottom of the artwork', () => {
+    expect(indexHtml).toContain('<div id="boot-progress"');
+    expect(indexHtml).toContain('>LOADING</span>');
+    expect(indexHtml).toContain('id="boot-progress-track"');
+    expect(indexHtml).toContain('id="boot-progress-fill"');
+    expect(bootStyle).toContain('#boot-progress {');
+    expect(bootStyle).toContain('bottom: max(');
+    expect(bootStyle).toContain('@keyframes boot-progress-sweep');
+    expect(bootStyle).toContain('@media (prefers-reduced-motion: reduce)');
+  });
+
   test('the shell does not outlive its hand-off', () => {
     // The class the fade uses is the class the CSS fades with.
     expect(bootStyle).toContain(`#${BOOT_SHELL_ID}.${BOOT_SHELL_OUT_CLASS}`);
