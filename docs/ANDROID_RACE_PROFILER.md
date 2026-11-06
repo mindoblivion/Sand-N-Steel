@@ -7,7 +7,7 @@ This is a separate, manually dispatched development build for measuring the Circ
 1. Open **Actions → Build Android race-profiler APK**.
 2. Select **Run workflow** on the desired branch (normally `main`).
 3. Wait for tests, TypeScript, development web build, Capacitor sync, Gradle debug packaging, and APK verification to pass.
-4. Download the artifact `sand-and-steel-race-profiler-debug-apk`.
+4. Download the artifact `race-profiler-development-apk-do-not-release`.
 
 The workflow has no signing-secret references. Android signs the debug APK with the standard debug key. Its application ID is `com.phatass.sandandsteel.profiler`, so it installs alongside the normal Sand & Steel app rather than replacing its local save.
 
