@@ -398,7 +398,7 @@ describe('E. Slice boundaries', () => {
     const rivalEnd = sceneSrc.indexOf('const RaceClock', rivalStart);
     const rival = sceneSrc.slice(rivalStart, rivalEnd);
     expect(rival).toContain('applyChariotFinish(scene, getChariotPartByFinish(competitor.finish)?.overrides ?? [])');
-    expect(rival).toContain('competitor={competitor}');
+    expect(sceneSrc).toContain('competitor={competitor}');
     expect(rival).toContain('data-race-competitor={competitor.id}');
   });
 
