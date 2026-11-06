@@ -488,5 +488,12 @@ describe('F. Presented city overlays own input', () => {
     expect(citySrc).toContain('inputLockedRef.current || cityPanelInputLockedRef.current || touchIdRef.current !== null');
     expect(citySrc).toContain('inputLockedRef.current || cityPanelInputLockedRef.current || !joystickRef.current');
   });
+
+  test('the full-screen city map drawer owns movement and Escape closes it', () => {
+    expect(citySrc).toContain('showRaceEntry || showNavDrawer');
+    expect(citySrc).toContain('showNavDrawer) return;');
+    expect(citySrc).toContain("if (code === 'Escape' || key === 'escape') setShowNavDrawer(false)");
+    expect(citySrc).toContain('showRaceEntry, showNavDrawer');
+  });
 });
 });
