@@ -295,3 +295,26 @@ describe('E. Safe areas (S-1 … S-4; S-5 is recorded as no-action)', () => {
     }
   });
 });
+
+
+describe('Racing touch-control accessible names', () => {
+  test('all four driving controls expose concise, stable screen-reader names', () => {
+    const race = source('src/components/ui/RaceTouchControls.tsx');
+    expect(race).toContain('aria-label={accessibleLabel}');
+    for (const label of [
+      'Steer left (hold)',
+      'Steer right (hold)',
+      'Throttle (hold)',
+      'Brake (hold)',
+    ]) {
+      expect(race).toContain(`accessibleLabel="${label}"`);
+    }
+    expect(race.match(/aria-label=\{accessibleLabel\}/g)?.length).toBe(1);
+  });
+
+  test('the throttle accessible name does not change when its visual label shows REV', () => {
+    const race = source('src/components/ui/RaceTouchControls.tsx');
+    expect(race).toContain("label={revving ? 'REV' : 'THROTTLE'}");
+    expect(race).toContain('accessibleLabel="Throttle (hold)"');
+  });
+});
