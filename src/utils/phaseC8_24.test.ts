@@ -82,6 +82,9 @@ import {
   FORUM_TO_BATHHOUSE_PATH,
   FORUM_TO_BOUNTY_HALL_PATH,
   FORUM_TO_SHRINE_PATH,
+  COURTYARD_TO_BARRACKS_PATH,
+  COURTYARD_TO_VETERAN_HALL_PATH,
+  COURTYARD_TO_MEDICAL_HOUSE_PATH,
 } from './streetGeometry';
 
 // ── Sources ───────────────────────────────────────────────────────────────
@@ -1107,5 +1110,17 @@ describe('Forum Socialis registered pedestrian path footprints', () => {
       .toEqual(['forum-to-bounty-hall', -18, 23, 3.2, 5, -Math.PI / 4]);
     expect([FORUM_TO_SHRINE_PATH.id, FORUM_TO_SHRINE_PATH.cx, FORUM_TO_SHRINE_PATH.cz, FORUM_TO_SHRINE_PATH.w, FORUM_TO_SHRINE_PATH.d, FORUM_TO_SHRINE_PATH.yaw])
       .toEqual(['forum-to-shrine', -24, 15.5, 3.2, 6, Math.PI / 4]);
+  });
+});
+
+
+describe('Arena-quarter registered pedestrian path footprints', () => {
+  test('preserves the courtyard approach positions, dimensions and rotations', () => {
+    expect([COURTYARD_TO_BARRACKS_PATH.id, COURTYARD_TO_BARRACKS_PATH.cx, COURTYARD_TO_BARRACKS_PATH.cz, COURTYARD_TO_BARRACKS_PATH.w, COURTYARD_TO_BARRACKS_PATH.d, COURTYARD_TO_BARRACKS_PATH.yaw])
+      .toEqual(['courtyard-to-barracks', -25, -12, 4, 5, -Math.PI / 4]);
+    expect([COURTYARD_TO_VETERAN_HALL_PATH.id, COURTYARD_TO_VETERAN_HALL_PATH.cx, COURTYARD_TO_VETERAN_HALL_PATH.cz, COURTYARD_TO_VETERAN_HALL_PATH.w, COURTYARD_TO_VETERAN_HALL_PATH.d, COURTYARD_TO_VETERAN_HALL_PATH.yaw])
+      .toEqual(['courtyard-to-veteran-hall', -21.5, -17.5, 3, 15, 0]);
+    expect([COURTYARD_TO_MEDICAL_HOUSE_PATH.id, COURTYARD_TO_MEDICAL_HOUSE_PATH.cx, COURTYARD_TO_MEDICAL_HOUSE_PATH.cz, COURTYARD_TO_MEDICAL_HOUSE_PATH.w, COURTYARD_TO_MEDICAL_HOUSE_PATH.d, COURTYARD_TO_MEDICAL_HOUSE_PATH.yaw])
+      .toEqual(['courtyard-to-medical-house', -26, -7.5, 4, 6, Math.PI / 4]);
   });
 });

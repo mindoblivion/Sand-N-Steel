@@ -15,6 +15,9 @@ import {
   FORUM_TO_BATHHOUSE_PATH,
   FORUM_TO_BOUNTY_HALL_PATH,
   FORUM_TO_SHRINE_PATH,
+  COURTYARD_TO_BARRACKS_PATH,
+  COURTYARD_TO_VETERAN_HALL_PATH,
+  COURTYARD_TO_MEDICAL_HOUSE_PATH,
 } from '../../../utils/streetGeometry';
 import {
   RomanBench,
@@ -733,8 +736,8 @@ export const CityStreets = React.memo(() => {
       </mesh>
 
       {/* Paved Path: Courtyard -> Gladiator Barracks */}
-      <mesh receiveShadow position={[-25.0, -0.008, -12.0]} rotation={[-Math.PI / 2, 0, -Math.PI / 4]}>
-        <planeGeometry args={[4.0, 5.0]} />
+      <mesh receiveShadow position={[COURTYARD_TO_BARRACKS_PATH.cx, -0.008, COURTYARD_TO_BARRACKS_PATH.cz]} rotation={[-Math.PI / 2, 0, COURTYARD_TO_BARRACKS_PATH.yaw]}>
+        <planeGeometry args={[COURTYARD_TO_BARRACKS_PATH.w, COURTYARD_TO_BARRACKS_PATH.d]} />
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
@@ -743,14 +746,14 @@ export const CityStreets = React.memo(() => {
            Barracks (x=-21.5, clear of barracks east edge x=-23.45) to the
            relocated VGH. Min clearance from Colosseum: 1.1 m at path's
            northeast corner. */}
-      <mesh receiveShadow position={[-21.5, -0.008, -17.5]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[3.0, 15.0]} />
+      <mesh receiveShadow position={[COURTYARD_TO_VETERAN_HALL_PATH.cx, -0.008, COURTYARD_TO_VETERAN_HALL_PATH.cz]} rotation={[-Math.PI / 2, 0, COURTYARD_TO_VETERAN_HALL_PATH.yaw]}>
+        <planeGeometry args={[COURTYARD_TO_VETERAN_HALL_PATH.w, COURTYARD_TO_VETERAN_HALL_PATH.d]} />
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
       {/* Paved Path: Courtyard -> Arena Medical House */}
-      <mesh receiveShadow position={[-26.0, -0.008, -7.5]} rotation={[-Math.PI / 2, 0, Math.PI / 4]}>
-        <planeGeometry args={[4.0, 6.0]} />
+      <mesh receiveShadow position={[COURTYARD_TO_MEDICAL_HOUSE_PATH.cx, -0.008, COURTYARD_TO_MEDICAL_HOUSE_PATH.cz]} rotation={[-Math.PI / 2, 0, COURTYARD_TO_MEDICAL_HOUSE_PATH.yaw]}>
+        <planeGeometry args={[COURTYARD_TO_MEDICAL_HOUSE_PATH.w, COURTYARD_TO_MEDICAL_HOUSE_PATH.d]} />
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
