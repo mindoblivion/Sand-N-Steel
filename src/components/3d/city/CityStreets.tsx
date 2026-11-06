@@ -23,6 +23,9 @@ import {
   VIA_SCHOLARIS_ACADEMY_APPROACH,
   VIA_SCHOLARIS_LIBRARY_APPROACH,
   VIA_SCHOLARIS_DOCTORE_APPROACH,
+  NORTHWEST_TEMPLE_APPROACH,
+  SOUTHEAST_CRAFTING_APPROACH,
+  SOUTHWEST_GUILD_APPROACH,
 } from '../../../utils/streetGeometry';
 import {
   RomanBench,
@@ -659,20 +662,20 @@ export const CityStreets = React.memo(() => {
       </group>
 
       {/* Northwest Way (toward [-28, -28] Future Temple District) */}
-      <mesh receiveShadow position={[-24, -0.015, -24]} rotation={[-Math.PI / 2, 0, -Math.PI / 4]}>
-        <planeGeometry args={[7, 10]} />
+      <mesh receiveShadow position={[NORTHWEST_TEMPLE_APPROACH.cx, -0.015, NORTHWEST_TEMPLE_APPROACH.cz]} rotation={[-Math.PI / 2, 0, NORTHWEST_TEMPLE_APPROACH.yaw]}>
+        <planeGeometry args={[NORTHWEST_TEMPLE_APPROACH.w, NORTHWEST_TEMPLE_APPROACH.d]} />
         <meshStandardMaterial color="#a88960" roughness={0.8} />
       </mesh>
 
       {/* Southeast Way (toward [28, 28] Future Crafting Expansion) */}
-      <mesh receiveShadow position={[24, -0.015, 24]} rotation={[-Math.PI / 2, 0, -Math.PI / 4]}>
-        <planeGeometry args={[7, 10]} />
+      <mesh receiveShadow position={[SOUTHEAST_CRAFTING_APPROACH.cx, -0.015, SOUTHEAST_CRAFTING_APPROACH.cz]} rotation={[-Math.PI / 2, 0, SOUTHEAST_CRAFTING_APPROACH.yaw]}>
+        <planeGeometry args={[SOUTHEAST_CRAFTING_APPROACH.w, SOUTHEAST_CRAFTING_APPROACH.d]} />
         <meshStandardMaterial color="#a88960" roughness={0.8} />
       </mesh>
 
       {/* Southwest Way (toward [-28, 28] Future Guild/Criminal District) */}
-      <mesh receiveShadow position={[-24, -0.015, 24]} rotation={[-Math.PI / 2, 0, Math.PI / 4]}>
-        <planeGeometry args={[7, 10]} />
+      <mesh receiveShadow position={[SOUTHWEST_GUILD_APPROACH.cx, -0.015, SOUTHWEST_GUILD_APPROACH.cz]} rotation={[-Math.PI / 2, 0, SOUTHWEST_GUILD_APPROACH.yaw]}>
+        <planeGeometry args={[SOUTHWEST_GUILD_APPROACH.w, SOUTHWEST_GUILD_APPROACH.d]} />
         <meshStandardMaterial color="#a88960" roughness={0.8} />
       </mesh>
 
