@@ -479,6 +479,7 @@ describe('F. Presented city overlays own input', () => {
 
   test('presented panels lock the continuous movement loop and clear held inputs', () => {
     expect(citySrc).toContain('cityPanelInputLockedRef.current = panelLocked');
+    expect(citySrc).toContain('forgePanel || showRaceEntry || showNavDrawer');
     expect(citySrc).toContain('keysPressed.current = {}');
     expect(citySrc).toContain("touchVectorRef.current = { x: 0, z: 0 }");
     expect(citySrc).toContain('!inputLockedRef.current && !cityPanelInputLockedRef.current');
