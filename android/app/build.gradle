@@ -39,6 +39,10 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // Keep the diagnostic APK installable beside the owner's existing rehearsal/release app.
+            applicationIdSuffix ".profiler"
+        }
         release {
             if (hasReleaseSigning) {
                 signingConfig signingConfigs.release
