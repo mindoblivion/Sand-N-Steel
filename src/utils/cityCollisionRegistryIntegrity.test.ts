@@ -33,7 +33,8 @@ describe('city collision registry integrity', () => {
         if (!values.every(Number.isFinite) || collider.r <= 0) invalid.push(collider.id);
       } else {
         const values = [collider.x1, collider.z1, collider.x2, collider.z2];
-        if (!values.every(Number.isFinite)) invalid.push(collider.id);
+        const length = Math.hypot(collider.x2 - collider.x1, collider.z2 - collider.z1);
+        if (!values.every(Number.isFinite) || length <= 0) invalid.push(collider.id);
       }
     }
 
