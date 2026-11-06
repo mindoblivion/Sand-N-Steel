@@ -190,30 +190,50 @@ export async function saveProfileToDrive(
 /**
  * Downloads game profile save from Google Drive
  */
+export const DRIVE_PROFILE_DOWNLOAD_TIMEOUT_MS = 30_000;
+
+/**
+ * Downloads and validates a game profile save from Google Drive.
+ * The bounded request lifetime ensures a stalled response cannot hold the
+ * caller's cross-modal restore lock indefinitely.
+ */
 export async function loadProfileFromDrive(fileId: string): Promise<PlayerProfile> {
   const token = await getAccessToken();
   if (!token) throw new Error('Not authenticated with Google Drive.');
 
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), DRIVE_PROFILE_DOWNLOAD_TIMEOUT_MS);
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new DriveApiError(`Failed to download save from Google Drive: ${errText}`, response.status);
-  }
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      signal: controller.signal,
+    });
 
-  const profile: unknown = await response.json();
-  if (!isValidStoredProfile(profile)) {
-    throw new DriveApiError(
-      'The selected Google Drive file is not a valid Sand & Steel save. Your current local progress was not changed.',
-      422
-    );
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new DriveApiError(`Failed to download save from Google Drive: ${errText}`, response.status);
+    }
+
+    const profile: unknown = await response.json();
+    if (!isValidStoredProfile(profile)) {
+      throw new DriveApiError(
+        'The selected Google Drive file is not a valid Sand & Steel save. Your current local progress was not changed.',
+        422
+      );
+    }
+    return profile;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error('Google Drive download timed out. Please try again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return profile;
 }
 
 /**
