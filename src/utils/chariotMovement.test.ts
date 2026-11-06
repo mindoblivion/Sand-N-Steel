@@ -795,11 +795,11 @@ describe('L. No allocation in the step', () => {
 
 describe('M. Wheel roll', () => {
   test('forward travel rolls the wheels in the model’s forward direction', () => {
-    expect(advanceWheelRoll(0, 2, 0.5)).toBeCloseTo(-(2 * 0.5) / CHARIOT_WHEEL_RADIUS, 12);
+    expect(advanceWheelRoll(0, 2, 0.5)).toBeCloseTo(-(2 * cfg.maxFrameDt) / CHARIOT_WHEEL_RADIUS, 12);
   });
 
   test('reverse travel rolls the wheels in the opposite direction', () => {
-    expect(advanceWheelRoll(0, -2, 0.5)).toBeCloseTo((2 * 0.5) / CHARIOT_WHEEL_RADIUS, 12);
+    expect(advanceWheelRoll(0, -2, 0.5)).toBeCloseTo((2 * cfg.maxFrameDt) / CHARIOT_WHEEL_RADIUS, 12);
   });
 
   test('wheel time uses the same maximum frame delta as movement', () => {
@@ -810,7 +810,7 @@ describe('M. Wheel roll', () => {
 
   test('a stationary wheel does not rotate, and a custom radius changes the rate', () => {
     expect(advanceWheelRoll(0.75, 0, 0.1)).toBe(0.75);
-    expect(advanceWheelRoll(0, 2, 0.5, 1)).toBeCloseTo(-1, 12);
+    expect(advanceWheelRoll(0, 2, 0.5, 1)).toBeCloseTo(-0.2, 12);
   });
 
   test('non-finite inputs cannot poison the wheel rotation', () => {
