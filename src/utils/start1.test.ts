@@ -258,9 +258,9 @@ describe('D. The sequence', () => {
       expect(destination.gloss.length, id).toBeGreaterThan(0);
     }
     // The three destinations the sequence can actually wait on.
-    expect(Object.keys(WAIT_DESTINATIONS).sort()).toEqual(['arena', 'circus', 'city_hub']);
+    expect(Object.keys(WAIT_DESTINATIONS).sort()).toEqual(['arena', 'character_creation', 'circus', 'city_hub', 'school_hub']);
     // …and each is mounted by the screen it belongs to.
-    for (const id of ['city_hub', 'arena', 'circus'] as WaitDestinationId[]) {
+    for (const id of ['city_hub', 'arena', 'circus', 'character_creation', 'school_hub'] as WaitDestinationId[]) {
       expect(appSrc).toContain(`<WaitSurface destination="${id}" />`);
     }
     // An unknown destination falls back rather than rendering nothing.
@@ -278,8 +278,10 @@ describe('D. The sequence', () => {
       expect(source).toContain('role="progressbar"');
       expect(source).toContain('wait-sweep');
     }
-    // One city destination plus the Tavern, Colosseum and Forge lazy fallbacks.
+    // City, Tavern, Colosseum, Forge, character creation and school hub lazy fallbacks.
     expect(appSrc.split('<WaitSurface destination="city_hub" />').length - 1).toBeGreaterThanOrEqual(4);
+    expect(appSrc).toContain('<WaitSurface destination="character_creation" rotate={false} />');
+    expect(appSrc).toContain('<WaitSurface destination="school_hub" />');
   });
 
   test('the Acta line answers at any index, wrapping in both directions', () => {
