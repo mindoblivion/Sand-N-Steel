@@ -458,7 +458,7 @@ describe('E. Slice boundaries', () => {
 describe('F. Presented city overlays own input', () => {
   test('forge and pre-race overlays block the primary action', () => {
     const primary = code(handlerBody(citySrc, 'handlePrimaryAction'));
-    expect(primary).toContain('forgePanel || showRaceEntry');
+    expect(primary).toContain('forgePanel || showRaceEntry || showNavDrawer');
   });
 
   test('forge and pre-race overlays block movement and close on Escape', () => {
@@ -470,6 +470,8 @@ describe('F. Presented city overlays own input', () => {
     expect(keyHandler).toContain("setForgePanel(false)");
     expect(keyHandler).toContain('if (showRaceEntry)');
     expect(keyHandler).toContain('setShowRaceEntry(false)');
+    expect(keyHandler).toContain('if (showNavDrawer)');
+    expect(keyHandler).toContain('setShowNavDrawer(false)');
     expect(keyHandler).toContain('return;');
   });
 
@@ -479,6 +481,7 @@ describe('F. Presented city overlays own input', () => {
 
   test('presented panels lock the continuous movement loop and clear held inputs', () => {
     expect(citySrc).toContain('cityPanelInputLockedRef.current = panelLocked');
+    expect(citySrc).toContain('forgePanel || showRaceEntry || showNavDrawer');
     expect(citySrc).toContain('keysPressed.current = {}');
     expect(citySrc).toContain("touchVectorRef.current = { x: 0, z: 0 }");
     expect(citySrc).toContain('!inputLockedRef.current && !cityPanelInputLockedRef.current');
