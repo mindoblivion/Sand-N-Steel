@@ -8861,3 +8861,12 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Unverified acceptance.** No physical Samsung device was attached to the development environment. Do not claim visual/device acceptance until the current Android build is tested on the user's phone in both gesture and three-button navigation modes, short landscape dimensions, and with HUD/interaction screenshots.
 - **Remaining city-layout task.** User reports buildings colliding. Existing source-level footprint/route tests cover the registered lower-step colliders and several previously corrected roof clearances, but they do not establish which visible structure is overlapping in the user's current build. A trial 2m workshop relocation was rejected and fully reverted after the existing detailed geometry tests showed the foundation gap alone did not prove a rendered intersection. Do not move buildings speculatively; isolate a reproducible visible overlap or blocked corridor, then update both rendered geometry and collision/route regression coverage.
 - **Next acceptance order.** (1) Install latest Android build and test system-bar overlap; (2) check city and combat HUD clipping/scale at real phone resolution; (3) test joystick cardinal/diagonal travel and facing against the camera; (4) inspect the reported building intersection and validate entrance approach/collision in-scene; (5) rerun the Android acceptance suite after any device-driven adjustments.
+
+
+## Racing career settlement — merged 2026-11-06 (PR #354)
+
+- Race entry is free. A valid finish pays one purse per in-game day: Biga 40g, Triga 60g, Quadra 80g; victory adds 20g. Later valid finishes that day still count but pay no second purse.
+- Optional `PlayerProfile.racing` fields: `completed`, `wins`, `losses`, `photoFinishes`, `lastPurseDay`. Legacy saves need no migration.
+- `settleRaceCompletion` is the pure immutable transaction for best-time, career-counter and eligible gold changes. `App` owns persistence; the scene never writes storage. Invalid finish inputs, invalid gold balances and counter overflow fail closed. Abort/exit stays read-only.
+- Rival outcomes use the existing 100 ms photo-finish threshold. The race result screen shows the settled purse and career totals.
+- PR #354 main quality gate, environment gate and Android profiler APK build passed; post-merge main environment gate passed. Physical Samsung visual/performance acceptance remains outstanding. Wagers, track incidents and other racing risk/reward mechanics remain deferred.

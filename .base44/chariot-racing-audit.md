@@ -149,3 +149,17 @@ This audit began as a read-only snapshot of an earlier implementation. Its measu
 - **Not established by this update:** race wagers, track incidents, prize/reward progression, or a complete racing career loop. These remain separate design/implementation decisions rather than implied shipped features.
 
 The earlier measured arena geometry, collider layout, movement envelope, chariot asset measurements, and horse-asset clip analysis are retained as historical evidence. Re-measure those values before changing track geometry, fit, or rendering budgets.
+
+
+## Status update — 2026-11-06 (racing career settlement merged)
+
+PR #354 is merged to `main` (merge commit `52f35e547279e7080d742a1a4f823f83b0b5afec`). The earlier statement that reward progression is not established is now historical and superseded by this section.
+
+- **Entry and payout.** Race entry is free. A valid completed lap pays one completion purse per in-game day: Biga 40 gold, Triga 60 gold, Quadra 80 gold. A victory adds 20 gold. Subsequent valid finishes on the same in-game day still count toward career records but pay 0 additional purse.
+- **Career record.** Optional `PlayerProfile.racing` fields track `completed`, `wins`, `losses`, `photoFinishes`, and `lastPurseDay`. Legacy saves remain valid without migration.
+- **Atomic save boundary.** `settleRaceCompletion` combines best-time improvement, career counters and eligible gold credit in one immutable transaction. `App` owns the single persistence call; the scene does not write storage. Invalid team/time/outcome/day, invalid gold balances, and counter overflow fail closed.
+- **Outcome.** The finish compares the player's validated elapsed time with the rival's configured lap time. A margin of 100 ms or less is a photo finish; otherwise the faster racer wins.
+- **Abort.** Abandoning or exiting before a validated finish remains read-only and earns nothing.
+- **Validation.** PR #354's main quality gate, environment gate, and Android race-profiler APK build passed. Post-merge environment gate passed on main. APK is development-only and not for release.
+- **Still unverified.** Samsung gameplay, touch feel, frame rate, gait appearance, thermal behavior and long-session stability require physical-device acceptance. The dev profiler instructions remain in `docs/ANDROID_RACE_PROFILER.md`.
+- **Still deferred.** Wagers, entry fees, track incidents, injuries during racing, and additional career progression/unlocks are not implemented. Do not add these without a separately balanced design.
