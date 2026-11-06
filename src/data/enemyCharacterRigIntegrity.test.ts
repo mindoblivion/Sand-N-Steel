@@ -21,6 +21,9 @@ describe('shipped character GLB structural integrity', () => {
       const joints = skins.flatMap((skin) => skin.listJoints());
       const jointNames = joints.map((joint) => joint.getName()).filter(Boolean);
       const clipNames = animations.map((animation) => animation.getName()).filter(Boolean);
+      // A GLB can contain both a mesh and a skin without actually binding them
+      // together. The runtime needs at least one node that references both.
+      const skinnedMeshNodes = root.listNodes().filter((node) => node.getMesh() && node.getSkin());
 
       // These are the exact named joints consumed by the current renderer for
       // hand attachment, body scaling, and damage placement.
@@ -44,6 +47,7 @@ describe('shipped character GLB structural integrity', () => {
       }
       expect(meshes.length, `${character}: expected at least one mesh`).toBeGreaterThan(0);
       expect(skins.length, `${character}: expected at least one skin`).toBeGreaterThan(0);
+      expect(skinnedMeshNodes.length, `${character}: expected a node binding a mesh to a skin`).toBeGreaterThan(0);
       expect(joints.length, `${character}: expected at least one skin joint`).toBeGreaterThan(0);
       expect(animations.length, `${character}: expected at least one animation clip`).toBeGreaterThan(0);
 
@@ -51,6 +55,7 @@ describe('shipped character GLB structural integrity', () => {
         assetPath,
         meshes: meshes.length,
         skins: skins.length,
+        skinnedMeshNodes: skinnedMeshNodes.length,
         joints: joints.length,
         animations: animations.length,
         jointNames,
