@@ -16,6 +16,10 @@ interface CameraDragOptions {
   autoDecayOnMove?: boolean;
 }
 
+export function shouldDecayCameraYawOnMove(isMoving: boolean, isDragging: boolean, autoDecayOnMove: boolean): boolean {
+  return autoDecayOnMove && isMoving && !isDragging;
+}
+
 export interface CameraDragState {
   yawOffsetRef: React.MutableRefObject<number>;
   pitchOffsetRef: React.MutableRefObject<number>;
@@ -111,7 +115,7 @@ export function useCameraDrag(
   // scenes (notably the city) use camera-relative movement, so changing yaw while
   // the stick is held would curve the player's path. Keep that behavior opt-in.
   useEffect(() => {
-    if (!autoDecayOnMove || !isMoving || isDraggingRef.current) return;
+    if (!shouldDecayCameraYawOnMove(isMoving, isDraggingRef.current, autoDecayOnMove)) return;
 
     let animId: number;
     const decayLoop = () => {
