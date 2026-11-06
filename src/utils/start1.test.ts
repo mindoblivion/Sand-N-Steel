@@ -270,6 +270,8 @@ describe('D. The sequence', () => {
   test('the supplied artwork and safe-area progress bar are shared by every transition surface', () => {
     expect(waitSurfaceSrc).toContain('TITLE_BACKDROP_CLASS');
     expect(assetLoadingSrc).toContain('TITLE_BACKDROP_CLASS');
+    expect(assetLoadingSrc).not.toContain('timedOut');
+    expect(assetLoadingSrc).not.toContain('setTimeout(');
     for (const source of [waitSurfaceSrc, assetLoadingSrc]) {
       expect(source).toContain('data-loading-progress="true"');
       expect(source).toContain("bottom: 'max(5.5vh, calc(env(safe-area-inset-bottom, 0px) + 28px))'");
