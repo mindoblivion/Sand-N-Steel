@@ -58,21 +58,26 @@ function overlapOnAxis(aCenter: number, aHalf: number, bCenter: number, bHalf: n
 }
 
 
-/** Separating Axis Theorem for a yaw-rotated paving rectangle vs an AABB. */
+/** Separating Axis Theorem for a Three.js yaw-rotated pavement rectangle vs an AABB. */
 function rotatedRectOverlapsAabb(
   road: { cx: number; cz: number; w: number; d: number; yaw: number },
   building: RectCollider,
 ): boolean {
   const c = Math.cos(road.yaw);
   const s = Math.sin(road.yaw);
-  const axes = [[1, 0], [0, 1], [c, s], [-s, c]] as const;
+  // Three.js rotation [0, yaw, 0] maps local +X to (cos, -sin)
+  // and local +Z to (sin, cos) in the world's X/Z plane.
+  const localX: [number, number] = [c, -s];
+  const localZ: [number, number] = [s, c];
+  const axes = [[1, 0], [0, 1], localX, localZ] as const;
   const dx = building.cx - road.cx;
   const dz = building.cz - road.cz;
+
   for (const [ax, az] of axes) {
     const distance = Math.abs(dx * ax + dz * az);
     const roadRadius =
-      (road.w / 2) * Math.abs(c * ax + s * az) +
-      (road.d / 2) * Math.abs(-s * ax + c * az);
+      (road.w / 2) * Math.abs(localX[0] * ax + localX[1] * az) +
+      (road.d / 2) * Math.abs(localZ[0] * ax + localZ[1] * az);
     const buildingRadius =
       building.hw * Math.abs(ax) + building.hd * Math.abs(az);
     if (distance >= roadRadius + buildingRadius - 1e-6) return false;
@@ -237,6 +242,20 @@ describe('registered rotated pedestrian pavement foundation intersections', () =
         collider.id as (typeof BUILDING_FOOTPRINT_IDS)[number],
       ),
   );
+
+  test('uses Three.js yaw orientation rather than its mirrored rotation', () => {
+    const probe = {
+      type: 'rect' as const,
+      id: 'sat-orientation-probe',
+      cx: -3,
+      cz: -1.5,
+      hw: 0.25,
+      hd: 0.25,
+    };
+    const positiveYaw = { cx: 0, cz: 0, w: 2, d: 6, yaw: Math.PI / 4 };
+    expect(rotatedRectOverlapsAabb(positiveYaw, probe)).toBe(true);
+    expect(rotatedRectOverlapsAabb({ ...positiveYaw, yaw: -Math.PI / 4 }, probe)).toBe(false);
+  });
 
   test('records the exact existing rotated-path intersection baseline', () => {
     const overlaps: string[] = [];
