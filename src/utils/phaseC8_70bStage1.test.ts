@@ -476,5 +476,17 @@ describe('F. Presented city overlays own input', () => {
   test('the keyboard listener refreshes when either overlay opens or closes', () => {
     expect(citySrc).toContain('visitorPanel, forgePanel, showRaceEntry');
   });
+
+  test('presented panels lock the continuous movement loop and clear held inputs', () => {
+    expect(citySrc).toContain('cityPanelInputLockedRef.current = panelLocked');
+    expect(citySrc).toContain('keysPressed.current = {}');
+    expect(citySrc).toContain("touchVectorRef.current = { x: 0, z: 0 }");
+    expect(citySrc).toContain('!inputLockedRef.current && !cityPanelInputLockedRef.current');
+  });
+
+  test('mobile joystick cannot start or update movement while a panel is open', () => {
+    expect(citySrc).toContain('inputLockedRef.current || cityPanelInputLockedRef.current || touchIdRef.current !== null');
+    expect(citySrc).toContain('inputLockedRef.current || cityPanelInputLockedRef.current || !joystickRef.current');
+  });
 });
 });
