@@ -17,6 +17,11 @@ import {
   VIA_DECUMANUS_EAST_EXTENSION,
   VIA_MERCATORIA_PATH,
   VIA_MERCATORIA_CONNECTOR,
+  CARAVAN_BYPASS,
+  VIA_SOCIALIS,
+  VIA_TRIUMPHALIS_WEST,
+  VIA_TRIUMPHALIS_EAST,
+  VIA_TRIUMPHALIS_RUNNER,
 } from './streetGeometry';
 
 const BUILDING_FOOTPRINT_IDS = [
@@ -123,5 +128,47 @@ describe('Via Mercatoria connector footprint', () => {
       VIA_MERCATORIA_CONNECTOR.w,
       VIA_MERCATORIA_CONNECTOR.d,
     ]).toEqual(['via-mercatoria-connector', 22, -2, 4, 6]);
+  });
+});
+
+
+/**
+ * Axis-aligned street/paving footprints that have explicit shared geometry.
+ * Rotated diagonal paths and the 14×72 avenue bed are intentionally excluded:
+ * they need polygon-vs-rectangle SAT testing rather than an AABB shortcut.
+ */
+describe('registered city street foundation clearance', () => {
+  const pavement = [
+    VIA_MERCATORIA_PATH,
+    VIA_DECUMANUS_WEST,
+    VIA_DECUMANUS_EAST,
+    VIA_DECUMANUS_EAST_EXTENSION,
+    VIA_MERCATORIA_CONNECTOR,
+    CARAVAN_BYPASS,
+    VIA_SOCIALIS,
+    VIA_TRIUMPHALIS_WEST,
+    VIA_TRIUMPHALIS_EAST,
+    VIA_TRIUMPHALIS_RUNNER,
+  ] as const;
+
+  const buildings = CITY_COLLIDERS.filter(
+    (collider): collider is RectCollider =>
+      collider.type === 'rect' && BUILDING_FOOTPRINT_IDS.includes(
+        collider.id as (typeof BUILDING_FOOTPRINT_IDS)[number],
+      ),
+  );
+
+  test('every registered axis-aligned pavement clears all audited building foundations', () => {
+    const overlaps: string[] = [];
+    for (const road of pavement) {
+      for (const building of buildings) {
+        const overlapX = overlapOnAxis(road.cx, road.w / 2, building.cx, building.hw);
+        const overlapZ = overlapOnAxis(road.cz, road.d / 2, building.cz, building.hd);
+        if (overlapX > 1e-6 && overlapZ > 1e-6) {
+          overlaps.push(`${road.id} overlaps ${building.id}`);
+        }
+      }
+    }
+    expect(overlaps.sort()).toEqual([]);
   });
 });
