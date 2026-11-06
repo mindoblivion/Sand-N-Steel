@@ -5,7 +5,7 @@
     android:viewportWidth="512"
     android:viewportHeight="512">
   <group android:pivotX="256" android:pivotY="256" android:scaleX="0.74" android:scaleY="0.74">
-    <path android:fillColor="#131110" android:strokeColor="#2a2320" android:strokeWidth="2" android:pathData="M256,50 A206,206 0,1 1,255.9,50 Z"/>
+    <path android:fillColor="#131110" android:strokeColor="#2a2320" android:strokeWidth="2" android:pathData="M462,256 A206,206 0,1 1,50,256 A206,206 0,1 1,462,256 Z"/>
     <path android:fillColor="#00000000" android:strokeColor="#c9902f" android:strokeWidth="7" android:strokeLineCap="round" android:pathData="M230.3 401.8 L214.6 398.1 L199.5 392.8 L184.9 385.8 L171.3 377.3 L158.6 367.4 L147.1 356.2 L136.9 343.8 L128.0 330.3 L120.7 316.0 L115.0 301.0 L111.0 285.4 L108.6 269.5 L108.0 253.4 L109.2 237.4 L112.1 221.5 L116.7 206.1 L122.9 191.3 L130.7 177.2 L140.0 164.1 L150.6 152.1 L162.6 141.2 L175.6 131.8 L189.5 123.8 L204.3 117.3 L219.6 112.5 L235.4 109.4"/>
     <path android:fillColor="#00000000" android:strokeColor="#c9902f" android:strokeWidth="7" android:strokeLineCap="round" android:pathData="M281.7 401.8 L297.4 398.1 L312.5 392.8 L327.1 385.8 L340.7 377.3 L353.4 367.4 L364.9 356.2 L375.1 343.8 L384.0 330.3 L391.3 316.0 L397.0 301.0 L401.0 285.4 L403.4 269.5 L404.0 253.4 L402.8 237.4 L399.9 221.5 L395.3 206.1 L389.1 191.3 L381.3 177.2 L372.0 164.1 L361.4 152.1 L349.4 141.2 L336.4 131.8 L322.5 123.8 L307.7 117.3 L292.4 112.5 L276.6 109.4"/>
       <group android:translateX="230.3" android:translateY="401.8" android:rotation="128.0" android:scaleX="0.682" android:scaleY="0.682">
