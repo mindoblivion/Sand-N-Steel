@@ -273,3 +273,32 @@ export const VIA_SCHOLARIS_DOCTORE_APPROACH: AcademyPavingRect = {
   y: -0.01,
   colorRole: 'approach',
 };
+
+/** Decorative diagonal paving approaches in the outer temple and guild quarter. */
+export const NORTHWEST_TEMPLE_APPROACH: RotatedStreetRect = {
+  id: 'northwest-temple-approach',
+  cx: -24,
+  cz: -24,
+  w: 7,
+  d: 10,
+  yaw: -Math.PI / 4,
+  beddingYaw: Math.PI / 4,
+};
+export const SOUTHEAST_CRAFTING_APPROACH: RotatedStreetRect = {
+  id: 'southeast-crafting-approach',
+  cx: 24,
+  cz: 24,
+  w: 7,
+  d: 10,
+  yaw: -Math.PI / 4,
+  beddingYaw: Math.PI / 4,
+};
+export const SOUTHWEST_GUILD_APPROACH: RotatedStreetRect = {
+  id: 'southwest-guild-approach',
+  cx: -24,
+  cz: 24,
+  w: 7,
+  d: 10,
+  yaw: Math.PI / 4,
+  beddingYaw: -Math.PI / 4,
+};
