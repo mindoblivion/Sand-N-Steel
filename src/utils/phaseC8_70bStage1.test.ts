@@ -146,7 +146,7 @@ describe('B. The pre-race pose, in memory only', () => {
     expect(panelSrc).toContain('profile.racing?.bestTimes?.[team.horses]');
     expect(panelSrc).toContain('formatRaceElapsed(storedBestTime)');
     expect(panelSrc).toContain("data-race-field=\"personal-best\"");
-    expect(panelSrc).toContain('No currency is wagered or awarded yet.');
+    expect(panelSrc).toContain('Entry is free.');
     expect(panelSrc).not.toContain('Purse:');
     expect(panelSrc).not.toContain('{profile.gold}');
   });
