@@ -4,6 +4,15 @@ name: Build Android race-profiler APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/android-race-profiler.yml'
+      - 'android/**'
+      - 'src/components/3d/RaceScene.tsx'
+      - 'src/components/3d/RaceRenderDiagnostics.tsx'
+      - 'package.json'
+      - 'bun.lock*'
+      - 'capacitor.config.ts'
 
 permissions:
   contents: read
