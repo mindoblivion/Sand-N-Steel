@@ -2,7 +2,12 @@ import React from 'react';
 import * as THREE from 'three';
 import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { CornerSandDrift } from './GroundWearSystem';
-import { VIA_MERCATORIA_PATH } from '../../../utils/streetGeometry';
+import {
+  VIA_DECUMANUS_WEST,
+  VIA_DECUMANUS_EAST,
+  VIA_DECUMANUS_EAST_EXTENSION,
+  VIA_MERCATORIA_PATH,
+} from '../../../utils/streetGeometry';
 import {
   RomanBench,
   TabulaNoticeBoard,
@@ -127,8 +132,8 @@ export const CityStreets = React.memo(() => {
     <group>
       {/* 1. VIA DECUMANUS (EAST-WEST CROSS STREET) */}
       {/* Sub-bedding mortar plane (Statumen layer) */}
-      <mesh receiveShadow position={[-11, -0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[14, 8]} />
+      <mesh receiveShadow position={[VIA_DECUMANUS_WEST.cx, -0.015, VIA_DECUMANUS_WEST.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[VIA_DECUMANUS_WEST.w, VIA_DECUMANUS_WEST.d]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.roadFlagstone.color}
           roughness={0.82}
@@ -138,10 +143,10 @@ export const CityStreets = React.memo(() => {
       </mesh>
       {/* PHASE 27: Authentic Roman Military Paved Street with Cart Wheel Grooves & Curb Gutters */}
       <RomanPavedStreet
-        position={[-11, 0, 0]}
+        position={[VIA_DECUMANUS_WEST.cx, 0, VIA_DECUMANUS_WEST.cz]}
         axis="x"
-        length={14}
-        width={8}
+        length={VIA_DECUMANUS_WEST.w}
+        width={VIA_DECUMANUS_WEST.d}
         district="military"
         hasWheelRuts={true}
         hasGutters={true}
@@ -151,8 +156,8 @@ export const CityStreets = React.memo(() => {
       <RomanPedestrianCrossing position={[-5.8, 0, 0]} rotationY={Math.PI / 2} width={7.2} />
 
       {/* Travertine East Street Sub-bedding (Plaza -> Smithing Forge [18, 0, 2]) */}
-      <mesh receiveShadow position={[11, -0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[14, 8]} />
+      <mesh receiveShadow position={[VIA_DECUMANUS_EAST.cx, -0.015, VIA_DECUMANUS_EAST.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[VIA_DECUMANUS_EAST.w, VIA_DECUMANUS_EAST.d]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.roadFlagstone.color}
           roughness={0.82}
@@ -162,10 +167,10 @@ export const CityStreets = React.memo(() => {
       </mesh>
       {/* PHASE 27: Authentic Roman Commercial Paved Street with Cart Wheel Grooves & Curb Gutters */}
       <RomanPavedStreet
-        position={[11, 0, 0]}
+        position={[VIA_DECUMANUS_EAST.cx, 0, VIA_DECUMANUS_EAST.cz]}
         axis="x"
-        length={14}
-        width={8}
+        length={VIA_DECUMANUS_EAST.w}
+        width={VIA_DECUMANUS_EAST.d}
         district="commercial"
         hasWheelRuts={true}
         hasGutters={true}
@@ -175,8 +180,8 @@ export const CityStreets = React.memo(() => {
       <RomanPedestrianCrossing position={[5.8, 0, 0]} rotationY={Math.PI / 2} width={7.2} />
 
       {/* Via Decumanus East Extension (Forge -> Armor Workshop [28.2, 0, 1]) */}
-      <mesh receiveShadow position={[22.5, -0.015, 1]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[9, 7]} />
+      <mesh receiveShadow position={[VIA_DECUMANUS_EAST_EXTENSION.cx, -0.015, VIA_DECUMANUS_EAST_EXTENSION.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[VIA_DECUMANUS_EAST_EXTENSION.w, VIA_DECUMANUS_EAST_EXTENSION.d]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.roadFlagstone.color}
           roughness={0.82}
@@ -185,10 +190,10 @@ export const CityStreets = React.memo(() => {
         />
       </mesh>
       <RomanPavedStreet
-        position={[22.5, 0, 1]}
+        position={[VIA_DECUMANUS_EAST_EXTENSION.cx, 0, VIA_DECUMANUS_EAST_EXTENSION.cz]}
         axis="x"
-        length={9}
-        width={7}
+        length={VIA_DECUMANUS_EAST_EXTENSION.w}
+        width={VIA_DECUMANUS_EAST_EXTENSION.d}
         district="commercial"
         hasGutters={true}
       />
