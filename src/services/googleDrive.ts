@@ -198,14 +198,27 @@ export const DRIVE_PROFILE_DOWNLOAD_TIMEOUT_MS = 30_000;
  * caller's cross-modal restore lock indefinitely.
  */
 export async function loadProfileFromDrive(fileId: string): Promise<PlayerProfile> {
-  const token = await getAccessToken();
-  if (!token) throw new Error('Not authenticated with Google Drive.');
-
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), DRIVE_PROFILE_DOWNLOAD_TIMEOUT_MS);
+  let timeoutId: ReturnType<typeof setTimeout>;
 
-  try {
+  // Bound the entire restore operation, including token acquisition and body
+  // parsing, not just the initial fetch. A never-settling auth step must not
+  // strand the modal's shared single-flight lock either.
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      controller.abort();
+      reject(new Error('Google Drive restore timed out. Please try again.'));
+    }, DRIVE_PROFILE_DOWNLOAD_TIMEOUT_MS);
+  });
+
+  const request = async (): Promise<PlayerProfile> => {
+    const token = await getAccessToken();
+    if (!token) throw new Error('Not authenticated with Google Drive.');
+    if (controller.signal.aborted) {
+      throw new Error('Google Drive restore timed out. Please try again.');
+    }
+
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -226,13 +239,17 @@ export async function loadProfileFromDrive(fileId: string): Promise<PlayerProfil
       );
     }
     return profile;
+  };
+
+  try {
+    return await Promise.race([request(), timeout]);
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error('Google Drive download timed out. Please try again.');
+      throw new Error('Google Drive restore timed out. Please try again.');
     }
     throw error;
   } finally {
-    clearTimeout(timeoutId);
+    clearTimeout(timeoutId!);
   }
 }
 
