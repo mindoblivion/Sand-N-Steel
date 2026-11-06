@@ -2277,7 +2277,7 @@ export function App() {
       )}
 
         {currentScreen === 'hub_2d' && profile && (
-          <React.Suspense fallback={<div className="w-full h-full min-h-[100dvh] bg-neutral-950" aria-busy="true" />}>
+          <React.Suspense fallback={<WaitSurface destination="school_hub" />}>
             <GladiatorSchoolHub
             playerProfile={profile}
             onOpenDeviceChoice={() => setDeviceChoiceOpen(true)}
