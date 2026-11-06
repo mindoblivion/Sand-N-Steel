@@ -1221,7 +1221,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
               </div>
             ) : (
               <p className="mt-4 text-sm leading-relaxed text-red-300" role="status" data-race-settlement="failed">Race completed, but the career result could not be saved.</p>
-            )}}
+            )}
             <button type="button" onClick={handleAbort} data-race-action="return-city" className="mt-6 min-h-12 w-full rounded-2xl border-2 border-amber-400 bg-amber-700 px-5 py-3 font-serif text-sm font-black uppercase tracking-widest text-amber-50 active:scale-[0.98]">Return to City</button>
           </div>
         </div>
