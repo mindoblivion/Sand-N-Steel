@@ -58,7 +58,61 @@
         content: "";
         position: absolute;
         inset: 0;
+        z-index: 0;
         background: rgba(0, 0, 0, 0.2);
+      }
+
+      /* A truthful indeterminate indicator: it sweeps while the app bundle mounts,
+         rather than showing a made-up percentage for work we cannot measure. */
+      #boot-progress {
+        position: absolute;
+        z-index: 1;
+        left: 50%;
+        bottom: max(5.5vh, calc(env(safe-area-inset-bottom, 0px) + 28px));
+        width: min(72vw, 420px);
+        transform: translateX(-50%);
+        color: rgba(245, 222, 179, 0.92);
+        text-align: center;
+        font: 700 10px/1.2 "Rajdhani", sans-serif;
+        letter-spacing: 0.28em;
+        text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+        pointer-events: none;
+      }
+
+      #boot-progress-label {
+        display: block;
+        margin-bottom: 9px;
+      }
+
+      #boot-progress-track {
+        height: 4px;
+        overflow: hidden;
+        border: 1px solid rgba(180, 83, 9, 0.55);
+        border-radius: 999px;
+        background: rgba(12, 10, 9, 0.78);
+        box-shadow: 0 0 12px rgba(180, 83, 9, 0.2);
+      }
+
+      #boot-progress-fill {
+        width: 34%;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #8f4b18, #f5d28a, #b45309);
+        box-shadow: 0 0 9px rgba(245, 158, 11, 0.75);
+        animation: boot-progress-sweep 1.45s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+
+      @keyframes boot-progress-sweep {
+        0% { transform: translateX(-110%); }
+        50% { transform: translateX(95%); }
+        100% { transform: translateX(300%); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #boot-progress-fill {
+          animation: none;
+          transform: translateX(95%);
+        }
       }
 
       #boot-shell.boot-shell-out {
@@ -68,7 +122,14 @@
     </style>
   </head>
   <body class="bg-neutral-950 text-amber-100 overflow-hidden select-none">
-    <div id="boot-shell" class="title-backdrop" aria-hidden="true"></div>
+    <div id="boot-shell" class="title-backdrop" aria-hidden="true">
+      <div id="boot-progress" aria-hidden="true">
+        <span id="boot-progress-label">LOADING</span>
+        <div id="boot-progress-track">
+          <div id="boot-progress-fill"></div>
+        </div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
