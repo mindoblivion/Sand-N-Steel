@@ -72,6 +72,7 @@ import { PLAYER_RADIUS, CITY_COLLIDERS, type RectCollider } from './collisionSha
 import { FAST_TRAVEL_ARRIVALS } from './cityCollisions';
 import {
   VIA_DECUMANUS_WEST,
+  VIA_SOCIALIS,
   VIA_DECUMANUS_EAST,
   VIA_DECUMANUS_EAST_EXTENSION,
   VIA_MERCATORIA_CONNECTOR,
@@ -615,7 +616,7 @@ interface StreetRect {
 const STREETS: StreetRect[] = (() => {
   // These major slabs now use the shared geometry registry rather than JSX literals.
   const out: StreetRect[] = [
-    ...[VIA_DECUMANUS_WEST, VIA_DECUMANUS_EAST, VIA_DECUMANUS_EAST_EXTENSION].map(
+    ...[VIA_DECUMANUS_WEST, VIA_DECUMANUS_EAST, VIA_DECUMANUS_EAST_EXTENSION, VIA_SOCIALIS].map(
       ({ id, cx, cz, w, d }) => ({ id, cx, cz, w, l: d, yaw: 0 }),
     ),
     {
@@ -1122,5 +1123,13 @@ describe('Arena-quarter registered pedestrian path footprints', () => {
       .toEqual(['courtyard-to-veteran-hall', -21.5, -17.5, 3, 15, 0]);
     expect([COURTYARD_TO_MEDICAL_HOUSE_PATH.id, COURTYARD_TO_MEDICAL_HOUSE_PATH.cx, COURTYARD_TO_MEDICAL_HOUSE_PATH.cz, COURTYARD_TO_MEDICAL_HOUSE_PATH.w, COURTYARD_TO_MEDICAL_HOUSE_PATH.d, COURTYARD_TO_MEDICAL_HOUSE_PATH.yaw])
       .toEqual(['courtyard-to-medical-house', -26, -7.5, 4, 6, Math.PI / 4]);
+  });
+});
+
+
+describe('Via Socialis registered civic lane footprint', () => {
+  test('preserves the southern avenue-to-Forum Socialis slab', () => {
+    expect([VIA_SOCIALIS.id, VIA_SOCIALIS.cx, VIA_SOCIALIS.cz, VIA_SOCIALIS.w, VIA_SOCIALIS.d])
+      .toEqual(['via-socialis', -10.5, 20, 13, 5]);
   });
 });

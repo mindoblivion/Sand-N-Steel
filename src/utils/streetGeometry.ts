@@ -179,3 +179,13 @@ export const COURTYARD_TO_MEDICAL_HOUSE_PATH: RotatedPavingPath = {
   d: 6,
   yaw: Math.PI / 4,
 };
+
+
+/** Via Socialis civic lane linking the southern avenue to Forum Socialis. */
+export const VIA_SOCIALIS: StreetRect = {
+  id: 'via-socialis',
+  cx: -10.5,
+  cz: 20,
+  w: 13,
+  d: 5,
+};

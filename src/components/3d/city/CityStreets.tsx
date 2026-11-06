@@ -4,6 +4,7 @@ import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { CornerSandDrift } from './GroundWearSystem';
 import {
   VIA_DECUMANUS_WEST,
+  VIA_SOCIALIS,
   VIA_DECUMANUS_EAST,
   VIA_DECUMANUS_EAST_EXTENSION,
   VIA_MERCATORIA_PATH,
@@ -338,8 +339,8 @@ export const CityStreets = React.memo(() => {
       ))}
 
       {/* Via Socialis Connecting Lane (Southern Avenue -> Forum Socialis) */}
-      <mesh receiveShadow position={[-10.5, -0.015, 20]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[13.0, 5.0]} />
+      <mesh receiveShadow position={[VIA_SOCIALIS.cx, -0.015, VIA_SOCIALIS.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[VIA_SOCIALIS.w, VIA_SOCIALIS.d]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.roadFlagstone.color}
           roughness={0.82}
@@ -348,10 +349,10 @@ export const CityStreets = React.memo(() => {
         />
       </mesh>
       <RomanPavedStreet
-        position={[-10.5, 0, 20]}
+        position={[VIA_SOCIALIS.cx, 0, VIA_SOCIALIS.cz]}
         axis="x"
-        length={13.0}
-        width={5.0}
+        length={VIA_SOCIALIS.w}
+        width={VIA_SOCIALIS.d}
         district="civic"
         hasGutters={true}
       />
