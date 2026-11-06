@@ -52,3 +52,70 @@ export function recordRaceBestTime(
   const nextProfile: PlayerProfile = { ...profile, racing: nextRacing };
   return { ok: true, profile: nextProfile, improved: true, bestTimeMs: rounded };
 }
+
+
+export type RaceCompletionOutcome = 'victory' | 'defeat' | 'photo-finish';
+
+export interface RaceCompletionResult {
+  ok: true;
+  profile: PlayerProfile;
+  improvedBest: boolean;
+  bestTimeMs: number;
+  purseAwarded: number;
+  completed: number;
+  wins: number;
+  losses: number;
+  photoFinishes: number;
+}
+
+/**
+ * Settle a validated finish in one immutable profile transaction.
+ * Entry is free. Every valid finish earns a modest completion purse, with a
+ * small victory bonus. Only the first completed race per in-game day pays,
+ * preventing an unlimited same-day gold farm. Abort never calls this function.
+ */
+export function settleRaceCompletion(
+  profile: PlayerProfile | null | undefined,
+  teamSize: ChariotTeamSize,
+  elapsedMs: number,
+  outcome: RaceCompletionOutcome,
+  day: number,
+): RaceCompletionResult | { ok: false; reason: string; profile: PlayerProfile | null | undefined } {
+  if (!Number.isInteger(day) || day < 0) return { ok: false, reason: 'invalid-day', profile };
+  if (outcome !== 'victory' && outcome !== 'defeat' && outcome !== 'photo-finish') {
+    return { ok: false, reason: 'invalid-outcome', profile };
+  }
+  const best = recordRaceBestTime(profile, teamSize, elapsedMs);
+  if (!best.ok) return best;
+
+  const current = best.profile.racing ?? {};
+  const count = (value: unknown): number =>
+    Number.isSafeInteger(value) && (value as number) >= 0 ? value as number : 0;
+  const completed = count(current.completed);
+  const wins = count(current.wins);
+  const losses = count(current.losses);
+  const photoFinishes = count(current.photoFinishes);
+  const alreadyPaidToday = current.lastPurseDay === day;
+  const basePurse = teamSize === 2 ? 40 : teamSize === 3 ? 60 : 80;
+  const purseAwarded = alreadyPaidToday ? 0 : basePurse + (outcome === 'victory' ? 20 : 0);
+  const gold = Number.isSafeInteger(best.profile.gold) && best.profile.gold >= 0 ? best.profile.gold : 0;
+  const nextRacing = {
+    ...current,
+    completed: completed + 1,
+    wins: wins + (outcome === 'victory' ? 1 : 0),
+    losses: losses + (outcome === 'defeat' ? 1 : 0),
+    photoFinishes: photoFinishes + (outcome === 'photo-finish' ? 1 : 0),
+    ...(alreadyPaidToday ? {} : { lastPurseDay: day }),
+  };
+  return {
+    ok: true,
+    profile: { ...best.profile, gold: gold + purseAwarded, racing: nextRacing },
+    improvedBest: best.improved,
+    bestTimeMs: best.bestTimeMs,
+    purseAwarded,
+    completed: nextRacing.completed,
+    wins: nextRacing.wins,
+    losses: nextRacing.losses,
+    photoFinishes: nextRacing.photoFinishes,
+  };
+}
