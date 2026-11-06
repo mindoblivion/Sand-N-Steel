@@ -25,6 +25,9 @@ import {
 import { sounds } from '../../audio/soundEffects';
 import { CLOSE_BUTTON_CLASS } from '../ui/controlStyles';
 
+// Shared across modal mounts so closing and reopening cannot start a second restore.
+let driveRestoreInFlight = false;
+
 interface GoogleDriveSyncModalProps {
   currentProfile: PlayerProfile | null;
   onProfileLoaded: (profile: PlayerProfile) => void;
@@ -45,11 +48,12 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const [savesLoaded, setSavesLoaded] = useState(false);
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [restoreConfirmId, setRestoreConfirmId] = useState<string | null>(null);
-  // A ref closes the same-tick double-tap window before React can render isLoading.
-  const restoreInFlightRef = useRef(false);
+  const [restorePendingMessage, setRestorePendingMessage] = useState<string | null>(null);
+  const isMountedRef = useRef(false);
   const signOutRef = useRef(false);
 
   useEffect(() => {
+    isMountedRef.current = true;
     const unsub = initAuth(
       (currentUser, currentToken) => {
         setUser(currentUser);
@@ -75,7 +79,10 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
         });
       },
     );
-    return () => unsub();
+    return () => {
+      isMountedRef.current = false;
+      unsub();
+    };
   }, []);
 
   // Detect Drive API 401 (expired access token) and reset to the sign-in view
@@ -224,23 +231,27 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const handleConfirmRestore = async () => {
     const fileId = restoreConfirmId;
     if (!fileId) return;
-    setRestoreConfirmId(null);
     await handleLoadFromDrive(fileId);
   };
 
   const handleLoadFromDrive = async (fileId: string) => {
-    // Disable duplicate restores synchronously; state-based disabled buttons alone
-    // can still admit two clicks before the next render.
-    if (restoreInFlightRef.current) return;
-    restoreInFlightRef.current = true;
+    if (driveRestoreInFlight) {
+      setRestorePendingMessage('A Google Drive restore is already in progress. Please wait before trying again.');
+      return;
+    }
+    driveRestoreInFlight = true;
+    setRestoreConfirmId(null);
+    setRestorePendingMessage(null);
     sounds.playClick();
     setIsLoading(true);
     setStatusMessage(null);
     try {
       const profile = await loadProfileFromDrive(fileId);
+      if (!isMountedRef.current) return;
       onProfileLoaded(profile);
       setStatusMessage({ type: 'success', text: `Loaded "${profile.name}" (LVL ${profile.level}) from Google Drive!` });
     } catch (e) {
+      if (!isMountedRef.current) return;
       console.error(e);
       if (!handleDriveError(e)) {
         setStatusMessage({
@@ -249,8 +260,8 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
         });
       }
     } finally {
-      restoreInFlightRef.current = false;
-      setIsLoading(false);
+      driveRestoreInFlight = false;
+      if (isMountedRef.current) setIsLoading(false);
     }
   };
 
@@ -436,7 +447,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
 
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => setRestoreConfirmId(file.id)}
+                          onClick={() => { setRestorePendingMessage(null); setRestoreConfirmId(file.id); }}
                           disabled={isLoading}
                           className="min-h-[48px] px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 font-serif font-bold text-xs uppercase cursor-pointer flex items-center gap-1 active:scale-95"
                           title="Restore this save"
@@ -526,6 +537,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
                   })()}
                 </span>
                 Replacing will overwrite the active local progress. Make sure the cloud save is the one you want before continuing.
+                {restorePendingMessage && <span className="block mt-3 text-amber-300" role="status">{restorePendingMessage}</span>}
               </p>
               <div className="flex gap-2">
                 <button
