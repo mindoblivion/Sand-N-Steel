@@ -30,6 +30,14 @@ import {
   FORUM_TO_SHRINE_PATH,
   COURTYARD_TO_BARRACKS_PATH,
   COURTYARD_TO_MEDICAL_HOUSE_PATH,
+  VIA_TABERNARIA,
+  VIA_TABERNARIA_EAST,
+  TAVERN_TO_FORUM_PATH,
+  FORUM_TO_BATHHOUSE_PATH,
+  FORUM_TO_BOUNTY_HALL_PATH,
+  FORUM_TO_SHRINE_PATH,
+  COURTYARD_TO_BARRACKS_PATH,
+  COURTYARD_TO_MEDICAL_HOUSE_PATH,
 } from './streetGeometry';
 
 const BUILDING_FOOTPRINT_IDS = [
@@ -73,6 +81,35 @@ function rotatedRectOverlapsAabb(
     const roadRadius =
       (road.w / 2) * Math.abs(c * ax + s * az) +
       (road.d / 2) * Math.abs(-s * ax + c * az);
+    const buildingRadius =
+      building.hw * Math.abs(ax) + building.hd * Math.abs(az);
+    if (distance >= roadRadius + buildingRadius - 1e-6) return false;
+  }
+  return true;
+}
+
+
+
+/** Separating Axis Theorem for a Three.js yaw-rotated pavement rectangle vs an AABB. */
+function rotatedRectOverlapsAabb(
+  road: { cx: number; cz: number; w: number; d: number; yaw: number },
+  building: RectCollider,
+): boolean {
+  const c = Math.cos(road.yaw);
+  const s = Math.sin(road.yaw);
+  // Three.js rotation [0, yaw, 0] maps local +X to (cos, -sin)
+  // and local +Z to (sin, cos) in the world's X/Z plane.
+  const localX: [number, number] = [c, -s];
+  const localZ: [number, number] = [s, c];
+  const axes = [[1, 0], [0, 1], localX, localZ] as const;
+  const dx = building.cx - road.cx;
+  const dz = building.cz - road.cz;
+
+  for (const [ax, az] of axes) {
+    const distance = Math.abs(dx * ax + dz * az);
+    const roadRadius =
+      (road.w / 2) * Math.abs(localX[0] * ax + localX[1] * az) +
+      (road.d / 2) * Math.abs(localZ[0] * ax + localZ[1] * az);
     const buildingRadius =
       building.hw * Math.abs(ax) + building.hd * Math.abs(az);
     if (distance >= roadRadius + buildingRadius - 1e-6) return false;
@@ -251,6 +288,67 @@ describe('registered rotated pedestrian pavement foundation intersections', () =
     // are paving approaches that intentionally meet their destination buildings;
     // the others need scene-level review before anyone changes their geometry.
     // Keep the measured set explicit so future edits cannot silently add/remove one.
+    expect(overlaps.sort()).toEqual([
+      'courtyard-to-barracks overlaps gladiator-barracks',
+      'courtyard-to-medical-house overlaps arena-medical',
+      'courtyard-to-medical-house overlaps gladiator-barracks',
+      'forum-to-bathhouse overlaps bathhouse',
+      'forum-to-bounty-hall overlaps bounty-hall',
+      'forum-to-shrine overlaps roman-shrine',
+      'tavern-to-forum overlaps city-tavern',
+      'via-tabernaria overlaps city-tavern',
+      'via-tabernaria-east overlaps caravanserai',
+      'via-tabernaria-east overlaps smithing-forge',
+    ]);
+  });
+});
+
+
+/** Rotated paths are checked as oriented rectangles, not inflated AABBs. */
+describe('registered rotated pedestrian pavement foundation intersections', () => {
+  const paths = [
+    VIA_TABERNARIA,
+    VIA_TABERNARIA_EAST,
+    TAVERN_TO_FORUM_PATH,
+    FORUM_TO_BATHHOUSE_PATH,
+    FORUM_TO_BOUNTY_HALL_PATH,
+    FORUM_TO_SHRINE_PATH,
+    COURTYARD_TO_BARRACKS_PATH,
+    COURTYARD_TO_MEDICAL_HOUSE_PATH,
+  ] as const;
+  const buildings = CITY_COLLIDERS.filter(
+    (collider): collider is RectCollider =>
+      collider.type === 'rect' && BUILDING_FOOTPRINT_IDS.includes(
+        collider.id as (typeof BUILDING_FOOTPRINT_IDS)[number],
+      ),
+  );
+
+  test('uses Three.js yaw orientation rather than its mirrored rotation', () => {
+    const probe = {
+      type: 'rect' as const,
+      id: 'sat-orientation-probe',
+      cx: -3,
+      cz: -1.5,
+      hw: 0.25,
+      hd: 0.25,
+    };
+    const positiveYaw = { cx: 0, cz: 0, w: 2, d: 6, yaw: Math.PI / 4 };
+    expect(rotatedRectOverlapsAabb(positiveYaw, probe)).toBe(true);
+    expect(rotatedRectOverlapsAabb({ ...positiveYaw, yaw: -Math.PI / 4 }, probe)).toBe(false);
+  });
+
+  test('records the exact existing rotated-path intersection baseline', () => {
+    const overlaps: string[] = [];
+    for (const path of paths) {
+      for (const building of buildings) {
+        if (rotatedRectOverlapsAabb(path, building)) {
+          overlaps.push(`${path.id} overlaps ${building.id}`);
+        }
+      }
+    }
+    // These ten contacts are present in the authored city layout. This is a
+    // regression baseline, not permission to move buildings or paving: each
+    // contact needs a separate visual/scene decision before any geometry changes.
     expect(overlaps.sort()).toEqual([
       'courtyard-to-barracks overlaps gladiator-barracks',
       'courtyard-to-medical-house overlaps arena-medical',
