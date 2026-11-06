@@ -832,7 +832,10 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
     expect(DRIVE).toContain('signal: controller.signal');
     expect(DRIVE).toContain('controller.abort()');
     expect(DRIVE).toContain('clearTimeout(timeoutId)');
-    expect(DRIVE).toContain('Google Drive download timed out. Please try again.');
+    expect(DRIVE).toContain('Google Drive restore timed out. Please try again.');
+    const restoreService = DRIVE.slice(DRIVE.indexOf('export async function loadProfileFromDrive'));
+    expect(restoreService.indexOf('setTimeout(')).toBeLessThan(restoreService.indexOf('await getAccessToken()'));
+    expect(restoreService).toContain('return await Promise.race([request(), timeout]);');
 
     // …and the import path hands that profile straight to the existing save.
     expect(APP).toContain('saveProfile(loadedProfile);');
