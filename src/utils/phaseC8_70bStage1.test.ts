@@ -388,7 +388,7 @@ describe('E. Slice boundaries', () => {
     expect(sceneSrc).toContain('onLapStageChange={setLapStage}');
   });
 
-  test('the equipped finish reaches reinforced race wheels without changing the rival', () => {
+  test('the player finish reaches equipped wheels and the rival uses its own faction finish', () => {
     expect(sceneSrc).toContain('chariotLoadout');
     expect(sceneSrc).toContain('finish={finish}');
     expect(sceneSrc).toContain('const overrides = getChariotPartByFinish(finish)?.overrides ?? []');
@@ -397,8 +397,9 @@ describe('E. Slice boundaries', () => {
     const rivalStart = sceneSrc.indexOf('const RaceRivalChariot');
     const rivalEnd = sceneSrc.indexOf('const RaceClock', rivalStart);
     const rival = sceneSrc.slice(rivalStart, rivalEnd);
-    expect(rival).not.toContain('getChariotPartByFinish');
-    expect(rival).not.toContain('applyChariotFinish');
+    expect(rival).toContain('applyChariotFinish(scene, getChariotPartByFinish(competitor.finish)?.overrides ?? [])');
+    expect(rival).toContain('competitor={competitor}');
+    expect(rival).toContain('data-race-competitor={competitor.id}');
   });
 
   test('App hands the profile-resolved equipped loadout into the race scene', () => {
