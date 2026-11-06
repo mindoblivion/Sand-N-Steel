@@ -78,6 +78,10 @@ import {
   CARAVAN_BYPASS,
   VIA_TABERNARIA,
   VIA_TABERNARIA_EAST,
+  TAVERN_TO_FORUM_PATH,
+  FORUM_TO_BATHHOUSE_PATH,
+  FORUM_TO_BOUNTY_HALL_PATH,
+  FORUM_TO_SHRINE_PATH,
 } from './streetGeometry';
 
 // ── Sources ───────────────────────────────────────────────────────────────
@@ -1089,5 +1093,19 @@ describe('Via Tabernaria east registered diagonal footprint', () => {
       VIA_TABERNARIA_EAST.w, VIA_TABERNARIA_EAST.d,
       VIA_TABERNARIA_EAST.yaw, VIA_TABERNARIA_EAST.beddingYaw,
     ]).toEqual(['via-tabernaria-east', 11, 8, 7, 12, -Math.PI / 6, Math.PI / 6]);
+  });
+});
+
+
+describe('Forum Socialis registered pedestrian path footprints', () => {
+  test('preserves each small travertine connector footprint and rotation', () => {
+    expect([TAVERN_TO_FORUM_PATH.id, TAVERN_TO_FORUM_PATH.cx, TAVERN_TO_FORUM_PATH.cz, TAVERN_TO_FORUM_PATH.w, TAVERN_TO_FORUM_PATH.d, TAVERN_TO_FORUM_PATH.yaw])
+      .toEqual(['tavern-to-forum', -18.5, 17, 3, 4.5, -Math.PI / 4]);
+    expect([FORUM_TO_BATHHOUSE_PATH.id, FORUM_TO_BATHHOUSE_PATH.cx, FORUM_TO_BATHHOUSE_PATH.cz, FORUM_TO_BATHHOUSE_PATH.w, FORUM_TO_BATHHOUSE_PATH.d, FORUM_TO_BATHHOUSE_PATH.yaw])
+      .toEqual(['forum-to-bathhouse', -23.5, 22.5, 3.2, 5, Math.PI / 4]);
+    expect([FORUM_TO_BOUNTY_HALL_PATH.id, FORUM_TO_BOUNTY_HALL_PATH.cx, FORUM_TO_BOUNTY_HALL_PATH.cz, FORUM_TO_BOUNTY_HALL_PATH.w, FORUM_TO_BOUNTY_HALL_PATH.d, FORUM_TO_BOUNTY_HALL_PATH.yaw])
+      .toEqual(['forum-to-bounty-hall', -18, 23, 3.2, 5, -Math.PI / 4]);
+    expect([FORUM_TO_SHRINE_PATH.id, FORUM_TO_SHRINE_PATH.cx, FORUM_TO_SHRINE_PATH.cz, FORUM_TO_SHRINE_PATH.w, FORUM_TO_SHRINE_PATH.d, FORUM_TO_SHRINE_PATH.yaw])
+      .toEqual(['forum-to-shrine', -24, 15.5, 3.2, 6, Math.PI / 4]);
   });
 });
