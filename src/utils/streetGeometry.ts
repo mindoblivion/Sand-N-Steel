@@ -189,3 +189,40 @@ export const VIA_SOCIALIS: StreetRect = {
   w: 13,
   d: 5,
 };
+
+
+/** Via Triumphalis — central forum to the southern gatehouse. */
+export const VIA_TRIUMPHALIS_BED: StreetRect = {
+  id: 'via-triumphalis-bed',
+  cx: 0,
+  cz: 0,
+  w: 14,
+  d: 72,
+};
+
+/** West triumphal carriageway. */
+export const VIA_TRIUMPHALIS_WEST: StreetRect = {
+  id: 'via-triumphalis-west',
+  cx: -4.7,
+  cz: 10,
+  w: 4.4,
+  d: 21,
+};
+
+/** East triumphal carriageway. */
+export const VIA_TRIUMPHALIS_EAST: StreetRect = {
+  id: 'via-triumphalis-east',
+  cx: 4.7,
+  cz: 10,
+  w: 4.4,
+  d: 21,
+};
+
+/** Imperial mosaic runner between the triumphal carriageways. */
+export const VIA_TRIUMPHALIS_RUNNER: StreetRect = {
+  id: 'via-triumphalis-runner',
+  cx: 0,
+  cz: 10,
+  w: 5,
+  d: 21,
+};
