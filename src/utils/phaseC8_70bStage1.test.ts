@@ -188,20 +188,20 @@ describe('B. The pre-race pose, in memory only', () => {
     }
   });
 
-  test('the finish delegates only the best-time transaction; race currency rewards remain disabled', () => {
+  test('the finish delegates one career settlement; abort remains read-only', () => {
     for (const token of ['saveProfile', 'localStorage', 'gold:', 'fame:', 'xpEarned', 'raceResults']) {
       expect(code(sceneSrc), token).not.toContain(token);
     }
     expect(code(sceneSrc)).toContain('finishRace');
     expect(code(sceneSrc)).toContain('advanceRaceLap');
-    expect(code(sceneSrc)).toContain('onRecordBestTime(teamSize, elapsedMs)');
-    expect(sceneSrc).toContain('Currency rewards are not awarded yet');
+    expect(code(sceneSrc)).toContain('onRecordRaceCompletion(teamSize, elapsedMs, outcome)');
+    expect(sceneSrc).toContain('Circus purse');
     expect(sceneSrc).toContain('App owns that one profile transaction and its existing save path');
     expect(sceneSrc).toContain('Aborting or returning to');
     expect(sceneSrc).toContain('the city never invokes the callback');
     // The app owns the one profile mutation and it is not part of abort/return.
-    expect(appSrc).toContain('recordRaceBestTime(current, teamSize, elapsedMs)');
-    expect(appSrc).toContain('onRecordBestTime={handleRecordRaceBestTime}');
+    expect(appSrc).toContain('settleRaceCompletion(current, teamSize, elapsedMs, outcome');
+    expect(appSrc).toContain('onRecordRaceCompletion={handleRecordRaceCompletion}');
   });
 });
 
