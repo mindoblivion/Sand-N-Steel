@@ -15,18 +15,6 @@ const LORE_TIPS = [
 export const AssetLoadingOverlay: React.FC = () => {
   const { active, progress, item, loaded, total, errors } = useProgress();
   const [tipIndex, setTipIndex] = useState(0);
-  const [timedOut, setTimedOut] = useState(false);
-
-  // Safety timeout: never trap the player indefinitely behind an asset overlay.
-  useEffect(() => {
-    if (!active) {
-      setTimedOut(false);
-      return;
-    }
-    const timer = setTimeout(() => setTimedOut(true), 4000);
-    return () => clearTimeout(timer);
-  }, [active]);
-
   useEffect(() => {
     if (!active) return;
     const interval = setInterval(() => {
@@ -35,7 +23,7 @@ export const AssetLoadingOverlay: React.FC = () => {
     return () => clearInterval(interval);
   }, [active]);
 
-  if ((!active && progress === 100) || timedOut || (errors && errors.length > 0)) return null;
+  if ((!active && progress === 100) || (errors && errors.length > 0)) return null;
 
   const roundedPct = Math.min(100, Math.max(0, Math.round(progress)));
   const cleanItemName = item
