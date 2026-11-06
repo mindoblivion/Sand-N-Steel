@@ -22,6 +22,14 @@ import {
   VIA_TRIUMPHALIS_WEST,
   VIA_TRIUMPHALIS_EAST,
   VIA_TRIUMPHALIS_RUNNER,
+  VIA_TABERNARIA,
+  VIA_TABERNARIA_EAST,
+  TAVERN_TO_FORUM_PATH,
+  FORUM_TO_BATHHOUSE_PATH,
+  FORUM_TO_BOUNTY_HALL_PATH,
+  FORUM_TO_SHRINE_PATH,
+  COURTYARD_TO_BARRACKS_PATH,
+  COURTYARD_TO_MEDICAL_HOUSE_PATH,
 } from './streetGeometry';
 
 const BUILDING_FOOTPRINT_IDS = [
@@ -47,6 +55,29 @@ const BUILDING_FOOTPRINT_IDS = [
 function overlapOnAxis(aCenter: number, aHalf: number, bCenter: number, bHalf: number): number {
   return Math.min(aCenter + aHalf, bCenter + bHalf) -
     Math.max(aCenter - aHalf, bCenter - bHalf);
+}
+
+
+/** Separating Axis Theorem for a yaw-rotated paving rectangle vs an AABB. */
+function rotatedRectOverlapsAabb(
+  road: { cx: number; cz: number; w: number; d: number; yaw: number },
+  building: RectCollider,
+): boolean {
+  const c = Math.cos(road.yaw);
+  const s = Math.sin(road.yaw);
+  const axes = [[1, 0], [0, 1], [c, s], [-s, c]] as const;
+  const dx = building.cx - road.cx;
+  const dz = building.cz - road.cz;
+  for (const [ax, az] of axes) {
+    const distance = Math.abs(dx * ax + dz * az);
+    const roadRadius =
+      (road.w / 2) * Math.abs(c * ax + s * az) +
+      (road.d / 2) * Math.abs(-s * ax + c * az);
+    const buildingRadius =
+      building.hw * Math.abs(ax) + building.hd * Math.abs(az);
+    if (distance >= roadRadius + buildingRadius - 1e-6) return false;
+  }
+  return true;
 }
 
 describe('Via Mercatoria pavement footprint', () => {
@@ -185,5 +216,37 @@ describe('registered city street foundation clearance', () => {
       'via-mercatoria-connector overlaps smithing-forge',
       'via-socialis overlaps city-tavern',
     ]);
+  });
+});
+
+/** Rotated paths are checked as oriented rectangles, not inflated AABBs. */
+describe('registered rotated pedestrian pavement foundation intersections', () => {
+  const paths = [
+    VIA_TABERNARIA,
+    VIA_TABERNARIA_EAST,
+    TAVERN_TO_FORUM_PATH,
+    FORUM_TO_BATHHOUSE_PATH,
+    FORUM_TO_BOUNTY_HALL_PATH,
+    FORUM_TO_SHRINE_PATH,
+    COURTYARD_TO_BARRACKS_PATH,
+    COURTYARD_TO_MEDICAL_HOUSE_PATH,
+  ] as const;
+  const buildings = CITY_COLLIDERS.filter(
+    (collider): collider is RectCollider =>
+      collider.type === 'rect' && BUILDING_FOOTPRINT_IDS.includes(
+        collider.id as (typeof BUILDING_FOOTPRINT_IDS)[number],
+      ),
+  );
+
+  test('records the exact existing rotated-path intersection baseline', () => {
+    const overlaps: string[] = [];
+    for (const path of paths) {
+      for (const building of buildings) {
+        if (rotatedRectOverlapsAabb(path, building)) {
+          overlaps.push(`${path.id} overlaps ${building.id}`);
+        }
+      }
+    }
+    expect(overlaps.sort()).toEqual([]);
   });
 });
