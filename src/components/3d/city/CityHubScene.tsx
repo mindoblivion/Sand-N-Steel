@@ -714,7 +714,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   useLayoutEffect(() => {
     const panelLocked = Boolean(
       treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel ||
-      visitorPanel || colosseumPanel || forgePanel || showRaceEntry
+      visitorPanel || colosseumPanel || forgePanel || showRaceEntry || showNavDrawer
     );
     cityPanelInputLockedRef.current = panelLocked;
     if (panelLocked) {
@@ -726,7 +726,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     inputLockedRef.current = !!movementLocked;
   }, [
     movementLocked, treatmentPanel, intelPanel, shrinePanel, bountyPanel,
-    legendPanel, visitorPanel, colosseumPanel, forgePanel, showRaceEntry,
+    legendPanel, visitorPanel, colosseumPanel, forgePanel, showRaceEntry, showNavDrawer,
   ]);
 
   // Interact with nearby landmark or update ambient audio
