@@ -8,6 +8,7 @@
  *
  * Run with: bun test src/utils/viaMercatoriaClearance.test.ts
  */
+// @ts-ignore — bun:test is available at runtime via bun test
 import { describe, expect, test } from 'bun:test';
 import { CITY_COLLIDERS, type RectCollider } from './collisionShapes';
 import { VIA_MERCATORIA_PATH } from './streetGeometry';
