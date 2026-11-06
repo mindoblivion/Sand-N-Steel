@@ -707,10 +707,27 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    * re-subscribe and would re-render the whole screen to boot.
    */
   const inputLockedRef = useRef<boolean>(!!movementLocked);
+  const cityPanelInputLockedRef = useRef<boolean>(false);
 
-  useEffect(() => {
+  // Every presented city panel owns movement input, including the mobile joystick.
+  // Keep this separate from the oath lock so Escape can still reach the panel handler.
+  useLayoutEffect(() => {
+    const panelLocked = Boolean(
+      treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel ||
+      visitorPanel || colosseumPanel || forgePanel || showRaceEntry
+    );
+    cityPanelInputLockedRef.current = panelLocked;
+    if (panelLocked) {
+      keysPressed.current = {};
+      touchVectorRef.current = { x: 0, z: 0 };
+      touchIdRef.current = null;
+      setKnobPos({ x: 0, y: 0 });
+    }
     inputLockedRef.current = !!movementLocked;
-  }, [movementLocked]);
+  }, [
+    movementLocked, treatmentPanel, intelPanel, shrinePanel, bountyPanel,
+    legendPanel, visitorPanel, colosseumPanel, forgePanel, showRaceEntry,
+  ]);
 
   // Interact with nearby landmark or update ambient audio
   useEffect(() => {
@@ -923,7 +940,7 @@ const handleEnterArena = useCallback(() => {
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
     // A presented panel is up: E/Space and the action button are its own.
-    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel || colosseumPanel) return;
+    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel || colosseumPanel || forgePanel || showRaceEntry) return;
     if (nearbyLoc) {
       handleInteract();
     } else if (nearbyVisitor) {
@@ -943,7 +960,9 @@ const handleEnterArena = useCallback(() => {
     shrinePanel,
     bountyPanel,
     legendPanel,
-        colosseumPanel,
+    colosseumPanel,
+    forgePanel,
+    showRaceEntry,
   ]);
 
   /**
@@ -1046,6 +1065,16 @@ const handleEnterArena = useCallback(() => {
         if (code === 'Escape' || key === 'escape') setVisitorPanel(false);
         return;
       }
+      // The forge door and pre-race card own keyboard input just like the other
+      // presented city panels: Escape closes them; movement and action keys stop here.
+      if (forgePanel) {
+        if (code === 'Escape' || key === 'escape') setForgePanel(false);
+        return;
+      }
+      if (showRaceEntry) {
+        if (code === 'Escape' || key === 'escape') setShowRaceEntry(false);
+        return;
+      }
 
       if (code === 'KeyW' || key === 'w' || code === 'ArrowUp') keysPressed.current['w'] = true;
       if (code === 'KeyS' || key === 's' || code === 'ArrowDown') keysPressed.current['s'] = true;
@@ -1074,18 +1103,18 @@ const handleEnterArena = useCallback(() => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel,colosseumPanel, visitorPanel]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, colosseumPanel, visitorPanel, forgePanel, showRaceEntry]);
 
         // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
-    if (touchIdRef.current !== null) return;
+    if (inputLockedRef.current || cityPanelInputLockedRef.current || touchIdRef.current !== null) return;
     const touch = e.changedTouches[0];
     touchIdRef.current = touch.identifier;
     handleJoystickTouchMove(e);
   };
 
   const handleJoystickTouchMove = (e: React.TouchEvent) => {
-    if (!joystickRef.current || touchIdRef.current === null) return;
+    if (inputLockedRef.current || cityPanelInputLockedRef.current || !joystickRef.current || touchIdRef.current === null) return;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
       if (touch.identifier === touchIdRef.current) {
@@ -1142,7 +1171,7 @@ const handleEnterArena = useCallback(() => {
 
       // A presented scene owns the screen: while it does, no input is read at all, so
       // the player stands exactly where the scene found him.
-      if (!inputLockedRef.current) {
+      if (!inputLockedRef.current && !cityPanelInputLockedRef.current) {
         // Keyboard input
         if (keysPressed.current['w']) inputZ -= 1;
         if (keysPressed.current['s']) inputZ += 1;
