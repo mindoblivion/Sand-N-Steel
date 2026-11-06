@@ -32,6 +32,7 @@ import {
 } from '../../utils/chariotGeometry';
 import { getChariotPart, getChariotPartByFinish } from '../../data/chariotParts';
 import type { ChariotEquippedResolved } from '../../types/game';
+import type { RaceCompletionOutcome, RaceCompletionResult } from '../../utils/raceRecords';
 import { RaceHorseTeam } from './RaceHorseTeam';
 import { RaceRenderDiagnostics } from './RaceRenderDiagnostics';
 import { useSettings } from '../../hooks/useSettings';
@@ -217,8 +218,8 @@ export interface RaceSceneProps {
   teamSize?: ChariotTeamSize;
   /** Read-only equipped chariot parts; missing/legacy profiles resolve to stock. */
   chariotLoadout?: ChariotEquippedResolved;
-  /** App-owned persistence callback, called only after a valid lap finishes. */
-  onRecordBestTime?: (teamSize: ChariotTeamSize, elapsedMs: number) => 'new-best' | 'not-best' | 'save-failed';
+  /** App-owned atomic career settlement, called only after a validated lap finish. */
+  onRecordRaceCompletion?: (teamSize: ChariotTeamSize, elapsedMs: number, outcome: RaceCompletionOutcome) => RaceCompletionResult | null;
 }
 
 // Preload the chariot at module import (the EastCircusArena pattern).  The
@@ -695,14 +696,14 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   phase = DEFAULT_PHASE,
   teamSize = 2,
   chariotLoadout,
-  onRecordBestTime,
+  onRecordRaceCompletion,
 }) => {
   const [raceState, setRaceState] = useState<RaceState>(RACE_INITIAL_STATE);
   const [countdownStep, setCountdownStep] = useState<CountdownStep | null>(COUNTDOWN_STEPS[0]);
   const [showGo, setShowGo] = useState(false);
   const [raceStartedAt, setRaceStartedAt] = useState<number | null>(null);
   const [raceFinishElapsed, setRaceFinishElapsed] = useState<number | null>(null);
-  const [raceRecordStatus, setRaceRecordStatus] = useState<'new-best' | 'not-best' | 'save-failed' | null>(null);
+  const [raceSettlement, setRaceSettlement] = useState<RaceCompletionResult | null>(null);
   const [lapStage, setLapStage] = useState<RaceLapStage>('north-turn');
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
 
@@ -1059,7 +1060,8 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   onFinish={() => {
                     const elapsedMs = raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt);
                     setRaceFinishElapsed(elapsedMs);
-                    setRaceRecordStatus(onRecordBestTime ? onRecordBestTime(teamSize, elapsedMs) : 'not-best');
+                    const outcome = resolveRaceRivalOutcome(elapsedMs, RACE_RIVAL_CONFIG.lapDurationMs)?.outcome ?? 'photo-finish';
+                    setRaceSettlement(onRecordRaceCompletion ? onRecordRaceCompletion(teamSize, elapsedMs, outcome) : null);
                     setRaceState((state) => finishRace(state));
                   }}
                 />
@@ -1205,10 +1207,21 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                 </p>
               </div>
             )}
-            <p className="mt-4 text-sm leading-relaxed text-neutral-300">Currency rewards are not awarded yet.</p>
-            {raceRecordStatus === 'new-best' && <p className="mt-3 text-sm font-bold text-lime-300" role="status" data-race-record-status="new-best">New personal best saved for this team.</p>}
-            {raceRecordStatus === 'not-best' && <p className="mt-3 text-sm text-amber-200" role="status" data-race-record-status="not-best">Personal best unchanged.</p>}
-            {raceRecordStatus === 'save-failed' && <p className="mt-3 text-sm text-red-300" role="status" data-race-record-status="save-failed">Lap finished, but the record could not be saved. Your existing best time was kept.</p>}
+            {raceSettlement ? (
+              <div className="mt-4 rounded-2xl border border-amber-700/40 bg-neutral-900/70 p-4 text-left" data-race-settlement="saved">
+                <p className="font-serif text-sm font-black uppercase tracking-wider text-amber-200">Circus purse</p>
+                <p className="mt-1 text-2xl font-mono font-bold text-lime-300" data-race-purse={raceSettlement.purseAwarded}>+{raceSettlement.purseAwarded} gold</p>
+                <p className="mt-1 text-xs text-neutral-400">{raceSettlement.purseAwarded > 0 ? 'Completion purse settled. One purse is available per in-game day.' : 'Today’s purse has already been collected; this finish still counts.'}</p>
+                <div className="mt-3 grid grid-cols-3 gap-2 border-t border-neutral-800 pt-3 text-center text-xs">
+                  <div><p className="text-neutral-500">Completed</p><p className="font-mono text-amber-200">{raceSettlement.completed}</p></div>
+                  <div><p className="text-neutral-500">Wins</p><p className="font-mono text-amber-200">{raceSettlement.wins}</p></div>
+                  <div><p className="text-neutral-500">Losses</p><p className="font-mono text-amber-200">{raceSettlement.losses}</p></div>
+                </div>
+                {raceSettlement.improvedBest && <p className="mt-3 text-sm font-bold text-lime-300" role="status">New personal best saved for this team.</p>}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm leading-relaxed text-red-300" role="status" data-race-settlement="failed">Race completed, but the career result could not be saved.</p>
+            )}}
             <button type="button" onClick={handleAbort} data-race-action="return-city" className="mt-6 min-h-12 w-full rounded-2xl border-2 border-amber-400 bg-amber-700 px-5 py-3 font-serif text-sm font-black uppercase tracking-widest text-amber-50 active:scale-[0.98]">Return to City</button>
           </div>
         </div>
