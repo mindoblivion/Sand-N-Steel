@@ -4,6 +4,7 @@ import { ROMAN_PALETTE, NOISE_TEXTURE } from './RomanMaterials';
 import { CornerSandDrift } from './GroundWearSystem';
 import { RomanBench, RomanAmphora } from './CivicFurnishingProps';
 import { RomanPavedStreet } from './RomanStreetPavement';
+import { VIA_TRIUMPHALIS_BED, VIA_TRIUMPHALIS_WEST, VIA_TRIUMPHALIS_EAST, VIA_TRIUMPHALIS_RUNNER } from '../../../utils/streetGeometry';
 import { ItalianCypress } from './MediterraneanFoliage';
 import { CityFixtureMaterial } from './CityFixtureMaterial';
 import { CityFixtureLight } from './CityFixtureLight';
@@ -236,8 +237,8 @@ export const ProcessionAvenue = React.memo(() => {
       </group>
 
       {/* Basalt Travertine Stone Road Bed (Statumen Sub-Layer) */}
-      <mesh receiveShadow position={[0, -0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[14, 72]} />
+      <mesh receiveShadow position={[VIA_TRIUMPHALIS_BED.cx, -0.015, VIA_TRIUMPHALIS_BED.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[VIA_TRIUMPHALIS_BED.w, VIA_TRIUMPHALIS_BED.d]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.roadFlagstone.color}
           roughness={0.82}
@@ -253,18 +254,18 @@ export const ProcessionAvenue = React.memo(() => {
           z≈-1.08) and to leave adequate Gatehouse clearance (tower foundation north face z=21.05,
           main foundation z=21.35). Min clearance: 0.16m north inner edge, 0.55m south end. */}
       <RomanPavedStreet
-        position={[-4.7, 0, 10.0]}
-        length={21.0}
-        width={4.4}
+        position={[VIA_TRIUMPHALIS_WEST.cx, 0, VIA_TRIUMPHALIS_WEST.cz]}
+        length={VIA_TRIUMPHALIS_WEST.d}
+        width={VIA_TRIUMPHALIS_WEST.w}
         district="triumphal"
         hasGutters={true}
         gutterWidth={0.32}
         stonePitch={1.1}
       />
       <RomanPavedStreet
-        position={[4.7, 0, 10.0]}
-        length={21.0}
-        width={4.4}
+        position={[VIA_TRIUMPHALIS_EAST.cx, 0, VIA_TRIUMPHALIS_EAST.cz]}
+        length={VIA_TRIUMPHALIS_EAST.d}
+        width={VIA_TRIUMPHALIS_EAST.w}
         district="triumphal"
         hasGutters={true}
         gutterWidth={0.32}
@@ -272,8 +273,8 @@ export const ProcessionAvenue = React.memo(() => {
       />
 
       {/* Imperial Crimson & Gold Mosaic Central Runner */}
-      <mesh receiveShadow position={[0, 0.01, 10]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[5, 21]} />
+      <mesh receiveShadow position={[VIA_TRIUMPHALIS_RUNNER.cx, 0.01, VIA_TRIUMPHALIS_RUNNER.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[VIA_TRIUMPHALIS_RUNNER.w, VIA_TRIUMPHALIS_RUNNER.d]} />
         <meshStandardMaterial color={ROMAN_PALETTE.imperialRunner.color} roughness={0.7} />
       </mesh>
 
