@@ -196,7 +196,7 @@ describe('B. The pre-race pose, in memory only', () => {
     expect(code(sceneSrc)).toContain('advanceRaceLap');
     expect(code(sceneSrc)).toContain('onRecordRaceCompletion(teamSize, elapsedMs, outcome)');
     expect(sceneSrc).toContain('Circus purse');
-    expect(sceneSrc).toContain('App owns that one profile transaction and its existing save path');
+    expect(sceneSrc).toContain('App owns the atomic career transaction and its existing save path');
     expect(sceneSrc).toContain('Aborting or returning to');
     expect(sceneSrc).toContain('the city never invokes the callback');
     // The app owns the one profile mutation and it is not part of abort/return.
