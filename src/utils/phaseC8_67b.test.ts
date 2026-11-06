@@ -815,11 +815,14 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
     expect(MODAL).toContain('Selected cloud save');
     expect(MODAL).toContain('currentProfile.gold');
     expect(MODAL).toContain('preview.gold');
-    // A synchronous in-flight ref prevents duplicate local replacement before React rerenders.
-    expect(MODAL).toContain('const restoreInFlightRef = useRef(false);');
-    expect(MODAL).toContain('if (restoreInFlightRef.current) return;');
-    expect(MODAL).toContain('restoreInFlightRef.current = true;');
-    expect(MODAL).toContain('restoreInFlightRef.current = false;');
+    // The module-level lock survives modal remounts; unmounted instances ignore late results.
+    expect(MODAL).toContain('let driveRestoreInFlight = false;');
+    expect(MODAL).toContain('if (driveRestoreInFlight) return;');
+    expect(MODAL).toContain('driveRestoreInFlight = true;');
+    expect(MODAL).toContain('driveRestoreInFlight = false;');
+    expect(MODAL).toContain('const isMountedRef = useRef(true);');
+    expect(MODAL).toContain('isMountedRef.current = false;');
+    expect(MODAL).toContain('if (!isMountedRef.current) return;');
 
     // …and the import path hands that profile straight to the existing save.
     expect(APP).toContain('saveProfile(loadedProfile);');
