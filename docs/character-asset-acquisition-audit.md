@@ -13,16 +13,20 @@ Status: research baseline only. No third-party asset files are bundled by this d
 
 | Asset | Official source | Candidate use | Published format/licence | Status |
 |---|---|---|---|---|
-| Quaternius Universal Base Characters | https://quaternius.com/packs/universalbasecharacters.html | Evaluate humanoid base mesh and hairstyles | FBX, OBJ, Blend, glTF; publisher states CC0; page lists six base models and 20 hairstyles | Research candidate; files not acquired |
-| Quaternius Modular Character Outfits – Fantasy | https://quaternius.com/packs/modularcharacteroutfitsfantasy.html | Evaluate modular clothing/armor attachment and material options | FBX, OBJ, Blend, glTF; publisher states CC0; 62 parts across 12 outfits; publisher says compatible with Universal Base Characters | Research candidate; fantasy aesthetic needs Roman-fit review; files not acquired |
-| Quaternius Ultimate Modular Men Pack | https://quaternius.com/packs/ultimatemodularcharacters.html | Compare explicitly swappable character-part approach | FBX, OBJ, Blend, glTF; publisher states CC0; page describes characters divided into four models | Research candidate; rig and actual part boundaries unverified |
-| Quaternius Ultimate Modular Women Pack | https://quaternius.com/packs/ultimatemodularwomen.html | Compare a second modular topology and proportion set | FBX, OBJ, Blend, glTF; publisher states CC0; page describes four swappable models per character | Research candidate; rig and actual part boundaries unverified |
-| Quaternius Universal Animation Library | https://quaternius.com/packs/universalanimationlibrary.html | Evaluate locomotion/combat clips for gaps in current animation set | FBX, GLB, Blend; publisher states CC0; 120+ animations | Research candidate; files not acquired |
-| Quaternius Universal Animation Library 2 | https://quaternius.com/packs/universalanimationlibrary2.html | Compare newer melee combos and recovery clips with existing needs | FBX, GLB, Blend; publisher states CC0; 130+ animations | Research candidate; files not acquired |
+| Quaternius Universal Base Characters | https://quaternius.com/packs/universalbasecharacters.html | Evaluate humanoid base mesh and hairstyles | FBX, OBJ, Blend, glTF; current pack page identifies CC0; six base models and 20 hairstyles | Research candidate; files not acquired |
+| Quaternius Modular Character Outfits – Fantasy | https://quaternius.com/packs/modularcharacteroutfitsfantasy.html | Evaluate modular clothing/armor attachment and material options | FBX, OBJ, Blend, glTF; current per-pack licence not revalidated | Research candidate; fantasy aesthetic needs Roman-fit review; files not acquired |
+| Quaternius Ultimate Modular Men Pack | https://quaternius.com/packs/ultimatemodularcharacters.html | Compare explicitly swappable character-part approach | FBX, OBJ, Blend, glTF; current per-pack licence not revalidated | Research candidate; rig and actual part boundaries unverified |
+| Quaternius Ultimate Modular Women Pack | https://quaternius.com/packs/ultimatemodularwomen.html | Compare a second modular topology and proportion set | FBX, OBJ, Blend; current pack page identifies CC0; page describes four swappable models per character | Research candidate; rig and actual part boundaries unverified |
+| Quaternius Universal Animation Library | https://quaternius.com/packs/universalanimationlibrary.html | Evaluate locomotion/combat clips for gaps in current animation set | FBX, GLB, Blend; current per-pack licence not revalidated | Research candidate; files not acquired |
+| Quaternius Universal Animation Library 2 | https://quaternius.com/packs/universalanimationlibrary2.html | Compare newer melee combos and recovery clips with existing needs | FBX, GLB, Blend; current per-pack licence not revalidated | Research candidate; files not acquired |
 
 The publisher describes the Modular Character Outfits pack as compatible with Universal Base Characters and the Universal Animation Libraries as humanoid-retargetable. Those claims make these candidates worth testing, but they do not prove bone-for-bone compatibility with Sand & Steel's current rig.
 
-Source-page statements are not a substitute for retaining the actual downloaded archive's licence/readme. Recheck the exact file version and licence at acquisition time.
+### Licence verification note — 2026-11-06
+
+Quaternius now publishes a site-wide Quaternius Asset License (QAL) v1.0, last updated 2026-08-28. The live Universal Base Characters and Ultimate Modular Women pack pages currently identify those specific packs as CC0. Do not infer that every Quaternius pack has the same terms from the publisher name or from this older research table: verify the exact pack page and the licence/readme inside the downloaded archive before acquisition or distribution. Preserve that licence file with the asset and record the source archive hash. If the page and archive disagree or the terms are unclear, do not bundle the asset until the publisher's applicable terms are resolved.
+
+The publisher's current general licence summary permits commercial use without credit but prohibits redistributing the assets themselves as standalone assets; the exact licence governing a pack must still be checked at acquisition time.
 
 ## Existing integration facts
 
