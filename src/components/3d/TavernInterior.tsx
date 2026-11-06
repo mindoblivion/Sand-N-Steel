@@ -1,5 +1,5 @@
-import React, { Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { Suspense, useRef } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -216,13 +216,21 @@ function Patron({ position, tunic = '#8d3e2c', facing = 0 }: {
   );
 }
 
-function SeatedPatron({ position, tunic = '#8d3e2c', facing = 0 }: {
+function SeatedPatron({ position, tunic = '#8d3e2c', facing = 0, phase = 0 }: {
   position: [number, number, number];
   tunic?: string;
   facing?: number;
+  phase?: number;
 }) {
+  const body = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!body.current) return;
+    const t = clock.elapsedTime * 1.15 + phase;
+    body.current.position.y = position[1] + Math.sin(t) * 0.018;
+    body.current.rotation.y = facing + Math.sin(t * 0.42) * 0.025;
+  });
   return (
-    <group position={position} rotation={[0, facing, 0]}>
+    <group ref={body} position={position} rotation={[0, facing, 0]}>
       {/* Seated hips and torso: lowered head height keeps the figure behind the tabletop. */}
       <mesh position={[0, 0.78, -0.02]} castShadow>
         <capsuleGeometry args={[0.25, 0.48, 4, 8]} />
@@ -396,11 +404,11 @@ function TavernRoom() {
       <TavernTable position={[-0.8, 0, 1.5]} rotationY={0.15} />
       <Bench position={[-0.8, 0, 0.25]} />
       <Bench position={[-0.8, 0, 2.75]} rotationY={Math.PI} />
-      <SeatedPatron position={[-3.3, 0, -3.42]} tunic="#a44731" facing={0} />
-      <SeatedPatron position={[-3.3, 0, -0.78]} tunic="#b48b42" facing={Math.PI} />
-      <SeatedPatron position={[1.4, 0, -3.72]} tunic="#315d4a" facing={0} />
-      <SeatedPatron position={[1.4, 0, -1.08]} tunic="#8b392d" facing={Math.PI} />
-      <SeatedPatron position={[-0.8, 0, 0.25]} tunic="#7c573d" facing={0} />
+      <SeatedPatron position={[-3.3, 0, -3.42]} tunic="#a44731" facing={0} phase={0.2} />
+      <SeatedPatron position={[-3.3, 0, -0.78]} tunic="#b48b42" facing={Math.PI} phase={1.7} />
+      <SeatedPatron position={[1.4, 0, -3.72]} tunic="#315d4a" facing={0} phase={3.1} />
+      <SeatedPatron position={[1.4, 0, -1.08]} tunic="#8b392d" facing={Math.PI} phase={4.4} />
+      <SeatedPatron position={[-0.8, 0, 0.25]} tunic="#7c573d" facing={0} phase={5.6} />
       {/* Earthenware and mounted shields: moved to the side walls so the legion standards remain the back-wall focal point. */}
       <Amphora position={[-6.2, 0, -4.5]} scale={0.9} />
       <Amphora position={[6.1, 0, -3.8]} scale={0.78} />
