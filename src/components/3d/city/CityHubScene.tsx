@@ -941,11 +941,13 @@ const handleEnterArena = useCallback(() => {
   const handlePrimaryAction = useCallback(() => {
     // A presented panel is up: E/Space and the action button are its own.
     if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel || colosseumPanel || forgePanel || showRaceEntry) return;
-    if (nearbyLoc) {
-      handleInteract();
-    } else if (nearbyVisitor) {
+    // resolveVisitorTarget only returns a visitor when strictly nearer than
+    // the competing hub, so the action must honour that same resolved priority.
+    if (nearbyVisitor) {
       sounds.playClick();
       setVisitorPanel(true);
+    } else if (nearbyLoc) {
+      handleInteract();
     } else {
       handleAttack();
     }
@@ -1909,13 +1911,13 @@ const handleEnterArena = useCallback(() => {
                   ? 'bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-600 border-yellow-300 text-neutral-950 shadow-[0_0_25px_rgba(245,158,11,0.8)] animate-pulse'
                   : 'bg-gradient-to-br from-red-600 via-rose-700 to-red-900 border-red-300 text-white shadow-[0_0_20px_rgba(225,29,72,0.6)]'
               }`}
-              title={nearbyLoc ? `Interact with ${nearbyLoc.name} [E / Space]` : nearbyVisitor ? visitorPrompt(nearbyVisitor) : 'Attack with Weapon [Space / E]'}
+              title={nearbyVisitor ? visitorPrompt(nearbyVisitor) : nearbyLoc ? `Interact with ${nearbyLoc.name} [E / Space]` : 'Attack with Weapon [Space / E]'}
             >
               {nearbyLoc || nearbyVisitor ? (
                 <>
                   <SparklesIcon className="w-6 h-6 sm:w-8 sm:h-8 fill-neutral-950 text-neutral-950" />
                   <span className="text-[9px] sm:text-xs font-serif font-black uppercase tracking-wider mt-0.5">
-                    {nearbyLoc ? (nearbyLoc.id === 'records_house' && unreadDeeds ? '✦ ENTER [E]' : 'ENTER [E]') : nearbyVisitor ? 'VISIT [E]' : 'ENTER [E]'}
+                    {nearbyVisitor ? 'VISIT [E]' : nearbyLoc ? (nearbyLoc.id === 'records_house' && unreadDeeds ? '✦ ENTER [E]' : 'ENTER [E]') : 'ENTER [E]'}
                   </span>
                 </>
               ) : (
@@ -1939,8 +1941,7 @@ const handleEnterArena = useCallback(() => {
           >
             <SparklesIcon className="w-4 h-4 fill-neutral-950 text-neutral-950" />
             <span>
-              {nearbyLoc ? (nearbyLoc.id === 'records_house' && unreadDeeds ? '✦ ' : '') : ''}
-              {nearbyLoc ? nearbyLoc.actionPrompt : nearbyVisitor ? visitorPrompt(nearbyVisitor) : ''} [E / Space]
+              {nearbyVisitor ? visitorPrompt(nearbyVisitor) : nearbyLoc ? `${nearbyLoc.id === 'records_house' && unreadDeeds ? '✦ ' : ''}${nearbyLoc.actionPrompt}` : ''} [E / Space]
             </span>
             <ChevronRight className="w-4 h-4" />
           </button>
