@@ -70,3 +70,12 @@ export const VIA_DECUMANUS_EAST_EXTENSION: StreetRect = {
   w: 9,
   d: 7,
 };
+
+/** Via Mercatoria north-south connector between the east extension and market. */
+export const VIA_MERCATORIA_CONNECTOR: StreetRect = {
+  id: 'via-mercatoria-connector',
+  cx: 22,
+  cz: -2,
+  w: 4,
+  d: 6,
+};
