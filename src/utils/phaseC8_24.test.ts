@@ -75,6 +75,7 @@ import {
   VIA_DECUMANUS_EAST,
   VIA_DECUMANUS_EAST_EXTENSION,
   VIA_MERCATORIA_CONNECTOR,
+  CARAVAN_BYPASS,
 } from './streetGeometry';
 
 // ── Sources ───────────────────────────────────────────────────────────────
@@ -609,6 +610,14 @@ const STREETS: StreetRect[] = (() => {
       ({ id, cx, cz, w, d }) => ({ id, cx, cz, w, l: d, yaw: 0 }),
     ),
     {
+      id: CARAVAN_BYPASS.id,
+      cx: CARAVAN_BYPASS.cx,
+      cz: CARAVAN_BYPASS.cz,
+      w: CARAVAN_BYPASS.w,
+      l: CARAVAN_BYPASS.d,
+      yaw: 0,
+    },
+    {
       id: VIA_MERCATORIA_CONNECTOR.id,
       cx: VIA_MERCATORIA_CONNECTOR.cx,
       cz: VIA_MERCATORIA_CONNECTOR.cz,
@@ -1041,5 +1050,17 @@ describe('F. The phase re-seats the patio group and changes nothing else', () =>
     ]) {
       expect(c23).toContain(preserved);
     }
+  });
+});
+
+describe('Caravan Bypass registered pavement footprint', () => {
+  test('preserves the Inn-to-Stable road slab', () => {
+    expect([
+      CARAVAN_BYPASS.id,
+      CARAVAN_BYPASS.cx,
+      CARAVAN_BYPASS.cz,
+      CARAVAN_BYPASS.w,
+      CARAVAN_BYPASS.d,
+    ]).toEqual(['caravan-bypass', 21, 14.5, 10, 6]);
   });
 });
