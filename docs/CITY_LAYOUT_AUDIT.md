@@ -1,7 +1,17 @@
 # Roman City Layout — Transform and Route Audit
 
+> **Current status — 2026-11-06:** This inventory remains a source-level baseline, not a visual sign-off.
+> The automated route-connectivity and foundation-footprint checks referenced below have since
+> landed. The initial Samsung device smoke test (install, launch, Roman-city walkaround) also passed
+> on 2026-11-03 with no reported crashes/freezes. That is not exhaustive acceptance and does not
+> prove visible doorway clearance, upper-level/prop separation, paving continuity, or sightlines.
+> The outstanding city task is a focused landscape screenshot/video review of the live installed
+> scene, especially the north-east Academy/Doctore/Library cluster, west service court, and East
+> Circus boundary crossing. Do not move building roots or collision geometry without a reproducible
+> visual, movement, or collision defect.
+
 **Original inventory baseline:** `3af1c9c781832cbc5a5bc1b0d18c306b5c3a52ae`  
-**Latest validation baseline:** `main` at `e36786dd2989ad3ff7bc5fb229493b62c5615d1f`  
+**Latest validation baseline:** `main` as checked on 2026-11-06 (the route and footprint suites were merged at the SHAs recorded below)  
 **Scope:** source-level transform, interaction, approach, and street inventory for issue #232.  
 **Status:** inventory complete for primary mounted buildings; no transforms changed. This is not a visual acceptance sign-off.
 
@@ -66,4 +76,11 @@
 - Follow-up foundation regression: `src/utils/cityBuildingFootprints.test.ts` verifies 20 named building footprints exist and that only the two intentional Ishtar arch/tower intersections remain. PR #240 merged at `e36786dd2989ad3ff7bc5fb229493b62c5615d1f`; both independent CI workflows passed.
 - The two follow-up tests are automated source-level safeguards. They do not validate visible doorway alignment, upper-floor/roof/prop overlap, paving continuity, or actual device movement.
 - Mobile landscape visual review: still outstanding; the source-only audits do not substitute for a live scene review.
-- Physical Android acceptance: still outstanding; no device test is claimed.
+- Physical Android acceptance: the initial Samsung install/launch/city-walkaround smoke test passed on 2026-11-03; broader acceptance remains outstanding and is tracked in issue #329.
+
+## Current acceptance update — 2026-11-06
+
+- **Automated geometry/navigation coverage is in place:** PR #239 verifies walkable connectivity from the normal gate spawn to every registered hub/fast-travel arrival on a 0.25 m grid; PR #240 verifies the 20 audited building plinth footprints and allows only the two intentional Ishtar Gatehouse compound overlaps. The C-8.22/C-8.23 street-prop clearance suites add source-derived prop/building and prop/prop checks. These tests do not certify upper-level visual clearance or rendered door visibility.
+- **Initial physical-device city smoke test passed:** the owner installed the workflow-generated rehearsal APK on a Samsung device on 2026-11-03, launched the game, walked around the Roman city, and reported good appearance/playability with no crashes or freezes. This is a limited smoke test, not exhaustive Android acceptance; the remaining checks are tracked in issue #329.
+- **Still outstanding for this city issue:** inspect a current landscape screenshot/video from the installed app. Review visible entrances and walk-in corridors, especially Academy/Doctore/Library, the west service court, and the East Circus crossing; verify paving reads as traversable ground and inspect upper-floor, roof, and decorative-prop clearances.
+- **No speculative transform changes:** retain the current measured building placements until the visual/device review identifies a reproducible defect. A source-level route or footprint pass cannot establish sightlines or appearance.
