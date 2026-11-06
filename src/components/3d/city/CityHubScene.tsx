@@ -714,7 +714,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   useLayoutEffect(() => {
     const panelLocked = Boolean(
       treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel ||
-      visitorPanel || colosseumPanel || forgePanel || showRaceEntry
+      visitorPanel || colosseumPanel || showNavDrawer || forgePanel || showRaceEntry
     );
     cityPanelInputLockedRef.current = panelLocked;
     if (panelLocked) {
@@ -726,7 +726,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     inputLockedRef.current = !!movementLocked;
   }, [
     movementLocked, treatmentPanel, intelPanel, shrinePanel, bountyPanel,
-    legendPanel, visitorPanel, colosseumPanel, forgePanel, showRaceEntry,
+    legendPanel, visitorPanel, colosseumPanel, showNavDrawer, forgePanel, showRaceEntry,
   ]);
 
   // Interact with nearby landmark or update ambient audio
@@ -940,7 +940,7 @@ const handleEnterArena = useCallback(() => {
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
     // A presented panel is up: E/Space and the action button are its own.
-    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel || colosseumPanel || forgePanel || showRaceEntry) return;
+    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel || colosseumPanel || showNavDrawer || forgePanel || showRaceEntry) return;
     if (nearbyLoc) {
       handleInteract();
     } else if (nearbyVisitor) {
@@ -961,6 +961,7 @@ const handleEnterArena = useCallback(() => {
     bountyPanel,
     legendPanel,
     colosseumPanel,
+    showNavDrawer,
     forgePanel,
     showRaceEntry,
   ]);
@@ -1067,6 +1068,10 @@ const handleEnterArena = useCallback(() => {
       }
       // The forge door and pre-race card own keyboard input just like the other
       // presented city panels: Escape closes them; movement and action keys stop here.
+      if (showNavDrawer) {
+        if (code === 'Escape' || key === 'escape') setShowNavDrawer(false);
+        return;
+      }
       if (forgePanel) {
         if (code === 'Escape' || key === 'escape') setForgePanel(false);
         return;
@@ -1103,7 +1108,7 @@ const handleEnterArena = useCallback(() => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, colosseumPanel, visitorPanel, forgePanel, showRaceEntry]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, colosseumPanel, visitorPanel, showNavDrawer, forgePanel, showRaceEntry]);
 
         // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
