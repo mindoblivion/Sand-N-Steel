@@ -15,8 +15,8 @@ describe('native Sand & Steel launcher branding', () => {
     expect(manifest).toContain('android:icon="@mipmap/ic_launcher"');
     expect(manifest).toContain('android:roundIcon="@mipmap/ic_launcher_round"');
     for (const icon of [adaptive, adaptiveRound]) {
-      expect(icon).toContain('@drawable/ic_launcher_foreground');
-      expect(icon).toContain('@drawable/ic_launcher_background');
+      expect(icon).toContain('android:drawable="@drawable/ic_launcher_foreground"');
+      expect(icon).toContain('android:drawable="@drawable/ic_launcher_background"');
       expect(icon).not.toContain('@mipmap/ic_launcher_foreground');
     }
   });
