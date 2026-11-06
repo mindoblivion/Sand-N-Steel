@@ -64,25 +64,47 @@ function Bench({ position, rotationY = 0 }: { position: [number, number, number]
   );
 }
 
-function TavernTable({ position, rotationY = 0 }: { position: [number, number, number]; rotationY?: number }) {
+function DicePair() {
   return (
-    <group position={position} rotation={[0, rotationY, 0]}>
-      <mesh position={[0, 0.82, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.7, 0.17, 1.05]} />
-        <meshStandardMaterial color="#704626" roughness={0.82} />
+    <group position={[0.18, 0.99, 0.08]}>
+      <mesh rotation={[0.12, 0.35, 0.08]} castShadow>
+        <boxGeometry args={[0.16, 0.16, 0.16]} />
+        <meshStandardMaterial color="#e8d8b5" roughness={0.78} />
       </mesh>
-      {[[-0.63, 0.4, -0.34], [0.63, 0.4, -0.34], [-0.63, 0.4, 0.34], [0.63, 0.4, 0.34]].map(([x, y, z], i) => (
-        <mesh key={i} position={[x, y, z]} castShadow>
-          <boxGeometry args={[0.12, 0.8, 0.12]} />
-          <meshStandardMaterial color="#49301e" roughness={0.9} />
-        </mesh>
-      ))}
-      <DrinkingCup position={[-0.42, 0.99, 0.08]} />
-      <DrinkingCup position={[0.25, 0.99, -0.1]} />
+      <mesh position={[0.28, 0.015, -0.12]} rotation={[0.08, -0.3, 0.12]} castShadow>
+        <boxGeometry args={[0.15, 0.15, 0.15]} />
+        <meshStandardMaterial color="#cbb58c" roughness={0.82} />
+      </mesh>
     </group>
   );
 }
 
+function TavernTable({ position, rotationY = 0 }: { position: [number, number, number]; rotationY?: number }) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      {/* Round, worn timber gaming top with a restrained bronze edge. */}
+      <mesh position={[0, 0.82, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.96, 0.96, 0.16, 32]} />
+        <meshStandardMaterial color="#684126" roughness={0.78} />
+      </mesh>
+      <mesh position={[0, 0.91, 0]} castShadow>
+        <torusGeometry args={[0.91, 0.025, 6, 32]} />
+        <meshStandardMaterial color="#987044" metalness={0.38} roughness={0.58} />
+      </mesh>
+      <mesh position={[0, 0.41, 0]} castShadow>
+        <cylinderGeometry args={[0.19, 0.25, 0.68, 10]} />
+        <meshStandardMaterial color="#49301e" roughness={0.9} />
+      </mesh>
+      <mesh position={[0, 0.09, 0]} castShadow>
+        <cylinderGeometry args={[0.43, 0.46, 0.16, 12]} />
+        <meshStandardMaterial color="#382519" roughness={0.92} />
+      </mesh>
+      <DrinkingCup position={[-0.42, 0.99, 0.08]} />
+      <DrinkingCup position={[-0.12, 0.99, -0.27]} />
+      <DicePair />
+    </group>
+  );
+}
 function Patron({ position, tunic = '#8d3e2c', facing = 0 }: {
   position: [number, number, number];
   tunic?: string;
@@ -136,6 +158,30 @@ function WallTorch({ position }: { position: [number, number, number] }) {
         <meshStandardMaterial color="#ff9d38" emissive="#ff5a12" emissiveIntensity={2.2} roughness={0.5} />
       </mesh>
       <pointLight color="#ff9b42" intensity={2.1} distance={6} decay={2} />
+    </group>
+  );
+}
+
+function CentralBrazier({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.16, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.72, 0.82, 0.32, 12]} />
+        <meshStandardMaterial color="#55483b" roughness={0.96} />
+      </mesh>
+      <mesh position={[0, 0.34, 0]} castShadow>
+        <cylinderGeometry args={[0.68, 0.68, 0.09, 16]} />
+        <meshStandardMaterial color="#29221d" metalness={0.62} roughness={0.58} />
+      </mesh>
+      <mesh position={[0, 0.53, 0]} rotation={[0, 0, 0.08]}>
+        <coneGeometry args={[0.31, 0.62, 7]} />
+        <meshStandardMaterial color="#ff9b38" emissive="#d94b12" emissiveIntensity={1.35} roughness={0.55} />
+      </mesh>
+      <mesh position={[0.12, 0.55, -0.08]} rotation={[0.1, 0.4, -0.18]}>
+        <coneGeometry args={[0.19, 0.48, 7]} />
+        <meshStandardMaterial color="#ffd078" emissive="#ff741c" emissiveIntensity={1.8} roughness={0.48} />
+      </mesh>
+      <pointLight position={[0, 0.85, 0]} color="#ff9a45" intensity={1.15} distance={5.5} decay={2} />
     </group>
   );
 }
@@ -202,6 +248,8 @@ function TavernRoom() {
           ))}
         </group>
       ))}
+      {/* A small communal hearth anchors the open side of the room without blocking the entrance. */}
+      <CentralBrazier position={[4.65, 0, -0.1]} />
       {/* Central communal tables, benches, food, and busy patrons */}
       <TavernTable position={[-3.3, 0, -2.1]} rotationY={0.12} />
       <Bench position={[-3.3, 0, -3.0]} />
