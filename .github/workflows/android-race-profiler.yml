@@ -40,11 +40,12 @@ jobs:
         run: bun run lint
 
       # NODE_ENV=development keeps Vite's import.meta.env.DEV guard true,
-      # so ?devRaceStats=1 mounts the profiler in the installed app.
+      # and the build flag mounts the profiler automatically in this diagnostic APK.
       # This is a diagnostic build, not a release-performance or store build.
       - name: Build development web assets and sync Capacitor
         env:
           NODE_ENV: development
+          VITE_DEV_RACE_STATS: '1'
           BUILD_COMMIT: ${{ github.sha }}
         run: bun run cap:sync
 

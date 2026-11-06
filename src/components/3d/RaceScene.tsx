@@ -993,9 +993,10 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             }}
           >
             <CanvasWebGLMonitor sceneName="CircusRace" />
-            {import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('devRaceStats') === '1' && (
-              <RaceRenderDiagnostics />
-            )}
+            {import.meta.env.DEV && (
+              import.meta.env.VITE_DEV_RACE_STATS === '1' ||
+              (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('devRaceStats') === '1')
+            ) && <RaceRenderDiagnostics />}
             {/* Shared adaptive pixel governor; suspended while race settings are open. */}
             <RaceAdaptiveDpr
               tier={qualityPreset}
