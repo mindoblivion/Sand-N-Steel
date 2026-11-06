@@ -47,6 +47,71 @@ function DrinkingCup({ position }: { position: [number, number, number] }) {
   );
 }
 
+function FoodPlate({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.25, 0.22, 0.045, 20]} />
+        <meshStandardMaterial color="#b58a5a" roughness={0.72} />
+      </mesh>
+      <mesh position={[0, 0.045, 0]} castShadow>
+        <torusGeometry args={[0.22, 0.018, 5, 20]} />
+        <meshStandardMaterial color="#d2b27b" roughness={0.58} />
+      </mesh>
+      {/* Rustic bread and a few olives give the gaming tables a lived-in purpose. */}
+      <mesh position={[-0.045, 0.11, 0.015]} rotation={[0.12, 0.25, -0.08]} castShadow>
+        <sphereGeometry args={[0.105, 10, 8]} />
+        <meshStandardMaterial color="#bd8b4b" roughness={0.94} />
+      </mesh>
+      <mesh position={[0.12, 0.085, -0.09]} castShadow>
+        <sphereGeometry args={[0.045, 8, 6]} />
+        <meshStandardMaterial color="#4f5b2b" roughness={0.88} />
+      </mesh>
+      <mesh position={[0.18, 0.085, -0.02]} castShadow>
+        <sphereGeometry args={[0.04, 8, 6]} />
+        <meshStandardMaterial color="#59652e" roughness={0.88} />
+      </mesh>
+    </group>
+  );
+}
+
+function LegionBanner({ position, cloth = '#792f25' }: {
+  position: [number, number, number];
+  cloth?: string;
+}) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.88, 0]} castShadow>
+        <boxGeometry args={[1.28, 0.075, 0.09]} />
+        <meshStandardMaterial color="#76502e" roughness={0.78} />
+      </mesh>
+      <mesh position={[0, 0.02, 0]} castShadow>
+        <planeGeometry args={[1.12, 1.62, 1, 5]} />
+        <meshStandardMaterial color={cloth} roughness={0.98} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Narrow gold edging and a simple central military standard motif. */}
+      {[-0.54, 0.54].map((x) => (
+        <mesh key={x} position={[x, 0.02, 0.012]}>
+          <boxGeometry args={[0.035, 1.58, 0.025]} />
+          <meshStandardMaterial color="#b18a48" metalness={0.3} roughness={0.62} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.1, 0.025]}>
+        <circleGeometry args={[0.2, 12]} />
+        <meshStandardMaterial color="#c49a50" metalness={0.35} roughness={0.6} />
+      </mesh>
+      <mesh position={[0, 0.1, 0.045]}>
+        <circleGeometry args={[0.105, 8]} />
+        <meshStandardMaterial color="#6a2b20" roughness={0.8} />
+      </mesh>
+      <mesh position={[0, -0.83, 0]} castShadow>
+        <coneGeometry args={[0.13, 0.22, 4]} />
+        <meshStandardMaterial color="#b18a48" metalness={0.32} roughness={0.62} />
+      </mesh>
+    </group>
+  );
+}
+
 function Bench({ position, rotationY = 0 }: { position: [number, number, number]; rotationY?: number }) {
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
@@ -106,6 +171,7 @@ function TavernTable({ position, rotationY = 0 }: { position: [number, number, n
       <DrinkingCup position={[-0.42, 0.99, 0.08]} />
       <DrinkingCup position={[-0.12, 0.99, -0.27]} />
       <DicePair />
+      <FoodPlate position={[0.48, 0.99, -0.22]} />
     </group>
   );
 }
@@ -332,6 +398,10 @@ function TavernRoom() {
       <WallTorch position={[6.9, 2.2, -2.4]} />
       <WallTorch position={[-6.9, 2.2, 4.0]} />
       <WallTorch position={[6.9, 2.2, 4.0]} />
+      {/* Cloth legion standards break up the bare back wall without adding heavy assets. */}
+      <LegionBanner position={[-5.2, 2.15, -7.76]} cloth="#263b58" />
+      <LegionBanner position={[0, 2.15, -7.76]} cloth="#762e24" />
+      <LegionBanner position={[5.2, 2.15, -7.76]} cloth="#263b58" />
       {/* Entrance lintel and hanging sign seen from inside */}
       <TimberBeam position={[0, 2.85, 7.7]} size={[4.2, 0.24, 0.28]} />
       <mesh position={[0, 2.35, 7.62]} rotation={[0, 0, 0.02]} castShadow>
