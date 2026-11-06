@@ -940,7 +940,7 @@ const handleEnterArena = useCallback(() => {
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
     // A presented panel is up: E/Space and the action button are its own.
-    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel || colosseumPanel || forgePanel || showRaceEntry) return;
+    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel || colosseumPanel || forgePanel || showRaceEntry || showNavDrawer) return;
     if (nearbyLoc) {
       handleInteract();
     } else if (nearbyVisitor) {
@@ -963,6 +963,7 @@ const handleEnterArena = useCallback(() => {
     colosseumPanel,
     forgePanel,
     showRaceEntry,
+    showNavDrawer,
   ]);
 
   /**
@@ -1075,6 +1076,12 @@ const handleEnterArena = useCallback(() => {
         if (code === 'Escape' || key === 'escape') setShowRaceEntry(false);
         return;
       }
+      // The full-screen map owns keyboard input; Escape closes it and movement
+      // keys cannot be queued for the moment the drawer is dismissed.
+      if (showNavDrawer) {
+        if (code === 'Escape' || key === 'escape') setShowNavDrawer(false);
+        return;
+      }
 
       if (code === 'KeyW' || key === 'w' || code === 'ArrowUp') keysPressed.current['w'] = true;
       if (code === 'KeyS' || key === 's' || code === 'ArrowDown') keysPressed.current['s'] = true;
@@ -1103,7 +1110,7 @@ const handleEnterArena = useCallback(() => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, colosseumPanel, visitorPanel, forgePanel, showRaceEntry]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, colosseumPanel, visitorPanel, forgePanel, showRaceEntry, showNavDrawer]);
 
         // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
