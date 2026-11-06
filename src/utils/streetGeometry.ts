@@ -103,3 +103,14 @@ export const VIA_TABERNARIA: RotatedStreetRect = {
   yaw: Math.PI / 6,
   beddingYaw: -Math.PI / 6,
 };
+
+/** Via Tabernaria's southeast diagonal avenue toward the Caravanserai. */
+export const VIA_TABERNARIA_EAST: RotatedStreetRect = {
+  id: 'via-tabernaria-east',
+  cx: 11,
+  cz: 8,
+  w: 7,
+  d: 12,
+  yaw: -Math.PI / 6,
+  beddingYaw: Math.PI / 6,
+};
