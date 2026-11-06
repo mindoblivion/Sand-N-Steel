@@ -77,6 +77,7 @@ import {
   VIA_MERCATORIA_CONNECTOR,
   CARAVAN_BYPASS,
   VIA_TABERNARIA,
+  VIA_TABERNARIA_EAST,
 } from './streetGeometry';
 
 // ── Sources ───────────────────────────────────────────────────────────────
@@ -611,6 +612,14 @@ const STREETS: StreetRect[] = (() => {
       ({ id, cx, cz, w, d }) => ({ id, cx, cz, w, l: d, yaw: 0 }),
     ),
     {
+      id: VIA_TABERNARIA_EAST.id,
+      cx: VIA_TABERNARIA_EAST.cx,
+      cz: VIA_TABERNARIA_EAST.cz,
+      w: VIA_TABERNARIA_EAST.w,
+      l: VIA_TABERNARIA_EAST.d,
+      yaw: VIA_TABERNARIA_EAST.yaw,
+    },
+    {
       id: CARAVAN_BYPASS.id,
       cx: CARAVAN_BYPASS.cx,
       cz: CARAVAN_BYPASS.cz,
@@ -1070,5 +1079,15 @@ describe('Via Tabernaria registered diagonal footprint', () => {
       VIA_TABERNARIA.w, VIA_TABERNARIA.d,
       VIA_TABERNARIA.yaw, VIA_TABERNARIA.beddingYaw,
     ]).toEqual(['via-tabernaria', -11, 8, 7, 12, Math.PI / 6, -Math.PI / 6]);
+  });
+});
+
+describe('Via Tabernaria east registered diagonal footprint', () => {
+  test('preserves the southeast street and bedding rotations independently', () => {
+    expect([
+      VIA_TABERNARIA_EAST.id, VIA_TABERNARIA_EAST.cx, VIA_TABERNARIA_EAST.cz,
+      VIA_TABERNARIA_EAST.w, VIA_TABERNARIA_EAST.d,
+      VIA_TABERNARIA_EAST.yaw, VIA_TABERNARIA_EAST.beddingYaw,
+    ]).toEqual(['via-tabernaria-east', 11, 8, 7, 12, -Math.PI / 6, Math.PI / 6]);
   });
 });
