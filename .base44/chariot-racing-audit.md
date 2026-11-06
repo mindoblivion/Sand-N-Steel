@@ -1,5 +1,13 @@
 # C-8.70A — Chariot racing implementation audit (read-only)
 
+> **Current-status notice (2026-11-06):** This file began as a historical read-only snapshot of
+> an earlier racing implementation. The later “Status update — 2026-11-06” section below is the
+> current source-level status and supersedes the older gap list and Stage 1/2 roadmap. In particular,
+> player horse teams, procedural race gait, wheel roll, lap/finish timing, best-time persistence, and
+> a presentation-only rival are now implemented on `main`. Do not treat the earlier “not drawn yet”
+> or “no finish” statements as current. Physical-device visual/performance acceptance remains
+> unverified; wagers, incidents, and reward progression are not established as shipped.
+
 ## Preflight and scope
 
 Branch `colosseum-exterior-architecture`, HEAD `073ac49eb5b0d498cc7d52b4f070e1b3ac3f4f19`;
