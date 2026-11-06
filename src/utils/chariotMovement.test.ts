@@ -39,7 +39,9 @@ import {
   CHARIOT_MODEL_FORWARD,
   CHARIOT_MODEL_YAW_OFFSET,
   CHARIOT_MOVEMENT,
+  CHARIOT_WHEEL_RADIUS,
   advanceChariot,
+  advanceWheelRoll,
   chariotTurnRate,
   createChariotLaunchState,
   createChariotMotion,
@@ -783,5 +785,37 @@ describe('L. No allocation in the step', () => {
     expect(Number.isFinite(motion.heading)).toBe(true);
     expect(Number.isFinite(motion.speed)).toBe(true);
     expect(isChariotInsideArena(motion)).toBe(true);
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// M. Wheel roll follows bounded travel time
+// ══════════════════════════════════════════════════════════════════════════
+
+describe('M. Wheel roll', () => {
+  test('forward travel rolls the wheels in the model’s forward direction', () => {
+    expect(advanceWheelRoll(0, 2, 0.5)).toBeCloseTo(-(2 * cfg.maxFrameDt) / CHARIOT_WHEEL_RADIUS, 12);
+  });
+
+  test('reverse travel rolls the wheels in the opposite direction', () => {
+    expect(advanceWheelRoll(0, -2, 0.5)).toBeCloseTo((2 * cfg.maxFrameDt) / CHARIOT_WHEEL_RADIUS, 12);
+  });
+
+  test('wheel time uses the same maximum frame delta as movement', () => {
+    const afterLongFrame = advanceWheelRoll(0.25, 12, 10);
+    const afterClampedFrame = advanceWheelRoll(0.25, 12, cfg.maxFrameDt);
+    expect(afterLongFrame).toBeCloseTo(afterClampedFrame, 12);
+  });
+
+  test('a stationary wheel does not rotate, and a custom radius changes the rate', () => {
+    expect(advanceWheelRoll(0.75, 0, 0.1)).toBe(0.75);
+    expect(advanceWheelRoll(0, 2, 0.5, 1)).toBeCloseTo(-0.2, 12);
+  });
+
+  test('non-finite inputs cannot poison the wheel rotation', () => {
+    expect(advanceWheelRoll(Number.NaN, Number.NaN, 0.1)).toBe(0);
+    expect(advanceWheelRoll(0.5, 2, Number.NaN)).toBe(0.5);
+    expect(Number.isFinite(advanceWheelRoll(0.5, 2, 0.1, Number.NaN))).toBe(true);
   });
 });
