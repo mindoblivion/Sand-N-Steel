@@ -2250,7 +2250,7 @@ export function App() {
         )}
 
         {currentScreen === 'city_3d' && tavernOpen && (
-          <React.Suspense fallback={<div className="fixed inset-0 z-[95] bg-stone-950" aria-busy="true" />}>
+          <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
             <TavernInterior onExit={() => setTavernOpen(false)} onOpenServices={() => { setTavernOpen(false); tavernServices?.(); setTavernServices(null); }} />
           </React.Suspense>
         )}
@@ -2258,7 +2258,7 @@ export function App() {
       mounted underneath (so exiting returns the player to the exact spot they left,
       at the Colosseum door). */}
       {currentScreen === 'city_3d' && colosseumOpen && (
-        <React.Suspense fallback={<div />}>
+        <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
                         <ColosseumInterior onExit={() => setColosseumOpen(false)} />
         </React.Suspense>
       )}
