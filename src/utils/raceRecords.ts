@@ -1,4 +1,5 @@
 import type { ChariotTeamSize, PlayerProfile, RacingProgression } from '../types/game';
+import { creditGold } from './goldTransactions';
 
 export const MAX_RECORDED_RACE_TIME_MS = 86_400_000;
 
@@ -98,7 +99,11 @@ export function settleRaceCompletion(
   const alreadyPaidToday = current.lastPurseDay === day;
   const basePurse = teamSize === 2 ? 40 : teamSize === 3 ? 60 : 80;
   const purseAwarded = alreadyPaidToday ? 0 : basePurse + (outcome === 'victory' ? 20 : 0);
-  const gold = Number.isSafeInteger(best.profile.gold) && best.profile.gold >= 0 ? best.profile.gold : 0;
+  if ([completed, wins, losses, photoFinishes].some((value) => value >= Number.MAX_SAFE_INTEGER)) {
+    return { ok: false, reason: 'career-counter-overflow', profile };
+  }
+  const nextGold = creditGold(best.profile.gold, purseAwarded);
+  if (nextGold === null) return { ok: false, reason: 'invalid-gold-balance', profile };
   const nextRacing = {
     ...current,
     completed: completed + 1,
@@ -109,7 +114,7 @@ export function settleRaceCompletion(
   };
   return {
     ok: true,
-    profile: { ...best.profile, gold: gold + purseAwarded, racing: nextRacing },
+    profile: { ...best.profile, gold: nextGold, racing: nextRacing },
     improvedBest: best.improved,
     bestTimeMs: best.bestTimeMs,
     purseAwarded,
