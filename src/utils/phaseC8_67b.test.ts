@@ -807,7 +807,7 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
     expect(MODAL).toContain('confirmedReplaceModifiedTime: confirmedSave.modifiedTime');
     // Restoring a cloud save must be an explicit second action because it replaces local progress.
     expect(MODAL).toContain('const [restoreConfirmId, setRestoreConfirmId] = useState<string | null>(null);');
-    expect(MODAL).toContain('onClick={() => setRestoreConfirmId(file.id)}');
+    expect(MODAL).toContain('onClick={() => { setRestorePendingMessage(null); setRestoreConfirmId(file.id); }}');
     expect(MODAL).toContain('Replace Local Progress?');
     expect(MODAL).toContain('onClick={handleConfirmRestore}');
     expect(MODAL).toContain('Replace Local Save');
@@ -815,11 +815,27 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
     expect(MODAL).toContain('Selected cloud save');
     expect(MODAL).toContain('currentProfile.gold');
     expect(MODAL).toContain('preview.gold');
-    // A synchronous in-flight ref prevents duplicate local replacement before React rerenders.
-    expect(MODAL).toContain('const restoreInFlightRef = useRef(false);');
-    expect(MODAL).toContain('if (restoreInFlightRef.current) return;');
-    expect(MODAL).toContain('restoreInFlightRef.current = true;');
-    expect(MODAL).toContain('restoreInFlightRef.current = false;');
+    // The module-level lock survives modal remounts; unmounted instances ignore late results.
+    expect(MODAL).toContain('let driveRestoreInFlight = false;');
+    expect(MODAL).toContain('if (driveRestoreInFlight) {');
+    expect(MODAL).toContain('driveRestoreInFlight = true;');
+    expect(MODAL).toContain('driveRestoreInFlight = false;');
+    expect(MODAL).toContain('const isMountedRef = useRef(true);');
+    expect(MODAL).toContain('isMountedRef.current = false;');
+    expect(MODAL).toContain('if (!isMountedRef.current) return;');
+    expect(MODAL).toContain('const [restorePendingMessage, setRestorePendingMessage] = useState<string | null>(null);');
+    expect(MODAL).toContain('A Google Drive restore is already in progress. Please wait before trying again.');
+    const restoreHandler = MODAL.slice(MODAL.indexOf('const handleLoadFromDrive'), MODAL.indexOf('const handleDeleteConfirm'));
+    expect(restoreHandler.indexOf('if (driveRestoreInFlight) {')).toBeLessThan(restoreHandler.indexOf('setRestoreConfirmId(null);'));
+    expect(DRIVE).toContain('export const DRIVE_PROFILE_DOWNLOAD_TIMEOUT_MS = 30_000;');
+    expect(DRIVE).toContain('const controller = new AbortController();');
+    expect(DRIVE).toContain('signal: controller.signal');
+    expect(DRIVE).toContain('controller.abort()');
+    expect(DRIVE).toContain('clearTimeout(timeoutId)');
+    expect(DRIVE).toContain('Google Drive restore timed out. Please try again.');
+    const restoreService = DRIVE.slice(DRIVE.indexOf('export async function loadProfileFromDrive'));
+    expect(restoreService.indexOf('setTimeout(')).toBeLessThan(restoreService.indexOf('await getAccessToken()'));
+    expect(restoreService).toContain('return await Promise.race([request(), timeout]);');
 
     // …and the import path hands that profile straight to the existing save.
     expect(APP).toContain('saveProfile(loadedProfile);');
