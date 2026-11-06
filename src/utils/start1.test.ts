@@ -73,6 +73,8 @@ const mainSrc = load('../main.tsx');
 const bootShellSrc = load('./bootShell.ts');
 const nudgeSrc = load('./postOathNudge.ts');
 const failureSrc = load('../components/ui/GameFailureSurface.tsx');
+const waitSurfaceSrc = load('../components/ui/WaitSurface.tsx');
+const assetLoadingSrc = load('../components/ui/AssetLoadingOverlay.tsx');
 const packageJson = JSON.parse(load('../../package.json'));
 const assetCheckSrc = load('../../scripts/startupAssetCheck.ts');
 
@@ -263,6 +265,19 @@ describe('D. The sequence', () => {
     }
     // An unknown destination falls back rather than rendering nothing.
     expect(waitDestination('not-a-destination' as WaitDestinationId)).toEqual(WAIT_DESTINATIONS.city_hub);
+  });
+
+  test('the supplied artwork and safe-area progress bar are shared by every transition surface', () => {
+    expect(waitSurfaceSrc).toContain('TITLE_BACKDROP_CLASS');
+    expect(assetLoadingSrc).toContain('TITLE_BACKDROP_CLASS');
+    for (const source of [waitSurfaceSrc, assetLoadingSrc]) {
+      expect(source).toContain('data-loading-progress="true"');
+      expect(source).toContain("bottom: 'max(5.5vh, calc(env(safe-area-inset-bottom, 0px) + 28px))'");
+      expect(source).toContain('role="progressbar"');
+      expect(source).toContain('wait-sweep');
+    }
+    // One city destination plus the Tavern, Colosseum and Forge lazy fallbacks.
+    expect(appSrc.split('<WaitSurface destination="city_hub" />').length - 1).toBeGreaterThanOrEqual(4);
   });
 
   test('the Acta line answers at any index, wrapping in both directions', () => {
