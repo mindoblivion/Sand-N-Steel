@@ -199,7 +199,7 @@ export const DRIVE_PROFILE_DOWNLOAD_TIMEOUT_MS = 30_000;
  */
 export async function loadProfileFromDrive(fileId: string): Promise<PlayerProfile> {
   const controller = new AbortController();
-  let timeoutId: ReturnType<typeof setTimeout>;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   // Bound the entire restore operation, including token acquisition and body
   // parsing, not just the initial fetch. A never-settling auth step must not
@@ -249,7 +249,7 @@ export async function loadProfileFromDrive(fileId: string): Promise<PlayerProfil
     }
     throw error;
   } finally {
-    clearTimeout(timeoutId!);
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
 }
 
