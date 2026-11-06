@@ -31,7 +31,7 @@ export function RaceRenderDiagnostics() {
     )] ?? 0;
     const average = (values: number[]) =>
       values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
-    const size = gl.getDrawingBufferSize({ width: 0, height: 0 });
+    const drawingBuffer: [number, number] = [gl.domElement.width, gl.domElement.height];
 
     console.info('[RaceRenderDiagnostics]', {
       windowSeconds: Number(elapsed.current.toFixed(2)),
@@ -42,7 +42,7 @@ export function RaceRenderDiagnostics() {
       drawCallsPeak: Math.max(0, ...drawCalls.current),
       trianglesAvg: Math.round(average(triangles.current)),
       pixelRatio: gl.getPixelRatio(),
-      drawingBuffer: [size.width, size.height],
+      drawingBuffer,
       geometries: gl.info.memory.geometries,
       textures: gl.info.memory.textures,
     });
