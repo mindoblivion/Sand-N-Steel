@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useFrame, useThree } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 
 type RaceDiagnosticsSnapshot = {
   fps: number;
@@ -75,7 +75,8 @@ export function RaceRenderDiagnostics() {
 
   if (typeof document === 'undefined' || !snapshot) return null;
 
-  return createPortal(
+  return (
+    <Html fullscreen zIndexRange={[10000, 10000]} style={{ pointerEvents: 'none' }}>
     <aside
       aria-label="Race performance diagnostics"
       style={{
@@ -106,7 +107,7 @@ export function RaceRenderDiagnostics() {
       <div>DPR {snapshot.pixelRatio.toFixed(2)}  ·  BUFFER {snapshot.drawingBuffer[0]}×{snapshot.drawingBuffer[1]}</div>
       <div>GEOMETRIES {snapshot.geometries}  ·  TEXTURES {snapshot.textures}</div>
       <div style={{ opacity: 0.7, marginTop: 2 }}>Rolling 2-second sample</div>
-    </aside>,
-    document.body,
+    </aside>
+    </Html>
   );
 }
