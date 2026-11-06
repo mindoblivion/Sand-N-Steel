@@ -73,6 +73,10 @@ import { FAST_TRAVEL_ARRIVALS } from './cityCollisions';
 import {
   VIA_DECUMANUS_WEST,
   VIA_SOCIALIS,
+  VIA_TRIUMPHALIS_BED,
+  VIA_TRIUMPHALIS_WEST,
+  VIA_TRIUMPHALIS_EAST,
+  VIA_TRIUMPHALIS_RUNNER,
   VIA_DECUMANUS_EAST,
   VIA_DECUMANUS_EAST_EXTENSION,
   VIA_MERCATORIA_CONNECTOR,
@@ -1131,5 +1135,19 @@ describe('Via Socialis registered civic lane footprint', () => {
   test('preserves the southern avenue-to-Forum Socialis slab', () => {
     expect([VIA_SOCIALIS.id, VIA_SOCIALIS.cx, VIA_SOCIALIS.cz, VIA_SOCIALIS.w, VIA_SOCIALIS.d])
       .toEqual(['via-socialis', -10.5, 20, 13, 5]);
+  });
+});
+
+
+describe('Via Triumphalis registered geometry', () => {
+  test('preserves the shared road bed, twin carriageways and imperial runner', () => {
+    expect([VIA_TRIUMPHALIS_BED.cx, VIA_TRIUMPHALIS_BED.cz, VIA_TRIUMPHALIS_BED.w, VIA_TRIUMPHALIS_BED.d])
+      .toEqual([0, 0, 14, 72]);
+    expect([VIA_TRIUMPHALIS_WEST.cx, VIA_TRIUMPHALIS_WEST.cz, VIA_TRIUMPHALIS_WEST.w, VIA_TRIUMPHALIS_WEST.d])
+      .toEqual([-4.7, 10, 4.4, 21]);
+    expect([VIA_TRIUMPHALIS_EAST.cx, VIA_TRIUMPHALIS_EAST.cz, VIA_TRIUMPHALIS_EAST.w, VIA_TRIUMPHALIS_EAST.d])
+      .toEqual([4.7, 10, 4.4, 21]);
+    expect([VIA_TRIUMPHALIS_RUNNER.cx, VIA_TRIUMPHALIS_RUNNER.cz, VIA_TRIUMPHALIS_RUNNER.w, VIA_TRIUMPHALIS_RUNNER.d])
+      .toEqual([0, 10, 5, 21]);
   });
 });
