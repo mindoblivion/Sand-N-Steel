@@ -817,7 +817,7 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
     expect(MODAL).toContain('preview.gold');
     // The module-level lock survives modal remounts; unmounted instances ignore late results.
     expect(MODAL).toContain('let driveRestoreInFlight = false;');
-    expect(MODAL).toContain('if (driveRestoreInFlight) return;');
+    expect(MODAL).toContain('if (driveRestoreInFlight) {');
     expect(MODAL).toContain('driveRestoreInFlight = true;');
     expect(MODAL).toContain('driveRestoreInFlight = false;');
     expect(MODAL).toContain('const isMountedRef = useRef(true);');
