@@ -77,7 +77,7 @@ jobs:
             echo "::error::Android build-tools aapt executable was not found."
             exit 1
           fi
-          PACKAGE="$("$AAPT" dump badging "$APK" | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" | head -n 1)"
+          PACKAGE="$("$AAPT" dump badging "$APK" | awk -F"'" '/^package: name=/ { print $2; exit }')"
           if [[ "$PACKAGE" != "com.phatass.sandandsteel.profiler" ]]; then
             echo "::error::Expected isolated profiler package ID, got '$PACKAGE'."
             exit 1
