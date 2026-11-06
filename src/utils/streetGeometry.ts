@@ -88,3 +88,18 @@ export const CARAVAN_BYPASS: StreetRect = {
   w: 10,
   d: 6,
 };
+
+/** Via Tabernaria's authored diagonal street and bedding-plane footprint. */
+export interface RotatedStreetRect extends StreetRect {
+  yaw: number;
+  beddingYaw: number;
+}
+export const VIA_TABERNARIA: RotatedStreetRect = {
+  id: 'via-tabernaria',
+  cx: -11,
+  cz: 8,
+  w: 7,
+  d: 12,
+  yaw: Math.PI / 6,
+  beddingYaw: -Math.PI / 6,
+};
