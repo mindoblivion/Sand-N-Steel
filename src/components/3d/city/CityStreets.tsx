@@ -11,6 +11,10 @@ import {
   CARAVAN_BYPASS,
   VIA_TABERNARIA,
   VIA_TABERNARIA_EAST,
+  TAVERN_TO_FORUM_PATH,
+  FORUM_TO_BATHHOUSE_PATH,
+  FORUM_TO_BOUNTY_HALL_PATH,
+  FORUM_TO_SHRINE_PATH,
 } from '../../../utils/streetGeometry';
 import {
   RomanBench,
@@ -350,26 +354,26 @@ export const CityStreets = React.memo(() => {
       />
 
       {/* Path: Tavern -> Forum Socialis */}
-      <mesh receiveShadow position={[-18.5, -0.008, 17.0]} rotation={[-Math.PI / 2, 0, -Math.PI / 4]}>
-        <planeGeometry args={[3.0, 4.5]} />
+      <mesh receiveShadow position={[TAVERN_TO_FORUM_PATH.cx, -0.008, TAVERN_TO_FORUM_PATH.cz]} rotation={[-Math.PI / 2, 0, TAVERN_TO_FORUM_PATH.yaw]}>
+        <planeGeometry args={[TAVERN_TO_FORUM_PATH.w, TAVERN_TO_FORUM_PATH.d]} />
         <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.78} />
       </mesh>
 
       {/* Path: Forum Socialis -> Public Bathhouse [-26, 0, 25] */}
-      <mesh receiveShadow position={[-23.5, -0.008, 22.5]} rotation={[-Math.PI / 2, 0, Math.PI / 4]}>
-        <planeGeometry args={[3.2, 5.0]} />
+      <mesh receiveShadow position={[FORUM_TO_BATHHOUSE_PATH.cx, -0.008, FORUM_TO_BATHHOUSE_PATH.cz]} rotation={[-Math.PI / 2, 0, FORUM_TO_BATHHOUSE_PATH.yaw]}>
+        <planeGeometry args={[FORUM_TO_BATHHOUSE_PATH.w, FORUM_TO_BATHHOUSE_PATH.d]} />
         <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.78} />
       </mesh>
 
       {/* Path: Forum Socialis -> Bounty Hall [-15, 0, 26] */}
-      <mesh receiveShadow position={[-18.0, -0.008, 23.0]} rotation={[-Math.PI / 2, 0, -Math.PI / 4]}>
-        <planeGeometry args={[3.2, 5.0]} />
+      <mesh receiveShadow position={[FORUM_TO_BOUNTY_HALL_PATH.cx, -0.008, FORUM_TO_BOUNTY_HALL_PATH.cz]} rotation={[-Math.PI / 2, 0, FORUM_TO_BOUNTY_HALL_PATH.yaw]}>
+        <planeGeometry args={[FORUM_TO_BOUNTY_HALL_PATH.w, FORUM_TO_BOUNTY_HALL_PATH.d]} />
         <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.78} />
       </mesh>
 
       {/* Path: Forum Socialis -> Roman Shrine [-27, 0, 11] */}
-      <mesh receiveShadow position={[-24.0, -0.008, 15.5]} rotation={[-Math.PI / 2, 0, Math.PI / 4]}>
-        <planeGeometry args={[3.2, 6.0]} />
+      <mesh receiveShadow position={[FORUM_TO_SHRINE_PATH.cx, -0.008, FORUM_TO_SHRINE_PATH.cz]} rotation={[-Math.PI / 2, 0, FORUM_TO_SHRINE_PATH.yaw]}>
+        <planeGeometry args={[FORUM_TO_SHRINE_PATH.w, FORUM_TO_SHRINE_PATH.d]} />
         <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.78} />
       </mesh>
 

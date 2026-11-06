@@ -114,3 +114,41 @@ export const VIA_TABERNARIA_EAST: RotatedStreetRect = {
   yaw: -Math.PI / 6,
   beddingYaw: Math.PI / 6,
 };
+
+
+/** Small travertine pedestrian connectors around Forum Socialis. */
+export interface RotatedPavingPath extends StreetRect {
+  yaw: number;
+}
+export const TAVERN_TO_FORUM_PATH: RotatedPavingPath = {
+  id: 'tavern-to-forum',
+  cx: -18.5,
+  cz: 17,
+  w: 3,
+  d: 4.5,
+  yaw: -Math.PI / 4,
+};
+export const FORUM_TO_BATHHOUSE_PATH: RotatedPavingPath = {
+  id: 'forum-to-bathhouse',
+  cx: -23.5,
+  cz: 22.5,
+  w: 3.2,
+  d: 5,
+  yaw: Math.PI / 4,
+};
+export const FORUM_TO_BOUNTY_HALL_PATH: RotatedPavingPath = {
+  id: 'forum-to-bounty-hall',
+  cx: -18,
+  cz: 23,
+  w: 3.2,
+  d: 5,
+  yaw: -Math.PI / 4,
+};
+export const FORUM_TO_SHRINE_PATH: RotatedPavingPath = {
+  id: 'forum-to-shrine',
+  cx: -24,
+  cz: 15.5,
+  w: 3.2,
+  d: 6,
+  yaw: Math.PI / 4,
+};
