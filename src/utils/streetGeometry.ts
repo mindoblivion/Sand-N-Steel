@@ -152,3 +152,30 @@ export const FORUM_TO_SHRINE_PATH: RotatedPavingPath = {
   d: 6,
   yaw: Math.PI / 4,
 };
+
+
+/** Travertine pedestrian approaches in the arena-quarter courtyard. */
+export const COURTYARD_TO_BARRACKS_PATH: RotatedPavingPath = {
+  id: 'courtyard-to-barracks',
+  cx: -25,
+  cz: -12,
+  w: 4,
+  d: 5,
+  yaw: -Math.PI / 4,
+};
+export const COURTYARD_TO_VETERAN_HALL_PATH: RotatedPavingPath = {
+  id: 'courtyard-to-veteran-hall',
+  cx: -21.5,
+  cz: -17.5,
+  w: 3,
+  d: 15,
+  yaw: 0,
+};
+export const COURTYARD_TO_MEDICAL_HOUSE_PATH: RotatedPavingPath = {
+  id: 'courtyard-to-medical-house',
+  cx: -26,
+  cz: -7.5,
+  w: 4,
+  d: 6,
+  yaw: Math.PI / 4,
+};
