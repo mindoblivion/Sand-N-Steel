@@ -197,8 +197,8 @@ describe('B. The pre-race pose, in memory only', () => {
     expect(code(sceneSrc)).toContain('onRecordRaceCompletion(teamSize, elapsedMs, outcome)');
     expect(sceneSrc).toContain('Circus purse');
     expect(sceneSrc).toContain('App owns the atomic career transaction and its existing save path');
-    expect(sceneSrc).toContain('Aborting or returning to');
-    expect(sceneSrc).toContain('the city never invokes the callback');
+    expect(sceneSrc).toContain('The purse is limited to one payment per in-game day; aborting never settles a');
+    expect(sceneSrc).toContain('result. The first-race control hints remain a module-memory flag');
     // The app owns the one profile mutation and it is not part of abort/return.
     expect(appSrc).toContain('settleRaceCompletion(current, teamSize, elapsedMs, outcome');
     expect(appSrc).toContain('onRecordRaceCompletion={handleRecordRaceCompletion}');
