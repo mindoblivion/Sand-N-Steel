@@ -260,6 +260,28 @@ function SeatedPatron({ position, tunic = '#8d3e2c', facing = 0 }: {
   );
 }
 
+function WallShield({ position, rotationY = 0 }: {
+  position: [number, number, number];
+  rotationY?: number;
+}) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.43, 0.43, 0.13, 16]} />
+        <meshStandardMaterial color="#762d23" metalness={0.16} roughness={0.74} />
+      </mesh>
+      <mesh position={[0, 0, 0.085]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.29, 0.29, 0.14, 12]} />
+        <meshStandardMaterial color="#b58a42" metalness={0.42} roughness={0.52} />
+      </mesh>
+      <mesh position={[0, 0, 0.17]} castShadow>
+        <sphereGeometry args={[0.09, 10, 8]} />
+        <meshStandardMaterial color="#d0ad68" metalness={0.5} roughness={0.45} />
+      </mesh>
+    </group>
+  );
+}
+
 function WallTorch({ position }: { position: [number, number, number] }) {
   return (
     <group position={position}>
@@ -379,21 +401,13 @@ function TavernRoom() {
       <SeatedPatron position={[1.4, 0, -3.72]} tunic="#315d4a" facing={0} />
       <SeatedPatron position={[1.4, 0, -1.08]} tunic="#8b392d" facing={Math.PI} />
       <SeatedPatron position={[-0.8, 0, 0.25]} tunic="#7c573d" facing={0} />
-      {/* Earthenware, spare stools, and a wall of shield decorations */}
+      {/* Earthenware and mounted shields: moved to the side walls so the legion standards remain the back-wall focal point. */}
       <Amphora position={[-6.2, 0, -4.5]} scale={0.9} />
       <Amphora position={[6.1, 0, -3.8]} scale={0.78} />
-      {[-4.5, -1.5, 1.5, 4.5].map((x) => (
-        <group key={x} position={[x, 2.45, -7.78]}>
-          <mesh castShadow>
-            <cylinderGeometry args={[0.42, 0.42, 0.12, 12]} />
-            <meshStandardMaterial color="#7b2f23" metalness={0.18} roughness={0.7} />
-          </mesh>
-          <mesh position={[0, 0.08, 0]}>
-            <cylinderGeometry args={[0.29, 0.29, 0.13, 12]} />
-            <meshStandardMaterial color="#b58a42" metalness={0.45} roughness={0.48} />
-          </mesh>
-        </group>
-      ))}
+      <WallShield position={[-7.08, 2.25, -4.65]} rotationY={Math.PI / 2} />
+      <WallShield position={[-7.08, 2.25, 1.15]} rotationY={Math.PI / 2} />
+      <WallShield position={[7.08, 2.25, -4.65]} rotationY={-Math.PI / 2} />
+      <WallShield position={[7.08, 2.25, 1.15]} rotationY={-Math.PI / 2} />
       <WallTorch position={[-6.9, 2.2, -2.4]} />
       <WallTorch position={[6.9, 2.2, -2.4]} />
       <WallTorch position={[-6.9, 2.2, 4.0]} />
