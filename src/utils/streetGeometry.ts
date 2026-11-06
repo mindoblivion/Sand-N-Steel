@@ -40,3 +40,33 @@ export const VIA_MERCATORIA_PATH: StreetRect = {
   w: 3,
   d: 5.8,
 };
+
+/**
+ * Via Decumanus west segment — existing military cross-street slab.
+ * The footprint is shared by the bedding plane and rendered paved street.
+ */
+export const VIA_DECUMANUS_WEST: StreetRect = {
+  id: 'via-decumanus-west',
+  cx: -11,
+  cz: 0,
+  w: 14,
+  d: 8,
+};
+
+/** Via Decumanus east segment — existing commercial cross-street slab. */
+export const VIA_DECUMANUS_EAST: StreetRect = {
+  id: 'via-decumanus-east',
+  cx: 11,
+  cz: 0,
+  w: 14,
+  d: 8,
+};
+
+/** Via Decumanus east extension — existing forge/workshop approach slab. */
+export const VIA_DECUMANUS_EAST_EXTENSION: StreetRect = {
+  id: 'via-decumanus-east-extension',
+  cx: 22.5,
+  cz: 1,
+  w: 9,
+  d: 7,
+};

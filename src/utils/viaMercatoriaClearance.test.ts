@@ -11,7 +11,12 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, expect, test } from 'bun:test';
 import { CITY_COLLIDERS, type RectCollider } from './collisionShapes';
-import { VIA_MERCATORIA_PATH } from './streetGeometry';
+import {
+  VIA_DECUMANUS_WEST,
+  VIA_DECUMANUS_EAST,
+  VIA_DECUMANUS_EAST_EXTENSION,
+  VIA_MERCATORIA_PATH,
+} from './streetGeometry';
 
 const BUILDING_FOOTPRINT_IDS = [
   'smithing-forge',
@@ -80,5 +85,30 @@ describe('Via Mercatoria pavement footprint', () => {
       .toBeLessThanOrEqual(VIA_MERCATORIA_PATH.w / 2);
     expect(Math.abs(arrival[1] - VIA_MERCATORIA_PATH.cz))
       .toBeLessThanOrEqual(VIA_MERCATORIA_PATH.d / 2);
+  });
+});
+
+describe('Via Decumanus registered pavement footprints', () => {
+  const segments = [
+    VIA_DECUMANUS_WEST,
+    VIA_DECUMANUS_EAST,
+    VIA_DECUMANUS_EAST_EXTENSION,
+  ] as const;
+
+  test('preserves the three existing east-west road footprints', () => {
+    expect(segments.map(({ id, cx, cz, w, d }) => [id, cx, cz, w, d])).toEqual([
+      ['via-decumanus-west', -11, 0, 14, 8],
+      ['via-decumanus-east', 11, 0, 14, 8],
+      ['via-decumanus-east-extension', 22.5, 1, 9, 7],
+    ]);
+  });
+
+  test('all registered footprints have finite centres and positive dimensions', () => {
+    for (const segment of segments) {
+      expect(Number.isFinite(segment.cx)).toBe(true);
+      expect(Number.isFinite(segment.cz)).toBe(true);
+      expect(segment.w).toBeGreaterThan(0);
+      expect(segment.d).toBeGreaterThan(0);
+    }
   });
 });
