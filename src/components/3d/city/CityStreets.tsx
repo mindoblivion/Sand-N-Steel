@@ -10,6 +10,7 @@ import {
   VIA_MERCATORIA_CONNECTOR,
   CARAVAN_BYPASS,
   VIA_TABERNARIA,
+  VIA_TABERNARIA_EAST,
 } from '../../../utils/streetGeometry';
 import {
   RomanBench,
@@ -373,8 +374,8 @@ export const CityStreets = React.memo(() => {
       </mesh>
 
       {/* Connects Central Plaza to Caravanserai Inn [16, 0, 14] */}
-      <mesh receiveShadow position={[11, -0.015, 8]} rotation={[-Math.PI / 2, 0, Math.PI / 6]}>
-        <planeGeometry args={[7, 12]} />
+      <mesh receiveShadow position={[VIA_TABERNARIA_EAST.cx, -0.015, VIA_TABERNARIA_EAST.cz]} rotation={[-Math.PI / 2, 0, VIA_TABERNARIA_EAST.beddingYaw]}>
+        <planeGeometry args={[VIA_TABERNARIA_EAST.w, VIA_TABERNARIA_EAST.d]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.roadFlagstone.color}
           roughness={0.82}
@@ -383,10 +384,10 @@ export const CityStreets = React.memo(() => {
         />
       </mesh>
       <RomanPavedStreet
-        position={[11, 0, 8]}
-        rotation={[0, -Math.PI / 6, 0]}
-        length={12}
-        width={7}
+        position={[VIA_TABERNARIA_EAST.cx, 0, VIA_TABERNARIA_EAST.cz]}
+        rotation={[0, VIA_TABERNARIA_EAST.yaw, 0]}
+        length={VIA_TABERNARIA_EAST.d}
+        width={VIA_TABERNARIA_EAST.w}
         district="commercial"
         hasWheelRuts={true}
         hasGutters={true}
