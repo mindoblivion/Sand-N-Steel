@@ -2266,7 +2266,7 @@ export function App() {
           mounted underneath (so exiting returns the player to the exact spot they left,
           at the forge door). */}
       {currentScreen === 'city_3d' && forgeOpen && (
-        <React.Suspense fallback={<div />}>
+        <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
           <ForgeInterior
             onExit={() => setForgeOpen(false)}
             onOpenShop={() => { setForgeOpen(false); handleOpenHubTab('shop', undefined, 'forge'); }}
