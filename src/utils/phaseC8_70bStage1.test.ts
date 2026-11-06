@@ -484,6 +484,18 @@ describe('F. Presented city overlays own input', () => {
     expect(citySrc).toContain('!inputLockedRef.current && !cityPanelInputLockedRef.current');
   });
 
+  test('the primary action follows the resolver: a strictly nearer visitor wins', () => {
+    const primary = code(handlerBody(citySrc, 'handlePrimaryAction'));
+    expect(primary.indexOf('if (nearbyVisitor)')).toBeGreaterThan(-1);
+    expect(primary.indexOf('if (nearbyVisitor)')).toBeLessThan(primary.indexOf('if (nearbyLoc)'));
+  });
+
+  test('mobile and desktop prompts name the same visitor target the action will open', () => {
+    expect(citySrc).toContain('title={nearbyVisitor ? visitorPrompt(nearbyVisitor) : nearbyLoc ?');
+    expect(citySrc).toContain("{nearbyVisitor ? 'VISIT [E]' : nearbyLoc ?");
+    expect(citySrc).toContain('{nearbyVisitor ? visitorPrompt(nearbyVisitor) : nearbyLoc ?');
+  });
+
   test('mobile joystick cannot start or update movement while a panel is open', () => {
     expect(citySrc).toContain('inputLockedRef.current || cityPanelInputLockedRef.current || touchIdRef.current !== null');
     expect(citySrc).toContain('inputLockedRef.current || cityPanelInputLockedRef.current || !joystickRef.current');
