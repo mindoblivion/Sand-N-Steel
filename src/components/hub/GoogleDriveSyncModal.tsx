@@ -48,6 +48,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const [savesLoaded, setSavesLoaded] = useState(false);
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [restoreConfirmId, setRestoreConfirmId] = useState<string | null>(null);
+  const [restorePendingMessage, setRestorePendingMessage] = useState<string | null>(null);
   const isMountedRef = useRef(true);
   const signOutRef = useRef(false);
 
@@ -230,15 +231,19 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const handleConfirmRestore = async () => {
     const fileId = restoreConfirmId;
     if (!fileId) return;
-    setRestoreConfirmId(null);
     await handleLoadFromDrive(fileId);
   };
 
   const handleLoadFromDrive = async (fileId: string) => {
     // Disable duplicate restores synchronously; state-based disabled buttons alone
     // can still admit two clicks before the next render.
-    if (driveRestoreInFlight) return;
+    if (driveRestoreInFlight) {
+      setRestorePendingMessage('A Google Drive restore is already in progress. Please wait before trying again.');
+      return;
+    }
     driveRestoreInFlight = true;
+    setRestoreConfirmId(null);
+    setRestorePendingMessage(null);
     sounds.playClick();
     setIsLoading(true);
     setStatusMessage(null);
@@ -446,7 +451,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
 
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => setRestoreConfirmId(file.id)}
+                          onClick={() => { setRestorePendingMessage(null); setRestoreConfirmId(file.id); }}
                           disabled={isLoading}
                           className="min-h-[48px] px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-neutral-950 font-serif font-bold text-xs uppercase cursor-pointer flex items-center gap-1 active:scale-95"
                           title="Restore this save"
@@ -536,6 +541,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
                   })()}
                 </span>
                 Replacing will overwrite the active local progress. Make sure the cloud save is the one you want before continuing.
+                {restorePendingMessage && <span className="block mt-3 text-amber-200" role="status">{restorePendingMessage}</span>}
               </p>
               <div className="flex gap-2">
                 <button
