@@ -22,8 +22,26 @@ describe('shipped character GLB structural integrity', () => {
       const jointNames = joints.map((joint) => joint.getName()).filter(Boolean);
       const clipNames = animations.map((animation) => animation.getName()).filter(Boolean);
 
-      // Keep this structural gate deliberately separate from renderer compatibility:
-      // exact grip bones, physique bones, and action-name mapping need their own audit.
+      // These are the exact named joints consumed by the current renderer for
+      // hand attachment, body scaling, and damage placement.
+      const requiredJoints = [
+        'hand_l', 'hand_r', 'pelvis', 'spine_01',
+        'upperarm_l', 'upperarm_r', 'thigh_l', 'thigh_r',
+      ];
+      for (const name of requiredJoints) {
+        expect(jointNames, `${character}: missing renderer joint ${name}`).toContain(name);
+      }
+
+      // One existing candidate per action category is sufficient because the
+      // runtime resolver checks candidates in order. This prevents its generic
+      // first-clip fallback from silently masking a missing combat animation.
+      const requiredActionClips = [
+        'Fighting_Idle', 'Walk', 'Sword_Attack', 'Sword_Regular_C',
+        'Defend', 'Roll', 'Hit_Chest', 'Death_A',
+      ];
+      for (const name of requiredActionClips) {
+        expect(clipNames, `${character}: missing action clip ${name}`).toContain(name);
+      }
       expect(meshes.length, `${character}: expected at least one mesh`).toBeGreaterThan(0);
       expect(skins.length, `${character}: expected at least one skin`).toBeGreaterThan(0);
       expect(joints.length, `${character}: expected at least one skin joint`).toBeGreaterThan(0);
