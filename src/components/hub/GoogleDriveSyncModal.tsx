@@ -53,6 +53,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const signOutRef = useRef(false);
 
   useEffect(() => {
+    isMountedRef.current = true;
     const unsub = initAuth(
       (currentUser, currentToken) => {
         setUser(currentUser);
