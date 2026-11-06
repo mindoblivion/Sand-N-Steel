@@ -19,6 +19,10 @@ import {
   COURTYARD_TO_BARRACKS_PATH,
   COURTYARD_TO_VETERAN_HALL_PATH,
   COURTYARD_TO_MEDICAL_HOUSE_PATH,
+  VIA_SCHOLARIS_MAIN,
+  VIA_SCHOLARIS_ACADEMY_APPROACH,
+  VIA_SCHOLARIS_LIBRARY_APPROACH,
+  VIA_SCHOLARIS_DOCTORE_APPROACH,
 } from '../../../utils/streetGeometry';
 import {
   RomanBench,
@@ -586,14 +590,14 @@ export const CityStreets = React.memo(() => {
       </mesh>
 
       {/* Via Scholaris Main Academy Avenue */}
-      <mesh receiveShadow position={[21.5, -0.012, -18.5]} rotation={[-Math.PI / 2, 0, -Math.PI / 4]}>
-        <planeGeometry args={[5.0, 9.0]} />
+      <mesh receiveShadow position={[VIA_SCHOLARIS_MAIN.cx, VIA_SCHOLARIS_MAIN.y, VIA_SCHOLARIS_MAIN.cz]} rotation={[-Math.PI / 2, 0, VIA_SCHOLARIS_MAIN.yaw]}>
+        <planeGeometry args={[VIA_SCHOLARIS_MAIN.w, VIA_SCHOLARIS_MAIN.d]} />
         <meshStandardMaterial color="#c29b6f" roughness={0.7} />
       </mesh>
 
       {/* Path to Gladiator Academy [30.5, 0, -27] */}
-      <mesh receiveShadow position={[27.8, -0.01, -24.2]} rotation={[-Math.PI / 2, 0, Math.PI / 4]}>
-        <planeGeometry args={[4.0, 7.0]} />
+      <mesh receiveShadow position={[VIA_SCHOLARIS_ACADEMY_APPROACH.cx, VIA_SCHOLARIS_ACADEMY_APPROACH.y, VIA_SCHOLARIS_ACADEMY_APPROACH.cz]} rotation={[-Math.PI / 2, 0, VIA_SCHOLARIS_ACADEMY_APPROACH.yaw]}>
+        <planeGeometry args={[VIA_SCHOLARIS_ACADEMY_APPROACH.w, VIA_SCHOLARIS_ACADEMY_APPROACH.d]} />
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
@@ -602,16 +606,16 @@ export const CityStreets = React.memo(() => {
            Phase C-8.18: the library root moved 0.90 west; this paving patch is
            decorative (no collision) and its 6.4 × 7.9 XZ span still covers the
            library's front, so the mesh itself was left in place. */}
-      <mesh receiveShadow position={[24, -0.01, -25.5]} rotation={[-Math.PI / 2, 0, -Math.PI * 0.15]}>
-        <planeGeometry args={[3.6, 7.0]} />
+      <mesh receiveShadow position={[VIA_SCHOLARIS_LIBRARY_APPROACH.cx, VIA_SCHOLARIS_LIBRARY_APPROACH.y, VIA_SCHOLARIS_LIBRARY_APPROACH.cz]} rotation={[-Math.PI / 2, 0, VIA_SCHOLARIS_LIBRARY_APPROACH.yaw]}>
+        <planeGeometry args={[VIA_SCHOLARIS_LIBRARY_APPROACH.w, VIA_SCHOLARIS_LIBRARY_APPROACH.d]} />
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
       {/* Path to Doctore House [28, 0, -18] — the paving patch itself is
            decorative (no collision) and already spans the house's south and
            west approach, so Phase C-8.13 left this mesh in place. */}
-      <mesh receiveShadow position={[26.5, -0.01, -19.0]} rotation={[-Math.PI / 2, 0, Math.PI * 0.12]}>
-        <planeGeometry args={[3.8, 4.5]} />
+      <mesh receiveShadow position={[VIA_SCHOLARIS_DOCTORE_APPROACH.cx, VIA_SCHOLARIS_DOCTORE_APPROACH.y, VIA_SCHOLARIS_DOCTORE_APPROACH.cz]} rotation={[-Math.PI / 2, 0, VIA_SCHOLARIS_DOCTORE_APPROACH.yaw]}>
+        <planeGeometry args={[VIA_SCHOLARIS_DOCTORE_APPROACH.w, VIA_SCHOLARIS_DOCTORE_APPROACH.d]} />
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
