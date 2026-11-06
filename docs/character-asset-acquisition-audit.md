@@ -47,6 +47,24 @@ The publisher's current general licence summary permits commercial use without c
 7. Run visual checks for body clipping, missing materials, weapon grip, foot sliding, shield orientation, and transition continuity.
 8. Keep a per-asset manifest with source URL, pack/version, acquisition date, licence/readme path, original filename, SHA-256, transformations made, and in-game destination.
 
+## Current runtime integration contract (source audit, 2026-11-06)
+
+The existing player/enemy GLB renderer is not a generic drop-in humanoid importer. Before a candidate model can replace or join the current catalogue, verify these concrete contracts in `src/components/3d/GladiatorMesh.tsx`:
+
+- **Skinned animation:** the model must contain a skinned mesh and animation clips. The loader's validity check accepts an animated skinned model (or a model with more than six meshes), but that check alone does not establish gameplay compatibility.
+- **Action clip mapping:** the runtime resolves the first available clip from each ordered list: idle `Fighting_Idle`, `Idle_Sword`, `Idle_Shield`, `Idle_A`, `Idle_Subtle`; walk `Walk`, `Jog`, `Sprint`, `Crouch_Walk`; light attack `Sword_Attack`, `Sword_Regular_A`, `Sword_Regular_Combo`, `Fighting_Right_Jab`; heavy attack `Sword_Regular_C`, `Sword_Attack_Air_Vertical`, `Attack_Ground_Pound`, `Melee_Hook`; block `Defend`, `Sword_Block`, `Idle_Shield`, `Shield_OneShot`; dodge `Roll`, `Dodge_back`, `Dodge_left`, `Slide`; hit `Hit_Chest`, `Hit_Head`, `Hit_Knockback`; death `Death_A`, `Death_B`, `Death_C`. A candidate that supplies none of an action's clips silently falls back to its first clip, which is not acceptable evidence of a usable combat rig. Map and visually verify every gameplay action.
+- **Body-weight and training silhouette:** the current deformation path recognizes exact anatomical joint names `pelvis`, `spine_01`, `upperarm_l`, `upperarm_r`, `thigh_l`, and `thigh_r`. It changes transverse bone scale only. If these names differ, weight and physique development will not affect the new model until an explicit mapping is implemented and tested.
+- **Bruise/swelling attachment:** existing damage markers attach to `upperarm_l`, `spine_01`, and `thigh_r`. Confirm their positions and local coordinate frames; do not assume the current offsets fit another skeleton.
+- **Equipment attachment:** hand bones are currently discovered by name heuristics containing `hand` or `wrist` plus a side indicator. Weapon/shield portals are only mounted when the corresponding hand bone is found. Verify both hand transforms, grip orientation, lefty mode, shield constraint, and weapon placement on the candidate model.
+- **Scale and origin:** `arena_roman.glb` is the baseline model with a visible height of approximately 1.10 units above the ground (its mesh extends below Y=0). Existing alternatives have explicit per-model root corrections. Measure candidate bounds and ground origin in the same animated pose before assigning any scale correction.
+- **Performance:** the candidate must not be preloaded with every customization variant. Measure compressed size, decoded textures, GPU memory, draw calls, and Android load time for the selected model only.
+
+The source test `src/utils/gladiatorBodyRig.test.ts` verifies the baseline `arena_roman.glb` has one mesh, one skin, 66 joints, 178 animation clips, no morph targets, and no animation scale tracks. This is a baseline fact for the shipped Roman model, not a guarantee about any external pack. Candidate compatibility must be demonstrated from the acquired file itself.
+
+### Consequence for the proposed proof of concept
+
+Start with one candidate base body and inspect its actual skeleton and clip names. Build a mapping report against the contract above before writing any runtime adapter. If the rig cannot support all actions, hand equipment, and the existing body-weight/physique deformation without fragile per-frame heuristics, keep the current Roman model and treat the candidate as a separate appearance pipeline rather than replacing the combat rig.
+
 ## Proposed proof of concept
 
 - Compare one base body from Universal Base Characters against one character from an explicitly modular pack.
