@@ -425,6 +425,17 @@ describe('E. Slice boundaries', () => {
     }
   });
 
+  test('race scene receives the persistent win count to select a roster rival', () => {
+    const app = code(load('../App.tsx'));
+    const scene = code(load('../components/3d/RaceScene.tsx'));
+    expect(app).toContain('rivalWins={profile?.racing?.wins ?? 0}');
+    expect(scene).toContain('resolveRaceCompetitor(rivalWins)');
+    expect(scene).toContain('resolveRaceRivalOutcome(raceFinishElapsed, competitor.lapDurationMs)');
+    expect(scene).toContain('competitor={competitor}');
+    expect(scene).toContain('data-race-opponent={competitor.id}');
+    expect(scene).not.toContain('const RACE_RIVAL_CONFIG');
+  });
+
   test('combat, workshop and progression logic are untouched by this slice', () => {
     for (const file of [
       './combatCalculations.ts',
