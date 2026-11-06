@@ -50,20 +50,24 @@ function DrinkingCup({ position }: { position: [number, number, number] }) {
 function Bench({ position, rotationY = 0 }: { position: [number, number, number]; rotationY?: number }) {
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
-      <mesh position={[0, 0.48, 0]} castShadow receiveShadow>
-        <boxGeometry args={[2.35, 0.16, 0.42]} />
-        <meshStandardMaterial color="#5a3821" roughness={0.85} />
+      {/* Low round timber stools leave the walkways open around the gaming tables. */}
+      <mesh position={[0, 0.53, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.39, 0.39, 0.14, 20]} />
+        <meshStandardMaterial color="#54351f" roughness={0.86} />
       </mesh>
-      {[-0.88, 0.88].map((x) => (
-        <mesh key={x} position={[x, 0.22, 0]} castShadow>
-          <boxGeometry args={[0.14, 0.48, 0.3]} />
-          <meshStandardMaterial color="#382519" roughness={0.9} />
+      <mesh position={[0, 0.605, 0]} castShadow>
+        <torusGeometry args={[0.36, 0.018, 5, 20]} />
+        <meshStandardMaterial color="#8b633c" metalness={0.18} roughness={0.72} />
+      </mesh>
+      {[0, 2.094, 4.188].map((angle) => (
+        <mesh key={angle} position={[Math.cos(angle) * 0.24, 0.25, Math.sin(angle) * 0.24]} castShadow>
+          <boxGeometry args={[0.09, 0.5, 0.09]} />
+          <meshStandardMaterial color="#382519" roughness={0.92} />
         </mesh>
       ))}
     </group>
   );
 }
-
 function DicePair() {
   return (
     <group position={[0.18, 0.99, 0.08]}>
@@ -252,14 +256,14 @@ function TavernRoom() {
       <CentralBrazier position={[4.65, 0, -0.1]} />
       {/* Central communal tables, benches, food, and busy patrons */}
       <TavernTable position={[-3.3, 0, -2.1]} rotationY={0.12} />
-      <Bench position={[-3.3, 0, -3.0]} />
-      <Bench position={[-3.3, 0, -1.2]} rotationY={Math.PI} />
+      <Bench position={[-3.3, 0, -3.42]} />
+      <Bench position={[-3.3, 0, -0.78]} rotationY={Math.PI} />
       <TavernTable position={[1.4, 0, -2.4]} rotationY={-0.15} />
-      <Bench position={[1.4, 0, -3.3]} />
-      <Bench position={[1.4, 0, -1.5]} rotationY={Math.PI} />
+      <Bench position={[1.4, 0, -3.72]} />
+      <Bench position={[1.4, 0, -1.08]} rotationY={Math.PI} />
       <TavernTable position={[-0.8, 0, 1.5]} rotationY={0.15} />
-      <Bench position={[-0.8, 0, 0.55]} />
-      <Bench position={[-0.8, 0, 2.45]} rotationY={Math.PI} />
+      <Bench position={[-0.8, 0, 0.25]} />
+      <Bench position={[-0.8, 0, 2.75]} rotationY={Math.PI} />
       <Patron position={[-4.1, 0, -2.5]} tunic="#a44731" facing={-0.25} />
       <Patron position={[-2.5, 0, -2.0]} tunic="#b48b42" facing={Math.PI} />
       <Patron position={[0.7, 0, -2.7]} tunic="#315d4a" facing={0.2} />
