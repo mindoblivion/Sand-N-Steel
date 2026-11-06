@@ -449,4 +449,32 @@ describe('E. Slice boundaries', () => {
       expect(source.includes('RaceScene'), file).toBe(false);
     }
   });
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// F. City overlays own keyboard and primary-action input
+// ══════════════════════════════════════════════════════════════════════════
+
+describe('F. Presented city overlays own input', () => {
+  test('forge and pre-race overlays block the primary action', () => {
+    const primary = code(handlerBody(citySrc, 'handlePrimaryAction'));
+    expect(primary).toContain('forgePanel || showRaceEntry');
+  });
+
+  test('forge and pre-race overlays block movement and close on Escape', () => {
+    const keyHandler = code(citySrc.slice(
+      citySrc.indexOf('const handleKeyDown'),
+      citySrc.indexOf('const handleKeyUp'),
+    ));
+    expect(keyHandler).toContain('if (forgePanel)');
+    expect(keyHandler).toContain("setForgePanel(false)");
+    expect(keyHandler).toContain('if (showRaceEntry)');
+    expect(keyHandler).toContain('setShowRaceEntry(false)');
+    expect(keyHandler).toContain('return;');
+  });
+
+  test('the keyboard listener refreshes when either overlay opens or closes', () => {
+    expect(citySrc).toContain('visitorPanel, forgePanel, showRaceEntry');
+  });
+});
 });
