@@ -150,6 +150,50 @@ function Patron({ position, tunic = '#8d3e2c', facing = 0 }: {
   );
 }
 
+function SeatedPatron({ position, tunic = '#8d3e2c', facing = 0 }: {
+  position: [number, number, number];
+  tunic?: string;
+  facing?: number;
+}) {
+  return (
+    <group position={position} rotation={[0, facing, 0]}>
+      {/* Seated hips and torso: lowered head height keeps the figure behind the tabletop. */}
+      <mesh position={[0, 0.78, -0.02]} castShadow>
+        <capsuleGeometry args={[0.25, 0.48, 4, 8]} />
+        <meshStandardMaterial color={tunic} roughness={0.94} />
+      </mesh>
+      <mesh position={[0, 1.43, -0.04]} castShadow>
+        <sphereGeometry args={[0.205, 12, 10]} />
+        <meshStandardMaterial color="#b9825b" roughness={0.95} />
+      </mesh>
+      <mesh position={[0, 1.49, -0.06]}>
+        <sphereGeometry args={[0.21, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
+        <meshStandardMaterial color="#34251d" roughness={1} />
+      </mesh>
+      {/* Bent legs project forward toward the table, with knees below its edge. */}
+      {[-0.13, 0.13].map((x) => (
+        <group key={x}>
+          <mesh position={[x, 0.39, 0.22]} rotation={[-Math.PI / 2.8, 0, 0]} castShadow>
+            <capsuleGeometry args={[0.09, 0.43, 3, 6]} />
+            <meshStandardMaterial color={tunic} roughness={0.95} />
+          </mesh>
+          <mesh position={[x, 0.16, 0.55]} castShadow>
+            <capsuleGeometry args={[0.075, 0.24, 3, 6]} />
+            <meshStandardMaterial color="#4b3022" roughness={0.95} />
+          </mesh>
+        </group>
+      ))}
+      {/* Forearms angle toward the gaming surface instead of hanging straight down. */}
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * 0.27, 0.93, 0.29]} rotation={[-0.82, 0, side * -0.16]} castShadow>
+          <capsuleGeometry args={[0.075, 0.36, 3, 6]} />
+          <meshStandardMaterial color={tunic} roughness={0.95} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function WallTorch({ position }: { position: [number, number, number] }) {
   return (
     <group position={position}>
@@ -264,11 +308,11 @@ function TavernRoom() {
       <TavernTable position={[-0.8, 0, 1.5]} rotationY={0.15} />
       <Bench position={[-0.8, 0, 0.25]} />
       <Bench position={[-0.8, 0, 2.75]} rotationY={Math.PI} />
-      <Patron position={[-4.1, 0, -2.5]} tunic="#a44731" facing={-0.25} />
-      <Patron position={[-2.5, 0, -2.0]} tunic="#b48b42" facing={Math.PI} />
-      <Patron position={[0.7, 0, -2.7]} tunic="#315d4a" facing={0.2} />
-      <Patron position={[2.4, 0, -2.1]} tunic="#8b392d" facing={Math.PI} />
-      <Patron position={[-1.8, 0, 1.4]} tunic="#7c573d" facing={0.6} />
+      <SeatedPatron position={[-3.3, 0, -3.42]} tunic="#a44731" facing={0} />
+      <SeatedPatron position={[-3.3, 0, -0.78]} tunic="#b48b42" facing={Math.PI} />
+      <SeatedPatron position={[1.4, 0, -3.72]} tunic="#315d4a" facing={0} />
+      <SeatedPatron position={[1.4, 0, -1.08]} tunic="#8b392d" facing={Math.PI} />
+      <SeatedPatron position={[-0.8, 0, 0.25]} tunic="#7c573d" facing={0} />
       {/* Earthenware, spare stools, and a wall of shield decorations */}
       <Amphora position={[-6.2, 0, -4.5]} scale={0.9} />
       <Amphora position={[6.1, 0, -3.8]} scale={0.78} />
