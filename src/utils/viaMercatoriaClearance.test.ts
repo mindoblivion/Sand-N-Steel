@@ -30,6 +30,9 @@ import {
   FORUM_TO_SHRINE_PATH,
   COURTYARD_TO_BARRACKS_PATH,
   COURTYARD_TO_MEDICAL_HOUSE_PATH,
+  NORTHWEST_TEMPLE_APPROACH,
+  SOUTHEAST_CRAFTING_APPROACH,
+  SOUTHWEST_GUILD_APPROACH,
 } from './streetGeometry';
 
 const BUILDING_FOOTPRINT_IDS = [
@@ -281,6 +284,48 @@ describe('registered rotated pedestrian pavement foundation intersections', () =
       'via-tabernaria overlaps city-tavern',
       'via-tabernaria-east overlaps caravanserai',
       'via-tabernaria-east overlaps smithing-forge',
+    ]);
+  });
+});
+
+
+/**
+ * Outer-district diagonal paving is visual-only and points toward future
+ * expansion areas. Keep its existing building intersections explicit until
+ * the city is reviewed in-game; do not move slabs or foundations from this
+ * numerical audit alone.
+ */
+describe('outer-district diagonal paving foundation intersections', () => {
+  const paths = [
+    NORTHWEST_TEMPLE_APPROACH,
+    SOUTHEAST_CRAFTING_APPROACH,
+    SOUTHWEST_GUILD_APPROACH,
+  ] as const;
+  const buildings = CITY_COLLIDERS.filter(
+    (collider): collider is RectCollider =>
+      collider.type === 'rect' && BUILDING_FOOTPRINT_IDS.includes(
+        collider.id as (typeof BUILDING_FOOTPRINT_IDS)[number],
+      ),
+  );
+
+  test('records the current intersections for visual review', () => {
+    const overlaps: string[] = [];
+    for (const path of paths) {
+      for (const building of buildings) {
+        if (rotatedRectOverlapsAabb(path, building)) {
+          overlaps.push(`${path.id} overlaps ${building.id}`);
+        }
+      }
+    }
+
+    // These are four existing mesh/foundation intersections. Their visual
+    // impact and intent require a landscape scene review before any transform
+    // changes; this baseline prevents them from changing silently.
+    expect(overlaps.sort()).toEqual([
+      'northwest-temple-approach overlaps veteran-hall',
+      'southeast-crafting-approach overlaps stable',
+      'southwest-guild-approach overlaps bathhouse',
+      'southwest-guild-approach overlaps bounty-hall',
     ]);
   });
 });
