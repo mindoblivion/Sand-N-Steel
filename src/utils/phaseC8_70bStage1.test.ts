@@ -474,7 +474,7 @@ describe('F. Presented city overlays own input', () => {
   });
 
   test('the keyboard listener refreshes when either overlay opens or closes', () => {
-    expect(citySrc).toContain('visitorPanel, forgePanel, showRaceEntry');
+    expect(citySrc).toContain('visitorPanel, colosseumPanel, showNavDrawer, forgePanel, showRaceEntry');
   });
 
   test('presented panels lock the continuous movement loop and clear held inputs', () => {
@@ -487,6 +487,29 @@ describe('F. Presented city overlays own input', () => {
   test('mobile joystick cannot start or update movement while a panel is open', () => {
     expect(citySrc).toContain('inputLockedRef.current || cityPanelInputLockedRef.current || touchIdRef.current !== null');
     expect(citySrc).toContain('inputLockedRef.current || cityPanelInputLockedRef.current || !joystickRef.current');
+  });
+ 
+// ══════════════════════════════════════════════════════════════════════════
+// G. The city map drawer owns input while open
+// ══════════════════════════════════════════════════════════════════════════
+
+describe('G. City map drawer owns input', () => {
+  test('the map drawer blocks primary actions and locks movement', () => {
+    const primary = code(handlerBody(citySrc, 'handlePrimaryAction'));
+    expect(primary).toContain('showNavDrawer');
+    expect(citySrc).toContain('colosseumPanel || showNavDrawer || forgePanel');
+    expect(citySrc).toContain('showNavDrawer, forgePanel, showRaceEntry');
+  });
+
+  test('Escape closes the map drawer without passing movement or action keys through', () => {
+    const keyHandler = code(citySrc.slice(
+      citySrc.indexOf('const handleKeyDown'),
+      citySrc.indexOf('const handleKeyUp'),
+    ));
+    expect(keyHandler).toContain('if (showNavDrawer)');
+    expect(keyHandler).toContain('setShowNavDrawer(false)');
+    const mapGuard = keyHandler.slice(keyHandler.indexOf('if (showNavDrawer)'), keyHandler.indexOf('if (forgePanel)'));
+    expect(mapGuard).toContain('return;');
   });
 });
 });
