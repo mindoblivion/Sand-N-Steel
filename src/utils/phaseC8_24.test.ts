@@ -76,6 +76,7 @@ import {
   VIA_DECUMANUS_EAST_EXTENSION,
   VIA_MERCATORIA_CONNECTOR,
   CARAVAN_BYPASS,
+  VIA_TABERNARIA,
 } from './streetGeometry';
 
 // ── Sources ───────────────────────────────────────────────────────────────
@@ -626,17 +627,14 @@ const STREETS: StreetRect[] = (() => {
       yaw: Math.PI / 2,
     },
   ];
-  const via = /<RomanPavedStreet\s+position=\{\[\s*(-?[\d.]+),\s*[\d.]+,\s*(-?[\d.]+)\s*\]\}\s+rotation=\{\[\s*0,\s*(-?)\s*Math\.PI \/ (\d+),\s*0\s*\]\}\s+length=\{([\d.]+)\}\s+width=\{([\d.]+)\}/.exec(streetsSrc);
-  if (via) {
-    out.push({
-      id: 'via-tabernaria',
-      cx: Number(via[1]),
-      cz: Number(via[2]),
-      yaw: (via[3] === '-' ? -1 : 1) * (Math.PI / Number(via[4])),
-      l: Number(via[5]),
-      w: Number(via[6]),
-    });
-  }
+  out.push({
+    id: VIA_TABERNARIA.id,
+    cx: VIA_TABERNARIA.cx,
+    cz: VIA_TABERNARIA.cz,
+    yaw: VIA_TABERNARIA.yaw,
+    l: VIA_TABERNARIA.d,
+    w: VIA_TABERNARIA.w,
+  });
   for (const m of all(streetsSrc, /<RomanPavedStreet\s+position=\{\[\s*(-?[\d.]+),\s*[\d.]+,\s*(-?[\d.]+)\s*\]\}\s+axis="x"\s+length=\{([\d.]+)\}\s+width=\{([\d.]+)\}/g)) {
     out.push({ id: `x-street@${m[1]}`, cx: Number(m[1]), cz: Number(m[2]), yaw: 0, l: Number(m[3]), w: Number(m[4]) });
   }
@@ -1062,5 +1060,15 @@ describe('Caravan Bypass registered pavement footprint', () => {
       CARAVAN_BYPASS.w,
       CARAVAN_BYPASS.d,
     ]).toEqual(['caravan-bypass', 21, 14.5, 10, 6]);
+  });
+});
+
+describe('Via Tabernaria registered diagonal footprint', () => {
+  test('preserves the street and bedding rotations independently', () => {
+    expect([
+      VIA_TABERNARIA.id, VIA_TABERNARIA.cx, VIA_TABERNARIA.cz,
+      VIA_TABERNARIA.w, VIA_TABERNARIA.d,
+      VIA_TABERNARIA.yaw, VIA_TABERNARIA.beddingYaw,
+    ]).toEqual(['via-tabernaria', -11, 8, 7, 12, Math.PI / 6, -Math.PI / 6]);
   });
 });
