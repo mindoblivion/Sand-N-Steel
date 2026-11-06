@@ -79,3 +79,12 @@ export const VIA_MERCATORIA_CONNECTOR: StreetRect = {
   w: 4,
   d: 6,
 };
+
+/** Caravan Bypass between the Caravanserai Inn and Stable. */
+export const CARAVAN_BYPASS: StreetRect = {
+  id: 'caravan-bypass',
+  cx: 21,
+  cz: 14.5,
+  w: 10,
+  d: 6,
+};
