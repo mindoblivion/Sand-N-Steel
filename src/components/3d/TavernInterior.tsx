@@ -301,6 +301,69 @@ function SeatedPatron({ position, tunic = '#8d3e2c', facing = 0, phase = 0 }: {
   );
 }
 
+function TavernKeeper() {
+  const keeper = useRef<THREE.Group>(null);
+  const servingArm = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    if (keeper.current) {
+      keeper.current.position.y = Math.sin(t * 1.05) * 0.012;
+    }
+    if (servingArm.current) {
+      // A restrained, slow polishing gesture keeps the keeper alive without drawing focus.
+      const motion = (Math.sin(t * 0.62 + 0.8) + 1) * 0.5;
+      servingArm.current.rotation.x = -0.16 - motion * 0.12;
+      servingArm.current.rotation.z = -0.2 - motion * 0.08;
+    }
+  });
+  return (
+    <group ref={keeper} position={[0, 0, -7.28]}>
+      {/* Keeper stands behind the counter; the counter naturally hides the lower body. */}
+      <mesh position={[0, 1.12, 0]} castShadow>
+        <capsuleGeometry args={[0.29, 0.82, 4, 8]} />
+        <meshStandardMaterial color="#6b3827" roughness={0.94} />
+      </mesh>
+      <mesh position={[0, 0.98, 0.19]} castShadow>
+        <boxGeometry args={[0.42, 0.72, 0.045]} />
+        <meshStandardMaterial color="#49301f" roughness={0.98} />
+      </mesh>
+      <mesh position={[0, 1.88, 0.015]} castShadow>
+        <sphereGeometry args={[0.225, 12, 10]} />
+        <meshStandardMaterial color="#b9825b" roughness={0.95} />
+      </mesh>
+      <mesh position={[0, 1.96, -0.045]} castShadow>
+        <sphereGeometry args={[0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.58]} />
+        <meshStandardMaterial color="#39271e" roughness={1} />
+      </mesh>
+      <mesh position={[0, 1.72, 0.12]} castShadow>
+        <capsuleGeometry args={[0.11, 0.13, 3, 6]} />
+        <meshStandardMaterial color="#60402e" roughness={0.96} />
+      </mesh>
+      <group position={[-0.31, 1.28, 0.08]} rotation={[-0.3, 0, 0.28]}>
+        <mesh castShadow>
+          <capsuleGeometry args={[0.09, 0.48, 3, 6]} />
+          <meshStandardMaterial color="#6b3827" roughness={0.95} />
+        </mesh>
+      </group>
+      <group ref={servingArm} position={[0.31, 1.28, 0.08]} rotation={[-0.16, 0, -0.2]}>
+        <mesh castShadow>
+          <capsuleGeometry args={[0.09, 0.48, 3, 6]} />
+          <meshStandardMaterial color="#6b3827" roughness={0.95} />
+        </mesh>
+        <mesh position={[0, -0.28, 0.04]} castShadow>
+          <sphereGeometry args={[0.09, 8, 6]} />
+          <meshStandardMaterial color="#b9825b" roughness={0.95} />
+        </mesh>
+      </group>
+      {/* A narrow bronze neck ring gives the keeper a distinct silhouette in warm light. */}
+      <mesh position={[0, 1.62, 0.015]}>
+        <torusGeometry args={[0.16, 0.025, 5, 12]} />
+        <meshStandardMaterial color="#a9854d" metalness={0.42} roughness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
 function WallShield({ position, rotationY = 0 }: {
   position: [number, number, number];
   rotationY?: number;
@@ -398,6 +461,8 @@ function TavernRoom() {
       {[-6, -3, 0, 3, 6].map((x) => (
         <TimberBeam key={x} position={[x, 3.55, 0]} size={[0.22, 0.38, 16]} />
       ))}
+      {/* The keeper is stationed behind the existing service counter. */}
+      <TavernKeeper />
       {/* Back bar and shelves of amphorae */}
       <mesh position={[0, 0.75, -6.7]} castShadow receiveShadow>
         <boxGeometry args={[5.8, 1.45, 0.8]} />
