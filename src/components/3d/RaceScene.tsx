@@ -176,12 +176,13 @@ import type { RaceCompetitor } from '../../utils/raceCompetitors';
  * ── Save boundary ─────────────────────────────────────────────────────────
  * This scene imports no storage service and never writes a profile directly.
  * After raceLap.ts validates the complete north-turn, south-turn and finish-line
- * route, the finish transition calls the optional `onRecordBestTime` callback.
- * App owns that one profile transaction and its existing save path; the scene
- * receives only the outcome needed to show the result. Aborting or returning to
- * the city never invokes the callback. Currency, fame, XP and unlock rewards are
- * not awarded. The first-race control hints remain a module-memory flag, never a
- * save, and a reload simply shows the labels again.
+ * route, the finish transition calls the optional `onRecordRaceCompletion` callback.
+ * App owns the atomic career transaction and its existing save path; the scene
+ * receives only the settlement result needed to show the outcome. A completed race
+ * records a team-specific best time, career result and (when eligible) a gold purse.
+ * The purse is limited to one payment per in-game day; aborting never settles a
+ * result. The first-race control hints remain a module-memory flag, never a save,
+ * and a reload simply shows the labels again.
  */
 export interface RaceSceneProps {
   /** Leave the race and return to the city at the pose captured on entry. */
