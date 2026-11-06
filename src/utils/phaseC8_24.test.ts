@@ -70,6 +70,12 @@ import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { PLAYER_RADIUS, CITY_COLLIDERS, type RectCollider } from './collisionShapes';
 import { FAST_TRAVEL_ARRIVALS } from './cityCollisions';
+import {
+  VIA_DECUMANUS_WEST,
+  VIA_DECUMANUS_EAST,
+  VIA_DECUMANUS_EAST_EXTENSION,
+  VIA_MERCATORIA_CONNECTOR,
+} from './streetGeometry';
 
 // ── Sources ───────────────────────────────────────────────────────────────
 
@@ -597,7 +603,20 @@ interface StreetRect {
   yaw: number;
 }
 const STREETS: StreetRect[] = (() => {
-  const out: StreetRect[] = [];
+  // These major slabs now use the shared geometry registry rather than JSX literals.
+  const out: StreetRect[] = [
+    ...[VIA_DECUMANUS_WEST, VIA_DECUMANUS_EAST, VIA_DECUMANUS_EAST_EXTENSION].map(
+      ({ id, cx, cz, w, d }) => ({ id, cx, cz, w, l: d, yaw: 0 }),
+    ),
+    {
+      id: VIA_MERCATORIA_CONNECTOR.id,
+      cx: VIA_MERCATORIA_CONNECTOR.cx,
+      cz: VIA_MERCATORIA_CONNECTOR.cz,
+      w: VIA_MERCATORIA_CONNECTOR.w,
+      l: VIA_MERCATORIA_CONNECTOR.d,
+      yaw: Math.PI / 2,
+    },
+  ];
   const via = /<RomanPavedStreet\s+position=\{\[\s*(-?[\d.]+),\s*[\d.]+,\s*(-?[\d.]+)\s*\]\}\s+rotation=\{\[\s*0,\s*(-?)\s*Math\.PI \/ (\d+),\s*0\s*\]\}\s+length=\{([\d.]+)\}\s+width=\{([\d.]+)\}/.exec(streetsSrc);
   if (via) {
     out.push({
