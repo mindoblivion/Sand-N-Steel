@@ -115,3 +115,29 @@ Everything above is source- and asset-measured. Nothing here is a visual accepta
 no GPU (SwiftShader, ~1–2 fps in the 3D scenes), so no frame of the race was used to judge framing,
 gait quality or touch feel, and none is claimed. Device acceptance for the existing race HUD, chase
 camera and touch mirroring remains outstanding.
+
+
+## Status update — 2026-11-06 (current main)
+
+This audit began as a read-only snapshot of an earlier implementation. Its measured asset findings and historical constraints remain useful, but the gap list and roadmap below are no longer a description of current main. The following source-level changes have since shipped; treat this section as the current status, and the earlier roadmap as historical context.
+
+### Previously listed gaps that are now implemented
+
+| Earlier gap | Current implementation on main | Evidence / scope |
+|---|---|---|
+| Player horse team not rendered | **Implemented.** `RaceHorseTeam.tsx` renders the selected Biga / Triga / Quadra formation procedurally using the shared station data. | `RaceHorseTeam.tsx`, `chariotTeamFormation.ts`; compact procedural geometry avoids loading the ~15 MB production horse GLBs into the race scene. |
+| Horse gait unavailable from supplied GLB clips | **Worked around for the race scene.** Procedural leg articulation is driven by race speed; the original GLB animation limitation remains true. | `RaceHorseTeam.tsx`; source-level implementation only, not a visual quality claim. |
+| Chariot wheels static | **Implemented.** Wheel roll is derived from travelled distance and the stock wheel radius, with frame-delta clamping. | `chariotMovement.ts`, `RaceScene.tsx`; regression coverage includes wheel delta clamping (#307). |
+| No lap / finish / time result | **Implemented.** A pure lap tracker requires the north turn, south turn, and return across the finish plane; the scene then transitions the race state to finished and presents the elapsed time. | `raceLap.ts`, `raceState.ts`, `RaceScene.tsx`. |
+| No best-time persistence | **Implemented.** A valid finish may update only the best-time field for the selected team size. Slower/equal times are no-ops; abort/exit does not record a time. | `raceRecords.ts`, `App.tsx`, `raceRecords.test.ts`. Persistence remains through the existing profile save path. |
+| No rival | **Implemented.** A rival runs its own lap clock and the finish presentation resolves victory, defeat, or photo-finish against the player's elapsed time. | `RaceScene.tsx`, `raceLap.ts`, rival outcome helpers. |
+
+### Current racing scope and remaining validation
+
+- Team progression remains Biga (2), Triga (3), and Quadra (4), with the existing unlock/purchase rules in `racingProgression.ts`.
+- Race finish writes are intentionally narrow: only a valid completed lap can request the best-time transaction; aborting remains read-only. The record transaction does not award gold, unlocks, or other progression.
+- Wheel delta clamping and several lap / state / record behaviors have regression coverage. Source-level tests are not a substitute for playing a full race on the target phone.
+- **Not verified by this source audit:** Samsung frame-rate measurements, long-session stability, visual gait quality, touch feel, or sustained mobile thermal performance. The sandbox's GPU limitations still prevent a meaningful visual/performance acceptance claim.
+- **Not established by this update:** race wagers, track incidents, prize/reward progression, or a complete racing career loop. These remain separate design/implementation decisions rather than implied shipped features.
+
+The earlier measured arena geometry, collider layout, movement envelope, chariot asset measurements, and horse-asset clip analysis are retained as historical evidence. Re-measure those values before changing track geometry, fit, or rendering budgets.
