@@ -81,6 +81,7 @@ import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { PLAYER_RADIUS, CITY_COLLIDERS, type RectCollider } from './collisionShapes';
 import { FAST_TRAVEL_ARRIVALS } from './cityCollisions';
+import { VIA_DECUMANUS_EAST } from './streetGeometry';
 
 // ── Sources ───────────────────────────────────────────────────────────────
 
@@ -1205,7 +1206,7 @@ describe('G. The phase moves props and nothing else', () => {
   });
 
   test('the street routes and the Via Mercatoria / Via Decumanus layout are untouched', () => {
-    expect(streetsSrc).toContain('position={[11, 0, 0]}\n        axis="x"\n        length={14}\n        width={8}');
+    expect(streetsSrc).toContain('position={[VIA_DECUMANUS_EAST.cx, 0, VIA_DECUMANUS_EAST.cz]}\n        axis="x"\n        length={VIA_DECUMANUS_EAST.w}\n        width={VIA_DECUMANUS_EAST.d}');
     expect(streetsSrc).toContain('VIA_MERCATORIA_PATH.cx');
     expect(streetsSrc).toContain('<MerchantPropsCluster position={[17, 0, -4]} />');
     // The west combat courtyard's stone border ring was out of scope in this phase;
