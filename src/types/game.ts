@@ -819,6 +819,16 @@ export interface RacingProgression {
   selected?: number;
   /** Best completed lap, in milliseconds, keyed by team size. Absent on older saves. */
   bestTimes?: Partial<Record<ChariotTeamSize, number>>;
+  /** Validated completed laps, including losses and photo finishes. */
+  completed?: number;
+  /** Completed races won against the scheduled rival. */
+  wins?: number;
+  /** Completed races lost against the scheduled rival. */
+  losses?: number;
+  /** Completed races within one tenth of the rival's time. */
+  photoFinishes?: number;
+  /** In-game day on which the last completion purse was paid; one purse per day. */
+  lastPurseDay?: number;
 }
 
 /**

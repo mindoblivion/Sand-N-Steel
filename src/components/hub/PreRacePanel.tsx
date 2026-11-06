@@ -134,8 +134,8 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
         <div className="flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4">
           <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
           <p>
-            No currency is wagered or awarded yet. A completed lap can update your personal best
-            for this horse team; abandoning the race leaves your records unchanged.
+            Entry is free. A valid finish earns a completion purse once per in-game day, with a
+            small bonus for beating the rival. Abandoning the race earns nothing and changes no records.
           </p>
         </div>
 

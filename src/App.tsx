@@ -16,7 +16,7 @@ import type { StorefrontId } from './data/shops';
 import { purchaseChariotPart, equipChariotPart, resolveChariotLoadout } from './utils/chariotLoadout';
 import { settleDuelFame, settleDuelGold } from './utils/duelRewards';
 import { purchaseRacingConfig, selectRacingConfig, resolveRacingState } from './utils/racingProgression';
-import { recordRaceBestTime } from './utils/raceRecords';
+import { settleRaceCompletion, type RaceCompletionOutcome, type RaceCompletionResult } from './utils/raceRecords';
 import { purchaseLaurel, selectDisplayedTitle, type LaurelResult } from './utils/laurels';
 // A8 — TRIUMPHS: the retained deeds. The evaluator is pure and the ONE shipped
 // call site is the duel result below (A8 — Director ruling R5); `withPeakGold` is
@@ -985,19 +985,21 @@ export function App() {
   };
 
   /**
-   * Stage 2 — a completed lap may improve only its selected team's best-time field.
-   * Persistence stays here in App; abort/exit never calls this transaction.
+   * A validated finish settles best time, career record and (when eligible)
+   * the day's completion purse in one save transaction. Abort never calls it.
    */
-  const handleRecordRaceBestTime = (teamSize: ChariotTeamSize, elapsedMs: number): 'new-best' | 'not-best' | 'save-failed' => {
+  const handleRecordRaceCompletion = (
+    teamSize: ChariotTeamSize,
+    elapsedMs: number,
+    outcome: RaceCompletionOutcome,
+  ): RaceCompletionResult | null => {
     const current = profileRef.current ?? profile;
-    if (!current) return 'save-failed';
-    const result = recordRaceBestTime(current, teamSize, elapsedMs);
-    if (!result.ok) return 'save-failed';
-    if (!result.improved) return 'not-best';
-    if (!saveProfile(result.profile)) return 'save-failed';
+    if (!current) return null;
+    const result = settleRaceCompletion(current, teamSize, elapsedMs, outcome, resolveTimeState(current).day);
+    if (!result.ok || !saveProfile(result.profile)) return null;
     profileRef.current = result.profile;
     setProfile(result.profile);
-    return 'new-best';
+    return result;
   };
 
   /**
@@ -2359,7 +2361,7 @@ export function App() {
               phase={resolveTimeState(profile).phase}
               teamSize={profile ? resolveRacingState(profile).horses : 2}
               chariotLoadout={resolveChariotLoadout(profile).equipped}
-              onRecordBestTime={handleRecordRaceBestTime}
+              onRecordRaceCompletion={handleRecordRaceCompletion}
             />
           </React.Suspense>
           </LazySceneBoundary>

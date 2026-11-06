@@ -815,11 +815,11 @@ describe('P4 §G — the exclusions hold', () => {
     expect(components).toEqual(['/App.tsx', '/components/hub/StablePanel.tsx']);
   });
 
-  test('racing adds only the optional best-time record alongside unlocks and selection', () => {
+  test('racing progression fields remain optional alongside unlocks, selection and career records', () => {
     const start = GAME_TYPES.indexOf('export interface RacingProgression {');
     const body = GAME_TYPES.slice(start, GAME_TYPES.indexOf('}', start));
     const fields = [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\??:/gm)].map((match) => match[1]);
-    expect(fields).toEqual(['unlocked', 'selected', 'bestTimes']);
+    expect(fields).toEqual(['unlocked', 'selected', 'bestTimes', 'completed', 'wins', 'losses', 'photoFinishes', 'lastPurseDay']);
     // The stable module adds no stable-specific fields to racing.
     for (const token of ['quality', 'conditioning', 'stableTeamSize']) {
       expect(RACING.includes(token), token).toBe(false);
