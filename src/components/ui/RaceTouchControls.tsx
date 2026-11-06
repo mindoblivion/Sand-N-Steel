@@ -82,6 +82,7 @@ const holdProps = (
 interface RaceControlButtonProps {
   control: string;
   label: string;
+  accessibleLabel: string;
   hint: string;
   showHints: boolean;
   className: string;
@@ -94,6 +95,7 @@ interface RaceControlButtonProps {
 const RaceControlButton: React.FC<RaceControlButtonProps> = ({
   control,
   label,
+  accessibleLabel,
   hint,
   showHints,
   className,
@@ -104,6 +106,7 @@ const RaceControlButton: React.FC<RaceControlButtonProps> = ({
   <button
     type="button"
     data-race-control={control}
+    aria-label={accessibleLabel}
     data-race-rev={rev ? 'true' : 'false'}
     title={hint}
     {...handlers}
@@ -148,6 +151,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
       <RaceControlButton
         control="steer-left"
         label="LEFT"
+        accessibleLabel="Steer left (hold)"
         hint="hold to steer left"
         showHints={showHints}
         className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-amber-600 to-amber-800 border-amber-300 text-amber-50"
@@ -158,6 +162,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
       <RaceControlButton
         control="steer-right"
         label="RIGHT"
+        accessibleLabel="Steer right (hold)"
         hint="hold to steer right"
         showHints={showHints}
         className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-amber-600 to-amber-800 border-amber-300 text-amber-50"
@@ -173,6 +178,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
       <RaceControlButton
         control="throttle"
         label={revving ? 'REV' : 'THROTTLE'}
+        accessibleLabel="Throttle (hold)"
         hint="hold to drive"
         showHints={showHints}
         className={`w-[min(5.5rem,16vh)] h-[min(5.5rem,16vh)] bg-gradient-to-br from-lime-600 to-emerald-800 border-lime-300 text-lime-50 ${
@@ -186,6 +192,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
       <RaceControlButton
         control="brake"
         label="BRAKE"
+        accessibleLabel="Brake (hold)"
         hint="hold to brake / reverse"
         showHints={showHints}
         className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-red-700 to-rose-900 border-red-300 text-rose-50"
