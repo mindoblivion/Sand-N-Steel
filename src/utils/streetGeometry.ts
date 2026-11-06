@@ -226,3 +226,50 @@ export const VIA_TRIUMPHALIS_RUNNER: StreetRect = {
   w: 5,
   d: 21,
 };
+
+/** Via Scholaris academy-quarter decorative paving patches (visual only). */
+export interface AcademyPavingRect extends StreetRect {
+  yaw: number;
+  y: number;
+  colorRole: 'main' | 'approach';
+}
+export const VIA_SCHOLARIS_MAIN: AcademyPavingRect = {
+  id: 'via-scholaris-main',
+  cx: 21.5,
+  cz: -18.5,
+  w: 5,
+  d: 9,
+  yaw: -Math.PI / 4,
+  y: -0.012,
+  colorRole: 'main',
+};
+export const VIA_SCHOLARIS_ACADEMY_APPROACH: AcademyPavingRect = {
+  id: 'via-scholaris-academy-approach',
+  cx: 27.8,
+  cz: -24.2,
+  w: 4,
+  d: 7,
+  yaw: Math.PI / 4,
+  y: -0.01,
+  colorRole: 'approach',
+};
+export const VIA_SCHOLARIS_LIBRARY_APPROACH: AcademyPavingRect = {
+  id: 'via-scholaris-library-approach',
+  cx: 24,
+  cz: -25.5,
+  w: 3.6,
+  d: 7,
+  yaw: -Math.PI * 0.15,
+  y: -0.01,
+  colorRole: 'approach',
+};
+export const VIA_SCHOLARIS_DOCTORE_APPROACH: AcademyPavingRect = {
+  id: 'via-scholaris-doctore-approach',
+  cx: 26.5,
+  cz: -19,
+  w: 3.8,
+  d: 4.5,
+  yaw: Math.PI * 0.12,
+  y: -0.01,
+  colorRole: 'approach',
+};
