@@ -88,6 +88,8 @@ import type { CountdownStep, RaceState } from '../../utils/raceState';
 import { advanceRaceLap, createRaceLapTracker, getRaceLapStage } from '../../utils/raceLap';
 import type { RaceLapStage } from '../../utils/raceLap';
 import { getRaceRivalPose, getRaceRivalSpeed, resolveRaceRivalOutcome } from '../../utils/raceRival';
+import { resolveRaceCompetitor } from '../../utils/raceCompetitors';
+import type { RaceCompetitor } from '../../utils/raceCompetitors';
 
 /**
  * RaceScene.tsx — Phase C-8.70B Stage 1, Slice 1 (the race scene and its state
@@ -218,6 +220,8 @@ export interface RaceSceneProps {
   teamSize?: ChariotTeamSize;
   /** Read-only equipped chariot parts; missing/legacy profiles resolve to stock. */
   chariotLoadout?: ChariotEquippedResolved;
+  /** Completed victories select the next rival tier; defaults to the first challenger. */
+  rivalWins?: number;
   /** App-owned atomic career settlement, called only after a validated lap finish. */
   onRecordRaceCompletion?: (teamSize: ChariotTeamSize, elapsedMs: number, outcome: RaceCompletionOutcome) => RaceCompletionResult | null;
 }
@@ -536,19 +540,19 @@ const RaceChariotKitWheels: React.FC<{
   );
 };
 
-const RACE_RIVAL_CONFIG = { lapDurationMs: 60_000, startSide: 1 as const };
-
-/** One presentation-only rival. Player lap validation and persistence remain authoritative. */
+/** One selected roster rival; only one extra chariot is rendered for mobile budgets. */
 const RaceRivalChariot: React.FC<{
   raceState: RaceState;
   startedAt: number | null;
   frozen: boolean;
-}> = ({ raceState, startedAt, frozen }) => {
+  competitor: RaceCompetitor;
+}> = ({ raceState, startedAt, frozen, competitor }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
   const group = useRef<THREE.Group>(null);
   const roll = useRef(0);
   const finishedRef = useRef(false);
   const [finished, setFinished] = useState(false);
+  const config = { lapDurationMs: competitor.lapDurationMs, startSide: competitor.startSide };
 
   useEffect(() => {
     if (raceState === 'idle' || raceState === 'countdown' || raceState === 'aborted') {
@@ -561,6 +565,7 @@ const RaceRivalChariot: React.FC<{
     const scene = gltf.scene.clone(true);
     const wheels: THREE.Group[] = [];
     scene.updateMatrixWorld(true);
+    applyChariotFinish(scene, getChariotPartByFinish(competitor.finish)?.overrides ?? []);
     for (const name of RACE_WHEEL_NODE_NAMES) {
       const node = scene.getObjectByName(name);
       if (!node) continue;
@@ -573,17 +578,17 @@ const RaceRivalChariot: React.FC<{
       wheels.push(pivot);
     }
     return { scene, wheels };
-  }, [gltf.scene]);
+  }, [gltf.scene, competitor.finish]);
 
-  const initialPose = getRaceRivalPose(0, RACE_RIVAL_CONFIG);
-  const rivalSpeed = getRaceRivalSpeed(RACE_RIVAL_CONFIG);
+  const initialPose = getRaceRivalPose(0, config);
+  const rivalSpeed = getRaceRivalSpeed(config);
 
   useFrame((_state, delta) => {
     if (!group.current || frozen) return;
     // Keep the rival on its own race clock after the player finishes.
     const raceClockActive = (raceState === 'racing' || raceState === 'finished') && startedAt !== null;
     const elapsed = raceClockActive ? Math.max(0, performance.now() - startedAt) : 0;
-    const next = getRaceRivalPose(elapsed, RACE_RIVAL_CONFIG);
+    const next = getRaceRivalPose(elapsed, config);
     group.current.position.set(next.x, RACE_START_POSITION[1], next.z);
     group.current.rotation.y = next.heading + CHARIOT_MODEL_YAW_OFFSET;
 
@@ -603,6 +608,7 @@ const RaceRivalChariot: React.FC<{
       position={[initialPose.x, RACE_START_POSITION[1], initialPose.z]}
       rotation={[0, initialPose.heading + CHARIOT_MODEL_YAW_OFFSET, 0]}
       scale={CHARIOT_MODEL_SCALE}
+      data-race-competitor={competitor.id}
     >
       <primitive object={body.scene} />
       <RaceHorseTeam teamSize={2} speed={(raceState === 'racing' || raceState === 'finished') && startedAt !== null && !frozen && !finished ? rivalSpeed : 0} />
@@ -696,6 +702,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   phase = DEFAULT_PHASE,
   teamSize = 2,
   chariotLoadout,
+  rivalWins = 0,
   onRecordRaceCompletion,
 }) => {
   const [raceState, setRaceState] = useState<RaceState>(RACE_INITIAL_STATE);
@@ -729,9 +736,10 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const [revving, setRevving] = useState(false);
   const [launchQuality, setLaunchQuality] = useState<ChariotLaunchQuality | null>(null);
   const [showHints, setShowHints] = useState(!hasRacedThisSession);
+  const competitor = resolveRaceCompetitor(rivalWins);
   const rivalResult = raceFinishElapsed === null
     ? null
-    : resolveRaceRivalOutcome(raceFinishElapsed, RACE_RIVAL_CONFIG.lapDurationMs);
+    : resolveRaceRivalOutcome(raceFinishElapsed, competitor.lapDurationMs);
 
   /**
    * Day/Night T1/T2 — the circus draws the CITY's table (no race-only sun), with two
@@ -1060,7 +1068,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   onFinish={() => {
                     const elapsedMs = raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt);
                     setRaceFinishElapsed(elapsedMs);
-                    const outcome = resolveRaceRivalOutcome(elapsedMs, RACE_RIVAL_CONFIG.lapDurationMs)?.outcome ?? 'photo-finish';
+                    const outcome = resolveRaceRivalOutcome(elapsedMs, competitor.lapDurationMs)?.outcome ?? 'photo-finish';
                     setRaceSettlement(onRecordRaceCompletion ? onRecordRaceCompletion(teamSize, elapsedMs, outcome) : null);
                     setRaceState((state) => finishRace(state));
                   }}
@@ -1069,6 +1077,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   raceState={raceState}
                   startedAt={raceStartedAt}
                   frozen={frozen}
+                  competitor={competitor}
                 />
               </Suspense>
             </ThreeComponentErrorBoundary>
@@ -1193,12 +1202,14 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             <p className="mt-4 text-sm uppercase tracking-widest text-neutral-400">Your time</p>
             <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-lime-300" data-race-finish-time={formatRaceElapsed(raceFinishElapsed ?? 0)}>{formatRaceElapsed(raceFinishElapsed ?? 0)}</p>
             {rivalResult && (
-              <div className="mt-5 rounded-2xl border border-amber-700/50 bg-neutral-900/80 px-4 py-3" data-race-result={rivalResult.outcome}>
+              <div className="mt-5 rounded-2xl border border-amber-700/50 bg-neutral-900/80 px-4 py-3" data-race-result={rivalResult.outcome} data-race-opponent={competitor.id}>
+                <p className="mb-1 text-[10px] uppercase tracking-widest text-neutral-500">Opponent · {competitor.faction}</p>
+                <p className="font-serif text-sm font-bold text-amber-100">{competitor.name}</p>
                 <p className="font-serif text-lg font-black uppercase tracking-wider text-amber-200">
                   {rivalResult.outcome === 'victory' ? 'Victory' : rivalResult.outcome === 'defeat' ? 'Rival Victory' : 'Photo Finish'}
                 </p>
-                <p className="mt-1 text-sm text-neutral-300" data-race-opponent-time={formatRaceElapsed(RACE_RIVAL_CONFIG.lapDurationMs)}>
-                  Rival time · {formatRaceElapsed(RACE_RIVAL_CONFIG.lapDurationMs)}
+                <p className="mt-1 text-sm text-neutral-300" data-race-opponent-time={formatRaceElapsed(competitor.lapDurationMs)}>
+                  {competitor.name} · {formatRaceElapsed(competitor.lapDurationMs)}
                 </p>
                 <p className="mt-1 text-sm text-neutral-400">
                   {rivalResult.outcome === 'photo-finish'
