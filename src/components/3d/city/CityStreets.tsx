@@ -8,6 +8,7 @@ import {
   VIA_DECUMANUS_EAST_EXTENSION,
   VIA_MERCATORIA_PATH,
   VIA_MERCATORIA_CONNECTOR,
+  CARAVAN_BYPASS,
 } from '../../../utils/streetGeometry';
 import {
   RomanBench,
@@ -391,15 +392,15 @@ export const CityStreets = React.memo(() => {
       />
 
       {/* Caravan Bypass (Inn [16,0,14] -> Stable [26,0,15]) */}
-      <mesh receiveShadow position={[21, -0.015, 14.5]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[10, 6.0]} />
+      <mesh receiveShadow position={[CARAVAN_BYPASS.cx, -0.015, CARAVAN_BYPASS.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[CARAVAN_BYPASS.w, CARAVAN_BYPASS.d]} />
         <meshStandardMaterial color={ROMAN_PALETTE.travertineDark.color} roughness={0.85} />
       </mesh>
       <RomanPavedStreet
-        position={[21, 0, 14.5]}
+        position={[CARAVAN_BYPASS.cx, 0, CARAVAN_BYPASS.cz]}
         axis="x"
-        length={10}
-        width={6.0}
+        length={CARAVAN_BYPASS.w}
+        width={CARAVAN_BYPASS.d}
         district="rustic"
         hasGutters={true}
       />
