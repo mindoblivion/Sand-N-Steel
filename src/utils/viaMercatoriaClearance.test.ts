@@ -16,6 +16,7 @@ import {
   VIA_DECUMANUS_EAST,
   VIA_DECUMANUS_EAST_EXTENSION,
   VIA_MERCATORIA_PATH,
+  VIA_MERCATORIA_CONNECTOR,
 } from './streetGeometry';
 
 const BUILDING_FOOTPRINT_IDS = [
@@ -110,5 +111,17 @@ describe('Via Decumanus registered pavement footprints', () => {
       expect(segment.w).toBeGreaterThan(0);
       expect(segment.d).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('Via Mercatoria connector footprint', () => {
+  test('preserves the connector between the east extension and market', () => {
+    expect([
+      VIA_MERCATORIA_CONNECTOR.id,
+      VIA_MERCATORIA_CONNECTOR.cx,
+      VIA_MERCATORIA_CONNECTOR.cz,
+      VIA_MERCATORIA_CONNECTOR.w,
+      VIA_MERCATORIA_CONNECTOR.d,
+    ]).toEqual(['via-mercatoria-connector', 22, -2, 4, 6]);
   });
 });

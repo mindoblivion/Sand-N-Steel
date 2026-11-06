@@ -7,6 +7,7 @@ import {
   VIA_DECUMANUS_EAST,
   VIA_DECUMANUS_EAST_EXTENSION,
   VIA_MERCATORIA_PATH,
+  VIA_MERCATORIA_CONNECTOR,
 } from '../../../utils/streetGeometry';
 import {
   RomanBench,
@@ -226,8 +227,8 @@ export const CityStreets = React.memo(() => {
             Extension down to the relocated General Store [22, 0, -5], then south
             toward the Merchant House [26, 0, -13] entrance on its west face. */}
       {/* Connector: East Extension [22.5, 0, 1] → General Store [22, 0, -5] */}
-      <mesh receiveShadow position={[22, -0.015, -2]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[4, 6]} />
+      <mesh receiveShadow position={[VIA_MERCATORIA_CONNECTOR.cx, -0.015, VIA_MERCATORIA_CONNECTOR.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[VIA_MERCATORIA_CONNECTOR.w, VIA_MERCATORIA_CONNECTOR.d]} />
         <meshStandardMaterial
           color={ROMAN_PALETTE.roadFlagstone.color}
           roughness={0.82}
@@ -236,10 +237,10 @@ export const CityStreets = React.memo(() => {
         />
       </mesh>
       <RomanPavedStreet
-        position={[22, 0, -2]}
+        position={[VIA_MERCATORIA_CONNECTOR.cx, 0, VIA_MERCATORIA_CONNECTOR.cz]}
         axis="z"
-        length={6}
-        width={4}
+        length={VIA_MERCATORIA_CONNECTOR.d}
+        width={VIA_MERCATORIA_CONNECTOR.w}
         district="commercial"
         hasGutters={true}
       />
