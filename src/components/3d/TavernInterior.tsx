@@ -223,11 +223,19 @@ function SeatedPatron({ position, tunic = '#8d3e2c', facing = 0, phase = 0 }: {
   phase?: number;
 }) {
   const body = useRef<THREE.Group>(null);
+  const sippingArm = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
     if (!body.current) return;
     const t = clock.elapsedTime * 1.15 + phase;
     body.current.position.y = position[1] + Math.sin(t) * 0.018;
     body.current.rotation.y = facing + Math.sin(t * 0.42) * 0.025;
+    // A slow, staggered toast: lift the cup briefly, then return the forearm to the table.
+    if (sippingArm.current) {
+      const sip = (Math.sin(clock.elapsedTime * 0.48 + phase * 1.7) + 1) * 0.5;
+      const lift = Math.max(0, (sip - 0.76) / 0.24);
+      sippingArm.current.rotation.x = -lift * 1.05;
+      sippingArm.current.rotation.z = -0.12 - lift * 0.18;
+    }
   });
   return (
     <group ref={body} position={position} rotation={[0, facing, 0]}>
@@ -258,12 +266,20 @@ function SeatedPatron({ position, tunic = '#8d3e2c', facing = 0, phase = 0 }: {
         </group>
       ))}
       {/* Forearms angle toward the gaming surface instead of hanging straight down. */}
-      {[-1, 1].map((side) => (
-        <mesh key={side} position={[side * 0.27, 0.93, 0.29]} rotation={[-0.82, 0, side * -0.16]} castShadow>
+      <mesh position={[-0.27, 0.93, 0.29]} rotation={[-0.82, 0, 0.16]} castShadow>
+        <capsuleGeometry args={[0.075, 0.36, 3, 6]} />
+        <meshStandardMaterial color={tunic} roughness={0.95} />
+      </mesh>
+      <group ref={sippingArm} position={[0.27, 0.93, 0.29]} rotation={[-0.82, 0, -0.16]}>
+        <mesh castShadow>
           <capsuleGeometry args={[0.075, 0.36, 3, 6]} />
           <meshStandardMaterial color={tunic} roughness={0.95} />
         </mesh>
-      ))}
+        {/* Cup follows the raised hand during the sip gesture. */}
+        <group position={[0, -0.27, 0.2]}>
+          <DrinkingCup position={[0, 0, 0]} />
+        </group>
+      </group>
     </group>
   );
 }
