@@ -815,11 +815,28 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
     expect(MODAL).toContain('Selected cloud save');
     expect(MODAL).toContain('currentProfile.gold');
     expect(MODAL).toContain('preview.gold');
-    // A synchronous in-flight ref prevents duplicate local replacement before React rerenders.
-    expect(MODAL).toContain('const restoreInFlightRef = useRef(false);');
-    expect(MODAL).toContain('if (restoreInFlightRef.current) return;');
-    expect(MODAL).toContain('restoreInFlightRef.current = true;');
-    expect(MODAL).toContain('restoreInFlightRef.current = false;');
+    // A module-level lock prevents duplicate restores across modal remounts.
+    expect(MODAL).toContain('let driveRestoreInFlight = false;');
+    expect(MODAL).toContain('if (driveRestoreInFlight) {');
+    expect(MODAL).toContain('driveRestoreInFlight = true;');
+    expect(MODAL).toContain('driveRestoreInFlight = false;');
+    expect(MODAL).toContain('const [restorePendingMessage, setRestorePendingMessage] = useState<string | null>(null);');
+    expect(MODAL).toContain('A Google Drive restore is already in progress. Please wait before trying again.');
+    expect(MODAL).toContain('const isMountedRef = useRef(false);');
+    expect(MODAL).toContain('if (!isMountedRef.current) return;');
+    expect(MODAL).toContain('isMountedRef.current = true;');
+    expect(MODAL).toContain('isMountedRef.current = false;');
+
+    // The full restore operation has a bounded lifetime, including token acquisition.
+    expect(DRIVE).toContain('export const DRIVE_PROFILE_DOWNLOAD_TIMEOUT_MS = 30_000;');
+    expect(DRIVE).toContain('const controller = new AbortController();');
+    expect(DRIVE).toContain('signal: controller.signal');
+    expect(DRIVE).toContain('controller.abort()');
+    expect(DRIVE).toContain('Google Drive restore timed out. Please try again.');
+    expect(DRIVE).toContain('return await Promise.race([request(), timeout]);');
+    expect(DRIVE).toContain('if (timeoutId !== undefined) clearTimeout(timeoutId);');
+    const restoreService = DRIVE.slice(DRIVE.indexOf('export async function loadProfileFromDrive'));
+    expect(restoreService.indexOf('setTimeout(')).toBeLessThan(restoreService.indexOf('await getAccessToken()'));
 
     // …and the import path hands that profile straight to the existing save.
     expect(APP).toContain('saveProfile(loadedProfile);');
