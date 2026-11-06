@@ -2142,7 +2142,7 @@ export function App() {
         )}
 
         {currentScreen === 'create_character' && (
-          <React.Suspense fallback={<div className="w-full h-full min-h-[100dvh] bg-neutral-950" aria-busy="true" />}>
+          <React.Suspense fallback={<WaitSurface destination="character_creation" rotate={false} />}>
             <CharacterCreation
             onComplete={handleCharacterCreated}
             onCancel={() => setCurrentScreen('title')}
