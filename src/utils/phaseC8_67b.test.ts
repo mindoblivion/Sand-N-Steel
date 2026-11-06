@@ -815,6 +815,11 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
     expect(MODAL).toContain('Selected cloud save');
     expect(MODAL).toContain('currentProfile.gold');
     expect(MODAL).toContain('preview.gold');
+    // A synchronous in-flight ref prevents duplicate local replacement before React rerenders.
+    expect(MODAL).toContain('const restoreInFlightRef = useRef(false);');
+    expect(MODAL).toContain('if (restoreInFlightRef.current) return;');
+    expect(MODAL).toContain('restoreInFlightRef.current = true;');
+    expect(MODAL).toContain('restoreInFlightRef.current = false;');
 
     // …and the import path hands that profile straight to the existing save.
     expect(APP).toContain('saveProfile(loadedProfile);');
