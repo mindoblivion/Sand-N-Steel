@@ -388,7 +388,7 @@ describe('E. Slice boundaries', () => {
     expect(sceneSrc).toContain('onLapStageChange={setLapStage}');
   });
 
-  test('the equipped finish reaches reinforced race wheels without changing the rival', () => {
+  test('the player finish reaches equipped wheels and the rival uses its own faction finish', () => {
     expect(sceneSrc).toContain('chariotLoadout');
     expect(sceneSrc).toContain('finish={finish}');
     expect(sceneSrc).toContain('const overrides = getChariotPartByFinish(finish)?.overrides ?? []');
@@ -397,8 +397,9 @@ describe('E. Slice boundaries', () => {
     const rivalStart = sceneSrc.indexOf('const RaceRivalChariot');
     const rivalEnd = sceneSrc.indexOf('const RaceClock', rivalStart);
     const rival = sceneSrc.slice(rivalStart, rivalEnd);
-    expect(rival).not.toContain('getChariotPartByFinish');
-    expect(rival).not.toContain('applyChariotFinish');
+    expect(rival).toContain('applyChariotFinish(scene, getChariotPartByFinish(competitor.finish)?.overrides ?? [])');
+    expect(sceneSrc).toContain('competitor={competitor}');
+    expect(rival).toContain('data-race-competitor={competitor.id}');
   });
 
   test('App hands the profile-resolved equipped loadout into the race scene', () => {
@@ -423,6 +424,17 @@ describe('E. Slice boundaries', () => {
       expect(load(file).includes('CIRCUS_RACE_START')).toBe(false);
       expect(load(file).includes('raceState')).toBe(false);
     }
+  });
+
+  test('race scene receives the persistent win count to select a roster rival', () => {
+    const app = code(load('../App.tsx'));
+    const scene = code(load('../components/3d/RaceScene.tsx'));
+    expect(app).toContain('rivalWins={profile?.racing?.wins ?? 0}');
+    expect(scene).toContain('resolveRaceCompetitor(rivalWins)');
+    expect(scene).toContain('resolveRaceRivalOutcome(raceFinishElapsed, competitor.lapDurationMs)');
+    expect(scene).toContain('competitor={competitor}');
+    expect(scene).toContain('data-race-opponent={competitor.id}');
+    expect(scene).not.toContain('const RACE_RIVAL_CONFIG');
   });
 
   test('combat, workshop and progression logic are untouched by this slice', () => {
