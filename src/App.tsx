@@ -2361,6 +2361,7 @@ export function App() {
               phase={resolveTimeState(profile).phase}
               teamSize={profile ? resolveRacingState(profile).horses : 2}
               chariotLoadout={resolveChariotLoadout(profile).equipped}
+              rivalWins={profile?.racing?.wins ?? 0}
               onRecordRaceCompletion={handleRecordRaceCompletion}
             />
           </React.Suspense>
