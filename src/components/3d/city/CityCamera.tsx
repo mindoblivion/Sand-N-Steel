@@ -53,6 +53,9 @@ export const CityCamera: React.FC<CityCameraProps> = ({
   const { yawOffsetRef, pitchOffsetRef } = useCameraDrag(isMoving, {
     yawSensitivity: CAMERA_DRAG_BASE_YAW_SENSITIVITY * sensitivityScale,
     pitchSensitivity: CAMERA_DRAG_BASE_PITCH_SENSITIVITY * sensitivityScale,
+    // Movement is camera-relative in the city. Recentring yaw during a held
+    // direction changes the movement vector every frame and bends the path.
+    autoDecayOnMove: false,
   });
 
   const currentLookAt = useRef(
@@ -89,10 +92,8 @@ export const CityCamera: React.FC<CityCameraProps> = ({
       Math.min(CITY_CAMERA_MAX_DRAGGED_DISTANCE, baseDistance + dragPitch * 0.35)
     );
 
-    // Phase 26.0: Camera yaw is decoupled from the player's facing rotation.
-    // Only the user's drag offset changes the camera orientation (auto-recentering
-    // to baseYaw via useCameraDrag's decay when moving). This keeps joystick
-    // movement direction stable relative to the screen — no spiral feedback.
+    // The user's orbit remains fixed while walking, keeping camera-relative
+    // joystick/keyboard movement on a stable heading until the user drags again.
     const effectiveTargetYaw = baseYawRef.current + yawOffsetRef.current;
 
     // Smoothly damp camera yaw towards effective target yaw
@@ -113,15 +114,13 @@ export const CityCamera: React.FC<CityCameraProps> = ({
 
     const desiredCamPos = desiredCamPosRef.current.set(desiredX, desiredY, desiredZ);
 
-// NEW: keep the camera out of buildings. Pure and cheap; the lerp below then
-// eases toward the safe position exactly as before. (Two small object allocs
-// per frame here is a deliberate clarity trade-off; negligible cost.)
-const safeCamPos = resolveCameraCollision(
-  { x: pX, y: pY + CAMERA_HEAD_HEIGHT, z: pZ },
-  { x: desiredCamPos.x, y: desiredCamPos.y, z: desiredCamPos.z },
-  CITY_COLLIDERS,
-);
-desiredCamPos.set(safeCamPos.x, safeCamPos.y, safeCamPos.z);
+    // Keep the camera out of buildings. The lerp below eases toward the safe position.
+    const safeCamPos = resolveCameraCollision(
+      { x: pX, y: pY + CAMERA_HEAD_HEIGHT, z: pZ },
+      { x: desiredCamPos.x, y: desiredCamPos.y, z: desiredCamPos.z },
+      CITY_COLLIDERS,
+    );
+    desiredCamPos.set(safeCamPos.x, safeCamPos.y, safeCamPos.z);
 
     // Smooth camera position lerp
     camera.position.lerp(desiredCamPos, Math.min(1, delta * 7.5));
