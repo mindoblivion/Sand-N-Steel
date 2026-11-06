@@ -260,9 +260,10 @@ describe('D. The sequence', () => {
     // The three destinations the sequence can actually wait on.
     expect(Object.keys(WAIT_DESTINATIONS).sort()).toEqual(['arena', 'character_creation', 'circus', 'city_hub', 'school_hub']);
     // …and each is mounted by the screen it belongs to.
-    for (const id of ['city_hub', 'arena', 'circus', 'character_creation', 'school_hub'] as WaitDestinationId[]) {
+    for (const id of ['city_hub', 'arena', 'circus', 'school_hub'] as WaitDestinationId[]) {
       expect(appSrc).toContain(`<WaitSurface destination="${id}" />`);
     }
+    expect(appSrc).toContain('<WaitSurface destination="character_creation" rotate={false} />');
     // An unknown destination falls back rather than rendering nothing.
     expect(waitDestination('not-a-destination' as WaitDestinationId)).toEqual(WAIT_DESTINATIONS.city_hub);
   });
