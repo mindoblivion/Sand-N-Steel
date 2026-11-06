@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 
 /**
  * Opt-in race-scene profiler. Mounted only in development when
- * ?devRaceStats=1 is present. Samples the previous completed render's
+ * the development build flag or ?devRaceStats=1 is present. Samples the previous completed render's
  * renderer.info counters and frame deltas; it does not alter scene quality,
  * render settings, simulation timing, or user-visible UI.
  */
