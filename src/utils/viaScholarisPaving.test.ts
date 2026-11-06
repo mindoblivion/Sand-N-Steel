@@ -2,6 +2,7 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
+import { CITY_COLLIDERS, type RectCollider } from './collisionShapes';
 import {
   VIA_SCHOLARIS_MAIN,
   VIA_SCHOLARIS_ACADEMY_APPROACH,
@@ -61,7 +62,6 @@ describe('Via Scholaris shared paving geometry', () => {
 // rotated city paths. This records the current authored intersections; it does
 // not decide whether their visible contact is intentional. That still needs a
 // landscape scene review before any paving or building transform is changed.
-import { CITY_COLLIDERS, type RectCollider } from './collisionShapes';
 
 /** Separating Axis Theorem for a Three.js yaw-rotated paving rectangle vs AABB. */
 function rotatedRectOverlapsAabb(
@@ -91,6 +91,14 @@ function rotatedRectOverlapsAabb(
 }
 
 describe('Via Scholaris paving/foundation intersection baseline', () => {
+  const buildingIds = new Set([
+    'ishtar-central', 'ishtar-tower-l', 'ishtar-tower-r',
+    'smithing-forge', 'city-tavern', 'general-store', 'caravanserai',
+    'merchant-house', 'armor-workshop', 'stable', 'gladiator-academy',
+    'doctore-house', 'records-library', 'bathhouse', 'roman-shrine',
+    'bounty-hall', 'gladiator-barracks', 'veteran-hall', 'arena-medical',
+    'training-hall',
+  ]);
   const paths = [
     VIA_SCHOLARIS_MAIN,
     VIA_SCHOLARIS_ACADEMY_APPROACH,
@@ -99,7 +107,7 @@ describe('Via Scholaris paving/foundation intersection baseline', () => {
   ] as const;
   const buildings = CITY_COLLIDERS.filter(
     (collider): collider is RectCollider =>
-      collider.type === 'rect',
+      collider.type === 'rect' && buildingIds.has(collider.id),
   );
 
   test('records the exact current yaw-aware foundation intersections', () => {
