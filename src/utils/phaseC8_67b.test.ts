@@ -823,6 +823,16 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
     expect(MODAL).toContain('const isMountedRef = useRef(true);');
     expect(MODAL).toContain('isMountedRef.current = false;');
     expect(MODAL).toContain('if (!isMountedRef.current) return;');
+    expect(MODAL).toContain('const [restorePendingMessage, setRestorePendingMessage] = useState<string | null>(null);');
+    expect(MODAL).toContain('A Google Drive restore is already in progress. Please wait before trying again.');
+    const restoreHandler = MODAL.slice(MODAL.indexOf('const handleLoadFromDrive'), MODAL.indexOf('const handleDeleteConfirm'));
+    expect(restoreHandler.indexOf('if (driveRestoreInFlight) {')).toBeLessThan(restoreHandler.indexOf('setRestoreConfirmId(null);'));
+    expect(DRIVE).toContain('export const DRIVE_PROFILE_DOWNLOAD_TIMEOUT_MS = 30_000;');
+    expect(DRIVE).toContain('const controller = new AbortController();');
+    expect(DRIVE).toContain('signal: controller.signal');
+    expect(DRIVE).toContain('controller.abort()');
+    expect(DRIVE).toContain('clearTimeout(timeoutId)');
+    expect(DRIVE).toContain('Google Drive download timed out. Please try again.');
 
     // …and the import path hands that profile straight to the existing save.
     expect(APP).toContain('saveProfile(loadedProfile);');
