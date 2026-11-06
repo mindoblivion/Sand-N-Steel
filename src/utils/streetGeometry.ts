@@ -228,7 +228,8 @@ export const VIA_TRIUMPHALIS_RUNNER: StreetRect = {
 };
 
 /** Via Scholaris academy-quarter decorative paving patches (visual only). */
-export interface AcademyPavingRect extends RotatedPavingPath {
+export interface AcademyPavingRect extends StreetRect {
+  yaw: number;
   y: number;
   colorRole: 'main' | 'approach';
 }
