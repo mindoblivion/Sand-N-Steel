@@ -134,8 +134,16 @@ function Bench({ position, rotationY = 0 }: { position: [number, number, number]
   );
 }
 function DicePair() {
+  const dice = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!dice.current) return;
+    // Occasional tiny settling motion suggests a recent roll without distracting from play.
+    const roll = Math.max(0, Math.sin(clock.elapsedTime * 0.34 + 1.2) - 0.88) / 0.12;
+    dice.current.rotation.y = Math.sin(clock.elapsedTime * 0.34 + 1.2) * 0.025;
+    dice.current.rotation.x = roll * 0.12;
+  });
   return (
-    <group position={[0.18, 0.99, 0.08]}>
+    <group ref={dice} position={[0.18, 0.99, 0.08]}>
       <mesh rotation={[0.12, 0.35, 0.08]} castShadow>
         <boxGeometry args={[0.16, 0.16, 0.16]} />
         <meshStandardMaterial color="#e8d8b5" roughness={0.78} />
