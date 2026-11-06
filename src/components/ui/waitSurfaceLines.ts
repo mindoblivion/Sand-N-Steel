@@ -10,7 +10,7 @@
  * renderer.
  */
 
-export type WaitDestinationId = 'city_hub' | 'arena' | 'circus';
+export type WaitDestinationId = 'city_hub' | 'arena' | 'circus' | 'character_creation' | 'school_hub';
 
 export interface WaitDestination {
   /** Where the player is going, in the fiction. */
@@ -31,6 +31,14 @@ export const WAIT_DESTINATIONS: Record<WaitDestinationId, WaitDestination> = {
   circus: {
     line: 'The carceres stand open and the teams are at the line.',
     gloss: 'Entering the circus',
+  },
+  character_creation: {
+    line: 'A new name waits to be entered into the Acta.',
+    gloss: 'Preparing character creation',
+  },
+  school_hub: {
+    line: 'The ludus is stirring; the trainers are making ready.',
+    gloss: 'Entering the gladiator school',
   },
 };
 
