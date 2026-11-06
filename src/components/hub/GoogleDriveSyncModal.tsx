@@ -45,6 +45,8 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   const [savesLoaded, setSavesLoaded] = useState(false);
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [restoreConfirmId, setRestoreConfirmId] = useState<string | null>(null);
+  // A ref closes the same-tick double-tap window before React can render isLoading.
+  const restoreInFlightRef = useRef(false);
   const signOutRef = useRef(false);
 
   useEffect(() => {
@@ -227,6 +229,10 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
   };
 
   const handleLoadFromDrive = async (fileId: string) => {
+    // Disable duplicate restores synchronously; state-based disabled buttons alone
+    // can still admit two clicks before the next render.
+    if (restoreInFlightRef.current) return;
+    restoreInFlightRef.current = true;
     sounds.playClick();
     setIsLoading(true);
     setStatusMessage(null);
@@ -243,6 +249,7 @@ export const GoogleDriveSyncModal: React.FC<GoogleDriveSyncModalProps> = ({
         });
       }
     } finally {
+      restoreInFlightRef.current = false;
       setIsLoading(false);
     }
   };
