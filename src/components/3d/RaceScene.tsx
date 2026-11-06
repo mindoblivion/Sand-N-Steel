@@ -33,6 +33,7 @@ import {
 import { getChariotPart, getChariotPartByFinish } from '../../data/chariotParts';
 import type { ChariotEquippedResolved } from '../../types/game';
 import { RaceHorseTeam } from './RaceHorseTeam';
+import { RaceRenderDiagnostics } from './RaceRenderDiagnostics';
 import { useSettings } from '../../hooks/useSettings';
 import { useAdaptiveDpr, CITY_TIERS, POST_TRANSITION_MS, type QualityPreset } from '../../hooks/useAdaptiveDpr';
 import type { ChariotTeamSize } from '../../types/game';
@@ -992,6 +993,9 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             }}
           >
             <CanvasWebGLMonitor sceneName="CircusRace" />
+            {import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('devRaceStats') === '1' && (
+              <RaceRenderDiagnostics />
+            )}
             {/* Shared adaptive pixel governor; suspended while race settings are open. */}
             <RaceAdaptiveDpr
               tier={qualityPreset}
