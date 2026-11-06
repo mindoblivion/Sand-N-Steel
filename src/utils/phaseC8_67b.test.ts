@@ -807,7 +807,7 @@ describe('C-8.67B §E — persistence, local and cloud-shaped', () => {
     expect(MODAL).toContain('confirmedReplaceModifiedTime: confirmedSave.modifiedTime');
     // Restoring a cloud save must be an explicit second action because it replaces local progress.
     expect(MODAL).toContain('const [restoreConfirmId, setRestoreConfirmId] = useState<string | null>(null);');
-    expect(MODAL).toContain('onClick={() => setRestoreConfirmId(file.id)}');
+    expect(MODAL).toContain('onClick={() => { setRestorePendingMessage(null); setRestoreConfirmId(file.id); }}');
     expect(MODAL).toContain('Replace Local Progress?');
     expect(MODAL).toContain('onClick={handleConfirmRestore}');
     expect(MODAL).toContain('Replace Local Save');
