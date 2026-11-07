@@ -206,9 +206,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         </div>
       </div>
 
-      <div className="grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-2 content-start gap-4 sm:gap-8 max-w-5xl mx-auto w-full overflow-y-auto overscroll-y-contain touch-pan-y pr-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-2 content-start gap-3 sm:gap-8 max-w-5xl mx-auto w-full overflow-y-auto overscroll-y-contain touch-pan-y pr-1 pb-[max(1rem,env(safe-area-inset-bottom))] [scrollbar-gutter:stable]">
         {/* 3D CHARACTER PREVIEW */}
-        <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-4 flex flex-col items-center justify-center h-[32dvh] min-h-[220px] max-h-[340px] lg:h-auto lg:min-h-[520px] shadow-2xl relative overflow-hidden">
+        <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-2 sm:p-4 flex flex-col items-center justify-center h-[20dvh] min-h-[150px] max-h-[220px] lg:h-auto lg:min-h-[520px] shadow-2xl relative overflow-hidden">
           <GladiatorPreview appearance={appearance} onReady={onReady} />
           <div className="absolute bottom-4 left-4 bg-neutral-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-mono text-amber-300">
             {selection.characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : selection.characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : selection.characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : selection.characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : selection.characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Centurion (Animated Rig)'}
@@ -216,7 +216,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         </div>
 
         {/* CUSTOMIZATION & STAT POINTS */}
-        <div className="flex flex-col gap-6 bg-neutral-900/60 border border-amber-700/40 rounded-3xl p-6 shadow-xl">
+        <div className="flex min-w-0 flex-col gap-4 sm:gap-6 bg-neutral-900/60 border border-amber-700/40 rounded-3xl p-3 sm:p-6 shadow-xl">
           {/* NAME INPUT */}
           <div>
             <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
