@@ -2424,6 +2424,7 @@ export function App() {
             onCancel={() => setOverwriteConfirm(null)}
             onConfirm={() => {
               setOverwriteConfirm(null);
+              setCharacterCreationTransitioning(true);
               setCurrentScreen('create_character');
             }}
             />
