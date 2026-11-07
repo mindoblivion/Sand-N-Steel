@@ -16,6 +16,10 @@ interface CameraDragOptions {
   autoDecayOnMove?: boolean;
 }
 
+export function shouldDecayCameraYawOnMove(isMoving: boolean, isDragging: boolean, autoDecayOnMove: boolean): boolean {
+  return autoDecayOnMove && isMoving && !isDragging;
+}
+
 export interface CameraDragState {
   yawOffsetRef: React.MutableRefObject<number>;
   pitchOffsetRef: React.MutableRefObject<number>;
@@ -36,6 +40,7 @@ export function useCameraDrag(
     pitchSensitivity = CAMERA_DRAG_BASE_PITCH_SENSITIVITY,
     minPitch = -1.8,
     maxPitch = 3.5,
+    autoDecayOnMove = true,
   } = options;
 
   const yawOffsetRef = useRef<number>(0);
@@ -106,9 +111,11 @@ export function useCameraDrag(
     };
   }, [yawSensitivity, pitchSensitivity, minPitch, maxPitch]);
 
-  // Decay yaw offset towards 0 when player starts running/moving
+  // Some scenes benefit from recentering the orbit when movement begins. Other
+  // scenes (notably the city) use camera-relative movement, so changing yaw while
+  // the stick is held would curve the player's path. Keep that behavior opt-in.
   useEffect(() => {
-    if (!isMoving || isDraggingRef.current) return;
+    if (!shouldDecayCameraYawOnMove(isMoving, isDraggingRef.current, autoDecayOnMove)) return;
 
     let animId: number;
     const decayLoop = () => {
@@ -122,7 +129,7 @@ export function useCameraDrag(
 
     animId = requestAnimationFrame(decayLoop);
     return () => cancelAnimationFrame(animId);
-  }, [isMoving]);
+  }, [isMoving, autoDecayOnMove]);
 
   const resetDrag = () => {
     yawOffsetRef.current = 0;
