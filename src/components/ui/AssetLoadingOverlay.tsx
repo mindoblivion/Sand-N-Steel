@@ -77,7 +77,8 @@ export const AssetLoadingOverlay: React.FC = () => {
         <button
           type="button"
           onClick={() => setDismissedForRecovery(true)}
-          className="absolute bottom-5 z-20 rounded-lg border border-amber-500/70 bg-neutral-950/90 px-4 py-2 text-xs font-mono uppercase tracking-wider text-amber-100 shadow-lg"
+          className="absolute z-20 rounded-lg border border-amber-500/70 bg-neutral-950/90 px-4 py-2 text-xs font-mono uppercase tracking-wider text-amber-100 shadow-lg"
+          style={{ bottom: 'calc(max(5.5vh, calc(env(safe-area-inset-bottom, 0px) + 28px)) + 44px)' }}
         >
           Continue in background
         </button>
