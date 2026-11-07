@@ -42,6 +42,12 @@ These are the standing areas to audit against the live implementation. Items not
 7. **Android and performance** — launcher icon, loading transitions, touch controls, safe areas, app lifecycle, save persistence, offline operation, frame-time/memory/thermal behaviour.
 8. **Quality and release** — automated regression coverage, device acceptance, accessibility/usability, dependency/security review, rehearsal APK/AAB, store assets and release sign-off.
 
+## Combat audit status
+
+- [Source audit](docs/COMBAT_SOURCE_AUDIT.md): calculations, HUD gating, attack wind-up, range/stamina handling, defensive stance lifecycle, and existing regression suites inspected at the recorded baseline.
+- No new confirmed combat defect was established by this source pass. The historical out-of-range stamina issue is guarded in current source; physical/full-duel acceptance and turn-lifecycle integration coverage remain outstanding.
+- Next: add focused integration coverage for wind-up/turn ownership/match termination/unmount cleanup, then complete a full Android duel acceptance run. Do not rebalance or rewrite combat without reproducible evidence.
+
 ## Evidence sources
 
 - [Android release process](docs/ANDROID_RELEASE.md)
