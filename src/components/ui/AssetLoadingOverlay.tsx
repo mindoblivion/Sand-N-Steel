@@ -15,12 +15,25 @@ const LORE_TIPS = [
 export const AssetLoadingOverlay: React.FC = () => {
   const { active, progress, item, loaded, total, errors } = useProgress();
   const [tipIndex, setTipIndex] = useState(0);
+  const [recoveryAvailable, setRecoveryAvailable] = useState(false);
+  const [dismissedForRecovery, setDismissedForRecovery] = useState(false);
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      setRecoveryAvailable(false);
+      setDismissedForRecovery(false);
+      return;
+    }
+
+    setRecoveryAvailable(false);
+    setDismissedForRecovery(false);
+    const recoveryTimer = setTimeout(() => setRecoveryAvailable(true), 30000);
     const interval = setInterval(() => {
       setTipIndex((prev) => (prev + 1) % LORE_TIPS.length);
     }, 2400);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(recoveryTimer);
+      clearInterval(interval);
+    };
   }, [active]);
 
   if ((!active && progress === 100) || (errors && errors.length > 0)) return null;
@@ -30,6 +43,8 @@ export const AssetLoadingOverlay: React.FC = () => {
     ? item.split('/').pop()?.replace(/[-_]/g, ' ').replace('.glb', '')
     : 'Gladiator 3D Environment';
   const knowsCount = total > 0;
+
+  if (dismissedForRecovery) return null;
 
   return (
     <div
@@ -57,6 +72,16 @@ export const AssetLoadingOverlay: React.FC = () => {
           “{LORE_TIPS[tipIndex]}”
         </p>
       </div>
+
+      {recoveryAvailable && (
+        <button
+          type="button"
+          onClick={() => setDismissedForRecovery(true)}
+          className="absolute bottom-5 z-20 rounded-lg border border-amber-500/70 bg-neutral-950/90 px-4 py-2 text-xs font-mono uppercase tracking-wider text-amber-100 shadow-lg"
+        >
+          Continue in background
+        </button>
+      )}
 
       <div
         data-loading-progress="true"
