@@ -249,6 +249,8 @@ const GladiatorSchoolHub = React.lazy(() => import('./components/hub/GladiatorSc
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
+  // Keep the supplied artwork over the title-to-creator transition until the preview GLB is ready.
+  const [characterCreationTransitioning, setCharacterCreationTransitioning] = useState(false);
     const [tavernOpen, setTavernOpen] = useState(false);
   /* COLOSSEUM-INTERIOR — the enterable arena overlay (TavernInterior pattern). */
   const [colosseumOpen, setColosseumOpen] = useState(false);
@@ -739,6 +741,7 @@ export function App() {
       setOverwriteConfirm(stored);
       return;
     }
+    setCharacterCreationTransitioning(true);
     setCurrentScreen('create_character');
   };
 
@@ -858,6 +861,7 @@ export function App() {
   };
 
   const handleCharacterCreated = (newProfile: PlayerProfile) => {
+    setCharacterCreationTransitioning(false);
     sounds.playClick();
     setProfile(newProfile);
     saveProfile(newProfile);
@@ -2142,16 +2146,21 @@ export function App() {
         )}
 
         {currentScreen === 'create_character' && (
-          <React.Suspense fallback={<div className="w-full h-full min-h-[100dvh] bg-neutral-950" aria-busy="true" />}>
+          <React.Suspense fallback={<WaitSurface destination="character_creation" rotate={false} />}>
             <CharacterCreation
             onComplete={handleCharacterCreated}
-            onCancel={() => setCurrentScreen('title')}
+            onCancel={() => { setCharacterCreationTransitioning(false); setCurrentScreen('title'); }}
+            onReady={() => setCharacterCreationTransitioning(false)}
             onGoogleSignIn={handleGoogleSignIn}
             isGoogleLoading={isGoogleLoading}
             authError={authError}
             onOpenSettings={() => handleOpenSettings()}
             />
           </React.Suspense>
+        )}
+
+        {characterCreationTransitioning && (
+          <WaitSurface destination="character_creation" rotate={false} />
         )}
 
         {currentScreen === 'city_3d' && profile && (
@@ -2250,7 +2259,7 @@ export function App() {
         )}
 
         {currentScreen === 'city_3d' && tavernOpen && (
-          <React.Suspense fallback={<div className="fixed inset-0 z-[95] bg-stone-950" aria-busy="true" />}>
+          <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
             <TavernInterior onExit={() => setTavernOpen(false)} onOpenServices={() => { setTavernOpen(false); tavernServices?.(); setTavernServices(null); }} />
           </React.Suspense>
         )}
@@ -2258,7 +2267,7 @@ export function App() {
       mounted underneath (so exiting returns the player to the exact spot they left,
       at the Colosseum door). */}
       {currentScreen === 'city_3d' && colosseumOpen && (
-        <React.Suspense fallback={<div />}>
+        <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
                         <ColosseumInterior onExit={() => setColosseumOpen(false)} />
         </React.Suspense>
       )}
@@ -2266,7 +2275,7 @@ export function App() {
           mounted underneath (so exiting returns the player to the exact spot they left,
           at the forge door). */}
       {currentScreen === 'city_3d' && forgeOpen && (
-        <React.Suspense fallback={<div />}>
+        <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
           <ForgeInterior
             onExit={() => setForgeOpen(false)}
             onOpenShop={() => { setForgeOpen(false); handleOpenHubTab('shop', undefined, 'forge'); }}
@@ -2277,7 +2286,7 @@ export function App() {
       )}
 
         {currentScreen === 'hub_2d' && profile && (
-          <React.Suspense fallback={<div className="w-full h-full min-h-[100dvh] bg-neutral-950" aria-busy="true" />}>
+          <React.Suspense fallback={<WaitSurface destination="school_hub" />}>
             <GladiatorSchoolHub
             playerProfile={profile}
             onOpenDeviceChoice={() => setDeviceChoiceOpen(true)}
@@ -2415,6 +2424,7 @@ export function App() {
             onCancel={() => setOverwriteConfirm(null)}
             onConfirm={() => {
               setOverwriteConfirm(null);
+              setCharacterCreationTransitioning(true);
               setCurrentScreen('create_character');
             }}
             />

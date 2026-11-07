@@ -6,21 +6,14 @@ import {
   waitDestination,
   type WaitDestinationId,
 } from './waitSurfaceLines';
+import { TITLE_BACKDROP_CLASS } from '../../utils/startupAssets';
 
 /**
- * START-1 — the wait surface.
+ * START-1 — the shared-art destination wait surface.
  *
- * Replaces the bare "Loading City Hub…" text (and its siblings) at every Suspense
- * fallback that serves a destination load. It shows three things and nothing else:
- *
- *  - where the player is going, in the fiction, with a plain gloss;
- *  - one line from the Acta, which rotates and can be tapped to move on;
- *  - honest progress — a real asset count when the loader knows one, and an
- *    indeterminate indicator when it does not. Never a fake percentage.
- *
- * Motion follows the house rules: transform and opacity only, no bare spinner, paused
- * while the tab is hidden, and stilled entirely under `prefers-reduced-motion` (the
- * Acta line still rotates on a tap, so the surface is never frozen mid-thought).
+ * City, arena, circus and building transitions all retain the player's supplied
+ * Sand & Steel artwork. Progress stays honest: a measured asset percentage when
+ * the loader has a count, otherwise an indeterminate sweep at the bottom edge.
  */
 
 export interface WaitSurfaceProps {
@@ -29,10 +22,8 @@ export interface WaitSurfaceProps {
   rotate?: boolean;
 }
 
-/** How long each Acta line is held before the next one. */
 export const WAIT_ROTATE_MS = 2600;
 
-/** True when the player has asked the system for less motion. */
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
 
@@ -48,7 +39,6 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-/** True while the tab is in the background, for every pausable behaviour. */
 function useDocumentHidden(): boolean {
   const [hidden, setHidden] = useState(false);
 
@@ -68,11 +58,8 @@ export const WaitSurface: React.FC<WaitSurfaceProps> = ({ destination, rotate = 
   const [lineIndex, setLineIndex] = useState(0);
   const reducedMotion = usePrefersReducedMotion();
   const hidden = useDocumentHidden();
-
   const { line, gloss } = waitDestination(destination);
 
-  // Rotate the Acta line, unless the player asked for less motion or the tab is hidden.
-  // A tap-to-cycle control is always available, so this only affects the ambient case.
   useEffect(() => {
     if (!rotate || reducedMotion || hidden) return;
     const timer = window.setInterval(() => setLineIndex((index) => nextKeeperIndex(index)), WAIT_ROTATE_MS);
@@ -80,8 +67,6 @@ export const WaitSurface: React.FC<WaitSurfaceProps> = ({ destination, rotate = 
   }, [rotate, reducedMotion, hidden]);
 
   const cycleLine = useCallback(() => setLineIndex((index) => nextKeeperIndex(index)), []);
-
-  // Honest progress: a real count when the loader has one, otherwise no number at all.
   const knowsCount = total > 0;
   const pct = Math.min(100, Math.max(0, Math.round(progress)));
 
@@ -90,11 +75,9 @@ export const WaitSurface: React.FC<WaitSurfaceProps> = ({ destination, rotate = 
       data-wait-surface={destination}
       role="status"
       aria-live="polite"
-      className={`relative w-full h-screen min-h-[100dvh] flex flex-col items-center justify-center bg-neutral-950 text-amber-100 select-none px-6 ${
-        hidden ? 'wait-anim-paused' : ''
-      }`}
+      className={`fixed inset-0 z-[95] ${TITLE_BACKDROP_CLASS} flex flex-col items-center justify-center text-amber-100 select-none px-6 ${hidden ? 'wait-anim-paused' : ''}`}
     >
-      {/* A faint sand glow behind the copy — the arena's light, not a spinner. */}
+      <div className="absolute inset-0 bg-black/30 pointer-events-none" />
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -104,44 +87,54 @@ export const WaitSurface: React.FC<WaitSurfaceProps> = ({ destination, rotate = 
       />
 
       <div className="relative z-10 flex flex-col items-center max-w-md w-full text-center">
-        {/* WHERE YOU ARE GOING — the fiction, then the plain gloss of it. */}
         <p className="font-serif text-lg sm:text-xl text-amber-200/90 leading-snug">{line}</p>
-        <p className="mt-2 text-[11px] uppercase tracking-[0.25em] text-amber-600/80 font-serif">
+        <p className="mt-2 text-[11px] uppercase tracking-[0.25em] text-amber-600/90 font-serif">
           {gloss}
         </p>
 
-        {/* PROGRESS — a real asset count where the loader knows one, otherwise an
-            indeterminate sweep. Nothing here ever invents a number. */}
-        <div className="mt-7 w-full max-w-xs">
-          <div className="h-px w-full bg-amber-900/40 overflow-hidden">
-            {knowsCount ? (
-              <div
-                className="h-px w-full bg-gradient-to-r from-amber-700 via-amber-400 to-amber-300 origin-left transition-transform duration-300"
-                style={{ transform: `scaleX(${pct / 100})` }}
-              />
-            ) : (
-              <div className="wait-sweep h-px w-1/3 bg-gradient-to-r from-transparent via-amber-400/80 to-transparent" />
-            )}
-          </div>
-          <p className="mt-3 text-[11px] font-mono text-amber-700/90">
-            {knowsCount ? `Loading asset ${loaded} of ${total}` : 'Working…'}
-          </p>
-        </div>
-
-        {/* THE ACTA — the keeper's line. Tap to move on. */}
         <button
           type="button"
           data-wait-acta="cycle"
           onClick={cycleLine}
-          className="mt-7 min-h-[3.5rem] w-full px-4 py-3 rounded-2xl border border-amber-900/40 bg-black/30 text-left cursor-pointer transition-colors hover:border-amber-700/60 focus:outline-none focus:border-amber-600/70"
+          className="mt-7 min-h-[3.5rem] w-full px-4 py-3 rounded-2xl border border-amber-900/50 bg-black/55 text-left cursor-pointer transition-colors hover:border-amber-700/60 focus:outline-none focus:border-amber-600/70"
         >
-          <span className="block text-[10px] uppercase tracking-[0.3em] text-amber-700/80 font-serif mb-1">
+          <span className="block text-[10px] uppercase tracking-[0.3em] text-amber-500/90 font-serif mb-1">
             From the Acta
           </span>
-          <span className="block text-xs text-amber-200/80 italic leading-relaxed">
+          <span className="block text-xs text-amber-100/90 italic leading-relaxed">
             {keeperLineAt(lineIndex)}
           </span>
         </button>
+      </div>
+
+      <div
+        data-loading-progress="true"
+        className="absolute left-1/2 -translate-x-1/2 z-10 text-center"
+        style={{
+          bottom: 'max(5.5vh, calc(env(safe-area-inset-bottom, 0px) + 28px))',
+          width: 'min(72vw, 420px)',
+        }}
+      >
+        <div
+          role="progressbar"
+          aria-label="Loading game assets"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={knowsCount ? pct : undefined}
+          className="h-1 w-full overflow-hidden rounded-full border border-amber-700/60 bg-neutral-950/85 shadow-[0_0_12px_rgba(180,83,9,0.2)]"
+        >
+          {knowsCount ? (
+            <div
+              className="h-full w-full origin-left rounded-full bg-gradient-to-r from-amber-700 via-amber-300 to-amber-500 transition-transform duration-300"
+              style={{ transform: `scaleX(${pct / 100})` }}
+            />
+          ) : (
+            <div className="wait-sweep h-full w-1/3 bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
+          )}
+        </div>
+        <p className="mt-2 text-[10px] font-mono uppercase tracking-[0.2em] text-amber-200/85">
+          {knowsCount ? `Loading asset ${loaded} of ${total} · ${pct}%` : 'Preparing the world…'}
+        </p>
       </div>
     </div>
   );
