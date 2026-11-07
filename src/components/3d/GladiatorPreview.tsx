@@ -23,7 +23,16 @@ try {
 interface GladiatorPreviewProps {
   appearance: PlayerAppearance;
   isLeftyMode?: boolean;
+  /** Called once the preview model has resolved its GLTF dependencies and mounted. */
+  onReady?: () => void;
 }
+
+const PreviewReadySignal: React.FC<{ onReady?: () => void }> = ({ onReady }) => {
+  useEffect(() => {
+    onReady?.();
+  }, [onReady]);
+  return null;
+};
 
 export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, isLeftyMode = false }) => {
   const previewFighter: FighterState = {
@@ -101,6 +110,7 @@ export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, 
             <ThreeComponentErrorBoundary componentName="GladiatorPreviewMesh">
               <Suspense fallback={<CanvasLoadingFallback />}>
                 <GladiatorMesh fighter={previewFighter} isLeftyMode={isLeftyMode} />
+                <PreviewReadySignal onReady={onReady} />
               </Suspense>
             </ThreeComponentErrorBoundary>
           <OrbitControls
