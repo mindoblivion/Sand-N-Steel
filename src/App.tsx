@@ -249,6 +249,8 @@ const GladiatorSchoolHub = React.lazy(() => import('./components/hub/GladiatorSc
 
 export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
+  // Keep the supplied artwork over the title-to-creator transition until the preview GLB is ready.
+  const [characterCreationTransitioning, setCharacterCreationTransitioning] = useState(false);
     const [tavernOpen, setTavernOpen] = useState(false);
   /* COLOSSEUM-INTERIOR — the enterable arena overlay (TavernInterior pattern). */
   const [colosseumOpen, setColosseumOpen] = useState(false);
@@ -739,6 +741,7 @@ export function App() {
       setOverwriteConfirm(stored);
       return;
     }
+    setCharacterCreationTransitioning(true);
     setCurrentScreen('create_character');
   };
 
@@ -858,6 +861,7 @@ export function App() {
   };
 
   const handleCharacterCreated = (newProfile: PlayerProfile) => {
+    setCharacterCreationTransitioning(false);
     sounds.playClick();
     setProfile(newProfile);
     saveProfile(newProfile);
@@ -2145,13 +2149,18 @@ export function App() {
           <React.Suspense fallback={<WaitSurface destination="character_creation" rotate={false} />}>
             <CharacterCreation
             onComplete={handleCharacterCreated}
-            onCancel={() => setCurrentScreen('title')}
+            onCancel={() => { setCharacterCreationTransitioning(false); setCurrentScreen('title'); }}
+            onReady={() => setCharacterCreationTransitioning(false)}
             onGoogleSignIn={handleGoogleSignIn}
             isGoogleLoading={isGoogleLoading}
             authError={authError}
             onOpenSettings={() => handleOpenSettings()}
             />
           </React.Suspense>
+        )}
+
+        {characterCreationTransitioning && (
+          <WaitSurface destination="character_creation" rotate={false} />
         )}
 
         {currentScreen === 'city_3d' && profile && (
