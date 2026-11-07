@@ -2151,6 +2151,7 @@ export function App() {
             onComplete={handleCharacterCreated}
             onCancel={() => { setCharacterCreationTransitioning(false); setCurrentScreen('title'); }}
             onReady={() => setCharacterCreationTransitioning(false)}
+            onPreviewError={() => setCharacterCreationTransitioning(false)}
             onGoogleSignIn={handleGoogleSignIn}
             isGoogleLoading={isGoogleLoading}
             authError={authError}

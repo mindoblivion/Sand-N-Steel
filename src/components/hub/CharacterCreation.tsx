@@ -39,9 +39,11 @@ interface CharacterCreationProps {
   onOpenSettings?: () => void;
   /** Called only after the preview's 3D model has finished loading. */
   onReady?: () => void;
+  onPreviewError?: (error: Error) => void;
 }
 
-export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, authError, onOpenSettings, onReady }) => {
+export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, authError, onOpenSettings, onReady, onPreviewError }) => {
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [name, setName] = useState('Spartacus');
   const [bodyWeightLb, setBodyWeightLb] = useState(180);
   /**
@@ -209,7 +211,13 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
       <div className="grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-2 content-start gap-4 sm:gap-8 max-w-5xl mx-auto w-full overflow-y-auto overscroll-y-contain touch-pan-y pr-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {/* 3D CHARACTER PREVIEW */}
         <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-4 flex flex-col items-center justify-center h-[32dvh] min-h-[220px] max-h-[340px] lg:h-auto lg:min-h-[520px] shadow-2xl relative overflow-hidden">
-          <GladiatorPreview appearance={appearance} onReady={onReady} />
+          <GladiatorPreview appearance={appearance} onReady={onReady} onError={(error) => { setPreviewError(error.message || 'The selected gladiator model could not be loaded.'); onPreviewError?.(error); }} />
+          {previewError && (
+            <div role="alert" className="absolute inset-x-3 top-3 z-10 rounded-xl border border-amber-500/60 bg-neutral-950/95 p-3 text-center text-xs text-amber-100 shadow-xl">
+              <p className="font-bold text-amber-300">3D preview unavailable</p>
+              <p className="mt-1">You can still customize and create your gladiator. Try changing the model or reopening this screen.</p>
+            </div>
+          )}
           <div className="absolute bottom-4 left-4 bg-neutral-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-mono text-amber-300">
             {selection.characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : selection.characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : selection.characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : selection.characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : selection.characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Centurion (Animated Rig)'}
           </div>
