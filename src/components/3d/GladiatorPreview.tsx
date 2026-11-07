@@ -25,6 +25,8 @@ interface GladiatorPreviewProps {
   isLeftyMode?: boolean;
   /** Called once the preview model has resolved its GLTF dependencies and mounted. */
   onReady?: () => void;
+  /** Called when the selected model fails to load or render. */
+  onError?: (error: Error) => void;
 }
 
 const PreviewReadySignal: React.FC<{ onReady?: () => void }> = ({ onReady }) => {
@@ -34,7 +36,7 @@ const PreviewReadySignal: React.FC<{ onReady?: () => void }> = ({ onReady }) => 
   return null;
 };
 
-export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, isLeftyMode = false, onReady }) => {
+export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, isLeftyMode = false, onReady, onError }) => {
   const previewFighter: FighterState = {
     id: 'preview',
     name: 'Preview',
@@ -107,7 +109,7 @@ export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, 
               <meshStandardMaterial color="#ecd9be" roughness={0.4} />
             </mesh>
 
-            <ThreeComponentErrorBoundary componentName="GladiatorPreviewMesh">
+            <ThreeComponentErrorBoundary componentName="GladiatorPreviewMesh" onError={(error) => onError?.(error)}>
               <Suspense fallback={<CanvasLoadingFallback />}>
                 <GladiatorMesh fighter={previewFighter} isLeftyMode={isLeftyMode} />
                 <PreviewReadySignal onReady={onReady} />
