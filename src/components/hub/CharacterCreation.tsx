@@ -162,9 +162,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
   ];
 
   return (
-    <div className="relative w-full h-full min-h-screen bg-neutral-950 text-amber-100 flex flex-col p-4 sm:p-8 select-none overflow-y-auto">
+    <div className="relative w-full h-[100dvh] min-h-0 bg-neutral-950 text-amber-100 flex flex-col p-3 sm:p-8 select-none overflow-hidden">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex shrink-0 flex-wrap justify-between items-center gap-3 mb-3 sm:mb-6">
         <button
           onClick={onCancel}
           className="flex min-h-[48px] items-center gap-2 text-sm font-serif text-neutral-400 hover:text-amber-300 cursor-pointer"
@@ -206,9 +206,9 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto w-full my-auto">
+      <div className="grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-2 content-start gap-4 sm:gap-8 max-w-5xl mx-auto w-full overflow-y-auto overscroll-y-contain touch-pan-y pr-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {/* 3D CHARACTER PREVIEW */}
-        <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[360px] shadow-2xl relative overflow-hidden">
+        <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-4 flex flex-col items-center justify-center h-[32dvh] min-h-[220px] max-h-[340px] lg:h-auto lg:min-h-[520px] shadow-2xl relative overflow-hidden">
           <GladiatorPreview appearance={appearance} onReady={onReady} />
           <div className="absolute bottom-4 left-4 bg-neutral-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-mono text-amber-300">
             {selection.characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : selection.characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : selection.characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : selection.characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : selection.characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Centurion (Animated Rig)'}
