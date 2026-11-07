@@ -37,9 +37,11 @@ interface CharacterCreationProps {
   authError?: string | null;
   /** C-8.70B §SET-1 — the creation screen's own way into the settings panel. */
   onOpenSettings?: () => void;
+  /** Called only after the preview's 3D model has finished loading. */
+  onReady?: () => void;
 }
 
-export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, authError, onOpenSettings }) => {
+export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, authError, onOpenSettings, onReady }) => {
   const [name, setName] = useState('Spartacus');
   const [bodyWeightLb, setBodyWeightLb] = useState(180);
   /**
@@ -207,7 +209,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto w-full my-auto">
         {/* 3D CHARACTER PREVIEW */}
         <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[360px] shadow-2xl relative overflow-hidden">
-          <GladiatorPreview appearance={appearance} />
+          <GladiatorPreview appearance={appearance} onReady={onReady} />
           <div className="absolute bottom-4 left-4 bg-neutral-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-mono text-amber-300">
             {selection.characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : selection.characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : selection.characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : selection.characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : selection.characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Centurion (Animated Rig)'}
           </div>
