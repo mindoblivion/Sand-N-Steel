@@ -34,7 +34,7 @@ const PreviewReadySignal: React.FC<{ onReady?: () => void }> = ({ onReady }) => 
   return null;
 };
 
-export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, isLeftyMode = false }) => {
+export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, isLeftyMode = false, onReady }) => {
   const previewFighter: FighterState = {
     id: 'preview',
     name: 'Preview',
