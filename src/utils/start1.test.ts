@@ -272,7 +272,10 @@ describe('D. The sequence', () => {
     expect(waitSurfaceSrc).toContain('TITLE_BACKDROP_CLASS');
     expect(assetLoadingSrc).toContain('TITLE_BACKDROP_CLASS');
     expect(assetLoadingSrc).not.toContain('timedOut');
-    expect(assetLoadingSrc).not.toContain('setTimeout(');
+    // A bounded recovery affordance is allowed; the old behavior hid the artwork automatically.
+    expect(assetLoadingSrc).toContain('setTimeout(() => setRecoveryAvailable(true), 30000)');
+    expect(assetLoadingSrc).toContain('clearTimeout(recoveryTimer)');
+    expect(assetLoadingSrc).toContain('Continue in background');
     for (const source of [waitSurfaceSrc, assetLoadingSrc]) {
       expect(source).toContain('data-loading-progress="true"');
       expect(source).toContain("bottom: 'max(5.5vh, calc(env(safe-area-inset-bottom, 0px) + 28px))'");
