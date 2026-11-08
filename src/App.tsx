@@ -550,17 +550,17 @@ export function App() {
   useEffect(() => {
     let waitingForGesture = false;
 
-    const removeGestureListeners = () => {
-      document.removeEventListener('pointerdown', resumeAfterGesture, true);
-      document.removeEventListener('keydown', resumeAfterGesture, true);
-    };
-
-    const resumeAfterGesture = () => {
+    function resumeAfterGesture() {
       if (!waitingForGesture || document.hidden) return;
       waitingForGesture = false;
       removeGestureListeners();
       music.resume();
-    };
+    }
+
+    function removeGestureListeners() {
+      document.removeEventListener('pointerdown', resumeAfterGesture, true);
+      document.removeEventListener('keydown', resumeAfterGesture, true);
+    }
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
