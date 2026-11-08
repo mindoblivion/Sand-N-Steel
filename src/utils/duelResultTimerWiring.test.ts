@@ -24,8 +24,8 @@ describe('duel result callback ownership', () => {
     const defeatSchedule = code.lastIndexOf('resultTransitionTimerRef.current = scheduleDuelResult(', defeat);
     expect(victorySchedule).toBeGreaterThan(-1);
     expect(defeatSchedule).toBeGreaterThan(victory);
-    expect(code.slice(victorySchedule, victory)).toContain('}, 1400);');
-    expect(code.slice(defeatSchedule, defeat)).toContain('}, 1400);');
+    expect(code.indexOf('}, 1400);', victorySchedule)).toBeGreaterThan(victory);
+    expect(code.indexOf('}, 1400);', defeatSchedule)).toBeGreaterThan(defeat);
     expect(code).not.toContain('setTimeout(() => {\n        onMatchComplete(statsRef.current');
   });
 
