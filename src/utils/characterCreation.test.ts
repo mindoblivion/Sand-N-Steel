@@ -314,3 +314,20 @@ describe('CH-2 §D — the class picker and the model picker are independent', (
     expect(source).toContain('selectCharacterModel(current, model)');
   });
 });
+
+
+describe('mobile character creation layout contract', () => {
+  test('the customization column remains vertically scrollable within the viewport', () => {
+    const source = creationSource();
+    expect(source).toContain('h-[100dvh] min-h-0');
+    expect(source).toContain('grid flex-1 min-h-0');
+    expect(source).toContain('overflow-y-auto overscroll-y-contain touch-pan-y');
+    expect(source).toContain('pb-[max(1rem,env(safe-area-inset-bottom))]');
+  });
+
+  test('the mobile preview is height-bounded so it cannot consume the whole screen', () => {
+    const source = creationSource();
+    expect(source).toContain('h-[20dvh] min-h-[150px] max-h-[220px]');
+    expect(source).toContain('lg:h-auto lg:min-h-[520px]');
+  });
+});
