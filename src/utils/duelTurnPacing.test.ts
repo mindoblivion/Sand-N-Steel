@@ -440,4 +440,23 @@ describe('CF-5 §E resolution timer lifecycle', () => {
     expect(clear).toBeGreaterThan(cleanup);
     expect(reset).toBeGreaterThan(clear);
   });
+
+  test('the opponent AI timer is cancelled when its effect is replaced or the scene unmounts', () => {
+    const schedule = duel.indexOf('const aiTimer = setTimeout(() => {');
+    const cleanup = duel.indexOf('return () => {', schedule);
+    const clear = duel.indexOf('clearTimeout(aiTimer);', cleanup);
+    const reset = duel.indexOf('if (aiTurnTimerRef.current === aiTimer) aiTurnTimerRef.current = null;', clear);
+    expect(schedule).toBeGreaterThan(-1);
+    expect(cleanup).toBeGreaterThan(schedule);
+    expect(clear).toBeGreaterThan(cleanup);
+    expect(reset).toBeGreaterThan(clear);
+    expect(duel).toContain('aiTurnTimerRef.current = aiTimer;');
+  });
+
+  test('the match clock interval is cleared when the duel scene unmounts', () => {
+    const effect = duel.indexOf('const timer = setInterval(() => {');
+    const cleanup = duel.indexOf('return () => clearInterval(timer);', effect);
+    expect(effect).toBeGreaterThan(-1);
+    expect(cleanup).toBeGreaterThan(effect);
+  });
 });
