@@ -1,5 +1,5 @@
-import React, { useState, useEffect, Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import { PlayerAppearance, FighterState } from '../../types/game';
 import { DEFAULT_PLAYER_WEAPON } from '../../data/itemsDB';
@@ -30,9 +30,34 @@ interface GladiatorPreviewProps {
 }
 
 const PreviewReadySignal: React.FC<{ onReady?: () => void }> = ({ onReady }) => {
+  const readyCallbackRef = useRef(onReady);
+  const didScheduleRef = useRef(false);
+  const frameRequestRef = useRef<number | null>(null);
+
+  // Keep the latest callback without restarting readiness when the parent
+  // recreates its inline callback during a render.
   useEffect(() => {
-    onReady?.();
+    readyCallbackRef.current = onReady;
   }, [onReady]);
+
+  // This mounts only after the selected GLTF model resolves. Wait for the first
+  // R3F frame, then one browser frame, before dismissing the loading cover.
+  useFrame(() => {
+    if (didScheduleRef.current) return;
+    didScheduleRef.current = true;
+    frameRequestRef.current = requestAnimationFrame(() => {
+      frameRequestRef.current = null;
+      readyCallbackRef.current?.();
+    });
+  });
+
+  useEffect(() => () => {
+    if (frameRequestRef.current !== null) {
+      cancelAnimationFrame(frameRequestRef.current);
+      frameRequestRef.current = null;
+    }
+  }, []);
+
   return null;
 };
 
