@@ -10,7 +10,7 @@ import { CombatHUD } from '../ui/CombatHUD';
 import { CombatActionType, CombatLogEntry, AttackTarget } from '../ui/TurnActionPanel';
 import { nextCounterWindupStep } from '../../utils/counterWindup';
 import { ATTACK_WINDUP_MS } from '../../utils/attackWindup';
-import { scheduleDuelResult } from '../../utils/duelResultTimer';
+import { cancelDuelResult, scheduleDuelResult } from '../../utils/duelResultTimer';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
@@ -907,10 +907,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       clearTimeout(turnResolutionTimerRef.current);
       turnResolutionTimerRef.current = null;
     }
-    if (resultTransitionTimerRef.current !== null) {
-      clearTimeout(resultTransitionTimerRef.current);
-      resultTransitionTimerRef.current = null;
-    }
+    resultTransitionTimerRef.current = cancelDuelResult(resultTransitionTimerRef.current);
   }, []);
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
