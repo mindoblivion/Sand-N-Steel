@@ -11,7 +11,7 @@ describe('duel result transition timer lifecycle', () => {
       scheduled = callback as () => void;
       delay = ms ?? 0;
       return {} as ReturnType<typeof setTimeout>;
-    }) as typeof setTimeout;
+    }) as unknown as typeof setTimeout;
 
     const timer = scheduleDuelResult(() => { called += 1; }, 1400, fakeSchedule);
     expect(timer).toBeDefined();
