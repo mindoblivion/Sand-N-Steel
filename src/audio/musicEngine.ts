@@ -64,7 +64,11 @@ export class MusicEngine {
   }
 
   public resume() {
-    if (this.currentAudioElement) this.currentAudioElement.play();
+    if (this.currentAudioElement) {
+      // A WebView may still reject playback after an interruption; the next
+      // foreground/gesture cycle can retry without an unhandled rejection.
+      void this.currentAudioElement.play().catch(() => {});
+    }
   }
 
   public async stop(fadeOutMs: number = 1000) {
