@@ -4,6 +4,11 @@ export class MusicEngine {
   private ctx: AudioContext | null = null;
   private musicGainNode: GainNode | null = null;
   private currentAudioElement: HTMLAudioElement | null = null;
+  /**
+   * The element whose play() promise has not settled yet. Android can background
+   * the WebView during that await, before currentAudioElement is assigned.
+   */
+  private pendingAudioElement: HTMLAudioElement | null = null;
   private currentSource: MediaElementAudioSourceNode | null = null;
   private currentTrackId: string | null = null;
   private isMuted: boolean = false;
@@ -38,15 +43,25 @@ export class MusicEngine {
     // Load track
     const audio = new Audio(track.src);
     audio.loop = track.loop;
-    
+    // Register before awaiting play(): visibilitychange may fire while the
+    // browser is still resolving the promise, and pause() must be able to reach it.
+    this.pendingAudioElement = audio;
+
     try {
         await audio.play();
+        if (this.pendingAudioElement !== audio) {
+          // A newer playback attempt superseded this one while it was pending.
+          audio.pause();
+          return;
+        }
+        this.pendingAudioElement = null;
         this.currentAudioElement = audio;
         this.currentSource = this.ctx.createMediaElementSource(audio);
         this.currentSource.connect(this.musicGainNode);
-        
+
         this.fadeIn(options.fadeMs || 2000);
     } catch (e) {
+        if (this.pendingAudioElement === audio) this.pendingAudioElement = null;
         // Browsers commonly reject autoplay before the first user gesture. Keep that
         // expected state distinct from a missing or unsupported audio asset.
         const errorName = e instanceof DOMException ? e.name : '';
@@ -55,12 +70,15 @@ export class MusicEngine {
         } else {
           console.warn(`MusicEngine: Skipping track ${trackId} (file not found or unsupported)`);
         }
-        this.currentTrackId = null;
+        if (this.currentTrackId === trackId) this.currentTrackId = null;
     }
   }
 
   public pause() {
     if (this.currentAudioElement) this.currentAudioElement.pause();
+    // Also stop an in-flight play() attempt: currentAudioElement is assigned only
+    // after that promise resolves, which is too late for Android backgrounding.
+    if (this.pendingAudioElement) this.pendingAudioElement.pause();
   }
 
   public resume() {
