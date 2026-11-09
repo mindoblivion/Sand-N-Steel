@@ -59,7 +59,8 @@ These are the standing areas to audit against the live implementation. Items not
 - [PR #386](https://github.com/mindoblivion/Sand-N-Steel/pull/386): documentation-only inventory of the supplied launcher icon density assets; no runtime integration.
 - [PR #387](https://github.com/mindoblivion/Sand-N-Steel/pull/387): documentation-only refresh of the combat source audit against current main; no gameplay changes.
 - [PR #388](https://github.com/mindoblivion/Sand-N-Steel/pull/388): documentation-only audit of current character-creator appearance options and renderer material limitations; no runtime changes.
-- These PRs are open and unmerged. Do not merge without explicit owner authorization. Their presence does not change the outstanding device-acceptance work.
+- [PR #390](https://github.com/mindoblivion/Sand-N-Steel/pull/390): documentation-only current-main city layout/camera source spot-check; visual and physical-device acceptance remain open.
+- PRs #386–#390 are open and unmerged. The Main quality gate and Environment gate passed for all five heads on 2026-11-09. Do not merge without explicit owner authorization. Their presence does not change the outstanding device-acceptance work.
 - The owner-selected Colosseum loading artwork and icon packages remain source inputs only; neither is integrated into the repository or APK.
 
 ## Combat audit status
