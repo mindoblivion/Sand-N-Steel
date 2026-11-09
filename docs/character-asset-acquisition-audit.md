@@ -94,8 +94,13 @@ Baseline: `ffbd9424d3eeab971b0c3ce0a9f7bbce3cfa8040`.
 
 ### Appearance controls confirmed missing from the audited screen
 
-`skinColor`, `tunicColor`, and `crestColor` are initialized with `useState` but their setters are not captured; `hairColor` is a fixed literal in the `PlayerAppearance` object. The component contains no colour inputs or swatches for these values. They are therefore fixed defaults, not player-editable controls in the current creator.
+`skinColor`, `tunicColor`, and `crestColor` are initialized with `useState` but their setters are not captured; `hairColor` is a fixed literal in the `PlayerAppearance` object. The component contains no colour inputs or swatches for these values. They are therefore fixed defaults, not player-editable controls in the current creator. `GladiatorPreview.tsx` forwards all four values into its preview `FighterState`, but the rigged GLB path in `GladiatorMesh.tsx` does not apply them to the imported model's materials: the `skinColor` use in that path only tints the generated swelling marker. The procedural-gladiator JSX does use `tunicColor`, `skinColor`, and `crestColor` for its own generated materials. Thus adding controls alone would visibly affect the procedural Centurion, but would not currently recolour the rigged Roman/Amazonian/Retiarius/Minotaur/Dimachaerus models. Hair colour is not applied by the inspected GLB or procedural material paths.
 
 ### Limits and next gate
 
 This is a source-level UI audit, not a visual or device test. Before adding colour controls, inspect the material names and material ownership for each selectable GLB and the `GladiatorPreview` material update path. A colour picker that changes React state but cannot safely recolour the selected model would be a false feature. Likewise, the weight label alone does not establish that all six looks support the same body-shape deformation. No runtime changes or asset acquisitions were made in this audit.
+
+
+### Renderer material-path follow-up — 2026-11-09
+
+The preview component forwards `skinColor`, `hairColor`, `tunicColor`, and `crestColor` to `FighterState`. The inspected rigged-GLB path clones the imported scene and preserves its imported mesh materials; the only `fighter.skinColor` use in the damage-marker setup tints a generated swelling overlay, not the model's skin material. In contrast, the procedural fallback builds its own materials and directly uses `fighter.tunicColor`, `fighter.skinColor`, and `fighter.crestColor`. `hairColor` has no visible application in the inspected paths. Therefore a UI-only colour-picker implementation would be incomplete: rigged-model material-slot mapping and a safe hair-colour path must be designed first, or the controls must clearly be scoped to the procedural model only. No runtime changes made.
