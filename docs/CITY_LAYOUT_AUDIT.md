@@ -1,6 +1,6 @@
 # Roman City Layout — Transform and Route Audit
 
-> **Current status — 2026-11-06:** This inventory remains a source-level baseline, not a visual sign-off.
+> **Current status — 2026-11-09:** Rechecked selected navigation and camera sources against `main` at `ffbd9424d3eeab971b0c3ce0a9f7bbce3cfa8040`. This remains a source-level baseline, not a visual sign-off.
 > The automated route-connectivity and foundation-footprint checks referenced below have since
 > landed. The initial Samsung device smoke test (install, launch, Roman-city walkaround) also passed
 > on 2026-11-03 with no reported crashes/freezes. That is not exhaustive acceptance and does not
@@ -11,7 +11,7 @@
 > visual, movement, or collision defect.
 
 **Original inventory baseline:** `3af1c9c781832cbc5a5bc1b0d18c306b5c3a52ae`  
-**Latest validation baseline:** `main` as checked on 2026-11-06 (the route and footprint suites were merged at the SHAs recorded below)  
+**Latest source spot-check:** `main` at `ffbd9424d3eeab971b0c3ce0a9f7bbce3cfa8040` (2026-11-09); route and footprint test files remain present. This pass inspected source but did not execute tests or perform visual/device acceptance.  
 **Scope:** source-level transform, interaction, approach, and street inventory for issue #232.  
 **Status:** inventory complete for primary mounted buildings; no transforms changed. This is not a visual acceptance sign-off.
 
@@ -78,9 +78,17 @@
 - Mobile landscape visual review: still outstanding; the source-only audits do not substitute for a live scene review.
 - Physical Android acceptance: the initial Samsung install/launch/city-walkaround smoke test passed on 2026-11-03; broader acceptance remains outstanding and is tracked in issue #329.
 
-## Current acceptance update — 2026-11-06
+## Current acceptance update — 2026-11-09
 
 - **Automated geometry/navigation coverage is in place:** PR #239 verifies walkable connectivity from the normal gate spawn to every registered hub/fast-travel arrival on a 0.25 m grid; PR #240 verifies the 20 audited building plinth footprints and allows only the two intentional Ishtar Gatehouse compound overlaps. The C-8.22/C-8.23 street-prop clearance suites add source-derived prop/building and prop/prop checks. These tests do not certify upper-level visual clearance or rendered door visibility.
 - **Initial physical-device city smoke test passed:** the owner installed the workflow-generated rehearsal APK on a Samsung device on 2026-11-03, launched the game, walked around the Roman city, and reported good appearance/playability with no crashes or freezes. This is a limited smoke test, not exhaustive Android acceptance; the remaining checks are tracked in issue #329.
 - **Still outstanding for this city issue:** inspect a current landscape screenshot/video from the installed app. Review visible entrances and walk-in corridors, especially Academy/Doctore/Library, the west service court, and the East Circus crossing; verify paving reads as traversable ground and inspect upper-floor, roof, and decorative-prop clearances.
 - **No speculative transform changes:** retain the current measured building placements until the visual/device review identifies a reproducible defect. A source-level route or footprint pass cannot establish sightlines or appearance.
+
+
+### Current-main source spot-check — 2026-11-09
+
+- Re-inspected `CityCamera.tsx`: camera yaw remains anchored to the initial facing plus the user's drag offset; it does not follow player rotation while moving. `autoDecayOnMove: false` preserves a stable camera-relative movement heading. This is source evidence only; the owner's reported movement concern still requires physical S24 testing.
+- Re-inspected `cityCollisions.ts`: the ordinary city bounds and East Circus district envelope remain a documented union, with explicit shared-edge handling to avoid boundary snapping. The route-reachability and building-footprint regression test files remain in the repository.
+- No reproducible source defect was established in this spot-check, so no building transforms, collision dimensions, or movement behavior were changed.
+- **Still required:** a current landscape capture/video from the installed APK to review visible doorways, courtyard paving, upper-level/prop separation, and the East Circus crossing. Also complete the remaining Android lifecycle and gameplay acceptance tracked in issue #329. This source spot-check does not replace either form of acceptance.
