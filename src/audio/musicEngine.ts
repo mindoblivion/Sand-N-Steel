@@ -90,6 +90,14 @@ export class MusicEngine {
   }
 
   public async stop(fadeOutMs: number = 1000) {
+    // A new track can be requested while the previous element's play() promise
+    // is pending. Invalidate that attempt before handling the current track.
+    if (this.pendingAudioElement) {
+      this.pendingAudioElement.pause();
+      this.pendingAudioElement.src = '';
+      this.pendingAudioElement = null;
+      this.currentTrackId = null;
+    }
     if (!this.ctx || !this.musicGainNode || !this.currentAudioElement) return;
 
     // Fade out
