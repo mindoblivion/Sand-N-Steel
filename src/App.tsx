@@ -544,6 +544,54 @@ export function App() {
     return () => document.removeEventListener('visibilitychange', syncHiddenState);
   }, []);
 
+  // Android/WebView can suspend audio when the app is backgrounded. Pause the
+  // active track immediately, then wait for a real player gesture before resuming;
+  // autoplay restrictions make an automatic resume unreliable and potentially noisy.
+  useEffect(() => {
+    let waitingForGesture = false;
+
+    function resumeAfterGesture() {
+      if (!waitingForGesture || document.hidden) return;
+      waitingForGesture = false;
+      removeGestureListeners();
+
+      // Android may suspend the shared Web Audio context separately from the
+      // HTMLAudioElement. Re-arm it synchronously inside this trusted gesture
+      // before retrying the current track.
+      try {
+        const audioContext = sounds.getAudioContext();
+        if (audioContext.state !== 'running') {
+          void audioContext.resume().catch(() => {});
+        }
+      } catch {
+        // Audio remains best-effort if this WebView cannot provide Web Audio.
+      }
+      music.resume();
+    }
+
+    function removeGestureListeners() {
+      document.removeEventListener('pointerdown', resumeAfterGesture, true);
+      document.removeEventListener('keydown', resumeAfterGesture, true);
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        music.pause();
+        waitingForGesture = true;
+        removeGestureListeners();
+      } else if (waitingForGesture) {
+        document.addEventListener('pointerdown', resumeAfterGesture, true);
+        document.addEventListener('keydown', resumeAfterGesture, true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      removeGestureListeners();
+    };
+  }, []);
+
   // Music Routing
   useEffect(() => {
     if (duelResult) {
