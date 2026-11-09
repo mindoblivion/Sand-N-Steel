@@ -554,6 +554,18 @@ export function App() {
       if (!waitingForGesture || document.hidden) return;
       waitingForGesture = false;
       removeGestureListeners();
+
+      // Android may suspend the shared Web Audio context separately from the
+      // HTMLAudioElement. Re-arm it synchronously inside this trusted gesture
+      // before retrying the current track.
+      try {
+        const audioContext = sounds.getAudioContext();
+        if (audioContext.state !== 'running') {
+          void audioContext.resume().catch(() => {});
+        }
+      } catch {
+        // Audio remains best-effort if this WebView cannot provide Web Audio.
+      }
       music.resume();
     }
 
