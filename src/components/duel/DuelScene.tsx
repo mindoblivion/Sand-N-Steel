@@ -10,6 +10,7 @@ import { CombatHUD } from '../ui/CombatHUD';
 import { CombatActionType, CombatLogEntry, AttackTarget } from '../ui/TurnActionPanel';
 import { nextCounterWindupStep } from '../../utils/counterWindup';
 import { ATTACK_WINDUP_MS } from '../../utils/attackWindup';
+import { cancelDuelResult, scheduleDuelResult } from '../../utils/duelResultTimer';
 import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
@@ -894,6 +895,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const executeCombatTurnRef = useRef<((actor: 'player' | 'opponent', actionType: CombatActionType, target: AttackTarget, afterWindup: boolean) => void) | null>(null);
   const attackWindupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiTurnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resultTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cancel an in-flight recovery callback when the arena scene is exited.
   useEffect(() => () => {
@@ -905,6 +907,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       clearTimeout(turnResolutionTimerRef.current);
       turnResolutionTimerRef.current = null;
     }
+    resultTransitionTimerRef.current = cancelDuelResult(resultTransitionTimerRef.current);
   }, []);
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
@@ -3039,7 +3042,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           longMemoryRef.current,
         );
       }
-      setTimeout(() => {
+      resultTransitionTimerRef.current = scheduleDuelResult(() => {
+        resultTransitionTimerRef.current = null;
         onMatchComplete(statsRef.current, true);
       }, 1400);
     } else if (player.health <= 0) {
@@ -3101,7 +3105,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           longMemoryRef.current,
         );
       }
-      setTimeout(() => {
+      resultTransitionTimerRef.current = scheduleDuelResult(() => {
+        resultTransitionTimerRef.current = null;
         onMatchComplete(statsRef.current, false);
       }, 1400);
     }
