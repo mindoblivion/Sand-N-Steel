@@ -1,37 +1,42 @@
 # Gladiator Combat — Source Audit
 
-> Audit baseline: `main` at `7d211d96e226b88130356f9cdefbb28856f39f6b`.
+> Original audit baseline: `main` at `7d211d96e226b88130356f9cdefbb28856f39f6b`.
+> Current-main re-audit: `ffbd9424d3eeab971b0c3ce0a9f7bbce3cfa8040` (2026-11-09).
 > Scope: source-level inspection only. This is not a full-playthrough or Android device sign-off.
 
-## Findings
+## Current-main findings
 
 ### Confirmed implementation present
 
-- Combat calculations are centralized in `src/utils/combatCalculations.ts`: weapon range and stamina costs, hit chance, damage mitigation, critical multiplier, stamina regeneration, rage activation and combo-event handling.
-- `TurnActionPanel.tsx` uses the shared calculation helpers for displayed hit chance, damage estimates, weapon range and stamina costs. It disables quick/power strikes while out of range or below the displayed stamina cost.
-- `DuelScene.tsx` owns turn resolution. Ordinary attacks begin an attack animation and defer stamina/hit/damage resolution until `ATTACK_WINDUP_MS` has elapsed.
-- The attack-resolution branch independently checks weapon range. For a player strike dispatched outside range, stamina is not deducted; it logs OUT OF RANGE and records a missed-out-of-reach result. The HUD normally prevents this dispatch.
-- Block and dodge stances are cleared when that fighter next acts, allowing the opponent's intervening attack to interact with the stance.
-- Combat timing has a dedicated regression suite (`duelTurnPacing.test.ts`); counter-windup sequencing has a dedicated state-machine/source-wiring suite (`counterWindup.test.ts`); the calculation layer has `scripts/combatTests.ts`.
-- Boss-specific mechanics are represented in data and have dedicated coverage, including boss phase/presentation suites.
+- Combat calculations remain centralized in `src/utils/combatCalculations.ts`: weapon range and stamina costs, hit chance, damage mitigation, stamina regeneration, rage activation, combo events and other pure combat rules.
+- `src/components/ui/TurnActionPanel.tsx` consumes the shared range, stamina, hit-chance and damage helpers. The quick/power action controls are disabled for insufficient stamina and for an out-of-range master target. The beast-target exception is explicitly separated from the master range gate.
+- `src/components/duel/DuelScene.tsx` uses the same modifier objects for the HUD and combat resolution, including the player's weight impact/recovery profile. The panel's displayed cost and damage estimate therefore use the same helper path as the duel.
+- Ordinary attack resolution is deferred through the shared `ATTACK_WINDUP_MS` value (650 ms); the action resolution then schedules a separate presentation/recovery hold. The timing table is exported and covered by `duelTurnPacing.test.ts`.
+- The AI turn timer is owned by its effect: its cleanup clears the scheduled timeout and nulls the ref if it still owns it. Its callback checks match termination before choosing an action.
+- The duel owns separate refs for attack wind-up, turn resolution, AI turn and result transition timers. The scene-unmount cleanup cancels attack wind-up, turn-resolution and result-transition timers. The AI timer is independently cancelled by the AI effect cleanup.
+- Withdrawal clears pending attack/turn timers and the AI timer before settling the withdrawal result.
+- Victory and defeat both latch `isMatchOver`, clear pending telegraph/counter state and schedule the result callback through `scheduleDuelResult`; the scene cleanup cancels a pending result callback. Focused timer scheduling/cancellation tests are in `src/utils/duelResultTimer.test.ts`.
+- Counter-dodge still has a dedicated announce/resolve state-machine test, and turn pacing still has source-wiring assertions for the telegraph aftermath marker.
 
-## No new confirmed defect from this source pass
+### Re-audit conclusion
 
-The earlier out-of-range stamina complaint is guarded in the current source: a player strike beyond weapon reach does not deduct stamina. The action panel also disables the strike. A direct/stale dispatch still enters turn resolution and reports the miss; no change is proposed without evidence that normal gameplay can reach that path.
+No new confirmed source defect was established in this pass. In particular, the result callback has explicit unmount cancellation; the AI timer is cleared by its effect cleanup; and the normal player action panel gates out-of-range and insufficient-stamina attacks. The source audit does not establish physical animation synchronization, reliable touch input, correct perceived difficulty, or a complete duel on the Samsung S24.
 
-This audit does **not** establish that combat is bug-free. Source inspection and unit tests cannot verify animation timing on device, touch reliability, AI difficulty, readable telegraphs, or whether a full duel can be completed without a stuck state.
+No gameplay changes are proposed from this inspection alone. Avoid speculative balance changes or rewrites without a reproducible failure.
 
 ## Remaining combat acceptance work
 
-1. Play a complete standard duel from entry through victory/defeat and result return.
-2. Test quick and power attacks at just inside, exactly at, and just outside each weapon's effective range.
-3. Verify stamina deductions, insufficient-stamina prevention, recovery, and no-cost out-of-range handling.
-4. Verify block and dodge persist through the opponent's response, mitigate/evade correctly, then clear when the player acts.
-5. Verify telegraphed heavy attacks and counter windows are visually readable and resolve only once.
-6. Exercise every shipped opponent/boss mechanic at least once, prioritizing counter-dodge, rage, weapon-switch and heavy-telegraph behaviours.
+1. Complete a standard duel from entry through victory and defeat result return.
+2. Test quick and power attacks just inside, exactly at, and just outside each weapon's effective range.
+3. Verify stamina deductions, insufficient-stamina prevention, recovery and out-of-range handling.
+4. Verify block and dodge persist through the opponent's response, mitigate/evade correctly, then clear when that fighter acts.
+5. Verify heavy telegraphs and counter windows are visually readable and resolve exactly once.
+6. Exercise shipped boss mechanics, prioritizing counter-dodge, rage, weapon-switch and heavy-telegraph behaviours.
 7. Confirm damage, hit-stop, animation active frames, defeat handling and rewards remain synchronized.
-8. Repeat on the Samsung S24 and record the build SHA, device/Android version, reproduction steps and result.
+8. Repeat on Samsung S24 and record build SHA, device/Android version, reproduction steps and result.
 
-## Next engineering step
+## Original audit notes
 
-Add or strengthen integration-level tests around the full turn lifecycle, especially the interaction among wind-up timers, turn ownership, match termination/unmount cleanup, and the opponent response. Keep this separate from balance changes. Only fix a reproducible defect; do not rebalance combat from source inspection alone.
+The earlier out-of-range stamina complaint is guarded in current source: a player strike beyond weapon reach does not deduct stamina. A stale/direct dispatch can still enter turn resolution and report the miss; no change is proposed without evidence that normal gameplay reaches that path.
+
+The calculation layer is tested by `scripts/combatTests.ts`; combat timing by `duelTurnPacing.test.ts`; counter-windup sequencing by `counterWindup.test.ts`; result timer scheduling/cancellation by `duelResultTimer.test.ts`. This list is source inventory, not proof that every suite was rerun in this documentation-only update.
