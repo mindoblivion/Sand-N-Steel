@@ -9,11 +9,13 @@ import {
 import { TITLE_BACKDROP_CLASS } from '../../utils/startupAssets';
 
 /**
- * START-1 — the shared-art destination wait surface.
+ * START-1 — the shared-backdrop destination wait surface.
  *
- * City, arena, circus and building transitions all retain the player's supplied
- * Sand & Steel artwork. Progress stays honest: a measured asset percentage when
- * the loader has a count, otherwise an indeterminate sweep at the bottom edge.
+ * City, arena, circus and building transitions currently reuse the title-screen
+ * backdrop through TITLE_BACKDROP_CLASS. The separately supplied loading-screen
+ * artwork has not yet been installed in the app bundle. Progress stays honest: a
+ * measured asset percentage when the loader has a count, otherwise an indeterminate
+ * sweep at the bottom edge.
  */
 
 export interface WaitSurfaceProps {
