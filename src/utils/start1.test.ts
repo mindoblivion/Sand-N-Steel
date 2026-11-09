@@ -268,7 +268,7 @@ describe('D. The sequence', () => {
     expect(waitDestination('not-a-destination' as WaitDestinationId)).toEqual(WAIT_DESTINATIONS.city_hub);
   });
 
-  test('the supplied artwork and safe-area progress bar are shared by every transition surface', () => {
+  test('the shared backdrop class and safe-area progress bar are used by every transition surface', () => {
     expect(waitSurfaceSrc).toContain('TITLE_BACKDROP_CLASS');
     expect(assetLoadingSrc).toContain('TITLE_BACKDROP_CLASS');
     expect(assetLoadingSrc).not.toContain('timedOut');
@@ -283,6 +283,8 @@ describe('D. The sequence', () => {
       expect(source).toContain('wait-sweep');
     }
     // City, Tavern, Colosseum, Forge, character creation and school hub lazy fallbacks.
+    // This checks shared backdrop wiring only; it does not assert which image file
+    // the class resolves to. The exact supplied loading artwork remains a separate asset task.
     expect(appSrc.split('<WaitSurface destination="city_hub" />').length - 1).toBeGreaterThanOrEqual(4);
     expect(appSrc).toContain('<WaitSurface destination="character_creation" rotate={false} />');
     expect(appSrc).toContain('<WaitSurface destination="school_hub" />');
