@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `3d4d58b5ec067a9203d987da7024ebbf04c5e2b6` (2026-11-08).
+> Living project index. Baseline reconciled against `main` at `2c6aa930afb92ab4ab183dd31a8f067ae522f0b1` (2026-11-09).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -23,7 +23,7 @@ Never report physical-device validation, measured FPS, or visual acceptance with
 | P0 | Android movement stability — [PR #372](https://github.com/mindoblivion/Sand-N-Steel/pull/372) | Merged to main. Source fix stabilizes camera yaw while moving; physical S24 confirmation remains outstanding. | Test straight/diagonal joystick movement while orbiting, stopping/restarting, and camera collision on Samsung S24. Record result before calling device-verified. |
 | P0 | Loading artwork and progress transitions — [PR #371](https://github.com/mindoblivion/Sand-N-Steel/pull/371) | Merged to main. Shared artwork/progress treatment covers scene transitions and character-preview loading/recovery. | Verify artwork, truthful progress/indeterminate state, recovery action, and safe-area spacing during real chunk/GLB loading on Samsung S24. |
 | P0 | Android device acceptance — [issue #329](https://github.com/mindoblivion/Sand-N-Steel/issues/329) | Initial install/launch/city walkaround smoke test passed on Samsung device (2026-11-03); remaining acceptance is open. | Record force-close/relaunch save, device restart save, full duel, orientation, background/resume/process recreation, offline play, longer session/thermal/memory/performance, and second-device results if available. |
-| P0 | Duel result timer lifecycle — [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379) | Implemented on an open PR; both reported CI gates passed. The 1.4-second victory/defeat callback is now owned and cancelled on scene unmount. | Keep unmerged pending owner approval; verify a full duel and scene-exit timing on Samsung S24. |
+| P0 | Duel result timer lifecycle — [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379) | Merged to main (`5b7c0fb`). The 1.4-second victory/defeat callback is owned and cancelled on scene unmount; focused timer scheduling/cancellation and scene-wiring tests passed CI. | Verify a full duel, victory/defeat return, and scene-exit timing on Samsung S24. |
 | P1 | Roman city layout visual acceptance — [issue #232](https://github.com/mindoblivion/Sand-N-Steel/issues/232) | Source inventory and automated route/footprint checks exist. No broad repositioning justified by current source audit. | Review current landscape captures of Academy/Doctore/Library cluster, west service court, East Circus crossing, doorways, paving and collision clearance. Only change geometry for reproducible defects. |
 | P1 | Android app icon | Confirmed still using the older gladius/laurel Android launcher resources; selected two-gladiator artwork is available in the conversation files. | Transfer the exact supplied image into the repo, generate adaptive and legacy Android density assets, add/update icon checks, build a rehearsal APK, and verify on S24. Play Store listing icon is a separate Play Console upload. Do not substitute an approximation. |
 | P1 | Chariot racing acceptance | Current main implements player horse teams, procedural gait, wheel roll, validated full-lap finish, best-time persistence, a presentation-only rival, and career settlement. PR #354 added a once-per-day completion purse (40/60/80 gold by team size) plus 20 gold for a win; repeated same-day finishes still count but pay no extra purse. Wagers and track incidents remain deferred. | Complete a full physical-device race and collect Samsung S24 frame-time/FPS, draw-call, touch-feel, gait, and thermal measurements with the development-only race profiler APK. No device FPS data is currently recorded. |
@@ -50,16 +50,19 @@ These are the standing areas to audit against the live implementation. Items not
 - [PR #375](https://github.com/mindoblivion/Sand-N-Steel/pull/375) and [PR #376](https://github.com/mindoblivion/Sand-N-Steel/pull/376): character creator mobile layout/scroll improvements merged.
 - [PR #377](https://github.com/mindoblivion/Sand-N-Steel/pull/377): character preview failure recovery merged.
 - [PR #378](https://github.com/mindoblivion/Sand-N-Steel/pull/378): duel timer cleanup regression coverage merged.
+- [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379): duel result callback cancellation on scene exit merged (`5b7c0fb`).
+- [PR #381](https://github.com/mindoblivion/Sand-N-Steel/pull/381): clarified shared loading-backdrop test coverage merged (`bd099c0`).
+- [PR #373](https://github.com/mindoblivion/Sand-N-Steel/pull/373): this master backlog and combat audit index merged (`2c6aa93`).
 
 ## Open engineering PRs
 
-- [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379): duel result timer lifecycle cleanup. Main quality gate and environment gate passed (runs `42457037321` and `42457038104`); PR remains open/unmerged. Physical Samsung S24/full-duel acceptance is outstanding.
+- No open engineering PRs were present at this reconciliation. Continue from the active work table; do not interpret an empty PR queue as completion of device acceptance.
 
 ## Combat audit status
 
 - [Source audit](docs/COMBAT_SOURCE_AUDIT.md): calculations, HUD gating, attack wind-up, range/stamina handling, defensive stance lifecycle, and existing regression suites inspected at its recorded baseline (`7d211d9`). This predates current main (`3d4d58b`); re-audit combat source before treating the findings as current.
 - No new confirmed combat defect was established by this source pass. The historical out-of-range stamina issue is guarded in current source; physical/full-duel acceptance and turn-lifecycle integration coverage remain outstanding.
-- Lifecycle follow-up: [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379) adds result-timer ownership and unmount cancellation, with focused schedule/cancel and source-wiring regression tests. Both reported CI gates passed; the PR remains unmerged and device/full-duel acceptance remains open.
+- Lifecycle follow-up: [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379) merged result-timer ownership and unmount cancellation, with focused schedule/cancel and source-wiring regression tests. Both reported CI gates passed; device/full-duel acceptance remains open.
 - Next: complete a full Android duel acceptance run, including victory, defeat, and exiting the duel during pending transitions. Do not rebalance or rewrite combat without reproducible evidence.
 
 ## Evidence sources
