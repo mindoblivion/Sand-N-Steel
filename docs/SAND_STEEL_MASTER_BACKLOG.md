@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `507c03d26ae4a0d83555e9c260befb01c175ea50` (2026-11-09).
+> Living project index. Baseline reconciled against `main` at `ffbd9424d3eeab971b0c3ce0a9f7bbce3cfa8040` (2026-11-09).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -54,14 +54,17 @@ These are the standing areas to audit against the live implementation. Items not
 - [PR #381](https://github.com/mindoblivion/Sand-N-Steel/pull/381): clarified shared loading-backdrop test coverage merged (`bd099c0`).
 - [PR #373](https://github.com/mindoblivion/Sand-N-Steel/pull/373): this master backlog and combat audit index merged (`2c6aa93`).
 
-## Open engineering PRs
+## Open pull requests
 
-- No open engineering PRs were present at this reconciliation. Continue from the active work table; do not interpret an empty PR queue as completion of device acceptance.
-- Asset inventory update in progress: the owner-selected Colosseum loading artwork and the icon package have been located in the Library. They are source inputs only; they are not part of the repository or APK until added, checked, and built.
+- [PR #386](https://github.com/mindoblivion/Sand-N-Steel/pull/386): documentation-only inventory of the supplied launcher icon density assets; no runtime integration.
+- [PR #387](https://github.com/mindoblivion/Sand-N-Steel/pull/387): documentation-only refresh of the combat source audit against current main; no gameplay changes.
+- [PR #388](https://github.com/mindoblivion/Sand-N-Steel/pull/388): documentation-only audit of current character-creator appearance options and renderer material limitations; no runtime changes.
+- These PRs are open and unmerged. Do not merge without explicit owner authorization. Their presence does not change the outstanding device-acceptance work.
+- The owner-selected Colosseum loading artwork and icon packages remain source inputs only; neither is integrated into the repository or APK.
 
 ## Combat audit status
 
-- [Source audit](docs/COMBAT_SOURCE_AUDIT.md): calculations, HUD gating, attack wind-up, range/stamina handling, defensive stance lifecycle, and existing regression suites inspected at its recorded baseline (`7d211d9`). This predates current main (`3d4d58b`); re-audit combat source before treating the findings as current.
+- [Source audit](docs/COMBAT_SOURCE_AUDIT.md): calculations, HUD gating, attack wind-up, range/stamina handling, defensive stance lifecycle, and regression suites were refreshed against current main in [PR #387](https://github.com/mindoblivion/Sand-N-Steel/pull/387). That PR is documentation-only and remains open; do not treat it as merged evidence.
 - No new confirmed combat defect was established by this source pass. The historical out-of-range stamina issue is guarded in current source; physical/full-duel acceptance and turn-lifecycle integration coverage remain outstanding.
 - Lifecycle follow-up: [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379) merged result-timer ownership and unmount cancellation, with focused schedule/cancel and source-wiring regression tests. Both reported CI gates passed; device/full-duel acceptance remains open.
 - Next: complete a full Android duel acceptance run, including victory, defeat, and exiting the duel during pending transitions. Do not rebalance or rewrite combat without reproducible evidence.
