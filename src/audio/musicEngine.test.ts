@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import { MusicEngine } from './musicEngine';
 
 type Deferred = {
@@ -78,17 +79,17 @@ describe('MusicEngine Android interruption recovery', () => {
 
     const initialStart = engine.play('title_main', { fadeMs: 0 });
     await flushMicrotasks();
-    expect(FakeAudio.instances).toHaveLength(1);
+    assert.equal(FakeAudio.instances.length, 1);
 
     engine.pause();
     FakeAudio.instances[0].attempt.reject(new DOMException('Interrupted', 'AbortError'));
     await initialStart;
 
-    expect(engine.getCurrentTrack()).toBe('title_main');
+    assert.equal(engine.getCurrentTrack(), 'title_main');
 
     engine.resume();
     await flushMicrotasks();
-    expect(FakeAudio.instances).toHaveLength(2);
+    assert.equal(FakeAudio.instances.length, 2);
 
     FakeAudio.instances[1].attempt.resolve();
     await flushMicrotasks();
@@ -112,7 +113,7 @@ describe('MusicEngine Android interruption recovery', () => {
     interrupted.attempt.resolve();
     await initialStart;
     await flushMicrotasks();
-    expect(interrupted.paused).toBe(true);
+    assert.equal(interrupted.paused, true);
 
     replacement.attempt.resolve();
     await flushMicrotasks();
