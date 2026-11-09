@@ -76,3 +76,26 @@ Start with one candidate base body and inspect its actual skeleton and clip name
 ## Acquisition log
 
 No assets have been downloaded or committed as part of this research document. This log must be updated only after files are actually acquired and verified.
+
+
+## Current character-creator options re-audit — 2026-11-09
+
+Baseline: `ffbd9424d3eeab971b0c3ce0a9f7bbce3cfa8040`.
+
+### Editable creation choices confirmed in `src/components/hub/CharacterCreation.tsx`
+
+- Gladiator name (20-character input).
+- Body weight (140–300 lb in 5 lb increments). The UI describes effects on build, impact, and recovery; this source inspection does not prove that each GLB visibly deforms across the range.
+- Seven class/armatura cards, including class stats, doctrine, and starter kit.
+- Six fighter-look choices: Roman Warrior, Amazonian, Centurion/procedural, Retiarius, Minotaur, and Dimachaerus.
+- Three body-build presets under Corpus, with stat deltas.
+- Optional birthplace/province and flaw selections.
+- Four-stat point allocation.
+
+### Appearance controls confirmed missing from the audited screen
+
+`skinColor`, `tunicColor`, and `crestColor` are initialized with `useState` but their setters are not captured; `hairColor` is a fixed literal in the `PlayerAppearance` object. The component contains no colour inputs or swatches for these values. They are therefore fixed defaults, not player-editable controls in the current creator.
+
+### Limits and next gate
+
+This is a source-level UI audit, not a visual or device test. Before adding colour controls, inspect the material names and material ownership for each selectable GLB and the `GladiatorPreview` material update path. A colour picker that changes React state but cannot safely recolour the selected model would be a false feature. Likewise, the weight label alone does not establish that all six looks support the same body-shape deformation. No runtime changes or asset acquisitions were made in this audit.
