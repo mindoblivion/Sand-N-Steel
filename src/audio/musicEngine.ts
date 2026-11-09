@@ -11,6 +11,8 @@ export class MusicEngine {
   private pendingAudioElement: HTMLAudioElement | null = null;
   private currentSource: MediaElementAudioSourceNode | null = null;
   private currentTrackId: string | null = null;
+  /** Preserve the requested track while Android interrupts an in-flight start. */
+  private isPaused: boolean = false;
   private isMuted: boolean = false;
   /**
    * C-8.70B §SET-1 — the designed default level: 0.8, the settings record's own
@@ -39,6 +41,7 @@ export class MusicEngine {
     await this.stop(options.fadeMs);
 
     this.currentTrackId = trackId;
+    this.isPaused = false;
 
     // Load track
     const audio = new Audio(track.src);
@@ -55,13 +58,21 @@ export class MusicEngine {
           return;
         }
         this.pendingAudioElement = null;
+        if (this.isPaused) {
+          // The start resolved after Android backgrounded the app. Keep the
+          // requested track ID so the next foreground gesture can create a fresh
+          // media element rather than trying to reuse this interrupted request.
+          audio.pause();
+          return;
+        }
         this.currentAudioElement = audio;
         this.currentSource = this.ctx.createMediaElementSource(audio);
         this.currentSource.connect(this.musicGainNode);
 
         this.fadeIn(options.fadeMs || 2000);
     } catch (e) {
-        if (this.pendingAudioElement === audio) this.pendingAudioElement = null;
+        const stillOwnsAttempt = this.pendingAudioElement === audio;
+        if (stillOwnsAttempt) this.pendingAudioElement = null;
         // Browsers commonly reject autoplay before the first user gesture. Keep that
         // expected state distinct from a missing or unsupported audio asset.
         const errorName = e instanceof DOMException ? e.name : '';
@@ -70,11 +81,16 @@ export class MusicEngine {
         } else {
           console.warn(`MusicEngine: Skipping track ${trackId} (file not found or unsupported)`);
         }
-        if (this.currentTrackId === trackId) this.currentTrackId = null;
+        // A background interruption is recoverable: retain the desired track.
+        // An obsolete attempt must not clear a newer attempt for the same track.
+        if (stillOwnsAttempt && !this.isPaused && this.currentTrackId === trackId) {
+          this.currentTrackId = null;
+        }
     }
   }
 
   public pause() {
+    this.isPaused = true;
     if (this.currentAudioElement) this.currentAudioElement.pause();
     // Also stop an in-flight play() attempt: currentAudioElement is assigned only
     // after that promise resolves, which is too late for Android backgrounding.
@@ -82,10 +98,26 @@ export class MusicEngine {
   }
 
   public resume() {
+    this.isPaused = false;
     if (this.currentAudioElement) {
       // A WebView may still reject playback after an interruption; the next
       // foreground/gesture cycle can retry without an unhandled rejection.
       void this.currentAudioElement.play().catch(() => {});
+      return;
+    }
+
+    // If Android interrupted the initial play() promise, the old element may
+    // reject or resolve late. Invalidate it before creating a fresh element from
+    // the retained track ID; its eventual settlement cannot replace the new one.
+    if (this.currentTrackId) {
+      const trackId = this.currentTrackId;
+      if (this.pendingAudioElement) {
+        this.pendingAudioElement.pause();
+        this.pendingAudioElement.src = '';
+        this.pendingAudioElement = null;
+      }
+      this.currentTrackId = null;
+      void this.play(trackId, { fadeMs: 0 });
     }
   }
 
