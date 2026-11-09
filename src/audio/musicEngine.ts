@@ -13,6 +13,8 @@ export class MusicEngine {
   private currentTrackId: string | null = null;
   /** Preserve the requested track while Android interrupts an in-flight start. */
   private isPaused: boolean = false;
+  /** Invalidates a track start if Android backgrounds the app during a fade-out. */
+  private pauseGeneration: number = 0;
   private isMuted: boolean = false;
   /**
    * C-8.70B §SET-1 — the designed default level: 0.8, the settings record's own
@@ -37,11 +39,16 @@ export class MusicEngine {
       return;
     }
 
-    // Stop current track with fade
+    // Stop current track with fade. A visibility change can happen while this
+    // await is pending; never let the completed fade restart audio in background.
+    const startGeneration = this.pauseGeneration;
     await this.stop(options.fadeMs);
+    if (this.isPaused || this.pauseGeneration !== startGeneration) {
+      this.currentTrackId = trackId;
+      return;
+    }
 
     this.currentTrackId = trackId;
-    this.isPaused = false;
 
     // Load track
     const audio = new Audio(track.src);
@@ -91,6 +98,7 @@ export class MusicEngine {
 
   public pause() {
     this.isPaused = true;
+    this.pauseGeneration += 1;
     if (this.currentAudioElement) this.currentAudioElement.pause();
     // Also stop an in-flight play() attempt: currentAudioElement is assigned only
     // after that promise resolves, which is too late for Android backgrounding.
