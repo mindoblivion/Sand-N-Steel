@@ -119,4 +119,30 @@ describe('MusicEngine Android interruption recovery', () => {
     await flushMicrotasks();
     expect(engine.getCurrentTrack()).toBe('title_main');
   });
+  it('does not restart a replacement track when backgrounding interrupts its fade-out', async () => {
+    const engine = new MusicEngine();
+    engine.init(fakeAudioContext());
+
+    const initialStart = engine.play('title_main', { fadeMs: 0 });
+    await flushMicrotasks();
+    FakeAudio.instances[0].attempt.resolve();
+    await initialStart;
+    expect(FakeAudio.instances).toHaveLength(1);
+
+    const trackChange = engine.play('city_explore', { fadeMs: 25 });
+    engine.pause();
+    await trackChange;
+
+    // The old track has faded/stopped, but the requested replacement is retained.
+    expect(FakeAudio.instances).toHaveLength(1);
+    expect(engine.getCurrentTrack()).toBe('city_explore');
+
+    engine.resume();
+    await flushMicrotasks();
+    expect(FakeAudio.instances).toHaveLength(2);
+    FakeAudio.instances[1].attempt.resolve();
+    await flushMicrotasks();
+    expect(engine.getCurrentTrack()).toBe('city_explore');
+  });
+
 });
