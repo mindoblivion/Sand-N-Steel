@@ -98,16 +98,33 @@ export function useCameraDrag(
       }
     };
 
+    // Android can interrupt a gesture when the app is backgrounded or the
+    // system UI takes focus. Do not rely on receiving pointerup/pointercancel.
+    const handleInputInterruption = () => {
+      activePointerIdRef.current = null;
+      isDraggingRef.current = false;
+      yawOffsetRef.current = 0;
+      pitchOffsetRef.current = 0;
+      lastPointerRef.current = { x: 0, y: 0 };
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') handleInputInterruption();
+    };
+
     window.addEventListener('pointerdown', handlePointerDown, false);
     window.addEventListener('pointermove', handlePointerMove, false);
     window.addEventListener('pointerup', handlePointerUp, false);
     window.addEventListener('pointercancel', handlePointerUp, false);
+    window.addEventListener('blur', handleInputInterruption);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
+      window.removeEventListener('blur', handleInputInterruption);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [yawSensitivity, pitchSensitivity, minPitch, maxPitch]);
 
