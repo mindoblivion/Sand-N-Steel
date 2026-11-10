@@ -1,4 +1,5 @@
 import { canDebitGold } from '../../../utils/goldTransactions';
+import { getWeightCombatProfile } from '../../../utils/gladiatorWeight';
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Sparkles as DreiSparkles, Sky, Environment, Lightformer, useGLTF } from '@react-three/drei';
@@ -1211,7 +1212,7 @@ const handleEnterArena = useCallback(() => {
         const worldDz = normX * rightZ - normZ * forwardZ;
 
         // Grounded, controlled gladiator stride speed with analog control
-        const speed = 3.8 * mag;
+        const speed = 3.8 * mag * getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).movementMultiplier;
         const nextPos = resolveCityMovement(playerPosRef.current, worldDx, worldDz, speed, delta);
         // Phase 34G: Apply terrain height from the motte ramp/summit.
         // getTerrainY returns 0 on flat city ground, so existing
