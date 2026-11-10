@@ -20,16 +20,17 @@ export function normalizeGladiatorWeight(weight: unknown): number {
 }
 
 /**
- * Resolve the two sides of the weight trade-off from one normalized value.
+ * Resolve the bounded trade-offs from one normalized value.
  *
- * The 180 lb default is neutral. Lighter builds lose a little impact but recover
- * sooner; heavier builds hit harder but take longer to recover. Both effects are
- * bounded by the authored 140–300 lb creation range. Weight never gates weapons.
+ * 180 lb is neutral. Lighter builds have less impact, quicker attack recovery
+ * and a slightly quicker stride; heavier builds have more impact, slower
+ * recovery and a slower stride. Weight never gates weapons.
  */
 export function getWeightCombatProfile(weight: unknown): {
   weightLb: number;
   impactMultiplier: number;
   recoveryMultiplier: number;
+  movementMultiplier: number;
 } {
   const weightLb = normalizeGladiatorWeight(weight);
   const offset = (weightLb - DEFAULT_GLADIATOR_WEIGHT_LB) / 120;
@@ -38,6 +39,7 @@ export function getWeightCombatProfile(weight: unknown): {
     weightLb,
     impactMultiplier: 1 + tradeoff,
     recoveryMultiplier: 1 + tradeoff,
+    movementMultiplier: 1 - tradeoff,
   };
 }
 
