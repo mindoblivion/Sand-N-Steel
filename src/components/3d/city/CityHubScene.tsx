@@ -1164,6 +1164,26 @@ const handleEnterArena = useCallback(() => {
     }
   };
 
+  // Android may take the WebView out of focus without delivering touchend.
+  // Clear the joystick immediately so a held direction cannot survive app resume.
+  useEffect(() => {
+    const resetJoystickInput = () => {
+      touchIdRef.current = null;
+      touchVectorRef.current = { x: 0, z: 0 };
+      setKnobPos({ x: 0, y: 0 });
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') resetJoystickInput();
+    };
+
+    window.addEventListener('blur', resetJoystickInput);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('blur', resetJoystickInput);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   // Continuous, non-stuttering 60fps Movement Loop
   useEffect(() => {
     let animId: number;
