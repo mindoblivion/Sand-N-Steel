@@ -16,21 +16,24 @@ describe('gladiator weight combat profile', () => {
       weightLb: 180,
       impactMultiplier: 1,
       recoveryMultiplier: 1,
+      movementMultiplier: 1,
     });
   });
 
-  test('lighter builds trade impact for faster ordinary attack recovery', () => {
+  test('lighter builds trade impact for faster recovery and stride', () => {
     const light = getWeightCombatProfile(140);
     expect(light.impactMultiplier).toBeLessThan(1);
     expect(light.recoveryMultiplier).toBeLessThan(1);
     expect(light.recoveryMultiplier).toBe(0.95);
+    expect(light.movementMultiplier).toBe(1.05);
   });
 
-  test('heavier builds trade slower ordinary attack recovery for more impact', () => {
+  test('heavier builds trade slower recovery and stride for more impact', () => {
     const heavy = getWeightCombatProfile(300);
     expect(heavy.impactMultiplier).toBeGreaterThan(1);
     expect(heavy.recoveryMultiplier).toBeGreaterThan(1);
     expect(heavy.recoveryMultiplier).toBe(1.15);
+    expect(heavy.movementMultiplier).toBe(0.85);
   });
 
   test('weight is clamped and strength alone determines strength requirement', () => {
