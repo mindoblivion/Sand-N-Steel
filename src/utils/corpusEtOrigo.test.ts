@@ -673,7 +673,8 @@ describe('character creator skin tone selection', () => {
     expect(source).toContain('aria-pressed={selected}');
     expect(source).toContain('setSkinColor(tone.color)');
     expect(source).toContain('skinColor,');
-    expect(source).toContain('Choose a complexion.');
+    expect(source).toContain("selection.characterModel === 'procedural_gladiator' && (");
+    expect(source).toContain('Choose a complexion for the Centurion look.');
     // Hair, tunic and crest are not exposed as controls until their selected
     // model/material paths are proven to respond consistently.
     expect(source).not.toContain('data-hair-color');
