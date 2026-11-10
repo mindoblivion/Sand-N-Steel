@@ -152,12 +152,15 @@ describe('L17D §A — an individual sign cannot take the district with it', () 
     }
   });
 
-  test('the boundary resets only when resetKey changes, and nothing global was added', () => {
+  test('the boundary only recovers when its owning model resetKey changes, and nothing global was added', () => {
     const boundarySource = code(read('../components/ui/ThreeComponentErrorBoundary.tsx'));
-    // The error boundary resets state only when resetKey changes during componentDidUpdate.
+    // React owns error entry; recovery is narrowly scoped to an explicit model change.
     expect(boundarySource).toContain('getDerivedStateFromError');
-    expect(boundarySource).toContain('componentDidUpdate');
-    expect(boundarySource).toContain('resetKey');
+    expect(boundarySource).toContain('resetKey?: unknown');
+    expect(boundarySource).toContain('componentDidUpdate(prevProps: ThreeComponentErrorBoundaryProps)');
+    expect(boundarySource).toContain('if (this.state.hasError && prevProps.resetKey !== this.props.resetKey)');
+    expect(boundarySource).toContain('this.setState({ hasError: false, error: null })');
+    expect(boundarySource).not.toContain('componentWillReceiveProps');
 
     const signSource = code(SIGN_SOURCE);
     // Ownership: the existing 3D boundary, not a new global handler.
