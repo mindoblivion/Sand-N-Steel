@@ -662,3 +662,20 @@ describe('PITCH A4 §J — the creation screen and the sheet', () => {
     expect(helpCode).not.toContain('Favores');
   });
 });
+
+
+describe('character creator skin tone selection', () => {
+  test('renders accessible skin-tone choices and wires the selected tone into the live appearance', () => {
+    const source = creationSource();
+    expect(source).toContain("const [skinColor, setSkinColor] = useState('#c68b59')");
+    expect(source).toContain('data-skin-tone-picker');
+    expect(source).toContain('data-skin-tone={tone.id}');
+    expect(source).toContain('aria-pressed={selected}');
+    expect(source).toContain('setSkinColor(tone.color)');
+    expect(source).toContain('skinColor,');
+    expect(source).toContain('Choose a complexion.');
+    // Hair, tunic and crest are not exposed as controls until their selected
+    // model/material paths are proven to respond consistently.
+    expect(source).not.toContain('data-hair-color');
+  });
+});
