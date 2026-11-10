@@ -26,6 +26,12 @@ export interface JoystickVector {
  * deflection it is the input's own magnitude, so full deflection stays full.
  */
 export function applyDeadZone(x: number, z: number, deadZone: number = JOYSTICK_DEAD_ZONE): JoystickVector {
+  // Invalid tuning values must fail closed: otherwise deadZone >= 1 divides by
+  // zero (or a negative range) and can inject NaN/Infinity into player movement.
+  if (!Number.isFinite(deadZone) || deadZone < 0 || deadZone >= 1) {
+    return { x: 0, z: 0 };
+  }
+
   const magnitude = Math.sqrt(x * x + z * z);
   if (!Number.isFinite(magnitude) || magnitude <= deadZone) return { x: 0, z: 0 };
 
