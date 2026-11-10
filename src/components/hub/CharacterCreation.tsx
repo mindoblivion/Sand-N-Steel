@@ -43,6 +43,7 @@ interface CharacterCreationProps {
 }
 
 export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete, onCancel, onGoogleSignIn, isGoogleLoading, authError, onOpenSettings, onReady, onPreviewError }) => {
+  const [activeTab, setActiveTab] = useState<'identity' | 'corpus' | 'attributes'>('identity');
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [name, setName] = useState('Spartacus');
   const [bodyWeightLb, setBodyWeightLb] = useState(180);
@@ -148,12 +149,6 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
     onComplete(buildProfile());
   };
 
-  // CH-2 — each row's floor is the class template's own value, so the − control is
-  // really disabled at the value `handleStatChange` already refuses to cross.
-  // PITCH A4 — the floor is the template PLUS the build's delta, because the delta
-  // is applied before allocation (Director ruling R-BUILD); `handleStatChange`
-  // holds the spend at zero per stat, so this row's floor is what the − control
-  // reads and the two cannot disagree.
   const strengthFloor = armatura.stats.strength + (buildDelta.str ?? 0);
   const agilityFloor = armatura.stats.agility + (buildDelta.agi ?? 0);
   const staminaFloor = armatura.stats.stamina + (buildDelta.sta ?? 0);
@@ -166,18 +161,18 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
   ];
 
   return (
-    <div className="relative w-full h-[100dvh] min-h-0 bg-neutral-950 text-amber-100 flex flex-col p-3 sm:p-8 select-none overflow-hidden">
+    <div className="relative w-full h-[100dvh] min-h-0 bg-neutral-950 text-amber-100 flex flex-col p-2 sm:p-4 lg:p-6 select-none overflow-hidden">
       {/* HEADER */}
-      <div className="flex shrink-0 flex-wrap justify-between items-center gap-3 mb-3 sm:mb-6">
+      <div className="flex shrink-0 flex-wrap justify-between items-center gap-2 mb-2 sm:mb-4 px-1">
         <button
           onClick={onCancel}
-          className="flex min-h-[48px] items-center gap-2 text-sm font-serif text-neutral-400 hover:text-amber-300 cursor-pointer"
+          className="flex min-h-[48px] items-center gap-2 text-xs sm:text-sm font-serif text-neutral-400 hover:text-amber-300 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Return to Title</span>
         </button>
-        <h2 className="font-serif font-black text-xl sm:text-2xl text-amber-300 uppercase tracking-wider">
-          Gladiator Selection & Creation
+        <h2 className="font-serif font-black text-base sm:text-2xl text-amber-300 uppercase tracking-wider">
+          Gladiator Creation
         </h2>
         <div className="flex items-center gap-2">
           {/* C-8.70B §SET-1 — gear + label, at the same ≥48dp standard as every
@@ -192,7 +187,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               className="min-h-[48px] px-3 rounded-xl bg-neutral-900 border border-amber-600/50 text-amber-300 hover:text-amber-100 cursor-pointer flex items-center gap-2 font-serif font-bold text-xs uppercase tracking-wider"
             >
               <Settings className="w-5 h-5" />
-              <span>Settings</span>
+              <span className="hidden sm:inline">Settings</span>
             </button>
           )}
           {authError && (
@@ -210,9 +205,10 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
         </div>
       </div>
 
-      <div className="grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-2 content-start gap-3 sm:gap-8 max-w-5xl mx-auto w-full overflow-y-auto overscroll-y-contain touch-pan-y pr-1 pb-[max(1rem,env(safe-area-inset-bottom))] [scrollbar-gutter:stable]">
-        {/* 3D CHARACTER PREVIEW */}
-        <div className="bg-neutral-900/80 border-2 border-amber-600/50 rounded-3xl p-2 sm:p-4 flex flex-col items-center justify-center h-[20dvh] min-h-[150px] max-h-[220px] lg:h-auto lg:min-h-[520px] shadow-2xl relative overflow-hidden">
+      {/* MAIN CONTENT SPLIT AREA */}
+      <div className="flex-1 min-h-0 w-full max-w-5xl mx-auto flex flex-col lg:grid lg:grid-cols-2 gap-2 sm:gap-4 lg:gap-8 overflow-hidden">
+        {/* 3D CHARACTER PREVIEW (UPPER REGION ON MOBILE ~48-52dvh) */}
+        <div className="shrink-0 h-[46dvh] max-h-[380px] min-h-[220px] lg:h-full lg:max-h-none lg:min-h-[500px] bg-neutral-900/80 border-2 border-amber-600/50 rounded-2xl sm:rounded-3xl p-2 sm:p-4 flex flex-col items-center justify-center shadow-2xl relative overflow-hidden">
           <GladiatorPreview appearance={appearance} onReady={onReady} onError={(error) => { setPreviewError(error.message || 'The selected gladiator model could not be loaded.'); onPreviewError?.(error); }} />
           {previewError && (
             <div role="alert" className="absolute inset-x-3 top-3 z-10 rounded-xl border border-amber-500/60 bg-neutral-950/95 p-3 text-center text-xs text-amber-100 shadow-xl">
@@ -220,415 +216,497 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               <p className="mt-1">You can still customize and create your gladiator. Try changing the model or reopening this screen.</p>
             </div>
           )}
-          <div className="absolute bottom-4 left-4 bg-neutral-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-mono text-amber-300">
+          <div className="absolute bottom-3 left-3 bg-neutral-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-mono text-amber-300 z-10">
             {selection.characterModel === 'roman_warrior' ? 'Roman Warrior (Animated Rig)' : selection.characterModel === 'amazonian' ? 'Amazonian Warrior (Animated Rig)' : selection.characterModel === 'retiarius' ? 'The Retiarius (Animated Rig)' : selection.characterModel === 'minotaur' ? 'Minotaur (Animated Rig)' : selection.characterModel === 'dimachaerus' ? 'Dimachaerus (Animated Rig)' : 'Centurion (Animated Rig)'}
           </div>
         </div>
 
-        {/* CUSTOMIZATION & STAT POINTS */}
-        <div className="flex min-w-0 flex-col gap-4 sm:gap-6 bg-neutral-900/60 border border-amber-700/40 rounded-3xl p-3 sm:p-6 shadow-xl">
-          {/* NAME INPUT */}
-          <div>
-            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-              Gladiator Name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full bg-neutral-950 border border-amber-600/60 rounded-xl px-4 py-2.5 text-amber-100 font-serif font-bold text-sm focus:outline-none focus:border-amber-400"
-              maxLength={20}
-            />
+        {/* CUSTOMIZATION PANEL (LOWER REGION ON MOBILE, INDEPENDENTLY SCROLLABLE) */}
+        <div className="flex-1 min-h-0 flex flex-col bg-neutral-900/60 border border-amber-700/40 rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden">
+          {/* CATEGORY TABS BAR */}
+          <div data-creation-tabs="true" className="flex shrink-0 border-b border-amber-600/30 bg-neutral-950/90 p-1.5 gap-1.5 overflow-x-auto">
+            <button
+              type="button"
+              data-tab="identity"
+              onClick={() => { sounds.playClick(); setActiveTab('identity'); }}
+              aria-selected={activeTab === 'identity'}
+              className={`flex-1 min-h-[48px] px-2 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-serif font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'identity'
+                  ? 'bg-amber-500/30 border border-amber-400 text-amber-200 shadow-md'
+                  : 'text-neutral-400 hover:text-amber-300 hover:bg-neutral-900/60'
+              }`}
+            >
+              <Swords className="w-4 h-4 shrink-0 text-amber-400" />
+              <span className="truncate">Identity & Class</span>
+            </button>
+
+            <button
+              type="button"
+              data-tab="corpus"
+              onClick={() => { sounds.playClick(); setActiveTab('corpus'); }}
+              aria-selected={activeTab === 'corpus'}
+              className={`flex-1 min-h-[48px] px-2 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-serif font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'corpus'
+                  ? 'bg-amber-500/30 border border-amber-400 text-amber-200 shadow-md'
+                  : 'text-neutral-400 hover:text-amber-300 hover:bg-neutral-900/60'
+              }`}
+            >
+              <Shield className="w-4 h-4 shrink-0 text-amber-400" />
+              <span className="truncate">Corpus & Origin</span>
+            </button>
+
+            <button
+              type="button"
+              data-tab="attributes"
+              onClick={() => { sounds.playClick(); setActiveTab('attributes'); }}
+              aria-selected={activeTab === 'attributes'}
+              className={`flex-1 min-h-[48px] px-2 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-serif font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'attributes'
+                  ? 'bg-amber-500/30 border border-amber-400 text-amber-200 shadow-md'
+                  : 'text-neutral-400 hover:text-amber-300 hover:bg-neutral-900/60'
+              }`}
+            >
+              <Activity className="w-4 h-4 shrink-0 text-amber-400" />
+              <span className="truncate">Attributes & Points</span>
+            </button>
           </div>
 
-          {/* BODY WEIGHT — affects attack impact, never weapon eligibility. */}
-          <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-4">
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <label htmlFor="gladiator-body-weight" className="text-xs font-serif uppercase tracking-wider text-amber-300">
-                Body Weight
-              </label>
-              <span className="text-sm font-serif font-bold text-amber-100 tabular-nums">{bodyWeightLb} lb</span>
-            </div>
-            <input
-              id="gladiator-body-weight"
-              type="range"
-              min={140}
-              max={300}
-              step={5}
-              value={bodyWeightLb}
-              onChange={(event) => setBodyWeightLb(Number(event.target.value))}
-              className="w-full min-h-[44px] accent-amber-500"
-              aria-describedby="gladiator-weight-guidance"
-            />
-            <p id="gladiator-weight-guidance" className="text-[11px] leading-relaxed text-neutral-400">
-              Body weight changes your gladiator's build, attack impact and recovery. Heavier builds hit harder but recover more slowly; lighter builds recover faster but hit lighter. Weight never restricts weapon choice—Strength governs weapon requirements.
-            </p>
-          </div>
-
-          {/* CH-2 — THE ARMATURA PICKER.  Seven cards rendered from `data/armaturae.ts`
-              (never a copy of the data): name, fantasy, stat template, doctrina and kit.
-              Choosing one sets the allocation's starting stats to its template. */}
-          <div>
-            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-              Armatura — Your Class
-            </label>
-            <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
-              Your class sets your starting attributes, your signature technique and the weapon you enter with.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-armatura-picker>
-              {ARMATURAE.map((row) => {
-                const selected = row.id === armatura.id;
-                const kit = armaturaKit(row);
-                const kitLine = [kit.weapon.name, ...kit.inventory.slice(1).map((item) => item.name)].join(' · ');
-                return (
-                  <button
-                    key={row.id}
-                    type="button"
-                    data-armatura-card={row.id}
-                    aria-pressed={selected}
-                    onClick={() => handleArmaturaSelect(row.id)}
-                    className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
-                      selected
-                        ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
-                        : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
-                      {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
-                    </div>
-                    <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.fantasy}</p>
-                    <p className="text-[10px] font-mono text-amber-400/80 mt-1">
-                      STR {row.stats.strength} · AGI {row.stats.agility} · STA {row.stats.stamina} · DEF {row.stats.defense}
-                    </p>
-                    <p className="text-[10px] font-serif text-neutral-300 mt-1">
-                      <span className="font-bold text-amber-200/90">{row.doctrina.name}:</span> {row.doctrina.text}
-                    </p>
-                    <p className="text-[10px] font-mono text-neutral-500 mt-1">Kit: {kitLine}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* CH-2 — the model pick is a LOOK only.  It never changes the class, and
-              the class never overrides a look the player has chosen. */}
-          <div>
-            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-              Fighter's Look
-            </label>
-            <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
-              Your look only — it never changes your class. Your class is chosen above.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleModelSelect('roman_warrior')}
-                className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  selection.characterModel === 'roman_warrior'
-                    ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-md'
-                    : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-amber-600/50'
-                }`}
-              >
-                ⚔️ Roman Warrior
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModelSelect('amazonian')}
-                className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  selection.characterModel === 'amazonian'
-                    ? 'bg-emerald-500/30 border-emerald-400 text-emerald-200 shadow-md'
-                    : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-emerald-600/50'
-                }`}
-              >
-                🏹 Amazonian
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModelSelect('procedural_gladiator')}
-                className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  selection.characterModel === 'procedural_gladiator'
-                    ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-md'
-                    : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-amber-600/50'
-                }`}
-              >
-                🛡️ Centurion
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModelSelect('retiarius')}
-                className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  selection.characterModel === 'retiarius'
-                    ? 'bg-cyan-500/30 border-cyan-400 text-cyan-200 shadow-md'
-                    : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-cyan-600/50'
-                }`}
-              >
-                🔱 The Retiarius
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModelSelect('minotaur')}
-                className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  selection.characterModel === 'minotaur'
-                    ? 'bg-orange-500/30 border-orange-400 text-orange-200 shadow-md'
-                    : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-orange-600/50'
-                }`}
-              >
-                🐂 Minotaur
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModelSelect('dimachaerus')}
-                className={`py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
-                  selection.characterModel === 'dimachaerus'
-                    ? 'bg-purple-500/30 border-purple-400 text-purple-200 shadow-md'
-                    : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-purple-600/50'
-                }`}
-              >
-                ⚔️ Dimachaerus
-              </button>
-            </div>
-          </div>
-
-          {/* PITCH A4 — CORPUS ET ORIGO: the life before the sand.  Three cheap
-              pickers, rendered from the authored data (never a copy of it):
-              Build moves the stat floor, Origo carries one small passive and its
-              favoured god, and a Vitium buys two more creation points.  Every card
-              is a ≥48px touch target, like the class cards above. */}
-          <div>
-            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-              Corpus — Your Build
-            </label>
-            <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
-              The body you grew into. It moves your stat floor before you spend a point.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" data-corpus-build-picker>
-              {BUILDS.map((row) => {
-                const selected = row.id === corpus.build;
-                const delta = buildStatDelta(row.id);
-                const deltaLine = [
-                  delta.str ? `STR ${delta.str > 0 ? '+' : ''}${delta.str}` : null,
-                  delta.agi ? `AGI ${delta.agi > 0 ? '+' : ''}${delta.agi}` : null,
-                  delta.sta ? `STA ${delta.sta > 0 ? '+' : ''}${delta.sta}` : null,
-                  delta.def ? `DEF ${delta.def > 0 ? '+' : ''}${delta.def}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ');
-                return (
-                  <button
-                    key={row.id}
-                    type="button"
-                    data-corpus-build-card={row.id}
-                    aria-pressed={selected}
-                    onClick={() => handleBuildSelect(row.id)}
-                    className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
-                      selected
-                        ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
-                        : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
-                      {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
-                    </div>
-                    <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.text}</p>
-                    <p className="text-[10px] font-mono text-amber-400/80 mt-1">
-                      {deltaLine || 'No stat change'}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <details
-            data-optional-background
-            className="rounded-xl border border-amber-700/40 bg-neutral-950/40"
+          {/* INDEPENDENTLY SCROLLABLE TAB PANEL */}
+          <div
+            data-tab-panel={activeTab}
+            className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y p-3 sm:p-6 space-y-4 sm:space-y-6 pb-[max(1rem,env(safe-area-inset-bottom))] [scrollbar-gutter:stable]"
           >
-            <summary className="min-h-[48px] cursor-pointer px-4 py-3 font-serif text-sm font-bold text-amber-200 marker:text-amber-400">
-              <span>Background choices (optional)</span>
-              <span className="ml-2 text-[11px] font-mono font-normal text-neutral-400">
-                {selectedProvinceName} · {selectedVitiumName}
-              </span>
-            </summary>
-            <div className="flex flex-col gap-5 border-t border-amber-700/30 p-4">
-              <div>
-                <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-                  Origo — Your Province
-                </label>
-                <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
-                  Where you were born. One small passive, and the god you favour.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-corpus-origo-picker>
-                  {PROVINCES.map((row) => {
-                    const selected = row.id === corpus.origo;
-                    return (
-                      <button
-                        key={row.id}
-                        type="button"
-                        data-corpus-origo-card={row.id}
-                        aria-pressed={selected}
-                        onClick={() => handleOrigoSelect(row.id)}
-                        className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
-                          selected
-                            ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
-                            : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
-                          {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
-                        </div>
-                        <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 mt-0.5">
-                          Favoured god: <span className="text-amber-300">{row.god}</span>
-                        </p>
-                        <p className="text-[10px] font-mono text-amber-400/80 mt-1">{row.passive.text}</p>
-                        <p className="text-[11px] font-serif italic text-neutral-400 mt-1">{row.flavour}</p>
-                      </button>
-                    );
-                  })}
+            {/* TAB 1: IDENTITY & CLASS */}
+            {activeTab === 'identity' && (
+              <div className="flex flex-col gap-4 sm:gap-6">
+                {/* NAME INPUT */}
+                <div>
+                  <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+                    Gladiator Name
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-neutral-950 border border-amber-600/60 rounded-xl px-4 py-2.5 text-amber-100 font-serif font-bold text-sm focus:outline-none focus:border-amber-400 min-h-[48px]"
+                    maxLength={20}
+                  />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-                  Vitium — Your Flaw
-                </label>
-                <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
-                  One flaw, taken at creation, is worth {VITIUM_CREATION_POINTS} more creation points. Yours
-                  alone, and permanent — there is no way to put it down.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-corpus-vitium-picker>
-                  <button
-                    type="button"
-                    data-corpus-vitium-card="none"
-                    aria-pressed={corpus.vitium === null}
-                    onClick={() => handleVitiumSelect(null)}
-                    className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
-                      corpus.vitium === null
-                        ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
-                        : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-serif font-bold text-sm text-amber-200">None</span>
-                      {corpus.vitium === null && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
-                    </div>
-                    <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">
-                      No flaw. You keep the ten points and nothing follows you into the sand.
-                    </p>
-                  </button>
-                  {VITIA.map((row) => {
-                    const selected = row.id === corpus.vitium;
-                    return (
-                      <button
-                        key={row.id}
-                        type="button"
-                        data-corpus-vitium-card={row.id}
-                        aria-pressed={selected}
-                        onClick={() => handleVitiumSelect(row.id)}
-                        className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
-                          selected
-                            ? 'bg-red-500/20 border-red-400 text-red-100 shadow-md'
-                            : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-red-600/50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
-                          <span className="text-[10px] font-mono text-red-300 shrink-0">
-                            +{VITIUM_CREATION_POINTS}
-                          </span>
-                        </div>
-                        <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.text}</p>
-                      </button>
-                    );
-                  })}
+                {/* BODY WEIGHT */}
+                <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-4">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <label htmlFor="gladiator-body-weight" className="text-xs font-serif uppercase tracking-wider text-amber-300">
+                      Body Weight
+                    </label>
+                    <span className="text-sm font-serif font-bold text-amber-100 tabular-nums">{bodyWeightLb} lb</span>
+                  </div>
+                  <input
+                    id="gladiator-body-weight"
+                    type="range"
+                    min={140}
+                    max={300}
+                    step={5}
+                    value={bodyWeightLb}
+                    onChange={(event) => setBodyWeightLb(Number(event.target.value))}
+                    className="w-full min-h-[44px] accent-amber-500"
+                    aria-describedby="gladiator-weight-guidance"
+                  />
+                  <p id="gladiator-weight-guidance" className="text-[11px] leading-relaxed text-neutral-400">
+                    Body weight changes your gladiator's build, attack impact and recovery. Heavier builds hit harder but recover more slowly; lighter builds recover faster but hit lighter. Weight never restricts weapon choice—Strength governs weapon requirements.
+                  </p>
                 </div>
+
+                {/* ARMATURA PICKER */}
+                <div>
+                  <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+                    Armatura — Your Class
+                  </label>
+                  <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
+                    Your class sets your starting attributes, your signature technique and the weapon you enter with.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-armatura-picker>
+                    {ARMATURAE.map((row) => {
+                      const selected = row.id === armatura.id;
+                      const kit = armaturaKit(row);
+                      const kitLine = [kit.weapon.name, ...kit.inventory.slice(1).map((item) => item.name)].join(' · ');
+                      return (
+                        <button
+                          key={row.id}
+                          type="button"
+                          data-armatura-card={row.id}
+                          aria-pressed={selected}
+                          onClick={() => handleArmaturaSelect(row.id)}
+                          className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                            selected
+                              ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
+                              : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
+                            {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
+                          </div>
+                          <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.fantasy}</p>
+                          <p className="text-[10px] font-mono text-amber-400/80 mt-1">
+                            STR {row.stats.strength} · AGI {row.stats.agility} · STA {row.stats.stamina} · DEF {row.stats.defense}
+                          </p>
+                          <p className="text-[10px] font-serif text-neutral-300 mt-1">
+                            <span className="font-bold text-amber-200/90">{row.doctrina.name}:</span> {row.doctrina.text}
+                          </p>
+                          <p className="text-[10px] font-mono text-neutral-500 mt-1">Kit: {kitLine}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* FIGHTER'S LOOK */}
+                <div>
+                  <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+                    Fighter's Look
+                  </label>
+                  <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
+                    Your look only — it never changes your class. Your class is chosen above.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleModelSelect('roman_warrior')}
+                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
+                        selection.characterModel === 'roman_warrior'
+                          ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-md'
+                          : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-amber-600/50'
+                      }`}
+                    >
+                      ⚔️ Roman Warrior
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleModelSelect('amazonian')}
+                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
+                        selection.characterModel === 'amazonian'
+                          ? 'bg-emerald-500/30 border-emerald-400 text-emerald-200 shadow-md'
+                          : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-emerald-600/50'
+                      }`}
+                    >
+                      🏹 Amazonian
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleModelSelect('procedural_gladiator')}
+                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
+                        selection.characterModel === 'procedural_gladiator'
+                          ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-md'
+                          : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-amber-600/50'
+                      }`}
+                    >
+                      🛡️ Centurion
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleModelSelect('retiarius')}
+                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
+                        selection.characterModel === 'retiarius'
+                          ? 'bg-cyan-500/30 border-cyan-400 text-cyan-200 shadow-md'
+                          : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-cyan-600/50'
+                      }`}
+                    >
+                      🔱 The Retiarius
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleModelSelect('minotaur')}
+                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
+                        selection.characterModel === 'minotaur'
+                          ? 'bg-orange-500/30 border-orange-400 text-orange-200 shadow-md'
+                          : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-orange-600/50'
+                      }`}
+                    >
+                      🐂 Minotaur
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleModelSelect('dimachaerus')}
+                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all ${
+                        selection.characterModel === 'dimachaerus'
+                          ? 'bg-purple-500/30 border-purple-400 text-purple-200 shadow-md'
+                          : 'bg-neutral-950 border-neutral-700 text-neutral-400 hover:border-purple-600/50'
+                      }`}
+                    >
+                      ⚔️ Dimachaerus
+                    </button>
+                  </div>
+                </div>
+
+                {/* TAB STEPPER BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => { sounds.playClick(); setActiveTab('corpus'); }}
+                  className="w-full min-h-[48px] py-3 rounded-xl bg-neutral-900 border border-amber-600/40 hover:border-amber-400 text-amber-300 font-serif font-bold text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 mt-2"
+                >
+                  <span>Continue to Corpus & Origin →</span>
+                </button>
               </div>
+            )}
 
-            </div>
-          </details>
+            {/* TAB 2: CORPUS & BACKGROUND */}
+            {activeTab === 'corpus' && (
+              <div className="flex flex-col gap-4 sm:gap-6">
+                {/* BUILD (CORPUS) */}
+                <div>
+                  <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+                    Corpus — Your Build
+                  </label>
+                  <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
+                    The body you grew into. It moves your stat floor before you spend a point.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" data-corpus-build-picker>
+                    {BUILDS.map((row) => {
+                      const selected = row.id === corpus.build;
+                      const delta = buildStatDelta(row.id);
+                      const deltaLine = [
+                        delta.str ? `STR ${delta.str > 0 ? '+' : ''}${delta.str}` : null,
+                        delta.agi ? `AGI ${delta.agi > 0 ? '+' : ''}${delta.agi}` : null,
+                        delta.sta ? `STA ${delta.sta > 0 ? '+' : ''}${delta.sta}` : null,
+                        delta.def ? `DEF ${delta.def > 0 ? '+' : ''}${delta.def}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ');
+                      return (
+                        <button
+                          key={row.id}
+                          type="button"
+                          data-corpus-build-card={row.id}
+                          aria-pressed={selected}
+                          onClick={() => handleBuildSelect(row.id)}
+                          className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                            selected
+                              ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
+                              : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
+                            {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
+                          </div>
+                          <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.text}</p>
+                          <p className="text-[10px] font-mono text-amber-400/80 mt-1">
+                            {deltaLine || 'No stat change'}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-          {/* SKILL POINT ALLOCATION */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <label className="text-xs font-serif uppercase tracking-wider text-amber-300">
-                Stat Points
-              </label>
-              <span className="font-mono text-sm font-bold text-yellow-400 bg-amber-950/80 px-2.5 py-0.5 rounded border border-amber-700/60">
-                {pointsLeft} Points Left
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-2.5">
-              {statRows.map((stat) => {
-                const Icon = stat.icon;
-                const { statFloor } = stat;
-                return (
-                  <div key={stat.key} className="flex justify-between items-center bg-neutral-950/80 p-2.5 rounded-xl border border-neutral-800">
-                    <div className="flex items-center gap-2">
-                      <Icon className={`w-4 h-4 ${stat.color}`} />
-                      <span className="text-xs font-serif font-bold text-neutral-200">{stat.label}</span>
+                {/* PROVINCE (ORIGO) & FLAW (VITIUM) */}
+                <details
+                  data-optional-background
+                  className="rounded-xl border border-amber-700/40 bg-neutral-950/40"
+                >
+                  <summary className="min-h-[48px] cursor-pointer px-4 py-3 font-serif text-sm font-bold text-amber-200 marker:text-amber-400">
+                    <span>Background choices (optional)</span>
+                    <span className="ml-2 text-[11px] font-mono font-normal text-neutral-400">
+                      {selectedProvinceName} · {selectedVitiumName}
+                    </span>
+                  </summary>
+                  <div className="flex flex-col gap-5 border-t border-amber-700/30 p-4">
+                    {/* PROVINCE */}
+                    <div>
+                      <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+                        Origo — Your Province
+                      </label>
+                      <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
+                        Where you were born. One small passive, and the god you favour.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-corpus-origo-picker>
+                        {PROVINCES.map((row) => {
+                          const selected = row.id === corpus.origo;
+                          return (
+                            <button
+                              key={row.id}
+                              type="button"
+                              data-corpus-origo-card={row.id}
+                              aria-pressed={selected}
+                              onClick={() => handleOrigoSelect(row.id)}
+                              className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                                selected
+                                  ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
+                                  : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
+                                {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
+                              </div>
+                              <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 mt-0.5">
+                                Favoured god: <span className="text-amber-300">{row.god}</span>
+                              </p>
+                              <p className="text-[10px] font-mono text-amber-400/80 mt-1">{row.passive.text}</p>
+                              <p className="text-[11px] font-serif italic text-neutral-400 mt-1">{row.flavour}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono font-bold text-sm text-amber-200 w-6 text-center">{stat.val}</span>
-                      <div className="flex items-center gap-1">
+
+                    {/* FLAW */}
+                    <div>
+                      <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+                        Vitium — Your Flaw
+                      </label>
+                      <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2">
+                        One flaw, taken at creation, is worth {VITIUM_CREATION_POINTS} more creation points. Yours
+                        alone, and permanent — there is no way to put it down.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-corpus-vitium-picker>
                         <button
                           type="button"
-                          onClick={() => handleStatChange(stat.key, -1)}
-                          disabled={stat.val <= statFloor}
-                          aria-label={`Reduce ${stat.label}`}
-                          className="shrink-0 w-12 h-12 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:bg-neutral-900 disabled:border-neutral-800 disabled:text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-600 text-neutral-200 font-bold cursor-pointer"
+                          data-corpus-vitium-card="none"
+                          aria-pressed={corpus.vitium === null}
+                          onClick={() => handleVitiumSelect(null)}
+                          className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                            corpus.vitium === null
+                              ? 'bg-amber-500/20 border-amber-400 text-amber-100 shadow-md'
+                              : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-amber-600/50'
+                          }`}
                         >
-                          -
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-serif font-bold text-sm text-amber-200">None</span>
+                            {corpus.vitium === null && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
+                          </div>
+                          <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">
+                            No flaw. You keep the ten points and nothing follows you into the sand.
+                          </p>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleStatChange(stat.key, 1)}
-                          disabled={pointsLeft <= 0}
-                          aria-label={`Raise ${stat.label}`}
-                          className="shrink-0 w-12 h-12 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-40 border border-amber-400 text-neutral-950 font-bold cursor-pointer"
-                        >
-                          +
-                        </button>
+                        {VITIA.map((row) => {
+                          const selected = row.id === corpus.vitium;
+                          return (
+                            <button
+                              key={row.id}
+                              type="button"
+                              data-corpus-vitium-card={row.id}
+                              aria-pressed={selected}
+                              onClick={() => handleVitiumSelect(row.id)}
+                              className={`min-h-[48px] text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                                selected
+                                  ? 'bg-red-500/20 border-red-400 text-red-100 shadow-md'
+                                  : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:border-red-600/50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-serif font-bold text-sm text-amber-200">{row.name}</span>
+                                <span className="text-[10px] font-mono text-red-300 shrink-0">
+                                  +{VITIUM_CREATION_POINTS}
+                                </span>
+                              </div>
+                              <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.text}</p>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-            <p className="text-[10px] font-mono text-neutral-500 mt-2">
-              {creationPoints(corpus.vitium)} points to spend · your class template plus your build is
-              the floor.
-            </p>
-          </div>
+                </details>
 
-          {/* CL-2 — the live derived preview: the same `calculateTotalStats` the camp's
-              own Gladiator Stats screen reads, run on the profile as it stands right now.
-              Read-only — no formula, pool or floor is touched. */}
-          <div
-            data-derived-preview="1"
-            className="rounded-xl border border-amber-700/50 bg-neutral-950/70 px-3 py-2.5"
-          >
-            <div className="flex items-center gap-2 font-mono text-sm font-bold text-amber-200">
-              <Activity className="w-4 h-4 text-amber-400" />
-              <span>
-                Health {draftStats.healthMax} · Stamina {draftStats.staminaMax}
-              </span>
-            </div>
-            <p className="text-[11px] font-serif text-neutral-400 mt-1">
-              Points also come from victories and the Training Yard.
-            </p>
-          </div>
+                {/* TAB STEPPER BUTTON */}
+                <button
+                  type="button"
+                  onClick={() => { sounds.playClick(); setActiveTab('attributes'); }}
+                  className="w-full min-h-[48px] py-3 rounded-xl bg-neutral-900 border border-amber-600/40 hover:border-amber-400 text-amber-300 font-serif font-bold text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 mt-2"
+                >
+                  <span>Continue to Attributes & Points →</span>
+                </button>
+              </div>
+            )}
 
-          {/* CONFIRM BUTTON */}
-          <button
-            onClick={handleFinish}
-            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-sm uppercase tracking-wider shadow-[0_0_25px_rgba(245,158,11,0.6)] border-2 border-amber-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2 mt-2"
-          >
-            <Check className="w-5 h-5" />
-            <span>Apply Points & Enter Metropolis [Town Gate]</span>
-          </button>
+            {/* TAB 3: ATTRIBUTES & POINTS */}
+            {activeTab === 'attributes' && (
+              <div className="flex flex-col gap-4 sm:gap-6">
+                {/* STAT POINT ALLOCATION */}
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-xs font-serif uppercase tracking-wider text-amber-300">
+                      Stat Points
+                    </label>
+                    <span className="font-mono text-sm font-bold text-yellow-400 bg-amber-950/80 px-2.5 py-0.5 rounded border border-amber-700/60">
+                      {pointsLeft} Points Left
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-2.5">
+                    {statRows.map((stat) => {
+                      const Icon = stat.icon;
+                      const { statFloor } = stat;
+                      return (
+                        <div key={stat.key} className="flex justify-between items-center bg-neutral-950/80 p-2.5 rounded-xl border border-neutral-800">
+                          <div className="flex items-center gap-2">
+                            <Icon className={`w-4 h-4 ${stat.color}`} />
+                            <span className="text-xs font-serif font-bold text-neutral-200">{stat.label}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono font-bold text-sm text-amber-200 w-6 text-center">{stat.val}</span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleStatChange(stat.key, -1)}
+                                disabled={stat.val <= statFloor}
+                                aria-label={`Reduce ${stat.label}`}
+                                className="shrink-0 w-12 h-12 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:bg-neutral-900 disabled:border-neutral-800 disabled:text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-600 text-neutral-200 font-bold cursor-pointer"
+                              >
+                                -
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStatChange(stat.key, 1)}
+                                disabled={pointsLeft <= 0}
+                                aria-label={`Raise ${stat.label}`}
+                                className="shrink-0 w-12 h-12 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-40 border border-amber-400 text-neutral-950 font-bold cursor-pointer"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] font-mono text-neutral-500 mt-2">
+                    {creationPoints(corpus.vitium)} points to spend · your class template plus your build is
+                    the floor.
+                  </p>
+                </div>
+
+                {/* DERIVED STATS PREVIEW */}
+                <div
+                  data-derived-preview="1"
+                  className="rounded-xl border border-amber-700/50 bg-neutral-950/70 px-3 py-2.5"
+                >
+                  <div className="flex items-center gap-2 font-mono text-sm font-bold text-amber-200">
+                    <Activity className="w-4 h-4 text-amber-400" />
+                    <span>
+                      Health {draftStats.healthMax} · Stamina {draftStats.staminaMax}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-serif text-neutral-400 mt-1">
+                    Points also come from victories and the Training Yard.
+                  </p>
+                </div>
+
+                {/* FINAL FINISH BUTTON */}
+                <button
+                  type="button"
+                  data-action="submit-character"
+                  onClick={handleFinish}
+                  className="w-full min-h-[52px] py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-sm uppercase tracking-wider shadow-[0_0_25px_rgba(245,158,11,0.6)] border-2 border-amber-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2 mt-2"
+                >
+                  <Check className="w-5 h-5" />
+                  <span>Apply Points & Enter Metropolis [Town Gate]</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
+import * as THREE from 'three';
 import { PlayerAppearance, FighterState } from '../../types/game';
 import { DEFAULT_PLAYER_WEAPON } from '../../data/itemsDB';
 import { GladiatorMesh } from './GladiatorMesh';
@@ -108,7 +109,7 @@ export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, 
   }, []);
 
   return (
-    <div className="w-full h-full relative">
+    <div className="w-full h-full relative overflow-hidden select-none touch-pan-y" style={{ touchAction: 'pan-y' }}>
       <WebGLReadyGuard sceneName="GladiatorPreview" fallbackTitle="Gladiator Preview WebGL Error">
         <WebGLContextErrorBoundary fallbackTitle="Gladiator Preview WebGL Error" sceneName="GladiatorPreview">
           <Canvas
@@ -116,6 +117,7 @@ export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, 
             frameloop={frameloopMode}
             camera={{ position: [0, 1.2, 3.2], fov: 42, near: 0.1, far: 50 }}
             gl={{ antialias: false, powerPreference: 'high-performance' }}
+            style={{ touchAction: 'pan-y' }}
             onCreated={(state) => {
               logCanvasWebGLCreated(state.gl, 'GladiatorPreview');
               setupCanvasContextRestoration(state.gl);
@@ -153,17 +155,23 @@ export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, 
                 />
               </Suspense>
             </ThreeComponentErrorBoundary>
-          <OrbitControls
-            enablePan={false}
-            enableZoom={false}
-            minPolarAngle={Math.PI / 3}
-            maxPolarAngle={Math.PI / 2}
-            autoRotate
-            autoRotateSpeed={1.5}
-          />
-        </Canvas>
-      </WebGLContextErrorBoundary>
-    </WebGLReadyGuard>
+            <OrbitControls
+              enablePan={false}
+              enableZoom={false}
+              minPolarAngle={Math.PI / 3}
+              maxPolarAngle={Math.PI / 2}
+              autoRotate
+              autoRotateSpeed={1.5}
+              touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.PAN }}
+            />
+          </Canvas>
+        </WebGLContextErrorBoundary>
+      </WebGLReadyGuard>
+
+      {/* Model Rotate Guidance Badge */}
+      <div className="absolute bottom-3 right-3 bg-neutral-950/80 border border-amber-500/40 px-2.5 py-1 rounded-xl text-[10px] font-mono text-amber-300/90 pointer-events-none flex items-center gap-1 shadow-md z-10">
+        <span>↔️ Drag to rotate</span>
+      </div>
     </div>
   );
 };
