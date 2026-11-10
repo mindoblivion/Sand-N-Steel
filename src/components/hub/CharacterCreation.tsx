@@ -29,6 +29,15 @@ import {
 import type { BuildId, ProvinceId, VitiumId } from '../../types/game';
 import { Sparkles, Swords, Shield, Heart, Zap, Check, ArrowLeft, Settings, Activity } from 'lucide-react';
 import { GoogleSignInButton } from '../ui/GoogleSignInButton';
+const SKIN_TONES = [
+  { id: 'fair', label: 'Fair', color: '#f1d0b5' },
+  { id: 'light-olive', label: 'Light olive', color: '#dfb58d' },
+  { id: 'bronze', label: 'Bronze', color: '#c68b59' },
+  { id: 'warm-brown', label: 'Warm brown', color: '#a87550' },
+  { id: 'deep-brown', label: 'Deep brown', color: '#805338' },
+  { id: 'dark-umber', label: 'Dark umber', color: '#593b2b' },
+] as const;
+
 interface CharacterCreationProps {
   onComplete: (profile: PlayerProfile) => void;
   onCancel: () => void;
@@ -53,7 +62,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
    * has not picked one) and a look can never change the class.
    */
   const [selection, setSelection] = useState<CreationSelection>(DEFAULT_SELECTION);
-  const [skinColor] = useState('#c68b59');
+  const [skinColor, setSkinColor] = useState('#c68b59');
   const [tunicColor] = useState('#854d0e');
   const [crestColor] = useState('#dc2626');
   /**
@@ -237,6 +246,37 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               className="w-full bg-neutral-950 border border-amber-600/60 rounded-xl px-4 py-2.5 text-amber-100 font-serif font-bold text-sm focus:outline-none focus:border-amber-400"
               maxLength={20}
             />
+          </div>
+
+          {/* SKIN TONE — this is wired to the live GLB material and saved appearance. */}
+          <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-4" data-skin-tone-picker>
+            <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+              Skin Tone
+            </label>
+            <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator skin tone">
+              {SKIN_TONES.map((tone) => {
+                const selected = skinColor === tone.color;
+                return (
+                  <button
+                    key={tone.id}
+                    type="button"
+                    data-skin-tone={tone.id}
+                    aria-label={`Select skin tone: ${tone.label}`}
+                    aria-pressed={selected}
+                    title={tone.label}
+                    onClick={() => {
+                      sounds.playClick();
+                      setSkinColor(tone.color);
+                    }}
+                    className={`h-12 w-12 rounded-full border-2 transition-transform cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300 ${selected ? 'border-amber-300 scale-110 shadow-[0_0_12px_rgba(245,158,11,0.55)]' : 'border-neutral-500 hover:scale-105'}`}
+                    style={{ backgroundColor: tone.color }}
+                  />
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[11px] text-neutral-400">
+              Choose a complexion. Your selection appears on the 3D preview and is saved with your gladiator.
+            </p>
           </div>
 
           {/* BODY WEIGHT — affects attack impact, never weapon eligibility. */}
