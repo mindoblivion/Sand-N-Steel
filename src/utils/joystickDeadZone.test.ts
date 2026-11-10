@@ -112,6 +112,12 @@ describe('§B applyDeadZone', () => {
     }
   });
 
+  test('invalid dead-zone parameters fail closed instead of producing invalid vectors', () => {
+    for (const invalid of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -0.01, 1, 2]) {
+      expect(applyDeadZone(0.8, 0.2, invalid), `deadZone=${invalid}`).toEqual({ x: 0, z: 0 });
+    }
+  });
+
   test('the dead zone is a parameter, so a caller can tune it without touching the constant', () => {
     expect(applyDeadZone(0.4, 0, 0.5)).toEqual({ x: 0, z: 0 });
     expect(magnitude(applyDeadZone(0.9, 0, 0.5))).toBeCloseTo(0.8, 10);
