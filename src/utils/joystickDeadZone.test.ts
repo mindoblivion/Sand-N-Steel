@@ -136,6 +136,20 @@ describe('§C the wiring — the city hub and nothing else', () => {
     expect(hubCode).toContain('touchVectorRef.current = { x: 0, z: 0 };');
   });
 
+  test('touch cancellation uses the same reset handler as touch end', () => {
+    // Android can cancel a touch when a system gesture or interruption takes over.
+    // The same identifier-aware handler must release the tracked touch and zero input.
+    expect(hubCode).toContain('onTouchEnd={handleJoystickTouchEnd}');
+    expect(hubCode).toContain('onTouchCancel={handleJoystickTouchEnd}');
+    const endHandler = hubCode.slice(
+      hubCode.indexOf('const handleJoystickTouchEnd'),
+      hubCode.indexOf('// Continuous, non-stuttering 60fps Movement Loop'),
+    );
+    expect(endHandler).toContain('touchIdRef.current = null;');
+    expect(endHandler).toContain('setKnobPos({ x: 0, y: 0 });');
+    expect(endHandler).toContain('touchVectorRef.current = { x: 0, z: 0 };');
+  });
+
   test('keyboard movement is untouched by the dead zone', () => {
     expect(hubCode).toContain("if (keysPressed.current['w']) inputZ -= 1;");
     expect(hubCode).toContain("if (keysPressed.current['d']) inputX += 1;");
