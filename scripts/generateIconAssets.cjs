@@ -6,8 +6,10 @@ const SOURCE_IMAGE = path.join(__dirname, '../public/assets/aistudio/file_000000
 
 // Keep the complete approved artwork for store/legacy icons. Adaptive icons
 // need a tighter composition: trim only the decorative outer 4% before fitting
-// the art inside Android's central 66% safe-zone square.
-const ADAPTIVE_SAFE_ZONE_RATIO = 0.66;
+// the art inside Android's central circular safe zone.
+// A square's diagonal must fit within the 66% safe-zone circle.
+// 0.46 is a conservative inscribed-square ratio (0.66 / sqrt(2) ≈ 0.467). 
+const ADAPTIVE_SAFE_ZONE_RATIO = 0.46;
 const ADAPTIVE_EDGE_CROP_RATIO = 0.04;
 
 async function createCircularMask(size) {
@@ -20,7 +22,7 @@ async function createCircularMask(size) {
 async function createAdaptiveForeground(canvasSize) {
   // Android adaptive icons use a 108dp canvas with a central ~66dp safe zone.
   // Crop the decorative frame slightly so the title/gladiators read larger,
-  // while keeping the resulting square fully inside that safe-zone footprint.
+  // while keeping all four foreground corners inside the circular safe-zone boundary.
   const innerSize = Math.round(canvasSize * ADAPTIVE_SAFE_ZONE_RATIO);
   const offset = Math.round((canvasSize - innerSize) / 2);
   const metadata = await sharp(SOURCE_IMAGE).metadata();
@@ -37,7 +39,7 @@ async function createAdaptiveForeground(canvasSize) {
     .png()
     .toBuffer();
 
-  // Composite resized artwork onto canvasSize x canvasSize transparent canvas
+  // Center the inscribed square on the transparent adaptive-icon canvas.
   const foreground = await sharp({
     create: {
       width: canvasSize,
