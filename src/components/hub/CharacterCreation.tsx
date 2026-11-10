@@ -88,11 +88,13 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
 
   const handleArmaturaSelect = (id: ArmaturaId) => {
     sounds.playClick();
+    setPreviewError(null);
     setSelection((current) => selectArmatura(current, id));
   };
 
   const handleModelSelect = (model: CharacterModelType) => {
     sounds.playClick();
+    setPreviewError(null);
     setSelection((current) => selectCharacterModel(current, model));
   };
 

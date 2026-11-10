@@ -6,16 +6,15 @@ import {
   waitDestination,
   type WaitDestinationId,
 } from './waitSurfaceLines';
-import { TITLE_BACKDROP_CLASS } from '../../utils/startupAssets';
+import { COLOSSEUM_LOADING_CLASS } from '../../utils/startupAssets';
 
 /**
- * START-1 — the shared-backdrop destination wait surface.
+ * START-1 — the Colosseum destination wait surface.
  *
- * City, arena, circus and building transitions currently reuse the title-screen
- * backdrop through TITLE_BACKDROP_CLASS. The separately supplied loading-screen
- * artwork has not yet been installed in the app bundle. Progress stays honest: a
- * measured asset percentage when the loader has a count, otherwise an indeterminate
- * sweep at the bottom edge.
+ * City, arena, circus and building transitions use the supplied Colosseum loading
+ * screen artwork through COLOSSEUM_LOADING_CLASS. A dark lower overlay hides the artwork's
+ * baked-in loading bar and percentage text, replaced by live progress: a measured asset
+ * percentage when the loader has a count, otherwise an indeterminate metallic sweep.
  */
 
 export interface WaitSurfaceProps {
@@ -77,19 +76,21 @@ export const WaitSurface: React.FC<WaitSurfaceProps> = ({ destination, rotate = 
       data-wait-surface={destination}
       role="status"
       aria-live="polite"
-      className={`fixed inset-0 z-[95] ${TITLE_BACKDROP_CLASS} flex flex-col items-center justify-center text-amber-100 select-none px-6 ${hidden ? 'wait-anim-paused' : ''}`}
+      className={`fixed inset-0 z-[95] ${COLOSSEUM_LOADING_CLASS} flex flex-col items-center justify-between text-amber-100 select-none px-6 ${hidden ? 'wait-anim-paused' : ''}`}
     >
-      <div className="absolute inset-0 bg-black/30 pointer-events-none" />
+      {/* Dark ambient vignette & central golden torch glow */}
+      <div className="absolute inset-0 bg-black/40 pointer-events-none" />
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 60% 45% at 50% 58%, rgba(245,158,11,0.12) 0%, transparent 70%)',
+            'radial-gradient(ellipse 65% 50% at 50% 50%, rgba(245,158,11,0.12) 0%, transparent 70%)',
         }}
       />
 
-      <div className="relative z-10 flex flex-col items-center max-w-md w-full text-center">
-        <p className="font-serif text-lg sm:text-xl text-amber-200/90 leading-snug">{line}</p>
+      {/* Destination & Acta lore quote panel */}
+      <div className="relative z-10 flex flex-col items-center max-w-md w-full text-center mt-auto mb-auto pb-24">
+        <p className="font-serif text-lg sm:text-xl text-amber-200/90 leading-snug drop-shadow-md">{line}</p>
         <p className="mt-2 text-[11px] uppercase tracking-[0.25em] text-amber-600/90 font-serif">
           {gloss}
         </p>
@@ -98,7 +99,7 @@ export const WaitSurface: React.FC<WaitSurfaceProps> = ({ destination, rotate = 
           type="button"
           data-wait-acta="cycle"
           onClick={cycleLine}
-          className="mt-7 min-h-[3.5rem] w-full px-4 py-3 rounded-2xl border border-amber-900/50 bg-black/55 text-left cursor-pointer transition-colors hover:border-amber-700/60 focus:outline-none focus:border-amber-600/70"
+          className="mt-6 min-h-[3.5rem] w-full px-4 py-3 rounded-2xl border border-amber-900/60 bg-neutral-950/75 backdrop-blur-md text-left cursor-pointer transition-colors hover:border-amber-600/70 focus:outline-none focus:border-amber-500/80 shadow-lg"
         >
           <span className="block text-[10px] uppercase tracking-[0.3em] text-amber-500/90 font-serif mb-1">
             From the Acta
@@ -109,12 +110,23 @@ export const WaitSurface: React.FC<WaitSurfaceProps> = ({ destination, rotate = 
         </button>
       </div>
 
+      {/* Dark lower overlay panel obscuring artwork's baked-in loading bar & 72% text */}
+      <div
+        data-loading-cover="true"
+        className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center justify-end pointer-events-none bg-gradient-to-t from-neutral-950 via-neutral-950/95 to-transparent pt-12 pb-[max(2.5vh,calc(env(safe-area-inset-bottom,0px)+12px))]"
+        style={{
+          height: '34%',
+          minHeight: '160px',
+        }}
+      />
+
+      {/* Live progress indicator with premium Roman metallic-gold bar & ornamental frame */}
       <div
         data-loading-progress="true"
-        className="absolute left-1/2 -translate-x-1/2 z-10 text-center"
+        className="absolute left-1/2 -translate-x-1/2 z-20 text-center px-4"
         style={{
-          bottom: 'max(5.5vh, calc(env(safe-area-inset-bottom, 0px) + 28px))',
-          width: 'min(72vw, 420px)',
+          bottom: 'max(4vh, calc(env(safe-area-inset-bottom, 0px) + 24px))',
+          width: 'min(82vw, 440px)',
         }}
       >
         <div
@@ -123,21 +135,32 @@ export const WaitSurface: React.FC<WaitSurfaceProps> = ({ destination, rotate = 
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={knowsCount ? pct : undefined}
-          className="h-1 w-full overflow-hidden rounded-full border border-amber-700/60 bg-neutral-950/85 shadow-[0_0_12px_rgba(180,83,9,0.2)]"
+          className="relative w-full p-[3px] rounded-xl bg-gradient-to-b from-amber-900/90 via-amber-950 to-neutral-950 border-2 border-amber-600/70 shadow-[0_0_20px_rgba(217,119,6,0.35)] backdrop-blur-md"
         >
-          {knowsCount ? (
-            <div
-              className="h-full w-full origin-left rounded-full bg-gradient-to-r from-amber-700 via-amber-300 to-amber-500 transition-transform duration-300"
-              style={{ transform: `scaleX(${pct / 100})` }}
-            />
-          ) : (
-            <div className="wait-sweep h-full w-1/3 bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
-          )}
+          {/* Corner ornamental brackets */}
+          <div className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-amber-400 pointer-events-none" />
+          <div className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-amber-400 pointer-events-none" />
+          <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-amber-400 pointer-events-none" />
+          <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-amber-400 pointer-events-none" />
+
+          {/* Inner metallic track */}
+          <div className="relative h-2.5 sm:h-3 w-full overflow-hidden rounded-lg bg-neutral-950/90 border border-amber-950">
+            {knowsCount ? (
+              <div
+                className="h-full w-full origin-left rounded-md bg-gradient-to-r from-amber-700 via-yellow-400 to-amber-500 shadow-[0_0_12px_rgba(251,191,36,0.8)] transition-transform duration-300 ease-out"
+                style={{ transform: `scaleX(${pct / 100})` }}
+              />
+            ) : (
+              <div className="wait-sweep h-full w-2/5 rounded-md bg-gradient-to-r from-transparent via-yellow-300 to-transparent shadow-[0_0_12px_rgba(251,191,36,0.8)]" />
+            )}
+          </div>
         </div>
-        <p className="mt-2 text-[10px] font-mono uppercase tracking-[0.2em] text-amber-200/85">
+
+        <p className="mt-2.5 text-[11px] font-mono uppercase tracking-[0.22em] text-amber-200/90 font-semibold drop-shadow-md">
           {knowsCount ? `Loading asset ${loaded} of ${total} · ${pct}%` : 'Preparing the world…'}
         </p>
       </div>
     </div>
   );
 };
+

@@ -65,6 +65,8 @@ interface GladiatorMeshProps {
    * Lefty Mode cannot change what the player reads.
    */
   feetTell?: FeetTell;
+  /** Optional callback fired when the selected character model fails to load or validate. */
+  onError?: (error: Error) => void;
 }
 
 /**
@@ -83,6 +85,20 @@ const FEET_TELL_STANCE: Record<FeetTell, { leanX: number; forward: number; drop:
 // Per-URL cache for GLB file presence & validity check
 const glbStatusCacheMap = new Map<string, 'unknown' | 'valid' | 'invalid'>();
 const glbCheckPromiseMap = new Map<string, Promise<boolean> | null>();
+
+export type GlbStatus = 'loading' | 'valid' | 'invalid';
+
+export function getGlbStatus(url: string): GlbStatus {
+  const cached = glbStatusCacheMap.get(url);
+  if (cached === 'valid') return 'valid';
+  if (cached === 'invalid') return 'invalid';
+  return 'loading';
+}
+
+export function resetGlbStatusCache(): void {
+  glbStatusCacheMap.clear();
+  glbCheckPromiseMap.clear();
+}
 
 export async function isRealGlbFile(url: string): Promise<boolean> {
   const cached = glbStatusCacheMap.get(url);
@@ -119,24 +135,20 @@ export async function isRealGlbFile(url: string): Promise<boolean> {
   return promise;
 }
 
-export function useGlbAvailability(url: string): boolean {
-  const [isAvailable, setIsAvailable] = useState<boolean>(() => glbStatusCacheMap.get(url) === 'valid');
+export function useGlbAvailabilityStatus(url: string): GlbStatus {
+  const [status, setStatus] = useState<GlbStatus>(() => getGlbStatus(url));
 
   useEffect(() => {
-    const cached = glbStatusCacheMap.get(url);
-    if (cached === 'valid') {
-      setIsAvailable(true);
-      return;
-    }
-    if (cached === 'invalid') {
-      setIsAvailable(false);
+    const current = getGlbStatus(url);
+    setStatus(current);
+    if (current === 'valid' || current === 'invalid') {
       return;
     }
 
     let isMounted = true;
     isRealGlbFile(url).then((valid) => {
       if (isMounted) {
-        setIsAvailable(valid);
+        setStatus(valid ? 'valid' : 'invalid');
       }
     });
 
@@ -145,7 +157,12 @@ export function useGlbAvailability(url: string): boolean {
     };
   }, [url]);
 
-  return isAvailable;
+  return status;
+}
+
+export function useGlbAvailability(url: string): boolean {
+  const status = useGlbAvailabilityStatus(url);
+  return status === 'valid';
 }
 
 // Preload the default gladiator model only. The four alternative character
@@ -1726,20 +1743,36 @@ const ProceduralGladiator: React.FC<{
 
 // 3. Error Boundary to catch missing GLB assets and fallback cleanly
 class GLTFErrorBoundary extends React.Component<
-  { fallback: React.ReactNode; children: React.ReactNode; onError?: () => void },
-  { hasError: boolean }
+  {
+    fallback: React.ReactNode;
+    children: React.ReactNode;
+    onError?: (error: Error) => void;
+    modelUrl?: string;
+  },
+  { hasError: boolean; error: Error | null }
 > {
-  constructor(props: { fallback: React.ReactNode; children: React.ReactNode; onError?: () => void }) {
+  constructor(props: {
+    fallback: React.ReactNode;
+    children: React.ReactNode;
+    onError?: (error: Error) => void;
+    modelUrl?: string;
+  }) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidUpdate(prevProps: { modelUrl?: string }) {
+    if (prevProps.modelUrl !== this.props.modelUrl && this.state.hasError) {
+      this.setState({ hasError: false, error: null });
+    }
   }
   componentDidCatch(err: unknown) {
     console.warn('[GladiatorMesh] GLB model failed to load, falling back to procedural gladiator:', err);
     if (this.props.onError) {
-      this.props.onError();
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      this.props.onError(errorObj);
     }
   }
   render() {
@@ -1751,18 +1784,41 @@ class GLTFErrorBoundary extends React.Component<
 }
 
 // 4. Main GladiatorMesh Component
-export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode, positionRef, rotationRef, impactRef, telegraphGlow, feetTell }: GladiatorMeshProps) => {
+export const GladiatorMesh = React.memo(({
+  fighter,
+  overrideAction,
+  isLeftyMode,
+  positionRef,
+  rotationRef,
+  impactRef,
+  telegraphGlow,
+  feetTell,
+  onError,
+}: GladiatorMeshProps) => {
   const modelUrl = getEnemyCharacterAsset(fighter.characterModel);
-  const isGlbAvailable = useGlbAvailability(modelUrl);
+  const glbStatus = useGlbAvailabilityStatus(modelUrl);
   const [loadFailed, setLoadFailed] = useState(false);
 
   // Reset the failure flag when the model URL changes so a failed model
   // does not force a different valid model onto the procedural fallback.
-  useEffect(() => { setLoadFailed(false); }, [modelUrl]);
+  useEffect(() => {
+    setLoadFailed(false);
+  }, [modelUrl]);
+
+  // When model is confirmed invalid, notify onError callback
+  useEffect(() => {
+    if (glbStatus === 'invalid' && onError) {
+      onError(new Error(`The gladiator model asset is missing or invalid: ${modelUrl}`));
+    }
+  }, [glbStatus, modelUrl, onError]);
 
   const effectiveLefty = isLeftyMode !== undefined ? isLeftyMode : fighter.isLeftyMode;
 
-  if (!isGlbAvailable || loadFailed) {
+  // Only fall back to ProceduralGladiator on confirmed failure (invalid asset or load failure).
+  // While glbStatus is 'loading', RomanWarriorGLB with useGLTF will suspend naturally,
+  // allowing the Suspense boundary to show the loading placeholder instead of flashing
+  // the generic procedural gladiator.
+  if (glbStatus === 'invalid' || loadFailed) {
     return (
       <ProceduralGladiator
         fighter={fighter}
@@ -1778,7 +1834,11 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
 
   return (
     <GLTFErrorBoundary
-      onError={() => setLoadFailed(true)}
+      modelUrl={modelUrl}
+      onError={(err) => {
+        setLoadFailed(true);
+        onError?.(err);
+      }}
       fallback={
         <ProceduralGladiator
           fighter={fighter}
@@ -1795,7 +1855,10 @@ export const GladiatorMesh = React.memo(({ fighter, overrideAction, isLeftyMode,
         fighter={fighter}
         overrideAction={overrideAction}
         isLeftyMode={effectiveLefty}
-        onInvalidModel={() => setLoadFailed(true)}
+        onInvalidModel={() => {
+          setLoadFailed(true);
+          onError?.(new Error(`Model ${modelUrl} does not contain a rigged character`));
+        }}
         modelUrl={modelUrl}
         positionRef={positionRef}
         rotationRef={rotationRef}

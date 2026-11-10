@@ -34,6 +34,9 @@ import { readFileSync } from 'node:fs';
 
 import { BOOT_SHELL_ID, BOOT_SHELL_OUT_CLASS } from './bootShell';
 import {
+  COLOSSEUM_LOADING_CLASS,
+  COLOSSEUM_LOADING_PNG,
+  COLOSSEUM_LOADING_WEBP,
   STARTUP_ASSETS,
   TITLE_BACKDROP_CLASS,
   TITLE_BACKDROP_PNG,
@@ -268,23 +271,22 @@ describe('D. The sequence', () => {
     expect(waitDestination('not-a-destination' as WaitDestinationId)).toEqual(WAIT_DESTINATIONS.city_hub);
   });
 
-  test('the shared backdrop class and safe-area progress bar are used by every transition surface', () => {
-    expect(waitSurfaceSrc).toContain('TITLE_BACKDROP_CLASS');
-    expect(assetLoadingSrc).toContain('TITLE_BACKDROP_CLASS');
+  test('the Colosseum loading backdrop class, dark lower cover overlay and safe-area progress bar are used by every transition surface', () => {
+    expect(waitSurfaceSrc).toContain('COLOSSEUM_LOADING_CLASS');
+    expect(assetLoadingSrc).toContain('COLOSSEUM_LOADING_CLASS');
     expect(assetLoadingSrc).not.toContain('timedOut');
     // A bounded recovery affordance is allowed; the old behavior hid the artwork automatically.
     expect(assetLoadingSrc).toContain('setTimeout(() => setRecoveryAvailable(true), 30000)');
     expect(assetLoadingSrc).toContain('clearTimeout(recoveryTimer)');
     expect(assetLoadingSrc).toContain('Continue in background');
     for (const source of [waitSurfaceSrc, assetLoadingSrc]) {
+      expect(source).toContain('data-loading-cover="true"');
       expect(source).toContain('data-loading-progress="true"');
-      expect(source).toContain("bottom: 'max(5.5vh, calc(env(safe-area-inset-bottom, 0px) + 28px))'");
+      expect(source).toContain("bottom: 'max(4vh, calc(env(safe-area-inset-bottom, 0px) + 24px))'");
       expect(source).toContain('role="progressbar"');
       expect(source).toContain('wait-sweep');
     }
     // City, Tavern, Colosseum, Forge, character creation and school hub lazy fallbacks.
-    // This checks shared backdrop wiring only; it does not assert which image file
-    // the class resolves to. The exact supplied loading artwork remains a separate asset task.
     expect(appSrc.split('<WaitSurface destination="city_hub" />').length - 1).toBeGreaterThanOrEqual(4);
     expect(appSrc).toContain('<WaitSurface destination="character_creation" rotate={false} />');
     expect(appSrc).toContain('<WaitSurface destination="school_hub" />');

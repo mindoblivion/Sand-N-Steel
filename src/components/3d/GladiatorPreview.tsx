@@ -134,10 +134,23 @@ export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, 
               <meshStandardMaterial color="#ecd9be" roughness={0.4} />
             </mesh>
 
-            <ThreeComponentErrorBoundary componentName="GladiatorPreviewMesh" onError={(error) => onError?.(error)}>
+            <ThreeComponentErrorBoundary
+              key={appearance.characterModel || 'roman_warrior'}
+              resetKey={appearance.characterModel || 'roman_warrior'}
+              componentName="GladiatorPreviewMesh"
+              onError={(error) => onError?.(error)}
+            >
               <Suspense fallback={<CanvasLoadingFallback />}>
-                <GladiatorMesh fighter={previewFighter} isLeftyMode={isLeftyMode} />
-                <PreviewReadySignal onReady={onReady} />
+                <GladiatorMesh
+                  key={appearance.characterModel || 'roman_warrior'}
+                  fighter={previewFighter}
+                  isLeftyMode={isLeftyMode}
+                  onError={onError}
+                />
+                <PreviewReadySignal
+                  key={appearance.characterModel || 'roman_warrior'}
+                  onReady={onReady}
+                />
               </Suspense>
             </ThreeComponentErrorBoundary>
           <OrbitControls

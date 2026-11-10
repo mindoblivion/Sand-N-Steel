@@ -5,6 +5,7 @@ interface ThreeComponentErrorBoundaryProps {
   fallback?: ReactNode;
   componentName?: string;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  resetKey?: unknown;
 }
 
 interface ThreeComponentErrorBoundaryState {
@@ -31,6 +32,12 @@ export class ThreeComponentErrorBoundary extends Component<
       hasError: true,
       error,
     };
+  }
+
+  public componentDidUpdate(prevProps: ThreeComponentErrorBoundaryProps) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null });
+    }
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {

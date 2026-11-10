@@ -50,6 +50,8 @@ const SHELL_ASSETS = [
   '/icons/icon-512.png',
   '/icons/icon-maskable-512.png',
   '/icons/apple-touch-icon.png',
+  '/colosseum_loading.webp',
+  '/colosseum_loading.png',
 ];
 
 /**

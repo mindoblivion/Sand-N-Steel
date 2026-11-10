@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "sand-and-steel",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,8 +12,8 @@
     "lint": "tsc --noEmit",
     "optimize:glb": "node scripts/optimize-glb.js",
     "compress:glb": "node scripts/gltf-transform-optimize.js",
-    "cap:sync": "bun run build && cap sync android",
-    "cap:open": "cap open android"
+    "cap:sync": "npm run build && npx cap sync android",
+    "cap:open": "npx cap open android"
   },
   "dependencies": {
     "@capacitor/core": "^8.6.0",

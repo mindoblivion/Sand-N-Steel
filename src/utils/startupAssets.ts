@@ -23,15 +23,26 @@ export const TITLE_BACKDROP_WEBP = '/title_screen.webp';
 /** The title backdrop's fallback format, for a browser without WebP support. */
 export const TITLE_BACKDROP_PNG = '/title_screen.png';
 
+/** The class `index.html` defines for the shared Colosseum loading backdrop. */
+export const COLOSSEUM_LOADING_CLASS = 'colosseum-loading-backdrop';
+
+/** The Colosseum loading backdrop's primary format. */
+export const COLOSSEUM_LOADING_WEBP = '/colosseum_loading.webp';
+
+/** The Colosseum loading backdrop's fallback format. */
+export const COLOSSEUM_LOADING_PNG = '/colosseum_loading.png';
+
 /**
  * Every asset the boot → title sequence references, as the app serves it: the title
- * backdrop in both formats, the installable-app metadata the boot path honours (the
- * manifest and the icons it lists) and the designed offline page the service worker
- * shell falls back to.
+ * backdrop in both formats, the Colosseum loading artwork in both formats, the
+ * installable-app metadata the boot path honours (the manifest and the icons it lists)
+ * and the designed offline page the service worker shell falls back to.
  */
 export const STARTUP_ASSETS: readonly string[] = [
   TITLE_BACKDROP_WEBP,
   TITLE_BACKDROP_PNG,
+  COLOSSEUM_LOADING_WEBP,
+  COLOSSEUM_LOADING_PNG,
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
