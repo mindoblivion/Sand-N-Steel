@@ -4,6 +4,12 @@ const path = require('path');
 
 const SOURCE_IMAGE = path.join(__dirname, '../public/assets/aistudio/file_00000000445881f587bb682b9f8ef1bb_a38986d0.png');
 
+// Keep the complete approved artwork for store/legacy icons. Adaptive icons
+// need a tighter composition: trim only the decorative outer 4% before fitting
+// the art inside Android's central 66% safe-zone square.
+const ADAPTIVE_SAFE_ZONE_RATIO = 0.66;
+const ADAPTIVE_EDGE_CROP_RATIO = 0.04;
+
 async function createCircularMask(size) {
   const svg = `<svg width="${size}" height="${size}">
     <circle cx="${size/2}" cy="${size/2}" r="${size/2}" fill="#ffffff"/>
@@ -12,14 +18,23 @@ async function createCircularMask(size) {
 }
 
 async function createAdaptiveForeground(canvasSize) {
-  // In Android adaptive icon standard: 108dp canvas, 66dp safe-zone circle (ratio 66/108 = 0.6111)
-  // To be safe and fill the safe zone well, target size is ~66% of canvas
-  const innerSize = Math.round(canvasSize * 0.66);
+  // Android adaptive icons use a 108dp canvas with a central ~66dp safe zone.
+  // Crop the decorative frame slightly so the title/gladiators read larger,
+  // while keeping the resulting square fully inside that safe-zone footprint.
+  const innerSize = Math.round(canvasSize * ADAPTIVE_SAFE_ZONE_RATIO);
   const offset = Math.round((canvasSize - innerSize) / 2);
+  const metadata = await sharp(SOURCE_IMAGE).metadata();
+  if (!metadata.width || !metadata.height) throw new Error('Unable to read launcher source dimensions');
+  const cropX = Math.round(metadata.width * ADAPTIVE_EDGE_CROP_RATIO);
+  const cropY = Math.round(metadata.height * ADAPTIVE_EDGE_CROP_RATIO);
+  const cropWidth = metadata.width - cropX * 2;
+  const cropHeight = metadata.height - cropY * 2;
 
-  // Resize source artwork to innerSize
+  // Adaptive-only crop; all other icon outputs retain the full original artwork.
   const resizedArt = await sharp(SOURCE_IMAGE)
-    .resize(innerSize, innerSize, { fit: 'contain' })
+    .extract({ left: cropX, top: cropY, width: cropWidth, height: cropHeight })
+    .resize(innerSize, innerSize, { fit: 'cover' })
+    .png()
     .toBuffer();
 
   // Composite resized artwork onto canvasSize x canvasSize transparent canvas
