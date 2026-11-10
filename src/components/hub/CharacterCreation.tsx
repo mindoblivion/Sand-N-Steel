@@ -248,10 +248,12 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
             />
           </div>
 
-          {/* SKIN TONE — this is wired to the live GLB material and saved appearance. */}
+          {/* The current procedural Centurion renderer supports skin tint; imported GLB
+              looks do not yet expose a verified skin-material mapping. */}
+          {selection.characterModel === 'procedural_gladiator' && (
           <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-4" data-skin-tone-picker>
             <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-              Skin Tone
+              Skin Tone — Centurion
             </label>
             <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator skin tone">
               {SKIN_TONES.map((tone) => {
@@ -275,9 +277,10 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete
               })}
             </div>
             <p className="mt-2 text-[11px] text-neutral-400">
-              Choose a complexion. Your selection appears on the 3D preview and is saved with your gladiator.
+              Choose a complexion for the Centurion look. Imported gladiator models do not yet support verified skin-tone tinting.
             </p>
           </div>
+          )}
 
           {/* BODY WEIGHT — affects attack impact, never weapon eligibility. */}
           <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-4">
