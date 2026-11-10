@@ -95,6 +95,7 @@ import {
 import { getTerrainY } from '../../../utils/terrainHeight';
 import { checkMoatRespawn } from '../../../utils/drawbridge';
 import { applyDeadZone } from '../../../utils/joystickDeadZone';
+import { resetCityInputState } from '../../../utils/cityInputLifecycle';
 import { getCityFacingYaw } from '../../../utils/cityFacing';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
@@ -1163,6 +1164,29 @@ const handleEnterArena = useCallback(() => {
       }
     }
   };
+
+  // Android may suspend the WebView before keyup/touchend reaches the page.
+  // Clear transient controls and reset the clock before the next animation frame.
+  useEffect(() => {
+    const resetInput = () => {
+      resetCityInputState(keysPressed, touchVectorRef, touchIdRef, lastTimeRef, performance.now());
+      setKnobPos({ x: 0, y: 0 });
+      isMovingRef.current = false;
+      setIsMoving(false);
+    };
+    const handleVisibilityChange = () => resetInput();
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', resetInput);
+    window.addEventListener('focus', resetInput);
+    window.addEventListener('pageshow', resetInput);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', resetInput);
+      window.removeEventListener('focus', resetInput);
+      window.removeEventListener('pageshow', resetInput);
+    };
+  }, []);
 
   // Continuous, non-stuttering 60fps Movement Loop
   useEffect(() => {
