@@ -68,7 +68,7 @@ The PR #402 environment and main quality gates passed on 2026-11-10. This does n
 
 ## Open engineering PRs
 
-- No open engineering PRs were present at this reconciliation. Continue from the active work table; do not interpret an empty PR queue as completion of device acceptance.
+- [PR #404](https://github.com/mindoblivion/Sand-N-Steel/pull/404): adaptive launcher icon composition and safe-zone regression test; both CI gates passed, pending review and device verification. Continue from the active work table; do not interpret green CI as completion of device acceptance.
 - Asset inventory update in progress: the owner-selected Colosseum loading artwork and the icon package have been located in the Library. They are source inputs only; they are not part of the repository or APK until added, checked, and built.
 
 ## Combat audit status
