@@ -4,10 +4,21 @@ import { getCameraRelativeMovement } from './cityMovementDirection';
 
 describe('camera-relative city movement direction', () => {
   test('at default camera yaw, up is forward (+Z) and right is +X', () => {
-    expect(getCameraRelativeMovement(0, -1, 0)).toEqual({ x: 0, z: 1 });
-    expect(getCameraRelativeMovement(1, 0, 0)).toEqual({ x: 1, z: 0 });
-    expect(getCameraRelativeMovement(-1, 0, 0)).toEqual({ x: -1, z: 0 });
-    expect(getCameraRelativeMovement(0, 1, 0)).toEqual({ x: 0, z: -1 });
+    const forward = getCameraRelativeMovement(0, -1, 0);
+    expect(forward.x).toBeCloseTo(0, 10);
+    expect(forward.z).toBeCloseTo(1, 10);
+
+    const right = getCameraRelativeMovement(1, 0, 0);
+    expect(right.x).toBeCloseTo(1, 10);
+    expect(right.z).toBeCloseTo(0, 10);
+
+    const left = getCameraRelativeMovement(-1, 0, 0);
+    expect(left.x).toBeCloseTo(-1, 10);
+    expect(left.z).toBeCloseTo(0, 10);
+
+    const backward = getCameraRelativeMovement(0, 1, 0);
+    expect(backward.x).toBeCloseTo(0, 10);
+    expect(backward.z).toBeCloseTo(-1, 10);
   });
 
   test('rotates the same screen-space controls with the camera orbit', () => {
