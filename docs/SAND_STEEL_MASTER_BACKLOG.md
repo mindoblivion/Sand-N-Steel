@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `a144299893e60b4fd265e353c27278e62aae01df` (2026-11-11).
+> Living project index. Baseline reconciled against `main` at `ca989500974c9f9b277a6fd30b126d27c02e30cc` (2026-11-11).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -43,9 +43,9 @@ These are the standing areas to audit against the live implementation. Items not
 7. **Android and performance** — launcher icon, loading transitions, touch controls, safe areas, app lifecycle, save persistence, offline operation, frame-time/memory/thermal behaviour.
 8. **Quality and release** — automated regression coverage, device acceptance, accessibility/usability, dependency/security review, rehearsal APK/AAB, store assets and release sign-off.
 
-## Latest mainline reconciliation (2026-11-10)
+## Latest mainline reconciliation (2026-11-11)
 
-Main is at `a144299893e60b4fd265e353c27278e62aae01df` (2026-11-11). The following November 10 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
+Main is at `ca989500974c9f9b277a6fd30b126d27c02e30cc` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
 
 - [PR #398](https://github.com/mindoblivion/Sand-N-Steel/pull/398): reset mobile movement/camera input after Android focus loss and lifecycle interruptions.
 - [PR #399](https://github.com/mindoblivion/Sand-N-Steel/pull/399): body weight affects city walking speed (140 lb 1.05×, 180 lb 1.00×, 300 lb 0.85×).
@@ -67,6 +67,8 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 - [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379): duel result callback cancellation on scene exit merged (`5b7c0fb`).
 - [PR #381](https://github.com/mindoblivion/Sand-N-Steel/pull/381): clarified shared loading-backdrop test coverage merged (`bd099c0`).
 - [PR #404](https://github.com/mindoblivion/Sand-N-Steel/pull/404): adaptive launcher icon composition merged (`4b618a7`).
+- [PR #406](https://github.com/mindoblivion/Sand-N-Steel/pull/406): rehearsal Gradle wrapper invocation fixed; rehearsal APK/AAB build, signature verification, artifact upload, and signing-material cleanup passed in run [42979733177](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/42979733177).
+- [PR #407](https://github.com/mindoblivion/Sand-N-Steel/pull/407): master backlog reconciliation merged (`ca98950`).
 - [PR #406](https://github.com/mindoblivion/Sand-N-Steel/pull/406): rehearsal Gradle wrapper invocation fixed; rehearsal build, APK/AAB signature verification, artifact upload, and signing-material cleanup all passed in workflow run [42979733177](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/42979733177). Artifact `rehearsal-aab-do-not-upload` contains an installable rehearsal APK and expires 2026-11-18. Its AAB is signed with a throwaway key and must never be uploaded to Play Store.
 - [PR #373](https://github.com/mindoblivion/Sand-N-Steel/pull/373): this master backlog and combat audit index merged (`2c6aa93`).
 
