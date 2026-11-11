@@ -22,8 +22,8 @@ describe('Mobile Character Creation Layout & Navigation', () => {
     const source = creationSource();
     expect(source).toContain('data-creation-tabs="true"');
     expect(source).toContain('data-tab="identity"');
-    expect(source).toContain('data-tab="corpus"');
-    expect(source).toContain('data-tab="attributes"');
+    expect(source).toContain('data-tab="body"');
+    expect(source).toContain('data-tab="features"');
     expect(source).toContain('data-tab-panel={activeTab}');
   });
 

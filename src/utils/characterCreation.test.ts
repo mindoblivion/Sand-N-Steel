@@ -288,6 +288,9 @@ describe('CH-2 §D — the class picker and the model picker are independent', (
     expect(source).toContain('{ARMATURAE.map((row) => {');
     expect(source).toContain('data-armatura-card={row.id}');
     expect(source).toContain('data-armatura-picker');
+    expect(source).toContain('data-skin-tone-picker');
+    expect(source).toContain('data-corpus-vitium-picker');
+    expect(source).toContain('data-corpus-build-picker');
     expect(source).toContain('min-h-[48px]');
     expect(source).toContain('row.doctrina.name');
     expect(source).toContain('row.stats.strength');
@@ -317,17 +320,26 @@ describe('CH-2 §D — the class picker and the model picker are independent', (
 
 
 describe('mobile character creation layout contract', () => {
-  test('the customization column remains vertically scrollable within the viewport', () => {
+  test('the customization column remains vertically scrollable within the viewport with safe area handling', () => {
     const source = creationSource();
     expect(source).toContain('h-[100dvh] min-h-0');
     expect(source).toContain('flex-1 min-h-0');
     expect(source).toContain('overflow-y-auto overscroll-y-contain touch-pan-y');
-    expect(source).toContain('pb-[max(1rem,env(safe-area-inset-bottom))]');
+    expect(source).toContain('pt-[max(0.5rem,env(safe-area-inset-top))]');
+    expect(source).toContain('pb-[max(0.5rem,env(safe-area-inset-bottom))]');
   });
 
   test('the mobile preview is height-bounded so it cannot consume the whole screen', () => {
     const source = creationSource();
-    expect(source).toContain('h-[46dvh]');
+    expect(source).toContain('h-[38dvh]');
     expect(source).toContain('lg:h-full');
+  });
+
+  test('customization sections are organized into Identity, Body, and Features tabs', () => {
+    const source = creationSource();
+    expect(source).toContain('data-tab="identity"');
+    expect(source).toContain('data-tab="body"');
+    expect(source).toContain('data-tab="features"');
+    expect(source).toContain('data-tab-panel={activeTab}');
   });
 });
