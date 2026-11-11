@@ -45,7 +45,7 @@ These are the standing areas to audit against the live implementation. Items not
 
 ## Latest mainline reconciliation (2026-11-11)
 
-Main is at `ca989500974c9f9b277a6fd30b126d27c02e30cc` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
+Main is at `57748d0abdbe0322ce566ddd97dbd098a3b3a1e5` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
 
 - [PR #398](https://github.com/mindoblivion/Sand-N-Steel/pull/398): reset mobile movement/camera input after Android focus loss and lifecycle interruptions.
 - [PR #399](https://github.com/mindoblivion/Sand-N-Steel/pull/399): body weight affects city walking speed (140 lb 1.05×, 180 lb 1.00×, 300 lb 0.85×).
@@ -69,12 +69,14 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 - [PR #404](https://github.com/mindoblivion/Sand-N-Steel/pull/404): adaptive launcher icon composition merged (`4b618a7`).
 - [PR #406](https://github.com/mindoblivion/Sand-N-Steel/pull/406): rehearsal Gradle wrapper invocation fixed; rehearsal APK/AAB build, signature verification, artifact upload, and signing-material cleanup passed in run [42979733177](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/42979733177).
 - [PR #407](https://github.com/mindoblivion/Sand-N-Steel/pull/407): master backlog reconciliation merged (`ca98950`).
+- [PR #408](https://github.com/mindoblivion/Sand-N-Steel/pull/408): corrected backlog mainline baseline and merged (`9144040`).
+- [PR #409](https://github.com/mindoblivion/Sand-N-Steel/pull/409): tracked and cancelled floating damage-number timeouts on duel scene exit; regression test and both CI gates passed; merged (`57748d0`).
 - [PR #406](https://github.com/mindoblivion/Sand-N-Steel/pull/406): rehearsal Gradle wrapper invocation fixed; rehearsal build, APK/AAB signature verification, artifact upload, and signing-material cleanup all passed in workflow run [42979733177](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/42979733177). Artifact `rehearsal-aab-do-not-upload` contains an installable rehearsal APK and expires 2026-11-18. Its AAB is signed with a throwaway key and must never be uploaded to Play Store.
 - [PR #373](https://github.com/mindoblivion/Sand-N-Steel/pull/373): this master backlog and combat audit index merged (`2c6aa93`).
 
 ## Open engineering PRs
 
-- No engineering PRs were open at the November 11 reconciliation. Continue from the active work table; do not interpret green CI as completion of device acceptance.
+- No engineering PRs are currently open after PR #409 merged. Continue from the active work table; do not interpret green CI as completion of device acceptance.
 - PR #404's approved two-gladiator icon artwork is merged to main and included in the November 11 rehearsal APK source. The owner-selected Colosseum loading artwork remains a separate Library source input; the repository's loading overlay uses its existing checked-in loading artwork.
 
 ## Combat audit status
@@ -82,6 +84,7 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 - [Source audit](docs/COMBAT_SOURCE_AUDIT.md): calculations, HUD gating, attack wind-up, range/stamina handling, defensive stance lifecycle, and existing regression suites inspected at its recorded baseline (`7d211d9`). This predates current main (`3d4d58b`); re-audit combat source before treating the findings as current.
 - No new confirmed combat defect was established by this source pass. The historical out-of-range stamina issue is guarded in current source; physical/full-duel acceptance and turn-lifecycle integration coverage remain outstanding.
 - Lifecycle follow-up: [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379) merged result-timer ownership and unmount cancellation, with focused schedule/cancel and source-wiring regression tests. Both reported CI gates passed; device/full-duel acceptance remains open.
+- Follow-up [PR #409](https://github.com/mindoblivion/Sand-N-Steel/pull/409) now also owns and cancels transient floating-damage label timers on duel unmount; focused wiring regression and both CI gates passed. Device/full-duel acceptance remains open.
 - Next: complete a full Android duel acceptance run, including victory, defeat, and exiting the duel during pending transitions. Do not rebalance or rewrite combat without reproducible evidence.
 
 ## Evidence sources
