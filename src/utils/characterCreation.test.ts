@@ -77,6 +77,22 @@ describe('gladiator body-weight creation persistence', () => {
     expect(profile.appearance.bodyWeightLb).toBe(245);
     expect(Object.prototype.hasOwnProperty.call(profile, 'weight')).toBe(false);
   });
+
+  test('tunic and crest colors are preserved in the appearance object', () => {
+    const profile = buildCreatedProfile({
+      name: 'Custom Color',
+      appearance: { 
+        ...APPEARANCE, 
+        tunicColor: '#1e3a8a', 
+        crestColor: '#f59e0b' 
+      },
+      armatura: 'provocator',
+      allocation: NO_ALLOCATION,
+    });
+
+    expect(profile.appearance.tunicColor).toBe('#1e3a8a');
+    expect(profile.appearance.crestColor).toBe('#f59e0b');
+  });
 });
 
 describe('CH-2 §A — a new Retiarius, before and after allocation', () => {

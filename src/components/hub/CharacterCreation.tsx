@@ -39,6 +39,24 @@ const SKIN_TONES = [
   { id: 'dark-umber', label: 'Dark umber', color: '#593b2b' },
 ] as const;
 
+const TUNIC_COLORS = [
+  { id: 'mustard', label: 'Ocre Mustard', color: '#854d0e' },
+  { id: 'crimson', label: 'Imperial Crimson', color: '#991b1b' },
+  { id: 'blue', label: 'Legionnaire Blue', color: '#1e3a8a' },
+  { id: 'green', label: 'Sylvan Green', color: '#14532d' },
+  { id: 'purple', label: 'Patrician Purple', color: '#581c87' },
+  { id: 'linen', label: 'Raw Linen', color: '#44403c' },
+] as const;
+
+const CREST_COLORS = [
+  { id: 'red', label: 'Praetorian Red', color: '#dc2626' },
+  { id: 'dark-red', label: 'Vanquished Crimson', color: '#991b1b' },
+  { id: 'gold', label: 'Aurum Gold', color: '#f59e0b' },
+  { id: 'black', label: 'Obsidian Black', color: '#000000' },
+  { id: 'white', label: 'Parian White', color: '#f8fafc' },
+  { id: 'brown', label: 'Stallion Brown', color: '#451a03' },
+] as const;
+
 interface CharacterCreationProps {
   onComplete: (profile: PlayerProfile) => void;
   onCancel: () => void;
@@ -74,8 +92,8 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
    */
   const [selection, setSelection] = useState<CreationSelection>(DEFAULT_SELECTION);
   const [skinColor, setSkinColor] = useState('#c68b59');
-  const [tunicColor] = useState('#854d0e');
-  const [crestColor] = useState('#dc2626');
+  const [tunicColor, setTunicColor] = useState('#854d0e');
+  const [crestColor, setCrestColor] = useState('#dc2626');
   /**
    * CH-2 — the ten creation points, held as points SPENT per attribute. The
    * absolute value on screen is the class template plus this, so the per-stat floor
@@ -454,34 +472,92 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                   </div>
                 </div>
 
-                {/* SKIN TONE PICKER (FOR CENTURION) */}
+                {/* APPEARANCE PICKERS (FOR CENTURION) */}
                 {selection.characterModel === 'procedural_gladiator' && (
-                  <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-3.5" data-skin-tone-picker>
-                    <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-                      Skin Tone &mdash; Centurion
-                    </label>
-                    <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator skin tone">
-                      {SKIN_TONES.map((tone) => {
-                        const selected = skinColor === tone.color;
-                        return (
-                          <button
-                            key={tone.id}
-                            type="button"
-                            data-skin-tone={tone.id}
-                            aria-label={`Select skin tone: ${tone.label}`}
-                            aria-pressed={selected}
-                            title={tone.label}
-                            onClick={() => { sounds.playClick(); setSkinColor(tone.color); }}
-                            className={`h-12 w-12 rounded-full border-2 transition-transform cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300 ${
-                              selected ? 'border-amber-300 scale-110 shadow-[0_0_12px_rgba(245,158,11,0.55)]' : 'border-neutral-500 hover:scale-105'
-                            }`}
-                            style={{ backgroundColor: tone.color }}
-                          />
-                        );
-                      })}
+                  <div className="flex flex-col gap-4">
+                    {/* SKIN TONE */}
+                    <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-3.5" data-skin-tone-picker>
+                      <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+                        Skin Tone &mdash; Centurion
+                      </label>
+                      <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator skin tone">
+                        {SKIN_TONES.map((tone) => {
+                          const selected = skinColor === tone.color;
+                          return (
+                            <button
+                              key={tone.id}
+                              type="button"
+                              data-skin-tone={tone.id}
+                              aria-label={`Select skin tone: ${tone.label}`}
+                              aria-pressed={selected}
+                              title={tone.label}
+                              onClick={() => { sounds.playClick(); setSkinColor(tone.color); }}
+                              className={`h-12 w-12 rounded-full border-2 transition-transform cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300 ${
+                                selected ? 'border-amber-300 scale-110 shadow-[0_0_12px_rgba(245,158,11,0.55)]' : 'border-neutral-500 hover:scale-105'
+                              }`}
+                              style={{ backgroundColor: tone.color }}
+                            />
+                          );
+                        })}
+                      </div>
                     </div>
-                    <p className="mt-2 text-[11px] text-neutral-400">
-                      Choose a complexion for the Centurion look. Imported gladiator models do not yet support verified skin-tone tinting.
+
+                    {/* TUNIC COLOR */}
+                    <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-3.5" data-tunic-color-picker>
+                      <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+                        Tunic Color &mdash; Centurion
+                      </label>
+                      <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator tunic color">
+                        {TUNIC_COLORS.map((tone) => {
+                          const selected = tunicColor === tone.color;
+                          return (
+                            <button
+                              key={tone.id}
+                              type="button"
+                              data-tunic-color={tone.id}
+                              aria-label={`Select tunic color: ${tone.label}`}
+                              aria-pressed={selected}
+                              title={tone.label}
+                              onClick={() => { sounds.playClick(); setTunicColor(tone.color); }}
+                              className={`h-12 w-12 rounded-full border-2 transition-transform cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300 ${
+                                selected ? 'border-amber-300 scale-110 shadow-[0_0_12px_rgba(245,158,11,0.55)]' : 'border-neutral-500 hover:scale-105'
+                              }`}
+                              style={{ backgroundColor: tone.color }}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* CREST COLOR */}
+                    <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-3.5" data-crest-color-picker>
+                      <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
+                        Helmet Crest Color &mdash; Centurion
+                      </label>
+                      <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator crest color">
+                        {CREST_COLORS.map((tone) => {
+                          const selected = crestColor === tone.color;
+                          return (
+                            <button
+                              key={tone.id}
+                              type="button"
+                              data-crest-color={tone.id}
+                              aria-label={`Select crest color: ${tone.label}`}
+                              aria-pressed={selected}
+                              title={tone.label}
+                              onClick={() => { sounds.playClick(); setCrestColor(tone.color); }}
+                              className={`h-12 w-12 rounded-full border-2 transition-transform cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300 ${
+                                selected ? 'border-amber-300 scale-110 shadow-[0_0_12px_rgba(245,158,11,0.55)]' : 'border-neutral-500 hover:scale-105'
+                              }`}
+                              style={{ backgroundColor: tone.color }}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <p className="px-1 text-[11px] text-neutral-400">
+                      Choose a physical appearance for the Centurion look. Imported gladiator models do not yet support verified skin-tone or material tinting.
                     </p>
                   </div>
                 )}
