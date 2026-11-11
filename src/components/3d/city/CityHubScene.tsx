@@ -1165,12 +1165,13 @@ const handleEnterArena = useCallback(() => {
     }
   };
 
-  // Android may take the WebView out of focus without delivering touchend.
-  // Clear the joystick immediately so a held direction cannot survive app resume.
+  // Android may take the WebView out of focus without delivering touchend or keyup.
+  // Clear every held movement input so it cannot survive app resume.
   useEffect(() => {
     const resetJoystickInput = () => {
       touchIdRef.current = null;
       touchVectorRef.current = { x: 0, z: 0 };
+      keysPressed.current = {};
       setKnobPos({ x: 0, y: 0 });
     };
     const handleVisibilityChange = () => {
