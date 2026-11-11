@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `bf8c67e195024b76f8b23653e3357370045faa47` (2026-11-11).
+> Living project index. Baseline reconciled against `main` at `88f9386344f2ac4b6c607a0642dbb57b29d668c5` (2026-11-11).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -45,7 +45,7 @@ These are the standing areas to audit against the live implementation. Items not
 
 ## Latest mainline reconciliation (2026-11-11)
 
-Main is at `bf8c67e195024b76f8b23653e3357370045faa47` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
+Main is at `88f9386344f2ac4b6c607a0642dbb57b29d668c5` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
 
 - [PR #398](https://github.com/mindoblivion/Sand-N-Steel/pull/398): reset mobile movement/camera input after Android focus loss and lifecycle interruptions.
 - [PR #399](https://github.com/mindoblivion/Sand-N-Steel/pull/399): body weight affects city walking speed (140 lb 1.05×, 180 lb 1.00×, 300 lb 0.85×).
@@ -83,12 +83,14 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 
 ## Open engineering PRs
 
-- No engineering PRs are currently open after PR #416 merged. Continue from the active work table; do not interpret green CI as completion of device acceptance.
+- [PR #419](https://github.com/mindoblivion/Sand-N-Steel/pull/419) is an open test-only change pinning the Centurion-only appearance-picker gate and palette/accessibility contract. Its main quality gate passed; it remains unmerged pending owner authorization.
+- [PR #418](https://github.com/mindoblivion/Sand-N-Steel/pull/418) is an open documentation-only reconciliation of the prior baseline. It remains unmerged pending owner authorization.
+- Do not interpret green CI as completion of device acceptance. Do not merge either PR without explicit owner authorization.
 - PR #404's approved two-gladiator icon artwork is merged to main and included in the November 11 rehearsal APK source. The user's Colosseum loading artwork is also integrated as `public/colosseum_loading.png` and `public/colosseum_loading.webp`: the boot shell, `WaitSurface`, and `AssetLoadingOverlay` use the shared backdrop; a dark lower cover hides the artwork's baked-in 72% label/bar and replaces it with measured progress or an indeterminate sweep. Startup-asset checks cover the shipped formats. Samsung S24 visual/safe-area verification remains outstanding.
 
 ## Combat audit status
 
-- [Source audit](docs/COMBAT_SOURCE_AUDIT.md): calculations, HUD gating, attack wind-up, range/stamina handling, defensive stance lifecycle, and existing regression suites inspected at its recorded baseline (`7d211d9`). This predates current main (`3d4d58b`); re-audit combat source before treating the findings as current.
+- [Source audit](docs/COMBAT_SOURCE_AUDIT.md): refreshed against the duel timer cleanup baseline `6ec94a6` on 2026-11-11. Attack wind-up, turn-resolution, AI think, result transition, floating damage-label, and match-clock timer ownership/cleanup have been inspected; focused unmount regression coverage is merged.
 - No new confirmed combat defect was established by this source pass. The historical out-of-range stamina issue is guarded in current source; physical/full-duel acceptance and turn-lifecycle integration coverage remain outstanding.
 - Lifecycle follow-up: [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379) merged result-timer ownership and unmount cancellation, with focused schedule/cancel and source-wiring regression tests. Both reported CI gates passed; device/full-duel acceptance remains open.
 - Follow-up [PR #409](https://github.com/mindoblivion/Sand-N-Steel/pull/409) now also owns and cancels transient floating-damage label timers on duel unmount; focused wiring regression and both CI gates passed. Device/full-duel acceptance remains open.
