@@ -896,6 +896,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const attackWindupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiTurnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resultTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track transient floating-damage labels so their delayed state updates cannot outlive the duel.
+  const damageNumberTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   // Cancel an in-flight recovery callback when the arena scene is exited.
   useEffect(() => () => {
@@ -908,6 +910,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       turnResolutionTimerRef.current = null;
     }
     resultTransitionTimerRef.current = cancelDuelResult(resultTransitionTimerRef.current);
+    damageNumberTimersRef.current.forEach((timer) => clearTimeout(timer));
+    damageNumberTimersRef.current.clear();
   }, []);
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
@@ -1300,9 +1304,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       createdAt: Date.now(),
     };
     setDamageNumbers((prev) => [...prev, dmgItem]);
-    setTimeout(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    timer = setTimeout(() => {
+      damageNumberTimersRef.current.delete(timer);
       setDamageNumbers((prev) => prev.filter((d) => d.id !== dmgItem.id));
     }, 1400);
+    damageNumberTimersRef.current.add(timer);
   }, []);
 
   // D-2 — the arena's presentation deltas for this opponent (`dawn` for
