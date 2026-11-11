@@ -7,8 +7,18 @@ const manifest = read('../../android/app/src/main/AndroidManifest.xml');
 const adaptive = read('../../android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml');
 const adaptiveRound = read('../../android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml');
 const pwaManifest = read('../../public/manifest.webmanifest');
+const iconGenerator = read('../../scripts/generateIconAssets.cjs');
 
 describe('native Sand & Steel launcher branding', () => {
+  test('adaptive foreground square fits inside Android circular safe zone', () => {
+    const ratioMatch = iconGenerator.match(/const ADAPTIVE_SAFE_ZONE_RATIO = ([0-9.]+);/);
+    expect(ratioMatch).not.toBeNull();
+    const ratio = Number(ratioMatch?.[1]);
+    // Android safe zone is a circle: the square diagonal must not exceed its diameter.
+    expect(ratio * Math.sqrt(2)).toBeLessThanOrEqual(0.66);
+    expect(iconGenerator).toContain('const ADAPTIVE_EDGE_CROP_RATIO = 0.04;');
+  });
+
   test('the Android application and round icon resolve to adaptive launcher resources', () => {
     expect(manifest).toContain('android:icon="@mipmap/ic_launcher"');
     expect(manifest).toContain('android:roundIcon="@mipmap/ic_launcher_round"');
