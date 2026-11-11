@@ -120,7 +120,7 @@ jobs:
 
       - name: Build the practice bundle (rehearsal)
         working-directory: android
-        run: ./gradlew bundleRelease --no-daemon
+        run: bash ./gradlew bundleRelease --no-daemon
 
       # `--signature-only`: the rehearsal key exists for one run, so there is no identity to pin.
       # The flag makes that skip explicit; a release run never passes it and fails closed instead.
@@ -131,7 +131,7 @@ jobs:
       # same throwaway key so physical-device acceptance does not require Bundletool.
       - name: Build the practice APK (rehearsal)
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: bash ./gradlew assembleRelease --no-daemon
 
       - name: Verify the practice APK signature (rehearsal)
         shell: bash
@@ -246,7 +246,7 @@ jobs:
 
       - name: Build release bundle
         working-directory: android
-        run: ./gradlew bundleRelease --no-daemon
+        run: bash ./gradlew bundleRelease --no-daemon
 
       # Nothing is uploaded until this passes. An unsigned AAB builds successfully, and a signed one
       # may carry ANY certificate, so the check is two-fold: the signature must verify, and every
