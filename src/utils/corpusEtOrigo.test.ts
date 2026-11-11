@@ -674,7 +674,7 @@ describe('character creator skin tone selection', () => {
     expect(source).toContain('setSkinColor(tone.color)');
     expect(source).toContain('skinColor,');
     expect(source).toContain("selection.characterModel === 'procedural_gladiator' && (");
-    expect(source).toContain('Choose a complexion for the Centurion look.');
+    expect(source).toContain('aria-label="Choose gladiator skin tone"');
     expect(source).not.toContain('data-hair-color');
   });
 });
