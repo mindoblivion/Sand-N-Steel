@@ -36,6 +36,8 @@ describe('Mobile Character Creation Layout & Navigation', () => {
     expect(source).toContain('data-optional-background');
     expect(source).toContain('data-corpus-origo-picker');
     expect(source).toContain('data-corpus-origo-card={row.id}');
+    expect(source).toContain('data-corpus-vitium-picker');
+    expect(source).toContain('data-corpus-vitium-card="none"');
     expect(source).toContain('data-corpus-vitium-card={row.id}');
     expect(source).toContain('data-skin-tone-picker');
     expect(source).toContain('data-tunic-color-picker');
