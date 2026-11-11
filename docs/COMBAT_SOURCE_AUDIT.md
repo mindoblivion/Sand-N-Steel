@@ -1,6 +1,6 @@
 # Gladiator Combat — Source Audit
 
-> Audit baseline: `main` at `7d211d96e226b88130356f9cdefbb28856f39f6b`.
+> Audit baseline: `main` at `6ec94a68da256e59926c9ef8f1dabf283766436a` (re-audited 2026-11-11).
 > Scope: source-level inspection only. This is not a full-playthrough or Android device sign-off.
 
 ## Findings
@@ -14,6 +14,12 @@
 - Block and dodge stances are cleared when that fighter next acts, allowing the opponent's intervening attack to interact with the stance.
 - Combat timing has a dedicated regression suite (`duelTurnPacing.test.ts`); counter-windup sequencing has a dedicated state-machine/source-wiring suite (`counterWindup.test.ts`); the calculation layer has `scripts/combatTests.ts`.
 - Boss-specific mechanics are represented in data and have dedicated coverage, including boss phase/presentation suites.
+
+## Lifecycle re-audit (2026-11-11)
+
+The current `DuelScene.tsx` was rechecked at the baseline above. The active attack wind-up, turn-resolution hold, AI think delay, result transition, floating damage-label timeouts, and match clock all have explicit ownership/cleanup paths. The AI delay effect clears its own timer on dependency replacement/unmount; the scene cleanup clears the attack-windup and turn-resolution timers, cancels the result timer, and clears all tracked damage-label timers. Withdrawal separately cancels pending enemy, player, turn-resolution, and AI work before settling the forfeit.
+
+Regression coverage is now more precise: PR #415 adds an assertion that the attack-windup timer is cleared and its ref nulled inside the unmount cleanup block. This supplements the existing resolution, AI, result, floating-label, and withdrawal lifecycle tests. These remain source/wiring tests; they do not simulate a complete duel or prove animation timing on a physical device.
 
 ## No new confirmed defect from this source pass
 
