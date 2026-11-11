@@ -441,6 +441,15 @@ describe('CF-5 §E resolution timer lifecycle', () => {
     expect(reset).toBeGreaterThan(clear);
   });
 
+  test('unmount cancels and clears an outstanding attack-windup callback', () => {
+    const cleanup = duel.indexOf('if (attackWindupTimerRef.current !== null)');
+    const clear = duel.indexOf('clearTimeout(attackWindupTimerRef.current);', cleanup);
+    const reset = duel.indexOf('attackWindupTimerRef.current = null;', clear);
+    expect(cleanup).toBeGreaterThan(-1);
+    expect(clear).toBeGreaterThan(cleanup);
+    expect(reset).toBeGreaterThan(clear);
+  });
+
   test('the opponent AI timer is cancelled when its effect is replaced or the scene unmounts', () => {
     const schedule = duel.indexOf('const aiTimer = setTimeout(() => {');
     const cleanup = duel.indexOf('return () => {', schedule);
