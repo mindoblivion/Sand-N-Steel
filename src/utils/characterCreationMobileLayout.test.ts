@@ -46,6 +46,25 @@ describe('Mobile Character Creation Layout & Navigation', () => {
     expect(source).toContain('data-action="submit-character"');
   });
 
+  test('Centurion-only appearance pickers are all gated to the procedural model', () => {
+    const source = creationSource();
+    const gate = "{selection.characterModel === 'procedural_gladiator' && (";
+    const start = source.indexOf(gate);
+    const end = source.indexOf('/* BODY WEIGHT SLIDER */', start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+
+    const appearanceBlock = source.slice(start, end);
+    expect(appearanceBlock).toContain('data-skin-tone-picker');
+    expect(appearanceBlock).toContain('data-tunic-color-picker');
+    expect(appearanceBlock).toContain('data-crest-color-picker');
+    expect(appearanceBlock).toContain('SKIN_TONES.map');
+    expect(appearanceBlock).toContain('TUNIC_COLORS.map');
+    expect(appearanceBlock).toContain('CREST_COLORS.map');
+    expect(appearanceBlock).toContain('aria-pressed={selected}');
+    expect(appearanceBlock).toContain('h-12 w-12');
+  });
+
   test('enforces touch-action pan-y on preview container and canvas for vertical scroll isolation', () => {
     const preview = previewSource();
     expect(preview).toContain('touch-pan-y');
