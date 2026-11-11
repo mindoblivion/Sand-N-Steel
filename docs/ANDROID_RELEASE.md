@@ -226,52 +226,33 @@ no `secrets.*` reference at all, and its job-level `if:` refuses every trigger e
 
 ## Native assets (Play Console "Configure assets and build")
 
-**Icon inventory correction (audited against `main`):** the Android project currently has
-launcher resources, but it does **not** have the documented `resources/icon.png`,
-`resources/splash.png` or `resources/splash-dark.png` source files. Do not run the
-`@capacitor/assets` command below expecting it to regenerate this project's icons from
-those missing files.
+**Icon inventory status (audited 2026-11-10):** the current `main` branch still has the older
+gladius/laurel resources. The approved two-gladiator artwork and generator updates are in open
+[PR #404](https://github.com/mindoblivion/Sand-N-Steel/pull/404), not yet merged or built into an APK.
+Do not treat the candidate icon as shipped until the PR is authorized, merged, and a rehearsal APK
+has been installed and visually checked on the Samsung device.
 
 | what | current source / location | current state |
 |---|---|---|
-| Android legacy launcher icons | `android/app/src/main/res/mipmap-{ldpi,mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.png` and `ic_launcher_round.png` | Existing density-specific raster files; currently use the old branding |
-| Android adaptive launcher icons | `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml` | Both point to `@drawable/ic_launcher_foreground` and `@drawable/ic_launcher_background` |
-| Adaptive foreground/background | `android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml`; background drawable in the Android resources | Foreground is a vector XML, not a density-specific foreground PNG |
-| Web/PWA master artwork | `public/icons/icon-source.svg` | Existing SVG; currently old gladius/laurel artwork |
-| Web/PWA raster icons | `public/icons/icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png` | Separate web install assets; must be updated alongside Android branding |
-| Play Store listing icon | `public/icons/icon-512.png` | Intended 512×512 listing source; upload to Play Console separately |
-| Splash screens | Android `drawable-*` resources and web title artwork | No `resources/splash.png` or `resources/splash-dark.png` source files are present at the documented paths |
-| Launch theme | `android/app/src/main/res/values/styles.xml` | `AppTheme.NoActionBarLaunch`; device cold-start appearance still requires device testing |
+| Approved artwork source | `public/assets/aistudio/file_00000000445881f587bb682b9f8ef1bb_a38986d0.png` on PR #404 | Owner-approved two-gladiator artwork, 1536×1536 |
+| Android legacy launcher icons | `mipmap-{ldpi,mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.png` and `ic_launcher_round.png` | Generator retains the complete source composition for these square/round outputs |
+| Android adaptive launcher icons | `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml` | Reference density-specific foreground and background resources |
+| Adaptive foreground/background | `scripts/generateIconAssets.cjs`; generated `ic_launcher_foreground.png` and `ic_launcher_background.png` | Candidate foreground uses a 4% edge crop and a centered 46%-canvas square; its diagonal fits within the central ~66%-diameter circular safe zone |
+| Web/PWA raster icons | `public/icons/icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png` | Generator preserves the full source composition for square icons and uses a separate 80% maskable composition |
+| Play Store listing icon | `public/icons/icon-512.png` | Generated square source asset; upload to Play Console separately after final asset review |
+| Splash screens | Android `drawable-*` resources and web title artwork | Separate from launcher-icon generation |
 
-### Safe icon replacement procedure
+### Safe icon replacement status and verification
 
-The intended replacement is the owner's supplied square Sand & Steel gladiator artwork. Keep
-`applicationId` / Capacitor `appId` (`com.phatass.sandandsteel`) and all signing material
-unchanged.
+The scoped implementation is in [PR #404](https://github.com/mindoblivion/Sand-N-Steel/pull/404):
 
-1. Add the approved artwork as a canonical 1024×1024 opaque PNG source (preserve the original
-   separately; do not overwrite it with a generated crop).
-2. Generate Android legacy density icons and adaptive foreground/background assets from that
-   source. Review the adaptive safe zone so both gladiators and the central title remain legible
-   after launcher masking; if the full composition cannot fit, create a deliberate icon crop
-   from the approved artwork rather than silently clipping it.
-3. Update the adaptive XML targets and all legacy density resources consistently. The current
-   adaptive foreground is a vector XML, so either replace that vector with an image-backed
-   drawable and update the XML reference, or deliberately retain a vector representation
-   derived from the approved art.
-4. Update `public/icons/icon-source.svg` and all PWA raster icons from the same approved
-   composition. Confirm the Play Store icon is 512×512 RGB with no alpha before upload.
-5. Update `src/utils/androidLauncherIcon.test.ts` to assert the new branding and verify every
-   Android and web icon resource exists. Remove the old gladius/laurel path assertions only
-   when the corresponding artwork has actually been replaced.
-6. Run `bun test`, `bun run lint`, `bun run build` and the Android rehearsal workflow. Inspect
-   the installed launcher icon on the Samsung device before treating the task as complete.
+1. The approved original 1536×1536 artwork is retained as the generator source; it is not overwritten by a crop.
+2. The generator creates all Android legacy density resources, adaptive foreground/background resources, and PWA icon outputs.
+3. Only the adaptive foreground receives the 4% decorative-edge crop and centered 46%-canvas square. Its square diagonal is constrained to the Android central circular safe zone; full artwork remains available in legacy and store/PWA square outputs.
+4. Regression coverage checks the safe-zone geometry, crop constant, Android manifest resource references, density assets, and PWA icon paths.
+5. Both the Main quality gate and Environment gate passed for PR #404's current head.
 
-`@capacitor/assets generate --android` is **not currently a valid regeneration step** for this
-repository's checked-in state: its documented `resources/icon.png` input is absent, and the
-adaptive icon is currently wired to a vector drawable. If the project later adopts the
-Capacitor assets source-directory convention, add and commit the canonical source files and
-verify the generated output paths before changing this guidance.
+**Still outstanding:** PR #404 is not merged; no APK has been built from it; and the adaptive crop/title legibility have not been visually checked on a Samsung launcher. The Play Store listing upload is a separate Play Console action. Do not report the icon as device-verified until that check is recorded.
 
 ### Store listing assets
 
