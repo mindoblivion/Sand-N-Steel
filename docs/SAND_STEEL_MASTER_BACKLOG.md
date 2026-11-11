@@ -55,6 +55,8 @@ Main is at `2f564036ee69195373911eae3b22dd0f849948ec`. The following November 10
 
 The PR #402 environment and main quality gates passed on 2026-11-10. This does not replace Samsung device acceptance.
 
+A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivion/Sand-N-Steel/pull/405), was closed without merging after rechecking the actual `CityCamera` default yaw (`Math.PI`). The proposed replacement basis would have reversed horizontal movement at the default camera orientation. No movement code from #405 reached `main`; keep the existing #372 movement implementation unchanged unless a reproducible device issue and correct camera-coordinate evidence justify a new fix.
+
 ## Recent merged engineering work
 
 - [PR #371](https://github.com/mindoblivion/Sand-N-Steel/pull/371): shared artwork loading transitions merged.
