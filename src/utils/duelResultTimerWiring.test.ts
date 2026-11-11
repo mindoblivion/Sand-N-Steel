@@ -15,6 +15,14 @@ describe('duel result callback ownership', () => {
     expect(effectEnd).toBeGreaterThan(cleanup);
   });
 
+  test('floating damage label timers are owned and cleared when the duel unmounts', () => {
+    expect(code).toContain('const damageNumberTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());');
+    expect(code).toContain('damageNumberTimersRef.current.forEach((timer) => clearTimeout(timer));');
+    expect(code).toContain('damageNumberTimersRef.current.clear();');
+    expect(code).toContain('damageNumberTimersRef.current.add(timer);');
+    expect(code).toContain('damageNumberTimersRef.current.delete(timer);');
+  });
+
   test('both victory and defeat schedule the existing 1400 ms result transition', () => {
     const victory = code.indexOf('onMatchComplete(statsRef.current, true);');
     const defeat = code.indexOf('onMatchComplete(statsRef.current, false);');
