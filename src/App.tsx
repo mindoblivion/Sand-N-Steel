@@ -10,6 +10,7 @@ const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene'
 const TavernInterior = React.lazy(() => import('./components/3d/TavernInterior').then((m) => ({ default: m.TavernInterior })));
 const ColosseumInterior = React.lazy(() => import('./components/3d/ColosseumInterior').then((m) => ({ default: m.ColosseumInterior })));
 const ForgeInterior = React.lazy(() => import('./components/3d/ForgeInterior').then((m) => ({ default: m.ForgeInterior })));
+const BountyHallInterior = React.lazy(() => import('./components/3d/BountyHallInterior').then((m) => ({ default: m.BountyHallInterior })));
 
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
@@ -256,7 +257,9 @@ export function App() {
   const [colosseumOpen, setColosseumOpen] = useState(false);
   /* FORGE-INTERIOR — the smithing forge overlay (ColosseumInterior pattern). */
   const [forgeOpen, setForgeOpen] = useState(false);
+  const [bountyHallOpen, setBountyHallOpen] = useState(false);
   const [tavernServices, setTavernServices] = useState<(() => void) | null>(null);
+  const [bountyHallServices, setBountyHallServices] = useState<(() => void) | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);  
@@ -2226,6 +2229,7 @@ export function App() {
             isMuted={isMuted}              
                       onEnterColosseum={() => setColosseumOpen(true)}
             onEnterForge={() => setForgeOpen(true)}
+              onEnterBountyHall={(openServices) => { setBountyHallServices(() => openServices); setBountyHallOpen(true); }}
             onReturnToMainMenu={() => setCurrentScreen('title')}
             isLeftyMode={isLeftyMode}
             onOpenSettings={() => handleOpenSettings()}
@@ -2251,7 +2255,7 @@ export function App() {
             onReturnToLibrarian={handleReturnToLibrarian}
             onReadLegendFragment={handleReadLegendFragment}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
-            movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen}
+            movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
             /* FIRST SIXTY SECONDS — the ONE pointer's target (the marker's id IS
                this id) and §6's session silence. */
@@ -2333,6 +2337,11 @@ export function App() {
           />
         </React.Suspense>
       )}
+      {currentScreen === 'city_3d' && bountyHallOpen && (
+        <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
+            <BountyHallInterior onExit={() => setBountyHallOpen(false)} onOpenServices={() => { setBountyHallOpen(false); bountyHallServices?.(); setBountyHallServices(null); }} onRecordKeeperVisit={handleRecordKeeperVisit} />
+    </React.Suspense>
+)}
 
         {currentScreen === 'hub_2d' && profile && (
           <React.Suspense fallback={<WaitSurface destination="school_hub" />}>
