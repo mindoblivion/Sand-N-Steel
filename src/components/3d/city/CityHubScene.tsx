@@ -97,6 +97,7 @@ import { checkMoatRespawn } from '../../../utils/drawbridge';
 import { applyDeadZone } from '../../../utils/joystickDeadZone';
 import { getWeightCombatProfile } from '../../../utils/gladiatorWeight';
 import { getCityFacingYaw } from '../../../utils/cityFacing';
+import { getCameraRelativeMovement } from '../../../utils/cityMovementDirection';
 import { resolveCityLightProfile, type CityLightProfile } from '../../../utils/cityLightProfile';
 import type { HeraldAim } from '../../../utils/cityHerald';
 import { DEFAULT_PLAYER_WEAPON } from '../../../data/itemsDB';
@@ -1219,17 +1220,15 @@ const handleEnterArena = useCallback(() => {
         const normZ = inputZ / rawLen;
         const mag = Math.min(1, rawLen);
 
-        // Compute camera-relative forward and right vectors based on active camera yaw
-        const camYaw = cameraYawRef.current;
-        const forwardX = Math.sin(camYaw);
-        const forwardZ = Math.cos(camYaw);
-        const rightX = -Math.cos(camYaw);
-        const rightZ = Math.sin(camYaw);
-
-        // Transform screen/joystick direction into 3D world space
-        // normZ < 0 is joystick UP (Forward into screen), normX > 0 is joystick RIGHT
-        const worldDx = normX * rightX - normZ * forwardX;
-        const worldDz = normX * rightZ - normZ * forwardZ;
+        // Transform screen/joystick direction into camera-relative world space.
+        // The camera sits at player - forward, so screen-right is local camera +X.
+        // Keep this basis in one tested helper to prevent mirrored strafe controls.
+        // normZ < 0 is joystick UP; normX > 0 is joystick RIGHT.
+        const { x: worldDx, z: worldDz } = getCameraRelativeMovement(
+          normX,
+          normZ,
+          cameraYawRef.current,
+        );
 
         // Grounded, controlled gladiator stride speed with analog control
         const speed = 3.8 * mag * getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).movementMultiplier;
