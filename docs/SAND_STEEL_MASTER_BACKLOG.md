@@ -20,7 +20,7 @@ Never report physical-device validation, measured FPS, or visual acceptance with
 
 | Priority | Work | Current state | Next evidence / action |
 |---|---|---|---|
-| P0 | Android movement stability — [PR #372](https://github.com/mindoblivion/Sand-N-Steel/pull/372) | Merged to main. Source fix stabilizes camera yaw while moving; physical S24 confirmation remains outstanding. | Test straight/diagonal joystick movement while orbiting, stopping/restarting, and camera collision on Samsung S24. Record result before calling device-verified. |
+| P0 | Android movement stability — [PR #372](https://github.com/mindoblivion/Sand-N-Steel/pull/372), [PR #411](https://github.com/mindoblivion/Sand-N-Steel/pull/411) | Merged to main. Camera yaw stability and focus-loss clearing of held touch/keyboard movement inputs are implemented with regression coverage; physical S24 confirmation remains outstanding. | Test straight/diagonal joystick movement while orbiting, stopping/restarting, camera collision, and hold movement → background app → resume to confirm the gladiator remains stationary on Samsung S24. |
 | P0 | Loading artwork and progress transitions — [PR #371](https://github.com/mindoblivion/Sand-N-Steel/pull/371) | Merged to main. Shared artwork/progress treatment covers scene transitions and character-preview loading/recovery. | Verify artwork, truthful progress/indeterminate state, recovery action, and safe-area spacing during real chunk/GLB loading on Samsung S24. |
 | P0 | Android device acceptance — [issue #329](https://github.com/mindoblivion/Sand-N-Steel/issues/329) | Initial install/launch/city walkaround smoke test passed on Samsung device (2026-11-03); remaining acceptance is open. | Record force-close/relaunch save, device restart save, full duel, orientation, background/resume/process recreation, offline play, longer session/thermal/memory/performance, and second-device results if available. |
 | P0 | Duel result timer lifecycle — [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379) | Merged to main (`5b7c0fb`). The 1.4-second victory/defeat callback is owned and cancelled on scene unmount; focused timer scheduling/cancellation and scene-wiring tests passed CI. | Verify a full duel, victory/defeat return, and scene-exit timing on Samsung S24. |
@@ -45,7 +45,7 @@ These are the standing areas to audit against the live implementation. Items not
 
 ## Latest mainline reconciliation (2026-11-11)
 
-Main is at `57748d0abdbe0322ce566ddd97dbd098a3b3a1e5` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
+Main is at `13469d503d97bdb91f986a95266f9275ea830ce1` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
 
 - [PR #398](https://github.com/mindoblivion/Sand-N-Steel/pull/398): reset mobile movement/camera input after Android focus loss and lifecycle interruptions.
 - [PR #399](https://github.com/mindoblivion/Sand-N-Steel/pull/399): body weight affects city walking speed (140 lb 1.05×, 180 lb 1.00×, 300 lb 0.85×).
@@ -71,12 +71,14 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 - [PR #407](https://github.com/mindoblivion/Sand-N-Steel/pull/407): master backlog reconciliation merged (`ca98950`).
 - [PR #408](https://github.com/mindoblivion/Sand-N-Steel/pull/408): corrected backlog mainline baseline and merged (`9144040`).
 - [PR #409](https://github.com/mindoblivion/Sand-N-Steel/pull/409): tracked and cancelled floating damage-number timeouts on duel scene exit; regression test and both CI gates passed; merged (`57748d0`).
+- [PR #410](https://github.com/mindoblivion/Sand-N-Steel/pull/410): reconciled the backlog after PR #409 and corrected the mainline baseline (`ea254ad`).
+- [PR #411](https://github.com/mindoblivion/Sand-N-Steel/pull/411): clear held keyboard movement state alongside touch input on blur/hidden visibility; focused regression test and both CI gates passed; merged (`13469d5`).
 - [PR #406](https://github.com/mindoblivion/Sand-N-Steel/pull/406): rehearsal Gradle wrapper invocation fixed; rehearsal build, APK/AAB signature verification, artifact upload, and signing-material cleanup all passed in workflow run [42979733177](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/42979733177). Artifact `rehearsal-aab-do-not-upload` contains an installable rehearsal APK and expires 2026-11-18. Its AAB is signed with a throwaway key and must never be uploaded to Play Store.
 - [PR #373](https://github.com/mindoblivion/Sand-N-Steel/pull/373): this master backlog and combat audit index merged (`2c6aa93`).
 
 ## Open engineering PRs
 
-- No engineering PRs are currently open after PR #409 merged. Continue from the active work table; do not interpret green CI as completion of device acceptance.
+- No engineering PRs are currently open after PR #411 merged. Continue from the active work table; do not interpret green CI as completion of device acceptance.
 - PR #404's approved two-gladiator icon artwork is merged to main and included in the November 11 rehearsal APK source. The owner-selected Colosseum loading artwork remains a separate Library source input; the repository's loading overlay uses its existing checked-in loading artwork.
 
 ## Combat audit status
