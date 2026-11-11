@@ -897,6 +897,8 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
       heldKeys.clear();
       keyboardInput.throttle = 0;
       keyboardInput.steer = 0;
+      touchInput.throttle = 0;
+      touchInput.steer = 0;
       return;
     }
 
@@ -941,17 +943,24 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
     const releaseAll = () => {
       heldKeys.clear();
       sync();
+      touchInput.throttle = 0;
+      touchInput.steer = 0;
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') releaseAll();
     };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', releaseAll);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', releaseAll);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [heldKeys, keyboardInput, frozen]);
+  }, [heldKeys, keyboardInput, touchInput, frozen]);
 
   /** Abort: dispatch the machine's own event, then let `App` tear the scene down. */
   const handleAbort = useCallback(() => {
