@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `ca989500974c9f9b277a6fd30b126d27c02e30cc` (2026-11-11).
+> Living project index. Baseline reconciled against `main` at `01b85816249d9f18c84699ba9639bcdad3cffd74` (2026-11-11).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -27,7 +27,7 @@ Never report physical-device validation, measured FPS, or visual acceptance with
 | P1 | Roman city layout visual acceptance — [issue #232](https://github.com/mindoblivion/Sand-N-Steel/issues/232) | Source inventory and automated route/footprint checks exist. No broad repositioning justified by current source audit. | Review current landscape captures of Academy/Doctore/Library cluster, west service court, East Circus crossing, doorways, paving and collision clearance. Only change geometry for reproducible defects. |
 | P1 | Android app icon — [PR #404](https://github.com/mindoblivion/Sand-N-Steel/pull/404) | Merged to main in commit `4b618a70a5648207ee3d1f97ecec3c6cb409e2e3`; adaptive foreground uses a safe-zone composition for Android masks. Rehearsal APK now includes the merged icon source, but Samsung launcher appearance is not yet verified. | Inspect home-screen/app-drawer icon on Samsung S24 for title legibility and adaptive-mask crop. Keep Play Store listing upload separate. |
 | P1 | Chariot racing acceptance | Current main implements player horse teams, procedural gait, wheel roll, validated full-lap finish, best-time persistence, a presentation-only rival, and career settlement. PR #354 added a once-per-day completion purse (40/60/80 gold by team size) plus 20 gold for a win; repeated same-day finishes still count but pay no extra purse. Wagers and track incidents remain deferred. | Complete a full physical-device race and collect Samsung S24 frame-time/FPS, draw-call, touch-feel, gait, and thermal measurements with the development-only race profiler APK. No device FPS data is currently recorded. |
-| P1 | Character customization | Existing character creation and enemy model architecture audited; modular appearance asset research is recorded in `docs/character-asset-acquisition-audit.md`. | Compare actual shipped creation options against the intended body/skin/hair/build/identity experience; verify model/rig/licence/memory compatibility before acquiring or integrating new assets. |
+| P1 | Character customization — [PR #401](https://github.com/mindoblivion/Sand-N-Steel/pull/401), [PR #413](https://github.com/mindoblivion/Sand-N-Steel/pull/413) | Procedural Centurion now has six skin-tone choices plus six tunic and six crest color choices, all gated to that model; selected appearance is wired into preview/save. Regression coverage restores the body-flaw/no-flaw layout assertions. Imported GLBs remain intentionally untinted because each uses a single atlas material with no region masks. Automated checks pass; Samsung visual verification remains outstanding. | On S24, verify all 18 appearance choices update the Centurion preview and persist after save/reopen; confirm other GLB models do not show the procedural-only controls. Revisit GLB recoloring only after proper material masks/texture authoring are available. |
 | P2 | Release readiness | Android release/rehearsal workflow and safeguards are documented in `docs/ANDROID_RELEASE.md`. | Maintain package/signing safeguards, complete acceptance, verify release artifact provenance, and do not trigger public release without explicit authorization. |
 
 ## System workstreams
@@ -45,13 +45,14 @@ These are the standing areas to audit against the live implementation. Items not
 
 ## Latest mainline reconciliation (2026-11-11)
 
-Main is at `13469d503d97bdb91f986a95266f9275ea830ce1` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
+Main is at `01b85816249d9f18c84699ba9639bcdad3cffd74` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
 
 - [PR #398](https://github.com/mindoblivion/Sand-N-Steel/pull/398): reset mobile movement/camera input after Android focus loss and lifecycle interruptions.
 - [PR #399](https://github.com/mindoblivion/Sand-N-Steel/pull/399): body weight affects city walking speed (140 lb 1.05×, 180 lb 1.00×, 300 lb 0.85×).
 - [PR #400](https://github.com/mindoblivion/Sand-N-Steel/pull/400): regression contract for reset-key-scoped 3D boundary recovery.
 - [PR #401](https://github.com/mindoblivion/Sand-N-Steel/pull/401): six accessible skin-tone choices for the procedural Centurion; imported GLBs remain excluded pending material-tint verification.
 - [PR #402](https://github.com/mindoblivion/Sand-N-Steel/pull/402): reject invalid joystick dead-zone parameters while preserving the default 0.15 dead zone.
+- [PR #413](https://github.com/mindoblivion/Sand-N-Steel/pull/413): restore body-flaw/no-flaw mobile layout assertions and align the skin-tone regression assertion with the live accessible picker label; both CI gates, typecheck, collision/combat harnesses, production build and startup asset check passed. The PR is test-only and makes no runtime changes.
 
 The PR #402 environment and main quality gates passed on 2026-11-10. This does not replace Samsung device acceptance.
 
@@ -73,12 +74,13 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 - [PR #409](https://github.com/mindoblivion/Sand-N-Steel/pull/409): tracked and cancelled floating damage-number timeouts on duel scene exit; regression test and both CI gates passed; merged (`57748d0`).
 - [PR #410](https://github.com/mindoblivion/Sand-N-Steel/pull/410): reconciled the backlog after PR #409 and corrected the mainline baseline (`ea254ad`).
 - [PR #411](https://github.com/mindoblivion/Sand-N-Steel/pull/411): clear held keyboard movement state alongside touch input on blur/hidden visibility; focused regression test and both CI gates passed; merged (`13469d5`).
+- [PR #413](https://github.com/mindoblivion/Sand-N-Steel/pull/413): restored the character creator's body-flaw/no-flaw regression assertions and corrected a stale skin-tone accessibility-label expectation; test-only change merged (`01b8581`).
 - [PR #406](https://github.com/mindoblivion/Sand-N-Steel/pull/406): rehearsal Gradle wrapper invocation fixed; rehearsal build, APK/AAB signature verification, artifact upload, and signing-material cleanup all passed in workflow run [42979733177](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/42979733177). Artifact `rehearsal-aab-do-not-upload` contains an installable rehearsal APK and expires 2026-11-18. Its AAB is signed with a throwaway key and must never be uploaded to Play Store.
 - [PR #373](https://github.com/mindoblivion/Sand-N-Steel/pull/373): this master backlog and combat audit index merged (`2c6aa93`).
 
 ## Open engineering PRs
 
-- No engineering PRs are currently open after PR #411 merged. Continue from the active work table; do not interpret green CI as completion of device acceptance.
+- No engineering PRs are currently open after PR #413 merged. Continue from the active work table; do not interpret green CI as completion of device acceptance.
 - PR #404's approved two-gladiator icon artwork is merged to main and included in the November 11 rehearsal APK source. The owner-selected Colosseum loading artwork remains a separate Library source input; the repository's loading overlay uses its existing checked-in loading artwork.
 
 ## Combat audit status
