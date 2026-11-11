@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `6ec94a68da256e59926c9ef8f1dabf283766436a` (2026-11-11).
+> Living project index. Baseline reconciled against `main` at `bf8c67e195024b76f8b23653e3357370045faa47` (2026-11-11).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -45,7 +45,7 @@ These are the standing areas to audit against the live implementation. Items not
 
 ## Latest mainline reconciliation (2026-11-11)
 
-Main is at `6ec94a68da256e59926c9ef8f1dabf283766436a` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
+Main is at `bf8c67e195024b76f8b23653e3357370045faa47` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
 
 - [PR #398](https://github.com/mindoblivion/Sand-N-Steel/pull/398): reset mobile movement/camera input after Android focus loss and lifecycle interruptions.
 - [PR #399](https://github.com/mindoblivion/Sand-N-Steel/pull/399): body weight affects city walking speed (140 lb 1.05×, 180 lb 1.00×, 300 lb 0.85×).
@@ -77,13 +77,14 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 - [PR #413](https://github.com/mindoblivion/Sand-N-Steel/pull/413): restored the character creator's body-flaw/no-flaw regression assertions and corrected a stale skin-tone accessibility-label expectation; test-only change merged (`01b8581`).
 - [PR #414](https://github.com/mindoblivion/Sand-N-Steel/pull/414): reconciled the master backlog after character appearance Phase 1; documentation-only.
 - [PR #415](https://github.com/mindoblivion/Sand-N-Steel/pull/415): pinned the attack-windup timer's unmount cleanup in the duel pacing regression suite; test-only change merged (`6ec94a6`).
+- [PR #416](https://github.com/mindoblivion/Sand-N-Steel/pull/416): refreshed the combat lifecycle source audit and reconciled the backlog; documentation-only.
 - [PR #406](https://github.com/mindoblivion/Sand-N-Steel/pull/406): rehearsal Gradle wrapper invocation fixed; rehearsal build, APK/AAB signature verification, artifact upload, and signing-material cleanup all passed in workflow run [42979733177](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/42979733177). Artifact `rehearsal-aab-do-not-upload` contains an installable rehearsal APK and expires 2026-11-18. Its AAB is signed with a throwaway key and must never be uploaded to Play Store.
 - [PR #373](https://github.com/mindoblivion/Sand-N-Steel/pull/373): this master backlog and combat audit index merged (`2c6aa93`).
 
 ## Open engineering PRs
 
-- No engineering PRs are currently open after PR #415 merged. Continue from the active work table; do not interpret green CI as completion of device acceptance.
-- PR #404's approved two-gladiator icon artwork is merged to main and included in the November 11 rehearsal APK source. The owner-selected Colosseum loading artwork remains a separate Library source input; the repository's loading overlay uses its existing checked-in loading artwork.
+- No engineering PRs are currently open after PR #416 merged. Continue from the active work table; do not interpret green CI as completion of device acceptance.
+- PR #404's approved two-gladiator icon artwork is merged to main and included in the November 11 rehearsal APK source. The user's Colosseum loading artwork is also integrated as `public/colosseum_loading.png` and `public/colosseum_loading.webp`: the boot shell, `WaitSurface`, and `AssetLoadingOverlay` use the shared backdrop; a dark lower cover hides the artwork's baked-in 72% label/bar and replaces it with measured progress or an indeterminate sweep. Startup-asset checks cover the shipped formats. Samsung S24 visual/safe-area verification remains outstanding.
 
 ## Combat audit status
 
