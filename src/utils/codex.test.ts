@@ -455,7 +455,10 @@ describe('A5 §J — the save corpus keeps its rule', () => {
     // set before `ludi`, so it is 24 and `records` still closes it.
     // FOUNTAIN COIN TOSS REBASE: Fortuna's favour `luck` joined it between `ludi`
     // and `records`, so it is 26 and `records` still closes it.
-    expect(optional.length).toBe(26);
+    // ARENA HAZARDS / CHARIOT TUNING REBASE: `racingTuning` and `activeRaceBet`
+    // after `racing`, `trainees` after `facilities`, so it is 29 and `records`
+    // still closes it.
+    expect(optional.length).toBe(29);
     expect(optional.slice(-2)).toEqual(['luck', 'records']);
     // The Codex's field is NESTED inside records, never a top-level one (R6).
     expect(optional).not.toContain('codexLocations');
