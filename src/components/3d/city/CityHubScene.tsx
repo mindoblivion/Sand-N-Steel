@@ -911,8 +911,8 @@ const handleForgeShop = useCallback(() => {
   const handleEnterBountyHall = useCallback(() => {
         sounds.playClick();
     setBountyHallPanel(false);
-    onEnterBountyHall(() => { primeKeeperGreeting('bounty_hall'); setBountyPanel(true); }
-      }, [onEnterBountyHall]);
+    onEnterBountyHall(() => { primeKeeperGreeting('bounty_hall'); setBountyPanel(true); });
+  }, [onEnterBountyHall]);
   
   const handleViewBountyBoard = useCallback(() => {
         sounds.playClick();
