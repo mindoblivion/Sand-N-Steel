@@ -502,9 +502,12 @@ describe('STORY-5a §F — the guards', () => {
   test('§J stays at 22 optional top-level fields, `records` last', () => {
     const optional = optionalProfileFields();
     // LUDI PHASE A REBASE: `ludi` sits between `spared` and `records`; `records` is last.
-    // PITCH A4 REBASE: `identity` joined the set before `ludi`, so it is 24.
+    // PITCH A4 REBASE: `identity` joined the set before `ludi`, so it is 2
     // FOUNTAIN COIN TOSS REBASE: `luck` joined it between `ludi` and `records`, so it is 26.
-    expect(optional.length).toBe(26);
+    // ARENA HAZARDS / CHARIOT TUNING REBASE: `racingTuning` and `activeRaceBet`
+
+    // after `racing`, `trainees` after `facilities`, so it is 29.
+    expect(optional.length).toBe(29);
     expect(optional.slice(-2)).toEqual(['luck', 'records']);
   });
 
