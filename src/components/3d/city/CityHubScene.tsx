@@ -178,7 +178,6 @@ import {
 // stop's NORMAL content) in every other case — Director ruling R1.
 import { legendStopConversation, type LegendStopConversation } from '../../../utils/librarianChain';
 import { LegendStopPanel } from '../../hub/LegendStopPanel';
-import { CanvasLoadingFallback } from '../../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../../ui/ThreeComponentErrorBoundary';
 import { WebGLReadyGuard } from '../../ui/WebGLReadyGuard';
@@ -1845,7 +1844,7 @@ const handleEnterBathhouse = useCallback(() => {
 
             {/* 3D Player Gladiator Model Wrapped in Error Boundary */}
             <ThreeComponentErrorBoundary componentName="CityPlayerGladiator">
-              <Suspense fallback={<CanvasLoadingFallback />}>
+              <Suspense fallback={<null}>
                 <GladiatorMesh fighter={cityPlayerFighter} isLeftyMode={isLeftyMode} positionRef={playerPosRef} rotationRef={playerRotYRef} />
                 {/* Ambient Characters */}
                 {AMBIENT_CHARACTERS.map(fighter => (
