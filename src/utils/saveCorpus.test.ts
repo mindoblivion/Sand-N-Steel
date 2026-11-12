@@ -1256,6 +1256,11 @@ describe('GC20 §J — the corpus rule', () => {
       'isLeftyMode',
       'chariot',
       'racing',
+      // ARENA HAZARDS / CHARIOT TUNING (d503c56) — the racing-era tuning state
+      // and the tavern's active wager, declared after `racing`; the ludus
+      // trainees, declared after `facilities`.
+      'racingTuning',
+      'activeRaceBet',
       'story',
       'temper',
       'road',
@@ -1267,6 +1272,7 @@ describe('GC20 §J — the corpus rule', () => {
       'intel',
       'stable',
       'facilities',
+      'trainees',
       'armatura',
       'palmae',
       'grudges',
@@ -1358,7 +1364,10 @@ describe('GC20 §J — the corpus rule', () => {
     // FOUNTAIN COIN TOSS: the set is 26 now because the toss inserted `luck`
     // between `ludi` and `records` (so `records` still stays last), and §J above
     // carries the same one-field extension.
-    expect(shipped.length).toBe(26);
+    // ARENA HAZARDS / CHARIOT TUNING (d503c56): `racingTuning` and
+    // `activeRaceBet` after `racing`, `trainees` after `facilities` — the set
+    // is 29 now.
+    expect(shipped.length).toBe(29);
     expect(shipped.slice(-2)).toEqual(['luck', 'records']);
 
     const doctored = types.replace(
@@ -1369,7 +1378,7 @@ describe('GC20 §J — the corpus rule', () => {
     const withNew = scanned(doctored);
     expect(withNew).not.toEqual(shipped);
     expect(withNew).toContain('unaccounted');
-    expect(withNew.length).toBe(27);
+    expect(withNew.length).toBe(30);
   });
 });
 
