@@ -1844,7 +1844,7 @@ const handleEnterBathhouse = useCallback(() => {
 
             {/* 3D Player Gladiator Model Wrapped in Error Boundary */}
             <ThreeComponentErrorBoundary componentName="CityPlayerGladiator">
-              <Suspense fallback={<null}>
+              <Suspense fallback={null}>
                 <GladiatorMesh fighter={cityPlayerFighter} isLeftyMode={isLeftyMode} positionRef={playerPosRef} rotationRef={playerRotYRef} />
                 {/* Ambient Characters */}
                 {AMBIENT_CHARACTERS.map(fighter => (
