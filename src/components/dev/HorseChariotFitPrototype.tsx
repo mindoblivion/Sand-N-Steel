@@ -3,7 +3,6 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
@@ -520,7 +519,7 @@ export const HorseChariotFitPrototype: React.FC = () => {
               >
                 <CanvasWebGLMonitor sceneName="HorseChariotFitPrototype" />
                 <ThreeComponentErrorBoundary componentName="HorseChariotFitModels">
-                  <Suspense fallback={<CanvasLoadingFallback />}>
+                  <Suspense fallback={null}>
                     <FitScene
                       scale={scale}
                       view={view}

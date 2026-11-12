@@ -622,7 +622,7 @@ export const ColosseumInterior: React.FC<ColosseumInteriorProps> = ({ onExit }) 
         <div className="absolute top-3 left-3 pointer-events-auto">
           <button
             type="button"
-            onClick={() => onExitRef.current()}
+            onClick={() => setTimeout(() => onExitRef.current(), 0)}
             aria-label="Return to City"
             className="min-h-[44px] min-w-[44px] px-4 rounded-2xl bg-neutral-950/85 border border-amber-600/50 text-amber-200 font-serif font-bold text-sm hover:bg-amber-500/20 flex items-center"
           >

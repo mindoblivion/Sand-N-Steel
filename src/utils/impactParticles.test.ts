@@ -617,7 +617,7 @@ describe('CF-4 §G the duel call sites', () => {
     expect(duel).toContain(
       "import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticles';",
     );
-    const open = duel.indexOf('<Suspense fallback={<CanvasLoadingFallback />}>');
+    const open = duel.indexOf('<Suspense fallback={null}>');
     const mount = duel.indexOf('<ImpactParticles ref={impactParticlesRef} />');
     const close = duel.indexOf('</Suspense>', open);
     expect(open).toBeGreaterThan(-1);

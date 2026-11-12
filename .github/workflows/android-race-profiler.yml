@@ -60,7 +60,7 @@ jobs:
 
       - name: Build unsigned debug APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: bash ./gradlew assembleDebug --no-daemon
 
       - name: Verify isolated profiler application ID
         shell: bash

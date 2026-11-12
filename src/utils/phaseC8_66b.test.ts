@@ -920,7 +920,7 @@ describe('C-8.66B §F — the audited wheel fit, re-measured from the shipping G
     expect(chariotPreviewSrc).toContain('WebGLReadyGuard');
     expect(chariotPreviewSrc).toContain('WebGLContextErrorBoundary');
     expect(chariotPreviewSrc).toContain('ThreeComponentErrorBoundary');
-    expect(chariotPreviewSrc).toContain('CanvasLoadingFallback');
+    expect(chariotPreviewSrc).toContain('<Suspense fallback={null}>');
     expect(chariotPreviewSrc).toContain('could not be loaded');
     expect(chariotPreviewSrc).not.toContain('useFrame');
     expect(chariotPreviewSrc).not.toContain('setInterval');

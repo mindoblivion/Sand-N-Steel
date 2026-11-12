@@ -5,7 +5,6 @@ import * as THREE from 'three';
 import { FighterState } from '../../types/game';
 import { DEFAULT_PLAYER_WEAPON } from '../../data/itemsDB';
 import { GladiatorMesh, resolveActionClip } from '../3d/GladiatorMesh';
-import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 
 // ---------------------------------------------------------------------------
@@ -1730,7 +1729,7 @@ const ShieldDiagnosticsPanel: React.FC = () => {
             <ambientLight intensity={0.9} />
             <directionalLight position={[2, 4, 3]} intensity={1.6} />
             <directionalLight position={[-3, 1, -2]} intensity={0.6} color="#38bdf8" />
-            <Suspense fallback={<CanvasLoadingFallback />}>
+            <Suspense fallback={null}>
               <GladiatorMesh
                 fighter={fighter}
                 isLeftyMode={lefty}

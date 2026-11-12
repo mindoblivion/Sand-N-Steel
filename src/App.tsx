@@ -770,7 +770,7 @@ export function App() {
     // owns the screen there is nothing to sequence, so the greeting is owed at the first
     // entry the player actually walks into (see `handleOathComplete`).
     openFirstSixty(arrivalProfile, presented);
-    setCurrentScreen('city_3d');
+    setTimeout(() => setCurrentScreen('city_3d'), 0);
   };
 
   const handleContinueAdventure = () => {
@@ -916,14 +916,16 @@ export function App() {
   };
 
   const handleCharacterCreated = (newProfile: PlayerProfile) => {
-    setCharacterCreationTransitioning(false);
-    sounds.playClick();
-    setProfile(newProfile);
-    saveProfile(newProfile);
-    // A new gladiator is unsworn, so this arrival is the oath's: the city puts him in
-    // the Ludus Martial Yard and the Doctore is waiting there. Free roam begins when the
-    // words are sworn, and the post-Oath nudge is offered then, not here.
-    enterCity(newProfile);
+    setTimeout(() => {
+      setCharacterCreationTransitioning(false);
+      sounds.playClick();
+      setProfile(newProfile);
+      saveProfile(newProfile);
+      // A new gladiator is unsworn, so this arrival is the oath's: the city puts him in
+      // the Ludus Martial Yard and the Doctore is waiting there. Free roam begins when the
+      // words are sworn, and the post-Oath nudge is offered then, not here.
+      enterCity(newProfile);
+    }, 0);
   };
 
   /**
@@ -963,7 +965,7 @@ export function App() {
     sounds.playClick();
     // FIRST SIXTY SECONDS — a bout is walking off: §5 shuts up for the session.
     noticeCityFlowExit('duel');
-    setCurrentScreen('duel');
+    setTimeout(() => setCurrentScreen('duel'), 0);
   };
 
   /**
@@ -1040,7 +1042,7 @@ export function App() {
     setCityReturnPose(pose);
     // FIRST SIXTY SECONDS — the Circus is walking off too: §5 shuts up for the session.
     noticeCityFlowExit('race');
-    setCurrentScreen('race');
+    setTimeout(() => setCurrentScreen('race'), 0);
   };
 
   /**
@@ -1066,8 +1068,10 @@ export function App() {
    * record a time; a completed lap's best time was settled at the finish transition.
    */
   const handleExitRace = () => {
-    if (profile) enterCity(profile);
-    else setCurrentScreen('city_3d');
+    setTimeout(() => {
+        if (profile) enterCity(profile);
+        else setCurrentScreen('city_3d');
+    }, 0);
   };
 
   const handleOpenHubTab = (
@@ -1087,7 +1091,7 @@ export function App() {
     if (tab === 'shop') setShopId(shopStorefront ?? 'market');
     // FIRST SIXTY SECONDS — a hub panel is walking off: §5 shuts up for the session.
     noticeCityFlowExit('hub_2d');
-    setCurrentScreen('hub_2d');
+    setTimeout(() => setCurrentScreen('hub_2d'), 0);
   };
 
   /**
@@ -1592,8 +1596,8 @@ export function App() {
   };
 
   const handleDuelResultDismiss = () => {
+    setDuelResult(null);
     setTimeout(() => {
-        setDuelResult(null);
         // The Test's rule judged one duel; it does not outlive it.
         setDoctoreRestriction(null);
         if (profile) enterCity(profile);
@@ -2162,7 +2166,7 @@ export function App() {
     }
     setSaveError(null);
     setProfile(null);
-    setCurrentScreen('title');
+    setTimeout(() => setCurrentScreen('title'), 0);
   };
 
   return (
@@ -2222,7 +2226,7 @@ export function App() {
           <React.Suspense fallback={<WaitSurface destination="character_creation" rotate={false} />}>
             <CharacterCreation
             onComplete={handleCharacterCreated}
-            onCancel={() => { setCharacterCreationTransitioning(false); setCurrentScreen('title'); }}
+            onCancel={() => { setCharacterCreationTransitioning(false); setTimeout(() => setCurrentScreen('title'), 0); }}
             onReady={() => setCharacterCreationTransitioning(false)}
             onPreviewError={() => setCharacterCreationTransitioning(false)}
             onGoogleSignIn={handleGoogleSignIn}
@@ -2253,7 +2257,7 @@ export function App() {
             onEnterForge={() => setForgeOpen(true)}
               onEnterBountyHall={(openServices) => { setBountyHallServices(() => openServices); setBountyHallOpen(true); }}                  
               onEnterBathhouse={(startWithRumors) => { setBathhouseRumors(startWithRumors); setBathhouseOpen(true); }}
-            onReturnToMainMenu={() => setCurrentScreen('title')}
+            onReturnToMainMenu={() => setTimeout(() => setCurrentScreen('title'), 0)}
             isLeftyMode={isLeftyMode}
             onOpenSettings={() => handleOpenSettings()}
             initialPosition={oathBeatMode ? OATH_YARD_SPAWN.position : cityReturnPose?.position}
@@ -2512,8 +2516,10 @@ export function App() {
             onCancel={() => setOverwriteConfirm(null)}
             onConfirm={() => {
               setOverwriteConfirm(null);
-              setCharacterCreationTransitioning(true);
-              setCurrentScreen('create_character');
+              setTimeout(() => {
+                setCharacterCreationTransitioning(true);
+                setCurrentScreen('create_character');
+              }, 0);
             }}
             />
           </React.Suspense>
@@ -2579,7 +2585,7 @@ export function App() {
               // own deletion. Drop the in-memory profile either way; never route this
               // through Reset, which correctly preserves a profile on wipe failure.
               setProfile(null);
-              setCurrentScreen('title');
+              setTimeout(() => setCurrentScreen('title'), 0);
               setSaveError(outcome?.localDataErased === false
                 ? 'Your account was deleted, but this device could not confirm that its saved gladiator was erased. Clear this app’s site data in browser or device settings before sharing or disposing of this device.'
                 : null);

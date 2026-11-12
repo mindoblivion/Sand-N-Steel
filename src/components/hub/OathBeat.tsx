@@ -106,7 +106,7 @@ export const OathBeat: React.FC<OathBeatProps> = ({ mode, onComplete }) => {
     if (beat.phase !== 'sworn' || completedRef.current) return;
     completedRef.current = true;
     sounds.playBlock();
-    onComplete(beat);
+    setTimeout(() => onComplete(beat), 0);
   }, [beat, onComplete]);
 
   const progress = oathHoldProgress(beat);
