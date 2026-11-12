@@ -131,7 +131,7 @@ describe('bounty hall door panel Escape', () => {
   const city = readFileSync(new URL('../components/3d/city/CityHubScene.tsx', import.meta.url), 'utf8');
 
   test('the keydown effect re-subscribes when the door panel opens, so Escape closes it', () => {
-    expect(city).toContain('showRaceEntry, showNavDrawer, bountyHallPanel]);');
+    expect(city).toContain('showRaceEntry, showNavDrawer, bountyHallPanel, bathhousePanel]);');
     expect(city).toContain('if (bountyHallPanel) {');
     expect(city).toContain("if (code === 'Escape' || key === 'escape') setBountyHallPanel(false);");
   });
