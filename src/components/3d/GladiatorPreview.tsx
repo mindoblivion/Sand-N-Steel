@@ -144,13 +144,11 @@ export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, 
             >
               <Suspense fallback={<CanvasLoadingFallback />}>
                 <GladiatorMesh
-                  key={appearance.characterModel || 'roman_warrior'}
                   fighter={previewFighter}
                   isLeftyMode={isLeftyMode}
                   onError={onError}
                 />
                 <PreviewReadySignal
-                  key={appearance.characterModel || 'roman_warrior'}
                   onReady={onReady}
                 />
               </Suspense>

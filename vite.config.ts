@@ -10,6 +10,7 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(import.meta.dirname, '.'),
       },
+      dedupe: ['react', 'react-dom'],
     },
     server: {
       port: 3000,
