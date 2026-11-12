@@ -155,8 +155,10 @@ describe('C. The two input paths', () => {
   });
 
   test('the touch controls write the same two fields', () => {
-    expect(controlsSrc).toContain('input.throttle = value');
-    expect(controlsSrc).toContain('input.steer = value');
+    expect(controlsSrc).toContain('input.throttle = 1');
+    expect(controlsSrc).toContain('input.throttle = -1');
+    expect(controlsSrc).toContain('input.steer = -1');
+    expect(controlsSrc).toContain('input.steer = 1');
     expect(controlsCode).toContain('input.throttle = 0');
     expect(controlsCode).toContain('input.steer = 0');
   });
@@ -224,10 +226,12 @@ describe('E. The touch controls', () => {
   });
 
   test('the hold idiom is the shipped TouchControls’ Block-button idiom', () => {
-    for (const handler of ['onTouchStart', 'onTouchEnd', 'onTouchCancel', 'onMouseDown', 'onMouseUp', 'onMouseLeave']) {
+    for (const handler of ['onPointerDown', 'onPointerUp', 'onPointerCancel', 'onLostPointerCapture']) {
       expect(controlsCode, handler).toContain(handler);
     }
     expect(controlsCode).toContain('event.preventDefault()');
+    expect(controlsCode).toContain('setPointerCapture(event.pointerId)');
+    expect(controlsCode).toContain('createRacePointerHold()');
     expect(controlsCode).toContain('touch-manipulation');
   });
 
