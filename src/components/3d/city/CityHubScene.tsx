@@ -20,7 +20,8 @@ import { CityTavern } from './CityTavern';
 import { ColosseumDoorPanel } from './ColosseumDoorPanel';
 import { ForgeDoorPanel } from './ForgeDoorPanel';
 import { BountyHallDoorPanel } from './BountyHallDoorPanel'; 
-  import { BathhouseDoorPanel } from './BathhouseDoorPanel';
+import { BathhouseDoorPanel } from './BathhouseDoorPanel';
+import { GladiatorAcademyDoorPanel } from './GladiatorAcademyDoorPanel';
 import { GeneralStore } from './GeneralStore';
 import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
@@ -259,6 +260,8 @@ interface CityHubSceneProps {
   onEnterBountyHall: (openServices: () => void) => void;
   // BATHHOUSE-INTERIOR — open the enterable bathhouse overlay (TavernInterior pattern).
   onEnterBathhouse: (startWithRumors: boolean) => void;
+  // ACADEMY-INTERIOR — open the enterable academy overlay (ForgeInterior pattern).
+  onEnterAcademy: (startWithTalk: boolean) => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -433,6 +436,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onEnterForge,
   onEnterBountyHall,
   onEnterBathhouse,
+  onEnterAcademy,
   onEnterDuel,
   onOpenDriveSync,
   onToggleMute,
@@ -551,6 +555,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const [forgePanel, setForgePanel] = useState(false);
   const [bountyHallPanel, setBountyHallPanel] = useState(false);
   const [bathhousePanel, setBathhousePanel] = useState(false);
+  const [academyPanel, setAcademyPanel] = useState(false);
   // Living City L11/L12 — visitor panel; all profile writes remain in App.
   const [visitorPanel, setVisitorPanel] = useState(false);
   // PITCH A1 — the Shrine of Fortuna's omen panel, and the one line announcing
@@ -748,7 +753,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   useLayoutEffect(() => {
     const panelLocked = Boolean(
       treatmentPanel || intelPanel || shrinePanel || bountyPanel || fountainPanel || legendPanel ||
-      visitorPanel || colosseumPanel || forgePanel || bountyHallPanel || bathhousePanel || showRaceEntry || showNavDrawer
+      visitorPanel || colosseumPanel || forgePanel || bountyHallPanel || bathhousePanel || academyPanel || showRaceEntry || showNavDrawer
     );
     cityPanelInputLockedRef.current = panelLocked;
     if (panelLocked) {
@@ -760,7 +765,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     inputLockedRef.current = !!movementLocked;
   }, [
     movementLocked, treatmentPanel, intelPanel, shrinePanel, bountyPanel, fountainPanel,
-    legendPanel, visitorPanel, colosseumPanel, forgePanel, bountyHallPanel, bathhousePanel, showRaceEntry, showNavDrawer,
+    legendPanel, visitorPanel, colosseumPanel, forgePanel, bountyHallPanel, bathhousePanel, academyPanel, showRaceEntry, showNavDrawer,
   ]);
 
   // Interact with nearby landmark or update ambient audio
@@ -870,6 +875,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // greeting is primed: Straton is not in SERVICE_BUILDING_KEEPERS, and the
       // interior reads him by id.
       setBathhousePanel(true);
+    } else if (nearbyLoc.id === 'gladiator_academy') {
+      // ACADEMY-INTERIOR — the academy's door opens the door panel (Enter /
+      // See Rufus) rather than the training tab (its old flavour-only
+      // `tabKey`). No keeper greeting is primed here: Rufus is not in
+      // SERVICE_BUILDING_KEEPERS — the interior reads him by id.
+      setAcademyPanel(true);
     } else if (nearbyLoc.tabKey) {
       onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
@@ -973,6 +984,18 @@ const handleEnterBathhouse = useCallback(() => {
     onEnterBathhouse(true);
   }, [onEnterBathhouse]);
   
+  const handleEnterAcademy = useCallback() => {
+    sounds.playClick();
+    setAcademyPanel(false);
+    onEnterAcademy(false);
+  }, [onEnterAcademy]);
+
+  const handleSeeRufus = useCallback() => {
+    sounds.playClick();
+    setAcademyPanel(false);
+    onEnterAcademy(true);
+  }, [onEnterAcademy]);
+
   const handleEnterArena = useCallback(() => {
           sounds.playClick();
           setColosseumPanel(false);
@@ -1168,8 +1191,12 @@ const handleEnterBathhouse = useCallback(() => {
       }
       if (bathhousePanel) { 
         if (code === 'Escape' || key === 'escape') setBathhousePanel(false);
-      return;
-                          }
+        return;
+      }
+      if (academyPanel) {
+        if (code === 'Escape' || key === 'escape') setAcademyPanel(false);
+        return;
+      }
       if (showRaceEntry) {
         if (code === 'Escape' || key === 'escape') setShowRaceEntry(false);
         return;
@@ -1208,7 +1235,7 @@ const handleEnterBathhouse = useCallback(() => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, colosseumPanel, visitorPanel, forgePanel, showRaceEntry, showNavDrawer, bountyHallPanel, bathhousePanel]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, colosseumPanel, visitorPanel, forgePanel, showRaceEntry, showNavDrawer, bountyHallPanel, bathhousePanel, academyPanel]);
 
         // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
@@ -2484,6 +2511,13 @@ const handleEnterBathhouse = useCallback(() => {
         onClose={() => setBathhousePanel(false)}
       />
       )}
+      {academyPanel && (
+      <GladiatorAcademyDoorPanel
+                onEnterAcademy={handleEnterAcademy}
+                onSeeRufus={handleSeeRufus}
+                onClose={() => setAcademyPanel(false)}
+              />
+        )}
       {colosseumPanel && (
               <ColosseumDoorPanel
                           onEnterArena={handleEnterArena}
