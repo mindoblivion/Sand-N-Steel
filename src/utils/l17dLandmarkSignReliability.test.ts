@@ -498,8 +498,8 @@ describe('L17D §C — the nine asset mappings and mounting parameters', () => {
 
 describe('L17D §D — the registries and the presentation contract', () => {
   test('collider, hub and arrival counts are unchanged', () => {
-    expect(CITY_COLLIDERS).toHaveLength(142);
-    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect')).toHaveLength(32);
+    expect(CITY_COLLIDERS).toHaveLength(143);
+    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect')).toHaveLength(33);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-'))).toHaveLength(46);
     expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(CITY_COLLIDERS.length);
     // Signage is still decoration: no sign collider exists.
