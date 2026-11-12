@@ -14,7 +14,6 @@ import type { TimePhase } from '../../utils/timeState';
 import { resolveRacePhase } from '../../utils/racePhaseLight';
 import { PhaseSkyDome } from './PhaseSkyDome';
 import { RaceTouchControls } from '../ui/RaceTouchControls';
-import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
@@ -1050,7 +1049,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             </Environment>
 
             <ThreeComponentErrorBoundary componentName="RaceArenaAndChariot">
-              <Suspense fallback={<CanvasLoadingFallback />}>
+              <Suspense fallback={null}>
                 <EastCircusArena />
         <CircusCrowd />
                 <RaceChariot
