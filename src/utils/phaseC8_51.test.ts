@@ -591,8 +591,8 @@ describe('E. Nothing else moved', () => {
   test('the collision registry is untouched and the store still owns its plinth rectangle', () => {
     // 110 before Phase C-8.64A; the +31 are its own `circus-*` segments, and
     // Phase C-8.64B's `forecourt-parapet` is its +1 rectangle.
-    expect(CITY_COLLIDERS.length).toBe(142);
-    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(32);
+    expect(CITY_COLLIDERS.length).toBe(143);
+    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(33);
     const ids = CITY_COLLIDERS.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(PLAYER_RADIUS).toBe(0.4);

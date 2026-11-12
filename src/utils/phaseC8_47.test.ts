@@ -788,10 +788,11 @@ describe('G. Nothing but the eight radii changed', () => {
     // 110 colliders / 31 rectangles was the count this phase left; Phase C-8.64A
     // appended its `circus-*` perimeter segments — 31 after the entrance-
     // alignment closure — and Phase C-8.64B appended the one `forecourt-parapet`
-    // rectangle, so 142 with 32 rectangles and the same 110 pre-existing ids.
-    expect(CITY_COLLIDERS.length).toBe(142);
-    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(32);
-    expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(142);
+    // rectangle, so 142 with 32 rectangles and the same 110 pre-existing ids —
+    // plus the FOUNTAIN COIN TOSS's `forum` rect: 143 with 33 rectangles.
+    expect(CITY_COLLIDERS.length).toBe(143);
+    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(33);
+    expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(143);
   });
 
   test('the movement constants are untouched', () => {

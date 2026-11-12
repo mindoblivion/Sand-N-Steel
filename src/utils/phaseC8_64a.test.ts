@@ -1035,9 +1035,9 @@ describe('F. Scope guard', () => {
     // The 110 pre-existing colliders are byte-identical and this phase owns the
     // 31 `circus-*` perimeter segments; the one extra collider and rectangle are
     // Phase C-8.64B's `forecourt-parapet`, the district's only solid structure.
-    expect(nonCircus.length).toBe(111); // 110 + C-8.64B's parapet
-    expect(CITY_COLLIDERS.length).toBe(142); // C-8.64A's 141 + 1
-    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(32); // 31 + 1
+    expect(nonCircus.length).toBe(112); // 110 + C-8.64B's parapet + the forum fountain rect
+    expect(CITY_COLLIDERS.length).toBe(143); // C-8.64A's 141 + 1 + the forum fountain rect
+    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(33); // 31 + 1 + the forum fountain rect
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-')).length).toBe(46);
     const ids = CITY_COLLIDERS.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);

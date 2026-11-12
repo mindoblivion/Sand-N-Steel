@@ -180,9 +180,10 @@ describe('STORY-4a §A — `spared` is one lazy optional map and nothing else', 
     // LUDI PHASE A REBASE: `ludi` sits between `spared` and `records`; the omen pair is
     // still the field before it, and `records` still ends the set.  PITCH A4 REBASE:
     // the Corpus et Origo `identity` field joined the set between them, so the tail
-    // this pins is four long.
-    expect(optional.length).toBe(25);
-    expect(optional.slice(-4)).toEqual(['spared', 'identity', 'ludi', 'records']);
+    // this pins is four long.  FOUNTAIN COIN TOSS REBASE: `luck` joined it between
+    // `ludi` and `records`, so the tail this pins is five long.
+    expect(optional.length).toBe(26);
+    expect(optional.slice(-5)).toEqual(['spared', 'identity', 'ludi', 'luck', 'records']);
   });
 });
 

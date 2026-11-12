@@ -166,6 +166,7 @@ import {
   type OmenOfferOutcome,
   type OmenSettlement,
 } from './utils/omens';
+import { tossCoin, type CoinTossOutcome } from './utils/fountainLuck';
 // DAY/NIGHT T2 — the clock's reads at the seams, and the day-boundary seam's own module.
 // Only the seam files in this slice may touch these (see the re-scoped T0 guard in
 // `utils/timeState.test.ts`): the duel result, the training session, the night at the inn,
@@ -1985,6 +1986,22 @@ export function App() {
     return result;
   };
 
+  /**
+   * FOUNTAIN COIN TOSS — the forum fountain's one coin.  The transaction is
+   * pure and re-checks its own rules (`tossCoin` refuses a purse under 1 gold,
+   * and a live boost, before any arithmetic), so a refusal returns no profile
+   * and never reaches `saveProfile`.  The city screen only reports the choice;
+   * this is the one place the write happens.
+   */
+  const handleTossCoin = (): CoinTossOutcome | null => {
+    if (!profile) return null;
+    const result = tossCoin(profile);
+    if (!result.ok) return result;
+    setProfile(result.profile);
+    saveProfile(result.profile);
+    return result;
+  };
+
   // P1 sell — the market buys a carried, unequipped item back for its
   // `sellPrice` plus 25 % of any temper gold spent on it.  The transaction is
   // pure: a refusal hands back the same profile object, so nothing is saved.
@@ -2249,6 +2266,7 @@ export function App() {
             onChooseDiceEnding={handleChooseDiceEnding}
             onOfferOmen={handleOfferOmen}
             onDeclineOmen={handleDeclineOmen}
+            onTossCoin={handleTossCoin}
             /* STORY-5b — the three Legend stops: the Librarian chain's return at the
                Library, and each stop's fragment at its own door. Both writers are
                identity-stable, so an ordinary visit saves nothing. */

@@ -345,8 +345,8 @@ describe('L17B §D — presentation only', () => {
   });
 
   test('the movement registry is the one C-8.64B left, with no signage entry', () => {
-    expect(CITY_COLLIDERS).toHaveLength(142);
-    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect')).toHaveLength(32);
+    expect(CITY_COLLIDERS).toHaveLength(143);
+    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect')).toHaveLength(33);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-'))).toHaveLength(46);
     expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(CITY_COLLIDERS.length);
   });

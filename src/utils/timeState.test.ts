@@ -542,6 +542,10 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       // the clock (`ludi` is its own field). Added here as a READER, on the same terms as
       // the day-boundary seam beside it.
       'utils/ludiCalendar.ts',
+      // FOUNTAIN COIN TOSS — the boost's dawn bound IS the clock's day: the slice reads
+      // `resolveTimeState(profile)` for the next dawn and writes nothing to the clock
+      // (`luck` is its own field). Added here as a READER, on the same terms.
+      'utils/fountainLuck.ts',
       // Living City visitor scheduling reads the authoritative day without advancing it.
       'utils/visitorSchedule.ts',
       // L9 rest advances one full day inside its pure treatment transaction.
@@ -598,6 +602,8 @@ describe('T0 §G — the phase profile table (data, provenance, shape)', () => {
       'utils/currentPhase.ts',
       'utils/dayRollover.ts',
       'utils/duelPhaseLight.ts',
+      // FOUNTAIN COIN TOSS — the toss reads the clock's DAY for the next dawn (never its phase table).
+      'utils/fountainLuck.ts',
       // LUDI PHASE A — the calendar reads the clock's DAY (never its phase table).
       'utils/ludiCalendar.ts',
       'utils/nightDressing.ts',

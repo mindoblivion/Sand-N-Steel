@@ -132,6 +132,7 @@ import { resolveStableState } from './stableProgression';
 // PITCH A1 — Fortuna's omen and the once-ever decline marker, read the way the
 // shrine panel and the duel entry read them.
 import { isTrickleClaimed, resolveOmen } from './omens';
+import { resolveLuckBoost } from './fountainLuck';
 // P5 — the ludus's three buildings, read the way a facility screen would.
 import { resolveFacilities } from './facilityProgression';
 // CH-1 — the class and the palmae, read the way a later class screen would.
@@ -187,6 +188,8 @@ const REQUIRED_FIXTURE_IDS = [
   'corpus-et-origo',
   // L10 — visitor-history save shape.
   'visitor-ledger',
+  // FOUNTAIN COIN TOSS — Fortuna's favour at the forum fountain.
+  'luck-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
@@ -639,6 +642,11 @@ for (const fixture of SAVE_FIXTURES) {
         expect(resolveCorpusIdentity(profile)).toEqual({});
         expect(originPassiveBlock(profile)).toEqual({});
       }
+      if (!('luck' in raw) || raw.luck === null) {
+        absentFields += 1;
+        // FOUNTAIN COIN TOSS — a save written before the toss reads as "no boost".
+        expect(resolveLuckBoost(profile)).toBeNull();
+      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
@@ -667,6 +675,8 @@ for (const fixture of SAVE_FIXTURES) {
         'spared',
         // PITCH A4 — declared before `ludi`, so `records` stays last.
         'identity',
+        // FOUNTAIN COIN TOSS — declared after `ludi`, so `records` stays last.
+        'luck',
         'records',
       ];
       expect(absentFields).toBe(
@@ -1105,6 +1115,9 @@ describe('GC20 §H — scope guards', () => {
       // field A5 nests inside `records` (`codexLocations`).  Still suites only:
       // no production source imports the corpus.
       'utils/codex.test.ts',
+      // FOUNTAIN COIN TOSS — the toss suite reads `luck-era` to pin the field it writes.
+      // Still suites only: nothing under `services/`, `components/` or `App.tsx` reaches it.
+      'utils/fountainCoinToss.test.ts',
       // LUDI PHASE A — the calendar's suite reads `ludi-era` to pin the field it writes.
       // Still suites only: nothing under `services/`, `components/` or `App.tsx` reaches it.
       'utils/ludiPhaseA.test.tsx',
@@ -1270,6 +1283,8 @@ describe('GC20 §J — the corpus rule', () => {
       'identity',
       // LUDI PHASE A — the calendar's one lazy field, declared just before `records`.
       'ludi',
+      // FOUNTAIN COIN TOSS — Fortuna's favour, declared between `ludi` and `records` so `records` stays last.
+      'luck',
       // A8 — the retained Triumphs record, still the LAST member (§J).
       'records',
     ]);
@@ -1301,6 +1316,7 @@ describe('GC20 §J — the corpus rule', () => {
       'identity',
       'records',
       'ludi',
+      'luck',
     ]) {
       const withField = SAVE_FIXTURES.filter((fixture) => rawOf(fixture)[field] !== undefined && rawOf(fixture)[field] !== null);
       const withoutField = SAVE_FIXTURES.filter((fixture) => !(field in rawOf(fixture)) || rawOf(fixture)[field] === null);
@@ -1339,11 +1355,11 @@ describe('GC20 §J — the corpus rule', () => {
       return [...body.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_]*)\?:/gm)].map((match) => match[1]);
     };
     const shipped = scanned(types);
-    // LUDI PHASE A REBASE, then PITCH A4's: the set is 24 now because A4 inserted
-    // `identity` between `spared` and `ludi` (so `records` still stays last), and
-    // §J above carries the same one-field extension.
-    expect(shipped.length).toBe(25);
-    expect(shipped.slice(-2)).toEqual(['ludi', 'records']);
+    // FOUNTAIN COIN TOSS: the set is 26 now because the toss inserted `luck`
+    // between `ludi` and `records` (so `records` still stays last), and §J above
+    // carries the same one-field extension.
+    expect(shipped.length).toBe(26);
+    expect(shipped.slice(-2)).toEqual(['luck', 'records']);
 
     const doctored = types.replace(
       '  records?: {',
@@ -1353,7 +1369,7 @@ describe('GC20 §J — the corpus rule', () => {
     const withNew = scanned(doctored);
     expect(withNew).not.toEqual(shipped);
     expect(withNew).toContain('unaccounted');
-    expect(withNew.length).toBe(26);
+    expect(withNew.length).toBe(27);
   });
 });
 

@@ -503,8 +503,9 @@ describe('STORY-5a §F — the guards', () => {
     const optional = optionalProfileFields();
     // LUDI PHASE A REBASE: `ludi` sits between `spared` and `records`; `records` is last.
     // PITCH A4 REBASE: `identity` joined the set before `ludi`, so it is 24.
-    expect(optional.length).toBe(25);
-    expect(optional.slice(-2)).toEqual(['ludi', 'records']);
+    // FOUNTAIN COIN TOSS REBASE: `luck` joined it between `ludi` and `records`, so it is 26.
+    expect(optional.length).toBe(26);
+    expect(optional.slice(-2)).toEqual(['luck', 'records']);
   });
 
   test('no top-level field is added by any write of this slice', () => {

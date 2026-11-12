@@ -483,8 +483,8 @@ describe('C. Driven routes across the seam', () => {
 
 describe('D. Preservation', () => {
   test('the registry is unchanged by this phase', () => {
-    expect(CITY_COLLIDERS.length).toBe(142);
-    expect(rects.length).toBe(32);
+    expect(CITY_COLLIDERS.length).toBe(143);
+    expect(rects.length).toBe(33);
     expect(circusPerimeter.length).toBe(31);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-')).length).toBe(46);
     expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(CITY_COLLIDERS.length);

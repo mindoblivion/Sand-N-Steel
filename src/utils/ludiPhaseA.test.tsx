@@ -895,6 +895,9 @@ describe('LUDI J §J — the save corpus covers the new field', () => {
   test('every older fixture omits the field — the legacy shape a load must survive', () => {
     for (const fixture of SAVE_FIXTURES) {
       if (fixture.id === 'ludi-era') continue;
+      // FOUNTAIN COIN TOSS: `luck-era` is built ON the ludi-era save, so it carries
+      // `ludi` by construction — it is newer, not older, and omits nothing it predates.
+      if (fixture.id === 'luck-era') continue;
       expect(fixture.id, fixture.id).not.toBe('ludi-era');
       expect(Object.keys(fixture.profile as unknown as Record<string, unknown>)).not.toContain('ludi');
     }
