@@ -331,9 +331,11 @@ describe('E. The wiring: one write point per seam, and refusals advance nothing'
     expect(REST).toContain('canDebitGold(subject.gold, REST_PRICE)');
   });
 
-  test('the rollover seam is defined once and called by all four advance seams', () => {
+  test('the rollover seam is defined once and called by all five advance seams', () => {
     expect(APP.match(/const onDayRollover =/g) ?? []).toHaveLength(1);
-    expect(APP.match(/onDayRollover\(profile,/g) ?? []).toHaveLength(4);
+    // ACADEMY-INTERIOR REBASE: the Intensive Course is the fifth seam — a
+    // training session's twin, the same rollover, the same one save.
+    expect(APP.match(/onDayRollover\(profile,/g) ?? []).toHaveLength(5);
   });
 
   test('the banner is driven by the seam and drawn over the city only', () => {
