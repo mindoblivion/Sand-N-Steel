@@ -5,7 +5,6 @@ import * as THREE from 'three';
 import { PlayerAppearance, FighterState } from '../../types/game';
 import { DEFAULT_PLAYER_WEAPON } from '../../data/itemsDB';
 import { GladiatorMesh } from './GladiatorMesh';
-import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
@@ -142,7 +141,7 @@ export const GladiatorPreview: React.FC<GladiatorPreviewProps> = ({ appearance, 
               componentName="GladiatorPreviewMesh"
               onError={(error) => onError?.(error)}
             >
-              <Suspense fallback={<CanvasLoadingFallback />}>
+              <Suspense fallback={null}>
                 <GladiatorMesh
                   fighter={previewFighter}
                   isLeftyMode={isLeftyMode}

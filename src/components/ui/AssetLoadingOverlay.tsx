@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useProgress, Html } from '@react-three/drei';
+import { useProgress } from '@react-three/drei';
 import { Shield, Sparkles, AlertTriangle, RefreshCw } from 'lucide-react';
 import { COLOSSEUM_LOADING_CLASS } from '../../utils/startupAssets';
 
@@ -172,14 +172,3 @@ export const AssetLoadingOverlay: React.FC = () => {
   );
 };
 
-// In-Canvas 3D Loading Fallback (for React Suspense inside <Canvas>)
-export const CanvasLoadingFallback: React.FC = () => {
-  return (
-    <Html center>
-      <div className="flex flex-col items-center justify-center bg-neutral-950/80 border border-amber-600/50 p-4 rounded-2xl backdrop-blur-md shadow-2xl text-amber-200 pointer-events-none">
-        <div className="w-8 h-8 rounded-full border-2 border-transparent border-t-amber-400 border-r-amber-500 animate-spin mb-2" />
-        <span className="font-serif font-bold text-xs uppercase tracking-wider">Loading 3D Mesh...</span>
-      </div>
-    </Html>
-  );
-};

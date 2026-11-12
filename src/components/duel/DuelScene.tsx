@@ -11,7 +11,6 @@ import { CombatActionType, CombatLogEntry, AttackTarget } from '../ui/TurnAction
 import { nextCounterWindupStep } from '../../utils/counterWindup';
 import { ATTACK_WINDUP_MS } from '../../utils/attackWindup';
 import { cancelDuelResult, scheduleDuelResult } from '../../utils/duelResultTimer';
-import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
@@ -3432,7 +3431,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             </ThreeComponentErrorBoundary>
 
             <ThreeComponentErrorBoundary componentName="DuelFightersGladiatorMeshes">
-              <Suspense fallback={<CanvasLoadingFallback />}>
+              <Suspense fallback={null}>
                 <GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} />
                 {/* CF-6 — boss telegraph: while the announced heavy is pending the
                     boss mesh's own emissive path pulses #ff2222 at 2 Hz. Bosses

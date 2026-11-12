@@ -1,7 +1,6 @@
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
-import { CanvasLoadingFallback } from '../ui/AssetLoadingOverlay';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
 import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 import { WebGLReadyGuard } from '../ui/WebGLReadyGuard';
@@ -152,7 +151,7 @@ export const ChariotPreview: React.FC<ChariotPreviewProps> = ({ wheelVariant, fi
               <directionalLight position={[-4, 3, -4]} intensity={0.45} color="#f2c98a" />
 
               <ThreeComponentErrorBoundary componentName="ChariotPreviewMesh">
-                <Suspense fallback={<CanvasLoadingFallback />}>
+                <Suspense fallback={null}>
                   <ChariotRig wheelVariant={wheelVariant} finish={finish} />
                 </Suspense>
               </ThreeComponentErrorBoundary>
