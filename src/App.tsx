@@ -46,7 +46,7 @@ import { purchaseStableConditioning, purchaseStableQuality } from './utils/stabl
 import { purchaseItem } from './utils/itemPurchase';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
 import { isTrainingActionScheduled } from './utils/trainingSchedule';
-import { recordPhysicalRecovery, recordPhysicalTraining, type PhysicalTrainingStat  } from './utils/physicalDevelopment';
+import { recordPhysicalRecovery, recordPhysicalTraining, type PhysicalTrainingStat } from './utils/physicalDevelopment';
 import { applyIntensiveTraining, intensiveCourseCost, intensiveRefusalLine, intensiveSuccessLine } from './utils/intensiveTraining';
 
 import type { LibraryPageId } from './components/hub/LibraryTab';
@@ -1877,24 +1877,24 @@ export function App() {
 
   // Profile mutations
   /**
-     * ACADEMY-INTERIOR — one Intensive Course: the module's pure transaction
-        * (+2, 3x the yard price, level 3+, the day's timetable), then the same
-           * time step, Ludi settlement and one save a yard session gets. A refusal
-              * returns Rufus's line and never reaches the save.
-                 */
-    const handleTrainIntensive = (stat: PhysicalTrainingStat): string => {
-          if (!profile) return 'Rufus waits for your record to catch up.';
-          const result = applyIntensiveTraining(profile, stat);
-          if (!result.ok) return intensiveRefusalLine(result.reason, intensiveCourseCost(profile));
-          const timed = settleLudiDeeds(onDayRollover(profile, advanceTimeBy(result.profile, 1)), {
-                  trained: true,
-          });
-          setProfile(timed.profile);
-          saveProfile(timed.profile);
-          return intensiveSuccessLine(stat);
-    };
-  
-      const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
+   * ACADEMY-INTERIOR — one Intensive Course: the module's pure transaction
+   * (+2, 3x the yard price, level 3+, the day's timetable), then the same
+   * time step, Ludi settlement and one save a yard session gets. A refusal
+   * returns Rufus's line and never reaches the save.
+   */
+  const handleTrainIntensive = (stat: PhysicalTrainingStat): string => {
+    if (!profile) return 'Rufus waits for your record to catch up.';
+    const result = applyIntensiveTraining(profile, stat);
+    if (!result.ok) return intensiveRefusalLine(result.reason, intensiveCourseCost(profile));
+    const timed = settleLudiDeeds(onDayRollover(profile, advanceTimeBy(result.profile, 1)), {
+      trained: true,
+    });
+    setProfile(timed.profile);
+    saveProfile(timed.profile);
+    return intensiveSuccessLine(stat);
+  };
+
+  const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
     if (!profile || !isTrainingActionScheduled(profile, stat)) return;
     // P5 — the Ludus Training Yard sets stat training's price, and nothing else.
     const cost = trainingCost(profile);
@@ -2464,11 +2464,11 @@ export function App() {
 
       {currentScreen === 'city_3d' && academyOpen && (
       <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
-          <GladiatorAcademyInterior onExit={() => setAcademyOpen(false) profile={profile} onTrainIntensive={handleTrainIntensive} onOpenCodex={handleOpenCodex} onRecordKeeperVisit={handleRecordKeeperVisit} startWithTalk={academyTalk} />
+          <GladiatorAcademyInterior onExit={() => setAcademyOpen(false)} profile={profile} onTrainIntensive={handleTrainIntensive} onOpenCodex={handleOpenCodex} onRecordKeeperVisit={handleRecordKeeperVisit} startWithTalk={academyTalk} />
       </React.Suspense>
             )}
       
-      {currentScreen === 'hub_2d'  && profile && (
+      {currentScreen === 'hub_2d' && profile && (
           <React.Suspense fallback={<WaitSurface destination="school_hub" />}>
             <GladiatorSchoolHub
             playerProfile={profile}
@@ -2479,7 +2479,7 @@ export function App() {
             onTabChange={handleHubTabChange}
           libraryPage={libraryPage}
               onLibraryPageChange={setLibraryPage}
-           onUpdateProfile={handleUpdateProfile}
+            onUpdateProfile={handleUpdateProfile}
             onEnterCity3D={() => { if (profile) enterCity(profile); }}
             onSelectOpponent={handleEnterDuel}
             onTrainStat={handleTrainStat}
