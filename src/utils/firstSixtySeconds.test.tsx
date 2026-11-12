@@ -695,7 +695,9 @@ describe('FSS K §K — no new top-level profile field', () => {
     // PITCH A4 REBASE: `identity` joined the set between `spared` and `ludi`.
     const optional = scanOptional(read('types/game.ts'));
     // FOUNTAIN COIN TOSS REBASE: `luck` joined it between `ludi` and `records`.
-    expect(optional.length).toBe(26);
+    // ARENA HAZARDS / CHARIOT TUNING REBASE: `racingTuning` and `activeRaceBet`
+    // after `racing`, `trainees` after `facilities`, so it is 29.
+    expect(optional.length).toBe(29);
     expect(optional.slice(-2)).toEqual(['luck', 'records']);
   });
 
