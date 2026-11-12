@@ -511,7 +511,8 @@ function BathhousePlayerRig({ onExitRef, keysRef, stickRef, onPosition }: Bathho
     // Walk back through the thermae door to leave.
     if (!exited.current && isBathhouseExit(px, pz)) {
       exited.current = true;
-      onExitRef.current();
+      // Defer unmount to next tick to avoid synchronously unmounting R3F root during update
+      setTimeout(() => onExitRef.current(), 0);
       return;
     }
     // Face the movement direction with a smooth turn.
@@ -797,7 +798,7 @@ export function BathhouseInterior({ onExit, onRecordKeeperVisit, startWithRumors
         <div className="absolute top-3 left-3 pointer-events-auto">
           <button
             type="button"
-            onClick={() => onExitRef.current()}
+            onClick={() => setTimeout(() => onExitRef.current(), 0)}
             aria-label="Return to City"
             data-bathhouse-return
             className="min-h-[44px] min-w-[44px] px-4 rounded-2xl bg-neutral-950/85 border border-sky-600/50 text-sky-200 font-serif font-bold text-sm hover:bg-sky-500/20 flex items-center"

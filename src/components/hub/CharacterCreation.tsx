@@ -309,7 +309,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
               }`}
             >
               <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
-              <span className="truncate">Features</span>
+              <span className="truncate">Attributes</span>
             </button>
           </div>
 
@@ -639,12 +639,12 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                   onClick={() => { sounds.playClick(); setActiveTab('features'); }}
                   className="w-full min-h-[48px] py-3 rounded-xl bg-neutral-900 border border-amber-600/40 hover:border-amber-400 text-amber-300 font-serif font-bold text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 mt-2"
                 >
-                  <span>Continue to Features & Attributes &rarr;</span>
+                  <span>Continue to Attributes &rarr;</span>
                 </button>
               </div>
             )}
 
-            {/* SECTION 3: FEATURES & STATS */}
+            {/* SECTION 3: ATTRIBUTES & STATS */}
             {activeTab === 'features' && (
               <div className="flex flex-col gap-4 sm:gap-6">
                 {/* PROVINCE (ORIGO) & FLAW (VITIUM) in Details block */}

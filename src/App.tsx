@@ -916,14 +916,16 @@ export function App() {
   };
 
   const handleCharacterCreated = (newProfile: PlayerProfile) => {
-    setCharacterCreationTransitioning(false);
-    sounds.playClick();
-    setProfile(newProfile);
-    saveProfile(newProfile);
-    // A new gladiator is unsworn, so this arrival is the oath's: the city puts him in
-    // the Ludus Martial Yard and the Doctore is waiting there. Free roam begins when the
-    // words are sworn, and the post-Oath nudge is offered then, not here.
-    enterCity(newProfile);
+    setTimeout(() => {
+      setCharacterCreationTransitioning(false);
+      sounds.playClick();
+      setProfile(newProfile);
+      saveProfile(newProfile);
+      // A new gladiator is unsworn, so this arrival is the oath's: the city puts him in
+      // the Ludus Martial Yard and the Doctore is waiting there. Free roam begins when the
+      // words are sworn, and the post-Oath nudge is offered then, not here.
+      enterCity(newProfile);
+    }, 0);
   };
 
   /**
@@ -1066,8 +1068,10 @@ export function App() {
    * record a time; a completed lap's best time was settled at the finish transition.
    */
   const handleExitRace = () => {
-    if (profile) enterCity(profile);
-    else setCurrentScreen('city_3d');
+    setTimeout(() => {
+        if (profile) enterCity(profile);
+        else setCurrentScreen('city_3d');
+    }, 0);
   };
 
   const handleOpenHubTab = (
@@ -1593,10 +1597,12 @@ export function App() {
 
   const handleDuelResultDismiss = () => {
     setDuelResult(null);
-    // The Test's rule judged one duel; it does not outlive it.
-    setDoctoreRestriction(null);
-    if (profile) enterCity(profile);
-    else setCurrentScreen('city_3d');
+    setTimeout(() => {
+        // The Test's rule judged one duel; it does not outlive it.
+        setDoctoreRestriction(null);
+        if (profile) enterCity(profile);
+        else setCurrentScreen('city_3d');
+    }, 0);
   };
 
   /**
@@ -2160,7 +2166,7 @@ export function App() {
     }
     setSaveError(null);
     setProfile(null);
-    setCurrentScreen('title');
+    setTimeout(() => setCurrentScreen('title'), 0);
   };
 
   return (
@@ -2510,8 +2516,10 @@ export function App() {
             onCancel={() => setOverwriteConfirm(null)}
             onConfirm={() => {
               setOverwriteConfirm(null);
-              setCharacterCreationTransitioning(true);
-              setCurrentScreen('create_character');
+              setTimeout(() => {
+                setCharacterCreationTransitioning(true);
+                setCurrentScreen('create_character');
+              }, 0);
             }}
             />
           </React.Suspense>
@@ -2577,7 +2585,7 @@ export function App() {
               // own deletion. Drop the in-memory profile either way; never route this
               // through Reset, which correctly preserves a profile on wipe failure.
               setProfile(null);
-              setCurrentScreen('title');
+              setTimeout(() => setCurrentScreen('title'), 0);
               setSaveError(outcome?.localDataErased === false
                 ? 'Your account was deleted, but this device could not confirm that its saved gladiator was erased. Clear this app’s site data in browser or device settings before sharing or disposing of this device.'
                 : null);

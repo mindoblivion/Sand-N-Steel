@@ -603,7 +603,8 @@ function BountyHallPlayerRig({ onExitRef, keysRef, stickRef, onPosition }: Bount
     // Walk back through the hall door to leave.
     if (!exited.current && isBountyHallExit(px, pz)) {
       exited.current = true;
-      onExitRef.current();
+      // Defer unmount to next tick to avoid synchronously unmounting R3F root during update
+      setTimeout(() => onExitRef.current(), 0);
       return;
     }
     // Face the movement direction with a smooth turn.
@@ -863,7 +864,7 @@ export function BountyHallInterior({ onExit, onOpenServices, onRecordKeeperVisit
         <div className="absolute top-3 left-3 pointer-events-auto">
           <button
             type="button"
-            onClick={() => onExitRef.current()}
+            onClick={() => setTimeout(() => onExitRef.current(), 0)}
             aria-label="Return to City"
             data-bounty-return
             className="min-h-[44px] min-w-[44px] px-4 rounded-2xl bg-neutral-950/85 border border-rose-600/50 text-rose-200 font-serif font-bold text-sm hover:bg-rose-500/20 flex items-center"

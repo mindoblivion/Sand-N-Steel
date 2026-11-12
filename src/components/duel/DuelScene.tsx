@@ -3050,7 +3050,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }
       resultTransitionTimerRef.current = scheduleDuelResult(() => {
         resultTransitionTimerRef.current = null;
-        onMatchComplete(statsRef.current, true);
+        setTimeout(() => onMatchComplete(statsRef.current, true), 0);
       }, 1400);
     } else if (player.health <= 0) {
       isMatchOver.current = true;
@@ -3113,7 +3113,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }
       resultTransitionTimerRef.current = scheduleDuelResult(() => {
         resultTransitionTimerRef.current = null;
-        onMatchComplete(statsRef.current, false);
+        setTimeout(() => onMatchComplete(statsRef.current, false), 0);
       }, 1400);
     }
   }, [
