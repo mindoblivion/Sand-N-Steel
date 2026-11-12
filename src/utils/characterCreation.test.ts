@@ -351,7 +351,7 @@ describe('mobile character creation layout contract', () => {
     expect(source).toContain('lg:h-full');
   });
 
-  test('customization sections are organized into Identity, Body, and Features tabs', () => {
+  test('customization sections are organized into Identity, Body, and Attributes tabs', () => {
     const source = creationSource();
     expect(source).toContain('data-tab="identity"');
     expect(source).toContain('data-tab="body"');
