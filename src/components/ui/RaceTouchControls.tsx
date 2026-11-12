@@ -140,10 +140,7 @@ const RaceControlButton: React.FC<RaceControlButtonProps> = ({
       </span>
     </button>
   );
-};port React, { useEffect, useRef } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
-import type { ChariotInput } from '../../utils/chariotMovement';
-import { createRacePointerHold } from '../../utils/racePointerHold';
+};
 
 /**
  * RaceTouchControls.tsx — Phase C-8.70B Stage 1, Slice 2: the race's touch
