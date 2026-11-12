@@ -819,7 +819,8 @@ describe('STORY-5b §H — the save carries no new top-level field', () => {
     const fields = optionalFields();
     // LUDI PHASE A REBASE: the calendar's `ludi` joined the set; `records` still closes it.
     // PITCH A4 added `identity`; L9 added the optional `city` rest marker, so the set is 25.
-    expect(fields.length).toBe(25);
+    // FOUNTAIN COIN TOSS REBASE: `luck` joined it between `ludi` and `records`, so the set is 26.
+    expect(fields.length).toBe(26);
     expect(fields[fields.length - 1]).toBe('records');
     for (const name of ['librarianChain', 'echoWon', 'fragmentsFound', 'laudes']) {
       expect(fields).not.toContain(name);
