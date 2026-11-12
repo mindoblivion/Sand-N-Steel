@@ -603,7 +603,8 @@ function BountyHallPlayerRig({ onExitRef, keysRef, stickRef, onPosition }: Bount
     // Walk back through the hall door to leave.
     if (!exited.current && isBountyHallExit(px, pz)) {
       exited.current = true;
-      onExitRef.current();
+      // Defer unmount to next tick to avoid synchronously unmounting R3F root during update
+      requestAnimationFrame(() => onExitRef.current());
       return;
     }
     // Face the movement direction with a smooth turn.

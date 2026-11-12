@@ -400,7 +400,8 @@ function ColosseumPlayerRig({
       // 3D exit: walking back through the Porta Triumphalis
       if (!exitedRef.current && isColosseumExit(px, pz)) {
         exitedRef.current = true;
-        onExitRef.current();
+        // Defer unmount to next tick to avoid synchronously unmounting R3F root during update
+        requestAnimationFrame(() => onExitRef.current());
         return;
       }
     }

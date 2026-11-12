@@ -576,7 +576,8 @@ function ForgePlayerRig({ onExitRef, keysRef, stickRef, onPosition }: ForgePlaye
     // Walk back through the forge door to leave.
     if (!exited.current && isForgeExit(px, pz)) {
       exited.current = true;
-      onExitRef.current();
+      // Defer unmount to next tick to avoid synchronously unmounting R3F root during update
+      requestAnimationFrame(() => onExitRef.current());
       return;
     }
     // Face the movement direction with a smooth turn.
