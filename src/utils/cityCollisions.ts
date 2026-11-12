@@ -392,7 +392,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
   {
     id: 'bathhouse',
     name: 'Imperial Public Bathhouse',
-    subtitle: 'Thermae & Recuperation Pools',
+    subtitle: 'Thermae & Steam Rooms',
     position: [-26, 0, 25],
     // Phase C-8.47: 4.5 → 4.75.  The thermae's colonnade portico (local Z −3.4) faces
     // NORTH, and the nearest standable point is the 7.0-deep collider's north face
