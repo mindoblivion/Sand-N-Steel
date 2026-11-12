@@ -800,16 +800,19 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     'identity',
     // LUDI PHASE A — the calendar's day-state, declared between `spared` and `records`.
     'ludi',
+    // FOUNTAIN COIN TOSS — Fortuna's favour, declared between `ludi` and `records`.
+    'luck',
     // A8 — the retained Triumphs record, still last in declaration order.
     'records',
   ];
 
-  test('the merged type declares all twenty-five optional fields, in order', () => {
+  test('the merged type declares all twenty-six optional fields, in order', () => {
     const types = readFileSync(join(SRC_ROOT, 'types/game.ts'), 'utf8');
     const optional = scanOptional(types);
     expect(optional).toEqual(EXPECTED);
     // PITCH A4 REBASE: the Corpus et Origo `identity` field is the newest member.
-    expect(optional.length).toBe(25);
+    // FOUNTAIN COIN TOSS REBASE: Fortuna's favour `luck` is the newest member.
+    expect(optional.length).toBe(26);
   });
 
   test('the rule still fails on a field nobody accounted for', () => {
@@ -826,6 +829,6 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     // STORY-4a REBASE: the pair is no longer last — PITCH A9's `spared` map is
     // appended after it — so the same property is stated over the last three.
     // A8 REBASE: `records` is now last, so the pair this pins is the tail of the set.
-    expect(EXPECTED.slice(-2)).toEqual(['ludi', 'records']);
+    expect(EXPECTED.slice(-2)).toEqual(['luck', 'records']);
   });
 });
