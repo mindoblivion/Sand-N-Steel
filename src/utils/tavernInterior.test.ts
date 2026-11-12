@@ -26,7 +26,9 @@ describe('immersive Roman tavern scene', () => {
     expect(app).toContain("{currentScreen === 'city_3d' && bountyHallOpen && (");
     expect(app).toContain("{currentScreen === 'city_3d' && bathhouseOpen && (")
     expect(app).toContain('{currentScreen === \'city_3d\' && tavernOpen && (');
-    expect(app).toContain('movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen || bathhouseOpen}');
+    expect(app).toContain('movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen || bathhouseOpen || academyOpen}');
+    expect(app).toContain("const GladiatorAcademyInterior = React.lazy(() => import('./components/3d/GladiatorAcademyInterior').then((m) => ({ default: m.GladiatorAcademyInterior })));");
+    expect(app).toContain("{currentScreen === 'city_3d' && academyOpen && (");
     expect(app).toContain('<TavernInterior\n              onExit={() => setTavernOpen(false)}');
     expect(city).toContain("onEnterTavern(() => {");
   });

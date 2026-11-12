@@ -12,6 +12,7 @@ const ColosseumInterior = React.lazy(() => import('./components/3d/ColosseumInte
 const ForgeInterior = React.lazy(() => import('./components/3d/ForgeInterior').then((m) => ({ default: m.ForgeInterior })));
 const BountyHallInterior = React.lazy(() => import('./components/3d/BountyHallInterior').then((m) => ({ default: m.BountyHallInterior })));
 const BathhouseInterior = React.lazy(() => import('./components/3d/BathhouseInterior').then((m) => ({ default: m.BathhouseInterior })));
+const GladiatorAcademyInterior = React.lazy(() => import('./components/3d/GladiatorAcademyInterior').then((m) => ({ default: m.GladiatorAcademyInterior })));
 
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
@@ -45,7 +46,10 @@ import { purchaseStableConditioning, purchaseStableQuality } from './utils/stabl
 import { purchaseItem } from './utils/itemPurchase';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
 import { isTrainingActionScheduled } from './utils/trainingSchedule';
-import { recordPhysicalRecovery, recordPhysicalTraining } from './utils/physicalDevelopment';
+import { recordPhysicalRecovery, recordPhysicalTraining, type PhysicalTrainingStat  } from './utils/physicalDevelopment';
+import { applyIntensiveTraining, intensiveCourseCost, intensiveRefusalLine, intensiveSuccessLine } from './utils/intensiveTraining';
+
+import type { LibraryPageId } from './components/hub/LibraryTab';
 import { withArmaturaPledge } from './utils/armaturaPledge';
 import { applyPalmaEarns, equipPalma, purchaseDoctorePalma, unequipPalma } from './utils/palmaeState';
 import { evaluateBeats, markSeen, resolveSeenState } from './utils/coachMarks';
@@ -263,8 +267,10 @@ export function App() {
   /* FORGE-INTERIOR — the smithing forge overlay (ColosseumInterior pattern). */
   const [forgeOpen, setForgeOpen] = useState(false);
   const [bountyHallOpen, setBountyHallOpen] = useState(false);
-    const [bathhouseOpen, setBathhouseOpen] = useState(false); 
+  const [bathhouseOpen, setBathhouseOpen] = useState(false);
   const [bathhouseRumors, setBathhouseRumors] = useState(false);
+    const [academyOpen, setAcademyOpen] = useState(false);
+    const [academyTalk, setAcademyTalk] = useState(false);
   const [tavernServices, setTavernServices] = useState<(() => void) | null>(null);
   const [bountyHallServices, setBountyHallServices] = useState<(() => void) | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
@@ -340,6 +346,10 @@ export function App() {
   /** C-8.70C — session-only: set by the pre-fight card, read by the duel, never saved. */
   const [boutMode, setBoutMode] = useState<BoutMode>(DEFAULT_BOUT_MODE);
   const [activeHubTab, setActiveHubTab] = useState<'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library' | 'trainees'>('tournament');
+    // ACADEMY-INTERIOR — which page the Records & Lore rack is showing. App owns
+    // it now: the rack has three doors (the tab, the character sheet's "View Triumphs", the Academy's "Study" station), and one surface must answer all
+    // three. The hub renders the page it is given and reports changes back.
+    const [libraryPage, setLibraryPage] = useState<LibraryPageId>('road');
   // Phase C-8.66B: the Armory's own subview. The Imperial Stable's city
   // interaction opens the gear tab with this set to 'chariot'; the tab's own
   // switch flips it back to the gear list.
@@ -1019,7 +1029,17 @@ export function App() {
     saveProfile(read);
   };
 
-  const handleReturnToLibrarian = () => {
+  /**
+     * ACADEMY-INTERIOR — open the Codex from the trophy room's "Study" station:
+        * the library rack on its Codex page. App owns the rack's page (see the
+        
+         * libraryPage state), so this is a set + a tab open, not a second Codex.
+              */
+    const handleOpenCodex = () => {
+          setLibraryPage('codex');
+          handleOpenHubTab('library');
+    };
+   const handleReturnToLibrarian = () => {
     if (!profile) return;
     const closed = withLibrarianChainClosed(profile);
     if (closed === profile) return;
@@ -1856,7 +1876,25 @@ export function App() {
   };
 
   // Profile mutations
-  const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
+  /**
+     * ACADEMY-INTERIOR — one Intensive Course: the module's pure transaction
+        * (+2, 3x the yard price, level 3+, the day's timetable), then the same
+           * time step, Ludi settlement and one save a yard session gets. A refusal
+              * returns Rufus's line and never reaches the save.
+                 */
+    const handleTrainIntensive = (stat: PhysicalTrainingStat): string => {
+          if (!profile) return 'Rufus waits for your record to catch up.';
+          const result = applyIntensiveTraining(profile, stat);
+          if (!result.ok) return intensiveRefusalLine(result.reason, intensiveCourseCost(profile));
+          const timed = settleLudiDeeds(onDayRollover(profile, advanceTimeBy(result.profile, 1)), {
+                  trained: true,
+          });
+          setProfile(timed.profile);
+          saveProfile(timed.profile);
+          return intensiveSuccessLine(stat);
+    };
+  
+      const handleTrainStat = (stat: 'strength' | 'agility' | 'stamina' | 'defense') => {
     if (!profile || !isTrainingActionScheduled(profile, stat)) return;
     // P5 — the Ludus Training Yard sets stat training's price, and nothing else.
     const cost = trainingCost(profile);
@@ -1881,8 +1919,10 @@ export function App() {
     setProfile(timed.profile);
     saveProfile(timed.profile);
   };
+  
 
   /**
+
    * P5 — `purchaseItem` re-checks the item's gate and the purse, so a Master
    * Forge piece bought below workshop L2 is refused here even if a stock list
    * were bypassed.  A refusal returns no profile and never reaches `saveProfile`.
@@ -2276,6 +2316,7 @@ export function App() {
             onEnterForge={() => setForgeOpen(true)}
               onEnterBountyHall={(openServices) => { setBountyHallServices(() => openServices); setBountyHallOpen(true); }}                  
               onEnterBathhouse={(startWithRumors) => { setBathhouseRumors(startWithRumors); setBathhouseOpen(true); }}
+                onEnterAcademy={(startWithTalk) => { setAcademyTalk(startWithTalk); setAcademyOpen(true); }}
             onReturnToMainMenu={() => setTimeout(() => setCurrentScreen('title'), 0)}
             isLeftyMode={isLeftyMode}
             onOpenSettings={() => handleOpenSettings()}
@@ -2302,7 +2343,7 @@ export function App() {
             onReturnToLibrarian={handleReturnToLibrarian}
             onReadLegendFragment={handleReadLegendFragment}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
-            movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen || bathhouseOpen}
+            movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen || bathhouseOpen || academyOpen}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
             /* FIRST SIXTY SECONDS — the ONE pointer's target (the marker's id IS
                this id) and §6's session silence. */
@@ -2421,7 +2462,13 @@ export function App() {
         </React.Suspense>
       )}
 
-      {currentScreen === 'hub_2d' && profile && (
+      {currentScreen === 'city_3d' && academyOpen && (
+      <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
+          <GladiatorAcademyInterior onExit={() => setAcademyOpen(false) profile={profile} onTrainIntensive={handleTrainIntensive} onOpenCodex={handleOpenCodex} onRecordKeeperVisit={handleRecordKeeperVisit} startWithTalk={academyTalk} />
+      </React.Suspense>
+            )}
+      
+      {currentScreen === 'hub_2d'  && profile && (
           <React.Suspense fallback={<WaitSurface destination="school_hub" />}>
             <GladiatorSchoolHub
             playerProfile={profile}
@@ -2430,7 +2477,9 @@ export function App() {
             onHeraldCry={handleHeraldCry}
             activeTab={activeHubTab}
             onTabChange={handleHubTabChange}
-            onUpdateProfile={handleUpdateProfile}
+          libraryPage={libraryPage}
+              onLibraryPageChange={setLibraryPage}
+           onUpdateProfile={handleUpdateProfile}
             onEnterCity3D={() => { if (profile) enterCity(profile); }}
             onSelectOpponent={handleEnterDuel}
             onTrainStat={handleTrainStat}

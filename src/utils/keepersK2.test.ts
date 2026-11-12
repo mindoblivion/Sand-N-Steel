@@ -219,7 +219,7 @@ describe('K2 §C the visit is recorded through the single write path', () => {
     expect(city).toContain('if (frozen?.keeperId === openCounterKeeperId && frozen.seen) return;');
   });
 
-  test('`App` still writes `seenKeepers` in one place, and relays it to five screens', () => {
+  test('`App` still writes `seenKeepers` in one place, and relays it to six screens', () => {
     const app = code(APP);
     expect(app.match(/recordKeeperVisit\(profile, /g)?.length).toBe(1);
     expect(app).toContain('const handleRecordKeeperVisit = (keeperId: string) => {');
@@ -227,8 +227,8 @@ describe('K2 §C the visit is recorded through the single write path', () => {
     expect(app).toContain('saveProfile(visited);');
     // One relay per screen that shows a plate: the hub's storefronts (K1), the
     // city's three service counters (K2), the forge's keeper, the bounty hall's
-    // keeper and the bathhouse's keeper. All five reach the handler above.
-    expect(app.match(/onRecordKeeperVisit=\{handleRecordKeeperVisit\}/g)?.length).toBe(5);
+    // keeper, the bathhouse's keeper and the academy's keeper. All six reach the handler above.
+    expect(app.match(/onRecordKeeperVisit=\{handleRecordKeeperVisit\}/g)?.length).toBe(6);
   });
 
   test('no second `seenKeepers` writer exists anywhere in the tree', () => {
