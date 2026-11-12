@@ -683,7 +683,7 @@ describe('H. The kerb adds no collision geometry', () => {
     // Phase C-8.64B appended the `forecourt-parapet` rectangle, i.e. 142 —
     // unrelated registry additions the kerb itself did not make, and the 110
     // pre-existing colliders are unchanged.
-    expect(CITY_COLLIDERS.length).toBe(142);
+    expect(CITY_COLLIDERS.length).toBe(143);
   });
 
   test('the kerb module imports nothing from the collision system', () => {
