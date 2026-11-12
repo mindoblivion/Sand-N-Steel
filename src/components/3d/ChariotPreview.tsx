@@ -1,4 +1,4 @@
-
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import { WebGLContextErrorBoundary } from '../ui/WebGLContextErrorBoundary';
