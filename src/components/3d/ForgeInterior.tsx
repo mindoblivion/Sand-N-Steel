@@ -829,7 +829,7 @@ export function ForgeInterior({ onExit, onOpenShop, onOpenTemper, onRecordKeeper
         <div className="absolute top-3 left-3 pointer-events-auto">
           <button
             type="button"
-            onClick={() => onExitRef.current()}
+            onClick={() => setTimeout(() => onExitRef.current(), 0)}
             aria-label="Return to City"
             data-forge-return
             className="min-h-[44px] min-w-[44px] px-4 rounded-2xl bg-neutral-950/85 border border-orange-600/50 text-orange-200 font-serif font-bold text-sm hover:bg-orange-500/20 flex items-center"

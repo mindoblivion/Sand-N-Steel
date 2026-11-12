@@ -798,7 +798,7 @@ export function BathhouseInterior({ onExit, onRecordKeeperVisit, startWithRumors
         <div className="absolute top-3 left-3 pointer-events-auto">
           <button
             type="button"
-            onClick={() => onExitRef.current()}
+            onClick={() => setTimeout(() => onExitRef.current(), 0)}
             aria-label="Return to City"
             data-bathhouse-return
             className="min-h-[44px] min-w-[44px] px-4 rounded-2xl bg-neutral-950/85 border border-sky-600/50 text-sky-200 font-serif font-bold text-sm hover:bg-sky-500/20 flex items-center"
