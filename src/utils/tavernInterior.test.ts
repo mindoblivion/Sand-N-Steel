@@ -37,7 +37,7 @@ describe('immersive Roman tavern scene', () => {
     expect(scene).toContain('aria-label="Talk to the tavern keeper"');
     expect(scene).toContain('aria-label="Leave tavern and return to the city"');
     expect(scene).toContain('onClick={onOpenServices}');
-    expect(scene).toContain('onClick={onExit}');
+    expect(scene).toContain('onClick={() => setTimeout(onExit, 0)}');
   });
 
   test('patron silhouettes include floor-reaching legs and both arms', () => {
