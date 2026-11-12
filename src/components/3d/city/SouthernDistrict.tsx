@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { BuildingFoundation } from './BuildingFoundation';
@@ -145,7 +145,56 @@ const Splash: React.FC<{ position: [number, number, number] }> = ({ position }) 
   );
 };
 
-export const ForumFountain: React.FC = () => {
+/**
+ * Coin arc — one gold coin tossed into the basin, fired by `tossKey` changing.
+ * A flat gold disc rides a parabola from the north rim (where the player
+ * stands, per the C-8.47 approach table) into the water, then hides.  When no
+ * toss has happened the coin is never drawn.
+ */
+const CoinArc: React.FC<{ tossKey?: number }> = ({ tossKey }) => {
+  const ref = useRef<THREE.Mesh>(null);
+  const startRef = useRef<number | null>(null);
+
+  const curve = React.useMemo(() => {
+    const s = new THREE.Vector3(0, 2.0, -1.9);
+    const e = new THREE.Vector3(0, 1.25, 0);
+    const mid = s.clone().lerp(e, 0.5);
+    mid.y += 0.9; // Arc peak
+    return new THREE.QuadraticBezierCurve3(s, mid, e);
+  }, []);
+
+  useEffect(() => {
+    if (tossKey && tossKey > 0) startRef.current = performance.now();
+  }, [tossKey]);
+
+  useFrame(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const start = startRef.current;
+    if (start === null) {
+      mesh.visible = false;
+      return;
+    }
+    const t = (performance.now() - start) / 900;
+    if (t >= 1) {
+      mesh.visible = false;
+      return;
+    }
+    mesh.visible = true;
+    const p = curve.getPoint(Math.min(Math.max(t, 0), 1));
+    mesh.position.set(p.x, p.y, p.z);
+    mesh.rotation.y += 0.2;
+  });
+
+  return (
+    <mesh ref={ref} visible={false} castShadow={false}>
+      <cylinderGeometry args={[0.09, 0.09, 0.02, 12]} />
+      <meshStandardMaterial color="#d4af37" metalness={0.9} roughness={0.25} />
+    </mesh>
+  );
+};
+
+export const ForumFountain: React.FC<{ coinTossKey?: number }> = ({ coinTossKey }) => {
   const waterRef = useRef<THREE.Mesh>(null);
 
   // Gentle ripple on the basin water surface
@@ -198,6 +247,9 @@ export const ForumFountain: React.FC = () => {
       <Splash position={[0, 1.2, 1.5]} />
       <Splash position={[0, 1.2, -1.5]} />
       <Splash position={[0, 1.7, 0]} />
+
+      {/* FOUNTAIN COIN TOSS — the tossed coin, fired by the panel's key. */}
+      <CoinArc tossKey={coinTossKey} />
 
       {/* Benches */}
       {[[4, 2], [-4, 2], [4, -2], [-4, -2]].map(([x, z], i) => (
