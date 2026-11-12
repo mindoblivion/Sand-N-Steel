@@ -984,13 +984,13 @@ const handleEnterBathhouse = useCallback(() => {
     onEnterBathhouse(true);
   }, [onEnterBathhouse]);
   
-  const handleEnterAcademy = useCallback() => {
+  const handleEnterAcademy = useCallback(() => {
     sounds.playClick();
     setAcademyPanel(false);
     onEnterAcademy(false);
   }, [onEnterAcademy]);
 
-  const handleSeeRufus = useCallback() => {
+  const handleSeeRufus = useCallback(() => {
     sounds.playClick();
     setAcademyPanel(false);
     onEnterAcademy(true);
