@@ -251,7 +251,7 @@ describe('F. Scope: the camera, and nothing else', () => {
 
   test('no collider, city mesh or movement boundary moved', () => {
     expect(CITY_COLLIDERS.filter((collider) => collider.id.startsWith('circus-'))).toHaveLength(31);
-    expect(CITY_COLLIDERS).toHaveLength(142);
+    expect(CITY_COLLIDERS).toHaveLength(143);
     for (const file of ['./collisionShapes.ts', './cityCollisions.ts']) {
       const source = load(file);
       expect(source.includes('chaseCamera')).toBe(false);
