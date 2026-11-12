@@ -120,6 +120,16 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
               {finishName}
             </span>
           </div>
+
+          {profile.activeRaceBet && (
+            <div className="border-t border-neutral-800 pt-2 mt-1 text-[11px]">
+              <span className="text-green-400 font-bold block mb-0.5">Tavern Bet Active:</span>
+              <span className="text-amber-200">
+                Wagered {profile.activeRaceBet.wagerAmount}g @ {profile.activeRaceBet.oddsMultiplier}x odds (Win: {profile.activeRaceBet.potentialPayout}g)
+              </span>
+            </div>
+          )}
+
           <div className="flex justify-between items-center border-t border-neutral-800 pt-2 mt-1">
             <span className="text-neutral-400 flex items-center gap-1.5">
               <Trophy className="w-3.5 h-3.5 text-yellow-400" />

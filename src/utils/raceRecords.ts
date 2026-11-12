@@ -1,5 +1,6 @@
 import type { ChariotTeamSize, PlayerProfile, RacingProgression } from '../types/game';
 import { creditGold } from './goldTransactions';
+import { resolveTavernBet } from './racingLeague';
 
 export const MAX_RECORDED_RACE_TIME_MS = 86_400_000;
 
@@ -104,17 +105,31 @@ export function settleRaceCompletion(
   }
   const nextGold = creditGold(best.profile.gold, purseAwarded);
   if (nextGold === null) return { ok: false, reason: 'invalid-gold-balance', profile };
+  const currentLeaguePoints = current.leaguePoints || 0;
+  const leaguePointsEarned = outcome === 'victory' ? 50 : 15;
+  const nextLeaguePoints = currentLeaguePoints + leaguePointsEarned;
+
   const nextRacing = {
     ...current,
     completed: completed + 1,
     wins: wins + (outcome === 'victory' ? 1 : 0),
     losses: losses + (outcome === 'defeat' ? 1 : 0),
     photoFinishes: photoFinishes + (outcome === 'photo-finish' ? 1 : 0),
+    leaguePoints: nextLeaguePoints,
     ...(alreadyPaidToday ? {} : { lastPurseDay: day }),
   };
+
+  // Resolve tavern bet if present
+  let finalProfile: PlayerProfile = { ...best.profile, gold: nextGold, racing: nextRacing };
+  if (finalProfile.activeRaceBet) {
+    const winningFactionId = outcome === 'victory' ? 'green_prasina' : 'red_russata';
+    const betRes = resolveTavernBet(finalProfile, winningFactionId);
+    finalProfile = betRes.profile;
+  }
+
   return {
     ok: true,
-    profile: { ...best.profile, gold: nextGold, racing: nextRacing },
+    profile: finalProfile,
     improvedBest: best.improved,
     bestTimeMs: best.bestTimeMs,
     purseAwarded,

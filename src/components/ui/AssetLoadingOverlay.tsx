@@ -3,13 +3,24 @@ import { useProgress } from '@react-three/drei';
 import { Shield, Sparkles, AlertTriangle, RefreshCw } from 'lucide-react';
 import { COLOSSEUM_LOADING_CLASS } from '../../utils/startupAssets';
 
-const LORE_TIPS = [
-  'Tempering Roman steel & forging the Gladius...',
-  'Constructing the monumental Ishtar Town Gate...',
-  'Rigging Roman Warrior skeleton & combat animations...',
-  'Preparing the Sand Arena & crowd amphitheater...',
-  'Offering tributes to the Gods for arena favor...',
-  'Tuning weapon physics and deflection hitboxes...',
+interface LoreTip {
+  category: 'Lore' | 'Combat Tip' | 'Arena Wisdom' | 'Historical Note';
+  text: string;
+}
+
+const LORE_TIPS: LoreTip[] = [
+  { category: 'Lore', text: 'Tempering Roman steel in the subterranean forges of the Ludus produces blades capable of cleaving heavy wooden shields.' },
+  { category: 'Combat Tip', text: 'Heavy power attacks deal devastating damage but consume significant stamina. Watch your breathing.' },
+  { category: 'Arena Wisdom', text: 'The crowd\'s hype fuels your momentum and increases prize purses. Play to the amphitheater when you have the upper hand.' },
+  { category: 'Historical Note', text: 'The Retiarius relies on agility and weighted nets to entangle heavy opponents, compensating for a lack of armor.' },
+  { category: 'Lore', text: 'The monumental Ishtar Town Gate marks the boundary between the bustling Metropolis and the sacred training grounds.' },
+  { category: 'Combat Tip', text: 'Perfect blocks parry incoming blows and preserve stamina, turning defense into an instant counter-attack opportunity.' },
+  { category: 'Arena Wisdom', text: 'If the crowd turns cold, your fame gains diminish. Keep the pressure high and strike with precision.' },
+  { category: 'Historical Note', text: 'Murmillo gladiators wear distinct helmet crests reminiscent of a fish (mormyr) and carry large scutum shields.' },
+  { category: 'Lore', text: 'Offerings at the Shrine of Fortuna before entering the Colosseum can alter your combat fortune in mysterious ways.' },
+  { category: 'Combat Tip', text: 'Managing body weight is crucial: lighter gladiators strike swiftly, while heavier brawlers absorb tremendous blunt trauma.' },
+  { category: 'Arena Wisdom', text: 'Watch your opponent\'s wind-up stance. Anticipating a heavy strike allows you to dodge or shield in time.' },
+  { category: 'Historical Note', text: 'Dimachaeri fight with two swords simultaneously, blinding opponents with lightning-fast dual strikes.' },
 ];
 
 function reload(): void {
@@ -22,7 +33,7 @@ function reload(): void {
 
 export const AssetLoadingOverlay: React.FC = () => {
   const { active, progress, item, loaded, total, errors } = useProgress();
-  const [tipIndex, setTipIndex] = useState(0);
+  const [tipIndex, setTipIndex] = useState(() => Math.floor(Math.random() * LORE_TIPS.length));
   const [recoveryAvailable, setRecoveryAvailable] = useState(false);
   const [dismissedForRecovery, setDismissedForRecovery] = useState(false);
   useEffect(() => {
@@ -37,7 +48,7 @@ export const AssetLoadingOverlay: React.FC = () => {
     const recoveryTimer = setTimeout(() => setRecoveryAvailable(true), 30000);
     const interval = setInterval(() => {
       setTipIndex((prev) => (prev + 1) % LORE_TIPS.length);
-    }, 2400);
+    }, 3200);
     return () => {
       clearTimeout(recoveryTimer);
       clearInterval(interval);
@@ -45,7 +56,23 @@ export const AssetLoadingOverlay: React.FC = () => {
   }, [active]);
 
   const hasErrors = errors && errors.length > 0;
-  if (!active && progress === 100 && !hasErrors) return null;
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [shouldRender, setShouldRender] = useState(true);
+
+  useEffect(() => {
+    if (!active && (progress >= 99 || progress === 100) && !hasErrors) {
+      setAssetsLoaded(true);
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+      }, 700);
+      return () => clearTimeout(timer);
+    } else {
+      setAssetsLoaded(false);
+      setShouldRender(true);
+    }
+  }, [active, progress, hasErrors]);
+
+  if (!shouldRender && !hasErrors) return null;
 
   const roundedPct = Math.min(100, Math.max(0, Math.round(progress)));
   const cleanItemName = item
@@ -53,12 +80,35 @@ export const AssetLoadingOverlay: React.FC = () => {
     : 'Gladiator 3D Environment';
   const knowsCount = total > 0;
 
+  const getDescriptiveLabel = (url: string | undefined): string => {
+    if (!url) return 'Preparing Roman Metropolis';
+    const lower = url.toLowerCase();
+    if (lower.includes('arena') || lower.includes('colosseum') || lower.includes('circus') || lower.includes('city')) {
+      return 'Loading 3D Arenas & Architecture';
+    }
+    if (lower.includes('weapon') || lower.includes('armor') || lower.includes('chariot') || lower.includes('shield')) {
+      return 'Equipping Armory & Equipment';
+    }
+    if (lower.includes('texture') || lower.includes('img') || lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.webp')) {
+      return 'Pre-caching Textures & Surfaces';
+    }
+    if (lower.endsWith('.ogg') || lower.endsWith('.mp3') || lower.includes('audio')) {
+      return 'Tuning Acoustic Ambience';
+    }
+    if (lower.endsWith('.glb') || lower.endsWith('.gltf')) {
+      return 'Rigging Gladiator 3D Models';
+    }
+    return 'Loading Game Assets';
+  };
+
+  const descriptiveLabel = getDescriptiveLabel(item);
+
   if (dismissedForRecovery) return null;
 
   return (
     <div
       data-asset-loading-overlay="true"
-      className={`fixed inset-0 z-50 ${COLOSSEUM_LOADING_CLASS} flex flex-col items-center justify-center text-amber-100 select-none transition-opacity duration-500 pointer-events-auto ${active || hasErrors ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      className={`fixed inset-0 z-50 ${COLOSSEUM_LOADING_CLASS} flex flex-col items-center justify-center text-amber-100 select-none transition-opacity duration-700 ease-out pointer-events-auto ${assetsLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
     >
       <div className="absolute inset-0 bg-black/40 pointer-events-none" />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -75,7 +125,7 @@ export const AssetLoadingOverlay: React.FC = () => {
           )}
         </div>
         <h2 className="mt-5 font-serif font-black text-lg sm:text-xl text-amber-200 uppercase tracking-widest flex items-center gap-1.5 drop-shadow-md">
-          <span>{hasErrors ? 'Asset Download Failed' : 'Entering The Arena'}</span>
+          <span>{hasErrors ? 'Asset Download Failed' : descriptiveLabel}</span>
           {!hasErrors && <Sparkles className="w-4 h-4 text-yellow-400 animate-pulse" />}
         </h2>
         {hasErrors ? (
@@ -96,11 +146,16 @@ export const AssetLoadingOverlay: React.FC = () => {
         ) : (
           <>
             <p className="mt-3 text-[11px] font-mono text-amber-100/85 truncate max-w-[280px]">
-              {total > 0 ? `Loading asset (${loaded}/${total}): ${cleanItemName}` : cleanItemName}
+              {total > 0 ? `Loading (${loaded}/${total}): ${cleanItemName}` : cleanItemName}
             </p>
-            <p className="mt-4 text-xs text-neutral-200/90 italic min-h-[36px] flex items-center justify-center">
-              “{LORE_TIPS[tipIndex]}”
-            </p>
+            <div className="mt-4 flex flex-col items-center gap-1.5 min-h-[50px] justify-center">
+              <span className="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded-md bg-amber-950/80 border border-amber-600/50 text-amber-300 font-bold">
+                {LORE_TIPS[tipIndex].category}
+              </span>
+              <p className="text-xs text-neutral-200/90 italic leading-relaxed">
+                “{LORE_TIPS[tipIndex].text}”
+              </p>
+            </div>
           </>
         )}
       </div>

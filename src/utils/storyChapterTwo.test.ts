@@ -455,7 +455,9 @@ describe('§G no new profile field', () => {
     // `records`.  PITCH A4 REBASE: `identity` joined it before `ludi`; Chapter 2 still
     // added no chapter/beat/race field.
     // FOUNTAIN COIN TOSS REBASE: `luck` joined it between `ludi` and `records`.
-    expect(fields.length).toBe(26);
+    // ARENA HAZARDS / CHARIOT TUNING REBASE: `racingTuning` and `activeRaceBet`
+    // after `racing`, `trainees` after `facilities`, so it is 29.
+    expect(fields.length).toBe(29);
     expect(fields.slice(-2)).toEqual(['luck', 'records']);
     // Nothing race-, beat- or chapter-shaped was added by this slice.
     for (const forbidden of ['chapter', 'beat', 'beatThree', 'raceResults', 'omenTaken']) {

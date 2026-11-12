@@ -19,7 +19,7 @@ import {
 } from '../../utils/storyBeats';
 import { CoachCard } from '../ui/CoachCard';
 import { HUB_FIRST_OPEN_CARD_ID, getCoachCard, hasSeenCard } from '../../utils/coachMarks';
-import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings } from 'lucide-react';
+import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings, Users } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { resolveDisplayClock } from '../../utils/dayRollover';
 // PITCH A1 — the omen line the pre-fight card prints, read lazily from the save.
@@ -34,12 +34,13 @@ const ShopTab = React.lazy(() => import('./ShopTab').then((module) => ({ default
 const GearTab = React.lazy(() => import('./GearTab').then((module) => ({ default: module.GearTab })));
 const StatsTab = React.lazy(() => import('./StatsTab').then((module) => ({ default: module.StatsTab })));
 const LibraryTab = React.lazy(() => import('./LibraryTab').then((module) => ({ default: module.LibraryTab })));
+const TraineeManagementPanel = React.lazy(() => import('./TraineeManagementPanel').then((module) => ({ default: module.TraineeManagementPanel })));
 const HelpModal = React.lazy(() => import('./HelpModal').then((module) => ({ default: module.HelpModal })));
 
 interface GladiatorSchoolHubProps {
   playerProfile: PlayerProfile;
-  activeTab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library';
-  onTabChange: (tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library') => void;
+  activeTab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library' | 'trainees';
+  onTabChange: (tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library' | 'trainees') => void;
   /**
    * ACADEMY-INTERIOR — which page the Records & Lore rack is showing. App owns
    * it now: the rack has three doors (the tab, the character sheet's "View
@@ -48,6 +49,7 @@ interface GladiatorSchoolHubProps {
    */
     libraryPage: LibraryPageId;
     onLibraryPageChange: (page: LibraryPageId) => void;
+  onUpdateProfile: (profile: PlayerProfile) => void;
   onEnterCity3D: () => void;
   /** C-8.70C — carries the bout mode chosen on the pre-fight card (Sand if omitted). */
   onSelectOpponent: (opp: OpponentConfig, mode?: BoutMode) => void;
@@ -134,6 +136,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   playerProfile,
   activeTab,
   onTabChange,
+  onUpdateProfile,
   onEnterCity3D,
   onSelectOpponent,
   onTrainStat,
@@ -320,6 +323,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           { key: 'gear', label: 'Armory', icon: Layers },
           { key: 'stats', label: 'Gladiator Stats', icon: BarChart2 },
           { key: 'library', label: 'Records & Lore', icon: BookOpen },
+          { key: 'trainees', label: 'Trainee Barracks', icon: Users },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -331,7 +335,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
                 // A8 — the rack's own tab opens it on page one; only the character
                 // sheet's door asks for the Triumphs page.
                 if (tab.key === 'library') onLibraryPageChange('road');
-                onTabChange(tab.key as 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library');
+                onTabChange(tab.key as any);
               }}
               className={`min-h-[48px] py-2 px-3 sm:px-4 rounded-xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                 isActive
@@ -396,6 +400,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onTemperItem={onTemperItem}
             onBuyStableQuality={onBuyStableQuality}
             onBuyStableConditioning={onBuyStableConditioning}
+            onUpdateProfile={onUpdateProfile}
           />
         )}
         {activeTab === 'stats' && (
@@ -418,6 +423,13 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onViewTriumphs={onViewTriumphs}
             onSelectTitle={onSelectTitle}
             onViewCodex={onViewCodex}
+          />
+        )}
+        {activeTab === 'trainees' && (
+          <TraineeManagementPanel
+            profile={playerProfile}
+            onUpdateProfile={onUpdateProfile}
+            onToast={(msg) => onHeraldCry?.(msg)}
           />
         )}
         </React.Suspense>
