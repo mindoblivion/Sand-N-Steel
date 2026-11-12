@@ -249,7 +249,7 @@ describe('C. The start line', () => {
       expect(Object.keys(collider).sort()).not.toContain('y');
     }
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('circus-')).length).toBe(31);
-    expect(CITY_COLLIDERS).toHaveLength(142);
+    expect(CITY_COLLIDERS).toHaveLength(143);
   });
 
   test('CONTROL: the pose is not the city’s own spawn', () => {
