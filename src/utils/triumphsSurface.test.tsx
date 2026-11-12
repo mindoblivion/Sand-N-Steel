@@ -229,10 +229,12 @@ describe('P2 §E — the wiring, from the shipped sources', () => {
     expect(libraryTab).toContain('<TriumphsPage');
 
     // The hub's own tab row is untouched: no Triumphs tab key anywhere in it.
+    // ARENA HAZARDS / CHARIOT TUNING REBASE (d503c56): the trainee-management
+    // tab joined the row last, so the pinned list is seven long now.
     const hub = code('components/hub/GladiatorSchoolHub.tsx');
     expect(hub).not.toMatch(/key: 'triumphs'/);
     const tabKeys = [...hub.matchAll(/\{ key: '([a-z_]+)', label:/g)].map((match) => match[1]);
-    expect(tabKeys).toEqual(['tournament', 'training', 'shop', 'gear', 'stats', 'library']);
+    expect(tabKeys).toEqual(['tournament', 'training', 'shop', 'gear', 'stats', 'library', 'trainees']);
   });
 
   test('App’s handler is the one write: the pure transaction, then the save pair', () => {

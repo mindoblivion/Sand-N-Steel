@@ -774,6 +774,10 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     'isLeftyMode',
     'chariot',
     'racing',
+    // ARENA HAZARDS / CHARIOT TUNING (d503c56) — the racing-era tuning state
+    // and the tavern's active wager, declared after `racing`.
+    'racingTuning',
+    'activeRaceBet',
     'story',
     'temper',
     'road',
@@ -785,6 +789,9 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     'intel',
     'stable',
     'facilities',
+    // ARENA HAZARDS / CHARIOT TUNING (d503c56) — the ludus trainees, declared
+    // after `facilities`.
+    'trainees',
     'armatura',
     'palmae',
     'grudges',
@@ -812,7 +819,9 @@ describe('PITCH A1 §I — the extended optional list, and the rule still fails 
     expect(optional).toEqual(EXPECTED);
     // PITCH A4 REBASE: the Corpus et Origo `identity` field is the newest member.
     // FOUNTAIN COIN TOSS REBASE: Fortuna's favour `luck` is the newest member.
-    expect(optional.length).toBe(26);
+    // ARENA HAZARDS / CHARIOT TUNING REBASE: `racingTuning`, `activeRaceBet`
+    // and `trainees` joined it, so it is 29 and `records` still closes it.
+    expect(optional.length).toBe(29);
   });
 
   test('the rule still fails on a field nobody accounted for', () => {

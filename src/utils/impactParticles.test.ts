@@ -538,13 +538,17 @@ describe('CF-4 §F the update path allocates nothing', () => {
 describe('CF-4 §G the duel call sites', () => {
   const duel = read('components/duel/DuelScene.tsx');
 
-  test('exactly four bursts: the three outcomes plus CF-6’s boss counter dust', () => {
+  test('exactly five bursts: the three outcomes, CF-6’s boss counter dust, and the hazards spark', () => {
     // REBASED (not weakened) by CF-6: the boss moment layer adds ONE call site —
     // Valéria's counter-dodge kicks up sand at her own position — so the four
     // calls are spark 1, crit 1, and sand 2 (one outcome, one boss-gated). The
     // outcome trio is still exactly one call per outcome, asserted below.
-    expect(duel.match(/impactParticlesRef\.current\?\.burst\(/g)?.length).toBe(4);
-    expect(duel.match(/\.burst\('spark'/g)?.length).toBe(1);
+    // ARENA HAZARDS REBASE (d503c56), not weakened: a power attack that triggers
+    // an arena hazard adds ONE more call site — a spark burst at the defender's
+    // position (+1.2 height), beside the hazard's damage text and log line — so
+    // the five calls are spark 2, crit 1, and sand 2.
+    expect(duel.match(/impactParticlesRef\.current\?\.burst\(/g)?.length).toBe(5);
+    expect(duel.match(/\.burst\('spark'/g)?.length).toBe(2);
     expect(duel.match(/\.burst\('sand'/g)?.length).toBe(2);
     expect(duel.match(/\.burst\('crit'/g)?.length).toBe(1);
     // The fourth is the boss's, and it is behind CF-6's gate.
@@ -663,10 +667,11 @@ describe('CF-4 §H combat outcomes and timing are unchanged', () => {
   });
 
   test('each call is a fire-and-forget statement, never assigned or awaited', () => {
-    // Four call sites since CF-6 (the boss counter-dodge dust is the fourth);
-    // every one still a bare statement.
+    // Five call sites since the hazards rebase (the boss counter-dodge dust is
+    // the fourth, the arena-hazard spark the fifth); every one still a bare
+    // statement.
     const calls = duel.match(/[^\n]*impactParticlesRef\.current\?\.burst\([^\n]*/g) ?? [];
-    expect(calls.length).toBe(4);
+    expect(calls.length).toBe(5);
     for (const line of calls) {
       expect(line.trim().startsWith('impactParticlesRef.current?.burst(')).toBe(true);
       expect(line).not.toContain('await');
@@ -675,8 +680,9 @@ describe('CF-4 §H combat outcomes and timing are unchanged', () => {
   });
 
   test('the wiring touches no combat state, timer or calculation', () => {
-    // Declaration + the ref prop + the four call sites (CF-6 added the boss
-    // counter-dodge's): nothing else.
-    expect((duel.match(/impactParticlesRef/g) ?? []).length).toBe(6);
+    // Declaration + the ref prop + the five call sites (CF-6 added the boss
+    // counter-dodge's; the hazards rebase added the arena-hazard spark):
+    // nothing else.
+    expect((duel.match(/impactParticlesRef/g) ?? []).length).toBe(7);
   });
 });

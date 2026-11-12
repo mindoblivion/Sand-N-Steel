@@ -27,7 +27,7 @@ describe('immersive Roman tavern scene', () => {
     expect(app).toContain("{currentScreen === 'city_3d' && bathhouseOpen && (")
     expect(app).toContain('{currentScreen === \'city_3d\' && tavernOpen && (');
     expect(app).toContain('movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen || bathhouseOpen}');
-    expect(app).toContain('<TavernInterior onExit={() => setTavernOpen(false)}');
+    expect(app).toContain('<TavernInterior\n              onExit={() => setTavernOpen(false)}');
     expect(city).toContain("onEnterTavern(() => {");
   });
 

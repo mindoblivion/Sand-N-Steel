@@ -491,7 +491,10 @@ describe('STORY-4b §G — no new profile field', () => {
     // field joined it between `spared` and `ludi` — still no BOUNTY field.
     // FOUNTAIN COIN TOSS REBASE: Fortuna's favour `luck` joined it between `ludi`
     // and `records` — still no BOUNTY field.
-    expect(optional.length).toBe(26);
+    // ARENA HAZARDS / CHARIOT TUNING REBASE: `racingTuning` and `activeRaceBet`
+    // after `racing`, `trainees` after `facilities`, so it is 29 — still no
+    // BOUNTY field.
+    expect(optional.length).toBe(29);
     expect(optional[optional.length - 1]).toBe('records');
     expect(optional[optional.length - 2]).toBe('luck');
     expect(optional.some((name) => /bounty|deserter/i.test(name))).toBe(false);
