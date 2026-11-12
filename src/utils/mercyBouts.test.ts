@@ -182,7 +182,10 @@ describe('STORY-4a §A — `spared` is one lazy optional map and nothing else', 
     // the Corpus et Origo `identity` field joined the set between them, so the tail
     // this pins is four long.  FOUNTAIN COIN TOSS REBASE: `luck` joined it between
     // `ludi` and `records`, so the tail this pins is five long.
-    expect(optional.length).toBe(26);
+    // ARENA HAZARDS / CHARIOT TUNING REBASE: `racingTuning` and `activeRaceBet`
+    // after `racing`, `trainees` after `facilities`, so the set is 29 and the
+    // tail this pins is still five long.
+    expect(optional.length).toBe(29);
     expect(optional.slice(-5)).toEqual(['spared', 'identity', 'ludi', 'luck', 'records']);
   });
 });
