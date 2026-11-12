@@ -770,7 +770,7 @@ export function App() {
     // owns the screen there is nothing to sequence, so the greeting is owed at the first
     // entry the player actually walks into (see `handleOathComplete`).
     openFirstSixty(arrivalProfile, presented);
-    setCurrentScreen('city_3d');
+    setTimeout(() => setCurrentScreen('city_3d'), 0);
   };
 
   const handleContinueAdventure = () => {
@@ -965,7 +965,7 @@ export function App() {
     sounds.playClick();
     // FIRST SIXTY SECONDS — a bout is walking off: §5 shuts up for the session.
     noticeCityFlowExit('duel');
-    setCurrentScreen('duel');
+    setTimeout(() => setCurrentScreen('duel'), 0);
   };
 
   /**
@@ -1042,7 +1042,7 @@ export function App() {
     setCityReturnPose(pose);
     // FIRST SIXTY SECONDS — the Circus is walking off too: §5 shuts up for the session.
     noticeCityFlowExit('race');
-    setCurrentScreen('race');
+    setTimeout(() => setCurrentScreen('race'), 0);
   };
 
   /**
@@ -1091,7 +1091,7 @@ export function App() {
     if (tab === 'shop') setShopId(shopStorefront ?? 'market');
     // FIRST SIXTY SECONDS — a hub panel is walking off: §5 shuts up for the session.
     noticeCityFlowExit('hub_2d');
-    setCurrentScreen('hub_2d');
+    setTimeout(() => setCurrentScreen('hub_2d'), 0);
   };
 
   /**
@@ -2226,7 +2226,7 @@ export function App() {
           <React.Suspense fallback={<WaitSurface destination="character_creation" rotate={false} />}>
             <CharacterCreation
             onComplete={handleCharacterCreated}
-            onCancel={() => { setCharacterCreationTransitioning(false); setCurrentScreen('title'); }}
+            onCancel={() => { setCharacterCreationTransitioning(false); setTimeout(() => setCurrentScreen('title'), 0); }}
             onReady={() => setCharacterCreationTransitioning(false)}
             onPreviewError={() => setCharacterCreationTransitioning(false)}
             onGoogleSignIn={handleGoogleSignIn}
@@ -2257,7 +2257,7 @@ export function App() {
             onEnterForge={() => setForgeOpen(true)}
               onEnterBountyHall={(openServices) => { setBountyHallServices(() => openServices); setBountyHallOpen(true); }}                  
               onEnterBathhouse={(startWithRumors) => { setBathhouseRumors(startWithRumors); setBathhouseOpen(true); }}
-            onReturnToMainMenu={() => setCurrentScreen('title')}
+            onReturnToMainMenu={() => setTimeout(() => setCurrentScreen('title'), 0)}
             isLeftyMode={isLeftyMode}
             onOpenSettings={() => handleOpenSettings()}
             initialPosition={oathBeatMode ? OATH_YARD_SPAWN.position : cityReturnPose?.position}
