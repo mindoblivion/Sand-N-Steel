@@ -987,10 +987,11 @@ describe('C-8.62 §I — what did not move', () => {
   test('no collider, hub or movement constant is touched by a mesh correction', () => {
     // 110 stood until Phase C-8.64A appended its 31 `circus-*` perimeter
     // segments (141); Phase C-8.64B appended the one `forecourt-parapet`
-    // rectangle (142 colliders, 32 rectangles).  The 46 `colo-*` ids and the
+    // rectangle (142 colliders, 32 rectangles) — plus the FOUNTAIN COIN TOSS's
+    // `forum` rect (143 colliders, 33 rectangles).  The 46 `colo-*` ids and the
     // movement constants are this phase's own scope guard and are unchanged.
-    expect(CITY_COLLIDERS.length).toBe(142);
-    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(32);
+    expect(CITY_COLLIDERS.length).toBe(143);
+    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(33);
     expect(PLAYER_RADIUS).toBe(0.4);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-')).length).toBe(46);
   });
