@@ -19,7 +19,8 @@ import { TrainingYard } from './TrainingYard';
 import { CityTavern } from './CityTavern';
 import { ColosseumDoorPanel } from './ColosseumDoorPanel';
 import { ForgeDoorPanel } from './ForgeDoorPanel';
-import { BountyHallDoorPanel } from './BountyHallDoorPanel';
+import { BountyHallDoorPanel } from './BountyHallDoorPanel'; 
+  import { BathhouseDoorPanel } from './BathhouseDoorPanel';
 import { GeneralStore } from './GeneralStore';
 import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
@@ -257,6 +258,8 @@ interface CityHubSceneProps {
   onEnterForge: () => void;
     // BOUNTY-HALL-INTERIOR — open the enterable bounty hall overlay (TavernInterior pattern).
   onEnterBountyHall: (openServices: () => void) => void;
+  // BATHHOUSE-INTERIOR — open the enterable bathhouse overlay (TavernInterior pattern).
+  onEnterBathhouse: (startWithRumors: boolean) => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -430,6 +433,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     onEnterColosseum,
   onEnterForge,
   onEnterBountyHall,
+  onEnterBathhouse,
   onEnterDuel,
   onOpenDriveSync,
   onToggleMute,
@@ -547,6 +551,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const [colosseumPanel, setColosseumPanel] = useState(false);
   const [forgePanel, setForgePanel] = useState(false);
   const [bountyHallPanel, setBountyHallPanel] = useState(false);
+  const [bathhousePanel, setBathhousePanel] = useState(false);
   // Living City L11/L12 — visitor panel; all profile writes remain in App.
   const [visitorPanel, setVisitorPanel] = useState(false);
   // PITCH A1 — the Shrine of Fortuna's omen panel, and the one line announcing
@@ -744,7 +749,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   useLayoutEffect(() => {
     const panelLocked = Boolean(
       treatmentPanel || intelPanel || shrinePanel || bountyPanel || fountainPanel || legendPanel ||
-      visitorPanel || colosseumPanel || forgePanel || bountyHallPanel || showRaceEntry || showNavDrawer
+      visitorPanel || colosseumPanel || forgePanel || bountyHallPanel || bathhousePanel || showRaceEntry || showNavDrawer
     );
     cityPanelInputLockedRef.current = panelLocked;
     if (panelLocked) {
@@ -756,7 +761,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     inputLockedRef.current = !!movementLocked;
   }, [
     movementLocked, treatmentPanel, intelPanel, shrinePanel, bountyPanel, fountainPanel,
-    legendPanel, visitorPanel, colosseumPanel, forgePanel, bountyHallPanel, showRaceEntry, showNavDrawer,
+    legendPanel, visitorPanel, colosseumPanel, forgePanel, bountyHallPanel, bathhousePanel, showRaceEntry, showNavDrawer,
   ]);
 
   // Interact with nearby landmark or update ambient audio
@@ -858,7 +863,14 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       setOmenResult(null);
       setShrinePanel(true);
     } else if (nearbyLoc.id === 'smithing_forge') {
+
       setForgePanel(true);
+    } else if (nearbyLoc.id === 'bathhouse') { 
+      // BATHHOUSE-INTERIOR — the thermae's door opens the door panel (Enter the
+      // Baths / Hear the Steam) rather than the interior directly. No keeper
+      // greeting is primed: Straton is not in SERVICE_BUILDING_KEEPERS, and the
+      // interior reads him by id.
+      setBathhousePanel(true);
     } else if (nearbyLoc.tabKey) {
       onOpenTab(nearbyLoc.tabKey, nearbyLoc.subTab, nearbyLoc.shopId);
     } else {
@@ -950,7 +962,19 @@ const handleForgeShop = useCallback(() => {
     setBountyPanel(true);
   }, []);
 
-const handleEnterArena = useCallback(() => {
+const handleEnterBathhouse = useCallback(() => {
+  sounds.playClick();
+    setBathhousePanel(false);
+    onEnterBathhouse(false);
+  }, [onEnterBathhouse]);
+  
+  const handleHearSteam = useCallback(() => {
+  sounds.playClick();
+    setBathhousePanel(false);
+    onEnterBathhouse(true);
+  }, [onEnterBathhouse]);
+  
+  const handleEnterArena = useCallback(() => {
           sounds.playClick();
           setColosseumPanel(false);
           onEnterColosseum();
@@ -1143,6 +1167,10 @@ const handleEnterArena = useCallback(() => {
           if (code === 'Escape' || key === 'escape') setBountyHallPanel(false);
         return;
       }
+      if (bathhousePanel) { 
+        if (code === 'Escape' || key === 'escape') setBathhousePanel(false);
+      return;
+                          }
       if (showRaceEntry) {
         if (code === 'Escape' || key === 'escape') setShowRaceEntry(false);
         return;
@@ -1181,7 +1209,7 @@ const handleEnterArena = useCallback(() => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, colosseumPanel, visitorPanel, forgePanel, showRaceEntry, showNavDrawer, bountyHallPanel]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, colosseumPanel, visitorPanel, forgePanel, showRaceEntry, showNavDrawer, bountyHallPanel, bathhousePanel]);
 
         // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
@@ -2450,7 +2478,14 @@ const handleEnterArena = useCallback(() => {
       onClose={() => setBountyHallPanel(false)}
       />
     )}
-{colosseumPanel && (
+{bathhousePanel && (
+  <BathhouseDoorPanel
+        onEnterBathhouse={handleEnterBathhouse}
+        onHearSteam={handleHearSteam}
+        onClose={() => setBathhousePanel(false)}
+      />
+      )}
+      {colosseumPanel && (
               <ColosseumDoorPanel
                           onEnterArena={handleEnterArena}
                           onFight={handleColosseumFight}
