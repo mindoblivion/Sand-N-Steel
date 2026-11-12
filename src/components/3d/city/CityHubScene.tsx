@@ -19,6 +19,7 @@ import { TrainingYard } from './TrainingYard';
 import { CityTavern } from './CityTavern';
 import { ColosseumDoorPanel } from './ColosseumDoorPanel';
 import { ForgeDoorPanel } from './ForgeDoorPanel';
+import { BountyHallDoorPanel } from './BountyHallDoorPanel';
 import { GeneralStore } from './GeneralStore';
 import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
@@ -243,6 +244,8 @@ interface CityHubSceneProps {
     // COLOSSEUM-INTERIOR — open the enterable arena overlay.
     onEnterColosseum: () => void;
   onEnterForge: () => void;
+    // BOUNTY-HALL-INTERIOR — open the enterable bounty hall overlay (TavernInterior pattern).
+  onEnterBountyHall: (openServices: () => void) => void;
   onEnterDuel: (opponent: OpponentConfig) => void;
   onOpenDriveSync: () => void;
   onToggleMute: () => void;
@@ -409,6 +412,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onEnterTavern,
     onEnterColosseum,
   onEnterForge,
+  onEnterBountyHall,
   onEnterDuel,
   onOpenDriveSync,
   onToggleMute,
@@ -524,6 +528,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const [intelPanel, setIntelPanel] = useState(false);
   const [colosseumPanel, setColosseumPanel] = useState(false);
   const [forgePanel, setForgePanel] = useState(false);
+  const [bountyHallPanel, setBountyHallPanel] = useState(false);
   // Living City L11/L12 — visitor panel; all profile writes remain in App.
   const [visitorPanel, setVisitorPanel] = useState(false);
   // PITCH A1 — the Shrine of Fortuna's omen panel, and the one line announcing
@@ -715,7 +720,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   useLayoutEffect(() => {
     const panelLocked = Boolean(
       treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel ||
-      visitorPanel || colosseumPanel || forgePanel || showRaceEntry || showNavDrawer
+      visitorPanel || colosseumPanel || forgePanel || bountyHallPanel || showRaceEntry || showNavDrawer
     );
     cityPanelInputLockedRef.current = panelLocked;
     if (panelLocked) {
@@ -727,7 +732,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     inputLockedRef.current = !!movementLocked;
   }, [
     movementLocked, treatmentPanel, intelPanel, shrinePanel, bountyPanel,
-    legendPanel, visitorPanel, colosseumPanel, forgePanel, showRaceEntry, showNavDrawer,
+    legendPanel, visitorPanel, colosseumPanel, forgePanel, bountyHallPanel, showRaceEntry, showNavDrawer,
   ]);
 
   // Interact with nearby landmark or update ambient audio
@@ -790,12 +795,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // returns control to the city unchanged.
       setShowRaceEntry(true);
     } else if (nearbyLoc.id === 'bounty_hall') {
-      // STORY-4b — the hall's door opens the Bounty BOARD rather than routing to
-      // the tournament tab (its old flavour-only `tabKey`). K3-BOARDS — Scribonia
-      // keeps this counter, so her greeting freezes here, exactly as the tavern's
-      // and the shrine's do; the panel records the visit through the same relay.
-      primeKeeperGreeting('bounty_hall');
-      setBountyPanel(true);
+      // BOUNTY-HALL-INTERIOR — the hall's door opens the door panel (Enter the
+      // Hall / View the Board) rather than the board directly; the board itself
+      // still opens from the panel or from inside the hall. The keeper greeting
+      // freezes when the board opens, exactly as the tavern's does.
+      setBountyHallPanel(true);
     } else if (nearbyLoc.tabKey === 'tournament') {
       setColosseumPanel(true);
     } else if (nearbyLoc.id === 'tavern') {
@@ -903,6 +907,19 @@ const handleForgeShop = useCallback(() => {
     setForgePanel(false);
     onOpenTab('shop', undefined, 'forge');
 }, [onOpenTab]);
+  
+  const handleEnterBountyHall = useCallback(() => {
+        sounds.playClick();
+    setBountyHallPanel(false);
+    onEnterBountyHall(() => { primeKeeperGreeting('bounty_hall'); setBountyPanel(true); });
+  }, [onEnterBountyHall]);
+  
+  const handleViewBountyBoard = useCallback(() => {
+        sounds.playClick();
+    setBountyHallPanel(false);
+    primeKeeperGreeting('bounty_hall');
+    setBountyPanel(true);
+  }, []);
 
 const handleEnterArena = useCallback(() => {
           sounds.playClick();
@@ -1071,6 +1088,10 @@ const handleEnterArena = useCallback(() => {
       // presented city panels: Escape closes them; movement and action keys stop here.
       if (forgePanel) {
         if (code === 'Escape' || key === 'escape') setForgePanel(false);
+        return;
+      }
+      if (bountyHallPanel) {
+          if (code === 'Escape' || key === 'escape') setBountyHallPanel(false);
         return;
       }
       if (showRaceEntry) {
@@ -2364,6 +2385,13 @@ const handleEnterArena = useCallback(() => {
         onClose={() => setForgePanel(false)}
     />
 )}
+            {bountyHallPanel && (
+    <BountyHallDoorPanel
+      onEnterHall={handleEnterBountyHall}
+      onViewBoard={handleViewBountyBoard}
+      onClose={() => setBountyHallPanel(false)}
+      />
+    )}
 {colosseumPanel && (
               <ColosseumDoorPanel
                           onEnterArena={handleEnterArena}
