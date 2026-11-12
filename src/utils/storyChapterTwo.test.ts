@@ -454,8 +454,9 @@ describe('§G no new profile field', () => {
     // LUDI PHASE A REBASE: the calendar's `ludi` joined the set between `spared` and
     // `records`.  PITCH A4 REBASE: `identity` joined it before `ludi`; Chapter 2 still
     // added no chapter/beat/race field.
-    expect(fields.length).toBe(25);
-    expect(fields.slice(-2)).toEqual(['ludi', 'records']);
+    // FOUNTAIN COIN TOSS REBASE: `luck` joined it between `ludi` and `records`.
+    expect(fields.length).toBe(26);
+    expect(fields.slice(-2)).toEqual(['luck', 'records']);
     // Nothing race-, beat- or chapter-shaped was added by this slice.
     for (const forbidden of ['chapter', 'beat', 'beatThree', 'raceResults', 'omenTaken']) {
       expect(fields).not.toContain(forbidden);
