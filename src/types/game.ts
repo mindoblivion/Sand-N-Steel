@@ -1045,6 +1045,18 @@ export interface OmenState {
 }
 
 /**
+ * FOUNTAIN COIN TOSS — the Luck boost's published field shape, a LAZY optional
+ * object on `PlayerProfile`: absent = no boost.  `boostUntil` is the phase total
+ * (`resolveTimeState(profile).total`) at the next dawn, so the boost is live
+ * while the clock's total is below it and expires exactly at dawn.  Luck has no
+ * base value and no consumer yet — this slice introduces the hidden attribute
+ * (vision doc: "hidden Luck & Happiness") as live state plus its panel display.
+ */
+export interface LuckState {
+  boostUntil: number;
+}
+
+/**
  * LUDI PHASE A — THE LUDI CALENDAR's one lazy field: the whole day-state of the Acta in a
  * single object. `day` is the EXERTION DAY (`resolveTimeState(profile).day`) the state
  * belongs to, so the calendar never reads a wall clock; `deedsDone` holds the ids paid
@@ -1334,6 +1346,15 @@ export interface PlayerProfile {
    * by a migration.
    */
   ludi?: LudiProgress;
+  /**
+   * FOUNTAIN COIN TOSS — Fortuna's favour, bought at the forum fountain for 1
+   * gold: +10% Luck until the next dawn (`LuckState.boostUntil`).  A LAZY
+   * optional object exactly like `omen`: absent/malformed reads as no boost,
+   * never repaired.  Written ONLY by `tossCoin` — never by `createNewProfile()`
+   * and never by a migration.  Declared between `ludi` and `records` so
+   * `records` stays the LAST optional member (§J).
+   */
+  luck?: LuckState;
   records?: {
     earnedTriumphs?: string[];
     viewedTriumphs?: string[];
