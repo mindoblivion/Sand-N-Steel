@@ -244,15 +244,15 @@ describe('K3-SHRINE §D the visit records through App’s one write path', () =>
     expect(JSON.stringify(before)).toBe(snapshot); // the caller's profile was not mutated
   });
 
-  test('App keeps the single seenKeepers write, and relays it to the same four screens', () => {
+  test('App keeps the single seenKeepers write, and relays it to the same five screens', () => {
     const app = code(APP);
     expect(app.match(/recordKeeperVisit\(profile, /g)?.length).toBe(1);
     expect(app).toContain('const handleRecordKeeperVisit = (keeperId: string) => {');
     expect(app).toContain('if (!visited || visited === profile) return;');
     expect(app).toContain('saveProfile(visited);');
     // The hub's storefronts (K1), the city's plated counters (K2 + this slice), the
-    // forge's own plate and the bounty hall’s keeper: four relays into the one handler above.
-    expect(app.match(/onRecordKeeperVisit=\{handleRecordKeeperVisit\}/g)?.length).toBe(4);
+    // forge's own plate, the bounty hall’s keeper and the bathhouse’s keeper: five relays into the one handler above.
+    expect(app.match(/onRecordKeeperVisit=\{handleRecordKeeperVisit\}/g)?.length).toBe(5);
   });
 });
 
