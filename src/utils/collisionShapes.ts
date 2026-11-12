@@ -409,6 +409,13 @@ const buildingRects: RectCollider[] = [
   // veranda/posts, like every other building's props, are not collidable.  No
   // geometry, transform, neighbour or other collider moved.
   RECT('training-hall', -30.35, 3.00, 2.7, 7.5),
+  // FOUNTAIN COIN TOSS — the forum fountain's basin, now that the fountain is
+  // mounted.  The basin is a 5 m cylinder at [10, 0, 30] (`ForumFountain`'s own
+  // group position), so its rect is 5 × 5 on that centre.  The id is `forum`
+  // because the C-8.47 approach table already expects a rect by that name for
+  // this hub — a circle here would leave `approachStandoff('forum')` throwing.
+  // The registry goes 142 → 143 colliders.
+  RECT('forum', 10, 30, 5, 5),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
