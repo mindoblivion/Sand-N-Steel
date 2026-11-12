@@ -51,6 +51,8 @@ import ludiEraProfile from './ludiEraProfile.json';
 import medicalHouseRestEraProfile from './medicalHouseRestEraProfile.json';
 // PITCH A4 — Corpus et Origo (`identity`).
 import corpusEtOrigoProfile from './corpusEtOrigoProfile.json';
+// FOUNTAIN COIN TOSS — Fortuna's favour (`luck`).
+import luckEraProfile from './luckEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -362,6 +364,19 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every earlier fixture keeps OMITTING `identity`, which is the legacy shape a load must survive',
     ],
     profile: asProfile(corpusEtOrigoProfile),
+  },
+  {
+    id: 'luck-era',
+    file: 'luckEraProfile.json',
+    provenance:
+      'The ludi-era save driven through the shipped `tossCoin` transaction once — 630 -> 629 gold, `luck: { boostUntil: 84 }` (time.total 79, midday of day 12, so the next dawn is total 84) — so it is byte-for-byte what that write persists.',
+    covers: [
+      'the `luck` record populated (FOUNTAIN COIN TOSS): one coin tossed at the forum fountain, the boost bought until the next dawn',
+      'the 1-gold debit in the same write (630 -> 629 gold), with no other field moved',
+      'the dawn-bound `boostUntil` (79 + 5 phases until dawn = 84), not a fixed span',
+      'every earlier fixture keeps OMITTING `luck`, which is the legacy shape a load must survive',
+    ],
+    profile: asProfile(luckEraProfile),
   },
 ];
 
