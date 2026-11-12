@@ -2436,7 +2436,6 @@ const handleEnterArena = useCallback(() => {
         </div>
       )}
 
-      
       {forgePanel && (
     <ForgeDoorPanel
         onEnterForge={handleEnterForge}
