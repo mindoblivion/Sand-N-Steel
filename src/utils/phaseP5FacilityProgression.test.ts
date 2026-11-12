@@ -535,16 +535,18 @@ describe('P5 §E — the yard sets stat training\'s price, and only stat trainin
     }
   });
 
-  test('the two shipped consumers read the helper, and nothing else charges it', () => {
+  test('the shipped consumers read the helper, and nothing else charges it', () => {
     expect(APP).toContain('trainingCost(profile)');
     expect(TRAINING_TAB).toContain('trainingCost(profile)');
     // The other gold sinks keep their own price: the helper's only namers in the
-    // whole source tree are the module that defines it and the two surfaces that
-    // charge stat training.
+    // whole source tree are the module that defines it, the two surfaces that
+    // charge stat training, and the Intensive's module — the Academy's tripled
+    // price is the SAME helper, not a second price.
     expect(namersOf('trainingCost')).toEqual([
       'App.tsx',
       'components/hub/TrainingTab.tsx',
       'utils/facilityProgression.ts',
+      'utils/intensiveTraining.ts',
     ]);
   });
 });
