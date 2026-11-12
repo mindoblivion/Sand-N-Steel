@@ -32,7 +32,7 @@ export const STABLE_FACTIONS: StableFaction[] = [
     bannerBg: 'bg-blue-950 border-blue-600/80 text-blue-200',
     motto: 'Iron Axles, Unshaken',
     driverName: 'Diocles of Lusitania',
-    specialty: 'Unbreakable axle durability & heavy chassis',
+    specialty: 'Unbreakable axles & heavy chassis',
     baseOdds: 3.5,
   },
   {
