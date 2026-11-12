@@ -647,7 +647,6 @@ for (const fixture of SAVE_FIXTURES) {
         // FOUNTAIN COIN TOSS — a save written before the toss reads as "no boost".
         expect(resolveLuckBoost(profile)).toBeNull();
       }
-      }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
       // The count above is exactly the resolver-backed optional fields this
