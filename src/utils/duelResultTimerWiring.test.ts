@@ -24,8 +24,8 @@ describe('duel result callback ownership', () => {
   });
 
   test('both victory and defeat schedule the existing 1400 ms result transition', () => {
-    const victory = code.indexOf('onMatchComplete(statsRef.current, true);');
-    const defeat = code.indexOf('onMatchComplete(statsRef.current, false);');
+    const victory = code.indexOf('setTimeout(() => onMatchComplete(statsRef.current, true), 0);');
+    const defeat = code.indexOf('setTimeout(() => onMatchComplete(statsRef.current, false), 0);');
     expect(victory).toBeGreaterThan(-1);
     expect(defeat).toBeGreaterThan(victory);
     const victorySchedule = code.lastIndexOf('resultTransitionTimerRef.current = scheduleDuelResult(', victory);
@@ -38,7 +38,7 @@ describe('duel result callback ownership', () => {
   });
 
   test('each completion callback clears the owned ref before handing off the result', () => {
-    expect(code).toMatch(/resultTransitionTimerRef\.current = null;\s*onMatchComplete\(statsRef\.current, true\);/);
-    expect(code).toMatch(/resultTransitionTimerRef\.current = null;\s*onMatchComplete\(statsRef\.current, false\);/);
+    expect(code).toMatch(/resultTransitionTimerRef\.current = null;\s*setTimeout\(\(\) => onMatchComplete\(statsRef\.current, true\), 0\);/);
+    expect(code).toMatch(/resultTransitionTimerRef\.current = null;\s*setTimeout\(\(\) => onMatchComplete\(statsRef\.current, false\), 0\);/);
   });
 });
