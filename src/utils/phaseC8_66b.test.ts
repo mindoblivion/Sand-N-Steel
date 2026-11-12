@@ -997,8 +997,8 @@ describe('C-8.66B §G — workshop access, navigation and untouched city geometr
 
   test('the workshop adds no collider, no city bound and no district geometry', () => {
     const rectangles = CITY_COLLIDERS.filter((c) => c.type === 'rect');
-    expect(CITY_COLLIDERS).toHaveLength(142);
-    expect(rectangles).toHaveLength(32);
+    expect(CITY_COLLIDERS).toHaveLength(143);
+    expect(rectangles).toHaveLength(33);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('circus-'))).toHaveLength(31);
     expect(CITY_COLLIDERS.some((c) => c.id === 'forecourt-parapet')).toBe(true);
     expect(CITY_COLLIDERS.some((c) => c.id.toLowerCase().includes('chariot'))).toBe(false);
