@@ -863,7 +863,9 @@ describe('A8 §K — the one call site, the two doors, the one view mark', () =>
     expect(stats).toContain('onOpenTriumphs');
     expect(stats).toContain('View Triumphs');
     const hub = code('components/hub/GladiatorSchoolHub.tsx');
-    expect(hub).toContain("setLibraryPage('triumphs')");
+    // ACADEMY-INTERIOR REBASE: the rack's page moved to App, so the hub's door
+    // is the prop now — the character sheet still opens the same view.
+    expect(hub).toContain("onLibraryPageChange('triumphs')");
     expect(hub).toContain('onTabChange(\'library\')');
     expect(hub).toContain('<LibraryTab');
   });
