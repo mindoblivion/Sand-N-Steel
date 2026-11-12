@@ -465,7 +465,7 @@ const RaceChariot: React.FC<{
       const nextStage = getRaceLapStage(lap.tracker);
       // Notify React only when a real checkpoint transition occurs, never per frame.
       if (nextStage !== previousStage) onLapStageChange(nextStage);
-      if (lap.finishedNow) onFinish();
+      if (lap.finishedNow) setTimeout(() => onFinish(), 0);
     }
 
     const chassis = group.current;

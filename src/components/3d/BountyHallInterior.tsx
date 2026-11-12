@@ -604,7 +604,7 @@ function BountyHallPlayerRig({ onExitRef, keysRef, stickRef, onPosition }: Bount
     if (!exited.current && isBountyHallExit(px, pz)) {
       exited.current = true;
       // Defer unmount to next tick to avoid synchronously unmounting R3F root during update
-      requestAnimationFrame(() => onExitRef.current());
+      setTimeout(() => onExitRef.current(), 0);
       return;
     }
     // Face the movement direction with a smooth turn.

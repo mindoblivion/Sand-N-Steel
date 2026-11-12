@@ -1592,11 +1592,13 @@ export function App() {
   };
 
   const handleDuelResultDismiss = () => {
-    setDuelResult(null);
-    // The Test's rule judged one duel; it does not outlive it.
-    setDoctoreRestriction(null);
-    if (profile) enterCity(profile);
-    else setCurrentScreen('city_3d');
+    setTimeout(() => {
+        setDuelResult(null);
+        // The Test's rule judged one duel; it does not outlive it.
+        setDoctoreRestriction(null);
+        if (profile) enterCity(profile);
+        else setCurrentScreen('city_3d');
+    }, 0);
   };
 
   /**

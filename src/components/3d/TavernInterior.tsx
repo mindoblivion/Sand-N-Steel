@@ -584,7 +584,7 @@ export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void;
       </button>
       <button
         type="button"
-        onClick={onExit}
+        onClick={() => setTimeout(onExit, 0)}
         className="absolute right-3 top-3 z-10 min-h-12 rounded-xl border border-amber-200/40 bg-stone-950/90 px-4 text-sm font-bold text-amber-100 shadow-xl hover:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-300"
         aria-label="Leave tavern and return to the city"
       >

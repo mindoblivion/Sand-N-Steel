@@ -401,7 +401,7 @@ function ColosseumPlayerRig({
       if (!exitedRef.current && isColosseumExit(px, pz)) {
         exitedRef.current = true;
         // Defer unmount to next tick to avoid synchronously unmounting R3F root during update
-        requestAnimationFrame(() => onExitRef.current());
+        setTimeout(() => onExitRef.current(), 0);
         return;
       }
     }

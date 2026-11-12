@@ -577,7 +577,7 @@ function ForgePlayerRig({ onExitRef, keysRef, stickRef, onPosition }: ForgePlaye
     if (!exited.current && isForgeExit(px, pz)) {
       exited.current = true;
       // Defer unmount to next tick to avoid synchronously unmounting R3F root during update
-      requestAnimationFrame(() => onExitRef.current());
+      setTimeout(() => onExitRef.current(), 0);
       return;
     }
     // Face the movement direction with a smooth turn.
