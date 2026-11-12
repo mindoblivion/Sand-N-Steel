@@ -10,10 +10,12 @@ describe('immersive Roman tavern scene', () => {
   test('the tavern is a separate, lazy-loaded full-screen scene', () => {
     expect(app).toContain("const TavernInterior = React.lazy(() => import('./components/3d/TavernInterior').then((m) => ({ default: m.TavernInterior })));");
     expect(app).toContain("const ForgeInterior = React.lazy(() => import('./components/3d/ForgeInterior').then((m) => ({ default: m.ForgeInterior })));");
-    expect(app).toContain("const BountyHallInterior = React.lazy(() => import('./components/3d/BountyHallInterior').then((m) => ({ default: m.BountyHallInterior })));");
+    expect(app).toContain("const BountyHallInterior = React.lazy(() => import('./components/3d/BountyHallInterior').then((m) => ({ default: m.BountyHallInterior })));" );
+    expect(app).toContain("const BathhouseInterior = React.lazy(() => import('./components/3d/BathhouseInterior').then((m) => ({ default: m.BathhouseInterior })));");
     expect(app).toContain("{currentScreen === 'city_3d' && bountyHallOpen && (");
+    expect(app).toContain("{currentScreen === 'city_3d' && bathhouseOpen && (")
     expect(app).toContain('{currentScreen === \'city_3d\' && tavernOpen && (');
-    expect(app).toContain('movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen}');
+    expect(app).toContain('movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen || bathhouseOpen}');
     expect(app).toContain('<TavernInterior onExit={() => setTavernOpen(false)}');
     expect(city).toContain("onEnterTavern(() => {");
   });
