@@ -799,9 +799,11 @@ describe('A8 §J — the corpus keeps its rule at 22', () => {
     // `spared` and `records`.  PITCH A4 REBASE: the Corpus et Origo `identity` field
     // joined the set before `ludi`, so it is 24 and `records` still closes it — the
     // invariant this test exists for is unchanged.
+    // FOUNTAIN COIN TOSS REBASE: `luck` joined it between `ludi` and `records`,
+    // so it is 26 and `records` still closes it.
     const optional = scanOptional(read('types/game.ts'));
-    expect(optional.length).toBe(25);
-    expect(optional.slice(-2)).toEqual(['ludi', 'records']);
+    expect(optional.length).toBe(26);
+    expect(optional.slice(-2)).toEqual(['luck', 'records']);
   });
 
   test('the records-era fixture is registered, and the manifest names it', () => {
