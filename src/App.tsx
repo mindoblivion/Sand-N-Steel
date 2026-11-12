@@ -33,6 +33,7 @@ import {
 // A5 — THE CODEX: the one new record is a hub location's FIRST visit, written
 // inside `records.codexLocations` and only when the id is not already there.
 import { withCodexLocation } from './utils/codex';
+import { processTraineesDayAdvance } from './utils/ludusTrainees';
 import { consumeItem, purchaseConsumable } from './utils/consumables';
 import { purchaseIntel } from './utils/intel';
 import type { ConsumableItem } from './data/consumables';
@@ -247,6 +248,7 @@ const SettingsModal = React.lazy(() => import('./components/hub/SettingsModal').
 const DeleteAccountModal = React.lazy(() => import('./components/hub/DeleteAccountModal').then((module) => ({ default: module.DeleteAccountModal })));
 const OathBeat = React.lazy(() => import('./components/hub/OathBeat').then((module) => ({ default: module.OathBeat })));
 const DayBanner = React.lazy(() => import('./components/ui/DayBanner').then((module) => ({ default: module.DayBanner })));
+const TavernBettingModal = React.lazy(() => import('./components/hub/TavernBettingModal').then((module) => ({ default: module.TavernBettingModal })));
 
 const GladiatorSchoolHub = React.lazy(() => import('./components/hub/GladiatorSchoolHub').then((module) => ({ default: module.GladiatorSchoolHub })));
 
@@ -254,7 +256,8 @@ export function App() {
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('title');
   // Keep the supplied artwork over the title-to-creator transition until the preview GLB is ready.
   const [characterCreationTransitioning, setCharacterCreationTransitioning] = useState(false);
-    const [tavernOpen, setTavernOpen] = useState(false);
+  const [tavernOpen, setTavernOpen] = useState(false);
+  const [tavernBettingOpen, setTavernBettingOpen] = useState(false);
   /* COLOSSEUM-INTERIOR — the enterable arena overlay (TavernInterior pattern). */
   const [colosseumOpen, setColosseumOpen] = useState(false);
   /* FORGE-INTERIOR — the smithing forge overlay (ColosseumInterior pattern). */
@@ -336,7 +339,7 @@ export function App() {
   const [activeOpponent, setActiveOpponent] = useState<OpponentConfig>(ALL_OPPONENTS[0]);
   /** C-8.70C — session-only: set by the pre-fight card, read by the duel, never saved. */
   const [boutMode, setBoutMode] = useState<BoutMode>(DEFAULT_BOUT_MODE);
-  const [activeHubTab, setActiveHubTab] = useState<'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library'>('tournament');
+  const [activeHubTab, setActiveHubTab] = useState<'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library' | 'trainees'>('tournament');
   // Phase C-8.66B: the Armory's own subview. The Imperial Stable's city
   // interaction opens the gear tab with this set to 'chariot'; the tab's own
   // switch flips it back to the gear list.
@@ -1075,7 +1078,7 @@ export function App() {
   };
 
   const handleOpenHubTab = (
-    tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library',
+    tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library' | 'trainees',
     gearSubview?: GearView,
     shopStorefront?: StorefrontId
   ) => {
@@ -1092,6 +1095,11 @@ export function App() {
     // FIRST SIXTY SECONDS — a hub panel is walking off: §5 shuts up for the session.
     noticeCityFlowExit('hub_2d');
     setTimeout(() => setCurrentScreen('hub_2d'), 0);
+  };
+
+  const handleUpdateProfile = (updated: PlayerProfile) => {
+    setProfile(updated);
+    saveProfile(updated);
   };
 
   /**
@@ -1161,7 +1169,7 @@ export function App() {
    * storefront only ever arrives through `handleOpenHubTab`.
    */
   const handleHubTabChange = (
-    tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library'
+    tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library' | 'trainees'
   ) => {
     setActiveHubTab(tab);
     if (tab === 'shop') setShopId('market');
@@ -1204,13 +1212,24 @@ export function App() {
    */
   const onDayRollover = (before: PlayerProfile, advanced: PlayerProfile): PlayerProfile => {
     const rolledTo = dayRolledTo(before, advanced);
-    if (rolledTo === null) return advanced;
+    if (rolledTo === null) {
+      const traineesRes = processTraineesDayAdvance(advanced);
+      if (traineesRes.reports.length > 0) {
+        setHeraldCries((prev) => [...prev, ...traineesRes.reports]);
+      }
+      return traineesRes.profile;
+    }
     setDayBanner({ day: rolledTo, text: dayBannerText(rolledTo) });
     // LUDI PHASE A — the new day's Acta in the SAME save: the day's deeds and visit count
     // are cleared and the fame baseline is re-based on the fame the gladiator wakes with,
     // while Favour and the shared Laurel total persist. This save is also the one that
     // makes the next settlement write against the new day.
-    return applyLudiRollover(applyDayRollover(advanced, rolledTo), rolledTo);
+    const rolledAdvanced = applyLudiRollover(applyDayRollover(advanced, rolledTo), rolledTo);
+    const traineesRes = processTraineesDayAdvance(rolledAdvanced);
+    if (traineesRes.reports.length > 0) {
+      setHeraldCries((prev) => [...prev, ...traineesRes.reports]);
+    }
+    return traineesRes.profile;
   };
 
   const handleMatchComplete = (stats: DuelStatistics, didWin: boolean) => {
@@ -2341,7 +2360,32 @@ export function App() {
 
         {currentScreen === 'city_3d' && tavernOpen && (
           <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
-            <TavernInterior onExit={() => setTavernOpen(false)} onOpenServices={() => { setTavernOpen(false); tavernServices?.(); setTavernServices(null); }} />
+            <TavernInterior
+              onExit={() => setTavernOpen(false)}
+              onOpenServices={() => {
+                setTavernOpen(false);
+                if (tavernServices) {
+                  tavernServices();
+                  setTavernServices(null);
+                } else {
+                  setTavernBettingOpen(true);
+                }
+              }}
+            />
+          </React.Suspense>
+        )}
+
+        {tavernBettingOpen && profile && (
+          <React.Suspense fallback={null}>
+            <TavernBettingModal
+              profile={profile}
+              onUpdateProfile={(updated) => {
+                setProfile(updated);
+                saveProfile(updated);
+              }}
+              onClose={() => setTavernBettingOpen(false)}
+              onToast={(msg) => handleHeraldCry(msg)}
+            />
           </React.Suspense>
         )}
       {/* COLOSSEUM-INTERIOR — the empty arena: full-screen overlay while the city stays
@@ -2386,6 +2430,7 @@ export function App() {
             onHeraldCry={handleHeraldCry}
             activeTab={activeHubTab}
             onTabChange={handleHubTabChange}
+            onUpdateProfile={handleUpdateProfile}
             onEnterCity3D={() => { if (profile) enterCity(profile); }}
             onSelectOpponent={handleEnterDuel}
             onTrainStat={handleTrainStat}

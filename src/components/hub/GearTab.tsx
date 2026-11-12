@@ -41,6 +41,7 @@ interface GearTabProps {
   /** P6 — the Stable panel inside the workshop subview; `App` runs the P4 helpers. */
   onBuyStableQuality?: (grade: number) => void;
   onBuyStableConditioning?: (level: number) => void;
+  onUpdateProfile?: (updated: PlayerProfile) => void;
 }
 
 /** C-2 — how long a Sell control stays armed before its confirmation lapses. */
@@ -90,6 +91,7 @@ export const GearTab: React.FC<GearTabProps> = ({
   onTemperItem,
   onBuyStableQuality,
   onBuyStableConditioning,
+  onUpdateProfile,
 }) => {
   const currentWeapon = profile.equipped.weapon;
   const currentHelm = profile.equipped.helm;
@@ -151,6 +153,7 @@ export const GearTab: React.FC<GearTabProps> = ({
             profile={profile}
             onBuyPart={onBuyChariotPart ?? (() => {})}
             onEquipPart={onEquipChariotPart ?? (() => {})}
+            onUpdateProfile={onUpdateProfile}
           />
           {/* Phase C-8.67C — horse-team progression, below the workshop's own cards. */}
           <RacingConfigSection

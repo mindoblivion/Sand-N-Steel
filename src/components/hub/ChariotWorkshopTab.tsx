@@ -22,10 +22,13 @@ import {
   resolveChariotLoadout,
 } from '../../utils/chariotLoadout';
 
+import { ChariotTuningPanel } from './ChariotTuningPanel';
+
 interface ChariotWorkshopTabProps {
   profile: PlayerProfile;
   onBuyPart: (partId: string) => void;
   onEquipPart: (partId: string) => void;
+  onUpdateProfile?: (updated: PlayerProfile) => void;
 }
 
 /**
@@ -76,6 +79,7 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
   profile,
   onBuyPart,
   onEquipPart,
+  onUpdateProfile,
 }) => {
   const loadout = useMemo(() => resolveChariotLoadout(profile), [profile]);
 
@@ -337,6 +341,11 @@ export const ChariotWorkshopTab: React.FC<ChariotWorkshopTabProps> = ({
           </p>
         </div>
       </div>
+
+      {/* CHARIOT TUNING & PERFORMANCE PANEL */}
+      {onUpdateProfile && (
+        <ChariotTuningPanel profile={profile} onUpdateProfile={onUpdateProfile} />
+      )}
 
       {/* ONE SECTION PER SLOT THE CATALOGUE SELLS, in catalogue order. */}
       {SLOT_SECTIONS.map(({ slot, parts }) => (

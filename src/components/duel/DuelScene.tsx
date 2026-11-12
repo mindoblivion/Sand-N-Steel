@@ -4,6 +4,8 @@ import { Sparkles, useGLTF, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { PlayerProfile, OpponentConfig, FighterState, DuelStatistics, DamageNumber, BoutMode } from '../../types/game';
 import { DuelArena } from '../3d/DuelArena';
+import { ArenaHazards3D } from '../3d/ArenaHazards3D';
+import { findNearbyHazard, triggerHazardEffect } from '../../utils/arenaHazards';
 import { GladiatorMesh, type ImpactState } from '../3d/GladiatorMesh';
 import { ImpactParticles, type ImpactParticlesHandle } from '../3d/ImpactParticles';
 import { CombatHUD } from '../ui/CombatHUD';
@@ -2204,6 +2206,30 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               }
             }
 
+            // Arena Environmental Hazard interaction check on power attacks or nearby hazards
+            if (actionType === 'power_attack') {
+              const hazard = findNearbyHazard(defender.position);
+              if (hazard) {
+                const hazardRes = triggerHazardEffect(defender, hazard, true);
+                if (isActorPlayer) {
+                  setOpp((prev) => ({
+                    ...prev,
+                    health: hazardRes.updatedTarget.health,
+                    stamina: hazardRes.updatedTarget.stamina,
+                  }));
+                } else {
+                  setPlayer((prev) => ({
+                    ...prev,
+                    health: hazardRes.updatedTarget.health,
+                    stamina: hazardRes.updatedTarget.stamina,
+                  }));
+                }
+                addLog(hazardRes.logMessage, 'system');
+                spawnDamageText(`-${hazardRes.damage} HAZARD!`, 'crit', defender.position);
+                impactParticlesRef.current?.burst('spark', [defender.position[0], defender.position[1] + 1.2, defender.position[2]]);
+              }
+            }
+
             // Track stats
             if (isActorPlayer) {
               statsRef.current.hitsLanded += 1;
@@ -3428,6 +3454,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 bowlEmissive={duelLight.bowlEmissive}
                 crowdDress={duelLight.crowdDress}
               />
+              <ArenaHazards3D />
             </ThreeComponentErrorBoundary>
 
             <ThreeComponentErrorBoundary componentName="DuelFightersGladiatorMeshes">

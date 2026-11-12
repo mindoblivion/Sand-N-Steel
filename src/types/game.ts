@@ -829,6 +829,22 @@ export interface RacingProgression {
   photoFinishes?: number;
   /** In-game day on which the last completion purse was paid; one purse per day. */
   lastPurseDay?: number;
+  /** Championship league points accumulated across Roman races. */
+  leaguePoints?: number;
+}
+
+export interface ChariotTuning {
+  reinStrength: number;
+  axleDurability: number;
+  wheelSpikes: number;
+  staminaConditioning: number;
+}
+
+export interface ActiveBet {
+  factionId: string;
+  wagerAmount: number;
+  oddsMultiplier: number;
+  potentialPayout: number;
 }
 
 /**
@@ -995,6 +1011,17 @@ export interface PalmaeState {
   equipped?: string[];
 }
 
+export interface Trainee {
+  id: string;
+  name: string;
+  classType: ArmaturaId;
+  level: number;
+  skill: number;
+  status: 'idle' | 'sparring' | 'exhibition';
+  daysRemaining: number;
+  assignmentType?: 'sparring' | 'exhibition';
+}
+
 /**
  * PITCH A4 — CORPUS ET ORIGO: the gladiator's life before the sand.
  *
@@ -1135,6 +1162,10 @@ export interface PlayerProfile {
    * migration, and never by `createNewProfile()`).
    */
   racing?: RacingProgression;
+  /** Advanced Chariot tuning stats (Rein strength, Axle durability, Wheel spikes, Stamina conditioning). */
+  racingTuning?: ChariotTuning;
+  /** Active tavern wager placed on an upcoming chariot race. */
+  activeRaceBet?: ActiveBet;
   /**
    * STORY-1 — the campaign's own evidence; absent on every save written before
    * this slice, and written by nothing yet (the campaign is read-only, so
@@ -1239,6 +1270,8 @@ export interface PlayerProfile {
    * successful `purchaseFacility()` — never by `createNewProfile()`.
    */
   facilities?: { stable?: number; yard?: number; workshop?: number };
+  /** Housed junior trainees in the ludus barracks. */
+  trainees?: Trainee[];
   /**
    * CH-1 — the gladiator's class.  Optional on purpose, exactly like `chariot`
    * and `racing`: a save written before the class exists has no `armatura` field
