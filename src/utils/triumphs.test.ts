@@ -801,8 +801,11 @@ describe('A8 §J — the corpus keeps its rule at 22', () => {
     // invariant this test exists for is unchanged.
     // FOUNTAIN COIN TOSS REBASE: `luck` joined it between `ludi` and `records`,
     // so it is 26 and `records` still closes it.
+    // ARENA HAZARDS / CHARIOT TUNING REBASE: `racingTuning` and `activeRaceBet`
+    // after `racing`, `trainees` after `facilities`, so it is 29 and `records`
+    // still closes it.
     const optional = scanOptional(read('types/game.ts'));
-    expect(optional.length).toBe(26);
+    expect(optional.length).toBe(29);
     expect(optional.slice(-2)).toEqual(['luck', 'records']);
   });
 
