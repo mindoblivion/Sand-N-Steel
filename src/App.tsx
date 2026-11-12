@@ -11,7 +11,7 @@ const TavernInterior = React.lazy(() => import('./components/3d/TavernInterior')
 const ColosseumInterior = React.lazy(() => import('./components/3d/ColosseumInterior').then((m) => ({ default: m.ColosseumInterior })));
 const ForgeInterior = React.lazy(() => import('./components/3d/ForgeInterior').then((m) => ({ default: m.ForgeInterior })));
 const BountyHallInterior = React.lazy(() => import('./components/3d/BountyHallInterior').then((m) => ({ default: m.BountyHallInterior })));
-const Ba<BathhouseInterior = React.lazy(() => import('./components/3d/Ba<BathhouseInterior').then((m) => ({ default: m.Ba<BathhouseInterior })));
+const BathhouseInterior = React.lazy(() => import('./components/3d/BathhouseInterior').then((m) => ({ default: m.BathhouseInterior })));
 
 import type { GearView } from './components/hub/GearTab';
 import type { StorefrontId } from './data/shops';
