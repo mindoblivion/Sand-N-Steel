@@ -76,7 +76,7 @@ describe('§A — the academy floor', () => {
     expect(ACADEMY_FLOOR_HALF_X).toBe(12);
     expect(ACADEMY_FLOOR_HALF_Z).toBe(5);
     // The shell builds three partition walls with open doorways.
-    expect(ACADEMY_SOURCE.match(/\{[-6, 4, 8\]\.map/g)?.length).toBe(1);
+    expect(ACADEMY_SOURCE.match(/\{\[-6, 4, 8\]\.map/g)?.length).toBe(1);
     // Each partition is two wall segments plus a lintel over the doorway.
     expect(ACADEMY_SOURCE).toContain('boxGeometry args={[0.5, 0.9, 2.2]}');
   });
