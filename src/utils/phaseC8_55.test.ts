@@ -471,9 +471,10 @@ describe('C-8.55 §G — no gameplay data changed', () => {
   test('the registry keeps its 31 rectangles and unique ids, plus C-8.64A\'s segments', () => {
     // 110 colliders before Phase C-8.64A, which appended its 31 `circus-*`
     // perimeter segments; Phase C-8.64B appended the one `forecourt-parapet`
-    // rectangle (142 colliders, 32 rectangles).
-    expect(CITY_COLLIDERS.length).toBe(142);
-    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(32);
+    // rectangle (142 colliders, 32 rectangles) — plus the FOUNTAIN COIN TOSS's
+    // `forum` rect (143 colliders, 33 rectangles).
+    expect(CITY_COLLIDERS.length).toBe(143);
+    expect(CITY_COLLIDERS.filter((c) => c.type === 'rect').length).toBe(33);
     expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(CITY_COLLIDERS.length);
   });
 
