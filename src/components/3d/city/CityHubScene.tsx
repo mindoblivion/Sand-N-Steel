@@ -32,6 +32,7 @@ import { Stable } from './Stable';
 import { PublicBathhouse } from './PublicBathhouse';
 import { RomanShrine } from './RomanShrine';
 import { BountyHall } from './BountyHall';
+import { ForumFountain } from './SouthernDistrict';
 import { GladiatorAcademy } from './GladiatorAcademy';
 import { DoctoreHouse } from './DoctoreHouse';
 import { RecordsLibrary } from './RecordsLibrary';
@@ -125,6 +126,16 @@ import {
   resolveOmen,
 } from '../../../utils/omens';
 import type { OmenDeclineOutcome, OmenOfferOutcome } from '../../../utils/omens';
+// FOUNTAIN COIN TOSS — the forum fountain's price, its lazy read, and the copy
+// the panel prints.  The transaction lives in `App`; this screen only reports
+// the player's choice and writes no save.
+import {
+  COIN_TOSS_PRICE,
+  coinTossResultLine,
+  luckBoostLine,
+  resolveLuckBoost,
+} from '../../../utils/fountainLuck';
+import type { CoinTossOutcome } from '../../../utils/fountainLuck';
 // K2 — the three service counters' keepers (the Medical House's Medica, the inn's
 // host, the Golden Palm's keeper), the plate that heads them, and the one line
 // each is saying.  Display and a first-visit record only: no price, no effect and
@@ -325,6 +336,12 @@ interface CityHubSceneProps {
   onOfferOmen: () => OmenOfferOutcome | null;
   onDeclineOmen: () => OmenDeclineOutcome | null;
   /**
+   * FOUNTAIN COIN TOSS — the forum fountain's one coin.  `App` owns the
+   * transaction and the save write; a toss that cannot be paid for, or a live
+   * boost, returns a refusal (no luck, no write), so the panel never invents a result.
+   */
+  onTossCoin: () => CoinTossOutcome | null;
+  /**
    * K2 — a service counter's keeper was met for the first time.  `App` owns the
    * one `seenKeepers` write (`handleRecordKeeperVisit`), exactly as it does for a
    * storefront's plate; this screen only reports the visit.
@@ -442,6 +459,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onVisitLocation,
   onOfferOmen,
   onDeclineOmen,
+  onTossCoin,
   onReturnToLibrarian,
   onReadLegendFragment,
 }) => {
@@ -538,6 +556,12 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // STORY-4b — the Bounty Hall's board. Local view state only: the bout entry is
   // `onEnterDuel` and every write is `App`'s.
   const [bountyPanel, setBountyPanel] = useState(false);
+  // FOUNTAIN COIN TOSS — the forum fountain's panel, the one line announcing what
+  // the last toss did, and the key that fires the coin arc in the mounted fountain.
+  // Local view state only: the transaction and its save belong to `App`.
+  const [fountainPanel, setFountainPanel] = useState(false);
+  const [coinTossResult, setCoinTossResult] = useState<string | null>(null);
+  const [coinTossKey, setCoinTossKey] = useState(0);
   /**
    * LUDI PHASE A — the morning Acta's dismissal, held as the DAY it was dismissed on rather
    * than a boolean: the card comes back by itself on a new exertion day (a night at the
@@ -719,7 +743,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // Keep this separate from the oath lock so Escape can still reach the panel handler.
   useLayoutEffect(() => {
     const panelLocked = Boolean(
-      treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel ||
+      treatmentPanel || intelPanel || shrinePanel || bountyPanel || fountainPanel || legendPanel ||
       visitorPanel || colosseumPanel || forgePanel || bountyHallPanel || showRaceEntry || showNavDrawer
     );
     cityPanelInputLockedRef.current = panelLocked;
@@ -731,7 +755,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     }
     inputLockedRef.current = !!movementLocked;
   }, [
-    movementLocked, treatmentPanel, intelPanel, shrinePanel, bountyPanel,
+    movementLocked, treatmentPanel, intelPanel, shrinePanel, bountyPanel, fountainPanel,
     legendPanel, visitorPanel, colosseumPanel, forgePanel, bountyHallPanel, showRaceEntry, showNavDrawer,
   ]);
 
@@ -800,6 +824,11 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // still opens from the panel or from inside the hall. The keeper greeting
       // freezes when the board opens, exactly as the tavern's does.
       setBountyHallPanel(true);
+    } else if (nearbyLoc.id === 'forum') {
+      // FOUNTAIN COIN TOSS — the forum's fountain is real now (mounted below),
+      // so the hub opens its panel instead of the flavour notice.
+      setFountainPanel(true);
+      setCoinTossResult(null);
     } else if (nearbyLoc.tabKey === 'tournament') {
       setColosseumPanel(true);
     } else if (nearbyLoc.id === 'tavern') {
@@ -958,7 +987,7 @@ const handleEnterArena = useCallback(() => {
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
     // A presented panel is up: E/Space and the action button are its own.
-    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel || colosseumPanel || forgePanel || showRaceEntry || showNavDrawer) return;
+    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || fountainPanel || legendPanel || visitorPanel || colosseumPanel || forgePanel || showRaceEntry || showNavDrawer) return;
     if (nearbyLoc) {
       handleInteract();
     } else if (nearbyVisitor) {
@@ -977,6 +1006,7 @@ const handleEnterArena = useCallback(() => {
     intelPanel,
     shrinePanel,
     bountyPanel,
+    fountainPanel,
     legendPanel,
     colosseumPanel,
     forgePanel,
@@ -1034,6 +1064,21 @@ const handleEnterArena = useCallback(() => {
     setOmenResult(omenDeclineResultLine(outcome));
   }, [onDeclineOmen]);
 
+  /**
+   * FOUNTAIN COIN TOSS — one coin into the forum fountain.  The transaction
+   * lives in `App`; this screen only reports the choice.  The coin sound and
+   * the arc fire on a SUCCESSFUL toss only — a refusal leaves the panel on its
+   * own reason line.
+   */
+  const handleTossCoin = useCallback(() => {
+    const outcome = onTossCoin();
+    if (!outcome) return;
+    if (!outcome.ok) return;
+    sounds.playCoin();
+    setCoinTossResult(coinTossResultLine(outcome.luck));
+    setCoinTossKey((k) => k + 1);
+  }, [onTossCoin]);
+
   /** S6 — one consumable from the satchel; the panel re-renders from the profile. */
   const handleUseConsumable = useCallback(
     (itemId: string) => {
@@ -1070,6 +1115,10 @@ const handleEnterArena = useCallback(() => {
         if (code === 'Escape' || key === 'escape') setBountyPanel(false);
         return;
         
+      }
+      if (fountainPanel) {
+        if (code === 'Escape' || key === 'escape') setFountainPanel(false);
+        return;
       }
             if (colosseumPanel) {
                       if (code === 'Escape' || key === 'escape') setColosseumPanel(false);
@@ -1132,7 +1181,7 @@ const handleEnterArena = useCallback(() => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, colosseumPanel, visitorPanel, forgePanel, showRaceEntry, showNavDrawer]);
+  }, [handlePrimaryAction, treatmentPanel, intelPanel, shrinePanel, bountyPanel, colosseumPanel, visitorPanel, forgePanel, showRaceEntry, showNavDrawer, bountyHallPanel]);
 
         // Mobile Virtual Joystick Touch Handlers
   const handleJoystickTouchStart = (e: React.TouchEvent) => {
@@ -1444,6 +1493,14 @@ const handleEnterArena = useCallback(() => {
   const omenPurseShort = !Number.isFinite(playerProfile.gold) || playerProfile.gold < OMEN_PRICE;
 
   /**
+   * FOUNTAIN COIN TOSS — the live boost, read the way every other lazy profile
+   * field is. `null` means no boost is live, and the purse check mirrors the
+   * transaction's own refusal so the button and the refusal line agree.
+   */
+  const liveLuck = resolveLuckBoost(playerProfile);
+  const coinPurseShort = !Number.isFinite(playerProfile.gold) || playerProfile.gold < COIN_TOSS_PRICE;
+
+  /**
    * K2 — the one line the plate is saying, by the same rules `ShopTab` uses: the
    * greeting on a first visit, `selectRepeatLine` at visit two on every later one,
    * and the night clerk's line after dark only when the keeper has one (these
@@ -1702,6 +1759,8 @@ const handleEnterArena = useCallback(() => {
               <PublicBathhouse />
               <RomanShrine />
               <BountyHall />
+              {/* FOUNTAIN COIN TOSS — the forum fountain, mounted at last: SouthernDistrict was never mounted on main, so the forum hub stood over empty ground. Only the fountain mounts here; the other four southern pieces stay unmounted. */}
+              <ForumFountain coinTossKey={coinTossKey} />
               <GladiatorBarracks />
               <VeteranGladiatorHall />
               <ArenaMedicalHouse />
@@ -2403,6 +2462,75 @@ const handleEnterArena = useCallback(() => {
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">W A S D / Arrows</kbd> Move</span>
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">Space / E</kbd> 2-in-1 Attack &amp; Interact</span>
       </div>
+
+            {fountainPanel && (
+        <div
+          data-fountain-panel
+          className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
+        >
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex-1">
+              <h4 className="font-serif font-black text-amber-200 text-xs sm:text-sm uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <Coins className="w-4 h-4 text-amber-400" />
+                <span>The Forum Fountain</span>
+              </h4>
+              <p className="text-[11px] sm:text-xs text-neutral-300 font-sans leading-relaxed">
+                A coin for Fortuna. One gold buys her favour — luck smiles on you until dawn.
+              </p>
+              <p
+                data-luck-boost={liveLuck ? 'active' : 'none'}
+                className="mt-2 text-[11px] sm:text-xs font-mono text-amber-300 leading-relaxed"
+              >
+                {liveLuck ? luckBoostLine(playerProfile) : 'No luck rests on you.'}
+              </p>
+              {coinTossResult && (
+                <p
+                  data-coin-result
+                  className="mt-2 text-[11px] sm:text-xs font-sans text-amber-200/90 leading-relaxed"
+                >
+                  {coinTossResult}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => setFountainPanel(false)}
+              aria-label="Close fountain panel"
+              className={CLOSE_BUTTON_CLASS}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-2">
+            <button
+              type="button"
+              data-toss-coin
+              onClick={handleTossCoin}
+              disabled={coinPurseShort || !!liveLuck}
+              className="w-full min-h-[48px] rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg border-2 border-amber-200 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Coins className="w-4 h-4" />
+              <span>Toss a coin (1g)</span>
+            </button>
+            {coinPurseShort && (
+              <p
+                data-coin-refusal="insufficient-gold"
+                className="text-[10px] sm:text-[11px] font-mono text-red-300"
+              >
+                Not enough gold. You carry {playerProfile.gold}g.
+              </p>
+            )}
+            {!coinPurseShort && liveLuck && (
+              <p
+                data-coin-refusal="already-blessed"
+                className="text-[10px] sm:text-[11px] font-mono text-amber-300"
+              >
+                Fortune already smiles on you — come back after dawn to toss again.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* BOTTOM DISTRICT FAST-TRAVEL & TAB SHORTCUT BAR */}
       <footer data-city-footer="true" className="absolute bottom-[calc(var(--hub-safe-bottom)+0.5rem)] left-2 right-2 sm:bottom-[calc(var(--hub-safe-bottom)+1rem)] sm:left-6 sm:right-6 pointer-events-auto z-10">
