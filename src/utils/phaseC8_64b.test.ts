@@ -414,11 +414,11 @@ describe('B. Clearances and the registry', () => {
   }, 30000);
 
   test('the registry grew by exactly one rectangle: the forecourt parapet', () => {
-    expect(nonCircus.length).toBe(111); // 110 + this phase's parapet
-    expect(CITY_COLLIDERS.length).toBe(142); // C-8.64A's 141 + 1
-    expect(rects.length).toBe(32); // 31 + 1
+    expect(nonCircus.length).toBe(112); // 110 + this phase's parapet + the forum fountain rect
+    expect(CITY_COLLIDERS.length).toBe(143); // C-8.64A's 141 + 1 + the forum fountain rect
+    expect(rects.length).toBe(33); // 31 + 1 + the forum fountain rect
     expect(circusPerimeter.length).toBe(31); // the arena perimeter is untouched
-    expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(142);
+    expect(new Set(CITY_COLLIDERS.map((c) => c.id)).size).toBe(143);
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('colo-')).length).toBe(46);
   });
 
