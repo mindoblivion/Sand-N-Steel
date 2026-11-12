@@ -1,7 +1,112 @@
-import React, { Suspense, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import { applyDeadZone } from '../../utils/joystickDeadZone';
+
+/* ------------------------------------------------------------------ */
+/* DOM-free tavern math (mirrors ForgeInterior — unit-testable).        */
+/* ------------------------------------------------------------------ */
+
+/** Half-extent of the walkable tavern floor on X; the room is 15 wide. */
+export const TAVERN_FLOOR_HALF_X = 6.7;
+/** Walkable floor bounds on Z: back wall inner face to the south door. */
+export const TAVERN_FLOOR_MIN_Z = -7.4;
+export const TAVERN_FLOOR_MAX_Z = 7.3;
+/** Raised ceiling: the walls stand 6 high so there is room to look around. */
+export const TAVERN_CEILING = 6;
+/** Player spawn, just inside the tavern door on the south wall. */
+export const TAVERN_SPAWN_X = 0;
+export const TAVERN_SPAWN_Z = 6;
+/** Door/exit zone on the south wall — walking back through it returns to the city. */
+export const TAVERN_EXIT_MIN_Z = 7.3;
+export const TAVERN_EXIT_HALF_WIDTH = 1.6;
+/** Player body radius used by the furniture push-outs. */
+const TAVERN_PLAYER_RADIUS = 0.35;
+
+/** Round furniture blockers (table tops, brazier, cask row, amphorae). */
+const TAVERN_CIRCLE_BLOCKERS: { x: number; z: number; r: number }[] = [
+  { x: -3.3, z: -2.1, r: 1.15 },
+  { x: 1.4, z: -2.4, r: 1.15 },
+  { x: -0.8, z: 1.5, r: 1.15 },
+  { x: 4.65, z: -0.1, r: 1.05 },
+  { x: 3.4, z: -6.3, r: 1.35 },
+  { x: -6.2, z: -4.5, r: 0.8 },
+  { x: 6.1, z: -3.8, r: 0.8 },
+];
+/** Service counter (x -2.9..2.9, z -7.1..-6.3), expanded by the player radius. */
+const TAVERN_COUNTER = { minX: -3.25, maxX: 3.25, minZ: -7.45, maxZ: -5.95 };
+
+/** Clamp a world position to the walkable tavern floor, pushing out of furniture. */
+export function clampToTavernFloor(x: number, z: number): [number, number] {
+  let cx = Math.max(-TAVERN_FLOOR_HALF_X, Math.min(TAVERN_FLOOR_HALF_X, x));
+  let cz = Math.max(TAVERN_FLOOR_MIN_Z, Math.min(TAVERN_FLOOR_MAX_Z, z));
+  for (const b of TAVERN_CIRCLE_BLOCKERS) {
+    const dx = cx - b.x;
+    const dz = cz - b.z;
+    const d = Math.hypot(dx, dz);
+    const min = b.r + TAVERN_PLAYER_RADIUS;
+    if (d < min) {
+      if (d < 1e-6) {
+        cz = b.z + min;
+      } else {
+        cx = b.x + (dx / d) * min;
+        cz = b.z + (dz / d) * min;
+      }
+    }
+  }
+  if (cx > TAVERN_COUNTER.minX && cx < TAVERN_COUNTER.maxX && cz > TAVERN_COUNTER.minZ && cz < TAVERN_COUNTER.maxZ) {
+    // Push out to the nearest reachable edge. The north edge is against the back
+    // wall (there is no room to stand behind the counter), so it is never an exit.
+    const toWest = cx - TAVERN_COUNTER.minX;
+    const toEast = TAVERN_COUNTER.maxX - cx;
+    const toSouth = TAVERN_COUNTER.maxZ - cz;
+    const m = Math.min(toWest, toEast, toSouth);
+    if (m === toWest) cx = TAVERN_COUNTER.minX;
+    else if (m === toEast) cx = TAVERN_COUNTER.maxX;
+    else cz = TAVERN_COUNTER.maxZ;
+  }
+  return [cx, cz];
+}
+
+/** True when the player walks back through the tavern door (south wall). */
+export function isTavernExit(x: number, z: number): boolean {
+  return z >= TAVERN_EXIT_MIN_Z && Math.abs(x) <= TAVERN_EXIT_HALF_WIDTH;
+}
+
+/* ------------------------------------------------------------------ */
+/* Stations — the keeper and the gaming tables (DOM-free, unit-testable). */
+/* ------------------------------------------------------------------ */
+
+export type TavernStationId = 'prisca' | 'tables';
+
+export interface TavernStation {
+  id: TavernStationId;
+  label: string;
+  hint: string;
+  x: number;
+  z: number;
+  radius: number;
+}
+
+export const TAVERN_STATIONS: TavernStation[] = [
+  { id: 'prisca', label: 'Aelia Prisca', hint: 'Keeper of the Bronze Cup', x: 0, z: -5.9, radius: 2.2 },
+  { id: 'tables', label: 'Gaming Tables', hint: 'Dice, wine, and wagers', x: -0.8, z: 1.5, radius: 2.2 },
+];
+
+/** Nearest station within its interaction radius, or null on open floor. */
+export function nearestTavernStation(x: number, z: number): TavernStation | null {
+  let best: TavernStation | null = null;
+  let bestD = Infinity;
+  for (const s of TAVERN_STATIONS) {
+    const d = Math.hypot(x - s.x, z - s.z);
+    if (d <= s.radius && d < bestD) {
+      best = s;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
 
 function TimberBeam({ position, size, rotation = [0, 0, 0] }: {
   position: [number, number, number];
@@ -54,7 +159,7 @@ function FoodPlate({ position }: { position: [number, number, number] }) {
         <cylinderGeometry args={[0.25, 0.22, 0.045, 20]} />
         <meshStandardMaterial color="#b58a5a" roughness={0.72} />
       </mesh>
-      <mesh position={[0, 0.045, 0]} castShadow>
+      <mesh position={[0, 0.045, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
         <torusGeometry args={[0.22, 0.018, 5, 20]} />
         <meshStandardMaterial color="#d2b27b" roughness={0.58} />
       </mesh>
@@ -120,7 +225,7 @@ function Bench({ position, rotationY = 0 }: { position: [number, number, number]
         <cylinderGeometry args={[0.39, 0.39, 0.14, 20]} />
         <meshStandardMaterial color="#54351f" roughness={0.86} />
       </mesh>
-      <mesh position={[0, 0.605, 0]} castShadow>
+      <mesh position={[0, 0.605, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
         <torusGeometry args={[0.36, 0.018, 5, 20]} />
         <meshStandardMaterial color="#8b633c" metalness={0.18} roughness={0.72} />
       </mesh>
@@ -164,7 +269,7 @@ function TavernTable({ position, rotationY = 0 }: { position: [number, number, n
         <cylinderGeometry args={[0.96, 0.96, 0.16, 32]} />
         <meshStandardMaterial color="#684126" roughness={0.78} />
       </mesh>
-      <mesh position={[0, 0.91, 0]} castShadow>
+      <mesh position={[0, 0.91, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
         <torusGeometry args={[0.91, 0.025, 6, 32]} />
         <meshStandardMaterial color="#987044" metalness={0.38} roughness={0.58} />
       </mesh>
@@ -356,7 +461,7 @@ function TavernKeeper() {
         </mesh>
       </group>
       {/* A narrow bronze neck ring gives the keeper a distinct silhouette in warm light. */}
-      <mesh position={[0, 1.62, 0.015]}>
+      <mesh position={[0, 1.62, 0.015]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.16, 0.025, 5, 12]} />
         <meshStandardMaterial color="#a9854d" metalness={0.42} roughness={0.6} />
       </mesh>
@@ -434,32 +539,32 @@ function TavernRoom() {
       <ambientLight intensity={0.75} color="#ffdfb2" />
       <hemisphereLight args={['#ffd5a0', '#382015', 1.15]} />
       <directionalLight position={[-3, 7, 4]} intensity={1.25} color="#ffcf91" />
-      <pointLight position={[0, 3.2, -2.5]} intensity={1.8} distance={10} color="#ffb35c" />
-      <pointLight position={[0, 2.5, 3.5]} intensity={1.2} distance={8} color="#ffd18a" />
+      <pointLight position={[0, 4.6, -2.5]} intensity={1.8} distance={10} color="#ffb35c" />
+      <pointLight position={[0, 4, 3.5]} intensity={1.2} distance={8} color="#ffd18a" />
 
       {/* Packed-earth floor and stone lower courses */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.04, 0]} receiveShadow>
         <planeGeometry args={[15, 18]} />
         <meshStandardMaterial color="#57402d" roughness={1} />
       </mesh>
-      <mesh position={[0, 1.8, -8]} receiveShadow>
-        <boxGeometry args={[15, 3.7, 0.35]} />
+      <mesh position={[0, 3, -8]} receiveShadow>
+        <boxGeometry args={[15, 6, 0.35]} />
         <meshStandardMaterial color="#76543b" roughness={0.98} />
       </mesh>
-      <mesh position={[-7.3, 1.8, 0]} receiveShadow>
-        <boxGeometry args={[0.35, 3.7, 16]} />
+      <mesh position={[-7.3, 3, 0]} receiveShadow>
+        <boxGeometry args={[0.35, 6, 16]} />
         <meshStandardMaterial color="#624631" roughness={0.98} />
       </mesh>
-      <mesh position={[7.3, 1.8, 0]} receiveShadow>
-        <boxGeometry args={[0.35, 3.7, 16]} />
+      <mesh position={[7.3, 3, 0]} receiveShadow>
+        <boxGeometry args={[0.35, 6, 16]} />
         <meshStandardMaterial color="#624631" roughness={0.98} />
       </mesh>
       {/* Dark rafters overhead, but warm, readable illumination below */}
       {[-5.8, -3.1, -0.4, 2.3, 5.0].map((z) => (
-        <TimberBeam key={z} position={[0, 3.75, z]} size={[15, 0.2, 0.24]} />
+        <TimberBeam key={z} position={[0, 5.85, z]} size={[15, 0.2, 0.24]} />
       ))}
       {[-6, -3, 0, 3, 6].map((x) => (
-        <TimberBeam key={x} position={[x, 3.55, 0]} size={[0.22, 0.38, 16]} />
+        <TimberBeam key={x} position={[x, 5.65, 0]} size={[0.22, 0.38, 16]} />
       ))}
       {/* The keeper is stationed behind the existing service counter. */}
       <TavernKeeper />
@@ -510,25 +615,25 @@ function TavernRoom() {
       {/* Earthenware and mounted shields: moved to the side walls so the legion standards remain the back-wall focal point. */}
       <Amphora position={[-6.2, 0, -4.5]} scale={0.9} />
       <Amphora position={[6.1, 0, -3.8]} scale={0.78} />
-      <WallShield position={[-7.08, 2.25, -4.65]} rotationY={Math.PI / 2} />
-      <WallShield position={[-7.08, 2.25, 1.15]} rotationY={Math.PI / 2} />
-      <WallShield position={[7.08, 2.25, -4.65]} rotationY={-Math.PI / 2} />
-      <WallShield position={[7.08, 2.25, 1.15]} rotationY={-Math.PI / 2} />
-      <WallTorch position={[-6.9, 2.2, -2.4]} />
-      <WallTorch position={[6.9, 2.2, -2.4]} />
-      <WallTorch position={[-6.9, 2.2, 4.0]} />
-      <WallTorch position={[6.9, 2.2, 4.0]} />
+      <WallShield position={[-7.08, 3.6, -4.65]} rotationY={Math.PI / 2} />
+      <WallShield position={[-7.08, 3.6, 1.15]} rotationY={Math.PI / 2} />
+      <WallShield position={[7.08, 3.6, -4.65]} rotationY={-Math.PI / 2} />
+      <WallShield position={[7.08, 3.6, 1.15]} rotationY={-Math.PI / 2} />
+      <WallTorch position={[-6.9, 3.4, -2.4]} />
+      <WallTorch position={[6.9, 3.4, -2.4]} />
+      <WallTorch position={[-6.9, 3.4, 4.0]} />
+      <WallTorch position={[6.9, 3.4, 4.0]} />
       {/* Cloth legion standards break up the bare back wall without adding heavy assets. */}
-      <LegionBanner position={[-5.2, 2.15, -7.76]} cloth="#263b58" />
-      <LegionBanner position={[0, 2.15, -7.76]} cloth="#762e24" />
-      <LegionBanner position={[5.2, 2.15, -7.76]} cloth="#263b58" />
+      <LegionBanner position={[-5.2, 3.4, -7.76]} cloth="#263b58" />
+      <LegionBanner position={[0, 3.4, -7.76]} cloth="#762e24" />
+      <LegionBanner position={[5.2, 3.4, -7.76]} cloth="#263b58" />
       {/* Entrance lintel and hanging sign seen from inside */}
-      <TimberBeam position={[0, 2.85, 7.7]} size={[4.2, 0.24, 0.28]} />
-      <mesh position={[0, 2.35, 7.62]} rotation={[0, 0, 0.02]} castShadow>
+      <TimberBeam position={[0, 4.4, 7.7]} size={[4.2, 0.24, 0.28]} />
+      <mesh position={[0, 3.9, 7.62]} rotation={[0, 0, 0.02]} castShadow>
         <boxGeometry args={[1.4, 0.75, 0.1]} />
         <meshStandardMaterial color="#6c321f" roughness={0.9} />
       </mesh>
-      <mesh position={[0, 2.35, 7.53]}>
+      <mesh position={[0, 3.9, 7.53]}>
         <boxGeometry args={[1.12, 0.08, 0.025]} />
         <meshStandardMaterial color="#d4a66a" emissive="#6a3918" emissiveIntensity={0.25} />
       </mesh>
@@ -539,13 +644,220 @@ function TavernRoom() {
   );
 }
 
-export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void; onOpenServices: () => void }) {
+/* ------------------------------------------------------------------ */
+/* Player rig — camera-relative movement, tavern-floor clamp, door exit. */
+/* ------------------------------------------------------------------ */
+
+interface TavernPlayerRigProps {
+  onExitRef: React.MutableRefObject<() => void>;
+  keysRef: React.MutableRefObject<Record<string, boolean>>;
+  stickRef: React.MutableRefObject<{ x: number; y: number }>;
+  onPosition: (x: number, z: number) => void;
+}
+
+function TavernPlayerRig({ onExitRef, keysRef, stickRef, onPosition }: TavernPlayerRigProps) {
+  const group = useRef<THREE.Group>(null);
+  const body = useRef<THREE.Group>(null);
+  const pos = useRef<[number, number]>([TAVERN_SPAWN_X, TAVERN_SPAWN_Z]);
+  const yaw = useRef(Math.PI);
+  const camYaw = useRef(0);
+  const exited = useRef(false);
+  const bob = useRef(0);
+
+  useFrame(({ camera }, rawDelta) => {
+    const delta = Math.min(rawDelta, 0.05);
+    const keys = keysRef.current;
+    const stick = stickRef.current;
+    // Keyboard input.
+    let kx = 0;
+    let kz = 0;
+    if (keys['KeyW'] || keys['ArrowUp']) kz -= 1;
+    if (keys['KeyS'] || keys['ArrowDown']) kz += 1;
+    if (keys['KeyA'] || keys['ArrowLeft']) kx -= 1;
+    if (keys['KeyD'] || keys['ArrowRight']) kx += 1;
+    // Joystick input (dead-zoned).
+    const joystick = applyDeadZone(stick.x, stick.y);
+    // Combine; clamp to the unit circle.
+    let mx = kx + joystick.x;
+    let mz = kz + joystick.z;
+    const mLen = Math.hypot(mx, mz);
+    if (mLen > 1) {
+      mx /= mLen;
+      mz /= mLen;
+    }
+    const speed = 5.2;
+    // Camera-relative movement (city pattern): stick/key up is away from the camera.
+    const cy = camYaw.current;
+    const fx = Math.sin(cy);
+    const fz = Math.cos(cy);
+    const rx = -Math.cos(cy);
+    const rz = Math.sin(cy);
+    const wx = mx * rx - mz * fx;
+    const wz = mx * rz - mz * fz;
+    let px = pos.current[0] + wx * speed * delta;
+    let pz = pos.current[1] + wz * speed * delta;
+    [px, pz] = clampToTavernFloor(px, pz);
+    pos.current = [px, pz];
+    onPosition(px, pz);
+    // Walk back through the tavern door to leave.
+    if (!exited.current && isTavernExit(px, pz)) {
+      exited.current = true;
+      // Defer unmount to next tick to avoid synchronously unmounting R3F root during update
+      setTimeout(() => onExitRef.current(), 0);
+      return;
+    }
+    // Face the movement direction with a smooth turn.
+    if (mLen > 0.05) {
+      const target = Math.atan2(wx, wz);
+      let d = target - yaw.current;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      yaw.current += d * Math.min(1, delta * 10);
+      bob.current += delta * 9 * Math.min(1, mLen);
+    }
+    if (group.current) {
+      group.current.position.set(px, 0, pz);
+      group.current.rotation.y = yaw.current;
+    }
+    if (body.current) {
+      body.current.position.y = Math.abs(Math.sin(bob.current)) * 0.08;
+    }
+    // Chase camera, kept inside the room so the raised walls never block the view.
+    const camX = Math.max(-6.8, Math.min(6.8, px - Math.sin(cy) * 6.5));
+    const camZ = Math.max(-7.4, Math.min(7.4, pz - Math.cos(cy) * 6.5));
+    const desired = new THREE.Vector3(camX, 4.2, camZ);
+    camera.position.lerp(desired, 1 - Math.exp(-5 * delta));
+    camera.lookAt(px, 1.1, pz);
+  });
+
   return (
-    <div className="fixed inset-0 z-[95] bg-[#1b100b] text-amber-100" role="dialog" aria-label="Roman tavern interior">
+    <group ref={group} position={[TAVERN_SPAWN_X, 0, TAVERN_SPAWN_Z]}>
+      <group ref={body}>
+        <mesh position={[0, 0.75, 0]} castShadow>
+          <capsuleGeometry args={[0.32, 0.7, 6, 12]} />
+          <meshStandardMaterial color="#4a3f55" roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 1.45, 0]} castShadow>
+          <sphereGeometry args={[0.2, 14, 14]} />
+          <meshStandardMaterial color="#c9a07a" roughness={0.8} />
+        </mesh>
+        <mesh position={[0, 1.54, -0.05]}>
+          <coneGeometry args={[0.26, 0.35, 10]} />
+          <meshStandardMaterial color="#3a3344" roughness={0.95} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+/* ------------------------------------------------------------------ */
+/* Overlay — full-screen while the city stays mounted underneath.      */
+/* ------------------------------------------------------------------ */
+
+export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void; onOpenServices: () => void }) {
+  const onExitRef = useRef(onExit);
+  const onOpenServicesRef = useRef(onOpenServices);
+  useEffect(() => {
+    onExitRef.current = onExit;
+    onOpenServicesRef.current = onOpenServices;
+  });
+
+  const keysPressed = useRef<Record<string, boolean>>({});
+  const stickRef = useRef({ x: 0, y: 0 });
+  const playerPosRef = useRef({ x: TAVERN_SPAWN_X, z: TAVERN_SPAWN_Z });
+  const nearStationRef = useRef<TavernStation | null>(null);
+  const [nearStation, setNearStation] = useState<TavernStation | null>(null);
+
+  // Proximity polling (cheap: 5 Hz) — drives the station prompt.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const s = nearestTavernStation(playerPosRef.current.x, playerPosRef.current.z);
+      if (s?.id !== nearStationRef.current?.id) {
+        nearStationRef.current = s;
+        setNearStation(s);
+      }
+    }, 200);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const interactWithStation = () => {
+    const s = nearStationRef.current;
+    if (!s) return;
+    onOpenServicesRef.current();
+  };
+  const interactRef = useRef(interactWithStation);
+  useEffect(() => {
+    interactRef.current = interactWithStation;
+  });
+
+  // Keyboard: WASD/arrows to walk, E to use the nearby station.
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      keysPressed.current[e.code] = true;
+      if (e.code === 'KeyE') interactRef.current();
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+        e.preventDefault();
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      keysPressed.current[e.code] = false;
+    };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+    };
+  }, []);
+
+  // On-screen joystick (touch).
+  const joystickRef = useRef<HTMLDivElement>(null);
+  const touchIdRef = useRef<number | null>(null);
+  const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
+
+  const setStickFromTouch = (clientX: number, clientY: number) => {
+    const el = joystickRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const R = rect.width / 2;
+    let dx = (clientX - cx) / R;
+    let dy = (clientY - cy) / R;
+    const len = Math.hypot(dx, dy);
+    if (len > 1) {
+      dx /= len;
+      dy /= len;
+    }
+    stickRef.current = { x: dx, y: dy };
+    setKnobPos({ x: dx * (R - 20), y: dy * (R - 20) });
+  };
+
+  const handleJoystickTouchStart = (e: React.TouchEvent) => {
+    const t = e.changedTouches[0];
+    touchIdRef.current = t.identifier;
+    setStickFromTouch(t.clientX, t.clientY);
+  };
+  const handleJoystickTouchMove = (e: React.TouchEvent) => {
+    for (const t of Array.from(e.changedTouches)) {
+      if (t.identifier === touchIdRef.current) setStickFromTouch(t.clientX, t.clientY);
+    }
+  };
+  const handleJoystickTouchEnd = (e: React.TouchEvent) => {
+    for (const t of Array.from(e.changedTouches)) {
+      if (t.identifier === touchIdRef.current) {
+        touchIdRef.current = null;
+        stickRef.current = { x: 0, y: 0 };
+        setKnobPos({ x: 0, y: 0 });
+      }
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[95] bg-[#1b100b] text-amber-100 overflow-hidden select-none" role="dialog" aria-label="Roman tavern interior">
       <Canvas
         shadows
         dpr={[1, 1.5]}
-        camera={{ position: [0, 2.7, 10.8], fov: 63, near: 0.1, far: 45 }}
+        camera={{ position: [TAVERN_SPAWN_X, 4.2, TAVERN_SPAWN_Z - 6.5], fov: 55, near: 0.1, far: 45 }}
         gl={{ antialias: false, powerPreference: 'low-power' }}
         onCreated={({ gl }) => {
           gl.outputColorSpace = THREE.SRGBColorSpace;
@@ -553,19 +865,15 @@ export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void;
           gl.toneMappingExposure = 1.22;
         }}
       >
-        <Suspense fallback={null}>
-          <TavernRoom />
-          <OrbitControls
-            makeDefault
-            target={[0, 1.35, -1.4]}
-            enablePan={false}
-            enableZoom={false}
-            minPolarAngle={Math.PI * 0.28}
-            maxPolarAngle={Math.PI * 0.62}
-            minAzimuthAngle={-Math.PI * 0.36}
-            maxAzimuthAngle={Math.PI * 0.36}
-          />
-        </Suspense>
+        <TavernRoom />
+        <TavernPlayerRig
+          onExitRef={onExitRef}
+          keysRef={keysPressed}
+          stickRef={stickRef}
+          onPosition={(x, z) => {
+            playerPosRef.current = { x, z };
+          }}
+        />
       </Canvas>
       <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-3">
         <div className="rounded-xl border border-amber-200/25 bg-stone-950/75 px-5 py-2 text-center shadow-xl backdrop-blur-sm">
@@ -590,9 +898,51 @@ export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void;
       >
         ← Return to City
       </button>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-3">
+      {/* Nearby-station prompt */}
+      {nearStation && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-28 flex justify-center p-3">
+          <div className="pointer-events-auto rounded-xl border border-amber-200/40 bg-stone-950/90 px-4 py-2.5 flex items-center gap-3 max-w-[92vw] shadow-xl">
+            <div className="min-w-0">
+              <div className="font-bold text-amber-100 text-sm leading-tight">{nearStation.label}</div>
+              <div className="text-[11px] text-amber-100/70 truncate">{nearStation.hint}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onOpenServicesRef.current()}
+              className="min-h-12 px-4 rounded-xl bg-amber-500/90 hover:bg-amber-400 text-stone-950 font-bold text-sm shrink-0"
+            >
+              {nearStation.id === 'prisca' ? 'Talk' : 'Play'}
+            </button>
+          </div>
+        </div>
+      )}
+      {/* On-screen joystick */}
+      <div className="absolute bottom-5 left-5 z-10 touch-none">
+        <div
+          ref={joystickRef}
+          onTouchStart={handleJoystickTouchStart}
+          onTouchMove={handleJoystickTouchMove}
+          onTouchEnd={handleJoystickTouchEnd}
+          onTouchCancel={handleJoystickTouchEnd}
+          aria-label="Move"
+          className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-stone-950/60 border-2 border-amber-200/40 relative flex items-center justify-center"
+        >
+          <div className="absolute top-2 w-1.5 h-1.5 rounded-full bg-amber-300/50" />
+          <div className="absolute bottom-2 w-1.5 h-1.5 rounded-full bg-amber-300/50" />
+          <div className="absolute left-2 w-1.5 h-1.5 rounded-full bg-amber-300/50" />
+          <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-amber-300/50" />
+          <div
+            className="w-10 h-10 rounded-full bg-gradient-to-b from-amber-400 to-amber-600 border-2 border-amber-200"
+            style={{ transform: `translate(${knobPos.x}px, ${knobPos.y}px)` }}
+          />
+        </div>
+        <div className="mt-1 text-center text-[10px] uppercase tracking-wider text-amber-300/80">
+          Move
+        </div>
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden justify-center p-3 sm:flex">
         <div className="rounded-lg bg-stone-950/65 px-4 py-2 text-center text-xs text-amber-100/80 backdrop-blur-sm">
-          Drag to look around · Tap Return to City to leave
+          WASD / arrows to walk · E to interact · walk back through the door to leave
         </div>
       </div>
     </div>
