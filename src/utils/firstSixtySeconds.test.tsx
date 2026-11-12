@@ -694,8 +694,9 @@ describe('FSS K §K — no new top-level profile field', () => {
   test('§J stays at 24 optional fields, `records` last', () => {
     // PITCH A4 REBASE: `identity` joined the set between `spared` and `ludi`.
     const optional = scanOptional(read('types/game.ts'));
-    expect(optional.length).toBe(25);
-    expect(optional.slice(-2)).toEqual(['ludi', 'records']);
+    // FOUNTAIN COIN TOSS REBASE: `luck` joined it between `ludi` and `records`.
+    expect(optional.length).toBe(26);
+    expect(optional.slice(-2)).toEqual(['luck', 'records']);
   });
 
   test('every §5 flag is session scratch, never a field', () => {
