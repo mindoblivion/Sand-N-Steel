@@ -155,10 +155,14 @@ describe('C. The two input paths', () => {
   });
 
   test('the touch controls write the same two fields', () => {
-    expect(controlsSrc).toContain('input.throttle = value');
-    expect(controlsSrc).toContain('input.steer = value');
-    expect(controlsCode).toContain('input.throttle = 0');
-    expect(controlsCode).toContain('input.steer = 0');
+    expect(controlsSrc).toContain("input.throttle = throttleAxis.current.press('throttle', 1)");
+    expect(controlsSrc).toContain("input.throttle = throttleAxis.current.press('brake', -1)");
+    expect(controlsSrc).toContain("input.steer = steeringAxis.current.press('left', -1)");
+    expect(controlsSrc).toContain("input.steer = steeringAxis.current.press('right', 1)");
+    expect(controlsSrc).toContain("input.throttle = throttleAxis.current.release('throttle')");
+    expect(controlsSrc).toContain("input.throttle = throttleAxis.current.release('brake')");
+    expect(controlsSrc).toContain("input.steer = steeringAxis.current.release('left')");
+    expect(controlsSrc).toContain("input.steer = steeringAxis.current.release('right')");
   });
 });
 
@@ -224,11 +228,30 @@ describe('E. The touch controls', () => {
   });
 
   test('the hold idiom is the shipped TouchControls’ Block-button idiom', () => {
-    for (const handler of ['onTouchStart', 'onTouchEnd', 'onTouchCancel', 'onMouseDown', 'onMouseUp', 'onMouseLeave']) {
+    for (const handler of ['onPointerDown', 'onPointerUp', 'onPointerCancel', 'onLostPointerCapture']) {
       expect(controlsCode, handler).toContain(handler);
     }
     expect(controlsCode).toContain('event.preventDefault()');
+    expect(controlsCode).toContain('setPointerCapture(event.pointerId)');
+    expect(controlsCode).toContain("window.addEventListener('pointerup', releasePointer)");
+    expect(controlsCode).toContain("window.addEventListener('pointercancel', releasePointer)");
+    expect(controlsCode).toContain("window.removeEventListener('pointerup', releasePointer)");
+    expect(controlsCode).toContain("window.removeEventListener('pointercancel', releasePointer)");
+    expect(controlsCode).toContain('createRacePointerHold()');
     expect(controlsCode).toContain('touch-manipulation');
+  });
+
+  test('focus loss and backgrounding reset pointer ownership and both axis trackers', () => {
+    expect(controlsCode).toContain("window.addEventListener('blur', releaseOnLifecycleLoss)");
+    expect(controlsCode).toContain("document.addEventListener('visibilitychange', releaseWhenHidden)");
+    expect(controlsCode).toContain("document.visibilityState === 'hidden'");
+    expect(controlsCode).toContain('if (hold.current.reset()) releaseRef.current()');
+    expect(controlsCode).toContain('steeringAxis.current.reset()');
+    expect(controlsCode).toContain('throttleAxis.current.reset()');
+    expect(controlsCode).toContain('input.steer = 0');
+    expect(controlsCode).toContain('input.throttle = 0');
+    expect(controlsCode).toContain("window.removeEventListener('blur', releaseOnLifecycleLoss)");
+    expect(controlsCode).toContain("document.removeEventListener('visibilitychange', releaseWhenHidden)");
   });
 
   test('Lefty Mode mirrors the whole cluster, as one unit', () => {
