@@ -756,7 +756,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       visitorPanel || colosseumPanel || forgePanel || bountyHallPanel || bathhousePanel || academyPanel || showRaceEntry || showNavDrawer
     );
     cityPanelInputLockedRef.current = panelLocked;
-    if (panelLocked) {
+    // A full-screen presented scene (for example, the oath beat) also owns
+    // input. Clear held controls on entry so they cannot resume when it closes.
+    if (panelLocked || movementLocked) {
       keysPressed.current = {};
       touchVectorRef.current = { x: 0, z: 0 };
       touchIdRef.current = null;
