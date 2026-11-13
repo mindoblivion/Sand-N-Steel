@@ -41,6 +41,14 @@ interface GladiatorSchoolHubProps {
   playerProfile: PlayerProfile;
   activeTab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library' | 'trainees';
   onTabChange: (tab: 'tournament' | 'training' | 'shop' | 'gear' | 'stats' | 'library' | 'trainees') => void;
+  /**
+   * ACADEMY-INTERIOR — which page the Records & Lore rack is showing. App owns
+   * it now: the rack has three doors (the tab, the character sheet's "View
+   * Triumphs", the Academy's "Study" station), and one surface must answer all
+   * three. The hub renders the page it is given and reports changes back.
+   */
+    libraryPage: LibraryPageId;
+    onLibraryPageChange: (page: LibraryPageId) => void;
   onUpdateProfile: (profile: PlayerProfile) => void;
   onEnterCity3D: () => void;
   /** C-8.70C — carries the bout mode chosen on the pre-fight card (Sand if omitted). */
@@ -170,6 +178,8 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onSelectTitle,
   onEnterLegendBout,
   onViewCodex,
+  libraryPage,
+  onLibraryPageChange,
 }) => {
   const [selectedOpponent, setSelectedOpponent] = useState<OpponentConfig | null>(null);
   /**
@@ -179,16 +189,10 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
    */
   const [testRestriction, setTestRestriction] = useState<DoctoreTestRestriction | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-  /**
-   * A8 — which page the Records & Lore rack is showing.  It is held HERE because
-   * the character sheet's "View Triumphs" button opens the same rack on a
-   * different page: one surface, two doors, and no second Triumphs screen.
-   */
-  const [libraryPage, setLibraryPage] = useState<LibraryPageId>('road');
 
   /** A8 — the sheet's door: open the Library on its Triumphs page. */
   const openTriumphs = () => {
-    setLibraryPage('triumphs');
+    onLibraryPageChange('triumphs');
     onTabChange('library');
   };
 
@@ -330,7 +334,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
                 sounds.playClick();
                 // A8 — the rack's own tab opens it on page one; only the character
                 // sheet's door asks for the Triumphs page.
-                if (tab.key === 'library') setLibraryPage('road');
+                if (tab.key === 'library') onLibraryPageChange('road');
                 onTabChange(tab.key as any);
               }}
               className={`min-h-[48px] py-2 px-3 sm:px-4 rounded-xl font-serif font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
@@ -415,7 +419,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             profile={playerProfile}
             onPurchaseTriumph={onPurchaseTriumph}
             page={libraryPage}
-            onPageChange={setLibraryPage}
+            onPageChange={onLibraryPageChange}
             onViewTriumphs={onViewTriumphs}
             onSelectTitle={onSelectTitle}
             onViewCodex={onViewCodex}

@@ -188,7 +188,7 @@ describe('§D — the wiring', () => {
 
   test('App locks movement while inside and threads the rumor flag', () => {
     expect(APP_SOURCE).toContain(
-      'movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen || bathhouseOpen}'
+      'movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen || bathhouseOpen || academyOpen}'
     );
     expect(APP_SOURCE).toContain('onEnterBathhouse={(startWithRumors) => {');
     expect(APP_SOURCE).toContain('setBathhouseRumors(startWithRumors); setBathhouseOpen(true);');
@@ -203,9 +203,9 @@ describe('§D — the wiring', () => {
 
   test('the bathhouse panel joins the lock lists', () => {
     expect(SCENE_SOURCE).toContain('const [bathhousePanel, setBathhousePanel] = useState(false);');
-    expect(SCENE_SOURCE).toContain('forgePanel || bountyHallPanel || bathhousePanel || showRaceEntry || showNavDrawer');
-    expect(SCENE_SOURCE).toContain('forgePanel, bountyHallPanel, bathhousePanel, showRaceEntry, showNavDrawer,');
-    expect(SCENE_SOURCE).toContain('showRaceEntry, showNavDrawer, bountyHallPanel, bathhousePanel]');
+    expect(SCENE_SOURCE).toContain('forgePanel || bountyHallPanel || bathhousePanel || academyPanel || showRaceEntry || showNavDrawer');
+    expect(SCENE_SOURCE).toContain('forgePanel, bountyHallPanel, bathhousePanel, academyPanel, showRaceEntry, showNavDrawer,');
+    expect(SCENE_SOURCE).toContain('showRaceEntry, showNavDrawer, bountyHallPanel, bathhousePanel, academyPanel]');
   });
 
   test('the hub branch opens the door panel instead of the stats tab', () => {
