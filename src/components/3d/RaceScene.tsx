@@ -1159,6 +1159,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
           isLeftyMode={isLeftyMode}
           showHints={showHints}
           revving={revving}
+          frozen={frozen}
         />
       )}
 

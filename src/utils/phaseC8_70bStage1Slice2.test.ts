@@ -211,6 +211,7 @@ describe('E. The touch controls', () => {
   test('they are the two corner clusters, mounted once', () => {
     expect(sceneSrc).toContain("import { RaceTouchControls } from '../ui/RaceTouchControls'");
     expect(sceneCode.split('<RaceTouchControls').length - 1).toBe(1);
+    expect(sceneCode).toContain('frozen={frozen}');
     expect(controlsCode).toContain('flex items-end justify-between');
     expect(controlsCode).toContain('absolute inset-0 pointer-events-none');
   });
@@ -252,6 +253,15 @@ describe('E. The touch controls', () => {
     expect(controlsCode).toContain('input.throttle = 0');
     expect(controlsCode).toContain("window.removeEventListener('blur', releaseOnLifecycleLoss)");
     expect(controlsCode).toContain("document.removeEventListener('visibilitychange', releaseWhenHidden)");
+  });
+
+  test('settings freeze releases active touch holds and disables all four controls', () => {
+    expect(controlsSrc).toContain('frozen?: boolean');
+    expect(controlsSrc).toContain('if (frozen) releaseAllAxes()');
+    expect(controlsSrc).toContain('if (disabled) return');
+    expect(controlsSrc).toContain('if (disabled && hold.current.reset()) releaseRef.current()');
+    expect(controlsCode.match(/disabled={frozen}/g)?.length).toBe(4);
+    expect(controlsCode).toContain('disabled={disabled}');
   });
 
   test('Lefty Mode mirrors the whole cluster, as one unit', () => {
