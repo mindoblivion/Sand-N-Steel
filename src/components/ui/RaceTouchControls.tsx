@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import type { ChariotInput } from '../../utils/chariotMovement';
 import { createRacePointerHold } from '../../utils/racePointerHold';
+import { createRaceAxisHold } from '../../utils/raceAxisHold';
 
 /**
  * RaceTouchControls.tsx — Phase C-8.70B Stage 1, Slice 2: the race's touch
@@ -161,6 +162,8 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
   revving,
 }) => {
   const mirror = isLeftyMode ? 'flex-row-reverse' : '';
+  const steeringAxis = useRef(createRaceAxisHold());
+  const throttleAxis = useRef(createRaceAxisHold());
 
   const steerCluster = (
     <div className={`pointer-events-auto touch-none flex items-end gap-2 sm:gap-3 shrink-0 ${mirror}`}>
@@ -171,8 +174,8 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
         hint="hold to steer left"
         showHints={showHints}
         className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-amber-600 to-amber-800 border-amber-300 text-amber-50"
-        apply={() => { input.steer = -1; }}
-        release={() => { input.steer = 0; }}
+        apply={() => { input.steer = steeringAxis.current.press('left', -1); }}
+        release={() => { input.steer = steeringAxis.current.release('left'); }}
       >
         <ChevronLeft className="w-6 h-6 sm:w-8 sm:h-8" />
       </RaceControlButton>
@@ -183,8 +186,8 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
         hint="hold to steer right"
         showHints={showHints}
         className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-amber-600 to-amber-800 border-amber-300 text-amber-50"
-        apply={() => { input.steer = 1; }}
-        release={() => { input.steer = 0; }}
+        apply={() => { input.steer = steeringAxis.current.press('right', 1); }}
+        release={() => { input.steer = steeringAxis.current.release('right'); }}
       >
         <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8" />
       </RaceControlButton>
@@ -202,8 +205,8 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
         className={`w-[min(5.5rem,16vh)] h-[min(5.5rem,16vh)] bg-gradient-to-br from-lime-600 to-emerald-800 border-lime-300 text-lime-50 ${
           revving ? 'ring-4 ring-lime-300/70 shadow-[0_0_25px_rgba(163,230,53,0.6)]' : ''
         }`}
-        apply={() => { input.throttle = 1; }}
-        release={() => { input.throttle = 0; }}
+        apply={() => { input.throttle = throttleAxis.current.press('throttle', 1); }}
+        release={() => { input.throttle = throttleAxis.current.release('throttle'); }}
         rev={revving}
       >
         <ChevronUp className="w-7 h-7 sm:w-9 sm:h-9" />
@@ -215,8 +218,8 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
         hint="hold to brake / reverse"
         showHints={showHints}
         className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-red-700 to-rose-900 border-red-300 text-rose-50"
-        apply={() => { input.throttle = -1; }}
-        release={() => { input.throttle = 0; }}
+        apply={() => { input.throttle = throttleAxis.current.press('brake', -1); }}
+        release={() => { input.throttle = throttleAxis.current.release('brake'); }}
       >
         <ChevronDown className="w-6 h-6 sm:w-8 sm:h-8" />
       </RaceControlButton>
