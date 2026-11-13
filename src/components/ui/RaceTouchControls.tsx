@@ -86,12 +86,22 @@ const RaceControlButton: React.FC<RaceControlButtonProps> = ({
     const releasePointer = (event: PointerEvent) => {
       if (hold.current.end(event.pointerId)) releaseRef.current();
     };
+    const releaseOnLifecycleLoss = () => {
+      if (hold.current.reset()) releaseRef.current();
+    };
+    const releaseWhenHidden = () => {
+      if (document.visibilityState === 'hidden') releaseOnLifecycleLoss();
+    };
     window.addEventListener('pointerup', releasePointer);
     window.addEventListener('pointercancel', releasePointer);
+    window.addEventListener('blur', releaseOnLifecycleLoss);
+    document.addEventListener('visibilitychange', releaseWhenHidden);
     return () => {
       window.removeEventListener('pointerup', releasePointer);
       window.removeEventListener('pointercancel', releasePointer);
-      if (hold.current.reset()) releaseRef.current();
+      window.removeEventListener('blur', releaseOnLifecycleLoss);
+      document.removeEventListener('visibilitychange', releaseWhenHidden);
+      releaseOnLifecycleLoss();
     };
   }, []);
 
@@ -164,6 +174,25 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
   const mirror = isLeftyMode ? 'flex-row-reverse' : '';
   const steeringAxis = useRef(createRaceAxisHold());
   const throttleAxis = useRef(createRaceAxisHold());
+
+  useEffect(() => {
+    const releaseAllAxes = () => {
+      steeringAxis.current.reset();
+      throttleAxis.current.reset();
+      input.steer = 0;
+      input.throttle = 0;
+    };
+    const releaseWhenHidden = () => {
+      if (document.visibilityState === 'hidden') releaseAllAxes();
+    };
+    window.addEventListener('blur', releaseAllAxes);
+    document.addEventListener('visibilitychange', releaseWhenHidden);
+    return () => {
+      window.removeEventListener('blur', releaseAllAxes);
+      document.removeEventListener('visibilitychange', releaseWhenHidden);
+      releaseAllAxes();
+    };
+  }, [input]);
 
   const steerCluster = (
     <div className={`pointer-events-auto touch-none flex items-end gap-2 sm:gap-3 shrink-0 ${mirror}`}>

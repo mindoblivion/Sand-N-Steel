@@ -241,6 +241,19 @@ describe('E. The touch controls', () => {
     expect(controlsCode).toContain('touch-manipulation');
   });
 
+  test('focus loss and backgrounding reset pointer ownership and both axis trackers', () => {
+    expect(controlsCode).toContain("window.addEventListener('blur', releaseOnLifecycleLoss)");
+    expect(controlsCode).toContain("document.addEventListener('visibilitychange', releaseWhenHidden)");
+    expect(controlsCode).toContain("document.visibilityState === 'hidden'");
+    expect(controlsCode).toContain('if (hold.current.reset()) releaseRef.current()');
+    expect(controlsCode).toContain('steeringAxis.current.reset()');
+    expect(controlsCode).toContain('throttleAxis.current.reset()');
+    expect(controlsCode).toContain('input.steer = 0');
+    expect(controlsCode).toContain('input.throttle = 0');
+    expect(controlsCode).toContain("window.removeEventListener('blur', releaseOnLifecycleLoss)");
+    expect(controlsCode).toContain("document.removeEventListener('visibilitychange', releaseWhenHidden)");
+  });
+
   test('Lefty Mode mirrors the whole cluster, as one unit', () => {
     expect(controlsCode).toContain("const mirror = isLeftyMode ? 'flex-row-reverse' : ''");
     expect(controlsSrc).toContain('data-race-controls={isLeftyMode ? \'lefty\' : \'righty\'}');
