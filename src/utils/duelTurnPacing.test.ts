@@ -469,3 +469,55 @@ describe('CF-5 §E resolution timer lifecycle', () => {
     expect(cleanup).toBeGreaterThan(effect);
   });
 });
+
+// ── §F TERMINAL TURN GUARDS ─────────────────────────────────────────────────
+describe('CF-5 §F terminal turn guards', () => {
+  test('a completed match cannot re-enter combat from an expired attack wind-up', () => {
+    const windupStart = duel.indexOf('attackWindupTimerRef.current = setTimeout(() => {');
+    const windupEnd = duel.indexOf('}, ATTACK_WINDUP_MS);', windupStart);
+    const callback = duel.slice(windupStart, windupEnd);
+
+    expect(windupStart).toBeGreaterThan(-1);
+    expect(windupEnd).toBeGreaterThan(windupStart);
+    expect(callback.indexOf('attackWindupTimerRef.current = null;')).toBeGreaterThan(-1);
+    expect(callback.indexOf('if (isMatchOver.current)')).toBeGreaterThan(
+      callback.indexOf('attackWindupTimerRef.current = null;'),
+    );
+    expect(callback.indexOf('return;')).toBeGreaterThan(
+      callback.indexOf('if (isMatchOver.current)'),
+    );
+    expect(callback.indexOf('executeCombatTurnRef.current?.(actor, actionType, target, true)')).toBeGreaterThan(
+      callback.indexOf('if (isMatchOver.current)'),
+    );
+  });
+
+  test('a resolved terminal turn never hands control to the next fighter', () => {
+    const resolutionStart = duel.indexOf('turnResolutionTimerRef.current = setTimeout(() => {');
+    const resolutionEnd = duel.indexOf('}, turnResolutionMs(', resolutionStart);
+    const callback = duel.slice(resolutionStart, resolutionEnd);
+    const matchEnd = callback.indexOf('if (opp.health <= 0 || player.health <= 0)');
+    const returnFromMatchEnd = callback.indexOf('return;', matchEnd);
+    const turnHandoff = callback.indexOf('setIsPlayerTurn(!isActorPlayer);');
+
+    expect(resolutionStart).toBeGreaterThan(-1);
+    expect(resolutionEnd).toBeGreaterThan(resolutionStart);
+    expect(callback).toContain('turnResolutionTimerRef.current = null;');
+    expect(matchEnd).toBeGreaterThan(-1);
+    expect(returnFromMatchEnd).toBeGreaterThan(matchEnd);
+    expect(turnHandoff).toBeGreaterThan(returnFromMatchEnd);
+  });
+
+  test('the opponent AI timer checks match termination before choosing an action', () => {
+    const aiStart = duel.indexOf('const aiTimer = setTimeout(() => {');
+    const aiEnd = duel.indexOf('}, aiDelayMs);', aiStart);
+    const callback = duel.slice(aiStart, aiEnd);
+    const terminalCheck = callback.indexOf('if (isMatchOver.current) return;');
+    const actionPlanning = callback.indexOf('const dist = Math.abs(player.position[2] - opp.position[2]);');
+
+    expect(aiStart).toBeGreaterThan(-1);
+    expect(aiEnd).toBeGreaterThan(aiStart);
+    expect(callback).toContain('aiTurnTimerRef.current = null;');
+    expect(terminalCheck).toBeGreaterThan(-1);
+    expect(actionPlanning).toBeGreaterThan(terminalCheck);
+  });
+});
