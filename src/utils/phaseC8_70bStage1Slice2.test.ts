@@ -155,12 +155,14 @@ describe('C. The two input paths', () => {
   });
 
   test('the touch controls write the same two fields', () => {
-    expect(controlsSrc).toContain('input.throttle = 1');
-    expect(controlsSrc).toContain('input.throttle = -1');
-    expect(controlsSrc).toContain('input.steer = -1');
-    expect(controlsSrc).toContain('input.steer = 1');
-    expect(controlsCode).toContain('input.throttle = 0');
-    expect(controlsCode).toContain('input.steer = 0');
+    expect(controlsSrc).toContain("input.throttle = throttleAxis.current.press('throttle', 1)");
+    expect(controlsSrc).toContain("input.throttle = throttleAxis.current.press('brake', -1)");
+    expect(controlsSrc).toContain("input.steer = steeringAxis.current.press('left', -1)");
+    expect(controlsSrc).toContain("input.steer = steeringAxis.current.press('right', 1)");
+    expect(controlsSrc).toContain("input.throttle = throttleAxis.current.release('throttle')");
+    expect(controlsSrc).toContain("input.throttle = throttleAxis.current.release('brake')");
+    expect(controlsSrc).toContain("input.steer = steeringAxis.current.release('left')");
+    expect(controlsSrc).toContain("input.steer = steeringAxis.current.release('right')");
   });
 });
 
