@@ -47,6 +47,8 @@ export interface RaceTouchControlsProps {
   showHints: boolean;
   /** Rev is being built (the throttle is held while the gates count down). */
   revving: boolean;
+  /** Settings overlay owns the screen; controls release and remain inert. */
+  frozen?: boolean;
 }
 
 /** One round, labelled cluster button with its optional first-race hint. */
@@ -62,6 +64,7 @@ interface RaceControlButtonProps {
   release: () => void;
   /** The throttle's rev indicator (the countdown's visible rev state). */
   rev?: boolean;
+  disabled?: boolean;
 }
 
 const RaceControlButton: React.FC<RaceControlButtonProps> = ({
@@ -75,6 +78,7 @@ const RaceControlButton: React.FC<RaceControlButtonProps> = ({
   apply,
   release,
   rev,
+  disabled,
 }) => {
   const hold = useRef(createRacePointerHold());
   const releaseRef = useRef(release);
@@ -105,8 +109,13 @@ const RaceControlButton: React.FC<RaceControlButtonProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (disabled && hold.current.reset()) releaseRef.current();
+  }, [disabled]);
+
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
+    if (disabled) return;
     if (!hold.current.begin(event.pointerId)) return;
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -131,6 +140,7 @@ const RaceControlButton: React.FC<RaceControlButtonProps> = ({
     <button
       type="button"
       data-race-control={control}
+      disabled={disabled}
       aria-label={accessibleLabel}
       data-race-rev={rev ? 'true' : 'false'}
       title={hint}
@@ -170,6 +180,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
   isLeftyMode,
   showHints,
   revving,
+  frozen = false,
 }) => {
   const mirror = isLeftyMode ? 'flex-row-reverse' : '';
   const steeringAxis = useRef(createRaceAxisHold());
@@ -182,6 +193,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
       input.steer = 0;
       input.throttle = 0;
     };
+    if (frozen) releaseAllAxes();
     const releaseWhenHidden = () => {
       if (document.visibilityState === 'hidden') releaseAllAxes();
     };
@@ -192,7 +204,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
       document.removeEventListener('visibilitychange', releaseWhenHidden);
       releaseAllAxes();
     };
-  }, [input]);
+  }, [input, frozen]);
 
   const steerCluster = (
     <div className={`pointer-events-auto touch-none flex items-end gap-2 sm:gap-3 shrink-0 ${mirror}`}>
@@ -203,6 +215,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
         hint="hold to steer left"
         showHints={showHints}
         className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-amber-600 to-amber-800 border-amber-300 text-amber-50"
+        disabled={frozen}
         apply={() => { input.steer = steeringAxis.current.press('left', -1); }}
         release={() => { input.steer = steeringAxis.current.release('left'); }}
       >
@@ -215,6 +228,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
         hint="hold to steer right"
         showHints={showHints}
         className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-amber-600 to-amber-800 border-amber-300 text-amber-50"
+        disabled={frozen}
         apply={() => { input.steer = steeringAxis.current.press('right', 1); }}
         release={() => { input.steer = steeringAxis.current.release('right'); }}
       >
@@ -234,6 +248,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
         className={`w-[min(5.5rem,16vh)] h-[min(5.5rem,16vh)] bg-gradient-to-br from-lime-600 to-emerald-800 border-lime-300 text-lime-50 ${
           revving ? 'ring-4 ring-lime-300/70 shadow-[0_0_25px_rgba(163,230,53,0.6)]' : ''
         }`}
+        disabled={frozen}
         apply={() => { input.throttle = throttleAxis.current.press('throttle', 1); }}
         release={() => { input.throttle = throttleAxis.current.release('throttle'); }}
         rev={revving}
@@ -247,6 +262,7 @@ export const RaceTouchControls: React.FC<RaceTouchControlsProps> = ({
         hint="hold to brake / reverse"
         showHints={showHints}
         className="w-[max(3rem,min(4.5rem,13vh))] h-[max(3rem,min(4.5rem,13vh))] bg-gradient-to-br from-red-700 to-rose-900 border-red-300 text-rose-50"
+        disabled={frozen}
         apply={() => { input.throttle = throttleAxis.current.press('brake', -1); }}
         release={() => { input.throttle = throttleAxis.current.release('brake'); }}
       >
