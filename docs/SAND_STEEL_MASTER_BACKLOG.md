@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `bf8c67e195024b76f8b23653e3357370045faa47` (2026-11-11).
+> Living project index. Baseline reconciled against `main` at `5cc2887ede85e52fa7197fe0909a154f519e076d` (2026-11-12).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -60,6 +60,8 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 
 ## Recent merged engineering work
 
+- [PR #435](https://github.com/mindoblivion/Sand-N-Steel/pull/435): Gladiator Academy interior merged to main (`5cc2887`).
+
 - [PR #371](https://github.com/mindoblivion/Sand-N-Steel/pull/371): shared artwork loading transitions merged.
 - [PR #372](https://github.com/mindoblivion/Sand-N-Steel/pull/372): city movement heading stability merged; device acceptance remains open.
 - [PR #375](https://github.com/mindoblivion/Sand-N-Steel/pull/375) and [PR #376](https://github.com/mindoblivion/Sand-N-Steel/pull/376): character creator mobile layout/scroll improvements merged.
@@ -83,7 +85,16 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 
 ## Open engineering PRs
 
-- No engineering PRs are currently open after PR #416 merged. Continue from the active work table; do not interpret green CI as completion of device acceptance.
+The following engineering PRs were open at the 2026-11-12 reconciliation. All remain unmerged; green CI does not authorize merging or replace device acceptance:
+
+- [PR #441](https://github.com/mindoblivion/Sand-N-Steel/pull/441): test-only duel terminal turn-guard regression contracts. Both environment and main quality gates passed on `66e5a73`; source-wiring tests only, not a simulated end-to-end duel.
+- [PR #440](https://github.com/mindoblivion/Sand-N-Steel/pull/440): reset race touch holds, steering/throttle trackers, and axes on blur/hidden visibility; both CI gates passed. Stacked on #438; Samsung S24 lifecycle test outstanding.
+- [PR #438](https://github.com/mindoblivion/Sand-N-Steel/pull/438): restore the still-held opposing race direction when the most recently pressed direction releases; CI passed. Prerequisite for #440; Samsung S24 touch test outstanding.
+- [PR #434](https://github.com/mindoblivion/Sand-N-Steel/pull/434): pointer capture and independent simultaneous race touch holds; CI passed. Samsung S24 touch test outstanding.
+- [PR #421](https://github.com/mindoblivion/Sand-N-Steel/pull/421): clear race touch and keyboard input on pause/focus loss; CI passed. Samsung S24 lifecycle test outstanding.
+- [PR #420](https://github.com/mindoblivion/Sand-N-Steel/pull/420), [PR #419](https://github.com/mindoblivion/Sand-N-Steel/pull/419), and [PR #418](https://github.com/mindoblivion/Sand-N-Steel/pull/418): older documentation/test follow-ups. Recheck their base/head relationship and relevance before further work; do not assume they are current simply because they remain open.
+
+Preserve dependency order for the race stack (#434 → #438 → #440). Do not merge any PR without explicit owner authorization.
 - PR #404's approved two-gladiator icon artwork is merged to main and included in the November 11 rehearsal APK source. The user's Colosseum loading artwork is also integrated as `public/colosseum_loading.png` and `public/colosseum_loading.webp`: the boot shell, `WaitSurface`, and `AssetLoadingOverlay` use the shared backdrop; a dark lower cover hides the artwork's baked-in 72% label/bar and replaces it with measured progress or an indeterminate sweep. Startup-asset checks cover the shipped formats. Samsung S24 visual/safe-area verification remains outstanding.
 
 ## Combat audit status
