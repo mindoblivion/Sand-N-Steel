@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `bf8c67e195024b76f8b23653e3357370045faa47` (2026-11-11).
+> Living project index. Baseline reconciled against `main` at `28af108bafa82c9c969529013f68c81bf07eb664` (2026-11-13).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -23,6 +23,7 @@ Never report physical-device validation, measured FPS, or visual acceptance with
 | P0 | Android movement stability — [PR #372](https://github.com/mindoblivion/Sand-N-Steel/pull/372), [PR #411](https://github.com/mindoblivion/Sand-N-Steel/pull/411) | Merged to main. Camera yaw stability and focus-loss clearing of held touch/keyboard movement inputs are implemented with regression coverage; physical S24 confirmation remains outstanding. | Test straight/diagonal joystick movement while orbiting, stopping/restarting, camera collision, and hold movement → background app → resume to confirm the gladiator remains stationary on Samsung S24. |
 | P0 | Loading artwork and progress transitions — [PR #371](https://github.com/mindoblivion/Sand-N-Steel/pull/371) | Merged to main. Shared artwork/progress treatment covers scene transitions and character-preview loading/recovery. | Verify artwork, truthful progress/indeterminate state, recovery action, and safe-area spacing during real chunk/GLB loading on Samsung S24. |
 | P0 | Android device acceptance — [issue #329](https://github.com/mindoblivion/Sand-N-Steel/issues/329) | Initial install/launch/city walkaround smoke test passed on Samsung device (2026-11-03); remaining acceptance is open. | Record force-close/relaunch save, device restart save, full duel, orientation, background/resume/process recreation, offline play, longer session/thermal/memory/performance, and second-device results if available. |
+| P0 | Race touch-input reliability — [PR #438](https://github.com/mindoblivion/Sand-N-Steel/pull/438), [PR #440](https://github.com/mindoblivion/Sand-N-Steel/pull/440), [PR #445](https://github.com/mindoblivion/Sand-N-Steel/pull/445) | Pointer capture, simultaneous/opposing hold arbitration, blur/background release, and settings-freeze release/disabled controls are merged to main (#438, #440, #445); all required CI gates and the development APK build passed. Physical S24 acceptance is outstanding. | Verify two-finger throttle/steer, opposing-direction release restoration, settings open/close while held, app background/resume, and confirm all inputs stop immediately on Samsung S24. |
 | P0 | Duel result timer lifecycle — [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379) | Merged to main (`5b7c0fb`). The 1.4-second victory/defeat callback is owned and cancelled on scene unmount; focused timer scheduling/cancellation and scene-wiring tests passed CI. | Verify a full duel, victory/defeat return, and scene-exit timing on Samsung S24. |
 | P1 | Roman city layout visual acceptance — [issue #232](https://github.com/mindoblivion/Sand-N-Steel/issues/232) | Source inventory and automated route/footprint checks exist. No broad repositioning justified by current source audit. | Review current landscape captures of Academy/Doctore/Library cluster, west service court, East Circus crossing, doorways, paving and collision clearance. Only change geometry for reproducible defects. |
 | P1 | Android app icon — [PR #404](https://github.com/mindoblivion/Sand-N-Steel/pull/404) | Merged to main in commit `4b618a70a5648207ee3d1f97ecec3c6cb409e2e3`; adaptive foreground uses a safe-zone composition for Android masks. Rehearsal APK now includes the merged icon source, but Samsung launcher appearance is not yet verified. | Inspect home-screen/app-drawer icon on Samsung S24 for title legibility and adaptive-mask crop. Keep Play Store listing upload separate. |
@@ -43,9 +44,9 @@ These are the standing areas to audit against the live implementation. Items not
 7. **Android and performance** — launcher icon, loading transitions, touch controls, safe areas, app lifecycle, save persistence, offline operation, frame-time/memory/thermal behaviour.
 8. **Quality and release** — automated regression coverage, device acceptance, accessibility/usability, dependency/security review, rehearsal APK/AAB, store assets and release sign-off.
 
-## Latest mainline reconciliation (2026-11-11)
+## Latest mainline reconciliation (2026-11-13)
 
-Main is at `bf8c67e195024b76f8b23653e3357370045faa47` (2026-11-11). The following November 10–11 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
+Main is at `bf8c67e195024b76f8b23653e3357370045faa47` (2026-11-11). The following November 10–13 work is present on main and should be treated as implemented/automated-check candidates, not device-verified:
 
 - [PR #398](https://github.com/mindoblivion/Sand-N-Steel/pull/398): reset mobile movement/camera input after Android focus loss and lifecycle interruptions.
 - [PR #399](https://github.com/mindoblivion/Sand-N-Steel/pull/399): body weight affects city walking speed (140 lb 1.05×, 180 lb 1.00×, 300 lb 0.85×).
@@ -78,12 +79,22 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 - [PR #414](https://github.com/mindoblivion/Sand-N-Steel/pull/414): reconciled the master backlog after character appearance Phase 1; documentation-only.
 - [PR #415](https://github.com/mindoblivion/Sand-N-Steel/pull/415): pinned the attack-windup timer's unmount cleanup in the duel pacing regression suite; test-only change merged (`6ec94a6`).
 - [PR #416](https://github.com/mindoblivion/Sand-N-Steel/pull/416): refreshed the combat lifecycle source audit and reconciled the backlog; documentation-only.
+- [PR #435](https://github.com/mindoblivion/Sand-N-Steel/pull/435): added the Gladiator Academy interior.
+- [PR #438](https://github.com/mindoblivion/Sand-N-Steel/pull/438): added pointer-captured race holds and correct opposing steering/throttle arbitration; both main quality and environment gates passed.
+- [PR #440](https://github.com/mindoblivion/Sand-N-Steel/pull/440): added race touch-input reset on blur/background; merged as part of the #438 race-control integration.
+- [PR #441](https://github.com/mindoblivion/Sand-N-Steel/pull/441): added duel terminal-turn regression guards; both CI gates passed.
+- [PR #443](https://github.com/mindoblivion/Sand-N-Steel/pull/443): releases Academy movement input on focus loss/background; both CI gates passed.
+- [PR #445](https://github.com/mindoblivion/Sand-N-Steel/pull/445): releases and disables all race touch controls while settings freeze the race; main quality, environment, and development profiler APK workflows passed.
+- [PR #447](https://github.com/mindoblivion/Sand-N-Steel/pull/447): added current-main regression coverage ensuring Centurion skin/tunic/crest appearance pickers remain gated to the procedural model; both CI gates passed.
 - [PR #406](https://github.com/mindoblivion/Sand-N-Steel/pull/406): rehearsal Gradle wrapper invocation fixed; rehearsal build, APK/AAB signature verification, artifact upload, and signing-material cleanup all passed in workflow run [42979733177](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/42979733177). Artifact `rehearsal-aab-do-not-upload` contains an installable rehearsal APK and expires 2026-11-18. Its AAB is signed with a throwaway key and must never be uploaded to Play Store.
 - [PR #373](https://github.com/mindoblivion/Sand-N-Steel/pull/373): this master backlog and combat audit index merged (`2c6aa93`).
 
 ## Open engineering PRs
 
-- No engineering PRs are currently open after PR #416 merged. Continue from the active work table; do not interpret green CI as completion of device acceptance.
+No engineering PRs are currently open. The Centurion appearance-picker gate regression is merged in [PR #447](https://github.com/mindoblivion/Sand-N-Steel/pull/447). This backlog reconciliation is documentation-only.
+- Historical PRs #434 and #421 are superseded by merged #438/#440 and should not be merged separately.
+
+Do not interpret green CI as completion of device acceptance.
 - PR #404's approved two-gladiator icon artwork is merged to main and included in the November 11 rehearsal APK source. The user's Colosseum loading artwork is also integrated as `public/colosseum_loading.png` and `public/colosseum_loading.webp`: the boot shell, `WaitSurface`, and `AssetLoadingOverlay` use the shared backdrop; a dark lower cover hides the artwork's baked-in 72% label/bar and replaces it with measured progress or an indeterminate sweep. Startup-asset checks cover the shipped formats. Samsung S24 visual/safe-area verification remains outstanding.
 
 ## Combat audit status
