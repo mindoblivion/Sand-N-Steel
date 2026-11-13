@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `982785f6cc7404c06a0a0aecdcb30937969f2e5e` (2026-11-13).
+> Living project index. Baseline reconciled against `main` at `df239f2151b537ba866e6e4bac5c31df9f764ad8` (2026-11-13).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -20,7 +20,7 @@ Never report physical-device validation, measured FPS, or visual acceptance with
 
 | Priority | Work | Current state | Next evidence / action |
 |---|---|---|---|
-| P0 | Android movement stability — [PR #372](https://github.com/mindoblivion/Sand-N-Steel/pull/372), [PR #411](https://github.com/mindoblivion/Sand-N-Steel/pull/411) | Merged to main. Camera yaw stability and focus-loss clearing of held touch/keyboard movement inputs are implemented with regression coverage; physical S24 confirmation remains outstanding. | Test straight/diagonal joystick movement while orbiting, stopping/restarting, camera collision, and hold movement → background app → resume to confirm the gladiator remains stationary on Samsung S24. |
+| P0 | Android movement stability — [PR #372](https://github.com/mindoblivion/Sand-N-Steel/pull/372), [PR #411](https://github.com/mindoblivion/Sand-N-Steel/pull/411) | Merged to main (#372, #411, #449). Camera yaw stability and focus-loss/full-screen-scene clearing of held touch/keyboard movement inputs are implemented with regression coverage; physical S24 confirmation remains outstanding. | Test straight/diagonal joystick movement while orbiting, stopping/restarting, camera collision, and hold movement → background app → resume to confirm the gladiator remains stationary on Samsung S24. |
 | P0 | Loading artwork and progress transitions — [PR #371](https://github.com/mindoblivion/Sand-N-Steel/pull/371) | Merged to main. Shared artwork/progress treatment covers scene transitions and character-preview loading/recovery. | Verify artwork, truthful progress/indeterminate state, recovery action, and safe-area spacing during real chunk/GLB loading on Samsung S24. |
 | P0 | Android device acceptance — [issue #329](https://github.com/mindoblivion/Sand-N-Steel/issues/329) | Initial install/launch/city walkaround smoke test passed on Samsung device (2026-11-03); remaining acceptance is open. | Record force-close/relaunch save, device restart save, full duel, orientation, background/resume/process recreation, offline play, longer session/thermal/memory/performance, and second-device results if available. |
 | P0 | Race touch-input reliability — [PR #438](https://github.com/mindoblivion/Sand-N-Steel/pull/438), [PR #440](https://github.com/mindoblivion/Sand-N-Steel/pull/440), [PR #445](https://github.com/mindoblivion/Sand-N-Steel/pull/445) | Pointer capture, simultaneous/opposing hold arbitration, blur/background release, and settings-freeze release/disabled controls are merged to main (#438, #440, #445); all required CI gates and the development APK build passed. Physical S24 acceptance is outstanding. | Verify two-finger throttle/steer, opposing-direction release restoration, settings open/close while held, app background/resume, and confirm all inputs stop immediately on Samsung S24. |
@@ -86,13 +86,14 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 - [PR #443](https://github.com/mindoblivion/Sand-N-Steel/pull/443): releases Academy movement input on focus loss/background; both CI gates passed.
 - [PR #445](https://github.com/mindoblivion/Sand-N-Steel/pull/445): releases and disables all race touch controls while settings freeze the race; main quality, environment, and development profiler APK workflows passed.
 - [PR #447](https://github.com/mindoblivion/Sand-N-Steel/pull/447): added current-main regression coverage ensuring Centurion skin/tunic/crest appearance pickers remain gated to the procedural model; both CI gates passed.
+- [PR #449](https://github.com/mindoblivion/Sand-N-Steel/pull/449): clears held city keyboard/touch input whenever a city panel or full-screen presented scene locks movement; focused regression and both CI gates passed; merged (`df239f2`).
 - [PR #446](https://github.com/mindoblivion/Sand-N-Steel/pull/446): reconciled this backlog after race input lifecycle work and corrected the active queue; documentation-only, merged (`982785f`).
 - [PR #406](https://github.com/mindoblivion/Sand-N-Steel/pull/406): rehearsal Gradle wrapper invocation fixed; rehearsal build, APK/AAB signature verification, artifact upload, and signing-material cleanup all passed in workflow run [42979733177](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/42979733177). Artifact `rehearsal-aab-do-not-upload` contains an installable rehearsal APK and expires 2026-11-18. Its AAB is signed with a throwaway key and must never be uploaded to Play Store.
 - [PR #373](https://github.com/mindoblivion/Sand-N-Steel/pull/373): this master backlog and combat audit index merged (`2c6aa93`).
 
 ## Open engineering PRs
 
-No engineering PRs are currently open. PR #447's Centurion appearance-picker regression coverage and PR #446's backlog reconciliation are merged. Historical PRs #434 and #421 are superseded by merged #438/#440 and should not be merged separately.
+No engineering PRs are currently open. PR #447's Centurion appearance-picker regression coverage, PR #446's backlog reconciliation, and PR #449's full-screen city movement-lock input cleanup are merged. Historical PRs #434 and #421 are superseded by merged #438/#440 and should not be merged separately.
 
 Do not interpret green CI as completion of device acceptance.
 
