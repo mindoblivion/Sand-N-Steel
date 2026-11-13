@@ -807,6 +807,26 @@ export function GladiatorAcademyInterior({
     }
   };
 
+  // Android can suspend the WebView while a finger is still on the joystick.
+  // Release every input on focus loss/backgrounding so movement cannot stick.
+  useEffect(() => {
+    const releaseAllInputs = () => {
+      keysPressed.current = {};
+      touchIdRef.current = null;
+      stickRef.current = { x: 0, y: 0 };
+      setKnobPos({ x: 0, y: 0 });
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') releaseAllInputs();
+    };
+    window.addEventListener('blur', releaseAllInputs);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('blur', releaseAllInputs);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   // The course panel, from the live profile (read-only here — App owns the transaction).
   const level = profile?.level ?? 1;
   const qualified = level >= INTENSIVE_LEVEL_MIN;

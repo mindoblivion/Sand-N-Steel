@@ -127,6 +127,20 @@ describe('§A — the academy floor', () => {
   });
 });
 
+describe('§A2 — Academy input lifecycle', () => {
+  test('blur and backgrounding release keyboard, joystick, and touch ownership', () => {
+    expect(ACADEMY_SOURCE).toContain("window.addEventListener('blur', releaseAllInputs)");
+    expect(ACADEMY_SOURCE).toContain("document.addEventListener('visibilitychange', handleVisibilityChange)");
+    expect(ACADEMY_SOURCE).toContain("document.visibilityState === 'hidden'");
+    expect(ACADEMY_SOURCE).toContain('keysPressed.current = {};');
+    expect(ACADEMY_SOURCE).toContain('touchIdRef.current = null;');
+    expect(ACADEMY_SOURCE).toContain('stickRef.current = { x: 0, y: 0 };');
+    expect(ACADEMY_SOURCE).toContain('setKnobPos({ x: 0, y: 0 });');
+    expect(ACADEMY_SOURCE).toContain("window.removeEventListener('blur', releaseAllInputs)");
+    expect(ACADEMY_SOURCE).toContain("document.removeEventListener('visibilitychange', handleVisibilityChange)");
+  });
+});
+
 describe('§B — Rufus, the Doctore', () => {
   test('Rufus is read by id — he is NOT in SERVICE_BUILDING_KEEPERS', () => {
     const keeper = getKeeper('aulus_galerius_rufus');
