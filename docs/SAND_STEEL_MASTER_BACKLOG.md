@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `e2ec921bc07e3b35e44eb27a6c7de381586f8164` (2026-11-11).
+> Living project index. Baseline reconciled against `main` at `e2ec921bc07e3b35e44eb27a6c7de381586f8164` (2026-11-13).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
