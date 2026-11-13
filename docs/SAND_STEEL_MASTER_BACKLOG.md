@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `c3af315ecfa41edacf65f54a5e44e39ecf316fc6` (2026-11-13).
+> Living project index. Baseline reconciled against `main` at `28af108bafa82c9c969529013f68c81bf07eb664` (2026-11-13).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -85,13 +85,13 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 - [PR #441](https://github.com/mindoblivion/Sand-N-Steel/pull/441): added duel terminal-turn regression guards; both CI gates passed.
 - [PR #443](https://github.com/mindoblivion/Sand-N-Steel/pull/443): releases Academy movement input on focus loss/background; both CI gates passed.
 - [PR #445](https://github.com/mindoblivion/Sand-N-Steel/pull/445): releases and disables all race touch controls while settings freeze the race; main quality, environment, and development profiler APK workflows passed.
+- [PR #447](https://github.com/mindoblivion/Sand-N-Steel/pull/447): added current-main regression coverage ensuring Centurion skin/tunic/crest appearance pickers remain gated to the procedural model; both CI gates passed.
 - [PR #406](https://github.com/mindoblivion/Sand-N-Steel/pull/406): rehearsal Gradle wrapper invocation fixed; rehearsal build, APK/AAB signature verification, artifact upload, and signing-material cleanup all passed in workflow run [42979733177](https://github.com/mindoblivion/Sand-N-Steel/actions/runs/42979733177). Artifact `rehearsal-aab-do-not-upload` contains an installable rehearsal APK and expires 2026-11-18. Its AAB is signed with a throwaway key and must never be uploaded to Play Store.
 - [PR #373](https://github.com/mindoblivion/Sand-N-Steel/pull/373): this master backlog and combat audit index merged (`2c6aa93`).
 
 ## Open engineering PRs
 
-- [PR #447](https://github.com/mindoblivion/Sand-N-Steel/pull/447): current-main test-only regression coverage for Centurion appearance-picker model gating; CI is pending.
-- [PR #446](https://github.com/mindoblivion/Sand-N-Steel/pull/446): this documentation-only backlog reconciliation; CI is pending.
+No engineering PRs are currently open. The Centurion appearance-picker gate regression is merged in [PR #447](https://github.com/mindoblivion/Sand-N-Steel/pull/447). This backlog reconciliation is documentation-only.
 - Historical PRs #434 and #421 are superseded by merged #438/#440 and should not be merged separately.
 
 Do not interpret green CI as completion of device acceptance.
