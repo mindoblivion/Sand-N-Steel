@@ -254,6 +254,16 @@ describe('E. The touch controls', () => {
     expect(controlsCode).toContain("document.removeEventListener('visibilitychange', releaseWhenHidden)");
   });
 
+  test('opening race settings releases held touch controls and disables them until resume', () => {
+    expect(controlsSrc).toContain('frozen?: boolean');
+    expect(controlsCode).toContain('frozen = false');
+    expect(controlsCode).toContain('if (frozen) releaseAllAxes()');
+    expect(controlsCode).toContain('disabled={frozen}');
+    expect(controlsCode).toContain('if (disabled && hold.current.reset()) releaseRef.current()');
+    expect(controlsCode).toContain('if (disabled || !hold.current.begin(event.pointerId)) return');
+    expect(sceneCode).toContain('frozen={frozen}');
+  });
+
   test('Lefty Mode mirrors the whole cluster, as one unit', () => {
     expect(controlsCode).toContain("const mirror = isLeftyMode ? 'flex-row-reverse' : ''");
     expect(controlsSrc).toContain('data-race-controls={isLeftyMode ? \'lefty\' : \'righty\'}');
