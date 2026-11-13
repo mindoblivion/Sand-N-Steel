@@ -79,8 +79,19 @@ const RaceControlButton: React.FC<RaceControlButtonProps> = ({
   const releaseRef = useRef(release);
   releaseRef.current = release;
 
-  useEffect(() => () => {
-    if (hold.current.reset()) releaseRef.current();
+  useEffect(() => {
+    // Pointer capture is the primary path. Window listeners are a fallback for
+    // WebViews that reject capture or deliver the release outside the button.
+    const releasePointer = (event: PointerEvent) => {
+      if (hold.current.end(event.pointerId)) releaseRef.current();
+    };
+    window.addEventListener('pointerup', releasePointer);
+    window.addEventListener('pointercancel', releasePointer);
+    return () => {
+      window.removeEventListener('pointerup', releasePointer);
+      window.removeEventListener('pointercancel', releasePointer);
+      if (hold.current.reset()) releaseRef.current();
+    };
   }, []);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
