@@ -231,6 +231,10 @@ describe('E. The touch controls', () => {
     }
     expect(controlsCode).toContain('event.preventDefault()');
     expect(controlsCode).toContain('setPointerCapture(event.pointerId)');
+    expect(controlsCode).toContain("window.addEventListener('pointerup', releasePointer)");
+    expect(controlsCode).toContain("window.addEventListener('pointercancel', releasePointer)");
+    expect(controlsCode).toContain("window.removeEventListener('pointerup', releasePointer)");
+    expect(controlsCode).toContain("window.removeEventListener('pointercancel', releasePointer)");
     expect(controlsCode).toContain('createRacePointerHold()');
     expect(controlsCode).toContain('touch-manipulation');
   });
