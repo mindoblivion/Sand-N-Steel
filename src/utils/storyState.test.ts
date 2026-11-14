@@ -852,7 +852,7 @@ describe('§G the story beats', () => {
         if (gate.holdsChapterOpen) declaring.push(`${chapter}:${gate.id}`);
       }
     }
-    expect(declaring).toEqual(['2:district-race']);
+    expect(declaring).toEqual([]);
     // The unlanded beats add no field and no writer: a fresh profile is still Chapter 0.
     expect(resolveStoryState(fresh()).chapter).toBe(0);
     expect(resolveStoryState(fresh()).complete).toBe(false);
