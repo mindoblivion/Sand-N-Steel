@@ -2,7 +2,7 @@
 
 **Decision baseline:** 2026-11-14  
 **Execution window:** 2026-11-14 through 2027-01-12 (60 calendar days, inclusive)  
-**Latest audited main commit:** `982785f6cc7404c06a0a0aecdcb30937969f2e5e` (2026-11-13)  
+**Verified PR base / main commit:** `14b8152bc1e116143bf93545602f72106f2ee638` (2026-11-13)  
 **Scope:** Colosseum-only gladiator career release candidate  
 **Primary stack:** Three.js + React + Capacitor Android  
 **Primary AI development environment:** Google AI Studio  
@@ -95,7 +95,7 @@ Before closing or deleting a branch, compare its commits against the verified ma
 
 ## 5. Current baseline evidence (source audit only)
 
-The initial reset note used `14b8152bc1e116143bf93545602f72106f2ee638`; the latest master-backlog audit identifies `main` as `982785f6cc7404c06a0a0aecdcb30937969f2e5e` (Nov 13, 2026). This updated source review was performed against the current `main` ref; use the latest SHA again before any implementation branch is cut. The root `package.json` confirms React 19, Vite 6, Three.js 0.174, React Three Fiber 9, and Capacitor 8.6; retain this stack for the reset.
+The live PR metadata identifies the `main` base SHA as `14b8152bc1e116143bf93545602f72106f2ee638` (Nov 13, 2026). The master-backlog document contains a stale embedded baseline (`982785f6cc7404c06a0a0aecdcb30937969f2e5e`); it is a document claim, not the live branch tip. Use the live `main` ref again before any implementation branch is cut. The root `package.json` confirms React 19, Vite 6, Three.js 0.174, React Three Fiber 9, and Capacitor 8.6; retain this stack for the reset.
 
 The branch inventory returned 316 pre-existing branches before this reset-plan branch was created; the current count is 317 including this documentation branch. The master backlog reports these implemented/merged candidates, with physical verification still outstanding where stated:
 
