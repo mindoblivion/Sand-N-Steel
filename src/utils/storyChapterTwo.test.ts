@@ -9,10 +9,9 @@
  *       once-ever decline marker, including a shrine visit made BEFORE the
  *       chapter opened, and incomplete on neither;
  *   §C  the DUEL gate — Tier 1's boss, read from the shipped roster;
- *   §D  the Rival Schools gate (Director ruling 4) — still "not yet", with no race results
- *       write, no free-drive result and no other race evidence invented, and it
- *       is the one gate that holds its chapter open;
- *   §E  the CROSS-GATE pointer (Director ruling 3) — due exactly while Chapter 2
+ *   §D  the Rival Schools gate — unmet until its dedicated bout victory is
+ *       settled; race results and free-drive data cannot satisfy it;
+ *   §E  the herald pointer — due exactly while Chapter 2
  *       is open and its Rival Schools gate is unmet, and never otherwise;
  *   §F  the deferred character's name appears in NO non-test source but the K1
  *       registry data it already lives in;
@@ -319,7 +318,7 @@ describe('§E the herald announces Rival Schools while Chapter 2 waits', () => {
 
   test('E3 — not once the chapter\'s Rival Schools gate is met', () => {
     // A resolved STATE, not a fabricated record: this is what the resolver will
-    // hand back when Stage 2's race write lands, and the pointer must go quiet.
+    // hand back once the Rival Schools result is recorded, and the pointer must go quiet.
     const closed = closedChapterTwo();
     expect(circusPointerDue(closed)).toBe(false);
     // The later chapters are never due either, whatever their own gates say.
