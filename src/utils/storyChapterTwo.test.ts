@@ -373,15 +373,14 @@ describe('§F the deferred District introduction is not built here', () => {
     expect(keepers).toContain('horses judge you before I do');
   });
 
-  test('F2 — the two deferrals are recorded on the chapter resolver', () => {
-    // Recorded DESCRIPTIVELY, without the name, which is the ruling's condition.
-    expect(moduleSource).toContain('charioteer the chapter opens on');
-    expect(moduleSource).toContain("Stage 2's 2A data build");
-    expect(moduleSource).toContain('no pre-race card change');
-    expect(moduleSource).toContain('"Answer the Rein" steps 1 and 2 are NOT built here');
-    expect(moduleSource).toContain('they ride the racing');
-    // …and the comment never names the character it is deferring.
-    expect(/Hanno/.test(moduleSource)).toBe(false);
+  test('F2 — Rival Schools replaces only the Chapter 2 race blocker', () => {
+    expect(moduleSource).toContain("| 'district-race'");
+    expect(moduleSource).toContain("id: 'rival-schools-first'");
+    expect(moduleSource).toContain("requirement: 'Defeat the champion of the Rival Ludus'");
+    expect(moduleSource).toContain('met: (evidence) => evidence.rivalSchoolsWon');
+    // Later chapter placeholders remain authored and non-blocking.
+    expect(moduleSource).toContain("id: 'district-final'");
+    expect(moduleSource).toContain("id: 'league-promotion'");
   });
 });
 
