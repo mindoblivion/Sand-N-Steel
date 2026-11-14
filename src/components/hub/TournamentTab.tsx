@@ -20,6 +20,9 @@ import { longMemoryIntelLine } from '../../utils/longMemory';
 // the generated row's own numbers: no shift, purse or studied-class sentence is
 // restated here.
 import { grudgeBoutStatuses, grudgeProfileLine } from '../../utils/grudgeBouts';
+import { RIVAL_SCHOOL_OPPONENT } from '../../data/rivalSchools';
+import { rivalSchoolChallengeState, resolveRivalryProgress } from '../../utils/rivalSchools';
+import { resolveStoryState } from '../../utils/storyState';
 
 /** How the opponents' own weapon types read on a rumour card. Display only. */
 const WEAPON_LABELS: Record<OpponentConfig['weaponType'], string> = {
@@ -53,13 +56,19 @@ interface TournamentTabProps {
    * with the ladder bookkeeping fenced (Director ruling R4).
    */
   onEnterLegendBout?: (opp: OpponentConfig) => void;
+  /** Rival Schools — opens the dedicated first challenge through the pre-fight card. */
+  onSelectRivalBout?: () => void;
 }
 
 export const TournamentTab: React.FC<TournamentTabProps> = ({
   profile,
   onSelectOpponent,
   onEnterLegendBout,
+  onSelectRivalBout,
 }) => {
+  const rivalry = resolveRivalryProgress(profile);
+  const rivalryStatus = rivalSchoolChallengeState(profile);
+  const rivalryUnlocked = resolveStoryState(profile).chapter >= 2 || rivalryStatus === 'completed';
   const currentTierInfo = TOURNAMENT_TIERS.find((t) => t.tier === profile.currentTier) || TOURNAMENT_TIERS[0];
   // D-1 — the ladder list is the ladder only: a Feature Bout is never a rung of
   // the tier the player is fighting in, and it is listed in its own section.
@@ -78,6 +87,52 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-12">
+      <section
+        data-rival-schools-card
+        className="rounded-3xl border-2 border-rose-700/70 bg-gradient-to-br from-rose-950/80 via-neutral-900 to-neutral-950 p-5 shadow-xl"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <span className="text-xs font-serif font-bold uppercase tracking-widest text-rose-300">
+            Rival Schools
+          </span>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-amber-200">
+            {rivalryStatus === 'completed'
+              ? 'Challenge complete'
+              : !rivalryUnlocked
+                ? 'Chapter 2 locked'
+                : rivalryStatus === 'awaiting_retry'
+                  ? 'Awaiting your return'
+                  : 'Challenge available'}
+          </span>
+        </div>
+        <h3 className="font-serif font-black text-xl text-amber-100 mb-1">
+          {RIVAL_SCHOOL_OPPONENT.name}
+        </h3>
+        <p className="text-sm text-neutral-300 font-serif italic mb-3">
+          {RIVAL_SCHOOL_OPPONENT.title}. A champion from another ludus has challenged your school.
+          This bout stands apart from the ordinary tier ladder.
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono text-neutral-400 mb-4">
+          <span>ATTEMPTS {rivalry.attempts}</span>
+          <span>WINS {rivalry.wins}</span>
+          <span>LOSSES {rivalry.losses}</span>
+        </div>
+        <button
+          type="button"
+          disabled={!rivalryUnlocked || rivalryStatus === 'completed' || !onSelectRivalBout}
+          onClick={() => onSelectRivalBout?.()}
+          className="w-full sm:w-auto rounded-xl border border-rose-500/70 bg-rose-950 px-5 py-3 text-xs font-mono font-bold uppercase tracking-wider text-rose-100 transition hover:bg-rose-900 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {rivalryStatus === 'completed'
+            ? 'Rival defeated'
+            : !rivalryUnlocked
+              ? 'Unlocks in Chapter 2'
+              : rivalryStatus === 'awaiting_retry'
+                ? 'Accept rematch'
+                : 'Accept challenge'}
+        </button>
+      </section>
+
       {/* TIER HEADER */}
       <div className="bg-gradient-to-r from-amber-950/80 via-neutral-900/90 to-amber-950/80 border-2 border-amber-600/60 rounded-3xl p-6 shadow-2xl">
         <div className="flex justify-between items-center mb-2">
