@@ -30,6 +30,8 @@ Fight a Colosseum bout → earn gold, fame and progression → improve equipment
 
 **Important architecture finding:** `src/utils/grudgeBouts.ts` already generates rematches from the opponent roster, reads the existing offensive-mix counter, applies bounded tactical shifts, and settles/closes records through existing duel-result writes. This is a reusable foundation, not proof that the full Rival Schools product hook is already implemented. The current grudge mechanic is generic and tier-based; the new work is the authored recurring rival identity, encounter cadence, narrative escalation and conclusion.
 
+**Colosseum-only campaign blocker:** `src/utils/storyState.ts` currently holds Chapter 2 open on a pending District race gate (`holdsChapterOpen: true`). Later chapters also contain race-dependent gates for the District final, League promotion, Vexus incident race, League top-half and League final. `src/utils/mercyBouts.ts` explicitly states that its Chapter 3 mercy/returning-rival offer is dormant until the race-results write unlocks Chapter 3. Simply hiding racing would therefore strand the campaign and suppress existing rival-story content. Before implementation, map every race gate to a meaningful Colosseum/rival milestone and preserve legacy-save behaviour. The recommended approach is to change gate evidence in the existing derived chapter resolver, not introduce a second campaign progression system.
+
 ## 2. Release boundary
 
 ### In scope
