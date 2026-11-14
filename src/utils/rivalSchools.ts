@@ -52,7 +52,11 @@ export function resolveRivalryProgress(
   const lastOutcome = raw.lastOutcome === 'win' || raw.lastOutcome === 'loss'
     ? raw.lastOutcome
     : undefined;
-  const completed = raw.completed === true && wins > 0 && lastOutcome === 'win';
+  const completed =
+    raw.completed === true &&
+    raw.stage === 'completed' &&
+    wins > 0 &&
+    lastOutcome === 'win';
 
   return {
     stage: completed ? 'completed' : 'first_challenge',
