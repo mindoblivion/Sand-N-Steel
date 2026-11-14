@@ -41,11 +41,9 @@
  *     the marker is the only record of it; the shrine panel carries no chapter
  *     gate, so a shrine visit made BEFORE Chapter 2 opened counts the same.
  *   • the DUEL gate is the Tier-1 boss in `defeatedOpponentIds`.
- *   • the RACE gate (a finished District race, any placing) is still `'pending'`
- *     with `holdsChapterOpen`: the race system's results write has not landed, so
- *     there is no evidence to read (STORY-1's graceful-degradation rule) and the
- *     chapter REFUSES TO CLOSE ON DUELS ALONE.  The campaign is therefore held at
- *     Chapter 2, in words rather than as a failure, until that write lands.
+ *   • the Rival Schools gate is an earned bout result, written only after a valid
+ *     rival victory has settled its rewards. It replaces the former District race
+ *     hold for the Colosseum-focused release.
  */
 
 import { PlayerProfile, StoryProgress } from '../types/game';
