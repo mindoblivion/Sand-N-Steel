@@ -276,3 +276,35 @@ This means the current resolver's later campaign chapters are not proven playabl
 **Release consequence:** before the first Colosseum-only runtime patch, perform a targeted write-path audit for these three flags and decide whether to (a) connect the intended existing interactions to their documented flags, or (b) replace them with compact Colosseum equivalents. The minimum safe fix is not to auto-set them or weaken the gates. A player should earn each milestone through a visible action, and each write should be idempotent and live in the owning result/interaction transaction.
 
 **New P0 acceptance condition:** demonstrate a fresh profile can naturally satisfy every mandatory Chapter 2–6 gate using production UI and writes, with no test fixture mutation or developer console. Until this is proven, a full career / final Rival Schools tournament is not release-ready. The existing Chapter 2 gate remains the first blocker; the three orphaned flags are downstream blockers that must be resolved in the same campaign-readiness workstream.
+
+
+## 15. Corrected race and Library write-path audit — 2026-11-14
+
+A focused follow-up traced the race finish callback into its owning career transaction. This corrects any earlier wording that implied the race-results writer itself had not landed:
+
+- `RaceScene.tsx` calls `onRecordRaceCompletion(teamSize, elapsedMs, outcome)` only after the validated finish transition.
+- `App.tsx:handleRecordRaceCompletion` calls `settleRaceCompletion`, then persists the returned profile through the normal save path.
+- `utils/raceRecords.ts:settleRaceCompletion` increments `profile.racing.completed` (and wins/losses/photo-finishes), updates best time and eligible purse, and returns the settled profile.
+- Abort remains read-only. `raceRecords.test.ts` pins the callback and the abort boundary.
+
+**Actual Chapter 2 issue:** `storyState.ts` models `district-race` as a permanently pending gate with `holdsChapterOpen: true`; its resolver does not read `profile.racing.completed`. `storyChapterTwo.test.ts` explicitly asserts that the resolver ignores racing fields and that the race gate remains pending. Thus a validated race can be completed and saved, but it cannot satisfy this story gate in the current source. This is a resolver/evidence integration mismatch, not a missing race settlement writer.
+
+**Colosseum-only consequence:** do not assume the existing race callback is a substitute for the Rival Schools milestone. The release design still needs a deliberate Chapter 2 gate decision. The preferred proposal remains a real, accepted first Rival Schools bout recorded through the authoritative duel result transaction, while leaving the Circus race system preserved but outside the release path. The Chapter 2 resolver and tests must be changed together if that proposal is accepted.
+
+### Exact findings for the three orphaned story flags
+
+- `librarySeen`: no production writer found. Opening the Library is navigation; opening Codex writes the separate Librarian-chain `codexRead` evidence; city visits write `records.codexLocations`; opening Triumphs writes its own read marker. None writes `story.librarySeen`.
+- `trialDone`: no production writer or Northern Trial activity found in the current production source search.
+- `summitSeen`: the Northern Fortress and summit terrain exist, but no production visit callback or profile write to `story.summitSeen` was found. Generic city visits write `records.codexLocations`, not this flag.
+- `diceEnding`: unlike the three above, the Piso dice-trail choice has a production write path and remains player-chosen.
+
+### Revised acceptance mapping
+
+| Evidence | Current production path | Current status | Required Colosseum-only action |
+|---|---|---|---|
+| Chapter 2 race gate | Validated race finish → `settleRaceCompletion` → `racing.completed`; resolver ignores it | Saved race completion cannot close gate | Replace gate evidence with accepted Rival Schools bout result, if the Colosseum-only design is approved |
+| `librarySeen` | No writer; separate Library/Codex/Triumphs records exist | Orphaned flag | Add a visible, idempotent Colosseum records-board read or connect the intended Library read |
+| `trialDone` | No production writer/activity found | Orphaned flag | Add a visible Colosseum trial/test completion action |
+| `summitSeen` | No production writer found; summit scene exists | Orphaned flag | Add a visible final-arena ceremony/overlook beat or retain and wire the summit visit |
+
+No runtime code was changed during this follow-up. These remain source-level findings; no fresh-career playthrough, APK or physical-device verification was performed.
