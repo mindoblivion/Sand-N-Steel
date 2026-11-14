@@ -210,3 +210,53 @@ The current source pass identifies `src/App.tsx:handleMatchComplete` as the auth
 **Rival Schools integration implication:** use this existing result transaction as the single place to record a new rival milestone. Do not write rivalry progress from the pre-fight card, scene selection, result animation, or a second independent save path. Decide whether the new rival encounter is a standard ladder posting, a boss milestone, or a dedicated story bout before implementation: those categories intentionally have different rules for tier advancement, defeated-ID history, grudge generation and mercy eligibility. A same-ID recurring rival cannot rely on `defeatedOpponentIds` alone because the array records first-defeat identity, not a sequence of rematch outcomes.
 
 **Verification status:** source-flow inspection only. No runtime code was changed and no tests, APK, or physical-device playthrough were run during this audit.
+
+
+## 12. Corrected campaign gate semantics — only one pending race currently blocks
+
+A deeper read of `isClosed()` and the campaign tests corrects the earlier broad shorthand that "race gates" generally block progression:
+
+- **Only Chapter 2's `district-race` gate has `holdsChapterOpen: true`.** Its pending state explicitly blocks closure. This is the release-critical race dependency.
+- Chapter 3's `district-final`, Chapter 4's `league-promotion` and `vexus-race`, Chapter 5's `league-top-half`, Chapter 6's `league-final`, and Chapter 7's `statue-ceremony` are pending but do **not** hold their chapters open. The resolver deliberately treats pending gates as non-blocking unless that flag is set.
+- Do not add rival requirements to all these later placeholder gates merely because they mention racing. Doing so would invent extra campaign requirements and risk over-gating the Colosseum career.
+- The active, evidence-backed requirements in Chapters 3–6 still matter: `librarySeen`, `diceEnding`, `trialDone`, `summitSeen`, rank thresholds, and tier-boss defeats. If any owning activity is removed from the Colosseum release, it needs a deliberate replacement or a scope-preserving route; it must not be auto-completed.
+
+This is pinned by `storyState.test.ts` (§B4–B9) and `storyChapterTwo.test.ts` (§D1–D3). The Chapter 2 race gate is the one pending gate the tests expect to hold the campaign. `mercyBouts.test.ts` also explicitly expects Chapters 0–2 to offer no mercy choice and Chapter 3+ to allow it; the test notes that this is dormant today because the Chapter 2 race hold prevents Chapter 3 from opening.
+
+## 13. Recommended Rival Schools campaign integration — design proposal, not implemented
+
+Keep the existing eight-chapter resolver and its single evidence path. The smallest coherent first-release design is:
+
+1. **Chapter 2 — first Rival Schools challenge.** Replace the *meaning* of the blocking `district-race` gate with an authored first encounter against the rival school's champion. It must be a real, recorded bout result, not a button press or a free completion flag. Keep the existing Tier-1 boss and Fortuna omen requirements.
+2. **Chapter 3 — rivalry becomes public.** Once the first challenge closes Chapter 2, the existing Chapter 3 mercy eligibility can activate as designed. Do not make the non-blocking `district-final` placeholder another required rival fight.
+3. **Mid-career return — rival escalates at a clear arena milestone.** Trigger a later encounter from a real tier/rank milestone (candidate: Tier 3 / Champion), with authored tactical adaptation and a result record. It can be offered as an optional bout if the player should retain control of the career pace.
+4. **Final tournament — rivalry resolution.** Use the existing highest-tier Colosseum/tournament finale as the rival's final authored encounter or final opponent reveal. Do not add a second parallel final boss ladder.
+
+### Record and settlement constraints
+
+- Keep `resolveStoryState` as the only chapter resolver. A rivalry milestone is written in the existing `App.tsx:handleMatchComplete` result transaction, alongside the accepted duel result; it must not be written by the pre-fight card, selection screen, modal animation or a separate storage call.
+- Preserve the existing boss-tier rule: only the first defeat of the actual tier boss advances `currentTier`. A Rival Schools feature bout must not accidentally count as a ladder boss unless deliberately authored as the tier boss itself.
+- Avoid reusing one opponent ID for every rematch if the career's `defeatedOpponentIds` first-defeat semantics are relied upon. Either give each authored rival stage a stable stage-specific bout ID while keeping the same visible champion identity, or add a small optional `story.rivalry` record that explicitly tracks encounter stage and outcome. Do not infer repeated outcomes from `defeatedOpponentIds`.
+- If adding `story.rivalry`, keep it optional and lazy inside the existing `story` object (no new top-level profile field), and test absent, partial, malformed and legacy-save cases. Record both wins and losses only from the accepted result write. Do not let exhibitions, withdrawn/invalid reward settlements or generated grudge bouts advance the authored rivalry.
+- Decide whether the first rival challenge is mandatory (the recommended Chapter 2 gate replacement) and whether later returns are optional before coding. The mandatory first bout is a meaningful campaign design choice; do not silently make the whole rival arc optional and leave Chapter 2 blocked.
+
+### Existing activities to preserve or explicitly replace
+
+| Evidence field | Existing owner / evidence | Release handling |
+|---|---|---|
+| `librarySeen` | Library / Records & Lore, with a story flag in `story` | Preserve the minimal Library visit/record interaction or replace with a Colosseum record-board interaction that writes the same evidence. |
+| `diceEnding` | Piso's dice choice, written in `story.diceEnding` by the existing dice-trail flow | Either keep this one small hub interaction or replace with an authored arena-side choice; never silently choose for the player. |
+| `trialDone` | Northern Trial story flag | Confirm the current activity is accessible in the intended release; otherwise replace with a Colosseum trial/test that writes the same story evidence. |
+| `summitSeen` | Summit visit story flag | Confirm whether the summit scene remains in the release; otherwise replace with a final-arena ceremony/overlook beat. |
+
+The Library chain and Piso's dice choice have explicit owning modules in the current tree. The exact current write paths and in-game accessibility for the Northern Trial and summit still need a focused source/device verification before implementation. The first release can retain a lightweight hub wrapper for these interactions without expanding the whole city.
+
+### Acceptance tests required before the first runtime patch
+
+- Chapter 2 remains open until the first rival challenge has a settled, valid result AND the Tier-1 boss and omen requirements are met.
+- A win advances the rival stage exactly once; a loss is recorded and allows a fair retry without duplicating rewards or permanently soft-locking the story.
+- Chapter 3 opens after the Chapter 2 requirements are all genuinely met; the existing Chapter 3 mercy-offer rules then activate without a chapter override.
+- Legacy saves with no rivalry field load unchanged and receive the first challenge when their actual chapter evidence qualifies them.
+- Missing, partial and malformed `story.rivalry` data never throws, fabricates a win, or advances the chapter.
+- Generated grudge bouts, exhibitions, invalid reward settlements and unrelated opponents do not write Rival Schools progression.
+- Pending later race/ceremony gates remain non-blocking and are not turned into new required fights.
