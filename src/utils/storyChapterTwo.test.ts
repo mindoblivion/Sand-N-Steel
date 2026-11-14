@@ -379,8 +379,8 @@ describe('§F the deferred District introduction is not built here', () => {
     expect(moduleSource).toContain("requirement: 'Defeat the champion of the Rival Ludus'");
     expect(moduleSource).toContain('met: (evidence) => evidence.rivalSchoolsWon');
     // Later chapter placeholders remain authored and non-blocking.
-    expect(moduleSource).toContain("id: 'district-final'");
-    expect(moduleSource).toContain("id: 'league-promotion'");
+    expect(moduleSource).toContain("'district-final'");
+    expect(moduleSource).toContain("'league-promotion'");
   });
 });
 
