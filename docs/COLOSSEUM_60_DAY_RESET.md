@@ -161,11 +161,11 @@ The current story resolver has more than the single Chapter 2 blocker. Its full 
 | Chapter | Current gate | Current evidence/state | Colosseum-only direction to evaluate (not implemented) |
 |---|---|---|---|
 | 2 | `district-race` | Pending and explicitly holds Chapter 2 open after the Tier-1 boss and omen | Replace with the first authored Rival School challenge; it must be a real, recorded career milestone. |
-| 3 | `district-final` | Pending race gate; Chapter 3 also requires Veteran rank, Tier-2 boss and Library visit | Replace with a later Rival School encounter or a Colosseum tournament qualification milestone. Keep the existing Veteran and Tier-2 boss requirements unless playtesting shows duplication. |
-| 4 | `league-promotion` | Pending race gate; the same chapter already checks Tier 3 | Likely redundant for a Colosseum career: evaluate removing the pending gate rather than inventing a second promotion condition. |
-| 4 | `vexus-race` | Pending story-beat gate; chapter also requires the dice-ending choice | Re-author as a Rival School escalation beat only if the Vexus race incident is excluded from release. |
-| 5 | `league-top-half` | Pending race gate; chapter also requires Champion rank, Tier-3 boss and Northern Trial | Replace with a Colosseum tournament bracket/semi-final result or a defined rival milestone. |
-| 6 | `league-final` | Pending race gate; chapter also requires Tier-4 boss and summit visit | Replace with the final Colosseum tournament / Rival Schools confrontation, with one authoritative result record. |
+| 3 | `district-final` | Pending and non-blocking; Chapter 3 also requires Veteran rank, Tier-2 boss and Library evidence | Leave non-blocking and out of the first Colosseum gate contract. Do not add a second mandatory rival fight here. |
+| 4 | `league-promotion` | Pending and non-blocking; Chapter 4 also checks Tier 3 | Preserve as deferred Circus/League content or remove only in a separately tested scope cleanup; it is not a release blocker. |
+| 4 | `vexus-race` | Pending and non-blocking story-beat gate; chapter also requires the dice-ending choice | Preserve as deferred content; do not turn it into a required Rival Schools beat. |
+| 5 | `league-top-half` | Pending and non-blocking; Chapter 5 also requires Champion rank, Tier-3 boss and Trial evidence | Preserve as deferred League content; the final tournament can carry the rival resolution without making this placeholder a new gate. |
+| 6 | `league-final` | Pending and non-blocking; Chapter 6 also requires Tier-4 boss and summit evidence | Preserve as deferred League content; use the existing Colosseum finale for the authored rivalry resolution without changing this gate's semantics. |
 
 Additional non-race dependencies need an explicit scope decision: Chapter 3 requires `librarySeen`; Chapter 4 requires a `diceEnding`; Chapter 5 requires `trialDone`; Chapter 6 requires `summitSeen`. Chapter 7's statue ceremony is pending but does not currently hold the chapter open. These are not race gates, but if their owning city/story activities are removed from the first release, they can still leave chapters unresolved. Preserve the minimum existing interactions or replace them with equivalent career evidence; do not silently mark them complete.
 
@@ -308,3 +308,57 @@ A focused follow-up traced the race finish callback into its owning career trans
 | `summitSeen` | No production writer found; summit scene exists | Orphaned flag | Add a visible final-arena ceremony/overlook beat or retain and wire the summit visit |
 
 No runtime code was changed during this follow-up. These remain source-level findings; no fresh-career playthrough, APK or physical-device verification was performed.
+
+
+## 16. Focused Colosseum campaign-readiness specification — audit complete, implementation not started
+
+This section narrows the first runtime patch to evidence that is both necessary and supported by the current source. It does not authorize changing campaign behavior by implication.
+
+### A. Chapter 2: one real Rival Schools milestone
+
+- Replace only the meaning/evidence for the Chapter 2 `district-race` gate with the first authored Rival Schools challenge. Keep the stable gate ID for card/test compatibility unless a dedicated migration is approved.
+- Require an accepted duel settlement against the authored rival stage, not merely opening the challenge or entering the arena.
+- Use a stage-specific opponent/bout identity if that fits the current roster and duel flow. Otherwise add an optional `story.rivalry` record with a validated stage/outcome shape; do not infer repeated outcomes from `defeatedOpponentIds`.
+- Record the rival outcome inside the existing `handleMatchComplete` profile transaction. The write must happen only after reward settlement is accepted. A loss records the attempt and leaves a retry path; a win marks the first milestone complete exactly once.
+- Keep the existing Tier-1 boss and omen requirements. Do not let a rival win advance `currentTier` unless the rival is explicitly authored as that tier's actual boss.
+- Keep generated grudge bouts and exhibitions outside authored rivalry progression. Do not award duplicate gold, fame, XP or first-win progression on retries.
+
+### B. Later pending gates: preserve their current semantics
+
+The only pending gate that currently holds a chapter open is Chapter 2's `district-race`. Later pending gates are deliberately non-blocking. The first Colosseum patch must not convert `district-final`, `league-promotion`, `vexus-race`, `league-top-half`, `league-final`, or `statue-ceremony` into new mandatory Rival Schools encounters. Preserve their deferred content or remove it only through a separate resolver/test change with an explicit product rationale.
+
+### C. Three active story evidence flags need real earning actions
+
+The three flags below are not pending gates: they are active Chapter 3, 5 and 6 requirements. Current source search found no production writers for them. Add one visible, idempotent player action per flag, preferably at an existing Colosseum surface so the release does not require reopening the full city:
+
+| Flag | Minimal visible action proposed | Write contract |
+|---|---|---|
+| `librarySeen` | Read the Colosseum Records Board / career ledger | Set `story.librarySeen = true` only after the board content is actually opened/read; do not infer it from hub navigation or generic location visit. |
+| `trialDone` | Complete a short Doctore's Colosseum Trial bout or skill test | Set `story.trialDone = true` only after its authored conditions and accepted result are validated; entering or abandoning the trial does not count. |
+| `summitSeen` | View a short final-arena laurel/overlook ceremony unlocked at the appropriate career milestone | Set `story.summitSeen = true` only after the player reaches and views the ceremony; merely unlocking it does not count. |
+
+These are implementation proposals, not shipped behavior. Reuse an existing interaction or story module where possible. Do not overload `librarianChain`, Codex location records, or unrelated flags; those records have different meanings. Keep the existing Piso dice choice and its `diceEnding` write unchanged.
+
+### D. Acceptance matrix for the first runtime PR
+
+| Area | Required test |
+|---|---|
+| Rival gate | Fresh Chapter 2 profile remains in Chapter 2 until Tier-1 boss, omen and a valid first rival win are all recorded. |
+| Rival loss/retry | Loss records an attempt without closing the gate; a later valid win closes it once and does not duplicate first-win rewards. |
+| Rival exclusions | Exhibition, generated grudge, unrelated opponent, aborted bout and rejected reward settlement do not advance rivalry. |
+| Save compatibility | Missing, partial, malformed and legacy `story` / `story.rivalry` data resolve safely; no fabricated milestone or thrown exception. |
+| Tier progression | Rival bout does not advance `currentTier` unless it is the actual roster boss for that tier. |
+| Chapter 3 | After all Chapter 2 evidence is met, Chapter 3 opens naturally and existing Chapter 3 mercy eligibility works without an override. |
+| Records Board | Read action writes `librarySeen` once; opening the hub or unrelated Codex pages does not. |
+| Doctore Trial | Only a compliant completed trial writes `trialDone`; failure/abandonment does not. |
+| Laurel ceremony | Only viewing the unlocked ceremony writes `summitSeen`; unlock alone does not. |
+| Later pending gates | Their existing non-blocking semantics remain unchanged. |
+| Fresh career | A fresh profile can naturally satisfy every mandatory Chapter 2–6 gate through production UI and result/interaction writes. |
+
+### E. Implementation boundary and current verification
+
+- First PR should contain the narrowest campaign evidence model, its owning UI/result callbacks, resolver changes and focused tests. Avoid unrelated city, racing, combat balance, renderer or branch-cleanup changes.
+- Keep all new story evidence optional and lazy under the existing `story` object. No new top-level save field or schema-version bump unless a concrete compatibility need is demonstrated.
+- Do not auto-complete evidence, weaken gates, or write story progress from a modal animation or navigation-only event.
+- Before coding, confirm the chosen authored rival identity/stage and whether the proposed Records Board, Trial and ceremony surfaces fit the current hub layout. These are visible product beats; do not silently substitute generic buttons.
+- Status: specification only. No runtime files changed, no tests run, no APK built, no physical-device verification, no merge or branch deletion.
