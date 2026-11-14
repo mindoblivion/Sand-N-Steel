@@ -63,7 +63,7 @@ const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m
 const RaceScene = React.lazy(() => import('./components/3d/RaceScene').then((m) => ({ default: m.RaceScene })));
 
 import { HeraldToast } from './components/hub/HeraldToast';
-// STORY-3 — the herald's circus pointer while Chapter 2's race gate is unmet.
+// Legacy-named herald pointer — now announces the Rival Schools challenge.
 import { circusPointerCry } from './utils/storyChapterTwo';
 
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
