@@ -2,7 +2,7 @@
 
 **Decision baseline:** 2026-11-14  
 **Execution window:** 2026-11-14 through 2027-01-12 (60 calendar days, inclusive)  
-**Base commit:** `14b8152bc1e116143bf93545602f72106f2ee638`  
+**Latest audited main commit:** `982785f6cc7404c06a0a0aecdcb30937969f2e5e` (2026-11-13)  
 **Scope:** Colosseum-only gladiator career release candidate  
 **Primary stack:** Three.js + React + Capacitor Android  
 **Primary AI development environment:** Google AI Studio  
@@ -95,7 +95,7 @@ Before closing or deleting a branch, compare its commits against the verified ma
 
 ## 5. Current baseline evidence (source audit only)
 
-At the reset baseline, repository `main` is `14b8152bc1e116143bf93545602f72106f2ee638` (Nov 13, 2026). The root `package.json` confirms React 19, Vite 6, Three.js 0.174, React Three Fiber 9, and Capacitor 8.6; retain this stack for the reset.
+The initial reset note used `14b8152bc1e116143bf93545602f72106f2ee638`; the latest master-backlog audit identifies `main` as `982785f6cc7404c06a0a0aecdcb30937969f2e5e` (Nov 13, 2026). This updated source review was performed against the current `main` ref; use the latest SHA again before any implementation branch is cut. The root `package.json` confirms React 19, Vite 6, Three.js 0.174, React Three Fiber 9, and Capacitor 8.6; retain this stack for the reset.
 
 The branch inventory returned 316 pre-existing branches before this reset-plan branch was created; the current count is 317 including this documentation branch. The master backlog reports these implemented/merged candidates, with physical verification still outstanding where stated:
 
@@ -110,7 +110,7 @@ The branch inventory returned 316 pre-existing branches before this reset-plan b
 
 The backlog also reports initial Android install/launch/city walkaround smoke testing, but full duel, save/restart, background/resume, offline, thermal/memory/performance and broader device acceptance remain open.
 
-Open PR #451 at the audit time is documentation-only and reconciles the backlog after #450. The backlog's earlier statement that no engineering PRs were open is consistent with that classification; recheck live PR status before integration.
+Live PR search now returns #451 and #452 as open; both are documentation-only. #452 is this reset-plan PR. No open engineering PR was returned by the current backlog audit.
 
 The current combat audit is not a full gameplay or device sign-off. It explicitly leaves full Android duel acceptance outstanding.
 
@@ -152,3 +152,44 @@ The release candidate is acceptable only when:
 6. Only then begin the first runtime implementation PR.
 
 **Status:** plan recorded; no runtime code changed; no branch deleted; no PR merged; no public release action taken.
+
+
+## 9. Campaign gate mapping — required before Colosseum-only implementation
+
+The current story resolver has more than the single Chapter 2 blocker. Its full gate table must be treated as a campaign contract, not edited by hiding the Circus screen.
+
+| Chapter | Current gate | Current evidence/state | Colosseum-only direction to evaluate (not implemented) |
+|---|---|---|---|
+| 2 | `district-race` | Pending and explicitly holds Chapter 2 open after the Tier-1 boss and omen | Replace with the first authored Rival School challenge; it must be a real, recorded career milestone. |
+| 3 | `district-final` | Pending race gate; Chapter 3 also requires Veteran rank, Tier-2 boss and Library visit | Replace with a later Rival School encounter or a Colosseum tournament qualification milestone. Keep the existing Veteran and Tier-2 boss requirements unless playtesting shows duplication. |
+| 4 | `league-promotion` | Pending race gate; the same chapter already checks Tier 3 | Likely redundant for a Colosseum career: evaluate removing the pending gate rather than inventing a second promotion condition. |
+| 4 | `vexus-race` | Pending story-beat gate; chapter also requires the dice-ending choice | Re-author as a Rival School escalation beat only if the Vexus race incident is excluded from release. |
+| 5 | `league-top-half` | Pending race gate; chapter also requires Champion rank, Tier-3 boss and Northern Trial | Replace with a Colosseum tournament bracket/semi-final result or a defined rival milestone. |
+| 6 | `league-final` | Pending race gate; chapter also requires Tier-4 boss and summit visit | Replace with the final Colosseum tournament / Rival Schools confrontation, with one authoritative result record. |
+
+Additional non-race dependencies need an explicit scope decision: Chapter 3 requires `librarySeen`; Chapter 4 requires a `diceEnding`; Chapter 5 requires `trialDone`; Chapter 6 requires `summitSeen`. Chapter 7's statue ceremony is pending but does not currently hold the chapter open. These are not race gates, but if their owning city/story activities are removed from the first release, they can still leave chapters unresolved. Preserve the minimum existing interactions or replace them with equivalent career evidence; do not silently mark them complete.
+
+### Save and resolver constraints
+
+- `resolveStoryState` derives the chapter from existing profile evidence; it does not store a chapter number. Keep that single resolver authoritative.
+- `mercyOfferFor` reads the chapter at the time the bout was fought and intentionally starts at Chapter 3. Unlocking Chapter 3 through a Colosseum milestone will activate existing mercy/returning-rival content; add boundary tests for this transition.
+- `grudgeBouts.ts` tracks generic ladder rematches by base opponent ID and settles them independently. It does not by itself identify one recurring school champion across multiple career milestones.
+- `defeatedOpponentIds` is a set-like history of opponent IDs, so it cannot safely represent repeated wins/losses against one same-ID champion. If the rival needs a multi-encounter record, design one small, version-tolerant optional record and test absent/malformed/legacy saves before adding it.
+- Do not change gate IDs, gate copy, story flags, save shape or chapter ordering until the acceptance mapping and compatibility tests are agreed. Current tests explicitly pin the District race gate as the sole pending gate that holds Chapter 2 open and pin mercy dormancy before Chapter 3.
+
+## 10. Branch recovery findings — ancestry, not name-based cleanup
+
+The current branch-name inventory is not a uniqueness audit. Comparisons against current `main` show several historically interesting branches have heavily diverged and must not be merged wholesale:
+
+| Branch | Ahead of main | Behind main | Decision |
+|---|---:|---:|---|
+| `recovery/integrated-combat-windup` | 131 | 503 | Do not merge; inspect individual commits only if a current defect is reproduced. |
+| `fix/duel-adaptive-dpr` | 9 | 407 | Do not merge; first verify whether the current renderer already contains the required cap. |
+| `fix/android-input-reset-on-focus-loss` | 2 | 187 | Do not merge; current backlog reports lifecycle fixes already merged. |
+| `feat/shared-artwork-loading-transitions` | 21 | 208 | Do not merge; shared loading work is already merged in PR #371. |
+| `fix/mobile-character-creator-scroll-mainline` | 1 | 206 | Do not merge; mobile creator fixes are already merged in PRs #375/#376. |
+| `fix/native-launcher-icon-branding` | 13 | 225 | Do not merge; approved launcher artwork is reported merged in PR #404. |
+| `fix/city-movement-camera-stability` | 4 | 207 | Do not merge; movement stability is reported merged in PR #372. |
+| `recovery/android-rehearsal-apk` | 0 | 440 | Historical branch; current mainline is far ahead. |
+
+These counts describe commit ancestry, not whether each old commit contains a unique useful patch. No branch was deleted, rewritten or merged. Further branch cleanup requires per-commit review and preservation of any genuinely unique work.
