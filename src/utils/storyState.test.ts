@@ -619,6 +619,7 @@ describe('§E zero profile writes', () => {
       '../data/opponents',
       './storyBeats',
       './omens',
+      './rivalSchools',
       './rank',
     ]);
     expect([...cardSource.matchAll(/from '([^']+)'/g)].map((match) => match[1])).toEqual([
