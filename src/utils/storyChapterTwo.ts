@@ -80,7 +80,7 @@ export function isFortunaBriefingDue(
  * Read only while `circusPointerDue` holds; `null` means the herald says nothing.
  */
 export const CIRCUS_POINTER_CRY =
-  'The rival ludus has called you to the sand, gladiator — defeat its champion and carry your school’s name into the records.';
+  'The Rival Schools champion has called you to the sand, gladiator — defeat this rival and carry your school’s name into the records.';
 
 /** The cry to raise on the tournament tab, or `null` when the pointer is not due. */
 export function circusPointerCry(profile: PlayerProfile | null | undefined): string | null {
