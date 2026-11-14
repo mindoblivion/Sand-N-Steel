@@ -26,13 +26,9 @@
  * assertion still measures the boundary it names.
  *
  * ── STORY-3 CHANGED WHICH GATES HOLD A CHAPTER SHUT ────────────────────────
- * Chapter 2 ("Fortuna's Coin, the Second Sand") refuses to close on duels alone:
- * its District Rival Schools gate must be MET, not merely unlanded, so `holdsChapterOpen`
- * is the one rule that overrides "pending never holds a chapter shut" — and it is
- * on exactly one gate in the whole table (§G5 asserts that).  The race system's
- * results write has not landed, so the campaign is HELD at Chapter 2 by design
- * (the Director's ruling of record, and the documented deferral).  Consequences
- * this suite now measures rather than assumes:
+ * Chapter 2 ("Fortuna's Coin, the Second Sand") now requires an earned Rival
+ * Schools victory in addition to Goliath and the omen. This is an ordinary unmet
+ * evidence gate, not a special pending-gate hold. Consequences this suite measures:
  *   • a profile that has beaten Goliath resolves to Chapter 2, not Chapter 3
  *     (§B4), and a record that has met every other chapter's gates stops there
  *     too (§B6, §B9);
@@ -667,15 +663,36 @@ describe('§F the campaign card', () => {
   });
 
   test('pending gates print the authored pending lines and never their requirement', () => {
-    const markup = text(markupFor(withDoctoreTest(legacy(1))));
+    const base = withDoctoreTest(campaign(midCampaign(2, 200)));
+    const tierOneBoss = bossId(1);
+    const tierTwoBoss = bossId(2);
+    const profile: PlayerProfile = {
+      ...base,
+      currentTier: 2,
+      fame: 200,
+      defeatedOpponentIds: [...base.defeatedOpponentIds, tierOneBoss, tierTwoBoss],
+      omenTrickleClaimed: true,
+      story: {
+        ...(base.story ?? {}),
+        rivalry: {
+          stage: 'completed',
+          attempts: 1,
+          wins: 1,
+          losses: 0,
+          completed: true,
+          lastOutcome: 'win',
+        },
+        librarySeen: false,
+      },
+    };
+    const markup = text(markupFor(profile));
+    expect(markup).toContain('data-chapter="3"');
     expect(markup).toContain(PENDING_GATE_LINES.race);
     expect(markup).toContain('data-state="pending"');
-    // STORY-3 — the omen's system has landed, so its gate asks for the reading in
-    // its own words; the omen's pending line must never be printed again.
     expect(markup).not.toContain(PENDING_GATE_LINES.omen);
-    expect(markup).toContain('Face the reading of the omen');
-    // The requirement of the ONE unlanded system is still never printed.
-    expect(markup).not.toContain('Finish your first Rival Schools challenge');
+    expect(markup).toContain('Reach the District final');
+    // The pending line is printed instead of the owning gate's requirement.
+    expect(markup).not.toContain('The District final is yours to race.');
   });
 
   test('a met gate prints its confirmation, not its requirement', () => {
@@ -785,13 +802,12 @@ describe('§G the story beats', () => {
       expect(gate).toBeDefined();
       expect(storyGateLine(gate!)).toBe(PENDING_GATE_LINES.beat);
     }
-    // …and the card never prints an unlanded beat's requirement.  STORY-3: the
-    // card holds Chapter 2, whose one pending gate is the race's, so the beat's
-    // line and the Vexus requirement are both absent from it.
+    // …and the card never prints an unlanded beat's requirement. Chapter 2 is
+    // held by the ordinary unmet Rival Schools requirement, not a pending gate.
     const markup = text(markupFor(chapterFour()));
     expect(markup).toContain('data-chapter="2"');
-    expect(markup).toContain('data-state="pending"');
-    expect(markup).toContain(PENDING_GATE_LINES.race);
+    expect(markup).toContain('data-state="unmet"');
+    expect(markup).toContain('Defeat the champion of the Rival Ludus');
     expect(markup).not.toContain(PENDING_GATE_LINES.beat);
     expect(markup).not.toContain('Run the Vexus incident race');
   });
