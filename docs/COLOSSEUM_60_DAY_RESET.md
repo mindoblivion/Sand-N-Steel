@@ -260,3 +260,19 @@ The Library chain and Piso's dice choice have explicit owning modules in the cur
 - Missing, partial and malformed `story.rivalry` data never throws, fabricates a win, or advances the chapter.
 - Generated grudge bouts, exhibitions, invalid reward settlements and unrelated opponents do not write Rival Schools progression.
 - Pending later race/ceremony gates remain non-blocking and are not turned into new required fights.
+
+
+## 14. Newly confirmed progression risk — three story gates have no production writer found
+
+A repository-wide exact-symbol search against current `main` found a more serious issue than the earlier scope concern:
+
+- `librarySeen` appears in the story type, resolver, tests and save fixtures, but no production writer was found. The implemented Librarian chain writes `story.librarianChain` and its own fragments; its completion does **not** set `story.librarySeen`. These are separate records.
+- `trialDone` appears in the type, resolver and tests, but no production writer was found.
+- `summitSeen` appears in the type, resolver and tests, but no production writer was found.
+- By contrast, `diceEnding` has an explicit Piso choice flow in `utils/diceTrail.ts` and `App.tsx`.
+
+This means the current resolver's later campaign chapters are not proven playable simply by unblocking Chapter 2. The source tests manually construct the three missing booleans to simulate a fully completed walk; those fixtures do not prove the game can write them.
+
+**Release consequence:** before the first Colosseum-only runtime patch, perform a targeted write-path audit for these three flags and decide whether to (a) connect the intended existing interactions to their documented flags, or (b) replace them with compact Colosseum equivalents. The minimum safe fix is not to auto-set them or weaken the gates. A player should earn each milestone through a visible action, and each write should be idempotent and live in the owning result/interaction transaction.
+
+**New P0 acceptance condition:** demonstrate a fresh profile can naturally satisfy every mandatory Chapter 2–6 gate using production UI and writes, with no test fixture mutation or developer console. Until this is proven, a full career / final Rival Schools tournament is not release-ready. The existing Chapter 2 gate remains the first blocker; the three orphaned flags are downstream blockers that must be resolved in the same campaign-readiness workstream.
