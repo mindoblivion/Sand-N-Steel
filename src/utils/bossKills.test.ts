@@ -364,9 +364,12 @@ describe('§G — exactly one writer, called from the victory write', () => {
       app.indexOf('const handleDuelResultDismiss')
     );
 
-    // One mention in the whole handler — it is the helper call the win write carries.
-    expect(handler.match(/bossKills/g)?.length).toBe(1);
-    expect(handler).toContain('bossKills: nextBossKills(');
+    // The ordinary helper remains the only incrementer; Rival Schools and
+    // exhibitions explicitly retain the existing count.
+    expect(handler.match(/bossKills/g)?.length).toBe(2);
+    expect(handler).toContain('bossKills: exhibition || rivalBout');
+    expect(handler).toContain('profile.bossKills');
+    expect(handler).toContain('nextBossKills(');
 
     // The defeat branch (everything after the win branch's `} else {`) never names it.
     const defeatStart = handler.indexOf('} else if (!didWin) {');

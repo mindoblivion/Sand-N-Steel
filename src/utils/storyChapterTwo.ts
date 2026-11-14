@@ -12,11 +12,10 @@
  *     omen is taken or declined, and the card's job is to send the player there
  *     before the bout.
  *
- *   • THE CROSS-GATE POINTER's words (Director ruling 3).  While Chapter 2 is
- *     open and its District race gate is unmet, opening the tournament tab has
- *     the herald mention the Circus through `HeraldToast` — the herald's one
- *     surface.  TEXT ONLY: `circusPointerDue` decides, nothing here changes a
- *     gate, a price or a reward.
+ *   • THE RIVAL SCHOOLS POINTER's words. While Chapter 2 is open and its Rival
+ *     Schools gate is unmet, opening the tournament tab has the herald announce
+ *     the rival challenge through the existing `HeraldToast` surface. TEXT ONLY:
+ *     `circusPointerDue` decides; nothing here changes a gate or reward.
  *
  * Neither export writes a profile, reads storage or invents evidence: `story
  * state` is resolved by `resolveStoryState` and the omen's own fields by
@@ -77,11 +76,11 @@ export function isFortunaBriefingDue(
 }
 
 /**
- * The herald's circus pointer, in the city's own voice.  Read only while
- * `circusPointerDue` holds; `null` means the herald says nothing.
+ * The legacy-named herald pointer, now announcing the Rival Schools challenge.
+ * Read only while `circusPointerDue` holds; `null` means the herald says nothing.
  */
 export const CIRCUS_POINTER_CRY =
-  'The Circus is running, gladiator — finish one District race, any placing, and this chapter turns.';
+  'The Rival Schools champion has called you to the sand, gladiator — defeat this rival and carry your school’s name into the records.';
 
 /** The cry to raise on the tournament tab, or `null` when the pointer is not due. */
 export function circusPointerCry(profile: PlayerProfile | null | undefined): string | null {

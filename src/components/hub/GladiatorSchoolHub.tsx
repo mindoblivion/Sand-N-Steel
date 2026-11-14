@@ -10,6 +10,7 @@ import { PreFightModal } from './PreFightModal';
 import { FacilitiesPanel } from './FacilitiesPanel';
 import type { FacilityId } from '../../utils/facilityProgression';
 import { DOCTORE_TEST_OPPONENT } from '../../data/opponents';
+import { RIVAL_SCHOOL_BRIEFING, RIVAL_SCHOOL_OPPONENT } from '../../data/rivalSchools';
 import {
   NOVICE_BOUT_BRIEFING,
   isDoctoreTestOpponent,
@@ -25,7 +26,7 @@ import { resolveDisplayClock } from '../../utils/dayRollover';
 // PITCH A1 — the omen line the pre-fight card prints, read lazily from the save.
 import { resolveOmen } from '../../utils/omens';
 // STORY-3 — Chapter 2's Beat 3: Postumia's briefing on the tournament final, and
-// the herald's circus pointer while the chapter's District race gate is unmet.
+// the legacy-named herald pointer while the Rival Schools challenge is unmet.
 import { FORTUNA_SHRINE_BRIEFING, isFortunaBriefingDue } from '../../utils/storyChapterTwo';
 
 const TournamentTab = React.lazy(() => import('./TournamentTab').then((module) => ({ default: module.TournamentTab })));
@@ -94,7 +95,7 @@ interface GladiatorSchoolHubProps {
   /**
    * STORY-3 — the herald's circus pointer, already resolved by `App` from the
    * campaign's own state: shown when the Colosseum tab opens while Chapter 2 is
-   * open and its race gate is unmet, and `null` otherwise.
+   * open and the Rival Schools gate is unmet, and `null` otherwise.
    */
   heraldCircusCry?: string | null;
   /** STORY-3 — hands that cry to `App`, which owns the herald's toast. */
@@ -105,6 +106,8 @@ interface GladiatorSchoolHubProps {
    * win against the rule that was actually set.
    */
   onEnterDoctoreTest?: (restriction: DoctoreTestRestriction, mode?: BoutMode) => void;
+  /** Rival Schools — commits the dedicated bout after the shared pre-fight card. */
+  onEnterRivalBout?: (mode?: BoutMode) => void;
   /** P2 — a Triumph bought from the Library's Triumphs page; `App` writes it. */
   onPurchaseTriumph?: (laurelId: string) => LaurelResult;
   /** P6 — the temper row on an Armory card; `App` runs `purchaseTemper` and writes. */
@@ -166,6 +169,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   heraldCircusCry = null,
   onHeraldCry,
   onEnterDoctoreTest,
+  onEnterRivalBout,
   onPurchaseTriumph,
   onTemperItem,
   onBuyStableQuality,
@@ -188,6 +192,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
    * confirm hands it to `App`, and a retreat clears it. Nothing is saved here.
    */
   const [testRestriction, setTestRestriction] = useState<DoctoreTestRestriction | null>(null);
+  const [rivalBoutSelected, setRivalBoutSelected] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
   /** A8 — the sheet's door: open the Library on its Triumphs page. */
@@ -358,7 +363,15 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
         {activeTab === 'tournament' && (
           <TournamentTab
             profile={playerProfile}
-            onSelectOpponent={(opp) => setSelectedOpponent(opp)}
+            onSelectOpponent={(opp) => {
+              setRivalBoutSelected(false);
+              setSelectedOpponent(opp);
+            }}
+            onSelectRivalBout={() => {
+              setTestRestriction(null);
+              setRivalBoutSelected(true);
+              setSelectedOpponent(RIVAL_SCHOOL_OPPONENT);
+            }}
             /* STORY-5b — a legend bout is entered directly: it is an exhibition of an
                existing row, not a ladder card, and its omen/mercy/ladder bookkeeping
                is fenced in `App`. */
@@ -446,7 +459,9 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
              STORY-3 — BEAT 3 rides the same surface: Postumia's briefing on the
              chapter's tournament final, until the omen is taken or declined. */
           narration={
-            isNoviceBoutOpponent(selectedOpponent) && isNoviceBoutDue(playerProfile)
+            rivalBoutSelected
+              ? RIVAL_SCHOOL_BRIEFING
+              : isNoviceBoutOpponent(selectedOpponent) && isNoviceBoutDue(playerProfile)
               ? NOVICE_BOUT_BRIEFING
               : isFortunaBriefingDue(playerProfile, selectedOpponent)
                 ? FORTUNA_SHRINE_BRIEFING
@@ -459,14 +474,18 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           onConfirm={(mode) => {
             const opp = selectedOpponent;
             const restriction = isDoctoreTestOpponent(opp) ? testRestriction : null;
+            const isRivalBout = rivalBoutSelected;
             setSelectedOpponent(null);
             setTestRestriction(null);
-            if (restriction && onEnterDoctoreTest) onEnterDoctoreTest(restriction, mode);
+            setRivalBoutSelected(false);
+            if (isRivalBout && onEnterRivalBout) onEnterRivalBout(mode);
+            else if (restriction && onEnterDoctoreTest) onEnterDoctoreTest(restriction, mode);
             else onSelectOpponent(opp, mode);
           }}
           onCancel={() => {
             setSelectedOpponent(null);
             setTestRestriction(null);
+            setRivalBoutSelected(false);
           }}
         />
       )}

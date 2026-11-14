@@ -678,7 +678,7 @@ describe('STORY-4a §H — the result surface holds the flow; App writes each an
     // fence, so an exhibition raises no Spare/Finish either. The offer is still
     // decided here and handed up.
     expect(handler).toContain(
-      'mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition)'
+      'mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition || rivalBout)'
     );
     expect(handler).toContain('finalFame: resultStats.fameEarned');
     expect(handler.match(/saveProfile\(/g)?.length).toBe(1);

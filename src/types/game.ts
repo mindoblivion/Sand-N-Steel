@@ -920,6 +920,18 @@ export interface StoryProgress {
    * repeatable afterwards.
    */
   echoWon?: boolean;
+  /** Rival Schools — the first authored rival challenge and its retry record. */
+  rivalry?: RivalryProgress;
+}
+
+/** The one Rival Schools challenge's progression, stored lazily inside StoryProgress. */
+export interface RivalryProgress {
+  stage?: 'first_challenge' | 'completed';
+  attempts?: number;
+  wins?: number;
+  losses?: number;
+  completed?: boolean;
+  lastOutcome?: 'win' | 'loss';
 }
 
 /**

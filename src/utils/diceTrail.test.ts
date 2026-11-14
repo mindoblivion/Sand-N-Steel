@@ -620,7 +620,7 @@ describe('STORY-5a §G — a trail bout is not a mercy bout', () => {
     // fence (`... || exhibition`), so this is still the ONE call site, and it still
     // refuses the offer on a trail bout.
     expect(app).toContain(
-      'mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition)'
+      'mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition || rivalBout)'
     );
     expect(app).not.toContain('mercyOfferFor(profile, activeOpponent, didWin)');
     // Set at the trail's own entrance, cleared at the result.

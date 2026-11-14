@@ -561,17 +561,17 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
     expect(app).toContain('const exhibition = exhibitionBoutRef.current;');
     // The WebGL fallback is the one exit from a duel with no result: the flag
     // cannot outlive the bout and fence the NEXT duel.
-    expect(app).toContain('exhibitionBoutRef.current = false;\n    setActiveHubTab(tab);');
+    expect(app).toContain('exhibitionBoutRef.current = false;\n    rivalBoutRef.current = false;\n    setActiveHubTab(tab);');
   });
 
   test('SKIPPED on a win: the felled id, the grudge ledger, the tier', () => {
-    expect(result).toContain('const defeated = exhibition');
-    expect(result).toContain('const grudgeProfile = exhibition');
-    expect(result).toContain("? { currentTier: profile.currentTier, firstDefeat: false, advanced: false }");
+    expect(result).toContain('const defeated = exhibition || rivalBout');
+    expect(result).toContain('const grudgeProfile = exhibition || rivalBout');
+    expect(result).toContain("exhibition || rivalBout\n        ? { currentTier: profile.currentTier, firstDefeat: false, advanced: false }");
     // The felled id is the record it already carried — never the staged row: the
     // exhibition arm is the ternary's FIRST arm and it appends nothing.
     expect(result).toContain(
-      'const defeated = exhibition\n        ? profile.defeatedOpponentIds'
+      'const defeated = exhibition || rivalBout\n        ? profile.defeatedOpponentIds'
     );
     // The grudge ledger is the Omen-composed profile, untouched by a grudge write.
     const exhibitionGrudge = result.slice(
