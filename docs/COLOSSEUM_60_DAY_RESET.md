@@ -1,7 +1,7 @@
 # Sand & Steel — 60-Day Colosseum Reset
 
 **Decision baseline:** 2026-11-14  
-**Execution window:** 2026-11-14 through 2027-01-13 (60 calendar days, inclusive)  
+**Execution window:** 2026-11-14 through 2027-01-12 (60 calendar days, inclusive)  
 **Base commit:** `14b8152bc1e116143bf93545602f72106f2ee638`  
 **Scope:** Colosseum-only gladiator career release candidate  
 **Primary stack:** Three.js + React + Capacitor Android  
@@ -67,7 +67,7 @@ Deferred work is preserved unless separately reviewed. Do not delete existing sy
 | Days 33–40 (Dec 16–23) | Opening and presentation | Polish first 60 seconds, trainer introduction/tutorial fight, rival reveal, arena staging, crowd/audio feedback and loading transitions. |
 | Days 41–49 (Dec 24–Jan 1) | Android performance and device acceptance | Profile on Samsung S24; inspect frame pacing, memory, thermal behaviour, touch controls, safe areas, app lifecycle, offline operation and save/relaunch. Test a lower-cost Android device if available. |
 | Days 50–56 (Jan 2–8) | External playtest and fixes | Give a clean APK to at least 10 people unfamiliar with the project where feasible; collect completion, confusion and crash feedback; fix release blockers only. |
-| Days 57–60 (Jan 9–13) | Release candidate | Run regression suite, build/install APK, complete fresh-career playthrough, verify save/reload and rival conclusion, record build SHA and known limitations. Release/public distribution remains a separate explicit approval. |
+| Days 57–60 (Jan 9–12) | Release candidate | Run regression suite, build/install APK, complete fresh-career playthrough, verify save/reload and rival conclusion, record build SHA and known limitations. Release/public distribution remains a separate explicit approval. |
 
 Dates are planning anchors, not claims that the milestones have been completed.
 
@@ -95,7 +95,7 @@ Before closing or deleting a branch, compare its commits against the verified ma
 
 At the reset baseline, repository `main` is `14b8152bc1e116143bf93545602f72106f2ee638` (Nov 13, 2026). The root `package.json` confirms React 19, Vite 6, Three.js 0.174, React Three Fiber 9, and Capacitor 8.6; retain this stack for the reset.
 
-The current master backlog reports these implemented/merged candidates, with physical verification still outstanding where stated:
+The branch inventory returned 316 pre-existing branches before this reset-plan branch was created; the current count is 317 including this documentation branch. The master backlog reports these implemented/merged candidates, with physical verification still outstanding where stated:
 
 - Shared loading artwork and progress transitions.
 - Character creator mobile scroll/layout and preview recovery.
@@ -142,7 +142,7 @@ The release candidate is acceptable only when:
 
 ## 8. Immediate next actions
 
-1. Complete the branch and PR inventory, including all pagination and commit-uniqueness checks.
+1. Complete commit-uniqueness classification for the 317 current branches and reconcile every open PR. The five-page branch-name inventory is complete; ancestry/unique-commit classification is not.
 2. Reconcile PR #451 and current mainline/backlog status.
 3. Map the actual Colosseum entry → bout → result → reward → next-bout flow from source.
 4. Map opponent roster, grudge records, story progression and save schema to determine the smallest safe Rival Schools implementation.
