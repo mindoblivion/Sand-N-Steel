@@ -52,6 +52,7 @@ import { PlayerProfile, StoryProgress } from '../types/game';
 import { ALL_OPPONENTS } from '../data/opponents';
 import { DOCTORE_TEST_OPPONENT_ID } from './storyBeats';
 import { isTrickleClaimed, resolveOmen } from './omens';
+import { isRivalSchoolChallengeWon } from './rivalSchools';
 import { GladiatorRank, rankAtLeast, deriveRank } from './rank';
 
 /** A gate's state: met by evidence, not yet met, or waiting on a later slice. */
@@ -67,6 +68,7 @@ export type StoryGateId =
   | 'doctore-test'
   | 'tier-1-boss'
   | 'district-race'
+  | 'rival-schools-first'
   | 'omen'
   | 'rank-veteran'
   | 'tier-2-boss'
@@ -101,7 +103,8 @@ export interface StoryGate {
    * STORY-3 — this gate must be MET before its chapter can close, even while its
    * owning system is unlanded.  Absent on every other gate: a pending gate never
    * holds a chapter shut (STORY-1's standing law), and Chapter 2's District race
-   * is the one designed exception (the Director's ruling of record).
+   * was the former Chapter 2 exception; Rival Schools now uses an ordinary unmet
+   * evidence gate, so no pending gate holds a chapter open.
    */
   holdsChapterOpen?: boolean;
   state: StoryGateState;
@@ -194,9 +197,8 @@ export interface StoryState {
   beat: string;
   /**
    * Every chapter closed on its available gates — the Legend state.  STORY-3:
-   * Chapter 2's race gate is the one pending gate that holds a chapter open, so
-   * no record reaches this state until that gate has evidence (the documented
-   * deferral), and `LEGEND_LINE` stays unwritten on the card until then.
+   * Chapter 2's Rival Schools gate is an ordinary unmet evidence gate, so the
+   * chapter stays open until a valid rival victory is recorded.
    */
   complete: boolean;
   /** The current chapter's gates, in table order, each with its state. */
@@ -217,6 +219,8 @@ interface StoryEvidence {
   defeatedIds: string[];
   /** STORY-3 — Beat 3's state: a live omen or the once-ever decline marker. */
   omenTaken: boolean;
+  /** Rival Schools — only an accepted victory settles this campaign evidence. */
+  rivalSchoolsWon: boolean;
   flags: ResolvedStoryFlags;
 }
 
@@ -355,33 +359,16 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
         evidence.flags.doctoreTestPassed && evidence.defeatedIds.includes(DOCTORE_TEST_OPPONENT_ID),
     },
   ],
-  // 2 — Fortuna's Coin: Goliath, the first District race (HELD OPEN — see
-  // `holdsChapterOpen`), and Beat 3's omen, which reads STATE rather than a flag.
-  //
-  // ── TWO DEFERRALS THIS CHAPTER CARRIES, RECORDED HERE ────────────────────
-  // (a) The District's own introduction lines on the pre-race card — the rival
-  //     charioteer the chapter opens on — belong to Stage 2's 2A data build and
-  //     are NOT built here: no line, no data row and no pre-race card change for
-  //     that rival ships in this slice.  The keeper registry holds that rival as
-  //     DATA only, and no shrine or keeper plate is built here either (the
-  //     plates belong to their own slice).
-  // (b) "Answer the Rein" steps 1 and 2 are NOT built here; they ride the racing
-  //     and keeper-lives work.  This slice is Beat 3, the cross-gate pointer and
-  //     the chapter's own state, and nothing else.
+  // 2 — Fortuna's Coin: Goliath, the first Rival Schools challenge, and Beat 3's omen.
+  // The rival victory is earned by a genuine bout result, not a visit flag.
   [
     tierBossGate(1, 'tier-1-boss'),
-    pendingGate(
-      'district-race',
-      'Finish your first District race',
-      'Your first District race is run.',
-      'race',
-      // STORY-3 — Director ruling 4: the chapter REFUSES TO CLOSE ON DUELS
-      // ALONE.  The race system's results write has not landed, so the gate has
-      // no evidence to read and says "not yet" (STORY-1's graceful degradation)
-      // — but it is the one gate whose pending state HOLDS its chapter open.
-      // That is the documented deferral, not a failure.
-      true
-    ),
+    {
+      id: 'rival-schools-first',
+      requirement: 'Defeat the champion of the Rival Ludus',
+      confirmation: 'The Rival Ludus champion has fallen in the sand.',
+      met: (evidence) => evidence.rivalSchoolsWon,
+    },
     {
       id: 'omen',
       requirement: 'Face the reading of the omen',
@@ -504,6 +491,7 @@ function readEvidence(profile: PlayerProfile | null | undefined): StoryEvidence 
       ? defeated.filter((id): id is string => typeof id === 'string')
       : [],
     omenTaken: isFortunaOmenTaken(profile),
+    rivalSchoolsWon: isRivalSchoolChallengeWon(profile),
     flags: resolveFlags(profile),
   };
 }
@@ -587,16 +575,14 @@ export function isFortunaOmenTaken(profile: PlayerProfile | null | undefined): b
 }
 
 /**
- * STORY-3 — the cross-gate pointer's TRIGGER (Director ruling 3): true while
- * Chapter 2 is open AND its District race gate is not met.
- *
- * It is a pointer and nothing else — no gate, price or reward reads it; the
- * herald's words live in `utils/storyChapterTwo.ts`, beside the beat's briefing.
+ * Legacy-named herald pointer: true while Chapter 2 is open and the Rival
+ * Schools challenge remains unbeaten. The name is retained for compatibility;
+ * it no longer points the player toward racing.
  */
 export function circusPointerDue(state: StoryState): boolean {
   if (state.chapter !== STORY_CHAPTER_FORTUNA) return false;
-  const race = state.gates.find((gate) => gate.id === 'district-race');
-  return !!race && race.state !== 'met';
+  const rival = state.gates.find((gate) => gate.id === 'rival-schools-first');
+  return !!rival && rival.state !== 'met';
 }
 
 /**
