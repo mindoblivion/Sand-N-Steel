@@ -690,8 +690,8 @@ describe('§F the campaign card', () => {
     expect(markup).toContain(PENDING_GATE_LINES.race);
     expect(markup).toContain('data-state="pending"');
     expect(markup).not.toContain(PENDING_GATE_LINES.omen);
-    expect(markup).toContain('Reach the District final');
-    // The pending line is printed instead of the owning gate's requirement.
+    // The pending line is printed instead of the owning gate's requirement or confirmation.
+    expect(markup).not.toContain('Reach the District final');
     expect(markup).not.toContain('The District final is yours to race.');
   });
 
