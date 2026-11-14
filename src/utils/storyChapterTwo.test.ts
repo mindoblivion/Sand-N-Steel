@@ -9,11 +9,11 @@
  *       once-ever decline marker, including a shrine visit made BEFORE the
  *       chapter opened, and incomplete on neither;
  *   §C  the DUEL gate — Tier 1's boss, read from the shipped roster;
- *   §D  the RACE gate (Director ruling 4) — still "not yet", with no race results
+ *   §D  the Rival Schools gate (Director ruling 4) — still "not yet", with no race results
  *       write, no free-drive result and no other race evidence invented, and it
  *       is the one gate that holds its chapter open;
  *   §E  the CROSS-GATE pointer (Director ruling 3) — due exactly while Chapter 2
- *       is open and its race gate is unmet, and never otherwise;
+ *       is open and its Rival Schools gate is unmet, and never otherwise;
  *   §F  the deferred character's name appears in NO non-test source but the K1
  *       registry data it already lives in;
  *   §G  no new profile field: `PlayerProfile`'s optional list is unchanged;
@@ -134,7 +134,7 @@ describe('§A Chapter 2 is derived, never stored', () => {
     // Its gates, in table order, and nothing else.
     expect(state.gates.map((gate) => gate.id)).toEqual([
       'tier-1-boss',
-      'district-race',
+      'rival-schools-first',
       'omen',
     ]);
   });
@@ -220,7 +220,7 @@ describe('§B Beat 3 completes on state, never on a stored flag', () => {
     const after = withOmen(withGoliathDown());
     expect(gateOfChapter(before, 2, 'omen').state).toBe('met');
     expect(gateOfChapter(after, 2, 'omen').state).toBe('met');
-    // Both profiles are still held at Chapter 2 by the race gate, duel or no duel.
+    // Both profiles are still held at Chapter 2 by the Rival Schools gate, duel or no duel.
     expect(resolveStoryState(before).chapter).toBe(2);
     expect(resolveStoryState(after).chapter).toBe(2);
   });
@@ -256,90 +256,52 @@ describe('§C the duel gate is Tier 1\'s boss', () => {
   });
 });
 
-// ── §D the race gate: "not yet", and no evidence invented ─────────────────
-describe('§D the race gate resolves "not yet" and holds the chapter open', () => {
-  test('D1 — pending, kind race, and it is the gate that declares the hold', () => {
-    const gate = gateOfChapter(inChapterTwo(), 2, 'district-race');
-    expect(gate.state).toBe('pending');
-    expect(gate.pendingKind).toBe('race');
-    expect(gate.holdsChapterOpen).toBe(true);
-    expect(storyGateLine(gate)).toBe(PENDING_GATE_LINES.race);
-    // No other gate on the chapter declares it, and the requirement is never
-    // printed while the system is unlanded.
+// ── §D the Rival Schools gate: an earned result, never a free flag ─────────
+describe('§D the Rival Schools gate requires an earned rival victory', () => {
+  test('D1 — the gate is unmet until the dedicated rival challenge is won', () => {
+    const gate = gateOfChapter(inChapterTwo(), 2, 'rival-schools-first');
+    expect(gate.state).toBe('unmet');
+    expect(gate.pendingKind).toBeUndefined();
+    expect(gate.holdsChapterOpen).toBeUndefined();
+    expect(storyGateLine(gate)).toBe('Defeat the champion of the Rival Ludus');
     expect(gateOfChapter(inChapterTwo(), 2, 'tier-1-boss').holdsChapterOpen).toBeUndefined();
     expect(gateOfChapter(inChapterTwo(), 2, 'omen').holdsChapterOpen).toBeUndefined();
-    expect(storyGateLine(gate)).not.toContain('Finish your first District race');
   });
 
-  test('D2 — the chapter refuses to close on duels alone', () => {
-    // Duel met, beat met, race unlanded: the chapter is still open and current.
+  test('D2 — Goliath and the omen are not enough while the rival challenge remains open', () => {
     const everythingElse = withOmen(withGoliathDown());
     const state = resolveStoryState(everythingElse);
-    expect(state.gates.map((gate) => gate.state)).toEqual(['met', 'pending', 'met']);
+    expect(state.gates.map((gate) => gate.state)).toEqual(['met', 'unmet', 'met']);
     expect(state.chapter).toBe(2);
     expect(state.complete).toBe(false);
-    // …and it stays there however far the arena record runs.
-    const far: PlayerProfile = {
-      ...everythingElse,
-      fame: 2000,
-      currentTier: 4,
-      defeatedOpponentIds: [
-        ...everythingElse.defeatedOpponentIds,
-        bossId(2),
-        bossId(3),
-        bossId(4),
-      ],
-      story: {
-        ...(everythingElse.story ?? {}),
-        librarySeen: true,
-        trialDone: true,
-        summitSeen: true,
-        diceEnding: 'cut',
-      },
-    };
-    expect(resolveStoryState(far).chapter).toBe(2);
   });
 
-  test('D3 — no race-results write, no free-drive result, no other race evidence is read', () => {
+  test('D3 — racing catalogue/completion data cannot satisfy the Rival Schools gate', () => {
     const code = codeOf(moduleSource);
-    // The resolver reads no racing state of any kind: the gate has no evidence
-    // predicate at all, so it cannot be satisfied by anything on the record.
     expect(code).not.toMatch(/racing|raceResults|racesFinished|finishRace|placements/);
     expect(code).not.toMatch(/from '\.\/racingProgression'/);
-    // A profile with the racing catalogue fully bought and selected is still not
-    // a finished race: buying a team is not running one.
     const racer = {
       ...inChapterTwo(),
-      racing: { unlocked: [3, 4], selected: 4 },
+      racing: { unlocked: [3, 4], selected: 4, completed: 20, wins: 20 },
     } as unknown as PlayerProfile;
-    expect(gateOfChapter(racer, 2, 'district-race').state).toBe('pending');
-    // The finish API is now called by the race scene, but completion remains
-    // presentation-only: it does not write story evidence or a saved race record.
-    const finishCallers = readdirSync(SRC_DIR, { recursive: true })
-      .map(String)
-      .filter((entry) => /\.(ts|tsx)$/.test(entry) && !/\.test\.tsx?$/.test(entry))
-      .filter((entry) => {
-        const text = readFileSync(join(SRC_DIR, entry), 'utf8');
-        return /finishRace\s*\(/.test(text) && !/export function finishRace/.test(text);
-      });
-    expect(finishCallers).toEqual(['components/3d/RaceScene.tsx']);
+    expect(gateOfChapter(racer, 2, 'rival-schools-first').state).toBe('unmet');
   });
 });
 
 // ── §E the cross-gate pointer ─────────────────────────────────────────────
-describe('§E the herald\'s circus pointer shows exactly while Chapter 2 waits on the race', () => {
-  /** A Chapter 2 whose race gate has been met — the state Stage 2 will produce. */
+describe('§E the herald announces Rival Schools while Chapter 2 waits', () => {
+  /** A Chapter 2 whose Rival Schools gate has been met — the state Stage 2 will produce. */
   const closedChapterTwo = (): StoryState => {
     const state = resolveStoryState(inChapterTwo());
     return {
       ...state,
       gates: state.gates.map((gate) =>
-        gate.id === 'district-race' ? { ...gate, state: 'met' as const } : gate
+        gate.id === 'rival-schools-first' ? { ...gate, state: 'met' as const } : gate
       ),
     };
   };
 
-  test('E1 — due while Chapter 2 is open and the race gate is unmet', () => {
+  test('E1 — due while Chapter 2 is open and the Rival Schools gate is unmet', () => {
     const state = resolveStoryState(withOmen(withGoliathDown()));
     expect(state.chapter).toBe(2);
     expect(circusPointerDue(state)).toBe(true);
@@ -355,7 +317,7 @@ describe('§E the herald\'s circus pointer shows exactly while Chapter 2 waits o
     }
   });
 
-  test('E3 — not once the chapter\'s race gate is met', () => {
+  test('E3 — not once the chapter\'s Rival Schools gate is met', () => {
     // A resolved STATE, not a fabricated record: this is what the resolver will
     // hand back when Stage 2's race write lands, and the pointer must go quiet.
     const closed = closedChapterTwo();
@@ -371,7 +333,7 @@ describe('§E the herald\'s circus pointer shows exactly while Chapter 2 waits o
   test('E4 — a missing profile says nothing, and the cry is text only', () => {
     expect(circusPointerCry(null)).toBeNull();
     expect(circusPointerCry(undefined)).toBeNull();
-    expect(CIRCUS_POINTER_CRY).toContain('District race');
+    expect(CIRCUS_POINTER_CRY).toContain('Rival Schools');
     // No figure, no price and no reward: a pointer, not an offer.
     expect(CIRCUS_POINTER_CRY).not.toMatch(/\d/);
     expect(CIRCUS_POINTER_CRY.toLowerCase()).not.toContain('gold');
