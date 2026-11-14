@@ -301,7 +301,7 @@ describe('§B the chapter boundaries', () => {
       defeatedOpponentIds: [...tested.defeatedOpponentIds, bossId(1)],
     };
     // STORY-3 — the duel gate is met and the chapter STILL does not close: its
-    // District Rival Schools gate must be met, not merely unlanded (Director ruling 4).
+    // The Rival Schools gate is an ordinary unmet evidence requirement.
     const state = resolveStoryState(goliathDown);
     expect(state.chapter).toBe(2);
     expect(state.complete).toBe(false);
@@ -315,7 +315,7 @@ describe('§B the chapter boundaries', () => {
     expect(gateOf(goliathDown, 'tier-1-boss').holdsChapterOpen).toBeUndefined();
 
     // …and Beat 3 as well: duel AND omen are met, and the chapter still waits on
-    // the race.  Nothing else holds it (the omen gate declares no such rule).
+    // the Rival Schools victory. No special pending-gate hold is needed.
     const withOmen: PlayerProfile = {
       ...goliathDown,
       omen: { kind: 'kind', expiresAtBout: 9 },
