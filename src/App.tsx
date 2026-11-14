@@ -123,6 +123,8 @@ import { googleSignIn, subscribeAuthUser } from './services/googleAuth';
 import type { User } from 'firebase/auth';
 
 import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT } from './data/opponents';
+import { RIVAL_SCHOOL_OPPONENT } from './data/rivalSchools';
+import { isRivalSchoolOpponent, settleRivalSchoolBout } from './utils/rivalSchools';
 // C-8.70C — the bout mode is chosen on the pre-fight card and held for the
 // length of the bout only: it is never written to the profile.
 import { DEFAULT_BOUT_MODE } from './data/boutModes';
@@ -324,6 +326,8 @@ export function App() {
    * the duel's one time advance and the injury on a loss.
    */
   const exhibitionBoutRef = useRef(false);
+  /** Rival Schools — session-only identity fence, consumed at duel settlement or abort. */
+  const rivalBoutRef = useRef(false);
   /** DAY/NIGHT T2 — the day-boundary beat the city plays (sleep veil + the new day's name). */
   const [dayBanner, setDayBanner] = useState<{ day: number; text: string } | null>(null);
   /**
@@ -965,7 +969,12 @@ export function App() {
     if (entryProfile) openFirstSixty(entryProfile, false);
   };
 
-  const handleEnterDuel = (opp: OpponentConfig, mode: BoutMode = DEFAULT_BOUT_MODE) => {
+  const handleEnterDuel = (
+    opp: OpponentConfig,
+    mode: BoutMode = DEFAULT_BOUT_MODE,
+    rivalBout = false
+  ) => {
+    rivalBoutRef.current = rivalBout;
     setActiveOpponent(opp);
     // C-8.70C — the mode the card was committed on, for this bout only.
     setBoutMode(mode);
@@ -1000,6 +1009,11 @@ export function App() {
   const handleEnterLegendBout = (opponent: OpponentConfig) => {
     exhibitionBoutRef.current = true;
     handleEnterDuel(opponent);
+  };
+
+  /** Rival Schools — enter the dedicated challenge, not a ladder or grudge row. */
+  const handleEnterRivalBout = (mode: BoutMode = DEFAULT_BOUT_MODE) => {
+    handleEnterDuel(RIVAL_SCHOOL_OPPONENT, mode, true);
   };
 
   /**
@@ -1109,6 +1123,7 @@ export function App() {
      * never leave an exhibition's fence armed on the NEXT duel.
      */
     exhibitionBoutRef.current = false;
+    rivalBoutRef.current = false;
     setActiveHubTab(tab);
     if (tab === 'gear') setGearView(gearSubview ?? 'armory');
     if (tab === 'shop') setShopId(shopStorefront ?? 'market');
@@ -1289,6 +1304,7 @@ export function App() {
      * every fenced branch below consults the same decision.
      */
     const exhibition = exhibitionBoutRef.current;
+    const rivalBout = rivalBoutRef.current && isRivalSchoolOpponent(activeOpponent);
 
     const { profile: afterInjury, event: injuryEvent } = resolveInjuryAfterDuel(profile, didWin);
 
@@ -1373,7 +1389,7 @@ export function App() {
        * (the Librarian chain's step 2 and STORY-4a's mercy both read that record)
        * and the Codex's faced-states. The purse and the time advance are kept.
        */
-      const defeated = exhibition
+      const defeated = exhibition || rivalBout
         ? profile.defeatedOpponentIds
         : isGrudge
         ? profile.defeatedOpponentIds
@@ -1388,7 +1404,7 @@ export function App() {
       // unchanged when nothing applies.
       // STORY-5b — R4: an exhibition generates no grudge and records no studied
       // mix, so the row is left unrecorded in the grudge ledger.
-      const grudgeProfile = exhibition
+      const grudgeProfile = exhibition || rivalBout
         ? afterOmen
         : isGrudge
         ? settleGrudge(afterOmen, activeOpponent)
@@ -1405,7 +1421,7 @@ export function App() {
       // tiers whose champions were never faced).
       // STORY-5b — R4: an exhibition opens no tier (and no boss id entered the
       // record to open one anyway).
-      const tierAfterVictory = exhibition
+      const tierAfterVictory = exhibition || rivalBout
         ? { currentTier: profile.currentTier, firstDefeat: false, advanced: false }
         : resolveVictoryTier({
             currentTier: profile.currentTier,
@@ -1425,7 +1441,9 @@ export function App() {
         defeatedOpponentIds: defeated,
         // FIX-A — the kill count rides this same write: `nextBossKills` reads the record
         // being saved, so it can only rise for a boss whose id is newly entering it.
-        bossKills: nextBossKills(profile, { defeatedOpponentIds: defeated }, activeOpponent),
+        bossKills: exhibition || rivalBout
+          ? profile.bossKills
+          : nextBossKills(profile, { defeatedOpponentIds: defeated }, activeOpponent),
         // STORY-2 — the Doctore's Test's pass rides THIS write: the id enters
         // `defeatedOpponentIds` through the ordinary victory above and the flag
         // records that the win met the chosen restriction. Both pieces of the
@@ -1480,6 +1498,32 @@ export function App() {
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
       storyLines.push('Victory recorded; rewards withheld because the purse could not be settled safely.');
+    }
+
+    /**
+     * Rival Schools — the challenge ledger is written inside this same result
+     * transaction. A confirmed withdrawal is a loss; rejected victory rewards,
+     * technical exits, exhibitions and grudges do not create rival evidence.
+     */
+    if (rivalBout) {
+      const rivalSettled = settleRivalSchoolBout(
+        settledProfile,
+        activeOpponent,
+        didWin,
+        rewardSettlementAccepted,
+        stats,
+        { exhibition, grudge: isGrudgeBout(activeOpponent) }
+      );
+      if (rivalSettled !== settledProfile) {
+        settledProfile = rivalSettled;
+        storyLines.push(
+          didWin
+            ? 'The rival champion has fallen. Your school’s name is carried into the Colosseum record.'
+            : stats.outcome === 'withdrawn'
+              ? 'You yielded the bout. The rival leads the record, but the challenge remains open for a rematch.'
+              : 'The rival champion has taken this bout. The challenge remains open; you may return to answer it.'
+        );
+      }
     }
 
     /**
@@ -1591,13 +1635,16 @@ export function App() {
     // STORY-5b — R4: an exhibition is not in the arena's book either, so
     // STORY-4a's Spare/Finish is never offered on one — the same fence the
     // trail's bouts use (`mercyOfferForDuel` answers null for a staged bout).
-    const mercy = rewardSettlementAccepted ? mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition) : null;
+    const mercy = rewardSettlementAccepted
+      ? mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition || rivalBout)
+      : null;
     mercyWrittenRef.current = null;
     deserterWrittenRef.current = false;
     // The entrance flag is consumed by this result: it can never leak onto a
     // later bout entered from the tournament, the board or a door.
     diceTrailBoutRef.current = false;
     exhibitionBoutRef.current = false;
+    rivalBoutRef.current = false;
 
     const displayedStats: DuelStatistics = didWin && !rewardSettlementAccepted
       ? { ...stats, goldEarned: 0, fameEarned: 0, xpEarned: 0 }
@@ -2506,6 +2553,7 @@ export function App() {
             onOpenSettings={() => handleOpenSettings()}
             onMarkCardSeen={handleMarkCardSeen}
             onEnterDoctoreTest={handleEnterDoctoreTest}
+            onEnterRivalBout={handleEnterRivalBout}
             onPurchaseTriumph={handlePurchaseTriumph}
             onTemperItem={handleTemperItem}
             onBuyStableQuality={handleBuyStableQuality}
