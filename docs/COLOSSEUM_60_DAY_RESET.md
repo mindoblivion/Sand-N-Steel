@@ -193,3 +193,20 @@ The current branch-name inventory is not a uniqueness audit. Comparisons against
 | `recovery/android-rehearsal-apk` | 0 | 440 | Historical branch; current mainline is far ahead. |
 
 These counts describe commit ancestry, not whether each old commit contains a unique useful patch. No branch was deleted, rewritten or merged. Further branch cleanup requires per-commit review and preservation of any genuinely unique work.
+
+
+## 11. Colosseum result-flow audit — current authoritative write
+
+The current source pass identifies `src/App.tsx:handleMatchComplete` as the authoritative duel settlement path. The flow already centralizes the records the career and Rival Schools feature need:
+
+1. Read chapter/story conditions and result-specific lines from the profile as it stood when the bout was fought.
+2. Resolve injury and omen settlement; calculate bounty settlement where applicable.
+3. Validate gold and fame settlement before applying victory progression.
+4. On an accepted victory, award gold/fame/XP and level progression, record the defeated opponent ID (except generated grudge and exhibition exceptions), and write the grudge result in the same profile transaction.
+5. Advance `currentTier` only when a tier boss is defeated for the first time; ordinary wins and rematches do not bypass boss progression.
+6. On a loss, increment `fightsLost`; a generated grudge loss closes that rematch until a standard win at its tier.
+7. Render the result through `DuelResultModal`; the mercy choice is a separate, explicit result-screen action and is eligible only from Chapter 3 onward.
+
+**Rival Schools integration implication:** use this existing result transaction as the single place to record a new rival milestone. Do not write rivalry progress from the pre-fight card, scene selection, result animation, or a second independent save path. Decide whether the new rival encounter is a standard ladder posting, a boss milestone, or a dedicated story bout before implementation: those categories intentionally have different rules for tier advancement, defeated-ID history, grudge generation and mercy eligibility. A same-ID recurring rival cannot rely on `defeatedOpponentIds` alone because the array records first-defeat identity, not a sequence of rematch outcomes.
+
+**Verification status:** source-flow inspection only. No runtime code was changed and no tests, APK, or physical-device playthrough were run during this audit.
