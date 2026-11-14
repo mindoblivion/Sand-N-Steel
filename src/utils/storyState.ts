@@ -100,9 +100,8 @@ export interface StoryGate {
   /**
    * STORY-3 — this gate must be MET before its chapter can close, even while its
    * owning system is unlanded.  Absent on every other gate: a pending gate never
-   * holds a chapter shut (STORY-1's standing law), and Chapter 2's District race
-   * was the former Chapter 2 exception; Rival Schools now uses an ordinary unmet
-   * evidence gate, so no pending gate holds a chapter open.
+   * holds a chapter shut (STORY-1's standing law). The former Chapter 2 race
+   * exception is retired; Rival Schools is an ordinary unmet evidence gate.
    */
   holdsChapterOpen?: boolean;
   state: StoryGateState;
@@ -515,9 +514,8 @@ function resolveGate(definition: GateDefinition, evidence: StoryEvidence): Story
  * A chapter is closed once every gate whose evidence can exist is met — and once
  * every gate that DECLARES it must be met is met, however unlanded its system is.
  *
- * STORY-3 — Chapter 2's District race is that gate (Director ruling 4), so the
- * chapter cannot be closed by its duel alone.  Every other pending gate keeps
- * STORY-1's law untouched: it never holds a chapter shut.
+ * Chapter 2's Rival Schools gate is an ordinary unmet evidence requirement;
+ * every later pending gate keeps STORY-1's non-blocking rule untouched.
  */
 function isClosed(gates: readonly StoryGate[]): boolean {
   return gates.every(
