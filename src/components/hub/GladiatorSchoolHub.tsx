@@ -26,7 +26,7 @@ import { resolveDisplayClock } from '../../utils/dayRollover';
 // PITCH A1 — the omen line the pre-fight card prints, read lazily from the save.
 import { resolveOmen } from '../../utils/omens';
 // STORY-3 — Chapter 2's Beat 3: Postumia's briefing on the tournament final, and
-// the herald's circus pointer while the chapter's District race gate is unmet.
+// the legacy-named herald pointer while the Rival Schools challenge is unmet.
 import { FORTUNA_SHRINE_BRIEFING, isFortunaBriefingDue } from '../../utils/storyChapterTwo';
 
 const TournamentTab = React.lazy(() => import('./TournamentTab').then((module) => ({ default: module.TournamentTab })));
@@ -95,7 +95,7 @@ interface GladiatorSchoolHubProps {
   /**
    * STORY-3 — the herald's circus pointer, already resolved by `App` from the
    * campaign's own state: shown when the Colosseum tab opens while Chapter 2 is
-   * open and its race gate is unmet, and `null` otherwise.
+   * open and the Rival Schools gate is unmet, and `null` otherwise.
    */
   heraldCircusCry?: string | null;
   /** STORY-3 — hands that cry to `App`, which owns the herald's toast. */
