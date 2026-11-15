@@ -539,6 +539,8 @@ canvas {
     padding-inline: 0.4rem;
     gap: 0.3rem;
   }
+  [data-city-phase-medallion="true"],
+  [data-city-visitors-button="true"],
   [data-city-top-header="true"] .city-player-title,
   [data-city-top-header="true"] .city-fame-counter,
   [data-city-top-header="true"] .city-utility-label {
