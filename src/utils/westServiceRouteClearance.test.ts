@@ -96,9 +96,9 @@ describe('candidate west-side service route', () => {
   test('cross-connector skirts the Colosseum and reaches the Training Yard gate', () => {
     const route: Point[] = [
       [-33.575, -9.35],
-      [-13.7, -9.35],
-      [-13.7, -7.0],
-      [-9.4, -7.0],
+      [-14.0, -9.35],
+      [-14.0, -7.5],
+      [-9.4, -7.5],
       [-9.4, 0],
       [-13.5, 0],
     ];
@@ -115,8 +115,8 @@ describe('candidate west-side service route', () => {
     expectClearCorridor([-33.575, -9.35], [-13.7, -9.35], 'z');
 
     // Colosseum west-side bypass and south-west turn.
-    expectClearCorridor([-13.7, -9.35], [-13.7, -7.0], 'x');
-    expectClearCorridor([-13.7, -7.0], [-9.4, -7.0], 'z');
+    expectClearCorridor([-14.0, -9.35], [-14.0, -7.5], 'x');
+    expectClearCorridor([-14.0, -7.5], [-9.4, -7.5], 'z');
 
     // Training Yard east-side approach. It narrows near the gate; the
     // doorway itself is tested by the resolver above as a 1.7-unit
