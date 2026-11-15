@@ -423,12 +423,13 @@ function coloPoint(theta: number): [number, number] {
 // chooses to enter through the gate prompt.
 // ════════════════════════════════════════════════════════════════════════════
 
-test('Colosseum: south-facing gate blocks walking into the arena', () => {
-  // The portal piers meet at the front threshold, world Z = -8.1.
-  assert.ok(collidesWith(0, -8.1, R, CITY_COLLIDERS), 'Gate center must block entry');
-  assert.ok(collidesWith(0, -8.45, R, CITY_COLLIDERS), 'Player radius must stop before gate');
-  assert.ok(!collidesWith(0, -7.6, R, CITY_COLLIDERS), 'Exterior approach remains walkable');
-  assert.ok(!collidesWith(0, -9.0, R, CITY_COLLIDERS), 'Interior remains clear behind the sealed gate');
+test('Colosseum: front gate blocks movement but leaves arena geometry unchanged', () => {
+  assert.ok(!collidesWith(0, -8.1, R, CITY_COLLIDERS), 'Gate interaction does not add a global collider');
+  const start: [number, number, number] = [0, 0, -7.6];
+  let pos = start;
+  for (let i = 0; i < 30; i++) pos = resolveCityMovement(pos, 0, -1, 3.8, 0.1);
+  assert.ok(pos[2] > -8.0, `Player crossed the Colosseum gate: z=${pos[2]}`);
+  assert.ok(!collidesWith(0, -9.0, R, CITY_COLLIDERS), 'Interior geometry remains unchanged');
 });
 
 // ════════════════════════════════════════════════════════════════════════════
