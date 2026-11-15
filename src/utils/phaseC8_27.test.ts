@@ -637,12 +637,12 @@ describe('F. Nothing else about the Colosseum or the city moved', () => {
     expect(CITY_COLLIDERS.filter((c) => c.id.startsWith('yard-wall')).length).toBe(14);
   });
 
-  test('the Colosseum hub and its fast-travel arrival are unchanged and clear', () => {
+  test('the Colosseum gate interaction and fast-travel arrival stay outside the arena', () => {
     const hub = HUB_LOCATIONS.find((l) => l.id === 'colosseum')!;
-    expect([hub.position[0], hub.position[2]]).toEqual([0, -25]);
-    expect(hub.radius).toBe(5.5);
+    expect([hub.position[0], hub.position[2]]).toEqual([0, -6.2]);
+    expect(hub.radius).toBe(1.8);
     const arrival = FAST_TRAVEL_ARRIVALS.colosseum;
-    expect(arrival).toEqual([0, -23]);
+    expect(arrival).toEqual([0, -6.2]);
     expect(collidesWith(arrival[0], arrival[1], PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
     expect(collidesWith(arrival[0], arrival[1], PLAYER_RADIUS + 0.5, CITY_COLLIDERS)).toBe(false);
     expect(getNearbyHubLocation([arrival[0], 0, arrival[1]])?.id).toBe('colosseum');
