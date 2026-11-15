@@ -352,7 +352,7 @@ describe('C. rehearsal signing is isolated from production signing material', ()
 
     const verify = stepNamed('rehearsal', 'Verify the stable rehearsal bundle signer');
     expect(verify.step.if).toBe("inputs.rehearsal_signing == 'stable'");
-    expect(verify.step.env?.['EXPECTED_SIGNER_SHA256']).toBe(`${{ secrets.${REHEARSAL_FINGERPRINT_SECRET} }}`);
+    expect(verify.step.env?.['EXPECTED_SIGNER_SHA256']).toBe(`\${{ secrets.${REHEARSAL_FINGERPRINT_SECRET} }}`);
   });
 
   test('temporary rehearsal signing is an explicit fallback, not the default', () => {
@@ -522,8 +522,9 @@ describe('F. every `run:` block is valid shell', () => {
 
   test('the rehearsal properties writer is fed by environment, never by argv', () => {
     const run = stepNamed('rehearsal', 'Restore the stable rehearsal signing key').step.run ?? '';
-    expect(run).toContain('KEYSTORE_STORE_PASSWORD=');
-    expect(run).toContain('-storepass "$KEYPASS"');
+    const step = stepNamed('rehearsal', 'Restore the stable rehearsal signing key').step;
+    expect(step.env?.['KEYSTORE_STORE_PASSWORD']).toBe('${{ secrets.ANDROID_REHEARSAL_KEYSTORE_PASSWORD }}');
+    expect(run).toContain('scripts/writeKeystoreProperties.ts');
     expect(run).not.toMatch(/writeKeystoreProperties\.ts[^\n]*(pass|alias)/i);
   });
 });
@@ -535,7 +536,7 @@ describe('G. the release verification is pinned to a signer certificate', () => 
     const stable = stepNamed('rehearsal', 'Verify the stable rehearsal bundle signer').step;
     expect(stable.run).toContain('verifyBundleSignature.ts');
     expect(stable.run).not.toContain('--signature-only');
-    expect(stable.env?.['EXPECTED_SIGNER_SHA256']).toBe(`${{ secrets.${REHEARSAL_FINGERPRINT_SECRET} }}`);
+    expect(stable.env?.['EXPECTED_SIGNER_SHA256']).toBe(`\${{ secrets.${REHEARSAL_FINGERPRINT_SECRET} }}`);
 
     const temporary = stepNamed('rehearsal', 'Verify the temporary rehearsal bundle signature').step;
     expect(temporary.run).toContain('--signature-only');
