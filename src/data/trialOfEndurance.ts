@@ -18,22 +18,21 @@ function trialOpponent(
 ): OpponentConfig {
   const source = ALL_OPPONENTS.find((row) => row.id === sourceId);
   if (!source) throw new Error(`Trial of Endurance source opponent missing: ${sourceId}`);
+  const { featureBout: _featureBout, bountyBout: _bountyBout, ...base } = source;
   return {
-    ...source,
+    ...base,
     id,
     name,
     title,
     tier,
     fightIndex,
     isBoss: false,
-    featureBout: false,
-    bountyBout: false,
     grudge: undefined,
     bossMechanic: undefined,
     falseTelegraph: undefined,
     panoply: undefined,
     beast: undefined,
-    yokedBrothers: undefined,
+    brothers: undefined,
     longMemory: undefined,
     stats: {
       ...source.stats,
