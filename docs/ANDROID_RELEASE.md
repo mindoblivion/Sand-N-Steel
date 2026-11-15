@@ -226,11 +226,11 @@ no `secrets.*` reference at all, and its job-level `if:` refuses every trigger e
 
 ## Native assets (Play Console "Configure assets and build")
 
-**Icon inventory status (audited 2026-11-10):** the current `main` branch still has the older
-gladius/laurel resources. The approved two-gladiator artwork and generator updates are in open
-[PR #404](https://github.com/mindoblivion/Sand-N-Steel/pull/404), not yet merged or built into an APK.
-Do not treat the candidate icon as shipped until the PR is authorized, merged, and a rehearsal APK
-has been installed and visually checked on the Samsung device.
+**Icon inventory status (audited 2026-11-15):** the approved two-gladiator artwork and generator update from
+[PR #404](https://github.com/mindoblivion/Sand-N-Steel/pull/404) have been merged into `main` and are present in
+`feature/rival-schools`. The Android manifest references the adaptive launcher resources and the generator
+produces the density-specific legacy/adaptive assets. The icon is included in the candidate source; its
+appearance has not yet been visually checked in an installed rehearsal APK on the Samsung device.
 
 | what | current source / location | current state |
 |---|---|---|
@@ -252,7 +252,7 @@ The scoped implementation is in [PR #404](https://github.com/mindoblivion/Sand-N
 4. Regression coverage checks the safe-zone geometry, crop constant, Android manifest resource references, density assets, and PWA icon paths.
 5. Both the Main quality gate and Environment gate passed for PR #404's current head.
 
-**Still outstanding:** PR #404 is not merged; no APK has been built from it; and the adaptive crop/title legibility have not been visually checked on a Samsung launcher. The Play Store listing upload is a separate Play Console action. Do not report the icon as device-verified until that check is recorded.
+**Still outstanding:** the merged icon implementation has not yet been verified in an installed APK, and the adaptive crop/title legibility have not been visually checked on a Samsung launcher. The Play Store listing upload is a separate Play Console action. Do not report the icon as device-verified until that check is recorded.
 
 ### Store listing assets
 
