@@ -23,6 +23,8 @@ import { grudgeBoutStatuses, grudgeProfileLine } from '../../utils/grudgeBouts';
 import { RIVAL_SCHOOL_OPPONENT } from '../../data/rivalSchools';
 import { rivalSchoolChallengeState, resolveRivalryProgress } from '../../utils/rivalSchools';
 import { resolveStoryState } from '../../utils/storyState';
+import { TRIAL_OF_ENDURANCE_OPPONENTS } from '../../data/trialOfEndurance';
+import { resolveTrialOfEndurance, trialOfEnduranceOpponentFor } from '../../utils/trialOfEndurance';
 
 /** How the opponents' own weapon types read on a rumour card. Display only. */
 const WEAPON_LABELS: Record<OpponentConfig['weaponType'], string> = {
@@ -58,6 +60,8 @@ interface TournamentTabProps {
   onEnterLegendBout?: (opp: OpponentConfig) => void;
   /** Rival Schools — opens the dedicated first challenge through the pre-fight card. */
   onSelectRivalBout?: () => void;
+  /** Trial of Endurance — opens the next authored round through the pre-fight card. */
+  onSelectTrialBout?: (opponent: OpponentConfig) => void;
 }
 
 export const TournamentTab: React.FC<TournamentTabProps> = ({
@@ -65,9 +69,14 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({
   onSelectOpponent,
   onEnterLegendBout,
   onSelectRivalBout,
+  onSelectTrialBout,
 }) => {
   const rivalry = resolveRivalryProgress(profile);
   const rivalryStatus = rivalSchoolChallengeState(profile);
+  const trial = resolveTrialOfEndurance(profile);
+  const tierThreeBossId = ALL_OPPONENTS.find((row) => row.tier === 3 && row.isBoss === true)?.id;
+  const trialUnlocked = resolveStoryState(profile).chapter >= 5 && !!tierThreeBossId && profile.defeatedOpponentIds.includes(tierThreeBossId);
+  const nextTrialOpponent = trialOfEnduranceOpponentFor(profile);
   const rivalryUnlocked = resolveStoryState(profile).chapter >= 2 || rivalryStatus === 'completed';
   const currentTierInfo = TOURNAMENT_TIERS.find((t) => t.tier === profile.currentTier) || TOURNAMENT_TIERS[0];
   // D-1 — the ladder list is the ladder only: a Feature Bout is never a rung of
@@ -131,6 +140,50 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({
                 ? 'Accept rematch'
                 : 'Accept challenge'}
         </button>
+      </section>
+
+      <section
+        data-trial-of-endurance-card
+        className="rounded-3xl border-2 border-amber-700/70 bg-gradient-to-br from-amber-950/70 via-neutral-900 to-neutral-950 p-5 shadow-xl"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <span className="text-xs font-serif font-bold uppercase tracking-widest text-amber-300">
+            The Northern Trial
+          </span>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-amber-100">
+            {trial.completed ? 'Trial complete' : !trialUnlocked ? 'Chapter 5 locked' : `Round ${trial.currentRound} of 3`}
+          </span>
+        </div>
+        <h3 className="font-serif font-black text-xl text-amber-100 mb-1">Trial of Endurance</h3>
+        <p className="text-sm text-neutral-300 font-serif italic mb-3">
+          Three consecutive arena tests. Win each round to earn the Northern Trial record; a defeat sends the next attempt back to round one.
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono text-neutral-400 mb-4">
+          <span>ATTEMPTS {trial.attempts}</span>
+          <span>ROUND WINS {trial.wins}</span>
+          <span>LOSSES {trial.losses}</span>
+        </div>
+        <button
+          type="button"
+          disabled={!trialUnlocked || trial.completed || !nextTrialOpponent || !onSelectTrialBout}
+          onClick={() => nextTrialOpponent && onSelectTrialBout?.(nextTrialOpponent)}
+          className="w-full sm:w-auto rounded-xl border border-amber-500/70 bg-amber-950 px-5 py-3 text-xs font-mono font-bold uppercase tracking-wider text-amber-100 transition hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {trial.completed
+            ? 'Northern Trial recorded'
+            : !trialUnlocked
+              ? 'Unlocks in Chapter 5 after Valéria'
+              : trial.currentRound === 1 && trial.attempts > 0
+                ? 'Begin another attempt'
+                : `Enter round ${trial.currentRound}`}
+        </button>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-[10px] font-mono text-neutral-500">
+          {TRIAL_OF_ENDURANCE_OPPONENTS.map((opponent, index) => (
+            <span key={opponent.id} className={trial.completed || index < trial.currentRound - 1 ? 'text-amber-300' : ''}>
+              {index + 1}. {opponent.name}
+            </span>
+          ))}
+        </div>
       </section>
 
       {/* TIER HEADER */}
