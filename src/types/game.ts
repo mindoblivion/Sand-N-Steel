@@ -936,6 +936,16 @@ export interface RivalryProgress {
   lastOutcome?: 'win' | 'loss';
 }
 
+/** Accepted progression for the three-round Colosseum Trial of Endurance. */
+export interface TrialOfEnduranceProgress {
+  attempts?: number;
+  currentRound?: 1 | 2 | 3;
+  wins?: number;
+  losses?: number;
+  completed?: boolean;
+  lastOutcome?: 'win' | 'loss';
+}
+
 /**
  * STORY-5b — the Librarian chain's stored state (see
  * `StoryProgress.librarianChain`). Every member is optional: a partial record is
