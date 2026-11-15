@@ -84,6 +84,7 @@ describe('Trial of Endurance progression', () => {
     expect(app).toContain('const trialBout = trialBoutRef.current && isTrialOfEnduranceOpponent(activeOpponent);');
     expect(app).toContain('settleTrialOfEnduranceRound(');
     expect(app).toContain('trialBoutRef.current = false;');
+    expect(app).toContain('diceTrailBoutRef.current || exhibition || rivalBout || trialBout');
     expect(app).toContain('trialResultPendingRef.current');
     expect(hub).toContain('onEnterTrialBout(opp, mode)');
     expect(board).toContain('resolveStoryState(profile).chapter >= 5');
