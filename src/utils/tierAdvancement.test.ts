@@ -373,16 +373,13 @@ describe('§D — the rule lives in the shipped paths', () => {
     expect(block).toContain('playerProfile={profile}');
   });
 
-  test('the city scene resolves the door with the helper and has no stored selection at all', () => {
-    expect(citySource).toContain(
-      "import { resolveDoorDuelTarget } from '../../../utils/tierAdvancement';"
-    );
-    expect(citySource).toContain(
-      "} else if (nearbyLoc.tabKey === 'tournament') {"
-    );
-    expect(citySource).toContain('const target = resolveDoorDuelTarget(');
-    expect(citySource).toContain('playerProfile.currentTier,');
-    expect(citySource).toContain('playerProfile.defeatedOpponentIds');
+  test('the city gate routes into the Tournament board without storing a fight selection', () => {
+    expect(citySource).toContain("if (nearbyLoc?.id === 'colosseum') setColosseumPanel(true)");
+    expect(citySource).toContain('onEnter={handleEnterColosseum}');
+    expect(citySource).toContain("onOpenTab('tournament')");
+    expect(citySource).not.toContain('handleColosseumFight');
+    expect(citySource).not.toContain('activeOpponent');
+  });
     expect(citySource).toContain('if (target) onEnterDuel(target.opponent);');
     const cityCode = citySource
       .replace(/\/\*[\s\S]*?\*\//g, '')
