@@ -1037,7 +1037,16 @@ export function App() {
    */
   const handleViewCodex = () => {
     if (!profile) return;
-    const read = withCodexRead(profile);
+    const codexRead = withCodexRead(profile);
+    // The campaign's Library milestone is the same meaningful Codex read. Keep
+    // this write in the existing save transaction, including legacy saves whose
+    // librarian-chain boundary was recorded before librarySeen existed.
+    const read = codexRead.story?.librarySeen === true
+      ? codexRead
+      : {
+          ...codexRead,
+          story: { ...(codexRead.story ?? {}), librarySeen: true },
+        };
     if (read === profile) return;
     setProfile(read);
     saveProfile(read);
@@ -1192,7 +1201,13 @@ export function App() {
     // is the visit deed's whole evidence. The settlement records the place in the day's list
     // and pays the deed only when it is the ONE district today's Acta asks for. Both helpers
     // are identity-stable, so a repeat visit to the same place still saves nothing.
-    const ludi = settleLudiDeeds(withCodexLocation(profile, locationId), { locationId });
+    const visited = withCodexLocation(profile, locationId);
+    // Chapter 6's original evidence is the player's actual visit to the
+    // Northern Fortress summit approach — not a generic city visit or race.
+    const milestone = locationId === 'northern_fortress' && visited.story?.summitSeen !== true
+      ? { ...visited, story: { ...(visited.story ?? {}), summitSeen: true } }
+      : visited;
+    const ludi = settleLudiDeeds(milestone, { locationId });
     if (ludi.profile === profile) return;
     setProfile(ludi.profile);
     saveProfile(ludi.profile);
