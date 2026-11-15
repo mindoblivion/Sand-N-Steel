@@ -30,6 +30,7 @@ function trialOpponent(
     fightIndex,
     isBoss: false,
     grudge: undefined,
+    palmae: [],
     bossMechanic: undefined,
     falseTelegraph: undefined,
     panoply: undefined,
