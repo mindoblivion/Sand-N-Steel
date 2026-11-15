@@ -116,8 +116,36 @@ def main() -> int:
     lines.extend([f"- `{name}` — {reason}" for name, _, reason in kept] or ["- None"])
 
     if EXECUTE:
+        # Preflight every candidate before the first destructive operation.
+        # This prevents a stale dry-run candidate list from deleting a branch
+        # that moved or became protected after the initial inventory.
+        for name, expected_sha, _ in candidates:
+            encoded_name = quote(name, safe="")
+            current = json.loads(run([
+                "gh", "api", f"repos/{REPO}/branches/{encoded_name}"
+            ]).stdout)
+            current_sha = (current.get("commit") or {}).get("sha")
+            if name in PROTECTED or current.get("protected", False) or current_sha != expected_sha:
+                raise RuntimeError(
+                    f"Preflight refused cleanup: {name} changed or is protected "
+                    f"(audited={expected_sha}, current={current_sha}, "
+                    f"protected={current.get('protected', False)}). No branches were deleted."
+                )
+
         deleted: list[str] = []
-        for name, _, _ in candidates:
+        for name, expected_sha, _ in candidates:
+            # Recheck immediately before deletion as an additional race guard.
+            encoded_name = quote(name, safe="")
+            current = json.loads(run([
+                "gh", "api", f"repos/{REPO}/branches/{encoded_name}"
+            ]).stdout)
+            current_sha = (current.get("commit") or {}).get("sha")
+            if name in PROTECTED or current.get("protected", False) or current_sha != expected_sha:
+                raise RuntimeError(
+                    f"Deletion stopped: {name} changed or became protected "
+                    f"(audited={expected_sha}, current={current_sha}). "
+                    f"Already deleted branches: {deleted}"
+                )
             ref = quote(f"heads/{name}", safe="/")
             run(["gh", "api", "--method", "DELETE", f"repos/{REPO}/git/refs/{ref}"])
             deleted.append(name)
