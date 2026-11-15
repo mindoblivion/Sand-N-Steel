@@ -325,7 +325,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                   />
                 </div>
 
-                {/* ARMATURA PICKER (CLASS SELECTION) */}
+                {/* UNIFIED FIGHTER PICKER (CLASS + MODEL) */}
                 <div>
                   <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-1">
                     Choose Your Fighter
