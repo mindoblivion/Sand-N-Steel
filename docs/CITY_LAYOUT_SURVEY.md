@@ -224,3 +224,25 @@ A geometric check compared each surveyed entrance's nominal player standing poin
 The bathhouse, stable and library approach slabs come close to their standoffs (0.19, 0.20 and 0.32 units respectively) but do not contain them. These small gaps may be visually acceptable transitions, but they should be joined deliberately and checked against the player-radius-expanded collision shapes. The distances are to mesh footprints, not measurements of bare-ground walkability.
 
 The next blueprint should prioritize connecting the six gaps above, while verifying every segment-to-segment junction and every approach against the expanded collision registry. Do not move buildings simply to make these paving rectangles touch; first test whether a short path reroute or a corrected approach segment solves the gap.
+
+
+## Visual paving connectivity graph
+
+A second graph pass includes the central 16.5-radius forum plaza, the four cardinal exit slabs, Via Triumphalis carriageways/runner, Via Socialis, Forum Socialis square, and the authored street/approach rectangles. Two paving regions are considered joined when their footprints overlap or their closest edges are no more than 0.20 units apart. This measures **visual surface continuity only**; it does not prove collision clearance, player reachability, or door-to-road continuity.
+
+The authored paving surfaces form **three disconnected components** under that rule:
+
+1. **Central / east / civic network:** central forum and cardinal exits, Decumanus west/east, Tabernaria west/east, Via Socialis and Forum Socialis square, the Forum Socialis approach patches, Caravan Bypass, and the Decumanus east extension / Mercatoria connector.
+2. **Merchant / Scholaris pocket:** Via Mercatoria Path, Via Scholaris Main, and the Academy, Library and Doctore approach patches. This group is disconnected from the Decumanus east extension / Mercatoria connector: the closest gap between the authored Mercatoria Path and connector rectangles is 3.2 units.
+3. **Western combat-services pocket:** courtyard approaches to the Barracks, Veteran Hall and Medical House, plus the Northwest Temple and Southeast Crafting extension patches. This group has no paved connection to the west Decumanus exit or central forum surfaces in the current authored rectangles.
+
+The Forum Socialis paving patches do join the square and civic lane in this simplified graph; the central/civic component therefore does not require the earlier assumption that the tavern-to-forum patch is isolated. The corrected graph accounts for the plaza and cardinal thresholds that were absent from the first path-only calculation.
+
+### What this means for the layout pass
+
+- The east commercial / academy pocket needs a real connection from the Decumanus extension to Via Mercatoria / Via Scholaris, while keeping the General Store and Forge foundations clear.
+- The western combat-services pocket needs a legible route from the west Decumanus exit around the Colosseum's exterior to its courtyard, with a continuous approach to each of its three doors.
+- The Forum Socialis paths need their terminal segments adjusted to the actual Bathhouse, Bounty Hall and Shrine entrance standoffs, especially the Bounty and Shrine approaches.
+- Every new link must be checked against the 0.40 player radius and all registered building, yard, street-wall and Colosseum colliders. A visual overlap alone is insufficient.
+
+This graph is a reproducible planning diagnostic, not a replacement for a swept-player reachability test. The final blueprint should show both the paving graph and the collision-expanded walkable graph as separate layers, then reconcile them.
