@@ -108,6 +108,8 @@ interface GladiatorSchoolHubProps {
   onEnterDoctoreTest?: (restriction: DoctoreTestRestriction, mode?: BoutMode) => void;
   /** Rival Schools — commits the dedicated bout after the shared pre-fight card. */
   onEnterRivalBout?: (mode?: BoutMode) => void;
+  /** Trial of Endurance — enters the currently unlocked authored round. */
+  onEnterTrialBout?: (opponent: OpponentConfig, mode?: BoutMode) => void;
   /** P2 — a Triumph bought from the Library's Triumphs page; `App` writes it. */
   onPurchaseTriumph?: (laurelId: string) => LaurelResult;
   /** P6 — the temper row on an Armory card; `App` runs `purchaseTemper` and writes. */
@@ -172,6 +174,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onHeraldCry,
   onEnterDoctoreTest,
   onEnterRivalBout,
+  onEnterTrialBout,
   onPurchaseTriumph,
   onTemperItem,
   onBuyStableQuality,
@@ -196,6 +199,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
    */
   const [testRestriction, setTestRestriction] = useState<DoctoreTestRestriction | null>(null);
   const [rivalBoutSelected, setRivalBoutSelected] = useState(false);
+  const [trialBoutSelected, setTrialBoutSelected] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
   /** A8 — the sheet's door: open the Library on its Triumphs page. */
@@ -368,12 +372,20 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             profile={playerProfile}
             onSelectOpponent={(opp) => {
               setRivalBoutSelected(false);
+              setTrialBoutSelected(false);
               setSelectedOpponent(opp);
             }}
             onSelectRivalBout={() => {
               setTestRestriction(null);
+              setTrialBoutSelected(false);
               setRivalBoutSelected(true);
               setSelectedOpponent(RIVAL_SCHOOL_OPPONENT);
+            }}
+            onSelectTrialBout={(opponent) => {
+              setTestRestriction(null);
+              setRivalBoutSelected(false);
+              setTrialBoutSelected(true);
+              setSelectedOpponent(opponent);
             }}
             /* STORY-5b — a legend bout is entered directly: it is an exhibition of an
                existing row, not a ladder card, and its omen/mercy/ladder bookkeeping
@@ -479,10 +491,13 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             const opp = selectedOpponent;
             const restriction = isDoctoreTestOpponent(opp) ? testRestriction : null;
             const isRivalBout = rivalBoutSelected;
+            const isTrialBout = trialBoutSelected;
             setSelectedOpponent(null);
             setTestRestriction(null);
             setRivalBoutSelected(false);
+            setTrialBoutSelected(false);
             if (isRivalBout && onEnterRivalBout) onEnterRivalBout(mode);
+            else if (isTrialBout && onEnterTrialBout) onEnterTrialBout(opp, mode);
             else if (restriction && onEnterDoctoreTest) onEnterDoctoreTest(restriction, mode);
             else onSelectOpponent(opp, mode);
           }}
@@ -490,6 +505,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             setSelectedOpponent(null);
             setTestRestriction(null);
             setRivalBoutSelected(false);
+            setTrialBoutSelected(false);
           }}
         />
       )}
