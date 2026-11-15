@@ -14,7 +14,6 @@ import { CITY_COLLIDERS, PLAYER_RADIUS, collidesWith } from './collisionShapes';
 import { resolveCityMovement } from './cityCollisions';
 
 type Point = [number, number]; // world X/Z
-const SPEED = 3.8;
 const STEP = 0.2;
 
 function walkAxisSegment(start: Point, end: Point): Point {
@@ -112,7 +111,7 @@ describe('candidate west-side service route', () => {
 
     // Medical/Barracks cross-connector: 3.20-unit footprint gap leaves
     // 2.40 units after both PLAYER_RADIUS expansions.
-    expectClearCorridor([-33.575, -9.35], [-13.7, -9.35], 'z');
+    expectClearCorridor([-33.575, -9.35], [-14.0, -9.35], 'z');
 
     // Colosseum west-side bypass and south-west turn.
     expectClearCorridor([-14.0, -9.35], [-14.0, -7.5], 'x');
@@ -121,6 +120,6 @@ describe('candidate west-side service route', () => {
     // Training Yard east-side approach. It narrows near the gate; the
     // doorway itself is tested by the resolver above as a 1.7-unit
     // player-centre opening, an explicit threshold exception.
-    expectClearCorridor([-9.4, -7.0], [-9.4, 0], 'x', [-0.8, 1.2]);
+    expectClearCorridor([-9.4, -7.5], [-9.4, 0], 'x', [-0.8, 1.2]);
   });
 });
