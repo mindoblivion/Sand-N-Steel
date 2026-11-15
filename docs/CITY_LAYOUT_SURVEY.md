@@ -246,3 +246,53 @@ The Forum Socialis paving patches do join the square and civic lane in this simp
 - Every new link must be checked against the 0.40 player radius and all registered building, yard, street-wall and Colosseum colliders. A visual overlap alone is insufficient.
 
 This graph is a reproducible planning diagnostic, not a replacement for a swept-player reachability test. The final blueprint should show both the paving graph and the collision-expanded walkable graph as separate layers, then reconcile them.
+
+
+## Collision-expanded reachability — existing automated baseline
+
+A source search found an existing city-wide connectivity test that was not listed in the first survey pass:
+`src/utils/cityRouteReachability.test.ts`.
+
+It already does more than the earlier local collision checks:
+
+- Rasterizes the actual `CITY_COLLIDERS` registry at 0.25-world-unit spacing.
+- Expands every registered obstacle by the actual `PLAYER_RADIUS = 0.40`.
+- Flood-fills four-neighbour walkable cells from the normal city spawn `[0, 16]`, avoiding diagonal corner-cutting.
+- Requires every `HUB_LOCATIONS` destination's `FAST_TRAVEL_ARRIVALS` coordinate to snap to that same reachable component.
+
+This is meaningful evidence that all registered fast-travel arrivals belong to one collision-free sampled component in the test's defined city-plus-circus movement envelope. It changes the diagnosis: **the three disconnected paving components are a visual street-continuity problem, not evidence that the player is currently trapped in three disconnected walkable regions.** The unpaved ground between them remains walkable wherever the collision registry and world boundary permit it.
+
+### What the existing test does not prove
+
+- It checks fast-travel arrival coordinates, not the surveyed physical door thresholds or the player standing point outside each door.
+- It samples the collision registry on a 0.25-unit grid; it is not a continuous swept-body proof.
+- It calls `collidesWith` against the registry rather than exercising every movement step through `resolveCityMovement`.
+- It does not prove the paving mesh is visible, continuous, correctly aligned, or free of decorative clutter.
+- It does not verify that the interaction trigger is reachable from the door-facing side, nor that the door prompt appears at the intended standoff.
+
+One small documentation discrepancy was also found in the test: its comment says goal snap is within 0.36 m, while the implemented `MAX_GOAL_SNAP = 0.25 × √2 × 0.75` is approximately 0.265 m. Treat the implementation constant as authoritative until that comment is corrected.
+
+### Non-building collision inventory
+
+The master `CITY_COLLIDERS` registry is assembled from these non-building groups:
+
+- Colosseum portal piers, facade flanks, podium ring, gate seals and curved exterior wall.
+- Central forum fountain basin.
+- Training Yard curved enclosure wall.
+- Two Training Yard street-wall rectangles and two mitred return-wall segments.
+- Northern Fortress wall rectangles and Northern Motte perimeter.
+- East Circus arena perimeter and its forecourt parapet.
+
+The city-street component also renders benches, lamps, carts, crates, barrels, amphorae, notice boards, trees and other dressing. Those props are not listed in the master collision registry. They therefore cannot currently stop the player through this registry, even if they visually occupy a route. The layout pass must audit them as *visual clearance / clutter* separately from collision obstacles, and should not add colliders indiscriminately to every decorative prop.
+
+### Revised verification target
+
+Retain the existing arrival-connectivity test. Extend the survey and eventual regression coverage to add a surveyed player standoff for every actual door/frontage, then verify:
+
+1. the standoff is collision-free with the 0.40 player radius;
+2. it belongs to the spawn-connected component;
+3. a short outward-facing approach from the standoff reaches the door interaction zone without entering the building footprint;
+4. the paved route visibly joins that approach and the main street/plaza network;
+5. any non-collidable prop near the route leaves the intended 2.0-unit clear pedestrian envelope visually legible.
+
+Do not interpret paving overlap as collision clearance, or arrival connectivity as door accessibility.
