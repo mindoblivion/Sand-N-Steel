@@ -18,7 +18,7 @@ import { SmithingForge } from './SmithingForge';
 import { TrainingYard } from './TrainingYard';
 import { CityTavern } from './CityTavern';
 import { ColosseumDoorPanel } from './ColosseumDoorPanel';
-import { PhaseMedallion } from './PhaseMedallion';
+import { PhaseMedallion } from '../../ui/PhaseMedallion';
 import { ForgeDoorPanel } from './ForgeDoorPanel';
 import { BountyHallDoorPanel } from './BountyHallDoorPanel'; 
 import { BathhouseDoorPanel } from './BathhouseDoorPanel';
