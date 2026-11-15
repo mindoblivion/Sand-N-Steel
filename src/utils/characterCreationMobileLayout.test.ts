@@ -31,6 +31,7 @@ describe('Mobile Character Creation Layout & Navigation', () => {
     const source = creationSource();
     expect(source).toContain('data-armatura-picker');
     expect(source).toContain('data-armatura-card={row.id}');
+    expect(source).toContain('data-armatura-model={row.id}');
     expect(source).toContain('data-corpus-build-picker');
     expect(source).toContain('data-corpus-build-card={row.id}');
     expect(source).toContain('data-optional-background');
@@ -44,6 +45,14 @@ describe('Mobile Character Creation Layout & Navigation', () => {
     expect(source).toContain('data-crest-color-picker');
     expect(source).toContain('data-derived-preview="1"');
     expect(source).toContain('data-action="submit-character"');
+  });
+
+  test('class and model are presented as one choice, with no second model picker', () => {
+    const source = creationSource();
+    expect(source).toContain('Choose Your Fighter');
+    expect(source).toContain('armaturaModelLabel(row.id)');
+    expect(source).not.toContain("Fighter's Look &mdash; Model Selection");
+    expect(source).not.toContain('handleModelSelect');
   });
 
   test('Centurion-only appearance pickers are all gated to the procedural model', () => {
