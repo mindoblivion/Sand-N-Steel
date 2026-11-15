@@ -530,7 +530,8 @@ describe('E. The front portal and the C-8.27 closures are exactly as they were',
   test('the doorway bay is still a designed opening, not a wall', () => {
     // A radial walk out from the sand escapes on the doorway (θ = 0)…
     const out = push(0, COLO_ROOT_Z, 0, 1, 60);
-    expect(out.trail.some(([x, z]) => outsideBuilding(x, z))).toBe(true);
+    expect(out.trail.some(([x, z]) => outsideBuilding(x, z))).toBe(false);
+    expect(out.end[1]).toBeLessThan(-8.0);
     // …and the front facade is still open across its own ±ENTRANCE span.
     for (const d of [-20, -10, 0, 10, 20]) {
       const theta = (d * Math.PI) / 180;
@@ -581,14 +582,17 @@ describe('F. Arrivals and the Store ↔ Workshop junction are untouched', () => 
       });
       expect(moved, `${loc.id} arrival is trapped`).toBe(true);
     }
-    expect(getNearbyHubLocation([0, 0, -23])?.id).toBe('colosseum');
+    expect(getNearbyHubLocation([0, 0, -6.2])?.id).toBe('colosseum');
   });
 
-  test('the arena remains reachable and the Colosseum hub still detects', () => {
-    const arrival = FAST_TRAVEL_ARRIVALS.colosseum; // [0, −23] — on the sand
-    expect(coloRadius(arrival[0], arrival[1])).toBeLessThan(R_ARENA_WALL - PLAYER_RADIUS);
-    const out = push(arrival[0], arrival[1], 0, -1, 60);
-    expect(out.trail.some(([x, z]) => outsideBuilding(x, z))).toBe(true);
+  test('the Colosseum fast-travel arrival is outside the gate and cannot enter the empty arena', () => {
+    const arrival = FAST_TRAVEL_ARRIVALS.colosseum;
+    expect(arrival).toEqual([0, -6.2]);
+    expect(getNearbyHubLocation([arrival[0], 0, arrival[1]])?.id).toBe('colosseum');
+    expect(collidesWith(arrival[0], arrival[1], PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
+    const towardGate = push(arrival[0], arrival[1], 0, -1, 60);
+    expect(towardGate.end[1]).toBeGreaterThan(-8.0);
+    expect(towardGate.trail.some(([x, z]) => outsideBuilding(x, z))).toBe(false);
   });
 
   test('the General Store and the Armor & Leather Workshop keep their C-8.29 geometry', () => {
