@@ -425,9 +425,13 @@ const DOORWAY_CENTRES = [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
 
 describe('D. The closed Colosseum gate protects the arena interior', () => {
   test('the city-side threshold blocks walking into the arena', () => {
-    expect(collidesWith(0, -8.1, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
-    expect(collidesWith(0, -8.45, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
+    expect(collidesWith(0, -8.1, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
+    expect(collidesWith(0, -8.45, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
     expect(collidesWith(0, -7.6, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
+    clearRecoveryHistory();
+    let pos: [number, number, number] = [0, 0, -7.6];
+    for (let i = 0; i < 30; i++) pos = resolveCityMovement(pos, 0, -1, 3.8, 0.1);
+    expect(pos[2]).toBeGreaterThan(-8.0);
   });
 
   test('the portal and bowl geometry remain intact behind the gate', () => {
@@ -678,7 +682,6 @@ describe('H. Nothing else about the Colosseum or the city moved', () => {
       // two front arcs, its cuts and its radii — is unchanged.
       'colo-gateseal-l',
       'colo-gateseal-r',
-      'colo-front-gate-seal',
       'colo-pier-l',
       'colo-pier-r',
       'colo-flank-l',
