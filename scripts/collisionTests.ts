@@ -372,10 +372,13 @@ test('colosseum: approach from avenue is clear (at X=5, avoiding fountain)', () 
 });
 
 test('colosseum: exterior gate is sealed while the inner portal remains intact', () => {
-  assert.ok(collidesWith(0, -8.1, R, CITY_COLLIDERS), 'Gate threshold must block entry');
-  assert.ok(collidesWith(0, -8.45, R, CITY_COLLIDERS), 'Player radius must stop before gate');
+  assert.ok(!collidesWith(0, -8.1, R, CITY_COLLIDERS), 'The interaction barrier stays separate from the architectural collider registry');
+  assert.ok(!collidesWith(0, -8.45, R, CITY_COLLIDERS), 'The rendered portal geometry remains intact behind the gate');
   assert.ok(!collidesWith(0, -7.6, R, CITY_COLLIDERS), 'Exterior approach remains walkable');
   assert.ok(!collidesWith(0, -9.0, R, CITY_COLLIDERS), 'Inner portal geometry remains clear behind the gate');
+  let pos: [number, number, number] = [0, 0, -7.6];
+  for (let i = 0; i < 30; i++) pos = resolveCityMovement(pos, 0, -1, 3.8, 0.1);
+  assert.ok(pos[2] > -8.0, `Player crossed the Colosseum gate: z=${pos[2]}`);
 });
 
 test('colosseum: portal passage between piers is traversable', () => {
