@@ -29,3 +29,27 @@ describe('compact city HUD on short landscape screens', () => {
     expect(city).toContain('title={isMuted ? \'Unmute Audio\' : \'Mute Audio\'}');
   });
 });
+
+
+describe('portrait phone city HUD and Colosseum gate', () => {
+  test('removes nonessential dawn and visitor chrome and static ambient warriors', () => {
+    expect(city).not.toContain('<PhaseMedallion');
+    expect(city).not.toContain('AMBIENT_CHARACTERS.map');
+    expect(city).not.toContain('Visitors</button>');
+  });
+
+  test('constrains right-side utilities and turns the bottom bar into icon navigation', () => {
+    expect(city).toContain('data-city-utility-panel="true"');
+    expect(city).toContain('aria-label="Return to Main Menu"');
+    expect(city).toContain('city-main-menu-mobile');
+    expect(css).toContain('@media (max-width: 480px) and (orientation: portrait)');
+    expect(css).toContain('[data-city-footer="true"] .city-footer-label');
+  });
+
+  test('gate opens a confirmation and routes into the tournament board, not the empty arena', () => {
+    expect(city).toContain('if (nearbyLoc?.id === \'colosseum\') setColosseumPanel(true)');
+    expect(city).toContain('onOpenTab(\'tournament\')');
+    expect(city).not.toContain('onEnterArena');
+    expect(city).not.toContain('handleColosseumFight');
+  });
+});
