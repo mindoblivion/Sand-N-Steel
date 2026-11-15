@@ -26,13 +26,9 @@
  * assertion still measures the boundary it names.
  *
  * ── STORY-3 CHANGED WHICH GATES HOLD A CHAPTER SHUT ────────────────────────
- * Chapter 2 ("Fortuna's Coin, the Second Sand") refuses to close on duels alone:
- * its District race gate must be MET, not merely unlanded, so `holdsChapterOpen`
- * is the one rule that overrides "pending never holds a chapter shut" — and it is
- * on exactly one gate in the whole table (§G5 asserts that).  The race system's
- * results write has not landed, so the campaign is HELD at Chapter 2 by design
- * (the Director's ruling of record, and the documented deferral).  Consequences
- * this suite now measures rather than assumes:
+ * Chapter 2 ("Fortuna's Coin, the Second Sand") now requires an earned Rival
+ * Schools victory in addition to Goliath and the omen. This is an ordinary unmet
+ * evidence gate, not a special pending-gate hold. Consequences this suite measures:
  *   • a profile that has beaten Goliath resolves to Chapter 2, not Chapter 3
  *     (§B4), and a record that has met every other chapter's gates stops there
  *     too (§B6, §B9);
@@ -253,7 +249,7 @@ describe('§B the chapter boundaries', () => {
     // With the Test's evidence as well, the first chapter with an unmet gate is 2.
     const tested = resolveStoryState(withDoctoreTest(legacy(1)));
     expect(tested.chapter).toBe(2);
-    expect(tested.gates.map((gate) => gate.id)).toEqual(['tier-1-boss', 'district-race', 'omen']);
+    expect(tested.gates.map((gate) => gate.id)).toEqual(['tier-1-boss', 'rival-schools-first', 'omen']);
   });
 
   test("B2b — a `road.oathSworn` field closes Chapter 0 too, and a malformed `road` does not", () => {
@@ -280,16 +276,16 @@ describe('§B the chapter boundaries', () => {
     expect(state.chapter).toBe(2);
     expect(state.title).toBe("Fortuna's Coin, the Second Sand");
     expect(gateOf(tested, 'tier-1-boss').state).toBe('unmet');
-    expect(gateOf(tested, 'district-race').state).toBe('pending');
+    expect(gateOf(tested, 'rival-schools-first').state).toBe('unmet');
     // STORY-3 — the omen's owning system has landed (Pitch A1's shrine), so Beat
     // 3's gate reads evidence and asks for the reading in its own words.
     expect(gateOf(tested, 'omen').state).toBe('unmet');
     expect(storyGateLine(gateOf(tested, 'tier-1-boss'))).toBe(`Defeat ${bossShortName(1)}`);
-    expect(storyGateLine(gateOf(tested, 'district-race'))).toBe(PENDING_GATE_LINES.race);
+    expect(storyGateLine(gateOf(tested, 'rival-schools-first'))).toBe('Defeat the champion of the Rival Ludus');
     expect(storyGateLine(gateOf(tested, 'omen'))).toBe('Face the reading of the omen');
   });
 
-  test("B4 — Goliath down: Chapter 2's duel gate is met and the chapter is HELD open by its race gate", () => {
+  test("B4 — Goliath down: Chapter 2's duel gate is met and the chapter is HELD open by its Rival Schools gate", () => {
     const tested = withDoctoreTest(legacy(2));
     // Chapter 2 is in front of the player, and its duel gate is the one unmet gate.
     expect(resolveStoryState(tested).chapter).toBe(2);
@@ -301,28 +297,28 @@ describe('§B the chapter boundaries', () => {
       defeatedOpponentIds: [...tested.defeatedOpponentIds, bossId(1)],
     };
     // STORY-3 — the duel gate is met and the chapter STILL does not close: its
-    // District race gate must be met, not merely unlanded (Director ruling 4).
+    // The Rival Schools gate is an ordinary unmet evidence requirement.
     const state = resolveStoryState(goliathDown);
     expect(state.chapter).toBe(2);
     expect(state.complete).toBe(false);
     expect(state.gates.map((gate) => gate.id)).toEqual([
       'tier-1-boss',
-      'district-race',
+      'rival-schools-first',
       'omen',
     ]);
-    expect(state.gates.map((gate) => gate.state)).toEqual(['met', 'pending', 'unmet']);
-    expect(gateOf(goliathDown, 'district-race').holdsChapterOpen).toBe(true);
+    expect(state.gates.map((gate) => gate.state)).toEqual(['met', 'unmet', 'unmet']);
+    expect(gateOf(goliathDown, 'rival-schools-first').holdsChapterOpen).toBeUndefined();
     expect(gateOf(goliathDown, 'tier-1-boss').holdsChapterOpen).toBeUndefined();
 
     // …and Beat 3 as well: duel AND omen are met, and the chapter still waits on
-    // the race.  Nothing else holds it (the omen gate declares no such rule).
+    // the Rival Schools victory. No special pending-gate hold is needed.
     const withOmen: PlayerProfile = {
       ...goliathDown,
       omen: { kind: 'kind', expiresAtBout: 9 },
     };
     const held = resolveStoryState(withOmen);
     expect(held.chapter).toBe(2);
-    expect(held.gates.map((gate) => gate.state)).toEqual(['met', 'pending', 'met']);
+    expect(held.gates.map((gate) => gate.state)).toEqual(['met', 'unmet', 'met']);
     expect(held.complete).toBe(false);
     expect(storyGateLine(held.gates[2])).toBe('The omen has been read.');
   });
@@ -330,7 +326,7 @@ describe('§B the chapter boundaries', () => {
   test("B5 — Chapter 3's own gates are unchanged, and the campaign is held at Chapter 2", () => {
     const base = withDoctoreTest(campaign(midCampaign(2, 200)));
     const almost = withStory(base, { librarySeen: false });
-    // STORY-3 — the chapter the record resolves to is 2 (its race gate is
+    // STORY-3 — the chapter the record resolves to is 2 (its Rival Schools gate is
     // unlanded), so Chapter 3's table is read through the per-chapter seam.
     expect(resolveStoryState(almost).chapter).toBe(2);
     const gates = resolveChapterGates(almost, 3);
@@ -376,11 +372,11 @@ describe('§B the chapter boundaries', () => {
       })
     );
     const state = resolveStoryState(veteran);
-    // The documented deferral (STORY-3): Chapter 2's race gate cannot be met, so
+    // The documented deferral (STORY-3): Chapter 2's Rival Schools gate cannot be met, so
     // the campaign advances no further and the Legend state is not claimed.
     expect(state.chapter).toBe(2);
     expect(state.complete).toBe(false);
-    expect(state.gates.map((gate) => gate.state)).toEqual(['met', 'pending', 'unmet']);
+    expect(state.gates.map((gate) => gate.state)).toEqual(['met', 'unmet', 'unmet']);
     // Chapter 7's own table is still resolved, and this record satisfies it.
     expect(STORY_CHAPTERS[STORY_FINAL_CHAPTER].title).toBe('Legend, and the Open Road');
     expect(resolveChapterGates(veteran, STORY_FINAL_CHAPTER).map((gate) => gate.state)).toEqual([
@@ -435,7 +431,7 @@ describe('§B the chapter boundaries', () => {
   });
 
   test('B9 — every gate on every chapter is still addressed, and the walk is held at Chapter 2', () => {
-    // STORY-3 — the campaign cannot pass Chapter 2 while its race gate is
+    // STORY-3 — the campaign cannot pass Chapter 2 while its Rival Schools gate is
     // unlanded, so the walk that used to end in the Legend state now asserts the
     // HOLD at every step, plus the property that made the old walk worth having:
     // every chapter's table is still resolved from the same record.
@@ -479,7 +475,7 @@ describe('§B the chapter boundaries', () => {
       }
     }
     const finalState = resolveStoryState(profile);
-    expect(finalState.gates.map((gate) => gate.state)).toEqual(['met', 'pending', 'unmet']);
+    expect(finalState.gates.map((gate) => gate.state)).toEqual(['met', 'unmet', 'unmet']);
     // The last step satisfies every OTHER chapter's table, chapter by chapter.
     expect(resolveChapterGates(profile, STORY_FINAL_CHAPTER).map((gate) => gate.state)).toEqual([
       'met',
@@ -623,6 +619,7 @@ describe('§E zero profile writes', () => {
       '../data/opponents',
       './storyBeats',
       './omens',
+      './rivalSchools',
       './rank',
     ]);
     expect([...cardSource.matchAll(/from '([^']+)'/g)].map((match) => match[1])).toEqual([
@@ -667,15 +664,36 @@ describe('§F the campaign card', () => {
   });
 
   test('pending gates print the authored pending lines and never their requirement', () => {
-    const markup = text(markupFor(withDoctoreTest(legacy(1))));
+    const base = withDoctoreTest(campaign(midCampaign(2, 200)));
+    const tierOneBoss = bossId(1);
+    const tierTwoBoss = bossId(2);
+    const profile: PlayerProfile = {
+      ...base,
+      currentTier: 2,
+      fame: 200,
+      defeatedOpponentIds: [...base.defeatedOpponentIds, tierOneBoss, tierTwoBoss],
+      omenTrickleClaimed: true,
+      story: {
+        ...(base.story ?? {}),
+        rivalry: {
+          stage: 'completed',
+          attempts: 1,
+          wins: 1,
+          losses: 0,
+          completed: true,
+          lastOutcome: 'win',
+        },
+        librarySeen: false,
+      },
+    };
+    const markup = text(markupFor(profile));
+    expect(markup).toContain('data-chapter="3"');
     expect(markup).toContain(PENDING_GATE_LINES.race);
     expect(markup).toContain('data-state="pending"');
-    // STORY-3 — the omen's system has landed, so its gate asks for the reading in
-    // its own words; the omen's pending line must never be printed again.
     expect(markup).not.toContain(PENDING_GATE_LINES.omen);
-    expect(markup).toContain('Face the reading of the omen');
-    // The requirement of the ONE unlanded system is still never printed.
-    expect(markup).not.toContain('Finish your first District race');
+    // The pending line is printed instead of the owning gate's requirement or confirmation.
+    expect(markup).not.toContain('Reach the District final');
+    expect(markup).not.toContain('The District final is yours to race.');
   });
 
   test('a met gate prints its confirmation, not its requirement', () => {
@@ -694,10 +712,10 @@ describe('§F the campaign card', () => {
     expect(markup).not.toContain('Face the reading of the omen');
   });
 
-  test("the Legend state is not claimed while Chapter 2's race gate is unlanded", () => {
+  test("the Legend state is not claimed while Chapter 2's Rival Schools gate is unlanded", () => {
     // STORY-3 — this is a property of the build, stated rather than assumed: the
     // card reads the Legend line only once every chapter closes, and Chapter 2's
-    // race gate holds that open, so a record that has met every OTHER gate still
+    // Rival Schools gate holds that open, so a record that has met every OTHER gate still
     // renders Chapter 2.  The line itself is unchanged.
     expect(LEGEND_LINE).toBe('The road is walked. The city is yours to keep walking.');
     const legendProfile = withDoctoreTest(
@@ -785,13 +803,12 @@ describe('§G the story beats', () => {
       expect(gate).toBeDefined();
       expect(storyGateLine(gate!)).toBe(PENDING_GATE_LINES.beat);
     }
-    // …and the card never prints an unlanded beat's requirement.  STORY-3: the
-    // card holds Chapter 2, whose one pending gate is the race's, so the beat's
-    // line and the Vexus requirement are both absent from it.
+    // …and the card never prints an unlanded beat's requirement. Chapter 2 is
+    // held by the ordinary unmet Rival Schools requirement, not a pending gate.
     const markup = text(markupFor(chapterFour()));
     expect(markup).toContain('data-chapter="2"');
-    expect(markup).toContain('data-state="pending"');
-    expect(markup).toContain(PENDING_GATE_LINES.race);
+    expect(markup).toContain('data-state="unmet"');
+    expect(markup).toContain('Defeat the champion of the Rival Ludus');
     expect(markup).not.toContain(PENDING_GATE_LINES.beat);
     expect(markup).not.toContain('Run the Vexus incident race');
   });
@@ -835,7 +852,7 @@ describe('§G the story beats', () => {
     expect(resolveStoryState(chapterSeven()).complete).toBe(false);
   });
 
-  test('G5 — a pending gate never holds a chapter shut, except the one that declares it must be met', () => {
+  test('G5 — pending gates never hold a chapter shut; Rival Schools is an unmet evidence gate', () => {
     for (const profile of views()) {
       for (const gate of [
         ...resolveChapterGates(profile, 4),
@@ -844,15 +861,15 @@ describe('§G the story beats', () => {
         if (gate.pendingKind) expect(gate.state).toBe('pending');
       }
     }
-    // STORY-3 — exactly ONE gate in the whole table declares that it must be met,
-    // and it is Chapter 2's District race.  Every other pending gate is inert.
+    // No pending gate holds a chapter open. Chapter 2's Rival Schools requirement
+    // is an ordinary unmet evidence gate, and later pending gates remain inert.
     const declaring: string[] = [];
     for (let chapter = 0; chapter <= STORY_FINAL_CHAPTER; chapter += 1) {
       for (const gate of resolveChapterGates(fresh(), chapter)) {
         if (gate.holdsChapterOpen) declaring.push(`${chapter}:${gate.id}`);
       }
     }
-    expect(declaring).toEqual(['2:district-race']);
+    expect(declaring).toEqual([]);
     // The unlanded beats add no field and no writer: a fresh profile is still Chapter 0.
     expect(resolveStoryState(fresh()).chapter).toBe(0);
     expect(resolveStoryState(fresh()).complete).toBe(false);

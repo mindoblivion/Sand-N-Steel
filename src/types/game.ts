@@ -920,6 +920,30 @@ export interface StoryProgress {
    * repeatable afterwards.
    */
   echoWon?: boolean;
+  /** Rival Schools — the first authored rival challenge and its retry record. */
+  rivalry?: RivalryProgress;
+  /** The Colosseum Trial of Endurance's accepted round ledger. */
+  trialOfEndurance?: TrialOfEnduranceProgress;
+}
+
+/** The one Rival Schools challenge's progression, stored lazily inside StoryProgress. */
+export interface RivalryProgress {
+  stage?: 'first_challenge' | 'completed';
+  attempts?: number;
+  wins?: number;
+  losses?: number;
+  completed?: boolean;
+  lastOutcome?: 'win' | 'loss';
+}
+
+/** Accepted progression for the three-round Colosseum Trial of Endurance. */
+export interface TrialOfEnduranceProgress {
+  attempts?: number;
+  currentRound?: 1 | 2 | 3;
+  wins?: number;
+  losses?: number;
+  completed?: boolean;
+  lastOutcome?: 'win' | 'loss';
 }
 
 /**

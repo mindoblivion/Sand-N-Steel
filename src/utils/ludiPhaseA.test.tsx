@@ -724,7 +724,9 @@ describe('LUDI H §H — where the settlement lives', () => {
     const visit = APP.slice(APP.indexOf('const handleVisitLocation'));
     const body = visit.slice(0, visit.indexOf('};') + 2);
     // The seam hands the settlement the id already in scope — the deed can tell WHICH place.
-    expect(body).toContain('settleLudiDeeds(withCodexLocation(profile, locationId), { locationId })');
+    expect(body).toContain('const visited = withCodexLocation(profile, locationId);');
+    expect(body).toContain('settleLudiDeeds(milestone, { locationId })');
+    expect(body).toContain("locationId === 'northern_fortress' && visited.story?.summitSeen !== true");
   });
 
   test('no gameplay formula is touched by this slice', () => {

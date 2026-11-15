@@ -524,8 +524,24 @@ describe('A5 §K — the surfaces and the wiring', () => {
     // LUDI PHASE A REBASE, not a weakening: the same ONE hub-interaction write now also
     // settles the Acta's visit on the codex-composed profile, so the visit is composed
     // first and the settlement's answer is what the single save pair carries.
-    expect(app).toContain('settleLudiDeeds(withCodexLocation(profile, locationId), { locationId })');
+    expect(app).toContain('const visited = withCodexLocation(profile, locationId);');
+    expect(app).toContain("locationId === 'northern_fortress' && visited.story?.summitSeen !== true");
+    expect(app).toContain("story: { ...(visited.story ?? {}), summitSeen: true }");
+    expect(app).toContain('settleLudiDeeds(milestone, { locationId })');
     expect(app).toContain('if (ludi.profile === profile) return;');
+    // Codex reading remains the Librarian-chain boundary; Chapter 3's separate
+    // Library evidence is awarded by the named Road page, not by this Codex.
+    expect(app).toContain('const read = withCodexRead(profile);');
+    expect(app).toContain('const handleViewRoad = () => {');
+    expect(app).toContain('profile.story?.librarySeen === true');
+    const library = code('components/hub/LibraryTab.tsx');
+    expect(library).toContain("if (page !== 'road') return;");
+    expect(library).toContain('markRoadViewed.current?.();');
+    const hub = code('components/hub/GladiatorSchoolHub.tsx');
+    expect(hub).toContain('onViewRoad?: () => void;');
+    expect(hub).toContain('onViewRoad={onViewRoad}');
+    expect(app).toContain('onViewRoad={handleViewRoad}');
+    expect(code('components/hub/RoadOfGloryPage.tsx')).toContain('The record of {profile.name}');
     expect(app).toContain('saveProfile(ludi.profile);');
     expect(app).toContain('onVisitLocation={handleVisitLocation}');
     // The codex module itself never touches storage or the clock.

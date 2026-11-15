@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlayerProfile, PlayerAppearance, ArmaturaId, CharacterModelType } from '../../types/game';
+import { PlayerProfile, PlayerAppearance, ArmaturaId } from '../../types/game';
 import { GladiatorPreview } from '../3d/GladiatorPreview';
 import { sounds } from '../../audio/soundEffects';
 import { ARMATURAE } from '../../data/armaturae';
@@ -12,8 +12,9 @@ import {
   buildCreatedProfile,
   buildStatDelta,
   creationPoints,
+  armaturaModel,
+  armaturaModelLabel,
   selectArmatura,
-  selectCharacterModel,
   unspentPoints,
   type AllocationStat,
   type CreationAllocation,
@@ -82,14 +83,11 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'identity' | 'body' | 'features'>('identity');
   const [previewError, setPreviewError] = useState<string | null>(null);
+  // Keep the preview covered only while a newly selected fighter model loads.
+  const [previewModelReady, setPreviewModelReady] = useState(true);
   const [name, setName] = useState('Spartacus');
   const [bodyWeightLb, setBodyWeightLb] = useState(180);
-  /**
-   * CH-2 — the class is chosen here and the LOOK is chosen beside it; the two are
-   * independent. `selectArmatura` / `selectCharacterModel` are the only two
-   * writers, so a class can only ever *suggest* its natural model (while the player
-   * has not picked one) and a look can never change the class.
-   */
+  /** One fighter choice controls class mechanics and the matching 3D model. */
   const [selection, setSelection] = useState<CreationSelection>(DEFAULT_SELECTION);
   const [skinColor, setSkinColor] = useState('#c68b59');
   const [tunicColor, setTunicColor] = useState('#854d0e');
@@ -127,13 +125,8 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
   const handleArmaturaSelect = (id: ArmaturaId) => {
     sounds.playClick();
     setPreviewError(null);
+    if (armaturaModel(id) !== selection.characterModel) setPreviewModelReady(false);
     setSelection((current) => selectArmatura(current, id));
-  };
-
-  const handleModelSelect = (model: CharacterModelType) => {
-    sounds.playClick();
-    setPreviewError(null);
-    setSelection((current) => selectCharacterModel(current, model));
   };
 
   const handleStatChange = (stat: AllocationStat, delta: number) => {
@@ -246,16 +239,29 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
         <div className="shrink-0 h-[38dvh] max-h-[320px] min-h-[190px] lg:h-full lg:max-h-none lg:min-h-[480px] bg-neutral-900/80 border-2 border-amber-600/50 rounded-2xl sm:rounded-3xl p-1.5 sm:p-3 flex flex-col items-center justify-center shadow-2xl relative overflow-hidden">
           <GladiatorPreview
             appearance={appearance}
-            onReady={onReady}
+            onReady={() => {
+              setPreviewModelReady(true);
+              onReady?.();
+            }}
             onError={(error) => {
+              setPreviewModelReady(true);
               setPreviewError(error.message || 'The selected gladiator model could not be loaded.');
               onPreviewError?.(error);
             }}
           />
+          {!previewModelReady && (
+            <div data-preview-loading="true" role="status" aria-live="polite" className="absolute inset-0 z-20 flex flex-col items-center justify-end gap-2 bg-neutral-950/90 px-6 pb-6 text-center">
+              <p className="font-serif text-xs font-bold uppercase tracking-[0.2em] text-amber-200">Preparing fighter</p>
+              <p className="text-[10px] text-neutral-400">Loading the selected gladiator model</p>
+              <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-neutral-800" aria-label="Model loading">
+                <div className="h-full w-1/3 rounded-full bg-amber-400 animate-pulse" />
+              </div>
+            </div>
+          )}
           {previewError && (
             <div role="alert" className="absolute inset-x-3 top-3 z-10 rounded-xl border border-amber-500/60 bg-neutral-950/95 p-3 text-center text-xs text-amber-100 shadow-xl">
               <p className="font-bold text-amber-300">3D preview unavailable</p>
-              <p className="mt-1">You can still customize and create your gladiator. Try changing the model or reopening this screen.</p>
+              <p className="mt-1">You can still customize and create your gladiator. Try selecting another fighter or reopening this screen.</p>
             </div>
           )}
           <div className="absolute bottom-2.5 left-2.5 bg-neutral-950/85 border border-amber-500/40 px-2.5 py-1 rounded-xl text-[11px] font-mono text-amber-300 z-10 shadow-md">
@@ -336,13 +342,13 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                   />
                 </div>
 
-                {/* ARMATURA PICKER (CLASS SELECTION) */}
+                {/* UNIFIED FIGHTER PICKER (CLASS + MODEL) */}
                 <div>
                   <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-1">
-                    Armatura &mdash; Class Selection
+                    Choose Your Fighter
                   </label>
                   <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2.5">
-                    Your class sets your starting attributes, signature doctrina and equipment.
+                    Each fighter combines a fighting class with its own character model, starting attributes, signature doctrina and equipment.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-armatura-picker>
                     {ARMATURAE.map((row) => {
@@ -367,6 +373,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                             {selected && <Check className="w-4 h-4 text-amber-300 shrink-0" />}
                           </div>
                           <p className="text-[11px] font-serif italic text-neutral-400 mt-0.5">{row.fantasy}</p>
+                          <p className="text-[10px] font-serif text-amber-300/80 mt-1" data-armatura-model={row.id}>Fighter model: {armaturaModelLabel(row.id)}</p>
                           <p className="text-[10px] font-mono text-amber-400/80 mt-1">
                             STR {row.stats.strength} · AGI {row.stats.agility} · STA {row.stats.stamina} · DEF {row.stats.defense}
                           </p>
@@ -386,7 +393,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                   onClick={() => { sounds.playClick(); setActiveTab('body'); }}
                   className="w-full min-h-[48px] py-3 rounded-xl bg-neutral-900 border border-amber-600/40 hover:border-amber-400 text-amber-300 font-serif font-bold text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 mt-2"
                 >
-                  <span>Continue to Body & Build &rarr;</span>
+                  <span>Continue to Appearance & Build &rarr;</span>
                 </button>
               </div>
             )}
@@ -394,91 +401,14 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
             {/* SECTION 2: BODY */}
             {activeTab === 'body' && (
               <div className="flex flex-col gap-4 sm:gap-6">
-                {/* FIGHTER'S LOOK (MODEL SELECTION) */}
-                <div>
-                  <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-1">
-                    Fighter's Look &mdash; Model Selection
-                  </label>
-                  <p className="text-[11px] font-serif text-neutral-400 leading-relaxed mb-2.5">
-                    Your physical appearance model. Choose any look independently of class.
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleModelSelect('roman_warrior')}
-                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all flex items-center justify-center gap-1 ${
-                        selection.characterModel === 'roman_warrior'
-                          ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-md'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:border-amber-600/50'
-                      }`}
-                    >
-                      ⚔️ Roman Warrior
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleModelSelect('amazonian')}
-                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all flex items-center justify-center gap-1 ${
-                        selection.characterModel === 'amazonian'
-                          ? 'bg-emerald-500/30 border-emerald-400 text-emerald-200 shadow-md'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:border-emerald-600/50'
-                      }`}
-                    >
-                      🏹 Amazonian
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleModelSelect('procedural_gladiator')}
-                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all flex items-center justify-center gap-1 ${
-                        selection.characterModel === 'procedural_gladiator'
-                          ? 'bg-amber-500/30 border-amber-400 text-amber-200 shadow-md'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:border-amber-600/50'
-                      }`}
-                    >
-                      🛡️ Centurion
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleModelSelect('retiarius')}
-                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all flex items-center justify-center gap-1 ${
-                        selection.characterModel === 'retiarius'
-                          ? 'bg-cyan-500/30 border-cyan-400 text-cyan-200 shadow-md'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:border-cyan-600/50'
-                      }`}
-                    >
-                      🔱 The Retiarius
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleModelSelect('minotaur')}
-                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all flex items-center justify-center gap-1 ${
-                        selection.characterModel === 'minotaur'
-                          ? 'bg-orange-500/30 border-orange-400 text-orange-200 shadow-md'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:border-orange-600/50'
-                      }`}
-                    >
-                      🐂 Minotaur
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleModelSelect('dimachaerus')}
-                      className={`min-h-[48px] py-2.5 px-2 rounded-xl border text-xs font-serif font-bold cursor-pointer transition-all flex items-center justify-center gap-1 ${
-                        selection.characterModel === 'dimachaerus'
-                          ? 'bg-purple-500/30 border-purple-400 text-purple-200 shadow-md'
-                          : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:border-purple-600/50'
-                      }`}
-                    >
-                      ⚔️ Dimachaerus
-                    </button>
-                  </div>
-                </div>
-
+                {/* CLASS AND MODEL ARE ONE CHOICE; BODY TAB IS FOR APPEARANCE ONLY */}
                 {/* APPEARANCE PICKERS (FOR CENTURION) */}
                 {selection.characterModel === 'procedural_gladiator' && (
                   <div className="flex flex-col gap-4">
                     {/* SKIN TONE */}
                     <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-3.5" data-skin-tone-picker>
                       <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-                        Skin Tone &mdash; Centurion
+                        Skin Tone &mdash; Centurion Model
                       </label>
                       <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator skin tone">
                         {SKIN_TONES.map((tone) => {
@@ -505,7 +435,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                     {/* TUNIC COLOR */}
                     <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-3.5" data-tunic-color-picker>
                       <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-                        Tunic Color &mdash; Centurion
+                        Tunic Color &mdash; Centurion Model
                       </label>
                       <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator tunic color">
                         {TUNIC_COLORS.map((tone) => {
@@ -532,7 +462,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                     {/* CREST COLOR */}
                     <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-3.5" data-crest-color-picker>
                       <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-                        Helmet Crest Color &mdash; Centurion
+                        Helmet Crest Color &mdash; Centurion Model
                       </label>
                       <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator crest color">
                         {CREST_COLORS.map((tone) => {
@@ -557,7 +487,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                     </div>
 
                     <p className="px-1 text-[11px] text-neutral-400">
-                      Choose a physical appearance for the Centurion look. Imported gladiator models do not yet support verified skin-tone or material tinting.
+                      Choose a physical appearance for the Centurion character model. Imported gladiator models do not yet support verified skin-tone or material tinting.
                     </p>
                   </div>
                 )}

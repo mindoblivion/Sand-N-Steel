@@ -14,8 +14,9 @@ import {
 } from '../components/3d/GladiatorMesh';
 import { hasGlbMagic, responseHasGlbMagic } from './glbHeader';
 import {
+  ARMATURA_CHARACTER_MODELS,
   DEFAULT_SELECTION,
-  selectCharacterModel,
+  armaturaModel,
   selectArmatura,
 } from './characterCreation';
 import type { CharacterModelType } from '../types/game';
@@ -200,42 +201,29 @@ describe('Character Model Switching & Availability', () => {
     });
   });
 
-  describe('selection changes in character creation', () => {
-    test('selectCharacterModel updates model and marks it explicitly chosen', () => {
-      const initial = DEFAULT_SELECTION;
-      expect(initial.characterModel).toBe('roman_warrior');
-      expect(initial.modelPicked).toBe(false);
-
-      const switched = selectCharacterModel(initial, 'amazonian');
-      expect(switched.characterModel).toBe('amazonian');
-      expect(switched.modelPicked).toBe(true);
-      expect(switched.armatura).toBe('murmillo'); // Armatura is untouched
+  describe('unified fighter selection', () => {
+    test('the default selection is the default class and its matching model', () => {
+      expect(DEFAULT_SELECTION).toEqual({
+        armatura: 'murmillo',
+        characterModel: 'roman_warrior',
+      });
     });
 
-    test('selectCharacterModel works for all 6 character looks', () => {
-      const models: CharacterModelType[] = [
-        'roman_warrior',
-        'amazonian',
-        'procedural_gladiator',
-        'retiarius',
-        'minotaur',
-        'dimachaerus',
-      ];
-      let state = DEFAULT_SELECTION;
-      for (const m of models) {
-        state = selectCharacterModel(state, m);
-        expect(state.characterModel).toBe(m);
+    test('every class selects its model atomically', () => {
+      for (const [armatura, model] of Object.entries(ARMATURA_CHARACTER_MODELS)) {
+        expect(selectArmatura(DEFAULT_SELECTION, armatura as keyof typeof ARMATURA_CHARACTER_MODELS)).toEqual({
+          armatura,
+          characterModel: model,
+        });
+        expect(armaturaModel(armatura as keyof typeof ARMATURA_CHARACTER_MODELS)).toBe(model);
       }
     });
 
-    test('switching models preserves explicit pick when armatura changes', () => {
-      const state = selectCharacterModel(DEFAULT_SELECTION, 'dimachaerus');
-      expect(state.modelPicked).toBe(true);
-
-      const armaturaSwitched = selectArmatura(state, 'hoplomachus');
-      expect(armaturaSwitched.armatura).toBe('hoplomachus');
-      // Model remains Dimachaerus because user explicitly selected it
-      expect(armaturaSwitched.characterModel).toBe('dimachaerus');
+    test('changing classes cannot preserve the previous class model', () => {
+      const thraex = selectArmatura(DEFAULT_SELECTION, 'thraex');
+      expect(thraex.characterModel).toBe('amazonian');
+      const retiarius = selectArmatura(thraex, 'retiarius');
+      expect(retiarius).toEqual({ armatura: 'retiarius', characterModel: 'retiarius' });
     });
   });
 

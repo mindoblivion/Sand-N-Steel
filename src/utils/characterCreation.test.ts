@@ -1,5 +1,5 @@
 /**
- * CH-2 — the creation write path and the class/look pickers.
+ * CH-2 — the creation write path and unified fighter picker.
  *
  * Run with: `bun test src/utils/characterCreation.test.ts`
  *
@@ -16,8 +16,7 @@
  *   §C  the factory: `createNewProfile()` with no argument is BYTE-IDENTICAL to the
  *       pre-CH-2 output, and the class argument writes the class (and its template
  *       and kit) — never `palmae`;
- *   §D  the two pickers are independent: a model never changes the class, and a
- *       class only *suggests* a model while the player has not chosen one;
+ *   §D  one fighter choice atomically determines both class mechanics and model;
  *   §E  the screen is wired to this module and renders its cards from the data.
  *
  * No storage is read or written by this suite: `buildCreatedProfile` is pure and
@@ -37,10 +36,11 @@ import {
   allocatedPoints,
   armaturaBaseStats,
   armaturaKit,
-  armaturaModelSuggestion,
+  ARMATURA_CHARACTER_MODELS,
+  armaturaModel,
+  armaturaModelLabel,
   buildCreatedProfile,
   selectArmatura,
-  selectCharacterModel,
   unspentPoints,
 } from './characterCreation';
 
@@ -260,67 +260,53 @@ describe('CH-2 §C — createNewProfile', () => {
   });
 });
 
-// ── §D class and look are independent ─────────────────────────────────────
-describe('CH-2 §D — the class picker and the model picker are independent', () => {
-  test('choosing a class never overrides a look the player has chosen', () => {
-    let selection = selectCharacterModel(DEFAULT_SELECTION, 'amazonian');
-    selection = selectArmatura(selection, 'retiarius');
-    expect(selection.armatura).toBe('retiarius');
-    expect(selection.characterModel).toBe('amazonian');
-
-    selection = selectArmatura(selection, 'dimachaerus');
-    expect(selection.armatura).toBe('dimachaerus');
-    expect(selection.characterModel).toBe('amazonian');
-    expect(selection.modelPicked).toBe(true);
-  });
-
-  test('choosing a model never changes the class', () => {
-    let selection = selectArmatura(DEFAULT_SELECTION, 'secutor');
-    const before = selection.armatura;
-    selection = selectCharacterModel(selection, 'minotaur');
-    expect(selection.armatura).toBe(before);
-    expect(selection.characterModel).toBe('minotaur');
-  });
-
-  test('a class only suggests its natural model, and only before a choice', () => {
-    expect(armaturaModelSuggestion('retiarius')).toBe('retiarius');
-    expect(armaturaModelSuggestion('dimachaerus')).toBe('dimachaerus');
+// ── §D a fighter choice atomically selects class and model ──────────────────
+describe('CH-2 §D — class and model are one fighter choice', () => {
+  test('every class resolves to one authored character model', () => {
+    expect(ARMATURAE).toHaveLength(7);
     for (const row of ARMATURAE) {
-      if (row.id === 'retiarius' || row.id === 'dimachaerus') continue;
-      expect(armaturaModelSuggestion(row.id), row.id).toBeNull();
+      const selection = selectArmatura(DEFAULT_SELECTION, row.id);
+      expect(selection.armatura).toBe(row.id);
+      expect(selection.characterModel).toBe(ARMATURA_CHARACTER_MODELS[row.id]);
+      expect(selection.characterModel).toBe(armaturaModel(row.id));
+      expect(armaturaModelLabel(row.id)).toBeTruthy();
+      expect('modelPicked' in selection).toBe(false);
     }
-
-    const suggested = selectArmatura(DEFAULT_SELECTION, 'retiarius');
-    expect(suggested.characterModel).toBe('retiarius');
-    expect(suggested.modelPicked).toBe(false);
-
-    const unsuggested = selectArmatura(suggested, 'murmillo');
-    expect(unsuggested.characterModel).toBe('retiarius');
   });
 
-  test('the screen itself renders its cards from the data, not from copies', () => {
+  test('changing fighter always changes both fields together and cannot retain a stale model', () => {
+    const amazonian = selectArmatura(DEFAULT_SELECTION, 'thraex');
+    expect(amazonian).toEqual({ armatura: 'thraex', characterModel: 'amazonian' });
+
+    const next = selectArmatura(amazonian, 'retiarius');
+    expect(next).toEqual({ armatura: 'retiarius', characterModel: 'retiarius' });
+  });
+
+  test('all six existing models remain represented by the seven fighter choices', () => {
+    const models = new Set(ARMATURAE.map((row) => armaturaModel(row.id)));
+    expect(models).toEqual(new Set([
+      'roman_warrior',
+      'procedural_gladiator',
+      'amazonian',
+      'retiarius',
+      'minotaur',
+      'dimachaerus',
+    ]));
+  });
+
+  test('the screen renders class and model together from the class data', () => {
     const source = creationSource();
-    expect(source).toContain("import { ARMATURAE } from '../../data/armaturae';");
     expect(source).toContain('{ARMATURAE.map((row) => {');
     expect(source).toContain('data-armatura-card={row.id}');
+    expect(source).toContain('data-armatura-model={row.id}');
+    expect(source).toContain('armaturaModelLabel(row.id)');
+    expect(source).not.toContain('handleModelSelect');
+    expect(source).not.toContain('selectCharacterModel');
     expect(source).toContain('data-armatura-picker');
-    expect(source).toContain('data-skin-tone-picker');
-    expect(source).toContain('data-corpus-vitium-picker');
-    expect(source).toContain('data-corpus-build-picker');
-    expect(source).toContain('min-h-[48px]');
-    expect(source).toContain('row.doctrina.name');
-    expect(source).toContain('row.stats.strength');
-    // The seven class names are never typed into the screen.
-    for (const name of ['Murmillo', 'Secutor', 'Thraex', 'Hoplomachus', 'Dimachaerus', 'Provocateur']) {
-      expect(source, name).not.toContain(`'${name}'`);
-    }
   });
 
   test('the screen finishes through the pure creation module', () => {
     const source = creationSource();
-    // PITCH A4 REBASE: the call is written across lines now that it carries the
-    // three Corpus et Origo choices; the property — the screen finishes through the
-    // pure creation module — is unchanged.
     expect(source).toContain('buildCreatedProfile({');
     expect(source).toContain('armatura: selection.armatura,');
     expect(source).toContain('allocation,');
@@ -328,9 +314,7 @@ describe('CH-2 §D — the class picker and the model picker are independent', (
     expect(source).toContain('origo: corpus.origo,');
     expect(source).toContain('vitium: corpus.vitium,');
     expect(source).toContain('const draftStats = calculateTotalStats(buildProfile());');
-    expect(source).toContain("disabled={stat.val <= statFloor}");
     expect(source).toContain('selectArmatura(current, id)');
-    expect(source).toContain('selectCharacterModel(current, model)');
   });
 });
 

@@ -63,7 +63,7 @@ const DuelScene = React.lazy(() => import('./components/duel/DuelScene').then((m
 const RaceScene = React.lazy(() => import('./components/3d/RaceScene').then((m) => ({ default: m.RaceScene })));
 
 import { HeraldToast } from './components/hub/HeraldToast';
-// STORY-3 — the herald's circus pointer while Chapter 2's race gate is unmet.
+// Legacy-named herald pointer — now announces the Rival Schools challenge.
 import { circusPointerCry } from './utils/storyChapterTwo';
 
 import { evaluateRoadMilestones, chooseBannerDevice } from './utils/roadMilestones';
@@ -123,6 +123,9 @@ import { googleSignIn, subscribeAuthUser } from './services/googleAuth';
 import type { User } from 'firebase/auth';
 
 import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT } from './data/opponents';
+import { RIVAL_SCHOOL_OPPONENT } from './data/rivalSchools';
+import { isRivalSchoolOpponent, settleRivalSchoolBout } from './utils/rivalSchools';
+import { isTrialOfEnduranceOpponent, settleTrialOfEnduranceRound } from './utils/trialOfEndurance';
 // C-8.70C — the bout mode is chosen on the pre-fight card and held for the
 // length of the bout only: it is never written to the profile.
 import { DEFAULT_BOUT_MODE } from './data/boutModes';
@@ -324,6 +327,12 @@ export function App() {
    * the duel's one time advance and the injury on a loss.
    */
   const exhibitionBoutRef = useRef(false);
+  /** Rival Schools — session-only identity fence, consumed at duel settlement or abort. */
+  const rivalBoutRef = useRef(false);
+  /** Trial of Endurance — session-only fence, consumed by result or technical exit. */
+  const trialBoutRef = useRef(false);
+  /** Keeps the result-screen continuation on the tournament board after a Trial round. */
+  const trialResultPendingRef = useRef(false);
   /** DAY/NIGHT T2 — the day-boundary beat the city plays (sleep veil + the new day's name). */
   const [dayBanner, setDayBanner] = useState<{ day: number; text: string } | null>(null);
   /**
@@ -965,7 +974,14 @@ export function App() {
     if (entryProfile) openFirstSixty(entryProfile, false);
   };
 
-  const handleEnterDuel = (opp: OpponentConfig, mode: BoutMode = DEFAULT_BOUT_MODE) => {
+  const handleEnterDuel = (
+    opp: OpponentConfig,
+    mode: BoutMode = DEFAULT_BOUT_MODE,
+    rivalBout = false,
+    trialBout = false
+  ) => {
+    rivalBoutRef.current = rivalBout;
+    trialBoutRef.current = trialBout;
     setActiveOpponent(opp);
     // C-8.70C — the mode the card was committed on, for this bout only.
     setBoutMode(mode);
@@ -1002,6 +1018,16 @@ export function App() {
     handleEnterDuel(opponent);
   };
 
+  /** Rival Schools — enter the dedicated challenge, not a ladder or grudge row. */
+  const handleEnterRivalBout = (mode: BoutMode = DEFAULT_BOUT_MODE) => {
+    handleEnterDuel(RIVAL_SCHOOL_OPPONENT, mode, true);
+  };
+
+  /** Trial of Endurance — enter the currently offered authored round. */
+  const handleEnterTrialBout = (opponent: OpponentConfig, mode: BoutMode = DEFAULT_BOUT_MODE) => {
+    handleEnterDuel(opponent, mode, false, true);
+  };
+
   /**
    * STORY-2 — enter the Doctore's Test with the rule the player chose. The rule
    * rides beside the opponent (it is not a save field); the result write reads it
@@ -1025,6 +1051,14 @@ export function App() {
     if (!profile) return;
     const read = withCodexRead(profile);
     if (read === profile) return;
+    setProfile(read);
+    saveProfile(read);
+  };
+
+  /** Chapter 3 — the Road page visibly records the player's own name. */
+  const handleViewRoad = () => {
+    if (!profile || profile.story?.librarySeen === true) return;
+    const read = { ...profile, story: { ...(profile.story ?? {}), librarySeen: true } };
     setProfile(read);
     saveProfile(read);
   };
@@ -1109,6 +1143,9 @@ export function App() {
      * never leave an exhibition's fence armed on the NEXT duel.
      */
     exhibitionBoutRef.current = false;
+    rivalBoutRef.current = false;
+    trialBoutRef.current = false;
+    trialResultPendingRef.current = false;
     setActiveHubTab(tab);
     if (tab === 'gear') setGearView(gearSubview ?? 'armory');
     if (tab === 'shop') setShopId(shopStorefront ?? 'market');
@@ -1177,7 +1214,13 @@ export function App() {
     // is the visit deed's whole evidence. The settlement records the place in the day's list
     // and pays the deed only when it is the ONE district today's Acta asks for. Both helpers
     // are identity-stable, so a repeat visit to the same place still saves nothing.
-    const ludi = settleLudiDeeds(withCodexLocation(profile, locationId), { locationId });
+    const visited = withCodexLocation(profile, locationId);
+    // Chapter 6's original evidence is the player's actual visit to the
+    // Northern Fortress summit approach — not a generic city visit or race.
+    const milestone = locationId === 'northern_fortress' && visited.story?.summitSeen !== true
+      ? { ...visited, story: { ...(visited.story ?? {}), summitSeen: true } }
+      : visited;
+    const ludi = settleLudiDeeds(milestone, { locationId });
     if (ludi.profile === profile) return;
     setProfile(ludi.profile);
     saveProfile(ludi.profile);
@@ -1289,6 +1332,8 @@ export function App() {
      * every fenced branch below consults the same decision.
      */
     const exhibition = exhibitionBoutRef.current;
+    const rivalBout = rivalBoutRef.current && isRivalSchoolOpponent(activeOpponent);
+    const trialBout = trialBoutRef.current && isTrialOfEnduranceOpponent(activeOpponent);
 
     const { profile: afterInjury, event: injuryEvent } = resolveInjuryAfterDuel(profile, didWin);
 
@@ -1373,7 +1418,7 @@ export function App() {
        * (the Librarian chain's step 2 and STORY-4a's mercy both read that record)
        * and the Codex's faced-states. The purse and the time advance are kept.
        */
-      const defeated = exhibition
+      const defeated = exhibition || rivalBout || trialBout
         ? profile.defeatedOpponentIds
         : isGrudge
         ? profile.defeatedOpponentIds
@@ -1388,7 +1433,7 @@ export function App() {
       // unchanged when nothing applies.
       // STORY-5b — R4: an exhibition generates no grudge and records no studied
       // mix, so the row is left unrecorded in the grudge ledger.
-      const grudgeProfile = exhibition
+      const grudgeProfile = exhibition || rivalBout || trialBout
         ? afterOmen
         : isGrudge
         ? settleGrudge(afterOmen, activeOpponent)
@@ -1405,7 +1450,7 @@ export function App() {
       // tiers whose champions were never faced).
       // STORY-5b — R4: an exhibition opens no tier (and no boss id entered the
       // record to open one anyway).
-      const tierAfterVictory = exhibition
+      const tierAfterVictory = exhibition || rivalBout || trialBout
         ? { currentTier: profile.currentTier, firstDefeat: false, advanced: false }
         : resolveVictoryTier({
             currentTier: profile.currentTier,
@@ -1425,7 +1470,9 @@ export function App() {
         defeatedOpponentIds: defeated,
         // FIX-A — the kill count rides this same write: `nextBossKills` reads the record
         // being saved, so it can only rise for a boss whose id is newly entering it.
-        bossKills: nextBossKills(profile, { defeatedOpponentIds: defeated }, activeOpponent),
+        bossKills: exhibition || rivalBout || trialBout
+          ? profile.bossKills
+          : nextBossKills(profile, { defeatedOpponentIds: defeated }, activeOpponent),
         // STORY-2 — the Doctore's Test's pass rides THIS write: the id enters
         // `defeatedOpponentIds` through the ordinary victory above and the flag
         // records that the win met the chosen restriction. Both pieces of the
@@ -1480,6 +1527,59 @@ export function App() {
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
       storyLines.push('Victory recorded; rewards withheld because the purse could not be settled safely.');
+    }
+
+    /**
+     * Trial of Endurance — each accepted round is written into the same result
+     * transaction as its ordinary purse. Only the expected authored round can
+     * advance; losses restart the series and only the third accepted win sets trialDone.
+     */
+    if (trialBout) {
+      const trialSettled = settleTrialOfEnduranceRound(
+        settledProfile,
+        activeOpponent,
+        didWin,
+        rewardSettlementAccepted,
+        stats,
+        { exhibition, grudge: isGrudgeBout(activeOpponent) }
+      );
+      if (trialSettled !== settledProfile) {
+        settledProfile = trialSettled;
+        const trialProgress = trialSettled.story?.trialOfEndurance;
+        storyLines.push(
+          trialProgress?.completed
+            ? 'The Trial of Endurance is complete. The Northern Trial is recorded among your victories.'
+            : didWin
+              ? 'Round secured. Return to the Tournament board when you are ready for the next test.'
+              : 'The Trial is lost. Your next attempt will begin again at the first round.'
+        );
+      }
+    }
+
+    /**
+     * Rival Schools — the challenge ledger is written inside this same result
+     * transaction. A confirmed withdrawal is a loss; rejected victory rewards,
+     * technical exits, exhibitions and grudges do not create rival evidence.
+     */
+    if (rivalBout) {
+      const rivalSettled = settleRivalSchoolBout(
+        settledProfile,
+        activeOpponent,
+        didWin,
+        rewardSettlementAccepted,
+        stats,
+        { exhibition, grudge: isGrudgeBout(activeOpponent) }
+      );
+      if (rivalSettled !== settledProfile) {
+        settledProfile = rivalSettled;
+        storyLines.push(
+          didWin
+            ? 'The rival champion has fallen. Your school’s name is carried into the Colosseum record.'
+            : stats.outcome === 'withdrawn'
+              ? 'You yielded the bout. The rival leads the record, but the challenge remains open for a rematch.'
+              : 'The rival champion has taken this bout. The challenge remains open; you may return to answer it.'
+        );
+      }
     }
 
     /**
@@ -1591,13 +1691,18 @@ export function App() {
     // STORY-5b — R4: an exhibition is not in the arena's book either, so
     // STORY-4a's Spare/Finish is never offered on one — the same fence the
     // trail's bouts use (`mercyOfferForDuel` answers null for a staged bout).
-    const mercy = rewardSettlementAccepted ? mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition) : null;
+    const mercy = rewardSettlementAccepted
+      ? mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition || rivalBout || trialBout)
+      : null;
     mercyWrittenRef.current = null;
     deserterWrittenRef.current = false;
     // The entrance flag is consumed by this result: it can never leak onto a
     // later bout entered from the tournament, the board or a door.
     diceTrailBoutRef.current = false;
     exhibitionBoutRef.current = false;
+    rivalBoutRef.current = false;
+    trialResultPendingRef.current = trialBout;
+    trialBoutRef.current = false;
 
     const displayedStats: DuelStatistics = didWin && !rewardSettlementAccepted
       ? { ...stats, goldEarned: 0, fameEarned: 0, xpEarned: 0 }
@@ -1639,6 +1744,12 @@ export function App() {
     setTimeout(() => {
         // The Test's rule judged one duel; it does not outlive it.
         setDoctoreRestriction(null);
+        if (trialResultPendingRef.current) {
+          trialResultPendingRef.current = false;
+          setActiveHubTab('tournament');
+          setCurrentScreen('hub_2d');
+          return;
+        }
         if (profile) enterCity(profile);
         else setCurrentScreen('city_3d');
     }, 0);
@@ -2506,6 +2617,8 @@ export function App() {
             onOpenSettings={() => handleOpenSettings()}
             onMarkCardSeen={handleMarkCardSeen}
             onEnterDoctoreTest={handleEnterDoctoreTest}
+            onEnterRivalBout={handleEnterRivalBout}
+            onEnterTrialBout={handleEnterTrialBout}
             onPurchaseTriumph={handlePurchaseTriumph}
             onTemperItem={handleTemperItem}
             onBuyStableQuality={handleBuyStableQuality}
@@ -2519,6 +2632,7 @@ export function App() {
             /* STORY-5b — the Library rack's Codex page (step 1) and the Legend Bouts
                on the tournament tab (the staged rows, entered as exhibitions). */
             onViewCodex={handleViewCodex}
+            onViewRoad={handleViewRoad}
             onEnterLegendBout={handleEnterLegendBout}
             />
           </React.Suspense>

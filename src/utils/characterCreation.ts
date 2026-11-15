@@ -16,10 +16,8 @@
  *   • `buildCreatedProfile` — the profile `onComplete` receives.  `baseStats` is
  *     the template plus the spent points, the class field is written (`armatura`),
  *     and `palmae` is NOT: a palm is earned in the arena, never at creation.
- *   • `selectArmatura` / `selectCharacterModel` — the look and the class are
- *     independent.  The class only *suggests* its natural model (retiarius,
- *     dimachaerus) while the player has not picked one, and picking a model never
- *     touches the class.
+ *   • `selectArmatura` — one fighter choice resolves both the class mechanics
+ *     and its authored character model. There is no second, independent model pick.
  *
  * PITCH A4 — CORPUS ET ORIGO extends the same pure path with three cheap axes,
  * every one a Director ruling (`data/corpusEtOrigo.ts`): `buildStatDelta` moves the
@@ -153,12 +151,35 @@ export function unspentPoints(allocation: CreationAllocation, vitium?: VitiumId 
 }
 
 /**
- * The model a class naturally suggests.  Only two classes ARE a model in this
- * build; the rest suggest nothing, and a suggestion is never applied once the
- * player has chosen a look.
+ * One authored visual identity per fighting class. Two classes intentionally
+ * share the Roman Warrior body; their stats, doctrina and starting kits still
+ * distinguish them. Every existing player model remains represented.
  */
-export function armaturaModelSuggestion(armatura: ArmaturaId): CharacterModelType | null {
-  return armatura === 'retiarius' || armatura === 'dimachaerus' ? armatura : null;
+export const ARMATURA_CHARACTER_MODELS: Record<ArmaturaId, CharacterModelType> = {
+  murmillo: 'roman_warrior',
+  retiarius: 'retiarius',
+  secutor: 'minotaur',
+  thraex: 'amazonian',
+  hoplomachus: 'procedural_gladiator',
+  dimachaerus: 'dimachaerus',
+  provocator: 'roman_warrior',
+};
+
+const CHARACTER_MODEL_LABELS: Record<CharacterModelType, string> = {
+  roman_warrior: 'Roman Warrior',
+  procedural_gladiator: 'Centurion',
+  amazonian: 'Amazonian',
+  retiarius: 'Retiarius',
+  minotaur: 'Minotaur',
+  dimachaerus: 'Dimachaerus',
+};
+
+export function armaturaModel(armatura: ArmaturaId): CharacterModelType {
+  return ARMATURA_CHARACTER_MODELS[armatura];
+}
+
+export function armaturaModelLabel(armatura: ArmaturaId): string {
+  return CHARACTER_MODEL_LABELS[armaturaModel(armatura)];
 }
 
 /**
@@ -202,43 +223,23 @@ export function armaturaBaseStats(
   };
 }
 
-/**
- * What the creation screen's two pickers hold.  `modelPicked` records that the
- * player chose a look themselves, which is what stops a class from re-suggesting
- * one — the class never overrides a choice.
- */
+/** The creation screen's single fighter choice: class plus its visual model. */
 export interface CreationSelection {
   armatura: ArmaturaId;
   characterModel: CharacterModelType;
-  modelPicked: boolean;
 }
 
 export const DEFAULT_SELECTION: CreationSelection = {
   armatura: DEFAULT_ARMATURA_ID,
-  characterModel: 'roman_warrior',
-  modelPicked: false,
+  characterModel: armaturaModel(DEFAULT_ARMATURA_ID),
 };
 
-/** Choosing a class.  The look moves only to a suggestion, and only if unpicked. */
+/** Selecting a fighter atomically chooses its class mechanics and visual model. */
 export function selectArmatura(
-  selection: CreationSelection,
+  _selection: CreationSelection,
   armatura: ArmaturaId,
 ): CreationSelection {
-  const suggestion = armaturaModelSuggestion(armatura);
-  return {
-    armatura,
-    characterModel:
-      selection.modelPicked || suggestion === null ? selection.characterModel : suggestion,
-    modelPicked: selection.modelPicked,
-  };
-}
-
-/** Choosing a look.  It never touches the class. */
-export function selectCharacterModel(
-  selection: CreationSelection,
-  characterModel: CharacterModelType,
-): CreationSelection {
-  return { ...selection, characterModel, modelPicked: true };
+  return { armatura, characterModel: armaturaModel(armatura) };
 }
 
 /**

@@ -8,9 +8,10 @@
  * progression design) appends here rather than re-ordering anything.  The Triumphs
  * page appended here with P2 — inside this rack, with no new navigation entry.
  *
- * Read-only except for the Triumphs page: it takes the profile, hands it to the page
- * it is showing, and every other page writes nothing.  A Triumph purchase is handed
- * up to `onPurchaseTriumph` (`App`'s one write) and this view stores nothing.
+ * Read-only except for its page-view marks and the Triumphs page: the Road page
+ * records that the player's own name was read, the Codex page records the separate
+ * Librarian-chain read, and the Triumphs page marks earned deeds as seen. A Triumph
+ * purchase is handed up to `onPurchaseTriumph` (`App`'s one write).
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen } from 'lucide-react';
@@ -60,6 +61,8 @@ interface LibraryTabProps {
    * prompt clears from that same write.
    */
   onViewTriumphs?: () => void;
+  /** Chapter 3 — reading the Road page records the player's own name. */
+  onViewRoad?: () => void;
   /** A8 — put an owned title (bought or earned) on the record. */
   onSelectTitle?: (titleId: string) => void;
   /**
@@ -78,6 +81,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
   onViewTriumphs,
   onSelectTitle,
   onViewCodex,
+  onViewRoad,
 }) => {
   const [ownPage, setOwnPage] = useState<LibraryPageId>('road');
   /** LUDI PHASE A — the two lifetime tallies the header prints. */
@@ -96,6 +100,14 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
    * happens ONCE and never repeats; the callback is held in a ref so an ordinary
    * re-render of this view can never re-raise it.
    */
+  /** Chapter 3 — page one is the player's own named Road of Glory record. */
+  const markRoadViewed = useRef(onViewRoad);
+  markRoadViewed.current = onViewRoad;
+  useEffect(() => {
+    if (page !== 'road') return;
+    markRoadViewed.current?.();
+  }, [page]);
+
   const markViewed = useRef(onViewTriumphs);
   markViewed.current = onViewTriumphs;
   useEffect(() => {

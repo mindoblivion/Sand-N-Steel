@@ -99,6 +99,9 @@ export const RoadOfGloryPage: React.FC<RoadOfGloryPageProps> = ({ profile }) => 
         <h3 className="font-serif font-black text-xl sm:text-2xl text-amber-100 uppercase tracking-wider">
           The Road of Glory
         </h3>
+        <p className="text-sm font-serif font-bold text-amber-200 mt-1" data-road-record-name>
+          The record of {profile.name}
+        </p>
         <p className="text-xs font-serif italic text-neutral-400 mt-1">
           Every gladiator walks the same road. The scribes record how far.
         </p>
