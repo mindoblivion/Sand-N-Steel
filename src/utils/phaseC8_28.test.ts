@@ -730,11 +730,11 @@ describe('H. Nothing else about the Colosseum or the city moved', () => {
     }
   });
 
-  test('the Colosseum hub still resolves at its arrival point', () => {
+  test('the Colosseum hub resolves at the exterior gate arrival point', () => {
     const hub = HUB_LOCATIONS.find((l) => l.id === 'colosseum')!;
-    expect([hub.position[0], hub.position[2]]).toEqual([0, -25]);
-    expect(hub.radius).toBe(5.5);
+    expect([hub.position[0], hub.position[2]]).toEqual([0, -6.2]);
+    expect(hub.radius).toBe(1.8);
     expect(FAST_TRAVEL_ARRIVALS.colosseum).toEqual([0, -6.2]);
-    expect(getNearbyHubLocation([0, 0, -23])?.id).toBe('colosseum');
+    expect(getNearbyHubLocation([0, 0, -6.2])?.id).toBe('colosseum');
   });
 });
