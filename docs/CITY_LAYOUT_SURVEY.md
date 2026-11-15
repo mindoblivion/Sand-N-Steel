@@ -133,3 +133,34 @@ These are geometry risks from source comments and footprint arithmetic, not clai
 ## Non-goals
 
 No new buildings, districts, gameplay systems, city expansion, or decorative population pass. This milestone is a coherent layout and collision/navigation correction of the existing city.
+
+
+## Door-transform survey — confirmed component-level entries
+
+A second read-only pass inspected the mounted building JSX. The following world points are calculated from each component's root transform plus its doorway/portico local transform. They are **doorway reference points**, not player standing positions; the approach centerline must stop outside the building collider with at least the player radius of clearance.
+
+| Building | Component root (X, Z) | Local doorway / opening (X, Z) | Calculated world reference (X, Z) | Facing |
+|---|---:|---:|---:|---|
+| Smithing Forge | (18, 2.6) | (-4.75, 0) | (13.25, 2.6) | West |
+| Golden Palm Tavern | (-16, 14) | (+4.22, 0) | (-11.78, 14) | East |
+| Caravanserai Inn | (16, 14) | (-4.32, 0) | (11.68, 14) | West |
+| Merchant House | (26, -13) | (-3.62, 0) | (22.38, -13) | West |
+| Gladiator Academy | (30.5, -27) | (-3.62, 0) | (26.88, -27) | West |
+| Doctore House | (28, -18.875) | (-2.77, 0) | (25.23, -18.875) | West |
+| Records Library | (23.1, -30) | (0, +1.2) | (23.1, -28.8) | North-side doorway |
+| Bounty Hall | (-15, 26) | (-1.2, +2.52) | (-16.2, 28.52) | South-side doorway |
+| Gladiator Barracks | (-27, -14) | (0, +2.82) | (-27, -11.18) | South |
+| Veteran Gladiator Hall | (-24, -25) | (0, +2.50) | (-24, -22.50) | South |
+| Arena Medical House | (-29, -5) | Nested group: (+0, +2.4), doorway (0, -0.1) | (-29, -2.7) | North-side doorway |
+
+Additional frontage observations from component geometry:
+
+- **Stable:** open front is on the north side, local Z = -3.3, approximately world Z = 11.7. The north frontage is partly dressed with a paddock fence and props; the approach needs to preserve the opening, not cross the fence.
+- **Public Bathhouse:** the source comments identify its portico at local Z = -3.4, approximately world Z = 21.6, facing north.
+- **General Store:** the striped awning, display counter and posts face west toward Via Mercatoria; the actual shopfront is an open frontage rather than a centered doorway component.
+- **Armor & Leather Workshop:** the component contains a front-wall plane at local Z = +1.2 (world Z ≈ +2.2) and an open arch/post arrangement. The exact player threshold still needs a more careful local-geometry inspection.
+- **Roman Shrine:** no dedicated doorway component was identified in the inspected excerpt; its usable approach/front threshold must be identified from the full mesh arrangement before route planning.
+- **Training Yard:** the component includes a separately mounted Training Hall under a rotated parent group. Its local-to-world transform must be applied before mapping its actual entry.
+- **Grand Colosseum:** the front portal is on local +Z at the south-facing facade of the world root (0, -25); the facade radius is 19.3 and the portal is a dedicated wide opening. The city interaction point at (0, -6.2) is an exterior trigger, not the doorway threshold.
+
+These values materially improve the survey but do not complete it: remaining entrances and detailed frontage/prop geometry still need inspection. No transforms were changed during this pass.
