@@ -125,6 +125,7 @@ import type { User } from 'firebase/auth';
 import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT } from './data/opponents';
 import { RIVAL_SCHOOL_OPPONENT } from './data/rivalSchools';
 import { isRivalSchoolOpponent, settleRivalSchoolBout } from './utils/rivalSchools';
+import { isTrialOfEnduranceOpponent, settleTrialOfEnduranceRound } from './utils/trialOfEndurance';
 // C-8.70C — the bout mode is chosen on the pre-fight card and held for the
 // length of the bout only: it is never written to the profile.
 import { DEFAULT_BOUT_MODE } from './data/boutModes';
@@ -328,6 +329,10 @@ export function App() {
   const exhibitionBoutRef = useRef(false);
   /** Rival Schools — session-only identity fence, consumed at duel settlement or abort. */
   const rivalBoutRef = useRef(false);
+  /** Trial of Endurance — session-only fence, consumed by result or technical exit. */
+  const trialBoutRef = useRef(false);
+  /** Keeps the result-screen continuation on the tournament board after a Trial round. */
+  const trialResultPendingRef = useRef(false);
   /** DAY/NIGHT T2 — the day-boundary beat the city plays (sleep veil + the new day's name). */
   const [dayBanner, setDayBanner] = useState<{ day: number; text: string } | null>(null);
   /**
@@ -972,9 +977,11 @@ export function App() {
   const handleEnterDuel = (
     opp: OpponentConfig,
     mode: BoutMode = DEFAULT_BOUT_MODE,
-    rivalBout = false
+    rivalBout = false,
+    trialBout = false
   ) => {
     rivalBoutRef.current = rivalBout;
+    trialBoutRef.current = trialBout;
     setActiveOpponent(opp);
     // C-8.70C — the mode the card was committed on, for this bout only.
     setBoutMode(mode);
@@ -1014,6 +1021,11 @@ export function App() {
   /** Rival Schools — enter the dedicated challenge, not a ladder or grudge row. */
   const handleEnterRivalBout = (mode: BoutMode = DEFAULT_BOUT_MODE) => {
     handleEnterDuel(RIVAL_SCHOOL_OPPONENT, mode, true);
+  };
+
+  /** Trial of Endurance — enter the currently offered authored round. */
+  const handleEnterTrialBout = (opponent: OpponentConfig, mode: BoutMode = DEFAULT_BOUT_MODE) => {
+    handleEnterDuel(opponent, mode, false, true);
   };
 
   /**
@@ -1132,6 +1144,8 @@ export function App() {
      */
     exhibitionBoutRef.current = false;
     rivalBoutRef.current = false;
+    trialBoutRef.current = false;
+    trialResultPendingRef.current = false;
     setActiveHubTab(tab);
     if (tab === 'gear') setGearView(gearSubview ?? 'armory');
     if (tab === 'shop') setShopId(shopStorefront ?? 'market');
@@ -1319,6 +1333,7 @@ export function App() {
      */
     const exhibition = exhibitionBoutRef.current;
     const rivalBout = rivalBoutRef.current && isRivalSchoolOpponent(activeOpponent);
+    const trialBout = trialBoutRef.current && isTrialOfEnduranceOpponent(activeOpponent);
 
     const { profile: afterInjury, event: injuryEvent } = resolveInjuryAfterDuel(profile, didWin);
 
@@ -1403,7 +1418,7 @@ export function App() {
        * (the Librarian chain's step 2 and STORY-4a's mercy both read that record)
        * and the Codex's faced-states. The purse and the time advance are kept.
        */
-      const defeated = exhibition || rivalBout
+      const defeated = exhibition || rivalBout || trialBout
         ? profile.defeatedOpponentIds
         : isGrudge
         ? profile.defeatedOpponentIds
@@ -1418,7 +1433,7 @@ export function App() {
       // unchanged when nothing applies.
       // STORY-5b — R4: an exhibition generates no grudge and records no studied
       // mix, so the row is left unrecorded in the grudge ledger.
-      const grudgeProfile = exhibition || rivalBout
+      const grudgeProfile = exhibition || rivalBout || trialBout
         ? afterOmen
         : isGrudge
         ? settleGrudge(afterOmen, activeOpponent)
@@ -1435,7 +1450,7 @@ export function App() {
       // tiers whose champions were never faced).
       // STORY-5b — R4: an exhibition opens no tier (and no boss id entered the
       // record to open one anyway).
-      const tierAfterVictory = exhibition || rivalBout
+      const tierAfterVictory = exhibition || rivalBout || trialBout
         ? { currentTier: profile.currentTier, firstDefeat: false, advanced: false }
         : resolveVictoryTier({
             currentTier: profile.currentTier,
@@ -1455,7 +1470,7 @@ export function App() {
         defeatedOpponentIds: defeated,
         // FIX-A — the kill count rides this same write: `nextBossKills` reads the record
         // being saved, so it can only rise for a boss whose id is newly entering it.
-        bossKills: exhibition || rivalBout
+        bossKills: exhibition || rivalBout || trialBout
           ? profile.bossKills
           : nextBossKills(profile, { defeatedOpponentIds: defeated }, activeOpponent),
         // STORY-2 — the Doctore's Test's pass rides THIS write: the id enters
@@ -1512,6 +1527,33 @@ export function App() {
         peakCrowdHypeOverall: Math.max(profile.peakCrowdHypeOverall, stats.crowdHypePeak),
       };
       storyLines.push('Victory recorded; rewards withheld because the purse could not be settled safely.');
+    }
+
+    /**
+     * Trial of Endurance — each accepted round is written into the same result
+     * transaction as its ordinary purse. Only the expected authored round can
+     * advance; losses restart the series and only the third accepted win sets trialDone.
+     */
+    if (trialBout) {
+      const trialSettled = settleTrialOfEnduranceRound(
+        settledProfile,
+        activeOpponent,
+        didWin,
+        rewardSettlementAccepted,
+        stats,
+        { exhibition, grudge: isGrudgeBout(activeOpponent) }
+      );
+      if (trialSettled !== settledProfile) {
+        settledProfile = trialSettled;
+        const trialProgress = trialSettled.story?.trialOfEndurance;
+        storyLines.push(
+          trialProgress?.completed
+            ? 'The Trial of Endurance is complete. The Northern Trial is recorded among your victories.'
+            : didWin
+              ? 'Round secured. Return to the Tournament board when you are ready for the next test.'
+              : 'The Trial is lost. Your next attempt will begin again at the first round.'
+        );
+      }
     }
 
     /**
@@ -1659,6 +1701,8 @@ export function App() {
     diceTrailBoutRef.current = false;
     exhibitionBoutRef.current = false;
     rivalBoutRef.current = false;
+    trialResultPendingRef.current = trialBout;
+    trialBoutRef.current = false;
 
     const displayedStats: DuelStatistics = didWin && !rewardSettlementAccepted
       ? { ...stats, goldEarned: 0, fameEarned: 0, xpEarned: 0 }
@@ -1700,6 +1744,12 @@ export function App() {
     setTimeout(() => {
         // The Test's rule judged one duel; it does not outlive it.
         setDoctoreRestriction(null);
+        if (trialResultPendingRef.current) {
+          trialResultPendingRef.current = false;
+          setActiveHubTab('tournament');
+          setCurrentScreen('hub_2d');
+          return;
+        }
         if (profile) enterCity(profile);
         else setCurrentScreen('city_3d');
     }, 0);
