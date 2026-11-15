@@ -408,7 +408,7 @@ describe('C. From the arena, the podium is solid and the player is not trapped',
   });
 
   test('the player on the sand can still move freely (not boxed in)', () => {
-    const arrival = FAST_TRAVEL_ARRIVALS.colosseum; // [0, −23], inside the arena
+    const arrival = FAST_TRAVEL_ARRIVALS.colosseum; // [0, −6.2], outside the front gate
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       const moved = push(arrival[0], arrival[1], dx, dz, 3);
       const dist = Math.hypot(moved.end[0] - arrival[0], moved.end[1] - arrival[1]);
