@@ -922,6 +922,8 @@ export interface StoryProgress {
   echoWon?: boolean;
   /** Rival Schools — the first authored rival challenge and its retry record. */
   rivalry?: RivalryProgress;
+  /** The Colosseum Trial of Endurance's accepted round ledger. */
+  trialOfEndurance?: TrialOfEnduranceProgress;
 }
 
 /** The one Rival Schools challenge's progression, stored lazily inside StoryProgress. */
