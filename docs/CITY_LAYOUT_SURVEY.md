@@ -461,21 +461,25 @@ The west-side service buildings can be connected without moving their foundation
 - City movement boundary: X = -35.
 - Available player-centre corridor: 2.85 units (from -35 to -32.15).
 
-**Candidate spine:** X = -33.575, from approximately Z = -21.45 (Veteran Hall south frontage) to Z = -1.75 (Medical House south frontage). The 2.85-unit envelope is enough for a 2.0-unit clear pedestrian route, but it is a constrained secondary lane, not a broad avenue. Keep all props outside its measured envelope.
+**Candidate spine:** X = -33.575, from approximately Z = -21.45 (Veteran Hall south frontage) to Z = 15.3 (south of the Shrine). The 2.85-unit envelope is enough for a 2.0-unit clear pedestrian route, but it is a constrained secondary lane, not a broad avenue. Keep all props outside its measured envelope.
 
 Candidate short branches:
 - Veteran Hall: from the west spine eastward to a south-facing standoff near (-24, -21.45).
 - Barracks: from the west spine eastward to a south-facing standoff near (-27, -10.45).
 - Medical House: from the west spine eastward to a south-facing standoff near (-29, -1.75). The Training Hall is north of this standoff, so the branch must stay on the south side of its collider.
+- Shrine of Fortuna: from the west spine eastward to a south-facing standoff near (-27, 14.25).
 
-A possible connector from the west spine to the Training Yard gate uses the 3.20-unit gap between the Medical House north face (Z = -7.75) and Barracks south face (Z = -10.95), then skirts the Colosseum's south-west side:
+**Preferred candidate connection to the Training Yard gate — south of the Yard and between the Shrine and Tavern:**
 
-- Candidate cross-street centerline: Z = -9.35, from X = -33.575 to approximately X = -14.0. Stop west of the Colosseum facade; do not continue this line to the Training Yard at this Z.
-- Turn south along X = -14.0 to Z = -7.5, outside the Colosseum's curved west/south-west wall.
-- Turn east along Z = -7.5 to X = -9.4, through the open gap between the Colosseum's south-west flank and the Training Yard's north-east side.
-- Continue north along X = -9.4 to Z = 0, outside the Training Yard's east wall, then cross its existing 2.5-unit east-facing gate opening.
+- Cross east from the west spine at Z = 15.3 to X = -22.15, south of the Shrine's foundation.
+- Turn north/south along X = -22.15 from Z = 15.3 to Z = 8.575. This runs in the 3.40-unit gap between the Shrine east face (X = -23.85) and Tavern west face (X = -20.45).
+- Turn east along Z = 8.575 to X = -11.0. This runs in the 3.15-unit gap between the Training Yard south edge (Z = 7.0) and Tavern north face (Z = 10.15).
+- Continue east to X = -9.4, then north along X = -9.4 to Z = 0, outside the Training Yard's east wall.
+- Cross the existing 2.5-unit east-facing gate opening; the player then reaches the Training Yard's interior interaction radius.
 
-The gap between Medical House and Barracks provides 2.40 units of player-centre clearance after expanding both footprints by the 0.40 player radius. At the narrowest measured point on the west side of the Colosseum, the candidate X = -14.0 line is approximately 2.71 units from the facade segment, leaving approximately 2.31 units of one-sided player-centre clearance after accounting for the 0.40 radius. The east-side approach to the Training Yard gate has a separate 1.2-unit one-sided player-centre clearance at X = -9.4. The 2.5-unit physical gate opening leaves about 1.7 units of player-centre width after the 0.40 radius on both sides; record it as a named doorway-threshold exception, not a 2.0-unit street. The full bend and gate crossing still require a continuous movement-resolver test.
+The Shrine/Tavern gap provides 2.60 units of player-centre clearance after expanding both building footprints by the 0.40 player radius. The Yard/Tavern gap provides 2.35 units of player-centre clearance, just above the 2.0-unit target; its lateral offsets and nearby props need explicit checks. The approach along X = -9.4 has 1.2 units of one-sided player-centre clearance to the Training Yard's east wall. The 2.5-unit physical gate opening leaves about 1.7 units of player-centre width after the 0.40 radius on both sides; record it as a named doorway-threshold exception, not a 2.0-unit street.
+
+The 3.20-unit gap between Medical House and Barracks remains a possible local service passage, but it is **not** the preferred Training Yard connector: continuing east at Z = -9.35 runs into the Colosseum's curved facade. The southern route above avoids that conflict and connects the western services to the Yard without crossing the arena perimeter. All segments, turns and gate entry still require continuous movement-resolver verification.
 
 ### Candidate east-market route logic
 
@@ -530,7 +534,7 @@ This shows why the 0.30-unit gap should be recorded as a non-passage, not treate
 
 The west-side candidate route is based on the actual movement boundary (`BOUNDARY_X = 35`, symmetric ±35) and the player-expanded Medical House west face at X = -32.15. The strip from X = -35 to -32.15 is 2.85 units wide, so a centreline at X = -33.575 has 1.425 units of centre clearance to either limit. This is the measured available width, not a guessed street width.
 
-The proposed cross-connector at Z = -9.35 sits midway in the 3.20-unit gap between Medical House and Barracks. Expanding both footprints by 0.40 leaves 2.40 units of player-centre corridor. It is therefore a viable *secondary* link on paper, just above the 2.0-unit target. It must stop at X = -14.0, west of the Colosseum facade, then route south to Z = -7.5 before turning east across the open gap and approaching the Training Yard gate along X = -9.4. Extending the Z = -9.35 cross-street directly to the Training Yard gate would cut through the Colosseum's curved wall and is explicitly rejected.
+The 3.20-unit Medical House/Barracks gap is a possible local service passage, but it does not provide a direct eastward route to the Training Yard: the Colosseum facade blocks that continuation. The preferred gate connector instead routes south of the Yard at Z = 8.575, between the Yard and Tavern, after passing east of the Shrine. This avoids both the Colosseum wall and the narrow 0.30-unit Academy/Library gap.
 
 ### Remaining east-side frontage questions
 
