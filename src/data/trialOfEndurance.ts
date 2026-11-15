@@ -19,6 +19,8 @@ function trialOpponent(
   const source = ALL_OPPONENTS.find((row) => row.id === sourceId);
   if (!source) throw new Error(`Trial of Endurance source opponent missing: ${sourceId}`);
   const { featureBout: _featureBout, bountyBout: _bountyBout, ...base } = source;
+  void _featureBout;
+  void _bountyBout;
   return {
     ...base,
     id,
