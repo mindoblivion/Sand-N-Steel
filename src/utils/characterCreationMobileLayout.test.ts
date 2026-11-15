@@ -55,6 +55,14 @@ describe('Mobile Character Creation Layout & Navigation', () => {
     expect(source).not.toContain('handleModelSelect');
   });
 
+  test('covers the preview while a newly selected model is loading and clears on ready or error', () => {
+    const source = creationSource();
+    expect(source).toContain('setPreviewModelReady(false)');
+    expect(source).toContain('data-preview-loading="true"');
+    expect(source).toContain('setPreviewModelReady(true)');
+    expect(source).toContain('Preparing fighter');
+  });
+
   test('Centurion-only appearance pickers are all gated to the procedural model', () => {
     const source = creationSource();
     const gate = "{selection.characterModel === 'procedural_gladiator' && (";
