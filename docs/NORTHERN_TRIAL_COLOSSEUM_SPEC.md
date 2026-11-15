@@ -1,6 +1,6 @@
 # Colosseum Trial of Endurance — implementation contract
 
-Status: approved concept; first source implementation is on `feature/rival-schools` and is awaiting green CI and device acceptance.
+Status: first source implementation is on `feature/rival-schools`; both required CI gates are green. Android rehearsal APK generation and physical-device acceptance remain outstanding.
 
 ## Implementation status (2026-11-15)
 
@@ -12,7 +12,7 @@ The first source pass now includes:
 - result-screen continuation back to the Tournament board;
 - progression and save/reload regression tests.
 
-This is not yet a verified release feature. CI exposed two TypeScript issues in the first pass; both were corrected. The current quality and environment workflows have been re-triggered and are pending. Do not treat the implementation as accepted until both are green and an Android rehearsal build completes the full three-round device test.
+This is not yet a verified release feature. CI exposed two TypeScript issues in the first pass; both were corrected. Both required workflows passed on commit `7cabd752835f96d645b2d2f553f9264fcaa4879a`: Main quality gate run 697 (`43699194928`) and Environment gate run 1018 (`43699194940`). The verified runtime test head passed 5,785 tests across 243 files, TypeScript, collision and combat harnesses, production build, and startup asset verification. These CI runs produced no artifacts. Do not treat the implementation as device-accepted until a rehearsal APK from this exact branch head completes the full three-round device test.
 
 ## Purpose
 
