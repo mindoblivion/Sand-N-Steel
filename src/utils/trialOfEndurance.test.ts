@@ -71,7 +71,7 @@ describe('Trial of Endurance progression', () => {
     const profile = fresh();
     const opponent = TRIAL_OF_ENDURANCE_OPPONENTS[0];
     expect(settleTrialOfEnduranceRound(profile, opponent, true, false, stats())).toBe(profile);
-    expect(settleTrialOfEnduranceRound(profile, opponent, true, true, { ...stats(), outcome: 'technical' } as DuelStatistics)).toBe(profile);
+    expect(settleTrialOfEnduranceRound(profile, opponent, true, true, { ...stats(), outcome: 'technical' } as unknown as DuelStatistics)).toBe(profile);
     expect(settleTrialOfEnduranceRound(profile, opponent, true, true, stats(), { exhibition: true })).toBe(profile);
     expect(settleTrialOfEnduranceRound(profile, opponent, true, true, stats(), { grudge: true })).toBe(profile);
   });
