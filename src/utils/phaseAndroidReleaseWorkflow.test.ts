@@ -12,7 +12,7 @@
  *   A. triggers and release refs           — dispatch + `v*` tags, nothing branch-scoped
  *   B. the job-level guard                 — `main` or `v*` only, dispatch cannot bypass it
  *   C. secret isolation                    — production `secrets.*` appear in the release job ONLY
- *   D. rehearsal safety                    — throwaway key, no upload-key path, own artifact name
+ *   D. rehearsal safety                    — stable rehearsal key by default, no upload-key path, own artifact name
  *   E. verify-before-upload                — signature verification precedes the upload step
  *   F. keystore handling                   — no shell heredoc; the escaping script is used
  *   G. cleanup                             — signing material removed unconditionally
