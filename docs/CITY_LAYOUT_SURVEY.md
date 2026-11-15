@@ -382,3 +382,10 @@ This does not automatically mean every building needs a doorway-shaped collider 
 - a physically traversable doorway, which requires a verified collider opening, jamb geometry, and a continuous interior transition.
 
 Do not create paving that appears to enter a solid collider, and do not move the route endpoint inside the footprint merely to make it visually touch the door mesh. The General Store remains a separate unresolved case because the inspected pavilion has no confirmed physical doorway at all.
+
+
+### Coverage gap in the existing paving-intersection tests
+
+The measured intersection lists above are the exact arrays currently asserted by `viaMercatoriaClearance.test.ts`, not a complete audit of every paving constant. In particular, that test does **not** import or test the four Via Scholaris rectangles (`VIA_SCHOLARIS_MAIN`, Academy Approach, Library Approach, Doctore Approach). It also does not test the paving against every non-building prop or wall collider. Those patches therefore remain unverified for foundation overlap and must be included in the full blueprint's SAT sweep.
+
+The broad `VIA_TRIUMPHALIS_BED` is a separate ground/bedding layer rather than a pedestrian paving segment; do not count its intentional underlay as a street route or use it to infer a door approach.
