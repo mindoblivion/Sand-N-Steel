@@ -8,9 +8,10 @@
  * progression design) appends here rather than re-ordering anything.  The Triumphs
  * page appended here with P2 — inside this rack, with no new navigation entry.
  *
- * Read-only except for the Triumphs page: it takes the profile, hands it to the page
- * it is showing, and every other page writes nothing.  A Triumph purchase is handed
- * up to `onPurchaseTriumph` (`App`'s one write) and this view stores nothing.
+ * Read-only except for its page-view marks and the Triumphs page: the Road page
+ * records that the player's own name was read, the Codex page records the separate
+ * Librarian-chain read, and the Triumphs page marks earned deeds as seen. A Triumph
+ * purchase is handed up to `onPurchaseTriumph` (`App`'s one write).
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen } from 'lucide-react';
