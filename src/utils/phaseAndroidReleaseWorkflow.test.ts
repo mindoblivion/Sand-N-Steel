@@ -241,7 +241,7 @@ describe('D. the rehearsal path cannot produce or masquerade as a release', () =
   test('stable signing is the default and restores a dedicated rehearsal-only key', () => {
     const { step } = stepNamed('rehearsal', 'Restore the stable rehearsal signing key');
     expect(step.if).toBe("inputs.rehearsal_signing == 'stable'");
-    expect(step.run).toContain('ANDROID_REHEARSAL_KEYSTORE_BASE64');
+    expect(step.env?.['KEYSTORE_BASE64']).toBe('${{ secrets.ANDROID_REHEARSAL_KEYSTORE_BASE64 }}');
     expect(step.run).toContain('base64 --decode');
     expect(step.run).toContain('scripts/writeKeystoreProperties.ts');
     expect(step.run).toContain('Missing repository secret');
