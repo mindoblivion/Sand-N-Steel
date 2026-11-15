@@ -147,7 +147,7 @@ A second read-only pass inspected the mounted building JSX. The following world 
 | Merchant House | (26, -13) | (-3.62, 0) | (22.38, -13) | West |
 | Gladiator Academy | (30.5, -27) | (-3.62, 0) | (26.88, -27) | West |
 | Doctore House | (28, -18.875) | (-2.77, 0) | (25.23, -18.875) | West |
-| Records Library | (23.1, -30) | (0, +1.2) | (23.1, -28.8) | North-side doorway |
+| Records Library | (23.1, -30) | (0, +1.2) | (23.1, -28.8) | South-facing doorway (local +Z) |
 | Bounty Hall | (-15, 26) | (-1.2, +2.52) | (-16.2, 28.52) | South-side doorway |
 | Gladiator Barracks | (-27, -14) | (0, +2.82) | (-27, -11.18) | South |
 | Veteran Gladiator Hall | (-24, -25) | (0, +2.50) | (-24, -22.50) | South |
@@ -164,3 +164,23 @@ Additional frontage observations from component geometry:
 - **Grand Colosseum:** the front portal is on local +Z at the south-facing facade of the world root (0, -25); the facade radius is 19.3 and the portal is a dedicated wide opening. The city interaction point at (0, -6.2) is an exterior trigger, not the doorway threshold.
 
 These values materially improve the survey but do not complete it: remaining entrances and detailed frontage/prop geometry still need inspection. No transforms were changed during this pass.
+
+
+## Entrance audit corrections and additional measured frontages
+
+The doorway table above has been corrected: the Records Library opening at local +Z is **south-facing**, not north-facing. This correction matters because a north-side approach would send the player toward the rear of the library.
+
+Further confirmed entrance/frontage data:
+
+| Destination | Entrance / frontage reference (X, Z) | Approach side | Status |
+|---|---:|---|---|
+| Training Yard | (-11.23, 0) | East | 2.5-unit gate opening; Via Decumanus corridor is 3.0 units wide between street walls |
+| Stable | (26, 11.7) | North | Open front cutout, with posts at local X ±2.0; paddock fence sits farther north |
+| Public Bathhouse | (-26, 21.6) | North | Open colonnade portico |
+| Roman Shrine | (-27, 12.4) | South | Open colonnade; stepped platform edge around Z 13.4 |
+| Armor & Leather Workshop | (28.2, -0.5) | North | Open arch/post frontage; solid rear wall is south of it |
+| General Store | Not confirmed | West-facing awning/counter | Full solid pavilion box in inspected component; no explicit doorway opening found |
+
+The General Store is now a priority design question for the later entrance pass: it currently has a hub interaction and west-facing retail props, but the inspected building component does not show a clear physical doorway. The layout redesign must not conceal this by drawing a path to a solid wall. Resolve whether the pavilion needs a proper opening as part of the doorway/entrance work, without changing its service behavior.
+
+The Training Yard gate and its approach corridor are a useful example of the desired relationship: the rendered gate, the collision opening, and the main street approach have a consistent measured alignment. Other buildings should reach the same standard.
