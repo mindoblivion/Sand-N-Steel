@@ -1,6 +1,6 @@
 import React from 'react';
 import { PlayerProfile, OpponentConfig } from '../../types/game';
-import { TOURNAMENT_TIERS, ALL_OPPONENTS } from '../../data/opponents';
+import { TOURNAMENT_TIERS, ALL_OPPONENTS, isLadderBoss } from '../../data/opponents';
 import { featureBoutStatuses } from '../../utils/featureBouts';
 import { Swords, Trophy, Skull, Play, Lock, CheckCircle, Shield } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
@@ -74,7 +74,7 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({
   const rivalry = resolveRivalryProgress(profile);
   const rivalryStatus = rivalSchoolChallengeState(profile);
   const trial = resolveTrialOfEndurance(profile);
-  const tierThreeBossId = ALL_OPPONENTS.find((row) => row.tier === 3 && row.isBoss === true)?.id;
+  const tierThreeBossId = ALL_OPPONENTS.find((row) => row.tier === 3 && isLadderBoss(row))?.id;
   const trialUnlocked = resolveStoryState(profile).chapter >= 5 && !!tierThreeBossId && profile.defeatedOpponentIds.includes(tierThreeBossId);
   const nextTrialOpponent = trialOfEnduranceOpponentFor(profile);
   const rivalryUnlocked = resolveStoryState(profile).chapter >= 2 || rivalryStatus === 'completed';
