@@ -537,6 +537,10 @@ describe('A5 §K — the surfaces and the wiring', () => {
     const library = code('components/hub/LibraryTab.tsx');
     expect(library).toContain("if (page !== 'road') return;");
     expect(library).toContain('markRoadViewed.current?.();');
+    const hub = code('components/hub/GladiatorSchoolHub.tsx');
+    expect(hub).toContain('onViewRoad?: () => void;');
+    expect(hub).toContain('onViewRoad={onViewRoad}');
+    expect(app).toContain('onViewRoad={handleViewRoad}');
     expect(code('components/hub/RoadOfGloryPage.tsx')).toContain('The record of {profile.name}');
     expect(app).toContain('saveProfile(ludi.profile);');
     expect(app).toContain('onVisitLocation={handleVisitLocation}');
