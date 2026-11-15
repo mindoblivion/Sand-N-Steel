@@ -70,7 +70,7 @@ function validStats(stats: DuelStatistics | null | undefined): stats is DuelStat
   });
 }
 
-function isTrialOpponent(opponent: OpponentConfig | null | undefined): boolean {
+export function isTrialOfEnduranceOpponent(opponent: OpponentConfig | null | undefined): boolean {
   return !!opponent &&
     TRIAL_OF_ENDURANCE_OPPONENTS.some((row) => row.id === opponent.id) &&
     opponent.isBoss !== true &&
@@ -92,7 +92,7 @@ export function settleTrialOfEnduranceRound(
   stats: DuelStatistics | null | undefined,
   exclusions: TrialSettlementExclusions = {},
 ): PlayerProfile {
-  if (!isTrialOpponent(opponent)) return profile;
+  if (!isTrialOfEnduranceOpponent(opponent)) return profile;
   if (exclusions.exhibition || exclusions.grudge) return profile;
   if (typeof didWin !== 'boolean' || !validStats(stats)) return profile;
   if (stats.outcome !== undefined && stats.outcome !== 'withdrawn') return profile;
