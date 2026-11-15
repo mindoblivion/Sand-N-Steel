@@ -136,7 +136,8 @@ Example on macOS/Linux (run in a private local terminal):
 
 ```bash
 export STORE_PASSWORD="$(openssl rand -hex 32)"
-export KEY_PASSWORD="$(openssl rand -hex 32)"
+# PKCS12 uses the same password for the store and private key.
+export KEY_PASSWORD="$STORE_PASSWORD"
 keytool -genkeypair -noprompt \
   -keystore Sand-and-Steel-Rehearsal.keystore \
   -storetype PKCS12 \
@@ -270,9 +271,10 @@ neither the values nor a derived form of them. The old workflow wrote the file w
 heredoc, which interpolated the password verbatim and silently corrupted any password containing a
 backslash, `$`, a backtick, a newline or a leading space.
 
-**The rehearsal job references none of these five secrets.** That is enforced structurally: it has
-no `secrets.*` reference at all, and its job-level `if:` refuses every trigger except a manual
-`mode: rehearsal` run, so it never starts a runner on a tag push.
+**The rehearsal job references none of the five production upload secrets.** It uses a separate
+set of dedicated rehearsal-only secrets when stable signing is selected; the Play upload keystore
+and its fingerprint remain confined to the release job. Its job-level `if:` refuses every trigger
+except a manual `mode: rehearsal` run, so it never starts a runner on a tag push.
 
 ## Native assets (Play Console "Configure assets and build")
 
