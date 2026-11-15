@@ -477,17 +477,6 @@ const colosseumWallSegments: SegmentCollider[] = [
   // Phase C-8.31: the rear drum, east then west of the gate.
   ...arcSegments(COLO_THETA_END, Math.PI - COLO_GATE_HALF, 2, 'colo-rearwall-r', coloPoint),
   ...arcSegments(Math.PI + COLO_GATE_HALF, Math.PI * 1.15, 2, 'colo-rearwall-l', coloPoint),
-  // The monumental south-facing portal is closed to free-roam movement.
-  // The player stops outside this threshold and uses the gate confirmation UI.
-  // Endpoints meet the portal piers' inner faces, closing the 5.2-unit passage.
-  {
-    type: 'segment',
-    id: 'colo-front-gate-seal',
-    x1: -2.6,
-    z1: -8.1,
-    x2: 2.6,
-    z2: -8.1,
-  },
 ];
 
 // Colosseum Portal Piers — GrandColosseum.tsx
