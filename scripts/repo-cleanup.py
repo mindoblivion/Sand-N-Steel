@@ -46,7 +46,6 @@ def main() -> int:
     if not BASELINE or len(BASELINE) != 40:
         raise RuntimeError("Missing or invalid workflow commit SHA")
 
-    # Fetch every current branch ref so ancestry checks use actual Git objects.
     run(["git", "fetch", "origin", "+refs/heads/*:refs/remotes/origin/*", "--prune"])
     main_sha = run(["git", "rev-parse", "refs/remotes/origin/main"]).stdout.strip()
     if main_sha != BASELINE:
@@ -55,21 +54,18 @@ def main() -> int:
             "Dispatch again from the current main branch."
         )
 
-    # Never overwrite an existing tag, even if it appears to point at this commit.
     existing_tag = run(
         ["git", "ls-remote", "--exit-code", "--tags", "origin", f"refs/tags/{TAG}"],
         check=False,
     )
     if existing_tag.returncode == 0:
         raise RuntimeError(f"Tag {TAG} already exists. No branches were changed.")
-    if existing_tag.returncode not in (2,):
+    if existing_tag.returncode != 2:
         raise RuntimeError(f"Could not verify whether tag {TAG} already exists")
 
     branches = api_list(f"repos/{REPO}/branches?per_page=100")
     closed_prs = api_list(f"repos/{REPO}/pulls?state=closed&per_page=100")
 
-    # Build exact merged-PR evidence for current branch tips. PRs merged into
-    # anything other than main are deliberately not sufficient evidence.
     merged_main_heads: set[tuple[str, str]] = set()
     unmerged_heads: set[str] = set()
     for pr in closed_prs:
@@ -91,8 +87,8 @@ def main() -> int:
     for branch in branches:
         name = branch["name"]
         sha = branch["commit"]["sha"]
-        if name in PROTECTED:
-            kept.append((name, sha, "protected"))
+        if name in PROTECTED or branch.get("protected", False):
+            kept.append((name, sha, "protected by cleanup policy or GitHub"))
             continue
         if is_ancestor(sha):
             candidates.append((name, sha, "tip is already an ancestor of main"))
@@ -126,8 +122,6 @@ def main() -> int:
             run(["gh", "api", "--method", "DELETE", f"repos/{REPO}/git/refs/{ref}"])
             deleted.append(name)
 
-        # The annotated tag is created only after every eligible branch deletion
-        # succeeds. A partial failure can be safely rerun after re-auditing.
         run(["git", "config", "user.name", "github-actions[bot]"])
         run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"])
         run(["git", "tag", "-a", TAG, BASELINE, "-m", "Sand & Steel v0.1 cleanup baseline"])
