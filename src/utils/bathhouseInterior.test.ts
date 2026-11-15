@@ -188,7 +188,7 @@ describe('§D — the wiring', () => {
 
   test('App locks movement while inside and threads the rumor flag', () => {
     expect(APP_SOURCE).toContain(
-      'movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen || bathhouseOpen || academyOpen}'
+      'movementLocked={!!oathBeatMode || tavernOpen || forgeOpen || bountyHallOpen || bathhouseOpen || academyOpen}'
     );
     expect(APP_SOURCE).toContain('onEnterBathhouse={(startWithRumors) => {');
     expect(APP_SOURCE).toContain('setBathhouseRumors(startWithRumors); setBathhouseOpen(true);');
