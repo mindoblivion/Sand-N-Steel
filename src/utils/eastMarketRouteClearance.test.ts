@@ -82,8 +82,8 @@ describe('candidate east-market and Scholar-block routes', () => {
       [11.6, 2.6],
       [11.6, -3.0],
       [17.3, -3.0],
-      [17.3, -9.6],
-    ])).toEqual([17.3, -9.6]);
+      [17.3, -9.8],
+    ])).toEqual([17.3, -9.8]);
     // West counter service standoff is on this lane.
     expect(walkAxisSegment([17.3, -3.0], [17.3, -5.0])).toEqual([17.3, -5.0]);
     // The counter mesh is not a collider; retain 0.10 units beyond the player radius.
