@@ -18,6 +18,7 @@ import { SmithingForge } from './SmithingForge';
 import { TrainingYard } from './TrainingYard';
 import { CityTavern } from './CityTavern';
 import { ColosseumDoorPanel } from './ColosseumDoorPanel';
+import { PhaseMedallion } from './PhaseMedallion';
 import { ForgeDoorPanel } from './ForgeDoorPanel';
 import { BountyHallDoorPanel } from './BountyHallDoorPanel'; 
 import { BathhouseDoorPanel } from './BathhouseDoorPanel';
@@ -1885,7 +1886,19 @@ const handleEnterBathhouse = useCallback(() => {
       {/* TOP STATUS HEADER BAR */}
       <header data-city-top-header="true" className="absolute top-0 left-0 right-0 p-3 sm:p-5 pointer-events-none flex justify-between items-start z-10">
         <div className="pointer-events-auto min-w-0 max-w-[52%] flex flex-col items-start gap-2">
+        <div data-city-phase-medallion="true">
+          <PhaseMedallion phase={cityPhase} />
+        </div>
         <div className="flex items-center gap-2 bg-neutral-950/85 border border-amber-600/50 p-2 sm:p-3 rounded-2xl backdrop-blur-md shadow-2xl">
+          <button
+            onClick={() => setVisitorPanel(true)}
+            data-city-visitors-button="true"
+            aria-label="Visitors in the City"
+            className="min-h-[48px] px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer active:scale-95 transition-all font-serif font-bold text-[10px] uppercase tracking-wider"
+            title="See today's visitors and their offers"
+          >
+            Visitors
+          </button>
           <button
             onClick={() => setShowNavDrawer(!showNavDrawer)}
             aria-label="City Map & Fast Travel"
