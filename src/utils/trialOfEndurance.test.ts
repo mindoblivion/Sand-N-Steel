@@ -2,6 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { DuelStatistics, PlayerProfile } from '../types/game';
 import { createNewProfile } from '../services/storage';
+import { readFileSync } from 'node:fs';
 import { TRIAL_OF_ENDURANCE_OPPONENTS } from '../data/trialOfEndurance';
 import {
   resolveTrialOfEndurance,
@@ -73,6 +74,21 @@ describe('Trial of Endurance progression', () => {
     expect(settleTrialOfEnduranceRound(profile, opponent, true, true, { ...stats(), outcome: 'technical' } as DuelStatistics)).toBe(profile);
     expect(settleTrialOfEnduranceRound(profile, opponent, true, true, stats(), { exhibition: true })).toBe(profile);
     expect(settleTrialOfEnduranceRound(profile, opponent, true, true, stats(), { grudge: true })).toBe(profile);
+  });
+
+  test('App and Tournament board keep Trial entry and settlement fenced', () => {
+    const app = readFileSync('src/App.tsx', 'utf8');
+    const hub = readFileSync('src/components/hub/GladiatorSchoolHub.tsx', 'utf8');
+    const board = readFileSync('src/components/hub/TournamentTab.tsx', 'utf8');
+    expect(app).toContain('handleEnterDuel(opponent, mode, false, true);');
+    expect(app).toContain('const trialBout = trialBoutRef.current && isTrialOfEnduranceOpponent(activeOpponent);');
+    expect(app).toContain('settleTrialOfEnduranceRound(');
+    expect(app).toContain('trialBoutRef.current = false;');
+    expect(app).toContain('trialResultPendingRef.current');
+    expect(hub).toContain('onEnterTrialBout(opp, mode)');
+    expect(board).toContain('resolveStoryState(profile).chapter >= 5');
+    expect(board).toContain('isLadderBoss(row)');
+    expect(board).toContain('data-trial-of-endurance-card');
   });
 
   test('malformed or completed records cannot manufacture progression', () => {
