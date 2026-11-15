@@ -1,0 +1,45 @@
+name: Repository Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_cleanup:
+        description: "Set true only after reviewing a successful dry-run report"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: repository-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Audit and optionally retire merged branches
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact dispatch baseline
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify GitHub CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh auth status
+
+      - name: Audit branches and optionally execute cleanup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          EXECUTE_CLEANUP: ${{ inputs.execute_cleanup }}
+        run: python3 scripts/repo-cleanup.py
