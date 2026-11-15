@@ -171,7 +171,7 @@ const CHANGED: Record<string, { from: number; to: number }> = {
 /** Every other hub keeps the radius its own phase left it. */
 const UNCHANGED: Record<string, number> = {
   town_gate: 4.5,
-  colosseum: 5.5,
+  colosseum: 1.9,
   training_yard: 4.5,
   armor_workshop: 4.5,
   doctore_house: 4.5,
@@ -194,7 +194,7 @@ const UNCHANGED: Record<string, number> = {
 /** Positions are untouched by this phase — pinned so a move cannot hide here. */
 const POSITIONS: Record<string, [number, number]> = {
   town_gate: [0, 24],
-  colosseum: [0, -25],
+  colosseum: [0, -3.4],
   training_yard: [-18, 0],
   smithing_forge: [18, 2.6],
   general_store: [22, -5],
