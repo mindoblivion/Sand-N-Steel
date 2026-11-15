@@ -447,9 +447,9 @@ describe('B. The shipped registry closes the flank', () => {
 
 describe('C. The Colosseum gate is closed to free-roam traversal', () => {
   test('approaching from the city stops at the sealed south-facing gate', () => {
-    expect(collidesWith(0, -5.7, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
-    expect(collidesWith(0, -5.35, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
-    expect(collidesWith(0, -6.2, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
+    expect(collidesWith(0, -8.1, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
+    expect(collidesWith(0, -8.45, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
+    expect(collidesWith(0, -7.6, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
   });
 
   test('the inner portal passage remains clear, but cannot be reached on foot', () => {
@@ -458,7 +458,7 @@ describe('C. The Colosseum gate is closed to free-roam traversal', () => {
     }
     const r = push(0, -4, 0, -1, 70);
     expect(enteredArena(r)).toBe(false);
-    expect(r.end[1]).toBeGreaterThan(-6.2);
+    expect(r.end[1]).toBeGreaterThan(-8.0);
   });
 });
 
