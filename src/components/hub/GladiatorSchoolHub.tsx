@@ -126,6 +126,8 @@ interface GladiatorSchoolHubProps {
    * it as an exhibition, so the duel result path is fenced for it (R4).
    */
   onEnterLegendBout?: (opp: OpponentConfig) => void;
+  /** Chapter 3 — the player's named Road of Glory record was read. */
+  onViewRoad?: () => void;
   /** STORY-5b — the Librarian chain's step 1: the Codex page was opened. */
   onViewCodex?: () => void;
   /** CH-5 — the Palmae panel's two taps; `App` runs the validated transaction. */
@@ -182,6 +184,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onSelectTitle,
   onEnterLegendBout,
   onViewCodex,
+  onViewRoad,
   libraryPage,
   onLibraryPageChange,
 }) => {
@@ -436,6 +439,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onViewTriumphs={onViewTriumphs}
             onSelectTitle={onSelectTitle}
             onViewCodex={onViewCodex}
+            onViewRoad={onViewRoad}
           />
         )}
         {activeTab === 'trainees' && (
