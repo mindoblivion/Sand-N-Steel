@@ -445,29 +445,20 @@ describe('B. The shipped registry closes the flank', () => {
 // C. The intended entrance stays traversable — both directions
 // ══════════════════════════════════════════════════════════════════════════
 
-describe('C. The portal doorway still works', () => {
-  test('north-bound pushes through the doorway reach the arena', () => {
-    for (const x of DOORWAY_CENTRES) {
-      const r = push(x, -4, 0, -1, 70);
-      expect(enteredArena(r), `doorway push at X = ${x} was blocked`).toBe(true);
-      expect(r.end[1], `doorway push at X = ${x}`).toBeLessThan(-20);
-    }
+describe('C. The Colosseum gate is closed to free-roam traversal', () => {
+  test('approaching from the city stops at the sealed south-facing gate', () => {
+    expect(collidesWith(0, -5.7, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
+    expect(collidesWith(0, -5.35, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
+    expect(collidesWith(0, -6.2, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
   });
 
-  test('south-bound pushes through the doorway reach the city', () => {
-    for (const x of [-2.0, -1.0, 0, 1.0, 2.0]) {
-      const r = push(x, -20, 0, 1, 70);
-      expect(leftColosseum(r), `doorway exit at X = ${x} was blocked`).toBe(true);
-      expect(r.end[1], `doorway exit at X = ${x}`).toBeGreaterThan(-6);
+  test('the inner portal passage remains clear, but cannot be reached on foot', () => {
+    for (const x of [-2, -1, 0, 1, 2]) {
+      expect(collidesWith(x, -9.8, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
     }
-  });
-
-  test('the doorway corridor is collision-free at every point of the passage', () => {
-    for (const x of [-2.0, -1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0]) {
-      for (const z of [-6.5, -7.0, -7.5, -8.0, -9.0, -9.8, -11.0]) {
-        expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), `(${x}, ${z}) blocked`).toBe(false);
-      }
-    }
+    const r = push(0, -4, 0, -1, 70);
+    expect(enteredArena(r)).toBe(false);
+    expect(r.end[1]).toBeGreaterThan(-6.2);
   });
 });
 
@@ -542,14 +533,10 @@ describe('E. Movement neither snags nor traps', () => {
     expect(back.end[1]).toBeGreaterThan(blocked.end[1] + 1);
   });
 
-  test('a player deep inside still walks out through the doorway', () => {
-    const r1 = walk(7.0, -16, [[-1, 0, 20], [0, 1, 70]]);
-    expect(leftColosseum(r1), `escape route 1 ended at (${r1.end.join(', ')})`).toBe(true);
-    const r2 = walk(6.6, -14, [[-1, 0, 18], [0, 1, 70]]);
-    expect(leftColosseum(r2), `escape route 2 ended at (${r2.end.join(', ')})`).toBe(true);
-    // Both exits are through the doorway, so both pass |X| ≤ 2.2 on the way out.
-    expect(Math.abs(r1.end[0])).toBeLessThan(2.2);
-    expect(Math.abs(r2.end[0])).toBeLessThan(2.2);
+  test('a player inside cannot walk out through the sealed portal', () => {
+    const result = push(0, -16, 0, 1, 90);
+    expect(leftColosseum(result)).toBe(false);
+    expect(result.end[1]).toBeLessThan(-6.0);
   });
 });
 
@@ -588,6 +575,7 @@ describe('F. Nothing else about the Colosseum or the city moved', () => {
       // doorway replay) is affected — the seals are on the θ = π axis.
       'colo-gateseal-l',
       'colo-gateseal-r',
+      'colo-front-gate-seal',
     ].sort();
     expect(coloIds).toEqual(expected);
   });
