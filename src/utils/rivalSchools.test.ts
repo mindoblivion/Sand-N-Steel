@@ -179,7 +179,7 @@ describe('Rival Schools — first challenge record', () => {
     const app = readFileSync('src/App.tsx', 'utf8');
     expect(app).toContain('rivalBoutRef.current = rivalBout;');
     expect(app).toContain('handleEnterDuel(RIVAL_SCHOOL_OPPONENT, mode, true);');
-    expect(app).toContain('rivalBoutRef.current = false;\\n    setActiveHubTab(tab);');
+    expect(app).toContain('rivalBoutRef.current = false;\n    setActiveHubTab(tab);');
     expect(app).toContain('const rivalBout = rivalBoutRef.current && isRivalSchoolOpponent(activeOpponent);');
     expect(app).toContain('rivalBoutRef.current = false;');
   });
