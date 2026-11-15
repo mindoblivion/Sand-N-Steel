@@ -2,9 +2,9 @@
 #
 # TWO JOBS, MUTUALLY EXCLUSIVE BY TRIGGER
 #   `rehearsal` — `workflow_dispatch` with `mode: rehearsal`, from ANY ref. Suite, typecheck, web
-#                 build, `cap sync`, then a release Gradle build signed with a THROWAWAY key
-#                 generated on the runner. It references no production secret, its artifact is named
-#                 as a rehearsal, and it CANNOT start the release job.
+#                 build, `cap sync`, then a release Gradle build signed with a stable rehearsal-only
+#                 key by default (or an explicitly selected throwaway key). It never sees production
+#                 signing secrets, its artifact is named as a rehearsal, and it CANNOT start release.
 #   `release`   — a `push` of an approved `v*` tag, or `workflow_dispatch` with `mode: release` from
 #                 `refs/heads/main` only. It is the only job that may see the upload keystore; it
 #                 proves a tag is an approved commit on `main`, runs the same gates itself, signs,
@@ -68,10 +68,10 @@ concurrency:
 
 jobs:
   # ── REHEARSAL ──────────────────────────────────────────────────────────�[...]
-  # No `secrets.*` reference may appear in this job, and its `if:` refuses every trigger except a
-  # manual rehearsal run. It proves the whole pipeline — tests, web build, Capacitor sync, Gradle
-  # packaging AND signature verification — while signing with a key it generates itself, so no ref
-  # can touch the upload key through this path.
+  # Only dedicated rehearsal secrets may appear in this job; production upload secrets remain
+  # confined to release. The job-level guard admits only a manual rehearsal dispatch. It proves the
+  # whole pipeline — tests, web build, Capacitor sync, Gradle packaging AND signature verification —
+  # without exposing or reusing the Play upload key.
   rehearsal:
     name: Rehearsal — validate the Android build (no production secrets)
     if: github.event_name == 'workflow_dispatch' && inputs.mode == 'rehearsal'
