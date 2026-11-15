@@ -529,11 +529,15 @@ describe('A5 §K — the surfaces and the wiring', () => {
     expect(app).toContain("story: { ...(visited.story ?? {}), summitSeen: true }");
     expect(app).toContain('settleLudiDeeds(milestone, { locationId })');
     expect(app).toContain('if (ludi.profile === profile) return;');
-    // The Codex page's meaningful read also satisfies the legacy Chapter 3
-    // Library evidence, without losing the separate Librarian-chain boundary.
-    expect(app).toContain('const codexRead = withCodexRead(profile);');
-    expect(app).toContain('story: { ...(codexRead.story ?? {}), librarySeen: true }');
-    expect(app).toContain('saveProfile(read);');
+    // Codex reading remains the Librarian-chain boundary; Chapter 3's separate
+    // Library evidence is awarded by the named Road page, not by this Codex.
+    expect(app).toContain('const read = withCodexRead(profile);');
+    expect(app).toContain('const handleViewRoad = () => {');
+    expect(app).toContain('profile.story?.librarySeen === true');
+    const library = code('components/hub/LibraryTab.tsx');
+    expect(library).toContain("if (page !== 'road') return;");
+    expect(library).toContain('markRoadViewed.current?.();');
+    expect(code('components/hub/RoadOfGloryPage.tsx')).toContain('The record of {profile.name}');
     expect(app).toContain('saveProfile(ludi.profile);');
     expect(app).toContain('onVisitLocation={handleVisitLocation}');
     // The codex module itself never touches storage or the clock.
