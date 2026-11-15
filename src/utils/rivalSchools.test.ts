@@ -1,6 +1,7 @@
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, expect, test } from 'bun:test';
 import type { DuelStatistics, OpponentConfig, PlayerProfile } from '../types/game';
+import { readFileSync } from 'node:fs';
 import { createNewProfile } from '../services/storage';
 import { RIVAL_SCHOOL_OPPONENT } from '../data/rivalSchools';
 import {
@@ -161,6 +162,26 @@ describe('Rival Schools — first challenge record', () => {
       story: { ...(won.story ?? {}), librarySeen: true },
     };
     expect(resolveStoryState(allAvailableChapterThreeEvidence).chapter).toBe(4);
+  });
+
+  test('malformed outcome markers and a withdrawn victory are rejected', () => {
+    const profile = fresh();
+    const malformedOutcome = { ...validStats(), outcome: 'aborted' } as unknown as DuelStatistics;
+    const aborted = settleRivalSchoolBout(profile, RIVAL_SCHOOL_OPPONENT, false, true, malformedOutcome);
+    expect(aborted).toBe(profile);
+
+    const withdrawnWin = { ...validStats(), outcome: 'withdrawn' as const };
+    const invalidWin = settleRivalSchoolBout(profile, RIVAL_SCHOOL_OPPONENT, true, true, withdrawnWin);
+    expect(invalidWin).toBe(profile);
+  });
+
+  test('App arms the rival session only on dedicated entry and clears it on abort and result', () => {
+    const app = readFileSync('src/App.tsx', 'utf8');
+    expect(app).toContain('rivalBoutRef.current = rivalBout;');
+    expect(app).toContain('handleEnterDuel(RIVAL_SCHOOL_OPPONENT, mode, true);');
+    expect(app).toContain('rivalBoutRef.current = false;\\n    setActiveHubTab(tab);');
+    expect(app).toContain('const rivalBout = rivalBoutRef.current && isRivalSchoolOpponent(activeOpponent);');
+    expect(app).toContain('rivalBoutRef.current = false;');
   });
 
   test('withdrawal is a recorded loss; malformed statistics are ignored', () => {
