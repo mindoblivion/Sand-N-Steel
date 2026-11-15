@@ -437,3 +437,69 @@ Do not move these buildings based only on the overlap table. The top-down bluepr
 - All current registered building footprints are now included in the Scholaris SAT sweep.
 - Non-building street walls, fountain, Colosseum arc, decorative props and unregistered visual structures still need a separate visual/collision clearance pass.
 - The paving sweep does not establish route continuity or safe player standoffs; those remain separate checks.
+
+
+## Provisional top-down route blueprint — candidate centerlines only
+
+This is the first coordinate-level routing proposal derived from the measured footprints and entrances. It is **not an implementation instruction yet**: every segment must pass the full `CITY_COLLIDERS` player-circle sweep and the live `resolveCityMovement` test before it becomes a paving mesh. Coordinates below are world X/Z. A 0.50-unit facade offset is preferred for route endpoints where possible; the earlier 0.40 values are mathematical minimums with effectively no tolerance.
+
+### Block organization
+
+| Quarter | Buildings / landmarks | Street role |
+|---|---|---|
+| Civic / Forum | Ishtar Gatehouse, fountain, Bathhouse, Bounty Hall, Shrine, Tavern | Main civic plaza and short frontage spurs |
+| East market / craft | Forge, General Store, Armor Workshop, Merchant House, Inn, Stable | Decumanus east branch, west-of-store service lane, eastern Stable frontage |
+| West training / medical | Training Yard, Medical House, Barracks, Veteran Hall, Colosseum | West-side service lane with three short door branches; separate Colosseum forecourt |
+| Scholar block | Academy, Records Library, Doctore House | One block-level route with separate Library and Academy frontage approaches; no route through the 0.30-unit Academy/Library gap |
+
+### Candidate west-side service lane
+
+The west-side service buildings can be connected without moving their foundations by using the available strip between the city boundary and the west face of the Medical House:
+
+- Medical House west foundation face: X = -31.75.
+- Player-radius-expanded face: X = -32.15.
+- City movement boundary: X = -35.
+- Available player-centre corridor: 2.85 units (from -35 to -32.15).
+
+**Candidate spine:** X = -33.575, from approximately Z = -21.45 (Veteran Hall south frontage) to Z = -1.75 (Medical House south frontage). The 2.85-unit envelope is enough for a 2.0-unit clear pedestrian route, but it is a constrained secondary lane, not a broad avenue. Keep all props outside its measured envelope.
+
+Candidate short branches:
+- Veteran Hall: from the west spine eastward to a south-facing standoff near (-24, -21.45).
+- Barracks: from the west spine eastward to a south-facing standoff near (-27, -10.45).
+- Medical House: from the west spine eastward to a south-facing standoff near (-29, -1.75). The Training Hall is north of this standoff, so the branch must stay on the south side of its collider.
+
+A possible connector from the west spine to the Training Yard gate runs through the 3.20-unit gap between the Medical House north face (Z = -7.75) and Barracks south face (Z = -10.95):
+
+- Candidate cross-street centerline: Z = -9.35, from X = -33.575 to approximately X = -10.5.
+- Candidate approach continues along X = -10.5 toward Z = 0, outside the Training Yard's east-facing gate.
+- The final gate crossing uses the existing 2.5-unit opening; the player then reaches the Training Yard's interior interaction radius.
+
+The gap between Medical House and Barracks provides 2.40 units of player-centre clearance after expanding both footprints by the 0.40 player radius. This is just above the 2.0-unit target. The crossing, gate-wall segments and turn geometry still require a continuous movement-resolver test.
+
+### Candidate east-market route logic
+
+- Keep the Forge's actual west-facing entrance as the primary frontage. Its minimum west standoff is X = 12.85 at Z = 2.6; prefer X = 12.75 for a 0.50 facade offset.
+- Do not use the current Via Decumanus East slab beneath the Forge as evidence of a clear route; its foundation intersection is already pinned in the existing baseline.
+- The General Store requires an actual west-side opening before it can have a real door approach. Its candidate exterior standoff would be near (17.65, -5), but this remains provisional until the component has a verified opening and the player interaction radius is checked.
+- A secondary service lane west of the Store / Merchant House is geometrically plausible around X ≈ 17.65, with a branch east to the Merchant House west frontage near (21.65, -13). This lane must join the Decumanus by routing around the Forge's south-west corner; it must not squeeze through the 0.45-unit Forge/Store gap or the 1.35-unit Store/Merchant gap.
+- The Merchant House arrival at (21, -13) is already inside its interaction radius, but the visible paved route needs a continuous approach from the south/west side, not a path through the narrow gap behind the General Store.
+- The Armor Workshop's north-facing frontage can be reached from its eastern side; the current east-extension slab ends 1.20 units short of the frontage. The final connector must be checked against the Store's east footprint and the X = 35 city boundary before choosing a width.
+- The Stable's north-facing frontage has usable open space to the east. Prefer an eastern approach around the stable's northeast corner rather than the current Caravan Bypass slab, which intersects both the Inn and Stable foundations.
+
+### Civic and Scholar frontage rules
+
+- Preserve the fountain as a central obstacle and route around its basin; do not pave across it.
+- Keep the Bathhouse's north portico, Bounty Hall's south doorway and Shrine's south colonnade as separate frontage spurs off the civic plaza. The current Bounty and Shrine patches do not reach their safe standoffs.
+- The Scholar block must be approached as one planning unit. The Academy/Library 0.30-unit side gap is not a street. A viable Academy approach may come around the south-west corner of the Academy, but its standing point must clear the Library's south-east corner by more than the player radius and should not be treated as a through-alley.
+- Doctore House's west-facing entrance is approached from its west side; connect it to the Scholar route without sending paving through the Merchant House or Doctore House foundations.
+- The Records Library's south-facing entrance should be served from its south frontage. Its current fast-travel arrival is north of the door, so arrival placement and route layout need a separate decision.
+
+### Blueprint acceptance before geometry edits
+
+1. Plot every candidate route and the expanded building/wall/facade colliders on one X/Z plan.
+2. Sample every centerline at no more than 0.10-unit intervals with the real 0.40 player radius; include turns and door standoffs.
+3. Verify each path with `resolveCityMovement`, not only `collidesWith`.
+4. Require at least 2.0 units of continuous player-centre corridor for primary routes. Record any narrower frontage threshold as a named exception, not as a general street.
+5. Add visual prop envelopes and a 0.5-unit no-dressing margin at door approaches.
+6. Only then select paving widths and mesh endpoints; the paving must never run under a foundation except for a specifically approved doorway apron.
+7. Review the coordinate plan before any building transform is changed. The Scholar block and General Store entrance are explicit design decisions, not automatic relocation tasks.
