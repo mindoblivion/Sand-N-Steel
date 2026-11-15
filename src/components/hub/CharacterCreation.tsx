@@ -391,7 +391,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                     {/* SKIN TONE */}
                     <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-3.5" data-skin-tone-picker>
                       <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-                        Skin Tone &mdash; Centurion
+                        Skin Tone &mdash; Centurion Model
                       </label>
                       <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator skin tone">
                         {SKIN_TONES.map((tone) => {
@@ -418,7 +418,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                     {/* TUNIC COLOR */}
                     <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-3.5" data-tunic-color-picker>
                       <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-                        Tunic Color &mdash; Centurion
+                        Tunic Color &mdash; Centurion Model
                       </label>
                       <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator tunic color">
                         {TUNIC_COLORS.map((tone) => {
@@ -445,7 +445,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                     {/* CREST COLOR */}
                     <div className="rounded-xl border border-amber-700/40 bg-neutral-950/70 p-3.5" data-crest-color-picker>
                       <label className="block text-xs font-serif uppercase tracking-wider text-amber-300 mb-2">
-                        Helmet Crest Color &mdash; Centurion
+                        Helmet Crest Color &mdash; Centurion Model
                       </label>
                       <div className="flex flex-wrap gap-3" role="group" aria-label="Choose gladiator crest color">
                         {CREST_COLORS.map((tone) => {
@@ -470,7 +470,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                     </div>
 
                     <p className="px-1 text-[11px] text-neutral-400">
-                      Choose a physical appearance for the Centurion look. Imported gladiator models do not yet support verified skin-tone or material tinting.
+                      Choose a physical appearance for the Centurion character model. Imported gladiator models do not yet support verified skin-tone or material tinting.
                     </p>
                   </div>
                 )}
