@@ -306,7 +306,7 @@ describe('D. the rehearsal path cannot produce or masquerade as a release', () =
 
   test('it labels its logs as a rehearsal', () => {
     const text = JSON.stringify(job('rehearsal'));
-    expect(text).toContain('::notice::REHEARSAL');
+    expect(text).toContain('::notice::TEMPORARY REHEARSAL');
     expect(text.toLowerCase()).toContain('not a release candidate');
   });
 });
