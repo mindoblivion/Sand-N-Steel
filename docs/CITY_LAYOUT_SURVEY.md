@@ -184,3 +184,43 @@ Further confirmed entrance/frontage data:
 The General Store is now a priority design question for the later entrance pass: it currently has a hub interaction and west-facing retail props, but the inspected building component does not show a clear physical doorway. The layout redesign must not conceal this by drawing a path to a solid wall. Resolve whether the pavilion needs a proper opening as part of the doorway/entrance work, without changing its service behavior.
 
 The Training Yard gate and its approach corridor are a useful example of the desired relationship: the rendered gate, the collision opening, and the main street approach have a consistent measured alignment. Other buildings should reach the same standard.
+
+
+## Paving-to-entrance alignment check
+
+A geometric check compared each surveyed entrance's nominal player standing point (0.40 units outside the threshold, in the outward-facing direction) against the rotated/axis-aligned rectangles in `streetGeometry.ts`. This is a **local coverage test only**: it does not prove that a path is connected to the main street, clear of props, or collision-safe along its entire length. A distance of 0 means the standing point lies inside that paving rectangle.
+
+| Entrance / service frontage | Nearest authored paving patch | Distance from standing point to patch |
+|---|---|---:|
+| Smithing Forge | Via Decumanus East | 0.00 |
+| Golden Palm Tavern | Via Tabernaria West | 0.00 |
+| Caravanserai Inn | Via Tabernaria East | 0.00 |
+| General Store west counter reference* | Via Decumanus East | 1.00 |
+| Merchant House | Via Mercatoria Path | 0.00 |
+| Armor & Leather Workshop | Via Decumanus East Extension | 1.20 |
+| Stable | Caravan Bypass | 0.20 |
+| Gladiator Academy | Via Scholaris Academy Approach | 0.00 |
+| Doctore House | Via Scholaris Main | 0.00 |
+| Records Library | Via Scholaris Library Approach | 0.32 |
+| Public Bathhouse | Forum-to-Bathhouse Path | 0.19 |
+| Shrine of Fortuna | Forum-to-Shrine Path | 1.03 |
+| Bounty & Mercenary Hall | Forum-to-Bounty Hall Path | 3.88 |
+| Gladiator Barracks | Courtyard-to-Barracks Path | 0.00 |
+| Veteran Gladiator Hall | Courtyard-to-Veteran Hall Path | 1.00 |
+| Arena Medical House | Courtyard-to-Medical House Path | 3.23 |
+| Training Yard | Via Decumanus West | 0.00 |
+
+*The General Store value is measured to the west-facing counter/awning reference, not a verified door. Its physical entrance remains unresolved as noted above.
+
+### Highest-priority route gaps
+
+1. **Bounty Hall:** its south-facing doorway standoff is about 3.88 units from the nearest authored approach patch. The existing `forum-to-bounty-hall` slab does not reach the doorway area.
+2. **Arena Medical House:** its north-facing doorway standoff is about 3.23 units from the nearest authored approach patch. The courtyard-to-medical slab is not currently aligned with the threshold.
+3. **Armor Workshop:** the open north frontage is about 1.20 units from the nearest east-extension slab; the east extension currently ends at X = 27 while the frontage is centered at X = 28.2.
+4. **Shrine of Fortuna:** the south portico standoff is about 1.03 units from its diagonal approach patch.
+5. **Veteran Hall:** the south doorway standoff is about 1.00 unit from the long courtyard approach slab; its nearest edge and the actual door width need a route join.
+6. **General Store:** its west-facing service counter reference is not a physical doorway, and the nearest major paving slab is still 1.00 unit away. Resolve the wall opening first, then align the path.
+
+The bathhouse, stable and library approach slabs come close to their standoffs (0.19, 0.20 and 0.32 units respectively) but do not contain them. These small gaps may be visually acceptable transitions, but they should be joined deliberately and checked against the player-radius-expanded collision shapes. The distances are to mesh footprints, not measurements of bare-ground walkability.
+
+The next blueprint should prioritize connecting the six gaps above, while verifying every segment-to-segment junction and every approach against the expanded collision registry. Do not move buildings simply to make these paving rectangles touch; first test whether a short path reroute or a corrected approach segment solves the gap.
