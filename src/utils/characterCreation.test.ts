@@ -1,5 +1,5 @@
 /**
- * CH-2 — the creation write path and the class/look pickers.
+ * CH-2 — the creation write path and unified fighter picker.
  *
  * Run with: `bun test src/utils/characterCreation.test.ts`
  *
@@ -16,8 +16,7 @@
  *   §C  the factory: `createNewProfile()` with no argument is BYTE-IDENTICAL to the
  *       pre-CH-2 output, and the class argument writes the class (and its template
  *       and kit) — never `palmae`;
- *   §D  the two pickers are independent: a model never changes the class, and a
- *       class only *suggests* a model while the player has not chosen one;
+ *   §D  one fighter choice atomically determines both class mechanics and model;
  *   §E  the screen is wired to this module and renders its cards from the data.
  *
  * No storage is read or written by this suite: `buildCreatedProfile` is pure and
