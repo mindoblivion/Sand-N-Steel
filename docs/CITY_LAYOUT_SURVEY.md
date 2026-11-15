@@ -151,7 +151,7 @@ A second read-only pass inspected the mounted building JSX. The following world 
 | Bounty Hall | (-15, 26) | (-1.2, +2.52) | (-16.2, 28.52) | South-side doorway |
 | Gladiator Barracks | (-27, -14) | (0, +2.82) | (-27, -11.18) | South |
 | Veteran Gladiator Hall | (-24, -25) | (0, +2.50) | (-24, -22.50) | South |
-| Arena Medical House | (-29, -5) | Nested group: (+0, +2.4), doorway (0, -0.1) | (-29, -2.7) | North-side doorway |
+| Arena Medical House | (-29, -5) | Nested group: (+0, +2.4), doorway (0, -0.1) | (-29, -2.7) | South-facing doorway |
 
 Additional frontage observations from component geometry:
 
