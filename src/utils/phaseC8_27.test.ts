@@ -447,9 +447,11 @@ describe('B. The shipped registry closes the flank', () => {
 
 describe('C. The Colosseum gate is closed to free-roam traversal', () => {
   test('approaching from the city stops at the sealed south-facing gate', () => {
-    expect(collidesWith(0, -8.1, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
-    expect(collidesWith(0, -8.45, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
+    expect(collidesWith(0, -8.1, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
+    expect(collidesWith(0, -8.45, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
     expect(collidesWith(0, -7.6, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
+    const blocked = push(0, -7.6, 0, -1, 30);
+    expect(blocked.end[1]).toBeGreaterThan(-8.0);
   });
 
   test('the inner portal passage remains clear, but cannot be reached on foot', () => {
@@ -575,7 +577,6 @@ describe('F. Nothing else about the Colosseum or the city moved', () => {
       // doorway replay) is affected — the seals are on the θ = π axis.
       'colo-gateseal-l',
       'colo-gateseal-r',
-      'colo-front-gate-seal',
     ].sort();
     expect(coloIds).toEqual(expected);
   });
