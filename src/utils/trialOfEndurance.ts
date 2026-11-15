@@ -92,7 +92,7 @@ export function settleTrialOfEnduranceRound(
   stats: DuelStatistics | null | undefined,
   exclusions: TrialSettlementExclusions = {},
 ): PlayerProfile {
-  if (!isTrialOfEnduranceOpponent(opponent)) return profile;
+  if (!opponent || !isTrialOfEnduranceOpponent(opponent)) return profile;
   if (exclusions.exhibition || exclusions.grudge) return profile;
   if (typeof didWin !== 'boolean' || !validStats(stats)) return profile;
   if (stats.outcome !== undefined && stats.outcome !== 'withdrawn') return profile;
