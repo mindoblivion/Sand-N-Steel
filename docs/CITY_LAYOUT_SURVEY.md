@@ -296,3 +296,61 @@ Retain the existing arrival-connectivity test. Extend the survey and eventual re
 5. any non-collidable prop near the route leaves the intended 2.0-unit clear pedestrian envelope visually legible.
 
 Do not interpret paving overlap as collision clearance, or arrival connectivity as door accessibility.
+
+
+## Confirmed paving / foundation intersections — explicit regression baseline
+
+A targeted read of `src/utils/viaMercatoriaClearance.test.ts` found a second important fact: the city already has a suite that records paving/foundation intersections as an **expected baseline**. Its green result does not mean all paving is clear of buildings. The suite deliberately expects the following sets to remain unchanged until a scene-level layout review decides what each one should become.
+
+### Axis-aligned paving intersections
+
+| Paving slab | Intersecting building footprint |
+|---|---|
+| Caravan Bypass | Caravanserai Inn |
+| Caravan Bypass | Stable |
+| Via Decumanus East | Smithing Forge |
+| Via Decumanus East Extension | Armor & Leather Workshop |
+| Via Decumanus East Extension | General Store |
+| Via Decumanus East Extension | Smithing Forge |
+| Via Mercatoria Connector | Armor & Leather Workshop |
+| Via Mercatoria Connector | General Store |
+| Via Mercatoria Connector | Smithing Forge |
+| Via Socialis | Golden Palm Tavern |
+
+### Rotated pedestrian paving intersections
+
+| Paving slab | Intersecting building footprint |
+|---|---|
+| Courtyard-to-Barracks | Gladiator Barracks |
+| Courtyard-to-Medical House | Arena Medical House |
+| Courtyard-to-Medical House | Gladiator Barracks |
+| Forum-to-Bathhouse | Public Bathhouse |
+| Forum-to-Bounty Hall | Bounty & Mercenary Hall |
+| Forum-to-Shrine | Shrine of Fortuna |
+| Tavern-to-Forum | Golden Palm Tavern |
+| Via Tabernaria West | Golden Palm Tavern |
+| Via Tabernaria East | Caravanserai Inn |
+| Via Tabernaria East | Smithing Forge |
+
+### Outer-district diagonal paving intersections
+
+| Paving slab | Intersecting building footprint |
+|---|---|
+| Northwest Temple Approach | Veteran Gladiator Hall |
+| Southeast Crafting Approach | Stable |
+| Southwest Guild Approach | Public Bathhouse |
+| Southwest Guild Approach | Bounty & Mercenary Hall |
+
+The test uses axis-aligned overlap checks for the straight slabs and a Separating Axis Theorem check using the Three.js yaw orientation for rotated slabs. It is a footprint intersection baseline, not a measurement of how much stone is visibly buried, and not every intersection is necessarily equally wrong: an approach may intentionally meet a building's entrance apron. However, the axis-aligned Caravan Bypass intersections with both the Inn and Stable, plus the multiple east-market road intersections, require direct scene review before any new paving is laid.
+
+The separate `VIA_MERCATORIA_PATH` alley is different: its dedicated test explicitly verifies that it does **not** overlap a registered building footprint and that the Merchant House arrival lies within it. Preserve that proven clearance while redesigning the surrounding connector.
+
+### Why this matters for the redesign
+
+- Do not use the current paving-intersection test's passing status as evidence that all roads clear foundations; it is a snapshot/pinning test for known overlaps.
+- Re-route or trim the slabs listed above, preserving only those portions that deliberately terminate at a measured entrance apron.
+- Recalculate every rotated footprint using the same Three.js yaw convention as the scene; an axis-aligned bounding-box approximation can misclassify diagonal approaches.
+- Keep the paving surface and the collision registry as separate validation layers: a paving mesh can overlap a foundation visually without changing movement collision, and a player can walk on bare ground where no paving exists.
+- Add an explicit *allowed contact* list for doorway aprons, then make all other paving/foundation intersections fail the regression suite.
+
+This is now the highest-confidence explanation for the "roads/buildings look randomly piled together" aspect of the city: several paving meshes were authored to overlap building footprints and the tests currently preserve those intersections rather than requiring a clean street-to-frontage plan.
