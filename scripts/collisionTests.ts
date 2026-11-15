@@ -372,9 +372,9 @@ test('colosseum: approach from avenue is clear (at X=5, avoiding fountain)', () 
 });
 
 test('colosseum: exterior gate is sealed while the inner portal remains intact', () => {
-  assert.ok(collidesWith(0, -5.7, R, CITY_COLLIDERS), 'Gate threshold must block entry');
-  assert.ok(collidesWith(0, -5.35, R, CITY_COLLIDERS), 'Player radius must stop before gate');
-  assert.ok(!collidesWith(0, -6.2, R, CITY_COLLIDERS), 'Exterior approach remains walkable');
+  assert.ok(collidesWith(0, -8.1, R, CITY_COLLIDERS), 'Gate threshold must block entry');
+  assert.ok(collidesWith(0, -8.45, R, CITY_COLLIDERS), 'Player radius must stop before gate');
+  assert.ok(!collidesWith(0, -7.6, R, CITY_COLLIDERS), 'Exterior approach remains walkable');
   assert.ok(!collidesWith(0, -9.0, R, CITY_COLLIDERS), 'Inner portal geometry remains clear behind the gate');
 });
 
@@ -680,7 +680,7 @@ test('fast-travel: arrival positions match documented coordinates', () => {
   // the whole northern group, to Z=-69.0 (the motte summit gate corridor).
   const expected: Record<string, [number, number]> = {
     town_gate: [0, 20],
-    colosseum: [0, -3.4],
+    colosseum: [0, -6.2],
     training_yard: [-18, 2],
     smithing_forge: [11.5, 2.6],
     general_store: [17, -5],
@@ -807,7 +807,7 @@ test('interactions: all HUB_LOCATIONS usable (via FAST_TRAVEL_ARRIVALS)', () => 
 
 test('interactions: getNearbyHubLocation unchanged', () => {
   // Verify getNearbyHubLocation still works at known positions
-  const atColosseum = getNearbyHubLocation([0, 0, -3.4]);
+  const atColosseum = getNearbyHubLocation([0, 0, -6.2]);
   assert.ok(atColosseum !== null);
   assert.strictEqual(atColosseum!.id, 'colosseum');
 
