@@ -574,3 +574,53 @@ The full `GeneralStore.tsx` component shows no `ClassicalDoorway` or door mesh. 
 - Candidate player standoff: (17.3, -5), 0.50 west of the counter edge and 4.70 from the General Store hub centre (inside its 5.25 interaction radius).
 
 The city route should terminate at this west-facing counter. Do not invent a door on another facade. The visual layout pass should decide whether to cut a clean open service aperture around the counter or make the west pavilion wall intentionally open-sided, so the counter no longer appears to intersect a solid wall. The building footprint collider remains a solid service boundary unless a real walk-through interior is explicitly designed.
+
+
+## Decorative-prop clearance audit — blockers the collider registry does not see
+
+A scene-source pass over `CityStreets.tsx` found that several visually placed props sit directly in the candidate pedestrian corridors. These objects are not registered in `CITY_COLLIDERS`; movement-resolver tests can pass while the rendered path still runs through a cart, bench or crate. The route test PRs must therefore be read as **collision-registry verification only** until this separate prop layer is cleared.
+
+### Confirmed west-side obstruction
+
+The south-of-Training-Yard candidate cross-street at Z = 8.575 intersects the Tavern's north-terrace dressing:
+
+| Prop | Current world position | Measured concern |
+|---|---:|---|
+| RomanBench | (-13.8, 8.4), yaw π/4 | Rotated 2.0 × 0.7 footprint spans the candidate cross-street |
+| WineBarrel | (-15.5, 9.1) | Radius about 0.35; overlaps the player-radius-expanded cross-street |
+| Lying WineBarrel | (-16.9, 9.1) | Radius about 0.35; overlaps the same route |
+
+The earlier C-8.22 placement audit moved these props outward in X to clear a nearby cypress and the Tavern plinth; that local fix did not consider the later pedestrian route. Do not undo the cypress clearance by moving them back to their old coordinates. The layout implementation needs a new Tavern side-terrace location outside both the pedestrian route and the Via Socialis approach. A south-west side-yard near X ≈ -21.5, Z ≈ 18.5 is a *candidate only* and still needs prop-to-prop, paving and building clearance checks.
+
+### Confirmed east-market obstruction
+
+| Prop | Current world position | Route impact |
+|---|---:|---|
+| MerchantCart | (10.8, -1.7), yaw π/4, 2.28 × 2.28 | Pinches the vertical connector between Decumanus and the Store; the centreline can be walked in the collision registry, but a 2.0-unit visual corridor cannot be assumed |
+| RomanBench | (12.5, -3.8), yaw -π/2, 2.0 × 0.7 | Blocks the earlier Z = -3.0 cross-street proposal; the newer Z = -5.0 proposal still requires relocating this bench |
+| MerchantPropsCluster | (17, -4) | Its barrels/amphora occupy the General Store's west-counter approach |
+| TimberCrate | (17.5, -6), 0.8 × 0.7 × 0.8 | Too close to the counter approach and west-side service lane |
+| RomanAmphora | (18, -3.5), scale 0.8 | Decorative clutter beside the same counter frontage |
+
+At the proposed General Store service standoff (17.3, -5), the closest cluster amphora has only about 0.11 units of clearance beyond the player radius; the crate leaves about 0.22. That is not a comfortable frontage. The later layout pass should consolidate these props into a small storage/display pocket east of the Store (outside its X = 25.85 footprint edge), not leave them in the customer approach. A possible staging zone around X = 27–29, Z = -5 to -7 is provisional and must be checked against the Workshop north apron and city boundary.
+
+### Fountain bypass — newly confirmed central route constraint
+
+`FOUNTAIN_SPEC` places the central fountain at (0, 0.6), with a 4.0-unit base radius. The player-expanded exclusion radius is therefore 4.4. A direct Cardo line through X = 0, Z = 2.6 is blocked by the fountain; the visual avenue does not mean the player can walk through its basin.
+
+The candidate route to the Forge approaches the fountain's east side:
+- Spawn-side approach: (0, 16) → (5.8, 16)
+- East bypass: (5.8, 16) → (5.8, 2.6)
+- Decumanus/Forge frontage: (5.8, 2.6) → (12.75, 2.6)
+
+The west edge of the sampled 2.0-unit corridor is X = 4.8 at the fountain's centreline Z = 0.6, 0.4 units beyond the player-expanded fountain boundary. This is collision-clear in the current registry, but it remains a narrow pinch that needs visual confirmation against the fountain paving and nearby props.
+
+### Required implementation order for props
+
+1. Relocate the cart and Forge-side bench so the east-market connector can retain a real 2.0-unit pedestrian envelope.
+2. Move the Storefront display cluster, crate and amphora out of the counter apron; preserve a clear west-facing service point.
+3. Relocate the three Tavern terrace props without reintroducing their documented cypress/plinth intersections.
+4. Re-run prop-footprint tests and the collision-resolver route tests together.
+5. Walk the rendered routes on the Samsung device; automated collider tests cannot verify visual legibility or perceived obstruction.
+
+No prop has been moved in this survey PR.
