@@ -217,7 +217,7 @@ describe('§D — the wiring', () => {
     expect(APP_SOURCE).toContain('const [academyOpen, setAcademyOpen] = useState(false);');
     expect(APP_SOURCE).toContain('const [academyTalk, setAcademyTalk] = useState(false);');
     expect(APP_SOURCE).toContain(
-      'movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen || bathhouseOpen || academyOpen}',
+      'movementLocked={!!oathBeatMode || tavernOpen || forgeOpen || bountyHallOpen || bathhouseOpen || academyOpen}',
     );
     expect(APP_SOURCE).toContain(
       'onEnterAcademy={(startWithTalk) => { setAcademyTalk(startWithTalk); setAcademyOpen(true); }}',
