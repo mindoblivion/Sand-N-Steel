@@ -94,7 +94,7 @@ describe('candidate east-market and Scholar-block routes', () => {
 
   test('Forge connector reaches the west counter lane without crossing building colliders', () => {
     expectPoint(walkRoute([
-      [8.6, 2.6],
+      [10.6, 2.6],
       [8.6, -5.0],
       [16.2, -5.0],
       [16.2, -9.8],
