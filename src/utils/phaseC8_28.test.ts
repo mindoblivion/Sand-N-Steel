@@ -397,7 +397,7 @@ describe('C. From the arena, the podium is solid and the player is not trapped',
       expect(coloRadius(...east.end)).toBeCloseTo(18.62, 1);
       expect(coloRadius(...northEast.end)).toBeCloseTo(18.81, 1);
       expect(east.trail.some(([x, z]) => coloRadius(x, z) > R_ARENA_WALL)).toBe(true);
-      expect(push(0, -4, 0, -1, 40).trail.some(([x, z]) => onSand(x, z))).toBe(true);
+      expect(push(0, -4, 0, -1, 40).trail.some(([x, z]) => onSand(x, z))).toBe(false);
     } finally {
       CITY_COLLIDERS.length = 0;
       CITY_COLLIDERS.push(...snapshot);
@@ -526,14 +526,11 @@ describe('F. The rendered facade wall band is no longer reachable from the sand'
       const r = push(0, -25, dx, dz, 90);
       expect(r.trail.some(([x, z]) => inWallBand(x, z)), `${name} push ended in the wall band`).toBe(false);
     }
-    // The one legitimate way out — the doorway — leaves through the vestibule,
-    // which is south of the facade wall band; its wall-band points are all
-    // inside the doorway corridor (the piers' inner faces at |X| = 2.6).
+    // The rendered doorway remains an architectural opening, but the separate
+    // city-side gate barrier prevents free-roam traversal into the empty arena.
     const out = push(0, -12, 0, 1, 90);
-    expect(out.trail.some(([x, z]) => outsideBuilding(x, z))).toBe(true);
-    for (const [x, z] of out.trail) {
-      if (inWallBand(x, z)) expect(Math.abs(x), 'doorway exit left the corridor').toBeLessThan(2.6);
-    }
+    expect(out.trail.some(([x, z]) => outsideBuilding(x, z))).toBe(false);
+    expect(out.end[1]).toBeLessThan(-8.0);
   });
 
   test('the facade arc collider itself is untouched (C-8.31 appended to it)', () => {
