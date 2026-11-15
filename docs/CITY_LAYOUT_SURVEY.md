@@ -398,3 +398,42 @@ A direct source check of `ArenaMedicalHouse.tsx` corrected the earlier orientati
 The current building collider spans Z `[-7.75, -2.25]`; the south foundation face is `Z = -2.25`. The minimum safe player-centre standoff is therefore `(-29, -1.85)`, at least 0.40 beyond the south face. The existing `FAST_TRAVEL_ARRIVALS.arena_medical_house = [-29, -9]` lands on the opposite (north) side, and the `COURTYARD_TO_MEDICAL_HOUSE_PATH` is also north of the building. The arrival can still be within the hub's interaction radius, but it does not establish a paved approach to the actual door.
 
 This is a confirmed orientation/approach mismatch, not a reason to move the Medical House immediately. The blueprint should route from the south standoff around the building's west or east side into the wider western pedestrian network, and should decide separately whether the fast-travel arrival should move to the south frontage. Re-run the arrival reachability test and check interaction overlap before changing that arrival coordinate.
+
+
+## Via Scholaris foundation-intersection sweep — now measured
+
+The four previously untested Via Scholaris rectangles were swept against all 17 registered building-footprint rectangles using the exact Three.js yaw convention and Separating Axis Theorem already used by `viaMercatoriaClearance.test.ts`. This is a footprint intersection calculation; it does not imply every contact is visibly wrong, nor does it test props or non-rectangular colliders.
+
+**Nine current intersections were found:**
+
+| Paving rectangle | Intersecting building footprint |
+|---|---|
+| Via Scholaris Main | Merchant House |
+| Via Scholaris Main | Doctore House |
+| Academy Approach | Gladiator Academy |
+| Academy Approach | Doctore House |
+| Academy Approach | Records Library |
+| Library Approach | Gladiator Academy |
+| Library Approach | Records Library |
+| Doctore Approach | Merchant House |
+| Doctore Approach | Doctore House |
+
+This closes the earlier test-coverage gap: the four Scholaris rectangles are no longer unexamined. Their nine intersections are now a measured baseline, not a green clearance result. The Academy/Library/Doctore approaches in particular cross multiple foundations and need a proper block-level redesign rather than independent endpoint nudges.
+
+### Implication for the Scholaris block
+
+The three buildings form a tightly packed cluster:
+
+- Records Library: X [19.85, 26.35], Z [-32.85, -27.15].
+- Gladiator Academy: X [26.65, 34.35], Z [-30.65, -23.35].
+- Doctore House: X [25, 31], Z [-20.75, -17].
+
+The Academy and Library have only 0.30 units between their registered X faces, below the 0.80 player diameter. That gap is not a pedestrian alley. The Academy's west-facing entrance standoff is also adjacent to the Library's eastern footprint, so its approach needs to be tested as a specific player-circle point and not assumed clear from the paving rectangle.
+
+Do not move these buildings based only on the overlap table. The top-down blueprint must compare three constraints simultaneously: door-facing standoffs, the Colosseum's curved outer facade, and the city boundary at X = ±35. A shift that opens the Academy/Library gap can create a new Colosseum or boundary conflict. Treat the cluster as one planning unit and show candidate alternatives before touching transforms.
+
+### Remaining coverage after this sweep
+
+- All current registered building footprints are now included in the Scholaris SAT sweep.
+- Non-building street walls, fountain, Colosseum arc, decorative props and unregistered visual structures still need a separate visual/collision clearance pass.
+- The paving sweep does not establish route continuity or safe player standoffs; those remain separate checks.
