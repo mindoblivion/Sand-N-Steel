@@ -60,6 +60,8 @@ interface LibraryTabProps {
    * prompt clears from that same write.
    */
   onViewTriumphs?: () => void;
+  /** Chapter 3 — reading the Road page records the player's own name. */
+  onViewRoad?: () => void;
   /** A8 — put an owned title (bought or earned) on the record. */
   onSelectTitle?: (titleId: string) => void;
   /**
@@ -78,6 +80,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
   onViewTriumphs,
   onSelectTitle,
   onViewCodex,
+  onViewRoad,
 }) => {
   const [ownPage, setOwnPage] = useState<LibraryPageId>('road');
   /** LUDI PHASE A — the two lifetime tallies the header prints. */
@@ -96,6 +99,14 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({
    * happens ONCE and never repeats; the callback is held in a ref so an ordinary
    * re-render of this view can never re-raise it.
    */
+  /** Chapter 3 — page one is the player's own named Road of Glory record. */
+  const markRoadViewed = useRef(onViewRoad);
+  markRoadViewed.current = onViewRoad;
+  useEffect(() => {
+    if (page !== 'road') return;
+    markRoadViewed.current?.();
+  }, [page]);
+
   const markViewed = useRef(onViewTriumphs);
   markViewed.current = onViewTriumphs;
   useEffect(() => {
