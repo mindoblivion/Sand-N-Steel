@@ -545,7 +545,7 @@ The East market has promising routes that do not use the known narrow gaps:
 - Approach the Stable from its north/east open frontage rather than through the Inn/Stable gap.
 - Approach the Armor Workshop from its north side, checking the short connector against the east extension and the full frontage width.
 
-These are candidate directions only. The General Store's wall opening must be resolved before assigning its final door node. The Armor Workshop frontage is now measured, but its paving spur and the existing slab/foundation intersection still need full collision and visual review. No route is approved until it passes the collider and movement-resolver sweep.
+These are candidate directions only. The General Store should be treated as a west-facing service counter rather than given an invented door. The counter protrudes 0.60 units through the pavilion's west wall and needs an explicit open-front/aperture treatment in the visual pass. The Armor Workshop frontage is now measured, but its paving spur and the existing slab/foundation intersection still need full collision and visual review. No route is approved until it passes the collider and movement-resolver sweep.
 
 
 ### Armor Workshop frontage — component source now confirmed
@@ -561,3 +561,16 @@ A direct read of `ArmorLeatherWorkshop.tsx` resolves the earlier ambiguity:
 - Candidate player standoff: (28.2, -2.20), 0.50 north of the collider face and 3.20 from the hub centre (inside its 4.5 interaction radius).
 
 The existing Via Decumanus East Extension includes the candidate standoff's X/Z point at its east edge X = 27, so a short 1.2-unit spur from (27, -2.2) to (28.2, -2.2) is geometrically plausible. However, the larger extension slab still intersects the Workshop foundation elsewhere. The route fix must separate the north frontage apron from the paving that currently runs under the building. No component or collider has been changed.
+
+
+### General Store — correct classification as an open-counter market stall
+
+The full `GeneralStore.tsx` component shows no `ClassicalDoorway` or door mesh. It is a timber market pavilion with a west-facing service counter:
+
+- Pavilion root: (22, -5); registered footprint X [18.15, 25.85], Z [-8.15, -1.85].
+- Counter group local X = -3.6; counter width = 1.2, so its world west edge reaches X = 17.8.
+- Counter Z span is approximately [-7.1, -2.9] in world coordinates.
+- The counter protrudes about 0.60 units through the pavilion's nominal west wall; it is intended as an exterior service frontage, not a walk-through door.
+- Candidate player standoff: (17.3, -5), 0.50 west of the counter edge and 4.70 from the General Store hub centre (inside its 5.25 interaction radius).
+
+The city route should terminate at this west-facing counter. Do not invent a door on another facade. The visual layout pass should decide whether to cut a clean open service aperture around the counter or make the west pavilion wall intentionally open-sided, so the counter no longer appears to intersect a solid wall. The building footprint collider remains a solid service boundary unless a real walk-through interior is explicitly designed.
