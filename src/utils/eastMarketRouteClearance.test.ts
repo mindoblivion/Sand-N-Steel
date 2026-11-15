@@ -72,7 +72,10 @@ function expectClearCorridor(
       const px = lateralAxis === 'x' ? x + offset : x;
       const pz = lateralAxis === 'z' ? z + offset : z;
       if (collidesWith(px, pz, PLAYER_RADIUS, CITY_COLLIDERS)) {
-        throw new Error(`2-unit corridor blocked at X=${px.toFixed(2)}, Z=${pz.toFixed(2)} (offset ${offset})`);
+        const blockers = CITY_COLLIDERS
+          .filter((collider) => collidesWith(px, pz, PLAYER_RADIUS, [collider]))
+          .map((collider) => collider.id);
+        throw new Error(`2-unit corridor blocked at X=${px.toFixed(2)}, Z=${pz.toFixed(2)} (offset ${offset}); blockers: ${blockers.join(', ')}`);
       }
       expect(Math.abs(px)).toBeLessThanOrEqual(35);
     }
