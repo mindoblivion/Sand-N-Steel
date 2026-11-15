@@ -86,15 +86,17 @@ describe('candidate east-market and Scholar-block routes', () => {
     ])).toEqual([17.3, -9.6]);
     // West counter service standoff is on this lane.
     expect(walkAxisSegment([17.3, -3.0], [17.3, -5.0])).toEqual([17.3, -5.0]);
+    // The counter mesh is not a collider; retain 0.10 units beyond the player radius.
+    expect(17.8 - 17.3).toBeGreaterThan(PLAYER_RADIUS + 0.09);
   });
 
   test('counter lane joins the east-of-Colosseum Scholar lane', () => {
     expect(walkRoute([
-      [17.3, -9.6],
-      [20.6, -9.6],
+      [17.3, -9.8],
+      [20.6, -9.8],
       [20.6, -13.0],
       [20.6, -21.5],
-    ])).toEqual([20.7, -21.5]);
+    ])).toEqual([20.6, -21.5]);
   });
 
   test('Merchant, Doctore, Library and Academy frontage standoffs are reachable', () => {
@@ -125,11 +127,11 @@ describe('candidate east-market and Scholar-block routes', () => {
     expectClearCorridor([11.6, -3.0], [17.3, -3.0], 'z');
 
     // West of the General Store and its projecting counter.
-    expectClearCorridor([17.3, -3.0], [17.3, -9.6], 'x', [-2, 0]);
+    expectClearCorridor([17.3, -3.0], [17.3, -9.8], 'x', [-2, 0]);
 
     // North of the Store, then east of the Colosseum and west of Merchant.
-    expectClearCorridor([17.3, -9.6], [20.6, -9.6], 'z');
-    expectClearCorridor([20.6, -9.6], [20.6, -13.0], 'x');
+    expectClearCorridor([17.3, -9.8], [20.6, -9.8], 'z');
+    expectClearCorridor([20.6, -9.8], [20.6, -13.0], 'x');
     expectClearCorridor([20.6, -13.0], [20.6, -21.5], 'x');
 
     // Scholar approach turns east before the Colosseum boundary tightens.
