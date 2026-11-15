@@ -8,7 +8,6 @@ import { TitleScreen } from './components/hub/TitleScreen';
 
 const CityHubScene = React.lazy(() => import('./components/3d/city/CityHubScene').then((m) => ({ default: m.CityHubScene })));
 const TavernInterior = React.lazy(() => import('./components/3d/TavernInterior').then((m) => ({ default: m.TavernInterior })));
-const ColosseumInterior = React.lazy(() => import('./components/3d/ColosseumInterior').then((m) => ({ default: m.ColosseumInterior })));
 const ForgeInterior = React.lazy(() => import('./components/3d/ForgeInterior').then((m) => ({ default: m.ForgeInterior })));
 const BountyHallInterior = React.lazy(() => import('./components/3d/BountyHallInterior').then((m) => ({ default: m.BountyHallInterior })));
 const BathhouseInterior = React.lazy(() => import('./components/3d/BathhouseInterior').then((m) => ({ default: m.BathhouseInterior })));
@@ -265,8 +264,6 @@ export function App() {
   const [characterCreationTransitioning, setCharacterCreationTransitioning] = useState(false);
   const [tavernOpen, setTavernOpen] = useState(false);
   const [tavernBettingOpen, setTavernBettingOpen] = useState(false);
-  /* COLOSSEUM-INTERIOR — the enterable arena overlay (TavernInterior pattern). */
-  const [colosseumOpen, setColosseumOpen] = useState(false);
   /* FORGE-INTERIOR — the smithing forge overlay (ColosseumInterior pattern). */
   const [forgeOpen, setForgeOpen] = useState(false);
   const [bountyHallOpen, setBountyHallOpen] = useState(false);
@@ -2423,7 +2420,6 @@ export function App() {
             onOpenDriveSync={() => setShowDriveSync(true)}
             onToggleMute={handleToggleMute}
             isMuted={isMuted}              
-                      onEnterColosseum={() => setColosseumOpen(true)}
             onEnterForge={() => setForgeOpen(true)}
               onEnterBountyHall={(openServices) => { setBountyHallServices(() => openServices); setBountyHallOpen(true); }}                  
               onEnterBathhouse={(startWithRumors) => { setBathhouseRumors(startWithRumors); setBathhouseOpen(true); }}
@@ -2454,7 +2450,7 @@ export function App() {
             onReturnToLibrarian={handleReturnToLibrarian}
             onReadLegendFragment={handleReadLegendFragment}
             lightProfile={oathBeatMode ? 'oathDawn' : undefined}
-            movementLocked={!!oathBeatMode || tavernOpen || colosseumOpen || forgeOpen || bountyHallOpen || bathhouseOpen || academyOpen}
+            movementLocked={!!oathBeatMode || tavernOpen || forgeOpen || bountyHallOpen || bathhouseOpen || academyOpen}
             heraldAim={heraldPointerVisible(herald) ? herald.aim : null}
             /* FIRST SIXTY SECONDS — the ONE pointer's target (the marker's id IS
                this id) and §6's session silence. */
@@ -2540,14 +2536,6 @@ export function App() {
             />
           </React.Suspense>
         )}
-      {/* COLOSSEUM-INTERIOR — the empty arena: full-screen overlay while the city stays
-      mounted underneath (so exiting returns the player to the exact spot they left,
-      at the Colosseum door). */}
-      {currentScreen === 'city_3d' && colosseumOpen && (
-        <React.Suspense fallback={<WaitSurface destination="city_hub" />}>
-                        <ColosseumInterior onExit={() => setColosseumOpen(false)} />
-        </React.Suspense>
-      )}
       {/* FORGE-INTERIOR — the smithing forge: full-screen overlay while the city stays
           mounted underneath (so exiting returns the player to the exact spot they left,
           at the forge door). */}
