@@ -1692,7 +1692,7 @@ export function App() {
     // STORY-4a's Spare/Finish is never offered on one — the same fence the
     // trail's bouts use (`mercyOfferForDuel` answers null for a staged bout).
     const mercy = rewardSettlementAccepted
-      ? mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition || rivalBout)
+      ? mercyOfferForDuel(profile, activeOpponent, didWin, diceTrailBoutRef.current || exhibition || rivalBout || trialBout)
       : null;
     mercyWrittenRef.current = null;
     deserterWrittenRef.current = false;
