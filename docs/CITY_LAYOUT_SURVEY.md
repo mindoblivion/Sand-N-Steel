@@ -470,12 +470,12 @@ Candidate short branches:
 
 A possible connector from the west spine to the Training Yard gate uses the 3.20-unit gap between the Medical House north face (Z = -7.75) and Barracks south face (Z = -10.95), then skirts the Colosseum's south-west side:
 
-- Candidate cross-street centerline: Z = -9.35, from X = -33.575 to approximately X = -13.7. Stop west of the Colosseum facade; do not continue this line to the Training Yard at this Z.
-- Turn south along X = -13.7 to Z = -7.0, outside the Colosseum's curved west/south-west wall.
-- Turn east along Z = -7.0 to X = -9.6, through the open gap between the Colosseum's south-west flank and the Training Yard's north-east side.
-- Continue north along X = -9.6 to Z = 0, outside the Training Yard's east wall, then cross its existing 2.5-unit east-facing gate opening.
+- Candidate cross-street centerline: Z = -9.35, from X = -33.575 to approximately X = -14.0. Stop west of the Colosseum facade; do not continue this line to the Training Yard at this Z.
+- Turn south along X = -14.0 to Z = -7.5, outside the Colosseum's curved west/south-west wall.
+- Turn east along Z = -7.5 to X = -9.4, through the open gap between the Colosseum's south-west flank and the Training Yard's north-east side.
+- Continue north along X = -9.4 to Z = 0, outside the Training Yard's east wall, then cross its existing 2.5-unit east-facing gate opening.
 
-The gap between Medical House and Barracks provides 2.40 units of player-centre clearance after expanding both footprints by the 0.40 player radius. At the narrowest measured point on the west side of the Colosseum, the candidate X = -13.7 line is approximately 2.41 units from the facade segment, leaving approximately 2.01 units of one-sided player-centre clearance after accounting for the 0.40 radius. The east-side approach to the Training Yard gate has a separate 1.0-unit one-sided player-centre clearance at X = -9.6. The 2.5-unit physical gate opening leaves about 1.7 units of player-centre width after the 0.40 radius on both sides; record it as a named doorway-threshold exception, not a 2.0-unit street. The full bend and gate crossing still require a continuous movement-resolver test.
+The gap between Medical House and Barracks provides 2.40 units of player-centre clearance after expanding both footprints by the 0.40 player radius. At the narrowest measured point on the west side of the Colosseum, the candidate X = -14.0 line is approximately 2.71 units from the facade segment, leaving approximately 2.01 units of one-sided player-centre clearance after accounting for the 0.40 radius. The east-side approach to the Training Yard gate has a separate 1.0-unit one-sided player-centre clearance at X = -9.4. The 2.5-unit physical gate opening leaves about 1.7 units of player-centre width after the 0.40 radius on both sides; record it as a named doorway-threshold exception, not a 2.0-unit street. The full bend and gate crossing still require a continuous movement-resolver test.
 
 ### Candidate east-market route logic
 
@@ -530,7 +530,7 @@ This shows why the 0.30-unit gap should be recorded as a non-passage, not treate
 
 The west-side candidate route is based on the actual movement boundary (`BOUNDARY_X = 35`, symmetric ±35) and the player-expanded Medical House west face at X = -32.15. The strip from X = -35 to -32.15 is 2.85 units wide, so a centreline at X = -33.575 has 1.425 units of centre clearance to either limit. This is the measured available width, not a guessed street width.
 
-The proposed cross-connector at Z = -9.35 sits midway in the 3.20-unit gap between Medical House and Barracks. Expanding both footprints by 0.40 leaves 2.40 units of player-centre corridor. It is therefore a viable *secondary* link on paper, just above the 2.0-unit target. It must stop at X = -13.7, west of the Colosseum facade, then route south to Z = -7.0 before turning east across the open gap and approaching the Training Yard gate along X = -9.6. Extending the Z = -9.35 cross-street directly to X = -10.5 would cut through the Colosseum's curved wall and is explicitly rejected.
+The proposed cross-connector at Z = -9.35 sits midway in the 3.20-unit gap between Medical House and Barracks. Expanding both footprints by 0.40 leaves 2.40 units of player-centre corridor. It is therefore a viable *secondary* link on paper, just above the 2.0-unit target. It must stop at X = -14.0, west of the Colosseum facade, then route south to Z = -7.5 before turning east across the open gap and approaching the Training Yard gate along X = -9.4. Extending the Z = -9.35 cross-street directly to the Training Yard gate would cut through the Colosseum's curved wall and is explicitly rejected.
 
 ### Remaining east-side frontage questions
 
