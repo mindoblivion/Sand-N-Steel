@@ -1,7 +1,8 @@
 # STATE OF THE GAME
 
 **Snapshot:** 2026-11-15  
-**Baseline commit:** `932124e0993ed7dc776d6ba2e06c9ef3618041d1` (update this value whenever the state document is refreshed)  
+**Cleanup tag:** `v0.1-cleanup` (not yet created; do not treat this snapshot as the final cleanup tag)  
+**Baseline source of truth until tagging:** live `main` and `release/colosseum-60d` refs; verify their exact SHA before each session  
 **Product target:** *Sand & Steel: Rival of the Arena* — Android-first, Colosseum-only career vertical slice  
 **Stack:** React 19, Vite 6, Three.js 0.174, React Three Fiber 9, Capacitor 8.6  
 **Primary development environment:** Google AI Studio  
