@@ -67,7 +67,7 @@ The following are the registered interaction centers and fast-travel arrivals. *
 | Grand Colosseum | (0, -6.2) | (0, -6.2) | South-facing gate |
 | Ludus Martial Yard | (-18, 0) | (-18, 2) | Inspect TrainingYard component |
 | Smithing Forge | (18, 2.6) | (11.5, 2.6) | West face |
-| General Store | (22, -5) | (17, -5) | West-facing open frontage |
+| General Store | (22, -5) | (17.3, -5) | West-facing open counter service point |
 | Golden Palm Tavern | (-16, 14) | (-10, 14) | East face |
 | Caravanserai Inn | (16, 14) | (10, 14) | West-facing portico |
 | Merchant House | (26, -13) | (21, -13) | West-facing colonnade |
@@ -179,9 +179,9 @@ Further confirmed entrance/frontage data:
 | Public Bathhouse | (-26, 21.6) | North | Open colonnade portico |
 | Roman Shrine | (-27, 12.4) | South | Open colonnade; stepped platform edge around Z 13.4 |
 | Armor & Leather Workshop | (28.2, -0.5) | North | Open arch/post frontage; solid rear wall is south of it |
-| General Store | Not confirmed | West-facing awning/counter | Full solid pavilion box in inspected component; no explicit doorway opening found |
+| General Store | Not applicable — open-counter stall | West-facing awning/counter | Exterior counter protrudes through west wall; service frontage, not a walk-through doorway |
 
-The General Store is now a priority design question for the later entrance pass: it currently has a hub interaction and west-facing retail props, but the inspected building component does not show a clear physical doorway. The layout redesign must not conceal this by drawing a path to a solid wall. Resolve whether the pavilion needs a proper opening as part of the doorway/entrance work, without changing its service behavior.
+The General Store is an open-counter market stall rather than a door-entry building. The route should lead to the west-facing counter service point. The visual pass should make the counter/wall intersection intentional with an open service aperture or open-sided pavilion treatment, while preserving its existing interaction behavior.
 
 The Training Yard gate and its approach corridor are a useful example of the desired relationship: the rendered gate, the collision opening, and the main street approach have a consistent measured alignment. Other buildings should reach the same standard.
 
@@ -210,7 +210,7 @@ A geometric check compared each surveyed entrance's nominal player standing poin
 | Arena Medical House | No valid south-side approach identified | — |
 | Training Yard | Via Decumanus West | 0.00 |
 
-*The General Store value is measured to the west-facing counter/awning reference, not a verified door. Its physical entrance remains unresolved as noted above.
+*The General Store value is measured to the west-facing counter service point, not a door; this is intentional for the open-counter stall.
 
 ### Highest-priority route gaps
 
@@ -219,7 +219,7 @@ A geometric check compared each surveyed entrance's nominal player standing poin
 3. **Armor Workshop:** the open north frontage is about 1.20 units from the nearest east-extension slab; the east extension currently ends at X = 27 while the frontage is centered at X = 28.2.
 4. **Shrine of Fortuna:** the south portico standoff is about 1.03 units from its diagonal approach patch.
 5. **Veteran Hall:** the south doorway standoff is about 1.00 unit from the long courtyard approach slab; its nearest edge and the actual door width need a route join.
-6. **General Store:** its west-facing service counter reference is not a physical doorway, and the nearest major paving slab is still 1.00 unit away. Resolve the wall opening first, then align the path.
+6. **General Store:** route to the west-facing counter at approximately (17.3, -5). Make the counter's service aperture visually clear; do not invent a separate door or pave into the pavilion collider.
 
 The bathhouse, stable and library approach slabs come close to their standoffs (0.19, 0.20 and 0.32 units respectively) but do not contain them. These small gaps may be visually acceptable transitions, but they should be joined deliberately and checked against the player-radius-expanded collision shapes. The distances are to mesh footprints, not measurements of bare-ground walkability.
 
@@ -381,7 +381,7 @@ This does not automatically mean every building needs a doorway-shaped collider 
 - an exterior interaction apron, where the player stops at the safe standoff and the prompt opens the service/interior; or
 - a physically traversable doorway, which requires a verified collider opening, jamb geometry, and a continuous interior transition.
 
-Do not create paving that appears to enter a solid collider, and do not move the route endpoint inside the footprint merely to make it visually touch the door mesh. The General Store remains a separate unresolved case because the inspected pavilion has no confirmed physical doorway at all.
+Do not create paving that appears to enter a solid collider, and do not move the route endpoint inside the footprint merely to make it visually touch a door mesh. The General Store is the exception: it is an open-counter stall and its route should end outside the west counter.
 
 
 ### Coverage gap in the existing paving-intersection tests
@@ -485,7 +485,7 @@ The 3.20-unit gap between Medical House and Barracks remains a possible local se
 
 - Keep the Forge's actual west-facing entrance as the primary frontage. Its minimum west standoff is X = 12.85 at Z = 2.6; prefer X = 12.75 for a 0.50 facade offset.
 - Do not use the current Via Decumanus East slab beneath the Forge as evidence of a clear route; its foundation intersection is already pinned in the existing baseline.
-- The General Store requires an actual west-side opening before it can have a real door approach. Its candidate exterior standoff would be near (17.65, -5), but this remains provisional until the component has a verified opening and the player interaction radius is checked.
+- The General Store is served at its west-facing counter, not a door. Its candidate player standoff is near (17.3, -5), 0.50 west of the counter edge and inside the configured interaction radius.
 - A secondary service lane west of the Store / Merchant House is geometrically plausible around X ≈ 17.65, with a branch east to the Merchant House west frontage near (21.65, -13). This lane must join the Decumanus by routing around the Forge's south-west corner; it must not squeeze through the 0.45-unit Forge/Store gap or the 1.35-unit Store/Merchant gap.
 - The Merchant House arrival at (21, -13) is already inside its interaction radius, but the visible paved route needs a continuous approach from the south/west side, not a path through the narrow gap behind the General Store.
 - The Armor Workshop's north-facing arch is now measured: its opening is between the two front piers at world Z = -0.5, and the safe exterior standoff is (28.2, -2.2). The east-extension slab contains the approach point at X = 27, Z = -2.2, so a 1.2-unit frontage spur to X = 28.2 is geometrically plausible; the remainder of that slab still overlaps the Workshop foundation and must be trimmed/re-routed.
