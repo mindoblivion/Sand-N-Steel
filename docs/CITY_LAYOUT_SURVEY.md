@@ -354,3 +354,31 @@ The separate `VIA_MERCATORIA_PATH` alley is different: its dedicated test explic
 - Add an explicit *allowed contact* list for doorway aprons, then make all other paving/foundation intersections fail the regression suite.
 
 This is now the highest-confidence explanation for the "roads/buildings look randomly piled together" aspect of the city: several paving meshes were authored to overlap building footprints and the tests currently preserve those intersections rather than requiring a clean street-to-frontage plan.
+
+
+## Doorway reference points versus collision-safe path endpoints
+
+The component-level doorway coordinates above are architectural reference points, not valid player standing coordinates. The building collision registry uses solid footprint rectangles; it does not carve a doorway opening out of each rectangle. A route therefore needs to terminate at a **player-radius-safe exterior standoff**, not blindly at the doorway reference or at a fixed 0.40 offset from that reference.
+
+For an axis-aligned footprint, the standoff is measured from the exterior foundation face in the direction the player approaches, with the player centre at least 0.40 beyond that face. Several examples show why this matters:
+
+| Entrance | Doorway reference | Relevant exterior collider face | Minimum centre standoff |
+|---|---:|---:|---:|
+| Tavern, east | (-11.78, 14) | east face X = -11.55 | X = -11.15 |
+| Records Library, south | (23.1, -28.8) | south face Z = -27.15 | Z = -26.75 |
+| Bounty Hall, south | (-16.2, 28.52) | south face Z = 29.0 | Z = 29.40 |
+| Veteran Hall, south | (-24, -22.50) | south face Z = -21.95 | Z = -21.55 |
+| Shrine, south | (-27, 12.4) | south face Z = 13.75 | Z = 14.15 |
+| Armor Workshop, north | (28.2, -0.5) | north face Z = -1.70 | Z = -2.10 |
+| Doctore House, west | (25.23, -18.875) | west face X = 25.0 | X = 24.60 |
+| Gladiator Academy, west | (26.88, -27) | west face X = 26.65 | X = 26.25 |
+| Stable, north | (26, 11.7) | north face Z = 11.15 | Z = 10.75 |
+| Bathhouse, north | (-26, 21.6) | north face Z = 21.50 | Z = 21.10 |
+
+The difference is especially large at the Records Library: its doorway reference is recessed well inside the registered south footprint edge, so a player cannot stand 0.40 from that reference without overlapping the building collider. The same principle applies to the other recessed porticos and open-front structures.
+
+This does not automatically mean every building needs a doorway-shaped collider cutout. The current interaction model may intentionally let the player activate a building from a safe point outside its facade. The layout blueprint must explicitly choose between:
+- an exterior interaction apron, where the player stops at the safe standoff and the prompt opens the service/interior; or
+- a physically traversable doorway, which requires a verified collider opening, jamb geometry, and a continuous interior transition.
+
+Do not create paving that appears to enter a solid collider, and do not move the route endpoint inside the footprint merely to make it visually touch the door mesh. The General Store remains a separate unresolved case because the inspected pavilion has no confirmed physical doorway at all.
