@@ -2618,6 +2618,7 @@ export function App() {
             onMarkCardSeen={handleMarkCardSeen}
             onEnterDoctoreTest={handleEnterDoctoreTest}
             onEnterRivalBout={handleEnterRivalBout}
+            onEnterTrialBout={handleEnterTrialBout}
             onPurchaseTriumph={handlePurchaseTriumph}
             onTemperItem={handleTemperItem}
             onBuyStableQuality={handleBuyStableQuality}
