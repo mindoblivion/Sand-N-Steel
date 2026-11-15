@@ -425,9 +425,9 @@ const DOORWAY_CENTRES = [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
 
 describe('D. The closed Colosseum gate protects the arena interior', () => {
   test('the city-side threshold blocks walking into the arena', () => {
-    expect(collidesWith(0, -5.7, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
-    expect(collidesWith(0, -5.35, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
-    expect(collidesWith(0, -6.2, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
+    expect(collidesWith(0, -8.1, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
+    expect(collidesWith(0, -8.45, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
+    expect(collidesWith(0, -7.6, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
   });
 
   test('the portal and bowl geometry remain intact behind the gate', () => {
@@ -731,7 +731,7 @@ describe('H. Nothing else about the Colosseum or the city moved', () => {
     const hub = HUB_LOCATIONS.find((l) => l.id === 'colosseum')!;
     expect([hub.position[0], hub.position[2]]).toEqual([0, -25]);
     expect(hub.radius).toBe(5.5);
-    expect(FAST_TRAVEL_ARRIVALS.colosseum).toEqual([0, -3.4]);
+    expect(FAST_TRAVEL_ARRIVALS.colosseum).toEqual([0, -6.2]);
     expect(getNearbyHubLocation([0, 0, -23])?.id).toBe('colosseum');
   });
 });
