@@ -207,7 +207,7 @@ A geometric check compared each surveyed entrance's nominal player standing poin
 | Bounty & Mercenary Hall | Forum-to-Bounty Hall Path | 3.88 |
 | Gladiator Barracks | Courtyard-to-Barracks Path | 0.00 |
 | Veteran Gladiator Hall | Courtyard-to-Veteran Hall Path | 1.00 |
-| Arena Medical House | Courtyard-to-Medical House Path | 3.23 |
+| Arena Medical House | No valid south-side approach identified | — |
 | Training Yard | Via Decumanus West | 0.00 |
 
 *The General Store value is measured to the west-facing counter/awning reference, not a verified door. Its physical entrance remains unresolved as noted above.
@@ -215,7 +215,7 @@ A geometric check compared each surveyed entrance's nominal player standing poin
 ### Highest-priority route gaps
 
 1. **Bounty Hall:** its south-facing doorway standoff is about 3.88 units from the nearest authored approach patch. The existing `forum-to-bounty-hall` slab does not reach the doorway area.
-2. **Arena Medical House:** its north-facing doorway standoff is about 3.23 units from the nearest authored approach patch. The courtyard-to-medical slab is not currently aligned with the threshold.
+2. **Arena Medical House:** the component's entrance is on the SOUTH side (world Z increases), but the current Courtyard-to-Medical House paving patch is north of the building. The old 3.23-unit comparison used the wrong facing and is withdrawn; no valid south-side approach has been confirmed.
 3. **Armor Workshop:** the open north frontage is about 1.20 units from the nearest east-extension slab; the east extension currently ends at X = 27 while the frontage is centered at X = 28.2.
 4. **Shrine of Fortuna:** the south portico standoff is about 1.03 units from its diagonal approach patch.
 5. **Veteran Hall:** the south doorway standoff is about 1.00 unit from the long courtyard approach slab; its nearest edge and the actual door width need a route join.
@@ -389,3 +389,12 @@ Do not create paving that appears to enter a solid collider, and do not move the
 The measured intersection lists above are the exact arrays currently asserted by `viaMercatoriaClearance.test.ts`, not a complete audit of every paving constant. In particular, that test does **not** import or test the four Via Scholaris rectangles (`VIA_SCHOLARIS_MAIN`, Academy Approach, Library Approach, Doctore Approach). It also does not test the paving against every non-building prop or wall collider. Those patches therefore remain unverified for foundation overlap and must be included in the full blueprint's SAT sweep.
 
 The broad `VIA_TRIUMPHALIS_BED` is a separate ground/bedding layer rather than a pedestrian paving segment; do not count its intentional underlay as a street route or use it to infer a door approach.
+
+
+### Corrected Arena Medical House orientation and arrival mismatch
+
+A direct source check of `ArenaMedicalHouse.tsx` corrected the earlier orientation assumption. Its root is `[-29, 0, -5]`; the recessed doorway group is at local `[0, 0, 2.4]`, with the door at local `[0, 0.2, -0.1]`. With no parent yaw, the doorway reference is world `(-29, -2.7)`, on the **south-facing** side of the building, not the north.
+
+The current building collider spans Z `[-7.75, -2.25]`; the south foundation face is `Z = -2.25`. The minimum safe player-centre standoff is therefore `(-29, -1.85)`, at least 0.40 beyond the south face. The existing `FAST_TRAVEL_ARRIVALS.arena_medical_house = [-29, -9]` lands on the opposite (north) side, and the `COURTYARD_TO_MEDICAL_HOUSE_PATH` is also north of the building. The arrival can still be within the hub's interaction radius, but it does not establish a paved approach to the actual door.
+
+This is a confirmed orientation/approach mismatch, not a reason to move the Medical House immediately. The blueprint should route from the south standoff around the building's west or east side into the wider western pedestrian network, and should decide separately whether the fast-travel arrival should move to the south frontage. Re-run the arrival reachability test and check interaction overlap before changing that arrival coordinate.
