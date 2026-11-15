@@ -27,7 +27,6 @@ import { CaravanseraiInn } from './CaravanseraiInn';
 import { GrandColosseum } from './GrandColosseum';
 import { ChampionBannerPole } from './ChampionBannerPole';
 import { resolveBanner } from '../../../utils/heraldry';
-import { resolveDoorDuelTarget } from '../../../utils/tierAdvancement';
 import { MerchantHouse } from './MerchantHouse';
 import { ArmorLeatherWorkshop } from './ArmorLeatherWorkshop';
 import { Stable } from './Stable';
@@ -944,13 +943,6 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     onReadLegendFragment,
   ]);
 
-    const handleColosseumFight = useCallback(() => {
-          sounds.playClick();
-          setColosseumPanel(false);
-          const target = resolveDoorDuelTarget(playerProfile.currentTier, playerProfile.defeatedOpponentIds);
-          if (target) onEnterDuel(target.opponent);
-          else onOpenTab('tournament');
-    }, [playerProfile.currentTier, playerProfile.defeatedOpponentIds, onEnterDuel, onOpenTab]);
     const handleEnterForge = useCallback(() => {
     sounds.playClick();
     setForgePanel(false);
@@ -1997,9 +1989,12 @@ const handleEnterBathhouse = useCallback(() => {
 
           <button
             onClick={onReturnToMainMenu}
-            className="min-h-[48px] px-3 py-2 rounded-2xl bg-neutral-900/90 border border-neutral-700 hover:border-amber-500/60 text-neutral-300 hover:text-amber-200 text-xs font-serif font-bold backdrop-blur-md cursor-pointer active:scale-95 transition-all shadow-xl"
+            aria-label="Return to Main Menu"
+            title="Return to Main Menu"
+            className="min-h-[48px] min-w-[48px] px-2 sm:px-3 py-2 rounded-2xl bg-neutral-900/90 border border-neutral-700 hover:border-amber-500/60 text-neutral-300 hover:text-amber-200 text-xs font-serif font-bold backdrop-blur-md cursor-pointer active:scale-95 transition-all shadow-xl"
           >
             <span className="city-utility-label">Main Menu</span>
+            <span className="city-main-menu-mobile sm:hidden">Exit</span>
           </button>
         </div>
       </header>
