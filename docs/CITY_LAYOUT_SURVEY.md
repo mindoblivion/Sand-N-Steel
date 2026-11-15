@@ -597,12 +597,20 @@ The earlier C-8.22 placement audit moved these props outward in X to clear a nea
 | Prop | Current world position | Route impact |
 |---|---:|---|
 | MerchantCart | (10.8, -1.7), yaw π/4, 2.28 × 2.28 | Pinches the vertical connector between Decumanus and the Store; the centreline can be walked in the collision registry, but a 2.0-unit visual corridor cannot be assumed |
-| RomanBench | (12.5, -3.8), yaw -π/2, 2.0 × 0.7 | Blocks the earlier Z = -3.0 cross-street proposal; the newer Z = -5.0 proposal still requires relocating this bench |
+| RomanBench | (12.5, -3.8), yaw -π/2, 2.0 × 0.7 | Blocks the earlier Z = -3.0 cross-street proposal; the current Z = -2.9 south-of-Forge connector still requires relocating this bench |
 | MerchantPropsCluster | (17, -4) | Its barrels/amphora occupy the General Store's west-counter approach |
 | TimberCrate | (17.5, -6), 0.8 × 0.7 × 0.8 | Too close to the counter approach and west-side service lane |
 | RomanAmphora | (18, -3.5), scale 0.8 | Decorative clutter beside the same counter frontage |
 
 At the proposed General Store service standoff (17.3, -5), the closest cluster amphora has only about 0.11 units of clearance beyond the player radius; the crate leaves about 0.22. That is not a comfortable frontage. The later layout pass should consolidate these props into a small storage/display pocket east of the Store (outside its X = 25.85 footprint edge), not leave them in the customer approach. A possible staging zone around X = 27–29, Z = -5 to -7 is provisional and must be checked against the Workshop north apron and city boundary.
+
+### Curved Colosseum wall — rejected east connector
+
+The first east-market connector used X = 8.6 south of the Forge. Its centreline could be traversed in the sampled movement resolver, but the full 2.0-unit corridor at the south edge clipped the Colosseum's curved east-wall segment `colo-wall-r-0` at approximately (8.6, -7.6). This is a useful distinction: a walkable centreline does not establish a safe-width corridor.
+
+The passing candidate now uses the Forge's west frontage at (12.75, 2.6), turns south beyond the Forge's south footprint edge at Z = -2.9, crosses east to X = 16.2, then continues south to Z = -9.8 before joining the east-of-Colosseum Scholar lane at X = 20.6. The production movement resolver and sampled 2.0-unit checks pass for this collider-only route (merged test PR #462).
+
+This route is not ready for visual implementation: the cart at (10.8, -1.7), Forge-side bench at (12.5, -3.8), and Storefront display props remain unregistered visual obstacles. The final path must be adjusted with their actual rendered footprints, not just the collider registry.
 
 ### Fountain bypass — newly confirmed central route constraint
 
