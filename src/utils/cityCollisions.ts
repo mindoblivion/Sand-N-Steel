@@ -165,8 +165,8 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     name: 'The Grand Colosseum',
     subtitle: 'Enter Tournament Arena',
     // South-facing gate interaction stays outside the facade.
-    position: [0, 0, -3.4],
-    radius: 1.9,
+    position: [0, 0, -6.2],
+    radius: 1.8,
     icon: 'Swords',
     tabKey: 'tournament',
     actionPrompt: 'Enter the Colosseum',
@@ -829,7 +829,7 @@ export function resolveCityMovement(
 
 export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   town_gate:          [0, 20],
-  colosseum:          [0, -3.4],
+  colosseum:          [0, -6.2],
   training_yard:      [-18, 2],
   smithing_forge:     [11.5, 2.6],
   general_store:      [17, -5],
