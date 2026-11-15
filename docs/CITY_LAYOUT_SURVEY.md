@@ -158,7 +158,7 @@ Additional frontage observations from component geometry:
 - **Stable:** open front is on the north side, local Z = -3.3, approximately world Z = 11.7. The north frontage is partly dressed with a paddock fence and props; the approach needs to preserve the opening, not cross the fence.
 - **Public Bathhouse:** the source comments identify its portico at local Z = -3.4, approximately world Z = 21.6, facing north.
 - **General Store:** the striped awning, display counter and posts face west toward Via Mercatoria; the actual shopfront is an open frontage rather than a centered doorway component.
-- **Armor & Leather Workshop:** the component contains a front-wall plane at local Z = +1.2 (world Z ≈ +2.2) and an open arch/post arrangement. The exact player threshold still needs a more careful local-geometry inspection.
+- **Armor & Leather Workshop:** source inspection confirms a solid rear brick wall at local Z = +1.8 (world Z = +2.8) and two front arch-support piers at local Z = -1.5 (world Z = -0.5), centred at local X = ±3.6. The clear opening between the pier inner faces is approximately 6.25 units wide. The entrance is north-facing; the 0.50-offset player standoff is (28.2, -2.2).
 - **Roman Shrine:** no dedicated doorway component was identified in the inspected excerpt; its usable approach/front threshold must be identified from the full mesh arrangement before route planning.
 - **Training Yard:** the component includes a separately mounted Training Hall under a rotated parent group. Its local-to-world transform must be applied before mapping its actual entry.
 - **Grand Colosseum:** the front portal is on local +Z at the south-facing facade of the world root (0, -25); the facade radius is 19.3 and the portal is a dedicated wide opening. The city interaction point at (0, -6.2) is an exterior trigger, not the doorway threshold.
@@ -488,7 +488,7 @@ The 3.20-unit gap between Medical House and Barracks remains a possible local se
 - The General Store requires an actual west-side opening before it can have a real door approach. Its candidate exterior standoff would be near (17.65, -5), but this remains provisional until the component has a verified opening and the player interaction radius is checked.
 - A secondary service lane west of the Store / Merchant House is geometrically plausible around X ≈ 17.65, with a branch east to the Merchant House west frontage near (21.65, -13). This lane must join the Decumanus by routing around the Forge's south-west corner; it must not squeeze through the 0.45-unit Forge/Store gap or the 1.35-unit Store/Merchant gap.
 - The Merchant House arrival at (21, -13) is already inside its interaction radius, but the visible paved route needs a continuous approach from the south/west side, not a path through the narrow gap behind the General Store.
-- The Armor Workshop's north-facing frontage can be reached from its eastern side; the current east-extension slab ends 1.20 units short of the frontage. The final connector must be checked against the Store's east footprint and the X = 35 city boundary before choosing a width.
+- The Armor Workshop's north-facing arch is now measured: its opening is between the two front piers at world Z = -0.5, and the safe exterior standoff is (28.2, -2.2). The east-extension slab contains the approach point at X = 27, Z = -2.2, so a 1.2-unit frontage spur to X = 28.2 is geometrically plausible; the remainder of that slab still overlaps the Workshop foundation and must be trimmed/re-routed.
 - The Stable's north-facing frontage has usable open space to the east. Prefer an eastern approach around the stable's northeast corner rather than the current Caravan Bypass slab, which intersects both the Inn and Stable foundations.
 
 ### Civic and Scholar frontage rules
@@ -545,4 +545,19 @@ The East market has promising routes that do not use the known narrow gaps:
 - Approach the Stable from its north/east open frontage rather than through the Inn/Stable gap.
 - Approach the Armor Workshop from its north side, checking the short connector against the east extension and the full frontage width.
 
-These are candidate directions only. The General Store's wall opening and the exact Armor Workshop frontage must be resolved before assigning final door nodes. No route is approved until it passes the collider and movement-resolver sweep.
+These are candidate directions only. The General Store's wall opening must be resolved before assigning its final door node. The Armor Workshop frontage is now measured, but its paving spur and the existing slab/foundation intersection still need full collision and visual review. No route is approved until it passes the collider and movement-resolver sweep.
+
+
+### Armor Workshop frontage — component source now confirmed
+
+A direct read of `ArmorLeatherWorkshop.tsx` resolves the earlier ambiguity:
+
+- Root: (28.2, 1.0).
+- Rear solid brick wall: local Z = +1.8, world Z = +2.8.
+- Front arch-support piers: local Z = -1.5, world Z = -0.5; centres at local X = ±3.6.
+- Clear width between the inner pier faces: approximately 6.25 units.
+- Frontage faces north (toward decreasing world Z).
+- Collider north face: Z = -1.70.
+- Candidate player standoff: (28.2, -2.20), 0.50 north of the collider face and 3.20 from the hub centre (inside its 4.5 interaction radius).
+
+The existing Via Decumanus East Extension includes the candidate standoff's X/Z point at its east edge X = 27, so a short 1.2-unit spur from (27, -2.2) to (28.2, -2.2) is geometrically plausible. However, the larger extension slab still intersects the Workshop foundation elsewhere. The route fix must separate the north frontage apron from the paving that currently runs under the building. No component or collider has been changed.
