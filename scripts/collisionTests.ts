@@ -424,10 +424,11 @@ function coloPoint(theta: number): [number, number] {
 // ════════════════════════════════════════════════════════════════════════════
 
 test('Colosseum: south-facing gate blocks walking into the arena', () => {
-  assert.ok(collidesWith(0, -5.7, R, CITY_COLLIDERS), 'Gate center must block entry');
-  assert.ok(collidesWith(0, -5.35, R, CITY_COLLIDERS), 'Player radius must stop before gate');
-  assert.ok(!collidesWith(0, -6.2, R, CITY_COLLIDERS), 'Exterior approach remains walkable');
-  assert.ok(collidesWith(0, -5.7, R, CITY_COLLIDERS), 'Center opening cannot be crossed');
+  // The portal piers meet at the front threshold, world Z = -8.1.
+  assert.ok(collidesWith(0, -8.1, R, CITY_COLLIDERS), 'Gate center must block entry');
+  assert.ok(collidesWith(0, -8.45, R, CITY_COLLIDERS), 'Player radius must stop before gate');
+  assert.ok(!collidesWith(0, -7.6, R, CITY_COLLIDERS), 'Exterior approach remains walkable');
+  assert.ok(!collidesWith(0, -9.0, R, CITY_COLLIDERS), 'Interior remains clear behind the sealed gate');
 });
 
 // ════════════════════════════════════════════════════════════════════════════
