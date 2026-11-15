@@ -91,18 +91,17 @@ describe('candidate east-market and Scholar-block routes', () => {
   test('counter lane joins the east-of-Colosseum Scholar lane', () => {
     expect(walkRoute([
       [17.3, -9.6],
-      [18.5, -9.6],
-      [18.5, -13.0],
-      [20.7, -13.0],
-      [20.7, -21.5],
+      [20.6, -9.6],
+      [20.6, -13.0],
+      [20.6, -21.5],
     ])).toEqual([20.7, -21.5]);
   });
 
   test('Merchant, Doctore, Library and Academy frontage standoffs are reachable', () => {
-    expect(walkAxisSegment([20.7, -13.0], [21.65, -13.0])).toEqual([21.65, -13.0]);
-    expect(walkAxisSegment([20.7, -18.875], [24.5, -18.875])).toEqual([24.5, -18.875]);
+    expect(walkAxisSegment([20.6, -13.0], [21.65, -13.0])).toEqual([21.65, -13.0]);
+    expect(walkAxisSegment([20.6, -18.875], [24.5, -18.875])).toEqual([24.5, -18.875]);
     expect(walkRoute([
-      [20.7, -21.5],
+      [20.6, -21.5],
       [23.1, -21.5],
       [23.1, -25.7],
     ])).toEqual([23.1, -25.7]);
@@ -129,13 +128,12 @@ describe('candidate east-market and Scholar-block routes', () => {
     expectClearCorridor([17.3, -3.0], [17.3, -9.6], 'x', [-2, 0]);
 
     // North of the Store, then east of the Colosseum and west of Merchant.
-    expectClearCorridor([17.3, -9.6], [18.5, -9.6], 'z');
-    expectClearCorridor([18.5, -9.6], [18.5, -13.0], 'x');
-    expectClearCorridor([18.5, -13.0], [20.7, -13.0], 'z');
-    expectClearCorridor([20.7, -13.0], [20.7, -21.5], 'x');
+    expectClearCorridor([17.3, -9.6], [20.6, -9.6], 'z');
+    expectClearCorridor([20.6, -9.6], [20.6, -13.0], 'x');
+    expectClearCorridor([20.6, -13.0], [20.6, -21.5], 'x');
 
     // Scholar approach turns east before the Colosseum boundary tightens.
-    expectClearCorridor([20.7, -21.5], [23.1, -21.5], 'z');
+    expectClearCorridor([20.6, -21.5], [23.1, -21.5], 'z');
     expectClearCorridor([23.1, -21.5], [23.1, -25.7], 'x');
 
     // Workshop frontage spur is 2.0 units wide to the north.
