@@ -524,8 +524,16 @@ describe('A5 §K — the surfaces and the wiring', () => {
     // LUDI PHASE A REBASE, not a weakening: the same ONE hub-interaction write now also
     // settles the Acta's visit on the codex-composed profile, so the visit is composed
     // first and the settlement's answer is what the single save pair carries.
-    expect(app).toContain('settleLudiDeeds(withCodexLocation(profile, locationId), { locationId })');
+    expect(app).toContain('const visited = withCodexLocation(profile, locationId);');
+    expect(app).toContain("locationId === 'northern_fortress' && visited.story?.summitSeen !== true");
+    expect(app).toContain("story: { ...(visited.story ?? {}), summitSeen: true }");
+    expect(app).toContain('settleLudiDeeds(milestone, { locationId })');
     expect(app).toContain('if (ludi.profile === profile) return;');
+    // The Codex page's meaningful read also satisfies the legacy Chapter 3
+    // Library evidence, without losing the separate Librarian-chain boundary.
+    expect(app).toContain('const codexRead = withCodexRead(profile);');
+    expect(app).toContain('story: { ...(codexRead.story ?? {}), librarySeen: true }');
+    expect(app).toContain('saveProfile(read);');
     expect(app).toContain('saveProfile(ludi.profile);');
     expect(app).toContain('onVisitLocation={handleVisitLocation}');
     // The codex module itself never touches storage or the clock.
