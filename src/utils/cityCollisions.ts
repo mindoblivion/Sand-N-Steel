@@ -829,7 +829,7 @@ export function resolveCityMovement(
 
 export const FAST_TRAVEL_ARRIVALS: Record<string, [number, number]> = {
   town_gate:          [0, 20],
-  colosseum:          [0, -23],
+  colosseum:          [0, -3.4],
   training_yard:      [-18, 2],
   smithing_forge:     [11.5, 2.6],
   general_store:      [17, -5],
