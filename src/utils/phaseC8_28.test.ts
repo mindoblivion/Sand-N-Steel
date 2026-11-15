@@ -423,39 +423,18 @@ describe('C. From the arena, the podium is solid and the player is not trapped',
 
 const DOORWAY_CENTRES = [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
 
-describe('D. The central portal traversal is unchanged', () => {
-  test('walking in: north-bound pushes through the doorway reach the sand', () => {
-    for (const x of DOORWAY_CENTRES) {
-      const r = push(x, -4, 0, -1, 90);
-      expect(r.trail.some(([px, pz]) => onSand(px, pz)), `doorway push at X = ${x} never reached the sand`).toBe(true);
-      expect(coloRadius(...r.end), `doorway push at X = ${x}`).toBeLessThan(14.0);
-    }
+describe('D. The closed Colosseum gate protects the arena interior', () => {
+  test('the city-side threshold blocks walking into the arena', () => {
+    expect(collidesWith(0, -5.7, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
+    expect(collidesWith(0, -5.35, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(true);
+    expect(collidesWith(0, -6.2, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
   });
 
-  test('walking out: south-bound pushes from the sand reach the city', () => {
-    for (const x of DOORWAY_CENTRES) {
-      const r = push(x, -20, 0, 1, 90);
-      expect(r.trail.some(([px, pz]) => outsideBuilding(px, pz)), `doorway exit at X = ${x} never left the building`).toBe(true);
-    }
-  });
-
-  test('the passage corridor is collision-free right through the bowl', () => {
-    // From the steps, through the piers, across the podium line, onto the sand.
-    for (const x of [-2.0, -1.0, 0, 1.0, 2.0]) {
-      for (const z of [-6.5, -7.0, -8.0, -9.0, -9.7, -9.925, -10.5, -12.0]) {
-        expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), `passage point (${x}, ${z}) blocked`).toBe(false);
+  test('the portal and bowl geometry remain intact behind the gate', () => {
+    for (const x of [-2, -1, 0, 1, 2]) {
+      for (const z of [-7, -8, -9, -9.7, -9.925, -10.5, -12]) {
+        expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), 'interior point (' + x + ', ' + z + ')').toBe(false);
       }
-    }
-  });
-
-  test('the arena-side mouth of the passage is exactly the pier span', () => {
-    // Just inside the cut edge: clear. Just outside it: the podium stands.
-    for (const x of [2.1, -2.1]) {
-      expect(collidesWith(x, PODIUM_GAP_EDGE[1], PLAYER_RADIUS, CITY_COLLIDERS), `(${x}, ${PODIUM_GAP_EDGE[1]}) blocked`).toBe(false);
-    }
-    for (const x of [3.2, -3.2]) {
-      const z = -25 + Math.sqrt(R_ARENA_WALL * R_ARENA_WALL - x * x);
-      expect(collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS), `podium missing at X = ${x}`).toBe(true);
     }
   });
 });
@@ -699,6 +678,7 @@ describe('H. Nothing else about the Colosseum or the city moved', () => {
       // two front arcs, its cuts and its radii — is unchanged.
       'colo-gateseal-l',
       'colo-gateseal-r',
+      'colo-front-gate-seal',
       'colo-pier-l',
       'colo-pier-r',
       'colo-flank-l',
@@ -751,7 +731,7 @@ describe('H. Nothing else about the Colosseum or the city moved', () => {
     const hub = HUB_LOCATIONS.find((l) => l.id === 'colosseum')!;
     expect([hub.position[0], hub.position[2]]).toEqual([0, -25]);
     expect(hub.radius).toBe(5.5);
-    expect(FAST_TRAVEL_ARRIVALS.colosseum).toEqual([0, -23]);
+    expect(FAST_TRAVEL_ARRIVALS.colosseum).toEqual([0, -3.4]);
     expect(getNearbyHubLocation([0, 0, -23])?.id).toBe('colosseum');
   });
 });
