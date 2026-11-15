@@ -669,6 +669,26 @@ function recoveryEscape(
   return best;
 }
 
+// The front portal is a gated entrance, not an open walking passage.
+// Keep this interaction barrier separate from CITY_COLLIDERS so the arena's
+// architectural collision registry and its historical geometry remain intact.
+const COLOSSEUM_FRONT_GATE_Z = -8.1;
+const COLOSSEUM_FRONT_GATE_HALF_WIDTH = 2.6;
+
+function colosseumGatePenetration(x: number, z: number, radius: number): number {
+  const closestX = Math.max(
+    -COLOSSEUM_FRONT_GATE_HALF_WIDTH,
+    Math.min(COLOSSEUM_FRONT_GATE_HALF_WIDTH, x),
+  );
+  const distance = Math.hypot(x - closestX, z - COLOSSEUM_FRONT_GATE_Z);
+  return Math.max(0, radius - distance);
+}
+
+function isMovementBlocked(x: number, z: number, radius: number): boolean {
+  return collidesWith(x, z, radius, CITY_COLLIDERS)
+    || colosseumGatePenetration(x, z, radius) > 0;
+}
+
 export function resolveCityMovement(
   currentPos: [number, number, number],
   dx: number,
@@ -695,15 +715,15 @@ export function resolveCityMovement(
 
   // ── X axis ──
   const testX = clampBoundaryX(x + dx * speed * delta, z);
-  if (!collidesWith(testX, z, r, CITY_COLLIDERS)) {
+  if (!isMovementBlocked(testX, z, r)) {
     x = testX;
-  } else if (!collidesWith(x, z, r, CITY_COLLIDERS)) {
+  } else if (!isMovementBlocked(x, z, r)) {
     // Current clear, target blocked — wall, don't move
   } else {
     // Both overlap — Phase 31H: allow only if reducing total penetration
     // AND not entering a new collider AND not increasing max penetration.
-    const currentPen = totalPenetration(x, z, r, CITY_COLLIDERS);
-    const targetPen = totalPenetration(testX, z, r, CITY_COLLIDERS);
+    const currentPen = totalPenetration(x, z, r, CITY_COLLIDERS) + colosseumGatePenetration(x, z, r);
+    const targetPen = totalPenetration(testX, z, r, CITY_COLLIDERS) + colosseumGatePenetration(testX, z, r);
     if (targetPen < currentPen) {
       const currentIds = overlappingColliderIds(x, z, r, CITY_COLLIDERS);
       const targetIds = overlappingColliderIds(testX, z, r, CITY_COLLIDERS);
@@ -723,14 +743,14 @@ export function resolveCityMovement(
 
   // ── Z axis (tested at the resolved X to enable wall sliding) ──
   const testZ = clampBoundaryZ(x, z + dz * speed * delta);
-  if (!collidesWith(x, testZ, r, CITY_COLLIDERS)) {
+  if (!isMovementBlocked(x, testZ, r)) {
     z = testZ;
   } else if (!collidesWith(x, z, r, CITY_COLLIDERS)) {
     // blocked
   } else {
     // Both overlap — Phase 31H: same checks as X axis.
     const currentPen = totalPenetration(x, z, r, CITY_COLLIDERS);
-    const targetPen = totalPenetration(x, testZ, r, CITY_COLLIDERS);
+    const targetPen = totalPenetration(x, testZ, r, CITY_COLLIDERS) + colosseumGatePenetration(x, testZ, r);
     if (targetPen < currentPen) {
       const currentIds = overlappingColliderIds(x, z, r, CITY_COLLIDERS);
       const targetIds = overlappingColliderIds(x, testZ, r, CITY_COLLIDERS);
