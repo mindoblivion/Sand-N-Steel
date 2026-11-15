@@ -95,15 +95,14 @@ describe('candidate east-market and Scholar-block routes', () => {
   test('Forge connector reaches the west counter lane without crossing building colliders', () => {
     expectPoint(walkRoute([
       [8.6, 2.6],
-      [8.6, -6.6],
-      [16.2, -6.6],
+      [8.6, -5.0],
+      [16.2, -5.0],
       [16.2, -9.8],
     ]), [16.2, -9.8]);
 
     // The General Store is an exterior counter, not a door. Approach its
     // west service point from the lane; keep the counter edge 0.50 away.
     expectPoint(walkRoute([
-      [16.2, -6.6],
       [16.2, -5.0],
       [17.3, -5.0],
     ]), [17.3, -5.0]);
@@ -143,13 +142,12 @@ describe('candidate east-market and Scholar-block routes', () => {
     expectClearCorridor([5.8, 16.0], [5.8, 2.6], 'x');
     expectClearCorridor([5.8, 2.6], [12.75, 2.6], 'z');
 
-    // South of the Forge. The cart currently pinches the vertical connector;
-    // its centreline is movement-clear, but the full 2-unit width is deferred
-    // until the decorative cart is relocated in the layout implementation.
-    expectClearCorridor([8.6, -6.6], [16.2, -6.6], 'z');
+    // South of the Forge. The cart and terrace props are visual-only and are
+    // not in CITY_COLLIDERS; their relocation is a separate layout task.
+    expectClearCorridor([8.6, -5.0], [16.2, -5.0], 'z');
 
     // West of the General Store counter and crate display.
-    expectClearCorridor([16.2, -6.6], [16.2, -9.8], 'x', [-2, 0]);
+    expectClearCorridor([16.2, -5.0], [16.2, -9.8], 'x', [-2, 0]);
 
     // Join the existing Via Mercatoria alignment and continue east of the
     // Colosseum, west of Merchant House.
