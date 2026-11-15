@@ -54,12 +54,10 @@ import { CityAtmosphere } from './CityAtmosphere';
 import { CityNightDressing } from './CityNightDressing';
 import { applyCityFixtureGlow } from '../../../utils/cityFixtureGlow';
 import { applyCityFixtureLightGlow } from '../../../utils/cityFixtureLight';
-import { PhaseMedallion } from '../../ui/PhaseMedallion';
 import { resolveTimeState } from '../../../utils/timeState';
 import { getPhaseLight } from '../../../utils/atmosphere';
 import { SceneBrightness } from '../SceneBrightness';
 import { GladiatorMesh } from '../GladiatorMesh';
-import { AMBIENT_CHARACTERS } from '../../../data/ambientCharacters';
 import { CORE_3D_ASSETS } from '../../../utils/preloadAssets';
 import { Banner, SteamParticles, ForgeSmoke, SandDrift } from './EnvironmentalMotion';
 import { CLOSE_BUTTON_CLASS } from '../../ui/controlStyles';
@@ -253,8 +251,6 @@ interface CityHubSceneProps {
     shopId?: StorefrontId
   ) => void;
   onEnterTavern: (openServices: () => void) => void;
-    // COLOSSEUM-INTERIOR — open the enterable arena overlay.
-    onEnterColosseum: () => void;
   onEnterForge: () => void;
     // BOUNTY-HALL-INTERIOR — open the enterable bounty hall overlay (TavernInterior pattern).
   onEnterBountyHall: (openServices: () => void) => void;
@@ -432,7 +428,6 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   playerProfile,
   onOpenTab,
   onEnterTavern,
-    onEnterColosseum,
   onEnterForge,
   onEnterBountyHall,
   onEnterBathhouse,
@@ -770,6 +765,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     legendPanel, visitorPanel, colosseumPanel, forgePanel, bountyHallPanel, bathhousePanel, academyPanel, showRaceEntry, showNavDrawer,
   ]);
 
+  // Reaching the Colosseum gate presents its confirmation automatically.
+  // Closing the panel leaves it dismissed until the player exits and re-enters
+  // the gate's interaction radius.
+  useEffect(() => {
+    if (nearbyLoc?.id === 'colosseum') setColosseumPanel(true);
+  }, [nearbyLoc?.id]);
+
   // Interact with nearby landmark or update ambient audio
   useEffect(() => {
     if (nearbyLoc) {
@@ -998,11 +1000,11 @@ const handleEnterBathhouse = useCallback(() => {
     onEnterAcademy(true);
   }, [onEnterAcademy]);
 
-  const handleEnterArena = useCallback(() => {
-          sounds.playClick();
-          setColosseumPanel(false);
-          onEnterColosseum();
-    }, [onEnterColosseum]);
+  const handleEnterColosseum = useCallback(() => {
+    sounds.playClick();
+    setColosseumPanel(false);
+    onOpenTab('tournament');
+  }, [onOpenTab]);
   
 
   
@@ -1875,10 +1877,6 @@ const handleEnterBathhouse = useCallback(() => {
             <ThreeComponentErrorBoundary componentName="CityPlayerGladiator">
               <Suspense fallback={null}>
                 <GladiatorMesh fighter={cityPlayerFighter} isLeftyMode={isLeftyMode} positionRef={playerPosRef} rotationRef={playerRotYRef} />
-                {/* Ambient Characters */}
-                {AMBIENT_CHARACTERS.map(fighter => (
-                    <GladiatorMesh key={fighter.id} fighter={fighter} />
-                ))}
                 {/* Living City L17 — scheduled traders reuse the existing fighter mesh. */}
                 {visitorFighters.map((fighter) => (
                   <GladiatorMesh key={fighter.id} fighter={fighter} />
@@ -1894,19 +1892,8 @@ const handleEnterBathhouse = useCallback(() => {
 
       {/* TOP STATUS HEADER BAR */}
       <header data-city-top-header="true" className="absolute top-0 left-0 right-0 p-3 sm:p-5 pointer-events-none flex justify-between items-start z-10">
-        <div className="pointer-events-auto flex flex-col items-start gap-2">
-        {/* Day/Night T3 — the phase medallion: the sun-arc, seven notches, and the disc
-            at the clock's hour, in the phase's own class colour. Display only. */}
-        <PhaseMedallion phase={cityPhase} />
+        <div className="pointer-events-auto min-w-0 max-w-[52%] flex flex-col items-start gap-2">
         <div className="flex items-center gap-2 bg-neutral-950/85 border border-amber-600/50 p-2 sm:p-3 rounded-2xl backdrop-blur-md shadow-2xl">
-          <button
-            onClick={() => setVisitorPanel(true)}
-            aria-label="Visitors in the City"
-            className="min-h-[48px] px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer active:scale-95 transition-all font-serif font-bold text-[10px] uppercase tracking-wider"
-            title="See today's visitors and their offers"
-          >
-            Visitors
-          </button>
           <button
             onClick={() => setShowNavDrawer(!showNavDrawer)}
             aria-label="City Map & Fast Travel"
@@ -1935,7 +1922,7 @@ const handleEnterBathhouse = useCallback(() => {
           {heraldTarget && heraldAim && (
             <div
               data-herald-aim={heraldTarget.id}
-              className="w-[min(72vw,15rem)] rounded-2xl border border-amber-500/50 bg-neutral-950/85 p-2 sm:p-3 backdrop-blur-md shadow-2xl"
+              className="w-[min(52vw,15rem)] rounded-2xl border border-amber-500/50 bg-neutral-950/85 p-2 sm:p-3 backdrop-blur-md shadow-2xl"
             >
               <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400/80">
                 The herald points
@@ -1967,7 +1954,7 @@ const handleEnterBathhouse = useCallback(() => {
         </div>
 
         {/* GOLD, FAME, GOOGLE DRIVE & AUDIO */}
-        <div className="flex flex-wrap justify-end items-center gap-2 pointer-events-auto">
+        <div data-city-utility-panel="true" className="pointer-events-auto flex flex-wrap justify-end items-center gap-1.5 sm:gap-2 max-w-[48vw] sm:max-w-none shrink-0">
           <div className="flex items-center gap-3 bg-neutral-950/85 border border-amber-600/50 px-3 py-1.5 rounded-2xl backdrop-blur-md shadow-2xl">
             <div className="flex items-center gap-1 text-xs font-bold text-amber-300">
               <Coins className="w-4 h-4 text-yellow-400" />
@@ -2521,12 +2508,11 @@ const handleEnterBathhouse = useCallback(() => {
               />
         )}
       {colosseumPanel && (
-              <ColosseumDoorPanel
-                          onEnterArena={handleEnterArena}
-                          onFight={handleColosseumFight}
-                          onClose={() => setColosseumPanel(false)}
-                        />
-            )}{/* DESKTOP CONTROLS HELPER BAR */}
+        <ColosseumDoorPanel
+          onEnter={handleEnterColosseum}
+          onStayOutside={() => setColosseumPanel(false)}
+        />
+      )}{/* DESKTOP CONTROLS HELPER BAR */}
       <div className="absolute bottom-[calc(var(--hub-safe-bottom)+4.5rem)] sm:bottom-[calc(var(--hub-safe-bottom)+5.5rem)] left-1/2 -translate-x-1/2 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-amber-200/85 bg-neutral-950/80 py-1.5 px-4 rounded-xl border border-amber-800/60 backdrop-blur-sm z-10 shadow-lg">
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">W A S D / Arrows</kbd> Move</span>
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">Space / E</kbd> 2-in-1 Attack &amp; Interact</span>
