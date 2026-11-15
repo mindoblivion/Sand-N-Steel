@@ -1,6 +1,18 @@
 # Colosseum Trial of Endurance — implementation contract
 
-Status: approved concept; implementation not yet landed.
+Status: approved concept; first source implementation is on `feature/rival-schools` and is awaiting green CI and device acceptance.
+
+## Implementation status (2026-11-15)
+
+The first source pass now includes:
+- a lazy `StoryProgress.trialOfEndurance` ledger and three isolated opponent copies;
+- a Tournament board card, Chapter 5 / Tier-3 ladder champion unlock, and shared pre-fight routing;
+- session-only entry fencing and accepted result settlement in `App.handleMatchComplete`;
+- explicit exclusion from ladder identity, tier advancement, boss kills, grudge creation and mercy offers;
+- result-screen continuation back to the Tournament board;
+- progression and save/reload regression tests.
+
+This is not yet a verified release feature. CI exposed two TypeScript issues in the first pass; both were corrected. The current quality and environment workflows have been re-triggered and are pending. Do not treat the implementation as accepted until both are green and an Android rehearsal build completes the full three-round device test.
 
 ## Purpose
 
