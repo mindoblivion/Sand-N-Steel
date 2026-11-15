@@ -49,6 +49,13 @@ on:
           - rehearsal
           - release
         default: rehearsal
+      rehearsal_signing:
+        description: 'stable = update an existing rehearsal install (requires rehearsal-only secrets); temporary = one-run key, requires uninstall before next build.'
+        type: choice
+        options:
+          - stable
+          - temporary
+        default: stable
   push:
     tags: ['v*']
 
@@ -98,19 +105,40 @@ jobs:
           BUILD_COMMIT: ${{ github.sha }}
         run: bun run cap:sync
 
-      - name: Generate a throwaway signing key (rehearsal only)
+      - name: Restore the stable rehearsal signing key
+        if: inputs.rehearsal_signing == 'stable'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_REHEARSAL_KEYSTORE_BASE64 }}
+          KEYSTORE_STORE_FILE: rehearsal.keystore
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.ANDROID_REHEARSAL_KEYSTORE_PASSWORD }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.ANDROID_REHEARSAL_KEY_ALIAS }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.ANDROID_REHEARSAL_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          for name in KEYSTORE_BASE64 KEYSTORE_STORE_PASSWORD KEYSTORE_KEY_ALIAS KEYSTORE_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing repository secret for $name — see docs/ANDROID_RELEASE.md (Stable rehearsal signing)."
+              exit 1
+            fi
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "android/app/$KEYSTORE_STORE_FILE"
+          bun run scripts/writeKeystoreProperties.ts android/keystore.properties
+
+      - name: Generate a throwaway signing key (temporary rehearsal only)
+        if: inputs.rehearsal_signing == 'temporary'
         run: |
           set -euo pipefail
           umask 077
           KEYPASS="$(openssl rand -hex 24)"
-          echo "::notice::REHEARSAL — this bundle is signed with a throwaway key generated in this run. It is NOT a release candidate and can never update the Play listing."
+          echo "::notice::TEMPORARY REHEARSAL — this bundle is signed with a throwaway key generated in this run. It cannot update another rehearsal install; uninstalling first may erase local saves. It is NOT a release candidate."
           keytool -genkeypair -noprompt \
             -keystore android/app/rehearsal.keystore \
             -storetype PKCS12 \
             -alias rehearsal \
             -storepass "$KEYPASS" \
             -keypass "$KEYPASS" \
-            -keyalg RSA -keysize 2048 -validity 30 \
+            -keyalg RSA -keysize 2048 -validity 3650 \
             -dname "CN=REHEARSAL ONLY DO NOT UPLOAD, OU=Rehearsal, O=Sand and Steel, C=US"
           KEYSTORE_STORE_FILE=rehearsal.keystore \
           KEYSTORE_STORE_PASSWORD="$KEYPASS" \
@@ -122,9 +150,16 @@ jobs:
         working-directory: android
         run: bash ./gradlew bundleRelease --no-daemon
 
-      # `--signature-only`: the rehearsal key exists for one run, so there is no identity to pin.
-      # The flag makes that skip explicit; a release run never passes it and fails closed instead.
-      - name: Verify the practice bundle signature (rehearsal)
+      # Stable rehearsal mode pins the dedicated rehearsal certificate. Temporary mode
+      # explicitly skips identity pinning because its key exists for one run only.
+      - name: Verify the stable rehearsal bundle signer
+        if: inputs.rehearsal_signing == 'stable'
+        env:
+          EXPECTED_SIGNER_SHA256: ${{ secrets.ANDROID_REHEARSAL_CERT_SHA256 }}
+        run: bun run scripts/verifyBundleSignature.ts android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Verify the temporary rehearsal bundle signature
+        if: inputs.rehearsal_signing == 'temporary'
         run: bun run scripts/verifyBundleSignature.ts android/app/build/outputs/bundle/release/app-release.aab --signature-only
 
       # AABs are not directly installable by tapping on a phone. Build a single APK with the
