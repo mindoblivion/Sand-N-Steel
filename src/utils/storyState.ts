@@ -585,7 +585,7 @@ export function circusPointerDue(state: StoryState): boolean {
  * One chapter's gates, resolved — the seam the whole table is read through.
  *
  * `resolveStoryState` hands back only the CURRENT chapter's gates, which is all
- * the card needs.  Because Chapter 2's race gate now holds the campaign open
+ * the card needs.  Because Chapter 2's Rival Schools gate now holds the campaign open
  * (STORY-3), the later chapters can no longer be reached by walking a record, so
  * their authored gates would otherwise stop being measured at all.  This reader
  * keeps every chapter's table addressed from the SAME record and the SAME
