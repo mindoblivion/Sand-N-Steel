@@ -485,13 +485,13 @@ describe('C. The collision registry matches the completed drum', () => {
 // ══════════════════════════════════════════════════════════════════════════
 
 describe('D. The gate is the arena\'s second way in and out', () => {
-  test('a radial walk escapes only on the two passages', () => {
-    // Outward from the sand: only the doorway (θ = 0) and the gate (θ = π).
-    for (const d of [0, 180]) {
-      const theta = (d * Math.PI) / 180;
-      const outward = push(0, COLO_ROOT_Z, Math.sin(theta), Math.cos(theta), 60);
-      expect(outward.trail.some(([x, z]) => outsideBuilding(x, z)), `${d}° should escape`).toBe(true);
-    }
+  test('the south-facing front portal is gated; the rear bridge passage remains open', () => {
+    // The front portal at θ = 0 is a closed free-roam threshold. The rear gate
+    // at θ = π remains the existing bridge connection to the motte.
+    const front = push(0, COLO_ROOT_Z, 0, 1, 60);
+    expect(front.trail.some(([x, z]) => outsideBuilding(x, z)), 'front gate should stop free-roam entry').toBe(false);
+    const rear = push(0, COLO_ROOT_Z, 0, -1, 60);
+    expect(rear.trail.some(([x, z]) => outsideBuilding(x, z)), 'rear bridge gate remains traversable').toBe(true);
     for (const d of [30, 45, 60, 90, 120, 150, 210, 240, 270, 300, 330]) {
       const theta = (d * Math.PI) / 180;
       const outward = push(0, COLO_ROOT_Z, Math.sin(theta), Math.cos(theta), 60);
@@ -641,6 +641,6 @@ describe('F. Nothing else about the Colosseum moved', () => {
       });
       expect(moved, `${loc.id} arrival is trapped`).toBe(true);
     }
-    expect(getNearbyHubLocation([0, 0, -23])?.id).toBe('colosseum');
+    expect(getNearbyHubLocation([0, 0, -6.2])?.id).toBe('colosseum');
   });
 });
