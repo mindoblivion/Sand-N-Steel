@@ -1,12 +1,12 @@
 # Android device acceptance — Colosseum / Rival Schools
 
-Status: **not yet device-tested**. This checklist is the acceptance record for the rehearsal APK built from the exact `feature/rival-schools` commit under test. A green CI run is not a substitute for these checks.
+Status: **not yet device-tested**. This checklist is the acceptance record for the rehearsal APK built from the exact `release/colosseum-60d` commit under test. A green CI run is not a substitute for these checks.
 
 ## Candidate identity
 
 Record these values before installation:
 
-- GitHub branch: `feature/rival-schools`
+- GitHub branch: `release/colosseum-60d`
 - Commit SHA: exact SHA shown in the successful Android rehearsal workflow's checkout step
 - Workflow run URL / run ID:
 - Artifact: `rehearsal-aab-do-not-upload`
