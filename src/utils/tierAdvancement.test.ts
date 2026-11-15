@@ -380,19 +380,6 @@ describe('§D — the rule lives in the shipped paths', () => {
     expect(citySource).not.toContain('handleColosseumFight');
     expect(citySource).not.toContain('activeOpponent');
   });
-    expect(citySource).toContain('if (target) onEnterDuel(target.opponent);');
-    const cityCode = citySource
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/\/\/[^\n]*/g, '');
-    expect(cityCode).not.toContain('activeOpponent');
-
-    const interact = citySource.slice(
-      citySource.indexOf('const handleInteract = useCallback(() => {'),
-      citySource.indexOf('const handleStartRace = useCallback')
-    );
-    expect(interact).toContain('resolveDoorDuelTarget(');
-    expect(interact).not.toContain('onEnterDuel(activeOpponent)');
-  });
 
   test('the module owns no save, no storage and no clock', () => {
     expect(moduleSource).not.toContain('services/storage');
