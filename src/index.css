@@ -511,3 +511,48 @@ canvas {
   );
   animation: boss-vignette-pulse 700ms ease-out forwards;
 }
+
+
+/* PORTRAIT CITY HUD — reduce decorative chrome and keep utility controls on-screen. */
+@media (max-width: 480px) and (orientation: portrait) {
+  [data-city-top-header="true"] {
+    padding: 0.5rem;
+    gap: 0.35rem;
+  }
+  [data-city-top-header="true"] > div:first-child {
+    max-width: 48vw;
+    min-width: 0;
+  }
+  [data-city-utility-panel="true"] {
+    width: 46vw;
+    max-width: 46vw;
+    gap: 0.35rem;
+    justify-content: flex-end;
+  }
+  [data-city-utility-panel="true"] > button {
+    min-width: 44px;
+    min-height: 44px;
+    padding-inline: 0.45rem;
+  }
+  [data-city-utility-panel="true"] > div {
+    max-width: 100%;
+    padding-inline: 0.4rem;
+    gap: 0.3rem;
+  }
+  [data-city-top-header="true"] .city-player-title,
+  [data-city-top-header="true"] .city-fame-counter,
+  [data-city-top-header="true"] .city-utility-label {
+    display: none;
+  }
+  [data-city-top-header="true"] [data-herald-aim] {
+    width: min(46vw, 13rem);
+  }
+  [data-city-footer="true"] .city-footer-label {
+    display: none;
+  }
+  [data-city-footer="true"] [data-city-footer-item="true"] {
+    min-width: 44px;
+    min-height: 48px;
+    padding-inline: 0.2rem;
+  }
+}
