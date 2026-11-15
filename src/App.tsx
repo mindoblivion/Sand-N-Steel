@@ -1037,17 +1037,16 @@ export function App() {
    */
   const handleViewCodex = () => {
     if (!profile) return;
-    const codexRead = withCodexRead(profile);
-    // The campaign's Library milestone is the same meaningful Codex read. Keep
-    // this write in the existing save transaction, including legacy saves whose
-    // librarian-chain boundary was recorded before librarySeen existed.
-    const read = codexRead.story?.librarySeen === true
-      ? codexRead
-      : {
-          ...codexRead,
-          story: { ...(codexRead.story ?? {}), librarySeen: true },
-        };
+    const read = withCodexRead(profile);
     if (read === profile) return;
+    setProfile(read);
+    saveProfile(read);
+  };
+
+  /** Chapter 3 — the Road page visibly records the player's own name. */
+  const handleViewRoad = () => {
+    if (!profile || profile.story?.librarySeen === true) return;
+    const read = { ...profile, story: { ...(profile.story ?? {}), librarySeen: true } };
     setProfile(read);
     saveProfile(read);
   };
@@ -2582,6 +2581,7 @@ export function App() {
             /* STORY-5b — the Library rack's Codex page (step 1) and the Legend Bouts
                on the tournament tab (the staged rows, entered as exhibitions). */
             onViewCodex={handleViewCodex}
+            onViewRoad={handleViewRoad}
             onEnterLegendBout={handleEnterLegendBout}
             />
           </React.Suspense>
