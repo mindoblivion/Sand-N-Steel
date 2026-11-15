@@ -12,7 +12,7 @@
  *   A. the trigger matrix                — each job's `if:` admits only its own event, and no
  *                                          event starts both (evaluated, not text-matched)
  *   B. the trigger filters               — `v*` tags only, no branch push, mode defaults to safe
- *   C. secret isolation                  — `secrets.*` appears in the release job alone
+ *   C. secret isolation                  — production secrets appear in the release job alone
  *   D. tag provenance                    — a tag must be reachable from `main`, checked before any
  *                                          secret-bearing step, failing closed
  *   E. provenance behaviour              — the real shell block driven against a real repository
