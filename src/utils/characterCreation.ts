@@ -223,11 +223,7 @@ export function armaturaBaseStats(
   };
 }
 
-/**
- * What the creation screen's two pickers hold.  `modelPicked` records that the
- * player chose a look themselves, which is what stops a class from re-suggesting
- * one — the class never overrides a choice.
- */
+/** The creation screen's single fighter choice: class plus its visual model. */
 export interface CreationSelection {
   armatura: ArmaturaId;
   characterModel: CharacterModelType;
