@@ -80,46 +80,47 @@ function expectClearCorridor(
 }
 
 describe('candidate west-side service route', () => {
-  test('west service spine and three south-facing frontage branches are walkable', () => {
+  test('west service spine and four frontage branches are walkable', () => {
     const spineStart: Point = [-33.575, -21.45];
-    const spineEnd: Point = [-33.575, -1.75];
+    const spineEnd: Point = [-33.575, 15.3];
     expect(walkAxisSegment(spineStart, spineEnd)).toEqual(spineEnd);
 
-    // Veteran Hall, Barracks, and Medical House exterior standoffs use a
-    // 0.50-unit facade offset, leaving tolerance beyond PLAYER_RADIUS = 0.40.
+    // 0.50-unit facade offsets leave tolerance beyond PLAYER_RADIUS = 0.40.
     expect(walkAxisSegment(spineStart, [-24, -21.45])).toEqual([-24, -21.45]);
     expect(walkAxisSegment([-33.575, -10.45], [-27, -10.45])).toEqual([-27, -10.45]);
-    expect(walkAxisSegment(spineEnd, [-29, -1.75])).toEqual([-29, -1.75]);
+    expect(walkAxisSegment([-33.575, -1.75], [-29, -1.75])).toEqual([-29, -1.75]);
+    expect(walkAxisSegment([-33.575, 14.25], [-27, 14.25])).toEqual([-27, 14.25]);
   });
 
-  test('cross-connector skirts the Colosseum and reaches the Training Yard gate', () => {
+  test('south-of-yard civic connector reaches the Training Yard gate', () => {
     const route: Point[] = [
-      [-33.575, -9.35],
-      [-14.0, -9.35],
-      [-14.0, -7.5],
-      [-9.4, -7.5],
+      [-33.575, 15.3],
+      [-22.15, 15.3],
+      [-22.15, 8.575],
+      [-11.0, 8.575],
+      [-9.4, 8.575],
       [-9.4, 0],
       [-13.5, 0],
     ];
     expect(walkRoute(route)).toEqual([-13.5, 0]);
   });
 
-  test('primary portions preserve at least a 2-unit sampled centre corridor', () => {
+  test('primary portions preserve a 2-unit sampled centre corridor', () => {
     // West spine: between the west movement boundary and the expanded
     // Medical House west face.
-    expectClearCorridor([-33.575, -21.45], [-33.575, -1.75], 'x');
+    expectClearCorridor([-33.575, -21.45], [-33.575, 15.3], 'x');
 
-    // Medical/Barracks cross-connector: 3.20-unit footprint gap leaves
-    // 2.40 units after both PLAYER_RADIUS expansions.
-    expectClearCorridor([-33.575, -9.35], [-14.0, -9.35], 'z');
+    // Cross south of the Shrine. The Shrine ends at Z = 13.75.
+    expectClearCorridor([-33.575, 15.3], [-22.15, 15.3], 'z');
 
-    // Colosseum west-side bypass and south-west turn.
-    expectClearCorridor([-14.0, -9.35], [-14.0, -7.5], 'x');
-    expectClearCorridor([-14.0, -7.5], [-9.4, -7.5], 'z');
+    // Passage between the Shrine east face and Tavern west face.
+    expectClearCorridor([-22.15, 15.3], [-22.15, 8.575], 'x');
 
-    // Training Yard east-side approach. It narrows near the gate; the
-    // doorway itself is tested by the resolver above as a 1.7-unit
-    // player-centre opening, an explicit threshold exception.
-    expectClearCorridor([-9.4, -7.5], [-9.4, 0], 'x', [-0.8, 1.2]);
+    // Cross between the Training Yard south edge and Tavern north face.
+    expectClearCorridor([-22.15, 8.575], [-11.0, 8.575], 'z');
+
+    // Training Yard east-side approach. The gate itself is a named
+    // 1.7-unit player-centre threshold exception.
+    expectClearCorridor([-9.4, 8.575], [-9.4, 0], 'x');
   });
 });
