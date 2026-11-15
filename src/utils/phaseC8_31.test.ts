@@ -484,7 +484,7 @@ describe('C. The collision registry matches the completed drum', () => {
 // D. Traversal
 // ══════════════════════════════════════════════════════════════════════════
 
-describe('D. The gate is the arena\'s second way in and out', () => {
+describe('D. The south front gate and rear bridge passage', () => {
   test('the south-facing front portal is gated; the rear bridge passage remains open', () => {
     // The front portal at θ = 0 is a closed free-roam threshold. The rear gate
     // at θ = π remains the existing bridge connection to the motte.
