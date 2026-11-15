@@ -12,6 +12,7 @@ import {
   buildCreatedProfile,
   buildStatDelta,
   creationPoints,
+  armaturaModel,
   armaturaModelLabel,
   selectArmatura,
   unspentPoints,
@@ -82,6 +83,8 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'identity' | 'body' | 'features'>('identity');
   const [previewError, setPreviewError] = useState<string | null>(null);
+  // Keep the preview covered only while a newly selected fighter model loads.
+  const [previewModelReady, setPreviewModelReady] = useState(true);
   const [name, setName] = useState('Spartacus');
   const [bodyWeightLb, setBodyWeightLb] = useState(180);
   /** One fighter choice controls class mechanics and the matching 3D model. */
@@ -122,6 +125,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
   const handleArmaturaSelect = (id: ArmaturaId) => {
     sounds.playClick();
     setPreviewError(null);
+    if (armaturaModel(id) !== selection.characterModel) setPreviewModelReady(false);
     setSelection((current) => selectArmatura(current, id));
   };
 
@@ -235,12 +239,25 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
         <div className="shrink-0 h-[38dvh] max-h-[320px] min-h-[190px] lg:h-full lg:max-h-none lg:min-h-[480px] bg-neutral-900/80 border-2 border-amber-600/50 rounded-2xl sm:rounded-3xl p-1.5 sm:p-3 flex flex-col items-center justify-center shadow-2xl relative overflow-hidden">
           <GladiatorPreview
             appearance={appearance}
-            onReady={onReady}
+            onReady={() => {
+              setPreviewModelReady(true);
+              onReady?.();
+            }}
             onError={(error) => {
+              setPreviewModelReady(true);
               setPreviewError(error.message || 'The selected gladiator model could not be loaded.');
               onPreviewError?.(error);
             }}
           />
+          {!previewModelReady && (
+            <div data-preview-loading="true" role="status" aria-live="polite" className="absolute inset-0 z-20 flex flex-col items-center justify-end gap-2 bg-neutral-950/90 px-6 pb-6 text-center">
+              <p className="font-serif text-xs font-bold uppercase tracking-[0.2em] text-amber-200">Preparing fighter</p>
+              <p className="text-[10px] text-neutral-400">Loading the selected gladiator model</p>
+              <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-neutral-800" aria-label="Model loading">
+                <div className="h-full w-1/3 rounded-full bg-amber-400 animate-pulse" />
+              </div>
+            </div>
+          )}
           {previewError && (
             <div role="alert" className="absolute inset-x-3 top-3 z-10 rounded-xl border border-amber-500/60 bg-neutral-950/95 p-3 text-center text-xs text-amber-100 shadow-xl">
               <p className="font-bold text-amber-300">3D preview unavailable</p>
