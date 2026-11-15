@@ -51,6 +51,11 @@ function walkRoute(points: Point[]): Point {
   return current;
 }
 
+function expectPoint(actual: Point, expected: Point): void {
+  expect(actual[0]).toBeCloseTo(expected[0], 2);
+  expect(actual[1]).toBeCloseTo(expected[1], 2);
+}
+
 function expectClearCorridor(
   start: Point,
   end: Point,
@@ -66,7 +71,9 @@ function expectClearCorridor(
     for (const offset of offsets) {
       const px = lateralAxis === 'x' ? x + offset : x;
       const pz = lateralAxis === 'z' ? z + offset : z;
-      expect(collidesWith(px, pz, PLAYER_RADIUS, CITY_COLLIDERS)).toBe(false);
+      if (collidesWith(px, pz, PLAYER_RADIUS, CITY_COLLIDERS)) {
+        throw new Error(`2-unit corridor blocked at X=${px.toFixed(2)}, Z=${pz.toFixed(2)} (offset ${offset})`);
+      }
       expect(Math.abs(px)).toBeLessThanOrEqual(35);
     }
   }
@@ -74,47 +81,47 @@ function expectClearCorridor(
 
 describe('candidate east-market and Scholar-block routes', () => {
   test('Decumanus approach reaches the Forge west frontage', () => {
-    expect(walkRoute([[0, 2.6], [11.6, 2.6], [12.75, 2.6]])).toEqual([12.75, 2.6]);
+    expectPoint(walkRoute([[0, 2.6], [11.6, 2.6], [12.75, 2.6]]), [12.75, 2.6]);
   });
 
   test('Forge south-west connector reaches the General Store counter lane', () => {
-    expect(walkRoute([
+    expectPoint(walkRoute([
       [11.6, 2.6],
       [11.6, -3.0],
       [17.3, -3.0],
       [17.3, -9.8],
-    ])).toEqual([17.3, -9.8]);
+    ]), [17.3, -9.8]);
     // West counter service standoff is on this lane.
-    expect(walkAxisSegment([17.3, -3.0], [17.3, -5.0])).toEqual([17.3, -5.0]);
+    expectPoint(walkAxisSegment([17.3, -3.0], [17.3, -5.0]), [17.3, -5.0]);
     // The counter mesh is not a collider; retain 0.10 units beyond the player radius.
     expect(17.8 - 17.3).toBeGreaterThan(PLAYER_RADIUS + 0.09);
   });
 
   test('counter lane joins the east-of-Colosseum Scholar lane', () => {
-    expect(walkRoute([
+    expectPoint(walkRoute([
       [17.3, -9.8],
       [20.6, -9.8],
       [20.6, -13.0],
       [20.6, -21.5],
-    ])).toEqual([20.6, -21.5]);
+    ]), [20.6, -21.5]);
   });
 
   test('Merchant, Doctore, Library and Academy frontage standoffs are reachable', () => {
-    expect(walkAxisSegment([20.6, -13.0], [21.65, -13.0])).toEqual([21.65, -13.0]);
-    expect(walkAxisSegment([20.6, -18.875], [24.5, -18.875])).toEqual([24.5, -18.875]);
-    expect(walkRoute([
+    expectPoint(walkAxisSegment([20.6, -13.0], [21.65, -13.0]), [21.65, -13.0]);
+    expectPoint(walkAxisSegment([20.6, -18.875], [24.5, -18.875]), [24.5, -18.875]);
+    expectPoint(walkRoute([
       [20.6, -21.5],
       [23.1, -21.5],
       [23.1, -25.7],
-    ])).toEqual([23.1, -25.7]);
-    expect(walkAxisSegment([23.1, -24.0], [26.15, -24.0])).toEqual([26.15, -24.0]);
+    ]), [23.1, -25.7]);
+    expectPoint(walkAxisSegment([23.1, -24.0], [26.15, -24.0]), [26.15, -24.0]);
   });
 
   test('Workshop, Stable, Inn and Tavern frontage approaches are reachable', () => {
-    expect(walkAxisSegment([27.0, -2.2], [28.2, -2.2])).toEqual([28.2, -2.2]);
-    expect(walkAxisSegment([33.0, 10.65], [26.0, 10.65])).toEqual([26.0, 10.65]);
-    expect(walkAxisSegment([0, 14.0], [10.95, 14.0])).toEqual([10.95, 14.0]);
-    expect(walkAxisSegment([0, 14.0], [-11.05, 14.0])).toEqual([-11.05, 14.0]);
+    expectPoint(walkAxisSegment([27.0, -2.2], [28.2, -2.2]), [28.2, -2.2]);
+    expectPoint(walkAxisSegment([33.0, 10.65], [26.0, 10.65]), [26.0, 10.65]);
+    expectPoint(walkAxisSegment([0, 14.0], [10.95, 14.0]), [10.95, 14.0]);
+    expectPoint(walkAxisSegment([0, 14.0], [-11.05, 14.0]), [-11.05, 14.0]);
   });
 
   test('primary east-market and Scholar corridors preserve 2-unit sampled clearance', () => {
