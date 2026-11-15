@@ -33,9 +33,11 @@ describe('compact city HUD on short landscape screens', () => {
 
 describe('portrait phone city HUD and Colosseum gate', () => {
   test('removes nonessential dawn and visitor chrome and static ambient warriors', () => {
-    expect(city).not.toContain('<PhaseMedallion');
+    expect(city).toContain('<PhaseMedallion');
     expect(city).not.toContain('AMBIENT_CHARACTERS.map');
-    expect(city).not.toContain('Visitors</button>');
+    expect(city).toContain('data-city-visitors-button="true"');
+    expect(css).toContain('[data-city-phase-medallion="true"]');
+    expect(css).toContain('[data-city-visitors-button="true"]');
   });
 
   test('constrains right-side utilities and turns the bottom bar into icon navigation', () => {
