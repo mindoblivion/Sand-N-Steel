@@ -163,7 +163,7 @@ jobs:
         run: bun run scripts/verifyBundleSignature.ts android/app/build/outputs/bundle/release/app-release.aab --signature-only
 
       # AABs are not directly installable by tapping on a phone. Build a single APK with the
-      # same throwaway key so physical-device acceptance does not require Bundletool.
+      # same selected rehearsal key so physical-device acceptance does not require Bundletool.
       - name: Build the practice APK (rehearsal)
         working-directory: android
         run: bash ./gradlew assembleRelease --no-daemon
