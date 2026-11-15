@@ -362,3 +362,17 @@ These are implementation proposals, not shipped behavior. Reuse an existing inte
 - Do not auto-complete evidence, weaken gates, or write story progress from a modal animation or navigation-only event.
 - Before coding, confirm the chosen authored rival identity/stage and whether the proposed Records Board, Trial and ceremony surfaces fit the current hub layout. These are visible product beats; do not silently substitute generic buttons.
 - Status: specification only. No runtime files changed, no tests run, no APK built, no physical-device verification, no merge or branch deletion.
+
+
+## 17. Implementation follow-up — 2026-11-15
+
+The proposals in sections 13–16 have since been implemented as a first Colosseum vertical slice on [PR #453](https://github.com/mindoblivion/Sand-N-Steel/pull/453), which remains open and in draft. The branch currently contains:
+
+- Rival Schools first challenge, dedicated tournament entry, accepted-result settlement and save/reload persistence coverage.
+- Chapter 2 campaign evidence integration, plus visible Road of Glory and Northern Fortress evidence actions.
+- A three-round Colosseum Trial of Endurance that writes the existing story.trialDone evidence only after the final accepted win.
+- Unified fighter class/model selection and a model-switch loading cover in character creation.
+
+The latest PR #453 head has passed both the Main quality gate and Environment gate, including the production build and environment collision/combat harnesses. These are automated checks only. No APK for the latest branch head has been produced, no physical Samsung/device acceptance has been performed, and the full career has not been playtested end-to-end. The rival's final name, school identity and appearance remain configurable creative decisions.
+
+This follow-up supersedes the earlier proposal-only / implementation-not-started status in sections 13–16; those sections remain as the historical design rationale and acceptance contract. PR #453 has not been merged. The 60-day reset remains a development plan, not authorization for public release, signing changes, destructive branch cleanup or merging gameplay work without a separate readiness review.
