@@ -503,3 +503,41 @@ The gap between Medical House and Barracks provides 2.40 units of player-centre 
 5. Add visual prop envelopes and a 0.5-unit no-dressing margin at door approaches.
 6. Only then select paving widths and mesh endpoints; the paving must never run under a foundation except for a specifically approved doorway apron.
 7. Review the coordinate plan before any building transform is changed. The Scholar block and General Store entrance are explicit design decisions, not automatic relocation tasks.
+
+
+### Refined Scholar-block frontage option — avoid moving the Academy or Library prematurely
+
+The 0.30-unit Academy/Library side gap is not usable, but the two buildings do not need to be connected through that gap. The hub interaction radii allow separate approaches from the open south/west side:
+
+| Service | Candidate player position | Distance to hub centre | Facade / neighbour clearance |
+|---|---:|---:|---|
+| Doctore House | (24.50, -18.875) | 3.50 | 0.50 west of Doctore west face |
+| Gladiator Academy | (26.25, -24.00) | 5.20 | 0.40 west of Academy face; 3.15 south of Library south face |
+| Records Library | (23.10, -25.70) | 4.30 | 1.45 south of Library south face |
+
+The hub radii are 4.5 (Doctore), 5.25 (Academy) and 4.5 (Library), respectively. These candidate positions are therefore inside the configured interaction radii while staying outside the registered building footprints. The Academy point is deliberately south of the Library rather than inside the 0.30-unit side gap.
+
+A plausible connection, still requiring full collision-resolver sampling, is:
+- From the Merchant House south-west lane, reach Doctore's west standoff.
+- Pass around Doctore's north side at approximately Z = -21.25, then turn east to X = 26.25 and south to the Academy standoff at (26.25, -24.00).
+- Serve the Library separately from the west at X = 23.10, approaching its south frontage at Z = -25.70.
+- Keep the Academy and Library paths as separate branches of a small open forecourt; do not draw a through-street between their facing side walls.
+
+This shows why the 0.30-unit gap should be recorded as a non-passage, not treated as automatic evidence that one building must move. The three standoff coordinates are geometry-derived candidates; the final route still needs sampled `resolveCityMovement` verification and a visual check of actual door interaction behavior.
+
+### Refined west-side service route geometry
+
+The west-side candidate route is based on the actual movement boundary (`BOUNDARY_X = 35`, symmetric ±35) and the player-expanded Medical House west face at X = -32.15. The strip from X = -35 to -32.15 is 2.85 units wide, so a centreline at X = -33.575 has 1.425 units of centre clearance to either limit. This is the measured available width, not a guessed street width.
+
+The proposed cross-connector at Z = -9.35 sits midway in the 3.20-unit gap between Medical House and Barracks. Expanding both footprints by 0.40 leaves 2.40 units of player-centre corridor. It is therefore a viable *secondary* link on paper, just above the 2.0-unit target. The final movement test must include the turn onto the Training Yard's east gate approach at X ≈ -10.5 and the 2.5-unit gate opening.
+
+### Remaining east-side frontage questions
+
+The East market has promising routes that do not use the known narrow gaps:
+- Approach the Forge from its west side.
+- Route around the Forge's south-west corner before passing south of the General Store.
+- Continue south on the Store's west side, then approach Merchant House around its south-west corner.
+- Approach the Stable from its north/east open frontage rather than through the Inn/Stable gap.
+- Approach the Armor Workshop from its north side, checking the short connector against the east extension and the full frontage width.
+
+These are candidate directions only. The General Store's wall opening and the exact Armor Workshop frontage must be resolved before assigning final door nodes. No route is approved until it passes the collider and movement-resolver sweep.
