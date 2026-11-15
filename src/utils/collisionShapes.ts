@@ -479,14 +479,14 @@ const colosseumWallSegments: SegmentCollider[] = [
   ...arcSegments(Math.PI + COLO_GATE_HALF, Math.PI * 1.15, 2, 'colo-rearwall-l', coloPoint),
   // The monumental south-facing portal is closed to free-roam movement.
   // The player stops outside this threshold and uses the gate confirmation UI.
-  // Endpoints meet the facade's two entrance-wall arcs, leaving no walk-around gap.
+  // Endpoints meet the portal piers' inner faces, closing the 5.2-unit passage.
   {
     type: 'segment',
     id: 'colo-front-gate-seal',
-    x1: -8.0456,
-    z1: -5.7,
-    x2: 8.0456,
-    z2: -5.7,
+    x1: -2.6,
+    z1: -8.1,
+    x2: 2.6,
+    z2: -8.1,
   },
 ];
 
