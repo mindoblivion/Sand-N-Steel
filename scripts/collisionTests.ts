@@ -424,6 +424,18 @@ function coloPoint(theta: number): [number, number] {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// COLOSSEUM FRONT GATE — the portal is a closed threshold until the player
+// chooses to enter through the gate prompt.
+// ════════════════════════════════════════════════════════════════════════════
+
+test('Colosseum: south-facing gate blocks walking into the arena', () => {
+  assert.ok(collidesWith(0, -5.7, R, CITY_COLLIDERS), 'Gate center must block entry');
+  assert.ok(collidesWith(0, -5.35, R, CITY_COLLIDERS), 'Player radius must stop before gate');
+  assert.ok(!collidesWith(0, -6.2, R, CITY_COLLIDERS), 'Exterior approach remains walkable');
+  assert.ok(collidesWith(0, -5.7, R, CITY_COLLIDERS), 'Center opening cannot be crossed');
+});
+
+// ════════════════════════════════════════════════════════════════════════════
 // 12. TRAINING YARD ENTRANCE
 // ════════════════════════════════════════════════════════════════════════════
 
