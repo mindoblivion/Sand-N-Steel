@@ -190,19 +190,20 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
     expect(legalCenterZ).toBeGreaterThan(worldDoorZ);
   });
   test('candidate Medical House east-flank/frontage sweep clears the live collider registry', () => {
-    // This candidate is a 2 m-wide corridor (1 m player-center radius).
-    // The start is fully supported by the existing rotated paving patch.
-    const start = { x: -25.1, z: -5.6 };
+    // The Training Yard's west wall constrains this passage, so the Medical
+    // bypass is a 1 m-wide corridor (0.5 m player-center radius), not 2 m.
+    // The start retains 0.5 m of full-circle support on the existing paving.
+    const start = { x: -25.2928932188, z: -4.8129942315 };
     expect(
-      insideRotatedPaving(start, { x: -26, z: -7.5 }, 4, 6, Math.PI / 4, 1.0),
-      'Medical House route must begin with a full 2 m corridor supported by existing paving',
+      insideRotatedPaving(start, { x: -26, z: -7.5 }, 4, 6, Math.PI / 4, 0.5),
+      'Medical House route must begin with a full 1 m corridor supported by existing paving',
     ).toBe(true);
 
-    // Stay east of the foundation, then turn west along the +Z frontage.
-    // Registered colliders and source-derived porch/prop envelopes are swept
-    // at 5 cm intervals using the full 1 m corridor radius.
-    const route = [start, { x: -25.1, z: -1.05 }, { x: -29, z: -1.05 }];
-    expectSweptClear(route, 'Medical House 2 m candidate bypass', 1.0);
+    // Stay east of the foundation and Training Yard wall, then turn west along
+    // the +Z frontage. All colliders and source-derived porch/prop envelopes
+    // are swept at 5 cm intervals using the full 0.5 m corridor radius.
+    const route = [start, { x: -25.7, z: -1.6 }, { x: -29, z: -1.6 }];
+    expectSweptClear(route, 'Medical House 1 m candidate bypass', 0.5);
 
     // The step is rendered geometry, not a CITY_COLLIDERS entry. Derive its
     // local transform and box dimensions from the porch source and test it
@@ -215,7 +216,7 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
       x: SITES[0].root[0] + stepPosition[0],
       z: SITES[0].root[2] + SITES[0].porch[2] + stepPosition[2],
     };
-    expectSweptClearOfRect(route, stepCenter, Number(stepGeometry[4]) / 2, Number(stepGeometry[5]) / 2, 'Medical House porch step', 1.0);
+    expectSweptClearOfRect(route, stepCenter, Number(stepGeometry[4]) / 2, Number(stepGeometry[5]) / 2, 'Medical House porch step', 0.5);
 
     // ClassicalColumn's square plinth is 2.6 × its radius. Both rendered
     // columns sit on the same frontage; verify their ground-level envelopes.
@@ -228,7 +229,7 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
         0.13,
         0.13,
         'Medical House column plinth',
-        1.0,
+        0.5,
       );
     }
 
@@ -242,7 +243,7 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
       { x: SITES[0].root[0] - 1.2, z: SITES[0].root[2] + 1.4 },
       Math.hypot(0.5, 0.3),
       'Medical House table',
-      1.0,
+      0.5,
     );
     expect(MEDICAL_SOURCE).toContain('position={[1.4, 0.35, 1.6]}');
     expect(MEDICAL_SOURCE).toContain('<cylinderGeometry args={[0.15, 0.25, 0.6, 8]} />');
@@ -251,7 +252,7 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
       { x: SITES[0].root[0] + 1.4, z: SITES[0].root[2] + 1.6 },
       0.25,
       'Medical House amphora',
-      1.0,
+      0.5,
     );
   });
 
