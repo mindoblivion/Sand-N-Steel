@@ -119,3 +119,30 @@ The latest local paving-coverage measurement reported nominal 0.40-unit-player-s
 5. Only then propose the smallest paving-only adjustment. Any prop or building relocation remains a separate, higher-risk change.
 
 No scene geometry, collider, interaction center or gameplay code changed in this pass. No Samsung visual walk-through was performed.
+
+## Follow-up — doorway transform versus collision standoff (2026-11-16)
+
+A second, more exact pass found that the arena-quarter paving gaps cannot be assessed from the nominal doorway plane alone. The full registered building rectangle is the movement boundary, and two older approach comments in `phaseC8_47.test.ts` no longer match the current rendered components.
+
+### Arena Medical House — stale orientation record
+
+- Current component root: `[-29, 0, -5]`.
+- Current porch group: local `[0, 0, +2.4]`; doorway local Z `-0.1`. The rendered entrance is therefore on the **+Z face**, at world Z = `-2.7`.
+- Current collision rectangle: `5.5 × 5.5`, bounds X `[-31.75, -26.25]`, Z `[-7.75, -2.25]`.
+- The nominal 0.40-radius doorway standoff `[-29, -2.3]` still overlaps that rectangle: its center is 0.05 inside the north boundary. The nearest center that clears the full rectangle by a 0.40 radius is approximately `[-29, -1.85]` (0.85 from the doorway plane).
+- From that legal center, the current rotated 4 × 6 paving polygon has a nearest-edge distance of approximately **4.12 units**. This is a geometric nearest-edge measurement, not proof of a clear route; props and the Training Hall corridor still need a swept check.
+- Contradiction: `phaseC8_47.test.ts` lines 141–142 still describe the infirmary entrance as +X and its portico as +X. That does not match the current `ArenaMedicalHouse.tsx` porch and doorway transforms. The old approach table is therefore not authoritative for this building until reconciled.
+
+### Veteran Gladiator Hall — current doorway and full-footprint constraint
+
+- Current component root: `[-24, 0, -25]`; current doorway group local Z is **+2.50**, so its world doorway plane is Z = `-22.50`.
+- The collision rectangle is `6.6 × 6.1`, bounds X `[-27.3, -20.7]`, Z `[-28.05, -21.95]`.
+- A nominal 0.40-radius doorway standoff at Z = `-22.10` remains inside the registered rectangle. The nearest center that clears its south/front edge by 0.40 is Z ≈ `-21.55`, about 0.95 from the doorway plane.
+- At that legal center, the existing 3 × 15 north-south paving rectangle is approximately **1.00 unit** away at its nearest edge. Its northern/front portion is the relevant approach; the polygon also overlaps the registered hall footprint behind the entrance, so its whole rectangle must not be treated as exposed walkable paving.
+- Contradiction: `phaseC8_47.test.ts` line 140 describes the doorway at local Z = +2.58, while the current component and the dedicated C-8.60/C-8.62 source checks pin it at +2.50. The old approach-table comment is stale.
+
+### Required correction before any geometry edit
+
+The existing approach test table is a historical interaction-radius audit, not a current doorway/collider contract. Do not use its Medical House +X or Veteran Hall +2.58 comments as current geometry. A future test should derive the doorway plane from the current component, compute the nearest legal player-center standoff against the registered collider, and then sweep the approach corridor through the live collision registry. For Medical House, also reconcile the stale +X source note before using the old approach direction in any automated route assertion.
+
+No collision or component code changed in this pass. These findings are source-derived and mathematically checked; no live scene or Samsung device verification was performed.
