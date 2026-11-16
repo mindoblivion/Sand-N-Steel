@@ -367,7 +367,7 @@ const LionGLB: React.FC<BeastFigureProps> = ({
       targetYawRef.current = fleeYaw;
       targetPosRef.current.set(
         current.x + Math.sin(fleeYaw) * fleeDistance,
-        current.y,
+        targetPosRef.current.y,
         current.z + Math.cos(fleeYaw) * fleeDistance,
       );
       isMovingRef.current = true;
