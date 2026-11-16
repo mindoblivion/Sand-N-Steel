@@ -357,6 +357,24 @@ const LionGLB: React.FC<BeastFigureProps> = ({
     if (prevPoseRef.current === pose) return;
     prevPoseRef.current = pose;
 
+    if (pose === 'fled') {
+      // Ferrum turns away from the player and runs clear of the arena instead
+      // of disappearing the instant the hunt state changes to "fled".
+      biteActiveRef.current = false;
+      const current = outerGroupRef.current?.position ?? targetPosRef.current;
+      const fleeYaw = (outerGroupRef.current?.rotation.y ?? targetYawRef.current) + Math.PI;
+      const fleeDistance = 4.5;
+      targetYawRef.current = fleeYaw;
+      targetPosRef.current.set(
+        current.x + Math.sin(fleeYaw) * fleeDistance,
+        current.y,
+        current.z + Math.cos(fleeYaw) * fleeDistance,
+      );
+      isMovingRef.current = true;
+      switchClip(BEAST_ANIMATION_MAP.run, 0.12, true);
+      return;
+    }
+
     if (pose === 'crouch') {
       biteActiveRef.current = false;
       switchClip(BEAST_ANIMATION_MAP.crouch, 0.2, false);
