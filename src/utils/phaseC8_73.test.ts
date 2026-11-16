@@ -61,7 +61,7 @@ const SITES: DoorSite[] = [
 ];
 
 describe('C-8.73 current arena-quarter doorway standoffs', () => {
-  test.each(SITES)('$id entrance faces +Z and agrees with its current source transform', (site) => {
+  test.each(SITES)('$id entrance faces +Z and agrees with its current source transform', (site: DoorSite) => {
     const worldDoorZ = site.root[2] + site.porch[2] + site.doorway[2];
     expect(worldDoorZ).toBeGreaterThan(site.root[2]);
     if (site.id === 'Arena Medical House') {
@@ -74,7 +74,7 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
     }
   });
 
-  test.each(SITES)('$id nominal doorway-plane standoff is blocked, legal collider standoff is clear', (site) => {
+  test.each(SITES)('$id nominal doorway-plane standoff is blocked, legal collider standoff is clear', (site: DoorSite) => {
     const footprint = rect(site.colliderId);
     const worldDoorZ = site.root[2] + site.porch[2] + site.doorway[2];
     const nominalCenterZ = worldDoorZ + PLAYER_RADIUS;
