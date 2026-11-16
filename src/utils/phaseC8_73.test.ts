@@ -91,6 +91,7 @@ function expectSweptClearOfRect(
   halfWidth: number,
   halfDepth: number,
   label: string,
+  playerRadius = PLAYER_RADIUS,
 ): void {
   for (let segment = 0; segment < points.length - 1; segment += 1) {
     const from = points[segment];
@@ -104,7 +105,7 @@ function expectSweptClearOfRect(
       const dx = Math.max(Math.abs(x - center.x) - halfWidth, 0);
       const dz = Math.max(Math.abs(z - center.z) - halfDepth, 0);
       expect(
-        dx * dx + dz * dz >= PLAYER_RADIUS * PLAYER_RADIUS,
+        dx * dx + dz * dz >= playerRadius * playerRadius,
         `${label}: player circle intersects source-derived prop at [${x.toFixed(3)}, ${z.toFixed(3)}]`,
       ).toBe(true);
     }
@@ -117,6 +118,7 @@ function expectSweptClearOfCircle(
   center: Point2,
   obstacleRadius: number,
   label: string,
+  playerRadius = PLAYER_RADIUS,
 ): void {
   for (let segment = 0; segment < points.length - 1; segment += 1) {
     const from = points[segment];
@@ -128,14 +130,14 @@ function expectSweptClearOfCircle(
       const x = from.x + (to.x - from.x) * t;
       const z = from.z + (to.z - from.z) * t;
       expect(
-        Math.hypot(x - center.x, z - center.z) >= PLAYER_RADIUS + obstacleRadius,
+        Math.hypot(x - center.x, z - center.z) >= playerRadius + obstacleRadius,
         `${label}: player circle intersects source-derived envelope at [${x.toFixed(3)}, ${z.toFixed(3)}]`,
       ).toBe(true);
     }
   }
 }
 
-function expectSweptClear(points: Point2[], label: string): void {
+function expectSweptClear(points: Point2[], label: string, playerRadius = PLAYER_RADIUS): void {
   for (let segment = 0; segment < points.length - 1; segment += 1) {
     const from = points[segment];
     const to = points[segment + 1];
@@ -146,7 +148,7 @@ function expectSweptClear(points: Point2[], label: string): void {
       const x = from.x + (to.x - from.x) * t;
       const z = from.z + (to.z - from.z) * t;
       expect(
-        collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS),
+        collidesWith(x, z, playerRadius, CITY_COLLIDERS),
         `${label}: swept player center collides at [${x.toFixed(3)}, ${z.toFixed(3)}]`,
       ).toBe(false);
     }
@@ -188,17 +190,19 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
     expect(legalCenterZ).toBeGreaterThan(worldDoorZ);
   });
   test('candidate Medical House east-flank/frontage sweep clears the live collider registry', () => {
-    const start = { x: -25.2928932188, z: -4.6008621971 };
+    // This candidate is a 2 m-wide corridor (1 m player-center radius).
+    // The start is fully supported by the existing rotated paving patch.
+    const start = { x: -25.1, z: -5.6 };
     expect(
-      insideRotatedPaving(start, { x: -26, z: -7.5 }, 4, 6, Math.PI / 4, 0.4),
-      'Medical House route must begin with the full player circle supported by the existing paving patch',
+      insideRotatedPaving(start, { x: -26, z: -7.5 }, 4, 6, Math.PI / 4, 1.0),
+      'Medical House route must begin with a full 2 m corridor supported by existing paving',
     ).toBe(true);
 
-    // The turn stays east of the building's northeast corner before following
-    // the +Z frontage. The live registry and source-derived porch step/column
-    // envelopes are checked independently; paving continuity remains unproven.
-    const route = [start, { x: -25.85, z: -1.70 }, { x: -29, z: -1.70 }];
-    expectSweptClear(route, 'Medical House candidate bypass');
+    // Stay east of the foundation, then turn west along the +Z frontage.
+    // Registered colliders and source-derived porch/prop envelopes are swept
+    // at 5 cm intervals using the full 1 m corridor radius.
+    const route = [start, { x: -25.1, z: -1.05 }, { x: -29, z: -1.05 }];
+    expectSweptClear(route, 'Medical House 2 m candidate bypass', 1.0);
 
     // The step is rendered geometry, not a CITY_COLLIDERS entry. Derive its
     // local transform and box dimensions from the porch source and test it
@@ -211,7 +215,7 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
       x: SITES[0].root[0] + stepPosition[0],
       z: SITES[0].root[2] + SITES[0].porch[2] + stepPosition[2],
     };
-    expectSweptClearOfRect(route, stepCenter, Number(stepGeometry[4]) / 2, Number(stepGeometry[5]) / 2, 'Medical House porch step');
+    expectSweptClearOfRect(route, stepCenter, Number(stepGeometry[4]) / 2, Number(stepGeometry[5]) / 2, 'Medical House porch step', 1.0);
 
     // ClassicalColumn's square plinth is 2.6 × its radius. Both rendered
     // columns sit on the same frontage; verify their ground-level envelopes.
@@ -224,6 +228,7 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
         0.13,
         0.13,
         'Medical House column plinth',
+        1.0,
       );
     }
 
@@ -237,6 +242,7 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
       { x: SITES[0].root[0] - 1.2, z: SITES[0].root[2] + 1.4 },
       Math.hypot(0.5, 0.3),
       'Medical House table',
+      1.0,
     );
     expect(MEDICAL_SOURCE).toContain('position={[1.4, 0.35, 1.6]}');
     expect(MEDICAL_SOURCE).toContain('<cylinderGeometry args={[0.15, 0.25, 0.6, 8]} />');
@@ -245,18 +251,20 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
       { x: SITES[0].root[0] + 1.4, z: SITES[0].root[2] + 1.6 },
       0.25,
       'Medical House amphora',
+      1.0,
     );
   });
 
   test('candidate Veteran Hall north/frontage sweep clears the live collider registry', () => {
-    const start = { x: -22.55, z: -21.4 };
+    // A 2 m-wide north/frontage spur, joined to the existing paving.
+    const start = { x: -22, z: -20.9 };
     expect(
-      insideRotatedPaving(start, { x: -21.5, z: -17.5 }, 3, 15, 0, 0.4),
-      'Veteran Hall route must begin with the full player circle supported by the existing paving patch',
+      insideRotatedPaving(start, { x: -21.5, z: -17.5 }, 3, 15, 0, 1.0),
+      'Veteran Hall route must begin with a full 2 m corridor supported by existing paving',
     ).toBe(true);
 
-    const route = [start, { x: -24, z: -21.45 }];
-    expectSweptClear(route, 'Veteran Hall candidate frontage');
+    const route = [start, { x: -24, z: -20.9 }];
+    expectSweptClear(route, 'Veteran Hall 2 m candidate frontage', 1.0);
 
     // The two Doric column plinths are not registered movement colliders.
     // Source dimensions: radius .15 × 2.6 gives a .39 m square base.
@@ -269,6 +277,7 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
         0.195,
         0.195,
         'Veteran Hall column plinth',
+        1.0,
       );
     }
   });
