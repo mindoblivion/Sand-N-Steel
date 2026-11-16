@@ -14,7 +14,7 @@
  * module's own (`WheelFitVariantKey`), `ChariotWheelVariantKey` in
  * `data/chariotParts.ts` is untouched, and nothing in `src/` outside
  * `components/dev/HorseChariotFitPrototype.tsx` and the suite imports this file.
- * It exists because the measurement FAILED — see `.base44/wheel-fit-s8.md`.
+ * It exists because the measurement FAILED — see `docs/engineering-audits/wheel-fit-s8.md`.
  *
  * ── HOW A WHEEL VARIANT'S RADIUS IS CONSUMED IN PRODUCTION TODAY ──────────
  * Traced so an admission could not silently change the ride of the variants that

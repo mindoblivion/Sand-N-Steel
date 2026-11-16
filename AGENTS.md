@@ -119,7 +119,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 ## C-8.69D rear appearance diagnostic (development only)
 
 - Open `/__dev/colosseum-rear` (or `/?devHarness=colosseum-rear`) directly for fixed-camera A/B/C comparisons; it mounts instead of the game and accesses no saves.
-- Implementation, reversibility, measured sectors, evidence limits and removal: [.base44/colosseum-rear-diagnostic.md](.base44/colosseum-rear-diagnostic.md). Keep future diagnostic details there rather than enlarging this file.
+- Implementation, reversibility, measured sectors, evidence limits and removal: [docs/engineering-audits/colosseum-rear-diagnostic.md](docs/engineering-audits/colosseum-rear-diagnostic.md). Keep future diagnostic details there rather than enlarging this file.
 - `bun test src/components/dev/colosseumRearDiagnostic.test.ts` checks material restoration, unchanged surfaces, production gating and light-rig parity. Production geometry/lighting are untouched; Android acceptance remains pending.
 
 ## Verifying
@@ -3833,7 +3833,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 
 ## C-8.70A chariot racing audit (read-only)
 
-- The full record — arena, start-line and perimeter measurements, the movement and camera constants, the measured horse-asset feasibility and the Stage 1–3 roadmap — lives in [.base44/chariot-racing-audit.md](.base44/chariot-racing-audit.md). Keep racing audit detail there rather than enlarging this file.
+- The full record — arena, start-line and perimeter measurements, the movement and camera constants, the measured horse-asset feasibility and the Stage 1–3 roadmap — lives in [docs/engineering-audits/chariot-racing-audit.md](docs/engineering-audits/chariot-racing-audit.md). Keep racing audit detail there rather than enlarging this file.
 - Headline finding: the three horse GLBs (15.2 / 15.8 / 16.3 MB) each carry one 31-joint skin and three clips, and **`Gallop` and `Walk` move no leg joint** (largest leg rotation 0.02°); `Idle` moves the legs 2°. The clips are not gaits, so a hitched team either stands in the rest pose or needs a procedural leg cycle.
 - Stage 1's remaining acceptance is the hitched team plus rolling wheels; Stage 2 (the finish line) is unstarted, so `finishRace` still has no caller.
 
@@ -4158,7 +4158,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 
 - **Preview evidence — driven through the app's own route, and what it establishes.** The
   `?devHarness=race` shortcut was **NOT reachable this turn**: the platform's preview navigation
-  rewrites the query string to its own (`_preview_token`, `base44_data_env=prod`,
+  rewrites the query string to its own (`_preview_token`, `a platform-specific environment flag`,
   `analytics-enable=false`, `hide_badge=true`), so the parameter never reaches the app — the route
   below is the shipped one. Driven in the preview browser (an anonymous visitor; **no session
   replayed**, so the app's own guest path was used): `PLAY AS GUEST` → the creation screen with its
@@ -6413,7 +6413,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 ## S8 — Spiked & Bladed wheels: the measured fit pass (report only; nothing admitted)
 
 - **The slice was measurement-gated and the measurement FAILED, so the catalogue is untouched.** A full
-  record lives in [.base44/wheel-fit-s8.md](.base44/wheel-fit-s8.md); keep S8 detail there. The wheels
+  record lives in [docs/engineering-audits/wheel-fit-s8.md](docs/engineering-audits/wheel-fit-s8.md); keep S8 detail there. The wheels
   slot still sells exactly `wheels_standard` (0) and `wheels_reinforced` (450), and
   `ChariotWheelVariantKey` still admits only `'standard' | 'reinforced'`.
 - **The numbers, re-derived from the shipping kit's own vertices** through the shipped mount (the two
@@ -7072,7 +7072,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   measurable on a phone.
 - **Finding worth carrying forward — the character dev harness is unreachable in this preview.** The
   platform's navigation rewrites the query string, so `?devHarness=character` never reaches the app
-  (the preview tool's own `search` carries only `_preview_token` / `base44_data_env` / …), and unlike
+  (the preview tool's own `search` carries only `_preview_token` / `a platform-specific environment flag` / …), and unlike
   `race`, `chariot` and `horsefit` the character harness has **no `sand_and_steel_dev_harness` scratch
   fallback**. A future phase that needs a live `DuelScene` either adds that flag or accepts the long
   route above, which cost several preview calls to reach one resolved hit.
@@ -7283,7 +7283,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   `src/utils/beastHunt.test.ts` is 45 of them), `bun run lint` (`tsc --noEmit`) → clean, `bun run build` → ok.
 - **NOT automatically verified — the live arena interaction.** The whole beast cycle (crouch telegraph → target
   control → strike at the crouch → wound pip → pounce / flight) is covered by the suite and by
-  `DuelScene`'s own code paths, but it has **not** been driven in the preview browser: the Base44 preview
+  `DuelScene`'s own code paths, but it has **not** been driven in the preview browser: the earlier hosted-editor preview
   reloads every preview call at the home route and clears `localStorage` between calls, so a
   `?devHarness=` deep route cannot be held from one call to the next, and the beast bout sits behind a
   ladder gate. Do the by-hand check with the URL above (creation → **Start Test Duel**); the states to look
@@ -8729,8 +8729,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Reinforced — `src/utils/devEnvironment.test.ts` (15 tests).** Pins the environment's own contract: the
   compose maps host 3000 and runs `bun run dev` from the bind-mounted source on a runtime image (never
   `vite preview` or a prebuilt app image), installs with `--frozen-lockfile`, keeps `node_modules` in the
-  named volume, probes `127.0.0.1:3000` and restarts on failure; `.base44/environment.json` agrees (port
-  3000, `/`, the compose file); Vite binds `0.0.0.0:3000`; `dev` / `build` / `lint` still mean what the
+  named volume, probes `127.0.0.1:3000` and restarts on failure; `docker-compose.dev.yml` defines the local development service on port 3000; Vite binds `0.0.0.0:3000`; `dev` / `build` / `lint` still mean what the
   gate calls; every registered startup asset exists in `public/`; the root carries no stray lockfile, core
   dump or terminal dump; and the workflow still runs every gate below.
 - **Reinforced — `.github/workflows/environment.yml`.** The repo had no PR gate at all
