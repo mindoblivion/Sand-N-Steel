@@ -741,6 +741,8 @@ describe('D-2 §I — the surfaces the player reads', () => {
     expect(flee).toContain('targetPosRef.current.y');
     expect(flee).toContain('Math.cos(fleeYaw) * fleeDistance');
     expect(flee).toContain('switchClip(BEAST_ANIMATION_MAP.run, 0.12, true);');
+    expect(flee).toContain("poseRef.current === 'fled'");
+    expect(flee).toContain('switchClip(movingNow ? BEAST_ANIMATION_MAP.run : BEAST_ANIMATION_MAP.idle, 0.18, false);');
     expect(DUEL_SCENE).toContain('<BeastFigure');
     expect(DUEL_SCENE).toContain('beastFacingYaw(');
     expect(DUEL_SCENE).toContain('wounds={beast.wounds}');
