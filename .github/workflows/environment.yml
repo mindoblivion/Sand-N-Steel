@@ -13,7 +13,7 @@
 #      fails here instead of on a runner at release time.
 #   2. `bun run lint`        — `tsc --noEmit` over `src/` and `scripts/`.
 #   3. `bun test`            — the repo-wide suite, including `src/utils/devEnvironment.test.ts`,
-#                              which pins this workflow's own gates and the compose wiring.
+#                              which pins this workflow's own gates and local development configuration.
 #   4. `scripts/collisionTests.ts` — the city-collision contract checks (separate harness).
 #   5. `scripts/combatTests.ts`    — the combat-math contract checks (separate harness).
 #   6. `bun run build`       — the production build AND `scripts/startupAssetCheck.ts`, so a
