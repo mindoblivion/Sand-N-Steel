@@ -171,8 +171,8 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
     ).toBe(true);
 
     // The turn stays east of the building's northeast corner before following
-    // the +Z frontage. This intentionally tests collision clearance only;
-    // porch steps, columns and paving continuity require separate validation.
+    // the +Z frontage. The live registry and source-derived porch step/column
+    // envelopes are checked independently; paving continuity remains unproven.
     const route = [start, { x: -25.85, z: -1.70 }, { x: -29, z: -1.70 }];
     expectSweptClear(route, 'Medical House candidate bypass');
 
@@ -180,8 +180,8 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
     // local transform and box dimensions from the porch source and test it
     // independently so the route cannot skim within PLAYER_RADIUS of its edge.
     const porchSource = MEDICAL_SOURCE.slice(MEDICAL_SOURCE.indexOf('/* 3. FRONT RECESSED'));
-    const stepPosition = vector(porchSource, /<mesh[^>]*position=\\{\\[(-?[\\d.]+),\\s*(-?[\\d.]+),\\s*(-?[\\d.]+)\\]\\}>[\\s\\S]*?<boxGeometry args=\\{\\[([\\d.]+),\\s*[\\d.]+,\\s*([\\d.]+)\\]\\}/, 'Medical House step');
-    const stepGeometry = /<mesh[^>]*position=\\{\\[(-?[\\d.]+),\\s*(-?[\\d.]+),\\s*(-?[\\d.]+)\\]\\}>[\\s\\S]*?<boxGeometry args=\\{\\[([\\d.]+),\\s*[\\d.]+,\\s*([\\d.]+)\\]\\}/.exec(porchSource);
+    const stepPosition = vector(porchSource, /<mesh[^>]*position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}>[\s\S]*?<boxGeometry args=\{\[([\d.]+),\s*[\d.]+,\s*([\d.]+)\]\}/, 'Medical House step');
+    const stepGeometry = /<mesh[^>]*position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}>[\s\S]*?<boxGeometry args=\{\[([\d.]+),\s*[\d.]+,\s*([\d.]+)\]\}/.exec(porchSource);
     if (!stepGeometry) throw new Error('Could not derive Medical House step dimensions');
     const stepCenter = {
       x: SITES[0].root[0] + stepPosition[0],
