@@ -176,8 +176,12 @@ describe('§C the wiring — the city hub and nothing else', () => {
     expect(hubCode).not.toContain('setKnobPos');
     expect(hubCode).not.toContain('knobPos');
     // The knob must not ease behind the finger with a CSS transform transition.
-    expect(hubCode).not.toContain('transition-transform');
-    expect(hubCode).toContain('will-change-transform');
+    const knobStart = hubCode.indexOf('ref={joystickKnobRef}');
+    const knobEnd = hubCode.indexOf('<div className="w-2.5 h-2.5', knobStart);
+    const knobMarkup = hubCode.slice(knobStart, knobEnd);
+    expect(knobStart).toBeGreaterThan(-1);
+    expect(knobMarkup).not.toContain('transition-transform');
+    expect(knobMarkup).toContain('will-change-transform');
     const touchHandler = hubCode.slice(
       hubCode.indexOf('const handleJoystickTouchMove'),
       hubCode.indexOf('const handleJoystickTouchEnd'),
