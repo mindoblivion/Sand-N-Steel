@@ -29,6 +29,11 @@ const useCharacterHarness =
   import.meta.env.DEV &&
   new URLSearchParams(window.location.search).get('devHarness') === 'character';
 
+// Combat animation audit — isolated, read-only inventory of the shipped Roman GLB.
+const useAnimationInventoryHarness =
+  import.meta.env.DEV &&
+  new URLSearchParams(window.location.search).get('devHarness') === 'animations';
+
 // Phase C-8.66C — development-only Chariot Workshop transaction harness.
 // Reachable ONLY in a Vite dev build, either through the exact
 // `?devHarness=chariot` query parameter or — for a preview browser that cannot
@@ -124,7 +129,15 @@ const useRaceHarness =
 // the address this entry point resolves cannot drift apart.
 const publicPage = resolvePublicPage(window.location.pathname);
 
-if (useColosseumRearHarness) {
+if (useAnimationInventoryHarness) {
+  void import('./components/dev/AnimationInventoryHarness').then(({ AnimationInventoryHarness }) => {
+    mountRoot(
+      <React.StrictMode>
+        <AnimationInventoryHarness />
+      </React.StrictMode>,
+    );
+  });
+} else if (useColosseumRearHarness) {
   void import('./components/dev/ColosseumRearDiagnostic').then(({ ColosseumRearDiagnostic }) => {
     mountRoot(
       <React.StrictMode>
