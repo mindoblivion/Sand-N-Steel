@@ -156,7 +156,7 @@ The C-8.73 source regression now passes, but it deliberately validates doorway t
 - The legal collider-only player-center standoff is approximately `[-29, -1.84]`. A straight segment from the nearest paving corner to that point cuts through the expanded Medical House footprint and is not a valid route.
 - The first candidate frontage line at Z `-1.84` was too close to the rendered porch step: its front edge is Z `-2.20`, leaving only `0.36 m` for a `0.40 m` player radius. It is rejected.
 - The revised source-derived candidate leaves the existing patch at `[-25.2929, -4.6009]`, turns east of the northeast foundation corner at `[-25.85, -1.70]`, then follows the frontage to `[-29, -1.70]`. The full player circle clears the porch step by `0.10 m` beyond its radius and clears both column plinths by a wider margin. The existing live-collider sweep also passes. This is still a candidate corridor, not paving or rendered acceptance.
-- The Medical House–Training Hall separation must remain clear throughout. Table/amphora prop envelopes and visible paving continuity still require a full scene-level check before a paving strip can be dimensioned.
+- The Medical House table and amphora have now also been included as conservative source-derived plan-view envelopes in the 5 cm sweep; both clear the candidate route. The Medical House–Training Hall separation remains clear in the full registered-collider sweep. Visible paving continuity and other unregistered scene details still require rendered review before a paving strip can be dimensioned.
 
 ### Veteran Gladiator Hall
 
