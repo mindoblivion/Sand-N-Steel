@@ -211,7 +211,7 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
       'Veteran Hall route must begin with the full player circle supported by the existing paving patch',
     ).toBe(true);
 
-    const route = [start, { x: -24, z: -21.54 }];
+    const route = [start, { x: -24, z: -21.45 }];
     expectSweptClear(route, 'Veteran Hall candidate frontage');
 
     // The two Doric column plinths are not registered movement colliders.
