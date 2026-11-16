@@ -40,7 +40,7 @@ describe('Roman animation inventory harness — development isolation and read-o
     expect(harness).toContain('CANDIDATE_WORDS');
     expect(harness).toContain('trackCount');
     expect(harness).toContain('keyframeCount');
-    expect(harness).toContain('A clip name or track list does not prove');
+    expect(harness).toContain('clip names alone do not prove');
     expect(harness).toContain('rendered pose and timing inspection');
   });
 });
