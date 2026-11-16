@@ -60,6 +60,48 @@ const SITES: DoorSite[] = [
   },
 ];
 
+
+interface Point2 {
+  x: number;
+  z: number;
+}
+
+function insideRotatedPaving(
+  point: Point2,
+  center: Point2,
+  width: number,
+  depth: number,
+  yaw: number,
+  margin: number,
+): boolean {
+  const dx = point.x - center.x;
+  const dz = point.z - center.z;
+  const localX = dx * Math.cos(yaw) - dz * Math.sin(yaw);
+  const localZ = dx * Math.sin(yaw) + dz * Math.cos(yaw);
+  return (
+    Math.abs(localX) <= width / 2 - margin &&
+    Math.abs(localZ) <= depth / 2 - margin
+  );
+}
+
+function expectSweptClear(points: Point2[], label: string): void {
+  for (let segment = 0; segment < points.length - 1; segment += 1) {
+    const from = points[segment];
+    const to = points[segment + 1];
+    const length = Math.hypot(to.x - from.x, to.z - from.z);
+    const samples = Math.ceil(length / 0.05);
+    for (let i = 0; i <= samples; i += 1) {
+      const t = samples === 0 ? 0 : i / samples;
+      const x = from.x + (to.x - from.x) * t;
+      const z = from.z + (to.z - from.z) * t;
+      expect(
+        collidesWith(x, z, PLAYER_RADIUS, CITY_COLLIDERS),
+        `${label}: swept player center collides at [${x.toFixed(3)}, ${z.toFixed(3)}]`,
+      ).toBe(false);
+    }
+  }
+}
+
 describe('C-8.73 current arena-quarter doorway standoffs', () => {
   test.each(SITES)('$id entrance faces +Z and agrees with its current source transform', (site: DoorSite) => {
     const worldDoorZ = site.root[2] + site.porch[2] + site.doorway[2];
@@ -94,4 +136,33 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
     ).toBe(false);
     expect(legalCenterZ).toBeGreaterThan(worldDoorZ);
   });
+  test('candidate Medical House east-flank/frontage sweep clears the live collider registry', () => {
+    const start = { x: -25.2928932188, z: -4.6008621971 };
+    expect(
+      insideRotatedPaving(start, { x: -26, z: -7.5 }, 4, 6, Math.PI / 4, 0.4),
+      'Medical House route must begin with the full player circle supported by the existing paving patch',
+    ).toBe(true);
+
+    // The turn stays east of the building's northeast corner before following
+    // the +Z frontage. This intentionally tests collision clearance only;
+    // porch steps, columns and paving continuity require separate validation.
+    expectSweptClear(
+      [start, { x: -25.85, z: -1.84 }, { x: -29, z: -1.84 }],
+      'Medical House candidate bypass',
+    );
+  });
+
+  test('candidate Veteran Hall north/frontage sweep clears the live collider registry', () => {
+    const start = { x: -22.55, z: -21.4 };
+    expect(
+      insideRotatedPaving(start, { x: -21.5, z: -17.5 }, 3, 15, 0, 0.4),
+      'Veteran Hall route must begin with the full player circle supported by the existing paving patch',
+    ).toBe(true);
+
+    expectSweptClear(
+      [start, { x: -24, z: -21.54 }],
+      'Veteran Hall candidate frontage',
+    );
+  });
+
 });
