@@ -731,8 +731,15 @@ describe('D-2 §I — the surfaces the player reads', () => {
     expect(DUEL_SCENE).toContain('beastFleesWithMaster(beastRef.current)');
   });
 
-  test('the beast figure renders from the fence, and a fled beast is not drawn', () => {
-    expect(DUEL_SCENE).toContain("beastCfg && beast.pose !== 'fled' && (");
+  test('the beast figure renders from the fence and remains visible for its flee animation', () => {
+    expect(DUEL_SCENE).toContain('{beastCfg && (');
+    expect(DUEL_SCENE).not.toContain("beastCfg && beast.pose !== 'fled' && (");
+    const flee = code('src/components/3d/BeastFigure.tsx');
+    expect(flee).toContain("if (pose === 'fled')");
+    expect(flee).toContain('const fleeDistance = 4.5;');
+    expect(flee).toContain('Math.sin(fleeYaw) * fleeDistance');
+    expect(flee).toContain('Math.cos(fleeYaw) * fleeDistance');
+    expect(flee).toContain('switchClip(BEAST_ANIMATION_MAP.run, 0.12, true);');
     expect(DUEL_SCENE).toContain('<BeastFigure');
     expect(DUEL_SCENE).toContain('beastFacingYaw(');
     expect(DUEL_SCENE).toContain('wounds={beast.wounds}');
@@ -900,7 +907,7 @@ describe('D-2 §J — nothing persists, and no pipeline stage was added', () => 
     // One fence read, and every beast surface is behind it.
     expect((DUEL_SCENE.match(/beastConfigFor\(opponent\)/g) ?? []).length).toBe(1);
     expect(DUEL_SCENE).toContain('const beastCfg = useMemo(');
-    for (const surface of ['if (beastCfg) {', 'beastCfg && beast.pose !== \'fled\'', 'beastCfg\n            ? {']) {
+    for (const surface of ['if (beastCfg) {', '{beastCfg && (', 'beastCfg\n            ? {']) {
       expect(DUEL_SCENE, surface).toContain(surface);
     }
   });
