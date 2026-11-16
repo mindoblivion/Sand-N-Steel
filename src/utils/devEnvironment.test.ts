@@ -4,9 +4,9 @@
  * Run with: `bun test src/utils/devEnvironment.test.ts`
  *
  * ── WHY THIS SUITE EXISTS ─────────────────────────────────────────────────────
- * The Base44 sandbox, GitHub Codespaces and the Android release workflow all boot
- * this repository through the same handful of files: `docker-compose.base44.yml`
- * (host port 3000 → the Vite dev server on the cloned source), `.base44/environment.json`
+ * The Local Docker development, GitHub Codespaces and the Android release workflow all boot
+ * this repository through the same handful of files: `docker-compose.dev.yml`
+ * (host port 3000 → the Vite dev server on the cloned source), `(retired hosted-editor metadata)`
  * (the preview metadata), `vite.config.ts` (bind address and port), `package.json`
  * (the commands everything calls) and `.github/workflows/environment.yml` (the gate).
  *
@@ -37,13 +37,7 @@ function read(relPath: string): string {
   return readFileSync(resolve(ROOT, relPath), 'utf8');
 }
 
-const compose = read('docker-compose.base44.yml');
-const env = JSON.parse(read('.base44/environment.json')) as {
-  previewPort: number;
-  healthPath: string;
-  startCommand: string;
-  secrets: unknown[];
-};
+const compose = read('docker-compose.dev.yml');
 const vite = read('vite.config.ts');
 const pkg = JSON.parse(read('package.json')) as {
   scripts: Record<string, string>;
@@ -82,11 +76,11 @@ describe('§A — the compose wiring keeps the preview on live source', () => {
   });
 });
 
-describe('§B — the preview metadata and the Vite bind agree', () => {
-  test('.base44/environment.json points the preview at the compose entry point', () => {
+describe('§B — the local development configuration and Vite bind agree', () => {
+  test('(retired hosted-editor metadata) points the preview at the compose entry point', () => {
     expect(env.previewPort).toBe(3000);
     expect(env.healthPath).toBe('/');
-    expect(env.startCommand).toContain('docker-compose.base44.yml');
+    expect(env.startCommand).toContain('docker-compose.dev.yml');
     expect(Array.isArray(env.secrets)).toBe(true);
   });
 
