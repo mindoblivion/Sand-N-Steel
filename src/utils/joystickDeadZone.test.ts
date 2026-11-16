@@ -152,7 +152,7 @@ describe('§C the wiring — the city hub and nothing else', () => {
       hubCode.indexOf('// Continuous, non-stuttering 60fps Movement Loop'),
     );
     expect(endHandler).toContain('touchIdRef.current = null;');
-    expect(endHandler).toContain('setKnobPos({ x: 0, y: 0 });');
+    expect(endHandler).toContain('resetJoystickKnob();');
     expect(endHandler).toContain('touchVectorRef.current = { x: 0, z: 0 };');
   });
 
@@ -168,11 +168,26 @@ describe('§C the wiring — the city hub and nothing else', () => {
     expect(keyBlock).not.toContain('applyDeadZone');
   });
 
-  test('the knob still follows the thumb — the dead zone is on the input, not the visual', () => {
-    // The knob position is set from the clamped pixel delta, BEFORE the dead zone.
-    const knobIndex = hubCode.indexOf('setKnobPos({ x: dx, y: dy });');
-    const deadZoneIndex = hubCode.indexOf('applyDeadZone(dx / maxDist, dy / maxDist)');
-    expect(knobIndex).toBeGreaterThan(-1);
-    expect(deadZoneIndex).toBeGreaterThan(knobIndex);
+  test('the knob follows the thumb directly without re-rendering the city scene', () => {
+    // Touch samples update the knob DOM node directly, not React state.
+    expect(hubCode).toContain('const joystickKnobRef = useRef<HTMLDivElement>(null);');
+    expect(hubCode).toContain('joystickKnobRef.current.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;');
+    expect(hubCode).toContain('ref={joystickKnobRef}');
+    expect(hubCode).not.toContain('setKnobPos');
+    expect(hubCode).not.toContain('knobPos');
+    // The knob must not ease behind the finger with a CSS transform transition.
+    expect(hubCode).not.toContain('transition-transform');
+    expect(hubCode).toContain('will-change-transform');
+    const touchHandler = hubCode.slice(
+      hubCode.indexOf('const handleJoystickTouchMove'),
+      hubCode.indexOf('const handleJoystickTouchEnd'),
+    );
+    expect(touchHandler).not.toContain('setState');
+    expect(touchHandler).not.toContain('setKnobPos');
+    // The knob is updated from the clamped pixel delta, before input dead-zoning.
+    expect(touchHandler.indexOf('joystickKnobRef.current.style.transform')).toBeGreaterThan(-1);
+    expect(touchHandler.indexOf('joystickKnobRef.current.style.transform')).toBeLessThan(
+      touchHandler.indexOf('applyDeadZone(dx / maxDist, dy / maxDist)'),
+    );
   });
 });
