@@ -28,19 +28,19 @@ const capacitor = read('capacitor.config.ts');
 
 describe('§A — local development uses checked-out source', () => {
   test('Docker runs the Vite dev server from the repository source', () => {
-    expect(compose).toMatch(/image:\\s*oven\\/bun/);
+    expect(compose).toMatch(/image:\s*oven\/bun/);
     expect(compose).toContain('.:/app');
     expect(compose).toContain('web_node_modules:/app/node_modules');
     expect(compose).toContain('bun install --frozen-lockfile');
     expect(compose).toContain('exec bun run dev');
-    expect(compose).toMatch(/-\\s*"?3000:3000"?/);
+    expect(compose).toMatch(/-\s*"?3000:3000"?/);
     expect(compose).toContain('127.0.0.1:3000/');
     expect(compose).toContain('restart: on-failure');
   });
 
   test('Vite binds the development server on the expected interface and port', () => {
-    expect(vite).toMatch(/port:\\s*3000/);
-    expect(vite).toMatch(/host:\\s*'0\\.0\\.0\\.0'/);
+    expect(vite).toMatch(/port:\s*3000/);
+    expect(vite).toMatch(/host:\s*'0\.0\.0\.0'/);
     expect(pkg.scripts.dev).toBe('vite');
   });
 });
@@ -48,8 +48,8 @@ describe('§A — local development uses checked-out source', () => {
 describe('§B — the shipped app is built locally and has no hosted runtime URL', () => {
   test('Capacitor packages the local production build', () => {
     expect(capacitor).toContain("webDir: 'dist'");
-    expect(capacitor).not.toMatch(/server\\s*:\\s*\\{/);
-    expect(capacitor).not.toMatch(/url:\\s*['"]https?:/);
+    expect(capacitor).not.toMatch(/server\s*:\s*\{/);
+    expect(capacitor).not.toMatch(/url:\s*['"]https?:/);
   });
 
   test('the project manifest contains no hosted-editor SDK dependency', () => {
@@ -84,7 +84,7 @@ describe('§C — startup assets and repository hygiene remain guarded', () => {
   });
 
   test('gitignore excludes generated output and dependency directories', () => {
-    const ignored = gitignore.split('\\n').map((line) => line.trim());
+    const ignored = gitignore.split('\n').map((line) => line.trim());
     for (const rule of ['dist/', 'node_modules/']) {
       expect(ignored.includes(rule)).toBe(true);
     }
@@ -94,7 +94,7 @@ describe('§C — startup assets and repository hygiene remain guarded', () => {
 describe('§D — CI verifies the independent production build', () => {
   test('the environment gate runs on pull requests and main', () => {
     expect(workflow).toContain('pull_request:');
-    expect(workflow).toMatch(/push:[\\s\\S]*?branches:\\s*\\[main\\]/);
+    expect(workflow).toMatch(/push:[\s\S]*?branches:\s*\[main\]/);
     expect(workflow).toContain('runs-on: ubuntu-24.04');
   });
 
