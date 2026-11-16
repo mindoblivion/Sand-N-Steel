@@ -1608,8 +1608,8 @@ const handleEnterBathhouse = useCallback(() => {
     onRecordKeeperVisit?.(openCounterKeeperId);
   }, [openCounterKeeperId]);
 
-  // Phase 26.1: Memoized so it doesn't change reference on unrelated
-  // re-renders (e.g. setJoystickKnobPosition). Position/rotation are overridden by
+  // Phase 26.1: Memoized so it doesn't change reference on unrelated re-renders.
+  // The joystick knob updates its own DOM node; position/rotation are overridden by
   // useFrame via refs, so their stale values here are harmless.
   const cityPlayerFighter = useMemo<FighterState>(() => ({
     id: 'city_player',
