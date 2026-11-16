@@ -118,8 +118,10 @@ These are dependency stages, not a promise to ship every feature in one change. 
 - No hidden random damage, instant unavoidable crowd hits, or untelegraphed boss attacks.
 - Avoid new large textures, complex shaders, extra always-on lights or high-count physics objects.
 - Test normal fighters against boss-only mechanics, and test legacy saves without any new fields.
-- CI is not visual or device acceptance. Record model/animation limitations and require Samsung S24 visual/gameplay review before treating new 3D effects as verified.
-- APK signing and device installation remain paused until a worthwhile device-testing build is explicitly resumed.
+- CI is not visual or device acceptance. Record model/animation limitations and use Samsung S24 visual/gameplay review to verify new 3D effects.
+- The owner has explicitly lifted the previous pause: resume rehearsal APK signing and installation whenever a worthwhile device-testing build is ready. Keep rehearsal and production signing credentials strictly separate; never use the production Play upload key for rehearsal builds.
+- The owner has also authorized autonomous substantial gameplay changes when they materially improve enjoyment. Continue with source audits, small reversible slices, deterministic tests and clear reporting; do not treat the former approval gate as a blocker.
+- Use Google AI Studio where it can materially help with code generation, implementation, debugging or analysis. GitHub remains the source-control/review/CI workflow. If a required boss, creature, fighter, weapon or environment mesh is missing, identify the exact asset requirement and ask the owner to source or create it rather than silently substituting an unsuitable model.
 
 ## Existing implementation facts from the planning baseline
 
