@@ -84,6 +84,33 @@ function insideRotatedPaving(
   );
 }
 
+
+function expectSweptClearOfRect(
+  points: Point2[],
+  center: Point2,
+  halfWidth: number,
+  halfDepth: number,
+  label: string,
+): void {
+  for (let segment = 0; segment < points.length - 1; segment += 1) {
+    const from = points[segment];
+    const to = points[segment + 1];
+    const length = Math.hypot(to.x - from.x, to.z - from.z);
+    const samples = Math.ceil(length / 0.05);
+    for (let i = 0; i <= samples; i += 1) {
+      const t = samples === 0 ? 0 : i / samples;
+      const x = from.x + (to.x - from.x) * t;
+      const z = from.z + (to.z - from.z) * t;
+      const dx = Math.max(Math.abs(x - center.x) - halfWidth, 0);
+      const dz = Math.max(Math.abs(z - center.z) - halfDepth, 0);
+      expect(
+        dx * dx + dz * dz >= PLAYER_RADIUS * PLAYER_RADIUS,
+        `${label}: player circle intersects source-derived prop at [${x.toFixed(3)}, ${z.toFixed(3)}]`,
+      ).toBe(true);
+    }
+  }
+}
+
 function expectSweptClear(points: Point2[], label: string): void {
   for (let segment = 0; segment < points.length - 1; segment += 1) {
     const from = points[segment];
@@ -146,10 +173,35 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
     // The turn stays east of the building's northeast corner before following
     // the +Z frontage. This intentionally tests collision clearance only;
     // porch steps, columns and paving continuity require separate validation.
-    expectSweptClear(
-      [start, { x: -25.85, z: -1.84 }, { x: -29, z: -1.84 }],
-      'Medical House candidate bypass',
-    );
+    const route = [start, { x: -25.85, z: -1.70 }, { x: -29, z: -1.70 }];
+    expectSweptClear(route, 'Medical House candidate bypass');
+
+    // The step is rendered geometry, not a CITY_COLLIDERS entry. Derive its
+    // local transform and box dimensions from the porch source and test it
+    // independently so the route cannot skim within PLAYER_RADIUS of its edge.
+    const porchSource = MEDICAL_SOURCE.slice(MEDICAL_SOURCE.indexOf('/* 3. FRONT RECESSED'));
+    const stepPosition = vector(porchSource, /<mesh[^>]*position=\\{\\[(-?[\\d.]+),\\s*(-?[\\d.]+),\\s*(-?[\\d.]+)\\]\\}>[\\s\\S]*?<boxGeometry args=\\{\\[([\\d.]+),\\s*[\\d.]+,\\s*([\\d.]+)\\]\\}/, 'Medical House step');
+    const stepGeometry = /<mesh[^>]*position=\\{\\[(-?[\\d.]+),\\s*(-?[\\d.]+),\\s*(-?[\\d.]+)\\]\\}>[\\s\\S]*?<boxGeometry args=\\{\\[([\\d.]+),\\s*[\\d.]+,\\s*([\\d.]+)\\]\\}/.exec(porchSource);
+    if (!stepGeometry) throw new Error('Could not derive Medical House step dimensions');
+    const stepCenter = {
+      x: SITES[0].root[0] + stepPosition[0],
+      z: SITES[0].root[2] + SITES[0].porch[2] + stepPosition[2],
+    };
+    expectSweptClearOfRect(route, stepCenter, Number(stepGeometry[4]) / 2, Number(stepGeometry[5]) / 2, 'Medical House porch step');
+
+    // ClassicalColumn's square plinth is 2.6 × its radius. Both rendered
+    // columns sit on the same frontage; verify their ground-level envelopes.
+    expect(MEDICAL_SOURCE).toContain('[-1.2, 1.2]');
+    expect(MEDICAL_SOURCE).toContain('radius={0.1}');
+    for (const localX of [-1.2, 1.2]) {
+      expectSweptClearOfRect(
+        route,
+        { x: SITES[0].root[0] + localX, z: SITES[0].root[2] + SITES[0].porch[2] + 0.1 },
+        0.13,
+        0.13,
+        'Medical House column plinth',
+      );
+    }
   });
 
   test('candidate Veteran Hall north/frontage sweep clears the live collider registry', () => {
@@ -159,10 +211,22 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
       'Veteran Hall route must begin with the full player circle supported by the existing paving patch',
     ).toBe(true);
 
-    expectSweptClear(
-      [start, { x: -24, z: -21.54 }],
-      'Veteran Hall candidate frontage',
-    );
+    const route = [start, { x: -24, z: -21.54 }];
+    expectSweptClear(route, 'Veteran Hall candidate frontage');
+
+    // The two Doric column plinths are not registered movement colliders.
+    // Source dimensions: radius .15 × 2.6 gives a .39 m square base.
+    expect(VETERAN_SOURCE).toContain('[-1.8, 1.8]');
+    expect(VETERAN_SOURCE).toContain('radius={0.15}');
+    for (const localX of [-1.8, 1.8]) {
+      expectSweptClearOfRect(
+        route,
+        { x: SITES[1].root[0] + localX, z: SITES[1].root[2] + 2.82 },
+        0.195,
+        0.195,
+        'Veteran Hall column plinth',
+      );
+    }
   });
 
 });
