@@ -2,9 +2,9 @@
 #
 # TWO JOBS, MUTUALLY EXCLUSIVE BY TRIGGER
 #   `rehearsal` — `workflow_dispatch` with `mode: rehearsal`, from ANY ref. Suite, typecheck, web
-#                 build, `cap sync`, then a release Gradle build signed with a THROWAWAY key
-#                 generated on the runner. It references no production secret, its artifact is named
-#                 as a rehearsal, and it CANNOT start the release job.
+#                 build, `cap sync`, then a release Gradle build signed with a stable rehearsal-only
+#                 key by default (or an explicitly selected throwaway key). It never sees production
+#                 signing secrets, its artifact is named as a rehearsal, and it CANNOT start release.
 #   `release`   — a `push` of an approved `v*` tag, or `workflow_dispatch` with `mode: release` from
 #                 `refs/heads/main` only. It is the only job that may see the upload keystore; it
 #                 proves a tag is an approved commit on `main`, runs the same gates itself, signs,
@@ -49,6 +49,13 @@ on:
           - rehearsal
           - release
         default: rehearsal
+      rehearsal_signing:
+        description: 'stable = update an existing rehearsal install (requires rehearsal-only secrets); temporary = one-run key, requires uninstall before next build.'
+        type: choice
+        options:
+          - stable
+          - temporary
+        default: stable
   push:
     tags: ['v*']
 
@@ -61,10 +68,10 @@ concurrency:
 
 jobs:
   # ── REHEARSAL ──────────────────────────────────────────────────────────�[...]
-  # No `secrets.*` reference may appear in this job, and its `if:` refuses every trigger except a
-  # manual rehearsal run. It proves the whole pipeline — tests, web build, Capacitor sync, Gradle
-  # packaging AND signature verification — while signing with a key it generates itself, so no ref
-  # can touch the upload key through this path.
+  # Only dedicated rehearsal secrets may appear in this job; production upload secrets remain
+  # confined to release. The job-level guard admits only a manual rehearsal dispatch. It proves the
+  # whole pipeline — tests, web build, Capacitor sync, Gradle packaging AND signature verification —
+  # without exposing or reusing the Play upload key.
   rehearsal:
     name: Rehearsal — validate the Android build (no production secrets)
     if: github.event_name == 'workflow_dispatch' && inputs.mode == 'rehearsal'
@@ -98,19 +105,40 @@ jobs:
           BUILD_COMMIT: ${{ github.sha }}
         run: bun run cap:sync
 
-      - name: Generate a throwaway signing key (rehearsal only)
+      - name: Restore the stable rehearsal signing key
+        if: inputs.rehearsal_signing == 'stable'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_REHEARSAL_KEYSTORE_BASE64 }}
+          KEYSTORE_STORE_FILE: rehearsal.keystore
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.ANDROID_REHEARSAL_KEYSTORE_PASSWORD }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.ANDROID_REHEARSAL_KEY_ALIAS }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.ANDROID_REHEARSAL_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          for name in KEYSTORE_BASE64 KEYSTORE_STORE_PASSWORD KEYSTORE_KEY_ALIAS KEYSTORE_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing repository secret for $name — see docs/ANDROID_RELEASE.md (Stable rehearsal signing)."
+              exit 1
+            fi
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "android/app/$KEYSTORE_STORE_FILE"
+          bun run scripts/writeKeystoreProperties.ts android/keystore.properties
+
+      - name: Generate a throwaway signing key (temporary rehearsal only)
+        if: inputs.rehearsal_signing == 'temporary'
         run: |
           set -euo pipefail
           umask 077
           KEYPASS="$(openssl rand -hex 24)"
-          echo "::notice::REHEARSAL — this bundle is signed with a throwaway key generated in this run. It is NOT a release candidate and can never update the Play listing."
+          echo "::notice::TEMPORARY REHEARSAL — this bundle is signed with a throwaway key generated in this run. It cannot update another rehearsal install; uninstalling first may erase local saves. It is NOT a release candidate."
           keytool -genkeypair -noprompt \
             -keystore android/app/rehearsal.keystore \
             -storetype PKCS12 \
             -alias rehearsal \
             -storepass "$KEYPASS" \
             -keypass "$KEYPASS" \
-            -keyalg RSA -keysize 2048 -validity 30 \
+            -keyalg RSA -keysize 2048 -validity 3650 \
             -dname "CN=REHEARSAL ONLY DO NOT UPLOAD, OU=Rehearsal, O=Sand and Steel, C=US"
           KEYSTORE_STORE_FILE=rehearsal.keystore \
           KEYSTORE_STORE_PASSWORD="$KEYPASS" \
@@ -122,25 +150,49 @@ jobs:
         working-directory: android
         run: bash ./gradlew bundleRelease --no-daemon
 
-      # `--signature-only`: the rehearsal key exists for one run, so there is no identity to pin.
-      # The flag makes that skip explicit; a release run never passes it and fails closed instead.
-      - name: Verify the practice bundle signature (rehearsal)
+      # Stable rehearsal mode pins the dedicated rehearsal certificate. Temporary mode
+      # explicitly skips identity pinning because its key exists for one run only.
+      - name: Verify the stable rehearsal bundle signer
+        if: inputs.rehearsal_signing == 'stable'
+        env:
+          EXPECTED_SIGNER_SHA256: ${{ secrets.ANDROID_REHEARSAL_CERT_SHA256 }}
+        run: bun run scripts/verifyBundleSignature.ts android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Verify the temporary rehearsal bundle signature
+        if: inputs.rehearsal_signing == 'temporary'
         run: bun run scripts/verifyBundleSignature.ts android/app/build/outputs/bundle/release/app-release.aab --signature-only
 
       # AABs are not directly installable by tapping on a phone. Build a single APK with the
-      # same throwaway key so physical-device acceptance does not require Bundletool.
+      # same selected rehearsal key so physical-device acceptance does not require Bundletool.
       - name: Build the practice APK (rehearsal)
         working-directory: android
-        run: bash ./gradlew assembleRelease --no-daemon
+        run: bash ./gradlew clean assembleRelease --no-daemon
 
-      - name: Verify the practice APK signature (rehearsal)
+      - name: Verify the practice APK signature and signer identity (rehearsal)
         shell: bash
+        env:
+          EXPECTED_SIGNER_SHA256: ${{ secrets.ANDROID_REHEARSAL_CERT_SHA256 }}
+          REHEARSAL_SIGNING_MODE: ${{ inputs.rehearsal_signing }}
         run: |
           set -euo pipefail
           APK="android/app/build/outputs/apk/release/app-release.apk"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -n "$APKSIGNER"
+          test -s "$APK"
           "$APKSIGNER" verify --verbose "$APK"
+          if [ "$REHEARSAL_SIGNING_MODE" = "stable" ]; then
+            if [ -z "${EXPECTED_SIGNER_SHA256:-}" ]; then
+              echo "::error::Stable rehearsal APK signer fingerprint is not configured."
+              exit 1
+            fi
+            EXPECTED="$(printf '%s' "$EXPECTED_SIGNER_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            mapfile -t ACTUAL < <("$APKSIGNER" verify --print-certs "$APK" | sed -nE 's/.*certificate SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | tr -d ':' | tr '[:upper:]' '[:lower:]')
+            if [ "${#ACTUAL[@]}" -ne 1 ] || [ "${ACTUAL[0]}" != "$EXPECTED" ]; then
+              echo "::error::APK signer identity does not match the pinned stable rehearsal certificate."
+              exit 1
+            fi
+            echo "Stable rehearsal APK signer fingerprint matches the configured certificate."
+          fi
 
       - name: Upload the REHEARSAL bundle and installable APK (never a release candidate)
         uses: actions/upload-artifact@v4
