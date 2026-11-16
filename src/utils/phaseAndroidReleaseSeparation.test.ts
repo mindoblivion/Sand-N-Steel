@@ -12,7 +12,7 @@
  *   A. the trigger matrix                — each job's `if:` admits only its own event, and no
  *                                          event starts both (evaluated, not text-matched)
  *   B. the trigger filters               — `v*` tags only, no branch push, mode defaults to safe
- *   C. secret isolation                  — `secrets.*` appears in the release job alone
+ *   C. secret isolation                  — production secrets appear in the release job alone
  *   D. tag provenance                    — a tag must be reachable from `main`, checked before any
  *                                          secret-bearing step, failing closed
  *   E. provenance behaviour              — the real shell block driven against a real repository
@@ -109,6 +109,13 @@ const KEYSTORE_SECRETS = [
 ];
 
 const FINGERPRINT_SECRET = 'ANDROID_UPLOAD_CERT_SHA256';
+const REHEARSAL_KEYSTORE_SECRETS = [
+  'ANDROID_REHEARSAL_KEYSTORE_BASE64',
+  'ANDROID_REHEARSAL_KEYSTORE_PASSWORD',
+  'ANDROID_REHEARSAL_KEY_ALIAS',
+  'ANDROID_REHEARSAL_KEY_PASSWORD',
+];
+const REHEARSAL_FINGERPRINT_SECRET = 'ANDROID_REHEARSAL_CERT_SHA256';
 const REHEARSAL_ARTIFACT = 'rehearsal-aab-do-not-upload';
 const RELEASE_ARTIFACT = 'sand-and-steel-aab';
 
@@ -292,15 +299,21 @@ describe('B. the trigger filters match the guard', () => {
     expect(mode?.type).toBe('choice');
     expect(mode?.options).toEqual(['rehearsal', 'release']);
     expect(mode?.default).toBe('rehearsal');
+
+    const signing = dispatch.inputs?.rehearsal_signing;
+    expect(signing?.type).toBe('choice');
+    expect(signing?.options).toEqual(['stable', 'temporary']);
+    expect(signing?.default).toBe('stable');
   });
 });
 
 // ── C. secret isolation ────────────────────────────────────────────────────────────────────
 
-describe('C. production signing material never reaches the rehearsal path', () => {
-  test('the rehearsal job references no secret at all', () => {
-    expect(secretNamesIn('rehearsal')).toEqual([]);
-    expect(JSON.stringify(job('rehearsal'))).not.toContain('secrets.');
+describe('C. rehearsal signing is isolated from production signing material', () => {
+  test('the rehearsal job references only dedicated rehearsal secrets', () => {
+    expect(secretNamesIn('rehearsal')).toEqual([...REHEARSAL_KEYSTORE_SECRETS, REHEARSAL_FINGERPRINT_SECRET].sort());
+    expect(JSON.stringify(job('rehearsal'))).not.toContain('ANDROID_KEYSTORE_');
+    expect(JSON.stringify(job('rehearsal'))).not.toContain(FINGERPRINT_SECRET);
   });
 
   test('the release job references exactly the keystore secrets plus the signer fingerprint', () => {
@@ -325,10 +338,27 @@ describe('C. production signing material never reaches the rehearsal path', () =
     expect(job('release').environment).toBeUndefined();
   });
 
-  test('the rehearsal never names the production keystore or its alias', () => {
+  test('the rehearsal never names the production keystore or its secrets', () => {
     const text = JSON.stringify(job('rehearsal'));
     expect(text).not.toContain('Sand-and-Steel.keystore');
     for (const name of KEYSTORE_SECRETS) expect(text).not.toContain(name);
+    expect(text).not.toContain(FINGERPRINT_SECRET);
+  });
+
+  test('stable rehearsal secrets are confined to the dedicated restore and verification steps', () => {
+    const restore = stepNamed('rehearsal', 'Restore the stable rehearsal signing key');
+    expect(restore.step.if).toBe("inputs.rehearsal_signing == 'stable'");
+    for (const name of REHEARSAL_KEYSTORE_SECRETS) expect(JSON.stringify(restore.step)).toContain(name);
+
+    const verify = stepNamed('rehearsal', 'Verify the stable rehearsal bundle signer');
+    expect(verify.step.if).toBe("inputs.rehearsal_signing == 'stable'");
+    expect(verify.step.env?.['EXPECTED_SIGNER_SHA256']).toBe(`\${{ secrets.${REHEARSAL_FINGERPRINT_SECRET} }}`);
+  });
+
+  test('temporary rehearsal signing is an explicit fallback, not the default', () => {
+    const step = stepNamed('rehearsal', 'throwaway signing key').step;
+    expect(step.if).toBe("inputs.rehearsal_signing == 'temporary'");
+    expect(step.run).toContain('openssl rand -hex');
   });
 });
 
@@ -491,9 +521,10 @@ describe('F. every `run:` block is valid shell', () => {
   }
 
   test('the rehearsal properties writer is fed by environment, never by argv', () => {
-    const run = stepNamed('rehearsal', 'throwaway signing key').step.run ?? '';
-    expect(run).toContain('KEYSTORE_STORE_PASSWORD=');
-    expect(run).toContain('-storepass "$KEYPASS"');
+    const run = stepNamed('rehearsal', 'Restore the stable rehearsal signing key').step.run ?? '';
+    const step = stepNamed('rehearsal', 'Restore the stable rehearsal signing key').step;
+    expect(step.env?.['KEYSTORE_STORE_PASSWORD']).toBe('${{ secrets.ANDROID_REHEARSAL_KEYSTORE_PASSWORD }}');
+    expect(run).toContain('scripts/writeKeystoreProperties.ts');
     expect(run).not.toMatch(/writeKeystoreProperties\.ts[^\n]*(pass|alias)/i);
   });
 });
@@ -501,11 +532,15 @@ describe('F. every `run:` block is valid shell', () => {
 // ── G. signer identity ────────────────────────────────────────────────────────────────────
 
 describe('G. the release verification is pinned to a signer certificate', () => {
-  test('rehearsal opts out of the identity check explicitly, and says so', () => {
-    const run = stepNamed('rehearsal', 'Verify the practice bundle signature').step.run ?? '';
-    expect(run).toContain('verifyBundleSignature.ts');
-    expect(run).toContain('--signature-only');
-    expect(stepNamed('rehearsal', 'Verify the practice bundle signature').step.env).toBeUndefined();
+  test('stable rehearsal signing pins its signer; temporary mode explicitly skips the pin', () => {
+    const stable = stepNamed('rehearsal', 'Verify the stable rehearsal bundle signer').step;
+    expect(stable.run).toContain('verifyBundleSignature.ts');
+    expect(stable.run).not.toContain('--signature-only');
+    expect(stable.env?.['EXPECTED_SIGNER_SHA256']).toBe(`\${{ secrets.${REHEARSAL_FINGERPRINT_SECRET} }}`);
+
+    const temporary = stepNamed('rehearsal', 'Verify the temporary rehearsal bundle signature').step;
+    expect(temporary.run).toContain('--signature-only');
+    expect(temporary.if).toBe("inputs.rehearsal_signing == 'temporary'");
   });
 
   test('release runs the same script WITHOUT the opt-out, with the fingerprint configured', () => {
