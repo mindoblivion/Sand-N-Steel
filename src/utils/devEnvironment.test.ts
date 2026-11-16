@@ -4,11 +4,9 @@
  * Run with: `bun test src/utils/devEnvironment.test.ts`
  *
  * ── WHY THIS SUITE EXISTS ─────────────────────────────────────────────────────
- * The Local Docker development, GitHub Codespaces and the Android release workflow all boot
- * this repository through the same handful of files: `docker-compose.dev.yml`
- * (host port 3000 → the Vite dev server on the cloned source), `(retired hosted-editor metadata)`
- * (the preview metadata), `vite.config.ts` (bind address and port), `package.json`
- * (the commands everything calls) and `.github/workflows/environment.yml` (the gate).
+ * Local Docker development, GitHub Codespaces and the Android release workflow use the
+ * same Vite configuration, package scripts and CI gate. The local compose file is
+ * deliberately platform-neutral; no hosted-editor metadata is required.
  *
  * Those files had no test. A stray `npm install` (a `package-lock.json` beside
  * `bun.lock`), a compose edit that serves a built bundle instead of the dev server,
@@ -18,7 +16,7 @@
  * gate on any of it).
  *
  * §A  the compose wiring: port 3000, the dev command, the source mount, health, restart
- * §B  the preview metadata and the Vite bind address agree with it
+ * §B  the Vite bind address agrees with the local development port
  * §C  the commands the guard and the CI gate depend on still exist
  * §D  the startup assets the boot shell needs are present in `public/`
  * §E  the repository root carries no stray lockfile, core dump or terminal dump
@@ -77,14 +75,7 @@ describe('§A — the compose wiring keeps the preview on live source', () => {
 });
 
 describe('§B — the local development configuration and Vite bind agree', () => {
-  test('(retired hosted-editor metadata) points the preview at the compose entry point', () => {
-    expect(env.previewPort).toBe(3000);
-    expect(env.healthPath).toBe('/');
-    expect(env.startCommand).toContain('docker-compose.dev.yml');
-    expect(Array.isArray(env.secrets)).toBe(true);
-  });
-
-  test('Vite binds 0.0.0.0:3000 so the sandbox proxy can reach it', () => {
+  test('Vite binds 0.0.0.0:3000 so the local/container host can reach it', () => {
     expect(vite).toMatch(/port:\s*3000/);
     expect(vite).toMatch(/host:\s*'0\.0\.0\.0'/);
   });
