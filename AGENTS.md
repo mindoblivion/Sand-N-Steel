@@ -4158,7 +4158,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 
 - **Preview evidence — driven through the app's own route, and what it establishes.** The
   `?devHarness=race` shortcut was **NOT reachable this turn**: the platform's preview navigation
-  rewrites the query string to its own (`_preview_token`, `base44_data_env=prod`,
+  rewrites the query string to its own (`_preview_token`, `a platform-specific environment flag`,
   `analytics-enable=false`, `hide_badge=true`), so the parameter never reaches the app — the route
   below is the shipped one. Driven in the preview browser (an anonymous visitor; **no session
   replayed**, so the app's own guest path was used): `PLAY AS GUEST` → the creation screen with its
@@ -7072,7 +7072,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   measurable on a phone.
 - **Finding worth carrying forward — the character dev harness is unreachable in this preview.** The
   platform's navigation rewrites the query string, so `?devHarness=character` never reaches the app
-  (the preview tool's own `search` carries only `_preview_token` / `base44_data_env` / …), and unlike
+  (the preview tool's own `search` carries only `_preview_token` / `a platform-specific environment flag` / …), and unlike
   `race`, `chariot` and `horsefit` the character harness has **no `sand_and_steel_dev_harness` scratch
   fallback**. A future phase that needs a live `DuelScene` either adds that flag or accepts the long
   route above, which cost several preview calls to reach one resolved hit.
@@ -8729,8 +8729,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Reinforced — `src/utils/devEnvironment.test.ts` (15 tests).** Pins the environment's own contract: the
   compose maps host 3000 and runs `bun run dev` from the bind-mounted source on a runtime image (never
   `vite preview` or a prebuilt app image), installs with `--frozen-lockfile`, keeps `node_modules` in the
-  named volume, probes `127.0.0.1:3000` and restarts on failure; `.base44/environment.json` agrees (port
-  3000, `/`, the compose file); Vite binds `0.0.0.0:3000`; `dev` / `build` / `lint` still mean what the
+  named volume, probes `127.0.0.1:3000` and restarts on failure; `docker-compose.dev.yml` defines the local development service on port 3000; Vite binds `0.0.0.0:3000`; `dev` / `build` / `lint` still mean what the
   gate calls; every registered startup asset exists in `public/`; the root carries no stray lockfile, core
   dump or terminal dump; and the workflow still runs every gate below.
 - **Reinforced — `.github/workflows/environment.yml`.** The repo had no PR gate at all
