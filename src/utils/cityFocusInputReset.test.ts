@@ -17,7 +17,7 @@ describe('city movement focus-loss recovery', () => {
     expect(resetHandler).toContain('touchIdRef.current = null');
     expect(resetHandler).toContain('touchVectorRef.current = { x: 0, z: 0 }');
     expect(resetHandler).toContain('keysPressed.current = {}');
-    expect(resetHandler).toContain('setKnobPos({ x: 0, y: 0 })');
+    expect(resetHandler).toContain('resetJoystickKnob()');
 
     expect(sceneSource).toContain("window.addEventListener('blur', resetJoystickInput)");
     expect(sceneSource).toContain("document.addEventListener('visibilitychange', handleVisibilityChange)");
