@@ -454,10 +454,24 @@ export const CityStreets = React.memo(() => {
       <RomanBench position={[-11.0, 0, -4.8]} rotationY={Math.PI / 2} />
 
       {/* EAST: Imperial Smithing Forge Courtyard Props */}
-      {/* Phase C-8.22: the forge-side barrel/amphora cluster remains at [11.9, 0, 5.2],
-          clear of the Forge plinth, north kerb and west-door approach. */}
+      {/* Phase C-8.22: the barrel/amphora cluster stood at [13.2, 0, 3.8], where the
+          full cluster (X 12.42–13.82, Z 3.28–4.32) reached inside the Forge plinth
+          (west face X = 13.0) and wall (X = 13.25) — worst pair barrelB ↔ wall −0.57,
+          plinth.lower −0.39 — straddled the north kerb of the Via Decumanus
+          (Z 3.9–4.3, −0.40) and also intruded into the west doorway corridor
+          (Z 0.9–4.3, −0.42). It moves 1.3 west and 1.4 north to [11.9, 0, 5.2]: the
+          complete cluster now clears the plinth by 0.48, and the kerb and the doorway
+          corridor — which share the Z = 4.3 edge — by 0.38, while the forge arrival
+          [11.5, 2.6] keeps 2.13 of room (2.4 × player radius). The Forge root, its
+          collider and the west portal itself are untouched.
+          See src/utils/phaseC8_22.test.ts. */}
       <MerchantPropsCluster position={[11.9, 0, 5.2]} />
 
+      {/* NORTHEAST: General Store Market Table & Benches — Phase 25.9: relocated
+            from inside the Colosseum footprint to the new General Store [22, 0, -5]
+            entrance area on its west side. Phase C-8.34 re-seats the market furniture
+            in the east/south storage apron, away from the Store's west-facing customer
+            counter and the southbound pedestrian connector. */}
       {/* Phase C-8.34 — EAST-MARKET PEDESTRIAN CLEARANCE
           The measured 2-unit route around the Forge and south of the General Store
           exposed a second problem that collider-only route tests cannot see: the
