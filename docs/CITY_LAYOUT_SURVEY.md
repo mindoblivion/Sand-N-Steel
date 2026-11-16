@@ -632,3 +632,14 @@ The west edge of the sampled 2.0-unit corridor is X = 4.8 at the fountain's cent
 5. Walk the rendered routes on the Samsung device; automated collider tests cannot verify visual legibility or perceived obstruction.
 
 No prop has been moved in this survey PR.
+
+## Follow-up implementation status — 2026-11-16
+
+This survey remains a historical, source-level blueprint. The following changes landed separately after its original obstruction inventory:
+
+- **East-market pedestrian and service-apron props:** draft PR [#463](https://github.com/mindoblivion/Sand-N-Steel/pull/463), head `e92610957c0fe8a5efe88259f1a0373e4d5628e5`, relocates the MerchantCart, Forge-side bench, General Store display cluster, crate and amphora into the east/south storage apron. Its prop-envelope, pairwise-overlap and sampled 2-unit route-clearance regression suite passed CI run #43800933618. This is source/test evidence only; the rendered layout still needs a landscape device review. PR #463 remains draft and unmerged.
+- **General Store classification:** the west-facing counter is the intended customer service frontage, not a walk-in door. The interaction radius and movement tests cover the exterior standoff at the counter. The pavilion's visual wall/counter contact remains a presentation question; do not add a walk-through collider opening unless the design explicitly changes to an interior shop.
+- **Tavern terrace props:** the three props remain at the C-8.22 placements and still intersect the later south-of-Training-Yard candidate corridor at Z = 8.575. The old cypress/plinth clearances are valid and must be preserved. The suggested south-west side-yard near (-21.5, 18.5) is not approved: it has not yet passed prop-to-prop, paving, frontage and movement-envelope checks.
+- **Device acceptance:** no current Samsung visual walk-through has been recorded for these latest placements. The source-level tests do not certify visual paving continuity or rendered clearance.
+
+The historical east-market table above records the pre-PR #463 positions and should be read as the original survey finding, not as the current scene state.
