@@ -194,7 +194,7 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
     // The Training Yard's west wall constrains this passage, so the Medical
     // bypass is a 1 m-wide corridor (0.5 m player-center radius), not 2 m.
     // The start retains 0.5 m of full-circle support on the existing paving.
-    const start = { x: -26.3890872965, z: -5.0606601718 };
+    const start = { x: -25.5757359313, z: -5.9443650814 };
     expect(
       insideRotatedPaving(start, { x: -26, z: -7.5 }, 4, 6, Math.PI / 4, 0.5),
       'Medical House route must begin with a full 1 m corridor supported by existing paving',
