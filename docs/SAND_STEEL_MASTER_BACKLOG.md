@@ -113,10 +113,10 @@ Do not interpret green CI as completion of device acceptance.
 - [Android release process](docs/ANDROID_RELEASE.md)
 - [City transform and route audit](docs/CITY_LAYOUT_AUDIT.md)
 - [Character asset acquisition and compatibility audit](docs/character-asset-acquisition-audit.md)
-- [Chariot racing implementation audit](.base44/chariot-racing-audit.md)
-- [Colosseum rear appearance diagnostic](.base44/colosseum-rear-diagnostic.md)
+- [Chariot racing implementation audit](docs/engineering-audits/chariot-racing-audit.md)
+- [Colosseum rear appearance diagnostic](docs/engineering-audits/colosseum-rear-diagnostic.md)
 - [Android race profiler instructions](docs/ANDROID_RACE_PROFILER.md)
-- [Racing career settlement](.base44/chariot-racing-audit.md) — current-main status update records PR #354's validated finish settlement, purse limits, and remaining device acceptance.
+- [Racing career settlement](docs/engineering-audits/chariot-racing-audit.md) — current-main status update records PR #354's validated finish settlement, purse limits, and remaining device acceptance.
 - [Android acceptance issue #329](https://github.com/mindoblivion/Sand-N-Steel/issues/329)
 - [City layout issue #232](https://github.com/mindoblivion/Sand-N-Steel/issues/232)
 
