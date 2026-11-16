@@ -34,7 +34,6 @@ function rect(id: string) {
 
 interface DoorSite {
   id: string;
-  source: string;
   colliderId: string;
   root: Vec3;
   porch: Vec3;
@@ -47,15 +46,13 @@ const VETERAN_SOURCE = load('../components/3d/city/VeteranGladiatorHall.tsx');
 const SITES: DoorSite[] = [
   {
     id: 'Arena Medical House',
-    source: MEDICAL_SOURCE,
     colliderId: 'arena-medical',
     root: vector(MEDICAL_SOURCE, /<group position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}>/, 'Medical House root'),
-    porch: vector(MEDICAL_SOURCE, /<group position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}>/, 'Medical House porch'),
+    porch: vector(MEDICAL_SOURCE.slice(MEDICAL_SOURCE.indexOf('/* 3. FRONT RECESSED')), /<group position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}>/, 'Medical House porch'),
     doorway: vector(MEDICAL_SOURCE, /<ClassicalDoorway\s+position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}/, 'Medical House doorway'),
   },
   {
     id: 'Veteran Gladiator Hall',
-    source: VETERAN_SOURCE,
     colliderId: 'veteran-hall',
     root: vector(VETERAN_SOURCE, /<group position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}>/, 'Veteran Hall root'),
     porch: [0, 0, 0],
