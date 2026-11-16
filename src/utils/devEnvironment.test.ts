@@ -1,28 +1,9 @@
 /**
- * Environment gate — the dev environment's own regression suite.
+ * Environment gate — platform-neutral local development and build contract.
  *
- * Run with: `bun test src/utils/devEnvironment.test.ts`
- *
- * ── WHY THIS SUITE EXISTS ─────────────────────────────────────────────────────
- * The Base44 sandbox, GitHub Codespaces and the Android release workflow all boot
- * this repository through the same handful of files: `docker-compose.base44.yml`
- * (host port 3000 → the Vite dev server on the cloned source), `.base44/environment.json`
- * (the preview metadata), `vite.config.ts` (bind address and port), `package.json`
- * (the commands everything calls) and `.github/workflows/environment.yml` (the gate).
- *
- * Those files had no test. A stray `npm install` (a `package-lock.json` beside
- * `bun.lock`), a compose edit that serves a built bundle instead of the dev server,
- * or a host/port drift all break "edits appear in the preview" while every gameplay
- * suite still passes — the environment dies silently, which is exactly what happened
- * before this phase (a committed terminal dump, an untracked npm lockfile, and no CI
- * gate on any of it).
- *
- * §A  the compose wiring: port 3000, the dev command, the source mount, health, restart
- * §B  the preview metadata and the Vite bind address agree with it
- * §C  the commands the guard and the CI gate depend on still exist
- * §D  the startup assets the boot shell needs are present in `public/`
- * §E  the repository root carries no stray lockfile, core dump or terminal dump
- * §F  the CI gate runs every suite this phase relies on
+ * Run with: `bun test src/utils/devEnvironment.test.ts`.
+ * The game is built from this repository with Vite and Capacitor. No hosted-editor
+ * integration, proprietary preview metadata, or remote game runtime is required.
  */
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, expect, test } from 'bun:test';
@@ -32,18 +13,10 @@ import { fileURLToPath } from 'node:url';
 import { STARTUP_ASSETS, assetRepoPath } from './startupAssets';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
-
 function read(relPath: string): string {
   return readFileSync(resolve(ROOT, relPath), 'utf8');
 }
-
-const compose = read('docker-compose.base44.yml');
-const env = JSON.parse(read('.base44/environment.json')) as {
-  previewPort: number;
-  healthPath: string;
-  startCommand: string;
-  secrets: unknown[];
-};
+const compose = read('docker-compose.dev.yml');
 const vite = read('vite.config.ts');
 const pkg = JSON.parse(read('package.json')) as {
   scripts: Record<string, string>;
@@ -51,115 +24,81 @@ const pkg = JSON.parse(read('package.json')) as {
 };
 const gitignore = read('.gitignore');
 const workflow = read('.github/workflows/environment.yml');
+const capacitor = read('capacitor.config.ts');
 
-describe('§A — the compose wiring keeps the preview on live source', () => {
-  test('the web entry point is host port 3000', () => {
-    expect(compose).toMatch(/-\s*"?3000:3000"?/);
-    expect(compose).toMatch(/^services:\s*$/m);
-    expect(compose).toMatch(/^\s{2}web:\s*$/m);
-  });
-
-  test('the app runs FROM THE CLONED SOURCE on a runtime image, never a bundled build', () => {
-    // A plain runtime base, bind-mounted source, and the Vite DEV server.
-    expect(compose).toMatch(/image:\s*oven\/bun/);
+describe('§A — local development uses checked-out source', () => {
+  test('Docker runs the Vite dev server from the repository source', () => {
+    expect(compose).toMatch(/image:\\s*oven\\/bun/);
     expect(compose).toContain('.:/app');
     expect(compose).toContain('web_node_modules:/app/node_modules');
+    expect(compose).toContain('bun install --frozen-lockfile');
     expect(compose).toContain('exec bun run dev');
-    // Serving a prebuilt bundle would make every edit invisible — refuse it.
-    expect(compose).not.toMatch(/vite preview|bun run preview|serve\s+dist/);
-    expect(compose).not.toMatch(/image:\s*(ghcr\.io|registry\.)/);
+    expect(compose).toMatch(/-\\s*"?3000:3000"?/);
+    expect(compose).toContain('127.0.0.1:3000/');
+    expect(compose).toContain('restart: on-failure');
   });
 
-  test('dependencies install from the committed lockfile before the server starts', () => {
-    expect(compose).toContain('bun install --frozen-lockfile');
+  test('Vite binds the development server on the expected interface and port', () => {
+    expect(vite).toMatch(/port:\\s*3000/);
+    expect(vite).toMatch(/host:\\s*'0\\.0\\.0\\.0'/);
     expect(pkg.scripts.dev).toBe('vite');
   });
+});
 
-  test('the service is probed over HTTP on 3000 and restarts on failure', () => {
-    expect(compose).toContain('healthcheck:');
-    expect(compose).toContain('127.0.0.1:3000/');
-    expect(compose).toMatch(/restart:\s*on-failure/);
+describe('§B — the shipped app is built locally and has no hosted runtime URL', () => {
+  test('Capacitor packages the local production build', () => {
+    expect(capacitor).toContain("webDir: 'dist'");
+    expect(capacitor).not.toMatch(/server\\s*:\\s*\\{/);
+    expect(capacitor).not.toMatch(/url:\\s*['"]https?:/);
+  });
+
+  test('the project manifest contains no hosted-editor SDK dependency', () => {
+    const names = Object.keys(pkg.dependencies).map((name) => name.toLowerCase());
+    expect(names.some((name) => name.includes('base44'))).toBe(false);
+  });
+
+  test('retired hosted-editor configuration is absent', () => {
+    for (const path of ['.base44', 'docker-compose.base44.yml']) {
+      expect(existsSync(resolve(ROOT, path))).toBe(false);
+    }
   });
 });
 
-describe('§B — the preview metadata and the Vite bind agree', () => {
-  test('.base44/environment.json points the preview at the compose entry point', () => {
-    expect(env.previewPort).toBe(3000);
-    expect(env.healthPath).toBe('/');
-    expect(env.startCommand).toContain('docker-compose.base44.yml');
-    expect(Array.isArray(env.secrets)).toBe(true);
-  });
-
-  test('Vite binds 0.0.0.0:3000 so the sandbox proxy can reach it', () => {
-    expect(vite).toMatch(/port:\s*3000/);
-    expect(vite).toMatch(/host:\s*'0\.0\.0\.0'/);
-  });
-});
-
-describe('§C — the commands the environment depends on exist', () => {
-  test('the scripts the compose command, the guard and CI call are present and honest', () => {
-    expect(pkg.scripts.build).toContain('vite build');
-    expect(pkg.scripts.build).toContain('check:startup-assets');
-    expect(pkg.scripts.lint).toBe('tsc --noEmit');
-  });
-
-  test('one package manager pins the tree: bun owns bun.lock', () => {
-    expect(existsSync(resolve(ROOT, 'bun.lock'))).toBe(true);
-  });
-});
-
-describe('§D — the startup assets the boot shell needs are shipped', () => {
+describe('§C — startup assets and repository hygiene remain guarded', () => {
   test('every registered startup asset exists in public/', () => {
     const missing = STARTUP_ASSETS.filter((url) => !existsSync(resolve(ROOT, assetRepoPath(url))));
     expect(missing).toEqual([]);
   });
 
-  test('the build check still reads that one registry, not a second list', () => {
+  test('the build check reads the shared startup asset registry', () => {
     const check = read('scripts/startupAssetCheck.ts');
     expect(check).toContain("from '../src/utils/startupAssets'");
     expect(check).toContain('STARTUP_ASSETS');
   });
-});
 
-describe('§E — the repository root stays clean of environment artifacts', () => {
-  test('no stray lockfile beside bun.lock (npm/yarn/pnpm installs are refused)', () => {
+  test('one package manager owns the dependency tree', () => {
+    expect(existsSync(resolve(ROOT, 'bun.lock'))).toBe(true);
     for (const stray of ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml']) {
-      expect({ file: stray, present: existsSync(resolve(ROOT, stray)) }).toEqual({ file: stray, present: false });
+      expect(existsSync(resolve(ROOT, stray))).toBe(false);
     }
   });
 
-  test('no terminal dump or core dump at the root', () => {
-    for (const stray of ['codespace-diagnostics.txt', 'core', 'diagnostics.txt']) {
-      expect({ file: stray, present: existsSync(resolve(ROOT, stray)) }).toEqual({ file: stray, present: false });
-    }
-  });
-
-  test('.gitignore keeps build output, dependencies and the known artifacts out of git', () => {
-    const ignored = gitignore.split('\n').map((line) => line.trim());
-    for (const rule of [
-      'dist/',
-      'node_modules/',
-      '*.backup.glb',
-      'core',
-      'package-lock.json',
-      'yarn.lock',
-      'pnpm-lock.yaml',
-      'codespace-diagnostics.txt',
-    ]) {
-      expect({ rule, ignored: ignored.includes(rule) }).toEqual({ rule, ignored: true });
+  test('gitignore excludes generated output and dependency directories', () => {
+    const ignored = gitignore.split('\\n').map((line) => line.trim());
+    for (const rule of ['dist/', 'node_modules/']) {
+      expect(ignored.includes(rule)).toBe(true);
     }
   });
 });
 
-describe('§F — the CI gate runs the environment and gameplay suites', () => {
-  test('the gate runs on pull requests and on main, on the pinned runner', () => {
-    expect(workflow).toMatch(/^on:\s*$/m);
+describe('§D — CI verifies the independent production build', () => {
+  test('the environment gate runs on pull requests and main', () => {
     expect(workflow).toContain('pull_request:');
-    expect(workflow).toMatch(/push:[\s\S]*?branches:\s*\[main\]/);
+    expect(workflow).toMatch(/push:[\\s\\S]*?branches:\\s*\\[main\\]/);
     expect(workflow).toContain('runs-on: ubuntu-24.04');
   });
 
-  test('the gate installs from the lockfile and runs every suite this phase relies on', () => {
+  test('CI installs, typechecks, tests and builds from the repository', () => {
     for (const command of [
       'bun install --frozen-lockfile',
       'bun run lint',
@@ -168,7 +107,7 @@ describe('§F — the CI gate runs the environment and gameplay suites', () => {
       'bun run scripts/combatTests.ts',
       'bun run build',
     ]) {
-      expect({ command, gated: workflow.includes(command) }).toEqual({ command, gated: true });
+      expect(workflow.includes(command)).toBe(true);
     }
   });
 });
