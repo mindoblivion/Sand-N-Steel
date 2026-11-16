@@ -454,38 +454,24 @@ export const CityStreets = React.memo(() => {
       <RomanBench position={[-11.0, 0, -4.8]} rotationY={Math.PI / 2} />
 
       {/* EAST: Imperial Smithing Forge Courtyard Props */}
-      {/* Phase C-8.22: the barrel/amphora cluster stood at [13.2, 0, 3.8], where the
-          full cluster (X 12.42–13.82, Z 3.28–4.32) reached inside the Forge plinth
-          (west face X = 13.0) and wall (X = 13.25) — worst pair barrelB ↔ wall −0.57,
-          plinth.lower −0.39 — straddled the north kerb of the Via Decumanus
-          (Z 3.9–4.3, −0.40) and also intruded into the west doorway corridor
-          (Z 0.9–4.3, −0.42). It moves 1.3 west and 1.4 north to [11.9, 0, 5.2]: the
-          complete cluster now clears the plinth by 0.48, and the kerb and the doorway
-          corridor — which share the Z = 4.3 edge — by 0.38, while the forge arrival
-          [11.5, 2.6] keeps 2.13 of room (2.4 × player radius). The Forge root, its
-          collider and the west portal itself are untouched.
-          See src/utils/phaseC8_22.test.ts. */}
+      {/* Phase C-8.22: the forge-side barrel/amphora cluster remains at [11.9, 0, 5.2],
+          clear of the Forge plinth, north kerb and west-door approach. */}
       <MerchantPropsCluster position={[11.9, 0, 5.2]} />
-      <RomanBench position={[12.5, 0, -3.8]} rotationY={-Math.PI / 2} />
 
-      {/* NORTHEAST: General Store Market Table & Benches — Phase 25.9: relocated
-            from inside the Colosseum footprint to the new General Store [22, 0, -5]
-            entrance area on its west side. */}
-      <MerchantPropsCluster position={[17, 0, -4]} />
-      {/* Phase C-8.21: the handcart's 45°-rotated body and cargo used to sit inside the
-          General Store [22, 0, -5] (plinth 0.14, counter 0.17, wall — worst
-          penetration 0.58) and inside the Smithing Forge [18, 0, 2.6]
-          wall (0.36). It is re-parked 7.2 west on the Via Decumanus carriageway at
-          [10.8, 0, -1.7]; the full rotated cart (2.28 × 2.28 footprint) now clears the
-          Store by 2.72, the Forge plinth by 0.99 and the nearest street prop — the
-          bench at [12.5, 0, -3.8] — by 0.79. Rotation, parts and cargo are unchanged,
-          and the cart still stands on the paved street, its 2.28-wide footprint
-          leaving 1.23 to the north kerb and 4.49 to the south kerb of the 8-wide
-          carriageway.
-          See src/utils/phaseC8_21.test.ts. */}
-      <MerchantCart position={[10.8, 0, -1.7]} rotationY={Math.PI / 4} />
-      <TimberCrate position={[17.5, 0, -6]} size={[0.8, 0.7, 0.8]} />
-      <RomanAmphora position={[18, 0, -3.5]} scale={0.8} tone="sand" />
+      {/* Phase C-8.34 — EAST-MARKET PEDESTRIAN CLEARANCE
+          The measured 2-unit route around the Forge and south of the General Store
+          exposed a second problem that collider-only route tests cannot see: the
+          market cart, Forge-side bench and customer-counter display props occupied
+          the route / service apron. Consolidate them in the open storage yard east
+          and south of the Store. The Store's west-facing counter and all building
+          roots, colliders, door triggers and arrival points remain unchanged.
+          Exact conservative prop-envelope and route-clearance checks live in
+          src/utils/cityMarketPropClearance.test.ts. */}
+      <RomanBench position={[27.0, 0, -7.5]} rotationY={-Math.PI / 2} />
+      <RomanAmphora position={[28.5, 0, -8.4]} scale={0.8} tone="sand" />
+      <MerchantPropsCluster position={[31.0, 0, -8.4]} />
+      <MerchantCart position={[32.0, 0, -5.2]} rotationY={Math.PI / 4} />
+      <TimberCrate position={[33.0, 0, -8.4]} size={[0.8, 0.7, 0.8]} />
 
       {/* SOUTHWEST: Golden Palm Tavern Outdoor Terrace Benches */}
       {/* Phase C-8.22: all three props stood inside the Tavern — the bench at
