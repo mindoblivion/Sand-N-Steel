@@ -146,3 +146,25 @@ A second, more exact pass found that the arena-quarter paving gaps cannot be ass
 The existing approach test table is a historical interaction-radius audit, not a current doorway/collider contract. Do not use its Medical House +X or Veteran Hall +2.58 comments as current geometry. A future test should derive the doorway plane from the current component, compute the nearest legal player-center standoff against the registered collider, and then sweep the approach corridor through the live collision registry. For Medical House, also reconcile the stale +X source note before using the old approach direction in any automated route assertion.
 
 No collision or component code changed in this pass. These findings are source-derived and mathematically checked; no live scene or Samsung device verification was performed.
+## Follow-up — arena-quarter paving corridor constraints (2026-11-16)
+
+The C-8.73 source regression now passes, but it deliberately validates doorway transforms and collider-safe player centers only. A further plan-view check shows why the two existing paving patches need different treatment.
+
+### Arena Medical House
+
+- The existing rotated 4 × 6 patch has corners approximately `[-29.536, -8.207]`, `[-26.707, -11.036]`, `[-22.464, -6.793]`, and `[-25.293, -3.964]`.
+- The legal player-center standoff is approximately `[-29, -1.84]`. A straight segment from the nearest paving corner to that point cuts through the expanded Medical House footprint and is not a valid route.
+- A geometrically plausible *collider-only* bypass would leave the patch on its northeast side, pass east of the Medical House's northeast foundation corner, then turn west along the +Z frontage to the doorway standoff. The Medical House–Training Hall separation must remain clear throughout.
+- This is not yet a walkable/paved-route approval: the recessed porch steps and columns are rendered geometry but are not represented as movement colliders, and the current paving patch is a visual mesh only. The candidate bypass therefore needs a prop/step envelope check and a player-radius swept test before a paving strip can be dimensioned.
+
+### Veteran Gladiator Hall
+
+- The existing 3 × 15 patch occupies X `[-23, -20]`, Z `[-25, -10]`; the registered hall foundation occupies X `[-27.3, -20.7]`, Z `[-28.05, -21.95]`.
+- The patch overlaps the hall foundation by 2.3 m in X and 3.05 m in Z. The exposed east-side sliver is only 0.7 m wide. A 0.40 m player radius needs 0.80 m of clear paving width, so this sliver cannot contain a fully supported player-center corridor.
+- The north/front area of the patch remains the plausible approach region, but the door-center standoff `[-24, -21.54]` is about 1.00 m west of the nearest paving edge. Any new spur must join the north/front edge, terminate outside the foundation, and be checked against the full player sweep.
+
+### Decision
+
+Do not lengthen either existing rectangle blindly. The Medical House needs a tested east-flank/frontage bypass and a porch-prop check; Veteran Hall needs a short north/front spur with a proper foundation-safe termination. These are separate paving-only candidates, not permission to alter building or collider geometry. The live collision registry does not model the steps, columns, or other decorative props, so source-level collision clearance alone cannot certify the final rendered corridor.
+
+The corrected C-8.73 regression commit `95e9a171a091d1c0cc15e2249d6dfb3eb5f2b263` passed Environment workflow run `43804565713`: typecheck, unit/surface suite, collision harness, combat harness, production build and startup-asset check. No Samsung visual walk-through was performed.
