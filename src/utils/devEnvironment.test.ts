@@ -21,6 +21,7 @@ const vite = read('vite.config.ts');
 const pkg = JSON.parse(read('package.json')) as {
   scripts: Record<string, string>;
   dependencies: Record<string, string>;
+  devDependencies: Record<string, string>;
 };
 const gitignore = read('.gitignore');
 const workflow = read('.github/workflows/environment.yml');
@@ -53,7 +54,7 @@ describe('§B — the shipped app is built locally and has no hosted runtime URL
   });
 
   test('the project manifest contains no hosted-editor SDK dependency', () => {
-    const names = Object.keys(pkg.dependencies).map((name) => name.toLowerCase());
+    const names = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).map((name) => name.toLowerCase());
     expect(names.some((name) => name.includes('base44'))).toBe(false);
   });
 
