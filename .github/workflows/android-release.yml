@@ -148,7 +148,7 @@ jobs:
 
       - name: Build the practice bundle (rehearsal)
         working-directory: android
-        run: bash ./gradlew bundleRelease --no-daemon
+        run: bash ./gradlew clean bundleRelease --no-daemon
 
       # Stable rehearsal mode pins the dedicated rehearsal certificate. Temporary mode
       # explicitly skips identity pinning because its key exists for one run only.
@@ -166,7 +166,7 @@ jobs:
       # same selected rehearsal key so physical-device acceptance does not require Bundletool.
       - name: Build the practice APK (rehearsal)
         working-directory: android
-        run: bash ./gradlew clean assembleRelease --no-daemon
+        run: bash ./gradlew assembleRelease --no-daemon
 
       - name: Verify the practice APK signature and signer identity (rehearsal)
         shell: bash
