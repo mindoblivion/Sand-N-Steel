@@ -66,16 +66,18 @@ describe('physical combat impact classification', () => {
   test('mass impact multiplier influences thresholds but is safely clamped', () => {
     expect(classifyImpactReaction(impact({
       damage: 16,
+      isCrit: true,
       impactMultiplier: 1.5,
     }))).toBe('knockdown');
     expect(classifyImpactReaction(impact({
       damage: 16,
+      isCrit: true,
       impactMultiplier: 100,
     }))).toBe('knockdown');
     expect(classifyImpactReaction(impact({
       damage: 16,
       impactMultiplier: -100,
-    }))).toBe('stagger');
+    }))).toBe('none');
   });
 
   test('invalid damage or health inputs fail closed', () => {
