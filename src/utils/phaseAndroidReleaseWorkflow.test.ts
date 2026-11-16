@@ -269,7 +269,7 @@ describe('D. the rehearsal path cannot produce or masquerade as a release', () =
     expect(runs).toContain('bun test');
     expect(runs).toContain('bun run lint');
     expect(runs).toContain('bun run cap:sync');
-    expect(runs).toContain('./gradlew bundleRelease');
+    expect(runs).toContain('./gradlew clean bundleRelease');
     expect(runs).toContain('verifyBundleSignature.ts');
   });
 
