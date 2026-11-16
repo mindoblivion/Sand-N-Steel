@@ -274,8 +274,12 @@ describe('D. the rehearsal path cannot produce or masquerade as a release', () =
   });
 
   test('it builds and verifies a directly installable APK before uploading both Android outputs', () => {
+    const bundle = stepNamed('rehearsal', 'Build the practice bundle');
+    expect(bundle.step.run).toContain('./gradlew clean bundleRelease --no-daemon');
+
     const build = stepNamed('rehearsal', 'Build the practice APK');
-    expect(build.step.run).toContain('./gradlew clean assembleRelease --no-daemon');
+    expect(build.step.run).toContain('./gradlew assembleRelease --no-daemon');
+    expect(bundle.index).toBeLessThan(build.index);
 
     const verify = stepNamed('rehearsal', 'Verify the practice APK signature');
     expect(verify.step.run).toContain('set -euo pipefail');
