@@ -225,9 +225,10 @@ describe('C. rehearsal and production signing secrets remain isolated', () => {
     const holders = steps('rehearsal').filter((entry) =>
       REHEARSAL_SECRETS.some((name) => JSON.stringify(entry).includes(name)),
     );
-    expect(holders).toHaveLength(2);
+    expect(holders).toHaveLength(3);
     expect(holders.some((entry) => entry.name?.includes('Restore the stable rehearsal signing key'))).toBe(true);
     expect(holders.some((entry) => entry.name?.includes('Verify the stable rehearsal bundle signer'))).toBe(true);
+    expect(holders.some((entry) => entry.name?.includes('Verify the practice APK signature and signer identity'))).toBe(true);
   });
 
   test('there is no environment gate claimed that does not exist', () => {
@@ -274,7 +275,7 @@ describe('D. the rehearsal path cannot produce or masquerade as a release', () =
 
   test('it builds and verifies a directly installable APK before uploading both Android outputs', () => {
     const build = stepNamed('rehearsal', 'Build the practice APK');
-    expect(build.step.run).toContain('./gradlew assembleRelease --no-daemon');
+    expect(build.step.run).toContain('./gradlew clean assembleRelease --no-daemon');
 
     const verify = stepNamed('rehearsal', 'Verify the practice APK signature');
     expect(verify.step.run).toContain('set -euo pipefail');
