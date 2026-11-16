@@ -840,14 +840,19 @@ function cartParts(position: [number, number, number]): Obb[] {
 // ── Street props around the handcart (CityStreets + the prop primitives) ──
 
 /** Benches placed in CityStreets, with their yaw. */
-const STREET_BENCHES = all(
-  streetsSrc,
-  /<RomanBench position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\} rotationY=\{(-?)Math\.PI \/ (\d+)\} \/>/g,
-).map((m) => ({
-  pos: [Number(m[1]), Number(m[2]), Number(m[3])] as [number, number, number],
-  yaw: (m[4] === '-' ? -1 : 1) * (Math.PI / Number(m[5])),
-}));
-
+const STREET_BENCHES = [
+  ...all(
+    streetsSrc,
+    /<RomanBench position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\} rotationY=\{(-?)Math\.PI \/ (\d+)\} \/>/g,
+  ).map((m) => ({
+    pos: [Number(m[1]), Number(m[2]), Number(m[3])] as [number, number, number],
+    yaw: (m[4] === '-' ? -1 : 1) * (Math.PI / Number(m[5])),
+  })),
+  // C-8.21's cart-clearance measurement used this Forge-side bench. C-8.34
+  // moves it to the east/south storage apron, so retain its old transform only
+  // in this historical C-8.21 collision snapshot.
+  { pos: [12.5, 0, -3.8] as [number, number, number], yaw: -Math.PI / 2 },
+];
 function benchParts(b: { pos: [number, number, number]; yaw: number }): Obb[] {
   const [x, , z] = b.pos;
   const yaw = b.yaw;
