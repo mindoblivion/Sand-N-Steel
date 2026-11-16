@@ -111,6 +111,30 @@ function expectSweptClearOfRect(
   }
 }
 
+
+function expectSweptClearOfCircle(
+  points: Point2[],
+  center: Point2,
+  obstacleRadius: number,
+  label: string,
+): void {
+  for (let segment = 0; segment < points.length - 1; segment += 1) {
+    const from = points[segment];
+    const to = points[segment + 1];
+    const length = Math.hypot(to.x - from.x, to.z - from.z);
+    const samples = Math.ceil(length / 0.05);
+    for (let i = 0; i <= samples; i += 1) {
+      const t = samples === 0 ? 0 : i / samples;
+      const x = from.x + (to.x - from.x) * t;
+      const z = from.z + (to.z - from.z) * t;
+      expect(
+        Math.hypot(x - center.x, z - center.z) >= PLAYER_RADIUS + obstacleRadius,
+        `${label}: player circle intersects source-derived envelope at [${x.toFixed(3)}, ${z.toFixed(3)}]`,
+      ).toBe(true);
+    }
+  }
+}
+
 function expectSweptClear(points: Point2[], label: string): void {
   for (let segment = 0; segment < points.length - 1; segment += 1) {
     const from = points[segment];
@@ -202,6 +226,26 @@ describe('C-8.73 current arena-quarter doorway standoffs', () => {
         'Medical House column plinth',
       );
     }
+
+    // Conservative plan-view envelopes for the external medical table and
+    // amphora. The table's circumscribed radius encloses its rotated 1.0 ×
+    // 0.6 top and legs; the amphora uses its 0.25 m maximum body radius.
+    expect(MEDICAL_SOURCE).toContain('position={[-1.2, 0.45, 1.4]}');
+    expect(MEDICAL_SOURCE).toContain('<boxGeometry args={[1.0, 0.08, 0.6]} />');
+    expectSweptClearOfCircle(
+      route,
+      { x: SITES[0].root[0] - 1.2, z: SITES[0].root[2] + 1.4 },
+      Math.hypot(0.5, 0.3),
+      'Medical House table',
+    );
+    expect(MEDICAL_SOURCE).toContain('position={[1.4, 0.35, 1.6]}');
+    expect(MEDICAL_SOURCE).toContain('<cylinderGeometry args={[0.15, 0.25, 0.6, 8]} />');
+    expectSweptClearOfCircle(
+      route,
+      { x: SITES[0].root[0] + 1.4, z: SITES[0].root[2] + 1.6 },
+      0.25,
+      'Medical House amphora',
+    );
   });
 
   test('candidate Veteran Hall north/frontage sweep clears the live collider registry', () => {
