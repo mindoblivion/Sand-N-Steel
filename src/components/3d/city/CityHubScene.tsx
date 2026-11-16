@@ -732,9 +732,9 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // Mobile Virtual Joystick State
   const joystickRef = useRef<HTMLDivElement>(null);
   const joystickKnobRef = useRef<HTMLDivElement>(null);
-  const resetJoystickKnob = () => {
+  const resetJoystickKnob = useCallback(() => {
     if (joystickKnobRef.current) joystickKnobRef.current.style.transform = 'translate3d(0px, 0px, 0)';
-  };
+  }, []);
   const touchIdRef = useRef<number | null>(null);
   const touchVectorRef = useRef<{ x: number; z: number }>({ x: 0, z: 0 });
 
@@ -771,6 +771,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   }, [
     movementLocked, treatmentPanel, intelPanel, shrinePanel, bountyPanel, fountainPanel,
     legendPanel, visitorPanel, colosseumPanel, forgePanel, bountyHallPanel, bathhousePanel, academyPanel, showRaceEntry, showNavDrawer,
+    resetJoystickKnob,
   ]);
 
   // Interact with nearby landmark or update ambient audio
@@ -1317,7 +1318,7 @@ const handleEnterBathhouse = useCallback(() => {
       window.removeEventListener('blur', resetJoystickInput);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [resetJoystickKnob]);
 
   // Continuous, non-stuttering 60fps Movement Loop
   useEffect(() => {
