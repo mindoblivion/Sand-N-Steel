@@ -136,10 +136,10 @@ const APPROACH: Record<string, { dir: [number, number]; collider: string; source
   bounty_hall: { dir: [0, 1], collider: 'bounty-hall', source: 'BountyHall.tsx (doorway local Z +2.52)' },
   // heavy timber doorway at local [0, 0, 2.82] → +Z
   gladiator_barracks: { dir: [0, 1], collider: 'gladiator-barracks', source: 'GladiatorBarracks.tsx (doorway local Z +2.82)' },
-  // framed doorway at local [0, 0.32, 2.58] → +Z
-  veteran_gladiator_hall: { dir: [0, 1], collider: 'veteran-hall', source: 'VeteranGladiatorHall.tsx (doorway local Z +2.58)' },
-  // infirmary doorway inside the +X portico
-  arena_medical_house: { dir: [1, 0], collider: 'arena-medical', source: 'ArenaMedicalHouse.tsx (portico on +X)' },
+  // framed doorway at local [0, 0.32, 2.50] → +Z (C-8.60)
+  veteran_gladiator_hall: { dir: [0, 1], collider: 'veteran-hall', source: 'VeteranGladiatorHall.tsx (doorway local Z +2.50)' },
+  // porch group local Z +2.4; doorway local Z −0.1 → world +Z face
+  arena_medical_house: { dir: [0, 1], collider: 'arena-medical', source: 'ArenaMedicalHouse.tsx (porch local Z +2.4; doorway −0.1)' },
   // the gate gap on the motte's south side
   northern_fortress: { dir: [0, 1], collider: 'fortress-south-l', source: 'NorthernFortress.tsx (gate on +Z)' },
   // Phase C-8.70B's race-entry signpost on the carceres forecourt, its centre
