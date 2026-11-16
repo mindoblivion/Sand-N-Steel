@@ -262,7 +262,7 @@ The scoped implementation is in [PR #404](https://github.com/mindoblivion/Sand-N
   derived from the supplied 1488×720 artwork by a 7 px-per-side trim and a scale.
 - **App icon**: `public/icons/icon-512.png` (512×512, opaque).
 - **Phone screenshots**: still missing. The two supplied captures are 1080×2340 (2.17:1, over
-  Play's 2:1 limit); one of them also shows Base44 development UI. They need a retake in the
+  Play's 2:1 limit); one of them also shows development tooling. They need a retake in the
   installed app framed at 16:9 (1080×1920).
 - Tablet screenshots are only needed if tablet support is declared.
 
@@ -343,8 +343,8 @@ The CI signature check covers whether the bundle is signed, **not** whether Play
   (88.9 MB, 526 entries, 61 `assets/public/` entries). The bundle is **unsigned** — no
   `keystore.properties` existed — so it cannot be uploaded; a signed one still comes from the CI
   workflow or your machine. That scratch container is not part of the dev stack: the `web`
-  service still has no JDK, and nothing in `docker-compose.base44.yml` builds Android.
-- **Physical-device rehearsal verified (Samsung, 2026-11-03):** the owner installed the workflow-generated rehearsal APK, launched Sand & Steel, walked around the Roman city, and reported that the game looked good, played well, and had no crashes or freezes during the smoke test. The owner also reported substantially better playability than the Base44 preview. This is a successful initial install/launch/gameplay smoke test, **not** exhaustive acceptance: save persistence/restore, arena entry, orientation edge cases, app lifecycle, offline behavior, long sessions, frame-rate measurements, and other Android models remain unverified. The rehearsal APK is throwaway-signed and must never be uploaded to Play Console.
+  service still has no JDK, and the local Docker development stack does not build Android.
+- **Physical-device rehearsal verified (Samsung, 2026-11-03):** the owner installed the workflow-generated rehearsal APK, launched Sand & Steel, walked around the Roman city, and reported that the game looked good, played well, and had no crashes or freezes during the smoke test. The owner also reported substantially better playability than the earlier desktop browser preview. This is a successful initial install/launch/gameplay smoke test, **not** exhaustive acceptance: save persistence/restore, arena entry, orientation edge cases, app lifecycle, offline behavior, long sessions, frame-rate measurements, and other Android models remain unverified. The rehearsal APK is throwaway-signed and must never be uploaded to Play Console.
 
 - **Workflow structure verified 2026-10-30 (AR-3), without dispatching a run.** The workflow YAML
   parses, and every `run:` block passes `bash -n`. `bun test` covers the trigger matrix (the jobs'
