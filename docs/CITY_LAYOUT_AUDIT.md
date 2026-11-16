@@ -84,3 +84,38 @@
 - **Initial physical-device city smoke test passed:** the owner installed the workflow-generated rehearsal APK on a Samsung device on 2026-11-03, launched the game, walked around the Roman city, and reported good appearance/playability with no crashes or freezes. This is a limited smoke test, not exhaustive Android acceptance; the remaining checks are tracked in issue #329.
 - **Still outstanding for this city issue:** inspect a current landscape screenshot/video from the installed app. Review visible entrances and walk-in corridors, especially Academy/Doctore/Library, the west service court, and the East Circus crossing; verify paving reads as traversable ground and inspect upper-floor, roof, and decorative-prop clearances.
 - **No speculative transform changes:** retain the current measured building placements until the visual/device review identifies a reproducible defect. A source-level route or footprint pass cannot establish sightlines or appearance.
+
+## Follow-up — south-district entrance and paving audit (2026-11-16)
+
+This pass compared the south-west entrance faces with the four authored Forum paving patches and the separate arena-quarter courtyard approaches. These patches are rendered meshes only: they do not add navigation collision, and the city reachability flood-fill does not prove that their visible stone surfaces join continuously.
+
+### South public-square cluster
+
+| Building | Verified entrance face | Building footprint from collision registry | Existing paving candidate |
+|---|---|---|---|
+| Public Bathhouse | Local -Z (north); portico group local Z = -3.4 | X [-30, -22], Z [21.5, 28.5] | `FORUM_TO_BATHHOUSE_PATH`: center [-23.5, 22.5], 3.2 × 5, yaw +π/4 |
+| Shrine of Fortuna | Local +Z (south) | X [-30.15, -23.85], Z [8.25, 13.75] | `FORUM_TO_SHRINE_PATH`: center [-24, 15.5], 3.2 × 6, yaw +π/4 |
+| Bounty & Mercenary Hall | Local +Z (south); doorway local [-1.2, 0.6, 2.52] | X [-18.5, -11.5], Z [23, 29] | `FORUM_TO_BOUNTY_HALL_PATH`: center [-18, 23], 3.2 × 5, yaw -π/4 |
+
+The Bathhouse's registered fast-travel arrival [-21, 25] is east of its footprint, while its rendered portico faces north. Treat the arrival as a safe interaction/teleport point, not evidence that the portico has a continuous paved approach. Likewise, the Shrine's arrival [-22.5, 11] is east of the shrine footprint although its front faces south. The paving patches must be evaluated against the actual doorway/portico standoff and swept player corridor, not merely against the HUB_LOCATIONS arrival coordinates.
+
+The paving branches occupy a compact triangle between the Forum/Tavern side and three separate foundations. Extending any one patch by simply increasing its length risks running beneath a foundation or merging visually into a neighbouring branch at the wrong angle. Preserve the current transforms until a complete route has been checked against all three building envelopes and the shared Forum approach.
+
+### Arena-quarter west approaches
+
+| Building | Verified entrance face | Existing paving candidate | Survey note |
+|---|---|---|---|
+| Arena Medical House | Local +Z (south); porch group at local Z = +2.4 | `COURTYARD_TO_MEDICAL_HOUSE_PATH`: center [-26, -7.5], 4 × 6, yaw +π/4 | The nominal approach is the largest measured local paving gap after Bounty Hall; its nearby Training Hall creates an additional narrow-corridor constraint. |
+| Veteran Gladiator Hall | Local +Z (south); recessed doorway local Z = +2.50 | `COURTYARD_TO_VETERAN_HALL_PATH`: center [-21.5, -17.5], 3 × 15 | The long north-south slab does not by itself prove that its southern end joins the hall's doorway standoff without clipping the hall plinth. |
+
+The latest local paving-coverage measurement reported nominal 0.40-unit-player-standoff gaps of approximately 3.88 units at Bounty Hall, 3.23 at Arena Medical House, 1.03 at Shrine of Fortuna and 1.00 at Veteran Hall. These are nearest-paving distances, not traversable-route proofs; the exact player-center standoff and the whole swept corridor still need to be checked before geometry is changed. The Bathhouse was not among those four largest reported gaps and is not declared visually accepted by that omission.
+
+### Implementation gate
+
+1. Keep the current building roots, collision registry and paving transforms unchanged during this survey.
+2. For each candidate, calculate the actual doorway/portico standoff from the component transform and the player's 0.40 radius.
+3. Test the full swept player corridor against every registered collider, including the Medical House–Training Hall passage.
+4. Check the rendered paving polygon and its join to the neighbouring court; a collision-safe route can still have a visible paving gap.
+5. Only then propose the smallest paving-only adjustment. Any prop or building relocation remains a separate, higher-risk change.
+
+No scene geometry, collider, interaction center or gameplay code changed in this pass. No Samsung visual walk-through was performed.
