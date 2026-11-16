@@ -76,9 +76,11 @@ function insideRotatedPaving(
 ): boolean {
   const dx = point.x - center.x;
   const dz = point.z - center.z;
-  // Invert the paving mesh's local-to-world yaw rotation.
-  const localX = dx * Math.cos(yaw) + dz * Math.sin(yaw);
-  const localZ = -dx * Math.sin(yaw) + dz * Math.cos(yaw);
+  // CityStreets lays PlaneGeometry flat with Euler [-PI/2, 0, yaw].
+  // Its in-plane width axis is (cos(yaw), -sin(yaw)); project onto that
+  // axis and the perpendicular depth axis (sign is immaterial for bounds).
+  const localX = dx * Math.cos(yaw) - dz * Math.sin(yaw);
+  const localZ = dx * Math.sin(yaw) + dz * Math.cos(yaw);
   return (
     Math.abs(localX) <= width / 2 - margin &&
     Math.abs(localZ) <= depth / 2 - margin
