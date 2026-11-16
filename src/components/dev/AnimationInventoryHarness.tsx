@@ -1,8 +1,11 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls, useGLTF } from '@react-three/drei';
+import * as THREE from 'three';
+import { SkeletonUtils } from 'three-stdlib';
 
 type ClipRecord = {
+  index: number;
   name: string;
   duration: number;
   trackCount: number;
@@ -13,43 +16,71 @@ type ClipRecord = {
 const MODEL_URL = '/models/arena_roman.glb';
 const CANDIDATE_WORDS = /fall|knock|down|ground|lay|lie|recover|get.?up|stand|stagger|hit|death/i;
 
-/**
- * Loads the exact production Roman GLB through drei's cache and reports its
- * embedded animation metadata. This component deliberately does not play or
- * mutate any clip, rig, save, or gameplay state.
- */
-const AnimationMetadataReader: React.FC<{
+const RomanAnimationPreview: React.FC<{
+  selectedClip: number | null;
+  loop: boolean;
+  speed: number;
   onLoaded: (clips: ClipRecord[]) => void;
-}> = ({ onLoaded }) => {
+}> = ({ selectedClip, loop, speed, onLoaded }) => {
   const gltf = useGLTF(MODEL_URL);
+  const clonedScene = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
+  const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
 
   useEffect(() => {
-    const records = gltf.animations.map((clip) => {
-      const tracks = clip.tracks.map((track) => track.name);
-      const keyframeCount = clip.tracks.reduce((sum, track) => sum + track.times.length, 0);
-      return {
-        name: clip.name,
-        duration: clip.duration,
-        trackCount: clip.tracks.length,
-        keyframeCount,
-        tracks,
-      };
-    });
+    const records = gltf.animations.map((clip, index) => ({
+      index,
+      name: clip.name,
+      duration: clip.duration,
+      trackCount: clip.tracks.length,
+      keyframeCount: clip.tracks.reduce((sum, track) => sum + track.times.length, 0),
+      tracks: clip.tracks.map((track) => track.name),
+    }));
     onLoaded(records);
-  }, [gltf, onLoaded]);
+  }, [gltf.animations, onLoaded]);
 
-  return null;
+  useEffect(() => {
+    mixer.stopAllAction();
+    if (selectedClip === null) return;
+    const clip = gltf.animations[selectedClip];
+    if (!clip) return;
+
+    const action = mixer.clipAction(clip);
+    action.reset();
+    action.enabled = true;
+    action.setEffectiveTimeScale(speed);
+    action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
+    action.clampWhenFinished = !loop;
+    action.play();
+
+    return () => {
+      action.stop();
+      mixer.stopAllAction();
+    };
+  }, [gltf.animations, loop, mixer, selectedClip, speed]);
+
+  useFrame((_, delta) => {
+    mixer.update(Math.min(delta, 0.05));
+  });
+
+  useEffect(() => () => {
+    mixer.stopAllAction();
+    mixer.uncacheRoot(clonedScene);
+  }, [clonedScene, mixer]);
+
+  return <primitive object={clonedScene} />;
 };
 
 /**
- * Dev-only read-only inventory for the 178 embedded clips in arena_roman.glb.
- * Open with ?devHarness=animations. Clip names are discovery clues only:
- * actual fall/grounded/get-up motion still requires rendered pose inspection.
+ * Dev-only inventory and playback viewer for the clips embedded in the
+ * production Roman GLB. It is isolated from fighter state, combat, and saves.
  */
 export const AnimationInventoryHarness: React.FC = () => {
   const [clips, setClips] = useState<ClipRecord[] | null>(null);
   const [filter, setFilter] = useState('');
   const [candidatesOnly, setCandidatesOnly] = useState(false);
+  const [selectedClip, setSelectedClip] = useState<number | null>(null);
+  const [loop, setLoop] = useState(false);
+  const [speed, setSpeed] = useState(1);
 
   const handleLoaded = useCallback((records: ClipRecord[]) => setClips(records), []);
   const visibleClips = useMemo(() => {
@@ -61,13 +92,14 @@ export const AnimationInventoryHarness: React.FC = () => {
         clip.tracks.some((track) => track.toLowerCase().includes(query));
     });
   }, [clips, filter, candidatesOnly]);
+  const selected = clips?.find((clip) => clip.index === selectedClip) ?? null;
 
   const panel: React.CSSProperties = {
     minHeight: '100vh',
     background: 'radial-gradient(ellipse at top, #34251b 0%, #17120f 55%, #090807 100%)',
     color: '#ead9b8',
     fontFamily: 'Georgia, serif',
-    padding: '24px',
+    padding: '20px',
     boxSizing: 'border-box',
   };
   const muted: React.CSSProperties = { color: '#b8a58a', fontSize: 13 };
@@ -76,22 +108,75 @@ export const AnimationInventoryHarness: React.FC = () => {
     borderRadius: 6, padding: '10px 12px', fontSize: 14, width: '100%',
     boxSizing: 'border-box',
   };
+  const controlStyle: React.CSSProperties = {
+    background: '#302319', color: '#f2e6d0', border: '1px solid #70543a',
+    borderRadius: 5, padding: '8px 11px', cursor: 'pointer',
+  };
 
   return (
     <main style={panel}>
-      <header style={{ maxWidth: 1100, margin: '0 auto 20px' }}>
+      <header style={{ maxWidth: 1200, margin: '0 auto 16px' }}>
         <div style={{ color: '#c69a5a', letterSpacing: 3, fontSize: 11, textTransform: 'uppercase' }}>
           Sand &amp; Steel · Development diagnostics
         </div>
         <h1 style={{ margin: '8px 0', fontSize: 30, fontWeight: 600 }}>Roman animation inventory</h1>
         <p style={muted}>
-          Read-only inspection of the clips embedded in <code>{MODEL_URL}</code>.
-          No fighter state, profile, save data or gameplay systems are changed.
+          Inspect and play the animations embedded in <code>{MODEL_URL}</code>.
+          This isolated preview does not alter combat, fighter state, or saved profiles.
         </p>
       </header>
 
-      <section style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
+      <section style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ border: '1px solid #60472f', borderRadius: 8, overflow: 'hidden', background: '#100d0b' }}>
+          <div style={{ height: 'min(54vh, 480px)', minHeight: 300 }}>
+            <Canvas
+              camera={{ position: [0, 1.35, 4.2], fov: 38, near: 0.01, far: 100 }}
+              dpr={[1, 1.5]}
+              gl={{ antialias: true, alpha: false }}
+              onCreated={({ gl }) => {
+                gl.setClearColor('#17120f');
+                gl.toneMapping = THREE.ACESFilmicToneMapping;
+                gl.toneMappingExposure = 1.1;
+              }}
+            >
+              <ambientLight intensity={1.5} />
+              <hemisphereLight args={['#f4dfc4', '#34251b', 1.1]} />
+              <directionalLight position={[3, 6, 4]} intensity={2.4} />
+              <directionalLight position={[-4, 3, -3]} intensity={1.1} />
+              <Suspense fallback={null}>
+                <RomanAnimationPreview
+                  selectedClip={selectedClip}
+                  loop={loop}
+                  speed={speed}
+                  onLoaded={handleLoaded}
+                />
+              </Suspense>
+              <gridHelper args={[8, 16, '#806348', '#3b2d22']} position={[0, -0.01, 0]} />
+              <OrbitControls target={[0, 1, 0]} enablePan={false} minDistance={2} maxDistance={8} />
+            </Canvas>
+          </div>
+          <div style={{ padding: 12, borderTop: '1px solid #60472f', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <strong style={{ color: '#e9b86e', minWidth: 160 }}>
+              {selected ? selected.name : 'Select an animation'}
+            </strong>
+            <button type="button" style={controlStyle} onClick={() => setSelectedClip(null)}>Stop</button>
+            <label style={{ display: 'flex', gap: 7, alignItems: 'center', fontSize: 13 }}>
+              <input type="checkbox" checked={loop} onChange={(event) => setLoop(event.target.checked)} />
+              Loop
+            </label>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
+              Speed
+              <input aria-label="Playback speed" type="range" min="0.2" max="2" step="0.1" value={speed}
+                onChange={(event) => setSpeed(Number(event.target.value))} />
+              {speed.toFixed(1)}×
+            </label>
+            <span style={{ ...muted, marginLeft: 'auto' }}>
+              Drag to orbit · pinch/scroll to zoom
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', margin: '18px 0 10px' }}>
           <div style={{ flex: '1 1 260px' }}>
             <input
               aria-label="Filter animation names or rig tracks"
@@ -102,60 +187,55 @@ export const AnimationInventoryHarness: React.FC = () => {
             />
           </div>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
-            <input
-              type="checkbox"
-              checked={candidatesOnly}
-              onChange={(event) => setCandidatesOnly(event.target.checked)}
-            />
+            <input type="checkbox" checked={candidatesOnly} onChange={(event) => setCandidatesOnly(event.target.checked)} />
             Potential impact / recovery names
           </label>
         </div>
 
         <div style={{ ...muted, marginBottom: 10 }}>
           {clips ? `${visibleClips.length} shown · ${clips.length} total clips` : 'Loading Roman GLB metadata…'}
+          {' · '}Select any row to preview it above.
         </div>
 
         <div style={{ border: '1px solid #60472f', borderRadius: 8, overflow: 'hidden' }}>
           {visibleClips.map((clip) => (
-            <article key={clip.name} style={{ padding: '12px 14px', borderBottom: '1px solid #3b2d22' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              key={clip.index}
+              onClick={() => setSelectedClip(clip.index)}
+              aria-pressed={selectedClip === clip.index}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                padding: '12px 14px', color: '#ead9b8',
+                background: selectedClip === clip.index ? '#49331f' : 'transparent',
+                border: 0, borderBottom: '1px solid #3b2d22', cursor: 'pointer',
+              }}
+            >
+              <span style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <strong style={{ color: CANDIDATE_WORDS.test(clip.name) ? '#e9b86e' : '#ead9b8' }}>
                   {clip.name}
                 </strong>
                 <span style={muted}>
                   {clip.duration.toFixed(2)} s · {clip.trackCount} tracks · {clip.keyframeCount} keys
                 </span>
-              </div>
-              <div style={{ ...muted, marginTop: 6, overflowWrap: 'anywhere' }}>
+              </span>
+              <span style={{ ...muted, display: 'block', marginTop: 6, overflowWrap: 'anywhere' }}>
                 {clip.tracks.join(' · ')}
-              </div>
-            </article>
+              </span>
+            </button>
           ))}
-          {clips && visibleClips.length === 0 && (
-            <div style={{ padding: 18, ...muted }}>No clips match this filter.</div>
-          )}
+          {clips && visibleClips.length === 0 && <div style={{ padding: 18, ...muted }}>No clips match this filter.</div>}
         </div>
 
         <aside style={{ marginTop: 18, padding: 14, background: '#211a15', borderLeft: '3px solid #b8874d', borderRadius: 4 }}>
-          <strong style={{ fontSize: 13 }}>Important verification boundary</strong>
+          <strong style={{ fontSize: 13 }}>Verification boundary</strong>
           <p style={{ ...muted, marginBottom: 0 }}>
-            A clip name or track list does not prove that it contains a complete fall,
-            grounded pose, or get-up. This inventory identifies candidates; each candidate
-            still needs rendered pose and timing inspection before live combat integration.
+            Playback lets us inspect poses and timing, but clip names alone do not prove a complete
+            fall, grounded pose, or get-up. Check the full motion, floor contact, root movement,
+            transitions, and whether the rig returns to a stable standing pose before live integration.
           </p>
         </aside>
       </section>
-
-      <Canvas
-        frameloop="never"
-        dpr={1}
-        gl={{ antialias: false, alpha: true }}
-        style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', left: -10, top: -10 }}
-      >
-        <Suspense fallback={null}>
-          <AnimationMetadataReader onLoaded={handleLoaded} />
-        </Suspense>
-      </Canvas>
     </main>
   );
 };
