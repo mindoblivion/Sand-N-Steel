@@ -439,6 +439,9 @@ const LionGLB: React.FC<BeastFigureProps> = ({
         isMovingRef.current = movingNow;
         if (poseRef.current === 'prowl' && !biteActiveRef.current) {
           switchClip(movingNow ? BEAST_ANIMATION_MAP.walk : BEAST_ANIMATION_MAP.idle, 0.18, false);
+        } else if (poseRef.current === 'fled') {
+          // Finish the retreat cleanly instead of looping the Run clip in place.
+          switchClip(movingNow ? BEAST_ANIMATION_MAP.run : BEAST_ANIMATION_MAP.idle, 0.18, false);
         }
       }
     }
