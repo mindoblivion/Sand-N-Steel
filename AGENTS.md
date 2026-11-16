@@ -6,9 +6,9 @@
 (react-three-fiber) single-page game, exported from Google AI Studio. There is **no backend**:
 player progress is stored in `localStorage` (`src/services/storage.ts`).
 
-## Running it (Base44 dev environment)
+## Running it (local Docker development environment)
 
-- `docker compose -f docker-compose.base44.yml up -d` starts the Vite dev server on host port 3000.
+- `docker compose -f docker-compose.dev.yml up -d` starts the Vite dev server on host port 3000.
 - Dependencies are installed from the committed `bun.lock` at container startup
   (`bun install --frozen-lockfile`); `node_modules` lives in the `web_node_modules` volume, not in the repo.
 - Live reload (Vite HMR) is on — edits under `/app` appear without a rebuild or restart.
@@ -6849,7 +6849,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 - **Not touched:** the duel's action set (still the same nine), every formula constant, the save shape
   and key, boss passives, and the AI branch, which still picks with the raw stamina costs.
 - **Verified 2026-10-23 (inside the compose `web` service — bun is not on the sandbox host, so use
-  `docker compose -f docker-compose.base44.yml exec web …`):** `combatPlumbing.test.ts` → **64 pass /
+  `docker compose -f docker-compose.dev.yml exec web …`):** `combatPlumbing.test.ts` → **64 pass /
   0 fail**; the combat-related subset (`traitModifiers`, `characterCreation`, `saveCorpus`, `injury`,
   `consumables`, `phase36`, plus the above) → **345 pass / 0 fail (2,700 expect())**;
   `scripts/combatTests.ts` → **67 pass, 0 failed**; `bun run lint` (`tsc --noEmit`) → exit 0;
@@ -6928,7 +6928,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
   firing at its own site, never on a non-boss, plus a source read showing `DuelScene` calls each
   helper at the intended branch. `combatPlumbing.test.ts` went 64 → 65 for `isCounterAttack`.
 - **Verified 2026-10-24** in the dev container
-  (`docker compose -f docker-compose.base44.yml exec web …`): `opponentsLadder` → **36 pass /
+  (`docker compose -f docker-compose.dev.yml exec web …`): `opponentsLadder` → **36 pass /
   0 fail**, `combatPlumbing` → **65 pass / 0 fail**, the roster-dependent suites (`bossKills`,
   `intel`, `intelSurface`, `injurySurface`, `phase37`, `roadMilestones`, `roadOfGlory`,
   `saveCorpus`, `sellingSurface`, `storyChapterOne`, `storyState`, `tierAdvancement`) → **383
