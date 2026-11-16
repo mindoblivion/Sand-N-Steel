@@ -58,7 +58,7 @@ single event can start both, and only one of them can ever sign.
 
 | job | starts on | signing | artifact |
 |---|---|---|---|
-| `rehearsal` | `workflow_dispatch` with `mode: rehearsal` — from **any** branch | a throwaway RSA key generated on the runner | `rehearsal-aab-do-not-upload` — signed AAB + directly installable APK (7-day retention) |
+| `rehearsal` | `workflow_dispatch` with `mode: rehearsal` — from **any** branch | stable rehearsal-only RSA key by default; temporary one-run key only when explicitly selected | `rehearsal-aab-do-not-upload` — signed AAB + directly installable APK (7-day retention) |
 | `release` | a `push` of an approved **`v*` tag**, or `workflow_dispatch` with `mode: release` **from `main`** | your upload keystore, and only if the bundle's signer certificate matches the configured fingerprint | `sand-and-steel-aab` |
 
 ### Trigger matrix
@@ -69,7 +69,7 @@ single event can start both, and only one of them can ever sign.
 | push of tag `v1.0.0-alpha.1` | — | **runs** | same; any tag whose name starts with `v` |
 | push of tag `release-1.0.0` | — | — | the workflow does not start: `push` matches `v*` tags only |
 | push of a branch (including `main`) | — | — | the workflow does not start: there is no `branches:` filter |
-| dispatch, `mode: rehearsal`, any ref | **runs** | — | practice bundle signed with a throwaway key; the upload key is never touched |
+| dispatch, `mode: rehearsal`, any ref | **runs** | — | stable rehearsal-only key by default (or temporary key when explicitly selected); production upload key is never touched |
 | dispatch, `mode: release`, `main` | — | **runs** | signed, fingerprint-verified bundle |
 | dispatch, `mode: release`, any other ref | — | — | refused: the release job's `if:` requires `refs/heads/main` |
 | dispatch from a tag with `mode: release` | — | — | refused: a manual release is main-only; tags release by being pushed |
@@ -101,8 +101,9 @@ needs no provenance step because its guard already pins `refs/heads/main`.
 
 ### Running a safe rehearsal
 
-Actions → **Build Android bundle (rehearsal or release)** → **Run workflow** → pick any branch →
-leave `mode` at `rehearsal`.
+Actions → **Build Android bundle (rehearsal or release)** → **Run workflow** → pick the branch
+containing the candidate. Leave `mode` at `rehearsal`. Leave `rehearsal_signing` at its default,
+`stable`, for normal device testing and in-place APK updates.
 
 The rehearsal job:
 
@@ -110,20 +111,70 @@ The rehearsal job:
 2. runs the suite (`bun test`) and the typecheck (`bun run lint`);
 3. builds the web app and syncs it into `android/` (`bun run cap:sync`, with `BUILD_COMMIT` set to
    the run's commit);
-4. generates a **throwaway** PKCS12 key as `android/app/rehearsal.keystore` and writes the matching
-   `android/keystore.properties`;
-5. runs `./gradlew bundleRelease --no-daemon` and verifies the AAB signature with the same script
-   the release job uses, passing `--signature-only` because a key that exists for one run has no
-   identity to pin;
-6. runs `./gradlew assembleRelease --no-daemon` with the same throwaway key, then verifies the
-   resulting APK with the Android SDK's `apksigner`;
-7. uploads both `app-release.aab` and `app-release.apk` as
-   **`rehearsal-aab-do-not-upload`**, then deletes both signing files.
+4. restores the dedicated rehearsal keystore from rehearsal-only Actions secrets, writes
+   `android/keystore.properties`, and builds the signed AAB;
+5. verifies both the AAB signature and its pinned rehearsal certificate fingerprint;
+6. builds and verifies a directly installable APK with that same stable certificate;
+7. uploads both outputs as **`rehearsal-aab-do-not-upload`**, then deletes the keystore and
+   properties file from the runner.
 
-It references no secret, so it cannot become a store bundle: the practice bundle is signed with a key
-that exists only for the length of that run and cannot update the Play listing. It is labelled a
-rehearsal in its logs (`::notice::REHEARSAL`) and in its artifact name. A rehearsal never uploads
-`sand-and-steel-aab`, and a tag push never produces the rehearsal artifact.
+If the rehearsal secrets are missing, stable mode **fails closed** with a clear error. It does not
+silently fall back to a temporary key. The optional `temporary` choice is an explicit one-run
+fallback for disposable testing; it generates a throwaway key, skips only signer-identity pinning,
+and cannot update a previous rehearsal install.
+
+### Stable rehearsal signing (one-time owner setup)
+
+This certificate is separate from the Google Play upload key. It exists only to let successive
+rehearsal APKs update the same test installation without uninstalling the app and losing its
+WebView `localStorage` save.
+
+Generate a dedicated PKCS12 key locally. Keep the keystore and passwords private; **never commit
+them, upload them as repository files, or paste them into a chat or issue**.
+
+Example on macOS/Linux (run in a private local terminal):
+
+```bash
+export STORE_PASSWORD="$(openssl rand -hex 32)"
+# PKCS12 uses the same password for the store and private key.
+export KEY_PASSWORD="$STORE_PASSWORD"
+keytool -genkeypair -noprompt \
+  -keystore Sand-and-Steel-Rehearsal.keystore \
+  -storetype PKCS12 \
+  -alias rehearsal \
+  -storepass "$STORE_PASSWORD" \
+  -keypass "$KEY_PASSWORD" \
+  -keyalg RSA -keysize 2048 -validity 3650 \
+  -dname "CN=Sand and Steel Rehearsal, OU=Testing, O=Sand and Steel, C=US"
+
+# Copy the complete base64 output into the matching GitHub Actions secret.
+base64 < Sand-and-Steel-Rehearsal.keystore | tr -d '\n'
+printf '%s\n' "$STORE_PASSWORD"
+printf '%s\n' "$KEY_PASSWORD"
+printf '%s\n' "$(keytool -list -v -keystore Sand-and-Steel-Rehearsal.keystore \
+  -storepass "$STORE_PASSWORD" -alias rehearsal | awk '/SHA256:/{print $2; exit}')"
+```
+
+In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and
+create these five secrets. Enter each value locally; do not send the values to anyone.
+
+| secret name | value |
+|---|---|
+| `ANDROID_REHEARSAL_KEYSTORE_BASE64` | Base64 output of the rehearsal PKCS12 keystore |
+| `ANDROID_REHEARSAL_KEYSTORE_PASSWORD` | `STORE_PASSWORD` |
+| `ANDROID_REHEARSAL_KEY_ALIAS` | `rehearsal` |
+| `ANDROID_REHEARSAL_KEY_PASSWORD` | `KEY_PASSWORD` |
+| `ANDROID_REHEARSAL_CERT_SHA256` | SHA-256 certificate fingerprint printed by `keytool` |
+
+The workflow injects these values only into the rehearsal job's specific restore/verification steps.
+The production upload secrets remain confined to the release job. The rehearsal fingerprint is
+checked on every stable-mode AAB before the APK is built or either artifact is uploaded. Missing
+secrets or a mismatched certificate stop the job.
+
+**Rotation:** changing the rehearsal keystore changes the Android signing identity. Existing
+installations cannot be updated by APKs signed with the replacement key; they must be uninstalled
+and reinstalled, which can erase local saves. Only rotate when necessary, update all five secrets
+together, and plan a one-time reinstall. Do not reuse the Play upload key for rehearsal signing.
 
 ### Installing the rehearsal APK on a Samsung device
 
@@ -135,7 +186,7 @@ After the manual rehearsal workflow finishes successfully:
 4. Transfer the APK to the Samsung device (for example, with USB) and open it from the device's file manager. If Android prompts, allow that file manager to install unknown apps, then retry the installation.
 5. Launch **Sand & Steel** and record the device model, Android version, install/launch result, orientation, local save/restore, arena entry, crashes, and observed performance.
 
-**Important signing constraint:** this APK uses a one-run rehearsal certificate, not the Play upload/app-signing certificate. Android will not install it as an update over a Play-installed copy of the same package. Prefer a spare test device. If you must use your primary device, first ensure your progress is backed up and understand that uninstalling the Play copy can erase its local app data. The rehearsal APK cannot update the Play listing and must never be uploaded to Play Console.
+**Important signing constraint:** stable rehearsal APKs use the same dedicated rehearsal certificate on every run, so a later APK can update an earlier rehearsal install without uninstalling it. This is not the Play upload/app-signing certificate and cannot update a Play-installed copy of the same package. If you explicitly select `temporary`, the one-run certificate will not update an earlier APK; uninstalling first can erase local app data. Rehearsal artifacts must never be uploaded to Play Console.
 
 ### How signing verification works
 
@@ -220,9 +271,10 @@ neither the values nor a derived form of them. The old workflow wrote the file w
 heredoc, which interpolated the password verbatim and silently corrupted any password containing a
 backslash, `$`, a backtick, a newline or a leading space.
 
-**The rehearsal job references none of these five secrets.** That is enforced structurally: it has
-no `secrets.*` reference at all, and its job-level `if:` refuses every trigger except a manual
-`mode: rehearsal` run, so it never starts a runner on a tag push.
+**The rehearsal job references none of the five production upload secrets.** It uses a separate
+set of dedicated rehearsal-only secrets when stable signing is selected; the Play upload keystore
+and its fingerprint remain confined to the release job. Its job-level `if:` refuses every trigger
+except a manual `mode: rehearsal` run, so it never starts a runner on a tag push.
 
 ## Native assets (Play Console "Configure assets and build")
 
@@ -344,7 +396,7 @@ The CI signature check covers whether the bundle is signed, **not** whether Play
   `keystore.properties` existed — so it cannot be uploaded; a signed one still comes from the CI
   workflow or your machine. That scratch container is not part of the dev stack: the `web`
   service still has no JDK, and nothing in `docker-compose.dev.yml` builds Android.
-- **Physical-device rehearsal verified (Samsung, 2026-11-03):** the owner installed the workflow-generated rehearsal APK, launched Sand & Steel, walked around the Roman city, and reported that the game looked good, played well, and had no crashes or freezes during the smoke test. The owner also reported substantially better playability than the earlier hosted-editor preview. This is a successful initial install/launch/gameplay smoke test, **not** exhaustive acceptance: save persistence/restore, arena entry, orientation edge cases, app lifecycle, offline behavior, long sessions, frame-rate measurements, and other Android models remain unverified. The rehearsal APK is throwaway-signed and must never be uploaded to Play Console.
+- **Physical-device rehearsal verified (Samsung, 2026-11-03):** the owner installed the workflow-generated rehearsal APK, launched Sand & Steel, walked around the Roman city, and reported that the game looked good, played well, and had no crashes or freezes during the smoke test. The owner also reported substantially better playability than the earlier hosted-editor preview. This is a successful initial install/launch/gameplay smoke test, **not** exhaustive acceptance: save persistence/restore, arena entry, orientation edge cases, app lifecycle, offline behavior, long sessions, frame-rate measurements, and other Android models remain unverified. The rehearsal APK is signed with a rehearsal-only certificate and must never be uploaded to Play Console.
 
 - **Workflow structure verified 2026-10-30 (AR-3), without dispatching a run.** The workflow YAML
   parses, and every `run:` block passes `bash -n`. `bun test` covers the trigger matrix (the jobs'
