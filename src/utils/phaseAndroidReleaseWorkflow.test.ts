@@ -11,8 +11,8 @@
  *
  *   A. triggers and release refs           — dispatch + `v*` tags, nothing branch-scoped
  *   B. the job-level guard                 — `main` or `v*` only, dispatch cannot bypass it
- *   C. secret isolation                    — `secrets.*` appears in the release job ONLY
- *   D. rehearsal safety                    — throwaway key, no upload-key path, own artifact name
+ *   C. secret isolation                    — production `secrets.*` appear in the release job ONLY
+ *   D. rehearsal safety                    — stable rehearsal key by default, no upload-key path, own artifact name
  *   E. verify-before-upload                — signature verification precedes the upload step
  *   F. keystore handling                   — no shell heredoc; the escaping script is used
  *   G. cleanup                             — signing material removed unconditionally
@@ -109,6 +109,14 @@ const RELEASE_SECRETS = [
   'ANDROID_KEY_PASSWORD',
 ];
 
+const REHEARSAL_SECRETS = [
+  'ANDROID_REHEARSAL_KEYSTORE_BASE64',
+  'ANDROID_REHEARSAL_KEYSTORE_PASSWORD',
+  'ANDROID_REHEARSAL_KEY_ALIAS',
+  'ANDROID_REHEARSAL_KEY_PASSWORD',
+  'ANDROID_REHEARSAL_CERT_SHA256',
+];
+
 const REHEARSAL_ARTIFACT = 'rehearsal-aab-do-not-upload';
 const RELEASE_ARTIFACT = 'sand-and-steel-aab';
 
@@ -134,6 +142,11 @@ describe('A. permitted triggers', () => {
     expect(mode?.type).toBe('choice');
     expect(mode?.options).toEqual(['rehearsal', 'release']);
     expect(mode?.default).toBe('rehearsal');
+
+    const signing = dispatch.inputs?.rehearsal_signing;
+    expect(signing?.type).toBe('choice');
+    expect(signing?.options).toEqual(['stable', 'temporary']);
+    expect(signing?.default).toBe('stable');
   });
 });
 
@@ -184,14 +197,14 @@ describe('B. the release guard is job-level and ref-based', () => {
 
 // ── C. secret isolation ─────────────────────────────────────────────────────────────────────
 
-describe('C. production secrets are unreachable outside the release job', () => {
-  test('the rehearsal job references no secret at all', () => {
-    expect(secretNamesIn('rehearsal')).toEqual([]);
-    expect(JSON.stringify(job('rehearsal'))).not.toContain('secrets.');
+describe('C. rehearsal and production signing secrets remain isolated', () => {
+  test('the rehearsal job references only the dedicated rehearsal secrets', () => {
+    expect(secretNamesIn('rehearsal')).toEqual([...REHEARSAL_SECRETS].sort());
+    expect(JSON.stringify(job('rehearsal'))).not.toContain('ANDROID_KEYSTORE_');
+    expect(JSON.stringify(job('rehearsal'))).not.toContain('ANDROID_UPLOAD_CERT_SHA256');
   });
 
-  test('the release job references exactly the four keystore secrets plus the signer fingerprint', () => {
-    // AR-3 added the upload certificate's fingerprint as the fifth, release-only secret.
+  test('the release job references exactly the four upload keystore secrets plus its signer fingerprint', () => {
     expect(secretNamesIn('release')).toEqual([...RELEASE_SECRETS, 'ANDROID_UPLOAD_CERT_SHA256'].sort());
   });
 
@@ -208,6 +221,16 @@ describe('C. production secrets are unreachable outside the release job', () => 
     expect(holders[0].name).toContain('Restore the upload keystore');
   });
 
+  test('rehearsal keystore secrets are confined to the stable restore and signer-pin steps', () => {
+    const holders = steps('rehearsal').filter((entry) =>
+      REHEARSAL_SECRETS.some((name) => JSON.stringify(entry).includes(name)),
+    );
+    expect(holders).toHaveLength(3);
+    expect(holders.some((entry) => entry.name?.includes('Restore the stable rehearsal signing key'))).toBe(true);
+    expect(holders.some((entry) => entry.name?.includes('Verify the stable rehearsal bundle signer'))).toBe(true);
+    expect(holders.some((entry) => entry.name?.includes('Verify the practice APK signature and signer identity'))).toBe(true);
+  });
+
   test('there is no environment gate claimed that does not exist', () => {
     expect(job('release').environment).toBeUndefined();
   });
@@ -216,8 +239,18 @@ describe('C. production secrets are unreachable outside the release job', () => 
 // ── D. rehearsal safety ─────────────────────────────────────────────────────────────────────
 
 describe('D. the rehearsal path cannot produce or masquerade as a release', () => {
-  test('it signs with a throwaway key generated on the runner', () => {
+  test('stable signing is the default and restores a dedicated rehearsal-only key', () => {
+    const { step } = stepNamed('rehearsal', 'Restore the stable rehearsal signing key');
+    expect(step.if).toBe("inputs.rehearsal_signing == 'stable'");
+    expect(step.env?.['KEYSTORE_BASE64']).toBe('${{ secrets.ANDROID_REHEARSAL_KEYSTORE_BASE64 }}');
+    expect(step.run).toContain('base64 --decode');
+    expect(step.run).toContain('scripts/writeKeystoreProperties.ts');
+    expect(step.run).toContain('Missing repository secret');
+  });
+
+  test('temporary signing is explicit and remains available as a one-run fallback', () => {
     const { step } = stepNamed('rehearsal', 'throwaway signing key');
+    expect(step.if).toBe("inputs.rehearsal_signing == 'temporary'");
     expect(step.run).toContain('keytool -genkeypair');
     expect(step.run).toContain('rehearsal.keystore');
     expect(step.run).toContain('openssl rand -hex');
@@ -228,6 +261,7 @@ describe('D. the rehearsal path cannot produce or masquerade as a release', () =
     expect(text).not.toContain('Sand-and-Steel.keystore');
     expect(text).not.toContain('ANDROID_KEYSTORE_BASE64');
     expect(text).not.toContain('ANDROID_KEYSTORE_PASSWORD');
+    expect(text).not.toContain('ANDROID_UPLOAD_CERT_SHA256');
   });
 
   test('it runs the same gates plus web build, Cap sync and Android packaging', () => {
@@ -241,7 +275,7 @@ describe('D. the rehearsal path cannot produce or masquerade as a release', () =
 
   test('it builds and verifies a directly installable APK before uploading both Android outputs', () => {
     const build = stepNamed('rehearsal', 'Build the practice APK');
-    expect(build.step.run).toContain('./gradlew assembleRelease --no-daemon');
+    expect(build.step.run).toContain('./gradlew clean assembleRelease --no-daemon');
 
     const verify = stepNamed('rehearsal', 'Verify the practice APK signature');
     expect(verify.step.run).toContain('set -euo pipefail');
@@ -273,7 +307,7 @@ describe('D. the rehearsal path cannot produce or masquerade as a release', () =
 
   test('it labels its logs as a rehearsal', () => {
     const text = JSON.stringify(job('rehearsal'));
-    expect(text).toContain('::notice::REHEARSAL');
+    expect(text).toContain('::notice::TEMPORARY REHEARSAL');
     expect(text.toLowerCase()).toContain('not a release candidate');
   });
 });
