@@ -49,17 +49,17 @@ const SITES: DoorSite[] = [
     id: 'Arena Medical House',
     source: MEDICAL_SOURCE,
     colliderId: 'arena-medical',
-    root: vector(MEDICAL_SOURCE, /<group position=\{\[(-?[\\d.]+),\\s*(-?[\\d.]+),\\s*(-?[\\d.]+)\]\}>/, 'Medical House root'),
-    porch: vector(MEDICAL_SOURCE, /<group position=\{\[0,\\s*0,\\s*([\\d.]+)\]\}>/, 'Medical House porch').map((v, i) => i === 2 ? v : 0) as Vec3,
-    doorway: vector(MEDICAL_SOURCE, /<ClassicalDoorway\\s+position=\{\[0,\\s*([\\d.]+),\\s*(-?[\\d.]+)\]\}/, 'Medical House doorway').map((v, i) => i === 0 ? 0 : v) as Vec3,
+    root: vector(MEDICAL_SOURCE, /<group position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}>/, 'Medical House root'),
+    porch: vector(MEDICAL_SOURCE, /<group position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}>/, 'Medical House porch'),
+    doorway: vector(MEDICAL_SOURCE, /<ClassicalDoorway\s+position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}/, 'Medical House doorway'),
   },
   {
     id: 'Veteran Gladiator Hall',
     source: VETERAN_SOURCE,
     colliderId: 'veteran-hall',
-    root: vector(VETERAN_SOURCE, /<group position=\{\[(-?[\\d.]+),\\s*(-?[\\d.]+),\\s*(-?[\\d.]+)\]\}>/, 'Veteran Hall root'),
+    root: vector(VETERAN_SOURCE, /<group position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}>/, 'Veteran Hall root'),
     porch: [0, 0, 0],
-    doorway: vector(VETERAN_SOURCE, /<ClassicalDoorway\\s+position=\{\[0,\\s*([\\d.]+),\\s*([\\d.]+)\]\}/, 'Veteran Hall doorway').map((v, i) => i === 0 ? 0 : v) as Vec3,
+    doorway: vector(VETERAN_SOURCE, /<ClassicalDoorway\s+position=\{\[(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\]\}/, 'Veteran Hall doorway'),
   },
 ];
 
