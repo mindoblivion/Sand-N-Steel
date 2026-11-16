@@ -731,7 +731,10 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
 
   // Mobile Virtual Joystick State
   const joystickRef = useRef<HTMLDivElement>(null);
-  const [knobPos, setKnobPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const joystickKnobRef = useRef<HTMLDivElement>(null);
+  const resetJoystickKnob = () => {
+    if (joystickKnobRef.current) joystickKnobRef.current.style.transform = 'translate3d(0px, 0px, 0)';
+  };
   const touchIdRef = useRef<number | null>(null);
   const touchVectorRef = useRef<{ x: number; z: number }>({ x: 0, z: 0 });
 
@@ -762,7 +765,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       keysPressed.current = {};
       touchVectorRef.current = { x: 0, z: 0 };
       touchIdRef.current = null;
-      setKnobPos({ x: 0, y: 0 });
+      resetJoystickKnob();
     }
     inputLockedRef.current = !!movementLocked;
   }, [
@@ -1267,7 +1270,11 @@ const handleEnterBathhouse = useCallback(() => {
           dy = (dy / dist) * maxDist;
         }
 
-        setKnobPos({ x: dx, y: dy });
+        // Update only the knob element: React state here would re-render the entire city
+        // scene for every touch sample, and a CSS transition would make it trail the thumb.
+        if (joystickKnobRef.current) {
+          joystickKnobRef.current.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+        }
 
         // Normalize direction (Left is negative x, Right is positive x), then read it
         // through the joystick's radial dead zone: a resting thumb's small offset is no
@@ -1284,7 +1291,7 @@ const handleEnterBathhouse = useCallback(() => {
     for (let i = 0; i < e.changedTouches.length; i++) {
       if (e.changedTouches[i].identifier === touchIdRef.current) {
         touchIdRef.current = null;
-        setKnobPos({ x: 0, y: 0 });
+        resetJoystickKnob();
         touchVectorRef.current = { x: 0, z: 0 };
         break;
       }
@@ -1298,7 +1305,7 @@ const handleEnterBathhouse = useCallback(() => {
       touchIdRef.current = null;
       touchVectorRef.current = { x: 0, z: 0 };
       keysPressed.current = {};
-      setKnobPos({ x: 0, y: 0 });
+      resetJoystickKnob();
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState !== 'visible') resetJoystickInput();
@@ -1602,7 +1609,7 @@ const handleEnterBathhouse = useCallback(() => {
   }, [openCounterKeeperId]);
 
   // Phase 26.1: Memoized so it doesn't change reference on unrelated
-  // re-renders (e.g. setKnobPos). Position/rotation are overridden by
+  // re-renders (e.g. setJoystickKnobPosition). Position/rotation are overridden by
   // useFrame via refs, so their stale values here are harmless.
   const cityPlayerFighter = useMemo<FighterState>(() => ({
     id: 'city_player',
@@ -2046,10 +2053,9 @@ const handleEnterBathhouse = useCallback(() => {
 
               {/* Inner draggable knob */}
               <div
-                className="w-10 h-10 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 border-2 border-amber-300 shadow-lg flex items-center justify-center transition-transform"
-                style={{
-                  transform: `translate(${knobPos.x}px, ${knobPos.y}px)`,
-                }}
+                ref={joystickKnobRef}
+                className="w-10 h-10 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 border-2 border-amber-300 shadow-lg flex items-center justify-center will-change-transform"
+                style={{ transform: 'translate3d(0px, 0px, 0)' }}
               >
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-200/90"></div>
               </div>
