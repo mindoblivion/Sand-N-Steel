@@ -974,10 +974,10 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
     for (const forbidden of ['.glb', '.gltf', 'fetch(', 'load(', 'url(', 'URL']) {
       expect(MODULE_CODE).not.toContain(forbidden);
     }
-    // And the public tree gained no model file: the inventory is exactly what it was.
+    // And the public tree gained no horse file: the inventory matches current shipped models (plus Ferrum's lion.glb).
     const models = readdirSync(repo('public/models')).sort();
     expect(models).toEqual([
-      'amazonian.glb', 'arena_roman.glb', 'dimachaerus.glb', 'minotaur.glb', 'netfighter.glb', 'weapons',
+      'amazonian.glb', 'arena_roman.glb', 'dimachaerus.glb', 'lion.glb', 'minotaur.glb', 'netfighter.glb', 'weapons',
     ]);
   });
 

@@ -229,7 +229,7 @@ import { whyYouFellLines } from '../../utils/whyYouFell';
 // the card's margin, never a combat input).
 import { winnerHealthFraction } from '../../utils/victoryCard';
 import { BrothersPair } from '../3d/BrothersPair';
-import { BeastFigure } from '../3d/BeastFigure';
+import { BeastFigure, LION_MODEL_URL, beastFacingYaw } from '../3d/BeastFigure';
 import { crowdHypeTier, detectCrowdHypeCrossing } from '../../utils/crowdHype';
 import { CORE_3D_ASSETS } from '../../utils/preloadAssets';
 import { useCameraDrag, CAMERA_DRAG_BASE_YAW_SENSITIVITY, CAMERA_DRAG_BASE_PITCH_SENSITIVITY } from '../../hooks/useCameraDrag';
@@ -988,6 +988,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     beastRef.current = next;
     setBeast(next);
   }, []);
+  useEffect(() => {
+    if (beastCfg) {
+      useGLTF.preload(LION_MODEL_URL);
+    }
+  }, [beastCfg]);
   // Marks the ONE opponent resolution that is the beast's pounce rather than
   // Marcellin's own blow: read-and-cleared at the top of executeCombatTurn, so a
   // missed or evaded pounce can never mark a later strike.
@@ -3504,14 +3509,18 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   />
                 )}
                 {/* D-2 — Ferrum. Rendered only for a bout the fence admits, and
-                    not after it has fled. There is no animal in the asset set, so
-                    this is the simplest era-honest stand-in: a low-poly lion built
-                    from primitives — a flag for the art department, not a promise. */}
+                    not after it has fled. Aims from beside Marcellin toward the
+                    player using the lion GLB's +Z forward axis. */}
                 {beastCfg && beast.pose !== 'fled' && (
                   <BeastFigure
                     position={[1.55, 0, opp.position[2] + 0.55]}
-                    rotationY={0.35}
+                    rotationY={beastFacingYaw(
+                      [1.55, 0, opp.position[2] + 0.55],
+                      player.position,
+                    )}
                     pose={beast.pose}
+                    wounds={beast.wounds}
+                    impactRef={impactRef}
                   />
                 )}
                 <FloatingDamage3D damages={damageNumbers} />

@@ -765,6 +765,7 @@ describe('C-8.68C §F — scope: numbers only, dev only, nothing moved', () => {
       'amazonian.glb',
       'arena_roman.glb',
       'dimachaerus.glb',
+      'lion.glb',
       'minotaur.glb',
       'netfighter.glb',
       'weapons',

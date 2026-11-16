@@ -30,8 +30,17 @@ import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import * as THREE from 'three';
 
 import type { DuelStatistics, FighterState, OpponentConfig } from '../types/game';
+import {
+  BEAST_ANIMATION_MAP,
+  LION_MODEL_URL,
+  LION_SCALE,
+  beastFacingYaw,
+  clipNameForBeastPose,
+  normalizeBeastClipStart,
+} from '../components/3d/BeastFigure';
 import { ALL_OPPONENTS } from '../data/opponents';
 import { ENTANGLE_TURNS_ON_LAND, resolveNetCast } from './statefulDoctrinae';
 import { buildOpponentModifiers, damageDealtMultiplier } from './combatModifiers';
@@ -725,12 +734,72 @@ describe('D-2 §I — the surfaces the player reads', () => {
   test('the beast figure renders from the fence, and a fled beast is not drawn', () => {
     expect(DUEL_SCENE).toContain("beastCfg && beast.pose !== 'fled' && (");
     expect(DUEL_SCENE).toContain('<BeastFigure');
+    expect(DUEL_SCENE).toContain('beastFacingYaw(');
+    expect(DUEL_SCENE).toContain('wounds={beast.wounds}');
+
     const figure = code('src/components/3d/BeastFigure.tsx');
-    // The stand-in is primitives with two shared materials and no per-frame work.
+    // Rigged lion GLB via useGLTF + SkeletonUtils.clone + AnimationMixer + useFrame,
+    // with PrimitiveBeastStandIn retained as Suspense/error fallback.
+    expect(figure).toContain("export const LION_MODEL_URL = '/models/lion.glb'");
+    expect(figure).toContain('useGLTF(LION_MODEL_URL)');
+    expect(figure).toContain('SkeletonUtils.clone(gltf.scene)');
+    expect(figure).toContain('new THREE.AnimationMixer(clonedScene)');
+    expect(figure).toContain('useFrame(');
+    expect(figure).toContain('PrimitiveBeastStandIn');
     expect(figure).toContain('new THREE.MeshStandardMaterial');
-    expect(figure).not.toContain('useFrame');
-    expect(figure).not.toContain('useGLTF');
-    expect(figure).not.toContain('mixer');
+
+    // Exact embedded clip names mapped in BeastFigure.
+    expect(BEAST_ANIMATION_MAP).toEqual({
+      idle: 'Idle',
+      prowl: 'Idle',
+      crouch: 'Sneak',
+      pounce: 'Bite',
+      walk: 'Walk',
+      run: 'Run',
+    });
+    expect(clipNameForBeastPose('prowl', false)).toBe('Idle');
+    expect(clipNameForBeastPose('prowl', true)).toBe('Walk');
+    expect(clipNameForBeastPose('crouch')).toBe('Sneak');
+    expect(clipNameForBeastPose('pounce-resolved')).toBe('Bite');
+    expect(clipNameForBeastPose('fled')).toBe('Run');
+
+    // +Z forward orientation aims Ferrum from [1.55, 0, -2.95] inward toward player [0, 0, 3.5].
+    const yaw = beastFacingYaw([1.55, 0, -2.95], [0, 0, 3.5]);
+    expect(yaw).toBeLessThan(0);
+    expect(yaw).toBeCloseTo(Math.atan2(-1.55, 6.45), 6);
+    expect(LION_SCALE).toBeGreaterThanOrEqual(1.15);
+    expect(LION_SCALE).toBeLessThanOrEqual(1.2);
+
+    // Clips starting at 0.0333s normalize to start at t=0 without mutating the source clip.
+    const rawTrack = new THREE.NumberKeyframeTrack('.position[y]', [0.0333, 0.5333, 1.0333], [0, 1, 0]);
+    const rawClip = new THREE.AnimationClip('Idle', 1.0333, [rawTrack]);
+    const normalized = normalizeBeastClipStart(rawClip);
+    expect(normalized).not.toBe(rawClip);
+    expect(normalized.tracks[0].times[0]).toBe(0);
+    expect(normalized.duration).toBeCloseTo(1.0, 4);
+    expect(rawClip.tracks[0].times[0]).toBeCloseTo(0.0333, 4);
+
+    // Optimized runtime asset at public/models/lion.glb retains skin and all 5 exact clips.
+    const glbPath = repoPath(`public${LION_MODEL_URL}`);
+    const glbBuf = readFileSync(glbPath);
+    expect(glbBuf.toString('utf8', 0, 4)).toBe('glTF');
+    const jsonLen = glbBuf.readUInt32LE(12);
+    const gltf = JSON.parse(glbBuf.toString('utf8', 20, 20 + jsonLen)) as {
+      skins?: unknown[];
+      animations?: Array<{ name?: string }>;
+      images?: Array<{ mimeType?: string }>;
+    };
+    expect(gltf.skins?.length).toBe(1);
+    expect((gltf.animations ?? []).map((a) => a.name).sort()).toEqual([
+      'Bite',
+      'Idle',
+      'Run',
+      'Sneak',
+      'Walk',
+    ]);
+    for (const img of gltf.images ?? []) {
+      expect(img.mimeType).toBe('image/webp');
+    }
   });
 
   test('the dawn state is property deltas only — no new light, mesh or material', () => {
