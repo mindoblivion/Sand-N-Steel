@@ -36,6 +36,19 @@ describe('Roman animation inventory harness — development isolation and read-o
     }
   });
 
+  test('renders the isolated preview and plays selected clips without entering gameplay', () => {
+    expect(harness).toContain('new THREE.AnimationMixer(clonedScene)');
+    expect(harness).toContain('SkeletonUtils.clone(gltf.scene)');
+    expect(harness).toContain('mixer.clipAction(clip)');
+    expect(harness).toContain('action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce');
+    expect(harness).toContain('mixer.update(Math.min(delta, 0.05))');
+    expect(harness).toContain('selectedClip={selectedClip}');
+    expect(harness).toContain('enablePan={false}');
+    for (const forbidden of ['DuelScene', 'saveProfile', 'localStorage', 'FighterState']) {
+      expect(harness).not.toContain(forbidden);
+    }
+  });
+
   test('reports candidate metadata but explicitly does not claim clip names prove a recovery action', () => {
     expect(harness).toContain('CANDIDATE_WORDS');
     expect(harness).toContain('trackCount');
