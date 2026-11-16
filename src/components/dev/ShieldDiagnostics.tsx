@@ -84,7 +84,7 @@ import { ThreeComponentErrorBoundary } from '../ui/ThreeComponentErrorBoundary';
 // ---------------------------------------------------------------------------
 
 // Grep target for the production-bundle exclusion check (Phase C.2).
-const DIAG_MARKER = 'base44-dev-shield-diagnostics';
+const DIAG_MARKER = 'sand-steel-shield-diagnostics';
 // Scutum board colour, as rendered by ShieldModel in GladiatorMesh.
 const SHIELD_BOARD_COLOR = 0x881337;
 // The same two actions the duel uses; 'dodge' maps to the Roll clip.
@@ -1304,7 +1304,7 @@ const DeterministicRollStepper: React.FC<{
 // or storage, and takes no part in the deterministic sampling.
 // ---------------------------------------------------------------------------
 const UP_REF = {
-  name: 'base44-world-up-ref', // scene-graph name, so the reference can be measured, not guessed at
+  name: 'shield-world-up-ref', // scene-graph name, so the reference can be measured, not guessed at
   color: '#22d3ee', // bright cyan: contrasts the crimson board and the bronze rig
   lateralOffset: 0.5, // metres beside the board, along the board-plane side axis
   baseDrop: 0.42, // stem foot sits this far below the board centre
