@@ -36,8 +36,9 @@ function insideRotatedPaving(
 ): boolean {
   const dx = point.x - path.cx;
   const dz = point.z - path.cz;
-  const localX = dx * Math.cos(path.yaw) + dz * Math.sin(path.yaw);
-  const localZ = -dx * Math.sin(path.yaw) + dz * Math.cos(path.yaw);
+  // Match the rendered PlaneGeometry Euler [-PI/2, 0, yaw] used in CityStreets.
+  const localX = dx * Math.cos(path.yaw) - dz * Math.sin(path.yaw);
+  const localZ = dx * Math.sin(path.yaw) + dz * Math.cos(path.yaw);
   return (
     Math.abs(localX) <= path.w / 2 - margin &&
     Math.abs(localZ) <= path.d / 2 - margin
