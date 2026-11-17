@@ -155,6 +155,50 @@ printf '%s\n' "$(keytool -list -v -keystore Sand-and-Steel-Rehearsal.keystore \
   -storepass "$STORE_PASSWORD" -alias rehearsal | awk '/SHA256:/{print $2; exit}')"
 ```
 
+
+#### Android / Termux setup
+
+If you are generating the rehearsal key directly on an Android phone with Termux, use this equivalent setup. It creates the keystore inside a private directory and writes the long Base64 value to a file so it is easier to copy without relying on terminal line wrapping.
+
+```bash
+pkg update
+pkg install openssl openjdk-21 coreutils
+
+mkdir -p "$HOME/sand-steel-signing"
+chmod 700 "$HOME/sand-steel-signing"
+cd "$HOME/sand-steel-signing"
+umask 077
+
+STORE_PASSWORD="$(openssl rand -hex 32)"
+KEY_PASSWORD="$STORE_PASSWORD"
+
+keytool -genkeypair -noprompt \
+  -keystore Sand-and-Steel-Rehearsal.keystore \
+  -storetype PKCS12 \
+  -alias rehearsal \
+  -storepass "$STORE_PASSWORD" \
+  -keypass "$KEY_PASSWORD" \
+  -keyalg RSA -keysize 2048 -validity 3650 \
+  -dname "CN=Sand and Steel Rehearsal, OU=Testing, O=Sand and Steel, C=US"
+
+base64 -w 0 Sand-and-Steel-Rehearsal.keystore > rehearsal-keystore-base64.txt
+chmod 600 Sand-and-Steel-Rehearsal.keystore rehearsal-keystore-base64.txt
+
+printf 'STORE_PASSWORD: %s\\n' "$STORE_PASSWORD"
+printf 'KEY_PASSWORD: %s\\n' "$KEY_PASSWORD"
+printf 'KEY_ALIAS: rehearsal\\n'
+printf 'CERT_SHA256: '
+keytool -list -v -keystore Sand-and-Steel-Rehearsal.keystore \
+  -storepass "$STORE_PASSWORD" -alias rehearsal | awk '/SHA256:/{print $2; exit}'
+
+# Display the Base64 value only when you are ready to copy it into GitHub.
+cat rehearsal-keystore-base64.txt
+```
+
+Keep this Termux session open until you have entered all five values in GitHub. Copy the Base64 output as one uninterrupted value; do not add spaces or line breaks. If Termux reports that the `openjdk-21` package is unavailable, run `pkg search openjdk` and install the current OpenJDK package it lists, then confirm `keytool -version` works before generating the key.
+
+The keystore and Base64 file are both private signing material. Do not share them, attach them to a chat, or commit them to Git. After all five GitHub secrets are saved and you have confirmed the workflow can use them, securely delete the local Base64 copy and keep a protected backup of the keystore and its passwords.
+
 In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and
 create these five secrets. Enter each value locally; do not send the values to anyone.
 
