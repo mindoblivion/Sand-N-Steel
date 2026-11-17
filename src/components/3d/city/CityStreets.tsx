@@ -466,26 +466,17 @@ export const CityStreets = React.memo(() => {
           collider and the west portal itself are untouched.
           See src/utils/phaseC8_22.test.ts. */}
       <MerchantPropsCluster position={[11.9, 0, 5.2]} />
-      <RomanBench position={[12.5, 0, -3.8]} rotationY={-Math.PI / 2} />
+      
 
       {/* NORTHEAST: General Store Market Table & Benches — Phase 25.9: relocated
             from inside the Colosseum footprint to the new General Store [22, 0, -5]
             entrance area on its west side. */}
-      <MerchantPropsCluster position={[17, 0, -4]} />
-      {/* Phase C-8.21: the handcart's 45°-rotated body and cargo used to sit inside the
-          General Store [22, 0, -5] (plinth 0.14, counter 0.17, wall — worst
-          penetration 0.58) and inside the Smithing Forge [18, 0, 2.6]
-          wall (0.36). It is re-parked 7.2 west on the Via Decumanus carriageway at
-          [10.8, 0, -1.7]; the full rotated cart (2.28 × 2.28 footprint) now clears the
-          Store by 2.72, the Forge plinth by 0.99 and the nearest street prop — the
-          bench at [12.5, 0, -3.8] — by 0.79. Rotation, parts and cargo are unchanged,
-          and the cart still stands on the paved street, its 2.28-wide footprint
-          leaving 1.23 to the north kerb and 4.49 to the south kerb of the 8-wide
-          carriageway.
-          See src/utils/phaseC8_21.test.ts. */}
-      <MerchantCart position={[10.8, 0, -1.7]} rotationY={Math.PI / 4} />
-      <TimberCrate position={[17.5, 0, -6]} size={[0.8, 0.7, 0.8]} />
-      <RomanAmphora position={[18, 0, -3.5]} scale={0.8} tone="sand" />
+      {/* C-8.34: clear the Forge-side pedestrian lane and Store counter approach. */}
+      <RomanBench position={[27.0, 0, -7.5]} rotationY={-Math.PI / 2} />
+      <RomanAmphora position={[28.5, 0, -8.4]} scale={0.8} tone="sand" />
+      <MerchantPropsCluster position={[31.0, 0, -8.4]} />
+      <MerchantCart position={[32.0, 0, -5.2]} rotationY={Math.PI / 4} />
+      <TimberCrate position={[33.0, 0, -8.4]} size={[0.8, 0.7, 0.8]} />
 
       {/* SOUTHWEST: Golden Palm Tavern Outdoor Terrace Benches */}
       {/* Phase C-8.22: all three props stood inside the Tavern — the bench at

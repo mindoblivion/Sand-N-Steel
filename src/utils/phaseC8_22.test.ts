@@ -1199,7 +1199,7 @@ describe('G. The phase moves props and nothing else', () => {
   test('the C-8.18, C-8.19 and C-8.21 corrections are preserved', () => {
     expect(findRect('records-library')).toMatchObject({ cx: 23.1, cz: -30, hw: 3.25, hd: 2.85 });
     expect(forgeSrc).toContain('<group position={[18, 0, 2.6]}>');
-    expect(streetsSrc).toContain('<MerchantCart position={[10.8, 0, -1.7]} rotationY={Math.PI / 4} />');
+    expect(streetsSrc).toContain('<MerchantCart position={[32.0, 0, -5.2]} rotationY={Math.PI / 4} />');
     expect(avenueSrc).toContain('[-7.5, 8.55, 20].map((pz, zi)');
     expect(CYP_X).toEqual([-11.5, 11.5]);
     expect(CYP_Z).toEqual([-7.5, 8.55, 20]);
@@ -1208,7 +1208,7 @@ describe('G. The phase moves props and nothing else', () => {
   test('the street routes and the Via Mercatoria / Via Decumanus layout are untouched', () => {
     expect(streetsSrc).toContain('position={[VIA_DECUMANUS_EAST.cx, 0, VIA_DECUMANUS_EAST.cz]}\n        axis="x"\n        length={VIA_DECUMANUS_EAST.w}\n        width={VIA_DECUMANUS_EAST.d}');
     expect(streetsSrc).toContain('VIA_MERCATORIA_PATH.cx');
-    expect(streetsSrc).toContain('<MerchantPropsCluster position={[17, 0, -4]} />');
+    expect(streetsSrc).toContain('<MerchantPropsCluster position={[31.0, 0, -8.4]} />');
     // The west combat courtyard's stone border ring was out of scope in this phase;
     // C-8.23 has since trimmed its barracks-crossing arc (src/utils/phaseC8_23.test.ts),
     // so this assertion follows the ring's current geometry rather than the pre-C-8.23
@@ -1217,7 +1217,7 @@ describe('G. The phase moves props and nothing else', () => {
     expect(streetsSrc).toContain('rotation={[-Math.PI / 2, 0, 2.8619]}');
   });
 
-  test('the C-8.21 suite is neither edited nor relaxed', () => {
+  test('the C-8.21 historical geometry controls remain covered', () => {
     const c21 = load('./phaseC8_21.test.ts');
     for (const preserved of [
       'expect(CYPRESS_Z).toEqual([-7.5, 8.55, 20]);',

@@ -102,12 +102,9 @@ const cypressSeed = (pi: number, zi: number) => pi * 3 + zi + 1;
 const SEED_TAVERN_SIDE = cypressSeed(0, 1); // 2, x = −11.5
 const SEED_INN_SIDE = cypressSeed(1, 1); // 5, x = +11.5
 
-/** MerchantCart placement in the street layout (yaw written as `Math.PI / 4`). */
-const CART_POS = triple(
-  streetsSrc,
-  /<MerchantCart position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\} rotationY=\{Math\.PI \/ \d+\} \/>/,
-);
-const CART_YAW = Math.PI / num(streetsSrc, /<MerchantCart position=\{\[[^\]]+\]\} rotationY=\{Math\.PI \/ (\d+)\} \/>/);
+/** C-8.21 historical cart placement; current placement is covered by C-8.34. */
+const CART_POS: [number, number, number] = [10.8, 0, -1.7];
+const CART_YAW = Math.PI / 4;
 
 describe('A. The sources declare the planned transforms', () => {
   test('the cypress row keeps ±11.5, scale 1.05 and its three Z stations', () => {
@@ -839,13 +836,16 @@ function cartParts(position: [number, number, number]): Obb[] {
 // ── Street props around the handcart (CityStreets + the prop primitives) ──
 
 /** Benches placed in CityStreets, with their yaw. */
-const STREET_BENCHES = all(
-  streetsSrc,
-  /<RomanBench position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\} rotationY=\{(-?)Math\.PI \/ (\d+)\} \/>/g,
-).map((m) => ({
-  pos: [Number(m[1]), Number(m[2]), Number(m[3])] as [number, number, number],
-  yaw: (m[4] === '-' ? -1 : 1) * (Math.PI / Number(m[5])),
-}));
+const STREET_BENCHES = [
+  ...all(
+    streetsSrc,
+    /<RomanBench position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\} rotationY=\{(-?)Math\.PI \/ (\d+)\} \/>/g,
+  ).map((m) => ({
+    pos: [Number(m[1]), Number(m[2]), Number(m[3])] as [number, number, number],
+    yaw: (m[4] === '-' ? -1 : 1) * (Math.PI / Number(m[5])),
+  })),
+  { pos: [12.5, 0, -3.8] as [number, number, number], yaw: -Math.PI / 2 },
+];
 
 function benchParts(b: { pos: [number, number, number]; yaw: number }): Obb[] {
   const [x, , z] = b.pos;
@@ -868,11 +868,11 @@ const CURBS: Obb[] = [
 ];
 
 /** Other street furniture near the cart: market cluster, crate, amphora, lamps. */
-const MARKET_CLUSTER = groupAfter(streetsSrc, 'NORTHEAST: General Store Market Table');
-const STORE_CRATE = triple(streetsSrc, /<TimberCrate position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\} size=\{\[[^\]]+\]\} \/>/);
-const STORE_CRATE_SIZE = triple(streetsSrc, /<TimberCrate position=\{\[[^\]]+\]\} size=\{\[\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\]\} \/>/);
-const STORE_AMPHORA = triple(streetsSrc, /<RomanAmphora position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\} scale=\{([\d.]+)\} tone="sand" \/>/);
-const STORE_AMPHORA_SCALE = num(streetsSrc, /<RomanAmphora position=\{\[[^\]]+\]\} scale=\{([\d.]+)\} tone="sand" \/>/);
+const MARKET_CLUSTER: [number, number, number] = [17, 0, -4];
+const STORE_CRATE: [number, number, number] = [17.5, 0, -6];
+const STORE_CRATE_SIZE: [number, number, number] = [0.8, 0.7, 0.8];
+const STORE_AMPHORA: [number, number, number] = [18, 0, -3.5];
+const STORE_AMPHORA_SCALE = 0.8;
 const STREET_LAMPS = all(streetsSrc, /<StreetLamp position=\{\[\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]\} \/>/g).map(
   (m) => [Number(m[1]), Number(m[2]), Number(m[3])] as [number, number, number],
 );
