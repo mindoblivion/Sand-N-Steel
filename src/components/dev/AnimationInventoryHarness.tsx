@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
@@ -25,6 +25,7 @@ const RomanAnimationPreview: React.FC<{
   const gltf = useGLTF(MODEL_URL);
   const clonedScene = useMemo(() => SkeletonUtils.clone(gltf.scene), [gltf.scene]);
   const mixer = useMemo(() => new THREE.AnimationMixer(clonedScene), [clonedScene]);
+  const activeActionRef = useRef<THREE.AnimationAction | null>(null);
 
   useEffect(() => {
     const records = gltf.animations.map((clip, index) => ({
@@ -47,16 +48,24 @@ const RomanAnimationPreview: React.FC<{
     const action = mixer.clipAction(clip);
     action.reset();
     action.enabled = true;
-    action.setEffectiveTimeScale(speed);
+    action.setEffectiveTimeScale(1);
     action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
     action.clampWhenFinished = !loop;
     action.play();
+    activeActionRef.current = action;
 
     return () => {
       action.stop();
       mixer.stopAllAction();
+      if (activeActionRef.current === action) activeActionRef.current = null;
     };
-  }, [gltf.animations, loop, mixer, selectedClip, speed]);
+  }, [gltf.animations, loop, mixer, selectedClip]);
+
+  // Changing playback speed must not recreate the action: doing so resets the
+  // clip to frame zero every time the slider moves and makes close inspection hard.
+  useEffect(() => {
+    activeActionRef.current?.setEffectiveTimeScale(speed);
+  }, [speed]);
 
   useFrame((_, delta) => {
     mixer.update(Math.min(delta, 0.05));
