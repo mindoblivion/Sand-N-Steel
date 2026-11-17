@@ -84,3 +84,14 @@
 - **Initial physical-device city smoke test passed:** the owner installed the workflow-generated rehearsal APK on a Samsung device on 2026-11-03, launched the game, walked around the Roman city, and reported good appearance/playability with no crashes or freezes. This is a limited smoke test, not exhaustive Android acceptance; the remaining checks are tracked in issue #329.
 - **Still outstanding for this city issue:** inspect a current landscape screenshot/video from the installed app. Review visible entrances and walk-in corridors, especially Academy/Doctore/Library, the west service court, and the East Circus crossing; verify paving reads as traversable ground and inspect upper-floor, roof, and decorative-prop clearances.
 - **No speculative transform changes:** retain the current measured building placements until the visual/device review identifies a reproducible defect. A source-level route or footprint pass cannot establish sightlines or appearance.
+
+## C-8.74 — arena-quarter doorway paving connectors (2026-11-16)
+
+This additive paving-only change connects the existing arena-quarter paving meshes to the Medical House and Veteran Gladiator Hall approaches. It does not move buildings, alter movement colliders, or change gameplay.
+
+- **Medical House:** the existing 4 × 6 m rotated paving patch connects to a 1 m-wide east-flank bypass and a 1 m-wide frontage strip. The surveyed centerline runs from `[-25.5757, -5.9444]`, turns at `[-25.70, -1.60]`, and ends at the legal porch standoff `[-29, -1.60]`. The Training Yard wall, Medical foundation, porch step, column plinths, table and amphora are covered by the source-derived 5 cm sweep in `phaseC8_73.test.ts`.
+- **Veteran Hall:** a 2 m-wide, 2 m-long north/frontage spur joins the existing 3 × 15 m paving strip. Its centerline runs from `[-22, -20.90]` to `[-24, -20.90]`, ending outside the lower-step footprint.
+- All three new slabs use the existing travertine paving material and are rendered by `CityStreets.tsx`. The pure geometry constants are in `streetGeometry.ts`; `phaseC8_74.test.ts` verifies endpoint joins, existing-paving overlap, and full-width clearance against the live collider registry. Renderer-coverage regression includes all three new slabs.
+
+**Verification boundary:** the ported branch's Environment gate passed typecheck, unit/surface suites, collision and combat harnesses, production build, and startup asset check. Source-level checks do not prove the paving looks continuous in the rendered scene, that the final scene has no unregistered prop interference beyond the audited envelopes, or that it feels natural to walk on a Samsung device. Keep this change pending landscape visual and device acceptance.
+

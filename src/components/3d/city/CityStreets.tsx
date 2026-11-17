@@ -19,6 +19,9 @@ import {
   COURTYARD_TO_BARRACKS_PATH,
   COURTYARD_TO_VETERAN_HALL_PATH,
   COURTYARD_TO_MEDICAL_HOUSE_PATH,
+  COURTYARD_TO_MEDICAL_HOUSE_BYPASS_LEG,
+  MEDICAL_HOUSE_FRONTAGE_APPROACH,
+  COURTYARD_TO_VETERAN_HALL_SPUR,
   VIA_SCHOLARIS_MAIN,
   VIA_SCHOLARIS_ACADEMY_APPROACH,
   VIA_SCHOLARIS_LIBRARY_APPROACH,
@@ -753,6 +756,22 @@ export const CityStreets = React.memo(() => {
       {/* Paved Path: Courtyard -> Arena Medical House */}
       <mesh receiveShadow position={[COURTYARD_TO_MEDICAL_HOUSE_PATH.cx, -0.008, COURTYARD_TO_MEDICAL_HOUSE_PATH.cz]} rotation={[-Math.PI / 2, 0, COURTYARD_TO_MEDICAL_HOUSE_PATH.yaw]}>
         <planeGeometry args={[COURTYARD_TO_MEDICAL_HOUSE_PATH.w, COURTYARD_TO_MEDICAL_HOUSE_PATH.d]} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
+      </mesh>
+
+      {/* C-8.74: two-metre north/frontage paving spur to Veteran Hall. */}
+      <mesh receiveShadow position={[COURTYARD_TO_VETERAN_HALL_SPUR.cx, -0.008, COURTYARD_TO_VETERAN_HALL_SPUR.cz]} rotation={[-Math.PI / 2, 0, COURTYARD_TO_VETERAN_HALL_SPUR.yaw]}>
+        <planeGeometry args={[COURTYARD_TO_VETERAN_HALL_SPUR.w, COURTYARD_TO_VETERAN_HALL_SPUR.d]} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
+      </mesh>
+
+      {/* C-8.74: 1 m east-flank bypass and porch-frontage connection. */}
+      <mesh receiveShadow position={[COURTYARD_TO_MEDICAL_HOUSE_BYPASS_LEG.cx, -0.008, COURTYARD_TO_MEDICAL_HOUSE_BYPASS_LEG.cz]} rotation={[-Math.PI / 2, 0, COURTYARD_TO_MEDICAL_HOUSE_BYPASS_LEG.yaw]}>
+        <planeGeometry args={[COURTYARD_TO_MEDICAL_HOUSE_BYPASS_LEG.w, COURTYARD_TO_MEDICAL_HOUSE_BYPASS_LEG.d]} />
+        <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
+      </mesh>
+      <mesh receiveShadow position={[MEDICAL_HOUSE_FRONTAGE_APPROACH.cx, -0.008, MEDICAL_HOUSE_FRONTAGE_APPROACH.cz]} rotation={[-Math.PI / 2, 0, MEDICAL_HOUSE_FRONTAGE_APPROACH.yaw]}>
+        <planeGeometry args={[MEDICAL_HOUSE_FRONTAGE_APPROACH.w, MEDICAL_HOUSE_FRONTAGE_APPROACH.d]} />
         <meshStandardMaterial color="#ebdcb9" roughness={0.7} />
       </mesh>
 
