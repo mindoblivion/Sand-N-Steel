@@ -38,6 +38,7 @@ import {
   LION_MODEL_URL,
   LION_SCALE,
   beastFacingYaw,
+  getBeastFleeTarget,
   clipNameForBeastPose,
   normalizeBeastClipStart,
 } from '../components/3d/BeastFigure';
@@ -772,6 +773,18 @@ describe('D-2 §I — the surfaces the player reads', () => {
     expect(clipNameForBeastPose('crouch')).toBe('Sneak');
     expect(clipNameForBeastPose('pounce-resolved')).toBe('Bite');
     expect(clipNameForBeastPose('fled')).toBe('Run');
+
+    // Retreat target turns exactly opposite the current heading and preserves world height.
+    for (const yawAtStart of [0, Math.PI / 2, Math.PI, -Math.PI / 2, 0.73]) {
+      const start = [1.55, 0.42, -2.95] as const;
+      const retreat = getBeastFleeTarget(start, yawAtStart);
+      const dx = retreat.position[0] - start[0];
+      const dz = retreat.position[2] - start[2];
+      expect(retreat.position[1]).toBe(start[1]);
+      expect(Math.hypot(dx, dz)).toBeCloseTo(4.5, 6);
+      expect(retreat.yaw).toBeCloseTo(yawAtStart + Math.PI, 8);
+      expect(dx * Math.sin(yawAtStart) + dz * Math.cos(yawAtStart)).toBeCloseTo(-4.5, 6);
+    }
 
     // +Z forward orientation aims Ferrum from [1.55, 0, -2.95] inward toward player [0, 0, 3.5].
     const yaw = beastFacingYaw([1.55, 0, -2.95], [0, 0, 3.5]);
