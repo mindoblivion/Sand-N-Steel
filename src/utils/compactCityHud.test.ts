@@ -29,3 +29,25 @@ describe('compact city HUD on short landscape screens', () => {
     expect(city).toContain('title={isMuted ? \'Unmute Audio\' : \'Mute Audio\'}');
   });
 });
+
+
+describe('portrait phone city HUD', () => {
+  test('hides secondary chrome while preserving the day/night and visitor systems', () => {
+    expect(city).toContain('data-city-phase-medallion="true"');
+    expect(city).toContain('data-city-visitors-button="true"');
+    expect(css).toContain('[data-city-phase-medallion="true"]');
+    expect(css).toContain('[data-city-visitors-button="true"]');
+  });
+
+  test('constrains utility controls and preserves accessible menu naming', () => {
+    expect(city).toContain('data-city-utility-panel="true"');
+    expect(city).toContain('aria-label="Return to Main Menu"');
+    expect(city).toContain('city-main-menu-mobile');
+    expect(css).toContain('@media (max-width: 480px) and (orientation: portrait)');
+  });
+
+  test('keeps bottom navigation icon-first with minimum touch targets', () => {
+    expect(css).toContain('[data-city-footer="true"] .city-footer-label');
+    expect(css).toContain('min-height: 48px;');
+  });
+});
