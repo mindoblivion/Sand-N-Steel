@@ -1902,13 +1902,14 @@ const handleEnterBathhouse = useCallback(() => {
 
       {/* TOP STATUS HEADER BAR */}
       <header data-city-top-header="true" className="absolute top-0 left-0 right-0 p-3 sm:p-5 pointer-events-none flex justify-between items-start z-10">
-        <div className="pointer-events-auto flex flex-col items-start gap-2">
+        <div className="pointer-events-auto min-w-0 max-w-[52%] flex flex-col items-start gap-2">
         {/* Day/Night T3 — the phase medallion: the sun-arc, seven notches, and the disc
             at the clock's hour, in the phase's own class colour. Display only. */}
-        <PhaseMedallion phase={cityPhase} />
+        <div data-city-phase-medallion="true"><PhaseMedallion phase={cityPhase} /></div>
         <div className="flex items-center gap-2 bg-neutral-950/85 border border-amber-600/50 p-2 sm:p-3 rounded-2xl backdrop-blur-md shadow-2xl">
           <button
             onClick={() => setVisitorPanel(true)}
+            data-city-visitors-button="true"
             aria-label="Visitors in the City"
             className="min-h-[48px] px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 cursor-pointer active:scale-95 transition-all font-serif font-bold text-[10px] uppercase tracking-wider"
             title="See today's visitors and their offers"
@@ -1943,7 +1944,7 @@ const handleEnterBathhouse = useCallback(() => {
           {heraldTarget && heraldAim && (
             <div
               data-herald-aim={heraldTarget.id}
-              className="w-[min(72vw,15rem)] rounded-2xl border border-amber-500/50 bg-neutral-950/85 p-2 sm:p-3 backdrop-blur-md shadow-2xl"
+              className="w-[min(46vw,13rem)] rounded-2xl border border-amber-500/50 bg-neutral-950/85 p-2 sm:p-3 backdrop-blur-md shadow-2xl"
             >
               <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400/80">
                 The herald points
@@ -1975,7 +1976,7 @@ const handleEnterBathhouse = useCallback(() => {
         </div>
 
         {/* GOLD, FAME, GOOGLE DRIVE & AUDIO */}
-        <div className="flex flex-wrap justify-end items-center gap-2 pointer-events-auto">
+        <div data-city-utility-panel="true" className="pointer-events-auto flex flex-wrap justify-end items-center gap-1.5 sm:gap-2 max-w-[48vw] sm:max-w-none shrink-0">
           <div className="flex items-center gap-3 bg-neutral-950/85 border border-amber-600/50 px-3 py-1.5 rounded-2xl backdrop-blur-md shadow-2xl">
             <div className="flex items-center gap-1 text-xs font-bold text-amber-300">
               <Coins className="w-4 h-4 text-yellow-400" />
@@ -2018,9 +2019,12 @@ const handleEnterBathhouse = useCallback(() => {
 
           <button
             onClick={onReturnToMainMenu}
-            className="min-h-[48px] px-3 py-2 rounded-2xl bg-neutral-900/90 border border-neutral-700 hover:border-amber-500/60 text-neutral-300 hover:text-amber-200 text-xs font-serif font-bold backdrop-blur-md cursor-pointer active:scale-95 transition-all shadow-xl"
+            aria-label="Return to Main Menu"
+            title="Return to Main Menu"
+            className="min-h-[48px] min-w-[48px] px-2 sm:px-3 py-2 rounded-2xl bg-neutral-900/90 border border-neutral-700 hover:border-amber-500/60 text-neutral-300 hover:text-amber-200 text-xs font-serif font-bold backdrop-blur-md cursor-pointer active:scale-95 transition-all shadow-xl"
           >
             <span className="city-utility-label">Main Menu</span>
+            <span className="city-main-menu-mobile sm:hidden">Exit</span>
           </button>
         </div>
       </header>
