@@ -738,6 +738,7 @@ describe('D-2 §I — the surfaces the player reads', () => {
     const flee = code('src/components/3d/BeastFigure.tsx');
     expect(flee).toContain("if (pose === 'fled')");
     expect(flee).toContain('getBeastFleeTarget(');
+    expect(flee).toContain('[current.x, targetPosRef.current.y, current.z]');
     expect(flee).toContain('targetPosRef.current.set(...retreat.position)');
     expect(flee).toContain('targetYawRef.current = retreat.yaw');
     expect(flee).toContain('switchClip(BEAST_ANIMATION_MAP.run, 0.12, true);');
