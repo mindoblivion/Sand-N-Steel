@@ -302,6 +302,26 @@ export const VIA_SCHOLARIS_DOCTORE_APPROACH: AcademyPavingRect = {
 };
 
 
+/** Collision-safe west bypass around Bounty Hall, joining the existing diagonal paving. */
+export const FORUM_TO_BOUNTY_HALL_WEST_BYPASS: RotatedPavingPath = {
+  id: 'forum-to-bounty-hall-west-bypass',
+  cx: -20.2,
+  cz: 26.8,
+  w: 1,
+  d: 6.6,
+  yaw: 0,
+};
+
+/** North-side frontage approach to Bounty Hall; remains beyond the foundation and display props. */
+export const BOUNTY_HALL_FRONTAGE_APPROACH: RotatedPavingPath = {
+  id: 'bounty-hall-frontage-approach',
+  cx: -18.2,
+  cz: 30.1,
+  w: 4,
+  d: 1,
+  yaw: 0,
+};
+
 /** Decorative diagonal paving approaches in the outer temple and guild quarter. */
 export const NORTHWEST_TEMPLE_APPROACH: RotatedStreetRect = {
   id: 'northwest-temple-approach',
