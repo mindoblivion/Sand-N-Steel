@@ -15,6 +15,8 @@ import {
   TAVERN_TO_FORUM_PATH,
   FORUM_TO_BATHHOUSE_PATH,
   FORUM_TO_BOUNTY_HALL_PATH,
+  FORUM_TO_BOUNTY_HALL_WEST_BYPASS,
+  BOUNTY_HALL_FRONTAGE_APPROACH,
   FORUM_TO_SHRINE_PATH,
   COURTYARD_TO_BARRACKS_PATH,
   COURTYARD_TO_VETERAN_HALL_PATH,
@@ -382,6 +384,16 @@ export const CityStreets = React.memo(() => {
       {/* Path: Forum Socialis -> Bounty Hall [-15, 0, 26] */}
       <mesh receiveShadow position={[FORUM_TO_BOUNTY_HALL_PATH.cx, -0.008, FORUM_TO_BOUNTY_HALL_PATH.cz]} rotation={[-Math.PI / 2, 0, FORUM_TO_BOUNTY_HALL_PATH.yaw]}>
         <planeGeometry args={[FORUM_TO_BOUNTY_HALL_PATH.w, FORUM_TO_BOUNTY_HALL_PATH.d]} />
+        <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.78} />
+      </mesh>
+
+      {/* West-side bypass and north frontage turn: clear the foundation, notice board and display props. */}
+      <mesh receiveShadow position={[FORUM_TO_BOUNTY_HALL_WEST_BYPASS.cx, -0.008, FORUM_TO_BOUNTY_HALL_WEST_BYPASS.cz]} rotation={[-Math.PI / 2, 0, FORUM_TO_BOUNTY_HALL_WEST_BYPASS.yaw]}>
+        <planeGeometry args={[FORUM_TO_BOUNTY_HALL_WEST_BYPASS.w, FORUM_TO_BOUNTY_HALL_WEST_BYPASS.d]} />
+        <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.78} />
+      </mesh>
+      <mesh receiveShadow position={[BOUNTY_HALL_FRONTAGE_APPROACH.cx, -0.008, BOUNTY_HALL_FRONTAGE_APPROACH.cz]} rotation={[-Math.PI / 2, 0, BOUNTY_HALL_FRONTAGE_APPROACH.yaw]}>
+        <planeGeometry args={[BOUNTY_HALL_FRONTAGE_APPROACH.w, BOUNTY_HALL_FRONTAGE_APPROACH.d]} />
         <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.78} />
       </mesh>
 
