@@ -5,6 +5,7 @@ import { CornerSandDrift } from './GroundWearSystem';
 import {
   VIA_DECUMANUS_WEST,
   VIA_SOCIALIS,
+  TAVERN_EAST_ENTRANCE_APPROACH,
   VIA_DECUMANUS_EAST,
   VIA_DECUMANUS_EAST_EXTENSION,
   VIA_MERCATORIA_PATH,
@@ -368,6 +369,12 @@ export const CityStreets = React.memo(() => {
         district="civic"
         hasGutters={true}
       />
+
+      {/* Narrow east-side approach from Via Socialis to the Tavern's east-facing doorway. */}
+      <mesh receiveShadow position={[TAVERN_EAST_ENTRANCE_APPROACH.cx, -0.008, TAVERN_EAST_ENTRANCE_APPROACH.cz]} rotation={[-Math.PI / 2, 0, TAVERN_EAST_ENTRANCE_APPROACH.yaw]}>
+        <planeGeometry args={[TAVERN_EAST_ENTRANCE_APPROACH.w, TAVERN_EAST_ENTRANCE_APPROACH.d]} />
+        <meshStandardMaterial color={ROMAN_PALETTE.travertine.color} roughness={0.78} />
+      </mesh>
 
       {/* Path: Tavern -> Forum Socialis */}
       <mesh receiveShadow position={[TAVERN_TO_FORUM_PATH.cx, -0.008, TAVERN_TO_FORUM_PATH.cz]} rotation={[-Math.PI / 2, 0, TAVERN_TO_FORUM_PATH.yaw]}>
