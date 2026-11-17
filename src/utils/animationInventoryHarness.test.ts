@@ -49,6 +49,12 @@ describe('Roman animation inventory harness — development isolation and read-o
     }
   });
 
+  test('updates playback speed without recreating or resetting the selected action', () => {
+    expect(harness).toContain('activeActionRef.current?.setEffectiveTimeScale(speed)');
+    expect(harness).toContain('}, [gltf.animations, loop, mixer, selectedClip]);');
+    expect(harness).not.toContain('}, [gltf.animations, loop, mixer, selectedClip, speed]);');
+  });
+
   test('reports candidate metadata but explicitly does not claim clip names prove a recovery action', () => {
     expect(harness).toContain('CANDIDATE_WORDS');
     expect(harness).toContain('trackCount');
