@@ -181,6 +181,33 @@ export const COURTYARD_TO_MEDICAL_HOUSE_PATH: RotatedPavingPath = {
 };
 
 
+/** Narrow east-flank/frontage bypass from the existing medical paving to its porch. */
+export const COURTYARD_TO_MEDICAL_HOUSE_BYPASS_LEG: RotatedPavingPath = {
+  id: 'courtyard-to-medical-house-bypass-leg',
+  cx: -25.63786796565,
+  cz: -3.7721825407,
+  w: 1,
+  d: 4.346141912,
+  yaw: -0.02859570816,
+};
+export const MEDICAL_HOUSE_FRONTAGE_APPROACH: RotatedPavingPath = {
+  id: 'medical-house-frontage-approach',
+  cx: -27.35,
+  cz: -1.6,
+  w: 1,
+  d: 3.3,
+  yaw: -Math.PI / 2,
+};
+/** Two-metre north/frontage spur from the courtyard paving to Veteran Hall. */
+export const COURTYARD_TO_VETERAN_HALL_SPUR: RotatedPavingPath = {
+  id: 'courtyard-to-veteran-hall-spur',
+  cx: -23,
+  cz: -20.9,
+  w: 2,
+  d: 2,
+  yaw: -Math.PI / 2,
+};
+
 /** Via Socialis civic lane linking the southern avenue to Forum Socialis. */
 export const VIA_SOCIALIS: StreetRect = {
   id: 'via-socialis',
