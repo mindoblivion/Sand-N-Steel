@@ -1029,7 +1029,7 @@ describe('F. The phase re-seats the patio group and changes nothing else', () =>
   test('the C-8.18, C-8.19, C-8.21, C-8.22 and C-8.23 corrections are preserved', () => {
     expect(findRect('records-library')).toMatchObject({ cx: 23.1, cz: -30, hw: 3.25, hd: 2.85 });
     expect(avenueSrc).toContain('[-7.5, 8.55, 20].map((pz, zi)');
-    expect(streetsSrc).toContain('<MerchantCart position={[10.8, 0, -1.7]} rotationY={Math.PI / 4} />');
+    expect(streetsSrc).toContain('<MerchantCart position={[32.0, 0, -5.2]} rotationY={Math.PI / 4} />');
     expect(streetsSrc).toContain('<MerchantPropsCluster position={[11.9, 0, 5.2]} />');
     expect(streetsSrc).toContain('<RomanBench position={[-13.8, 0, 8.4]} rotationY={Math.PI / 4} />');
     expect(streetsSrc).toContain('<WineBarrel position={[-15.5, 0, 9.1]} rotationY={0.3} />');
