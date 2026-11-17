@@ -51,6 +51,27 @@ export interface BeastFigureProps {
 }
 
 /**
+ * Compute Ferrum's retreat target from its current world pose.
+ * The lion model faces +Z, so adding PI turns it directly away from its
+ * current heading; the world-space displacement uses the same +Z convention.
+ */
+export function getBeastFleeTarget(
+  currentPosition: readonly [number, number, number],
+  currentYaw: number,
+  distance = 4.5,
+): { position: [number, number, number]; yaw: number } {
+  const yaw = currentYaw + Math.PI;
+  return {
+    position: [
+      currentPosition[0] + Math.sin(yaw) * distance,
+      currentPosition[1],
+      currentPosition[2] + Math.cos(yaw) * distance,
+    ],
+    yaw,
+  };
+}
+
+/**
  * Compute world Y rotation for a model whose forward axis is `+Z` so it aims
  * from `beastPos` toward `targetPos`.
  */
@@ -362,14 +383,12 @@ const LionGLB: React.FC<BeastFigureProps> = ({
       // of disappearing the instant the hunt state changes to "fled".
       biteActiveRef.current = false;
       const current = outerGroupRef.current?.position ?? targetPosRef.current;
-      const fleeYaw = (outerGroupRef.current?.rotation.y ?? targetYawRef.current) + Math.PI;
-      const fleeDistance = 4.5;
-      targetYawRef.current = fleeYaw;
-      targetPosRef.current.set(
-        current.x + Math.sin(fleeYaw) * fleeDistance,
-        targetPosRef.current.y,
-        current.z + Math.cos(fleeYaw) * fleeDistance,
+      const retreat = getBeastFleeTarget(
+        [current.x, current.y, current.z],
+        outerGroupRef.current?.rotation.y ?? targetYawRef.current,
       );
+      targetYawRef.current = retreat.yaw;
+      targetPosRef.current.set(...retreat.position);
       isMovingRef.current = true;
       switchClip(BEAST_ANIMATION_MAP.run, 0.12, true);
       return;
