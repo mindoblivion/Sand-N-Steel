@@ -322,6 +322,16 @@ export const BOUNTY_HALL_FRONTAGE_APPROACH: RotatedPavingPath = {
   yaw: 0,
 };
 
+/** East-side entrance connector from Via Socialis to the Golden Palm Tavern door. */
+export const TAVERN_EAST_ENTRANCE_APPROACH: RotatedPavingPath = {
+  id: 'tavern-east-entrance-approach',
+  cx: -11,
+  cz: 15.85,
+  w: 1,
+  d: 3.7,
+  yaw: 0,
+};
+
 /** Decorative diagonal paving approaches in the outer temple and guild quarter. */
 export const NORTHWEST_TEMPLE_APPROACH: RotatedStreetRect = {
   id: 'northwest-temple-approach',
