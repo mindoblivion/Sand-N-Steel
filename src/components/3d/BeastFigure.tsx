@@ -384,7 +384,9 @@ const LionGLB: React.FC<BeastFigureProps> = ({
       biteActiveRef.current = false;
       const current = outerGroupRef.current?.position ?? targetPosRef.current;
       const retreat = getBeastFleeTarget(
-        [current.x, current.y, current.z],
+        // targetPosRef stores the unlifted ground height; outerGroupRef already
+        // includes LION_GROUND_Y and would otherwise apply the lift twice.
+        [current.x, targetPosRef.current.y, current.z],
         outerGroupRef.current?.rotation.y ?? targetYawRef.current,
       );
       targetYawRef.current = retreat.yaw;
