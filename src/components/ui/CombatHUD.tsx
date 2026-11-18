@@ -31,8 +31,9 @@ interface CombatHUDProps {
   /** CH-3a — the two merged blocks the duel resolves with (HUD truth). */
   playerModifiers?: FighterModifiers;
   opponentModifiers?: FighterModifiers;
-  /** The same player-only impact multiplier used by duel resolution. */
+  /** The same player-only weight multipliers used by duel resolution. */
   playerWeightImpactMultiplier?: number;
+  playerWeightStaminaMultiplier?: number;
   opponentIsBoss?: boolean;
   /**
    * CF-6 — a boss's rage. A timestamp (ms) that fires ONE red vignette pulse:
@@ -128,6 +129,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   playerModifiers,
   opponentModifiers,
   playerWeightImpactMultiplier = 1,
+  playerWeightStaminaMultiplier = 1,
   opponentIsBoss,
   bossVignettePulse,
   bossPhase,
@@ -460,6 +462,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
         playerModifiers={playerModifiers}
         opponentModifiers={opponentModifiers}
         playerWeightImpactMultiplier={playerWeightImpactMultiplier}
+        playerWeightStaminaMultiplier={playerWeightStaminaMultiplier}
         opponentIsBoss={opponentIsBoss}
         beast={beast}
         onExecuteAction={onExecuteAction}
