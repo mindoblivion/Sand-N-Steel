@@ -16,7 +16,8 @@ import { resolveWaitSurfaceProgress } from './waitSurfaceProgress';
  * City, arena, circus and building transitions use the supplied Colosseum loading
  * screen artwork through COLOSSEUM_LOADING_CLASS. A dark lower overlay hides the artwork's
  * baked-in loading bar and percentage text, replaced by live progress: a measured asset
- * percentage when the loader has a count, otherwise an indeterminate metallic sweep.
+ * percentage only while the loader is active with a known count, otherwise an indeterminate
+ * metallic sweep (including waits on lazy-loaded screen code).
  */
 
 export interface WaitSurfaceProps {
