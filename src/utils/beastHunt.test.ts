@@ -38,6 +38,7 @@ import {
   LION_MODEL_URL,
   LION_SCALE,
   beastFacingYaw,
+  getBeastFleeTarget,
   clipNameForBeastPose,
   normalizeBeastClipStart,
 } from '../components/3d/BeastFigure';
@@ -922,7 +923,7 @@ describe('D-2 §J — nothing persists, and no pipeline stage was added', () => 
     // One fence read, and every beast surface is behind it.
     expect((DUEL_SCENE.match(/beastConfigFor\(opponent\)/g) ?? []).length).toBe(1);
     expect(DUEL_SCENE).toContain('const beastCfg = useMemo(');
-    for (const surface of ['if (beastCfg) {', 'beastCfg && beast.pose !== \'fled\'', 'beastCfg\n            ? {']) {
+    for (const surface of ['if (beastCfg) {', 'beastCfg && (', 'beastCfg\n            ? {']) {
       expect(DUEL_SCENE, surface).toContain(surface);
     }
   });
