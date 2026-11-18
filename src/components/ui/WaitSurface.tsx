@@ -8,6 +8,7 @@ import {
   type WaitDestinationId,
 } from './waitSurfaceLines';
 import { COLOSSEUM_LOADING_CLASS } from '../../utils/startupAssets';
+import { resolveWaitSurfaceProgress } from './waitSurfaceProgress';
 
 /**
  * START-1 — the Colosseum destination wait surface.
@@ -15,7 +16,8 @@ import { COLOSSEUM_LOADING_CLASS } from '../../utils/startupAssets';
  * City, arena, circus and building transitions use the supplied Colosseum loading
  * screen artwork through COLOSSEUM_LOADING_CLASS. A dark lower overlay hides the artwork's
  * baked-in loading bar and percentage text, replaced by live progress: a measured asset
- * percentage when the loader has a count, otherwise an indeterminate metallic sweep.
+ * percentage only while the loader is active with a known count, otherwise an indeterminate
+ * metallic sweep (including waits on lazy-loaded screen code).
  */
 
 export interface WaitSurfaceProps {
@@ -64,7 +66,7 @@ function useDocumentHidden(): boolean {
 }
 
 export const WaitSurface: React.FC<WaitSurfaceProps> = ({ destination, rotate = true }) => {
-  const { progress, loaded, total, errors } = useProgress();
+  const { active, progress, loaded, total, errors } = useProgress();
   const [lineIndex, setLineIndex] = useState(0);
   const reducedMotion = usePrefersReducedMotion();
   const hidden = useDocumentHidden();
@@ -78,8 +80,7 @@ export const WaitSurface: React.FC<WaitSurfaceProps> = ({ destination, rotate = 
 
   const cycleLine = useCallback(() => setLineIndex((index) => nextKeeperIndex(index)), []);
   const hasErrors = errors && errors.length > 0;
-  const knowsCount = total > 0;
-  const pct = Math.min(100, Math.max(0, Math.round(progress)));
+  const { knowsCount, pct } = resolveWaitSurfaceProgress(active, total, progress);
 
   return (
     <div
