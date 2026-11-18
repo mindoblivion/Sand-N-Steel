@@ -3515,7 +3515,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 {/* D-2 — Ferrum. Rendered only for a bout the fence admits, and
                     not after it has fled. Aims from beside Marcellin toward the
                     player using the lion GLB's +Z forward axis. */}
-                {beastCfg && beast.pose !== 'fled' && (
+                {beastCfg && (
                   <BeastFigure
                     position={[1.55, 0, opp.position[2] + 0.55]}
                     rotationY={beastFacingYaw(
