@@ -100,8 +100,9 @@ interface TurnActionPanelProps {
    */
   playerModifiers?: FighterModifiers;
   opponentModifiers?: FighterModifiers;
-  /** Matches the player-only weight multiplier used by combat resolution. */
+  /** Matches the player-only weight multipliers used by combat resolution. */
   playerWeightImpactMultiplier?: number;
+  playerWeightStaminaMultiplier?: number;
   opponentIsBoss?: boolean;
   /** D-2 — the beast, while one is in the arena. Absent on every other duel. */
   beast?: BeastPanelInfo | null;
@@ -118,6 +119,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   playerModifiers = EMPTY_MODIFIERS,
   opponentModifiers = EMPTY_MODIFIERS,
   playerWeightImpactMultiplier = 1,
+  playerWeightStaminaMultiplier = 1,
   opponentIsBoss = false,
   beast = null,
   onExecuteAction,
@@ -214,8 +216,8 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
 
   // Weapon-specific stamina costs (shared with combat resolution) — CH-3a: the
   // block's staminaCostMult applied exactly as the attack branch applies it.
-  const quickStaminaCost = staminaCostWithModifiers(getStaminaCost(weapon, true), true, playerModifiers);
-  const powerStaminaCost = staminaCostWithModifiers(getStaminaCost(weapon, false), false, playerModifiers);
+  const quickStaminaCost = staminaCostWithModifiers(getStaminaCost(weapon, true), true, playerModifiers, playerWeightStaminaMultiplier);
+  const powerStaminaCost = staminaCostWithModifiers(getStaminaCost(weapon, false), false, playerModifiers, playerWeightStaminaMultiplier);
 
   // CH-3a — the block the Shield Guard button will actually absorb with
   // (weapon reduction + the block's add, capped at 0.90).
