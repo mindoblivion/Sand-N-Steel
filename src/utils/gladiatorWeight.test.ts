@@ -16,6 +16,7 @@ describe('gladiator weight combat profile', () => {
       weightLb: 180,
       impactMultiplier: 1,
       recoveryMultiplier: 1,
+      staminaCostMultiplier: 1,
       movementMultiplier: 1,
     });
   });
@@ -25,6 +26,7 @@ describe('gladiator weight combat profile', () => {
     expect(light.impactMultiplier).toBeLessThan(1);
     expect(light.recoveryMultiplier).toBeLessThan(1);
     expect(light.recoveryMultiplier).toBe(0.95);
+    expect(light.staminaCostMultiplier).toBe(0.95);
     expect(light.movementMultiplier).toBe(1.05);
   });
 
@@ -33,6 +35,7 @@ describe('gladiator weight combat profile', () => {
     expect(heavy.impactMultiplier).toBeGreaterThan(1);
     expect(heavy.recoveryMultiplier).toBeGreaterThan(1);
     expect(heavy.recoveryMultiplier).toBe(1.15);
+    expect(heavy.staminaCostMultiplier).toBe(1.15);
     expect(heavy.movementMultiplier).toBe(0.85);
   });
 
