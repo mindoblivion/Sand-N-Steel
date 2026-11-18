@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useProgress } from '@react-three/drei';
 import { Shield, Sparkles, AlertTriangle, RefreshCw } from 'lucide-react';
 import { COLOSSEUM_LOADING_CLASS } from '../../utils/startupAssets';
+import { resolveAssetLoadingOverlayVisibility } from './assetLoadingOverlayState';
 
 interface LoreTip {
   category: 'Lore' | 'Combat Tip' | 'Arena Wisdom' | 'Historical Note';
@@ -56,21 +57,21 @@ export const AssetLoadingOverlay: React.FC = () => {
   }, [active]);
 
   const hasErrors = errors && errors.length > 0;
-  const [assetsLoaded, setAssetsLoaded] = useState(false);
-  const [shouldRender, setShouldRender] = useState(true);
+  const visibility = resolveAssetLoadingOverlayVisibility(active, progress, hasErrors);
+  const [assetsLoaded, setAssetsLoaded] = useState(visibility.assetsLoaded);
+  const [shouldRender, setShouldRender] = useState(visibility.shouldRender);
 
   useEffect(() => {
-    if (!active && (progress >= 99 || progress === 100) && !hasErrors) {
-      setAssetsLoaded(true);
-      const timer = setTimeout(() => {
-        setShouldRender(false);
-      }, 700);
-      return () => clearTimeout(timer);
-    } else {
-      setAssetsLoaded(false);
-      setShouldRender(true);
-    }
-  }, [active, progress, hasErrors]);
+    setAssetsLoaded(visibility.assetsLoaded);
+    setShouldRender(visibility.shouldRender);
+
+    if (!visibility.shouldRender || !visibility.assetsLoaded) return;
+
+    const timer = setTimeout(() => {
+      setShouldRender(false);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [visibility.shouldRender, visibility.assetsLoaded]);
 
   if (!shouldRender && !hasErrors) return null;
 
