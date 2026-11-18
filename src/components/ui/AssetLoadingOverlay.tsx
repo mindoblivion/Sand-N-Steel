@@ -73,7 +73,10 @@ export const AssetLoadingOverlay: React.FC = () => {
     return () => clearTimeout(timer);
   }, [visibility.shouldRender, visibility.assetsLoaded]);
 
-  if (!shouldRender && !hasErrors) return null;
+  // Render active/error states immediately; the effect-managed state exists only
+  // to retain the completed overlay for its 700ms fade-out.
+  const shouldShowImmediately = visibility.shouldRender && !visibility.assetsLoaded;
+  if (!shouldRender && !hasErrors && !shouldShowImmediately) return null;
 
   const roundedPct = Math.min(100, Math.max(0, Math.round(progress)));
   const cleanItemName = item
