@@ -597,6 +597,16 @@ describe('CH-3a §W — the weapon stage', () => {
     }
   });
 
+  test('body mass scales both quick and power attack costs after class discounts', () => {
+    const baseQuick = getStaminaCost(weapon({}), true);
+    const basePower = getStaminaCost(weapon({}), false);
+    const secutor = modsFor([], 'secutor');
+    expect(staminaCostWithModifiers(baseQuick, true, secutor, 0.85)).toBe(Math.round(baseQuick * 0.85));
+    expect(staminaCostWithModifiers(baseQuick, true, secutor, 1.15)).toBe(Math.round(baseQuick * 1.15));
+    expect(staminaCostWithModifiers(basePower, false, secutor, 1.15)).toBe(Math.round(basePower * 0.85 * 1.15));
+    expect(staminaCostWithModifiers(basePower, false, secutor, Number.NaN)).toBe(Math.round(basePower * 0.85));
+  });
+
   test('the shield palma adds its 6 points and the total is capped at 0.90', () => {
     const shielded = modsFor(['shieldwall_discipline']);
     expect(blockReductionFor(0.35, shielded)).toBeCloseTo(0.41, 10);

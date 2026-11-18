@@ -30,6 +30,7 @@ export function getWeightCombatProfile(weight: unknown): {
   weightLb: number;
   impactMultiplier: number;
   recoveryMultiplier: number;
+  staminaCostMultiplier: number;
   movementMultiplier: number;
 } {
   const weightLb = normalizeGladiatorWeight(weight);
@@ -39,6 +40,7 @@ export function getWeightCombatProfile(weight: unknown): {
     weightLb,
     impactMultiplier: 1 + tradeoff,
     recoveryMultiplier: 1 + tradeoff,
+    staminaCostMultiplier: 1 + tradeoff,
     movementMultiplier: 1 - tradeoff,
   };
 }

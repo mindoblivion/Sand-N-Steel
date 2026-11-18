@@ -1251,11 +1251,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         getStaminaCost(player.loadout.weapon, true),
         true,
         playerMods,
+        getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).staminaCostMultiplier,
       ),
       powerStaminaCost: staminaCostWithModifiers(
         getStaminaCost(player.loadout.weapon, false),
         false,
         playerMods,
+        getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).staminaCostMultiplier,
       ),
       lastPlayerStrike: lastPlayerStrike?.result ?? null,
       opponentHealth: opp.health,
@@ -1826,6 +1828,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           getStaminaCost(player.loadout.weapon, isQuick),
           isQuick,
           playerMods,
+          getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).staminaCostMultiplier,
         );
         setPlayer((prev) => ({
           ...prev,
@@ -1882,6 +1885,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           getStaminaCost(attackerWeapon, isQuick),
           isQuick,
           attackerMods,
+          isActorPlayer ? getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).staminaCostMultiplier : 1,
         );
 
         // Set the attack animation at dispatch, but charge the player's stamina
@@ -3565,6 +3569,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         playerModifiers={playerMods}
         opponentModifiers={opponentMods}
         playerWeightImpactMultiplier={getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).impactMultiplier}
+        playerWeightStaminaMultiplier={getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).staminaCostMultiplier}
         opponentIsBoss={opponent.isBoss === true}
         // Slice C-D — the phase marker, on a ladder boss only (`undefined` on
         // every other bout, so the HUD draws exactly what it always drew).

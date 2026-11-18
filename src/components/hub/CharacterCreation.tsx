@@ -512,7 +512,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                     aria-describedby="gladiator-weight-guidance"
                   />
                   <p id="gladiator-weight-guidance" className="text-[11px] leading-relaxed text-neutral-400 mt-1">
-                    Body weight shifts your gladiator's build, attack impact and stamina recovery rate.
+                    Heavier builds hit harder but recover between attacks more slowly, spend more stamina per strike and move more slowly.
                   </p>
                 </div>
 
