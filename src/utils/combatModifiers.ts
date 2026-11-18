@@ -209,23 +209,25 @@ export function buildOpponentModifiers(
 // ── WEAPON STAGE ─────────────────────────────────────────────────────────────
 
 /**
- * The stamina one attack costs, after the block's `staminaCostMult`.
+ * The stamina an attack costs after class/palma and body-mass modifiers.
  *
- * Both CH-1 rows carrying the multiplier (secutor's Snag-Proof Pursuit, 0.85,
- * and the Heavy Hand palma, 0.90) are documented as POWER-attack discounts, so a
- * quick attack is never discounted.  Rounded to a whole point, because every
- * stamina value in the duel is a whole point; no multiplier means the base cost
- * exactly, which is the pre-CH-3a number.
+ * Class/palma discounts remain POWER-only. Body mass applies to both attack
+ * types: lighter builds spend up to 5% less; heavier builds spend up to 15% more.
+ * Rounded to whole stamina points, matching the duel's integer stamina model.
  */
 export function staminaCostWithModifiers(
   baseCost: number,
   isQuick: boolean,
   mods: FighterModifiers,
+  weightCostMultiplier = 1,
 ): number {
-  if (isQuick) return baseCost;
-  const mult = mods.block.staminaCostMult;
-  if (!isFiniteNumber(mult)) return baseCost;
-  return Math.max(0, Math.round(baseCost * mult));
+  const traitMultiplier = !isQuick && isFiniteNumber(mods.block.staminaCostMult)
+    ? mods.block.staminaCostMult
+    : 1;
+  const safeWeightMultiplier = isFiniteNumber(weightCostMultiplier)
+    ? Math.max(0.85, Math.min(1.15, weightCostMultiplier))
+    : 1;
+  return Math.max(0, Math.round(baseCost * traitMultiplier * safeWeightMultiplier));
 }
 
 /** A weapon's own block reduction plus the block's add, clamped to 0.90. */
