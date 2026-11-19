@@ -45,6 +45,28 @@ export type FeatureBossMechanic =
 export type BossMechanic = LadderBossMechanic | FeatureBossMechanic;
 
 /**
+ * REGULARS-1 — the five named regulars' behaviors. Its own union, beside
+ * `BossMechanic` and NEVER inside it: boss branches gate on the mechanic
+ * string alone in places (the counter branches and the telegraph resolution
+ * in `DuelScene` check `opponent.bossMechanic` with no `isBoss` test), so a
+ * regular carrying a boss string could misfire boss logic, and the phase
+ * fence gates on `isBoss`. A behavior is a conditional rule on fight state
+ * (what the player just did, what the opponent just did, whether the net
+ * holds) — never a third number fed into the ladder's draw.
+ */
+export type RegularBehavior =
+  /** Marcus the Rookie: smashes the shield — power when the player blocks. */
+  | 'eager'
+  /** Flaccus the Nimble: after a landed quick, steps back out of reach. */
+  | 'hit_and_run'
+  /** Brutus "The Anvil": after blocking a player attack, answers hard. */
+  | 'anvil_answers'
+  /** Naija the Fisher: while the player is entangled, presses all-in. */
+  | 'fishers_press'
+  /** The Pale Twins: quick then power, power then quick, a readable rhythm. */
+  | 'twin_tempo';
+
+/**
  * D-3 — Varro's false telegraph, as data (boss-rosters.md Part A).
  *
  * `feintChance` is the seeded roll a heavy makes once the teaching sequence is
@@ -525,6 +547,15 @@ export interface OpponentConfig {
    */
   palmae?: string[];
   bossMechanic?: BossMechanic;
+  /**
+   * REGULARS-1 — the regular's behavior, read by the duel's AI effect
+   * through the pure hook in `utils/regularBehavior.ts`. Regulars only: the
+   * fence (asserted in `regularBehavior.test.ts`) is that no `isBoss` row
+   * carries one and no regular row carries a `bossMechanic`, so a behavior
+   * can never answer a boss lookup and a boss mechanic can never answer a
+   * regular one. Absent means the ladder's choice stands.
+   */
+  regularBehavior?: RegularBehavior;
   /**
    * D-3 — Varro's false telegraph, for a `false_telegraph` Feature Bout only.
    * `utils/falseTelegraph.ts`'s fence is what decides whether it can ever be used.
