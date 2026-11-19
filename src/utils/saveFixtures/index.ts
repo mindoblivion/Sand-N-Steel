@@ -53,6 +53,8 @@ import medicalHouseRestEraProfile from './medicalHouseRestEraProfile.json';
 import corpusEtOrigoProfile from './corpusEtOrigoProfile.json';
 // FOUNTAIN COIN TOSS — Fortuna's favour (`luck`).
 import luckEraProfile from './luckEraProfile.json';
+// BRACKET-1 — the tournament bracket's W/L record (`story.bracket`).
+import bracketEraProfile from './bracketEraProfile.json';
 
 /** What one fixture is, where it came from, and which shapes it covers. */
 export interface SaveFixture {
@@ -377,6 +379,19 @@ export const SAVE_FIXTURES: SaveFixture[] = [
       'every earlier fixture keeps OMITTING `luck`, which is the legacy shape a load must survive',
     ],
     profile: asProfile(luckEraProfile),
+  },
+  {
+    id: 'bracket-era',
+    file: 'bracketEraProfile.json',
+    provenance:
+      'The mid-career save hand-aged: Brutus and Naija added to `defeatedOpponentIds` (their row purses paid, 1240 -> 1530 gold and 315 -> 400 fame, fightsWon 6 -> 8), and `story.bracket` populated — waves 1–3 complete, wave 4 at 1W/1L — so it is the shape the duel-result write persists for a mid-climb bracket record.',
+    covers: [
+      'the `story.bracket` record populated (BRACKET-1): per-wave attempts/wins/losses for waves 1–4, waves 5–8 unplayed',
+      'waves 1–3 deriving complete from `defeatedOpponentIds`, wave 4 at 1W/1L with Ignis felled, current wave 5',
+      'the record’s loss total (2) matching the profile’s `fightsLost` (2)',
+      'no new top-level profile field: `bracket` lives INSIDE `story`, so §J stays at 29',
+    ],
+    profile: asProfile(bracketEraProfile),
   },
 ];
 

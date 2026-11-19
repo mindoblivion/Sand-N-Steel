@@ -980,6 +980,18 @@ export interface StoryProgress {
   rivalry?: RivalryProgress;
   /** The Colosseum Trial of Endurance's accepted round ledger. */
   trialOfEndurance?: TrialOfEnduranceProgress;
+  /**
+   * BRACKET-1 — the tournament bracket's own W/L record, per display wave
+   * (`utils/bracket.ts`), kept INSIDE this existing object exactly as
+   * `bountyRungs`, `diceTrail`, `rivalry` and `trialOfEndurance` are, so NO
+   * top-level profile field is added (§J stays at 29) and `createNewProfile()`
+   * still writes no `story` field at all. Only ladder bouts tally: feature
+   * bouts, grudge bouts, trial bouts, rival bouts and exhibitions are fenced
+   * out at the duel-result write. Wave 8 (the epilogue champions) never
+   * tallies — its completeness is derived from `defeatedOpponentIds` — so its
+   * record stays unplayed.
+   */
+  bracket?: BracketProgress;
 }
 
 /** The one Rival Schools challenge's progression, stored lazily inside StoryProgress. */
@@ -1000,6 +1012,25 @@ export interface TrialOfEnduranceProgress {
   losses?: number;
   completed?: boolean;
   lastOutcome?: 'win' | 'loss';
+}
+
+/**
+ * BRACKET-1 — the tournament bracket's stored W/L record (see
+ * `StoryProgress.bracket`). Every member is optional: a partial record is a
+ * normal state, and `resolveBracketProgress` reads anything missing or
+ * malformed as unplayed. A wave with no entry is unplayed; a wave's record is
+ * written only by the duel-result write, for ladder bouts.
+ */
+export interface BracketProgress {
+  /** Per-wave record, keyed by wave number 1–8. */
+  waves?: Record<string, BracketWaveRecord>;
+}
+
+/** One display wave's W/L record inside `BracketProgress`. */
+export interface BracketWaveRecord {
+  attempts?: number;
+  wins?: number;
+  losses?: number;
 }
 
 /**

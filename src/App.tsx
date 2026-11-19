@@ -126,6 +126,7 @@ import { ALL_OPPONENTS, DOCTORE_TEST_OPPONENT } from './data/opponents';
 import { RIVAL_SCHOOL_OPPONENT } from './data/rivalSchools';
 import { isRivalSchoolOpponent, settleRivalSchoolBout } from './utils/rivalSchools';
 import { isTrialOfEnduranceOpponent, settleTrialOfEnduranceRound } from './utils/trialOfEndurance';
+import { resolveBracketAfterDuel, waveForOpponent } from './utils/bracket';
 // C-8.70C — the bout mode is chosen on the pre-fight card and held for the
 // length of the bout only: it is never written to the profile.
 import { DEFAULT_BOUT_MODE } from './data/boutModes';
@@ -1579,6 +1580,27 @@ export function App() {
               ? 'You yielded the bout. The rival leads the record, but the challenge remains open for a rematch.'
               : 'The rival champion has taken this bout. The challenge remains open; you may return to answer it.'
         );
+      }
+    }
+
+    /**
+     * BRACKET-1 — the tournament bracket's own W/L record, written in the same
+     * result transaction as the duel's ordinary purse. Ladder bouts only: the
+     * same `exhibition || rivalBout || trialBout` fence as the tier rule, so a
+     * feature bout, a grudge bout, a trial bout, a rival bout or an exhibition
+     * never tallies against a ladder wave. A refused victory tallies nothing
+     * (the helper returns the profile unchanged); a loss tallies losses +
+     * attempts on the wave — and nothing else, never a tier, a rank or a gate.
+     */
+    if (!exhibition && !rivalBout && !trialBout) {
+      const bracketWave = waveForOpponent(activeOpponent);
+      if (bracketWave !== null) {
+        const bracketSettled = resolveBracketAfterDuel(settledProfile, {
+          wave: bracketWave,
+          won: didWin,
+          rewardSettlementAccepted,
+        });
+        if (bracketSettled !== settledProfile) settledProfile = bracketSettled;
       }
     }
 
