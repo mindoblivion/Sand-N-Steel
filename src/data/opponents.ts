@@ -220,7 +220,9 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardXp: 120,
     meshScale: 1.15,
     bossMechanic: 'heavy_telegraph',
-    characterModel: 'roman_warrior',
+    // COMBAT-4 — Goliath fights in the minotaur body: the Pit Behemoth's
+    // silhouette sells the brute before the first swing.
+    characterModel: 'minotaur',
   },
 
   // TIER 2
@@ -368,7 +370,8 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     meshScale: 1.08,
     bossMechanic: 'phase_weapon_switch',
     phase2WeaponType: 'mace',
-    characterModel: 'roman_warrior',
+    // COMBAT-4 — Ignis is a dimachaerus; he fights in the dual-blade body.
+    characterModel: 'dimachaerus',
   },
 
   // TIER 3
@@ -513,7 +516,8 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardXp: 450,
     meshScale: 1.1,
     bossMechanic: 'counter_dodge',
-    characterModel: 'roman_warrior',
+    // COMBAT-4 — Valéria is a retiarius; she fights in the netfighter body.
+    characterModel: 'retiarius',
   },
 
   // TIER 4 - GRAND FINAL
@@ -551,7 +555,9 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     rewardXp: 1000,
     meshScale: 1.25,
     bossMechanic: 'rage_mode_colossus',
-    characterModel: 'roman_warrior',
+    // COMBAT-4 — Aurelius fights in his own champion body (Blender-built on
+    // the shared Roman rig: longitudinal gold crest, heavy pauldrons).
+    characterModel: 'aurelius_champion',
   },
 
   // ══════════════════════════════════════════════════════════════════════════
