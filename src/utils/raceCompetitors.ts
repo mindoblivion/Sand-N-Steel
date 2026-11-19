@@ -48,3 +48,116 @@ export function resolveRaceCompetitor(wins: unknown): RaceCompetitor {
   const validWins = Number.isSafeInteger(wins) && (wins as number) >= 0 ? wins as number : 0;
   return RACE_COMPETITORS[Math.min(validWins, RACE_COMPETITORS.length - 1)];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LADDER-1A — the ladder pools (District + League fields).
+//
+// RACE_COMPETITORS above is the shipped 1v1 ladder: selection by career wins,
+// pinned exactly by raceCompetitors.test.ts. It is NOT extended here —
+// appending a rival would change which rival a high-win player faces in the
+// shipped 1v1 race. The pools below are the ladder FIELDS instead: District
+// draws 2 rookies, League draws 4. The shipped three are reused by reference
+// (RACE_COMPETITORS[0] is the rookie, [1] the veteran, [2] the champion —
+// that order is pinned), so no rival exists twice, and the new entries follow
+// the same shape: a faction-colored name, a lap time on the shipped 64/61/58s
+// scale (3s a tier), a startSide lane, and a chariot finish.
+//
+// Pool speed invariant: every League lap time is faster than every rookie lap
+// time (League 58–62s, rookies 64–67s), so the rungs never overlap in speed.
+// Pools are ordered fastest first; the field draw takes the first N, so a
+// District field is the two quickest rookies and a League field the four
+// quickest of its pool. Real draw/selection is 1E's race card, not this slice.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A rookie's plain chariot: no fancy finish, just wood and wear. */
+const SERVIUS_VENETA_ROOKIE: RaceCompetitor = Object.freeze({
+  id: 'servius_veneta_rookie',
+  name: 'Servius of the Veneta',
+  faction: 'Veneta · Blue',
+  lapDurationMs: 66_000,
+  startSide: 1 as const,
+  finish: 'charred' as const,
+});
+
+/**
+ * The backmarker, 3s behind Rufus on the shipped 3s-a-tier scale — and the
+ * first Green on the roster. Prasina is already a racing faction in the
+ * glossary ("The Greens, a racing faction"); it simply had no auriga until now.
+ */
+const MANIUS_PRASINA_ROOKIE: RaceCompetitor = Object.freeze({
+  id: 'manius_prasina_rookie',
+  name: 'Manius of the Prasina',
+  faction: 'Prasina · Green',
+  lapDurationMs: 67_000,
+  startSide: -1 as const,
+  finish: 'stock' as const,
+});
+
+/** Second Russata: the stable now has two aurigae (Rufus + Tiberius). */
+const TIBERIUS_RUSSATA: RaceCompetitor = Object.freeze({
+  id: 'tiberius_russata',
+  name: 'Tiberius of the Russata',
+  faction: 'Russata · Red',
+  lapDurationMs: 60_000,
+  startSide: -1 as const,
+  finish: 'gilded' as const,
+});
+
+/**
+ * Second Albata, in the same triumph livery as Aulus — same stable, same
+ * finish family, 1s behind the champion.
+ */
+const APPIUS_ALBATA: RaceCompetitor = Object.freeze({
+  id: 'appius_albata',
+  name: 'Appius of the Albata',
+  faction: 'Albata · White',
+  lapDurationMs: 59_000,
+  startSide: 1 as const,
+  finish: 'triumph' as const,
+});
+
+/** Second Prasina, and the slowest of the League pool — still 2s faster than the quickest rookie. */
+const SPURIUS_PRASINA: RaceCompetitor = Object.freeze({
+  id: 'spurius_prasina',
+  name: 'Spurius of the Prasina',
+  faction: 'Prasina · Green',
+  lapDurationMs: 62_000,
+  startSide: -1 as const,
+  finish: 'charred' as const,
+});
+
+/** The two ladder rungs. 1E's raceTiers.ts owns the full tier config; this is only the pool key. */
+export type RaceRungId = 'district' | 'league';
+
+/** Rivals per field, excluding the player: District is player + 2, League player + 4. */
+export const RUNG_FIELD_SIZE: Readonly<Record<RaceRungId, number>> = {
+  district: 2,
+  league: 4,
+} as const;
+
+/** District draws rookies only, fastest first. */
+export const ROOKIE_POOL: readonly RaceCompetitor[] = Object.freeze([
+  RACE_COMPETITORS[0],
+  SERVIUS_VENETA_ROOKIE,
+  MANIUS_PRASINA_ROOKIE,
+]);
+
+/** League draws its pool, fastest first. */
+export const LEAGUE_POOL: readonly RaceCompetitor[] = Object.freeze([
+  RACE_COMPETITORS[2],
+  APPIUS_ALBATA,
+  TIBERIUS_RUSSATA,
+  RACE_COMPETITORS[1],
+  SPURIUS_PRASINA,
+]);
+
+/**
+ * The rivals for a rung's field, deterministically the fastest N of the rung's
+ * pool. An unknown rung fails closed to the District field — the always-open
+ * rung, never a locked one.
+ */
+export function resolveRungField(rung: unknown): readonly RaceCompetitor[] {
+  const pool = rung === 'league' ? LEAGUE_POOL : ROOKIE_POOL;
+  const count = rung === 'league' ? RUNG_FIELD_SIZE.league : RUNG_FIELD_SIZE.district;
+  return pool.slice(0, count);
+}
