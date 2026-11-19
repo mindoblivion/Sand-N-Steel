@@ -195,7 +195,10 @@ describe('B. The entry flow is read-only', () => {
     // property this section exists for (the entry flow writes nothing) is
     // unchanged and is re-pinned here, plus the notice's removal.
     expect(panel.includes('data-race-action="start"')).toBe(true);
-    expect(panel.includes('onClick={onStartRace}')).toBe(true);
+    // LADDER-1B — the Start button now carries the rung the picker selected
+    // (District open, League locked until a top-2 District finish); the
+    // handoff is still read-only, and the entry flow still writes nothing.
+    expect(panel.includes('onClick={() => onStartRace(selectedRung)}')).toBe(true);
     // the Slice 0 stand-in for a race is gone
     expect(panel.includes('setNotice(true)')).toBe(false);
     expect(panel.includes('data-race-notice="pending"')).toBe(false);
