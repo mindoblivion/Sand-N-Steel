@@ -20,6 +20,8 @@ import { purchaseChariotPart, equipChariotPart, resolveChariotLoadout } from './
 import { settleDuelFame, settleDuelGold } from './utils/duelRewards';
 import { purchaseRacingConfig, selectRacingConfig, resolveRacingState } from './utils/racingProgression';
 import { settleRaceCompletion, type RaceCompletionOutcome, type RaceCompletionResult } from './utils/raceRecords';
+// LADDER-1B — the rung type for the race handoff (session-only, never saved).
+import type { RaceRungId } from './utils/raceCompetitors';
 import { purchaseLaurel, selectDisplayedTitle, type LaurelResult } from './utils/laurels';
 // A8 — TRIUMPHS: the retained deeds. The evaluator is pure and the ONE shipped
 // call site is the duel result below (A8 — Director ruling R5); `withPeakGold` is
@@ -357,6 +359,10 @@ export function App() {
   // after a race. Set when the race is entered, read when the city remounts,
   // in memory only.
   const [cityReturnPose, setCityReturnPose] = useState<CityExitPose | null>(null);
+  // LADDER-1B — the rung the pre-race panel's picker selected for this race.
+  // Session-only (never written to a save): set when the race is entered,
+  // read by the race scene's mount, reset by the next entry.
+  const [raceRung, setRaceRung] = useState<RaceRungId>('district');
   const [duelResult, setDuelResult] = useState<{
     didWin: boolean;
     stats: DuelStatistics;
@@ -1074,9 +1080,14 @@ export function App() {
    * District's pre-race panel.  `pose` is the city position and facing the
    * player has to be returned to when the race is over; it is held in memory for
    * the length of the race and nothing here reads or writes a save.
+   *
+   * LADDER-1B: the handoff also carries the selected rung (from the panel's
+   * picker), held in memory alongside the return pose for the race scene's
+   * mount. Session-only — never written to a save.
    */
-  const handleStartRace = (pose: CityExitPose) => {
+  const handleStartRace = (pose: CityExitPose, rung: RaceRungId) => {
     setCityReturnPose(pose);
+    setRaceRung(rung);
     // FIRST SIXTY SECONDS — the Circus is walking off too: §5 shuts up for the session.
     noticeCityFlowExit('race');
     setTimeout(() => setCurrentScreen('race'), 0);
@@ -2619,7 +2630,7 @@ export function App() {
               phase={resolveTimeState(profile).phase}
               teamSize={profile ? resolveRacingState(profile).horses : 2}
               chariotLoadout={resolveChariotLoadout(profile).equipped}
-              rivalWins={profile?.racing?.wins ?? 0}
+              rung={raceRung}
               onRecordRaceCompletion={handleRecordRaceCompletion}
             />
           </React.Suspense>
