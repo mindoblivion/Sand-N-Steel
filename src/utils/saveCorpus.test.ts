@@ -190,6 +190,8 @@ const REQUIRED_FIXTURE_IDS = [
   'visitor-ledger',
   // FOUNTAIN COIN TOSS — Fortuna's favour at the forum fountain.
   'luck-era',
+  // BRACKET-1 — the tournament bracket's W/L record, inside `story`.
+  'bracket-era',
 ];
 
 /** The fixture's shape, inspected as stored — no reliance on the profile type. */
