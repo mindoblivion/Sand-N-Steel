@@ -32,6 +32,7 @@ import {
 import { getChariotPart, getChariotPartByFinish } from '../../data/chariotParts';
 import type { ChariotEquippedResolved } from '../../types/game';
 import type { RaceCompletionOutcome, RaceCompletionResult } from '../../utils/raceRecords';
+import { getLeagueTier } from '../../utils/racingLeague';
 import { RaceHorseTeam } from './RaceHorseTeam';
 import { RaceRenderDiagnostics } from './RaceRenderDiagnostics';
 import { useSettings } from '../../hooks/useSettings';
@@ -711,6 +712,10 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const [raceStartedAt, setRaceStartedAt] = useState<number | null>(null);
   const [raceFinishElapsed, setRaceFinishElapsed] = useState<number | null>(null);
   const [raceSettlement, setRaceSettlement] = useState<RaceCompletionResult | null>(null);
+  // ECON-2 — the highest League tier whose bonus fired on this finish, for the
+  // prize line. The totals on the result may cover earlier tiers too on a
+  // retroactive finish, so the line names the latest milestone, not the sum.
+  const prizeTier = raceSettlement?.tierAdvanced != null ? getLeagueTier(raceSettlement.tierAdvanced) : undefined;
   const [lapStage, setLapStage] = useState<RaceLapStage>('north-turn');
   const [frameloopMode, setFrameloopMode] = useState<'demand' | 'always'>('demand');
 
@@ -1224,6 +1229,15 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                 <p className="font-serif text-sm font-black uppercase tracking-wider text-amber-200">Circus purse</p>
                 <p className="mt-1 text-2xl font-mono font-bold text-lime-300" data-race-purse={raceSettlement.purseAwarded}>+{raceSettlement.purseAwarded} gold</p>
                 <p className="mt-1 text-xs text-neutral-400">{raceSettlement.purseAwarded > 0 ? 'Completion purse settled. One purse is available per in-game day.' : 'Today’s purse has already been collected; this finish still counts.'}</p>
+                {raceSettlement.prizeAwarded > 0 && (
+                  <div className="mt-3 rounded-xl border border-amber-500/50 bg-amber-950/50 px-3 py-2" data-race-league-prize={raceSettlement.tierAdvanced ?? ''}>
+                    <p className="font-serif text-sm font-black uppercase tracking-wider text-amber-200">League bonus</p>
+                    <p className="mt-1 text-xl font-mono font-bold text-lime-300">+{raceSettlement.prizeAwarded} gold · +{raceSettlement.fameAwarded} fame</p>
+                    <p className="mt-1 text-xs text-neutral-400">
+                      {prizeTier ? `${prizeTier.name} milestone reached — a one-time League bonus, paid once.` : 'A one-time League bonus, paid once.'}
+                    </p>
+                  </div>
+                )}
                 <div className="mt-3 grid grid-cols-3 gap-2 border-t border-neutral-800 pt-3 text-center text-xs">
                   <div><p className="text-neutral-500">Completed</p><p className="font-mono text-amber-200">{raceSettlement.completed}</p></div>
                   <div><p className="text-neutral-500">Wins</p><p className="font-mono text-amber-200">{raceSettlement.wins}</p></div>
