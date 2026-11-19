@@ -301,7 +301,8 @@ describe('CL-1 §C — the card registry', () => {
 
 describe('CL-1 §D — the glossary module', () => {
   test('the appendix\'s tables are present, verbatim, with their sections', () => {
-    expect(GLOSSARY.length).toBe(57);
+    // BET-1 — 56, not 57: the 'Omen' entry is deleted with the mechanic.
+    expect(GLOSSARY.length).toBe(56);
     expect(new Set(GLOSSARY.map((entry) => entry.section))).toEqual(
       new Set(['Fighting & the school', 'Gear words', 'The city, the week, the record', 'The Circus'])
     );
