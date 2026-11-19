@@ -80,12 +80,12 @@ export const GLOSSARY: GlossaryEntry[] = [
   { term: 'Ludi', gloss: "The public games — the festival days the city's week turns on.", section: CITY },
   { term: 'Dies Mercatus', gloss: 'Market Day (Monday) — the Bazaar dresses its best.', section: CITY },
   { term: 'Dies Ferratus', gloss: "Iron Day (Tuesday) — the Forge's day.", section: CITY },
-  { term: 'Dies Fortunae', gloss: "Fortuna's Day (Wednesday) — the Shrine accepts alms and gives Omens.", section: CITY },
+  { term: 'Dies Fortunae', gloss: "Fortuna's Day (Wednesday) — the Shrine accepts alms.", section: CITY },
   { term: 'Dies Equorum', gloss: 'Day of Horses (Thursday) — the Circus’s day.', section: CITY },
   { term: 'Dies Sanguinis', gloss: "Day of Blood (Friday) — the Colosseum's hard day.", section: CITY },
   { term: 'Ludi Magni', gloss: "The Great Games (Saturday) — the week's biggest card.", section: CITY },
   { term: 'Dies Quietus', gloss: 'Quiet Day (Sunday) — the city breathes; no games.', section: CITY },
-  { term: 'Omen', gloss: "A one-fight blessing from Fortuna's Shrine. You always see what it does first.", section: CITY },
+
   { term: 'Favour (of Fortuna)', gloss: "The Shrine's tally of your devotion. It only ever grows.", section: CITY },
 
   // ── The Circus ───────────────────────────────────────────────────────────
