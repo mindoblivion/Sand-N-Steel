@@ -1,7 +1,7 @@
 /**
  * CF-6 — boss presentation moments (bosses only).
  *
- * The four boss mechanics were in the game with sound and a log line apiece;
+ * The five boss mechanics were in the game with sound and a log line apiece;
  * this module holds the *entitlement* rule and the presentation numbers their
  * missing moments use, so the duel itself stays a call apiece and the boss
  * gating can be asserted without a canvas.
@@ -34,8 +34,8 @@
  */
 import type { BossMechanic, LadderBossMechanic, OpponentConfig } from '../types/game';
 
-/** The four boss moments, as the presentation layer names them. */
-export type BossMoment = 'rage' | 'telegraph' | 'phaseSwitch' | 'counter';
+/** The five boss moments, as the presentation layer names them. */
+export type BossMoment = 'rage' | 'telegraph' | 'phaseSwitch' | 'counter' | 'secondRising';
 
 /** Which presentation moment each boss mechanic owns. */
 const MOMENT_BY_MECHANIC: Record<LadderBossMechanic, BossMoment> = {
@@ -43,15 +43,18 @@ const MOMENT_BY_MECHANIC: Record<LadderBossMechanic, BossMoment> = {
   heavy_telegraph: 'telegraph',
   phase_weapon_switch: 'phaseSwitch',
   counter_dodge: 'counter',
+  second_rising: 'secondRising',
 };
 
 /**
- * D-1 — is this one of the FOUR mechanics the duel actually runs?
+ * D-1 — is this one of the FIVE mechanics the duel actually runs?
  *
  * `OpponentConfig.bossMechanic` also accepts the five feature-bout mechanics,
  * which are inert data in this slice. The moment table and the presentation gate
- * are keyed on the ladder four only, so a feature mechanic can neither own a
- * moment nor present one.
+ * are keyed on the ladder five only, so a feature mechanic can neither own a
+ * moment nor present one. TIER-8's `second_rising` is a ladder mechanic carried
+ * on a feature bout's row, so it owns a moment — the row's feature status does
+ * not strip it.
  */
 export function isLadderBossMechanic(
   mechanic: BossMechanic | undefined
@@ -60,7 +63,8 @@ export function isLadderBossMechanic(
     mechanic === 'rage_mode_colossus' ||
     mechanic === 'heavy_telegraph' ||
     mechanic === 'phase_weapon_switch' ||
-    mechanic === 'counter_dodge'
+    mechanic === 'counter_dodge' ||
+    mechanic === 'second_rising'
   );
 }
 
@@ -89,9 +93,11 @@ export function bossPresentationMoments(
   opponent: BossGateInput | null | undefined,
 ): BossMoment[] {
   if (!opponent || opponent.isBoss !== true) return [];
-  // D-1 — a FEATURE boss's mechanic owns no presentation moment: the four
-  // moments below belong to the four ladder mechanics and nothing else, so a
-  // feature bout presents exactly as a standard boss until its D-slice.
+  // D-1 — a FEATURE boss's mechanic owns no presentation moment: the moments
+  // below belong to the ladder mechanics and nothing else, so a feature bout
+  // presents exactly as a standard boss until its D-slice. TIER-8 is the one
+  // exception the rule names: `second_rising` is a LADDER mechanic, so the
+  // feature row that carries it owns its moment like any ladder boss.
   const ladderMechanic = opponent.bossMechanic;
   if (!isLadderBossMechanic(ladderMechanic)) return [];
   const moment = MOMENT_BY_MECHANIC[ladderMechanic];
@@ -130,6 +136,23 @@ export const BOSS_RAGE_TRAUMA = 0.5;
 
 /** The HUD's red vignette pulse length, in ms — the CSS animation's duration. */
 export const BOSS_VIGNETTE_MS = 700;
+
+// ── Second Rising (TIER-8) ─────────────────────────────────────────────────
+/**
+ * The banner words the rise fires: the first blow that would kill Scaevola
+ * does not, and the sand gives him back under these words. One literal, read
+ * by the duel's rise branch and pinned by `secondRising.test.ts` — the banner
+ * text lives here, not as a second literal in the scene.
+ */
+export const SECOND_RISING_BANNER_TEXT = 'HE RISES';
+
+/**
+ * Shake energy the CF-1 rig receives when Scaevola rises — the same 0.5 kick
+ * the rage and the phase transition use, written into the SAME
+ * `impactRef.trauma` the landed-blows table uses (capped at 1 by that write).
+ * A named constant of its own, not the rage's: the rise is its own moment.
+ */
+export const SECOND_RISING_TRAUMA = 0.5;
 
 // ── Telegraph ──────────────────────────────────────────────────────────────
 /** The boss mesh's telegraph emissive colour. */
