@@ -352,7 +352,8 @@ describe('STORY-5b §C — the exhibitions', () => {
     expect(LEGEND_EXHIBITIONS.length).toBe(3);
     expect(LEGEND_ECHO_BOUT.key).toBe('echo');
     // No opponent row was added for this slice: the roster is what it was.
-    expect(ALL_OPPONENTS.length).toBe(23);
+    // (TIER-8 added Scaevola after this slice, so the roster is 24, not 23.)
+    expect(ALL_OPPONENTS.length).toBe(24);
 
     for (const bout of LEGEND_BOUTS) {
       const row = legendBoutBaseRow(bout);

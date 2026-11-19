@@ -20,15 +20,18 @@ export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 export type AIPersonality = 'Aggressive' | 'Defensive' | 'Tricky' | 'Berserker';
 
 /**
- * The four LADDER bosses' mechanics — the ones the duel actually runs, each with
+ * The five LADDER bosses' mechanics — the ones the duel actually runs, each with
  * its own branch in `DuelScene` and its own presentation moment
- * (`utils/bossPresentation.ts`).
+ * (`utils/bossPresentation.ts`). TIER-8 adds the fifth: `second_rising` is a
+ * ladder mechanic carried on a FEATURE bout's row (Scaevola fights outside the
+ * ladder, but his mechanic is live and phased — see the row's comment).
  */
 export type LadderBossMechanic =
   | 'heavy_telegraph'
   | 'phase_weapon_switch'
   | 'counter_dodge'
-  | 'rage_mode_colossus';
+  | 'rage_mode_colossus'
+  | 'second_rising';
 
 /**
  * D-1 — the five FEATURE bouts' signature mechanics. Carried as inert data in
@@ -133,7 +136,7 @@ export interface PanoplyConfig {
  * that would dress it is not in the tree, so every feature boss keeps the
  * standard boss loge dressing (`data/bossPresentationStates.ts`).
  */
-export type BossPresentationState = 'dawn' | 'high-noon' | 'gilded' | 'brothers' | 'dusk';
+export type BossPresentationState = 'dawn' | 'high-noon' | 'gilded' | 'brothers' | 'dusk' | 'eclipse';
 
 /**
  * D-1 — what a Feature Bout asks of a profile before it can be entered. Every

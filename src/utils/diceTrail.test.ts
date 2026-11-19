@@ -277,7 +277,8 @@ describe('STORY-5a §B — the rumor board, in sequence', () => {
       'opp_kallias_sparta',
     ]);
     // Every staged id is an existing roster row: this slice adds none.
-    expect(ALL_OPPONENTS.length).toBe(23);
+    // (TIER-8 added Scaevola after this slice, so the roster is 24, not 23.)
+    expect(ALL_OPPONENTS.length).toBe(24);
     for (const id of ids) expect(ALL_OPPONENTS.some((row) => row.id === id)).toBe(true);
   });
 

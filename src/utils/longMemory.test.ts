@@ -634,7 +634,7 @@ describe('D-5 §J — the whole roster, after every D-slice', () => {
     }
   });
 
-  test('all seventeen rows survive a full power-spam bout byte-identical', () => {
+  test('all eighteen rows survive a full power-spam bout byte-identical', () => {
     const before = JSON.stringify(ALL_OPPONENTS);
     const state = readAll(mix(9, 1));
     const profile = longMemoryProfile(cfg(), base(), state);
@@ -643,9 +643,10 @@ describe('D-5 §J — the whole roster, after every D-slice', () => {
     // STORY-4b — the Bounty Hall board appends six rows to the roster (five rungs
     // plus the Deserter). `LADDER_OPPONENTS` and `FEATURE_BOUT_OPPONENTS` are
     // unchanged: both fences now exclude `bountyBout` rows.
-    expect(ALL_OPPONENTS.length).toBe(23);
+    // TIER-8 appends Scaevola, the sixth feature bout, after Hermas.
+    expect(ALL_OPPONENTS.length).toBe(24);
     expect(LADDER_OPPONENTS.length).toBe(12);
-    expect(FEATURE_BOUT_OPPONENTS.length).toBe(5);
+    expect(FEATURE_BOUT_OPPONENTS.length).toBe(6);
   });
 
   test('Hermas’s published base stats are exactly the D-1 row', () => {

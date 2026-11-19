@@ -972,6 +972,84 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
   },
 
   // ══════════════════════════════════════════════════════════════════════════
+  // TIER-8 — SCAEVOLA THE TWICE-SLAIN (the bracket's Immortal tier).
+  // APPENDED ONLY, in the Feature Bouts section: every row above this line is
+  // byte-identical, so every save's ids still resolve. He is the ONE row
+  // where the two fences split on purpose — read this comment before "fixing"
+  // either half:
+  //
+  //   • the ROW is a feature bout (`featureBout: true`, `fightIndex: 0`): he
+  //     fights OUTSIDE the tier ladder, so beating him never advances
+  //     `currentTier`, never adds a `bossKills` stripe and never satisfies a
+  //     rank or campaign gate — the Hermas slot, gate for gate;
+  //   • the MECHANIC is a ladder mechanic (`second_rising` joins
+  //     `LadderBossMechanic`, with a registered ladder in `bossPhases.ts`):
+  //     it is LIVE and phased in this slice, not inert feature data, so he
+  //     owns a presentation moment (`secondRising`) like any ladder boss.
+  //
+  // Gate (Hermas's published pattern): Legend rank ∧ Aurelius defeated.
+  // Reward (published, bracket doc Tier 8 row): 3000 gold / 350 fame.
+  // Venue: the Tier-4 venue (the Pantheon), like Gnaeus, the summit's
+  // undercard. No palm: the five Part A bouts carry one boss-only palm each,
+  // and no palm is authored for him here — he carries nothing, so the
+  // identity-modifier block reads empty for him too. No Rudis: beating him
+  // grants nothing about freedom (Walter's story call, deliberately out).
+  // ══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'opp_scaevola_boss',
+    name: 'Scaevola the Twice-Slain',
+    title: 'Final Boss of the Immortal Tier (Feature Bout)',
+    tier: 4,
+    fightIndex: 0,
+    isBoss: true,
+    featureBout: true,
+    difficulty: 'champion',
+    weaponType: 'sword_shield',
+    personality: 'Defensive',
+    // TIER-8 — the provocator frame: Goliath and Brutus wear it, but neither
+    // is a boss at the summit — and the shield-first stance sells a man who
+    // endures rather than overwhelms. A Roman veteran, not a colossus and not
+    // a trickster: where the ladder's summit is strength, his threat is that
+    // he does not stay down.
+    armatura: 'provocator',
+    recommendedLevel: 12,
+    gate: { rank: 'Legend', bossDefeatedId: 'opp_aurelius_boss' },
+    cardLine:
+      'He has never been counted out. Strike him down twice — and be ready when the sand gives him back.',
+    presentationState: 'eclipse',
+    // Anchored one step above Aurelius (34/20, 200/30, def 20, 480 HP,
+    // reward 1000/500, recommendedLevel 10): +2 strength and agility, +10
+    // staminaMax / +2 regen so he can fight a second half, −2 defense (he
+    // survives by rising, not by armor — the hits must land), +40 HP (two
+    // health bars of 260 in effect: 520, then the rise to 260). Aggression
+    // 0.95 is the ceiling, shared with Aurelius; the guard is where he gives
+    // ground (0.60, below Aurelius's 0.70). Dodge 0.50 is Aurelius's own.
+    // rewardXp 1200 is AUTHORED (+200 over Aurelius, one step above the
+    // summit); the 3000g / 350f purse is the bracket doc's published Tier 8.
+    stats: {
+      strength: 36,
+      agility: 22,
+      staminaMax: 210,
+      staminaRegen: 32,
+      defense: 18,
+      healthMax: 520,
+    },
+    skinColor: '#b07d62',
+    hairColor: '#e7e5e4',
+    tunicColor: '#3f3f46',
+    armorColor: '#78716c',
+    aggression: 0.95,
+    blockChance: 0.6,
+    steelDelta: DEFAULT_STEEL_DELTA,
+    dodgeChance: 0.5,
+    rewardGold: 3000,
+    rewardFame: 350,
+    rewardXp: 1200,
+    bossMechanic: 'second_rising',
+    characterModel: 'roman_warrior',
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
   // STORY-4b — THE DESERTER'S PRICE (the Bounty Hall board). APPENDED ONLY: every
   // row above this line is byte-identical, so every save's ids still resolve. The
   // six rows live in `data/bountyBoard.ts`; each carries `bountyBout: true` and

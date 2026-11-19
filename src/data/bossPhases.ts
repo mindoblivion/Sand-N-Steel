@@ -2,7 +2,7 @@
  * ===========================================================================
  * C-8.70C — Slice C-D: BOSS PHASES, as data
  * ===========================================================================
- * The four LADDER bosses each get two phases. A phase is a set of PARAMETERS the
+ * The five LADDER bosses each get two phases. A phase is a set of PARAMETERS the
  * mechanic the duel already runs reads — no phase introduces a second copy of its
  * boss's mechanic, and no phase rewrites a centred combat formula. Phase 1 is
  * TODAY's behaviour, value for value; Phase 2 intensifies the boss's SIGNATURE
@@ -103,6 +103,21 @@ export interface RagePhaseParams {
   rageChargeThreshold: number;
 }
 
+/**
+ * TIER-8 — Scaevola — `second_rising`. Phase 2 IS the risen state: the profile
+ * row he chooses with once he has risen. It is NOT read off HP — `bossPhaseAt`
+ * returns phase 1 at health ≤ 0, and the rise fires on the fatal blow itself —
+ * so the duel gates this profile on the risen ref (`bossSecondRisingProfileFor`),
+ * never on the phase lookup. The numbers are the authored 0.05 steps (see the
+ * ladder below); Phase 1 is the row's own published profile.
+ */
+export interface SecondRisingPhaseParams {
+  /** The aggression row the AI chooses with once risen. */
+  aggression: number;
+  /** The blockChance row the AI chooses with once risen. */
+  blockChance: number;
+}
+
 /* ── the ladder ──────────────────────────────────────────────────────────── */
 
 export interface BossPhase<P> {
@@ -133,10 +148,11 @@ export type AnyBossPhaseLadder =
   | BossPhaseLadder<HeavyTelegraphPhaseParams, 'heavy_telegraph'>
   | BossPhaseLadder<PhaseSwitchPhaseParams, 'phase_weapon_switch'>
   | BossPhaseLadder<CounterDodgePhaseParams, 'counter_dodge'>
-  | BossPhaseLadder<RagePhaseParams, 'rage_mode_colossus'>;
+  | BossPhaseLadder<RagePhaseParams, 'rage_mode_colossus'>
+  | BossPhaseLadder<SecondRisingPhaseParams, 'second_rising'>;
 
 /**
- * THE FOUR LADDERS. Phase 1 of each reproduces today's shipped values exactly
+ * THE FIVE LADDERS. Phase 1 of each reproduces today's shipped values exactly
  * (asserted in `utils/bossPhases.test.ts`); Phase 2 is the signature mechanic
  * intensified, with every authored number flagged.
  */
@@ -145,6 +161,7 @@ export const BOSS_PHASES: {
   readonly phase_weapon_switch: BossPhaseLadder<PhaseSwitchPhaseParams, 'phase_weapon_switch'>;
   readonly counter_dodge: BossPhaseLadder<CounterDodgePhaseParams, 'counter_dodge'>;
   readonly rage_mode_colossus: BossPhaseLadder<RagePhaseParams, 'rage_mode_colossus'>;
+  readonly second_rising: BossPhaseLadder<SecondRisingPhaseParams, 'second_rising'>;
 } = {
   // GOLIATH THE PIT BEHEMOTH — the announced overhead smash.
   heavy_telegraph: {
@@ -245,6 +262,38 @@ export const BOSS_PHASES: {
       },
     ],
   },
+
+  // TIER-8 — SCAEVOLA THE TWICE-SLAIN — the man who does not stay down.
+  // The row is a FEATURE bout (outside the ladder's advancement); the mechanic
+  // is a LADDER mechanic (live, phased) — that split is deliberate, and the
+  // fence below admits him because the mechanic is registered, not because
+  // the row is a rung. Phase 1 is his published row; Phase 2 is the risen
+  // state, and it is NEVER read off HP: the duel gates it on the risen ref.
+  second_rising: {
+    bossId: 'opp_scaevola_boss',
+    bossName: 'Scaevola',
+    mechanic: 'second_rising',
+    whyYouFell: { owner: 'His', mechanic: 'second rising' },
+    phases: [
+      {
+        phase: 1,
+        atOrBelow: 1,
+        authored: false,
+        // The row's own published profile — what he has always chosen with.
+        params: { aggression: 0.95, blockChance: 0.6 },
+      },
+      {
+        phase: 2,
+        atOrBelow: BOSS_PHASE_THRESHOLD,
+        authored: true,
+        // AUTHORED — anchor: the row's 0.95 / 0.60 moved by the published Steel
+        // delta's own 0.05 step (1.00 / 0.55), the Ignis Phase-2 precedent:
+        // risen, he abandons the guard — the fight gets faster, not tankier.
+        // The rise lands him exactly on the phase line, so Phase 2 IS risen.
+        params: { aggression: 1, blockChance: 0.55 },
+      },
+    ],
+  },
 };
 
 /* ── the fence and the lookups ───────────────────────────────────────────── */
@@ -263,7 +312,8 @@ export function bossPhaseLadderFor(
     mechanic !== 'heavy_telegraph' &&
     mechanic !== 'phase_weapon_switch' &&
     mechanic !== 'counter_dodge' &&
-    mechanic !== 'rage_mode_colossus'
+    mechanic !== 'rage_mode_colossus' &&
+    mechanic !== 'second_rising'
   ) {
     return null;
   }
@@ -368,6 +418,33 @@ export function bossPhaseProfileFor(
   const ladder = bossPhaseLadderFor(opponent);
   if (!ladder || ladder.mechanic !== 'phase_weapon_switch') return null;
   if (bossPhaseAt(opponent, health, healthMax) < 2) return null;
+  const params = phaseParams(ladder, 2);
+  const steel = steelDeltaFor(mode);
+  return {
+    aggression: clampBoutProfileValue(params.aggression + steel.aggression),
+    blockChance: clampBoutProfileValue(params.blockChance + steel.blockChance),
+  };
+}
+
+/**
+ * TIER-8 — Scaevola's live profile row once risen, composed with the bout
+ * mode's own Steel delta exactly as the row itself is — or `null` while he
+ * has not risen, where the shipped `modeProfile` stands and nothing new is
+ * read.
+ *
+ * The gate is the RISEN ref, never the phase lookup: `bossPhaseAt` reads
+ * phase 1 at health ≤ 0 (the fatal blow's own moment) and phase 2 at any
+ * health at or below the line — so before the rise, a Scaevola at 40 % HP
+ * would wrongly choose with the risen row if this read HP. Only the rise
+ * may flip this, and the rise sets the ref in the same dispatch as the HP.
+ */
+export function bossSecondRisingProfileFor(
+  opponent: OpponentConfig | null | undefined,
+  risen: boolean,
+  mode: BoutMode,
+): { aggression: number; blockChance: number } | null {
+  const ladder = bossPhaseLadderFor(opponent);
+  if (!ladder || ladder.mechanic !== 'second_rising' || !risen) return null;
   const params = phaseParams(ladder, 2);
   const steel = steelDeltaFor(mode);
   return {

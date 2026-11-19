@@ -86,6 +86,9 @@ import { shouldAnnounceRegularPower } from '../../utils/regularTelegraph';
 // `src/utils/regularBehavior.ts`), read here where the ladder's chosen
 // action is adjusted before the telegraph overrides.
 import { applyRegularBehavior, type OpponentLastAction } from '../../utils/regularBehavior';
+// TIER-8 — the Second Rising's predicate and rise HP: pure, so the rise
+// branch and the tests call the SAME function.
+import { secondRisingHealth, shouldSecondRise } from '../../utils/secondRising';
 // COMBAT-5 — the sidestep (gap 5) and the scaled received shake (gap 6): the
 // pure rules (see `src/utils/combatSidestep.ts` and `src/utils/combatShake.ts`),
 // read here where the fighter moves, where a telegraphed heavy is announced
@@ -134,7 +137,7 @@ import {
   pyreBrandHealAmount,
 } from '../../utils/bossPalmae';
 import { sounds } from '../../audio/soundEffects';
-import { BOSS_RAGE_TRAUMA, bossPresentsMoment, presentsTelegraphGlow } from '../../utils/bossPresentation';
+import { BOSS_RAGE_TRAUMA, SECOND_RISING_BANNER_TEXT, SECOND_RISING_TRAUMA, bossPresentsMoment, presentsTelegraphGlow } from '../../utils/bossPresentation';
 // D-2 — the beast hunt. Every rule, fence and word lives in that module; this
 // scene only calls it, which is what keeps a non-boss opponent from ever
 // fielding a beast.
@@ -248,6 +251,7 @@ import {
   bossPhaseLadderFor,
   bossPhaseProfileFor,
   bossRageChargeThreshold,
+  bossSecondRisingProfileFor,
   bossTelegraphChance,
   bossTelegraphHoldMs,
   rageChargeAtThreshold,
@@ -995,6 +999,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           oppLastActionRef.current = null;
           oppBlockedPlayerAttackRef.current = false;
           oppTookCleanHitRef.current = false;
+          risenRef.current = false;
           setOpp((prev) => ({ ...prev, telegraphText: undefined }));
         },
         // Player actions resolve synchronously; return the fighter to idle before
@@ -1022,6 +1027,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   }, [onMatchComplete]);
 
   const rageActivatedRef = useRef(false);
+
+  // TIER-8 — Scaevola's Second Rising: once per duel, the first fatal blow
+  // does not kill him. Runtime-only, like `rageActivatedRef`; reset with the
+  // other refs at withdrawal cancel, victory and defeat — and read by the
+  // risen profile below, never by the HP-derived phase lookup.
+  const risenRef = useRef(false);
 
   // ── C-8.70C Slice C-D — the phase slice's own duel-session state ───────────
   //   • `phaseAnnouncedRef` latches the ONE phase change, so the banner and the
@@ -2716,6 +2727,51 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 }
               }
             }
+
+            // ── TIER-8 — THE SECOND RISING ───────────────────────────────
+            // The first blow that would kill Scaevola does not. The death
+            // beat above played exactly as today — the damage numbers,
+            // hit-stop and crowd all fired, and `fightEnded` read the death
+            // hold — and the rise fires HERE, in the same synchronous
+            // dispatch as the killing blow's own HP write, before any
+            // victory write can run: the victory effect reads `opp.health`
+            // after this commit, and the rise leaves it at 50 % of maximum,
+            // so no victory is ever written for the first fatal blow. The
+            // second fatal blow finds `risenRef` set and kills like any
+            // boss. The death pose itself never renders — the batched write
+            // below supersedes it with the hit reaction in the same commit —
+            // which is the price of winning the race to the result flow.
+            if (
+              shouldSecondRise({
+                bossMechanic: opponent.bossMechanic,
+                isBoss: opponent.isBoss === true,
+                isActorPlayer,
+                risen: risenRef.current,
+                fightEnded,
+              })
+            ) {
+              risenRef.current = true;
+              // The rise IS Scaevola's phase change, so the phase-announce
+              // effect must not ALSO announce Phase II: latch it here.
+              phaseAnnouncedRef.current = true;
+              setOpp((prev) => ({
+                ...prev,
+                health: secondRisingHealth(prev.stats.healthMax),
+                stamina: prev.stats.staminaMax,
+                action: 'hit',
+                isPhase2: true,
+              }));
+              // Slice C-D — the signature mechanic landed (it is the rise).
+              mechanicLandingsRef.current += 1;
+              addLog(`${opp.name} rises from the sand — ${SECOND_RISING_BANNER_TEXT}!`, 'crit');
+              spawnDamageText(SECOND_RISING_BANNER_TEXT, 'crit', opp.position);
+              // CF-6 — boss moment (bosses only): the arena FEELS the rise.
+              if (bossPresentsMoment(opponent, 'second_rising')) {
+                impactRef.current.trauma = Math.min(1, impactRef.current.trauma + SECOND_RISING_TRAUMA);
+                sounds.playCrowdSwell();
+                setBossVignettePulse(Date.now());
+              }
+            }
           } else {
             // MISSED
             sounds.playSlash();
@@ -3151,7 +3207,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // publishes, composed with the mode's own Steel delta exactly as his row is.
       // Every other boss, and his own Phase 1, answers `null`, so the shipped
       // `modeProfile` stands unchanged.
-      const phaseProfile = bossPhaseProfileFor(opponent, opp.health, opp.stats.healthMax, boutMode);
+      // TIER-8 — the same shape for Scaevola, gated on the risen ref instead of
+      // HP: `bossSecondRisingProfileFor` answers `null` until the rise, so the
+      // `??` below can never promote an unrisen Scaevola to his risen row.
+      const phaseProfile =
+        bossPhaseProfileFor(opponent, opp.health, opp.stats.healthMax, boutMode) ??
+        bossSecondRisingProfileFor(opponent, risenRef.current, boutMode);
       // PITCH A1 — a phase-2 profile is composed with the mode's delta already; the
       // ill omen's shift is added on top of whichever base is chosen, so it hardens
       // the bout the player actually meets.
@@ -3440,6 +3501,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       oppLastActionRef.current = null;
       oppBlockedPlayerAttackRef.current = false;
       oppTookCleanHitRef.current = false;
+      risenRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // Pitch A6 — Director ruling R-MARGIN: the WINNER's remaining health, read
       // HERE from the player's live HP exactly as `lowestHealthFraction` is (a
@@ -3525,6 +3587,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       oppLastActionRef.current = null;
       oppBlockedPlayerAttackRef.current = false;
       oppTookCleanHitRef.current = false;
+      risenRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // Pitch A6 — Director ruling R-MARGIN: on a defeat the WINNER is the
       // opponent, so his remaining health is the card's margin — the same
@@ -3613,6 +3676,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   useEffect(() => {
     if (phaseAnnouncedRef.current || isMatchOver.current) return;
     if (!bossPhaseLadderFor(opponent)) return;
+    // TIER-8 — Scaevola's Phase 2 IS the risen state: before the rise, a
+    // drop to the line must not announce Phase II (the profile still reads
+    // the row's 0.95 / 0.60 until the rise flips it), and after the rise the
+    // branch itself latched `phaseAnnouncedRef`, so this effect never fires
+    // for him at all.
+    if (opponent.bossMechanic === 'second_rising' && !risenRef.current) return;
     // A killing blow does not announce a phase (the result flow is about to run).
     if (opp.health <= 0) return;
     if (opp.telegraphText || pendingHeavyAttackRef.current) return;

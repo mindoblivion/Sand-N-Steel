@@ -189,25 +189,27 @@ function base(overrides: Partial<PlayerProfile> = {}): PlayerProfile {
 // ════════════════════════════════════════════════════════════════════════════
 
 describe('D-1 §A — the append touched no pre-existing row', () => {
-  test('the roster is the twelve pre-D-1 rows followed by exactly five feature bouts', () => {
+  test('the roster is the twelve pre-D-1 rows followed by six feature bouts and six bounty rows', () => {
     expect(PRE_D1_OPPONENTS.length).toBe(12);
     // STORY-4b — the Bounty Hall board appends six rows to the roster (five rungs
     // plus the Deserter). `LADDER_OPPONENTS` and `FEATURE_BOUT_OPPONENTS` are
     // unchanged: both fences now exclude `bountyBout` rows.
-    expect(ALL_OPPONENTS.length).toBe(23);
+    expect(ALL_OPPONENTS.length).toBe(24);
     expect(LADDER_OPPONENTS.length).toBe(12);
-    expect(FEATURE_BOUT_OPPONENTS.length).toBe(5);
+    expect(FEATURE_BOUT_OPPONENTS.length).toBe(6);
     // The order is the append: the first twelve ARE the old roster, in order.
     expect(ALL_OPPONENTS.slice(0, 12).map((opponent) => opponent.id)).toEqual(
       (PRE_D1_OPPONENTS as OpponentConfig[]).map((opponent) => opponent.id),
     );
     // STORY-4b — the Feature Bouts are still the block immediately after the old
-    // roster, in Part A's order; the Bounty Hall's six rows follow them.
+    // roster, in Part A's order; TIER-8 appends Scaevola after Hermas, and the
+    // Bounty Hall's six rows follow him.
     expect(ALL_OPPONENTS.slice(12, 17).map((opponent) => opponent.id)).toEqual(
       PART_A.map((bout) => bout.id),
     );
-    expect(ALL_OPPONENTS.slice(17)).toHaveLength(6);
-    expect(ALL_OPPONENTS.slice(17).every((opponent) => opponent.bountyBout === true)).toBe(true);
+    expect(ALL_OPPONENTS[17].id).toBe('opp_scaevola_boss');
+    expect(ALL_OPPONENTS.slice(18)).toHaveLength(6);
+    expect(ALL_OPPONENTS.slice(18).every((opponent) => opponent.bountyBout === true)).toBe(true);
   });
 
   test('every pre-existing row is byte-identical apart from C-8.70C’s steelDelta and REGULARS-1’s regularBehavior', () => {
@@ -324,6 +326,9 @@ describe('D-1 §B — the five mechanics live only on feature bosses', () => {
   test('a feature boss presents no presentation MOMENT (its mechanic is inert)', () => {
     // The four moments belong to the four ladder mechanics; a feature mechanic
     // owns none, which is what keeps a feature duel on the standard branches.
+    // TIER-8 is the one exception, and it is not one: Scaevola's mechanic is a
+    // LADDER mechanic on a feature row, so his moment is the ladder's own
+    // (`secondRising`), not a feature mechanic's.
     const source = code('src/utils/bossPresentation.ts');
     for (const mechanic of FEATURE_MECHANICS) expect(source).not.toContain(`'${mechanic}'`);
     // D-3 wired two of the five mechanics into the duel (`false_telegraph` and
@@ -349,6 +354,10 @@ describe('D-1 §B — the five mechanics live only on feature bosses', () => {
       expect(duel, mechanic).not.toContain(`'${mechanic}'`);
     }
     for (const bout of FEATURE_BOUT_OPPONENTS) {
+      if (bout.id === 'opp_scaevola_boss') {
+        expect(bossPresentationMoments(bout), bout.id).toEqual(['secondRising']);
+        continue;
+      }
       expect(bossPresentationMoments(bout), bout.id).toEqual([]);
     }
   });
@@ -357,11 +366,22 @@ describe('D-1 §B — the five mechanics live only on feature bosses', () => {
   test('a feature boss enters the duel with the IDENTITY modifier block', () => {
     // Nothing it carries adds a passive term: every carried palm's effect block
     // is empty, so the merged block stays the identity — no combat change.
+    // TIER-8 is the one exception, and it is the frame's own: Scaevola is the
+    // first feature bout WITH an armatura, and his provocator doctrina is
+    // Goliath's own (`damageTakenMult` 0.92) — a shipped boss passive, not a
+    // new one. His authored stats are read through it: he takes 8 % less
+    // damage than the numbers alone say, exactly like Goliath.
     for (const bout of FEATURE_BOUT_OPPONENTS) {
       const mods = buildOpponentModifiers(bout);
+      if (bout.id === 'opp_scaevola_boss') {
+        expect(mods.block, bout.id).toEqual({ damageTakenMult: 0.92 });
+        expect(mods.doctrina, bout.id).toEqual({ damageTakenMult: 0.92 });
+        expect(mods.palmae.map((palma) => palma.id), bout.id).toEqual([]);
+        continue;
+      }
       expect(mods.block, bout.id).toEqual({});
       expect(mods.doctrina, bout.id).toEqual({});
-      expect(mods.palmae.map((palma) => palma.id), bout.id).toEqual(bout.palmae);
+      expect(mods.palmae.map((palma) => palma.id), bout.id).toEqual(bout.palmae ?? []);
     }
   });
 
@@ -538,9 +558,9 @@ describe('D-1 §E — the gates open and close truthfully', () => {
     }
   });
 
-  test('a fresh save locks all five, and a Legend-rank save opens all five', () => {
+  test('a fresh save locks all six, and a Legend-rank save opens all six', () => {
     const fresh = featureBoutStatuses(base());
-    expect(fresh).toHaveLength(5);
+    expect(fresh).toHaveLength(6);
     for (const status of fresh) {
       expect(status.open, status.opponent.id).toBe(false);
       expect(status.gateText.length).toBeGreaterThan(20);
@@ -559,7 +579,10 @@ describe('D-1 §E — the gates open and close truthfully', () => {
       })
     );
     expect(legend.every((status) => status.open)).toBe(true);
-    expect(legend.map((status) => status.opponent.id)).toEqual(PART_A.map((bout) => bout.id));
+    expect(legend.map((status) => status.opponent.id)).toEqual([
+      ...PART_A.map((bout) => bout.id),
+      'opp_scaevola_boss',
+    ]);
   });
 
   test('the gate text is Part A phrasing, built from the row and the roster', () => {
@@ -573,6 +596,11 @@ describe('D-1 §E — the gates open and close truthfully', () => {
       'Requires: Champion rank — 600 fame and Tier 3 reached — and Tier 3 cleared.'
     );
     expect(featureBoutGateText(byId('opp_hermas_boss'))).toBe(
+      'Requires: Legend rank — 1500 fame and Tier 4 reached — and Aurelius defeated.'
+    );
+    // TIER-8 — Scaevola sits in Hermas's exact slot, so his gate text is
+    // Hermas's own, word for word.
+    expect(featureBoutGateText(byId('opp_scaevola_boss'))).toBe(
       'Requires: Legend rank — 1500 fame and Tier 4 reached — and Aurelius defeated.'
     );
     // A ladder row declares no gate, so it prints nothing.
@@ -592,7 +620,7 @@ describe('D-1 §E — the gates open and close truthfully', () => {
   test('a malformed profile locks every bout rather than throwing', () => {
     for (const profile of [null, undefined, {}, { fame: Number.NaN, currentTier: -3 }]) {
       const statuses = featureBoutStatuses(profile as never);
-      expect(statuses).toHaveLength(5);
+      expect(statuses).toHaveLength(6);
       expect(statuses.every((status) => status.open === false)).toBe(true);
     }
   });
@@ -665,7 +693,7 @@ describe('D-1 §F — a feature victory moves no tier and no kill', () => {
   });
 
   test('feature victories satisfy NO other bout’s boss gate', () => {
-    const allFeatureIds = PART_A.map((bout) => bout.id);
+    const allFeatureIds = [...PART_A.map((bout) => bout.id), 'opp_scaevola_boss'];
     const swept = base({
       fame: 5000,
       currentTier: 4,
@@ -684,6 +712,11 @@ describe('D-1 §F — a feature victory moves no tier and no kill', () => {
       expect(status.open, bout.id).toBe(false);
       expect(status.unmet, bout.id).toContain('boss');
     }
+    // TIER-8 — Scaevola's gate names Aurelius too, and no feature victory
+    // has felled him either.
+    const scaevola = resolveFeatureBout(byId('opp_scaevola_boss'), swept);
+    expect(scaevola.open).toBe(false);
+    expect(scaevola.unmet).toContain('boss');
   });
 
   test('the door never offers a feature bout as a tier ticket', () => {

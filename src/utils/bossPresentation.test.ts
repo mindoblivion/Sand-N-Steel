@@ -5,9 +5,9 @@
  *
  * ── WHAT THIS SUITE PINS ──────────────────────────────────────────────────
  *   §A  THE ACCEPTANCE CORE — boss gating, as an explicit positive AND an
- *       explicit NEGATIVE: each of the four moments is entitled for its own
+ *       explicit NEGATIVE: each of the five moments is entitled for its own
  *       boss, for its own boss only, and a standard opponent (the roster swept
- *       in full, plus hand-built shapes) owns NONE of them, so none of the four
+ *       in full, plus hand-built shapes) owns NONE of them, so none of the five
  *       effects can be produced in a standard duel.
  *   §B  rage — a CF-1 trauma of exactly +0.5 into the existing `impactRef`, the
  *       CF-3 `playCrowdSwell()`, and a HUD vignette prop carrying a timestamp
@@ -29,7 +29,7 @@
  *
  * The wiring is asserted by reading the shipped sources with comments stripped
  * (the house pattern: prose can neither satisfy nor defeat a check), because
- * `DuelScene` is a React/three component the sandbox cannot mount. The four
+ * `DuelScene` is a React/three component the sandbox cannot mount. The five
  * moments' GATING is asserted BEHAVIOURALLY, through the pure gate the scene
  * actually calls.
  */
@@ -81,6 +81,7 @@ const MECHANICS: BossMechanic[] = [
   'heavy_telegraph',
   'phase_weapon_switch',
   'counter_dodge',
+  'second_rising',
 ];
 
 /** The boss that owns each mechanic, found in the shipped roster by data. */
@@ -233,7 +234,7 @@ afterEach(() => {
 // §A — the acceptance core: boss gating, positive and NEGATIVE
 // ══════════════════════════════════════════════════════════════════════════
 describe('CF-6 §A — boss gating', () => {
-  test('each of the four bosses presents its own moment', () => {
+  test('each of the five bosses presents its own moment', () => {
     for (const mechanic of MECHANICS) {
       const boss = bossFor(mechanic);
       expect(boss).toBeDefined();
@@ -302,21 +303,24 @@ describe('CF-6 §A — boss gating', () => {
     expect(bossPresentationMoments(null)).toEqual([]);
   });
 
-  test('the roster’s four moment owners are exactly the four LADDER bosses', () => {
+  test('the roster’s six moment owners are the four LADDER bosses, the Deserter and Scaevola', () => {
     // D-1 — a FEATURE bout is a boss but owns NO presentation moment, so the
     // owners are the LADDER's four; the feature five are asserted separately.
     // STORY-4b — the Bounty Hall's Deserter carries Goliath's `heavy_telegraph`, so
-    // the gate (isBoss ∧ mechanic ownership) admits him too: FIVE owners, the four
-    // ladder bosses plus that one fenced bounty row. Nothing else is admitted.
+    // the gate (isBoss ∧ mechanic ownership) admits him too. TIER-8 — Scaevola
+    // is the one feature row whose mechanic is a LADDER mechanic, so the gate
+    // admits him as well: SIX owners, the four ladder bosses plus that one
+    // fenced bounty row plus the one ladder-mechanic feature row. Nothing else
+    // is admitted.
     const ladderBosses = ALL_OPPONENTS.filter(
       (o) => o.isBoss === true && o.featureBout !== true && o.bountyBout !== true
     );
     const owners = ALL_OPPONENTS.filter((o) => bossPresentationMoments(o).length > 0);
     expect(owners.map((o) => o.id).sort()).toEqual(
-      [...ladderBosses.map((o) => o.id), 'opp_bounty_deserter'].sort(),
+      [...ladderBosses.map((o) => o.id), 'opp_bounty_deserter', 'opp_scaevola_boss'].sort(),
     );
     expect(ladderBosses).toHaveLength(4);
-    expect(owners).toHaveLength(5);
+    expect(owners).toHaveLength(6);
     // The Deserter's one moment is the telegraph, and it is the mechanic's own gate
     // (never an opponent-id special case).
     const deserter = ALL_OPPONENTS.find((o) => o.id === 'opp_bounty_deserter')!;
@@ -325,11 +329,19 @@ describe('CF-6 §A — boss gating', () => {
     expect(bossPresentsMoment(deserter, 'rage_mode_colossus')).toBe(false);
     // Each owns exactly ONE moment — no boss gets a second boss's moment.
     for (const owner of owners) expect(bossPresentationMoments(owner)).toHaveLength(1);
-    // …and every FEATURE boss presents nothing at all, though it is a boss.
+    // …and every FEATURE boss presents nothing at all, though it is a boss —
+    // except Scaevola, whose ladder mechanic owns the fifth moment.
     const featureBosses = ALL_OPPONENTS.filter((o) => o.featureBout === true);
-    expect(featureBosses).toHaveLength(5);
+    expect(featureBosses).toHaveLength(6);
     for (const bout of featureBosses) {
       expect(bout.isBoss).toBe(true);
+      if (bout.id === 'opp_scaevola_boss') {
+        expect(bossPresentationMoments(bout)).toEqual(['secondRising']);
+        for (const mechanic of MECHANICS) {
+          expect(bossPresentsMoment(bout, mechanic)).toBe(mechanic === 'second_rising');
+        }
+        continue;
+      }
       expect(bossPresentationMoments(bout)).toEqual([]);
       for (const mechanic of MECHANICS) expect(bossPresentsMoment(bout, mechanic)).toBe(false);
       // Its OWN mechanic owns no moment either — the data is inert this slice.
@@ -342,12 +354,14 @@ describe('CF-6 §A — boss gating', () => {
     // COMBAT-3 — three moments still call the gate directly (rage, phase switch,
     // counter); the telegraph glow goes through `presentsTelegraphGlow`, which
     // keeps the boss gate for bosses and admits a regular's announced power.
-    // The gate itself is unchanged: four moments, four entitlements, and the
+    // TIER-8 adds the fourth direct call (`second_rising`, the rise branch).
+    // The gate itself is unchanged: five moments, five entitlements, and the
     // heavy_telegraph call still lives in the glow predicate's own module.
-    expect(gates).toHaveLength(3);
+    expect(gates).toHaveLength(4);
     expect(DUEL_SCENE).toContain("bossPresentsMoment(opponent, 'rage_mode_colossus')");
     expect(DUEL_SCENE).toContain("bossPresentsMoment(opponent, 'phase_weapon_switch')");
     expect(DUEL_SCENE).toContain("bossPresentsMoment(opponent, 'counter_dodge')");
+    expect(DUEL_SCENE).toContain("bossPresentsMoment(opponent, 'second_rising')");
     expect(DUEL_SCENE).toContain('presentsTelegraphGlow(opponent)');
     expect(PRESENTATION).toContain("bossPresentsMoment(opponent, 'heavy_telegraph')");
   });
@@ -365,11 +379,16 @@ describe('CF-6 §A — boss gating', () => {
 
     // Slice C-D rebased this pin (not weakened): the phase change adds a SECOND
     // pulse of the SAME CF-6 prop — the phase transition is a boss moment too —
-    // and it is gated by the ladder-boss fence (`bossPhaseLadderFor`). Both sites
-    // are asserted, so an ungated third site still fails this test.
-    expect((DUEL_SCENE.match(/setBossVignettePulse\(Date\.now\(\)\)/g) ?? []).length).toBe(2);
+    // and it is gated by the ladder-boss fence (`bossPhaseLadderFor`). TIER-8
+    // adds a THIRD: the rise is a boss moment too, gated by `second_rising`.
+    // All three sites are asserted, so an ungated fourth site still fails this
+    // test.
+    expect((DUEL_SCENE.match(/setBossVignettePulse\(Date\.now\(\)\)/g) ?? []).length).toBe(3);
     expect(
       blockAfter(DUEL_SCENE, "if (bossPresentsMoment(opponent, 'rage_mode_colossus'))"),
+    ).toContain('setBossVignettePulse(Date.now());');
+    expect(
+      blockAfter(DUEL_SCENE, "if (bossPresentsMoment(opponent, 'second_rising'))"),
     ).toContain('setBossVignettePulse(Date.now());');
     // (`DUEL_SCENE` is comment-stripped here, so the block is delimited by the
     // fence's own code and the start of the next effect.)

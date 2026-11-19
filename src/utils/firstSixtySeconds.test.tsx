@@ -14,7 +14,7 @@
  *       champion beats the Codex gap, a defeated champion is skipped and a Feature Bout is
  *       never pointed at;
  *   §E  the 1-step definition (R-STEP): integer counters only, peaks never;
- *   §F  the Codex gap arithmetic: 24 − faced;
+ *   §F  the Codex gap arithmetic: 25 − faced;
  *   §G  the marker: its target id IS the pointer's target, on a real hub location, and it
  *       is drawn only while the pointer is live;
  *   §H  session silence: the walk-off trigger, one dismissal, no re-show this session, and
@@ -275,7 +275,7 @@ describe('FSS D §D — one pointer, in the design\'s order', () => {
       noOneStep({ defeatedOpponentIds: [...BOSS_IDS], records: { codexLocations: [] } }),
     )!;
     expect(pointer.kind).toBe('codex');
-    expect(pointer.line).toBe('20 gladiators in the Codex remain unfaced.');
+    expect(pointer.line).toBe('21 gladiators in the Codex remain unfaced.');
     expect(pointer.targetLocationId).toBe('records_house');
   });
 
@@ -396,10 +396,10 @@ describe('FSS E §E — "1 step from done" is integer counters only', () => {
 });
 
 // ── §F the Codex gap maths ─────────────────────────────────────────────────
-describe('FSS F §F — the Codex gap is 24 − faced', () => {
-  test('the denominator is the shipped Gladiators page: 24 rows', () => {
-    expect(CODEX_GLADIATOR_ROWS).toHaveLength(24);
-    expect(unfacedGladiatorCount(onDay(1))).toBe(24);
+describe('FSS F §F — the Codex gap is 25 − faced', () => {
+  test('the denominator is the shipped Gladiators page: 25 rows', () => {
+    expect(CODEX_GLADIATOR_ROWS).toHaveLength(25);
+    expect(unfacedGladiatorCount(onDay(1))).toBe(25);
   });
 
   test('it counts down with each faced row, and stops at zero', () => {
@@ -407,23 +407,23 @@ describe('FSS F §F — the Codex gap is 24 − faced', () => {
       unfacedGladiatorCount(
         onDay(1, { defeatedOpponentIds: CODEX_GLADIATOR_ROWS.slice(0, count).map((row) => row.id) }),
       );
-    expect(withFaced(1)).toBe(23);
-    expect(withFaced(17)).toBe(7);
-    expect(withFaced(24)).toBe(0);
+    expect(withFaced(1)).toBe(24);
+    expect(withFaced(17)).toBe(8);
+    expect(withFaced(25)).toBe(0);
     // Unknown ids are not "faced" rows.
-    expect(unfacedGladiatorCount(onDay(1, { defeatedOpponentIds: ['not-a-row'] }))).toBe(24);
+    expect(unfacedGladiatorCount(onDay(1, { defeatedOpponentIds: ['not-a-row'] }))).toBe(25);
   });
 
   test('the line carries the number the Codex itself would count', () => {
     const profile = onDay(1, {
       defeatedOpponentIds: CODEX_GLADIATOR_ROWS.slice(0, 9).map((row) => row.id),
     });
-    expect(unfacedGladiatorCount(profile)).toBe(15);
+    expect(unfacedGladiatorCount(profile)).toBe(16);
     expect(resolveHeraldPointer(profile)!.kind).toBe('triumph');
     const gapOnly = resolveHeraldPointer(
       noOneStep({ defeatedOpponentIds: BOSS_IDS }),
     )!;
-    expect(gapOnly.line).toBe('20 gladiators in the Codex remain unfaced.');
+    expect(gapOnly.line).toBe('21 gladiators in the Codex remain unfaced.');
   });
 });
 

@@ -47,6 +47,9 @@ const BOSS_MECHANIC_LABELS: Record<NonNullable<OpponentConfig['bossMechanic']>, 
   unbroken_panoply: 'Fights behind gilt pride-pieces that crack and shrink him',
   yoked_brothers: 'Fights as a pair, crossing to your flank',
   the_long_memory: 'Adapts against whatever attack you lean on',
+  // TIER-8 — the Second Rising, named on the deep card like the rest: he
+  // falls once, and the sand gives him back at half health.
+  second_rising: 'Falls, then rises again at half health',
 };
 
 interface TournamentTabProps {
