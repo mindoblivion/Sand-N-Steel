@@ -1,5 +1,6 @@
 import type { ChariotTeamSize, PlayerProfile, RacingProgression } from '../types/game';
 import { creditGold } from './goldTransactions';
+import { resolveClaimedLeagueTierIds, resolveLeaguePrizeAwards } from './racingLeague';
 
 export const MAX_RECORDED_RACE_TIME_MS = 86_400_000;
 
@@ -67,6 +68,18 @@ export interface RaceCompletionResult {
   wins: number;
   losses: number;
   photoFinishes: number;
+  /**
+   * ECON-2 — League bonus paid on this finish (0 when no tier fired). Reported
+   * on the result so the finish screen can name it: a prize paid but not
+   * reported would be silent gold, the defect BET-1 removed from betting.
+   */
+  prizeAwarded: number;
+  /** Fame paid with the League bonus on this finish (0 when no tier fired). */
+  fameAwarded: number;
+  /** Highest League tier whose bonus fired on this finish, or null. */
+  tierAdvanced: number | null;
+  /** League points earned on this finish (50 win / 15 otherwise). */
+  leaguePointsEarned: number;
 }
 
 /**
@@ -103,11 +116,25 @@ export function settleRaceCompletion(
   if ([completed, wins, losses, photoFinishes].some((value) => value >= Number.MAX_SAFE_INTEGER)) {
     return { ok: false, reason: 'career-counter-overflow', profile };
   }
-  const nextGold = creditGold(best.profile.gold, purseAwarded);
-  if (nextGold === null) return { ok: false, reason: 'invalid-gold-balance', profile };
   const currentLeaguePoints = current.leaguePoints || 0;
   const leaguePointsEarned = outcome === 'victory' ? 50 : 15;
   const nextLeaguePoints = currentLeaguePoints + leaguePointsEarned;
+
+  // ECON-2 — the League bonus: every tier whose points threshold is met, whose
+  // bonus is unclaimed, and whose team the player owns pays once, in this same
+  // transaction. A one-time milestone cannot be farmed, so it is paid
+  // regardless of `lastPurseDay` — a player crossing a threshold on an
+  // already-paid day still earned it. On the claim-as-you-go path at most one
+  // tier fires per finish; a save banking points above unclaimed thresholds
+  // collects every due bonus on its next finish, never on load.
+  const leagueAwards = resolveLeaguePrizeAwards(best.profile, nextLeaguePoints);
+  const prizeAwarded = leagueAwards.reduce((sum, award) => sum + award.gold, 0);
+  const fameAwarded = leagueAwards.reduce((sum, award) => sum + award.fame, 0);
+  const tierAdvanced = leagueAwards.length > 0 ? leagueAwards[leagueAwards.length - 1].tier.id : null;
+  const claimedTierIds = [...resolveClaimedLeagueTierIds(best.profile), ...leagueAwards.map((award) => award.tier.id)];
+
+  const nextGold = creditGold(best.profile.gold, purseAwarded + prizeAwarded);
+  if (nextGold === null) return { ok: false, reason: 'invalid-gold-balance', profile };
 
   const nextRacing = {
     ...current,
@@ -117,11 +144,22 @@ export function settleRaceCompletion(
     photoFinishes: photoFinishes + (outcome === 'photo-finish' ? 1 : 0),
     leaguePoints: nextLeaguePoints,
     ...(alreadyPaidToday ? {} : { lastPurseDay: day }),
+    ...(leagueAwards.length > 0 ? { leaguePrizesClaimed: claimedTierIds } : {}),
   };
 
   // BET-1 — the tavern bet is cut, so no settlement reads it: a stale
   // `activeRaceBet` on an old save simply sits unread (see `raceRecords.test.ts`).
-  const finalProfile: PlayerProfile = { ...best.profile, gold: nextGold, racing: nextRacing };
+  // ECON-2 — fame is only written when a League bonus pays it; otherwise the
+  // profile's own fame passes through untouched.
+  const nextFame = typeof best.profile.fame === 'number' && Number.isFinite(best.profile.fame) && best.profile.fame >= 0
+    ? best.profile.fame + fameAwarded
+    : fameAwarded;
+  const finalProfile: PlayerProfile = {
+    ...best.profile,
+    gold: nextGold,
+    ...(fameAwarded > 0 ? { fame: nextFame } : {}),
+    racing: nextRacing,
+  };
 
   return {
     ok: true,
@@ -133,5 +171,9 @@ export function settleRaceCompletion(
     wins: nextRacing.wins,
     losses: nextRacing.losses,
     photoFinishes: nextRacing.photoFinishes,
+    prizeAwarded,
+    fameAwarded,
+    tierAdvanced,
+    leaguePointsEarned,
   };
 }
