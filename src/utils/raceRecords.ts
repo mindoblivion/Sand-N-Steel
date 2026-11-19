@@ -98,8 +98,9 @@ export function settleRaceCompletion(
   const losses = count(current.losses);
   const photoFinishes = count(current.photoFinishes);
   const alreadyPaidToday = current.lastPurseDay === day;
-  const basePurse = teamSize === 2 ? 40 : teamSize === 3 ? 60 : 80;
-  const purseAwarded = alreadyPaidToday ? 0 : basePurse + (outcome === 'victory' ? 20 : 0);
+  const basePurse = teamSize === 2 ? 80 : teamSize === 3 ? 120 : 200;
+  const victoryBonus = teamSize === 2 ? 20 : teamSize === 3 ? 30 : 50;
+  const purseAwarded = alreadyPaidToday ? 0 : basePurse + (outcome === 'victory' ? victoryBonus : 0);
   if ([completed, wins, losses, photoFinishes].some((value) => value >= Number.MAX_SAFE_INTEGER)) {
     return { ok: false, reason: 'career-counter-overflow', profile };
   }
