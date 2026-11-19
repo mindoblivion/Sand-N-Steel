@@ -896,6 +896,11 @@ export interface ChariotTuning {
   staminaConditioning: number;
 }
 
+/**
+ * BET-1 — CUT, left INERT. The tavern wager's published shape, kept only so the
+ * inert `activeRaceBet` field still type-checks: which faction the wager was on,
+ * how much was staked, at what odds, and what a win would have paid.
+ */
 export interface ActiveBet {
   factionId: string;
   wagerAmount: number;
@@ -1172,10 +1177,10 @@ export interface CorpusEtOrigoIdentity {
 export type OmenKind = 'kind' | 'ill';
 
 /**
- * PITCH A1 — the omen's published field shape, a LAZY optional object on
- * `PlayerProfile`: absent = no omen.  `expiresAtBout` is the bout the omen waits
- * for — total bouts (`fightsWon + fightsLost`) + 1 at the moment of offering, so
- * it is always the next duel the player fights.
+ * BET-1 — CUT, left INERT. The omen's published field shape, kept only so the
+ * inert `omen` field above still type-checks: absent = no omen.  `expiresAtBout`
+ * was the bout the omen waited for — total bouts (`fightsWon + fightsLost`) + 1
+ * at the moment of offering, so it was always the next duel the player fought.
  */
 export interface OmenState {
   kind: OmenKind;
@@ -1275,7 +1280,7 @@ export interface PlayerProfile {
   racing?: RacingProgression;
   /** Advanced Chariot tuning stats (Rein strength, Axle durability, Wheel spikes, Stamina conditioning). */
   racingTuning?: ChariotTuning;
-  /** Active tavern wager placed on an upcoming chariot race. */
+  /** BET-1 — CUT, left INERT. The active tavern wager, once placed on an upcoming chariot race. No writer and no reader remain; the field stays declared so old saves keep loading and §J stays 29. */
   activeRaceBet?: ActiveBet;
   /**
    * STORY-1 — the campaign's own evidence; absent on every save written before
@@ -1423,23 +1428,21 @@ export interface PlayerProfile {
    */
   seenKeepers?: string[];
   /**
-   * PITCH A1 — FORTUNA'S OMEN: the word taken at her shrine before a bout, and
-   * the bout it is kept for. Optional and LAZY, exactly like `chariot` and
-   * `racing`: a save written before this slice has no field at all and must keep
-   * loading, so `resolveOmen` (`utils/omens.ts`) reads a missing, null or
-   * malformed field as "no omen" rather than repairing it. Written ONLY by the
-   * shrine's offering and cleared by the duel result that consumes it — never by
-   * `createNewProfile()` and never by a migration.
+   * BET-1 — CUT, left INERT. Fortuna's Omen (the word taken at her shrine
+   * before a bout, and the bout it was kept for) was removed with the whole
+   * gambling cut: no writer and no reader remain. The field stays declared so
+   * old saves keep loading and §J stays 29 — a stale value simply sits unread,
+   * exactly like the muscle-growth cut's `physique`. Do not strip it, and do
+   * not revive the mechanic without a new Director decision.
    *
-   * `expiresAtBout` is the bout index the omen waits for: total bouts
+   * `expiresAtBout` was the bout index the omen waited for: total bouts
    * (`fightsWon + fightsLost`) + 1 at the moment of offering, i.e. the next duel.
    */
   omen?: OmenState;
   /**
-   * PITCH A1 — the once-ever "self-reliant" trickle: has this gladiator ever
-   * declined Fortuna's omen? Absent/false means the +5 fame is still owed to
-   * him. Written ONLY by the first decline (`declineOmen`) — never by
-   * `createNewProfile()` and never by a migration.
+   * BET-1 — CUT, left INERT with `omen` above. The once-ever "self-reliant"
+   * trickle (+5 fame for the first decline) has no writer and no reader any
+   * more; the marker stays declared for the same reason.
    */
   omenTrickleClaimed?: boolean;
   /**
@@ -1491,12 +1494,11 @@ export interface PlayerProfile {
    */
   ludi?: LudiProgress;
   /**
-   * FOUNTAIN COIN TOSS — Fortuna's favour, bought at the forum fountain for 1
-   * gold: +10% Luck until the next dawn (`LuckState.boostUntil`).  A LAZY
-   * optional object exactly like `omen`: absent/malformed reads as no boost,
-   * never repaired.  Written ONLY by `tossCoin` — never by `createNewProfile()`
-   * and never by a migration.  Declared between `ludi` and `records` so
-   * `records` stays the LAST optional member (§J).
+   * BET-1 — CUT, left INERT. The Fountain Coin Toss (1 gold for +10% Luck until
+   * the next dawn, `LuckState.boostUntil`) was removed with the whole gambling
+   * cut, and Luck never had a consumer. The field stays declared so old saves
+   * keep loading and §J stays 29 — a stale value simply sits unread. Declared
+   * between `ludi` and `records` so `records` stays the LAST optional member (§J).
    */
   luck?: LuckState;
   records?: {

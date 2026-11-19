@@ -17,7 +17,7 @@
  *   §B  the plate heads A1's shrine panel, and the greeting is frozen per open
  *   §C  night shows HER lines, because no night line was invented
  *   §D  the visit records through the SINGLE App write path and nowhere else
- *   §E  the shrine's omen transaction is untouched by this slice's diff
+ *   §E  the shrine's alms transaction (BET-1's replacement for the cut Omen)
  *
  * Run with: `bun test src/utils/keepersK3shrine.test.ts`
  */
@@ -117,7 +117,7 @@ describe('K3-SHRINE §A the shrine resolves its keeper', () => {
   test('Postumia’s own registry row is the shipped text, used verbatim', () => {
     expect(POSTUMIA.name).toBe('Postumia');
     expect(POSTUMIA.firstVisitLine).toBe(
-      'Fortuna hears everyone; she answers those who pay attention. Leave an offering before a great fight and take the omen she gives — kind or ill, it is yours.'
+      'Fortuna hears everyone; she answers those who pay attention. Leave your alms before a great fight, and her Favour stands behind you.'
     );
     expect(POSTUMIA.repeatLines).toEqual([
       'She turned her face from you last time, and you won anyway. Either she is testing you — or you are becoming interesting.',
@@ -135,11 +135,9 @@ describe('K3-SHRINE §B the plate heads the panel, greeting frozen per open', ()
 
     const panel = shrinePanel(city);
     const plateAt = panel.indexOf('<KeeperPlate keeper={shrineKeeper}');
-    const offerAt = panel.indexOf('data-offer-omen');
-    const declineAt = panel.indexOf('data-decline-omen');
+    const almsAt = panel.indexOf('data-leave-alms');
     expect(plateAt).toBeGreaterThanOrEqual(0);
-    expect(offerAt).toBeGreaterThan(plateAt);
-    expect(declineAt).toBeGreaterThan(plateAt);
+    expect(almsAt).toBeGreaterThan(plateAt);
   });
 
   test('it renders only when its keeper resolves, and only while the panel is open', () => {
@@ -256,67 +254,68 @@ describe('K3-SHRINE §D the visit records through App’s one write path', () =>
   });
 });
 
-describe('K3-SHRINE §E the shrine’s omen transaction is untouched', () => {
-  test('the panel still offers the omen at the module’s own price', () => {
+describe('K3-SHRINE §E the shrine’s alms transaction (BET-1)', () => {
+  test('the panel offers the alms at the calendar’s own price', () => {
     const city = code(CITY);
-    expect(city).toContain('OMEN_PRICE,');
-    expect(city).toContain('Offer {OMEN_PRICE}g for an omen');
-    // No second price, trickle or kind chance is written into the panel by this slice.
+    expect(city).toContain('SHRINE_ALMS_PRICE,');
+    expect(city).toContain('Leave alms ({SHRINE_ALMS_PRICE}g)');
+    // No omen price, trickle or kind chance survives in the panel: the alms are
+    // a fixed price for a fixed Favour, the same for every gladiator.
     const panel = shrinePanel(city);
+    expect(panel).not.toContain('OMEN_PRICE');
+    expect(panel).not.toContain('OMEN_TRICKLE');
+    expect(panel).not.toContain('OMEN_KIND');
     expect(panel).not.toContain('25 gold');
-    expect(panel).not.toContain('OMEN_TRICKLE_FAME');
-    expect(panel).not.toContain('OMEN_KIND_CHANCE');
   });
 
   test('the panel’s own hooks are all still there', () => {
     const panel = shrinePanel(code(CITY));
     for (const hook of [
       'data-shrine-panel',
-      'data-shrine-omen={liveOmen ? liveOmen.kind : \'none\'}',
-      'data-omen-result',
-      'data-offer-omen',
-      'data-omen-refusal="insufficient-gold"',
-      'data-decline-omen',
+      "data-shrine-alms={almsGivenToday ? 'given' : 'none'}",
+      'data-alms-result',
+      'data-leave-alms',
+      'data-alms-refusal="insufficient-gold"',
+      'data-alms-refusal="already-given-today"',
     ]) {
       expect(panel, hook).toContain(hook);
     }
-    expect(panel).toContain('{omenResult && (');
-    expect(panel).toContain('{liveOmen ? omenLine(liveOmen) : \'No omen rests on you.\'}');
+    expect(panel).toContain('{almsResult && (');
+    expect(panel).toContain("{almsGivenToday ? \"Today's alms are already left.\" : 'No alms left today.'}");
   });
 
-  test('the slice adds no tap target: three controls, each still thumb-sized', () => {
+  test('the slice adds no tap target: two controls, each still thumb-sized', () => {
     const panel = shrinePanel(code(CITY));
-    // Close, offer, decline — A1's three, and nothing the plate added.
-    expect(panel.match(/<button/g)?.length).toBe(3);
-    expect(panel.match(/min-h-\[48px\]/g)?.length).toBe(2);
+    // Close + Leave alms — BET-1's two, and nothing the plate added.
+    expect(panel.match(/<button/g)?.length).toBe(2);
+    // One inline 48px floor (the alms button); the Close button's floor rides the
+    // shared CLOSE_BUTTON_CLASS it already imports, not an inline class.
+    expect(panel.match(/min-h-\[48px\]/g)?.length).toBe(1);
+    expect(code(CITY)).toContain('CLOSE_BUTTON_CLASS');
     expect(panel).toContain('aria-label="Close shrine panel"');
     // The plate line itself carries no control.
     const plateLine = panel.slice(panel.indexOf('<KeeperPlate keeper={shrineKeeper}'));
     expect(plateLine.slice(0, 80)).not.toContain('onClick');
   });
 
-  test('the two handlers still report the player’s choice and know nothing of keepers', () => {
+  test('the one handler reports the alms and knows nothing of keepers', () => {
     const city = code(CITY);
-    const offer = block(city, 'const handleOfferOmen = useCallback(');
-    const decline = block(city, 'const handleDeclineOmen = useCallback(');
-    expect(offer).toContain('onOfferOmen()');
-    expect(offer).toContain('omenOfferResultLine(outcome.omen)');
-    expect(decline).toContain('onDeclineOmen()');
-    expect(decline).toContain('omenDeclineResultLine(outcome)');
-    for (const handler of [offer, decline]) expect(handler).not.toContain('eeper');
+    const handler = block(city, 'const handleLeaveAlms = useCallback(');
+    expect(handler).toContain('onLeaveAlms()');
+    expect(handler).toContain('almsResultLine(outcome)');
+    expect(handler).not.toContain('eeper');
   });
 
-  test('the omen module still knows nothing of keepers, and no keeper path prices a bout', () => {
-    const omens = code('utils/omens.ts');
-    expect(omens).not.toContain('keepers');
-    expect(omens).not.toContain('KeeperPlate');
+  test('the alms module still knows nothing of keepers, and no keeper path prices a bout', () => {
+    const calendar = code('utils/ludiCalendar.ts');
+    expect(calendar).not.toContain('keepers');
+    expect(calendar).not.toContain('KeeperPlate');
     // The shrine interaction's own block: the visit record and the panel open, and
     // no transaction moved into it by this slice.
     const branch = block(code(CITY), "nearbyLoc.id === 'shrine_temple'", 500);
     expect(branch).toContain("primeKeeperGreeting('shrine_temple');");
     expect(branch).toContain('setShrinePanel(true);');
-    expect(branch).not.toContain('onOfferOmen');
-    expect(branch).not.toContain('onDeclineOmen');
-    expect(branch).not.toContain('OMEN_PRICE');
+    expect(branch).not.toContain('onLeaveAlms');
+    expect(branch).not.toContain('SHRINE_ALMS_PRICE');
   });
 });

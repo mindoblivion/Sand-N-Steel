@@ -163,21 +163,6 @@ import {
 } from './utils/grudgeBouts';
 import { REST_PRICE, resolveInjuryAfterDuel, restAtInn, type DuelInjuryEvent } from './utils/injury';
 import { restAtMedicalHouse } from './utils/restRecovery';
-// PITCH A1 — Fortuna's Omen.  The shrine's two words, the decline's once-ever
-// trickle, and the duel result that consumes them: the settlement is applied
-// inside `handleMatchComplete`'s existing write, and the offering/decline writes
-// travel the same save-on-change path every other hub transaction uses.
-import {
-  clearOmen,
-  declineOmen,
-  offerOmen,
-  resolveOmen,
-  settleOmenRewards,
-  type OmenDeclineOutcome,
-  type OmenOfferOutcome,
-  type OmenSettlement,
-} from './utils/omens';
-import { tossCoin, type CoinTossOutcome } from './utils/fountainLuck';
 // DAY/NIGHT T2 — the clock's reads at the seams, and the day-boundary seam's own module.
 // Only the seam files in this slice may touch these (see the re-scoped T0 guard in
 // `utils/timeState.test.ts`): the duel result, the training session, the night at the inn,
@@ -201,9 +186,10 @@ import {
 // the shared `records.laudes` counter — there is no second Laurel field.
 import {
   applyLudiRollover,
+  leaveShrineAlms,
   settleLudiDeeds,
-  withLudiAlms,
   type LudiSettlement,
+  type ShrineAlmsOutcome,
 } from './utils/ludiCalendar';
 // STORY-5b — THE ERASED CHAMPION: the Librarian chain's three read-triggered
 // writes, the fragment read, the echo's once-ever line, and the exhibition fence
@@ -257,7 +243,6 @@ const SettingsModal = React.lazy(() => import('./components/hub/SettingsModal').
 const DeleteAccountModal = React.lazy(() => import('./components/hub/DeleteAccountModal').then((module) => ({ default: module.DeleteAccountModal })));
 const OathBeat = React.lazy(() => import('./components/hub/OathBeat').then((module) => ({ default: module.OathBeat })));
 const DayBanner = React.lazy(() => import('./components/ui/DayBanner').then((module) => ({ default: module.DayBanner })));
-const TavernBettingModal = React.lazy(() => import('./components/hub/TavernBettingModal').then((module) => ({ default: module.TavernBettingModal })));
 
 const GladiatorSchoolHub = React.lazy(() => import('./components/hub/GladiatorSchoolHub').then((module) => ({ default: module.GladiatorSchoolHub })));
 
@@ -266,7 +251,6 @@ export function App() {
   // Keep the supplied artwork over the title-to-creator transition until the preview GLB is ready.
   const [characterCreationTransitioning, setCharacterCreationTransitioning] = useState(false);
   const [tavernOpen, setTavernOpen] = useState(false);
-  const [tavernBettingOpen, setTavernBettingOpen] = useState(false);
   /* COLOSSEUM-INTERIOR — the enterable arena overlay (TavernInterior pattern). */
   const [colosseumOpen, setColosseumOpen] = useState(false);
   /* FORGE-INTERIOR — the smithing forge overlay (ColosseumInterior pattern). */
@@ -325,7 +309,7 @@ export function App() {
    * Session only, exactly like `diceTrailBoutRef`: set at the Legend Bouts entry,
    * consumed and cleared at the result. Director ruling R4 reads it to fence the
    * ladder-identity bookkeeping (no felled id, no grudge, no mercy, no triumph
-   * evaluation, no fight counters, no omen consumption) while keeping the purse,
+   * evaluation, no fight counters) while keeping the purse,
    * the duel's one time advance and the injury on a loss.
    */
   const exhibitionBoutRef = useRef(false);
@@ -397,12 +381,6 @@ export function App() {
      */
     palmaEarned?: string[];
     /**
-     * PITCH A1 — what Fortuna's omen did in this bout (paid, expired unpaid), or
-     * `null`/absent when no omen was live. Decided at the same write, so the
-     * result screen cannot disagree with the save.
-     */
-    omenLine?: string | null;
-    /**
      * STORY-4a — the mercy offer riding this result (Pitch A9), decided at the
      * same write, plus the answer once it is taken.  Absent on every ineligible
      * victory and every defeat.
@@ -411,7 +389,7 @@ export function App() {
       rivalId: string;
       rivalName: string;
       teaching: boolean;
-      /** The duel's FINAL fame (after mode, crowd and omen multipliers). */
+      /** The duel's FINAL fame (after mode and crowd multipliers). */
       finalFame: number;
       chosen?: MercyChoice;
       extraFame?: number;
@@ -1339,28 +1317,10 @@ export function App() {
 
     const { profile: afterInjury, event: injuryEvent } = resolveInjuryAfterDuel(profile, didWin);
 
-    /**
-     * PITCH A1 — Director rulings 3, 4 and 6: the omen is CONSUMED by this duel
-     * result, inside this same write.  Its multipliers are applied LAST — to the
-     * fame and gold C-C's composition order already produced (mode → crowd peak →
-     * crowd turning) — and the field is cleared whether it paid or expired unpaid.
-     * The result screen is handed the settled numbers, so it and the save agree.
-     *
-     * STORY-5b — Director ruling R4: an EXHIBITION consumes no omen at all. It
-     * neither pays it nor expires it, and the field is left exactly as it stands,
-     * so a staged bout can never eat the omen the player bought for a real one.
-     */
-    const omenBefore = resolveOmen(profile);
-    const omenSettled: OmenSettlement = exhibition
-      ? { fame: 0, gold: 0, fameBonus: 0, goldBonus: 0, paid: false, line: null }
-      : settleOmenRewards(omenBefore, didWin, {
-          fame: stats.fameEarned,
-          gold: stats.goldEarned,
-        });
-    // Omen consumption is deferred until the complete reward settlement is accepted.
-    const resultStats: DuelStatistics = omenSettled.paid
-      ? { ...stats, fameEarned: omenSettled.fame, goldEarned: omenSettled.gold }
-      : stats;
+    // BET-1 — Fortuna's Omen is cut, so no shrine effect settles here: the
+    // duel's own numbers are the result's numbers, and the result screen and
+    // the save cannot disagree.
+    const resultStats: DuelStatistics = stats;
 
     /**
      * STORY-4b — the bounty board's answer to this bout, decided ONCE here from the
@@ -1386,9 +1346,6 @@ export function App() {
       : null;
     const rewardSettlementAccepted =
       !didWin || (goldSettlement?.ok === true && fameSettlement?.ok === true);
-    const afterOmen = exhibition || (didWin && !rewardSettlementAccepted)
-      ? afterInjury
-      : clearOmen(afterInjury);
 
     let settledProfile: PlayerProfile;
 
@@ -1436,11 +1393,11 @@ export function App() {
       // STORY-5b — R4: an exhibition generates no grudge and records no studied
       // mix, so the row is left unrecorded in the grudge ledger.
       const grudgeProfile = exhibition || rivalBout || trialBout
-        ? afterOmen
+        ? afterInjury
         : isGrudge
-        ? settleGrudge(afterOmen, activeOpponent)
+        ? settleGrudge(afterInjury, activeOpponent)
         : recordStandardVictory(
-            afterOmen,
+            afterInjury,
             activeOpponent,
             stats.dominantOffensiveClass ?? 'even'
           );
@@ -1512,8 +1469,8 @@ export function App() {
     } else if (!didWin) {
       // A genuine defeat follows the ordinary loss path.
       const grudgeProfile = isGrudgeBout(activeOpponent)
-        ? closeGrudge(afterOmen, activeOpponent)
-        : afterOmen;
+        ? closeGrudge(afterInjury, activeOpponent)
+        : afterInjury;
       const updatedProfile: PlayerProfile = {
         ...grudgeProfile,
         fightsLost: exhibition ? profile.fightsLost : profile.fightsLost + 1,
@@ -1732,16 +1689,14 @@ export function App() {
       : resultStats;
     setDuelResult({
       didWin,
-      // PITCH A1 — the settled numbers (omen multiplier included when it paid), so
-      // the result screen and the save cannot disagree.
+      // The settled numbers, so the result screen and the save cannot disagree.
       stats: displayedStats,
       storyLines,
       injuryEvent,
       injury: afterInjury.injury ?? null,
       ...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),
-      ...(rewardSettlementAccepted && omenSettled.line ? { omenLine: omenSettled.line } : {}),
-      // STORY-4a — the offer carries the duel's FINAL fame (post mode / crowd /
-      // omen, in C-C's order), which is the basis Finish's R1 rule reads.
+      // STORY-4a — the offer carries the duel's FINAL fame (post mode / crowd,
+      // in C-C's order), which is the basis Finish's R1 rule reads.
       ...(mercy ? { mercy: { ...mercy, finalFame: resultStats.fameEarned } } : {}),
       // STORY-4b — the board's own line for this bout (the clear, the miss, or the
       // final's question), so the result screen and the save cannot disagree.
@@ -2159,45 +2114,17 @@ export function App() {
   };
 
   /**
-   * PITCH A1 — the Shrine of Fortuna's two words.  Both transactions are pure and
-   * re-check their own rules (`offerOmen` refuses a purse under 25 gold before any
-   * arithmetic; `declineOmen` writes only the first-ever decline), so a refusal
-   * returns no profile and never reaches `saveProfile`.  The city screen only
-   * reports the choice; this is the one place either write happens.
+   * BET-1 — the Shrine of Fortuna's one action, LEAVE ALMS.  The transaction is
+   * pure and re-checks its own rules (`leaveShrineAlms` refuses a purse under
+   * 25 gold, and a second alms on the same day, before any arithmetic), so a
+   * refusal returns no profile and never reaches `saveProfile`.  The city
+   * screen only reports the choice; this is the one place the write happens.
+   * Deterministic: 25 gold buys one Favour, once per exertion day — no draw,
+   * no kind or ill, no bout effect.
    */
-  const handleOfferOmen = (): OmenOfferOutcome | null => {
+  const handleLeaveAlms = (): ShrineAlmsOutcome | null => {
     if (!profile) return null;
-    const result = offerOmen(profile);
-    if (!result.ok) return result;
-    // LUDI PHASE A — THE ALMS-DAY: one Favour for the day's first SUCCESSFUL offering. The
-    // refusal above returns before this line, so the favour is paid for the alms and never
-    // for the click; `withLudiAlms` is identity-stable for a second alms on the same day.
-    // The Omen's price, its effects and its expiry are untouched.
-    const alms = withLudiAlms(result.profile);
-    setProfile(alms);
-    saveProfile(alms);
-    return { ...result, profile: alms };
-  };
-
-  const handleDeclineOmen = (): OmenDeclineOutcome | null => {
-    if (!profile) return null;
-    const result = declineOmen(profile);
-    if (!result.wrote) return result;
-    setProfile(result.profile);
-    saveProfile(result.profile);
-    return result;
-  };
-
-  /**
-   * FOUNTAIN COIN TOSS — the forum fountain's one coin.  The transaction is
-   * pure and re-checks its own rules (`tossCoin` refuses a purse under 1 gold,
-   * and a live boost, before any arithmetic), so a refusal returns no profile
-   * and never reaches `saveProfile`.  The city screen only reports the choice;
-   * this is the one place the write happens.
-   */
-  const handleTossCoin = (): CoinTossOutcome | null => {
-    if (!profile) return null;
-    const result = tossCoin(profile);
+    const result = leaveShrineAlms(profile);
     if (!result.ok) return result;
     setProfile(result.profile);
     saveProfile(result.profile);
@@ -2483,9 +2410,7 @@ export function App() {
             onOpenDiceBoard={handleOpenDiceBoard}
             onEnterDiceTrailBout={handleEnterDiceTrailBout}
             onChooseDiceEnding={handleChooseDiceEnding}
-            onOfferOmen={handleOfferOmen}
-            onDeclineOmen={handleDeclineOmen}
-            onTossCoin={handleTossCoin}
+            onLeaveAlms={handleLeaveAlms}
             /* STORY-5b — the three Legend stops: the Librarian chain's return at the
                Library, and each stop's fragment at its own door. Both writers are
                identity-stable, so an ordinary visit saves nothing. */
@@ -2557,27 +2482,12 @@ export function App() {
                 if (tavernServices) {
                   tavernServices();
                   setTavernServices(null);
-                } else {
-                  setTavernBettingOpen(true);
                 }
               }}
             />
           </React.Suspense>
         )}
 
-        {tavernBettingOpen && profile && (
-          <React.Suspense fallback={null}>
-            <TavernBettingModal
-              profile={profile}
-              onUpdateProfile={(updated) => {
-                setProfile(updated);
-                saveProfile(updated);
-              }}
-              onClose={() => setTavernBettingOpen(false)}
-              onToast={(msg) => handleHeraldCry(msg)}
-            />
-          </React.Suspense>
-        )}
       {/* COLOSSEUM-INTERIOR — the empty arena: full-screen overlay while the city stays
       mounted underneath (so exiting returns the player to the exact spot they left,
       at the Colosseum door). */}
@@ -2729,7 +2639,6 @@ export function App() {
             injuryEvent={duelResult.injuryEvent}
             injury={duelResult.injury}
             palmaEarned={duelResult.palmaEarned}
-            omenLine={duelResult.omenLine}
             mercy={duelResult.mercy ?? null}
             onMercyChoice={handleMercyChoice}
             bounty={duelResult.bounty ?? null}

@@ -371,7 +371,7 @@ export const SAVE_FIXTURES: SaveFixture[] = [
     id: 'luck-era',
     file: 'luckEraProfile.json',
     provenance:
-      'The ludi-era save driven through the shipped `tossCoin` transaction once — 630 -> 629 gold, `luck: { boostUntil: 84 }` (time.total 79, midday of day 12, so the next dawn is total 84) — so it is byte-for-byte what that write persists.',
+      'The ludi-era save as it stood after the forum fountain\'s one coin — 630 -> 629 gold, `luck: { boostUntil: 84 }` (time.total 79, midday of day 12, so the next dawn is total 84). The coin toss itself was cut in BET-1; the fixture keeps the populated `luck` field so a load still has to survive it.',
     covers: [
       'the `luck` record populated (FOUNTAIN COIN TOSS): one coin tossed at the forum fountain, the boost bought until the next dawn',
       'the 1-gold debit in the same write (630 -> 629 gold), with no other field moved',

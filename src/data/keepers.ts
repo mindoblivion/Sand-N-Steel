@@ -314,9 +314,9 @@ export const KEEPERS: Keeper[] = [
     name: 'Postumia',
     title: 'the priestess',
     origoLine:
-      "You come from {province}, and {god} has had an eye on you since the cradle. Leave an offering — take the omen she gives, kind or ill.",
+      "You come from {province}, and {god} has had an eye on you since the cradle. Leave an offering — a small alms, and her Favour stands behind you for the day.",
     firstVisitLine:
-      'Fortuna hears everyone; she answers those who pay attention. Leave an offering before a great fight and take the omen she gives — kind or ill, it is yours.',
+      'Fortuna hears everyone; she answers those who pay attention. Leave your alms before a great fight, and her Favour stands behind you.',
     repeatLines: [
       'She turned her face from you last time, and you won anyway. Either she is testing you — or you are becoming interesting.',
     ],

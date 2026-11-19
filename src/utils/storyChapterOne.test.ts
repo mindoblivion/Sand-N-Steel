@@ -285,13 +285,11 @@ describe('P4 — the Doctore reads the first attempt, win or lose', () => {
     for (const field of ['didWin', 'storyLines', 'injuryEvent']) {
       expect(resultCall).toContain(`${field},`);
     }
-    // PITCH A1 — the payload carries the stats object the write SETTLED (the omen's
-    // multipliers applied last), so the screen and the save agree. Rebasing the
-    // literal from `stats` to `stats: resultStats` strengthens what is pinned.
+    // BET-1 — the payload carries the stats object the write SETTLED, so the
+    // screen and the save agree. The omen's multipliers are gone with the Omen:
+    // no `omenLine` spread rides the payload any more.
     expect(resultCall).toContain('stats: displayedStats,');
-    expect(resultCall).toContain(
-      '...(rewardSettlementAccepted && omenSettled.line ? { omenLine: omenSettled.line } : {}),',
-    );
+    expect(resultCall).not.toContain('omenLine');
     expect(resultCall).toContain(
       '...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),',
     );

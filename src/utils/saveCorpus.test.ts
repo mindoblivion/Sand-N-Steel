@@ -129,10 +129,9 @@ import { resolveConsumables } from './consumables';
 // tournament card read it.
 import { resolveIntel } from './intel';
 import { resolveStableState } from './stableProgression';
-// PITCH A1 — Fortuna's omen and the once-ever decline marker, read the way the
-// shrine panel and the duel entry read them.
-import { isTrickleClaimed, resolveOmen } from './omens';
-import { resolveLuckBoost } from './fountainLuck';
+// BET-1 — PITCH A1's omen resolvers and the fountain's luck resolver are DELETED
+// with their modules: the omen, the trickle marker and the luck boost are now
+// read RAW from the profile (inert fields on old saves), never resolved.
 // P5 — the ludus's three buildings, read the way a facility screen would.
 import { resolveFacilities } from './facilityProgression';
 // CH-1 — the class and the palmae, read the way a later class screen would.
@@ -273,10 +272,10 @@ const driveEveryResolver = (profile: PlayerProfile) => {
   const grudges = resolveGrudges(profile);
   // K1 — the keepers this gladiator has met, read the way a storefront does.
   const seenKeepers = resolveSeenKeepers(profile);
-  // PITCH A1 — Fortuna's omen and the decline marker, read the way the shrine
-  // panel and the duel entry read them.
-  const omen = resolveOmen(profile);
-  const omenTrickleClaimed = isTrickleClaimed(profile);
+  // BET-1 — PITCH A1's omen and the decline marker, read RAW: the resolvers are
+  // deleted, so the record carries the stored fields as-is (null when absent).
+  const omen = profile.omen ?? null;
+  const omenTrickleClaimed = profile.omenTrickleClaimed === true;
   // STORY-4a — the spared map, read the way the mercy offer and the board read it.
   const spared = resolveSpared(profile);
   // A8 — the retained deeds, read the way the evaluator and the Library read them.
@@ -464,8 +463,8 @@ for (const fixture of SAVE_FIXTURES) {
       expect(Array.isArray(palmae.equipped)).toBe(true);
       expect((palmae.equipped ?? []).length).toBeLessThanOrEqual(3);
       expect((palmae.equipped ?? []).every((id) => (palmae.unlocked ?? []).includes(id))).toBe(true);
-      // PITCH A1 — the omen resolves to a shaped word (or to nothing), and the
-      // decline marker to a boolean.
+      // BET-1 — the omen is a raw stored field now: a shaped word (or nothing),
+      // and the decline marker a boolean.
       expect(
         resolved.omen === null ||
           (['kind', 'ill'].includes(resolved.omen.kind) &&
@@ -614,13 +613,14 @@ for (const fixture of SAVE_FIXTURES) {
       }
       if (!('omen' in raw) || raw.omen === null) {
         absentFields += 1;
-        // PITCH A1 — a save written before the omen reads as "no omen".
-        expect(resolveOmen(profile)).toBeNull();
+        // BET-1 — no resolver any more: a save written before the omen simply
+        // has no field, and the raw read is null.
+        expect(profile.omen ?? null).toBeNull();
       }
       if (!('omenTrickleClaimed' in raw) || raw.omenTrickleClaimed === null) {
         absentFields += 1;
-        // PITCH A1 — an absent marker reads as "the trickle is still owed".
-        expect(isTrickleClaimed(profile)).toBe(false);
+        // BET-1 — no resolver any more: an absent marker reads as "not claimed".
+        expect(profile.omenTrickleClaimed === true).toBe(false);
       }
       if (!('spared' in raw) || raw.spared === null) {
         absentFields += 1;
@@ -646,8 +646,9 @@ for (const fixture of SAVE_FIXTURES) {
       }
       if (!('luck' in raw) || raw.luck === null) {
         absentFields += 1;
-        // FOUNTAIN COIN TOSS — a save written before the toss reads as "no boost".
-        expect(resolveLuckBoost(profile)).toBeNull();
+        // BET-1 — no resolver any more: a save written before the toss simply
+        // has no field, and the raw read is null.
+        expect(profile.luck ?? null).toBeNull();
       }
 
       expect(resolveRacingState(profile).selected).toBe(resolveRacingState(profile).horses);
@@ -921,17 +922,18 @@ describe('GC20 §F — what each shape resolves to', () => {
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('seenKeepers');
   });
 
-  test('the Pitch A1 omen record resolves to what it stores, and no factory save carries it', () => {
+  test('the Pitch A1 omen record is what it stores (BET-1: inert, read raw), and no factory save carries it', () => {
     const profile = fixtureById('omen-era').profile;
     // A live kind omen waiting on the record's next bout (8 fought + 1), and the
-    // once-ever decline marker already claimed.
-    expect(resolveOmen(profile)).toEqual({ kind: 'kind', expiresAtBout: 9 });
-    expect(isTrickleClaimed(profile)).toBe(true);
+    // once-ever decline marker already claimed — read raw, since the resolvers
+    // are deleted and no consumer of these fields remains.
+    expect(profile.omen).toEqual({ kind: 'kind', expiresAtBout: 9 });
+    expect(profile.omenTrickleClaimed).toBe(true);
 
-    // Lazy: a save written before this slice has no omen and owes the trickle, and
+    // Lazy: a save written before this slice has no omen and no marker, and
     // the factory writes neither field — the shape a later load must keep surviving.
-    expect(resolveOmen(fixtureById('minimal-legacy').profile)).toBeNull();
-    expect(isTrickleClaimed(fixtureById('minimal-legacy').profile)).toBe(false);
+    expect(fixtureById('minimal-legacy').profile.omen ?? null).toBeNull();
+    expect(fixtureById('minimal-legacy').profile.omenTrickleClaimed === true).toBe(false);
     expect('omen' in rawOf(fixtureById('current-fresh'))).toBe(false);
     expect('omenTrickleClaimed' in rawOf(fixtureById('current-fresh'))).toBe(false);
     expect(Object.keys(createNewProfile('Corpus Fresh'))).not.toContain('omen');
@@ -1117,9 +1119,8 @@ describe('GC20 §H — scope guards', () => {
       // field A5 nests inside `records` (`codexLocations`).  Still suites only:
       // no production source imports the corpus.
       'utils/codex.test.ts',
-      // FOUNTAIN COIN TOSS — the toss suite reads `luck-era` to pin the field it writes.
-      // Still suites only: nothing under `services/`, `components/` or `App.tsx` reaches it.
-      'utils/fountainCoinToss.test.ts',
+      // BET-1 — the toss suite is deleted with the mechanic, so `luck-era` has no
+      // consumer suite any more: the fixture stays as corpus history only.
       // LUDI PHASE A — the calendar's suite reads `ludi-era` to pin the field it writes.
       // Still suites only: nothing under `services/`, `components/` or `App.tsx` reaches it.
       'utils/ludiPhaseA.test.tsx',

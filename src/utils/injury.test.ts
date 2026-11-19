@@ -338,14 +338,16 @@ describe('§H the one call site: the result transaction', () => {
     // `afterInjury`) instead of `afterInjury` itself. The property this test
     // pins — the resolution happens before the branch and feeds BOTH writes —
     // is unchanged; the literal moved one step down the chain.
-    // PITCH A1 — the omen is settled from the injury-resolved profile in the same
-    // transaction, so the chain is afterInjury → afterOmen → grudgeProfile → both
-    // writes. The property — the resolution happens before the branch and feeds
-    // BOTH writes — is unchanged; the literal moved one step down the chain.
-    expect(write.match(/\.\.\.(?:afterOmen|grudgeProfile),/g)?.length).toBe(2);
-    expect(write).toContain('const afterOmen = exhibition || (didWin && !rewardSettlementAccepted)');
-    expect(write).toContain(': clearOmen(afterInjury);');
-    expect(write.match(/afterOmen/g)?.length).toBeGreaterThanOrEqual(3);
+    // BET-1 — the omen step is CUT, so the chain is afterInjury → grudgeProfile →
+    // both writes, and the refused-rewards branch spreads afterInjury itself. The
+    // property — the resolution happens before the branch and feeds BOTH writes —
+    // is unchanged; the literal moved one step down the chain.
+    expect(write.match(/\.\.\.(?:afterInjury|grudgeProfile),/g)?.length).toBe(3);
+    expect(write).toContain('const grudgeProfile = exhibition || rivalBout || trialBout');
+    expect(write).toContain('settleGrudge(afterInjury, activeOpponent)');
+    expect(write).toContain('closeGrudge(afterInjury, activeOpponent)');
+    expect(write).not.toContain('afterOmen');
+    expect(write).not.toContain('clearOmen');
   });
 
   test('it rides the existing save — ONE write, whichever outcome', () => {
@@ -388,9 +390,11 @@ describe('§H the one call site: the result transaction', () => {
     for (const field of ['didWin', 'storyLines', 'injuryEvent']) {
       expect(resultCall).toContain(`${field},`);
     }
-    // PITCH A1 — the payload carries the stats object this write settled (the omen's
-    // multipliers applied last), so the screen and the save cannot disagree.
+    // BET-1 — the payload carries the stats object this write settled, so the
+    // screen and the save cannot disagree. The omen's multipliers are gone with
+    // the Omen: no `omenLine` spread rides the payload any more.
     expect(resultCall).toContain('stats: displayedStats,');
+    expect(resultCall).not.toContain('omenLine');
     expect(resultCall).toContain(
       '...(palmaEarned && palmaEarned.length > 0 ? { palmaEarned } : {}),',
     );

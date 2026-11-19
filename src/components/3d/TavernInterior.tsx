@@ -90,7 +90,7 @@ export interface TavernStation {
 
 export const TAVERN_STATIONS: TavernStation[] = [
   { id: 'prisca', label: 'Aelia Prisca', hint: 'Keeper of the Bronze Cup', x: 0, z: -5.9, radius: 2.2 },
-  { id: 'tables', label: 'Gaming Tables', hint: 'Dice, wine, and wagers', x: -0.8, z: 1.5, radius: 2.2 },
+  { id: 'tables', label: 'Dice Tables', hint: 'Dice, wine, and stories', x: -0.8, z: 1.5, radius: 2.2 },
 ];
 
 /** Nearest station within its interaction radius, or null on open floor. */
@@ -879,7 +879,7 @@ export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void;
         <div className="rounded-xl border border-amber-200/25 bg-stone-950/75 px-5 py-2 text-center shadow-xl backdrop-blur-sm">
           <div className="text-xs uppercase tracking-[0.28em] text-amber-300">Taberna · District of the Arena</div>
           <div className="mt-1 text-lg font-bold tracking-wide sm:text-2xl">The Bronze Cup</div>
-          <div className="text-xs text-amber-100/75">Wine, wagers, and stories from the sands</div>
+          <div className="text-xs text-amber-100/75">Wine, rumours, and stories from the sands</div>
         </div>
       </div>
       <button
@@ -888,7 +888,7 @@ export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void;
         className="absolute left-3 top-3 z-10 min-h-12 rounded-xl border border-amber-200/40 bg-stone-950/90 px-4 text-sm font-bold text-amber-100 shadow-xl hover:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-300"
         aria-label="Talk to the tavern keeper"
       >
-        Rumours &amp; Games
+        Rumours
       </button>
       <button
         type="button"
@@ -911,7 +911,7 @@ export function TavernInterior({ onExit, onOpenServices }: { onExit: () => void;
               onClick={() => onOpenServicesRef.current()}
               className="min-h-12 px-4 rounded-xl bg-amber-500/90 hover:bg-amber-400 text-stone-950 font-bold text-sm shrink-0"
             >
-              {nearStation.id === 'prisca' ? 'Talk' : 'Play'}
+              {nearStation.id === 'prisca' ? 'Talk' : 'Rumours'}
             </button>
           </div>
         </div>

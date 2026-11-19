@@ -117,27 +117,16 @@ import {
   intelTargets,
   INTEL_PRICE,
 } from '../../../utils/intel';
-// PITCH A1 — Fortuna's shrine: the omen's price, its lazy read, and the copy the
-// panel prints.  The transactions live in `App`; this screen only reports the
-// player's choice and writes no save.
+// BET-1 — the Shrine of Fortuna's alms: its price, its once-per-day read, and
+// the line the panel prints.  The transaction lives in `App`; this screen only
+// reports the player's choice and writes no save.
 import {
-  OMEN_PRICE,
-  omenDeclineResultLine,
-  omenLine,
-  omenOfferResultLine,
-  resolveOmen,
-} from '../../../utils/omens';
-import type { OmenDeclineOutcome, OmenOfferOutcome } from '../../../utils/omens';
-// FOUNTAIN COIN TOSS — the forum fountain's price, its lazy read, and the copy
-// the panel prints.  The transaction lives in `App`; this screen only reports
-// the player's choice and writes no save.
-import {
-  COIN_TOSS_PRICE,
-  coinTossResultLine,
-  luckBoostLine,
-  resolveLuckBoost,
-} from '../../../utils/fountainLuck';
-import type { CoinTossOutcome } from '../../../utils/fountainLuck';
+  SHRINE_ALMS_PRICE,
+  almsResultLine,
+  resolveLudiDay,
+  resolveLudiProgress,
+} from '../../../utils/ludiCalendar';
+import type { ShrineAlmsOutcome } from '../../../utils/ludiCalendar';
 // K2 — the three service counters' keepers (the Medical House's Medica, the inn's
 // host, the Golden Palm's keeper), the plate that heads them, and the one line
 // each is saying.  Display and a first-visit record only: no price, no effect and
@@ -333,19 +322,12 @@ interface CityHubSceneProps {
    */
   onBuyIntel: (opponentId: string) => boolean;
   /**
-   * PITCH A1 — the Shrine of Fortuna's offering and its decline.  `App` owns both
-   * transactions and the save write; an offering that cannot be paid for returns a
-   * refusal (no omen, no write), and a decline that pays nothing returns the
-   * reason, so the panel never invents a result.
+   * BET-1 — the Shrine of Fortuna's alms: 25 gold for one Favour, once per
+   * exertion day.  `App` owns the transaction and the save write; an alms that
+   * cannot be paid for, or a second alms on the same day, returns a refusal
+   * (no Favour, no write), so the panel never invents a result.
    */
-  onOfferOmen: () => OmenOfferOutcome | null;
-  onDeclineOmen: () => OmenDeclineOutcome | null;
-  /**
-   * FOUNTAIN COIN TOSS — the forum fountain's one coin.  `App` owns the
-   * transaction and the save write; a toss that cannot be paid for, or a live
-   * boost, returns a refusal (no luck, no write), so the panel never invents a result.
-   */
-  onTossCoin: () => CoinTossOutcome | null;
+  onLeaveAlms: () => ShrineAlmsOutcome | null;
   /**
    * K2 — a service counter's keeper was met for the first time.  `App` owns the
    * one `seenKeepers` write (`handleRecordKeeperVisit`), exactly as it does for a
@@ -464,9 +446,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   onEnterDiceTrailBout,
   onChooseDiceEnding,
   onVisitLocation,
-  onOfferOmen,
-  onDeclineOmen,
-  onTossCoin,
+  onLeaveAlms,
   onReturnToLibrarian,
   onReadLegendFragment,
 }) => {
@@ -558,19 +538,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   const [academyPanel, setAcademyPanel] = useState(false);
   // Living City L11/L12 — visitor panel; all profile writes remain in App.
   const [visitorPanel, setVisitorPanel] = useState(false);
-  // PITCH A1 — the Shrine of Fortuna's omen panel, and the one line announcing
-  // what the last offering or decline did.  Local view state only: both
-  // transactions and their save belong to `App`.
+  // BET-1 — the Shrine of Fortuna's alms panel, and the one line announcing
+  // what the last alms did.  Local view state only: the transaction and its
+  // save belong to `App`.
   const [shrinePanel, setShrinePanel] = useState(false);
   // STORY-4b — the Bounty Hall's board. Local view state only: the bout entry is
   // `onEnterDuel` and every write is `App`'s.
   const [bountyPanel, setBountyPanel] = useState(false);
-  // FOUNTAIN COIN TOSS — the forum fountain's panel, the one line announcing what
-  // the last toss did, and the key that fires the coin arc in the mounted fountain.
-  // Local view state only: the transaction and its save belong to `App`.
-  const [fountainPanel, setFountainPanel] = useState(false);
-  const [coinTossResult, setCoinTossResult] = useState<string | null>(null);
-  const [coinTossKey, setCoinTossKey] = useState(0);
   /**
    * LUDI PHASE A — the morning Acta's dismissal, held as the DAY it was dismissed on rather
    * than a boolean: the card comes back by itself on a new exertion day (a night at the
@@ -585,7 +559,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
    * `App` and are identity-stable, so re-opening a stop saves nothing.
    */
   const [legendPanel, setLegendPanel] = useState<LegendStopConversation | null>(null);
-  const [omenResult, setOmenResult] = useState<string | null>(null);
+  const [almsResult, setAlmsResult] = useState<string | null>(null);
   /**
    * K2 — the greeting of the counter that is open, decided ONCE when it opens,
    * from the profile the visit started with.  The first-visit save lands a frame
@@ -755,7 +729,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
   // Keep this separate from the oath lock so Escape can still reach the panel handler.
   useLayoutEffect(() => {
     const panelLocked = Boolean(
-      treatmentPanel || intelPanel || shrinePanel || bountyPanel || fountainPanel || legendPanel ||
+      treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel ||
       visitorPanel || colosseumPanel || forgePanel || bountyHallPanel || bathhousePanel || academyPanel || showRaceEntry || showNavDrawer
     );
     cityPanelInputLockedRef.current = panelLocked;
@@ -769,7 +743,7 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
     }
     inputLockedRef.current = !!movementLocked;
   }, [
-    movementLocked, treatmentPanel, intelPanel, shrinePanel, bountyPanel, fountainPanel,
+    movementLocked, treatmentPanel, intelPanel, shrinePanel, bountyPanel,
     legendPanel, visitorPanel, colosseumPanel, forgePanel, bountyHallPanel, bathhousePanel, academyPanel, showRaceEntry, showNavDrawer,
     resetJoystickKnob,
   ]);
@@ -839,11 +813,6 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       // still opens from the panel or from inside the hall. The keeper greeting
       // freezes when the board opens, exactly as the tavern's does.
       setBountyHallPanel(true);
-    } else if (nearbyLoc.id === 'forum') {
-      // FOUNTAIN COIN TOSS — the forum's fountain is real now (mounted below),
-      // so the hub opens its panel instead of the flavour notice.
-      setFountainPanel(true);
-      setCoinTossResult(null);
     } else if (nearbyLoc.tabKey === 'tournament') {
       setColosseumPanel(true);
     } else if (nearbyLoc.id === 'tavern') {
@@ -864,13 +833,13 @@ export const CityHubScene: React.FC<CityHubSceneProps> = ({
       onOpenDiceBoard?.();
       setIntelPanel(true);
     } else if (nearbyLoc.id === 'shrine_temple') {
-      // PITCH A1 — Fortuna's shrine is the pre-fight ritual stop: its panel offers
-      // her word for 25 gold, or the player declines.  The result line starts
-      // empty; every offering or decline sets it from the transaction's answer.
+      // BET-1 — Fortuna's shrine is the pre-fight ritual stop: its panel offers
+      // the alms for 25 gold.  The result line starts empty; every alms sets it
+      // from the transaction's answer.
       // K3-SHRINE — Postumia keeps the shrine's counter, so her greeting freezes
       // here, exactly as the tavern's and the two treatment counters' do.
       primeKeeperGreeting('shrine_temple');
-      setOmenResult(null);
+      setAlmsResult(null);
       setShrinePanel(true);
     } else if (nearbyLoc.id === 'smithing_forge') {
 
@@ -1039,7 +1008,7 @@ const handleEnterBathhouse = useCallback(() => {
   // 2-in-1 Dual Action: Interact if near a landmark, Attack if not!
   const handlePrimaryAction = useCallback(() => {
     // A presented panel is up: E/Space and the action button are its own.
-    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || fountainPanel || legendPanel || visitorPanel || colosseumPanel || forgePanel || showRaceEntry || showNavDrawer) return;
+    if (treatmentPanel || intelPanel || shrinePanel || bountyPanel || legendPanel || visitorPanel || colosseumPanel || forgePanel || showRaceEntry || showNavDrawer) return;
     if (nearbyLoc) {
       handleInteract();
     } else if (nearbyVisitor) {
@@ -1058,7 +1027,6 @@ const handleEnterBathhouse = useCallback(() => {
     intelPanel,
     shrinePanel,
     bountyPanel,
-    fountainPanel,
     legendPanel,
     colosseumPanel,
     forgePanel,
@@ -1097,39 +1065,17 @@ const handleEnterBathhouse = useCallback(() => {
   );
 
   /**
-   * PITCH A1 — one offering of 25 gold, and one decline.  `App` owns both
-   * transactions and the save write; the panel re-renders from the profile it
-   * hands back, so a paid offering shows the live omen and a refusal shows the
-   * panel's own short-purse line (the button is disabled at that point too).
+   * BET-1 — one alms of 25 gold at the shrine.  `App` owns the transaction and
+   * the save write; the panel re-renders from the profile it hands back, so a
+   * paid alms shows the Favour line and a refusal shows the panel's own
+   * short-purse line (the button is disabled at that point too).
    */
-  const handleOfferOmen = useCallback(() => {
+  const handleLeaveAlms = useCallback(() => {
     sounds.playClick();
-    const outcome = onOfferOmen();
+    const outcome = onLeaveAlms();
     if (!outcome) return;
-    setOmenResult(outcome.ok ? omenOfferResultLine(outcome.omen) : null);
-  }, [onOfferOmen]);
-
-  const handleDeclineOmen = useCallback(() => {
-    sounds.playClick();
-    const outcome = onDeclineOmen();
-    if (!outcome) return;
-    setOmenResult(omenDeclineResultLine(outcome));
-  }, [onDeclineOmen]);
-
-  /**
-   * FOUNTAIN COIN TOSS — one coin into the forum fountain.  The transaction
-   * lives in `App`; this screen only reports the choice.  The coin sound and
-   * the arc fire on a SUCCESSFUL toss only — a refusal leaves the panel on its
-   * own reason line.
-   */
-  const handleTossCoin = useCallback(() => {
-    const outcome = onTossCoin();
-    if (!outcome) return;
-    if (!outcome.ok) return;
-    sounds.playCoin();
-    setCoinTossResult(coinTossResultLine(outcome.luck));
-    setCoinTossKey((k) => k + 1);
-  }, [onTossCoin]);
+    setAlmsResult(almsResultLine(outcome));
+  }, [onLeaveAlms]);
 
   /** S6 — one consumable from the satchel; the panel re-renders from the profile. */
   const handleUseConsumable = useCallback(
@@ -1167,10 +1113,6 @@ const handleEnterBathhouse = useCallback(() => {
         if (code === 'Escape' || key === 'escape') setBountyPanel(false);
         return;
         
-      }
-      if (fountainPanel) {
-        if (code === 'Escape' || key === 'escape') setFountainPanel(false);
-        return;
       }
             if (colosseumPanel) {
                       if (code === 'Escape' || key === 'escape') setColosseumPanel(false);
@@ -1548,21 +1490,15 @@ const handleEnterBathhouse = useCallback(() => {
   const shrineKeeper = shrinePanel ? getKeeperForBuilding('shrine_temple') : undefined;
 
   /**
-   * PITCH A1 — Fortuna's word, read the way every other lazy profile field is.
-   * `null` means no omen is live (absent or malformed reads as none), and the
-   * purse check mirrors the transaction's own refusal so the button and the
-   * refusal line agree.
-   */
-  const liveOmen = resolveOmen(playerProfile);
-  const omenPurseShort = !Number.isFinite(playerProfile.gold) || playerProfile.gold < OMEN_PRICE;
-
-  /**
-   * FOUNTAIN COIN TOSS — the live boost, read the way every other lazy profile
-   * field is. `null` means no boost is live, and the purse check mirrors the
+   * BET-1 — the shrine's alms, read the way every other lazy profile field is.
+   * `almsGivenToday` is the once-per-day guard (`lastAlmsDay` is the exertion
+   * day the last alms were left), and the purse check mirrors the
    * transaction's own refusal so the button and the refusal line agree.
    */
-  const liveLuck = resolveLuckBoost(playerProfile);
-  const coinPurseShort = !Number.isFinite(playerProfile.gold) || playerProfile.gold < COIN_TOSS_PRICE;
+  const almsGivenToday =
+    resolveLudiProgress(playerProfile).lastAlmsDay === resolveLudiDay(playerProfile);
+  const almsPurseShort =
+    !Number.isFinite(playerProfile.gold) || playerProfile.gold < SHRINE_ALMS_PRICE;
 
   /**
    * K2 — the one line the plate is saying, by the same rules `ShopTab` uses: the
@@ -1823,8 +1759,8 @@ const handleEnterBathhouse = useCallback(() => {
               <PublicBathhouse />
               <RomanShrine />
               <BountyHall />
-              {/* FOUNTAIN COIN TOSS — the forum fountain, mounted at last: SouthernDistrict was never mounted on main, so the forum hub stood over empty ground. Only the fountain mounts here; the other four southern pieces stay unmounted. */}
-              <ForumFountain coinTossKey={coinTossKey} />
+              {/* The forum fountain, mounted at last: SouthernDistrict was never mounted on main, so the forum hub stood over empty ground. Only the fountain mounts here; the other four southern pieces stay unmounted. It is a monument now — BET-1 cut the coin toss, so no panel opens at it. */}
+              <ForumFountain />
               <GladiatorBarracks />
               <VeteranGladiatorHall />
               <ArenaMedicalHouse />
@@ -2391,19 +2327,19 @@ const handleEnterBathhouse = useCallback(() => {
         <LegendStopPanel conversation={legendPanel} onClose={() => setLegendPanel(null)} />
       )}
 
-      {/* PITCH A1 — THE SHRINE OF FORTUNA: the pre-fight ritual stop.  It shows
-          the omen already resting on the gladiator (kind or ill, and which bout it
-          waits for), offers her word for 25 gold, and offers the decline.  Both
-          transactions and their save live in `App`, so this screen writes nothing;
-          a purse under the price disables the offering and says so. */}
+      {/* BET-1 — THE SHRINE OF FORTUNA: the pre-fight ritual stop.  It offers
+          the alms for 25 gold — one Favour, once per exertion day — and says
+          whether today's alms are already left.  The transaction and its save
+          live in `App`, so this screen writes nothing; a purse under the price
+          disables the alms and says so. */}
       {shrinePanel && (
         <div
           data-shrine-panel
           className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
         >
           {/* K3-SHRINE — Postumia heads her own counter. A header only: no control
-              is added, so the offering and the decline below it are exactly the
-              ones A1 shipped, at the same price. */}
+              is added, so the alms below it are exactly the ones BET-1 ships, at
+              the same price the omen once asked. */}
           {shrineKeeper && (
             <div className="mb-3">
               <KeeperPlate keeper={shrineKeeper} line={keeperLineFor(shrineKeeper)} />
@@ -2416,21 +2352,21 @@ const handleEnterBathhouse = useCallback(() => {
                 <span>Shrine of Fortuna</span>
               </h4>
               <p className="text-[11px] sm:text-xs text-neutral-300 font-sans leading-relaxed">
-                Fortuna gives what she gives. A small offering of {OMEN_PRICE} gold buys her word on
-                your next bout — kind or ill — or you decline and trust your own arm.
+                Fortuna keeps the count of every coin. A small offering of {SHRINE_ALMS_PRICE} gold
+                buys one Favour — once per day, and the same for every gladiator.
               </p>
               <p
-                data-shrine-omen={liveOmen ? liveOmen.kind : 'none'}
+                data-shrine-alms={almsGivenToday ? 'given' : 'none'}
                 className="mt-2 text-[11px] sm:text-xs font-mono text-amber-300 leading-relaxed"
               >
-                {liveOmen ? omenLine(liveOmen) : 'No omen rests on you.'}
+                {almsGivenToday ? "Today's alms are already left." : 'No alms left today.'}
               </p>
-              {omenResult && (
+              {almsResult && (
                 <p
-                  data-omen-result
+                  data-alms-result
                   className="mt-2 text-[11px] sm:text-xs font-sans text-amber-200/90 leading-relaxed"
                 >
-                  {omenResult}
+                  {almsResult}
                 </p>
               )}
             </div>
@@ -2446,38 +2382,36 @@ const handleEnterBathhouse = useCallback(() => {
           <div className="mt-3 flex flex-col gap-2">
             <button
               type="button"
-              data-offer-omen
-              onClick={handleOfferOmen}
-              disabled={omenPurseShort}
+              data-leave-alms
+              onClick={handleLeaveAlms}
+              disabled={almsPurseShort || almsGivenToday}
               className="w-full min-h-[48px] rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg border-2 border-amber-200 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Coins className="w-4 h-4" />
-              <span>Offer {OMEN_PRICE}g for an omen</span>
+              <span>Leave alms ({SHRINE_ALMS_PRICE}g)</span>
             </button>
-            {omenPurseShort && (
+            {almsPurseShort && (
               <p
-                data-omen-refusal="insufficient-gold"
+                data-alms-refusal="insufficient-gold"
                 className="text-[10px] sm:text-[11px] font-mono text-red-300"
               >
                 Not enough gold. You carry {playerProfile.gold}g.
               </p>
             )}
-            <button
-              type="button"
-              data-decline-omen
-              onClick={handleDeclineOmen}
-              className="w-full min-h-[48px] rounded-xl bg-neutral-900 hover:bg-neutral-800 text-amber-100 font-serif font-bold text-[11px] sm:text-xs uppercase tracking-wider border border-amber-600/70 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
-            >
-              <SparklesIcon className="w-3.5 h-3.5 text-amber-400" />
-              <span>Decline — trust your own arm</span>
-            </button>
+            {!almsPurseShort && almsGivenToday && (
+              <p
+                data-alms-refusal="already-given-today"
+                className="text-[10px] sm:text-[11px] font-mono text-amber-300"
+              >
+                Today's alms are already left — come back after dawn.
+              </p>
+            )}
           </div>
 
           {/* NEMESIS-1 — THE ALTAR OF NEMESIS, the shrine's second altar, kept by
               Postumia beside Fortuna's.  Content only: Nemesis takes no gold, gives
               no words and draws no omen, so this section adds no control, no price
-              and no roll.  It READS the live omen for her one reactive beat and
-              writes nothing.  Iron and bone, never Fortuna's amber. */}
+              and no roll, and writes nothing.  Iron and bone, never Fortuna's amber. */}
           <div data-nemesis-altar className="mt-4 pt-3 border-t border-neutral-600/70">
             <h5 className="font-serif font-black text-stone-200 text-[11px] sm:text-xs uppercase tracking-[0.15em] mb-1.5">
               Altar of Nemesis
@@ -2491,14 +2425,6 @@ const handleEnterBathhouse = useCallback(() => {
                 — Postumia
               </span>
             </p>
-            {liveOmen?.kind === 'ill' && (
-              <p
-                data-nemesis-ill-omen
-                className="mt-2 text-[10px] sm:text-[11px] font-serif text-stone-200 leading-relaxed border-l-2 border-stone-500/80 pl-2"
-              >
-                Nemesis has weighed you and found you wanting. Win anyway, and the scales tip back.
-              </p>
-            )}
           </div>
         </div>
       )}
@@ -2542,75 +2468,6 @@ const handleEnterBathhouse = useCallback(() => {
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">W A S D / Arrows</kbd> Move</span>
         <span><kbd className="bg-neutral-800 text-amber-300 px-1 py-0.5 rounded border border-neutral-700">Space / E</kbd> 2-in-1 Attack &amp; Interact</span>
       </div>
-
-            {fountainPanel && (
-        <div
-          data-fountain-panel
-          className="absolute top-36 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm sm:max-w-md w-[90%] bg-neutral-950/95 border-2 border-amber-500/80 p-4 rounded-2xl backdrop-blur-md shadow-[0_0_30px_rgba(245,158,11,0.4)] animate-fadeIn"
-        >
-          <div className="flex justify-between items-start gap-3">
-            <div className="flex-1">
-              <h4 className="font-serif font-black text-amber-200 text-xs sm:text-sm uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                <Coins className="w-4 h-4 text-amber-400" />
-                <span>The Forum Fountain</span>
-              </h4>
-              <p className="text-[11px] sm:text-xs text-neutral-300 font-sans leading-relaxed">
-                A coin for Fortuna. One gold buys her favour — luck smiles on you until dawn.
-              </p>
-              <p
-                data-luck-boost={liveLuck ? 'active' : 'none'}
-                className="mt-2 text-[11px] sm:text-xs font-mono text-amber-300 leading-relaxed"
-              >
-                {liveLuck ? luckBoostLine(playerProfile) : 'No luck rests on you.'}
-              </p>
-              {coinTossResult && (
-                <p
-                  data-coin-result
-                  className="mt-2 text-[11px] sm:text-xs font-sans text-amber-200/90 leading-relaxed"
-                >
-                  {coinTossResult}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => setFountainPanel(false)}
-              aria-label="Close fountain panel"
-              className={CLOSE_BUTTON_CLASS}
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="mt-3 flex flex-col gap-2">
-            <button
-              type="button"
-              data-toss-coin
-              onClick={handleTossCoin}
-              disabled={coinPurseShort || !!liveLuck}
-              className="w-full min-h-[48px] rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-neutral-950 font-serif font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg border-2 border-amber-200 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Coins className="w-4 h-4" />
-              <span>Toss a coin (1g)</span>
-            </button>
-            {coinPurseShort && (
-              <p
-                data-coin-refusal="insufficient-gold"
-                className="text-[10px] sm:text-[11px] font-mono text-red-300"
-              >
-                Not enough gold. You carry {playerProfile.gold}g.
-              </p>
-            )}
-            {!coinPurseShort && liveLuck && (
-              <p
-                data-coin-refusal="already-blessed"
-                className="text-[10px] sm:text-[11px] font-mono text-amber-300"
-              >
-                Fortune already smiles on you — come back after dawn to toss again.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* BOTTOM DISTRICT FAST-TRAVEL & TAB SHORTCUT BAR */}
       <footer data-city-footer="true" className="absolute bottom-[calc(var(--hub-safe-bottom)+0.5rem)] left-2 right-2 sm:bottom-[calc(var(--hub-safe-bottom)+1rem)] sm:left-6 sm:right-6 pointer-events-auto z-10">

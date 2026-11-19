@@ -38,12 +38,20 @@ const inChapterTwo = (): PlayerProfile => {
   };
 };
 const goliathId = ALL_OPPONENTS.find((opponent) => opponent.tier === 1 && opponent.isBoss)?.id ?? '';
-const withGoliathAndOmen = (): PlayerProfile => {
+// BET-1 — the Omen is cut, so Beat 3's evidence is the alms day, not an omen.
+const withGoliathAndAlms = (): PlayerProfile => {
   const profile = inChapterTwo();
   return {
     ...profile,
     defeatedOpponentIds: [...profile.defeatedOpponentIds, goliathId],
-    omen: { kind: 'kind', expiresAtBout: 4 },
+    ludi: {
+      day: 5,
+      deedsDone: [],
+      favour: 1,
+      lastAlmsDay: 5,
+      fameBaseline: 0,
+      visitsToday: [],
+    },
   };
 };
 
@@ -140,8 +148,8 @@ describe('Rival Schools — first challenge record', () => {
     expect(next.bossKills).toBe(profile.bossKills);
   });
 
-  test('Chapter 2 stays open until Goliath, the rival and the omen are all settled', () => {
-    const beforeRival = withGoliathAndOmen();
+  test('Chapter 2 stays open until Goliath, the rival and the alms are all settled', () => {
+    const beforeRival = withGoliathAndAlms();
     expect(resolveStoryState(beforeRival).chapter).toBe(2);
     expect(resolveChapterGates(beforeRival, 2).map((gate) => gate.state)).toEqual(['met', 'unmet', 'met']);
     const afterRival = settleRivalSchoolBout(beforeRival, RIVAL_SCHOOL_OPPONENT, true, true, validStats());
@@ -149,7 +157,7 @@ describe('Rival Schools — first challenge record', () => {
   });
 
   test('later pending gates remain non-blocking after Chapter 2 closes', () => {
-    const base = withGoliathAndOmen();
+    const base = withGoliathAndAlms();
     const won = settleRivalSchoolBout(base, RIVAL_SCHOOL_OPPONENT, true, true, validStats());
     const chapterThree = resolveChapterGates(won, 3);
     expect(chapterThree.some((gate) => gate.state === 'pending')).toBe(true);

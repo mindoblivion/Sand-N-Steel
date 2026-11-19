@@ -5,9 +5,9 @@
  * state, and this suite pins exactly those:
  *   §A  the derivation — Chapter 2 opens by STORY-2's rule, and neither a chapter
  *       nor a beat is ever stored;
- *   §B  BEAT 3 (Director ruling 1) — complete on STATE: a live omen, OR the
- *       once-ever decline marker, including a shrine visit made BEFORE the
- *       chapter opened, and incomplete on neither;
+ *   §B  BEAT 3 (Director ruling 1, BET-1 re-gated) — complete on STATE: alms
+ *       left at the shrine at least once, including a shrine visit made BEFORE
+ *       the chapter opened, and incomplete on neither;
  *   §C  the DUEL gate — Tier 1's boss, read from the shipped roster;
  *   §D  the Rival Schools gate — unmet until its dedicated bout victory is
  *       settled; race results and free-drive data cannot satisfy it;
@@ -37,7 +37,7 @@ import {
   STORY_CHAPTER_FORTUNA,
   STORY_CHAPTERS,
   circusPointerDue,
-  isFortunaOmenTaken,
+  hasLeftShrineAlms,
   resolveChapterGates,
   resolveStoryState,
   storyGateLine,
@@ -100,16 +100,17 @@ const withGoliathDown = (): PlayerProfile => {
   return { ...base, defeatedOpponentIds: [...base.defeatedOpponentIds, bossId(1)] };
 };
 
-/** A live omen, the shape Pitch A1 writes (`fightsWon + fightsLost + 1`). */
-const withOmen = (profile: PlayerProfile): PlayerProfile => ({
+/** Alms left at the shrine: the alms day set, exactly what `leaveShrineAlms` writes. */
+const withAlms = (profile: PlayerProfile): PlayerProfile => ({
   ...profile,
-  omen: { kind: 'kind', expiresAtBout: 4 },
-});
-
-/** A decline: the marker, and NO omen field at all — exactly what A1 leaves. */
-const withDecline = (profile: PlayerProfile): PlayerProfile => ({
-  ...profile,
-  omenTrickleClaimed: true,
+  ludi: {
+    day: 5,
+    deedsDone: [],
+    favour: 1,
+    lastAlmsDay: 5,
+    fameBaseline: 0,
+    visitsToday: [],
+  },
 });
 
 const gateOfChapter = (profile: PlayerProfile, chapter: number, id: string): StoryGate => {
@@ -134,7 +135,7 @@ describe('§A Chapter 2 is derived, never stored', () => {
     expect(state.gates.map((gate) => gate.id)).toEqual([
       'tier-1-boss',
       'rival-schools-first',
-      'omen',
+      'alms',
     ]);
   });
 
@@ -163,62 +164,70 @@ describe('§A Chapter 2 is derived, never stored', () => {
 
 // ── §B BEAT 3 — Fortuna's Coin, on state ──────────────────────────────────
 describe('§B Beat 3 completes on state, never on a stored flag', () => {
-  test('B1 — a live omen completes the beat and the gate says so', () => {
-    const profile = withOmen(inChapterTwo());
-    expect(isFortunaOmenTaken(profile)).toBe(true);
-    const gate = gateOfChapter(profile, 2, 'omen');
+  test('B1 — alms left at the shrine complete the beat and the gate says so', () => {
+    const profile = withAlms(inChapterTwo());
+    expect(hasLeftShrineAlms(profile)).toBe(true);
+    const gate = gateOfChapter(profile, 2, 'alms');
     expect(gate.state).toBe('met');
     expect(gate.pendingKind).toBeUndefined();
-    expect(storyGateLine(gate)).toBe('The omen has been read.');
+    expect(storyGateLine(gate)).toBe('Alms have been left at the shrine.');
   });
 
-  test('B2 — the trickle marker ALONE completes it: a decline leaves no omen field', () => {
-    const profile = withDecline(inChapterTwo());
-    // The decline is the marker and nothing else — the ruling's shape, asserted:
-    // a refused omen leaves NO omen field behind, so the marker is all there is.
+  test('B2 — the alms day is the whole evidence: no omen field is read at all', () => {
+    // BET-1 — the Omen is cut, so a stale `omen` field on an old save must NOT
+    // complete the beat: only the alms day counts, and a profile carrying the
+    // dead field with no alms day is still unmet.
+    const stale: PlayerProfile = {
+      ...inChapterTwo(),
+      omen: { kind: 'kind', expiresAtBout: 4 },
+      omenTrickleClaimed: true,
+    };
+    expect(hasLeftShrineAlms(stale)).toBe(false);
+    expect(gateOfChapter(stale, 2, 'alms').state).toBe('unmet');
+    // And the alms day alone completes it, with no omen field present.
+    const profile = withAlms(inChapterTwo());
     expect('omen' in profile).toBe(false);
-    expect(profile.omen).toBeUndefined();
-    expect(profile.omenTrickleClaimed).toBe(true);
-    expect(isFortunaOmenTaken(profile)).toBe(true);
-    expect(gateOfChapter(profile, 2, 'omen').state).toBe('met');
+    expect(hasLeftShrineAlms(profile)).toBe(true);
+    expect(gateOfChapter(profile, 2, 'alms').state).toBe('met');
   });
 
-  test('B3 — neither piece of state: the beat is incomplete', () => {
+  test('B3 — no alms day: the beat is incomplete', () => {
     const profile = withGoliathDown();
-    expect(isFortunaOmenTaken(profile)).toBe(false);
-    const gate = gateOfChapter(profile, 2, 'omen');
+    expect(hasLeftShrineAlms(profile)).toBe(false);
+    const gate = gateOfChapter(profile, 2, 'alms');
     expect(gate.state).toBe('unmet');
-    expect(storyGateLine(gate)).toBe('Face the reading of the omen');
-    // …and a malformed field of either kind is not evidence.
+    expect(storyGateLine(gate)).toBe('Leave alms at the Shrine of Fortuna');
+    // …and a malformed alms day is not evidence: 0 means never, a negative or
+    // non-numeric day resolves to never.
     for (const broken of [
-      { omen: { kind: 'weird', expiresAtBout: 4 } },
-      { omen: { kind: 'kind', expiresAtBout: 0 } },
-      { omen: 'kind' },
-      { omenTrickleClaimed: 'yes' },
-      { omenTrickleClaimed: 1 },
+      { ludi: { day: 5, deedsDone: [], favour: 0, lastAlmsDay: 0, fameBaseline: 0, visitsToday: [] } },
+      { ludi: { day: 5, deedsDone: [], favour: 0, lastAlmsDay: -1, fameBaseline: 0, visitsToday: [] } },
+      { ludi: { day: 5, deedsDone: [], favour: 0, lastAlmsDay: 'five', fameBaseline: 0, visitsToday: [] } },
+      { ludi: null },
+      {},
     ]) {
       const shaped = { ...profile, ...broken } as unknown as PlayerProfile;
-      expect(isFortunaOmenTaken(shaped)).toBe(false);
-      expect(gateOfChapter(shaped, 2, 'omen').state).toBe('unmet');
+      expect(hasLeftShrineAlms(shaped)).toBe(false);
+      expect(gateOfChapter(shaped, 2, 'alms').state).toBe('unmet');
     }
   });
 
   test('B4 — a shrine visit made BEFORE Chapter 2 opened counts identically', () => {
-    // The shrine panel has no chapter gate, so this gladiator took the omen while
+    // The shrine panel has no chapter gate, so this gladiator left alms while
     // still in Chapter 1.  The moment Chapter 2 opens, Beat 3 is already complete.
-    const early = withOmen({ ...fresh(), fightsWon: 1 });
+    const early = withAlms({ ...fresh(), fightsWon: 1 });
     expect(resolveStoryState(early).chapter).toBe(1);
-    expect(isFortunaOmenTaken(early)).toBe(true);
+    expect(hasLeftShrineAlms(early)).toBe(true);
     const opened = withDoctoreTest(early);
     expect(resolveStoryState(opened).chapter).toBe(2);
-    expect(gateOfChapter(opened, 2, 'omen').state).toBe('met');
+    expect(gateOfChapter(opened, 2, 'alms').state).toBe('met');
   });
 
-  test('B5 — the beat is state, not sequence: the omen may come before or after the duel', () => {
-    const before = withOmen(inChapterTwo());
-    const after = withOmen(withGoliathDown());
-    expect(gateOfChapter(before, 2, 'omen').state).toBe('met');
-    expect(gateOfChapter(after, 2, 'omen').state).toBe('met');
+  test('B5 — the beat is state, not sequence: the alms may come before or after the duel', () => {
+    const before = withAlms(inChapterTwo());
+    const after = withAlms(withGoliathDown());
+    expect(gateOfChapter(before, 2, 'alms').state).toBe('met');
+    expect(gateOfChapter(after, 2, 'alms').state).toBe('met');
     // Both profiles are still held at Chapter 2 by the Rival Schools gate, duel or no duel.
     expect(resolveStoryState(before).chapter).toBe(2);
     expect(resolveStoryState(after).chapter).toBe(2);
@@ -264,11 +273,11 @@ describe('§D the Rival Schools gate requires an earned rival victory', () => {
     expect(gate.holdsChapterOpen).toBeUndefined();
     expect(storyGateLine(gate)).toBe('Defeat the champion of the Rival Ludus');
     expect(gateOfChapter(inChapterTwo(), 2, 'tier-1-boss').holdsChapterOpen).toBeUndefined();
-    expect(gateOfChapter(inChapterTwo(), 2, 'omen').holdsChapterOpen).toBeUndefined();
+    expect(gateOfChapter(inChapterTwo(), 2, 'alms').holdsChapterOpen).toBeUndefined();
   });
 
-  test('D2 — Goliath and the omen are not enough while the rival challenge remains open', () => {
-    const everythingElse = withOmen(withGoliathDown());
+  test('D2 — Goliath and the alms are not enough while the rival challenge remains open', () => {
+    const everythingElse = withAlms(withGoliathDown());
     const state = resolveStoryState(everythingElse);
     expect(state.gates.map((gate) => gate.state)).toEqual(['met', 'unmet', 'met']);
     expect(state.chapter).toBe(2);
@@ -301,14 +310,14 @@ describe('§E the herald announces Rival Schools while Chapter 2 waits', () => {
   };
 
   test('E1 — due while Chapter 2 is open and the Rival Schools gate is unmet', () => {
-    const state = resolveStoryState(withOmen(withGoliathDown()));
+    const state = resolveStoryState(withAlms(withGoliathDown()));
     expect(state.chapter).toBe(2);
     expect(circusPointerDue(state)).toBe(true);
-    expect(circusPointerCry(withOmen(withGoliathDown()))).toBe(CIRCUS_POINTER_CRY);
+    expect(circusPointerCry(withAlms(withGoliathDown()))).toBe(CIRCUS_POINTER_CRY);
   });
 
   test('E2 — not before Chapter 2 opens', () => {
-    for (const early of [fresh(), { ...fresh(), fightsWon: 1 }, withOmen({ ...fresh(), fightsWon: 1 })]) {
+    for (const early of [fresh(), { ...fresh(), fightsWon: 1 }, withAlms({ ...fresh(), fightsWon: 1 })]) {
       const state = resolveStoryState(early);
       expect(state.chapter).toBeLessThan(2);
       expect(circusPointerDue(state)).toBe(false);
@@ -451,9 +460,8 @@ describe("§H Postumia's briefing rides the pre-fight narration block", () => {
     const due = inChapterTwo();
     expect(isTournamentFinalBout(finalBout)).toBe(true);
     expect(isFortunaBriefingDue(due, finalBout)).toBe(true);
-    // Settled — a live omen or the decline — and the card stops pointing there.
-    expect(isFortunaBriefingDue(withOmen(due), finalBout)).toBe(false);
-    expect(isFortunaBriefingDue(withDecline(due), finalBout)).toBe(false);
+    // Settled — alms left — and the card stops pointing there.
+    expect(isFortunaBriefingDue(withAlms(due), finalBout)).toBe(false);
     // Not Chapter 2 yet.
     expect(isFortunaBriefingDue({ ...fresh(), fightsWon: 1 }, finalBout)).toBe(false);
     // Not the chapter's final.
@@ -478,7 +486,7 @@ describe("§H Postumia's briefing rides the pre-fight narration block", () => {
     );
     expect(markup).toContain('data-prefight-narration');
     expect(markup).toContain('Postumia');
-    expect(markup).toContain('let Fortuna read the bout');
+    expect(markup).toContain('leave alms for Fortuna');
     // A card without a briefing draws no narration block at all.
     const plain = renderToStaticMarkup(
       React.createElement(PreFightModal, {

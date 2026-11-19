@@ -574,16 +574,18 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
     expect(result).toContain(
       'const defeated = exhibition || rivalBout || trialBout\n        ? profile.defeatedOpponentIds'
     );
-    // The grudge ledger is the Omen-composed profile, untouched by a grudge write.
+    // The grudge ledger is the injury-resolved profile, untouched by a grudge write.
+    // BET-1 — the Omen-composed step is cut: the exhibition arm returns
+    // `afterInjury` itself, and the grudge helpers read that profile directly.
     const exhibitionGrudge = result.slice(
       result.indexOf('const grudgeProfile = exhibition'),
       result.indexOf('// The tier moves only on a boss')
     );
-    expect(exhibitionGrudge).toContain('? afterOmen');
+    expect(exhibitionGrudge).toContain('? afterInjury');
     expect(exhibitionGrudge).toContain('recordStandardVictory(');
   });
 
-  test('SKIPPED on a win: the triumph evaluation, the omen and the bounty', () => {
+  test('SKIPPED on a win: the triumph evaluation and the bounty', () => {
     expect(result).toContain('const awards: TriumphAwardOutcome = exhibition');
     // LUDI PHASE A REBASE, not a weakening: the Acta's settlement composes its profile
     // before the evaluation, so both the fence and the one evaluation read `ludi.profile`.
@@ -591,10 +593,11 @@ describe('STORY-5b §E — the exhibition fence, item by item, win and loss', ()
     expect(result).toContain("{ profile: ludi.profile, earned: [], titles: [] }");
     expect(result).toContain('if (awards.earned.length > 0) {');
     expect((app.match(/applyTriumphAwards\(/g) ?? []).length).toBe(1);
-    // A no-op settlement: the omen neither pays nor expires on an exhibition.
-    expect(result).toContain('const omenSettled: OmenSettlement = exhibition');
-    expect(result).toContain('{ fame: 0, gold: 0, fameBonus: 0, goldBonus: 0, paid: false, line: null }');
-    expect(result).toContain('const afterOmen = exhibition || (didWin && !rewardSettlementAccepted)');
+    // BET-1 — the omen's no-op settlement is gone with the Omen: there is no
+    // `omenSettled`, no `afterOmen`, and no exhibition arm for either.
+    expect(result).not.toContain('omenSettled');
+    expect(result).not.toContain('afterOmen');
+    expect(result).not.toContain('OmenSettlement');
     expect(result).toContain('const bounty: BountyVictory = exhibition');
     expect(result).toContain("{ kind: 'none', clearedRungId: null, gold: 0, fame: 0, line: '' }");
   });

@@ -3,7 +3,6 @@ import { describe, test, expect } from 'bun:test';
 import { createNewProfile } from '../services/storage';
 import { readFileSync } from 'node:fs';
 import { recordRaceBestTime, settleRaceCompletion, MAX_RECORDED_RACE_TIME_MS } from './raceRecords';
-import { placeTavernBet } from './racingLeague';
 
 describe('race best-time transaction', () => {
   test('a first finish writes only the selected team time and preserves legacy progression', () => {
@@ -127,27 +126,21 @@ describe('race best-time transaction', () => {
     expect(loss.profile.racing?.bestTimes).toEqual({ 3: 16000 });
   });
 
-  test('ECON-1 leaves tavern bet resolution unchanged', () => {
-    // A Green bet still wins on a victory and pays wager x 1.8 on top of the
-    // new purse; a Red bet still wins on a defeat and pays wager x 2.2.
-    const greenPlaced = placeTavernBet(createNewProfile('Circus Career'), 'green_prasina', 50);
-    expect(greenPlaced.ok).toBe(true);
-    if (!greenPlaced.ok) return;
-    const greenWin = settleRaceCompletion(greenPlaced.profile, 2, 15000, 'victory', 4);
-    expect(greenWin.ok).toBe(true);
-    if (!greenWin.ok) return;
-    expect(greenWin.purseAwarded).toBe(100);
-    expect(greenWin.profile.gold).toBe(100 - 50 + 100 + 90);
-    expect(greenWin.profile.activeRaceBet).toBeUndefined();
-    const redPlaced = placeTavernBet(createNewProfile('Circus Career'), 'red_russata', 50);
-    expect(redPlaced.ok).toBe(true);
-    if (!redPlaced.ok) return;
-    const redWin = settleRaceCompletion(redPlaced.profile, 2, 15000, 'defeat', 4);
-    expect(redWin.ok).toBe(true);
-    if (!redWin.ok) return;
-    expect(redWin.purseAwarded).toBe(80);
-    expect(redWin.profile.gold).toBe(100 - 50 + 80 + 110);
-    expect(redWin.profile.activeRaceBet).toBeUndefined();
+  test('BET-1 — a stale bet on an old save is never settled: the purse only', () => {
+    // The bookmaker is cut, but the `activeRaceBet` field stays declared (inert,
+    // §J stays 29). A save that still carries one settles exactly like a save
+    // with none: the purse is the whole gold movement, and the stale bet sits
+    // unread — no payout, no clearing, no refund.
+    const stale = {
+      ...createNewProfile('Circus Career'),
+      activeRaceBet: { factionId: 'green_prasina', wagerAmount: 50, oddsMultiplier: 1.8, potentialPayout: 90 },
+    } as ReturnType<typeof createNewProfile>;
+    const win = settleRaceCompletion(stale, 2, 15000, 'victory', 4);
+    expect(win.ok).toBe(true);
+    if (!win.ok) return;
+    expect(win.purseAwarded).toBe(100);
+    expect(win.profile.gold).toBe(100 + 100);
+    expect(win.profile.activeRaceBet).toEqual(stale.activeRaceBet);
   });
 
   test('invalid completion timing, team, outcome or day cannot pay a purse', () => {

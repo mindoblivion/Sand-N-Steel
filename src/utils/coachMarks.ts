@@ -216,7 +216,7 @@ export const COACH_CARDS: Record<string, CoachCard> = {
   },
   BRIEF_shrine_temple: {
     speaker: 'The Attendant',
-    text: "On Fortuna's Day, leave alms and take an Omen into one fight — you'll always see what it does before you fight.",
+    text: "On Fortuna's Day, leave alms at the Shrine — one Favour, once a day, and the same for every gladiator.",
     codexEntry: 'BRIEF_shrine_temple',
   },
   BRIEF_veteran_gladiator_hall: {

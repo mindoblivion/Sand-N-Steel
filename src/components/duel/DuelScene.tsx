@@ -38,9 +38,6 @@ import {
   resolveBoutProfile,
   steelDeltaFor,
 } from '../../data/boutModes';
-// PITCH A1 — Fortuna's ill omen hardens THIS bout's opponent at the same
-// duel-entry layer as the mode delta, after it, and outside C-C's ±0.20 cap.
-import { applyIllOmenToBoutProfile, illOmenDelta, isIllOmenPending } from '../../utils/omens';
 import {
   advanceCrowdRageCharge,
   applyCrowdHypeDecay,
@@ -638,17 +635,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // reward row), the crowd's opening hype and cooling tier, and the mode-adjusted
   // bases every reward line is computed from.
   const modeProfile = useMemo(() => resolveBoutProfile(boutMode, opponent), [boutMode, opponent]);
-  // PITCH A1 — Director ruling 4: an ill omen waiting on this bout hardens the
-  // opponent's two AI values (+0.10 aggression / +0.05 blockChance, clamped into
-  // [0.05, 0.95]) AFTER the mode delta, and it is NOT part of C-C's ±0.20
-  // grudge+mode budget — a separate shrine effect.  No ill omen: the mode's own
-  // composed profile, byte for byte.
-  const omenIll = isIllOmenPending(playerProfile);
-  const omenShift = useMemo(() => illOmenDelta(omenIll), [omenIll]);
-  const boutProfile = useMemo(
-    () => applyIllOmenToBoutProfile(modeProfile, omenIll),
-    [modeProfile, omenIll],
-  );
+  // BET-1 — Fortuna's Omen is cut: no shrine effect hardens the bout. The mode's
+  // own composed profile IS the bout profile, byte for byte.
+  const boutProfile = modeProfile;
   const modeReward = useMemo(() => modeRewardBases(boutMode, opponent), [boutMode, opponent]);
   const openingHype = useMemo(() => modeCrowdStartHype(boutMode), [boutMode]);
   const crowdDecayTier = useMemo(
@@ -3194,13 +3183,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       const modeSteel = steelDeltaFor(boutMode);
       const brotherAggressionForSlot = (slot: 'front' | 'rear'): number =>
         clampBoutProfileValue(
-          brotherAggression(brothersCfg!, brothersRef.current, slot) +
-            modeSteel.aggression +
-            omenShift.aggression,
+          brotherAggression(brothersCfg!, brothersRef.current, slot) + modeSteel.aggression,
         );
       const brotherBlockForSlot = (slot: 'front' | 'rear'): number =>
         clampBoutProfileValue(
-          brotherBlockChance(brothersCfg!, slot) + modeSteel.blockChance + omenShift.blockChance,
+          brotherBlockChance(brothersCfg!, slot) + modeSteel.blockChance,
         );
       // ── C-8.70C Slice C-D — THE BOSS'S PHASE-2 PROFILE (Ignis) ───────────
       // In Phase 2 a `phase_weapon_switch` boss chooses with the row its phase
@@ -3213,14 +3200,13 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       const phaseProfile =
         bossPhaseProfileFor(opponent, opp.health, opp.stats.healthMax, boutMode) ??
         bossSecondRisingProfileFor(opponent, risenRef.current, boutMode);
-      // PITCH A1 — a phase-2 profile is composed with the mode's delta already; the
-      // ill omen's shift is added on top of whichever base is chosen, so it hardens
-      // the bout the player actually meets.
+      // A phase-2 profile is composed with the mode's delta already; it is the
+      // base the bout is actually fought on.
       const baseAggression = phaseProfile
-        ? clampBoutProfileValue(phaseProfile.aggression + omenShift.aggression)
+        ? clampBoutProfileValue(phaseProfile.aggression)
         : boutProfile.aggression;
       const baseBlockChance = phaseProfile
-        ? clampBoutProfileValue(phaseProfile.blockChance + omenShift.blockChance)
+        ? clampBoutProfileValue(phaseProfile.blockChance)
         : boutProfile.blockChance;
       let aiAggression =
         brothersCfg && brothersSlotActor
@@ -3428,7 +3414,6 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     longMemoryCfg,
     longMemoryBase,
     boutProfile,
-    omenShift,
     boutMode,
   ]);
 

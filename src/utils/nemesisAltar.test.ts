@@ -2,21 +2,21 @@
  * NEMESIS-1 — THE ALTAR OF NEMESIS: the shrine's second altar, pinned.
  *
  * The slice is CONTENT ONLY, and this suite proves exactly that:
- *   §A  the altar is inside A1's shrine panel, BELOW the offering and the
- *       decline, and its three pieces of copy are the Director's, verbatim;
- *   §B  the one reactive beat is gated on the LIVE omen's kind — ill shows it,
- *       kind and no-omen do not — and the gate is the shipped expression, driven;
- *   §C  it adds no control, no price and no roll (three buttons before and after,
+ *   §A  the altar is inside A1's shrine panel, BELOW the alms, and its two
+ *       pieces of copy are the Director's, verbatim;
+ *   §B  BET-1 — the one reactive beat is GONE with the Omen: no live-omen gate,
+ *       no ill-omen line, and the altar is unconditional content;
+ *   §C  it adds no control, no price and no roll (two buttons before and after,
  *       none in the altar, no purse arithmetic anywhere in it);
  *   §D  the things the slice is FORBIDDEN to touch are untouched: no new profile
- *       field, OMEN_PRICE and the 50/50 draw exactly as A1 shipped them, and the
- *       keeper registry / greeting lines carry none of this copy.
+ *       field, the alms price exactly as BET-1 ships it, and the keeper registry /
+ *       greeting lines carry none of this copy.
  *
  * Run with: `bun test src/utils/nemesisAltar.test.ts`
  */
 // @ts-ignore — bun:test is available at runtime via bun test
 import { describe, test, expect } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KEEPERS, getKeeper } from '../data/keepers';
@@ -30,7 +30,7 @@ const code = (relPath: string): string =>
     .replace(/^[ \t]*\/\/.*$/gm, '');
 
 const CITY = 'components/3d/city/CityHubScene.tsx';
-const OMENS = 'utils/omens.ts';
+const CALENDAR = 'utils/ludiCalendar.ts';
 const TYPES = 'types/game.ts';
 const KEEPERS_SRC = 'data/keepers.ts';
 
@@ -55,21 +55,18 @@ const INSCRIPTION =
   'NEMESIS — who weighs the sand. Fortuna gives what she gives. Nemesis gives what is deserved.';
 const POSTUMIA_QUOTE =
   'Nemesis keeps the other altar. She takes no gold and gives no words — she only watches, and her scales never lie.';
-const ILL_BEAT =
-  'Nemesis has weighed you and found you wanting. Win anyway, and the scales tip back.';
 
-describe('NEMESIS-1 §A the altar is inside the shrine panel, below the offering', () => {
+describe('NEMESIS-1 §A the altar is inside the shrine panel, below the alms', () => {
   test('the panel carries the altar and its heading', () => {
     const panel = shrinePanel(code(CITY));
     expect(panel).toContain('data-nemesis-altar');
     expect(panel).toContain('Altar of Nemesis');
   });
 
-  test('the inscription, Postumia’s words and the ill beat are the Director’s, verbatim', () => {
+  test('the inscription and Postumia’s words are the Director’s, verbatim', () => {
     const altar = altarPanel(shrinePanel(code(CITY)));
     expect(altar).toContain(INSCRIPTION);
     expect(altar).toContain(POSTUMIA_QUOTE);
-    expect(altar).toContain(ILL_BEAT);
   });
 
   test('Postumia is named as the speaker of the quote, in the panel', () => {
@@ -80,73 +77,46 @@ describe('NEMESIS-1 §A the altar is inside the shrine panel, below the offering
     expect(altar.slice(quoteAt)).toContain('— Postumia');
   });
 
-  test('it sits BELOW the offering and the decline — A1’s flow is not disturbed', () => {
+  test('it sits BELOW the alms — BET-1’s flow is not disturbed', () => {
     const panel = shrinePanel(code(CITY));
-    const decline = panel.indexOf('data-decline-omen');
+    const alms = panel.indexOf('data-leave-alms');
     const altar = panel.indexOf('data-nemesis-altar');
-    expect(decline).toBeGreaterThanOrEqual(0);
-    expect(altar).toBeGreaterThan(decline);
-    // And A1's own copy is still exactly where it was.
-    expect(panel).toContain('Offer {OMEN_PRICE}g for an omen');
-    expect(panel).toContain('Decline — trust your own arm');
+    expect(alms).toBeGreaterThanOrEqual(0);
+    expect(altar).toBeGreaterThan(alms);
+    // And BET-1's own copy is still exactly where it was.
+    expect(panel).toContain('Leave alms ({SHRINE_ALMS_PRICE}g)');
   });
 
-  test('each of the three pieces appears exactly once in the panel', () => {
+  test('each of the two pieces appears exactly once in the panel', () => {
     const panel = shrinePanel(code(CITY));
-    for (const copy of [INSCRIPTION, POSTUMIA_QUOTE, ILL_BEAT]) {
+    for (const copy of [INSCRIPTION, POSTUMIA_QUOTE]) {
       expect(panel.split(copy).length - 1, copy).toBe(1);
     }
   });
 });
 
-describe('NEMESIS-1 §B the one beat is gated on the live omen’s kind', () => {
-  test('the gate is a live-omen kind test against `ill`, and it wraps the beat', () => {
+describe('NEMESIS-1 §B the reactive beat is gone with the Omen', () => {
+  test('no live-omen gate survives anywhere in the panel', () => {
     const panel = shrinePanel(code(CITY));
-    const gate = panel.match(/\{\s*(liveOmen[^{}]*?)\s*&&\s*\(/);
-    expect(gate, 'the ill-omen conditional is not in the panel').not.toBeNull();
-    const expression = gate![1];
-    expect(expression).toContain('liveOmen');
-    expect(expression).toContain('kind');
-    expect(expression).toContain("'ill'");
-    // The beat lives INSIDE that guard — after it, and the guard closes after it.
-    const gateAt = panel.indexOf(expression);
-    const beatAt = panel.indexOf(ILL_BEAT);
-    expect(beatAt).toBeGreaterThan(gateAt);
-    expect(panel.slice(beatAt)).toContain(')}');
+    for (const gone of ['liveOmen', 'data-nemesis-ill-omen', 'data-shrine-omen', 'omenLine']) {
+      expect(panel, gone).not.toContain(gone);
+    }
+    // The ill beat's own copy is gone with it.
+    expect(panel).not.toContain('Nemesis has weighed you and found you wanting');
+    expect(panel).not.toContain('the scales tip back');
   });
 
-  test('the SHIPPED expression shows it for a live ill omen and hides it otherwise', () => {
+  test('the altar is unconditional content now — no guard wraps it', () => {
     const panel = shrinePanel(code(CITY));
-    const expression = panel.match(/\{\s*(liveOmen[^{}]*?)\s*&&\s*\(/)![1];
-    // Drive the panel's own gate exactly as the renderer would.
-    const shows = (omen: unknown): boolean =>
-      Boolean(
-        // eslint-disable-next-line no-new-func
-        new Function('liveOmen', `return Boolean(${expression});`)(omen),
-      );
-
-    expect(shows({ kind: 'ill', expiresAtBout: 9 })).toBe(true);
-    expect(shows({ kind: 'kind', expiresAtBout: 9 })).toBe(false);
-    expect(shows(null)).toBe(false);
-    expect(shows(undefined)).toBe(false);
+    const altarAt = panel.indexOf('data-nemesis-altar');
+    // The altar's opening div is plain JSX, not a `{condition && (` branch.
+    const before = panel.slice(Math.max(0, altarAt - 400), altarAt);
+    expect(before).not.toMatch(/&&\s*\(\s*$/);
+    // The altar opens as a plain div, not a conditional branch.
+    expect(panel.slice(altarAt - 5, altarAt)).toBe('<div ');
   });
 
-  test('the gate reads the live omen the panel already resolves, and nothing else', () => {
-    const city = code(CITY);
-    expect(city).toContain('const liveOmen = resolveOmen(playerProfile);');
-    const panel = shrinePanel(city);
-    // The same state that prints the omen line and its kind attribute.
-    expect(panel).toContain("data-shrine-omen={liveOmen ? liveOmen.kind : 'none'}");
-    // `liveOmen` is `OmenState | null` — `kind` is only ever 'kind' or 'ill',
-    // which the module's own type and reader declare (read as source, so this
-    // suite stays OUT of the omen module's exact consumer set).
-    const omens = code(OMENS);
-    expect(code(TYPES)).toContain("export type OmenKind = 'kind' | 'ill';");
-    expect(omens).toContain('if (!raw || typeof raw !== \'object\') return null;');
-    expect(omens).toContain("if (kind !== 'kind' && kind !== 'ill') return null;");
-  });
-
-  test('the beat writes nothing and offers no transaction', () => {
+  test('the altar writes nothing and offers no transaction', () => {
     const altar = altarPanel(shrinePanel(code(CITY)));
     for (const forbidden of ['saveProfile', 'localStorage', 'setShrine', 'onRecordKeeperVisit', 'Math.random']) {
       expect(altar, forbidden).not.toContain(forbidden);
@@ -155,16 +125,16 @@ describe('NEMESIS-1 §B the one beat is gated on the live omen’s kind', () => 
 });
 
 describe('NEMESIS-1 §C no control, no price, no roll', () => {
-  test('the panel still has A1’s three buttons, and the altar adds none', () => {
+  test('the panel still has BET-1’s two buttons, and the altar adds none', () => {
     const panel = shrinePanel(code(CITY));
-    expect(panel.match(/<button/g)?.length).toBe(3);
+    expect(panel.match(/<button/g)?.length).toBe(2);
     expect(altarPanel(panel)).not.toContain('<button');
   });
 
   test('the altar carries no purse arithmetic and no second offering', () => {
     const altar = altarPanel(shrinePanel(code(CITY)));
     // `gold` appears only inside Postumia's own words ("She takes no gold").
-    for (const forbidden of ['OMEN_PRICE', 'playerProfile.gold', 'insufficient-gold', 'data-offer-omen', 'data-decline-omen']) {
+    for (const forbidden of ['SHRINE_ALMS_PRICE', 'playerProfile.gold', 'insufficient-gold', 'data-leave-alms']) {
       expect(altar, forbidden).not.toContain(forbidden);
     }
   });
@@ -174,39 +144,31 @@ describe('NEMESIS-1 §D the forbidden changes did not happen', () => {
   test('no new field on the profile type', () => {
     const types = code(TYPES);
     expect(/nemesis/i.test(types)).toBe(false);
-    // The omen field shape A1 published is the only one the altar reads.
+    // The omen fields stay DECLARED (BET-1 leaves them inert so old saves keep
+    // loading and §J stays 29) — the altar reads none of them.
     expect(types).toContain('omen?: OmenState;');
     expect(types).toContain('omenTrickleClaimed?: boolean;');
   });
 
-  test('the omen module knows nothing of Nemesis', () => {
-    expect(/nemesis/i.test(code(OMENS))).toBe(false);
-  });
-
-  test('the price and the 50/50 draw are exactly what A1 shipped', () => {
-    const omens = code(OMENS);
-    // The two constants, read from the module's own declarations.
-    expect(omens).toMatch(/export const OMEN_PRICE = 25;/);
-    expect(omens).toMatch(/export const OMEN_KIND_CHANCE = 0\.5;/);
-    expect(omens).toContain('gold < OMEN_PRICE');
-    expect(omens).toContain('gold: gold - OMEN_PRICE');
-    // The draw: one injected roll, split at the chance constant, both words reachable.
-    expect(omens).toContain(
-      "const kind: OmenKind = Number.isFinite(roll) && roll >= OMEN_KIND_CHANCE ? 'ill' : 'kind';",
-    );
-    // The panel still charges the module's price and nothing of its own.
+  test('the omens module is gone, and the alms price lives in the calendar', () => {
+    expect(existsSync(join(SRC_ROOT, 'utils/omens.ts'))).toBe(false);
+    const calendar = code(CALENDAR);
+    expect(calendar).toMatch(/export const SHRINE_ALMS_PRICE = 25;/);
+    expect(calendar).toContain('canDebitGold(profile.gold, SHRINE_ALMS_PRICE)');
+    expect(calendar).toContain('gold: profile.gold - SHRINE_ALMS_PRICE');
+    // The panel still charges the calendar's price and nothing of its own.
     const panel = shrinePanel(code(CITY));
-    expect(panel).toContain('Offer {OMEN_PRICE}g for an omen');
-    expect(panel.match(/OMEN_PRICE/g)?.length).toBe(2);
+    expect(panel).toContain('Leave alms ({SHRINE_ALMS_PRICE}g)');
+    expect(panel.match(/SHRINE_ALMS_PRICE/g)?.length).toBe(2);
   });
 
   test('no keeper line and no greeting carries the altar’s copy', () => {
     const keepers = code(KEEPERS_SRC);
     expect(/nemesis/i.test(keepers)).toBe(false);
-    for (const copy of [INSCRIPTION, POSTUMIA_QUOTE, ILL_BEAT]) {
+    for (const copy of [INSCRIPTION, POSTUMIA_QUOTE]) {
       expect(keepers, copy).not.toContain(copy);
     }
-    // The registry itself is untoched: twenty keepers, Postumia at her shrine.
+    // The registry itself is untouched: twenty keepers, Postumia at her shrine.
     expect(KEEPERS.length).toBe(20);
     expect(getKeeper('postumia')!.buildingId).toBe('shrine_temple');
     expect(getKeeper('postumia')!.title).toBe('the priestess');

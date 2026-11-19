@@ -15,8 +15,8 @@
  *       in ONE non-recursive pass, with `deedsDone` closing the door on a repeat;
  *   §D  the third deed: one Laurel through the SHARED `records.laudes` counter (never a
  *       second field) and one Favour, with no extra gold and no extra fame;
- *   §E  the alms-day: +1 Favour once per exertion day, at a SUCCESSFUL offering only, with
- *       the Omen's price, effects and expiry untouched;
+ *   §E  the alms-day: +1 Favour once per exertion day, at a SUCCESSFUL offering only — and
+ *       BET-1 made it the shrine's ONLY action, a fixed 25 gold with the chance taken out;
  *   §F  the rollover: the day's own state resets, Favour and the Laurel total persist;
  *   §G  the six saga rows: 10 fame at 7 and 30, 25 at 100, no titles, evaluated at a duel
  *       result by the EXISTING evaluator;
@@ -589,18 +589,29 @@ describe('LUDI E §E — one Favour per alms-day, at a successful offering only'
   });
 
   test('the shrine pays it AFTER the offering is accepted, never on a refusal', () => {
-    const handler = APP.slice(APP.indexOf('const handleOfferOmen'));
+    // BET-1 — the Omen is gone, so the handler is `handleLeaveAlms` and the
+    // transaction is `leaveShrineAlms`: it runs first (it refuses internally),
+    // the refusal guard follows, and the save happens only on success.
+    const handler = APP.slice(APP.indexOf('const handleLeaveAlms'));
     const body = handler.slice(0, handler.indexOf('};') + 2);
+    const alms = body.indexOf('leaveShrineAlms(profile)');
     const refusal = body.indexOf('if (!result.ok) return result;');
-    const alms = body.indexOf('withLudiAlms(result.profile)');
-    expect(refusal).toBeGreaterThan(-1);
-    expect(alms).toBeGreaterThan(refusal);
-    // The price, the effects and the expiry are the omens module's own, untouched.
-    const omens = code('utils/omens.ts');
-    expect(omens).toContain('OMEN_PRICE');
-    expect(omens).not.toContain('ludi');
-    expect(omens).not.toContain('settleLudiDeeds');
-    expect(omens).not.toContain('LUDI_');
+    const save = body.indexOf('saveProfile(result.profile)');
+    expect(alms).toBeGreaterThan(-1);
+    expect(refusal).toBeGreaterThan(alms);
+    expect(save).toBeGreaterThan(refusal);
+    // The price lives in the calendar, the debit precedes the Favour, and the
+    // transaction — not the handler — owns the once-per-day rule.
+    const calendar = code('utils/ludiCalendar.ts');
+    expect(calendar).toContain('SHRINE_ALMS_PRICE = 25');
+    const tx = calendar.slice(calendar.indexOf('export function leaveShrineAlms('));
+    const txBody = tx.slice(0, tx.indexOf('\n}') + 2);
+    const short = txBody.indexOf('canDebitGold(profile.gold, SHRINE_ALMS_PRICE)');
+    const debit = txBody.indexOf('gold: profile.gold - SHRINE_ALMS_PRICE');
+    const favour = txBody.indexOf('withLudiAlms(debited)');
+    expect(short).toBeGreaterThan(-1);
+    expect(debit).toBeGreaterThan(short);
+    expect(favour).toBeGreaterThan(debit);
   });
 });
 

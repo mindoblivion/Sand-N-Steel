@@ -507,7 +507,7 @@ export const HUB_LOCATIONS: InteractiveLocation[] = [
     actionPrompt: 'Visit Forum',
     color: '#d4a373',
     district: 'SOUTH',
-    description: 'The beating heart of the southern district. Citizens gather around the great fountain to share news and toss coins for luck.',
+    description: 'The beating heart of the southern district. Citizens gather around the great fountain to share news.',
 },
 {
     id: 'macellum',

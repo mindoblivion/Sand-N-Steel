@@ -23,8 +23,6 @@ import { HUB_FIRST_OPEN_CARD_ID, getCoachCard, hasSeenCard } from '../../utils/c
 import { Swords, Dumbbell, ShoppingCart, Layers, BarChart2, BookOpen, Compass, Volume2, VolumeX, HelpCircle, RotateCcw, Cloud, Settings, Users } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
 import { resolveDisplayClock } from '../../utils/dayRollover';
-// PITCH A1 — the omen line the pre-fight card prints, read lazily from the save.
-import { resolveOmen } from '../../utils/omens';
 // STORY-3 — Chapter 2's Beat 3: Postumia's briefing on the tournament final, and
 // the legacy-named herald pointer while the Rival Schools challenge is unmet.
 import { FORTUNA_SHRINE_BRIEFING, isFortunaBriefingDue } from '../../utils/storyChapterTwo';
@@ -391,7 +389,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
               setSelectedOpponent(opponent);
             }}
             /* STORY-5b — a legend bout is entered directly: it is an exhibition of an
-               existing row, not a ladder card, and its omen/mercy/ladder bookkeeping
+               existing row, not a ladder card, and its mercy/ladder bookkeeping
                is fenced in `App`. */
             onEnterLegendBout={onEnterLegendBout}
           />
@@ -477,7 +475,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           phase={resolveDisplayClock(playerProfile).phase}
           /* STORY-2 — the novice bout's framing, fresh profiles only.
              STORY-3 — BEAT 3 rides the same surface: Postumia's briefing on the
-             chapter's tournament final, until the omen is taken or declined. */
+             chapter's tournament final, until alms are left at the shrine. */
           narration={
             rivalBoutSelected
               ? RIVAL_SCHOOL_BRIEFING
@@ -489,8 +487,6 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
           }
           /* STORY-2 — the Test prints the rule the player chose (and its reason). */
           restriction={isDoctoreTestOpponent(selectedOpponent) ? testRestriction : null}
-          /* PITCH A1 — Fortuna's word on this bout, if one waits on it. */
-          omen={resolveOmen(playerProfile)}
           onConfirm={(mode) => {
             const opp = selectedOpponent;
             const restriction = isDoctoreTestOpponent(opp) ? testRestriction : null;

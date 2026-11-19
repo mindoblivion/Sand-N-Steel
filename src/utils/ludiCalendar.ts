@@ -1,4 +1,4 @@
-import { creditGold } from './goldTransactions';
+import { canDebitGold, creditGold } from './goldTransactions';
 /**
  * LUDI PHASE A — THE LUDI CALENDAR: the day's name, the Acta's three deeds, and Favour.
  *
@@ -42,8 +42,9 @@ import { creditGold } from './goldTransactions';
  *     and there is no second Laurel field anywhere: a second counter would be a second truth.
  *
  *   • FAVOUR is the persistent daily currency of the Acta's other half: **+1 per alms-day**,
- *     taken at `handleOfferOmen`'s SUCCESS only (`withLudiAlms`), guarded so the shrine pays
- *     it once per exertion day. The Omen's price, its effects and its expiry are untouched.
+ *     taken at `handleLeaveAlms`'s SUCCESS only (`leaveShrineAlms`), guarded so the shrine pays
+ *     it once per exertion day. A refusal pays nothing, and the alms are a fixed price —
+ *     never a chance outcome.
  *
  *   • THE ROLLOVER resets the day's own state and keeps the rest: `applyLudiRollover` clears
  *     `deedsDone` / `fameBaseline` / `visitsToday` (to an empty list) and re-bases the fame
@@ -143,7 +144,7 @@ export const LUDI_ALMS_FAVOUR = 1;
 export const LUDI_DAY_CHARACTER: readonly string[] = [
   /* 0 Dies Mercatus */ 'The stalls are loud and the purse is loose: a day for coin and talk.',
   /* 1 Dies Ferratus */ "The forges ring from first light: a day for steel and hard work.",
-  /* 2 Dies Fortunae */ "Fortuna's smoke is in the street: a day for the shrine and the omen.",
+  /* 2 Dies Fortunae */ "Fortuna's smoke is in the street: a day for the shrine and the alms.",
   /* 3 Dies Equorum */ 'The Circus is saddling: a day for horses and the dust of the track.',
   /* 4 Dies Sanguinis */ 'The sand is raked and the crowd is early: a day for blood.',
   /* 5 Ludi Magni */ 'Banners on every corner: a day of games and great names.',
@@ -592,13 +593,13 @@ export function settleLudiDeeds(
 /* ── The shrine's alms ───────────────────────────────────────────────────── */
 
 /**
- * THE ALMS-DAY — one Favour, once per exertion day, at the shrine's SUCCESSFUL offering.
+ * THE ALMS-DAY — one Favour, once per exertion day, at the shrine's SUCCESSFUL alms.
  *
- * Called from `handleOfferOmen` after `offerOmen` has already accepted the offering, and
- * that is deliberate: a refusal (an omen already taken, too little gold) pays nothing, so
- * the favour is a reward for the alms and never for a click. `lastAlmsDay` is the whole
- * guard — the same day again returns the SAME profile object, so the caller's save is
- * skipped. The Omen's own price, effects and expiry are untouched by this function.
+ * Called from `handleLeaveAlms` after `leaveShrineAlms` has already accepted the
+ * offering, and that is deliberate: a refusal (already given today, too little
+ * gold) pays nothing, so the favour is a reward for the alms and never for a
+ * click. `lastAlmsDay` is the whole guard — the same day again returns the SAME
+ * profile object, so the caller's save is skipped.
  */
 export function withLudiAlms(profile: PlayerProfile | null | undefined): PlayerProfile {
   if (!profile) return profile as unknown as PlayerProfile;
@@ -615,6 +616,59 @@ export function withLudiAlms(profile: PlayerProfile | null | undefined): PlayerP
       lastAlmsDay: day,
     },
   };
+}
+
+/* ── The shrine's alms ───────────────────────────────────────────────────── */
+
+/**
+ * BET-1 — the shrine's one action after the Omen is cut: LEAVE ALMS. A fixed
+ * 25 gold buys one Favour, once per exertion day — deterministic, no draw, no
+ * kind or ill, no bout effect. The price is the Omen's old price on purpose:
+ * the shrine's ritual keeps its shape (go to the shrine, leave the coin) with
+ * the chance taken out of it.
+ *
+ * Pure, and it re-checks its own rules: a purse under the price refuses before
+ * any arithmetic, and a second alms on the same day refuses without debiting —
+ * so a refusal returns no profile and never reaches `saveProfile`.
+ */
+export const SHRINE_ALMS_PRICE = 25;
+
+export type ShrineAlmsRejectionReason = 'insufficient-gold' | 'already-given-today' | 'invalid-profile';
+
+/**
+ * `ok: true` carries the NEW profile and the Favour the alms paid; a refusal
+ * carries no profile at all, so a refused alms can never reach `saveProfile`.
+ */
+export type ShrineAlmsOutcome =
+  | { ok: true; profile: PlayerProfile; favourEarned: number }
+  | { ok: false; reason: ShrineAlmsRejectionReason };
+
+export function leaveShrineAlms(
+  profile: PlayerProfile | null | undefined,
+): ShrineAlmsOutcome {
+  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
+    return { ok: false, reason: 'invalid-profile' };
+  }
+  const day = resolveLudiDay(profile);
+  if (resolveLudiProgress(profile).lastAlmsDay === day) {
+    return { ok: false, reason: 'already-given-today' };
+  }
+  if (!canDebitGold(profile.gold, SHRINE_ALMS_PRICE)) {
+    return { ok: false, reason: 'insufficient-gold' };
+  }
+  const debited: PlayerProfile = { ...profile, gold: profile.gold - SHRINE_ALMS_PRICE };
+  const next = withLudiAlms(debited);
+  return { ok: true, profile: next, favourEarned: LUDI_ALMS_FAVOUR };
+}
+
+/** What the shrine panel says once the alms are left. */
+export function almsResultLine(outcome: ShrineAlmsOutcome): string {
+  if (!outcome.ok) {
+    return outcome.reason === 'already-given-today'
+      ? 'You have already left alms today — Fortuna keeps the count, and it is kept.'
+      : 'Not enough gold for the alms.';
+  }
+  return `You leave ${SHRINE_ALMS_PRICE} gold at Fortuna's feet. +${outcome.favourEarned} Favour.`;
 }
 
 /* ── The rollover ─────────────────────────────────────────────────────────── */

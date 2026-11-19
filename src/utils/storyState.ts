@@ -12,7 +12,7 @@
  *   • A gate whose owning system has not landed is `'pending'`, not `'unmet'`: its
  *     evidence cannot exist yet, so the card says so instead of telling the
  *     player they are behind (the design's graceful-degradation rule).  No gate
- *     reads evidence that does not exist: the race, omen and story-beat gates all
+ *     reads evidence that does not exist: the race and story-beat gates all
  *     resolve as pending until the slice that writes their evidence lands.
  *   • A chapter is closed when every gate whose evidence CAN exist is met, so a
  *     profile whose record already passes a chapter's available gates resolves
@@ -36,10 +36,11 @@
  * adds no profile field at all).  Chapter 2's two gates and Beat 3 are derived
  * from the record the save already carries:
  *   • BEAT 3 (Fortuna's Coin) completes on STATE, never on a stored beat flag:
- *     a live omen (`profile.omen`) OR the once-ever decline marker
- *     (`profile.omenTrickleClaimed`).  A decline leaves NO omen field behind, so
- *     the marker is the only record of it; the shrine panel carries no chapter
- *     gate, so a shrine visit made BEFORE Chapter 2 opened counts the same.
+ *     alms left at the shrine at least once (`profile.ludi.lastAlmsDay` set —
+ *     BET-1 re-gated the beat off the cut Omen and onto the alms, which keep
+ *     the pre-fight ritual stop with no chance involved).  A shrine visit made
+ *     BEFORE Chapter 2 opened counts the same, and a save that took an omen
+ *     before the cut already carries the alms day its offering paid for.
  *   • the DUEL gate is the Tier-1 boss in `defeatedOpponentIds`.
  *   • the Rival Schools gate is an earned bout result, written only after a valid
  *     rival victory has settled its rewards. It replaces the former District race
@@ -49,7 +50,7 @@
 import { PlayerProfile, StoryProgress } from '../types/game';
 import { ALL_OPPONENTS } from '../data/opponents';
 import { DOCTORE_TEST_OPPONENT_ID } from './storyBeats';
-import { isTrickleClaimed, resolveOmen } from './omens';
+import { resolveLudiProgress } from './ludiCalendar';
 import { isRivalSchoolChallengeWon } from './rivalSchools';
 import { GladiatorRank, rankAtLeast, deriveRank } from './rank';
 
@@ -57,7 +58,7 @@ import { GladiatorRank, rankAtLeast, deriveRank } from './rank';
 export type StoryGateState = 'met' | 'unmet' | 'pending';
 
 /** The kinds of gate whose owning system has not landed yet. */
-export type StoryPendingKind = 'race' | 'omen' | 'beat';
+export type StoryPendingKind = 'race' | 'beat';
 
 /** The ids every gate is addressed by; stable, so the card and tests can name one. */
 export type StoryGateId =
@@ -67,7 +68,7 @@ export type StoryGateId =
   | 'tier-1-boss'
   | 'district-race'
   | 'rival-schools-first'
-  | 'omen'
+  | 'alms'
   | 'rank-veteran'
   | 'tier-2-boss'
   | 'district-final'
@@ -109,7 +110,6 @@ export interface StoryGate {
 
 export const PENDING_GATE_LINES: Record<StoryPendingKind, string> = {
   race: 'The Circus has not opened its books yet.',
-  omen: 'The omens have not been read yet.',
   beat: 'That hour has not been written yet.',
 };
 
@@ -214,8 +214,8 @@ interface StoryEvidence {
   rank: GladiatorRank;
   /** The ids of the bosses who have fallen. */
   defeatedIds: string[];
-  /** STORY-3 — Beat 3's state: a live omen or the once-ever decline marker. */
-  omenTaken: boolean;
+  /** STORY-3 — Beat 3's state: alms left at the shrine at least once (BET-1). */
+  almsGiven: boolean;
   /** Rival Schools — only an accepted victory settles this campaign evidence. */
   rivalSchoolsWon: boolean;
   flags: ResolvedStoryFlags;
@@ -367,13 +367,13 @@ const CHAPTER_GATES: readonly (readonly GateDefinition[])[] = [
       met: (evidence) => evidence.rivalSchoolsWon,
     },
     {
-      id: 'omen',
-      requirement: 'Face the reading of the omen',
-      confirmation: 'The omen has been read.',
-      // STORY-3 — Director ruling 1: Beat 3 is STATE-BASED.  A live omen taken at
-      // Postumia's shrine, or the once-ever decline marker, completes it; there is
-      // no stored beat flag, and a pre-chapter shrine visit counts identically.
-      met: (evidence) => evidence.omenTaken,
+      id: 'alms',
+      requirement: 'Leave alms at the Shrine of Fortuna',
+      confirmation: 'Alms have been left at the shrine.',
+      // STORY-3 — Director ruling 1, BET-1 re-gated: Beat 3 is STATE-BASED.
+      // Alms left at Postumia's shrine complete it; there is no stored beat
+      // flag, and a pre-chapter shrine visit counts identically.
+      met: (evidence) => evidence.almsGiven,
     },
   ],
   // 3 — The Name in the Records: Veteran, Ignis, the District final (pending), the Library.
@@ -487,7 +487,7 @@ function readEvidence(profile: PlayerProfile | null | undefined): StoryEvidence 
     defeatedIds: Array.isArray(defeated)
       ? defeated.filter((id): id is string => typeof id === 'string')
       : [],
-    omenTaken: isFortunaOmenTaken(profile),
+    almsGiven: hasLeftShrineAlms(profile),
     rivalSchoolsWon: isRivalSchoolChallengeWon(profile),
     flags: resolveFlags(profile),
   };
@@ -560,14 +560,14 @@ export const STORY_CHAPTER_FORTUNA = 2;
 /**
  * STORY-3 — BEAT 3 (Fortuna's Coin) as STATE, never as a stored flag.
  *
- * The beat is complete when the profile carries Fortuna's word (a live `omen`)
- * or the once-ever decline marker (`omenTrickleClaimed`): the shrine offers both
- * answers, and a decline leaves no omen field behind, so the marker is the only
- * record of it.  Both are read lazily through the omen module, so a malformed
- * field resolves as "not taken" rather than throwing.
+ * The beat is complete when the profile has left alms at the shrine at least
+ * once: `ludi.lastAlmsDay` is set (the exertion day is 1-based, so a resolved
+ * 0 means never, and the rollover keeps the day — an alms left on any day
+ * counts forever).  A save that took an omen before the BET-1 cut already
+ * carries the alms day its offering paid for, so the beat survives the cut.
  */
-export function isFortunaOmenTaken(profile: PlayerProfile | null | undefined): boolean {
-  return resolveOmen(profile) !== null || isTrickleClaimed(profile);
+export function hasLeftShrineAlms(profile: PlayerProfile | null | undefined): boolean {
+  return resolveLudiProgress(profile).lastAlmsDay > 0;
 }
 
 /**
