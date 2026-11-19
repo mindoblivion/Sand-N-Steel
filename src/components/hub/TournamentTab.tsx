@@ -25,6 +25,7 @@ import { rivalSchoolChallengeState, resolveRivalryProgress } from '../../utils/r
 import { resolveStoryState } from '../../utils/storyState';
 import { TRIAL_OF_ENDURANCE_OPPONENTS } from '../../data/trialOfEndurance';
 import { resolveTrialOfEndurance, trialOfEnduranceOpponentFor } from '../../utils/trialOfEndurance';
+import { resolveBracketProgress } from '../../utils/bracket';
 
 /** How the opponents' own weapon types read on a rumour card. Display only. */
 const WEAPON_LABELS: Record<OpponentConfig['weaponType'], string> = {
@@ -90,6 +91,11 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({
     (o) => o.tier === profile.currentTier && o.featureBout !== true && o.bountyBout !== true
   );
   const featureBouts = featureBoutStatuses(profile);
+  // BRACKET-1 — the tournament bracket, resolved once for the whole section.
+  // The expanded wave starts on the current wave; a tap collapses it again.
+  const bracket = resolveBracketProgress(profile);
+  const currentWave = bracket.waves.find((wave) => wave.wave === bracket.currentWave) ?? bracket.waves[0];
+  const [expandedWave, setExpandedWave] = React.useState<number | null>(bracket.currentWave);
   // C-8.70C — a rival's grudge appears in the tier it was earned (his own tier +
   // 1) and only while the player is fighting in that tier. A settled grudge is
   // never offered again; a closed one is listed so the player can see why not.
@@ -186,6 +192,253 @@ export const TournamentTab: React.FC<TournamentTabProps> = ({
               {index + 1}. {opponent.name}
             </span>
           ))}
+        </div>
+      </section>
+
+      {/* BRACKET-1 — THE TOURNAMENT BRACKET. Eight display waves over the
+          shipped ladder: a tier's regulars, or one boss, in climb order — the
+          bracket doc's wave names over the shipped rungs. Display only: no
+          tier, purse or gate moves here. A wave is complete when every rung's
+          id is in `defeatedOpponentIds`; the current wave is the first
+          incomplete one. Wave cards navigate to the same `onSelectOpponent`
+          as the opponent cards — no second fight path — and only a rung the
+          tab itself would offer (its tier, its level) gets a fight button.
+          Wave 8's cards are the two epilogue champions, Scaevola first; his
+          card line is the telegraph for the rise, so it is printed, and the
+          bracket does not re-explain the mechanic. */}
+      <section
+        data-tournament-bracket
+        className="rounded-3xl border-2 border-amber-600/60 bg-gradient-to-br from-amber-950/70 via-neutral-900 to-neutral-950 p-5 shadow-xl"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <span className="text-xs font-serif font-bold uppercase tracking-widest text-amber-300">
+            Tournament Bracket
+          </span>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-amber-100">
+            Wave {bracket.currentWave} of 8
+          </span>
+        </div>
+        <h3 className="font-serif font-black text-xl text-amber-100 mb-1">
+          Wave {bracket.currentWave} — {currentWave?.name}
+        </h3>
+        <p className="text-sm text-neutral-300 font-serif italic mb-4">
+          Eight waves, one climb. Beat every rung to clear a wave; a boss opens the next tier. A loss costs the bout and the injury — never the climb.
+        </p>
+        <div className="flex flex-col gap-3">
+          {bracket.waves.map((wave) => {
+            const unbeatenCards = wave.cards.filter(
+              (row) => !profile.defeatedOpponentIds.includes(row.id)
+            );
+            const nextRow = unbeatenCards[0];
+            const unbeatenPurseGold = unbeatenCards.reduce((sum, row) => sum + row.rewardGold, 0);
+            const unbeatenPurseFame = unbeatenCards.reduce((sum, row) => sum + row.rewardFame, 0);
+            return (
+              <div
+                key={wave.wave}
+                data-bracket-wave={wave.wave}
+                data-bracket-wave-current={wave.current ? 'true' : 'false'}
+                className={`rounded-2xl border-2 p-3 shadow-lg ${
+                  wave.current
+                    ? 'border-amber-500/80 bg-gradient-to-br from-amber-950/70 to-neutral-900/90'
+                    : wave.complete
+                      ? 'border-emerald-700/50 bg-neutral-900/80'
+                      : 'border-neutral-700/60 bg-neutral-900/80'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setExpandedWave(expandedWave === wave.wave ? null : wave.wave)}
+                  className="w-full min-h-[48px] flex items-center justify-between gap-2 text-left"
+                >
+                  <span className="min-w-0">
+                    <span className="font-serif font-black text-base text-amber-100">
+                      Wave {wave.wave} — {wave.name}
+                    </span>
+                    <span className="block text-[11px] font-mono text-neutral-400 truncate">
+                      {wave.complete ? 'Cleared' : nextRow ? `Next: ${nextRow.name}` : 'Cleared'}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] font-mono text-neutral-400">
+                      {wave.wins}W / {wave.losses}L
+                    </span>
+                    {wave.complete ? (
+                      <span className="flex items-center gap-1 text-[10px] font-mono font-bold uppercase text-emerald-300">
+                        <CheckCircle className="w-4 h-4" />
+                        Complete
+                      </span>
+                    ) : wave.current ? (
+                      <span className="text-[10px] font-mono font-bold uppercase text-amber-300">
+                        Current
+                      </span>
+                    ) : wave.gateText ? (
+                      <span className="flex items-center gap-1 text-[10px] font-mono font-bold uppercase text-neutral-400">
+                        <Lock className="w-4 h-4" />
+                        Locked
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+                {wave.gateText && !wave.complete && (
+                  <p className="text-[11px] font-serif text-amber-200/80 leading-relaxed mt-1">
+                    {wave.gateText}
+                  </p>
+                )}
+                {expandedWave === wave.wave && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    {unbeatenCards.length > 0 && (
+                      <div className="text-[11px] font-mono text-neutral-400">
+                        Unbeaten {wave.wave === 8 ? 'champions pay' : 'rungs pay'}{' '}
+                        {unbeatenPurseGold} Gold · +{unbeatenPurseFame} Fame
+                      </div>
+                    )}
+                    {wave.wave === 8
+                      ? wave.cards.map((card, index) => {
+                          const status = featureBouts.find(
+                            (entry) => entry.opponent.id === card.id
+                          );
+                          const open = status?.open ?? false;
+                          const defeated =
+                            status?.defeated ?? profile.defeatedOpponentIds.includes(card.id);
+                          return (
+                            <div
+                              key={card.id}
+                              data-bracket-epilogue={card.id}
+                              className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${
+                                open
+                                  ? 'border-emerald-600/70 bg-emerald-950/40'
+                                  : 'border-neutral-800 bg-neutral-950/60'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 text-sm font-serif font-bold text-amber-100">
+                                  {defeated && <CheckCircle className="w-4 h-4 shrink-0 text-green-400" />}
+                                  <span className="truncate">{card.name}</span>
+                                </div>
+                                <div className="text-xs text-neutral-400 font-serif italic">
+                                  {card.title}
+                                </div>
+                                {/* The first card's line is the telegraph for the
+                                    rise (brief §4) — printed, not re-explained. */}
+                                {index === 0 && card.cardLine && (
+                                  <p className="text-[11px] font-serif italic text-amber-100/90 leading-relaxed mt-1">
+                                    {card.cardLine}
+                                  </p>
+                                )}
+                                <div className="text-[11px] font-mono text-neutral-400 mt-1">
+                                  LVL {card.recommendedLevel} · {card.rewardGold} Gold · +
+                                  {card.rewardFame} Fame
+                                </div>
+                                {!open && status?.gateText && (
+                                  <p className="text-[11px] font-serif text-amber-200/80 leading-relaxed mt-1">
+                                    {status.gateText}
+                                  </p>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  sounds.playClick();
+                                  onSelectOpponent(card);
+                                }}
+                                disabled={!open}
+                                className={`shrink-0 min-h-[48px] px-4 rounded-xl font-serif font-black text-[11px] sm:text-xs uppercase tracking-wider transition-all active:scale-95 flex items-center gap-2 ${
+                                  !open
+                                    ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                                    : defeated
+                                      ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-600 cursor-pointer'
+                                      : 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white border border-emerald-300 cursor-pointer'
+                                }`}
+                              >
+                                {!open ? (
+                                  <>
+                                    <Lock className="w-4 h-4" />
+                                    <span>Locked</span>
+                                  </>
+                                ) : defeated ? (
+                                  <>
+                                    <CheckCircle className="w-4 h-4 text-green-400" />
+                                    <span>Rematch</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Swords className="w-4 h-4" />
+                                    <span>Enter Duel</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          );
+                        })
+                      : wave.rungs.map((rung) => {
+                          const isDefeated = profile.defeatedOpponentIds.includes(rung.id);
+                          const isCurrentTier = rung.tier === profile.currentTier;
+                          const isLocked = profile.level < rung.recommendedLevel && !isDefeated;
+                          const fightable = isCurrentTier && !isLocked;
+                          return (
+                            <div
+                              key={rung.id}
+                              className="flex items-center justify-between gap-3 rounded-xl border border-neutral-800 bg-neutral-950/60 px-3 py-2"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 text-sm font-serif font-bold text-amber-100">
+                                  {isDefeated && (
+                                    <CheckCircle className="w-4 h-4 shrink-0 text-green-400" />
+                                  )}
+                                  <span className="truncate">{rung.name}</span>
+                                </div>
+                                <div className="text-[11px] font-mono text-neutral-400">
+                                  LVL {rung.recommendedLevel} · {rung.rewardGold} Gold · +
+                                  {rung.rewardFame} Fame
+                                </div>
+                                {isCurrentTier && isLocked && (
+                                  <div className="text-[11px] font-serif text-amber-200/80">
+                                    Locked (Requires LVL {rung.recommendedLevel})
+                                  </div>
+                                )}
+                              </div>
+                              {fightable && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    sounds.playClick();
+                                    onSelectOpponent(rung);
+                                  }}
+                                  className={`shrink-0 min-h-[48px] px-4 rounded-xl font-serif font-black text-[11px] sm:text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer flex items-center gap-2 ${
+                                    isDefeated
+                                      ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-600'
+                                      : rung.isBoss
+                                        ? 'bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white border border-rose-300'
+                                        : 'bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-neutral-950 border border-amber-200'
+                                  }`}
+                                >
+                                  {isDefeated ? (
+                                    <>
+                                      <CheckCircle className="w-4 h-4 text-green-400" />
+                                      <span>Rematch</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Swords className="w-4 h-4" />
+                                      <span>Enter Duel</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                              {isCurrentTier && isLocked && (
+                                <span className="shrink-0 min-h-[48px] px-4 rounded-xl border border-neutral-700 bg-neutral-800 text-neutral-500 font-serif font-black text-[11px] sm:text-xs uppercase tracking-wider flex items-center gap-2">
+                                  <Lock className="w-4 h-4" />
+                                  <span>Locked</span>
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
 
