@@ -16,7 +16,7 @@ player progress is stored in `localStorage` (`src/services/storage.ts`).
 ## Non-obvious notes
 
 - **No environment variables are required to boot.** The upstream README mentions `GEMINI_API_KEY`,
-  but `@google/genai` is an unused dependency — nothing under `src/` reads it.
+  but `@google/genai` was an unused dependency — removed Nov 19 2026 (nothing under `src/` read it).
 - `firebase-applet-config.json` holds a hardcoded Firebase config used only by the optional Google
   Drive cloud-save (`src/services/googleAuth.ts`, `googleDrive.ts`, `components/hub/GoogleDriveSyncModal.tsx`).
   Google sign-in needs the serving host to be an authorized domain in that Firebase project, so sign-in
