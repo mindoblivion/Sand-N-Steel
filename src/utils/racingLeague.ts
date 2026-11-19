@@ -1,61 +1,10 @@
 import { PlayerProfile, ChariotTeamSize } from '../types/game';
 import { canDebitGold } from './goldTransactions';
 
-export type StableFactionId = 'red_russata' | 'blue_veneta' | 'green_prasina' | 'white_albata';
-
-export interface StableFaction {
-  id: StableFactionId;
-  name: string;
-  color: string;
-  bannerBg: string;
-  motto: string;
-  driverName: string;
-  specialty: string;
-  baseOdds: number; // e.g. 2.5
-}
-
-export const STABLE_FACTIONS: StableFaction[] = [
-  {
-    id: 'red_russata',
-    name: 'Russata (Red Stable)',
-    color: '#ef4444',
-    bannerBg: 'bg-red-950 border-red-600/80 text-red-200',
-    motto: 'Lightning over the Sand',
-    driverName: 'Scorpus of Hispania',
-    specialty: 'High top speed & aggressive whips',
-    baseOdds: 2.2,
-  },
-  {
-    id: 'blue_veneta',
-    name: 'Veneta (Blue Stable)',
-    color: '#3b82f6',
-    bannerBg: 'bg-blue-950 border-blue-600/80 text-blue-200',
-    motto: 'Iron Axles, Unshaken',
-    driverName: 'Diocles of Lusitania',
-    specialty: 'Unbreakable axles & heavy chassis',
-    baseOdds: 3.5,
-  },
-  {
-    id: 'green_prasina',
-    name: 'Prasina (Green Stable)',
-    color: '#22c55e',
-    bannerBg: 'bg-green-950 border-green-600/80 text-green-200',
-    motto: 'Crown of the Emperor',
-    driverName: 'Hierocles the Young',
-    specialty: 'Tight cornering & precision rein control',
-    baseOdds: 1.8,
-  },
-  {
-    id: 'white_albata',
-    name: 'Albata (White Stable)',
-    color: '#f8fafc',
-    bannerBg: 'bg-slate-900 border-slate-400/80 text-slate-200',
-    motto: 'Endurance Untamed',
-    driverName: 'Porphyrius the Old',
-    specialty: 'Relentless horse stamina & long boost recovery',
-    baseOdds: 5.0,
-  },
-];
+// BET-1 — the tavern betting system is cut: the Golden Palm Bookmaker, its
+// faction odds and its wager settlement are removed, not repaired. The four
+// circus factions live on only as race-rival display strings in
+// `raceCompetitors.ts`; nothing here prices a wager any more.
 
 export interface LeagueTier {
   id: number;
@@ -169,82 +118,6 @@ export function purchaseTuningUpgrade(
       ...profile,
       gold: profile.gold - cost,
       racingTuning: updatedTuning,
-    },
-  };
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
- * Tavern Betting System
- * ────────────────────────────────────────────────────────────────────────── */
-
-export interface ActiveBet {
-  factionId: StableFactionId;
-  wagerAmount: number;
-  oddsMultiplier: number;
-  potentialPayout: number;
-}
-
-export interface TavernBetResult {
-  won: boolean;
-  payout: number;
-  factionName: string;
-}
-
-export function placeTavernBet(
-  profile: PlayerProfile | null | undefined,
-  factionId: StableFactionId,
-  wagerAmount: number
-): { ok: true; profile: PlayerProfile } | { ok: false; reason: string } {
-  if (!profile) return { ok: false, reason: 'No active profile.' };
-  if (wagerAmount <= 0) return { ok: false, reason: 'Invalid wager amount.' };
-  if (!canDebitGold(profile.gold, wagerAmount)) {
-    return { ok: false, reason: 'Not enough gold to place this wager.' };
-  }
-
-  const faction = STABLE_FACTIONS.find((f) => f.id === factionId);
-  if (!faction) return { ok: false, reason: 'Unknown stable faction.' };
-
-  const activeBet: ActiveBet = {
-    factionId,
-    wagerAmount,
-    oddsMultiplier: faction.baseOdds,
-    potentialPayout: Math.floor(wagerAmount * faction.baseOdds),
-  };
-
-  return {
-    ok: true,
-    profile: {
-      ...profile,
-      gold: profile.gold - wagerAmount,
-      activeRaceBet: activeBet,
-    },
-  };
-}
-
-export function resolveTavernBet(
-  profile: PlayerProfile,
-  winningFactionId: StableFactionId
-): { profile: PlayerProfile; betResult: TavernBetResult | null } {
-  const bet = profile.activeRaceBet;
-  if (!bet) return { profile, betResult: null };
-
-  const faction = STABLE_FACTIONS.find((f) => f.id === bet.factionId);
-  const factionName = faction ? faction.name : 'Selected Stable';
-  const won = bet.factionId === winningFactionId;
-  const payout = won ? bet.potentialPayout : 0;
-
-  const updatedProfile: PlayerProfile = {
-    ...profile,
-    gold: profile.gold + payout,
-    activeRaceBet: undefined, // Clear processed bet
-  };
-
-  return {
-    profile: updatedProfile,
-    betResult: {
-      won,
-      payout,
-      factionName,
     },
   };
 }
