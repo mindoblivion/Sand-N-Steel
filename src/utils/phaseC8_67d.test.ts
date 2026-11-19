@@ -938,11 +938,15 @@ describe('C-8.67D §H — the module is a plan, and nothing was rendered', () =>
     // Racing now has one deliberate production consumer: RaceHorseTeam reads the measured
     // station plan to place the selected Biga / Triga / Quadra. The plan remains pure and
     // renderer-free; only the consumer renders it. The dev-only fit tooling remains isolated.
+    // LADDER-1A adds a second deliberate production consumer: raceGrid reads only
+    // getTeamWidth — the measured Quadra width (2.94) — to derive grid slot spacing.
+    // raceGrid is pure data too (no rendering, no save writes); the plan stays pure.
     expect(consumers).toEqual([
       'components/3d/RaceHorseTeam.tsx',
       'components/dev/HorseChariotFitPrototype.tsx',
       'utils/chariotWheelFit.ts',
       'utils/horseFitPrototype.ts',
+      'utils/raceGrid.ts',
     ]);
     // The app's own entry points still name it nowhere.
     expect(code('../App.tsx')).not.toContain('chariotTeamFormation');
