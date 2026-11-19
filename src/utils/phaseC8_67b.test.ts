@@ -737,6 +737,10 @@ describe('C-8.67B §D — unlocks are independent of the chariot workshop', () =
       // same read-only `resolveRacingState` read the pre-race panel makes); it
       // buys, selects and writes nothing.
       'utils/codex.ts',
+      // ECON-2 — the League module reads team ownership (`isRacingConfigUnlocked`)
+      // to gate prize payout on owning the tier's team; a read of the racing
+      // state, never a write, and nothing about the racing shape changed.
+      'utils/racingLeague.ts',
       'utils/stableProgression.ts',
       // A8 — the Triumphs evaluator reads the racing state for the Coin capstone
       // ("Buy the Quadra team").  A READ of `resolveRacingState().unlocked`; it

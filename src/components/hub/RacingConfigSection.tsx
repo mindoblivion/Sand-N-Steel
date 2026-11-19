@@ -1,7 +1,8 @@
 import React from 'react';
 import { PlayerProfile, ChariotTeamSize } from '../../types/game';
-import { Coins, Check, Flag, Info, Lock, ShoppingCart } from 'lucide-react';
+import { Coins, Check, Flag, Info, Lock, ShoppingCart, Trophy } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
+import { leagueStandingLine, resolveLeagueStanding } from '../../utils/racingLeague';
 import {
   RACING_CONFIGS,
   RacingConfig,
@@ -67,6 +68,8 @@ export const RacingConfigSection: React.FC<RacingConfigSectionProps> = ({
   onBuyStableConditioning,
 }) => {
   const racing = resolveRacingState(profile);
+  // ECON-2 — the League standing, read-only: points, claimed bonuses, next tier.
+  const leagueStanding = resolveLeagueStanding(profile);
 
   const handleBuy = (config: RacingConfig) => {
     // Re-check against the profile this render was given, so a control left over
@@ -241,6 +244,12 @@ export const RacingConfigSection: React.FC<RacingConfigSectionProps> = ({
           Selecting a team saves it as your preferred setup for the playable Circus race. It does not
           start a race, and it never changes your combat stats or the parts fitted to your chariot.
         </p>
+      </div>
+
+      {/* ECON-2 — the League standing, beside the teams it gates on. Text only. */}
+      <div className="flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3">
+        <Trophy className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+        <p data-racing-league-standing>{leagueStandingLine(leagueStanding)}</p>
       </div>
 
       {/* TEAMS */}

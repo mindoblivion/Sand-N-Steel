@@ -887,6 +887,12 @@ export interface RacingProgression {
   lastPurseDay?: number;
   /** Championship league points accumulated across Roman races. */
   leaguePoints?: number;
+  /**
+   * ECON-2 — League bonus tiers already paid, by tier id. A one-time
+   * milestone record: a tier pays once, when the points threshold is met
+   * and the tier's team is owned. Absent on older saves (nothing claimed).
+   */
+  leaguePrizesClaimed?: number[];
 }
 
 export interface ChariotTuning {
