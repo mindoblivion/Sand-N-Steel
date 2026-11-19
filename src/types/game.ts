@@ -121,7 +121,7 @@ export interface FeatureBoutGate {
   tierReached?: number;
 }
 
-export type CharacterModelType = 'roman_warrior' | 'procedural_gladiator' | 'amazonian' | 'retiarius' | 'minotaur' | 'dimachaerus';
+export type CharacterModelType = 'roman_warrior' | 'procedural_gladiator' | 'amazonian' | 'retiarius' | 'minotaur' | 'dimachaerus' | 'aurelius_champion';
 
 export interface WeaponItem {
   id: string;
