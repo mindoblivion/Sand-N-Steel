@@ -78,6 +78,14 @@ import {
   knockbackPositionZ,
   shouldStaggerHit,
 } from '../../utils/combatStagger';
+// COMBAT-2 — the player Riposte: the pure rules (see `src/utils/combatCounter.ts`),
+// read here where the window is queued, spent and lapsed.
+import {
+  RIPOSTE_READY_TEXT,
+  applyRiposteDamage,
+  isRiposteReady,
+  shouldQueueRiposte,
+} from '../../utils/combatCounter';
 import {
   buildOpponentModifiers,
   buildPlayerModifiers,
@@ -693,6 +701,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     entangledTurns: 0,
     // COMBAT-1 — the stagger counter starts clear, like the entangle's.
     staggeredTurns: 0,
+    // COMBAT-2 — no Riposte window is open at the first bell.
+    riposteReady: false,
   });
 
   // Keep player handedness in sync if changed dynamically
@@ -728,6 +738,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     entangledTurns: 0,
     // COMBAT-1 — the stagger counter starts clear, like the entangle's.
     staggeredTurns: 0,
+    // COMBAT-2 — the AI never holds a Riposte window.
+    riposteReady: false,
     // STORY-4b — Director ruling R5: a LEFT-HANDED opponent (the board's Rung II)
     // is the shipped lefty stance, read from the row's own flag. `GladiatorMesh`
     // falls back to this field for the opponent mesh (it is rendered without an
@@ -1468,6 +1480,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         (actionType === 'quick_attack' || actionType === 'power_attack') &&
         beastRef.current.pose === 'crouch';
 
+      // COMBAT-2 — the Riposte window lapses on any non-attack action: advance,
+      // retreat, rest, taunt, net, block or dodge all let it go with no effect.
+      // An attack spends it instead — captured in section 3, where the blow
+      // resolves. A strike at the beast (section 2e) is a strike at the beast,
+      // not the master, so it neither spends nor lapses the window. Returning
+      // the same reference when the window is already closed lets React bail
+      // out of a re-render, like the stance pre-clear below.
+      if (isActorPlayer && !isAttackAction) {
+        setPlayer((prev) => (prev.riposteReady ? { ...prev, riposteReady: false } : prev));
+      }
+
       // ── D-3 — VARRO'S ANNOUNCED HEAVY RESOLVES ────────────────────────────
       // Read-and-cleared like the markers above. A feint counts HERE, whatever
       // the blow then becomes (a landed hit, a block, a miss, an evade or a
@@ -1927,6 +1950,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // 3. OFFENSIVE ATTACK ACTIONS
       else if (actionType === 'quick_attack' || actionType === 'power_attack') {
         const isQuick = actionType === 'quick_attack';
+        // COMBAT-2 — the Riposte: the player's very next attack after blocking
+        // a power attack. Read here, at the fighter-attack resolution (a
+        // strike at the beast in 2e never reaches this branch), and spent on
+        // exactly this blow — a swing at air spends it too, since the window
+        // is the very next attack, not the very next landed one. The flag is
+        // cleared below, next to the stamina charge, so the banner the panel
+        // reads stays up through the wind-up.
+        const isRiposte = isActorPlayer && isRiposteReady(player.riposteReady);
         // CH-3a weapon stage — the block's staminaCostMult (a POWER-attack
         // discount: secutor 0.85, Heavy Hand 0.90). No multiplier = the base cost.
         const staminaCost = staminaCostWithModifiers(
@@ -1947,6 +1978,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             stamina: dist > effectiveRange
               ? prev.stamina
               : Math.max(0, prev.stamina - staminaCost),
+            // COMBAT-2 — the Riposte is spent on this blow, hit or whiff.
+            ...(isRiposte ? { riposteReady: false } : {}),
           }));
         } else {
           setOpp((prev) => ({
@@ -2006,7 +2039,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // attacker's strike can be evaded. Reading action === 'dodge' here
           // would always be false — the dodger's action is reset to 'idle'
           // before the opposing turn begins.
-          const isEvaded = defender.isInvulnerable && Math.random() < 0.75;
+          // COMBAT-2 — a Riposte cannot be evaded: the stance's 75% roll is
+          // skipped entirely (the draw is not consumed either), and the two
+          // passive paths below are gated the same way.
+          const isEvaded = !isRiposte && defender.isInvulnerable && Math.random() < 0.75;
 
           // ── D-4 — WHAT THE PLAYER ANSWERED THE CROSSING WITH ────────────────
           // Read off the stances the front heavy actually met: the evasion stance
@@ -2026,6 +2062,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           // dodgeChance for a passive evade. Does not stack with
           // the active-dodge evasion above.
           const isPassiveEvaded =
+            !isRiposte &&
             !isEvaded &&
             isActorPlayer &&
             opponent.bossMechanic === 'counter_dodge' &&
@@ -2042,7 +2079,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             ? 0
             : passiveEvadeChance(defenderMods, defender.isInvulnerable);
           const isPalmaEvaded =
-            !isEvaded && palmaEvadeChance > 0 && Math.random() < palmaEvadeChance;
+            !isRiposte && !isEvaded && palmaEvadeChance > 0 && Math.random() < palmaEvadeChance;
 
           if (isEvaded || isPassiveEvaded || isPalmaEvaded) {
             sounds.playDodge();
@@ -2166,18 +2203,24 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               // D-4 — the survivor's Oath: once one brother is down, every blow
               // the remaining one lands carries the pair's +15 %.
               * (brothersCfg && !isActorPlayer ? survivorDamageMult(brothersCfg, brothersRef.current) : 1);
-            const rawDamage = calculateAttackDamage(
-              baseDmg,
-              // D-2 — the pounce's strength is the beast's row value; every other
-              // blow is the weapon-holder's own.
-              isBeastPounce && beastCfg ? beastCfg.strength : attacker.stats.strength,
-              isCrit,
-              defender.stats.defense,
-              isBlocked,
-              blockReduction,
-              rageMult,
-              // COMBAT-1 — the 15 Nov cut: body weight scales no combat damage.
-              traitMult,
+            // COMBAT-2 — a Riposte multiplies the resolved damage by 1.5: the
+            // punish is the point, and the multiplier rides the final number
+            // (after block mitigation), never the formula's inputs.
+            const rawDamage = applyRiposteDamage(
+              calculateAttackDamage(
+                baseDmg,
+                // D-2 — the pounce's strength is the beast's row value; every other
+                // blow is the weapon-holder's own.
+                isBeastPounce && beastCfg ? beastCfg.strength : attacker.stats.strength,
+                isCrit,
+                defender.stats.defense,
+                isBlocked,
+                blockReduction,
+                rageMult,
+                // COMBAT-1 — the 15 Nov cut: body weight scales no combat damage.
+                traitMult,
+              ),
+              isRiposte,
             );
 
             // CF-5 — the same subtraction the damage branch below applies, read
@@ -2224,6 +2267,23 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
               if (isActorPlayer) notePlayerStrike('blocked');
+              // COMBAT-2 — the Riposte queue: the player blocked a power attack,
+              // so their very next attack is a Riposte (+50%, cannot be evaded).
+              // A blocked quick attack queues nothing (the safe poke is not
+              // punishable); a dodged or missed power never reaches this branch;
+              // a killing blow queues nothing — the fight is over.
+              if (
+                shouldQueueRiposte({
+                  defenderIsPlayer: !isActorPlayer,
+                  isBlocked,
+                  isQuick,
+                }) &&
+                !fightEnded
+              ) {
+                setPlayer((prev) => ({ ...prev, riposteReady: true }));
+                addLog(`${defender.name} turns the blow aside — ${RIPOSTE_READY_TEXT}`, 'player');
+                spawnDamageText(RIPOSTE_READY_TEXT, 'crit', defender.position);
+              }
               // CF-4 — a shield stops the blow: sparks, no dust.
               impactParticlesRef.current?.burst('spark', impactPoint, impactDir);
             } else {
@@ -2232,14 +2292,22 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                 // CF-3 — a critical blow is the crowd's cue, whoever landed it.
                 sounds.playCrowdSwell();
                 addLog(`CRITICAL BLOW! ${attackerLabel} struck ${defender.name} for ${rawDamage} DAMAGE!`, 'crit');
-                spawnDamageText(`-${rawDamage} CRIT!`, 'crit', defender.position);
+                // COMBAT-2 — a riposte crit names itself in the damage text.
+                spawnDamageText(isRiposte ? `-${rawDamage} RIPOSTE CRIT!` : `-${rawDamage} CRIT!`, 'crit', defender.position);
                 // CF-4 — a crit gets the larger spark burst plus the gold flakes,
                 // in place of the plain sand dust.
                 impactParticlesRef.current?.burst('crit', impactPoint, impactDir);
               } else {
                 sounds.playSlash();
-                addLog(`${attackerLabel} struck ${defender.name} for ${rawDamage} damage.`, isActorPlayer ? 'player' : 'opponent');
-                spawnDamageText(`-${rawDamage}`, 'damage', defender.position);
+                // COMBAT-2 — a landed Riposte names itself in the log and the
+                // damage text, so the punish reads as its own beat.
+                addLog(
+                  isRiposte
+                    ? `RIPOSTE! ${attackerLabel} struck ${defender.name} for ${rawDamage} damage!`
+                    : `${attackerLabel} struck ${defender.name} for ${rawDamage} damage.`,
+                  isActorPlayer ? 'player' : 'opponent',
+                );
+                spawnDamageText(isRiposte ? `-${rawDamage} RIPOSTE!` : `-${rawDamage}`, 'damage', defender.position);
                 // CF-4 — an unblocked, non-crit hit kicks up sand.
                 impactParticlesRef.current?.burst('sand', impactPoint, impactDir);
               }
