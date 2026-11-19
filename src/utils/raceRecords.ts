@@ -1,6 +1,5 @@
 import type { ChariotTeamSize, PlayerProfile, RacingProgression } from '../types/game';
 import { creditGold } from './goldTransactions';
-import { resolveTavernBet } from './racingLeague';
 
 export const MAX_RECORDED_RACE_TIME_MS = 86_400_000;
 
@@ -120,13 +119,9 @@ export function settleRaceCompletion(
     ...(alreadyPaidToday ? {} : { lastPurseDay: day }),
   };
 
-  // Resolve tavern bet if present
-  let finalProfile: PlayerProfile = { ...best.profile, gold: nextGold, racing: nextRacing };
-  if (finalProfile.activeRaceBet) {
-    const winningFactionId = outcome === 'victory' ? 'green_prasina' : 'red_russata';
-    const betRes = resolveTavernBet(finalProfile, winningFactionId);
-    finalProfile = betRes.profile;
-  }
+  // BET-1 — the tavern bet is cut, so no settlement reads it: a stale
+  // `activeRaceBet` on an old save simply sits unread (see `raceRecords.test.ts`).
+  const finalProfile: PlayerProfile = { ...best.profile, gold: nextGold, racing: nextRacing };
 
   return {
     ok: true,
