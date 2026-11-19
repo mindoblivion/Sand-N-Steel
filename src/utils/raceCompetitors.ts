@@ -129,6 +129,16 @@ const SPURIUS_PRASINA: RaceCompetitor = Object.freeze({
 /** The two ladder rungs. 1E's raceTiers.ts owns the full tier config; this is only the pool key. */
 export type RaceRungId = 'district' | 'league';
 
+/**
+ * LADDER-1B — normalize a rung id. Only 'league' is the League; anything
+ * else — an unknown string, a missing prop, a stale value — fails closed to
+ * the District, the always-open rung, never a locked one. resolveRungField
+ * below is the single consumer of this rule for the field itself.
+ */
+export function resolveRaceRungId(rung: unknown): RaceRungId {
+  return rung === 'league' ? 'league' : 'district';
+}
+
 /** Rivals per field, excluding the player: District is player + 2, League player + 4. */
 export const RUNG_FIELD_SIZE: Readonly<Record<RaceRungId, number>> = {
   district: 2,
@@ -157,7 +167,8 @@ export const LEAGUE_POOL: readonly RaceCompetitor[] = Object.freeze([
  * rung, never a locked one.
  */
 export function resolveRungField(rung: unknown): readonly RaceCompetitor[] {
-  const pool = rung === 'league' ? LEAGUE_POOL : ROOKIE_POOL;
-  const count = rung === 'league' ? RUNG_FIELD_SIZE.league : RUNG_FIELD_SIZE.district;
+  const rungId = resolveRaceRungId(rung);
+  const pool = rungId === 'league' ? LEAGUE_POOL : ROOKIE_POOL;
+  const count = RUNG_FIELD_SIZE[rungId];
   return pool.slice(0, count);
 }
