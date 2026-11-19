@@ -137,8 +137,8 @@ describe('D-3 §A — the fence: only a boss feature bout tells a lie', () => {
       if (opponent.id === 'opp_varro_boss') continue;
       expect(falseTelegraphConfigFor(opponent), opponent.id).toBeNull();
     }
-    // The other four feature bouts keep their own mechanics untouched.
-    expect(FEATURE_BOUT_OPPONENTS).toHaveLength(5);
+    // The other five feature bouts keep their own mechanics untouched.
+    expect(FEATURE_BOUT_OPPONENTS).toHaveLength(6);
   });
 });
 
