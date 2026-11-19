@@ -540,7 +540,11 @@ describe('CF-6 §C — the telegraph glow', () => {
     // (the Cotta pair's Crossing has its own), so the standard line is asserted
     // as the ternary's other arm and the crossing line as a module constant —
     // exactly one standard banner and one crossing banner exist.
-    expect(DUEL_SCENE.match(/'HEAVY ATTACK INCOMING'/g) ?? []).toHaveLength(1);
+    // COMBAT-5 rebased the count, not weakened it: the scene now READS the
+    // banner text once more — the Sidestep button's enablement, which must
+    // tell a real heavy from the counter wind-up and the beast crouch — but
+    // the announce site below is still the ONLY writer of it.
+    expect(DUEL_SCENE.match(/'HEAVY ATTACK INCOMING'/g) ?? []).toHaveLength(2);
     expect(DUEL_SCENE).toContain("telegraphText: brothersCfg ? CROSSING_TELEGRAPH_WORDS : 'HEAVY ATTACK INCOMING'");
     // The emissive mode falls back to resting (0) the moment the prop is false.
     expect(GLADIATOR_MESH).toContain('const emissiveMode = isHit ? 2 : isTelegraphing ? 1 : 0;');
@@ -714,7 +718,12 @@ describe('CF-6 §F — mechanics, rates and timing unchanged', () => {
     expect(DUEL_SCENE).toContain('quick: 0.25,');
     expect(DUEL_SCENE).toContain('power: 0.45,');
     expect(DUEL_SCENE).toContain('crit: 0.7,');
-    expect(DUEL_SCENE).toContain('playerHit: 0.2,');
+    // COMBAT-5 — the flat received value is gone: a blow the player takes now
+    // scales through `receivedShakeTrauma` (blocked 0.10, telegraphed heavy
+    // 0.85, crit 0.70, quick 0.25, power 0.45 — pinned in combatShake.test.ts),
+    // and the attacker-side table above is unchanged.
+    expect(DUEL_SCENE).not.toContain('playerHit');
+    expect(DUEL_SCENE).toContain('receivedShakeTrauma({ isBlocked, isTelegraphedHeavy, isCrit, isQuick })');
     expect(DUEL_SCENE).toContain('const CAMERA_SHAKE_TRAUMA_DECAY = 1.6;');
   });
 

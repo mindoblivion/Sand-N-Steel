@@ -6,6 +6,7 @@ import {
   Zap,
   Wind,
   Footprints,
+  MoveHorizontal,
   Flame,
   BatteryCharging,
   Sparkles,
@@ -67,6 +68,11 @@ export type CombatActionType =
   | 'dodge'
   | 'advance'
   | 'retreat'
+  // COMBAT-5 — the sidestep: one lateral move off the line of a telegraphed
+  // heavy. A utility action on the shared 800 ms beat, never an attack — it
+  // lapses the Riposte window like any other non-attack action and spends
+  // nothing. Player-only: the AI never dispatches it.
+  | 'sidestep'
   | 'taunt'
   | 'rest'
   | 'telegraph'
@@ -110,6 +116,15 @@ interface TurnActionPanelProps {
   playerWeightImpactMultiplier?: number;
   playerWeightStaminaMultiplier?: number;
   opponentIsBoss?: boolean;
+  /**
+   * COMBAT-5 — a REAL heavy telegraph is live right now: the opponent
+   * announced a heavy (or the Cotta Crossing), and the player has this turn
+   * to answer it. The scene computes it — the panel must never read the
+   * shared `telegraphText` flag itself, which Valéria's counter wind-up and
+   * the beast's crouch also set, and neither of those is a heavy a sidestep
+   * can dodge.
+   */
+  heavyTelegraphLive?: boolean;
   /** D-2 — the beast, while one is in the arena. Absent on every other duel. */
   beast?: BeastPanelInfo | null;
   onExecuteAction: (action: CombatActionType, target?: AttackTarget) => void;
@@ -127,6 +142,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   playerWeightImpactMultiplier = 1,
   playerWeightStaminaMultiplier = 1,
   opponentIsBoss = false,
+  heavyTelegraphLive = false,
   beast = null,
   onExecuteAction,
 }) => {
@@ -625,6 +641,23 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             >
               <Footprints className="w-3.5 h-3.5 text-neutral-400 transform rotate-180" />
               <span>Retreat (-1.8m)</span>
+            </button>
+
+            {/* SIDESTEP — COMBAT-5: off the line of a telegraphed heavy. The
+                button is live only while a real heavy telegraph is live, so
+                it never invites a wasted turn. */}
+            <button
+              onClick={() => onExecuteAction('sidestep')}
+              disabled={!isPlayerTurn || isExecuting || playerRecovering || !heavyTelegraphLive}
+              className={`min-h-[48px] px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
+                !isPlayerTurn || isExecuting || !heavyTelegraphLive
+                  ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
+                  : 'bg-amber-950/80 hover:bg-amber-900 border-amber-600 text-amber-200'
+              }`}
+              title="Step sideways off the line (1.8m) — dodges a telegraphed heavy"
+            >
+              <MoveHorizontal className="w-3.5 h-3.5 text-amber-400" />
+              <span>Sidestep</span>
             </button>
           </div>
 

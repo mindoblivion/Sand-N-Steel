@@ -221,7 +221,12 @@ describe('§4 — the AI announces and resolves a regular’s power', () => {
   });
 
   test('one banner literal: regulars reuse the boss heavy’s line', () => {
-    expect((duel.match(/'HEAVY ATTACK INCOMING'/g) ?? []).length).toBe(1);
+    // COMBAT-5 rebased this count, not weakened it: the scene now READS the
+    // banner text once more (the Sidestep button's enablement, which must
+    // tell a real heavy from the counter wind-up and the beast crouch) — the
+    // announce site is still the one writer of it, so regulars still reuse
+    // the boss heavy's line and no second banner exists.
+    expect((duel.match(/'HEAVY ATTACK INCOMING'/g) ?? []).length).toBe(2);
   });
 
   test('no boss branch was touched', () => {

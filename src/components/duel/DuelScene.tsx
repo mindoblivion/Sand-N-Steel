@@ -82,6 +82,15 @@ import {
 // `src/utils/regularTelegraph.ts`), read here where the ladder's chosen power
 // is announced instead of thrown silently.
 import { shouldAnnounceRegularPower } from '../../utils/regularTelegraph';
+// COMBAT-5 — the sidestep (gap 5) and the scaled received shake (gap 6): the
+// pure rules (see `src/utils/combatSidestep.ts` and `src/utils/combatShake.ts`),
+// read here where the fighter moves, where a telegraphed heavy is announced
+// and lands, and where a blow the player takes shakes the camera.
+import {
+  sidestepDodgesHeavy,
+  sidestepPositionX,
+} from '../../utils/combatSidestep';
+import { receivedShakeTrauma } from '../../utils/combatShake';
 import {
   RIPOSTE_READY_TEXT,
   applyRiposteDamage,
@@ -321,14 +330,14 @@ const HIT_STOP_MS = {
 } as const;
 
 // Shake trauma added at hit resolution, in the very branches that set
-// `hitFlashTimer`. The player's own strikes scale with what they landed; a blow
-// the player RECEIVES replaces those with one flat value, so being hit always
-// reads differently from landing one.
+// `hitFlashTimer`. The player's own strikes scale with what they landed;
+// COMBAT-5 — a blow the player RECEIVES scales the same way, through
+// `receivedShakeTrauma` (`src/utils/combatShake.ts`): the flat `playerHit`
+// is gone, so a jab and a telegraphed heavy no longer shake the camera alike.
 const SHAKE_TRAUMA = {
   quick: 0.25,
   power: 0.45,
   crit: 0.7,
-  playerHit: 0.2,
 } as const;
 
 // The camera rig's shake response. The rig squares trauma before scaling it, so
@@ -359,6 +368,11 @@ const TURN_RESOLUTION_MS: Record<CombatActionType, number> = {
   /** Every positional, defensive and utility action shares one short beat. */
   advance: 800,
   retreat: 800,
+  /**
+   * COMBAT-5 — the sidestep is a utility action on the same beat: one lateral
+   * move, no new clip, no rule beyond the dodge it buys.
+   */
+  sidestep: 800,
   shield_block: 800,
   dodge: 800,
   taunt: 800,
@@ -1130,6 +1144,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   // read-and-cleared at the top of executeCombatTurn — a miss, an evade or an
   // out-of-range swing therefore cannot leave it set for a later attack.
   const telegraphLandingRef = useRef(false);
+  // COMBAT-5 — the X the defender stood on when a telegraphed heavy was
+  // announced: the heavy is aimed at that spot, so a defender ≥ 1.2 m off
+  // it when the blow lands is not there to be hit. Set in the `telegraph`
+  // branch for a real heavy only — never for a counter wind-up (a quick
+  // attack), never for the beast crouch (a separate branch) — and re-recorded
+  // by every new announcement, so a sidestep taken before any announcement
+  // dodges nothing.
+  const telegraphTargetXRef = useRef(0);
   // CF-5 — marks that a telegraphed heavy has RESOLVED, so the AI's next turn
   // waits its longer 900 ms beat (see aiTurnDelayMs above). Set beside the
   // landing marker below and cleared as that next AI turn is taken, so the turn
@@ -1590,7 +1612,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           const targetZ = Math.max(opp.position[2] + 1.2, player.position[2] - 1.8);
           setPlayer((prev) => ({
             ...prev,
-            position: [0, 0, targetZ],
+            position: [prev.position[0], 0, targetZ],
             action: 'walk',
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
@@ -1598,7 +1620,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           const targetZ = Math.min(player.position[2] - 1.2, opp.position[2] + 1.8);
           setOpp((prev) => ({
             ...prev,
-            position: [0, 0, targetZ],
+            position: [prev.position[0], 0, targetZ],
             action: 'walk',
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
@@ -1610,7 +1632,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           const targetZ = Math.min(7.5, player.position[2] + 1.8);
           setPlayer((prev) => ({
             ...prev,
-            position: [0, 0, targetZ],
+            position: [prev.position[0], 0, targetZ],
             action: 'walk',
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
@@ -1618,12 +1640,41 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           const targetZ = Math.max(-7.5, opp.position[2] - 1.8);
           setOpp((prev) => ({
             ...prev,
-            position: [0, 0, targetZ],
+            position: [prev.position[0], 0, targetZ],
             action: 'walk',
             stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
           }));
         }
         addLog(`${attacker.name} retreats back 1.8m.`, isActorPlayer ? 'player' : 'opponent');
+      }
+      // COMBAT-5 — SIDESTEP: one lateral move off the line of a telegraphed
+      // heavy. It costs the turn, resolves on the utility beat (800 ms),
+      // regenerates stamina exactly like advance/retreat, and plays the
+      // `walk` action — no new clip. It lapses the Riposte window like any
+      // other non-attack action (the generic lapse above) and spends nothing.
+      // The AI never dispatches it — the player never telegraphs — but the
+      // branch handles both fighters symmetrically like advance/retreat, so
+      // the opponent's X stays 0 in practice. Z is untouched: distance stays
+      // |ΔZ|, so a sidestep never changes reach or any distance band.
+      else if (actionType === 'sidestep') {
+        sounds.playDodge();
+        const nextX = sidestepPositionX(attacker.position[0]);
+        if (isActorPlayer) {
+          setPlayer((prev) => ({
+            ...prev,
+            position: [nextX, 0, prev.position[2]],
+            action: 'walk',
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
+          }));
+        } else {
+          setOpp((prev) => ({
+            ...prev,
+            position: [nextX, 0, prev.position[2]],
+            action: 'walk',
+            stamina: applyStaminaRegen(prev.stamina, prev.stats.staminaMax, prev.stats.staminaRegen),
+          }));
+        }
+        addLog(`${attacker.name} steps sideways off the line.`, isActorPlayer ? 'player' : 'opponent');
       }
 
       // 2. DEFENSIVE / UTILITY ACTIONS
@@ -1717,6 +1768,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         if (isCounterWindup) sounds.playWeaponDraw();
         else sounds.playHeavyImpact();
         pendingHeavyAttackRef.current = true;
+        // COMBAT-5 — a telegraphed heavy is aimed at the spot the defender
+        // stands on when it is announced: record the defender's X, so a
+        // sidestep taken before the landing can leave the line. A counter
+        // wind-up is a quick attack, not a heavy, so it never records — and
+        // the beast crouch is a separate branch that never touches the ref.
+        // A staggered heavy that waits a turn keeps its recorded X (the
+        // banner stays up), and each new announcement re-records it.
+        if (!isCounterWindup) {
+          telegraphTargetXRef.current = defender.position[0];
+        }
         // D-3 — Varro's wind-up is decided HERE, on the announce, so its feet
         // tell can be shown for the whole turn the player is given. A counter
         // wind-up is a separate quick-attack tell and must not roll this heavy feint.
@@ -2084,7 +2145,27 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           const isPalmaEvaded =
             !isRiposte && !isEvaded && palmaEvadeChance > 0 && Math.random() < palmaEvadeChance;
 
-          if (isEvaded || isPassiveEvaded || isPalmaEvaded) {
+          // COMBAT-5 — the sidestepped heavy: a telegraphed heavy is aimed at
+          // the spot the defender stood on when it was announced, so a
+          // defender ≥ 1.2 m off that line when it lands is not there to be
+          // hit. It takes the existing evade path — the dodge sound, a log
+          // line, `SIDESTEPPED!` — with no damage, no trauma and no hit-stop;
+          // the attacker's stamina was already spent at dispatch, exactly as
+          // on a dodge-evade. A sidestep taken BEFORE any announcement dodges
+          // nothing: each announcement re-records the defender's X. Varro's
+          // feints punish over-commitment by design — a feint resolves as a
+          // quick attack (no landing marker), so stepping aside for it spends
+          // the turn and the quick still lands.
+          const isSidestepped =
+            !isActorPlayer &&
+            isTelegraphedHeavy &&
+            sidestepDodgesHeavy(defender.position[0], telegraphTargetXRef.current);
+
+          if (isSidestepped) {
+            sounds.playDodge();
+            addLog(`${defender.name} steps off the line — ${attackerLabel}'s heavy swings through empty sand!`, 'system');
+            spawnDamageText('SIDESTEPPED!', 'dodge', defender.position);
+          } else if (isEvaded || isPassiveEvaded || isPalmaEvaded) {
             sounds.playDodge();
             addLog(`${defender.name} swiftly EVADED ${attackerLabel}'s strike!`, 'system');
             spawnDamageText('EVADED!', 'dodge', defender.position);
@@ -2407,15 +2488,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               : isQuick
               ? HIT_STOP_MS.quick
               : HIT_STOP_MS.power;
-            // The player's own strikes scale with the blow they landed; a blow the
-            // player RECEIVES replaces that with one flat value (never both).
+            // COMBAT-5 — the player's own strikes scale with the blow they
+            // landed; a blow the player RECEIVES now scales the same way, by
+            // what hit them — blocked 0.10, telegraphed heavy 0.85, crit 0.70,
+            // quick 0.25, power 0.45 (`receivedShakeTrauma`). Blocked wins
+            // the priority, exactly as in the hit-stop chain above, so
+            // blocking stays the answer to heavies.
             const trauma = isActorPlayer
               ? isCrit
                 ? SHAKE_TRAUMA.crit
                 : isQuick
                 ? SHAKE_TRAUMA.quick
                 : SHAKE_TRAUMA.power
-              : SHAKE_TRAUMA.playerHit;
+              : receivedShakeTrauma({ isBlocked, isTelegraphedHeavy, isCrit, isQuick });
             impactRef.current.freezeUntil = performance.now() + freezeMs;
             impactRef.current.trauma = Math.min(1, impactRef.current.trauma + trauma);
 
@@ -3819,6 +3904,15 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         playerWeightImpactMultiplier={1}
         playerWeightStaminaMultiplier={1}
         opponentIsBoss={opponent.isBoss === true}
+        // COMBAT-5 — the Sidestep button is enabled only while a REAL heavy
+        // telegraph is live: a heavy or the Cotta Crossing. The banner text
+        // is shared — Valéria's counter wind-up and the beast's crouch use
+        // the same flag — so this MUST NOT read `telegraphText` for
+        // truthiness: neither the counter (a quick attack) nor the pounce
+        // (an ordinary quick/power attack) is a heavy a sidestep can dodge.
+        heavyTelegraphLive={
+          opp.telegraphText === 'HEAVY ATTACK INCOMING' || opp.telegraphText === CROSSING_TELEGRAPH_WORDS
+        }
         // Slice C-D — the phase marker, on a ladder boss only (`undefined` on
         // every other bout, so the HUD draws exactly what it always drew).
         bossPhase={bossPhaseLadderFor(opponent) ? (opp.isPhase2 ? 2 : 1) : undefined}
