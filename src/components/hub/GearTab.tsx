@@ -6,9 +6,11 @@ import { getItemById } from '../../data/itemsDB';
 import { getTemperSellValue } from '../../utils/tempering';
 import {
   describeForgeCraftRejection,
+  getArmorRecipeForInput,
   getForgeCraftEligibility,
   getForgeRecipeForInput,
 } from '../../utils/forgeCrafting';
+import { gildedUnlocked, requiresMasterForge } from '../../utils/facilityProgression';
 import { TemperControl } from './TemperControl';
 import { ChariotWorkshopTab } from './ChariotWorkshopTab';
 import { RacingConfigSection } from './RacingConfigSection';
@@ -129,7 +131,7 @@ const ForgeCraftSection: React.FC<{
 
   const eligibility =
     pickA !== null && pickB !== null
-      ? getForgeCraftEligibility(profile, pickA, pickB)
+      ? getForgeCraftEligibility(profile, pickA, pickB, 'weapon')
       : null;
   const rejection = eligibility && !eligibility.ok
     ? describeForgeCraftRejection(eligibility.reason)
@@ -200,7 +202,7 @@ const ForgeCraftSection: React.FC<{
       </h4>
       <p className="text-sm text-neutral-300 font-serif mb-4">
         Two copies of one weapon, plus the forge fee, hammer into the next weapon up its
-        ladder. Armor is crafted at the armorer — the forge combines weapons only.
+        ladder. Armor is crafted at the armorer — see Armorer Crafting below.
       </p>
 
       {carriedWeapons.length < 2 ? (
@@ -214,7 +216,7 @@ const ForgeCraftSection: React.FC<{
             {picker('Second weapon', pickB, setPickB)}
           </div>
 
-          {eligibility?.ok ? (
+          {eligibility?.ok && 'damageLight' in eligibility.result ? (
             <p className="text-sm font-serif text-amber-100">
               Forges into <strong className="text-yellow-300">{eligibility.result.name}</strong>{' '}
               ({eligibility.result.damageLight}/{eligibility.result.damageHeavy} dmg) for{' '}
@@ -248,6 +250,190 @@ const ForgeCraftSection: React.FC<{
             {rejection && (
               <p
                 data-forge-craft-rejection="1"
+                className="text-[11px] font-serif leading-snug text-red-300 mt-1.5"
+              >
+                {rejection}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * FORGECRAFT-2 — the armorer-crafting section in the Armory, beside the
+ * forge-crafting section.
+ *
+ * The mirror of `ForgeCraftSection`, for armor: it owns NO transaction and
+ * NO rule.  The recipe, the fee, whether the craft is allowed and the
+ * sentence a refusal prints all come from `utils/forgeCrafting.ts` — the
+ * section therefore cannot disagree with the craft that fires behind it,
+ * and it never computes a fee of its own.  The two pickers name INVENTORY
+ * indices (two copies of one piece stay distinct); the equipped copy is
+ * labelled as such and refuses with the module's own sentence when picked.
+ * The two champion-gilded results wait for the Smithing Workshop at L2 —
+ * the gate shows in the option label and in the refusal sentence, like
+ * tempering's workshop gates.
+ *
+ * Copy note: the honest economics, not a discount claim — a craft turns two
+ * spares you'd otherwise trade in into a better piece for less than the
+ * shop price.  (And no `sell` wording anywhere in this section: the CORR-1
+ * selling-surface test asserts an unwired Armory shows no /sell/i text.)
+ */
+const ArmorCraftSection: React.FC<{
+  profile: PlayerProfile;
+  onCraftItems?: (aIndex: number, bIndex: number) => void;
+}> = ({ profile, onCraftItems }) => {
+  const [pickA, setPickA] = useState<number | null>(null);
+  const [pickB, setPickB] = useState<number | null>(null);
+
+  // A profile write (a craft, a sale, an equip, a purchase) clears the picks:
+  // the indices they named may point at different items afterwards.
+  useEffect(() => {
+    setPickA(null);
+    setPickB(null);
+  }, [profile]);
+
+  // The carried armor with its inventory indices — the pickers name
+  // entries, not ids, so two copies of one piece stay distinct.
+  const carriedArmors = profile.inventory
+    .map((entry, index) => ({ entry, index }))
+    .filter(
+      (carried): carried is { entry: ArmorItem; index: number } =>
+        'defense' in carried.entry
+    );
+
+  // The equipped copy for a piece is the first carried entry with the id
+  // equipped in that piece's slot (the selling.ts / GearTab rule).
+  const equippedIndexFor = (entry: ArmorItem): number => {
+    const equippedId = profile.equipped[entry.slot]?.id;
+    if (!equippedId) return -1;
+    return carriedArmors.find((carried) => carried.entry.id === equippedId)?.index ?? -1;
+  };
+
+  const eligibility =
+    pickA !== null && pickB !== null
+      ? getForgeCraftEligibility(profile, pickA, pickB, 'armor')
+      : null;
+  const rejection = eligibility && !eligibility.ok
+    ? describeForgeCraftRejection(eligibility.reason)
+    : null;
+
+  const handleCraft = () => {
+    if (!eligibility?.ok || pickA === null || pickB === null) return;
+    sounds.playCoin();
+    onCraftItems?.(pickA, pickB);
+  };
+
+  // One option per carried piece.  The label names the forge path where one
+  // exists, so an uncraftable piece says so in the list itself — and a
+  // champion result behind the Master Forge gate says so too.
+  const optionLabel = (carried: { entry: ArmorItem; index: number }) => {
+    const copies = carriedArmors.filter((other) => other.entry.id === carried.entry.id);
+    const occurrence = copies.findIndex((other) => other.index === carried.index) + 1;
+    const copySuffix = copies.length > 1 ? ` #${occurrence}` : '';
+    const equippedSuffix = carried.index === equippedIndexFor(carried.entry) ? ' (equipped)' : '';
+    const recipe = getArmorRecipeForInput(carried.entry.id);
+    if (recipe) {
+      const result = getItemById(recipe.resultId);
+      const locked = requiresMasterForge(recipe.resultId) && !gildedUnlocked(profile);
+      return `${carried.entry.name}${copySuffix}${equippedSuffix} → ${result?.name ?? '?'}${
+        locked ? ' (needs Master Forge)' : ''
+      }`;
+    }
+    return `${carried.entry.name}${copySuffix}${equippedSuffix} — no forge path`;
+  };
+
+  const picker = (
+    label: string,
+    value: number | null,
+    onPick: (index: number | null) => void
+  ) => (
+    <label className="flex flex-col gap-1 min-w-0 flex-1">
+      <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
+        {label}
+      </span>
+      <select
+        value={value === null ? '' : String(value)}
+        onChange={(event) => {
+          sounds.playClick();
+          onPick(event.target.value === '' ? null : Number(event.target.value));
+        }}
+        className="min-h-[48px] w-full rounded-xl bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm font-serif text-amber-100 cursor-pointer"
+      >
+        <option value="">Choose a piece…</option>
+        {carriedArmors.map((carried) => (
+          <option key={carried.index} value={carried.index}>
+            {optionLabel(carried)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  return (
+    <div
+      data-armor-craft
+      data-armor-craft-ok={eligibility?.ok ? '1' : '0'}
+      className="bg-neutral-900/80 border border-amber-600/50 rounded-3xl p-6 shadow-lg"
+    >
+      <h4 className="font-serif font-bold text-lg text-amber-300 mb-1 flex items-center gap-2">
+        <Shield className="w-5 h-5 text-amber-400" />
+        <span>Armorer Crafting</span>
+      </h4>
+      <p className="text-sm text-neutral-300 font-serif mb-4">
+        Two copies of one piece of armor, plus Salvia&apos;s fee, become the next piece up
+        its ladder. A craft turns two spares you&apos;d otherwise trade in into a better
+        piece for less than the shop price.
+      </p>
+
+      {carriedArmors.length < 2 ? (
+        <p className="text-xs text-neutral-500 italic">
+          Carry two copies of a piece of armor to craft. A spare can be bought at the armorer.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {picker('First piece', pickA, setPickA)}
+            {picker('Second piece', pickB, setPickB)}
+          </div>
+
+          {eligibility?.ok && 'defense' in eligibility.result ? (
+            <p className="text-sm font-serif text-amber-100">
+              Crafts into <strong className="text-yellow-300">{eligibility.result.name}</strong>{' '}
+              (+{eligibility.result.defense} Def) for{' '}
+              <strong className="text-yellow-300">{eligibility.fee} Gold</strong>.
+            </p>
+          ) : (
+            <p className="text-sm font-serif italic text-neutral-400">
+              {rejection ??
+                'Choose two copies of the same piece to see what the armorer makes of them.'}
+            </p>
+          )}
+
+          <div>
+            <button
+              onClick={handleCraft}
+              disabled={!eligibility?.ok}
+              title={rejection ?? (eligibility?.ok ? `Craft for ${eligibility.fee} gold` : undefined)}
+              className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                eligibility?.ok
+                  ? 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'
+                  : 'bg-neutral-900 text-neutral-600 border border-neutral-800 cursor-not-allowed'
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span>
+                {eligibility?.ok ? `Craft (${eligibility.fee} Gold)` : 'Craft'}
+              </span>
+            </button>
+            {/* UI-1 (B-17) — a touch player never sees a title attribute, so the
+                refusal is printed under the disabled control as well. */}
+            {rejection && (
+              <p
+                data-armor-craft-rejection="1"
                 className="text-[11px] font-serif leading-snug text-red-300 mt-1.5"
               >
                 {rejection}
@@ -524,6 +710,11 @@ export const GearTab: React.FC<GearTabProps> = ({
           </div>
         )}
       </div>
+
+      {/* FORGECRAFT-2 — two copies of one piece of armor + Salvia's fee →
+          the next piece up its ladder.  Lives with the armor cards, where
+          the player already manages armor. */}
+      <ArmorCraftSection profile={profile} onCraftItems={onCraftItems} />
         </>
       )}
     </div>
