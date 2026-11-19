@@ -972,12 +972,15 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
   const pendingCounterRef = useRef(false);
-  // REGULARS-1 — the two runtime-only refs the regular-behavior hook reads:
+  // REGULARS-1 — the runtime-only refs the regular-behavior hook reads:
   // the opponent's last AI-slot action (and whether it landed cleanly), and
-  // whether he blocked a player attack since his last slot. Both live for one
-  // duel only — no save field — and reset with the other refs below.
+  // whether he blocked a player attack since his last slot. REGULARS-2 adds
+  // a third, in the same shape: whether the player's attack landed cleanly
+  // on him since his last slot. All three live for one duel only — no save
+  // field — and reset with the other refs below.
   const oppLastActionRef = useRef<OpponentLastAction | null>(null);
   const oppBlockedPlayerAttackRef = useRef(false);
+  const oppTookCleanHitRef = useRef(false);
   // A queued Valéria counter gets one readable turn before its ordinary quick-attack resolution.
   const pendingCounterWindupRef = useRef(false);
   const handleConfirmWithdrawal = useCallback(() => {
@@ -991,6 +994,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           pendingCounterWindupRef.current = false;
           oppLastActionRef.current = null;
           oppBlockedPlayerAttackRef.current = false;
+          oppTookCleanHitRef.current = false;
           setOpp((prev) => ({ ...prev, telegraphText: undefined }));
         },
         // Player actions resolve synchronously; return the fighter to idle before
@@ -2451,6 +2455,14 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               if (isActorPlayer) vibrate(HAPTIC_HIT_LANDED_MS);
             }
 
+            // REGULARS-2 — the Wall's trigger: the player's attack landed
+            // cleanly on him. This branch is only entered on a hit the roll
+            // allowed and no evade or sidestep took, so not-blocked here IS
+            // a clean landing — and a killing blow sets nothing, the fight
+            // is over. Read into the hook's input on his next AI slot and
+            // cleared there, so one clean hit arms exactly one brace.
+            if (isActorPlayer && !isBlocked && !fightEnded) oppTookCleanHitRef.current = true;
+
             // ── D-2 — the pounce's own consequences ──────────────────────
             // The crouch is spent and its banner comes down; and if the beast
             // drew blood, the master's NEXT attack carries Blood-Scent. A blocked
@@ -3242,12 +3254,15 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // ladder resolves `chosenAction` and BEFORE the telegraph overrides
       // below, so a behavior-chosen power is announced exactly like a
       // ladder-chosen one (the `shouldAnnounceRegularPower` branch) and no
-      // behavior can ever throw a silent heavy. The blocked marker is read
-      // into the input and cleared here — this slot consumes it, so one block
-      // arms exactly one answer, and a recovery or telegraph-resolution turn
-      // (which returns before the ladder) never consumes it.
+      // behavior can ever throw a silent heavy. The blocked and clean-hit
+      // markers are read into the input and cleared here — this slot consumes
+      // them, so one block arms exactly one answer and one clean hit arms
+      // exactly one brace, and a recovery or telegraph-resolution turn
+      // (which returns before the ladder) never consumes them.
       const blockedPlayerAttack = oppBlockedPlayerAttackRef.current;
       oppBlockedPlayerAttackRef.current = false;
+      const tookCleanHit = oppTookCleanHitRef.current;
+      oppTookCleanHitRef.current = false;
       const behaviorAction = applyRegularBehavior({
         behavior: opponent.regularBehavior,
         isBoss: opponent.isBoss === true,
@@ -3257,6 +3272,9 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         oppPositionZ: opp.position[2],
         lastAction: oppLastActionRef.current,
         blockedPlayerAttack,
+        distanceM: dist,
+        reachM: effectiveRange,
+        tookCleanHit,
         stamina: opp.stamina,
         lightCost: oppLightCost,
         heavyCost: oppHeavyCost,
@@ -3421,6 +3439,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       pendingCounterWindupRef.current = false;
       oppLastActionRef.current = null;
       oppBlockedPlayerAttackRef.current = false;
+      oppTookCleanHitRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // Pitch A6 — Director ruling R-MARGIN: the WINNER's remaining health, read
       // HERE from the player's live HP exactly as `lowestHealthFraction` is (a
@@ -3505,6 +3524,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       pendingCounterWindupRef.current = false;
       oppLastActionRef.current = null;
       oppBlockedPlayerAttackRef.current = false;
+      oppTookCleanHitRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // Pitch A6 — Director ruling R-MARGIN: on a defeat the WINNER is the
       // opponent, so his remaining health is the card's margin — the same

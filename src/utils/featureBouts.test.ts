@@ -216,7 +216,9 @@ describe('D-1 §A — the append touched no pre-existing row', () => {
     // and the one new field is asserted to carry the published default.
     // REGULARS-1 rebases it the same way: `regularBehavior` is stripped from
     // the comparison and asserted below to carry the briefed behavior on the
-    // five rows that have one (and to be absent on the other seven).
+    // eight rows that have one (and to be absent on the other four).
+    // REGULARS-2 adds the three guards to the same map; the strip itself is
+    // unchanged, still generic over `regularBehavior`.
     const withoutNewFields = (row: OpponentConfig) => {
       const { steelDelta: _steelDelta, regularBehavior: _regularBehavior, ...rest } = row;
       return rest;
@@ -233,6 +235,9 @@ describe('D-1 §A — the append touched no pre-existing row', () => {
       opp_brutus_anvil: 'anvil_answers',
       opp_naija_fisher: 'fishers_press',
       opp_pale_twins: 'twin_tempo',
+      opp_hoplite: 'wall_closes',
+      opp_centurion_drusus: 'measured_guard',
+      opp_kallias_sparta: 'hold_the_tip',
     };
     for (const row of ALL_OPPONENTS.slice(0, 12)) {
       expect(row.regularBehavior, row.id).toBe(behaviors[row.id]);

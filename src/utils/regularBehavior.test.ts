@@ -1,10 +1,11 @@
 /**
  * ===========================================================================
- * REGULARS-1 — Named regulars fight distinctly (phase-2 loop audit, beat 6).
- * The slice's pins, one section per brief requirement. The decision logic
- * lives in the pure helper (`regularBehavior.ts`); the wiring pins (§X) read
- * the hook call and the refs out of `DuelScene`, so a disconnect between the
- * helper and the shipped code fails here rather than in a playtest.
+ * REGULARS-1 + REGULARS-2 — Named regulars fight distinctly (phase-2 loop
+ * audit, beat 6). The slices' pins, one section per brief requirement. The
+ * decision logic lives in the pure helper (`regularBehavior.ts`); the wiring
+ * pins (§X) read the hook call and the refs out of `DuelScene`, so a
+ * disconnect between the helper and the shipped code fails here rather than
+ * in a playtest.
  *
  *   §1  the fence           (absent/unknown/boss → null; the row fence both ways)
  *   §2  Marcus eager        (player blocking → power 0.80 / taunt 0.10 / block 0.10)
@@ -14,6 +15,9 @@
  *   §6  Twins twin_tempo    (quick → power, power → quick; the action counts)
  *   §7  the stamina guard   (a choice the fighter cannot afford is null, never downgraded)
  *   §8  nothing else moves  (numbers, boss rows and the frozen chooser untouched)
+ *   §9  Cassius wall_closes (after a clean hit lands on him → brace, deterministic)
+ *   §10 Drusus measured_guard (middle stamina band → block, never a tired quick)
+ *   §11 Kallias hold_the_tip (inside half reach → retreat, unless he just did)
  *   §X  the wiring, read out of the sources
  *
  * Run with: bun test src/utils/regularBehavior.test.ts
@@ -29,6 +33,7 @@ import {
   EAGER_TABLE,
   HIT_AND_RUN_REAR_BOUND_M,
   HIT_AND_RUN_RETREAT_M,
+  TIP_INNER_RATIO,
   TWIN_AFTER_POWER_TABLE,
   TWIN_AFTER_QUICK_TABLE,
   applyRegularBehavior,
@@ -46,7 +51,9 @@ const code = (path: string) =>
 
 const byId = (id: string) => ALL_OPPONENTS.find((opponent) => opponent.id === id)!;
 
-/** A well-fed, in-range, non-boss regular with no fight state yet. */
+/** A well-fed, in-range, non-boss regular with no fight state yet. The
+ * distance (2.0 m at a 3.1 m reach, ratio 0.645) sits in the neutral band,
+ * so the default input triggers no guard behavior. */
 const base = (overrides: Partial<RegularBehaviorInput> = {}): RegularBehaviorInput => ({
   behavior: 'eager',
   isBoss: false,
@@ -56,6 +63,9 @@ const base = (overrides: Partial<RegularBehaviorInput> = {}): RegularBehaviorInp
   oppPositionZ: -3.5,
   lastAction: null,
   blockedPlayerAttack: false,
+  distanceM: 2.0,
+  reachM: 3.1,
+  tookCleanHit: false,
   stamina: 100,
   lightCost: 10,
   heavyCost: 22,
@@ -93,12 +103,15 @@ describe('§1 — the fence: absent, unknown or boss behavior keeps the ladder�
     expect(DOCTORE_TEST_OPPONENT.bossMechanic).toBeUndefined();
   });
 
-  test('the five rows carry exactly their briefed behavior', () => {
+  test('the eight rows carry exactly their briefed behavior', () => {
     expect(byId('opp_marcus').regularBehavior).toBe('eager');
     expect(byId('opp_flaccus').regularBehavior).toBe('hit_and_run');
     expect(byId('opp_brutus_anvil').regularBehavior).toBe('anvil_answers');
     expect(byId('opp_naija_fisher').regularBehavior).toBe('fishers_press');
     expect(byId('opp_pale_twins').regularBehavior).toBe('twin_tempo');
+    expect(byId('opp_hoplite').regularBehavior).toBe('wall_closes');
+    expect(byId('opp_centurion_drusus').regularBehavior).toBe('measured_guard');
+    expect(byId('opp_kallias_sparta').regularBehavior).toBe('hold_the_tip');
   });
 });
 
@@ -342,7 +355,7 @@ describe('§7 — the stamina guard: a choice the fighter cannot afford is null'
 
 // ── §8 — NOTHING ELSE MOVES ──────────────────────────────────────────────────
 
-describe('§8 — no save change, no boss row changed, the five rows’ numbers untouched', () => {
+describe('§8 — no save change, no boss row changed, the eight rows’ numbers untouched', () => {
   test('the five rows keep their published numbers', () => {
     const expected = [
       ['opp_marcus', 0.5, 0.25, { strength: 8, agility: 8, staminaMax: 80, staminaRegen: 14, defense: 2, healthMax: 90 }],
@@ -350,6 +363,20 @@ describe('§8 — no save change, no boss row changed, the five rows’ numbers 
       ['opp_brutus_anvil', 0.5, 0.7, { strength: 14, agility: 12, staminaMax: 108, staminaRegen: 19, defense: 8, healthMax: 160 }],
       ['opp_naija_fisher', 0.7, 0.4, { strength: 15, agility: 16, staminaMax: 120, staminaRegen: 21, defense: 7, healthMax: 180 }],
       ['opp_pale_twins', 0.85, 0.35, { strength: 24, agility: 20, staminaMax: 152, staminaRegen: 24, defense: 12, healthMax: 300 }],
+    ] as const;
+    for (const [id, aggression, blockChance, stats] of expected) {
+      const row = byId(id);
+      expect(row.aggression, id).toBe(aggression);
+      expect(row.blockChance, id).toBe(blockChance);
+      expect({ ...row.stats }, id).toEqual(stats);
+    }
+  });
+
+  test('the three guards keep their published numbers', () => {
+    const expected = [
+      ['opp_hoplite', 0.45, 0.65, { strength: 13, agility: 11, staminaMax: 100, staminaRegen: 18, defense: 7, healthMax: 135 }],
+      ['opp_centurion_drusus', 0.6, 0.75, { strength: 22, agility: 14, staminaMax: 130, staminaRegen: 20, defense: 14, healthMax: 260 }],
+      ['opp_kallias_sparta', 0.55, 0.7, { strength: 23, agility: 16, staminaMax: 142, staminaRegen: 22, defense: 13, healthMax: 285 }],
     ] as const;
     for (const [id, aggression, blockChance, stats] of expected) {
       const row = byId(id);
@@ -377,6 +404,105 @@ describe('§8 — no save change, no boss row changed, the five rows’ numbers 
   });
 });
 
+// ── §9 — CASSIUS WALL CLOSES ───────────────────────────────────────────────
+
+describe('§9 — Cassius wall_closes: the wall closes ranks', () => {
+  test('after a clean hit lands on him → shield_block, deterministically', () => {
+    expect(applyRegularBehavior(base({ behavior: 'wall_closes', tookCleanHit: true, rng: 0 }))).toBe(
+      'shield_block',
+    );
+    expect(applyRegularBehavior(base({ behavior: 'wall_closes', tookCleanHit: true, rng: 0.5 }))).toBe(
+      'shield_block',
+    );
+    expect(applyRegularBehavior(base({ behavior: 'wall_closes', tookCleanHit: true, rng: 0.99 }))).toBe(
+      'shield_block',
+    );
+  });
+
+  test('no clean hit since his last slot → null', () => {
+    expect(applyRegularBehavior(base({ behavior: 'wall_closes', tookCleanHit: false }))).toBeNull();
+  });
+});
+
+// ── §10 — DRUSUS MEASURED GUARD ────────────────────────────────────────────
+
+describe('§10 — Drusus measured_guard: the veteran measures his breath', () => {
+  // The gladius's own costs: a quick for 10, a power for 24.
+  const band = (stamina: number) =>
+    base({ behavior: 'measured_guard', stamina, lightCost: 10, heavyCost: 24 });
+
+  test('stamina in [lightCost, heavyCost) → shield_block', () => {
+    expect(applyRegularBehavior(band(10))).toBe('shield_block');
+    expect(applyRegularBehavior(band(23))).toBe('shield_block');
+  });
+
+  test('at exactly heavyCost he can afford the power → null', () => {
+    expect(applyRegularBehavior(band(24))).toBeNull();
+  });
+
+  test('below lightCost → null, the ladder’s low-stamina branch owns that band', () => {
+    expect(applyRegularBehavior(band(9))).toBeNull();
+  });
+
+  test('above heavyCost → null', () => {
+    expect(applyRegularBehavior(band(100))).toBeNull();
+  });
+});
+
+// ── §11 — KALLIAS HOLD THE TIP ─────────────────────────────────────────────
+
+describe('§11 — Kallias hold_the_tip: he keeps you at the spear’s tip', () => {
+  test('the pinned inner ratio is Spearman’s Ground’s own', () => {
+    expect(TIP_INNER_RATIO).toBe(0.5);
+  });
+
+  test('inside half reach → retreat', () => {
+    expect(applyRegularBehavior(base({ behavior: 'hold_the_tip', distanceM: 1.2, reachM: 3.1 }))).toBe(
+      'retreat',
+    );
+  });
+
+  test('at exactly half reach → null', () => {
+    expect(applyRegularBehavior(base({ behavior: 'hold_the_tip', distanceM: 1.55, reachM: 3.1 }))).toBeNull();
+  });
+
+  test('at the tip and beyond → null', () => {
+    expect(applyRegularBehavior(base({ behavior: 'hold_the_tip', distanceM: 2.1, reachM: 3.1 }))).toBeNull();
+    expect(applyRegularBehavior(base({ behavior: 'hold_the_tip', distanceM: 3.0, reachM: 3.1 }))).toBeNull();
+  });
+
+  test('after a retreat → null, even inside half reach', () => {
+    expect(
+      applyRegularBehavior(
+        base({
+          behavior: 'hold_the_tip',
+          distanceM: 1.2,
+          reachM: 3.1,
+          lastAction: { action: 'retreat', landed: false },
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  test('at the rear bound there is no ring to retreat into → null', () => {
+    expect(
+      applyRegularBehavior(base({ behavior: 'hold_the_tip', distanceM: 1.2, reachM: 3.1, oppPositionZ: -5.7 })),
+    ).toBeNull();
+  });
+
+  test('one step short of the bound the retreat still fires', () => {
+    expect(
+      applyRegularBehavior(base({ behavior: 'hold_the_tip', distanceM: 1.2, reachM: 3.1, oppPositionZ: -5.6 })),
+    ).toBe('retreat');
+  });
+
+  test('out of range → null, the advance/taunt branch stands', () => {
+    expect(
+      applyRegularBehavior(base({ behavior: 'hold_the_tip', distanceM: 1.2, reachM: 3.1, inRange: false })),
+    ).toBeNull();
+  });
+});
+
 // ── §X — THE WIRING ──────────────────────────────────────────────────────────
 
 describe('§X — the hook is wired where the brief puts it', () => {
@@ -396,17 +522,24 @@ describe('§X — the hook is wired where the brief puts it', () => {
     expect(hookAt).toBeLessThan(duel.indexOf('shouldAnnounceRegularPower({'));
   });
 
-  test('the two runtime-only refs exist and reset with the other refs', () => {
+  test('the three runtime-only refs exist and reset with the other refs', () => {
     expect(duel).toContain('oppLastActionRef');
     expect(duel).toContain('oppBlockedPlayerAttackRef');
+    expect(duel).toContain('oppTookCleanHitRef');
     expect(duel.split('oppLastActionRef.current = null').length - 1).toBe(3);
     // Four, not three: the three resets above, plus the hook's own read-and-
     // clear at the call site, where the AI slot consumes the marker.
     expect(duel.split('oppBlockedPlayerAttackRef.current = false').length - 1).toBe(4);
+    // The same four for the Wall's marker: three resets plus the call-site clear.
+    expect(duel.split('oppTookCleanHitRef.current = false').length - 1).toBe(4);
   });
 
   test('the resolution records the last action and its clean landing', () => {
     expect(duel.split('oppLastActionRef.current = {').length - 1).toBe(2);
     expect(duel).toContain('oppBlockedPlayerAttackRef.current = true');
+    expect(duel).toContain('oppTookCleanHitRef.current = true');
+    // The Wall's marker is set only on a clean landing: the player's attack,
+    // not blocked, in the hit branch the evades and sidesteps never reach.
+    expect(duel).toContain('isActorPlayer && !isBlocked');
   });
 });
