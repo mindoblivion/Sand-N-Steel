@@ -36,6 +36,14 @@ interface CombatHUDProps {
   playerWeightStaminaMultiplier?: number;
   opponentIsBoss?: boolean;
   /**
+   * COMBAT-5 — a REAL heavy telegraph is live right now (a heavy or the
+   * Cotta Crossing). Passed straight through to the panel, which lights the
+   * Sidestep button on it. The scene computes it — never the shared
+   * `telegraphText` flag, which the counter wind-up and the beast crouch
+   * also set.
+   */
+  heavyTelegraphLive?: boolean;
+  /**
    * CF-6 — a boss's rage. A timestamp (ms) that fires ONE red vignette pulse:
    * the div is keyed by it, so a second pulse restarts the 700 ms animation.
    * Boss fights only — DuelScene never sets it for a standard opponent.
@@ -131,6 +139,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
   playerWeightImpactMultiplier = 1,
   playerWeightStaminaMultiplier = 1,
   opponentIsBoss,
+  heavyTelegraphLive = false,
   bossVignettePulse,
   bossPhase,
   beast = null,
@@ -464,6 +473,7 @@ export const CombatHUD: React.FC<CombatHUDProps> = ({
         playerWeightImpactMultiplier={playerWeightImpactMultiplier}
         playerWeightStaminaMultiplier={playerWeightStaminaMultiplier}
         opponentIsBoss={opponentIsBoss}
+        heavyTelegraphLive={heavyTelegraphLive}
         beast={beast}
         onExecuteAction={onExecuteAction}
       />
