@@ -166,3 +166,215 @@ describe('race best-time transaction', () => {
     expect(exit.includes('saveProfile')).toBe(false);
   });
 });
+
+describe('ECON-2 league milestone prizes', () => {
+  test('tier 1 fires on the second win: 250g + 20 fame, once', () => {
+    const first = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 1);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.prizeAwarded).toBe(0);
+    expect(first.fameAwarded).toBe(0);
+    expect(first.tierAdvanced).toBeNull();
+    expect(first.leaguePointsEarned).toBe(50);
+    expect(first.profile.racing?.leaguePoints).toBe(50);
+    // Nothing claimed yet, so the claim list stays absent — no empty field written.
+    expect(first.profile.racing?.leaguePrizesClaimed).toBeUndefined();
+
+    const second = settleRaceCompletion(first.profile, 2, 15000, 'victory', 2);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.prizeAwarded).toBe(250);
+    expect(second.fameAwarded).toBe(20);
+    expect(second.tierAdvanced).toBe(1);
+    expect(second.profile.gold).toBe(100 + 100 + 100 + 250);
+    expect(second.profile.fame).toBe(20);
+    expect(second.profile.racing?.leaguePrizesClaimed).toEqual([1]);
+
+    const third = settleRaceCompletion(second.profile, 2, 15000, 'victory', 3);
+    expect(third.ok).toBe(true);
+    if (!third.ok) return;
+    expect(third.prizeAwarded).toBe(0);
+    expect(third.fameAwarded).toBe(0);
+    expect(third.tierAdvanced).toBeNull();
+    expect(third.profile.racing?.leaguePrizesClaimed).toEqual([1]);
+  });
+
+  test('the full ladder: tier 2 at 5 wins once Triga is owned, tier 3 at 10 once Quadra is owned', () => {
+    let profile = createNewProfile('Circus Career');
+    const win = (day: number) => {
+      const result = settleRaceCompletion(profile, 2, 15000, 'victory', day);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error('settlement failed');
+      profile = result.profile;
+      return result;
+    };
+    expect(win(1).prizeAwarded).toBe(0);
+    expect(win(2).prizeAwarded).toBe(250);
+    win(3);
+    win(4);
+    const fifth = win(5); // 250 points, Triga still locked
+    expect(fifth.prizeAwarded).toBe(0);
+    expect(profile.racing?.leaguePrizesClaimed).toEqual([1]);
+
+    profile = { ...profile, racing: { ...profile.racing, unlocked: [3] } };
+    const sixth = win(6); // 300 points, Triga owned: tier 2 fires now
+    expect(sixth.prizeAwarded).toBe(600);
+    expect(sixth.fameAwarded).toBe(50);
+    expect(sixth.tierAdvanced).toBe(2);
+    expect(profile.racing?.leaguePrizesClaimed).toEqual([1, 2]);
+
+    win(7);
+    win(8);
+    win(9);
+    const tenth = win(10); // 500 points, Quadra still locked
+    expect(tenth.prizeAwarded).toBe(0);
+
+    profile = { ...profile, racing: { ...profile.racing, unlocked: [3, 4] } };
+    const eleventh = win(11);
+    expect(eleventh.prizeAwarded).toBe(1500);
+    expect(eleventh.fameAwarded).toBe(120);
+    expect(eleventh.tierAdvanced).toBe(3);
+    expect(profile.racing?.leaguePrizesClaimed).toEqual([1, 2, 3]);
+    expect(profile.fame).toBe(190);
+    expect(profile.gold).toBe(100 + 11 * 100 + 2350);
+
+    const twelfth = win(12); // claimed: nothing more pays
+    expect(twelfth.prizeAwarded).toBe(0);
+    expect(twelfth.fameAwarded).toBe(0);
+    expect(twelfth.tierAdvanced).toBeNull();
+  });
+
+  test('the prize fires on an already-paid day: it sits outside the purse cap', () => {
+    const first = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 4);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.purseAwarded).toBe(100);
+    const second = settleRaceCompletion(first.profile, 2, 15000, 'victory', 4);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.purseAwarded).toBe(0);
+    expect(second.prizeAwarded).toBe(250);
+    expect(second.fameAwarded).toBe(20);
+    expect(second.profile.gold).toBe(100 + 100 + 0 + 250);
+  });
+
+  test('mixed results reach tier 1 on the third finish (50 + 15 + 50)', () => {
+    let profile = createNewProfile('Circus Career');
+    const finish = (outcome: 'victory' | 'defeat', day: number) => {
+      const result = settleRaceCompletion(profile, 2, 15000, outcome, day);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error('settlement failed');
+      profile = result.profile;
+      return result;
+    };
+    expect(finish('victory', 1).prizeAwarded).toBe(0);
+    const loss = finish('defeat', 2);
+    expect(loss.prizeAwarded).toBe(0);
+    expect(loss.leaguePointsEarned).toBe(15);
+    expect(profile.racing?.leaguePoints).toBe(65);
+    const third = finish('victory', 3);
+    expect(third.prizeAwarded).toBe(250);
+    expect(third.tierAdvanced).toBe(1);
+  });
+
+  test('defeats alone still reach tier 1, on the seventh (7 x 15)', () => {
+    let profile = createNewProfile('Circus Career');
+    let last = null as unknown as ReturnType<typeof settleRaceCompletion>;
+    for (let day = 1; day <= 7; day++) {
+      last = settleRaceCompletion(profile, 2, 15000, 'defeat', day);
+      expect(last.ok).toBe(true);
+      if (!last.ok) return;
+      profile = last.profile;
+      expect(last.prizeAwarded).toBe(day === 7 ? 250 : 0);
+    }
+    expect(profile.racing?.leaguePoints).toBe(105);
+    expect(profile.racing?.leaguePrizesClaimed).toEqual([1]);
+  });
+
+  test('ECON-2 retroactive: a save banking 480 points collects all three bonuses on its next finish', () => {
+    const banked = {
+      ...createNewProfile('Circus Career'),
+      racing: { leaguePoints: 480, unlocked: [3, 4] },
+    } as ReturnType<typeof createNewProfile>;
+    const result = settleRaceCompletion(banked, 2, 15000, 'victory', 1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.prizeAwarded).toBe(2350);
+    expect(result.fameAwarded).toBe(190);
+    expect(result.tierAdvanced).toBe(3);
+    expect(result.profile.racing?.leaguePrizesClaimed).toEqual([1, 2, 3]);
+    expect(result.profile.gold).toBe(100 + 100 + 2350);
+    expect(result.profile.fame).toBe(190);
+  });
+
+  test('ECON-2 retroactive team gate: 500 banked points pay tier 1 only until the teams are owned', () => {
+    let profile = {
+      ...createNewProfile('Circus Career'),
+      racing: { leaguePoints: 500 },
+    } as ReturnType<typeof createNewProfile>;
+    const first = settleRaceCompletion(profile, 2, 15000, 'victory', 1);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.prizeAwarded).toBe(250);
+    expect(first.tierAdvanced).toBe(1);
+    expect(first.profile.racing?.leaguePrizesClaimed).toEqual([1]);
+
+    profile = { ...first.profile, racing: { ...first.profile.racing, unlocked: [3, 4] } };
+    const second = settleRaceCompletion(profile, 2, 15000, 'victory', 2);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.prizeAwarded).toBe(2100);
+    expect(second.fameAwarded).toBe(170);
+    expect(second.tierAdvanced).toBe(3);
+    expect(second.profile.racing?.leaguePrizesClaimed).toEqual([1, 2, 3]);
+  });
+
+  test('the prize and the purse stay separate: a Quadra prize finish still pays its own purse', () => {
+    const profile = {
+      ...createNewProfile('Circus Career'),
+      // Tiers 1 and 2 already claimed, so only tier 3 is due on this finish.
+      racing: { leaguePoints: 450, unlocked: [3, 4], leaguePrizesClaimed: [1, 2] },
+    } as ReturnType<typeof createNewProfile>;
+    const result = settleRaceCompletion(profile, 4, 15000, 'victory', 1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.purseAwarded).toBe(250);
+    expect(result.prizeAwarded).toBe(1500);
+    expect(result.profile.gold).toBe(100 + 250 + 1500);
+  });
+
+  test('a stale bet still sits unread when a League bonus fires', () => {
+    const stale = {
+      ...createNewProfile('Circus Career'),
+      activeRaceBet: { factionId: 'green_prasina', wagerAmount: 50, oddsMultiplier: 1.8, potentialPayout: 90 },
+      racing: { leaguePoints: 90 },
+    } as ReturnType<typeof createNewProfile>;
+    const result = settleRaceCompletion(stale, 2, 15000, 'victory', 1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.prizeAwarded).toBe(250);
+    expect(result.profile.activeRaceBet).toEqual(stale.activeRaceBet);
+  });
+
+  test('the prize is displayed, not silent: the finish screen names the League bonus apart from the purse', () => {
+    const scene = readFileSync(new URL('../components/3d/RaceScene.tsx', import.meta.url), 'utf8');
+    expect(scene).toContain('data-race-league-prize');
+    expect(scene).toContain('League bonus');
+    expect(scene).toContain('data-race-purse');
+    expect(scene).toContain('raceSettlement.prizeAwarded');
+    const panel = readFileSync(new URL('../components/hub/PreRacePanel.tsx', import.meta.url), 'utf8');
+    expect(panel).toContain('data-race-field="league-standing"');
+    expect(panel).toContain('leagueStandingLine(leagueStanding)');
+    const workshop = readFileSync(new URL('../components/hub/RacingConfigSection.tsx', import.meta.url), 'utf8');
+    expect(workshop).toContain('data-racing-league-standing');
+    expect(workshop).toContain('leagueStandingLine(leagueStanding)');
+    // The shared line itself lives in the league module, and names the next
+    // tier and the gap — never a placement.
+    const league = readFileSync(new URL('./racingLeague.ts', import.meta.url), 'utf8');
+    expect(league).toContain('League standing:');
+    // No surface claims a placement the 1v1 race does not have.
+    for (const source of [scene, panel, workshop, league]) {
+      expect(source).not.toMatch(/first place prize|won first place/i);
+    }
+  });
+});
