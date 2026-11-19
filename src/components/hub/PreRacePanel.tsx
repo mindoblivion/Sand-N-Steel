@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { PlayerProfile } from '../../types/game';
 import { Eye, Flag, Info, Trophy, Wrench } from 'lucide-react';
 import { getSelectedRacingConfig } from '../../utils/racingProgression';
+import { leagueStandingLine, resolveLeagueStanding } from '../../utils/racingLeague';
 import { resolveChariotLoadout } from '../../utils/chariotLoadout';
 import { getChariotPart } from '../../data/chariotParts';
 // Day/Night T3 — the race card names the light it will run under. Copy only.
@@ -51,6 +52,8 @@ interface PreRacePanelProps {
 export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, onStartRace }) => {
   const team = useMemo(() => getSelectedRacingConfig(profile), [profile]);
   const loadout = useMemo(() => resolveChariotLoadout(profile), [profile]);
+  // ECON-2 — the League standing, read-only like everything else in this panel.
+  const leagueStanding = useMemo(() => resolveLeagueStanding(profile), [profile]);
 
   // T3 — the hour, from the clock. Dusk renders golden and night renders dawn in the
   // ring (`utils/racePhaseLight.ts`), so those two read as last and first light.
@@ -130,6 +133,11 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
               {hasValidBestTime ? formatRaceElapsed(storedBestTime) : 'No recorded lap'}
             </span>
           </div>
+        </div>
+
+        <div className="flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4">
+          <Trophy className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+          <p data-race-field="league-standing">{leagueStandingLine(leagueStanding)}</p>
         </div>
 
         <div className="flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4">
