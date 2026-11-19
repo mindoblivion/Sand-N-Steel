@@ -141,9 +141,12 @@ describe('§3 — the staggered fighter loses exactly one turn, then recovers', 
     expect(duel).toContain("executeCombatTurnRef.current?.('player', 'recover', 'master', false)");
     // The panel is the only input, and it is locked while staggered: every
     // action button is disabled and the banner names the recovery.
+    // COMBAT-5 rebased this count, not weakened it: the Sidestep button is
+    // the tenth action button, and it is disabled while recovering like the
+    // other nine.
     const panel = code('src/components/ui/TurnActionPanel.tsx');
     expect(panel).toContain('isStaggered(player.staggeredTurns)');
-    expect((panel.match(/disabled=\{!isPlayerTurn \|\| isExecuting \|\| playerRecovering/g) ?? []).length).toBe(9);
+    expect((panel.match(/disabled=\{!isPlayerTurn \|\| isExecuting \|\| playerRecovering/g) ?? []).length).toBe(10);
     expect(panel).toContain('RECOVERING');
   });
 
