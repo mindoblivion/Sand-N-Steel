@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `14b8152bc1e116143bf93545602f72106f2ee638` (2026-11-13).
+> Living project index. Baseline reconciled against `main` at `51d853c639aabbd1ca4607c1ebbdfcd385d7eafb` (2026-11-19).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -94,7 +94,12 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 
 ## Open engineering PRs
 
-No engineering PRs are currently open. PR #447's Centurion appearance-picker regression coverage, PR #446's backlog reconciliation, PR #449's full-screen city movement-lock input cleanup, and PR #450's backlog reconciliation are merged. Historical PRs #434 and #421 are superseded by merged #438/#440 and should not be merged separately.
+Two engineering PRs are currently open and neither is merge-ready:
+
+- **[PR #496](https://github.com/mindoblivion/Sand-N-Steel/pull/496) — startup image signature validation:** tests and TypeScript pass, but both required CI workflows fail at the new signature check. The two Colosseum loading-art files (`public/colosseum_loading.webp` and `public/colosseum_loading.png`) contain JPEG data, not WebP/PNG. Keep unmerged until the correct image asset is committed or the references are deliberately corrected to the actual format; do not weaken validation to hide the mismatch.
+- **[PR #492](https://github.com/mindoblivion/Sand-N-Steel/pull/492) — Ferrum visible flee animation:** both CI gates pass on head `800ba3f843f30dec605b207b604d5c151281ff43`. It remains draft pending live visual acceptance of run-cycle playback, ground contact, clipping and retreat direction in the arena/Samsung build. Automated tests are not visual acceptance.
+
+PRs #447, #446, #449 and #450 are merged. Historical PRs #434 and #421 are superseded by merged #438/#440 and should not be merged separately.
 
 Do not interpret green CI as completion of device acceptance.
 
@@ -128,3 +133,24 @@ Do not interpret green CI as completion of device acceptance.
 - Close or mark an item done only when its acceptance evidence exists.
 - If a task is blocked on owner/device input, state exactly what evidence is needed and continue with other safe, independent work.
 - Prioritize game-breaking defects and core gameplay correctness over cosmetic polish; do not make broad speculative changes.
+
+
+## Mainline reconciliation — 2026-11-19
+
+Main is now at `51d853c639aabbd1ca4607c1ebbdfcd385d7eafb`. Recent merged work since the prior 2026-11-13 baseline:
+
+- **PR #485:** compact portrait city HUD; Samsung safe-area and visual verification remain open in issue #329.
+- **PRs #487–#489:** Bounty Hall and Tavern paving approaches plus city survey reconciliation; source-level route/clearance checks pass, rendered walk-through remains open in issue #456.
+- **PR #490:** loading progress uses the loader's active state and avoids presenting stale completion as active progress.
+- **PRs #491 and #495:** body weight now affects attack stamina cost and city stride speed using the existing weight profile; no weapon lock was introduced. Gameplay feel and directional control still require device acceptance.
+- **PR #493:** loading overlay hides when idle and retains its completion fade.
+- **PR #494:** active/error loading states render immediately rather than waiting for an effect.
+
+### Current blockers and acceptance boundaries
+
+- The clean Colosseum loading artwork is not yet present in the GitHub repository in its verified WebP form. The committed files are JPEG bytes with PNG/WebP names. Keep the dark lower cover in `AssetLoadingOverlay` and `WaitSurface` until the correct clean artwork is committed and inspected; it masks baked-in artwork text/bar. Do not claim the clean progress-bar artwork is integrated.
+- Samsung S24 initial launch/city smoke test remains successful, but the remaining device checklist in issue #329 is not complete. This includes save persistence, arena duel, lifecycle/orientation, offline, creator/loading visuals, skin swatches, input release, weight feel, launcher icon, and longer-session performance.
+- The city geometry/collider tests are not a substitute for rendered paving review and physical route traversal (issue #456).
+- Rehearsal signing infrastructure is merged, but stable in-place APK updates still depend on the owner configuring the five rehearsal-only GitHub Actions secrets and completing the install-over-existing-app/save-preservation check (issue #458).
+
+Do not treat green CI as device acceptance. Keep source-level fixes scoped, and continue with independent auditable work while external artwork or device evidence is pending.
