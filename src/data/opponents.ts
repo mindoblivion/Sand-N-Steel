@@ -243,6 +243,11 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     weaponType: 'spear',
     personality: 'Defensive',
     armatura: 'hoplomachus',
+    // REGULARS-2 — `wall_closes`: after the player's attack lands cleanly
+    // on him his next slot is a brace — the phalanx closes ranks when
+    // bloodied. The mirror of Brutus: struck through the shield, he answers
+    // with a brace, not an attack.
+    regularBehavior: 'wall_closes',
     palmae: ['shieldwall_discipline'],
     recommendedLevel: 3,
     stats: {
@@ -400,6 +405,10 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     weaponType: 'sword_shield',
     personality: 'Defensive',
     armatura: 'murmillo',
+    // REGULARS-2 — `measured_guard`: while his stamina sits in the middle
+    // band (a quick but not a power) his slot is a block, never a tired
+    // quick — a veteran's cadence, strike, strike, brace, strike.
+    regularBehavior: 'measured_guard',
     palmae: ['iron_lungs'],
     recommendedLevel: 6,
     stats: {
@@ -437,6 +446,10 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     // CH-4 — Spearman's Ground arrives with the hoplomachus doctrina: the outer
     // third of his reach deals +15%, inside half reach −10%.
     armatura: 'hoplomachus',
+    // REGULARS-2 — `hold_the_tip`: inside half his spear's reach his slot
+    // is a retreat, so the fight happens at the tip. The doctrina owns the
+    // damage; the behavior owns the choice of managing the distance.
+    regularBehavior: 'hold_the_tip',
     recommendedLevel: 6,
     stats: {
       strength: 23,
