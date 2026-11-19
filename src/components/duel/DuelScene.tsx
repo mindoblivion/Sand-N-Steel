@@ -55,7 +55,6 @@ import {
   readCrowdHypeState,
 } from '../../utils/crowdDynamics';
 import { getWeaponByType } from '../../data/itemsDB';
-import { getWeightCombatProfile } from '../../utils/gladiatorWeight';
 import {
   getWeaponRange,
   getStaminaCost,
@@ -70,6 +69,15 @@ import {
   applyPalmaEvent,
   updateHypePeak,
 } from '../../utils/combatCalculations';
+// COMBAT-1 — stagger, knockback and the forced recovery turn: the pure rules
+// (see `src/utils/combatStagger.ts`), read here where the hit lands and the
+// turn is handed over.
+import {
+  STAGGER_TURNS_ON_LAND,
+  isStaggered,
+  knockbackPositionZ,
+  shouldStaggerHit,
+} from '../../utils/combatStagger';
 import {
   buildOpponentModifiers,
   buildPlayerModifiers,
@@ -369,6 +377,14 @@ const TURN_RESOLUTION_MS: Record<CombatActionType, number> = {
    * resolves nothing and no rule reads this number.
    */
   brothers_recovery: 1000,
+  /**
+   * COMBAT-1 — the forced recovery turn. A staggered fighter's turn, spent
+   * reeling: the `hit` action shows briefly, then `idle`, with the RECOVERING
+   * tag. It takes the same read weight as the pair's Exposed recovery (1000
+   * ms) — long enough for the reel to read, short enough to keep the tempo.
+   * Pacing only; the recovery resolves nothing and no rule reads this number.
+   */
+  recover: 1000,
 };
 
 /** A turn that leaves a fighter at 0 health holds this long, whatever it was. */
@@ -406,8 +422,11 @@ export const turnResolutionMs = (
   if (TELEGRAPH_HOLD_ACTIONS.includes(actionType)) {
     return bossTelegraphHoldMs(mode, shipped);
   }
-  // Body weight affects only the PLAYER's ordinary quick/power attack recovery.
-  // Utility actions, special telegraphs, AI turns and the death hold stay fixed.
+  // COMBAT-1 — the 15 Nov cut removed weight-affects-speed from the design, so
+  // the duel passes a neutral 1 here: body weight scales nothing any more.
+  // The parameter stays (and the shipped scaling is still unit-tested) so the
+  // function keeps its contract; the only live call site passes 1. Utility
+  // actions, special telegraphs, AI turns and the death hold stay fixed.
   if (actionType === 'quick_attack' || actionType === 'power_attack') {
     const scale = Number.isFinite(playerRecoveryMultiplier)
       ? Math.max(0.85, Math.min(1.15, playerRecoveryMultiplier))
@@ -672,6 +691,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     // doctrina; the entangle counter starts clear and nothing here is saved.
     netAvailable: playerMods.armaturaId === 'retiarius',
     entangledTurns: 0,
+    // COMBAT-1 — the stagger counter starts clear, like the entangle's.
+    staggeredTurns: 0,
   });
 
   // Keep player handedness in sync if changed dynamically
@@ -705,6 +726,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     // retiarius (the opponent config lands in CH-4; the read is already here).
     netAvailable: opponentMods.armaturaId === 'retiarius',
     entangledTurns: 0,
+    // COMBAT-1 — the stagger counter starts clear, like the entangle's.
+    staggeredTurns: 0,
     // STORY-4b — Director ruling R5: a LEFT-HANDED opponent (the board's Rung II)
     // is the shipped lefty stance, read from the row's own flag. `GladiatorMesh`
     // falls back to this field for the opponent mesh (it is rendered without an
@@ -1251,13 +1274,15 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         getStaminaCost(player.loadout.weapon, true),
         true,
         playerMods,
-        getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).staminaCostMultiplier,
+        // COMBAT-1 — the 15 Nov cut: body weight scales no combat cost.
+        1,
       ),
       powerStaminaCost: staminaCostWithModifiers(
         getStaminaCost(player.loadout.weapon, false),
         false,
         playerMods,
-        getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).staminaCostMultiplier,
+        // COMBAT-1 — the 15 Nov cut: body weight scales no combat cost.
+        1,
       ),
       lastPlayerStrike: lastPlayerStrike?.result ?? null,
       opponentHealth: opp.health,
@@ -1499,6 +1524,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       // The two assignments below READ the same subtraction the damage branches
       // apply; no outcome, formula, stamina value or state changes here.
       let fightEnded = false;
+      // COMBAT-1 — set by the out-of-range branch below: a swing that fell short
+      // consumes neither stamina (guarded at dispatch) nor turn, so the shared
+      // turn toggle in section 4 is skipped for it. Read once, in the timer
+      // callback, and never reset — one dispatch, one resolution.
+      let outOfRangeWhiff = false;
 
       // Taking a new action ends any lingering defensive stance (block or
       // dodge invulnerability) from a previous turn. Both stances persist
@@ -1817,6 +1847,23 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         addLog(CROSSING_RECOVERY_WORDS, 'system');
       }
 
+      // 2d-ter. COMBAT-1 — THE FORCED RECOVERY (stagger). The fighter's turn is
+      // spent reeling: no hit roll, no damage, no stamina — the `hit` action
+      // shows briefly, then `idle`, with the RECOVERING tag. The flag is
+      // cleared here, so the stagger costs exactly one turn, for either
+      // fighter. The turn then passes back through the shared transition in
+      // section 4, exactly like every other resolved action.
+      else if (actionType === 'recover') {
+        sounds.playDodge();
+        if (isActorPlayer) {
+          setPlayer((prev) => ({ ...prev, action: 'hit', staggeredTurns: 0 }));
+        } else {
+          setOpp((prev) => ({ ...prev, action: 'hit', staggeredTurns: 0 }));
+        }
+        addLog(`${attacker.name} is RECOVERING — the blow left them reeling!`, isActorPlayer ? 'player' : 'opponent');
+        spawnDamageText('RECOVERING', 'dodge', attacker.position);
+      }
+
       // 2e. BEAST HUNT — STRIKING THE CROUCHING BEAST (Marcellin's Ferrum only)
       // The attack action with the other target. It rides the SAME hit formula a
       // strike at a fighter rides — the beast's own row agility as the defender —
@@ -1828,7 +1875,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           getStaminaCost(player.loadout.weapon, isQuick),
           isQuick,
           playerMods,
-          getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).staminaCostMultiplier,
+          // COMBAT-1 — the 15 Nov cut: body weight scales no combat cost.
+          1,
         );
         setPlayer((prev) => ({
           ...prev,
@@ -1885,7 +1933,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           getStaminaCost(attackerWeapon, isQuick),
           isQuick,
           attackerMods,
-          isActorPlayer ? getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).staminaCostMultiplier : 1,
+          // COMBAT-1 — the 15 Nov cut: body weight scales no combat cost.
+          1,
         );
 
         // Set the attack animation at dispatch, but charge the player's stamina
@@ -1927,6 +1976,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           sounds.playSlash();
           addLog(`${attackerLabel} strikes with ${isQuick ? 'Quick Slash' : 'Power Slash'}, but is OUT OF RANGE!`, 'system');
           spawnDamageText('OUT OF RANGE!', 'blocked', defender.position);
+          // COMBAT-1 — a swing that fell short consumes neither stamina (guarded
+          // at dispatch above) nor turn: the toggle in section 4 is skipped, so
+          // the turn stays with the attacker.
+          outOfRangeWhiff = true;
           // D-4 — a Crossing that never reached him is still spent: the exchange
           // resolves as an open answer, so the pair's trap closes cleanly instead
           // of leaving `announced` standing for the rest of the fight.
@@ -2040,6 +2093,16 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               Math.random() <
                 critChanceFor(netCritBonusModifiers(attackerMods, isEntangled(defender.entangledTurns)));
             const isBlocked = defender.isBlocking;
+            // COMBAT-1 — does this landed blow stagger? Power, crit and a
+            // telegraphed heavy all ride the power profile (a crit can only come
+            // from a power attack); quick never staggers, and a blocked power is
+            // the answer to a heavy. Read here, applied with the damage below.
+            const shouldStagger = shouldStaggerHit({
+              isQuick,
+              isCrit,
+              isTelegraphedHeavy,
+              isBlocked,
+            });
             // C-8.70C — Aurelius's rage now BUILDS: the charge ramps the
             // multiplier VALUE the shipped formula already accepts, from 1.0 to
             // the unchanged RAGE_DAMAGE_MULTIPLIER as it fills. The formula
@@ -2113,7 +2176,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               isBlocked,
               blockReduction,
               rageMult,
-              traitMult * (isActorPlayer ? getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).impactMultiplier : 1),
+              // COMBAT-1 — the 15 Nov cut: body weight scales no combat damage.
+              traitMult,
             );
 
             // CF-5 — the same subtraction the damage branch below applies, read
@@ -2298,6 +2362,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   ...(defenderMods.armaturaId === 'provocator'
                     ? { mirrorDrillTypes: recordHitType(prev.mirrorDrillTypes, isQuick) }
                     : {}),
+                  // COMBAT-1 — the staggering blow: the victim reels for one
+                  // turn and is knocked back 1.2 m away from the attacker. A
+                  // killing blow staggers nothing.
+                  ...(shouldStagger && nextHp > 0
+                    ? {
+                        staggeredTurns: STAGGER_TURNS_ON_LAND,
+                        position: [
+                          prev.position[0],
+                          prev.position[1],
+                          knockbackPositionZ(attacker.position[2], prev.position[2]),
+                        ] as [number, number, number],
+                      }
+                    : {}),
                 };
               });
               // Player's attack resolved: update combo based on outcome.
@@ -2322,9 +2399,28 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   ...(defenderMods.armaturaId === 'provocator'
                     ? { mirrorDrillTypes: recordHitType(prev.mirrorDrillTypes, isQuick) }
                     : {}),
+                  // COMBAT-1 — the staggering blow (see the setOpp branch above).
+                  ...(shouldStagger && nextHp > 0
+                    ? {
+                        staggeredTurns: STAGGER_TURNS_ON_LAND,
+                        position: [
+                          prev.position[0],
+                          prev.position[1],
+                          knockbackPositionZ(attacker.position[2], prev.position[2]),
+                        ] as [number, number, number],
+                      }
+                    : {}),
                   comboCount: applyComboEvent(prev.comboCount, 'player_damaged'),
                 };
               });
+            }
+
+            // COMBAT-1 — the stagger announces itself: the tag on the victim and
+            // one log line. A killing blow staggers nothing — `fightEnded` was
+            // read on this blow, before the twin blades below.
+            if (shouldStagger && !fightEnded) {
+              addLog(`${defender.name} is STAGGERED — reeling from the blow!`, 'system');
+              spawnDamageText('STAGGERED!', 'crit', defender.position);
             }
 
             // ── CH-3b — TWIN FANGS (dimachaerus) ─────────────────────────────
@@ -2343,7 +2439,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                   isBlocked,
                   blockReduction,
                   rageMult,
-                  traitMult * (isActorPlayer ? getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).impactMultiplier : 1),
+                  // COMBAT-1 — the 15 Nov cut: body weight scales no combat damage.
+                  traitMult,
                 );
 
                 // CF-5 — the second blade can be the killing blow.
@@ -2503,16 +2600,20 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
 
         // Toggle turn — a completed opponent action opens the player's next turn.
         // D-4 — the pair's flank strike is still coming, so the pair keeps it.
+        // COMBAT-1 — an out-of-range swing consumed no turn (see the flag set in
+        // the out-of-range branch): the turn stays with the attacker, who may
+        // act again — advance, or strike once in reach.
         if (flankPending) return;
+        if (outOfRangeWhiff) return;
         if (!isActorPlayer) setPlayerTurnCount((count) => count + 1);
         setIsPlayerTurn(!isActorPlayer);
+      // COMBAT-1 — the 15 Nov cut: body weight scales no turn hold, so the
+      // recovery multiplier is the neutral 1.
       }, turnResolutionMs(
         actionType,
         fightEnded,
         boutMode,
-        isActorPlayer && isAttackAction
-          ? getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).recoveryMultiplier
-          : 1,
+        1,
       ));
     },
     [
@@ -2552,6 +2653,17 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       if (isMatchOver.current) return;
       telegraphAftermathRef.current = false;
       const dist = Math.abs(player.position[2] - opp.position[2]);
+
+      // COMBAT-1 — a staggered fighter recovers instead of choosing an action:
+      // the forced recovery turn, through the same `recover` branch the player
+      // takes. The flank is the tail of the previous exchange, so it still
+      // resolves; every other slot is lost to the recovery, and the flag
+      // clears in the branch itself. No change to the tactical ladder below —
+      // a staggered fighter never reaches it.
+      if (!flankStrikeRef.current && isStaggered(opp.staggeredTurns)) {
+        executeCombatTurn('opponent', 'recover');
+        return;
+      }
 
       // ── D-4 — THE COTTA PAIR'S SLOT, PLANNED ONCE ────────────────────────
       // One slot, planned in the pure module: alternation, the Crossing's
@@ -2960,6 +3072,23 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
     omenShift,
     boutMode,
   ]);
+
+  // COMBAT-1 — THE PLAYER'S FORCED RECOVERY TURN. When the player's turn
+  // arrives with the stagger flag set, they take no action: the recovery
+  // resolves through the standard pipeline (the `recover` branch) and the
+  // turn passes back. The dispatch clears the flag and sets isExecuting, so
+  // the effect cannot refire for the same stagger; the panel is disabled
+  // while staggered, so no input can intervene. The short delay lets the
+  // RECOVERING tag and banner read before the beat resolves.
+  useEffect(() => {
+    if (!isPlayerTurn || isExecuting || isMatchOver.current || player.health <= 0) return;
+    if (!isStaggered(player.staggeredTurns)) return;
+    const recoveryTimer = setTimeout(() => {
+      if (isMatchOver.current) return;
+      executeCombatTurnRef.current?.('player', 'recover', 'master', false);
+    }, 900);
+    return () => clearTimeout(recoveryTimer);
+  }, [isPlayerTurn, isExecuting, player.staggeredTurns, player.health]);
 
   // ── D-5 — HERMAS READS THE MIX (66 %, then 33 %) ───────────────────────────
   // The HP crossing is only WHEN he looks; WHAT he reads is the player's own
@@ -3568,8 +3697,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         combatLog={combatLog}
         playerModifiers={playerMods}
         opponentModifiers={opponentMods}
-        playerWeightImpactMultiplier={getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).impactMultiplier}
-        playerWeightStaminaMultiplier={getWeightCombatProfile(playerProfile.appearance.bodyWeightLb).staminaCostMultiplier}
+        // COMBAT-1 — the 15 Nov cut: body weight scales no combat numbers. The
+        // props are not display-only (the panel's estimates read them), so they
+        // are passed neutral (1), the defaults the HUD and panel already carry.
+        playerWeightImpactMultiplier={1}
+        playerWeightStaminaMultiplier={1}
         opponentIsBoss={opponent.isBoss === true}
         // Slice C-D — the phase marker, on a ladder boss only (`undefined` on
         // every other bout, so the HUD draws exactly what it always drew).

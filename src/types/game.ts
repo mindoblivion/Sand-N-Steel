@@ -248,6 +248,14 @@ export interface FighterState {
    * state only — never written to a profile or a save.
    */
   entangledTurns?: number;
+  /**
+   * COMBAT-1 — Stagger's transient duel state: how many of this fighter's own
+   * turns the stagger still covers. 0/undefined = not staggered. Runtime
+   * state only — never written to a profile or a save. Set to
+   * `STAGGER_TURNS_ON_LAND` by a staggering blow, cleared by the forced
+   * recovery turn that follows it.
+   */
+  staggeredTurns?: number;
   /** Body mass drives the player's rig-based silhouette; absent opponents use the neutral baseline. */
   bodyWeightLb?: number;
   /** Accumulated training/recovery history for visible physical evolution. */

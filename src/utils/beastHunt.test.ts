@@ -893,7 +893,13 @@ describe('D-2 §J — nothing persists, and no pipeline stage was added', () => 
     // dispatches one more EXISTING action (`telegraph`) into the same resolution
     // function. The stage count does not grow — the chain is an announce, not a
     // mechanic — so the count grows by one and this pin moves with it.
-    expect((DUEL_SCENE.match(/executeCombatTurn\(/g) ?? []).length).toBe(12);
+    // COMBAT-1 rebased this count by one: the staggered fighter's forced
+    // recovery dispatches one more EXISTING action (`recover`) into the same
+    // resolution function. The stage count does not grow — the recovery is a
+    // tempo beat, not a mechanic — so the count grows by one and this pin
+    // moves with it. (The player's own recovery is dispatched through the
+    // ref, `executeCombatTurnRef.current?.(`, which this count does not see.)
+    expect((DUEL_SCENE.match(/executeCombatTurn\(/g) ?? []).length).toBe(13);
   });
 
   test('the fence gates the panel, the figure, the pips and every rule', () => {

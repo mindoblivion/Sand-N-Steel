@@ -36,6 +36,7 @@ import {
   NET_LAND_CHANCE,
   ENTANGLE_HIT_PENALTY,
 } from '../../utils/statefulDoctrinae';
+import { isStaggered } from '../../utils/combatStagger';
 
 /**
  * D-2 — which fighter a PLAYER attack is aimed at. Only a beast bout offers the
@@ -77,7 +78,11 @@ export type CombatActionType =
   // D-4 — the Cotta pair's Exposed recovery: the boss's action for that slot
   // after the Crossing has been dodged. It resolves nothing at all (no hit roll,
   // no damage, no stamina) — a tempo beat the player is given, never a button.
-  | 'brothers_recovery';
+  | 'brothers_recovery'
+  // COMBAT-1 — the forced recovery turn: a staggered fighter's turn, spent
+  // reeling. It resolves nothing (no hit roll, no damage, no stamina) — a
+  // tempo beat for either fighter, never a button.
+  | 'recover';
 
 export interface CombatLogEntry {
   id: string;
@@ -134,6 +139,11 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   }, [beastTargetable]);
   const targetingBeast = beastTargetable && target === 'beast';
   const attackTarget: AttackTarget | undefined = targetingBeast ? 'beast' : undefined;
+  // COMBAT-1 — a staggered player takes no action: every button below is
+  // disabled while the flag is set, and the banner names the recovery. The
+  // flag clears in DuelScene's `recover` branch, which the scene dispatches
+  // on its own — the panel never offers recovery as a choice.
+  const playerRecovering = isStaggered(player.staggeredTurns);
   const effectiveRange = getWeaponRange(player.loadout.weapon);
   const isInWeaponRange = distance <= effectiveRange;
   // D-2 — a strike at the crouching beast is resolved with no range gate
@@ -289,7 +299,9 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
               }`}
             ></span>
             <span className="font-serif font-black text-xs sm:text-sm tracking-wider uppercase text-amber-100">
-              {isPlayerTurn
+              {playerRecovering
+                ? 'RECOVERING — REELING FROM THE BLOW'
+                : isPlayerTurn
                 ? isExecuting
                   ? 'Executing Strike...'
                   : 'YOUR TURN — CHOOSE TACTIC'
@@ -348,7 +360,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 1. QUICK STRIKE */}
           <button
             onClick={() => onExecuteAction('quick_attack', attackTarget)}
-            disabled={!isPlayerTurn || isExecuting || player.stamina < quickStaminaCost || strikeOutOfRange}
+            disabled={!isPlayerTurn || isExecuting || playerRecovering || player.stamina < quickStaminaCost || strikeOutOfRange}
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < quickStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
@@ -388,7 +400,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 2. POWER SLASH / HEAVY ATTACK */}
           <button
             onClick={() => onExecuteAction('power_attack', attackTarget)}
-            disabled={!isPlayerTurn || isExecuting || player.stamina < powerStaminaCost || strikeOutOfRange}
+            disabled={!isPlayerTurn || isExecuting || playerRecovering || player.stamina < powerStaminaCost || strikeOutOfRange}
             className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < powerStaminaCost
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
@@ -428,7 +440,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 3. SHIELD GUARD / BRACE */}
           <button
             onClick={() => onExecuteAction('shield_block')}
-            disabled={!isPlayerTurn || isExecuting}
+            disabled={!isPlayerTurn || isExecuting || playerRecovering}
             className={`p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
@@ -458,7 +470,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 4. DODGE / EVASION STANCE */}
           <button
             onClick={() => onExecuteAction('dodge')}
-            disabled={!isPlayerTurn || isExecuting || player.stamina < 12}
+            disabled={!isPlayerTurn || isExecuting || playerRecovering || player.stamina < 12}
             className={`p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting || player.stamina < 12
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
@@ -489,7 +501,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {isRetiarius && (
             <button
               onClick={() => onExecuteAction('cast_net', attackTarget)}
-              disabled={!isPlayerTurn || isExecuting || !netReady}
+              disabled={!isPlayerTurn || isExecuting || playerRecovering || !netReady}
               className={`group relative p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
                 !isPlayerTurn || isExecuting || !netReady
                   ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
@@ -526,7 +538,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* 6. TAUNT CROWD / REST */}
           <button
             onClick={() => onExecuteAction('taunt')}
-            disabled={!isPlayerTurn || isExecuting}
+            disabled={!isPlayerTurn || isExecuting || playerRecovering}
             className={`p-2 sm:p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer active:scale-95 text-left ${
               !isPlayerTurn || isExecuting
                 ? 'bg-neutral-900/50 border-neutral-800 opacity-50 pointer-events-none'
@@ -560,7 +572,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             {/* ADVANCE */}
             <button
               onClick={() => onExecuteAction('advance')}
-              disabled={!isPlayerTurn || isExecuting || isInWeaponRange}
+              disabled={!isPlayerTurn || isExecuting || playerRecovering || isInWeaponRange}
               className={`min-h-[48px] px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
                 !isPlayerTurn || isExecuting || isInWeaponRange
                   ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
@@ -575,7 +587,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             {/* RETREAT */}
             <button
               onClick={() => onExecuteAction('retreat')}
-              disabled={!isPlayerTurn || isExecuting || distance >= 9.0}
+              disabled={!isPlayerTurn || isExecuting || playerRecovering || distance >= 9.0}
               className={`min-h-[48px] px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
                 !isPlayerTurn || isExecuting || distance >= 9.0
                   ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
@@ -591,7 +603,7 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
           {/* CATCH BREATH REST BUTTON */}
           <button
             onClick={() => onExecuteAction('rest')}
-            disabled={!isPlayerTurn || isExecuting || player.stamina >= player.stats.staminaMax}
+            disabled={!isPlayerTurn || isExecuting || playerRecovering || player.stamina >= player.stats.staminaMax}
             className={`min-h-[48px] px-3 py-1.5 rounded-lg border text-xs font-serif font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
               !isPlayerTurn || isExecuting || player.stamina >= player.stats.staminaMax
                 ? 'bg-neutral-900/50 border-neutral-800 text-neutral-500 opacity-50 pointer-events-none'
