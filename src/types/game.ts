@@ -64,7 +64,13 @@ export type RegularBehavior =
   /** Naija the Fisher: while the player is entangled, presses all-in. */
   | 'fishers_press'
   /** The Pale Twins: quick then power, power then quick, a readable rhythm. */
-  | 'twin_tempo';
+  | 'twin_tempo'
+  /** Cassius the Phalanx: after a clean hit lands on him, braces. */
+  | 'wall_closes'
+  /** Centurion Drusus: in the middle stamina band, blocks instead of a tired quick. */
+  | 'measured_guard'
+  /** Kallias of Sparta: inside half his spear's reach, steps back to the tip. */
+  | 'hold_the_tip';
 
 /**
  * D-3 — Varro's false telegraph, as data (boss-rosters.md Part A).
