@@ -37,6 +37,7 @@ import {
   ENTANGLE_HIT_PENALTY,
 } from '../../utils/statefulDoctrinae';
 import { isStaggered } from '../../utils/combatStagger';
+import { applyRiposteDamage, isRiposteReady } from '../../utils/combatCounter';
 
 /**
  * D-2 — which fighter a PLAYER attack is aimed at. Only a beast bout offers the
@@ -144,6 +145,11 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
   // flag clears in DuelScene's `recover` branch, which the scene dispatches
   // on its own — the panel never offers recovery as a choice.
   const playerRecovering = isStaggered(player.staggeredTurns);
+  // COMBAT-2 — the Riposte window: the next strike hits +50% and cannot be
+  // evaded. The panel shows the window (banner + boosted estimates) while it
+  // is open; DuelScene spends it on the next attack or lapses it on any
+  // non-attack action.
+  const riposteReady = isRiposteReady(player.riposteReady);
   const effectiveRange = getWeaponRange(player.loadout.weapon);
   const isInWeaponRange = distance <= effectiveRange;
   // D-2 — a strike at the crouching beast is resolved with no range gate
@@ -212,16 +218,25 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
       defenderTypesHit: opponent.mirrorDrillTypes,
     });
 
-  const quickDmgMin = calculateAttackDamage(
-    weapon.damageLight, str, false, oppDef, false, 0, 1.0, estimateTraitMult(true) * playerWeightImpactMultiplier,
+  const quickDmgMin = applyRiposteDamage(
+    calculateAttackDamage(
+      weapon.damageLight, str, false, oppDef, false, 0, 1.0, estimateTraitMult(true) * playerWeightImpactMultiplier,
+    ),
+    riposteReady,
   );
   const quickDmgMax = quickDmgMin;
 
-  const powerDmgMin = calculateAttackDamage(
-    weapon.damageHeavy, str, false, oppDef, false, 0, 1.0, estimateTraitMult(false) * playerWeightImpactMultiplier,
+  const powerDmgMin = applyRiposteDamage(
+    calculateAttackDamage(
+      weapon.damageHeavy, str, false, oppDef, false, 0, 1.0, estimateTraitMult(false) * playerWeightImpactMultiplier,
+    ),
+    riposteReady,
   );
-  const powerDmgMax = calculateAttackDamage(
-    weapon.damageHeavy, str, true, oppDef, false, 0, 1.0, estimateTraitMult(false) * playerWeightImpactMultiplier,
+  const powerDmgMax = applyRiposteDamage(
+    calculateAttackDamage(
+      weapon.damageHeavy, str, true, oppDef, false, 0, 1.0, estimateTraitMult(false) * playerWeightImpactMultiplier,
+    ),
+    riposteReady,
   );
 
   // Weapon-specific stamina costs (shared with combat resolution) — CH-3a: the
@@ -354,6 +369,19 @@ export const TurnActionPanel: React.FC<TurnActionPanelProps> = ({
             STAMINA: <strong className="text-amber-100">{Math.round(player.stamina)} SP</strong>
           </div>
         </div>
+
+        {/* COMBAT-2 — RIPOSTE READY. The window the block opened: the next
+            strike hits +50% and cannot be evaded. Shown while the window is
+            open on the player's turn; any non-attack action lapses it, and
+            the attack buttons above already show the boosted damage. */}
+        {riposteReady && isPlayerTurn && !isExecuting && !playerRecovering && (
+          <div className="riposte-banner flex items-center justify-center gap-2 bg-amber-950/90 border-2 border-amber-400 rounded-xl px-3 py-1.5 shadow-lg">
+            <Zap className="w-4 h-4 text-amber-300 shrink-0" />
+            <span className="font-serif font-black text-xs sm:text-sm tracking-wider uppercase text-amber-200">
+              Riposte Ready — your next strike deals +50% damage and cannot be evaded
+            </span>
+          </div>
+        )}
 
         {/* COMMAND ACTION BUTTONS GRID */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
