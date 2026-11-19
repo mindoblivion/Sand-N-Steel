@@ -10,7 +10,7 @@
  * asserted here directly, because they are the two the design turns on:
  *   • pending gates do not hold the campaign shut — they leave the chapter
  *     closable on its available evidence, which is what makes Chapter 7 (and the
- *     card's Legend state) reachable while the race and omen systems are
+ *     card's Legend state) reachable while the race system is
  *     unlanded; and
  *   • the Oath gate is met by the grandfather rule (`fightsWon > 0`) as well as
  *     by a `road.oathSworn === true` field, so a legacy save resolves as
@@ -27,7 +27,7 @@
  *
  * ── STORY-3 CHANGED WHICH GATES HOLD A CHAPTER SHUT ────────────────────────
  * Chapter 2 ("Fortuna's Coin, the Second Sand") now requires an earned Rival
- * Schools victory in addition to Goliath and the omen. This is an ordinary unmet
+ * Schools victory in addition to Goliath and the alms. This is an ordinary unmet
  * evidence gate, not a special pending-gate hold. Consequences this suite measures:
  *   • a profile that has beaten Goliath resolves to Chapter 2, not Chapter 3
  *     (§B4), and a record that has met every other chapter's gates stops there
@@ -36,8 +36,9 @@
  *     evidence (§F), which is a property of the build, not a lost assertion; and
  *   • chapters 3-7 stay covered through `resolveChapterGates(profile, chapter)`
  *     — the same table, the same evidence, addressed per chapter (§B5-§B9, §G).
- * Chapter 2's omen gate is the other change: Pitch A1's shrine landed, so Beat 3
- * reads STATE (a live omen or the once-ever decline marker) instead of pending.
+ * Chapter 2's alms gate is the other change: BET-1 re-gated Beat 3 off the cut
+ * Omen and onto the shrine's alms, so it reads STATE (alms left at least once)
+ * instead of pending.
  *
  * ── WHAT IS *NOT* ASSERTED HERE ────────────────────────────────────────────
  * Nothing about rendering beyond the card's own static markup, and nothing about
@@ -249,7 +250,7 @@ describe('§B the chapter boundaries', () => {
     // With the Test's evidence as well, the first chapter with an unmet gate is 2.
     const tested = resolveStoryState(withDoctoreTest(legacy(1)));
     expect(tested.chapter).toBe(2);
-    expect(tested.gates.map((gate) => gate.id)).toEqual(['tier-1-boss', 'rival-schools-first', 'omen']);
+    expect(tested.gates.map((gate) => gate.id)).toEqual(['tier-1-boss', 'rival-schools-first', 'alms']);
   });
 
   test("B2b — a `road.oathSworn` field closes Chapter 0 too, and a malformed `road` does not", () => {
@@ -277,12 +278,11 @@ describe('§B the chapter boundaries', () => {
     expect(state.title).toBe("Fortuna's Coin, the Second Sand");
     expect(gateOf(tested, 'tier-1-boss').state).toBe('unmet');
     expect(gateOf(tested, 'rival-schools-first').state).toBe('unmet');
-    // STORY-3 — the omen's owning system has landed (Pitch A1's shrine), so Beat
-    // 3's gate reads evidence and asks for the reading in its own words.
-    expect(gateOf(tested, 'omen').state).toBe('unmet');
+    // STORY-3 — Beat 3's gate reads evidence and asks for the alms in its own words.
+    expect(gateOf(tested, 'alms').state).toBe('unmet');
     expect(storyGateLine(gateOf(tested, 'tier-1-boss'))).toBe(`Defeat ${bossShortName(1)}`);
     expect(storyGateLine(gateOf(tested, 'rival-schools-first'))).toBe('Defeat the champion of the Rival Ludus');
-    expect(storyGateLine(gateOf(tested, 'omen'))).toBe('Face the reading of the omen');
+    expect(storyGateLine(gateOf(tested, 'alms'))).toBe('Leave alms at the Shrine of Fortuna');
   });
 
   test("B4 — Goliath down: Chapter 2's duel gate is met and the chapter is HELD open by its Rival Schools gate", () => {
@@ -304,23 +304,30 @@ describe('§B the chapter boundaries', () => {
     expect(state.gates.map((gate) => gate.id)).toEqual([
       'tier-1-boss',
       'rival-schools-first',
-      'omen',
+      'alms',
     ]);
     expect(state.gates.map((gate) => gate.state)).toEqual(['met', 'unmet', 'unmet']);
     expect(gateOf(goliathDown, 'rival-schools-first').holdsChapterOpen).toBeUndefined();
     expect(gateOf(goliathDown, 'tier-1-boss').holdsChapterOpen).toBeUndefined();
 
-    // …and Beat 3 as well: duel AND omen are met, and the chapter still waits on
+    // …and Beat 3 as well: duel AND alms are met, and the chapter still waits on
     // the Rival Schools victory. No special pending-gate hold is needed.
-    const withOmen: PlayerProfile = {
+    const withAlms: PlayerProfile = {
       ...goliathDown,
-      omen: { kind: 'kind', expiresAtBout: 9 },
+      ludi: {
+        day: 5,
+        deedsDone: [],
+        favour: 1,
+        lastAlmsDay: 5,
+        fameBaseline: 0,
+        visitsToday: [],
+      },
     };
-    const held = resolveStoryState(withOmen);
+    const held = resolveStoryState(withAlms);
     expect(held.chapter).toBe(2);
     expect(held.gates.map((gate) => gate.state)).toEqual(['met', 'unmet', 'met']);
     expect(held.complete).toBe(false);
-    expect(storyGateLine(held.gates[2])).toBe('The omen has been read.');
+    expect(storyGateLine(held.gates[2])).toBe('Alms have been left at the shrine.');
   });
 
   test("B5 — Chapter 3's own gates are unchanged, and the campaign is held at Chapter 2", () => {
@@ -597,12 +604,10 @@ describe('§D the resolver never mutates its input', () => {
 // ── §E the slice writes no profile ───────────────────────────────────────
 describe('§E zero profile writes', () => {
   test('neither new module names a save path', () => {
-    const omensSource = readFileSync(new URL('./omens.ts', import.meta.url), 'utf8');
     for (const source of [
       codeOf(moduleSource),
       codeOf(cardSource),
       codeOf(rankSource),
-      codeOf(omensSource),
     ]) {
       expect(source).not.toMatch(/saveProfile|loadSavedProfile|clearProfile|PROFILE_STORAGE_KEY/);
       expect(source).not.toMatch(/localStorage|sessionStorage|indexedDB/);
@@ -612,13 +617,14 @@ describe('§E zero profile writes', () => {
 
   test('the resolver imports nothing that can write', () => {
     const imports = [...moduleSource.matchAll(/from '([^']+)'/g)].map((match) => match[1]);
-    // STORY-3 — `./omens` joined the list: the beat's evidence is read through
-    // the omen module's own lazy readers, and that module is pinned below.
+    // BET-1 — `./omens` left the list: Beat 3's evidence is read through the
+    // calendar's own lazy reader (`resolveLudiProgress`), and the omen module
+    // is deleted.
     expect(imports).toEqual([
       '../types/game',
       '../data/opponents',
       './storyBeats',
-      './omens',
+      './ludiCalendar',
       './rivalSchools',
       './rank',
     ]);
@@ -672,7 +678,16 @@ describe('§F the campaign card', () => {
       currentTier: 2,
       fame: 200,
       defeatedOpponentIds: [...base.defeatedOpponentIds, tierOneBoss, tierTwoBoss],
-      omenTrickleClaimed: true,
+      // BET-1 — Beat 3 is met by the alms now: without it the profile never
+      // leaves Chapter 2 and this test's Chapter 3 never renders.
+      ludi: {
+        day: 5,
+        deedsDone: [],
+        favour: 1,
+        lastAlmsDay: 5,
+        fameBaseline: 0,
+        visitsToday: [],
+      },
       story: {
         ...(base.story ?? {}),
         rivalry: {
@@ -690,7 +705,9 @@ describe('§F the campaign card', () => {
     expect(markup).toContain('data-chapter="3"');
     expect(markup).toContain(PENDING_GATE_LINES.race);
     expect(markup).toContain('data-state="pending"');
-    expect(markup).not.toContain(PENDING_GATE_LINES.omen);
+    // BET-1 — there is no omen pending line any more: the Omen is cut and its
+    // gate left `PENDING_GATE_LINES` with it.
+    expect(Object.keys(PENDING_GATE_LINES)).toEqual(['race', 'beat']);
     // The pending line is printed instead of the owning gate's requirement or confirmation.
     expect(markup).not.toContain('Reach the District final');
     expect(markup).not.toContain('The District final is yours to race.');
@@ -698,18 +715,25 @@ describe('§F the campaign card', () => {
 
   test('a met gate prints its confirmation, not its requirement', () => {
     // STORY-3 — the card's chapter is Chapter 2, so the met gates measured here
-    // are that chapter's own: Goliath's fall and Beat 3's omen.
+    // are that chapter's own: Goliath's fall and Beat 3's alms.
     const base = withDoctoreTest(legacy(2));
     const profile: PlayerProfile = {
       ...base,
       defeatedOpponentIds: [...base.defeatedOpponentIds, bossId(1)],
-      omenTrickleClaimed: true,
+      ludi: {
+        day: 5,
+        deedsDone: [],
+        favour: 1,
+        lastAlmsDay: 5,
+        fameBaseline: 0,
+        visitsToday: [],
+      },
     };
     const markup = text(markupFor(profile));
     expect(markup).toContain(`${bossShortName(1)} has fallen in the sand.`);
     expect(markup).not.toContain(`Defeat ${bossShortName(1)}`);
-    expect(markup).toContain('The omen has been read.');
-    expect(markup).not.toContain('Face the reading of the omen');
+    expect(markup).toContain('Alms have been left at the shrine.');
+    expect(markup).not.toContain('Leave alms at the Shrine of Fortuna');
   });
 
   test("the Legend state is not claimed while Chapter 2's Rival Schools gate is unlanded", () => {
