@@ -84,7 +84,10 @@ describe('A. The chase rig reads the surveyed standard', () => {
   });
 
   test('the rig still follows only while `racing`, with Slice 2’s frame-based smoothing', () => {
-    expect(sceneCode).toContain("if (raceState !== 'racing') return;");
+    // LADDER-1B — the chase follows only once the RACE CLOCK has started
+    // (the leader's crossing), not at GO: during the roll the formation
+    // camera holds, so the roll reads as one continuous shot.
+    expect(sceneCode).toContain("if (raceState !== 'racing' || !clockStarted) return;");
     expect(sceneCode).toContain('const alpha = 1 - Math.exp(-CHARIOT_CHASE_CAMERA.followRate * dt);');
     expect(sceneCode).toContain('Math.min(delta, CHARIOT_MOVEMENT.maxFrameDt)');
     expect(CHARIOT_CHASE_CAMERA.followRate).toBe(5);
@@ -118,7 +121,9 @@ describe('B. The FOV is the survey’s, on the running camera', () => {
   });
 
   test('a state that is not `racing` restores the static camera at the rest FOV', () => {
-    const reset = sceneCode.slice(sceneCode.indexOf("if (raceState === 'racing') return;"));
+    // LADDER-1B — the reset also runs during the roll (`racing` but the clock
+    // not started): the formation camera holds until the leader crosses.
+    const reset = sceneCode.slice(sceneCode.indexOf("if (raceState === 'racing' && clockStarted) return;"));
     expect(reset).toContain('camera.fov = CHARIOT_CHASE_CAMERA.fovAtRest;');
     expect(reset).toContain('camera.updateProjectionMatrix();');
     expect(reset).toContain('RACE_CAMERA_POSITION');
@@ -177,8 +182,10 @@ describe('C. One prop, one resolver, one settings row (rebased by C-8.70B SET-1)
 
 describe('D. Nothing is restated in the scene', () => {
   test('the start line, the static pose and the rest offsets are read, not typed in', () => {
+    // LADDER-1B — the static pose is now the formation camera (the rolling
+    // start's view), not the race camera; the line is still read, never typed.
     expect(sceneSrc).toContain(
-      "import { CIRCUS_RACE_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry'"
+      "import { CIRCUS_FORMATION_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry'"
     );
     for (const literal of ['3.66', '8.5', '7.5', '6.6', '52.34', '2.18']) {
       expect(sceneCode, literal).not.toContain(literal);
