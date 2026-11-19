@@ -78,8 +78,10 @@ import {
   knockbackPositionZ,
   shouldStaggerHit,
 } from '../../utils/combatStagger';
-// COMBAT-2 — the player Riposte: the pure rules (see `src/utils/combatCounter.ts`),
-// read here where the window is queued, spent and lapsed.
+// COMBAT-3 — regulars announce their power: the pure rule (see
+// `src/utils/regularTelegraph.ts`), read here where the ladder's chosen power
+// is announced instead of thrown silently.
+import { shouldAnnounceRegularPower } from '../../utils/regularTelegraph';
 import {
   RIPOSTE_READY_TEXT,
   applyRiposteDamage,
@@ -119,7 +121,7 @@ import {
   pyreBrandHealAmount,
 } from '../../utils/bossPalmae';
 import { sounds } from '../../audio/soundEffects';
-import { BOSS_RAGE_TRAUMA, bossPresentsMoment } from '../../utils/bossPresentation';
+import { BOSS_RAGE_TRAUMA, bossPresentsMoment, presentsTelegraphGlow } from '../../utils/bossPresentation';
 // D-2 — the beast hunt. Every rule, fence and word lives in that module; this
 // scene only calls it, which is what keeps a non-boss opponent from ever
 // fielding a beast.
@@ -1704,10 +1706,11 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         spawnDamageText(`+${restGain} SP`, 'hype', attacker.position);
       }
 
-      // 2b. BOSS TELEGRAPH ACTION (Goliath heavy_telegraph)
-      // The boss spends this turn announcing a devastating overhead
+      // 2b. TELEGRAPH ACTION (boss heavy_telegraph, Varro's feint, Valéria's
+      // counter wind-up — and, since COMBAT-3, a regular's announced power).
+      // The opponent spends this turn announcing a devastating overhead
       // smash. The player gets a full turn to respond (dodge, block,
-      // or reposition) before the attack resolves on the boss's next
+      // or reposition) before the attack resolves on the opponent's next
       // turn via the AI effect reading pendingHeavyAttackRef.
       else if (actionType === 'telegraph') {
         const isCounterWindup = pendingCounterWindupRef.current;
@@ -2850,6 +2853,26 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         return;
       }
 
+      // COMBAT-3 — RESOLVE A REGULAR'S ANNOUNCED HEAVY. A regular opponent
+      // announced a power attack on the previous AI turn; the player has since
+      // taken their turn. It resolves through the standard power_attack pipeline
+      // exactly like Goliath's — same longest hit-stop, same 900 ms aftermath —
+      // and slice 1's fair-range rule decides the whiff: a player who retreated
+      // out of reach is not hit and the turn is not consumed, so retreating out
+      // of a telegraph is a valid answer. The banner comes down here, whatever
+      // the blow then becomes. (A staggered regular never reaches this branch:
+      // the forced recovery at the top of the effect runs first, and the
+      // pending heavy waits one more turn — the banner stays up, so the
+      // promised blow is delayed, never silently cancelled.)
+      if (opponent.isBoss !== true && pendingHeavyAttackRef.current) {
+        pendingHeavyAttackRef.current = false;
+        setOpp((prev) => ({ ...prev, telegraphText: undefined }));
+        telegraphLandingRef.current = true;
+        telegraphAftermathRef.current = true;
+        executeCombatTurn('opponent', 'power_attack');
+        return;
+      }
+
       // ── C-8.70C Slice C-D — GOLIATH'S CHAINED HEAVY (Phase 2) ────────────
       // The queued second heavy is ANNOUNCED like the first: a `telegraph` slot,
       // so it is answered with the same full hold (never shortened, and the
@@ -3109,6 +3132,31 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         !pendingHeavyAttackRef.current &&
         dist <= effectiveRange &&
         opp.stamina >= oppHeavyCost
+      ) {
+        chosenAction = 'telegraph';
+      }
+
+      // COMBAT-3 — REGULARS ANNOUNCE THEIR POWER. A regular opponent's chosen
+      // power attack is announced instead of thrown silently: the `telegraph`
+      // action posts the same banner, glow and 1450 ms hold a boss heavy gets,
+      // and the blow lands on the next AI turn through the resolution branch
+      // above. Quick attacks stay hidden and resolve as they always have. The
+      // choice itself is the tell — there is no telegraph rate for regulars.
+      //
+      // FEET TELL (deliberate): the feet tell is Varro's feint cue — `light`
+      // vs `planted` distinguishes a lie from a true heavy — and a regular's
+      // announced heavy is always true, so there is nothing for feet to
+      // distinguish; `planted` is the identity transform, so no feetTell is
+      // passed for regulars. Banner + 2 Hz pulse carry the tell.
+      if (
+        shouldAnnounceRegularPower({
+          isBoss: opponent.isBoss,
+          chosenAction,
+          pendingHeavy: pendingHeavyAttackRef.current,
+          inRange: dist <= effectiveRange,
+          stamina: opp.stamina,
+          heavyCost: oppHeavyCost,
+        })
       ) {
         chosenAction = 'telegraph';
       }
@@ -3705,7 +3753,7 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
                     impactRef={impactRef}
                     feetTell={falseTelegraph.tell ?? undefined}
                     telegraphGlow={
-                      Boolean(opp.telegraphText) && bossPresentsMoment(opponent, 'heavy_telegraph')
+                      Boolean(opp.telegraphText) && presentsTelegraphGlow(opponent)
                     }
                   />
                 )}

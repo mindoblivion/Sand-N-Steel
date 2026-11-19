@@ -15,12 +15,22 @@
  * numbers changed. This module answers only the other half of the question:
  * **is this opponent allowed to *present* the moment at all?** A boss is (its
  * config carries `isBoss: true` and the mechanic); a standard opponent is not,
- * so every presentation site is a no-op for it.
+ * so every boss-moment presentation site is a no-op for it. (COMBAT-3 adds one
+ * narrower gate, `presentsTelegraphGlow`, for the glow alone — see below.)
  *
  * `bossPresentationMoments` is the same rule read the other way round — the
  * complete list of moments an opponent's identity owns — which is what makes
  * the acceptance core testable as an explicit negative: a standard duel's list
  * is empty, so none of the four effects can fire.
+ *
+ * COMBAT-3 — the ONE exception to "a standard opponent presents nothing" is
+ * the telegraph glow, and it is not a fifth moment: `presentsTelegraphGlow`
+ * below answers a narrower question — may this opponent's mesh glow while a
+ * telegraph is live? A regular's announced power (COMBAT-3) glows because the
+ * telegraph itself is live; a boss still glows only through its own
+ * `heavy_telegraph` moment. The moment entitlement above is untouched: a
+ * standard opponent still owns no moment and `bossPresentsMoment` still
+ * answers false for it on every mechanic.
  */
 import type { BossMechanic, LadderBossMechanic, OpponentConfig } from '../types/game';
 
@@ -86,6 +96,27 @@ export function bossPresentationMoments(
   if (!isLadderBossMechanic(ladderMechanic)) return [];
   const moment = MOMENT_BY_MECHANIC[ladderMechanic];
   return moment ? [moment] : [];
+}
+
+/**
+ * COMBAT-3 — may this opponent's mesh glow while a telegraph is live?
+ *
+ * The glow is the announced heavy's tell, not a boss perk, so the gate is
+ * wider than `bossPresentsMoment` by exactly one case:
+ * - a boss glows only through its own `heavy_telegraph` moment (Goliath, and
+ *   the Deserter who carries it) — Varro's feint, Valéria's counter, Ignis's
+ *   switch and Aurelius's rage still read false here, exactly as CF-6 pins;
+ * - a regular opponent glows, because its announced power IS a telegraph
+ *   (see `regularTelegraph.ts`): the banner is up, the blow is coming, and
+ *   the pulse is what makes that readable at a glance.
+ * Tolerates `undefined`/`null` (no opponent, no glow).
+ */
+export function presentsTelegraphGlow(
+  opponent: BossGateInput | null | undefined,
+): boolean {
+  if (!opponent) return false;
+  if (opponent.isBoss === true) return bossPresentsMoment(opponent, 'heavy_telegraph');
+  return true;
 }
 
 // ── Rage ───────────────────────────────────────────────────────────────────

@@ -50,11 +50,12 @@ interface GladiatorMeshProps {
   /** Hit-stop / shake state shared with the duel's camera rig (optional). */
   impactRef?: React.MutableRefObject<ImpactState>;
   /**
-   * CF-6 — a boss's telegraph. While true, the mesh's OWN emissive path pulses
-   * `TELEGRAPH_GLOW_COLOR` at 2 Hz, so a wound-up boss reads at a glance without
-   * a second highlight system. Boss presentation only: `DuelScene` gates it on
-   * `bossPresentsMoment(opponent, 'heavy_telegraph') && Boolean(opp.telegraphText)`,
-   * so a standard fighter never sets it. Consumed by the rigged GLB path's
+   * CF-6 — a telegraphed heavy. While true, the mesh's OWN emissive path pulses
+   * `TELEGRAPH_GLOW_COLOR` at 2 Hz, so a wound-up opponent reads at a glance without
+   * a second highlight system. `DuelScene` gates it on
+   * `presentsTelegraphGlow(opponent) && Boolean(opp.telegraphText)`: a boss glows
+   * only through its own `heavy_telegraph` moment, and a regular glows while its
+   * announced power (COMBAT-3) is live. Consumed by the rigged GLB path's
    * materials; the procedural fallback has no emissive materials and ignores it.
    */
   telegraphGlow?: boolean;

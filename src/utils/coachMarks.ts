@@ -90,7 +90,7 @@ export const COACH_CARDS: Record<string, CoachCard> = {
   },
   D7: {
     speaker: 'The Doctore',
-    text: "See him wind up? That's a telegraph. When a big man glows like that — Dodge. Do not trade with it.",
+    text: "See him wind up? That's a telegraph — any opponent's heavy glows like that. Dodge. Do not trade with it.",
     codexEntry: 'D7',
   },
   D8: {
@@ -317,7 +317,7 @@ export function markSeen(
  *
  * The snapshot is only what DuelScene already holds (turn phase, range, the
  * player's stamina and the two strike costs, the last resolved player strike,
- * both fighters' health, crowd hype, the boss telegraph flag) plus, on the
+ * both fighters' health, crowd hype, the telegraph flag) plus, on the
  * result screen, the duel's result and the profile's loss count. No beat reads
  * a screen side (Lefty/Righty safe): the triggers name ACTIONS and STATE, never
  * a hand or a panel position.
@@ -351,7 +351,7 @@ export interface FightSnapshot {
   phase: 'fight';
   /** The opponent config's own id (D1 is Marcus's opening turn only). */
   opponentId: string;
-  /** `opponent.isBoss` — the telegraph is boss-gated in the shipped combat. */
+  /** `opponent.isBoss` — recorded for the snapshot; no beat gates on it since COMBAT-3. */
   isBoss: boolean;
   /** How many player turns have begun this duel; the opening turn is 1. */
   playerTurn: number;
@@ -368,7 +368,7 @@ export interface FightSnapshot {
   opponentHealth: number;
   opponentHealthMax: number;
   hype: number;
-  /** The boss's telegraph warning is up (`opp.telegraphText`). */
+  /** The telegraph warning is up (`opp.telegraphText`) — boss heavy or a regular's announced power. */
   telegraph: boolean;
 }
 
@@ -455,7 +455,11 @@ function beatTriggered(id: string, snapshot: CombatSnapshot): boolean {
     case 'D6':
       return Number.isFinite(snapshot.hype) && snapshot.hype > HYPE_HIGH;
     case 'D7':
-      return snapshot.isBoss === true && snapshot.telegraph === true;
+      // COMBAT-3 — the telegraph is no longer boss-gated: a regular's announced
+      // power lights the same warning, so D7 fires on the flag alone, for any
+      // opponent. (The `isBoss` field stays on the snapshot — D1 never read it
+      // and nothing else needs it removed.)
+      return snapshot.telegraph === true;
     default:
       return false;
   }

@@ -153,13 +153,15 @@ describe('CL-3 §A — each beat fires on its state, never before, never twice',
     expect(evaluateBeats(on, seen('D6'))).toBeNull();
   });
 
-  test('D7 — the first boss telegraph, and boss fights only', () => {
+  test('D7 — the first telegraph, boss or regular', () => {
     const on = fight({ isBoss: true, telegraph: true });
     expect(evaluateBeats(on, {})).toBe('D7');
 
-    // The telegraph flag is boss-gated in the shipped combat; a non-boss never fires it.
+    // COMBAT-3 — the telegraph is no longer boss-gated: a regular's announced
+    // power lights the same warning, so D7 fires for it too.
+    expect(evaluateBeats(fight({ isBoss: false, telegraph: true }), {})).toBe('D7');
     expect(evaluateBeats(fight({ isBoss: true, telegraph: false }), {})).toBeNull();
-    expect(evaluateBeats(fight({ isBoss: false, telegraph: true }), {})).toBeNull();
+    expect(evaluateBeats(fight({ isBoss: false, telegraph: false }), {})).toBeNull();
 
     expect(evaluateBeats(on, seen('D7'))).toBeNull();
   });

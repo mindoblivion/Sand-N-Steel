@@ -69,6 +69,7 @@ const stripComments = (code: string): string =>
   code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 
 const DUEL_SCENE = stripComments(source('../../src/components/duel/DuelScene.tsx'));
+const PRESENTATION = stripComments(source('./bossPresentation.ts'));
 const GLADIATOR_MESH = stripComments(source('../../src/components/3d/GladiatorMesh.tsx'));
 const COMBAT_HUD = stripComments(source('../../src/components/ui/CombatHUD.tsx'));
 const SOUND_EFFECTS = stripComments(source('../../src/audio/soundEffects.ts'));
@@ -338,12 +339,17 @@ describe('CF-6 §A — boss gating', () => {
 
   test('every presentation site in the duel is behind the gate', () => {
     const gates = DUEL_SCENE.match(/bossPresentsMoment\(/g) ?? [];
-    // Four moments, four calls: rage, phase switch, counter, telegraph glow.
-    expect(gates).toHaveLength(4);
+    // COMBAT-3 — three moments still call the gate directly (rage, phase switch,
+    // counter); the telegraph glow goes through `presentsTelegraphGlow`, which
+    // keeps the boss gate for bosses and admits a regular's announced power.
+    // The gate itself is unchanged: four moments, four entitlements, and the
+    // heavy_telegraph call still lives in the glow predicate's own module.
+    expect(gates).toHaveLength(3);
     expect(DUEL_SCENE).toContain("bossPresentsMoment(opponent, 'rage_mode_colossus')");
     expect(DUEL_SCENE).toContain("bossPresentsMoment(opponent, 'phase_weapon_switch')");
     expect(DUEL_SCENE).toContain("bossPresentsMoment(opponent, 'counter_dodge')");
-    expect(DUEL_SCENE).toContain("bossPresentsMoment(opponent, 'heavy_telegraph')");
+    expect(DUEL_SCENE).toContain('presentsTelegraphGlow(opponent)');
+    expect(PRESENTATION).toContain("bossPresentsMoment(opponent, 'heavy_telegraph')");
   });
 
   test('no effect is reachable outside its gate', () => {
@@ -495,12 +501,16 @@ describe('CF-6 §C — the telegraph glow', () => {
     expect(telegraphGlowIntensity(Infinity)).toBe(TELEGRAPH_GLOW_MIN);
   });
 
-  test('the duel passes it for the boss only, while telegraphText is set', () => {
+  test('the duel passes it while telegraphText is set, through the COMBAT-3 gate', () => {
     const at = DUEL_SCENE.indexOf('telegraphGlow={');
     expect(at).toBeGreaterThan(-1);
     const prop = DUEL_SCENE.slice(at, DUEL_SCENE.indexOf('}', at) + 1);
     expect(prop).toContain('Boolean(opp.telegraphText)');
-    expect(prop).toContain("bossPresentsMoment(opponent, 'heavy_telegraph')");
+    // COMBAT-3 — the glow is the announced heavy's tell, not a boss perk: the
+    // prop reads the predicate, which keeps the boss gate for bosses and admits
+    // a regular's announced power. The boss-only half is pinned in the
+    // predicate's own suite (regularTelegraph.test.ts §2).
+    expect(prop).toContain('presentsTelegraphGlow(opponent)');
     // The player's mesh is untouched: no glow prop on it at all.
     expect(DUEL_SCENE).toContain(
       '<GladiatorMesh fighter={player} isLeftyMode={isLeftyMode} impactRef={impactRef} />',

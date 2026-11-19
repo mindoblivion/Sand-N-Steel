@@ -227,13 +227,21 @@ describe('CF-5 §B the AI delay', () => {
     // D-4 rebased this count, not weakened it: the Cotta pair's Crossing heavy is
     // announced and resolved from its own branch in the same AI effect, and it has
     // just spent the same full telegraph turn, so it takes the same longer beat.
-    expect(duel.match(/telegraphAftermathRef\.current = true;/g)?.length).toBe(3);
+    // COMBAT-3 rebased this count, not weakened it: a regular's announced heavy
+    // resolves from its own branch in the same AI effect, and it too has just
+    // spent a full telegraph turn, so it takes the same longer beat.
+    expect(duel.match(/telegraphAftermathRef\.current = true;/g)?.length).toBe(4);
     const falseTelegraph = duel.indexOf("opponent.bossMechanic === 'false_telegraph' && pendingHeavyAttackRef.current");
     // D-4 — each resolution marker is asserted INSIDE its own branch, since the
     // Cotta pair's branch now precedes Varro's in the same effect.
     const falseSet = duel.indexOf('telegraphAftermathRef.current = true;', falseTelegraph);
     expect(falseTelegraph).toBeGreaterThan(-1);
     expect(falseSet).toBeGreaterThan(falseTelegraph);
+    // COMBAT-3 — the regular's marker is asserted inside its own branch too.
+    const regular = duel.indexOf('opponent.isBoss !== true && pendingHeavyAttackRef.current');
+    const regularSet = duel.indexOf('telegraphAftermathRef.current = true;', regular);
+    expect(regular).toBeGreaterThan(-1);
+    expect(regularSet).toBeGreaterThan(regular);
     const heavy = duel.indexOf("opponent.bossMechanic === 'heavy_telegraph' && pendingHeavyAttackRef.current");
     const set = duel.indexOf('telegraphAftermathRef.current = true;', heavy);
     const landing = duel.indexOf('telegraphLandingRef.current = true;', heavy);
