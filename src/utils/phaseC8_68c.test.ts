@@ -761,9 +761,11 @@ describe('C-8.68C §F — scope: numbers only, dev only, nothing moved', () => {
   });
 
   test('the phase added no model file and no new asset to public/', () => {
+    // COMBAT-4 added aurelius_champion.glb (Aurelius's distinct champion model); the pin below is the inventory.
     expect(readdirSync(repo('public/models')).sort()).toEqual([
       'amazonian.glb',
       'arena_roman.glb',
+      'aurelius_champion.glb',
       'dimachaerus.glb',
       'lion.glb',
       'minotaur.glb',

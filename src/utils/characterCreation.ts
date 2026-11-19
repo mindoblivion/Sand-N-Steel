@@ -172,6 +172,9 @@ const CHARACTER_MODEL_LABELS: Record<CharacterModelType, string> = {
   retiarius: 'Retiarius',
   minotaur: 'Minotaur',
   dimachaerus: 'Dimachaerus',
+  // COMBAT-4 — Aurelius's champion body. No armatura maps to it (it is an
+  // opponent-only model); the label exists so the Record stays complete.
+  aurelius_champion: 'Aurelius Champion',
 };
 
 export function armaturaModel(armatura: ArmaturaId): CharacterModelType {

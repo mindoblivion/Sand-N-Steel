@@ -42,6 +42,9 @@ import { PALMAE, PALMAE_BOSS_ONLY, getPalma } from '../data/palmae';
 import { getWeaponByType } from '../data/itemsDB';
 // Slice C-D — the boss phase data the rebased announce-rate pins read.
 import { BOSS_PHASES } from '../data/bossPhases';
+// COMBAT-4 — the signature-five model assignments resolve through the asset
+// catalogue, so these pins assert the GLB the duel actually loads.
+import { getEnemyCharacterAsset } from '../data/enemyCharacterAssets';
 import {
   EMPTY_MODIFIERS,
   buildOpponentModifiers,
@@ -791,5 +794,38 @@ describe('CH-4 §G — the boss palmae, at their sites', () => {
     expect(source).toContain('isCounterAttack,');
     // The counter branch still resolves through the standard quick-attack pipeline.
     expect(source).toContain("executeCombatTurn('opponent', 'quick_attack')");
+  });
+});
+
+describe('CH-4 §H — COMBAT-4: the five signature opponents fight in distinct bodies', () => {
+  test('each signature opponent resolves to its own GLB (Marcus stays Roman)', () => {
+    const byId = new Map(ALL_OPPONENTS.map((o) => [o.id, o]));
+    const expected: Record<string, string> = {
+      // No characterModel field: the catalogue fallback is the Roman rig.
+      opp_marcus: '/models/arena_roman.glb',
+      // The Pit Behemoth fights in the minotaur body.
+      opp_goliath_boss: '/models/minotaur.glb',
+      // Dimachaerus, dual blades: the dimachaerus body.
+      opp_ignis_boss: '/models/dimachaerus.glb',
+      // Retiarius, spear and net: the netfighter body.
+      opp_valeria_boss: '/models/netfighter.glb',
+      // The final boss fights in his own Blender-built champion body.
+      opp_aurelius_boss: '/models/aurelius_champion.glb',
+    };
+    for (const [id, assetPath] of Object.entries(expected)) {
+      const opponent = byId.get(id);
+      expect(opponent, `missing opponent ${id}`).toBeDefined();
+      expect(getEnemyCharacterAsset(opponent!.characterModel), id).toBe(assetPath);
+    }
+  });
+
+  test('the four COMBAT-4 assignments are explicit fields, not fallbacks', () => {
+    const byId = new Map(ALL_OPPONENTS.map((o) => [o.id, o]));
+    expect(byId.get('opp_goliath_boss')!.characterModel).toBe('minotaur');
+    expect(byId.get('opp_ignis_boss')!.characterModel).toBe('dimachaerus');
+    expect(byId.get('opp_valeria_boss')!.characterModel).toBe('retiarius');
+    expect(byId.get('opp_aurelius_boss')!.characterModel).toBe('aurelius_champion');
+    // Marcus carries no field: his Roman body is the catalogue default.
+    expect(byId.get('opp_marcus')!.characterModel).toBeUndefined();
   });
 });

@@ -16,6 +16,9 @@ export const ENEMY_CHARACTER_ASSETS: Readonly<Record<EnemyGlbModelType, string>>
   retiarius: '/models/netfighter.glb',
   minotaur: '/models/minotaur.glb',
   dimachaerus: '/models/dimachaerus.glb',
+  // COMBAT-4 — Aurelius's champion body, built in Blender on the shared Roman
+  // rig (crested helm, heavy pauldrons, broadened torso).
+  aurelius_champion: '/models/aurelius_champion.glb',
 };
 
 /** Resolve an opponent model key. Unknown/absent keys safely use the Roman rig. */
