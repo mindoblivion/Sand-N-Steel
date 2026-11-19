@@ -90,7 +90,7 @@ export const COACH_CARDS: Record<string, CoachCard> = {
   },
   D7: {
     speaker: 'The Doctore',
-    text: "See him wind up? That's a telegraph — any opponent's heavy glows like that. Dodge. Do not trade with it.",
+    text: "See him wind up? That's a telegraph — any opponent's heavy glows like that. Dodge, block — or step off the line. Do not trade with it.",
     codexEntry: 'D7',
   },
   D8: {
@@ -335,11 +335,12 @@ export const HYPE_HIGH = 40;
 
 /**
  * D5's "low" half: an opponent at or below a quarter of its health is reeling
- * enough to finish. **The shipped combat has no staggered state** — no
- * `FighterState` field, no action and no AI branch produces one — so the
- * "staggered" half of the design's "staggered or low" cannot be evaluated from
- * state DuelScene holds and is deliberately NOT approximated with an invented
- * flag. D5 therefore triggers on the "low" reading alone.
+ * enough to finish. COMBAT-5 — the claim this comment used to carry ("the
+ * shipped combat has no staggered state") was false since COMBAT-1: the
+ * shipped combat DOES have a staggered state — a landed unblocked power
+ * attack staggers the victim for one turn. D5 still triggers on the "low"
+ * reading alone — the beat is about finishing a hurt opponent, not about the
+ * stagger itself — and no behavior changes here.
  */
 export const OPPONENT_REELING_HEALTH_FRACTION = 0.25;
 
