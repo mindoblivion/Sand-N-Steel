@@ -410,9 +410,8 @@ describe('P2 §F — zero power', () => {
     'components/hub/StatsTab.tsx',
     'components/hub/TriumphsPage.tsx',
     'types/game.ts',
-    // PITCH A1 — the omen suite reads `game.ts`'s optional-field list to pin the
-    // merged twenty-field order, so it names this field without touching it.
-    'utils/fortunasOmen.test.ts',
+    // BET-1 — the omen suite that once read `game.ts`'s optional-field list is
+    // deleted with the mechanic, so it names this field no longer.
     'utils/laurels.test.ts',
     'utils/laurels.ts',
     // P-BANNER — the banner suite reads the field to show a chariot purchase
