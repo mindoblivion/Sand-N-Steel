@@ -491,6 +491,35 @@ export const CIRCUS_RACE_CAMERA = {
   target: [CIRCUS_RACE_START.x, 0.9, CIRCUS_RACE_START.z - 0.5],
 } as const;
 
+/**
+ * LADDER-1B — the formation camera: the opening shot for the rolling start.
+ *
+ * The shipped start camera looks south-west at the gates; the formation
+ * stands north of the line, behind it, so the opening shot needs its own
+ * framing: an elevated three-quarter shot from the east side of the
+ * straight, looking north-west across the formation, framing both flank
+ * columns and the player's rig. Measured, not chosen for looks:
+ *
+ *   • the camera stands on the sand's east edge (X 60.34, inside the sand's
+ *     60.74), 8 south of the front row (Z 24) at Y 7 — open air above the
+ *     floor, clear of the awnings (X 64.190 … 65.970);
+ *   • its line of sight to the formation centre (Z 18, between the
+ *     District centre 20.25 and the League centre 16.5) passes over the
+ *     east-flank rigs, clearing their tops by ≈1.6 at the front row;
+ *   • the formation (X 44.54 … 60.14, Z 9 … 24) sits within the frame: the
+ *     far west flank is ≈31° off-axis, inside the ≈42° horizontal
+ *     half-angle of the 55° vertical FOV at 16:9, and the last row ≈12°;
+ *   • the camera is 17.2 from its target, so the whole 15-deep League
+ *     formation reads as one field, not a close-up of one rig.
+ *
+ * The chase camera takes over at the leader's crossing with the existing
+ * hand-over; this camera only ever frames the formation and the roll.
+ */
+export const CIRCUS_FORMATION_CAMERA = {
+  position: [CIRCUS_RACE_START.x + 8, 7, 32],
+  target: [CIRCUS_RACE_START.x, 1, 18],
+} as const;
+
 /** World-space bounds of a pavement rectangle, as [x0, x1, z0, z1]. */
 export const pavementBounds = (
   r: Pick<DistrictPavement, 'cx' | 'cz' | 'w' | 'd'>,
