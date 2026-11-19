@@ -3,6 +3,7 @@ import { describe, test, expect } from 'bun:test';
 import { createNewProfile } from '../services/storage';
 import { readFileSync } from 'node:fs';
 import { recordRaceBestTime, settleRaceCompletion, MAX_RECORDED_RACE_TIME_MS } from './raceRecords';
+import { placeTavernBet } from './racingLeague';
 
 describe('race best-time transaction', () => {
   test('a first finish writes only the selected team time and preserves legacy progression', () => {
@@ -70,8 +71,8 @@ describe('race best-time transaction', () => {
     const biga = settleRaceCompletion(profile, 2, 15000, 'victory', 4);
     expect(biga.ok).toBe(true);
     if (!biga.ok) return;
-    expect(biga.purseAwarded).toBe(60);
-    expect(biga.profile.gold).toBe(profile.gold + 60);
+    expect(biga.purseAwarded).toBe(100);
+    expect(biga.profile.gold).toBe(profile.gold + 100);
     expect(biga.profile.racing).toMatchObject({ completed: 1, wins: 1, losses: 0, lastPurseDay: 4 });
   });
 
@@ -87,7 +88,66 @@ describe('race best-time transaction', () => {
     expect(second.profile.racing).toMatchObject({ completed: 2, wins: 1, losses: 1, lastPurseDay: 7 });
     const nextDay = settleRaceCompletion(second.profile, 2, 14000, 'photo-finish', 8);
     expect(nextDay.ok).toBe(true);
-    if (nextDay.ok) expect(nextDay.purseAwarded).toBe(40);
+    if (nextDay.ok) expect(nextDay.purseAwarded).toBe(80);
+  });
+
+  test('ECON-1 purse table: every team pays its base, victory adds its bonus', () => {
+    // Biga 80+20=100, Triga 120+30=150, Quadra 200+50=250 per paid race-day.
+    const cases: [2 | 3 | 4, 'victory' | 'defeat', number][] = [
+      [2, 'victory', 100],
+      [2, 'defeat', 80],
+      [3, 'victory', 150],
+      [3, 'defeat', 120],
+      [4, 'victory', 250],
+      [4, 'defeat', 200],
+    ];
+    for (const [teamSize, outcome, purse] of cases) {
+      const result = settleRaceCompletion(createNewProfile('Circus Career'), teamSize, 15000, outcome, 4);
+      expect(result.ok).toBe(true);
+      if (!result.ok) continue;
+      expect(result.purseAwarded).toBe(purse);
+      expect(result.profile.gold).toBe(100 + purse);
+    }
+  });
+
+  test('ECON-1 leaves league points and best-time recording unchanged', () => {
+    const win = settleRaceCompletion(createNewProfile('Circus Career'), 2, 15000, 'victory', 4);
+    expect(win.ok).toBe(true);
+    if (!win.ok) return;
+    // Victory still earns 50 league points, defeat 15 — the rebalance touches
+    // the purse only.
+    expect(win.profile.racing?.leaguePoints).toBe(50);
+    expect(win.bestTimeMs).toBe(15000);
+    expect(win.profile.racing?.bestTimes).toEqual({ 2: 15000 });
+    const loss = settleRaceCompletion(createNewProfile('Circus Career'), 3, 16000, 'defeat', 4);
+    expect(loss.ok).toBe(true);
+    if (!loss.ok) return;
+    expect(loss.profile.racing?.leaguePoints).toBe(15);
+    expect(loss.bestTimeMs).toBe(16000);
+    expect(loss.profile.racing?.bestTimes).toEqual({ 3: 16000 });
+  });
+
+  test('ECON-1 leaves tavern bet resolution unchanged', () => {
+    // A Green bet still wins on a victory and pays wager x 1.8 on top of the
+    // new purse; a Red bet still wins on a defeat and pays wager x 2.2.
+    const greenPlaced = placeTavernBet(createNewProfile('Circus Career'), 'green_prasina', 50);
+    expect(greenPlaced.ok).toBe(true);
+    if (!greenPlaced.ok) return;
+    const greenWin = settleRaceCompletion(greenPlaced.profile, 2, 15000, 'victory', 4);
+    expect(greenWin.ok).toBe(true);
+    if (!greenWin.ok) return;
+    expect(greenWin.purseAwarded).toBe(100);
+    expect(greenWin.profile.gold).toBe(100 - 50 + 100 + 90);
+    expect(greenWin.profile.activeRaceBet).toBeUndefined();
+    const redPlaced = placeTavernBet(createNewProfile('Circus Career'), 'red_russata', 50);
+    expect(redPlaced.ok).toBe(true);
+    if (!redPlaced.ok) return;
+    const redWin = settleRaceCompletion(redPlaced.profile, 2, 15000, 'defeat', 4);
+    expect(redWin.ok).toBe(true);
+    if (!redWin.ok) return;
+    expect(redWin.purseAwarded).toBe(80);
+    expect(redWin.profile.gold).toBe(100 - 50 + 80 + 110);
+    expect(redWin.profile.activeRaceBet).toBeUndefined();
   });
 
   test('invalid completion timing, team, outcome or day cannot pay a purse', () => {
