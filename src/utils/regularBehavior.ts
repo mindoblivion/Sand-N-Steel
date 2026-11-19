@@ -30,11 +30,12 @@
  * hook calls the frozen `chooseAIStandardAction` when it needs a re-roll,
  * it never re-implements the draw.
  *
- * State comes from two runtime-only refs in `DuelScene`, reset with the
+ * State comes from three runtime-only refs in `DuelScene`, reset with the
  * other refs: `oppLastActionRef` ({ action, landed } — `landed` means the
- * blow connected cleanly: not missed, not evaded, not blocked) and
+ * blow connected cleanly: not missed, not evaded, not blocked),
  * `oppBlockedPlayerAttackRef` (read into the hook's input on the AI slot and
- * cleared there, so one block arms exactly one answer).
+ * cleared there, so one block arms exactly one answer), and — REGULARS-2 —
+ * `oppTookCleanHitRef` (the same shape: one clean hit arms exactly one brace).
  * ===========================================================================
  */
 
@@ -67,6 +68,12 @@ export interface RegularBehaviorInput {
   lastAction: OpponentLastAction | null;
   /** True when he blocked a player attack since his last slot. */
   blockedPlayerAttack: boolean;
+  /** The distance between the fighters, in arena metres, for the tip band. */
+  distanceM: number;
+  /** The slot weapon's reach, in arena metres, for the tip band. */
+  reachM: number;
+  /** True when the player's attack landed cleanly on him since his last slot. */
+  tookCleanHit: boolean;
   /** The opponent's current stamina. */
   stamina: number;
   /** Stamina cost of a quick attack with the slot's weapon. */
@@ -86,6 +93,14 @@ export const HIT_AND_RUN_RETREAT_M = 1.8;
 
 /** The ring's rear bound: the retreat branch clamps Z at −7.5 m. */
 export const HIT_AND_RUN_REAR_BOUND_M = -7.5;
+
+/**
+ * REGULARS-2 — Kallias's inner edge: the exact inner edge of Spearman's
+ * Ground (`SPEARMANS_GROUND_BANDS`, `combatModifiers.ts`: inside half reach
+ * pays ×0.90). The outer edge stays the doctrina's, not the hook's — the
+ * hook never re-implements the damage table.
+ */
+export const TIP_INNER_RATIO = 0.5;
 
 /** Marcus `eager` — player blocking: power 0.80 / taunt 0.10 / block 0.10. */
 export const EAGER_TABLE = { powerCutoff: 0.8, tauntCutoff: 0.9 } as const;
@@ -216,6 +231,31 @@ export function applyRegularBehavior(input: RegularBehaviorInput): CombatActionT
         return canAfford(chosen, input.stamina, input.lightCost, input.heavyCost) ? chosen : null;
       }
       return null;
+    }
+    case 'wall_closes': {
+      // Cassius braces when bloodied: only after the player's attack
+      // landed cleanly on him. Deterministic, no rng — the wall doesn't
+      // gamble. A block costs nothing, so the stamina guard is trivially met.
+      if (!input.tookCleanHit) return null;
+      return 'shield_block';
+    }
+    case 'measured_guard': {
+      // Drusus measures his breath: in the middle band — he can afford a
+      // quick but not a power — he blocks instead of the ladder's tired
+      // quick. Below lightCost the ladder's low-stamina branch owns the
+      // band; at exactly heavyCost he can afford the power.
+      if (input.stamina < input.lightCost || input.stamina >= input.heavyCost) return null;
+      return 'shield_block';
+    }
+    case 'hold_the_tip': {
+      // Kallias keeps you at the spear's tip: inside half his reach he
+      // steps back — unless his last action was already a retreat, or
+      // there is no ring to retreat into (same bound guard as Flaccus:
+      // the step must land strictly inside the rear bound).
+      if (input.distanceM / input.reachM >= TIP_INNER_RATIO) return null;
+      if (input.lastAction?.action === 'retreat') return null;
+      if (input.oppPositionZ - HIT_AND_RUN_RETREAT_M <= HIT_AND_RUN_REAR_BOUND_M) return null;
+      return 'retreat';
     }
     default:
       return null;
