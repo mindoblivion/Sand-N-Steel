@@ -419,10 +419,10 @@ describe('STORY-4b §F — the seven fences', () => {
   });
 
   test('(d) the Feature Bouts section never lists a bounty row', () => {
-    expect(FEATURE_BOUT_OPPONENTS).toHaveLength(5);
+    expect(FEATURE_BOUT_OPPONENTS).toHaveLength(6);
     expect(FEATURE_BOUT_OPPONENTS.some((opponent) => opponent.bountyBout === true)).toBe(false);
     const statuses = featureBoutStatuses(profile({ level: 20, fame: 5000, currentTier: 4 }));
-    expect(statuses).toHaveLength(5);
+    expect(statuses).toHaveLength(6);
     expect(statuses.some((status) => status.opponent.bountyBout === true)).toBe(false);
   });
 
