@@ -72,6 +72,8 @@ import type { QualityPreset } from '../../../services/settings';
 import { useSettings } from '../../../hooks/useSettings';
 // Phase C-8.70B — the East Circus District's read-only pre-race entry panel.
 import { PreRacePanel } from '../../hub/PreRacePanel';
+// LADDER-1B — the rung the panel's picker selected, carried to the race scene.
+import type { RaceRungId } from '../../../utils/raceCompetitors';
 // L9 — the Medical House's day-rest price and the inn's night-rest price are read
 // from their pure transaction helpers; this screen writes no save (App owns it).
 import {
@@ -262,8 +264,11 @@ interface CityHubSceneProps {
    * Phase C-8.70B Stage 1, Slice 1 — leave the city for the race scene.  The
    * pose the player must come back to is captured in this scene and passed here,
    * because the city unmounts with the race; nothing is written to a save.
+   *
+   * LADDER-1B: the handoff also carries the selected rung (from the panel's
+   * picker), so the race scene fields the right rung. Session-only.
    */
-  onStartRace: (pose: CityExitPose) => void;
+  onStartRace: (pose: CityExitPose, rung: RaceRungId) => void;
   /**
    * Phase C-8.70B Stage 1, Slice 1 — the pose to spawn at when the city comes
    * back from a race.  Absent (the normal case) means the usual town-gate spawn.
@@ -986,13 +991,13 @@ const handleEnterBathhouse = useCallback(() => {
    * render), and handed up to `App`: this scene is about to unmount, so this is
    * the only moment the pose exists.  Nothing is written to a save.
    */
-  const handleStartRace = useCallback(() => {
+  const handleStartRace = useCallback((rung: RaceRungId) => {
     const pose: CityExitPose = {
       position: [...playerPosRef.current] as [number, number, number],
       rotationY: playerRotYRef.current,
     };
     setShowRaceEntry(false);
-    onStartRace(pose);
+    onStartRace(pose, rung);
   }, [onStartRace]);
 
   // Attack weapon strike
