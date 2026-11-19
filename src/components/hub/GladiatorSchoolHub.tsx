@@ -114,6 +114,8 @@ interface GladiatorSchoolHubProps {
   onPurchaseTriumph?: (laurelId: string) => LaurelResult;
   /** P6 — the temper row on an Armory card; `App` runs `purchaseTemper` and writes. */
   onTemperItem?: (itemId: string) => void;
+  /** FORGECRAFT-1 — the forge-crafting section; `App` runs `craftForgeItems` and writes. */
+  onCraftItems?: (aIndex: number, bIndex: number) => void;
   /** P6 — the Stable panel's two ladders; `App` runs the P4 helpers and writes. */
   onBuyStableQuality?: (grade: number) => void;
   onBuyStableConditioning?: (level: number) => void;
@@ -177,6 +179,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
   onEnterTrialBout,
   onPurchaseTriumph,
   onTemperItem,
+  onCraftItems,
   onBuyStableQuality,
   onBuyStableConditioning,
   onBuyFacility,
@@ -426,6 +429,7 @@ export const GladiatorSchoolHub: React.FC<GladiatorSchoolHubProps> = ({
             onBuyRacingConfig={onBuyRacingConfig}
             onSelectRacingConfig={onSelectRacingConfig}
             onTemperItem={onTemperItem}
+            onCraftItems={onCraftItems}
             onBuyStableQuality={onBuyStableQuality}
             onBuyStableConditioning={onBuyStableConditioning}
             onUpdateProfile={onUpdateProfile}

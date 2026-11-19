@@ -42,6 +42,7 @@ import { sellItem } from './utils/selling';
 import { nextBossKills } from './utils/bossKills';
 import { purchaseFacility, trainingCost, type FacilityId } from './utils/facilityProgression';
 import { purchaseTemper } from './utils/tempering';
+import { craftForgeItems } from './utils/forgeCrafting';
 import { purchaseStableConditioning, purchaseStableQuality } from './utils/stableProgression';
 import { purchaseItem } from './utils/itemPurchase';
 import { purchaseStorefrontItem } from './utils/storefrontPurchase';
@@ -2231,6 +2232,21 @@ export function App() {
     saveProfile(updated);
   };
 
+  /**
+   * FORGECRAFT-1 — forge two copies of one weapon into the next weapon up
+   * its ladder.  `craftForgeItems` is pure and re-checks every rule
+   * (two distinct entries, same id, a recipe, neither equipped, the fee),
+   * so a refusal hands back the caller's own profile object and never
+   * reaches `saveProfile`.
+   */
+  const handleCraftItems = (aIndex: number, bIndex: number) => {
+    if (!profile) return;
+    const updated = craftForgeItems(profile, aIndex, bIndex);
+    if (updated === profile) return;
+    setProfile(updated);
+    saveProfile(updated);
+  };
+
   /** P6 — the Imperial Stable's quality ladder, through the P4 transaction. */
   const handleBuyStableQuality = (grade: number) => {
     if (!profile) return;
@@ -2643,6 +2659,7 @@ export function App() {
             onEnterTrialBout={handleEnterTrialBout}
             onPurchaseTriumph={handlePurchaseTriumph}
             onTemperItem={handleTemperItem}
+            onCraftItems={handleCraftItems}
             onBuyStableQuality={handleBuyStableQuality}
             onBuyStableConditioning={handleBuyStableConditioning}
             onBuyFacility={handleBuyFacility}

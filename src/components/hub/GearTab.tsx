@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { PlayerProfile, WeaponItem, ArmorItem, ChariotTeamSize } from '../../types/game';
-import { Layers, Shield, Swords, Check, Wrench, Coins } from 'lucide-react';
+import { Layers, Shield, Swords, Check, Wrench, Coins, Hammer } from 'lucide-react';
 import { sounds } from '../../audio/soundEffects';
+import { getItemById } from '../../data/itemsDB';
 import { getTemperSellValue } from '../../utils/tempering';
+import {
+  describeForgeCraftRejection,
+  getForgeCraftEligibility,
+  getForgeRecipeForInput,
+} from '../../utils/forgeCrafting';
 import { TemperControl } from './TemperControl';
 import { ChariotWorkshopTab } from './ChariotWorkshopTab';
 import { RacingConfigSection } from './RacingConfigSection';
@@ -38,6 +44,13 @@ interface GearTabProps {
    * the existing save path; this tab never computes a level, a price or a cap.
    */
   onTemperItem?: (itemId: string) => void;
+  /**
+   * FORGECRAFT-1 — the forge-crafting section below the weapon cards.  `App`
+   * runs `craftForgeItems` and the existing save path; this tab never
+   * computes a recipe, a fee or a refusal.  The indices are inventory
+   * indices — two copies of one id are distinct entries.
+   */
+  onCraftItems?: (aIndex: number, bIndex: number) => void;
   /** P6 — the Stable panel inside the workshop subview; `App` runs the P4 helpers. */
   onBuyStableQuality?: (grade: number) => void;
   onBuyStableConditioning?: (level: number) => void;
@@ -77,6 +90,176 @@ const GEAR_VIEWS: { key: GearView; label: string; icon: typeof Layers }[] = [
   { key: 'chariot', label: 'Chariot Workshop', icon: Wrench },
 ];
 
+/**
+ * FORGECRAFT-1 — the forge-crafting section in the Armory.
+ *
+ * This component owns NO transaction and NO rule.  The recipe, the fee,
+ * whether the craft is allowed and the sentence a refusal prints all come
+ * from `utils/forgeCrafting.ts` — the section therefore cannot disagree
+ * with the craft that fires behind it, and it never computes a fee of its
+ * own.  The two pickers name INVENTORY indices (two copies of one id are
+ * distinct entries); the equipped copy is labelled as such and refuses with
+ * the module's own sentence when picked.
+ */
+const ForgeCraftSection: React.FC<{
+  profile: PlayerProfile;
+  onCraftItems?: (aIndex: number, bIndex: number) => void;
+}> = ({ profile, onCraftItems }) => {
+  const [pickA, setPickA] = useState<number | null>(null);
+  const [pickB, setPickB] = useState<number | null>(null);
+
+  // A profile write (a craft, a sale, an equip, a purchase) clears the picks:
+  // the indices they named may point at different items afterwards.
+  useEffect(() => {
+    setPickA(null);
+    setPickB(null);
+  }, [profile]);
+
+  // The carried weapons with their inventory indices — the pickers name
+  // entries, not ids, so two copies of one weapon stay distinct.
+  const carriedWeapons = profile.inventory
+    .map((entry, index) => ({ entry, index }))
+    .filter(
+      (carried): carried is { entry: WeaponItem; index: number } =>
+        'damageLight' in carried.entry
+    );
+  const equippedIndex = carriedWeapons.find(
+    (carried) => carried.entry.id === profile.equipped.weapon?.id
+  )?.index;
+
+  const eligibility =
+    pickA !== null && pickB !== null
+      ? getForgeCraftEligibility(profile, pickA, pickB)
+      : null;
+  const rejection = eligibility && !eligibility.ok
+    ? describeForgeCraftRejection(eligibility.reason)
+    : null;
+
+  const handleForge = () => {
+    if (!eligibility?.ok || pickA === null || pickB === null) return;
+    sounds.playCoin();
+    onCraftItems?.(pickA, pickB);
+  };
+
+  // One option per carried weapon.  The label names the forge path where one
+  // exists, so an uncraftable piece says so in the list itself.
+  const optionLabel = (carried: { entry: WeaponItem; index: number }) => {
+    const copies = carriedWeapons.filter((other) => other.entry.id === carried.entry.id);
+    const occurrence = copies.findIndex((other) => other.index === carried.index) + 1;
+    const copySuffix = copies.length > 1 ? ` #${occurrence}` : '';
+    const equippedSuffix = carried.index === equippedIndex ? ' (equipped)' : '';
+    const recipe = getForgeRecipeForInput(carried.entry.id);
+    if (recipe) {
+      const result = getItemById(recipe.resultId);
+      return `${carried.entry.name}${copySuffix}${equippedSuffix} → ${result?.name ?? '?'}`;
+    }
+    const wooden = ['wooden_sword_shield', 'wooden_spear', 'wooden_daggers'].includes(
+      carried.entry.id
+    );
+    return `${carried.entry.name}${copySuffix}${equippedSuffix} — ${
+      wooden ? 'wooden, no forge path' : 'no forge path'
+    }`;
+  };
+
+  const picker = (
+    label: string,
+    value: number | null,
+    onPick: (index: number | null) => void
+  ) => (
+    <label className="flex flex-col gap-1 min-w-0 flex-1">
+      <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
+        {label}
+      </span>
+      <select
+        value={value === null ? '' : String(value)}
+        onChange={(event) => {
+          sounds.playClick();
+          onPick(event.target.value === '' ? null : Number(event.target.value));
+        }}
+        className="min-h-[48px] w-full rounded-xl bg-neutral-950 border border-neutral-700 px-3 py-2 text-sm font-serif text-amber-100 cursor-pointer"
+      >
+        <option value="">Choose a weapon…</option>
+        {carriedWeapons.map((carried) => (
+          <option key={carried.index} value={carried.index}>
+            {optionLabel(carried)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  return (
+    <div
+      data-forge-craft
+      data-forge-craft-ok={eligibility?.ok ? '1' : '0'}
+      className="bg-neutral-900/80 border border-amber-600/50 rounded-3xl p-6 shadow-lg"
+    >
+      <h4 className="font-serif font-bold text-lg text-amber-300 mb-1 flex items-center gap-2">
+        <Hammer className="w-5 h-5 text-amber-400" />
+        <span>Forge Crafting</span>
+      </h4>
+      <p className="text-sm text-neutral-300 font-serif mb-4">
+        Two copies of one weapon, plus the forge fee, hammer into the next weapon up its
+        ladder. Armor is crafted at the armorer — the forge combines weapons only.
+      </p>
+
+      {carriedWeapons.length < 2 ? (
+        <p className="text-xs text-neutral-500 italic">
+          Carry two copies of a weapon to forge. A spare can be bought at the forge.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {picker('First weapon', pickA, setPickA)}
+            {picker('Second weapon', pickB, setPickB)}
+          </div>
+
+          {eligibility?.ok ? (
+            <p className="text-sm font-serif text-amber-100">
+              Forges into <strong className="text-yellow-300">{eligibility.result.name}</strong>{' '}
+              ({eligibility.result.damageLight}/{eligibility.result.damageHeavy} dmg) for{' '}
+              <strong className="text-yellow-300">{eligibility.fee} Gold</strong>.
+            </p>
+          ) : (
+            <p className="text-sm font-serif italic text-neutral-400">
+              {rejection ??
+                'Choose two copies of the same weapon to see what the forge makes of them.'}
+            </p>
+          )}
+
+          <div>
+            <button
+              onClick={handleForge}
+              disabled={!eligibility?.ok}
+              title={rejection ?? (eligibility?.ok ? `Forge for ${eligibility.fee} gold` : undefined)}
+              className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                eligibility?.ok
+                  ? 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'
+                  : 'bg-neutral-900 text-neutral-600 border border-neutral-800 cursor-not-allowed'
+              }`}
+            >
+              <Hammer className="w-3.5 h-3.5" />
+              <span>
+                {eligibility?.ok ? `Forge (${eligibility.fee} Gold)` : 'Forge'}
+              </span>
+            </button>
+            {/* UI-1 (B-17) — a touch player never sees a title attribute, so the
+                refusal is printed under the disabled control as well. */}
+            {rejection && (
+              <p
+                data-forge-craft-rejection="1"
+                className="text-[11px] font-serif leading-snug text-red-300 mt-1.5"
+              >
+                {rejection}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const GearTab: React.FC<GearTabProps> = ({
   profile,
   onEquipWeapon,
@@ -89,6 +272,7 @@ export const GearTab: React.FC<GearTabProps> = ({
   onBuyRacingConfig,
   onSelectRacingConfig,
   onTemperItem,
+  onCraftItems,
   onBuyStableQuality,
   onBuyStableConditioning,
   onUpdateProfile,
@@ -237,6 +421,11 @@ export const GearTab: React.FC<GearTabProps> = ({
           })}
         </div>
       </div>
+
+      {/* FORGECRAFT-1 — two copies of one weapon + the forge fee → the next
+          weapon up its ladder.  Lives with the temper rows, where the player
+          already manages gear. */}
+      <ForgeCraftSection profile={profile} onCraftItems={onCraftItems} />
 
       {/* CURRENTLY EQUIPPED & OWNED ARMOR */}
       <div className="bg-neutral-900/80 border border-amber-600/50 rounded-3xl p-6 shadow-lg">
