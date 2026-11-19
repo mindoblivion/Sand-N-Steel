@@ -8,8 +8,8 @@
  *     (Tier 1's boss).  It rides the EXISTING story-briefing surface STORY-2
  *     built — `PreFightModal`'s `narration` prop, a voices-only block above the
  *     shipped intel rows, fed from the hub — so nothing new is mounted and the
- *     card's numbers are untouched.  Postumia speaks: the shrine is where the
- *     omen is taken or declined, and the card's job is to send the player there
+ *     card's numbers are untouched.  Postumia speaks: the shrine is where alms
+ *     are left before the bout, and the card's job is to send the player there
  *     before the bout.
  *
  *   • THE RIVAL SCHOOLS POINTER's words. While Chapter 2 is open and its Rival
@@ -18,8 +18,8 @@
  *     `circusPointerDue` decides; nothing here changes a gate or reward.
  *
  * Neither export writes a profile, reads storage or invents evidence: `story
- * state` is resolved by `resolveStoryState` and the omen's own fields by
- * `utils/omens`.  The two deferrals Chapter 2 carries are recorded on the
+ * state` is resolved by `resolveStoryState` and the alms day by
+ * `utils/ludiCalendar`.  The two deferrals Chapter 2 carries are recorded on the
  * chapter's gate table in `utils/storyState.ts`.
  */
 
@@ -29,7 +29,7 @@ import type { BeatLine } from './storyBeats';
 import {
   STORY_CHAPTER_FORTUNA,
   circusPointerDue,
-  isFortunaOmenTaken,
+  hasLeftShrineAlms,
   resolveStoryState,
 } from './storyState';
 
@@ -51,20 +51,20 @@ export function isTournamentFinalBout(
 /**
  * BEAT 3's briefing, spoken by the shrine's priestess.  Narration, not intel: it
  * names no figure on the card and prints no stat — it points at the shrine and
- * says what Fortuna's word is worth, kind or ill.
+ * says what leaving alms there is worth.
  */
 export const FORTUNA_SHRINE_BRIEFING: readonly BeatLine[] = [
   {
     speaker: 'Postumia',
-    line: 'Before you take the sand in a tournament final, come to the shrine and let Fortuna read the bout. Take her word, or refuse it once — either way she will know your name. A man who knows his luck fights better than one who only hopes.',
+    line: 'Before you take the sand in a tournament final, come to the shrine and leave alms for Fortuna. She keeps the count of every coin — a man who honours her before the bout fights with her name on his side.',
   },
 ];
 
 /**
  * Is the shrine briefing due on this card? Only on the chapter's final, only
- * while Chapter 2 is open, and only until the beat is settled — once the omen is
- * taken (or the one decline is spent) the card stops pointing at the shrine and
- * the player is left with the bout in front of them.
+ * while Chapter 2 is open, and only until the beat is settled — once alms have
+ * been left the card stops pointing at the shrine and the player is left with
+ * the bout in front of them.
  */
 export function isFortunaBriefingDue(
   profile: PlayerProfile | null | undefined,
@@ -72,7 +72,7 @@ export function isFortunaBriefingDue(
 ): boolean {
   if (!isTournamentFinalBout(opponent)) return false;
   if (resolveStoryState(profile).chapter !== STORY_CHAPTER_FORTUNA) return false;
-  return !isFortunaOmenTaken(profile);
+  return !hasLeftShrineAlms(profile);
 }
 
 /**
