@@ -16,6 +16,8 @@ describe('enemy character asset catalogue', () => {
       retiarius: '/models/netfighter.glb',
       minotaur: '/models/minotaur.glb',
       dimachaerus: '/models/dimachaerus.glb',
+      // COMBAT-4 — Aurelius's champion body, built in Blender on the Roman rig.
+      aurelius_champion: '/models/aurelius_champion.glb',
     });
   });
 
