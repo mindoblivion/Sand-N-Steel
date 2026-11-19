@@ -56,6 +56,8 @@ const ACTION_TYPES: CombatActionType[] = [
   'dodge',
   'advance',
   'retreat',
+  // COMBAT-5 — the sidestep (a utility action on the shared 800 ms beat).
+  'sidestep',
   'taunt',
   'rest',
   'telegraph',
@@ -81,6 +83,8 @@ const DESIGN_MS: Record<CombatActionType, number> = {
   telegraph: 1450,
   advance: 800,
   retreat: 800,
+  // COMBAT-5 — a utility action on the shared 800 ms beat, like advance.
+  sidestep: 800,
   shield_block: 800,
   dodge: 800,
   taunt: 800,
@@ -118,7 +122,8 @@ describe('CF-5 §A the duration table', () => {
     // 10 through CH-3b's net throw; D-2's `beast_crouch` is the eleventh.
     // 11 through D-2's `beast_crouch`; D-4's `brothers_recovery` is the twelfth.
     // 12 through D-4's `brothers_recovery`; COMBAT-1's `recover` is the thirteenth.
-    expect(ACTION_TYPES.length).toBe(13);
+    // 13 through COMBAT-1's `recover`; COMBAT-5's `sidestep` is the fourteenth.
+    expect(ACTION_TYPES.length).toBe(14);
     for (const actionType of ACTION_TYPES) {
       const ms = turnResolutionMs(actionType);
       expect(Number.isFinite(ms)).toBe(true);
@@ -138,16 +143,17 @@ describe('CF-5 §A the duration table', () => {
     expect(telegraph).toBeLessThan(DEATH_MS);
   });
 
-  test('all six positional / defensive / utility actions share one 800 ms beat', () => {
+  test('all seven positional / defensive / utility actions share one 800 ms beat', () => {
     const utility: CombatActionType[] = [
       'advance',
       'retreat',
+      'sidestep',
       'shield_block',
       'dodge',
       'taunt',
       'rest',
     ];
-    expect(utility.map((a) => turnResolutionMs(a))).toEqual([800, 800, 800, 800, 800, 800]);
+    expect(utility.map((a) => turnResolutionMs(a))).toEqual([800, 800, 800, 800, 800, 800, 800]);
   });
 
   test('a fight-ending turn holds 1600 ms whatever the action was', () => {
