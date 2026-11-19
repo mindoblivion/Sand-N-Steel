@@ -271,7 +271,7 @@ describe('§6 — body weight scales nothing in the duel any more', () => {
 // ── §P — THE DUEL STATE NEVER REACHES A SAVE ────────────────────────────────
 
 describe('§P — the duel state never reaches a save', () => {
-  test('only the duel, the panel, the type, this module and this file name the field', () => {
+  test('only the duel, the panel, the type, the stagger module and test, and the counter test name the field', () => {
     const walk = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
         const path = `${dir}/${entry.name}`;
@@ -286,6 +286,9 @@ describe('§P — the duel state never reaches a save', () => {
         'src/components/duel/DuelScene.tsx',
         'src/components/ui/TurnActionPanel.tsx',
         'src/types/game.ts',
+        // COMBAT-2 — the counter test pins that this slice left the stagger
+        // application untouched; it names the field in that one §X pin only.
+        'src/utils/combatCounter.test.ts',
         'src/utils/combatStagger.test.ts',
         'src/utils/combatStagger.ts',
       ].sort(),
