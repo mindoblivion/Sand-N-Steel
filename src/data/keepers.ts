@@ -131,6 +131,8 @@ export const KEEPERS: Keeper[] = [
       'Stand still — a cuirass fitted by eye is a coffin fitted by guess. Every piece of armor in the city is sold here, and the fitting is free.',
     repeatLines: [
       "You've filled out since the last fitting. Winning suits you. The straps remember, even if you don't.",
+      // FORGECRAFT-2 — the armorer's craft, in her own voice.
+      "Two of a kind and a purse to match — bring me the spares and I'll fit you the next piece up.",
     ],
     nightLine:
       "Salvia's asleep and the straps can wait till morning — but I'm the night clerk, and the rack is open. Fittings by lamplight, same as by day.",
