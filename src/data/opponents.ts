@@ -131,6 +131,10 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     weaponType: 'sword_shield',
     personality: 'Aggressive',
     armatura: 'murmillo',
+    // REGULARS-1 — `eager`: when the player blocks he smashes the shield
+    // (power 0.80 / taunt 0.10 / block 0.10). A rookie's impatience — and the
+    // lesson closes itself: the announced power, blocked, queues Riposte.
+    regularBehavior: 'eager',
     recommendedLevel: 1,
     stats: {
       strength: 8,
@@ -163,6 +167,9 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     weaponType: 'dual_blades',
     personality: 'Tricky',
     armatura: 'thraex',
+    // REGULARS-1 — `hit_and_run`: after a quick attack LANDS, his next
+    // in-range slot is a retreat — the existing branch, no new movement code.
+    regularBehavior: 'hit_and_run',
     palmae: ['sand_sprinter'],
     recommendedLevel: 2,
     stats: {
@@ -272,8 +279,12 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     personality: 'Defensive',
     // CH-4 — the provocator doctrina IS his identity: Mirror Drill (the first hit
     // of each attack type at full damage, later ones 8% softer) arrives from his
-    // class, so no separate mechanic is declared.
+    // class, so no separate boss mechanic is declared.
     armatura: 'provocator',
+    // REGULARS-1 — `anvil_answers`: after he blocks a player attack his next
+    // slot is power 0.65 / quick 0.20 / block 0.15. A choice rule on fight
+    // state, not a second doctrina — the class still owns the Drill numbers.
+    regularBehavior: 'anvil_answers',
     recommendedLevel: 3,
     stats: {
       strength: 14,
@@ -309,6 +320,10 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     personality: 'Tricky',
     // CH-4 — the retiarius class carries the one-shot net (CH-3b's cast_net).
     armatura: 'retiarius',
+    // REGULARS-1 — `fishers_press`: while the player is entangled her
+    // aggression is forced to 1.00 (a re-roll through the frozen chooser) —
+    // the net is her moment, and she takes no defensive action while it holds.
+    regularBehavior: 'fishers_press',
     recommendedLevel: 4,
     stats: {
       strength: 15,
@@ -458,6 +473,11 @@ export const ALL_OPPONENTS: OpponentConfig[] = [
     // CH-4 — one config for the pair: the dimachaerus model with the class's
     // twin-strike doctrina, fought as a single opponent.
     armatura: 'dimachaerus',
+    // REGULARS-1 — `twin_tempo`: after a quick action the next slot is power
+    // 0.80 / quick 0.10 / block 0.10, after a power action quick 0.70 / power
+    // 0.15 / block 0.15. The action counts, not the outcome — the second
+    // blade follows whether the first connected or not.
+    regularBehavior: 'twin_tempo',
     recommendedLevel: 7,
     stats: {
       strength: 24,

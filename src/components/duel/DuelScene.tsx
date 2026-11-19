@@ -82,6 +82,10 @@ import {
 // `src/utils/regularTelegraph.ts`), read here where the ladder's chosen power
 // is announced instead of thrown silently.
 import { shouldAnnounceRegularPower } from '../../utils/regularTelegraph';
+// REGULARS-1 — named regulars fight distinctly: the pure hook (see
+// `src/utils/regularBehavior.ts`), read here where the ladder's chosen
+// action is adjusted before the telegraph overrides.
+import { applyRegularBehavior, type OpponentLastAction } from '../../utils/regularBehavior';
 // COMBAT-5 — the sidestep (gap 5) and the scaled received shake (gap 6): the
 // pure rules (see `src/utils/combatSidestep.ts` and `src/utils/combatShake.ts`),
 // read here where the fighter moves, where a telegraphed heavy is announced
@@ -968,6 +972,12 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
   const phaseSwitchedRef = useRef(false);
   const pendingHeavyAttackRef = useRef(false);
   const pendingCounterRef = useRef(false);
+  // REGULARS-1 — the two runtime-only refs the regular-behavior hook reads:
+  // the opponent's last AI-slot action (and whether it landed cleanly), and
+  // whether he blocked a player attack since his last slot. Both live for one
+  // duel only — no save field — and reset with the other refs below.
+  const oppLastActionRef = useRef<OpponentLastAction | null>(null);
+  const oppBlockedPlayerAttackRef = useRef(false);
   // A queued Valéria counter gets one readable turn before its ordinary quick-attack resolution.
   const pendingCounterWindupRef = useRef(false);
   const handleConfirmWithdrawal = useCallback(() => {
@@ -979,6 +989,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
           pendingHeavyAttackRef.current = false;
           pendingCounterRef.current = false;
           pendingCounterWindupRef.current = false;
+          oppLastActionRef.current = null;
+          oppBlockedPlayerAttackRef.current = false;
           setOpp((prev) => ({ ...prev, telegraphText: undefined }));
         },
         // Player actions resolve synchronously; return the fighter to idle before
@@ -1442,6 +1454,19 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       }
 
       setIsExecuting(true);
+
+      // REGULARS-1 — record the opponent's AI-slot action for the behavior
+      // hook: the action itself now, `landed` below where the blow resolves
+      // (section 3). A forced recovery is not an AI slot — it must neither
+      // record nor consume the previous slot's record, so it is skipped here,
+      // and the same for the pair's Exposed recovery.
+      if (
+        !isActorPlayer &&
+        actionType !== 'recover' &&
+        actionType !== 'brothers_recovery'
+      ) {
+        oppLastActionRef.current = { action: actionType, landed: false };
+      }
 
       // C-8.70C — an OFFENSIVE action is either fighter's quick or power attack;
       // it is the crowd's passive window's only input, and it is stamped at the
@@ -2161,6 +2186,27 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
             isTelegraphedHeavy &&
             sidestepDodgesHeavy(defender.position[0], telegraphTargetXRef.current);
 
+          // REGULARS-1 — the blow's clean landing, for the behavior hook:
+          // connected means the roll beat the hit chance AND the blow was
+          // neither evaded, sidestepped nor blocked. A miss, an evade, a
+          // sidestep and a block all leave `landed` false, exactly as the
+          // hook's `hit_and_run` (a landed quick only) needs it.
+          if (
+            !isActorPlayer &&
+            (actionType === 'quick_attack' || actionType === 'power_attack')
+          ) {
+            oppLastActionRef.current = {
+              action: actionType,
+              landed:
+                !isSidestepped &&
+                !isEvaded &&
+                !isPassiveEvaded &&
+                !isPalmaEvaded &&
+                roll <= hitPct &&
+                !defender.isBlocking,
+            };
+          }
+
           if (isSidestepped) {
             sounds.playDodge();
             addLog(`${defender.name} steps off the line — ${attackerLabel}'s heavy swings through empty sand!`, 'system');
@@ -2351,6 +2397,10 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
               );
               spawnDamageText(`BLOCKED -${rawDamage}`, 'blocked', defender.position);
               if (isActorPlayer) notePlayerStrike('blocked');
+              // REGULARS-1 — the Anvil's trigger: the opponent blocked a
+              // player attack. Read into the hook's input on his next AI slot
+              // and cleared there, so one block arms exactly one answer.
+              if (isActorPlayer) oppBlockedPlayerAttackRef.current = true;
               // COMBAT-2 — the Riposte queue: the player blocked a power attack,
               // so their very next attack is a Riposte (+50%, cannot be evaded).
               // A blocked quick attack queues nothing (the safe poke is not
@@ -3188,6 +3238,35 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
         }
       }
 
+      // REGULARS-1 — the one regular-behavior hook. It runs AFTER the tactical
+      // ladder resolves `chosenAction` and BEFORE the telegraph overrides
+      // below, so a behavior-chosen power is announced exactly like a
+      // ladder-chosen one (the `shouldAnnounceRegularPower` branch) and no
+      // behavior can ever throw a silent heavy. The blocked marker is read
+      // into the input and cleared here — this slot consumes it, so one block
+      // arms exactly one answer, and a recovery or telegraph-resolution turn
+      // (which returns before the ladder) never consumes it.
+      const blockedPlayerAttack = oppBlockedPlayerAttackRef.current;
+      oppBlockedPlayerAttackRef.current = false;
+      const behaviorAction = applyRegularBehavior({
+        behavior: opponent.regularBehavior,
+        isBoss: opponent.isBoss === true,
+        playerBlocking: player.isBlocking,
+        playerEntangled: isEntangled(player.entangledTurns),
+        inRange: dist <= effectiveRange,
+        oppPositionZ: opp.position[2],
+        lastAction: oppLastActionRef.current,
+        blockedPlayerAttack,
+        stamina: opp.stamina,
+        lightCost: oppLightCost,
+        heavyCost: oppHeavyCost,
+        aggression: aiAggression,
+        blockChance: aiBlockChance,
+      });
+      if (behaviorAction !== null) {
+        chosenAction = behaviorAction;
+      }
+
       // Goliath heavy-attack telegraph: occasionally announce a heavy
       // attack instead of the chosen action. Only when in strike range,
       // with enough stamina for the follow-up power attack (22 SP), and
@@ -3340,6 +3419,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
       pendingCounterWindupRef.current = false;
+      oppLastActionRef.current = null;
+      oppBlockedPlayerAttackRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // Pitch A6 — Director ruling R-MARGIN: the WINNER's remaining health, read
       // HERE from the player's live HP exactly as `lowestHealthFraction` is (a
@@ -3422,6 +3503,8 @@ export const DuelScene: React.FC<DuelSceneProps> = ({
       pendingHeavyAttackRef.current = false;
       pendingCounterRef.current = false;
       pendingCounterWindupRef.current = false;
+      oppLastActionRef.current = null;
+      oppBlockedPlayerAttackRef.current = false;
       setOpp((prev) => ({ ...prev, telegraphText: undefined }));
       // Pitch A6 — Director ruling R-MARGIN: on a defeat the WINNER is the
       // opponent, so his remaining health is the card's margin — the same
