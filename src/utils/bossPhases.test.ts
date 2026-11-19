@@ -4,12 +4,12 @@
  * Run with: `bun test src/utils/bossPhases.test.ts`
  *
  * ── WHAT THIS SUITE PINS ──────────────────────────────────────────────────
- *   §A  the four ladders, as data — and WHICH numbers are AUTHORED, so an
+ *   §A  the five ladders, as data — and WHICH numbers are AUTHORED, so an
  *       authored value can never be mistaken for a design one.
  *   §B  Phase 1 IS TODAY: every Goliath / Ignis / Valéria / Aurelius parameter
  *       reproduces the shipped behaviour value for value, and the shipped
  *       telegraph holds are byte-identical.
- *   §C  the phase line (the given 50 %), and the fence: only the four LADDER
+ *   §C  the phase line (the given 50 %), and the fence: only the five LADDER
  *       boss ROWS own phases — never a regular row, a grudge copy, a feature
  *       bout or a non-boss carrying the mechanic string.
  *   §D  the telegraph floor, reused from Slice C-C's `TELEGRAPH_FLOOR_SECONDS`
@@ -67,13 +67,14 @@ const GOLIATH = byId('opp_goliath_boss');
 const IGNIS = byId('opp_ignis_boss');
 const VALERIA = byId('opp_valeria_boss');
 const AURELIUS = byId('opp_aurelius_boss');
-const BOSSES = [GOLIATH, IGNIS, VALERIA, AURELIUS];
+const SCAEVOLA = byId('opp_scaevola_boss');
+const BOSSES = [GOLIATH, IGNIS, VALERIA, AURELIUS, SCAEVOLA];
 
 /** A row's HP at a fraction of its maximum — the duel's own reading. */
 const atFraction = (row: OpponentConfig, fraction: number): number =>
   row.stats.healthMax * fraction;
 
-describe('§A — the four ladders are data, and the AUTHORED values are flagged', () => {
+describe('§A — the five ladders are data, and the AUTHORED values are flagged', () => {
   test('every ladder boss owns exactly two phases, opening at full HP', () => {
     for (const row of BOSSES) {
       const ladder = bossPhaseLadderFor(row);
@@ -94,13 +95,16 @@ describe('§A — the four ladders are data, and the AUTHORED values are flagged
     }
   });
 
-  test('exactly the three AUTHORED Phase-2 rows are flagged, and Phase 1 never is', () => {
+  test('exactly the four AUTHORED Phase-2 rows are flagged, and Phase 1 never is', () => {
     for (const ladder of Object.values(BOSS_PHASES)) {
       expect(ladder.phases[0].authored).toBe(false);
     }
     expect(BOSS_PHASES.phase_weapon_switch.phases[1].authored).toBe(true);
     expect(BOSS_PHASES.counter_dodge.phases[1].authored).toBe(true);
     expect(BOSS_PHASES.rage_mode_colossus.phases[1].authored).toBe(true);
+    // TIER-8 — Scaevola's risen row is authored too: the 0.05 steps are the
+    // design's own, not the shipped row's.
+    expect(BOSS_PHASES.second_rising.phases[1].authored).toBe(true);
     // Goliath's chain count is the design's own (2); his announce rate is
     // unchanged, so no number on his ladder is authored.
     expect(BOSS_PHASES.heavy_telegraph.phases[1].authored).toBe(false);
@@ -182,7 +186,7 @@ describe('§C — the given phase line, and the fence', () => {
     expect(bossPhaseAt(GOLIATH, 10, 0)).toBe(1);
   });
 
-  test('the fence: only the four LADDER boss ROWS own phases', () => {
+  test('the fence: only the five LADDER boss ROWS own phases', () => {
     for (const row of ALL_OPPONENTS) {
       const ladder = bossPhaseLadderFor(row);
       if (BOSSES.some((boss) => boss.id === row.id)) {
