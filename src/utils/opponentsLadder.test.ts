@@ -479,7 +479,7 @@ describe('CH-4 §C — the ladder order the design intends', () => {
       expect(new Set(rungs).size, `tier ${tier}`).toBe(rungs.length);
     }
     // Every feature bout declares NO rung and is no ladder boss.
-    expect(FEATURE_BOUT_OPPONENTS).toHaveLength(5);
+    expect(FEATURE_BOUT_OPPONENTS).toHaveLength(6);
     for (const bout of FEATURE_BOUT_OPPONENTS) {
       expect(bout.fightIndex).toBe(0);
       expect(isLadderBoss(bout)).toBe(false);
@@ -488,7 +488,7 @@ describe('CH-4 §C — the ladder order the design intends', () => {
   });
 
   test('PRIMUS_PALUS_LADDER is the LADDER, tier then rung', () => {
-    // D-1 — the plaque is the ladder's list: the five feature bouts are NOT on it.
+    // D-1 — the plaque is the ladder's list: the six feature bouts are NOT on it.
     expect(PRIMUS_PALUS_LADDER.length).toBe(LADDER_OPPONENTS.length);
     expect(PRIMUS_PALUS_LADDER.map((opponent) => opponent.id)).toEqual(
       [...LADDER_OPPONENTS]
@@ -504,7 +504,8 @@ describe('CH-4 §C — the ladder order the design intends', () => {
     // STORY-4b — the Bounty Hall board appends six rows to the roster (five rungs
     // plus the Deserter). `LADDER_OPPONENTS` and `FEATURE_BOUT_OPPONENTS` are
     // unchanged: both fences now exclude `bountyBout` rows.
-    expect(ALL_OPPONENTS.length).toBe(23);
+    // TIER-8 appends Scaevola, the sixth feature bout, after Hermas.
+    expect(ALL_OPPONENTS.length).toBe(24);
     expect(LADDER_OPPONENTS.length).toBe(12);
     const ids = ALL_OPPONENTS.map((opponent) => opponent.id);
     expect(new Set(ids).size).toBe(ids.length);
