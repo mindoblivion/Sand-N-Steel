@@ -89,6 +89,11 @@ export const SEXTUS_FORGE_TOPICS = [
     label: 'Ask about tempering',
     line: 'Tempering is the soul of the blade. Quench in oil for hardness, in water for mercy — but never skip the quench. An untempered blade is a promise unkept.',
   },
+  {
+    id: 'crafting',
+    label: 'Ask about forging',
+    line: 'Two blades alike, one fire, and a purse to match — bring me a pair and I will hammer them into something better. Pine and wicker need not apply; the forge works steel, not firewood.',
+  },
 ] as const;
 /* ------------------------------------------------------------------ */
 /* 3D set dressing — emissive materials + point lights only (mobile).  */
