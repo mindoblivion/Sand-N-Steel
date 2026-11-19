@@ -4,6 +4,12 @@
  * (689acbdba7) and stored verbatim so the honesty suite can prove the append
  * touched no pre-existing row.  Generated, not hand-written: JSON.stringify of
  * the shipped rows.  Never edit this file; a change means a row moved.
+ *
+ * COMBAT-4 amendment: the four signature bosses' characterModel fields were
+ * remapped by the slice (Goliath roman_warrior -> minotaur, Ignis
+ * roman_warrior -> dimachaerus, Valéria roman_warrior -> retiarius, Aurelius
+ * roman_warrior -> aurelius_champion) and this fixture was updated to match,
+ * so the §A pins still guard every other field of every pre-D-1 row.
  */
 export const PRE_D1_OPPONENTS: unknown[] = [
   {
@@ -106,7 +112,7 @@ export const PRE_D1_OPPONENTS: unknown[] = [
     "rewardXp": 120,
     "meshScale": 1.15,
     "bossMechanic": "heavy_telegraph",
-    "characterModel": "roman_warrior"
+    "characterModel": "minotaur"
   },
   {
     "id": "opp_hoplite",
@@ -239,7 +245,7 @@ export const PRE_D1_OPPONENTS: unknown[] = [
     "meshScale": 1.08,
     "bossMechanic": "phase_weapon_switch",
     "phase2WeaponType": "mace",
-    "characterModel": "roman_warrior"
+    "characterModel": "dimachaerus"
   },
   {
     "id": "opp_centurion_drusus",
@@ -372,7 +378,7 @@ export const PRE_D1_OPPONENTS: unknown[] = [
     "rewardXp": 450,
     "meshScale": 1.1,
     "bossMechanic": "counter_dodge",
-    "characterModel": "roman_warrior"
+    "characterModel": "retiarius"
   },
   {
     "id": "opp_aurelius_boss",
@@ -409,6 +415,6 @@ export const PRE_D1_OPPONENTS: unknown[] = [
     "rewardXp": 1000,
     "meshScale": 1.25,
     "bossMechanic": "rage_mode_colossus",
-    "characterModel": "roman_warrior"
+    "characterModel": "aurelius_champion"
   }
 ];
