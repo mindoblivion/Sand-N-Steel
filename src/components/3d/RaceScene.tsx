@@ -38,7 +38,7 @@ import { RaceRenderDiagnostics } from './RaceRenderDiagnostics';
 import { useSettings } from '../../hooks/useSettings';
 import { useAdaptiveDpr, CITY_TIERS, POST_TRANSITION_MS, type QualityPreset } from '../../hooks/useAdaptiveDpr';
 import type { ChariotTeamSize } from '../../types/game';
-import { CIRCUS_RACE_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry';
+import { CIRCUS_FORMATION_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry';
 import {
   CHARIOT_MOVEMENT,
   CHARIOT_WHEEL_RADIUS,
@@ -87,9 +87,17 @@ import {
 import type { CountdownStep, RaceState } from '../../utils/raceState';
 import { advanceRaceLap, createRaceLapTracker, getRaceLapStage } from '../../utils/raceLap';
 import type { RaceLapStage } from '../../utils/raceLap';
-import { getRaceRivalPose, getRaceRivalSpeed, resolveRaceRivalOutcome } from '../../utils/raceRival';
-import { resolveRaceCompetitor } from '../../utils/raceCompetitors';
-import type { RaceCompetitor } from '../../utils/raceCompetitors';
+import { getRaceRivalPose, getRaceRivalSpeed, resolveFieldFinishOrder } from '../../utils/raceRival';
+import type { RaceFieldFinishOrder } from '../../utils/raceRival';
+import { resolveRaceRungId, resolveRungField } from '../../utils/raceCompetitors';
+import type { RaceCompetitor, RaceRungId } from '../../utils/raceCompetitors';
+import {
+  FORMATION_ROLL_SPEED,
+  getRollPathPoseAtDistance,
+  resolveFormationRoll,
+  resolveRollPhase,
+} from '../../utils/raceGrid';
+import type { RollPath } from '../../utils/raceGrid';
 
 /**
  * RaceScene.tsx — Phase C-8.70B Stage 1, Slice 1 (the race scene and its state
@@ -221,8 +229,13 @@ export interface RaceSceneProps {
   teamSize?: ChariotTeamSize;
   /** Read-only equipped chariot parts; missing/legacy profiles resolve to stock. */
   chariotLoadout?: ChariotEquippedResolved;
-  /** Completed victories select the next rival tier; defaults to the first challenger. */
-  rivalWins?: number;
+  /**
+   * LADDER-1B: the selected rung (`district` | `league`), resolved by the
+   * caller through `resolveRaceRungId` (an unknown or missing value fails
+   * closed to District). District fields 2 rivals, League 4, from the rung's
+   * pool. Session-only — never written to a save.
+   */
+  rung?: RaceRungId;
   /** App-owned atomic career settlement, called only after a validated lap finish. */
   onRecordRaceCompletion?: (teamSize: ChariotTeamSize, elapsedMs: number, outcome: RaceCompletionOutcome) => RaceCompletionResult | null;
 }
@@ -259,18 +272,21 @@ export const RACE_START_POSITION: [number, number, number] = [
 export const RACE_START_ROTATION_Y = CIRCUS_RACE_START.rotationY;
 
 /**
- * The static race view, used while the gates are still counting down: the
- * layout module's own camera pose, derived there from the start line.
+ * LADDER-1B: the static camera is the formation camera. It watches the field
+ * form up and roll to the line from the sand's east edge. The chase rest
+ * framing in `chaseCamera.ts` stays derived from `CIRCUS_RACE_CAMERA` — the
+ * chase takes over at the leader's crossing (the clock start), so the
+ * formation camera is only ever the pre-race / roll view.
  */
 export const RACE_CAMERA_POSITION: [number, number, number] = [
-  CIRCUS_RACE_CAMERA.position[0],
-  CIRCUS_RACE_CAMERA.position[1],
-  CIRCUS_RACE_CAMERA.position[2],
+  CIRCUS_FORMATION_CAMERA.position[0],
+  CIRCUS_FORMATION_CAMERA.position[1],
+  CIRCUS_FORMATION_CAMERA.position[2],
 ];
 export const RACE_CAMERA_TARGET: [number, number, number] = [
-  CIRCUS_RACE_CAMERA.target[0],
-  CIRCUS_RACE_CAMERA.target[1],
-  CIRCUS_RACE_CAMERA.target[2],
+  CIRCUS_FORMATION_CAMERA.target[0],
+  CIRCUS_FORMATION_CAMERA.target[1],
+  CIRCUS_FORMATION_CAMERA.target[2],
 ];
 
 /** How long the first race's on-control labels stay up before they fade. */
@@ -317,7 +333,15 @@ const RaceCameraRig: React.FC<{
   input: ChariotInput;
   raceState: RaceState;
   preset: ChaseDistancePreset;
-}> = ({ motion, input, raceState, preset }) => {
+  /**
+   * LADDER-1B: the chase takes over at the leader's crossing (the race clock
+   * start), not at GO. While the field is still rolling the formation camera
+   * holds, so the roll reads as one continuous shot; the take-over snaps to
+   * `composeChasePose` on the first clock frame, exactly as the shipped GO
+   * take-over did.
+   */
+  clockStarted: boolean;
+}> = ({ motion, input, raceState, preset, clockStarted }) => {
   const { camera: activeCamera } = useThree();
   // r3f types the Canvas camera as the Camera union; this scene mounts the
   // perspective one, whose FOV the survey drives.
@@ -327,7 +351,7 @@ const RaceCameraRig: React.FC<{
   const following = useRef(false);
 
   useEffect(() => {
-    if (raceState === 'racing') return;
+    if (raceState === 'racing' && clockStarted) return;
     camera.position.set(
       RACE_CAMERA_POSITION[0],
       RACE_CAMERA_POSITION[1],
@@ -340,10 +364,10 @@ const RaceCameraRig: React.FC<{
     look.current.y = RACE_CAMERA_TARGET[1];
     look.current.z = RACE_CAMERA_TARGET[2];
     following.current = false;
-  }, [camera, raceState]);
+  }, [camera, raceState, clockStarted]);
 
   useFrame((_state, delta) => {
-    if (raceState !== 'racing') return;
+    if (raceState !== 'racing' || !clockStarted) return;
 
     const dt = Math.min(delta, CHARIOT_MOVEMENT.maxFrameDt);
     const desired = composeChasePose(pose.current, motion, input.steer, preset);
@@ -384,6 +408,17 @@ const RaceCameraRig: React.FC<{
  * is driven: merge the two input paths, fold the throttle into the launch state,
  * advance the fixed-timestep motion, and put the result on the group.
  *
+ * LADDER-1B: the chariot starts at its formation slot (heading south) and rolls
+ * to the line along its precomputed roll path while the race clock has not
+ * started; inputs are ignored during the roll. The clock starts at the
+ * LEADER's crossing — this chariot detects that instant once and reports it
+ * through `onLeaderCrossing`, and the parent owns the exact crossing instant
+ * as `startedAt`. The lap tracker is created at the PLAYER's crossing (the
+ * first racing frame), with `lastZ` on the line, so the roll can never complete
+ * a lap. The Clean Start window is measured from the leader's crossing; the
+ * boost / bog duration is measured from the player's own crossing, because the
+ * player crosses 1.5–3.0 s after the leader.
+ *
  * The motion object, the three input objects and the launch state are all owned
  * by the scene and mutated in place, so a frame allocates nothing.
  */
@@ -401,7 +436,15 @@ const RaceChariot: React.FC<{
   finish: 'stock' | 'charred' | 'gilded' | 'oxblood' | 'triumph' | 'ventive';
   onFinish: () => void;
   onLapStageChange: (stage: RaceLapStage) => void;
-}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, wheelVariant, finish, onFinish, onLapStageChange }) => {
+  /** The player's precomputed formation roll path (formation slot → line). */
+  rollPath: RollPath;
+  /** The `performance.now()` instant GO fired; null until the countdown elapses. */
+  rollStartedAt: number | null;
+  /** The leader's crossing, in ms after GO — the race clock origin. */
+  leaderCrossingMs: number;
+  /** Fired once when the leader's crossing instant arrives. */
+  onLeaderCrossing: () => void;
+}> = ({ motion, input, keyboardInput, touchInput, launch, raceState, startedAt, frozen, teamSize, wheelVariant, finish, onFinish, onLapStageChange, rollPath, rollStartedAt, leaderCrossingMs, onLeaderCrossing }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
 
   // Clone: `useGLTF` caches one scene per URL and the workshop holds the same
@@ -443,29 +486,70 @@ const RaceChariot: React.FC<{
     ? CHARIOT_WHEEL_VARIANTS.reinforced.radius
     : CHARIOT_WHEEL_RADIUS;
   const lapTracker = useRef(createRaceLapTracker());
+  // LADDER-1B: the tracker is (re)created at the player's crossing, not at
+  // mount — the roll must never advance it, so it starts on the line.
+  const lapTrackerStartedRef = useRef(false);
+  // LADDER-1B: the leader's crossing is reported once (the parent owns the
+  // exact instant as `startedAt`); the ref guards against a second frame
+  // firing before the parent's state lands.
+  const clockStartFiredRef = useRef(false);
   const group = useRef<THREE.Group>(null);
 
   useFrame((_state, delta) => {
     mergeChariotInputs(input, keyboardInput, touchInput);
 
-    const elapsedSinceGoMs = startedAt !== null ? performance.now() - startedAt : 0;
+    const now = performance.now();
+    // The roll clock runs from GO, not from the race clock origin.
+    const elapsedSinceGoMs = rollStartedAt !== null ? now - rollStartedAt : 0;
+    // The race clock origin is the leader's crossing (`startedAt`); before it
+    // the launch window has not opened, so the elapsed is 0.
+    const clockStarted = startedAt !== null;
+    const elapsedSinceLeaderCrossingMs = clockStarted ? Math.max(0, now - startedAt) : 0;
     // C-8.70B §SET-1 — frozen: the panel is open, so nothing advances and the
     // launch state is left exactly where it was.  The frame still writes the
     // existing pose, so the scene under the panel does not jump.
     const racing = raceState === 'racing' && !frozen;
     if (!frozen) {
-      trackChariotLaunch(launch, input.throttle, racing, elapsedSinceGoMs);
+      // LADDER-1B: rev builds through the countdown AND the roll (the clock
+      // has not started), and resolves on the leader's crossing — so the
+      // `racing` argument is the clock, not the state machine.
+      trackChariotLaunch(launch, input.throttle, clockStarted, elapsedSinceLeaderCrossingMs);
+    }
+
+    // LADDER-1B: the leader's crossing is the clock origin. Detect it once
+    // here (the frame loop is the only clock that respects `frozen`); the
+    // parent sets `startedAt` to the exact crossing instant.
+    if (racing && rollStartedAt !== null && !clockStarted && elapsedSinceGoMs >= leaderCrossingMs && !clockStartFiredRef.current) {
+      clockStartFiredRef.current = true;
+      onLeaderCrossing();
     }
 
     if (racing) {
-      advanceChariot(motion, input, delta, launchAccelScale(launch, elapsedSinceGoMs));
-      const previousStage = getRaceLapStage(lapTracker.current);
-      const lap = advanceRaceLap(lapTracker.current, { x: motion.x, z: motion.z });
-      lapTracker.current = lap.tracker;
-      const nextStage = getRaceLapStage(lap.tracker);
-      // Notify React only when a real checkpoint transition occurs, never per frame.
-      if (nextStage !== previousStage) onLapStageChange(nextStage);
-      if (lap.finishedNow) setTimeout(() => onFinish(), 0);
+      // LADDER-1B: while the player is still rolling, the motion comes from
+      // the precomputed path and inputs are ignored. Once the player crosses,
+      // the shipped movement module drives, and the boost / bog duration is
+      // measured from the player's own crossing.
+      const phase = resolveRollPhase(rollPath, elapsedSinceGoMs);
+      if (phase.rolling) {
+        const pose = getRollPathPoseAtDistance(rollPath, phase.rollDistance);
+        motion.x = pose.x;
+        motion.z = pose.z;
+        motion.heading = pose.heading;
+        motion.speed = FORMATION_ROLL_SPEED;
+      } else {
+        if (!lapTrackerStartedRef.current) {
+          lapTracker.current = createRaceLapTracker();
+          lapTrackerStartedRef.current = true;
+        }
+        advanceChariot(motion, input, delta, launchAccelScale(launch, phase.raceElapsedMs));
+        const previousStage = getRaceLapStage(lapTracker.current);
+        const lap = advanceRaceLap(lapTracker.current, { x: motion.x, z: motion.z });
+        lapTracker.current = lap.tracker;
+        const nextStage = getRaceLapStage(lap.tracker);
+        // Notify React only when a real checkpoint transition occurs, never per frame.
+        if (nextStage !== previousStage) onLapStageChange(nextStage);
+        if (lap.finishedNow) setTimeout(() => onFinish(), 0);
+      }
     }
 
     const chassis = group.current;
@@ -487,8 +571,8 @@ const RaceChariot: React.FC<{
   return (
     <group
       ref={group}
-      position={RACE_START_POSITION}
-      rotation={[0, RACE_START_ROTATION_Y, 0]}
+      position={[motion.x, RACE_START_POSITION[1], motion.z]}
+      rotation={[0, motion.heading + CHARIOT_MODEL_YAW_OFFSET, 0]}
       scale={CHARIOT_MODEL_SCALE}
     >
       <primitive object={body.scene} />
@@ -541,24 +625,46 @@ const RaceChariotKitWheels: React.FC<{
   );
 };
 
-/** One selected roster rival; only one extra chariot is rendered for mobile budgets. */
+/**
+ * One roster rival in the field (LADDER-1B): the scene mounts N of these
+ * (2 District, 4 League), one per competitor in the rung's pool. Each rival
+ * keeps its own clock in 1B — the shipped deterministic `getRaceRivalPose`
+ * pace, with a scripted roll phase added before it: the rival follows its
+ * precomputed roll path until its own crossing, then its clock pose. The
+ * route's `startSide` comes from the formation slot's flank (the roll ends
+ * on that flank's racing lane), not from the roster's `startSide` — the
+ * roster value is only a formation-placement preference (which front-row
+ * slot the first rival takes).
+ */
 const RaceRivalChariot: React.FC<{
   raceState: RaceState;
   startedAt: number | null;
   frozen: boolean;
   competitor: RaceCompetitor;
-}> = ({ raceState, startedAt, frozen, competitor }) => {
+  /** The flank the roll ends on — the route's `startSide` for this rival. */
+  startSide: -1 | 1;
+  /** This rival's precomputed formation roll path (formation slot → line). */
+  rollPath: RollPath;
+  /** The `performance.now()` instant GO fired; null until the countdown elapses. */
+  rollStartedAt: number | null;
+}> = ({ raceState, startedAt, frozen, competitor, startSide, rollPath, rollStartedAt }) => {
   const gltf = useGLTF(CHARIOT_MODEL_URL);
   const group = useRef<THREE.Group>(null);
   const roll = useRef(0);
   const finishedRef = useRef(false);
   const [finished, setFinished] = useState(false);
-  const config = { lapDurationMs: competitor.lapDurationMs, startSide: competitor.startSide };
+  // LADDER-1B: the horse team's gait follows the roll speed while this rival
+  // is still rolling, then its race pace. Updated only on the phase change.
+  const rollingRef = useRef(false);
+  const [rolling, setRolling] = useState(false);
+  const config = { lapDurationMs: competitor.lapDurationMs, startSide };
 
   useEffect(() => {
     if (raceState === 'idle' || raceState === 'countdown' || raceState === 'aborted') {
       finishedRef.current = false;
       setFinished(false);
+      rollingRef.current = false;
+      setRolling(false);
     }
   }, [raceState]);
 
@@ -581,20 +687,39 @@ const RaceRivalChariot: React.FC<{
     return { scene, wheels };
   }, [gltf.scene, competitor.finish]);
 
-  const initialPose = getRaceRivalPose(0, config);
+  // LADDER-1B: the rival starts at its formation slot, not on the line.
+  const initialPose = getRollPathPoseAtDistance(rollPath, 0);
   const rivalSpeed = getRaceRivalSpeed(config);
 
   useFrame((_state, delta) => {
     if (!group.current || frozen) return;
+    const now = performance.now();
+    const elapsedSinceGoMs = rollStartedAt !== null ? now - rollStartedAt : 0;
     // Keep the rival on its own race clock after the player finishes.
     const raceClockActive = (raceState === 'racing' || raceState === 'finished') && startedAt !== null;
-    const elapsed = raceClockActive ? Math.max(0, performance.now() - startedAt) : 0;
-    const next = getRaceRivalPose(elapsed, config);
+    const elapsed = raceClockActive ? Math.max(0, now - startedAt) : 0;
+    // LADDER-1B: the roll phase runs before the clock pose. During the
+    // countdown the rival stands at its formation slot (the initial pose).
+    const phase = rollStartedAt !== null && raceState === 'racing'
+      ? resolveRollPhase(rollPath, elapsedSinceGoMs)
+      : null;
+    const isRolling = phase !== null && phase.rolling;
+    let next: { x: number; z: number; heading: number; finished: boolean };
+    if (isRolling) {
+      const pose = getRollPathPoseAtDistance(rollPath, phase.rollDistance);
+      next = { x: pose.x, z: pose.z, heading: pose.heading, finished: false };
+    } else {
+      next = getRaceRivalPose(elapsed, config);
+    }
+    if (isRolling !== rollingRef.current) {
+      rollingRef.current = isRolling;
+      setRolling(isRolling);
+    }
     group.current.position.set(next.x, RACE_START_POSITION[1], next.z);
     group.current.rotation.y = next.heading + CHARIOT_MODEL_YAW_OFFSET;
 
-    const moving = raceClockActive && !next.finished;
-    roll.current = advanceWheelRoll(roll.current, moving ? rivalSpeed : 0, delta);
+    const moving = !next.finished && (isRolling || raceClockActive);
+    roll.current = advanceWheelRoll(roll.current, moving ? (isRolling ? FORMATION_ROLL_SPEED : rivalSpeed) : 0, delta);
     for (const wheel of body.wheels) wheel.rotation.x = roll.current;
 
     if (next.finished && !finishedRef.current) {
@@ -612,7 +737,13 @@ const RaceRivalChariot: React.FC<{
       data-race-competitor={competitor.id}
     >
       <primitive object={body.scene} />
-      <RaceHorseTeam teamSize={2} speed={(raceState === 'racing' || raceState === 'finished') && startedAt !== null && !frozen && !finished ? rivalSpeed : 0} />
+      {/*
+        LADDER-1B: the gait follows the roll speed while this rival is still
+        rolling — `startedAt` is null until the leader crosses, so the roll
+        cannot be gated on the race clock or the horses would stand still
+        while the chariot rolls.
+      */}
+      <RaceHorseTeam teamSize={2} speed={((raceState === 'racing' && (rolling || startedAt !== null)) || (raceState === 'finished' && startedAt !== null)) && !frozen && !finished ? (rolling ? FORMATION_ROLL_SPEED : rivalSpeed) : 0} />
     </group>
   );
 };
@@ -703,15 +834,31 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   phase = DEFAULT_PHASE,
   teamSize = 2,
   chariotLoadout,
-  rivalWins = 0,
+  rung = 'district',
   onRecordRaceCompletion,
 }) => {
   const [raceState, setRaceState] = useState<RaceState>(RACE_INITIAL_STATE);
   const [countdownStep, setCountdownStep] = useState<CountdownStep | null>(COUNTDOWN_STEPS[0]);
   const [showGo, setShowGo] = useState(false);
   const [raceStartedAt, setRaceStartedAt] = useState<number | null>(null);
+  /**
+   * LADDER-1B: the roll clock's origin — the `performance.now()` instant GO
+   * fired. The race clock (`raceStartedAt`) is set later, at the leader's
+   * crossing, so the two origins are distinct: the roll runs from GO, the
+   * race runs from the line.
+   */
+  const [rollStartedAt, setRollStartedAt] = useState<number | null>(null);
   const [raceFinishElapsed, setRaceFinishElapsed] = useState<number | null>(null);
   const [raceSettlement, setRaceSettlement] = useState<RaceCompletionResult | null>(null);
+  /**
+   * LADDER-1B: the field's finish order, computed once at the player's
+   * finish from the player's elapsed and each rival's scheduled finish
+   * time. The finish screen lists the whole field from this; the settlement
+   * still takes the single derived outcome.
+   */
+  const [raceFieldOrder, setRaceFieldOrder] = useState<RaceFieldFinishOrder | null>(null);
+  /** LADDER-1B: the player's place in the field order, for the finish screen. */
+  const playerPlace = raceFieldOrder?.places.find((place) => place.isPlayer)?.place ?? null;
   // ECON-2 — the highest League tier whose bonus fired on this finish, for the
   // prize line. The totals on the result may cover earlier tiers too on a
   // retroactive finish, so the line names the latest milestone, not the sum.
@@ -741,10 +888,26 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
   const [revving, setRevving] = useState(false);
   const [launchQuality, setLaunchQuality] = useState<ChariotLaunchQuality | null>(null);
   const [showHints, setShowHints] = useState(!hasRacedThisSession);
-  const competitor = resolveRaceCompetitor(rivalWins);
-  const rivalResult = raceFinishElapsed === null
-    ? null
-    : resolveRaceRivalOutcome(raceFinishElapsed, competitor.lapDurationMs);
+  /**
+   * LADDER-1B: the field and its formation. The rung is resolved defensively
+   * (an unknown or missing value fails closed to District), the field comes
+   * from the rung's pool, and the formation is computed once from the field
+   * size and the first rival's `startSide` — the same assignment the standing
+   * grid uses, mapped onto the flank columns. The player's roll path is the
+   * formation's path at the player's slot; each rival's roll path is the
+   * formation's path at that rival's slot, and its route `startSide` is the
+   * slot's flank.
+   */
+  const rungId = resolveRaceRungId(rung);
+  const field = useMemo(() => resolveRungField(rungId), [rungId]);
+  const formation = useMemo(
+    () => resolveFormationRoll(field.length + 1, field[0]?.startSide ?? 1),
+    [field],
+  );
+  const playerRollPath = formation.paths[formation.playerSlot];
+  // The player's crossing instant (for the launch banner's clear timer): the
+  // roll origin plus the player's own crossing offset.
+  const playerCrossingAt = rollStartedAt !== null ? rollStartedAt + formation.playerCrossingMs : null;
 
   /**
    * Day/Night T1/T2 — the circus draws the CITY's table (no race-only sun), with two
@@ -768,6 +931,11 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
    * open the clock's origin is left alone and no race time accrues anywhere; the
    * moment it closes, the origin moves forward by exactly the frozen interval, so
    * the race clock resumes at the reading it was showing.
+   *
+   * LADDER-1B: the roll has its own origin (`rollStartedAt`), and it moves
+   * forward by the same interval — a panel opened mid-roll must not let the
+   * field roll on behind it. Either origin may be null (the roll before GO,
+   * the clock before the leader's crossing), and a null origin stays null.
    */
   const pausedAtRef = useRef<number | null>(null);
   useEffect(() => {
@@ -780,12 +948,16 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
     if (pausedAt === null) return;
     const frozenMs = performance.now() - pausedAt;
     setRaceStartedAt((prev) => (prev === null ? prev : prev + frozenMs));
+    setRollStartedAt((prev) => (prev === null ? prev : prev + frozenMs));
   }, [frozen]);
 
   // The whole simulation: one motion object, three input objects and one launch
   // state, created once and mutated in place by the frame loop.
+  // LADDER-1B: the motion starts at the player's formation slot (heading
+  // south), not on the line — the roll carries it to the line.
+  const playerStartPose = getRollPathPoseAtDistance(playerRollPath, 0);
   const [motion] = useState(() =>
-    createChariotMotion(RACE_START_POSITION[0], RACE_START_POSITION[2], RACE_START_ROTATION_Y)
+    createChariotMotion(playerStartPose.x, playerStartPose.z, playerStartPose.heading)
   );
   const [launch] = useState(createChariotLaunchState);
   const [input] = useState<ChariotInput>(() => ({ throttle: 0, steer: 0 }));
@@ -823,7 +995,10 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
 
   // The countdown's own clock.  It exists only while `countdown` holds, and the
   // moment a step is no longer available the countdown has elapsed — that is the
-  // machine's event, and the race clock starts on the same instant.
+  // machine's event, and the roll starts on the same instant.
+  // LADDER-1B: GO starts the ROLL, not the race clock. The clock starts at
+  // the leader's crossing (reported by the player's chariot through
+  // `onLeaderCrossing`), so `raceStartedAt` is left null here.
   useEffect(() => {
     // Frozen during the countdown: the countdown restarts when the panel closes,
     // which is the one honest reading of "the race does not advance".
@@ -836,7 +1011,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
       if (step === null) {
         clearInterval(interval);
         setCountdownStep(null);
-        setRaceStartedAt(performance.now());
+        setRollStartedAt(performance.now());
         setShowGo(true);
         setRaceState((state) => markCountdownElapsed(state));
         return;
@@ -846,6 +1021,19 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
 
     return () => clearInterval(interval);
   }, [raceState, frozen]);
+
+  /**
+   * LADDER-1B: the leader's crossing starts the race clock. The player's
+   * chariot detects the instant (the frame loop is the only clock that
+   * respects `frozen`); the origin is the exact crossing instant, not the
+   * frame the detection landed on, so the clock is accurate to the roll.
+   */
+  const handleLeaderCrossing = useCallback(() => {
+    // The chariot's own ref guard is the primary once-only protection; this
+    // guard covers a stale prop landing after the clock already started.
+    if (rollStartedAt === null || raceStartedAt !== null) return;
+    setRaceStartedAt(rollStartedAt + formation.leaderCrossingMs);
+  }, [rollStartedAt, raceStartedAt, formation.leaderCrossingMs]);
 
   // The green light is a beat inside `racing`, so it clears itself.
   useEffect(() => {
@@ -863,32 +1051,42 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
     return () => clearTimeout(timer);
   }, [showHints]);
 
-  // The visible rev state, while the gates are still up: it reads the launch
-  // state the frame loop is building, on the same 100 ms cadence as everything
-  // else in the HUD.
+  // The visible rev state, while the gates are still up AND while the field
+  // is rolling: it reads the launch state the frame loop is building, on the
+  // same 100 ms cadence as everything else in the HUD. Rev builds through the
+  // countdown and the roll (the clock has not started), and stops building
+  // once the leader crosses.
   useEffect(() => {
-    if (raceState !== 'countdown') return;
+    if (raceState !== 'countdown' && !(raceState === 'racing' && raceStartedAt === null)) return;
     const update = () => setRevving(launch.revved);
     update();
     const interval = setInterval(update, 100);
     return () => clearInterval(interval);
-  }, [raceState, launch]);
+  }, [raceState, raceStartedAt, launch]);
 
   // How the launch resolved, announced once the release window has closed.
+  // LADDER-1B: the window is measured from the LEADER's crossing (the clock
+  // origin, `raceStartedAt`), and the banner clears once the boost / bog
+  // duration has run from the PLAYER's crossing (`playerCrossingAt`) — the
+  // player crosses 1.5–3.0 s after the leader, so a clear timer measured from
+  // the leader's crossing would hide the banner before the boost ends.
   useEffect(() => {
-    if (raceState !== 'racing') return;
+    if (raceState !== 'racing' || raceStartedAt === null || playerCrossingAt === null) return;
     setRevving(false);
     const { releaseWindowMs, cleanDurationMs, boggedDurationMs } = CHARIOT_MOVEMENT.launch;
-    const resolved = setTimeout(() => setLaunchQuality(launch.quality), releaseWindowMs + 50);
+    const resolved = setTimeout(
+      () => setLaunchQuality(launch.quality),
+      Math.max(0, raceStartedAt + releaseWindowMs + 50 - performance.now()),
+    );
     const cleared = setTimeout(
       () => setLaunchQuality(null),
-      Math.max(cleanDurationMs, boggedDurationMs) + releaseWindowMs + 500
+      Math.max(0, playerCrossingAt + Math.max(cleanDurationMs, boggedDurationMs) + 500 - performance.now()),
     );
     return () => {
       clearTimeout(resolved);
       clearTimeout(cleared);
     };
-  }, [raceState, launch]);
+  }, [raceState, raceStartedAt, playerCrossingAt, launch]);
 
   // The desktop path: W/↑ throttle, S/↓ brake-reverse, A/D or ←/→ steer.  It
   // writes the keyboard's own object, which the frame loop merges with the touch
@@ -1070,20 +1268,48 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                   wheelVariant={getChariotPart(chariotLoadout?.wheels ?? 'wheels_standard')?.wheelVariant ?? 'standard'}
                   finish={getChariotPart(chariotLoadout?.finish ?? 'finish_stock')?.finish ?? 'stock'}
                   onLapStageChange={setLapStage}
+                  rollPath={playerRollPath}
+                  rollStartedAt={rollStartedAt}
+                  leaderCrossingMs={formation.leaderCrossingMs}
+                  onLeaderCrossing={handleLeaderCrossing}
                   onFinish={() => {
                     const elapsedMs = raceStartedAt === null ? 0 : Math.max(0, performance.now() - raceStartedAt);
                     setRaceFinishElapsed(elapsedMs);
-                    const outcome = resolveRaceRivalOutcome(elapsedMs, competitor.lapDurationMs)?.outcome ?? 'photo-finish';
+                    // LADDER-1B: places are read from finish times — the
+                    // player's elapsed against each rival's scheduled finish.
+                    // The settlement still takes the single derived outcome.
+                    const fieldOrder = resolveFieldFinishOrder([
+                      { id: 'player', name: 'You', finishMs: elapsedMs, isPlayer: true },
+                      ...field.map((rival) => ({ id: rival.id, name: rival.name, finishMs: rival.lapDurationMs, isPlayer: false })),
+                    ]);
+                    setRaceFieldOrder(fieldOrder);
+                    const outcome = fieldOrder?.outcome ?? 'photo-finish';
                     setRaceSettlement(onRecordRaceCompletion ? onRecordRaceCompletion(teamSize, elapsedMs, outcome) : null);
                     setRaceState((state) => finishRace(state));
                   }}
                 />
-                <RaceRivalChariot
-                  raceState={raceState}
-                  startedAt={raceStartedAt}
-                  frozen={frozen}
-                  competitor={competitor}
-                />
+                {/*
+                  LADDER-1B: one mount per rival in the rung's field (2
+                  District, 4 League). Each rival's roll path is the
+                  formation's path at that rival's slot, and its route
+                  `startSide` is the slot's flank — the roll ends on that
+                  flank's racing lane.
+                */}
+                {field.map((rival, index) => {
+                  const slot = formation.rivalSlots[index];
+                  return (
+                    <RaceRivalChariot
+                      key={rival.id}
+                      raceState={raceState}
+                      startedAt={raceStartedAt}
+                      frozen={frozen}
+                      competitor={rival}
+                      startSide={formation.slots[slot].endSide}
+                      rollPath={formation.paths[slot]}
+                      rollStartedAt={rollStartedAt}
+                    />
+                  );
+                })}
               </Suspense>
             </ThreeComponentErrorBoundary>
 
@@ -1092,6 +1318,7 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
               input={input}
               raceState={raceState}
               preset={resolveChaseDistancePreset(chaseDistancePreset)}
+              clockStarted={raceStartedAt !== null}
             />
           </Canvas>
         </WebGLContextErrorBoundary>
@@ -1110,7 +1337,18 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
               <RaceClock startedAt={raceStartedAt} frozen={frozen} />
             )}
             {raceState === 'racing' && <RaceGaitReadout motion={motion} />}
-            {raceState === 'racing' && (
+            {raceState === 'racing' && raceStartedAt === null && (
+              <span
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                className="text-[9px] sm:text-[10px] font-mono uppercase tracking-wider text-amber-300/90 border-l border-amber-700/60 pl-3"
+                data-race-checkpoint="formation"
+              >
+                Rolling to the line
+              </span>
+            )}
+            {raceState === 'racing' && raceStartedAt !== null && (
               <span
                 role="status"
                 aria-live="polite"
@@ -1207,21 +1445,36 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
             <h2 className="mt-3 font-serif text-4xl font-black text-amber-100">Race Results</h2>
             <p className="mt-4 text-sm uppercase tracking-widest text-neutral-400">Your time</p>
             <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-lime-300" data-race-finish-time={formatRaceElapsed(raceFinishElapsed ?? 0)}>{formatRaceElapsed(raceFinishElapsed ?? 0)}</p>
-            {rivalResult && (
-              <div className="mt-5 rounded-2xl border border-amber-700/50 bg-neutral-900/80 px-4 py-3" data-race-result={rivalResult.outcome} data-race-opponent={competitor.id}>
-                <p className="mb-1 text-[10px] uppercase tracking-widest text-neutral-500">Opponent · {competitor.faction}</p>
-                <p className="font-serif text-sm font-bold text-amber-100">{competitor.name}</p>
+            {raceFieldOrder && (
+              <div className="mt-5 rounded-2xl border border-amber-700/50 bg-neutral-900/80 px-4 py-3" data-race-result={raceFieldOrder.outcome} data-race-player-place={playerPlace ?? ''}>
                 <p className="font-serif text-lg font-black uppercase tracking-wider text-amber-200">
-                  {rivalResult.outcome === 'victory' ? 'Victory' : rivalResult.outcome === 'defeat' ? 'Rival Victory' : 'Photo Finish'}
-                </p>
-                <p className="mt-1 text-sm text-neutral-300" data-race-opponent-time={formatRaceElapsed(competitor.lapDurationMs)}>
-                  {competitor.name} · {formatRaceElapsed(competitor.lapDurationMs)}
+                  {raceFieldOrder.outcome === 'victory' ? `Victory — ${playerPlace === 1 ? '1st' : playerPlace === 2 ? '2nd' : playerPlace === 3 ? '3rd' : `${playerPlace ?? ''}th`} Place` : raceFieldOrder.outcome === 'defeat' ? `Rival Victory — ${playerPlace === 2 ? '2nd' : playerPlace === 3 ? '3rd' : `${playerPlace ?? ''}th`} Place` : 'Photo Finish'}
                 </p>
                 <p className="mt-1 text-sm text-neutral-400">
-                  {rivalResult.outcome === 'photo-finish'
+                  {raceFieldOrder.outcome === 'photo-finish'
                     ? 'Finishes within one tenth of a second.'
-                    : `${rivalResult.outcome === 'victory' ? 'Won by' : 'Beaten by'} ${formatRaceElapsed(rivalResult.marginMs)}`}
+                    : `${raceFieldOrder.outcome === 'victory' ? 'Won by' : 'Beaten by'} ${formatRaceElapsed(raceFieldOrder.marginMs)}`}
                 </p>
+                <ol className="mt-3 space-y-1 text-left">
+                  {raceFieldOrder.places.map((place) => {
+                    const rival = place.isPlayer ? null : field.find((entry) => entry.id === place.id);
+                    return (
+                      <li
+                        key={place.id}
+                        data-race-place={place.place}
+                        data-race-finisher={place.id}
+                        className={`flex items-center justify-between gap-2 rounded-xl px-3 py-1.5 text-sm ${place.isPlayer ? 'bg-amber-950/70 border border-amber-500/50 font-bold text-amber-100' : 'text-neutral-300'}`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="font-mono text-amber-400">{place.place}</span>
+                          <span className="font-serif">{place.isPlayer ? 'You' : rival?.name ?? place.id}</span>
+                          {rival && <span className="text-[10px] uppercase tracking-widest text-neutral-500">{rival.faction}</span>}
+                        </span>
+                        <span className="font-mono tabular-nums" data-race-finisher-time={formatRaceElapsed(place.finishMs)}>{formatRaceElapsed(place.finishMs)}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
               </div>
             )}
             {raceSettlement ? (
