@@ -210,19 +210,32 @@ describe('D-1 §A — the append touched no pre-existing row', () => {
     expect(ALL_OPPONENTS.slice(17).every((opponent) => opponent.bountyBout === true)).toBe(true);
   });
 
-  test('every pre-existing row is byte-identical apart from C-8.70C’s steelDelta', () => {
+  test('every pre-existing row is byte-identical apart from C-8.70C’s steelDelta and REGULARS-1’s regularBehavior', () => {
     // C-8.70C added one field to EVERY row. This pin is rebased, not weakened:
     // every pre-D-1 field is still compared byte-for-byte and key-order-exact,
     // and the one new field is asserted to carry the published default.
-    const withoutSteelDelta = (row: OpponentConfig) => {
-      const { steelDelta: _steelDelta, ...rest } = row;
+    // REGULARS-1 rebases it the same way: `regularBehavior` is stripped from
+    // the comparison and asserted below to carry the briefed behavior on the
+    // five rows that have one (and to be absent on the other seven).
+    const withoutNewFields = (row: OpponentConfig) => {
+      const { steelDelta: _steelDelta, regularBehavior: _regularBehavior, ...rest } = row;
       return rest;
     };
     expect(
-      JSON.stringify(ALL_OPPONENTS.slice(0, 12).map(withoutSteelDelta)),
-    ).toBe(JSON.stringify((PRE_D1_OPPONENTS as OpponentConfig[]).map(withoutSteelDelta)));
+      JSON.stringify(ALL_OPPONENTS.slice(0, 12).map(withoutNewFields)),
+    ).toBe(JSON.stringify((PRE_D1_OPPONENTS as OpponentConfig[]).map(withoutNewFields)));
     for (const row of ALL_OPPONENTS.slice(0, 12)) {
       expect(row.steelDelta).toEqual({ aggression: 0.05, blockChance: 0.05 });
+    }
+    const behaviors: Record<string, string | undefined> = {
+      opp_marcus: 'eager',
+      opp_flaccus: 'hit_and_run',
+      opp_brutus_anvil: 'anvil_answers',
+      opp_naija_fisher: 'fishers_press',
+      opp_pale_twins: 'twin_tempo',
+    };
+    for (const row of ALL_OPPONENTS.slice(0, 12)) {
+      expect(row.regularBehavior, row.id).toBe(behaviors[row.id]);
     }
   });
 
@@ -230,8 +243,8 @@ describe('D-1 §A — the append touched no pre-existing row', () => {
     const ids = ALL_OPPONENTS.map((opponent) => opponent.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const pre of PRE_D1_OPPONENTS as OpponentConfig[]) {
-      const { steelDelta: _steelDelta, ...resolved } = byId(pre.id);
-      const { steelDelta: _preSteelDelta, ...expected } = pre;
+      const { steelDelta: _steelDelta, regularBehavior: _regularBehavior, ...resolved } = byId(pre.id);
+      const { steelDelta: _preSteelDelta, regularBehavior: _preRegularBehavior, ...expected } = pre;
       expect(resolved).toEqual(expected);
     }
   });
