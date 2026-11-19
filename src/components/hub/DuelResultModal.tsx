@@ -72,12 +72,6 @@ interface DuelResultModalProps {
    */
   palmaEarned?: string[];
   /**
-   * PITCH A1 — what Fortuna's omen did in this bout, decided at the same write
-   * that consumed it: the fame (or gold and fame) it added, or that it was spent
-   * unpaid. Absent on every bout fought with no omen live.
-   */
-  omenLine?: string | null;
-  /**
    * STORY-4a — the mercy offer riding an ELIGIBLE victory (Pitch A9), decided at
    * the same write that settled the duel: the named rival it is asked of, whether
    * this is the profile's first offer (the Chapter 3 teaching firing), and — once
@@ -153,7 +147,6 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
   coachCardId,
   onCoachCardDismiss,
   palmaEarned,
-  omenLine,
   mercy,
   onMercyChoice,
   bounty,
@@ -361,18 +354,6 @@ export const DuelResultModal: React.FC<DuelResultModalProps> = ({
               </p>
             ))}
           </div>
-        )}
-
-        {/* PITCH A1 — FORTUNA'S OMEN.  One line, outside the staged reveal, on a
-            win and a defeat alike: the fame (or gold and fame) the omen added, or
-            that it was spent unpaid.  Decided at the write that consumed it. */}
-        {omenLine && (
-          <p
-            data-duel-omen
-            className="text-xs sm:text-[13px] font-serif italic text-amber-200/90 leading-relaxed mb-4"
-          >
-            {omenLine}
-          </p>
         )}
 
         {/* C-8.70C — THE GRUDGE'S OWN RESULT. A win settles it for good; a loss
