@@ -129,12 +129,15 @@ describe('B. The pre-race pose, in memory only', () => {
     expect(start).toContain('playerPosRef.current');
     expect(start).toContain('playerRotYRef.current');
     expect(start).toContain('setShowRaceEntry(false)');
-    expect(start).toContain('onStartRace(pose)');
+    // LADDER-1B — the handoff now carries the selected rung alongside the
+    // pose (session-only, never written to a save).
+    expect(start).toContain('onStartRace(pose, rung)');
   });
 
   test('the panel hands off to the city and still writes nothing', () => {
     expect(panelSrc).toContain('onStartRace');
-    expect(panelSrc).toContain('onClick={onStartRace}');
+    // LADDER-1B — the Start button now passes the picker's selected rung.
+    expect(panelSrc).toContain('onClick={() => onStartRace(selectedRung)}');
     for (const token of ['saveProfile', 'localStorage', 'sessionStorage', 'PROFILE_STORAGE_KEY', 'services/storage']) {
       expect(panelSrc, token).not.toContain(token);
     }
@@ -312,8 +315,11 @@ describe('D. Reuse', () => {
   test('the start line is read from the layout module, not restated', () => {
     // the two layout constants the scene needs — the start line and the camera
     // derived from it — arrive in one import from the layout module
+    // LADDER-1B — the static camera is now the formation camera (the rolling
+    // start's view from the sand's east edge), not the race camera; the line
+    // itself is still read from the layout module, never restated.
     expect(sceneSrc).toContain(
-      "import { CIRCUS_RACE_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry'"
+      "import { CIRCUS_FORMATION_CAMERA, CIRCUS_RACE_START } from '../../utils/circusDistrictGeometry'"
     );
     expect(sceneSrc).toContain('CIRCUS_RACE_START.x');
     expect(sceneSrc).toContain('CIRCUS_RACE_START.rotationY');
@@ -370,7 +376,15 @@ describe('E. Slice boundaries', () => {
     expect(sceneSrc.split('<RaceCameraRig').length - 1).toBe(1);
     expect(sceneSrc.split('<RaceChariot\n').length - 1).toBe(1);
     expect(sceneSrc.split('<RaceChariotKitWheels').length - 1).toBe(1);
+    // LADDER-1B — the rival mount is one JSX literal inside a `field.map`,
+    // so the source still holds a single `<RaceRivalChariot` — but the RENDER
+    // is N mounts (2 District, 4 League), one per competitor in the rung's
+    // field, each with its own roll path and flank. The count below pins the
+    // literal; the mapped render is pinned beside it.
     expect(sceneSrc.split('<RaceRivalChariot').length - 1).toBe(1);
+    expect(sceneSrc).toContain('field.map((rival, index) => {');
+    expect(sceneSrc).toContain('rollPath={formation.paths[slot]}');
+    expect(sceneSrc).toContain('startSide={formation.slots[slot].endSide}');
     expect(sceneSrc.split('<RaceClock').length - 1).toBe(1);
   });
 
@@ -398,7 +412,9 @@ describe('E. Slice boundaries', () => {
     const rivalEnd = sceneSrc.indexOf('const RaceClock', rivalStart);
     const rival = sceneSrc.slice(rivalStart, rivalEnd);
     expect(rival).toContain('applyChariotFinish(scene, getChariotPartByFinish(competitor.finish)?.overrides ?? [])');
-    expect(sceneSrc).toContain('competitor={competitor}');
+    // LADDER-1B — the mount is a `field.map`, so each rival is bound as
+    // `rival`, not the single shipped `competitor`.
+    expect(sceneSrc).toContain('competitor={rival}');
     expect(rival).toContain('data-race-competitor={competitor.id}');
   });
 
@@ -413,9 +429,12 @@ describe('E. Slice boundaries', () => {
     // both constants this slice added to the layout module are lifted out first —
     // the start line and the camera derived from it — so what remains is the module
     // as the district laid it out before the race existed.
+    // LADDER-1B — the formation camera is a third constant of the same kind
+    // (a race camera derived from the line), so it is lifted out beside them.
     const withoutRaceBlock = code(load('./circusDistrictGeometry.ts'))
       .replace(/export const CIRCUS_RACE_START[\s\S]*?\} as const;/, '')
-      .replace(/export const CIRCUS_RACE_CAMERA[\s\S]*?\} as const;/, '');
+      .replace(/export const CIRCUS_RACE_CAMERA[\s\S]*?\} as const;/, '')
+      .replace(/export const CIRCUS_FORMATION_CAMERA[\s\S]*?\} as const;/, '');
     expect(withoutRaceBlock).not.toContain('CIRCUS_RACE_START');
     const withoutRaceStart = code(load('./raceState.ts'));
     expect(withoutRaceStart).not.toContain('CITY_COLLIDERS');
@@ -426,14 +445,36 @@ describe('E. Slice boundaries', () => {
     }
   });
 
-  test('race scene receives the persistent win count to select a roster rival', () => {
+  // LADDER-1B — the wins-gated rival selection is retired, not weakened: the
+  // 1v1's `rivalWins` prop and `resolveRaceCompetitor` are gone, and the rung
+  // travels the handoff instead (District open, League locked until a top-2
+  // District finish). The field comes from the rung's pool, and places are
+  // read from finish times — the 1v1 outcome rule is gone with the 1v1.
+  test('LADDER-1B — the rung travels the handoff and the field finish order replaces the 1v1 outcome', () => {
     const app = code(load('../App.tsx'));
     const scene = code(load('../components/3d/RaceScene.tsx'));
-    expect(app).toContain('rivalWins={profile?.racing?.wins ?? 0}');
-    expect(scene).toContain('resolveRaceCompetitor(rivalWins)');
-    expect(scene).toContain('resolveRaceRivalOutcome(raceFinishElapsed, competitor.lapDurationMs)');
-    expect(scene).toContain('competitor={competitor}');
-    expect(scene).toContain('data-race-opponent={competitor.id}');
+    // App holds the selected rung in memory (session-only, never saved) and
+    // hands it to the scene's mount.
+    expect(app).toContain("const [raceRung, setRaceRung] = useState<RaceRungId>('district')");
+    expect(app).toContain('setRaceRung(rung)');
+    expect(app).toContain('rung={raceRung}');
+    expect(app).not.toContain('rivalWins={profile?.racing?.wins ?? 0}');
+    // The scene resolves the rung defensively, fields the rung's pool, and
+    // forms the field up before the clock starts.
+    expect(scene).toContain('resolveRaceRungId(rung)');
+    expect(scene).toContain('resolveRungField(rungId)');
+    expect(scene).toContain('resolveFormationRoll(field.length + 1, field[0]?.startSide ?? 1)');
+    expect(scene).toContain('rollPath={playerRollPath}');
+    expect(scene).toContain('onLeaderCrossing={handleLeaderCrossing}');
+    // The finish reads places from finish times and settles the single
+    // derived outcome; the 1v1 rule and the wins-gated selection are gone.
+    expect(scene).toContain('resolveFieldFinishOrder([');
+    expect(scene).toContain('data-race-result={raceFieldOrder.outcome}');
+    expect(scene).toContain('data-race-player-place={playerPlace ??');
+    expect(scene).not.toContain('resolveRaceCompetitor(rivalWins)');
+    expect(scene).not.toContain('resolveRaceRivalOutcome(raceFinishElapsed, competitor.lapDurationMs)');
+    expect(scene).not.toContain('rivalWins');
+    expect(scene).not.toContain('data-race-opponent={competitor.id}');
     expect(scene).not.toContain('const RACE_RIVAL_CONFIG');
   });
 

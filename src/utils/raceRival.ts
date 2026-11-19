@@ -28,7 +28,11 @@ export interface RaceRivalConfig {
 // The measured sand is 16.8 units wide (X 43.940..60.740), so ±7.8
 // keeps the rival's centreline inside the playable surface with 0.6 units
 // of margin while clearing raceLap.ts's inclusive lane threshold.
-const LANE_OFFSET = 7.8;
+// Exported (LADDER-1B): the rolling start ends on these same lanes, so
+// `raceGrid.ts` imports this value rather than restating it — the end of a
+// roll path is the start of the shipped route, by construction, and a second
+// literal would let the two drift apart.
+export const RACE_LANE_OFFSET = 7.8;
 
 /**
  * Sample a cubic Bezier in world space. Sampling keeps distance-based pacing
@@ -59,8 +63,8 @@ function sampleCurve(
  */
 function buildRoute(startSide: -1 | 1): ReadonlyArray<readonly [number, number]> {
   const otherSide = -startSide;
-  const startX = CIRCUS_AXIS_X + startSide * LANE_OFFSET;
-  const otherX = CIRCUS_AXIS_X + otherSide * LANE_OFFSET;
+  const startX = CIRCUS_AXIS_X + startSide * RACE_LANE_OFFSET;
+  const otherX = CIRCUS_AXIS_X + otherSide * RACE_LANE_OFFSET;
   const northZ = RACE_NORTH_TURN_Z;
   const northEntryZ = northZ - 1;
   const northApexZ = northZ - 5.5;
@@ -213,4 +217,82 @@ export function resolveRaceRivalOutcome(
     outcome: difference < 0 ? 'victory' : 'defeat',
     marginMs,
   };
+}
+
+/**
+ * LADDER-1B — the full field, in place order, from finish times.
+ *
+ * The 1v1 helper above still answers a two-rig race; a multi-rival field
+ * needs places for every rig and one outcome for the settlement. Places come
+ * from the finish times alone (fastest first); the outcome is the 1v1 rule
+ * read against the nearest competitor — victory iff the player is 1st AND
+ * more than 100 ms clear of 2nd, photo-finish iff the player is within
+ * 100 ms of the leader (or of 2nd while 1st), defeat otherwise. Invalid
+ * timings, a field with no player, or a field of one return null and can
+ * never create a false result; the scene keeps its shipped `settleRaceCompletion`
+ * call with this single derived outcome.
+ */
+export interface RaceFieldFinisher {
+  id: string;
+  name: string;
+  /** Finish elapsed in ms, measured from the race clock origin (the leader's crossing). */
+  finishMs: number;
+  isPlayer: boolean;
+}
+
+export interface RaceFieldPlacement {
+  place: number;
+  id: string;
+  name: string;
+  finishMs: number;
+  isPlayer: boolean;
+}
+
+export interface RaceFieldFinishOrder {
+  places: RaceFieldPlacement[];
+  outcome: 'victory' | 'defeat' | 'photo-finish';
+  /** |player − nearest competitor| in ms: 2nd when the player is 1st, the leader otherwise. */
+  marginMs: number;
+}
+
+export function resolveFieldFinishOrder(
+  finishers: readonly RaceFieldFinisher[],
+): RaceFieldFinishOrder | null {
+  if (!Array.isArray(finishers) || finishers.length < 2) return null;
+  const player = finishers.find((f) => f.isPlayer);
+  if (!player) return null;
+  for (const f of finishers) {
+    if (
+      typeof f.id !== 'string' ||
+      typeof f.name !== 'string' ||
+      !Number.isFinite(f.finishMs) ||
+      f.finishMs < 0
+    ) {
+      return null;
+    }
+  }
+
+  const sorted = [...finishers].sort((a, b) => {
+    if (a.finishMs !== b.finishMs) return a.finishMs - b.finishMs;
+    // An exact tie is decided by the field order the caller supplied; the
+    // player takes the earlier place, so a dead heat is never a loss.
+    if (a.isPlayer !== b.isPlayer) return a.isPlayer ? -1 : 1;
+    return 0;
+  });
+  const places: RaceFieldPlacement[] = sorted.map((f, index) => ({
+    place: index + 1,
+    id: f.id,
+    name: f.name,
+    finishMs: f.finishMs,
+    isPlayer: f.isPlayer,
+  }));
+  const playerPlace = places.find((p) => p.isPlayer)?.place ?? 0;
+  const nearest = playerPlace === 1 ? places[1] : places[0];
+  const marginMs = Math.abs(player.finishMs - nearest.finishMs);
+  const outcome = marginMs <= 100
+    ? 'photo-finish'
+    : playerPlace === 1
+      ? 'victory'
+      : 'defeat';
+  return { places, outcome, marginMs };
 }

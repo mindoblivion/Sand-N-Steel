@@ -10,6 +10,15 @@ on:
       - 'android/**'
       - 'src/components/3d/RaceScene.tsx'
       - 'src/components/3d/RaceRenderDiagnostics.tsx'
+      # LADDER-1B — the rolling start + multi-rival field: the formation and
+      # roll-path module, the rival clock / finish-order module, the rung
+      # pools, the rung picker, and the city handoff that carries the rung.
+      - 'src/utils/raceGrid.ts'
+      - 'src/utils/raceRival.ts'
+      - 'src/utils/raceCompetitors.ts'
+      - 'src/components/hub/PreRacePanel.tsx'
+      - 'src/components/3d/city/CityHubScene.tsx'
+      - 'src/App.tsx'
       - 'package.json'
       - 'bun.lock*'
       - 'capacitor.config.ts'

@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { PlayerProfile } from '../../types/game';
 import { Eye, Flag, Info, Trophy, Wrench } from 'lucide-react';
 import { getSelectedRacingConfig } from '../../utils/racingProgression';
 import { leagueStandingLine, resolveLeagueStanding } from '../../utils/racingLeague';
 import { resolveChariotLoadout } from '../../utils/chariotLoadout';
 import { getChariotPart } from '../../data/chariotParts';
+import { resolveRungLockState } from '../../utils/raceGrid';
+import type { RaceRungId } from '../../utils/raceCompetitors';
 // Day/Night T3 — the race card names the light it will run under. Copy only.
 import { racePhaseLine } from '../../utils/phaseFlavor';
 import { resolveDisplayClock } from '../../utils/dayRollover';
@@ -19,8 +21,12 @@ interface PreRacePanelProps {
    * Phase C-8.70B Stage 1, Slice 1 — "Start Race": leave the city for the race
    * scene.  The city captures the pose it must return the player to and hands it
    * up to `App`; this panel itself still writes nothing.
+   *
+   * LADDER-1B: the start carries the selected rung (`district` | `league`),
+   * chosen in the rung picker below. The rung is session-only — the panel
+   * writes nothing, and the scene never persists it.
    */
-  onStartRace: () => void;
+  onStartRace: (rung: RaceRungId) => void;
 }
 
 /**
@@ -54,6 +60,13 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
   const loadout = useMemo(() => resolveChariotLoadout(profile), [profile]);
   // ECON-2 — the League standing, read-only like everything else in this panel.
   const leagueStanding = useMemo(() => resolveLeagueStanding(profile), [profile]);
+  // LADDER-1B — the rung picker. District is always open; League opens on a
+  // top-2 District finish (`resolveRungLockState`), and the locked state shows
+  // the plain-language requirement instead of a bare lock. The selection is
+  // session-only: the panel writes nothing, and the scene never persists it.
+  const rungLock = useMemo(() => resolveRungLockState(profile), [profile]);
+  const [selectedRung, setSelectedRung] = useState<RaceRungId>('district');
+  const leagueLocked = !rungLock.leagueOpen;
 
   // T3 — the hour, from the clock. Dusk renders golden and night renders dawn in the
   // ring (`utils/racePhaseLight.ts`), so those two read as last and first light.
@@ -140,6 +153,41 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
           <p data-race-field="league-standing">{leagueStandingLine(leagueStanding)}</p>
         </div>
 
+        <div
+          className="bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4"
+          data-race-field="rung-picker"
+        >
+          <div className="text-[10px] font-serif uppercase tracking-widest text-amber-400 mb-2">
+            Race rung
+          </div>
+          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Race rung">
+            <button
+              type="button"
+              onClick={() => setSelectedRung('district')}
+              aria-pressed={selectedRung === 'district'}
+              data-race-rung="district"
+              className={`min-h-[48px] rounded-xl border-2 px-3 py-2 font-serif text-xs font-black uppercase tracking-wider cursor-pointer active:scale-95 transition-all ${selectedRung === 'district' ? 'border-amber-400 bg-amber-900/50 text-amber-100' : 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-amber-500/60'}`}
+            >
+              District
+              <span className="block mt-0.5 text-[10px] font-mono normal-case tracking-normal text-neutral-400">3 laps · 2 rivals</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (!leagueLocked) setSelectedRung('league'); }}
+              aria-pressed={selectedRung === 'league'}
+              aria-disabled={leagueLocked}
+              disabled={leagueLocked}
+              data-race-rung="league"
+              className={`min-h-[48px] rounded-xl border-2 px-3 py-2 font-serif text-xs font-black uppercase tracking-wider transition-all ${leagueLocked ? 'border-neutral-800 bg-neutral-950 text-neutral-500 cursor-not-allowed' : selectedRung === 'league' ? 'border-amber-400 bg-amber-900/50 text-amber-100 cursor-pointer active:scale-95' : 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-amber-500/60 cursor-pointer active:scale-95'}`}
+            >
+              League
+              <span className="block mt-0.5 text-[10px] font-mono normal-case tracking-normal text-neutral-400">
+                {leagueLocked ? rungLock.leagueRequirement : '5 laps · 4 rivals'}
+              </span>
+            </button>
+          </div>
+        </div>
+
         <div className="flex items-start gap-2 text-[11px] font-serif text-neutral-400 bg-neutral-950/60 border border-neutral-800 rounded-2xl p-3 mb-4">
           <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
           <p>
@@ -160,7 +208,7 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
             <li>Brake &amp; reverse (hold) — <span className="text-amber-300">S</span> / <span className="text-amber-300">↓</span></li>
             <li>Steer — <span className="text-amber-300">A</span> / <span className="text-amber-300">D</span> or <span className="text-amber-300">←</span> / <span className="text-amber-300">→</span></li>
             <li>Touch — steering under one thumb, throttle and brake under the other</li>
-            <li>Clean start — hold the throttle before GO, release as it turns green</li>
+            <li>Clean start — hold the throttle through the roll, release as the field crosses the line</li>
             <li>Abort — the Abort control, or <span className="text-amber-300">Esc</span></li>
           </ul>
         </div>
@@ -174,7 +222,7 @@ export const PreRacePanel: React.FC<PreRacePanelProps> = ({ profile, onLeave, on
             Leave
           </button>
           <button
-            onClick={onStartRace}
+            onClick={() => onStartRace(selectedRung)}
             data-race-action="start"
             className="flex-1 min-h-[48px] py-3 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-neutral-950 font-serif font-black text-xs uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all"
           >

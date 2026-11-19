@@ -73,12 +73,18 @@ describe('A. The scene drives the pure movement module', () => {
     const call = sceneCode.indexOf('advanceChariot(');
     expect(gate).toBeGreaterThan(-1);
     expect(call).toBeGreaterThan(gate);
-    // the camera follows in `racing` only, too
-    expect(sceneCode).toContain("if (raceState !== 'racing') return;");
+    // the camera follows in `racing` only, too — LADDER-1B: and only once the
+    // race clock has started (the leader's crossing), so the formation camera
+    // holds through the roll.
+    expect(sceneCode).toContain("if (raceState !== 'racing' || !clockStarted) return;");
   });
 
   test('the frame delta is the module’s to clamp, and the accumulator is not the scene’s', () => {
-    expect(sceneCode).toContain('advanceChariot(motion, input, delta, launchAccelScale(launch, elapsedSinceGoMs))');
+    // LADDER-1B — the boost / bog duration is measured from the PLAYER's own
+    // crossing (`phase.raceElapsedMs`), not from GO: the player crosses
+    // 1.5–3.0 s after the leader, so a duration measured from the leader's
+    // crossing would expire before the player can drive.
+    expect(sceneCode).toContain('advanceChariot(motion, input, delta, launchAccelScale(launch, phase.raceElapsedMs))');
     expect(CHARIOT_MOVEMENT.maxFrameDt).toBe(0.1);
     expect(movementSrc).toContain('maxFrameDt');
     expect(sceneCode).not.toContain('accumulator +=');
@@ -315,8 +321,12 @@ describe('F. Clean Start is a modifier, not a state', () => {
   });
 
   test('the launch reaches the physics only as an acceleration multiplier', () => {
-    expect(sceneSrc).toContain('launchAccelScale(launch, elapsedSinceGoMs)');
-    expect(sceneSrc).toContain('trackChariotLaunch(launch, input.throttle, racing, elapsedSinceGoMs)');
+    // LADDER-1B — the window is measured from the LEADER's crossing (the
+    // clock origin, `elapsedSinceLeaderCrossingMs`), and the boost / bog
+    // duration from the PLAYER's crossing (`phase.raceElapsedMs`); the launch
+    // still reaches the physics only as an acceleration multiplier.
+    expect(sceneSrc).toContain('launchAccelScale(launch, phase.raceElapsedMs)');
+    expect(sceneSrc).toContain('trackChariotLaunch(launch, input.throttle, clockStarted, elapsedSinceLeaderCrossingMs)');
     expect(movementSrc).toContain('export function launchAccelScale');
     expect(CHARIOT_MOVEMENT.launch.cleanBoost).toBeGreaterThan(1);
     expect(CHARIOT_MOVEMENT.launch.boggedFactor).toBeLessThan(1);
