@@ -256,6 +256,14 @@ export interface FighterState {
    * recovery turn that follows it.
    */
   staggeredTurns?: number;
+  /**
+   * COMBAT-2 — the Riposte window: true while the player's next attack is a
+   * Riposte (+50% damage, cannot be evaded), queued by blocking a power
+   * attack. Player only — the AI never holds one. Runtime state only —
+   * never written to a profile or a save. Spent by the next attack, lapsed
+   * by any non-attack action.
+   */
+  riposteReady?: boolean;
   /** Body mass drives the player's rig-based silhouette; absent opponents use the neutral baseline. */
   bodyWeightLb?: number;
   /** Accumulated training/recovery history for visible physical evolution. */

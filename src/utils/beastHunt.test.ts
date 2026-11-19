@@ -444,7 +444,7 @@ describe('D-2 §F — the pounce consumes the existing hit/evasion/damage stages
   test('a dodge stance evades at the standard 75 %, which the pounce inherits', () => {
     // The pounce is dispatched as an ordinary attack, so it meets the one evasion
     // branch — the stance's 0.75 and the player's passive evade, unchanged.
-    expect(DUEL_SCENE).toContain('const isEvaded = defender.isInvulnerable && Math.random() < 0.75;');
+    expect(DUEL_SCENE).toContain('const isEvaded = !isRiposte && defender.isInvulnerable && Math.random() < 0.75;');
     expect((DUEL_SCENE.match(/Math\.random\(\) < 0\.75/g) ?? []).length).toBe(1);
     // The pounce has no evasion path of its own: the marker adds no branch.
     const markers = DUEL_SCENE.slice(

@@ -361,7 +361,10 @@ describe('CF-5 §D the timing seam is the only thing that moved', () => {
     const gate = duel.indexOf('if (isAttackAction && !afterWindup)');
     const animation = duel.indexOf("const action = actionType === 'quick_attack' ? 'attack_light' : 'attack_heavy';", gate);
     const schedule = duel.indexOf('attackWindupTimerRef.current = setTimeout', gate);
-    const damage = duel.indexOf('const rawDamage = calculateAttackDamage(', schedule);
+    // COMBAT-2 — the resolved damage is wrapped in applyRiposteDamage, so the
+    // pin reads the formula call itself: the point is that damage resolves
+    // after the wind-up, whatever wraps it.
+    const damage = duel.indexOf('calculateAttackDamage(', schedule);
     expect(gate).toBeGreaterThan(-1);
     expect(animation).toBeGreaterThan(gate);
     expect(schedule).toBeGreaterThan(animation);
