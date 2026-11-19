@@ -4,10 +4,10 @@
  * Run with: `bun test src/utils/codex.test.ts`
  *
  * ── WHAT THIS SUITE PINS ──────────────────────────────────────────────────
- *   §A  the datasets and the R1 denominators (24 / 9 / teams + parts / itemsDB
+ *   §A  the datasets and the R1 denominators (25 / 10 / teams + parts / itemsDB
  *       count / 21) — read from the shipped data, never a literal copy of it;
  *   §B  Gladiators — every rival, defeated from `defeatedOpponentIds` or not yet;
- *   §C  Bosses — the 9 boss-ladder rows, feature bosses killed through
+ *   §C  Bosses — the 10 boss-ladder rows, feature bosses killed through
  *       `defeatedOpponentIds` with `bossKills` empty, the Deserter excluded;
  *   §D  Horses & Teams — Biga by definition, Triga/Quadra from `racing.unlocked`,
  *       every catalogue part owned or not (and NO horse-tier section);
@@ -81,14 +81,14 @@ const ids = (entries: { id: string }[]): string[] => entries.map((entry) => entr
 describe('A5 §A — the datasets and the R1 denominators', () => {
   test('the five denominators are the shipped datasets, not literals', () => {
     expect(CODEX_DENOMINATORS).toEqual({
-      gladiators: 24,
-      bosses: 9,
+      gladiators: 25,
+      bosses: 10,
       horses: 3 + CHARIOT_PARTS.length,
       arms: ITEMS_DB.length,
       city: HUB_LOCATIONS.length,
     });
     // The measured sizes this branch ships (a change here is a real dataset change).
-    expect(ALL_OPPONENTS.length).toBe(23);
+    expect(ALL_OPPONENTS.length).toBe(24);
     expect(CODEX_GLADIATOR_ROWS.length).toBe(ALL_OPPONENTS.length + 1);
     expect(CHARIOT_PARTS.length).toBe(17);
     expect(ITEMS_DB.length).toBe(34);
@@ -103,9 +103,9 @@ describe('A5 §A — the datasets and the R1 denominators', () => {
     expect(CODEX_GLADIATOR_ROWS).toContain(DOCTORE_TEST_OPPONENT);
   });
 
-  test('Bosses is the 9 boss-ladder rows: four champions plus five feature bosses', () => {
-    expect(CODEX_BOSS_ROWS.length).toBe(9);
-    expect(CODEX_BOSS_ROWS.filter((opponent) => opponent.featureBout === true).length).toBe(5);
+  test('Bosses is the 10 boss-ladder rows: four champions plus six feature bosses', () => {
+    expect(CODEX_BOSS_ROWS.length).toBe(10);
+    expect(CODEX_BOSS_ROWS.filter((opponent) => opponent.featureBout === true).length).toBe(6);
     expect(CODEX_BOSS_ROWS.filter((opponent) => opponent.featureBout !== true).length).toBe(4);
     // The Deserter is a bounty, not a boss-ladder row (R1).
     expect(ids(CODEX_BOSS_ROWS as { id: string }[])).not.toContain('opp_bounty_deserter');
@@ -120,16 +120,16 @@ describe('A5 §B — Gladiators, defeated or not yet faced', () => {
       }),
       'gladiators',
     )!;
-    expect(page.total).toBe(24);
+    expect(page.total).toBe(25);
     expect(page.groups.map((group) => group.id)).toEqual(['ladder', 'yard', 'feature', 'bounty']);
     const entries = page.groups.flatMap((group) => group.entries);
-    expect(entries.length).toBe(24);
+    expect(entries.length).toBe(25);
     expect(entries.filter((entry) => entry.found).map((entry) => entry.id)).toEqual([
       'opp_marcus',
       DOCTORE_TEST_OPPONENT.id,
       'opp_bounty_decimus',
     ]);
-    // A bounty row and the story bout both count — all 24 rows are the dataset.
+    // A bounty row and the story bout both count — all 25 rows are the dataset.
     expect(ids(entries)).toContain('opp_bounty_deserter');
     expect(ids(entries)).toContain(DOCTORE_TEST_OPPONENT.id);
     // Every row carries a class/tier line; a row with no armatura falls back to its weapon.
@@ -172,10 +172,10 @@ describe('A5 §C — Bosses, and where the kill mark is read', () => {
     expect(countOnly.touched).toBe(0);
   });
 
-  test('the Deserter is on no boss page, and there are nine rows', () => {
+  test('the Deserter is on no boss page, and there are ten rows', () => {
     const page = codexPage(profileWith({ defeatedOpponentIds: ['opp_bounty_deserter'] }), 'bosses')!;
     const entries = page.groups.flatMap((group) => group.entries);
-    expect(entries.length).toBe(9);
+    expect(entries.length).toBe(10);
     expect(ids(entries)).not.toContain('opp_bounty_deserter');
     expect(page.touched).toBe(0);
   });
@@ -284,11 +284,11 @@ describe('A5 §F — The City: every hub walked', () => {
 });
 
 describe('A5 §G — the percentage and the laurel', () => {
-  test('a page is floor(touched / dataset), so 23 of 24 is 95%, never 100', () => {
-    const allButOne = CODEX_GLADIATOR_ROWS.slice(0, 23).map((opponent) => opponent.id);
+  test('a page is floor(touched / dataset), so 24 of 25 is 96%, never 100', () => {
+    const allButOne = CODEX_GLADIATOR_ROWS.slice(0, 24).map((opponent) => opponent.id);
     const page = codexPage(profileWith({ defeatedOpponentIds: allButOne }), 'gladiators')!;
-    expect(page.touched).toBe(23);
-    expect(page.percent).toBe(95);
+    expect(page.touched).toBe(24);
+    expect(page.percent).toBe(96);
     expect(page.laurel).toBe(false);
   });
 
@@ -409,7 +409,7 @@ describe('A5 §I — saga_codex_complete, the shared reward sink', () => {
         (opponent) => opponent.bountyBout !== true,
       ).map((opponent) => opponent.id),
     });
-    expect(buildCodex(noBounties).pages.find((page) => page.id === 'gladiators')!.percent).toBe(75);
+    expect(buildCodex(noBounties).pages.find((page) => page.id === 'gladiators')!.percent).toBe(76);
     expect(isCodexComplete(noBounties)).toBe(false);
     expect(evaluateTriumphs(noBounties).map((triumph) => triumph.id)).not.toContain(
       CODEX_COMPLETE_TRIUMPH_ID,
