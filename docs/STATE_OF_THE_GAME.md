@@ -73,7 +73,7 @@ This section supersedes the 2026-11-15 snapshot statements where they conflict w
 
 ### Branch divergence — action required before using the release branch
 
-At this snapshot, `release/colosseum-60d` compares as **3 commits ahead and 211 commits behind** `main`. Its three unique files are route-clearance tests for East Market, Scholaris paving, and the west service route. The branch is not synchronized with main, despite the earlier snapshot statement. Preserve it; do not merge it wholesale or force-update it. If those three tests remain valuable, port/reconcile them individually against current-main geometry and test helpers.
+At this snapshot, `release/colosseum-60d` compares as **3 commits ahead and 211 commits behind** `main` by commit ancestry. Those three commits touch route-clearance tests for East Market, Scholaris paving, and the west service route, but the files already exist on `main`: the East Market and Scholaris files are byte-identical, while the mainline west-service file has a different floating-point-tolerant endpoint assertion. No missing test file has been established. The branch is not synchronized with main, despite the earlier snapshot statement. Preserve it; do not merge it wholesale or force-update it. Inspect the three commit objects and branch protection before deciding whether the stale branch can be retired safely.
 
 ### Rehearsal signing
 
