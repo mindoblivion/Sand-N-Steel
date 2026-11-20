@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `51d853c639aabbd1ca4607c1ebbdfcd385d7eafb` (2026-11-19).
+> Living project index. Baseline reconciled against `main` at `79657dbbd8f8667d620db5591159bdf93284a4c2` (2026-11-20).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -94,14 +94,13 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 
 ## Open engineering PRs
 
-Two engineering PRs are currently open and neither is merge-ready:
+The following scoped PRs are open and intentionally remain draft because their remaining acceptance cannot be established by source tests or CI:
 
-- **[PR #496](https://github.com/mindoblivion/Sand-N-Steel/pull/496) — startup image signature validation:** tests and TypeScript pass, but both required CI workflows fail at the new signature check. The two Colosseum loading-art files (`public/colosseum_loading.webp` and `public/colosseum_loading.png`) contain JPEG data, not WebP/PNG. Keep unmerged until the correct image asset is committed or the references are deliberately corrected to the actual format; do not weaken validation to hide the mismatch.
-- **[PR #492](https://github.com/mindoblivion/Sand-N-Steel/pull/492) — Ferrum visible flee animation:** both CI gates pass on head `800ba3f843f30dec605b207b604d5c151281ff43`. It remains draft pending live visual acceptance of run-cycle playback, ground contact, clipping and retreat direction in the arena/Samsung build. Automated tests are not visual acceptance.
+- **[PR #496](https://github.com/mindoblivion/Sand-N-Steel/pull/496) — startup image signature validation:** intentionally fails both production-build workflows because `public/colosseum_loading.webp` and `public/colosseum_loading.png` contain JPEG bytes, not the formats declared by their extensions. A clean user-provided WebP has been recovered and byte-verified (1536×864, 409,044 bytes, SHA-256 `bf7d31df887b4894f99de529cf0a44db40a4d46ac312ba0d8386ef9f480a0f58`), but it is not committed. Do not weaken the validator or merge until genuine WebP/PNG assets and copied `dist/` assets pass both build workflows.
+- **[PR #515](https://github.com/mindoblivion/Sand-N-Steel/pull/515) — staggered rival race clocks:** both required CI gates and the development-only race-profiler APK build passed on head `4d67dd6e95484bbb86b7831cbd6fdf5aa13c5632`. Keep draft pending visual/Samsung acceptance of staggered roll starts, roll-to-lap handoff, horse/wheel gait continuity, ground contact and finish order. The APK artifact is not a release build.
+- **[PR #516](https://github.com/mindoblivion/Sand-N-Steel/pull/516) — Ferrum visible retreat:** both required CI gates passed on head `85b1a4734a4e6c4c677f1568e765f38abcc6e884`. Keep draft pending arena/Samsung verification of the turn, retreat direction/distance, ground contact and Run-to-Idle transition.
 
-PRs #447, #446, #449 and #450 are merged. Historical PRs #434 and #421 are superseded by merged #438/#440 and should not be merged separately.
-
-Do not interpret green CI as completion of device acceptance.
+Do not interpret green CI as completion of device or visual acceptance.
 
 **Loading artwork implementation note:** PR #404's approved two-gladiator icon artwork is merged to main and included in the November 11 rehearsal APK source. The user's Colosseum loading artwork is integrated as `public/colosseum_loading.png` and `public/colosseum_loading.webp`: the boot shell, `WaitSurface`, and `AssetLoadingOverlay` use the shared backdrop; a dark lower cover hides the artwork's baked-in 72% label/bar and replaces it with measured progress or an indeterminate sweep. Startup-asset checks cover the shipped formats. Samsung S24 visual/safe-area verification remains outstanding.
 
@@ -154,3 +153,18 @@ Main is now at `51d853c639aabbd1ca4607c1ebbdfcd385d7eafb`. Recent merged work si
 - Rehearsal signing infrastructure is merged, but stable in-place APK updates still depend on the owner configuring the five rehearsal-only GitHub Actions secrets and completing the install-over-existing-app/save-preservation check (issue #458).
 
 Do not treat green CI as device acceptance. Keep source-level fixes scoped, and continue with independent auditable work while external artwork or device evidence is pending.
+
+## Mainline reconciliation — 2026-11-20
+
+Main is at `79657dbbd8f8667d620db5591159bdf93284a4c2` after the LADDER-1B rolling-start / multi-rival field merge (PR #514). The current open work is tracked above; PRs #515 and #516 are clean ports/fixes based on this mainline, not candidates for automatic merge because both require rendered acceptance.
+
+### Current acceptance boundaries
+
+- **Movement:** source audit found no confirmed defect in the current joystick/camera/collision path. Do not alter movement direction or camera basis speculatively. Samsung reproduction is needed to isolate joystick input, camera orbit, collision response and animation.
+- **Racing:** staggered rival clocks and finish-time comparisons are covered by deterministic regression tests and CI. Horse/wheel animation, ground contact and actual race feel remain device/visual acceptance.
+- **Ferrum retreat:** behavior and scene visibility are source-tested; rendered turn, travel, terrain contact and animation transition remain device/visual acceptance.
+- **Loading artwork:** the clean background is recovered and byte-verified but is not committed. The current loading components already provide measured progress when available, an indeterminate sweep otherwise, safe-area placement, recovery and fade behavior. Preserve the dark lower cover until a genuine clean artwork asset is shipped; then remove the cover in both `AssetLoadingOverlay` and `WaitSurface` without disturbing the live progress UI.
+- **Combat:** current main includes dedicated turn pacing, attack-windup, resolution/AI timer cleanup and terminal-turn source-wiring tests. These tests do not replace a full duel. Samsung acceptance still needs a complete bout, weapon-range boundary checks, block/dodge, telegraphs/counters, defeat/victory and scene exit during pending transitions.
+- **Android acceptance:** issue #329 remains the evidence ledger for persistence, offline play, lifecycle/orientation, creator/loading visuals, skin swatches, input release, weight feel, launcher icon and longer-session performance. No new physical-device test is claimed in this reconciliation.
+
+Continue with bounded, independently tested work while external device evidence is pending. Never report visual correctness, measured FPS or device acceptance without actual observation.
