@@ -87,7 +87,7 @@ import {
 import type { CountdownStep, RaceState } from '../../utils/raceState';
 import { advanceRaceLap, createRaceLapTracker, getRaceLapStage } from '../../utils/raceLap';
 import type { RaceLapStage } from '../../utils/raceLap';
-import { getRaceRivalPose, getRaceRivalSpeed, resolveFieldFinishOrder } from '../../utils/raceRival';
+import { getRaceRivalPose, getRaceRivalSpeed, resolveFieldFinishOrder, resolveRaceRivalFinishMs } from '../../utils/raceRival';
 import type { RaceFieldFinishOrder } from '../../utils/raceRival';
 import { resolveRaceRungId, resolveRungField } from '../../utils/raceCompetitors';
 import type { RaceCompetitor, RaceRungId } from '../../utils/raceCompetitors';
@@ -697,10 +697,14 @@ const RaceRivalChariot: React.FC<{
     const elapsedSinceGoMs = rollStartedAt !== null ? now - rollStartedAt : 0;
     // Keep the rival on its own race clock after the player finishes.
     const raceClockActive = (raceState === 'racing' || raceState === 'finished') && startedAt !== null;
-    const elapsed = raceClockActive ? Math.max(0, now - startedAt) : 0;
-    // LADDER-1B: the roll phase runs before the clock pose. During the
-    // countdown the rival stands at its formation slot (the initial pose).
-    const phase = rollStartedAt !== null && raceState === 'racing'
+    const ownCrossingAt = rollStartedAt !== null ? rollStartedAt + rollPath.crossingMs : null;
+    const elapsedSinceOwnCrossingMs = raceClockActive && ownCrossingAt !== null
+      ? Math.max(0, now - ownCrossingAt)
+      : 0;
+    // LADDER-1B: the roll phase runs before the clock pose. Once the rig
+    // crosses, its route clock starts at zero on the exact line pose — not
+    // at the leader's earlier crossing (which would jump it forward).
+    const phase = rollStartedAt !== null && (raceState === 'racing' || raceState === 'finished')
       ? resolveRollPhase(rollPath, elapsedSinceGoMs)
       : null;
     const isRolling = phase !== null && phase.rolling;
@@ -709,7 +713,7 @@ const RaceRivalChariot: React.FC<{
       const pose = getRollPathPoseAtDistance(rollPath, phase.rollDistance);
       next = { x: pose.x, z: pose.z, heading: pose.heading, finished: false };
     } else {
-      next = getRaceRivalPose(elapsed, config);
+      next = getRaceRivalPose(elapsedSinceOwnCrossingMs, config);
     }
     if (isRolling !== rollingRef.current) {
       rollingRef.current = isRolling;
@@ -1280,7 +1284,16 @@ export const RaceScene: React.FC<RaceSceneProps> = ({
                     // The settlement still takes the single derived outcome.
                     const fieldOrder = resolveFieldFinishOrder([
                       { id: 'player', name: 'You', finishMs: elapsedMs, isPlayer: true },
-                      ...field.map((rival) => ({ id: rival.id, name: rival.name, finishMs: rival.lapDurationMs, isPlayer: false })),
+                      ...field.flatMap((rival, index) => {
+                        const slot = formation.rivalSlots[index];
+                        const finishMs = resolveRaceRivalFinishMs(
+                          rival.lapDurationMs,
+                          formation.paths[slot].crossingMs - formation.leaderCrossingMs,
+                        );
+                        return finishMs === null
+                          ? []
+                          : [{ id: rival.id, name: rival.name, finishMs, isPlayer: false }];
+                      }),
                     ]);
                     setRaceFieldOrder(fieldOrder);
                     const outcome = fieldOrder?.outcome ?? 'photo-finish';
