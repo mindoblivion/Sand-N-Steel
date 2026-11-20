@@ -157,6 +157,7 @@ describe('LADDER-1B — staggered rival clocks', () => {
     expect(resolveRaceRivalFinishMs(Number.NaN, 1000)).toBeNull();
     expect(resolveRaceRivalFinishMs(60000, -1)).toBeNull();
     expect(resolveRaceRivalFinishMs(60000, Number.POSITIVE_INFINITY)).toBeNull();
+    expect(resolveRaceRivalFinishMs(Number.MAX_VALUE, Number.MAX_VALUE)).toBeNull();
   });
 });
 
