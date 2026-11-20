@@ -704,7 +704,7 @@ const RaceRivalChariot: React.FC<{
     // LADDER-1B: the roll phase runs before the clock pose. Once the rig
     // crosses, its route clock starts at zero on the exact line pose — not
     // at the leader's earlier crossing (which would jump it forward).
-    const phase = rollStartedAt !== null && raceState === 'racing'
+    const phase = rollStartedAt !== null && (raceState === 'racing' || raceState === 'finished')
       ? resolveRollPhase(rollPath, elapsedSinceGoMs)
       : null;
     const isRolling = phase !== null && phase.rolling;
