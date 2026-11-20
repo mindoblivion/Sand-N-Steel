@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `7c5e52636c2d2e4ce326ef80318250a5e3fe4246` (2026-11-20).
+> Living project index. Baseline reconciled against `main` at `08a059ee1fcfbfe01c5318c0b08241f66f15190f` (2026-11-20).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -180,3 +180,15 @@ Main advanced from `79657dbbd8f8667d620db5591159bdf93284a4c2` to `7c5e52636c2d2e
 PR #492 is closed as superseded by #516. The movement source audit still has no confirmed defect; do not alter the camera/movement basis without a reproducible Samsung symptom. The remaining device acceptance is tracked in issue #329, and city route rendering/walkability acceptance remains in issue #456.
 
 This reconciliation updates the baseline only. It does not change implementation status or claim new device testing.
+
+
+## Mainline reconciliation — 2026-11-20 (after PRs #519–#521)
+
+Main is now at `08a059ee1fcfbfe01c5318c0b08241f66f15190f`. PR #519 reconciled this backlog; PRs #520–#521 refreshed the state-of-game handoff and clarified the release-branch overlap. The state-of-game snapshot and this backlog now share the same mainline baseline.
+
+- [PR #515](https://github.com/mindoblivion/Sand-N-Steel/pull/515) remains open/draft. Race rival clock logic, regression coverage, and its race-profiler APK workflow passed on head `4d67dd6e95484bbb86b7831cbd6fdf5aa13c5632`; the PR base SHA predates the documentation-only mainline commits. No visual/device acceptance is recorded.
+- [PR #516](https://github.com/mindoblivion/Sand-N-Steel/pull/516) remains open/draft. Ferrum retreat logic and regression coverage passed both required workflows on head `85b1a4734a4e6c4c677f1568e765f38abcc6e884`; no arena/device visual acceptance is recorded.
+- [PR #496](https://github.com/mindoblivion/Sand-N-Steel/pull/496) remains open/draft and intentionally blocks production builds until the actual WebP and PNG loading assets are committed. The clean WebP was recovered and byte-verified but is not in GitHub. Do not weaken signature validation.
+- [Issue #329](https://github.com/mindoblivion/Sand-N-Steel/issues/329) remains the physical Android acceptance ledger. Its outstanding checks include save persistence, full duel, lifecycle/orientation, offline operation, loading/creator visuals, skin swatches, input release, weight feel, icon inspection, and longer-session performance.
+
+The release branch remains preserved; the three ahead commits touch tests already present on main, with two byte-identical files and one mainline endpoint assertion that is more tolerant of floating-point variance. Do not merge its stale history wholesale. No new device or gameplay verification is claimed by this documentation update.
