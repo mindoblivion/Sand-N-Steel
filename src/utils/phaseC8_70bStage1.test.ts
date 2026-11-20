@@ -361,6 +361,7 @@ describe('E. Slice boundaries', () => {
     expect(scene).toContain('getRaceRivalPose');
     expect(scene).toContain('const elapsedSinceOwnCrossingMs =');
     expect(scene).toContain('getRaceRivalPose(elapsedSinceOwnCrossingMs, config)');
+    expect(scene).toContain("raceState === 'racing' || raceState === 'finished'");
     expect(scene).toContain('RaceHorseTeam teamSize={2}');
     const rivalStart = scene.indexOf('const RaceRivalChariot');
     const rivalEnd = scene.indexOf('const RaceClock', rivalStart);
