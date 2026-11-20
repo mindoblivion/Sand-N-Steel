@@ -39,6 +39,7 @@ import {
   LION_SCALE,
   beastFacingYaw,
   getBeastFleeTarget,
+  syncBeastTargetPosition,
   clipNameForBeastPose,
   normalizeBeastClipStart,
 } from '../components/3d/BeastFigure';
@@ -730,6 +731,20 @@ describe('D-2 §I — the surfaces the player reads', () => {
     const already = beastFleesWithMaster({ ...createBeastState(), pose: 'fled' });
     expect(already.pose).toBe('fled');
     expect(DUEL_SCENE).toContain('beastFleesWithMaster(beastRef.current)');
+  });
+
+  test('a parent rerender cannot overwrite Ferrum’s retreat destination', () => {
+    const retreatTarget = new THREE.Vector3(0, 0, -7.45);
+    const accepted = syncBeastTargetPosition(retreatTarget, [1.55, 0, -2.95], 'fled');
+    expect(accepted).toBe(false);
+    expect(retreatTarget.toArray()).toEqual([0, 0, -7.45]);
+
+    // Before flight, normal prop synchronization remains active.
+    expect(syncBeastTargetPosition(retreatTarget, [1.55, 0, -2.95], 'prowl')).toBe(true);
+    expect(retreatTarget.toArray()).toEqual([1.55, 0, -2.95]);
+    const figure = code('src/components/3d/BeastFigure.tsx');
+    expect(figure).toContain('syncBeastTargetPosition(targetPosRef.current, position, pose)');
+    expect(figure).toContain('[position[0], position[1], position[2], pose]');
   });
 
   test('the beast figure renders from the fence and remains visible for its flee animation', () => {
