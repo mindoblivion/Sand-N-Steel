@@ -366,13 +366,27 @@ These are implementation proposals, not shipped behavior. Reuse an existing inte
 
 ## 17. Implementation follow-up — 2026-11-15
 
-The proposals in sections 13–16 have since been implemented as a first Colosseum vertical slice on [PR #453](https://github.com/mindoblivion/Sand-N-Steel/pull/453), which remains open and in draft. The branch currently contains:
+The proposals in sections 13–16 were implemented as the first Colosseum vertical slice in [PR #453](https://github.com/mindoblivion/Sand-N-Steel/pull/453), merged on 2026-11-15 as `5ceaed470bbfb695bc4495c23008a7ad78c35e15`. The branch currently contains:
 
 - Rival Schools first challenge, dedicated tournament entry, accepted-result settlement and save/reload persistence coverage.
 - Chapter 2 campaign evidence integration, plus visible Road of Glory and Northern Fortress evidence actions.
 - A three-round Colosseum Trial of Endurance that writes the existing story.trialDone evidence only after the final accepted win.
 - Unified fighter class/model selection and a model-switch loading cover in character creation.
 
-The latest PR #453 head has passed both the Main quality gate and Environment gate, including the production build and environment collision/combat harnesses. These are automated checks only. No APK for the latest branch head has been produced, no physical Samsung/device acceptance has been performed, and the full career has not been playtested end-to-end. The rival's final name, school identity and appearance remain configurable creative decisions.
+On the merged PR #453 head, both the Main quality gate and Environment gate passed, including the production build and environment collision/combat harnesses. The PR reported 5,785 tests across 243 files passing. These are automated checks only. No physical Samsung/device acceptance or complete fresh-career playthrough is established by those checks. The rival's final name, school identity and appearance remain configurable creative decisions.
 
-This follow-up supersedes the earlier proposal-only / implementation-not-started status in sections 13–16; those sections remain as the historical design rationale and acceptance contract. PR #453 has not been merged. The 60-day reset remains a development plan, not authorization for public release, signing changes, destructive branch cleanup or merging gameplay work without a separate readiness review.
+This follow-up supersedes the earlier proposal-only / implementation-not-started status in sections 13–16; those sections remain as the historical design rationale and acceptance contract. PR #453 is merged. The 60-day reset remains a development plan, not authorization for public release, signing changes, destructive branch cleanup or release publication.
+
+
+## 18. Mainline campaign-evidence re-audit — 2026-11-20
+
+A fresh source pass on current `main` (`cc0eae464b9ed4a56dbcb935df3f1e9d08a6acfc`) confirms that the old "three orphaned story flags" finding in §14 and the implementation-not-started wording in §16 are historical, superseded findings. The first Colosseum vertical slice from PR #453 is merged, and all four relevant campaign evidence paths now have production writers:
+
+- **Chapter 2 — Rival Schools:** `storyState.ts` now uses the ordinary unmet `rival-schools-first` gate and reads `isRivalSchoolChallengeWon(profile)`. `App.handleMatchComplete` calls `settleRivalSchoolBout` in the existing result transaction. The settlement rejects malformed outcomes, technical exits, exhibitions, grudge bouts and victories with rejected reward settlement; confirmed withdrawal is recorded as a loss and leaves retry available. `rivalSchools.test.ts` and `storyChapterTwo.test.ts` cover settlement and gate semantics.
+- **Chapter 3 — `librarySeen`:** `LibraryTab.tsx` invokes the Road-page callback only when the `road` page becomes visible. `App.handleViewRoad` writes `story.librarySeen` once and saves the profile. `RoadOfGloryPage` visibly renders the player's own record. `codex.test.ts` pins the page-to-callback-to-save wiring and keeps this separate from the Librarian Codex-read flag.
+- **Chapter 5 — `trialDone`:** the Tournament board exposes the three-round Trial of Endurance at the intended chapter/rank gate. `App.handleMatchComplete` calls `settleTrialOfEnduranceRound` inside the ordinary accepted-result transaction; only the final accepted round win sets `story.trialDone`. Loss/retry, malformed state, session fencing and save/reload are covered by `trialOfEndurance.test.ts` and `trialOfEndurancePersistence.test.ts`.
+- **Chapter 6 — `summitSeen`:** `App.handleVisitLocation` writes `story.summitSeen` only for the `northern_fortress` location, composed with the Codex visit and Ludi deed settlement before the single save. `codex.test.ts` pins this path; unrelated city visits do not satisfy the gate.
+
+The campaign resolver remains a single evidence-driven `resolveStoryState` table. Chapter 2's old blocking `district-race` gate is retired in favour of the genuine Rival Schools result; later pending race/ceremony gates remain non-blocking. The existing `diceEnding` remains a player-selected Piso outcome.
+
+**Current verdict:** the source-level production-writer blockers identified in §14 are resolved on `main`; they should not be reopened as new implementation tasks. This does not prove a fresh profile can complete every milestone in a real playthrough. The remaining release-level evidence is a fresh-career walkthrough on Android, including the Rival Schools win/loss/retry path, the Road page read, all three Trial rounds with save/reload, the Northern Fortress visit, and downstream Chapter 3–6 progression. Physical-device and full-career acceptance remain open in issue #329.
