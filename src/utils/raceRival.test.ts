@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import { CIRCUS_AXIS_X } from './collisionShapes';
 import { advanceRaceLap, createRaceLapTracker } from './raceLap';
-import { getRaceRivalPose, getRaceRivalSpeed, resolveFieldFinishOrder, resolveRaceRivalOutcome } from './raceRival';
+import { getRaceRivalPose, getRaceRivalSpeed, resolveFieldFinishOrder, resolveRaceRivalFinishMs, resolveRaceRivalOutcome } from './raceRival';
 
 describe('deterministic race rival route', () => {
   test('starts on the selected lane and is deterministic for equal elapsed time', () => {
@@ -143,6 +143,20 @@ describe('race rival finish comparison', () => {
     expect(resolveRaceRivalOutcome(Number.NaN, 60000)).toBeNull();
     expect(resolveRaceRivalOutcome(60000, Number.POSITIVE_INFINITY)).toBeNull();
     expect(resolveRaceRivalOutcome(-1, 60000)).toBeNull();
+  });
+});
+
+describe('LADDER-1B — staggered rival clocks', () => {
+  test('rival finish time includes its own delay after the leader crosses', () => {
+    expect(resolveRaceRivalFinishMs(60000, 2400)).toBe(62400);
+    expect(resolveRaceRivalFinishMs(58000, 0)).toBe(58000);
+  });
+
+  test('invalid lap durations or crossing delays cannot create a finish time', () => {
+    expect(resolveRaceRivalFinishMs(0, 1000)).toBeNull();
+    expect(resolveRaceRivalFinishMs(Number.NaN, 1000)).toBeNull();
+    expect(resolveRaceRivalFinishMs(60000, -1)).toBeNull();
+    expect(resolveRaceRivalFinishMs(60000, Number.POSITIVE_INFINITY)).toBeNull();
   });
 });
 
