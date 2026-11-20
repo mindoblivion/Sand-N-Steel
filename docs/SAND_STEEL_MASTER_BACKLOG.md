@@ -14,7 +14,7 @@ A task is **not complete** merely because code exists or CI passes. Use these st
 - **Device/gameplay verified** — required real-device or in-game acceptance evidence recorded.
 - **Done** — all acceptance criteria for that task are satisfied, or remaining exclusions are explicitly accepted.
 
-Never report physical-device validation, measured FPS, or visual acceptance without actual evidence. Distinguish confirmed defects from suspected causes. Keep unrelated fixes in separate PRs. Do not merge or release without explicit owner authorization.
+Never report physical-device validation, measured FPS, or visual acceptance without actual evidence. Distinguish confirmed defects from suspected causes. Keep unrelated fixes in separate PRs. Merge only after required checks and acceptance boundaries are satisfied; public release still requires explicit owner authorization.
 
 ## Current active work
 
@@ -97,8 +97,10 @@ A follow-up movement-direction proposal, [PR #405](https://github.com/mindoblivi
 The following scoped PRs are open and intentionally remain draft because their remaining acceptance cannot be established by source tests or CI:
 
 - **[PR #496](https://github.com/mindoblivion/Sand-N-Steel/pull/496) — startup image signature validation:** intentionally fails both production-build workflows because `public/colosseum_loading.webp` and `public/colosseum_loading.png` contain JPEG bytes, not the formats declared by their extensions. A clean user-provided WebP has been recovered and byte-verified (1536×864, 409,044 bytes, SHA-256 `bf7d31df887b4894f99de529cf0a44db40a4d46ac312ba0d8386ef9f480a0f58`), but it is not committed. Do not weaken the validator or merge until genuine WebP/PNG assets and copied `dist/` assets pass both build workflows.
-- **[PR #515](https://github.com/mindoblivion/Sand-N-Steel/pull/515) — staggered rival race clocks:** both required CI gates and the development-only race-profiler APK build passed on head `4d67dd6e95484bbb86b7831cbd6fdf5aa13c5632`. Keep draft pending visual/Samsung acceptance of staggered roll starts, roll-to-lap handoff, horse/wheel gait continuity, ground contact and finish order. The APK artifact is not a release build.
-- **[PR #516](https://github.com/mindoblivion/Sand-N-Steel/pull/516) — Ferrum visible retreat:** both required CI gates passed on head `85b1a4734a4e6c4c677f1568e765f38abcc6e884`. Keep draft pending arena/Samsung verification of the turn, retreat direction/distance, ground contact and Run-to-Idle transition.
+- **[PR #523](https://github.com/mindoblivion/Sand-N-Steel/pull/523) — staggered rival race clocks:** rebased directly onto current main. Main quality gate #791, environment gate #1285, and development-only race-profiler APK build #37 all passed on head `a9be0b5a90de743d8211b4547023e9b61d706ad2`. Keep draft pending visual/Samsung acceptance of staggered roll starts, roll-to-lap handoff, horse/wheel gait continuity, ground contact and finish order. The APK artifact is not a release build and expires 2026-11-27.
+- **[PR #524](https://github.com/mindoblivion/Sand-N-Steel/pull/524) — Ferrum visible retreat:** rebased directly onto current main. Main quality gate #792 and environment gate #1286 passed on head `5c2aafb4e10b863902992c053fd70d34a4280113`. Keep draft pending arena/Samsung verification of the turn, retreat direction/distance, ground contact and Run-to-Idle transition.
+
+Superseded PRs #515 and #516 are closed; #523 and #524 are their current-main replacements.
 
 Do not interpret green CI as completion of device or visual acceptance.
 
@@ -182,13 +184,13 @@ PR #492 is closed as superseded by #516. The movement source audit still has no 
 This reconciliation updates the baseline only. It does not change implementation status or claim new device testing.
 
 
-## Mainline reconciliation — 2026-11-20 (after PRs #519–#521)
+## Mainline reconciliation — 2026-11-20 (after PRs #519–#522)
 
-Main is now at `08a059ee1fcfbfe01c5318c0b08241f66f15190f`. PR #519 reconciled this backlog; PRs #520–#521 refreshed the state-of-game handoff and clarified the release-branch overlap. The state-of-game snapshot and this backlog now share the same mainline baseline.
+Main advanced to `6efe2b39d7c332a3b4160645feb91402650b8b30` after PR #522 reconciled the handoff baseline. The state-of-game snapshot and this backlog now share the same mainline baseline.
 
-- [PR #515](https://github.com/mindoblivion/Sand-N-Steel/pull/515) remains open/draft. Race rival clock logic, regression coverage, and its race-profiler APK workflow passed on head `4d67dd6e95484bbb86b7831cbd6fdf5aa13c5632`; the PR base SHA predates the documentation-only mainline commits. No visual/device acceptance is recorded.
-- [PR #516](https://github.com/mindoblivion/Sand-N-Steel/pull/516) remains open/draft. Ferrum retreat logic and regression coverage passed both required workflows on head `85b1a4734a4e6c4c677f1568e765f38abcc6e884`; no arena/device visual acceptance is recorded.
-- [PR #496](https://github.com/mindoblivion/Sand-N-Steel/pull/496) remains open/draft and intentionally blocks production builds until the actual WebP and PNG loading assets are committed. The clean WebP was recovered and byte-verified but is not in GitHub. Do not weaken signature validation.
-- [Issue #329](https://github.com/mindoblivion/Sand-N-Steel/issues/329) remains the physical Android acceptance ledger. Its outstanding checks include save persistence, full duel, lifecycle/orientation, offline operation, loading/creator visuals, skin swatches, input release, weight feel, icon inspection, and longer-session performance.
+- [PR #523](https://github.com/mindoblivion/Sand-N-Steel/pull/523) carries the race rival-clock fix directly on current main; its main quality, environment, and race-profiler APK workflows passed on the exact head. It remains draft pending visual/Samsung acceptance.
+- [PR #524](https://github.com/mindoblivion/Sand-N-Steel/pull/524) carries Ferrum's visible retreat directly on current main; its main quality and environment workflows passed on the exact head. It remains draft pending arena/Samsung visual acceptance.
+- [PR #496](https://github.com/mindoblivion/Sand-N-Steel/pull/496) remains open/draft and intentionally blocks production builds until genuine WebP/PNG loading assets are committed and signature validation passes. Do not weaken the validator.
+- Superseded PRs #515 and #516 are closed. Issue #329 remains the Android device acceptance ledger.
 
-The release branch remains preserved; the three ahead commits touch tests already present on main, with two byte-identical files and one mainline endpoint assertion that is more tolerant of floating-point variance. Do not merge its stale history wholesale. No new device or gameplay verification is claimed by this documentation update.
+No new device or visual acceptance is claimed by this documentation update.
