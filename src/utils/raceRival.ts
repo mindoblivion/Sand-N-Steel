@@ -168,7 +168,8 @@ export function resolveRaceRivalFinishMs(
   ) {
     return null;
   }
-  return lapDurationMs + crossingDelayMs;
+  const finishMs = lapDurationMs + crossingDelayMs;
+  return Number.isFinite(finishMs) ? finishMs : null;
 }
 
 /** Resolve a repeatable rival pose from elapsed race time. */
