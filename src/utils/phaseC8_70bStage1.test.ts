@@ -359,6 +359,9 @@ describe('E. Slice boundaries', () => {
     const scene = code(sceneSrc);
     expect(scene).toContain('const RaceRivalChariot');
     expect(scene).toContain('getRaceRivalPose');
+    expect(scene).toContain('const elapsedSinceOwnCrossingMs =');
+    expect(scene).toContain('getRaceRivalPose(elapsedSinceOwnCrossingMs, config)');
+    expect(scene).toContain("raceState === 'racing' || raceState === 'finished'");
     expect(scene).toContain('RaceHorseTeam teamSize={2}');
     const rivalStart = scene.indexOf('const RaceRivalChariot');
     const rivalEnd = scene.indexOf('const RaceClock', rivalStart);
@@ -469,6 +472,8 @@ describe('E. Slice boundaries', () => {
     // The finish reads places from finish times and settles the single
     // derived outcome; the 1v1 rule and the wins-gated selection are gone.
     expect(scene).toContain('resolveFieldFinishOrder([');
+    expect(scene).toContain('resolveRaceRivalFinishMs(');
+    expect(scene).toContain('formation.paths[slot].crossingMs - formation.leaderCrossingMs');
     expect(scene).toContain('data-race-result={raceFieldOrder.outcome}');
     expect(scene).toContain('data-race-player-place={playerPlace ??');
     expect(scene).not.toContain('resolveRaceCompetitor(rivalWins)');
