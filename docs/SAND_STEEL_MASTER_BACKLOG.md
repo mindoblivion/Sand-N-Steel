@@ -102,15 +102,14 @@ The following scoped PRs are open and intentionally remain draft because their r
 
 Do not interpret green CI as completion of device or visual acceptance.
 
-**Loading artwork implementation note:** PR #404's approved two-gladiator icon artwork is merged to main and included in the November 11 rehearsal APK source. The user's Colosseum loading artwork is integrated as `public/colosseum_loading.png` and `public/colosseum_loading.webp`: the boot shell, `WaitSurface`, and `AssetLoadingOverlay` use the shared backdrop; a dark lower cover hides the artwork's baked-in 72% label/bar and replaces it with measured progress or an indeterminate sweep. Startup-asset checks cover the shipped formats. Samsung S24 visual/safe-area verification remains outstanding.
+**Artwork status (reconciled 2026-11-20):** PR #404's approved two-gladiator launcher icon artwork is merged and its Android/PWA icon resources are generated from the approved source. The separate Colosseum loading artwork is wired into the boot shell, `WaitSurface`, and `AssetLoadingOverlay`, with live measured progress or an indeterminate sweep. However, the committed `public/colosseum_loading.png` and `public/colosseum_loading.webp` files currently contain JPEG bytes despite their extensions; PR #496 adds a signature check and intentionally blocks production builds until this is corrected. A clean 1536×864 WebP source has been recovered and byte-verified, but it is not yet committed. Keep the lower cover over the artwork's baked-in label/bar until the genuine clean background is shipped. Samsung S24 visual/safe-area verification remains outstanding.
 
 ## Combat audit status
 
-- [Source audit](docs/COMBAT_SOURCE_AUDIT.md): calculations, HUD gating, attack wind-up, range/stamina handling, defensive stance lifecycle, and existing regression suites inspected at its recorded baseline (`7d211d9`). This predates current main (`3d4d58b`); re-audit combat source before treating the findings as current.
-- No new confirmed combat defect was established by this source pass. The historical out-of-range stamina issue is guarded in current source; physical/full-duel acceptance and turn-lifecycle integration coverage remain outstanding.
-- Lifecycle follow-up: [PR #379](https://github.com/mindoblivion/Sand-N-Steel/pull/379) merged result-timer ownership and unmount cancellation, with focused schedule/cancel and source-wiring regression tests. Both reported CI gates passed; device/full-duel acceptance remains open.
-- Follow-up [PR #409](https://github.com/mindoblivion/Sand-N-Steel/pull/409) now also owns and cancels transient floating-damage label timers on duel unmount; focused wiring regression and both CI gates passed. Device/full-duel acceptance remains open.
-- Next: complete a full Android duel acceptance run, including victory, defeat, and exiting the duel during pending transitions. Do not rebalance or rewrite combat without reproducible evidence.
+- The historical [source audit](docs/COMBAT_SOURCE_AUDIT.md) is a dated snapshot, not a current-main verdict. Its timer and combat findings must not be copied forward without checking current source.
+- Current main contains dedicated tests for attack wind-up ordering, turn-resolution handoff, terminal-match guards, opponent AI timer ownership, and cleanup of duel timers on unmount (PRs #379 and #409). These include source-wiring checks; they do not simulate or prove a complete live duel.
+- The previously reported out-of-range stamina/turn-consumption issue is guarded in current source. No new confirmed combat defect was established in the 2026-11-20 source pass.
+- Remaining acceptance is a complete Android duel: victory, defeat, range boundaries, defensive actions/telegraphs, and exiting during pending transitions. Do not rebalance or rewrite combat without reproducible evidence.
 
 ## Evidence sources
 
@@ -122,7 +121,7 @@ Do not interpret green CI as completion of device or visual acceptance.
 - [Android race profiler instructions](docs/ANDROID_RACE_PROFILER.md)
 - [Racing career settlement](docs/engineering-audits/chariot-racing-audit.md) — current-main status update records PR #354's validated finish settlement, purse limits, and remaining device acceptance.
 - [Android acceptance issue #329](https://github.com/mindoblivion/Sand-N-Steel/issues/329)
-- [City layout issue #232](https://github.com/mindoblivion/Sand-N-Steel/issues/232)
+- [City layout acceptance issue #456](https://github.com/mindoblivion/Sand-N-Steel/issues/456)
 
 ## Backlog maintenance rules
 
