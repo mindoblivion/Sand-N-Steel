@@ -75,6 +75,21 @@ export function getBeastFleeTarget(
  * Compute world Y rotation for a model whose forward axis is `+Z` so it aims
  * from `beastPos` toward `targetPos`.
  */
+/**
+ * Keep the flee destination authoritative after Ferrum has entered the
+ * terminal retreat pose. Parent renders may provide a fresh spawn-position
+ * tuple, but must not pull the retreating lion back toward the arena center.
+ */
+export function syncBeastTargetPosition(
+  target: THREE.Vector3,
+  position: readonly [number, number, number],
+  pose: BeastPose,
+): boolean {
+  if (pose === 'fled') return false;
+  target.set(position[0], position[1], position[2]);
+  return true;
+}
+
 export function beastFacingYaw(
   beastPos: readonly [number, number, number],
   targetPos: readonly [number, number, number],
@@ -240,8 +255,8 @@ const LionGLB: React.FC<BeastFigureProps> = ({
   const recoilRef = useRef(0);
 
   useEffect(() => {
-    targetPosRef.current.set(position[0], position[1], position[2]);
-  }, [position[0], position[1], position[2]]);
+    syncBeastTargetPosition(targetPosRef.current, position, pose);
+  }, [position[0], position[1], position[2], pose]);
 
   useEffect(() => {
     targetYawRef.current = rotationY;
