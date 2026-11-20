@@ -2,7 +2,7 @@
 
 **Snapshot:** 2026-11-20  
 **Cleanup baseline:** `v0.1-cleanup` → `b4faedeb92131fd10392989360a850cc310cda8e`  
-**Current branch heads:** `main` at `b2d7855aa01ef1e6274ea67ab0589e8f9c4ab192`; `release/colosseum-60d` is divergent (3 commits ahead, 211 behind at this snapshot). `main` is authoritative; do not merge the release branch wholesale.  
+**Current branch heads:** `main` at `08a059ee1fcfbfe01c5318c0b08241f66f15190f`; `release/colosseum-60d` is divergent (3 commits ahead, 211 behind at this snapshot). `main` is authoritative; do not merge the release branch wholesale.  
 **Product target:** *Sand & Steel: Rival of the Arena* — Android-first, Colosseum-only career vertical slice  
 **Stack:** React 19, Vite 6, Three.js 0.174, React Three Fiber 9, Capacitor 8.6  
 **Primary development environment:** Google AI Studio  
@@ -82,3 +82,8 @@ Stable rehearsal signing is implemented in the workflow, but issue #458 remains 
 ### Current acceptance boundary
 
 No new Samsung S24 test, measured FPS result, or complete fresh-career playthrough is claimed by this document update. Use issue #329 for Android acceptance evidence and the master backlog for current engineering PR status.
+
+
+## Mainline reconciliation — 2026-11-20 (after PR #521)
+
+The latest verified mainline commit is `08a059ee1fcfbfe01c5318c0b08241f66f15190f`. PR #519 refreshed the master backlog, and PRs #520–#521 updated this handoff, including the release-branch test-file overlap correction. The current active implementation PRs are #515 (race rival clocks), #516 (Ferrum retreat), and #496 (startup image signature validation). #515 and #516 have passing automated workflows but remain draft pending visual acceptance. #496 remains blocked until genuine WebP/PNG assets are committed and the signature checks pass. Android device acceptance remains open in issue #329. This documentation reconciliation does not claim any new device, visual, or gameplay testing.
