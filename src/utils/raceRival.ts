@@ -151,6 +151,27 @@ export function getRaceRivalSpeed(config: RaceRivalConfig): number {
   return routeFor(config?.startSide === -1 ? -1 : 1).length / duration;
 }
 
+/**
+ * A rival's scheduled finish on the leader-origin clock: its own formation
+ * crossing delay plus the authored lap duration. Invalid inputs return null
+ * rather than manufacturing a result.
+ */
+export function resolveRaceRivalFinishMs(
+  lapDurationMs: number,
+  crossingDelayMs: number,
+): number | null {
+  if (
+    !Number.isFinite(lapDurationMs) ||
+    lapDurationMs <= 0 ||
+    !Number.isFinite(crossingDelayMs) ||
+    crossingDelayMs < 0
+  ) {
+    return null;
+  }
+  const finishMs = lapDurationMs + crossingDelayMs;
+  return Number.isFinite(finishMs) ? finishMs : null;
+}
+
 /** Resolve a repeatable rival pose from elapsed race time. */
 export function getRaceRivalPose(
   elapsedMs: number,
