@@ -1,6 +1,6 @@
 # Sand & Steel — Master Development Backlog
 
-> Living project index. Baseline reconciled against `main` at `79657dbbd8f8667d620db5591159bdf93284a4c2` (2026-11-20).
+> Living project index. Baseline reconciled against `main` at `7c5e52636c2d2e4ce326ef80318250a5e3fe4246` (2026-11-20).
 > This is a source/GitHub audit, not a claim that every feature has been physically tested.
 > Update this file as tasks change state. Keep detailed evidence in the linked issues, PRs, and audit documents.
 
@@ -167,3 +167,16 @@ Main is at `79657dbbd8f8667d620db5591159bdf93284a4c2` after the LADDER-1B rollin
 - **Android acceptance:** issue #329 remains the evidence ledger for persistence, offline play, lifecycle/orientation, creator/loading visuals, skin swatches, input release, weight feel, launcher icon and longer-session performance. No new physical-device test is claimed in this reconciliation.
 
 Continue with bounded, independently tested work while external device evidence is pending. Never report visual correctness, measured FPS or device acceptance without actual observation.
+
+
+## Mainline reconciliation — 2026-11-20 (after PRs #517–#518)
+
+Main advanced from `79657dbbd8f8667d620db5591159bdf93284a4c2` to `7c5e52636c2d2e4ce326ef80318250a5e3fe4246` after the backlog reconciliation (#517) and the artwork/combat status correction (#518). The three open engineering PRs remain based on this current mainline:
+
+- [PR #515](https://github.com/mindoblivion/Sand-N-Steel/pull/515): race rival clocks; quality, environment, and race-profiler APK workflows passed on its head. Device/visual acceptance remains required.
+- [PR #516](https://github.com/mindoblivion/Sand-N-Steel/pull/516): Ferrum visible retreat; quality and environment workflows passed on its head. Arena/device visual acceptance remains required.
+- [PR #496](https://github.com/mindoblivion/Sand-N-Steel/pull/496): startup image signature validation; both workflows intentionally fail while the committed loading-image files contain JPEG bytes under PNG/WebP extensions. Keep blocked until genuine assets are committed and both workflows pass.
+
+PR #492 is closed as superseded by #516. The movement source audit still has no confirmed defect; do not alter the camera/movement basis without a reproducible Samsung symptom. The remaining device acceptance is tracked in issue #329, and city route rendering/walkability acceptance remains in issue #456.
+
+This reconciliation updates the baseline only. It does not change implementation status or claim new device testing.
