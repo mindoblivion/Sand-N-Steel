@@ -38,6 +38,8 @@ import {
   LION_MODEL_URL,
   LION_SCALE,
   beastFacingYaw,
+  getBeastFleeTarget,
+  syncBeastTargetPosition,
   clipNameForBeastPose,
   normalizeBeastClipStart,
 } from '../components/3d/BeastFigure';
@@ -731,8 +733,32 @@ describe('D-2 §I — the surfaces the player reads', () => {
     expect(DUEL_SCENE).toContain('beastFleesWithMaster(beastRef.current)');
   });
 
-  test('the beast figure renders from the fence, and a fled beast is not drawn', () => {
-    expect(DUEL_SCENE).toContain("beastCfg && beast.pose !== 'fled' && (");
+  test('a parent rerender cannot overwrite Ferrum’s retreat destination', () => {
+    const retreatTarget = new THREE.Vector3(0, 0, -7.45);
+    const accepted = syncBeastTargetPosition(retreatTarget, [1.55, 0, -2.95], 'fled');
+    expect(accepted).toBe(false);
+    expect(retreatTarget.toArray()).toEqual([0, 0, -7.45]);
+
+    // Before flight, normal prop synchronization remains active.
+    expect(syncBeastTargetPosition(retreatTarget, [1.55, 0, -2.95], 'prowl')).toBe(true);
+    expect(retreatTarget.toArray()).toEqual([1.55, 0, -2.95]);
+    const figure = code('src/components/3d/BeastFigure.tsx');
+    expect(figure).toContain('syncBeastTargetPosition(targetPosRef.current, position, pose)');
+    expect(figure).toContain('[position[0], position[1], position[2], pose]');
+  });
+
+  test('the beast figure renders from the fence and remains visible for its flee animation', () => {
+    expect(DUEL_SCENE).toContain('{beastCfg && (');
+    expect(DUEL_SCENE).not.toContain("beastCfg && beast.pose !== 'fled' && (");
+    const flee = code('src/components/3d/BeastFigure.tsx');
+    expect(flee).toContain("if (pose === 'fled')");
+    expect(flee).toContain('getBeastFleeTarget(');
+    expect(flee).toContain('[current.x, targetPosRef.current.y, current.z]');
+    expect(flee).toContain('targetPosRef.current.set(...retreat.position)');
+    expect(flee).toContain('targetYawRef.current = retreat.yaw');
+    expect(flee).toContain('switchClip(BEAST_ANIMATION_MAP.run, 0.12, true);');
+    expect(flee).toContain("poseRef.current === 'fled'");
+    expect(flee).toContain('switchClip(movingNow ? BEAST_ANIMATION_MAP.run : BEAST_ANIMATION_MAP.idle, 0.18, false);');
     expect(DUEL_SCENE).toContain('<BeastFigure');
     expect(DUEL_SCENE).toContain('beastFacingYaw(');
     expect(DUEL_SCENE).toContain('wounds={beast.wounds}');
@@ -762,6 +788,18 @@ describe('D-2 §I — the surfaces the player reads', () => {
     expect(clipNameForBeastPose('crouch')).toBe('Sneak');
     expect(clipNameForBeastPose('pounce-resolved')).toBe('Bite');
     expect(clipNameForBeastPose('fled')).toBe('Run');
+
+    // Retreat target turns exactly opposite the current heading and preserves world height.
+    for (const yawAtStart of [0, Math.PI / 2, Math.PI, -Math.PI / 2, 0.73]) {
+      const start = [1.55, 0.42, -2.95] as const;
+      const retreat = getBeastFleeTarget(start, yawAtStart);
+      const dx = retreat.position[0] - start[0];
+      const dz = retreat.position[2] - start[2];
+      expect(retreat.position[1]).toBe(start[1]);
+      expect(Math.hypot(dx, dz)).toBeCloseTo(4.5, 6);
+      expect(retreat.yaw).toBeCloseTo(yawAtStart + Math.PI, 8);
+      expect(dx * Math.sin(yawAtStart) + dz * Math.cos(yawAtStart)).toBeCloseTo(-4.5, 6);
+    }
 
     // +Z forward orientation aims Ferrum from [1.55, 0, -2.95] inward toward player [0, 0, 3.5].
     const yaw = beastFacingYaw([1.55, 0, -2.95], [0, 0, 3.5]);
@@ -911,7 +949,7 @@ describe('D-2 §J — nothing persists, and no pipeline stage was added', () => 
     // One fence read, and every beast surface is behind it.
     expect((DUEL_SCENE.match(/beastConfigFor\(opponent\)/g) ?? []).length).toBe(1);
     expect(DUEL_SCENE).toContain('const beastCfg = useMemo(');
-    for (const surface of ['if (beastCfg) {', 'beastCfg && beast.pose !== \'fled\'', 'beastCfg\n            ? {']) {
+    for (const surface of ['if (beastCfg) {', 'beastCfg && (', 'beastCfg\n            ? {']) {
       expect(DUEL_SCENE, surface).toContain(surface);
     }
   });
