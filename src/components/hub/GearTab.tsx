@@ -574,14 +574,14 @@ export const GearTab: React.FC<GearTabProps> = ({
                       sounds.playClick();
                       onEquipWeapon(wpn);
                     }}
-                    disabled={isEquipped}
+                    disabled={isEquipped || (arm.slot === 'shield' && profile.equipped.weapon.type === 'spear')}
                     className={`min-h-[48px] px-4 py-2 rounded-xl text-xs font-serif font-bold cursor-pointer transition-all ${
                       isEquipped
                         ? 'bg-green-800 text-green-200 cursor-default'
                         : 'bg-amber-600 hover:bg-amber-500 text-neutral-950 active:scale-95'
                     }`}
                   >
-                    {isEquipped ? 'Equipped' : 'Equip'}
+                    {isEquipped ? 'Equipped' : arm.slot === 'shield' && profile.equipped.weapon.type === 'spear' ? 'Spear equipped' : 'Equip'}
                   </button>
                   {!isEquipped && onSellItem && (
                     <SellButton
@@ -619,7 +619,7 @@ export const GearTab: React.FC<GearTabProps> = ({
           <Shield className="w-5 h-5 text-amber-400" />
           <span>Equipped Armor</span>
         </h4>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
           <div className="p-3 bg-neutral-950/80 border border-neutral-800 rounded-xl">
             <div className="text-[10px] uppercase font-mono text-neutral-400">Helm</div>
             <div className="text-xs font-bold text-amber-200 truncate">{profile.equipped.helm?.name || 'None'}</div>
@@ -636,10 +636,14 @@ export const GearTab: React.FC<GearTabProps> = ({
             <div className="text-[10px] uppercase font-mono text-neutral-400">Legs</div>
             <div className="text-xs font-bold text-amber-200 truncate">{profile.equipped.legs?.name || 'None'}</div>
           </div>
+          <div className="p-3 bg-neutral-950/80 border border-neutral-800 rounded-xl">
+            <div className="text-[10px] uppercase font-mono text-neutral-400">Shield</div>
+            <div className="text-xs font-bold text-amber-200 truncate">{profile.equipped.shield?.name || 'None'}</div>
+          </div>
         </div>
 
         <h5 className="font-serif font-bold text-sm text-neutral-300 mb-3 uppercase tracking-wider">
-          Owned Armor Pieces
+          Owned Armor & Shields
         </h5>
         {inventoryArmors.length === 0 ? (
           <p className="text-xs text-neutral-500 italic">No armor owned yet. Visit the Armorer in the Market.</p>
