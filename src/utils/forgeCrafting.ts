@@ -82,6 +82,11 @@ export const FORGE_RECIPES: readonly ForgeRecipe[] = [
   { inputId: 'dirk_desert', resultId: 'dual_sicae_daggers' },
   { inputId: 'dual_sicae_daggers', resultId: 'dual_vipers' },
   { inputId: 'bronze_mace', resultId: 'titan_colossus_mace' },
+  // Material-grade weapon lines: two matching copies forge into the next metal.
+  { inputId: 'bronze_sword_shield', resultId: 'iron_sword_shield' },
+  { inputId: 'iron_sword_shield', resultId: 'steel_sword_shield' },
+  { inputId: 'bronze_two_handed_spear', resultId: 'iron_two_handed_spear' },
+  { inputId: 'iron_two_handed_spear', resultId: 'steel_two_handed_spear' },
 ] as const;
 
 /** The wooden pieces: pine and wicker cannot be forged into steel. */
